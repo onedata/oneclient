@@ -6,6 +6,8 @@
 // ===================================================================
 // @doc: This program is user space file system. It is a part of 
 // VeilFS project.
+// To mount file system - start this program,
+// to unmount file system use - fusermount -u mounting_point
 // =================================================================*/
 
 int main(int argc, char *argv[])
