@@ -1,0 +1,1 @@
+Tests of helpers storage should be put here.
