@@ -1,0 +1,14 @@
+<map id="src/fuse/veilfs.cc" name="src/fuse/veilfs.cc">
+<area shape="rect" id="node3" href="$veilfs_8hh.html" title="veilfs.hh" alt="" coords="1065,83,1135,112"/>
+<area shape="rect" id="node29" href="$fslogicProxy_8hh.html" title="fslogicProxy.hh" alt="" coords="353,237,465,267"/>
+<area shape="rect" id="node84" href="$metaCache_8hh.html" title="metaCache.hh" alt="" coords="1445,237,1552,267"/>
+<area shape="rect" id="node94" href="$helpers_2storageHelperFactory_8hh.html" title="helpers/storageHelperFactory.hh" alt="" coords="1633,83,1844,112"/>
+<area shape="rect" id="node62" href="$storageMapper_8hh.html" title="storageMapper.hh" alt="" coords="849,160,975,189"/>
+<area shape="rect" id="node75" href="$jobScheduler_8hh.html" title="jobScheduler.hh" alt="" coords="1053,237,1168,267"/>
+<area shape="rect" id="node41" href="$communicationHandler_8hh.html" title="communicationHandler.hh" alt="" coords="572,324,745,353"/>
+<area shape="rect" id="node50" href="$messageBuilder_8hh.html" title="messageBuilder.hh" alt="" coords="415,324,548,353"/>
+<area shape="rect" id="node55" href="$lock_8hh.html" title="lock.hh" alt="" coords="852,324,916,353"/>
+<area shape="rect" id="node59" href="$ISchedulable_8hh.html" title="ISchedulable.hh" alt="" coords="1172,324,1287,353"/>
+<area shape="rect" id="node72" href="$veilException_8hh.html" title="veilException.hh" alt="" coords="1251,237,1368,267"/>
+<area shape="rect" id="node100" href="$IStorageHelper_8hh.html" title="helpers/IStorageHelper.hh" alt="" coords="1652,160,1825,189"/>
+</map>

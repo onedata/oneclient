@@ -1,0 +1,19 @@
+<map id="FslogicProxy::sendFuseReceiveSerializedMessage" name="FslogicProxy::sendFuseReceiveSerializedMessage">
+<area shape="rect" id="node3" href="$classFslogicProxy.html#adfc5b8c3ffbd35159a608fbdf4e116e3" title="Downloads file attributes from cluster." alt="" coords="781,5,947,35"/>
+<area shape="rect" id="node15" href="$classFslogicProxy.html#afc59e1c01f0bfc84bbc164cf8403560c" title="Downloads file location info." alt="" coords="272,61,467,91"/>
+<area shape="rect" id="node23" href="$classFslogicProxy.html#a6ef1ef7cfd0038566bae7b7228267160" title="Query cluser to create new file in DB and get its real location." alt="" coords="532,110,703,157"/>
+<area shape="rect" id="node30" href="$classFslogicProxy.html#a863fb0fe3b48e99f2f333f88e3b1c725" title="Try to renew location validity for given file." alt="" coords="264,172,475,201"/>
+<area shape="rect" id="node34" href="$classFslogicProxy.html#a1ac195bd1ef67c3f0bfb1c8001a33be3" title="List files in given folder." alt="" coords="273,229,465,259"/>
+<area shape="rect" id="node5" href="$classVeilFS.html#af2ddfe875c4bc9237b77be8ed257b227" title="getattr FUSE callback." alt="" coords="1017,84,1124,113"/>
+<area shape="rect" id="node7" href="$veilFuse_8cc.html#a52a7d1b2e5763f046f8408b9a4a2bef7" title="wrap_getattr" alt="" coords="1175,97,1268,127"/>
+<area shape="rect" id="node9" href="$veilFuse_8cc.html#a4970767463895ff6eb47bb514640be34" title="oper_init" alt="" coords="1319,163,1388,192"/>
+<area shape="rect" id="node11" href="$veilFuse_8cc.html#a82908ed6095237ab4e9f0ad0aa6cb2d2" title="fuse_init" alt="" coords="1439,163,1508,192"/>
+<area shape="rect" id="node13" href="$veilFuse_8cc.html#a0ddf1224851353fc92bfbff6f499fa97" title="main" alt="" coords="1557,163,1608,192"/>
+<area shape="rect" id="node17" href="$classStorageMapper.html#affb7187744a07dcd7d930f29dbd5fe86" title="Query cluster about file location and instert it to cache." alt="" coords="524,57,711,87"/>
+<area shape="rect" id="node19" href="$classStorageMapper.html#a38a2a8fe70fcd3896e086595b928de08" title="Gets file location information along with storage info for storage heleper&#39;s calls." alt="" coords="761,109,967,139"/>
+<area shape="rect" id="node25" href="$classVeilFS.html#aca1f49dec82e895952317f6b8ce75006" title="mknod FUSE callback." alt="" coords="811,163,917,192"/>
+<area shape="rect" id="node27" href="$veilFuse_8cc.html#aea770e0ad88447ffae140073cc065aac" title="wrap_mknod" alt="" coords="1023,163,1119,192"/>
+<area shape="rect" id="node32" href="$classStorageMapper.html#adcc5d4b29383b60c7513cdf4d5eef215" title="Task runner derived from ISchedulable." alt="" coords="535,180,700,209"/>
+<area shape="rect" id="node36" href="$classVeilFS.html#a333e77072460c1bf633670e8b80fd311" title="readdir FUSE callback." alt="" coords="1017,224,1124,253"/>
+<area shape="rect" id="node38" href="$veilFuse_8cc.html#a57452ca2aee0db45077c99420b622027" title="wrap_readdir" alt="" coords="1173,219,1269,248"/>
+</map>

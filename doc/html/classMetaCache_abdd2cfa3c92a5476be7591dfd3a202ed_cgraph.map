@@ -1,0 +1,9 @@
+<map id="MetaCache::addAttr" name="MetaCache::addAttr">
+<area shape="rect" id="node3" href="$classConfig.html#a4837d8be08cfef22d41e5595402908ef" title="Checks if given option is set." alt="" coords="223,5,321,35"/>
+<area shape="rect" id="node7" href="$classMetaCache.html#a1e8bc4b973b196fcc5e329ac32d0dbd7" title="Gets file attributes from cache." alt="" coords="204,59,340,88"/>
+<area shape="rect" id="node9" href="$classVeilFS.html#a9b0eeaaee3dfe897c49d3d61868c7294" title="Returns JobScheduler assigned to this object." alt="" coords="200,112,344,141"/>
+<area shape="rect" id="node15" href="$classJobScheduler.html#a3c7bb2d2d1b49f435edfb275ef45c866" title="Insert (register) new task to run queue." alt="" coords="193,165,351,195"/>
+<area shape="rect" id="node5" href="$classConfig.html#a20de1f81b0e9515370c9b19aa8fb5f07" title="Singleton instance." alt="" coords="401,5,519,35"/>
+<area shape="rect" id="node11" href="$classVeilFS.html#a274d37112b60c20508e625bd52d112c6" title="Returns instance of VeilFS singleton." alt="" coords="401,112,519,141"/>
+<area shape="rect" id="node13" href="$classVeilFS.html#ad0f37fda87a670f97d7bee4ce92746e1" title="Private constuctor (VeilFS is a singleton)" alt="" coords="569,112,676,141"/>
+</map>

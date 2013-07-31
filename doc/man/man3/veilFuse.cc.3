@@ -1,0 +1,189 @@
+.TH "src/fuse/veilFuse.cc" 3 "Wed Jul 31 2013" "VeilClient" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+src/fuse/veilFuse.cc \- 
+.SH SYNOPSIS
+.br
+.PP
+.SS "Macros"
+
+.in +1c
+.ti -1c
+.RI "#define \fBFUSE_USE_VERSION\fP   29"
+.br
+.in -1c
+.SS "Functions"
+
+.in +1c
+.ti -1c
+.RI "void \fBset_rootdir\fP (const char *path)"
+.br
+.ti -1c
+.RI "static int \fBwrap_access\fP (const char *path, int mask)"
+.br
+.ti -1c
+.RI "static int \fBwrap_getattr\fP (const char *path, struct stat *statbuf)"
+.br
+.ti -1c
+.RI "static int \fBwrap_readlink\fP (const char *path, char *link, size_t size)"
+.br
+.ti -1c
+.RI "static int \fBwrap_mknod\fP (const char *path, mode_t mode, dev_t dev)"
+.br
+.ti -1c
+.RI "static int \fBwrap_mkdir\fP (const char *path, mode_t mode)"
+.br
+.ti -1c
+.RI "static int \fBwrap_unlink\fP (const char *path)"
+.br
+.ti -1c
+.RI "static int \fBwrap_rmdir\fP (const char *path)"
+.br
+.ti -1c
+.RI "static int \fBwrap_symlink\fP (const char *path, const char *link)"
+.br
+.ti -1c
+.RI "static int \fBwrap_rename\fP (const char *path, const char *newpath)"
+.br
+.ti -1c
+.RI "static int \fBwrap_link\fP (const char *path, const char *newpath)"
+.br
+.ti -1c
+.RI "static int \fBwrap_chmod\fP (const char *path, mode_t mode)"
+.br
+.ti -1c
+.RI "static int \fBwrap_chown\fP (const char *path, uid_t uid, gid_t gid)"
+.br
+.ti -1c
+.RI "static int \fBwrap_truncate\fP (const char *path, off_t newSize)"
+.br
+.ti -1c
+.RI "static int \fBwrap_utime\fP (const char *path, struct utimbuf *ubuf)"
+.br
+.ti -1c
+.RI "static int \fBwrap_open\fP (const char *path, struct fuse_file_info *fileInfo)"
+.br
+.ti -1c
+.RI "static int \fBwrap_read\fP (const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)"
+.br
+.ti -1c
+.RI "static int \fBwrap_write\fP (const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)"
+.br
+.ti -1c
+.RI "static int \fBwrap_statfs\fP (const char *path, struct statvfs *statInfo)"
+.br
+.ti -1c
+.RI "static int \fBwrap_flush\fP (const char *path, struct fuse_file_info *fileInfo)"
+.br
+.ti -1c
+.RI "static int \fBwrap_release\fP (const char *path, struct fuse_file_info *fileInfo)"
+.br
+.ti -1c
+.RI "static int \fBwrap_fsync\fP (const char *path, int datasync, struct fuse_file_info *fi)"
+.br
+.ti -1c
+.RI "static int \fBwrap_readdir\fP (const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo)"
+.br
+.ti -1c
+.RI "static int \fBvfs_opt_proc\fP (void *data, const char *arg, int key, struct fuse_args *outargs)"
+.br
+.ti -1c
+.RI "static void \fBoper_init\fP ()"
+.br
+.ti -1c
+.RI "static void \fBfuse_init\fP ()"
+.br
+.ti -1c
+.RI "int \fBmain\fP (int argc, char *argv[])"
+.br
+.in -1c
+.SS "Variables"
+
+.in +1c
+.ti -1c
+.RI "static struct fuse_operations \fBvfs_oper\fP"
+.br
+.in -1c
+.SH "Detailed Description"
+.PP 
+\fBAuthor:\fP
+.RS 4
+Rafal Slota 
+.RE
+.PP
+\fBCopyright:\fP
+.RS 4
+(C) 2013 ACK CYFRONET AGH 
+.PP
+This software is released under the MIT license cited in 'LICENSE\&.txt' 
+.RE
+.PP
+
+.SH "Macro Definition Documentation"
+.PP 
+.SS "#define FUSE_USE_VERSION   29"
+
+.SH "Function Documentation"
+.PP 
+.SS "static void fuse_init ()\fC [static]\fP"
+
+.SS "int main (intargc, char *argv[])"
+
+.SS "static void oper_init ()\fC [static]\fP"
+
+.SS "void set_rootdir (const char *path)"
+
+.SS "static int vfs_opt_proc (void *data, const char *arg, intkey, struct fuse_args *outargs)\fC [static]\fP"
+
+.SS "static int wrap_access (const char *path, intmask)\fC [static]\fP"
+
+.SS "static int wrap_chmod (const char *path, mode_tmode)\fC [static]\fP"
+
+.SS "static int wrap_chown (const char *path, uid_tuid, gid_tgid)\fC [static]\fP"
+
+.SS "static int wrap_flush (const char *path, struct fuse_file_info *fileInfo)\fC [static]\fP"
+
+.SS "static int wrap_fsync (const char *path, intdatasync, struct fuse_file_info *fi)\fC [static]\fP"
+
+.SS "static int wrap_getattr (const char *path, struct stat *statbuf)\fC [static]\fP"
+
+.SS "static int wrap_link (const char *path, const char *newpath)\fC [static]\fP"
+
+.SS "static int wrap_mkdir (const char *path, mode_tmode)\fC [static]\fP"
+
+.SS "static int wrap_mknod (const char *path, mode_tmode, dev_tdev)\fC [static]\fP"
+
+.SS "static int wrap_open (const char *path, struct fuse_file_info *fileInfo)\fC [static]\fP"
+
+.SS "static int wrap_read (const char *path, char *buf, size_tsize, off_toffset, struct fuse_file_info *fileInfo)\fC [static]\fP"
+
+.SS "static int wrap_readdir (const char *path, void *buf, fuse_fill_dir_tfiller, off_toffset, struct fuse_file_info *fileInfo)\fC [static]\fP"
+
+.SS "static int wrap_readlink (const char *path, char *link, size_tsize)\fC [static]\fP"
+
+.SS "static int wrap_release (const char *path, struct fuse_file_info *fileInfo)\fC [static]\fP"
+
+.SS "static int wrap_rename (const char *path, const char *newpath)\fC [static]\fP"
+
+.SS "static int wrap_rmdir (const char *path)\fC [static]\fP"
+
+.SS "static int wrap_statfs (const char *path, struct statvfs *statInfo)\fC [static]\fP"
+
+.SS "static int wrap_symlink (const char *path, const char *link)\fC [static]\fP"
+
+.SS "static int wrap_truncate (const char *path, off_tnewSize)\fC [static]\fP"
+
+.SS "static int wrap_unlink (const char *path)\fC [static]\fP"
+
+.SS "static int wrap_utime (const char *path, struct utimbuf *ubuf)\fC [static]\fP"
+
+.SS "static int wrap_write (const char *path, const char *buf, size_tsize, off_toffset, struct fuse_file_info *fileInfo)\fC [static]\fP"
+
+.SH "Variable Documentation"
+.PP 
+.SS "struct fuse_operations vfs_oper\fC [static]\fP"
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for VeilClient from the source code\&.

@@ -1,0 +1,97 @@
+.TH "include/fuse/veilfs.hh" 3 "Wed Jul 31 2013" "VeilClient" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+include/fuse/veilfs.hh \- 
+.SH SYNOPSIS
+.br
+.PP
+.SS "Classes"
+
+.in +1c
+.ti -1c
+.RI "class \fBVeilFS\fP"
+.br
+.RI "\fIThe \fBVeilFS\fP main class\&. \fP"
+.in -1c
+.SS "Macros"
+
+.in +1c
+.ti -1c
+.RI "#define \fBVOK\fP   'ok'"
+.br
+.RI "\fIVeilClient error codes\&. \fP"
+.ti -1c
+.RI "#define \fBVENOENT\fP   'enoent'"
+.br
+.ti -1c
+.RI "#define \fBVEACCES\fP   'eacces'"
+.br
+.ti -1c
+.RI "#define \fBVEEXIST\fP   'eexist'"
+.br
+.ti -1c
+.RI "#define \fBVEIO\fP   'eio'"
+.br
+.ti -1c
+.RI "#define \fBVENOTSUP\fP   'enotsup'"
+.br
+.ti -1c
+.RI "#define \fBGLOBAL_CONFIG_FILE\fP   'veilFuse\&.conf'"
+.br
+.RI "\fIThe name of default global config file\&. \fP"
+.ti -1c
+.RI "#define \fBCONFIG_ARGV_OPT_NAME\fP   '--config='"
+.br
+.RI "\fIThe command line pattern used to find user config path ARGV\&. \fP"
+.ti -1c
+.RI "#define \fBDIR_BATCH_SIZE\fP   10"
+.br
+.RI "\fIHow many dirent should be fetch from cluster at once\&. \fP"
+.in -1c
+.SH "Detailed Description"
+.PP 
+\fBAuthor:\fP
+.RS 4
+Rafal Slota 
+.RE
+.PP
+\fBCopyright:\fP
+.RS 4
+(C) 2013 ACK CYFRONET AGH 
+.PP
+This software is released under the MIT license cited in 'LICENSE\&.txt' 
+.RE
+.PP
+
+.SH "Macro Definition Documentation"
+.PP 
+.SS "#define CONFIG_ARGV_OPT_NAME   '--config='"
+
+.PP
+The command line pattern used to find user config path ARGV\&. 
+.SS "#define DIR_BATCH_SIZE   10"
+
+.PP
+How many dirent should be fetch from cluster at once\&. Note that each opendir syscall will query at least DIR_BATCH_SIZE dirents 
+.SS "#define GLOBAL_CONFIG_FILE   'veilFuse\&.conf'"
+
+.PP
+The name of default global config file\&. 
+.SS "#define VEACCES   'eacces'"
+
+.SS "#define VEEXIST   'eexist'"
+
+.SS "#define VEIO   'eio'"
+
+.SS "#define VENOENT   'enoent'"
+
+.SS "#define VENOTSUP   'enotsup'"
+
+.SS "#define VOK   'ok'"
+
+.PP
+VeilClient error codes\&. 
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for VeilClient from the source code\&.

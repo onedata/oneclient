@@ -1,0 +1,18 @@
+<map id="FslogicProxy::sendFuseReceiveSerializedMessage" name="FslogicProxy::sendFuseReceiveSerializedMessage">
+<area shape="rect" id="node3" href="$classMessageBuilder.html#acf8f130724759291297a48cc27cb0900" title="MessageBuilder::packFuse\lMessage" alt="" coords="283,77,461,124"/>
+<area shape="rect" id="node13" href="$classFslogicProxy.html#a6f36cf6e2ec4f8df31cb2a658dfac31f" title="Returns pointer to CommunicationHandler that is not used at this moment." alt="" coords="269,155,475,184"/>
+<area shape="rect" id="node15" href="$classCommunicationHandler.html#a334b71bb6e6d49e747854f4d35a38bc9" title="Sends ClusterMsg and receives answer." alt="" coords="293,208,451,254"/>
+<area shape="rect" id="node34" href="$classFslogicProxy.html#ad181aead0bcf39a3e32defe019eb693e" title="Returns CommunicationHandler&#39;s pointer ownership back to connection pool." alt="" coords="265,278,479,307"/>
+<area shape="rect" id="node5" href="$classConfig.html#a4837d8be08cfef22d41e5595402908ef" title="Checks if given option is set." alt="" coords="1033,24,1132,54"/>
+<area shape="rect" id="node9" href="$classMessageBuilder.html#add2b4ffea51c93ab123b62ce891d69c4" title="MessageBuilder::createFuse\lMessage" alt="" coords="536,38,723,85"/>
+<area shape="rect" id="node11" href="$classMessageBuilder.html#a08143f24917f0f3f8ad0b457e6384303" title="MessageBuilder::createCluster\lMessage" alt="" coords="529,108,729,154"/>
+<area shape="rect" id="node7" href="$classConfig.html#a20de1f81b0e9515370c9b19aa8fb5f07" title="Singleton instance." alt="" coords="1227,70,1344,99"/>
+<area shape="rect" id="node17" href="$classCommunicationHandler.html#a45bbf714e1a585f9359dd977ddc467cc" title="Sends ClusterMsg using current SSL session. Will fail if there isnt one." alt="" coords="551,177,708,224"/>
+<area shape="rect" id="node21" href="$classCommunicationHandler.html#a9775fd4cbe8325d4f48ff917a8a7cfa3" title="Opens SSL connection to given host." alt="" coords="551,246,708,293"/>
+<area shape="rect" id="node30" href="$classCommunicationHandler.html#ae989086064f024ca44b5e9df835b6fca" title="Receives Answer using current SSL session. Will fail if there isnt one." alt="" coords="551,316,708,362"/>
+<area shape="rect" id="node19" href="$classCommunicationHandler.html#af551b9977692638366ce645daa348aeb" title="Write given array of bytes to SSL socket." alt="" coords="780,108,937,154"/>
+<area shape="rect" id="node23" href="$classCommunicationHandler.html#a86ac84ee103abeaee270479d5477c2bb" title="Initialize certificates etc." alt="" coords="780,177,937,224"/>
+<area shape="rect" id="node28" href="$classCommunicationHandler.html#a908fceb553cc5ef5e5b61e479bacd00d" title="Opens INET socket." alt="" coords="780,246,937,293"/>
+<area shape="rect" id="node25" href="$classConfig.html#a2ebd00c975d3449ad6e466794780cf47" title="Converts relative path, to absolute using HOME env as base prefix." alt="" coords="988,114,1177,143"/>
+<area shape="rect" id="node32" href="$classCommunicationHandler.html#ab2f866566d81428425a55fc556a46a68" title="Read bytes from SSL socket." alt="" coords="780,316,937,362"/>
+</map>

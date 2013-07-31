@@ -1,0 +1,25 @@
+<map id="wrap_chmod" name="wrap_chmod">
+<area shape="rect" id="node3" href="$classVeilFS.html#a274d37112b60c20508e625bd52d112c6" title="Returns instance of VeilFS singleton." alt="" coords="151,150,268,179"/>
+<area shape="rect" id="node7" href="$classVeilFS.html#a8540c9abc6823f2610ce4557b61ab497" title="chmod FUSE callback." alt="" coords="156,207,263,237"/>
+<area shape="rect" id="node5" href="$classVeilFS.html#ad0f37fda87a670f97d7bee4ce92746e1" title="Private constuctor (VeilFS is a singleton)" alt="" coords="349,146,456,175"/>
+<area shape="rect" id="node9" href="$classFslogicProxy.html#a6c7d992441e3e2c5e6c6c38cf96bcbd6" title="Change file permissions." alt="" coords="319,199,487,245"/>
+<area shape="rect" id="node48" href="$classMetaCache.html#ad8c6a7c51d179e5297737000e97e2fb3" title="Remove cache for given file." alt="" coords="329,269,476,298"/>
+<area shape="rect" id="node11" href="$classFslogicProxy.html#af9259891726b9ba2672db0a79f116f9f" title="Sends given protobuf message and receives atom." alt="" coords="536,199,747,245"/>
+<area shape="rect" id="node13" href="$classMessageBuilder.html#acf8f130724759291297a48cc27cb0900" title="MessageBuilder::packFuse\lMessage" alt="" coords="813,55,992,101"/>
+<area shape="rect" id="node23" href="$classFslogicProxy.html#a6f36cf6e2ec4f8df31cb2a658dfac31f" title="Returns pointer to CommunicationHandler that is not used at this moment." alt="" coords="800,146,1005,175"/>
+<area shape="rect" id="node25" href="$classCommunicationHandler.html#a334b71bb6e6d49e747854f4d35a38bc9" title="Sends ClusterMsg and receives answer." alt="" coords="824,199,981,245"/>
+<area shape="rect" id="node44" href="$classFslogicProxy.html#ad181aead0bcf39a3e32defe019eb693e" title="Returns CommunicationHandler&#39;s pointer ownership back to connection pool." alt="" coords="796,269,1009,298"/>
+<area shape="rect" id="node46" href="$classMessageBuilder.html#a78b0d0d79a95d3145d4c6e439be024da" title="MessageBuilder::decodeAtom\lAnswer" alt="" coords="805,321,1000,368"/>
+<area shape="rect" id="node15" href="$classConfig.html#a4837d8be08cfef22d41e5595402908ef" title="Checks if given option is set." alt="" coords="1564,19,1663,49"/>
+<area shape="rect" id="node19" href="$classMessageBuilder.html#add2b4ffea51c93ab123b62ce891d69c4" title="MessageBuilder::createFuse\lMessage" alt="" coords="1067,33,1253,80"/>
+<area shape="rect" id="node21" href="$classMessageBuilder.html#a08143f24917f0f3f8ad0b457e6384303" title="MessageBuilder::createCluster\lMessage" alt="" coords="1060,103,1260,149"/>
+<area shape="rect" id="node17" href="$classConfig.html#a20de1f81b0e9515370c9b19aa8fb5f07" title="Singleton instance." alt="" coords="1757,65,1875,94"/>
+<area shape="rect" id="node27" href="$classCommunicationHandler.html#a45bbf714e1a585f9359dd977ddc467cc" title="Sends ClusterMsg using current SSL session. Will fail if there isnt one." alt="" coords="1081,172,1239,219"/>
+<area shape="rect" id="node31" href="$classCommunicationHandler.html#a9775fd4cbe8325d4f48ff917a8a7cfa3" title="Opens SSL connection to given host." alt="" coords="1081,241,1239,288"/>
+<area shape="rect" id="node40" href="$classCommunicationHandler.html#ae989086064f024ca44b5e9df835b6fca" title="Receives Answer using current SSL session. Will fail if there isnt one." alt="" coords="1081,311,1239,357"/>
+<area shape="rect" id="node29" href="$classCommunicationHandler.html#af551b9977692638366ce645daa348aeb" title="Write given array of bytes to SSL socket." alt="" coords="1311,103,1468,149"/>
+<area shape="rect" id="node33" href="$classCommunicationHandler.html#a86ac84ee103abeaee270479d5477c2bb" title="Initialize certificates etc." alt="" coords="1311,172,1468,219"/>
+<area shape="rect" id="node38" href="$classCommunicationHandler.html#a908fceb553cc5ef5e5b61e479bacd00d" title="Opens INET socket." alt="" coords="1311,241,1468,288"/>
+<area shape="rect" id="node35" href="$classConfig.html#a2ebd00c975d3449ad6e466794780cf47" title="Converts relative path, to absolute using HOME env as base prefix." alt="" coords="1519,109,1708,138"/>
+<area shape="rect" id="node42" href="$classCommunicationHandler.html#ab2f866566d81428425a55fc556a46a68" title="Read bytes from SSL socket." alt="" coords="1311,311,1468,357"/>
+</map>

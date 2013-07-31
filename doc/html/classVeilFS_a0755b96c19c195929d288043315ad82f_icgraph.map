@@ -1,0 +1,6 @@
+<map id="VeilFS::rename" name="VeilFS::rename">
+<area shape="rect" id="node3" href="$veilFuse_8cc.html#adf1509efbb98169e13a2a959cadded43" title="wrap_rename" alt="" coords="167,5,265,35"/>
+<area shape="rect" id="node5" href="$veilFuse_8cc.html#a4970767463895ff6eb47bb514640be34" title="oper_init" alt="" coords="316,5,385,35"/>
+<area shape="rect" id="node7" href="$veilFuse_8cc.html#a82908ed6095237ab4e9f0ad0aa6cb2d2" title="fuse_init" alt="" coords="436,5,505,35"/>
+<area shape="rect" id="node9" href="$veilFuse_8cc.html#a0ddf1224851353fc92bfbff6f499fa97" title="main" alt="" coords="555,5,605,35"/>
+</map>

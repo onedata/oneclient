@@ -1,0 +1,6 @@
+<map id="VeilFS::truncate" name="VeilFS::truncate">
+<area shape="rect" id="node3" href="$veilFuse_8cc.html#aee6dfccdb690222f9fc262d1509194d1" title="wrap_truncate" alt="" coords="171,5,275,35"/>
+<area shape="rect" id="node5" href="$veilFuse_8cc.html#a4970767463895ff6eb47bb514640be34" title="oper_init" alt="" coords="324,5,393,35"/>
+<area shape="rect" id="node7" href="$veilFuse_8cc.html#a82908ed6095237ab4e9f0ad0aa6cb2d2" title="fuse_init" alt="" coords="444,5,513,35"/>
+<area shape="rect" id="node9" href="$veilFuse_8cc.html#a0ddf1224851353fc92bfbff6f499fa97" title="main" alt="" coords="563,5,613,35"/>
+</map>

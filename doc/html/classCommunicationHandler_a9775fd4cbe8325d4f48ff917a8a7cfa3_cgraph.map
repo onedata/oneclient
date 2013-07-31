@@ -1,0 +1,6 @@
+<map id="CommunicationHandler::openConnection" name="CommunicationHandler::openConnection">
+<area shape="rect" id="node3" href="$classCommunicationHandler.html#a86ac84ee103abeaee270479d5477c2bb" title="Initialize certificates etc." alt="" coords="215,5,372,51"/>
+<area shape="rect" id="node9" href="$classCommunicationHandler.html#a908fceb553cc5ef5e5b61e479bacd00d" title="Opens INET socket." alt="" coords="215,74,372,121"/>
+<area shape="rect" id="node5" href="$classConfig.html#a2ebd00c975d3449ad6e466794780cf47" title="Converts relative path, to absolute using HOME env as base prefix." alt="" coords="423,13,612,43"/>
+<area shape="rect" id="node7" href="$classConfig.html#a20de1f81b0e9515370c9b19aa8fb5f07" title="Singleton instance." alt="" coords="661,13,779,43"/>
+</map>

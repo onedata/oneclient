@@ -1,0 +1,38 @@
+<map id="VeilFS::getattr" name="VeilFS::getattr">
+<area shape="rect" id="node3" href="$classStorageMapper.html#a38a2a8fe70fcd3896e086595b928de08" title="Gets file location information along with storage info for storage heleper&#39;s calls." alt="" coords="161,208,367,237"/>
+<area shape="rect" id="node11" href="$classStorageMapper.html#affb7187744a07dcd7d930f29dbd5fe86" title="Query cluster about file location and instert it to cache." alt="" coords="417,313,604,343"/>
+<area shape="rect" id="node66" href="$classMetaCache.html#a1e8bc4b973b196fcc5e329ac32d0dbd7" title="Gets file attributes from cache." alt="" coords="933,523,1069,552"/>
+<area shape="rect" id="node68" href="$classFslogicProxy.html#adfc5b8c3ffbd35159a608fbdf4e116e3" title="Downloads file attributes from cluster." alt="" coords="428,260,593,289"/>
+<area shape="rect" id="node71" href="$classVeilFS.html#a28c6c845212f0c9b08e146109b51510f" title="errno translator." alt="" coords="191,417,337,447"/>
+<area shape="rect" id="node74" href="$classVeilException.html#aa10bb6c779a4ba619ec3bd5c88b8dca7" title="Returns VeilException::m_logMessage." alt="" coords="195,471,333,500"/>
+<area shape="rect" id="node76" href="$classMetaCache.html#abdd2cfa3c92a5476be7591dfd3a202ed" title="Cache given attributes Expiration time can be set using configuration file." alt="" coords="681,419,820,448"/>
+<area shape="rect" id="node5" href="$classAutoLock.html#acb342d03f0c0fb4627ae89713c4e9013" title="Release current lock." alt="" coords="448,101,573,131"/>
+<area shape="rect" id="node60" href="$classAutoLock.html#aa86c2f629d0452bdef1a473a9e9dcdea" title="Locks current lock." alt="" coords="456,207,565,236"/>
+<area shape="rect" id="node7" href="$classReadWriteLock.html#abedf28ce49655af35257f4fd7684f67e" title="Unlocks read lock." alt="" coords="657,48,844,77"/>
+<area shape="rect" id="node9" href="$classReadWriteLock.html#a9ec53f4e8c163fea97c7cbf61f4bb24d" title="&lt; Unlocks write lock" alt="" coords="656,101,845,131"/>
+<area shape="rect" id="node13" href="$classFslogicProxy.html#afc59e1c01f0bfc84bbc164cf8403560c" title="Downloads file location info." alt="" coords="653,312,848,341"/>
+<area shape="rect" id="node50" href="$classStorageMapper.html#a72c7c788fe4a4df3670af58bdcca532a" title="Cache given file location." alt="" coords="657,365,844,395"/>
+<area shape="rect" id="node15" href="$classFslogicProxy.html#a69362797f8de605c4f0c8ab08453ad0b" title="Sends and receives given protobuf message." alt="" coords="896,261,1107,307"/>
+<area shape="rect" id="node17" href="$classMessageBuilder.html#acf8f130724759291297a48cc27cb0900" title="MessageBuilder::packFuse\lMessage" alt="" coords="1173,343,1352,390"/>
+<area shape="rect" id="node27" href="$classFslogicProxy.html#a6f36cf6e2ec4f8df31cb2a658dfac31f" title="Returns pointer to CommunicationHandler that is not used at this moment." alt="" coords="1160,153,1365,183"/>
+<area shape="rect" id="node29" href="$classCommunicationHandler.html#a334b71bb6e6d49e747854f4d35a38bc9" title="Sends ClusterMsg and receives answer." alt="" coords="1184,206,1341,253"/>
+<area shape="rect" id="node48" href="$classFslogicProxy.html#ad181aead0bcf39a3e32defe019eb693e" title="Returns CommunicationHandler&#39;s pointer ownership back to connection pool." alt="" coords="1156,276,1369,305"/>
+<area shape="rect" id="node19" href="$classConfig.html#a4837d8be08cfef22d41e5595402908ef" title="Checks if given option is set." alt="" coords="1471,421,1569,451"/>
+<area shape="rect" id="node23" href="$classMessageBuilder.html#add2b4ffea51c93ab123b62ce891d69c4" title="MessageBuilder::createFuse\lMessage" alt="" coords="1427,351,1613,398"/>
+<area shape="rect" id="node25" href="$classMessageBuilder.html#a08143f24917f0f3f8ad0b457e6384303" title="MessageBuilder::createCluster\lMessage" alt="" coords="1420,282,1620,329"/>
+<area shape="rect" id="node21" href="$classConfig.html#a20de1f81b0e9515370c9b19aa8fb5f07" title="Singleton instance." alt="" coords="2117,253,2235,283"/>
+<area shape="rect" id="node31" href="$classCommunicationHandler.html#a45bbf714e1a585f9359dd977ddc467cc" title="Sends ClusterMsg using current SSL session. Will fail if there isnt one." alt="" coords="1441,213,1599,259"/>
+<area shape="rect" id="node35" href="$classCommunicationHandler.html#a9775fd4cbe8325d4f48ff917a8a7cfa3" title="Opens SSL connection to given host." alt="" coords="1441,74,1599,121"/>
+<area shape="rect" id="node44" href="$classCommunicationHandler.html#ae989086064f024ca44b5e9df835b6fca" title="Receives Answer using current SSL session. Will fail if there isnt one." alt="" coords="1441,143,1599,190"/>
+<area shape="rect" id="node33" href="$classCommunicationHandler.html#af551b9977692638366ce645daa348aeb" title="Write given array of bytes to SSL socket." alt="" coords="1671,213,1828,259"/>
+<area shape="rect" id="node37" href="$classCommunicationHandler.html#a86ac84ee103abeaee270479d5477c2bb" title="Initialize certificates etc." alt="" coords="1671,5,1828,51"/>
+<area shape="rect" id="node42" href="$classCommunicationHandler.html#a908fceb553cc5ef5e5b61e479bacd00d" title="Opens INET socket." alt="" coords="1671,74,1828,121"/>
+<area shape="rect" id="node39" href="$classConfig.html#a2ebd00c975d3449ad6e466794780cf47" title="Converts relative path, to absolute using HOME env as base prefix." alt="" coords="1879,156,2068,185"/>
+<area shape="rect" id="node46" href="$classCommunicationHandler.html#ab2f866566d81428425a55fc556a46a68" title="Read bytes from SSL socket." alt="" coords="1671,143,1828,190"/>
+<area shape="rect" id="node52" href="$classVeilFS.html#a9b0eeaaee3dfe897c49d3d61868c7294" title="Returns JobScheduler assigned to this object." alt="" coords="929,419,1073,448"/>
+<area shape="rect" id="node58" href="$classJobScheduler.html#a3c7bb2d2d1b49f435edfb275ef45c866" title="Insert (register) new task to run queue." alt="" coords="923,365,1080,395"/>
+<area shape="rect" id="node54" href="$classVeilFS.html#a274d37112b60c20508e625bd52d112c6" title="Returns instance of VeilFS singleton." alt="" coords="1204,419,1321,448"/>
+<area shape="rect" id="node56" href="$classVeilFS.html#ad0f37fda87a670f97d7bee4ce92746e1" title="Private constuctor (VeilFS is a singleton)" alt="" coords="1467,475,1573,504"/>
+<area shape="rect" id="node62" href="$classReadWriteLock.html#ab74c7ebe0538dcb4b5981d0f4f933602" title="Locks for read operation." alt="" coords="664,155,837,184"/>
+<area shape="rect" id="node64" href="$classReadWriteLock.html#a8084001a3842cbeef70c10e0dba8053c" title="Locks for write operation." alt="" coords="663,208,839,237"/>
+</map>

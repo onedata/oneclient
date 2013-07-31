@@ -1,0 +1,6 @@
+<map id="wrap_release" name="wrap_release">
+<area shape="rect" id="node3" href="$classVeilFS.html#a274d37112b60c20508e625bd52d112c6" title="Returns instance of VeilFS singleton." alt="" coords="153,5,271,35"/>
+<area shape="rect" id="node7" href="$classVeilFS.html#a28a77d42f62658fde72154ce50cd3597" title="release FUSE callback." alt="" coords="157,59,267,88"/>
+<area shape="rect" id="node5" href="$classVeilFS.html#ad0f37fda87a670f97d7bee4ce92746e1" title="Private constuctor (VeilFS is a singleton)" alt="" coords="357,5,464,35"/>
+<area shape="rect" id="node9" href="$classStorageMapper.html#a323929a59e80bcedd17d08c535c62f69" title="Decreases open file count for specified file." alt="" coords="320,59,501,88"/>
+</map>

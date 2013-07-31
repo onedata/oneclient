@@ -1,0 +1,6 @@
+#define VeilClient_VERSION_MAJOR 	@VeilClient_VERSION_MAJOR@
+#define VeilClient_VERSION_MINOR 	@VeilClient_VERSION_MINOR@
+#define VeilClient_VERSION_PATCH 	@VeilClient_VERSION_PATCH@
+
+#define VeilClient_INSTALL_PATH		"@CMAKE_INSTALL_PREFIX@"
+#define VeilClient_CONFIG_DIR		"@CONFIG_DIR@"

@@ -1,0 +1,15 @@
+.TH "todo" 3 "Wed Jul 31 2013" "VeilClient" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+todo \- Todo List 
+.IP "\fBMember \fBStorageMapper::addLocation\fP (string logicalName, FileLocation location)\fP" 1c
+: last_updated field should be fetched from cluster  
+.IP "\fBMember \fBVeilFS::getattr\fP (const char *path, struct stat *statbuf)\fP" 1c
+We have to set uid based on usename received from cluster\&. Currently not supported by cluster\&. 
+.PP
+same as above  
+.IP "\fBMember \fBVeilFS::release\fP (const char *path, struct fuse_file_info *fileInfo)\fP" 1c
+If TASK_SEND_FILE_NOT_USED is scheduled,file mapping has to be removed too\&. I'm not 100% sure that any of this is needed\&. 
+.PP
+

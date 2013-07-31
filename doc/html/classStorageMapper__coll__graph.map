@@ -1,0 +1,11 @@
+<map id="StorageMapper" name="StorageMapper">
+<area shape="rect" id="node2" href="$classISchedulable.html" title="The ISchedulable interface." alt="" coords="731,5,827,35"/>
+<area shape="rect" id="node4" href="$classFslogicProxy.html" title="The FslogicProxy class." alt="" coords="1096,116,1195,145"/>
+<area shape="rect" id="node7" href="$classMessageBuilder.html" title="The MessageBuilder class." alt="" coords="721,68,836,97"/>
+<area shape="rect" id="node11" href="$classCommunicationHandler.html" title="The CommunicationHandler class." alt="" coords="372,129,529,159"/>
+<area shape="rect" id="node13" href="$classReadWriteLock.html" title="The ReadWriteLock class." alt="" coords="723,199,835,228"/>
+<area shape="rect" id="node17" href="$structlocationInfo.html" title="Structure containing file mapping base information." alt="" coords="407,277,495,307"/>
+<area shape="rect" id="node19" title="STL class." alt="" coords="184,305,264,335"/>
+<area shape="rect" id="node26" href="$structstorageInfo.html" title="storageInfo" alt="" coords="736,336,821,365"/>
+<area shape="rect" id="node21" title="STL class." alt="" coords="7,297,132,343"/>
+</map>

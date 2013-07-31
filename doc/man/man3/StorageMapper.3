@@ -1,0 +1,191 @@
+.TH "StorageMapper" 3 "Wed Jul 31 2013" "VeilClient" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+StorageMapper \- 
+.SH SYNOPSIS
+.br
+.PP
+.PP
+Inherits \fBISchedulable\fP\&.
+.SS "Public Member Functions"
+
+.in +1c
+.ti -1c
+.RI "\fBStorageMapper\fP (\fBFslogicProxy\fP &fslogicProxy)"
+.br
+.ti -1c
+.RI "\fB~StorageMapper\fP ()"
+.br
+.ti -1c
+.RI "pair< \fBlocationInfo\fP, \fBstorageInfo\fP > \fBgetLocationInfo\fP (string logical_name, bool useCluster=false)"
+.br
+.RI "\fIGets file location information along with storage info for storage heleper's calls\&. \fP"
+.ti -1c
+.RI "string \fBfindLocation\fP (string logicalName)"
+.br
+.RI "\fIQuery cluster about file location and instert it to cache\&. \fP"
+.ti -1c
+.RI "void \fBaddLocation\fP (string logicalName, FileLocation location)"
+.br
+.RI "\fICache given file location\&. \fP"
+.ti -1c
+.RI "void \fBopenFile\fP (string logicalName)"
+.br
+.RI "\fIIncreases open file count for specified file\&. \fP"
+.ti -1c
+.RI "void \fBreleaseFile\fP (string logicalName)"
+.br
+.RI "\fIDecreases open file count for specified file\&. \fP"
+.ti -1c
+.RI "bool \fBrunTask\fP (\fBTaskID\fP taskId, string arg0, string arg1, string arg3)"
+.br
+.RI "\fITask runner derived from \fBISchedulable\fP\&. \fP"
+.in -1c
+.SS "Private Attributes"
+
+.in +1c
+.ti -1c
+.RI "map< int, \fBstorageInfo\fP > \fBm_storageMapping\fP"
+.br
+.RI "\fIContains storage info accessd by its ID\&. \fP"
+.ti -1c
+.RI "\fBReadWriteLock\fP \fBm_storageMappingLock\fP"
+.br
+.RI "\fILock used while operating on \fBStorageMapper::m_storageMapping\fP\&. \fP"
+.ti -1c
+.RI "map< string, \fBlocationInfo\fP > \fBm_fileMapping\fP"
+.br
+.RI "\fIContains storage info accessd by its ID\&. \fP"
+.ti -1c
+.RI "\fBReadWriteLock\fP \fBm_fileMappingLock\fP"
+.br
+.RI "\fILock used while operationg on \fBStorageMapper::m_fileMapping\fP\&. \fP"
+.ti -1c
+.RI "\fBFslogicProxy\fP & \fBm_fslogic\fP"
+.br
+.RI "\fIReference to \fBFslogicProxy\fP instance\&. \fP"
+.in -1c
+.SS "Additional Inherited Members"
+.SH "Constructor & Destructor Documentation"
+.PP 
+.SS "StorageMapper::StorageMapper (\fBFslogicProxy\fP &fslogicProxy)"
+
+.SS "StorageMapper::~StorageMapper ()"
+
+.SH "Member Function Documentation"
+.PP 
+.SS "void StorageMapper::addLocation (stringlogicalName, FileLocationlocation)"
+
+.PP
+Cache given file location\&. Insert to file location cache new FileLocation received from cluster\&. \fBTodo\fP
+.RS 4
+: last_updated field should be fetched from cluster 
+.RE
+.PP
+
+.SS "string StorageMapper::findLocation (stringlogicalName)"
+
+.PP
+Query cluster about file location and instert it to cache\&. \fBSee Also:\fP
+.RS 4
+\fBStorageMapper::addLocation\fP 
+.RE
+.PP
+
+.SS "pair< \fBlocationInfo\fP, \fBstorageInfo\fP > StorageMapper::getLocationInfo (stringlogical_name, booluseCluster = \fCfalse\fP)"
+
+.PP
+Gets file location information along with storage info for storage heleper's calls\&. \fBParameters:\fP
+.RS 4
+\fIlogical_name\fP File path (relative to \fBVeilFS\fP mount point) 
+.br
+\fIuseCluster\fP Specify if the method should use cache only (deafault) or try quering cluster\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+std::pair of \fBlocationInfo\fP and \fBstorageInfo\fP structs for this file 
+.RE
+.PP
+
+.SS "void StorageMapper::openFile (stringlogicalName)"
+
+.PP
+Increases open file count for specified file\&. \fBSee Also:\fP
+.RS 4
+\fBlocationInfo::opened\fP 
+.RE
+.PP
+
+.SS "void StorageMapper::releaseFile (stringlogicalName)"
+
+.PP
+Decreases open file count for specified file\&. \fBSee Also:\fP
+.RS 4
+\fBlocationInfo::opened\fP 
+.RE
+.PP
+
+.SS "bool StorageMapper::runTask (\fBTaskID\fPtaskId, stringarg0, stringarg1, stringarg3)\fC [virtual]\fP"
+
+.PP
+Task runner derived from \fBISchedulable\fP\&. \fBSee Also:\fP
+.RS 4
+\fBISchedulable::runTask\fP 
+.RE
+.PP
+
+.PP
+Implements \fBISchedulable\fP\&.
+.SH "Member Data Documentation"
+.PP 
+.SS "map<string, \fBlocationInfo\fP> StorageMapper::m_fileMapping\fC [private]\fP"
+
+.PP
+Contains storage info accessd by its ID\&. \fBSee Also:\fP
+.RS 4
+\fBstorageInfo\fP 
+.RE
+.PP
+
+.SS "\fBReadWriteLock\fP StorageMapper::m_fileMappingLock\fC [private]\fP"
+
+.PP
+Lock used while operationg on \fBStorageMapper::m_fileMapping\fP\&. \fBSee Also:\fP
+.RS 4
+\fBStorageMapper::m_fileMapping\fP 
+.RE
+.PP
+
+.SS "\fBFslogicProxy\fP& StorageMapper::m_fslogic\fC [private]\fP"
+
+.PP
+Reference to \fBFslogicProxy\fP instance\&. \fBSee Also:\fP
+.RS 4
+\fBVeilFS::m_fslogic\fP 
+.RE
+.PP
+
+.SS "map<int, \fBstorageInfo\fP> StorageMapper::m_storageMapping\fC [private]\fP"
+
+.PP
+Contains storage info accessd by its ID\&. \fBSee Also:\fP
+.RS 4
+\fBstorageInfo\fP 
+.RE
+.PP
+
+.SS "\fBReadWriteLock\fP StorageMapper::m_storageMappingLock\fC [private]\fP"
+
+.PP
+Lock used while operating on \fBStorageMapper::m_storageMapping\fP\&. \fBSee Also:\fP
+.RS 4
+\fBStorageMapper::m_storageMapping\fP 
+.RE
+.PP
+
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for VeilClient from the source code\&.

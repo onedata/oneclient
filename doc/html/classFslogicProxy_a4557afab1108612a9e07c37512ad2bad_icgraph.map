@@ -1,0 +1,9 @@
+<map id="FslogicProxy::deleteFile" name="FslogicProxy::deleteFile">
+<area shape="rect" id="node3" href="$classVeilFS.html#a44b4fab73d9e699c146d2b455b1211be" title="unlink FUSE callback." alt="" coords="217,5,319,35"/>
+<area shape="rect" id="node13" href="$classVeilFS.html#afbdf0b5538fdab6554c8dde432b35eb2" title="rmdir FUSE callback." alt="" coords="219,59,317,88"/>
+<area shape="rect" id="node5" href="$veilFuse_8cc.html#a895e0e78b0609f24228e3be375bd0f75" title="wrap_unlink" alt="" coords="368,5,459,35"/>
+<area shape="rect" id="node7" href="$veilFuse_8cc.html#a4970767463895ff6eb47bb514640be34" title="oper_init" alt="" coords="508,32,577,61"/>
+<area shape="rect" id="node9" href="$veilFuse_8cc.html#a82908ed6095237ab4e9f0ad0aa6cb2d2" title="fuse_init" alt="" coords="628,32,697,61"/>
+<area shape="rect" id="node11" href="$veilFuse_8cc.html#a0ddf1224851353fc92bfbff6f499fa97" title="main" alt="" coords="747,32,797,61"/>
+<area shape="rect" id="node15" href="$veilFuse_8cc.html#a356b4eac90c8eb26190a370341273cb6" title="wrap_rmdir" alt="" coords="371,59,456,88"/>
+</map>

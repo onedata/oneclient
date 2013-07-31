@@ -1,1 +1,0 @@
-StorageHelpers should be put in this directory.

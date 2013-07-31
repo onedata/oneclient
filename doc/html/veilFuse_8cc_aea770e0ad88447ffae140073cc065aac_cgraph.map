@@ -1,0 +1,28 @@
+<map id="wrap_mknod" name="wrap_mknod">
+<area shape="rect" id="node3" href="$classVeilFS.html#a274d37112b60c20508e625bd52d112c6" title="Returns instance of VeilFS singleton." alt="" coords="852,5,969,35"/>
+<area shape="rect" id="node7" href="$classVeilFS.html#aca1f49dec82e895952317f6b8ce75006" title="mknod FUSE callback." alt="" coords="151,105,257,135"/>
+<area shape="rect" id="node5" href="$classVeilFS.html#ad0f37fda87a670f97d7bee4ce92746e1" title="Private constuctor (VeilFS is a singleton)" alt="" coords="1115,5,1221,35"/>
+<area shape="rect" id="node9" href="$classMetaCache.html#ad8c6a7c51d179e5297737000e97e2fb3" title="Remove cache for given file." alt="" coords="328,105,475,135"/>
+<area shape="rect" id="node11" href="$classFslogicProxy.html#a6ef1ef7cfd0038566bae7b7228267160" title="Query cluser to create new file in DB and get its real location." alt="" coords="316,158,487,205"/>
+<area shape="rect" id="node48" href="$classVeilFS.html#a28c6c845212f0c9b08e146109b51510f" title="errno translator." alt="" coords="328,228,475,257"/>
+<area shape="rect" id="node50" href="$classStorageMapper.html#a72c7c788fe4a4df3670af58bdcca532a" title="Cache given file location." alt="" coords="308,52,495,81"/>
+<area shape="rect" id="node13" href="$classFslogicProxy.html#a69362797f8de605c4f0c8ab08453ad0b" title="Sends and receives given protobuf message." alt="" coords="544,158,755,205"/>
+<area shape="rect" id="node15" href="$classMessageBuilder.html#acf8f130724759291297a48cc27cb0900" title="MessageBuilder::packFuse\lMessage" alt="" coords="821,147,1000,194"/>
+<area shape="rect" id="node25" href="$classFslogicProxy.html#a6f36cf6e2ec4f8df31cb2a658dfac31f" title="Returns pointer to CommunicationHandler that is not used at this moment." alt="" coords="808,217,1013,247"/>
+<area shape="rect" id="node27" href="$classCommunicationHandler.html#a334b71bb6e6d49e747854f4d35a38bc9" title="Sends ClusterMsg and receives answer." alt="" coords="832,305,989,351"/>
+<area shape="rect" id="node46" href="$classFslogicProxy.html#ad181aead0bcf39a3e32defe019eb693e" title="Returns CommunicationHandler&#39;s pointer ownership back to connection pool." alt="" coords="804,95,1017,124"/>
+<area shape="rect" id="node17" href="$classConfig.html#a4837d8be08cfef22d41e5595402908ef" title="Checks if given option is set." alt="" coords="1572,204,1671,233"/>
+<area shape="rect" id="node21" href="$classMessageBuilder.html#add2b4ffea51c93ab123b62ce891d69c4" title="MessageBuilder::createFuse\lMessage" alt="" coords="1075,201,1261,247"/>
+<area shape="rect" id="node23" href="$classMessageBuilder.html#a08143f24917f0f3f8ad0b457e6384303" title="MessageBuilder::createCluster\lMessage" alt="" coords="1068,81,1268,127"/>
+<area shape="rect" id="node19" href="$classConfig.html#a20de1f81b0e9515370c9b19aa8fb5f07" title="Singleton instance." alt="" coords="1765,257,1883,287"/>
+<area shape="rect" id="node29" href="$classCommunicationHandler.html#a45bbf714e1a585f9359dd977ddc467cc" title="Sends ClusterMsg using current SSL session. Will fail if there isnt one." alt="" coords="1089,339,1247,386"/>
+<area shape="rect" id="node33" href="$classCommunicationHandler.html#a9775fd4cbe8325d4f48ff917a8a7cfa3" title="Opens SSL connection to given host." alt="" coords="1089,409,1247,455"/>
+<area shape="rect" id="node42" href="$classCommunicationHandler.html#ae989086064f024ca44b5e9df835b6fca" title="Receives Answer using current SSL session. Will fail if there isnt one." alt="" coords="1089,270,1247,317"/>
+<area shape="rect" id="node31" href="$classCommunicationHandler.html#af551b9977692638366ce645daa348aeb" title="Write given array of bytes to SSL socket." alt="" coords="1319,339,1476,386"/>
+<area shape="rect" id="node35" href="$classCommunicationHandler.html#a86ac84ee103abeaee270479d5477c2bb" title="Initialize certificates etc." alt="" coords="1319,409,1476,455"/>
+<area shape="rect" id="node40" href="$classCommunicationHandler.html#a908fceb553cc5ef5e5b61e479bacd00d" title="Opens INET socket." alt="" coords="1319,478,1476,525"/>
+<area shape="rect" id="node37" href="$classConfig.html#a2ebd00c975d3449ad6e466794780cf47" title="Converts relative path, to absolute using HOME env as base prefix." alt="" coords="1527,311,1716,340"/>
+<area shape="rect" id="node44" href="$classCommunicationHandler.html#ab2f866566d81428425a55fc556a46a68" title="Read bytes from SSL socket." alt="" coords="1319,270,1476,317"/>
+<area shape="rect" id="node52" href="$classVeilFS.html#a9b0eeaaee3dfe897c49d3d61868c7294" title="Returns JobScheduler assigned to this object." alt="" coords="577,52,721,81"/>
+<area shape="rect" id="node55" href="$classJobScheduler.html#a3c7bb2d2d1b49f435edfb275ef45c866" title="Insert (register) new task to run queue." alt="" coords="571,105,728,135"/>
+</map>

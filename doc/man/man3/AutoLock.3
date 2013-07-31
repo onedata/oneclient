@@ -1,0 +1,103 @@
+.TH "AutoLock" 3 "Wed Jul 31 2013" "VeilClient" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+AutoLock \- 
+.PP
+The \fBAutoLock\fP class\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Public Member Functions"
+
+.in +1c
+.ti -1c
+.RI "\fBAutoLock\fP (\fBReadWriteLock\fP &\fBlock\fP, \fBLockType\fP type)"
+.br
+.RI "\fICreate auto \fBReadWriteLock\fP\&. \fP"
+.ti -1c
+.RI "\fB~AutoLock\fP ()"
+.br
+.RI "\fIUnlocks wrapped \fBReadWriteLock\fP lock, but only if it wasn't released manually\&. \fP"
+.ti -1c
+.RI "void \fBchangeType\fP (\fBLockType\fP type)"
+.br
+.RI "\fIChangle lock type\&. \fP"
+.ti -1c
+.RI "void \fBrelease\fP ()"
+.br
+.RI "\fIRelease current lock\&. \fP"
+.ti -1c
+.RI "void \fBlock\fP ()"
+.br
+.RI "\fILocks current lock\&. \fP"
+.in -1c
+.SS "Private Attributes"
+
+.in +1c
+.ti -1c
+.RI "\fBReadWriteLock\fP & \fBm_lock\fP"
+.br
+.RI "\fIThe wrapped lock\&. \fP"
+.ti -1c
+.RI "\fBLockType\fP \fBm_type\fP"
+.br
+.RI "\fIType of this lock\&. \fP"
+.ti -1c
+.RI "bool \fBm_released\fP"
+.br
+.RI "\fIFlag saying if lock is released right now\&. \fP"
+.in -1c
+.SH "Detailed Description"
+.PP 
+The \fBAutoLock\fP class\&. 
+
+Object of this class provides auto-unlocking \fBReadWriteLock\fP\&. 
+.SH "Constructor & Destructor Documentation"
+.PP 
+.SS "AutoLock::AutoLock (\fBReadWriteLock\fP &lock, \fBLockType\fPtype)"
+
+.PP
+Create auto \fBReadWriteLock\fP\&. Also locks for read/write depending on \fBLockType\fP param\&. 
+.SS "AutoLock::~AutoLock ()"
+
+.PP
+Unlocks wrapped \fBReadWriteLock\fP lock, but only if it wasn't released manually\&. 
+.SH "Member Function Documentation"
+.PP 
+.SS "void AutoLock::changeType (\fBLockType\fPtype)"
+
+.PP
+Changle lock type\&. Releases current lock and locks for diffrent operation type\&. 
+.SS "void AutoLock::lock ()"
+
+.PP
+Locks current lock\&. 
+.SS "void AutoLock::release ()"
+
+.PP
+Release current lock\&. 
+.SH "Member Data Documentation"
+.PP 
+.SS "\fBReadWriteLock\fP& AutoLock::m_lock\fC [private]\fP"
+
+.PP
+The wrapped lock\&. 
+.SS "bool AutoLock::m_released\fC [private]\fP"
+
+.PP
+Flag saying if lock is released right now\&. 
+.SS "\fBLockType\fP AutoLock::m_type\fC [private]\fP"
+
+.PP
+Type of this lock\&. \fBSee Also:\fP
+.RS 4
+\fBLockType\fP 
+.RE
+.PP
+
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for VeilClient from the source code\&.

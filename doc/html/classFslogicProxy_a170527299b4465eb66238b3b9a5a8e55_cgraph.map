@@ -1,0 +1,20 @@
+<map id="FslogicProxy::createDir" name="FslogicProxy::createDir">
+<area shape="rect" id="node3" href="$classFslogicProxy.html#af9259891726b9ba2672db0a79f116f9f" title="Sends given protobuf message and receives atom." alt="" coords="213,199,424,245"/>
+<area shape="rect" id="node5" href="$classMessageBuilder.html#acf8f130724759291297a48cc27cb0900" title="MessageBuilder::packFuse\lMessage" alt="" coords="491,55,669,101"/>
+<area shape="rect" id="node15" href="$classFslogicProxy.html#a6f36cf6e2ec4f8df31cb2a658dfac31f" title="Returns pointer to CommunicationHandler that is not used at this moment." alt="" coords="477,146,683,175"/>
+<area shape="rect" id="node17" href="$classCommunicationHandler.html#a334b71bb6e6d49e747854f4d35a38bc9" title="Sends ClusterMsg and receives answer." alt="" coords="501,199,659,245"/>
+<area shape="rect" id="node36" href="$classFslogicProxy.html#ad181aead0bcf39a3e32defe019eb693e" title="Returns CommunicationHandler&#39;s pointer ownership back to connection pool." alt="" coords="473,269,687,298"/>
+<area shape="rect" id="node38" href="$classMessageBuilder.html#a78b0d0d79a95d3145d4c6e439be024da" title="MessageBuilder::decodeAtom\lAnswer" alt="" coords="483,321,677,368"/>
+<area shape="rect" id="node7" href="$classConfig.html#a4837d8be08cfef22d41e5595402908ef" title="Checks if given option is set." alt="" coords="1241,19,1340,49"/>
+<area shape="rect" id="node11" href="$classMessageBuilder.html#add2b4ffea51c93ab123b62ce891d69c4" title="MessageBuilder::createFuse\lMessage" alt="" coords="744,33,931,80"/>
+<area shape="rect" id="node13" href="$classMessageBuilder.html#a08143f24917f0f3f8ad0b457e6384303" title="MessageBuilder::createCluster\lMessage" alt="" coords="737,103,937,149"/>
+<area shape="rect" id="node9" href="$classConfig.html#a20de1f81b0e9515370c9b19aa8fb5f07" title="Singleton instance." alt="" coords="1435,65,1552,94"/>
+<area shape="rect" id="node19" href="$classCommunicationHandler.html#a45bbf714e1a585f9359dd977ddc467cc" title="Sends ClusterMsg using current SSL session. Will fail if there isnt one." alt="" coords="759,172,916,219"/>
+<area shape="rect" id="node23" href="$classCommunicationHandler.html#a9775fd4cbe8325d4f48ff917a8a7cfa3" title="Opens SSL connection to given host." alt="" coords="759,241,916,288"/>
+<area shape="rect" id="node32" href="$classCommunicationHandler.html#ae989086064f024ca44b5e9df835b6fca" title="Receives Answer using current SSL session. Will fail if there isnt one." alt="" coords="759,311,916,357"/>
+<area shape="rect" id="node21" href="$classCommunicationHandler.html#af551b9977692638366ce645daa348aeb" title="Write given array of bytes to SSL socket." alt="" coords="988,103,1145,149"/>
+<area shape="rect" id="node25" href="$classCommunicationHandler.html#a86ac84ee103abeaee270479d5477c2bb" title="Initialize certificates etc." alt="" coords="988,172,1145,219"/>
+<area shape="rect" id="node30" href="$classCommunicationHandler.html#a908fceb553cc5ef5e5b61e479bacd00d" title="Opens INET socket." alt="" coords="988,241,1145,288"/>
+<area shape="rect" id="node27" href="$classConfig.html#a2ebd00c975d3449ad6e466794780cf47" title="Converts relative path, to absolute using HOME env as base prefix." alt="" coords="1196,109,1385,138"/>
+<area shape="rect" id="node34" href="$classCommunicationHandler.html#ab2f866566d81428425a55fc556a46a68" title="Read bytes from SSL socket." alt="" coords="988,311,1145,357"/>
+</map>

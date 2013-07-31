@@ -1,0 +1,165 @@
+.TH "CommunicationHandler" 3 "Wed Jul 31 2013" "VeilClient" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+CommunicationHandler \- 
+.PP
+The \fBCommunicationHandler\fP class\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Public Member Functions"
+
+.in +1c
+.ti -1c
+.RI "\fBCommunicationHandler\fP ()"
+.br
+.ti -1c
+.RI "\fB~CommunicationHandler\fP ()"
+.br
+.ti -1c
+.RI "int \fBopenConnection\fP (string hostname, int port)"
+.br
+.RI "\fIOpens SSL connection to given host\&. \fP"
+.ti -1c
+.RI "void \fBcloseConnection\fP ()"
+.br
+.RI "\fICloses active connection\&. \fP"
+.ti -1c
+.RI "int \fBsendMessage\fP (const ClusterMsg &\fBmessage\fP)"
+.br
+.RI "\fISends ClusterMsg using current SSL session\&. Will fail if there isnt one\&. \fP"
+.ti -1c
+.RI "int \fBreceiveMessage\fP (Answer *answer)"
+.br
+.RI "\fIReceives Answer using current SSL session\&. Will fail if there isnt one\&. \fP"
+.ti -1c
+.RI "Answer \fBcomunicate\fP (ClusterMsg &msg, uint8_t retry)"
+.br
+.RI "\fISends ClusterMsg and receives answer\&. \fP"
+.in -1c
+.SS "Private Member Functions"
+
+.in +1c
+.ti -1c
+.RI "int \fBopenTCPConnection\fP (const char *hostname, int port)"
+.br
+.RI "\fIOpens INET socket\&. \fP"
+.ti -1c
+.RI "int \fBinitCTX\fP ()"
+.br
+.RI "\fIInitialize certificates etc\&. \fP"
+.ti -1c
+.RI "void \fBinitSSL\fP ()"
+.br
+.RI "\fIInitialize SSL context\&. \fP"
+.ti -1c
+.RI "int \fBwriteBytes\fP (uint8_t *msg_buffer, int size)"
+.br
+.RI "\fIWrite given array of bytes to SSL socket\&. \fP"
+.ti -1c
+.RI "int \fBreadBytes\fP (uint8_t *msg_buffer, int size)"
+.br
+.RI "\fIRead bytes from SSL socket\&. \fP"
+.in -1c
+.SS "Private Attributes"
+
+.in +1c
+.ti -1c
+.RI "int \fBserverSocket\fP"
+.br
+.ti -1c
+.RI "SSL_CTX * \fBsslContext\fP"
+.br
+.ti -1c
+.RI "SSL * \fBssl\fP"
+.br
+.in -1c
+.SH "Detailed Description"
+.PP 
+The \fBCommunicationHandler\fP class\&. 
+
+Object of this class represents dynamic (auto-connect) TCP/IP connection to cluster\&. The \fBCommunicationHandler\fP allows to communicate with cluster by sending and receiving ClusterMsg messages\&. TCP connection is fully automatic, which means that event if current \fBCommunicationHandler\fP isnt connected, it will connect automatically\&. If it is, it will reuse previously opened socket\&. 
+.SH "Constructor & Destructor Documentation"
+.PP 
+.SS "CommunicationHandler::CommunicationHandler ()"
+
+.SS "CommunicationHandler::~CommunicationHandler ()"
+
+.SH "Member Function Documentation"
+.PP 
+.SS "void CommunicationHandler::closeConnection ()"
+
+.PP
+Closes active connection\&. 
+.SS "Answer CommunicationHandler::comunicate (ClusterMsg &msg, uint8_tretry)"
+
+.PP
+Sends ClusterMsg and receives answer\&. Same as running \fBCommunicationHandler::sendMessage\fP and \fBCommunicationHandler::receiveMessage\fP but this method also supports reconnect option\&. If something goes wrong during communication, new connection will be estabilished and the whole process will be repeated\&. 
+.PP
+\fBParameters:\fP
+.RS 4
+\fIretry\fP How many times tries has to be made before returning error\&. 
+.RE
+.PP
+\fBReturns:\fP
+.RS 4
+Answer protobuf message\&. If error occures, empty Answer object will be returned\&. 
+.RE
+.PP
+
+.SS "int CommunicationHandler::initCTX ()\fC [private]\fP"
+
+.PP
+Initialize certificates etc\&. 
+.SS "void CommunicationHandler::initSSL ()\fC [private]\fP"
+
+.PP
+Initialize SSL context\&. 
+.SS "int CommunicationHandler::openConnection (stringhostname, intport)"
+
+.PP
+Opens SSL connection to given host\&. 
+.SS "int CommunicationHandler::openTCPConnection (const char *hostname, intport)\fC [private]\fP"
+
+.PP
+Opens INET socket\&. 
+.SS "int CommunicationHandler::readBytes (uint8_t *msg_buffer, intsize)\fC [private]\fP"
+
+.PP
+Read bytes from SSL socket\&. \fBReturns:\fP
+.RS 4
+-1 on error\&. Otherwise number of bytes read\&. 
+.RE
+.PP
+
+.SS "int CommunicationHandler::receiveMessage (Answer *answer)"
+
+.PP
+Receives Answer using current SSL session\&. Will fail if there isnt one\&. 
+.SS "int CommunicationHandler::sendMessage (const ClusterMsg &message)"
+
+.PP
+Sends ClusterMsg using current SSL session\&. Will fail if there isnt one\&. 
+.SS "int CommunicationHandler::writeBytes (uint8_t *msg_buffer, intsize)\fC [private]\fP"
+
+.PP
+Write given array of bytes to SSL socket\&. \fBReturns:\fP
+.RS 4
+-1 on error\&. Otherwise number of bytes written\&. 
+.RE
+.PP
+
+.SH "Member Data Documentation"
+.PP 
+.SS "int CommunicationHandler::serverSocket\fC [private]\fP"
+
+.SS "SSL* CommunicationHandler::ssl\fC [private]\fP"
+
+.SS "SSL_CTX* CommunicationHandler::sslContext\fC [private]\fP"
+
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for VeilClient from the source code\&.

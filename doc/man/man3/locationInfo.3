@@ -1,0 +1,79 @@
+.TH "locationInfo" 3 "Wed Jul 31 2013" "VeilClient" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+locationInfo \- 
+.PP
+Structure containing file mapping base information\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Public Member Functions"
+
+.in +1c
+.ti -1c
+.RI "bool \fBisValid\fP ()"
+.br
+.in -1c
+.SS "Public Attributes"
+
+.in +1c
+.ti -1c
+.RI "int \fBstorageId\fP"
+.br
+.RI "\fIStorage identificator\&. \fP"
+.ti -1c
+.RI "string \fBfileId\fP"
+.br
+.RI "\fIFile identificator\&. \fP"
+.ti -1c
+.RI "time_t \fBvalidTo\fP"
+.br
+.RI "\fIMapping expiration time\&. \fP"
+.ti -1c
+.RI "int \fBopened\fP"
+.br
+.RI "\fIHow many files are currently opened using this mapping\&. \fP"
+.in -1c
+.SH "Detailed Description"
+.PP 
+Structure containing file mapping base information\&. 
+.SH "Member Function Documentation"
+.PP 
+.SS "bool locationInfo::isValid ()\fC [inline]\fP"
+
+.SH "Member Data Documentation"
+.PP 
+.SS "string locationInfo::fileId"
+
+.PP
+File identificator\&. This ID should be recognisable by \fIstorage helper\fP\&. Most commonly it's just file path relative to the \fIstorage\fP
+.PP
+\fBSee Also:\fP
+.RS 4
+\fBStorageMapper::m_fileMapping\fP 
+.RE
+.PP
+
+.SS "int locationInfo::opened"
+
+.PP
+How many files are currently opened using this mapping\&. 
+.SS "int locationInfo::storageId"
+
+.PP
+Storage identificator\&. \fBSee Also:\fP
+.RS 4
+\fBStorageMapper::m_storageMapping\fP 
+.RE
+.PP
+
+.SS "time_t locationInfo::validTo"
+
+.PP
+Mapping expiration time\&. 
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for VeilClient from the source code\&.

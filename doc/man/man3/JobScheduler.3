@@ -1,0 +1,142 @@
+.TH "JobScheduler" 3 "Wed Jul 31 2013" "VeilClient" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+JobScheduler \- 
+.PP
+The \fBJobScheduler\fP class Objects of this class are living daemons (threads) with their own run queue from which they are precessing tasks\&.  
+
+.SH SYNOPSIS
+.br
+.PP
+.SS "Public Member Functions"
+
+.in +1c
+.ti -1c
+.RI "\fBJobScheduler\fP ()"
+.br
+.ti -1c
+.RI "\fB~JobScheduler\fP ()"
+.br
+.ti -1c
+.RI "void \fBaddTask\fP (\fBJob\fP job)"
+.br
+.RI "\fIInsert (register) new task to run queue\&. \fP"
+.ti -1c
+.RI "void \fBdeleteJobs\fP (\fBISchedulable\fP *subject, \fBISchedulable::TaskID\fP task)"
+.br
+.RI "\fIDeletes all jobs registred by given object\&. \fP"
+.in -1c
+.SS "Private Member Functions"
+
+.in +1c
+.ti -1c
+.RI "void \fBschedulerMain\fP ()"
+.br
+.RI "\fIThread main loop\&. \fP"
+.ti -1c
+.RI "void \fBrunJob\fP (\fBJob\fP job)"
+.br
+.RI "\fIStarts given task\&. \fP"
+.ti -1c
+.RI "void \fBstartDaemon\fP ()"
+.br
+.RI "\fIStarts/restarts daemon\&. \fP"
+.in -1c
+.SS "Static Private Member Functions"
+
+.in +1c
+.ti -1c
+.RI "static void * \fBschedulerMainWrapper\fP (void *arg)"
+.br
+.RI "\fIC wrapper used to start \fBJobScheduler::schedulerMain\fP\&. \fP"
+.in -1c
+.SS "Private Attributes"
+
+.in +1c
+.ti -1c
+.RI "priority_queue< \fBJob\fP > \fBm_jobQueue\fP"
+.br
+.RI "\fIRun queue\&. \fP"
+.ti -1c
+.RI "pthread_t \fBm_daemon\fP"
+.br
+.RI "\fIThread ID\&. \fP"
+.ti -1c
+.RI "pthread_mutex_t \fBm_mutex\fP"
+.br
+.RI "\fIMutex used to synchronize access to \fBJobScheduler::m_jobQueue\fP\&. \fP"
+.ti -1c
+.RI "pthread_cond_t \fBm_queueCond\fP"
+.br
+.RI "\fICondition used to synchronize access to \fBJobScheduler::m_jobQueue\fP\&. \fP"
+.in -1c
+.SH "Detailed Description"
+.PP 
+The \fBJobScheduler\fP class Objects of this class are living daemons (threads) with their own run queue from which they are precessing tasks\&. 
+.SH "Constructor & Destructor Documentation"
+.PP 
+.SS "JobScheduler::JobScheduler ()"
+
+.SS "JobScheduler::~JobScheduler ()"
+
+.SH "Member Function Documentation"
+.PP 
+.SS "void JobScheduler::addTask (\fBJob\fPjob)"
+
+.PP
+Insert (register) new task to run queue\&. Inserted task shall run when current time passes its \fBJob::when\fP\&.
+.PP
+\fBSee Also:\fP
+.RS 4
+\fBJob\fP 
+.RE
+.PP
+
+.SS "void JobScheduler::deleteJobs (\fBISchedulable\fP *subject, \fBISchedulable::TaskID\fPtask)"
+
+.PP
+Deletes all jobs registred by given object\&. Used mainly when \fBISchedulable\fP object is destructed\&. 
+.SS "void JobScheduler::runJob (\fBJob\fPjob)\fC [private]\fP"
+
+.PP
+Starts given task\&. \fBSee Also:\fP
+.RS 4
+\fBJobScheduler::schedulerMain\fP 
+.RE
+.PP
+
+.SS "void JobScheduler::schedulerMain ()\fC [private]\fP"
+
+.PP
+Thread main loop\&. Checks run queue and runs tasks when needed\&. 
+.SS "void * JobScheduler::schedulerMainWrapper (void *arg)\fC [static]\fP, \fC [private]\fP"
+
+.PP
+C wrapper used to start \fBJobScheduler::schedulerMain\fP\&. 
+.SS "void JobScheduler::startDaemon ()\fC [private]\fP"
+
+.PP
+Starts/restarts daemon\&. 
+.SH "Member Data Documentation"
+.PP 
+.SS "pthread_t JobScheduler::m_daemon\fC [private]\fP"
+
+.PP
+Thread ID\&. 
+.SS "priority_queue<\fBJob\fP> JobScheduler::m_jobQueue\fC [private]\fP"
+
+.PP
+Run queue\&. 
+.SS "pthread_mutex_t JobScheduler::m_mutex\fC [private]\fP"
+
+.PP
+Mutex used to synchronize access to \fBJobScheduler::m_jobQueue\fP\&. 
+.SS "pthread_cond_t JobScheduler::m_queueCond\fC [private]\fP"
+
+.PP
+Condition used to synchronize access to \fBJobScheduler::m_jobQueue\fP\&. 
+
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for VeilClient from the source code\&.

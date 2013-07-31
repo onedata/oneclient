@@ -1,0 +1,111 @@
+.TH "include/fuse/lock.hh" 3 "Wed Jul 31 2013" "VeilClient" \" -*- nroff -*-
+.ad l
+.nh
+.SH NAME
+include/fuse/lock.hh \- 
+.SH SYNOPSIS
+.br
+.PP
+.SS "Classes"
+
+.in +1c
+.ti -1c
+.RI "class \fBReadWriteLock\fP"
+.br
+.RI "\fIThe \fBReadWriteLock\fP class\&. \fP"
+.ti -1c
+.RI "class \fBAutoLock\fP"
+.br
+.RI "\fIThe \fBAutoLock\fP class\&. \fP"
+.in -1c
+.SS "Macros"
+
+.in +1c
+.ti -1c
+.RI "#define \fBFAIRNESS_LEVEL\fP   5"
+.br
+.RI "\fIDefines how many readers (minimum) should be processed after each writer (which has priority) \fP"
+.ti -1c
+.RI "#define \fBMUTEX\fP(X)   &X##Mutex"
+.br
+.RI "\fIConstructs name for mutex\&. \fP"
+.ti -1c
+.RI "#define \fBDECLARE_MUTEX_FOR\fP(X)   pthread_mutex_t X##Mutex"
+.br
+.RI "\fIDeclare mutex with given name\&. \fP"
+.ti -1c
+.RI "#define \fBINIT_MUTEX_FOR\fP(X)"
+.br
+.RI "\fIInitialize mutex with given name as PTHREAD_MUTEX_RECURSIVE\&. \fP"
+.in -1c
+.SS "Enumerations"
+
+.in +1c
+.ti -1c
+.RI "enum \fBLockType\fP { \fBREAD_LOCK\fP, \fBWRITE_LOCK\fP }"
+.br
+.RI "\fI\fP"
+.in -1c
+.SH "Detailed Description"
+.PP 
+\fBAuthor:\fP
+.RS 4
+Rafal Slota 
+.RE
+.PP
+\fBCopyright:\fP
+.RS 4
+(C) 2013 ACK CYFRONET AGH 
+.PP
+This software is released under the MIT license cited in 'LICENSE\&.txt' 
+.RE
+.PP
+
+.SH "Macro Definition Documentation"
+.PP 
+.SS "#define DECLARE_MUTEX_FOR(X)   pthread_mutex_t X##Mutex"
+
+.PP
+Declare mutex with given name\&. 
+.SS "#define FAIRNESS_LEVEL   5"
+
+.PP
+Defines how many readers (minimum) should be processed after each writer (which has priority) 
+.SS "#define INIT_MUTEX_FOR(X)"
+\fBValue:\fP
+.PP
+.nf
+{ \
+                                    pthread_mutexattr_t mutexattr; \
+                                    pthread_mutexattr_init(&mutexattr); \
+                                    pthread_mutexattr_settype(&mutexattr, PTHREAD_MUTEX_RECURSIVE); \
+                                    pthread_mutex_init(&X##Mutex, &mutexattr); \
+                                }
+.fi
+.PP
+Initialize mutex with given name as PTHREAD_MUTEX_RECURSIVE\&. 
+.SS "#define MUTEX(X)   &X##Mutex"
+
+.PP
+Constructs name for mutex\&. 
+.SH "Enumeration Type Documentation"
+.PP 
+.SS "enum \fBLockType\fP"
+
+.PP
+\fBSee Also:\fP
+.RS 4
+\fBAutoLock::AutoLock\fP 
+.RE
+.PP
+
+.PP
+\fBEnumerator\fP
+.in +1c
+.TP
+\fB\fIREAD_LOCK \fP\fP
+.TP
+\fB\fIWRITE_LOCK \fP\fP
+.SH "Author"
+.PP 
+Generated automatically by Doxygen for VeilClient from the source code\&.

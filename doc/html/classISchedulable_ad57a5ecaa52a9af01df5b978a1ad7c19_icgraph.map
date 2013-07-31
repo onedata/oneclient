@@ -1,0 +1,4 @@
+<map id="ISchedulable::runTask" name="ISchedulable::runTask">
+<area shape="rect" id="node3" href="$classJobScheduler.html#ab824e773135fe299ab44320907e45350" title="Starts given task." alt="" coords="207,5,353,35"/>
+<area shape="rect" id="node5" href="$classJobScheduler.html#ac212b8c2223801cf2cfe4637522d9bbb" title="Thread main loop." alt="" coords="404,5,596,35"/>
+</map>
