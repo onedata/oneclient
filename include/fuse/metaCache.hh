@@ -27,7 +27,7 @@ using namespace std;
  */
 class MetaCache : public ISchedulable
 {
-private:
+protected:
     map<string, pair<time_t, struct stat> > m_statMap; ///< This is the cache map.
                                                        ///< Value of this map is pair containing expiration time of attributes and
                                                        ///< stat struct itself
@@ -36,21 +36,21 @@ private:
 public:
 
     MetaCache();
-    ~MetaCache();
+    virtual ~MetaCache();
 
-    void addAttr(string, struct stat);  ///< Cache given attributes
-                                        ///< Expiration time can be set using configuration file.
-    void clearAttrs();                  ///< Clear whole cache
+    virtual void addAttr(string, struct stat&);  ///< Cache given attributes
+                                                ///< Expiration time can be set using configuration file.
+    virtual void clearAttrs();                  ///< Clear whole cache
 
     /**
      * Gets file attributes from cache.
      * @param stat Pointer to stat structure that should be filled with data from cache
      * @return Bool saying if operation succeed and stat struct was filled with data
      */
-    bool getAttr(string, struct stat*);
-    void clearAttr(string path);        ///< Remove cache for given file
+    virtual bool getAttr(string, struct stat*);
+    virtual void clearAttr(string path);        ///< Remove cache for given file
 
-    bool runTask(TaskID taskId, string arg0, string arg1, string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+    virtual bool runTask(TaskID taskId, string arg0, string arg1, string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 };
 

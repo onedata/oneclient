@@ -16,50 +16,15 @@
 #include <string>
 #include <fstream>
 
-#define FUSE_ID "abc"
-#define GET_FILE_ATTR "getfileattr"
-#define GET_FILE_LOCATION "getfilelocation"
-#define GET_NEW_FILE_LOCATION "getnewfilelocation"
-#define RENEW_FILE_LOCATION "renewfilelocation"
-#define GET_FILE_CHILDREN "getfilechildren"
-#define FILE_CHILDREN "filechildren"
-#define FILE_ATTR "fileattr"
-#define FILE_LOCATION "filelocation"
-#define CREATE_DIR "createdir"
-#define DELETE_FILE "deletefile"
-#define FILE_NOT_USED "filenotused"
-#define RENAME_FILE "renamefile"
-#define CHANGE_FILE_PERMS "changefileperms"
-#define FILE_LOCATION_VALIDITY "filelocationvalidity"
 
-#define FUSE_MESSAGE "fusemessage"
-#define ATOM "atom"
-
-#define FSLOGIC "fslogic"
-
-#define NOT_ALLOWED "not_allowed"
-#define OK "ok"
-#define ACTION_FAILED "action_failed"
-
-#define HOST "127.0.0.1"
-#define PORT 5555
-
-FslogicProxy::FslogicProxy()
+FslogicProxy::FslogicProxy() 
+    : m_messageBuilder(new MessageBuilder())
 {
     LOG(INFO) << "FslogicProxy created";
 }
 
 FslogicProxy::~FslogicProxy()
 {
-    AutoLock lock(m_connectionPoolLock, WRITE_LOCK);
-    CommunicationHandler *conn;
-    while(!m_connectionPool.empty())
-    {
-        conn = m_connectionPool.front();
-        m_connectionPool.pop_front();
-        delete conn;
-    }
-
     LOG(INFO) << "FslogicProxy destroyed";
 }
 
@@ -272,7 +237,7 @@ bool FslogicProxy::sendFileNotUsed(string logicName)
     string serializedAnswer = sendFuseReceiveAtomMessage(FILE_NOT_USED,
         serializedFileNotUsed);
 
-    if(serializedAnswer != OK)
+    if(serializedAnswer != VOK)
     {
         return false;
     }
@@ -333,7 +298,7 @@ string FslogicProxy::changeFilePerms(string path, mode_t mode)
 string FslogicProxy::sendFuseReceiveSerializedMessage(string messageType, string answerType, string messageInput)
 {
 
-    ClusterMsg * clusterMessage = m_messageBuilder.packFuseMessage(messageType,
+    ClusterMsg * clusterMessage = m_messageBuilder->packFuseMessage(messageType,
         answerType, FUSE_MESSAGES, messageInput);
 
     if(clusterMessage == NULL)
@@ -341,7 +306,7 @@ string FslogicProxy::sendFuseReceiveSerializedMessage(string messageType, string
         return "";
     }
 
-    CommunicationHandler *connection = selectConnection();
+    shared_ptr<CommunicationHandler> connection = selectConnection();
     if(!connection) 
     {
         LOG(ERROR) << "Cannot select connection from connectionPool";
@@ -350,11 +315,9 @@ string FslogicProxy::sendFuseReceiveSerializedMessage(string messageType, string
 
     LOG(INFO) << "Sending message (type: " << messageType << "). Expecting answer with type: " << answerType;
 
-    Answer answer = connection->comunicate(*clusterMessage, 2);
+    Answer answer = connection->communicate(*clusterMessage, 2);
 
-    if(answer.answer_status() == VEIO)
-        delete connection;
-    else
+    if(answer.answer_status() != VEIO)
         releaseConnection(connection);
 
     if(answer.answer_status() != VOK) 
@@ -367,41 +330,41 @@ string FslogicProxy::sendFuseReceiveSerializedMessage(string messageType, string
     return answer.worker_answer();
 }
 
-string FslogicProxy::sendFuseReceiveAtomMessage(string messageType, string messageInput){
+string FslogicProxy::sendFuseReceiveAtomMessage(string messageType, string messageInput)
+{
 
-    ClusterMsg * clusterMessage = m_messageBuilder.packFuseMessage(messageType,
+    ClusterMsg * clusterMessage = m_messageBuilder->packFuseMessage(messageType,
         ATOM, COMMUNICATION_PROTOCOL, messageInput);
 
     if(clusterMessage == NULL)
     {
+        LOG(ERROR) << "Cannot build ClusterMsg";
         return "";
     }
 
-    CommunicationHandler *connection = selectConnection();
+    shared_ptr<CommunicationHandler> connection = selectConnection();
     if(!connection) 
     {
         LOG(ERROR) << "Cannot select connection from connectionPool";
         return "";
     }
     
-    Answer answer = connection->comunicate(*clusterMessage, 2);
+    Answer answer = connection->communicate(*clusterMessage, 2);
 
-    if(answer.answer_status() == VEIO)
-        delete connection;
-    else
+    if(answer.answer_status() != VEIO)
         releaseConnection(connection);
-
-    return m_messageBuilder.decodeAtomAnswer(answer);
+    
+    return m_messageBuilder->decodeAtomAnswer(answer);
 }
 
-CommunicationHandler* FslogicProxy::selectConnection() // TODO: mutex
+shared_ptr<CommunicationHandler> FslogicProxy::selectConnection()
 {
     AutoLock lock(m_connectionPoolLock, WRITE_LOCK);;
-    CommunicationHandler *conn = NULL;
+    shared_ptr<CommunicationHandler> conn;
     if(m_connectionPool.empty())
     {
         LOG(INFO) << "Theres no connections ready to be used. Creating new one";
-        conn = new CommunicationHandler();
+        conn.reset(new CommunicationHandler());
         m_connectionPool.push_back(conn);
     }
 
@@ -411,7 +374,7 @@ CommunicationHandler* FslogicProxy::selectConnection() // TODO: mutex
 
 }
 
-void FslogicProxy::releaseConnection(CommunicationHandler* conn) // TODO: mutex 
+void FslogicProxy::releaseConnection(shared_ptr<CommunicationHandler> conn)
 {
     AutoLock lock(m_connectionPoolLock, WRITE_LOCK);
     m_connectionPool.push_back(conn);

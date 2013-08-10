@@ -15,6 +15,9 @@
 
 #define FUSE_MESSAGES "fuse_messages"
 #define COMMUNICATION_PROTOCOL "communication_protocol"
+#define GET_FILE_LOCATION "getfilelocation"
+#define FUSE_MESSAGE "fusemessage"
+#define FSLOGIC "fslogic"
 
 using namespace std;
 
@@ -28,19 +31,19 @@ class MessageBuilder
 {
 public:
     MessageBuilder();
-    ~MessageBuilder();
-    FuseMessage * createFuseMessage(string id, string messageType,
+    virtual ~MessageBuilder();
+    virtual FuseMessage * createFuseMessage(string id, string messageType,
         string messageInput);
-    ClusterMsg * createClusterMessage(string moduleName,
+    virtual ClusterMsg * createClusterMessage(string moduleName,
         string messageType, string answerType, string answerDecoderName,
         bool synch, string input);
-    ClusterMsg * createClusterMessage(string moduleName,
+    virtual ClusterMsg * createClusterMessage(string moduleName,
         string messageType, string answerType,
         string answerDecoderName, bool synch);
-    ClusterMsg * packFuseMessage(string messageType, string answerType,
+    virtual ClusterMsg * packFuseMessage(string messageType, string answerType,
         string answerDecoderName, string messageInput);
-    FuseMessage * decodeFuseAnswer(Answer& answer);
-    string decodeAtomAnswer(Answer& answer);
+    virtual FuseMessage * decodeFuseAnswer(Answer& answer);
+    virtual string decodeAtomAnswer(Answer& answer);
 
 };
 

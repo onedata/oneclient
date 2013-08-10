@@ -19,7 +19,7 @@
  */
 class IStorageHelper {
 	public:
-        virtual ~IStorageHelper();
+        virtual ~IStorageHelper() {};
 
         virtual int sh_getattr(const char *path, struct stat *stbuf) = 0;
         virtual int sh_access(const char *path, int mask) = 0;

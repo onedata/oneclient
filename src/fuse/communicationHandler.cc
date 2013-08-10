@@ -39,7 +39,7 @@ CommunicationHandler::CommunicationHandler() :
     ssl(NULL)
 {
     initSSL();
-    openConnection(Config::getValue<string>(CLUSTER_HOSTNAME_OPT), Config::getValue<int>(CLUSTER_PORT_OPT));
+    openConnection(VeilFS::getConfig()->getString(CLUSTER_HOSTNAME_OPT), VeilFS::getConfig()->getInt(CLUSTER_PORT_OPT));
 }
 
 CommunicationHandler::~CommunicationHandler()
@@ -72,7 +72,7 @@ int CommunicationHandler::initCTX()
         return -1;
     }
 
-    string certFile = Config::absPathRelToHOME(Config::getValue<string>(PEER_CERTIFICATE_FILE_OPT));
+    string certFile = Config::absPathRelToHOME(VeilFS::getConfig()->getString(PEER_CERTIFICATE_FILE_OPT));
 
     LOG(INFO) << "Using certificate file: " << certFile;
 
@@ -325,7 +325,7 @@ int CommunicationHandler::readBytes(uint8_t * msg_buffer, int size)
     return bytesRead;
 }
 
-Answer CommunicationHandler::comunicate(ClusterMsg &msg, uint8_t retry)
+Answer CommunicationHandler::communicate(ClusterMsg &msg, uint8_t retry)
 {
     Answer answer;
 
@@ -334,8 +334,8 @@ Answer CommunicationHandler::comunicate(ClusterMsg &msg, uint8_t retry)
         if(retry > 0) 
         {
             LOG(WARNING) << "Receiving response from cluster failed, trying to reconnect and retry";
-            if(openConnection(Config::getValue<string>(CLUSTER_HOSTNAME_OPT), Config::getValue<int>(CLUSTER_PORT_OPT)) == 0)
-                return comunicate(msg, retry - 1);
+            if(openConnection(VeilFS::getConfig()->getString(CLUSTER_HOSTNAME_OPT), VeilFS::getConfig()->getInt(CLUSTER_PORT_OPT)) == 0)
+                return communicate(msg, retry - 1);
         }
             
         LOG(ERROR) << "TCP communication error";
@@ -348,8 +348,8 @@ Answer CommunicationHandler::comunicate(ClusterMsg &msg, uint8_t retry)
         if(retry > 0) 
         {
             LOG(WARNING) << "Receiving response from cluster failed, trying to reconnect and retry";
-            if(openConnection(Config::getValue<string>(CLUSTER_HOSTNAME_OPT), Config::getValue<int>(CLUSTER_PORT_OPT)) == 0)
-                return comunicate(msg, retry - 1);
+            if(openConnection(VeilFS::getConfig()->getString(CLUSTER_HOSTNAME_OPT), VeilFS::getConfig()->getInt(CLUSTER_PORT_OPT)) == 0)
+                return communicate(msg, retry - 1);
         }
 
         LOG(ERROR) << "TCP communication error";

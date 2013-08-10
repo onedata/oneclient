@@ -20,10 +20,15 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/xattr.h>
+#include <boost/shared_ptr.hpp>
 #include "fslogicProxy.hh"
+#include "config.hh"
 #include "storageMapper.hh"
 #include "jobScheduler.hh"
 #include "metaCache.hh"
+#include "helpers/storageHelperFactory.hh"
+
+using namespace boost;
 
 /// VeilClient error codes
 #define VOK         "ok"
@@ -52,21 +57,7 @@
  * daemon.
  */
 class VeilFS {
-private:
-        const char *m_root; ///< Filesystem root directory
-
-        static VeilFS *m_instance; ///< Class instance
-
-        FslogicProxy *m_fslogic; ///< FslogicProxy instance
-        StorageMapper *m_storageMapper; ///< StorageMapper instance
-        JobScheduler *m_jobScheduler; ///< JobScheduler instance
-        MetaCache *m_metaCache; ///< MetaCache instance
-
-
-        VeilFS(); ///< Private constuctor (VeilFS is a singleton)
 public:
-        static VeilFS *instance(); ///< Returns instance of VeilFS singleton.
-
         /**
          * errno translator.
          * Translates internal VeilCLient error codes (strings) to
@@ -76,11 +67,16 @@ public:
          * @return POSIX error code multiplied by -1
          */
         static int translateError(string verr);
-        static JobScheduler* getScheduler(); ///< Returns JobScheduler assigned to this object.
+        static shared_ptr<JobScheduler>  getScheduler();                 ///< Returns JobScheduler assigned to this object.
+        static shared_ptr<Config>  getConfig();                          ///< Returns Config assigned to this object.
+        
+        static void setScheduler(shared_ptr<JobScheduler> injected);     ///< Sets JobScheduler object.
 
-        ~VeilFS();
-
-        void set_rootdir(const char *path); ///< Sets root dir for VeilFS
+        VeilFS(string path, shared_ptr<Config> cnf, shared_ptr<JobScheduler> scheduler, 
+               shared_ptr<FslogicProxy> fslogic,  shared_ptr<MetaCache> metaCache, 
+               shared_ptr<StorageMapper> mapper, shared_ptr<StorageHelperFactory> sh_factory); ///< VeilFS constructor.
+        virtual ~VeilFS();
+        static void staticDestroy();
 
         int access(const char *path, int mask); /**< *access* FUSE callback. Not implemented yet. */
         int getattr(const char *path, struct stat *statbuf); /**< *getattr* FUSE callback. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
@@ -112,6 +108,19 @@ public:
         int releasedir(const char *path, struct fuse_file_info *fileInfo); /**< *releasedir* FUSE callback. Not implemented yet. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
         int fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo); /**< *fsyncdir* FUSE callback. Not implemented yet. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
         int init(struct fuse_conn_info *conn); /**< *init* FUSE callback. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
+
+
+private:
+        const char *m_root; ///< Filesystem root directory
+
+        shared_ptr<FslogicProxy> m_fslogic;             ///< FslogicProxy instance
+        shared_ptr<StorageMapper> m_storageMapper;      ///< StorageMapper instance
+        static shared_ptr<JobScheduler> m_jobScheduler; ///< JobScheduler instance
+        shared_ptr<MetaCache> m_metaCache;              ///< MetaCache instance
+        static shared_ptr<Config> m_config;             ///< Config instance
+        shared_ptr<StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance
+
+
 };
 
 #endif // VEIL_FS_H

@@ -26,114 +26,113 @@
 #endif
 
 #include <boost/filesystem.hpp>
+#include <boost/shared_ptr.hpp>
 #include <iostream>
 using namespace std;
-
+using namespace boost;
 
 #include "veilfs.hh"
 #include "config.hh"
-
 #include "glog/logging.h"
+
+shared_ptr<VeilFS> VeilAppObject;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void set_rootdir(const char *path) {
-    VeilFS::instance()->set_rootdir(path);
-}
 static int wrap_access(const char *path, int mask) {
-    return VeilFS::instance()->access(path, mask);
+    return VeilAppObject->access(path, mask);
 }
 static int wrap_getattr(const char *path, struct stat *statbuf) {
-    return VeilFS::instance()->getattr(path, statbuf);
+    return VeilAppObject->getattr(path, statbuf);
 }
 static int wrap_readlink(const char *path, char *link, size_t size) {
-    return VeilFS::instance()->readlink(path, link, size);
+    return VeilAppObject->readlink(path, link, size);
 }
 static int wrap_mknod(const char *path, mode_t mode, dev_t dev) {
-    return VeilFS::instance()->mknod(path, mode, dev);
+    return VeilAppObject->mknod(path, mode, dev);
 }
 static int wrap_mkdir(const char *path, mode_t mode) {
-    return VeilFS::instance()->mkdir(path, mode);
+    return VeilAppObject->mkdir(path, mode);
 }
 static int wrap_unlink(const char *path) {
-    return VeilFS::instance()->unlink(path);
+    return VeilAppObject->unlink(path);
 }
 static int wrap_rmdir(const char *path) {
-    return VeilFS::instance()->rmdir(path);
+    return VeilAppObject->rmdir(path);
 }
 static int wrap_symlink(const char *path, const char *link) {
-    return VeilFS::instance()->symlink(path, link);
+    return VeilAppObject->symlink(path, link);
 }
 static int wrap_rename(const char *path, const char *newpath) {
-    return VeilFS::instance()->rename(path, newpath);
+    return VeilAppObject->rename(path, newpath);
 }
 static int wrap_link(const char *path, const char *newpath) {
-    return VeilFS::instance()->link(path, newpath);
+    return VeilAppObject->link(path, newpath);
 }
 static int wrap_chmod(const char *path, mode_t mode) {
-    return VeilFS::instance()->chmod(path, mode);
+    return VeilAppObject->chmod(path, mode);
 }
 static int wrap_chown(const char *path, uid_t uid, gid_t gid) {
-    return VeilFS::instance()->chown(path, uid, gid);
+    return VeilAppObject->chown(path, uid, gid);
 }
 static int wrap_truncate(const char *path, off_t newSize) {
-    return VeilFS::instance()->truncate(path, newSize);
+    return VeilAppObject->truncate(path, newSize);
 }
 static int wrap_utime(const char *path, struct utimbuf *ubuf) {
-    return VeilFS::instance()->utime(path, ubuf);
+    return VeilAppObject->utime(path, ubuf);
 }
 static int wrap_open(const char *path, struct fuse_file_info *fileInfo) {
-    return VeilFS::instance()->open(path, fileInfo);
+    return VeilAppObject->open(path, fileInfo);
 }
 static int wrap_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
-    return VeilFS::instance()->read(path, buf, size, offset, fileInfo);
+    return VeilAppObject->read(path, buf, size, offset, fileInfo);
 }
 static int wrap_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
-    return VeilFS::instance()->write(path, buf, size, offset, fileInfo);
+    return VeilAppObject->write(path, buf, size, offset, fileInfo);
 }
 static int wrap_statfs(const char *path, struct statvfs *statInfo) {
-    return VeilFS::instance()->statfs(path, statInfo);
+    return VeilAppObject->statfs(path, statInfo);
 }
 static int wrap_flush(const char *path, struct fuse_file_info *fileInfo) {
-    return VeilFS::instance()->flush(path, fileInfo);
+    return VeilAppObject->flush(path, fileInfo);
 }
 static int wrap_release(const char *path, struct fuse_file_info *fileInfo) {
-    return VeilFS::instance()->release(path, fileInfo);
+    return VeilAppObject->release(path, fileInfo);
 }
 static int wrap_fsync(const char *path, int datasync, struct fuse_file_info *fi) {
-    return VeilFS::instance()->fsync(path, datasync, fi);
+    return VeilAppObject->fsync(path, datasync, fi);
 }
 #ifdef HAVE_SETXATTR
 static int wrap_setxattr(const char *path, const char *name, const char *value, size_t size, int flags) {
-    return VeilFS::instance()->setxattr(path, name, value, size, flags);
+    return VeilAppObject->setxattr(path, name, value, size, flags);
 }
 static int wrap_getxattr(const char *path, const char *name, char *value, size_t size) {
-    return VeilFS::instance()->getxattr(path, name, value, size);
+    return VeilAppObject->getxattr(path, name, value, size);
 }
 static int wrap_listxattr(const char *path, char *list, size_t size) {
-    return VeilFS::instance()->listxattr(path, list, size);
+    return VeilAppObject->listxattr(path, list, size);
 }
 static int wrap_removexattr(const char *path, const char *name) {
-    return VeilFS::instance()->removexattr(path, name);
+    return VeilAppObject->removexattr(path, name);
 }
 #endif // HAVE_SETXATTR
 static int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo) {
-    return VeilFS::instance()->readdir(path, buf, filler, offset, fileInfo);
+    return VeilAppObject->readdir(path, buf, filler, offset, fileInfo);
 }
 #ifdef HAVE_ADVANCED_DIR
 static int wrap_opendir(const char *path, struct fuse_file_info *fileInfo) {
-    return VeilFS::instance()->opendir(path, fileInfo);
+    return VeilAppObject->opendir(path, fileInfo);
 }
 static int wrap_releasedir(const char *path, struct fuse_file_info *fileInfo) {
-    return VeilFS::instance()->releasedir(path, fileInfo);
+    return VeilAppObject->releasedir(path, fileInfo);
 }
 static int wrap_fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo) {
-    return VeilFS::instance()->fsyncdir(path, datasync, fileInfo);
+    return VeilAppObject->fsyncdir(path, datasync, fileInfo);
 }
 static int wrap_init(struct fuse_conn_info *conn) {
-    return VeilFS::instance()->init(conn);
+    return VeilAppObject->init(conn);
 }
 #endif // HAVE_ADVANCED_DIR
 
@@ -200,27 +199,28 @@ int main(int argc, char* argv[])
 {
     umask(0);
 
+    shared_ptr<Config> config(new Config());
     // Find user config argument
     for(int i = 1; i < argc; ++i)
     {
         if(string(argv[i]).find(CONFIG_ARGV_OPT_NAME) != string::npos)
         {    
-            Config::instance().setUserConfigFile(string(argv[i]).substr(string(CONFIG_ARGV_OPT_NAME).size()));
+            config->setUserConfigFile(string(argv[i]).substr(string(CONFIG_ARGV_OPT_NAME).size()));
         }
     }
 
     // Setup config manager and paths
-    Config::instance().setGlobalConfigFile(GLOBAL_CONFIG_FILE);
-    if(!Config::instance().parseConfig())
+    config->setGlobalConfigFile(GLOBAL_CONFIG_FILE);
+    if(!config->parseConfig())
     {
         std::cerr << "Cannot load/parse global/user config file. Check logs for more detials. Aborting" << std::endl;
         return 1;
     }
 
     // logger setup
-    if(Config::isSet(LOG_DIR_OPT))
+    if(config->isSet(LOG_DIR_OPT))
     {
-        string log_path = Config::absPathRelToCWD(Config::getValue<string>(LOG_DIR_OPT));
+        string log_path = Config::absPathRelToCWD(config->getString(LOG_DIR_OPT));
         FLAGS_log_dir = log_path;
         LOG(INFO) << "Setting log dir to: " << log_path;
     }
@@ -228,7 +228,7 @@ int main(int argc, char* argv[])
     FLAGS_alsologtostderr = true;
 
     // Check certificate file
-    string certFile = Config::absPathRelToHOME(Config::getValue<string>(PEER_CERTIFICATE_FILE_OPT));
+    string certFile = Config::absPathRelToHOME(config->getString(PEER_CERTIFICATE_FILE_OPT));
     if( !boost::filesystem::exists( certFile ) )
     {
         std::cerr << "Cannot find peer certificate file: " << certFile << std::endl;
@@ -236,9 +236,16 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
+    // Initialize application
+    VeilAppObject.reset(new VeilFS(argv[1], config, 
+                        shared_ptr<JobScheduler>(new JobScheduler()), 
+                        shared_ptr<FslogicProxy>(new FslogicProxy()), 
+                        shared_ptr<MetaCache>(new MetaCache()), 
+                        shared_ptr<StorageMapper>(new StorageMapper(*new FslogicProxy())),
+                        shared_ptr<StorageHelperFactory>(new StorageHelperFactory())));
+
     // Initialize FUSE
     fuse_init();
-    VeilFS::instance()->set_rootdir(argv[1]);
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
     fuse_opt_parse(&args, NULL, NULL, vfs_opt_proc);
 

@@ -11,21 +11,20 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <boost/shared_ptr.hpp>
 #include "helpers/IStorageHelper.hh"
 
+using namespace std;
+using namespace boost;
+
 /**
- * Singleton Factory providing objects of requested storage helpers.
+ * Factory providing objects of requested storage helpers.
  */
 class StorageHelperFactory {
-	private:
-        static StorageHelperFactory *_instance;     ///< Singleton instance.
-
-		StorageHelperFactory();
 
 	public:
-        static StorageHelperFactory *instance();    ///< Singleton instance getter.
-
-		~StorageHelperFactory();	
+        StorageHelperFactory();
+		virtual ~StorageHelperFactory();	
 
         /**
          * Produces storage helper object.
@@ -33,7 +32,7 @@ class StorageHelperFactory {
          * @param args Arguments vector passed as argument to storge helper's constructor.
          * @return Pointer to storage helper object along with its ownership.
          */
-        IStorageHelper* getStorageHelper(std::string sh, std::vector<std::string> args);
+        virtual shared_ptr<IStorageHelper> getStorageHelper(string sh, vector<string> args);
 	
 };
 

@@ -46,28 +46,28 @@ struct Job
  */
 class JobScheduler
 {
-private:
+protected:
     priority_queue<Job> m_jobQueue;     ///< Run queue.
 
     pthread_t m_daemon;                 ///< Thread ID
     pthread_mutex_t m_mutex;            ///< Mutex used to synchronize access to JobScheduler::m_jobQueue
     pthread_cond_t m_queueCond;         ///< Condition used to synchronize access to JobScheduler::m_jobQueue
 
-    void schedulerMain();               ///< Thread main loop.
+    virtual void schedulerMain();       ///< Thread main loop.
                                         ///< Checks run queue and runs tasks when needed.
-    void runJob(Job job);               ///< Starts given task. @see JobScheduler::schedulerMain
-    void startDaemon();                 ///< Starts/restarts daemon.
+    virtual void runJob(Job job);       ///< Starts given task. @see JobScheduler::schedulerMain
+    virtual void startDaemon();         ///< Starts/restarts daemon.
 
     static void* schedulerMainWrapper(void* arg);   ///< C wrapper used to start JobScheduler::schedulerMain
 
 public:
     JobScheduler();
-    ~JobScheduler();
+    virtual ~JobScheduler();
 
-    void addTask(Job job);                                              ///< Insert (register) new task to run queue.
-                                                                        ///< Inserted task shall run when current time passes its Job::when. @see ::Job
-    void deleteJobs(ISchedulable *subject, ISchedulable::TaskID task);  ///< Deletes all jobs registred by given object.
-                                                                        ///< Used mainly when ISchedulable object is destructed.
+    virtual void addTask(Job job);                                              ///< Insert (register) new task to run queue.
+                                                                                ///< Inserted task shall run when current time passes its Job::when. @see ::Job
+    virtual void deleteJobs(ISchedulable *subject, ISchedulable::TaskID task);  ///< Deletes all jobs registred by given object.
+                                                                                ///< Used mainly when ISchedulable object is destructed.
 };
 
 #endif // JOBSCHEDULER_HH

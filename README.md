@@ -34,7 +34,7 @@ Use this command to install the required dependency packages:
 
 * RHEL/CentOS/Fedora Dependencies (.rpm packages):
 
-        yum install fuse fuse-libs fuse-devel protobuf-devel openssl-devel cmake28 boost-devel rpm-build
+        yum install fuse fuse-libs fuse-devel protobuf-devel openssl-devel cmake28 boost-devel rpm-build subversion
 
         
 Compilation
@@ -44,35 +44,43 @@ Compilation
 
 If you just need an RPM package, you can just type:
 
-	chmod +x build.sh  && ./build.sh
+	make -s rpm
 
 If there was no errors, you will get list of generated packages (rpm or dep).
 
 ### "The standard way"
 
-VeilClient uses cmake (note that cmake binary name can be different in your distro) as a build tool thus building process is same as for most cmake-based projects:
+VeilClient uses cmake as a build tool thus building process is same as for most cmake-based projects.
+However you can use Makefile-proxy with following interface:
+(Note that -s flag is optional - it's a silent mode which makes output much prettier, because it leaves only cmakes' stdout/stderr)
 
 #### Configure
 
-    mkdir build
-    cd build
-    cmake28 ..
+    make -s configure
     
 #### Build
     
-    make
+    make -s build
     
 #### Install
 
-    make install
+    make -s install
     
 #### RPM/DEB packages
 
-After the *Build* step you can also generate RPM or DEB package for you distro. In order to do that, type in your *build* direcotry:
+    make -s rpm
 
-    cpack28 -C CPackConfig.cmake -G RPM
+#### Testing
     
-If you need DEB package just swap RPM to DEB in command above.
+There are two testing targets:
+
+    make -s test
+
+which has summarized output (per test case) and:
+
+    make -s cunit
+
+which shows detailed test results. 
 
 Using VeilClient
 ----------------

@@ -1,11 +1,11 @@
 cmake_minimum_required (VERSION 2.8.0)
-project (VeilClient)
+project (VeilClient CXX)
 
 include(ExternalProject)
 
 # The version number.
 set(VeilClient_VERSION_MAJOR 0)
-set(VeilClient_VERSION_MINOR 1)
+set(VeilClient_VERSION_MINOR 2)
 set(VeilClient_VERSION_PATCH 0)
 set(VeilClient_VERSION $(VeilClient_VERSION_MAJOR).$(VeilClient_VERSION_MINOR).$(VeilClient_VERSION_PATCH))
 
@@ -16,23 +16,25 @@ set(LIB_DIR "lib")
 
 # CMake config
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
+set(DEPS_DIR "deps")
+# set(CMAKE_FIND_LIBRARY_SUFFIXES .a) # Uncomment in order to force looking for static achives instead .so
 configure_file (
-	"${PROJECT_SOURCE_DIR}/include/veilConfig.h.in"
-	"${PROJECT_BINARY_DIR}/veilConfig.h"
+    "${PROJECT_SOURCE_DIR}/include/veilConfig.h.in"
+    "${PROJECT_BINARY_DIR}/veilConfig.h"
 )
 
-# Deps prefix
-set(GLOG_PREFIX "src/google-glog")
-set(YAML_CPP_PREFIX "src/yaml-cpp")
+# Deps
+add_subdirectory(${DEPS_DIR}/glog)
+add_subdirectory(${DEPS_DIR}/yaml-cpp)
+add_subdirectory(${DEPS_DIR}/gmock)
+add_subdirectory(${DEPS_DIR}/gtest)
 
 # Include paths
 include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/include/fuse)
 include_directories(${PROJECT_BINARY_DIR})
-
-# Deps
-include_directories(${YAML_CPP_PREFIX}/include)
-include_directories(${GLOG_PREFIX}/src)
+include_directories(${GLOG_INCLUDE_DIR})
+include_directories(${YAML_INCLUDE_DIR})
 
 # Setup fuse
 message(STATUS "Checking for FUSE...")
@@ -60,16 +62,17 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 # Setup Boost
 set(Boost_USE_STATIC_LIBS   ON)
 find_package(Boost COMPONENTS system thread filesystem REQUIRED)
+set(Boost_LIBRARIES "boost_thread-mt;boost_filesystem-mt;boost_system-mt") # SL6 bug fix
 include_directories(${Boost_INCLUDE_DIRS})
 
 # Pull git submodules
 message(STATUS "Pulling submodules using git...")
 execute_process(COMMAND ${GIT_EXECUTABLE} submodule init
-				WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+                WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 execute_process(COMMAND ${GIT_EXECUTABLE} submodule update
-				WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+                WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 execute_process(COMMAND ${GIT_EXECUTABLE} submodule foreach git checkout 
-				WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+                WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 # Compile .proto files
 file(GLOB PROTO_FILES "${PROJECT_SOURCE_DIR}/veilprotocol/proto/*.proto")
@@ -79,6 +82,8 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 # Setup sources
 file(GLOB SOURCES "src/fuse/[a-zA-Z]*.cc")
 file(GLOB HELPER_SOURCES "src/helpers/[a-zA-Z]*.cc")
+file(GLOB MAIN_SOURCE_FILE "src/fuse/veilFuse.cc")
+string(REGEX REPLACE "${MAIN_SOURCE_FILE}" "" SOURCES "${SOURCES}")
 
 # Setup compile flags
 set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/${LIB_DIR}:${CMAKE_CURRENT_BINARY_DIR}:.:${LIB_DIR}:../${LIB_DIR}")
@@ -86,56 +91,55 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 ${FUSE_DEFINITIONS} -Wl,-rpath,${CUS
 set(CMAKE_SKIP_RPATH TRUE) # Something is wrong with CMake RPATH config, we need to use old-fashion way
 
 # Define targets
+
+
 add_library(veilhelpers ${HELPER_SOURCES})
-add_executable(veilFuse ${SOURCES} ${PROTO_SRCS})
-add_dependencies(veilFuse yaml-cpp) 
+add_library(veilprotocol ${PROTO_SRCS})
+add_library(veilclient ${SOURCES})
+add_executable(veilFuse ${MAIN_SOURCE_FILE})
+
+add_dependencies(veilhelpers glog) 
+add_dependencies(veilFuse yaml-cpp glog veilclient) 
+add_dependencies(veilclient yaml-cpp glog veilprotocol) 
 set_target_properties(veilFuse PROPERTIES COMPILE_FLAGS "-Wall -g")
 
-
-# glog
-message(STATUS "Configuring google-glog...")
-execute_process(COMMAND ./configure
-				WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/${GLOG_PREFIX}
-)
-add_library(glog 
-	${GLOG_PREFIX}/src/logging.cc
-	${GLOG_PREFIX}/src/raw_logging.cc
-	${GLOG_PREFIX}/src/vlog_is_on.cc
-	${GLOG_PREFIX}/src/utilities.cc
-	${GLOG_PREFIX}/src/demangle.cc
-	${GLOG_PREFIX}/src/symbolize.cc
-	${GLOG_PREFIX}/src/signalhandler.cc
+target_link_libraries(veilprotocol
+    ${PROTOBUF_LIBRARY}
+    ${CMAKE_THREAD_LIBS_INIT}
 )
 
-# yaml-cpp
-ExternalProject_Add(yaml-cpp
-	PREFIX ${PROJECT_BINARY_DIR}
-	SOURCE_DIR ${PROJECT_SOURCE_DIR}/${YAML_CPP_PREFIX}
-	BINARY_DIR ${PROJECT_BINARY_DIR}/${YAML_CPP_PREFIX}
-	INSTALL_COMMAND ""
+target_link_libraries(veilclient
+    ${FUSE_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
+    ${OPENSSL_LIBRARIES}
+    ${Boost_LIBRARIES}
+    ${GLOG_LIBRARIES}
+    ${YAML_LIBRARIES}
+    veilhelpers
+    veilprotocol
+    dl
+    z
 )
 
 target_link_libraries(veilFuse 
-	${FUSE_LIBRARIES}
-	${PROTOBUF_LIBRARY}
-	${CMAKE_THREAD_LIBS_INIT}
-	${OPENSSL_LIBRARIES}
-	${Boost_LIBRARIES}
-	${PROJECT_BINARY_DIR}/${YAML_CPP_PREFIX}/libyaml-cpp.a
-	veilhelpers
-	glog
+    ${GLOG_LIBRARIES}
+    ${FUSE_LIBRARIES}
+    ${PROTOBUF_LIBRARY}
+    veilclient
+    dl
+    z
 )
 
 # Install config
 install(TARGETS veilFuse
-		RUNTIME DESTINATION ${BIN_DIR}
-		LIBRARY DESTINATION ${LIB_DIR}
+        RUNTIME DESTINATION ${BIN_DIR}
+        LIBRARY DESTINATION ${LIB_DIR}
 )
 install(DIRECTORY config/ DESTINATION ${CONFIG_DIR})
 
 # build a CPack driven installer package
 include(InstallRequiredSystemLibraries)
-set(CPACK_SET_DESTDIR ON)
+set(CPACK_SET_DESTDIR ON) # Uncomment this line if you need a non-relocatable RPM package
 set(CPACK_RESOURCE_FILE_LICENSE  
      "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
 set(CPACK_PACKAGE_VERSION_MAJOR "${VeilClient_VERSION_MAJOR}")
@@ -148,3 +152,41 @@ set(CPACK_RPM_PACKAGE_REQUIRES "fuse, fuse-libs, protobuf openssl")
 set(CPACK_RPM_PACKAGE_AUTOREQPROV " no")
 
 include(CPack)
+
+###########################
+##         TESTS         ##
+###########################
+
+enable_testing()
+include_directories(${GTEST_INCLUDE_DIR})
+include_directories(${GMOCK_INCLUDE_DIR})
+
+add_custom_target(cunit)
+macro(run_test test_target)
+  add_custom_target(${test_target}_runtest
+      COMMAND ${test_target}
+      DEPENDS ${test_target}
+      WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+  add_dependencies(cunit ${test_target}_runtest)
+endmacro()
+
+set(TEST_SOURCES_DIR "test")
+include_directories(${TEST_SOURCES_DIR}/include)
+
+file(GLOB files ${TEST_SOURCES_DIR}/*/*_test.cc)
+foreach(file ${files})
+    get_filename_component(TEST_NAME ${file} NAME_WE)
+    add_executable(${TEST_NAME} ${file})
+    add_dependencies(${TEST_NAME} gtest gmock veilFuse veilhelpers veilclient veilprotocol)
+    target_link_libraries(${TEST_NAME}
+        ${CMAKE_THREAD_LIBS_INIT}
+        ${GTEST_LIBRARIES}
+        ${GMOCK_LIBRARIES}
+        ${FUSE_LIBRARIES}
+        veilclient
+        dl 
+        z
+    )    
+    add_test(${TEST_NAME} ${TEST_NAME})
+    run_test(${TEST_NAME})
+endforeach()

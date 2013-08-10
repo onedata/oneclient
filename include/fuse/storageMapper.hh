@@ -31,7 +31,7 @@ typedef struct locationInfo {
                    ///< file path relative to the _storage_ @see StorageMapper::m_fileMapping
 
     time_t validTo; ///< Mapping expiration time
-    int opened; ///< How many files are currently opened using this mapping.
+    int opened;     ///< How many files are currently opened using this mapping.
 
     bool isValid() ///< Checks if the structure contains vaild data.
     {
@@ -54,7 +54,7 @@ typedef struct storageInfo
 class StorageMapper : public ISchedulable
 {
 
-private:
+protected:
     map<int, storageInfo> m_storageMapping; ///< Contains storage info accessd by its ID. @see storageInfo
     ReadWriteLock m_storageMappingLock; ///< Lock used while operating on StorageMapper::m_storageMapping. @see StorageMapper::m_storageMapping
     map<string, locationInfo> m_fileMapping; ///< Contains storage info accessd by its ID. @see storageInfo
@@ -65,7 +65,7 @@ private:
 public:
 
     StorageMapper(FslogicProxy& fslogicProxy);
-    ~StorageMapper();
+    virtual ~StorageMapper();
 
     /**
      * Gets file location information along with storage info for storage heleper's calls.
@@ -73,14 +73,14 @@ public:
      * @param useCluster Specify if the method should use cache only (deafault) or try quering cluster.
      * @return std::pair of locationInfo and storageInfo structs for this file
      */
-    pair<locationInfo, storageInfo> getLocationInfo(string logical_name, bool useCluster = false);
-    string findLocation(string logicalName); ///< Query cluster about file location and instert it to cache. @see StorageMapper::addLocation
-    void addLocation(string logicalName, FileLocation location); ///< Cache given file location.
-                                                                 ///< Insert to file location cache new FileLocation received from cluster.
-    void openFile(string logicalName); ///< Increases open file count for specified file. @see locationInfo::opened
-    void releaseFile(string logicalName); ///< Decreases open file count for specified file. @see locationInfo::opened
+    virtual pair<locationInfo, storageInfo> getLocationInfo(string logical_name, bool useCluster = false);
+    virtual string findLocation(string logicalName);                        ///< Query cluster about file location and instert it to cache. @see StorageMapper::addLocation
+    virtual void addLocation(string logicalName, FileLocation location);    ///< Cache given file location.
+                                                                            ///< Insert to file location cache new FileLocation received from cluster.
+    virtual void openFile(string logicalName);                              ///< Increases open file count for specified file. @see locationInfo::opened
+    virtual void releaseFile(string logicalName);                           ///< Decreases open file count for specified file. @see locationInfo::opened
 
-    bool runTask(TaskID taskId, string arg0, string arg1, string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+    virtual bool runTask(TaskID taskId, string arg0, string arg1, string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 };
 

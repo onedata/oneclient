@@ -29,29 +29,29 @@ using namespace std;
 class CommunicationHandler
 {
 
-private:
+protected:
     int serverSocket;
     SSL_CTX * sslContext;
     SSL * ssl;
 
-    int openTCPConnection(const char *hostname, int port);  ///< Opens INET socket.
-    int initCTX();                                          ///< Initialize certificates etc.
-    void initSSL();                                         ///< Initialize SSL context.
-    int writeBytes(uint8_t * msg_buffer, int size);         ///< Write given array of bytes to SSL socket. @return -1 on error. Otherwise number of bytes written.
-    int readBytes(uint8_t * msg_buffer, int size);          ///< Read bytes from SSL socket. @return -1 on error. Otherwise number of bytes read.
+    virtual int openTCPConnection(const char *hostname, int port);  ///< Opens INET socket.
+    virtual int initCTX();                                          ///< Initialize certificates etc.
+    virtual void initSSL();                                         ///< Initialize SSL context.
+    virtual int writeBytes(uint8_t * msg_buffer, int size);         ///< Write given array of bytes to SSL socket. @return -1 on error. Otherwise number of bytes written.
+    virtual int readBytes(uint8_t * msg_buffer, int size);          ///< Read bytes from SSL socket. @return -1 on error. Otherwise number of bytes read.
 
 public:
     CommunicationHandler();
-    ~CommunicationHandler();
-    int openConnection(string hostname, int port);          ///< Opens SSL connection to given host.
-    void closeConnection();                                 ///< Closes active connection.
-    int sendMessage(const ClusterMsg& message);             ///< Sends ClusterMsg using current SSL session. Will fail if there isnt one.
-    int receiveMessage(Answer * answer);                    ///< Receives Answer using current SSL session. Will fail if there isnt one.
-    Answer comunicate(ClusterMsg &msg, uint8_t retry);      ///< Sends ClusterMsg and receives answer. Same as running CommunicationHandler::sendMessage and CommunicationHandler::receiveMessage
-                                                            ///< but this method also supports reconnect option. If something goes wrong during communication, new connection will be
-                                                            ///< estabilished and the whole process will be repeated.
-                                                            ///< @param retry How many times tries has to be made before returning error.
-                                                            ///< @return Answer protobuf message. If error occures, empty Answer object will be returned.
+    virtual ~CommunicationHandler();
+    virtual int openConnection(string hostname, int port);          ///< Opens SSL connection to given host.
+    virtual void closeConnection();                                 ///< Closes active connection.
+    virtual int sendMessage(const ClusterMsg& message);             ///< Sends ClusterMsg using current SSL session. Will fail if there isnt one.
+    virtual int receiveMessage(Answer * answer);                    ///< Receives Answer using current SSL session. Will fail if there isnt one.
+    virtual Answer communicate(ClusterMsg &msg, uint8_t retry);      ///< Sends ClusterMsg and receives answer. Same as running CommunicationHandler::sendMessage and CommunicationHandler::receiveMessage
+                                                                    ///< but this method also supports reconnect option. If something goes wrong during communication, new connection will be
+                                                                    ///< estabilished and the whole process will be repeated.
+                                                                    ///< @param retry How many times tries has to be made before returning error.
+                                                                    ///< @return Answer protobuf message. If error occures, empty Answer object will be returned.
 };
 
 #endif // COMMUNICATION_HANDLER_H

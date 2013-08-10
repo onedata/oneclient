@@ -36,17 +36,27 @@ using namespace std;
  */
 class Config
 {
+    friend class IVeilFactory;
 public:
-    static Config& instance();                  ///< Singleton instance
-    template<typename T>
-    static T getValue(string opt);              ///< Returns value of requested option.
-                                                ///< You also need to provide type of returned value. Before using this function you should check is option exists, but
+    virtual string getString(string opt);       ///< Returns string value of requested option.
+                                                ///< Before using this function you should check is option exists, but
+                                                ///< it's not required. @see Config::isSet
+    virtual int getInt(string opt);             ///< Returns int value of requested option.
+                                                ///< Before using this function you should check is option exists, but
+                                                ///< it's not required. @see Config::isSet
+    virtual double getDouble(string opt);               ///< Returns double value of requested option.
+                                                ///< Before using this function you should check is option exists, but
+                                                ///< it's not required. @see Config::isSet
+    virtual bool getBool(string opt);           ///< Returns boolean value of requested option.
+                                                ///< Before using this function you should check is option exists, but
                                                 ///< it's not required. @see Config::isSet
                                                 ///< @warning If given opition wasn't set, you'll get empty object of given type T ( T() )
+    
+    virtual bool isSet(string);                 ///< Checks if given option is set. @see Config::getValue
+
     string static absPathRelToCWD(string);      ///< Converts relative path, to absolute using CWD env as base prefix.
     string static absPathRelToHOME(string);     ///< Converts relative path, to absolute using HOME env as base prefix.
-    bool static isSet(string);                  ///< Checks if given option is set. @see Config::getValue
-
+    
     void setGlobalConfigFile(string path);      ///< Sets path to global config file. @see Config::parseConfig
     void setUserConfigFile(string path);        ///< Sets path to user config file. @see Config::parseConfig
     void setEnv();                              ///< Saves current CWD and HOME env viariables. This is required as FUSE changes them after non-debug start. This is also done automatically in Config::Config
@@ -54,16 +64,16 @@ public:
                                                 ///< User config overides global settings.
                                                 ///< If user config declares all required options, global config file isn't required, otherwise it has exists.
 
-private:
     Config();
+    virtual ~Config();
 
-    static Config m_instance;                   ///< Singleton instance.
+private:
     static string m_requiredOpts[];             ///< Array containing required options names
+    static string m_envCWD;                     ///< Saved CWD env variable
+    static string m_envHOME;                    ///< Saved HOME env variable
 
     string m_globalConfigPath;                  ///< Path to global config file. @see Config::setGlobalConfigFile
     string m_userConfigPath;                    ///< Path to user config file. @see Config::setUserConfigFile
-    string m_envCWD;                            ///< Saved CWD env variable
-    string m_envHOME;                           ///< Saved HOME env variable
 
     YAML::Node m_globalNode;                    ///< Global config object
     YAML::Node m_userNode;                      ///< User config object
@@ -71,6 +81,9 @@ private:
 
     template<typename T>
     T get(string opt);                          ///< Internal implementation of Config::getValue. @see Config::getValue
+    
+    template<typename T>
+    T getValue(string opt);                     ///< Returns type-specialized value of given config option. 
 };
 
 template<typename T>
@@ -93,7 +106,7 @@ T Config::get(string opt)
 template<typename T>
 T Config::getValue(string opt)
 {
-    if(Config::instance().get<bool>(ENABLE_ENV_OPTION_OVERRIDE))
+    if(get<bool>(ENABLE_ENV_OPTION_OVERRIDE))
     {
         string upper;
         for(size_t i = 0; i < opt.size(); ++i)
@@ -107,15 +120,15 @@ T Config::getValue(string opt)
         if(env.size() > 0)
         {
             try {
-                Config::instance().m_envNode[opt] = env;
-                return Config::instance().m_envNode[opt].as<T>();
+                m_envNode[opt] = env;
+                return m_envNode[opt].as<T>();
             } catch(YAML::Exception e) {
                 LOG(WARNING) << "ENABLE_ENV_OPTION_OVERRIDE = true but there was an error while parsing env value";
             }
         }
     }
 
-    return Config::instance().get<T>(opt);
+    return get<T>(opt);
 }
 
 #endif // CONFIG_HH

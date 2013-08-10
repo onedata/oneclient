@@ -6,10 +6,11 @@
  */
 
 #include "config.hh"
-
 #include <fstream>
 
-Config Config::m_instance;
+string Config::m_envCWD;
+string Config::m_envHOME;
+
 string Config::m_requiredOpts[] = {
     CLUSTER_HOSTNAME_OPT,
     CLUSTER_PORT_OPT,
@@ -22,9 +23,8 @@ Config::Config()
     setEnv();
 }
 
-Config& Config::instance()
+Config::~Config()
 {
-    return m_instance;
 }
 
 void Config::setGlobalConfigFile(string path)
@@ -49,11 +49,11 @@ void Config::setEnv()
 bool Config::isSet(string opt)
 {
     try {
-        Config::instance().m_userNode[opt];
+        m_userNode[opt].as<string>();
         return true;
     } catch(YAML::Exception e) {
         try {
-            Config::instance().m_globalNode[opt];
+            m_globalNode[opt].as<string>();
             return true;
         } catch(YAML::Exception e) {
             return false;
@@ -107,7 +107,7 @@ string Config::absPathRelToCWD(string path)
     if(path[0] == '/')
         return path;
     else
-        return string(Config::instance().m_envCWD) + "/" + path;
+        return string(m_envCWD) + "/" + path;
 }
 
 string Config::absPathRelToHOME(string path)
@@ -115,7 +115,25 @@ string Config::absPathRelToHOME(string path)
     if(path[0] == '/')
         return path;
     else
-        return string(Config::instance().m_envHOME) + "/" + path;
+        return string(m_envHOME) + "/" + path;
 }
 
+string Config::getString(string opt) 
+{
+    return getValue<string>(opt);
+}
 
+int Config::getInt(string opt)
+{
+    return getValue<int>(opt);
+}
+
+bool Config::getBool(string opt)
+{
+    return getValue<bool>(opt);
+}   
+
+double Config::getDouble(string opt)
+{
+    return getValue<double>(opt);
+}

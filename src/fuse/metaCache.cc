@@ -22,9 +22,9 @@ MetaCache::~MetaCache()
 {
 }
 
-void MetaCache::addAttr(string path, struct stat attr)
+void MetaCache::addAttr(string path, struct stat &attr)
 {
-    if(Config::isSet(ENABLE_ATTR_CACHE_OPT) && !Config::getValue<bool>(ENABLE_ATTR_CACHE_OPT))
+    if(VeilFS::getConfig()->isSet(ENABLE_ATTR_CACHE_OPT) && !VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT))
         return;
 
     AutoLock lock(m_statMapLock, WRITE_LOCK);
@@ -33,7 +33,9 @@ void MetaCache::addAttr(string path, struct stat attr)
 
     if(!wasBefore)
     {
-        int expiration_time = Config::isSet(ATTR_CACHE_EXPIRATION_TIME_OPT) ? Config::getValue<int>(ATTR_CACHE_EXPIRATION_TIME_OPT) : ATTR_DEFAULT_EXPIRATION_TIME;
+        int expiration_time = VeilFS::getConfig()->isSet(ATTR_CACHE_EXPIRATION_TIME_OPT) ? VeilFS::getConfig()->getInt(ATTR_CACHE_EXPIRATION_TIME_OPT) : ATTR_DEFAULT_EXPIRATION_TIME;
+        if(expiration_time <= 0)
+            expiration_time = ATTR_DEFAULT_EXPIRATION_TIME;
         // because of random part, only small parts of cache will be updated at the same moment
         int when = time(NULL) + expiration_time / 2 + rand() % expiration_time;
         VeilFS::getScheduler()->addTask(Job(when, this, TASK_CLEAR_FILE_ATTR, path));

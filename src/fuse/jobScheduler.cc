@@ -16,6 +16,8 @@
                             int e = M; \
                             if(e != 0) { \
                                 LOG(ERROR) << "Daemon mutex error: " << e; \
+                                pthread_cancel(m_daemon); \
+                                pthread_join(m_daemon, NULL); \
                                 startDaemon(); \
                                 return; \
                             } \
@@ -49,7 +51,9 @@ JobScheduler::JobScheduler()
 
 JobScheduler::~JobScheduler()
 {
-    //pthread_join(_daemon, NULL);
+    pthread_cancel(m_daemon);
+    pthread_join(m_daemon, NULL);
+    LOG(INFO) << "JobScheduler stopped...";
 }
 
 void JobScheduler::startDaemon()
@@ -131,7 +135,7 @@ void JobScheduler::schedulerMain()
 
 void JobScheduler::runJob(Job job)
 {
-    LOG(INFO) << "Processing job... TaskID: " << job.task;
+    LOG(INFO) << "Processing job... TaskID: " << job.task << " (" << job.arg0 << ", " << job.arg1 << ", " << job.arg2 << ")";
     if(!job.subject->runTask(job.task, job.arg0, job.arg1, job.arg2))
         LOG(WARNING) << "Task with id: " << job.task << " failed";
 }

@@ -7,13 +7,10 @@
 
 #include "messageBuilder.hh"
 #include "config.hh"
+#include "veilfs.hh"
 
 #include <iostream>
 #include <unistd.h>
-
-#define GET_FILE_LOCATION "getfilelocation"
-#define FUSE_MESSAGE "fusemessage"
-#define FSLOGIC "fslogic"
 
 MessageBuilder::MessageBuilder()
 {
@@ -64,8 +61,8 @@ ClusterMsg * MessageBuilder::packFuseMessage(string messageType, string answerTy
     char tmpHost[1024];
     gethostname(tmpHost, sizeof(tmpHost));
     string fuseID = string(tmpHost);
-    if(Config::isSet(FUSE_ID_OPT))
-        fuseID = Config::getValue<string>(FUSE_ID_OPT);
+    if(VeilFS::getConfig()->isSet(FUSE_ID_OPT))
+        fuseID = VeilFS::getConfig()->getString(FUSE_ID_OPT);
 
     FuseMessage * fuseMessage = createFuseMessage(fuseID,
         messageType, messageInput);

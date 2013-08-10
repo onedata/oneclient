@@ -13,14 +13,10 @@
 
 #include <sys/stat.h>
 
-
-VeilFS* VeilFS::m_instance = NULL;
-
 /// Runs FUN on NAME storage helper with constructed with ARGS. Return value is avaiable in 'int sh_return'.
-#define SH_RUN(NAME, ARGS, FUN) IStorageHelper *ptr = StorageHelperFactory::instance()->getStorageHelper(NAME, ARGS); \
-                                if(ptr == NULL) { LOG(ERROR) << "storage helper '" << NAME << "' not found"; return -EIO; } \
-                                int sh_return = ptr->FUN; \
-                                delete ptr;
+#define SH_RUN(NAME, ARGS, FUN) shared_ptr<IStorageHelper> ptr = m_shFactory->getStorageHelper(NAME, ARGS); \
+                                if(!ptr) { LOG(ERROR) << "storage helper '" << NAME << "' not found"; return -EIO; } \
+                                int sh_return = ptr->FUN; 
 
 /// If given veilError does not produce POSIX 0 return code, interrupt execution by returning POSIX error code.
 #define RETURN_IF_ERROR(X)  { \
@@ -46,30 +42,32 @@ VeilFS* VeilFS::m_instance = NULL;
                                 }
 
 
+shared_ptr<Config> VeilFS::m_config;
+shared_ptr<JobScheduler> VeilFS::m_jobScheduler;
 
-VeilFS::VeilFS() : 
-    m_fslogic(new FslogicProxy()),
-    m_storageMapper(new StorageMapper(*m_fslogic)),
-    m_jobScheduler(new JobScheduler()),
-    m_metaCache(new MetaCache())
+VeilFS::VeilFS(string path, shared_ptr<Config> cnf, shared_ptr<JobScheduler> scheduler, 
+               shared_ptr<FslogicProxy> fslogic,  shared_ptr<MetaCache> metaCache, 
+               shared_ptr<StorageMapper> mapper, shared_ptr<StorageHelperFactory> sh_factory) : 
+    m_fslogic(fslogic),
+    m_storageMapper(mapper),
+    m_metaCache(metaCache),
+    m_shFactory(sh_factory)
 {
+    LOG(INFO) << "setting VFS root dir as: " << string(path);
+    m_root = path.c_str();
+
+    m_config = cnf;
+    m_jobScheduler = scheduler;
 }
 
 VeilFS::~VeilFS()
 {
-    delete m_fslogic;
-    delete m_storageMapper;
-    delete m_jobScheduler;
-    delete m_metaCache;
 }
 
-void VeilFS::set_rootdir(const char *path)
+void VeilFS::staticDestroy() 
 {
-    if(path == NULL)
-        return;
-
-    LOG(INFO) << "setting VFS root dir as: " << string(path);
-    m_root = path;
+    m_config.reset();
+    m_jobScheduler.reset();
 }
 
 int VeilFS::access(const char *path, int mask)
@@ -135,8 +133,8 @@ int VeilFS::getattr(const char *path, struct stat *statbuf)
     if(attr.type() == "DIR" || attr.type() == "LNK")
     {
         statbuf->st_atime = attr.atime();
-        statbuf->st_mtime = attr.atime();
-        statbuf->st_ctime = attr.atime();
+        statbuf->st_mtime = attr.mtime();
+        statbuf->st_ctime = attr.ctime();
     }
 
     if(attr.type() == "DIR")
@@ -151,7 +149,7 @@ int VeilFS::getattr(const char *path, struct stat *statbuf)
     {
         try
         {
-             location = m_storageMapper->getLocationInfo(string(path));
+            location = m_storageMapper->getLocationInfo(string(path));
         }
         catch(VeilException e)
         {
@@ -174,6 +172,8 @@ int VeilFS::getattr(const char *path, struct stat *statbuf)
         statbuf->st_ctime = statbuf_tmp.st_ctime;
         statbuf->st_blocks = statbuf_tmp.st_blocks;
         statbuf->st_mode =  statbuf_tmp.st_mode;
+        statbuf->st_uid = statbuf_tmp.st_uid;
+        statbuf->st_gid = statbuf_tmp.st_gid;
     }
 
     m_metaCache->addAttr(string(path), *statbuf);
@@ -390,7 +390,7 @@ int VeilFS::fsync(const char *path, int datasync, struct fuse_file_info *fi)
 int VeilFS::opendir(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: opendir(path: " << string(path) << ", ...)";
-    return -EIO;
+    return 0;
 }
 
 int VeilFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo)
@@ -455,17 +455,19 @@ int VeilFS::init(struct fuse_conn_info *conn) {
     return 0;
 }
 
-JobScheduler* VeilFS::getScheduler()
+shared_ptr<JobScheduler> VeilFS::getScheduler()
 {
-    return VeilFS::instance()->m_jobScheduler;
+    return m_jobScheduler;
 }
 
-VeilFS* VeilFS::instance()
+shared_ptr<Config> VeilFS::getConfig()
 {
-    if(m_instance == NULL)
-        m_instance = new VeilFS();
+    return m_config;
+}
 
-    return m_instance;
+void VeilFS::setScheduler(shared_ptr<JobScheduler> injected) 
+{
+    m_jobScheduler = injected;
 }
 
 int VeilFS::translateError(string verr)

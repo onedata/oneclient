@@ -9,26 +9,20 @@
 #include "helpers/directIOHelper.hh"
 #include "glog/logging.h"
 
-StorageHelperFactory* StorageHelperFactory::_instance = NULL;
-
 StorageHelperFactory::StorageHelperFactory() 
 {
 }
 
-StorageHelperFactory* StorageHelperFactory::instance() {
-	if(_instance == NULL) {
-		_instance = new StorageHelperFactory();
-	}
-	return _instance;
+StorageHelperFactory::~StorageHelperFactory() 
+{
 }
 
-
-IStorageHelper* StorageHelperFactory::getStorageHelper(std::string sh_name, std::vector<std::string> args) {
+shared_ptr<IStorageHelper> StorageHelperFactory::getStorageHelper(std::string sh_name, std::vector<std::string> args) {
     if(sh_name == "DirectIO")
-        return new DirectIOHelper(args);
+        return shared_ptr<IStorageHelper>(new DirectIOHelper(args));
     else
     {
         LOG(ERROR) << "Unknown storage helper: " << sh_name;
-        return NULL;
+        return shared_ptr<IStorageHelper>();
     }
 }
