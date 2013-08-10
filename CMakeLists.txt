@@ -163,8 +163,9 @@ include_directories(${GMOCK_INCLUDE_DIR})
 
 add_custom_target(cunit)
 macro(run_test test_target)
+  string(REGEX REPLACE "_test" "" test_name "${test_target}")  
   add_custom_target(${test_target}_runtest
-      COMMAND ${test_target}
+      COMMAND ${test_target} --gtest_output="xml:cunit_results/TEST-${test_name}.xml"
       DEPENDS ${test_target}
       WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
   add_dependencies(cunit ${test_target}_runtest)
