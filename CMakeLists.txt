@@ -60,9 +60,12 @@ find_package(OpenSSL REQUIRED)
 include_directories(${OPENSSL_INCLUDE_DIR})
 
 # Setup Boost
-set(Boost_USE_STATIC_LIBS   ON)
+set(Boost_USE_STATIC_LIBS        ON)
+set(Boost_USE_MULTITHREADED      ON)
+set(Boost_USE_STATIC_RUNTIME    OFF)
 find_package(Boost COMPONENTS system thread filesystem REQUIRED)
-set(Boost_LIBRARIES "boost_thread-mt;boost_filesystem-mt;boost_system-mt") # SL6 bug fix
+set(Boost_LIBRARIES "boost_thread-mt.a;boost_filesystem-mt.a;boost_system-mt.a") # SL6 bug fix
+link_directories(${Boost_LIBRARY_DIRS})
 include_directories(${Boost_INCLUDE_DIRS})
 
 # Pull git submodules
