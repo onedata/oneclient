@@ -28,6 +28,8 @@ add_subdirectory(${DEPS_DIR}/glog)
 add_subdirectory(${DEPS_DIR}/yaml-cpp)
 add_subdirectory(${DEPS_DIR}/gmock)
 add_subdirectory(${DEPS_DIR}/gtest)
+add_subdirectory(${DEPS_DIR}/veilhelpers)
+
 
 # Include paths
 include_directories(${PROJECT_SOURCE_DIR}/include)
@@ -35,6 +37,8 @@ include_directories(${PROJECT_SOURCE_DIR}/include/fuse)
 include_directories(${PROJECT_BINARY_DIR})
 include_directories(${GLOG_INCLUDE_DIR})
 include_directories(${YAML_INCLUDE_DIR})
+include_directories(${VEILHELPERS_INCLUDE_DIR})
+
 
 # Setup fuse
 message(STATUS "Checking for FUSE...")
@@ -83,9 +87,8 @@ PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
 include_directories(${CMAKE_CURRENT_BINARY_DIR}) 
 
 # Setup sources
-file(GLOB SOURCES "src/fuse/[a-zA-Z]*.cc")
-file(GLOB HELPER_SOURCES "src/helpers/[a-zA-Z]*.cc")
-file(GLOB MAIN_SOURCE_FILE "src/fuse/veilFuse.cc")
+file(GLOB SOURCES "src/[a-zA-Z]*.cc")
+file(GLOB MAIN_SOURCE_FILE "src/veilFuse.cc")
 string(REGEX REPLACE "${MAIN_SOURCE_FILE}" "" SOURCES "${SOURCES}")
 
 # Setup compile flags
@@ -95,15 +98,12 @@ set(CMAKE_SKIP_RPATH TRUE) # Something is wrong with CMake RPATH config, we need
 
 # Define targets
 
-
-add_library(veilhelpers ${HELPER_SOURCES})
 add_library(veilprotocol ${PROTO_SRCS})
 add_library(veilclient ${SOURCES})
 add_executable(veilFuse ${MAIN_SOURCE_FILE})
 
-add_dependencies(veilhelpers glog) 
 add_dependencies(veilFuse yaml-cpp glog veilclient) 
-add_dependencies(veilclient yaml-cpp glog veilprotocol) 
+add_dependencies(veilclient yaml-cpp glog veilprotocol veilhelpers) 
 set_target_properties(veilFuse PROPERTIES COMPILE_FLAGS "-Wall -g")
 
 target_link_libraries(veilprotocol
@@ -118,7 +118,7 @@ target_link_libraries(veilclient
     ${Boost_LIBRARIES}
     ${GLOG_LIBRARIES}
     ${YAML_LIBRARIES}
-    veilhelpers
+    ${VEILHELPERS_LIBRARIES}
     veilprotocol
     dl
     z
@@ -177,7 +177,7 @@ endmacro()
 set(TEST_SOURCES_DIR "test")
 include_directories(${TEST_SOURCES_DIR}/include)
 
-file(GLOB files ${TEST_SOURCES_DIR}/*/*_test.cc)
+file(GLOB files ${TEST_SOURCES_DIR}/*_test.cc)
 foreach(file ${files})
     get_filename_component(TEST_NAME ${file} NAME_WE)
     add_executable(${TEST_NAME} ${file})
