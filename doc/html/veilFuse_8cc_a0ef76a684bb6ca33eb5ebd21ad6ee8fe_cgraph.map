@@ -1,5 +1,0 @@
-<map id="set_rootdir" name="set_rootdir">
-<area shape="rect" id="node3" href="$classVeilFS.html#a274d37112b60c20508e625bd52d112c6" title="Returns instance of VeilFS singleton." alt="" coords="143,5,260,35"/>
-<area shape="rect" id="node7" href="$classVeilFS.html#a62924982e8923ca4d8de28db946263bd" title="Sets root dir for VeilFS." alt="" coords="136,59,267,88"/>
-<area shape="rect" id="node5" href="$classVeilFS.html#ad0f37fda87a670f97d7bee4ce92746e1" title="Private constuctor (VeilFS is a singleton)" alt="" coords="316,5,423,35"/>
-</map>

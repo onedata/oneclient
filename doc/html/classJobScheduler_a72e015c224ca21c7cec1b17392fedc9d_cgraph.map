@@ -1,4 +1,0 @@
-<map id="JobScheduler::JobScheduler" name="JobScheduler::JobScheduler">
-<area shape="rect" id="node3" href="$classJobScheduler.html#ab2806ff2b2888fae5df3ad5742fb20b3" title="Starts/restarts daemon." alt="" coords="243,13,427,43"/>
-<area shape="rect" id="node5" href="$classJobScheduler.html#a20c80aa254cd2b659cc0ad9f1371c12f" title="C wrapper used to start JobScheduler::schedulerMain." alt="" coords="476,5,668,51"/>
-</map>

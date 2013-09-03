@@ -1,6 +1,0 @@
-<map id="ISchedulable::~ISchedulable" name="ISchedulable::~ISchedulable">
-<area shape="rect" id="node3" href="$classVeilFS.html#a9b0eeaaee3dfe897c49d3d61868c7294" title="Returns JobScheduler assigned to this object." alt="" coords="257,5,401,35"/>
-<area shape="rect" id="node9" href="$classJobScheduler.html#a0d9b84f7c3ddbdfcb5b239c326fc0ef2" title="Deletes all jobs registred by given object." alt="" coords="244,59,415,88"/>
-<area shape="rect" id="node5" href="$classVeilFS.html#a274d37112b60c20508e625bd52d112c6" title="Returns instance of VeilFS singleton." alt="" coords="465,5,583,35"/>
-<area shape="rect" id="node7" href="$classVeilFS.html#ad0f37fda87a670f97d7bee4ce92746e1" title="Private constuctor (VeilFS is a singleton)" alt="" coords="633,5,740,35"/>
-</map>

@@ -1,8 +1,0 @@
-<map id="CommunicationHandler::CommunicationHandler" name="CommunicationHandler::CommunicationHandler">
-<area shape="rect" id="node3" href="$classCommunicationHandler.html#a09fc95e02009c1836c807a508e8e8867" title="Initialize SSL context." alt="" coords="223,5,380,51"/>
-<area shape="rect" id="node5" href="$classCommunicationHandler.html#a9775fd4cbe8325d4f48ff917a8a7cfa3" title="Opens SSL connection to given host." alt="" coords="223,74,380,121"/>
-<area shape="rect" id="node7" href="$classCommunicationHandler.html#a86ac84ee103abeaee270479d5477c2bb" title="Initialize certificates etc." alt="" coords="431,39,588,86"/>
-<area shape="rect" id="node13" href="$classCommunicationHandler.html#a908fceb553cc5ef5e5b61e479bacd00d" title="Opens INET socket." alt="" coords="431,109,588,155"/>
-<area shape="rect" id="node9" href="$classConfig.html#a2ebd00c975d3449ad6e466794780cf47" title="Converts relative path, to absolute using HOME env as base prefix." alt="" coords="639,48,828,77"/>
-<area shape="rect" id="node11" href="$classConfig.html#a20de1f81b0e9515370c9b19aa8fb5f07" title="Singleton instance." alt="" coords="877,48,995,77"/>
-</map>

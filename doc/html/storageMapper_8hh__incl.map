@@ -1,8 +1,0 @@
-<map id="include/fuse/storageMapper.hh" name="include/fuse/storageMapper.hh">
-<area shape="rect" id="node11" href="$fslogicProxy_8hh.html" title="fslogicProxy.hh" alt="" coords="703,83,815,112"/>
-<area shape="rect" id="node35" href="$lock_8hh.html" title="lock.hh" alt="" coords="1200,169,1264,199"/>
-<area shape="rect" id="node38" href="$ISchedulable_8hh.html" title="ISchedulable.hh" alt="" coords="221,169,336,199"/>
-<area shape="rect" id="node43" href="$veilException_8hh.html" title="veilException.hh" alt="" coords="75,83,192,112"/>
-<area shape="rect" id="node22" href="$communicationHandler_8hh.html" title="communicationHandler.hh" alt="" coords="360,169,533,199"/>
-<area shape="rect" id="node30" href="$messageBuilder_8hh.html" title="messageBuilder.hh" alt="" coords="640,169,773,199"/>
-</map>

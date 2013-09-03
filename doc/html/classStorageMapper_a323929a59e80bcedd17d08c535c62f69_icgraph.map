@@ -1,7 +1,0 @@
-<map id="StorageMapper::releaseFile" name="StorageMapper::releaseFile">
-<area shape="rect" id="node3" href="$classVeilFS.html#a28a77d42f62658fde72154ce50cd3597" title="release FUSE callback." alt="" coords="236,5,345,35"/>
-<area shape="rect" id="node5" href="$veilFuse_8cc.html#ac36baff66129943182a0347ad884ceca" title="wrap_release" alt="" coords="395,5,493,35"/>
-<area shape="rect" id="node7" href="$veilFuse_8cc.html#a4970767463895ff6eb47bb514640be34" title="oper_init" alt="" coords="543,5,612,35"/>
-<area shape="rect" id="node9" href="$veilFuse_8cc.html#a82908ed6095237ab4e9f0ad0aa6cb2d2" title="fuse_init" alt="" coords="663,5,732,35"/>
-<area shape="rect" id="node11" href="$veilFuse_8cc.html#a0ddf1224851353fc92bfbff6f499fa97" title="main" alt="" coords="781,5,832,35"/>
-</map>

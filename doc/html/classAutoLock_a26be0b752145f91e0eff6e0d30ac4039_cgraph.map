@@ -1,5 +1,0 @@
-<map id="AutoLock::AutoLock" name="AutoLock::AutoLock">
-<area shape="rect" id="node3" href="$classAutoLock.html#aa86c2f629d0452bdef1a473a9e9dcdea" title="Locks current lock." alt="" coords="195,32,304,61"/>
-<area shape="rect" id="node5" href="$classReadWriteLock.html#ab74c7ebe0538dcb4b5981d0f4f933602" title="Locks for read operation." alt="" coords="353,5,527,35"/>
-<area shape="rect" id="node7" href="$classReadWriteLock.html#a8084001a3842cbeef70c10e0dba8053c" title="Locks for write operation." alt="" coords="352,59,528,88"/>
-</map>

@@ -1,4 +1,0 @@
-<map id="JobScheduler::schedulerMain" name="JobScheduler::schedulerMain">
-<area shape="rect" id="node3" href="$classJobScheduler.html#ab824e773135fe299ab44320907e45350" title="Starts given task." alt="" coords="249,5,396,35"/>
-<area shape="rect" id="node5" href="$classISchedulable.html#ad57a5ecaa52a9af01df5b978a1ad7c19" title="Callback which are called by JobScheduler when requested." alt="" coords="445,5,597,35"/>
-</map>

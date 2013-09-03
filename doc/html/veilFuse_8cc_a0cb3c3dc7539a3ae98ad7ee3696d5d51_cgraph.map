@@ -1,5 +1,0 @@
-<map id="wrap_statfs" name="wrap_statfs">
-<area shape="rect" id="node3" href="$classVeilFS.html#a274d37112b60c20508e625bd52d112c6" title="Returns instance of VeilFS singleton." alt="" coords="145,5,263,35"/>
-<area shape="rect" id="node7" href="$classVeilFS.html#af1015ed469d0b84bd4e770d7a0491ea8" title="statfs FUSE callback." alt="" coords="153,59,255,88"/>
-<area shape="rect" id="node5" href="$classVeilFS.html#ad0f37fda87a670f97d7bee4ce92746e1" title="Private constuctor (VeilFS is a singleton)" alt="" coords="313,5,420,35"/>
-</map>

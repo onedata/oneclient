@@ -1,6 +1,0 @@
-<map id="VeilFS::getattr" name="VeilFS::getattr">
-<area shape="rect" id="node3" href="$veilFuse_8cc.html#a52a7d1b2e5763f046f8408b9a4a2bef7" title="wrap_getattr" alt="" coords="161,5,255,35"/>
-<area shape="rect" id="node5" href="$veilFuse_8cc.html#a4970767463895ff6eb47bb514640be34" title="oper_init" alt="" coords="305,5,375,35"/>
-<area shape="rect" id="node7" href="$veilFuse_8cc.html#a82908ed6095237ab4e9f0ad0aa6cb2d2" title="fuse_init" alt="" coords="425,5,495,35"/>
-<area shape="rect" id="node9" href="$veilFuse_8cc.html#a0ddf1224851353fc92bfbff6f499fa97" title="main" alt="" coords="544,5,595,35"/>
-</map>

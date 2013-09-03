@@ -1,5 +1,0 @@
-<map id="wrap_access" name="wrap_access">
-<area shape="rect" id="node3" href="$classVeilFS.html#a274d37112b60c20508e625bd52d112c6" title="Returns instance of VeilFS singleton." alt="" coords="153,5,271,35"/>
-<area shape="rect" id="node7" href="$classVeilFS.html#ae73eed931df4bd7d174dce48c5503e08" title="access FUSE callback." alt="" coords="157,59,267,88"/>
-<area shape="rect" id="node5" href="$classVeilFS.html#ad0f37fda87a670f97d7bee4ce92746e1" title="Private constuctor (VeilFS is a singleton)" alt="" coords="321,5,428,35"/>
-</map>

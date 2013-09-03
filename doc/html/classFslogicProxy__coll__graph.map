@@ -1,6 +1,0 @@
-<map id="FslogicProxy" name="FslogicProxy">
-<area shape="rect" id="node2" href="$classISchedulable.html" title="The ISchedulable interface." alt="" coords="5,111,101,140"/>
-<area shape="rect" id="node4" href="$classMessageBuilder.html" title="The MessageBuilder class." alt="" coords="125,111,240,140"/>
-<area shape="rect" id="node8" href="$classCommunicationHandler.html" title="The CommunicationHandler class." alt="" coords="269,5,427,35"/>
-<area shape="rect" id="node10" href="$classReadWriteLock.html" title="The ReadWriteLock class." alt="" coords="456,111,568,140"/>
-</map>

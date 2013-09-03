@@ -1,6 +1,0 @@
-<map id="MessageBuilder::packFuseMessage" name="MessageBuilder::packFuseMessage">
-<area shape="rect" id="node3" href="$classConfig.html#a4837d8be08cfef22d41e5595402908ef" title="Checks if given option is set." alt="" coords="287,5,385,35"/>
-<area shape="rect" id="node7" href="$classMessageBuilder.html#add2b4ffea51c93ab123b62ce891d69c4" title="MessageBuilder::createFuse\lMessage" alt="" coords="243,58,429,105"/>
-<area shape="rect" id="node9" href="$classMessageBuilder.html#a08143f24917f0f3f8ad0b457e6384303" title="MessageBuilder::createCluster\lMessage" alt="" coords="236,127,436,174"/>
-<area shape="rect" id="node5" href="$classConfig.html#a20de1f81b0e9515370c9b19aa8fb5f07" title="Singleton instance." alt="" coords="485,5,603,35"/>
-</map>

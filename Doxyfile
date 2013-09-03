@@ -7,7 +7,7 @@ PROJECT_NAME           = VeilClient
 PROJECT_NUMBER         = 
 PROJECT_BRIEF          = "This program is user space file system. It is a part of VeilFS project."
 PROJECT_LOGO           = 
-OUTPUT_DIRECTORY       = /home/roxeon/git/veilclient/doc
+OUTPUT_DIRECTORY       = ./doc
 CREATE_SUBDIRS         = NO
 OUTPUT_LANGUAGE        = English
 BRIEF_MEMBER_DESC      = YES
@@ -153,7 +153,8 @@ EXCLUDE_PATTERNS       = *src/google-glog/* \
                          *src/yaml-cpp/* \
                          *build/* \
                          *src/proto/* \
-                         *build/*
+                         *build/* \
+                         *test/*
 EXCLUDE_SYMBOLS        = 
 EXAMPLE_PATH           = 
 EXAMPLE_PATTERNS       = *

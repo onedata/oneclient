@@ -1,6 +1,0 @@
-<map id="VeilFS::rmdir" name="VeilFS::rmdir">
-<area shape="rect" id="node3" href="$veilFuse_8cc.html#a356b4eac90c8eb26190a370341273cb6" title="wrap_rmdir" alt="" coords="153,5,239,35"/>
-<area shape="rect" id="node5" href="$veilFuse_8cc.html#a4970767463895ff6eb47bb514640be34" title="oper_init" alt="" coords="289,5,359,35"/>
-<area shape="rect" id="node7" href="$veilFuse_8cc.html#a82908ed6095237ab4e9f0ad0aa6cb2d2" title="fuse_init" alt="" coords="409,5,479,35"/>
-<area shape="rect" id="node9" href="$veilFuse_8cc.html#a0ddf1224851353fc92bfbff6f499fa97" title="main" alt="" coords="528,5,579,35"/>
-</map>
