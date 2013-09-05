@@ -41,6 +41,9 @@ using namespace boost;
 #define RENAME_FILE "renamefile"
 #define CHANGE_FILE_PERMS "changefileperms"
 #define FILE_LOCATION_VALIDITY "filelocationvalidity"
+#define CREATE_LINK "createlink"
+#define GET_LINK "getlink"
+#define LINK_INFO "linkinfo"
 
 #define FUSE_MESSAGE "fusemessage"
 #define ATOM "atom"
@@ -102,11 +105,13 @@ public:
     virtual bool getNewFileLocation(string logicName, mode_t mode, FileLocation * location);            ///< Query cluser to create new file in DB and get its real location
     virtual int renewFileLocation(string logicName);                                                    ///< Try to renew location validity for given file
     virtual bool getFileChildren(string dirLogicName, uint32_t children_num, uint32_t offset, std::vector<std::string> * childrenNames);    ///< List files in given folder
-    virtual std::string renameFile(string fromLogicName, string toLogicName);                           ///< Rename/move file to new location
-    virtual std::string createDir(string logicName, mode_t mode);                                       ///< Create directory
-    virtual std::string deleteFile(string logicName);                                                   ///< Delete given file
+    virtual string renameFile(string fromLogicName, string toLogicName);                                ///< Rename/move file to new location
+    virtual string createDir(string logicName, mode_t mode);                                            ///< Create directory
+    virtual string deleteFile(string logicName);                                                        ///< Delete given file
     virtual bool sendFileNotUsed(string logicName);                                                     ///< Inform cluster that file isnt used anymore
-    virtual std::string changeFilePerms(string path, mode_t mode);                                      ///< Change file permissions
+    virtual string changeFilePerms(string path, mode_t mode);                                           ///< Change file permissions
+    virtual string createLink(string from, string to);                                                  ///< Creates symbolic link "from" to file "to"
+    virtual pair<string, string> getLink(string path);                                                  ///< Gets path pointed by link.
 
     virtual bool runTask(TaskID taskId, string arg0, string arg1, string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 };

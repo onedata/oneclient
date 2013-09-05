@@ -10,6 +10,7 @@
 #include "helpers/storageHelperFactory.hh"
 #include "metaCache.hh"
 #include "glog/logging.h"
+#include "string.h"
 
 #include <sys/stat.h>
 
@@ -180,11 +181,18 @@ int VeilFS::getattr(const char *path, struct stat *statbuf)
     return 0;
 }
 
-// not yet implemented
 int VeilFS::readlink(const char *path, char *link, size_t size)
 {
     LOG(INFO) << "FUSE: readlink(path: " << string(path) << ", link: " << string(link) << ", size: " << size << ")";
-    return -EIO;
+
+    pair<string, string> resp = m_fslogic->getLink(string(path));
+
+    RETURN_IF_ERROR(resp.first);
+    int path_size = min(size - 1, resp.second.size()); // truncate path if needed
+    memcpy(link, resp.second.c_str(), path_size);
+    link[path_size] = 0;
+
+    return 0;
 }
 
 int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
@@ -224,20 +232,35 @@ int VeilFS::mkdir(const char *path, mode_t mode)
     m_metaCache->clearAttr(string(path));
 
     RETURN_IF_ERROR(m_fslogic->createDir(string(path), mode & ALLPERMS));
+    
     return 0;
 }
 
 int VeilFS::unlink(const char *path)
 {
     LOG(INFO) << "FUSE: unlink(path: " << string(path) << ")";
-    m_metaCache->clearAttr(string(path));
+    struct stat statbuf;
+    FileAttr attr;
+    int isLink = 0;
+
+    if(m_metaCache->getAttr(string(path), &statbuf)) // Check file type in cache
+        isLink = S_ISLNK(statbuf.st_mode);
+    else if(m_fslogic->getFileAttr(string(path), &attr)) // ... or fetch it from cluster
+        isLink = (attr.type() == "LNK");
+
+    m_metaCache->clearAttr(string(path)); // Clear cache
+
+    if(!isLink) 
+    {
+        GET_LOCATION_INFO(path);
+        SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_unlink(lInfo.fileId.c_str()));
+        if(sh_return < 0)
+            return sh_return;
+    }
 
     RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
 
-    GET_LOCATION_INFO(path);
-    SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_unlink(lInfo.fileId.c_str()));
-
-    return sh_return;
+    return 0;
 }
 
 int VeilFS::rmdir(const char *path)
@@ -249,11 +272,12 @@ int VeilFS::rmdir(const char *path)
     return 0;
 }
 
-// not yet implemeted
-int VeilFS::symlink(const char *path, const char *link)
+int VeilFS::symlink(const char *to, const char *from)
 {
-    LOG(INFO) << "FUSE: symlink(path: " << string(path) << ", link: "<< string(link)  <<")";
-    return -EIO;
+    LOG(INFO) << "FUSE: symlink(path: " << string(from) << ", link: "<< string(to)  <<")";
+
+    RETURN_IF_ERROR(m_fslogic->createLink(string(from), string(to)));
+    return 0;
 }
 
 int VeilFS::rename(const char *path, const char *newpath)
@@ -265,11 +289,10 @@ int VeilFS::rename(const char *path, const char *newpath)
     return 0;
 }
 
-// not yet implemented
 int VeilFS::link(const char *path, const char *newpath)
 {
     LOG(INFO) << "FUSE: link(path: " << string(path) << ", newpath: "<< string(newpath)  <<")";
-    return -EIO;
+    return -ENOTSUP;
 }
 
 // not yet implemeted

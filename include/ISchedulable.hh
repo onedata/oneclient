@@ -9,6 +9,8 @@
 #define ISCHEDULABLE_HH
 
 #include <string>
+#include <boost/shared_ptr.hpp>
+#include <boost/enable_shared_from_this.hpp>
 using namespace std;
 
 /**
@@ -17,7 +19,7 @@ using namespace std;
  * using JobScheduler.
  * @see JobScheduler::addTask
  */
-class ISchedulable
+class ISchedulable : public boost::enable_shared_from_this<ISchedulable>
 {
 public:
     /**
@@ -35,8 +37,6 @@ public:
 
     ISchedulable();
     virtual ~ISchedulable();    ///< Interface destructor.
-                                ///< Deletes from JobScheduler used by VeilFS all tasks that were
-                                ///< registered by this object. @see VeilFS::getScheduler
 
     virtual bool runTask(TaskID taskId, string arg0, string arg1, string arg3) = 0; ///< Callback which are called by JobScheduler when requested. @see JobScheduler
 };

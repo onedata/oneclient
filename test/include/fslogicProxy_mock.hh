@@ -24,6 +24,8 @@ public:
     MOCK_METHOD2(createDir, string(string, mode_t));
     MOCK_METHOD3(getNewFileLocation, bool(string, mode_t, FileLocation*));
     MOCK_METHOD2(getFileAttr, bool(string, FileAttr*));
+    MOCK_METHOD2(createLink, string(string, string));
+    MOCK_METHOD1(getLink, pair<string, string>(string));
 };
 
 #endif // FSLOGIC_PROXY_MOCK_H

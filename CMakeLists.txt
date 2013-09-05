@@ -44,6 +44,8 @@ include_directories(${VEILHELPERS_INCLUDE_DIR})
 message(STATUS "Checking for FUSE...")
 find_package(FUSE REQUIRED)
 include_directories(${FUSE_INCLUDE_DIRS})
+message(STATUS "FUSE: ${FUSE_LIBRARIES}")
+set(FUSE_LIBRARIES "fuse")  
 
 # Setup ProtoBuf
 message(STATUS "Checking for Protobuf...")
@@ -122,6 +124,7 @@ target_link_libraries(veilclient
     veilprotocol
     dl
     z
+    rt
 )
 
 target_link_libraries(veilFuse 
@@ -131,6 +134,7 @@ target_link_libraries(veilFuse
     veilclient
     dl
     z
+    rt
 )
 
 # Install config

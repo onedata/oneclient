@@ -362,3 +362,47 @@ TEST_F(FslogicProxyTest, changeFilePerms) {
     EXPECT_EQ(VEACCES, proxy.changeFilePerms("/path", 123));
 
 }
+
+TEST_F(FslogicProxyTest, createLink) {
+    proxy.mockAtom = true;
+
+    CreateLink msg;
+    msg.set_from_file_logic_name("/from");
+    msg.set_to_file_logic_name("/to");
+
+    EXPECT_CALL(proxy, mockAtomFun(CREATE_LINK, msg.SerializeAsString())).WillOnce(Return(""));
+    EXPECT_EQ(VEIO, proxy.createLink("/from", "/to"));
+
+    EXPECT_CALL(proxy, mockAtomFun(CREATE_LINK, msg.SerializeAsString())).WillOnce(Return(VOK));
+    EXPECT_EQ(VOK, proxy.createLink("/from", "/to"));
+
+    EXPECT_CALL(proxy, mockAtomFun(CREATE_LINK, msg.SerializeAsString())).WillOnce(Return(VEACCES));
+    EXPECT_EQ(VEACCES, proxy.createLink("/from", "/to"));
+}
+
+TEST_F(FslogicProxyTest, getLink) {
+    proxy.mockSerialized = true;
+
+    GetLink msg;
+    msg.set_file_logic_name("/from");
+
+    LinkInfo response;
+
+    pair<string, string> resp;
+
+    EXPECT_CALL(proxy, mockSerializedFun(GET_LINK, LINK_INFO, msg.SerializeAsString())).WillOnce(Return(""));
+    resp = proxy.getLink("/from");
+    EXPECT_EQ(VEIO, resp.first);
+
+    response.set_file_logic_name("/to");
+    EXPECT_CALL(proxy, mockSerializedFun(GET_LINK, LINK_INFO, msg.SerializeAsString())).WillOnce(Return(response.SerializeAsString()));
+    resp = proxy.getLink("/from");
+    EXPECT_EQ(VOK, resp.first);
+    EXPECT_EQ("/to", resp.second);
+
+    response.set_answer(VEACCES);
+    response.set_file_logic_name("");
+    EXPECT_CALL(proxy, mockSerializedFun(GET_LINK, LINK_INFO, msg.SerializeAsString())).WillOnce(Return(response.SerializeAsString()));
+    resp = proxy.getLink("/from");
+    EXPECT_EQ(VEACCES, resp.first);
+}

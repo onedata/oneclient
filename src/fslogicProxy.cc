@@ -34,14 +34,8 @@ bool FslogicProxy::getFileAttr(string logicName, FileAttr *attr)
 
     GetFileAttr msg;
     msg.set_file_logic_name(logicName);
-    string serializedMsg;
-    if(!msg.SerializeToString(&serializedMsg))
-    {
-        LOG(ERROR) << "cannot serialize GetFileAttr message";
-        return false;
-    }
 
-    string serializedAnswer = sendFuseReceiveSerializedMessage(GET_FILE_ATTR, FILE_ATTR, serializedMsg);
+    string serializedAnswer = sendFuseReceiveSerializedMessage(GET_FILE_ATTR, FILE_ATTR, msg.SerializeAsString());
 
     if(!attr->ParseFromString(serializedAnswer))
     {
@@ -58,15 +52,8 @@ bool FslogicProxy::getFileLocation(string logicName, FileLocation * location)
 
     GetFileLocation msg;
     msg.set_file_logic_name(logicName);
-    string serializedGetFileLocation;
-    if(!msg.SerializeToString(&serializedGetFileLocation))
-    {
-        LOG(ERROR) << "cannot serialize GetFileLocation message";
-        return false;
-    }
 
-    string serializedAnswer = sendFuseReceiveSerializedMessage(GET_FILE_LOCATION,
-        FILE_LOCATION, serializedGetFileLocation);
+    string serializedAnswer = sendFuseReceiveSerializedMessage(GET_FILE_LOCATION, FILE_LOCATION, msg.SerializeAsString());
 
     if(!location->ParseFromString(serializedAnswer))
     {
@@ -84,15 +71,8 @@ bool FslogicProxy::getNewFileLocation(string logicName, mode_t mode, FileLocatio
     GetNewFileLocation msg;
     msg.set_file_logic_name(logicName);
     msg.set_mode(mode);
-    string serializedGetNewFileLocation;
-    if(!msg.SerializeToString(&serializedGetNewFileLocation))
-    {
-        LOG(ERROR) << "cannot serialize GetNewFileLocation message";
-        return false;
-    }
 
-    string serializedAnswer = sendFuseReceiveSerializedMessage(GET_NEW_FILE_LOCATION,
-        FILE_LOCATION, serializedGetNewFileLocation);
+    string serializedAnswer = sendFuseReceiveSerializedMessage(GET_NEW_FILE_LOCATION, FILE_LOCATION, msg.SerializeAsString());
 
     if(!location->ParseFromString(serializedAnswer))
     {
@@ -110,15 +90,7 @@ int FslogicProxy::renewFileLocation(string logicName)
     RenewFileLocation msg;
     msg.set_file_logic_name(logicName);
 
-    string serializedRenewFileLocation;
-    if(!msg.SerializeToString(&serializedRenewFileLocation))
-    {
-        LOG(ERROR) << "cannot serialize RenewFileLocation message";
-        return -1;
-    }
-
-    string serializedAnswer = sendFuseReceiveSerializedMessage(RENEW_FILE_LOCATION,
-        FILE_LOCATION_VALIDITY, serializedRenewFileLocation);
+    string serializedAnswer = sendFuseReceiveSerializedMessage(RENEW_FILE_LOCATION, FILE_LOCATION_VALIDITY, msg.SerializeAsString());
 
     FileLocationValidity locationValidity;
     if (!locationValidity.ParseFromString(serializedAnswer))
@@ -145,15 +117,7 @@ bool FslogicProxy::getFileChildren(string dirLogicName, uint32_t children_num, u
     msg.set_children_num(children_num); 
     msg.set_offset(offset);
 
-    string serializedGetFileChildren;
-    if(!msg.SerializeToString(&serializedGetFileChildren))
-    {
-        LOG(ERROR) << "cannot serialize GetFileChildren message";
-        return false;
-    }
-
-    string serializedAnswer = sendFuseReceiveSerializedMessage(GET_FILE_CHILDREN,
-        FILE_CHILDREN, serializedGetFileChildren);
+    string serializedAnswer = sendFuseReceiveSerializedMessage(GET_FILE_CHILDREN, FILE_CHILDREN, msg.SerializeAsString());
 
     FileChildren children;
     if (!children.ParseFromString(serializedAnswer))
@@ -179,15 +143,7 @@ string FslogicProxy::createDir(string logicName, mode_t mode)
     msg.set_dir_logic_name(logicName);
     msg.set_mode(mode);
 
-    string serializedCreateDir;
-    if(!msg.SerializeToString(&serializedCreateDir))
-    {
-        LOG(ERROR) << "cannot serialize CreateDir message";
-        return VEIO;
-    }
-
-    string serializedAnswer = sendFuseReceiveAtomMessage(CREATE_DIR,
-        serializedCreateDir);
+    string serializedAnswer = sendFuseReceiveAtomMessage(CREATE_DIR, msg.SerializeAsString());
 
     if(serializedAnswer.size() == 0)
     {
@@ -203,15 +159,7 @@ string FslogicProxy::deleteFile(string logicName)
     DeleteFile msg;
     msg.set_file_logic_name(logicName);
 
-    string serializedDeleteFile;
-    if(!msg.SerializeToString(&serializedDeleteFile))
-    {
-        LOG(ERROR) << "cannot serialize DeleteFile message";
-        return VEIO;
-    }
-
-    string serializedAnswer = sendFuseReceiveAtomMessage(DELETE_FILE,
-        serializedDeleteFile);
+    string serializedAnswer = sendFuseReceiveAtomMessage(DELETE_FILE, msg.SerializeAsString());
 
     if(serializedAnswer.size() == 0)
     {
@@ -227,15 +175,7 @@ bool FslogicProxy::sendFileNotUsed(string logicName)
     FileNotUsed msg;
     msg.set_file_logic_name(logicName);
 
-    string serializedFileNotUsed;
-    if(!msg.SerializeToString(&serializedFileNotUsed))
-    {
-        LOG(ERROR) << "cannot serialize FileNotUsed message";
-        return false;
-    }
-
-    string serializedAnswer = sendFuseReceiveAtomMessage(FILE_NOT_USED,
-        serializedFileNotUsed);
+    string serializedAnswer = sendFuseReceiveAtomMessage(FILE_NOT_USED, msg.SerializeAsString());
 
     if(serializedAnswer != VOK)
     {
@@ -251,15 +191,7 @@ string FslogicProxy::renameFile(string fromLogicName, string toLogicName)
     msg.set_from_file_logic_name(fromLogicName);
     msg.set_to_file_logic_name(toLogicName);
 
-    string serializedRenameFile;
-    if(!msg.SerializeToString(&serializedRenameFile))
-    {
-        LOG(ERROR) << "cannot serialize RenameFile message";
-        return VEIO;
-    }
-
-    string serializedAnswer = sendFuseReceiveAtomMessage(RENAME_FILE,
-        serializedRenameFile);
+    string serializedAnswer = sendFuseReceiveAtomMessage(RENAME_FILE, msg.SerializeAsString());
 
     if(serializedAnswer.size() == 0)
     {
@@ -276,15 +208,7 @@ string FslogicProxy::changeFilePerms(string path, mode_t mode)
     msg.set_logic_file_name(path);
     msg.set_perms(mode);
 
-    string serializedChangeFilePerms;
-    if(!msg.SerializeToString(&serializedChangeFilePerms))
-    {
-        LOG(ERROR) << "cannot serialize serializedChangeFilePerms message";
-        return VEIO;
-    }
-
-    string serializedAnswer = sendFuseReceiveAtomMessage(CHANGE_FILE_PERMS,
-        serializedChangeFilePerms);
+    string serializedAnswer = sendFuseReceiveAtomMessage(CHANGE_FILE_PERMS, msg.SerializeAsString());
 
     if(serializedAnswer.size() == 0)
     {
@@ -295,8 +219,47 @@ string FslogicProxy::changeFilePerms(string path, mode_t mode)
     return serializedAnswer;
 }
 
+string FslogicProxy::createLink(string from, string to) 
+{
+    CreateLink msg;
+    msg.set_from_file_logic_name(from);
+    msg.set_to_file_logic_name(to);
+
+    string serializedAnswer = sendFuseReceiveAtomMessage(CREATE_LINK, msg.SerializeAsString());
+
+    if(serializedAnswer.size() == 0)
+    {
+        LOG(ERROR) << "cannot parse cluster answer";
+        return VEIO;
+    }
+
+    return serializedAnswer;
+}
+
+pair<string, string> FslogicProxy::getLink(string path)
+{
+    GetLink msg;
+    msg.set_file_logic_name(path);
+
+    string serializedAnswer = sendFuseReceiveSerializedMessage(GET_LINK, LINK_INFO, msg.SerializeAsString());
+
+    LinkInfo answer;
+    if (!answer.ParseFromString(serializedAnswer))
+    {
+        LOG(ERROR) << "cannot parse cluster answer";
+        return make_pair(VEIO, "");
+    }
+
+    return make_pair(answer.answer(), answer.file_logic_name());
+}
+
 string FslogicProxy::sendFuseReceiveSerializedMessage(string messageType, string answerType, string messageInput)
 {
+    if(messageInput == "")
+    {
+        LOG(ERROR) << "cannot serialize message with type: " << messageType;
+        return "";
+    }
 
     ClusterMsg * clusterMessage = m_messageBuilder->packFuseMessage(messageType,
         answerType, FUSE_MESSAGES, messageInput);
@@ -326,12 +289,16 @@ string FslogicProxy::sendFuseReceiveSerializedMessage(string messageType, string
         return "";
     }
 
-    printf("Got message: %s with status: %s\n", answer.worker_answer().c_str(), answer.answer_status().c_str());
     return answer.worker_answer();
 }
 
 string FslogicProxy::sendFuseReceiveAtomMessage(string messageType, string messageInput)
 {
+    if(messageInput == "")
+    {
+        LOG(ERROR) << "cannot serialize message with type: " << messageType;
+        return "";
+    }
 
     ClusterMsg * clusterMessage = m_messageBuilder->packFuseMessage(messageType,
         ATOM, COMMUNICATION_PROTOCOL, messageInput);

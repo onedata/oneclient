@@ -12,6 +12,7 @@
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 #include "boost/bind.hpp" 
+#include "boost/shared_ptr.hpp"
 #include "veilfs.hh"
 
 using namespace testing;

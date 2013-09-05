@@ -12,10 +12,12 @@
 #include <string>
 #include <time.h>
 #include <pthread.h>
+#include <boost/shared_ptr.hpp>
 
 #include "ISchedulable.hh"
 
 using namespace std;
+using namespace boost;
 
 /**
  * @struct Job
@@ -25,14 +27,14 @@ using namespace std;
 struct Job
 {
     time_t when;                        ///< Time when Job should be processed.
-    ISchedulable* subject;              ///< Pointer to object being context of Job execution
+    shared_ptr<ISchedulable> subject;   ///< Pointer to object being context of Job execution
     ISchedulable::TaskID task;          ///< ID of task. @see ISchedulable::TaskID
     string arg0;                        ///< Task's first argument
     string arg1;                        ///< Task's second argument
     string arg2;                        ///< Task's third argument
 
     ///< Default constructor
-    Job(time_t when, ISchedulable* subject, ISchedulable::TaskID task, string arg0, string arg1 = "", string arg2 = "");
+    Job(time_t when, shared_ptr<ISchedulable> subject, ISchedulable::TaskID task, string arg0, string arg1 = "", string arg2 = "");
 
     bool operator<(const Job& other) const;     ///< Compare operator for priority queue.
                                                 ///< It compares tasks by it's Job::when field

@@ -23,7 +23,7 @@
                             } \
                         }
 
-Job::Job(time_t when, ISchedulable* subject, ISchedulable::TaskID task, string arg0, string arg1, string arg2) :
+Job::Job(time_t when, shared_ptr<ISchedulable> subject, ISchedulable::TaskID task, string arg0, string arg1, string arg2) :
     when(when),
     subject(subject),
     task(task),
@@ -156,7 +156,7 @@ void JobScheduler::deleteJobs(ISchedulable *subject, ISchedulable::TaskID task)
     std::vector<Job> tmp;
     while(!m_jobQueue.empty()) {
         Job t = m_jobQueue.top();
-        if(t.subject != subject || (t.task != task && task != ISchedulable::TASK_LAST_ID))
+        if(t.subject.get() != subject || (t.task != task && task != ISchedulable::TASK_LAST_ID))
             tmp.push_back(t);
         m_jobQueue.pop();
     }

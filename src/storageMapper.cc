@@ -93,8 +93,8 @@ void StorageMapper::addLocation(string logicalName, FileLocation location)
     AutoLock sLock(m_storageMappingLock, WRITE_LOCK);
     m_storageMapping[info.storageId] = storageInfo;
 
-    VeilFS::getScheduler()->addTask(Job(info.validTo, this, TASK_REMOVE_EXPIRED_LOCATON_MAPPING, logicalName));
-    VeilFS::getScheduler()->addTask(Job(info.validTo - RENEW_LOCATION_MAPPING_TIME, this, TASK_RENEW_LOCATION_MAPPING, logicalName));
+    VeilFS::getScheduler()->addTask(Job(info.validTo, shared_from_this(), TASK_REMOVE_EXPIRED_LOCATON_MAPPING, logicalName));
+    VeilFS::getScheduler()->addTask(Job(info.validTo - RENEW_LOCATION_MAPPING_TIME, shared_from_this(), TASK_RENEW_LOCATION_MAPPING, logicalName));
 }
 
 void StorageMapper::openFile(string logicalName)
@@ -141,7 +141,7 @@ bool StorageMapper::runTask(TaskID taskId, string arg0, string arg1, string arg3
             else if(it != m_fileMapping.end()) 
             {
                 LOG(INFO) << "Recheduling old location mapping removal for file: " << arg0;
-                VeilFS::getScheduler()->addTask(Job((*it).second.validTo, this, TASK_REMOVE_EXPIRED_LOCATON_MAPPING, arg0));
+                VeilFS::getScheduler()->addTask(Job((*it).second.validTo, shared_from_this(), TASK_REMOVE_EXPIRED_LOCATON_MAPPING, arg0));
             }
 
             return true;

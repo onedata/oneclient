@@ -229,8 +229,22 @@ TEST_F(VeilFSTest, getattrDir) { // const char *path, struct stat *statbuf
 }
  
 TEST_F(VeilFSTest, readlink) { // const char *path, char *link, size_t size
-    char link[32];
-    EXPECT_EQ(-EIO, client->readlink("/path", link, 32));
+    char link[5];
+
+    EXPECT_CALL(*fslogicMock, getLink("/path")).WillOnce(Return(make_pair(VENOENT, "")));
+    EXPECT_EQ(-ENOENT, client->readlink("/path", link, 5));
+
+    EXPECT_CALL(*fslogicMock, getLink("/path")).WillOnce(Return(make_pair(VOK, "1234")));
+    EXPECT_EQ(0, client->readlink("/path", link, 5));
+    EXPECT_EQ("1234", string(link));
+
+    EXPECT_CALL(*fslogicMock, getLink("/path")).WillOnce(Return(make_pair(VOK, "12345")));
+    EXPECT_EQ(0, client->readlink("/path", link, 5));
+    EXPECT_EQ("1234", string(link));
+
+    EXPECT_CALL(*fslogicMock, getLink("/path")).WillOnce(Return(make_pair(VOK, "123456")));
+    EXPECT_EQ(0, client->readlink("/path", link, 5));
+    EXPECT_EQ("1234", string(link));
 }
  
 TEST_F(VeilFSTest, mknod) { // const char *path, mode_t mode, dev_t dev
@@ -277,14 +291,33 @@ TEST_F(VeilFSTest, mkdir) { // const char *path, mode_t mode
 TEST_F(VeilFSTest, unlink) { // const char *path
     EXPECT_CALL(*metaCacheMock, clearAttr("/path")).Times(AtLeast(3));
 
-    EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VENOENT));
-    EXPECT_EQ(-ENOENT, client->unlink("/path"));
+    struct stat st;
+    st.st_mode |= S_IFLNK;
+    FileAttr attrs;
+    attrs.set_type("LNK");
 
+    EXPECT_CALL(*metaCacheMock, getAttr("/path", _)).WillOnce(DoAll(SetArgPointee<1>(st), Return(true)));
     EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VOK));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo(_, _)).Times(0);
+    EXPECT_CALL(*helperMock, sh_unlink(_)).Times(0);
+    EXPECT_EQ(0, client->unlink("/path"));
+
+    EXPECT_CALL(*metaCacheMock, getAttr("/path", _)).WillOnce(DoAll(SetArgPointee<1>(st), Return(false)));
+    EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillOnce(DoAll(SetArgPointee<1>(attrs), Return(true)));
+    EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VOK));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo(_, _)).Times(0);
+    EXPECT_CALL(*helperMock, sh_unlink(_)).Times(0);
+    EXPECT_EQ(0, client->unlink("/path"));
+
+    attrs.set_type("REG"); 
+    EXPECT_CALL(*metaCacheMock, getAttr("/path", _)).WillRepeatedly(DoAll(SetArgPointee<1>(st), Return(false)));
+    EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillRepeatedly(DoAll(SetArgPointee<1>(attrs), Return(true)));
+
+    EXPECT_CALL(*fslogicMock, deleteFile("/path")).Times(0);
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Throw(VeilException(VEACCES)));
     EXPECT_EQ(-EACCES, client->unlink("/path"));
 
-    EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VOK));
+    EXPECT_CALL(*fslogicMock, deleteFile("/path")).Times(0);
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Return(make_pair(location, storage)));
     EXPECT_CALL(*helperMock, sh_unlink(StrEq("fileid"))).WillOnce(Return(-ENOENT));
     EXPECT_EQ(-ENOENT, client->unlink("/path"));
@@ -306,7 +339,11 @@ TEST_F(VeilFSTest, rmdir) { // const char *path
 }
  
 TEST_F(VeilFSTest, symlink) { // const char *path, const char *link
-    EXPECT_EQ(-EIO, client->symlink("/path", "/link"));
+    EXPECT_CALL(*fslogicMock, createLink("/link", "/path")).WillOnce(Return(VOK));
+    EXPECT_EQ(0, client->symlink("/path", "/link"));
+
+    EXPECT_CALL(*fslogicMock, createLink("/link", "/path")).WillOnce(Return(VENOENT));
+    EXPECT_EQ(-ENOENT, client->symlink("/path", "/link"));
 }
  
 TEST_F(VeilFSTest, rename) { // const char *path, const char *newpath
@@ -319,7 +356,7 @@ TEST_F(VeilFSTest, rename) { // const char *path, const char *newpath
 }
  
 TEST_F(VeilFSTest, link) { // const char *path, const char *newpath
-    EXPECT_EQ(-EIO, client->link("/path", "/link"));
+    EXPECT_EQ(-ENOTSUP, client->link("/path", "/link"));
 }
  
 TEST_F(VeilFSTest, chmod) { // const char *path, mode_t mode

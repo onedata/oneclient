@@ -14,6 +14,4 @@ ISchedulable::ISchedulable()
 
 ISchedulable::~ISchedulable()
 {
-    if(VeilFS::getScheduler())
-        VeilFS::getScheduler()->deleteJobs(this, TASK_LAST_ID);
 }
