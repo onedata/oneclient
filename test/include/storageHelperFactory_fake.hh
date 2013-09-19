@@ -12,6 +12,8 @@
 #include "genericHelper_mock.hh"
 #include "gmock/gmock.h"
 
+using namespace boost;
+
 class FakeStorageHelperFactory
     : public StorageHelperFactory {
 public:

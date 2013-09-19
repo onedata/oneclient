@@ -168,6 +168,12 @@ enable_testing()
 include_directories(${GTEST_INCLUDE_DIR})
 include_directories(${GMOCK_INCLUDE_DIR})
 
+set(TEST_SOURCES_DIR "${PROJECT_SOURCE_DIR}/test")
+include_directories(${TEST_SOURCES_DIR}/include)
+
+
+# Unit tests
+
 add_custom_target(cunit)
 macro(run_test test_target)
   string(REGEX REPLACE "_test" "" test_name "${test_target}")  
@@ -178,10 +184,7 @@ macro(run_test test_target)
   add_dependencies(cunit ${test_target}_runtest)
 endmacro()
 
-set(TEST_SOURCES_DIR "test")
-include_directories(${TEST_SOURCES_DIR}/include)
-
-file(GLOB files ${TEST_SOURCES_DIR}/*_test.cc)
+file(GLOB files ${TEST_SOURCES_DIR}/unit_tests/*_test.cc)
 foreach(file ${files})
     get_filename_component(TEST_NAME ${file} NAME_WE)
     add_executable(${TEST_NAME} ${file})
@@ -197,4 +200,46 @@ foreach(file ${files})
     )    
     add_test(${TEST_NAME} ${TEST_NAME})
     run_test(${TEST_NAME})
+endforeach()
+
+
+# Integration tests
+
+set(TEST_UTILS_DIR ${TEST_SOURCES_DIR}/erl_core)
+add_library(erlTestCore ${TEST_UTILS_DIR}/erlTestCore.cc)
+
+file(GLOB erlc_files ${TEST_SOURCES_DIR}/*/*.erl)
+add_custom_target(build_erl_core
+    COMMAND erlc -I ${TEST_UTILS_DIR} ${erlc_files}
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}"
+)
+
+add_custom_target(integration_tests)
+macro(run_test_i test_target)
+  string(REGEX REPLACE "_test" "" test_name "${test_target}")
+  string(REGEX REPLACE "_test_i" "_test" beam_name "${test_target}")   
+  add_custom_target(${test_target}_runtest_i
+      COMMAND ${TEST_UTILS_DIR}/run_test.escript ${beam_name} --gtest_output="xml:integration_results/TEST-${test_name}.xml"
+      DEPENDS ${test_target} build_erl_core
+      WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
+  add_dependencies(integration_tests ${test_target}_runtest_i)
+endmacro()
+
+file(GLOB files ${TEST_SOURCES_DIR}/integration_tests/*_test.cc)
+foreach(file ${files})
+    get_filename_component(TEST_NAME ${file} NAME_WE)
+    set(TEST_NAME "${TEST_NAME}_i")
+    add_executable(${TEST_NAME} ${file} ${TEST_UTILS_DIR}/erlTestCore.cc)
+    add_dependencies(${TEST_NAME} gtest gmock veilFuse veilhelpers veilclient veilprotocol)
+    target_link_libraries(${TEST_NAME}
+        ${CMAKE_THREAD_LIBS_INIT}
+        ${GTEST_LIBRARIES}
+        ${GMOCK_LIBRARIES}
+        ${FUSE_LIBRARIES}
+        veilclient
+        dl 
+        z
+        erlTestCore
+    )    
+    run_test_i(${TEST_NAME})
 endforeach()

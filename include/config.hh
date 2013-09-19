@@ -28,10 +28,13 @@
 #define ENABLE_ENV_OPTION_OVERRIDE      "enable_env_option_override"
 #define FUSE_ID_OPT                     "fuse_id"
 
+#define DECLARE_DEFAULT(KEY, VALUE) m_defaultsNode[KEY] = VALUE
+
 using namespace std;
 
+
 /**
- * The Config singleton.
+ * The Config.
  * Parses config files and provides safe access to configuration map.
  */
 class Config
@@ -78,17 +81,32 @@ private:
     YAML::Node m_globalNode;                    ///< Global config object
     YAML::Node m_userNode;                      ///< User config object
     YAML::Node m_envNode;                       ///< Temp config object used to manipulate env settings
+    YAML::Node m_defaultsNode;                  ///< Default configs.
 
     template<typename T>
     T get(string opt);                          ///< Internal implementation of Config::getValue. @see Config::getValue
     
     template<typename T>
     T getValue(string opt);                     ///< Returns type-specialized value of given config option. 
+
+    void setupDefaults() {
+        /// Here declare default values of config
+        DECLARE_DEFAULT(ENABLE_ENV_OPTION_OVERRIDE, true);
+    }
 };
 
 template<typename T>
 T Config::get(string opt)
 {
+    static bool defaultsLoaded = false; 
+    // NOTICE: 
+    //     Because this is template method, this initialization (setupDefaults) can and will run several times
+    //     but since it has no other side effects in any subsequent calls, we can live with that.
+    if(!defaultsLoaded) {
+        setupDefaults();
+        defaultsLoaded = true;
+    }
+        
     try {
         return m_userNode[opt].as<T>();
     } catch(YAML::Exception e) {
@@ -99,6 +117,11 @@ T Config::get(string opt)
         return m_globalNode[opt].as<T>();
     } catch(YAML::Exception e) {
         LOG(WARNING) << "Requested option '" << opt << "' was not found in config loaded files";
+    }
+
+    try {
+        return m_defaultsNode[opt].as<T>();
+    } catch(YAML::Exception e) {
         return T();
     }
 }

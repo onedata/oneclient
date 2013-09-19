@@ -9,9 +9,11 @@
 #define FSLOGIC_PROXY_PROXY_H
 
 #include "fslogicProxy.hh"
- #include "communicationHandler_mock.hh"
+#include "communicationHandler_mock.hh"
 #include "messageBuilder_mock.hh"
 #include "gmock/gmock.h"
+
+using namespace boost;
 
 class ProxyFslogicProxy
     : public FslogicProxy {

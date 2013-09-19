@@ -29,6 +29,9 @@ test: build
 cunit: build
 	@cd ${BUILD_DIR} && make cunit
 
+integration_tests: build
+	@cd ${BUILD_DIR} && make integration_tests
+
 install: build
 	@cd ${BUILD_DIR} && make install
 
