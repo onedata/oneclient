@@ -5,23 +5,25 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "veilfs.hh"
-#include "fslogicProxy.hh"
-#include "helpers/storageHelperFactory.hh"
-#include "metaCache.hh"
+#include "veilfs.h"
+#include "fslogicProxy.h"
+#include "helpers/storageHelperFactory.h"
+#include "metaCache.h"
 #include "glog/logging.h"
-#include "string.h"
+#include "cstring"
+#include "veilErrors.h"
+#include <algorithm>
 
 #include <sys/stat.h>
 
 /// Runs FUN on NAME storage helper with constructed with ARGS. Return value is avaiable in 'int sh_return'.
-#define SH_RUN(NAME, ARGS, FUN) shared_ptr<IStorageHelper> ptr = m_shFactory->getStorageHelper(NAME, ARGS); \
+#define SH_RUN(NAME, ARGS, FUN) shared_ptr<helpers::IStorageHelper> ptr = m_shFactory->getStorageHelper(NAME, ARGS); \
                                 if(!ptr) { LOG(ERROR) << "storage helper '" << NAME << "' not found"; return -EIO; } \
                                 int sh_return = ptr->FUN; 
 
 /// If given veilError does not produce POSIX 0 return code, interrupt execution by returning POSIX error code.
 #define RETURN_IF_ERROR(X)  { \
-                                int err = VeilFS::translateError(X); \
+                                int err = translateError(X); \
                                 if(err != 0) return err; \
                             }
 
@@ -39,26 +41,50 @@
                                 catch(VeilException e) \
                                 { \
                                     LOG(WARNING) << "cannot get file mapping for file: " << string(PATH) << " (error: " << e.what() << ")"; \
-                                    return VeilFS::translateError(e.veilError()); \
+                                    return translateError(e.veilError()); \
                                 }
 
 
+using namespace std;
+using namespace boost;
+using namespace veil::protocol::fuse_messages;
+
+
+namespace veil {
+namespace client {
+
 shared_ptr<Config> VeilFS::m_config;
-shared_ptr<JobScheduler> VeilFS::m_jobScheduler;
+list<shared_ptr<JobScheduler> > VeilFS::m_jobSchedulers;
+shared_ptr<SimpleConnectionPool> VeilFS::m_connectionPool;
+ReadWriteLock VeilFS::m_schedulerPoolLock;
 
 VeilFS::VeilFS(string path, shared_ptr<Config> cnf, shared_ptr<JobScheduler> scheduler, 
                shared_ptr<FslogicProxy> fslogic,  shared_ptr<MetaCache> metaCache, 
-               shared_ptr<StorageMapper> mapper, shared_ptr<StorageHelperFactory> sh_factory) : 
+               shared_ptr<StorageMapper> mapper, shared_ptr<helpers::StorageHelperFactory> sh_factory) : 
     m_fslogic(fslogic),
     m_storageMapper(mapper),
     m_metaCache(metaCache),
     m_shFactory(sh_factory)
 {
+    if(path.size() > 1 && path[path.size()-1] == '/')
+        path = path.substr(0, path.size()-1);
     LOG(INFO) << "setting VFS root dir as: " << string(path);
-    m_root = path.c_str();
+    m_root = path;
 
     m_config = cnf;
-    m_jobScheduler = scheduler;
+    VeilFS::addScheduler(scheduler);
+
+    if(m_fslogic) {
+        if(VeilFS::getScheduler() && VeilFS::getConfig()) {
+            int alive = VeilFS::getConfig()->getInt(ALIVE_CONNECTIONS_COUNT_OPT);
+            for(int i = 0; i < alive; ++i) {
+                Job pingTask = Job(time(NULL) + i, m_fslogic, ISchedulable::TASK_PING_CLUSTER, VeilFS::getConfig()->getString(ALIVE_CONNECTIONS_COUNT_OPT));
+                VeilFS::getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
+            }
+            
+        } else 
+            LOG(WARNING) << "Connection keep-alive subsystem cannot be started.";
+    }
 }
 
 VeilFS::~VeilFS()
@@ -68,7 +94,11 @@ VeilFS::~VeilFS()
 void VeilFS::staticDestroy() 
 {
     m_config.reset();
-    m_jobScheduler.reset();
+    while(m_jobSchedulers.size()) {
+        m_jobSchedulers.front().reset();
+        m_jobSchedulers.pop_front();
+    }
+    m_connectionPool.reset();
 }
 
 int VeilFS::access(const char *path, int mask)
@@ -81,15 +111,15 @@ int VeilFS::access(const char *path, int mask)
     return 0;
 }
 
-int VeilFS::getattr(const char *path, struct stat *statbuf)
+int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
 {
-    LOG(INFO) << "FUSE: getattr(path: " << string(path) << ", statbuf)";
+    if(fuse_ctx)
+        LOG(INFO) << "FUSE: getattr(path: " << string(path) << ", statbuf)";
 
     FileAttr attr;
-    pair<locationInfo, storageInfo> location;
 
-    statbuf->st_blocks = 1;
-    statbuf->st_nlink = 0; // Hard links are not supported by VeilCluster ATM
+    statbuf->st_blocks = 0;
+    statbuf->st_nlink = 0; 
     statbuf->st_uid = -1; /// @todo We have to set uid based on usename received from cluster. Currently not supported by cluster.
     statbuf->st_gid = -1; /// @todo same as above
     statbuf->st_size = 0;
@@ -97,84 +127,60 @@ int VeilFS::getattr(const char *path, struct stat *statbuf)
     statbuf->st_mtime = 0;
     statbuf->st_ctime = 0;
 
-    try
+    if(m_metaCache->getAttr(string(path), statbuf))
+        return 0;
+
+    // We do not have storage mapping so we have to comunicate with cluster anyway
+    LOG(INFO) << "storage mapping not exists in cache for file: " << string(path);
+
+    if(!m_fslogic->getFileAttr(string(path), &attr))
+        return -EIO;
+
+    if(attr.answer() != VOK)
     {
-        location = m_storageMapper->getLocationInfo(string(path));
-        attr.set_type("REG");
-    }
-    catch(VeilException e)
-    {
-        if(m_metaCache->getAttr(string(path), statbuf))
-            return 0;
-
-        // We do not have storage mapping so we have to comunicate with cluster anyway
-        LOG(INFO) << "storage mapping not exists in cache for file: " << string(path);
-
-        if(!m_fslogic->getFileAttr(string(path), &attr))
-            return -EIO;
-
-        if(attr.answer() != VOK)
-        {
-            LOG(WARNING) << "Cluster answer: " << attr.answer();
-            return VeilFS::translateError(attr.answer());
-        }
-
-        if(attr.type() == "REG") // We'll need storage mapping for regular file
-        {
-            int err = VeilFS::translateError(m_storageMapper->findLocation(string(path)));
-            if(err != 0)
-                return err;
-        }
+        LOG(WARNING) << "Cluster answer: " << attr.answer();
+        return translateError(attr.answer());
     }
 
-    // At this point we have attributes from cluster and storage storage mapping loaded if faile its regular file
+    if(attr.type() == "REG" && fuse_ctx) // We'll need storage mapping for regular file
+    {
+        Job getLocTask = Job(time(NULL), m_storageMapper, ISchedulable::TASK_ASYNC_GET_FILE_LOCATION, string(path));
+        VeilFS::getScheduler()->addTask(getLocTask);
+    }
+
+    // At this point we have attributes from cluster 
 
     statbuf->st_mode = attr.mode(); // File type still has to be set, fslogic gives only permissions in mode field
 
-    if(attr.type() == "DIR" || attr.type() == "LNK")
-    {
-        statbuf->st_atime = attr.atime();
-        statbuf->st_mtime = attr.mtime();
-        statbuf->st_ctime = attr.ctime();
-    }
+    statbuf->st_atime = attr.atime();
+    statbuf->st_mtime = attr.mtime();
+    statbuf->st_ctime = attr.ctime();
 
     if(attr.type() == "DIR")
     {
         statbuf->st_mode |= S_IFDIR;
+
+        // Prefetch "ls" resault
+        if(fuse_ctx && VeilFS::getConfig()->getBool(ENABLE_DIR_PREFETCH_OPT)) {
+            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, string(path), "0");
+            VeilFS::getScheduler()->addTask(readDirTask);
+        }
     }
     else if(attr.type() == "LNK")
     {
         statbuf->st_mode |= S_IFLNK;
+
+        // Check cache for validity
+        AutoLock lock(m_linkCacheLock, WRITE_LOCK);
+        map<string, pair<string, time_t> >::iterator it = m_linkCache.find(string(path));
+        if(it != m_linkCache.end() && statbuf->st_mtime > (*it).second.second)
+        {
+            m_linkCache.erase(it);
+        }
     }
     else
     {
-        try
-        {
-            location = m_storageMapper->getLocationInfo(string(path));
-        }
-        catch(VeilException e)
-        {
-            LOG(ERROR) << "got attributes from cluster but mapping cannot be found for file '" << string(path) << "', error: " << e.what();
-            return -EIO;
-        }
-
-        struct stat statbuf_tmp;
-
-        SH_RUN(location.second.storageHelperName, location.second.storageHelperArgs, sh_getattr(location.first.fileId.c_str(), &statbuf_tmp));
-        if(sh_return != 0)
-        {
-            LOG(ERROR) << "storage helper's getattr failed, errno: " << sh_return;
-            return sh_return;
-        }
-
-        statbuf->st_size = statbuf_tmp.st_size;
-        statbuf->st_atime = statbuf_tmp.st_atime;
-        statbuf->st_mtime = statbuf_tmp.st_mtime;
-        statbuf->st_ctime = statbuf_tmp.st_ctime;
-        statbuf->st_blocks = statbuf_tmp.st_blocks;
-        statbuf->st_mode =  statbuf_tmp.st_mode;
-        statbuf->st_uid = statbuf_tmp.st_uid;
-        statbuf->st_gid = statbuf_tmp.st_gid;
+        statbuf->st_mode |= S_IFREG;
     }
 
     m_metaCache->addAttr(string(path), *statbuf);
@@ -183,13 +189,32 @@ int VeilFS::getattr(const char *path, struct stat *statbuf)
 
 int VeilFS::readlink(const char *path, char *link, size_t size)
 {
-    LOG(INFO) << "FUSE: readlink(path: " << string(path) << ", link: " << string(link) << ", size: " << size << ")";
+    LOG(INFO) << "FUSE: readlink(path: " << string(path) << ")";
+    string target;
 
-    pair<string, string> resp = m_fslogic->getLink(string(path));
+    AutoLock lock(m_linkCacheLock, READ_LOCK);
+    map<string, pair<string, time_t> >::const_iterator it = m_linkCache.find(string(path));
+    if(it != m_linkCache.end()) {   
+        target = (*it).second.first;
+    } else {
+        pair<string, string> resp = m_fslogic->getLink(string(path));
+        target = resp.second;
+        RETURN_IF_ERROR(resp.first);
 
-    RETURN_IF_ERROR(resp.first);
-    int path_size = min(size - 1, resp.second.size()); // truncate path if needed
-    memcpy(link, resp.second.c_str(), path_size);
+        lock.changeType(WRITE_LOCK);
+        m_linkCache[string(path)] = pair<string, time_t>(target, time(NULL));
+    }
+
+    if(target.size() == 0) {
+        link[0] = 0;
+        return 0;
+    }
+
+    if(target[0] == '/')
+        target = m_root + target;
+
+    int path_size = min(size - 1, target.size()); // truncate path if needed
+    memcpy(link, target.c_str(), path_size);
     link[path_size] = 0;
 
     return 0;
@@ -216,7 +241,7 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
     if(location.answer() != VOK)
     {
         LOG(WARNING) << "cannot create node due to cluster error: " << location.answer();
-        return VeilFS::translateError(location.answer());
+        return translateError(location.answer());
     }
 
     m_storageMapper->addLocation(string(path), location);
@@ -275,8 +300,18 @@ int VeilFS::rmdir(const char *path)
 int VeilFS::symlink(const char *to, const char *from)
 {
     LOG(INFO) << "FUSE: symlink(path: " << string(from) << ", link: "<< string(to)  <<")";
+    string toStr = string(to);
+    if(toStr.size() >= m_root.size() && mismatch(m_root.begin(), m_root.end(), toStr.begin()).first == m_root.end()) {
+        toStr = toStr.substr(m_root.size());
+        if(toStr.size() == 0)
+            toStr = "/";
+        else if(toStr[0] != '/')
+            toStr = string(to);
+    }
 
-    RETURN_IF_ERROR(m_fslogic->createLink(string(from), string(to)));
+    LOG(INFO) << "Creating link " << string(from) << "pointing to: " << toStr;
+
+    RETURN_IF_ERROR(m_fslogic->createLink(string(from), toStr)); 
     return 0;
 }
 
@@ -340,6 +375,8 @@ int VeilFS::utime(const char *path, struct utimbuf *ubuf)
 int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: open(path: " << string(path) << ", ...)";
+    fileInfo->direct_io = 1;
+
     GET_LOCATION_INFO(path);
 
     m_storageMapper->openFile(string(path));
@@ -428,6 +465,11 @@ int VeilFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
 
     for(std::vector<string>::iterator it = children.begin(); it < children.end(); ++it)
     {
+        if(VeilFS::getConfig()->getBool(ENABLE_PARALLEL_GETATTR_OPT)) {
+            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, string(path) + (*it));
+            VeilFS::getScheduler()->addTask(readDirTask);
+        }
+
         if(filler(buf, it->c_str(), NULL, ++offset))
         {
             LOG(WARNING) << "filler buffer overflow";
@@ -478,9 +520,20 @@ int VeilFS::init(struct fuse_conn_info *conn) {
     return 0;
 }
 
-shared_ptr<JobScheduler> VeilFS::getScheduler()
+shared_ptr<JobScheduler> VeilFS::getScheduler(TaskID taskId)
 {
-    return m_jobScheduler;
+    AutoLock lock(m_schedulerPoolLock, WRITE_LOCK);
+    shared_ptr<JobScheduler> tmp = m_jobSchedulers.front();
+
+    list<shared_ptr<JobScheduler> >::const_iterator it;
+    for(list<shared_ptr<JobScheduler> >::const_iterator it = m_jobSchedulers.begin();
+        it != m_jobSchedulers.end(); ++it) 
+    {
+        if((*it)->hasTask(taskId))
+            tmp = (*it);
+    }
+
+    return tmp;
 }
 
 shared_ptr<Config> VeilFS::getConfig()
@@ -488,23 +541,70 @@ shared_ptr<Config> VeilFS::getConfig()
     return m_config;
 }
 
-void VeilFS::setScheduler(shared_ptr<JobScheduler> injected) 
+shared_ptr<SimpleConnectionPool> VeilFS::getConnectionPool()
 {
-    m_jobScheduler = injected;
+    return m_connectionPool;
 }
 
-int VeilFS::translateError(string verr)
+void VeilFS::addScheduler(shared_ptr<JobScheduler> injected) 
 {
-    if(verr == VOK)
-        return 0;
-    else if(verr == VENOENT)
-        return -ENOENT;
-    else if(verr == VEACCES)
-        return -EACCES;
-    else if(verr == VEEXIST)
-        return -EEXIST;
-    else if(verr == VEIO)
-        return -EIO;
-    else
-        return -EIO;
+    AutoLock lock(m_schedulerPoolLock, WRITE_LOCK);
+    m_jobSchedulers.push_back(injected);
 }
+
+void VeilFS::setConfig(shared_ptr<Config> injected) 
+{
+    m_config = injected;
+}
+
+void VeilFS::setConnectionPool(shared_ptr<SimpleConnectionPool> injected) 
+{
+    m_connectionPool = injected;
+}
+
+bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string)
+{
+    string res;
+    struct stat attr;
+    ostringstream ss;
+    vector<string> children;
+    int offset;
+    istringstream iss(arg1);
+
+    switch(taskId)
+    {
+    case TASK_ASYNC_READDIR:
+        if(!VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT))
+            return true;
+
+        iss >> offset;
+
+        if(!m_fslogic->getFileChildren(arg0, DIR_BATCH_SIZE, offset, &children)) {
+            return false;
+        }
+
+        for(vector<string>::iterator it = children.begin(); it < children.end(); ++it) {
+            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, arg0 + (*it));
+            VeilFS::getScheduler()->addTask(readDirTask);
+        }
+
+        if(children.size() > 0) {
+            ss << offset + children.size();
+            string newOffset = ss.str();
+            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, arg0, newOffset);
+            VeilFS::getScheduler()->addTask(readDirTask);
+        }
+
+
+        return true;
+    case TASK_ASYNC_GETATTR:
+        if(VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT))
+            (void) getattr(arg0.c_str(), &attr, false);
+        return true;
+    default:
+        return false;
+    }
+}
+
+} // namespace client
+} // namespace veil

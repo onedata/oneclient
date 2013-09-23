@@ -5,11 +5,14 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.hh"
-#include "fslogicProxy_proxy.hh"
-#include "messageBuilder_mock.hh"
-#include "config_mock.hh"
-#include "jobScheduler_mock.hh"
+#include "testCommon.h"
+#include "fslogicProxy_proxy.h"
+#include "messageBuilder_mock.h"
+#include "config_mock.h"
+#include "jobScheduler_mock.h"
+
+using namespace veil::protocol::fuse_messages;
+using namespace veil::protocol::communication_protocol;
 
 INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
@@ -21,7 +24,7 @@ class FslogicProxyTest
 protected:
     COMMON_DEFS();
     ProxyFslogicProxy proxy;
-    MockMessageBuilder *msgBuilder;
+    shared_ptr<MockMessageBuilder> msgBuilder;
 
     virtual void SetUp() {
         COMMON_SETUP();
@@ -30,12 +33,13 @@ protected:
         EXPECT_CALL(*config, getString(_)).WillRepeatedly(Return(""));
         EXPECT_CALL(*config, getInt(_)).WillRepeatedly(Return(0));
         
-        msgBuilder = new MockMessageBuilder();
+        msgBuilder.reset(new MockMessageBuilder());
         proxy.setMessageBuilder(msgBuilder);
-        proxy.useMockConnectionSelector = true;
         proxy.mockAtom = false;
         proxy.mockSerialized = false;
         proxy.ch_mock.reset(new MockCommunicationHandler());
+        EXPECT_CALL(*connectionPool, selectConnection(_, _)).WillRepeatedly(Return(proxy.ch_mock));
+        EXPECT_CALL(*connectionPool, releaseConnection(_)).WillRepeatedly(Return());
     }
 
     virtual void TearDown() {
@@ -43,54 +47,6 @@ protected:
     }
 
 };
-
-TEST_F(FslogicProxyTest, selectConnectionFactory) {
-    proxy.useMockConnectionSelector = false;
-
-    shared_ptr<CommunicationHandler> ch1 = proxy.selectConnection();
-    shared_ptr<CommunicationHandler> ch2 = proxy.selectConnection();
-    shared_ptr<CommunicationHandler> ch3 = proxy.selectConnection();
-    shared_ptr<CommunicationHandler> ch4 = proxy.selectConnection();
-
-    EXPECT_FALSE(NULL == ch1);
-    EXPECT_FALSE(NULL == ch2);
-    EXPECT_FALSE(NULL == ch3);
-    EXPECT_FALSE(NULL == ch4);
-
-    EXPECT_NE(ch1, ch2);
-    EXPECT_NE(ch1, ch2);
-    EXPECT_NE(ch1, ch3);
-    EXPECT_NE(ch2, ch3);
-    EXPECT_NE(ch2, ch4);
-    EXPECT_NE(ch3, ch4);
-
-    proxy.releaseConnection(ch3);
-    shared_ptr<CommunicationHandler> ch5 = proxy.selectConnection();
-
-    EXPECT_EQ(ch3, ch5);
-}
-
-TEST_F(FslogicProxyTest, selectConnectionRoundRobin) {
-    proxy.useMockConnectionSelector = false;
-
-    shared_ptr<CommunicationHandler> ch1 = proxy.selectConnection();
-    shared_ptr<CommunicationHandler> ch2 = proxy.selectConnection();
-    shared_ptr<CommunicationHandler> ch3 = proxy.selectConnection();
-    shared_ptr<CommunicationHandler> ch4 = proxy.selectConnection();
-
-    proxy.releaseConnection(ch3);
-    proxy.releaseConnection(ch2);
-    proxy.releaseConnection(ch4);
-    proxy.releaseConnection(ch1);
-
-    EXPECT_EQ(ch3, proxy.selectConnection());
-    EXPECT_EQ(ch2, proxy.selectConnection());
-    EXPECT_EQ(ch4, proxy.selectConnection());
-    EXPECT_EQ(ch1, proxy.selectConnection());
-
-    shared_ptr<CommunicationHandler> ch5 = proxy.selectConnection();
-    EXPECT_FALSE(NULL == ch5);
-}
 
 TEST_F(FslogicProxyTest, sendFuseReceiveSerializedMessageFails) {
     EXPECT_CALL(*msgBuilder, packFuseMessage("messageType", "answerType", FUSE_MESSAGES, "messageInput")).WillOnce(Return((ClusterMsg*)NULL));

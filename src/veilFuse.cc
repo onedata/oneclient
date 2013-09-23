@@ -17,6 +17,8 @@
 #endif
 
 #include <fuse.h>
+#include <fuse/fuse_opt.h>
+#include <fuse/fuse_lowlevel.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -28,12 +30,19 @@
 #include <boost/filesystem.hpp>
 #include <boost/shared_ptr.hpp>
 #include <iostream>
+
+#include "veilfs.h"
+#include "config.h"
+#include "gsiHandler.h"
+#include "glog/logging.h"
+
+
+
 using namespace std;
 using namespace boost;
+using namespace veil;
+using namespace veil::client;
 
-#include "veilfs.hh"
-#include "config.hh"
-#include "glog/logging.h"
 
 shared_ptr<VeilFS> VeilAppObject;
 
@@ -140,6 +149,8 @@ static int vfs_opt_proc(void *data, const char *arg, int key, struct fuse_args *
 {
     if(string(arg).find(CONFIG_ARGV_OPT_NAME) != string::npos)
         return 0;
+    if(string(arg) == "-debug")
+        return 0;
     return 1;
 }
 
@@ -151,39 +162,39 @@ static struct fuse_operations vfs_oper;
 
 static void oper_init() {
 
-    	vfs_oper.getattr	= wrap_getattr;
-    	vfs_oper.access		= wrap_access;
-    	vfs_oper.readlink	= wrap_readlink;
-    	vfs_oper.readdir	= wrap_readdir;
-    	vfs_oper.mknod		= wrap_mknod;
-    	vfs_oper.mkdir		= wrap_mkdir;
-    	vfs_oper.symlink	= wrap_symlink;
-    	vfs_oper.unlink		= wrap_unlink;
-    	vfs_oper.rmdir		= wrap_rmdir;
-    	vfs_oper.rename		= wrap_rename;
-    	vfs_oper.link		= wrap_link;
-    	vfs_oper.chmod		= wrap_chmod;
-    	vfs_oper.chown		= wrap_chown;
-    	vfs_oper.truncate	= wrap_truncate;
+        vfs_oper.getattr    = wrap_getattr;
+        vfs_oper.access     = wrap_access;
+        vfs_oper.readlink   = wrap_readlink;
+        vfs_oper.readdir    = wrap_readdir;
+        vfs_oper.mknod      = wrap_mknod;
+        vfs_oper.mkdir      = wrap_mkdir;
+        vfs_oper.symlink    = wrap_symlink;
+        vfs_oper.unlink     = wrap_unlink;
+        vfs_oper.rmdir      = wrap_rmdir;
+        vfs_oper.rename     = wrap_rename;
+        vfs_oper.link       = wrap_link;
+        vfs_oper.chmod      = wrap_chmod;
+        vfs_oper.chown      = wrap_chown;
+        vfs_oper.truncate   = wrap_truncate;
     #ifdef HAVE_UTIMENSAT
-    	vfs_oper.utimens	= wrap_utimens;
+        vfs_oper.utimens    = wrap_utimens;
     #endif
-    	vfs_oper.open		= wrap_open;
-    	vfs_oper.read		= wrap_read;
-    	vfs_oper.write		= wrap_write;
-    	vfs_oper.statfs		= wrap_statfs;
-    	vfs_oper.release	= wrap_release;
-    	vfs_oper.fsync		= wrap_fsync;
+        vfs_oper.open       = wrap_open;
+        vfs_oper.read       = wrap_read;
+        vfs_oper.write      = wrap_write;
+        vfs_oper.statfs     = wrap_statfs;
+        vfs_oper.release    = wrap_release;
+        vfs_oper.fsync      = wrap_fsync;
         vfs_oper.utime      = wrap_utime;
         vfs_oper.flush      = wrap_flush;
     #ifdef HAVE_POSIX_FALLOCATE
-    	vfs_oper.fallocate	= wrap_fallocate;
+        vfs_oper.fallocate  = wrap_fallocate;
     #endif
     #ifdef HAVE_SETXATTR
-    	vfs_oper.setxattr	= wrap_setxattr;
-    	vfs_oper.getxattr	= wrap_getxattr;
-    	vfs_oper.listxattr	= wrap_listxattr;
-    	vfs_oper.removexattr= wrap_removexattr;
+        vfs_oper.setxattr   = wrap_setxattr;
+        vfs_oper.getxattr   = wrap_getxattr;
+        vfs_oper.listxattr  = wrap_listxattr;
+        vfs_oper.removexattr= wrap_removexattr;
     #endif
 }
 
@@ -194,12 +205,26 @@ static void fuse_init()
     oper_init();
 }
 
-
 int main(int argc, char* argv[]) 
 {
+    // Initialize FUSE
     umask(0);
 
+    fuse_init();
+    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+    fuse_opt_parse(&args, NULL, NULL, vfs_opt_proc);
+
+    // Enforced FUSE options
+    fuse_opt_add_arg(&args, "-obig_writes");
+    if(argc < 2)
+        return fuse_main(args.argc, args.argv, &vfs_oper, NULL);
+
+    bool debug = false;
+
     shared_ptr<Config> config(new Config());
+    VeilFS::setConfig(config);
+    
+
     // Find user config argument
     for(int i = 1; i < argc; ++i)
     {
@@ -207,6 +232,12 @@ int main(int argc, char* argv[])
         {    
             config->setUserConfigFile(string(argv[i]).substr(string(CONFIG_ARGV_OPT_NAME).size()));
         }
+
+        if(string(argv[i]) == "-d") 
+            debug = true;
+
+        if(string(argv[i]) == "-debug") 
+            gsi::debug = true;
     }
 
     // Setup config manager and paths
@@ -225,33 +256,96 @@ int main(int argc, char* argv[])
         LOG(INFO) << "Setting log dir to: " << log_path;
     }
     google::InitGoogleLogging(argv[0]);
-    FLAGS_alsologtostderr = true;
+    FLAGS_alsologtostderr = debug;
+    FLAGS_logtostderr = debug;
 
-    // Check certificate file
-    string certFile = Config::absPathRelToHOME(config->getString(PEER_CERTIFICATE_FILE_OPT));
-    if( !boost::filesystem::exists( certFile ) )
+    // Check proxy certificate
+    if(!gsi::validateProxyConfig()) 
     {
-        std::cerr << "Cannot find peer certificate file: " << certFile << std::endl;
-        std::cerr << "Check your configuration. Aborting" << std::endl;
+        std::cerr << "Cannot continue. Aborting" << std::endl;
         exit(1);
     }
 
-    // Initialize application
+
+    LOG(INFO) << "Proxy certificate to be used: " << gsi::getProxyCertPath();
+
+
+    // FUSE main: 
+    struct fuse *fuse;
+    struct fuse_chan *ch;
+    char *mountpoint;
+    int multithreaded;
+    int foreground;
+    struct stat st;
+    int res;
+
+    res = fuse_parse_cmdline(&args, &mountpoint, &multithreaded,
+                 &foreground);
+    if (res == -1)
+        exit(1);
+
+    res = stat(mountpoint, &st);
+    if (res == -1) {
+        perror(mountpoint);
+        exit(1);
+    }
+
+    ch = fuse_mount(mountpoint, &args);
+    if (!ch)
+        exit(1);
+
+    res = fcntl(fuse_chan_fd(ch), F_SETFD, FD_CLOEXEC);
+    if (res == -1)
+        perror("WARNING: failed to set FD_CLOEXEC on fuse device");
+
+    fuse = fuse_new(ch, &args, &vfs_oper, sizeof(struct fuse_operations), NULL);
+    if (fuse == NULL) {
+        fuse_unmount(mountpoint, ch);
+        exit(1);
+    }
+
+    res = fuse_daemonize(foreground);
+    if (res != -1)
+        res = fuse_set_signal_handlers(fuse_get_session(fuse));
+
+    if (res == -1) {
+        fuse_unmount(mountpoint, ch);
+        fuse_destroy(fuse);
+        exit(1);
+    }
+
+    // Initialize VeilClient application
+    VeilFS::setConnectionPool(shared_ptr<SimpleConnectionPool> (
+        new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), gsi::validateProxyCert)));
+    veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool());
+
+    for(int i = 1; i < config->getInt(JOBSCHEDULER_THREADS_OPT); ++i)
+        VeilFS::addScheduler(shared_ptr<JobScheduler>(new JobScheduler()));
+
     VeilAppObject.reset(new VeilFS(argv[1], config, 
                         shared_ptr<JobScheduler>(new JobScheduler()), 
                         shared_ptr<FslogicProxy>(new FslogicProxy()), 
                         shared_ptr<MetaCache>(new MetaCache()), 
-                        shared_ptr<StorageMapper>(new StorageMapper(*new FslogicProxy())),
-                        shared_ptr<StorageHelperFactory>(new StorageHelperFactory())));
+                        shared_ptr<StorageMapper>(new StorageMapper(shared_ptr<FslogicProxy>(new FslogicProxy()))),
+                        shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory())));
 
-    // Initialize FUSE
-    fuse_init();
-    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
-    fuse_opt_parse(&args, NULL, NULL, vfs_opt_proc);
+    // Enter FUSE loop
+    if (multithreaded)
+        res = fuse_loop_mt(fuse);
+    else
+        res = fuse_loop(fuse);
 
-    // Enforced FUSE options
-    fuse_opt_add_arg(&args, "-obig_writes");
+    if (res == -1)
+        res = 1;
+    else
+        res = 0;
 
-    // Start FUSE daemod
-    return fuse_main(args.argc, args.argv, &vfs_oper, NULL);
+
+    // Cleanup
+    fuse_remove_signal_handlers(fuse_get_session(fuse));
+    fuse_unmount(mountpoint, ch);
+    fuse_destroy(fuse);
+    free(mountpoint);
+
+    return res;
 }

@@ -1,5 +1,5 @@
 /**
- * @file config_mock.hh
+ * @file config_mock.h
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
@@ -8,8 +8,8 @@
 #ifndef CONFIG_MOCK_H
 #define CONFIG_MOCK_H
 
-#include "config.hh"
-#include "testCommon.hh"
+#include "config.h"
+#include "testCommon.h"
 
 class MockConfig 
     : public Config {

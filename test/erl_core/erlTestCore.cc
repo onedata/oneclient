@@ -6,16 +6,15 @@
  */
 
 
-#include "erlTestCore.hh"
+#include "erlTestCore.h"
 #include <boost/filesystem.hpp>
 
 using namespace std;
 using namespace boost;
 
 
-
-namespace veil_testing 
-{
+namespace veil {
+namespace testing { 
 
 // Global variables
 string VeilFSRoot =  (getenv(VEILFS_ROOT_VAR) ? string(getenv(VEILFS_ROOT_VAR)) : "");
@@ -42,4 +41,5 @@ string erlExec(string arg) {
     return ret;
 }
 
-} // namespace veil_testing
+} // namespace testing
+} // namespace veil

@@ -92,7 +92,7 @@ In most linux distros deafault {INSTALL_PREFIX} is /usr/local. Configuration opt
 In most cases you want to stick with default values although there are 2 options that requires special care:
 
 * cluster_hostname - hostname of VeilCluster used by client
-* peer_certificate_file - path to proxy certificate (.pem file) used in SSL session. Paths are relative to HOME env unless absolute path is specified
+* peer_certificate_file - path to proxy certificate (.pem file) used in SSL session. Paths are relative to HOME env unless absolute path is specified.
 
 You don't edit this global config file if you don't want to. You can also create new file, type options that shall be overriden
 and pass '--config=/path/to/your/config/file' option while starting VeilClient.

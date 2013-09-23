@@ -5,18 +5,19 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.hh"
+#include "testCommon.h"
+#include "jobScheduler_proxy.h"
+#include "config_mock.h"
+#include "jobScheduler_mock.h"
+#include "boost/shared_ptr.hpp"
+
+using namespace boost;
 
 INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
 // TEST definitions below
 
-#include "jobScheduler_proxy.hh"
-#include "config_mock.hh"
-#include "jobScheduler_mock.hh"
-#include "boost/shared_ptr.hpp"
 
-using namespace boost;
 
 class MockJobObject 
     : public ISchedulable {

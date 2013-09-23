@@ -5,11 +5,9 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.hh"
-#include "erlTestCore.hh"
+#include "testCommon.h"
+#include "erlTestCore.h"
 #include "boost/filesystem.hpp"
-
-#include "veilfs.hh"
 
 using namespace boost::filesystem;
 using namespace std;
@@ -22,34 +20,25 @@ class SampleTest
     : public ::testing::Test 
 {
 protected:
-
-    shared_ptr<VeilFS> veilFS;
-    shared_ptr<FslogicProxy> fslogic;
+    COMMON_INTEGRATION_DEFS();
 
     path directIO_root;
 
     virtual void SetUp() {
-        fslogic.reset(new FslogicProxy());
 
-        // Initialization of the whole client. Note that we are using real objects, not mocks
-        // since we want "integration test"
-        // Also note that we don't run Config.parseConfig. It would fail since we don't have config file
-        // and we don't it one. All required configs are overriden by env variables
-        // set by CI.
+        // Initialization of the whole client. 
         // This initialization is not required if test uses only filesystem (theres no VeilClient code calls)
-        veilFS.reset(new VeilFS(VeilFSRoot, shared_ptr<Config>(new Config()), 
-                        shared_ptr<JobScheduler>(new JobScheduler()), 
-                        shared_ptr<FslogicProxy>(fslogic), 
-                        shared_ptr<MetaCache>(new MetaCache()), 
-                        shared_ptr<StorageMapper>(new StorageMapper(*new FslogicProxy())),
-                        shared_ptr<StorageHelperFactory>(new StorageHelperFactory())));
+        COMMON_INTEGRATION_SETUP();
 
+        // Get storage helper root dir path from cluster env variable 
         directIO_root = path(erlExec("{env, \"DIO_ROOT\"}"));
         create_directory(directIO_root);
     }
 
     virtual void TearDown() {
         remove_all(directIO_root);
+
+        COMMON_INTEGRATION_CLEANUP();
     }
 
 };

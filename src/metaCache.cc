@@ -5,14 +5,22 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "metaCache.hh"
-#include "jobScheduler.hh"
-#include "veilfs.hh"
-#include "config.hh"
+#include "metaCache.h"
+#include "jobScheduler.h"
+#include "veilfs.h"
+#include "config.h"
 
 #include "glog/logging.h"
 
 #include <memory.h>
+
+using namespace std;
+using namespace boost;
+
+
+namespace veil {
+namespace client {
+
 
 MetaCache::MetaCache()
 {
@@ -24,7 +32,7 @@ MetaCache::~MetaCache()
 
 void MetaCache::addAttr(string path, struct stat &attr)
 {
-    if(VeilFS::getConfig()->isSet(ENABLE_ATTR_CACHE_OPT) && !VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT))
+    if(!VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT))
         return;
 
     AutoLock lock(m_statMapLock, WRITE_LOCK);
@@ -33,7 +41,7 @@ void MetaCache::addAttr(string path, struct stat &attr)
 
     if(!wasBefore)
     {
-        int expiration_time = VeilFS::getConfig()->isSet(ATTR_CACHE_EXPIRATION_TIME_OPT) ? VeilFS::getConfig()->getInt(ATTR_CACHE_EXPIRATION_TIME_OPT) : ATTR_DEFAULT_EXPIRATION_TIME;
+        int expiration_time = VeilFS::getConfig()->getInt(ATTR_CACHE_EXPIRATION_TIME_OPT);
         if(expiration_time <= 0)
             expiration_time = ATTR_DEFAULT_EXPIRATION_TIME;
         // because of random part, only small parts of cache will be updated at the same moment
@@ -81,3 +89,6 @@ bool MetaCache::runTask(TaskID taskId, string arg0, string arg1, string arg3)
         return false;
     }
 }
+
+} // namespace client
+} // namespace veil

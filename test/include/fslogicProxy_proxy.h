@@ -1,5 +1,5 @@
 /**
- * @file fslogicProxy_proxy.hh
+ * @file fslogicProxy_proxy.h
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
@@ -8,9 +8,10 @@
 #ifndef FSLOGIC_PROXY_PROXY_H
 #define FSLOGIC_PROXY_PROXY_H
 
-#include "fslogicProxy.hh"
-#include "communicationHandler_mock.hh"
-#include "messageBuilder_mock.hh"
+#include "fslogicProxy.h"
+#include "communicationHandler_mock.h"
+#include "messageBuilder_mock.h"
+#include "testCommon.h"
 #include "gmock/gmock.h"
 
 using namespace boost;
@@ -23,20 +24,8 @@ public:
     bool mockSerialized;
     bool mockAtom;
 
-    void setMessageBuilder(MessageBuilder *mock) {
-        m_messageBuilder.reset(mock);
-    }
-
-    shared_ptr<CommunicationHandler> selectConnection() {
-        if(useMockConnectionSelector) 
-            return ch_mock;
-        else 
-            return FslogicProxy::selectConnection();
-    }
-
-    void releaseConnection(shared_ptr<CommunicationHandler> conn) {
-        if(!useMockConnectionSelector)
-            return FslogicProxy::releaseConnection(conn);
+    void setMessageBuilder(shared_ptr<MessageBuilder> mock) {
+        m_messageBuilder = mock;
     }
 
     string sendFuseReceiveSerializedMessage(string messageType, string answerType, string messageInput) {

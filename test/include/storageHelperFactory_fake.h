@@ -1,5 +1,5 @@
 /**
- * @file storageHelperFactory_fake.hh
+ * @file storageHelperFactory_fake.h
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
@@ -8,11 +8,12 @@
 #ifndef STORAGE_HELPER_FACTORY_FAKE_H
 #define STORAGE_HELPER_FACTORY_FAKE_H
 
-#include "helpers/storageHelperFactory.hh"
-#include "genericHelper_mock.hh"
+#include "helpers/storageHelperFactory.h"
+#include "genericHelper_mock.h"
+#include "testCommon.h"
 #include "gmock/gmock.h"
 
-using namespace boost;
+using namespace veil::helpers;
 
 class FakeStorageHelperFactory
     : public StorageHelperFactory {

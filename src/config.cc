@@ -5,22 +5,25 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "config.hh"
+#include "config.h"
 #include <fstream>
+
+using namespace std;
+
+namespace veil {
+namespace client {
 
 string Config::m_envCWD;
 string Config::m_envHOME;
 
 string Config::m_requiredOpts[] = {
-    CLUSTER_HOSTNAME_OPT,
-    CLUSTER_PORT_OPT,
-    PEER_CERTIFICATE_FILE_OPT,
-    ENABLE_ENV_OPTION_OVERRIDE
+
 };
 
 Config::Config()
 {
     setEnv();
+    defaultsLoaded = false;
 }
 
 Config::~Config()
@@ -56,7 +59,13 @@ bool Config::isSet(string opt)
             m_globalNode[opt].as<string>();
             return true;
         } catch(YAML::Exception e) {
-            return false;
+            (void) getValue<string>(opt); // Just to set m_envNode[opt] if possible
+            try {
+                m_envNode[opt].as<string>();
+                return true;
+            } catch(YAML::Exception e) {
+                return false;
+            } 
         }
     }
 }
@@ -86,7 +95,8 @@ bool Config::parseConfig()
     {
         LOG(ERROR) << "cannot parse config file(s), reason: " << string(e.what()) <<
                       ", globalConfigPath: " << m_globalConfigPath << " userConfigPath: " << m_userConfigPath;
-        return false;
+        if(sizeof(m_requiredOpts) > 0)
+            return false;
     }
 
     for(size_t i = 0, size = 0; size < sizeof(m_requiredOpts); size += sizeof(m_requiredOpts[i]), ++i)
@@ -137,3 +147,6 @@ double Config::getDouble(string opt)
 {
     return getValue<double>(opt);
 }
+
+} // namespace client
+} // namespace veil

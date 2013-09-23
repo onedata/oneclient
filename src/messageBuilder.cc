@@ -5,12 +5,19 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "messageBuilder.hh"
-#include "config.hh"
-#include "veilfs.hh"
+#include "messageBuilder.h"
+#include "config.h"
+#include "veilfs.h"
 
 #include <iostream>
 #include <unistd.h>
+
+using namespace std;
+using namespace veil::protocol::communication_protocol;
+using namespace veil::protocol::fuse_messages;
+
+namespace veil {
+namespace client {
 
 MessageBuilder::MessageBuilder()
 {
@@ -45,7 +52,7 @@ ClusterMsg * MessageBuilder::createClusterMessage(string moduleName,
 {
     ClusterMsg * msg = ClusterMsg::default_instance().New();
     msg->set_module_name(moduleName);
-    msg->set_protocol_version(1);
+    msg->set_protocol_version(PROTOCOL_VERSION);
     msg->set_message_type(messageType);
     msg->set_message_decoder_name(FUSE_MESSAGES);
     msg->set_answer_type(answerType);
@@ -112,3 +119,6 @@ string MessageBuilder::decodeAtomAnswer(Answer& answer)
      return atom.value();
 
 }
+
+} // namespace client
+} // namespace veil

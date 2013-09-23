@@ -25,6 +25,12 @@
 -define(CCM_NODE_NAME, list_to_atom(?default_ccm_name ++ "@" ++ os:getenv("CLUSTER_NODE"))).
 -define(WORKER_NODE_NAME, list_to_atom(?default_worker_name ++ "@" ++ os:getenv("CLUSTER_NODE"))).
 
+-define(CCM, central_cluster_manager).
+-define(Node_Manager_Name, node_manager).
+
+%% Restart cluster before each test suite (+20 secs). 
+-define(RESTART_CLUSTER, true).
+
 
 main(["__exec" | [ TestName | Args ]]) ->
     set_up_net_kernel(),
@@ -48,6 +54,23 @@ main(["__exec" | [ TestName | Args ]]) ->
     end;    
 main([TestName | Args]) -> 
     set_up_net_kernel(),
+
+    if
+        ?RESTART_CLUSTER ->
+
+            os:cmd("restart_cluster.sh " ++ os:getenv("CLUSTER_NODE")),
+            timer:sleep(10000), %% Give node some time to boot 
+
+            pong = net_adm:ping(?CCM_NODE_NAME),
+            pong = net_adm:ping(?WORKER_NODE_NAME),
+            gen_server:cast({?Node_Manager_Name, ?WORKER_NODE_NAME}, do_heart_beat),
+            timer:sleep(1000),
+            gen_server:cast({global, ?CCM}, init_cluster),
+
+            timer:sleep(10000); %% Give cluster some time to boot
+             
+        true -> ok
+    end,
 
     env_setup([?CCM_NODE_NAME, ?WORKER_NODE_NAME]),
     load_mods([?CCM_NODE_NAME, ?WORKER_NODE_NAME], [list_to_atom(TestName), test_common]),

@@ -5,7 +5,7 @@ include(ExternalProject)
 
 # The version number.
 set(VeilClient_VERSION_MAJOR 0)
-set(VeilClient_VERSION_MINOR 2)
+set(VeilClient_VERSION_MINOR 3)
 set(VeilClient_VERSION_PATCH 0)
 set(VeilClient_VERSION $(VeilClient_VERSION_MAJOR).$(VeilClient_VERSION_MINOR).$(VeilClient_VERSION_PATCH))
 
@@ -27,8 +27,9 @@ configure_file (
 add_subdirectory(${DEPS_DIR}/glog)
 add_subdirectory(${DEPS_DIR}/yaml-cpp)
 add_subdirectory(${DEPS_DIR}/gmock)
-add_subdirectory(${DEPS_DIR}/gtest)
 add_subdirectory(${DEPS_DIR}/veilhelpers)
+
+link_directories(${PROJECT_BINARY_DIR})
 
 
 # Include paths
@@ -129,8 +130,11 @@ target_link_libraries(veilclient
 
 target_link_libraries(veilFuse 
     ${GLOG_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
+    ${Boost_LIBRARIES}
     ${FUSE_LIBRARIES}
     ${PROTOBUF_LIBRARY}
+    ${VEILHELPERS_LIBRARIES}
     veilclient
     dl
     z
@@ -154,8 +158,8 @@ set(CPACK_PACKAGE_VERSION_MINOR "${VeilClient_VERSION_MINOR}")
 set(CPACK_PACKAGE_CONTACT "help@veilfs.com")
 
 # DEB and RPM deps 
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse, libfuse2, libprotobuf7, libssl1.0.0")
-set(CPACK_RPM_PACKAGE_REQUIRES "fuse, fuse-libs, protobuf openssl")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse, libfuse2, libprotobuf7, libssl1.0.0 globus-proxy-utils")
+set(CPACK_RPM_PACKAGE_REQUIRES "fuse, fuse-libs, protobuf openssl globus-proxy-utils")
 set(CPACK_RPM_PACKAGE_AUTOREQPROV " no")
 
 include(CPack)
@@ -170,7 +174,7 @@ include_directories(${GMOCK_INCLUDE_DIR})
 
 set(TEST_SOURCES_DIR "${PROJECT_SOURCE_DIR}/test")
 include_directories(${TEST_SOURCES_DIR}/include)
-
+include_directories(${VEILHELPERS_TEST_INCLUDE_DIR})
 
 # Unit tests
 
@@ -194,6 +198,9 @@ foreach(file ${files})
         ${GTEST_LIBRARIES}
         ${GMOCK_LIBRARIES}
         ${FUSE_LIBRARIES}
+        ${PROTOBUF_LIBRARY}
+        ${OPENSSL_LIBRARIES}
+        ${VEILHELPERS_LIBRARIES}
         veilclient
         dl 
         z
@@ -236,6 +243,9 @@ foreach(file ${files})
         ${GTEST_LIBRARIES}
         ${GMOCK_LIBRARIES}
         ${FUSE_LIBRARIES}
+		${PROTOBUF_LIBRARY}
+        ${OPENSSL_LIBRARIES}
+        ${VEILHELPERS_LIBRARIES}
         veilclient
         dl 
         z

@@ -6,8 +6,11 @@
  */
 
 
-#include "lock.hh"
+#include "lock.h"
 #include "glog/logging.h"
+
+namespace veil {
+namespace client {
 
 AutoLock::AutoLock(ReadWriteLock &ctx, LockType type) :
     m_lock(ctx),
@@ -112,3 +115,6 @@ void ReadWriteLock::writeUnlock()
     pthread_mutex_unlock(MUTEX(m_class));
     pthread_mutex_unlock(MUTEX(m_res));
 }
+
+} // namespace client
+} // namespace veil

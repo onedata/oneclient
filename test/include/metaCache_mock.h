@@ -1,5 +1,5 @@
 /**
- * @file metaCache_mock.hh
+ * @file metaCache_mock.h
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
@@ -8,8 +8,8 @@
 #ifndef META_CACHE_MOCK_H
 #define META_CACHE_MOCK_H
 
-#include "metaCache.hh"
-#include "testCommon.hh"
+#include "metaCache.h"
+#include "testCommon.h"
 
 class MockMetaCache
     : public MetaCache {

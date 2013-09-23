@@ -5,7 +5,7 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.hh"
+#include "testCommon.h"
 
 INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 

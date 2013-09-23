@@ -5,9 +5,12 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "veilException.hh"
-#include "veilfs.hh"
+#include "veilException.h"
+#include "veilfs.h"
 #include "glog/logging.h"
+
+namespace veil {
+namespace client {
 
 VeilException::VeilException() : m_veilError(VEIO)
 {
@@ -34,3 +37,6 @@ std::string VeilException::veilError() const
 {
     return m_veilError;
 }
+
+} // namespace client
+} // namespace veil

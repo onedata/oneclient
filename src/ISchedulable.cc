@@ -5,8 +5,11 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "ISchedulable.hh"
-#include "veilfs.hh"
+#include "ISchedulable.h"
+#include "veilfs.h"
+
+namespace veil {
+namespace client {
 
 ISchedulable::ISchedulable()
 {
@@ -15,3 +18,6 @@ ISchedulable::ISchedulable()
 ISchedulable::~ISchedulable()
 {
 }
+
+} // namespace client
+} // namespace veil

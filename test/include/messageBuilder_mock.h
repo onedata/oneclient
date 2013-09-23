@@ -1,5 +1,5 @@
 /**
- * @file messageBuilder_mock.hh
+ * @file messageBuilder_mock.h
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
@@ -8,7 +8,8 @@
 #ifndef MESSAGE_BUILDER_MOCK_H
 #define MESSAGE_BUILDER_MOCK_H
 
-#include "messageBuilder.hh"
+#include "messageBuilder.h"
+#include "testCommon.h"
 #include "gmock/gmock.h"
 
 class MockMessageBuilder

@@ -16,20 +16,21 @@
 	"settings":
 	{
 		"sublimeclang_options":
-	    [
-	        "-I${folder:${project_path:veilclient.sublime-project}}/include/fuse",
-	        "-I${folder:${project_path:veilclient.sublime-project}}/include",
-	        "-I${folder:${project_path:veilclient.sublime-project}}/src",
-	        "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/yaml-cpp/src/yaml-cpp/include",
-	        "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/glog/src/glog/src",
-	        "-I${folder:${project_path:veilclient.sublime-project}}/test/include",
-	        "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/gmock/src/gmock/include",
-	        "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/gtest/src/gtest/include",
-	        "-I${folder:${project_path:veilclient.sublime-project}}/build",
-	        "-I/usr/include/x86_64-linux-gnu/c++/4.7",
-	        "-D_FILE_OFFSET_BITS=64",
+        [
+            "-I${folder:${project_path:veilclient.sublime-project}}/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/src",
+            "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/yaml-cpp/src/yaml-cpp/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/glog/src/glog/src",
+            "-I${folder:${project_path:veilclient.sublime-project}}/test/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/gmock/src/gmock/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/gmock/src/gmock/gtest/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/build",
+            "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/veilhelpers/src/veilhelpers/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/veilhelpers/src/veilhelpers/test/include",
+            "-I/usr/include/x86_64-linux-gnu/c++/4.7",
+            "-D_FILE_OFFSET_BITS=64",
             "-ferror-limit=0"
-	    ]
+        ] 
 	}
 	
 }

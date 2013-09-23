@@ -5,16 +5,16 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.hh"
+#include "testCommon.h"
+#include "metaCache_proxy.h"
+#include "config_proxy.h"
+#include "config_mock.h"
+#include "jobScheduler_mock.h"
+
 
 INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
 // TEST definitions below
-
-#include "metaCache_proxy.hh"
-#include "config_proxy.hh"
-#include "config_mock.hh"
-#include "jobScheduler_mock.hh"
 
 class MetaCacheTest 
     : public ::testing::Test {
@@ -83,7 +83,7 @@ TEST_F(MetaCacheTest, InsertAndGet) {
     proxy->addAttr("/test2", stat);
     stat.st_size = 3;
     
-    EXPECT_CALL(*config, isSet(ATTR_CACHE_EXPIRATION_TIME_OPT)).WillRepeatedly(Return(false));
+    EXPECT_CALL(*config, getInt(ATTR_CACHE_EXPIRATION_TIME_OPT)).WillRepeatedly(Return(-5));
     EXPECT_CALL(*scheduler, addTask(Field(&Job::when, AllOf( Ge(time(NULL) + ATTR_DEFAULT_EXPIRATION_TIME / 2 - 5), Le(time(NULL) + + ATTR_DEFAULT_EXPIRATION_TIME * 2) )))).Times(1);
     proxy->addAttr("/test3", stat);
 

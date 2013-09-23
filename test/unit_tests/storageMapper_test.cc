@@ -5,29 +5,31 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.hh"
+#include "testCommon.h"
+#include "storageMapper_proxy.h"
+#include "config_mock.h"
+#include "fslogicProxy_mock.h"
+#include "jobScheduler_mock.h"
+#include "veilfs.h"
+
 
 INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
 // TEST definitions below
-
-#include "storageMapper_proxy.hh"
-#include "config_mock.hh"
-#include "fslogicProxy_mock.hh"
-#include "jobScheduler_mock.hh"
-#include "veilfs.hh"
 
 class StorageMapperTest 
     : public ::testing::Test {
 
 protected:
     COMMON_DEFS();
-    MockFslogicProxy mockFslogic; 
+    shared_ptr<MockFslogicProxy> mockFslogic; 
     shared_ptr<ProxyStorageMapper> proxy;    
 
     virtual void SetUp() {
         COMMON_SETUP();
+        mockFslogic.reset(new MockFslogicProxy());
         proxy.reset(new ProxyStorageMapper(mockFslogic));
+
     }
 
     virtual void TearDown() {
@@ -113,12 +115,12 @@ TEST_F(StorageMapperTest, OpenClose) {
 }
 
 TEST_F(StorageMapperTest, FindAndGet) {
-    EXPECT_CALL(mockFslogic, getFileLocation("/file1", _)).WillOnce(Return(false));
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _)).WillOnce(Return(false));
     EXPECT_NE(VOK, proxy->findLocation("/file1"));
 
     FileLocation location;
     location.set_answer(VEACCES);
-    EXPECT_CALL(mockFslogic, getFileLocation("/file1", _)).WillOnce(DoAll(SetArgPointee<1>(location), Return(true)));
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _)).WillOnce(DoAll(SetArgPointee<1>(location), Return(true)));
     EXPECT_EQ(VEACCES, proxy->findLocation("/file1"));
 
     EXPECT_THROW(proxy->getLocationInfo("/file1"), VeilException);
@@ -126,7 +128,7 @@ TEST_F(StorageMapperTest, FindAndGet) {
     location.set_validity(20);
     time_t currentTime = time(NULL);
     EXPECT_CALL(*scheduler, addTask(_)).Times(2);
-    EXPECT_CALL(mockFslogic, getFileLocation("/file1", _)).WillOnce(DoAll(SetArgPointee<1>(location), Return(true)));
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _)).WillOnce(DoAll(SetArgPointee<1>(location), Return(true)));
     EXPECT_EQ(VOK, proxy->findLocation("/file1"));
 
     EXPECT_NO_THROW(proxy->getLocationInfo("/file1"));
@@ -134,10 +136,10 @@ TEST_F(StorageMapperTest, FindAndGet) {
 
     EXPECT_GE(currentTime + 20, proxy->getLocationInfo("/file1").first.validTo);
 
-    EXPECT_CALL(mockFslogic, getFileLocation("/file2", _)).WillOnce(Return(false));
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file2", _)).WillOnce(Return(false));
     EXPECT_THROW(proxy->getLocationInfo("/file2", true), VeilException);
 
     EXPECT_CALL(*scheduler, addTask(_)).Times(2);
-    EXPECT_CALL(mockFslogic, getFileLocation("/file2", _)).WillOnce(DoAll(SetArgPointee<1>(location), Return(true)));
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file2", _)).WillOnce(DoAll(SetArgPointee<1>(location), Return(true)));
     EXPECT_NO_THROW(proxy->getLocationInfo("/file2", true));
 }

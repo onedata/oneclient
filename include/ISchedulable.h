@@ -1,17 +1,19 @@
 /**
- * @file ISchedulable.hh
+ * @file ISchedulable.h
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef ISCHEDULABLE_HH
-#define ISCHEDULABLE_HH
+#ifndef ISCHEDULABLE_H
+#define ISCHEDULABLE_H
 
 #include <string>
 #include <boost/shared_ptr.hpp>
 #include <boost/enable_shared_from_this.hpp>
-using namespace std;
+
+namespace veil {
+namespace client {
 
 /**
  * The ISchedulable interface.
@@ -32,13 +34,20 @@ public:
         TASK_SEND_FILE_NOT_USED,
         TASK_RENEW_LOCATION_MAPPING,
         TASK_REMOVE_EXPIRED_LOCATON_MAPPING,
+        TASK_PING_CLUSTER,
+        TASK_ASYNC_GET_FILE_LOCATION,
+        TASK_ASYNC_READDIR,
+        TASK_ASYNC_GETATTR,
         TASK_LAST_ID
     };
 
     ISchedulable();
     virtual ~ISchedulable();    ///< Interface destructor.
 
-    virtual bool runTask(TaskID taskId, string arg0, string arg1, string arg3) = 0; ///< Callback which are called by JobScheduler when requested. @see JobScheduler
+    virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3) = 0; ///< Callback which are called by JobScheduler when requested. @see JobScheduler
 };
 
-#endif // ISCHEDULABLE_HH
+} // namespace client
+} // namespace veil
+
+#endif // ISCHEDULABLE_H

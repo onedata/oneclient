@@ -5,16 +5,18 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.hh"
-#include "config_mock.hh"
-#include "jobScheduler_mock.hh"
+#include "testCommon.h"
+#include "config_mock.h"
+#include "jobScheduler_mock.h"
+#include "config_mock.h"
+#include "messageBuilder.h"
+
+using namespace veil::protocol::communication_protocol;
+using namespace veil::protocol::fuse_messages;
 
 INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
 // TEST definitions below
-
-#include "config_mock.hh"
-#include "messageBuilder.hh"
 
 class MessageBuilderTest 
     : public ::testing::Test {

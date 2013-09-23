@@ -5,9 +5,9 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "jobScheduler.hh"
+#include "jobScheduler.h"
 #include "glog/logging.h"
-#include "lock.hh"
+#include "lock.h"
 
 #include <sys/time.h>
 
@@ -22,6 +22,12 @@
                                 return; \
                             } \
                         }
+
+using namespace std;
+using namespace boost;
+
+namespace veil {
+namespace client {
 
 Job::Job(time_t when, shared_ptr<ISchedulable> subject, ISchedulable::TaskID task, string arg0, string arg1, string arg2) :
     when(when),
@@ -136,7 +142,7 @@ void JobScheduler::schedulerMain()
 void JobScheduler::runJob(Job job)
 {
     LOG(INFO) << "Processing job... TaskID: " << job.task << " (" << job.arg0 << ", " << job.arg1 << ", " << job.arg2 << ")";
-    if(!job.subject->runTask(job.task, job.arg0, job.arg1, job.arg2))
+    if(!job.subject || !job.subject->runTask(job.task, job.arg0, job.arg1, job.arg2))
         LOG(WARNING) << "Task with id: " << job.task << " failed";
 }
 
@@ -171,3 +177,32 @@ void JobScheduler::deleteJobs(ISchedulable *subject, ISchedulable::TaskID task)
     pthread_mutex_unlock(&m_mutex);
 }
 
+bool JobScheduler::hasTask(ISchedulable::TaskID task) {
+    if(task == ISchedulable::TASK_LAST_ID)
+        return true;
+
+    pthread_mutex_lock(&m_mutex);
+    std::vector<Job> tmp;
+    bool found = false;
+    while(!m_jobQueue.empty() && !found) {
+        Job t = m_jobQueue.top();
+        if(t.task == task) 
+            found = true;
+
+        tmp.push_back(t);
+        m_jobQueue.pop();
+    }
+
+    while(!tmp.empty())
+    {
+        Job t = tmp.back();
+        tmp.pop_back();
+        m_jobQueue.push(t);
+    }
+    pthread_mutex_unlock(&m_mutex);
+
+    return found;
+}
+
+} // namespace client
+} // namespace veil

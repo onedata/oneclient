@@ -1,5 +1,5 @@
 /**
- * @file jobScheduler_mock.hh
+ * @file jobScheduler_mock.h
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
@@ -8,8 +8,8 @@
 #ifndef JOB_SCHEDULER_MOCK_H
 #define JOB_SCHEDULER_MOCK_H
 
-#include "jobScheduler.hh"
-#include "testCommon.hh"
+#include "jobScheduler.h"
+#include "testCommon.h"
 #include "gmock/gmock.h"
 
 class MockJobScheduler

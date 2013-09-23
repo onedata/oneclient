@@ -1,15 +1,17 @@
 /**
- * @file veilExcpetion.hh
+ * @file veilExcpetion.h
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-
-#ifndef VEILEXCEPTION_HH
-#define VEILEXCEPTION_HH
+#ifndef VEILEXCEPTION_H
+#define VEILEXCEPTION_H
 
 #include <string>
+
+namespace veil {
+namespace client {
 
 /**
  * Base class of all VeilClient exceptions.
@@ -37,4 +39,7 @@ public:
     std::string veilError() const; ///< Returns VeilException::m_veilError.
 };
 
-#endif // VEILEXCEPTION_HH
+} // namespace client
+} // namespace veil
+
+#endif // VEILEXCEPTION_H

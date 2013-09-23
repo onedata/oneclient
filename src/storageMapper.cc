@@ -6,15 +6,22 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "storageMapper.hh"
-#include "veilfs.hh"
+#include "storageMapper.h"
+#include "veilfs.h"
 
 #include "glog/logging.h"
 
 #include <ctime>
 #include <arpa/inet.h>
 
-StorageMapper::StorageMapper(FslogicProxy& fslogicProxy) : 
+using namespace std;
+using namespace boost;
+using namespace veil::protocol::fuse_messages;
+
+namespace veil {
+namespace client {
+
+StorageMapper::StorageMapper(shared_ptr<FslogicProxy> fslogicProxy) : 
     m_fslogic(fslogicProxy)
 {
 }
@@ -57,12 +64,12 @@ string StorageMapper::findLocation(string logicalName)
 {
     LOG(INFO) << "quering cluster about storage mapping for file: " << logicalName;
     FileLocation location;
-    if(m_fslogic.getFileLocation(logicalName, &location))
+    if(m_fslogic->getFileLocation(logicalName, &location))
     {
         if(location.answer() == VOK)
             addLocation(logicalName, location);
         else
-            LOG(WARNING) << "VeilCluster returned error: " << location.answer();
+            LOG(WARNING) << "Cannot get storage mapping for file: " << logicalName << " due to error: " << location.answer();
         return location.answer();
     }
     else
@@ -147,7 +154,7 @@ bool StorageMapper::runTask(TaskID taskId, string arg0, string arg1, string arg3
             return true;
         case TASK_RENEW_LOCATION_MAPPING:
             LOG(INFO) << "Renewing file mapping for file: " << arg0;
-            if((validity = m_fslogic.renewFileLocation(arg0)) <= 0)
+            if((validity = m_fslogic->renewFileLocation(arg0)) <= 0)
             {
                 LOG(WARNING) << "Renewing file mapping for file: " << arg0 << " failed";
                 return true;
@@ -159,7 +166,13 @@ bool StorageMapper::runTask(TaskID taskId, string arg0, string arg1, string arg3
                 LOG(INFO) << "Renewed location mapping for file: " << arg0 << ". New validity: time + " << ntohl(validity);
             }
             return true;
+        case TASK_ASYNC_GET_FILE_LOCATION:
+            (void) findLocation(arg0);
+            return true;
         default:
             return false;
     }
 }
+
+} // namespace client
+} // namespace veil

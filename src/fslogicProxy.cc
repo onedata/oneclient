@@ -6,8 +6,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "fslogicProxy.hh"
-#include "veilfs.hh"
+#include "fslogicProxy.h"
+#include "veilfs.h"
 
 #include "glog/logging.h"
 
@@ -15,7 +15,15 @@
 #include <iostream>
 #include <string>
 #include <fstream>
+#include <google/protobuf/descriptor.h>
 
+using namespace std;
+using namespace boost;
+using namespace veil::protocol::communication_protocol;
+using namespace veil::protocol::fuse_messages;
+
+namespace veil {
+namespace client {
 
 FslogicProxy::FslogicProxy() 
     : m_messageBuilder(new MessageBuilder())
@@ -269,7 +277,7 @@ string FslogicProxy::sendFuseReceiveSerializedMessage(string messageType, string
         return "";
     }
 
-    shared_ptr<CommunicationHandler> connection = selectConnection();
+    shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
     if(!connection) 
     {
         LOG(ERROR) << "Cannot select connection from connectionPool";
@@ -281,7 +289,7 @@ string FslogicProxy::sendFuseReceiveSerializedMessage(string messageType, string
     Answer answer = connection->communicate(*clusterMessage, 2);
 
     if(answer.answer_status() != VEIO)
-        releaseConnection(connection);
+        VeilFS::getConnectionPool()->releaseConnection(connection);
 
     if(answer.answer_status() != VOK) 
     {
@@ -309,7 +317,7 @@ string FslogicProxy::sendFuseReceiveAtomMessage(string messageType, string messa
         return "";
     }
 
-    shared_ptr<CommunicationHandler> connection = selectConnection();
+    shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
     if(!connection) 
     {
         LOG(ERROR) << "Cannot select connection from connectionPool";
@@ -319,32 +327,43 @@ string FslogicProxy::sendFuseReceiveAtomMessage(string messageType, string messa
     Answer answer = connection->communicate(*clusterMessage, 2);
 
     if(answer.answer_status() != VEIO)
-        releaseConnection(connection);
+        VeilFS::getConnectionPool()->releaseConnection(connection);
     
     return m_messageBuilder->decodeAtomAnswer(answer);
 }
 
-shared_ptr<CommunicationHandler> FslogicProxy::selectConnection()
+void FslogicProxy::pingCluster(string nth) 
 {
-    AutoLock lock(m_connectionPoolLock, WRITE_LOCK);;
-    shared_ptr<CommunicationHandler> conn;
-    if(m_connectionPool.empty())
-    {
-        LOG(INFO) << "Theres no connections ready to be used. Creating new one";
-        conn.reset(new CommunicationHandler());
-        m_connectionPool.push_back(conn);
+
+    ClusterMsg clm;
+    clm.set_protocol_version(PROTOCOL_VERSION);
+    clm.set_synch(false);
+    clm.set_module_name(FSLOGIC);
+    clm.set_message_type(ATOM);
+    clm.set_answer_type(ATOM);
+    clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
+    clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL);
+
+    Atom ping;
+    ping.set_value("ping");
+    clm.set_input(ping.SerializeAsString());
+
+    Answer ans;
+    int nthInt;
+    istringstream iss(nth);
+    iss >> nthInt;
+    shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection(false, nthInt);
+    
+    if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
+        LOG(WARNING) << "Pinging cluster failed";
+    } else {
+        VeilFS::getConnectionPool()->releaseConnection(connection);
+        LOG(INFO) << "Cluster ping... ---> " << ans.answer_status();
     }
 
-    conn = m_connectionPool.front();
-    m_connectionPool.pop_front();
-    return conn;
-
-}
-
-void FslogicProxy::releaseConnection(shared_ptr<CommunicationHandler> conn)
-{
-    AutoLock lock(m_connectionPoolLock, WRITE_LOCK);
-    m_connectionPool.push_back(conn);
+    // Send another...
+    Job pingTask = Job(time(NULL) + VeilFS::getConfig()->getInt(CLUSTER_PING_INTERVAL_OPT), shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth);
+    VeilFS::getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
 }
 
 bool FslogicProxy::runTask(TaskID taskId, string arg0, string, string)
@@ -356,7 +375,13 @@ bool FslogicProxy::runTask(TaskID taskId, string arg0, string, string)
         res = sendFileNotUsed(arg0);
         LOG(INFO) << "FUSE sendFileNotUsed for file: " << arg0 << ", response: " << res;
         return true;
+    case TASK_PING_CLUSTER:
+        pingCluster(arg0);
+        return true;
     default:
         return false;
     }
 }
+
+} // namespace client
+} // namespace veil

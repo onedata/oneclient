@@ -1,5 +1,5 @@
 /**
- * @file lock.hh
+ * @file lock.h
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
@@ -27,6 +27,9 @@
                                     pthread_mutexattr_settype(&mutexattr, PTHREAD_MUTEX_RECURSIVE); \
                                     pthread_mutex_init(&X##Mutex, &mutexattr); \
                                 }
+
+namespace veil {
+namespace client {
 
 /// @enum LockType. @see AutoLock::AutoLock
 enum LockType
@@ -83,5 +86,8 @@ public:
     void release();                                 ///< Release current lock.
     void lock();                                    ///< Locks current lock.
 };
+
+} // namespace client
+} // namespace veil
 
 #endif // LOCK_H
