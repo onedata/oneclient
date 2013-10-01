@@ -14,6 +14,7 @@
 #include "boost/bind.hpp" 
 #include "boost/shared_ptr.hpp"
 #include "veilfs.h"
+#include "messageBuilder.h"
 #include "connectionPool_mock.h"
 #include "gsiHandler.h"
 #include "config.h"
@@ -66,7 +67,8 @@ using namespace veil::client;
                             shared_ptr<FslogicProxy>(fslogic), \
                             shared_ptr<MetaCache>(new MetaCache()), \
                             shared_ptr<StorageMapper>(new StorageMapper(shared_ptr<FslogicProxy>(fslogic))), \
-                            shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory())));
+                            shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()))); \
+        sleep(2);
 
 #define COMMON_INTEGRATION_DEFS() \
         shared_ptr<VeilFS> veilFS; \
@@ -80,5 +82,6 @@ using namespace veil::client;
         VeilFS::staticDestroy();
 
 template<typename T> bool identityEqual( const T &lhs, const T &rhs ) { return &lhs == &rhs; }
+bool pbMessageEqual( const google::protobuf::MessageLite &lhs, const google::protobuf::MessageLite &rhs ) { return lhs.SerializePartialAsString() == rhs.SerializePartialAsString(); }
 
 #endif // TEST_COMMON_H

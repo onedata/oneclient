@@ -16,9 +16,12 @@
 #include <string>
 #include <fstream>
 #include <google/protobuf/descriptor.h>
+#include <boost/algorithm/string.hpp>
+#include <sys/types.h>
 
 using namespace std;
 using namespace boost;
+using namespace boost::algorithm;
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
 
@@ -36,16 +39,14 @@ FslogicProxy::~FslogicProxy()
     LOG(INFO) << "FslogicProxy destroyed";
 }
 
-bool FslogicProxy::getFileAttr(string logicName, FileAttr *attr)
+bool FslogicProxy::getFileAttr(string logicName, FileAttr& attr)
 {
     LOG(INFO) << "getting attributes from cluster for file: " << logicName;
 
     GetFileAttr msg;
     msg.set_file_logic_name(logicName);
 
-    string serializedAnswer = sendFuseReceiveSerializedMessage(GET_FILE_ATTR, FILE_ATTR, msg.SerializeAsString());
-
-    if(!attr->ParseFromString(serializedAnswer))
+    if(!sendFuseReceiveAnswer(msg, attr))
     {
         LOG(ERROR) << "cannot parse cluster answer";
         return false;
@@ -54,16 +55,14 @@ bool FslogicProxy::getFileAttr(string logicName, FileAttr *attr)
     return true;
 }
 
-bool FslogicProxy::getFileLocation(string logicName, FileLocation * location)
+bool FslogicProxy::getFileLocation(string logicName, FileLocation& location)
 {
     LOG(INFO) << "getting file location from cluster for file: " << logicName;
 
     GetFileLocation msg;
     msg.set_file_logic_name(logicName);
 
-    string serializedAnswer = sendFuseReceiveSerializedMessage(GET_FILE_LOCATION, FILE_LOCATION, msg.SerializeAsString());
-
-    if(!location->ParseFromString(serializedAnswer))
+    if(!sendFuseReceiveAnswer(msg, location))
     {
         LOG(ERROR) << "cannot parse cluster answer";
         return false;
@@ -72,7 +71,7 @@ bool FslogicProxy::getFileLocation(string logicName, FileLocation * location)
     return true;
 }
 
-bool FslogicProxy::getNewFileLocation(string logicName, mode_t mode, FileLocation * location)
+bool FslogicProxy::getNewFileLocation(string logicName, mode_t mode, FileLocation& location)
 {
     LOG(INFO) << "getting new file location for file: " << logicName; 
 
@@ -80,9 +79,7 @@ bool FslogicProxy::getNewFileLocation(string logicName, mode_t mode, FileLocatio
     msg.set_file_logic_name(logicName);
     msg.set_mode(mode);
 
-    string serializedAnswer = sendFuseReceiveSerializedMessage(GET_NEW_FILE_LOCATION, FILE_LOCATION, msg.SerializeAsString());
-
-    if(!location->ParseFromString(serializedAnswer))
+    if(!sendFuseReceiveAnswer(msg, location))
     {
         LOG(ERROR) << "cannot parse cluster answer";
         return false;
@@ -96,12 +93,10 @@ int FslogicProxy::renewFileLocation(string logicName)
     LOG(INFO) << "renew file location for file: " << logicName; 
 
     RenewFileLocation msg;
-    msg.set_file_logic_name(logicName);
-
-    string serializedAnswer = sendFuseReceiveSerializedMessage(RENEW_FILE_LOCATION, FILE_LOCATION_VALIDITY, msg.SerializeAsString());
-
     FileLocationValidity locationValidity;
-    if (!locationValidity.ParseFromString(serializedAnswer))
+    msg.set_file_logic_name(logicName);
+    
+    if(!sendFuseReceiveAnswer(msg, locationValidity))
     {
         LOG(ERROR) << "cannot parse cluster answer";
         return -1;
@@ -116,19 +111,17 @@ int FslogicProxy::renewFileLocation(string logicName)
     return locationValidity.validity();
 }
 
-bool FslogicProxy::getFileChildren(string dirLogicName, uint32_t children_num, uint32_t offset, std::vector<std::string> * childrenNames)
+bool FslogicProxy::getFileChildren(string dirLogicName, uint32_t children_num, uint32_t offset, vector<string>& childrenNames)
 {
     LOG(INFO) << "getting file children for: " << dirLogicName;
 
     GetFileChildren msg;
+    FileChildren children;
     msg.set_dir_logic_name(dirLogicName);
     msg.set_children_num(children_num); 
     msg.set_offset(offset);
 
-    string serializedAnswer = sendFuseReceiveSerializedMessage(GET_FILE_CHILDREN, FILE_CHILDREN, msg.SerializeAsString());
-
-    FileChildren children;
-    if (!children.ParseFromString(serializedAnswer))
+    if (!sendFuseReceiveAnswer(msg, children))
     {
         LOG(ERROR) << "cannot parse cluster answer";
         return false;
@@ -136,7 +129,7 @@ bool FslogicProxy::getFileChildren(string dirLogicName, uint32_t children_num, u
 
     for(int i = 0; i < children.child_logic_name_size(); ++i)
     {
-        childrenNames->push_back(children.child_logic_name(i));
+        childrenNames.push_back(children.child_logic_name(i));
     }
 
     return true;
@@ -151,14 +144,8 @@ string FslogicProxy::createDir(string logicName, mode_t mode)
     msg.set_dir_logic_name(logicName);
     msg.set_mode(mode);
 
-    string serializedAnswer = sendFuseReceiveAtomMessage(CREATE_DIR, msg.SerializeAsString());
-
-    if(serializedAnswer.size() == 0)
-    {
-        LOG(ERROR) << "cannot parse cluster answer";
-        return VEIO;
-    }
-
+    string serializedAnswer = sendFuseReceiveAtom(msg);
+    
     return serializedAnswer;
 }
 
@@ -167,13 +154,7 @@ string FslogicProxy::deleteFile(string logicName)
     DeleteFile msg;
     msg.set_file_logic_name(logicName);
 
-    string serializedAnswer = sendFuseReceiveAtomMessage(DELETE_FILE, msg.SerializeAsString());
-
-    if(serializedAnswer.size() == 0)
-    {
-        LOG(ERROR) << "cannot parse cluster answer";
-        return VEIO;
-    }
+    string serializedAnswer = sendFuseReceiveAtom(msg);
 
     return serializedAnswer;
 
@@ -183,7 +164,7 @@ bool FslogicProxy::sendFileNotUsed(string logicName)
     FileNotUsed msg;
     msg.set_file_logic_name(logicName);
 
-    string serializedAnswer = sendFuseReceiveAtomMessage(FILE_NOT_USED, msg.SerializeAsString());
+    string serializedAnswer = sendFuseReceiveAtom(msg);
 
     if(serializedAnswer != VOK)
     {
@@ -199,13 +180,7 @@ string FslogicProxy::renameFile(string fromLogicName, string toLogicName)
     msg.set_from_file_logic_name(fromLogicName);
     msg.set_to_file_logic_name(toLogicName);
 
-    string serializedAnswer = sendFuseReceiveAtomMessage(RENAME_FILE, msg.SerializeAsString());
-
-    if(serializedAnswer.size() == 0)
-    {
-        LOG(ERROR) << "cannot parse cluster answer";
-        return VEIO;
-    }
+    string serializedAnswer = sendFuseReceiveAtom(msg);
 
     return serializedAnswer;
 }
@@ -213,16 +188,52 @@ string FslogicProxy::renameFile(string fromLogicName, string toLogicName)
 string FslogicProxy::changeFilePerms(string path, mode_t mode) 
 {
     ChangeFilePerms msg;
-    msg.set_logic_file_name(path);
+    msg.set_file_logic_name(path);
     msg.set_perms(mode);
 
-    string serializedAnswer = sendFuseReceiveAtomMessage(CHANGE_FILE_PERMS, msg.SerializeAsString());
+    string serializedAnswer = sendFuseReceiveAtom(msg);
 
-    if(serializedAnswer.size() == 0)
-    {
-        LOG(ERROR) << "cannot parse cluster answer";
-        return VEIO;
-    }
+    return serializedAnswer;
+}
+
+string FslogicProxy::updateTimes(string path, time_t atime, time_t mtime, time_t ctime)
+{
+    UpdateTimes msg;
+    msg.set_file_logic_name(path);
+    if(atime)
+        msg.set_atime(atime);
+    if(mtime)
+        msg.set_mtime(mtime);
+    if(ctime)
+        msg.set_ctime(ctime);
+
+    string serializedAnswer = sendFuseReceiveAtom(msg);
+
+    return serializedAnswer;
+}
+
+string FslogicProxy::changeFileOwner(string path, uid_t uid, string uname)
+{
+    ChangeFileOwner msg;
+    msg.set_file_logic_name(path);
+    msg.set_uid(uid);
+    if(uname.size() > 0)
+        msg.set_uname(uname);
+
+    string serializedAnswer = sendFuseReceiveAtom(msg);
+
+    return serializedAnswer;
+}
+
+string FslogicProxy::changeFileGroup(string path, gid_t gid, string gname)
+{
+    ChangeFileGroup msg;
+    msg.set_file_logic_name(path);
+    msg.set_gid(gid);
+    if(gname.size() > 0)
+        msg.set_gname(gname);
+
+    string serializedAnswer = sendFuseReceiveAtom(msg);
 
     return serializedAnswer;
 }
@@ -233,13 +244,7 @@ string FslogicProxy::createLink(string from, string to)
     msg.set_from_file_logic_name(from);
     msg.set_to_file_logic_name(to);
 
-    string serializedAnswer = sendFuseReceiveAtomMessage(CREATE_LINK, msg.SerializeAsString());
-
-    if(serializedAnswer.size() == 0)
-    {
-        LOG(ERROR) << "cannot parse cluster answer";
-        return VEIO;
-    }
+    string serializedAnswer = sendFuseReceiveAtom(msg);
 
     return serializedAnswer;
 }
@@ -247,12 +252,10 @@ string FslogicProxy::createLink(string from, string to)
 pair<string, string> FslogicProxy::getLink(string path)
 {
     GetLink msg;
+    LinkInfo answer;
     msg.set_file_logic_name(path);
 
-    string serializedAnswer = sendFuseReceiveSerializedMessage(GET_LINK, LINK_INFO, msg.SerializeAsString());
-
-    LinkInfo answer;
-    if (!answer.ParseFromString(serializedAnswer))
+    if(!sendFuseReceiveAnswer(msg, answer))
     {
         LOG(ERROR) << "cannot parse cluster answer";
         return make_pair(VEIO, "");
@@ -261,32 +264,32 @@ pair<string, string> FslogicProxy::getLink(string path)
     return make_pair(answer.answer(), answer.file_logic_name());
 }
 
-string FslogicProxy::sendFuseReceiveSerializedMessage(string messageType, string answerType, string messageInput)
+bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, google::protobuf::Message& response)
 {
-    if(messageInput == "")
+    if(!fMsg.IsInitialized())
     {
-        LOG(ERROR) << "cannot serialize message with type: " << messageType;
-        return "";
+        LOG(ERROR) << "Message with type: " << fMsg.GetDescriptor()->name() << " is not initialized";
+        return false;
     }
 
-    ClusterMsg * clusterMessage = m_messageBuilder->packFuseMessage(messageType,
-        answerType, FUSE_MESSAGES, messageInput);
-
-    if(clusterMessage == NULL)
+    ClusterMsg clusterMessage = m_messageBuilder->packFuseMessage(fMsg.GetDescriptor()->name(), response.GetDescriptor()->name(), FUSE_MESSAGES, fMsg.SerializeAsString());
+    
+    if(!clusterMessage.IsInitialized())
     {
-        return "";
+        LOG(ERROR) << "Cannot build ClusterMsg";
+        return false;
     }
 
     shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
     if(!connection) 
     {
         LOG(ERROR) << "Cannot select connection from connectionPool";
-        return "";
+        return false;
     }
 
-    LOG(INFO) << "Sending message (type: " << messageType << "). Expecting answer with type: " << answerType;
+    LOG(INFO) << "Sending message (type: " << fMsg.GetDescriptor()->name() << "). Expecting answer with type: " << response.GetDescriptor()->name();
 
-    Answer answer = connection->communicate(*clusterMessage, 2);
+    Answer answer = connection->communicate(clusterMessage, 2);
 
     if(answer.answer_status() != VEIO)
         VeilFS::getConnectionPool()->releaseConnection(connection);
@@ -294,42 +297,49 @@ string FslogicProxy::sendFuseReceiveSerializedMessage(string messageType, string
     if(answer.answer_status() != VOK) 
     {
         LOG(WARNING) << "Cluster send non-ok message. status = " << answer.answer_status();
-        return "";
+        return false;
     }
-
-    return answer.worker_answer();
+    
+    return response.ParseFromString(answer.worker_answer());
 }
 
-string FslogicProxy::sendFuseReceiveAtomMessage(string messageType, string messageInput)
+string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
 {
-    if(messageInput == "")
+    if(!fMsg.IsInitialized())
     {
-        LOG(ERROR) << "cannot serialize message with type: " << messageType;
-        return "";
+        LOG(ERROR) << "Message with type: " << fMsg.GetDescriptor()->name() << " is not initialized";
+        return VEIO;
     }
 
-    ClusterMsg * clusterMessage = m_messageBuilder->packFuseMessage(messageType,
-        ATOM, COMMUNICATION_PROTOCOL, messageInput);
+    ClusterMsg clusterMessage = m_messageBuilder->packFuseMessage(fMsg.GetDescriptor()->name(), Atom::descriptor()->name(), COMMUNICATION_PROTOCOL, fMsg.SerializeAsString());
 
-    if(clusterMessage == NULL)
+    if(!clusterMessage.IsInitialized())
     {
         LOG(ERROR) << "Cannot build ClusterMsg";
-        return "";
+        return VEIO;
     }
 
     shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
     if(!connection) 
     {
         LOG(ERROR) << "Cannot select connection from connectionPool";
-        return "";
+        return VEIO;
     }
     
-    Answer answer = connection->communicate(*clusterMessage, 2);
+    Answer answer = connection->communicate(clusterMessage, 2);
 
     if(answer.answer_status() != VEIO)
         VeilFS::getConnectionPool()->releaseConnection(connection);
     
-    return m_messageBuilder->decodeAtomAnswer(answer);
+    string atom = m_messageBuilder->decodeAtomAnswer(answer);
+    
+    if(atom.size() == 0)
+    {
+        LOG(ERROR) << "Cannot parse cluster atom answer";
+        return VEIO;
+    }
+    
+    return atom;
 }
 
 void FslogicProxy::pingCluster(string nth) 

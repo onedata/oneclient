@@ -21,29 +21,29 @@ class ProxyFslogicProxy
 public:
     bool useMockConnectionSelector;
     shared_ptr<MockCommunicationHandler> ch_mock;
-    bool mockSerialized;
+    bool mockAnswer;
     bool mockAtom;
-
+    
     void setMessageBuilder(shared_ptr<MessageBuilder> mock) {
         m_messageBuilder = mock;
     }
 
-    string sendFuseReceiveSerializedMessage(string messageType, string answerType, string messageInput) {
-        if(mockSerialized)
-            return mockSerializedFun(messageType, answerType, messageInput);
+    bool sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, google::protobuf::Message& response) {
+        if(mockAnswer)
+            return mockAnswerFun(fMsg, response);
         else 
-            return FslogicProxy::sendFuseReceiveSerializedMessage(messageType, answerType, messageInput);
+            return FslogicProxy::sendFuseReceiveAnswer(fMsg, response);
     }
 
-    string sendFuseReceiveAtomMessage(string messageType, string messageInput) {
+    string sendFuseReceiveAtom(const google::protobuf::Message& fMsg) {
         if(mockAtom)
-            return mockAtomFun(messageType, messageInput);
+            return mockAtomFun(fMsg);
         else 
-            return FslogicProxy::sendFuseReceiveAtomMessage(messageType, messageInput);
+            return FslogicProxy::sendFuseReceiveAtom(fMsg);
     }
 
-    MOCK_METHOD2(mockAtomFun, string(string, string));
-    MOCK_METHOD3(mockSerializedFun, string(string, string, string));
+    MOCK_METHOD1(mockAtomFun, string(const google::protobuf::Message&));
+    MOCK_METHOD2(mockAnswerFun, bool(const google::protobuf::Message&, google::protobuf::Message&));
 };
 
 #endif // FSLOGIC_PROXY_PROXY_H

@@ -35,104 +35,89 @@ protected:
 };
 
 TEST_F(MessageBuilderTest, createFuseMessage) {
-    FuseMessage *msg = proxy.createFuseMessage("id", "type", "input");
+    FuseMessage msg = proxy.createFuseMessage("id", "Type", "input");
 
-    EXPECT_EQ("id", msg->id());
-    EXPECT_EQ("type", msg->message_type());
-    EXPECT_EQ("input", msg->input());
-    
-    delete msg;
+    EXPECT_EQ("id", msg.id());
+    EXPECT_EQ("type", msg.message_type());
+    EXPECT_EQ("input", msg.input());
 }
 
 TEST_F(MessageBuilderTest, createClusterMessage) {
-    ClusterMsg *msg = proxy.createClusterMessage("moduleName", "messageType", "answerType", "answerDecoderName", true, "input");
+    ClusterMsg msg = proxy.createClusterMessage("moduleName", "messageType", "answerType", "answerDecoderName", true, "input");
     
-    EXPECT_EQ("moduleName", msg->module_name());
-    EXPECT_EQ("messageType", msg->message_type());
-    EXPECT_EQ("answerType", msg->answer_type());
-    EXPECT_EQ("answerDecoderName", msg->answer_decoder_name());
-    EXPECT_EQ(true, msg->synch());
-    EXPECT_EQ("input", msg->input());
-
-    delete msg;
+    EXPECT_EQ("moduleName", msg.module_name());
+    EXPECT_EQ("messagetype", msg.message_type());
+    EXPECT_EQ("answertype", msg.answer_type());
+    EXPECT_EQ("answerdecodername", msg.answer_decoder_name());
+    EXPECT_EQ(true, msg.synch());
+    EXPECT_EQ("input", msg.input());
 }
 
 TEST_F(MessageBuilderTest, packFuseMessageWithPresetFuseId) {
     EXPECT_CALL(*config, isSet(FUSE_ID_OPT)).WillOnce(Return(true));
     EXPECT_CALL(*config, getString(FUSE_ID_OPT)).WillOnce(Return("FUSE_ID"));
 
-    ClusterMsg *msg = proxy.packFuseMessage("messageType", "answerType", "answerDecoderName", "messageInput");
+    ClusterMsg msg = proxy.packFuseMessage("messageType", "answerType", "answerDecoderName", "messageInput");
 
-    EXPECT_EQ(FUSE_MESSAGE, msg->message_type());
-    EXPECT_EQ("answerType", msg->answer_type());
-    EXPECT_EQ("answerDecoderName", msg->answer_decoder_name());
-    EXPECT_EQ(FSLOGIC, msg->module_name());
+    EXPECT_EQ(FUSE_MESSAGE, msg.message_type());
+    EXPECT_EQ("answertype", msg.answer_type());
+    EXPECT_EQ("answerdecodername", msg.answer_decoder_name());
+    EXPECT_EQ(FSLOGIC, msg.module_name());
 
     FuseMessage fMsg;
-    fMsg.ParseFromString(msg->input());
+    fMsg.ParseFromString(msg.input());
 
-    EXPECT_EQ("messageType", fMsg.message_type());
+    EXPECT_EQ("messagetype", fMsg.message_type());
     EXPECT_EQ("FUSE_ID", fMsg.id());
     EXPECT_EQ("messageInput", fMsg.input());
-
-    delete msg;
 }
 
 TEST_F(MessageBuilderTest, packFuseMessageWithoutPresetFuseId) {
     EXPECT_CALL(*config, isSet(FUSE_ID_OPT)).WillOnce(Return(false));
 
-    ClusterMsg *msg = proxy.packFuseMessage("messageType", "answerType", "answerDecoderName", "messageInput");
+    ClusterMsg msg = proxy.packFuseMessage("messageType", "answerType", "answerDecoderName", "messageInput");
     
-    EXPECT_EQ(FUSE_MESSAGE, msg->message_type());
-    EXPECT_EQ("answerType", msg->answer_type());
-    EXPECT_EQ("answerDecoderName", msg->answer_decoder_name());
-    EXPECT_EQ(FSLOGIC, msg->module_name());
+    EXPECT_EQ(FUSE_MESSAGE, msg.message_type());
+    EXPECT_EQ("answertype", msg.answer_type());
+    EXPECT_EQ("answerdecodername", msg.answer_decoder_name());
+    EXPECT_EQ(FSLOGIC, msg.module_name());
 
     FuseMessage fMsg;
-    fMsg.ParseFromString(msg->input());
+    fMsg.ParseFromString(msg.input());
 
-    EXPECT_EQ("messageType", fMsg.message_type());
+    EXPECT_EQ("messagetype", fMsg.message_type());
     EXPECT_NE("FUSE_ID", fMsg.id());
     EXPECT_EQ("messageInput", fMsg.input());
-
-    delete msg;
 }
 
 TEST_F(MessageBuilderTest, decodeFuseAnswerNoWorkerAns) {    
     Answer ans;
-    FuseMessage *msg = proxy.decodeFuseAnswer(ans);
+    FuseMessage msg = proxy.decodeFuseAnswer(ans);
 
-    EXPECT_EQ(NULL, msg);
-
-    delete msg; // Deleting NULL pointer should be safe 
+    EXPECT_FALSE(msg.has_input());
 }
 
 TEST_F(MessageBuilderTest, decodeFuseAnswerWrongWorkerAns) {    
     Answer ans;
     ans.set_worker_answer("wrong answer");
-    FuseMessage *msg = proxy.decodeFuseAnswer(ans);
+    FuseMessage msg = proxy.decodeFuseAnswer(ans);
 
-    EXPECT_EQ(NULL, msg);
-
-    delete msg; // Deleting NULL pointer should be safe 
+    EXPECT_FALSE(msg.IsInitialized()); 
 }
 
 
 TEST_F(MessageBuilderTest, decodeFuseAnswerNormalAns) {    
     Answer ans;
-    FuseMessage *fMsg =  proxy.createFuseMessage("id", "type", "input"); 
-    ans.set_worker_answer(fMsg->SerializeAsString());
+    FuseMessage fMsg =  proxy.createFuseMessage("id", "type", "input"); 
+    ans.set_worker_answer(fMsg.SerializeAsString());
 
-    FuseMessage *msg = proxy.decodeFuseAnswer(ans);
+    FuseMessage msg = proxy.decodeFuseAnswer(ans);
 
-    ASSERT_FALSE(NULL == msg);
+    ASSERT_TRUE(msg.IsInitialized());
 
-    EXPECT_EQ(fMsg->id(), msg->id());
-    EXPECT_EQ(fMsg->message_type(), msg->message_type());
-    EXPECT_EQ(fMsg->input(), msg->input());
- 
-    delete fMsg;
-    delete msg;
+    EXPECT_EQ(fMsg.id(), msg.id());
+    EXPECT_EQ(fMsg.message_type(), msg.message_type());
+    EXPECT_EQ(fMsg.input(), msg.input());
 }
 
 TEST_F(MessageBuilderTest, decodeAtomAnswerWrongInput) {

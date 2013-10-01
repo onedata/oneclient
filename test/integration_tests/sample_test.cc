@@ -22,7 +22,15 @@ class SampleTest
 protected:
     COMMON_INTEGRATION_DEFS();
 
+    VeilFSMount VFS;
+
     path directIO_root;
+
+    // Mount file system in "main" subdir with "peer.pem" cert
+    // use VFS.getRoot() to get absolute mount point
+    SampleTest() : VFS(VeilFSMount("main", "peer.pem")) 
+    {
+    }
 
     virtual void SetUp() {
 
@@ -48,15 +56,15 @@ TEST_F(SampleTest, clusterCommandExec) {
     EXPECT_EQ(string(getenv("TEST_ROOT")) + "/directIO_root", erlExec("{env, \"DIO_ROOT\"}"));
 }
 
-// VeilFSRoot is set to the root of mounted VeilFS. Therefore you can just 
+// VFS.getRoot() is set to the root of mounted VeilFS. Therefore you can just 
 // manage some files in order to test whole VeilClient behaviourally 
 TEST_F(SampleTest, mkdirExample) {
-    EXPECT_EQ(0, ::system(("mkdir " + VeilFSRoot + "/testDir").c_str()));
-    EXPECT_EQ(0, ::system(("rm -rf " + VeilFSRoot + "/testDir").c_str()));
+    EXPECT_EQ(0, ::system(("mkdir " + VFS.getRoot() + "/testDir").c_str()));
+    EXPECT_EQ(0, ::system(("rm -rf " + VFS.getRoot() + "/testDir").c_str()));
 }
 
 TEST_F(SampleTest, fileExample) {
-    EXPECT_EQ(0, ::system(("touch " + VeilFSRoot + "/file").c_str()));
+    EXPECT_EQ(0, ::system(("touch " + VFS.getRoot() + "/file").c_str()));
 }
 
 TEST_F(SampleTest, fslogicExample) {

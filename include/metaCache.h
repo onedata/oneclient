@@ -47,6 +47,7 @@ public:
      */
     virtual bool getAttr(std::string, struct stat*);
     virtual void clearAttr(std::string path);        ///< Remove cache for given file
+    virtual bool updateTimes(std::string path, time_t atime = 0, time_t mtime = 0, time_t ctime = 0); ///< Update *time meta attributes for specific file in cache. Returns true if cache was updated or false if given file wasn't found in cache.
 
     virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 

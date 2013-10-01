@@ -11,12 +11,21 @@
 #include "config_mock.h"
 #include "jobScheduler_mock.h"
 
+#include <google/protobuf/descriptor.h>
+
 using namespace veil::protocol::fuse_messages;
 using namespace veil::protocol::communication_protocol;
 
 INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
+#define CMSG_FROM(X) MessageBuilder().packFuseMessage("messageType", "answerType", "decoderName", X.SerializeAsString());
+
 // TEST definitions below
+
+// Helper function used to constuct protobuf message (arg<1>) from another protobuf message (arg<0>)
+void setupAnswerResponse(google::protobuf::Message& from, google::protobuf::Message& to) {   
+    to.ParsePartialFromString(from.SerializePartialAsString());
+}
 
 class FslogicProxyTest 
     : public ::testing::Test 
@@ -25,6 +34,8 @@ protected:
     COMMON_DEFS();
     ProxyFslogicProxy proxy;
     shared_ptr<MockMessageBuilder> msgBuilder;
+    
+    ClusterMsg fullClusterMsg;
 
     virtual void SetUp() {
         COMMON_SETUP();
@@ -36,10 +47,11 @@ protected:
         msgBuilder.reset(new MockMessageBuilder());
         proxy.setMessageBuilder(msgBuilder);
         proxy.mockAtom = false;
-        proxy.mockSerialized = false;
+        proxy.mockAnswer = false;
         proxy.ch_mock.reset(new MockCommunicationHandler());
         EXPECT_CALL(*connectionPool, selectConnection(_, _)).WillRepeatedly(Return(proxy.ch_mock));
         EXPECT_CALL(*connectionPool, releaseConnection(_)).WillRepeatedly(Return());
+        
     }
 
     virtual void TearDown() {
@@ -48,70 +60,103 @@ protected:
 
 };
 
-TEST_F(FslogicProxyTest, sendFuseReceiveSerializedMessageFails) {
-    EXPECT_CALL(*msgBuilder, packFuseMessage("messageType", "answerType", FUSE_MESSAGES, "messageInput")).WillOnce(Return((ClusterMsg*)NULL));
-    EXPECT_EQ("", proxy.sendFuseReceiveSerializedMessage("messageType", "answerType", "messageInput"));
+TEST_F(FslogicProxyTest, sendFuseReceiveAnswerFails) {
+    GetFileChildren msg;
+    msg.set_dir_logic_name("dir");
+    msg.set_children_num(10);
+    msg.set_offset(0);
+    FileChildren answer;
+    
+    ClusterMsg cMsg = CMSG_FROM(msg);
 
-    ClusterMsg cMsg;
-    EXPECT_CALL(*msgBuilder, packFuseMessage("messageType", "answerType", FUSE_MESSAGES, "messageInput")).WillRepeatedly(Return(&cMsg));
+    EXPECT_CALL(*msgBuilder, packFuseMessage(StrCaseEq(msg.GetDescriptor()->name()), StrCaseEq(answer.GetDescriptor()->name()), FUSE_MESSAGES, msg.SerializeAsString())).WillOnce(Return(ClusterMsg()));
+    EXPECT_FALSE(proxy.sendFuseReceiveAnswer(msg, answer));
+
+    
+    EXPECT_CALL(*msgBuilder, packFuseMessage(StrCaseEq(msg.GetDescriptor()->name()), StrCaseEq(answer.GetDescriptor()->name()), FUSE_MESSAGES, msg.SerializeAsString())).WillRepeatedly(Return(cMsg));
 
     Answer ans;
     ans.set_answer_status("not ok");
-    EXPECT_CALL(*proxy.ch_mock, communicate(Truly(bind(identityEqual<ClusterMsg>, cref(cMsg), _1)), _)).WillOnce(Return(ans));
+    EXPECT_CALL(*proxy.ch_mock, communicate(Truly(bind(pbMessageEqual, cMsg, _1)), _)).WillOnce(Return(ans));
 
-    EXPECT_EQ("", proxy.sendFuseReceiveSerializedMessage("messageType", "answerType", "messageInput"));
+    EXPECT_FALSE(proxy.sendFuseReceiveAnswer(msg, answer));
 }
 
-TEST_F(FslogicProxyTest, sendFuseReceiveSerializedMessageOK) {
-    ClusterMsg cMsg;
-    EXPECT_CALL(*msgBuilder, packFuseMessage("messageType", "answerType", FUSE_MESSAGES, "messageInput")).WillRepeatedly(Return(&cMsg));
+TEST_F(FslogicProxyTest, sendFuseReceiveAnswerOK) {
+    GetFileChildren msg;
+    msg.set_dir_logic_name("dir");
+    msg.set_children_num(10);
+    msg.set_offset(0);
+    FileChildren answer;
+    
+    ClusterMsg cMsg = CMSG_FROM(msg);
+    
+    EXPECT_CALL(*msgBuilder, packFuseMessage(StrCaseEq(msg.GetDescriptor()->name()), StrCaseEq(answer.GetDescriptor()->name()), FUSE_MESSAGES, msg.SerializeAsString())).WillRepeatedly(Return(cMsg));
 
     Answer ans;
+    FileChildren response;
+    response.add_child_logic_name("cos");
     ans.set_answer_status(VOK);
-    ans.set_worker_answer("worker_answer");
-    EXPECT_CALL(*proxy.ch_mock, communicate(Truly(bind(identityEqual<ClusterMsg>, cref(cMsg), _1)), _)).WillOnce(Return(ans));
+    ans.set_worker_answer(response.SerializeAsString());
+    EXPECT_CALL(*proxy.ch_mock, communicate(Truly(bind(pbMessageEqual, cMsg, _1)), _)).WillOnce(Return(ans));
 
-    EXPECT_EQ("worker_answer", proxy.sendFuseReceiveSerializedMessage("messageType", "answerType", "messageInput"));
+    EXPECT_TRUE(proxy.sendFuseReceiveAnswer(msg, answer));
+    EXPECT_EQ(response.SerializeAsString(), answer.SerializeAsString());
 }
 
-TEST_F(FslogicProxyTest, sendFuseReceiveAtomMessageFails) {
-    EXPECT_CALL(*msgBuilder, packFuseMessage("messageType", ATOM, COMMUNICATION_PROTOCOL, "messageInput")).WillOnce(Return((ClusterMsg*)NULL));
-    EXPECT_EQ("", proxy.sendFuseReceiveAtomMessage("messageType", "messageInput"));
+TEST_F(FslogicProxyTest, sendFuseReceiveAtomFails) {
+    GetFileChildren msg;
+    msg.set_dir_logic_name("dir");
+    msg.set_children_num(10);
+    msg.set_offset(0);
+    
+    ClusterMsg cMsg = CMSG_FROM(msg);
 
+    EXPECT_CALL(*msgBuilder, packFuseMessage(StrCaseEq(msg.GetDescriptor()->name()), StrCaseEq(Atom::descriptor()->name()), COMMUNICATION_PROTOCOL, msg.SerializeAsString())).WillOnce(Return(ClusterMsg()));
+    EXPECT_EQ(VEIO, proxy.sendFuseReceiveAtom(msg));
 
-    ClusterMsg cMsg;
-    EXPECT_CALL(*msgBuilder, packFuseMessage("messageType", ATOM, COMMUNICATION_PROTOCOL, "messageInput")).WillRepeatedly(Return(&cMsg));
+    
+    EXPECT_CALL(*msgBuilder, packFuseMessage(StrCaseEq(msg.GetDescriptor()->name()), StrCaseEq(Atom::descriptor()->name()), COMMUNICATION_PROTOCOL, msg.SerializeAsString())).WillRepeatedly(Return(cMsg));
 
     Answer ans;
     ans.set_answer_status("not ok");
-    ans.set_worker_answer("asnwer");
-    EXPECT_CALL(*proxy.ch_mock, communicate(Truly(bind(identityEqual<ClusterMsg>, cref(cMsg), _1)), _)).WillOnce(Return(ans));
+    EXPECT_CALL(*proxy.ch_mock, communicate(Truly(bind(pbMessageEqual, cMsg, _1)), _)).WillOnce(Return(ans));
     EXPECT_CALL(*msgBuilder, decodeAtomAnswer(_)).WillOnce(Return(""));
-    EXPECT_EQ("", proxy.sendFuseReceiveAtomMessage("messageType", "messageInput"));
+    EXPECT_EQ(VEIO, proxy.sendFuseReceiveAtom(msg));
 }
 
-TEST_F(FslogicProxyTest, sendFuseReceiveAtomMessageOK) {
-    ClusterMsg cMsg;
-    EXPECT_CALL(*msgBuilder, packFuseMessage("messageType", ATOM, COMMUNICATION_PROTOCOL, "messageInput")).WillRepeatedly(Return(&cMsg));
+TEST_F(FslogicProxyTest, sendFuseReceiveAtomOK) {
+    GetFileChildren msg;
+    msg.set_dir_logic_name("dir");
+    msg.set_children_num(10);
+    msg.set_offset(0);
+    
+    ClusterMsg cMsg = CMSG_FROM(msg);
+    
+    EXPECT_CALL(*msgBuilder, packFuseMessage(StrCaseEq(msg.GetDescriptor()->name()), StrCaseEq(Atom::descriptor()->name()), COMMUNICATION_PROTOCOL, msg.SerializeAsString())).WillRepeatedly(Return(cMsg));
 
     Answer ans;
+    Atom response;
+    response.set_value("value");
     ans.set_answer_status(VOK);
-    EXPECT_CALL(*proxy.ch_mock, communicate(Truly(bind(identityEqual<ClusterMsg>, cref(cMsg), _1)), _)).WillOnce(Return(ans));
-    EXPECT_CALL(*msgBuilder, decodeAtomAnswer(_)).WillOnce(Return("atom"));
-
-    EXPECT_EQ("atom", proxy.sendFuseReceiveAtomMessage("messageType", "messageInput"));
+    ans.set_worker_answer(response.SerializeAsString());
+    EXPECT_CALL(*proxy.ch_mock, communicate(Truly(bind(pbMessageEqual, cMsg, _1)), _)).WillOnce(Return(ans));
+    EXPECT_CALL(*msgBuilder, decodeAtomAnswer(Truly(bind(pbMessageEqual, ans, _1)))).WillOnce(Return("value"));
+    EXPECT_EQ("value", proxy.sendFuseReceiveAtom(msg));
 }
 
 TEST_F(FslogicProxyTest, getFileAttr) {
-    proxy.mockSerialized = true;
+    proxy.mockAnswer = true;
     GetFileAttr msg;
     msg.set_file_logic_name("/file");
 
     FileAttr attributes;
     FileAttr response;
+    
 
-    EXPECT_CALL(proxy, mockSerializedFun(GET_FILE_ATTR, FILE_ATTR, msg.SerializeAsString())).WillOnce(Return("wat? error"));
-    EXPECT_FALSE(proxy.getFileAttr("/file", &response));
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(false)));
+    EXPECT_FALSE(proxy.getFileAttr("/file", response));
+    
 
     attributes.set_atime(0);
     attributes.set_mtime(0);
@@ -119,40 +164,41 @@ TEST_F(FslogicProxyTest, getFileAttr) {
     attributes.set_gid(1);
     attributes.set_uid(2);
     attributes.set_mode(1234);
-    attributes.set_nlink(3);
     attributes.set_type("type");
-    EXPECT_CALL(proxy, mockSerializedFun(GET_FILE_ATTR, FILE_ATTR, msg.SerializeAsString())).WillOnce(Return(attributes.SerializeAsString()));
-    ASSERT_TRUE(proxy.getFileAttr("/file", &response));
-
-    EXPECT_EQ(attributes.nlink(), response.nlink());
+    
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, attributes, _1) )), Return(true)));
+    ASSERT_TRUE(proxy.getFileAttr("/file", response));
+    
+    
     EXPECT_EQ(attributes.mode(), response.mode());
     EXPECT_EQ(attributes.type(), response.type());
 }
 
 TEST_F(FslogicProxyTest, getFileLocation) {
-    proxy.mockSerialized = true;
+    proxy.mockAnswer = true;
     GetFileLocation msg;
     msg.set_file_logic_name("/file");
 
     FileLocation location;
     FileLocation response;
 
-    EXPECT_CALL(proxy, mockSerializedFun(GET_FILE_LOCATION, FILE_LOCATION, msg.SerializeAsString())).WillOnce(Return("wat? error"));
-    EXPECT_FALSE(proxy.getFileLocation("/file", &response));
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(false)));
+    EXPECT_FALSE(proxy.getFileLocation("/file", response));
 
     location.set_validity(10);
     location.set_answer(VEACCES);
     location.set_storage_id(4);
     location.set_file_id("fileid");
-    EXPECT_CALL(proxy, mockSerializedFun(GET_FILE_LOCATION, FILE_LOCATION, msg.SerializeAsString())).WillOnce(Return(location.SerializeAsString()));
-    ASSERT_TRUE(proxy.getFileLocation("/file", &response));
+    
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, location, _1) )), Return(true)));
+    ASSERT_TRUE(proxy.getFileLocation("/file", response));
 
     EXPECT_EQ(location.validity(), response.validity());
     EXPECT_EQ(location.answer(), response.answer());
 }
 
 TEST_F(FslogicProxyTest, getNewFileLocation) {
-    proxy.mockSerialized = true;
+    proxy.mockAnswer = true;
     GetNewFileLocation msg;
     msg.set_file_logic_name("/file");
     msg.set_mode(234);
@@ -160,15 +206,18 @@ TEST_F(FslogicProxyTest, getNewFileLocation) {
     FileLocation location;
     FileLocation response;
 
-    EXPECT_CALL(proxy, mockSerializedFun(GET_NEW_FILE_LOCATION, FILE_LOCATION, msg.SerializeAsString())).WillOnce(Return("wat? error"));
-    EXPECT_FALSE(proxy.getNewFileLocation("/file", 234, &response));
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(false)));
+    EXPECT_FALSE(proxy.getNewFileLocation("/file", 234, response));
+    
 
     location.set_validity(10);
     location.set_answer(VEACCES);
     location.set_storage_id(4);
     location.set_file_id("fileid");
-    EXPECT_CALL(proxy, mockSerializedFun(GET_NEW_FILE_LOCATION, FILE_LOCATION, msg.SerializeAsString())).WillOnce(Return(location.SerializeAsString()));
-    ASSERT_TRUE(proxy.getNewFileLocation("/file", 234, &response));
+    
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, location, _1) )), Return(true)));
+    ASSERT_TRUE(proxy.getNewFileLocation("/file", 234, response));
+    
 
     EXPECT_EQ(location.validity(), response.validity());
     EXPECT_EQ(location.answer(), response.answer());
@@ -176,39 +225,41 @@ TEST_F(FslogicProxyTest, getNewFileLocation) {
 }
 
 TEST_F(FslogicProxyTest, renewFileLocation) {
-    proxy.mockSerialized = true;
+    proxy.mockAnswer = true;
     RenewFileLocation msg;
+    FileLocationValidity validity;
     msg.set_file_logic_name("/file");
 
-    EXPECT_CALL(proxy, mockSerializedFun(RENEW_FILE_LOCATION, FILE_LOCATION_VALIDITY, msg.SerializeAsString())).WillOnce(Return("parse problems"));
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, validity, _1) )), Return(false)));
     EXPECT_GT(0, proxy.renewFileLocation("/file"));
 
-    FileLocationValidity validity;
-    EXPECT_CALL(proxy, mockSerializedFun(RENEW_FILE_LOCATION, FILE_LOCATION_VALIDITY, msg.SerializeAsString())).WillOnce(Return(validity.SerializeAsString()));
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, validity, _1) )), Return(true)));
     EXPECT_GT(0, proxy.renewFileLocation("/file"));  
 
     validity.set_answer(VOK);
-    EXPECT_CALL(proxy, mockSerializedFun(RENEW_FILE_LOCATION, FILE_LOCATION_VALIDITY, msg.SerializeAsString())).WillOnce(Return(validity.SerializeAsString()));
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, validity, _1) )), Return(true)));
     EXPECT_GT(0, proxy.renewFileLocation("/file")); 
 
     validity.set_answer(VOK);
     validity.set_validity(-1);
-    EXPECT_CALL(proxy, mockSerializedFun(RENEW_FILE_LOCATION, FILE_LOCATION_VALIDITY, msg.SerializeAsString())).WillOnce(Return(validity.SerializeAsString()));
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, validity, _1) )), Return(true)));
     EXPECT_GT(0, proxy.renewFileLocation("/file")); 
 
     validity.set_answer(VEACCES);
     validity.set_validity(10);
-    EXPECT_CALL(proxy, mockSerializedFun(RENEW_FILE_LOCATION, FILE_LOCATION_VALIDITY, msg.SerializeAsString())).WillOnce(Return(validity.SerializeAsString()));
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, validity, _1) )), Return(true)));
     EXPECT_GT(0, proxy.renewFileLocation("/file")); 
+    
 
     validity.set_answer(VOK);
     validity.set_validity(15);
-    EXPECT_CALL(proxy, mockSerializedFun(RENEW_FILE_LOCATION, FILE_LOCATION_VALIDITY, msg.SerializeAsString())).WillOnce(Return(validity.SerializeAsString()));
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, validity, _1) )), Return(true)));
     EXPECT_EQ(15, proxy.renewFileLocation("/file")); 
+    
 }
 
 TEST_F(FslogicProxyTest, getFileChildren) {
-    proxy.mockSerialized = true;
+    proxy.mockAnswer = true;
     std::vector<std::string> childrenVect;
     GetFileChildren msg;
     msg.set_dir_logic_name("/dir");
@@ -217,22 +268,23 @@ TEST_F(FslogicProxyTest, getFileChildren) {
 
     FileChildren children;
 
-    EXPECT_CALL(proxy, mockSerializedFun(GET_FILE_CHILDREN, FILE_CHILDREN, msg.SerializeAsString())).WillOnce(Return("something horribly wrong"));
-    EXPECT_FALSE(proxy.getFileChildren("/dir", 10, 5, &childrenVect));
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, children, _1) )), Return(false)));
+    EXPECT_FALSE(proxy.getFileChildren("/dir", 10, 5, childrenVect));
 
     childrenVect.clear();
     FileChildren response;
-    EXPECT_CALL(proxy, mockSerializedFun(GET_FILE_CHILDREN, FILE_CHILDREN, msg.SerializeAsString())).WillOnce(Return(response.SerializeAsString()));
-    EXPECT_TRUE(proxy.getFileChildren("/dir", 10, 5, &childrenVect));
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(true)));
+    EXPECT_TRUE(proxy.getFileChildren("/dir", 10, 5, childrenVect));
     EXPECT_EQ(0, childrenVect.size());
 
     response.add_child_logic_name("/child2");
     response.add_child_logic_name("/child1");
-    EXPECT_CALL(proxy, mockSerializedFun(GET_FILE_CHILDREN, FILE_CHILDREN, msg.SerializeAsString())).WillOnce(Return(response.SerializeAsString()));
-    EXPECT_TRUE(proxy.getFileChildren("/dir", 10, 5, &childrenVect));
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(true)));
+    EXPECT_TRUE(proxy.getFileChildren("/dir", 10, 5, childrenVect));
     EXPECT_EQ(2, childrenVect.size());
     EXPECT_EQ("/child2", childrenVect[0]);
     EXPECT_EQ("/child1", childrenVect[1]);
+    
 }
 
 TEST_F(FslogicProxyTest, createDir) {
@@ -242,13 +294,13 @@ TEST_F(FslogicProxyTest, createDir) {
     msg.set_dir_logic_name("/dir");
     msg.set_mode(1234);
 
-    EXPECT_CALL(proxy, mockAtomFun(CREATE_DIR, msg.SerializeAsString())).WillOnce(Return(""));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEIO));
     EXPECT_EQ(VEIO, proxy.createDir("/dir", 1234));
 
-    EXPECT_CALL(proxy, mockAtomFun(CREATE_DIR, msg.SerializeAsString())).WillOnce(Return(VOK));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VOK));
     EXPECT_EQ(VOK, proxy.createDir("/dir", 1234));
 
-    EXPECT_CALL(proxy, mockAtomFun(CREATE_DIR, msg.SerializeAsString())).WillOnce(Return(VEACCES));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEACCES));
     EXPECT_EQ(VEACCES, proxy.createDir("/dir", 1234));
 }
 
@@ -258,13 +310,13 @@ TEST_F(FslogicProxyTest, deleteFile) {
     DeleteFile msg;
     msg.set_file_logic_name("/path");
 
-    EXPECT_CALL(proxy, mockAtomFun(DELETE_FILE, msg.SerializeAsString())).WillOnce(Return(""));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEIO));
     EXPECT_EQ(VEIO, proxy.deleteFile("/path"));
 
-    EXPECT_CALL(proxy, mockAtomFun(DELETE_FILE, msg.SerializeAsString())).WillOnce(Return(VOK));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VOK));
     EXPECT_EQ(VOK, proxy.deleteFile("/path"));
 
-    EXPECT_CALL(proxy, mockAtomFun(DELETE_FILE, msg.SerializeAsString())).WillOnce(Return(VEACCES));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEACCES));
     EXPECT_EQ(VEACCES, proxy.deleteFile("/path"));
 }
 
@@ -274,13 +326,13 @@ TEST_F(FslogicProxyTest, sendFileNotUsed) {
     FileNotUsed msg;
     msg.set_file_logic_name("/path");
 
-    EXPECT_CALL(proxy, mockAtomFun(FILE_NOT_USED, msg.SerializeAsString())).WillOnce(Return(""));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEIO));
     EXPECT_FALSE(proxy.sendFileNotUsed("/path"));
 
-    EXPECT_CALL(proxy, mockAtomFun(FILE_NOT_USED, msg.SerializeAsString())).WillOnce(Return(VOK));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VOK));
     EXPECT_TRUE(proxy.sendFileNotUsed("/path"));
 
-    EXPECT_CALL(proxy, mockAtomFun(FILE_NOT_USED, msg.SerializeAsString())).WillOnce(Return(VEACCES));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEACCES));
     EXPECT_FALSE(proxy.sendFileNotUsed("/path"));
 }
 
@@ -291,13 +343,13 @@ TEST_F(FslogicProxyTest, renameFile) {
     msg.set_from_file_logic_name("/path");
     msg.set_to_file_logic_name("/new/path");
 
-    EXPECT_CALL(proxy, mockAtomFun(RENAME_FILE, msg.SerializeAsString())).WillOnce(Return(""));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEIO));
     EXPECT_EQ(VEIO, proxy.renameFile("/path", "/new/path"));
 
-    EXPECT_CALL(proxy, mockAtomFun(RENAME_FILE, msg.SerializeAsString())).WillOnce(Return(VOK));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VOK));
     EXPECT_EQ(VOK, proxy.renameFile("/path", "/new/path"));
 
-    EXPECT_CALL(proxy, mockAtomFun(RENAME_FILE, msg.SerializeAsString())).WillOnce(Return(VEACCES));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEACCES));
     EXPECT_EQ(VEACCES, proxy.renameFile("/path", "/new/path"));
 }
 
@@ -305,16 +357,16 @@ TEST_F(FslogicProxyTest, changeFilePerms) {
     proxy.mockAtom = true;
 
     ChangeFilePerms msg;
-    msg.set_logic_file_name("/path");
+    msg.set_file_logic_name("/path");
     msg.set_perms(123);
 
-    EXPECT_CALL(proxy, mockAtomFun(CHANGE_FILE_PERMS, msg.SerializeAsString())).WillOnce(Return(""));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEIO));
     EXPECT_EQ(VEIO, proxy.changeFilePerms("/path", 123));
 
-    EXPECT_CALL(proxy, mockAtomFun(CHANGE_FILE_PERMS, msg.SerializeAsString())).WillOnce(Return(VOK));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VOK));
     EXPECT_EQ(VOK, proxy.changeFilePerms("/path", 123));
 
-    EXPECT_CALL(proxy, mockAtomFun(CHANGE_FILE_PERMS, msg.SerializeAsString())).WillOnce(Return(VEACCES));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEACCES));
     EXPECT_EQ(VEACCES, proxy.changeFilePerms("/path", 123));
 
 }
@@ -326,18 +378,18 @@ TEST_F(FslogicProxyTest, createLink) {
     msg.set_from_file_logic_name("/from");
     msg.set_to_file_logic_name("/to");
 
-    EXPECT_CALL(proxy, mockAtomFun(CREATE_LINK, msg.SerializeAsString())).WillOnce(Return(""));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEIO));
     EXPECT_EQ(VEIO, proxy.createLink("/from", "/to"));
 
-    EXPECT_CALL(proxy, mockAtomFun(CREATE_LINK, msg.SerializeAsString())).WillOnce(Return(VOK));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VOK));
     EXPECT_EQ(VOK, proxy.createLink("/from", "/to"));
 
-    EXPECT_CALL(proxy, mockAtomFun(CREATE_LINK, msg.SerializeAsString())).WillOnce(Return(VEACCES));
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEACCES));
     EXPECT_EQ(VEACCES, proxy.createLink("/from", "/to"));
 }
 
 TEST_F(FslogicProxyTest, getLink) {
-    proxy.mockSerialized = true;
+    proxy.mockAnswer = true;
 
     GetLink msg;
     msg.set_file_logic_name("/from");
@@ -346,19 +398,78 @@ TEST_F(FslogicProxyTest, getLink) {
 
     pair<string, string> resp;
 
-    EXPECT_CALL(proxy, mockSerializedFun(GET_LINK, LINK_INFO, msg.SerializeAsString())).WillOnce(Return(""));
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(false)));
     resp = proxy.getLink("/from");
     EXPECT_EQ(VEIO, resp.first);
 
     response.set_file_logic_name("/to");
-    EXPECT_CALL(proxy, mockSerializedFun(GET_LINK, LINK_INFO, msg.SerializeAsString())).WillOnce(Return(response.SerializeAsString()));
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(true)));
     resp = proxy.getLink("/from");
     EXPECT_EQ(VOK, resp.first);
     EXPECT_EQ("/to", resp.second);
 
     response.set_answer(VEACCES);
     response.set_file_logic_name("");
-    EXPECT_CALL(proxy, mockSerializedFun(GET_LINK, LINK_INFO, msg.SerializeAsString())).WillOnce(Return(response.SerializeAsString()));
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(true)));
     resp = proxy.getLink("/from");
     EXPECT_EQ(VEACCES, resp.first);
+    
+}
+
+
+TEST_F(FslogicProxyTest, updateTimes) {
+    proxy.mockAtom = true;
+
+    UpdateTimes msg;
+    msg.set_atime(10);
+    msg.set_mtime(11);
+    msg.set_ctime(12);
+    msg.set_file_logic_name("/path");
+
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEIO));
+    EXPECT_EQ(VEIO, proxy.updateTimes("/path", 10, 11, 12));
+
+    msg.clear_ctime();
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VOK));
+    EXPECT_EQ(VOK, proxy.updateTimes("/path", 10, 11));
+
+    msg.set_ctime(13);    
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEACCES));
+    EXPECT_EQ(VEACCES, proxy.updateTimes("/path", 10, 11, 13));
+}
+
+TEST_F(FslogicProxyTest, changeFileOwner) {
+    proxy.mockAtom = true;
+
+    ChangeFileOwner msg;
+    msg.set_file_logic_name("/path");
+    msg.set_uid(456);
+
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEIO));
+    EXPECT_EQ(VEIO, proxy.changeFileOwner("/path", 456));
+
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VOK));
+    EXPECT_EQ(VOK, proxy.changeFileOwner("/path", 456));
+    
+    msg.set_uname("username");
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEACCES));
+    EXPECT_EQ(VEACCES, proxy.changeFileOwner("/path", 456, "username"));
+}
+
+TEST_F(FslogicProxyTest, changeFileGroup) {
+    proxy.mockAtom = true;
+
+    ChangeFileGroup msg;
+    msg.set_file_logic_name("/path");
+    msg.set_gid(456);
+
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEIO));
+    EXPECT_EQ(VEIO, proxy.changeFileGroup("/path", 456));
+
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VOK));
+    EXPECT_EQ(VOK, proxy.changeFileGroup("/path", 456));
+    
+    msg.set_gname("groupname");
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEACCES));
+    EXPECT_EQ(VEACCES, proxy.changeFileGroup("/path", 456, "groupname"));
 }

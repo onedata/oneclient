@@ -14,6 +14,12 @@
 
 -define(COMMON_FILES_ROOT_VAR, "COMMON_FILES_ROOT").
 -define(TEST_ROOT_VAR, "TEST_ROOT").
+-define(LOCAL_COMMON_FILES_DIR, os:getenv(?TEST_ROOT_VAR) ++ "/test/integration_tests/common_files").
+
+%% Returns absolute path to file from given path relative to "common_files" dir (only for cluster side calls)
 -define(COMMON_FILE(X), os:getenv(?COMMON_FILES_ROOT_VAR) ++ "/" ++ X).
+
+%% Returns absolute path to file from given path relative to "common_files" dir (only for client side calls)
+-define(LOCAL_COMMON_FILE(X), ?LOCAL_COMMON_FILES_DIR ++ "/" ++ X).
 
 -endif. %% TEST_COMMON_HRL

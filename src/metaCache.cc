@@ -78,6 +78,24 @@ void MetaCache::clearAttr(string path)
         m_statMap.erase(it);
 }
 
+bool MetaCache::updateTimes(string path, time_t atime, time_t mtime, time_t ctime)
+{
+    struct stat attr;
+    if(!getAttr(path, &attr))
+        return false;
+
+    if(atime)
+        attr.st_atime = atime;
+    if(mtime)
+        attr.st_atime = mtime;
+    if(ctime)
+        attr.st_ctime = ctime;
+
+    addAttr(path, attr);
+
+    return true;
+}
+
 bool MetaCache::runTask(TaskID taskId, string arg0, string arg1, string arg3)
 {
     switch(taskId)

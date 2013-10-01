@@ -74,7 +74,7 @@ main([TestName | Args]) ->
 
     env_setup([?CCM_NODE_NAME, ?WORKER_NODE_NAME]),
     load_mods([?CCM_NODE_NAME, ?WORKER_NODE_NAME], [list_to_atom(TestName), test_common]),
-    
+
     CTX_CCM = call(?CCM_NODE_NAME, fun() -> setup(ccm, TestName) end),
     CTX_W = call(?WORKER_NODE_NAME, fun() -> setup(worker, TestName) end),
     

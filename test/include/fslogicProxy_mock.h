@@ -20,16 +20,20 @@ public:
     MockFslogicProxy() {};
     ~MockFslogicProxy() {};
 
-    MOCK_METHOD2(getFileLocation, bool(string, FileLocation*));
+    MOCK_METHOD2(getFileLocation, bool(string, FileLocation&));
     MOCK_METHOD2(changeFilePerms, string(string, mode_t));
     MOCK_METHOD2(renameFile, string(string, string));
     MOCK_METHOD1(deleteFile, string(string));
     MOCK_METHOD2(createDir, string(string, mode_t));
-    MOCK_METHOD3(getNewFileLocation, bool(string, mode_t, FileLocation*));
-    MOCK_METHOD2(getFileAttr, bool(string, FileAttr*));
+    MOCK_METHOD3(getNewFileLocation, bool(string, mode_t, FileLocation&));
+    MOCK_METHOD2(getFileAttr, bool(string, FileAttr&));
     MOCK_METHOD2(createLink, string(string, string));
     MOCK_METHOD1(getLink, pair<string, string>(string));
     MOCK_METHOD0(pingCluster, void());
+    MOCK_METHOD4(updateTimes, string(string, time_t, time_t, time_t));
+    MOCK_METHOD3(changeFileOwner, string(string, uid_t, string));
+    MOCK_METHOD3(changeFileGroup, string(string, gid_t, string));
+    
 };
 
 #endif // FSLOGIC_PROXY_MOCK_H

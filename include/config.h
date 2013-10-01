@@ -41,6 +41,25 @@
 namespace veil {
 namespace client {
 
+namespace utils {
+
+template<typename T>
+std::string toString(T in) {
+    std::ostringstream ss;
+    ss << in;
+    return ss.str();
+}
+
+template<typename T>
+T fromString(std::string in) {
+    T out;
+    std::istringstream iss(in);
+    iss >> out;
+    return out;
+}
+
+}
+
 /**
  * The Config.
  * Parses config files and provides safe access to configuration map.

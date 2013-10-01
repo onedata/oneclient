@@ -18,7 +18,7 @@ public:
     MockMessageBuilder() {};
     ~MockMessageBuilder() {};
 
-    MOCK_METHOD4(packFuseMessage, ClusterMsg* (string, string, string, string));
+    MOCK_METHOD4(packFuseMessage, ClusterMsg(string, string, string, string));
     MOCK_METHOD1(decodeAtomAnswer, string(Answer&));
 };
 

@@ -15,8 +15,9 @@
 
 using namespace std;
 
-#define VEILFS_ROOT_VAR "VEILFS_ROOT"
-#define COMMON_FILES_ROOT_VAR "COMMON_FILES_ROOT"
+#define VEILFS_ROOT_VAR             "VEILFS_ROOT"
+#define COMMON_FILES_ROOT_VAR       "COMMON_FILES_ROOT"
+#define TEST_ROOT_VAR               "TEST_ROOT"
 
 namespace veil {
 namespace testing {
@@ -24,12 +25,33 @@ namespace testing {
 // Executes erlang test_name:exec/1 method  
 string erlExec(string arg);
 
-// Clients' mount point
+// Path to dir containg all mount points
 extern string VeilFSRoot;
+#define MOUNT_POINT(X) veil::testing::VeilFSRoot + "/" + X
 
 // Common files directory 
 extern string CommonFilesRoot;
 #define COMMON_FILE(X) veil::testing::CommonFilesRoot + "/" + X
+
+
+class VeilFSMount {
+
+public:
+    VeilFSMount(string path, string cert);
+    VeilFSMount(string path, string cert, string opts);
+    ~VeilFSMount();
+
+    string getRoot();
+
+private:
+    string m_mountPoint;
+
+    int mount(string path, string cert, string opts);
+    int umount(bool silent = false);
+
+};
+
+
 
 } // namespace testing
 } // namespace veil

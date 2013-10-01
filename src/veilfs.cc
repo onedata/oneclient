@@ -12,6 +12,9 @@
 #include "glog/logging.h"
 #include "cstring"
 #include "veilErrors.h"
+#include <sys/types.h>
+#include <pwd.h>
+#include <grp.h>
 #include <algorithm>
 
 #include <sys/stat.h>
@@ -106,7 +109,7 @@ int VeilFS::access(const char *path, int mask)
     LOG(INFO) << "FUSE: access(path: " << string(path) << ", mask: " << mask << ")";
 
     // Always allow accessing file
-    // This method should be called in first place. If it is, use 'default_permissions' FUSE flag.
+    // This method should be not called in first place. If it is, use 'default_permissions' FUSE flag.
     // Even without this flag, letting this method to return always (int)0 is just OK.
     return 0;
 }
@@ -120,8 +123,8 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
 
     statbuf->st_blocks = 0;
     statbuf->st_nlink = 0; 
-    statbuf->st_uid = -1; /// @todo We have to set uid based on usename received from cluster. Currently not supported by cluster.
-    statbuf->st_gid = -1; /// @todo same as above
+    statbuf->st_uid = -1;
+    statbuf->st_gid = -1;
     statbuf->st_size = 0;
     statbuf->st_atime = 0;
     statbuf->st_mtime = 0;
@@ -133,7 +136,7 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
     // We do not have storage mapping so we have to comunicate with cluster anyway
     LOG(INFO) << "storage mapping not exists in cache for file: " << string(path);
 
-    if(!m_fslogic->getFileAttr(string(path), &attr))
+    if(!m_fslogic->getFileAttr(string(path), attr))
         return -EIO;
 
     if(attr.answer() != VOK)
@@ -155,6 +158,14 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
     statbuf->st_atime = attr.atime();
     statbuf->st_mtime = attr.mtime();
     statbuf->st_ctime = attr.ctime();
+
+    uid_t uid = attr.uid();
+    gid_t gid = attr.gid();
+    struct passwd *ownerInfo = getpwnam(attr.uname().c_str()); // Static buffer, do NOT free !
+    struct group *groupInfo = getgrnam(attr.gname().c_str());  // Static buffer, do NOT free !
+
+    statbuf->st_uid   = (ownerInfo ? ownerInfo->pw_uid : uid);
+    statbuf->st_gid   = (groupInfo ? groupInfo->gr_gid : gid);
 
     if(attr.type() == "DIR")
     {
@@ -181,6 +192,7 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
     else
     {
         statbuf->st_mode |= S_IFREG;
+        statbuf->st_size = attr.size();
     }
 
     m_metaCache->addAttr(string(path), *statbuf);
@@ -232,7 +244,7 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
     m_metaCache->clearAttr(string(path));
 
     FileLocation location;
-    if(!m_fslogic->getNewFileLocation(string(path), mode & ALLPERMS, &location))
+    if(!m_fslogic->getNewFileLocation(string(path), mode & ALLPERMS, location))
     {
         LOG(WARNING) << "cannot fetch new file location mapping";
         return -EIO;
@@ -270,7 +282,7 @@ int VeilFS::unlink(const char *path)
 
     if(m_metaCache->getAttr(string(path), &statbuf)) // Check file type in cache
         isLink = S_ISLNK(statbuf.st_mode);
-    else if(m_fslogic->getFileAttr(string(path), &attr)) // ... or fetch it from cluster
+    else if(m_fslogic->getFileAttr(string(path), attr)) // ... or fetch it from cluster
         isLink = (attr.type() == "LNK");
 
     m_metaCache->clearAttr(string(path)); // Clear cache
@@ -330,7 +342,6 @@ int VeilFS::link(const char *path, const char *newpath)
     return -ENOTSUP;
 }
 
-// not yet implemeted
 int VeilFS::chmod(const char *path, mode_t mode)
 {
     LOG(INFO) << "FUSE: chmod(path: " << string(path) << ", mode: "<< mode << ")";
@@ -349,11 +360,28 @@ int VeilFS::chmod(const char *path, mode_t mode)
     return sh_return;
 }
 
-// not yet implemeted
 int VeilFS::chown(const char *path, uid_t uid, gid_t gid)
 {
     LOG(INFO) << "FUSE: chown(path: " << string(path) << ", uid: "<< uid << ", gid: " << gid <<")";
-    return -EIO;
+    
+    struct passwd *ownerInfo = getpwuid(uid); // Static buffer, do NOT free !
+    struct group *groupInfo = getgrgid(gid); // Static buffer, do NOT free !
+    
+    string uname = "", gname = "";
+    if(ownerInfo)
+        uname = ownerInfo->pw_name;
+    if(groupInfo)
+        gname = groupInfo->gr_name;
+    
+    m_metaCache->clearAttr(string(path));
+    
+    if((uid_t)-1 != uid)
+        RETURN_IF_ERROR(m_fslogic->changeFileOwner(string(path), uid, uname));
+    
+    if((gid_t)-1 != gid)
+        RETURN_IF_ERROR(m_fslogic->changeFileGroup(string(path), gid, gname));
+    
+    return 0;
 }
 
 int VeilFS::truncate(const char *path, off_t newSize)
@@ -362,13 +390,21 @@ int VeilFS::truncate(const char *path, off_t newSize)
     GET_LOCATION_INFO(path);
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_truncate(lInfo.fileId.c_str(), newSize));
+
+    if(sh_return == 0)
+        m_metaCache->clearAttr(string(path));
+
     return sh_return;
 }
 
-// not yet implemented
 int VeilFS::utime(const char *path, struct utimbuf *ubuf)
 {
     LOG(INFO) << "FUSE: utime(path: " << string(path) << ", ...)";
+
+    VeilFS::getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(ubuf->actime), utils::toString(ubuf->modtime)));
+
+    m_metaCache->clearAttr(string(path));
+
     return 0;
 }
 
@@ -382,6 +418,20 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
     m_storageMapper->openFile(string(path));
     
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_open(lInfo.fileId.c_str(), fileInfo));
+
+    if(sh_return == 0) {
+        time_t atime = 0, mtime = 0;
+        mode_t accMode = fileInfo->flags & O_ACCMODE;
+
+        if((accMode == O_WRONLY) || (fileInfo->flags & O_APPEND) || (accMode == O_RDWR))
+            mtime = time(NULL);
+        if( ( (accMode == O_RDONLY) || (accMode == O_RDWR) ) && !(fileInfo->flags & O_NOATIME))
+            atime = time(NULL);
+
+        if(atime || mtime)
+            VeilFS::getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(atime), utils::toString(mtime)));
+    }
+
     return sh_return;
 }
 
@@ -400,6 +450,10 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
     GET_LOCATION_INFO(path);
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
+
+    if(sh_return == 0)
+        m_metaCache->clearAttr(string(path));
+
     return sh_return;
 }
 
@@ -446,19 +500,21 @@ int VeilFS::fsync(const char *path, int datasync, struct fuse_file_info *fi)
     return 0;
 }
 
-// not yet implemented, TODO: do we need it?
 int VeilFS::opendir(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: opendir(path: " << string(path) << ", ...)";
+    
+    VeilFS::getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(time(NULL))));
+    
     return 0;
 }
 
 int VeilFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: readdir(path: " << string(path) << ", ..., offset: " << offset << ", ...)";
-    std::vector<string> children;
+    vector<string> children;
 
-    if(!m_fslogic->getFileChildren(path, DIR_BATCH_SIZE, offset, &children))
+    if(!m_fslogic->getFileChildren(path, DIR_BATCH_SIZE, offset, children))
     {
         return -EIO;
     }
@@ -562,24 +618,19 @@ void VeilFS::setConnectionPool(shared_ptr<SimpleConnectionPool> injected)
     m_connectionPool = injected;
 }
 
-bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string)
+bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
 {
-    string res;
     struct stat attr;
-    ostringstream ss;
     vector<string> children;
     int offset;
-    istringstream iss(arg1);
 
     switch(taskId)
     {
-    case TASK_ASYNC_READDIR:
+    case TASK_ASYNC_READDIR: // arg0 = path, arg1 = offset
         if(!VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT))
             return true;
 
-        iss >> offset;
-
-        if(!m_fslogic->getFileChildren(arg0, DIR_BATCH_SIZE, offset, &children)) {
+        if(!m_fslogic->getFileChildren(arg0, DIR_BATCH_SIZE, utils::fromString<unsigned int>(arg1), children)) {
             return false;
         }
 
@@ -589,17 +640,20 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string)
         }
 
         if(children.size() > 0) {
-            ss << offset + children.size();
-            string newOffset = ss.str();
-            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, arg0, newOffset);
+            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, arg0, utils::toString(utils::fromString<unsigned int>(arg1) + children.size()));
             VeilFS::getScheduler()->addTask(readDirTask);
         }
 
-
         return true;
+
     case TASK_ASYNC_GETATTR:
         if(VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT))
             (void) getattr(arg0.c_str(), &attr, false);
+        return true;
+
+    case TASK_ASYNC_UPDATE_TIMES: // arg0 = path, arg1 = atime, arg2 = mtime
+        if(m_fslogic->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2)) == VOK);
+            (void) m_metaCache->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2));
         return true;
     default:
         return false;

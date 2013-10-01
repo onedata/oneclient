@@ -64,7 +64,7 @@ string StorageMapper::findLocation(string logicalName)
 {
     LOG(INFO) << "quering cluster about storage mapping for file: " << logicalName;
     FileLocation location;
-    if(m_fslogic->getFileLocation(logicalName, &location))
+    if(m_fslogic->getFileLocation(logicalName, location))
     {
         if(location.answer() == VOK)
             addLocation(logicalName, location);

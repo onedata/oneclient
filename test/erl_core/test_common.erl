@@ -15,6 +15,11 @@
 
 -export([wipe_db/1, register_user/1]).
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% CLUSTER SIDE METHODS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Wipes given databases. You should provide either list of db names or 'all' atom
 %% This method is called by default in all test_suite:setup/1 (wipe_db(all))
 wipe_db(all) ->
