@@ -396,7 +396,6 @@ TEST_F(VeilFSTest, utime) { // const char *path, struct utimbuf *ubuf
     struct utimbuf ubuf;
     
     EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
-    EXPECT_CALL(*metaCacheMock, clearAttr("/path"));
     
     EXPECT_EQ(0, client->utime("/path", &ubuf));
 }

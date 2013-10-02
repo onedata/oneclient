@@ -403,8 +403,6 @@ int VeilFS::utime(const char *path, struct utimbuf *ubuf)
 
     VeilFS::getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(ubuf->actime), utils::toString(ubuf->modtime)));
 
-    m_metaCache->clearAttr(string(path));
-
     return 0;
 }
 
