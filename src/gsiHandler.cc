@@ -50,7 +50,7 @@ bool validateProxyConfig()
     if(::system(("which " + GSI_INIT_COMMAND + " > /dev/null").c_str()) || 
        ::system(("which " + GSI_INFO_COMMAND + " > /dev/null").c_str()))
     {
-        cerr << "Cannot find globus-proxy-utils. You need to install this package." << endl;
+        cerr << "Cannot find globus-proxy-utils. You need to install this package before mounting this filesystem." << endl;
         return false;
     }
 
@@ -59,7 +59,7 @@ bool validateProxyConfig()
 
 bool validateProxyCert() 
 {
-    string cPathMode = "", cPathMode1 = "", debugStr = (debug ? " -debug" : "");
+    string cPathMode = "", cPathMode1 = "", debugStr = (debug ? " -debug" : " 2> /dev/null");
     if(VeilFS::getConfig()->isSet(PEER_CERTIFICATE_FILE_OPT))
     {
         string customPath = Config::absPathRelToHOME(VeilFS::getConfig()->getString(PEER_CERTIFICATE_FILE_OPT));
@@ -76,7 +76,7 @@ bool validateProxyCert()
     if(::system((GSI_INIT_COMMAND + cPathMode1 + debugStr).c_str()) || 
        ::system((GSI_INFO_COMMAND + cPathMode + " -e -v 1:0" + debugStr).c_str())) // Double check to make sure proxy exists
     {
-        cerr << "Cannot generate proxy certificate" << endl;
+        cerr << "Cannot generate proxy certificate. " << (debug ? "" : "Use -debug for further information.") << endl;
         return false;
     } 
 

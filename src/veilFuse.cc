@@ -43,7 +43,7 @@ using namespace boost;
 using namespace veil;
 using namespace veil::client;
 
-
+/// Main  application object (filesystem state)
 shared_ptr<VeilFS> VeilAppObject;
 
 #ifdef __cplusplus
@@ -201,12 +201,17 @@ static void oper_init() {
 
 static void fuse_init() 
 {
-    LOG(INFO) << "Intializing fuse callbacks";
+    //LOG(INFO) << "Intializing fuse callbacks";
     oper_init();
 }
 
 int main(int argc, char* argv[]) 
 {
+    // Turn off logging for a while
+    google::InitGoogleLogging(argv[0]);
+    FLAGS_alsologtostderr = false;
+    FLAGS_logtostderr = false;
+
     // Initialize FUSE
     umask(0);
 
@@ -216,10 +221,10 @@ int main(int argc, char* argv[])
 
     // Enforced FUSE options
     fuse_opt_add_arg(&args, "-obig_writes");
-    if(argc < 2)
+    if(argc < 2) // Let FUSE handle no-args case now. After that assume that mountpoint is indeed passed as the first argument
         return fuse_main(args.argc, args.argv, &vfs_oper, NULL);
 
-    bool debug = false;
+    bool debug = false; // Assume silent mode
 
     shared_ptr<Config> config(new Config());
     VeilFS::setConfig(config);
@@ -233,10 +238,10 @@ int main(int argc, char* argv[])
             config->setUserConfigFile(string(argv[i]).substr(string(CONFIG_ARGV_OPT_NAME).size()));
         }
 
-        if(string(argv[i]) == "-d") 
+        if(string(argv[i]) == "-d") // FUSE's debug flag
             debug = true;
 
-        if(string(argv[i]) == "-debug") 
+        if(string(argv[i]) == "-debug") // GSI Handler's debug flag
             gsi::debug = true;
     }
 
@@ -245,16 +250,18 @@ int main(int argc, char* argv[])
     if(!config->parseConfig())
     {
         std::cerr << "Cannot load/parse global/user config file. Check logs for more detials. Aborting" << std::endl;
-        return 1;
+        exit(1);
     }
 
-    // logger setup
+    // proper logger setup
     if(config->isSet(LOG_DIR_OPT))
     {
         string log_path = Config::absPathRelToCWD(config->getString(LOG_DIR_OPT));
         FLAGS_log_dir = log_path;
         LOG(INFO) << "Setting log dir to: " << log_path;
     }
+    // Restart Google Loggler in order ot reload log_dir path 
+    google::ShutdownGoogleLogging();
     google::InitGoogleLogging(argv[0]);
     FLAGS_alsologtostderr = debug;
     FLAGS_logtostderr = debug;
@@ -265,7 +272,6 @@ int main(int argc, char* argv[])
         std::cerr << "Cannot continue. Aborting" << std::endl;
         exit(1);
     }
-
 
     LOG(INFO) << "Proxy certificate to be used: " << gsi::getProxyCertPath();
 
