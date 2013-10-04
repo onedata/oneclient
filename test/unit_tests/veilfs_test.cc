@@ -449,7 +449,7 @@ TEST_F(VeilFSTest, write) { // const char *path, const char *buf, size_t size, o
  
 TEST_F(VeilFSTest, statfs) { // const char *path, struct statvfs *statInfo
     struct statvfs statInfo;
-    EXPECT_EQ(-EIO, client->statfs("/path", &statInfo));
+    EXPECT_EQ(0, client->statfs("/path", &statInfo));
 }
  
 TEST_F(VeilFSTest, flush) { // const char *path, struct fuse_file_info *fileInfo
