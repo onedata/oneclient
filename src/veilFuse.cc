@@ -211,6 +211,7 @@ int main(int argc, char* argv[])
     google::InitGoogleLogging(argv[0]);
     FLAGS_alsologtostderr = false;
     FLAGS_logtostderr = false;
+    FLAGS_stderrthreshold = 3;
 
     // Initialize FUSE
     umask(0);
@@ -265,6 +266,8 @@ int main(int argc, char* argv[])
     google::InitGoogleLogging(argv[0]);
     FLAGS_alsologtostderr = debug;
     FLAGS_logtostderr = debug;
+    if(debug)
+        FLAGS_stderrthreshold = 2;
 
     // Check proxy certificate
     if(!gsi::validateProxyConfig()) 
@@ -309,6 +312,8 @@ int main(int argc, char* argv[])
         fuse_unmount(mountpoint, ch);
         exit(1);
     }
+
+    cout << "VeilFS has been successfully mounted in " + string(argv[1]) << endl;
 
     res = fuse_daemonize(foreground);
     if (res != -1)
