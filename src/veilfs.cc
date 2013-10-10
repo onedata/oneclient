@@ -648,7 +648,7 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
         }
 
         for(vector<string>::iterator it = children.begin(); it < children.end(); ++it) {
-            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, arg0 + (*it));
+            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, arg0 + (arg0 == "/" ? "" : "/") + (*it));
             VeilFS::getScheduler()->addTask(readDirTask);
         }
 

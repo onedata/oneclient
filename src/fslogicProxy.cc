@@ -365,7 +365,7 @@ void FslogicProxy::pingCluster(string nth)
     shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection(false, nthInt);
     
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
-        LOG(WARNING) << "Pinging cluster failed";
+        LOG(WARNING) << "Pinging cluster " << (connection ? "failed" : "not needed");
     } else {
         VeilFS::getConnectionPool()->releaseConnection(connection);
         LOG(INFO) << "Cluster ping... ---> " << ans.answer_status();

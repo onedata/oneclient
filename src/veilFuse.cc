@@ -222,7 +222,7 @@ int main(int argc, char* argv[])
 
     // Enforced FUSE options
     fuse_opt_add_arg(&args, "-obig_writes");
-    if(argc < 2) // Let FUSE handle no-args case now. After that assume that mountpoint is indeed passed as the first argument
+    if(argc < 2 || argv[1][0] == '-') // Let FUSE handle no-args case now. After that assume that mountpoint is indeed passed as the first argument
         return fuse_main(args.argc, args.argv, &vfs_oper, NULL);
 
     bool debug = false; // Assume silent mode
@@ -329,6 +329,7 @@ int main(int argc, char* argv[])
     VeilFS::setConnectionPool(shared_ptr<SimpleConnectionPool> (
         new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), gsi::validateProxyCert)));
     veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool());
+    veil::maxConnectionCount = config->getInt(ALIVE_CONNECTIONS_COUNT_OPT); // Maximum connection count setup
 
     for(int i = 1; i < config->getInt(JOBSCHEDULER_THREADS_OPT); ++i)
         VeilFS::addScheduler(shared_ptr<JobScheduler>(new JobScheduler()));

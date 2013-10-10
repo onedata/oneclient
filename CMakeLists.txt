@@ -150,7 +150,7 @@ install(DIRECTORY config/ DESTINATION ${CONFIG_DIR})
 
 # build a CPack driven installer package
 include(InstallRequiredSystemLibraries)
-set(CPACK_SET_DESTDIR ON) # Uncomment this line if you need a non-relocatable RPM package
+# set(CPACK_SET_DESTDIR ON) # Uncomment this line if you need a non-relocatable RPM package
 set(CPACK_RESOURCE_FILE_LICENSE  
      "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
 set(CPACK_PACKAGE_VERSION_MAJOR "${VeilClient_VERSION_MAJOR}")
@@ -158,8 +158,8 @@ set(CPACK_PACKAGE_VERSION_MINOR "${VeilClient_VERSION_MINOR}")
 set(CPACK_PACKAGE_CONTACT "help@veilfs.com")
 
 # DEB and RPM deps 
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse, libfuse2, libprotobuf7, libssl1.0.0 globus-proxy-utils")
-set(CPACK_RPM_PACKAGE_REQUIRES "fuse, fuse-libs, protobuf openssl globus-proxy-utils")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse, libfuse2, lbiprotobuf7, libssl1.0.0, globus-proxy-utils")
+set(CPACK_RPM_PACKAGE_REQUIRES "fuse, libfuse.so.2, protobuf, openssl, globus-proxy-utils")
 set(CPACK_RPM_PACKAGE_AUTOREQPROV " no")
 
 include(CPack)
