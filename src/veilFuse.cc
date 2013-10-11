@@ -258,12 +258,14 @@ int main(int argc, char* argv[])
     if(config->isSet(LOG_DIR_OPT))
     {
         string log_path = Config::absPathRelToCWD(config->getString(LOG_DIR_OPT));
-        FLAGS_log_dir = log_path;
-        LOG(INFO) << "Setting log dir to: " << log_path;
+        if(log_path != "/tmp") {
+            FLAGS_log_dir = log_path;
+            LOG(INFO) << "Setting log dir to: " << log_path;
+            // Restart Google Loggler in order ot reload log_dir path 
+            google::ShutdownGoogleLogging();
+            google::InitGoogleLogging(argv[0]);
+        }
     }
-    // Restart Google Loggler in order ot reload log_dir path 
-    google::ShutdownGoogleLogging();
-    google::InitGoogleLogging(argv[0]);
     FLAGS_alsologtostderr = debug;
     FLAGS_logtostderr = debug;
     if(debug)

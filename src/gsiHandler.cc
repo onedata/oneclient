@@ -369,8 +369,6 @@ std::string getClusterHostname()
         return BASE_DOMAIN;
     }
 
-    DN = DN.substr(1);
-
     const char *DNStr = DN.c_str();
     unsigned char *digest = MD5((const unsigned char*) DNStr, DN.length(), NULL);
     if(!digest)

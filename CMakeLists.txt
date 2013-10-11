@@ -6,7 +6,7 @@ include(ExternalProject)
 # The version number.
 set(VeilClient_VERSION_MAJOR 0)
 set(VeilClient_VERSION_MINOR 3)
-set(VeilClient_VERSION_PATCH 0)
+set(VeilClient_VERSION_PATCH 1)
 set(VeilClient_VERSION $(VeilClient_VERSION_MAJOR).$(VeilClient_VERSION_MINOR).$(VeilClient_VERSION_PATCH))
 
 # Install dirs
