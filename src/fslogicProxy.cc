@@ -280,7 +280,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, 
         return false;
     }
 
-    shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+    boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
     if(!connection) 
     {
         LOG(ERROR) << "Cannot select connection from connectionPool";
@@ -319,7 +319,7 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
         return VEIO;
     }
 
-    shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+    boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
     if(!connection) 
     {
         LOG(ERROR) << "Cannot select connection from connectionPool";
@@ -362,7 +362,7 @@ void FslogicProxy::pingCluster(string nth)
     int nthInt;
     istringstream iss(nth);
     iss >> nthInt;
-    shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection(false, nthInt);
+    boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection(false, nthInt);
     
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
         LOG(WARNING) << "Pinging cluster " << (connection ? "failed" : "not needed");

@@ -18,7 +18,7 @@ class MockStorageMapper
     : public StorageMapper {
 
 public:
-    MockStorageMapper(shared_ptr<FslogicProxy> fslogicProxy) : StorageMapper(fslogicProxy) {}
+    MockStorageMapper(boost::shared_ptr<FslogicProxy> fslogicProxy) : StorageMapper(fslogicProxy) {}
     ~MockStorageMapper() {}
 
     MOCK_METHOD1(releaseFile, void(string));

@@ -29,7 +29,7 @@ using namespace boost;
 namespace veil {
 namespace client {
 
-Job::Job(time_t when, shared_ptr<ISchedulable> subject, ISchedulable::TaskID task, string arg0, string arg1, string arg2) :
+Job::Job(time_t when, boost::shared_ptr<ISchedulable> subject, ISchedulable::TaskID task, string arg0, string arg1, string arg2) :
     when(when),
     subject(subject),
     task(task),

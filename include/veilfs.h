@@ -98,6 +98,11 @@ public:
 
 private:
         std::string m_root; ///< Filesystem root directory
+        uid_t       m_uid;  ///< Filesystem owner's effective uid
+        gid_t       m_gid;  ///< Filesystem owner's effective gid
+        uid_t       m_ruid;  ///< Filesystem root real uid
+        gid_t       m_rgid;  ///< Filesystem root real gid
+        
         static ReadWriteLock m_schedulerPoolLock;
 
         boost::shared_ptr<FslogicProxy> m_fslogic;             ///< FslogicProxy instance

@@ -22,8 +22,8 @@ class StorageMapperTest
 
 protected:
     COMMON_DEFS();
-    shared_ptr<MockFslogicProxy> mockFslogic; 
-    shared_ptr<ProxyStorageMapper> proxy;    
+    boost::shared_ptr<MockFslogicProxy> mockFslogic; 
+    boost::shared_ptr<ProxyStorageMapper> proxy;    
 
     virtual void SetUp() {
         COMMON_SETUP();

@@ -31,8 +31,8 @@ class JobSchedulerTest
 protected:
     COMMON_DEFS();
     ProxyJobScheduler proxy;
-    shared_ptr<MockJobObject> jobContext1_;
-    shared_ptr<MockJobObject> jobContext2_;
+    boost::shared_ptr<MockJobObject> jobContext1_;
+    boost::shared_ptr<MockJobObject> jobContext2_;
 
     virtual void SetUp() {
         jobContext1_.reset(new MockJobObject());

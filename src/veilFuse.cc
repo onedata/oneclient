@@ -44,7 +44,7 @@ using namespace veil;
 using namespace veil::client;
 
 /// Main  application object (filesystem state)
-shared_ptr<VeilFS> VeilAppObject;
+boost::shared_ptr<VeilFS> VeilAppObject;
 
 #ifdef __cplusplus
 extern "C" {
@@ -130,7 +130,6 @@ static int wrap_removexattr(const char *path, const char *name) {
 static int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo) {
     return VeilAppObject->readdir(path, buf, filler, offset, fileInfo);
 }
-#ifdef HAVE_ADVANCED_DIR
 static int wrap_opendir(const char *path, struct fuse_file_info *fileInfo) {
     return VeilAppObject->opendir(path, fileInfo);
 }
@@ -140,10 +139,9 @@ static int wrap_releasedir(const char *path, struct fuse_file_info *fileInfo) {
 static int wrap_fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo) {
     return VeilAppObject->fsyncdir(path, datasync, fileInfo);
 }
-static int wrap_init(struct fuse_conn_info *conn) {
-    return VeilAppObject->init(conn);
-}
-#endif // HAVE_ADVANCED_DIR
+// static int wrap_init(struct fuse_conn_info *conn) {
+//     return VeilAppObject->init(conn);
+// }
 
 static int vfs_opt_proc(void *data, const char *arg, int key, struct fuse_args *outargs)
 {
@@ -187,6 +185,9 @@ static void oper_init() {
         vfs_oper.fsync      = wrap_fsync;
         vfs_oper.utime      = wrap_utime;
         vfs_oper.flush      = wrap_flush;
+        vfs_oper.opendir    = wrap_opendir;
+        vfs_oper.releasedir = wrap_releasedir;
+        vfs_oper.fsyncdir   = wrap_fsyncdir;
     #ifdef HAVE_POSIX_FALLOCATE
         vfs_oper.fallocate  = wrap_fallocate;
     #endif
@@ -222,14 +223,11 @@ int main(int argc, char* argv[])
 
     // Enforced FUSE options
     fuse_opt_add_arg(&args, "-obig_writes");
-    if(argc < 2 || argv[1][0] == '-') // Let FUSE handle no-args case now. After that assume that mountpoint is indeed passed as the first argument
-        return fuse_main(args.argc, args.argv, &vfs_oper, NULL);
 
     bool debug = false; // Assume silent mode
 
-    shared_ptr<Config> config(new Config());
+    boost::shared_ptr<Config> config(new Config());
     VeilFS::setConfig(config);
-    
 
     // Find user config argument
     for(int i = 1; i < argc; ++i)
@@ -271,15 +269,6 @@ int main(int argc, char* argv[])
     if(debug)
         FLAGS_stderrthreshold = 2;
 
-    // Check proxy certificate
-    if(!gsi::validateProxyConfig()) 
-    {
-        std::cerr << "Cannot continue. Aborting" << std::endl;
-        exit(1);
-    }
-
-    LOG(INFO) << "Proxy certificate to be used: " << gsi::getProxyCertPath();
-
 
     // FUSE main: 
     struct fuse *fuse;
@@ -287,19 +276,11 @@ int main(int argc, char* argv[])
     char *mountpoint;
     int multithreaded;
     int foreground;
-    struct stat st;
     int res;
 
-    res = fuse_parse_cmdline(&args, &mountpoint, &multithreaded,
-                 &foreground);
+    res = fuse_parse_cmdline(&args, &mountpoint, &multithreaded, &foreground);
     if (res == -1)
         exit(1);
-
-    res = stat(mountpoint, &st);
-    if (res == -1) {
-        perror(mountpoint);
-        exit(1);
-    }
 
     ch = fuse_mount(mountpoint, &args);
     if (!ch)
@@ -315,8 +296,20 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
-    cout << "VeilFS has been successfully mounted in " + string(argv[1]) << endl;
+    fuse_set_signal_handlers(fuse_get_session(fuse));
 
+    // Check proxy certificate
+    if(!gsi::validateProxyConfig()) 
+    {
+        std::cerr << "Cannot continue. Aborting" << std::endl;
+        fuse_unmount(mountpoint, ch);
+        exit(1);
+    }
+    
+    LOG(INFO) << "Proxy certificate to be used: " << gsi::getProxyCertPath();
+    cout << "VeilFS has been successfully mounted in " + string(mountpoint) << endl;
+
+    fuse_remove_signal_handlers(fuse_get_session(fuse));
     res = fuse_daemonize(foreground);
     if (res != -1)
         res = fuse_set_signal_handlers(fuse_get_session(fuse));
@@ -328,20 +321,20 @@ int main(int argc, char* argv[])
     }
 
     // Initialize VeilClient application
-    VeilFS::setConnectionPool(shared_ptr<SimpleConnectionPool> (
+    VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (
         new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), gsi::validateProxyCert)));
     veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool());
     veil::maxConnectionCount = config->getInt(ALIVE_CONNECTIONS_COUNT_OPT); // Maximum connection count setup
 
     for(int i = 1; i < config->getInt(JOBSCHEDULER_THREADS_OPT); ++i)
-        VeilFS::addScheduler(shared_ptr<JobScheduler>(new JobScheduler()));
+        VeilFS::addScheduler(boost::shared_ptr<JobScheduler>(new JobScheduler()));
 
-    VeilAppObject.reset(new VeilFS(argv[1], config, 
-                        shared_ptr<JobScheduler>(new JobScheduler()), 
-                        shared_ptr<FslogicProxy>(new FslogicProxy()), 
-                        shared_ptr<MetaCache>(new MetaCache()), 
-                        shared_ptr<StorageMapper>(new StorageMapper(shared_ptr<FslogicProxy>(new FslogicProxy()))),
-                        shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory())));
+    VeilAppObject.reset(new VeilFS(mountpoint, config, 
+                        boost::shared_ptr<JobScheduler>(new JobScheduler()), 
+                        boost::shared_ptr<FslogicProxy>(new FslogicProxy()), 
+                        boost::shared_ptr<MetaCache>(new MetaCache()), 
+                        boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(new FslogicProxy()))),
+                        boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory())));
 
     // Enter FUSE loop
     if (multithreaded)
@@ -362,4 +355,5 @@ int main(int argc, char* argv[])
     free(mountpoint);
 
     return res;
+
 }

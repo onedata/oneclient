@@ -15,7 +15,7 @@ class ProxyStorageMapper
     : public StorageMapper {
 
 public:
-    ProxyStorageMapper(shared_ptr<FslogicProxy> mock) : StorageMapper(mock) {}
+    ProxyStorageMapper(boost::shared_ptr<FslogicProxy> mock) : StorageMapper(mock) {}
 
     map<int, storageInfo>& getStorageMapping() {
         return m_storageMapping;

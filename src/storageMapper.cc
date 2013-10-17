@@ -21,7 +21,7 @@ using namespace veil::protocol::fuse_messages;
 namespace veil {
 namespace client {
 
-StorageMapper::StorageMapper(shared_ptr<FslogicProxy> fslogicProxy) : 
+StorageMapper::StorageMapper(boost::shared_ptr<FslogicProxy> fslogicProxy) : 
     m_fslogic(fslogicProxy)
 {
 }

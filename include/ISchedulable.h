@@ -39,6 +39,7 @@ public:
         TASK_ASYNC_READDIR,
         TASK_ASYNC_GETATTR,
         TASK_ASYNC_UPDATE_TIMES,
+        TASK_CLEAR_ATTR,
         TASK_LAST_ID
     };
 

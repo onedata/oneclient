@@ -52,7 +52,7 @@ std::string toString(T in) {
 
 template<typename T>
 T fromString(std::string in) {
-    T out;
+    T out = 0;
     std::istringstream iss(in);
     iss >> out;
     return out;

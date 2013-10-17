@@ -33,7 +33,7 @@ class FslogicProxyTest
 protected:
     COMMON_DEFS();
     ProxyFslogicProxy proxy;
-    shared_ptr<MockMessageBuilder> msgBuilder;
+    boost::shared_ptr<MockMessageBuilder> msgBuilder;
     
     ClusterMsg fullClusterMsg;
 

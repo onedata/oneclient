@@ -20,6 +20,7 @@ public:
     MOCK_METHOD1(clearAttr, void(string));
     MOCK_METHOD2(addAttr, void(string, struct stat&));
     MOCK_METHOD2(getAttr, bool(string, struct stat*));
+    MOCK_METHOD2(updateSize, bool(string, size_t size));
 };
 
 

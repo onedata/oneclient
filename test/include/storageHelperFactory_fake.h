@@ -18,13 +18,13 @@ using namespace veil::helpers;
 class FakeStorageHelperFactory
     : public StorageHelperFactory {
 public:
-    shared_ptr<IStorageHelper> presetMock;
+    boost::shared_ptr<IStorageHelper> presetMock;
 
-    shared_ptr<IStorageHelper> getStorageHelper(string sh_name, vector<string> args) {
+    boost::shared_ptr<IStorageHelper> getStorageHelper(string sh_name, vector<string> args) {
         if(presetMock)
             return presetMock;
         else
-            return shared_ptr<IStorageHelper>(new MockGenericHelper());    
+            return boost::shared_ptr<IStorageHelper>(new MockGenericHelper());    
     }
 
 };

@@ -96,6 +96,20 @@ bool MetaCache::updateTimes(string path, time_t atime, time_t mtime, time_t ctim
     return true;
 }
 
+
+bool MetaCache::updateSize(string path, size_t size)
+{
+    struct stat attr;
+    if(!getAttr(path, &attr))
+        return false;
+
+    attr.st_size = size;
+    addAttr(path, attr);
+
+    return true;
+}
+
+
 bool MetaCache::runTask(TaskID taskId, string arg0, string arg1, string arg3)
 {
     switch(taskId)

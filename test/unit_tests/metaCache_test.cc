@@ -21,7 +21,7 @@ class MetaCacheTest
 
 protected:
     COMMON_DEFS();
-    shared_ptr <ProxyMetaCache> proxy;
+    boost::shared_ptr <ProxyMetaCache> proxy;
     struct stat stat;        
 
     virtual void SetUp() {

@@ -42,12 +42,12 @@ using namespace veil::client;
         scheduler.reset(new MockJobScheduler()); \
         connectionPool.reset(new MockConnectionPool()); \
         VeilFS::setConnectionPool(connectionPool); \
-        shared_ptr<VeilFS>(new VeilFS("/root", config, scheduler, shared_ptr<FslogicProxy>(), shared_ptr<MetaCache>(), shared_ptr<StorageMapper>(), shared_ptr<helpers::StorageHelperFactory>()));
+        boost::shared_ptr<VeilFS>(new VeilFS("/root", config, scheduler, boost::shared_ptr<FslogicProxy>(), boost::shared_ptr<MetaCache>(), boost::shared_ptr<StorageMapper>(), boost::shared_ptr<helpers::StorageHelperFactory>()));
 
 #define COMMON_DEFS() \
-        shared_ptr<MockConfig> config; \
-        shared_ptr<MockJobScheduler> scheduler; \
-        shared_ptr<MockConnectionPool> connectionPool;
+        boost::shared_ptr<MockConfig> config; \
+        boost::shared_ptr<MockJobScheduler> scheduler; \
+        boost::shared_ptr<MockConnectionPool> connectionPool;
 
 #define COMMON_CLEANUP() \
         config.reset(); \
@@ -60,20 +60,20 @@ using namespace veil::client;
         config.reset(new Config()); \
         fslogic.reset(new FslogicProxy()); \
         VeilFS::setConfig(config); \
-        VeilFS::setConnectionPool(shared_ptr<SimpleConnectionPool> (new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), NULL))); \
+        VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), NULL))); \
         veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool()); \
         veilFS.reset(new VeilFS(VeilFSRoot, config, \
-                            shared_ptr<JobScheduler>(new JobScheduler()), \
-                            shared_ptr<FslogicProxy>(fslogic), \
-                            shared_ptr<MetaCache>(new MetaCache()), \
-                            shared_ptr<StorageMapper>(new StorageMapper(shared_ptr<FslogicProxy>(fslogic))), \
-                            shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()))); \
+                            boost::shared_ptr<JobScheduler>(new JobScheduler()), \
+                            boost::shared_ptr<FslogicProxy>(fslogic), \
+                            boost::shared_ptr<MetaCache>(new MetaCache()), \
+                            boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(fslogic))), \
+                            boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()))); \
         sleep(2);
 
 #define COMMON_INTEGRATION_DEFS() \
-        shared_ptr<VeilFS> veilFS; \
-        shared_ptr<FslogicProxy> fslogic; \
-        shared_ptr<Config> config;
+        boost::shared_ptr<VeilFS> veilFS; \
+        boost::shared_ptr<FslogicProxy> fslogic; \
+        boost::shared_ptr<Config> config;
 
 #define COMMON_INTEGRATION_CLEANUP() \
         veilFS.reset(); \

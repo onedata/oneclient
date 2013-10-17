@@ -44,13 +44,14 @@ include_directories(${VEILHELPERS_INCLUDE_DIR})
 # Setup fuse
 message(STATUS "Checking for FUSE...")
 find_package(FUSE REQUIRED)
+find_library(FUSE_LIBRARY_CUSTOM NAMES libfuse.a fuse)
 include_directories(${FUSE_INCLUDE_DIRS})
-message(STATUS "FUSE: ${FUSE_LIBRARIES}")
-set(FUSE_LIBRARIES "fuse")  
+message(STATUS "FUSE: ${FUSE_LIBRARY_CUSTOM}") 
 
 # Setup ProtoBuf
 message(STATUS "Checking for Protobuf...")
 find_package(Protobuf REQUIRED)
+find_library(PROTOBUF_LIBRARY_CUSTOM NAMES libprotobuf.a protobuf)
 include_directories(${PROTOBUF_INCLUDE_DIR})
 
 # Setup pthreads
@@ -64,6 +65,14 @@ find_package(Git REQUIRED)
 # Setup OpenSSL
 message(STATUS "Checking for OpenSSL...")
 find_package(OpenSSL REQUIRED)
+find_library(SSL_LIBRARY NAMES libssl.a ssl)
+find_library(CRYPTO_LIBRARY NAMES libcrypto.a crypto)
+find_library(KRB5_LIBRARY krb5)
+if(${KRB5_LIBRARY} MATCHES KRB5_LIBRARY-NOTFOUND)
+    set(OPENSSL_LIBRARIES "${SSL_LIBRARY};${CRYPTO_LIBRARY}")
+else(${KRB5_LIBRARY} MATCHES KRB5_LIBRARY-NOTFOUND)
+    set(OPENSSL_LIBRARIES "${SSL_LIBRARY};${CRYPTO_LIBRARY};${KRB5_LIBRARY}")
+endif(${KRB5_LIBRARY} MATCHES KRB5_LIBRARY-NOTFOUND)
 include_directories(${OPENSSL_INCLUDE_DIR})
 
 # Setup Boost
@@ -95,8 +104,11 @@ file(GLOB MAIN_SOURCE_FILE "src/veilFuse.cc")
 string(REGEX REPLACE "${MAIN_SOURCE_FILE}" "" SOURCES "${SOURCES}")
 
 # Setup compile flags
+execute_process(COMMAND g++ -print-file-name=libstdc++.a OUTPUT_VARIABLE LIBSTD_NAME)
+string(REGEX REPLACE "(\r?\n)+$" "" LIBSTD_NAME "${LIBSTD_NAME}")
+execute_process(COMMAND ln -sf "${LIBSTD_NAME}" WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
 set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/${LIB_DIR}:${CMAKE_CURRENT_BINARY_DIR}:.:${LIB_DIR}:../${LIB_DIR}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 ${FUSE_DEFINITIONS} -Wl,-rpath,${CUSTOM_RPATH}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdata-sections -ffunction-sections -Wl,--gc-sections -O2 ${FUSE_DEFINITIONS} -Wl,-rpath,${CUSTOM_RPATH} -pthread")
 set(CMAKE_SKIP_RPATH TRUE) # Something is wrong with CMake RPATH config, we need to use old-fashion way
 
 # Define targets
@@ -110,35 +122,34 @@ add_dependencies(veilclient yaml-cpp glog veilprotocol veilhelpers)
 set_target_properties(veilFuse PROPERTIES COMPILE_FLAGS "-Wall -g")
 
 target_link_libraries(veilprotocol
-    ${PROTOBUF_LIBRARY}
-    ${CMAKE_THREAD_LIBS_INIT}
+    ${PROTOBUF_LIBRARY_CUSTOM}
 )
 
 target_link_libraries(veilclient
-    ${FUSE_LIBRARIES}
-    ${CMAKE_THREAD_LIBS_INIT}
+    ${FUSE_LIBRARY_CUSTOM}
     ${OPENSSL_LIBRARIES}
     ${Boost_LIBRARIES}
     ${GLOG_LIBRARIES}
     ${YAML_LIBRARIES}
+    ${PROTOBUF_LIBRARY_CUSTOM}
     ${VEILHELPERS_LIBRARIES}
     veilprotocol
     dl
-    z
     rt
+    z
 )
 
 target_link_libraries(veilFuse 
     ${GLOG_LIBRARIES}
     ${OPENSSL_LIBRARIES}
     ${Boost_LIBRARIES}
-    ${FUSE_LIBRARIES}
-    ${PROTOBUF_LIBRARY}
+    ${FUSE_LIBRARY_CUSTOM}
     ${VEILHELPERS_LIBRARIES}
+    ${PROTOBUF_LIBRARY_CUSTOM}
     veilclient
     dl
-    z
     rt
+    z
 )
 
 # Install config
@@ -194,13 +205,12 @@ foreach(file ${files})
     add_executable(${TEST_NAME} ${file})
     add_dependencies(${TEST_NAME} gtest gmock veilFuse veilhelpers veilclient veilprotocol)
     target_link_libraries(${TEST_NAME}
-        ${CMAKE_THREAD_LIBS_INIT}
         ${GTEST_LIBRARIES}
         ${GMOCK_LIBRARIES}
-        ${FUSE_LIBRARIES}
-        ${PROTOBUF_LIBRARY}
+        ${FUSE_LIBRARY_CUSTOM}
         ${OPENSSL_LIBRARIES}
         ${VEILHELPERS_LIBRARIES}
+        ${PROTOBUF_LIBRARY_CUSTOM}
         veilclient
         dl 
         z
@@ -239,13 +249,12 @@ foreach(file ${files})
     add_executable(${TEST_NAME} ${file} ${TEST_UTILS_DIR}/erlTestCore.cc)
     add_dependencies(${TEST_NAME} gtest gmock veilFuse veilhelpers veilclient veilprotocol)
     target_link_libraries(${TEST_NAME}
-        ${CMAKE_THREAD_LIBS_INIT}
         ${GTEST_LIBRARIES}
         ${GMOCK_LIBRARIES}
-        ${FUSE_LIBRARIES}
-		${PROTOBUF_LIBRARY}
+        ${FUSE_LIBRARY_CUSTOM}
         ${OPENSSL_LIBRARIES}
         ${VEILHELPERS_LIBRARIES}
+        ${PROTOBUF_LIBRARY_CUSTOM}
         veilclient
         dl 
         z

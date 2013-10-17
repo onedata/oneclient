@@ -20,11 +20,11 @@ class ProxyFslogicProxy
     : public FslogicProxy {
 public:
     bool useMockConnectionSelector;
-    shared_ptr<MockCommunicationHandler> ch_mock;
+    boost::shared_ptr<MockCommunicationHandler> ch_mock;
     bool mockAnswer;
     bool mockAtom;
     
-    void setMessageBuilder(shared_ptr<MessageBuilder> mock) {
+    void setMessageBuilder(boost::shared_ptr<MessageBuilder> mock) {
         m_messageBuilder = mock;
     }
 

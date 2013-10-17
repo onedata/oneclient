@@ -25,14 +25,14 @@ class VeilFSTest
 {
 public:
     COMMON_DEFS();
-    shared_ptr<VeilFS> client;
+    boost::shared_ptr<VeilFS> client;
 
-    shared_ptr<MockJobScheduler> jobSchedulerMock;
-    shared_ptr<MockFslogicProxy> fslogicMock;
-    shared_ptr<MockMetaCache> metaCacheMock; 
-    shared_ptr<MockStorageMapper> storageMapperMock;
-    shared_ptr<MockGenericHelper> helperMock;
-    shared_ptr<FakeStorageHelperFactory> factoryFake;
+    boost::shared_ptr<MockJobScheduler> jobSchedulerMock;
+    boost::shared_ptr<MockFslogicProxy> fslogicMock;
+    boost::shared_ptr<MockMetaCache> metaCacheMock; 
+    boost::shared_ptr<MockStorageMapper> storageMapperMock;
+    boost::shared_ptr<MockGenericHelper> helperMock;
+    boost::shared_ptr<FakeStorageHelperFactory> factoryFake;
 
     struct fuse_file_info fileInfo;
     struct stat trueStat;
@@ -81,6 +81,8 @@ public:
         trueAttr.set_mode(11);
         trueAttr.set_gid(54321);
         trueAttr.set_uid(0);
+
+        EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillRepeatedly(Return());
     }
 
     virtual void TearDown() {
@@ -135,6 +137,7 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
     struct stat statbuf;
     
     EXPECT_CALL(*config, getBool(ENABLE_DIR_PREFETCH_OPT)).WillOnce(Return(true));
+    EXPECT_CALL(*config, getBool(ENABLE_ATTR_CACHE_OPT)).WillOnce(Return(true));
     EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
 
     trueAttr.set_type("DIR");
@@ -144,7 +147,7 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
 
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillOnce(DoAll(SetArgReferee<1>(trueAttr), Return(true)));
-    EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, cref(statbuf), _1))));
+    EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, boost::cref(statbuf), _1))));
     EXPECT_EQ(0, client->getattr("/path", &statbuf));
 
     EXPECT_EQ(trueAttr.atime(), statbuf.st_atime);
@@ -160,7 +163,7 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
     trueAttr.set_type("LNK");
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillOnce(DoAll(SetArgReferee<1>(trueAttr), Return(true)));
-    EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, cref(statbuf), _1))));
+    EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, boost::cref(statbuf), _1))));
     EXPECT_EQ(0, client->getattr("/path", &statbuf));
 
     EXPECT_EQ(trueAttr.mode() | S_IFLNK, statbuf.st_mode);
@@ -169,7 +172,7 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
     EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillOnce(DoAll(SetArgReferee<1>(trueAttr), Return(true)));
-    EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, cref(statbuf), _1))));
+    EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, boost::cref(statbuf), _1))));
     EXPECT_EQ(0, client->getattr("/path", &statbuf));
 
     EXPECT_EQ(trueAttr.mode() | S_IFREG, statbuf.st_mode);    
@@ -377,9 +380,7 @@ TEST_F(VeilFSTest, chown) { // const char *path, uid_t uid, gid_t gid
 }
  
 TEST_F(VeilFSTest, truncate) { // const char *path, off_t newSize
-    
-    EXPECT_CALL(*metaCacheMock, clearAttr("/path"));
-    
+
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Throw(VeilException(VEACCES)));
     EXPECT_EQ(-EACCES, client->truncate("/path", 10));
 
@@ -387,6 +388,8 @@ TEST_F(VeilFSTest, truncate) { // const char *path, off_t newSize
     
     EXPECT_CALL(*helperMock, sh_truncate(StrEq("fileid"), _)).WillOnce(Return(-EEXIST));
     EXPECT_EQ(-EEXIST, client->truncate("/path", 10));
+
+    EXPECT_CALL(*metaCacheMock, updateSize("/path", 10)).WillOnce(Return(true));
 
     EXPECT_CALL(*helperMock, sh_truncate(StrEq("fileid"), _)).WillOnce(Return(0));
     EXPECT_EQ(0, client->truncate("/path", 10));
@@ -401,7 +404,6 @@ TEST_F(VeilFSTest, utime) { // const char *path, struct utimbuf *ubuf
 }
  
 TEST_F(VeilFSTest, open) { // const char *path, struct fuse_file_info *fileInfo
-    EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
     
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Throw(VeilException(VEACCES)));
     EXPECT_EQ(-EACCES, client->open("/path", &fileInfo));
@@ -412,6 +414,7 @@ TEST_F(VeilFSTest, open) { // const char *path, struct fuse_file_info *fileInfo
     EXPECT_EQ(-EEXIST, client->open("/path", &fileInfo));
 
     EXPECT_CALL(*helperMock, sh_open(StrEq("fileid"), _)).WillOnce(Return(0));
+    fileInfo.flags |= O_RDWR;
     EXPECT_EQ(0, client->open("/path", &fileInfo));
 }
  
@@ -432,8 +435,6 @@ TEST_F(VeilFSTest, read) { // const char *path, char *buf, size_t size, off_t of
  
 TEST_F(VeilFSTest, write) { // const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo
     
-    EXPECT_CALL(*metaCacheMock, clearAttr("/path"));
-    
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Throw(VeilException(VEACCES)));
     EXPECT_EQ(-EACCES, client->write("/path", "abcd", 4, 0, &fileInfo));
 
@@ -442,8 +443,20 @@ TEST_F(VeilFSTest, write) { // const char *path, const char *buf, size_t size, o
     EXPECT_CALL(*helperMock, sh_write(StrEq("fileid"), StrEq("abcd"), 4, 0, _)).WillOnce(Return(-EEXIST));
     EXPECT_EQ(-EEXIST, client->write("/path", "abcd", 4, 0, &fileInfo));
 
-    EXPECT_CALL(*helperMock, sh_write(StrEq("fileid"), StrEq("abcd"), 4, 0, _)).WillOnce(Return(0));
-    EXPECT_EQ(0, client->write("/path", "abcd", 4, 0, &fileInfo));
+    // Assert that cache is updated correctly
+    trueStat.st_size = 2;
+    EXPECT_CALL(*metaCacheMock, getAttr("/path", _)).WillRepeatedly(DoAll(SetArgPointee<1>(trueStat), Return(true)));
+    EXPECT_CALL(*metaCacheMock, updateSize("/path", 6)).WillOnce(Return(true));
+
+    EXPECT_CALL(*helperMock, sh_write(StrEq("fileid"), StrEq("abcd"), 4, 2, _)).WillOnce(Return(4));
+    EXPECT_EQ(4, client->write("/path", "abcd", 4, 2, &fileInfo));
+
+    trueStat.st_size = 7;
+    EXPECT_CALL(*metaCacheMock, getAttr("/path", _)).WillRepeatedly(DoAll(SetArgPointee<1>(trueStat), Return(true)));
+    EXPECT_CALL(*metaCacheMock, updateSize("/path", _)).Times(0);
+
+    EXPECT_CALL(*helperMock, sh_write(StrEq("fileid"), StrEq("abcd"), 4, 2, _)).WillOnce(Return(4));
+    EXPECT_EQ(4, client->write("/path", "abcd", 4, 2, &fileInfo));
     
 }
  
