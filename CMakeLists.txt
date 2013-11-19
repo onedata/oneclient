@@ -79,8 +79,8 @@ include_directories(${OPENSSL_INCLUDE_DIR})
 set(Boost_USE_STATIC_LIBS        ON)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
-find_package(Boost COMPONENTS system thread filesystem REQUIRED)
-set(Boost_LIBRARIES "boost_thread-mt.a;boost_filesystem-mt.a;boost_system-mt.a") # SL6 bug fix
+find_package(Boost COMPONENTS system thread filesystem random REQUIRED)
+set(Boost_LIBRARIES "boost_thread-mt.a;boost_filesystem-mt.a;boost_system-mt.a;libboost_random-mt.a") # SL6 bug fix
 link_directories(${Boost_LIBRARY_DIRS})
 include_directories(${Boost_INCLUDE_DIRS})
 
@@ -107,8 +107,17 @@ string(REGEX REPLACE "${MAIN_SOURCE_FILE}" "" SOURCES "${SOURCES}")
 execute_process(COMMAND g++ -print-file-name=libstdc++.a OUTPUT_VARIABLE LIBSTD_NAME)
 string(REGEX REPLACE "(\r?\n)+$" "" LIBSTD_NAME "${LIBSTD_NAME}")
 execute_process(COMMAND ln -sf "${LIBSTD_NAME}" WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+
+if(APPLE)
+    set(PLATFORM_EXTRA_LIBS "${CMAKE_THREAD_LIBS_INIT}")
+    set(SECTION_FRAGMENTATION_FLAGS "")
+else()
+    set(PLATFORM_EXTRA_LIBS "${CMAKE_THREAD_LIBS_INIT};rt")
+    set(SECTION_FRAGMENTATION_FLAGS "-fdata-sections -ffunction-sections -Wl,--gc-sections")
+endif()
+
 set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/${LIB_DIR}:${CMAKE_CURRENT_BINARY_DIR}:.:${LIB_DIR}:../${LIB_DIR}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdata-sections -ffunction-sections -Wl,--gc-sections -O2 ${FUSE_DEFINITIONS} -Wl,-rpath,${CUSTOM_RPATH} -pthread")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SECTION_FRAGMENTATION_FLAGS} -O2 ${FUSE_DEFINITIONS} -DFUSE_USE_VERSION=29 -Wl,-rpath,${CUSTOM_RPATH} -pthread")
 set(CMAKE_SKIP_RPATH TRUE) # Something is wrong with CMake RPATH config, we need to use old-fashion way
 
 # Define targets
@@ -126,6 +135,7 @@ target_link_libraries(veilprotocol
 )
 
 target_link_libraries(veilclient
+    ${PLATFORM_EXTRA_LIBS}
     ${FUSE_LIBRARY_CUSTOM}
     ${OPENSSL_LIBRARIES}
     ${Boost_LIBRARIES}
@@ -135,11 +145,11 @@ target_link_libraries(veilclient
     ${VEILHELPERS_LIBRARIES}
     veilprotocol
     dl
-    rt
     z
 )
 
 target_link_libraries(veilFuse 
+    ${PLATFORM_EXTRA_LIBS}
     ${GLOG_LIBRARIES}
     ${OPENSSL_LIBRARIES}
     ${Boost_LIBRARIES}
@@ -148,7 +158,6 @@ target_link_libraries(veilFuse
     ${PROTOBUF_LIBRARY_CUSTOM}
     veilclient
     dl
-    rt
     z
 )
 

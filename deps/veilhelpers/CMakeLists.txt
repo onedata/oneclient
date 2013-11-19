@@ -11,7 +11,7 @@ ExternalProject_Add(veilhelpers
 # Export dep includes and lib paths
 ExternalProject_Get_Property(veilhelpers binary_dir)
 ExternalProject_Get_Property(veilhelpers source_dir)
-set(VEILHELPERS_INCLUDE_DIR ${source_dir}/include PARENT_SCOPE)
+set(VEILHELPERS_INCLUDE_DIR "${source_dir}/include;${binary_dir}/include" PARENT_SCOPE)
 set(VEILHELPERS_DEPS_INCLUDE_DIR ${binary_dir}/include PARENT_SCOPE)
 set(VEILHELPERS_TEST_INCLUDE_DIR ${source_dir}/test/include PARENT_SCOPE)
 set(VEILHELPERS_LIBRARIES ${binary_dir}/libveilhelpers.a PARENT_SCOPE)

@@ -459,7 +459,11 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
 
         if((accMode == O_WRONLY) || (fileInfo->flags & O_APPEND) || (accMode == O_RDWR))
             mtime = time(NULL);
-        if( ( (accMode == O_RDONLY) || (accMode == O_RDWR) ) && !(fileInfo->flags & O_NOATIME))
+#ifdef __APPLE__
+        if( ( (accMode == O_RDONLY) || (accMode == O_RDWR) ) )
+#else
+        if( ( (accMode == O_RDONLY) || (accMode == O_RDWR) ) && !(fileInfo->flags & O_NOATIME) )
+#endif
             atime = time(NULL);
 
         if(atime || mtime)

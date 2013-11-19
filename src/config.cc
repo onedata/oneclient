@@ -7,6 +7,7 @@
 
 #include "config.h"
 #include <fstream>
+#include <boost/filesystem.hpp>
 
 using namespace std;
 
@@ -45,7 +46,7 @@ void Config::setUserConfigFile(string path)
 
 void Config::setEnv()
 {
-    m_envCWD = string(get_current_dir_name());
+    m_envCWD = boost::filesystem::current_path().string();
     m_envHOME = string(getenv("HOME"));
 }
 
