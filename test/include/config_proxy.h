@@ -12,7 +12,12 @@
 #include "testCommon.h"
 
 class ProxyConfig 
-    : public Config {
+    : public veil::client::Config {
+public:
+    void setFuseID(std::string fuseID)
+    {
+        m_globalNode[FUSE_ID_OPT] = fuseID;
+    }
 
 public:
 };

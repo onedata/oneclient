@@ -73,8 +73,9 @@ int VeilFSMount::mount(string path, string cert, string opts) {
 }
 
 int VeilFSMount::umount(bool silent) {
+    boost::system::error_code ec;
     int res = ::system(("fusermount -u " + m_mountPoint + (silent ? " 2> /dev/null" : "")).c_str());
-    (void) filesystem::remove_all(m_mountPoint);
+    (void) filesystem::remove_all(m_mountPoint, ec);
     return res;
 }
 

@@ -69,13 +69,9 @@ ClusterMsg MessageBuilder::packFuseMessage(string messageType, string answerType
 {
     ClusterMsg clusterMessage;
     
-    char tmpHost[1024];
-    gethostname(tmpHost, sizeof(tmpHost));
-    string fuseID = string(tmpHost);
-    if(VeilFS::getConfig()->isSet(FUSE_ID_OPT))
-        fuseID = VeilFS::getConfig()->getString(FUSE_ID_OPT);
+    
 
-    FuseMessage fuseMessage = createFuseMessage(fuseID, messageType, messageInput);
+    FuseMessage fuseMessage = createFuseMessage(VeilFS::getConfig()->getFuseID(), messageType, messageInput);
 
     if(fuseMessage.IsInitialized())
         clusterMessage = createClusterMessage(FSLOGIC, FUSE_MESSAGE, answerType, answerDecoderName, true, fuseMessage.SerializeAsString());

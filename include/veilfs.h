@@ -23,6 +23,7 @@
 #include "helpers/storageHelperFactory.h"
 #include "simpleConnectionPool.h"
 #include "ISchedulable.h"
+#include "pushListener.h"
 #include <list>
 
 /// The name of default global config file
@@ -52,7 +53,8 @@ public:
         static boost::shared_ptr<JobScheduler>  getScheduler(TaskID taskId = TASK_LAST_ID);                 ///< Returns JobScheduler assigned to this object.
         static boost::shared_ptr<Config>  getConfig();                          ///< Returns Config assigned to this object.
         static boost::shared_ptr<SimpleConnectionPool> getConnectionPool();
-
+        static boost::shared_ptr<PushListener>         getPushListener();
+    
         static void addScheduler(boost::shared_ptr<JobScheduler> injected);     ///< Sets JobScheduler object.
         static void setConfig(boost::shared_ptr<Config> injected);              ///< Sets Config object.
         static void setConnectionPool(boost::shared_ptr<SimpleConnectionPool> injected);
@@ -112,8 +114,9 @@ private:
         static boost::shared_ptr<Config> m_config;             ///< Config instance
         boost::shared_ptr<helpers::StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance
         static boost::shared_ptr<SimpleConnectionPool> m_connectionPool;
+        static boost::shared_ptr<PushListener> m_pushListener;
 
-        std::map<std::string, std::pair<std::string, time_t> > m_linkCache;         ///< Simple links cache. 
+        std::map<std::string, std::pair<std::string, time_t> > m_linkCache;         ///< Simple links cache.
         ReadWriteLock m_linkCacheLock;
 };
 

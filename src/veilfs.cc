@@ -17,18 +17,20 @@
 #include <grp.h>
 #include <algorithm>
 #include <boost/filesystem/path.hpp>
+#include <boost/functional.hpp>
 
 #include <sys/stat.h>
 
 /// Runs FUN on NAME storage helper with constructed with ARGS. Return value is avaiable in 'int sh_return'.
 #define SH_RUN(NAME, ARGS, FUN) boost::shared_ptr<helpers::IStorageHelper> ptr = m_shFactory->getStorageHelper(NAME, ARGS); \
                                 if(!ptr) { LOG(ERROR) << "storage helper '" << NAME << "' not found"; return -EIO; } \
-                                int sh_return = ptr->FUN; 
+                                int sh_return = ptr->FUN; \
+                                if(sh_return) LOG(INFO) << "Storage helper " << NAME << " returned error: " << sh_return;
 
 /// If given veilError does not produce POSIX 0 return code, interrupt execution by returning POSIX error code.
 #define RETURN_IF_ERROR(X)  { \
                                 int err = translateError(X); \
-                                if(err != 0) return err; \
+                                if(err != 0) { LOG(INFO) << "Returning error: " << err; return err; } \
                             }
 
 /// Fetch locationInfo and storageInfo for given file.
@@ -64,6 +66,7 @@ boost::shared_ptr<Config> VeilFS::m_config;
 list<boost::shared_ptr<JobScheduler> > VeilFS::m_jobSchedulers;
 boost::shared_ptr<SimpleConnectionPool> VeilFS::m_connectionPool;
 ReadWriteLock VeilFS::m_schedulerPoolLock;
+boost::shared_ptr<PushListener> VeilFS::m_pushListener;
 
 VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler, 
                boost::shared_ptr<FslogicProxy> fslogic,  boost::shared_ptr<MetaCache> metaCache, 
@@ -80,12 +83,16 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
 
     m_config = cnf;
     VeilFS::addScheduler(scheduler);
+    
+    // Construct new PushListener
+    m_pushListener.reset(new PushListener());
+    getConnectionPool()->setPushCallback(getConfig()->getFuseID(), boost::bind(&PushListener::onMessage, m_pushListener, _1));
 
     if(m_fslogic) {
         if(VeilFS::getScheduler() && VeilFS::getConfig()) {
-            int alive = VeilFS::getConfig()->getInt(ALIVE_CONNECTIONS_COUNT_OPT);
+            int alive = VeilFS::getConfig()->getInt(ALIVE_META_CONNECTIONS_COUNT_OPT);
             for(int i = 0; i < alive; ++i) {
-                Job pingTask = Job(time(NULL) + i, m_fslogic, ISchedulable::TASK_PING_CLUSTER, VeilFS::getConfig()->getString(ALIVE_CONNECTIONS_COUNT_OPT));
+                Job pingTask = Job(time(NULL) + i, m_fslogic, ISchedulable::TASK_PING_CLUSTER, VeilFS::getConfig()->getString(ALIVE_META_CONNECTIONS_COUNT_OPT));
                 VeilFS::getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
             }
             
@@ -112,6 +119,7 @@ void VeilFS::staticDestroy()
         m_jobSchedulers.pop_front();
     }
     m_connectionPool.reset();
+    m_pushListener.reset();
 }
 
 int VeilFS::access(const char *path, int mask)
@@ -661,6 +669,11 @@ boost::shared_ptr<Config> VeilFS::getConfig()
 boost::shared_ptr<SimpleConnectionPool> VeilFS::getConnectionPool()
 {
     return m_connectionPool;
+}
+    
+boost::shared_ptr<PushListener> VeilFS::getPushListener()
+{
+    return m_pushListener;
 }
 
 void VeilFS::addScheduler(boost::shared_ptr<JobScheduler> injected) 

@@ -44,7 +44,7 @@ protected:
 
     virtual void TearDown() {
         ASSERT_EQ(0, ::system(("rm -rf " + VFS.getRoot() + "/file").c_str()));
-        remove_all(directIO_root);
+        remove_all(directIO_root, ec);
 
         COMMON_INTEGRATION_CLEANUP();
     }

@@ -44,7 +44,7 @@ protected:
     }
 
     virtual void TearDown() {
-        remove_all(directIO_root);
+        remove_all(directIO_root, ec);
 
         COMMON_INTEGRATION_CLEANUP();
     }

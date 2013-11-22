@@ -30,6 +30,17 @@ Config::Config()
 Config::~Config()
 {
 }
+    
+string Config::getFuseID()
+{
+    char tmpHost[1024];
+    gethostname(tmpHost, sizeof(tmpHost));
+    string fuseID = string(tmpHost);
+    if(isSet(FUSE_ID_OPT))
+        fuseID = getString(FUSE_ID_OPT);
+    
+    return fuseID;
+}
 
 void Config::setGlobalConfigFile(string path)
 {

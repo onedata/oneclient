@@ -29,7 +29,8 @@
 #define FUSE_ID_OPT                     "fuse_id"
 #define CLUSTER_PING_INTERVAL_OPT       "cluster_ping_interval"
 #define JOBSCHEDULER_THREADS_OPT        "jobscheduler_threads"
-#define ALIVE_CONNECTIONS_COUNT_OPT     "alive_connections_count"
+#define ALIVE_META_CONNECTIONS_COUNT_OPT     "alive_meta_connections_count"
+#define ALIVE_DATA_CONNECTIONS_COUNT_OPT     "alive_data_connections_count"
 #define ENABLE_DIR_PREFETCH_OPT         "enable_dir_prefetch"
 #define ENABLE_PARALLEL_GETATTR_OPT     "enable_parallel_getattr"
 
@@ -68,6 +69,9 @@ class Config
 {
     friend class IVeilFactory;
 public:
+    
+    virtual std::string getFuseID();
+    
     virtual std::string getString(std::string opt);             ///< Returns string value of requested option.
                                                                 ///< Before using this function you should check is option exists, but
                                                                 ///< it's not required. @see Config::isSet
@@ -97,7 +101,7 @@ public:
     Config();
     virtual ~Config();
 
-private:
+protected:
     bool defaultsLoaded;
 
     static std::string m_requiredOpts[];             ///< Array containing required options names
@@ -122,11 +126,12 @@ private:
         /// Here declare default values of config
         DECLARE_DEFAULT(ENABLE_ENV_OPTION_OVERRIDE, true);
         DECLARE_DEFAULT(CLUSTER_PORT_OPT, 5555);
-        DECLARE_DEFAULT(CLUSTER_PING_INTERVAL_OPT, 3);
+        DECLARE_DEFAULT(CLUSTER_PING_INTERVAL_OPT, 60);
         DECLARE_DEFAULT(JOBSCHEDULER_THREADS_OPT, 3);
         DECLARE_DEFAULT(ATTR_CACHE_EXPIRATION_TIME_OPT, ATTR_DEFAULT_EXPIRATION_TIME);
         DECLARE_DEFAULT(ENABLE_ATTR_CACHE_OPT, true);
-        DECLARE_DEFAULT(ALIVE_CONNECTIONS_COUNT_OPT, 6);
+        DECLARE_DEFAULT(ALIVE_META_CONNECTIONS_COUNT_OPT, 2);
+        DECLARE_DEFAULT(ALIVE_DATA_CONNECTIONS_COUNT_OPT, 2);
         DECLARE_DEFAULT(ENABLE_PARALLEL_GETATTR_OPT, true);
         DECLARE_DEFAULT(ENABLE_DIR_PREFETCH_OPT, true);
         DECLARE_DEFAULT(LOG_DIR_OPT, "/tmp");

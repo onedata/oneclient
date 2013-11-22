@@ -49,7 +49,7 @@ protected:
         proxy.mockAtom = false;
         proxy.mockAnswer = false;
         proxy.ch_mock.reset(new MockCommunicationHandler());
-        EXPECT_CALL(*connectionPool, selectConnection(_, _)).WillRepeatedly(Return(proxy.ch_mock));
+        EXPECT_CALL(*connectionPool, selectConnection(_)).WillRepeatedly(Return(proxy.ch_mock));
         EXPECT_CALL(*connectionPool, releaseConnection(_)).WillRepeatedly(Return());
         
     }
@@ -77,7 +77,7 @@ TEST_F(FslogicProxyTest, sendFuseReceiveAnswerFails) {
 
     Answer ans;
     ans.set_answer_status("not ok");
-    EXPECT_CALL(*proxy.ch_mock, communicate(Truly(bind(pbMessageEqual, cMsg, _1)), _)).WillOnce(Return(ans));
+    EXPECT_CALL(*proxy.ch_mock, communicate(Truly(bind(pbMessageEqual, cMsg, _1)), _, _)).WillOnce(Return(ans));
 
     EXPECT_FALSE(proxy.sendFuseReceiveAnswer(msg, answer));
 }
@@ -98,7 +98,7 @@ TEST_F(FslogicProxyTest, sendFuseReceiveAnswerOK) {
     response.add_child_logic_name("cos");
     ans.set_answer_status(VOK);
     ans.set_worker_answer(response.SerializeAsString());
-    EXPECT_CALL(*proxy.ch_mock, communicate(Truly(bind(pbMessageEqual, cMsg, _1)), _)).WillOnce(Return(ans));
+    EXPECT_CALL(*proxy.ch_mock, communicate(Truly(bind(pbMessageEqual, cMsg, _1)), _, _)).WillOnce(Return(ans));
 
     EXPECT_TRUE(proxy.sendFuseReceiveAnswer(msg, answer));
     EXPECT_EQ(response.SerializeAsString(), answer.SerializeAsString());
@@ -120,7 +120,7 @@ TEST_F(FslogicProxyTest, sendFuseReceiveAtomFails) {
 
     Answer ans;
     ans.set_answer_status("not ok");
-    EXPECT_CALL(*proxy.ch_mock, communicate(Truly(bind(pbMessageEqual, cMsg, _1)), _)).WillOnce(Return(ans));
+    EXPECT_CALL(*proxy.ch_mock, communicate(Truly(bind(pbMessageEqual, cMsg, _1)), _, _)).WillOnce(Return(ans));
     EXPECT_CALL(*msgBuilder, decodeAtomAnswer(_)).WillOnce(Return(""));
     EXPECT_EQ(VEIO, proxy.sendFuseReceiveAtom(msg));
 }
@@ -140,7 +140,7 @@ TEST_F(FslogicProxyTest, sendFuseReceiveAtomOK) {
     response.set_value("value");
     ans.set_answer_status(VOK);
     ans.set_worker_answer(response.SerializeAsString());
-    EXPECT_CALL(*proxy.ch_mock, communicate(Truly(bind(pbMessageEqual, cMsg, _1)), _)).WillOnce(Return(ans));
+    EXPECT_CALL(*proxy.ch_mock, communicate(Truly(bind(pbMessageEqual, cMsg, _1)), _, _)).WillOnce(Return(ans));
     EXPECT_CALL(*msgBuilder, decodeAtomAnswer(Truly(bind(pbMessageEqual, ans, _1)))).WillOnce(Return("value"));
     EXPECT_EQ("value", proxy.sendFuseReceiveAtom(msg));
 }

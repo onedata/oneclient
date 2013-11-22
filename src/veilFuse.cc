@@ -321,12 +321,18 @@ int main(int argc, char* argv[])
     // Initialize VeilClient application
     VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (
         new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), gsi::validateProxyCert)));
+    
     veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool());
-    veil::maxConnectionCount = config->getInt(ALIVE_CONNECTIONS_COUNT_OPT); // Maximum connection count setup
+    
+    // Maximum connection count setup
+    VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, config->getInt(ALIVE_META_CONNECTIONS_COUNT_OPT));
+    VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::DATA_POOL, config->getInt(ALIVE_DATA_CONNECTIONS_COUNT_OPT));
 
+    // Start all jobSchedulers
     for(int i = 1; i < config->getInt(JOBSCHEDULER_THREADS_OPT); ++i)
         VeilFS::addScheduler(boost::shared_ptr<JobScheduler>(new JobScheduler()));
 
+    // Initialize main application object
     VeilAppObject.reset(new VeilFS(mountpoint, config, 
                         boost::shared_ptr<JobScheduler>(new JobScheduler()), 
                         boost::shared_ptr<FslogicProxy>(new FslogicProxy()), 
