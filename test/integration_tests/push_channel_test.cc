@@ -79,7 +79,7 @@ TEST_F(PushChannelTest, RegisterAndClose) {
     VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, 1);
     
     // Close PUSH channel
-    VeilFS::getConnectionPool()->selectConnection()->closePushChannel();
+    VeilFS::getConnectionPool()->selectConnection()->disablePushChannel();
     sleep(2);
     ASSERT_EQ(0, fromString<int>(erlExec(string("{get_handler_count, \"") + VeilFS::getConfig()->getFuseID() + string("\"}"))));
 }

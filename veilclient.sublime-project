@@ -10,7 +10,7 @@
     [
     	{
     		"name": "cmake",
-    		"cmd": ["./build.sh"]
+    		"cmd": ["make build"]
     	}
 	],
 	"settings":
@@ -22,13 +22,14 @@
             "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/yaml-cpp/src/yaml-cpp/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/glog/src/glog/src",
             "-I${folder:${project_path:veilclient.sublime-project}}/test/include",
-            "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/gmock/src/gmock/include",
-            "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/gmock/src/gmock/gtest/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/build/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/build/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/build",
             "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/veilhelpers/src/veilhelpers/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/veilhelpers/src/veilhelpers/test/include",
-            "-I/usr/include/x86_64-linux-gnu/c++/4.7",
+            "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/veilhelpers/src/veilhelpers-build/include",
             "-D_FILE_OFFSET_BITS=64",
+            "-DFUSE_USE_VERSION=29",
             "-ferror-limit=0"
         ] 
 	}

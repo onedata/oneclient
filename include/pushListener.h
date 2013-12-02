@@ -39,6 +39,8 @@ public:
                                     ///< @return ID of subscription that can be used to unsubscribe manually.
     void unsubscribe(int subId);    ///< Remove previously added callback.
                                     ///< @param subId shall match the ID returned by PushListener::subscribe
+
+    void onChannelError(const protocol::communication_protocol::Answer& msg); ///< Callback called fo each non-ok Answer from cluster. 
     
 protected:
     

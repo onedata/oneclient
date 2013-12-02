@@ -15,6 +15,7 @@
 #include <sstream>
 
 #include "veilConfig.h"
+#include "ISchedulable.h"
 #include "glog/logging.h"
 
 /// Config option names
@@ -33,6 +34,10 @@
 #define ALIVE_DATA_CONNECTIONS_COUNT_OPT     "alive_data_connections_count"
 #define ENABLE_DIR_PREFETCH_OPT         "enable_dir_prefetch"
 #define ENABLE_PARALLEL_GETATTR_OPT     "enable_parallel_getattr"
+
+
+/// Prefix for all env variables that will be send to cluster
+#define FUSE_OPT_PREFIX               "fuse_opt_"
 
 #define PROTOCOL_VERSION    1
 #define ATTR_DEFAULT_EXPIRATION_TIME 60
@@ -65,12 +70,14 @@ T fromString(std::string in) {
  * The Config.
  * Parses config files and provides safe access to configuration map.
  */
-class Config
+class Config : public ISchedulable
 {
     friend class IVeilFactory;
 public:
     
-    virtual std::string getFuseID();
+    virtual std::string getFuseID();                            ///< Returns current FuseID.
+    virtual void negotiateFuseID(time_t delay = 0);             ///< Starts FuseID negotiation process.
+                                                                ///< @param delay Since this is async actions, you can specify execution delay in seconds.
     
     virtual std::string getString(std::string opt);             ///< Returns string value of requested option.
                                                                 ///< Before using this function you should check is option exists, but
@@ -90,7 +97,8 @@ public:
 
     std::string static absPathRelToCWD(std::string);            ///< Converts relative path, to absolute using CWD env as base prefix.
     std::string static absPathRelToHOME(std::string);           ///< Converts relative path, to absolute using HOME env as base prefix.
-    
+    void static putEnv(std::string, std::string);               ///< Saves given env variable.     
+
     void setGlobalConfigFile(std::string path);                 ///< Sets path to global config file. @see Config::parseConfig
     void setUserConfigFile(std::string path);                   ///< Sets path to user config file. @see Config::parseConfig
     void setEnv();                                              ///< Saves current CWD and HOME env viariables. This is required as FUSE changes them after non-debug start. This is also done automatically in Config::Config
@@ -107,6 +115,7 @@ protected:
     static std::string m_requiredOpts[];             ///< Array containing required options names
     static std::string m_envCWD;                     ///< Saved CWD env variable
     static std::string m_envHOME;                    ///< Saved HOME env variable
+    static std::map<std::string, std::string> m_envAll; ///< All saved env variables
 
     std::string m_globalConfigPath;                  ///< Path to global config file. @see Config::setGlobalConfigFile
     std::string m_userConfigPath;                    ///< Path to user config file. @see Config::setUserConfigFile
@@ -122,6 +131,8 @@ protected:
     template<typename T>
     T getValue(std::string opt);                     ///< Returns type-specialized value of given config option. 
 
+    virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+
     void setupDefaults() {
         /// Here declare default values of config
         DECLARE_DEFAULT(ENABLE_ENV_OPTION_OVERRIDE, true);
@@ -136,6 +147,7 @@ protected:
         DECLARE_DEFAULT(ENABLE_DIR_PREFETCH_OPT, true);
         DECLARE_DEFAULT(LOG_DIR_OPT, "/tmp");
     }
+
 };
 
 template<typename T>

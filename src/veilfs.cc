@@ -86,8 +86,10 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
     
     // Construct new PushListener
     m_pushListener.reset(new PushListener());
-    getConnectionPool()->setPushCallback(getConfig()->getFuseID(), boost::bind(&PushListener::onMessage, m_pushListener, _1));
 
+    // Initialize cluster handshake in order to receive FuseID
+    VeilFS::getConfig()->negotiateFuseID();
+    
     if(m_fslogic) {
         if(VeilFS::getScheduler() && VeilFS::getConfig()) {
             int alive = VeilFS::getConfig()->getInt(ALIVE_META_CONNECTIONS_COUNT_OPT);
@@ -733,6 +735,7 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
         if(m_fslogic->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2)) == VOK);
             (void) m_metaCache->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2));
         return true;
+
     default:
         return false;
     }

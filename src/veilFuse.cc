@@ -27,6 +27,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/algorithm/string.hpp>
 #include <iostream>
 
 #include "veilfs.h"
@@ -204,7 +205,7 @@ static void fuse_init()
     oper_init();
 }
 
-int main(int argc, char* argv[]) 
+int main(int argc, char* argv[], char* envp[]) 
 {
     // Turn off logging for a while
     google::InitGoogleLogging(argv[0]);
@@ -266,6 +267,19 @@ int main(int argc, char* argv[])
     FLAGS_logtostderr = debug;
     if(debug)
         FLAGS_stderrthreshold = 2;
+
+    // Iterate over all env variables and save them in Config
+    char** env;
+    for (env = envp; *env != 0; env++)
+    {
+        std::vector<std::string> tokens;
+        std::string tEnv = std::string(*env);
+        boost::split(tokens, tEnv, boost::is_any_of("=")); 
+        if(tokens.size() != 2) // Invalid env variable. Expected format: NAME=VALUE
+            continue;   
+
+        Config::putEnv(tokens[0], tokens[1]);
+    }
 
 
     // FUSE main: 

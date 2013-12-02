@@ -39,7 +39,7 @@ FuseMessage MessageBuilder::createFuseMessage(string id, string messageType,
     string messageInput)
 {
     FuseMessage msg;
-    msg.set_id(id);
+    (void) id; // Message level FUSE ID in no longer supported by cluster 
     msg.set_message_type(tolower(messageType));
     msg.set_input(messageInput);
     return msg;

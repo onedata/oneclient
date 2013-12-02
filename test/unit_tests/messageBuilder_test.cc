@@ -37,7 +37,6 @@ protected:
 TEST_F(MessageBuilderTest, createFuseMessage) {
     FuseMessage msg = proxy.createFuseMessage("id", "Type", "input");
 
-    EXPECT_EQ("id", msg.id());
     EXPECT_EQ("type", msg.message_type());
     EXPECT_EQ("input", msg.input());
 }
@@ -68,7 +67,6 @@ TEST_F(MessageBuilderTest, packFuseMessageWithPresetFuseId) {
     fMsg.ParseFromString(msg.input());
 
     EXPECT_EQ("messagetype", fMsg.message_type());
-    EXPECT_EQ("FUSE_ID", fMsg.id());
     EXPECT_EQ("messageInput", fMsg.input());
 }
 
@@ -86,7 +84,6 @@ TEST_F(MessageBuilderTest, packFuseMessageWithoutPresetFuseId) {
     fMsg.ParseFromString(msg.input());
 
     EXPECT_EQ("messagetype", fMsg.message_type());
-    EXPECT_NE("FUSE_ID", fMsg.id());
     EXPECT_EQ("messageInput", fMsg.input());
 }
 
@@ -115,7 +112,6 @@ TEST_F(MessageBuilderTest, decodeFuseAnswerNormalAns) {
 
     ASSERT_TRUE(msg.IsInitialized());
 
-    EXPECT_EQ(fMsg.id(), msg.id());
     EXPECT_EQ(fMsg.message_type(), msg.message_type());
     EXPECT_EQ(fMsg.input(), msg.input());
 }

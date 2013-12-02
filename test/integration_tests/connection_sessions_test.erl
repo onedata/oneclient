@@ -5,10 +5,10 @@
 %% cited in 'LICENSE.txt'.
 %% @end
 %% ===================================================================
-%% @doc: PushChannelTest cluster side test driver.      
+%% @doc: ConnectionSessionsTest cluster side test driver.      
 %% @end
 %% ===================================================================
--module(push_channel_test).
+-module(connection_sessions_test).
 -include("test_common.hrl").
 
 -export([setup/1, teardown/2, exec/1]).
@@ -29,10 +29,16 @@ teardown(worker, _State) ->
 exec({env, VarName}) ->
     os:getenv(VarName);
 
-%% Send Msg to FUSE with FuseID
-exec({push_msg, Msg, FuseID}) ->
-    request_dispatcher:send_to_fuse(FuseID, {testchannelanswer, "test"}, "fuse_messages");
+%% Check if session with FuseID exists in DB
+exec({check_session, FuseID}) ->
+    case dao_lib:apply(dao_cluster, get_fuse_env, [FuseID], 1) of
+        {ok, _}     -> ok;
+        Other       -> Other
+    end;
     
-%% Get PUSH channel count for given FuseID
-exec({get_handler_count, FuseID}) ->
-    erlang:length(ets:lookup(dispatcher_callbacks_table, FuseID)).
+%% Check if varaibles are correctly placed in DB
+exec({check_session_variables, FuseID, Vars}) ->
+    case dao_lib:apply(dao_cluster, get_fuse_env, [FuseID], 1) of
+        {ok, {veil_document, _, _, {fuse_env, _UID, _Hostname, Vars}, _}}     -> ok;
+        Other  -> Other
+    end.

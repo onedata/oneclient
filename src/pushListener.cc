@@ -6,6 +6,9 @@
  */
 
 #include "pushListener.h"
+#include "veilErrors.h"
+#include "jobScheduler.h"
+#include "veilfs.h"
 #include "glog/logging.h"
 #include "fuse_messages.pb.h"
 
@@ -55,17 +58,23 @@ namespace client {
             Answer msg = m_msgQueue.front();
             m_msgQueue.pop_front();
             
-            LOG(INFO) << "Got PUSH message ID: " << msg.message_id() << ". Passing to " << m_listeners.size() << " listeners.";
-            
-            // Dispatch message to all subscribed listeners
-            boost::unordered_map<int, listener_fun>::iterator it = m_listeners.begin();
-            while(it != m_listeners.end())
+            if(msg.answer_status() == VOK || msg.answer_status() == VPUSH)
             {
-                if (!(*it).second || !(*it).second(msg)) {
-                    it = m_listeners.erase(it);
-                } else {
-                    ++it;
+                LOG(INFO) << "Got PUSH message ID: " << msg.message_id() << ". Passing to " << m_listeners.size() << " listeners.";
+
+                // Dispatch message to all subscribed listeners
+                boost::unordered_map<int, listener_fun>::iterator it = m_listeners.begin();
+                while(it != m_listeners.end())
+                {
+                    if (!(*it).second || !(*it).second(msg)) {
+                        it = m_listeners.erase(it);
+                    } else {
+                        ++it;
+                    }
                 }
+            } else {
+                LOG(INFO) << "Got ERROR message ID: " << msg.message_id() << ". Status: " << msg.answer_status();
+                onChannelError(msg);
             }
         }
         
@@ -84,7 +93,14 @@ namespace client {
         m_listeners.erase(subId);
     }
     
-    
+    void PushListener::onChannelError(const Answer& msg) 
+    {
+        if(msg.answer_status() == INVALID_FUSE_ID)
+        {
+            LOG(INFO) << "Received 'INVALID_FUSE_ID' message. Starting FuseID renegotiation...";
+            VeilFS::getConfig()->negotiateFuseID();
+        }
+    }
     
 } // namespace client
 } // namespace veil

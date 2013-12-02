@@ -6,16 +6,25 @@
  */
 
 #include "config.h"
+#include "veilfs.h"
+#include "communication_protocol.pb.h"
+#include "fuse_messages.pb.h"
 #include <fstream>
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <google/protobuf/descriptor.h>
 
 using namespace std;
+using namespace boost;
+using namespace veil::protocol::communication_protocol;
+using namespace veil::protocol::fuse_messages;
 
 namespace veil {
 namespace client {
 
 string Config::m_envCWD;
 string Config::m_envHOME;
+map<string, string> Config::m_envAll;
 
 string Config::m_requiredOpts[] = {
 
@@ -30,16 +39,15 @@ Config::Config()
 Config::~Config()
 {
 }
+
+void Config::putEnv(string name, string value)
+{
+    m_envAll[name] = value;
+}
     
 string Config::getFuseID()
 {
-    char tmpHost[1024];
-    gethostname(tmpHost, sizeof(tmpHost));
-    string fuseID = string(tmpHost);
-    if(isSet(FUSE_ID_OPT))
-        fuseID = getString(FUSE_ID_OPT);
-    
-    return fuseID;
+    return getString(FUSE_ID_OPT);
 }
 
 void Config::setGlobalConfigFile(string path)
@@ -158,6 +166,93 @@ bool Config::getBool(string opt)
 double Config::getDouble(string opt)
 {
     return getValue<double>(opt);
+}
+
+void Config::negotiateFuseID(time_t delay)
+{
+    // Delete old jobs, we dont need them since we are adding new one anyway
+    VeilFS::getScheduler()->deleteJobs(VeilFS::getConfig().get(), ISchedulable::TASK_CONNECTION_HANDSHAKE); 
+    VeilFS::getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->addTask(Job(time(NULL) + delay, VeilFS::getConfig(), ISchedulable::TASK_CONNECTION_HANDSHAKE));    
+}
+
+bool Config::runTask(TaskID taskId, string arg0, string arg1, string arg2)
+{
+    ClusterMsg cMsg;
+    HandshakeRequest reqMsg;
+    HandshakeRequest::EnvVariable *varEntry;
+    HandshakeResponse resMsg;
+    Answer ans;
+
+    MessageBuilder builder;
+    boost::shared_ptr<CommunicationHandler> conn;
+
+    char tmpHost[1024];
+    gethostname(tmpHost, sizeof(tmpHost));
+    string hostname = string(tmpHost);
+
+    switch(taskId)
+    {
+    case TASK_CONNECTION_HANDSHAKE: // Send connection handshake request to cluster (in order to get FUSE_ID)
+        
+        conn = VeilFS::getConnectionPool()->selectConnection(); 
+        if(conn)
+        {
+            // Build HandshakeRequest message
+            reqMsg.set_hostname(hostname);
+
+            map<string, string>::const_iterator it;
+            // Iterate over all env variables
+            for(it = m_envAll.begin(); it != m_envAll.end(); ++it)
+            {
+                if(!boost::istarts_with((*it).first, FUSE_OPT_PREFIX)) // Reject vars with invalid prefix 
+                    continue;
+
+                varEntry = reqMsg.add_variable();
+
+                varEntry->set_name( (*it).first.substr(string(FUSE_OPT_PREFIX).size()) );
+                varEntry->set_value( (*it).second );
+            }
+
+            cMsg = builder.createClusterMessage(FSLOGIC, HandshakeRequest::descriptor()->name(), HandshakeResponse::descriptor()->name(), FUSE_MESSAGES, true);
+            cMsg.set_input(reqMsg.SerializeAsString());
+
+            // Send HandshakeRequest message
+            ans = conn->communicate(cMsg, 2);
+            if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
+            {
+                // Set FUSE_ID in config 
+                m_globalNode[FUSE_ID_OPT] = resMsg.fuse_id();
+
+                // Update FUSE_ID in current connection pool
+                VeilFS::getConnectionPool()->setPushCallback(getFuseID(), boost::bind(&PushListener::onMessage, VeilFS::getPushListener(), _1));
+
+                // Reset all connections. Each and every connection will send HandshakeAck with new fuse ID on its own.
+                VeilFS::getConnectionPool()->resetAllConnections(SimpleConnectionPool::META_POOL);
+                VeilFS::getConnectionPool()->resetAllConnections(SimpleConnectionPool::DATA_POOL);
+
+
+                LOG(INFO) << "Newly negotiated FUSE_ID: " << resMsg.fuse_id();
+
+                return true;
+            } 
+            else
+                LOG(WARNING) << "Cannot negotatiate FUSE_ID. Invalid cluster answer with status: " << ans.answer_status();  
+
+        }
+        else 
+            LOG(ERROR) << "Cannot select connection for handshake operation,";
+
+        // At this point we know that something went wrong
+        LOG(ERROR) << "Cannot negotatiate FUSE_ID, retrying in 3 secs.";
+
+        // Retry in 3 secs
+        negotiateFuseID(3);
+
+        return true;
+
+    default:
+        return false;
+    }
 }
 
 } // namespace client
