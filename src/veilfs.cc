@@ -17,6 +17,7 @@
 #include <grp.h>
 #include <algorithm>
 #include <boost/filesystem/path.hpp>
+#include <boost/algorithm/string.hpp>
 #include <boost/functional.hpp>
 
 #include <sys/stat.h>
@@ -25,7 +26,8 @@
 #define SH_RUN(NAME, ARGS, FUN) boost::shared_ptr<helpers::IStorageHelper> ptr = m_shFactory->getStorageHelper(NAME, ARGS); \
                                 if(!ptr) { LOG(ERROR) << "storage helper '" << NAME << "' not found"; return -EIO; } \
                                 int sh_return = ptr->FUN; \
-                                if(sh_return) LOG(INFO) << "Storage helper " << NAME << " returned error: " << sh_return;
+                                if(sh_return) LOG(INFO) << "Storage helper " << NAME << " returned error: " << sh_return; \
+                                if(sh_return == ENOENT)
 
 /// If given veilError does not produce POSIX 0 return code, interrupt execution by returning POSIX error code.
 #define RETURN_IF_ERROR(X)  { \
@@ -296,9 +298,25 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_mknod(lInfo.fileId.c_str(), mode, dev));
     if(sh_return != 0)
         (void) m_fslogic->deleteFile(string(path));
-    else 
-        VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
+    else { // File created, now we shall take care of its owner
+        std::vector<std::string> tokens;
+        std::string sPath = string(path).substr(1);
+        boost::split(tokens, sPath, boost::is_any_of("/"));
 
+        if(tokens.size() > 2 && tokens[0] == "groups") // We are creating file in groups directory
+        {
+            string groupName = tokens[1];
+            struct group *groupInfo = getgrnam(groupName.c_str());  // Static buffer, do NOT free !
+            gid_t gid = (groupInfo ? groupInfo->gr_gid : -1);
+
+            // We need to change group owner of this file
+            SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_chown(lInfo.fileId.c_str(), -1, gid));
+            if(sh_return != 0)
+                LOG(ERROR) << "Cannot change group owner of file " << sPath << " to: " << groupName;
+        }
+
+        VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
+    }
     return sh_return;
 }
 
@@ -547,10 +565,8 @@ int VeilFS::flush(const char *path, struct fuse_file_info *fileInfo)
 int VeilFS::release(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: release(path: " << string(path) << ", ...)";
-    m_storageMapper->releaseFile(string(path));
 
-    /// @todo If TASK_SEND_FILE_NOT_USED is scheduled,file mapping has to be removed too. I'm not 100% sure that any of this is needed.
-    //VeilFS::getScheduler()->addTask(Job(time(NULL), m_fslogic, ISchedulable::TASK_SEND_FILE_NOT_USED, string(path))); // Uncomment in order to inform cluster that file isnt used anymore
+    m_storageMapper->releaseFile(string(path));
 
     return 0;
 }
@@ -587,7 +603,7 @@ int VeilFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
         children.push_back("..");
     }
 
-    if(!m_fslogic->getFileChildren(path, DIR_BATCH_SIZE, offset, children))
+    if(!m_fslogic->getFileChildren(path, DIR_BATCH_SIZE, offset >= 2 ? offset - 2 : 0, children))
     {
         return -EIO;
     }

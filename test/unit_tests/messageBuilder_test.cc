@@ -52,29 +52,9 @@ TEST_F(MessageBuilderTest, createClusterMessage) {
     EXPECT_EQ("input", msg.input());
 }
 
-TEST_F(MessageBuilderTest, packFuseMessageWithPresetFuseId) {
-    EXPECT_CALL(*config, isSet(FUSE_ID_OPT)).WillOnce(Return(true));
-    EXPECT_CALL(*config, getString(FUSE_ID_OPT)).WillOnce(Return("FUSE_ID"));
-
+TEST_F(MessageBuilderTest, packFuseMessage) {
     ClusterMsg msg = proxy.packFuseMessage("messageType", "answerType", "answerDecoderName", "messageInput");
 
-    EXPECT_EQ(FUSE_MESSAGE, msg.message_type());
-    EXPECT_EQ("answertype", msg.answer_type());
-    EXPECT_EQ("answerdecodername", msg.answer_decoder_name());
-    EXPECT_EQ(FSLOGIC, msg.module_name());
-
-    FuseMessage fMsg;
-    fMsg.ParseFromString(msg.input());
-
-    EXPECT_EQ("messagetype", fMsg.message_type());
-    EXPECT_EQ("messageInput", fMsg.input());
-}
-
-TEST_F(MessageBuilderTest, packFuseMessageWithoutPresetFuseId) {
-    EXPECT_CALL(*config, isSet(FUSE_ID_OPT)).WillOnce(Return(false));
-
-    ClusterMsg msg = proxy.packFuseMessage("messageType", "answerType", "answerDecoderName", "messageInput");
-    
     EXPECT_EQ(FUSE_MESSAGE, msg.message_type());
     EXPECT_EQ("answertype", msg.answer_type());
     EXPECT_EQ("answerdecodername", msg.answer_decoder_name());

@@ -58,6 +58,7 @@ TEST_F(PushListenerTest, simpleRegisterAndHandle)
 {
     boost::unique_lock<boost::mutex> lock(cbMutex);
     Answer ans; // Message to handle
+    ans.set_answer_status("ok");
     ans.set_worker_answer("test");
     
     listener.subscribe(boost::bind(&PushListenerTest::handler, this, _1, true));
@@ -82,6 +83,7 @@ TEST_F(PushListenerTest, removeHandler)
 {
     boost::unique_lock<boost::mutex> lock(cbMutex);
     Answer ans; // Message to handle
+    ans.set_answer_status("ok");
     ans.set_worker_answer("test");
     
     int handlerId = listener.subscribe(boost::bind(&PushListenerTest::handler, this, _1, false)); // Should be removed after first call

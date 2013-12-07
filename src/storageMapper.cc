@@ -124,8 +124,9 @@ void StorageMapper::releaseFile(string logicalName)
     if(it != m_fileMapping.end()){
         if(it->second.opened > 0){
             it->second.opened--;
-            if(it->second.opened == 0){
-                //locationMapping.erase(logicalName); // TODO: it should be done automatically
+            if(it->second.opened == 0) {
+                m_fileMapping.erase(logicalName);
+                VeilFS::getScheduler()->addTask(Job(time(NULL), m_fslogic, ISchedulable::TASK_SEND_FILE_NOT_USED, logicalName)); // Uncomment in order to inform cluster that file isnt used anymore
             }
         }
     }
