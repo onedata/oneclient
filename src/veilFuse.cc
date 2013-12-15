@@ -199,11 +199,13 @@ static void oper_init() {
 }
 
 
-static void fuse_init() 
+static void fuse_init()
 {
     //LOG(INFO) << "Intializing fuse callbacks";
     oper_init();
 }
+
+#include "gsi_utils.h"
 
 int main(int argc, char* argv[], char* envp[]) 
 {
@@ -232,7 +234,7 @@ int main(int argc, char* argv[], char* envp[])
     for(int i = 1; i < argc; ++i)
     {
         if(string(argv[i]).find(CONFIG_ARGV_OPT_NAME) != string::npos)
-        {    
+        {
             config->setUserConfigFile(string(argv[i]).substr(string(CONFIG_ARGV_OPT_NAME).size()));
         }
 
@@ -258,7 +260,7 @@ int main(int argc, char* argv[], char* envp[])
         if(log_path != "/tmp") {
             FLAGS_log_dir = log_path;
             LOG(INFO) << "Setting log dir to: " << log_path;
-            // Restart Google Loggler in order ot reload log_dir path 
+            // Restart Google Loggler in order ot reload log_dir path
             google::ShutdownGoogleLogging();
             google::InitGoogleLogging(argv[0]);
         }
@@ -274,15 +276,15 @@ int main(int argc, char* argv[], char* envp[])
     {
         std::vector<std::string> tokens;
         std::string tEnv = std::string(*env);
-        boost::split(tokens, tEnv, boost::is_any_of("=")); 
+        boost::split(tokens, tEnv, boost::is_any_of("="));
         if(tokens.size() != 2) // Invalid env variable. Expected format: NAME=VALUE
-            continue;   
+            continue;
 
         Config::putEnv(tokens[0], tokens[1]);
     }
 
 
-    // FUSE main: 
+    // FUSE main:
     struct fuse *fuse;
     struct fuse_chan *ch;
     char *mountpoint;
@@ -311,13 +313,13 @@ int main(int argc, char* argv[], char* envp[])
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
     // Check proxy certificate
-    if(!gsi::validateProxyConfig()) 
+    if(!gsi::validateProxyConfig())
     {
         std::cerr << "Cannot continue. Aborting" << std::endl;
         fuse_unmount(mountpoint, ch);
         exit(1);
     }
-    
+
     LOG(INFO) << "Proxy certificate to be used: " << gsi::getProxyCertPath();
     cout << "VeilFS has been successfully mounted in " + string(mountpoint) << endl;
 
@@ -335,9 +337,9 @@ int main(int argc, char* argv[], char* envp[])
     // Initialize VeilClient application
     VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (
         new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), gsi::validateProxyCert)));
-    
+
     veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool());
-    
+
     // Maximum connection count setup
     VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, config->getInt(ALIVE_META_CONNECTIONS_COUNT_OPT));
     VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::DATA_POOL, config->getInt(ALIVE_DATA_CONNECTIONS_COUNT_OPT));
@@ -347,10 +349,10 @@ int main(int argc, char* argv[], char* envp[])
         VeilFS::addScheduler(boost::shared_ptr<JobScheduler>(new JobScheduler()));
 
     // Initialize main application object
-    VeilAppObject.reset(new VeilFS(mountpoint, config, 
-                        boost::shared_ptr<JobScheduler>(new JobScheduler()), 
-                        boost::shared_ptr<FslogicProxy>(new FslogicProxy()), 
-                        boost::shared_ptr<MetaCache>(new MetaCache()), 
+    VeilAppObject.reset(new VeilFS(mountpoint, config,
+                        boost::shared_ptr<JobScheduler>(new JobScheduler()),
+                        boost::shared_ptr<FslogicProxy>(new FslogicProxy()),
+                        boost::shared_ptr<MetaCache>(new MetaCache()),
                         boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(new FslogicProxy()))),
                         boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory())));
 

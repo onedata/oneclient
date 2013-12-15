@@ -21,20 +21,32 @@ Prerequisites
 In order to compile the project, you need to have fallowing additional libraries, its headers and all its prerequisites in include/ld path:
 Also you need cmake 2.8+.
 
-* libfuse
-* libprotobuf
-* libssl
-* libboost (for yaml-cpp)
+* fuse
+* protobuf
+* ssl
+* crypto
+* boost ( >= 1.49)
+* ltdl
+* globus_common
+* globus_oldgaa
+* globus_openssl
+* globus_gsi_callback
+* globus_gsi_cert_utils
+* globus_gsi_sysconfig
+* globus_proxy_ssl
+* globus_gsi_proxy_core
+* globus_gsi_credential
+* globus_openssl_error
 
 Use this command to install the required dependency packages:
 
 * Debian/Ubuntu Dependencies (.deb packages):
 
-        apt-get install libprotobuf-dev libfuse-dev fuse libboost-dev
+        apt-get install libprotobuf-dev libfuse-dev fuse libboost-dev libglobus-*-dev libtool
 
 * RHEL/CentOS/Fedora Dependencies (.rpm packages):
 
-        yum install fuse fuse-libs fuse-devel protobuf-devel openssl-devel cmake28 boost-devel boost-static rpm-build subversion zlib-devel
+        yum install fuse fuse-libs fuse-devel protobuf-devel openssl-devel cmake28 boost-devel boost-static rpm-build subversion zlib-devel libglobus-*-devel libtool
 
         
 Compilation

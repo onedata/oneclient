@@ -81,7 +81,7 @@ TEST_F(StorageMapperTest, AddAndGet) {
 }
 
 TEST_F(StorageMapperTest, OpenClose) {
-    EXPECT_CALL(*scheduler, addTask(_)).Times(4);
+    EXPECT_CALL(*scheduler, addTask(_)).Times(6);
     FileLocation location;
     proxy->addLocation("/file1", location);
     proxy->addLocation("/file2", location);
@@ -110,8 +110,8 @@ TEST_F(StorageMapperTest, OpenClose) {
     proxy->releaseFile("/file1");
     proxy->releaseFile("/file2");
 
-    EXPECT_EQ(0, proxy->getLocationInfo("/file1").first.opened);
-    EXPECT_EQ(0, proxy->getLocationInfo("/file2").first.opened);
+    EXPECT_THROW(proxy->getLocationInfo("/file1"), VeilException);
+    EXPECT_THROW(proxy->getLocationInfo("/file2"), VeilException);
 }
 
 TEST_F(StorageMapperTest, FindAndGet) {

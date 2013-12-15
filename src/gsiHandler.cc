@@ -5,6 +5,7 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
+#include <cstring>
 #include <cstdlib>
 #include <cstdio>
 #include <boost/algorithm/string.hpp>
@@ -21,8 +22,14 @@
 #include <openssl/err.h>
 #include <openssl/bio.h>
 #include <openssl/evp.h>
+#include <boost/algorithm/string.hpp>
 #include "gsiHandler.h"
-#include "veilfs.h" 
+#include "veilfs.h"
+#include "gsi_utils.h"
+
+/// globus-proxy-utils program names
+#define PROXY_INIT              "grid_proxy_init"
+#define PROXY_INFO              "grid_proxy_info"
 
 #define X509_USER_CERT_ENV      "X509_USER_CERT"
 #define X509_USER_KEY_ENV       "X509_USER_KEY"
@@ -34,6 +41,8 @@
 #define MSG_DEBUG_INFO (debug ? "" : "Use -debug for further information.")
 
 #define CRYPTO_FREE(M, X) if(X) { M##_free(X); X = NULL; }
+
+#define STDOUT_MAX_LEN 10*1024 /// Maximum length of proxy tools stdout/stderr
 
 using namespace std;
 using namespace boost::algorithm;
@@ -47,27 +56,96 @@ bool debug = false;
 
 namespace {
     string cachedKeyPassphrase = "";
+    char vout[STDOUT_MAX_LEN];
+    char verr[STDOUT_MAX_LEN];
     bool proxyInitialized = false;
 
-    string system(string command) 
+    /// Execute globus-proxy-utils program.
+    /// @param prog PROXY_INIT value will exec grid-proxy-init app, PROXY_INFO will exec grid-proxy-info app
+    /// @param args Arguments that shall be passed to executed program
+    /// @param sout String to be filled with stdout stream of executed program
+    /// @param serr String to be filled with stderr stream of executed program
+    /// @return grid-proxy-init/grid-proxy-info main's return code
+    int grid_proxy_utils(string prog, string args, string &sout, string &serr)
     {
-        FILE *out = popen((command + " 2> /dev/null").c_str(), "r");
-        if(!out)
+        // Reset stdout && stderr streams
+        memset(vout, 0, STDOUT_MAX_LEN);
+        memset(verr, 0, STDOUT_MAX_LEN);
+
+        // Convert string args to char[][]
+        trim(args);
+        std::list<std::string> tokens;
+        std::string sArgs = string(args);
+        boost::split(tokens, sArgs, boost::is_any_of(" "));
+        tokens.push_front(prog);
+        int argc = tokens.size();
+        char* argv[argc];
+
+        std::vector<std::string> vTokens(tokens.begin(), tokens.end());
+
+        // Initialize arguments
+        for(int i = 0; i < argc; ++i)
         {
-            LOG(ERROR) << "Cannot popen: " << command; 
-            return "";
+            argv[i] = (char *) malloc(vTokens[i].size() + 1);
+            memcpy(argv[i], vTokens[i].c_str(), vTokens[i].size() + 1);
         }
 
-        string stdout = "";
-        char buff[1024];
-        while(fgets(buff, 1024, out))
-            stdout += string(buff);
+        // Open virtual file in memory, that will be used as stdout and stderr streams in globus library
+        FILE * fout = fmemopen(vout, STDOUT_MAX_LEN, "w");
+        FILE * ferr = fmemopen(verr, STDOUT_MAX_LEN, "w");
 
-        if(pclose(out)) 
-            return "";
+        // Invoke grid_proxy_ main function
+        int ret = 1;
+        if(prog == PROXY_INIT) {
+            ret = proxy_init(argc, argv, fout, ferr, cachedKeyPassphrase.c_str(), cachedKeyPassphrase.size());
+        } else if(prog == PROXY_INFO) {
+            ret = proxy_info(argc, argv, fout, ferr);
+        }
 
-        trim(stdout);
-        return stdout;
+        fflush(fout);
+        fflush(ferr);
+
+        // Save stdout && stderr streams
+        sout = string(vout);
+        serr = string(verr);
+
+        trim(sout);
+        trim(serr);
+
+        // Some logging
+        if(sout != "") {
+            LOG(INFO) << "GSI STDOUT -> " << prog << "(" << args << "): " << sout;
+        }
+
+        if(serr != "") {
+            LOG(INFO) << "GSI STDERR -> " << prog << "(" << args << "): " << serr;
+        }
+
+        // Echo stdout/stderr streams in debug mode
+        if(debug)
+        {
+            if(sout != "") {
+                cout << prog << "(" << args << "): " << sout << endl;
+            }
+
+            if(serr != "") {
+                cerr << prog << "(" << args << "): " << serr << endl;
+            }
+        }
+
+        // Cleanup
+        fclose(fout);
+        fclose(ferr);
+
+        return ret;
+    }
+
+
+    /// Convinience method that works as wrapper for grid_proxy_utils/4 which ignore stdout/stderr
+    int grid_proxy_utils(string prog, string args)
+    {
+        string tmp1, tmp2;
+        return grid_proxy_utils(prog, args, tmp1, tmp2);
     }
 
     // Disables stdout ECHO and reads input form /dev/tty up to max_size chars or newline
@@ -148,26 +226,14 @@ string findUserKey() {
 
 bool validateProxyConfig() 
 {
-    if(::system(("which " + GSI_INIT_COMMAND + " > /dev/null").c_str()) || 
-       ::system(("which " + GSI_INFO_COMMAND + " > /dev/null").c_str()))
-    {
-        cerr << "Cannot find globus-proxy-utils. You need to install this package before mounting this filesystem." << endl;
-        return false;
-    }
-
     return validateProxyCert();
 }
 
 bool validateProxyCert() 
 {
-    string cPathMode = "", cPathMode1 = "", debugStr = (debug ? " -debug" : " 2> /dev/null");
+    string cPathMode = "", cPathMode1 = "", debugStr = (debug ? " -debug" : "");
     struct stat buf;
     int proxyStatus;
-
-    OpenSSL_add_all_algorithms();
-    OpenSSL_add_all_ciphers();
-    OpenSSL_add_all_digests();
-    ERR_load_crypto_strings();
 
     if(VeilFS::getConfig()->isSet(PEER_CERTIFICATE_FILE_OPT))
     {
@@ -179,7 +245,7 @@ bool validateProxyCert()
     string userCert = findUserCert();
     string userKey = findUserKey();
 
-    if(! (proxyStatus = ::system((GSI_INFO_COMMAND + cPathMode + " -e -v 1:0" + debugStr).c_str())) && (userCert == "" || userKey == "")) 
+    if(! (proxyStatus = grid_proxy_utils(PROXY_INFO, cPathMode + " -e -v 1:0" + debugStr)) && (userCert == "" || userKey == "")) 
         return true;
 
     // At this point we know that there is not valid proxy certificate 
@@ -249,6 +315,13 @@ bool validateProxyCert()
 
     LOG(INFO) << "GSI Handler: parsing userKey file: " << userKey;
 
+
+    // Load algorithms
+    OpenSSL_add_all_algorithms();
+    OpenSSL_add_all_ciphers();
+    OpenSSL_add_all_digests();
+    ERR_load_crypto_strings();
+
     // Parse RSA/DSA private key from file.
     char tmp[cachedKeyPassphrase.size() + 1];
     memcpy(tmp, cachedKeyPassphrase.c_str(), cachedKeyPassphrase.size() + 1);
@@ -261,12 +334,12 @@ bool validateProxyCert()
             cachedKeyPassphrase = "";
             cerr << "Error: Entered key passphrase is invalid." << endl;
 
-            LOG(ERROR) << "GSI Handler: parsing userKey as PEM filed due to inavlid passphrase";
+            LOG(ERROR) << "GSI Handler: parsing userKey as PEM failed due to inavlid passphrase";
 
             CRYPTO_FREE(BIO, file);
             return false;
         } else { // Try to read .p12
-            LOG(INFO) << "GSI Handler: parsing userKey as PEM filed, trying as PKCS12: " << userKey;
+            LOG(INFO) << "GSI Handler: parsing userKey as PEM failed, trying as PKCS12: " << userKey;
             if(BIO_read_filename(file, userKey.c_str()) <= 0)
             {
                  cerr << "Error: Couldn't find valid credentials to generate a proxy." << endl;
@@ -282,8 +355,8 @@ bool validateProxyCert()
                 cerr << "Error: Invalid .pem or .p12 certificate file: " << userKey << " " << MSG_DEBUG_INFO << endl;
                 if(debug)
                     cerr << ERR_error_string(e2, NULL) << endl;
-
-                LOG(ERROR) << "GSI Handler: parsing userKey PEM / PKCS12 filed due to: " << ERR_error_string(e, NULL) << " / " << ERR_error_string(e2, NULL);
+                cerr << ERR_reason_error_string(e2) << endl;
+                LOG(ERROR) << "GSI Handler: parsing userKey PEM / PKCS12 failed due to: " << ERR_error_string(e, NULL) << " / " << ERR_error_string(e2, NULL);
 
                 CRYPTO_FREE(BIO, file);
                 return false;
@@ -295,7 +368,7 @@ bool validateProxyCert()
                         cachedKeyPassphrase = "";
                         cerr << "Error: Entered key passphrase is invalid." << endl;
 
-                        LOG(ERROR) << "GSI Handler: parsing userKey as PKCS12 filed due to inavlid passphrase";
+                        LOG(ERROR) << "GSI Handler: parsing userKey as PKCS12 failed due to inavlid passphrase";
 
                         CRYPTO_FREE(BIO, file);
                         return false;
@@ -304,7 +377,7 @@ bool validateProxyCert()
                         if(debug)
                             cerr << ERR_error_string(e1, NULL) << endl;
 
-                        LOG(ERROR) << "GSI Handler: parsing userKey as PKCS12 filed due to: " << ERR_error_string(e1, NULL);
+                        LOG(ERROR) << "GSI Handler: parsing userKey as PKCS12 failed due to: " << ERR_error_string(e1, NULL);
 
                         CRYPTO_FREE(BIO, file);
                         return false;
@@ -324,10 +397,12 @@ bool validateProxyCert()
 
     if(!proxyStatus && proxyInitialized)
         return true;
-    
+
+    string sout, serr;
+
     // Lets create proxy cert
-    if(::system(("echo '" + cachedKeyPassphrase + "' | " + GSI_INIT_COMMAND + cPathMode1 + debugStr + " -cert " + userCert + " -key " + userKey + " -pwstdin > /dev/null").c_str()) || 
-       ::system((GSI_INFO_COMMAND + cPathMode + " -e -v 1:0" + debugStr).c_str())) // Double check to make sure proxy exists
+    if(grid_proxy_utils(PROXY_INIT, cPathMode1 + debugStr + " -cert " + userCert + " -key " + userKey + " -pwstdin", sout, serr) ||
+       grid_proxy_utils(PROXY_INFO, cPathMode + " -e -v 1:0" + debugStr)) // Double check to make sure proxy exists
     {
         cerr << "Error: Cannot generate proxy certificate. " << MSG_DEBUG_INFO << endl;
         return false;
@@ -345,8 +420,9 @@ string getProxyCertPath()
         if(VeilFS::getConfig()->isSet(PEER_CERTIFICATE_FILE_OPT))
             return Config::absPathRelToHOME(VeilFS::getConfig()->getString(PEER_CERTIFICATE_FILE_OPT));
 
-        
-        string certPath = system(GSI_INFO_COMMAND + " -path" + debugStr);
+        string out, err;
+        grid_proxy_utils(PROXY_INFO, "-path" + debugStr, out, err);
+        string certPath = out;
 
         if(certPath == "") 
             LOG(WARNING) << "There was an error while tring to get proxy certificate path";
@@ -361,7 +437,9 @@ std::string getClusterHostname()
     if(VeilFS::getConfig()->isSet(CLUSTER_HOSTNAME_OPT))
         return VeilFS::getConfig()->getString(CLUSTER_HOSTNAME_OPT);
 
-    string DN = system(GSI_INFO_COMMAND + " -i -rfc2253");
+    string out, err;
+    grid_proxy_utils(PROXY_INFO, "-i -rfc2253", out, err);
+    string DN = out;
 
     if(DN == "") 
     {
