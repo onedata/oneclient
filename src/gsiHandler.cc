@@ -59,6 +59,7 @@ namespace {
     char vout[STDOUT_MAX_LEN];
     char verr[STDOUT_MAX_LEN];
     bool proxyInitialized = false;
+    ReadWriteLock mutex;
 
     /// Execute globus-proxy-utils program.
     /// @param prog PROXY_INIT value will exec grid-proxy-init app, PROXY_INFO will exec grid-proxy-info app
@@ -68,6 +69,8 @@ namespace {
     /// @return grid-proxy-init/grid-proxy-info main's return code
     int grid_proxy_utils(string prog, string args, string &sout, string &serr)
     {
+        AutoLock lock(mutex, WRITE_LOCK); // Just for safety. Globus shall not be trusted. Ever.
+        
         // Reset stdout && stderr streams
         memset(vout, 0, STDOUT_MAX_LEN);
         memset(verr, 0, STDOUT_MAX_LEN);

@@ -5,7 +5,7 @@ include(ExternalProject)
 
 # The version number.
 set(VeilClient_VERSION_MAJOR 0)
-set(VeilClient_VERSION_MINOR 3)
+set(VeilClient_VERSION_MINOR 4)
 set(VeilClient_VERSION_PATCH 1)
 set(VeilClient_VERSION $(VeilClient_VERSION_MAJOR).$(VeilClient_VERSION_MINOR).$(VeilClient_VERSION_PATCH))
 
@@ -132,7 +132,7 @@ else()
 endif()
 
 set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/${LIB_DIR}:${CMAKE_CURRENT_BINARY_DIR}:.:${LIB_DIR}:../${LIB_DIR}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SECTION_FRAGMENTATION_FLAGS} -g ${FUSE_DEFINITIONS} -DFUSE_USE_VERSION=29")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SECTION_FRAGMENTATION_FLAGS} -O2 ${FUSE_DEFINITIONS} -DFUSE_USE_VERSION=29")
 set(CMAKE_SKIP_RPATH TRUE) # Something is wrong with CMake RPATH config, we need to use old-fashion way
 
 # Define targets
@@ -195,8 +195,8 @@ set(CPACK_PACKAGE_VERSION_MINOR "${VeilClient_VERSION_MINOR}")
 set(CPACK_PACKAGE_CONTACT "help@veilfs.com")
 
 # DEB and RPM deps 
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse, libfuse2, lbiprotobuf7, libssl1.0.0, globus-proxy-utils")
-set(CPACK_RPM_PACKAGE_REQUIRES "fuse, libfuse.so.2, protobuf, openssl, globus-proxy-utils")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse, libfuse2, lbiprotobuf7, libssl1.0.0")
+set(CPACK_RPM_PACKAGE_REQUIRES "fuse, libfuse.so.2, protobuf, openssl")
 set(CPACK_RPM_PACKAGE_AUTOREQPROV " no")
 
 include(CPack)

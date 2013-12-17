@@ -54,6 +54,7 @@ public:
         EXPECT_CALL(*config, getInt(ALIVE_DATA_CONNECTIONS_COUNT_OPT)).WillRepeatedly(Return(0));
         EXPECT_CALL(*config, isSet(FUSE_ID_OPT)).WillRepeatedly(Return(false));
         
+        VeilFS::staticDestroy();
         client.reset(new VeilFS("/root", config, 
                         jobSchedulerMock,
                         fslogicMock, 

@@ -17,6 +17,7 @@
 #include "veilConfig.h"
 #include "ISchedulable.h"
 #include "glog/logging.h"
+#include "lock.h"
 
 /// Config option names
 #define CLUSTER_HOSTNAME_OPT            "cluster_hostname"
@@ -111,6 +112,7 @@ public:
 
 protected:
     bool defaultsLoaded;
+    ReadWriteLock m_access;
 
     static std::string m_requiredOpts[];             ///< Array containing required options names
     static std::string m_envCWD;                     ///< Saved CWD env variable

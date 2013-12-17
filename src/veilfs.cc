@@ -666,7 +666,8 @@ int VeilFS::init(struct fuse_conn_info *conn) {
 boost::shared_ptr<JobScheduler> VeilFS::getScheduler(TaskID taskId)
 {
     AutoLock lock(m_schedulerPoolLock, WRITE_LOCK);
-    boost::shared_ptr<JobScheduler> tmp = m_jobSchedulers.front();
+    boost::shared_ptr<JobScheduler> front = m_jobSchedulers.front();
+    boost::shared_ptr<JobScheduler> tmp = front;
 
     list<boost::shared_ptr<JobScheduler> >::const_iterator it;
     for(list<boost::shared_ptr<JobScheduler> >::const_iterator it = m_jobSchedulers.begin();
@@ -675,6 +676,10 @@ boost::shared_ptr<JobScheduler> VeilFS::getScheduler(TaskID taskId)
         if((*it)->hasTask(taskId))
             tmp = (*it);
     }
+    
+    // Round robin
+    m_jobSchedulers.pop_front();
+    m_jobSchedulers.push_back(front);
 
     return tmp;
 }
