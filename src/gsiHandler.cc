@@ -137,6 +137,11 @@ namespace {
         }
 
         // Cleanup
+        for(int i = 0; i < argc; ++i)
+        {
+            free(argv[i]);
+        }
+
         fclose(fout);
         fclose(ferr);
 
@@ -324,6 +329,7 @@ bool validateProxyCert()
 
 
     // Load algorithms
+    EVP_cleanup();
     OpenSSL_add_all_algorithms();
     OpenSSL_add_all_ciphers();
     OpenSSL_add_all_digests();
