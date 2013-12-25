@@ -25,6 +25,7 @@
 #include "ISchedulable.h"
 #include "pushListener.h"
 #include <list>
+#include <boost/unordered_map.hpp>
 
 /// The name of default global config file
 #define GLOBAL_CONFIG_FILE      "veilFuse.conf"
@@ -40,6 +41,9 @@
 
 namespace veil {
 namespace client {
+
+/// Pointer to the Storage Helper's instance
+typedef boost::shared_ptr<helpers::IStorageHelper> sh_ptr;
 
 /**
  * The VeilFS main class.
@@ -118,6 +122,9 @@ private:
 
         std::map<std::string, std::pair<std::string, time_t> > m_linkCache;         ///< Simple links cache.
         ReadWriteLock m_linkCacheLock;
+    
+        boost::unordered_map<struct fuse_file_info*, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
+        ReadWriteLock m_shCacheLock;
 };
 
 } // namespace client

@@ -23,11 +23,13 @@
 #include <sys/stat.h>
 
 /// Runs FUN on NAME storage helper with constructed with ARGS. Return value is avaiable in 'int sh_return'.
+#define CUSTOM_SH_RUN(PTR, FUN) if(!PTR) { LOG(ERROR) << "Invalid storage helper's pointer!"; return -EIO; } \
+                                int sh_return = PTR->FUN; \
+                                if(sh_return) LOG(INFO) << "Storage helper returned error: " << sh_return; \
+                                if(sh_return == ENOENT)
 #define SH_RUN(NAME, ARGS, FUN) boost::shared_ptr<helpers::IStorageHelper> ptr = m_shFactory->getStorageHelper(NAME, ARGS); \
                                 if(!ptr) { LOG(ERROR) << "storage helper '" << NAME << "' not found"; return -EIO; } \
-                                int sh_return = ptr->FUN; \
-                                if(sh_return) LOG(INFO) << "Storage helper " << NAME << " returned error: " << sh_return; \
-                                if(sh_return == ENOENT)
+                                CUSTOM_SH_RUN(ptr, FUN)
 
 /// If given veilError does not produce POSIX 0 return code, interrupt execution by returning POSIX error code.
 #define RETURN_IF_ERROR(X)  { \
@@ -496,6 +498,9 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
 
         if(atime || mtime)
             VeilFS::getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(atime), utils::toString(mtime)));
+        
+        AutoLock guard(m_shCacheLock, WRITE_LOCK);
+        m_shCache[fileInfo] = ptr;
     }
 
     return sh_return;
@@ -505,8 +510,9 @@ int VeilFS::read(const char *path, char *buf, size_t size, off_t offset, struct 
 {
     LOG(INFO) << "FUSE: read(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
     GET_LOCATION_INFO(path);
-
-    SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
+    
+    AutoLock guard(m_shCacheLock, READ_LOCK);
+    CUSTOM_SH_RUN(m_shCache[fileInfo], sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
     return sh_return;
 }
 
@@ -514,8 +520,10 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
 {
     LOG(INFO) << "FUSE: write(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
     GET_LOCATION_INFO(path);
-
-    SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
+    
+    AutoLock guard(m_shCacheLock, READ_LOCK);
+    CUSTOM_SH_RUN(m_shCache[fileInfo], sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
+    guard.release();
 
     if(sh_return > 0) { // Update file size in cache
         struct stat buf;
@@ -567,6 +575,10 @@ int VeilFS::release(const char *path, struct fuse_file_info *fileInfo)
     LOG(INFO) << "FUSE: release(path: " << string(path) << ", ...)";
 
     m_storageMapper->releaseFile(string(path));
+    
+    /// Remove Storage Helper's pointer from cache
+    AutoLock guard(m_shCacheLock, WRITE_LOCK);
+    m_shCache.erase(fileInfo);
 
     return 0;
 }

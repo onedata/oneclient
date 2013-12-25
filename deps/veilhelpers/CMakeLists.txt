@@ -3,7 +3,7 @@ include(ExternalProject)
 ExternalProject_Add(veilhelpers
     PREFIX "${CMAKE_CURRENT_BINARY_DIR}"
     GIT_REPOSITORY ssh://git@git.plgrid.pl:7999/vfs/veilhelpers.git
-    GIT_TAG "master"
+    GIT_TAG "VFS-292"
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${PROJECT_BINARY_DIR}
     UPDATE_COMMAND git pull
 )
