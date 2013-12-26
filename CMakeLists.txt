@@ -99,10 +99,11 @@ set(Boost_LIBRARIES "boost_thread-mt.a;boost_filesystem-mt.a;boost_system-mt.a;l
 link_directories(${Boost_LIBRARY_DIRS})
 include_directories(${Boost_INCLUDE_DIRS})
 
-# Utility libs (prefer static archives)
+# Utility libs
 find_library(LTDL_LIBRARY libltdl.a ltdl)
-find_library(RT_LIBRARY librt.a rt)
+find_library(RT_LIBRARY rt)
 find_library(ZLIB_LIBRARY libz.a z)
+find_library(DL_LIBRARY dl)
 
 # Pull git submodules
 message(STATUS "Pulling submodules using git...")
@@ -129,10 +130,10 @@ string(REGEX REPLACE "(\r?\n)+$" "" LIBSTD_NAME "${LIBSTD_NAME}")
 execute_process(COMMAND ln -sf "${LIBSTD_NAME}" WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
 
 if(APPLE)
-    set(PLATFORM_EXTRA_LIBS "${CMAKE_THREAD_LIBS_INIT};${LTDL_LIBRARY};${ZLIB_LIBRARY}")
+    set(PLATFORM_EXTRA_LIBS "${CMAKE_THREAD_LIBS_INIT};${LTDL_LIBRARY};${ZLIB_LIBRARY};${DL_LIBRARY}")
     set(SECTION_FRAGMENTATION_FLAGS "-Wno-deprecated-declarations")
 else()
-    set(PLATFORM_EXTRA_LIBS "${CMAKE_THREAD_LIBS_INIT};${LTDL_LIBRARY};${ZLIB_LIBRARY};${RT_LIBRARY}")
+    set(PLATFORM_EXTRA_LIBS "${CMAKE_THREAD_LIBS_INIT};${LTDL_LIBRARY};${ZLIB_LIBRARY};${DL_LIBRARY};${RT_LIBRARY}")
     set(SECTION_FRAGMENTATION_FLAGS "-fdata-sections -ffunction-sections -Wl,--gc-sections -Wl,-rpath,${CUSTOM_RPATH}")
 endif()
 
@@ -164,7 +165,6 @@ target_link_libraries(veilclient
     ${GLOBUS_DEPS}
     globus_proxy_utils
     veilprotocol
-    dl
     ${PLATFORM_EXTRA_LIBS}
 )
 target_link_libraries(veilFuse
@@ -177,7 +177,6 @@ target_link_libraries(veilFuse
     globus_proxy_utils
     ${GLOBUS_DEPS}
     ${OPENSSL_LIBRARIES}
-    dl
     ${PLATFORM_EXTRA_LIBS}
 )
 
@@ -243,7 +242,6 @@ foreach(file ${files})
         globus_proxy_utils
         ${GLOBUS_DEPS}
         ${OPENSSL_LIBRARIES}
-        dl
         ${PLATFORM_EXTRA_LIBS}
     )    
     add_test(${TEST_NAME} ${TEST_NAME})
@@ -289,7 +287,6 @@ foreach(file ${files})
         globus_proxy_utils
         ${GLOBUS_DEPS}
         ${OPENSSL_LIBRARIES}
-        dl
         erlTestCore
         ${PLATFORM_EXTRA_LIBS}
     )    
