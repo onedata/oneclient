@@ -17,7 +17,7 @@ rpm: build
 	@for pkg in `ls ${BUILD_DIR}/*.deb 2>/dev/null`; do echo $$pkg; done 
 
 build: configure
-	@(cd ${BUILD_DIR} && make -j`nproc`)
+	@(cd ${BUILD_DIR} && make veilFuse -j`nproc`)
 
 configure:
 	@mkdir -p ${BUILD_DIR}
