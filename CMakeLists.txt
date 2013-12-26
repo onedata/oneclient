@@ -198,8 +198,8 @@ set(CPACK_PACKAGE_CONTACT "help@veilfs.com")
 
 # DEB and RPM deps 
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse, libfuse2, lbiprotobuf7, libssl1.0.0")
-set(CPACK_RPM_PACKAGE_REQUIRES "fuse")
-# set(CPACK_RPM_PACKAGE_AUTOREQPROV " no") ## Uncomment ot get rid of automatic deps generation
+set(CPACK_RPM_PACKAGE_REQUIRES "fuse, libfuse.so.2, protobuf, openssl")
+set(CPACK_RPM_PACKAGE_AUTOREQPROV " no") ## Uncomment ot get rid of automatic deps generation
 
 include(CPack)
 
