@@ -56,13 +56,6 @@ find_package(Protobuf REQUIRED)
 find_library(PROTOBUF_LIBRARY_CUSTOM NAMES libprotobuf.a protobuf)
 include_directories(${PROTOBUF_INCLUDE_DIR})
 
-# Setup pthreads
-message(STATUS "Checking for pthreads...")
-find_package(Threads REQUIRED)
-
-# Setup git
-message(STATUS "Checking for Git...")
-find_package(Git REQUIRED)
 
 # Setup OpenSSL
 message(STATUS "Checking for OpenSSL...")
@@ -77,6 +70,17 @@ else(${KRB5_LIBRARY} MATCHES KRB5_LIBRARY-NOTFOUND)
 endif(${KRB5_LIBRARY} MATCHES KRB5_LIBRARY-NOTFOUND)
 include_directories(${OPENSSL_INCLUDE_DIR})
 
+
+# Setup pthreads
+message(STATUS "Checking for pthreads...")
+find_package(Threads REQUIRED)
+
+
+# Setup git
+message(STATUS "Checking for Git...")
+find_package(Git REQUIRED)
+
+
 # Setup Globus Toolkit
 message(STATUS "Checking for Globus Toolkit...")
 
@@ -90,14 +94,28 @@ foreach(LIB ${GLOBUS_LIBS})
     set(GLOBUS_DEPS ${GLOBUS_DEPS};${GLOBUS_${LIB}_LIBRARY})
 endforeach()
 
+
 # Setup Boost
 set(Boost_USE_STATIC_LIBS        ON)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
 find_package(Boost COMPONENTS system thread filesystem random REQUIRED)
-set(Boost_LIBRARIES "boost_thread-mt.a;boost_filesystem-mt.a;boost_system-mt.a;libboost_random-mt.a") # SL6 bug fix
+
+set(BOOST_LIBS boost_system boost_thread boost_filesystem boost_random)
+
+foreach(LIB ${BOOST_LIBS})
+    find_library(BOOST_${LIB}_LIBRARY NAMES lib${LIB}-mt.a lib${LIB}.a ${LIB}-mt ${LIB})
+    if(${BOOST_${LIB}_LIBRARY} MATCHES .*_LIBRARY-NOTFOUND)
+        message( FATAL_ERROR "ERROR: ${LIB} NOT FOUND!")
+    endif()
+    set(BOOST_DEPS ${BOOST_DEPS};${BOOST_${LIB}_LIBRARY})
+endforeach()
+
+set(Boost_LIBRARIES ${BOOST_DEPS})
+
 link_directories(${Boost_LIBRARY_DIRS})
 include_directories(${Boost_INCLUDE_DIRS})
+
 
 # Utility libs
 find_library(LTDL_LIBRARY libltdl.a ltdl)
@@ -197,9 +215,12 @@ set(CPACK_PACKAGE_VERSION_MINOR "${VeilClient_VERSION_MINOR}")
 set(CPACK_PACKAGE_CONTACT "help@veilfs.com")
 
 # DEB and RPM deps 
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse, libfuse2, lbiprotobuf7, libssl1.0.0")
-set(CPACK_RPM_PACKAGE_REQUIRES "fuse, libfuse.so.2, protobuf, openssl")
-set(CPACK_RPM_PACKAGE_AUTOREQPROV " no") ## Uncomment ot get rid of automatic deps generation
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse")
+set(CPACK_RPM_PACKAGE_REQUIRES "fuse")
+
+# autogenerate dependency information
+set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+# set(CPACK_RPM_PACKAGE_AUTOREQPROV " no") ## Uncomment ot get rid of automatic deps generation
 
 include(CPack)
 
