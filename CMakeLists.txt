@@ -99,6 +99,11 @@ set(Boost_LIBRARIES "boost_thread-mt.a;boost_filesystem-mt.a;boost_system-mt.a;l
 link_directories(${Boost_LIBRARY_DIRS})
 include_directories(${Boost_INCLUDE_DIRS})
 
+# Utility libs (prefer static archives)
+find_library(LTDL_LIBRARY libltdl.a ltdl)
+find_library(RT_LIBRARY librt.a rt)
+find_library(ZLIB_LIBRARY libz.a z)
+
 # Pull git submodules
 message(STATUS "Pulling submodules using git...")
 execute_process(COMMAND ${GIT_EXECUTABLE} submodule init
@@ -124,10 +129,10 @@ string(REGEX REPLACE "(\r?\n)+$" "" LIBSTD_NAME "${LIBSTD_NAME}")
 execute_process(COMMAND ln -sf "${LIBSTD_NAME}" WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
 
 if(APPLE)
-    set(PLATFORM_EXTRA_LIBS "${CMAKE_THREAD_LIBS_INIT};ltdl")
+    set(PLATFORM_EXTRA_LIBS "${CMAKE_THREAD_LIBS_INIT};${LTDL_LIBRARY};${ZLIB_LIBRARY}")
     set(SECTION_FRAGMENTATION_FLAGS "-Wno-deprecated-declarations")
 else()
-    set(PLATFORM_EXTRA_LIBS "${CMAKE_THREAD_LIBS_INIT};ltdl;rt")
+    set(PLATFORM_EXTRA_LIBS "${CMAKE_THREAD_LIBS_INIT};${LTDL_LIBRARY};${ZLIB_LIBRARY};${RT_LIBRARY}")
     set(SECTION_FRAGMENTATION_FLAGS "-fdata-sections -ffunction-sections -Wl,--gc-sections -Wl,-rpath,${CUSTOM_RPATH}")
 endif()
 
@@ -160,7 +165,6 @@ target_link_libraries(veilclient
     globus_proxy_utils
     veilprotocol
     dl
-    z
     ${PLATFORM_EXTRA_LIBS}
 )
 target_link_libraries(veilFuse
@@ -174,7 +178,6 @@ target_link_libraries(veilFuse
     ${GLOBUS_DEPS}
     ${OPENSSL_LIBRARIES}
     dl
-    z
     ${PLATFORM_EXTRA_LIBS}
 )
 
@@ -196,8 +199,8 @@ set(CPACK_PACKAGE_CONTACT "help@veilfs.com")
 
 # DEB and RPM deps 
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse, libfuse2, lbiprotobuf7, libssl1.0.0")
-set(CPACK_RPM_PACKAGE_REQUIRES "fuse, libfuse.so.2, protobuf, openssl")
-set(CPACK_RPM_PACKAGE_AUTOREQPROV " no")
+set(CPACK_RPM_PACKAGE_REQUIRES "fuse")
+# set(CPACK_RPM_PACKAGE_AUTOREQPROV " no") ## Uncomment ot get rid of automatic deps generation
 
 include(CPack)
 
@@ -240,8 +243,7 @@ foreach(file ${files})
         globus_proxy_utils
         ${GLOBUS_DEPS}
         ${OPENSSL_LIBRARIES}
-        dl 
-        z
+        dl
         ${PLATFORM_EXTRA_LIBS}
     )    
     add_test(${TEST_NAME} ${TEST_NAME})
@@ -287,8 +289,7 @@ foreach(file ${files})
         globus_proxy_utils
         ${GLOBUS_DEPS}
         ${OPENSSL_LIBRARIES}
-        dl 
-        z
+        dl
         erlTestCore
         ${PLATFORM_EXTRA_LIBS}
     )    
