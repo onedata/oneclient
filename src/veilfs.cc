@@ -485,10 +485,10 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_open(lInfo.fileId.c_str(), fileInfo));
 
     if(sh_return == 0) {
-        fileInfo->fh_old = m_fh++;
+        fileInfo->fh |= (++((uint64_t)m_fh)) << 31;
 
         AutoLock guard(m_shCacheLock, WRITE_LOCK);
-        m_shCache[fileInfo->fh_old] = ptr;
+        m_shCache[fileInfo->fh] = ptr;
 
         time_t atime = 0, mtime = 0;
         mode_t accMode = fileInfo->flags & O_ACCMODE;
@@ -515,7 +515,7 @@ int VeilFS::read(const char *path, char *buf, size_t size, off_t offset, struct 
     GET_LOCATION_INFO(path);
     
     AutoLock guard(m_shCacheLock, READ_LOCK);
-    CUSTOM_SH_RUN(m_shCache[fileInfo->fh_old], sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
+    CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
     return sh_return;
 }
 
@@ -525,7 +525,7 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
     GET_LOCATION_INFO(path);
     
     AutoLock guard(m_shCacheLock, READ_LOCK);
-    CUSTOM_SH_RUN(m_shCache[fileInfo->fh_old], sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
+    CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
     guard.release();
 
     if(sh_return > 0) { // Update file size in cache
@@ -568,7 +568,7 @@ int VeilFS::flush(const char *path, struct fuse_file_info *fileInfo)
     GET_LOCATION_INFO(path);
 
     AutoLock guard(m_shCacheLock, READ_LOCK);
-    CUSTOM_SH_RUN(m_shCache[fileInfo->fh_old], sh_flush(lInfo.fileId.c_str(), fileInfo));
+    CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_flush(lInfo.fileId.c_str(), fileInfo));
 
     return sh_return;
 }
@@ -582,9 +582,9 @@ int VeilFS::release(const char *path, struct fuse_file_info *fileInfo)
 
     GET_LOCATION_INFO(path);
 
-    CUSTOM_SH_RUN(m_shCache[fileInfo->fh_old], sh_release(lInfo.fileId.c_str(), fileInfo));
+    CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_release(lInfo.fileId.c_str(), fileInfo));
 
-    m_shCache.erase(fileInfo->fh_old);
+    m_shCache.erase(fileInfo->fh);
 
     m_storageMapper->releaseFile(string(path));
 
