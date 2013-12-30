@@ -477,6 +477,7 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: open(path: " << string(path) << ", ...)";
     fileInfo->direct_io = 1;
+    fileInfo->fh = ++m_fh;
 
     GET_LOCATION_INFO(path);
 
@@ -485,8 +486,6 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_open(lInfo.fileId.c_str(), fileInfo));
 
     if(sh_return == 0) {
-        fileInfo->fh |= (++m_fh) << 31;
-
         AutoLock guard(m_shCacheLock, WRITE_LOCK);
         m_shCache[fileInfo->fh] = ptr;
 
