@@ -108,6 +108,7 @@ private:
         gid_t       m_gid;  ///< Filesystem owner's effective gid
         uid_t       m_ruid;  ///< Filesystem root real uid
         gid_t       m_rgid;  ///< Filesystem root real gid
+        uint32_t    m_fh;
         
         static ReadWriteLock m_schedulerPoolLock;
 
@@ -123,7 +124,7 @@ private:
         std::map<std::string, std::pair<std::string, time_t> > m_linkCache;         ///< Simple links cache.
         ReadWriteLock m_linkCacheLock;
     
-        boost::unordered_map<struct fuse_file_info*, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
+        boost::unordered_map<uint32_t, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
         ReadWriteLock m_shCacheLock;
 };
 
