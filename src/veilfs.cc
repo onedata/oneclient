@@ -487,6 +487,9 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
     if(sh_return == 0) {
         fileInfo->fh_old = m_fh++;
 
+        AutoLock guard(m_shCacheLock, WRITE_LOCK);
+        m_shCache[fileInfo->fh_old] = ptr;
+
         time_t atime = 0, mtime = 0;
         mode_t accMode = fileInfo->flags & O_ACCMODE;
 
@@ -501,9 +504,6 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
 
         if(atime || mtime)
             VeilFS::getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(atime), utils::toString(mtime)));
-        
-        AutoLock guard(m_shCacheLock, WRITE_LOCK);
-        m_shCache[fileInfo->fh_old] = ptr;
     }
 
     return sh_return;
@@ -576,8 +576,6 @@ int VeilFS::flush(const char *path, struct fuse_file_info *fileInfo)
 int VeilFS::release(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: release(path: " << string(path) << ", ...)";
-
-    m_storageMapper->releaseFile(string(path));
     
     /// Remove Storage Helper's pointer from cache
     AutoLock guard(m_shCacheLock, WRITE_LOCK);
@@ -587,6 +585,8 @@ int VeilFS::release(const char *path, struct fuse_file_info *fileInfo)
     CUSTOM_SH_RUN(m_shCache[fileInfo->fh_old], sh_release(lInfo.fileId.c_str(), fileInfo));
 
     m_shCache.erase(fileInfo->fh_old);
+
+    m_storageMapper->releaseFile(string(path));
 
     return sh_return;
 }
