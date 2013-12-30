@@ -108,7 +108,7 @@ private:
         gid_t       m_gid;  ///< Filesystem owner's effective gid
         uid_t       m_ruid;  ///< Filesystem root real uid
         gid_t       m_rgid;  ///< Filesystem root real gid
-        uint32_t    m_fh;
+        uint64_t    m_fh;
         
         static ReadWriteLock m_schedulerPoolLock;
 

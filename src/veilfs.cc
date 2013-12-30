@@ -485,7 +485,7 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_open(lInfo.fileId.c_str(), fileInfo));
 
     if(sh_return == 0) {
-        fileInfo->fh |= (++((uint64_t)m_fh)) << 31;
+        fileInfo->fh |= (++m_fh) << 31;
 
         AutoLock guard(m_shCacheLock, WRITE_LOCK);
         m_shCache[fileInfo->fh] = ptr;
