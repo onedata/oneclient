@@ -25,8 +25,7 @@
 /// Runs FUN on NAME storage helper with constructed with ARGS. Return value is avaiable in 'int sh_return'.
 #define CUSTOM_SH_RUN(PTR, FUN) if(!PTR) { LOG(ERROR) << "Invalid storage helper's pointer!"; return -EIO; } \
                                 int sh_return = PTR->FUN; \
-                                if(sh_return) LOG(INFO) << "Storage helper returned error: " << sh_return; \
-                                if(sh_return == ENOENT)
+                                if(sh_return < 0) LOG(INFO) << "Storage helper returned error: " << sh_return; 
 #define SH_RUN(NAME, ARGS, FUN) boost::shared_ptr<helpers::IStorageHelper> ptr = m_shFactory->getStorageHelper(NAME, ARGS); \
                                 if(!ptr) { LOG(ERROR) << "storage helper '" << NAME << "' not found"; return -EIO; } \
                                 CUSTOM_SH_RUN(ptr, FUN)

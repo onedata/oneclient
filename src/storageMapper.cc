@@ -56,7 +56,7 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(string logicalNam
     if(it1 == m_storageMapping.end())
         throw VeilException(VEIO, "cannot find storage information");
 
-    LOG(INFO) << "found mapping for file: " << logicalName << " fileId: " << location.fileId << " storageId: " << location.storageId;
+    //LOG(INFO) << "found mapping for file: " << logicalName << " fileId: " << location.fileId << " storageId: " << location.storageId;
     return make_pair(it->second, it1->second);
 }
 
