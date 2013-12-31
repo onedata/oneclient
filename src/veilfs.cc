@@ -520,7 +520,6 @@ int VeilFS::read(const char *path, char *buf, size_t size, off_t offset, struct 
 int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
 {
     //LOG(INFO) << "FUSE: write(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
-    return size;
     GET_LOCATION_INFO(path);
     
     AutoLock guard(m_shCacheLock, READ_LOCK);
