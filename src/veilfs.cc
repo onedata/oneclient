@@ -532,7 +532,7 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
             buf.st_size = 0;
         if(offset + sh_return > buf.st_size) {
             m_metaCache->updateSize(string(path), offset + sh_return);
-            //VeilFS::getScheduler()->addTask(Job(time(NULL) + 3, shared_from_this(), TASK_CLEAR_ATTR, string(path))); 
+            VeilFS::getScheduler()->addTask(Job(time(NULL) + 3, shared_from_this(), TASK_CLEAR_ATTR, string(path))); 
         }
     }
 
