@@ -99,12 +99,12 @@ bool MetaCache::updateTimes(string path, time_t atime, time_t mtime, time_t ctim
 
 bool MetaCache::updateSize(string path, size_t size)
 {
-    struct stat attr;
-    if(!getAttr(path, &attr))
+    AutoLock lock(m_statMapLock, WRITE_LOCK);
+    unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
+    if(it == m_statMap.end())
         return false;
 
-    attr.st_size = size;
-    addAttr(path, attr);
+    it->second.second.st_size = size;
 
     return true;
 }
