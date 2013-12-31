@@ -9,6 +9,7 @@
 #define META_CACHE_H
 
 #include <map>
+#include <boost/unordered_map.hpp>
 #include <string>
 #include <sys/stat.h>
 #include <time.h>
@@ -26,7 +27,7 @@ namespace client {
 class MetaCache : public ISchedulable
 {
 protected:
-    std::map<std::string, std::pair<time_t, struct stat> > m_statMap;  ///< This is the cache map.
+    boost::unordered_map<std::string, std::pair<time_t, struct stat> > m_statMap;  ///< This is the cache map.
                                                                         ///< Value of this std::map is std::pair containing expiration time of attributes and
                                                                         ///< stat struct itself
     ReadWriteLock m_statMapLock;                                        ///< Lock used to synchronize access to MetaCache::m_statMap
