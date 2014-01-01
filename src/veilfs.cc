@@ -532,7 +532,6 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
             buf.st_size = 0;
         if(offset + sh_return > buf.st_size) {
             m_metaCache->updateSize(string(path), offset + sh_return);
-            VeilFS::getScheduler()->addTask(Job(time(NULL) + 3, shared_from_this(), TASK_CLEAR_ATTR, string(path))); 
         }
     }
 
@@ -567,6 +566,8 @@ int VeilFS::flush(const char *path, struct fuse_file_info *fileInfo)
 
     AutoLock guard(m_shCacheLock, READ_LOCK);
     CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_flush(lInfo.fileId.c_str(), fileInfo));
+    
+    VeilFS::getScheduler()->addTask(Job(time(NULL) + 3, shared_from_this(), TASK_CLEAR_ATTR, string(path))); 
 
     return sh_return;
 }

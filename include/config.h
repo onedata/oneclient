@@ -15,6 +15,8 @@
 #include <sstream>
 
 #include "veilConfig.h"
+#define NDEBUG 1
+
 #include "ISchedulable.h"
 #include "glog/logging.h"
 #include "lock.h"
