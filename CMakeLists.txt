@@ -18,6 +18,14 @@ set(LIB_DIR "lib")
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
 set(DEPS_DIR "deps")
 # set(CMAKE_FIND_LIBRARY_SUFFIXES .a) # Uncomment in order to force looking for static achives instead .so
+
+string( TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_L )
+if(CMAKE_BUILD_TYPE_L MATCHES "debug") 
+    set(DEBUG 1)
+else() 
+    set(DEBUG 0)
+endif() 
+
 configure_file (
     "${PROJECT_SOURCE_DIR}/include/veilConfig.h.in"
     "${PROJECT_BINARY_DIR}/veilConfig.h"
@@ -156,7 +164,9 @@ else()
 endif()
 
 set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/${LIB_DIR}:${CMAKE_CURRENT_BINARY_DIR}:.:${LIB_DIR}:../${LIB_DIR}")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SECTION_FRAGMENTATION_FLAGS} -g ${FUSE_DEFINITIONS} -DFUSE_USE_VERSION=29")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SECTION_FRAGMENTATION_FLAGS} ${FUSE_DEFINITIONS} -DFUSE_USE_VERSION=29")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -g")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 set(CMAKE_SKIP_RPATH TRUE) # Something is wrong with CMake RPATH config, we need to use old-fashion way
 
 # Define targets
