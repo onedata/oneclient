@@ -21,9 +21,9 @@ set(DEPS_DIR "deps")
 
 string( TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_L )
 if(CMAKE_BUILD_TYPE_L MATCHES "debug") 
-    set(DEBUG 1)
+    set(VeilClient_DEBUG 1)
 else() 
-    set(DEBUG 0)
+    set(VeilClient_DEBUG 0)
 endif() 
 
 configure_file (
