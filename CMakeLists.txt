@@ -217,6 +217,7 @@ install(DIRECTORY config/ DESTINATION ${CONFIG_DIR})
 
 # build a CPack driven installer package
 include(InstallRequiredSystemLibraries)
+include(CPack)
 # set(CPACK_SET_DESTDIR ON) # Uncomment this line if you need a non-relocatable RPM package
 set(CPACK_RESOURCE_FILE_LICENSE  
      "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
