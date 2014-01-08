@@ -251,7 +251,7 @@ TEST_F(VeilFSTest, mkdir) { // const char *path, mode_t mode
 }
  
 TEST_F(VeilFSTest, unlink) { // const char *path
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Return(make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(make_pair(location, storage)));
     EXPECT_CALL(*metaCacheMock, clearAttr("/path")).Times(AtLeast(3));
 
     struct stat st;
