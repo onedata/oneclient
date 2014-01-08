@@ -217,15 +217,12 @@ install(DIRECTORY config/ DESTINATION ${CONFIG_DIR})
 
 # build a CPack driven installer package
 include(InstallRequiredSystemLibraries)
-include(CPack)
-
 # set(CPACK_SET_DESTDIR ON) # Uncomment this line if you need a non-relocatable RPM package
 set(CPACK_RESOURCE_FILE_LICENSE  
      "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
 set(CPACK_PACKAGE_VERSION_MAJOR "${VeilClient_VERSION_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${VeilClient_VERSION_MINOR}")
 set(CPACK_PACKAGE_CONTACT "help@veilfs.com")
-set(CPACK_DEBIAN_PACKAGE_MAINTAINER, "PLGrid")
 
 set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CMAKE_SYSTEM_NAME}")
 
@@ -236,6 +233,8 @@ set(CPACK_RPM_PACKAGE_REQUIRES "fuse")
 # autogenerate dependency information
 set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 # set(CPACK_RPM_PACKAGE_AUTOREQPROV " no") ## Uncomment ot get rid of automatic deps generation
+
+include(CPack)
 
 ###########################
 ##         TESTS         ##
