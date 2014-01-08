@@ -441,10 +441,10 @@ int VeilFS::chown(const char *path, uid_t uid, gid_t gid)
     
     m_metaCache->clearAttr(string(path));
     
-    if((uid_t)-1 != uid)
+    if((uid_t)-1 != (uid_t)uid)
         RETURN_IF_ERROR(m_fslogic->changeFileOwner(string(path), uid, uname));
     
-    if((gid_t)-1 != gid)
+    if((gid_t)-1 != (gid_t)gid)
         RETURN_IF_ERROR(m_fslogic->changeFileGroup(string(path), gid, gname));
     
     return 0;

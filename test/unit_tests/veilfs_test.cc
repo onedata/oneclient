@@ -6,6 +6,7 @@
  */
 
 #include "testCommon.h"
+#include "veilfs_proxy.h"
 #include "fslogicProxy_proxy.h"
 #include "messageBuilder_mock.h"
 #include "config_mock.h"
@@ -25,7 +26,7 @@ class VeilFSTest
 {
 public:
     COMMON_DEFS();
-    boost::shared_ptr<VeilFS> client;
+    boost::shared_ptr<ProxyVeilFS> client;
 
     boost::shared_ptr<MockJobScheduler> jobSchedulerMock;
     boost::shared_ptr<MockFslogicProxy> fslogicMock;
@@ -55,7 +56,7 @@ public:
         EXPECT_CALL(*config, isSet(FUSE_ID_OPT)).WillRepeatedly(Return(false));
         
         VeilFS::staticDestroy();
-        client.reset(new VeilFS("/root", config, 
+        client.reset(new ProxyVeilFS("/root", config, 
                         jobSchedulerMock,
                         fslogicMock, 
                         metaCacheMock,
@@ -84,6 +85,9 @@ public:
         trueAttr.set_mode(11);
         trueAttr.set_gid(54321);
         trueAttr.set_uid(0);
+
+        fileInfo.fh = 0;
+        client->setCachedHelper(0, helperMock);
 
         EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillRepeatedly(Return());
     }
@@ -247,6 +251,7 @@ TEST_F(VeilFSTest, mkdir) { // const char *path, mode_t mode
 }
  
 TEST_F(VeilFSTest, unlink) { // const char *path
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Return(make_pair(location, storage)));
     EXPECT_CALL(*metaCacheMock, clearAttr("/path")).Times(AtLeast(3));
 
     struct stat st;
@@ -470,10 +475,12 @@ TEST_F(VeilFSTest, statfs) { // const char *path, struct statvfs *statInfo
 }
  
 TEST_F(VeilFSTest, flush) { // const char *path, struct fuse_file_info *fileInfo
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(make_pair(location, storage)));
     EXPECT_EQ(0, client->flush("/path", &fileInfo));
 }
  
 TEST_F(VeilFSTest, release) { // const char *path, struct fuse_file_info *fileInfo
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(make_pair(location, storage)));
     EXPECT_CALL(*storageMapperMock, releaseFile("/path")).Times(1);
     EXPECT_EQ(0, client->release("/path", &fileInfo));
 }

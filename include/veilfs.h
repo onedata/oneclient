@@ -45,6 +45,8 @@ namespace client {
 /// Pointer to the Storage Helper's instance
 typedef boost::shared_ptr<helpers::IStorageHelper> sh_ptr;
 
+typedef uint64_t helper_cache_idx_t;
+
 /**
  * The VeilFS main class.
  * This class contains FUSE all callbacks, so it basically is an heart of the filesystem.
@@ -102,7 +104,7 @@ public:
 
         virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
-private:
+protected:
         std::string m_root; ///< Filesystem root directory
         uid_t       m_uid;  ///< Filesystem owner's effective uid
         gid_t       m_gid;  ///< Filesystem owner's effective gid
@@ -124,7 +126,7 @@ private:
         std::map<std::string, std::pair<std::string, time_t> > m_linkCache;         ///< Simple links cache.
         ReadWriteLock m_linkCacheLock;
     
-        boost::unordered_map<uint32_t, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
+        boost::unordered_map<helper_cache_idx_t, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
         ReadWriteLock m_shCacheLock;
 };
 
