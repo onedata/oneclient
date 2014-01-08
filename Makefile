@@ -37,9 +37,11 @@ debug:
 	@(cd ${DEBUG_DIR} && make veilFuse -j`nproc`)
 
 test: release
+	@cd ${RELEASE_DIR} && make 
 	@cd ${RELEASE_DIR} && make test
 
 cunit: release
+	@cd ${RELEASE_DIR} && make 
 	@cd ${RELEASE_DIR} && make cunit
 
 integration_tests: debug

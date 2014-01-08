@@ -12,7 +12,9 @@
 #if VeilClient_DEBUG == 1
     #define DEBUG
 #else
+#ifndef NDEBUG
     #define NDEBUG
+#endif
 #endif
 
 #endif // VEILCONFIG_H

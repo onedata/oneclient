@@ -165,7 +165,7 @@ endif()
 
 set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/${LIB_DIR}:${CMAKE_CURRENT_BINARY_DIR}:.:${LIB_DIR}:../${LIB_DIR}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SECTION_FRAGMENTATION_FLAGS} ${FUSE_DEFINITIONS} -DFUSE_USE_VERSION=29")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -g")
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0 -g")
 set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 set(CMAKE_SKIP_RPATH TRUE) # Something is wrong with CMake RPATH config, we need to use old-fashion way
 
@@ -217,6 +217,7 @@ install(DIRECTORY config/ DESTINATION ${CONFIG_DIR})
 
 # build a CPack driven installer package
 include(InstallRequiredSystemLibraries)
+include(CPack)
 # set(CPACK_SET_DESTDIR ON) # Uncomment this line if you need a non-relocatable RPM package
 set(CPACK_RESOURCE_FILE_LICENSE  
      "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
@@ -233,8 +234,6 @@ set(CPACK_RPM_PACKAGE_REQUIRES "fuse")
 # autogenerate dependency information
 set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 # set(CPACK_RPM_PACKAGE_AUTOREQPROV " no") ## Uncomment ot get rid of automatic deps generation
-
-include(CPack)
 
 ###########################
 ##         TESTS         ##
