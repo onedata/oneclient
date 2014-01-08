@@ -9,8 +9,8 @@ CPACK = $(shell which cpack || which cpack28)
 all: rpm test
 
 rpm: release
-	@cd ${BUILD_DIR} && ${CPACK} -C CPackConfig.cmake -G RPM
-	@cd ${BUILD_DIR} && ${CPACK} -C CPackConfig.cmake -G DEB
+	@cd ${RELEASE_DIR} && ${CPACK} -C CPackConfig.cmake -G RPM
+	@cd ${RELEASE_DIR} && ${CPACK} -C CPackConfig.cmake -G DEB
 
 	@echo ""
 	@echo ""
