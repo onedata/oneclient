@@ -35,6 +35,11 @@
 #define ALIVE_DATA_CONNECTIONS_COUNT_OPT     "alive_data_connections_count"
 #define ENABLE_DIR_PREFETCH_OPT         "enable_dir_prefetch"
 #define ENABLE_PARALLEL_GETATTR_OPT     "enable_parallel_getattr"
+#define WRITE_BUFFER_MAX_SIZE_OPT       "write_buffer_max_size"
+#define READ_BUFFER_MAX_SIZE_OPT        "read_buffer_max_size"
+#define WRITE_BUFFER_MAX_FILE_SIZE_OPT  "write_buffer_max_file_size"
+#define READ_BUFFER_MAX_FILE_SIZE_OPT   "read_buffer_max_file_size"
+#define FILE_BUFFER_PREFERED_BLOCK_SIZE_OPT "file_buffer_prefered_block_size"
 
 
 /// Prefix for all env variables that will be send to cluster
@@ -148,6 +153,12 @@ protected:
         DECLARE_DEFAULT(ENABLE_PARALLEL_GETATTR_OPT, true);
         DECLARE_DEFAULT(ENABLE_DIR_PREFETCH_OPT, true);
         DECLARE_DEFAULT(LOG_DIR_OPT, "/tmp");
+
+        DECLARE_DEFAULT(WRITE_BUFFER_MAX_SIZE_OPT, 64 * 1024 * 1024);       // 64 MB
+        DECLARE_DEFAULT(READ_BUFFER_MAX_SIZE_OPT, 10 * 1024 * 1024);        // 10 MB
+        DECLARE_DEFAULT(WRITE_BUFFER_MAX_FILE_SIZE_OPT, 64 * 1024 * 1024);  // 64 MB
+        DECLARE_DEFAULT(READ_BUFFER_MAX_FILE_SIZE_OPT, 10 * 1024 * 1024);   // 10 MB
+        DECLARE_DEFAULT(FILE_BUFFER_PREFERED_BLOCK_SIZE_OPT, 100 * 1024);   // 100 kB
     }
 
 };
