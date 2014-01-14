@@ -177,7 +177,6 @@ add_executable(veilFuse ${MAIN_SOURCE_FILE})
 
 add_dependencies(veilFuse yaml-cpp glog veilclient) 
 add_dependencies(veilclient yaml-cpp glog veilprotocol veilhelpers) 
-set_target_properties(veilFuse PROPERTIES COMPILE_FLAGS "-g")
 
 target_link_libraries(veilprotocol
     ${PROTOBUF_LIBRARY_CUSTOM}
@@ -222,7 +221,7 @@ set(CPACK_RESOURCE_FILE_LICENSE
      "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
 set(CPACK_PACKAGE_VERSION_MAJOR "${VeilClient_VERSION_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${VeilClient_VERSION_MINOR}")
-set(CPACK_PACKAGE_CONTACT "help@veilfs.com")
+set(CPACK_PACKAGE_CONTACT "help@onedata.com")
 
 set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CMAKE_SYSTEM_NAME}")
 

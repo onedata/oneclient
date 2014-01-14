@@ -41,6 +41,7 @@ using namespace std;
 using namespace boost;
 using namespace veil;
 using namespace veil::client;
+using boost::filesystem::path;
 
 /// Main  application object (filesystem state)
 boost::shared_ptr<VeilFS> VeilAppObject;
@@ -246,7 +247,15 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     // Setup config manager and paths
-    config->setGlobalConfigFile(GLOBAL_CONFIG_FILE);
+    path binDir = path(string(argv[0])).branch_path();
+    path etcDir = binDir / ".." / VeilClient_CONFIG_DIR;
+
+    string configFile = GLOBAL_CONFIG_FILE;
+    if(filesystem::exists(etcDir / GLOBAL_CONFIG_FILE)) {
+        configFile = (etcDir / GLOBAL_CONFIG_FILE).string();
+    }
+    
+    config->setGlobalConfigFile(configFile);
     if(!config->parseConfig())
     {
         std::cerr << "Cannot load/parse global/user config file. Check logs for more detials. Aborting" << std::endl;
