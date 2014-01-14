@@ -126,7 +126,7 @@ void StorageMapper::releaseFile(string logicalName)
             it->second.opened--;
             if(it->second.opened == 0) {
                 m_fileMapping.erase(logicalName);
-                VeilFS::getScheduler()->addTask(Job(time(NULL), m_fslogic, ISchedulable::TASK_SEND_FILE_NOT_USED, logicalName)); // Uncomment in order to inform cluster that file isnt used anymore
+                m_fslogic->sendFileNotUsed(logicalName);
             }
         }
     }
