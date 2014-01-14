@@ -251,9 +251,9 @@ int main(int argc, char* argv[], char* envp[])
     path etcDir = binDir / ".." / VeilClient_CONFIG_DIR;
 
     string configFile = GLOBAL_CONFIG_FILE;
-    if(filesystem::exists(etcDir / GLOBAL_CONFIG_FILE)) {
-        configFile = (etcDir / GLOBAL_CONFIG_FILE).string();
-    }
+    // if(filesystem::exists(etcDir / GLOBAL_CONFIG_FILE)) {
+    //     configFile = (etcDir / GLOBAL_CONFIG_FILE).string();
+    // }
     
     config->setGlobalConfigFile(configFile);
     if(!config->parseConfig())
