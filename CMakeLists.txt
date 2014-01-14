@@ -216,12 +216,12 @@ install(DIRECTORY config/ DESTINATION ${CONFIG_DIR})
 
 # build a CPack driven installer package
 include(InstallRequiredSystemLibraries)
-# set(CPACK_SET_DESTDIR ON) # Uncomment this line if you need a non-relocatable RPM package
+set(CPACK_SET_DESTDIR ON) # Uncomment this line if you need a non-relocatable RPM package
 set(CPACK_RESOURCE_FILE_LICENSE  
      "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
 set(CPACK_PACKAGE_VERSION_MAJOR "${VeilClient_VERSION_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${VeilClient_VERSION_MINOR}")
-set(CPACK_PACKAGE_CONTACT "help@onedata.com")
+set(CPACK_PACKAGE_CONTACT "help@veilfs.com")
 
 set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CMAKE_SYSTEM_NAME}")
 

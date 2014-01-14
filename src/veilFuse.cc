@@ -247,15 +247,7 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     // Setup config manager and paths
-    path binDir = path(string(argv[0])).branch_path();
-    path etcDir = binDir / ".." / VeilClient_CONFIG_DIR;
-
-    string configFile = GLOBAL_CONFIG_FILE;
-    // if(filesystem::exists(etcDir / GLOBAL_CONFIG_FILE)) {
-    //     configFile = (etcDir / GLOBAL_CONFIG_FILE).string();
-    // }
-    
-    config->setGlobalConfigFile(configFile);
+    config->setGlobalConfigFile(GLOBAL_CONFIG_FILE);
     if(!config->parseConfig())
     {
         std::cerr << "Cannot load/parse global/user config file. Check logs for more detials. Aborting" << std::endl;
