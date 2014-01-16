@@ -64,21 +64,19 @@ If there was no errors, you will get list of generated packages (rpm or dep).
 
 VeilClient uses cmake as a build tool thus building process is same as for most cmake-based projects.
 However you can use Makefile-proxy with following interface:
-(Note that -s flag is optional - it's a silent mode which makes output much prettier, because it leaves only cmakes' stdout/stderr)
-
-#### Configure
-
-    make -s configure
+(Note that -s flag is optional - it's a silent mode which makes output much prettier, because it leaves only cmake's stdout/stderr)
     
-#### Build
+#### Build Release binaries
     
-    make -s build
+    make -s release
+    
+#### Build Debug binaries
     
 #### Install
 
     make -s install
     
-#### RPM/DEB packages
+#### RPM/DEB packages (note that this will build always Release binaries)
 
     make -s rpm
 
@@ -99,11 +97,11 @@ Using VeilClient
 
 ### Configuration
 
-First of all you should tune up some config settings. Configuration file can be found in {INSTALL_PREFIX}/etc/veilFuse.conf.
+First of all you should tune up some config settings. Default configuration file can be found in {INSTALL_PREFIX}/etc/veilFuse.conf.default. If it is your first install you should rename this file to {INSTALL_PREFIX}/etc/veilFuse.conf (strip .default suffix).
 In most linux distros deafault {INSTALL_PREFIX} is /usr/local. Configuration options are described in configuration file itself.
 In most cases you want to stick with default values although there are 2 options that requires special care:
 
-* cluster_hostname - hostname of VeilCluster used by client
+* cluster_hostname - hostname of VeilCluster used by client.
 * peer_certificate_file - path to proxy certificate (.pem file) used in SSL session. Paths are relative to HOME env unless absolute path is specified.
 
 You don't edit this global config file if you don't want to. You can also create new file, type options that shall be overriden
