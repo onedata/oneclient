@@ -1,0 +1,50 @@
+# All options are optional. If you ommit the option, default value will be used
+
+  # Hostname and port used to connect to VeilCluster
+    # cluster_hostname: veilfs.com
+    # cluster_port: 5555
+  
+  # Certificate file should be in PEM format and shoud contail all data 
+  # required to establish connection (peer cert, private key, CA stack)
+  # You can either specify absolute path or relative to your home directory
+  # WARNING: relative path won't work if HOME env is not set when FUSE starts
+  # [default = globus-proxy-utils defaults]
+    # peer_certificate_file: .globus/peer.pem
+  
+  # If this option is enabled, it will be possible to override other options
+  # with env variable - toupper(option_name), e.g. CLUSTER_PORT overrides cluster_port option
+  # [default = true]
+    enable_env_option_override: true
+
+  # File attributes cache status [default = true]
+    enable_attr_cache: true
+  # File attributes expiration time (in seconds) [default = 60]
+    attr_cache_expiration_time: 60
+  
+  # File location cache status [default = true] 
+  # Option is not yet supported, default option is always used
+    enable_location_cache: true
+  
+  # Log directory [default = /tmp]
+    # log_dir: /tmp
+  
+  # FUSE ID - the FUSE identificator used by cluster to find out which type of storage helper shall be used
+  # If you don't specify this option, current host name will be used as ID.
+    # fuse_id: testID
+
+  # How often client has to ping cluster in order to keep connection(s) alive (in seconds)
+  # There will be one ping for each connection that has to be keeped alive (see 'alive_connections_count' option)
+    # cluster_ping_interval: 3
+
+  # How many thread will be used to communicate with cluster and manage cache
+    # jobscheduler_threads: 3
+  # How many connections used to fetch meta data has to be keeped alive
+    # alive_meta_connections_count: 2
+  # How many connections used to fetch file content has to be keeped alive
+    # alive_data_connections_count: 2
+
+  # Enables prefetch of files' attributes after entering directory 
+    # enable_dir_prefetch: true
+ 
+  # Enables parallel file attribute fetching (speeds up directory listing) 
+    # enable_parallel_getattr: true
