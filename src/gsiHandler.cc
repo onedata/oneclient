@@ -59,7 +59,9 @@ namespace {
     char vout[STDOUT_MAX_LEN];
     char verr[STDOUT_MAX_LEN];
     bool proxyInitialized = false;
+    
     ReadWriteLock mutex;
+    boost::recursive_mutex certCallbackMutex;
 
     /// Execute globus-proxy-utils program.
     /// @param prog PROXY_INIT value will exec grid-proxy-init app, PROXY_INFO will exec grid-proxy-info app
@@ -239,6 +241,8 @@ bool validateProxyConfig()
 
 bool validateProxyCert() 
 {
+    boost::unique_lock<boost::recursive_mutex> guard(certCallbackMutex);
+    
     string cPathMode = "", cPathMode1 = "", debugStr = (debug ? " -debug" : "");
     struct stat buf;
     int proxyStatus;
