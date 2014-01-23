@@ -48,3 +48,31 @@
  
   # Enables parallel file attribute fetching (speeds up directory listing) 
     # enable_parallel_getattr: true
+    
+    
+  # BufferAgent config:
+
+  # Maximum total size of write buffer (in bytes):
+  # [default = 64MB]
+    # write_buffer_max_size: 67108864
+
+  # Maximum total size of read buffer (in bytes):
+  # [default = 64MB]
+    # read_buffer_max_size: 67108864
+    
+    
+  # Maximum size of read buffer for a single file (in bytes):
+  # [default = 10MB]
+    # read_buffer_max_file_size: 10485760
+    
+  # Maximum size of write buffer for a single file  (in bytes):
+  # [default = 10MB]
+    # write_buffer_max_file_size: 10485760
+
+  # Prefered block size for read/write operations (in bytes):
+  # [default = 100kB]
+    # file_buffer_prefered_block_size: 102400
+    
+    
+    
+    
