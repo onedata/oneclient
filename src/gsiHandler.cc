@@ -59,7 +59,9 @@ namespace {
     char vout[STDOUT_MAX_LEN];
     char verr[STDOUT_MAX_LEN];
     bool proxyInitialized = false;
+    
     ReadWriteLock mutex;
+    boost::recursive_mutex certCallbackMutex;
 
     /// Execute globus-proxy-utils program.
     /// @param prog PROXY_INIT value will exec grid-proxy-init app, PROXY_INFO will exec grid-proxy-info app
@@ -137,6 +139,11 @@ namespace {
         }
 
         // Cleanup
+        for(int i = 0; i < argc; ++i)
+        {
+            free(argv[i]);
+        }
+
         fclose(fout);
         fclose(ferr);
 
@@ -234,6 +241,8 @@ bool validateProxyConfig()
 
 bool validateProxyCert() 
 {
+    boost::unique_lock<boost::recursive_mutex> guard(certCallbackMutex);
+    
     string cPathMode = "", cPathMode1 = "", debugStr = (debug ? " -debug" : "");
     struct stat buf;
     int proxyStatus;
@@ -250,6 +259,10 @@ bool validateProxyCert()
 
     if(! (proxyStatus = grid_proxy_utils(PROXY_INFO, cPathMode + " -e -v 1:0" + debugStr)) && (userCert == "" || userKey == "")) 
         return true;
+    
+    /// This value shall be returned instead of 'false' in this function
+    /// After first proxy initialization, failure doesn't break existing proxy, so the function shall return 'true'
+    int failureValue = !proxyStatus && proxyInitialized;
 
     // At this point we know that there is not valid proxy certificate 
     // Lets find user certificate
@@ -260,19 +273,19 @@ bool validateProxyCert()
         cerr << "   2) $HOME/" << GLOBUS_PEM_CERT_PATH << endl;
         cerr << "   3) $HOME/" << GLOBUS_P12_PATH << endl;
 
-        return false;
+        return failureValue;
     } 
 
     if(stat(userCert.c_str(), &buf) != 0) {
         cerr << "Error: Couldn't find valid credentials to generate a proxy." << endl;
         cerr << "You have no permissions to read user cert file: " << userCert << endl;
-        return false;
+        return failureValue;
     }
 
     if((buf.st_mode & ACCESSPERMS) > 0644 || (buf.st_mode & (S_IWGRP | S_IXGRP | S_IWOTH | S_IXOTH))) {
         cerr << "Error: Couldn't find valid credentials to generate a proxy." << endl;
         cerr << "Your user cert file: " << userCert << " is to permissive. Maximum of 0644." << endl;
-        return false;
+        return failureValue;
     }
 
     // Lets find user key
@@ -283,19 +296,19 @@ bool validateProxyCert()
         cerr << "   2) $HOME/" << GLOBUS_PEM_KEY_PATH << endl;
         cerr << "   3) $HOME/" << GLOBUS_P12_PATH << endl;
 
-        return false;
+        return failureValue;
     }
 
     if(stat(userKey.c_str(), &buf) != 0) {
         cerr << "Error: Couldn't find valid credentials to generate a proxy." << endl;
         cerr << "You have no permissions to read user key file: " << userKey << endl;
-        return false;
+        return failureValue;
     }
 
     if((buf.st_mode & ACCESSPERMS) > 0600 || (buf.st_mode & (S_IRWXO | S_IRWXG))) {
         cerr << "Error: Couldn't find valid credentials to generate a proxy." << endl;
         cerr << "Your user key file: " << userKey << " is to permissive. Maximum of 0600." << endl;
-        return false;
+        return failureValue;
     }
 
     // Initialize OpenSSL file.
@@ -303,7 +316,7 @@ bool validateProxyCert()
     if(file == NULL)
     {
         cerr << "Internal SSL BIO error." << endl;
-        return false;
+        return failureValue;
     }
 
     // Read key file
@@ -313,13 +326,14 @@ bool validateProxyCert()
          cerr << "Failed to read your key file: " << userKey << " (try checking read permissions)." << endl;
 
          CRYPTO_FREE(BIO, file);
-         return false;
+         return failureValue;
     }
 
     LOG(INFO) << "GSI Handler: parsing userKey file: " << userKey;
 
 
     // Load algorithms
+    EVP_cleanup();
     OpenSSL_add_all_algorithms();
     OpenSSL_add_all_ciphers();
     OpenSSL_add_all_digests();
@@ -340,7 +354,7 @@ bool validateProxyCert()
             LOG(ERROR) << "GSI Handler: parsing userKey as PEM failed due to inavlid passphrase";
 
             CRYPTO_FREE(BIO, file);
-            return false;
+            return failureValue;
         } else { // Try to read .p12
             LOG(INFO) << "GSI Handler: parsing userKey as PEM failed, trying as PKCS12: " << userKey;
             if(BIO_read_filename(file, userKey.c_str()) <= 0)
@@ -349,7 +363,7 @@ bool validateProxyCert()
                  cerr << "Failed to read your key file: " << userKey << " (try checking read permissions)." << endl;
 
                  BIO_free(file);
-                 return false;
+                 return failureValue;
             }
 
             PKCS12 *p12 = d2i_PKCS12_bio(file, NULL);
@@ -362,7 +376,7 @@ bool validateProxyCert()
                 LOG(ERROR) << "GSI Handler: parsing userKey PEM / PKCS12 failed due to: " << ERR_error_string(e, NULL) << " / " << ERR_error_string(e2, NULL);
 
                 CRYPTO_FREE(BIO, file);
-                return false;
+                return failureValue;
             } else {
                 string pswd = (cachedKeyPassphrase.size() > 0 ? cachedKeyPassphrase : getPasswd("Enter MAC pass phrase for your identity: ", 1024));
                 if(!PKCS12_parse(p12, pswd.c_str(), &key, &cert, NULL)) {
@@ -374,7 +388,7 @@ bool validateProxyCert()
                         LOG(ERROR) << "GSI Handler: parsing userKey as PKCS12 failed due to inavlid passphrase";
 
                         CRYPTO_FREE(BIO, file);
-                        return false;
+                        return failureValue;
                     } else {
                         cerr << "Error: Cannot parse .p12 file. " << MSG_DEBUG_INFO << endl;
                         if(debug)
@@ -383,7 +397,7 @@ bool validateProxyCert()
                         LOG(ERROR) << "GSI Handler: parsing userKey as PKCS12 failed due to: " << ERR_error_string(e1, NULL);
 
                         CRYPTO_FREE(BIO, file);
-                        return false;
+                        return failureValue;
                     }
                 } else {
                     cachedKeyPassphrase = pswd;

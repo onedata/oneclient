@@ -87,11 +87,11 @@ TEST_F(JobSchedulerTest, AddAndDelete) {
     proxy.addTask(Job(currT - 2, jobContext2_, jobContext1_->TASK_SEND_FILE_NOT_USED, "a3", "b", "3"));
     proxy.addTask(Job(currT - 1, jobContext1_, jobContext1_->TASK_SEND_FILE_NOT_USED, "a4", "b", "4"));
 
-    proxy.addTask(Job(currT + 3, jobContext1_, jobContext1_->TASK_SEND_FILE_NOT_USED, "2", "2", "2"));
-    proxy.addTask(Job(currT + 2, jobContext1_, jobContext1_->TASK_SEND_FILE_NOT_USED, "1", "1", "1"));
-    proxy.addTask(Job(currT + 3, jobContext1_, jobContext1_->TASK_CLEAR_FILE_ATTR, "1", "2", "3"));
-    proxy.addTask(Job(currT + 3, jobContext2_, jobContext1_->TASK_SEND_FILE_NOT_USED, "1", "2", "3"));
-    proxy.addTask(Job(currT + 3, jobContext2_, jobContext1_->TASK_SEND_FILE_NOT_USED, "4", "5", "6"));
+    proxy.addTask(Job(currT + 4, jobContext1_, jobContext1_->TASK_SEND_FILE_NOT_USED, "2", "2", "2"));
+    proxy.addTask(Job(currT + 3, jobContext1_, jobContext1_->TASK_SEND_FILE_NOT_USED, "1", "1", "1"));
+    proxy.addTask(Job(currT + 4, jobContext1_, jobContext1_->TASK_CLEAR_FILE_ATTR, "1", "2", "3"));
+    proxy.addTask(Job(currT + 4, jobContext2_, jobContext1_->TASK_SEND_FILE_NOT_USED, "1", "2", "3"));
+    proxy.addTask(Job(currT + 4, jobContext2_, jobContext1_->TASK_SEND_FILE_NOT_USED, "4", "5", "6"));
 
     sleep(1);
 
@@ -106,5 +106,5 @@ TEST_F(JobSchedulerTest, AddAndDelete) {
         EXPECT_CALL(*jobContext1_, runTask(jobContext1_->TASK_SEND_FILE_NOT_USED, "2", "2", "2")).Times(1);
     }
 
-    sleep(3);
+    sleep(4);
 }

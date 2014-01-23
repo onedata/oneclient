@@ -297,6 +297,8 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, 
     if(answer.answer_status() != VOK) 
     {
         LOG(WARNING) << "Cluster send non-ok message. status = " << answer.answer_status();
+        if(answer.answer_status() == INVALID_FUSE_ID)
+            VeilFS::getConfig()->negotiateFuseID(0);
         return false;
     }
     
@@ -330,6 +332,9 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
 
     if(answer.answer_status() != VEIO)
         VeilFS::getConnectionPool()->releaseConnection(connection);
+
+    if(answer.answer_status() == INVALID_FUSE_ID)
+        VeilFS::getConfig()->negotiateFuseID(0);
     
     string atom = m_messageBuilder->decodeAtomAnswer(answer);
     

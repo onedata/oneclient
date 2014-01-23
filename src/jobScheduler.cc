@@ -5,9 +5,11 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
+#include "config.h"
 #include "jobScheduler.h"
 #include "glog/logging.h"
 #include "lock.h"
+
 
 #include <sys/time.h>
 
@@ -141,7 +143,7 @@ void JobScheduler::schedulerMain()
 
 void JobScheduler::runJob(Job job)
 {
-    LOG(INFO) << "Processing job... TaskID: " << job.task << " (" << job.arg0 << ", " << job.arg1 << ", " << job.arg2 << ")";
+    DLOG(INFO) << "Processing job... TaskID: " << job.task << " (" << job.arg0 << ", " << job.arg1 << ", " << job.arg2 << ")";
     if(!job.subject || !job.subject->runTask(job.task, job.arg0, job.arg1, job.arg2))
         LOG(WARNING) << "Task with id: " << job.task << " failed";
 }
@@ -149,7 +151,7 @@ void JobScheduler::runJob(Job job)
 void JobScheduler::addTask(Job job)
 {
     pthread_mutex_lock(&m_mutex);
-    LOG(INFO) << "Scheduling task with id: " << job.task;
+    DLOG(INFO) << "Scheduling task with id: ";
     m_jobQueue.push(job);
 
     PTHREAD_CMD(pthread_cond_broadcast(&m_queueCond));

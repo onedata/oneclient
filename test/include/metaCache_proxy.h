@@ -15,7 +15,7 @@ class ProxyMetaCache
     : public MetaCache {
 
 public:
-    map<string, pair<time_t, struct stat> >& getStatMap() {
+    boost::unordered_map<string, pair<time_t, struct stat> >& getStatMap() {
         return m_statMap;
     }
 

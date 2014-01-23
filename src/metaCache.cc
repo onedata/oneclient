@@ -15,7 +15,7 @@
 #include <memory.h>
 
 using namespace std;
-using namespace boost;
+using boost::unordered_map;
 
 
 namespace veil {
@@ -53,7 +53,7 @@ void MetaCache::addAttr(string path, struct stat &attr)
 bool MetaCache::getAttr(string path, struct stat* attr)
 {
     AutoLock lock(m_statMapLock, READ_LOCK);
-    map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
+    unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
     if(it == m_statMap.end())
         return false;
 
@@ -73,7 +73,7 @@ void MetaCache::clearAttr(string path)
 {
     AutoLock lock(m_statMapLock, WRITE_LOCK);
     LOG(INFO) << "delete attrs from cache for file: " << path;
-    map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
+    unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
     if(it != m_statMap.end())
         m_statMap.erase(it);
 }
@@ -99,12 +99,12 @@ bool MetaCache::updateTimes(string path, time_t atime, time_t mtime, time_t ctim
 
 bool MetaCache::updateSize(string path, size_t size)
 {
-    struct stat attr;
-    if(!getAttr(path, &attr))
+    AutoLock lock(m_statMapLock, WRITE_LOCK);
+    unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
+    if(it == m_statMap.end())
         return false;
 
-    attr.st_size = size;
-    addAttr(path, attr);
+    it->second.second.st_size = size;
 
     return true;
 }

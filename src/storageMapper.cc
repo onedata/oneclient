@@ -56,7 +56,7 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(string logicalNam
     if(it1 == m_storageMapping.end())
         throw VeilException(VEIO, "cannot find storage information");
 
-    LOG(INFO) << "found mapping for file: " << logicalName << " fileId: " << location.fileId << " storageId: " << location.storageId;
+    //LOG(INFO) << "found mapping for file: " << logicalName << " fileId: " << location.fileId << " storageId: " << location.storageId;
     return make_pair(it->second, it1->second);
 }
 
@@ -126,7 +126,7 @@ void StorageMapper::releaseFile(string logicalName)
             it->second.opened--;
             if(it->second.opened == 0) {
                 m_fileMapping.erase(logicalName);
-                VeilFS::getScheduler()->addTask(Job(time(NULL), m_fslogic, ISchedulable::TASK_SEND_FILE_NOT_USED, logicalName)); // Uncomment in order to inform cluster that file isnt used anymore
+                m_fslogic->sendFileNotUsed(logicalName);
             }
         }
     }
