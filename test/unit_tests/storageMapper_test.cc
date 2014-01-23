@@ -81,7 +81,10 @@ TEST_F(StorageMapperTest, AddAndGet) {
 }
 
 TEST_F(StorageMapperTest, OpenClose) {
-    EXPECT_CALL(*scheduler, addTask(_)).Times(6);
+    EXPECT_CALL(*scheduler, addTask(_)).Times(4);
+    EXPECT_CALL(*mockFslogic, sendFileNotUsed("/file1")).WillOnce(Return(true));
+    EXPECT_CALL(*mockFslogic, sendFileNotUsed("/file2")).WillOnce(Return(true));
+    
     FileLocation location;
     proxy->addLocation("/file1", location);
     proxy->addLocation("/file2", location);

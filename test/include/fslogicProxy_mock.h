@@ -33,6 +33,7 @@ public:
     MOCK_METHOD4(updateTimes, string(string, time_t, time_t, time_t));
     MOCK_METHOD3(changeFileOwner, string(string, uid_t, string));
     MOCK_METHOD3(changeFileGroup, string(string, gid_t, string));
+    MOCK_METHOD1(sendFileNotUsed, bool(string));
     
 };
 
