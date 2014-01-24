@@ -178,6 +178,7 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
     // At this point we have attributes from cluster 
 
     statbuf->st_mode = attr.mode(); // File type still has to be set, fslogic gives only permissions in mode field
+    statbuf->st_nlink = attr.links();
 
     statbuf->st_atime = attr.atime();
     statbuf->st_mtime = attr.mtime();
