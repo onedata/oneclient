@@ -279,7 +279,9 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
     }
 
     m_metaCache->clearAttr(string(path));
-    m_metaCache->clearAttr((boost::filesystem::path( string(path) ) / ".." ).string());
+
+    // Clear parent's cache
+    m_metaCache->clearAttr((boost::filesystem::path( string(path) ) / ".." ).normalize().string()); 
 
     FileLocation location;
     if(!m_fslogic->getNewFileLocation(string(path), mode & ALLPERMS, location))
@@ -326,6 +328,8 @@ int VeilFS::mkdir(const char *path, mode_t mode)
 {
     LOG(INFO) << "FUSE: mkdir(path: " << string(path) << ", mode: " << mode << ")";
     m_metaCache->clearAttr(string(path));
+    // Clear parent's cache
+    m_metaCache->clearAttr((boost::filesystem::path( string(path) ) / ".." ).normalize().string());
 
     RETURN_IF_ERROR(m_fslogic->createDir(string(path), mode & ALLPERMS));
     VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
@@ -365,6 +369,8 @@ int VeilFS::rmdir(const char *path)
 {
     LOG(INFO) << "FUSE: rmdir(path: " << string(path) << ")";
     m_metaCache->clearAttr(string(path));
+    // Clear parent's cache
+    m_metaCache->clearAttr((boost::filesystem::path( string(path) ) / ".." ).normalize().string());
 
     RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
     VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
