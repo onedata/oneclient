@@ -213,8 +213,6 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
             Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, string(path), "0");
             VeilFS::getScheduler()->addTask(readDirTask);
         }
-
-        statbuf->st_nlink = 2; /// TODO: fetch subdir count
     }
     else if(attr.type() == "LNK")
     {
