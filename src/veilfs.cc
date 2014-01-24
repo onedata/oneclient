@@ -279,6 +279,7 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
     }
 
     m_metaCache->clearAttr(string(path));
+    m_metaCache->clearAttr((boost::filesystem::path( string(path) ) / ".." ).string());
 
     FileLocation location;
     if(!m_fslogic->getNewFileLocation(string(path), mode & ALLPERMS, location))
