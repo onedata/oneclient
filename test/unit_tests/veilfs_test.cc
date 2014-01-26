@@ -242,7 +242,7 @@ TEST_F(VeilFSTest, mknod) { // const char *path, mode_t mode, dev_t dev
  
 TEST_F(VeilFSTest, mkdir) { // const char *path, mode_t mode
     EXPECT_CALL(*metaCacheMock, clearAttr("/path"));
-    EXPECT_CALL(*metaCacheMock, clearAttr("/"));
+    EXPECT_CALL(*metaCacheMock, clearAttr("/")).WillRepeatedly(Return());
     EXPECT_CALL(*fslogicMock, createDir("/path", 123)).WillOnce(Return(VEACCES));
     EXPECT_EQ(-EACCES, client->mkdir("/path", 123 | S_IFDIR));
 
@@ -294,7 +294,7 @@ TEST_F(VeilFSTest, unlink) { // const char *path
  
 TEST_F(VeilFSTest, rmdir) { // const char *path
     EXPECT_CALL(*metaCacheMock, clearAttr("/path"));
-    EXPECT_CALL(*metaCacheMock, clearAttr("/"));
+    EXPECT_CALL(*metaCacheMock, clearAttr("/")).WillRepeatedly(Return());
     EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VEACCES));
     EXPECT_EQ(-EACCES, client->rmdir("/path"));
 
