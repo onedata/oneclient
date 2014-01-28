@@ -126,9 +126,9 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 
 # Utility libs
-find_library(LTDL_LIBRARY libltdl.a ltdl)
+find_library(LTDL_LIBRARY NAMES libltdl.a ltdl)
 find_library(RT_LIBRARY rt)
-find_library(ZLIB_LIBRARY libz.a z)
+find_library(ZLIB_LIBRARY NAMES libz.a z)
 find_library(DL_LIBRARY dl)
 
 # Pull git submodules

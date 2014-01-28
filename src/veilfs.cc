@@ -178,6 +178,7 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
     // At this point we have attributes from cluster 
 
     statbuf->st_mode = attr.mode(); // File type still has to be set, fslogic gives only permissions in mode field
+    statbuf->st_nlink = attr.links();
 
     statbuf->st_atime = attr.atime();
     statbuf->st_mtime = attr.mtime();
@@ -212,8 +213,6 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
             Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, string(path), "0");
             VeilFS::getScheduler()->addTask(readDirTask);
         }
-
-        statbuf->st_nlink = 2; /// TODO: fetch subdir count
     }
     else if(attr.type() == "LNK")
     {
@@ -326,6 +325,8 @@ int VeilFS::mkdir(const char *path, mode_t mode)
 {
     LOG(INFO) << "FUSE: mkdir(path: " << string(path) << ", mode: " << mode << ")";
     m_metaCache->clearAttr(string(path));
+    // Clear parent's cache
+    m_metaCache->clearAttr(PARENT(path));
 
     RETURN_IF_ERROR(m_fslogic->createDir(string(path), mode & ALLPERMS));
     VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
@@ -365,6 +366,8 @@ int VeilFS::rmdir(const char *path)
 {
     LOG(INFO) << "FUSE: rmdir(path: " << string(path) << ")";
     m_metaCache->clearAttr(string(path));
+    // Clear parent's cache
+    m_metaCache->clearAttr(PARENT(path));
 
     RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
     VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)

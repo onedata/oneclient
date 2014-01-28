@@ -46,7 +46,7 @@ Use this command to install the required dependency packages:
 
 * RHEL/CentOS/Fedora Dependencies (.rpm packages):
 
-        yum install fuse fuse-libs fuse-devel protobuf-devel openssl-devel cmake28 boost-devel boost-static rpm-build subversion zlib-devel libglobus-*-devel libtool
+        yum install fuse fuse-libs fuse-devel protobuf-devel openssl-devel cmake28 boost-devel boost-static rpm-build subversion zlib-devel "globus-*-devel" libtool libtool-ltdl-devel
 
         
 Compilation
