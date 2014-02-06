@@ -216,7 +216,7 @@ void Config::testHandshake()
 		// Check answer
 		if(ans.answer_status() == VOK)
 			return;
-		else if(ans.answer_status() == "no_user_found_error")
+		else if(ans.answer_status() == NO_USER_FOUND_ERROR)
 			throw VeilException(NO_USER_FOUND_ERROR,"Cannot find user in database.");
 		else
 			throw VeilException(ans.answer_status(),"Cannot negotatiate FUSE_ID");
