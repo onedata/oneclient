@@ -84,7 +84,8 @@ public:
     virtual std::string getFuseID();                            ///< Returns current FuseID.
     virtual void negotiateFuseID(time_t delay = 0);             ///< Starts FuseID negotiation process.
                                                                 ///< @param delay Since this is async actions, you can specify execution delay in seconds.
-    
+    virtual void testHandshake();								///< Synchronously negotiate FuseID to test if everything is ok
+
     virtual std::string getString(std::string opt);             ///< Returns string value of requested option.
                                                                 ///< Before using this function you should check is option exists, but
                                                                 ///< it's not required. @see Config::isSet
