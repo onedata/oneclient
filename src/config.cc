@@ -175,6 +175,56 @@ void Config::negotiateFuseID(time_t delay)
     VeilFS::getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->addTask(Job(time(NULL) + delay, VeilFS::getConfig(), ISchedulable::TASK_CONNECTION_HANDSHAKE));    
 }
 
+void Config::testHandshake()
+{
+    AutoLock lock(m_access, WRITE_LOCK);
+
+    ClusterMsg cMsg;
+    HandshakeRequest reqMsg;
+    HandshakeRequest::EnvVariable *varEntry;
+    Answer ans;
+
+    MessageBuilder builder;
+    boost::shared_ptr<CommunicationHandler> conn;
+
+    char tmpHost[1024];
+    gethostname(tmpHost, sizeof(tmpHost));
+    string hostname = string(tmpHost);
+
+	conn = VeilFS::getConnectionPool()->selectConnection();
+	if(conn)
+	{
+		// Build HandshakeRequest message
+		reqMsg.set_hostname(hostname);
+
+		// Iterate over all env variables
+		map<string, string>::const_iterator it;
+		for(it = m_envAll.begin(); it != m_envAll.end(); ++it)
+		{
+			if(!boost::istarts_with((*it).first, FUSE_OPT_PREFIX)) // Reject vars with invalid prefix
+				continue;
+			varEntry = reqMsg.add_variable();
+			varEntry->set_name( (*it).first.substr(string(FUSE_OPT_PREFIX).size()) );
+			varEntry->set_value( (*it).second );
+		}
+		cMsg = builder.createClusterMessage(FSLOGIC, HandshakeRequest::descriptor()->name(), HandshakeResponse::descriptor()->name(), FUSE_MESSAGES, true);
+		cMsg.set_input(reqMsg.SerializeAsString());
+
+		// Send HandshakeRequest message
+		ans = conn->communicate(cMsg, 2);
+
+		// Check answer
+		if(ans.answer_status() == VOK)
+			return;
+		else if(ans.answer_status() == NO_USER_FOUND_ERROR)
+			throw VeilException(NO_USER_FOUND_ERROR,"Cannot find user in database.");
+		else
+			throw VeilException(ans.answer_status(),"Cannot negotatiate FUSE_ID");
+	}
+	else
+		throw VeilException(NO_CONNECTION_FOR_HANDSHAKE,"Cannot select connection for handshake operation,");
+}
+
 bool Config::runTask(TaskID taskId, string arg0, string arg1, string arg2)
 {
     AutoLock lock(m_access, WRITE_LOCK);

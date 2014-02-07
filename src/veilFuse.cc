@@ -321,6 +321,26 @@ int main(int argc, char* argv[], char* envp[])
         exit(1);
     }
 
+	// Initialize cluster handshake in order to check if everything is ok before becoming daemon
+	boost::shared_ptr<SimpleConnectionPool> testPool(new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), gsi::validateProxyCert));
+	VeilFS::setConnectionPool(testPool);
+	try{
+		config->testHandshake();
+	}
+	catch (VeilException exception) {
+		if(exception.veilError()==NO_USER_FOUND_ERROR)
+			cerr << "Cannot find user, remember to login through website before mounting fuse. Aborting" << endl;
+		else if(exception.veilError()==NO_CONNECTION_FOR_HANDSHAKE)
+			cerr << "Cannot connect to server. Aborting" << endl;
+		else
+			cerr << "Handshake error. Aborting" << endl;
+		fuse_unmount(mountpoint, ch);
+		exit(1);
+	}
+	//cleanup test connections
+	VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> ());
+	testPool.reset();
+
     LOG(INFO) << "Proxy certificate to be used: " << gsi::getProxyCertPath();
     cout << "VeilFS has been successfully mounted in " + string(mountpoint) << endl;
 
