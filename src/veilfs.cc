@@ -504,7 +504,12 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
             atime = time(NULL);
 
         if(atime || mtime)
+        {
+            // Update access times in meta cache right away
+            (void) m_metaCache->updateTimes(string(path), atime, mtime);
+            
             VeilFS::getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(atime), utils::toString(mtime)));
+        }
     }
 
     return sh_return;
