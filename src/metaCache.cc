@@ -59,9 +59,6 @@ bool MetaCache::getAttr(string path, struct stat* attr)
 
     if(attr != NULL) // NULL pointer is allowed to be used as parameter
         memcpy(attr, &(*it).second.second, sizeof(struct stat));
-    
-    if(attr != NULL)
-        LOG(INFO) << "Return attr with times: " << attr->st_atime << " " << attr->st_mtime << " " << attr->st_ctime;
 
     return true;
 }
@@ -86,13 +83,11 @@ bool MetaCache::updateTimes(string path, time_t atime, time_t mtime, time_t ctim
     struct stat attr;
     if(!getAttr(path, &attr))
         return false;
-    
-    LOG(INFO) << "Set times to: " << atime << " " << mtime << " " << ctime ;
 
     if(atime)
         attr.st_atime = atime;
     if(mtime)
-        attr.st_atime = mtime;
+        attr.st_mtime = mtime;
     if(ctime)
         attr.st_ctime = ctime;
 
