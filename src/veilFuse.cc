@@ -338,8 +338,7 @@ int main(int argc, char* argv[], char* envp[])
 		exit(1);
 	}
 	//cleanup test connections
-	VeilFS::getConnectionPool()->deleteAllConnections(SimpleConnectionPool::META_POOL);
-	VeilFS::getConnectionPool()->deleteAllConnections(SimpleConnectionPool::DATA_POOL);
+	VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> ());
 	testPool.reset();
 
     LOG(INFO) << "Proxy certificate to be used: " << gsi::getProxyCertPath();
