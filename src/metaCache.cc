@@ -83,6 +83,8 @@ bool MetaCache::updateTimes(string path, time_t atime, time_t mtime, time_t ctim
     struct stat attr;
     if(!getAttr(path, &attr))
         return false;
+    
+    LOG(INFO) << "Set times to: " << atime << " " << mtime << " " << ctime ;
 
     if(atime)
         attr.st_atime = atime;

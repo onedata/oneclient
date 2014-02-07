@@ -78,7 +78,7 @@ string StorageMapper::findLocation(string logicalName)
 
 void StorageMapper::addLocation(string logicalName, FileLocation location)
 {
-    LOG(INFO) << "adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(NULL) << " + " << ntohl(location.validity());
+    LOG(INFO) << "adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(NULL) << " + " << location.validity();
 
     locationInfo info;
     info.validTo = time(NULL) + location.validity();
