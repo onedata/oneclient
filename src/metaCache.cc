@@ -87,7 +87,7 @@ bool MetaCache::updateTimes(string path, time_t atime, time_t mtime, time_t ctim
     if(atime)
         attr.st_atime = atime;
     if(mtime)
-        attr.st_atime = mtime;
+        attr.st_mtime = mtime;
     if(ctime)
         attr.st_ctime = ctime;
 

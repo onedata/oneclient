@@ -151,7 +151,7 @@ void JobScheduler::runJob(Job job)
 void JobScheduler::addTask(Job job)
 {
     pthread_mutex_lock(&m_mutex);
-    DLOG(INFO) << "Scheduling task with id: ";
+    DLOG(INFO) << "Scheduling task with id: " << job.task << " (" << job.arg0 << ", " << job.arg1 << ", " << job.arg2 << ")";
     m_jobQueue.push(job);
 
     PTHREAD_CMD(pthread_cond_broadcast(&m_queueCond));
