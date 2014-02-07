@@ -81,7 +81,6 @@ void MetaCache::clearAttr(string path)
 bool MetaCache::updateTimes(string path, time_t atime, time_t mtime, time_t ctime)
 {
     struct stat attr;
-    
     if(!getAttr(path, &attr))
         return false;
 
