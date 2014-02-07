@@ -322,7 +322,7 @@ int main(int argc, char* argv[], char* envp[])
     }
 
 	// Initialize cluster handshake in order to check if everything is ok before becoming daemon
-	boost::shared_ptr<SimpleConnectionPool> testPool(new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), gsi::validateProxyCert));
+	boost::shared_ptr<SimpleConnectionPool> testPool(new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), gsi::validateProxyCert,1,0));
 	VeilFS::setConnectionPool(testPool);
 	try{
 		config->testHandshake();
