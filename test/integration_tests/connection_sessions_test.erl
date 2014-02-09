@@ -42,3 +42,7 @@ exec({check_session_variables, FuseID, Vars}) ->
         {ok, {veil_document, _, _, {fuse_session, _UID, _Hostname, Vars}, _}}     -> ok;
         Other  -> Other
     end.
+fun({check_session_variables, FuseID, Vars}) -> case dao_lib:apply(dao_cluster, get_fuse_session, [FuseID], 1) of
+        {ok, {veil_document, _, _, {fuse_session, _UID, _Hostname, Vars}, _}}     -> ok;
+        Other  -> Other
+    end end.

@@ -18,9 +18,12 @@
 setup(ccm) ->
     ok;
 setup(worker) ->
-    DirectIORoot = filename:join([os:getenv(?TEST_ROOT_VAR), "directIO_root"]),
+    DirectIORoot = "/tmp/dio",
+    file:del_dir(DirectIORoot),
+    file:make_dir(DirectIORoot),
     os:putenv("DIO_ROOT", DirectIORoot), 
-    fslogic_storage:insert_storage("DirectIO", [DirectIORoot]),
+    Fuse_groups = [{fuse_group_info, "cluster_fid", {storage_helper_info, "DirectIO", [DirectIORoot]}}],
+    fslogic_storage:insert_storage("ClusterProxy", [], Fuse_groups),
     DirectIORoot.
 
 
