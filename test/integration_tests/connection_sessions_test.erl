@@ -31,7 +31,7 @@ exec({env, VarName}) ->
 
 %% Check if session with FuseID exists in DB
 exec({check_session, FuseID}) ->
-    case dao_lib:apply(dao_cluster, get_fuse_env, [FuseID], 1) of
+    case dao_lib:apply(dao_cluster, get_fuse_session, [FuseID], 1) of
         {ok, _}     -> ok;
         Other       -> Other
     end;

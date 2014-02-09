@@ -358,7 +358,7 @@ int main(int argc, char* argv[], char* envp[])
     // Initialize VeilClient application
     VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (
         new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), gsi::validateProxyCert)));
-
+    
     // Setup veilhelpers config
     veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool());
     veil::helpers::config::buffers::writeBufferGlobalSizeLimit  = config->getInt(WRITE_BUFFER_MAX_SIZE_OPT);
@@ -366,10 +366,6 @@ int main(int argc, char* argv[], char* envp[])
     veil::helpers::config::buffers::writeBufferPerFileSizeLimit = config->getInt(WRITE_BUFFER_MAX_FILE_SIZE_OPT);
     veil::helpers::config::buffers::readBufferPerFileSizeLimit  = config->getInt(READ_BUFFER_MAX_FILE_SIZE_OPT);
     veil::helpers::config::buffers::preferedBlockSize           = config->getInt(FILE_BUFFER_PREFERED_BLOCK_SIZE_OPT);
-
-    // Maximum connection count setup
-    VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, config->getInt(ALIVE_META_CONNECTIONS_COUNT_OPT));
-    VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::DATA_POOL, config->getInt(ALIVE_DATA_CONNECTIONS_COUNT_OPT));
 
     // Start all jobSchedulers
     for(int i = 1; i < config->getInt(JOBSCHEDULER_THREADS_OPT); ++i)
