@@ -114,14 +114,14 @@ setup(NodeType, TestName) ->
     setup1(NodeType, TestName).
 
 setup1(NodeType, TestName) ->
-    ?INFO("Setup: ~p:~p", [NodeType, TestName]),
-
     %% Run test specific setup method
-    try apply(list_to_atom(TestName), setup, [NodeType]) of 
+    R = 
+    try apply(list_to_atom(TestName), setup, [NodeType]) of
         Res2 -> Res2 
     catch 
         Type2:Error2 -> {Type2, Error2, erlang:get_stacktrace()}
-    end.
+    end,
+    ?INFO("Setup {~p, ~p}: ~p", [NodeType, TestName, R]).
    
 
 %% Teardown runs on cluster node !    
@@ -161,7 +161,8 @@ load_mods(_Nodes, []) ->
     ok;
 load_mods(Nodes, [Module | Rest]) ->
     {Mod, Bin, File} = code:get_object_code(Module),
-    {_Replies, _} = rpc:multicall(Nodes, code, load_binary, [Mod, File, Bin]),
+    {_, _} = rpc:multicall(Nodes, code, purge, [Mod]),
+    {_Replies, _} = rpc:multicall(Nodes, code, load_binary, [Mod, Bin]),
     load_mods(Nodes, Rest).
 
 
