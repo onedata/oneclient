@@ -161,6 +161,7 @@ load_mods(_Nodes, []) ->
     ok;
 load_mods(Nodes, [Module | Rest]) ->
     {Mod, Bin, File} = code:get_object_code(Module),
+    {_, _} = rpc:multicall(Nodes, code, delete, [Mod]),
     {_, _} = rpc:multicall(Nodes, code, purge, [Mod]),
     {_Replies, _} = rpc:multicall(Nodes, code, load_binary, [Mod, Bin]),
     load_mods(Nodes, Rest).
