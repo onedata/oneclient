@@ -99,12 +99,12 @@ setup(worker, TestName) ->
         catch
             Type:Error -> {Type, Error, erlang:get_stacktrace()}
         end,
-    RegisterRes = 
-        try test_common:register_user("peer.pem") of 
-            Res1 -> Res1
-        catch
-            Type1:Error1 -> {Type1, Error1, erlang:get_stacktrace()}
-        end,
+    RegisterRes = skipped,
+        % try test_common:register_user("peer.pem") of
+        %     Res1 -> Res1
+        % catch
+        %     Type1:Error1 -> {Type1, Error1, erlang:get_stacktrace()}
+        % end,
 
     ?INFO("DB Wipe result: ~p", [WipeRes]),
     ?INFO("Register test user result: ~p", [RegisterRes]),

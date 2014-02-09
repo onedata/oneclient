@@ -24,6 +24,9 @@ setup(worker) ->
     os:putenv("DIO_ROOT", DirectIORoot), 
     Fuse_groups = [{fuse_group_info, "cluster_fid", {storage_helper_info, "DirectIO", [DirectIORoot]}}],
     fslogic_storage:insert_storage("ClusterProxy", [], Fuse_groups),
+    
+    test_common:register_user("peer.pem"),
+
     DirectIORoot.
 
 

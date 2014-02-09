@@ -17,6 +17,7 @@
 setup(ccm) ->
     ok;
 setup(worker) ->
+    test_common:register_user("peer.pem"),
     ok.
 
 
