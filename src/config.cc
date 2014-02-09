@@ -214,9 +214,14 @@ void Config::testHandshake()
 		ans = conn->communicate(cMsg, 2);
 
 		// Check answer
-		if(ans.answer_status() == VOK)
-			return;
-		else if(ans.answer_status() == NO_USER_FOUND_ERROR)
+		if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
+        {
+			// Set FUSE_ID in config
+            m_globalNode[FUSE_ID_OPT] = resMsg.fuse_id();
+            
+            return;
+		}
+        else if(ans.answer_status() == NO_USER_FOUND_ERROR)
 			throw VeilException(NO_USER_FOUND_ERROR,"Cannot find user in database.");
 		else
 			throw VeilException(ans.answer_status(),"Cannot negotatiate FUSE_ID");
