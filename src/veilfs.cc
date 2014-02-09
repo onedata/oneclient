@@ -99,7 +99,7 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
     VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::DATA_POOL, VeilFS::getConfig()->getInt(ALIVE_DATA_CONNECTIONS_COUNT_OPT));
 
     // Initialize cluster handshake in order to receive FuseID
-    if(!VeilFS::getConfig()->getFuseID())
+    if(VeilFS::getConfig()->getFuseID() == "")
         VeilFS::getConfig()->negotiateFuseID();
     
     if(m_fslogic) {
