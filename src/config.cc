@@ -182,6 +182,7 @@ void Config::testHandshake()
     ClusterMsg cMsg;
     HandshakeRequest reqMsg;
     HandshakeRequest::EnvVariable *varEntry;
+    HandshakeResponse resMsg;
     Answer ans;
 
     MessageBuilder builder;
