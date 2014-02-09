@@ -170,6 +170,12 @@ double Config::getDouble(string opt)
 
 void Config::negotiateFuseID(time_t delay)
 {
+    string oldSessId = getFuseID();
+    AutoLock lock(m_access, WRITE_LOCK);
+    
+    if(getFuseID() != oldSessId)
+        return;
+    
     // Delete old jobs, we dont need them since we are adding new one anyway
     VeilFS::getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->deleteJobs(VeilFS::getConfig().get(), ISchedulable::TASK_CONNECTION_HANDSHAKE); 
     VeilFS::getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->addTask(Job(time(NULL) + delay, VeilFS::getConfig(), ISchedulable::TASK_CONNECTION_HANDSHAKE));    
