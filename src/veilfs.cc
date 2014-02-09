@@ -97,9 +97,6 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
     // Maximum connection count setup
     VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, VeilFS::getConfig()->getInt(ALIVE_META_CONNECTIONS_COUNT_OPT));
     VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::DATA_POOL, VeilFS::getConfig()->getInt(ALIVE_DATA_CONNECTIONS_COUNT_OPT));
-
-    // Initialize cluster handshake in order to receive FuseID
-    VeilFS::getConfig()->negotiateFuseID();
     
     if(m_fslogic) {
         if(VeilFS::getScheduler() && VeilFS::getConfig()) {
