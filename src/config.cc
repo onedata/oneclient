@@ -182,6 +182,7 @@ void Config::testHandshake()
     ClusterMsg cMsg;
     HandshakeRequest reqMsg;
     HandshakeRequest::EnvVariable *varEntry;
+    HandshakeResponse resMsg;
     Answer ans;
 
     MessageBuilder builder;
@@ -214,9 +215,14 @@ void Config::testHandshake()
 		ans = conn->communicate(cMsg, 2);
 
 		// Check answer
-		if(ans.answer_status() == VOK)
-			return;
-		else if(ans.answer_status() == NO_USER_FOUND_ERROR)
+		if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
+        {
+			// Set FUSE_ID in config
+            m_globalNode[FUSE_ID_OPT] = resMsg.fuse_id();
+            
+            return;
+		}
+        else if(ans.answer_status() == NO_USER_FOUND_ERROR)
 			throw VeilException(NO_USER_FOUND_ERROR,"Cannot find user in database.");
 		else
 			throw VeilException(ans.answer_status(),"Cannot negotatiate FUSE_ID");
@@ -227,7 +233,11 @@ void Config::testHandshake()
 
 bool Config::runTask(TaskID taskId, string arg0, string arg1, string arg2)
 {
+    string oldSessId = getFuseID();
     AutoLock lock(m_access, WRITE_LOCK);
+    
+    if(taskId == TASK_CONNECTION_HANDSHAKE && getFuseID() != oldSessId)
+        return true;
     
     ClusterMsg cMsg;
     HandshakeRequest reqMsg;

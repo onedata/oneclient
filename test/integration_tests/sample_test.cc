@@ -37,15 +37,9 @@ protected:
         // Initialization of the whole client. 
         // This initialization is not required if test uses only filesystem (theres no VeilClient code calls)
         COMMON_INTEGRATION_SETUP();
-
-        // Get storage helper root dir path from cluster env variable 
-        directIO_root = path(erlExec("{env, \"DIO_ROOT\"}"));
-        create_directory(directIO_root);
     }
 
     virtual void TearDown() {
-        remove_all(directIO_root, ec);
-
         COMMON_INTEGRATION_CLEANUP();
     }
 
@@ -53,7 +47,7 @@ protected:
 
 // This test shows how you can call sample_test:exec/1 method on cluster environment
 TEST_F(SampleTest, clusterCommandExec) {
-    EXPECT_EQ(string(getenv("TEST_ROOT")) + "/directIO_root", erlExec("{env, \"DIO_ROOT\"}"));
+    EXPECT_EQ(string("/tmp/dio"), erlExec("{env, \"DIO_ROOT\"}"));
 }
 
 // VFS.getRoot() is set to the root of mounted VeilFS. Therefore you can just 
