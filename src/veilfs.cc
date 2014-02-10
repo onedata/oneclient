@@ -478,6 +478,9 @@ int VeilFS::utime(const char *path, struct utimbuf *ubuf)
 {
     LOG(INFO) << "FUSE: utime(path: " << string(path) << ", ...)";
 
+    // Update access times in meta cache right away
+    (void) m_metaCache->updateTimes(string(path), ubuf->actime, ubuf->modtime);
+    
     VeilFS::getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(ubuf->actime), utils::toString(ubuf->modtime)));
 
     return 0;
