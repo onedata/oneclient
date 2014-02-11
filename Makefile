@@ -5,7 +5,7 @@ CMAKE = $(shell which cmake || which cmake28)
 CPACK = $(shell which cpack || which cpack28)
 
 
-.PHONY: rpm build release debug clean all
+.PHONY: rpm build release debug docs clean all
 all: rpm test
 
 rpm: release
@@ -50,5 +50,8 @@ integration_tests: debug
 install: release
 	@cd ${RELEASE_DIR} && make install
 
+docs:
+	@doxygen Doxyfile
+
 clean: 
-	@rm -rf ${DEBUG_DIR} ${RELEASE_DIR} build
+	@rm -rf ${DEBUG_DIR} ${RELEASE_DIR} build doc
