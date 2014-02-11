@@ -48,6 +48,7 @@
 #define ATOM "atom"
 
 #define FSLOGIC "fslogic"
+#define CLUSTER_RENGINE "cluster_rengine"
 
 #define ACTION_NOT_ALLOWED "not_allowed"
 #define ACTION_FAILED "action_failed"

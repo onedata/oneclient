@@ -35,6 +35,7 @@
 #include "gsiHandler.h"
 #include "glog/logging.h"
 
+#include "fslogicProxy.h"
 
 
 using namespace std;
@@ -208,6 +209,48 @@ static void fuse_init()
 
 #include "gsi_utils.h"
 
+// // Function called when cluster sends message saying that client should emit events.
+// bool eventsNeededHandler(const protocol::communication_protocol::Answer &msg)
+// {
+//     using namespace veil::protocol::fuse_messages;
+//     using namespace veil::protocol::communication_protocol;
+
+//     LOG(INFO) << "EventsNeededHandler !!!!!!!!!";
+//     TestChannelAnswer tMsg;
+
+//     tMsg.ParseFromString(msg.worker_answer());
+//     LOG(INFO) << "Message: " + tMsg.message();
+
+    // ClusterMsg clm;
+    // clm.set_protocol_version(PROTOCOL_VERSION);
+    // clm.set_synch(false);
+    // clm.set_module_name(CLUSTER_RENGINE);
+    // clm.set_message_type(ATOM);
+    // clm.set_answer_type(ATOM);
+    // clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
+    // clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL);
+
+    // Atom ping;
+    // ping.set_value("event");
+    // clm.set_input(ping.SerializeAsString());
+
+    // LOG(INFO) << "Response created";
+
+    // boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+
+    // LOG(INFO) << "Connection selected";
+
+    // Answer ans;
+    // if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
+    //     LOG(WARNING) << "sending message failed: " << (connection ? "failed" : "not needed");
+    // } else {
+    //     VeilFS::getConnectionPool()->releaseConnection(connection);
+    //     LOG(INFO) << "Response sent";
+    // }
+
+//     return true;
+// }
+
 int main(int argc, char* argv[], char* envp[]) 
 {
     // Turn off logging for a while
@@ -376,12 +419,15 @@ int main(int argc, char* argv[], char* envp[])
         VeilFS::addScheduler(boost::shared_ptr<JobScheduler>(new JobScheduler()));
 
     // Initialize main application object
-    VeilAppObject.reset(new VeilFS(mountpoint, config,
+    VeilFS * veilfs = new VeilFS(mountpoint, config,
                         boost::shared_ptr<JobScheduler>(new JobScheduler()),
                         boost::shared_ptr<FslogicProxy>(new FslogicProxy()),
                         boost::shared_ptr<MetaCache>(new MetaCache()),
                         boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(new FslogicProxy()))),
-                        boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory())));
+                        boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()));
+    VeilAppObject.reset(veilfs);
+
+    VeilFS::getPushListener()->subscribe(boost::bind(&VeilFS::eventsNeededHandler, veilfs, _1));
 
     // Enter FUSE loop
     if (multithreaded)

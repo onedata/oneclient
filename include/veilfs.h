@@ -102,6 +102,8 @@ public:
         int fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo); /**< *fsyncdir* FUSE callback. Not implemented yet. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
         int init(struct fuse_conn_info *conn); /**< *init* FUSE callback. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
 
+        bool eventsNeededHandler(const protocol::communication_protocol::Answer &msg); ///< Function called when cluster sends message saying that client should emit events.
+
         virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 protected:
@@ -111,6 +113,8 @@ protected:
         uid_t       m_ruid;  ///< Filesystem root real uid
         gid_t       m_rgid;  ///< Filesystem root real gid
         uint64_t    m_fh;
+
+        bool m_eventsNeeded;
         
         static ReadWriteLock m_schedulerPoolLock;
 
@@ -128,6 +132,10 @@ protected:
     
         boost::unordered_map<helper_cache_idx_t, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
         ReadWriteLock m_shCacheLock;
+
+private:
+        void sendEvent();
+
 };
 
 } // namespace client

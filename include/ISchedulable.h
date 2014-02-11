@@ -41,7 +41,8 @@ public:
         TASK_ASYNC_UPDATE_TIMES,
         TASK_CLEAR_ATTR,
         TASK_CONNECTION_HANDSHAKE,
-        TASK_LAST_ID
+        TASK_LAST_ID,
+        TASK_SEND_EVENT
     };
 
     ISchedulable();

@@ -374,6 +374,7 @@ void FslogicProxy::pingCluster(string nth)
     } else {
         VeilFS::getConnectionPool()->releaseConnection(connection);
         LOG(INFO) << "Cluster ping... ---> " << ans.answer_status();
+        LOG(INFO) << "Michal ping 123";
     }
 
     // Send another...
