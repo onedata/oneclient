@@ -78,7 +78,8 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
     m_storageMapper(mapper),
     m_metaCache(metaCache),
     m_shFactory(sh_factory),
-    m_fh(0)
+    m_fh(0),
+    m_eventsNeeded(false)
 {
     if(path.size() > 1 && path[path.size()-1] == '/')
         path = path.substr(0, path.size()-1);
@@ -126,6 +127,21 @@ void VeilFS::staticDestroy()
     }
     m_connectionPool.reset();
     m_pushListener.reset();
+}
+
+// Function called when cluster sends message saying that client should emit events.
+bool VeilFS::eventsNeededHandler(const protocol::communication_protocol::Answer &msg)
+{
+
+    LOG(INFO) << "EventsNeededHandler !!!!!!!!!";
+    TestChannelAnswer tMsg;
+
+    m_eventsNeeded = true;
+
+    tMsg.ParseFromString(msg.worker_answer());
+    LOG(INFO) << "Message: " + tMsg.message();
+
+    return true;
 }
 
 int VeilFS::access(const char *path, int mask)
@@ -330,6 +346,10 @@ int VeilFS::mkdir(const char *path, mode_t mode)
 
     RETURN_IF_ERROR(m_fslogic->createDir(string(path), mode & ALLPERMS));
     VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
+
+    if(m_eventsNeeded){
+        VeilFS::getScheduler()->addTask(Job(time(NULL) + 1, shared_from_this(), TASK_SEND_EVENT));
+    }
 
     return 0;
 }
@@ -784,8 +804,43 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
             (void) m_metaCache->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2));
         return true;
 
+    case TASK_SEND_EVENT:
+        sendEvent();
+        return true;
+
     default:
         return false;
+    }
+}
+
+void VeilFS::sendEvent(){
+    using namespace veil::protocol::communication_protocol;
+    
+    ClusterMsg clm;
+    clm.set_protocol_version(PROTOCOL_VERSION);
+    clm.set_synch(false);
+    clm.set_module_name(CLUSTER_RENGINE);
+    clm.set_message_type(ATOM);
+    clm.set_answer_type(ATOM);
+    clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
+    clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL);
+
+    Atom ping;
+    ping.set_value("event");
+    clm.set_input(ping.SerializeAsString());
+
+    LOG(INFO) << "Response created";
+
+    boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+
+    LOG(INFO) << "Connection selected";
+
+    Answer ans;
+    if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
+        LOG(WARNING) << "sending message failed: " << (connection ? "failed" : "not needed");
+    } else {
+        VeilFS::getConnectionPool()->releaseConnection(connection);
+        LOG(INFO) << "Response sent";
     }
 }
 
