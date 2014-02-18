@@ -216,15 +216,18 @@ TEST_F(VeilFSTest, mknod) { // const char *path, mode_t mode, dev_t dev
 
     newLoc.set_answer(VOK);
     EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _)).WillOnce(Return(false));
+    EXPECT_CALL(*fslogicMock, sendFileCreatedAck("/path")).Times(0);
     EXPECT_EQ(-EIO, client->mknod("/path", 123 | S_IFREG, dev));
 
     newLoc.set_answer(VEACCES);
     EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _)).WillOnce(DoAll(SetArgReferee<2>(newLoc), Return(true)));   
+    EXPECT_CALL(*fslogicMock, sendFileCreatedAck("/path")).Times(0);
     EXPECT_EQ(-EACCES, client->mknod("/path", 123 | S_IFREG, dev)); 
 
     newLoc.set_answer(VOK);
     newLoc.set_file_id("fid");
     EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _)).WillOnce(DoAll(SetArgReferee<2>(newLoc), Return(true)));
+    EXPECT_CALL(*fslogicMock, sendFileCreatedAck("/path")).Times(0);
     EXPECT_CALL(*storageMapperMock, addLocation("/path", Property(&FileLocation::file_id, StrEq("fid")))).WillOnce(Return()); 
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _)).WillOnce(Throw(VeilException(VEACCES)));
     EXPECT_EQ(-EACCES, client->mknod("/path", 123 | S_IFREG, dev));
@@ -232,6 +235,7 @@ TEST_F(VeilFSTest, mknod) { // const char *path, mode_t mode, dev_t dev
     newLoc.set_answer(VOK);
     newLoc.set_file_id("fid");
     EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _)).WillOnce(DoAll(SetArgReferee<2>(newLoc), Return(true)));
+    EXPECT_CALL(*fslogicMock, sendFileCreatedAck("/path")).WillOnce(Return());
     EXPECT_CALL(*storageMapperMock, addLocation("/path", Property(&FileLocation::file_id, StrEq("fid")))).WillOnce(Return()); 
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _)).WillOnce(Return(make_pair(location, storage)));
     EXPECT_CALL(*helperMock, sh_mknod(StrEq("fileid"), 123 | S_IFREG, dev));
