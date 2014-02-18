@@ -324,6 +324,8 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
                 LOG(ERROR) << "Cannot change group owner of file " << sPath << " to: " << groupName;
         }
 
+        m_fslogic->sendFileCreatedAck(string(path));
+
         VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
     }
     return sh_return;
