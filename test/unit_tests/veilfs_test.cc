@@ -56,6 +56,7 @@ public:
         EXPECT_CALL(*config, isSet(FUSE_ID_OPT)).WillRepeatedly(Return(false));
         
         VeilFS::staticDestroy();
+        VeilFS::setConnectionPool(connectionPool);
         client.reset(new ProxyVeilFS("/root", config, 
                         jobSchedulerMock,
                         fslogicMock, 
