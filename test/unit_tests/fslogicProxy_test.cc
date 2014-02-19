@@ -224,6 +224,17 @@ TEST_F(FslogicProxyTest, getNewFileLocation) {
 
 }
 
+TEST_F(FslogicProxyTest, sendFileCreatedAck) {
+    proxy.mockAnswer = true;   
+    CreateFileAck msg;
+    msg.set_file_logic_name("/file");
+
+    Answer answer;
+
+    EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).Times(1);
+    proxy.sendFileCreatedAck("/file");
+}
+
 TEST_F(FslogicProxyTest, renewFileLocation) {
     proxy.mockAnswer = true;
     RenewFileLocation msg;
