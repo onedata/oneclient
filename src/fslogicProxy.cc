@@ -88,17 +88,16 @@ bool FslogicProxy::getNewFileLocation(string logicName, mode_t mode, FileLocatio
     return true;
 }
 
-void FslogicProxy::sendFileCreatedAck(string logicName)
+string FslogicProxy::sendFileCreatedAck(string logicName)
 {
     LOG(INFO) << "getting new file location for file: " << logicName;
 
     CreateFileAck msg;
     msg.set_file_logic_name(logicName);
 
-    // Cluster is supposed to return OK message
-    // Answer is not checked because there is nothing to do in case of failure
-    Answer answer;
-    sendFuseReceiveAnswer(msg, answer);
+    string serializedAnswer = sendFuseReceiveAtom(msg);
+
+    return serializedAnswer;
 }
 
 int FslogicProxy::renewFileLocation(string logicName)
