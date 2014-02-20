@@ -143,13 +143,13 @@ bool Config::parseConfig()
 
     return true;
 }
-
-string Config::absPathRelToCWD(path p)
+    
+string Config::absPathRelTo(path relTo, path p)
 {
     path out = p.normalize();
     
     if(p.is_relative()) {
-        out = (path(string(m_envCWD)) / p).normalize();
+        out = (relTo / p).normalize();
     }
     
     if(!getMountPoint().empty() &&
@@ -160,20 +160,14 @@ string Config::absPathRelToCWD(path p)
     return out.normalize().string();
 }
 
+string Config::absPathRelToCWD(path p)
+{
+    return absPathRelTo(string(m_envCWD), p);
+}
+
 string Config::absPathRelToHOME(path p)
 {
-    path out = p.normalize();
-    
-    if(p.is_relative()) {
-        out = (path(string(m_envHOME)) / p).normalize();
-    }
-    
-    if(!getMountPoint().empty() &&
-       out.normalize().string().find(getMountPoint().normalize().string()) == 0) {
-        throw VeilException("path_error", string("Cannot access '") + out.string() + "' because the file is within your filesystem mount point - " + getMountPoint().string());
-    }
-    
-    return out.normalize().string();
+    return absPathRelTo(string(m_envHOME), p);
 }
 
 string Config::getString(string opt) 
