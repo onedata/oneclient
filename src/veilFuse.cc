@@ -36,7 +36,6 @@
 #include "glog/logging.h"
 
 
-
 using namespace std;
 using namespace boost;
 using namespace veil;
@@ -206,7 +205,6 @@ static void fuse_init()
     oper_init();
 }
 
-#include "gsi_utils.h"
 
 int main(int argc, char* argv[], char* envp[]) 
 {
@@ -322,7 +320,7 @@ int main(int argc, char* argv[], char* envp[])
     }
 
 	// Initialize cluster handshake in order to check if everything is ok before becoming daemon
-	boost::shared_ptr<SimpleConnectionPool> testPool(new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), gsi::validateProxyCert,1,0));
+	boost::shared_ptr<SimpleConnectionPool> testPool(new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), boost::bind(&gsi::getCertInfo)));
 	VeilFS::setConnectionPool(testPool);
 	try{
 		config->testHandshake();
@@ -341,7 +339,6 @@ int main(int argc, char* argv[], char* envp[])
 	VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> ());
 	testPool.reset();
 
-    LOG(INFO) << "Proxy certificate to be used: " << gsi::getProxyCertPath();
     cout << "VeilFS has been successfully mounted in " + string(mountpoint) << endl;
 
     fuse_remove_signal_handlers(fuse_get_session(fuse));
@@ -357,7 +354,7 @@ int main(int argc, char* argv[], char* envp[])
 
     // Initialize VeilClient application
     VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (
-        new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), gsi::validateProxyCert)));
+        new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), boost::bind(&gsi::getCertInfo))));
     
     // Setup veilhelpers config
     veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool());

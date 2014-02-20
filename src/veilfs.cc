@@ -586,7 +586,7 @@ int VeilFS::flush(const char *path, struct fuse_file_info *fileInfo)
     sh_ptr storage_helper;
     {
         AutoLock guard(m_shCacheLock, READ_LOCK);
-        storage_helper = m_shCache[fileInfo->fh]
+        storage_helper = m_shCache[fileInfo->fh];
     }
     CUSTOM_SH_RUN(storage_helper , sh_flush(lInfo.fileId.c_str(), fileInfo));
     

@@ -37,8 +37,6 @@ add_subdirectory(${DEPS_DIR}/yaml-cpp)
 add_subdirectory(${DEPS_DIR}/gmock)
 add_subdirectory(${DEPS_DIR}/veilhelpers)
 
-add_subdirectory(src/globus-proxy-utils)
-
 link_directories(${PROJECT_BINARY_DIR})
 
 
@@ -190,7 +188,6 @@ target_link_libraries(veilclient
     ${PROTOBUF_LIBRARY_CUSTOM}
     ${VEILHELPERS_LIBRARIES}
     ${GLOBUS_DEPS}
-    globus_proxy_utils
     veilprotocol
     ${PLATFORM_EXTRA_LIBS}
 )
@@ -201,7 +198,6 @@ target_link_libraries(veilFuse
     ${VEILHELPERS_LIBRARIES}
     ${PROTOBUF_LIBRARY_CUSTOM}
     veilclient
-    globus_proxy_utils
     ${GLOBUS_DEPS}
     ${OPENSSL_LIBRARIES}
     ${PLATFORM_EXTRA_LIBS}
@@ -271,7 +267,6 @@ foreach(file ${files})
         ${VEILHELPERS_LIBRARIES}
         ${PROTOBUF_LIBRARY_CUSTOM}
         veilclient
-        globus_proxy_utils
         ${GLOBUS_DEPS}
         ${OPENSSL_LIBRARIES}
         ${PLATFORM_EXTRA_LIBS}
@@ -316,7 +311,6 @@ foreach(file ${files})
         ${VEILHELPERS_LIBRARIES}
         ${PROTOBUF_LIBRARY_CUSTOM}
         veilclient
-        globus_proxy_utils
         ${GLOBUS_DEPS}
         ${OPENSSL_LIBRARIES}
         erlTestCore
