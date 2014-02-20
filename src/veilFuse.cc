@@ -303,9 +303,10 @@ int main(int argc, char* argv[], char* envp[])
         exit(1);
     
     // Set mount point in global config
-    Config::setMountPoint(string(mountpoint));
-    
-    LOG(INFO) << "Using mount point path: " << Config::getMountPoint().string();
+    if(mountpoint) {
+        Config::setMountPoint(string(mountpoint));
+        LOG(INFO) << "Using mount point path: " << Config::getMountPoint().string();
+    }
     
     // Check proxy certificate
     if(!gsi::validateProxyConfig())
