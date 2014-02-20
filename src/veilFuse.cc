@@ -225,6 +225,7 @@ int main(int argc, char* argv[], char* envp[])
     fuse_opt_add_arg(&args, "-obig_writes");
 
     bool debug = false; // Assume silent mode
+    bool showVersionOnly = false;
 
     boost::shared_ptr<Config> config(new Config());
     VeilFS::setConfig(config);
@@ -248,6 +249,9 @@ int main(int argc, char* argv[], char* envp[])
                  << VeilClient_VERSION_MAJOR << "."
                  << VeilClient_VERSION_MINOR << "."
                  << VeilClient_VERSION_PATCH << endl;
+            showVersionOnly = true;
+        } else if(string(argv[i]) == "--help") {
+            showVersionOnly = true;
         }
     }
 
@@ -301,6 +305,10 @@ int main(int argc, char* argv[], char* envp[])
     res = fuse_parse_cmdline(&args, &mountpoint, &multithreaded, &foreground);
     if (res == -1)
         exit(1);
+
+    if(showVersionOnly) { // Exit after showing full version info or help banner
+        exit(EXIT_SUCCESS);
+    }
     
     // Set mount point in global config
     if(mountpoint) {
