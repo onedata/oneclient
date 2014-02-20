@@ -59,6 +59,11 @@ namespace {
     // Buffers containing user certificates
     BUF_MEM *key_buff = NULL;
     BUF_MEM *chain_buff = NULL;
+
+    // Paths to currently loaded certs
+    string userCertPath;
+    string userKeyPath;
+
     
     ReadWriteLock mutex;
     boost::recursive_mutex certCallbackMutex;
@@ -421,6 +426,21 @@ bool validateProxyCert()
         return false;
     }
 
+    // Save cert/key file path for further use
+    userCertPath = userCert;
+    userKeyPath = userKey;
+
+    // Look for proxy extension
+    for(int i = 0; i < X509_get_ext_count(cert); ++i)
+    {
+        X509_EXTENSION *ext = X509_get_ext(cert, i);
+        int nid = OBJ_obj2nid(ext->object);
+        if(nid == NID_proxyCertInfo && cachedKeyPassphrase.size() == 0 && userCert == userKey) { // Proxy certificate
+            proxyInitialized = true;
+            LOG(INFO) << "Proxy certificate detected.";
+        }
+    }
+
     string current_dn = extractDN(cert);
     string tmp_dn = "";
 
@@ -451,7 +471,13 @@ bool validateProxyCert()
 }
 
 CertificateInfo getCertInfo() {
-    return CertificateInfo(const_buffer(chain_buff->data, chain_buff->length), const_buffer(key_buff->data, key_buff->length));
+    if(proxyInitialized) {
+        LOG(INFO) << "Accesing certificates via filesystem: " << userCertPath << " " << userKeyPath;
+        return CertificateInfo(userCertPath, userKeyPath, CertificateInfo::PEM);
+    } else {
+        LOG(INFO) << "Accesing certificates via internal memory buffer.";
+        return CertificateInfo(const_buffer(chain_buff->data, chain_buff->length), const_buffer(key_buff->data, key_buff->length));   
+    }
 }
 
 
