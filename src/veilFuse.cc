@@ -244,13 +244,13 @@ int main(int argc, char* argv[], char* envp[])
         if(string(argv[i]) == "-debug") // GSI Handler's debug flag
             gsi::debug = true;
 
-        if(string(argv[i]) == "--version") {
+        if(string(argv[i]) == "--version" || string(argv[i]) == "-V") {
             cout << "VeilFuse version: " 
                  << VeilClient_VERSION_MAJOR << "."
                  << VeilClient_VERSION_MINOR << "."
                  << VeilClient_VERSION_PATCH << endl;
             showVersionOnly = true;
-        } else if(string(argv[i]) == "--help") {
+        } else if(string(argv[i]) == "--help" || string(argv[i]) == "-h") {
             showVersionOnly = true;
         }
     }
