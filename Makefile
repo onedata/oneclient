@@ -27,13 +27,13 @@ build: release
 	@ln -sf ${RELEASE_DIR} build
 
 release: 
-	@find ${RELEASE_DIR} -name "veilhelpers-update" -exec rm -rf {} \;
+	-@find ${RELEASE_DIR} -name "veilhelpers-update" -exec rm -rf {} \;
 	@mkdir -p ${RELEASE_DIR}
 	@cd ${RELEASE_DIR} && ${CMAKE} -DCMAKE_BUILD_TYPE=release ..
 	@(cd ${RELEASE_DIR} && make veilFuse -j`nproc`)
 
 debug: 
-	@find ${DEBUG_DIR} -name "veilhelpers-update" -exec rm -rf {} \;
+	-@find ${DEBUG_DIR} -name "veilhelpers-update" -exec rm -rf {} \;
 	@mkdir -p ${DEBUG_DIR}
 	@cd ${DEBUG_DIR} && ${CMAKE} -DCMAKE_BUILD_TYPE=debug ..
 	@(cd ${DEBUG_DIR} && make veilFuse -j`nproc`)
