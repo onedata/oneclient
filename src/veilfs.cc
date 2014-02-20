@@ -305,9 +305,14 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
     GET_LOCATION_INFO(path);
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_mknod(lInfo.fileId.c_str(), mode, dev));
+
+    // if file existed before we consider it as a success and we want to apply same actions (chown and sending an acknowledgement)
+    if(sh_return == -EEXIST)
+        sh_return = 0;
+
     if(sh_return != 0)
         (void) m_fslogic->deleteFile(string(path));
-    else { // File created, now we shall take care of its owner
+    else { // File created, now we shall take care of its owner.
         std::vector<std::string> tokens;
         std::string sPath = string(path).substr(1);
         boost::split(tokens, sPath, boost::is_any_of("/"));
@@ -325,6 +330,8 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
         }
 
         VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
+
+        RETURN_IF_ERROR(m_fslogic->sendFileCreatedAck(string(path)));
     }
     return sh_return;
 }
