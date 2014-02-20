@@ -305,11 +305,12 @@ int main(int argc, char* argv[], char* envp[])
     // Set mount point in global config
     Config::setMountPoint(string(mountpoint));
     
+    LOG(INFO) << "Using mount point path: " << Config::getMountPoint().string();
+    
     // Check proxy certificate
     if(!gsi::validateProxyConfig())
     {
         std::cerr << "Cannot continue. Aborting" << std::endl;
-        fuse_unmount(mountpoint, ch);
         exit(1);
     }
 
@@ -335,7 +336,7 @@ int main(int argc, char* argv[], char* envp[])
 	try{
 		config->testHandshake();
 	}
-	catch (VeilException exception) {
+	catch (VeilException &exception) {
 		if(exception.veilError()==NO_USER_FOUND_ERROR)
 			cerr << "Cannot find user, remember to login through website before mounting fuse. Aborting" << endl;
 		else if(exception.veilError()==NO_CONNECTION_FOR_HANDSHAKE)
