@@ -19,18 +19,35 @@
         [
             "-I${folder:${project_path:veilclient.sublime-project}}/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/src",
-            "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/yaml-cpp/src/yaml-cpp/include",
-            "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/glog/src/glog/src",
+            "-I${folder:${project_path:veilclient.sublime-project}}/release/deps/yaml-cpp/src/yaml-cpp/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/release/deps/glog/src/glog/src",
             "-I${folder:${project_path:veilclient.sublime-project}}/test/include",
-            "-I${folder:${project_path:veilclient.sublime-project}}/build/include",
-            "-I${folder:${project_path:veilclient.sublime-project}}/build/include",
-            "-I${folder:${project_path:veilclient.sublime-project}}/build",
-            "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/veilhelpers/src/veilhelpers/include",
-            "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/veilhelpers/src/veilhelpers/test/include",
-            "-I${folder:${project_path:veilclient.sublime-project}}/build/deps/veilhelpers/src/veilhelpers-build/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/release/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/release/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/release",
+            "-I${folder:${project_path:veilclient.sublime-project}}/release/deps/veilhelpers/src/veilhelpers/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/release/deps/veilhelpers/src/veilhelpers/test/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/release/deps/veilhelpers/src/veilhelpers-build/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/src/globus-proxy-utils",
+
+            "-I${folder:${project_path:veilclient.sublime-project}}/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/src",
+            "-I${folder:${project_path:veilclient.sublime-project}}/debug/deps/yaml-cpp/src/yaml-cpp/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/debug/deps/glog/src/glog/src",
+            "-I${folder:${project_path:veilclient.sublime-project}}/test/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/debug/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/debug/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/debug",
+            "-I${folder:${project_path:veilclient.sublime-project}}/debug/deps/veilhelpers/src/veilhelpers/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/debug/deps/veilhelpers/src/veilhelpers/test/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/debug/deps/veilhelpers/src/veilhelpers-build/include",
+            "-I${folder:${project_path:veilclient.sublime-project}}/src/globus-proxy-utils",
+
+
             "-D_FILE_OFFSET_BITS=64",
             "-DFUSE_USE_VERSION=29",
-            "-ferror-limit=0"
+            "-ferror-limit=0",
+            "-Wno-deprecated-declarations"
         ] 
 	}
 	

@@ -36,7 +36,6 @@
 #include "glog/logging.h"
 
 
-
 using namespace std;
 using namespace boost;
 using namespace veil;
@@ -206,7 +205,6 @@ static void fuse_init()
     oper_init();
 }
 
-#include "gsi_utils.h"
 
 int main(int argc, char* argv[], char* envp[]) 
 {
@@ -244,6 +242,13 @@ int main(int argc, char* argv[], char* envp[])
 
         if(string(argv[i]) == "-debug") // GSI Handler's debug flag
             gsi::debug = true;
+
+        if(string(argv[i]) == "--version") {
+            cout << "VeilFuse version: " 
+                 << VeilClient_VERSION_MAJOR << "."
+                 << VeilClient_VERSION_MINOR << "."
+                 << VeilClient_VERSION_PATCH << endl;
+        }
     }
 
     // Setup config manager and paths
@@ -296,6 +301,18 @@ int main(int argc, char* argv[], char* envp[])
     res = fuse_parse_cmdline(&args, &mountpoint, &multithreaded, &foreground);
     if (res == -1)
         exit(1);
+    
+    // Set mount point in global config
+    Config::setMountPoint(string(mountpoint));
+    
+    LOG(INFO) << "Using mount point path: " << Config::getMountPoint().string();
+    
+    // Check proxy certificate
+    if(!gsi::validateProxyConfig())
+    {
+        std::cerr << "Cannot continue. Aborting" << std::endl;
+        exit(1);
+    }
 
     ch = fuse_mount(mountpoint, &args);
     if (!ch)
@@ -313,21 +330,13 @@ int main(int argc, char* argv[], char* envp[])
 
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
-    // Check proxy certificate
-    if(!gsi::validateProxyConfig())
-    {
-        std::cerr << "Cannot continue. Aborting" << std::endl;
-        fuse_unmount(mountpoint, ch);
-        exit(1);
-    }
-
 	// Initialize cluster handshake in order to check if everything is ok before becoming daemon
-	boost::shared_ptr<SimpleConnectionPool> testPool(new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), gsi::validateProxyCert,1,0));
+	boost::shared_ptr<SimpleConnectionPool> testPool(new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), boost::bind(&gsi::getCertInfo)));
 	VeilFS::setConnectionPool(testPool);
 	try{
 		config->testHandshake();
 	}
-	catch (VeilException exception) {
+	catch (VeilException &exception) {
 		if(exception.veilError()==NO_USER_FOUND_ERROR)
 			cerr << "Cannot find user, remember to login through website before mounting fuse. Aborting" << endl;
 		else if(exception.veilError()==NO_CONNECTION_FOR_HANDSHAKE)
@@ -337,11 +346,11 @@ int main(int argc, char* argv[], char* envp[])
 		fuse_unmount(mountpoint, ch);
 		exit(1);
 	}
+
 	//cleanup test connections
 	VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> ());
 	testPool.reset();
 
-    LOG(INFO) << "Proxy certificate to be used: " << gsi::getProxyCertPath();
     cout << "VeilFS has been successfully mounted in " + string(mountpoint) << endl;
 
     fuse_remove_signal_handlers(fuse_get_session(fuse));
@@ -357,7 +366,7 @@ int main(int argc, char* argv[], char* envp[])
 
     // Initialize VeilClient application
     VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (
-        new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), gsi::validateProxyCert)));
+        new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), boost::bind(&gsi::getCertInfo))));
     
     // Setup veilhelpers config
     veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool());

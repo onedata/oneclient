@@ -10,11 +10,9 @@
 #define GSI_HANDLER_H
 
 #include <iostream>
+#include "communicationHandler.h"
 
-#define GSI_INIT_COMMAND string("grid-proxy-init")
-#define GSI_INFO_COMMAND string("grid-proxy-info")
-
-#define BASE_DOMAIN "cluster.veilfs.com"
+#define BASE_DOMAIN "cluster.veilfs.plgrid.pl"
 
 namespace veil {
 namespace client {
@@ -24,8 +22,8 @@ namespace gsi {
 
     bool validateProxyConfig();
     bool validateProxyCert();
-    std::string getProxyCertPath();
     std::string getClusterHostname();
+    CertificateInfo getCertInfo();
 
 } // namespace gsi
 } // namespace client

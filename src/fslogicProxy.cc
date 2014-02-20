@@ -88,6 +88,18 @@ bool FslogicProxy::getNewFileLocation(string logicName, mode_t mode, FileLocatio
     return true;
 }
 
+string FslogicProxy::sendFileCreatedAck(string logicName)
+{
+    LOG(INFO) << "getting new file location for file: " << logicName;
+
+    CreateFileAck msg;
+    msg.set_file_logic_name(logicName);
+
+    string serializedAnswer = sendFuseReceiveAtom(msg);
+
+    return serializedAnswer;
+}
+
 int FslogicProxy::renewFileLocation(string logicName)
 {
     LOG(INFO) << "renew file location for file: " << logicName; 
