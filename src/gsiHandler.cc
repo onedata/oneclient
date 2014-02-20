@@ -33,7 +33,7 @@
 #define GLOBUS_P12_PATH         ".globus/usercred.p12"
 #define GLOBUS_PEM_CERT_PATH    ".globus/usercert.pem"
 #define GLOBUS_PEM_KEY_PATH     ".globus/userkey.pem"
-#define GLOBUS_PROXY_PATH(UID)  string("/tmp/x509up_u") + to_string(getuid())
+#define GLOBUS_PROXY_PATH(UID)  Config::absPathRelToHOME(string("/tmp/x509up_u") + to_string(getuid()))
 
 #define MSG_DEBUG_INFO (debug ? "" : "Use -debug for further information.")
 
@@ -144,6 +144,8 @@ string findUserCert() {
         string customPath = Config::absPathRelToHOME(VeilFS::getConfig()->getString(PEER_CERTIFICATE_FILE_OPT));
         return customPath;
     }
+    
+    LOG(INFO) << "GSI Handler: Searching for userCert file...";
 
     if(getenv(X509_USER_CERT_ENV) && filesystem::exists(string(getenv(X509_USER_CERT_ENV)))) {
         x509_path = string(getenv(X509_USER_CERT_ENV));
@@ -155,6 +157,8 @@ string findUserCert() {
     } else if(filesystem::exists(proxy_path)) {
         x509_path = proxy_path;
     }
+
+    LOG(INFO) << "GSI Handler: UserCert file at: " << x509_path;
     
     return x509_path;
 }
@@ -168,6 +172,8 @@ string findUserKey() {
         string customPath = Config::absPathRelToHOME(VeilFS::getConfig()->getString(PEER_CERTIFICATE_FILE_OPT));
         return customPath;
     }
+    
+    LOG(INFO) << "GSI Handler: Searching for userKey file...";
 
     if(getenv(X509_USER_KEY_ENV) && filesystem::exists(string(getenv(X509_USER_KEY_ENV)))) {
         x509_path = string(getenv(X509_USER_KEY_ENV));
@@ -179,12 +185,15 @@ string findUserKey() {
     } else if(filesystem::exists(proxy_path)) {
         x509_path = proxy_path;
     }
+
+    LOG(INFO) << "GSI Handler: UserKey file at: " << x509_path;
     
     return x509_path;
 }
 
 bool validateProxyConfig() 
 {
+    LOG(INFO) << "GSI Handler: Starting global certificate system init";
     return validateProxyCert();
 }
 
@@ -192,12 +201,22 @@ bool validateProxyCert()
 {
     boost::unique_lock<boost::recursive_mutex> guard(certCallbackMutex);
     
+    LOG(INFO) << "GSI Handler: Starting certificate (re) initialization";
+
     string cPathMode = "", cPathMode1 = "", debugStr = (debug ? " -debug" : "");
     struct stat buf;
     int proxyStatus;
+    
+    string userCert, userKey;
 
-    string userCert = findUserCert();
-    string userKey = findUserKey();
+    try {
+        userCert = findUserCert();
+        userKey = findUserKey();
+    } catch(VeilException &e) {
+        cerr << "Error: Couldn't find certificate file: " << e.what() << endl;
+        return false;
+    }
+    
     
     /// This value shall be returned instead of 'false' in this function
     /// After first proxy initialization, failure doesn't break existing proxy, so the function shall return 'true'
@@ -249,6 +268,8 @@ bool validateProxyCert()
         cerr << "Your user key file: " << userKey << " is to permissive. Maximum of 0600." << endl;
         return failureValue;
     }
+
+    LOG(INFO) << "GSI Handler: Starting OpenSSL for certificate init";
 
     // Initialize OpenSSL file.
     BIO* file = BIO_new(BIO_s_file()); 

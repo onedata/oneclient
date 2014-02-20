@@ -301,6 +301,17 @@ int main(int argc, char* argv[], char* envp[])
     res = fuse_parse_cmdline(&args, &mountpoint, &multithreaded, &foreground);
     if (res == -1)
         exit(1);
+    
+    // Set mount point in global config
+    Config::setMountPoint(string(mountpoint));
+    
+    // Check proxy certificate
+    if(!gsi::validateProxyConfig())
+    {
+        std::cerr << "Cannot continue. Aborting" << std::endl;
+        fuse_unmount(mountpoint, ch);
+        exit(1);
+    }
 
     ch = fuse_mount(mountpoint, &args);
     if (!ch)
@@ -317,14 +328,6 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     fuse_set_signal_handlers(fuse_get_session(fuse));
-
-    // Check proxy certificate
-    if(!gsi::validateProxyConfig())
-    {
-        std::cerr << "Cannot continue. Aborting" << std::endl;
-        fuse_unmount(mountpoint, ch);
-        exit(1);
-    }
 
 	// Initialize cluster handshake in order to check if everything is ok before becoming daemon
 	boost::shared_ptr<SimpleConnectionPool> testPool(new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), boost::bind(&gsi::getCertInfo)));

@@ -18,6 +18,7 @@ using namespace std;
 using namespace boost;
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
+using boost::filesystem::path;
 
 namespace veil {
 namespace client {
@@ -25,6 +26,7 @@ namespace client {
 string Config::m_envCWD;
 string Config::m_envHOME;
 map<string, string> Config::m_envAll;
+path Config::m_mountPoint;
 
 string Config::m_requiredOpts[] = {
 
@@ -38,6 +40,16 @@ Config::Config()
 
 Config::~Config()
 {
+}
+
+void Config::setMountPoint(path mp)
+{
+    m_mountPoint = mp.normalize();
+}
+
+path Config::getMountPoint()
+{
+    return m_mountPoint;
 }
 
 void Config::putEnv(string name, string value)
@@ -132,20 +144,30 @@ bool Config::parseConfig()
     return true;
 }
 
-string Config::absPathRelToCWD(string path)
+string Config::absPathRelToCWD(path p)
 {
-    if(path[0] == '/')
-        return path;
+    if(!getMountPoint().empty() &&
+       p.normalize().string().find(getMountPoint().normalize().string()) == 0) {
+        throw VeilException("path_error", string("Cannot access '") + p.string() + "' because the file is within your filesystem mount point - " + getMountPoint().string());
+    }
+    
+    if(p.string()[0] == '/')
+        return p.normalize().string();
     else
-        return string(m_envCWD) + "/" + path;
+        return (path(string(m_envCWD)) / p).normalize().string();
 }
 
-string Config::absPathRelToHOME(string path)
+string Config::absPathRelToHOME(path p)
 {
-    if(path[0] == '/')
-        return path;
+    if(!getMountPoint().empty() &&
+       p.normalize().string().find(getMountPoint().normalize().string()) == 0) {
+        throw VeilException("path_error", string("Cannot access '") + p.string() + "' because the file is within your filesystem mount point - " + getMountPoint().string());
+    }
+    
+    if(p.string()[0] == '/')
+        return p.normalize().string();
     else
-        return string(m_envHOME) + "/" + path;
+        return (path(string(m_envHOME)) / p).normalize().string();
 }
 
 string Config::getString(string opt) 
@@ -281,7 +303,7 @@ bool Config::runTask(TaskID taskId, string arg0, string arg1, string arg2)
             // Send HandshakeRequest message
             ans = conn->communicate(cMsg, 2);
             if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
-            {
+            { 
                 // Set FUSE_ID in config 
                 m_globalNode[FUSE_ID_OPT] = resMsg.fuse_id();
 
