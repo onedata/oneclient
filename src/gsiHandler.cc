@@ -132,7 +132,7 @@ namespace {
 
 string findUserCert() {
     string x509_path = "";
-    string proxy_path = string("/tmp/") + "x509up_u" + to_string(getuid());
+    string proxy_path = GLOBUS_PROXY_PATH(getuid());
 
     if(VeilFS::getConfig()->isSet(PEER_CERTIFICATE_FILE_OPT))
     {
@@ -156,7 +156,7 @@ string findUserCert() {
 
 string findUserKey() {
     string x509_path = "";
-    string proxy_path = string("/tmp/") + "x509up_u" + to_string(getuid());
+    string proxy_path = GLOBUS_PROXY_PATH(getuid());
 
     if(VeilFS::getConfig()->isSet(PEER_CERTIFICATE_FILE_OPT))
     {
