@@ -64,6 +64,7 @@ using namespace veil::client;
         config.reset(proxyConfig); \
         fslogic.reset(new FslogicProxy()); \
         VeilFS::setConfig(config); \
+        gsi::validateProxyConfig(); \
         VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), boost::bind(&gsi::getCertInfo)))); \
         veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool()); \
         veilFS.reset(new VeilFS(VeilFSRoot, config, \

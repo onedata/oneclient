@@ -225,6 +225,7 @@ int main(int argc, char* argv[], char* envp[])
     fuse_opt_add_arg(&args, "-obig_writes");
 
     bool debug = false; // Assume silent mode
+    bool showVersionOnly = false;
 
     boost::shared_ptr<Config> config(new Config());
     VeilFS::setConfig(config);
@@ -243,11 +244,14 @@ int main(int argc, char* argv[], char* envp[])
         if(string(argv[i]) == "-debug") // GSI Handler's debug flag
             gsi::debug = true;
 
-        if(string(argv[i]) == "--version") {
+        if(string(argv[i]) == "--version" || string(argv[i]) == "-V") {
             cout << "VeilFuse version: " 
                  << VeilClient_VERSION_MAJOR << "."
                  << VeilClient_VERSION_MINOR << "."
                  << VeilClient_VERSION_PATCH << endl;
+            showVersionOnly = true;
+        } else if(string(argv[i]) == "--help" || string(argv[i]) == "-h") {
+            showVersionOnly = true;
         }
     }
 
@@ -301,11 +305,16 @@ int main(int argc, char* argv[], char* envp[])
     res = fuse_parse_cmdline(&args, &mountpoint, &multithreaded, &foreground);
     if (res == -1)
         exit(1);
+
+    if(showVersionOnly) { // Exit after showing full version info or help banner
+        exit(EXIT_SUCCESS);
+    }
     
     // Set mount point in global config
-    Config::setMountPoint(string(mountpoint));
-    
-    LOG(INFO) << "Using mount point path: " << Config::getMountPoint().string();
+    if(mountpoint) {
+        Config::setMountPoint(string(mountpoint));
+        LOG(INFO) << "Using mount point path: " << Config::getMountPoint().string();
+    }
     
     // Check proxy certificate
     if(!gsi::validateProxyConfig())
