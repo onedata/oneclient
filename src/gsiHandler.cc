@@ -14,7 +14,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <termios.h>
-#include <unistd.h> 
+#include <unistd.h>
 #include <cstdio>
 #include <sys/types.h>
 #include <openssl/pem.h>
@@ -64,7 +64,7 @@ namespace {
     string userCertPath;
     string userKeyPath;
 
-    
+
     ReadWriteLock mutex;
     boost::recursive_mutex certCallbackMutex;
 
@@ -86,7 +86,7 @@ namespace {
         if(f) {
             while(fread(passwd + i++, 1, 1, f) == 1 && passwd[i-1] != endline && i < max_size);
             fclose(f);
-        }        
+        }
 
         // Turn on terminal ECHO
         oldt.c_lflag |= ECHO;
@@ -115,7 +115,7 @@ namespace {
         return len;
     }
 
-    string extractDN(X509 *eec) 
+    string extractDN(X509 *eec)
     {
         X509_NAME *name = X509_get_subject_name(eec);
         BUF_MEM* bio_buff = BUF_MEM_new();
@@ -144,22 +144,22 @@ string findUserCert() {
         string customPath = Config::absPathRelToHOME(VeilFS::getConfig()->getString(PEER_CERTIFICATE_FILE_OPT));
         return customPath;
     }
-    
+
     LOG(INFO) << "GSI Handler: Searching for userCert file...";
 
-    if(getenv(X509_USER_CERT_ENV) && filesystem::exists(string(getenv(X509_USER_CERT_ENV)))) {
+    if(filesystem::exists(proxy_path)) {
+        x509_path = proxy_path;
+    } else if(getenv(X509_USER_CERT_ENV) && filesystem::exists(string(getenv(X509_USER_CERT_ENV)))) {
         x509_path = string(getenv(X509_USER_CERT_ENV));
     } else if(filesystem::exists(Config::absPathRelToHOME(GLOBUS_PEM_CERT_PATH))
               && filesystem::exists(Config::absPathRelToHOME(GLOBUS_PEM_KEY_PATH))) {
         x509_path = Config::absPathRelToHOME(GLOBUS_PEM_CERT_PATH);
     } else if(filesystem::exists(Config::absPathRelToHOME(GLOBUS_P12_PATH))) {
         x509_path = Config::absPathRelToHOME(GLOBUS_P12_PATH);
-    } else if(filesystem::exists(proxy_path)) {
-        x509_path = proxy_path;
     }
 
     LOG(INFO) << "GSI Handler: UserCert file at: " << x509_path;
-    
+
     return x509_path;
 }
 
@@ -172,41 +172,41 @@ string findUserKey() {
         string customPath = Config::absPathRelToHOME(VeilFS::getConfig()->getString(PEER_CERTIFICATE_FILE_OPT));
         return customPath;
     }
-    
+
     LOG(INFO) << "GSI Handler: Searching for userKey file...";
 
-    if(getenv(X509_USER_KEY_ENV) && filesystem::exists(string(getenv(X509_USER_KEY_ENV)))) {
+    if(filesystem::exists(proxy_path)) {
+        x509_path = proxy_path;
+    } else if(getenv(X509_USER_KEY_ENV) && filesystem::exists(string(getenv(X509_USER_KEY_ENV)))) {
         x509_path = string(getenv(X509_USER_KEY_ENV));
     } else if(filesystem::exists(Config::absPathRelToHOME(GLOBUS_PEM_CERT_PATH))
               && filesystem::exists(Config::absPathRelToHOME(GLOBUS_PEM_KEY_PATH))) {
         x509_path = Config::absPathRelToHOME(GLOBUS_PEM_KEY_PATH);
     } else if(filesystem::exists(Config::absPathRelToHOME(GLOBUS_P12_PATH))) {
         x509_path = Config::absPathRelToHOME(GLOBUS_P12_PATH);
-    } else if(filesystem::exists(proxy_path)) {
-        x509_path = proxy_path;
     }
 
     LOG(INFO) << "GSI Handler: UserKey file at: " << x509_path;
-    
+
     return x509_path;
 }
 
-bool validateProxyConfig() 
+bool validateProxyConfig()
 {
     LOG(INFO) << "GSI Handler: Starting global certificate system init";
     return validateProxyCert();
 }
 
-bool validateProxyCert() 
+bool validateProxyCert()
 {
     boost::unique_lock<boost::recursive_mutex> guard(certCallbackMutex);
-    
+
     LOG(INFO) << "GSI Handler: Starting certificate (re) initialization";
 
     string cPathMode = "", cPathMode1 = "", debugStr = (debug ? " -debug" : "");
     struct stat buf;
     int proxyStatus;
-    
+
     string userCert, userKey;
 
     try {
@@ -216,13 +216,13 @@ bool validateProxyCert()
         cerr << "Error: Couldn't find certificate file: " << e.what() << endl;
         return false;
     }
-    
-    
+
+
     /// This value shall be returned instead of 'false' in this function
     /// After first proxy initialization, failure doesn't break existing proxy, so the function shall return 'true'
     int failureValue = 0;
 
-    // At this point we know that there is not valid proxy certificate 
+    // At this point we know that there is not valid proxy certificate
     // Lets find user certificate
     if(userCert == "") {
         cerr << "Error: Couldn't find valid credentials." << endl;
@@ -232,7 +232,7 @@ bool validateProxyCert()
         cerr << "   3) $HOME/" << GLOBUS_P12_PATH << endl;
 
         return failureValue;
-    } 
+    }
 
     if(stat(userCert.c_str(), &buf) != 0) {
         cerr << "Error: Couldn't find valid credentials." << endl;
@@ -272,7 +272,7 @@ bool validateProxyCert()
     LOG(INFO) << "GSI Handler: Starting OpenSSL for certificate init";
 
     // Initialize OpenSSL file.
-    BIO* file = BIO_new(BIO_s_file()); 
+    BIO* file = BIO_new(BIO_s_file());
 
     // Initialize OpenSSL memory BIO
     key_buff = BUF_MEM_new();
@@ -381,7 +381,7 @@ bool validateProxyCert()
     } else { // PEM file successfully read
 
         // Read PEM certificate file
-        BIO* cert_file = BIO_new(BIO_s_file()); 
+        BIO* cert_file = BIO_new(BIO_s_file());
 
         if(cert_file == NULL)
         {
@@ -437,7 +437,7 @@ bool validateProxyCert()
     }
 
     // Write EEC cert to internal buffer
-    if(!cert || !PEM_write_bio_X509(chain_mem, cert)) 
+    if(!cert || !PEM_write_bio_X509(chain_mem, cert))
     {
         LOG(ERROR) << "Cannot write EEC to internal buffer";
 
@@ -471,9 +471,9 @@ bool validateProxyCert()
         X509 *tmp = sk_X509_pop(ca);
         if(!tmp)
             continue;
-        
+
         PEM_write_bio_X509(chain_mem, tmp);
-        
+
         tmp_dn = extractDN(tmp);
 
         if(current_dn.find(tmp_dn) != string::npos) // if new DN is an substring of current DN, its a issuer of the proxy certificate
@@ -497,13 +497,13 @@ CertificateInfo getCertInfo() {
         return CertificateInfo(userCertPath, userKeyPath, CertificateInfo::PEM);
     } else {
         LOG(INFO) << "Accesing certificates via internal memory buffer.";
-        return CertificateInfo(const_buffer(chain_buff->data, chain_buff->length), const_buffer(key_buff->data, key_buff->length));   
+        return CertificateInfo(const_buffer(chain_buff->data, chain_buff->length), const_buffer(key_buff->data, key_buff->length));
     }
 }
 
 
 
-std::string getClusterHostname() 
+std::string getClusterHostname()
 {
     if(VeilFS::getConfig()->isSet(CLUSTER_HOSTNAME_OPT))
         return VeilFS::getConfig()->getString(CLUSTER_HOSTNAME_OPT);
@@ -512,7 +512,7 @@ std::string getClusterHostname()
 
     string DN = UserDN;
 
-    if(DN == "") 
+    if(DN == "")
     {
         LOG(ERROR) << "Cannot retrive DN from user certificate";
         return URL;
