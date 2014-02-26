@@ -359,6 +359,20 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
     return atom;
 }
 
+int getQuota()
+{
+   GetQuota msg;
+   QuotaInfo answer;
+
+   if(!sendFuseReceiveAnswer(msg, answer))
+    {
+        LOG(ERROR) << "cannot parse cluster answer";
+        return -1;
+    }
+
+    return answer.size();
+}
+
 void FslogicProxy::pingCluster(string nth) 
 {
 

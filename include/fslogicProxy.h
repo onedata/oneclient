@@ -43,6 +43,8 @@
 #define CREATE_LINK "createlink"
 #define GET_LINK "getlink"
 #define LINK_INFO "linkinfo"
+#define GET_QUOTA "getquota"
+#define QUOTA_INFO "quotainfo"
 
 #define FUSE_MESSAGE "fusemessage"
 #define ATOM "atom"
@@ -99,6 +101,7 @@ public:
     virtual std::string     updateTimes(std::string path, time_t atime = 0, time_t mtime = 0, time_t ctime = 0); ///< Updates *time meta attributes for specific file
     virtual std::string     changeFileOwner(std::string path, uid_t uid, std::string uname = "");     ///< Updates file's owner
     virtual std::string     changeFileGroup(std::string path, gid_t gid, std::string gname = "");     ///< Updates file's group owner
+    virtual int             getQuota();
 
     virtual void            pingCluster(std::string);
 
