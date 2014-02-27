@@ -35,6 +35,8 @@ public:
     MOCK_METHOD3(changeFileOwner, string(string, uid_t, string));
     MOCK_METHOD3(changeFileGroup, string(string, gid_t, string));
     MOCK_METHOD1(sendFileNotUsed, bool(string));
+    MOCK_METHOD0(getUserQuotaSize, int64_t());
+    MOCK_METHOD0(getUserFilesSize, int64_t());
     
 };
 
