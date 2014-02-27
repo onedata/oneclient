@@ -359,10 +359,24 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
     return atom;
 }
 
-int getQuota()
+int64_t FslogicProxy::getUserQuotaSize()
 {
    GetQuota msg;
    QuotaInfo answer;
+
+   if(!sendFuseReceiveAnswer(msg, answer))
+    {
+        LOG(ERROR) << "cannot parse cluster answer";
+        return -1;
+    }
+
+    return answer.size();
+}
+
+int64_t FslogicProxy::getUserFilesSize()
+{
+   GetFilesSize msg;
+   FilesSizeInfo answer;
 
    if(!sendFuseReceiveAnswer(msg, answer))
     {

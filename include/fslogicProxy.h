@@ -101,7 +101,8 @@ public:
     virtual std::string     updateTimes(std::string path, time_t atime = 0, time_t mtime = 0, time_t ctime = 0); ///< Updates *time meta attributes for specific file
     virtual std::string     changeFileOwner(std::string path, uid_t uid, std::string uname = "");     ///< Updates file's owner
     virtual std::string     changeFileGroup(std::string path, gid_t gid, std::string gname = "");     ///< Updates file's group owner
-    virtual int             getQuota();
+    virtual int64_t         getUserQuotaSize();
+    virtual int64_t         getUserFilesSize();
 
     virtual void            pingCluster(std::string);
 
