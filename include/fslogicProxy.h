@@ -45,6 +45,8 @@
 #define LINK_INFO "linkinfo"
 #define GET_QUOTA "getquota"
 #define QUOTA_INFO "quotainfo"
+#define GET_FILES_SIZE "getfilessize"
+#define FILES_SIZE_INFO "filessizeinfo"
 
 #define FUSE_MESSAGE "fusemessage"
 #define ATOM "atom"
