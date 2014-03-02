@@ -20,11 +20,11 @@ set(DEPS_DIR "deps")
 # set(CMAKE_FIND_LIBRARY_SUFFIXES .a) # Uncomment in order to force looking for static achives instead .so
 
 string( TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_L )
-if(CMAKE_BUILD_TYPE_L MATCHES "debug") 
+if(CMAKE_BUILD_TYPE_L MATCHES "debug")
     set(VeilClient_DEBUG 1)
-else() 
+else()
     set(VeilClient_DEBUG 0)
-endif() 
+endif()
 
 configure_file (
     "${PROJECT_SOURCE_DIR}/include/veilConfig.h.in"
@@ -47,14 +47,13 @@ include_directories(${PROJECT_BINARY_DIR})
 include_directories(${GLOG_INCLUDE_DIR})
 include_directories(${YAML_INCLUDE_DIR})
 include_directories(${VEILHELPERS_INCLUDE_DIR})
-include_directories(${PROJECT_SOURCE_DIR}/src/globus-proxy-utils)
 
 # Setup fuse
 message(STATUS "Checking for FUSE...")
 find_package(FUSE REQUIRED)
 find_library(FUSE_LIBRARY_CUSTOM NAMES libfuse.a fuse)
 include_directories(${FUSE_INCLUDE_DIRS})
-message(STATUS "FUSE: ${FUSE_LIBRARY_CUSTOM}") 
+message(STATUS "FUSE: ${FUSE_LIBRARY_CUSTOM}")
 
 # Setup ProtoBuf
 message(STATUS "Checking for Protobuf...")
@@ -85,21 +84,6 @@ find_package(Threads REQUIRED)
 # Setup git
 message(STATUS "Checking for Git...")
 find_package(Git REQUIRED)
-
-
-# Setup Globus Toolkit
-message(STATUS "Checking for Globus Toolkit...")
-
-set(GLOBUS_LIBS globus_common;globus_oldgaa;globus_openssl;globus_gsi_callback;globus_gsi_cert_utils;globus_gsi_sysconfig;globus_proxy_ssl;globus_gsi_proxy_core;globus_gsi_credential;globus_openssl_error)
-
-foreach(LIB ${GLOBUS_LIBS})
-    find_library(GLOBUS_${LIB}_LIBRARY NAMES lib${LIB}.a ${LIB})
-    if(${GLOBUS_${LIB}_LIBRARY} MATCHES .*_LIBRARY-NOTFOUND)
-        message( FATAL_ERROR "ERROR: ${LIB} NOT FOUND!")
-    endif()
-    set(GLOBUS_DEPS ${GLOBUS_DEPS};${GLOBUS_${LIB}_LIBRARY})
-endforeach()
-
 
 # Setup Boost
 set(Boost_USE_STATIC_LIBS        ON)
@@ -135,13 +119,13 @@ execute_process(COMMAND ${GIT_EXECUTABLE} submodule init
                 WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 execute_process(COMMAND ${GIT_EXECUTABLE} submodule update
                 WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
-execute_process(COMMAND ${GIT_EXECUTABLE} submodule foreach git checkout 
+execute_process(COMMAND ${GIT_EXECUTABLE} submodule foreach git checkout
                 WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 # Compile .proto files
 file(GLOB PROTO_FILES "${PROJECT_SOURCE_DIR}/veilprotocol/proto/*.proto")
 PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
-include_directories(${CMAKE_CURRENT_BINARY_DIR}) 
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 # Setup sources
 file(GLOB SOURCES "src/[a-zA-Z]*.cc")
@@ -173,8 +157,8 @@ add_library(veilprotocol ${PROTO_SRCS})
 add_library(veilclient ${SOURCES})
 add_executable(veilFuse ${MAIN_SOURCE_FILE})
 
-add_dependencies(veilFuse yaml-cpp glog veilclient) 
-add_dependencies(veilclient yaml-cpp glog veilprotocol veilhelpers) 
+add_dependencies(veilFuse yaml-cpp glog veilclient)
+add_dependencies(veilclient yaml-cpp glog veilprotocol veilhelpers)
 
 target_link_libraries(veilprotocol
     ${PROTOBUF_LIBRARY_CUSTOM}
@@ -187,7 +171,6 @@ target_link_libraries(veilclient
     ${YAML_LIBRARIES}
     ${PROTOBUF_LIBRARY_CUSTOM}
     ${VEILHELPERS_LIBRARIES}
-    ${GLOBUS_DEPS}
     veilprotocol
     ${PLATFORM_EXTRA_LIBS}
 )
@@ -198,7 +181,6 @@ target_link_libraries(veilFuse
     ${VEILHELPERS_LIBRARIES}
     ${PROTOBUF_LIBRARY_CUSTOM}
     veilclient
-    ${GLOBUS_DEPS}
     ${OPENSSL_LIBRARIES}
     ${PLATFORM_EXTRA_LIBS}
 )
@@ -213,7 +195,7 @@ install(DIRECTORY config/ DESTINATION ${CONFIG_DIR})
 # build a CPack driven installer package
 include(InstallRequiredSystemLibraries)
 set(CPACK_SET_DESTDIR ON) # Uncomment this line if you need a non-relocatable RPM package
-set(CPACK_RESOURCE_FILE_LICENSE  
+set(CPACK_RESOURCE_FILE_LICENSE
      "${CMAKE_CURRENT_SOURCE_DIR}/LICENSE.txt")
 set(CPACK_PACKAGE_VERSION_MAJOR "${VeilClient_VERSION_MAJOR}")
 set(CPACK_PACKAGE_VERSION_MINOR "${VeilClient_VERSION_MINOR}")
@@ -221,7 +203,7 @@ set(CPACK_PACKAGE_CONTACT "help@veilfs.com")
 
 set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CMAKE_SYSTEM_NAME}")
 
-# DEB and RPM deps 
+# DEB and RPM deps
 set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse")
 set(CPACK_RPM_PACKAGE_REQUIRES "fuse")
 
@@ -247,7 +229,7 @@ include_directories(${VEILHELPERS_TEST_INCLUDE_DIR})
 
 add_custom_target(cunit)
 macro(run_test test_target)
-  string(REGEX REPLACE "_test" "" test_name "${test_target}")  
+  string(REGEX REPLACE "_test" "" test_name "${test_target}")
   add_custom_target(${test_target}_runtest
       COMMAND ${test_target} --gtest_output="xml:cunit_results/TEST-${test_name}.xml"
       DEPENDS ${test_target}
@@ -267,10 +249,9 @@ foreach(file ${files})
         ${VEILHELPERS_LIBRARIES}
         ${PROTOBUF_LIBRARY_CUSTOM}
         veilclient
-        ${GLOBUS_DEPS}
         ${OPENSSL_LIBRARIES}
         ${PLATFORM_EXTRA_LIBS}
-    )    
+    )
     add_test(${TEST_NAME} ${TEST_NAME})
     run_test(${TEST_NAME})
 endforeach()
@@ -290,7 +271,7 @@ add_custom_target(build_erl_core
 add_custom_target(integration_tests)
 macro(run_test_i test_target)
   string(REGEX REPLACE "_test" "" test_name "${test_target}")
-  string(REGEX REPLACE "_test_i" "_test" beam_name "${test_target}")   
+  string(REGEX REPLACE "_test_i" "_test" beam_name "${test_target}")
   add_custom_target(${test_target}_runtest_i
       COMMAND ${TEST_UTILS_DIR}/run_test.escript ${beam_name} --gtest_output="xml:integration_results/TEST-${test_name}.xml"
       DEPENDS ${test_target} build_erl_core
@@ -311,10 +292,9 @@ foreach(file ${files})
         ${VEILHELPERS_LIBRARIES}
         ${PROTOBUF_LIBRARY_CUSTOM}
         veilclient
-        ${GLOBUS_DEPS}
         ${OPENSSL_LIBRARIES}
         erlTestCore
         ${PLATFORM_EXTRA_LIBS}
-    )    
+    )
     run_test_i(${TEST_NAME})
 endforeach()

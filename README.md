@@ -27,28 +27,18 @@ Also you need cmake 2.8+.
 * crypto
 * boost ( >= 1.49)
 * ltdl
-* globus_common
-* globus_oldgaa
-* globus_openssl
-* globus_gsi_callback
-* globus_gsi_cert_utils
-* globus_gsi_sysconfig
-* globus_proxy_ssl
-* globus_gsi_proxy_core
-* globus_gsi_credential
-* globus_openssl_error
 
 Use this command to install the required dependency packages:
 
 * Debian/Ubuntu Dependencies (.deb packages):
 
-        apt-get install libprotobuf-dev libfuse-dev fuse libboost-dev libglobus-*-dev libtool
+        apt-get install libprotobuf-dev libfuse-dev fuse libboost-dev libtool
 
 * RHEL/CentOS/Fedora Dependencies (.rpm packages):
 
-        yum install fuse fuse-libs fuse-devel protobuf-devel openssl-devel cmake28 boost-devel boost-static rpm-build subversion zlib-devel "globus-*-devel" libtool libtool-ltdl-devel
+        yum install fuse fuse-libs fuse-devel protobuf-devel openssl-devel cmake28 boost-devel boost-static rpm-build subversion zlib-devel libtool libtool-ltdl-devel
 
-        
+
 Compilation
 -----------
 
@@ -65,23 +55,23 @@ If there was no errors, you will get list of generated packages (rpm or dep).
 VeilClient uses cmake as a build tool thus building process is same as for most cmake-based projects.
 However you can use Makefile-proxy with following interface:
 (Note that -s flag is optional - it's a silent mode which makes output much prettier, because it leaves only cmake's stdout/stderr)
-    
+
 #### Build Release binaries
-    
+
     make -s release
-    
+
 #### Build Debug binaries
-    
+
 #### Install
 
     make -s install
-    
+
 #### RPM/DEB packages (note that this will build always Release binaries)
 
     make -s rpm
 
 #### Testing
-    
+
 There are two testing targets:
 
     make -s test
@@ -90,7 +80,7 @@ which has summarized output (per test case) and:
 
     make -s cunit
 
-which shows detailed test results. 
+which shows detailed test results.
 
 Using VeilClient
 ----------------
@@ -108,9 +98,9 @@ You don't edit this global config file if you don't want to. You can also create
 and pass '--config=/path/to/your/config/file' option while starting VeilClient.
 Also its possible to override options by setting env variable with the same name (only uppercase):
 
-    CLUSTER_HOSTNAME="some.hostname.com" veilFuse /mount/point 
-    
-    
+    CLUSTER_HOSTNAME="some.hostname.com" veilFuse /mount/point
+
+
 ### Mounting the filesystem
 
 #### Prerequisites
@@ -135,8 +125,8 @@ Use this command to install the required dependency packages:
 
 In order to mount VeilFS just enter:
 
-    veilFuse /mount/point 
-    
+    veilFuse /mount/point
+
 Additionally you can add '-d' option which enables debug mode. In debug mode application will remain running, displaing all logs and debug
 informations, also in this mode ctrl+c unmount filesystem. If not in debug mode, application will go background as daemon.
 
