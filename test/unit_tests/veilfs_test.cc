@@ -500,8 +500,33 @@ TEST_F(VeilFSTest, write) { // const char *path, const char *buf, size_t size, o
  
 TEST_F(VeilFSTest, statfs) { // const char *path, struct statvfs *statInfo
     struct statvfs statInfo;
-    EXPECT_CALL(*fslogicMock, getUserQuotaSize()).WillOnce(Return(&statInfo));
+    struct statvfs statFS;
+
+    statFS.f_bsize     = 4096;
+    statFS.f_frsize    = 4096;
+    statFS.f_blocks    = 4096;     /* size of fs in f_frsize units */
+    statFS.f_bfree     = 2048;     /* # free blocks */
+    statFS.f_bavail    = 2048;     /* # free blocks for unprivileged users */
+    statFS.f_files     = 10000;    /* # inodes */
+    statFS.f_ffree     = 10000;    /* # free inodes */
+    statFS.f_favail    = 10000;    /* # free inodes for unprivileged users */
+    statFS.f_fsid      = 0;        /* file system ID */
+    statFS.f_flag      = 0;
+    statFS.f_namemax   = NAME_MAX;
+
+    EXPECT_CALL(*fslogicMock, getStatFS()).WillOnce(Return(make_pair(0, statFS)));
     EXPECT_EQ(0, client->statfs("/path", &statInfo));
+    EXPECT_EQ(statFS.f_bsize,   statInfo.f_bsize);
+    EXPECT_EQ(statFS.f_frsize,  statInfo.f_frsize);
+    EXPECT_EQ(statFS.f_blocks,  statInfo.f_blocks);
+    EXPECT_EQ(statFS.f_bfree,   statInfo.f_bfree);
+    EXPECT_EQ(statFS.f_bavail,  statInfo.f_bavail);
+    EXPECT_EQ(statFS.f_files,   statInfo.f_files);
+    EXPECT_EQ(statFS.f_ffree,   statInfo.f_ffree);
+    EXPECT_EQ(statFS.f_favail,  statInfo.f_favail);
+    EXPECT_EQ(statFS.f_fsid,    statInfo.f_fsid);
+    EXPECT_EQ(statFS.f_flag,    statInfo.f_flag);
+    EXPECT_EQ(statFS.f_namemax, statInfo.f_namemax);
 }
 
 TEST_F(VeilFSTest, flush) { // const char *path, struct fuse_file_info *fileInfo

@@ -359,32 +359,31 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
     return atom;
 }
 
-struct statvfs* FslogicProxy::getStatFS()
+pair<int, struct statvfs> FslogicProxy::getStatFS()
 {
    GetStatFS msg;
    StatFSInfo answer;
+   struct statvfs statFS;
 
    if(!sendFuseReceiveAnswer(msg, answer))
     {
         LOG(ERROR) << "cannot parse cluster answer";
-        return 0;
+        return make_pair(-1, statFS);
     }
 
-    struct statvfs *statFS = (struct statvfs*) malloc(sizeof(struct statvfs));
+    statFS.f_bsize      = 4096;
+    statFS.f_frsize     = 4096;
+    statFS.f_blocks     = answer.quota_size() / statFS.f_frsize;                         /* size of fs in f_frsize units */
+    statFS.f_bfree      = (answer.quota_size() - answer.files_size()) / statFS.f_frsize; /* # free blocks */
+    statFS.f_bavail     = (answer.quota_size() - answer.files_size()) / statFS.f_frsize; /* # free blocks for unprivileged users */
+    statFS.f_files      = 10000;                                                          /* # inodes */
+    statFS.f_ffree      = 10000;                                                          /* # free inodes */
+    statFS.f_favail     = 10000;                                                          /* # free inodes for unprivileged users */
+    statFS.f_fsid       = 0;                                                              /* file system ID */
+    statFS.f_flag       = 0;
+    statFS.f_namemax    = NAME_MAX;
 
-    statFS->f_bsize       = 4096;
-    statFS->f_frsize      = 4096;
-    statFS->f_blocks      = answer.quota_size() / statFS->f_frsize;                         /* size of fs in f_frsize units */
-    statFS->f_bfree       = (answer.quota_size() - answer.files_size()) / statFS->f_frsize; /* # free blocks */
-    statFS->f_bavail      = (answer.quota_size() - answer.files_size()) / statFS->f_frsize; /* # free blocks for unprivileged users */
-    statFS->f_files       = 10000;                                                          /* # inodes */
-    statFS->f_ffree       = 10000;                                                          /* # free inodes */
-    statFS->f_favail      = 10000;                                                          /* # free inodes for unprivileged users */
-    statFS->f_fsid        = 0;                                                              /* file system ID */
-    statFS->f_flag        = 0;
-    statFS->f_namemax     = NAME_MAX;
-
-    return statFS;
+    return make_pair(0, statFS);
 }
 
 void FslogicProxy::pingCluster(string nth) 
