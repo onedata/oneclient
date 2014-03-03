@@ -14,6 +14,7 @@
 #include <google/protobuf/repeated_field.h>
 #include <boost/shared_ptr.hpp>
 #include <memory>
+#include <sys/stat.h>
 
 #include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"
@@ -43,10 +44,8 @@
 #define CREATE_LINK "createlink"
 #define GET_LINK "getlink"
 #define LINK_INFO "linkinfo"
-#define GET_QUOTA "getquota"
-#define QUOTA_INFO "quotainfo"
-#define GET_FILES_SIZE "getfilessize"
-#define FILES_SIZE_INFO "filessizeinfo"
+#define GET_STATFS "getstatfs"
+#define STATFS_INFO "statfsinfo"
 
 #define FUSE_MESSAGE "fusemessage"
 #define ATOM "atom"
@@ -103,8 +102,7 @@ public:
     virtual std::string     updateTimes(std::string path, time_t atime = 0, time_t mtime = 0, time_t ctime = 0); ///< Updates *time meta attributes for specific file
     virtual std::string     changeFileOwner(std::string path, uid_t uid, std::string uname = "");     ///< Updates file's owner
     virtual std::string     changeFileGroup(std::string path, gid_t gid, std::string gname = "");     ///< Updates file's group owner
-    virtual int64_t         getUserQuotaSize();
-    virtual int64_t         getUserFilesSize();
+    virtual struct statvfs* getStatFS();
 
     virtual void            pingCluster(std::string);
 

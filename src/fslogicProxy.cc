@@ -359,32 +359,32 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
     return atom;
 }
 
-int64_t FslogicProxy::getUserQuotaSize()
+struct statvfs* FslogicProxy::getStatFS()
 {
-   GetQuota msg;
-   QuotaInfo answer;
+   GetStatFS msg;
+   StatFSInfo answer;
 
    if(!sendFuseReceiveAnswer(msg, answer))
     {
         LOG(ERROR) << "cannot parse cluster answer";
-        return -1;
+        return 0;
     }
 
-    return answer.size();
-}
+    struct statvfs *statFS = (struct statvfs*) malloc(sizeof(struct statvfs));
 
-int64_t FslogicProxy::getUserFilesSize()
-{
-   GetFilesSize msg;
-   FilesSizeInfo answer;
+    statFS->f_bsize       = 4096;
+    statFS->f_frsize      = 4096;
+    statFS->f_blocks      = answer.quota_size() / statFS->f_frsize;                         /* size of fs in f_frsize units */
+    statFS->f_bfree       = (answer.quota_size() - answer.files_size()) / statFS->f_frsize; /* # free blocks */
+    statFS->f_bavail      = (answer.quota_size() - answer.files_size()) / statFS->f_frsize; /* # free blocks for unprivileged users */
+    statFS->f_files       = 10000;                                                          /* # inodes */
+    statFS->f_ffree       = 10000;                                                          /* # free inodes */
+    statFS->f_favail      = 10000;                                                          /* # free inodes for unprivileged users */
+    statFS->f_fsid        = 0;                                                              /* file system ID */
+    statFS->f_flag        = 0;
+    statFS->f_namemax     = NAME_MAX;
 
-   if(!sendFuseReceiveAnswer(msg, answer))
-    {
-        LOG(ERROR) << "cannot parse cluster answer";
-        return -1;
-    }
-
-    return answer.size();
+    return statFS;
 }
 
 void FslogicProxy::pingCluster(string nth) 

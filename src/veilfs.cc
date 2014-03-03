@@ -569,28 +569,13 @@ int VeilFS::statfs(const char *path, struct statvfs *statInfo)
 {
     LOG(INFO) << "FUSE: statfs(path: " << string(path) << ", ...)";
 
-    int64_t quotaSize = m_fslogic->getUserQuotaSize();
-    if(quotaSize == -1) {
+    struct statvfs *statFS = m_fslogic->getStatFS();
+    if(statFS == 0) {
         return -1;
     }
 
-    int64_t filesSize = m_fslogic->getUserFilesSize();
-    if(filesSize == -1) {
-        return -1;
-    }
-
-    statInfo->f_bsize       = 4096;
-    statInfo->f_frsize      = 4096;
-    statInfo->f_blocks      = quotaSize / statInfo->f_frsize;               /* size of fs in f_frsize units */
-    statInfo->f_bfree       = (quotaSize - filesSize) / statInfo->f_frsize; /* # free blocks */
-    statInfo->f_bavail      = (quotaSize - filesSize) / statInfo->f_frsize; /* # free blocks for unprivileged users */
-    statInfo->f_files       = 10000;                                        /* # inodes */
-    statInfo->f_ffree       = 10000;                                        /* # free inodes */
-    statInfo->f_favail      = 10000;                                        /* # free inodes for unprivileged users */
-    statInfo->f_fsid        = 0;                                            /* file system ID */
-    statInfo->f_flag        = 0;
-    statInfo->f_namemax     = NAME_MAX;
-
+    memcpy(statFS, statInfo, sizeof(statFS));
+    free(statFS);
     return 0;
 }
 
