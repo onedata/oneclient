@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <map>
 #include <sstream>
+#include <boost/filesystem.hpp>
 
 #include "veilConfig.h"
 #include "ISchedulable.h"
@@ -101,9 +102,10 @@ public:
                                                                 ///< @warning If given opition wasn't set, you'll get empty object of given type T ( T() )
     
     virtual bool isSet(std::string);                            ///< Checks if given option is set. @see Config::getValue
-
-    std::string static absPathRelToCWD(std::string);            ///< Converts relative path, to absolute using CWD env as base prefix.
-    std::string static absPathRelToHOME(std::string);           ///< Converts relative path, to absolute using HOME env as base prefix.
+    std::string static absPathRelToCWD(boost::filesystem::path);            ///< Converts relative path, to absolute using CWD env as base prefix.
+    void static setMountPoint(boost::filesystem::path);         ///< Sets mount point path
+    boost::filesystem::path static getMountPoint();             ///< Gets mount point path
+    std::string static absPathRelToHOME(boost::filesystem::path);           ///< Converts relative path, to absolute using HOME env as base prefix.
     void static putEnv(std::string, std::string);               ///< Saves given env variable.     
 
     void setGlobalConfigFile(std::string path);                 ///< Sets path to global config file. @see Config::parseConfig
@@ -124,6 +126,7 @@ protected:
     static std::string m_envCWD;                     ///< Saved CWD env variable
     static std::string m_envHOME;                    ///< Saved HOME env variable
     static std::map<std::string, std::string> m_envAll; ///< All saved env variables
+    static boost::filesystem::path m_mountPoint;
 
     std::string m_globalConfigPath;                  ///< Path to global config file. @see Config::setGlobalConfigFile
     std::string m_userConfigPath;                    ///< Path to user config file. @see Config::setUserConfigFile
@@ -139,6 +142,9 @@ protected:
     template<typename T>
     T getValue(std::string opt);                     ///< Returns type-specialized value of given config option. 
 
+    std::string static absPathRelTo(boost::filesystem::path relTo, boost::filesystem::path p); ///< Converts relative path (second argument), to absolute (relative to first argument). Also preforms check against mount point.
+
+    
     virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
     void setupDefaults() {

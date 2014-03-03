@@ -224,6 +224,18 @@ TEST_F(FslogicProxyTest, getNewFileLocation) {
 
 }
 
+TEST_F(FslogicProxyTest, sendFileCreatedAck) {
+    proxy.mockAtom = true;
+    CreateFileAck msg;
+    msg.set_file_logic_name("/file");
+
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEIO));
+    EXPECT_EQ(VEIO, proxy.sendFileCreatedAck("/file"));
+
+    EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VOK));
+    EXPECT_EQ(VOK, proxy.sendFileCreatedAck("/file"));
+}
+
 TEST_F(FslogicProxyTest, renewFileLocation) {
     proxy.mockAnswer = true;
     RenewFileLocation msg;

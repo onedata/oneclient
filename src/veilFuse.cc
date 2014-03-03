@@ -37,7 +37,6 @@
 
 #include "fslogicProxy.h"
 
-
 using namespace std;
 using namespace boost;
 using namespace veil;
@@ -207,7 +206,6 @@ static void fuse_init()
     oper_init();
 }
 
-#include "gsi_utils.h"
 
 // // Function called when cluster sends message saying that client should emit events.
 // bool eventsNeededHandler(const protocol::communication_protocol::Answer &msg)
@@ -270,6 +268,7 @@ int main(int argc, char* argv[], char* envp[])
     fuse_opt_add_arg(&args, "-obig_writes");
 
     bool debug = false; // Assume silent mode
+    bool showVersionOnly = false;
 
     boost::shared_ptr<Config> config(new Config());
     VeilFS::setConfig(config);
@@ -287,6 +286,16 @@ int main(int argc, char* argv[], char* envp[])
 
         if(string(argv[i]) == "-debug") // GSI Handler's debug flag
             gsi::debug = true;
+
+        if(string(argv[i]) == "--version" || string(argv[i]) == "-V") {
+            cout << "VeilFuse version: " 
+                 << VeilClient_VERSION_MAJOR << "."
+                 << VeilClient_VERSION_MINOR << "."
+                 << VeilClient_VERSION_PATCH << endl;
+            showVersionOnly = true;
+        } else if(string(argv[i]) == "--help" || string(argv[i]) == "-h") {
+            showVersionOnly = true;
+        }
     }
 
     // Setup config manager and paths
@@ -340,6 +349,23 @@ int main(int argc, char* argv[], char* envp[])
     if (res == -1)
         exit(1);
 
+    if(showVersionOnly) { // Exit after showing full version info or help banner
+        exit(EXIT_SUCCESS);
+    }
+    
+    // Set mount point in global config
+    if(mountpoint) {
+        Config::setMountPoint(string(mountpoint));
+        LOG(INFO) << "Using mount point path: " << Config::getMountPoint().string();
+    }
+    
+    // Check proxy certificate
+    if(!gsi::validateProxyConfig())
+    {
+        std::cerr << "Cannot continue. Aborting" << std::endl;
+        exit(1);
+    }
+
     ch = fuse_mount(mountpoint, &args);
     if (!ch)
         exit(1);
@@ -356,21 +382,13 @@ int main(int argc, char* argv[], char* envp[])
 
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
-    // Check proxy certificate
-    if(!gsi::validateProxyConfig())
-    {
-        std::cerr << "Cannot continue. Aborting" << std::endl;
-        fuse_unmount(mountpoint, ch);
-        exit(1);
-    }
-
 	// Initialize cluster handshake in order to check if everything is ok before becoming daemon
-	boost::shared_ptr<SimpleConnectionPool> testPool(new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), gsi::validateProxyCert,1,0));
+	boost::shared_ptr<SimpleConnectionPool> testPool(new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), boost::bind(&gsi::getCertInfo)));
 	VeilFS::setConnectionPool(testPool);
 	try{
 		config->testHandshake();
 	}
-	catch (VeilException exception) {
+	catch (VeilException &exception) {
 		if(exception.veilError()==NO_USER_FOUND_ERROR)
 			cerr << "Cannot find user, remember to login through website before mounting fuse. Aborting" << endl;
 		else if(exception.veilError()==NO_CONNECTION_FOR_HANDSHAKE)
@@ -380,11 +398,11 @@ int main(int argc, char* argv[], char* envp[])
 		fuse_unmount(mountpoint, ch);
 		exit(1);
 	}
+
 	//cleanup test connections
 	VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> ());
 	testPool.reset();
 
-    LOG(INFO) << "Proxy certificate to be used: " << gsi::getProxyCertPath();
     cout << "VeilFS has been successfully mounted in " + string(mountpoint) << endl;
 
     fuse_remove_signal_handlers(fuse_get_session(fuse));
@@ -400,8 +418,8 @@ int main(int argc, char* argv[], char* envp[])
 
     // Initialize VeilClient application
     VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (
-        new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), gsi::validateProxyCert)));
-
+        new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), boost::bind(&gsi::getCertInfo))));
+    
     // Setup veilhelpers config
     veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool());
     veil::helpers::config::buffers::writeBufferGlobalSizeLimit  = config->getInt(WRITE_BUFFER_MAX_SIZE_OPT);
@@ -409,10 +427,6 @@ int main(int argc, char* argv[], char* envp[])
     veil::helpers::config::buffers::writeBufferPerFileSizeLimit = config->getInt(WRITE_BUFFER_MAX_FILE_SIZE_OPT);
     veil::helpers::config::buffers::readBufferPerFileSizeLimit  = config->getInt(READ_BUFFER_MAX_FILE_SIZE_OPT);
     veil::helpers::config::buffers::preferedBlockSize           = config->getInt(FILE_BUFFER_PREFERED_BLOCK_SIZE_OPT);
-
-    // Maximum connection count setup
-    VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, config->getInt(ALIVE_META_CONNECTIONS_COUNT_OPT));
-    VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::DATA_POOL, config->getInt(ALIVE_DATA_CONNECTIONS_COUNT_OPT));
 
     // Start all jobSchedulers
     for(int i = 1; i < config->getInt(JOBSCHEDULER_THREADS_OPT); ++i)

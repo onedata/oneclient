@@ -101,12 +101,12 @@ setup(worker, TestName) ->
         catch
             Type:Error -> {Type, Error, erlang:get_stacktrace()}
         end,
-    RegisterRes = 
-        try test_common:register_user("peer.pem") of 
-            Res1 -> Res1
-        catch
-            Type1:Error1 -> {Type1, Error1, erlang:get_stacktrace()}
-        end,
+    RegisterRes = skipped,
+        % try test_common:register_user("peer.pem") of
+        %     Res1 -> Res1
+        % catch
+        %     Type1:Error1 -> {Type1, Error1, erlang:get_stacktrace()}
+        % end,
 
     ?INFO("DB Wipe result: ~p", [WipeRes]),
     ?INFO("Register test user result: ~p", [RegisterRes]),
@@ -116,14 +116,14 @@ setup(NodeType, TestName) ->
     setup1(NodeType, TestName).
 
 setup1(NodeType, TestName) ->
-    ?INFO("Setup: ~p:~p", [NodeType, TestName]),
-
     %% Run test specific setup method
-    try apply(list_to_atom(TestName), setup, [NodeType]) of 
+    R = 
+    try apply(list_to_atom(TestName), setup, [NodeType]) of
         Res2 -> Res2 
     catch 
         Type2:Error2 -> {Type2, Error2, erlang:get_stacktrace()}
-    end.
+    end,
+    ?INFO("Setup {~p, ~p}: ~p", [NodeType, TestName, R]).
    
 
 %% Teardown runs on cluster node !    
@@ -163,6 +163,8 @@ load_mods(_Nodes, []) ->
     ok;
 load_mods(Nodes, [Module | Rest]) ->
     {Mod, Bin, File} = code:get_object_code(Module),
+    {_, _} = rpc:multicall(Nodes, code, delete, [Mod]),
+    {_, _} = rpc:multicall(Nodes, code, purge, [Mod]),
     {_Replies, _} = rpc:multicall(Nodes, code, load_binary, [Mod, File, Bin]),
     load_mods(Nodes, Rest).
 

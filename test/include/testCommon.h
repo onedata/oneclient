@@ -64,7 +64,8 @@ using namespace veil::client;
         config.reset(proxyConfig); \
         fslogic.reset(new FslogicProxy()); \
         VeilFS::setConfig(config); \
-        VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), gsi::getProxyCertPath(), NULL))); \
+        gsi::validateProxyConfig(); \
+        VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), boost::bind(&gsi::getCertInfo)))); \
         veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool()); \
         veilFS.reset(new VeilFS(VeilFSRoot, config, \
                             boost::shared_ptr<JobScheduler>(new JobScheduler()), \
@@ -72,7 +73,7 @@ using namespace veil::client;
                             boost::shared_ptr<MetaCache>(new MetaCache()), \
                             boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(fslogic))), \
                             boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()))); \
-        sleep(2);
+        sleep(5);
 
 #define COMMON_INTEGRATION_DEFS() \
         system::error_code ec; \

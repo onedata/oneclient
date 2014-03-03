@@ -91,9 +91,17 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
     
     // Construct new PushListener
     m_pushListener.reset(new PushListener());
+    
+    // Update FUSE_ID in current connection pool
+    VeilFS::getConnectionPool()->setPushCallback(VeilFS::getConfig()->getFuseID(), boost::bind(&PushListener::onMessage, VeilFS::getPushListener(), _1));
+    
+    // Maximum connection count setup
+    VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, VeilFS::getConfig()->getInt(ALIVE_META_CONNECTIONS_COUNT_OPT));
+    VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::DATA_POOL, VeilFS::getConfig()->getInt(ALIVE_DATA_CONNECTIONS_COUNT_OPT));
 
     // Initialize cluster handshake in order to receive FuseID
-    VeilFS::getConfig()->negotiateFuseID();
+    if(VeilFS::getConfig()->getFuseID() == "")
+        VeilFS::getConfig()->negotiateFuseID();
     
     if(m_fslogic) {
         if(VeilFS::getScheduler() && VeilFS::getConfig()) {
@@ -313,9 +321,14 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
     GET_LOCATION_INFO(path);
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_mknod(lInfo.fileId.c_str(), mode, dev));
+
+    // if file existed before we consider it as a success and we want to apply same actions (chown and sending an acknowledgement)
+    if(sh_return == -EEXIST)
+        sh_return = 0;
+
     if(sh_return != 0)
         (void) m_fslogic->deleteFile(string(path));
-    else { // File created, now we shall take care of its owner
+    else { // File created, now we shall take care of its owner.
         std::vector<std::string> tokens;
         std::string sPath = string(path).substr(1);
         boost::split(tokens, sPath, boost::is_any_of("/"));
@@ -333,6 +346,8 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
         }
 
         VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
+
+        RETURN_IF_ERROR(m_fslogic->sendFileCreatedAck(string(path)));
     }
     return sh_return;
 }
@@ -490,6 +505,9 @@ int VeilFS::utime(const char *path, struct utimbuf *ubuf)
 {
     LOG(INFO) << "FUSE: utime(path: " << string(path) << ", ...)";
 
+    // Update access times in meta cache right away
+    (void) m_metaCache->updateTimes(string(path), ubuf->actime, ubuf->modtime);
+    
     VeilFS::getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(ubuf->actime), utils::toString(ubuf->modtime)));
 
     return 0;
@@ -592,8 +610,12 @@ int VeilFS::flush(const char *path, struct fuse_file_info *fileInfo)
     LOG(INFO) << "FUSE: flush(path: " << string(path) << ", ...)";
     GET_LOCATION_INFO(path);
 
-    AutoLock guard(m_shCacheLock, READ_LOCK);
-    CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_flush(lInfo.fileId.c_str(), fileInfo));
+    sh_ptr storage_helper;
+    {
+        AutoLock guard(m_shCacheLock, READ_LOCK);
+        storage_helper = m_shCache[fileInfo->fh];
+    }
+    CUSTOM_SH_RUN(storage_helper , sh_flush(lInfo.fileId.c_str(), fileInfo));
     
     VeilFS::getScheduler()->addTask(Job(time(NULL) + 3, shared_from_this(), TASK_CLEAR_ATTR, string(path))); 
 

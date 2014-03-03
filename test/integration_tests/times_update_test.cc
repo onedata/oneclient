@@ -37,14 +37,11 @@ protected:
         COMMON_INTEGRATION_SETUP();
 
         // Get storage helper root dir path from cluster env variable 
-        directIO_root = path(erlExec("{env, \"DIO_ROOT\"}"));
-        create_directory(directIO_root);
         ASSERT_EQ(0, ::system(("touch " + VFS.getRoot() + "/file").c_str()));
     }
 
     virtual void TearDown() {
         ASSERT_EQ(0, ::system(("rm -rf " + VFS.getRoot() + "/file").c_str()));
-        remove_all(directIO_root, ec);
 
         COMMON_INTEGRATION_CLEANUP();
     }
