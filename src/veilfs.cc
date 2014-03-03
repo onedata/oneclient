@@ -574,7 +574,7 @@ int VeilFS::statfs(const char *path, struct statvfs *statInfo)
         return -1;
     }
 
-    memcpy(statFS, statInfo, sizeof(statFS));
+    memcpy(statFS, statInfo, sizeof(*statFS));
     free(statFS);
     return 0;
 }

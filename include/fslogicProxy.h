@@ -14,7 +14,7 @@
 #include <google/protobuf/repeated_field.h>
 #include <boost/shared_ptr.hpp>
 #include <memory>
-#include <sys/stat.h>
+#include <sys/statvfs.h>
 
 #include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"

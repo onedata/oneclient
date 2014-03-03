@@ -500,13 +500,8 @@ TEST_F(VeilFSTest, write) { // const char *path, const char *buf, size_t size, o
  
 TEST_F(VeilFSTest, statfs) { // const char *path, struct statvfs *statInfo
     struct statvfs statInfo;
-    int64_t quotaSize = 20 * 1024;
-    int64_t filesSize = 4 * 1024;
-    EXPECT_CALL(*fslogicMock, getUserQuotaSize()).WillOnce(Return(quotaSize));
-    EXPECT_CALL(*fslogicMock, getUserFilesSize()).WillOnce(Return(filesSize));
+    EXPECT_CALL(*fslogicMock, getUserQuotaSize()).WillOnce(Return(&statInfo));
     EXPECT_EQ(0, client->statfs("/path", &statInfo));
-    EXPECT_EQ(quotaSize / statInfo.f_frsize, statInfo.f_blocks);
-    EXPECT_EQ((quotaSize - filesSize) / statInfo.f_frsize, statInfo.f_bavail);
 }
 
 TEST_F(VeilFSTest, flush) { // const char *path, struct fuse_file_info *fileInfo
