@@ -182,6 +182,14 @@ namespace client {
 		std::map<std::string, ActualEventAggregator> m_substreams;
 	};
 
+	class EventStreamCombiner{
+	public:
+		//TODO: boost ptr type
+		std::list<boost::shared_ptr<IEventStream> > m_substreams;
+
+		std::list<boost::shared_ptr<Event> > processEvent(boost::shared_ptr<Event> event);
+	};
+
 	/*class EventFloodFilter : public IEventStream {
 	public:
 		EventFloodFilter(boost::shared_ptr<IEventStream> wrappedStream, int minGapInSeconds);

@@ -29,8 +29,8 @@ public:
         
     }
 };
-
-/*TEST(EventProcessorTest, SendsOnlyWhenConfigured) {
+/*
+TEST(EventProcessorTest, SendsOnlyWhenConfigured) {
 	// given
     MkdirEvent event("user1", "file1");
     EventProcessor eventProcessor;
@@ -256,4 +256,27 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
 		shared_ptr<Event> res = aggregator->processEvent(writeEvent2);
 		ASSERT_EQ(0, res.use_count());
 	}
+}
+
+TEST(EventStreamCombiner, CombineStreams) {
+	shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("user1", "file1");
+	shared_ptr<Event> writeEvent = Event::createWriteEvent("user1", "file1", 100);
+	shared_ptr<IEventStream> mkdirFilter(new EventFilter("type", "mkdir_event"));
+	EventStreamCombiner combiner;
+	combiner.m_substreams.push_back(mkdirFilter);
+
+	list<shared_ptr<Event> > events = combiner.processEvent(mkdirEvent);
+	ASSERT_EQ(1, events.size());
+
+	events = combiner.processEvent(writeEvent);
+	ASSERT_EQ(0, events.size());
+
+	shared_ptr<IEventStream> writeFilter(new EventFilter("type", "write_event"));
+	combiner.m_substreams.push_back(writeFilter);
+
+	events = combiner.processEvent(writeEvent);
+	ASSERT_EQ(1, events.size());
+
+	events = combiner.processEvent(mkdirEvent);
+	ASSERT_EQ(1, events.size());
 }

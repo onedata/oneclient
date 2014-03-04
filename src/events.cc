@@ -196,6 +196,16 @@ void EventAggregator::ActualEventAggregator::resetState(){
 	m_counter = 0;
 }
 
+list<shared_ptr<Event> > EventStreamCombiner::processEvent(shared_ptr<Event> event){
+	list<shared_ptr<Event> > producedEvents;
+	for(list<shared_ptr<IEventStream> >::iterator it = m_substreams.begin(); it != m_substreams.end(); it++){
+		shared_ptr<Event> produced = (*it)->processEvent(event);
+		if(produced)
+			producedEvents.push_back(produced);
+	}
+	return producedEvents;
+}
+
 /*** EventFloodFilter ***/
 /*EventFloodFilter::EventFloodFilter(shared_ptr<IEventStream> wrappedStream, int minGapInSeconds) :
 	m_wrappedStream(wrappedStream), m_minGapInSeconds(minGapInSeconds)
