@@ -359,7 +359,7 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
     return atom;
 }
 
-pair<int, struct statvfs> FslogicProxy::getStatFS()
+pair<string, struct statvfs> FslogicProxy::getStatFS()
 {
    GetStatFS msg;
    StatFSInfo answer;

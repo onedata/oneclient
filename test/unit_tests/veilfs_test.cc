@@ -515,7 +515,7 @@ TEST_F(VeilFSTest, statfs) { // const char *path, struct statvfs *statInfo
     statFS.f_namemax   = NAME_MAX;
 
     EXPECT_CALL(*fslogicMock, getStatFS()).WillOnce(Return(make_pair(VEREMOTEIO, statFS)));
-    EXPECT_EQ(-EIO, client->statfs("/path", &statInfo));
+    EXPECT_EQ(-EREMOTEIO, client->statfs("/path", &statInfo));
 
     EXPECT_CALL(*fslogicMock, getStatFS()).WillOnce(Return(make_pair(VOK, statFS)));
     EXPECT_EQ(0, client->statfs("/path", &statInfo));
