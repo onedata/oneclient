@@ -368,14 +368,14 @@ pair<int, struct statvfs> FslogicProxy::getStatFS()
    if(!sendFuseReceiveAnswer(msg, answer))
     {
         LOG(ERROR) << "cannot parse cluster answer";
-        return make_pair(-1, statFS);
+        return make_pair(VEIO, statFS);
     }
 
     statFS.f_bsize      = 4096;
     statFS.f_frsize     = 4096;
-    statFS.f_blocks     = answer.quota_size() / statFS.f_frsize;                         /* size of fs in f_frsize units */
-    statFS.f_bfree      = (answer.quota_size() - answer.files_size()) / statFS.f_frsize; /* # free blocks */
-    statFS.f_bavail     = (answer.quota_size() - answer.files_size()) / statFS.f_frsize; /* # free blocks for unprivileged users */
+    statFS.f_blocks     = answer.quota_size() / statFS.f_frsize;                          /* size of fs in f_frsize units */
+    statFS.f_bfree      = (answer.quota_size() - answer.files_size()) / statFS.f_frsize;  /* # free blocks */
+    statFS.f_bavail     = (answer.quota_size() - answer.files_size()) / statFS.f_frsize;  /* # free blocks for unprivileged users */
     statFS.f_files      = 10000;                                                          /* # inodes */
     statFS.f_ffree      = 10000;                                                          /* # free inodes */
     statFS.f_favail     = 10000;                                                          /* # free inodes for unprivileged users */
@@ -383,7 +383,7 @@ pair<int, struct statvfs> FslogicProxy::getStatFS()
     statFS.f_flag       = 0;
     statFS.f_namemax    = NAME_MAX;
 
-    return make_pair(0, statFS);
+    return make_pair(answer.answer(), statFS);
 }
 
 void FslogicProxy::pingCluster(string nth) 

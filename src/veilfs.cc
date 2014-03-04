@@ -569,12 +569,10 @@ int VeilFS::statfs(const char *path, struct statvfs *statInfo)
 {
     LOG(INFO) << "FUSE: statfs(path: " << string(path) << ", ...)";
 
-    pair<int, struct statvfs> answer = m_fslogic->getStatFS();
-    if(answer.first != 0) {
-        return -1;
-    }
+    pair<string, struct statvfs> resp = m_fslogic->getStatFS();
+    RETURN_IF_ERROR(resp.first);
 
-    memcpy(statInfo, &answer.second, sizeof(struct statvfs));
+    memcpy(statInfo, &resp.second, sizeof(struct statvfs));
     return 0;
 }
 

@@ -514,10 +514,10 @@ TEST_F(VeilFSTest, statfs) { // const char *path, struct statvfs *statInfo
     statFS.f_flag      = 0;
     statFS.f_namemax   = NAME_MAX;
 
-    EXPECT_CALL(*fslogicMock, getStatFS()).WillOnce(Return(make_pair(-1, statFS)));
-    EXPECT_EQ(-1, client->statfs("/path", &statInfo));
+    EXPECT_CALL(*fslogicMock, getStatFS()).WillOnce(Return(make_pair(VEREMOTEIO, statFS)));
+    EXPECT_EQ(-EIO, client->statfs("/path", &statInfo));
 
-    EXPECT_CALL(*fslogicMock, getStatFS()).WillOnce(Return(make_pair(0, statFS)));
+    EXPECT_CALL(*fslogicMock, getStatFS()).WillOnce(Return(make_pair(VOK, statFS)));
     EXPECT_EQ(0, client->statfs("/path", &statInfo));
 
     EXPECT_EQ(statFS.f_bsize,   statInfo.f_bsize);
