@@ -58,40 +58,57 @@ TrivialEventStream::TrivialEventStream()
 {
 }
 
-shared_ptr<Event> TrivialEventStream::processEvent(shared_ptr<Event> event)
+shared_ptr<Event> TrivialEventStream::actualProcessEvent(shared_ptr<Event> event)
 {
-	if(!event){
-		return shared_ptr<Event>();
-	}
-
 	shared_ptr<Event> newEvent (new Event(*event.get()));
 	return newEvent;
 }
 
-/*IEventStream::IEventStream(){}
-IEventStream::~IEventStream(){}*/
+
+shared_ptr<Event> IEventStream::processEvent(shared_ptr<Event> event){
+	if(!event){
+		return shared_ptr<Event>();
+	}
+
+	if(m_wrappedStream){
+		shared_ptr<Event> processedEvent = m_wrappedStream->processEvent(event);
+		if(processedEvent)
+			return actualProcessEvent(processedEvent);
+		else
+			return shared_ptr<Event>();
+	}else{
+		return actualProcessEvent(event);
+	}
+}
+
+IEventStream::IEventStream() :
+	m_wrappedStream(shared_ptr<IEventStream>())
+{
+}
+
+IEventStream::IEventStream(shared_ptr<IEventStream> wrappedStream) :
+	m_wrappedStream(wrappedStream)
+{
+}
+
+IEventStream::~IEventStream(){
+
+}
 
 /****** EventFilter ******/
 
 EventFilter::EventFilter(string fieldName, string desiredValue) :
-	m_wrappedStream(), m_fieldName(fieldName), m_desiredValue(desiredValue)
+	IEventStream(), m_fieldName(fieldName), m_desiredValue(desiredValue)
 {
 }
 
 EventFilter::EventFilter(shared_ptr<IEventStream> wrappedStream, std::string fieldName, std::string desiredValue) :
-	m_wrappedStream(wrappedStream), m_fieldName(fieldName), m_desiredValue(desiredValue)
+	IEventStream(wrappedStream), m_fieldName(fieldName), m_desiredValue(desiredValue)
 {
 }
 
-shared_ptr<Event> EventFilter::processEvent(shared_ptr<Event> event)
+shared_ptr<Event> EventFilter::actualProcessEvent(shared_ptr<Event> event)
 {
-
-	cout << "BAZINFA!!!!!!!!!!!" << endl;
-	if(!event){
-		cout << "BAZINFA!!!!!!!!!!! --- !event" << endl;
-		return shared_ptr<Event>();
-	}
-
 	// defaultValue is generated some way because if we set precomputed value it will not work if desiredValue is the same as precomputed value
 	string defaultValue = m_desiredValue + "_";
 	string value = event->getProperty(m_fieldName, defaultValue);
@@ -100,47 +117,87 @@ shared_ptr<Event> EventFilter::processEvent(shared_ptr<Event> event)
 		shared_ptr<Event> newEvent (new Event(*event.get()));
 		return newEvent;
 	}else{
-		cout << "not equal!!!!!!!!!!!:" << value << ", " << m_desiredValue << endl;
 		return shared_ptr<Event>();
 	}
 }
 
 /****** EventAggregator ******/
+
+EventAggregator::EventAggregator(long long threshold) :
+	IEventStream(), m_fieldName(""), m_threshold(threshold)
+{
+}
+
+EventAggregator::EventAggregator(std::string fieldName, long long threshold) :
+	IEventStream(), m_fieldName(fieldName), m_threshold(threshold)
+{
+}
+
+EventAggregator::EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, long long threshold) :
+	IEventStream(wrappedStream), m_threshold(threshold)
+{
+}
+
+EventAggregator::EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, std::string fieldName, long long threshold) :
+	IEventStream(wrappedStream), m_fieldName(fieldName), m_threshold(threshold)
+{
+}
+
 /*EventAggregator::EventAggregator(shared_ptr<IEventStream> wrappedStream, long long threshold) :
 	m_wrappedStream(), m_threshold(threshold), m_counter(0)
 {
 }*/
 
-shared_ptr<Event> EventAggregator::processEvent(shared_ptr<Event> event)
+shared_ptr<Event> EventAggregator::actualProcessEvent(shared_ptr<Event> event)
 {
-	if(!event){
-		return shared_ptr<Event>();
+	string value;
+	if(m_fieldName.empty())
+		value = "";
+	else{
+		value = event->getProperty(m_fieldName, string(""));
+
+		// we simply ignores events without field on which we aggregate
+		if(value == "")
+			return shared_ptr<Event>();
 	}
 
-	//TODO: try catch needed?, handle if does not exists
-	long long multiplicity = event->getProperty<long long>("multiplicity", 1);
-	m_counter += multiplicity;
+	if(m_substreams.find(value) == m_substreams.end())
+		m_substreams[value] = EventAggregator::ActualEventAggregator();
 
-	bool forward = m_counter >= m_threshold;
-
-	if(forward){
-		shared_ptr<Event> newEvent (new Event());
-		newEvent->properties["multiplicity"] = m_counter;
-		// TODO:
-		//newEvent->properties[fieldName] = 
-		resetState();
-		return newEvent;
-	}else{
-		return shared_ptr<Event>();
-	}
+	return m_substreams[value].processEvent(event, m_threshold, m_fieldName);
 }
 
-void EventAggregator::resetState(){
+EventAggregator::ActualEventAggregator::ActualEventAggregator() :
+	m_counter(0)
+{}
+
+shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(shared_ptr<Event> event, long long threshold, string fieldName){
+	long long count = event->getProperty<long long>("count", 1);
+	m_counter += count;
+
+	bool forward = m_counter >= threshold;
+
+	if(forward){
+		cout << "?????? forwarding: " << m_counter << endl;
+		shared_ptr<Event> newEvent (new Event());
+		newEvent->properties["count"] = m_counter;
+		if(!fieldName.empty()){
+			string value = event->getProperty(fieldName, string());
+			newEvent->properties[fieldName] = value;
+		}
+		resetState();
+		return newEvent;
+	}
+
+	return shared_ptr<Event>();
+}
+
+void EventAggregator::ActualEventAggregator::resetState(){
 	m_counter = 0;
 }
 
 /*** EventFloodFilter ***/
-EventFloodFilter::EventFloodFilter(shared_ptr<IEventStream> wrappedStream, int minGapInSeconds) :
+/*EventFloodFilter::EventFloodFilter(shared_ptr<IEventStream> wrappedStream, int minGapInSeconds) :
 	m_wrappedStream(wrappedStream), m_minGapInSeconds(minGapInSeconds)
 {
 }
@@ -154,4 +211,4 @@ shared_ptr<Event> EventFloodFilter::processEvent(shared_ptr<Event> event)
 	// TODO: implement
 	shared_ptr<Event> newEvent (new Event(*event.get()));
 	return newEvent;
-}
+}*/

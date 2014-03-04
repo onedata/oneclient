@@ -95,17 +95,14 @@ namespace client {
 		}
 	};
 
-	class EventAggregationConstraint{
+	/*class EventAggregationConstraint{
 	public:
-		EventAggregationConstraint(const std::string & eventName, const std::string & aggregationFieldName = "", const std::string & aggregationValue = "") : 
-		m_eventName(eventName), m_aggregationFieldName(aggregationFieldName), m_aggregationValue(aggregationValue)
+		EventAggregationConstraint(const std::string & aggregationFieldName = "", const std::string & aggregationValue = "") : 
+		m_aggregationFieldName(aggregationFieldName), m_aggregationValue(aggregationValue)
 		{
 		}
 
 		bool operator<( const EventAggregationConstraint & another ) const {
-			if(this->m_eventName < another.m_eventName)
-				return true;
-
 			if(this->m_aggregationFieldName < another.m_aggregationFieldName)
 				return true;
 
@@ -119,24 +116,26 @@ namespace client {
 		std::string m_eventName;
 		std::string m_aggregationFieldName;
 		std::string m_aggregationValue;
-	};
+	};*/
 
 	class IEventStream{
 	public:
-		IEventStream(){}
-    	virtual ~IEventStream(){}
+		IEventStream();
+		IEventStream(boost::shared_ptr<IEventStream> wrappedStream);
+    	virtual ~IEventStream();
 
-    	// TODO: it should be pure virtual function but due to problems with shared_ptr and abstract class during compilation there is some provisional implememntation 
-    	//virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event) = 0;
-    	virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event) {
-    		return boost::shared_ptr<Event>();
-    	}
+    	virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event);
+
+    protected:
+		boost::shared_ptr<IEventStream> m_wrappedStream;
+
+    	virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event) = 0;
 	};
 
 	class TrivialEventStream : public IEventStream {
 	public:
 		TrivialEventStream();
-		virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event);
+		virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event);
 	};
 
 	class EventFilter : public IEventStream {
@@ -144,11 +143,9 @@ namespace client {
 		EventFilter(std::string fieldName, std::string desiredValue);
 		EventFilter(boost::shared_ptr<IEventStream> wrappedStream, std::string fieldName, std::string desiredValue);
 
-		virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event);
+		virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event);
 
 	private:
-		boost::shared_ptr<IEventStream> m_wrappedStream;
-
 		std::string m_fieldName;
 
 		// TODO: type of m_desiredValue hardcoded here and in few other places so far, it may (but not necessarily has to) be good idea to parametrize this
@@ -157,23 +154,35 @@ namespace client {
 
 	class EventAggregator : public IEventStream {
 	public:
+
+		// TODO: make it less visible
+		class ActualEventAggregator{
+		public:
+			ActualEventAggregator();
+			virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event, long long threshold,  std::string fieldName);
+
+		private:
+			long long m_counter;
+
+			void resetState();
+		};
+
+		//TODO: too many constructors
 		EventAggregator(long long threshold);
+		EventAggregator(std::string fieldName, long long threshold);
+		EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, long long threshold);
 		EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, std::string fieldName, long long threshold);
 
-		//TODO: probably to delete, may be useful if we want to aggregate all events which does not seems to have sense
-		//EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, long long threshold);
-		virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event);
+		virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event);
 
 	private:
 		boost::shared_ptr<IEventStream> m_wrappedStream;
 		std::string m_fieldName;
-		long long m_counter;
 		long long m_threshold;
-
-		void resetState();
+		std::map<std::string, ActualEventAggregator> m_substreams;
 	};
 
-	class EventFloodFilter : public IEventStream {
+	/*class EventFloodFilter : public IEventStream {
 	public:
 		EventFloodFilter(boost::shared_ptr<IEventStream> wrappedStream, int minGapInSeconds);
 
@@ -182,7 +191,7 @@ namespace client {
 	private:
 		boost::shared_ptr<IEventStream> m_wrappedStream;
 		int m_minGapInSeconds;
-	};
+	};*/
 } // namespace client
 } // namespace veil
 

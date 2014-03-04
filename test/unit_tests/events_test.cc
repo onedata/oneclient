@@ -134,14 +134,13 @@ TEST(EventFilter, SimpleFilter) {
 	shared_ptr<Event> resEvent = filter.processEvent(writeEvent);
 	ASSERT_EQ(0, resEvent.use_count());
 
-	shared_ptr<Event> resEvent2 = filter.processEvent(mkdirEvent);
-	//shared_ptr<Event> resEvent2 = mkdirEvent;
-	ASSERT_EQ(1, resEvent2.use_count());
-	//ASSERT_EQ("user1", resEvent->properties["userId"]);
-	//ASSERT_EQ("file1", resEvent->properties["fileId"]);
+	resEvent = filter.processEvent(mkdirEvent);
+	ASSERT_EQ(1, resEvent.use_count());
+	ASSERT_EQ(string("user1"), resEvent->getProperty("userId", string("")));
+	ASSERT_EQ(string("file1"), resEvent->getProperty("fileId", string("")));
 }
 
-/*TEST(EventAggregatorTest, SimpleAggregation) {
+TEST(EventAggregatorTest, SimpleAggregation) {
 	// given
 	shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("user1", "file1");
 	shared_ptr<Event> writeEvent = Event::createWriteEvent("user1", "file1", 100);
@@ -150,7 +149,7 @@ TEST(EventFilter, SimpleFilter) {
 	// what
 	for(int i=0; i<4; ++i){
 		shared_ptr<Event> res = aggregator.processEvent(mkdirEvent);
-		ASSERT_EQ(0, event.use_count());
+		ASSERT_EQ(0, res.use_count());
 	}
 
 	// then
@@ -159,23 +158,23 @@ TEST(EventFilter, SimpleFilter) {
 
 	// with aggregator configured that way there should be just one property
 	ASSERT_EQ(1, res->properties.size());
-	ASSERT_EQ(5, res->properties["multiplicity"]);
+	ASSERT_EQ(5L, res->getProperty<long long>("count", -1L));
 
 	for(int i=0; i<4; ++i){
 		shared_ptr<Event> res = aggregator.processEvent(mkdirEvent);
-		ASSERT_EQ(0, event.use_count());
+		ASSERT_EQ(0, res.use_count());
 	}
 
-	shared_ptr<Event> res2 = aggregator.processEvent(writeEvent);
-	ASSERT_EQ(1, res2.use_count());
+	res = aggregator.processEvent(writeEvent);
+	ASSERT_EQ(1, res.use_count());
 	ASSERT_EQ(1, res->properties.size());
-	ASSERT_EQ(5, res->properties["multiplicity"]);
+	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
 }
 
 TEST(EventAggregatorTest, AggregationByOneField) {
 	// given
-	shared_ptr<Event> mdkirEvent = Event::createMkdirEvent("user1", "file1");
-	shared_ptr<Event> writeEvent = Event:createWriteEvent("user1", "file1", 100);
+	shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("user1", "file1");
+	shared_ptr<Event> writeEvent = Event::createWriteEvent("user1", "file1", 100);
 	EventAggregator aggregator("type", 5);
 
 	// what
@@ -189,10 +188,10 @@ TEST(EventAggregatorTest, AggregationByOneField) {
 	res = aggregator.processEvent(mkdirEvent);
 	ASSERT_EQ(1, res.use_count());
 	ASSERT_EQ(2, res->properties.size());
-	ASSERT_EQ(5, res->properties["multiplicity"]);
-	ASSERT_EQ("mkdir_event", res->properties["type"]);
+	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
+	ASSERT_EQ("mkdir_event", res->getProperty("type", string("")));
 	
-	// we are sending just 3 writeEvents because one has already been send
+	// we are sending just 3 writeEvents because one has already been sent
 	for(int i=0; i<3; ++i){
 		shared_ptr<Event> res = aggregator.processEvent(writeEvent);
 		ASSERT_EQ(0, res.use_count());	
@@ -204,13 +203,57 @@ TEST(EventAggregatorTest, AggregationByOneField) {
 	res = aggregator.processEvent(writeEvent);
 	ASSERT_EQ(1, res.use_count());
 	ASSERT_EQ(2, res->properties.size());
-	ASSERT_EQ(5, res->properties["multiplicity"]);
-	ASSERT_EQ("write_event", res->properties["type"]);
+	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
+	ASSERT_EQ("write_event", res->getProperty("type", string("")));
 }
 
-TEST(EventAggregatorTest, AggregationByTwoFields) {
+TEST(EventAggregatorTest, FilterAndAggregation) {
 	// given
 	shared_ptr<Event> file1Event = Event::createMkdirEvent("user1", "file1");
 	shared_ptr<Event> file2Event = Event::createMkdirEvent("user1", "file2");
-	EventAggregator("type", "mkdir_event");
-}*/
+	shared_ptr<Event> writeEvent = Event::createWriteEvent("user1", "file1", 100);
+	shared_ptr<Event> writeEvent2 = Event::createWriteEvent("user1", "file2", 100);
+	shared_ptr<IEventStream> filter(new EventFilter("type", "mkdir_event"));
+	shared_ptr<IEventStream> aggregator(new EventAggregator(filter, "fileId", 5));
+
+	for(int i=0; i<4; ++i){
+		shared_ptr<Event> res = aggregator->processEvent(file1Event);
+		ASSERT_EQ(0, res.use_count());
+	}
+
+	shared_ptr<Event> res = aggregator->processEvent(file2Event);
+	ASSERT_EQ(0, res.use_count());
+
+	cout << "### ABC 1" << endl;
+
+	res = aggregator->processEvent(writeEvent);
+	cout << "### ABC 2" << endl;
+	ASSERT_EQ(0, res.use_count());
+	cout << "### ABC 3" << endl;
+
+	res = aggregator->processEvent(file1Event);
+	cout << "### ABC 4" << endl;
+	ASSERT_EQ(1, res.use_count());
+	cout << "### ABC 5" << endl;
+	ASSERT_EQ(2, res->properties.size());
+	cout << "### ABC 6" << endl;
+	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
+	cout << "### ABC 7" << endl;
+	ASSERT_EQ("file1", res->getProperty("fileId", string("")));
+
+	for(int i=0; i<3; ++i){
+		shared_ptr<Event> res = aggregator->processEvent(file2Event);
+		ASSERT_EQ(0, res.use_count());
+	}
+
+	res = aggregator->processEvent(file2Event);
+	ASSERT_EQ(1, res.use_count());
+	ASSERT_EQ(2, res->properties.size());
+	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
+	ASSERT_EQ("file2", res->getProperty("fileId", string("")));
+
+	for(int i=0; i<5; ++i){
+		shared_ptr<Event> res = aggregator->processEvent(writeEvent2);
+		ASSERT_EQ(0, res.use_count());
+	}
+}
