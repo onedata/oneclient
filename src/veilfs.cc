@@ -20,6 +20,9 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/functional.hpp>
 
+#include "communication_protocol.pb.h"
+#include "fuse_messages.pb.h"
+
 #include <sys/stat.h>
 
 /// Runs FUN on NAME storage helper with constructed with ARGS. Return value is avaiable in 'int sh_return'.
@@ -142,12 +145,27 @@ bool VeilFS::eventsNeededHandler(const protocol::communication_protocol::Answer 
 {
 
     LOG(INFO) << "EventsNeededHandler !!!!!!!!!";
-    TestChannelAnswer tMsg;
 
-    m_eventsNeeded = true;
+    EventFilterConfig eventStreamConfig;
+    PushMessage pushMsg;
+    pushMsg.ParseFromString(msg.worker_answer());
+    string messageType = pushMsg.message_type();
 
-    tMsg.ParseFromString(msg.worker_answer());
-    LOG(INFO) << "Message: " + tMsg.message();
+    LOG(INFO) << "Message: " + pushMsg.message_type();
+
+    if(messageType == "event_filter_config"){
+        EventFilterConfig eventFilterConfig;
+        eventFilterConfig.ParseFromString(pushMsg.data());
+        LOG(INFO) << "EventFilterConfig parsed";
+        boost::shared_ptr<IEventStream> newStream = EventFilter::fromConfig(eventFilterConfig);
+        m_eventsStream.m_substreams.push_back(newStream);
+        LOG(INFO) << "EventFilterConfig added to m_eventsStream";
+    }else if(messageType == "event_aggregator_config"){
+        EventAggregatorConfig eventAggregatorConfig;
+        eventAggregatorConfig.ParseFromString(pushMsg.data());
+        boost::shared_ptr<IEventStream> newStream = EventAggregator::fromConfig(eventAggregatorConfig);
+        m_eventsStream.m_substreams.push_back(newStream);
+    }
 
     return true;
 }
@@ -362,8 +380,21 @@ int VeilFS::mkdir(const char *path, mode_t mode)
     RETURN_IF_ERROR(m_fslogic->createDir(string(path), mode & ALLPERMS));
     VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
 
-    if(m_eventsNeeded){
-        VeilFS::getScheduler()->addTask(Job(time(NULL) + 1, shared_from_this(), TASK_SEND_EVENT));
+    boost::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("userId", "fileId");
+    list<boost::shared_ptr<Event> > processedEvents = m_eventsStream.processEvent(mkdirEvent);
+    LOG(INFO) << "event processed";
+
+    if(!processedEvents.empty()){
+        LOG(INFO) << "processedEvents not empty";
+    }else{
+        LOG(INFO) << "processedEvents empty";
+    }
+
+    for(list<boost::shared_ptr<Event> >::iterator it = processedEvents.begin(); it != processedEvents.end(); ++it){
+        LOG(INFO) << "processedEvent not null";
+        shared_ptr<EventMessage> eventProtoMessage = (*it)->createProtoMessage();
+        LOG(INFO) << "eventmessage created";
+        VeilFS::getScheduler()->addTask(Job(time(NULL) + 1, shared_from_this(), TASK_SEND_EVENT, eventProtoMessage->SerializeAsString()));
     }
 
     return 0;
@@ -826,8 +857,8 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
             (void) m_metaCache->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2));
         return true;
 
-    case TASK_SEND_EVENT:
-        sendEvent();
+    case TASK_SEND_EVENT: // arg0 = encoded EventMessage
+        sendEvent(arg0);
         return true;
 
     default:
@@ -835,7 +866,7 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
     }
 }
 
-void VeilFS::sendEvent(){
+void VeilFS::sendEvent(string encodedEventMessage){
     using namespace veil::protocol::communication_protocol;
     
     ClusterMsg clm;
@@ -851,7 +882,9 @@ void VeilFS::sendEvent(){
     ping.set_value("event");
     clm.set_input(ping.SerializeAsString());
 
-    LOG(INFO) << "Response created";
+    //clm.set_input(encodedEventMessage);
+
+    LOG(INFO) << "Event message created";
 
     boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
 
@@ -862,7 +895,7 @@ void VeilFS::sendEvent(){
         LOG(WARNING) << "sending message failed: " << (connection ? "failed" : "not needed");
     } else {
         VeilFS::getConnectionPool()->releaseConnection(connection);
-        LOG(INFO) << "Response sent";
+        LOG(INFO) << "Event message sent";
     }
 }
 

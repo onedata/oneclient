@@ -14,6 +14,7 @@
 #include <iostream>
 #include <boost/shared_ptr.hpp>
 #include <boost/any.hpp>
+#include "fuse_messages.pb.h"
 
 namespace veil {
 namespace client {
@@ -49,6 +50,8 @@ namespace client {
 
 		Event();
 		Event(const Event & anotherEvent);
+
+		virtual boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> createProtoMessage();
 
 		template<class T>
         T getProperty(std::string fieldName, T defaultValue){
@@ -142,6 +145,7 @@ namespace client {
 	public:
 		EventFilter(std::string fieldName, std::string desiredValue);
 		EventFilter(boost::shared_ptr<IEventStream> wrappedStream, std::string fieldName, std::string desiredValue);
+		static boost::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventFilterConfig & config);
 
 		virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event);
 
@@ -172,6 +176,7 @@ namespace client {
 		EventAggregator(std::string fieldName, long long threshold);
 		EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, long long threshold);
 		EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, std::string fieldName, long long threshold);
+		static boost::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventAggregatorConfig & config);
 
 		virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event);
 

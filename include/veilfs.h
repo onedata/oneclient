@@ -27,6 +27,8 @@
 #include <list>
 #include <boost/unordered_map.hpp>
 
+ #include "events.h"
+
 /// The name of default global config file
 #define GLOBAL_CONFIG_FILE      "veilFuse.conf"
 
@@ -134,7 +136,8 @@ protected:
         ReadWriteLock m_shCacheLock;
 
 private:
-        void sendEvent();
+        void sendEvent(std::string encodedEventMessage);
+        EventStreamCombiner m_eventsStream;
 
 };
 

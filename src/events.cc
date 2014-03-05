@@ -48,6 +48,14 @@ shared_ptr<Event> Event::createWriteEvent(string userId, string fileId, long lon
 	return event;
 }
 
+shared_ptr<veil::protocol::fuse_messages::EventMessage> Event::createProtoMessage(){
+	using namespace veil::protocol::fuse_messages;
+	shared_ptr<EventMessage> eventMessage (new EventMessage());
+	string type = getProperty("type", string(""));
+	eventMessage->set_type(type);
+	return eventMessage;
+}
+
 Event::Event(){}
 
 Event::Event(const Event & anotherEvent){
@@ -107,6 +115,10 @@ EventFilter::EventFilter(shared_ptr<IEventStream> wrappedStream, std::string fie
 {
 }
 
+shared_ptr<IEventStream> EventFilter::fromConfig(const veil::protocol::fuse_messages::EventFilterConfig & config){
+	return shared_ptr<IEventStream> (new EventFilter(config.field_name(), config.desired_value()));
+}
+
 shared_ptr<Event> EventFilter::actualProcessEvent(shared_ptr<Event> event)
 {
 	// defaultValue is generated some way because if we set precomputed value it will not work if desiredValue is the same as precomputed value
@@ -141,6 +153,19 @@ EventAggregator::EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, 
 EventAggregator::EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, std::string fieldName, long long threshold) :
 	IEventStream(wrappedStream), m_fieldName(fieldName), m_threshold(threshold)
 {
+}
+
+shared_ptr<IEventStream> EventAggregator::fromConfig(const veil::protocol::fuse_messages::EventAggregatorConfig & config){
+	EventAggregator * newEventAggregator;
+	if(config.has_wrapped_filter()){
+		veil::protocol::fuse_messages::EventFilterConfig filterConfig = config.wrapped_filter();
+		shared_ptr<IEventStream> filter = EventFilter::fromConfig(filterConfig);
+    	newEventAggregator = new EventAggregator(filter, config.field_name(), config.threshold());
+    }else{
+    	newEventAggregator = new EventAggregator(config.field_name(), config.threshold());
+    }
+
+	return shared_ptr<IEventStream> (newEventAggregator);
 }
 
 /*EventAggregator::EventAggregator(shared_ptr<IEventStream> wrappedStream, long long threshold) :
