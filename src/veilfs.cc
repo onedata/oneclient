@@ -22,6 +22,7 @@
 
 #include "communication_protocol.pb.h"
 #include "fuse_messages.pb.h"
+#include "messageBuilder.h"
 
 #include <sys/stat.h>
 
@@ -873,16 +874,16 @@ void VeilFS::sendEvent(string encodedEventMessage){
     clm.set_protocol_version(PROTOCOL_VERSION);
     clm.set_synch(false);
     clm.set_module_name(CLUSTER_RENGINE);
-    clm.set_message_type(ATOM);
+    clm.set_message_type(EVENT_MESSAGE);
     clm.set_answer_type(ATOM);
-    clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
+    clm.set_message_decoder_name(FUSE_MESSAGES);
     clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL);
 
-    Atom ping;
+    /*Atom ping;
     ping.set_value("event");
-    clm.set_input(ping.SerializeAsString());
+    clm.set_input(ping.SerializeAsString());*/
 
-    //clm.set_input(encodedEventMessage);
+    clm.set_input(encodedEventMessage);
 
     LOG(INFO) << "Event message created";
 
