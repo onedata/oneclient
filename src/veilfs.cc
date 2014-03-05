@@ -621,18 +621,10 @@ int VeilFS::statfs(const char *path, struct statvfs *statInfo)
 {
     LOG(INFO) << "FUSE: statfs(path: " << string(path) << ", ...)";
 
-    statInfo->f_bsize       = 4096;
-    statInfo->f_frsize      = 4096;
-    statInfo->f_blocks      = 10;           /* size of fs in f_frsize units */
-    statInfo->f_bfree       = 7;            /* # free blocks */
-    statInfo->f_bavail      = 6;            /* # free blocks for unprivileged users */
-    statInfo->f_files       = 10000;        /* # inodes */
-    statInfo->f_ffree       = 10000;        /* # free inodes */
-    statInfo->f_favail      = 10000;        /* # free inodes for unprivileged users */
-    statInfo->f_fsid        = 0;        /* file system ID */
-    statInfo->f_flag        = 0;
-    statInfo->f_namemax     = NAME_MAX;
+    pair<string, struct statvfs> resp = m_fslogic->getStatFS();
+    RETURN_IF_ERROR(resp.first);
 
+    memcpy(statInfo, &resp.second, sizeof(struct statvfs));
     return 0;
 }
 
