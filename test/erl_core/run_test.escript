@@ -18,9 +18,9 @@
 
 -define(INFO(X, Y), io:format(X ++ "~n", Y)).
 
--define(default_cookie, '172.16.67.64').
--define(default_ccm_name, "ccm1").
--define(default_worker_name, "ccm1_worker").
+-define(default_cookie, veil_cluster_node).
+-define(default_ccm_name, "ccm").
+-define(default_worker_name, "worker").
 
 -define(CCM_NODE_NAME, list_to_atom(?default_ccm_name ++ "@" ++ os:getenv("CLUSTER_NODE"))).
 -define(WORKER_NODE_NAME, list_to_atom(?default_worker_name ++ "@" ++ os:getenv("CLUSTER_NODE"))).
@@ -33,7 +33,6 @@
 
 
 main(["__exec" | [ TestName | Args ]]) ->
-    
     set_up_net_kernel(),
 
     load_mods([?CCM_NODE_NAME, ?WORKER_NODE_NAME], [list_to_atom(TestName), test_common]),
@@ -54,7 +53,6 @@ main(["__exec" | [ TestName | Args ]]) ->
         Type:Error -> io:format("[~p] ~p", [Type, Error])
     end;    
 main([TestName | Args]) -> 
-
     set_up_net_kernel(),
 
     if
@@ -79,7 +77,7 @@ main([TestName | Args]) ->
 
     CTX_CCM = call(?CCM_NODE_NAME, fun() -> setup(ccm, TestName) end),
     CTX_W = call(?WORKER_NODE_NAME, fun() -> setup(worker, TestName) end),
-
+    
     CMD = "TEST_NAME=\"" ++ TestName ++"\" TEST_RUNNER=\"" ++ escript:script_name() ++ "\" ./" ++ TestName ++ "_i " ++ string:join(Args, " "),
     ?INFO("CMD: ~p", [CMD]),
     ?INFO("STDOUT: ~s", [os:cmd(CMD)]),
@@ -155,7 +153,7 @@ call(Node, Fun) ->
 
 set_up_net_kernel() ->
     {A, B, C} = erlang:now(),
-    NodeName = "setup_node_" ++ integer_to_list(A, 32) ++ integer_to_list(B, 32) ++ integer_to_list(C, 32) ++ "@172.16.67.64",
+    NodeName = "setup_node_" ++ integer_to_list(A, 32) ++ integer_to_list(B, 32) ++ integer_to_list(C, 32) ++ "@127.0.0.1",
     net_kernel:start([list_to_atom(NodeName), longnames]),
     erlang:set_cookie(node(), ?default_cookie).
 
