@@ -613,6 +613,23 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
         }
     }
 
+    boost::shared_ptr<Event> mkdirEvent = Event::createWriteEvent("userId", path, size);
+    list<boost::shared_ptr<Event> > processedEvents = m_eventsStream.processEvent(mkdirEvent);
+    LOG(INFO) << "write event processed";
+
+    if(!processedEvents.empty()){
+        LOG(INFO) << "write processedEvents not empty";
+    }else{
+        LOG(INFO) << "write processedEvents empty";
+    }
+
+    for(list<boost::shared_ptr<Event> >::iterator it = processedEvents.begin(); it != processedEvents.end(); ++it){
+        LOG(INFO) << "write processedEvent not null";
+        shared_ptr<EventMessage> eventProtoMessage = (*it)->createProtoMessage();
+        LOG(INFO) << "write eventmessage created";
+        VeilFS::getScheduler()->addTask(Job(time(NULL) + 1, shared_from_this(), TASK_SEND_EVENT, eventProtoMessage->SerializeAsString()));
+    }
+
     return sh_return;
 }
 
