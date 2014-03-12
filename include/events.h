@@ -121,6 +121,7 @@ namespace client {
 		std::string m_aggregationValue;
 	};*/
 
+	//rename to EventStream (interface with static method is not something anybody expects)
 	class IEventStream{
 	public:
 		IEventStream();
@@ -128,6 +129,8 @@ namespace client {
     	virtual ~IEventStream();
 
     	virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event);
+    	static boost::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventConfig & config);
+    	virtual void setWrappedStream(boost::shared_ptr<IEventStream> wrappedStream);
 
     protected:
 		boost::shared_ptr<IEventStream> m_wrappedStream;

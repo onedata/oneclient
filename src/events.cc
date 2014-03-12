@@ -103,6 +103,30 @@ IEventStream::~IEventStream(){
 
 }
 
+void IEventStream::setWrappedStream(shared_ptr<IEventStream> wrappedStream){
+	m_wrappedStream = wrappedStream;
+}
+
+shared_ptr<IEventStream> IEventStream::fromConfig(const ::veil::protocol::fuse_messages::EventConfig & config){
+	shared_ptr<IEventStream> res;
+
+	// this piece of code will need to be updated when new EventConfig type is added
+	if(config.has_filter_config()){
+		::veil::protocol::fuse_messages::EventFilterConfig cfg = config.filter_config();
+	 	res = EventFilter::fromConfig(cfg);
+	}else if(config.has_aggregator_config()){
+		::veil::protocol::fuse_messages::EventAggregatorConfig cfg = config.aggregator_config();
+		res = EventAggregator::fromConfig(cfg);
+	}
+
+	if(config.has_wrapped_config()){
+		shared_ptr<IEventStream> wrapped = IEventStream::fromConfig(config.wrapped_config());
+		res->setWrappedStream(wrapped);
+	}
+
+	return res;
+}
+
 /****** EventFilter ******/
 
 EventFilter::EventFilter(string fieldName, string desiredValue) :
@@ -156,16 +180,7 @@ EventAggregator::EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, 
 }
 
 shared_ptr<IEventStream> EventAggregator::fromConfig(const veil::protocol::fuse_messages::EventAggregatorConfig & config){
-	EventAggregator * newEventAggregator;
-	if(config.has_wrapped_filter()){
-		veil::protocol::fuse_messages::EventFilterConfig filterConfig = config.wrapped_filter();
-		shared_ptr<IEventStream> filter = EventFilter::fromConfig(filterConfig);
-    	newEventAggregator = new EventAggregator(filter, config.field_name(), config.threshold());
-    }else{
-    	newEventAggregator = new EventAggregator(config.field_name(), config.threshold());
-    }
-
-	return shared_ptr<IEventStream> (newEventAggregator);
+	return shared_ptr<IEventStream> (new EventAggregator(config.field_name(), config.threshold()));
 }
 
 /*EventAggregator::EventAggregator(shared_ptr<IEventStream> wrappedStream, long long threshold) :

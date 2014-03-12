@@ -154,7 +154,18 @@ bool VeilFS::eventsNeededHandler(const protocol::communication_protocol::Answer 
 
     LOG(INFO) << "Message: " + pushMsg.message_type();
 
-    if(messageType == "event_filter_config"){
+    if(messageType == "event_config"){
+
+    }
+
+    EventConfig eventConfig;
+    eventConfig.ParseFromString(pushMsg.data());
+    boost::shared_ptr<IEventStream> newStream = IEventStream::fromConfig(eventConfig);
+    if(newStream){
+        m_eventsStream.m_substreams.push_back(newStream);
+    }
+
+    /*if(messageType == "event_filter_config"){
         EventFilterConfig eventFilterConfig;
         eventFilterConfig.ParseFromString(pushMsg.data());
         LOG(INFO) << "EventFilterConfig parsed";
@@ -166,7 +177,7 @@ bool VeilFS::eventsNeededHandler(const protocol::communication_protocol::Answer 
         eventAggregatorConfig.ParseFromString(pushMsg.data());
         boost::shared_ptr<IEventStream> newStream = EventAggregator::fromConfig(eventAggregatorConfig);
         m_eventsStream.m_substreams.push_back(newStream);
-    }
+    }*/
 
     return true;
 }
@@ -612,7 +623,7 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
             m_metaCache->updateSize(string(path), offset + sh_return);
         }
     }
-
+    LOG(INFO) << "before write event processed";
     boost::shared_ptr<Event> mkdirEvent = Event::createWriteEvent("userId", path, size);
     list<boost::shared_ptr<Event> > processedEvents = m_eventsStream.processEvent(mkdirEvent);
     LOG(INFO) << "write event processed";
