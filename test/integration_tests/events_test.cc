@@ -8,7 +8,6 @@
 #include "testCommon.h"
 #include "erlTestCore.h"
 #include "boost/filesystem.hpp"
-#include <iostream>
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -30,18 +29,8 @@ protected:
 
     path directIO_root;
 
+    // VFS is not initialized here because in some test cases we want to perform some actions on cluster before client initialization
     EventsTest() {}
-
-    virtual void SetUp() {
-
-        // Initialization of the whole client. 
-        // This initialization is not required if test uses only filesystem (theres no VeilClient code calls)
-        //COMMON_INTEGRATION_SETUP();
-    }
-
-    virtual void TearDown() {
-        //COMMON_INTEGRATION_CLEANUP();
-    }
 
 };
 
@@ -58,87 +47,87 @@ string exec(const char* cmd) {
     return result;
 }
 
+// In this test we perform some action with and without event handler registered
 TEST_F(EventsTest, mkdirExample) {
+    // given
     VFS.reset(new VeilFSMount("main", "peer.pem"));
-    sleep(1);
-
-    //::system(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
-    string res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
-    int before = atoi(res.c_str());
-    cout << "------ IT IS BAZINGA!!:" << before << ", root: " << VFS->getRoot() << endl;
-
     string dirName1 = "test_dir_7";
     string dirPath1 = VFS->getRoot() + "/" + dirName1;
+    string dirPath2 = VFS->getRoot() + "/test_dir_8";
 
+    string res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
+    int before = atoi(res.c_str());
+
+    // what
     EXPECT_EQ(0, ::system(("mkdir " + dirPath1).c_str()));
+    sleep(1);
 
+    // then
     res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
-
     int after = atoi(res.c_str());
-    cout << "------ IT IS BAZINGA!!after:" << after << endl;
+
+    // no event handler was registered so number of files after should be equal before + 1
     EXPECT_EQ(before + 1, after);
 
-    
+    // event handler registration, directory dirName1 will be deleted on directory creation
     erlExec("{register_mkdir_handler, \"test_user/" + dirName1 + "\"}");
-    sleep(2);
 
+    // given
     res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
     before = atoi(res.c_str());
-    cout << "------ IT IS BAZINGA22!!:" << before << endl;
 
-    string dirPath2 = VFS->getRoot() + "/test_dir_8";
+    // what
     EXPECT_EQ(0, ::system(("mkdir " + dirPath2).c_str()));
+    sleep(1);
 
-    sleep(2);
-
+    // then 
     res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
     after = atoi(res.c_str());
-    cout << "------ IT IS BAZINGA22!!after:" << after << endl;
 
+    // this time we expect that dirPath2 has been created, event handler applied which deleted dirPath1, so we expect before == after
     EXPECT_EQ(before, after);
 
     EXPECT_EQ(0, ::system(("rm -rf " + dirPath2).c_str()));
-
-    //int after = atoi(::system(("ls -al " + VFS->getRoot() + " | wc -l").c_str()));
-    //cout << "------ IT IS BAZINGA!!after:" << after << endl;
-    //EXPECT_EQ(before + 1, after);
 }
 
+// Checks if client get event producer configuration on startup
 TEST_F(EventsTest, clientConfiguredAtStartup) {
     string root = MOUNT_POINT("main");
     string dirName1 = "test_dir_1";
     string dirPath1 = root + "/" + dirName1;
     string dirPath2 = root + "/test_dir_2";
 
+    // this is essential for this test to register event handler before mounting and initializing client
     erlExec("{register_mkdir_handler, \"test_user/" + dirName1 + "\"}");
-    sleep(2);
-
-    VFS.reset(new VeilFSMount("main", "peer.pem"));
     sleep(1);
 
+    VFS.reset(new VeilFSMount("main", "peer.pem"));
+
+    // given
     string res = exec(("ls -al " + root + " | wc -l").c_str());
     int before = atoi(res.c_str());
-    cout << "------ IT IS BAZINGA!!:" << before << ", root:" << root << endl;
 
+    //what
     EXPECT_EQ(0, ::system(("mkdir " + dirPath1).c_str()));
     sleep(1);
 
+    // then
     res = exec(("ls -al " + root + " | wc -l").c_str());
     int after = atoi(res.c_str());
-    cout << "------ IT IS BAZINGA!!after:" << after << endl;
 
     EXPECT_EQ(before, after);
 
+    // given
     res = exec(("ls -al " + root + " | wc -l").c_str());
     before = atoi(res.c_str());
-    cout << "------ IT IS BAZINGA22!!:" << before << endl;
 
+    // what
     EXPECT_EQ(0, ::system(("mkdir " + dirPath2).c_str()));
     sleep(1);
 
+    // then
     res = exec(("ls -al " + root + " | wc -l").c_str());
     after = atoi(res.c_str());
-    cout << "------ IT IS BAZINGA22!!after:" << after << endl;
 
     EXPECT_EQ(before + 1, after);
 

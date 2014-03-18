@@ -12,23 +12,6 @@ using namespace veil::client;
 using namespace std;
 using namespace boost;
 
-EventSubscription::EventSubscription(int threshold) :
-	m_aggregationFieldName(""), m_threshold(threshold)
-{
-
-}
-
-EventSubscription::EventSubscription(string aggregationFieldName, int threshold) :
-	m_aggregationFieldName(aggregationFieldName), m_threshold(threshold)
-{
-
-}
-
-list<EventSubscription> EventConfiguration::getSubscriptions(){
-	list<EventSubscription> res;
-	return res;
-}
-
 shared_ptr<Event> Event::createMkdirEvent(string userId, string fileId)
 {
 	shared_ptr<Event> event (new Event());
@@ -110,27 +93,19 @@ void IEventStream::setWrappedStream(shared_ptr<IEventStream> wrappedStream){
 shared_ptr<IEventStream> IEventStream::fromConfig(const ::veil::protocol::fuse_messages::EventStreamConfig & config){
 	shared_ptr<IEventStream> res;
 
-	cout << "IEVENTSTREAM::fromconfig before" << endl;
-
 	// this piece of code will need to be updated when new EventConfig type is added
 	if(config.has_filter_config()){
-		cout << "IEVENTSTREAM::fromconfig filter!!!!" << endl;
 		::veil::protocol::fuse_messages::EventFilterConfig cfg = config.filter_config();
 	 	res = EventFilter::fromConfig(cfg);
 	}else if(config.has_aggregator_config()){
-		cout << "IEVENTSTREAM::fromconfig agg!!!!" << endl;
 		::veil::protocol::fuse_messages::EventAggregatorConfig cfg = config.aggregator_config();
 		res = EventAggregator::fromConfig(cfg);
 	}
-
-	cout << "IEVENTSTREAM::fromconfig after1" << endl;
 
 	if(config.has_wrapped_config()){
 		shared_ptr<IEventStream> wrapped = IEventStream::fromConfig(config.wrapped_config());
 		res->setWrappedStream(wrapped);
 	}
-
-	cout << "IEVENTSTREAM::fromconfig after2" << endl;
 
 	return res;
 }
@@ -226,7 +201,6 @@ shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(shared_pt
 	bool forward = m_counter >= threshold;
 
 	if(forward){
-		cout << "?????? forwarding: " << m_counter << endl;
 		shared_ptr<Event> newEvent (new Event());
 		newEvent->properties["count"] = m_counter;
 		if(!fieldName.empty()){
@@ -253,20 +227,3 @@ list<shared_ptr<Event> > EventStreamCombiner::processEvent(shared_ptr<Event> eve
 	}
 	return producedEvents;
 }
-
-/*** EventFloodFilter ***/
-/*EventFloodFilter::EventFloodFilter(shared_ptr<IEventStream> wrappedStream, int minGapInSeconds) :
-	m_wrappedStream(wrappedStream), m_minGapInSeconds(minGapInSeconds)
-{
-}
-
-shared_ptr<Event> EventFloodFilter::processEvent(shared_ptr<Event> event)
-{
-	if(!event){
-		return shared_ptr<Event>();
-	}
-
-	// TODO: implement
-	shared_ptr<Event> newEvent (new Event(*event.get()));
-	return newEvent;
-}*/

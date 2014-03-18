@@ -11,7 +11,6 @@
 #include <string>
 #include <list>
 #include <map>
-#include <iostream>
 #include <boost/shared_ptr.hpp>
 #include <boost/any.hpp>
 #include "fuse_messages.pb.h"
@@ -25,32 +24,10 @@
 
 namespace veil {
 namespace client {
-	/*class Event{
-	public:
-		time_t timestamp;
-	};
-
-	class WriteEvent : public Event{
-	public:
-		std::string m_userId;
-		std::string m_fileId;
-		int bytes;
-	};
-
-	class MkdirEvent : public Event{
-	public:
-		MkdirEvent(std::string userId, std::string fileId);
-		std::string m_userId;
-		std::string m_fileId;
-	};*/
 
 	class Event{
 	public:
 		std::map<std::string, boost::any> properties;
-		bool forward;
-
-		/*static boost::shared_ptr<Event> createMkdirEvent(std::string userId, std::string fileId){}
-		static boost::shared_ptr<Event> createWriteEvent(std::string userId, std::string fileId, long long bytes);*/
 
 		static boost::shared_ptr<Event> createMkdirEvent(std::string userId, std::string fileId);
 		static boost::shared_ptr<Event> createWriteEvent(std::string userId, std::string fileId, long long bytes);
@@ -64,38 +41,15 @@ namespace client {
         T getProperty(std::string fieldName, T defaultValue){
             try{
                 if(properties.find(fieldName) == properties.end()){
-                	std::cout << "????? nie znalezino" << std::endl;
                     return defaultValue;
                 }else{
                     return boost::any_cast<T>(properties[fieldName]);
                 }
 	        }catch(boost::bad_any_cast){
 	        	// TODO: LOG
-                std::cout << "????? zlapano bad_any_cast exception" << std::endl;
                 return defaultValue;
             }
         }
-	};
-
-	class EventSubscription{
-	public:
-		std::string m_aggregationFieldName;
-		std::string m_function;
-		int m_threshold;
-
-		EventSubscription(int threshold);
-		EventSubscription(std::string aggregationFieldName, int threshold);
-	};
-
-	class EventConfiguration{
-	public:
-		EventConfiguration(){}
-		virtual ~EventConfiguration(){}
-		virtual std::list<EventSubscription> getSubscriptions();
-		//virtual void addConfigForEvent(std::string event, const EventSubscription & eventSubscription);
-
-	private:
-		std::list<EventSubscription> m_eventSubscriptions;
 	};
 
 	class EventProcessor{
@@ -104,29 +58,6 @@ namespace client {
 			return "";
 		}
 	};
-
-	/*class EventAggregationConstraint{
-	public:
-		EventAggregationConstraint(const std::string & aggregationFieldName = "", const std::string & aggregationValue = "") : 
-		m_aggregationFieldName(aggregationFieldName), m_aggregationValue(aggregationValue)
-		{
-		}
-
-		bool operator<( const EventAggregationConstraint & another ) const {
-			if(this->m_aggregationFieldName < another.m_aggregationFieldName)
-				return true;
-
-			if(this->m_aggregationValue < another.m_aggregationValue)
-				return true;
-
-			return false;
-		}
-
-	private: 
-		std::string m_eventName;
-		std::string m_aggregationFieldName;
-		std::string m_aggregationValue;
-	};*/
 
 	//rename to EventStream (interface with static method is not something anybody expects)
 	class IEventStream{
@@ -199,22 +130,10 @@ namespace client {
 
 	class EventStreamCombiner{
 	public:
-		//TODO: boost ptr type
 		std::list<boost::shared_ptr<IEventStream> > m_substreams;
 
 		std::list<boost::shared_ptr<Event> > processEvent(boost::shared_ptr<Event> event);
 	};
-
-	/*class EventFloodFilter : public IEventStream {
-	public:
-		EventFloodFilter(boost::shared_ptr<IEventStream> wrappedStream, int minGapInSeconds);
-
-		virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event);
-
-	private:
-		boost::shared_ptr<IEventStream> m_wrappedStream;
-		int m_minGapInSeconds;
-	};*/
 } // namespace client
 } // namespace veil
 

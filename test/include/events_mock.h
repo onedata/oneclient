@@ -12,15 +12,6 @@
 #include "testCommon.h"
 #include <list>
 
-class MockEventConfiguration : public EventConfiguration {
-
-public:
-	MockEventConfiguration() : EventConfiguration() {}
-	~MockEventConfiguration() {}
-
-	MOCK_METHOD0(getSubscriptions, list<EventSubscription>());
-};
-
 class MockEvent : public Event {
 	
 };

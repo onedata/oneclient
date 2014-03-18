@@ -29,105 +29,12 @@ public:
         
     }
 };
-/*
-TEST(EventProcessorTest, SendsOnlyWhenConfigured) {
-	// given
-    MkdirEvent event("user1", "file1");
-    EventProcessor eventProcessor;
 
-    // what
-    string res = eventProcessor.processEvent(event);
-
-    // then
-    ASSERT_TRUE(res.empty());
-
-    // given
-	boost:shared_ptr<MockEventConfiguration> emptyMockEventConfiguration (new MockEventConfiguration);
-    list<EventSubscription> subscriptions;
-    EXPECT_CALL(*emptyMockEventConfiguration, getSubscriptions()).Times(1).WillRepeatedly(Return(subscriptions));
-    eventProcessor.setConfiguration(emptyMockEventConfiguration);
-
-    // what
-    res = eventProcessor.processEvent(event);
-
-    // then
-    ASSERT_TRUE(res.empty());
-
-    //given
-	boost:shared_ptr<MockEventConfiguration> nonEmptyMockEventConfiguration (new MockEventConfiguration);
-    list<EventSubscription> subscriptions2;
-    EventSubscription subscription(1);
-    subscriptions2.push_back(subscription);
-    EXPECT_CALL(*nonEmptyMockEventConfiguration, getSubscriptions()).Times(1).WillRepeatedly(Return(subscriptions2));
-    eventProcessor.setConfiguration(nonEmptyMockEventConfiguration);
-
-    // what
-    res = eventProcessor.processEvent(event);
-
-    // then
-    ASSERT_FALSE(res.empty());
-}
-
-TEST(EventProcessorTest, SendsOnlyWhenThresholdExceeded) {
-	// given
-    boost:shared_ptr<MockEventConfiguration> mockEventConfiguration (new MockEventConfiguration);
-    list<EventSubscription> subscriptions;
-    EventSubscription subscription (3);
-    subscriptions.push_back(subscription);
-    EXPECT_CALL(*mockEventConfiguration, getSubscriptions()).Times(6).WillRepeatedly(Return(subscriptions));
-    MkdirEvent event("user1", "file1");
-    EventProcessor eventProcessor;
-
-    // what
-    string res = eventProcessor.processEvent(event);
-
-    // then
-    ASSERT_TRUE(res.empty());
-    res = eventProcessor.processEvent(event);
-    ASSERT_TRUE(res.empty());
-    res = eventProcessor.processEvent(event);
-    ASSERT_FALSE(res.empty());
-
-    res = eventProcessor.processEvent(event);
-    ASSERT_TRUE(res.empty());
-    res = eventProcessor.processEvent(event);
-    ASSERT_TRUE(res.empty());
-    res = eventProcessor.processEvent(event);
-    ASSERT_FALSE(res.empty());
-}
-
-TEST(EventProcessorTest, AggregationByFileId) {
-	// given
-    shared_ptr<MockEventConfiguration> mockEventConfiguration (new MockEventConfiguration);
-    list<EventSubscription> subscriptions;
-    EventSubscription subscription ("fileId", 2);
-    subscriptions.push_back(subscription);
-    EXPECT_CALL(*mockEventConfiguration, getSubscriptions()).Times(6).WillRepeatedly(Return(subscriptions));
-    MkdirEvent event1("user1", "file1");
-    MkdirEvent event2("user1", "file2");
-    EventProcessor eventProcessor;
-
-    // what
-    string res1 = eventProcessor.processEvent(event1);
-    string res2 = eventProcessor.processEvent(event2);
-    string res3 = eventProcessor.processEvent(event1);
-    string res4 = eventProcessor.processEvent(event2);
-    string res5 = eventProcessor.processEvent(event1);
-    string res6 = eventProcessor.processEvent(event1);
-
-    // then
-    ASSERT_TRUE(res1.empty());
-    ASSERT_TRUE(res2.empty());
-    ASSERT_FALSE(res3.empty());
-    ASSERT_FALSE(res4.empty());
-    ASSERT_TRUE(res5.empty());
-    ASSERT_FALSE(res6.empty());
-}*/
-
+// checks simple stream with single EventFilter
 TEST(EventFilter, SimpleFilter) {
 	// given
 	shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("user1", "file1");
-	shared_ptr<Event> writeEvent = Event::createWriteEvent("user1", "file1", 100);
+	shared_ptr<Event> writeEvent = Event::createWriteEvent("user1", "file2", 100);
 	EventFilter filter("type", "mkdir_event");
 
 	// what
@@ -140,6 +47,7 @@ TEST(EventFilter, SimpleFilter) {
 	ASSERT_EQ(string("file1"), resEvent->getProperty("fileId", string("")));
 }
 
+// checks simple stream with single EventAggregator
 TEST(EventAggregatorTest, SimpleAggregation) {
 	// given
 	shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("user1", "file1");
@@ -224,21 +132,13 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
 	shared_ptr<Event> res = aggregator->processEvent(file2Event);
 	ASSERT_EQ(0, res.use_count());
 
-	cout << "### ABC 1" << endl;
-
 	res = aggregator->processEvent(writeEvent);
-	cout << "### ABC 2" << endl;
 	ASSERT_EQ(0, res.use_count());
-	cout << "### ABC 3" << endl;
 
 	res = aggregator->processEvent(file1Event);
-	cout << "### ABC 4" << endl;
 	ASSERT_EQ(1, res.use_count());
-	cout << "### ABC 5" << endl;
 	ASSERT_EQ(2, res->properties.size());
-	cout << "### ABC 6" << endl;
 	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
-	cout << "### ABC 7" << endl;
 	ASSERT_EQ("file1", res->getProperty("fileId", string("")));
 
 	for(int i=0; i<3; ++i){
