@@ -31,11 +31,13 @@ delete_file(FilePath) ->
 
 exec({register_mkdir_handler, FilePath}) ->
 
-  EventHandler = fun({mkdir_event, AnsPid, UserId, _, _}) ->
-    %?info("Mkdir EventHandler"),
+  EventHandler = fun(_) ->
     delete_file(FilePath)
   end,
 
   EventItem = {event_handler_item, standard, undefined, undefined, undefined, EventHandler, undefined},
+
   %EventItem = #event_handler_item{processing_method = standard, handler_fun = EventHandler}, %, map_fun = EventHandlerMapFun, disp_map_fun = EventHandlerDispMapFun, config = ProcessingConfig},
-  gen_server:call({request_dispatcher, node()}, {rule_manager, 1, self(), {add_event_handler, {mkdir_event, EventItem}}}).
+  EventFilter = {eventfilterconfig, "type", "mkdir_event"},
+  EventFilterConfig = {eventstreamconfig, undefined, EventFilter, undefined},
+  gen_server:call({request_dispatcher, node()}, {rule_manager, 1, self(), {add_event_handler, {mkdir_event, EventItem, EventFilterConfig}}}).

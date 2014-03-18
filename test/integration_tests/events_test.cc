@@ -26,25 +26,21 @@ class EventsTest
 protected:
     COMMON_INTEGRATION_DEFS();
 
-    VeilFSMount VFS;
+    boost::shared_ptr<VeilFSMount> VFS;
 
     path directIO_root;
 
-    // Mount file system in "main" subdir with "peer.pem" cert
-    // use VFS.getRoot() to get absolute mount point
-    EventsTest() : VFS(VeilFSMount("main", "peer.pem")) 
-    {
-    }
+    EventsTest() {}
 
     virtual void SetUp() {
 
         // Initialization of the whole client. 
         // This initialization is not required if test uses only filesystem (theres no VeilClient code calls)
-        COMMON_INTEGRATION_SETUP();
+        //COMMON_INTEGRATION_SETUP();
     }
 
     virtual void TearDown() {
-        COMMON_INTEGRATION_CLEANUP();
+        //COMMON_INTEGRATION_CLEANUP();
     }
 
 };
@@ -63,17 +59,20 @@ string exec(const char* cmd) {
 }
 
 TEST_F(EventsTest, mkdirExample) {
-    //::system(("ls -al " + VFS.getRoot() + " | wc -l").c_str());
-    string res = exec(("ls -al " + VFS.getRoot() + " | wc -l").c_str());
+    VFS.reset(new VeilFSMount("main", "peer.pem"));
+    sleep(1);
+
+    //::system(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
+    string res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
     int before = atoi(res.c_str());
-    cout << "------ IT IS BAZINGA!!:" << before << endl;
+    cout << "------ IT IS BAZINGA!!:" << before << ", root: " << VFS->getRoot() << endl;
 
     string dirName1 = "test_dir_7";
-    string dirPath1 = VFS.getRoot() + "/" + dirName1;
+    string dirPath1 = VFS->getRoot() + "/" + dirName1;
 
     EXPECT_EQ(0, ::system(("mkdir " + dirPath1).c_str()));
 
-    res = exec(("ls -al " + VFS.getRoot() + " | wc -l").c_str());
+    res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
 
     int after = atoi(res.c_str());
     cout << "------ IT IS BAZINGA!!after:" << after << endl;
@@ -81,16 +80,18 @@ TEST_F(EventsTest, mkdirExample) {
 
     
     erlExec("{register_mkdir_handler, \"test_user/" + dirName1 + "\"}");
-    sleep(4);
+    sleep(2);
 
-    res = exec(("ls -al " + VFS.getRoot() + " | wc -l").c_str());
+    res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
     before = atoi(res.c_str());
     cout << "------ IT IS BAZINGA22!!:" << before << endl;
 
-    string dirPath2 = VFS.getRoot() + "/test_dir_8";
+    string dirPath2 = VFS->getRoot() + "/test_dir_8";
     EXPECT_EQ(0, ::system(("mkdir " + dirPath2).c_str()));
 
-    res = exec(("ls -al " + VFS.getRoot() + " | wc -l").c_str());
+    sleep(2);
+
+    res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
     after = atoi(res.c_str());
     cout << "------ IT IS BAZINGA22!!after:" << after << endl;
 
@@ -98,8 +99,48 @@ TEST_F(EventsTest, mkdirExample) {
 
     EXPECT_EQ(0, ::system(("rm -rf " + dirPath2).c_str()));
 
-    //int after = atoi(::system(("ls -al " + VFS.getRoot() + " | wc -l").c_str()));
+    //int after = atoi(::system(("ls -al " + VFS->getRoot() + " | wc -l").c_str()));
     //cout << "------ IT IS BAZINGA!!after:" << after << endl;
     //EXPECT_EQ(before + 1, after);
 }
 
+TEST_F(EventsTest, clientConfiguredAtStartup) {
+    string root = MOUNT_POINT("main");
+    string dirName1 = "test_dir_1";
+    string dirPath1 = root + "/" + dirName1;
+    string dirPath2 = root + "/test_dir_2";
+
+    erlExec("{register_mkdir_handler, \"test_user/" + dirName1 + "\"}");
+    sleep(2);
+
+    VFS.reset(new VeilFSMount("main", "peer.pem"));
+    sleep(1);
+
+    string res = exec(("ls -al " + root + " | wc -l").c_str());
+    int before = atoi(res.c_str());
+    cout << "------ IT IS BAZINGA!!:" << before << ", root:" << root << endl;
+
+    EXPECT_EQ(0, ::system(("mkdir " + dirPath1).c_str()));
+    sleep(1);
+
+    res = exec(("ls -al " + root + " | wc -l").c_str());
+    int after = atoi(res.c_str());
+    cout << "------ IT IS BAZINGA!!after:" << after << endl;
+
+    EXPECT_EQ(before, after);
+
+    res = exec(("ls -al " + root + " | wc -l").c_str());
+    before = atoi(res.c_str());
+    cout << "------ IT IS BAZINGA22!!:" << before << endl;
+
+    EXPECT_EQ(0, ::system(("mkdir " + dirPath2).c_str()));
+    sleep(1);
+
+    res = exec(("ls -al " + root + " | wc -l").c_str());
+    after = atoi(res.c_str());
+    cout << "------ IT IS BAZINGA22!!after:" << after << endl;
+
+    EXPECT_EQ(before + 1, after);
+
+    EXPECT_EQ(0, ::system(("rm -rf " + dirPath2).c_str()));
+}
