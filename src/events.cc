@@ -107,22 +107,30 @@ void IEventStream::setWrappedStream(shared_ptr<IEventStream> wrappedStream){
 	m_wrappedStream = wrappedStream;
 }
 
-shared_ptr<IEventStream> IEventStream::fromConfig(const ::veil::protocol::fuse_messages::EventConfig & config){
+shared_ptr<IEventStream> IEventStream::fromConfig(const ::veil::protocol::fuse_messages::EventStreamConfig & config){
 	shared_ptr<IEventStream> res;
+
+	cout << "IEVENTSTREAM::fromconfig before" << endl;
 
 	// this piece of code will need to be updated when new EventConfig type is added
 	if(config.has_filter_config()){
+		cout << "IEVENTSTREAM::fromconfig filter!!!!" << endl;
 		::veil::protocol::fuse_messages::EventFilterConfig cfg = config.filter_config();
 	 	res = EventFilter::fromConfig(cfg);
 	}else if(config.has_aggregator_config()){
+		cout << "IEVENTSTREAM::fromconfig agg!!!!" << endl;
 		::veil::protocol::fuse_messages::EventAggregatorConfig cfg = config.aggregator_config();
 		res = EventAggregator::fromConfig(cfg);
 	}
+
+	cout << "IEVENTSTREAM::fromconfig after1" << endl;
 
 	if(config.has_wrapped_config()){
 		shared_ptr<IEventStream> wrapped = IEventStream::fromConfig(config.wrapped_config());
 		res->setWrappedStream(wrapped);
 	}
+
+	cout << "IEVENTSTREAM::fromconfig after2" << endl;
 
 	return res;
 }

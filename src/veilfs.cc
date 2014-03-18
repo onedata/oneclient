@@ -155,29 +155,10 @@ bool VeilFS::eventsNeededHandler(const protocol::communication_protocol::Answer 
     LOG(INFO) << "Message: " + pushMsg.message_type();
 
     if(messageType == "event_config"){
-
+        EventStreamConfig eventStreamConfig;
+        eventStreamConfig.ParseFromString(pushMsg.data());
+        addEventSubstream(eventStreamConfig);
     }
-
-    EventConfig eventConfig;
-    eventConfig.ParseFromString(pushMsg.data());
-    boost::shared_ptr<IEventStream> newStream = IEventStream::fromConfig(eventConfig);
-    if(newStream){
-        m_eventsStream.m_substreams.push_back(newStream);
-    }
-
-    /*if(messageType == "event_filter_config"){
-        EventFilterConfig eventFilterConfig;
-        eventFilterConfig.ParseFromString(pushMsg.data());
-        LOG(INFO) << "EventFilterConfig parsed";
-        boost::shared_ptr<IEventStream> newStream = EventFilter::fromConfig(eventFilterConfig);
-        m_eventsStream.m_substreams.push_back(newStream);
-        LOG(INFO) << "EventFilterConfig added to m_eventsStream";
-    }else if(messageType == "event_aggregator_config"){
-        EventAggregatorConfig eventAggregatorConfig;
-        eventAggregatorConfig.ParseFromString(pushMsg.data());
-        boost::shared_ptr<IEventStream> newStream = EventAggregator::fromConfig(eventAggregatorConfig);
-        m_eventsStream.m_substreams.push_back(newStream);
-    }*/
 
     return true;
 }
@@ -882,8 +863,51 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
         sendEvent(arg0);
         return true;
 
+    case TASK_GET_EVENT_PRODUCER_CONFIG:
+        getEventProducerConfig();
+        return true;
+
     default:
         return false;
+    }
+}
+
+void VeilFS::getEventProducerConfig(){
+    using namespace veil::protocol::communication_protocol;
+    
+    ClusterMsg clm;
+    clm.set_protocol_version(PROTOCOL_VERSION);
+    clm.set_synch(true);
+    clm.set_module_name(RULE_MANAGER);
+    clm.set_message_type(ATOM);
+    clm.set_answer_type(EVENT_PRODUCER_CONFIG);
+    clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
+    clm.set_answer_decoder_name(FUSE_MESSAGES);
+
+    Atom msg;
+    msg.set_value(EVENT_PRODUCER_CONFIG_REQUEST);
+    clm.set_input(msg.SerializeAsString());
+
+    boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+
+    LOG(INFO) << "!!!!!!!!!!!!!! !BAZINGA!@";
+    Answer ans;
+    if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
+        LOG(WARNING) << "sending message failed: " << (connection ? "failed" : "not needed");
+    } else {
+        VeilFS::getConnectionPool()->releaseConnection(connection);
+        LOG(INFO) << "event producer config request sent";
+    }
+
+    LOG(INFO) << "Answer from event producer config request: " << ans.worker_answer();
+
+    EventProducerConfig config;
+    config.ParseFromString(ans.worker_answer());
+    LOG(INFO) << "---- config: " << config.event_streams_configs_size();
+
+    for(int i=0; i<config.event_streams_configs_size(); ++i)
+    {
+        addEventSubstream(config.event_streams_configs(i));
     }
 }
 
@@ -898,10 +922,6 @@ void VeilFS::sendEvent(string encodedEventMessage){
     clm.set_answer_type(ATOM);
     clm.set_message_decoder_name(FUSE_MESSAGES);
     clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL);
-
-    /*Atom ping;
-    ping.set_value("event");
-    clm.set_input(ping.SerializeAsString());*/
 
     clm.set_input(encodedEventMessage);
 
@@ -918,6 +938,16 @@ void VeilFS::sendEvent(string encodedEventMessage){
         VeilFS::getConnectionPool()->releaseConnection(connection);
         LOG(INFO) << "Event message sent";
     }
+}
+
+void VeilFS::addEventSubstream(const EventStreamConfig & eventStreamConfig){
+    boost::shared_ptr<IEventStream> newStream = IEventStream::fromConfig(eventStreamConfig);
+    if(newStream){
+        LOG(INFO) << "!!!!!!!! before New EventStream added.";
+        m_eventsStream.m_substreams.push_back(newStream);
+        LOG(INFO) << "!!!!!!!!New EventStream added.";
+    }
+    LOG(INFO) << "after all !!!";
 }
 
 } // namespace client

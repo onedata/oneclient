@@ -105,6 +105,7 @@ public:
         int init(struct fuse_conn_info *conn); /**< *init* FUSE callback. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
 
         bool eventsNeededHandler(const protocol::communication_protocol::Answer &msg); ///< Function called when cluster sends message saying that client should emit events.
+        void getEventProducerConfig(); ///< Function responsible for getting event producer config
 
         virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
@@ -137,6 +138,7 @@ protected:
 
 private:
         void sendEvent(std::string encodedEventMessage);
+        void addEventSubstream(const protocol::fuse_messages::EventStreamConfig & eventStreamConfig); ///< add EventStreamConfig to m_eventsStream
         EventStreamCombiner m_eventsStream;
 
 };

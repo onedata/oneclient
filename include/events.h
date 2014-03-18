@@ -16,6 +16,13 @@
 #include <boost/any.hpp>
 #include "fuse_messages.pb.h"
 
+#define RULE_MANAGER "rule_manager"
+#define CLUSTER_RENGINE "cluster_rengine"
+
+#define EVENT_PRODUCER_CONFIG_REQUEST "event_producer_config_request"
+#define EVENT_PRODUCER_CONFIG "eventproducerconfig"
+#define EVENT_MESSAGE "eventmessage"
+
 namespace veil {
 namespace client {
 	/*class Event{
@@ -129,7 +136,7 @@ namespace client {
     	virtual ~IEventStream();
 
     	virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event);
-    	static boost::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventConfig & config);
+    	static boost::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventStreamConfig & config);
     	virtual void setWrappedStream(boost::shared_ptr<IEventStream> wrappedStream);
 
     protected:

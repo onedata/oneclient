@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include "ISchedulable.h"
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
 #endif
@@ -440,8 +441,9 @@ int main(int argc, char* argv[], char* envp[])
                         boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(new FslogicProxy()))),
                         boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()));
     VeilAppObject.reset(veilfs);
-
+    cout << "------- Veilfuse bazinga --------" << endl;
     VeilFS::getPushListener()->subscribe(boost::bind(&VeilFS::eventsNeededHandler, veilfs, _1));
+    VeilFS::getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(NULL) + 1, boost::shared_ptr<VeilFS> (VeilAppObject), ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
 
     // Enter FUSE loop
     if (multithreaded)

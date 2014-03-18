@@ -42,7 +42,8 @@ public:
         TASK_CLEAR_ATTR,
         TASK_CONNECTION_HANDSHAKE,
         TASK_LAST_ID,
-        TASK_SEND_EVENT
+        TASK_SEND_EVENT,
+        TASK_GET_EVENT_PRODUCER_CONFIG
     };
 
     ISchedulable();
