@@ -62,8 +62,6 @@ string exec(const char* cmd) {
     return result;
 }
 
-// VFS.getRoot() is set to the root of mounted VeilFS. Therefore you can just 
-// manage some files in order to test whole VeilClient behaviourally 
 TEST_F(EventsTest, mkdirExample) {
     //::system(("ls -al " + VFS.getRoot() + " | wc -l").c_str());
     string res = exec(("ls -al " + VFS.getRoot() + " | wc -l").c_str());
@@ -81,14 +79,9 @@ TEST_F(EventsTest, mkdirExample) {
     cout << "------ IT IS BAZINGA!!after:" << after << endl;
     EXPECT_EQ(before + 1, after);
 
-    //EXPECT_EQ(0, ::system(("rm -rf " + dirPath1).c_str()));
-
     
     erlExec("{register_mkdir_handler, \"test_user/" + dirName1 + "\"}");
-    cout << "zarejestrowano!!!!!" << endl;
     sleep(4);
-
-
 
     res = exec(("ls -al " + VFS.getRoot() + " | wc -l").c_str());
     before = atoi(res.c_str());
