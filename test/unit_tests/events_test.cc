@@ -9,6 +9,7 @@
 #include "events.h"
 #include "events_mock.h"
 #include "boost/shared_ptr.hpp"
+#include "fuse_messages.pb.h"
 
 using namespace boost;
 
@@ -179,4 +180,70 @@ TEST(EventStreamCombiner, CombineStreams) {
 
 	events = combiner.processEvent(mkdirEvent);
 	ASSERT_EQ(1, events.size());
+}
+
+TEST(IEventStream, ConstructFromConfig1) {
+	using namespace veil::protocol::fuse_messages;
+
+	// given
+	//EventFilterConfig filterConfig;
+	EventStreamConfig config;
+	EventFilterConfig * filterConfig = config.mutable_filter_config();
+	filterConfig->set_field_name("type");
+	filterConfig->set_desired_value("write_event");
+	
+	// what
+	shared_ptr<IEventStream> stream = IEventStreamFactory::fromConfig(config);
+
+	// then
+	ASSERT_TRUE((bool) stream);
+	EventFilter * eventFilter = dynamic_cast<EventFilter *>(stream.get());
+	ASSERT_TRUE(eventFilter != NULL);
+	ASSERT_EQ("type", eventFilter->getFieldName());
+	ASSERT_EQ("write_event", eventFilter->getDesiredValue());
+	ASSERT_FALSE((bool) eventFilter->getWrappedStream());
+}
+
+TEST(IEventStream, ConstructFromConfig2) {
+	using namespace veil::protocol::fuse_messages;
+
+	// given
+	EventStreamConfig config;
+	EventAggregatorConfig * aggregatorConfig = config.mutable_aggregator_config();
+	aggregatorConfig->set_field_name("userId");
+	aggregatorConfig->set_threshold(15);
+	EventStreamConfig * wrappedConfig = config.mutable_wrapped_config();
+	EventFilterConfig * filterConfig = wrappedConfig->mutable_filter_config();
+	filterConfig->set_field_name("type");
+	filterConfig->set_desired_value("write_event");
+	
+	// what
+	shared_ptr<IEventStream> stream = IEventStreamFactory::fromConfig(config);
+
+	// then
+	ASSERT_TRUE((bool) stream);
+	EventAggregator * eventAggregator = dynamic_cast<EventAggregator *>(stream.get());
+	ASSERT_TRUE(eventAggregator != NULL);
+	ASSERT_EQ("userId", eventAggregator->getFieldName());
+	ASSERT_EQ(15, eventAggregator->getThreshold());
+	shared_ptr<IEventStream> wrappedStream = eventAggregator->getWrappedStream();
+	ASSERT_TRUE((bool) wrappedStream);
+	EventFilter * eventFilter = dynamic_cast<EventFilter *> (wrappedStream.get());
+	ASSERT_TRUE(eventFilter != NULL);
+	ASSERT_EQ("type", eventFilter->getFieldName());
+	ASSERT_EQ("write_event", eventFilter->getDesiredValue());
+	ASSERT_FALSE((bool) eventFilter->getWrappedStream());
+}
+
+TEST(IEventStream, ConstructFromConfigReturnsEmptyPointerWhenConfigIncorrect){
+	using namespace veil::protocol::fuse_messages;
+
+	// given
+	EventStreamConfig config;
+
+	// what
+	shared_ptr<IEventStream> stream = IEventStreamFactory::fromConfig(config);
+
+	//config was incorrect so we expect IEventStreamFactory::fromConfig to return empty shared_ptr
+	ASSERT_FALSE((bool) stream);
 }

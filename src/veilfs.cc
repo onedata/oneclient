@@ -941,7 +941,7 @@ void VeilFS::sendEvent(string encodedEventMessage){
 }
 
 void VeilFS::addEventSubstream(const EventStreamConfig & eventStreamConfig){
-    boost::shared_ptr<IEventStream> newStream = IEventStream::fromConfig(eventStreamConfig);
+    boost::shared_ptr<IEventStream> newStream = IEventStreamFactory::fromConfig(eventStreamConfig);
     if(newStream){
         LOG(INFO) << "!!!!!!!! before New EventStream added.";
         m_eventsStream.m_substreams.push_back(newStream);

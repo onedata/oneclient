@@ -67,8 +67,9 @@ namespace client {
     	virtual ~IEventStream();
 
     	virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event);
-    	static boost::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventStreamConfig & config);
+
     	virtual void setWrappedStream(boost::shared_ptr<IEventStream> wrappedStream);
+    	virtual boost::shared_ptr<IEventStream> getWrappedStream();
 
     protected:
 		boost::shared_ptr<IEventStream> m_wrappedStream;
@@ -90,10 +91,14 @@ namespace client {
 
 		virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event);
 
+		// for unit test purposes
+		std::string getFieldName();
+		std::string getDesiredValue();
+
 	private:
 		std::string m_fieldName;
 
-		// TODO: type of m_desiredValue hardcoded here and in few other places so far, it may (but not necessarily has to) be good idea to parametrize this
+		// TODO: type of m_desiredValue hardcoded here and in a few other places so far, it may (but also may not) be a good idea to parametrize this
 		std::string m_desiredValue;
 	};
 
@@ -121,8 +126,11 @@ namespace client {
 
 		virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event);
 
+		// for unit test purposes
+		std::string getFieldName();
+		long long getThreshold();
+
 	private:
-		boost::shared_ptr<IEventStream> m_wrappedStream;
 		std::string m_fieldName;
 		long long m_threshold;
 		std::map<std::string, ActualEventAggregator> m_substreams;
@@ -131,8 +139,30 @@ namespace client {
 	class EventStreamCombiner{
 	public:
 		std::list<boost::shared_ptr<IEventStream> > m_substreams;
-
 		std::list<boost::shared_ptr<Event> > processEvent(boost::shared_ptr<Event> event);
+	};
+
+	class IEventStreamFactory{
+	public:
+    	static boost::shared_ptr<IEventStream> fromConfig(const veil::protocol::fuse_messages::EventStreamConfig & config){
+			boost::shared_ptr<IEventStream> res;
+
+			// this piece of code will need to be updated when new EventConfig type is added
+			if(config.has_filter_config()){
+				::veil::protocol::fuse_messages::EventFilterConfig cfg = config.filter_config();
+			 	res = EventFilter::fromConfig(cfg);
+			}else if(config.has_aggregator_config()){
+				::veil::protocol::fuse_messages::EventAggregatorConfig cfg = config.aggregator_config();
+				res = EventAggregator::fromConfig(cfg);
+			}
+
+			if(config.has_wrapped_config()){
+				boost::shared_ptr<IEventStream> wrapped = IEventStreamFactory::fromConfig(config.wrapped_config());
+				res->setWrappedStream(wrapped);
+			}
+
+			return res;
+		}
 	};
 } // namespace client
 } // namespace veil

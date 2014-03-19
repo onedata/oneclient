@@ -86,10 +86,17 @@ IEventStream::~IEventStream(){
 
 }
 
-void IEventStream::setWrappedStream(shared_ptr<IEventStream> wrappedStream){
+void IEventStream::setWrappedStream(shared_ptr<IEventStream> wrappedStream)
+{
 	m_wrappedStream = wrappedStream;
 }
 
+shared_ptr<IEventStream> IEventStream::getWrappedStream()
+{
+	return m_wrappedStream;
+}
+
+/*
 shared_ptr<IEventStream> IEventStream::fromConfig(const ::veil::protocol::fuse_messages::EventStreamConfig & config){
 	shared_ptr<IEventStream> res;
 
@@ -108,7 +115,7 @@ shared_ptr<IEventStream> IEventStream::fromConfig(const ::veil::protocol::fuse_m
 	}
 
 	return res;
-}
+}*/
 
 /****** EventFilter ******/
 
@@ -138,6 +145,16 @@ shared_ptr<Event> EventFilter::actualProcessEvent(shared_ptr<Event> event)
 	}else{
 		return shared_ptr<Event>();
 	}
+}
+
+string EventFilter::getFieldName()
+{
+	return m_fieldName;
+}
+
+string EventFilter::getDesiredValue()
+{
+	return m_desiredValue;
 }
 
 /****** EventAggregator ******/
@@ -190,11 +207,22 @@ shared_ptr<Event> EventAggregator::actualProcessEvent(shared_ptr<Event> event)
 	return m_substreams[value].processEvent(event, m_threshold, m_fieldName);
 }
 
+string EventAggregator::getFieldName()
+{
+	return m_fieldName;
+}
+
+long long EventAggregator::getThreshold()
+{
+	return m_threshold;
+}
+
 EventAggregator::ActualEventAggregator::ActualEventAggregator() :
 	m_counter(0)
 {}
 
-shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(shared_ptr<Event> event, long long threshold, string fieldName){
+shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(shared_ptr<Event> event, long long threshold, string fieldName)
+{
 	long long count = event->getProperty<long long>("count", 1);
 	m_counter += count;
 
@@ -214,11 +242,13 @@ shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(shared_pt
 	return shared_ptr<Event>();
 }
 
-void EventAggregator::ActualEventAggregator::resetState(){
+void EventAggregator::ActualEventAggregator::resetState()
+{
 	m_counter = 0;
 }
 
-list<shared_ptr<Event> > EventStreamCombiner::processEvent(shared_ptr<Event> event){
+list<shared_ptr<Event> > EventStreamCombiner::processEvent(shared_ptr<Event> event)
+{
 	list<shared_ptr<Event> > producedEvents;
 	for(list<shared_ptr<IEventStream> >::iterator it = m_substreams.begin(); it != m_substreams.end(); it++){
 		shared_ptr<Event> produced = (*it)->processEvent(event);

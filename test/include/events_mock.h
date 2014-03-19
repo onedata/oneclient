@@ -11,6 +11,8 @@
 #include "events.h"
 #include "testCommon.h"
 #include <list>
+#include <string>
+#include "fuse_messages.pb.h"
 
 class MockEvent : public Event {
 	
