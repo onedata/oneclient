@@ -18,4 +18,12 @@ class MockEvent : public Event {
 	
 };
 
+class MockEventCommunicator : public EventCommunicator {
+public:
+	MockEventCommunicator(){}
+	~MockEventCommunicator(){}
+
+	MOCK_METHOD1(processEvent, void(boost::shared_ptr<Event>));
+};
+
 #endif // EVENTS_MOCK_H

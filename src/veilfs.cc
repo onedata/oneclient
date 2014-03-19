@@ -77,13 +77,14 @@ boost::shared_ptr<PushListener> VeilFS::m_pushListener;
 
 VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler, 
                boost::shared_ptr<FslogicProxy> fslogic,  boost::shared_ptr<MetaCache> metaCache, 
-               boost::shared_ptr<StorageMapper> mapper, boost::shared_ptr<helpers::StorageHelperFactory> sh_factory) : 
+               boost::shared_ptr<StorageMapper> mapper, boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
+               boost::shared_ptr<EventCommunicator> eventCommunicator) : 
     m_fslogic(fslogic),
     m_storageMapper(mapper),
     m_metaCache(metaCache),
     m_shFactory(sh_factory),
     m_fh(0),
-    m_eventsNeeded(false)
+    m_eventCommunicator(eventCommunicator)
 {
     if(path.size() > 1 && path[path.size()-1] == '/')
         path = path.substr(0, path.size()-1);
@@ -144,20 +145,19 @@ void VeilFS::staticDestroy()
 // Function called when cluster sends message saying that client should emit events.
 bool VeilFS::eventsNeededHandler(const protocol::communication_protocol::Answer &msg)
 {
-
     LOG(INFO) << "EventsNeededHandler !!!!!!!!!";
 
-    EventFilterConfig eventStreamConfig;
     PushMessage pushMsg;
-    pushMsg.ParseFromString(msg.worker_answer());
+    if(!pushMsg.ParseFromString(msg.worker_answer())){
+        return false;
+    }
+
     string messageType = pushMsg.message_type();
 
-    LOG(INFO) << "Message: " + pushMsg.message_type();
+    LOG(INFO) << "Type of received PushMessage: " + pushMsg.message_type();
 
     if(messageType == "event_config"){
-        EventStreamConfig eventStreamConfig;
-        eventStreamConfig.ParseFromString(pushMsg.data());
-        addEventSubstream(eventStreamConfig);
+        m_eventCommunicator->handlePushedConfig(pushMsg);
     }
 
     return true;
@@ -374,21 +374,7 @@ int VeilFS::mkdir(const char *path, mode_t mode)
     VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
 
     boost::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("userId", "fileId");
-    list<boost::shared_ptr<Event> > processedEvents = m_eventsStream.processEvent(mkdirEvent);
-    LOG(INFO) << "event processed";
-
-    if(!processedEvents.empty()){
-        LOG(INFO) << "processedEvents not empty";
-    }else{
-        LOG(INFO) << "processedEvents empty";
-    }
-
-    for(list<boost::shared_ptr<Event> >::iterator it = processedEvents.begin(); it != processedEvents.end(); ++it){
-        LOG(INFO) << "processedEvent not null";
-        shared_ptr<EventMessage> eventProtoMessage = (*it)->createProtoMessage();
-        LOG(INFO) << "eventmessage created";
-        VeilFS::getScheduler()->addTask(Job(time(NULL) + 1, shared_from_this(), TASK_SEND_EVENT, eventProtoMessage->SerializeAsString()));
-    }
+    m_eventCommunicator->processEvent(mkdirEvent);
 
     return 0;
 }
@@ -605,22 +591,8 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
         }
     }
     LOG(INFO) << "before write event processed";
-    boost::shared_ptr<Event> mkdirEvent = Event::createWriteEvent("userId", path, size);
-    list<boost::shared_ptr<Event> > processedEvents = m_eventsStream.processEvent(mkdirEvent);
-    LOG(INFO) << "write event processed";
-
-    if(!processedEvents.empty()){
-        LOG(INFO) << "write processedEvents not empty";
-    }else{
-        LOG(INFO) << "write processedEvents empty";
-    }
-
-    for(list<boost::shared_ptr<Event> >::iterator it = processedEvents.begin(); it != processedEvents.end(); ++it){
-        LOG(INFO) << "write processedEvent not null";
-        shared_ptr<EventMessage> eventProtoMessage = (*it)->createProtoMessage();
-        LOG(INFO) << "write eventmessage created";
-        VeilFS::getScheduler()->addTask(Job(time(NULL) + 1, shared_from_this(), TASK_SEND_EVENT, eventProtoMessage->SerializeAsString()));
-    }
+    boost::shared_ptr<Event> writeEvent = Event::createWriteEvent("userId", path, size);
+    m_eventCommunicator->processEvent(writeEvent);
 
     return sh_return;
 }
@@ -859,95 +831,13 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
             (void) m_metaCache->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2));
         return true;
 
-    case TASK_SEND_EVENT: // arg0 = encoded EventMessage
-        sendEvent(arg0);
-        return true;
-
     case TASK_GET_EVENT_PRODUCER_CONFIG:
-        getEventProducerConfig();
+        m_eventCommunicator->getEventProducerConfig();
         return true;
 
     default:
         return false;
     }
-}
-
-void VeilFS::getEventProducerConfig(){
-    using namespace veil::protocol::communication_protocol;
-    
-    ClusterMsg clm;
-    clm.set_protocol_version(PROTOCOL_VERSION);
-    clm.set_synch(true);
-    clm.set_module_name(RULE_MANAGER);
-    clm.set_message_type(ATOM);
-    clm.set_answer_type(EVENT_PRODUCER_CONFIG);
-    clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
-    clm.set_answer_decoder_name(FUSE_MESSAGES);
-
-    Atom msg;
-    msg.set_value(EVENT_PRODUCER_CONFIG_REQUEST);
-    clm.set_input(msg.SerializeAsString());
-
-    boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
-
-    LOG(INFO) << "!!!!!!!!!!!!!! !BAZINGA!@";
-    Answer ans;
-    if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
-        LOG(WARNING) << "sending message failed: " << (connection ? "failed" : "not needed");
-    } else {
-        VeilFS::getConnectionPool()->releaseConnection(connection);
-        LOG(INFO) << "event producer config request sent";
-    }
-
-    LOG(INFO) << "Answer from event producer config request: " << ans.worker_answer();
-
-    EventProducerConfig config;
-    config.ParseFromString(ans.worker_answer());
-    LOG(INFO) << "---- config: " << config.event_streams_configs_size();
-
-    for(int i=0; i<config.event_streams_configs_size(); ++i)
-    {
-        addEventSubstream(config.event_streams_configs(i));
-    }
-}
-
-void VeilFS::sendEvent(string encodedEventMessage){
-    using namespace veil::protocol::communication_protocol;
-    
-    ClusterMsg clm;
-    clm.set_protocol_version(PROTOCOL_VERSION);
-    clm.set_synch(false);
-    clm.set_module_name(CLUSTER_RENGINE);
-    clm.set_message_type(EVENT_MESSAGE);
-    clm.set_answer_type(ATOM);
-    clm.set_message_decoder_name(FUSE_MESSAGES);
-    clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL);
-
-    clm.set_input(encodedEventMessage);
-
-    LOG(INFO) << "Event message created";
-
-    boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
-
-    LOG(INFO) << "Connection selected";
-
-    Answer ans;
-    if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
-        LOG(WARNING) << "sending message failed: " << (connection ? "failed" : "not needed");
-    } else {
-        VeilFS::getConnectionPool()->releaseConnection(connection);
-        LOG(INFO) << "Event message sent";
-    }
-}
-
-void VeilFS::addEventSubstream(const EventStreamConfig & eventStreamConfig){
-    boost::shared_ptr<IEventStream> newStream = IEventStreamFactory::fromConfig(eventStreamConfig);
-    if(newStream){
-        LOG(INFO) << "!!!!!!!! before New EventStream added.";
-        m_eventsStream.m_substreams.push_back(newStream);
-        LOG(INFO) << "!!!!!!!!New EventStream added.";
-    }
-    LOG(INFO) << "after all !!!";
 }
 
 } // namespace client

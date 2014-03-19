@@ -24,10 +24,9 @@
 #include "simpleConnectionPool.h"
 #include "ISchedulable.h"
 #include "pushListener.h"
+#include "events.h"
 #include <list>
 #include <boost/unordered_map.hpp>
-
- #include "events.h"
 
 /// The name of default global config file
 #define GLOBAL_CONFIG_FILE      "veilFuse.conf"
@@ -68,8 +67,9 @@ public:
         static void setConnectionPool(boost::shared_ptr<SimpleConnectionPool> injected);
 
         VeilFS(std::string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler, 
-               boost::shared_ptr<FslogicProxy> fslogic,  boost::shared_ptr<MetaCache> metaCache, 
-               boost::shared_ptr<StorageMapper> mapper, boost::shared_ptr<helpers::StorageHelperFactory> sh_factory); ///< VeilFS constructor.
+                boost::shared_ptr<FslogicProxy> fslogic, boost::shared_ptr<MetaCache> metaCache, 
+                boost::shared_ptr<StorageMapper> mapper, boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
+                boost::shared_ptr<EventCommunicator> eventCommunicator); ///< VeilFS constructor.
         virtual ~VeilFS();
         static void staticDestroy();
 
@@ -105,7 +105,6 @@ public:
         int init(struct fuse_conn_info *conn); /**< *init* FUSE callback. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
 
         bool eventsNeededHandler(const protocol::communication_protocol::Answer &msg); ///< Function called when cluster sends message saying that client should emit events.
-        void getEventProducerConfig(); ///< Function responsible for getting event producer config
 
         virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
@@ -116,12 +115,11 @@ protected:
         uid_t       m_ruid;  ///< Filesystem root real uid
         gid_t       m_rgid;  ///< Filesystem root real gid
         uint64_t    m_fh;
-
-        bool m_eventsNeeded;
         
         static ReadWriteLock m_schedulerPoolLock;
 
         boost::shared_ptr<FslogicProxy> m_fslogic;             ///< FslogicProxy instance
+        boost::shared_ptr<EventCommunicator> m_eventCommunicator;
         boost::shared_ptr<StorageMapper> m_storageMapper;      ///< StorageMapper instance
         static std::list<boost::shared_ptr<JobScheduler> > m_jobSchedulers; ///< JobScheduler instances
         boost::shared_ptr<MetaCache> m_metaCache;              ///< MetaCache instance
@@ -135,12 +133,6 @@ protected:
     
         boost::unordered_map<helper_cache_idx_t, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
         ReadWriteLock m_shCacheLock;
-
-private:
-        void sendEvent(std::string encodedEventMessage);
-        void addEventSubstream(const protocol::fuse_messages::EventStreamConfig & eventStreamConfig); ///< add EventStreamConfig to m_eventsStream
-        EventStreamCombiner m_eventsStream;
-
 };
 
 } // namespace client

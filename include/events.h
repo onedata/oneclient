@@ -10,10 +10,13 @@
 
 #include <string>
 #include <list>
+#include <queue>
 #include <map>
 #include <boost/shared_ptr.hpp>
 #include <boost/any.hpp>
 #include "fuse_messages.pb.h"
+#include "ISchedulable.h"
+#include "fslogicProxy.h"
 
 #define RULE_MANAGER "rule_manager"
 #define CLUSTER_RENGINE "cluster_rengine"
@@ -24,6 +27,7 @@
 
 namespace veil {
 namespace client {
+	class EventStreamCombiner;
 
 	class Event{
 	public:
@@ -52,15 +56,23 @@ namespace client {
         }
 	};
 
-	class EventProcessor{
+	class EventCommunicator{
 	public:
-		std::string processEvent(const Event & event){
-			return "";
-		}
+		EventCommunicator();
+
+		void getEventProducerConfig();
+		static void sendEvent(boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> eventMessage);
+		virtual void processEvent(boost::shared_ptr<Event> event);
+		virtual bool handlePushedConfig(const ::veil::protocol::fuse_messages::PushMessage & pushMsg);
+
+	private:
+		boost::shared_ptr<EventStreamCombiner> m_eventsStream;
+
+		void addEventSubstream(const ::veil::protocol::fuse_messages::EventStreamConfig & eventStreamConfig);
 	};
 
 	//rename to EventStream (interface with static method is not something anybody expects)
-	class IEventStream{
+	class IEventStream {
 	public:
 		IEventStream();
 		IEventStream(boost::shared_ptr<IEventStream> wrappedStream);
@@ -136,10 +148,20 @@ namespace client {
 		std::map<std::string, ActualEventAggregator> m_substreams;
 	};
 
-	class EventStreamCombiner{
+	class EventStreamCombiner : public ISchedulable{
+		friend class EventsTest;
 	public:
-		std::list<boost::shared_ptr<IEventStream> > m_substreams;
 		std::list<boost::shared_ptr<Event> > processEvent(boost::shared_ptr<Event> event);
+		virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+		void addSubstream(boost::shared_ptr<IEventStream> substream);
+		void pushEventToProcess(boost::shared_ptr<Event> event);
+
+	private:
+		std::queue<boost::shared_ptr<Event> > m_eventsToProcess;
+    	std::list<boost::shared_ptr<IEventStream> > m_substreams;
+
+    	boost::shared_ptr<Event> getNextEventToProcess();
+    	bool nextEventTask();
 	};
 
 	class IEventStreamFactory{

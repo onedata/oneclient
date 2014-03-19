@@ -10,6 +10,7 @@
 #include "fslogicProxy_proxy.h"
 #include "messageBuilder_mock.h"
 #include "config_mock.h"
+#include "events_mock.h"
 #include "jobScheduler_mock.h"
 #include "storageHelperFactory_fake.h"
 #include "fslogicProxy_mock.h"
@@ -34,6 +35,7 @@ public:
     boost::shared_ptr<MockStorageMapper> storageMapperMock;
     boost::shared_ptr<MockGenericHelper> helperMock;
     boost::shared_ptr<FakeStorageHelperFactory> factoryFake;
+    boost::shared_ptr<MockEventCommunicator> eventCommunicatorMock;
 
     struct fuse_file_info fileInfo;
     struct stat trueStat;
@@ -49,6 +51,7 @@ public:
         storageMapperMock.reset(new MockStorageMapper(fslogicMock));
         helperMock.reset(new MockGenericHelper());
         factoryFake.reset(new FakeStorageHelperFactory());
+        eventCommunicatorMock.reset(new MockEventCommunicator());
 
         EXPECT_CALL(*fslogicMock, pingCluster()).WillRepeatedly(Return());
         EXPECT_CALL(*config, getInt(ALIVE_META_CONNECTIONS_COUNT_OPT)).WillRepeatedly(Return(0));
@@ -62,7 +65,8 @@ public:
                         fslogicMock, 
                         metaCacheMock,
                         storageMapperMock,
-                        factoryFake));
+                        factoryFake,
+                        eventCommunicatorMock));
 
         factoryFake->presetMock = helperMock;
 
@@ -473,6 +477,7 @@ TEST_F(VeilFSTest, read) { // const char *path, char *buf, size_t size, off_t of
  
 TEST_F(VeilFSTest, write) { // const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo
     
+    // TODO: "userId" is hardcoded
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Throw(VeilException(VEACCES)));
     EXPECT_EQ(-EACCES, client->write("/path", "abcd", 4, 0, &fileInfo));
 
@@ -494,6 +499,8 @@ TEST_F(VeilFSTest, write) { // const char *path, const char *buf, size_t size, o
     EXPECT_CALL(*metaCacheMock, updateSize("/path", _)).Times(0);
 
     EXPECT_CALL(*helperMock, sh_write(StrEq("fileid"), StrEq("abcd"), 4, 2, _)).WillOnce(Return(4));
+    //EXPECT_CALL(*eventCommunicatorMock, processEvent(Event::createWriteEvent("userId", "/path", (long long) 4L))).Times(1);
+    EXPECT_CALL(*eventCommunicatorMock, processEvent(_)).Times(1);
     EXPECT_EQ(4, client->write("/path", "abcd", 4, 2, &fileInfo));
     
 }

@@ -40,10 +40,10 @@ TEST(EventFilter, SimpleFilter) {
 
 	// what
 	shared_ptr<Event> resEvent = filter.processEvent(writeEvent);
-	ASSERT_EQ(0, resEvent.use_count());
+	ASSERT_FALSE((bool) resEvent);
 
 	resEvent = filter.processEvent(mkdirEvent);
-	ASSERT_EQ(1, resEvent.use_count());
+	ASSERT_TRUE((bool) resEvent);
 	ASSERT_EQ(string("user1"), resEvent->getProperty("userId", string("")));
 	ASSERT_EQ(string("file1"), resEvent->getProperty("fileId", string("")));
 }
@@ -58,12 +58,12 @@ TEST(EventAggregatorTest, SimpleAggregation) {
 	// what
 	for(int i=0; i<4; ++i){
 		shared_ptr<Event> res = aggregator.processEvent(mkdirEvent);
-		ASSERT_EQ(0, res.use_count());
+		ASSERT_FALSE((bool) res);
 	}
 
 	// then
 	shared_ptr<Event> res = aggregator.processEvent(writeEvent);
-	ASSERT_EQ(1, res.use_count());
+	ASSERT_TRUE((bool) res);
 
 	// with aggregator configured that way there should be just one property
 	ASSERT_EQ(1, res->properties.size());
@@ -71,11 +71,11 @@ TEST(EventAggregatorTest, SimpleAggregation) {
 
 	for(int i=0; i<4; ++i){
 		shared_ptr<Event> res = aggregator.processEvent(mkdirEvent);
-		ASSERT_EQ(0, res.use_count());
+		ASSERT_FALSE((bool) res);
 	}
 
 	res = aggregator.processEvent(writeEvent);
-	ASSERT_EQ(1, res.use_count());
+	ASSERT_TRUE((bool) res);
 	ASSERT_EQ(1, res->properties.size());
 	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
 }
@@ -89,13 +89,13 @@ TEST(EventAggregatorTest, AggregationByOneField) {
 	// what
 	for(int i=0; i<4; ++i){
 		shared_ptr<Event> res = aggregator.processEvent(mkdirEvent);
-		ASSERT_EQ(0, res.use_count());	
+		ASSERT_FALSE((bool) res);	
 	}
 	shared_ptr<Event> res = aggregator.processEvent(writeEvent);
-	ASSERT_EQ(0, res.use_count());
+	ASSERT_FALSE((bool) res);
 
 	res = aggregator.processEvent(mkdirEvent);
-	ASSERT_EQ(1, res.use_count());
+	ASSERT_TRUE((bool) res);
 	ASSERT_EQ(2, res->properties.size());
 	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
 	ASSERT_EQ("mkdir_event", res->getProperty("type", string("")));
@@ -103,21 +103,21 @@ TEST(EventAggregatorTest, AggregationByOneField) {
 	// we are sending just 3 writeEvents because one has already been sent
 	for(int i=0; i<3; ++i){
 		shared_ptr<Event> res = aggregator.processEvent(writeEvent);
-		ASSERT_EQ(0, res.use_count());	
+		ASSERT_FALSE((bool) res);	
 	}
 
 	res = aggregator.processEvent(mkdirEvent);
-	ASSERT_EQ(0, res.use_count());
+	ASSERT_FALSE((bool) res);
 
 	res = aggregator.processEvent(writeEvent);
-	ASSERT_EQ(1, res.use_count());
+	ASSERT_TRUE((bool) res);
 	ASSERT_EQ(2, res->properties.size());
 	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
 	ASSERT_EQ("write_event", res->getProperty("type", string("")));
 }
 
+// checks event filter composed with event aggregator
 TEST(EventAggregatorTest, FilterAndAggregation) {
-	// given
 	shared_ptr<Event> file1Event = Event::createMkdirEvent("user1", "file1");
 	shared_ptr<Event> file2Event = Event::createMkdirEvent("user1", "file2");
 	shared_ptr<Event> writeEvent = Event::createWriteEvent("user1", "file1", 100);
@@ -127,35 +127,35 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
 
 	for(int i=0; i<4; ++i){
 		shared_ptr<Event> res = aggregator->processEvent(file1Event);
-		ASSERT_EQ(0, res.use_count());
+		ASSERT_FALSE((bool) res);
 	}
 
 	shared_ptr<Event> res = aggregator->processEvent(file2Event);
-	ASSERT_EQ(0, res.use_count());
+	ASSERT_FALSE((bool) res);
 
 	res = aggregator->processEvent(writeEvent);
-	ASSERT_EQ(0, res.use_count());
+	ASSERT_FALSE((bool) res);
 
 	res = aggregator->processEvent(file1Event);
-	ASSERT_EQ(1, res.use_count());
+	ASSERT_TRUE((bool) res);
 	ASSERT_EQ(2, res->properties.size());
 	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
 	ASSERT_EQ("file1", res->getProperty("fileId", string("")));
 
 	for(int i=0; i<3; ++i){
 		shared_ptr<Event> res = aggregator->processEvent(file2Event);
-		ASSERT_EQ(0, res.use_count());
+		ASSERT_FALSE((bool) res);
 	}
 
 	res = aggregator->processEvent(file2Event);
-	ASSERT_EQ(1, res.use_count());
+	ASSERT_TRUE((bool) res);
 	ASSERT_EQ(2, res->properties.size());
 	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
 	ASSERT_EQ("file2", res->getProperty("fileId", string("")));
 
 	for(int i=0; i<5; ++i){
 		shared_ptr<Event> res = aggregator->processEvent(writeEvent2);
-		ASSERT_EQ(0, res.use_count());
+		ASSERT_FALSE((bool) res);
 	}
 }
 
@@ -164,7 +164,7 @@ TEST(EventStreamCombiner, CombineStreams) {
 	shared_ptr<Event> writeEvent = Event::createWriteEvent("user1", "file1", 100);
 	shared_ptr<IEventStream> mkdirFilter(new EventFilter("type", "mkdir_event"));
 	EventStreamCombiner combiner;
-	combiner.m_substreams.push_back(mkdirFilter);
+	combiner.addSubstream(mkdirFilter);
 
 	list<shared_ptr<Event> > events = combiner.processEvent(mkdirEvent);
 	ASSERT_EQ(1, events.size());
@@ -173,7 +173,7 @@ TEST(EventStreamCombiner, CombineStreams) {
 	ASSERT_EQ(0, events.size());
 
 	shared_ptr<IEventStream> writeFilter(new EventFilter("type", "write_event"));
-	combiner.m_substreams.push_back(writeFilter);
+	combiner.addSubstream(writeFilter);
 
 	events = combiner.processEvent(writeEvent);
 	ASSERT_EQ(1, events.size());
@@ -182,6 +182,9 @@ TEST(EventStreamCombiner, CombineStreams) {
 	ASSERT_EQ(1, events.size());
 }
 
+// checks if EventStreams are created correctly from EventStreamConfig proto buff message
+// proto buff messages are not easy to mock because their methods are nonvirtual. Mocking is possible but would need
+// changes in code which is not worth it
 TEST(IEventStream, ConstructFromConfig1) {
 	using namespace veil::protocol::fuse_messages;
 
