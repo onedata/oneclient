@@ -10,6 +10,11 @@
 #include "events_mock.h"
 #include "boost/shared_ptr.hpp"
 #include "fuse_messages.pb.h"
+#include "communication_protocol.pb.h"
+#include "config_mock.h"
+#include "jobScheduler_mock.h"
+#include "events_mock.h"
+#include "fslogicProxy_proxy.h"
 
 using namespace boost;
 
@@ -21,13 +26,22 @@ class EventsTest
     : public ::testing::Test
 {
 public:
+	COMMON_DEFS();
 
     virtual void SetUp() {
-        
+        COMMON_SETUP();
+        VeilFS::setConnectionPool(connectionPool);
+        shared_ptr<MockCommunicationHandler> connectionMock;
+        connectionMock.reset(new MockCommunicationHandler());
+        EXPECT_CALL(*connectionPool, selectConnection(_)).WillRepeatedly(Return(connectionMock));
+        EXPECT_CALL(*connectionPool, releaseConnection(_)).WillRepeatedly(Return());
+        veil::protocol::communication_protocol::Answer ans;
+        ans.set_answer_status(VOK);
+        EXPECT_CALL(*connectionMock, communicate(_, _, _)).WillRepeatedly(Return(ans));
     }
 
     virtual void TearDown() {
-        
+        COMMON_CLEANUP();
     }
 };
 
@@ -249,4 +263,26 @@ TEST(IEventStream, ConstructFromConfigReturnsEmptyPointerWhenConfigIncorrect){
 
 	//config was incorrect so we expect IEventStreamFactory::fromConfig to return empty shared_ptr
 	ASSERT_FALSE((bool) stream);
+}
+
+TEST_F(EventsTest, EventCombinerRunTask){
+	shared_ptr<MockEventStream> substreamMock1(new MockEventStream());
+	EXPECT_CALL(*substreamMock1, processEvent(_)).WillRepeatedly(Return(Event::createMkdirEvent("user1", "file1")));
+	shared_ptr<Event> event(Event::createMkdirEvent("user", "file"));
+	EventStreamCombiner combiner;
+
+	combiner.pushEventToProcess(event);
+	ASSERT_EQ(1, combiner.getEventsToProcess().size());
+
+	combiner.runTask(ISchedulable::TASK_PROCESS_EVENT, "", "", "");
+	ASSERT_EQ(0, combiner.getEventsToProcess().size());
+
+	combiner.addSubstream(substreamMock1);
+	
+	combiner.pushEventToProcess(event);
+	combiner.pushEventToProcess(event);
+	ASSERT_EQ(2, combiner.getEventsToProcess().size());
+
+	combiner.runTask(ISchedulable::TASK_PROCESS_EVENT, "", "", "");
+	ASSERT_EQ(1, combiner.getEventsToProcess().size());
 }

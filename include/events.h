@@ -14,6 +14,7 @@
 #include <map>
 #include <boost/shared_ptr.hpp>
 #include <boost/any.hpp>
+#include "glog/logging.h"
 #include "fuse_messages.pb.h"
 #include "ISchedulable.h"
 #include "fslogicProxy.h"
@@ -33,8 +34,8 @@ namespace client {
 	public:
 		std::map<std::string, boost::any> properties;
 
-		static boost::shared_ptr<Event> createMkdirEvent(std::string userId, std::string fileId);
-		static boost::shared_ptr<Event> createWriteEvent(std::string userId, std::string fileId, long long bytes);
+		static boost::shared_ptr<Event> createMkdirEvent(const std::string & userId, const std::string & fileId);
+		static boost::shared_ptr<Event> createWriteEvent(const std::string & userId, const std::string & fileId, long long bytes);
 
 		Event();
 		Event(const Event & anotherEvent);
@@ -42,7 +43,7 @@ namespace client {
 		virtual boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> createProtoMessage();
 
 		template<class T>
-        T getProperty(std::string fieldName, T defaultValue){
+        T getProperty(const std::string & fieldName, const T & defaultValue) {
             try{
                 if(properties.find(fieldName) == properties.end()){
                     return defaultValue;
@@ -50,7 +51,7 @@ namespace client {
                     return boost::any_cast<T>(properties[fieldName]);
                 }
 	        }catch(boost::bad_any_cast){
-	        	// TODO: LOG
+	        	LOG(WARNING) << "Bad cast in Event::getProperty for fieldName: " << fieldName;
                 return defaultValue;
             }
         }
@@ -58,7 +59,7 @@ namespace client {
 
 	class EventCommunicator{
 	public:
-		EventCommunicator();
+		EventCommunicator(boost::shared_ptr<EventStreamCombiner> eventsStream = boost::shared_ptr<EventStreamCombiner>());
 
 		void getEventProducerConfig();
 		static void sendEvent(boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> eventMessage);
@@ -71,7 +72,6 @@ namespace client {
 		void addEventSubstream(const ::veil::protocol::fuse_messages::EventStreamConfig & eventStreamConfig);
 	};
 
-	//rename to EventStream (interface with static method is not something anybody expects)
 	class IEventStream {
 	public:
 		IEventStream();
@@ -79,9 +79,8 @@ namespace client {
     	virtual ~IEventStream();
 
     	virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event);
-
+    	virtual boost::shared_ptr<IEventStream> getWrappedStream() const;
     	virtual void setWrappedStream(boost::shared_ptr<IEventStream> wrappedStream);
-    	virtual boost::shared_ptr<IEventStream> getWrappedStream();
 
     protected:
 		boost::shared_ptr<IEventStream> m_wrappedStream;
@@ -149,12 +148,12 @@ namespace client {
 	};
 
 	class EventStreamCombiner : public ISchedulable{
-		friend class EventsTest;
 	public:
 		std::list<boost::shared_ptr<Event> > processEvent(boost::shared_ptr<Event> event);
 		virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 		void addSubstream(boost::shared_ptr<IEventStream> substream);
-		void pushEventToProcess(boost::shared_ptr<Event> event);
+		virtual void pushEventToProcess(boost::shared_ptr<Event> event);
+		std::queue<boost::shared_ptr<Event> > getEventsToProcess();
 
 	private:
 		std::queue<boost::shared_ptr<Event> > m_eventsToProcess;

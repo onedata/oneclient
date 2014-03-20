@@ -26,4 +26,21 @@ public:
 	MOCK_METHOD1(processEvent, void(boost::shared_ptr<Event>));
 };
 
+class MockEventStreamCombiner : public EventStreamCombiner{
+public:
+	MockEventStreamCombiner(){}
+	~MockEventStreamCombiner(){}
+
+	MOCK_METHOD1(pushEventToProcess, void(boost::shared_ptr<Event>));
+};
+
+class MockEventStream : public IEventStream{
+public:
+	MockEventStream(){}
+	~MockEventStream(){}
+
+	MOCK_METHOD1(processEvent, boost::shared_ptr<Event>(boost::shared_ptr<Event>));
+	MOCK_METHOD1(actualProcessEvent, boost::shared_ptr<Event>(boost::shared_ptr<Event>));
+};
+
 #endif // EVENTS_MOCK_H

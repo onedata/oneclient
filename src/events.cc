@@ -5,7 +5,6 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "glog/logging.h"
 #include "events.h"
 #include "veilfs.h"
 #include "communication_protocol.pb.h"
@@ -15,8 +14,11 @@ using namespace std;
 using namespace boost;
 using namespace veil::protocol::fuse_messages;
 
-EventCommunicator::EventCommunicator() : m_eventsStream(new EventStreamCombiner())
+EventCommunicator::EventCommunicator(shared_ptr<EventStreamCombiner> eventsStream) : m_eventsStream(eventsStream)
 {
+	if(!eventsStream){
+		m_eventsStream = shared_ptr<EventStreamCombiner>(new EventStreamCombiner());
+	}
 }
 
 void EventCommunicator::getEventProducerConfig()
@@ -108,14 +110,15 @@ void EventCommunicator::addEventSubstream(const EventStreamConfig & eventStreamC
     }
 }
 
-void EventCommunicator::processEvent(shared_ptr<Event> event){
-	if(!event){
+void EventCommunicator::processEvent(shared_ptr<Event> event)
+{
+	if(event){
 		m_eventsStream->pushEventToProcess(event);
 		VeilFS::getScheduler()->addTask(Job(time(NULL) + 1, m_eventsStream, ISchedulable::TASK_PROCESS_EVENT));
 	}
 }
 
-shared_ptr<Event> Event::createMkdirEvent(string userId, string fileId)
+shared_ptr<Event> Event::createMkdirEvent(const string & userId, const string & fileId)
 {
 	shared_ptr<Event> event (new Event());
 	event->properties["type"] = string("mkdir_event");
@@ -124,7 +127,7 @@ shared_ptr<Event> Event::createMkdirEvent(string userId, string fileId)
 	return event;
 }
 
-shared_ptr<Event> Event::createWriteEvent(string userId, string fileId, long long bytes)
+shared_ptr<Event> Event::createWriteEvent(const string & userId, const string & fileId, long long bytes)
 {
 	shared_ptr<Event> event (new Event());
 	event->properties["type"] = string("write_event");
@@ -187,14 +190,14 @@ IEventStream::~IEventStream(){
 
 }
 
+shared_ptr<IEventStream> IEventStream::getWrappedStream() const
+{
+	return m_wrappedStream;
+}
+
 void IEventStream::setWrappedStream(shared_ptr<IEventStream> wrappedStream)
 {
 	m_wrappedStream = wrappedStream;
-}
-
-shared_ptr<IEventStream> IEventStream::getWrappedStream()
-{
-	return m_wrappedStream;
 }
 
 /****** EventFilter ******/
@@ -376,6 +379,10 @@ bool EventStreamCombiner::nextEventTask(){
 
 void EventStreamCombiner::pushEventToProcess(shared_ptr<Event> eventToProcess){
 	m_eventsToProcess.push(eventToProcess);
+}
+
+std::queue<boost::shared_ptr<Event> > EventStreamCombiner::getEventsToProcess(){
+	return m_eventsToProcess;
 }
 
 shared_ptr<Event> EventStreamCombiner::getNextEventToProcess(){
