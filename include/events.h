@@ -1,7 +1,7 @@
 /**
  * @file events.h
  * @author Michal Sitko
- * @copyright (C) 2013 ACK CYFRONET AGH
+ * @copyright (C) 2014 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
@@ -61,15 +61,14 @@ namespace client {
 	public:
 		EventCommunicator(boost::shared_ptr<EventStreamCombiner> eventsStream = boost::shared_ptr<EventStreamCombiner>());
 
-		void getEventProducerConfig();
+		void addEventSubstream(const ::veil::protocol::fuse_messages::EventStreamConfig & eventStreamConfig);
+		void configureByCluster();
 		static void sendEvent(boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> eventMessage);
 		virtual void processEvent(boost::shared_ptr<Event> event);
-		virtual bool handlePushedConfig(const ::veil::protocol::fuse_messages::PushMessage & pushMsg);
 
 	private:
 		boost::shared_ptr<EventStreamCombiner> m_eventsStream;
 
-		void addEventSubstream(const ::veil::protocol::fuse_messages::EventStreamConfig & eventStreamConfig);
 	};
 
 	class IEventStream {

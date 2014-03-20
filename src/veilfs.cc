@@ -145,18 +145,17 @@ void VeilFS::staticDestroy()
 // Function called when cluster sends message with event producer configuration
 bool VeilFS::pushMessagesHandler(const protocol::communication_protocol::Answer &msg)
 {
+    string messageType = msg.message_type();
+    DLOG(INFO) << "Type of received message: " << messageType;
 
-    PushMessage pushMsg;
-    if(!pushMsg.ParseFromString(msg.worker_answer())){
-        return false;
-    }
+    if(messageType == "eventstreamconfig"){
+        EventStreamConfig eventStreamConfig;
+        if(!eventStreamConfig.ParseFromString(msg.worker_answer())){
+            LOG(WARNING) << "Cannot parse pushed message as EventStreamConfig";
+            return false;
+        }
 
-    string messageType = pushMsg.message_type();
-
-    LOG(INFO) << "Type of received PushMessage: " + pushMsg.message_type();
-
-    if(messageType == "event_config"){
-        m_eventCommunicator->handlePushedConfig(pushMsg);
+        m_eventCommunicator->addEventSubstream(eventStreamConfig);
     }
 
     return true;
@@ -831,7 +830,7 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
         return true;
 
     case TASK_GET_EVENT_PRODUCER_CONFIG:
-        m_eventCommunicator->getEventProducerConfig();
+        m_eventCommunicator->configureByCluster();
         return true;
 
     default:

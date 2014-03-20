@@ -1,7 +1,7 @@
 /**
- * @file veilfs.cc
- * @author Rafal Slota
- * @copyright (C) 2013 ACK CYFRONET AGH
+ * @file events.cc
+ * @author Michal Sitko
+ * @copyright (C) 2014 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
@@ -21,7 +21,7 @@ EventCommunicator::EventCommunicator(shared_ptr<EventStreamCombiner> eventsStrea
 	}
 }
 
-void EventCommunicator::getEventProducerConfig()
+void EventCommunicator::configureByCluster()
 {
     using namespace veil::protocol::communication_protocol;
     
@@ -42,16 +42,21 @@ void EventCommunicator::getEventProducerConfig()
 
     Answer ans;
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
-        LOG(WARNING) << "sending message failed: " << (connection ? "failed" : "not needed");
+        LOG(WARNING) << "sending atom eventproducerconfigrequest failed: " << (connection ? "failed" : "not needed");
     } else {
         VeilFS::getConnectionPool()->releaseConnection(connection);
-        LOG(INFO) << "event producer config request sent";
+        LOG(INFO) << "atom eventproducerconfigrequest sent";
     }
 
-    LOG(INFO) << "Answer from event producer config request: " << ans.worker_answer();
+    LOG(INFO) << "eventproducerconfigrequest answer_status: " << ans.worker_answer();
 
     EventProducerConfig config;
-    config.ParseFromString(ans.worker_answer());
+    if(!config.ParseFromString(ans.worker_answer())){
+    	LOG(WARNING) << "Cannot parse eventproducerconfigrequest answer as EventProducerConfig";
+    	return;
+    }
+
+    LOG(INFO) << "Fetched EventProducerConfig contains " << config.event_streams_configs_size() << " stream configurations";
 
     for(int i=0; i<config.event_streams_configs_size(); ++i)
     {
@@ -75,32 +80,15 @@ void EventCommunicator::sendEvent(shared_ptr<EventMessage> eventMessage)
 
     clm.set_input(encodedEventMessage);
 
-    LOG(INFO) << "Event message created";
-
     shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
-
-    LOG(INFO) << "Connection selected";
 
     Answer ans;
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
-        LOG(WARNING) << "sending message failed: " << (connection ? "failed" : "not needed");
+        LOG(WARNING) << "sending event message failed";
     } else {
         VeilFS::getConnectionPool()->releaseConnection(connection);
-        LOG(INFO) << "Event message sent";
+        DLOG(INFO) << "Event message sent";
     }
-}
-
-bool EventCommunicator::handlePushedConfig(const PushMessage & pushMsg)
-{
-	LOG(INFO) << "Handles pushed EventProducerConfig";
-	EventStreamConfig eventStreamConfig;
-    if(!eventStreamConfig.ParseFromString(pushMsg.data())){
-    	LOG(WARNING) << "Cannot parse pushed message as EventStreamConfig";
-    	return false;
-    }
-
-    addEventSubstream(eventStreamConfig);
-    return true;
 }
 
 void EventCommunicator::addEventSubstream(const EventStreamConfig & eventStreamConfig)
@@ -108,7 +96,7 @@ void EventCommunicator::addEventSubstream(const EventStreamConfig & eventStreamC
 	shared_ptr<IEventStream> newStream = IEventStreamFactory::fromConfig(eventStreamConfig);
     if(newStream){
         m_eventsStream->addSubstream(newStream);
-        LOG(INFO) << "New EventStream added.";
+        LOG(INFO) << "New EventStream added to EventCommunicator.";
     }
 }
 
