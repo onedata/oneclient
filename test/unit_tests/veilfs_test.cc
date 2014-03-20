@@ -479,7 +479,6 @@ TEST_F(VeilFSTest, read) { // const char *path, char *buf, size_t size, off_t of
  
 TEST_F(VeilFSTest, write) { // const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo
     
-    // TODO: "userId" is hardcoded
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Throw(VeilException(VEACCES)));
     EXPECT_EQ(-EACCES, client->write("/path", "abcd", 4, 0, &fileInfo));
 
