@@ -28,7 +28,6 @@
             "-I${folder:${project_path:veilclient.sublime-project}}/release/deps/veilhelpers/src/veilhelpers/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/release/deps/veilhelpers/src/veilhelpers/test/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/release/deps/veilhelpers/src/veilhelpers-build/include",
-            "-I${folder:${project_path:veilclient.sublime-project}}/src/globus-proxy-utils",
 
             "-I${folder:${project_path:veilclient.sublime-project}}/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/src",
@@ -41,14 +40,13 @@
             "-I${folder:${project_path:veilclient.sublime-project}}/debug/deps/veilhelpers/src/veilhelpers/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/debug/deps/veilhelpers/src/veilhelpers/test/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/debug/deps/veilhelpers/src/veilhelpers-build/include",
-            "-I${folder:${project_path:veilclient.sublime-project}}/src/globus-proxy-utils",
 
 
             "-D_FILE_OFFSET_BITS=64",
             "-DFUSE_USE_VERSION=29",
             "-ferror-limit=0",
             "-Wno-deprecated-declarations"
-        ] 
+        ]
 	}
-	
+
 }
