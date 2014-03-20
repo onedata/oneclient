@@ -285,4 +285,10 @@ TEST_F(EventsTest, EventCombinerRunTask){
 
 	combiner.runTask(ISchedulable::TASK_PROCESS_EVENT, "", "", "");
 	ASSERT_EQ(1, combiner.getEventsToProcess().size());
+
+	combiner.runTask(ISchedulable::TASK_PROCESS_EVENT, "", "", "");
+	ASSERT_EQ(0, combiner.getEventsToProcess().size());
+
+	combiner.runTask(ISchedulable::TASK_PROCESS_EVENT, "", "", "");
+	ASSERT_EQ(0, combiner.getEventsToProcess().size());
 }

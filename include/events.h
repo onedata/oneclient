@@ -98,8 +98,8 @@ namespace client {
 	public:
 		EventFilter(std::string fieldName, std::string desiredValue);
 		EventFilter(boost::shared_ptr<IEventStream> wrappedStream, std::string fieldName, std::string desiredValue);
-		static boost::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventFilterConfig & config);
 
+		static boost::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventFilterConfig & config);
 		virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event);
 
 		// for unit test purposes
@@ -124,6 +124,7 @@ namespace client {
 
 		private:
 			long long m_counter;
+			ReadWriteLock m_counterLock;
 
 			void resetState();
 		};
@@ -153,11 +154,12 @@ namespace client {
 		virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 		void addSubstream(boost::shared_ptr<IEventStream> substream);
 		virtual void pushEventToProcess(boost::shared_ptr<Event> event);
-		std::queue<boost::shared_ptr<Event> > getEventsToProcess();
+		std::queue<boost::shared_ptr<Event> > getEventsToProcess() const;
 
 	private:
 		std::queue<boost::shared_ptr<Event> > m_eventsToProcess;
     	std::list<boost::shared_ptr<IEventStream> > m_substreams;
+    	ReadWriteLock m_eventsToProcessLock;
 
     	boost::shared_ptr<Event> getNextEventToProcess();
     	bool nextEventTask();

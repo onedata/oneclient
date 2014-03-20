@@ -90,7 +90,9 @@ void EventCommunicator::sendEvent(shared_ptr<EventMessage> eventMessage)
     }
 }
 
-bool EventCommunicator::handlePushedConfig(const PushMessage & pushMsg){
+bool EventCommunicator::handlePushedConfig(const PushMessage & pushMsg)
+{
+	LOG(INFO) << "Handles pushed EventProducerConfig";
 	EventStreamConfig eventStreamConfig;
     if(!eventStreamConfig.ParseFromString(pushMsg.data())){
     	LOG(WARNING) << "Cannot parse pushed message as EventStreamConfig";
@@ -263,14 +265,10 @@ EventAggregator::EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, 
 {
 }
 
-shared_ptr<IEventStream> EventAggregator::fromConfig(const EventAggregatorConfig & config){
+shared_ptr<IEventStream> EventAggregator::fromConfig(const EventAggregatorConfig & config)
+{
 	return shared_ptr<IEventStream> (new EventAggregator(config.field_name(), config.threshold()));
 }
-
-/*EventAggregator::EventAggregator(shared_ptr<IEventStream> wrappedStream, long long threshold) :
-	m_wrappedStream(), m_threshold(threshold), m_counter(0)
-{
-}*/
 
 shared_ptr<Event> EventAggregator::actualProcessEvent(shared_ptr<Event> event)
 {
@@ -307,6 +305,7 @@ EventAggregator::ActualEventAggregator::ActualEventAggregator() :
 
 shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(shared_ptr<Event> event, long long threshold, string fieldName)
 {
+	AutoLock lock(m_counterLock, WRITE_LOCK);
 	long long count = event->getProperty<long long>("count", 1);
 	m_counter += count;
 
@@ -353,22 +352,14 @@ bool EventStreamCombiner::runTask(TaskID taskId, string arg0, string arg1, strin
 	}
 }
 
-bool EventStreamCombiner::nextEventTask(){
+bool EventStreamCombiner::nextEventTask()
+{
 	shared_ptr<Event> event = getNextEventToProcess();
 	if(event){
 		list<boost::shared_ptr<Event> > processedEvents = processEvent(event);
-		LOG(INFO) << "event processed";
-
-	    if(!processedEvents.empty()){
-	        LOG(INFO) << "processedEvents not empty";
-	    }else{
-	        LOG(INFO) << "processedEvents empty";
-	    }
 
 	    for(list<boost::shared_ptr<Event> >::iterator it = processedEvents.begin(); it != processedEvents.end(); ++it){
-	        LOG(INFO) << "processedEvent not null";
 	        shared_ptr<EventMessage> eventProtoMessage = (*it)->createProtoMessage();
-	        LOG(INFO) << "eventmessage created";
 
 	        EventCommunicator::sendEvent(eventProtoMessage);
 	    }
@@ -377,15 +368,20 @@ bool EventStreamCombiner::nextEventTask(){
     return true;
 }
 
-void EventStreamCombiner::pushEventToProcess(shared_ptr<Event> eventToProcess){
+void EventStreamCombiner::pushEventToProcess(shared_ptr<Event> eventToProcess)
+{
+	AutoLock lock(m_eventsToProcessLock, WRITE_LOCK);
 	m_eventsToProcess.push(eventToProcess);
 }
 
-std::queue<boost::shared_ptr<Event> > EventStreamCombiner::getEventsToProcess(){
+std::queue<boost::shared_ptr<Event> > EventStreamCombiner::getEventsToProcess() const
+{
 	return m_eventsToProcess;
 }
 
-shared_ptr<Event> EventStreamCombiner::getNextEventToProcess(){
+shared_ptr<Event> EventStreamCombiner::getNextEventToProcess()
+{
+	AutoLock lock(m_eventsToProcessLock, WRITE_LOCK);
 	if(m_eventsToProcess.empty()){
 		return shared_ptr<Event>();
 	}
@@ -395,6 +391,7 @@ shared_ptr<Event> EventStreamCombiner::getNextEventToProcess(){
 	return event;
 }
 
-void EventStreamCombiner::addSubstream(boost::shared_ptr<IEventStream> substream){
+void EventStreamCombiner::addSubstream(boost::shared_ptr<IEventStream> substream)
+{
 	m_substreams.push_back(substream);
 }

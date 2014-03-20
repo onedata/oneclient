@@ -399,8 +399,8 @@ int main(int argc, char* argv[], char* envp[])
                         boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()),
                         boost::shared_ptr<EventCommunicator>(new EventCommunicator()));
     VeilAppObject.reset(veilfs);
-    cout << "------- Veilfuse bazinga --------" << endl;
-    VeilFS::getPushListener()->subscribe(boost::bind(&VeilFS::eventsNeededHandler, veilfs, _1));
+    
+    VeilFS::getPushListener()->subscribe(boost::bind(&VeilFS::pushMessagesHandler, veilfs, _1));
     VeilFS::getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(NULL) + 1, boost::shared_ptr<VeilFS> (VeilAppObject), ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
 
     // Enter FUSE loop

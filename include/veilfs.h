@@ -104,7 +104,7 @@ public:
         int fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo); /**< *fsyncdir* FUSE callback. Not implemented yet. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
         int init(struct fuse_conn_info *conn); /**< *init* FUSE callback. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
 
-        bool eventsNeededHandler(const protocol::communication_protocol::Answer &msg); ///< Function called when cluster sends message saying that client should emit events.
+        bool pushMessagesHandler(const protocol::communication_protocol::Answer &msg); ///< Function called when cluster sends message saying that client should emit events.
 
         virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 

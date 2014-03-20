@@ -142,10 +142,9 @@ void VeilFS::staticDestroy()
     m_pushListener.reset();
 }
 
-// Function called when cluster sends message saying that client should emit events.
-bool VeilFS::eventsNeededHandler(const protocol::communication_protocol::Answer &msg)
+// Function called when cluster sends message with event producer configuration
+bool VeilFS::pushMessagesHandler(const protocol::communication_protocol::Answer &msg)
 {
-    LOG(INFO) << "EventsNeededHandler !!!!!!!!!";
 
     PushMessage pushMsg;
     if(!pushMsg.ParseFromString(msg.worker_answer())){
