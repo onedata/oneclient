@@ -37,7 +37,6 @@ exec({register_mkdir_handler, FilePath}) ->
 
   EventItem = {event_handler_item, standard, undefined, undefined, undefined, EventHandler, undefined},
 
-  %EventItem = #event_handler_item{processing_method = standard, handler_fun = EventHandler}, %, map_fun = EventHandlerMapFun, disp_map_fun = EventHandlerDispMapFun, config = ProcessingConfig},
   EventFilter = {eventfilterconfig, "type", "mkdir_event"},
   EventFilterConfig = {eventstreamconfig, undefined, EventFilter, undefined},
   gen_server:call({request_dispatcher, node()}, {rule_manager, 1, self(), {add_event_handler, {mkdir_event, EventItem, EventFilterConfig}}}).
