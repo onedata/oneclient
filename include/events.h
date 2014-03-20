@@ -34,8 +34,8 @@ namespace client {
 	public:
 		std::map<std::string, boost::any> properties;
 
-		static boost::shared_ptr<Event> createMkdirEvent(const std::string & userId, const std::string & fileId);
-		static boost::shared_ptr<Event> createWriteEvent(const std::string & userId, const std::string & fileId, long long bytes);
+		static boost::shared_ptr<Event> createMkdirEvent(const std::string & filePath);
+		static boost::shared_ptr<Event> createWriteEvent(const std::string & filePath, long long bytes);
 
 		Event();
 		Event(const Event & anotherEvent);

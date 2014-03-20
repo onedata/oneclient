@@ -603,7 +603,7 @@ TEST_F(VeilFSTest, processEvent) {
     EventCommunicator communicator(combinerMock);
     EXPECT_CALL(*combinerMock, pushEventToProcess(_)).WillOnce(Return());
     EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
-    shared_ptr<Event> event = Event::createMkdirEvent("userId", "some_file");
+    shared_ptr<Event> event = Event::createMkdirEvent("some_file");
 
     ASSERT_TRUE((bool) event);
     communicator.processEvent(event);

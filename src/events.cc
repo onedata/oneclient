@@ -120,21 +120,19 @@ void EventCommunicator::processEvent(shared_ptr<Event> event)
 	}
 }
 
-shared_ptr<Event> Event::createMkdirEvent(const string & userId, const string & fileId)
+shared_ptr<Event> Event::createMkdirEvent(const string & fileId)
 {
 	shared_ptr<Event> event (new Event());
 	event->properties["type"] = string("mkdir_event");
-	event->properties["userId"] = userId;
-	event->properties["fileId"] = fileId;
+	event->properties["filePath"] = fileId;
 	return event;
 }
 
-shared_ptr<Event> Event::createWriteEvent(const string & userId, const string & fileId, long long bytes)
+shared_ptr<Event> Event::createWriteEvent(const string & fileId, long long bytes)
 {
 	shared_ptr<Event> event (new Event());
 	event->properties["type"] = string("write_event");
-	event->properties["userId"] = userId;
-	event->properties["fileId"] = fileId;
+	event->properties["filePath"] = fileId;
 	event->properties["bytes"] = bytes;
 	return event;
 }

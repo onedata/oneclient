@@ -48,8 +48,8 @@ public:
 // checks simple stream with single EventFilter
 TEST(EventFilter, SimpleFilter) {
 	// given
-	shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("user1", "file1");
-	shared_ptr<Event> writeEvent = Event::createWriteEvent("user1", "file2", 100);
+	shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
+	shared_ptr<Event> writeEvent = Event::createWriteEvent("file2", 100);
 	EventFilter filter("type", "mkdir_event");
 
 	// what
@@ -58,15 +58,14 @@ TEST(EventFilter, SimpleFilter) {
 
 	resEvent = filter.processEvent(mkdirEvent);
 	ASSERT_TRUE((bool) resEvent);
-	ASSERT_EQ(string("user1"), resEvent->getProperty("userId", string("")));
-	ASSERT_EQ(string("file1"), resEvent->getProperty("fileId", string("")));
+	ASSERT_EQ(string("file1"), resEvent->getProperty("filePath", string("")));
 }
 
 // checks simple stream with single EventAggregator
 TEST(EventAggregatorTest, SimpleAggregation) {
 	// given
-	shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("user1", "file1");
-	shared_ptr<Event> writeEvent = Event::createWriteEvent("user1", "file1", 100);
+	shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
+	shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
 	EventAggregator aggregator(5);
 
 	// what
@@ -96,8 +95,8 @@ TEST(EventAggregatorTest, SimpleAggregation) {
 
 TEST(EventAggregatorTest, AggregationByOneField) {
 	// given
-	shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("user1", "file1");
-	shared_ptr<Event> writeEvent = Event::createWriteEvent("user1", "file1", 100);
+	shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
+	shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
 	EventAggregator aggregator("type", 5);
 
 	// what
@@ -131,8 +130,8 @@ TEST(EventAggregatorTest, AggregationByOneField) {
 }
 
 TEST(EventAggregatorTest, AggregationWithSum) {
-	shared_ptr<Event> smallWriteEvent = Event::createWriteEvent("user1", "file1", 5);
-	shared_ptr<Event> bigWriteEvent = Event::createWriteEvent("user1", "file2", 100);
+	shared_ptr<Event> smallWriteEvent = Event::createWriteEvent("file1", 5);
+	shared_ptr<Event> bigWriteEvent = Event::createWriteEvent("file2", 100);
 	EventAggregator aggregator("type", 110, "bytes");
 
 	shared_ptr<Event> res = aggregator.processEvent(smallWriteEvent);
@@ -160,12 +159,12 @@ TEST(EventAggregatorTest, AggregationWithSum) {
 
 // checks event filter composed with event aggregator
 TEST(EventAggregatorTest, FilterAndAggregation) {
-	shared_ptr<Event> file1Event = Event::createMkdirEvent("user1", "file1");
-	shared_ptr<Event> file2Event = Event::createMkdirEvent("user1", "file2");
-	shared_ptr<Event> writeEvent = Event::createWriteEvent("user1", "file1", 100);
-	shared_ptr<Event> writeEvent2 = Event::createWriteEvent("user1", "file2", 100);
+	shared_ptr<Event> file1Event = Event::createMkdirEvent("file1");
+	shared_ptr<Event> file2Event = Event::createMkdirEvent("file2");
+	shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
+	shared_ptr<Event> writeEvent2 = Event::createWriteEvent("file2", 100);
 	shared_ptr<IEventStream> filter(new EventFilter("type", "mkdir_event"));
-	shared_ptr<IEventStream> aggregator(new EventAggregator(filter, "fileId", 5));
+	shared_ptr<IEventStream> aggregator(new EventAggregator(filter, "filePath", 5));
 
 	for(int i=0; i<4; ++i){
 		shared_ptr<Event> res = aggregator->processEvent(file1Event);
@@ -182,7 +181,7 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
 	ASSERT_TRUE((bool) res);
 	ASSERT_EQ(2, res->properties.size());
 	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
-	ASSERT_EQ("file1", res->getProperty("fileId", string("")));
+	ASSERT_EQ("file1", res->getProperty("filePath", string("")));
 
 	for(int i=0; i<3; ++i){
 		shared_ptr<Event> res = aggregator->processEvent(file2Event);
@@ -193,7 +192,7 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
 	ASSERT_TRUE((bool) res);
 	ASSERT_EQ(2, res->properties.size());
 	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
-	ASSERT_EQ("file2", res->getProperty("fileId", string("")));
+	ASSERT_EQ("file2", res->getProperty("filePath", string("")));
 
 	for(int i=0; i<5; ++i){
 		shared_ptr<Event> res = aggregator->processEvent(writeEvent2);
@@ -202,8 +201,8 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
 }
 
 TEST(EventStreamCombiner, CombineStreams) {
-	shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("user1", "file1");
-	shared_ptr<Event> writeEvent = Event::createWriteEvent("user1", "file1", 100);
+	shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
+	shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
 	shared_ptr<IEventStream> mkdirFilter(new EventFilter("type", "mkdir_event"));
 	EventStreamCombiner combiner;
 	combiner.addSubstream(mkdirFilter);
@@ -255,7 +254,7 @@ TEST(IEventStream, ConstructFromConfig2) {
 	// given
 	EventStreamConfig config;
 	EventAggregatorConfig * aggregatorConfig = config.mutable_aggregator_config();
-	aggregatorConfig->set_field_name("userId");
+	aggregatorConfig->set_field_name("filePath");
 	aggregatorConfig->set_sum_field_name("count");
 	aggregatorConfig->set_threshold(15);
 	EventStreamConfig * wrappedConfig = config.mutable_wrapped_config();
@@ -270,7 +269,7 @@ TEST(IEventStream, ConstructFromConfig2) {
 	ASSERT_TRUE((bool) stream);
 	EventAggregator * eventAggregator = dynamic_cast<EventAggregator *>(stream.get());
 	ASSERT_TRUE(eventAggregator != NULL);
-	ASSERT_EQ("userId", eventAggregator->getFieldName());
+	ASSERT_EQ("filePath", eventAggregator->getFieldName());
 	ASSERT_EQ("count", eventAggregator->getSumFieldName());
 	ASSERT_EQ(15, eventAggregator->getThreshold());
 	shared_ptr<IEventStream> wrappedStream = eventAggregator->getWrappedStream();
@@ -297,8 +296,8 @@ TEST(IEventStream, ConstructFromConfigReturnsEmptyPointerWhenConfigIncorrect){
 
 TEST_F(EventsTest, EventCombinerRunTask){
 	shared_ptr<MockEventStream> substreamMock1(new MockEventStream());
-	EXPECT_CALL(*substreamMock1, processEvent(_)).WillRepeatedly(Return(Event::createMkdirEvent("user1", "file1")));
-	shared_ptr<Event> event(Event::createMkdirEvent("user", "file"));
+	EXPECT_CALL(*substreamMock1, processEvent(_)).WillRepeatedly(Return(Event::createMkdirEvent("file1")));
+	shared_ptr<Event> event(Event::createMkdirEvent("file"));
 	EventStreamCombiner combiner;
 
 	combiner.pushEventToProcess(event);

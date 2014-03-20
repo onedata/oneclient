@@ -372,7 +372,7 @@ int VeilFS::mkdir(const char *path, mode_t mode)
     RETURN_IF_ERROR(m_fslogic->createDir(string(path), mode & ALLPERMS));
     VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
 
-    boost::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("userId", "fileId");
+    boost::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent(path);
     m_eventCommunicator->processEvent(mkdirEvent);
 
     return 0;
@@ -589,8 +589,8 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
             m_metaCache->updateSize(string(path), offset + sh_return);
         }
     }
-    LOG(INFO) << "before write event processed";
-    boost::shared_ptr<Event> writeEvent = Event::createWriteEvent("userId", path, size);
+
+    boost::shared_ptr<Event> writeEvent = Event::createWriteEvent(path, size);
     m_eventCommunicator->processEvent(writeEvent);
 
     return sh_return;
