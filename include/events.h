@@ -36,6 +36,7 @@ namespace client {
 
 		static boost::shared_ptr<Event> createMkdirEvent(const std::string & filePath);
 		static boost::shared_ptr<Event> createWriteEvent(const std::string & filePath, long long bytes);
+		static boost::shared_ptr<Event> createRmEvent(const std::string & filePath);
 
 		Event();
 		Event(const Event & anotherEvent);

@@ -43,7 +43,8 @@ public:
         TASK_CONNECTION_HANDSHAKE,
         TASK_LAST_ID,
         TASK_PROCESS_EVENT,
-        TASK_GET_EVENT_PRODUCER_CONFIG
+        TASK_GET_EVENT_PRODUCER_CONFIG,
+        TASK_IS_WRITE_ENABLED
     };
 
     ISchedulable();

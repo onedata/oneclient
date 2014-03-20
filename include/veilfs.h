@@ -133,6 +133,8 @@ protected:
     
         boost::unordered_map<helper_cache_idx_t, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
         ReadWriteLock m_shCacheLock;
+
+        bool m_writeEnabled;
 };
 
 } // namespace client

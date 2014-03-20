@@ -105,6 +105,7 @@ public:
     virtual std::pair<std::string, struct statvfs>   getStatFS();   ///< Gets file system statistics
 
     virtual void            pingCluster(std::string);
+    virtual bool            isWriteEnabled();
 
     virtual bool            runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 };

@@ -59,6 +59,14 @@ public:
         EXPECT_CALL(*config, getInt(ALIVE_META_CONNECTIONS_COUNT_OPT)).WillRepeatedly(Return(0));
         EXPECT_CALL(*config, getInt(ALIVE_DATA_CONNECTIONS_COUNT_OPT)).WillRepeatedly(Return(0));
         EXPECT_CALL(*config, isSet(FUSE_ID_OPT)).WillRepeatedly(Return(false));
+
+        const ::testing::TestInfo* const test_info = ::testing::UnitTest::GetInstance()->current_test_info();
+        string testCaseName = test_info->test_case_name();
+        if(testCaseName == "writeDisabled"){
+            EXPECT_CALL(*fslogicMock, isWriteEnabled()).WillRepeatedly(Return(false));
+        }else{
+            EXPECT_CALL(*fslogicMock, isWriteEnabled()).WillRepeatedly(Return(true));
+        }
         
         VeilFS::staticDestroy();
         VeilFS::setConnectionPool(connectionPool);

@@ -125,6 +125,8 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
     // Real IDs should be set real owner's ID of "/" directory by first getattr call
     m_ruid = -1;
     m_rgid = -1; 
+
+    m_writeEnabled = true;
 }
 
 VeilFS::~VeilFS()
@@ -156,6 +158,20 @@ bool VeilFS::pushMessagesHandler(const protocol::communication_protocol::Answer 
         }
 
         m_eventCommunicator->addEventSubstream(eventStreamConfig);
+    }else if(messageType == "atom"){
+        protocol::communication_protocol::Atom atom;
+        if(!atom.ParseFromString(msg.worker_answer())){
+            LOG(WARNING) << "Cannot parse pushed message as Atom";
+            return false;
+        }
+
+        if(atom.value() == "write_enabled"){
+            m_writeEnabled = true;
+            LOG(INFO) << "writeEnabled true";
+        }else if(atom.value() == "write_disabled"){
+            m_writeEnabled = false;
+            LOG(INFO) << "writeEnabled false";
+        }
     }
 
     return true;
@@ -402,6 +418,9 @@ int VeilFS::unlink(const char *path)
     RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
     VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
 
+    boost::shared_ptr<Event> rmEvent = Event::createRmEvent(path);
+    m_eventCommunicator->processEvent(rmEvent);
+
     return 0;
 }
 
@@ -574,6 +593,11 @@ int VeilFS::read(const char *path, char *buf, size_t size, off_t offset, struct 
 int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
 {
     //LOG(INFO) << "FUSE: write(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
+    if(!m_writeEnabled){
+        LOG(WARNING) << "Attempt to write when write disabled.";
+        return -EDQUOT;
+    }
+
     GET_LOCATION_INFO(path);
     
     AutoLock guard(m_shCacheLock, READ_LOCK);
@@ -831,6 +855,10 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
 
     case TASK_GET_EVENT_PRODUCER_CONFIG:
         m_eventCommunicator->configureByCluster();
+        return true;
+
+    case TASK_IS_WRITE_ENABLED:
+        m_writeEnabled = m_fslogic->isWriteEnabled();
         return true;
 
     default:

@@ -401,6 +401,7 @@ int main(int argc, char* argv[], char* envp[])
     VeilAppObject.reset(veilfs);
     
     VeilFS::getPushListener()->subscribe(boost::bind(&VeilFS::pushMessagesHandler, veilfs, _1));
+    VeilFS::getScheduler(ISchedulable::TASK_IS_WRITE_ENABLED)->addTask(Job(time(NULL) + 1, boost::shared_ptr<VeilFS> (VeilAppObject), ISchedulable::TASK_IS_WRITE_ENABLED));
     VeilFS::getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(NULL) + 1, boost::shared_ptr<VeilFS> (VeilAppObject), ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
 
     // Enter FUSE loop

@@ -48,7 +48,7 @@ void EventCommunicator::configureByCluster()
         LOG(INFO) << "atom eventproducerconfigrequest sent";
     }
 
-    LOG(INFO) << "eventproducerconfigrequest answer_status: " << ans.worker_answer();
+    LOG(INFO) << "eventproducerconfigrequest answer_status: " << ans.answer_status();
 
     EventProducerConfig config;
     if(!config.ParseFromString(ans.worker_answer())){
@@ -108,20 +108,28 @@ void EventCommunicator::processEvent(shared_ptr<Event> event)
 	}
 }
 
-shared_ptr<Event> Event::createMkdirEvent(const string & fileId)
+shared_ptr<Event> Event::createMkdirEvent(const string & filePath)
 {
 	shared_ptr<Event> event (new Event());
 	event->properties["type"] = string("mkdir_event");
-	event->properties["filePath"] = fileId;
+	event->properties["filePath"] = filePath;
 	return event;
 }
 
-shared_ptr<Event> Event::createWriteEvent(const string & fileId, long long bytes)
+shared_ptr<Event> Event::createWriteEvent(const string & filePath, long long bytes)
 {
 	shared_ptr<Event> event (new Event());
 	event->properties["type"] = string("write_event");
-	event->properties["filePath"] = fileId;
+	event->properties["filePath"] = filePath;
 	event->properties["bytes"] = bytes;
+	return event;
+}
+
+shared_ptr<Event> Event::createRmEvent(const string & filePath)
+{
+	shared_ptr<Event> event (new Event());
+	event->properties["type"] = string("rm_event");
+	event->properties["filePath"] = filePath;
 	return event;
 }
 
