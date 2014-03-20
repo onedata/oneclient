@@ -51,6 +51,7 @@ string exec(const char* cmd) {
 TEST_F(EventsTest, mkdirExample) {
     // given
     VFS.reset(new VeilFSMount("main", "peer.pem"));
+    sleep(2);
     string dirName1 = "test_dir_7";
     string dirPath1 = VFS->getRoot() + "/" + dirName1;
     string dirPath2 = VFS->getRoot() + "/test_dir_8";
@@ -60,7 +61,7 @@ TEST_F(EventsTest, mkdirExample) {
 
     // what
     EXPECT_EQ(0, ::system(("mkdir " + dirPath1).c_str()));
-    sleep(1);
+    sleep(3);
 
     // then
     res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
@@ -78,7 +79,7 @@ TEST_F(EventsTest, mkdirExample) {
 
     // what
     EXPECT_EQ(0, ::system(("mkdir " + dirPath2).c_str()));
-    sleep(1);
+    sleep(3);
 
     // then 
     res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
@@ -102,6 +103,7 @@ TEST_F(EventsTest, clientConfiguredAtStartup) {
     sleep(1);
 
     VFS.reset(new VeilFSMount("main", "peer.pem"));
+    sleep(2);
 
     // given
     string res = exec(("ls -al " + root + " | wc -l").c_str());
@@ -109,7 +111,7 @@ TEST_F(EventsTest, clientConfiguredAtStartup) {
 
     //what
     EXPECT_EQ(0, ::system(("mkdir " + dirPath1).c_str()));
-    sleep(1);
+    sleep(3);
 
     // then
     res = exec(("ls -al " + root + " | wc -l").c_str());
@@ -123,7 +125,7 @@ TEST_F(EventsTest, clientConfiguredAtStartup) {
 
     // what
     EXPECT_EQ(0, ::system(("mkdir " + dirPath2).c_str()));
-    sleep(1);
+    sleep(3);
 
     // then
     res = exec(("ls -al " + root + " | wc -l").c_str());
