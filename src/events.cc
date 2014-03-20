@@ -245,29 +245,29 @@ string EventFilter::getDesiredValue()
 
 /****** EventAggregator ******/
 
-EventAggregator::EventAggregator(long long threshold) :
-	IEventStream(), m_fieldName(""), m_threshold(threshold)
+EventAggregator::EventAggregator(long long threshold, const string & sumFieldName) :
+	IEventStream(), m_fieldName(""), m_threshold(threshold), m_sumFieldName(sumFieldName)
 {
 }
 
-EventAggregator::EventAggregator(std::string fieldName, long long threshold) :
-	IEventStream(), m_fieldName(fieldName), m_threshold(threshold)
+EventAggregator::EventAggregator(const string & fieldName, long long threshold, const string & sumFieldName) :
+	IEventStream(), m_fieldName(fieldName), m_threshold(threshold), m_sumFieldName(sumFieldName)
 {
 }
 
-EventAggregator::EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, long long threshold) :
-	IEventStream(wrappedStream), m_threshold(threshold)
+EventAggregator::EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, long long threshold, const string & sumFieldName) :
+	IEventStream(wrappedStream), m_threshold(threshold), m_sumFieldName(sumFieldName)
 {
 }
 
-EventAggregator::EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, std::string fieldName, long long threshold) :
-	IEventStream(wrappedStream), m_fieldName(fieldName), m_threshold(threshold)
+EventAggregator::EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, const string & fieldName, long long threshold, const string & sumFieldName) :
+	IEventStream(wrappedStream), m_fieldName(fieldName), m_threshold(threshold), m_sumFieldName(sumFieldName)
 {
 }
 
 shared_ptr<IEventStream> EventAggregator::fromConfig(const EventAggregatorConfig & config)
 {
-	return shared_ptr<IEventStream> (new EventAggregator(config.field_name(), config.threshold()));
+	return shared_ptr<IEventStream> (new EventAggregator(config.field_name(), config.threshold(), config.sum_field_name()));
 }
 
 shared_ptr<Event> EventAggregator::actualProcessEvent(shared_ptr<Event> event)
@@ -286,12 +286,17 @@ shared_ptr<Event> EventAggregator::actualProcessEvent(shared_ptr<Event> event)
 	if(m_substreams.find(value) == m_substreams.end())
 		m_substreams[value] = EventAggregator::ActualEventAggregator();
 
-	return m_substreams[value].processEvent(event, m_threshold, m_fieldName);
+	return m_substreams[value].processEvent(event, m_threshold, m_fieldName, m_sumFieldName);
 }
 
 string EventAggregator::getFieldName()
 {
 	return m_fieldName;
+}
+
+string EventAggregator::getSumFieldName()
+{
+	return m_sumFieldName;
 }
 
 long long EventAggregator::getThreshold()
@@ -303,17 +308,17 @@ EventAggregator::ActualEventAggregator::ActualEventAggregator() :
 	m_counter(0)
 {}
 
-shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(shared_ptr<Event> event, long long threshold, string fieldName)
+shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(shared_ptr<Event> event, long long threshold, const string & fieldName, const string & sumFieldName)
 {
-	AutoLock lock(m_counterLock, WRITE_LOCK);
-	long long count = event->getProperty<long long>("count", 1);
+	AutoLock lock(m_aggregatorStateLock, WRITE_LOCK);
+	long long count = event->getProperty<long long>(sumFieldName, 1);
 	m_counter += count;
 
 	bool forward = m_counter >= threshold;
 
 	if(forward){
 		shared_ptr<Event> newEvent (new Event());
-		newEvent->properties["count"] = m_counter;
+		newEvent->properties[sumFieldName] = m_counter;
 		if(!fieldName.empty()){
 			string value = event->getProperty(fieldName, string());
 			newEvent->properties[fieldName] = value;

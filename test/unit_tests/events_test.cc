@@ -130,6 +130,34 @@ TEST(EventAggregatorTest, AggregationByOneField) {
 	ASSERT_EQ("write_event", res->getProperty("type", string("")));
 }
 
+TEST(EventAggregatorTest, AggregationWithSum) {
+	shared_ptr<Event> smallWriteEvent = Event::createWriteEvent("user1", "file1", 5);
+	shared_ptr<Event> bigWriteEvent = Event::createWriteEvent("user1", "file2", 100);
+	EventAggregator aggregator("type", 110, "bytes");
+
+	shared_ptr<Event> res = aggregator.processEvent(smallWriteEvent);
+	ASSERT_FALSE((bool) res);
+	res = aggregator.processEvent(bigWriteEvent);
+	ASSERT_FALSE((bool) res);
+
+	res = aggregator.processEvent(smallWriteEvent);
+	ASSERT_TRUE((bool) res);
+	ASSERT_EQ(2, res->properties.size());
+	ASSERT_EQ(110, res->getProperty<long long>("bytes", -1L));
+	ASSERT_EQ("write_event", res->getProperty("type", string("")));
+
+	res = aggregator.processEvent(smallWriteEvent);
+	ASSERT_FALSE((bool) res);
+	res = aggregator.processEvent(bigWriteEvent);
+	ASSERT_FALSE((bool) res);
+
+	res = aggregator.processEvent(bigWriteEvent);
+	ASSERT_TRUE((bool) res);
+	ASSERT_EQ(2, res->properties.size());
+	ASSERT_EQ(205, res->getProperty<long long>("bytes", -1L));
+	ASSERT_EQ("write_event", res->getProperty("type", string("")));
+}
+
 // checks event filter composed with event aggregator
 TEST(EventAggregatorTest, FilterAndAggregation) {
 	shared_ptr<Event> file1Event = Event::createMkdirEvent("user1", "file1");
@@ -228,6 +256,7 @@ TEST(IEventStream, ConstructFromConfig2) {
 	EventStreamConfig config;
 	EventAggregatorConfig * aggregatorConfig = config.mutable_aggregator_config();
 	aggregatorConfig->set_field_name("userId");
+	aggregatorConfig->set_sum_field_name("count");
 	aggregatorConfig->set_threshold(15);
 	EventStreamConfig * wrappedConfig = config.mutable_wrapped_config();
 	EventFilterConfig * filterConfig = wrappedConfig->mutable_filter_config();
@@ -242,6 +271,7 @@ TEST(IEventStream, ConstructFromConfig2) {
 	EventAggregator * eventAggregator = dynamic_cast<EventAggregator *>(stream.get());
 	ASSERT_TRUE(eventAggregator != NULL);
 	ASSERT_EQ("userId", eventAggregator->getFieldName());
+	ASSERT_EQ("count", eventAggregator->getSumFieldName());
 	ASSERT_EQ(15, eventAggregator->getThreshold());
 	shared_ptr<IEventStream> wrappedStream = eventAggregator->getWrappedStream();
 	ASSERT_TRUE((bool) wrappedStream);

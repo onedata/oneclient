@@ -120,30 +120,32 @@ namespace client {
 		class ActualEventAggregator{
 		public:
 			ActualEventAggregator();
-			virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event, long long threshold,  std::string fieldName);
+			virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event, long long threshold,  const std::string & fieldName, const std::string & sumFieldName);
 
 		private:
 			long long m_counter;
-			ReadWriteLock m_counterLock;
+			ReadWriteLock m_aggregatorStateLock;
 
 			void resetState();
 		};
 
 		//TODO: too many constructors
-		EventAggregator(long long threshold);
-		EventAggregator(std::string fieldName, long long threshold);
-		EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, long long threshold);
-		EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, std::string fieldName, long long threshold);
+		EventAggregator(long long threshold, const std::string & sumFieldName = "count");
+		EventAggregator(const std::string & fieldName, long long threshold, const std::string & sumFieldName = "count");
+		EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, long long threshold, const std::string & sumFieldName = "count");
+		EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, const std::string & fieldName, long long threshold, const std::string & sumFieldName = "count");
 		static boost::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventAggregatorConfig & config);
 
 		virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event);
 
 		// for unit test purposes
 		std::string getFieldName();
+		std::string getSumFieldName();
 		long long getThreshold();
 
 	private:
 		std::string m_fieldName;
+		std::string m_sumFieldName;
 		long long m_threshold;
 		std::map<std::string, ActualEventAggregator> m_substreams;
 	};
