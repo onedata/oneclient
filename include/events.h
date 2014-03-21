@@ -58,14 +58,16 @@ namespace client {
         }
 	};
 
-	class EventCommunicator{
+	class EventCommunicator : public ISchedulable{
 	public:
 		EventCommunicator(boost::shared_ptr<EventStreamCombiner> eventsStream = boost::shared_ptr<EventStreamCombiner>());
 
+		bool pushMessagesHandler(const protocol::communication_protocol::Answer &msg);
 		void addEventSubstream(const ::veil::protocol::fuse_messages::EventStreamConfig & eventStreamConfig);
 		void configureByCluster();
 		static void sendEvent(boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> eventMessage);
 		virtual void processEvent(boost::shared_ptr<Event> event);
+		virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 	private:
 		boost::shared_ptr<EventStreamCombiner> m_eventsStream;

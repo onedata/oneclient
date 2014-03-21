@@ -135,3 +135,44 @@ TEST_F(EventsTest, clientConfiguredAtStartup) {
 
     EXPECT_EQ(0, ::system(("rm -rf " + dirPath2).c_str()));
 }
+
+TEST_F(EventsTest, clientGettingBlockedWhenQuotaExceeded) {
+    VFS.reset(new VeilFSMount("main", "peer.pem"));
+    sleep(1);
+
+    string root = MOUNT_POINT("main");
+    string filePath = root + "/quota_test_file";
+    string filePath2 = root + "/quota_test_file2";
+    string filePath3 = root + "/quota_test_file3";
+    string filePath4 = root + "/quota_test_file4";
+    EXPECT_EQ(0, ::system(("touch " + filePath).c_str()));
+    EXPECT_EQ(0, ::system(("touch " + filePath2).c_str()));
+
+    erlExec("{prepare_for_quota_case, 100}");
+
+    // write 100 bytes
+    for(int i=0; i<10; ++i){
+        EXPECT_EQ(0, ::system(("dd if=/dev/zero bs=1 count=10 >> " + filePath).c_str()));
+    }
+
+    // it may be enough to call dd just once but quota view results from db may be stale.
+    // after 3 calls it has to be recent enough to trigger quota exceeded event
+    for(int i=0; i<3; ++i){
+        ::system(("dd if=/dev/zero bs=1 count=10 >> " + filePath).c_str());
+        sleep(1);
+    }
+
+    // trying to write something should return error
+    EXPECT_TRUE(::system(("dd if=/dev/zero bs=1 count=10 >> " + filePath).c_str()) != 0);
+
+    // we are deleting big file - after that we should fits our quota again
+    EXPECT_EQ(0, ::system(("rm " + filePath).c_str()));
+
+    // calling dd two times to trigger events handlers and db views update
+    ::system(("dd if=/dev/zero bs=1 count=10 >> " + filePath2).c_str());
+    ::system(("dd if=/dev/zero bs=1 count=10 >> " + filePath2).c_str());
+
+    // now we should be able to write again
+    EXPECT_EQ(0, ::system(("dd if=/dev/zero bs=1 count=10 >> " + filePath2).c_str()));
+
+}

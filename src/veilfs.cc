@@ -19,6 +19,8 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/functional.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <google/protobuf/descriptor.h>
 
 #include "communication_protocol.pb.h"
 #include "fuse_messages.pb.h"
@@ -127,6 +129,10 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
     m_rgid = -1; 
 
     m_writeEnabled = true;
+
+    VeilFS::getPushListener()->subscribe(boost::bind(&VeilFS::pushMessagesHandler, this, _1));
+    VeilFS::getPushListener()->subscribe(boost::bind(&EventCommunicator::pushMessagesHandler, m_eventCommunicator.get(), _1));
+    VeilFS::getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
 }
 
 VeilFS::~VeilFS()
@@ -147,21 +153,13 @@ void VeilFS::staticDestroy()
 // Function called when cluster sends message with event producer configuration
 bool VeilFS::pushMessagesHandler(const protocol::communication_protocol::Answer &msg)
 {
+    using namespace protocol::communication_protocol;
     string messageType = msg.message_type();
-    DLOG(INFO) << "Type of received message: " << messageType;
 
-    if(messageType == "eventstreamconfig"){
-        EventStreamConfig eventStreamConfig;
-        if(!eventStreamConfig.ParseFromString(msg.worker_answer())){
-            LOG(WARNING) << "Cannot parse pushed message as EventStreamConfig";
-            return false;
-        }
-
-        m_eventCommunicator->addEventSubstream(eventStreamConfig);
-    }else if(messageType == "atom"){
-        protocol::communication_protocol::Atom atom;
+    if(boost::iequals(messageType, Atom::descriptor()->name())){
+        Atom atom;
         if(!atom.ParseFromString(msg.worker_answer())){
-            LOG(WARNING) << "Cannot parse pushed message as Atom";
+            LOG(WARNING) << "Cannot parse pushed message as " << atom.GetDescriptor()->name();
             return false;
         }
 
@@ -593,6 +591,7 @@ int VeilFS::read(const char *path, char *buf, size_t size, off_t offset, struct 
 int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
 {
     //LOG(INFO) << "FUSE: write(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
+
     if(!m_writeEnabled){
         LOG(WARNING) << "Attempt to write when write disabled.";
         return -EDQUOT;
@@ -851,10 +850,6 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
     case TASK_ASYNC_UPDATE_TIMES: // arg0 = path, arg1 = atime, arg2 = mtime
         if(m_fslogic->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2)) == VOK);
             (void) m_metaCache->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2));
-        return true;
-
-    case TASK_GET_EVENT_PRODUCER_CONFIG:
-        m_eventCommunicator->configureByCluster();
         return true;
 
     case TASK_IS_WRITE_ENABLED:

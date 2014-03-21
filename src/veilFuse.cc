@@ -399,10 +399,9 @@ int main(int argc, char* argv[], char* envp[])
                         boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()),
                         boost::shared_ptr<EventCommunicator>(new EventCommunicator()));
     VeilAppObject.reset(veilfs);
-    
-    VeilFS::getPushListener()->subscribe(boost::bind(&VeilFS::pushMessagesHandler, veilfs, _1));
-    VeilFS::getScheduler(ISchedulable::TASK_IS_WRITE_ENABLED)->addTask(Job(time(NULL) + 1, boost::shared_ptr<VeilFS> (VeilAppObject), ISchedulable::TASK_IS_WRITE_ENABLED));
-    VeilFS::getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(NULL) + 1, boost::shared_ptr<VeilFS> (VeilAppObject), ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
+
+    // it would be better to do this in VeilFS constructor but shared_from_this() should not be called from constructor
+    VeilFS::getScheduler(ISchedulable::TASK_IS_WRITE_ENABLED)->addTask(Job(time(NULL), boost::shared_ptr<VeilFS> (VeilAppObject), ISchedulable::TASK_IS_WRITE_ENABLED));
 
     // Enter FUSE loop
     if (multithreaded)

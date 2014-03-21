@@ -8,6 +8,8 @@
 #include "events.h"
 #include "veilfs.h"
 #include "communication_protocol.pb.h"
+#include <boost/algorithm/string/predicate.hpp>
+#include <google/protobuf/descriptor.h>
 
 using namespace veil::client;
 using namespace std;
@@ -19,6 +21,23 @@ EventCommunicator::EventCommunicator(shared_ptr<EventStreamCombiner> eventsStrea
 	if(!eventsStream){
 		m_eventsStream = shared_ptr<EventStreamCombiner>(new EventStreamCombiner());
 	}
+}
+
+bool EventCommunicator::pushMessagesHandler(const protocol::communication_protocol::Answer &msg)
+{
+	string messageType = msg.message_type();
+
+	if(boost::iequals(messageType, EventStreamConfig::descriptor()->name())){
+        EventStreamConfig eventStreamConfig;
+        if(!eventStreamConfig.ParseFromString(msg.worker_answer())){
+            LOG(WARNING) << "Cannot parse pushed message as " << eventStreamConfig.GetDescriptor()->name();
+            return false;
+        }
+
+        addEventSubstream(eventStreamConfig);
+    }
+
+    return true;
 }
 
 void EventCommunicator::configureByCluster()
@@ -105,6 +124,19 @@ void EventCommunicator::processEvent(shared_ptr<Event> event)
 	if(event){
 		m_eventsStream->pushEventToProcess(event);
 		VeilFS::getScheduler()->addTask(Job(time(NULL) + 1, m_eventsStream, ISchedulable::TASK_PROCESS_EVENT));
+	}
+}
+
+bool EventCommunicator::runTask(TaskID taskId, string arg0, string arg1, string arg2)
+{
+	switch(taskId)
+	{
+	case TASK_GET_EVENT_PRODUCER_CONFIG:
+        configureByCluster();
+        return true;
+
+	default:
+		return false;
 	}
 }
 
