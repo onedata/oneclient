@@ -49,8 +49,10 @@
 
 #define FUSE_MESSAGE "fusemessage"
 #define ATOM "atom"
+#define PUSH_MESSAGE_ACK "ack"
 
 #define FSLOGIC "fslogic"
+#define RULE_MANAGER "rule_manager"
 
 #define ACTION_NOT_ALLOWED "not_allowed"
 #define ACTION_FAILED "action_failed"

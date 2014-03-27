@@ -19,6 +19,9 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/functional.hpp>
+#include "communication_protocol.pb.h"
+#include <google/protobuf/descriptor.h>
+
 
 #include <sys/stat.h>
 
@@ -119,6 +122,8 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
     // Real IDs should be set real owner's ID of "/" directory by first getattr call
     m_ruid = -1;
     m_rgid = -1; 
+
+    VeilFS::getPushListener()->subscribe(boost::bind(&VeilFS::pushMessagesHandler, this, _1));
 }
 
 VeilFS::~VeilFS()
@@ -134,6 +139,56 @@ void VeilFS::staticDestroy()
     }
     m_connectionPool.reset();
     m_pushListener.reset();
+}
+
+bool VeilFS::pushMessagesHandler(const protocol::communication_protocol::Answer &msg)
+{
+    using namespace protocol::communication_protocol;
+    string messageType = msg.message_type();
+    LOG(INFO) << "pushmessage received: " << messageType;
+
+    if(boost::iequals(messageType, Atom::descriptor()->name())){
+        Atom atom;
+        if(!atom.ParseFromString(msg.worker_answer())){
+            LOG(WARNING) << "Cannot parse pushed message as " << atom.GetDescriptor()->name();
+            return true;
+        }
+
+        LOG(INFO) << "received atom: " << atom.value();
+
+        if(atom.value() == "test_atom2" && msg.has_message_id()){
+            sendPushMessageAck(msg.message_id());
+        }
+    }
+
+    return true;
+}
+
+void VeilFS::sendPushMessageAck(int messageId){
+    LOG(INFO) << "inside sendPushMessageAck";
+    protocol::communication_protocol::ClusterMsg clm;
+    clm.set_protocol_version(PROTOCOL_VERSION);
+    clm.set_synch(false);
+    clm.set_module_name(RULE_MANAGER);
+    clm.set_message_type(ATOM);
+    clm.set_answer_type(ATOM);
+    clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
+    clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL);
+    clm.set_message_id(messageId);
+
+    protocol::communication_protocol::Atom msg;
+    msg.set_value(PUSH_MESSAGE_ACK);
+    clm.set_input(msg.SerializeAsString());
+
+    shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+
+    protocol::communication_protocol::Answer ans;
+    if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
+        LOG(WARNING) << "sending message ack failed";
+    } else {
+        VeilFS::getConnectionPool()->releaseConnection(connection);
+        LOG(INFO) << "message ack sent";
+    }
 }
 
 int VeilFS::access(const char *path, int mask)

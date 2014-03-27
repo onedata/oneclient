@@ -68,7 +68,7 @@ namespace client {
                 {
                     if (!(*it).second || !(*it).second(msg)) {
                         it = m_listeners.erase(it);
-                    } else {
+                    } else {                       
                         ++it;
                     }
                 }
@@ -76,8 +76,7 @@ namespace client {
                 LOG(INFO) << "Got ERROR message ID: " << msg.message_id() << ". Status: " << msg.answer_status();
                 onChannelError(msg);
             }
-        }
-        
+        }     
     }
     
     int PushListener::subscribe(listener_fun fun)
