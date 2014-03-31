@@ -182,12 +182,10 @@ void VeilFS::sendPushMessageAck(int messageId){
 
     shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
 
-    protocol::communication_protocol::Answer ans;
-    if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
-        LOG(WARNING) << "sending message ack failed";
-    } else {
-        VeilFS::getConnectionPool()->releaseConnection(connection);
-        LOG(INFO) << "message ack sent";
+    if(connection->sendMessage(clm, messageId) != messageId){
+        LOG(WARNING) << "cannot send ack for push message with messageId " << messageId;
+    }else{
+        LOG(INFO) << "----- ack sent successfully!";
     }
 }
 
