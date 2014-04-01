@@ -26,6 +26,8 @@
 #define EVENT_PRODUCER_CONFIG "eventproducerconfig"
 #define EVENT_MESSAGE "eventmessage"
 
+#define SUM_FIELD_NAME "_sum_field_name"
+
 namespace veil {
 namespace client {
 	class EventStreamCombiner;
@@ -150,6 +152,18 @@ namespace client {
 		std::string m_sumFieldName;
 		long long m_threshold;
 		std::map<std::string, ActualEventAggregator> m_substreams;
+	};
+
+	class EventTransformer : public IEventStream {
+	public:
+		EventTransformer(std::vector<std::string> fieldNamesToReplace, std::vector<std::string> valuesToReplace, std::vector<std::string> newValues);
+		static boost::shared_ptr<IEventStream> fromConfig(const :: veil::protocol::fuse_messages::EventTransformerConfig & config);
+		virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event);
+
+	private:
+		std::vector<std::string> m_fieldNamesToReplace;
+		std::vector<std::string> m_valuesToReplace;
+		std::vector<std::string> m_newValues;
 	};
 
 	class EventStreamCombiner : public ISchedulable{

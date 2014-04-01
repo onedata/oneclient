@@ -79,7 +79,8 @@ TEST(EventAggregatorTest, SimpleAggregation) {
 	ASSERT_TRUE((bool) res);
 
 	// with aggregator configured that way there should be just one property
-	ASSERT_EQ(1, res->properties.size());
+	ASSERT_EQ(2, res->properties.size());
+	ASSERT_EQ("count", res->getProperty(SUM_FIELD_NAME, string("")));
 	ASSERT_EQ(5L, res->getProperty<long long>("count", -1L));
 
 	for(int i=0; i<4; ++i){
@@ -89,7 +90,8 @@ TEST(EventAggregatorTest, SimpleAggregation) {
 
 	res = aggregator.processEvent(writeEvent);
 	ASSERT_TRUE((bool) res);
-	ASSERT_EQ(1, res->properties.size());
+	ASSERT_EQ(2, res->properties.size());
+	ASSERT_EQ("count", res->getProperty(SUM_FIELD_NAME, string("")));
 	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
 }
 
@@ -109,7 +111,8 @@ TEST(EventAggregatorTest, AggregationByOneField) {
 
 	res = aggregator.processEvent(mkdirEvent);
 	ASSERT_TRUE((bool) res);
-	ASSERT_EQ(2, res->properties.size());
+	ASSERT_EQ(3, res->properties.size());
+	ASSERT_EQ("count", res->getProperty(SUM_FIELD_NAME, string("")));
 	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
 	ASSERT_EQ("mkdir_event", res->getProperty("type", string("")));
 	
@@ -124,7 +127,7 @@ TEST(EventAggregatorTest, AggregationByOneField) {
 
 	res = aggregator.processEvent(writeEvent);
 	ASSERT_TRUE((bool) res);
-	ASSERT_EQ(2, res->properties.size());
+	ASSERT_EQ(3, res->properties.size());
 	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
 	ASSERT_EQ("write_event", res->getProperty("type", string("")));
 }
@@ -141,7 +144,7 @@ TEST(EventAggregatorTest, AggregationWithSum) {
 
 	res = aggregator.processEvent(smallWriteEvent);
 	ASSERT_TRUE((bool) res);
-	ASSERT_EQ(2, res->properties.size());
+	ASSERT_EQ(3, res->properties.size());
 	ASSERT_EQ(110, res->getProperty<long long>("bytes", -1L));
 	ASSERT_EQ("write_event", res->getProperty("type", string("")));
 
@@ -152,7 +155,7 @@ TEST(EventAggregatorTest, AggregationWithSum) {
 
 	res = aggregator.processEvent(bigWriteEvent);
 	ASSERT_TRUE((bool) res);
-	ASSERT_EQ(2, res->properties.size());
+	ASSERT_EQ(3, res->properties.size());
 	ASSERT_EQ(205, res->getProperty<long long>("bytes", -1L));
 	ASSERT_EQ("write_event", res->getProperty("type", string("")));
 }
@@ -179,7 +182,7 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
 
 	res = aggregator->processEvent(file1Event);
 	ASSERT_TRUE((bool) res);
-	ASSERT_EQ(2, res->properties.size());
+	ASSERT_EQ(3, res->properties.size());
 	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
 	ASSERT_EQ("file1", res->getProperty("filePath", string("")));
 
@@ -190,7 +193,7 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
 
 	res = aggregator->processEvent(file2Event);
 	ASSERT_TRUE((bool) res);
-	ASSERT_EQ(2, res->properties.size());
+	ASSERT_EQ(3, res->properties.size());
 	ASSERT_EQ(5, res->getProperty<long long>("count", -1L));
 	ASSERT_EQ("file2", res->getProperty("filePath", string("")));
 

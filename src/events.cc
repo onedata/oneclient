@@ -170,6 +170,10 @@ shared_ptr<EventMessage> Event::createProtoMessage()
 	shared_ptr<EventMessage> eventMessage (new EventMessage());
 	string type = getProperty("type", string(""));
 	eventMessage->set_type(type);
+	string sumFieldName = getProperty(SUM_FIELD_NAME, string(""));
+	if(!sumFieldName.empty()){
+		eventMessage->set_count(getProperty<long long>(SUM_FIELD_NAME, 1L));
+	}
 	return eventMessage;
 }
 
@@ -344,6 +348,7 @@ shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(shared_pt
 
 	if(forward){
 		shared_ptr<Event> newEvent (new Event());
+		newEvent->properties[SUM_FIELD_NAME] = sumFieldName;
 		newEvent->properties[sumFieldName] = m_counter;
 		if(!fieldName.empty()){
 			string value = event->getProperty(fieldName, string());
@@ -359,6 +364,49 @@ shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(shared_pt
 void EventAggregator::ActualEventAggregator::resetState()
 {
 	m_counter = 0;
+}
+
+EventTransformer::EventTransformer(vector<string> fieldNamesToReplace, vector<string> valuesToReplace, vector<string> newValues) :
+	m_fieldNamesToReplace(fieldNamesToReplace), m_valuesToReplace(valuesToReplace), m_newValues(newValues)
+{
+
+}
+
+shared_ptr<IEventStream> EventTransformer::fromConfig(const EventTransformerConfig & config)
+{
+	if(config.field_names_to_replace_size() != config.values_to_replace_size() || config.values_to_replace_size() != config.new_values_size()){
+		LOG(WARNING) << "Fields of EventTransformerConfig field_names_to_replace, values_to_replace and new_values are supposed to have the same length";
+		return shared_ptr<IEventStream>();
+	}
+	vector<string> fieldNamesToReplace;
+	for(int i=0; i<config.field_names_to_replace_size(); ++i){
+		fieldNamesToReplace.push_back(config.field_names_to_replace(i));
+	}
+	vector<string> valuesToReplace;
+	for(int i=0; i<config.values_to_replace_size(); ++i){
+		valuesToReplace.push_back(config.values_to_replace(i));
+	}
+	vector<string> newValues;
+	for(int i=0; i<config.new_values_size(); ++i){
+		newValues.push_back(config.new_values(i));
+	}
+	return shared_ptr<IEventStream> (new EventTransformer(fieldNamesToReplace, valuesToReplace, newValues));
+}
+
+shared_ptr<Event> EventTransformer::actualProcessEvent(shared_ptr<Event> event)
+{
+	shared_ptr<Event> newEvent (new Event(*event.get()));
+
+	for(int i=0; i<m_fieldNamesToReplace.size(); ++i)
+	{
+		string fieldName = newEvent->getProperty(m_fieldNamesToReplace[i], string());
+		if(!fieldName.empty()){
+			if(newEvent->getProperty(fieldName, string("")) == m_valuesToReplace[i]){
+				newEvent->properties[fieldName] = m_newValues[i];
+			}
+		}
+	}
+	return newEvent;
 }
 
 list<shared_ptr<Event> > EventStreamCombiner::processEvent(shared_ptr<Event> event)
