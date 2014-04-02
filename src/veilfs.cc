@@ -122,8 +122,6 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
     // Real IDs should be set real owner's ID of "/" directory by first getattr call
     m_ruid = -1;
     m_rgid = -1; 
-
-    VeilFS::getPushListener()->subscribe(boost::bind(&VeilFS::pushMessagesHandler, this, _1));
 }
 
 VeilFS::~VeilFS()
@@ -139,29 +137,6 @@ void VeilFS::staticDestroy()
     }
     m_connectionPool.reset();
     m_pushListener.reset();
-}
-
-bool VeilFS::pushMessagesHandler(const protocol::communication_protocol::Answer &msg)
-{
-    using namespace protocol::communication_protocol;
-    string messageType = msg.message_type();
-    LOG(INFO) << "pushmessage received: " << messageType;
-
-    if(boost::iequals(messageType, Atom::descriptor()->name())){
-        Atom atom;
-        if(!atom.ParseFromString(msg.worker_answer())){
-            LOG(WARNING) << "Cannot parse pushed message as " << atom.GetDescriptor()->name();
-            return true;
-        }
-
-        LOG(INFO) << "received atom: " << atom.value();
-
-        if(atom.value() == "test_atom2" && msg.has_message_id()){
-            sendPushMessageAck(msg.message_id());
-        }
-    }
-
-    return true;
 }
 
 void VeilFS::sendPushMessageAck(int messageId){
