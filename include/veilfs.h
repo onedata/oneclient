@@ -104,7 +104,7 @@ public:
 
         virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
-        void sendPushMessageAck(int messageId);
+        void sendPushMessageAck(const std::string & moduleName, int messageId);
 
 protected:
         std::string m_root; ///< Filesystem root directory

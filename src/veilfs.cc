@@ -139,16 +139,15 @@ void VeilFS::staticDestroy()
     m_pushListener.reset();
 }
 
-void VeilFS::sendPushMessageAck(int messageId){
-    LOG(INFO) << "inside sendPushMessageAck";
+void VeilFS::sendPushMessageAck(const string & moduleName, int messageId){
     protocol::communication_protocol::ClusterMsg clm;
     clm.set_protocol_version(PROTOCOL_VERSION);
     clm.set_synch(false);
-    clm.set_module_name(RULE_MANAGER);
+    clm.set_module_name(moduleName);
     clm.set_message_type(ATOM);
-    clm.set_answer_type(ATOM);
+    clm.set_answer_type(ATOM); // this value does not matter because we do not expect answer and server is not going to send anything in reply to PUSH_MESSAGE_ACK
     clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
-    clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL);
+    clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL); // this value does not matter because we do not expect answer and server is not going to send anything in reply to PUSH_MESSAGE_ACK
     clm.set_message_id(messageId);
 
     protocol::communication_protocol::Atom msg;
@@ -160,7 +159,7 @@ void VeilFS::sendPushMessageAck(int messageId){
     if(connection->sendMessage(clm, messageId) != messageId){
         LOG(WARNING) << "cannot send ack for push message with messageId " << messageId;
     }else{
-        LOG(INFO) << "----- ack sent successfully!";
+        DLOG(INFO) << "push message ack sent successfully";
     }
 }
 
