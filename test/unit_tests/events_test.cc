@@ -203,6 +203,21 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
 	}
 }
 
+TEST(EventTransformerTest, SimpleTransformation) {
+	shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
+	vector<string> fieldNames;
+	fieldNames.push_back("type");
+	vector<string> toReplace;
+	toReplace.push_back("write_event");
+	vector<string> replaceWith;
+	replaceWith.push_back("write_for_stats");
+	shared_ptr<IEventStream> transformer(new EventTransformer(fieldNames, toReplace, replaceWith));
+
+	shared_ptr<Event> output = transformer->processEvent(writeEvent);
+	ASSERT_EQ(3, output->properties.size());
+	ASSERT_EQ("write_for_stats", output->getProperty("type", string()));
+}
+
 TEST(EventStreamCombiner, CombineStreams) {
 	shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
 	shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);

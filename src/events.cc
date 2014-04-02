@@ -172,7 +172,7 @@ shared_ptr<EventMessage> Event::createProtoMessage()
 	eventMessage->set_type(type);
 	string sumFieldName = getProperty(SUM_FIELD_NAME, string(""));
 	if(!sumFieldName.empty()){
-		eventMessage->set_count(getProperty<long long>(SUM_FIELD_NAME, 1L));
+		eventMessage->set_count(getProperty<long long>(sumFieldName, 1L));
 	}
 	return eventMessage;
 }
@@ -399,11 +399,9 @@ shared_ptr<Event> EventTransformer::actualProcessEvent(shared_ptr<Event> event)
 
 	for(int i=0; i<m_fieldNamesToReplace.size(); ++i)
 	{
-		string fieldName = newEvent->getProperty(m_fieldNamesToReplace[i], string());
-		if(!fieldName.empty()){
-			if(newEvent->getProperty(fieldName, string("")) == m_valuesToReplace[i]){
-				newEvent->properties[fieldName] = m_newValues[i];
-			}
+		string fieldName = m_fieldNamesToReplace[i];
+		if(newEvent->getProperty(fieldName, string("")) == m_valuesToReplace[i]){
+			newEvent->properties[fieldName] = m_newValues[i];
 		}
 	}
 	return newEvent;

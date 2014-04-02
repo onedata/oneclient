@@ -195,6 +195,9 @@ namespace client {
 			}else if(config.has_aggregator_config()){
 				::veil::protocol::fuse_messages::EventAggregatorConfig cfg = config.aggregator_config();
 				res = EventAggregator::fromConfig(cfg);
+			}else if(config.has_transformer_config()){
+				::veil::protocol::fuse_messages::EventTransformerConfig cfg = config.transformer_config();
+				res = EventTransformer::fromConfig(cfg);
 			}
 
 			if(config.has_wrapped_config()){
