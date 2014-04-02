@@ -144,6 +144,12 @@ string findUserCert() {
         string customPath = Config::absPathRelToHOME(VeilFS::getConfig()->getString(PEER_CERTIFICATE_FILE_OPT));
         return customPath;
     }
+    
+    if(VeilFS::getConfig()->isSet(X509_USER_PROXY_OPT))
+    {
+        string customPath = Config::absPathRelToHOME(VeilFS::getConfig()->getString(X509_USER_PROXY_OPT));
+        return customPath;
+    }
 
     LOG(INFO) << "GSI Handler: Searching for userCert file...";
 
@@ -170,6 +176,12 @@ string findUserKey() {
     if(VeilFS::getConfig()->isSet(PEER_CERTIFICATE_FILE_OPT))
     {
         string customPath = Config::absPathRelToHOME(VeilFS::getConfig()->getString(PEER_CERTIFICATE_FILE_OPT));
+        return customPath;
+    }
+    
+    if(VeilFS::getConfig()->isSet(X509_USER_PROXY_OPT))
+    {
+        string customPath = Config::absPathRelToHOME(VeilFS::getConfig()->getString(X509_USER_PROXY_OPT));
         return customPath;
     }
 
