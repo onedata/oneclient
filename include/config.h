@@ -41,6 +41,7 @@
 #define WRITE_BUFFER_MAX_FILE_SIZE_OPT  "write_buffer_max_file_size"
 #define READ_BUFFER_MAX_FILE_SIZE_OPT   "read_buffer_max_file_size"
 #define FILE_BUFFER_PREFERED_BLOCK_SIZE_OPT "file_buffer_prefered_block_size"
+#define X509_USER_PROXY_OPT             "x509_user_proxy"
 
 
 /// Prefix for all env variables that will be send to cluster
