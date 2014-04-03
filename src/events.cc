@@ -114,6 +114,7 @@ void EventCommunicator::addEventSubstream(const EventStreamConfig & eventStreamC
 {
 	shared_ptr<IEventStream> newStream = IEventStreamFactory::fromConfig(eventStreamConfig);
     if(newStream){
+    	AutoLock lock(m_eventsStreamLock, WRITE_LOCK);
         m_eventsStream->addSubstream(newStream);
         LOG(INFO) << "New EventStream added to EventCommunicator.";
     }
@@ -152,6 +153,15 @@ shared_ptr<Event> Event::createWriteEvent(const string & filePath, long long byt
 {
 	shared_ptr<Event> event (new Event());
 	event->properties["type"] = string("write_event");
+	event->properties["filePath"] = filePath;
+	event->properties["bytes"] = bytes;
+	return event;
+}
+
+shared_ptr<Event> Event::createReadEvent(const string & filePath, long long bytes)
+{
+	shared_ptr<Event> event (new Event());
+	event->properties["type"] = string("read_event");
 	event->properties["filePath"] = filePath;
 	event->properties["bytes"] = bytes;
 	return event;

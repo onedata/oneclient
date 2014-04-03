@@ -38,6 +38,7 @@ namespace client {
 
 		static boost::shared_ptr<Event> createMkdirEvent(const std::string & filePath);
 		static boost::shared_ptr<Event> createWriteEvent(const std::string & filePath, long long bytes);
+		static boost::shared_ptr<Event> createReadEvent(const std::string & filePath, long long bytes);
 		static boost::shared_ptr<Event> createRmEvent(const std::string & filePath);
 
 		Event();
@@ -72,6 +73,7 @@ namespace client {
 		virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 	private:
+		ReadWriteLock m_eventsStreamLock;
 		boost::shared_ptr<EventStreamCombiner> m_eventsStream;
 
 	};
