@@ -27,6 +27,8 @@
 #include "veilfs.h"
 #include "communicationHandler.h"
 
+#define X509_USER_PROXY_ENV     "X509_USER_PROXY"
+
 #define X509_USER_CERT_ENV      "X509_USER_CERT"
 #define X509_USER_KEY_ENV       "X509_USER_KEY"
 
@@ -210,6 +212,9 @@ static std::pair<string, string> getUserCertAndKey()
     // Configuration options take precedence
     if(VeilFS::getConfig()->isSet(PEER_CERTIFICATE_FILE_OPT))
         return make_pair(Config::absPathRelToHOME(VeilFS::getConfig()->getString(PEER_CERTIFICATE_FILE_OPT)));
+
+    if(getenv(X509_USER_PROXY_ENV) && filesystem::exists(getenv(X509_USER_PROXY_ENV)))
+        return make_pair<string>(getenv(X509_USER_PROXY_ENV));
 
     LOG(INFO) << "GSI Handler: Searching for userCert and userKey file...";
 
