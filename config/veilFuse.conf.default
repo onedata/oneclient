@@ -11,6 +11,9 @@
   # [default = globus-proxy-utils defaults]
     # peer_certificate_file: .globus/peer.pem
     # x509_user_proxy: .globus/proxy.pem
+    
+  # Group ID of this FUSE client  
+    # fuse_group_id: some_group
   
   # If this option is enabled, it will be possible to override other options
   # with env variable - toupper(option_name), e.g. CLUSTER_PORT overrides cluster_port option
