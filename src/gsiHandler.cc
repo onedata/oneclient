@@ -211,9 +211,6 @@ static std::pair<string, string> getUserCertAndKey()
     if(VeilFS::getConfig()->isSet(PEER_CERTIFICATE_FILE_OPT))
         return make_pair(Config::absPathRelToHOME(VeilFS::getConfig()->getString(PEER_CERTIFICATE_FILE_OPT)));
 
-    if(VeilFS::getConfig()->isSet(X509_USER_PROXY_OPT))
-        return make_pair(Config::absPathRelToHOME(VeilFS::getConfig()->getString(X509_USER_PROXY_OPT)));
-
     LOG(INFO) << "GSI Handler: Searching for userCert and userKey file...";
 
     std::pair<string, string> certAndKey = findUserCertAndKey();
