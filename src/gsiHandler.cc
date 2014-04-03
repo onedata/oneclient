@@ -8,6 +8,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
+#include <utility>
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <openssl/md5.h>
@@ -15,7 +16,6 @@
 #include <sys/stat.h>
 #include <termios.h>
 #include <unistd.h>
-#include <cstdio>
 #include <sys/types.h>
 #include <openssl/pem.h>
 #include <openssl/pkcs12.h>
@@ -30,6 +30,7 @@
 #define X509_USER_CERT_ENV      "X509_USER_CERT"
 #define X509_USER_KEY_ENV       "X509_USER_KEY"
 
+#define GLOBUS_DIR_PATH         ".globus"
 #define GLOBUS_P12_PATH         ".globus/usercred.p12"
 #define GLOBUS_PEM_CERT_PATH    ".globus/usercert.pem"
 #define GLOBUS_PEM_KEY_PATH     ".globus/userkey.pem"
@@ -133,74 +134,103 @@ namespace {
     }
 }
 
-
-
-string findUserCert() {
-    string x509_path = "";
-    string proxy_path = GLOBUS_PROXY_PATH(getuid());
-
-    if(VeilFS::getConfig()->isSet(PEER_CERTIFICATE_FILE_OPT))
-    {
-        string customPath = Config::absPathRelToHOME(VeilFS::getConfig()->getString(PEER_CERTIFICATE_FILE_OPT));
-        return customPath;
-    }
-    
-    if(VeilFS::getConfig()->isSet(X509_USER_PROXY_OPT))
-    {
-        string customPath = Config::absPathRelToHOME(VeilFS::getConfig()->getString(X509_USER_PROXY_OPT));
-        return customPath;
-    }
-
-    LOG(INFO) << "GSI Handler: Searching for userCert file...";
-
-    if(filesystem::exists(proxy_path)) {
-        x509_path = proxy_path;
-    } else if(getenv(X509_USER_CERT_ENV) && filesystem::exists(string(getenv(X509_USER_CERT_ENV)))) {
-        x509_path = string(getenv(X509_USER_CERT_ENV));
-    } else if(filesystem::exists(Config::absPathRelToHOME(GLOBUS_PEM_CERT_PATH))
-              && filesystem::exists(Config::absPathRelToHOME(GLOBUS_PEM_KEY_PATH))) {
-        x509_path = Config::absPathRelToHOME(GLOBUS_PEM_CERT_PATH);
-    } else if(filesystem::exists(Config::absPathRelToHOME(GLOBUS_P12_PATH))) {
-        x509_path = Config::absPathRelToHOME(GLOBUS_P12_PATH);
-    }
-
-    LOG(INFO) << "GSI Handler: UserCert file at: " << x509_path;
-
-    return x509_path;
+template<typename T>
+static inline std::pair<T, T> make_pair(const T &elem)
+{
+    return std::make_pair(elem, elem);
 }
 
-string findUserKey() {
-    string x509_path = "";
-    string proxy_path = GLOBUS_PROXY_PATH(getuid());
+static inline bool isFileOrSymlink(const boost::filesystem::path &p)
+{
+    using namespace boost::filesystem;
+    return exists(p) && (is_regular_file(p) || is_symlink(p));
+}
 
+static const std::vector<std::pair<string, string> > &getCertSearchPath()
+{
+    static std::vector<std::pair<string, string> > searchPath;
+
+    if(searchPath.empty())
+    {
+        searchPath.push_back(make_pair(GLOBUS_PROXY_PATH(getuid())));
+        searchPath.push_back(std::make_pair(Config::absPathRelToHOME(GLOBUS_PEM_CERT_PATH),
+                                            Config::absPathRelToHOME(GLOBUS_PEM_KEY_PATH)));
+        searchPath.push_back(make_pair(Config::absPathRelToHOME(GLOBUS_P12_PATH)));
+        searchPath.push_back(std::make_pair(Config::absPathRelToHOME(GLOBUS_DIR_PATH), string()));
+    }
+
+    return searchPath;
+}
+
+static std::pair<string, string> findUserCertAndKey(const boost::filesystem::path &dir)
+{
+    using namespace boost::filesystem;
+
+    for(directory_iterator it(dir), end; it != end; ++it)
+    {
+        if(!isFileOrSymlink(it->path()))
+            continue;
+
+        if(it->path().extension() == ".p12")
+            return make_pair(it->path().string());
+
+        if(it->path().extension() == ".pem")
+        {
+            path keyPath = it->path();
+            if(isFileOrSymlink(keyPath.replace_extension(".key")))
+                return std::make_pair(it->path().string(), keyPath.string());
+        }
+    }
+
+    return std::pair<string, string>();
+}
+
+static std::pair<string, string> findUserCertAndKey()
+{
+    using namespace boost::filesystem;
+
+    for(std::vector<std::pair<string, string> >::const_iterator it = getCertSearchPath().begin();
+        it != getCertSearchPath().end(); ++it)
+    {
+        if(exists(it->first) && is_directory(it->first) && it->second.empty())
+        {
+            std::pair<string, string> paths = findUserCertAndKey(it->first);
+            if(!paths.first.empty() && !paths.second.empty())
+                return paths;
+        }
+        else if(isFileOrSymlink(it->first) && isFileOrSymlink(it->second))
+            return *it;
+    }
+
+    return std::pair<string, string>();
+}
+
+static std::pair<string, string> getUserCertAndKey()
+{
+    // Configuration options take precedence
     if(VeilFS::getConfig()->isSet(PEER_CERTIFICATE_FILE_OPT))
-    {
-        string customPath = Config::absPathRelToHOME(VeilFS::getConfig()->getString(PEER_CERTIFICATE_FILE_OPT));
-        return customPath;
-    }
-    
+        return make_pair(Config::absPathRelToHOME(VeilFS::getConfig()->getString(PEER_CERTIFICATE_FILE_OPT)));
+
     if(VeilFS::getConfig()->isSet(X509_USER_PROXY_OPT))
+        return make_pair(Config::absPathRelToHOME(VeilFS::getConfig()->getString(X509_USER_PROXY_OPT)));
+
+    LOG(INFO) << "GSI Handler: Searching for userCert and userKey file...";
+
+    std::pair<string, string> certAndKey = findUserCertAndKey();
+
+    // Any found path can be overriden by user's envs, provided it's not a proxy path
+    if(certAndKey.first != GLOBUS_PROXY_PATH(getuid()))
     {
-        string customPath = Config::absPathRelToHOME(VeilFS::getConfig()->getString(X509_USER_PROXY_OPT));
-        return customPath;
+        if(getenv(X509_USER_CERT_ENV) && filesystem::exists(getenv(X509_USER_CERT_ENV)))
+            certAndKey.first = getenv(X509_USER_CERT_ENV);
+        if(getenv(X509_USER_KEY_ENV) && filesystem::exists(getenv(X509_USER_KEY_ENV)))
+            certAndKey.second = getenv(X509_USER_KEY_ENV);
     }
 
-    LOG(INFO) << "GSI Handler: Searching for userKey file...";
+    LOG(INFO) << "GSI Handler: UserCert file at: " << certAndKey.first;
+    LOG(INFO) << "GSI Handler: UserKey file at: " << certAndKey.second;
 
-    if(filesystem::exists(proxy_path)) {
-        x509_path = proxy_path;
-    } else if(getenv(X509_USER_KEY_ENV) && filesystem::exists(string(getenv(X509_USER_KEY_ENV)))) {
-        x509_path = string(getenv(X509_USER_KEY_ENV));
-    } else if(filesystem::exists(Config::absPathRelToHOME(GLOBUS_PEM_CERT_PATH))
-              && filesystem::exists(Config::absPathRelToHOME(GLOBUS_PEM_KEY_PATH))) {
-        x509_path = Config::absPathRelToHOME(GLOBUS_PEM_KEY_PATH);
-    } else if(filesystem::exists(Config::absPathRelToHOME(GLOBUS_P12_PATH))) {
-        x509_path = Config::absPathRelToHOME(GLOBUS_P12_PATH);
-    }
-
-    LOG(INFO) << "GSI Handler: UserKey file at: " << x509_path;
-
-    return x509_path;
+    return certAndKey;
 }
 
 bool validateProxyConfig()
@@ -219,16 +249,9 @@ bool validateProxyCert()
     struct stat buf;
     int proxyStatus;
 
-    string userCert, userKey;
-
-    try {
-        userCert = findUserCert();
-        userKey = findUserKey();
-    } catch(VeilException &e) {
-        cerr << "Error: Couldn't find certificate file: " << e.what() << endl;
-        return false;
-    }
-
+    std::pair<string, string> userCertAndKey = getUserCertAndKey();
+    const string &userCert = userCertAndKey.first;
+    const string &userKey = userCertAndKey.second;
 
     /// This value shall be returned instead of 'false' in this function
     /// After first proxy initialization, failure doesn't break existing proxy, so the function shall return 'true'
