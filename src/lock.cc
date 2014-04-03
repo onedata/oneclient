@@ -7,7 +7,7 @@
 
 
 #include "lock.h"
-#include "glog/logging.h"
+#include "logging.h"
 
 namespace veil {
 namespace client {

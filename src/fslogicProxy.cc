@@ -9,7 +9,7 @@
 #include "fslogicProxy.h"
 #include "veilfs.h"
 
-#include "glog/logging.h"
+#include "logging.h"
 
 #include <unistd.h>
 #include <iostream>

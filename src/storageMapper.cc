@@ -9,7 +9,7 @@
 #include "storageMapper.h"
 #include "veilfs.h"
 
-#include "glog/logging.h"
+#include "logging.h"
 
 #include <ctime>
 #include <arpa/inet.h>

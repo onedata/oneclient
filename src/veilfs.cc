@@ -9,7 +9,7 @@
 #include "fslogicProxy.h"
 #include "helpers/storageHelperFactory.h"
 #include "metaCache.h"
-#include "glog/logging.h"
+#include "logging.h"
 #include "cstring"
 #include "veilErrors.h"
 #include <sys/types.h>
