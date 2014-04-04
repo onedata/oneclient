@@ -41,7 +41,6 @@
 #define WRITE_BUFFER_MAX_FILE_SIZE_OPT  "write_buffer_max_file_size"
 #define READ_BUFFER_MAX_FILE_SIZE_OPT   "read_buffer_max_file_size"
 #define FILE_BUFFER_PREFERED_BLOCK_SIZE_OPT "file_buffer_prefered_block_size"
-#define X509_USER_PROXY_OPT             "x509_user_proxy"
 #define FUSE_GROUP_ID_OPT               "fuse_group_id"
 
 
@@ -83,7 +82,7 @@ class Config : public ISchedulable
 {
     friend class IVeilFactory;
 public:
-    
+
     virtual std::string getFuseID();                            ///< Returns current FuseID.
     virtual void negotiateFuseID(time_t delay = 0);             ///< Starts FuseID negotiation process.
                                                                 ///< @param delay Since this is async actions, you can specify execution delay in seconds.
@@ -102,13 +101,13 @@ public:
                                                                 ///< Before using this function you should check is option exists, but
                                                                 ///< it's not required. @see Config::isSet
                                                                 ///< @warning If given opition wasn't set, you'll get empty object of given type T ( T() )
-    
+
     virtual bool isSet(std::string);                            ///< Checks if given option is set. @see Config::getValue
     std::string static absPathRelToCWD(boost::filesystem::path);            ///< Converts relative path, to absolute using CWD env as base prefix.
     void static setMountPoint(boost::filesystem::path);         ///< Sets mount point path
     boost::filesystem::path static getMountPoint();             ///< Gets mount point path
     std::string static absPathRelToHOME(boost::filesystem::path);           ///< Converts relative path, to absolute using HOME env as base prefix.
-    void static putEnv(std::string, std::string);               ///< Saves given env variable.     
+    void static putEnv(std::string, std::string);               ///< Saves given env variable.
 
     void setGlobalConfigFile(std::string path);                 ///< Sets path to global config file. @see Config::parseConfig
     void setUserConfigFile(std::string path);                   ///< Sets path to user config file. @see Config::parseConfig
@@ -140,13 +139,13 @@ protected:
 
     template<typename T>
     T get(std::string opt);                          ///< Internal implementation of Config::getValue. @see Config::getValue
-    
+
     template<typename T>
-    T getValue(std::string opt);                     ///< Returns type-specialized value of given config option. 
+    T getValue(std::string opt);                     ///< Returns type-specialized value of given config option.
 
     std::string static absPathRelTo(boost::filesystem::path relTo, boost::filesystem::path p); ///< Converts relative path (second argument), to absolute (relative to first argument). Also preforms check against mount point.
 
-    
+
     virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
     void setupDefaults() {
@@ -179,7 +178,7 @@ T Config::get(std::string opt)
         setupDefaults();
         defaultsLoaded = true;
     }
-        
+
     try {
         return m_userNode[opt].as<T>();
     } catch(YAML::Exception e) {
