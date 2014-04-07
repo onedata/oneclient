@@ -284,17 +284,29 @@ bool Config::runTask(TaskID taskId, string arg0, string arg1, string arg2)
             // Build HandshakeRequest message
             reqMsg.set_hostname(hostname);
 
+            bool fuseIdFound = false;
             map<string, string>::const_iterator it;
             // Iterate over all env variables
             for(it = m_envAll.begin(); it != m_envAll.end(); ++it)
             {
-                if(!boost::istarts_with((*it).first, FUSE_OPT_PREFIX)) // Reject vars with invalid prefix 
+                if(!boost::istarts_with((*it).first, FUSE_OPT_PREFIX)) // Reject vars with invalid prefix
                     continue;
+                
+                if(boost::iequals((*it).first, string(FUSE_OPT_PREFIX) + string("GROUP_ID"))) {
+                    fuseIdFound = true;
+                }
 
                 varEntry = reqMsg.add_variable();
 
                 varEntry->set_name( (*it).first.substr(string(FUSE_OPT_PREFIX).size()) );
                 varEntry->set_value( (*it).second );
+            }
+            
+            if(isSet(FUSE_GROUP_ID_OPT) && !fuseIdFound) {
+                varEntry = reqMsg.add_variable();
+                
+                varEntry->set_name( "GROUP_ID" );
+                varEntry->set_value( getString(FUSE_GROUP_ID_OPT) );
             }
 
             cMsg = builder.createClusterMessage(FSLOGIC, HandshakeRequest::descriptor()->name(), HandshakeResponse::descriptor()->name(), FUSE_MESSAGES, true);
