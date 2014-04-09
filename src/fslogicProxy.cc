@@ -28,7 +28,7 @@ using namespace veil::protocol::fuse_messages;
 namespace veil {
 namespace client {
 
-FslogicProxy::FslogicProxy() 
+FslogicProxy::FslogicProxy()
     : m_messageBuilder(new MessageBuilder())
 {
     LOG(INFO) << "FslogicProxy created";
@@ -36,7 +36,7 @@ FslogicProxy::FslogicProxy()
 
 FslogicProxy::~FslogicProxy()
 {
-    LOG(INFO) << "FslogicProxy destroyed";
+    LOG_TO_SINK(0, INFO) << "FslogicProxy destroyed";
 }
 
 bool FslogicProxy::getFileAttr(string logicName, FileAttr& attr)
@@ -73,7 +73,7 @@ bool FslogicProxy::getFileLocation(string logicName, FileLocation& location)
 
 bool FslogicProxy::getNewFileLocation(string logicName, mode_t mode, FileLocation& location)
 {
-    LOG(INFO) << "getting new file location for file: " << logicName; 
+    LOG(INFO) << "getting new file location for file: " << logicName;
 
     GetNewFileLocation msg;
     msg.set_file_logic_name(logicName);
@@ -102,12 +102,12 @@ string FslogicProxy::sendFileCreatedAck(string logicName)
 
 int FslogicProxy::renewFileLocation(string logicName)
 {
-    LOG(INFO) << "renew file location for file: " << logicName; 
+    LOG(INFO) << "renew file location for file: " << logicName;
 
     RenewFileLocation msg;
     FileLocationValidity locationValidity;
     msg.set_file_logic_name(logicName);
-    
+
     if(!sendFuseReceiveAnswer(msg, locationValidity))
     {
         LOG(ERROR) << "cannot parse cluster answer";
@@ -130,7 +130,7 @@ bool FslogicProxy::getFileChildren(string dirLogicName, uint32_t children_num, u
     GetFileChildren msg;
     FileChildren children;
     msg.set_dir_logic_name(dirLogicName);
-    msg.set_children_num(children_num); 
+    msg.set_children_num(children_num);
     msg.set_offset(offset);
 
     if (!sendFuseReceiveAnswer(msg, children))
@@ -157,7 +157,7 @@ string FslogicProxy::createDir(string logicName, mode_t mode)
     msg.set_mode(mode);
 
     string serializedAnswer = sendFuseReceiveAtom(msg);
-    
+
     return serializedAnswer;
 }
 
@@ -197,7 +197,7 @@ string FslogicProxy::renameFile(string fromLogicName, string toLogicName)
     return serializedAnswer;
 }
 
-string FslogicProxy::changeFilePerms(string path, mode_t mode) 
+string FslogicProxy::changeFilePerms(string path, mode_t mode)
 {
     ChangeFilePerms msg;
     msg.set_file_logic_name(path);
@@ -250,7 +250,7 @@ string FslogicProxy::changeFileGroup(string path, gid_t gid, string gname)
     return serializedAnswer;
 }
 
-string FslogicProxy::createLink(string from, string to) 
+string FslogicProxy::createLink(string from, string to)
 {
     CreateLink msg;
     msg.set_from_file_logic_name(from);
@@ -285,7 +285,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, 
     }
 
     ClusterMsg clusterMessage = m_messageBuilder->packFuseMessage(fMsg.GetDescriptor()->name(), response.GetDescriptor()->name(), FUSE_MESSAGES, fMsg.SerializeAsString());
-    
+
     if(!clusterMessage.IsInitialized())
     {
         LOG(ERROR) << "Cannot build ClusterMsg";
@@ -293,7 +293,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, 
     }
 
     boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
-    if(!connection) 
+    if(!connection)
     {
         LOG(ERROR) << "Cannot select connection from connectionPool";
         return false;
@@ -306,14 +306,14 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, 
     if(answer.answer_status() != VEIO)
         VeilFS::getConnectionPool()->releaseConnection(connection);
 
-    if(answer.answer_status() != VOK) 
+    if(answer.answer_status() != VOK)
     {
         LOG(WARNING) << "Cluster send non-ok message. status = " << answer.answer_status();
         if(answer.answer_status() == INVALID_FUSE_ID)
             VeilFS::getConfig()->negotiateFuseID(0);
         return false;
     }
-    
+
     return response.ParseFromString(answer.worker_answer());
 }
 
@@ -334,12 +334,12 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
     }
 
     boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
-    if(!connection) 
+    if(!connection)
     {
         LOG(ERROR) << "Cannot select connection from connectionPool";
         return VEIO;
     }
-    
+
     Answer answer = connection->communicate(clusterMessage, 2);
 
     if(answer.answer_status() != VEIO)
@@ -347,15 +347,15 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
 
     if(answer.answer_status() == INVALID_FUSE_ID)
         VeilFS::getConfig()->negotiateFuseID(0);
-    
+
     string atom = m_messageBuilder->decodeAtomAnswer(answer);
-    
+
     if(atom.size() == 0)
     {
         LOG(ERROR) << "Cannot parse cluster atom answer";
         return VEIO;
     }
-    
+
     return atom;
 }
 
@@ -386,7 +386,7 @@ pair<string, struct statvfs> FslogicProxy::getStatFS()
     return make_pair(answer.answer(), statFS);
 }
 
-void FslogicProxy::pingCluster(string nth) 
+void FslogicProxy::pingCluster(string nth)
 {
 
     ClusterMsg clm;
@@ -407,7 +407,7 @@ void FslogicProxy::pingCluster(string nth)
     istringstream iss(nth);
     iss >> nthInt;
     boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
-    
+
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
         LOG(WARNING) << "Pinging cluster " << (connection ? "failed" : "not needed");
     } else {
