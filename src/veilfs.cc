@@ -612,7 +612,6 @@ int VeilFS::read(const char *path, char *buf, size_t size, off_t offset, struct 
     CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
 
     boost::shared_ptr<Event> writeEvent = Event::createReadEvent(path, sh_return);
-    LOG(INFO) << "---------- > FUSE Read sh_return: " << sh_return;
     m_eventCommunicator->processEvent(writeEvent);
 
     return sh_return;
