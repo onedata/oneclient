@@ -33,7 +33,7 @@
 #include "veilfs.h"
 #include "config.h"
 #include "gsiHandler.h"
-#include "glog/logging.h"
+#include "logging.h"
 
 
 using namespace std;
@@ -206,7 +206,7 @@ static void fuse_init()
 }
 
 
-int main(int argc, char* argv[], char* envp[]) 
+int main(int argc, char* argv[], char* envp[])
 {
     // Turn off logging for a while
     google::InitGoogleLogging(argv[0]);
@@ -245,7 +245,7 @@ int main(int argc, char* argv[], char* envp[])
             gsi::debug = true;
 
         if(string(argv[i]) == "--version" || string(argv[i]) == "-V") {
-            cout << "VeilFuse version: " 
+            cout << "VeilFuse version: "
                  << VeilClient_VERSION_MAJOR << "."
                  << VeilClient_VERSION_MINOR << "."
                  << VeilClient_VERSION_PATCH << endl;
@@ -309,13 +309,13 @@ int main(int argc, char* argv[], char* envp[])
     if(showVersionOnly) { // Exit after showing full version info or help banner
         exit(EXIT_SUCCESS);
     }
-    
+
     // Set mount point in global config
     if(mountpoint) {
         Config::setMountPoint(string(mountpoint));
         LOG(INFO) << "Using mount point path: " << Config::getMountPoint().string();
     }
-    
+
     // Check proxy certificate
     if(!gsi::validateProxyConfig())
     {
@@ -339,26 +339,26 @@ int main(int argc, char* argv[], char* envp[])
 
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
-	// Initialize cluster handshake in order to check if everything is ok before becoming daemon
-	boost::shared_ptr<SimpleConnectionPool> testPool(new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), boost::bind(&gsi::getCertInfo)));
-	VeilFS::setConnectionPool(testPool);
-	try{
-		config->testHandshake();
-	}
-	catch (VeilException &exception) {
-		if(exception.veilError()==NO_USER_FOUND_ERROR)
-			cerr << "Cannot find user, remember to login through website before mounting fuse. Aborting" << endl;
-		else if(exception.veilError()==NO_CONNECTION_FOR_HANDSHAKE)
-			cerr << "Cannot connect to server. Aborting" << endl;
-		else
-			cerr << "Handshake error. Aborting" << endl;
-		fuse_unmount(mountpoint, ch);
-		exit(1);
-	}
+    // Initialize cluster handshake in order to check if everything is ok before becoming daemon
+    boost::shared_ptr<SimpleConnectionPool> testPool(new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), boost::bind(&gsi::getCertInfo)));
+    VeilFS::setConnectionPool(testPool);
+    try{
+        config->testHandshake();
+    }
+    catch (VeilException &exception) {
+        if(exception.veilError()==NO_USER_FOUND_ERROR)
+            cerr << "Cannot find user, remember to login through website before mounting fuse. Aborting" << endl;
+        else if(exception.veilError()==NO_CONNECTION_FOR_HANDSHAKE)
+            cerr << "Cannot connect to server. Aborting" << endl;
+        else
+            cerr << "Handshake error. Aborting" << endl;
+        fuse_unmount(mountpoint, ch);
+        exit(1);
+    }
 
-	//cleanup test connections
-	VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> ());
-	testPool.reset();
+    //cleanup test connections
+    VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> ());
+    testPool.reset();
 
     cout << "VeilFS has been successfully mounted in " + string(mountpoint) << endl;
 
@@ -376,7 +376,7 @@ int main(int argc, char* argv[], char* envp[])
     // Initialize VeilClient application
     VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (
         new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), boost::bind(&gsi::getCertInfo))));
-    
+
     // Setup veilhelpers config
     veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool());
     veil::helpers::config::buffers::writeBufferGlobalSizeLimit  = config->getInt(WRITE_BUFFER_MAX_SIZE_OPT);
@@ -396,6 +396,11 @@ int main(int argc, char* argv[], char* envp[])
                         boost::shared_ptr<MetaCache>(new MetaCache()),
                         boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(new FslogicProxy()))),
                         boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory())));
+
+    // Register remote logWriter for log threshold level updates and start sending loop
+    VeilFS::getPushListener()->subscribe(boost::bind(&logging::RemoteLogWriter::handleThresholdChange,
+                                                     logging::logWriter, _1));
+    logging::logWriter->run();
 
     // Enter FUSE loop
     if (multithreaded)

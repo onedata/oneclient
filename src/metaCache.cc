@@ -10,7 +10,7 @@
 #include "veilfs.h"
 #include "config.h"
 
-#include "glog/logging.h"
+#include "logging.h"
 
 #include <memory.h>
 

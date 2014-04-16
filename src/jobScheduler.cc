@@ -7,7 +7,7 @@
 
 #include "config.h"
 #include "jobScheduler.h"
-#include "glog/logging.h"
+#include "logging.h"
 #include "lock.h"
 
 
