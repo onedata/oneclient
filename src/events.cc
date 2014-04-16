@@ -10,6 +10,7 @@
 #include "communication_protocol.pb.h"
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
+#include <map>
 
 using namespace veil::client;
 using namespace std;
@@ -144,54 +145,77 @@ bool EventCommunicator::runTask(TaskID taskId, string arg0, string arg1, string 
 shared_ptr<Event> Event::createMkdirEvent(const string & filePath)
 {
 	shared_ptr<Event> event (new Event());
-	event->properties["type"] = string("mkdir_event");
-	event->properties["filePath"] = filePath;
+	event->m_stringProperties["type"] = "mkdir_event";
+	event->m_stringProperties["filePath"] = filePath;
 	return event;
 }
 
 shared_ptr<Event> Event::createWriteEvent(const string & filePath, long long bytes)
 {
 	shared_ptr<Event> event (new Event());
-	event->properties["type"] = string("write_event");
-	event->properties["filePath"] = filePath;
-	event->properties["bytes"] = bytes;
+	event->m_stringProperties["type"] = string("write_event");
+	event->m_stringProperties["filePath"] = filePath;
+	event->m_numericProperties["bytes"] = bytes;
 	return event;
 }
 
 shared_ptr<Event> Event::createReadEvent(const string & filePath, long long bytes)
 {
 	shared_ptr<Event> event (new Event());
-	event->properties["type"] = string("read_event");
-	event->properties["filePath"] = filePath;
-	event->properties["bytes"] = bytes;
+	event->m_stringProperties["type"] = string("read_event");
+	event->m_stringProperties["filePath"] = filePath;
+	event->m_numericProperties["bytes"] = bytes;
 	return event;
 }
 
 shared_ptr<Event> Event::createRmEvent(const string & filePath)
 {
 	shared_ptr<Event> event (new Event());
-	event->properties["type"] = string("rm_event");
-	event->properties["filePath"] = filePath;
+	event->m_stringProperties["type"] = string("rm_event");
+	event->m_stringProperties["filePath"] = filePath;
 	return event;
 }
 
 shared_ptr<EventMessage> Event::createProtoMessage()
 {
 	shared_ptr<EventMessage> eventMessage (new EventMessage());
-	string type = getProperty("type", string(""));
-	eventMessage->set_type(type);
-	string sumFieldName = getProperty(SUM_FIELD_NAME, string(""));
-	if(!sumFieldName.empty()){
-		eventMessage->set_count(getProperty<long long>(sumFieldName, 1L));
+	for(map<string, string>::iterator it = m_stringProperties.begin(); it != m_stringProperties.end(); ++it){
+		eventMessage->add_string_properties_keys(it->first);
+		eventMessage->add_string_properties_values(it->second);
 	}
+
+	for(map<string, NumericProperty>::iterator it = m_numericProperties.begin(); it != m_numericProperties.end(); ++it){
+		eventMessage->add_numeric_properties_keys(it->first);
+		eventMessage->add_numeric_properties_values(it->second);
+	}
+	
 	return eventMessage;
+}
+
+NumericProperty Event::getNumericProperty(const string & key, const NumericProperty defaultValue){
+	map<string, NumericProperty>::iterator it = m_numericProperties.find(key);
+	if(it == m_numericProperties.end()){
+		return defaultValue;
+	}else{
+		return it->second;
+	}
+}
+
+string Event::getStringProperty(const string & key, const string & defaultValue){
+	map<string, string>::iterator it = m_stringProperties.find(key);
+	if(it == m_stringProperties.end()){
+		return defaultValue;
+	}else{
+		return it->second;
+	}
 }
 
 Event::Event(){}
 
 Event::Event(const Event & anotherEvent)
 {
-	properties = anotherEvent.properties;
+	m_numericProperties = anotherEvent.m_numericProperties;
+	m_stringProperties = anotherEvent.m_stringProperties;
 }
 
 TrivialEventStream::TrivialEventStream()
@@ -263,7 +287,7 @@ shared_ptr<Event> EventFilter::actualProcessEvent(shared_ptr<Event> event)
 {
 	// defaultValue is generated some way because if we set precomputed value it will not work if desiredValue is the same as precomputed value
 	string defaultValue = m_desiredValue + "_";
-	string value = event->getProperty(m_fieldName, defaultValue);
+	string value = event->getStringProperty(m_fieldName, defaultValue);
 
 	if(value == m_desiredValue){
 		shared_ptr<Event> newEvent (new Event(*event.get()));
@@ -316,7 +340,7 @@ shared_ptr<Event> EventAggregator::actualProcessEvent(shared_ptr<Event> event)
 	if(m_fieldName.empty())
 		value = "";
 	else{
-		value = event->getProperty(m_fieldName, string(""));
+		value = event->getStringProperty(m_fieldName, "");
 
 		// we simply ignores events without field on which we aggregate
 		if(value == "")
@@ -351,18 +375,18 @@ EventAggregator::ActualEventAggregator::ActualEventAggregator() :
 shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(shared_ptr<Event> event, long long threshold, const string & fieldName, const string & sumFieldName)
 {
 	AutoLock lock(m_aggregatorStateLock, WRITE_LOCK);
-	long long count = event->getProperty<long long>(sumFieldName, 1);
+	NumericProperty count = event->getNumericProperty(sumFieldName, 1);
 	m_counter += count;
 
 	bool forward = m_counter >= threshold;
 
 	if(forward){
 		shared_ptr<Event> newEvent (new Event());
-		newEvent->properties[SUM_FIELD_NAME] = sumFieldName;
-		newEvent->properties[sumFieldName] = m_counter;
+		newEvent->m_stringProperties[SUM_FIELD_NAME] = sumFieldName;
+		newEvent->m_numericProperties[sumFieldName] = m_counter;
 		if(!fieldName.empty()){
-			string value = event->getProperty(fieldName, string());
-			newEvent->properties[fieldName] = value;
+			string value = event->getStringProperty(fieldName, "");
+			newEvent->m_stringProperties[fieldName] = value;
 		}
 		resetState();
 		return newEvent;
@@ -407,11 +431,12 @@ shared_ptr<Event> EventTransformer::actualProcessEvent(shared_ptr<Event> event)
 {
 	shared_ptr<Event> newEvent (new Event(*event.get()));
 
+	// TODO: EventTransformer works only for string properties.
 	for(int i=0; i<m_fieldNamesToReplace.size(); ++i)
 	{
 		string fieldName = m_fieldNamesToReplace[i];
-		if(newEvent->getProperty(fieldName, string("")) == m_valuesToReplace[i]){
-			newEvent->properties[fieldName] = m_newValues[i];
+		if(newEvent->getStringProperty(fieldName, "") == m_valuesToReplace[i]){
+			newEvent->m_stringProperties[fieldName] = m_newValues[i];
 		}
 	}
 	return newEvent;

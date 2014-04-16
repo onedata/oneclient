@@ -30,15 +30,15 @@
 
 namespace veil {
 namespace client {
+	typedef long long NumericProperty;
+
 	class EventStreamCombiner;
 
 	class Event{
 	public:
-		std::map<std::string, boost::any> properties;
-
 		static boost::shared_ptr<Event> createMkdirEvent(const std::string & filePath);
-		static boost::shared_ptr<Event> createWriteEvent(const std::string & filePath, long long bytes);
-		static boost::shared_ptr<Event> createReadEvent(const std::string & filePath, long long bytes);
+		static boost::shared_ptr<Event> createWriteEvent(const std::string & filePath, NumericProperty bytes);
+		static boost::shared_ptr<Event> createReadEvent(const std::string & filePath, NumericProperty bytes);
 		static boost::shared_ptr<Event> createRmEvent(const std::string & filePath);
 
 		Event();
@@ -46,19 +46,11 @@ namespace client {
 
 		virtual boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> createProtoMessage();
 
-		template<class T>
-        T getProperty(const std::string & fieldName, const T & defaultValue) {
-            try{
-                if(properties.find(fieldName) == properties.end()){
-                    return defaultValue;
-                }else{
-                    return boost::any_cast<T>(properties[fieldName]);
-                }
-	        }catch(boost::bad_any_cast){
-	        	LOG(WARNING) << "Bad cast in Event::getProperty for fieldName: " << fieldName;
-                return defaultValue;
-            }
-        }
+		NumericProperty getNumericProperty(const std::string & key, const NumericProperty defaultValue);
+		std::string getStringProperty(const std::string & key, const std::string & defaultValue);
+
+        std::map<std::string, NumericProperty> m_numericProperties;
+        std::map<std::string, std::string> m_stringProperties;
 	};
 
 	class EventCommunicator : public ISchedulable{
@@ -126,20 +118,20 @@ namespace client {
 		class ActualEventAggregator{
 		public:
 			ActualEventAggregator();
-			virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event, long long threshold,  const std::string & fieldName, const std::string & sumFieldName);
+			virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event, NumericProperty threshold,  const std::string & fieldName, const std::string & sumFieldName);
 
 		private:
-			long long m_counter;
+			NumericProperty m_counter;
 			ReadWriteLock m_aggregatorStateLock;
 
 			void resetState();
 		};
 
 		//TODO: too many constructors
-		EventAggregator(long long threshold, const std::string & sumFieldName = "count");
-		EventAggregator(const std::string & fieldName, long long threshold, const std::string & sumFieldName = "count");
-		EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, long long threshold, const std::string & sumFieldName = "count");
-		EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, const std::string & fieldName, long long threshold, const std::string & sumFieldName = "count");
+		EventAggregator(NumericProperty threshold, const std::string & sumFieldName = "count");
+		EventAggregator(const std::string & fieldName, NumericProperty threshold, const std::string & sumFieldName = "count");
+		EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, NumericProperty threshold, const std::string & sumFieldName = "count");
+		EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, const std::string & fieldName, NumericProperty threshold, const std::string & sumFieldName = "count");
 		static boost::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventAggregatorConfig & config);
 
 		virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event);
@@ -147,12 +139,12 @@ namespace client {
 		// for unit test purposes
 		std::string getFieldName();
 		std::string getSumFieldName();
-		long long getThreshold();
+		NumericProperty getThreshold();
 
 	private:
 		std::string m_fieldName;
 		std::string m_sumFieldName;
-		long long m_threshold;
+		NumericProperty m_threshold;
 		std::map<std::string, ActualEventAggregator> m_substreams;
 	};
 
