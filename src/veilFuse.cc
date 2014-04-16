@@ -397,9 +397,10 @@ int main(int argc, char* argv[], char* envp[])
                         boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(new FslogicProxy()))),
                         boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory())));
 
-    // Register remote logWriter for log threshold level updates
+    // Register remote logWriter for log threshold level updates and start sending loop
     VeilFS::getPushListener()->subscribe(boost::bind(&logging::RemoteLogWriter::handleThresholdChange,
                                                      logging::logWriter, _1));
+    logging::logWriter->run();
 
     // Enter FUSE loop
     if (multithreaded)
