@@ -35,7 +35,7 @@ bool EventCommunicator::pushMessagesHandler(const protocol::communication_protoc
             return false;
         }
 
-        addEventSubstream(eventStreamConfig);
+        addEventSubstreamFromConfig(eventStreamConfig);
     }
 
     return true;
@@ -80,7 +80,7 @@ void EventCommunicator::configureByCluster()
 
     for(int i=0; i<config.event_streams_configs_size(); ++i)
     {
-        addEventSubstream(config.event_streams_configs(i));
+        addEventSubstreamFromConfig(config.event_streams_configs(i));
     }
 }
 
@@ -111,13 +111,18 @@ void EventCommunicator::sendEvent(shared_ptr<EventMessage> eventMessage)
     }
 }
 
-void EventCommunicator::addEventSubstream(const EventStreamConfig & eventStreamConfig)
+void EventCommunicator::addEventSubstream(shared_ptr<IEventStream> newStream)
+{
+	AutoLock lock(m_eventsStreamLock, WRITE_LOCK);
+    m_eventsStream->addSubstream(newStream);
+    LOG(INFO) << "New EventStream added to EventCommunicator.";
+}
+
+void EventCommunicator::addEventSubstreamFromConfig(const EventStreamConfig & eventStreamConfig)
 {
 	shared_ptr<IEventStream> newStream = IEventStreamFactory::fromConfig(eventStreamConfig);
     if(newStream){
-    	AutoLock lock(m_eventsStreamLock, WRITE_LOCK);
-        m_eventsStream->addSubstream(newStream);
-        LOG(INFO) << "New EventStream added to EventCommunicator.";
+    	addEventSubstream(newStream);
     }
 }
 
@@ -440,6 +445,14 @@ shared_ptr<Event> EventTransformer::actualProcessEvent(shared_ptr<Event> event)
 		}
 	}
 	return newEvent;
+}
+
+CustomActionStream::CustomActionStream(shared_ptr<IEventStream> wrappedStream, boost::function<boost::shared_ptr<Event>(boost::shared_ptr<Event>)> customActionFun) :
+	m_customActionFun(customActionFun)
+{}
+
+shared_ptr<Event> CustomActionStream::actualProcessEvent(shared_ptr<Event> event){
+	m_customActionFun(event);
 }
 
 list<shared_ptr<Event> > EventStreamCombiner::processEvent(shared_ptr<Event> event)

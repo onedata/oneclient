@@ -347,3 +347,25 @@ TEST_F(EventsTest, EventCombinerRunTask){
 	combiner.runTask(ISchedulable::TASK_PROCESS_EVENT, "", "", "");
 	ASSERT_EQ(0, combiner.getEventsToProcess().size());
 }
+
+shared_ptr<Event> processEvent(shared_ptr<Event> event){
+	shared_ptr<Event> newEvent (new Event());
+	newEvent->m_stringProperties["customActionKey"] = "custom_action_invoked";
+	return newEvent;
+}
+
+TEST_F(CustomActionTest, SimpleInvocation){
+	shared_ptr<Event> writeEvent = Event::createWriteEvent("file1");
+	shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
+
+	shared_ptr<IEventStream> filter(new EventFilter("type", "mkdir_event"));
+	CustomActionStream action(filter, &testCustomAction);
+
+	shared_ptr<Event> res = action.processEvent(writeEvent);
+	ASSERT_FALSE((bool) res);
+
+	res = action.processEvent(mkdirEvent);
+	ASSERT_TRUE((bool) res);	
+
+	ASSERT_EQ("custom_action_invoked", res->getStringProperty("customActionKey", ""));
+}

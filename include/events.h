@@ -32,6 +32,7 @@ namespace veil {
 namespace client {
 	typedef long long NumericProperty;
 
+	class IEventStream;
 	class EventStreamCombiner;
 
 	class Event{
@@ -58,7 +59,8 @@ namespace client {
 		EventCommunicator(boost::shared_ptr<EventStreamCombiner> eventsStream = boost::shared_ptr<EventStreamCombiner>());
 
 		bool pushMessagesHandler(const protocol::communication_protocol::Answer &msg);
-		void addEventSubstream(const ::veil::protocol::fuse_messages::EventStreamConfig & eventStreamConfig);
+		void addEventSubstream(boost::shared_ptr<IEventStream> eventStreamConfig);
+		void addEventSubstreamFromConfig(const ::veil::protocol::fuse_messages::EventStreamConfig & eventStreamConfig);
 		void configureByCluster();
 		static void sendEvent(boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> eventMessage);
 		virtual void processEvent(boost::shared_ptr<Event> event);
@@ -158,6 +160,15 @@ namespace client {
 		std::vector<std::string> m_fieldNamesToReplace;
 		std::vector<std::string> m_valuesToReplace;
 		std::vector<std::string> m_newValues;
+	};
+
+	class CustomActionStream : public IEventStream {
+	public:
+		CustomActionStream(boost::shared_ptr<IEventStream> wrappedStream, boost::function<boost::shared_ptr<Event>(boost::shared_ptr<Event>)> customActionFun);
+		virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event);
+
+	private:
+		boost::function<boost::shared_ptr<Event>(boost::shared_ptr<Event>)> m_customActionFun;
 	};
 
 	class EventStreamCombiner : public ISchedulable{

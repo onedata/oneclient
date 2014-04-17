@@ -137,6 +137,13 @@ protected:
         ReadWriteLock m_shCacheLock;
 
         bool m_writeEnabled;
+
+        // proteced methods:
+        void addStatAfterBytesWrittenRule(int bytes); ///< add rule that cause getting attributes and updatetimes after N bytes has been written to single file
+
+        // TODO: it is inefficient - what we really want is just to cause attributes change
+        void statAndUpdatetimes(const std::string & path); ///< get attributes and updatetimes - useful when truncating and writing
+        boost::shared_ptr<Event> doStatFromWriteEvent(boost::shared_ptr<Event> event);
 };
 
 } // namespace client

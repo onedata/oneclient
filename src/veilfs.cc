@@ -131,6 +131,8 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
 
     m_writeEnabled = true;
 
+    addStatAfterBytesWrittenRule(VeilFS::getConfig()->getInt(WRITE_BYTES_BEFORE_STAT));
+
     VeilFS::getPushListener()->subscribe(boost::bind(&VeilFS::pushMessagesHandler, this, _1));
     VeilFS::getPushListener()->subscribe(boost::bind(&EventCommunicator::pushMessagesHandler, m_eventCommunicator.get(), _1));
     VeilFS::getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
@@ -545,8 +547,12 @@ int VeilFS::truncate(const char *path, off_t newSize)
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_truncate(lInfo.fileId.c_str(), newSize));
 
-    if(sh_return == 0) 
+    if(sh_return == 0) {
         (void) m_metaCache->updateSize(string(path), newSize);
+
+        Job statUpdatetimesTask = Job(time(NULL), shared_from_this(), TASK_STAT_AND_UPDATE_TIMES, path);
+        VeilFS::getScheduler()->addTask(statUpdatetimesTask);   
+    }
 
     return sh_return;
 }
@@ -881,6 +887,11 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
             (void) m_metaCache->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2));
         return true;
 
+    case TASK_STAT_AND_UPDATE_TIMES: // arg0 = path
+        statAndUpdatetimes(arg0);
+
+        return true;
+
     case TASK_IS_WRITE_ENABLED:
         m_writeEnabled = m_fslogic->isWriteEnabled();
         return true;
@@ -888,6 +899,38 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
     default:
         return false;
     }
+}
+
+// protected methods
+
+void VeilFS::addStatAfterBytesWrittenRule(int bytes){
+    shared_ptr<IEventStream> filter(new EventFilter("type", "write_event"));
+    shared_ptr<IEventStream> aggregator(new EventAggregator(filter, "filePath", bytes, "bytes"));
+    shared_ptr<IEventStream> customAction(new CustomActionStream(aggregator, boost::bind(&VeilFS::doStatFromWriteEvent, this, _1)));
+
+    m_eventCommunicator->addEventSubstream(customAction);
+}
+
+// TODO: The whole mechanism we force attributes to be reloaded is inefficient - we just want to cause attributes to be changed on cluster but
+// we also fetch attributes
+void VeilFS::statAndUpdatetimes(const string & path){
+    // to be sure that everything is updated correctly we need to synchronously first updatetimes and then get attributes
+    time_t currentTime = time(NULL);
+    if(m_fslogic->updateTimes(path, currentTime, currentTime) == VOK)
+        m_metaCache->updateTimes(path, currentTime, currentTime);
+
+    // it is useful to get attr event if updateTimes failed - we want to update file size
+    struct stat attr;
+    if(VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT))
+        getattr(path.c_str(), &attr, false);
+}
+
+shared_ptr<Event> VeilFS::doStatFromWriteEvent(shared_ptr<Event> event){
+    string path = event->getStringProperty("filePath", "");
+    if(!path.empty()){
+        statAndUpdatetimes(path);
+    }
+    return event;
 }
 
 } // namespace client
