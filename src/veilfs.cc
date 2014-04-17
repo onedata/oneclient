@@ -881,12 +881,12 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
 
     case TASK_ASYNC_GETATTR:
         if(VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT))
-            (void) getattr(arg0.c_str(), &attr, false);
+            getattr(arg0.c_str(), &attr, false);
         return true;
 
     case TASK_ASYNC_UPDATE_TIMES: // arg0 = path, arg1 = atime, arg2 = mtime
-        if(m_fslogic->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2)) == VOK);
-            (void) m_metaCache->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2));
+        if(m_fslogic->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2)) == VOK)
+            m_metaCache->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2));
         return true;
 
     case TASK_POST_TRUNCATE_ACTIONS: // arg0 = path, arg1 = newSize
