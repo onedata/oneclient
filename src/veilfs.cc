@@ -915,6 +915,8 @@ void VeilFS::addStatAfterBytesWrittenRule(int bytes){
 // TODO: The whole mechanism we force attributes to be reloaded is inefficient - we just want to cause attributes to be changed on cluster but
 // we also fetch attributes
 void VeilFS::statAndUpdatetimes(const string & path){
+    LOG(INFO) << "statAndUpdatetimes invoked for: " << path;
+
     // to be sure that everything is updated correctly we need to synchronously first updatetimes and then get attributes
     time_t currentTime = time(NULL);
     if(m_fslogic->updateTimes(path, currentTime, currentTime) == VOK)
