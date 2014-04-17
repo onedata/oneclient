@@ -181,6 +181,14 @@ shared_ptr<Event> Event::createRmEvent(const string & filePath)
 	return event;
 }
 
+shared_ptr<Event> Event::createTruncateEvent(const string & filePath, off_t newSize){
+	shared_ptr<Event> event (new Event());
+	event->m_stringProperties["type"] = "truncate_event";
+	event->m_stringProperties["filePath"] = filePath;
+	event->m_stringProperties["newSize"] = "newSize";
+	return event;
+}
+
 shared_ptr<EventMessage> Event::createProtoMessage()
 {
 	shared_ptr<EventMessage> eventMessage (new EventMessage());
@@ -447,17 +455,18 @@ shared_ptr<Event> EventTransformer::actualProcessEvent(shared_ptr<Event> event)
 	return newEvent;
 }
 
-CustomActionStream::CustomActionStream(shared_ptr<IEventStream> wrappedStream, boost::function<Event*(boost::shared_ptr<Event>)> customActionFun) :
+CustomActionStream::CustomActionStream(shared_ptr<IEventStream> wrappedStream, boost::function<shared_ptr<Event>(boost::shared_ptr<Event>)> customActionFun) :
 	IEventStream(wrappedStream), m_customActionFun(customActionFun)
 {}
 
 shared_ptr<Event> CustomActionStream::actualProcessEvent(shared_ptr<Event> event){
-	Event * newEvent = m_customActionFun(event);
+	/*Event * newEvent = m_customActionFun(event);
 	if(newEvent != NULL){
 		return shared_ptr<Event>(newEvent);
 	}else{
 		return shared_ptr<Event>();
-	}
+	}*/
+	return m_customActionFun(event);
 }
 
 list<shared_ptr<Event> > EventStreamCombiner::processEvent(shared_ptr<Event> event)

@@ -143,7 +143,7 @@ protected:
 
         // TODO: it is inefficient - what we really want is just to cause attributes change
         void statAndUpdatetimes(const std::string & path); ///< get attributes and updatetimes - useful when truncating and writing
-        Event* doStatFromWriteEvent(boost::shared_ptr<Event> event);
+        boost::shared_ptr<Event> doStatFromWriteEvent(boost::shared_ptr<Event> event);
 };
 
 } // namespace client

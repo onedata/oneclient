@@ -48,8 +48,9 @@ public:
 class TestHelper
 {
 public:
-	Event* processEvent(shared_ptr<Event> event){
-		Event * newEvent = new Event();
+	shared_ptr<Event> processEvent(shared_ptr<Event> event){
+		shared_ptr<Event> newEvent(new Event());
+		//Event * newEvent = new Event();
 		newEvent->m_stringProperties["customActionKey"] = "custom_action_invoked";
 		return newEvent;
 	}

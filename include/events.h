@@ -41,6 +41,7 @@ namespace client {
 		static boost::shared_ptr<Event> createWriteEvent(const std::string & filePath, NumericProperty bytes);
 		static boost::shared_ptr<Event> createReadEvent(const std::string & filePath, NumericProperty bytes);
 		static boost::shared_ptr<Event> createRmEvent(const std::string & filePath);
+		static boost::shared_ptr<Event> createTruncateEvent(const std::string & filePath, off_t newSize);
 
 		Event();
 		Event(const Event & anotherEvent);
@@ -164,11 +165,11 @@ namespace client {
 
 	class CustomActionStream : public IEventStream {
 	public:
-		CustomActionStream(boost::shared_ptr<IEventStream> wrappedStream, boost::function<Event*(boost::shared_ptr<Event>)> customActionFun);
+		CustomActionStream(boost::shared_ptr<IEventStream> wrappedStream, boost::function<boost::shared_ptr<Event>(boost::shared_ptr<Event>)> customActionFun);
 		virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event);
 
 	private:
-		boost::function<Event*(boost::shared_ptr<Event>)> m_customActionFun;
+		boost::function<boost::shared_ptr<Event>(boost::shared_ptr<Event>)> m_customActionFun;
 	};
 
 	class EventStreamCombiner : public ISchedulable{

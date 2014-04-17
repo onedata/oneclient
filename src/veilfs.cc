@@ -551,8 +551,8 @@ int VeilFS::truncate(const char *path, off_t newSize)
     if(sh_return == 0) {
         (void) m_metaCache->updateSize(string(path), newSize);
 
-        Job statUpdatetimesTask = Job(time(NULL), shared_from_this(), TASK_STAT_AND_UPDATE_TIMES, path);
-        VeilFS::getScheduler()->addTask(statUpdatetimesTask);   
+        Job postTruncateTask = Job(time(NULL), shared_from_this(), TASK_POST_TRUNCATE_ACTIONS, path, utils::toString(newSize));
+        VeilFS::getScheduler()->addTask(postTruncateTask);
     }
 
     return sh_return;
@@ -851,6 +851,7 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
     struct stat attr;
     vector<string> children;
     int offset;
+    boost::shared_ptr<Event> truncateEvent;
 
     switch(taskId)
     {
@@ -888,9 +889,15 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
             (void) m_metaCache->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2));
         return true;
 
+    case TASK_POST_TRUNCATE_ACTIONS: // arg0 = path, arg1 = newSize
+        // we need to statAndUpdatetimes before processing event because we want event to be run with new size value on cluster
+        statAndUpdatetimes(arg0);
+        truncateEvent = Event::createTruncateEvent(arg0, utils::fromString<off_t>(arg1));
+        m_eventCommunicator->processEvent(truncateEvent);
+        return true;
+
     case TASK_STAT_AND_UPDATE_TIMES: // arg0 = path
         statAndUpdatetimes(arg0);
-
         return true;
 
     case TASK_IS_WRITE_ENABLED:
@@ -927,12 +934,12 @@ void VeilFS::statAndUpdatetimes(const string & path){
         getattr(path.c_str(), &attr, false);
 }
 
-Event* VeilFS::doStatFromWriteEvent(shared_ptr<Event> event){
+shared_ptr<Event> VeilFS::doStatFromWriteEvent(shared_ptr<Event> event){
     string path = event->getStringProperty("filePath", "");
     if(!path.empty()){
         statAndUpdatetimes(path);
     }
-    return NULL;
+    return event;
 }
 
 } // namespace client

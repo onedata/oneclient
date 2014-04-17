@@ -45,7 +45,8 @@ public:
         TASK_LAST_ID,
         TASK_PROCESS_EVENT,
         TASK_GET_EVENT_PRODUCER_CONFIG,
-        TASK_IS_WRITE_ENABLED
+        TASK_IS_WRITE_ENABLED,
+        TASK_POST_TRUNCATE_ACTIONS
     };
 
     ISchedulable();
