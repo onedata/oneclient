@@ -460,12 +460,6 @@ CustomActionStream::CustomActionStream(shared_ptr<IEventStream> wrappedStream, b
 {}
 
 shared_ptr<Event> CustomActionStream::actualProcessEvent(shared_ptr<Event> event){
-	/*Event * newEvent = m_customActionFun(event);
-	if(newEvent != NULL){
-		return shared_ptr<Event>(newEvent);
-	}else{
-		return shared_ptr<Event>();
-	}*/
 	return m_customActionFun(event);
 }
 
