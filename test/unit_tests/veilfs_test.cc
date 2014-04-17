@@ -58,6 +58,7 @@ public:
         EXPECT_CALL(*fslogicMock, pingCluster()).WillRepeatedly(Return());
         EXPECT_CALL(*config, getInt(ALIVE_META_CONNECTIONS_COUNT_OPT)).WillRepeatedly(Return(0));
         EXPECT_CALL(*config, getInt(ALIVE_DATA_CONNECTIONS_COUNT_OPT)).WillRepeatedly(Return(0));
+        EXPECT_CALL(*config, getInt(WRITE_BYTES_BEFORE_STAT_OPT)).WillRepeatedly(Return(0));
         EXPECT_CALL(*config, isSet(FUSE_ID_OPT)).WillRepeatedly(Return(false));
 
         const ::testing::TestInfo* const test_info = ::testing::UnitTest::GetInstance()->current_test_info();

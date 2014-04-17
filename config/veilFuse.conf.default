@@ -76,6 +76,10 @@
   # [default = 100kB]
     # file_buffer_prefered_block_size: 102400
 
+  # How many bytes will be written to file before stat will be forced
+  # [default = 5MB]
+     write_bytes_before_stat: 5242880
+
 
 
 

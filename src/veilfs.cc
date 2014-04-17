@@ -26,6 +26,8 @@
 #include "fuse_messages.pb.h"
 #include "messageBuilder.h"
 
+ #include <iostream>
+
 
 #include <sys/stat.h>
 
@@ -131,7 +133,9 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
 
     m_writeEnabled = true;
 
-    addStatAfterBytesWrittenRule(VeilFS::getConfig()->getInt(WRITE_BYTES_BEFORE_STAT));
+    if(m_eventCommunicator){
+        addStatAfterBytesWrittenRule(VeilFS::getConfig()->getInt(WRITE_BYTES_BEFORE_STAT_OPT));
+    }
 
     VeilFS::getPushListener()->subscribe(boost::bind(&VeilFS::pushMessagesHandler, this, _1));
     VeilFS::getPushListener()->subscribe(boost::bind(&EventCommunicator::pushMessagesHandler, m_eventCommunicator.get(), _1));
@@ -904,11 +908,24 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
 // protected methods
 
 void VeilFS::addStatAfterBytesWrittenRule(int bytes){
+    std::cout << "bazingaa0" << std::endl;
     shared_ptr<IEventStream> filter(new EventFilter("type", "write_event"));
+    std::cout << "bazingaa1" << std::endl;
     shared_ptr<IEventStream> aggregator(new EventAggregator(filter, "filePath", bytes, "bytes"));
+    std::cout << "bazingaa2" << std::endl;
     shared_ptr<IEventStream> customAction(new CustomActionStream(aggregator, boost::bind(&VeilFS::doStatFromWriteEvent, this, _1)));
+    std::cout << "bazingaa3" << std::endl;
+    std::cout << "bazingaa3214" << std::endl;
+
+    if(m_eventCommunicator){
+        std::cout << "bazingaa3: NOT NULL" << std::endl;
+    }else{
+        std::cout << "bazingaa3: NULL" << std::endl;
+    }
+    std::cout << "bazingaa3215" << std::endl;
 
     m_eventCommunicator->addEventSubstream(customAction);
+    std::cout << "bazingaa4" << std::endl;
 }
 
 // TODO: The whole mechanism we force attributes to be reloaded is inefficient - we just want to cause attributes to be changed on cluster but
@@ -925,12 +942,12 @@ void VeilFS::statAndUpdatetimes(const string & path){
         getattr(path.c_str(), &attr, false);
 }
 
-shared_ptr<Event> VeilFS::doStatFromWriteEvent(shared_ptr<Event> event){
+Event* VeilFS::doStatFromWriteEvent(shared_ptr<Event> event){
     string path = event->getStringProperty("filePath", "");
     if(!path.empty()){
         statAndUpdatetimes(path);
     }
-    return event;
+    return NULL;
 }
 
 } // namespace client

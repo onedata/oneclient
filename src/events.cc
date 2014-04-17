@@ -11,6 +11,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
 #include <map>
+#include <iostream>
 
 using namespace veil::client;
 using namespace std;
@@ -113,7 +114,9 @@ void EventCommunicator::sendEvent(shared_ptr<EventMessage> eventMessage)
 
 void EventCommunicator::addEventSubstream(shared_ptr<IEventStream> newStream)
 {
+	std::cout << "bazinga235" << std::endl;
 	AutoLock lock(m_eventsStreamLock, WRITE_LOCK);
+	std::cout << "bazinga234" << std::endl;
     m_eventsStream->addSubstream(newStream);
     LOG(INFO) << "New EventStream added to EventCommunicator.";
 }
@@ -207,10 +210,16 @@ NumericProperty Event::getNumericProperty(const string & key, const NumericPrope
 }
 
 string Event::getStringProperty(const string & key, const string & defaultValue){
+	cout << "bazinga99 inside getstringproperty" << endl;
+
+	cout << "bazinga99 inside getstringproperty, key:" << key << endl;
 	map<string, string>::iterator it = m_stringProperties.find(key);
+	cout << "bazinga99 inside getstringproperty 101" << endl;
 	if(it == m_stringProperties.end()){
+		cout << "bazinga99 inside getstringproperty 102" << endl;
 		return defaultValue;
 	}else{
+		cout << "bazinga99 inside getstringproperty 103" << endl;
 		return it->second;
 	}
 }
@@ -324,12 +333,12 @@ EventAggregator::EventAggregator(const string & fieldName, long long threshold, 
 {
 }
 
-EventAggregator::EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, long long threshold, const string & sumFieldName) :
+EventAggregator::EventAggregator(shared_ptr<IEventStream> wrappedStream, long long threshold, const string & sumFieldName) :
 	IEventStream(wrappedStream), m_threshold(threshold), m_sumFieldName(sumFieldName)
 {
 }
 
-EventAggregator::EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, const string & fieldName, long long threshold, const string & sumFieldName) :
+EventAggregator::EventAggregator(shared_ptr<IEventStream> wrappedStream, const string & fieldName, long long threshold, const string & sumFieldName) :
 	IEventStream(wrappedStream), m_fieldName(fieldName), m_threshold(threshold), m_sumFieldName(sumFieldName)
 {
 }
@@ -447,12 +456,17 @@ shared_ptr<Event> EventTransformer::actualProcessEvent(shared_ptr<Event> event)
 	return newEvent;
 }
 
-CustomActionStream::CustomActionStream(shared_ptr<IEventStream> wrappedStream, boost::function<boost::shared_ptr<Event>(boost::shared_ptr<Event>)> customActionFun) :
-	m_customActionFun(customActionFun)
+CustomActionStream::CustomActionStream(shared_ptr<IEventStream> wrappedStream, boost::function<Event*(boost::shared_ptr<Event>)> customActionFun) :
+	IEventStream(wrappedStream), m_customActionFun(customActionFun)
 {}
 
 shared_ptr<Event> CustomActionStream::actualProcessEvent(shared_ptr<Event> event){
-	m_customActionFun(event);
+	Event * newEvent = m_customActionFun(event);
+	if(newEvent != NULL){
+		return shared_ptr<Event>(newEvent);
+	}else{
+		return shared_ptr<Event>();
+	}
 }
 
 list<shared_ptr<Event> > EventStreamCombiner::processEvent(shared_ptr<Event> event)
