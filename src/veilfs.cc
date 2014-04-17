@@ -919,11 +919,10 @@ void VeilFS::statAndUpdatetimes(const string & path){
 
     // to be sure that everything is updated correctly we need to synchronously first updatetimes and then get attributes
     time_t currentTime = time(NULL);
-    if(m_fslogic->updateTimes(path, currentTime, currentTime) == VOK)
-        m_metaCache->updateTimes(path, currentTime, currentTime);
+    m_fslogic->updateTimes(path, currentTime, currentTime);
 
-    // it is useful to get attr event if updateTimes failed - we want to update file size
     struct stat attr;
+    m_metaCache->clearAttr(path);
     if(VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT))
         getattr(path.c_str(), &attr, false);
 }
