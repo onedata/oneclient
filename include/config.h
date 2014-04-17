@@ -17,7 +17,7 @@
 
 #include "veilConfig.h"
 #include "ISchedulable.h"
-#include "glog/logging.h"
+#include "logging.h"
 #include "lock.h"
 
 /// Config option names

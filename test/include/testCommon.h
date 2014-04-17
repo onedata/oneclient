@@ -8,7 +8,7 @@
 #ifndef TEST_COMMON_H
 #define TEST_COMMON_H
 
-#include "glog/logging.h"
+#include "logging.h"
 #include "gtest/gtest.h"
 #include "gmock/gmock.h"
 #include "boost/bind.hpp" 

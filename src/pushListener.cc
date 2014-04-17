@@ -9,7 +9,7 @@
 #include "veilErrors.h"
 #include "jobScheduler.h"
 #include "veilfs.h"
-#include "glog/logging.h"
+#include "logging.h"
 #include "fuse_messages.pb.h"
 
 using namespace veil::protocol::communication_protocol;
