@@ -15,7 +15,6 @@
 #include "jobScheduler_mock.h"
 #include "events_mock.h"
 #include "fslogicProxy_proxy.h"
-#include <iostream>
 
 using namespace boost;
 
@@ -261,29 +260,22 @@ TEST(EventStreamCombiner, CombineStreams) {
 }
 
 TEST(IEventStream, CustomActionStreamTest){
-	std::cout << "bazinga1" << std::endl;
 	TestHelper testHelper;
 	shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
 	shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
-	std::cout << "bazinga2" << std::endl;
 
 	shared_ptr<IEventStream> filter(new EventFilter("type", "mkdir_event"));
 	CustomActionStream action(filter, bind(&TestHelper::processEvent, &testHelper, _1));
-	std::cout << "bazinga3" << std::endl;
 
 	shared_ptr<Event> res = action.processEvent(writeEvent);
 	ASSERT_FALSE((bool) res);
-	std::cout << "bazinga4" << std::endl;
 
 	res = action.processEvent(mkdirEvent);
 	ASSERT_TRUE((bool) res);	
-	std::cout << "bazinga5" << std::endl;
 
 	string r = res->getStringProperty("customActionKey", "");
-	std::cout << "bazinga6: " << r << std::endl;
 
 	ASSERT_EQ("custom_action_invoked", res->getStringProperty("customActionKey", ""));
-	std::cout << "bazinga6" << std::endl;
 }
 
 // checks if EventStreams are created correctly from EventStreamConfig proto buff message

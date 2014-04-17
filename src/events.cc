@@ -11,7 +11,6 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
 #include <map>
-#include <iostream>
 
 using namespace veil::client;
 using namespace std;
@@ -114,9 +113,7 @@ void EventCommunicator::sendEvent(shared_ptr<EventMessage> eventMessage)
 
 void EventCommunicator::addEventSubstream(shared_ptr<IEventStream> newStream)
 {
-	std::cout << "bazinga235" << std::endl;
 	AutoLock lock(m_eventsStreamLock, WRITE_LOCK);
-	std::cout << "bazinga234" << std::endl;
     m_eventsStream->addSubstream(newStream);
     LOG(INFO) << "New EventStream added to EventCommunicator.";
 }
@@ -210,16 +207,10 @@ NumericProperty Event::getNumericProperty(const string & key, const NumericPrope
 }
 
 string Event::getStringProperty(const string & key, const string & defaultValue){
-	cout << "bazinga99 inside getstringproperty" << endl;
-
-	cout << "bazinga99 inside getstringproperty, key:" << key << endl;
 	map<string, string>::iterator it = m_stringProperties.find(key);
-	cout << "bazinga99 inside getstringproperty 101" << endl;
 	if(it == m_stringProperties.end()){
-		cout << "bazinga99 inside getstringproperty 102" << endl;
 		return defaultValue;
 	}else{
-		cout << "bazinga99 inside getstringproperty 103" << endl;
 		return it->second;
 	}
 }
