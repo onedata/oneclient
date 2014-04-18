@@ -41,6 +41,10 @@ Config::Config()
 Config::~Config()
 {
 }
+    
+bool Config::isRestricted(std::string opt) {
+    return m_restrictedOptions.find(boost::algorithm::to_lower_copy(opt)) != m_restrictedOptions.end();
+}
 
 void Config::setMountPoint(path mp)
 {
@@ -84,8 +88,12 @@ void Config::setEnv()
 bool Config::isSet(string opt)
 {
     try {
-        m_userNode[opt].as<string>();
-        return true;
+        if( isRestricted(opt)) {
+            throw YAML::Exception(YAML::Mark(), "interrupt");
+        } else {
+            m_userNode[opt].as<string>();
+            return true;
+        }
     } catch(YAML::Exception e) {
         try {
             m_globalNode[opt].as<string>();
