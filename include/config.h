@@ -14,6 +14,8 @@
 #include <map>
 #include <sstream>
 #include <boost/filesystem.hpp>
+#include <boost/unordered_set.hpp>
+#include <boost/algorithm/string/case_conv.hpp>
 
 #include "veilConfig.h"
 #include "ISchedulable.h"
@@ -52,6 +54,8 @@
 #define ATTR_DEFAULT_EXPIRATION_TIME 60
 
 #define DECLARE_DEFAULT(KEY, VALUE) m_defaultsNode[KEY] = VALUE
+#define RESTRICT_OPTION(OPT) m_restrictedOptions.insert(boost::algorithm::to_lower_copy(std::string(OPT)))
+
 
 namespace veil {
 namespace client {
@@ -129,6 +133,7 @@ protected:
     static std::string m_envHOME;                    ///< Saved HOME env variable
     static std::map<std::string, std::string> m_envAll; ///< All saved env variables
     static boost::filesystem::path m_mountPoint;
+    
 
     std::string m_globalConfigPath;                  ///< Path to global config file. @see Config::setGlobalConfigFile
     std::string m_userConfigPath;                    ///< Path to user config file. @see Config::setUserConfigFile
@@ -138,6 +143,8 @@ protected:
     YAML::Node m_envNode;                            ///< Temp config object used to manipulate env settings
     YAML::Node m_defaultsNode;                       ///< Default configs.
 
+    boost::unordered_set<std::string> m_restrictedOptions; ///< Contains restrincted option names (options that can be only set in global config file)
+    
     template<typename T>
     T get(std::string opt);                          ///< Internal implementation of Config::getValue. @see Config::getValue
 
@@ -170,6 +177,23 @@ protected:
         DECLARE_DEFAULT(READ_BUFFER_MAX_FILE_SIZE_OPT, 10 * 1024 * 1024);   // 10 MB
         DECLARE_DEFAULT(FILE_BUFFER_PREFERED_BLOCK_SIZE_OPT, 100 * 1024);   // 100 kB
     }
+    
+    void setupRestrictedOptions() {
+        RESTRICT_OPTION(ENABLE_ENV_OPTION_OVERRIDE);
+        
+        RESTRICT_OPTION(CLUSTER_PING_INTERVAL_OPT);
+        
+        RESTRICT_OPTION(ALIVE_META_CONNECTIONS_COUNT_OPT);
+        RESTRICT_OPTION(ALIVE_DATA_CONNECTIONS_COUNT_OPT);
+        
+        RESTRICT_OPTION(WRITE_BUFFER_MAX_SIZE_OPT);
+        RESTRICT_OPTION(READ_BUFFER_MAX_SIZE_OPT);
+        RESTRICT_OPTION(WRITE_BUFFER_MAX_FILE_SIZE_OPT);
+        RESTRICT_OPTION(READ_BUFFER_MAX_FILE_SIZE_OPT);
+        RESTRICT_OPTION(FILE_BUFFER_PREFERED_BLOCK_SIZE_OPT);
+    }
+    
+    bool isRestricted(std::string opt);
 
 };
 
@@ -178,11 +202,14 @@ T Config::get(std::string opt)
 {
     if(!defaultsLoaded) {
         setupDefaults();
+        setupRestrictedOptions();
         defaultsLoaded = true;
     }
 
     try {
-        return m_userNode[opt].as<T>();
+        if (!isRestricted(opt)) {
+            return m_userNode[opt].as<T>();
+        }
     } catch(YAML::Exception e) {
         // Just ignore and try to fetch this option form global config
     }
@@ -204,7 +231,7 @@ T Config::get(std::string opt)
 template<typename T>
 T Config::getValue(std::string opt)
 {
-    if(get<bool>(ENABLE_ENV_OPTION_OVERRIDE))
+    if(get<bool>(ENABLE_ENV_OPTION_OVERRIDE) && !isRestricted(opt))
     {
         std::string upper;
         for(size_t i = 0; i < opt.size(); ++i)
