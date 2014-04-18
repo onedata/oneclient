@@ -42,6 +42,7 @@
 #define READ_BUFFER_MAX_FILE_SIZE_OPT   "read_buffer_max_file_size"
 #define FILE_BUFFER_PREFERED_BLOCK_SIZE_OPT "file_buffer_prefered_block_size"
 #define FUSE_GROUP_ID_OPT               "fuse_group_id"
+#define NO_CHECK_CERTIFICATE            "no_check_certificate"
 
 
 /// Prefix for all env variables that will be send to cluster
@@ -161,6 +162,7 @@ protected:
         DECLARE_DEFAULT(ENABLE_PARALLEL_GETATTR_OPT, true);
         DECLARE_DEFAULT(ENABLE_DIR_PREFETCH_OPT, true);
         DECLARE_DEFAULT(LOG_DIR_OPT, "/tmp");
+        DECLARE_DEFAULT(NO_CHECK_CERTIFICATE, true);
 
         DECLARE_DEFAULT(WRITE_BUFFER_MAX_SIZE_OPT, 64 * 1024 * 1024);       // 64 MB
         DECLARE_DEFAULT(READ_BUFFER_MAX_SIZE_OPT, 10 * 1024 * 1024);        // 10 MB

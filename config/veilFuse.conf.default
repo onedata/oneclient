@@ -4,14 +4,18 @@
     # cluster_hostname: veilfs.com
     # cluster_port: 5555
 
-  # Certificate file should be in PEM format and shoud contail all data
+  # Certificate file should be in PEM format and should contain all data
   # required to establish connection (peer cert, private key, CA stack)
   # You can either specify absolute path or relative to your home directory
   # WARNING: relative path won't work if HOME env is not set when FUSE starts
   # [default = globus-proxy-utils defaults]
     # peer_certificate_file: .globus/peer.pem
-    
-  # Group ID of this FUSE client  
+
+  # If this option is enabled server certificate file will not be verified.
+  # [default = true]
+    # no_check_certificate: true
+
+  # Group ID of this FUSE client
     # fuse_group_id: some_group
 
   # If this option is enabled, it will be possible to override other options

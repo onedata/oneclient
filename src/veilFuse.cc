@@ -148,6 +148,8 @@ static int vfs_opt_proc(void *data, const char *arg, int key, struct fuse_args *
         return 0;
     if(string(arg) == "-debug")
         return 0;
+    if(string(arg) == "--no-check-certificate")
+        return 0;
     return 1;
 }
 
@@ -252,6 +254,8 @@ int main(int argc, char* argv[], char* envp[])
             showVersionOnly = true;
         } else if(string(argv[i]) == "--help" || string(argv[i]) == "-h") {
             showVersionOnly = true;
+        } else if(string(argv[i]) == "--no-check-certificate") {
+            helpers::config::checkCertificate.store(false);
         }
     }
 
@@ -293,6 +297,8 @@ int main(int argc, char* argv[], char* envp[])
         Config::putEnv(tokens[0], tokens[1]);
     }
 
+    if(config->getBool(NO_CHECK_CERTIFICATE))
+        helpers::config::checkCertificate.store(false);
 
     // FUSE main:
     struct fuse *fuse;
@@ -349,7 +355,12 @@ int main(int argc, char* argv[], char* envp[])
         if(exception.veilError()==NO_USER_FOUND_ERROR)
             cerr << "Cannot find user, remember to login through website before mounting fuse. Aborting" << endl;
         else if(exception.veilError()==NO_CONNECTION_FOR_HANDSHAKE)
-            cerr << "Cannot connect to server. Aborting" << endl;
+        {
+            if(testPool->getLastError() == error::SERVER_CERT_VERIFICATION_FAILED)
+                cerr << "Server certificate verification failed. Aborting" << endl;
+            else
+                cerr << "Cannot connect to server. Aborting." << endl;
+        }
         else
             cerr << "Handshake error. Aborting" << endl;
         fuse_unmount(mountpoint, ch);
