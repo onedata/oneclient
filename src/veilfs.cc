@@ -176,8 +176,10 @@ bool VeilFS::pushMessagesHandler(const protocol::communication_protocol::Answer 
             m_writeEnabled = false;
             LOG(INFO) << "writeEnabled false";
         }else if(atom.value() == "test_atom2"){
+            // just for test purposes
             //do nothing
         }else if(atom.value() == "test_atom2_ack" && msg.has_message_id()){
+            // just for test purposes
             sendPushMessageAck("rule_manager", msg.message_id());
         }
     }
