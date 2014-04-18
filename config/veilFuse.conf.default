@@ -1,6 +1,7 @@
 # All options are optional. If you ommit the option, default value will be used
-# Note: Options with [Restrincted] tag are only available in globobal config file.
+# Note: Options with [Restrincted] tag are only available in global config file.
 #       Those options cannot be set with env variables nor with user's config file.
+
   # Hostname and port used to connect to VeilCluster
     # cluster_hostname: veilfs.com
     # cluster_port: 5555
