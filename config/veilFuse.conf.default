@@ -1,5 +1,6 @@
 # All options are optional. If you ommit the option, default value will be used
-
+# Note: Options with [Restrincted] tag are only available in globobal config file.
+#       Those options cannot be set with env variables nor with user's config file.
   # Hostname and port used to connect to VeilCluster
     # cluster_hostname: veilfs.com
     # cluster_port: 5555
@@ -16,7 +17,7 @@
 
   # If this option is enabled, it will be possible to override other options
   # with env variable - toupper(option_name), e.g. CLUSTER_PORT overrides cluster_port option
-  # [default = true]
+  # [Restrincted] [default = true]
     enable_env_option_override: true
 
   # File attributes cache status [default = true]
@@ -41,9 +42,9 @@
 
   # How many thread will be used to communicate with cluster and manage cache
     # jobscheduler_threads: 3
-  # How many connections used to fetch meta data has to be keeped alive
+  # [Restrincted] How many connections used to fetch meta data has to be keeped alive
     # alive_meta_connections_count: 2
-  # How many connections used to fetch file content has to be keeped alive
+  # [Restrincted] How many connections used to fetch file content has to be keeped alive
     # alive_data_connections_count: 2
 
   # Enables prefetch of files' attributes after entering directory
@@ -56,24 +57,24 @@
   # BufferAgent config:
 
   # Maximum total size of write buffer (in bytes):
-  # [default = 64MB]
+  # [Restrincted] [default = 64MB]
     # write_buffer_max_size: 67108864
 
   # Maximum total size of read buffer (in bytes):
-  # [default = 64MB]
+  # [Restrincted] [default = 64MB]
     # read_buffer_max_size: 67108864
 
 
   # Maximum size of read buffer for a single file (in bytes):
-  # [default = 10MB]
+  # [Restrincted] [default = 10MB]
     # read_buffer_max_file_size: 10485760
 
   # Maximum size of write buffer for a single file  (in bytes):
-  # [default = 10MB]
+  # [Restrincted] [default = 10MB]
     # write_buffer_max_file_size: 10485760
 
   # Prefered block size for read/write operations (in bytes):
-  # [default = 100kB]
+  # [Restrincted] [default = 100kB]
     # file_buffer_prefered_block_size: 102400
 
 
