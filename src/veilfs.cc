@@ -167,12 +167,18 @@ bool VeilFS::pushMessagesHandler(const protocol::communication_protocol::Answer 
             return false;
         }
 
+        LOG(INFO) << "-- bazinga: atom value: " << atom.value();
+
         if(atom.value() == "write_enabled"){
             m_writeEnabled = true;
             LOG(INFO) << "writeEnabled true";
         }else if(atom.value() == "write_disabled"){
             m_writeEnabled = false;
             LOG(INFO) << "writeEnabled false";
+        }else if(atom.value() == "test_atom2"){
+            //do nothing
+        }else if(atom.value() == "test_atom2_ack" && msg.has_message_id()){
+            sendPushMessageAck("rule_manager", msg.message_id());
         }
     }
 
@@ -180,6 +186,7 @@ bool VeilFS::pushMessagesHandler(const protocol::communication_protocol::Answer 
 }
 
 void VeilFS::sendPushMessageAck(const string & moduleName, int messageId){
+    LOG(INFO) << "--bazinga - sending ack for module " << moduleName << ", mesageId: " << messageId;
     protocol::communication_protocol::ClusterMsg clm;
     clm.set_protocol_version(PROTOCOL_VERSION);
     clm.set_synch(false);
