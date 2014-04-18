@@ -178,7 +178,7 @@ bool VeilFS::pushMessagesHandler(const protocol::communication_protocol::Answer 
         }else if(atom.value() == "test_atom2"){
             // just for test purposes
             //do nothing
-        }else if(atom.value() == "test_atom2_ack" && msg.has_message_id()){
+        }else if(atom.value() == "test_atom2_ack" && msg.has_message_id() && msg.message_id() < -1){
             // just for test purposes
             sendPushMessageAck("rule_manager", msg.message_id());
         }
