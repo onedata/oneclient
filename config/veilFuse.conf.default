@@ -12,8 +12,8 @@
     # peer_certificate_file: .globus/peer.pem
 
   # If this option is enabled server certificate file will not be verified.
-  # [default = false]
-    # no_check_certificate: false
+  # [default = true]
+    # no_check_certificate: true
 
   # Group ID of this FUSE client
     # fuse_group_id: some_group

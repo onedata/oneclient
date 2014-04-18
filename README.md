@@ -62,6 +62,8 @@ However you can use Makefile-proxy with following interface:
 
 #### Build Debug binaries
 
+    make -s debug
+
 #### Install
 
     make -s install
@@ -129,6 +131,9 @@ In order to mount VeilFS just enter:
 
 Additionally you can add '-d' option which enables debug mode. In debug mode application will remain running, displaing all logs and debug
 informations, also in this mode ctrl+c unmount filesystem. If not in debug mode, application will go background as daemon.
+
+If you want to use self-signed or otherwise unverifiable certificate on the server size, you need to pass '--no-check-certificate' command
+line flag or set the 'no_check_certificate' option in the configuration file.
 
 ### Unmounting the filesystem
 
