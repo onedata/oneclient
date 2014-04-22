@@ -100,6 +100,30 @@ namespace client {
             VeilFS::getConfig()->negotiateFuseID();
         }
     }
+
+    void PushListener::sendPushMessageAck(const std::string & moduleName, int messageId){
+        protocol::communication_protocol::ClusterMsg clm;
+        clm.set_protocol_version(PROTOCOL_VERSION);
+        clm.set_synch(false);
+        clm.set_module_name(moduleName);
+        clm.set_message_type(ATOM);
+        clm.set_answer_type(ATOM); // this value does not matter because we do not expect answer and server is not going to send anything in reply to PUSH_MESSAGE_ACK
+        clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
+        clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL); // this value does not matter because we do not expect answer and server is not going to send anything in reply to PUSH_MESSAGE_ACK
+        clm.set_message_id(messageId);
+
+        protocol::communication_protocol::Atom msg;
+        msg.set_value(PUSH_MESSAGE_ACK);
+        clm.set_input(msg.SerializeAsString());
+
+        boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+
+        if(connection->sendMessage(clm, messageId) != messageId){
+            LOG(WARNING) << "cannot send ack for push message with messageId " << messageId;
+        }else{
+            DLOG(INFO) << "push message ack sent successfully";
+        }
+    }
     
 } // namespace client
 } // namespace veil

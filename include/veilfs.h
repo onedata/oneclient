@@ -48,6 +48,9 @@ typedef boost::shared_ptr<helpers::IStorageHelper> sh_ptr;
 
 typedef uint64_t helper_cache_idx_t;
 
+/// forward declarations
+class EventCommunicator;
+
 /**
  * The VeilFS main class.
  * This class contains FUSE all callbacks, so it basically is an heart of the filesystem.
@@ -104,11 +107,9 @@ public:
         int fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo); /**< *fsyncdir* FUSE callback. Not implemented yet. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
         int init(struct fuse_conn_info *conn); /**< *init* FUSE callback. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
 
-        bool pushMessagesHandler(const protocol::communication_protocol::Answer &msg); ///< Function called when cluster sends message saying that client should emit events.
-
         virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
-        void sendPushMessageAck(const std::string & moduleName, int messageId);
+        void statAndUpdatetimes(const std::string & path); ///< get attributes and updatetimes - useful when truncating and writing
 
 protected:
         std::string m_root; ///< Filesystem root directory
@@ -135,14 +136,6 @@ protected:
     
         boost::unordered_map<helper_cache_idx_t, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
         ReadWriteLock m_shCacheLock;
-
-        bool m_writeEnabled;
-
-        // proteced methods:
-        void addStatAfterBytesWrittenRule(int bytes); ///< add rule that cause getting attributes and updatetimes after N bytes has been written to single file
-
-        void statAndUpdatetimes(const std::string & path); ///< get attributes and updatetimes - useful when truncating and writing
-        boost::shared_ptr<Event> doStatFromWriteEvent(boost::shared_ptr<Event> event);
 };
 
 } // namespace client

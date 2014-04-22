@@ -128,15 +128,13 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
     m_ruid = -1;
     m_rgid = -1; 
 
-    m_writeEnabled = true;
-
     if(m_eventCommunicator){
-        addStatAfterBytesWrittenRule(VeilFS::getConfig()->getInt(WRITE_BYTES_BEFORE_STAT_OPT));
+        m_eventCommunicator->addStatAfterWritesRule(VeilFS::getConfig()->getInt(WRITE_BYTES_BEFORE_STAT_OPT));
     }
 
-    VeilFS::getPushListener()->subscribe(boost::bind(&VeilFS::pushMessagesHandler, this, _1));
     VeilFS::getPushListener()->subscribe(boost::bind(&EventCommunicator::pushMessagesHandler, m_eventCommunicator.get(), _1));
     VeilFS::getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
+    VeilFS::getScheduler(ISchedulable::TASK_IS_WRITE_ENABLED)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_IS_WRITE_ENABLED));
 }
 
 VeilFS::~VeilFS()
@@ -152,61 +150,6 @@ void VeilFS::staticDestroy()
     }
     m_connectionPool.reset();
     m_pushListener.reset();
-}
-
-// Function called when cluster sends message with event producer configuration
-bool VeilFS::pushMessagesHandler(const protocol::communication_protocol::Answer &msg)
-{
-    using namespace protocol::communication_protocol;
-    string messageType = msg.message_type();
-
-    if(boost::iequals(messageType, Atom::descriptor()->name())){
-        Atom atom;
-        if(!atom.ParseFromString(msg.worker_answer())){
-            LOG(WARNING) << "Cannot parse pushed message as " << atom.GetDescriptor()->name();
-            return false;
-        }
-
-        if(atom.value() == "write_enabled"){
-            m_writeEnabled = true;
-            LOG(INFO) << "writeEnabled true";
-        }else if(atom.value() == "write_disabled"){
-            m_writeEnabled = false;
-            LOG(INFO) << "writeEnabled false";
-        }else if(atom.value() == "test_atom2"){
-            // just for test purposes
-            //do nothing
-        }else if(atom.value() == "test_atom2_ack" && msg.has_message_id() && msg.message_id() < -1){
-            // just for test purposes
-            sendPushMessageAck("rule_manager", msg.message_id());
-        }
-    }
-
-    return true;
-}
-
-void VeilFS::sendPushMessageAck(const string & moduleName, int messageId){
-    protocol::communication_protocol::ClusterMsg clm;
-    clm.set_protocol_version(PROTOCOL_VERSION);
-    clm.set_synch(false);
-    clm.set_module_name(moduleName);
-    clm.set_message_type(ATOM);
-    clm.set_answer_type(ATOM); // this value does not matter because we do not expect answer and server is not going to send anything in reply to PUSH_MESSAGE_ACK
-    clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
-    clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL); // this value does not matter because we do not expect answer and server is not going to send anything in reply to PUSH_MESSAGE_ACK
-    clm.set_message_id(messageId);
-
-    protocol::communication_protocol::Atom msg;
-    msg.set_value(PUSH_MESSAGE_ACK);
-    clm.set_input(msg.SerializeAsString());
-
-    shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
-
-    if(connection->sendMessage(clm, messageId) != messageId){
-        LOG(WARNING) << "cannot send ack for push message with messageId " << messageId;
-    }else{
-        DLOG(INFO) << "push message ack sent successfully";
-    }
 }
 
 int VeilFS::access(const char *path, int mask)
@@ -634,7 +577,7 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
 {
     //LOG(INFO) << "FUSE: write(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
 
-    if(!m_writeEnabled){
+    if(!m_eventCommunicator->isWriteEnabled()){
         LOG(WARNING) << "Attempt to write when write disabled.";
         return -EDQUOT;
     }
@@ -652,10 +595,10 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
         if(offset + sh_return > buf.st_size) {
             m_metaCache->updateSize(string(path), offset + sh_return);
         }
-    }
 
-    boost::shared_ptr<Event> writeEvent = Event::createWriteEvent(path, size);
-    m_eventCommunicator->processEvent(writeEvent);
+        boost::shared_ptr<Event> writeEvent = Event::createWriteEvent(path, size);
+        m_eventCommunicator->processEvent(writeEvent);
+    }
 
     return sh_return;
 }
@@ -902,14 +845,6 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
         m_eventCommunicator->processEvent(truncateEvent);
         return true;
 
-    case TASK_STAT_AND_UPDATE_TIMES: // arg0 = path
-        statAndUpdatetimes(arg0);
-        return true;
-
-    case TASK_IS_WRITE_ENABLED:
-        m_writeEnabled = m_fslogic->isWriteEnabled();
-        return true;
-
     default:
         return false;
     }
@@ -917,35 +852,19 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
 
 // protected methods
 
-void VeilFS::addStatAfterBytesWrittenRule(int bytes){
-    shared_ptr<IEventStream> filter(new EventFilter("type", "write_event"));
-    shared_ptr<IEventStream> aggregator(new EventAggregator(filter, "filePath", bytes, "bytes"));
-    shared_ptr<IEventStream> customAction(new CustomActionStream(aggregator, boost::bind(&VeilFS::doStatFromWriteEvent, this, _1)));
-
-    m_eventCommunicator->addEventSubstream(customAction);
-}
-
 // TODO: The whole mechanism we force attributes to be reloaded is inefficient - we just want to cause attributes to be changed on cluster but
 // we also fetch attributes
 void VeilFS::statAndUpdatetimes(const string & path){
-    LOG(INFO) << "statAndUpdatetimes invoked for: " << path;
+    DLOG(INFO) << "statAndUpdatetimes invoked for: " << path;
 
     // to be sure that everything is updated correctly we need to synchronously first updatetimes and then get attributes
     time_t currentTime = time(NULL);
-    m_fslogic->updateTimes(path, currentTime, currentTime);
+    m_fslogic->updateTimes(path, 0, currentTime, currentTime);
 
     struct stat attr;
     m_metaCache->clearAttr(path);
     if(VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT))
         getattr(path.c_str(), &attr, false);
-}
-
-shared_ptr<Event> VeilFS::doStatFromWriteEvent(shared_ptr<Event> event){
-    string path = event->getStringProperty("filePath", "");
-    if(!path.empty()){
-        statAndUpdatetimes(path);
-    }
-    return event;
 }
 
 } // namespace client

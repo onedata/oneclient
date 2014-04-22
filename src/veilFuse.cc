@@ -391,17 +391,15 @@ int main(int argc, char* argv[], char* envp[])
         VeilFS::addScheduler(boost::shared_ptr<JobScheduler>(new JobScheduler()));
 
     // Initialize main application object
-    VeilFS * veilfs = new VeilFS(mountpoint, config,
+    boost::shared_ptr<EventCommunicator> eventCommunicator = boost::shared_ptr<EventCommunicator>(new EventCommunicator());
+    VeilAppObject.reset(new VeilFS(mountpoint, config,
                         boost::shared_ptr<JobScheduler>(new JobScheduler()),
                         boost::shared_ptr<FslogicProxy>(new FslogicProxy()),
                         boost::shared_ptr<MetaCache>(new MetaCache()),
                         boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(new FslogicProxy()))),
                         boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()),
-                        boost::shared_ptr<EventCommunicator>(new EventCommunicator()));
-    VeilAppObject.reset(veilfs);
-
-    // it would be better to do this in VeilFS constructor but shared_from_this() should not be called from constructor
-    VeilFS::getScheduler(ISchedulable::TASK_IS_WRITE_ENABLED)->addTask(Job(time(NULL), boost::shared_ptr<VeilFS> (VeilAppObject), ISchedulable::TASK_IS_WRITE_ENABLED));
+                        eventCommunicator));
+    eventCommunicator->setVeilFS(VeilAppObject);
 
     // Register remote logWriter for log threshold level updates and start sending loop
     VeilFS::getPushListener()->subscribe(boost::bind(&logging::RemoteLogWriter::handleThresholdChange,

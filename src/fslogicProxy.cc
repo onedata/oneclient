@@ -431,8 +431,6 @@ bool FslogicProxy::isWriteEnabled()
     clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
     clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL);
 
-    //ClusterMsg clm = MessageBuilder::createClusterMessage()
-
     Atom msg;
     msg.set_value("is_write_enabled");
     clm.set_input(msg.SerializeAsString());

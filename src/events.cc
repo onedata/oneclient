@@ -6,7 +6,6 @@
  */
 
 #include "events.h"
-#include "veilfs.h"
 #include "communication_protocol.pb.h"
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
@@ -16,12 +15,46 @@ using namespace veil::client;
 using namespace std;
 using namespace boost;
 using namespace veil::protocol::fuse_messages;
+using namespace veil::protocol::communication_protocol;
 
 EventCommunicator::EventCommunicator(shared_ptr<EventStreamCombiner> eventsStream) : m_eventsStream(eventsStream)
 {
 	if(!eventsStream){
 		m_eventsStream = shared_ptr<EventStreamCombiner>(new EventStreamCombiner());
 	}
+	m_messageBuilder.reset(new MessageBuilder());
+}
+
+void EventCommunicator::handlePushedConfig(const Answer &msg)
+{
+	EventStreamConfig eventStreamConfig;
+    if(eventStreamConfig.ParseFromString(msg.worker_answer())){
+        addEventSubstreamFromConfig(eventStreamConfig);
+    }else{
+    	LOG(WARNING) << "Cannot parse pushed message as " << eventStreamConfig.GetDescriptor()->name();
+    }
+}
+
+void EventCommunicator::handlePushedAtom(const Answer &msg)
+{
+	Atom atom;
+    if(atom.ParseFromString(msg.worker_answer())){
+		if(atom.value() == "write_enabled"){
+	        m_writeEnabled = true;
+	        LOG(INFO) << "writeEnabled true";
+	    }else if(atom.value() == "write_disabled"){
+	        m_writeEnabled = false;
+	        LOG(INFO) << "writeEnabled false";
+	    }else if(atom.value() == "test_atom2"){
+	        // just for test purposes
+	        // do nothing
+	    }else if(atom.value() == "test_atom2_ack" && msg.has_message_id() && msg.message_id() < -1){
+	        // just for test purposes
+	        PushListener::sendPushMessageAck("rule_manager", msg.message_id());
+	    }
+    }else{
+    	LOG(WARNING) << "Cannot parse pushed message as " << atom.GetDescriptor()->name();
+    }
 }
 
 bool EventCommunicator::pushMessagesHandler(const protocol::communication_protocol::Answer &msg)
@@ -29,13 +62,9 @@ bool EventCommunicator::pushMessagesHandler(const protocol::communication_protoc
 	string messageType = msg.message_type();
 
 	if(boost::iequals(messageType, EventStreamConfig::descriptor()->name())){
-        EventStreamConfig eventStreamConfig;
-        if(!eventStreamConfig.ParseFromString(msg.worker_answer())){
-            LOG(WARNING) << "Cannot parse pushed message as " << eventStreamConfig.GetDescriptor()->name();
-            return false;
-        }
-
-        addEventSubstreamFromConfig(eventStreamConfig);
+		handlePushedConfig(msg);
+    }else if(boost::iequals(messageType, Atom::descriptor()->name())){
+		handlePushedAtom(msg);
     }
 
     return true;
@@ -43,20 +72,10 @@ bool EventCommunicator::pushMessagesHandler(const protocol::communication_protoc
 
 void EventCommunicator::configureByCluster()
 {
-    using namespace veil::protocol::communication_protocol;
+    Atom atom;
+    atom.set_value(EVENT_PRODUCER_CONFIG_REQUEST);
     
-    ClusterMsg clm;
-    clm.set_protocol_version(PROTOCOL_VERSION);
-    clm.set_synch(true);
-    clm.set_module_name(RULE_MANAGER);
-    clm.set_message_type(ATOM);
-    clm.set_answer_type(EVENT_PRODUCER_CONFIG);
-    clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
-    clm.set_answer_decoder_name(FUSE_MESSAGES);
-
-    Atom msg;
-    msg.set_value(EVENT_PRODUCER_CONFIG_REQUEST);
-    clm.set_input(msg.SerializeAsString());
+    ClusterMsg clm = m_messageBuilder->createClusterMessage(RULE_MANAGER, ATOM, COMMUNICATION_PROTOCOL, EVENT_PRODUCER_CONFIG, FUSE_MESSAGES, true, atom.SerializeAsString());
 
     shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
 
@@ -86,19 +105,10 @@ void EventCommunicator::configureByCluster()
 
 void EventCommunicator::sendEvent(shared_ptr<EventMessage> eventMessage)
 {
-	using namespace veil::protocol::communication_protocol;
     string encodedEventMessage = eventMessage->SerializeAsString();
     
-    ClusterMsg clm;
-    clm.set_protocol_version(PROTOCOL_VERSION);
-    clm.set_synch(false);
-    clm.set_module_name(CLUSTER_RENGINE);
-    clm.set_message_type(EVENT_MESSAGE);
-    clm.set_answer_type(ATOM);
-    clm.set_message_decoder_name(FUSE_MESSAGES);
-    clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL);
-
-    clm.set_input(encodedEventMessage);
+    MessageBuilder messageBuilder;
+    ClusterMsg clm = messageBuilder.createClusterMessage(CLUSTER_RENGINE, EVENT_MESSAGE, FUSE_MESSAGES, ATOM, COMMUNICATION_PROTOCOL, false, encodedEventMessage);
 
     shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
 
@@ -142,9 +152,38 @@ bool EventCommunicator::runTask(TaskID taskId, string arg0, string arg1, string 
         configureByCluster();
         return true;
 
+	case TASK_IS_WRITE_ENABLED:
+        m_writeEnabled = isWriteEnabled();
+        return true;
+
 	default:
 		return false;
 	}
+}
+
+void EventCommunicator::addStatAfterWritesRule(int bytes){
+    shared_ptr<IEventStream> filter(new EventFilter("type", "write_event"));
+    shared_ptr<IEventStream> aggregator(new EventAggregator(filter, "filePath", bytes, "bytes"));
+    shared_ptr<IEventStream> customAction(new CustomActionStream(aggregator, boost::bind(&EventCommunicator::statFromWriteEvent, this, _1)));
+
+    addEventSubstream(customAction);
+}
+
+void EventCommunicator::setVeilFS(shared_ptr<VeilFS> veilFS){
+	m_veilFS = veilFS;
+}
+
+bool EventCommunicator::isWriteEnabled()
+{
+	return m_writeEnabled;
+}
+
+shared_ptr<Event> EventCommunicator::statFromWriteEvent(shared_ptr<Event> event){
+    string path = event->getStringProperty("filePath", "");
+    if(!path.empty() && m_veilFS){
+        m_veilFS->statAndUpdatetimes(path);
+    }
+    return event;
 }
 
 shared_ptr<Event> Event::createMkdirEvent(const string & filePath)
