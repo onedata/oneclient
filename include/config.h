@@ -9,13 +9,21 @@
 #define CONFIG_HH
 
 #include <string>
+#include <vector>
+#include <algorithm>
 #include <yaml-cpp/yaml.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <stdlib.h>
 #include <map>
 #include <sstream>
+#include <boost/tokenizer.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/filesystem/fstream.hpp>
 #include <boost/unordered_set.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include "veilConfig.h"
 #include "ISchedulable.h"
@@ -23,29 +31,31 @@
 #include "lock.h"
 
 /// Config option names
-#define CLUSTER_HOSTNAME_OPT            "cluster_hostname"
-#define CLUSTER_PORT_OPT                "cluster_port"
-#define LOG_DIR_OPT                     "log_dir"
-#define PEER_CERTIFICATE_FILE_OPT       "peer_certificate_file"
-#define ENABLE_ATTR_CACHE_OPT           "enable_attr_cache"
-#define ATTR_CACHE_EXPIRATION_TIME_OPT  "attr_cache_expiration_time"
-#define ENABLE_LOCATION_CACHE_OPT       "enable_location_cache"
-#define ENABLE_ENV_OPTION_OVERRIDE      "enable_env_option_override"
-#define FUSE_ID_OPT                     "fuse_id"
-#define CLUSTER_PING_INTERVAL_OPT       "cluster_ping_interval"
-#define JOBSCHEDULER_THREADS_OPT        "jobscheduler_threads"
-#define ALIVE_META_CONNECTIONS_COUNT_OPT     "alive_meta_connections_count"
-#define ALIVE_DATA_CONNECTIONS_COUNT_OPT     "alive_data_connections_count"
-#define ENABLE_DIR_PREFETCH_OPT         "enable_dir_prefetch"
-#define ENABLE_PARALLEL_GETATTR_OPT     "enable_parallel_getattr"
-#define WRITE_BUFFER_MAX_SIZE_OPT       "write_buffer_max_size"
-#define READ_BUFFER_MAX_SIZE_OPT        "read_buffer_max_size"
-#define WRITE_BUFFER_MAX_FILE_SIZE_OPT  "write_buffer_max_file_size"
-#define READ_BUFFER_MAX_FILE_SIZE_OPT   "read_buffer_max_file_size"
+#define CLUSTER_HOSTNAME_OPT                "cluster_hostname"
+#define CLUSTER_PORT_OPT                    "cluster_port"
+#define LOG_DIR_OPT                         "log_dir"
+#define PEER_CERTIFICATE_FILE_OPT           "peer_certificate_file"
+#define ENABLE_ATTR_CACHE_OPT               "enable_attr_cache"
+#define ATTR_CACHE_EXPIRATION_TIME_OPT      "attr_cache_expiration_time"
+#define ENABLE_LOCATION_CACHE_OPT           "enable_location_cache"
+#define ENABLE_ENV_OPTION_OVERRIDE          "enable_env_option_override"
+#define FUSE_ID_OPT                         "fuse_id"
+#define CLUSTER_PING_INTERVAL_OPT           "cluster_ping_interval"
+#define JOBSCHEDULER_THREADS_OPT            "jobscheduler_threads"
+#define ALIVE_META_CONNECTIONS_COUNT_OPT    "alive_meta_connections_count"
+#define ALIVE_DATA_CONNECTIONS_COUNT_OPT    "alive_data_connections_count"
+#define ENABLE_DIR_PREFETCH_OPT             "enable_dir_prefetch"
+#define ENABLE_PARALLEL_GETATTR_OPT         "enable_parallel_getattr"
+#define WRITE_BUFFER_MAX_SIZE_OPT           "write_buffer_max_size"
+#define READ_BUFFER_MAX_SIZE_OPT            "read_buffer_max_size"
+#define WRITE_BUFFER_MAX_FILE_SIZE_OPT      "write_buffer_max_file_size"
+#define READ_BUFFER_MAX_FILE_SIZE_OPT       "read_buffer_max_file_size"
 #define FILE_BUFFER_PREFERED_BLOCK_SIZE_OPT "file_buffer_prefered_block_size"
-#define FUSE_GROUP_ID_OPT               "fuse_group_id"
-#define NO_CHECK_CERTIFICATE            "no_check_certificate"
+#define FUSE_GROUP_ID_OPT                   "fuse_group_id"
+#define NO_CHECK_CERTIFICATE                "no_check_certificate"
 
+#define MOUNTS_FILE_PATH                    "/proc/mounts"
+#define STORAGE_INFO_FILENAME               "vfs_storage.info"
 
 /// Prefix for all env variables that will be send to cluster
 #define FUSE_OPT_PREFIX               "fuse_opt_"
@@ -55,7 +65,6 @@
 
 #define DECLARE_DEFAULT(KEY, VALUE) m_defaultsNode[KEY] = VALUE
 #define RESTRICT_OPTION(OPT) m_restrictedOptions.insert(boost::algorithm::to_lower_copy(std::string(OPT)))
-
 
 namespace veil {
 namespace client {
@@ -108,10 +117,11 @@ public:
                                                                 ///< @warning If given opition wasn't set, you'll get empty object of given type T ( T() )
 
     virtual bool isSet(std::string);                            ///< Checks if given option is set. @see Config::getValue
-    std::string static absPathRelToCWD(boost::filesystem::path);            ///< Converts relative path, to absolute using CWD env as base prefix.
     void static setMountPoint(boost::filesystem::path);         ///< Sets mount point path
     boost::filesystem::path static getMountPoint();             ///< Gets mount point path
-    std::string static absPathRelToHOME(boost::filesystem::path);           ///< Converts relative path, to absolute using HOME env as base prefix.
+    std::vector<boost::filesystem::path> static getMountPoints();   ///< Returns vector of all mount point paths
+    std::string static absPathRelToCWD(boost::filesystem::path);    ///< Converts relative path, to absolute using CWD env as base prefix.
+    std::string static absPathRelToHOME(boost::filesystem::path);   ///< Converts relative path, to absolute using HOME env as base prefix.
     void static putEnv(std::string, std::string);               ///< Saves given env variable.
 
     void setGlobalConfigFile(std::string path);                 ///< Sets path to global config file. @see Config::parseConfig
@@ -120,6 +130,9 @@ public:
     bool parseConfig();                                         ///< Parses config from files set by Config::setGlobalConfigFile and Config::setUserConfigFile.
                                                                 ///< User config overides global settings.
                                                                 ///< If user config declares all required options, global config file isn't required, otherwise it has exists.
+    std::vector< std::pair<int, std::string> >
+    static getStorageInfo(boost::filesystem::path mountPoint);  ///< Returns vector of pairs of storage id and relative path to storage mounted in 'mountPoint' read from 'STORAGE_INFO_FILENAME' special file
+    void static setDirectIOStorage();                           ///< Informs server about storage that is directly accessible by client
 
     Config();
     virtual ~Config();
@@ -143,7 +156,7 @@ protected:
     YAML::Node m_envNode;                            ///< Temp config object used to manipulate env settings
     YAML::Node m_defaultsNode;                       ///< Default configs.
 
-    boost::unordered_set<std::string> m_restrictedOptions; ///< Contains restrincted option names (options that can be only set in global config file)
+    boost::unordered_set<std::string> m_restrictedOptions; ///< Contains restricted option names (options that can be only set in global config file)
     
     template<typename T>
     T get(std::string opt);                          ///< Internal implementation of Config::getValue. @see Config::getValue
@@ -194,7 +207,9 @@ protected:
     }
     
     bool isRestricted(std::string opt);
-
+    void static createStorageTestFile(int storageId, std::string& relativePath, std::string& text);
+    bool static hasClientStorageReadPermissions(std::string storagePath, std::string relativePath, std::string text);
+    bool static hasClientStorageWritePermissions(int storageId, std::string storagePath, std::string relativePath);
 };
 
 template<typename T>

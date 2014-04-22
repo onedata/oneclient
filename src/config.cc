@@ -9,9 +9,6 @@
 #include "veilfs.h"
 #include "communication_protocol.pb.h"
 #include "fuse_messages.pb.h"
-#include <fstream>
-#include <boost/filesystem.hpp>
-#include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
 
 using namespace std;
@@ -54,6 +51,140 @@ void Config::setMountPoint(path mp)
 path Config::getMountPoint()
 {
     return m_mountPoint;
+}
+
+vector<path> Config::getMountPoints()
+{
+    vector<path> mountPoints;
+    filesystem::ifstream mountsFile(MOUNTS_FILE_PATH);
+    string line;
+    while(getline(mountsFile, line)) {
+        char_separator<char> sep(" ");
+        tokenizer< char_separator<char> > tok(line, sep);
+        tokenizer< char_separator<char> >::iterator it;
+        int index;
+        for(it = tok.begin(), index = 1; it != tok.end() && index > 0; ++it, --index);
+        if(it != tok.end() && index == 0) {
+            path mountPoint(*it);
+            mountPoints.push_back(mountPoint);
+        }
+    }
+    return mountPoints;
+}
+
+vector< pair<int, string> > Config::getStorageInfo(path mountPoint)
+{
+    vector< pair<int, string> > storageInfo;
+    path storageInfoPath(mountPoint);
+    storageInfoPath += string("/") + string(STORAGE_INFO_FILENAME);
+    if(filesystem::exists(storageInfoPath) && filesystem::is_regular_file(storageInfoPath)) {
+        filesystem::ifstream storageInfoFile(storageInfoPath);
+        string line;
+        while(getline(storageInfoFile, line)) {
+            vector<string> tokens;
+            char_separator<char> sep(" ,{}");
+            tokenizer< char_separator<char> > tok(line, sep);
+            for(tokenizer< char_separator<char> >::iterator it = tok.begin(); it != tok.end(); ++it) {
+                tokens.push_back(*it);
+            }
+            if(tokens.size() == 2) {
+                try {
+                    int storageId = lexical_cast<int>(tokens[0]);
+                    string absoluteStoragePath = mountPoint.string();
+                    while(!tokens[1].empty() && (*(tokens[1].begin()) == '.' || *(tokens[1].begin()) == '/')) {
+                        tokens[1].erase(tokens[1].begin());
+                    }
+                    if(!tokens[1].empty()) {
+                        absoluteStoragePath += "/" + tokens[1];
+                    }
+                    storageInfo.push_back(make_pair(storageId, absoluteStoragePath));
+                } catch(bad_lexical_cast const&) {
+                    LOG(ERROR) << "Wrong format of storage id in file: " << storageInfoPath;
+                }
+            }
+        }
+    }
+    return storageInfo;
+}
+
+void Config::setDirectIOStorage()
+{
+    // Vector of pairs of a storage id and absolute path to the storage that is directly accessible by a client
+    vector< pair<int, string> > direstIOStorage;
+    // Get all available mount points
+    vector<filesystem::path> mountPoints = getMountPoints();
+    // Remove client mount point from vector of all mount points
+    remove(mountPoints.begin(), mountPoints.end(), getMountPoint());
+    // For each mount point check whether there is a direct access to the storage via this mount point
+    for(vector<filesystem::path>::iterator it = mountPoints.begin(); it != mountPoints.end(); ++it) {
+        vector< pair<int, string> > storageInfo = getStorageInfo(*it);
+        LOG(INFO) << "Checking mount point: " << *it;
+        for(vector< pair<int, string> >::iterator it = storageInfo.begin(); it != storageInfo.end(); ++it) {
+            string relativePath = "";
+            string text = "";
+            createStorageTestFile(it->first, relativePath, text);
+            if(!(relativePath == "" && text == "")) {
+                if(hasClientStorageReadPermissions(it->second, relativePath, text) &&
+                   hasClientStorageWritePermissions(it->first, it->second, relativePath)) {
+                    direstIOStorage.push_back(it->first, it->second);
+                }
+            }
+        }
+    }
+}
+
+void Config::createStorageTestFile(int storageId, string& relativePath, string& test)
+{
+    ClusterMsg cMsg;
+    CreateStorageTestFileRequest reqMsg;
+    CreateStorageTestFileResponse resMsg;
+    Answer ans;
+
+    MessageBuilder builder;
+    boost::shared_ptr<CommunicationHandler> conn;
+
+    conn = VeilFS::getConnectionPool()->selectConnection();
+    if(conn) {
+        // Build CreateStorageTestFileRequest message
+        reqMsg.set_storage_id(storageId);
+        // Send CreateStorageTestFileRequest message
+        ans = conn->communicate(cMsg, 2);
+    	// Check answer
+        if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer())) {
+            relativePath = resMsg.relative_path();
+            text = reqMsg.text();
+    	} else if(ans.answer_status() == NO_USER_FOUND_ERROR) {
+    	    LOG(ERROR) << "Create storage test file error: Cannot find user in database.";
+    	} else {
+    		LOG(ERROR) << "Create storage test file error: " << ans.answer_status();
+        }
+    } else {
+        LOG(ERROR) << "Create storage test file error: Cannot select connection.";
+    }
+}
+
+bool Config::hasClientStorageReadPermissions(string storagePath, string relativePath, string expectedText)
+{
+    int fd = open((storagePath + "/" + relativePath).c_str(), O_RDONLY);
+    if(fd == -1) {
+        return false;
+    }
+    fsync(fd);
+    char* buf = malloc(text.size());
+    if(read(fd, buf, expectedText.size()) != expectedText.size()) {
+        free(buf);
+        close(fd);
+        return false;
+    }
+    string actualText((char *) buf);
+    free(buf);
+    close(fd);
+    return expectedText == actualText;
+}
+
+bool Config::hasClientStorageWritePermissions(int storageId, string storagePath, string relativePath)
+{
+    return true;
 }
 
 void Config::putEnv(string name, string value)

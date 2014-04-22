@@ -19,6 +19,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/functional.hpp>
+#include <vector>
 
 #include <sys/stat.h>
 
@@ -101,6 +102,8 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
     // Initialize cluster handshake in order to receive FuseID
     if(VeilFS::getConfig()->getFuseID() == "")
         VeilFS::getConfig()->negotiateFuseID();
+
+
     
     if(m_fslogic) {
         if(VeilFS::getScheduler() && VeilFS::getConfig()) {
@@ -113,6 +116,8 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
         } else 
             LOG(WARNING) << "Connection keep-alive subsystem cannot be started.";
     }
+
+    Config::setDirectIOStorage();
 
     m_uid = geteuid();
     m_gid = getegid();
