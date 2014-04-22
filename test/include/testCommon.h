@@ -25,6 +25,7 @@ using namespace std;
 
 using namespace veil; 
 using namespace veil::client; 
+using namespace veil::client::events; 
 
 
 #define INIT_AND_RUN_ALL_TESTS() \
@@ -67,13 +68,15 @@ using namespace veil::client;
         gsi::validateProxyConfig(); \
         VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), boost::bind(&gsi::getCertInfo)))); \
         veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool()); \
+        boost::shared_ptr<veil::client::events::EventCommunicator> eventCommunicator(new veil::client::events::EventCommunicator()); \
         veilFS.reset(new VeilFS(VeilFSRoot, config, \
                             boost::shared_ptr<JobScheduler>(new JobScheduler()), \
                             boost::shared_ptr<FslogicProxy>(fslogic), \
                             boost::shared_ptr<MetaCache>(new MetaCache()), \
                             boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(fslogic))), \
                             boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()), \
-                            boost::shared_ptr<EventCommunicator>(new EventCommunicator()))); \
+                            eventCommunicator)); \
+        eventCommunicator->setVeilFS(veilFS); \
         sleep(5);
 
 #define COMMON_INTEGRATION_DEFS() \

@@ -391,7 +391,7 @@ int main(int argc, char* argv[], char* envp[])
         VeilFS::addScheduler(boost::shared_ptr<JobScheduler>(new JobScheduler()));
 
     // Initialize main application object
-    boost::shared_ptr<EventCommunicator> eventCommunicator = boost::shared_ptr<EventCommunicator>(new EventCommunicator());
+    boost::shared_ptr<events::EventCommunicator> eventCommunicator (new events::EventCommunicator());
     VeilAppObject.reset(new VeilFS(mountpoint, config,
                         boost::shared_ptr<JobScheduler>(new JobScheduler()),
                         boost::shared_ptr<FslogicProxy>(new FslogicProxy()),

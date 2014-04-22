@@ -17,7 +17,12 @@
 #include "metaCache_mock.h"
 #include "storageMapper_mock.h"
 #include "veilErrors.h"
-#include "events.h"
+
+#include "IEventStream.h"
+#include "IEventStreamFactory.h"
+#include "eventStreamCombiner.h"
+#include "eventCommunicator.h"
+
 #include "events_mock.h"
 
 INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !

@@ -8,10 +8,14 @@
 #ifndef IEVENT_STREAM_FACTORY_H
 #define IEVENT_STREAM_FACTORY_H
 
+#include "IEventStream.h"
+
 #include <boost/shared_ptr.hpp>
 
 namespace veil {
 namespace client {
+namespace events {
+	class IEventStream;
 
 	class IEventStreamFactory{
 	public:
@@ -39,6 +43,7 @@ namespace client {
 		}
 	};
 
+} // namespace events
 } // namespace client
 } // namespace veil
 

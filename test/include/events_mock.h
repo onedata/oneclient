@@ -8,13 +8,18 @@
 #ifndef EVENTS_MOCK_H
 #define EVENTS_MOCK_H
 
-#include "events.h"
+#include "IEventStream.h"
+#include "IEventStreamFactory.h"
+#include "eventStreamCombiner.h"
+#include "eventCommunicator.h"
+#include "event.h"
+
 #include "testCommon.h"
 #include <list>
 #include <string>
 #include "fuse_messages.pb.h"
 
-class MockEvent : public Event {
+class MockEvent : public events::Event {
 	
 };
 

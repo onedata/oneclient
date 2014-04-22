@@ -1,24 +1,23 @@
 /**
- * @file events.h
+ * @file IEventStream.h
  * @author Michal Sitko
  * @copyright (C) 2014 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef EVENTS_H
-#define EVENTS_H
+#ifndef I_EVENT_STREAM_H
+#define I_EVENT_STREAM_H
 
 #include <string>
 #include <list>
 #include <queue>
 #include <map>
 #include <boost/shared_ptr.hpp>
-#include <boost/any.hpp>
 #include "glog/logging.h"
 #include "fuse_messages.pb.h"
 #include "ISchedulable.h"
 #include "fslogicProxy.h"
-#include "veilfs.h"
+#include "event.h"
 
 #define RULE_MANAGER "rule_manager"
 #define CLUSTER_RENGINE "cluster_rengine"
@@ -31,58 +30,7 @@
 
 namespace veil {
 namespace client {
-	typedef long long NumericProperty;
-
-	class IEventStream;
-	class EventStreamCombiner;
-	class VeilFS;
-
-	class Event{
-	public:
-		static boost::shared_ptr<Event> createMkdirEvent(const std::string & filePath);
-		static boost::shared_ptr<Event> createWriteEvent(const std::string & filePath, NumericProperty bytes);
-		static boost::shared_ptr<Event> createReadEvent(const std::string & filePath, NumericProperty bytes);
-		static boost::shared_ptr<Event> createRmEvent(const std::string & filePath);
-		static boost::shared_ptr<Event> createTruncateEvent(const std::string & filePath, off_t newSize);
-
-		Event();
-		Event(const Event & anotherEvent);
-
-		virtual boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> createProtoMessage();
-
-		NumericProperty getNumericProperty(const std::string & key, const NumericProperty defaultValue);
-		std::string getStringProperty(const std::string & key, const std::string & defaultValue);
-
-        std::map<std::string, NumericProperty> m_numericProperties;
-        std::map<std::string, std::string> m_stringProperties;
-	};
-
-	class EventCommunicator : public ISchedulable{
-	public:
-		EventCommunicator(boost::shared_ptr<EventStreamCombiner> eventsStream = boost::shared_ptr<EventStreamCombiner>());
-
-		void setVeilFS(boost::shared_ptr<VeilFS> veilFS);
-		bool pushMessagesHandler(const protocol::communication_protocol::Answer &msg);
-		void addEventSubstream(boost::shared_ptr<IEventStream> eventStreamConfig);
-		void addEventSubstreamFromConfig(const ::veil::protocol::fuse_messages::EventStreamConfig & eventStreamConfig);
-		void configureByCluster();
-		static void sendEvent(boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> eventMessage);
-		virtual void processEvent(boost::shared_ptr<Event> event);
-		virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
-		void addStatAfterWritesRule(int bytes); ///< create and add rule that cause getting attributes and updatetimes after N bytes has been written to single file
-		bool isWriteEnabled();
-
-	private:
-		ReadWriteLock m_eventsStreamLock;
-		boost::shared_ptr<EventStreamCombiner> m_eventsStream;
-		bool m_writeEnabled;
-		boost::shared_ptr<MessageBuilder> m_messageBuilder;
-		boost::shared_ptr<VeilFS> m_veilFS;
-
-		void handlePushedConfig(const veil::protocol::communication_protocol::Answer &msg);
-		void handlePushedAtom(const veil::protocol::communication_protocol::Answer &msg);
-		boost::shared_ptr<Event> statFromWriteEvent(boost::shared_ptr<Event> event);
-	};
+namespace events {
 
 	class IEventStream {
 	public:
@@ -108,8 +56,8 @@ namespace client {
 
 	class EventFilter : public IEventStream {
 	public:
-		EventFilter(std::string fieldName, std::string desiredValue);
-		EventFilter(boost::shared_ptr<IEventStream> wrappedStream, std::string fieldName, std::string desiredValue);
+		EventFilter(const std::string & fieldName, const std::string & desiredValue);
+		EventFilter(boost::shared_ptr<IEventStream> wrappedStream, const std::string & fieldName, const std::string & desiredValue);
 
 		static boost::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventFilterConfig & config);
 		virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event);
@@ -183,23 +131,8 @@ namespace client {
 		boost::function<boost::shared_ptr<Event>(boost::shared_ptr<Event>)> m_customActionFun;
 	};
 
-	class EventStreamCombiner : public ISchedulable{
-	public:
-		std::list<boost::shared_ptr<Event> > processEvent(boost::shared_ptr<Event> event);
-		virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
-		void addSubstream(boost::shared_ptr<IEventStream> substream);
-		virtual void pushEventToProcess(boost::shared_ptr<Event> event);
-		std::queue<boost::shared_ptr<Event> > getEventsToProcess() const;
-
-	private:
-		std::queue<boost::shared_ptr<Event> > m_eventsToProcess;
-    	std::list<boost::shared_ptr<IEventStream> > m_substreams;
-    	ReadWriteLock m_eventsToProcessLock;
-
-    	boost::shared_ptr<Event> getNextEventToProcess();
-    	bool nextEventTask();
-	};
+} // namespace events
 } // namespace client
 } // namespace veil
 
- #endif // EVENTS_H
+ #endif // I_EVENT_STREAM_H

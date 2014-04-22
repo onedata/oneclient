@@ -6,14 +6,18 @@
  */
 
 #include "testCommon.h"
-#include "events.h"
+
+#include "IEventStream.h"
+#include "IEventStreamFactory.h"
+#include "eventStreamCombiner.h"
+#include "eventCommunicator.h"
+
 #include "events_mock.h"
 #include "boost/shared_ptr.hpp"
 #include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"
 #include "config_mock.h"
 #include "jobScheduler_mock.h"
-#include "events_mock.h"
 #include "fslogicProxy_proxy.h"
 
 using namespace boost;
