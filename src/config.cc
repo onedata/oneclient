@@ -107,7 +107,7 @@ vector< pair<int, string> > Config::getStorageInfo(path mountPoint)
     return storageInfo;
 }
 
-void Config::setDirectIOStorage()
+void Config::checkDirectIOStorage()
 {
     // Vector of pairs of a storage id and absolute path to the storage that is directly accessible by a client
     vector< pair<int, string> > directIOStorage;
@@ -229,6 +229,7 @@ bool Config::hasClientStorageWritePermissions(int storageId, string storagePath,
     }
     int length = 20;
     string text(length, ' ');
+    srand(time(0));
     for(int i = 0; i < length; ++i) {
         text[i] = (char) (33 + rand() % 93);
     }

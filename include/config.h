@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdlib.h>
+#include <time.h>
 #include <map>
 #include <sstream>
 #include <boost/tokenizer.hpp>
@@ -132,7 +133,7 @@ public:
                                                                 ///< If user config declares all required options, global config file isn't required, otherwise it has exists.
     std::vector< std::pair<int, std::string> >
     static getStorageInfo(boost::filesystem::path mountPoint);  ///< Returns vector of pairs of storage id and relative path to storage mounted in 'mountPoint' read from 'STORAGE_INFO_FILENAME' special file
-    void static setDirectIOStorage();                           ///< Informs server about storage that is directly accessible by client
+    void static checkDirectIOStorage();                         ///< Informs server about storage that is directly accessible by client
 
     Config();
     virtual ~Config();

@@ -117,7 +117,9 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
             LOG(WARNING) << "Connection keep-alive subsystem cannot be started.";
     }
 
-    Config::setDirectIOStorage();
+    if(!VeilFS::getConfig()->isSet(FUSE_GROUP_ID_OPT)) {
+        Config::checkDirectIOStorage();
+    }
 
     m_uid = geteuid();
     m_gid = getegid();
