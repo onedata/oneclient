@@ -184,5 +184,7 @@ shared_ptr<Event> EventCommunicator::statFromWriteEvent(shared_ptr<Event> event)
     if(!path.empty() && m_veilFS){
         m_veilFS->statAndUpdatetimes(path);
     }
-    return event;
+
+    // we don't want to forward this event - it has already been handled by this function
+    return shared_ptr<Event> ();
 }
