@@ -5,7 +5,7 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "IEventStream.h"
+#include "events/eventAggregator.h"
 
 using namespace veil::client::events;
 using namespace std;

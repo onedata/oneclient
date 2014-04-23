@@ -1,5 +1,6 @@
 /**
- * @file IEventStreamFactory.h
+ * EventStreamCombiner class is an event sink. Input event will be processed by all registered substreams.
+ * @file eventStreamCombiner.h
  * @author Michal Sitko
  * @copyright (C) 2014 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
@@ -8,8 +9,8 @@
 #ifndef EVENT_STREAM_COMBINER_H
 #define EVENT_STREAM_COMBINER_H
 
-#include "event.h"
-#include "IEventStream.h"
+#include "events/event.h"
+#include "events/IEventStream.h"
 
 #include <boost/shared_ptr.hpp>
 #include <string>

@@ -25,9 +25,7 @@
 #include "ISchedulable.h"
 #include "pushListener.h"
 
-#include "IEventStreamFactory.h"
-#include "eventStreamCombiner.h"
-#include "eventCommunicator.h"
+#include "events/events.h"
 
 #include <list>
 #include <boost/unordered_map.hpp>

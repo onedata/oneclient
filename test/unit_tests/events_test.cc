@@ -7,10 +7,7 @@
 
 #include "testCommon.h"
 
-#include "IEventStream.h"
-#include "IEventStreamFactory.h"
-#include "eventStreamCombiner.h"
-#include "eventCommunicator.h"
+#include "events/events.h"
 
 #include "events_mock.h"
 #include "boost/shared_ptr.hpp"

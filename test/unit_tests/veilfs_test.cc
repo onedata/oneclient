@@ -18,10 +18,7 @@
 #include "storageMapper_mock.h"
 #include "veilErrors.h"
 
-#include "IEventStream.h"
-#include "IEventStreamFactory.h"
-#include "eventStreamCombiner.h"
-#include "eventCommunicator.h"
+#include "events/events.h"
 
 #include "events_mock.h"
 

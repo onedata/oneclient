@@ -1,5 +1,6 @@
 /**
- * @file Event.h
+ * Class Event is responsible for storing data related to event.
+ * @file event.h
  * @author Michal Sitko
  * @copyright (C) 2014 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'

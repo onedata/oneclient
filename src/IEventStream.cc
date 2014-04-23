@@ -5,7 +5,9 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "IEventStream.h"
+#include "events/IEventStream.h"
+#include "events/eventTransformer.h"
+#include "events/customActionStream.h"
 #include "fuse_messages.pb.h"
 
 using namespace veil::client::events;
@@ -48,16 +50,6 @@ shared_ptr<IEventStream> IEventStream::getWrappedStream() const
 void IEventStream::setWrappedStream(shared_ptr<IEventStream> wrappedStream)
 {
 	m_wrappedStream = wrappedStream;
-}
-
-TrivialEventStream::TrivialEventStream()
-{
-}
-
-shared_ptr<Event> TrivialEventStream::actualProcessEvent(shared_ptr<Event> event)
-{
-	shared_ptr<Event> newEvent (new Event(*event.get()));
-	return newEvent;
 }
 
 EventTransformer::EventTransformer(vector<string> fieldNamesToReplace, vector<string> valuesToReplace, vector<string> newValues) :

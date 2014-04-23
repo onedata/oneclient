@@ -5,8 +5,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "eventStreamCombiner.h"
-#include "eventCommunicator.h"
+#include "events/eventStreamCombiner.h"
+#include "events/eventCommunicator.h"
 #include "fuse_messages.pb.h"
 
 using namespace veil::client::events;

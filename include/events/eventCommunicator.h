@@ -1,5 +1,6 @@
 /**
- * @file IEventStreamFactory.h
+ * Class EventCommunicator is facade for event handling module. Contains registered substreams and enables event-related communication with cluster.
+ * @file eventCommunicator.h
  * @author Michal Sitko
  * @copyright (C) 2014 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'

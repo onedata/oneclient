@@ -5,7 +5,7 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "eventCommunicator.h"
+#include "events/eventCommunicator.h"
 #include "communication_protocol.pb.h"
 
 #include <boost/algorithm/string/predicate.hpp>

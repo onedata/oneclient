@@ -1,4 +1,5 @@
 /**
+ * IEventStreamFactory class is responsible for creating IEventStreams from EventStreamConfigs.
  * @file IEventStreamFactory.h
  * @author Michal Sitko
  * @copyright (C) 2014 ACK CYFRONET AGH
@@ -8,7 +9,10 @@
 #ifndef IEVENT_STREAM_FACTORY_H
 #define IEVENT_STREAM_FACTORY_H
 
-#include "IEventStream.h"
+#include "events/IEventStream.h"
+#include "events/eventFilter.h"
+#include "events/eventAggregator.h"
+#include "events/eventTransformer.h"
 
 #include <boost/shared_ptr.hpp>
 

@@ -8,11 +8,7 @@
 #ifndef EVENTS_MOCK_H
 #define EVENTS_MOCK_H
 
-#include "IEventStream.h"
-#include "IEventStreamFactory.h"
-#include "eventStreamCombiner.h"
-#include "eventCommunicator.h"
-#include "event.h"
+#include "events/events.h"
 
 #include "testCommon.h"
 #include <list>
