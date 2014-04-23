@@ -118,7 +118,6 @@ void Config::setDirectIOStorage()
     // For each mount point check whether there is a direct access to the storage via this mount point
     for(vector<filesystem::path>::iterator it = mountPoints.begin(); it != mountPoints.end(); ++it) {
         vector< pair<int, string> > storageInfo = getStorageInfo(*it);
-        LOG(INFO) << "Checking mount point: " << *it;
         for(vector< pair<int, string> >::iterator it = storageInfo.begin(); it != storageInfo.end(); ++it) {
             string relativePath = "";
             string text = "";
@@ -126,14 +125,15 @@ void Config::setDirectIOStorage()
             if(!(relativePath == "" && text == "")) {
                 if(hasClientStorageReadPermissions(it->second, relativePath, text) &&
                    hasClientStorageWritePermissions(it->first, it->second, relativePath)) {
-                    direstIOStorage.push_back(it->first, it->second);
+                    LOG(INFO) << "Storage with id: " << it->first << " is directly accessible to the client via: " << it->second;
+                    direstIOStorage.push_back(make_pair(it->first, it->second));
                 }
             }
         }
     }
 }
 
-void Config::createStorageTestFile(int storageId, string& relativePath, string& test)
+void Config::createStorageTestFile(int storageId, string& relativePath, string& text)
 {
     ClusterMsg cMsg;
     CreateStorageTestFileRequest reqMsg;
@@ -147,12 +147,14 @@ void Config::createStorageTestFile(int storageId, string& relativePath, string& 
     if(conn) {
         // Build CreateStorageTestFileRequest message
         reqMsg.set_storage_id(storageId);
+        cMsg = builder.createClusterMessage(FSLOGIC, CreateStorageTestFileRequest::descriptor()->name(), CreateStorageTestFileResponse::descriptor()->name(), FUSE_MESSAGES, true);
+        cMsg.set_input(reqMsg.SerializeAsString());
         // Send CreateStorageTestFileRequest message
         ans = conn->communicate(cMsg, 2);
     	// Check answer
         if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer())) {
             relativePath = resMsg.relative_path();
-            text = reqMsg.text();
+            text = resMsg.text();
     	} else if(ans.answer_status() == NO_USER_FOUND_ERROR) {
     	    LOG(ERROR) << "Create storage test file error: Cannot find user in database.";
     	} else {
@@ -170,8 +172,8 @@ bool Config::hasClientStorageReadPermissions(string storagePath, string relative
         return false;
     }
     fsync(fd);
-    char* buf = malloc(text.size());
-    if(read(fd, buf, expectedText.size()) != expectedText.size()) {
+    void* buf = malloc(expectedText.size());
+    if(read(fd, buf, expectedText.size()) != (int) expectedText.size()) {
         free(buf);
         close(fd);
         return false;
@@ -184,7 +186,51 @@ bool Config::hasClientStorageReadPermissions(string storagePath, string relative
 
 bool Config::hasClientStorageWritePermissions(int storageId, string storagePath, string relativePath)
 {
-    return true;
+    int fd = open((storagePath + "/" + relativePath).c_str(), O_WRONLY | O_FSYNC);
+    if(fd == -1) {
+        return false;
+    }
+    int length = 20;
+    string text(length, ' ');
+    for(int i = 0; i < length; ++i) {
+        text[i] = (char) (33 + rand() % 93);
+    }
+    if(write(fd, text.c_str(), length) != length) {
+        close(fd);
+        return false;
+    }
+    close(fd);
+
+    ClusterMsg cMsg;
+    StorageTestFileModified reqMsg;
+    StorageTestFileModifiedAck resMsg;
+    Answer ans;
+
+    MessageBuilder builder;
+    boost::shared_ptr<CommunicationHandler> conn;
+
+    conn = VeilFS::getConnectionPool()->selectConnection();
+    if(conn) {
+        // Build CreateStorageTestFileRequest message
+        reqMsg.set_storage_id(storageId);
+        reqMsg.set_relative_path(relativePath);
+        reqMsg.set_text(text)
+        cMsg = builder.createClusterMessage(FSLOGIC, StorageTestFileModified::descriptor()->name(), StorageTestFileModifiedAck::descriptor()->name(), FUSE_MESSAGES, true);
+        cMsg.set_input(reqMsg.SerializeAsString());
+        // Send CreateStorageTestFileRequest message
+        ans = conn->communicate(cMsg, 2);
+    	// Check answer
+        if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer())) {
+            return resMsg.answer();
+    	} else if(ans.answer_status() == NO_USER_FOUND_ERROR) {
+    	    LOG(ERROR) << "Create storage test file error: Cannot find user in database.";
+    	} else {
+    		LOG(ERROR) << "Create storage test file error: " << ans.answer_status();
+        }
+    } else {
+        LOG(ERROR) << "Create storage test file error: Cannot select connection.";
+    }
+    return false;
 }
 
 void Config::putEnv(string name, string value)
