@@ -110,26 +110,63 @@ vector< pair<int, string> > Config::getStorageInfo(path mountPoint)
 void Config::setDirectIOStorage()
 {
     // Vector of pairs of a storage id and absolute path to the storage that is directly accessible by a client
-    vector< pair<int, string> > direstIOStorage;
+    vector< pair<int, string> > directIOStorage;
     // Get all available mount points
     vector<filesystem::path> mountPoints = getMountPoints();
     // Remove client mount point from vector of all mount points
-    remove(mountPoints.begin(), mountPoints.end(), getMountPoint());
+    vector<filesystem::path>::iterator mountPointsEnd = remove(mountPoints.begin(), mountPoints.end(), getMountPoint());
     // For each mount point check whether there is a direct access to the storage via this mount point
-    for(vector<filesystem::path>::iterator it = mountPoints.begin(); it != mountPoints.end(); ++it) {
-        vector< pair<int, string> > storageInfo = getStorageInfo(*it);
-        for(vector< pair<int, string> >::iterator it = storageInfo.begin(); it != storageInfo.end(); ++it) {
+    for(vector<filesystem::path>::iterator mntPt = mountPoints.begin(); mntPt != mountPointsEnd; ++mntPt) {
+        vector< pair<int, string> > storageInfo = getStorageInfo(*mntPt);
+        for(vector< pair<int, string> >::iterator stgInfo = storageInfo.begin(); stgInfo != storageInfo.end(); ++stgInfo) {
             string relativePath = "";
             string text = "";
-            createStorageTestFile(it->first, relativePath, text);
+            createStorageTestFile(stgInfo->first, relativePath, text);
             if(!(relativePath == "" && text == "")) {
-                if(hasClientStorageReadPermissions(it->second, relativePath, text) &&
-                   hasClientStorageWritePermissions(it->first, it->second, relativePath)) {
-                    LOG(INFO) << "Storage with id: " << it->first << " is directly accessible to the client via: " << it->second;
-                    direstIOStorage.push_back(make_pair(it->first, it->second));
+                if(hasClientStorageReadPermissions(stgInfo->second, relativePath, text) &&
+                   hasClientStorageWritePermissions(stgInfo->first, stgInfo->second, relativePath)) {
+                    LOG(INFO) << "Storage with id: " << stgInfo->first << " is directly accessible to the client via: " << stgInfo->second;
+                    directIOStorage.push_back(*stgInfo);
                 }
             }
         }
+    }
+
+    ClusterMsg cMsg;
+    DirectIOStorageInfo reqMsg;
+    DirectIOStorageInfo::StorageInfo *storageInfo;
+    Atom resMsg;
+    Answer ans;
+
+    MessageBuilder builder;
+    boost::shared_ptr<CommunicationHandler> conn;
+
+	conn = VeilFS::getConnectionPool()->selectConnection();
+	if(conn) {
+	    // Build CreateStorageTestFileRequest message
+		for(vector< pair<int,string> >::iterator it = directIOStorage.begin(); it != directIOStorage.end(); ++it) {
+		    storageInfo = reqMsg.add_storage_info();
+		    storageInfo->set_storage_id(it->first);
+		    storageInfo->set_absolute_path(it->second);
+		}
+		cMsg = builder.createClusterMessage(FSLOGIC, DirectIOStorageInfo::descriptor()->name(), Atom::descriptor()->name(), COMMUNICATION_PROTOCOL, true);
+		cMsg.set_input(reqMsg.SerializeAsString());
+        // Send CreateStorageTestFileRequest message
+		ans = conn->communicate(cMsg, 2);
+		// Check answer
+		if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer())) {
+			if(resMsg.value() == "ok") {
+			    LOG(INFO) << "Direct IO storage info sent to the server.";
+			} else {
+			    LOG(ERROR) << "Direct IO storage info error: " << resMsg.value();
+			}
+		} else if(ans.answer_status() == NO_USER_FOUND_ERROR) {
+            LOG(ERROR) << "Direct IO storage info error: Cannot find user in database.";
+        } else {
+            LOG(ERROR) << "Direct IO storage info error: " << ans.answer_status();
+        }
+    } else {
+        LOG(ERROR) << "Direct IO storage info error: Cannot select connection.";
     }
 }
 
@@ -156,12 +193,12 @@ void Config::createStorageTestFile(int storageId, string& relativePath, string& 
             relativePath = resMsg.relative_path();
             text = resMsg.text();
     	} else if(ans.answer_status() == NO_USER_FOUND_ERROR) {
-    	    LOG(ERROR) << "Create storage test file error: Cannot find user in database.";
+    	    LOG(ERROR) << "Storage test file creation error: Cannot find user in database.";
     	} else {
-    		LOG(ERROR) << "Create storage test file error: " << ans.answer_status();
+    		LOG(ERROR) << "Storage test file creation error: " << ans.answer_status();
         }
     } else {
-        LOG(ERROR) << "Create storage test file error: Cannot select connection.";
+        LOG(ERROR) << "Storage test file creation error: Cannot select connection.";
     }
 }
 
@@ -214,7 +251,7 @@ bool Config::hasClientStorageWritePermissions(int storageId, string storagePath,
         // Build CreateStorageTestFileRequest message
         reqMsg.set_storage_id(storageId);
         reqMsg.set_relative_path(relativePath);
-        reqMsg.set_text(text)
+        reqMsg.set_text(text);
         cMsg = builder.createClusterMessage(FSLOGIC, StorageTestFileModified::descriptor()->name(), StorageTestFileModifiedAck::descriptor()->name(), FUSE_MESSAGES, true);
         cMsg.set_input(reqMsg.SerializeAsString());
         // Send CreateStorageTestFileRequest message
@@ -223,12 +260,12 @@ bool Config::hasClientStorageWritePermissions(int storageId, string storagePath,
         if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer())) {
             return resMsg.answer();
     	} else if(ans.answer_status() == NO_USER_FOUND_ERROR) {
-    	    LOG(ERROR) << "Create storage test file error: Cannot find user in database.";
+    	    LOG(ERROR) << "Storage test file modification error: Cannot find user in database.";
     	} else {
-    		LOG(ERROR) << "Create storage test file error: " << ans.answer_status();
+    		LOG(ERROR) << "Storage test file modification error: " << ans.answer_status();
         }
     } else {
-        LOG(ERROR) << "Create storage test file error: Cannot select connection.";
+        LOG(ERROR) << "Storage test file modification error: Cannot select connection.";
     }
     return false;
 }
