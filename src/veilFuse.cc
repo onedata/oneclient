@@ -209,6 +209,15 @@ static void fuse_init()
     oper_init();
 }
 
+static std::string getVersionString()
+{
+    std::stringstream ss;
+    ss << VeilClient_VERSION_MAJOR << "."
+        << VeilClient_VERSION_MINOR << "."
+        << VeilClient_VERSION_PATCH;
+    return ss.str();
+}
+
 int main(int argc, char* argv[], char* envp[]) 
 {
     // Turn off logging for a while
@@ -248,10 +257,7 @@ int main(int argc, char* argv[], char* envp[])
             gsi::debug = true;
 
         if(string(argv[i]) == "--version" || string(argv[i]) == "-V") {
-            cout << "VeilFuse version: "
-                 << VeilClient_VERSION_MAJOR << "."
-                 << VeilClient_VERSION_MINOR << "."
-                 << VeilClient_VERSION_PATCH << endl;
+            cout << "VeilFuse version: " << getVersionString() << endl;
             showVersionOnly = true;
         } else if(string(argv[i]) == "--help" || string(argv[i]) == "-h") {
             showVersionOnly = true;
@@ -284,6 +290,9 @@ int main(int argc, char* argv[], char* envp[])
     FLAGS_logtostderr = debug;
     if(debug)
         FLAGS_stderrthreshold = 2;
+
+    // after logger setup - log version
+    LOG(INFO) << "VeilFuse version: " << getVersionString();
 
     // Iterate over all env variables and save them in Config
     char** env;
