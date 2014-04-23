@@ -18,7 +18,7 @@ using namespace boost;
 using namespace veil::protocol::fuse_messages;
 using namespace veil::protocol::communication_protocol;
 
-EventCommunicator::EventCommunicator(shared_ptr<EventStreamCombiner> eventsStream) : m_eventsStream(eventsStream)
+EventCommunicator::EventCommunicator(shared_ptr<EventStreamCombiner> eventsStream) : m_eventsStream(eventsStream), m_writeEnabled(true)
 {
 	if(!eventsStream){
 		m_eventsStream = shared_ptr<EventStreamCombiner>(new EventStreamCombiner());
