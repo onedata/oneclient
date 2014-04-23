@@ -33,7 +33,9 @@ public:
 	virtual void processEvent(boost::shared_ptr<Event> event);
 	virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 	void addStatAfterWritesRule(int bytes); ///< create and add rule that cause getting attributes and updatetimes after N bytes has been written to single file
-	bool isWriteEnabled();
+	bool askClusterIfWriteEnabled(); 		///< Sends to fslogic to get know if writing is enabled. Writing may be disabled if quota is exceeded. 
+                                			///< This method is mostly useful on startup, if quota is exeeded during client work cluster will send push message.
+	bool isWriteEnabled(); 					///< Getter for m_writeEnabled, does not communicate with cluster.
 
 private:
 	ReadWriteLock m_eventsStreamLock;

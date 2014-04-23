@@ -122,6 +122,35 @@ void EventCommunicator::sendEvent(shared_ptr<EventMessage> eventMessage)
     }
 }
 
+bool EventCommunicator::askClusterIfWriteEnabled() 
+{
+    Atom atom;
+    atom.set_value("is_write_enabled");
+
+    ClusterMsg clm = m_messageBuilder->createClusterMessage(FSLOGIC, ATOM, COMMUNICATION_PROTOCOL, ATOM, COMMUNICATION_PROTOCOL, true, atom.SerializeAsString());
+
+    shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+
+    Answer ans;
+    if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
+        LOG(WARNING) << "sending atom is_write_enabled failed";
+    } else {
+        VeilFS::getConnectionPool()->releaseConnection(connection);
+        LOG(INFO) << "atom is_write_enabled sent";
+    }
+
+    Atom response;
+    bool result;
+    if(!response.ParseFromString(ans.worker_answer())){
+        result = true;
+        LOG(WARNING) << " cannot parse is_write_enabled response as atom. Using WriteEnabled = true mode."; 
+    }else{
+        result = response.value() == "false" ? false : true;
+    }
+
+    return result;
+}
+
 void EventCommunicator::addEventSubstream(shared_ptr<IEventStream> newStream)
 {
 	AutoLock lock(m_eventsStreamLock, WRITE_LOCK);
@@ -154,7 +183,7 @@ bool EventCommunicator::runTask(TaskID taskId, string arg0, string arg1, string 
         return true;
 
 	case TASK_IS_WRITE_ENABLED:
-        m_writeEnabled = isWriteEnabled();
+        m_writeEnabled = askClusterIfWriteEnabled();
         return true;
 
 	default:

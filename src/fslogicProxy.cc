@@ -420,43 +420,6 @@ void FslogicProxy::pingCluster(string nth)
     VeilFS::getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
 }
 
-bool FslogicProxy::isWriteEnabled() 
-{
-    ClusterMsg clm;
-    clm.set_protocol_version(PROTOCOL_VERSION);
-    clm.set_synch(true);
-    clm.set_module_name(FSLOGIC);
-    clm.set_message_type(ATOM);
-    clm.set_answer_type(ATOM);
-    clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
-    clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL);
-
-    Atom msg;
-    msg.set_value("is_write_enabled");
-    clm.set_input(msg.SerializeAsString());
-
-    shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
-
-    Answer ans;
-    if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
-        LOG(WARNING) << "sending atom is_write_enabled failed";
-    } else {
-        VeilFS::getConnectionPool()->releaseConnection(connection);
-        LOG(INFO) << "atom is_write_enabled sent";
-    }
-
-    Atom response;
-    bool result;
-    if(!response.ParseFromString(ans.worker_answer())){
-        result = true;
-        LOG(WARNING) << " cannot parse is_write_enabled response as atom. Using WriteEnabled = true mode."; 
-    }else{
-        result = response.value() == "false" ? false : true;
-    }
-
-    return result;
-}
-
 bool FslogicProxy::runTask(TaskID taskId, string arg0, string, string)
 {
     string res;
