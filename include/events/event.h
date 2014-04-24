@@ -25,6 +25,7 @@ typedef long long NumericProperty;
 /**
  * Class Event is key-value container for events.
  * It can store numerical and string values.
+ * TODO: consider making it immutable.
  */
 class Event{
 public:
