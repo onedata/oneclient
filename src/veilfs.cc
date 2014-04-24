@@ -129,6 +129,7 @@ VeilFS::~VeilFS()
 
 void VeilFS::staticDestroy()
 {
+    m_options.reset();
     m_config.reset();
     while(m_jobSchedulers.size()) {
         m_jobSchedulers.front().reset();

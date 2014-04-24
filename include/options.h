@@ -18,24 +18,24 @@
 
 /// Declare a new configuration option
 #define DECL_CONFIG(NAME, TYPE) \
-    public: bool has_##NAME() { return m_vm.count(#NAME) && !m_vm[#NAME].defaulted(); } \
-    public: TYPE get_##NAME() { return m_vm.at(#NAME).as<TYPE>(); } \
-    private: void add_##NAME(boost::program_options::options_description &desc) \
+    public: virtual bool has_##NAME() const { return m_vm.count(#NAME) && !m_vm[#NAME].defaulted(); } \
+    public: TYPE get_##NAME() const { return m_vm.at(#NAME).as<TYPE>(); } \
+    private: void add_##NAME(boost::program_options::options_description &desc) const \
              { desc.add_options()(#NAME, boost::program_options::value<TYPE>()); }
 
 /// Declare a new configuration option with a default value
 #define DECL_CONFIG_DEF(NAME, TYPE, DEFAULT) \
-    public: TYPE get_##NAME() { return m_vm.count(#NAME) ? m_vm.at(#NAME).as<TYPE>() : DEFAULT; } \
-    private: void add_##NAME(boost::program_options::options_description &desc) \
+    public: virtual TYPE get_##NAME() const { return m_vm.count(#NAME) ? m_vm.at(#NAME).as<TYPE>() : DEFAULT; } \
+    private: void add_##NAME(boost::program_options::options_description &desc) const \
              { desc.add_options()(#NAME, boost::program_options::value<TYPE>()); }
 
 /// Declare a command line switch (a boolean which is set to true if the switch is present)
 /// The description will be used in the --help.
 #define DECL_CMDLINE_SWITCH_DEF(NAME, SHORT, DEFAULT, DESC) \
-    public: bool get_##NAME() { return m_vm.count(#NAME) ? m_vm.at(#NAME).as<bool>() : DEFAULT; } \
-    private: void add_##NAME(boost::program_options::options_description &desc) \
+    public: virtual bool get_##NAME() const { return m_vm.count(#NAME) ? m_vm.at(#NAME).as<bool>() : DEFAULT; } \
+    private: void add_##NAME(boost::program_options::options_description &desc) const \
              { desc.add_options()(#NAME, boost::program_options::value<bool>()); } \
-    private: void add_switch_##NAME(boost::program_options::options_description &desc) \
+    private: void add_switch_##NAME(boost::program_options::options_description &desc) const \
              { desc.add_options()(#NAME SHORT, boost::program_options::value<bool>() \
                 ->zero_tokens()->implicit_value(true), DESC); }
 
@@ -73,6 +73,11 @@ public:
     Options(const int argc, const char * const argv[]);
 
     /**
+     * Destructor.
+     */
+    virtual ~Options();
+
+    /**
      * @return A populated fuse_args struct used by FUSE. Relevant options are
      * saved in the structure.
      */
@@ -99,7 +104,7 @@ private:
     DECL_CONFIG_DEF(log_dir, std::string, "/tmp")
     DECL_CONFIG(peer_certificate_file, std::string)
     DECL_CONFIG_DEF(enable_attr_cache, bool, true)
-    DECL_CONFIG_DEF(attr_cache_expiration_time, std::time_t, ATTR_DEFAULT_EXPIRATION_TIME)
+    DECL_CONFIG_DEF(attr_cache_expiration_time, int, ATTR_DEFAULT_EXPIRATION_TIME)
     DECL_CONFIG(enable_location_cache, bool)
     DECL_CONFIG_DEF(enable_env_option_override, bool, true)
     DECL_CONFIG(fuse_id, std::string)

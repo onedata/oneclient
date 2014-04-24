@@ -45,6 +45,11 @@ Options::Options(const int argc, const char * const argv[])
 }
 
 
+Options::~Options()
+{
+}
+
+
 void Options::setDescriptions()
 {
     // Common options found in environment, global and user config files

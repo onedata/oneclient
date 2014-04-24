@@ -7,7 +7,7 @@
 
 #include "testCommon.h"
 #include "jobScheduler_proxy.h"
-#include "config_mock.h"
+#include "options_mock.h"
 #include "jobScheduler_mock.h"
 #include "boost/shared_ptr.hpp"
 
@@ -19,7 +19,7 @@ INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
 
 
-class MockJobObject 
+class MockJobObject
     : public ISchedulable {
 public:
     MOCK_METHOD4(runTask, bool(TaskID, string, string, string));

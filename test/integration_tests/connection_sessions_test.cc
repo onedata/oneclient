@@ -12,6 +12,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <boost/thread/thread_time.hpp>
+#include <cstdlib>
 
 using namespace boost::filesystem;
 using namespace std;
@@ -28,42 +29,44 @@ class ConnectionSessionsTest
 {
 protected:
     COMMON_INTEGRATION_DEFS();
-    
+
     VeilFSMount VFS;
-    
+
     path directIO_root;
-    
+
     ConnectionSessionsTest() : VFS(VeilFSMount("main", "peer.pem"))
     {
     }
-    
+
     virtual void SetUp() {
         COMMON_INTEGRATION_SETUP();
     }
-    
+
     virtual void TearDown() {
         COMMON_INTEGRATION_CLEANUP();
     }
-    
+
 };
 
-// Test if client negotiates and registers its FuseId after start  
+// Test if client negotiates and registers its FuseId after start
 TEST_F(ConnectionSessionsTest, SessionInitAndRegister) {
     // By default client should negotiate and register FuseId
-    
+
     // Check if cluster already knows who we are
     ASSERT_EQ("ok", erlExec(string("{check_session, \"") + VeilFS::getConfig()->getFuseID() + string("\"}")));
 }
 
-// Test if client can renegotiate FuseId and send env variables   
+// Test if client can renegotiate FuseId and send env variables
 TEST_F(ConnectionSessionsTest, SessionEnvVairables_And_SessionReinitialization) {
     // By default client should negotiate and register FuseId
 
     string currentFuseId = VeilFS::getConfig()->getFuseID();
 
     // Now we can manually add some env varables
-    VeilFS::getConfig()->putEnv(string(FUSE_OPT_PREFIX) + string("varname1"), "varvalue1");
-    VeilFS::getConfig()->putEnv(string(FUSE_OPT_PREFIX) + string("varname2"), "varvalue2");
+    static char env1[] = FUSE_OPT_PREFIX "varname1=varvalue1";
+    static char env2[] = FUSE_OPT_PREFIX "varname2=varvalue2";
+    putenv(env1);
+    putenv(env2);
 
     // Start new handshake
     VeilFS::getConfig()->negotiateFuseID();
