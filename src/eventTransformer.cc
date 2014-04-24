@@ -45,7 +45,7 @@ shared_ptr<Event> EventTransformer::actualProcessEvent(shared_ptr<Event> event)
     shared_ptr<Event> newEvent (new Event(*event.get()));
 
     // TODO: EventTransformer works only for string properties.
-    for(int i=0; i<m_fieldNamesToReplace.size(); ++i)
+    for(size_t i=0; i<m_fieldNamesToReplace.size(); ++i)
     {
         string fieldName = m_fieldNamesToReplace[i];
         if(newEvent->getStringProperty(fieldName, "") == m_valuesToReplace[i]){

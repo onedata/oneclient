@@ -81,11 +81,11 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
                boost::shared_ptr<FslogicProxy> fslogic,  boost::shared_ptr<MetaCache> metaCache,
                boost::shared_ptr<StorageMapper> mapper, boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
                boost::shared_ptr<events::EventCommunicator> eventCommunicator) :
+    m_fh(0),
     m_fslogic(fslogic),
     m_storageMapper(mapper),
     m_metaCache(metaCache),
     m_shFactory(sh_factory),
-    m_fh(0),
     m_eventCommunicator(eventCommunicator)
 {
     if(path.size() > 1 && path[path.size()-1] == '/')
@@ -802,7 +802,6 @@ bool VeilFS::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
 {
     struct stat attr;
     vector<string> children;
-    int offset;
     time_t currentTime;
     boost::shared_ptr<events::Event> truncateEvent;
 

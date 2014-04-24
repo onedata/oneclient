@@ -124,12 +124,12 @@ protected:
         static ReadWriteLock m_schedulerPoolLock;
 
         boost::shared_ptr<FslogicProxy> m_fslogic;             ///< FslogicProxy instance
-        boost::shared_ptr<events::EventCommunicator> m_eventCommunicator;
         boost::shared_ptr<StorageMapper> m_storageMapper;      ///< StorageMapper instance
-        static std::list<boost::shared_ptr<JobScheduler> > m_jobSchedulers; ///< JobScheduler instances
         boost::shared_ptr<MetaCache> m_metaCache;              ///< MetaCache instance
-        static boost::shared_ptr<Config> m_config;             ///< Config instance
         boost::shared_ptr<helpers::StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance
+        boost::shared_ptr<events::EventCommunicator> m_eventCommunicator;
+        static std::list<boost::shared_ptr<JobScheduler> > m_jobSchedulers; ///< JobScheduler instances
+        static boost::shared_ptr<Config> m_config;             ///< Config instance
         static boost::shared_ptr<SimpleConnectionPool> m_connectionPool;
         static boost::shared_ptr<PushListener> m_pushListener;
 
