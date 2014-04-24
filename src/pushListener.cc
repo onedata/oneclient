@@ -118,10 +118,11 @@ namespace client {
 
         boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
 
-        if(connection->sendMessage(clm, messageId) != messageId){
-            LOG(WARNING) << "cannot send ack for push message with messageId " << messageId;
-        }else{
+        try {
+            connection->sendMessage(clm, messageId);
             DLOG(INFO) << "push message ack sent successfully";
+        } catch(ConnectionStatus &e) {
+            LOG(WARNING) << "Cannot send ack for push message with messageId: " << messageId << ", connectionsStatus: " << connectionsStatus;
         }
     }
     
