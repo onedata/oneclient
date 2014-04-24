@@ -42,6 +42,7 @@ using namespace veil::client;
         scheduler.reset(new MockJobScheduler()); \
         connectionPool.reset(new MockConnectionPool()); \
         VeilFS::setConnectionPool(connectionPool); \
+        EXPECT_CALL(*config, isSet(FUSE_GROUP_ID_OPT)).WillRepeatedly(Return(true)); \
         EXPECT_CALL(*config, isSet(FUSE_ID_OPT)).WillRepeatedly(Return(false)); \
         EXPECT_CALL(*connectionPool, setPushCallback(_, _)).WillRepeatedly(Return()); \
         boost::shared_ptr<VeilFS>(new VeilFS("/root", config, scheduler, boost::shared_ptr<FslogicProxy>(), boost::shared_ptr<MetaCache>(), boost::shared_ptr<StorageMapper>(), boost::shared_ptr<helpers::StorageHelperFactory>()));
