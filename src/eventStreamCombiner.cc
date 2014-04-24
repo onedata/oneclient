@@ -29,7 +29,7 @@ bool EventStreamCombiner::runTask(TaskID taskId, string arg0, string arg1, strin
 {
 	switch(taskId){
 	case TASK_PROCESS_EVENT:
-		return nextEventTask();
+		return processNextEvent();
 
 	default:
 		return false;

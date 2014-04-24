@@ -41,6 +41,7 @@ public:
 	bool askClusterIfWriteEnabled(); 		///< Sends to fslogic to get know if writing is enabled. Writing may be disabled if quota is exceeded. 
                                 			///< This method is mostly useful on startup, if quota is exeeded during client work cluster will send push message.
 	bool isWriteEnabled(); 					///< Getter for m_writeEnabled, does not communicate with cluster.
+	static void sendEvent(boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> eventMessage); ///< Sends eventMessage to cluster.
 
 	/* Access methods */
 	void setFslogic(boost::shared_ptr<FslogicProxy> fslogicProxy);
