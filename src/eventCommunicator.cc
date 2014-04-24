@@ -6,6 +6,7 @@
  */
 
 #include "events/eventCommunicator.h"
+#include "veilfs.h"
 #include "communication_protocol.pb.h"
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -199,8 +200,14 @@ void EventCommunicator::addStatAfterWritesRule(int bytes){
     addEventSubstream(customAction);
 }
 
-void EventCommunicator::setVeilFS(shared_ptr<VeilFS> veilFS){
-	m_veilFS = veilFS;
+void EventCommunicator::setFslogic(boost::shared_ptr<FslogicProxy> fslogicProxy)
+{
+    m_fslogic = fslogicProxy;
+}
+
+void EventCommunicator::setMetaCache(boost::shared_ptr<MetaCache> metaCache)
+{
+    m_metaCache = metaCache;
 }
 
 bool EventCommunicator::isWriteEnabled()
@@ -210,8 +217,17 @@ bool EventCommunicator::isWriteEnabled()
 
 shared_ptr<Event> EventCommunicator::statFromWriteEvent(shared_ptr<Event> event){
     string path = event->getStringProperty("filePath", "");
-    if(!path.empty() && m_veilFS){
-        m_veilFS->statAndUpdatetimes(path);
+    if(!path.empty() && m_metaCache && m_fslogic){
+        time_t currentTime = time(NULL);
+        m_fslogic->updateTimes(path, 0, currentTime, currentTime);
+
+        FileAttr attr;
+        m_metaCache->clearAttr(path);
+        if(VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT)){
+            // TODO: The whole mechanism we force attributes to be reloaded is inefficient - we just want to cause attributes to be changed on cluster but
+            // we also fetch attributes
+            m_fslogic->getFileAttr(string(path), attr);
+        }
     }
 
     // we don't want to forward this event - it has already been handled by this function

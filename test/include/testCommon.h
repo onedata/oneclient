@@ -76,7 +76,6 @@ using namespace veil::client::events;
                             boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(fslogic))), \
                             boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()), \
                             eventCommunicator)); \
-        eventCommunicator->setVeilFS(veilFS); \
         sleep(5);
 
 #define COMMON_INTEGRATION_DEFS() \

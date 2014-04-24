@@ -20,13 +20,17 @@ namespace veil {
 namespace client {
 namespace events {
 
+/**
+ * The CustomActionStream class
+ * CustomActionStream implements interface IEventStream. Enables to do custom action CustomActionFun on event arrival. Returns event returned by CustomActionFun.
+ */
 class CustomActionStream : public IEventStream {
 public:
 	CustomActionStream(boost::shared_ptr<IEventStream> wrappedStream, boost::function<boost::shared_ptr<Event>(boost::shared_ptr<Event>)> customActionFun);
-	virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event);
+	virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event); ///<  Implements pure virtual method IEventStream::actualProcessEvent
 
 private:
-	boost::function<boost::shared_ptr<Event>(boost::shared_ptr<Event>)> m_customActionFun;
+	boost::function<boost::shared_ptr<Event>(boost::shared_ptr<Event>)> m_customActionFun; ///<  Function to be called by actualProcessEvent
 };
 
 } // namespace events

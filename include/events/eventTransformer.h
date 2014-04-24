@@ -20,11 +20,16 @@ namespace veil {
 namespace client {
 namespace events {
 
+/**
+ * The EventFilter class.
+ * EventFilter implements IEventStream. EventTransformer replaces ValuesToReplace of FieldNamesToReplace with NewValues.
+ */
 class EventTransformer : public IEventStream {
 public:
 	EventTransformer(std::vector<std::string> fieldNamesToReplace, std::vector<std::string> valuesToReplace, std::vector<std::string> newValues);
-	static boost::shared_ptr<IEventStream> fromConfig(const :: veil::protocol::fuse_messages::EventTransformerConfig & config);
-	virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event);
+
+	static boost::shared_ptr<IEventStream> fromConfig(const :: veil::protocol::fuse_messages::EventTransformerConfig & config); ///<  Creates EventTransformer object from protocol buffer message EventTransformerConfig
+	virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event); ///<  Implements pure virtual method IEventStream::actualProcessEvent
 
 private:
 	std::vector<std::string> m_fieldNamesToReplace;

@@ -21,8 +21,16 @@ namespace client {
 namespace events {
 	class IEventStream;
 
+	/**
+	 * The IEventStreamFactory class.
+	 * EventAggregator is factory for creating IEventStream derived objects from protocol message EventStreamConfig.
+	 */
 	class IEventStreamFactory{
 	public:
+
+		/**
+		 * Creates IEventStream derived object from protocol message EventStreamConfig.
+		 */
     	static boost::shared_ptr<IEventStream> fromConfig(const veil::protocol::fuse_messages::EventStreamConfig & config){
 			boost::shared_ptr<IEventStream> res;
 

@@ -129,6 +129,9 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
     m_rgid = -1; 
 
     if(m_eventCommunicator){
+        eventCommunicator->setFslogic(m_fslogic);
+        eventCommunicator->setMetaCache(m_metaCache);
+
         m_eventCommunicator->addStatAfterWritesRule(VeilFS::getConfig()->getInt(WRITE_BYTES_BEFORE_STAT_OPT));
     }
 
@@ -800,6 +803,7 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
     struct stat attr;
     vector<string> children;
     int offset;
+    time_t currentTime;
     boost::shared_ptr<events::Event> truncateEvent;
 
     switch(taskId)
@@ -840,7 +844,13 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
 
     case TASK_POST_TRUNCATE_ACTIONS: // arg0 = path, arg1 = newSize
         // we need to statAndUpdatetimes before processing event because we want event to be run with new size value on cluster
-        statAndUpdatetimes(arg0);
+        currentTime = time(NULL);
+        m_fslogic->updateTimes(arg0, 0, currentTime, currentTime);
+
+        m_metaCache->clearAttr(arg0);
+        if(VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT))
+            getattr(arg0.c_str(), &attr, false);
+
         truncateEvent = events::Event::createTruncateEvent(arg0, utils::fromString<off_t>(arg1));
         m_eventCommunicator->processEvent(truncateEvent);
         return true;
@@ -848,23 +858,6 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
     default:
         return false;
     }
-}
-
-// protected methods
-
-// TODO: The whole mechanism we force attributes to be reloaded is inefficient - we just want to cause attributes to be changed on cluster but
-// we also fetch attributes
-void VeilFS::statAndUpdatetimes(const string & path){
-    DLOG(INFO) << "statAndUpdatetimes invoked for: " << path;
-
-    // to be sure that everything is updated correctly we need to synchronously first updatetimes and then get attributes
-    time_t currentTime = time(NULL);
-    m_fslogic->updateTimes(path, 0, currentTime, currentTime);
-
-    struct stat attr;
-    m_metaCache->clearAttr(path);
-    if(VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT))
-        getattr(path.c_str(), &attr, false);
 }
 
 } // namespace client

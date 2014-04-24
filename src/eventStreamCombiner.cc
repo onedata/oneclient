@@ -36,7 +36,7 @@ bool EventStreamCombiner::runTask(TaskID taskId, string arg0, string arg1, strin
 	}
 }
 
-bool EventStreamCombiner::nextEventTask()
+bool EventStreamCombiner::processNextEvent()
 {
 	shared_ptr<Event> event = getNextEventToProcess();
 	if(event){

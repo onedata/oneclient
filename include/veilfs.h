@@ -113,8 +113,6 @@ public:
 
         virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
-        void statAndUpdatetimes(const std::string & path); ///< get attributes and updatetimes - useful when truncating and writing
-
 protected:
         std::string m_root; ///< Filesystem root directory
         uid_t       m_uid;  ///< Filesystem owner's effective uid
