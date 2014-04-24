@@ -52,7 +52,7 @@ public:
 	shared_ptr<Event> processEvent(shared_ptr<Event> event){
 		shared_ptr<Event> newEvent(new Event());
 		//Event * newEvent = new Event();
-		newEvent->m_stringProperties["customActionKey"] = "custom_action_invoked";
+		newEvent->setStringProperty("customActionKey", "custom_action_invoked");
 		return newEvent;
 	}
 };
@@ -90,8 +90,8 @@ TEST(EventAggregatorTest, SimpleAggregation) {
 	shared_ptr<Event> res = aggregator.processEvent(writeEvent);
 	ASSERT_TRUE((bool) res);
 
-	ASSERT_EQ(1, res->m_numericProperties.size());
-	ASSERT_EQ(1, res->m_stringProperties.size());
+	ASSERT_EQ(1, res->getNumericPropertiesSize());
+	ASSERT_EQ(1, res->getStringPropertiesSize());
 	ASSERT_EQ("count", res->getStringProperty(SUM_FIELD_NAME, ""));
 	ASSERT_EQ(5, res->getNumericProperty("count", -1));
 
@@ -102,8 +102,8 @@ TEST(EventAggregatorTest, SimpleAggregation) {
 
 	res = aggregator.processEvent(writeEvent);
 	ASSERT_TRUE((bool) res);
-	ASSERT_EQ(1, res->m_numericProperties.size());
-	ASSERT_EQ(1, res->m_stringProperties.size());
+	ASSERT_EQ(1, res->getNumericPropertiesSize());
+	ASSERT_EQ(1, res->getStringPropertiesSize());
 	ASSERT_EQ("count", res->getStringProperty(SUM_FIELD_NAME, ""));
 	ASSERT_EQ(5, res->getNumericProperty("count", -1));
 }
@@ -124,8 +124,8 @@ TEST(EventAggregatorTest, AggregationByOneField) {
 
 	res = aggregator.processEvent(mkdirEvent);
 	ASSERT_TRUE((bool) res);
-	ASSERT_EQ(1, res->m_numericProperties.size());
-	ASSERT_EQ(2, res->m_stringProperties.size());
+	ASSERT_EQ(1, res->getNumericPropertiesSize());
+	ASSERT_EQ(2, res->getStringPropertiesSize());
 	ASSERT_EQ("count", res->getStringProperty(SUM_FIELD_NAME, ""));
 	ASSERT_EQ(5, res->getNumericProperty("count", -1));
 	ASSERT_EQ("mkdir_event", res->getStringProperty("type", ""));
@@ -141,8 +141,8 @@ TEST(EventAggregatorTest, AggregationByOneField) {
 
 	res = aggregator.processEvent(writeEvent);
 	ASSERT_TRUE((bool) res);
-	ASSERT_EQ(1, res->m_numericProperties.size());
-	ASSERT_EQ(2, res->m_stringProperties.size());
+	ASSERT_EQ(1, res->getNumericPropertiesSize());
+	ASSERT_EQ(2, res->getStringPropertiesSize());
 	ASSERT_EQ(5, res->getNumericProperty("count", -1));
 	ASSERT_EQ("write_event", res->getStringProperty("type", ""));
 }
@@ -159,8 +159,8 @@ TEST(EventAggregatorTest, AggregationWithSum) {
 
 	res = aggregator.processEvent(smallWriteEvent);
 	ASSERT_TRUE((bool) res);
-	ASSERT_EQ(1, res->m_numericProperties.size());
-	ASSERT_EQ(2, res->m_stringProperties.size());
+	ASSERT_EQ(1, res->getNumericPropertiesSize());
+	ASSERT_EQ(2, res->getStringPropertiesSize());
 	ASSERT_EQ(110, res->getNumericProperty("bytes", -1));
 	ASSERT_EQ("write_event", res->getStringProperty("type", ""));
 
@@ -171,8 +171,8 @@ TEST(EventAggregatorTest, AggregationWithSum) {
 
 	res = aggregator.processEvent(bigWriteEvent);
 	ASSERT_TRUE((bool) res);
-	ASSERT_EQ(1, res->m_numericProperties.size());
-	ASSERT_EQ(2, res->m_stringProperties.size());
+	ASSERT_EQ(1, res->getNumericPropertiesSize());
+	ASSERT_EQ(2, res->getStringPropertiesSize());
 	ASSERT_EQ(205, res->getNumericProperty("bytes", -1));
 	ASSERT_EQ("write_event", res->getStringProperty("type", ""));
 }
@@ -199,8 +199,8 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
 
 	res = aggregator->processEvent(file1Event);
 	ASSERT_TRUE((bool) res);
-	ASSERT_EQ(1, res->m_numericProperties.size());
-	ASSERT_EQ(2, res->m_stringProperties.size());
+	ASSERT_EQ(1, res->getNumericPropertiesSize());
+	ASSERT_EQ(2, res->getStringPropertiesSize());
 	ASSERT_EQ(5, res->getNumericProperty("count", -1));
 	ASSERT_EQ("file1", res->getStringProperty("filePath", ""));
 
@@ -211,8 +211,8 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
 
 	res = aggregator->processEvent(file2Event);
 	ASSERT_TRUE((bool) res);
-	ASSERT_EQ(1, res->m_numericProperties.size());
-	ASSERT_EQ(2, res->m_stringProperties.size());
+	ASSERT_EQ(1, res->getNumericPropertiesSize());
+	ASSERT_EQ(2, res->getStringPropertiesSize());
 	ASSERT_EQ(5, res->getNumericProperty("count", -1));
 	ASSERT_EQ("file2", res->getStringProperty("filePath", ""));
 
@@ -233,8 +233,8 @@ TEST(EventTransformerTest, SimpleTransformation) {
 	shared_ptr<IEventStream> transformer(new EventTransformer(fieldNames, toReplace, replaceWith));
 
 	shared_ptr<Event> output = transformer->processEvent(writeEvent);
-	ASSERT_EQ(1, output->m_numericProperties.size());
-	ASSERT_EQ(2, output->m_stringProperties.size());
+	ASSERT_EQ(1, output->getNumericPropertiesSize());
+	ASSERT_EQ(2, output->getStringPropertiesSize());
 	ASSERT_EQ("write_for_stats", output->getStringProperty("type", ""));
 }
 

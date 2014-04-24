@@ -85,11 +85,11 @@ shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(shared_pt
 
 	if(forward){
 		shared_ptr<Event> newEvent (new Event());
-		newEvent->m_stringProperties[SUM_FIELD_NAME] = sumFieldName;
-		newEvent->m_numericProperties[sumFieldName] = m_counter;
+		newEvent->setStringProperty(SUM_FIELD_NAME, sumFieldName);
+		newEvent->setNumericProperty(sumFieldName, m_counter);
 		if(!fieldName.empty()){
 			string value = event->getStringProperty(fieldName, "");
-			newEvent->m_stringProperties[fieldName] = value;
+			newEvent->setStringProperty(fieldName, value);
 		}
 		resetState();
 		return newEvent;

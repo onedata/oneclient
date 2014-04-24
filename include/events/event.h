@@ -23,24 +23,31 @@ namespace events {
 typedef long long NumericProperty;
 
 class Event{
-	public:
-		static boost::shared_ptr<Event> createMkdirEvent(const std::string & filePath);
-		static boost::shared_ptr<Event> createWriteEvent(const std::string & filePath, NumericProperty bytes);
-		static boost::shared_ptr<Event> createReadEvent(const std::string & filePath, NumericProperty bytes);
-		static boost::shared_ptr<Event> createRmEvent(const std::string & filePath);
-		static boost::shared_ptr<Event> createTruncateEvent(const std::string & filePath, off_t newSize);
+public:
+	static boost::shared_ptr<Event> createMkdirEvent(const std::string & filePath);
+	static boost::shared_ptr<Event> createWriteEvent(const std::string & filePath, NumericProperty bytes);
+	static boost::shared_ptr<Event> createReadEvent(const std::string & filePath, NumericProperty bytes);
+	static boost::shared_ptr<Event> createRmEvent(const std::string & filePath);
+	static boost::shared_ptr<Event> createTruncateEvent(const std::string & filePath, off_t newSize);
 
-		Event();
-		Event(const Event & anotherEvent);
+	Event();
+	Event(const Event & anotherEvent);
 
-		virtual boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> createProtoMessage();
+	virtual boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> createProtoMessage();
 
-		NumericProperty getNumericProperty(const std::string & key, const NumericProperty defaultValue);
-		std::string getStringProperty(const std::string & key, const std::string & defaultValue);
+	NumericProperty getNumericProperty(const std::string & key, const NumericProperty defaultValue) const;
+	void setNumericProperty(const std::string & key, NumericProperty value);
+	int getNumericPropertiesSize() const;
 
-        std::map<std::string, NumericProperty> m_numericProperties;
-        std::map<std::string, std::string> m_stringProperties;
-	};
+	std::string getStringProperty(const std::string & key, const std::string & defaultValue) const;
+	void setStringProperty(const std::string & key, std::string value);
+	int getStringPropertiesSize() const;
+
+
+private:
+    std::map<std::string, NumericProperty> m_numericProperties;
+    std::map<std::string, std::string> m_stringProperties;
+};
 
 } // namespace events
 } // namespace client

@@ -77,8 +77,8 @@ shared_ptr<EventMessage> Event::createProtoMessage()
 	return eventMessage;
 }
 
-NumericProperty Event::getNumericProperty(const string & key, const NumericProperty defaultValue){
-	map<string, NumericProperty>::iterator it = m_numericProperties.find(key);
+NumericProperty Event::getNumericProperty(const string & key, const NumericProperty defaultValue) const {
+	map<string, NumericProperty>::const_iterator it = m_numericProperties.find(key);
 	if(it == m_numericProperties.end()){
 		return defaultValue;
 	}else{
@@ -86,13 +86,29 @@ NumericProperty Event::getNumericProperty(const string & key, const NumericPrope
 	}
 }
 
-string Event::getStringProperty(const string & key, const string & defaultValue){
-	map<string, string>::iterator it = m_stringProperties.find(key);
+void Event::setNumericProperty(const std::string & key, NumericProperty value){
+	m_numericProperties[key] = value;
+}
+
+int Event::getNumericPropertiesSize() const {
+	return m_numericProperties.size();
+}
+
+string Event::getStringProperty(const string & key, const string & defaultValue) const {
+	map<string, string>::const_iterator it = m_stringProperties.find(key);
 	if(it == m_stringProperties.end()){
 		return defaultValue;
 	}else{
 		return it->second;
 	}
+}
+
+void Event::setStringProperty(const std::string & key, std::string value){
+	m_stringProperties[key] = value;
+}
+
+int Event::getStringPropertiesSize() const {
+	return m_stringProperties.size();
 }
 
 Event::Event(){}

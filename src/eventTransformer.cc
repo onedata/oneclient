@@ -49,7 +49,7 @@ shared_ptr<Event> EventTransformer::actualProcessEvent(shared_ptr<Event> event)
 	{
 		string fieldName = m_fieldNamesToReplace[i];
 		if(newEvent->getStringProperty(fieldName, "") == m_valuesToReplace[i]){
-			newEvent->m_stringProperties[fieldName] = m_newValues[i];
+			newEvent->setStringProperty(fieldName, m_newValues[i]);
 		}
 	}
 	return newEvent;
