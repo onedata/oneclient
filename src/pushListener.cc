@@ -121,8 +121,8 @@ namespace client {
         try {
             connection->sendMessage(clm, messageId);
             DLOG(INFO) << "push message ack sent successfully";
-        } catch(ConnectionStatus &e) {
-            LOG(WARNING) << "Cannot send ack for push message with messageId: " << messageId << ", connectionsStatus: " << connectionsStatus;
+        } catch(CommunicationHandler::ConnectionStatus &connectionStatus) {
+            LOG(WARNING) << "Cannot send ack for push message with messageId: " << messageId << ", connectionsStatus: " << connectionStatus;
         }
     }
     
