@@ -44,8 +44,8 @@
 #define READ_BUFFER_MAX_FILE_SIZE_OPT   "read_buffer_max_file_size"
 #define FILE_BUFFER_PREFERED_BLOCK_SIZE_OPT "file_buffer_prefered_block_size"
 #define FUSE_GROUP_ID_OPT               "fuse_group_id"
+#define WRITE_BYTES_BEFORE_STAT_OPT     "write_bytes_before_stat"
 #define NO_CHECK_CERTIFICATE            "no_check_certificate"
-
 
 /// Prefix for all env variables that will be send to cluster
 #define FUSE_OPT_PREFIX               "fuse_opt_"
@@ -176,6 +176,7 @@ protected:
         DECLARE_DEFAULT(WRITE_BUFFER_MAX_FILE_SIZE_OPT, 64 * 1024 * 1024);  // 64 MB
         DECLARE_DEFAULT(READ_BUFFER_MAX_FILE_SIZE_OPT, 10 * 1024 * 1024);   // 10 MB
         DECLARE_DEFAULT(FILE_BUFFER_PREFERED_BLOCK_SIZE_OPT, 100 * 1024);   // 100 kB
+        DECLARE_DEFAULT(WRITE_BYTES_BEFORE_STAT_OPT, 5 * 1024 * 1024);          // 5 MB
     }
     
     void setupRestrictedOptions() {

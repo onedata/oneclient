@@ -68,7 +68,7 @@ namespace client {
                 {
                     if (!(*it).second || !(*it).second(msg)) {
                         it = m_listeners.erase(it);
-                    } else {
+                    } else {                       
                         ++it;
                     }
                 }
@@ -76,8 +76,7 @@ namespace client {
                 LOG(INFO) << "Got ERROR message ID: " << msg.message_id() << ". Status: " << msg.answer_status();
                 onChannelError(msg);
             }
-        }
-        
+        }     
     }
     
     int PushListener::subscribe(listener_fun fun)
@@ -99,6 +98,31 @@ namespace client {
         {
             LOG(INFO) << "Received 'INVALID_FUSE_ID' message. Starting FuseID renegotiation...";
             VeilFS::getConfig()->negotiateFuseID();
+        }
+    }
+
+    void PushListener::sendPushMessageAck(const std::string & moduleName, int messageId){
+        protocol::communication_protocol::ClusterMsg clm;
+        clm.set_protocol_version(PROTOCOL_VERSION);
+        clm.set_synch(false);
+        clm.set_module_name(moduleName);
+        clm.set_message_type(ATOM);
+        clm.set_answer_type(ATOM); // this value does not matter because we do not expect answer and server is not going to send anything in reply to PUSH_MESSAGE_ACK
+        clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
+        clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL); // this value does not matter because we do not expect answer and server is not going to send anything in reply to PUSH_MESSAGE_ACK
+        clm.set_message_id(messageId);
+
+        protocol::communication_protocol::Atom msg;
+        msg.set_value(PUSH_MESSAGE_ACK);
+        clm.set_input(msg.SerializeAsString());
+
+        boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+
+        try {
+            connection->sendMessage(clm, messageId);
+            DLOG(INFO) << "push message ack sent successfully";
+        } catch(CommunicationHandler::ConnectionStatus &connectionStatus) {
+            LOG(WARNING) << "Cannot send ack for push message with messageId: " << messageId << ", connectionsStatus: " << connectionStatus;
         }
     }
     

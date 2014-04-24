@@ -36,6 +36,7 @@ public:
     MOCK_METHOD3(changeFileGroup, string(string, gid_t, string));
     MOCK_METHOD1(sendFileNotUsed, bool(string));
     MOCK_METHOD0(getStatFS, pair<string, struct statvfs>());
+    MOCK_METHOD0(isWriteEnabled, bool());
 
 };
 
