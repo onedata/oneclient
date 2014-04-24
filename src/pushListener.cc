@@ -17,10 +17,10 @@ using namespace veil::protocol::fuse_messages;
 
 namespace veil {
 namespace client {
-    
+
     PushListener::PushListener() :
-      m_isRunning(true),
-      m_currentSubId(0)
+      m_currentSubId(0),
+      m_isRunning(true)
     {
         // Start worker thread
         m_worker = boost::thread(boost::bind(&PushListener::mainLoop, this));
@@ -34,30 +34,30 @@ namespace client {
         m_queueCond.notify_all();
         m_worker.join();
     }
-    
+
     void PushListener::onMessage(const protocol::communication_protocol::Answer msg)
     {
         boost::unique_lock<boost::mutex> lock(m_queueMutex);
         m_msgQueue.push_back(msg);
         m_queueCond.notify_all();
     }
-        
+
     void PushListener::mainLoop()
     {
         LOG(INFO) << "PUSH Listener has beed successfully started!";
         while(m_isRunning) {
             boost::unique_lock<boost::mutex> lock(m_queueMutex);
-            
+
             if(m_msgQueue.empty())
                 m_queueCond.wait(lock);
-            
+
             if(m_msgQueue.empty()) // check interruped status
                 continue;
-            
+
             // Process queue here
             Answer msg = m_msgQueue.front();
             m_msgQueue.pop_front();
-            
+
             if(msg.answer_status() == VOK || msg.answer_status() == VPUSH)
             {
                 LOG(INFO) << "Got PUSH message ID: " << msg.message_id() << ". Passing to " << m_listeners.size() << " listeners.";
@@ -68,7 +68,7 @@ namespace client {
                 {
                     if (!(*it).second || !(*it).second(msg)) {
                         it = m_listeners.erase(it);
-                    } else {                       
+                    } else {
                         ++it;
                     }
                 }
@@ -76,23 +76,23 @@ namespace client {
                 LOG(INFO) << "Got ERROR message ID: " << msg.message_id() << ". Status: " << msg.answer_status();
                 onChannelError(msg);
             }
-        }     
+        }
     }
-    
+
     int PushListener::subscribe(listener_fun fun)
     {
         boost::unique_lock<boost::mutex> lock(m_queueMutex);
         m_listeners.insert(std::make_pair(m_currentSubId, fun));
         return m_currentSubId++;
     }
-    
+
     void PushListener::unsubscribe(int subId)
     {
         boost::unique_lock<boost::mutex> lock(m_queueMutex);
         m_listeners.erase(subId);
     }
-    
-    void PushListener::onChannelError(const Answer& msg) 
+
+    void PushListener::onChannelError(const Answer& msg)
     {
         if(msg.answer_status() == INVALID_FUSE_ID)
         {
@@ -125,6 +125,6 @@ namespace client {
             LOG(WARNING) << "Cannot send ack for push message with messageId: " << messageId << ", connectionsStatus: " << connectionStatus;
         }
     }
-    
+
 } // namespace client
 } // namespace veil
