@@ -24,14 +24,12 @@
 #include "simpleConnectionPool.h"
 #include "ISchedulable.h"
 #include "pushListener.h"
+#include "options.h"
 #include <list>
 #include <boost/unordered_map.hpp>
 
 /// The name of default global config file
 #define GLOBAL_CONFIG_FILE      "veilFuse.conf"
-
-/// The command line pattern used to find user config path ARGV
-#define CONFIG_ARGV_OPT_NAME    "--config="
 
 /**
  * How many dirent should be fetch from cluster at once.
@@ -60,13 +58,15 @@ public:
         static boost::shared_ptr<Config>  getConfig();                          ///< Returns Config assigned to this object.
         static boost::shared_ptr<SimpleConnectionPool> getConnectionPool();
         static boost::shared_ptr<PushListener>         getPushListener();
-    
+        static boost::shared_ptr<Options>  getOptions();                          ///< Returns Options assigned to this object.
+
         static void addScheduler(boost::shared_ptr<JobScheduler> injected);     ///< Sets JobScheduler object.
         static void setConfig(boost::shared_ptr<Config> injected);              ///< Sets Config object.
         static void setConnectionPool(boost::shared_ptr<SimpleConnectionPool> injected);
+        static void setOptions(boost::shared_ptr<Options> injected);
 
-        VeilFS(std::string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler, 
-               boost::shared_ptr<FslogicProxy> fslogic,  boost::shared_ptr<MetaCache> metaCache, 
+        VeilFS(std::string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler,
+               boost::shared_ptr<FslogicProxy> fslogic,  boost::shared_ptr<MetaCache> metaCache,
                boost::shared_ptr<StorageMapper> mapper, boost::shared_ptr<helpers::StorageHelperFactory> sh_factory); ///< VeilFS constructor.
         virtual ~VeilFS();
         static void staticDestroy();
@@ -111,7 +111,7 @@ protected:
         uid_t       m_ruid;  ///< Filesystem root real uid
         gid_t       m_rgid;  ///< Filesystem root real gid
         uint64_t    m_fh;
-        
+
         static ReadWriteLock m_schedulerPoolLock;
 
         boost::shared_ptr<FslogicProxy> m_fslogic;             ///< FslogicProxy instance
@@ -119,13 +119,14 @@ protected:
         static std::list<boost::shared_ptr<JobScheduler> > m_jobSchedulers; ///< JobScheduler instances
         boost::shared_ptr<MetaCache> m_metaCache;              ///< MetaCache instance
         static boost::shared_ptr<Config> m_config;             ///< Config instance
+        static boost::shared_ptr<Options> m_options;             ///< Options instance
         boost::shared_ptr<helpers::StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance
         static boost::shared_ptr<SimpleConnectionPool> m_connectionPool;
         static boost::shared_ptr<PushListener> m_pushListener;
 
         std::map<std::string, std::pair<std::string, time_t> > m_linkCache;         ///< Simple links cache.
         ReadWriteLock m_linkCacheLock;
-    
+
         boost::unordered_map<helper_cache_idx_t, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
         ReadWriteLock m_shCacheLock;
 };

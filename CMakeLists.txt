@@ -90,9 +90,9 @@ find_package(Git REQUIRED)
 set(Boost_USE_STATIC_LIBS        ON)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
-find_package(Boost COMPONENTS system thread filesystem random REQUIRED)
+find_package(Boost COMPONENTS system thread filesystem random program_options REQUIRED)
 
-set(BOOST_LIBS boost_system boost_thread boost_filesystem boost_random)
+set(BOOST_LIBS boost_system boost_thread boost_filesystem boost_random boost_program_options)
 
 foreach(LIB ${BOOST_LIBS})
     find_library(BOOST_${LIB}_LIBRARY NAMES lib${LIB}-mt.a lib${LIB}.a ${LIB}-mt ${LIB})

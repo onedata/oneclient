@@ -32,7 +32,7 @@ MetaCache::~MetaCache()
 
 void MetaCache::addAttr(string path, struct stat &attr)
 {
-    if(!VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT))
+    if(!VeilFS::getOptions()->get_enable_attr_cache())
         return;
 
     AutoLock lock(m_statMapLock, WRITE_LOCK);
@@ -41,7 +41,7 @@ void MetaCache::addAttr(string path, struct stat &attr)
 
     if(!wasBefore)
     {
-        int expiration_time = VeilFS::getConfig()->getInt(ATTR_CACHE_EXPIRATION_TIME_OPT);
+        int expiration_time = VeilFS::getOptions()->get_attr_cache_expiration_time();
         if(expiration_time <= 0)
             expiration_time = ATTR_DEFAULT_EXPIRATION_TIME;
         // because of random part, only small parts of cache will be updated at the same moment
