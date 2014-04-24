@@ -132,8 +132,11 @@ public:
                                                                 ///< User config overides global settings.
                                                                 ///< If user config declares all required options, global config file isn't required, otherwise it has exists.
     std::vector< std::pair<int, std::string> >
-    static getStorageInfo(boost::filesystem::path mountPoint);  ///< Returns vector of pairs of storage id and relative path to storage mounted in 'mountPoint' read from 'STORAGE_INFO_FILENAME' special file
-    void static checkDirectIOStorage();                         ///< Informs server about storage that is directly accessible by client
+    static getStorageInfo(boost::filesystem::path mountPoint);  ///< Returns vector of pairs of storage id and relative path to storages mounted in 'mountPoint' read from 'STORAGE_INFO_FILENAME' configuration file
+    std::vector< std::pair<int, std::string> >
+    static getClientStorageInfo();                              ///< Returns vector or pairs of storage id and absolute path to storages that are directly accessible by a client
+    void static sendClientStorageInfo
+    (std::vector< std::pair<int, std::string> >);               ///< Informs server about storage that is directly accessible by client
 
     Config();
     virtual ~Config();

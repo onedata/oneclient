@@ -118,7 +118,10 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
     }
 
     if(!VeilFS::getConfig()->isSet(FUSE_GROUP_ID_OPT)) {
-        Config::checkDirectIOStorage();
+        vector< pair<int, string> > info = Config::getClientStorageInfo();
+        if(!info.empty()) {
+            Config::sendClientStorageInfo(info);
+        }
     }
 
     m_uid = geteuid();
