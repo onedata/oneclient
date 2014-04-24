@@ -37,7 +37,7 @@ public:
     MetaCache();
     virtual ~MetaCache();
 
-    virtual void addAttr(std::string, struct stat&);    ///< Cache given attributes
+    virtual void addAttr(const std::string&, struct stat&); ///< Cache given attributes
                                                         ///< Expiration time can be set using configuration file.
     virtual void clearAttrs();                          ///< Clear whole cache
 
@@ -46,12 +46,12 @@ public:
      * @param stat Pointer to stat structure that should be filled with data from cache
      * @return Bool saying if operation succeed and stat struct was filled with data
      */
-    virtual bool getAttr(std::string, struct stat*);
-    virtual void clearAttr(std::string path);        ///< Remove cache for given file
-    virtual bool updateTimes(std::string path, time_t atime = 0, time_t mtime = 0, time_t ctime = 0); ///< Update *time meta attributes for specific file in cache. Returns true if cache was updated or false if given file wasn't found in cache.
-    virtual bool updateSize(std::string path, size_t size); ///< Update size meta attribute for specific file in cache. Returns true if cache was updated or false if given file wasn't found in cache.
+    virtual bool getAttr(const std::string&, struct stat*);
+    virtual void clearAttr(const std::string &path);        ///< Remove cache for given file
+    virtual bool updateTimes(const std::string &path, time_t atime = 0, time_t mtime = 0, time_t ctime = 0); ///< Update *time meta attributes for specific file in cache. Returns true if cache was updated or false if given file wasn't found in cache.
+    virtual bool updateSize(const std::string &path, size_t size); ///< Update size meta attribute for specific file in cache. Returns true if cache was updated or false if given file wasn't found in cache.
 
-    virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+    virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 };
 

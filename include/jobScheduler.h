@@ -34,7 +34,7 @@ struct Job
     std::string arg2;                           ///< Task's third argument
 
     ///< Default constructor
-    Job(time_t when, boost::shared_ptr<ISchedulable> subject, ISchedulable::TaskID task, std::string arg0 = "", std::string arg1 = "", std::string arg2 = "");
+    Job(time_t when, boost::shared_ptr<ISchedulable> subject, ISchedulable::TaskID task, const std::string &arg0 = "", const std::string &arg1 = "", const std::string &arg2 = "");
 
     bool operator<(const Job& other) const;     ///< Compare operator for priority queue.
                                                 ///< It compares tasks by it's Job::when field
@@ -57,7 +57,7 @@ protected:
 
     virtual void schedulerMain();       ///< Thread main loop.
                                         ///< Checks run queue and runs tasks when needed.
-    virtual void runJob(Job job);       ///< Starts given task. @see JobScheduler::schedulerMain
+    virtual void runJob(const Job &job); ///< Starts given task. @see JobScheduler::schedulerMain
     virtual void startDaemon();         ///< Starts/restarts daemon.
 
     static void* schedulerMainWrapper(void* arg);   ///< C wrapper used to start JobScheduler::schedulerMain
@@ -67,7 +67,7 @@ public:
     virtual ~JobScheduler();
 
     virtual bool hasTask(ISchedulable::TaskID task);
-    virtual void addTask(Job job);                                              ///< Insert (register) new task to run queue.
+    virtual void addTask(const Job &job);                                       ///< Insert (register) new task to run queue.
                                                                                 ///< Inserted task shall run when current time passes its Job::when. @see ::Job
     virtual void deleteJobs(ISchedulable *subject, ISchedulable::TaskID task);  ///< Deletes all jobs registred by given object.
                                                                                 ///< Used mainly when ISchedulable object is destructed.

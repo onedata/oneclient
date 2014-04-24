@@ -24,7 +24,7 @@ public:
         if(presetMock)
             return presetMock;
         else
-            return boost::shared_ptr<IStorageHelper>(new MockGenericHelper());    
+            return boost::shared_ptr<IStorageHelper>(new MockGenericHelper());
     }
 
 };

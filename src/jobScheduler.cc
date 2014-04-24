@@ -31,7 +31,7 @@ using namespace boost;
 namespace veil {
 namespace client {
 
-Job::Job(time_t when, boost::shared_ptr<ISchedulable> subject, ISchedulable::TaskID task, string arg0, string arg1, string arg2) :
+Job::Job(time_t when, boost::shared_ptr<ISchedulable> subject, ISchedulable::TaskID task, const string &arg0, const string &arg1, const string &arg2) :
     when(when),
     subject(subject),
     task(task),
@@ -141,14 +141,14 @@ void JobScheduler::schedulerMain()
     }
 }
 
-void JobScheduler::runJob(Job job)
+void JobScheduler::runJob(const Job &job)
 {
     DLOG(INFO) << "Processing job... TaskID: " << job.task << " (" << job.arg0 << ", " << job.arg1 << ", " << job.arg2 << ")";
     if(!job.subject || !job.subject->runTask(job.task, job.arg0, job.arg1, job.arg2))
         LOG(WARNING) << "Task with id: " << job.task << " failed";
 }
 
-void JobScheduler::addTask(Job job)
+void JobScheduler::addTask(const Job &job)
 {
     pthread_mutex_lock(&m_mutex);
     DLOG(INFO) << "Scheduling task with id: " << job.task << " (" << job.arg0 << ", " << job.arg1 << ", " << job.arg2 << ")";
@@ -188,7 +188,7 @@ bool JobScheduler::hasTask(ISchedulable::TaskID task) {
     bool found = false;
     while(!m_jobQueue.empty() && !found) {
         Job t = m_jobQueue.top();
-        if(t.task == task) 
+        if(t.task == task)
             found = true;
 
         tmp.push_back(t);

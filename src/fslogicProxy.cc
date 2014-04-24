@@ -39,7 +39,7 @@ FslogicProxy::~FslogicProxy()
     LOG_TO_SINK(0, INFO) << "FslogicProxy destroyed";
 }
 
-bool FslogicProxy::getFileAttr(string logicName, FileAttr& attr)
+bool FslogicProxy::getFileAttr(const string& logicName, FileAttr& attr)
 {
     LOG(INFO) << "getting attributes from cluster for file: " << logicName;
 
@@ -55,7 +55,7 @@ bool FslogicProxy::getFileAttr(string logicName, FileAttr& attr)
     return true;
 }
 
-bool FslogicProxy::getFileLocation(string logicName, FileLocation& location)
+bool FslogicProxy::getFileLocation(const string &logicName, FileLocation& location)
 {
     LOG(INFO) << "getting file location from cluster for file: " << logicName;
 
@@ -71,7 +71,7 @@ bool FslogicProxy::getFileLocation(string logicName, FileLocation& location)
     return true;
 }
 
-bool FslogicProxy::getNewFileLocation(string logicName, mode_t mode, FileLocation& location)
+bool FslogicProxy::getNewFileLocation(const string &logicName, mode_t mode, FileLocation& location)
 {
     LOG(INFO) << "getting new file location for file: " << logicName;
 
@@ -88,7 +88,7 @@ bool FslogicProxy::getNewFileLocation(string logicName, mode_t mode, FileLocatio
     return true;
 }
 
-string FslogicProxy::sendFileCreatedAck(string logicName)
+string FslogicProxy::sendFileCreatedAck(const string &logicName)
 {
     LOG(INFO) << "getting new file location for file: " << logicName;
 
@@ -100,7 +100,7 @@ string FslogicProxy::sendFileCreatedAck(string logicName)
     return serializedAnswer;
 }
 
-int FslogicProxy::renewFileLocation(string logicName)
+int FslogicProxy::renewFileLocation(const string &logicName)
 {
     LOG(INFO) << "renew file location for file: " << logicName;
 
@@ -123,7 +123,7 @@ int FslogicProxy::renewFileLocation(string logicName)
     return locationValidity.validity();
 }
 
-bool FslogicProxy::getFileChildren(string dirLogicName, uint32_t children_num, uint32_t offset, vector<string>& childrenNames)
+bool FslogicProxy::getFileChildren(const string &dirLogicName, uint32_t children_num, uint32_t offset, vector<string>& childrenNames)
 {
     LOG(INFO) << "getting file children for: " << dirLogicName;
 
@@ -148,7 +148,7 @@ bool FslogicProxy::getFileChildren(string dirLogicName, uint32_t children_num, u
 }
 
 
-string FslogicProxy::createDir(string logicName, mode_t mode)
+string FslogicProxy::createDir(const string& logicName, mode_t mode)
 {
     LOG(INFO) << "creaing dir: " << logicName;
 
@@ -161,7 +161,7 @@ string FslogicProxy::createDir(string logicName, mode_t mode)
     return serializedAnswer;
 }
 
-string FslogicProxy::deleteFile(string logicName)
+string FslogicProxy::deleteFile(const string& logicName)
 {
     DeleteFile msg;
     msg.set_file_logic_name(logicName);
@@ -171,7 +171,7 @@ string FslogicProxy::deleteFile(string logicName)
     return serializedAnswer;
 
 }
-bool FslogicProxy::sendFileNotUsed(string logicName)
+bool FslogicProxy::sendFileNotUsed(const string& logicName)
 {
     FileNotUsed msg;
     msg.set_file_logic_name(logicName);
@@ -186,7 +186,7 @@ bool FslogicProxy::sendFileNotUsed(string logicName)
     return true;
 }
 
-string FslogicProxy::renameFile(string fromLogicName, string toLogicName)
+string FslogicProxy::renameFile(const string& fromLogicName, const string& toLogicName)
 {
     RenameFile msg;
     msg.set_from_file_logic_name(fromLogicName);
@@ -197,7 +197,7 @@ string FslogicProxy::renameFile(string fromLogicName, string toLogicName)
     return serializedAnswer;
 }
 
-string FslogicProxy::changeFilePerms(string path, mode_t mode)
+string FslogicProxy::changeFilePerms(const string& path, mode_t mode)
 {
     ChangeFilePerms msg;
     msg.set_file_logic_name(path);
@@ -208,7 +208,7 @@ string FslogicProxy::changeFilePerms(string path, mode_t mode)
     return serializedAnswer;
 }
 
-string FslogicProxy::updateTimes(string path, time_t atime, time_t mtime, time_t ctime)
+string FslogicProxy::updateTimes(const string& path, time_t atime, time_t mtime, time_t ctime)
 {
     UpdateTimes msg;
     msg.set_file_logic_name(path);
@@ -224,7 +224,7 @@ string FslogicProxy::updateTimes(string path, time_t atime, time_t mtime, time_t
     return serializedAnswer;
 }
 
-string FslogicProxy::changeFileOwner(string path, uid_t uid, string uname)
+string FslogicProxy::changeFileOwner(const string& path, uid_t uid, const string& uname)
 {
     ChangeFileOwner msg;
     msg.set_file_logic_name(path);
@@ -237,7 +237,7 @@ string FslogicProxy::changeFileOwner(string path, uid_t uid, string uname)
     return serializedAnswer;
 }
 
-string FslogicProxy::changeFileGroup(string path, gid_t gid, string gname)
+string FslogicProxy::changeFileGroup(const string& path, gid_t gid, const string& gname)
 {
     ChangeFileGroup msg;
     msg.set_file_logic_name(path);
@@ -250,7 +250,7 @@ string FslogicProxy::changeFileGroup(string path, gid_t gid, string gname)
     return serializedAnswer;
 }
 
-string FslogicProxy::createLink(string from, string to)
+string FslogicProxy::createLink(const string& from, const string& to)
 {
     CreateLink msg;
     msg.set_from_file_logic_name(from);
@@ -261,7 +261,7 @@ string FslogicProxy::createLink(string from, string to)
     return serializedAnswer;
 }
 
-pair<string, string> FslogicProxy::getLink(string path)
+pair<string, string> FslogicProxy::getLink(const string& path)
 {
     GetLink msg;
     LinkInfo answer;
@@ -386,7 +386,7 @@ pair<string, struct statvfs> FslogicProxy::getStatFS()
     return make_pair(answer.answer(), statFS);
 }
 
-void FslogicProxy::pingCluster(string nth)
+void FslogicProxy::pingCluster(const string& nth)
 {
 
     ClusterMsg clm;
@@ -420,7 +420,7 @@ void FslogicProxy::pingCluster(string nth)
     VeilFS::getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
 }
 
-bool FslogicProxy::runTask(TaskID taskId, string arg0, string, string)
+bool FslogicProxy::runTask(TaskID taskId, const string& arg0, const string&, const string&)
 {
     string res;
     switch(taskId)

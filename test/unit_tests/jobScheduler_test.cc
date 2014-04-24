@@ -19,10 +19,10 @@ INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
 
 
-class MockJobObject 
+class MockJobObject
     : public ISchedulable {
 public:
-    MOCK_METHOD4(runTask, bool(TaskID, string, string, string));
+    MOCK_METHOD4(runTask, bool(TaskID, const string&, const string&, const string&));
 };
 
 class JobSchedulerTest
