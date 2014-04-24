@@ -139,7 +139,6 @@ vector< pair<int, string> > Config::getClientStorageInfo()
             }
         }
     }
-
     return clientStorageInfo;
 }
 
@@ -162,7 +161,7 @@ void Config::sendClientStorageInfo(vector< pair<int, string> > clientStorageInfo
 		    info->set_storage_id(it->first);
 		    info->set_absolute_path(it->second);
 		}
-		cMsg = builder.createClusterMessage(FSLOGIC, DirectIOStorageInfo::descriptor()->name(), Atom::descriptor()->name(), COMMUNICATION_PROTOCOL, true);
+		cMsg = builder.createClusterMessage(FSLOGIC, ClientStorageInfo::descriptor()->name(), Atom::descriptor()->name(), COMMUNICATION_PROTOCOL, true);
 		cMsg.set_input(reqMsg.SerializeAsString());
         // Send CreateStorageTestFileRequest message
 		ans = conn->communicate(cMsg, 2);
@@ -202,9 +201,11 @@ void Config::createStorageTestFile(int storageId, string& relativePath, string& 
         cMsg = builder.createClusterMessage(FSLOGIC, StorageTestRequest::descriptor()->name(), StorageTestResponse::descriptor()->name(), FUSE_MESSAGES, true);
         cMsg.set_input(reqMsg.SerializeAsString());
         // Send CreateStorageTestFileRequest message
+        LOG(INFO) << "========> Sending create storage test file request";
         ans = conn->communicate(cMsg, 2);
     	// Check answer
         if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer())) {
+            LOG(INFO) << "=======> Received answer: " << resMsg.answer();
             if(resMsg.answer() == "ok") {
                 relativePath = resMsg.relative_path();
                 text = resMsg.text();
@@ -267,11 +268,11 @@ bool Config::hasClientStorageWritePermissions(int storageId, string storagePath,
     conn = VeilFS::getConnectionPool()->selectConnection();
     if(conn) {
         // Build CreateStorageTestFileRequest message
-        reqMsg.set_type("check_storage_test_file_modification")
+        reqMsg.set_type("storage_test_file_modified");
         reqMsg.set_storage_id(storageId);
         reqMsg.set_relative_path(relativePath);
         reqMsg.set_text(text);
-        cMsg = builder.createClusterMessage(FSLOGIC, StorageTestFileModified::descriptor()->name(), StorageTestFileModifiedAck::descriptor()->name(), FUSE_MESSAGES, true);
+        cMsg = builder.createClusterMessage(FSLOGIC, StorageTestRequest::descriptor()->name(), StorageTestResponse::descriptor()->name(), FUSE_MESSAGES, true);
         cMsg.set_input(reqMsg.SerializeAsString());
         // Send CreateStorageTestFileRequest message
         ans = conn->communicate(cMsg, 2);
