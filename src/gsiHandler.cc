@@ -249,7 +249,6 @@ bool validateProxyCert()
 
     string cPathMode = "", cPathMode1 = "", debugStr = (debug ? " -debug" : "");
     struct stat buf;
-    int proxyStatus;
 
     std::pair<string, string> userCertAndKey = getUserCertAndKey();
     const string &userCert = userCertAndKey.first;
@@ -319,8 +318,6 @@ bool validateProxyCert()
     chain_buff = BUF_MEM_new();
     BIO* chain_mem = BIO_new(BIO_s_mem());
     BIO_set_mem_buf(chain_mem, chain_buff, BIO_NOCLOSE);
-
-    const EVP_CIPHER* cipher = NULL;
 
     if(file == NULL)
     {

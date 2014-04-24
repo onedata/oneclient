@@ -68,13 +68,13 @@ public:
         static boost::shared_ptr<Config>  getConfig();                          ///< Returns Config assigned to this object.
         static boost::shared_ptr<SimpleConnectionPool> getConnectionPool();
         static boost::shared_ptr<PushListener>         getPushListener();
-    
+
         static void addScheduler(boost::shared_ptr<JobScheduler> injected);     ///< Sets JobScheduler object.
         static void setConfig(boost::shared_ptr<Config> injected);              ///< Sets Config object.
         static void setConnectionPool(boost::shared_ptr<SimpleConnectionPool> injected);
 
-        VeilFS(std::string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler, 
-                boost::shared_ptr<FslogicProxy> fslogic, boost::shared_ptr<MetaCache> metaCache, 
+        VeilFS(std::string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler,
+                boost::shared_ptr<FslogicProxy> fslogic, boost::shared_ptr<MetaCache> metaCache,
                 boost::shared_ptr<StorageMapper> mapper, boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
                 boost::shared_ptr<events::EventCommunicator> eventCommunicator); ///< VeilFS constructor.
         virtual ~VeilFS();
@@ -120,22 +120,22 @@ protected:
         uid_t       m_ruid;  ///< Filesystem root real uid
         gid_t       m_rgid;  ///< Filesystem root real gid
         uint64_t    m_fh;
-        
+
         static ReadWriteLock m_schedulerPoolLock;
 
         boost::shared_ptr<FslogicProxy> m_fslogic;             ///< FslogicProxy instance
-        boost::shared_ptr<events::EventCommunicator> m_eventCommunicator;
         boost::shared_ptr<StorageMapper> m_storageMapper;      ///< StorageMapper instance
-        static std::list<boost::shared_ptr<JobScheduler> > m_jobSchedulers; ///< JobScheduler instances
         boost::shared_ptr<MetaCache> m_metaCache;              ///< MetaCache instance
-        static boost::shared_ptr<Config> m_config;             ///< Config instance
         boost::shared_ptr<helpers::StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance
+        boost::shared_ptr<events::EventCommunicator> m_eventCommunicator;
+        static std::list<boost::shared_ptr<JobScheduler> > m_jobSchedulers; ///< JobScheduler instances
+        static boost::shared_ptr<Config> m_config;             ///< Config instance
         static boost::shared_ptr<SimpleConnectionPool> m_connectionPool;
         static boost::shared_ptr<PushListener> m_pushListener;
 
         std::map<std::string, std::pair<std::string, time_t> > m_linkCache;         ///< Simple links cache.
         ReadWriteLock m_linkCacheLock;
-    
+
         boost::unordered_map<helper_cache_idx_t, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
         ReadWriteLock m_shCacheLock;
 };
