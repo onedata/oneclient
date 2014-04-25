@@ -70,6 +70,10 @@
   # [Restricted] [default = 64MB]
     # read_buffer_max_size = 67108864
 
+  # How many bytes will be written to file before stat will be forced
+  # [default = 5MB]
+    # write_bytes_before_stat: 5242880
+
 
   # Maximum size of read buffer for a single file (in bytes)
   # [Restricted] [default = 10MB]

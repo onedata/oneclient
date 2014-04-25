@@ -22,7 +22,6 @@
 #include "logging.h"
 #include "lock.h"
 
-
 /// Prefix for all env variables that will be send to cluster
 #define FUSE_OPT_PREFIX               "fuse_opt_"
 

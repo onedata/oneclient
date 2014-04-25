@@ -10,12 +10,17 @@
 #include "fslogicProxy_proxy.h"
 #include "messageBuilder_mock.h"
 #include "options_mock.h"
+#include "events_mock.h"
 #include "jobScheduler_mock.h"
 #include "storageHelperFactory_fake.h"
 #include "fslogicProxy_mock.h"
 #include "metaCache_mock.h"
 #include "storageMapper_mock.h"
 #include "veilErrors.h"
+
+#include "events/events.h"
+
+#include "events_mock.h"
 
 INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
@@ -34,6 +39,7 @@ public:
     boost::shared_ptr<MockStorageMapper> storageMapperMock;
     boost::shared_ptr<MockGenericHelper> helperMock;
     boost::shared_ptr<FakeStorageHelperFactory> factoryFake;
+    boost::shared_ptr<MockEventCommunicator> eventCommunicatorMock;
 
     struct fuse_file_info fileInfo;
     struct stat trueStat;
@@ -49,11 +55,21 @@ public:
         storageMapperMock.reset(new MockStorageMapper(fslogicMock));
         helperMock.reset(new MockGenericHelper());
         factoryFake.reset(new FakeStorageHelperFactory());
+        eventCommunicatorMock.reset(new MockEventCommunicator());
 
         EXPECT_CALL(*fslogicMock, pingCluster()).WillRepeatedly(Return());
         EXPECT_CALL(*options, get_alive_meta_connections_count()).WillRepeatedly(Return(0));
         EXPECT_CALL(*options, get_alive_data_connections_count()).WillRepeatedly(Return(0));
         EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(false));
+        EXPECT_CALL(*options, get_write_bytes_before_stat()).WillRepeatedly(Return(0));
+
+        const ::testing::TestInfo* const test_info = ::testing::UnitTest::GetInstance()->current_test_info();
+        string testCaseName = test_info->test_case_name();
+        if(testCaseName == "writeDisabled"){
+            EXPECT_CALL(*fslogicMock, isWriteEnabled()).WillRepeatedly(Return(false));
+        }else{
+            EXPECT_CALL(*fslogicMock, isWriteEnabled()).WillRepeatedly(Return(true));
+        }
 
         VeilFS::staticDestroy();
         VeilFS::setConnectionPool(connectionPool);
@@ -63,7 +79,8 @@ public:
                         fslogicMock,
                         metaCacheMock,
                         storageMapperMock,
-                        factoryFake));
+                        factoryFake,
+                        eventCommunicatorMock));
 
         factoryFake->presetMock = helperMock;
 
@@ -495,6 +512,7 @@ TEST_F(VeilFSTest, write) { // const char *path, const char *buf, size_t size, o
     EXPECT_CALL(*metaCacheMock, updateSize("/path", _)).Times(0);
 
     EXPECT_CALL(*helperMock, sh_write(StrEq("fileid"), StrEq("abcd"), 4, 2, _)).WillOnce(Return(4));
+    EXPECT_CALL(*eventCommunicatorMock, processEvent(_)).Times(1);
     EXPECT_EQ(4, client->write("/path", "abcd", 4, 2, &fileInfo));
 
 }
@@ -588,4 +606,16 @@ TEST_F(VeilFSTest, fsyncdir) { // const char *path, int datasync, struct fuse_fi
 TEST_F(VeilFSTest, init) { // struct fuse_conn_info *conn
     struct fuse_conn_info info;
     EXPECT_EQ(0, client->init(&info));
+}
+
+TEST_F(VeilFSTest, processEvent) {
+    shared_ptr<MockEventStreamCombiner> combinerMock(new MockEventStreamCombiner());
+    ASSERT_TRUE((bool) combinerMock);
+    EventCommunicator communicator(combinerMock);
+    EXPECT_CALL(*combinerMock, pushEventToProcess(_)).WillOnce(Return());
+    EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
+    shared_ptr<Event> event = Event::createMkdirEvent("some_file");
+
+    ASSERT_TRUE((bool) event);
+    communicator.processEvent(event);
 }

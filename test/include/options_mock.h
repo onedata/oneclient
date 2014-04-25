@@ -25,6 +25,7 @@ struct MockOptions: public veil::client::Options {
     MOCK_CONST_METHOD0(get_enable_dir_prefetch, bool());
     MOCK_CONST_METHOD0(get_alive_meta_connections_count, unsigned int());
     MOCK_CONST_METHOD0(get_alive_data_connections_count, unsigned int());
+    MOCK_CONST_METHOD0(get_write_bytes_before_stat, std::size_t());
 };
 
 

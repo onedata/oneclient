@@ -20,6 +20,12 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/functional.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string/predicate.hpp>
+#include <google/protobuf/descriptor.h>
+
+#include "communication_protocol.pb.h"
+#include "fuse_messages.pb.h"
+#include "messageBuilder.h"
 
 #include <sys/stat.h>
 
@@ -75,12 +81,14 @@ boost::shared_ptr<PushListener> VeilFS::m_pushListener;
 
 VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler,
                boost::shared_ptr<FslogicProxy> fslogic,  boost::shared_ptr<MetaCache> metaCache,
-               boost::shared_ptr<StorageMapper> mapper, boost::shared_ptr<helpers::StorageHelperFactory> sh_factory) :
+               boost::shared_ptr<StorageMapper> mapper, boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
+               boost::shared_ptr<events::EventCommunicator> eventCommunicator) :
+    m_fh(0),
     m_fslogic(fslogic),
     m_storageMapper(mapper),
     m_metaCache(metaCache),
     m_shFactory(sh_factory),
-    m_fh(0)
+    m_eventCommunicator(eventCommunicator)
 {
     if(path.size() > 1 && path[path.size()-1] == '/')
         path = path.substr(0, path.size()-1);
@@ -121,6 +129,17 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
     // Real IDs should be set real owner's ID of "/" directory by first getattr call
     m_ruid = -1;
     m_rgid = -1;
+
+    if(m_eventCommunicator){
+        eventCommunicator->setFslogic(m_fslogic);
+        eventCommunicator->setMetaCache(m_metaCache);
+
+        m_eventCommunicator->addStatAfterWritesRule(VeilFS::getOptions()->get_write_bytes_before_stat());
+    }
+
+    VeilFS::getPushListener()->subscribe(boost::bind(&events::EventCommunicator::pushMessagesHandler, m_eventCommunicator.get(), _1));
+    VeilFS::getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
+    VeilFS::getScheduler(ISchedulable::TASK_IS_WRITE_ENABLED)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_IS_WRITE_ENABLED));
 }
 
 VeilFS::~VeilFS()
@@ -349,6 +368,9 @@ int VeilFS::mkdir(const char *path, mode_t mode)
     RETURN_IF_ERROR(m_fslogic->createDir(string(path), mode & ALLPERMS));
     VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
 
+    boost::shared_ptr<events::Event> mkdirEvent = events::Event::createMkdirEvent(path);
+    m_eventCommunicator->processEvent(mkdirEvent);
+
     return 0;
 }
 
@@ -376,6 +398,9 @@ int VeilFS::unlink(const char *path)
 
     RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
     VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
+
+    boost::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(path);
+    m_eventCommunicator->processEvent(rmEvent);
 
     return 0;
 }
@@ -478,8 +503,12 @@ int VeilFS::truncate(const char *path, off_t newSize)
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_truncate(lInfo.fileId.c_str(), newSize));
 
-    if(sh_return == 0)
+    if(sh_return == 0) {
         (void) m_metaCache->updateSize(string(path), newSize);
+
+        Job postTruncateTask = Job(time(NULL), shared_from_this(), TASK_POST_TRUNCATE_ACTIONS, path, utils::toString(newSize));
+        VeilFS::getScheduler()->addTask(postTruncateTask);
+    }
 
     return sh_return;
 }
@@ -543,12 +572,22 @@ int VeilFS::read(const char *path, char *buf, size_t size, off_t offset, struct 
 
     AutoLock guard(m_shCacheLock, READ_LOCK);
     CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
+
+    boost::shared_ptr<events::Event> writeEvent = events::Event::createReadEvent(path, sh_return);
+    m_eventCommunicator->processEvent(writeEvent);
+
     return sh_return;
 }
 
 int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
 {
     //LOG(INFO) << "FUSE: write(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
+
+    if(!m_eventCommunicator->isWriteEnabled()){
+        LOG(WARNING) << "Attempt to write when write disabled.";
+        return -EDQUOT;
+    }
+
     GET_LOCATION_INFO(path);
 
     AutoLock guard(m_shCacheLock, READ_LOCK);
@@ -562,6 +601,9 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
         if(offset + sh_return > buf.st_size) {
             m_metaCache->updateSize(string(path), offset + sh_return);
         }
+
+        boost::shared_ptr<events::Event> writeEvent = events::Event::createWriteEvent(path, size);
+        m_eventCommunicator->processEvent(writeEvent);
     }
 
     return sh_return;
@@ -773,7 +815,8 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
 {
     struct stat attr;
     vector<string> children;
-    int offset;
+    time_t currentTime;
+    boost::shared_ptr<events::Event> truncateEvent;
 
     switch(taskId)
     {
@@ -803,12 +846,25 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
 
     case TASK_ASYNC_GETATTR:
         if(VeilFS::getOptions()->get_enable_attr_cache())
-            (void) getattr(arg0.c_str(), &attr, false);
+            getattr(arg0.c_str(), &attr, false);
         return true;
 
     case TASK_ASYNC_UPDATE_TIMES: // arg0 = path, arg1 = atime, arg2 = mtime
-        if(m_fslogic->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2)) == VOK);
-            (void) m_metaCache->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2));
+        if(m_fslogic->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2)) == VOK)
+            m_metaCache->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2));
+        return true;
+
+    case TASK_POST_TRUNCATE_ACTIONS: // arg0 = path, arg1 = newSize
+        // we need to statAndUpdatetimes before processing event because we want event to be run with new size value on cluster
+        currentTime = time(NULL);
+        m_fslogic->updateTimes(arg0, 0, currentTime, currentTime);
+
+        m_metaCache->clearAttr(arg0);
+        if(VeilFS::getOptions()->get_enable_attr_cache())
+            getattr(arg0.c_str(), &attr, false);
+
+        truncateEvent = events::Event::createTruncateEvent(arg0, utils::fromString<off_t>(arg1));
+        m_eventCommunicator->processEvent(truncateEvent);
         return true;
 
     default:

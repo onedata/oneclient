@@ -17,10 +17,10 @@ using namespace veil::protocol::fuse_messages;
 
 namespace veil {
 namespace client {
-    
+
     PushListener::PushListener() :
-      m_isRunning(true),
-      m_currentSubId(0)
+      m_currentSubId(0),
+      m_isRunning(true)
     {
         // Start worker thread
         m_worker = boost::thread(boost::bind(&PushListener::mainLoop, this));
@@ -34,30 +34,30 @@ namespace client {
         m_queueCond.notify_all();
         m_worker.join();
     }
-    
+
     void PushListener::onMessage(const protocol::communication_protocol::Answer msg)
     {
         boost::unique_lock<boost::mutex> lock(m_queueMutex);
         m_msgQueue.push_back(msg);
         m_queueCond.notify_all();
     }
-        
+
     void PushListener::mainLoop()
     {
         LOG(INFO) << "PUSH Listener has beed successfully started!";
         while(m_isRunning) {
             boost::unique_lock<boost::mutex> lock(m_queueMutex);
-            
+
             if(m_msgQueue.empty())
                 m_queueCond.wait(lock);
-            
+
             if(m_msgQueue.empty()) // check interruped status
                 continue;
-            
+
             // Process queue here
             Answer msg = m_msgQueue.front();
             m_msgQueue.pop_front();
-            
+
             if(msg.answer_status() == VOK || msg.answer_status() == VPUSH)
             {
                 LOG(INFO) << "Got PUSH message ID: " << msg.message_id() << ". Passing to " << m_listeners.size() << " listeners.";
@@ -77,23 +77,22 @@ namespace client {
                 onChannelError(msg);
             }
         }
-        
     }
-    
+
     int PushListener::subscribe(listener_fun fun)
     {
         boost::unique_lock<boost::mutex> lock(m_queueMutex);
         m_listeners.insert(std::make_pair(m_currentSubId, fun));
         return m_currentSubId++;
     }
-    
+
     void PushListener::unsubscribe(int subId)
     {
         boost::unique_lock<boost::mutex> lock(m_queueMutex);
         m_listeners.erase(subId);
     }
-    
-    void PushListener::onChannelError(const Answer& msg) 
+
+    void PushListener::onChannelError(const Answer& msg)
     {
         if(msg.answer_status() == INVALID_FUSE_ID)
         {
@@ -101,6 +100,31 @@ namespace client {
             VeilFS::getConfig()->negotiateFuseID();
         }
     }
-    
+
+    void PushListener::sendPushMessageAck(const std::string & moduleName, int messageId){
+        protocol::communication_protocol::ClusterMsg clm;
+        clm.set_protocol_version(PROTOCOL_VERSION);
+        clm.set_synch(false);
+        clm.set_module_name(moduleName);
+        clm.set_message_type(ATOM);
+        clm.set_answer_type(ATOM); // this value does not matter because we do not expect answer and server is not going to send anything in reply to PUSH_MESSAGE_ACK
+        clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
+        clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL); // this value does not matter because we do not expect answer and server is not going to send anything in reply to PUSH_MESSAGE_ACK
+        clm.set_message_id(messageId);
+
+        protocol::communication_protocol::Atom msg;
+        msg.set_value(PUSH_MESSAGE_ACK);
+        clm.set_input(msg.SerializeAsString());
+
+        boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+
+        try {
+            connection->sendMessage(clm, messageId);
+            DLOG(INFO) << "push message ack sent successfully";
+        } catch(CommunicationHandler::ConnectionStatus &connectionStatus) {
+            LOG(WARNING) << "Cannot send ack for push message with messageId: " << messageId << ", connectionsStatus: " << connectionStatus;
+        }
+    }
+
 } // namespace client
 } // namespace veil
