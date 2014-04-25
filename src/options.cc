@@ -133,7 +133,7 @@ void Options::parseConfigs(const int argc, const char * const argv[])
     }
 
     // If override is disallowed then we merge in config variables first
-    if(!fileConfigMap.at("enable_env_option_override").as<bool>())
+    if(fileConfigMap.count("enable_env_option_override") && !fileConfigMap.at("enable_env_option_override").as<bool>())
     {
         m_vm.insert(fileConfigMap.begin(), fileConfigMap.end());
         parseEnv();
