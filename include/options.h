@@ -106,7 +106,6 @@ private:
     DECL_CONFIG_DEF(enable_attr_cache, bool, true)
     DECL_CONFIG_DEF(attr_cache_expiration_time, int, ATTR_DEFAULT_EXPIRATION_TIME)
     DECL_CONFIG(enable_location_cache, bool)
-    DECL_CONFIG_DEF(enable_env_option_override, bool, true)
     DECL_CONFIG(fuse_id, std::string)
     DECL_CONFIG_DEF(cluster_ping_interval, std::time_t, 60)
     DECL_CONFIG_DEF(jobscheduler_threads, unsigned int, 3)

@@ -68,7 +68,8 @@ void Options::setDescriptions()
     add_enable_location_cache(m_common);
 
     // Restricted options exclusive to global config file
-    add_enable_env_option_override(m_restricted);
+    m_restricted.add_options()
+            ("enable_env_option_override", value<bool>()->default_value(true));
     add_cluster_ping_interval(m_restricted);
     add_alive_meta_connections_count(m_restricted);
     add_alive_data_connections_count(m_restricted);
@@ -133,7 +134,7 @@ void Options::parseConfigs(const int argc, const char * const argv[])
     }
 
     // If override is disallowed then we merge in config variables first
-    if(fileConfigMap.count("enable_env_option_override") && !fileConfigMap.at("enable_env_option_override").as<bool>())
+    if(fileConfigMap.at("enable_env_option_override").as<bool>())
     {
         m_vm.insert(fileConfigMap.begin(), fileConfigMap.end());
         parseEnv();
