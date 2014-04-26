@@ -36,7 +36,7 @@ FslogicProxy::FslogicProxy()
 
 FslogicProxy::~FslogicProxy()
 {
-    LOG_TO_SINK(0, INFO) << "FslogicProxy destroyed";
+    LOG(INFO) << "FslogicProxy destroyed";
 }
 
 bool FslogicProxy::getFileAttr(string logicName, FileAttr& attr)
