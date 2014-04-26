@@ -230,7 +230,7 @@ TEST_F(VeilFSTest, readlink) { // const char *path, char *link, size_t size
 
 TEST_F(VeilFSTest, mknod) { // const char *path, mode_t mode, dev_t dev
     FileLocation newLoc;
-    dev_t dev;
+    dev_t dev = 0;
     EXPECT_CALL(*metaCacheMock, clearAttr("/path")).Times(AtLeast(3));
 
     newLoc.set_answer(VOK);

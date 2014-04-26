@@ -33,7 +33,6 @@ configure_file (
 
 # Deps
 add_subdirectory(${DEPS_DIR}/glog)
-add_subdirectory(${DEPS_DIR}/yaml-cpp)
 add_subdirectory(${DEPS_DIR}/gmock)
 add_subdirectory(${DEPS_DIR}/veilhelpers)
 
@@ -45,7 +44,6 @@ include_directories(${PROJECT_SOURCE_DIR}/include)
 include_directories(${PROJECT_SOURCE_DIR}/include/fuse)
 include_directories(${PROJECT_BINARY_DIR})
 include_directories(${GLOG_INCLUDE_DIR})
-include_directories(${YAML_INCLUDE_DIR})
 include_directories(${VEILHELPERS_INCLUDE_DIR})
 
 # Setup fuse
@@ -158,8 +156,8 @@ add_library(veilprotocol ${PROTO_SRCS})
 add_library(veilclient ${SOURCES})
 add_executable(veilFuse ${MAIN_SOURCE_FILE})
 
-add_dependencies(veilFuse yaml-cpp glog veilclient)
-add_dependencies(veilclient yaml-cpp glog veilprotocol veilhelpers)
+add_dependencies(veilFuse glog veilclient)
+add_dependencies(veilclient glog veilprotocol veilhelpers)
 
 target_link_libraries(veilprotocol
     ${PROTOBUF_LIBRARY_CUSTOM}
@@ -169,7 +167,6 @@ target_link_libraries(veilclient
     ${FUSE_LIBRARY_CUSTOM}
     ${Boost_LIBRARIES}
     ${GLOG_LIBRARIES}
-    ${YAML_LIBRARIES}
     ${PROTOBUF_LIBRARY_CUSTOM}
     ${VEILHELPERS_LIBRARIES}
     veilprotocol

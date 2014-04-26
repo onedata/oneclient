@@ -9,7 +9,6 @@
 #define CONFIG_HH
 
 #include <string>
-#include <yaml-cpp/yaml.h>
 #include <unistd.h>
 #include <map>
 #include <sstream>
