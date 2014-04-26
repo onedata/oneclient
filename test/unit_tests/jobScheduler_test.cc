@@ -19,7 +19,7 @@ INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
 
 
-class MockJobObject 
+class MockJobObject
     : public ISchedulable {
 public:
     MOCK_METHOD4(runTask, bool(TaskID, string, string, string));
@@ -60,9 +60,9 @@ TEST_F(JobSchedulerTest, JobCompare) {
     EXPECT_FALSE(j2 == j4);
     EXPECT_FALSE(j1 == j6);
 
-    EXPECT_LT(j2, j1);
-    EXPECT_LT(j3, j1);
-    EXPECT_LT(j3, j5);
+    EXPECT_LT(j1, j2);
+    EXPECT_LT(j1, j3);
+    EXPECT_LT(j5, j3);
 }
 
 TEST_F(JobSchedulerTest, AddAndDelete) {
