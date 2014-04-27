@@ -17,7 +17,12 @@ INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
 // TEST definitions below
 
-
+bool operator==(const Job &lhs, const Job &rhs)
+{
+    return lhs.subject == rhs.subject && lhs.task == rhs.task &&
+           lhs.arg0 == rhs.arg0 && lhs.arg1 == rhs.arg1 &&
+           lhs.arg2 == rhs.arg2;
+}
 
 class MockJobObject
     : public ISchedulable {

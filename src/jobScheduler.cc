@@ -28,13 +28,6 @@ Job::Job(const std::time_t when, boost::shared_ptr<ISchedulable> subject,
 {
 }
 
-bool Job::operator==(const Job& other) const
-{
-    return this->subject == other.subject && this->task == other.task &&
-           this->arg0 == other.arg0 && this->arg1 == other.arg1 &&
-           this->arg2 == other.arg2;
-}
-
 bool Job::operator<(const Job& other) const
 {
     return this->when < other.when;
@@ -49,7 +42,7 @@ JobScheduler::JobScheduler()
 JobScheduler::~JobScheduler()
 {
     m_stopScheduler = true;
-    m_queueCond.notify_all();
+    m_newJobCond.notify_all();
     if(m_thread.joinable())
         m_thread.join();
 
@@ -60,26 +53,24 @@ void JobScheduler::schedulerMain()
 {
     std::unique_lock<std::mutex> lock{m_queueMutex};
 
-    m_queueCond.wait(lock, [&]{ return !m_jobQueue.empty() || m_stopScheduler; });
-    if(m_stopScheduler)
-        return;
-
-    if(m_jobQueue.cbegin()->when <= std::chrono::steady_clock::now())
+    while(true)
     {
-        auto job = *m_jobQueue.cbegin();
-        m_jobQueue.erase(m_jobQueue.cbegin());
-        lock.unlock();
+        m_newJobCond.wait(lock, [&]{ return !m_jobQueue.empty() || m_stopScheduler; });
+        if(m_stopScheduler)
+            break;
 
-        runJob(job);
-    }
-    else
-    {
-        lock.unlock();
-        std::this_thread::sleep_until(m_jobQueue.cbegin()->when);
-    }
+        if(m_jobQueue.cbegin()->when <= std::chrono::steady_clock::now())
+        {
+            auto job = *m_jobQueue.cbegin();
+            m_jobQueue.erase(m_jobQueue.cbegin());
 
-    if(!m_stopScheduler)
-        schedulerMain();
+            lock.unlock();
+            runJob(job);
+            lock.lock();
+        }
+        else
+            m_newJobCond.wait_until(lock, m_jobQueue.cbegin()->when);
+    }
 }
 
 void JobScheduler::runJob(const Job &job)
@@ -99,7 +90,7 @@ void JobScheduler::addTask(Job job)
                   ", " << job.arg1 << ", " << job.arg2 << ")";
 
     m_jobQueue.emplace(std::move(job));
-    m_queueCond.notify_all();
+    m_newJobCond.notify_all();
 }
 
 void JobScheduler::deleteJobs(const ISchedulable * const subject,

@@ -77,14 +77,6 @@ struct Job
      * @return True if this->when > other.when.
      */
     bool operator<(const Job& other) const;
-
-    /**
-     * Compare Job objects by all their fields except Job::when.
-     * @param other The object to compare *this to.
-     * @return True if the objects have the same field values except for
-     * Job::when.
-     */
-    bool operator==(const Job& other) const;
 };
 
 /**
@@ -98,11 +90,11 @@ private:
     std::atomic<bool> m_stopScheduler{false};
 
 protected:
-    std::set<Job> m_jobQueue;   ///< Run queue.
+    std::multiset<Job> m_jobQueue;          ///< Run queue.
 
     std::thread m_thread;                   ///< Thread.
     std::mutex m_queueMutex;                ///< Mutex used to synchronize access to JobScheduler::m_jobQueue.
-    std::condition_variable m_queueCond;    ///< Condition used to synchronize access to JobScheduler::m_jobQueue.
+    std::condition_variable m_newJobCond;   ///< Condition used to synchronize access to JobScheduler::m_jobQueue.
 
     virtual void schedulerMain();           ///< Thread main loop.
                                             ///< Checks run queue and runs tasks when needed.
