@@ -49,6 +49,7 @@
 
 #define FUSE_MESSAGE "fusemessage"
 #define ATOM "atom"
+#define PUSH_MESSAGE_ACK "ack"
 
 #define FSLOGIC "fslogic"
 

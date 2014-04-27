@@ -25,6 +25,7 @@ using namespace std;
 
 using namespace veil; 
 using namespace veil::client; 
+using namespace veil::client::events; 
 
 
 #define INIT_AND_RUN_ALL_TESTS() \
@@ -42,10 +43,9 @@ using namespace veil::client;
         scheduler.reset(new MockJobScheduler()); \
         connectionPool.reset(new MockConnectionPool()); \
         VeilFS::setConnectionPool(connectionPool); \
-        EXPECT_CALL(*config, isSet(FUSE_GROUP_ID_OPT)).WillRepeatedly(Return(true)); \
         EXPECT_CALL(*config, isSet(FUSE_ID_OPT)).WillRepeatedly(Return(false)); \
         EXPECT_CALL(*connectionPool, setPushCallback(_, _)).WillRepeatedly(Return()); \
-        boost::shared_ptr<VeilFS>(new VeilFS("/root", config, scheduler, boost::shared_ptr<FslogicProxy>(), boost::shared_ptr<MetaCache>(), boost::shared_ptr<StorageMapper>(), boost::shared_ptr<helpers::StorageHelperFactory>()));
+        boost::shared_ptr<VeilFS>(new VeilFS("/root", config, scheduler, boost::shared_ptr<FslogicProxy>(), boost::shared_ptr<MetaCache>(), boost::shared_ptr<StorageMapper>(), boost::shared_ptr<helpers::StorageHelperFactory>(), boost::shared_ptr<EventCommunicator>()));
 
 #define COMMON_DEFS() \
         boost::shared_ptr<MockConfig> config; \
@@ -68,12 +68,14 @@ using namespace veil::client;
         gsi::validateProxyConfig(); \
         VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), boost::bind(&gsi::getCertInfo)))); \
         veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool()); \
+        boost::shared_ptr<veil::client::events::EventCommunicator> eventCommunicator(new veil::client::events::EventCommunicator()); \
         veilFS.reset(new VeilFS(VeilFSRoot, config, \
                             boost::shared_ptr<JobScheduler>(new JobScheduler()), \
                             boost::shared_ptr<FslogicProxy>(fslogic), \
                             boost::shared_ptr<MetaCache>(new MetaCache()), \
                             boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(fslogic))), \
-                            boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()))); \
+                            boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()), \
+                            eventCommunicator)); \
         sleep(5);
 
 #define COMMON_INTEGRATION_DEFS() \

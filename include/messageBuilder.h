@@ -1,3 +1,4 @@
+
 /**
  * @file messageBuilder.h
  * @author Beata Skiba
@@ -34,6 +35,7 @@ public:
     MessageBuilder();
     virtual ~MessageBuilder();
     virtual protocol::fuse_messages::FuseMessage            createFuseMessage(std::string id, std::string messageType, std::string messageInput);
+    virtual protocol::communication_protocol::ClusterMsg    createClusterMessage(std::string moduleName, std::string messageType, std::string messageDecoderName, std::string answerType, std::string answerDecoderName, bool synch, std::string input);
     virtual protocol::communication_protocol::ClusterMsg    createClusterMessage(std::string moduleName, std::string messageType, std::string answerType, std::string answerDecoderName, bool synch, std::string input);
     virtual protocol::communication_protocol::ClusterMsg    createClusterMessage(std::string moduleName, std::string messageType, std::string answerType, std::string answerDecoderName, bool synch);
     virtual protocol::communication_protocol::ClusterMsg    packFuseMessage(std::string messageType, std::string answerType, std::string answerDecoderName, std::string messageInput);

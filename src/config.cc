@@ -9,6 +9,9 @@
 #include "veilfs.h"
 #include "communication_protocol.pb.h"
 #include "fuse_messages.pb.h"
+#include <fstream>
+#include <boost/filesystem.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
 
 using namespace std;
@@ -53,245 +56,6 @@ path Config::getMountPoint()
     return m_mountPoint;
 }
 
-vector<path> Config::getMountPoints()
-{
-    vector<path> mountPoints;
-    try {
-        filesystem::ifstream mountsFile(MOUNTS_FILE_PATH);
-        string line;
-        while(getline(mountsFile, line)) {
-            char_separator<char> sep(" ");
-            tokenizer< char_separator<char> > tok(line, sep);
-            tokenizer< char_separator<char> >::iterator it;
-            int index;
-            for(it = tok.begin(), index = 1; it != tok.end() && index > 0; ++it, --index);
-            if(it != tok.end() && index == 0) {
-                path mountPoint(*it);
-                mountPoints.push_back(mountPoint);
-            }
-        }
-    } catch (filesystem::filesystem_error const& e) {
-             LOG(ERROR) << "Error while getting mount points: " << e.what();
-    }
-    return mountPoints;
-}
-
-vector< pair<int, string> > Config::getStorageInfo(path mountPoint)
-{
-    vector< pair<int, string> > storageInfo;
-    path storageInfoPath(mountPoint);
-    storageInfoPath += string("/") + string(STORAGE_INFO_FILENAME);
-    try {
-        if(filesystem::exists(storageInfoPath) && filesystem::is_regular_file(storageInfoPath)) {
-            filesystem::ifstream storageInfoFile(storageInfoPath);
-            string line;
-            while(getline(storageInfoFile, line)) {
-                vector<string> tokens;
-                char_separator<char> sep(" ,{}");
-                tokenizer< char_separator<char> > tok(line, sep);
-                for(tokenizer< char_separator<char> >::iterator it = tok.begin(); it != tok.end(); ++it) {
-                    tokens.push_back(*it);
-                }
-                if(tokens.size() == 2) {
-                    try {
-                        int storageId = lexical_cast<int>(tokens[0]);
-                        string absoluteStoragePath = mountPoint.string();
-                        while(!tokens[1].empty() && (*(tokens[1].begin()) == '.' || *(tokens[1].begin()) == '/')) {
-                            tokens[1].erase(tokens[1].begin());
-                        }
-                        if(!tokens[1].empty()) {
-                            absoluteStoragePath += "/" + tokens[1];
-                        }
-                        storageInfo.push_back(make_pair(storageId, absoluteStoragePath));
-                    } catch(bad_lexical_cast const&) {
-                        LOG(ERROR) << "Wrong format of storage id in file: " << storageInfoPath;
-                    }
-                }
-            }
-        }
-    } catch (filesystem::filesystem_error const& e) {
-        LOG(ERROR) << "Error while getting storage info: " << e.what();
-    }
-    return storageInfo;
-}
-
-vector< pair<int, string> > Config::getClientStorageInfo()
-{
-    // Vector of pairs of a storage id and absolute path to the storage that is directly accessible by a client
-    vector< pair<int, string> > clientStorageInfo;
-    // Get all available mount points
-    vector<filesystem::path> mountPoints = getMountPoints();
-    // Remove client mount point from vector of all mount points
-    vector<filesystem::path>::iterator mountPointsEnd = remove(mountPoints.begin(), mountPoints.end(), getMountPoint());
-    // For each mount point check whether there is a direct access to the storage via this mount point
-    for(vector<filesystem::path>::iterator pt = mountPoints.begin(); pt != mountPointsEnd; ++pt) {
-        vector< pair<int, string> > storageInfo = getStorageInfo(*pt);
-        for(vector< pair<int, string> >::iterator info = storageInfo.begin(); info != storageInfo.end(); ++info) {
-            string relativePath = "";
-            string text = "";
-            createStorageTestFile(info->first, relativePath, text);
-            if(!(relativePath == "" && text == "")) {
-                if(hasClientStorageReadPermissions(info->second, relativePath, text) &&
-                   hasClientStorageWritePermissions(info->first, info->second, relativePath)) {
-                    LOG(INFO) << "Storage with id: " << info->first << " is directly accessible to the client via: " << info->second;
-                    clientStorageInfo.push_back(*info);
-                }
-            }
-        }
-    }
-    return clientStorageInfo;
-}
-
-void Config::sendClientStorageInfo(vector< pair<int, string> > clientStorageInfo)
-{
-    ClusterMsg cMsg;
-    ClientStorageInfo reqMsg;
-    ClientStorageInfo::StorageInfo *info;
-    Atom resMsg;
-    Answer ans;
-
-    MessageBuilder builder;
-    boost::shared_ptr<CommunicationHandler> conn;
-
-	conn = VeilFS::getConnectionPool()->selectConnection();
-	if(conn) {
-	    // Build CreateStorageTestFileRequest message
-		for(vector< pair<int,string> >::iterator it = clientStorageInfo.begin(); it != clientStorageInfo.end(); ++it) {
-		    info = reqMsg.add_storage_info();
-		    info->set_storage_id(it->first);
-		    info->set_absolute_path(it->second);
-		}
-		cMsg = builder.createClusterMessage(FSLOGIC, ClientStorageInfo::descriptor()->name(), Atom::descriptor()->name(), COMMUNICATION_PROTOCOL, true);
-		cMsg.set_input(reqMsg.SerializeAsString());
-        // Send CreateStorageTestFileRequest message
-		ans = conn->communicate(cMsg, 2);
-		// Check answer
-		if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer())) {
-			if(resMsg.value() == "ok") {
-			    LOG(INFO) << "Direct IO storage info sent to the server.";
-			} else {
-			    LOG(ERROR) << "Direct IO storage info error: " << resMsg.value();
-			}
-		} else if(ans.answer_status() == NO_USER_FOUND_ERROR) {
-            LOG(ERROR) << "Direct IO storage info error: Cannot find user in database.";
-        } else {
-            LOG(ERROR) << "Direct IO storage info error: " << ans.answer_status();
-        }
-    } else {
-        LOG(ERROR) << "Direct IO storage info error: Cannot select connection.";
-    }
-}
-
-void Config::createStorageTestFile(int storageId, string& relativePath, string& text)
-{
-    ClusterMsg cMsg;
-    StorageTestRequest reqMsg;
-    StorageTestResponse resMsg;
-    Answer ans;
-
-    MessageBuilder builder;
-    boost::shared_ptr<CommunicationHandler> conn;
-
-    conn = VeilFS::getConnectionPool()->selectConnection();
-    if(conn) {
-        // Build CreateStorageTestFileRequest message
-        reqMsg.set_type("create_storage_test_file");
-        reqMsg.set_storage_id(storageId);
-
-        cMsg = builder.createClusterMessage(FSLOGIC, StorageTestRequest::descriptor()->name(), StorageTestResponse::descriptor()->name(), FUSE_MESSAGES, true);
-        cMsg.set_input(reqMsg.SerializeAsString());
-        // Send CreateStorageTestFileRequest message
-        LOG(INFO) << "========> Sending create storage test file request";
-        ans = conn->communicate(cMsg, 2);
-    	// Check answer
-        if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer())) {
-            LOG(INFO) << "=======> Received answer: " << resMsg.answer();
-            if(resMsg.answer() == "ok") {
-                relativePath = resMsg.relative_path();
-                text = resMsg.text();
-            }
-    	} else if(ans.answer_status() == NO_USER_FOUND_ERROR) {
-    	    LOG(ERROR) << "Storage test file creation error: Cannot find user in database.";
-    	} else {
-    		LOG(ERROR) << "Storage test file creation error: " << ans.answer_status();
-        }
-    } else {
-        LOG(ERROR) << "Storage test file creation error: Cannot select connection.";
-    }
-}
-
-bool Config::hasClientStorageReadPermissions(string storagePath, string relativePath, string expectedText)
-{
-    int fd = open((storagePath + "/" + relativePath).c_str(), O_RDONLY);
-    if(fd == -1) {
-        return false;
-    }
-    fsync(fd);
-    void* buf = malloc(expectedText.size());
-    if(read(fd, buf, expectedText.size()) != (int) expectedText.size()) {
-        free(buf);
-        close(fd);
-        return false;
-    }
-    string actualText((char *) buf);
-    free(buf);
-    close(fd);
-    return expectedText == actualText;
-}
-
-bool Config::hasClientStorageWritePermissions(int storageId, string storagePath, string relativePath)
-{
-    int fd = open((storagePath + "/" + relativePath).c_str(), O_WRONLY | O_FSYNC);
-    if(fd == -1) {
-        return false;
-    }
-    int length = 20;
-    string text(length, ' ');
-    srand(time(0));
-    for(int i = 0; i < length; ++i) {
-        text[i] = (char) (33 + rand() % 93);
-    }
-    if(write(fd, text.c_str(), length) != length) {
-        close(fd);
-        return false;
-    }
-    close(fd);
-
-    ClusterMsg cMsg;
-    StorageTestRequest reqMsg;
-    StorageTestResponse resMsg;
-    Answer ans;
-
-    MessageBuilder builder;
-    boost::shared_ptr<CommunicationHandler> conn;
-
-    conn = VeilFS::getConnectionPool()->selectConnection();
-    if(conn) {
-        // Build CreateStorageTestFileRequest message
-        reqMsg.set_type("storage_test_file_modified");
-        reqMsg.set_storage_id(storageId);
-        reqMsg.set_relative_path(relativePath);
-        reqMsg.set_text(text);
-        cMsg = builder.createClusterMessage(FSLOGIC, StorageTestRequest::descriptor()->name(), StorageTestResponse::descriptor()->name(), FUSE_MESSAGES, true);
-        cMsg.set_input(reqMsg.SerializeAsString());
-        // Send CreateStorageTestFileRequest message
-        ans = conn->communicate(cMsg, 2);
-    	// Check answer
-        if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer())) {
-            if(resMsg.answer() == "ok") {
-                return true;
-            }
-    	} else if(ans.answer_status() == NO_USER_FOUND_ERROR) {
-    	    LOG(ERROR) << "Storage test file modification error: Cannot find user in database.";
-    	} else {
-    		LOG(ERROR) << "Storage test file modification error: " << ans.answer_status();
-        }
-    } else {
-        LOG(ERROR) << "Storage test file modification error: Cannot select connection.";
-    }
-    return false;
-}
-
 void Config::putEnv(string name, string value)
 {
     m_envAll[name] = value;
@@ -319,6 +83,16 @@ void Config::setEnv()
 {
     m_envCWD = boost::filesystem::current_path().string();
     m_envHOME = string(getenv("HOME"));
+}
+
+bool Config::isEnvSet(string name)
+{
+    return m_envAll.find(name) != m_envAll.end();
+}
+
+string Config::getEnv(string name)
+{
+    return m_envAll.find(name)->second;
 }
 
 bool Config::isSet(string opt)

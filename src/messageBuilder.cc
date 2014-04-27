@@ -45,6 +45,13 @@ FuseMessage MessageBuilder::createFuseMessage(string id, string messageType,
     return msg;
 }
 
+ClusterMsg MessageBuilder::createClusterMessage(string moduleName, string messageType, string messageDecoderName, string answerType, string answerDecoderName, bool synch, string input)
+{
+    ClusterMsg msg = createClusterMessage(moduleName, messageType, answerType, answerDecoderName, synch, input);
+    msg.set_message_decoder_name(tolower(messageDecoderName));
+    return msg;
+}
+
 ClusterMsg MessageBuilder::createClusterMessage(string moduleName, string messageType, string answerType, string answerDecoderName, bool synch, string input)
 {
     ClusterMsg msg = createClusterMessage(moduleName, messageType, answerType, answerDecoderName, synch);

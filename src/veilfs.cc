@@ -19,14 +19,19 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/functional.hpp>
-#include <vector>
+#include <boost/algorithm/string/predicate.hpp>
+#include <google/protobuf/descriptor.h>
+
+#include "communication_protocol.pb.h"
+#include "fuse_messages.pb.h"
+#include "messageBuilder.h"
 
 #include <sys/stat.h>
 
 /// Runs FUN on NAME storage helper with constructed with ARGS. Return value is avaiable in 'int sh_return'.
 #define CUSTOM_SH_RUN(PTR, FUN) if(!PTR) { LOG(ERROR) << "Invalid storage helper's pointer!"; return -EIO; } \
                                 int sh_return = PTR->FUN; \
-                                if(sh_return < 0) LOG(INFO) << "Storage helper returned error: " << sh_return; 
+                                if(sh_return < 0) LOG(INFO) << "Storage helper returned error: " << sh_return;
 #define SH_RUN(NAME, ARGS, FUN) boost::shared_ptr<helpers::IStorageHelper> ptr = m_shFactory->getStorageHelper(NAME, ARGS); \
                                 if(!ptr) { LOG(ERROR) << "storage helper '" << NAME << "' not found"; return -EIO; } \
                                 CUSTOM_SH_RUN(ptr, FUN)
@@ -72,14 +77,18 @@ boost::shared_ptr<SimpleConnectionPool> VeilFS::m_connectionPool;
 ReadWriteLock VeilFS::m_schedulerPoolLock;
 boost::shared_ptr<PushListener> VeilFS::m_pushListener;
 
-VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler, 
-               boost::shared_ptr<FslogicProxy> fslogic,  boost::shared_ptr<MetaCache> metaCache, 
-               boost::shared_ptr<StorageMapper> mapper, boost::shared_ptr<helpers::StorageHelperFactory> sh_factory) : 
+VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler,
+               boost::shared_ptr<FslogicProxy> fslogic,  boost::shared_ptr<MetaCache> metaCache,
+               boost::shared_ptr<LocalStorageManager> sManager, boost::shared_ptr<StorageMapper> mapper,
+               boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
+               boost::shared_ptr<events::EventCommunicator> eventCommunicator) :
+    m_fh(0),
     m_fslogic(fslogic),
     m_storageMapper(mapper),
     m_metaCache(metaCache),
+    m_sManager(sManager),
     m_shFactory(sh_factory),
-    m_fh(0)
+    m_eventCommunicator(eventCommunicator)
 {
     if(path.size() > 1 && path[path.size()-1] == '/')
         path = path.substr(0, path.size()-1);
@@ -88,13 +97,13 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
 
     m_config = cnf;
     VeilFS::addScheduler(scheduler);
-    
+
     // Construct new PushListener
     m_pushListener.reset(new PushListener());
-    
+
     // Update FUSE_ID in current connection pool
     VeilFS::getConnectionPool()->setPushCallback(VeilFS::getConfig()->getFuseID(), boost::bind(&PushListener::onMessage, VeilFS::getPushListener(), _1));
-    
+
     // Maximum connection count setup
     VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, VeilFS::getConfig()->getInt(ALIVE_META_CONNECTIONS_COUNT_OPT));
     VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::DATA_POOL, VeilFS::getConfig()->getInt(ALIVE_DATA_CONNECTIONS_COUNT_OPT));
@@ -103,8 +112,6 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
     if(VeilFS::getConfig()->getFuseID() == "")
         VeilFS::getConfig()->negotiateFuseID();
 
-
-    
     if(m_fslogic) {
         if(VeilFS::getScheduler() && VeilFS::getConfig()) {
             int alive = VeilFS::getConfig()->getInt(ALIVE_META_CONNECTIONS_COUNT_OPT);
@@ -112,15 +119,18 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
                 Job pingTask = Job(time(NULL) + i, m_fslogic, ISchedulable::TASK_PING_CLUSTER, VeilFS::getConfig()->getString(ALIVE_META_CONNECTIONS_COUNT_OPT));
                 VeilFS::getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
             }
-            
-        } else 
+
+        } else
             LOG(WARNING) << "Connection keep-alive subsystem cannot be started.";
     }
 
-    if(!VeilFS::getConfig()->isSet(FUSE_GROUP_ID_OPT)) {
-        vector< pair<int, string> > info = Config::getClientStorageInfo();
-        if(!info.empty()) {
-            Config::sendClientStorageInfo(info);
+    if(!VeilFS::getConfig()->isSet(FUSE_GROUP_ID_OPT) && !VeilFS::getConfig()->isEnvSet(string(FUSE_OPT_PREFIX) + string("GROUP_ID"))) {
+        if(m_sManager) {
+            vector<string> mountPoints = LocalStorageManager::getMountPoints();
+            vector< pair<int, string> > clientStorageInfo = m_sManager->getClientStorageInfo(mountPoints);
+            if(!clientStorageInfo.empty()) {
+                m_sManager->sendClientStorageInfo(clientStorageInfo);
+            }
         }
     }
 
@@ -128,14 +138,25 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
     m_gid = getegid();
     // Real IDs should be set real owner's ID of "/" directory by first getattr call
     m_ruid = -1;
-    m_rgid = -1; 
+    m_rgid = -1;
+
+    if(m_eventCommunicator){
+        eventCommunicator->setFslogic(m_fslogic);
+        eventCommunicator->setMetaCache(m_metaCache);
+
+        m_eventCommunicator->addStatAfterWritesRule(VeilFS::getConfig()->getInt(WRITE_BYTES_BEFORE_STAT_OPT));
+    }
+
+    VeilFS::getPushListener()->subscribe(boost::bind(&events::EventCommunicator::pushMessagesHandler, m_eventCommunicator.get(), _1));
+    VeilFS::getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
+    VeilFS::getScheduler(ISchedulable::TASK_IS_WRITE_ENABLED)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_IS_WRITE_ENABLED));
 }
 
 VeilFS::~VeilFS()
 {
 }
 
-void VeilFS::staticDestroy() 
+void VeilFS::staticDestroy()
 {
     m_config.reset();
     while(m_jobSchedulers.size()) {
@@ -164,7 +185,7 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
     FileAttr attr;
 
     statbuf->st_blocks = 0;
-    statbuf->st_nlink = 1; 
+    statbuf->st_nlink = 1;
     statbuf->st_uid = -1;
     statbuf->st_gid = -1;
     statbuf->st_size = 0;
@@ -193,7 +214,7 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
         VeilFS::getScheduler()->addTask(getLocTask);
     }
 
-    // At this point we have attributes from cluster 
+    // At this point we have attributes from cluster
 
     statbuf->st_mode = attr.mode(); // File type still has to be set, fslogic gives only permissions in mode field
     statbuf->st_nlink = attr.links();
@@ -208,10 +229,10 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
     if(string(path) == "/") { // VeilFS root should always belong to FUSE owner
         m_ruid = uid;
         m_rgid = gid;
-    } 
+    }
 
     // If file belongs to filesystems owner, show FUSE owner ID
-    if(m_ruid == uid) 
+    if(m_ruid == uid)
         uid = m_uid;
     if(m_rgid == gid)
         gid = m_gid;
@@ -261,7 +282,7 @@ int VeilFS::readlink(const char *path, char *link, size_t size)
 
     AutoLock lock(m_linkCacheLock, READ_LOCK);
     map<string, pair<string, time_t> >::const_iterator it = m_linkCache.find(string(path));
-    if(it != m_linkCache.end()) {   
+    if(it != m_linkCache.end()) {
         target = (*it).second.first;
     } else {
         pair<string, string> resp = m_fslogic->getLink(string(path));
@@ -356,6 +377,9 @@ int VeilFS::mkdir(const char *path, mode_t mode)
     RETURN_IF_ERROR(m_fslogic->createDir(string(path), mode & ALLPERMS));
     VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
 
+    boost::shared_ptr<events::Event> mkdirEvent = events::Event::createMkdirEvent(path);
+    m_eventCommunicator->processEvent(mkdirEvent);
+
     return 0;
 }
 
@@ -373,7 +397,7 @@ int VeilFS::unlink(const char *path)
 
     m_metaCache->clearAttr(string(path)); // Clear cache
 
-    if(!isLink) 
+    if(!isLink)
     {
         GET_LOCATION_INFO(path);
         SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_unlink(lInfo.fileId.c_str()));
@@ -383,6 +407,9 @@ int VeilFS::unlink(const char *path)
 
     RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
     VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
+
+    boost::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(path);
+    m_eventCommunicator->processEvent(rmEvent);
 
     return 0;
 }
@@ -414,7 +441,7 @@ int VeilFS::symlink(const char *to, const char *from)
 
     LOG(INFO) << "Creating link " << string(from) << "pointing to: " << toStr;
 
-    RETURN_IF_ERROR(m_fslogic->createLink(string(from), toStr)); 
+    RETURN_IF_ERROR(m_fslogic->createLink(string(from), toStr));
     return 0;
 }
 
@@ -457,24 +484,24 @@ int VeilFS::chmod(const char *path, mode_t mode)
 int VeilFS::chown(const char *path, uid_t uid, gid_t gid)
 {
     LOG(INFO) << "FUSE: chown(path: " << string(path) << ", uid: "<< uid << ", gid: " << gid <<")";
-    
+
     struct passwd *ownerInfo = getpwuid(uid); // Static buffer, do NOT free !
     struct group *groupInfo = getgrgid(gid); // Static buffer, do NOT free !
-    
+
     string uname = "", gname = "";
     if(ownerInfo)
         uname = ownerInfo->pw_name;
     if(groupInfo)
         gname = groupInfo->gr_name;
-    
+
     m_metaCache->clearAttr(string(path));
-    
+
     if((uid_t)-1 != uid)
         RETURN_IF_ERROR(m_fslogic->changeFileOwner(string(path), uid, uname));
-    
+
     if((gid_t)-1 != gid)
         RETURN_IF_ERROR(m_fslogic->changeFileGroup(string(path), gid, gname));
-    
+
     return 0;
 }
 
@@ -485,8 +512,12 @@ int VeilFS::truncate(const char *path, off_t newSize)
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_truncate(lInfo.fileId.c_str(), newSize));
 
-    if(sh_return == 0) 
+    if(sh_return == 0) {
         (void) m_metaCache->updateSize(string(path), newSize);
+
+        Job postTruncateTask = Job(time(NULL), shared_from_this(), TASK_POST_TRUNCATE_ACTIONS, path, utils::toString(newSize));
+        VeilFS::getScheduler()->addTask(postTruncateTask);
+    }
 
     return sh_return;
 }
@@ -497,7 +528,7 @@ int VeilFS::utime(const char *path, struct utimbuf *ubuf)
 
     // Update access times in meta cache right away
     (void) m_metaCache->updateTimes(string(path), ubuf->actime, ubuf->modtime);
-    
+
     VeilFS::getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(ubuf->actime), utils::toString(ubuf->modtime)));
 
     return 0;
@@ -512,7 +543,7 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
     GET_LOCATION_INFO(path);
 
     m_storageMapper->openFile(string(path));
-    
+
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_open(lInfo.fileId.c_str(), fileInfo));
 
     if(sh_return == 0) {
@@ -535,7 +566,7 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
         {
             // Update access times in meta cache right away
             (void) m_metaCache->updateTimes(string(path), atime, mtime);
-            
+
             VeilFS::getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(atime), utils::toString(mtime)));
         }
     }
@@ -547,17 +578,27 @@ int VeilFS::read(const char *path, char *buf, size_t size, off_t offset, struct 
 {
     //LOG(INFO) << "FUSE: read(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
     GET_LOCATION_INFO(path);
-    
+
     AutoLock guard(m_shCacheLock, READ_LOCK);
     CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
+
+    boost::shared_ptr<events::Event> writeEvent = events::Event::createReadEvent(path, sh_return);
+    m_eventCommunicator->processEvent(writeEvent);
+
     return sh_return;
 }
 
 int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
 {
     //LOG(INFO) << "FUSE: write(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
+
+    if(!m_eventCommunicator->isWriteEnabled()){
+        LOG(WARNING) << "Attempt to write when write disabled.";
+        return -EDQUOT;
+    }
+
     GET_LOCATION_INFO(path);
-    
+
     AutoLock guard(m_shCacheLock, READ_LOCK);
     CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
     guard.release();
@@ -569,6 +610,9 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
         if(offset + sh_return > buf.st_size) {
             m_metaCache->updateSize(string(path), offset + sh_return);
         }
+
+        boost::shared_ptr<events::Event> writeEvent = events::Event::createWriteEvent(path, size);
+        m_eventCommunicator->processEvent(writeEvent);
     }
 
     return sh_return;
@@ -598,8 +642,8 @@ int VeilFS::flush(const char *path, struct fuse_file_info *fileInfo)
         storage_helper = m_shCache[fileInfo->fh];
     }
     CUSTOM_SH_RUN(storage_helper , sh_flush(lInfo.fileId.c_str(), fileInfo));
-    
-    VeilFS::getScheduler()->addTask(Job(time(NULL) + 3, shared_from_this(), TASK_CLEAR_ATTR, string(path))); 
+
+    VeilFS::getScheduler()->addTask(Job(time(NULL) + 3, shared_from_this(), TASK_CLEAR_ATTR, string(path)));
 
     return sh_return;
 }
@@ -607,7 +651,7 @@ int VeilFS::flush(const char *path, struct fuse_file_info *fileInfo)
 int VeilFS::release(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: release(path: " << string(path) << ", ...)";
-    
+
     /// Remove Storage Helper's pointer from cache
     AutoLock guard(m_shCacheLock, WRITE_LOCK);
 
@@ -638,9 +682,9 @@ int VeilFS::fsync(const char *path, int datasync, struct fuse_file_info *fi)
 int VeilFS::opendir(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: opendir(path: " << string(path) << ", ...)";
-    
+
     VeilFS::getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(time(NULL))));
-    
+
     return 0;
 }
 
@@ -722,12 +766,12 @@ boost::shared_ptr<JobScheduler> VeilFS::getScheduler(TaskID taskId)
 
     list<boost::shared_ptr<JobScheduler> >::const_iterator it;
     for(list<boost::shared_ptr<JobScheduler> >::const_iterator it = m_jobSchedulers.begin();
-        it != m_jobSchedulers.end(); ++it) 
+        it != m_jobSchedulers.end(); ++it)
     {
         if((*it)->hasTask(taskId))
             tmp = (*it);
     }
-    
+
     // Round robin
     m_jobSchedulers.pop_front();
     m_jobSchedulers.push_back(front);
@@ -744,24 +788,24 @@ boost::shared_ptr<SimpleConnectionPool> VeilFS::getConnectionPool()
 {
     return m_connectionPool;
 }
-    
+
 boost::shared_ptr<PushListener> VeilFS::getPushListener()
 {
     return m_pushListener;
 }
 
-void VeilFS::addScheduler(boost::shared_ptr<JobScheduler> injected) 
+void VeilFS::addScheduler(boost::shared_ptr<JobScheduler> injected)
 {
     AutoLock lock(m_schedulerPoolLock, WRITE_LOCK);
     m_jobSchedulers.push_back(injected);
 }
 
-void VeilFS::setConfig(boost::shared_ptr<Config> injected) 
+void VeilFS::setConfig(boost::shared_ptr<Config> injected)
 {
     m_config = injected;
 }
 
-void VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> injected) 
+void VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> injected)
 {
     m_connectionPool = injected;
 }
@@ -770,7 +814,8 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
 {
     struct stat attr;
     vector<string> children;
-    int offset;
+    time_t currentTime;
+    boost::shared_ptr<events::Event> truncateEvent;
 
     switch(taskId)
     {
@@ -800,12 +845,25 @@ bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
 
     case TASK_ASYNC_GETATTR:
         if(VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT))
-            (void) getattr(arg0.c_str(), &attr, false);
+            getattr(arg0.c_str(), &attr, false);
         return true;
 
     case TASK_ASYNC_UPDATE_TIMES: // arg0 = path, arg1 = atime, arg2 = mtime
-        if(m_fslogic->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2)) == VOK);
-            (void) m_metaCache->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2));
+        if(m_fslogic->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2)) == VOK)
+            m_metaCache->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2));
+        return true;
+
+    case TASK_POST_TRUNCATE_ACTIONS: // arg0 = path, arg1 = newSize
+        // we need to statAndUpdatetimes before processing event because we want event to be run with new size value on cluster
+        currentTime = time(NULL);
+        m_fslogic->updateTimes(arg0, 0, currentTime, currentTime);
+
+        m_metaCache->clearAttr(arg0);
+        if(VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT))
+            getattr(arg0.c_str(), &attr, false);
+
+        truncateEvent = events::Event::createTruncateEvent(arg0, utils::fromString<off_t>(arg1));
+        m_eventCommunicator->processEvent(truncateEvent);
         return true;
 
     default:
