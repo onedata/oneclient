@@ -606,11 +606,7 @@ TEST_F(VeilFSTest, init) { // struct fuse_conn_info *conn
     struct fuse_conn_info info;
     EXPECT_EQ(0, client->init(&info));
 }
-<<<<<<< HEAD
- 
-=======
 
->>>>>>> 30e09240fd1127342aa902065bdace082160d4a7
 TEST_F(VeilFSTest, processEvent) {
     shared_ptr<MockEventStreamCombiner> combinerMock(new MockEventStreamCombiner());
     ASSERT_TRUE((bool) combinerMock);
@@ -621,8 +617,4 @@ TEST_F(VeilFSTest, processEvent) {
 
     ASSERT_TRUE((bool) event);
     communicator.processEvent(event);
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 30e09240fd1127342aa902065bdace082160d4a7
