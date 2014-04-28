@@ -28,6 +28,26 @@ LocalStorageManager::~LocalStorageManager()
 {
 }
 
+bool LocalStorageManager::validatePath(string& path)
+{
+    const char* delimiters = "/";
+    char* pathCopy = strdup(path.c_str());
+    char* token = strtok(pathCopy, delimiters);
+    string validatedPath = "";
+    while(token != NULL) {
+        if(strcmp(token, "..") == 0) {  // invalid path (contains '..')
+            free(pathCopy);
+            return false;
+        } else if(strcmp(token, ".") != 0) {    // skip '.' in path
+            validatedPath += "/" + string(token);
+        }
+        token = strtok(NULL, delimiters);
+    }
+    free(pathCopy);
+    path = validatedPath;
+    return true;
+}
+
 vector<string> LocalStorageManager::getMountPoints()
 {
     vector<string> mountPoints;
@@ -35,7 +55,8 @@ vector<string> LocalStorageManager::getMountPoints()
     if(file != NULL) {
         char line[1024];
         while(fgets(line, sizeof(line), file) != NULL) {
-            char *token = strtok(line, " ");
+            const char* delimiters = " ";
+            char *token = strtok(line, delimiters);
             char *mountPoint;
             int position = 0;
             while(token != NULL && position <= 2) {
@@ -49,7 +70,7 @@ vector<string> LocalStorageManager::getMountPoints()
                         }
                         break;
                 }
-                token = strtok(NULL, " ");
+                token = strtok(NULL, delimiters);
                 ++position;
             }
         }
@@ -66,7 +87,8 @@ vector< pair<int, string> > LocalStorageManager::getClientStorageInfo(vector<str
         if(file != NULL) {
             char line[1024];
             while(fgets(line, sizeof(line), file) != NULL) {
-                char* token = strtok(line, " ,{}");
+                const char* delimiters = " ,{}";
+                char* token = strtok(line, delimiters);
                 int position = 0;
         
                 int storageId;
@@ -81,6 +103,10 @@ vector< pair<int, string> > LocalStorageManager::getClientStorageInfo(vector<str
                             break;
                         case 1:
                             absolutePath = *mountPoint + "/" + string(token);
+                            if(!validatePath(absolutePath)) {
+                                LOG(WARNING) << "Invalid path ( " << absolutePath << " ) for storage with id: " << storageId;
+                                break;
+                            }
                             if(!createStorageTestFile(storageId, relativePath, text)) {
                                 LOG(WARNING) << "Cannot create storage test file for storage with id: " << storageId;
                                 break;
@@ -97,7 +123,7 @@ vector< pair<int, string> > LocalStorageManager::getClientStorageInfo(vector<str
                             clientStorageInfo.push_back(make_pair(storageId, absolutePath));
                             break;
                     }
-                    token = strtok(NULL, " ");
+                    token = strtok(NULL, delimiters);
                     ++position;
                 }
             }
@@ -126,8 +152,7 @@ bool LocalStorageManager::sendClientStorageInfo(vector< pair<int, string> > clie
 		    info->set_storage_id(it->first);
 		    info->set_absolute_path(it->second);
 		}
-		cMsg = builder.createClusterMessage(FSLOGIC, ClientStorageInfo::descriptor()->name(), Atom::descriptor()->name(), COMMUNICATION_PROTOCOL, true);
-		cMsg.set_input(reqMsg.SerializeAsString());
+		ClusterMsg cMsg = builder.packFuseMessage(ClientStorageInfo::descriptor()->name(), Atom::descriptor()->name(), COMMUNICATION_PROTOCOL, reqMsg.SerializeAsString());
         // Send CreateStorageTestFileRequest message
 		ans = conn->communicate(cMsg, 2);
 		// Check answer
@@ -158,8 +183,7 @@ bool LocalStorageManager::createStorageTestFile(int storageId, string& relativeP
     if(conn) {
         // Build CreateStorageTestFileRequest message
         reqMsg.set_storage_id(storageId);
-        cMsg = builder.createClusterMessage(FSLOGIC, CreateStorageTestFileRequest::descriptor()->name(), CreateStorageTestFileResponse::descriptor()->name(), FUSE_MESSAGES, true);
-        cMsg.set_input(reqMsg.SerializeAsString());
+        ClusterMsg cMsg = builder.packFuseMessage(CreateStorageTestFileRequest::descriptor()->name(), CreateStorageTestFileResponse::descriptor()->name(), FUSE_MESSAGES, reqMsg.SerializeAsString());
         // Send CreateStorageTestFileRequest message
         ans = conn->communicate(cMsg, 2);
     	// Check answer
@@ -229,8 +253,7 @@ bool LocalStorageManager::hasClientStorageWritePermission(int storageId, string 
         reqMsg.set_storage_id(storageId);
         reqMsg.set_relative_path(relativePath);
         reqMsg.set_text(text);
-        cMsg = builder.createClusterMessage(FSLOGIC, StorageTestFileModifiedRequest::descriptor()->name(), StorageTestFileModifiedResponse::descriptor()->name(), FUSE_MESSAGES, true);
-        cMsg.set_input(reqMsg.SerializeAsString());
+        ClusterMsg cMsg = builder.packFuseMessage(StorageTestFileModifiedRequest::descriptor()->name(), StorageTestFileModifiedResponse::descriptor()->name(), FUSE_MESSAGES, reqMsg.SerializeAsString());
         // Send CreateStorageTestFileRequest message
         ans = conn->communicate(cMsg, 2);
     	// Check answer
