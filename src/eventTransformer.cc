@@ -19,11 +19,11 @@ EventTransformer::EventTransformer(vector<string> fieldNamesToReplace, vector<st
 
 }
 
-shared_ptr<IEventStream> EventTransformer::fromConfig(const EventTransformerConfig & config)
+boost::shared_ptr<IEventStream> EventTransformer::fromConfig(const EventTransformerConfig & config)
 {
     if(config.field_names_to_replace_size() != config.values_to_replace_size() || config.values_to_replace_size() != config.new_values_size()){
         LOG(WARNING) << "Fields of EventTransformerConfig field_names_to_replace, values_to_replace and new_values are supposed to have the same length";
-        return shared_ptr<IEventStream>();
+        return boost::shared_ptr<IEventStream>();
     }
     vector<string> fieldNamesToReplace;
     for(int i=0; i<config.field_names_to_replace_size(); ++i){
@@ -37,12 +37,12 @@ shared_ptr<IEventStream> EventTransformer::fromConfig(const EventTransformerConf
     for(int i=0; i<config.new_values_size(); ++i){
         newValues.push_back(config.new_values(i));
     }
-    return shared_ptr<IEventStream> (new EventTransformer(fieldNamesToReplace, valuesToReplace, newValues));
+    return boost::shared_ptr<IEventStream> (new EventTransformer(fieldNamesToReplace, valuesToReplace, newValues));
 }
 
-shared_ptr<Event> EventTransformer::actualProcessEvent(shared_ptr<Event> event)
+boost::shared_ptr<Event> EventTransformer::actualProcessEvent(boost::shared_ptr<Event> event)
 {
-    shared_ptr<Event> newEvent (new Event(*event.get()));
+    boost::shared_ptr<Event> newEvent (new Event(*event.get()));
 
     // TODO: EventTransformer works only for string properties.
     for(size_t i=0; i<m_fieldNamesToReplace.size(); ++i)

@@ -28,6 +28,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/smart_ptr/make_shared.hpp>
 #include <boost/algorithm/string.hpp>
 #include <iostream>
 
@@ -218,13 +219,18 @@ static std::string getVersionString()
     return ss.str();
 }
 
-int main(int argc, char* argv[], char* envp[]) 
+int main(int argc, char* argv[], char* envp[])
 {
     // Turn off logging for a while
     google::InitGoogleLogging(argv[0]);
     FLAGS_alsologtostderr = false;
     FLAGS_logtostderr = false;
     FLAGS_stderrthreshold = 3;
+
+    // Set up a remote logger
+    auto logWriter = boost::make_shared<logging::RemoteLogWriter>();
+    logging::setLogSinks(new logging::RemoteLogSink{logWriter},
+                         new logging::RemoteLogSink{logWriter, protocol::logging::LDEBUG});
 
     // Initialize FUSE
     umask(0);
@@ -422,8 +428,8 @@ int main(int argc, char* argv[], char* envp[])
 
     // Register remote logWriter for log threshold level updates and start sending loop
     VeilFS::getPushListener()->subscribe(boost::bind(&logging::RemoteLogWriter::handleThresholdChange,
-                                                     logging::logWriter, _1));
-    logging::logWriter->run();
+                                                     logWriter, _1));
+    logWriter->run();
 
     // Enter FUSE loop
     if (multithreaded)

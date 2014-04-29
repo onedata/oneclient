@@ -608,12 +608,12 @@ TEST_F(VeilFSTest, init) { // struct fuse_conn_info *conn
 }
 
 TEST_F(VeilFSTest, processEvent) {
-    shared_ptr<MockEventStreamCombiner> combinerMock(new MockEventStreamCombiner());
+    boost::shared_ptr<MockEventStreamCombiner> combinerMock(new MockEventStreamCombiner());
     ASSERT_TRUE((bool) combinerMock);
     EventCommunicator communicator(combinerMock);
     EXPECT_CALL(*combinerMock, pushEventToProcess(_)).WillOnce(Return());
     EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
-    shared_ptr<Event> event = Event::createMkdirEvent("some_file");
+    boost::shared_ptr<Event> event = Event::createMkdirEvent("some_file");
 
     ASSERT_TRUE((bool) event);
     communicator.processEvent(event);

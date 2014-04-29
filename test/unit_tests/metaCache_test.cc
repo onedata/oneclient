@@ -11,18 +11,19 @@
 #include "config_mock.h"
 #include "jobScheduler_mock.h"
 
+#include <chrono>
 
 INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
 // TEST definitions below
 
-class MetaCacheTest 
+class MetaCacheTest
     : public ::testing::Test {
 
 protected:
     COMMON_DEFS();
     boost::shared_ptr <ProxyMetaCache> proxy;
-    struct stat stat;        
+    struct stat stat;
 
     virtual void SetUp() {
         COMMON_SETUP();
@@ -74,17 +75,23 @@ TEST_F(MetaCacheTest, InsertAndRemove) {
 }
 
 TEST_F(MetaCacheTest, InsertAndGet) {
+    using namespace std::chrono;
+
     struct stat tmp;
 
-    EXPECT_CALL(*scheduler, addTask(Field(&Job::when, AllOf( Ge(time(NULL) + 5), Le(time(NULL) + 40) )))).Times(2);
+    EXPECT_CALL(*scheduler, addTask(Field(&Job::when, AllOf(
+                            Ge(steady_clock::now() + seconds{5}),
+                            Le(steady_clock::now() + seconds{40}) )))).Times(2);
     stat.st_size = 1;
     proxy->addAttr("/test1", stat);
     stat.st_size = 2;
     proxy->addAttr("/test2", stat);
     stat.st_size = 3;
-    
+
     EXPECT_CALL(*config, getInt(ATTR_CACHE_EXPIRATION_TIME_OPT)).WillRepeatedly(Return(-5));
-    EXPECT_CALL(*scheduler, addTask(Field(&Job::when, AllOf( Ge(time(NULL) + ATTR_DEFAULT_EXPIRATION_TIME / 2 - 5), Le(time(NULL) + + ATTR_DEFAULT_EXPIRATION_TIME * 2) )))).Times(1);
+    EXPECT_CALL(*scheduler, addTask(Field(&Job::when, AllOf(
+                            Ge(steady_clock::now() + seconds{ATTR_DEFAULT_EXPIRATION_TIME / 2 - 5}),
+                            Le(steady_clock::now() + seconds{ATTR_DEFAULT_EXPIRATION_TIME * 2} ))))).Times(1);
     proxy->addAttr("/test3", stat);
 
     EXPECT_TRUE(proxy->getAttr("/test3", &tmp));
