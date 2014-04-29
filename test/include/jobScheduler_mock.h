@@ -21,8 +21,9 @@ public:
 
     ~MockJobScheduler() {}
 
-    MOCK_METHOD1(addTask, void(const Job&));
-    MOCK_METHOD2(deleteJobs, void(ISchedulable*, ISchedulable::TaskID));
+    MOCK_METHOD1(addTask, void(Job));
+    MOCK_METHOD2(deleteJobs, void(const ISchedulable * const,
+                                  const ISchedulable::TaskID));
 
 
 };

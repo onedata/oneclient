@@ -1,79 +1,143 @@
 /**
  * @file jobScheduler.h
  * @author Rafal Slota
- * @copyright (C) 2013 ACK CYFRONET AGH
+ * @author Konrad Zemek
+ * @copyright (C) 2013-2014 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
 #ifndef JOBSCHEDULER_H
 #define JOBSCHEDULER_H
 
-#include <queue>
-#include <string>
-#include <time.h>
-#include <pthread.h>
-#include <boost/shared_ptr.hpp>
 
 #include "ISchedulable.h"
+
+#include <boost/shared_ptr.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <condition_variable>
+#include <ctime>
+#include <mutex>
+#include <set>
+#include <string>
+#include <thread>
+#include <vector>
 
 namespace veil {
 namespace client {
 
 /**
- * @struct Job
- * The Job struct
+ * The Job struct.
  * Used by JobScheduler to describe scheduled tasks.
  */
 struct Job
 {
-    time_t when;                                ///< Time when Job should be processed.
-    boost::shared_ptr<ISchedulable> subject;    ///< Pointer to object being context of Job execution
-    ISchedulable::TaskID task;                  ///< ID of task. @see ISchedulable::TaskID
-    std::string arg0;                           ///< Task's first argument
-    std::string arg1;                           ///< Task's second argument
-    std::string arg2;                           ///< Task's third argument
+    /**
+     * Time when Job should be processed.
+     */
+    const std::chrono::steady_clock::time_point when;
 
-    ///< Default constructor
-    Job(time_t when, boost::shared_ptr<ISchedulable> subject, ISchedulable::TaskID task, const std::string &arg0 = "", const std::string &arg1 = "", const std::string &arg2 = "");
+    /**
+     * Pointer to object being context of Job execution.
+     */
+    boost::shared_ptr<ISchedulable> subject;
 
-    bool operator<(const Job& other) const;     ///< Compare operator for priority queue.
-                                                ///< It compares tasks by it's Job::when field
-    bool operator==(const Job& other) const;    ///< Compares equal all fields excpet Job::when
+    /**
+     * ID of the task.
+     * @see ISchedulable::TaskID
+     */
+    const ISchedulable::TaskID task;
+
+    /**
+     * Task's first argument.
+     */
+    const std::string arg0;
+
+    /**
+     * Task's second argument.
+     */
+    const std::string arg1;
+
+    /**
+     * Task's third argument.
+     */
+    const std::string arg2;
+
+    /**
+     * Constructor.
+     */
+    Job(const std::time_t when, boost::shared_ptr<ISchedulable> subject,
+        const ISchedulable::TaskID task, const std::string &arg0 = "",
+        const std::string &arg1 = "", const std::string &arg2 = "");
+
+    /**
+     * Compare Job objects by their Job::when field.
+     * @param other The object to compare *this to.
+     * @return True if this->when > other.when.
+     */
+    bool operator<(const Job& other) const;
 };
 
 /**
- * The JobScheduler class
+ * The JobScheduler class.
  * Objects of this class are living daemons (threads) with their own run queue
  * from which they are precessing tasks.
  */
 class JobScheduler
 {
+private:
+    std::atomic<bool> m_stopScheduler{false};
+
 protected:
-    std::priority_queue<Job> m_jobQueue;     ///< Run queue.
+    std::multiset<Job> m_jobQueue;          ///< Run queue.
 
-    pthread_t m_daemon;                 ///< Thread ID
-    pthread_mutex_t m_mutex;            ///< Mutex used to synchronize access to JobScheduler::m_jobQueue
-    pthread_cond_t m_queueCond;         ///< Condition used to synchronize access to JobScheduler::m_jobQueue
+    std::thread m_thread;                   ///< Thread.
+    std::mutex m_queueMutex;                ///< Mutex used to synchronize access to JobScheduler::m_jobQueue.
+    std::condition_variable m_newJobCond;   ///< Condition used to synchronize access to JobScheduler::m_jobQueue.
 
-    virtual void schedulerMain();       ///< Thread main loop.
-                                        ///< Checks run queue and runs tasks when needed.
-    virtual void runJob(const Job &job); ///< Starts given task. @see JobScheduler::schedulerMain
-    virtual void startDaemon();         ///< Starts/restarts daemon.
-
-    static void* schedulerMainWrapper(void* arg);   ///< C wrapper used to start JobScheduler::schedulerMain
+    virtual void schedulerMain();           ///< Thread main loop.
+                                            ///< Checks run queue and runs tasks when needed.
+    virtual void runJob(const Job &job);    ///< Starts given task. @see JobScheduler::schedulerMain
 
 public:
+    /**
+     * Constructor.
+     */
     JobScheduler();
+
+    /**
+     * Destructor.
+     */
     virtual ~JobScheduler();
 
-    virtual bool hasTask(ISchedulable::TaskID task);
-    virtual void addTask(const Job &job);                                       ///< Insert (register) new task to run queue.
-                                                                                ///< Inserted task shall run when current time passes its Job::when. @see ::Job
-    virtual void deleteJobs(ISchedulable *subject, ISchedulable::TaskID task);  ///< Deletes all jobs registred by given object.
-                                                                                ///< Used mainly when ISchedulable object is destructed.
+    /**
+     * Checks if the job queue contains any job of a given ID.
+     * @param task The task id searched for in the job queue.
+     * @return true if a job is found in the queue.
+     */
+    virtual bool hasTask(const ISchedulable::TaskID task);
+
+    /**
+     * Insert (register) new task to run queue.
+     * Inserted task shall run when current time passes its Job::when.
+     * @param job The job to add to the queue.
+     * @see ::Job
+     */
+    virtual void addTask(Job job);
+
+    /**
+     * Deletes all jobs registred by given object. Used mainly when ISchedulable
+     * object is destructed.
+     * @param subject
+     * @param task
+     */
+    virtual void deleteJobs(const ISchedulable * const subject,
+                            const ISchedulable::TaskID task);
 };
 
 } // namespace client
 } // namespace veil
+
 
 #endif // JOBSCHEDULER_H
