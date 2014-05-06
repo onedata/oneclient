@@ -76,14 +76,14 @@ public:
      * @param useCluster Specify if the method should use cache only (deafault) or try quering cluster.
      * @return std::pair of locationInfo and storageInfo structs for this file
      */
-    virtual std::pair<locationInfo, storageInfo> getLocationInfo(std::string logical_name, bool useCluster = false);
-    virtual std::string findLocation(std::string logicalName);                        ///< Query cluster about file location and instert it to cache. @see StorageMapper::addLocation
-    virtual void addLocation(std::string logicalName, protocol::fuse_messages::FileLocation location);    ///< Cache given file location.
+    virtual std::pair<locationInfo, storageInfo> getLocationInfo(const std::string &logical_name, bool useCluster = false);
+    virtual std::string findLocation(const std::string &logicalName);                        ///< Query cluster about file location and instert it to cache. @see StorageMapper::addLocation
+    virtual void addLocation(const std::string &logicalName, const protocol::fuse_messages::FileLocation &location); ///< Cache given file location.
                                                                             ///< Insert to file location cache new FileLocation received from cluster.
-    virtual void openFile(std::string logicalName);                              ///< Increases open file count for specified file. @see locationInfo::opened
-    virtual void releaseFile(std::string logicalName);                           ///< Decreases open file count for specified file. @see locationInfo::opened
+    virtual void openFile(const std::string &logicalName);                  ///< Increases open file count for specified file. @see locationInfo::opened
+    virtual void releaseFile(const std::string &logicalName);               ///< Decreases open file count for specified file. @see locationInfo::opened
 
-    virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+    virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 };
 

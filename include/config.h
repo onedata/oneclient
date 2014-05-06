@@ -63,14 +63,14 @@ namespace client {
 namespace utils {
 
 template<typename T>
-std::string toString(T in) {
+std::string toString(const T &in) {
     std::ostringstream ss;
     ss << in;
     return ss.str();
 }
 
 template<typename T>
-T fromString(std::string in) {
+T fromString(const std::string &in) {
     T out = 0;
     std::istringstream iss(in);
     iss >> out;
@@ -93,29 +93,29 @@ public:
                                                                 ///< @param delay Since this is async actions, you can specify execution delay in seconds.
     virtual void testHandshake();								///< Synchronously negotiate FuseID to test if everything is ok
 
-    virtual std::string getString(std::string opt);             ///< Returns string value of requested option.
+    virtual std::string getString(const std::string &opt);      ///< Returns string value of requested option.
                                                                 ///< Before using this function you should check is option exists, but
                                                                 ///< it's not required. @see Config::isSet
-    virtual int getInt(std::string opt);                        ///< Returns int value of requested option.
+    virtual int getInt(const std::string &opt);                 ///< Returns int value of requested option.
                                                                 ///< Before using this function you should check is option exists, but
                                                                 ///< it's not required. @see Config::isSet
-    virtual double getDouble(std::string opt);                  ///< Returns double value of requested option.
+    virtual double getDouble(const std::string &opt);           ///< Returns double value of requested option.
                                                                 ///< Before using this function you should check is option exists, but
                                                                 ///< it's not required. @see Config::isSet
-    virtual bool getBool(std::string opt);                      ///< Returns boolean value of requested option.
+    virtual bool getBool(const std::string &opt);               ///< Returns boolean value of requested option.
                                                                 ///< Before using this function you should check is option exists, but
                                                                 ///< it's not required. @see Config::isSet
                                                                 ///< @warning If given opition wasn't set, you'll get empty object of given type T ( T() )
 
-    virtual bool isSet(std::string);                            ///< Checks if given option is set. @see Config::getValue
-    std::string static absPathRelToCWD(boost::filesystem::path);            ///< Converts relative path, to absolute using CWD env as base prefix.
-    void static setMountPoint(boost::filesystem::path);         ///< Sets mount point path
+    virtual bool isSet(const std::string&);                     ///< Checks if given option is set. @see Config::getValue
+    std::string static absPathRelToCWD(const boost::filesystem::path&); ///< Converts relative path, to absolute using CWD env as base prefix.
+    void static setMountPoint(boost::filesystem::path);  ///< Sets mount point path
     boost::filesystem::path static getMountPoint();             ///< Gets mount point path
-    std::string static absPathRelToHOME(boost::filesystem::path);           ///< Converts relative path, to absolute using HOME env as base prefix.
-    void static putEnv(std::string, std::string);               ///< Saves given env variable.
+    std::string static absPathRelToHOME(const boost::filesystem::path&); ///< Converts relative path, to absolute using HOME env as base prefix.
+    void static putEnv(const std::string&, const std::string&); ///< Saves given env variable.
 
-    void setGlobalConfigFile(std::string path);                 ///< Sets path to global config file. @see Config::parseConfig
-    void setUserConfigFile(std::string path);                   ///< Sets path to user config file. @see Config::parseConfig
+    void setGlobalConfigFile(const std::string &path);          ///< Sets path to global config file. @see Config::parseConfig
+    void setUserConfigFile(const std::string &path);            ///< Sets path to user config file. @see Config::parseConfig
     void setEnv();                                              ///< Saves current CWD and HOME env viariables. This is required as FUSE changes them after non-debug start. This is also done automatically in Config::Config
     bool parseConfig();                                         ///< Parses config from files set by Config::setGlobalConfigFile and Config::setUserConfigFile.
                                                                 ///< User config overides global settings.
@@ -133,7 +133,7 @@ protected:
     static std::string m_envHOME;                    ///< Saved HOME env variable
     static std::map<std::string, std::string> m_envAll; ///< All saved env variables
     static boost::filesystem::path m_mountPoint;
-    
+
 
     std::string m_globalConfigPath;                  ///< Path to global config file. @see Config::setGlobalConfigFile
     std::string m_userConfigPath;                    ///< Path to user config file. @see Config::setUserConfigFile
@@ -144,17 +144,17 @@ protected:
     YAML::Node m_defaultsNode;                       ///< Default configs.
 
     boost::unordered_set<std::string> m_restrictedOptions; ///< Contains restrincted option names (options that can be only set in global config file)
-    
-    template<typename T>
-    T get(std::string opt);                          ///< Internal implementation of Config::getValue. @see Config::getValue
 
     template<typename T>
-    T getValue(std::string opt);                     ///< Returns type-specialized value of given config option.
+    T get(const std::string &opt);                   ///< Internal implementation of Config::getValue. @see Config::getValue
 
-    std::string static absPathRelTo(boost::filesystem::path relTo, boost::filesystem::path p); ///< Converts relative path (second argument), to absolute (relative to first argument). Also preforms check against mount point.
+    template<typename T>
+    T getValue(const std::string &opt);              ///< Returns type-specialized value of given config option.
+
+    std::string static absPathRelTo(const boost::filesystem::path &relTo, boost::filesystem::path p); ///< Converts relative path (second argument), to absolute (relative to first argument). Also preforms check against mount point.
 
 
-    virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+    virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
     void setupDefaults() {
         /// Here declare default values of config
@@ -178,28 +178,28 @@ protected:
         DECLARE_DEFAULT(FILE_BUFFER_PREFERED_BLOCK_SIZE_OPT, 100 * 1024);   // 100 kB
         DECLARE_DEFAULT(WRITE_BYTES_BEFORE_STAT_OPT, 5 * 1024 * 1024);          // 5 MB
     }
-    
+
     void setupRestrictedOptions() {
         RESTRICT_OPTION(ENABLE_ENV_OPTION_OVERRIDE);
-        
+
         RESTRICT_OPTION(CLUSTER_PING_INTERVAL_OPT);
-        
+
         RESTRICT_OPTION(ALIVE_META_CONNECTIONS_COUNT_OPT);
         RESTRICT_OPTION(ALIVE_DATA_CONNECTIONS_COUNT_OPT);
-        
+
         RESTRICT_OPTION(WRITE_BUFFER_MAX_SIZE_OPT);
         RESTRICT_OPTION(READ_BUFFER_MAX_SIZE_OPT);
         RESTRICT_OPTION(WRITE_BUFFER_MAX_FILE_SIZE_OPT);
         RESTRICT_OPTION(READ_BUFFER_MAX_FILE_SIZE_OPT);
         RESTRICT_OPTION(FILE_BUFFER_PREFERED_BLOCK_SIZE_OPT);
     }
-    
-    bool isRestricted(std::string opt);
+
+    bool isRestricted(const std::string &opt);
 
 };
 
 template<typename T>
-T Config::get(std::string opt)
+T Config::get(const std::string &opt)
 {
     if(!defaultsLoaded) {
         setupDefaults();
@@ -230,7 +230,7 @@ T Config::get(std::string opt)
 }
 
 template<typename T>
-T Config::getValue(std::string opt)
+T Config::getValue(const std::string &opt)
 {
     if(get<bool>(ENABLE_ENV_OPTION_OVERRIDE) && !isRestricted(opt))
     {

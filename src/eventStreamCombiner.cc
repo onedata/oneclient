@@ -25,7 +25,7 @@ list<boost::shared_ptr<Event> > EventStreamCombiner::processEvent(boost::shared_
     return producedEvents;
 }
 
-bool EventStreamCombiner::runTask(TaskID taskId, string arg0, string arg1, string arg2)
+bool EventStreamCombiner::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
 {
     switch(taskId){
     case TASK_PROCESS_EVENT:

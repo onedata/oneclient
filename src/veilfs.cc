@@ -798,7 +798,7 @@ void VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> injected)
     m_connectionPool = injected;
 }
 
-bool VeilFS::runTask(TaskID taskId, string arg0, string arg1, string arg2)
+bool VeilFS::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
 {
     struct stat attr;
     vector<string> children;

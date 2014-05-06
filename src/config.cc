@@ -41,12 +41,12 @@ Config::Config()
 Config::~Config()
 {
 }
-    
-bool Config::isRestricted(std::string opt) {
+
+bool Config::isRestricted(const string &opt) {
     return m_restrictedOptions.find(boost::algorithm::to_lower_copy(opt)) != m_restrictedOptions.end();
 }
 
-void Config::setMountPoint(path mp)
+void Config::setMountPoint(filesystem::path mp)
 {
     m_mountPoint = mp.normalize();
 }
@@ -56,17 +56,17 @@ path Config::getMountPoint()
     return m_mountPoint;
 }
 
-void Config::putEnv(string name, string value)
+void Config::putEnv(const string &name, const string &value)
 {
     m_envAll[name] = value;
 }
-    
+
 string Config::getFuseID()
 {
     return getString(FUSE_ID_OPT);
 }
 
-void Config::setGlobalConfigFile(string path)
+void Config::setGlobalConfigFile(const string &path)
 {
     if(path[0] == '/')
         m_globalConfigPath = path;
@@ -74,7 +74,7 @@ void Config::setGlobalConfigFile(string path)
         m_globalConfigPath = string(VeilClient_INSTALL_PATH) + "/" + string(VeilClient_CONFIG_DIR) + "/" + path;
 }
 
-void Config::setUserConfigFile(string path)
+void Config::setUserConfigFile(const string &path)
 {
     m_userConfigPath = absPathRelToCWD(path);
 }
@@ -85,7 +85,7 @@ void Config::setEnv()
     m_envHOME = string(getenv("HOME"));
 }
 
-bool Config::isSet(string opt)
+bool Config::isSet(const string &opt)
 {
     try {
         if( isRestricted(opt)) {
@@ -105,7 +105,7 @@ bool Config::isSet(string opt)
                 return true;
             } catch(YAML::Exception e) {
                 return false;
-            } 
+            }
         }
     }
 }
@@ -151,49 +151,49 @@ bool Config::parseConfig()
 
     return true;
 }
-    
-string Config::absPathRelTo(path relTo, path p)
+
+string Config::absPathRelTo(const filesystem::path &relTo, filesystem::path p)
 {
     path out = p.normalize();
-    
+
     if(p.is_relative()) {
         out = (relTo / p).normalize();
     }
-    
+
     if(!getMountPoint().empty() &&
        out.normalize().string().find(getMountPoint().normalize().string()) == 0) {
         throw VeilException("path_error", string("Cannot access '") + out.string() + "' because the file is within your filesystem mount point - " + getMountPoint().string());
     }
-    
+
     return out.normalize().string();
 }
 
-string Config::absPathRelToCWD(path p)
+string Config::absPathRelToCWD(const filesystem::path &p)
 {
     return absPathRelTo(string(m_envCWD), p);
 }
 
-string Config::absPathRelToHOME(path p)
+string Config::absPathRelToHOME(const filesystem::path &p)
 {
     return absPathRelTo(string(m_envHOME), p);
 }
 
-string Config::getString(string opt) 
+string Config::getString(const string &opt)
 {
     return getValue<string>(opt);
 }
 
-int Config::getInt(string opt)
+int Config::getInt(const string &opt)
 {
     return getValue<int>(opt);
 }
 
-bool Config::getBool(string opt)
+bool Config::getBool(const string &opt)
 {
     return getValue<bool>(opt);
-}   
+}
 
-double Config::getDouble(string opt)
+double Config::getDouble(const string &opt)
 {
     return getValue<double>(opt);
 }
@@ -201,8 +201,8 @@ double Config::getDouble(string opt)
 void Config::negotiateFuseID(time_t delay)
 {
     // Delete old jobs, we dont need them since we are adding new one anyway
-    VeilFS::getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->deleteJobs(VeilFS::getConfig().get(), ISchedulable::TASK_CONNECTION_HANDSHAKE); 
-    VeilFS::getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->addTask(Job(time(NULL) + delay, VeilFS::getConfig(), ISchedulable::TASK_CONNECTION_HANDSHAKE));    
+    VeilFS::getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->deleteJobs(VeilFS::getConfig().get(), ISchedulable::TASK_CONNECTION_HANDSHAKE);
+    VeilFS::getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->addTask(Job(time(NULL) + delay, VeilFS::getConfig(), ISchedulable::TASK_CONNECTION_HANDSHAKE));
 }
 
 void Config::testHandshake()
@@ -222,67 +222,67 @@ void Config::testHandshake()
     gethostname(tmpHost, sizeof(tmpHost));
     string hostname = string(tmpHost);
 
-	conn = VeilFS::getConnectionPool()->selectConnection();
-	if(conn)
-	{
-		// Build HandshakeRequest message
-		reqMsg.set_hostname(hostname);
+    conn = VeilFS::getConnectionPool()->selectConnection();
+    if(conn)
+    {
+        // Build HandshakeRequest message
+        reqMsg.set_hostname(hostname);
 
         bool fuseIdFound = false;
-		// Iterate over all env variables
-		map<string, string>::const_iterator it;
-		for(it = m_envAll.begin(); it != m_envAll.end(); ++it)
-		{
-			if(!boost::istarts_with((*it).first, FUSE_OPT_PREFIX)) // Reject vars with invalid prefix
-				continue;
-            
+        // Iterate over all env variables
+        map<string, string>::const_iterator it;
+        for(it = m_envAll.begin(); it != m_envAll.end(); ++it)
+        {
+            if(!boost::istarts_with((*it).first, FUSE_OPT_PREFIX)) // Reject vars with invalid prefix
+                continue;
+
             if(boost::iequals((*it).first, string(FUSE_OPT_PREFIX) + string("GROUP_ID"))) {
                 fuseIdFound = true;
             }
-            
-			varEntry = reqMsg.add_variable();
-			varEntry->set_name( (*it).first.substr(string(FUSE_OPT_PREFIX).size()) );
-			varEntry->set_value( (*it).second );
-		}
-        
+
+            varEntry = reqMsg.add_variable();
+            varEntry->set_name( (*it).first.substr(string(FUSE_OPT_PREFIX).size()) );
+            varEntry->set_value( (*it).second );
+        }
+
         if(isSet(FUSE_GROUP_ID_OPT) && !fuseIdFound) {
             varEntry = reqMsg.add_variable();
-            
+
             varEntry->set_name( "GROUP_ID" );
             varEntry->set_value( getString(FUSE_GROUP_ID_OPT) );
         }
-        
-		cMsg = builder.createClusterMessage(FSLOGIC, HandshakeRequest::descriptor()->name(), HandshakeResponse::descriptor()->name(), FUSE_MESSAGES, true);
-		cMsg.set_input(reqMsg.SerializeAsString());
 
-		// Send HandshakeRequest message
-		ans = conn->communicate(cMsg, 2);
+        cMsg = builder.createClusterMessage(FSLOGIC, HandshakeRequest::descriptor()->name(), HandshakeResponse::descriptor()->name(), FUSE_MESSAGES, true);
+        cMsg.set_input(reqMsg.SerializeAsString());
 
-		// Check answer
-		if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
+        // Send HandshakeRequest message
+        ans = conn->communicate(cMsg, 2);
+
+        // Check answer
+        if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
         {
-			// Set FUSE_ID in config
+            // Set FUSE_ID in config
             m_globalNode[FUSE_ID_OPT] = resMsg.fuse_id();
-            
+
             return;
-		}
+        }
         else if(ans.answer_status() == NO_USER_FOUND_ERROR)
-			throw VeilException(NO_USER_FOUND_ERROR,"Cannot find user in database.");
-		else
-			throw VeilException(ans.answer_status(),"Cannot negotatiate FUSE_ID");
-	}
-	else
-		throw VeilException(NO_CONNECTION_FOR_HANDSHAKE,"Cannot select connection for handshake operation,");
+            throw VeilException(NO_USER_FOUND_ERROR,"Cannot find user in database.");
+        else
+            throw VeilException(ans.answer_status(),"Cannot negotatiate FUSE_ID");
+    }
+    else
+        throw VeilException(NO_CONNECTION_FOR_HANDSHAKE,"Cannot select connection for handshake operation,");
 }
 
-bool Config::runTask(TaskID taskId, string arg0, string arg1, string arg2)
+bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
 {
     string oldSessId = getFuseID();
     AutoLock lock(m_access, WRITE_LOCK);
-    
+
     if(taskId == TASK_CONNECTION_HANDSHAKE && getFuseID() != oldSessId)
         return true;
-    
+
     ClusterMsg cMsg;
     HandshakeRequest reqMsg;
     HandshakeRequest::EnvVariable *varEntry;
@@ -299,8 +299,8 @@ bool Config::runTask(TaskID taskId, string arg0, string arg1, string arg2)
     switch(taskId)
     {
     case TASK_CONNECTION_HANDSHAKE: // Send connection handshake request to cluster (in order to get FUSE_ID)
-        
-        conn = VeilFS::getConnectionPool()->selectConnection(); 
+
+        conn = VeilFS::getConnectionPool()->selectConnection();
         if(conn)
         {
             // Build HandshakeRequest message
@@ -313,7 +313,7 @@ bool Config::runTask(TaskID taskId, string arg0, string arg1, string arg2)
             {
                 if(!boost::istarts_with((*it).first, FUSE_OPT_PREFIX)) // Reject vars with invalid prefix
                     continue;
-                
+
                 if(boost::iequals((*it).first, string(FUSE_OPT_PREFIX) + string("GROUP_ID"))) {
                     fuseIdFound = true;
                 }
@@ -323,10 +323,10 @@ bool Config::runTask(TaskID taskId, string arg0, string arg1, string arg2)
                 varEntry->set_name( (*it).first.substr(string(FUSE_OPT_PREFIX).size()) );
                 varEntry->set_value( (*it).second );
             }
-            
+
             if(isSet(FUSE_GROUP_ID_OPT) && !fuseIdFound) {
                 varEntry = reqMsg.add_variable();
-                
+
                 varEntry->set_name( "GROUP_ID" );
                 varEntry->set_value( getString(FUSE_GROUP_ID_OPT) );
             }
@@ -337,8 +337,8 @@ bool Config::runTask(TaskID taskId, string arg0, string arg1, string arg2)
             // Send HandshakeRequest message
             ans = conn->communicate(cMsg, 2);
             if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
-            { 
-                // Set FUSE_ID in config 
+            {
+                // Set FUSE_ID in config
                 m_globalNode[FUSE_ID_OPT] = resMsg.fuse_id();
 
                 // Update FUSE_ID in current connection pool
@@ -352,12 +352,12 @@ bool Config::runTask(TaskID taskId, string arg0, string arg1, string arg2)
                 LOG(INFO) << "Newly negotiated FUSE_ID: " << resMsg.fuse_id();
 
                 return true;
-            } 
+            }
             else
-                LOG(WARNING) << "Cannot negotatiate FUSE_ID. Invalid cluster answer with status: " << ans.answer_status();  
+                LOG(WARNING) << "Cannot negotatiate FUSE_ID. Invalid cluster answer with status: " << ans.answer_status();
 
         }
-        else 
+        else
             LOG(ERROR) << "Cannot select connection for handshake operation,";
 
         // At this point we know that something went wrong

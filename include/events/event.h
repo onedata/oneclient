@@ -29,27 +29,27 @@ typedef long long NumericProperty;
  */
 class Event{
 public:
-	Event();
-	Event(const Event & anotherEvent);
+    Event();
+    Event(const Event & anotherEvent);
 
-	virtual boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> createProtoMessage(); ///< Creates protocol buffer message representing Event.
+    virtual boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> createProtoMessage(); ///< Creates protocol buffer message representing Event.
 
-	/* Access methods for m_numericProperties */
-	NumericProperty getNumericProperty(const std::string & key, const NumericProperty defaultValue) const; ///< Returns numericProperty for key. If cannot be found defaultValue is returned instead.
-	void setNumericProperty(const std::string & key, NumericProperty value);
-	int getNumericPropertiesSize() const;
+    /* Access methods for m_numericProperties */
+    NumericProperty getNumericProperty(const std::string & key, const NumericProperty defaultValue) const; ///< Returns numericProperty for key. If cannot be found defaultValue is returned instead.
+    void setNumericProperty(const std::string & key, NumericProperty value);
+    int getNumericPropertiesSize() const;
 
-	/* Access methods for m_stringProperties */
-	std::string getStringProperty(const std::string & key, const std::string & defaultValue) const; ///< Returns stringProperty for key. If cannot be found defaultValue is returned instead.
-	void setStringProperty(const std::string & key, std::string value);
-	int getStringPropertiesSize() const;
+    /* Access methods for m_stringProperties */
+    std::string getStringProperty(const std::string & key, const std::string & defaultValue) const; ///< Returns stringProperty for key. If cannot be found defaultValue is returned instead.
+    void setStringProperty(const std::string & key, const std::string & value);
+    int getStringPropertiesSize() const;
 
-	/* Factory methods */
-	static boost::shared_ptr<Event> createMkdirEvent(const std::string & filePath);
-	static boost::shared_ptr<Event> createWriteEvent(const std::string & filePath, NumericProperty bytes);
-	static boost::shared_ptr<Event> createReadEvent(const std::string & filePath, NumericProperty bytes);
-	static boost::shared_ptr<Event> createRmEvent(const std::string & filePath);
-	static boost::shared_ptr<Event> createTruncateEvent(const std::string & filePath, off_t newSize);
+    /* Factory methods */
+    static boost::shared_ptr<Event> createMkdirEvent(const std::string & filePath);
+    static boost::shared_ptr<Event> createWriteEvent(const std::string & filePath, NumericProperty bytes);
+    static boost::shared_ptr<Event> createReadEvent(const std::string & filePath, NumericProperty bytes);
+    static boost::shared_ptr<Event> createRmEvent(const std::string & filePath);
+    static boost::shared_ptr<Event> createTruncateEvent(const std::string & filePath, off_t newSize);
 
 private:
     std::map<std::string, NumericProperty> m_numericProperties; ///< Stores numeric properties

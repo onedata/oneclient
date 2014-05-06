@@ -21,9 +21,9 @@ public:
     MockStorageMapper(boost::shared_ptr<FslogicProxy> fslogicProxy) : StorageMapper(fslogicProxy) {}
     ~MockStorageMapper() {}
 
-    MOCK_METHOD1(releaseFile, void(string));
-    MOCK_METHOD2(getLocationInfo, pair<locationInfo, storageInfo>(string, bool));
-    MOCK_METHOD2(addLocation, void(string, FileLocation));
-    MOCK_METHOD1(findLocation, string(string));
+    MOCK_METHOD1(releaseFile, void(const string&));
+    MOCK_METHOD2(getLocationInfo, pair<locationInfo, storageInfo>(const string&, bool));
+    MOCK_METHOD2(addLocation, void(const string&, const FileLocation&));
+    MOCK_METHOD1(findLocation, string(const string&));
 };
 #endif // STORAGE_MAPPER_MOCK_H

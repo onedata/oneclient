@@ -51,7 +51,7 @@ public:
     ISchedulable();
     virtual ~ISchedulable();    ///< Interface destructor.
 
-    virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3) = 0; ///< Callback which are called by JobScheduler when requested. @see JobScheduler
+    virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3) = 0; ///< Callback which are called by JobScheduler when requested. @see JobScheduler
 };
 
 } // namespace client

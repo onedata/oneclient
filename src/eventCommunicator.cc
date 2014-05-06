@@ -175,7 +175,7 @@ void EventCommunicator::processEvent(boost::shared_ptr<Event> event)
     }
 }
 
-bool EventCommunicator::runTask(TaskID taskId, string arg0, string arg1, string arg2)
+bool EventCommunicator::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
 {
     switch(taskId)
     {

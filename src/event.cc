@@ -86,7 +86,7 @@ NumericProperty Event::getNumericProperty(const string & key, const NumericPrope
     }
 }
 
-void Event::setNumericProperty(const std::string & key, NumericProperty value){
+void Event::setNumericProperty(const string & key, NumericProperty value){
     m_numericProperties[key] = value;
 }
 
@@ -103,7 +103,7 @@ string Event::getStringProperty(const string & key, const string & defaultValue)
     }
 }
 
-void Event::setStringProperty(const std::string & key, std::string value){
+void Event::setStringProperty(const string & key, const string &value){
     m_stringProperties[key] = value;
 }
 

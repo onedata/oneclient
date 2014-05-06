@@ -13,7 +13,7 @@ using namespace std;
 using namespace boost;
 using namespace veil::protocol::fuse_messages;
 
-EventTransformer::EventTransformer(vector<string> fieldNamesToReplace, vector<string> valuesToReplace, vector<string> newValues) :
+EventTransformer::EventTransformer(const vector<string> &fieldNamesToReplace, const vector<string> &valuesToReplace, const vector<string> &newValues) :
     m_fieldNamesToReplace(fieldNamesToReplace), m_valuesToReplace(valuesToReplace), m_newValues(newValues)
 {
 
