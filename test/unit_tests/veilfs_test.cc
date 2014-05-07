@@ -15,6 +15,7 @@
 #include "storageHelperFactory_fake.h"
 #include "fslogicProxy_mock.h"
 #include "metaCache_mock.h"
+#include "localStorageManager_mock.h"
 #include "storageMapper_mock.h"
 #include "veilErrors.h"
 
@@ -36,6 +37,7 @@ public:
     boost::shared_ptr<MockJobScheduler> jobSchedulerMock;
     boost::shared_ptr<MockFslogicProxy> fslogicMock;
     boost::shared_ptr<MockMetaCache> metaCacheMock;
+    boost::shared_ptr<MockLocalStorageManager> storageManagerMock;
     boost::shared_ptr<MockStorageMapper> storageMapperMock;
     boost::shared_ptr<MockGenericHelper> helperMock;
     boost::shared_ptr<FakeStorageHelperFactory> factoryFake;
@@ -52,6 +54,7 @@ public:
         jobSchedulerMock.reset(new MockJobScheduler());
         fslogicMock.reset(new MockFslogicProxy());
         metaCacheMock.reset(new MockMetaCache());
+        storageManagerMock.reset(new MockLocalStorageManager());
         storageMapperMock.reset(new MockStorageMapper(fslogicMock));
         helperMock.reset(new MockGenericHelper());
         factoryFake.reset(new FakeStorageHelperFactory());
@@ -77,6 +80,7 @@ public:
                         jobSchedulerMock,
                         fslogicMock,
                         metaCacheMock,
+                        storageManagerMock,
                         storageMapperMock,
                         factoryFake,
                         eventCommunicatorMock));
