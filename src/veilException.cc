@@ -16,7 +16,7 @@ VeilException::VeilException() : m_veilError(VEIO)
 {
 }
 
-VeilException::VeilException(std::string veilError, std::string logMsg) :
+VeilException::VeilException(const std::string &veilError, const std::string &logMsg) :
     m_logMessage(logMsg),
     m_veilError(veilError)
 {

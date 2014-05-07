@@ -20,21 +20,21 @@ public:
     MockFslogicProxy() {};
     ~MockFslogicProxy() {};
 
-    MOCK_METHOD2(getFileLocation, bool(string, FileLocation&));
-    MOCK_METHOD2(changeFilePerms, string(string, mode_t));
-    MOCK_METHOD2(renameFile, string(string, string));
-    MOCK_METHOD1(deleteFile, string(string));
-    MOCK_METHOD2(createDir, string(string, mode_t));
-    MOCK_METHOD3(getNewFileLocation, bool(string, mode_t, FileLocation&));
-    MOCK_METHOD1(sendFileCreatedAck, string(string));
-    MOCK_METHOD2(getFileAttr, bool(string, FileAttr&));
-    MOCK_METHOD2(createLink, string(string, string));
-    MOCK_METHOD1(getLink, pair<string, string>(string));
+    MOCK_METHOD2(getFileLocation, bool(const string&, FileLocation&));
+    MOCK_METHOD2(changeFilePerms, string(const string&, mode_t));
+    MOCK_METHOD2(renameFile, string(const string&, const string&));
+    MOCK_METHOD1(deleteFile, string(const string&));
+    MOCK_METHOD2(createDir, string(const string&, mode_t));
+    MOCK_METHOD3(getNewFileLocation, bool(const string&, mode_t, FileLocation&));
+    MOCK_METHOD1(sendFileCreatedAck, string(const string&));
+    MOCK_METHOD2(getFileAttr, bool(const string&, FileAttr&));
+    MOCK_METHOD2(createLink, string(const string&, const string&));
+    MOCK_METHOD1(getLink, pair<string, string>(const string&));
     MOCK_METHOD0(pingCluster, void());
-    MOCK_METHOD4(updateTimes, string(string, time_t, time_t, time_t));
-    MOCK_METHOD3(changeFileOwner, string(string, uid_t, string));
-    MOCK_METHOD3(changeFileGroup, string(string, gid_t, string));
-    MOCK_METHOD1(sendFileNotUsed, bool(string));
+    MOCK_METHOD4(updateTimes, string(const string&, time_t, time_t, time_t));
+    MOCK_METHOD3(changeFileOwner, string(const string&, uid_t, const string&));
+    MOCK_METHOD3(changeFileGroup, string(const string&, gid_t, const string&));
+    MOCK_METHOD1(sendFileNotUsed, bool(const string&));
     MOCK_METHOD0(getStatFS, pair<string, struct statvfs>());
     MOCK_METHOD0(isWriteEnabled, bool());
 

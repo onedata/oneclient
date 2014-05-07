@@ -18,13 +18,14 @@ public:
     MockJobScheduler() {
         EXPECT_CALL(*this, deleteJobs(_, _)).Times(AtLeast(0));
     }
-    
+
     ~MockJobScheduler() {}
 
     MOCK_METHOD1(addTask, void(Job));
-    MOCK_METHOD2(deleteJobs, void(ISchedulable*, ISchedulable::TaskID));
+    MOCK_METHOD2(deleteJobs, void(const ISchedulable * const,
+                                  const ISchedulable::TaskID));
 
-    
+
 };
 
 #endif // JOB_SCHEDULER_MOCK_H

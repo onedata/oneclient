@@ -17,10 +17,10 @@ public:
     MockMetaCache() {};
     ~MockMetaCache() {};
 
-    MOCK_METHOD1(clearAttr, void(string));
-    MOCK_METHOD2(addAttr, void(string, struct stat&));
-    MOCK_METHOD2(getAttr, bool(string, struct stat*));
-    MOCK_METHOD2(updateSize, bool(string, size_t size));
+    MOCK_METHOD1(clearAttr, void(const string&));
+    MOCK_METHOD2(addAttr, void(const string&, struct stat&));
+    MOCK_METHOD2(getAttr, bool(const string&, struct stat*));
+    MOCK_METHOD2(updateSize, bool(const string&, size_t size));
 };
 
 

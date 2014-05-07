@@ -17,12 +17,17 @@ INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
 // TEST definitions below
 
+bool operator==(const Job &lhs, const Job &rhs)
+{
+    return lhs.subject == rhs.subject && lhs.task == rhs.task &&
+           lhs.arg0 == rhs.arg0 && lhs.arg1 == rhs.arg1 &&
+           lhs.arg2 == rhs.arg2;
+}
 
-
-class MockJobObject 
+class MockJobObject
     : public ISchedulable {
 public:
-    MOCK_METHOD4(runTask, bool(TaskID, string, string, string));
+    MOCK_METHOD4(runTask, bool(TaskID, const string&, const string&, const string&));
 };
 
 class JobSchedulerTest
@@ -60,9 +65,9 @@ TEST_F(JobSchedulerTest, JobCompare) {
     EXPECT_FALSE(j2 == j4);
     EXPECT_FALSE(j1 == j6);
 
-    EXPECT_LT(j2, j1);
-    EXPECT_LT(j3, j1);
-    EXPECT_LT(j3, j5);
+    EXPECT_LT(j1, j2);
+    EXPECT_LT(j1, j3);
+    EXPECT_LT(j5, j3);
 }
 
 TEST_F(JobSchedulerTest, AddAndDelete) {

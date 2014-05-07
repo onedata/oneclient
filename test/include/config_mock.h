@@ -11,18 +11,18 @@
 #include "config.h"
 #include "testCommon.h"
 
-class MockConfig 
+class MockConfig
     : public Config {
 
 public:
     MockConfig() {};
     ~MockConfig() {};
 
-    MOCK_METHOD1(isSet, bool(string));
-    MOCK_METHOD1(getString, string(string));
-    MOCK_METHOD1(getBool, bool(string));
-    MOCK_METHOD1(getInt, int(string));
-    MOCK_METHOD1(getDouble, double(string));
+    MOCK_METHOD1(isSet, bool(const string&));
+    MOCK_METHOD1(getString, string(const string&));
+    MOCK_METHOD1(getBool, bool(const string&));
+    MOCK_METHOD1(getInt, int(const string&));
+    MOCK_METHOD1(getDouble, double(const string&));
 };
 
 

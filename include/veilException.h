@@ -32,7 +32,7 @@ public:
      * @param logMsg Human readable excpetion reason message.
      * @see VeilFS::translateError
      */
-    VeilException(std::string veilError, std::string logMsg = "");
+    VeilException(const std::string &veilError, const std::string &logMsg = "");
     virtual ~VeilException() throw();
 
     const char* what() const throw(); ///< Returns VeilException::m_logMessage

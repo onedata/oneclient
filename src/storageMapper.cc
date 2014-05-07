@@ -21,7 +21,7 @@ using namespace veil::protocol::fuse_messages;
 namespace veil {
 namespace client {
 
-StorageMapper::StorageMapper(boost::shared_ptr<FslogicProxy> fslogicProxy) : 
+StorageMapper::StorageMapper(boost::shared_ptr<FslogicProxy> fslogicProxy) :
     m_fslogic(fslogicProxy)
 {
 }
@@ -30,7 +30,7 @@ StorageMapper::~StorageMapper()
 {
 }
 
-pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(string logicalName, bool useCluster)
+pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &logicalName, bool useCluster)
 {
     AutoLock lock(m_fileMappingLock, READ_LOCK);
     map<string, locationInfo>::iterator it = m_fileMapping.find(logicalName);
@@ -60,7 +60,7 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(string logicalNam
     return make_pair(it->second, it1->second);
 }
 
-string StorageMapper::findLocation(string logicalName)
+string StorageMapper::findLocation(const string &logicalName)
 {
     LOG(INFO) << "quering cluster about storage mapping for file: " << logicalName;
     FileLocation location;
@@ -76,7 +76,7 @@ string StorageMapper::findLocation(string logicalName)
         return VEIO;
 }
 
-void StorageMapper::addLocation(string logicalName, FileLocation location)
+void StorageMapper::addLocation(const string &logicalName, const FileLocation &location)
 {
     LOG(INFO) << "adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(NULL) << " + " << location.validity();
 
@@ -104,7 +104,7 @@ void StorageMapper::addLocation(string logicalName, FileLocation location)
     VeilFS::getScheduler()->addTask(Job(info.validTo - RENEW_LOCATION_MAPPING_TIME, shared_from_this(), TASK_RENEW_LOCATION_MAPPING, logicalName));
 }
 
-void StorageMapper::openFile(string logicalName)
+void StorageMapper::openFile(const string &logicalName)
 {
     LOG(INFO) << "marking file '" << logicalName << "' as open";
 
@@ -115,7 +115,7 @@ void StorageMapper::openFile(string logicalName)
     }
 }
 
-void StorageMapper::releaseFile(string logicalName)
+void StorageMapper::releaseFile(const string &logicalName)
 {
     LOG(INFO) << "marking file '" << logicalName << "' closed";
 
@@ -132,7 +132,7 @@ void StorageMapper::releaseFile(string logicalName)
     }
 }
 
-bool StorageMapper::runTask(TaskID taskId, string arg0, string arg1, string arg3)
+bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg3)
 {
     map<string, locationInfo>::iterator it;
     int validity;
@@ -141,12 +141,12 @@ bool StorageMapper::runTask(TaskID taskId, string arg0, string arg1, string arg3
     {
         case TASK_REMOVE_EXPIRED_LOCATON_MAPPING:
             it = m_fileMapping.find(arg0);
-            if(it != m_fileMapping.end() && (*it).second.validTo <= time(NULL)) 
+            if(it != m_fileMapping.end() && (*it).second.validTo <= time(NULL))
             {
                 LOG(INFO) << "Removing old location mapping for file: " << arg0;
                 m_fileMapping.erase(arg0);
             }
-            else if(it != m_fileMapping.end()) 
+            else if(it != m_fileMapping.end())
             {
                 LOG(INFO) << "Recheduling old location mapping removal for file: " << arg0;
                 VeilFS::getScheduler()->addTask(Job((*it).second.validTo, shared_from_this(), TASK_REMOVE_EXPIRED_LOCATON_MAPPING, arg0));
@@ -161,7 +161,7 @@ bool StorageMapper::runTask(TaskID taskId, string arg0, string arg1, string arg3
                 return true;
             }
             it = m_fileMapping.find(arg0);
-            if(it != m_fileMapping.end()) 
+            if(it != m_fileMapping.end())
             {
                 (*it).second.validTo = time(NULL) + validity;
                 LOG(INFO) << "Renewed location mapping for file: " << arg0 << ". New validity: time + " << ntohl(validity);
