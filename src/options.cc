@@ -33,7 +33,7 @@ namespace veil
 namespace client
 {
 
-Options::Options(const int argc, const char * const argv[])
+Options::Options()
     : m_common("Common config file and environment options")
     , m_restricted("Global config file restricted options")
     , m_commandline("General options")
@@ -41,7 +41,6 @@ Options::Options(const int argc, const char * const argv[])
     , m_hidden("Hidden commandline options")
 {
     setDescriptions();
-    parseConfigs(argc, argv);
 }
 
 

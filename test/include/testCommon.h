@@ -70,7 +70,7 @@ using namespace veil::client::events;
         ProxyConfig *proxyConfig = new ProxyConfig(); \
         proxyConfig->fuseID = "testID"; \
         config.reset(proxyConfig); \
-        options.reset(new Options(1, argv)); \
+        options.reset(new Options()); \
         fslogic.reset(new FslogicProxy()); \
         VeilFS::setConfig(config); \
         VeilFS::setOptions(options); \

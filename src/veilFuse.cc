@@ -228,11 +228,12 @@ int main(int argc, char* argv[])
     umask(0);
     fuse_init();
 
-    boost::shared_ptr<Options> options;
+    boost::shared_ptr<Options> options = boost::make_shared<Options>();
+    VeilFS::setOptions(options);
     try
     {
-        options.reset(new Options(argc, argv));
-        VeilFS::setOptions(options);
+        // On --version (-V), --help (-h) prints and exits with success
+        options->parseConfigs(argc, argv);
     }
     catch(VeilException &e)
     {

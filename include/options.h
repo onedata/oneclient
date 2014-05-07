@@ -64,13 +64,18 @@ class Options
 {
 public:
     /**
-     * Constructor. Parses all available configuration sources. If --help (-h)
-     * or --version (-V) options were requested, the constructor prints the
-     * relevant output and calls exit(EXIT_SUCCESS).
+     * Constructor.
+     */
+    Options();
+
+    /**
+     * Parses all available configuration sources.
+     * If --help (-h) or --version (-V) options were requested, the method
+     * prints the relevant output and calls exit(EXIT_SUCCESS).
      * @param argc The number of commandline arguments passed.
      * @param argv The commandline arguments.
      */
-    Options(const int argc, const char * const argv[]);
+    void parseConfigs(const int argc, const char * const argv[]);
 
     /**
      * Destructor.
@@ -86,7 +91,6 @@ public:
 private:
     std::string mapEnvNames(std::string env) const;
     void setDescriptions();
-    void parseConfigs(const int argc, const char * const argv[]);
     void parseCommandLine(const int argc, const char * const argv[]);
     void parseUserConfig(boost::program_options::variables_map &fileConfigMap);
     void parseGlobalConfig(boost::program_options::variables_map &fileConfigMap);
