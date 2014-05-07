@@ -56,9 +56,19 @@ path Config::getMountPoint()
     return m_mountPoint;
 }
 
+bool Config::isEnvSet(const string &name)
+{
+    return m_envAll.find(name) != m_envAll.end();
+}
+
 void Config::putEnv(const string &name, const string &value)
 {
     m_envAll[name] = value;
+}
+
+string Config::getEnv(const string &name)
+{
+    return m_envAll[name];
 }
 
 string Config::getFuseID()

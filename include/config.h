@@ -112,6 +112,8 @@ public:
     void static setMountPoint(boost::filesystem::path);  ///< Sets mount point path
     boost::filesystem::path static getMountPoint();             ///< Gets mount point path
     std::string static absPathRelToHOME(const boost::filesystem::path&); ///< Converts relative path, to absolute using HOME env as base prefix.
+    bool static isEnvSet(const std::string&);                   ///< Checks whether env variable is set.
+    std::string static getEnv(const std::string&);              ///< Returns given env variable.
     void static putEnv(const std::string&, const std::string&); ///< Saves given env variable.
 
     void setGlobalConfigFile(const std::string &path);          ///< Sets path to global config file. @see Config::parseConfig
