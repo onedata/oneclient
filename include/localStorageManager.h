@@ -18,8 +18,6 @@
 #include <utility>
 #include <boost/shared_ptr.hpp>
 
-#include "fslogicProxy.h"
-
 #define MOUNTS_INFO_FILE_PATH           "/proc/mounts"
 #define STORAGE_INFO_FILENAME           "vfs_storage.info"
 

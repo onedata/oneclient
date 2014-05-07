@@ -12,8 +12,6 @@
 #include "fuse_messages.pb.h"
 #include <google/protobuf/descriptor.h>
 
-using namespace std;
-using namespace boost;
 using namespace veil::protocol::fuse_messages;
 using namespace veil::protocol::communication_protocol;
 
@@ -28,18 +26,18 @@ LocalStorageManager::~LocalStorageManager()
 {
 }
 
-bool LocalStorageManager::validatePath(string& path)
+bool LocalStorageManager::validatePath(std::string& path)
 {
     const char* delimiters = "/";
     char* pathCopy = strdup(path.c_str());
     char* token = strtok(pathCopy, delimiters);
-    string validatedPath = "";
+    std::string validatedPath = "";
     while(token != NULL) {
         if(strcmp(token, "..") == 0) {  // invalid path (contains '..')
             free(pathCopy);
             return false;
         } else if(strcmp(token, ".") != 0) {    // skip '.' in path
-            validatedPath += "/" + string(token);
+            validatedPath += "/" + std::string(token);
         }
         token = strtok(NULL, delimiters);
     }
@@ -48,9 +46,9 @@ bool LocalStorageManager::validatePath(string& path)
     return true;
 }
 
-vector<string> LocalStorageManager::getMountPoints()
+std::vector<std::string> LocalStorageManager::getMountPoints()
 {
-    vector<string> mountPoints;
+    std::vector<std::string> mountPoints;
     FILE *file = fopen(MOUNTS_INFO_FILE_PATH, "r");
     if(file != NULL) {
         char line[1024];
@@ -66,7 +64,7 @@ vector<string> LocalStorageManager::getMountPoints()
                         break;
                     case 2:
                         if(strncmp(token, "fuse.", 5) != 0) {
-                            mountPoints.push_back(string(mountPoint));
+                            mountPoints.push_back(std::string(mountPoint));
                         }
                         break;
                 }
@@ -79,10 +77,10 @@ vector<string> LocalStorageManager::getMountPoints()
     return mountPoints;
 }
 
-vector< pair<int, string> > LocalStorageManager::getClientStorageInfo(vector<string> mountPoints)
+std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorageInfo(std::vector<std::string> mountPoints)
 {
-    vector< pair<int, string> > clientStorageInfo;
-    for(vector<string>::iterator mountPoint = mountPoints.begin(); mountPoint != mountPoints.end(); ++mountPoint) {
+    std::vector< std::pair<int, std::string> > clientStorageInfo;
+    for(std::vector<std::string>::iterator mountPoint = mountPoints.begin(); mountPoint != mountPoints.end(); ++mountPoint) {
         FILE *file = fopen((*mountPoint + "/" + STORAGE_INFO_FILENAME).c_str(), "r");
         if(file != NULL) {
             char line[1024];
@@ -92,9 +90,9 @@ vector< pair<int, string> > LocalStorageManager::getClientStorageInfo(vector<str
                 int position = 0;
         
                 int storageId;
-                string absolutePath;
-                string relativePath = "";
-                string text = "";
+                std::string absolutePath;
+                std::string relativePath = "";
+                std::string text = "";
         
                 while(token != NULL && position <= 1) {
                     switch(position) {
@@ -102,7 +100,7 @@ vector< pair<int, string> > LocalStorageManager::getClientStorageInfo(vector<str
                             storageId = atoi(token);
                             break;
                         case 1:
-                            absolutePath = *mountPoint + "/" + string(token);
+                            absolutePath = *mountPoint + "/" + std::string(token);
                             if(!validatePath(absolutePath)) {
                                 LOG(WARNING) << "Invalid path ( " << absolutePath << " ) for storage with id: " << storageId;
                                 break;
@@ -133,7 +131,7 @@ vector< pair<int, string> > LocalStorageManager::getClientStorageInfo(vector<str
     return clientStorageInfo;
 }
 
-bool LocalStorageManager::sendClientStorageInfo(vector< pair<int, string> > clientStorageInfo)
+bool LocalStorageManager::sendClientStorageInfo(std::vector< std::pair<int, std::string> > clientStorageInfo)
 {
     ClusterMsg cMsg;
     ClientStorageInfo reqMsg;
@@ -147,7 +145,7 @@ bool LocalStorageManager::sendClientStorageInfo(vector< pair<int, string> > clie
 	conn = VeilFS::getConnectionPool()->selectConnection();
 	if(conn) {
 	    // Build CreateStorageTestFileRequest message
-		for(vector< pair<int,string> >::iterator it = clientStorageInfo.begin(); it != clientStorageInfo.end(); ++it) {
+		for(std::vector< std::pair<int,std::string> >::iterator it = clientStorageInfo.begin(); it != clientStorageInfo.end(); ++it) {
 		    info = reqMsg.add_storage_info();
 		    info->set_storage_id(it->first);
 		    info->set_absolute_path(it->second);
@@ -169,7 +167,7 @@ bool LocalStorageManager::sendClientStorageInfo(vector< pair<int, string> > clie
     return false;
 }
 
-bool LocalStorageManager::createStorageTestFile(int storageId, string& relativePath, string& text)
+bool LocalStorageManager::createStorageTestFile(int storageId, std::string& relativePath, std::string& text)
 {
     ClusterMsg cMsg;
     CreateStorageTestFileRequest reqMsg;
@@ -202,7 +200,7 @@ bool LocalStorageManager::createStorageTestFile(int storageId, string& relativeP
     return false;
 }
 
-bool LocalStorageManager::hasClientStorageReadPermission(string storagePath, string relativePath, string expectedText)
+bool LocalStorageManager::hasClientStorageReadPermission(std::string storagePath, std::string relativePath, std::string expectedText)
 {
     int fd = open((storagePath + "/" + relativePath).c_str(), O_RDONLY);
     if(fd == -1) {
@@ -215,20 +213,20 @@ bool LocalStorageManager::hasClientStorageReadPermission(string storagePath, str
         close(fd);
         return false;
     }
-    string actualText((char *) buf);
+    std::string actualText((char *) buf);
     free(buf);
     close(fd);
     return expectedText == actualText;
 }
 
-bool LocalStorageManager::hasClientStorageWritePermission(int storageId, string mountPoint, string relativePath)
+bool LocalStorageManager::hasClientStorageWritePermission(int storageId, std::string mountPoint, std::string relativePath)
 {
     int fd = open((mountPoint + "/" + relativePath).c_str(), O_WRONLY | O_FSYNC);
     if(fd == -1) {
         return false;
     }
     int length = 20;
-    string text(length, ' ');
+    std::string text(length, ' ');
     srand(time(0));
     for(int i = 0; i < length; ++i) {
         text[i] = (char) (33 + rand() % 93);
