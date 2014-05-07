@@ -35,31 +35,31 @@ MessageBuilder::~MessageBuilder()
 {
 }
 
-FuseMessage MessageBuilder::createFuseMessage(string id, string messageType,
-    string messageInput)
+FuseMessage MessageBuilder::createFuseMessage(const string &id, const string &messageType,
+    const string &messageInput)
 {
     FuseMessage msg;
-    (void) id; // Message level FUSE ID in no longer supported by cluster 
+    (void) id; // Message level FUSE ID in no longer supported by cluster
     msg.set_message_type(tolower(messageType));
     msg.set_input(messageInput);
     return msg;
 }
 
-ClusterMsg MessageBuilder::createClusterMessage(string moduleName, string messageType, string messageDecoderName, string answerType, string answerDecoderName, bool synch, string input)
+ClusterMsg MessageBuilder::createClusterMessage(const string &moduleName, const string &messageType, const string &messageDecoderName, const string &answerType, const string &answerDecoderName, bool synch, const string &input)
 {
     ClusterMsg msg = createClusterMessage(moduleName, messageType, answerType, answerDecoderName, synch, input);
     msg.set_message_decoder_name(tolower(messageDecoderName));
     return msg;
 }
 
-ClusterMsg MessageBuilder::createClusterMessage(string moduleName, string messageType, string answerType, string answerDecoderName, bool synch, string input)
+ClusterMsg MessageBuilder::createClusterMessage(const string &moduleName, const string &messageType, const string &answerType, const string &answerDecoderName, bool synch, const string &input)
 {
     ClusterMsg msg = createClusterMessage(moduleName, messageType, answerType, answerDecoderName, synch);
     msg.set_input(input);
     return msg;
 }
 
-ClusterMsg MessageBuilder::createClusterMessage(string moduleName, string messageType, string answerType, string answerDecoderName, bool synch)
+ClusterMsg MessageBuilder::createClusterMessage(const string &moduleName, const string &messageType, const string &answerType, const string &answerDecoderName, bool synch)
 {
     ClusterMsg msg;
     msg.set_module_name(moduleName);
@@ -72,24 +72,24 @@ ClusterMsg MessageBuilder::createClusterMessage(string moduleName, string messag
     return msg;
 }
 
-ClusterMsg MessageBuilder::packFuseMessage(string messageType, string answerType, string answerDecoderName, string messageInput)
+ClusterMsg MessageBuilder::packFuseMessage(const string &messageType, const string &answerType, const string &answerDecoderName, const string &messageInput)
 {
     ClusterMsg clusterMessage;
-    
-    
+
+
 
     FuseMessage fuseMessage = createFuseMessage(VeilFS::getConfig()->getFuseID(), messageType, messageInput);
 
     if(fuseMessage.IsInitialized())
         clusterMessage = createClusterMessage(FSLOGIC, FUSE_MESSAGE, answerType, answerDecoderName, true, fuseMessage.SerializeAsString());
-    
+
     return clusterMessage;
 }
 
 FuseMessage MessageBuilder::decodeFuseAnswer(Answer& answer)
 {
     FuseMessage fuseMessage;
-    
+
     if(answer.has_worker_answer())
         (void) fuseMessage.ParseFromString(answer.worker_answer());
 

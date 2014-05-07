@@ -72,7 +72,7 @@ namespace {
     boost::recursive_mutex certCallbackMutex;
 
     // Disables stdout ECHO and reads input form /dev/tty up to max_size chars or newline
-    static string getPasswd(string prompt, int max_size) {
+    static string getPasswd(const string &prompt, int max_size) {
         char passwd[max_size];
         const char endline = 10;
         int i = 0;

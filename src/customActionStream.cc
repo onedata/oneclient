@@ -11,10 +11,10 @@ using namespace veil::client::events;
 using namespace std;
 using namespace boost;
 
-CustomActionStream::CustomActionStream(shared_ptr<IEventStream> wrappedStream, boost::function<shared_ptr<Event>(shared_ptr<Event>)> customActionFun) :
-	IEventStream(wrappedStream), m_customActionFun(customActionFun)
+CustomActionStream::CustomActionStream(boost::shared_ptr<IEventStream> wrappedStream, boost::function<boost::shared_ptr<Event>(boost::shared_ptr<Event>)> customActionFun) :
+    IEventStream(wrappedStream), m_customActionFun(customActionFun)
 {}
 
-shared_ptr<Event> CustomActionStream::actualProcessEvent(shared_ptr<Event> event){
-	return m_customActionFun(event);
+boost::shared_ptr<Event> CustomActionStream::actualProcessEvent(boost::shared_ptr<Event> event){
+    return m_customActionFun(event);
 }

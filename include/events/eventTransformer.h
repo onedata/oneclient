@@ -26,15 +26,15 @@ namespace events {
  */
 class EventTransformer : public IEventStream {
 public:
-	EventTransformer(std::vector<std::string> fieldNamesToReplace, std::vector<std::string> valuesToReplace, std::vector<std::string> newValues);
+    EventTransformer(const std::vector<std::string> &fieldNamesToReplace, const std::vector<std::string> &valuesToReplace, const std::vector<std::string> &newValues);
 
-	static boost::shared_ptr<IEventStream> fromConfig(const :: veil::protocol::fuse_messages::EventTransformerConfig & config); ///<  Creates EventTransformer object from protocol buffer message EventTransformerConfig
-	virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event); ///<  Implements pure virtual method IEventStream::actualProcessEvent
+    static boost::shared_ptr<IEventStream> fromConfig(const :: veil::protocol::fuse_messages::EventTransformerConfig & config); ///<  Creates EventTransformer object from protocol buffer message EventTransformerConfig
+    virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event); ///<  Implements pure virtual method IEventStream::actualProcessEvent
 
 private:
-	std::vector<std::string> m_fieldNamesToReplace;
-	std::vector<std::string> m_valuesToReplace;
-	std::vector<std::string> m_newValues;
+    std::vector<std::string> m_fieldNamesToReplace;
+    std::vector<std::string> m_valuesToReplace;
+    std::vector<std::string> m_newValues;
 };
 
 } // namespace events

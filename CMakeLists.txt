@@ -15,6 +15,8 @@ set(BIN_DIR "bin")
 set(LIB_DIR "lib")
 
 # CMake config
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+add_definitions(-D_WEBSOCKETPP_CPP11_STL_)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
 set(DEPS_DIR "deps")
 # set(CMAKE_FIND_LIBRARY_SUFFIXES .a) # Uncomment in order to force looking for static achives instead .so

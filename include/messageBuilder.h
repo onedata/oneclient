@@ -34,11 +34,11 @@ class MessageBuilder
 public:
     MessageBuilder();
     virtual ~MessageBuilder();
-    virtual protocol::fuse_messages::FuseMessage            createFuseMessage(std::string id, std::string messageType, std::string messageInput);
-    virtual protocol::communication_protocol::ClusterMsg    createClusterMessage(std::string moduleName, std::string messageType, std::string messageDecoderName, std::string answerType, std::string answerDecoderName, bool synch, std::string input);
-    virtual protocol::communication_protocol::ClusterMsg    createClusterMessage(std::string moduleName, std::string messageType, std::string answerType, std::string answerDecoderName, bool synch, std::string input);
-    virtual protocol::communication_protocol::ClusterMsg    createClusterMessage(std::string moduleName, std::string messageType, std::string answerType, std::string answerDecoderName, bool synch);
-    virtual protocol::communication_protocol::ClusterMsg    packFuseMessage(std::string messageType, std::string answerType, std::string answerDecoderName, std::string messageInput);
+    virtual protocol::fuse_messages::FuseMessage            createFuseMessage(const std::string &id, const std::string &messageType, const std::string &messageInput);
+    virtual protocol::communication_protocol::ClusterMsg    createClusterMessage(const std::string &moduleName, const std::string &messageType, const std::string &messageDecoderName, const std::string &answerType, const std::string &answerDecoderName, bool synch, const std::string &input);
+    virtual protocol::communication_protocol::ClusterMsg    createClusterMessage(const std::string &moduleName, const std::string &messageType, const std::string &answerType, const std::string &answerDecoderName, bool synch, const std::string &input);
+    virtual protocol::communication_protocol::ClusterMsg    createClusterMessage(const std::string &moduleName, const std::string &messageType, const std::string &answerType, const std::string &answerDecoderName, bool synch);
+    virtual protocol::communication_protocol::ClusterMsg    packFuseMessage(const std::string &messageType, const std::string &answerType, const std::string &answerDecoderName, const std::string &messageInput);
     virtual protocol::fuse_messages::FuseMessage            decodeFuseAnswer(protocol::communication_protocol::Answer& answer);
     virtual std::string                                     decodeAtomAnswer(protocol::communication_protocol::Answer& answer);
 

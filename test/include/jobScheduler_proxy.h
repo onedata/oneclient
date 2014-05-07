@@ -15,7 +15,7 @@
 class ProxyJobScheduler
     : public JobScheduler {
 public:
-    priority_queue<Job>& getJobQueue() {
+    std::multiset<Job> &getJobQueue() {
         return m_jobQueue;
     }
 };

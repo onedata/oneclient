@@ -19,10 +19,10 @@ using namespace boost;
 using namespace veil::protocol::fuse_messages;
 using namespace veil::protocol::communication_protocol;
 
-EventCommunicator::EventCommunicator(shared_ptr<EventStreamCombiner> eventsStream) : m_eventsStream(eventsStream), m_writeEnabled(true)
+EventCommunicator::EventCommunicator(boost::shared_ptr<EventStreamCombiner> eventsStream) : m_eventsStream(eventsStream), m_writeEnabled(true)
 {
     if(!eventsStream){
-        m_eventsStream = shared_ptr<EventStreamCombiner>(new EventStreamCombiner());
+        m_eventsStream = boost::shared_ptr<EventStreamCombiner>(new EventStreamCombiner());
     }
     m_messageBuilder.reset(new MessageBuilder());
 }
@@ -79,7 +79,7 @@ void EventCommunicator::configureByCluster()
 
     ClusterMsg clm = m_messageBuilder->createClusterMessage(RULE_MANAGER, ATOM, COMMUNICATION_PROTOCOL, EVENT_PRODUCER_CONFIG, FUSE_MESSAGES, true, atom.SerializeAsString());
 
-    shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+    boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
 
     Answer ans;
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
@@ -105,14 +105,14 @@ void EventCommunicator::configureByCluster()
     }
 }
 
-void EventCommunicator::sendEvent(shared_ptr<EventMessage> eventMessage)
+void EventCommunicator::sendEvent(boost::shared_ptr<EventMessage> eventMessage)
 {
     string encodedEventMessage = eventMessage->SerializeAsString();
 
     MessageBuilder messageBuilder;
     ClusterMsg clm = messageBuilder.createClusterMessage(CLUSTER_RENGINE, EVENT_MESSAGE, FUSE_MESSAGES, ATOM, COMMUNICATION_PROTOCOL, false, encodedEventMessage);
 
-    shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+    boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
 
     Answer ans;
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
@@ -130,7 +130,7 @@ bool EventCommunicator::askClusterIfWriteEnabled()
 
     ClusterMsg clm = m_messageBuilder->createClusterMessage(FSLOGIC, ATOM, COMMUNICATION_PROTOCOL, ATOM, COMMUNICATION_PROTOCOL, true, atom.SerializeAsString());
 
-    shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+    boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
 
     Answer ans;
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
@@ -152,7 +152,7 @@ bool EventCommunicator::askClusterIfWriteEnabled()
     return result;
 }
 
-void EventCommunicator::addEventSubstream(shared_ptr<IEventStream> newStream)
+void EventCommunicator::addEventSubstream(boost::shared_ptr<IEventStream> newStream)
 {
     AutoLock lock(m_eventsStreamLock, WRITE_LOCK);
     m_eventsStream->addSubstream(newStream);
@@ -161,13 +161,13 @@ void EventCommunicator::addEventSubstream(shared_ptr<IEventStream> newStream)
 
 void EventCommunicator::addEventSubstreamFromConfig(const EventStreamConfig & eventStreamConfig)
 {
-    shared_ptr<IEventStream> newStream = IEventStreamFactory::fromConfig(eventStreamConfig);
+    boost::shared_ptr<IEventStream> newStream = IEventStreamFactory::fromConfig(eventStreamConfig);
     if(newStream){
         addEventSubstream(newStream);
     }
 }
 
-void EventCommunicator::processEvent(shared_ptr<Event> event)
+void EventCommunicator::processEvent(boost::shared_ptr<Event> event)
 {
     if(event){
         m_eventsStream->pushEventToProcess(event);
@@ -175,7 +175,7 @@ void EventCommunicator::processEvent(shared_ptr<Event> event)
     }
 }
 
-bool EventCommunicator::runTask(TaskID taskId, string arg0, string arg1, string arg2)
+bool EventCommunicator::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
 {
     switch(taskId)
     {
@@ -193,9 +193,9 @@ bool EventCommunicator::runTask(TaskID taskId, string arg0, string arg1, string 
 }
 
 void EventCommunicator::addStatAfterWritesRule(int bytes){
-    shared_ptr<IEventStream> filter(new EventFilter("type", "write_event"));
-    shared_ptr<IEventStream> aggregator(new EventAggregator(filter, "filePath", bytes, "bytes"));
-    shared_ptr<IEventStream> customAction(new CustomActionStream(aggregator, boost::bind(&EventCommunicator::statFromWriteEvent, this, _1)));
+    boost::shared_ptr<IEventStream> filter(new EventFilter("type", "write_event"));
+    boost::shared_ptr<IEventStream> aggregator(new EventAggregator(filter, "filePath", bytes, "bytes"));
+    boost::shared_ptr<IEventStream> customAction(new CustomActionStream(aggregator, boost::bind(&EventCommunicator::statFromWriteEvent, this, _1)));
 
     addEventSubstream(customAction);
 }
@@ -215,7 +215,7 @@ bool EventCommunicator::isWriteEnabled()
     return m_writeEnabled;
 }
 
-shared_ptr<Event> EventCommunicator::statFromWriteEvent(shared_ptr<Event> event){
+boost::shared_ptr<Event> EventCommunicator::statFromWriteEvent(boost::shared_ptr<Event> event){
     string path = event->getStringProperty("filePath", "");
     if(!path.empty() && m_metaCache && m_fslogic){
         time_t currentTime = time(NULL);
@@ -231,5 +231,5 @@ shared_ptr<Event> EventCommunicator::statFromWriteEvent(shared_ptr<Event> event)
     }
 
     // we don't want to forward this event - it has already been handled by this function
-    return shared_ptr<Event> ();
+    return boost::shared_ptr<Event> ();
 }

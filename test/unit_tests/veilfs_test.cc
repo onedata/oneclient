@@ -300,7 +300,7 @@ TEST_F(VeilFSTest, unlink) { // const char *path
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(make_pair(location, storage)));
     EXPECT_CALL(*metaCacheMock, clearAttr("/path")).Times(AtLeast(3));
 
-    struct stat st;
+    struct stat st = {0};
     st.st_mode |= S_IFLNK;
     FileAttr attrs;
     attrs.set_type("LNK");
@@ -609,12 +609,12 @@ TEST_F(VeilFSTest, init) { // struct fuse_conn_info *conn
 }
 
 TEST_F(VeilFSTest, processEvent) {
-    shared_ptr<MockEventStreamCombiner> combinerMock(new MockEventStreamCombiner());
+    boost::shared_ptr<MockEventStreamCombiner> combinerMock(new MockEventStreamCombiner());
     ASSERT_TRUE((bool) combinerMock);
     EventCommunicator communicator(combinerMock);
     EXPECT_CALL(*combinerMock, pushEventToProcess(_)).WillOnce(Return());
     EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
-    shared_ptr<Event> event = Event::createMkdirEvent("some_file");
+    boost::shared_ptr<Event> event = Event::createMkdirEvent("some_file");
 
     ASSERT_TRUE((bool) event);
     communicator.processEvent(event);

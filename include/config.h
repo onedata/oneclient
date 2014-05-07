@@ -34,14 +34,14 @@ namespace client {
 namespace utils {
 
 template<typename T>
-std::string toString(T in) {
+std::string toString(const T &in) {
     std::ostringstream ss;
     ss << in;
     return ss.str();
 }
 
 template<typename T>
-T fromString(std::string in) {
+T fromString(const std::string &in) {
     T out = 0;
     std::istringstream iss(in);
     iss >> out;
@@ -65,10 +65,10 @@ public:
     virtual void testHandshake();								///< Synchronously negotiate FuseID to test if everything is ok
 
 
-    std::string static absPathRelToCWD(boost::filesystem::path);            ///< Converts relative path, to absolute using CWD env as base prefix.
+    std::string static absPathRelToCWD(const boost::filesystem::path&);///< Converts relative path, to absolute using CWD env as base prefix.
     void static setMountPoint(boost::filesystem::path);         ///< Sets mount point path
     boost::filesystem::path static getMountPoint();             ///< Gets mount point path
-    std::string static absPathRelToHOME(boost::filesystem::path);           ///< Converts relative path, to absolute using HOME env as base prefix.
+    std::string static absPathRelToHOME(const boost::filesystem::path&);///< Converts relative path, to absolute using HOME env as base prefix.
 
     void setEnv();                                              ///< Saves current CWD and HOME env viariables. This is required as FUSE changes them after non-debug start. This is also done automatically in Config::Config
 
@@ -85,9 +85,9 @@ protected:
 
     std::string m_fuseID;
 
-    std::string static absPathRelTo(boost::filesystem::path relTo, boost::filesystem::path p); ///< Converts relative path (second argument), to absolute (relative to first argument). Also preforms check against mount point.
+    std::string static absPathRelTo(const boost::filesystem::path &relTo, boost::filesystem::path p); ///< Converts relative path (second argument), to absolute (relative to first argument). Also preforms check against mount point.
 
-    virtual bool runTask(TaskID taskId, std::string arg0, std::string arg1, std::string arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+    virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 };
 
 } // namespace client

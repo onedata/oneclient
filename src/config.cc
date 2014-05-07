@@ -37,7 +37,7 @@ Config::~Config()
 {
 }
 
-void Config::setMountPoint(path mp)
+void Config::setMountPoint(filesystem::path mp)
 {
     m_mountPoint = mp.normalize();
 }
@@ -58,7 +58,7 @@ void Config::setEnv()
     m_envHOME = string(getenv("HOME"));
 }
 
-string Config::absPathRelTo(path relTo, path p)
+string Config::absPathRelTo(const path &relTo, path p)
 {
     path out = p.normalize();
 
@@ -74,12 +74,12 @@ string Config::absPathRelTo(path relTo, path p)
     return out.normalize().string();
 }
 
-string Config::absPathRelToCWD(path p)
+string Config::absPathRelToCWD(const filesystem::path &p)
 {
     return absPathRelTo(string(m_envCWD), p);
 }
 
-string Config::absPathRelToHOME(path p)
+string Config::absPathRelToHOME(const filesystem::path &p)
 {
     return absPathRelTo(string(m_envHOME), p);
 }
@@ -161,7 +161,7 @@ void Config::testHandshake()
         throw VeilException(NO_CONNECTION_FOR_HANDSHAKE,"Cannot select connection for handshake operation,");
 }
 
-bool Config::runTask(TaskID taskId, string arg0, string arg1, string arg2)
+bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
 {
     string oldSessId = getFuseID();
     AutoLock lock(m_access, WRITE_LOCK);

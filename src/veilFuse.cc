@@ -28,6 +28,7 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/smart_ptr/make_shared.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include <iostream>
@@ -218,6 +219,11 @@ int main(int argc, char* argv[])
     FLAGS_logtostderr = false;
     FLAGS_stderrthreshold = 3;
 
+    // Set up a remote logger
+    auto logWriter = boost::make_shared<logging::RemoteLogWriter>();
+    logging::setLogSinks(new logging::RemoteLogSink{logWriter},
+                         new logging::RemoteLogSink{logWriter, protocol::logging::LDEBUG});
+
     // Initialize FUSE
     umask(0);
     fuse_init();
@@ -368,8 +374,8 @@ int main(int argc, char* argv[])
 
     // Register remote logWriter for log threshold level updates and start sending loop
     VeilFS::getPushListener()->subscribe(boost::bind(&logging::RemoteLogWriter::handleThresholdChange,
-                                                     logging::logWriter, _1));
-    logging::logWriter->run();
+                                                     logWriter, _1));
+    logWriter->run();
 
     // Enter FUSE loop
     if (multithreaded)

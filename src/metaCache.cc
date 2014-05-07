@@ -30,7 +30,7 @@ MetaCache::~MetaCache()
 {
 }
 
-void MetaCache::addAttr(string path, struct stat &attr)
+void MetaCache::addAttr(const string &path, struct stat &attr)
 {
     if(!VeilFS::getOptions()->get_enable_attr_cache())
         return;
@@ -50,7 +50,7 @@ void MetaCache::addAttr(string path, struct stat &attr)
     }
 }
 
-bool MetaCache::getAttr(string path, struct stat* attr)
+bool MetaCache::getAttr(const string &path, struct stat* attr)
 {
     AutoLock lock(m_statMapLock, READ_LOCK);
     unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
@@ -69,7 +69,7 @@ void MetaCache::clearAttrs()
     m_statMap.clear();
 }
 
-void MetaCache::clearAttr(string path)
+void MetaCache::clearAttr(const string &path)
 {
     AutoLock lock(m_statMapLock, WRITE_LOCK);
     LOG(INFO) << "delete attrs from cache for file: " << path;
@@ -78,7 +78,7 @@ void MetaCache::clearAttr(string path)
         m_statMap.erase(it);
 }
 
-bool MetaCache::updateTimes(string path, time_t atime, time_t mtime, time_t ctime)
+bool MetaCache::updateTimes(const string &path, time_t atime, time_t mtime, time_t ctime)
 {
     struct stat attr;
     if(!getAttr(path, &attr))
@@ -97,7 +97,7 @@ bool MetaCache::updateTimes(string path, time_t atime, time_t mtime, time_t ctim
 }
 
 
-bool MetaCache::updateSize(string path, size_t size)
+bool MetaCache::updateSize(const string &path, size_t size)
 {
     AutoLock lock(m_statMapLock, WRITE_LOCK);
     unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
@@ -110,7 +110,7 @@ bool MetaCache::updateSize(string path, size_t size)
 }
 
 
-bool MetaCache::runTask(TaskID taskId, string arg0, string arg1, string arg3)
+bool MetaCache::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg3)
 {
     switch(taskId)
     {

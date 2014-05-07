@@ -20,6 +20,4 @@ struct ProxyConfig: public veil::client::Config {
     std::string fuseID;
 };
 
-
-
 #endif // CONFIG_PROXY_H

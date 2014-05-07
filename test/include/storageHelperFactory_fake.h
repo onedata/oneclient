@@ -20,11 +20,11 @@ class FakeStorageHelperFactory
 public:
     boost::shared_ptr<IStorageHelper> presetMock;
 
-    boost::shared_ptr<IStorageHelper> getStorageHelper(string sh_name, vector<string> args) {
+    boost::shared_ptr<IStorageHelper> getStorageHelper(const string &sh_name, const vector<string> &args) {
         if(presetMock)
             return presetMock;
         else
-            return boost::shared_ptr<IStorageHelper>(new MockGenericHelper());    
+            return boost::shared_ptr<IStorageHelper>(new MockGenericHelper());
     }
 
 };
