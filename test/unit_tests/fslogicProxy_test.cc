@@ -23,18 +23,18 @@ INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 // TEST definitions below
 
 // Helper function used to constuct protobuf message (arg<1>) from another protobuf message (arg<0>)
-void setupAnswerResponse(google::protobuf::Message& from, google::protobuf::Message& to) {   
+void setupAnswerResponse(google::protobuf::Message& from, google::protobuf::Message& to) {
     to.ParsePartialFromString(from.SerializePartialAsString());
 }
 
-class FslogicProxyTest 
-    : public ::testing::Test 
+class FslogicProxyTest
+    : public ::testing::Test
 {
 protected:
     COMMON_DEFS();
     ProxyFslogicProxy proxy;
     boost::shared_ptr<MockMessageBuilder> msgBuilder;
-    
+
     ClusterMsg fullClusterMsg;
 
     virtual void SetUp() {
@@ -43,7 +43,7 @@ protected:
         EXPECT_CALL(*config, isSet(_)).WillRepeatedly(Return(true));
         EXPECT_CALL(*config, getString(_)).WillRepeatedly(Return(""));
         EXPECT_CALL(*config, getInt(_)).WillRepeatedly(Return(0));
-        
+
         msgBuilder.reset(new MockMessageBuilder());
         proxy.setMessageBuilder(msgBuilder);
         proxy.mockAtom = false;
@@ -51,7 +51,7 @@ protected:
         proxy.ch_mock.reset(new MockCommunicationHandler());
         EXPECT_CALL(*connectionPool, selectConnection(_)).WillRepeatedly(Return(proxy.ch_mock));
         EXPECT_CALL(*connectionPool, releaseConnection(_)).WillRepeatedly(Return());
-        
+
     }
 
     virtual void TearDown() {
@@ -66,13 +66,13 @@ TEST_F(FslogicProxyTest, sendFuseReceiveAnswerFails) {
     msg.set_children_num(10);
     msg.set_offset(0);
     FileChildren answer;
-    
+
     ClusterMsg cMsg = CMSG_FROM(msg);
 
     EXPECT_CALL(*msgBuilder, packFuseMessage(StrCaseEq(msg.GetDescriptor()->name()), StrCaseEq(answer.GetDescriptor()->name()), FUSE_MESSAGES, msg.SerializeAsString())).WillOnce(Return(ClusterMsg()));
     EXPECT_FALSE(proxy.sendFuseReceiveAnswer(msg, answer));
 
-    
+
     EXPECT_CALL(*msgBuilder, packFuseMessage(StrCaseEq(msg.GetDescriptor()->name()), StrCaseEq(answer.GetDescriptor()->name()), FUSE_MESSAGES, msg.SerializeAsString())).WillRepeatedly(Return(cMsg));
 
     Answer ans;
@@ -88,9 +88,9 @@ TEST_F(FslogicProxyTest, sendFuseReceiveAnswerOK) {
     msg.set_children_num(10);
     msg.set_offset(0);
     FileChildren answer;
-    
+
     ClusterMsg cMsg = CMSG_FROM(msg);
-    
+
     EXPECT_CALL(*msgBuilder, packFuseMessage(StrCaseEq(msg.GetDescriptor()->name()), StrCaseEq(answer.GetDescriptor()->name()), FUSE_MESSAGES, msg.SerializeAsString())).WillRepeatedly(Return(cMsg));
 
     Answer ans;
@@ -109,13 +109,13 @@ TEST_F(FslogicProxyTest, sendFuseReceiveAtomFails) {
     msg.set_dir_logic_name("dir");
     msg.set_children_num(10);
     msg.set_offset(0);
-    
+
     ClusterMsg cMsg = CMSG_FROM(msg);
 
     EXPECT_CALL(*msgBuilder, packFuseMessage(StrCaseEq(msg.GetDescriptor()->name()), StrCaseEq(Atom::descriptor()->name()), COMMUNICATION_PROTOCOL, msg.SerializeAsString())).WillOnce(Return(ClusterMsg()));
     EXPECT_EQ(VEIO, proxy.sendFuseReceiveAtom(msg));
 
-    
+
     EXPECT_CALL(*msgBuilder, packFuseMessage(StrCaseEq(msg.GetDescriptor()->name()), StrCaseEq(Atom::descriptor()->name()), COMMUNICATION_PROTOCOL, msg.SerializeAsString())).WillRepeatedly(Return(cMsg));
 
     Answer ans;
@@ -130,9 +130,9 @@ TEST_F(FslogicProxyTest, sendFuseReceiveAtomOK) {
     msg.set_dir_logic_name("dir");
     msg.set_children_num(10);
     msg.set_offset(0);
-    
+
     ClusterMsg cMsg = CMSG_FROM(msg);
-    
+
     EXPECT_CALL(*msgBuilder, packFuseMessage(StrCaseEq(msg.GetDescriptor()->name()), StrCaseEq(Atom::descriptor()->name()), COMMUNICATION_PROTOCOL, msg.SerializeAsString())).WillRepeatedly(Return(cMsg));
 
     Answer ans;
@@ -152,11 +152,11 @@ TEST_F(FslogicProxyTest, getFileAttr) {
 
     FileAttr attributes;
     FileAttr response;
-    
+
 
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(false)));
     EXPECT_FALSE(proxy.getFileAttr("/file", response));
-    
+
 
     attributes.set_atime(0);
     attributes.set_mtime(0);
@@ -165,11 +165,11 @@ TEST_F(FslogicProxyTest, getFileAttr) {
     attributes.set_uid(2);
     attributes.set_mode(1234);
     attributes.set_type("type");
-    
+
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, attributes, _1) )), Return(true)));
     ASSERT_TRUE(proxy.getFileAttr("/file", response));
-    
-    
+
+
     EXPECT_EQ(attributes.mode(), response.mode());
     EXPECT_EQ(attributes.type(), response.type());
 }
@@ -189,7 +189,7 @@ TEST_F(FslogicProxyTest, getFileLocation) {
     location.set_answer(VEACCES);
     location.set_storage_id(4);
     location.set_file_id("fileid");
-    
+
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, location, _1) )), Return(true)));
     ASSERT_TRUE(proxy.getFileLocation("/file", response));
 
@@ -208,16 +208,16 @@ TEST_F(FslogicProxyTest, getNewFileLocation) {
 
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(false)));
     EXPECT_FALSE(proxy.getNewFileLocation("/file", 234, response));
-    
+
 
     location.set_validity(10);
     location.set_answer(VEACCES);
     location.set_storage_id(4);
     location.set_file_id("fileid");
-    
+
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, location, _1) )), Return(true)));
     ASSERT_TRUE(proxy.getNewFileLocation("/file", 234, response));
-    
+
 
     EXPECT_EQ(location.validity(), response.validity());
     EXPECT_EQ(location.answer(), response.answer());
@@ -246,28 +246,28 @@ TEST_F(FslogicProxyTest, renewFileLocation) {
     EXPECT_GT(0, proxy.renewFileLocation("/file"));
 
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, validity, _1) )), Return(true)));
-    EXPECT_GT(0, proxy.renewFileLocation("/file"));  
+    EXPECT_GT(0, proxy.renewFileLocation("/file"));
 
     validity.set_answer(VOK);
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, validity, _1) )), Return(true)));
-    EXPECT_GT(0, proxy.renewFileLocation("/file")); 
+    EXPECT_GT(0, proxy.renewFileLocation("/file"));
 
     validity.set_answer(VOK);
     validity.set_validity(-1);
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, validity, _1) )), Return(true)));
-    EXPECT_GT(0, proxy.renewFileLocation("/file")); 
+    EXPECT_GT(0, proxy.renewFileLocation("/file"));
 
     validity.set_answer(VEACCES);
     validity.set_validity(10);
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, validity, _1) )), Return(true)));
-    EXPECT_GT(0, proxy.renewFileLocation("/file")); 
-    
+    EXPECT_GT(0, proxy.renewFileLocation("/file"));
+
 
     validity.set_answer(VOK);
     validity.set_validity(15);
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, validity, _1) )), Return(true)));
-    EXPECT_EQ(15, proxy.renewFileLocation("/file")); 
-    
+    EXPECT_EQ(15, proxy.renewFileLocation("/file"));
+
 }
 
 TEST_F(FslogicProxyTest, getFileChildren) {
@@ -275,7 +275,7 @@ TEST_F(FslogicProxyTest, getFileChildren) {
     std::vector<std::string> childrenVect;
     GetFileChildren msg;
     msg.set_dir_logic_name("/dir");
-    msg.set_children_num(10); 
+    msg.set_children_num(10);
     msg.set_offset(5);
 
     FileChildren children;
@@ -287,16 +287,16 @@ TEST_F(FslogicProxyTest, getFileChildren) {
     FileChildren response;
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(true)));
     EXPECT_TRUE(proxy.getFileChildren("/dir", 10, 5, childrenVect));
-    EXPECT_EQ(0, childrenVect.size());
+    EXPECT_EQ(0u, childrenVect.size());
 
     response.add_child_logic_name("/child2");
     response.add_child_logic_name("/child1");
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(true)));
     EXPECT_TRUE(proxy.getFileChildren("/dir", 10, 5, childrenVect));
-    EXPECT_EQ(2, childrenVect.size());
+    EXPECT_EQ(2u, childrenVect.size());
     EXPECT_EQ("/child2", childrenVect[0]);
     EXPECT_EQ("/child1", childrenVect[1]);
-    
+
 }
 
 TEST_F(FslogicProxyTest, createDir) {
@@ -425,7 +425,7 @@ TEST_F(FslogicProxyTest, getLink) {
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(true)));
     resp = proxy.getLink("/from");
     EXPECT_EQ(VEACCES, resp.first);
-    
+
 }
 
 
@@ -445,7 +445,7 @@ TEST_F(FslogicProxyTest, updateTimes) {
     EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VOK));
     EXPECT_EQ(VOK, proxy.updateTimes("/path", 10, 11));
 
-    msg.set_ctime(13);    
+    msg.set_ctime(13);
     EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEACCES));
     EXPECT_EQ(VEACCES, proxy.updateTimes("/path", 10, 11, 13));
 }
@@ -462,7 +462,7 @@ TEST_F(FslogicProxyTest, changeFileOwner) {
 
     EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VOK));
     EXPECT_EQ(VOK, proxy.changeFileOwner("/path", 456));
-    
+
     msg.set_uname("username");
     EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEACCES));
     EXPECT_EQ(VEACCES, proxy.changeFileOwner("/path", 456, "username"));
@@ -480,7 +480,7 @@ TEST_F(FslogicProxyTest, changeFileGroup) {
 
     EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VOK));
     EXPECT_EQ(VOK, proxy.changeFileGroup("/path", 456));
-    
+
     msg.set_gname("groupname");
     EXPECT_CALL(proxy, mockAtomFun(Truly(bind(pbMessageEqual, msg, _1)))).WillOnce(Return(VEACCES));
     EXPECT_EQ(VEACCES, proxy.changeFileGroup("/path", 456, "groupname"));
