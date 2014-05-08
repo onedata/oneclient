@@ -66,7 +66,6 @@ using namespace veil::client::events;
 
 
 #define COMMON_INTEGRATION_SETUP() \
-        const char *argv[] = {"name"}; \
         ProxyConfig *proxyConfig = new ProxyConfig(); \
         proxyConfig->fuseID = "testID"; \
         config.reset(proxyConfig); \

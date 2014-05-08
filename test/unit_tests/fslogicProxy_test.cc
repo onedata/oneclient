@@ -285,13 +285,13 @@ TEST_F(FslogicProxyTest, getFileChildren) {
     FileChildren response;
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(true)));
     EXPECT_TRUE(proxy.getFileChildren("/dir", 10, 5, childrenVect));
-    EXPECT_EQ(0, childrenVect.size());
+    EXPECT_EQ(0u, childrenVect.size());
 
     response.add_child_logic_name("/child2");
     response.add_child_logic_name("/child1");
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(true)));
     EXPECT_TRUE(proxy.getFileChildren("/dir", 10, 5, childrenVect));
-    EXPECT_EQ(2, childrenVect.size());
+    EXPECT_EQ(2u, childrenVect.size());
     EXPECT_EQ("/child2", childrenVect[0]);
     EXPECT_EQ("/child1", childrenVect[1]);
 

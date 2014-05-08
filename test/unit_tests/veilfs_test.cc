@@ -57,7 +57,7 @@ public:
         factoryFake.reset(new FakeStorageHelperFactory());
         eventCommunicatorMock.reset(new MockEventCommunicator());
 
-        EXPECT_CALL(*fslogicMock, pingCluster()).WillRepeatedly(Return());
+        EXPECT_CALL(*fslogicMock, pingCluster(_)).WillRepeatedly(Return());
         EXPECT_CALL(*options, get_alive_meta_connections_count()).WillRepeatedly(Return(0));
         EXPECT_CALL(*options, get_alive_data_connections_count()).WillRepeatedly(Return(0));
         EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(false));
@@ -182,10 +182,10 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
     EXPECT_EQ(trueAttr.mtime(), statbuf.st_mtime);
 
     EXPECT_EQ(trueAttr.size(), statbuf.st_size);
-    EXPECT_EQ(trueAttr.gid(), statbuf.st_gid);
-    EXPECT_EQ(0, statbuf.st_uid); // Its root
+    EXPECT_EQ(static_cast<gid_t>(trueAttr.gid()), statbuf.st_gid);
+    EXPECT_EQ(0u, statbuf.st_uid); // Its root
 
-    EXPECT_EQ(trueAttr.mode() | S_IFDIR, statbuf.st_mode);
+    EXPECT_EQ(static_cast<mode_t>(trueAttr.mode()) | S_IFDIR, statbuf.st_mode);
 
     trueAttr.set_type("LNK");
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
@@ -193,7 +193,7 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
     EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, boost::cref(statbuf), _1))));
     EXPECT_EQ(0, client->getattr("/path", &statbuf));
 
-    EXPECT_EQ(trueAttr.mode() | S_IFLNK, statbuf.st_mode);
+    EXPECT_EQ(static_cast<mode_t>(trueAttr.mode()) | S_IFLNK, statbuf.st_mode);
 
     trueAttr.set_type("REG");
     EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
@@ -202,7 +202,7 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
     EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, boost::cref(statbuf), _1))));
     EXPECT_EQ(0, client->getattr("/path", &statbuf));
 
-    EXPECT_EQ(trueAttr.mode() | S_IFREG, statbuf.st_mode);
+    EXPECT_EQ(static_cast<mode_t>(trueAttr.mode()) | S_IFREG, statbuf.st_mode);
 }
 
 TEST_F(VeilFSTest, readlink) { // const char *path, char *link, size_t size

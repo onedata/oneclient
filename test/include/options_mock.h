@@ -12,7 +12,6 @@
 #include "options.h"
 #include "testCommon.h"
 
-static const char * argv[] = {"name"};
 struct MockOptions: public veil::client::Options {
     MOCK_CONST_METHOD0(has_fuse_id, bool());
     MOCK_CONST_METHOD0(has_enable_attr_cache, bool());

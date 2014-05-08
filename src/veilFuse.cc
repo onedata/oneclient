@@ -360,7 +360,7 @@ int main(int argc, char* argv[])
     veil::helpers::config::buffers::preferedBlockSize           = options->get_file_buffer_prefered_block_size();
 
     // Start all jobSchedulers
-    for(int i = 1; i < options->get_jobscheduler_threads(); ++i)
+    for(unsigned int i = 1; i < options->get_jobscheduler_threads(); ++i)
         VeilFS::addScheduler(boost::shared_ptr<JobScheduler>(new JobScheduler()));
 
     // Initialize main application object

@@ -43,35 +43,35 @@ protected:
 };
 
 TEST_F(MetaCacheTest, InsertAndRemove) {
-    EXPECT_EQ(0, proxy->getStatMap().size());
+    EXPECT_EQ(0u, proxy->getStatMap().size());
 
     EXPECT_CALL(*scheduler, addTask(_)).Times(3);
     proxy->addAttr("/test1", stat);
     proxy->addAttr("/test2", stat);
     proxy->addAttr("/test3", stat);
-    EXPECT_EQ(3, proxy->getStatMap().size());
+    EXPECT_EQ(3u, proxy->getStatMap().size());
 
     proxy->clearAttr("/test2");
-    EXPECT_EQ(2, proxy->getStatMap().size());
+    EXPECT_EQ(2u, proxy->getStatMap().size());
 
     proxy->clearAttr("/test1");
-    EXPECT_EQ(1, proxy->getStatMap().size());
+    EXPECT_EQ(1u, proxy->getStatMap().size());
 
     proxy->clearAttr("/test0"); // Not exists
-    EXPECT_EQ(1, proxy->getStatMap().size());
+    EXPECT_EQ(1u, proxy->getStatMap().size());
 
     proxy->clearAttr("/test3");
     proxy->clearAttr("/test3");
-    EXPECT_EQ(0, proxy->getStatMap().size());
+    EXPECT_EQ(0u, proxy->getStatMap().size());
 
     EXPECT_CALL(*scheduler, addTask(_)).Times(3);
     proxy->addAttr("/test1", stat);
     proxy->addAttr("/test2", stat);
     proxy->addAttr("/test3", stat);
-    EXPECT_EQ(3, proxy->getStatMap().size());
+    EXPECT_EQ(3u, proxy->getStatMap().size());
 
     proxy->clearAttrs();
-    EXPECT_EQ(0, proxy->getStatMap().size());
+    EXPECT_EQ(0u, proxy->getStatMap().size());
 }
 
 TEST_F(MetaCacheTest, InsertAndGet) {
