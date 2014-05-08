@@ -30,7 +30,7 @@ public:
     MOCK_METHOD2(getFileAttr, bool(const string&, FileAttr&));
     MOCK_METHOD2(createLink, string(const string&, const string&));
     MOCK_METHOD1(getLink, pair<string, string>(const string&));
-    MOCK_METHOD0(pingCluster, void());
+    MOCK_METHOD1(pingCluster, void(const string&));
     MOCK_METHOD4(updateTimes, string(const string&, time_t, time_t, time_t));
     MOCK_METHOD3(changeFileOwner, string(const string&, uid_t, const string&));
     MOCK_METHOD3(changeFileGroup, string(const string&, gid_t, const string&));
