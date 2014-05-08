@@ -458,6 +458,49 @@ bool validateProxyCert()
     }
 
     CRYPTO_FREE(BIO, file);
+    
+    
+    // Check notAfter for EEC
+    ASN1_TIME *notAfter  = X509_get_notAfter ( cert );
+    if( X509_cmp_current_time( notAfter ) <= 0 ) {
+        BUF_MEM *time_buff = BUF_MEM_new();
+        BIO *time_bio = BIO_new(BIO_s_mem());
+        BIO_set_mem_buf(time_bio, time_buff, BIO_CLOSE);
+        
+        // Print expiration time to mem buffer
+        ASN1_TIME_print(time_bio, notAfter);
+        
+        LOG(ERROR) << "EEC certificate has expired!";
+        cerr << "Error: Your certificate (" << userCert << ") has expired! Invalid since: " << string(time_buff->data, time_buff->length) << "." << endl;
+        
+        BIO_free(time_bio);
+        
+        CRYPTO_FREE(X509, cert);
+        CRYPTO_FREE(EVP_PKEY, key);
+        if(ca) sk_X509_free(ca);
+        return false;
+    }
+    
+    // Check notBefore for EEC
+    ASN1_TIME *notBefore  = X509_get_notBefore ( cert );
+    if( X509_cmp_current_time( notBefore ) > 0 ) {
+        BUF_MEM *time_buff = BUF_MEM_new();
+        BIO *time_bio = BIO_new(BIO_s_mem());
+        BIO_set_mem_buf(time_bio, time_buff, BIO_CLOSE);
+        
+        // Print expiration time to mem buffer
+        ASN1_TIME_print(time_bio, notBefore);
+        
+        LOG(ERROR) << "EEC certificate used before 'notBefore'!";
+        cerr << "Error: Your certificate (" << userCert << ") is not valid yet. Invalid before: " << string(time_buff->data, time_buff->length) << "." << endl;
+        
+        BIO_free(time_bio);
+        
+        CRYPTO_FREE(X509, cert);
+        CRYPTO_FREE(EVP_PKEY, key);
+        if(ca) sk_X509_free(ca);
+        return false;
+    }
 
     // Write unprotected private key to internal buffer
     if(!PEM_write_bio_PrivateKey(key_mem, key, NULL, NULL, 0, NULL, NULL))
