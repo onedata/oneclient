@@ -101,6 +101,9 @@ void Options::setDescriptions()
 
 void Options::parseConfigs(const int argc, const char * const argv[])
 {
+    if(argc > 0)
+        argv0 = argv[0];
+
     try
     {
         parseCommandLine(argc, argv);
@@ -269,6 +272,7 @@ struct fuse_args Options::getFuseArgs() const
 {
     struct fuse_args args = FUSE_ARGS_INIT(0, 0);
 
+    fuse_opt_add_arg(&args, argv0.c_str());
     fuse_opt_add_arg(&args, "-obig_writes");
 
     if(m_vm.count("-d")) fuse_opt_add_arg(&args, "-d");

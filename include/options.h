@@ -96,6 +96,7 @@ private:
     void parseGlobalConfig(boost::program_options::variables_map &fileConfigMap);
     void parseEnv();
 
+    std::string argv0;
     boost::program_options::variables_map m_vm;
     boost::program_options::options_description m_common;
     boost::program_options::options_description m_restricted;
