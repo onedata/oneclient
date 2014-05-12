@@ -163,7 +163,7 @@ static std::pair<std::string, std::string> cmdParser(const std::string &str)
     using namespace boost::xpressive;
 
     static const sregex rex =
-            sregex::compile("\\s*--([\\w\\-]+)((=|\\s+)(\\S+))?\\s*");
+            sregex::compile("\\s*--([\\w\\-]+)(=(\\S+))?\\s*");
 
     smatch what;
     if(regex_match(str, what, rex))
