@@ -145,16 +145,16 @@ void Options::parseConfigs(const int argc, const char * const argv[])
         throw VeilException(VEINVAL, e.what());
     }
 
-    // If override is disallowed then we merge in config variables first
+    // If override is allowed then we merge in environment variables first
     if(fileConfigMap.at("enable_env_option_override").as<bool>())
     {
-        m_vm.insert(fileConfigMap.begin(), fileConfigMap.end());
         parseEnv();
+        m_vm.insert(fileConfigMap.begin(), fileConfigMap.end());
     }
     else
     {
-        parseEnv();
         m_vm.insert(fileConfigMap.begin(), fileConfigMap.end());
+        parseEnv();
     }
 
     notify(m_vm);
