@@ -119,6 +119,16 @@ void Options::parseConfigs(const int argc, const char * const argv[])
     {
         parseUserConfig(fileConfigMap);
     }
+    catch(boost::program_options::unknown_option &e)
+    {
+        LOG(ERROR) << "Error while parsing user configuration file: " << e.what();
+        if(m_restricted.find_nothrow(e.get_option_name(), false))
+            throw VeilException(VEINVAL,
+                                "restricted option '" + e.get_option_name() +
+                                "' found in user configuration file");
+
+        throw VeilException(VEINVAL, e.what());
+    }
     catch(boost::program_options::error &e)
     {
         LOG(ERROR) << "Error while parsing user configuration file: " << e.what();
