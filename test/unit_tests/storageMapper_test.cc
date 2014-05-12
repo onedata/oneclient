@@ -7,7 +7,7 @@
 
 #include "testCommon.h"
 #include "storageMapper_proxy.h"
-#include "config_mock.h"
+#include "options_mock.h"
 #include "fslogicProxy_mock.h"
 #include "jobScheduler_mock.h"
 #include "veilfs.h"

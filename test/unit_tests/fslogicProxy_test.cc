@@ -8,7 +8,7 @@
 #include "testCommon.h"
 #include "fslogicProxy_proxy.h"
 #include "messageBuilder_mock.h"
-#include "config_mock.h"
+#include "options_mock.h"
 #include "jobScheduler_mock.h"
 
 #include <google/protobuf/descriptor.h>
@@ -40,9 +40,7 @@ protected:
     virtual void SetUp() {
         COMMON_SETUP();
 
-        EXPECT_CALL(*config, isSet(_)).WillRepeatedly(Return(true));
-        EXPECT_CALL(*config, getString(_)).WillRepeatedly(Return(""));
-        EXPECT_CALL(*config, getInt(_)).WillRepeatedly(Return(0));
+        EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(true));
 
         msgBuilder.reset(new MockMessageBuilder());
         proxy.setMessageBuilder(msgBuilder);

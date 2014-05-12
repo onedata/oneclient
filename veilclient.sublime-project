@@ -19,7 +19,6 @@
         [
             "-I${folder:${project_path:veilclient.sublime-project}}/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/src",
-            "-I${folder:${project_path:veilclient.sublime-project}}/release/deps/yaml-cpp/src/yaml-cpp/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/release/deps/glog/src/glog/src",
             "-I${folder:${project_path:veilclient.sublime-project}}/test/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/release/include",
@@ -31,7 +30,6 @@
 
             "-I${folder:${project_path:veilclient.sublime-project}}/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/src",
-            "-I${folder:${project_path:veilclient.sublime-project}}/debug/deps/yaml-cpp/src/yaml-cpp/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/debug/deps/glog/src/glog/src",
             "-I${folder:${project_path:veilclient.sublime-project}}/test/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/debug/include",

@@ -202,8 +202,8 @@ static std::pair<string, string> findUserCertAndKey()
 static std::pair<string, string> getUserCertAndKey()
 {
     // Configuration options take precedence
-    if(VeilFS::getConfig()->isSet(PEER_CERTIFICATE_FILE_OPT))
-        return make_pair(Config::absPathRelToHOME(VeilFS::getConfig()->getString(PEER_CERTIFICATE_FILE_OPT)));
+    if(VeilFS::getOptions()->has_peer_certificate_file())
+        return make_pair(Config::absPathRelToHOME(VeilFS::getOptions()->get_peer_certificate_file()));
 
     if(getenv(X509_USER_PROXY_ENV) && filesystem::exists(getenv(X509_USER_PROXY_ENV)))
         return make_pair<string>(getenv(X509_USER_PROXY_ENV));
@@ -568,8 +568,8 @@ CertificateInfo getCertInfo() {
 
 std::string getClusterHostname()
 {
-    if(VeilFS::getConfig()->isSet(CLUSTER_HOSTNAME_OPT))
-        return VeilFS::getConfig()->getString(CLUSTER_HOSTNAME_OPT);
+    if(VeilFS::getOptions()->has_cluster_hostname())
+        return VeilFS::getOptions()->get_cluster_hostname();
 
     string URL = BASE_DOMAIN;
 

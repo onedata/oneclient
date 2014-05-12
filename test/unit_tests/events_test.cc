@@ -13,7 +13,7 @@
 #include "boost/shared_ptr.hpp"
 #include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"
-#include "config_mock.h"
+#include "options_mock.h"
 #include "jobScheduler_mock.h"
 #include "fslogicProxy_proxy.h"
 

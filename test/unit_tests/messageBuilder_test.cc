@@ -6,9 +6,9 @@
  */
 
 #include "testCommon.h"
-#include "config_mock.h"
+#include "options_mock.h"
 #include "jobScheduler_mock.h"
-#include "config_mock.h"
+#include "options_mock.h"
 #include "messageBuilder.h"
 
 using namespace veil::protocol::communication_protocol;
@@ -18,11 +18,11 @@ INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
 // TEST definitions below
 
-class MessageBuilderTest 
+class MessageBuilderTest
     : public ::testing::Test {
 protected:
     COMMON_DEFS();
-    MessageBuilder proxy;     
+    MessageBuilder proxy;
 
     virtual void SetUp() {
         COMMON_SETUP();
@@ -43,7 +43,7 @@ TEST_F(MessageBuilderTest, createFuseMessage) {
 
 TEST_F(MessageBuilderTest, createClusterMessage) {
     ClusterMsg msg = proxy.createClusterMessage("moduleName", "messageType", "answerType", "answerDecoderName", true, "input");
-    
+
     EXPECT_EQ("moduleName", msg.module_name());
     EXPECT_EQ("messagetype", msg.message_type());
     EXPECT_EQ("answertype", msg.answer_type());
@@ -67,25 +67,25 @@ TEST_F(MessageBuilderTest, packFuseMessage) {
     EXPECT_EQ("messageInput", fMsg.input());
 }
 
-TEST_F(MessageBuilderTest, decodeFuseAnswerNoWorkerAns) {    
+TEST_F(MessageBuilderTest, decodeFuseAnswerNoWorkerAns) {
     Answer ans;
     FuseMessage msg = proxy.decodeFuseAnswer(ans);
 
     EXPECT_FALSE(msg.has_input());
 }
 
-TEST_F(MessageBuilderTest, decodeFuseAnswerWrongWorkerAns) {    
+TEST_F(MessageBuilderTest, decodeFuseAnswerWrongWorkerAns) {
     Answer ans;
     ans.set_worker_answer("wrong answer");
     FuseMessage msg = proxy.decodeFuseAnswer(ans);
 
-    EXPECT_FALSE(msg.IsInitialized()); 
+    EXPECT_FALSE(msg.IsInitialized());
 }
 
 
-TEST_F(MessageBuilderTest, decodeFuseAnswerNormalAns) {    
+TEST_F(MessageBuilderTest, decodeFuseAnswerNormalAns) {
     Answer ans;
-    FuseMessage fMsg =  proxy.createFuseMessage("id", "type", "input"); 
+    FuseMessage fMsg =  proxy.createFuseMessage("id", "type", "input");
     ans.set_worker_answer(fMsg.SerializeAsString());
 
     FuseMessage msg = proxy.decodeFuseAnswer(ans);

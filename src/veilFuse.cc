@@ -30,12 +30,14 @@
 #include <boost/shared_ptr.hpp>
 #include <boost/smart_ptr/make_shared.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/program_options.hpp>
 #include <iostream>
 
 #include "veilfs.h"
 #include "config.h"
 #include "gsiHandler.h"
 #include "logging.h"
+#include "options.h"
 
 #include "fslogicProxy.h"
 
@@ -145,16 +147,6 @@ static int wrap_fsyncdir(const char *path, int datasync, struct fuse_file_info *
 //     return VeilAppObject->init(conn);
 // }
 
-static int vfs_opt_proc(void *data, const char *arg, int key, struct fuse_args *outargs)
-{
-    if(string(arg).find(CONFIG_ARGV_OPT_NAME) != string::npos)
-        return 0;
-    if(string(arg) == "-debug")
-        return 0;
-    if(string(arg) == "--no-check-certificate")
-        return 0;
-    return 1;
-}
 
 #ifdef __cplusplus
 }
@@ -219,7 +211,7 @@ static std::string getVersionString()
     return ss.str();
 }
 
-int main(int argc, char* argv[], char* envp[])
+int main(int argc, char* argv[])
 {
     // Turn off logging for a while
     google::InitGoogleLogging(argv[0]);
@@ -234,63 +226,37 @@ int main(int argc, char* argv[], char* envp[])
 
     // Initialize FUSE
     umask(0);
-
     fuse_init();
-    struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
-    fuse_opt_parse(&args, NULL, NULL, vfs_opt_proc);
 
-    // Enforced FUSE options
-    fuse_opt_add_arg(&args, "-obig_writes");
+    boost::shared_ptr<Options> options = boost::make_shared<Options>();
+    VeilFS::setOptions(options);
+    try
+    {
+        // On --version (-V), --help (-h) prints and exits with success
+        options->parseConfigs(argc, argv);
+    }
+    catch(VeilException &e)
+    {
+        std::cerr << "Cannot parse configuration: " << e.what() <<
+                     ". Check logs for more details. Aborting" << std::endl;
+        exit(EXIT_FAILURE);
+    }
 
-    bool debug = false; // Assume silent mode
-    bool showVersionOnly = false;
+    bool debug = options->get_debug();
+    gsi::debug = options->get_debug_gsi();
+    helpers::config::checkCertificate.store(!options->get_no_check_certificate());
 
     boost::shared_ptr<Config> config(new Config());
     VeilFS::setConfig(config);
 
-    // Find user config argument
-    for(int i = 1; i < argc; ++i)
-    {
-        if(string(argv[i]).find(CONFIG_ARGV_OPT_NAME) != string::npos)
-        {
-            config->setUserConfigFile(string(argv[i]).substr(string(CONFIG_ARGV_OPT_NAME).size()));
-        }
-
-        if(string(argv[i]) == "-d") // FUSE's debug flag
-            debug = true;
-
-        if(string(argv[i]) == "-debug") // GSI Handler's debug flag
-            gsi::debug = true;
-
-        if(string(argv[i]) == "--version" || string(argv[i]) == "-V") {
-            cout << "VeilFuse version: " << getVersionString() << endl;
-            showVersionOnly = true;
-        } else if(string(argv[i]) == "--help" || string(argv[i]) == "-h") {
-            showVersionOnly = true;
-        } else if(string(argv[i]) == "--no-check-certificate") {
-            helpers::config::checkCertificate.store(false);
-        }
-    }
-
-    // Setup config manager and paths
-    config->setGlobalConfigFile(GLOBAL_CONFIG_FILE);
-    if(!config->parseConfig())
-    {
-        std::cerr << "Cannot load/parse global/user config file. Check logs for more detials. Aborting" << std::endl;
-        exit(1);
-    }
-
     // proper logger setup
-    if(config->isSet(LOG_DIR_OPT))
-    {
-        string log_path = Config::absPathRelToCWD(config->getString(LOG_DIR_OPT));
-        if(log_path != "/tmp") {
-            FLAGS_log_dir = log_path;
-            LOG(INFO) << "Setting log dir to: " << log_path;
-            // Restart Google Loggler in order ot reload log_dir path
-            google::ShutdownGoogleLogging();
-            google::InitGoogleLogging(argv[0]);
-        }
+    string log_path = Config::absPathRelToCWD(options->get_log_dir());
+    if(log_path != "/tmp") {
+        FLAGS_log_dir = log_path;
+        LOG(INFO) << "Setting log dir to: " << log_path;
+        // Restart Google Loggler in order ot reload log_dir path
+        google::ShutdownGoogleLogging();
+        google::InitGoogleLogging(argv[0]);
     }
     FLAGS_alsologtostderr = debug;
     FLAGS_logtostderr = debug;
@@ -300,22 +266,6 @@ int main(int argc, char* argv[], char* envp[])
     // after logger setup - log version
     LOG(INFO) << "VeilFuse version: " << getVersionString();
 
-    // Iterate over all env variables and save them in Config
-    char** env;
-    for (env = envp; *env != 0; env++)
-    {
-        std::vector<std::string> tokens;
-        std::string tEnv = std::string(*env);
-        boost::split(tokens, tEnv, boost::is_any_of("="));
-        if(tokens.size() != 2) // Invalid env variable. Expected format: NAME=VALUE
-            continue;
-
-        Config::putEnv(tokens[0], tokens[1]);
-    }
-
-    if(config->getBool(NO_CHECK_CERTIFICATE))
-        helpers::config::checkCertificate.store(false);
-
     // FUSE main:
     struct fuse *fuse;
     struct fuse_chan *ch;
@@ -324,13 +274,10 @@ int main(int argc, char* argv[], char* envp[])
     int foreground;
     int res;
 
+    struct fuse_args args = options->getFuseArgs();
     res = fuse_parse_cmdline(&args, &mountpoint, &multithreaded, &foreground);
     if (res == -1)
         exit(1);
-
-    if(showVersionOnly) { // Exit after showing full version info or help banner
-        exit(EXIT_SUCCESS);
-    }
 
     // Set mount point in global config
     if(mountpoint) {
@@ -362,7 +309,7 @@ int main(int argc, char* argv[], char* envp[])
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
-    boost::shared_ptr<SimpleConnectionPool> testPool(new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), boost::bind(&gsi::getCertInfo)));
+    boost::shared_ptr<SimpleConnectionPool> testPool(new SimpleConnectionPool(gsi::getClusterHostname(), options->get_cluster_port(), boost::bind(&gsi::getCertInfo)));
     VeilFS::setConnectionPool(testPool);
     try{
         config->testHandshake();
@@ -402,18 +349,18 @@ int main(int argc, char* argv[], char* envp[])
 
     // Initialize VeilClient application
     VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (
-        new SimpleConnectionPool(gsi::getClusterHostname(), config->getInt(CLUSTER_PORT_OPT), boost::bind(&gsi::getCertInfo))));
+        new SimpleConnectionPool(gsi::getClusterHostname(), options->get_cluster_port(), boost::bind(&gsi::getCertInfo))));
 
     // Setup veilhelpers config
     veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool());
-    veil::helpers::config::buffers::writeBufferGlobalSizeLimit  = config->getInt(WRITE_BUFFER_MAX_SIZE_OPT);
-    veil::helpers::config::buffers::readBufferGlobalSizeLimit   = config->getInt(READ_BUFFER_MAX_SIZE_OPT);
-    veil::helpers::config::buffers::writeBufferPerFileSizeLimit = config->getInt(WRITE_BUFFER_MAX_FILE_SIZE_OPT);
-    veil::helpers::config::buffers::readBufferPerFileSizeLimit  = config->getInt(READ_BUFFER_MAX_FILE_SIZE_OPT);
-    veil::helpers::config::buffers::preferedBlockSize           = config->getInt(FILE_BUFFER_PREFERED_BLOCK_SIZE_OPT);
+    veil::helpers::config::buffers::writeBufferGlobalSizeLimit  = options->get_write_buffer_max_size();
+    veil::helpers::config::buffers::readBufferGlobalSizeLimit   = options->get_read_buffer_max_size();
+    veil::helpers::config::buffers::writeBufferPerFileSizeLimit = options->get_write_buffer_max_file_size();
+    veil::helpers::config::buffers::readBufferPerFileSizeLimit  = options->get_read_buffer_max_file_size();
+    veil::helpers::config::buffers::preferedBlockSize           = options->get_file_buffer_prefered_block_size();
 
     // Start all jobSchedulers
-    for(int i = 1; i < config->getInt(JOBSCHEDULER_THREADS_OPT); ++i)
+    for(unsigned int i = 1; i < options->get_jobscheduler_threads(); ++i)
         VeilFS::addScheduler(boost::shared_ptr<JobScheduler>(new JobScheduler()));
 
     // Initialize main application object

@@ -1,91 +1,88 @@
 # All options are optional. If you ommit the option, default value will be used
-# Note: Options with [Restrincted] tag are only available in global config file.
+# Note: Options with [Restricted] tag are only available in global config file.
 #       Those options cannot be set with env variables nor with user's config file.
 
   # Hostname and port used to connect to VeilCluster
-    # cluster_hostname: veilfs.com
-    # cluster_port: 5555
+    # cluster_hostname = veilfs.com
+    # cluster_port = 5555
 
   # Certificate file should be in PEM format and should contain all data
   # required to establish connection (peer cert, private key, CA stack)
   # You can either specify absolute path or relative to your home directory
   # WARNING: relative path won't work if HOME env is not set when FUSE starts
   # [default = globus-proxy-utils defaults]
-    # peer_certificate_file: .globus/peer.pem
+    # peer_certificate_file = .globus/peer.pem
 
   # If this option is enabled server certificate file will not be verified.
   # [default = true]
-    # no_check_certificate: true
+    # no_check_certificate = true
 
   # Group ID of this FUSE client
-    # fuse_group_id: some_group
+    # fuse_group_id = some_group
 
   # If this option is enabled, it will be possible to override other options
   # with env variable - toupper(option_name), e.g. CLUSTER_PORT overrides cluster_port option
-  # [Restrincted] [default = true]
-    enable_env_option_override: true
+  # [Restricted] [default = true]
+    enable_env_option_override = true
 
   # File attributes cache status [default = true]
-    enable_attr_cache: true
+    enable_attr_cache = true
   # File attributes expiration time (in seconds) [default = 60]
-    attr_cache_expiration_time: 60
+    attr_cache_expiration_time = 60
 
   # File location cache status [default = true]
   # Option is not yet supported, default option is always used
-    enable_location_cache: true
+    enable_location_cache = true
 
   # Log directory [default = /tmp]
-    # log_dir: /tmp
+    # log_dir = /tmp
 
   # FUSE ID - the FUSE identificator used by cluster to find out which type of storage helper shall be used
   # If you don't specify this option, current host name will be used as ID.
-    # fuse_id: testID
+    # fuse_id = testID
 
   # How often client has to ping cluster in order to keep connection(s) alive (in seconds)
   # There will be one ping for each connection that has to be keeped alive (see 'alive_connections_count' option)
-    # cluster_ping_interval: 3
+  # [default = 60]
+    # cluster_ping_interval = 60
 
   # How many thread will be used to communicate with cluster and manage cache
-    # jobscheduler_threads: 3
-  # [Restrincted] How many connections used to fetch meta data has to be keeped alive
-    # alive_meta_connections_count: 2
-  # [Restrincted] How many connections used to fetch file content has to be keeped alive
-    # alive_data_connections_count: 2
+    # jobscheduler_threads = 3
+  # [Restricted] How many connections used to fetch meta data has to be keeped alive
+    # alive_meta_connections_count = 2
+  # [Restricted] How many connections used to fetch file content has to be keeped alive
+    # alive_data_connections_count = 2
 
-  # Enables prefetch of files' attributes after entering directory
-    # enable_dir_prefetch: true
+  # Enables prefetch of files' attributes after entering directory [default = true]
+    # enable_dir_prefetch = true
 
-  # Enables parallel file attribute fetching (speeds up directory listing)
-    # enable_parallel_getattr: true
-
-
-  # BufferAgent config:
-
-  # Maximum total size of write buffer (in bytes):
-  # [Restrincted] [default = 64MB]
-    # write_buffer_max_size: 67108864
-
-  # Maximum total size of read buffer (in bytes):
-  # [Restrincted] [default = 64MB]
-    # read_buffer_max_size: 67108864
+  # Enables parallel file attribute fetching (speeds up directory listing) [default = true]
+    # enable_parallel_getattr = true
 
 
-  # Maximum size of read buffer for a single file (in bytes):
-  # [Restrincted] [default = 10MB]
-    # read_buffer_max_file_size: 10485760
+  # BufferAgent config
 
-  # Maximum size of write buffer for a single file  (in bytes):
-  # [Restrincted] [default = 10MB]
-    # write_buffer_max_file_size: 10485760
+  # Maximum total size of write buffer (in bytes)
+  # [Restricted] [default = 64MB]
+    # write_buffer_max_size = 67108864
 
-  # Prefered block size for read/write operations (in bytes):
-  # [Restrincted] [default = 100kB]
-    # file_buffer_prefered_block_size: 102400
+  # Maximum total size of read buffer (in bytes)
+  # [Restricted] [default = 64MB]
+    # read_buffer_max_size = 67108864
 
   # How many bytes will be written to file before stat will be forced
   # [default = 5MB]
     # write_bytes_before_stat: 5242880
 
 
+  # Maximum size of read buffer for a single file (in bytes)
+  # [Restricted] [default = 10MB]
+    # read_buffer_max_file_size = 10485760
 
+  # Maximum size of write buffer for a single file  (in bytes)
+  # [Restricted] [default = 10MB]
+    # write_buffer_max_file_size = 10485760
 
+  # Prefered block size for read/write operations (in bytes)
+  # [Restricted] [default = 100kB]
+    # file_buffer_prefered_block_size = 102400

@@ -223,7 +223,7 @@ boost::shared_ptr<Event> EventCommunicator::statFromWriteEvent(boost::shared_ptr
 
         FileAttr attr;
         m_metaCache->clearAttr(path);
-        if(VeilFS::getConfig()->getBool(ENABLE_ATTR_CACHE_OPT)){
+        if(VeilFS::getOptions()->get_enable_attr_cache()){
             // TODO: The whole mechanism we force attributes to be reloaded is inefficient - we just want to cause attributes to be changed on cluster but
             // we also fetch attributes
             m_fslogic->getFileAttr(string(path), attr);
