@@ -55,7 +55,7 @@ std::vector<std::string> LocalStorageManager::getMountPoints()
         while(fgets(line, sizeof(line), file) != NULL) {
             const char* delimiters = " ";
             char *token = strtok(line, delimiters);
-            char *mountPoint;
+            char *mountPoint = NULL;
             int position = 0;
             while(token != NULL && position <= 2) {
                 switch(position) {
