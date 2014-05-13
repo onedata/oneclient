@@ -284,8 +284,6 @@ struct fuse_args Options::getFuseArgs() const
 
     fuse_opt_add_arg(&args, argv0.c_str());
     fuse_opt_add_arg(&args, "-obig_writes");
-
-    std::cout<<m_vm.count("-d")<< std::endl;
     
     if(m_vm.count("-d")) fuse_opt_add_arg(&args, "-d");
     if(m_vm.count("-f")) fuse_opt_add_arg(&args, "-f");
