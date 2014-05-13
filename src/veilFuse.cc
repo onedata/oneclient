@@ -212,7 +212,7 @@ static std::string getVersionString()
     return ss.str();
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char* argv[], char* envp[])
 {
     // Turn off logging for a while
     google::InitGoogleLogging(argv[0]);
@@ -290,6 +290,20 @@ int main(int argc, char* argv[])
 
     // after logger setup - log version
     LOG(INFO) << "VeilFuse version: " << getVersionString();
+    
+    
+    // Iterate over all env variables and save them in Config
+    char** env;
+    for (env = envp; *env != 0; env++)
+    {
+        std::vector<std::string> tokens;
+        std::string tEnv = std::string(*env);
+        boost::split(tokens, tEnv, boost::is_any_of("="));
+        if(tokens.size() != 2) // Invalid env variable. Expected format: NAME=VALUE
+            continue;
+        
+        Config::putEnv(tokens[0], tokens[1]);
+    }
 
     // FUSE main:
     struct fuse *fuse;
