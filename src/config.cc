@@ -58,6 +58,11 @@ void Config::setEnv()
     m_envHOME = string(getenv("HOME"));
 }
 
+bool Config::isEnvSet(const string &name)
+{
+    return m_envAll.find(name) != m_envAll.end();
+}
+
 string Config::absPathRelTo(const path &relTo, path p)
 {
     path out = p.normalize();
