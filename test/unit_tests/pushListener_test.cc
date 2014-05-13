@@ -5,7 +5,7 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "config_mock.h"
+#include "options_mock.h"
 #include "jobScheduler_mock.h"
 #include "testCommon.h"
 #include "pushListener.h"

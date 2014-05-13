@@ -55,7 +55,6 @@ namespace gsi {
 bool debug = false;
 
 namespace {
-    string cachedKeyPassphrase = "";
     string UserDN = "";
     bool proxyInitialized = false;
 
@@ -102,18 +101,11 @@ namespace {
     }
 
     static int pass_cb(char *buf, int size, int rwflag, void *u) {
-        int len = strlen((char*)u);
-        if(len > 0 && len <= size) {
-            LOG(INFO) << "GSI Handler: Using cached passphrase for PEM certificate.";
-            memcpy(buf, (char*)u, len);
-            return len;
-        }
-
         LOG(INFO) << "GSI Handler: Asking for passphrase for PEM certificate.";
-        cachedKeyPassphrase = getPasswd ("Enter GRID pass phrase for your identity: ", size);
+        string passphrase = getPasswd ("Enter GRID pass phrase for your identity: ", size);
 
-        len = cachedKeyPassphrase.size();
-        memcpy(buf, cachedKeyPassphrase.c_str(), len);
+        const int len = passphrase.size();
+        memcpy(buf, passphrase.c_str(), len);
 
         return len;
     }
@@ -210,8 +202,8 @@ static std::pair<string, string> findUserCertAndKey()
 static std::pair<string, string> getUserCertAndKey()
 {
     // Configuration options take precedence
-    if(VeilFS::getConfig()->isSet(PEER_CERTIFICATE_FILE_OPT))
-        return make_pair(Config::absPathRelToHOME(VeilFS::getConfig()->getString(PEER_CERTIFICATE_FILE_OPT)));
+    if(VeilFS::getOptions()->has_peer_certificate_file())
+        return make_pair(Config::absPathRelToHOME(VeilFS::getOptions()->get_peer_certificate_file()));
 
     if(getenv(X509_USER_PROXY_ENV) && filesystem::exists(getenv(X509_USER_PROXY_ENV)))
         return make_pair<string>(getenv(X509_USER_PROXY_ENV));
@@ -346,9 +338,7 @@ bool validateProxyCert()
     ERR_load_crypto_strings();
 
     // Parse RSA/DSA private key from file.
-    char tmp[cachedKeyPassphrase.size() + 1];
-    memcpy(tmp, cachedKeyPassphrase.c_str(), cachedKeyPassphrase.size() + 1);
-    EVP_PKEY *key = PEM_read_bio_PrivateKey(file, NULL, pass_cb, tmp); // Try to read key faile as .pem
+    EVP_PKEY *key = PEM_read_bio_PrivateKey(file, NULL, pass_cb, NULL); // Try to read key faile as .pem
     X509 *cert = NULL;
     STACK_OF(X509) *ca = NULL;
 
@@ -356,7 +346,6 @@ bool validateProxyCert()
     {
         unsigned long e = ERR_get_error();
         if(ERR_GET_REASON(e) == 100) { // Invalid passphrase
-            cachedKeyPassphrase = "";
             cerr << "Error: Entered key passphrase is invalid." << endl;
 
             LOG(ERROR) << "GSI Handler: parsing userKey as PEM failed due to inavlid passphrase";
@@ -386,11 +375,10 @@ bool validateProxyCert()
                 CRYPTO_FREE(BIO, file);
                 return failureValue;
             } else {
-                string pswd = (cachedKeyPassphrase.size() > 0 ? cachedKeyPassphrase : getPasswd("Enter MAC pass phrase for your identity: ", 1024));
+                string pswd = getPasswd("Enter MAC pass phrase for your identity: ", 1024);
                 if(!PKCS12_parse(p12, pswd.c_str(), &key, &cert, &ca)) {
                     unsigned long e1 = ERR_get_error();
                     if(ERR_GET_REASON(e1) == 113) { // MAC Validation error
-                        cachedKeyPassphrase = "";
                         cerr << "Error: Entered key passphrase is invalid." << endl;
 
                         LOG(ERROR) << "GSI Handler: parsing userKey as PKCS12 failed due to inavlid passphrase";
@@ -407,8 +395,6 @@ bool validateProxyCert()
                         CRYPTO_FREE(BIO, file);
                         return failureValue;
                     }
-                } else {
-                    cachedKeyPassphrase = pswd;
                 }
             }
         }
@@ -458,6 +444,49 @@ bool validateProxyCert()
     }
 
     CRYPTO_FREE(BIO, file);
+    
+    
+    // Check notAfter for EEC
+    ASN1_TIME *notAfter  = X509_get_notAfter ( cert );
+    if( X509_cmp_current_time( notAfter ) <= 0 ) {
+        BUF_MEM *time_buff = BUF_MEM_new();
+        BIO *time_bio = BIO_new(BIO_s_mem());
+        BIO_set_mem_buf(time_bio, time_buff, BIO_CLOSE);
+        
+        // Print expiration time to mem buffer
+        ASN1_TIME_print(time_bio, notAfter);
+        
+        LOG(ERROR) << "EEC certificate has expired!";
+        cerr << "Error: Your certificate (" << userCert << ") has expired! Invalid since: " << string(time_buff->data, time_buff->length) << "." << endl;
+        
+        BIO_free(time_bio);
+        
+        CRYPTO_FREE(X509, cert);
+        CRYPTO_FREE(EVP_PKEY, key);
+        if(ca) sk_X509_free(ca);
+        return false;
+    }
+    
+    // Check notBefore for EEC
+    ASN1_TIME *notBefore  = X509_get_notBefore ( cert );
+    if( X509_cmp_current_time( notBefore ) > 0 ) {
+        BUF_MEM *time_buff = BUF_MEM_new();
+        BIO *time_bio = BIO_new(BIO_s_mem());
+        BIO_set_mem_buf(time_bio, time_buff, BIO_CLOSE);
+        
+        // Print expiration time to mem buffer
+        ASN1_TIME_print(time_bio, notBefore);
+        
+        LOG(ERROR) << "EEC certificate used before 'notBefore'!";
+        cerr << "Error: Your certificate (" << userCert << ") is not valid yet. Invalid before: " << string(time_buff->data, time_buff->length) << "." << endl;
+        
+        BIO_free(time_bio);
+        
+        CRYPTO_FREE(X509, cert);
+        CRYPTO_FREE(EVP_PKEY, key);
+        if(ca) sk_X509_free(ca);
+        return false;
+    }
 
     // Write unprotected private key to internal buffer
     if(!PEM_write_bio_PrivateKey(key_mem, key, NULL, NULL, 0, NULL, NULL))
@@ -490,7 +519,7 @@ bool validateProxyCert()
     {
         X509_EXTENSION *ext = X509_get_ext(cert, i);
         int nid = OBJ_obj2nid(ext->object);
-        if(nid == NID_proxyCertInfo && cachedKeyPassphrase.size() == 0 && userCert == userKey) { // Proxy certificate
+        if(nid == NID_proxyCertInfo && userCert == userKey) { // Proxy certificate
             proxyInitialized = true;
             LOG(INFO) << "Proxy certificate detected.";
         }
@@ -539,8 +568,8 @@ CertificateInfo getCertInfo() {
 
 std::string getClusterHostname()
 {
-    if(VeilFS::getConfig()->isSet(CLUSTER_HOSTNAME_OPT))
-        return VeilFS::getConfig()->getString(CLUSTER_HOSTNAME_OPT);
+    if(VeilFS::getOptions()->has_cluster_hostname())
+        return VeilFS::getOptions()->get_cluster_hostname();
 
     string URL = BASE_DOMAIN;
 

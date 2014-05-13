@@ -7,7 +7,7 @@
 
 #include "testCommon.h"
 #include "jobScheduler_proxy.h"
-#include "config_mock.h"
+#include "options_mock.h"
 #include "jobScheduler_mock.h"
 #include "boost/shared_ptr.hpp"
 

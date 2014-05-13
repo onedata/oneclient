@@ -8,7 +8,7 @@
 #include "testCommon.h"
 #include "metaCache_proxy.h"
 #include "config_proxy.h"
-#include "config_mock.h"
+#include "options_mock.h"
 #include "jobScheduler_mock.h"
 
 #include <chrono>
@@ -29,10 +29,10 @@ protected:
         COMMON_SETUP();
         proxy.reset(new ProxyMetaCache());
 
-        EXPECT_CALL(*config, isSet(ENABLE_ATTR_CACHE_OPT)).WillRepeatedly(Return(true));
-        EXPECT_CALL(*config, getBool(ENABLE_ATTR_CACHE_OPT)).WillRepeatedly(Return(true));
-        EXPECT_CALL(*config, isSet(ATTR_CACHE_EXPIRATION_TIME_OPT)).WillRepeatedly(Return(true));
-        EXPECT_CALL(*config, getInt(ATTR_CACHE_EXPIRATION_TIME_OPT)).WillRepeatedly(Return(20));
+        EXPECT_CALL(*options, has_enable_attr_cache()).WillRepeatedly(Return(true));
+        EXPECT_CALL(*options, get_enable_attr_cache()).WillRepeatedly(Return(true));
+        EXPECT_CALL(*options, has_attr_cache_expiration_time()).WillRepeatedly(Return(true));
+        EXPECT_CALL(*options, get_attr_cache_expiration_time()).WillRepeatedly(Return(20));
     }
 
     virtual void TearDown() {
@@ -43,35 +43,35 @@ protected:
 };
 
 TEST_F(MetaCacheTest, InsertAndRemove) {
-    EXPECT_EQ(0, proxy->getStatMap().size());
+    EXPECT_EQ(0u, proxy->getStatMap().size());
 
     EXPECT_CALL(*scheduler, addTask(_)).Times(3);
     proxy->addAttr("/test1", stat);
     proxy->addAttr("/test2", stat);
     proxy->addAttr("/test3", stat);
-    EXPECT_EQ(3, proxy->getStatMap().size());
+    EXPECT_EQ(3u, proxy->getStatMap().size());
 
     proxy->clearAttr("/test2");
-    EXPECT_EQ(2, proxy->getStatMap().size());
+    EXPECT_EQ(2u, proxy->getStatMap().size());
 
     proxy->clearAttr("/test1");
-    EXPECT_EQ(1, proxy->getStatMap().size());
+    EXPECT_EQ(1u, proxy->getStatMap().size());
 
     proxy->clearAttr("/test0"); // Not exists
-    EXPECT_EQ(1, proxy->getStatMap().size());
+    EXPECT_EQ(1u, proxy->getStatMap().size());
 
     proxy->clearAttr("/test3");
     proxy->clearAttr("/test3");
-    EXPECT_EQ(0, proxy->getStatMap().size());
+    EXPECT_EQ(0u, proxy->getStatMap().size());
 
     EXPECT_CALL(*scheduler, addTask(_)).Times(3);
     proxy->addAttr("/test1", stat);
     proxy->addAttr("/test2", stat);
     proxy->addAttr("/test3", stat);
-    EXPECT_EQ(3, proxy->getStatMap().size());
+    EXPECT_EQ(3u, proxy->getStatMap().size());
 
     proxy->clearAttrs();
-    EXPECT_EQ(0, proxy->getStatMap().size());
+    EXPECT_EQ(0u, proxy->getStatMap().size());
 }
 
 TEST_F(MetaCacheTest, InsertAndGet) {
@@ -88,10 +88,10 @@ TEST_F(MetaCacheTest, InsertAndGet) {
     proxy->addAttr("/test2", stat);
     stat.st_size = 3;
 
-    EXPECT_CALL(*config, getInt(ATTR_CACHE_EXPIRATION_TIME_OPT)).WillRepeatedly(Return(-5));
+    EXPECT_CALL(*options, get_attr_cache_expiration_time()).WillRepeatedly(Return(-5));
     EXPECT_CALL(*scheduler, addTask(Field(&Job::when, AllOf(
                             Ge(steady_clock::now() + seconds{ATTR_DEFAULT_EXPIRATION_TIME / 2 - 5}),
-                            Le(steady_clock::now() + seconds{ATTR_DEFAULT_EXPIRATION_TIME * 2} ))))).Times(1);
+                            Le(steady_clock::now() + seconds{ATTR_DEFAULT_EXPIRATION_TIME * 2}) )))).Times(1);
     proxy->addAttr("/test3", stat);
 
     EXPECT_TRUE(proxy->getAttr("/test3", &tmp));
@@ -105,7 +105,7 @@ TEST_F(MetaCacheTest, InsertAndGet) {
 }
 
 TEST_F(MetaCacheTest, CacheTurnOff) {
-    EXPECT_CALL(*config, getBool(ENABLE_ATTR_CACHE_OPT)).WillRepeatedly(Return(false));
+    EXPECT_CALL(*options, get_enable_attr_cache()).WillRepeatedly(Return(false));
 
     struct stat tmp;
     proxy->addAttr("/test1", stat);

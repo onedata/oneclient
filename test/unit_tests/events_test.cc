@@ -13,7 +13,7 @@
 #include "boost/shared_ptr.hpp"
 #include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"
-#include "config_mock.h"
+#include "options_mock.h"
 #include "jobScheduler_mock.h"
 #include "fslogicProxy_proxy.h"
 
@@ -246,19 +246,19 @@ TEST(EventStreamCombiner, CombineStreams) {
     combiner.addSubstream(mkdirFilter);
 
     list<boost::shared_ptr<Event> > events = combiner.processEvent(mkdirEvent);
-    ASSERT_EQ(1, events.size());
+    ASSERT_EQ(1u, events.size());
 
     events = combiner.processEvent(writeEvent);
-    ASSERT_EQ(0, events.size());
+    ASSERT_EQ(0u, events.size());
 
     boost::shared_ptr<IEventStream> writeFilter(new EventFilter("type", "write_event"));
     combiner.addSubstream(writeFilter);
 
     events = combiner.processEvent(writeEvent);
-    ASSERT_EQ(1, events.size());
+    ASSERT_EQ(1u, events.size());
 
     events = combiner.processEvent(mkdirEvent);
-    ASSERT_EQ(1, events.size());
+    ASSERT_EQ(1u, events.size());
 }
 
 TEST(IEventStream, CustomActionStreamTest){
@@ -358,23 +358,23 @@ TEST_F(EventsTest, EventCombinerRunTask){
     EventStreamCombiner combiner;
 
     combiner.pushEventToProcess(event);
-    ASSERT_EQ(1, combiner.getEventsToProcess().size());
+    ASSERT_EQ(1u, combiner.getEventsToProcess().size());
 
     combiner.runTask(ISchedulable::TASK_PROCESS_EVENT, "", "", "");
-    ASSERT_EQ(0, combiner.getEventsToProcess().size());
+    ASSERT_EQ(0u, combiner.getEventsToProcess().size());
 
     combiner.addSubstream(substreamMock1);
 
     combiner.pushEventToProcess(event);
     combiner.pushEventToProcess(event);
-    ASSERT_EQ(2, combiner.getEventsToProcess().size());
+    ASSERT_EQ(2u, combiner.getEventsToProcess().size());
 
     combiner.runTask(ISchedulable::TASK_PROCESS_EVENT, "", "", "");
-    ASSERT_EQ(1, combiner.getEventsToProcess().size());
+    ASSERT_EQ(1u, combiner.getEventsToProcess().size());
 
     combiner.runTask(ISchedulable::TASK_PROCESS_EVENT, "", "", "");
-    ASSERT_EQ(0, combiner.getEventsToProcess().size());
+    ASSERT_EQ(0u, combiner.getEventsToProcess().size());
 
     combiner.runTask(ISchedulable::TASK_PROCESS_EVENT, "", "", "");
-    ASSERT_EQ(0, combiner.getEventsToProcess().size());
+    ASSERT_EQ(0u, combiner.getEventsToProcess().size());
 }

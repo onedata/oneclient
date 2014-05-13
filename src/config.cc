@@ -28,22 +28,13 @@ string Config::m_envHOME;
 map<string, string> Config::m_envAll;
 path Config::m_mountPoint;
 
-string Config::m_requiredOpts[] = {
-
-};
-
 Config::Config()
 {
     setEnv();
-    defaultsLoaded = false;
 }
 
 Config::~Config()
 {
-}
-
-bool Config::isRestricted(const string &opt) {
-    return m_restrictedOptions.find(boost::algorithm::to_lower_copy(opt)) != m_restrictedOptions.end();
 }
 
 void Config::setMountPoint(filesystem::path mp)
@@ -56,37 +47,9 @@ path Config::getMountPoint()
     return m_mountPoint;
 }
 
-bool Config::isEnvSet(const string &name)
-{
-    return m_envAll.find(name) != m_envAll.end();
-}
-
-void Config::putEnv(const string &name, const string &value)
-{
-    m_envAll[name] = value;
-}
-
-string Config::getEnv(const string &name)
-{
-    return m_envAll[name];
-}
-
 string Config::getFuseID()
 {
-    return getString(FUSE_ID_OPT);
-}
-
-void Config::setGlobalConfigFile(const string &path)
-{
-    if(path[0] == '/')
-        m_globalConfigPath = path;
-    else
-        m_globalConfigPath = string(VeilClient_INSTALL_PATH) + "/" + string(VeilClient_CONFIG_DIR) + "/" + path;
-}
-
-void Config::setUserConfigFile(const string &path)
-{
-    m_userConfigPath = absPathRelToCWD(path);
+    return m_fuseID.empty() ? VeilFS::getOptions()->get_fuse_id() : m_fuseID;
 }
 
 void Config::setEnv()
@@ -95,74 +58,7 @@ void Config::setEnv()
     m_envHOME = string(getenv("HOME"));
 }
 
-bool Config::isSet(const string &opt)
-{
-    try {
-        if( isRestricted(opt)) {
-            throw YAML::Exception(YAML::Mark(), "interrupt");
-        } else {
-            m_userNode[opt].as<string>();
-            return true;
-        }
-    } catch(YAML::Exception e) {
-        try {
-            m_globalNode[opt].as<string>();
-            return true;
-        } catch(YAML::Exception e) {
-            (void) getValue<string>(opt); // Just to set m_envNode[opt] if possible
-            try {
-                m_envNode[opt].as<string>();
-                return true;
-            } catch(YAML::Exception e) {
-                return false;
-            }
-        }
-    }
-}
-
-bool Config::parseConfig()
-{
-    try
-    {
-        if(m_userConfigPath.size() > 0 && m_userConfigPath[0] == '/')
-        {
-            m_userNode = YAML::LoadFile(m_userConfigPath);
-            try {
-                m_globalNode = YAML::LoadFile(m_globalConfigPath);
-            } catch(YAML::Exception e) {
-                LOG(WARNING) << "Global config file: " << m_globalConfigPath << " not found, but since user overlay is being used, its not required";
-            }
-
-        }
-        else
-        {
-            m_globalNode = YAML::LoadFile(m_globalConfigPath);
-            LOG(INFO) << "Ignoring user config file because it wasnt specified or cannot build absolute path. Current user config path (should be empty): " << m_userConfigPath;
-        }
-
-    }
-    catch(YAML::Exception e)
-    {
-        LOG(ERROR) << "cannot parse config file(s), reason: " << string(e.what()) <<
-                      ", globalConfigPath: " << m_globalConfigPath << " userConfigPath: " << m_userConfigPath;
-        if(sizeof(m_requiredOpts) > 0)
-            return false;
-    }
-
-    for(size_t i = 0, size = 0; size < sizeof(m_requiredOpts); size += sizeof(m_requiredOpts[i]), ++i)
-    {
-        LOG(INFO) << "Checking required option: " << m_requiredOpts[i] << ", value: " << get<string>(m_requiredOpts[i]);
-        if(get<string>(m_requiredOpts[i]).size() == 0)
-        {
-            LOG(ERROR) << "Required option: '" << m_requiredOpts[i] << "' could not be found in config file(s)";
-            return false;
-        }
-    }
-
-    return true;
-}
-
-string Config::absPathRelTo(const filesystem::path &relTo, filesystem::path p)
+string Config::absPathRelTo(const path &relTo, path p)
 {
     path out = p.normalize();
 
@@ -186,26 +82,6 @@ string Config::absPathRelToCWD(const filesystem::path &p)
 string Config::absPathRelToHOME(const filesystem::path &p)
 {
     return absPathRelTo(string(m_envHOME), p);
-}
-
-string Config::getString(const string &opt)
-{
-    return getValue<string>(opt);
-}
-
-int Config::getInt(const string &opt)
-{
-    return getValue<int>(opt);
-}
-
-bool Config::getBool(const string &opt)
-{
-    return getValue<bool>(opt);
-}
-
-double Config::getDouble(const string &opt)
-{
-    return getValue<double>(opt);
 }
 
 void Config::negotiateFuseID(time_t delay)
@@ -255,11 +131,11 @@ void Config::testHandshake()
             varEntry->set_value( (*it).second );
         }
 
-        if(isSet(FUSE_GROUP_ID_OPT) && !fuseIdFound) {
+        if(VeilFS::getOptions()->has_fuse_group_id() && !fuseIdFound) {
             varEntry = reqMsg.add_variable();
 
             varEntry->set_name( "GROUP_ID" );
-            varEntry->set_value( getString(FUSE_GROUP_ID_OPT) );
+            varEntry->set_value( VeilFS::getOptions()->get_fuse_group_id() );
         }
 
         cMsg = builder.createClusterMessage(FSLOGIC, HandshakeRequest::descriptor()->name(), HandshakeResponse::descriptor()->name(), FUSE_MESSAGES, true);
@@ -272,7 +148,7 @@ void Config::testHandshake()
         if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
         {
             // Set FUSE_ID in config
-            m_globalNode[FUSE_ID_OPT] = resMsg.fuse_id();
+            m_fuseID = resMsg.fuse_id();
 
             return;
         }
@@ -334,11 +210,11 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
                 varEntry->set_value( (*it).second );
             }
 
-            if(isSet(FUSE_GROUP_ID_OPT) && !fuseIdFound) {
+            if(VeilFS::getOptions()->has_fuse_group_id() && !fuseIdFound) {
                 varEntry = reqMsg.add_variable();
 
                 varEntry->set_name( "GROUP_ID" );
-                varEntry->set_value( getString(FUSE_GROUP_ID_OPT) );
+                varEntry->set_value( VeilFS::getOptions()->get_fuse_group_id() );
             }
 
             cMsg = builder.createClusterMessage(FSLOGIC, HandshakeRequest::descriptor()->name(), HandshakeResponse::descriptor()->name(), FUSE_MESSAGES, true);
@@ -349,7 +225,7 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
             if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
             {
                 // Set FUSE_ID in config
-                m_globalNode[FUSE_ID_OPT] = resMsg.fuse_id();
+                m_fuseID = resMsg.fuse_id();
 
                 // Update FUSE_ID in current connection pool
                 VeilFS::getConnectionPool()->setPushCallback(getFuseID(), boost::bind(&PushListener::onMessage, VeilFS::getPushListener(), _1));

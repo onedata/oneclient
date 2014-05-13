@@ -9,7 +9,7 @@
 #include "veilfs_proxy.h"
 #include "fslogicProxy_proxy.h"
 #include "messageBuilder_mock.h"
-#include "config_mock.h"
+#include "options_mock.h"
 #include "events_mock.h"
 #include "jobScheduler_mock.h"
 #include "storageHelperFactory_fake.h"
@@ -60,11 +60,11 @@ public:
         factoryFake.reset(new FakeStorageHelperFactory());
         eventCommunicatorMock.reset(new MockEventCommunicator());
 
-        EXPECT_CALL(*fslogicMock, pingCluster()).WillRepeatedly(Return());
-        EXPECT_CALL(*config, getInt(ALIVE_META_CONNECTIONS_COUNT_OPT)).WillRepeatedly(Return(0));
-        EXPECT_CALL(*config, getInt(ALIVE_DATA_CONNECTIONS_COUNT_OPT)).WillRepeatedly(Return(0));
-        EXPECT_CALL(*config, getInt(WRITE_BYTES_BEFORE_STAT_OPT)).WillRepeatedly(Return(0));
-        EXPECT_CALL(*config, isSet(FUSE_ID_OPT)).WillRepeatedly(Return(false));
+        EXPECT_CALL(*fslogicMock, pingCluster(_)).WillRepeatedly(Return());
+        EXPECT_CALL(*options, get_alive_meta_connections_count()).WillRepeatedly(Return(0));
+        EXPECT_CALL(*options, get_alive_data_connections_count()).WillRepeatedly(Return(0));
+        EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(false));
+        EXPECT_CALL(*options, get_write_bytes_before_stat()).WillRepeatedly(Return(0));
 
         const ::testing::TestInfo* const test_info = ::testing::UnitTest::GetInstance()->current_test_info();
         string testCaseName = test_info->test_case_name();
@@ -76,6 +76,7 @@ public:
 
         VeilFS::staticDestroy();
         VeilFS::setConnectionPool(connectionPool);
+        VeilFS::setOptions(options);
         client.reset(new ProxyVeilFS("/root", config,
                         jobSchedulerMock,
                         fslogicMock,
@@ -166,8 +167,8 @@ TEST_F(VeilFSTest, getattrNoCluster) { // const char *path, struct stat *statbuf
 TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
     struct stat statbuf;
 
-    EXPECT_CALL(*config, getBool(ENABLE_DIR_PREFETCH_OPT)).WillOnce(Return(true));
-    EXPECT_CALL(*config, getBool(ENABLE_ATTR_CACHE_OPT)).WillOnce(Return(true));
+    EXPECT_CALL(*options, get_enable_dir_prefetch()).WillOnce(Return(true));
+    EXPECT_CALL(*options, get_enable_attr_cache()).WillOnce(Return(true));
     EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
 
     trueAttr.set_type("DIR");
@@ -185,10 +186,10 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
     EXPECT_EQ(trueAttr.mtime(), statbuf.st_mtime);
 
     EXPECT_EQ(trueAttr.size(), statbuf.st_size);
-    EXPECT_EQ(trueAttr.gid(), statbuf.st_gid);
-    EXPECT_EQ(0, statbuf.st_uid); // Its root
+    EXPECT_EQ(static_cast<gid_t>(trueAttr.gid()), statbuf.st_gid);
+    EXPECT_EQ(0u, statbuf.st_uid); // Its root
 
-    EXPECT_EQ(trueAttr.mode() | S_IFDIR, statbuf.st_mode);
+    EXPECT_EQ(static_cast<mode_t>(trueAttr.mode()) | S_IFDIR, statbuf.st_mode);
 
     trueAttr.set_type("LNK");
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
@@ -196,7 +197,7 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
     EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, boost::cref(statbuf), _1))));
     EXPECT_EQ(0, client->getattr("/path", &statbuf));
 
-    EXPECT_EQ(trueAttr.mode() | S_IFLNK, statbuf.st_mode);
+    EXPECT_EQ(static_cast<mode_t>(trueAttr.mode()) | S_IFLNK, statbuf.st_mode);
 
     trueAttr.set_type("REG");
     EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
@@ -205,7 +206,7 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
     EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, boost::cref(statbuf), _1))));
     EXPECT_EQ(0, client->getattr("/path", &statbuf));
 
-    EXPECT_EQ(trueAttr.mode() | S_IFREG, statbuf.st_mode);
+    EXPECT_EQ(static_cast<mode_t>(trueAttr.mode()) | S_IFREG, statbuf.st_mode);
 }
 
 TEST_F(VeilFSTest, readlink) { // const char *path, char *link, size_t size
@@ -233,7 +234,7 @@ TEST_F(VeilFSTest, readlink) { // const char *path, char *link, size_t size
 
 TEST_F(VeilFSTest, mknod) { // const char *path, mode_t mode, dev_t dev
     FileLocation newLoc;
-    dev_t dev;
+    dev_t dev = 0;
     EXPECT_CALL(*metaCacheMock, clearAttr("/path")).Times(AtLeast(3));
 
     newLoc.set_answer(VOK);
