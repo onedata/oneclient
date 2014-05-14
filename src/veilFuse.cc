@@ -262,7 +262,7 @@ int main(int argc, char* argv[], char* envp[])
     if(options->is_default_log_dir()) {
         using namespace boost::filesystem;
         
-        string log_subdir_name = string(argv[0]) + string("_") + string(getlogin()) + "_logs";
+        string log_subdir_name = string(argv[0]) + string("_") + string(cuserid()) + "_logs";
         log_path = path(options->get_log_dir()) / path( log_subdir_name ).leaf();
         
         
