@@ -71,6 +71,7 @@ public:
     std::string static absPathRelToHOME(const boost::filesystem::path&);///< Converts relative path, to absolute using HOME env as base prefix.
 
     void setEnv();                                              ///< Saves current CWD and HOME env viariables. This is required as FUSE changes them after non-debug start. This is also done automatically in Config::Config
+    static void putEnv(std::string name, std::string value);
     bool static isEnvSet(const std::string&);                   ///< Checks whether env variable is set.
 
     Config();
