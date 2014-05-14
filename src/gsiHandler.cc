@@ -38,7 +38,7 @@
 #define GLOBUS_PEM_KEY_PATH     ".globus/userkey.pem"
 #define GLOBUS_PROXY_PATH(UID)  Config::absPathRelToHOME(string("/tmp/x509up_u") + to_string(getuid()))
 
-#define MSG_DEBUG_INFO (debug ? "" : "Use -debug for further information.")
+#define MSG_DEBUG_INFO (debug ? "" : "Use --debug_gsi for further information.")
 
 #define CRYPTO_FREE(M, X) if(X) { M##_free(X); X = NULL; }
 

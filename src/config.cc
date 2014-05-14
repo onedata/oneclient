@@ -36,6 +36,10 @@ Config::Config()
 Config::~Config()
 {
 }
+    
+void Config::putEnv(std::string name, std::string value) {
+    m_envAll[name] = value;
+}
 
 void Config::setMountPoint(filesystem::path mp)
 {

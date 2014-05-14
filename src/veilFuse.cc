@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <unistd.h>
 #include "ISchedulable.h"
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
@@ -211,7 +212,7 @@ static std::string getVersionString()
     return ss.str();
 }
 
-int main(int argc, char* argv[])
+int main(int argc, char* argv[], char* envp[])
 {
     // Turn off logging for a while
     google::InitGoogleLogging(argv[0]);
@@ -250,21 +251,59 @@ int main(int argc, char* argv[])
     VeilFS::setConfig(config);
 
     // proper logger setup
-    string log_path = Config::absPathRelToCWD(options->get_log_dir());
-    if(log_path != "/tmp") {
-        FLAGS_log_dir = log_path;
-        LOG(INFO) << "Setting log dir to: " << log_path;
-        // Restart Google Loggler in order ot reload log_dir path
-        google::ShutdownGoogleLogging();
-        google::InitGoogleLogging(argv[0]);
-    }
     FLAGS_alsologtostderr = debug;
     FLAGS_logtostderr = debug;
     if(debug)
         FLAGS_stderrthreshold = 2;
+    
+    filesystem::path log_path;
+    system::error_code ec;
+    
+    if(options->is_default_log_dir()) {
+        using namespace boost::filesystem;
+        
+        string log_subdir_name = string(argv[0]) + string("_") + string(cuserid(NULL)) + "_logs";
+        log_path = path(options->get_log_dir()) / path( log_subdir_name ).leaf();
+        
+        
+        create_directories(log_path, ec);
+        if(ec.value() > 0) {
+            cerr << "Error: Cannot create log directory: " << log_path.normalize().string() << ". Aborting.";
+        }
+        
+    } else {
+        log_path = filesystem::path( Config::absPathRelToCWD(options->get_log_dir()) );
+    }
+    
+    
+    
+    FLAGS_log_dir = log_path.normalize().string();
+    LOG(INFO) << "Setting log dir to: " << log_path.normalize().string();
+    google::ShutdownGoogleLogging();
+    google::InitGoogleLogging(argv[0]);
+ 
+    filesystem::permissions(log_path, filesystem::owner_all, ec);
+    if(ec.value() > 0) {
+        LOG(WARNING) << "Cannot change permissions for log directory (" << log_path.normalize().string() << ") due to: " << ec.message();
+    }
+    // Logger setup END
 
     // after logger setup - log version
     LOG(INFO) << "VeilFuse version: " << getVersionString();
+    
+    
+    // Iterate over all env variables and save them in Config
+    char** env;
+    for (env = envp; *env != 0; env++)
+    {
+        std::vector<std::string> tokens;
+        std::string tEnv = std::string(*env);
+        boost::split(tokens, tEnv, boost::is_any_of("="));
+        if(tokens.size() != 2) // Invalid env variable. Expected format: NAME=VALUE
+            continue;
+        
+        Config::putEnv(tokens[0], tokens[1]);
+    }
 
     // FUSE main:
     struct fuse *fuse;

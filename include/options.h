@@ -25,6 +25,7 @@
 
 /// Declare a new configuration option with a default value
 #define DECL_CONFIG_DEF(NAME, TYPE, DEFAULT) \
+    public: virtual bool is_default_##NAME() const { return !m_vm.count(#NAME); } \
     public: virtual TYPE get_##NAME() const { return m_vm.count(#NAME) ? m_vm.at(#NAME).as<TYPE>() : DEFAULT; } \
     private: void add_##NAME(boost::program_options::options_description &desc) const \
              { desc.add_options()(#NAME, boost::program_options::value<TYPE>()); }
@@ -32,6 +33,7 @@
 /// Declare a command line switch (a boolean which is set to true if the switch is present)
 /// The description will be used in the --help.
 #define DECL_CMDLINE_SWITCH_DEF(NAME, SHORT, DEFAULT, DESC) \
+    public: virtual bool is_default_##NAME() const { return !m_vm.count(#NAME); } \
     public: virtual bool get_##NAME() const { return m_vm.count(#NAME) ? m_vm.at(#NAME).as<bool>() : DEFAULT; } \
     private: void add_##NAME(boost::program_options::options_description &desc) const \
              { desc.add_options()(#NAME, boost::program_options::value<bool>()); } \
