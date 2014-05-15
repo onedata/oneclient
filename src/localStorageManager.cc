@@ -109,11 +109,11 @@ std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorage
                                 LOG(WARNING) << "Cannot create storage test file for storage with id: " << storageId;
                                 break;
                             }
-                            if(!hasClientStorageReadPermission(*mountPoint, relativePath, text)) {
+                            if(!hasClientStorageReadPermission(absolutePath, relativePath, text)) {
                                 LOG(WARNING) << "Client does not have read permission for storage with id: " << storageId;
                                 break;
                             }
-                            if(!hasClientStorageWritePermission(storageId, *mountPoint, relativePath)) {
+                            if(!hasClientStorageWritePermission(storageId, absolutePath, relativePath)) {
                                 LOG(WARNING) << "Client does not have write permission for storage with id: " << storageId;
                                 break;
                             }
@@ -200,9 +200,9 @@ bool LocalStorageManager::createStorageTestFile(int storageId, std::string& rela
     return false;
 }
 
-bool LocalStorageManager::hasClientStorageReadPermission(std::string storagePath, std::string relativePath, std::string expectedText)
+bool LocalStorageManager::hasClientStorageReadPermission(std::string absolutePath, std::string relativePath, std::string expectedText)
 {
-    int fd = open((storagePath + "/" + relativePath).c_str(), O_RDONLY);
+    int fd = open((absolutePath + "/" + relativePath).c_str(), O_RDONLY);
     if(fd == -1) {
         return false;
     }
@@ -219,9 +219,9 @@ bool LocalStorageManager::hasClientStorageReadPermission(std::string storagePath
     return expectedText == actualText;
 }
 
-bool LocalStorageManager::hasClientStorageWritePermission(int storageId, std::string mountPoint, std::string relativePath)
+bool LocalStorageManager::hasClientStorageWritePermission(int storageId, std::string absolutePath, std::string relativePath)
 {
-    int fd = open((mountPoint + "/" + relativePath).c_str(), O_WRONLY | O_FSYNC);
+    int fd = open((absolutePath + "/" + relativePath).c_str(), O_WRONLY | O_FSYNC);
     if(fd == -1) {
         return false;
     }
