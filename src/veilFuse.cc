@@ -416,6 +416,7 @@ int main(int argc, char* argv[], char* envp[])
                         boost::shared_ptr<JobScheduler>(new JobScheduler()),
                         boost::shared_ptr<FslogicProxy>(new FslogicProxy()),
                         boost::shared_ptr<MetaCache>(new MetaCache()),
+                        boost::shared_ptr<LocalStorageManager>(new LocalStorageManager()),
                         boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(new FslogicProxy()))),
                         boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()),
                         eventCommunicator));

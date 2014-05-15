@@ -14,6 +14,7 @@
 
 struct MockOptions: public veil::client::Options {
     MOCK_CONST_METHOD0(has_fuse_id, bool());
+    MOCK_CONST_METHOD0(has_fuse_group_id, bool());
     MOCK_CONST_METHOD0(has_enable_attr_cache, bool());
     MOCK_CONST_METHOD0(has_attr_cache_expiration_time, bool());
     MOCK_CONST_METHOD0(get_attr_cache_expiration_time, int());

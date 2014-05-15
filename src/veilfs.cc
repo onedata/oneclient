@@ -12,6 +12,7 @@
 #include "logging.h"
 #include "cstring"
 #include "veilErrors.h"
+#include "config.h"
 #include <sys/types.h>
 #include <pwd.h>
 #include <grp.h>
@@ -81,12 +82,14 @@ boost::shared_ptr<PushListener> VeilFS::m_pushListener;
 
 VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler,
                boost::shared_ptr<FslogicProxy> fslogic,  boost::shared_ptr<MetaCache> metaCache,
-               boost::shared_ptr<StorageMapper> mapper, boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
+               boost::shared_ptr<LocalStorageManager> sManager, boost::shared_ptr<StorageMapper> mapper,
+               boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
                boost::shared_ptr<events::EventCommunicator> eventCommunicator) :
     m_fh(0),
     m_fslogic(fslogic),
     m_storageMapper(mapper),
     m_metaCache(metaCache),
+    m_sManager(sManager),
     m_shFactory(sh_factory),
     m_eventCommunicator(eventCommunicator)
 {
@@ -122,6 +125,16 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
 
         } else
             LOG(WARNING) << "Connection keep-alive subsystem cannot be started.";
+    }
+
+    if(!VeilFS::getOptions()->has_fuse_group_id() && !VeilFS::getConfig()->isEnvSet(string(FUSE_OPT_PREFIX) + string("GROUP_ID"))) {
+        if(m_sManager) {
+            vector<string> mountPoints = LocalStorageManager::getMountPoints();
+            vector< pair<int, string> > clientStorageInfo = m_sManager->getClientStorageInfo(mountPoints);
+            if(!clientStorageInfo.empty()) {
+                m_sManager->sendClientStorageInfo(clientStorageInfo);
+            }
+        }
     }
 
     m_uid = geteuid();

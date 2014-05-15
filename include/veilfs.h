@@ -20,6 +20,7 @@
 #include "storageMapper.h"
 #include "jobScheduler.h"
 #include "metaCache.h"
+#include "localStorageManager.h"
 #include "helpers/storageHelperFactory.h"
 #include "simpleConnectionPool.h"
 #include "ISchedulable.h"
@@ -75,7 +76,8 @@ public:
 
         VeilFS(std::string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler,
                 boost::shared_ptr<FslogicProxy> fslogic, boost::shared_ptr<MetaCache> metaCache,
-                boost::shared_ptr<StorageMapper> mapper, boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
+                boost::shared_ptr<LocalStorageManager> sManager, boost::shared_ptr<StorageMapper> mapper,
+                boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
                 boost::shared_ptr<events::EventCommunicator> eventCommunicator); ///< VeilFS constructor.
         virtual ~VeilFS();
         static void staticDestroy();
@@ -127,6 +129,7 @@ protected:
         boost::shared_ptr<StorageMapper> m_storageMapper;      ///< StorageMapper instance
         boost::shared_ptr<MetaCache> m_metaCache;              ///< MetaCache instance
         static boost::shared_ptr<Options> m_options;           ///< Options instance
+        boost::shared_ptr<LocalStorageManager> m_sManager;     ///< LocalStorageManager instance
         boost::shared_ptr<helpers::StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance
         boost::shared_ptr<events::EventCommunicator> m_eventCommunicator;
         static std::list<boost::shared_ptr<JobScheduler> > m_jobSchedulers; ///< JobScheduler instances
