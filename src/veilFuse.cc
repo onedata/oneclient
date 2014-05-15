@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <pwd.h>
 #include <unistd.h>
 #include "ISchedulable.h"
 #ifdef HAVE_SETXATTR
@@ -262,7 +263,14 @@ int main(int argc, char* argv[], char* envp[])
     if(options->is_default_log_dir()) {
         using namespace boost::filesystem;
         
-        string log_subdir_name = string(argv[0]) + string("_") + string(cuserid(NULL)) + "_logs";
+        uid_t uid = geteuid();
+        std::string userIdent = to_string(uid);
+        struct passwd *pw = getpwuid(uid);      // Use UID when getting user name fails 
+        if(pw) {
+            userIdent = pw->pw_name;
+        }
+        
+        string log_subdir_name = string(argv[0]) + string("_") + userIdent + "_logs";
         log_path = path(options->get_log_dir()) / path( log_subdir_name ).leaf();
         
         
