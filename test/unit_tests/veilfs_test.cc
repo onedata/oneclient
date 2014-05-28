@@ -53,7 +53,7 @@ public:
 
         options = std::make_shared<MockOptions>();
         context->setOptions(options);
-        config = boost::make_shared<ProxyConfig>(context);
+        config = boost::make_shared<Config>(context);
         context->setConfig(config);
         scheduler = std::make_shared<MockJobScheduler>();
         context->addScheduler(scheduler);

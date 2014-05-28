@@ -41,7 +41,7 @@ Config::Config(std::weak_ptr<Context> context)
 Config::~Config()
 {
 }
-    
+
 void Config::putEnv(std::string name, std::string value) {
     m_envAll[name] = value;
 }
@@ -59,7 +59,7 @@ path Config::getMountPoint()
 string Config::getFuseID()
 {
     if(m_fuseID.empty() && m_context.lock()->getOptions()->has_fuse_id())
-	 m_context.lock()->getOptions()->get_fuse_id(); 
+        m_context.lock()->getOptions()->get_fuse_id();
 
     return m_fuseID;
 }
