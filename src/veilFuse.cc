@@ -252,7 +252,7 @@ int main(int argc, char* argv[], char* envp[])
     auto vfs_oper = fuse_init();
 
     // Get configuration options
-    boost::shared_ptr<Options> options = boost::make_shared<Options>();
+    auto options = boost::make_shared<Options>();
     VeilFS::setOptions(options);
     try
     {
@@ -270,7 +270,7 @@ int main(int argc, char* argv[], char* envp[])
     gsi::debug = options->get_debug_gsi();
     helpers::config::checkCertificate.store(!options->get_no_check_certificate());
 
-    boost::shared_ptr<Config> config(new Config());
+    auto config = boost::make_shared<Config>();
     VeilFS::setConfig(config);
 
     // proper logger setup
@@ -378,7 +378,7 @@ int main(int argc, char* argv[], char* envp[])
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
-    boost::shared_ptr<SimpleConnectionPool> testPool(new SimpleConnectionPool(gsi::getClusterHostname(), options->get_cluster_port(), boost::bind(&gsi::getCertInfo)));
+    auto testPool = boost::make_shared<SimpleConnectionPool>(gsi::getClusterHostname(), options->get_cluster_port(), boost::bind(&gsi::getCertInfo));
     VeilFS::setConnectionPool(testPool);
     try{
         config->testHandshake();
@@ -400,7 +400,7 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     //cleanup test connections
-    VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> ());
+    VeilFS::setConnectionPool(nullptr);
     testPool.reset();
 
     cout << "VeilFS has been successfully mounted in " + string(mountpoint) << endl;
@@ -417,8 +417,8 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     // Initialize VeilClient application
-    VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (
-        new SimpleConnectionPool(gsi::getClusterHostname(), options->get_cluster_port(), boost::bind(&gsi::getCertInfo))));
+    VeilFS::setConnectionPool(boost::make_shared<SimpleConnectionPool> (
+        gsi::getClusterHostname(), options->get_cluster_port(), boost::bind(&gsi::getCertInfo)));
 
     // Setup veilhelpers config
     veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool());
@@ -430,17 +430,17 @@ int main(int argc, char* argv[], char* envp[])
 
     // Start all jobSchedulers
     for(unsigned int i = 1; i < options->get_jobscheduler_threads(); ++i)
-        VeilFS::addScheduler(boost::shared_ptr<JobScheduler>(new JobScheduler()));
+        VeilFS::addScheduler(boost::make_shared<JobScheduler>());
 
     // Initialize main application object
-    boost::shared_ptr<events::EventCommunicator> eventCommunicator (new events::EventCommunicator());
+    auto eventCommunicator = boost::make_shared<events::EventCommunicator>();
     auto VeilApp = std::make_shared<VeilFS>(mountpoint, config,
-                    boost::shared_ptr<JobScheduler>(new JobScheduler()),
-                    boost::shared_ptr<FslogicProxy>(new FslogicProxy()),
-                    boost::shared_ptr<MetaCache>(new MetaCache()),
-                    boost::shared_ptr<LocalStorageManager>(new LocalStorageManager()),
-                    boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(new FslogicProxy()))),
-                    boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()),
+                    boost::make_shared<JobScheduler>(),
+                    boost::make_shared<FslogicProxy>(),
+                    boost::make_shared<MetaCache>(),
+                    boost::make_shared<LocalStorageManager>(),
+                    boost::make_shared<StorageMapper>(boost::make_shared<FslogicProxy>()),
+                    boost::make_shared<helpers::StorageHelperFactory>(),
                     eventCommunicator);
     VeilAppObject = VeilApp;
 
