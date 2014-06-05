@@ -43,6 +43,8 @@
 
 #include "fslogicProxy.h"
 
+#include <memory>
+
 using namespace std;
 using namespace boost;
 using namespace veil;
@@ -50,158 +52,177 @@ using namespace veil::client;
 using boost::filesystem::path;
 
 /// Main  application object (filesystem state)
-boost::shared_ptr<VeilFS> VeilAppObject;
+static std::weak_ptr<VeilFS> VeilAppObject;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-static int wrap_access(const char *path, int mask) {
-    return VeilAppObject->access(path, mask);
-}
-static int wrap_getattr(const char *path, struct stat *statbuf) {
-    return VeilAppObject->getattr(path, statbuf);
-}
-static int wrap_readlink(const char *path, char *link, size_t size) {
-    return VeilAppObject->readlink(path, link, size);
-}
-static int wrap_mknod(const char *path, mode_t mode, dev_t dev) {
-    return VeilAppObject->mknod(path, mode, dev);
-}
-static int wrap_mkdir(const char *path, mode_t mode) {
-    return VeilAppObject->mkdir(path, mode);
-}
-static int wrap_unlink(const char *path) {
-    return VeilAppObject->unlink(path);
-}
-static int wrap_rmdir(const char *path) {
-    return VeilAppObject->rmdir(path);
-}
-static int wrap_symlink(const char *path, const char *link) {
-    return VeilAppObject->symlink(path, link);
-}
-static int wrap_rename(const char *path, const char *newpath) {
-    return VeilAppObject->rename(path, newpath);
-}
-static int wrap_link(const char *path, const char *newpath) {
-    return VeilAppObject->link(path, newpath);
-}
-static int wrap_chmod(const char *path, mode_t mode) {
-    return VeilAppObject->chmod(path, mode);
-}
-static int wrap_chown(const char *path, uid_t uid, gid_t gid) {
-    return VeilAppObject->chown(path, uid, gid);
-}
-static int wrap_truncate(const char *path, off_t newSize) {
-    return VeilAppObject->truncate(path, newSize);
-}
-static int wrap_utime(const char *path, struct utimbuf *ubuf) {
-    return VeilAppObject->utime(path, ubuf);
-}
-static int wrap_open(const char *path, struct fuse_file_info *fileInfo) {
-    return VeilAppObject->open(path, fileInfo);
-}
-static int wrap_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
-    return VeilAppObject->read(path, buf, size, offset, fileInfo);
-}
-static int wrap_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo) {
-    return VeilAppObject->write(path, buf, size, offset, fileInfo);
-}
-static int wrap_statfs(const char *path, struct statvfs *statInfo) {
-    return VeilAppObject->statfs(path, statInfo);
-}
-static int wrap_flush(const char *path, struct fuse_file_info *fileInfo) {
-    return VeilAppObject->flush(path, fileInfo);
-}
-static int wrap_release(const char *path, struct fuse_file_info *fileInfo) {
-    return VeilAppObject->release(path, fileInfo);
-}
-static int wrap_fsync(const char *path, int datasync, struct fuse_file_info *fi) {
-    return VeilAppObject->fsync(path, datasync, fi);
-}
-#ifdef HAVE_SETXATTR
-static int wrap_setxattr(const char *path, const char *name, const char *value, size_t size, int flags) {
-    return VeilAppObject->setxattr(path, name, value, size, flags);
-}
-static int wrap_getxattr(const char *path, const char *name, char *value, size_t size) {
-    return VeilAppObject->getxattr(path, name, value, size);
-}
-static int wrap_listxattr(const char *path, char *list, size_t size) {
-    return VeilAppObject->listxattr(path, list, size);
-}
-static int wrap_removexattr(const char *path, const char *name) {
-    return VeilAppObject->removexattr(path, name);
-}
-#endif // HAVE_SETXATTR
-static int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo) {
-    return VeilAppObject->readdir(path, buf, filler, offset, fileInfo);
-}
-static int wrap_opendir(const char *path, struct fuse_file_info *fileInfo) {
-    return VeilAppObject->opendir(path, fileInfo);
-}
-static int wrap_releasedir(const char *path, struct fuse_file_info *fileInfo) {
-    return VeilAppObject->releasedir(path, fileInfo);
-}
-static int wrap_fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo) {
-    return VeilAppObject->fsyncdir(path, datasync, fileInfo);
-}
-// static int wrap_init(struct fuse_conn_info *conn) {
-//     return VeilAppObject->init(conn);
-// }
-
-
-#ifdef __cplusplus
-}
-#endif
-
-static struct fuse_operations vfs_oper;
-
-static void oper_init() {
-
-        vfs_oper.getattr    = wrap_getattr;
-        vfs_oper.access     = wrap_access;
-        vfs_oper.readlink   = wrap_readlink;
-        vfs_oper.readdir    = wrap_readdir;
-        vfs_oper.mknod      = wrap_mknod;
-        vfs_oper.mkdir      = wrap_mkdir;
-        vfs_oper.symlink    = wrap_symlink;
-        vfs_oper.unlink     = wrap_unlink;
-        vfs_oper.rmdir      = wrap_rmdir;
-        vfs_oper.rename     = wrap_rename;
-        vfs_oper.link       = wrap_link;
-        vfs_oper.chmod      = wrap_chmod;
-        vfs_oper.chown      = wrap_chown;
-        vfs_oper.truncate   = wrap_truncate;
-    #ifdef HAVE_UTIMENSAT
-        vfs_oper.utimens    = wrap_utimens;
-    #endif
-        vfs_oper.open       = wrap_open;
-        vfs_oper.read       = wrap_read;
-        vfs_oper.write      = wrap_write;
-        vfs_oper.statfs     = wrap_statfs;
-        vfs_oper.release    = wrap_release;
-        vfs_oper.fsync      = wrap_fsync;
-        vfs_oper.utime      = wrap_utime;
-        vfs_oper.flush      = wrap_flush;
-        vfs_oper.opendir    = wrap_opendir;
-        vfs_oper.releasedir = wrap_releasedir;
-        vfs_oper.fsyncdir   = wrap_fsyncdir;
-    #ifdef HAVE_POSIX_FALLOCATE
-        vfs_oper.fallocate  = wrap_fallocate;
-    #endif
-    #ifdef HAVE_SETXATTR
-        vfs_oper.setxattr   = wrap_setxattr;
-        vfs_oper.getxattr   = wrap_getxattr;
-        vfs_oper.listxattr  = wrap_listxattr;
-        vfs_oper.removexattr= wrap_removexattr;
-    #endif
-}
-
-
-static void fuse_init()
+extern "C"
 {
-    //LOG(INFO) << "Intializing fuse callbacks";
-    oper_init();
+    static int wrap_access(const char *path, int mask)
+    {
+        return VeilAppObject.lock()->access(path, mask);
+    }
+    static int wrap_getattr(const char *path, struct stat *statbuf)
+    {
+        return VeilAppObject.lock()->getattr(path, statbuf);
+    }
+    static int wrap_readlink(const char *path, char *link, size_t size)
+    {
+        return VeilAppObject.lock()->readlink(path, link, size);
+    }
+    static int wrap_mknod(const char *path, mode_t mode, dev_t dev)
+    {
+        return VeilAppObject.lock()->mknod(path, mode, dev);
+    }
+    static int wrap_mkdir(const char *path, mode_t mode)
+    {
+        return VeilAppObject.lock()->mkdir(path, mode);
+    }
+    static int wrap_unlink(const char *path)
+    {
+        return VeilAppObject.lock()->unlink(path);
+    }
+    static int wrap_rmdir(const char *path)
+    {
+        return VeilAppObject.lock()->rmdir(path);
+    }
+    static int wrap_symlink(const char *path, const char *link)
+    {
+        return VeilAppObject.lock()->symlink(path, link);
+    }
+    static int wrap_rename(const char *path, const char *newpath)
+    {
+        return VeilAppObject.lock()->rename(path, newpath);
+    }
+    static int wrap_link(const char *path, const char *newpath)
+    {
+        return VeilAppObject.lock()->link(path, newpath);
+    }
+    static int wrap_chmod(const char *path, mode_t mode)
+    {
+        return VeilAppObject.lock()->chmod(path, mode);
+    }
+    static int wrap_chown(const char *path, uid_t uid, gid_t gid)
+    {
+        return VeilAppObject.lock()->chown(path, uid, gid);
+    }
+    static int wrap_truncate(const char *path, off_t newSize)
+    {
+        return VeilAppObject.lock()->truncate(path, newSize);
+    }
+    static int wrap_utime(const char *path, struct utimbuf *ubuf)
+    {
+        return VeilAppObject.lock()->utime(path, ubuf);
+    }
+    static int wrap_open(const char *path, struct fuse_file_info *fileInfo)
+    {
+        return VeilAppObject.lock()->open(path, fileInfo);
+    }
+    static int wrap_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
+    {
+        return VeilAppObject.lock()->read(path, buf, size, offset, fileInfo);
+    }
+    static int wrap_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
+    {
+        return VeilAppObject.lock()->write(path, buf, size, offset, fileInfo);
+    }
+    static int wrap_statfs(const char *path, struct statvfs *statInfo)
+    {
+        return VeilAppObject.lock()->statfs(path, statInfo);
+    }
+    static int wrap_flush(const char *path, struct fuse_file_info *fileInfo)
+    {
+        return VeilAppObject.lock()->flush(path, fileInfo);
+    }
+    static int wrap_release(const char *path, struct fuse_file_info *fileInfo)
+    {
+        return VeilAppObject.lock()->release(path, fileInfo);
+    }
+    static int wrap_fsync(const char *path, int datasync, struct fuse_file_info *fi)
+    {
+        return VeilAppObject.lock()->fsync(path, datasync, fi);
+    }
+    #ifdef HAVE_SETXATTR
+    static int wrap_setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
+    {
+        return VeilAppObject.lock()->setxattr(path, name, value, size, flags);
+    }
+    static int wrap_getxattr(const char *path, const char *name, char *value, size_t size)
+    {
+        return VeilAppObject.lock()->getxattr(path, name, value, size);
+    }
+    static int wrap_listxattr(const char *path, char *list, size_t size)
+    {
+        return VeilAppObject.lock()->listxattr(path, list, size);
+    }
+    static int wrap_removexattr(const char *path, const char *name)
+    {
+        return VeilAppObject.lock()->removexattr(path, name);
+    }
+    #endif // HAVE_SETXATTR
+    static int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo)
+    {
+        return VeilAppObject.lock()->readdir(path, buf, filler, offset, fileInfo);
+    }
+    static int wrap_opendir(const char *path, struct fuse_file_info *fileInfo)
+    {
+        return VeilAppObject.lock()->opendir(path, fileInfo);
+    }
+    static int wrap_releasedir(const char *path, struct fuse_file_info *fileInfo)
+    {
+        return VeilAppObject.lock()->releasedir(path, fileInfo);
+    }
+    static int wrap_fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo)
+    {
+        return VeilAppObject.lock()->fsyncdir(path, datasync, fileInfo);
+    }
+//    static int wrap_init(struct fuse_conn_info *conn)
+//    {
+//        return VeilAppObject.lock()->init(conn);
+//    }
+
+} // extern "C"
+
+static struct fuse_operations fuse_init() {
+    struct fuse_operations vfs_oper = {0};
+
+    vfs_oper.getattr    = wrap_getattr;
+    vfs_oper.access     = wrap_access;
+    vfs_oper.readlink   = wrap_readlink;
+    vfs_oper.readdir    = wrap_readdir;
+    vfs_oper.mknod      = wrap_mknod;
+    vfs_oper.mkdir      = wrap_mkdir;
+    vfs_oper.symlink    = wrap_symlink;
+    vfs_oper.unlink     = wrap_unlink;
+    vfs_oper.rmdir      = wrap_rmdir;
+    vfs_oper.rename     = wrap_rename;
+    vfs_oper.link       = wrap_link;
+    vfs_oper.chmod      = wrap_chmod;
+    vfs_oper.chown      = wrap_chown;
+    vfs_oper.truncate   = wrap_truncate;
+#ifdef HAVE_UTIMENSAT
+    vfs_oper.utimens    = wrap_utimens;
+#endif
+    vfs_oper.open       = wrap_open;
+    vfs_oper.read       = wrap_read;
+    vfs_oper.write      = wrap_write;
+    vfs_oper.statfs     = wrap_statfs;
+    vfs_oper.release    = wrap_release;
+    vfs_oper.fsync      = wrap_fsync;
+    vfs_oper.utime      = wrap_utime;
+    vfs_oper.flush      = wrap_flush;
+    vfs_oper.opendir    = wrap_opendir;
+    vfs_oper.releasedir = wrap_releasedir;
+    vfs_oper.fsyncdir   = wrap_fsyncdir;
+#ifdef HAVE_POSIX_FALLOCATE
+    vfs_oper.fallocate  = wrap_fallocate;
+#endif
+#ifdef HAVE_SETXATTR
+    vfs_oper.setxattr   = wrap_setxattr;
+    vfs_oper.getxattr   = wrap_getxattr;
+    vfs_oper.listxattr  = wrap_listxattr;
+    vfs_oper.removexattr= wrap_removexattr;
+#endif
+
+    return vfs_oper;
 }
 
 static std::string getVersionString()
@@ -228,8 +249,9 @@ int main(int argc, char* argv[], char* envp[])
 
     // Initialize FUSE
     umask(0);
-    fuse_init();
+    auto vfs_oper = fuse_init();
 
+    // Get configuration options
     boost::shared_ptr<Options> options = boost::make_shared<Options>();
     VeilFS::setOptions(options);
     try
@@ -412,14 +434,15 @@ int main(int argc, char* argv[], char* envp[])
 
     // Initialize main application object
     boost::shared_ptr<events::EventCommunicator> eventCommunicator (new events::EventCommunicator());
-    VeilAppObject.reset(new VeilFS(mountpoint, config,
-                        boost::shared_ptr<JobScheduler>(new JobScheduler()),
-                        boost::shared_ptr<FslogicProxy>(new FslogicProxy()),
-                        boost::shared_ptr<MetaCache>(new MetaCache()),
-                        boost::shared_ptr<LocalStorageManager>(new LocalStorageManager()),
-                        boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(new FslogicProxy()))),
-                        boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()),
-                        eventCommunicator));
+    auto VeilApp = std::make_shared<VeilFS>(mountpoint, config,
+                    boost::shared_ptr<JobScheduler>(new JobScheduler()),
+                    boost::shared_ptr<FslogicProxy>(new FslogicProxy()),
+                    boost::shared_ptr<MetaCache>(new MetaCache()),
+                    boost::shared_ptr<LocalStorageManager>(new LocalStorageManager()),
+                    boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(new FslogicProxy()))),
+                    boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()),
+                    eventCommunicator);
+    VeilAppObject = VeilApp;
 
     // Register remote logWriter for log threshold level updates and start sending loop
     VeilFS::getPushListener()->subscribe(boost::bind(&logging::RemoteLogWriter::handleThresholdChange,
@@ -445,5 +468,4 @@ int main(int argc, char* argv[], char* envp[])
     free(mountpoint);
 
     return res;
-
 }
