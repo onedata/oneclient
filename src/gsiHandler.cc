@@ -27,6 +27,8 @@
 #include "veilfs.h"
 #include "communicationHandler.h"
 
+#include "context.h"
+
 #define X509_USER_PROXY_ENV     "X509_USER_PROXY"
 
 #define X509_USER_CERT_ENV      "X509_USER_CERT"
@@ -38,7 +40,7 @@
 #define GLOBUS_PEM_KEY_PATH     ".globus/userkey.pem"
 #define GLOBUS_PROXY_PATH(UID)  Config::absPathRelToHOME(string("/tmp/x509up_u") + to_string(getuid()))
 
-#define MSG_DEBUG_INFO (debug ? "" : "Use --debug_gsi for further information.")
+#define MSG_DEBUG_INFO (m_debug ? "" : "Use --debug_gsi for further information.")
 
 #define CRYPTO_FREE(M, X) if(X) { M##_free(X); X = NULL; }
 
@@ -50,9 +52,12 @@ using boost::asio::const_buffer;
 
 namespace veil {
 namespace client {
-namespace gsi {
 
-bool debug = false;
+GSIHandler::GSIHandler(std::shared_ptr<Context> context, const bool debug)
+    : m_context{std::move(context)}
+    , m_debug(debug)
+{
+}
 
 namespace {
     string UserDN = "";
@@ -199,11 +204,11 @@ static std::pair<string, string> findUserCertAndKey()
     return std::pair<string, string>();
 }
 
-static std::pair<string, string> getUserCertAndKey()
+std::pair<string, string> GSIHandler::getUserCertAndKey()
 {
     // Configuration options take precedence
-    if(VeilFS::getOptions()->has_peer_certificate_file())
-        return make_pair(Config::absPathRelToHOME(VeilFS::getOptions()->get_peer_certificate_file()));
+    if(m_context->getOptions()->has_peer_certificate_file())
+        return make_pair(Config::absPathRelToHOME(m_context->getOptions()->get_peer_certificate_file()));
 
     if(getenv(X509_USER_PROXY_ENV) && filesystem::exists(getenv(X509_USER_PROXY_ENV)))
         return make_pair<string>(getenv(X509_USER_PROXY_ENV));
@@ -227,19 +232,19 @@ static std::pair<string, string> getUserCertAndKey()
     return certAndKey;
 }
 
-bool validateProxyConfig()
+bool GSIHandler::validateProxyConfig()
 {
     LOG(INFO) << "GSI Handler: Starting global certificate system init";
     return validateProxyCert();
 }
 
-bool validateProxyCert()
+bool GSIHandler::validateProxyCert()
 {
     boost::unique_lock<boost::recursive_mutex> guard(certCallbackMutex);
 
     LOG(INFO) << "GSI Handler: Starting certificate (re) initialization";
 
-    string cPathMode = "", cPathMode1 = "", debugStr = (debug ? " -debug" : "");
+    string cPathMode = "", cPathMode1 = "", debugStr = (m_debug ? " -debug" : "");
     struct stat buf;
 
     std::pair<string, string> userCertAndKey = getUserCertAndKey();
@@ -367,7 +372,7 @@ bool validateProxyCert()
             if(p12 == NULL) {
                 unsigned long e2 = ERR_get_error();
                 cerr << "Error: Invalid .pem or .p12 certificate file: " << userKey << " " << MSG_DEBUG_INFO << endl;
-                if(debug)
+                if(m_debug)
                     cerr << ERR_error_string(e2, NULL) << endl;
                 cerr << ERR_reason_error_string(e2) << endl;
                 LOG(ERROR) << "GSI Handler: parsing userKey PEM / PKCS12 failed due to: " << ERR_error_string(e, NULL) << " / " << ERR_error_string(e2, NULL);
@@ -387,7 +392,7 @@ bool validateProxyCert()
                         return failureValue;
                     } else {
                         cerr << "Error: Cannot parse .p12 file. " << MSG_DEBUG_INFO << endl;
-                        if(debug)
+                        if(m_debug)
                             cerr << ERR_error_string(e1, NULL) << endl;
 
                         LOG(ERROR) << "GSI Handler: parsing userKey as PKCS12 failed due to: " << ERR_error_string(e1, NULL);
@@ -554,7 +559,7 @@ bool validateProxyCert()
     return true;
 }
 
-CertificateInfo getCertInfo() {
+CertificateInfo GSIHandler::getCertInfo() {
     if(proxyInitialized) {
         LOG(INFO) << "Accesing certificates via filesystem: " << userCertPath << " " << userKeyPath;
         return CertificateInfo(userCertPath, userKeyPath, CertificateInfo::PEM);
@@ -566,10 +571,10 @@ CertificateInfo getCertInfo() {
 
 
 
-std::string getClusterHostname()
+std::string GSIHandler::getClusterHostname()
 {
-    if(VeilFS::getOptions()->has_cluster_hostname())
-        return VeilFS::getOptions()->get_cluster_hostname();
+    if(m_context->getOptions()->has_cluster_hostname())
+        return m_context->getOptions()->get_cluster_hostname();
 
     string URL = BASE_DOMAIN;
 
@@ -602,6 +607,5 @@ std::string getClusterHostname()
     return URL;
 }
 
-} // namespace gsi
 } // namespace client
 } // namespace veil

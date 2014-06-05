@@ -6,6 +6,8 @@
  */
 
 #include "config.h"
+
+#include "context.h"
 #include "veilfs.h"
 #include "communication_protocol.pb.h"
 #include "fuse_messages.pb.h"
@@ -28,7 +30,8 @@ string Config::m_envHOME;
 map<string, string> Config::m_envAll;
 path Config::m_mountPoint;
 
-Config::Config()
+Config::Config(std::shared_ptr<Context> context)
+    : m_context{std::move(context)}
 {
     setEnv();
 }
@@ -53,7 +56,7 @@ path Config::getMountPoint()
 
 string Config::getFuseID()
 {
-    return m_fuseID.empty() ? VeilFS::getOptions()->get_fuse_id() : m_fuseID;
+    return m_fuseID.empty() ? m_context->getOptions()->get_fuse_id() : m_fuseID;
 }
 
 void Config::setEnv()
@@ -140,11 +143,11 @@ void Config::testHandshake()
             varEntry->set_value( (*it).second );
         }
 
-        if(VeilFS::getOptions()->has_fuse_group_id() && !fuseIdFound) {
+        if(m_context->getOptions()->has_fuse_group_id() && !fuseIdFound) {
             varEntry = reqMsg.add_variable();
 
             varEntry->set_name( "GROUP_ID" );
-            varEntry->set_value( VeilFS::getOptions()->get_fuse_group_id() );
+            varEntry->set_value( m_context->getOptions()->get_fuse_group_id() );
         }
 
         cMsg = builder.createClusterMessage(FSLOGIC, HandshakeRequest::descriptor()->name(), HandshakeResponse::descriptor()->name(), FUSE_MESSAGES, true);
@@ -219,11 +222,11 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
                 varEntry->set_value( (*it).second );
             }
 
-            if(VeilFS::getOptions()->has_fuse_group_id() && !fuseIdFound) {
+            if(m_context->getOptions()->has_fuse_group_id() && !fuseIdFound) {
                 varEntry = reqMsg.add_variable();
 
                 varEntry->set_name( "GROUP_ID" );
-                varEntry->set_value( VeilFS::getOptions()->get_fuse_group_id() );
+                varEntry->set_value( m_context->getOptions()->get_fuse_group_id() );
             }
 
             cMsg = builder.createClusterMessage(FSLOGIC, HandshakeRequest::descriptor()->name(), HandshakeResponse::descriptor()->name(), FUSE_MESSAGES, true);

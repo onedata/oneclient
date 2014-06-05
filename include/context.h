@@ -18,13 +18,15 @@
 
 namespace veil
 {
+
+class SimpleConnectionPool;
+
 namespace client
 {
 
 class Options;
 class Config;
 class JobScheduler;
-class SimpleConnectionPool;
 class PushListener;
 
 class Context

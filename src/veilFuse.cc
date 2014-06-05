@@ -35,6 +35,7 @@
 #include <boost/program_options.hpp>
 #include <iostream>
 
+#include "context.h"
 #include "veilfs.h"
 #include "config.h"
 #include "gsiHandler.h"
@@ -247,13 +248,16 @@ int main(int argc, char* argv[], char* envp[])
     logging::setLogSinks(new logging::RemoteLogSink{logWriter},
                          new logging::RemoteLogSink{logWriter, protocol::logging::LDEBUG});
 
+    // Create application context
+    auto context = std::make_shared<Context>();
+
     // Initialize FUSE
     umask(0);
     auto vfs_oper = fuse_init();
 
     // Get configuration options
-    auto options = boost::make_shared<Options>();
-    VeilFS::setOptions(options);
+    auto options = std::make_shared<Options>();
+    context->setOptions(options);
     try
     {
         // On --version (-V), --help (-h) prints and exits with success
@@ -267,10 +271,9 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     bool debug = options->get_debug();
-    gsi::debug = options->get_debug_gsi();
     helpers::config::checkCertificate.store(!options->get_no_check_certificate());
 
-    auto config = boost::make_shared<Config>();
+    auto config = boost::make_shared<Config>(context);
     VeilFS::setConfig(config);
 
     // proper logger setup
@@ -354,8 +357,10 @@ int main(int argc, char* argv[], char* envp[])
         LOG(INFO) << "Using mount point path: " << Config::getMountPoint().string();
     }
 
+    auto gsiHandler = std::make_shared<GSIHandler>(context, options->get_debug_gsi());
+
     // Check proxy certificate
-    if(!gsi::validateProxyConfig())
+    if(!gsiHandler->validateProxyConfig())
     {
         std::cerr << "Cannot continue. Aborting" << std::endl;
         exit(1);
@@ -378,7 +383,7 @@ int main(int argc, char* argv[], char* envp[])
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
-    auto testPool = boost::make_shared<SimpleConnectionPool>(gsi::getClusterHostname(), options->get_cluster_port(), boost::bind(&gsi::getCertInfo));
+    auto testPool = boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler));
     VeilFS::setConnectionPool(testPool);
     try{
         config->testHandshake();
@@ -418,7 +423,7 @@ int main(int argc, char* argv[], char* envp[])
 
     // Initialize VeilClient application
     VeilFS::setConnectionPool(boost::make_shared<SimpleConnectionPool> (
-        gsi::getClusterHostname(), options->get_cluster_port(), boost::bind(&gsi::getCertInfo)));
+        gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler)));
 
     // Setup veilhelpers config
     veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool());
@@ -433,13 +438,14 @@ int main(int argc, char* argv[], char* envp[])
         VeilFS::addScheduler(boost::make_shared<JobScheduler>());
 
     // Initialize main application object
-    auto eventCommunicator = boost::make_shared<events::EventCommunicator>();
-    auto VeilApp = std::make_shared<VeilFS>(mountpoint, config,
+    auto eventCommunicator = boost::make_shared<events::EventCommunicator>(context);
+    auto fslogicProxy = boost::make_shared<FslogicProxy>(context);
+    auto VeilApp = std::make_shared<VeilFS>(mountpoint, context, config,
                     boost::make_shared<JobScheduler>(),
-                    boost::make_shared<FslogicProxy>(),
-                    boost::make_shared<MetaCache>(),
+                    fslogicProxy,
+                    boost::make_shared<MetaCache>(context),
                     boost::make_shared<LocalStorageManager>(),
-                    boost::make_shared<StorageMapper>(boost::make_shared<FslogicProxy>()),
+                    boost::make_shared<StorageMapper>(fslogicProxy),
                     boost::make_shared<helpers::StorageHelperFactory>(),
                     eventCommunicator);
     VeilAppObject = VeilApp;

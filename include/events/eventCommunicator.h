@@ -12,13 +12,17 @@
 #include "fslogicProxy.h"
 #include "metaCache.h"
 #include "events/event.h"
- #include "events/eventStreamCombiner.h"
+#include "events/eventStreamCombiner.h"
 
 #include <boost/shared_ptr.hpp>
 #include <string>
+#include <memory>
 
 namespace veil {
 namespace client {
+
+class Context;
+
 namespace events {
 
 /**
@@ -28,7 +32,7 @@ namespace events {
  */
 class EventCommunicator : public ISchedulable{
 public:
-    EventCommunicator(boost::shared_ptr<EventStreamCombiner> eventsStream = boost::shared_ptr<EventStreamCombiner>());
+    EventCommunicator(std::shared_ptr<Context> context, boost::shared_ptr<EventStreamCombiner> eventsStream = boost::shared_ptr<EventStreamCombiner>());
 
     void addEventSubstream(boost::shared_ptr<IEventStream> eventStreamConfig);  ///< Adds event substream.
     void addEventSubstreamFromConfig(const ::veil::protocol::fuse_messages::EventStreamConfig & eventStreamConfig);
@@ -48,6 +52,8 @@ public:
     void setMetaCache(boost::shared_ptr<MetaCache> metaCache);
 
 private:
+    std::shared_ptr<Context> m_context;
+
     ReadWriteLock m_eventsStreamLock;
     boost::shared_ptr<EventStreamCombiner> m_eventsStream;
     bool m_writeEnabled;

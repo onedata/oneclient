@@ -7,8 +7,9 @@
  */
 
 #include "fslogicProxy.h"
-#include "veilfs.h"
 
+#include "context.h"
+#include "veilfs.h"
 #include "logging.h"
 
 #include <unistd.h>
@@ -28,8 +29,9 @@ using namespace veil::protocol::fuse_messages;
 namespace veil {
 namespace client {
 
-FslogicProxy::FslogicProxy()
+FslogicProxy::FslogicProxy(std::shared_ptr<Context> context)
     : m_messageBuilder(new MessageBuilder())
+    , m_context{std::move(context)}
 {
     LOG(INFO) << "FslogicProxy created";
 }
@@ -416,7 +418,7 @@ void FslogicProxy::pingCluster(const string& nth)
     }
 
     // Send another...
-    Job pingTask = Job(time(NULL) + VeilFS::getOptions()->get_cluster_ping_interval(), shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth);
+    Job pingTask = Job(time(NULL) + m_context->getOptions()->get_cluster_ping_interval(), shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth);
     VeilFS::getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
 }
 

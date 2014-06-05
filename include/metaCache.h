@@ -12,13 +12,16 @@
 #include <boost/unordered_map.hpp>
 #include <string>
 #include <sys/stat.h>
-#include <time.h>
+#include <ctime>
+#include <memory>
 
 #include "ISchedulable.h"
 #include "lock.h"
 
 namespace veil {
 namespace client {
+
+class Context;
 
 /**
  * Class responsible for caching file attributes.
@@ -34,7 +37,7 @@ protected:
 
 public:
 
-    MetaCache();
+    MetaCache(std::shared_ptr<Context> context);
     virtual ~MetaCache();
 
     virtual void addAttr(const std::string&, struct stat&); ///< Cache given attributes
@@ -53,6 +56,8 @@ public:
 
     virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
+private:
+    std::shared_ptr<Context> m_context;
 };
 
 } // namespace client

@@ -44,6 +44,8 @@
 namespace veil {
 namespace client {
 
+class Context;
+
 /// Pointer to the Storage Helper's instance
 typedef boost::shared_ptr<helpers::IStorageHelper> sh_ptr;
 
@@ -67,14 +69,12 @@ public:
         static boost::shared_ptr<Config>  getConfig();                          ///< Returns Config assigned to this object.
         static boost::shared_ptr<SimpleConnectionPool> getConnectionPool();
         static boost::shared_ptr<PushListener>         getPushListener();
-        static boost::shared_ptr<Options>  getOptions();                        ///< Returns Options assigned to this object.
 
         static void addScheduler(boost::shared_ptr<JobScheduler> injected);     ///< Sets JobScheduler object.
         static void setConfig(boost::shared_ptr<Config> injected);              ///< Sets Config object.
         static void setConnectionPool(boost::shared_ptr<SimpleConnectionPool> injected);
-        static void setOptions(boost::shared_ptr<Options> injected);
 
-        VeilFS(std::string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler,
+        VeilFS(std::string path, std::shared_ptr<Context> context, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler,
                 boost::shared_ptr<FslogicProxy> fslogic, boost::shared_ptr<MetaCache> metaCache,
                 boost::shared_ptr<LocalStorageManager> sManager, boost::shared_ptr<StorageMapper> mapper,
                 boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
@@ -128,7 +128,6 @@ protected:
         boost::shared_ptr<FslogicProxy> m_fslogic;             ///< FslogicProxy instance
         boost::shared_ptr<StorageMapper> m_storageMapper;      ///< StorageMapper instance
         boost::shared_ptr<MetaCache> m_metaCache;              ///< MetaCache instance
-        static boost::shared_ptr<Options> m_options;           ///< Options instance
         boost::shared_ptr<LocalStorageManager> m_sManager;     ///< LocalStorageManager instance
         boost::shared_ptr<helpers::StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance
         boost::shared_ptr<events::EventCommunicator> m_eventCommunicator;
@@ -142,6 +141,9 @@ protected:
 
         boost::unordered_map<helper_cache_idx_t, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
         ReadWriteLock m_shCacheLock;
+
+private:
+        std::shared_ptr<Context> m_context;
 };
 
 } // namespace client

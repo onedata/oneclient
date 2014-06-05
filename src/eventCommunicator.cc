@@ -6,6 +6,8 @@
  */
 
 #include "events/eventCommunicator.h"
+
+#include "context.h"
 #include "veilfs.h"
 #include "communication_protocol.pb.h"
 
@@ -19,7 +21,10 @@ using namespace boost;
 using namespace veil::protocol::fuse_messages;
 using namespace veil::protocol::communication_protocol;
 
-EventCommunicator::EventCommunicator(boost::shared_ptr<EventStreamCombiner> eventsStream) : m_eventsStream(eventsStream), m_writeEnabled(true)
+EventCommunicator::EventCommunicator(std::shared_ptr<Context> context, boost::shared_ptr<EventStreamCombiner> eventsStream)
+    : m_context{std::move(context)}
+    , m_eventsStream(eventsStream)
+    , m_writeEnabled(true)
 {
     if(!eventsStream){
         m_eventsStream = boost::shared_ptr<EventStreamCombiner>(new EventStreamCombiner());
@@ -223,7 +228,7 @@ boost::shared_ptr<Event> EventCommunicator::statFromWriteEvent(boost::shared_ptr
 
         FileAttr attr;
         m_metaCache->clearAttr(path);
-        if(VeilFS::getOptions()->get_enable_attr_cache()){
+        if(m_context->getOptions()->get_enable_attr_cache()){
             // TODO: The whole mechanism we force attributes to be reloaded is inefficient - we just want to cause attributes to be changed on cluster but
             // we also fetch attributes
             m_fslogic->getFileAttr(string(path), attr);

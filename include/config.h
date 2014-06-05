@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <map>
 #include <sstream>
+#include <memory>
 #include <boost/filesystem.hpp>
 #include <boost/unordered_set.hpp>
 #include <boost/algorithm/string/case_conv.hpp>
@@ -30,6 +31,8 @@
 
 namespace veil {
 namespace client {
+
+class Context;
 
 namespace utils {
 
@@ -74,7 +77,7 @@ public:
     static void putEnv(std::string name, std::string value);
     bool static isEnvSet(const std::string&);                   ///< Checks whether env variable is set.
 
-    Config();
+    Config(std::shared_ptr<Context> context);
     virtual ~Config();
 
 protected:
@@ -90,6 +93,9 @@ protected:
     std::string static absPathRelTo(const boost::filesystem::path &relTo, boost::filesystem::path p); ///< Converts relative path (second argument), to absolute (relative to first argument). Also preforms check against mount point.
 
     virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+
+private:
+    std::shared_ptr<Context> m_context;
 };
 
 } // namespace client
