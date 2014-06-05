@@ -10,11 +10,15 @@
 
 #include "metaCache.h"
 #include "testCommon.h"
+#include "context.h"
+
+#include <memory>
 
 class MockMetaCache
     : public MetaCache {
 public:
-    MockMetaCache() {};
+    MockMetaCache(std::shared_ptr<Context> context)
+    	: MetaCache{std::move(context)} {};
     ~MockMetaCache() {};
 
     MOCK_METHOD1(clearAttr, void(const string&));

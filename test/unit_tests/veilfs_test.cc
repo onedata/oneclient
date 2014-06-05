@@ -52,13 +52,13 @@ public:
     virtual void SetUp() {
         COMMON_SETUP();
         jobSchedulerMock.reset(new MockJobScheduler());
-        fslogicMock.reset(new MockFslogicProxy());
-        metaCacheMock.reset(new MockMetaCache());
+        fslogicMock.reset(new MockFslogicProxy(context));
+        metaCacheMock.reset(new MockMetaCache(context));
         storageManagerMock.reset(new MockLocalStorageManager());
         storageMapperMock.reset(new MockStorageMapper(fslogicMock));
         helperMock.reset(new MockGenericHelper());
         factoryFake.reset(new FakeStorageHelperFactory());
-        eventCommunicatorMock.reset(new MockEventCommunicator());
+        eventCommunicatorMock.reset(new MockEventCommunicator(context));
 
         EXPECT_CALL(*fslogicMock, pingCluster(_)).WillRepeatedly(Return());
         EXPECT_CALL(*options, get_alive_meta_connections_count()).WillRepeatedly(Return(0));
@@ -76,8 +76,8 @@ public:
 
         VeilFS::staticDestroy();
         VeilFS::setConnectionPool(connectionPool);
-        VeilFS::setOptions(options);
-        client.reset(new ProxyVeilFS("/root", config,
+        context->setOptions(options);
+        client.reset(new ProxyVeilFS("/root", context, config,
                         jobSchedulerMock,
                         fslogicMock,
                         metaCacheMock,
@@ -615,7 +615,7 @@ TEST_F(VeilFSTest, init) { // struct fuse_conn_info *conn
 TEST_F(VeilFSTest, processEvent) {
     boost::shared_ptr<MockEventStreamCombiner> combinerMock(new MockEventStreamCombiner());
     ASSERT_TRUE((bool) combinerMock);
-    EventCommunicator communicator(combinerMock);
+    EventCommunicator communicator(context, combinerMock);
     EXPECT_CALL(*combinerMock, pushEventToProcess(_)).WillOnce(Return());
     EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
     boost::shared_ptr<Event> event = Event::createMkdirEvent("some_file");
