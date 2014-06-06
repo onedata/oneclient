@@ -75,11 +75,7 @@ using namespace veil::protocol::fuse_messages;
 namespace veil {
 namespace client {
 
-list<boost::shared_ptr<JobScheduler> > VeilFS::m_jobSchedulers;
-ReadWriteLock VeilFS::m_schedulerPoolLock;
-boost::shared_ptr<PushListener> VeilFS::m_pushListener;
-
-VeilFS::VeilFS(string path, std::shared_ptr<Context> context, boost::shared_ptr<JobScheduler> scheduler,
+VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
                boost::shared_ptr<FslogicProxy> fslogic,  boost::shared_ptr<MetaCache> metaCache,
                boost::shared_ptr<LocalStorageManager> sManager, boost::shared_ptr<StorageMapper> mapper,
                boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
@@ -98,11 +94,9 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context, boost::shared_ptr<
     LOG(INFO) << "setting VFS root dir as: " << string(path);
     m_root = path;
 
-    VeilFS::addScheduler(scheduler);
-
     // Construct new PushListener
-    auto pushListener = std::make_shared<PushListener>(context);
-    context->setPushListener(pushListener);
+    auto pushListener = std::make_shared<PushListener>(m_context);
+    m_context->setPushListener(pushListener);
 
     // Update FUSE_ID in current connection pool
     m_context->getConnectionPool()->setPushCallback(m_context->getConfig()->getFuseID(), boost::bind(&PushListener::onMessage, pushListener, _1));
@@ -116,11 +110,11 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context, boost::shared_ptr<
         m_context->getConfig()->negotiateFuseID();
 
     if(m_fslogic) {
-        if(VeilFS::getScheduler() && m_context->getConfig()) {
+        if(m_context->getScheduler() && m_context->getConfig()) {
             int alive = m_context->getOptions()->get_alive_meta_connections_count();
             for(int i = 0; i < alive; ++i) {
                 Job pingTask = Job(time(NULL) + i, m_fslogic, ISchedulable::TASK_PING_CLUSTER, boost::lexical_cast<string>(m_context->getOptions()->get_alive_meta_connections_count()));
-                VeilFS::getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
+                m_context->getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
             }
 
         } else
@@ -151,21 +145,12 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context, boost::shared_ptr<
     }
 
     m_context->getPushListener()->subscribe(boost::bind(&events::EventCommunicator::pushMessagesHandler, m_eventCommunicator.get(), _1));
-    VeilFS::getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
-    VeilFS::getScheduler(ISchedulable::TASK_IS_WRITE_ENABLED)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_IS_WRITE_ENABLED));
+    m_context->getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
+    m_context->getScheduler(ISchedulable::TASK_IS_WRITE_ENABLED)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_IS_WRITE_ENABLED));
 }
 
 VeilFS::~VeilFS()
 {
-}
-
-void VeilFS::staticDestroy()
-{
-    while(m_jobSchedulers.size()) {
-        m_jobSchedulers.front().reset();
-        m_jobSchedulers.pop_front();
-    }
-    m_pushListener.reset();
 }
 
 int VeilFS::access(const char *path, int mask)
@@ -212,7 +197,7 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
     if(attr.type() == "REG" && fuse_ctx) // We'll need storage mapping for regular file
     {
         Job getLocTask = Job(time(NULL), m_storageMapper, ISchedulable::TASK_ASYNC_GET_FILE_LOCATION, string(path));
-        VeilFS::getScheduler()->addTask(getLocTask);
+        m_context->getScheduler()->addTask(getLocTask);
     }
 
     // At this point we have attributes from cluster
@@ -251,7 +236,7 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
         // Prefetch "ls" resault
         if(fuse_ctx && m_context->getOptions()->get_enable_dir_prefetch()  && m_context->getOptions()->get_enable_attr_cache()) {
             Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, string(path), "0");
-            VeilFS::getScheduler()->addTask(readDirTask);
+            m_context->getScheduler()->addTask(readDirTask);
         }
     }
     else if(attr.type() == "LNK")
@@ -361,7 +346,7 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
                 LOG(ERROR) << "Cannot change group owner of file " << sPath << " to: " << groupName;
         }
 
-        VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
+        m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
 
         RETURN_IF_ERROR(m_fslogic->sendFileCreatedAck(string(path)));
     }
@@ -376,7 +361,7 @@ int VeilFS::mkdir(const char *path, mode_t mode)
     m_metaCache->clearAttr(PARENT(path));
 
     RETURN_IF_ERROR(m_fslogic->createDir(string(path), mode & ALLPERMS));
-    VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
 
     boost::shared_ptr<events::Event> mkdirEvent = events::Event::createMkdirEvent(path);
     m_eventCommunicator->processEvent(mkdirEvent);
@@ -407,7 +392,7 @@ int VeilFS::unlink(const char *path)
     }
 
     RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
-    VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
 
     boost::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(path);
     m_eventCommunicator->processEvent(rmEvent);
@@ -423,7 +408,7 @@ int VeilFS::rmdir(const char *path)
     m_metaCache->clearAttr(PARENT(path));
 
     RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
-    VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
 
     return 0;
 }
@@ -451,8 +436,8 @@ int VeilFS::rename(const char *path, const char *newpath)
     LOG(INFO) << "FUSE: rename(path: " << string(path) << ", newpath: "<< string(newpath)  <<")";
 
     RETURN_IF_ERROR(m_fslogic->renameFile(string(path), string(newpath)));
-    VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
-    VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(newpath))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(newpath))); // Clear cache of parent (possible change of modify time)
 
     m_metaCache->clearAttr(string(path));
     return 0;
@@ -517,7 +502,7 @@ int VeilFS::truncate(const char *path, off_t newSize)
         (void) m_metaCache->updateSize(string(path), newSize);
 
         Job postTruncateTask = Job(time(NULL), shared_from_this(), TASK_POST_TRUNCATE_ACTIONS, path, utils::toString(newSize));
-        VeilFS::getScheduler()->addTask(postTruncateTask);
+        m_context->getScheduler()->addTask(postTruncateTask);
     }
 
     return sh_return;
@@ -530,7 +515,7 @@ int VeilFS::utime(const char *path, struct utimbuf *ubuf)
     // Update access times in meta cache right away
     (void) m_metaCache->updateTimes(string(path), ubuf->actime, ubuf->modtime);
 
-    VeilFS::getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(ubuf->actime), utils::toString(ubuf->modtime)));
+    m_context->getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(ubuf->actime), utils::toString(ubuf->modtime)));
 
     return 0;
 }
@@ -568,7 +553,7 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
             // Update access times in meta cache right away
             (void) m_metaCache->updateTimes(string(path), atime, mtime);
 
-            VeilFS::getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(atime), utils::toString(mtime)));
+            m_context->getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(atime), utils::toString(mtime)));
         }
     }
 
@@ -644,7 +629,7 @@ int VeilFS::flush(const char *path, struct fuse_file_info *fileInfo)
     }
     CUSTOM_SH_RUN(storage_helper , sh_flush(lInfo.fileId.c_str(), fileInfo));
 
-    VeilFS::getScheduler()->addTask(Job(time(NULL) + 3, shared_from_this(), TASK_CLEAR_ATTR, string(path)));
+    m_context->getScheduler()->addTask(Job(time(NULL) + 3, shared_from_this(), TASK_CLEAR_ATTR, string(path)));
 
     return sh_return;
 }
@@ -684,7 +669,7 @@ int VeilFS::opendir(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: opendir(path: " << string(path) << ", ...)";
 
-    VeilFS::getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(time(NULL))));
+    m_context->getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(time(NULL))));
 
     return 0;
 }
@@ -708,7 +693,7 @@ int VeilFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
     {
         if(m_context->getOptions()->get_enable_parallel_getattr() && m_context->getOptions()->get_enable_attr_cache()) {
             Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, (filesystem::path(path) / (*it)).normalize().string());
-            VeilFS::getScheduler()->addTask(readDirTask);
+            m_context->getScheduler()->addTask(readDirTask);
         }
 
         if(filler(buf, it->c_str(), NULL, ++offset))
@@ -759,33 +744,6 @@ int VeilFS::init(struct fuse_conn_info *conn) {
     return 0;
 }
 
-boost::shared_ptr<JobScheduler> VeilFS::getScheduler(TaskID taskId)
-{
-    AutoLock lock(m_schedulerPoolLock, WRITE_LOCK);
-    boost::shared_ptr<JobScheduler> front = m_jobSchedulers.front();
-    boost::shared_ptr<JobScheduler> tmp = front;
-
-    list<boost::shared_ptr<JobScheduler> >::const_iterator it;
-    for(list<boost::shared_ptr<JobScheduler> >::const_iterator it = m_jobSchedulers.begin();
-        it != m_jobSchedulers.end(); ++it)
-    {
-        if((*it)->hasTask(taskId))
-            tmp = (*it);
-    }
-
-    // Round robin
-    m_jobSchedulers.pop_front();
-    m_jobSchedulers.push_back(front);
-
-    return tmp;
-}
-
-void VeilFS::addScheduler(boost::shared_ptr<JobScheduler> injected)
-{
-    AutoLock lock(m_schedulerPoolLock, WRITE_LOCK);
-    m_jobSchedulers.push_back(injected);
-}
-
 bool VeilFS::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
 {
     struct stat attr;
@@ -805,12 +763,12 @@ bool VeilFS::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
 
         for(vector<string>::iterator it = children.begin(); it < children.end(); ++it) {
             Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, (filesystem::path(arg0) / (*it)).normalize().string());
-            VeilFS::getScheduler()->addTask(readDirTask);
+            m_context->getScheduler()->addTask(readDirTask);
         }
 
         if(children.size() > 0) {
             Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, arg0, utils::toString(utils::fromString<unsigned int>(arg1) + children.size()));
-            VeilFS::getScheduler()->addTask(readDirTask);
+            m_context->getScheduler()->addTask(readDirTask);
         }
 
         return true;

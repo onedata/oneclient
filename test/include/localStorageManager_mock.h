@@ -20,7 +20,7 @@ class MockLocalStorageManager
 
 public:
     MockLocalStorageManager(std::shared_ptr<Context> context)
-    	: LocalStorageManager{std::move(context)} {};
-    ~MockLocalStorageManager() {};
+        : LocalStorageManager{std::move(context)} {}
+    ~MockLocalStorageManager() {}
 };
 #endif // LOCAL_STORAGE_MANAGER_MOCK_H

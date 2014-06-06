@@ -100,9 +100,10 @@ string Config::absPathRelToHOME(const filesystem::path &p)
 
 void Config::negotiateFuseID(time_t delay)
 {
+    auto context = m_context.lock();
     // Delete old jobs, we dont need them since we are adding new one anyway
-    VeilFS::getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->deleteJobs(this, ISchedulable::TASK_CONNECTION_HANDSHAKE);
-    VeilFS::getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->addTask(Job(time(NULL) + delay, shared_from_this(), ISchedulable::TASK_CONNECTION_HANDSHAKE));
+    context->getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->deleteJobs(this, ISchedulable::TASK_CONNECTION_HANDSHAKE);
+    context->getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->addTask(Job(time(NULL) + delay, shared_from_this(), ISchedulable::TASK_CONNECTION_HANDSHAKE));
 }
 
 void Config::testHandshake()
@@ -248,7 +249,7 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
                 m_fuseID = resMsg.fuse_id();
 
                 // Update FUSE_ID in current connection pool
-                context->getConnectionPool()->setPushCallback(getFuseID(), boost::bind(&PushListener::onMessage, m_context->getPushListener(), _1));
+                context->getConnectionPool()->setPushCallback(getFuseID(), boost::bind(&PushListener::onMessage, context->getPushListener(), _1));
 
                 // Reset all connections. Each and every connection will send HandshakeAck with new fuse ID on its own.
                 context->getConnectionPool()->resetAllConnections(SimpleConnectionPool::META_POOL);

@@ -434,18 +434,17 @@ int main(int argc, char* argv[], char* envp[])
     veil::helpers::config::buffers::preferedBlockSize           = options->get_file_buffer_prefered_block_size();
 
     // Start all jobSchedulers
-    for(unsigned int i = 1; i < options->get_jobscheduler_threads(); ++i)
-        VeilFS::addScheduler(boost::make_shared<JobScheduler>());
+    for(unsigned int i = 0; i < options->get_jobscheduler_threads(); ++i)
+        context->addScheduler(std::make_shared<JobScheduler>());
 
     // Initialize main application object
     auto eventCommunicator = boost::make_shared<events::EventCommunicator>(context);
     auto fslogicProxy = boost::make_shared<FslogicProxy>(context);
     auto VeilApp = std::make_shared<VeilFS>(mountpoint, context,
-                    boost::make_shared<JobScheduler>(),
                     fslogicProxy,
                     boost::make_shared<MetaCache>(context),
                     boost::make_shared<LocalStorageManager>(context),
-                    boost::make_shared<StorageMapper>(fslogicProxy),
+                    boost::make_shared<StorageMapper>(context, fslogicProxy),
                     boost::make_shared<helpers::StorageHelperFactory>(),
                     eventCommunicator);
     VeilAppObject = VeilApp;

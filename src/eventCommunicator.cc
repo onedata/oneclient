@@ -177,7 +177,7 @@ void EventCommunicator::processEvent(boost::shared_ptr<Event> event)
 {
     if(event){
         m_eventsStream->pushEventToProcess(event);
-        VeilFS::getScheduler()->addTask(Job(time(NULL) + 1, m_eventsStream, ISchedulable::TASK_PROCESS_EVENT));
+        m_context->getScheduler()->addTask(Job(time(NULL) + 1, m_eventsStream, ISchedulable::TASK_PROCESS_EVENT));
     }
 }
 

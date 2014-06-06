@@ -419,7 +419,7 @@ void FslogicProxy::pingCluster(const string& nth)
 
     // Send another...
     Job pingTask = Job(time(NULL) + m_context->getOptions()->get_cluster_ping_interval(), shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth);
-    VeilFS::getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
+    m_context->getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
 }
 
 bool FslogicProxy::runTask(TaskID taskId, const string& arg0, const string&, const string&)

@@ -64,18 +64,12 @@ class EventCommunicator;
  */
 class VeilFS : public ISchedulable {
 public:
-
-        static boost::shared_ptr<JobScheduler>  getScheduler(TaskID taskId = TASK_LAST_ID);                 ///< Returns JobScheduler assigned to this object.
-
-        static void addScheduler(boost::shared_ptr<JobScheduler> injected);     ///< Sets JobScheduler object.
-
-        VeilFS(std::string path, std::shared_ptr<Context> context, boost::shared_ptr<JobScheduler> scheduler,
+        VeilFS(std::string path, std::shared_ptr<Context> context,
                 boost::shared_ptr<FslogicProxy> fslogic, boost::shared_ptr<MetaCache> metaCache,
                 boost::shared_ptr<LocalStorageManager> sManager, boost::shared_ptr<StorageMapper> mapper,
                 boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
                 boost::shared_ptr<events::EventCommunicator> eventCommunicator); ///< VeilFS constructor.
         virtual ~VeilFS();
-        static void staticDestroy();
 
         int access(const char *path, int mask); /**< *access* FUSE callback. Not implemented yet. */
         int getattr(const char *path, struct stat *statbuf, bool fuse_ctx = true); /**< *getattr* FUSE callback. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
@@ -118,15 +112,12 @@ protected:
         gid_t       m_rgid;  ///< Filesystem root real gid
         uint64_t    m_fh;
 
-        static ReadWriteLock m_schedulerPoolLock;
-
         boost::shared_ptr<FslogicProxy> m_fslogic;             ///< FslogicProxy instance
         boost::shared_ptr<StorageMapper> m_storageMapper;      ///< StorageMapper instance
         boost::shared_ptr<MetaCache> m_metaCache;              ///< MetaCache instance
         boost::shared_ptr<LocalStorageManager> m_sManager;     ///< LocalStorageManager instance
         boost::shared_ptr<helpers::StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance
         boost::shared_ptr<events::EventCommunicator> m_eventCommunicator;
-        static std::list<boost::shared_ptr<JobScheduler> > m_jobSchedulers; ///< JobScheduler instances
 
         std::map<std::string, std::pair<std::string, time_t> > m_linkCache;         ///< Simple links cache.
         ReadWriteLock m_linkCacheLock;

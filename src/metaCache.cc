@@ -49,7 +49,7 @@ void MetaCache::addAttr(const string &path, struct stat &attr)
             expiration_time = ATTR_DEFAULT_EXPIRATION_TIME;
         // because of random part, only small parts of cache will be updated at the same moment
         int when = time(NULL) + expiration_time / 2 + rand() % expiration_time;
-        VeilFS::getScheduler()->addTask(Job(when, shared_from_this(), TASK_CLEAR_FILE_ATTR, path));
+        m_context->getScheduler()->addTask(Job(when, shared_from_this(), TASK_CLEAR_FILE_ATTR, path));
     }
 }
 

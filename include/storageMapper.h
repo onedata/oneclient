@@ -11,9 +11,9 @@
 #define STORAGE_MAPPER_H
 
 #include <map>
+#include <memory>
 #include <string>
 #include <pthread.h>
-
 
 #include "fuse_messages.pb.h"
 #include "fslogicProxy.h"
@@ -23,6 +23,8 @@
 
 namespace veil {
 namespace client {
+
+class Context;
 
 /**
  * Structure containing file mapping base information.
@@ -67,7 +69,7 @@ protected:
 
 public:
 
-    StorageMapper(boost::shared_ptr<FslogicProxy> fslogicProxy);
+    StorageMapper(std::shared_ptr<Context> context, boost::shared_ptr<FslogicProxy> fslogicProxy);
     virtual ~StorageMapper();
 
     /**
@@ -85,6 +87,8 @@ public:
 
     virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
+private:
+    std::shared_ptr<Context> m_context;
 };
 
 } // namespace client

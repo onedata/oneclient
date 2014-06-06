@@ -28,7 +28,7 @@ protected:
     virtual void SetUp() {
         COMMON_SETUP();
         mockFslogic.reset(new MockFslogicProxy(context));
-        proxy.reset(new ProxyStorageMapper(mockFslogic));
+        proxy.reset(new ProxyStorageMapper(context, mockFslogic));
 
     }
 
