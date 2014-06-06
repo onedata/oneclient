@@ -75,7 +75,7 @@ public:
         }
 
         VeilFS::staticDestroy();
-        VeilFS::setConnectionPool(connectionPool);
+        context->setConnectionPool(connectionPool);
         context->setOptions(options);
         client.reset(new ProxyVeilFS("/root", context,
                         jobSchedulerMock,

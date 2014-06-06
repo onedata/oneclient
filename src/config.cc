@@ -125,7 +125,7 @@ void Config::testHandshake()
     gethostname(tmpHost, sizeof(tmpHost));
     string hostname = string(tmpHost);
 
-    conn = VeilFS::getConnectionPool()->selectConnection();
+    conn =context->getConnectionPool()->selectConnection();
     if(conn)
     {
         // Build HandshakeRequest message
@@ -206,7 +206,7 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
     {
     case TASK_CONNECTION_HANDSHAKE: // Send connection handshake request to cluster (in order to get FUSE_ID)
 
-        conn = VeilFS::getConnectionPool()->selectConnection();
+        conn = context->getConnectionPool()->selectConnection();
         if(conn)
         {
             // Build HandshakeRequest message
@@ -248,11 +248,11 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
                 m_fuseID = resMsg.fuse_id();
 
                 // Update FUSE_ID in current connection pool
-                VeilFS::getConnectionPool()->setPushCallback(getFuseID(), boost::bind(&PushListener::onMessage, VeilFS::getPushListener(), _1));
+                context->getConnectionPool()->setPushCallback(getFuseID(), boost::bind(&PushListener::onMessage, VeilFS::getPushListener(), _1));
 
                 // Reset all connections. Each and every connection will send HandshakeAck with new fuse ID on its own.
-                VeilFS::getConnectionPool()->resetAllConnections(SimpleConnectionPool::META_POOL);
-                VeilFS::getConnectionPool()->resetAllConnections(SimpleConnectionPool::DATA_POOL);
+                context->getConnectionPool()->resetAllConnections(SimpleConnectionPool::META_POOL);
+                context->getConnectionPool()->resetAllConnections(SimpleConnectionPool::DATA_POOL);
 
 
                 LOG(INFO) << "Newly negotiated FUSE_ID: " << resMsg.fuse_id();

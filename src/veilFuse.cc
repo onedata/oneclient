@@ -384,7 +384,7 @@ int main(int argc, char* argv[], char* envp[])
 
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
     auto testPool = boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler), 1, 0);
-    VeilFS::setConnectionPool(testPool);
+    context->setConnectionPool(testPool);
     try{
         config->testHandshake();
     }
@@ -405,7 +405,7 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     //cleanup test connections
-    VeilFS::setConnectionPool(nullptr);
+    context->setConnectionPool(nullptr);
     testPool.reset();
 
     cout << "VeilFS has been successfully mounted in " + string(mountpoint) << endl;
@@ -422,11 +422,11 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     // Initialize VeilClient application
-    VeilFS::setConnectionPool(boost::make_shared<SimpleConnectionPool> (
+    context->setConnectionPool(boost::make_shared<SimpleConnectionPool> (
         gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler)));
 
     // Setup veilhelpers config
-    veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool());
+    veil::helpers::config::setConnectionPool(context->getConnectionPool());
     veil::helpers::config::buffers::writeBufferGlobalSizeLimit  = options->get_write_buffer_max_size();
     veil::helpers::config::buffers::readBufferGlobalSizeLimit   = options->get_read_buffer_max_size();
     veil::helpers::config::buffers::writeBufferPerFileSizeLimit = options->get_write_buffer_max_file_size();

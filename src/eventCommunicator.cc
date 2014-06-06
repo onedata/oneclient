@@ -57,7 +57,7 @@ void EventCommunicator::handlePushedAtom(const Answer &msg)
             // do nothing
         }else if(atom.value() == "test_atom2_ack" && msg.has_message_id() && msg.message_id() < -1){
             // just for test purposes
-            PushListener::sendPushMessageAck("rule_manager", msg.message_id());
+            m_context->getPushListener()->sendPushMessageAck("rule_manager", msg.message_id());
         }
     }else{
         LOG(WARNING) << "Cannot parse pushed message as " << atom.GetDescriptor()->name();
@@ -84,13 +84,13 @@ void EventCommunicator::configureByCluster()
 
     ClusterMsg clm = m_messageBuilder->createClusterMessage(RULE_MANAGER, ATOM, COMMUNICATION_PROTOCOL, EVENT_PRODUCER_CONFIG, FUSE_MESSAGES, true, atom.SerializeAsString());
 
-    boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+    boost::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
 
     Answer ans;
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
         LOG(WARNING) << "sending atom eventproducerconfigrequest failed: " << (connection ? "failed" : "not needed");
     } else {
-        VeilFS::getConnectionPool()->releaseConnection(connection);
+        m_context->getConnectionPool()->releaseConnection(connection);
         LOG(INFO) << "atom eventproducerconfigrequest sent";
     }
 
@@ -118,13 +118,13 @@ void EventCommunicator::sendEvent(const std::shared_ptr<Context> &context,
     MessageBuilder messageBuilder{context};
     ClusterMsg clm = messageBuilder.createClusterMessage(CLUSTER_RENGINE, EVENT_MESSAGE, FUSE_MESSAGES, ATOM, COMMUNICATION_PROTOCOL, false, encodedEventMessage);
 
-    boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+    boost::shared_ptr<CommunicationHandler> connection = context->getConnectionPool()->selectConnection();
 
     Answer ans;
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
         LOG(WARNING) << "sending event message failed";
     } else {
-        VeilFS::getConnectionPool()->releaseConnection(connection);
+        context->getConnectionPool()->releaseConnection(connection);
         DLOG(INFO) << "Event message sent";
     }
 }
@@ -136,13 +136,13 @@ bool EventCommunicator::askClusterIfWriteEnabled()
 
     ClusterMsg clm = m_messageBuilder->createClusterMessage(FSLOGIC, ATOM, COMMUNICATION_PROTOCOL, ATOM, COMMUNICATION_PROTOCOL, true, atom.SerializeAsString());
 
-    boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+    boost::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
 
     Answer ans;
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
         LOG(WARNING) << "sending atom is_write_enabled failed";
     } else {
-        VeilFS::getConnectionPool()->releaseConnection(connection);
+        m_context->getConnectionPool()->releaseConnection(connection);
         LOG(INFO) << "atom is_write_enabled sent";
     }
 

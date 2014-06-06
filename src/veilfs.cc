@@ -76,7 +76,6 @@ namespace veil {
 namespace client {
 
 list<boost::shared_ptr<JobScheduler> > VeilFS::m_jobSchedulers;
-boost::shared_ptr<SimpleConnectionPool> VeilFS::m_connectionPool;
 ReadWriteLock VeilFS::m_schedulerPoolLock;
 boost::shared_ptr<PushListener> VeilFS::m_pushListener;
 
@@ -105,11 +104,11 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context, boost::shared_ptr<
     m_pushListener.reset(new PushListener(context));
 
     // Update FUSE_ID in current connection pool
-    VeilFS::getConnectionPool()->setPushCallback(m_context->getConfig()->getFuseID(), boost::bind(&PushListener::onMessage, VeilFS::getPushListener(), _1));
+    m_context->getConnectionPool()->setPushCallback(m_context->getConfig()->getFuseID(), boost::bind(&PushListener::onMessage, VeilFS::getPushListener(), _1));
 
     // Maximum connection count setup
-    VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, m_context->getOptions()->get_alive_meta_connections_count());
-    VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::DATA_POOL, m_context->getOptions()->get_alive_data_connections_count());
+    m_context->getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, m_context->getOptions()->get_alive_meta_connections_count());
+    m_context->getConnectionPool()->setPoolSize(SimpleConnectionPool::DATA_POOL, m_context->getOptions()->get_alive_data_connections_count());
 
     // Initialize cluster handshake in order to receive FuseID
     if(m_context->getConfig()->getFuseID() == "")
@@ -165,7 +164,6 @@ void VeilFS::staticDestroy()
         m_jobSchedulers.front().reset();
         m_jobSchedulers.pop_front();
     }
-    m_connectionPool.reset();
     m_pushListener.reset();
 }
 
@@ -781,11 +779,6 @@ boost::shared_ptr<JobScheduler> VeilFS::getScheduler(TaskID taskId)
     return tmp;
 }
 
-boost::shared_ptr<SimpleConnectionPool> VeilFS::getConnectionPool()
-{
-    return m_connectionPool;
-}
-
 boost::shared_ptr<PushListener> VeilFS::getPushListener()
 {
     return m_pushListener;
@@ -795,11 +788,6 @@ void VeilFS::addScheduler(boost::shared_ptr<JobScheduler> injected)
 {
     AutoLock lock(m_schedulerPoolLock, WRITE_LOCK);
     m_jobSchedulers.push_back(injected);
-}
-
-void VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> injected)
-{
-    m_connectionPool = injected;
 }
 
 bool VeilFS::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)

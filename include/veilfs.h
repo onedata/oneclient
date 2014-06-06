@@ -67,11 +67,9 @@ public:
 
         static boost::shared_ptr<JobScheduler>  getScheduler(TaskID taskId = TASK_LAST_ID);                 ///< Returns JobScheduler assigned to this object.
         static boost::shared_ptr<Config>  getConfig();                          ///< Returns Config assigned to this object.
-        static boost::shared_ptr<SimpleConnectionPool> getConnectionPool();
         static boost::shared_ptr<PushListener>         getPushListener();
 
         static void addScheduler(boost::shared_ptr<JobScheduler> injected);     ///< Sets JobScheduler object.
-        static void setConnectionPool(boost::shared_ptr<SimpleConnectionPool> injected);
 
         VeilFS(std::string path, std::shared_ptr<Context> context, boost::shared_ptr<JobScheduler> scheduler,
                 boost::shared_ptr<FslogicProxy> fslogic, boost::shared_ptr<MetaCache> metaCache,
@@ -131,7 +129,6 @@ protected:
         boost::shared_ptr<helpers::StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance
         boost::shared_ptr<events::EventCommunicator> m_eventCommunicator;
         static std::list<boost::shared_ptr<JobScheduler> > m_jobSchedulers; ///< JobScheduler instances
-        static boost::shared_ptr<SimpleConnectionPool> m_connectionPool;
         static boost::shared_ptr<PushListener> m_pushListener;
 
         std::map<std::string, std::pair<std::string, time_t> > m_linkCache;         ///< Simple links cache.

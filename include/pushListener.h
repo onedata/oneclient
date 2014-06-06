@@ -45,7 +45,7 @@ public:
 
     void onChannelError(const protocol::communication_protocol::Answer& msg); ///< Callback called fo each non-ok Answer from cluster. 
 
-    static void sendPushMessageAck(const std::string & moduleName, int messageId); ///< Sends push message ack for message with messageId.
+    void sendPushMessageAck(const std::string & moduleName, int messageId); ///< Sends push message ack for message with messageId.
     
 protected:
     

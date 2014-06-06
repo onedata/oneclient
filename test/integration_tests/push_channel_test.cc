@@ -76,10 +76,10 @@ TEST_F(PushChannelTest, RegisterAndClose) {
     ASSERT_LT(0, fromString<int>(erlExec(string("{get_handler_count, \"") + config->getFuseID() + string("\"}"))));
     
     // Make sure we have only one connection
-    VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, 1);
+    context->getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, 1);
     
     // Close PUSH channel
-    VeilFS::getConnectionPool()->selectConnection()->disablePushChannel();
+    context->getConnectionPool()->selectConnection()->disablePushChannel();
     sleep(2);
     ASSERT_EQ(0, fromString<int>(erlExec(string("{get_handler_count, \"") + config->getFuseID() + string("\"}"))));
 }
@@ -88,10 +88,10 @@ TEST_F(PushChannelTest, RegisterAndClose) {
 // Test if PUSH channel failure doesnt break its PUSH handler status
 TEST_F(PushChannelTest, pushChannelFailure) {
     // Make sure we have only one connection
-    VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, 1);
+    context->getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, 1);
     
     // Close PUSH channel
-    boost::shared_ptr<CommunicationHandler> conn = VeilFS::getConnectionPool()->selectConnection();
+    boost::shared_ptr<CommunicationHandler> conn = context->getConnectionPool()->selectConnection();
     
     conn->closeConnection();
     int connectRes = conn->openConnection();

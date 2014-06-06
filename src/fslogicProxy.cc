@@ -294,7 +294,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, 
         return false;
     }
 
-    boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+    boost::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
     if(!connection)
     {
         LOG(ERROR) << "Cannot select connection from connectionPool";
@@ -306,7 +306,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, 
     Answer answer = connection->communicate(clusterMessage, 2);
 
     if(answer.answer_status() != VEIO)
-        VeilFS::getConnectionPool()->releaseConnection(connection);
+        m_context->getConnectionPool()->releaseConnection(connection);
 
     if(answer.answer_status() != VOK)
     {
@@ -335,7 +335,7 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
         return VEIO;
     }
 
-    boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+    boost::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
     if(!connection)
     {
         LOG(ERROR) << "Cannot select connection from connectionPool";
@@ -345,7 +345,7 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
     Answer answer = connection->communicate(clusterMessage, 2);
 
     if(answer.answer_status() != VEIO)
-        VeilFS::getConnectionPool()->releaseConnection(connection);
+        m_context->getConnectionPool()->releaseConnection(connection);
 
     if(answer.answer_status() == INVALID_FUSE_ID)
         m_context->getConfig()->negotiateFuseID(0);
@@ -408,12 +408,12 @@ void FslogicProxy::pingCluster(const string& nth)
     int nthInt;
     istringstream iss(nth);
     iss >> nthInt;
-    boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+    boost::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
 
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
         LOG(WARNING) << "Pinging cluster " << (connection ? "failed" : "not needed");
     } else {
-        VeilFS::getConnectionPool()->releaseConnection(connection);
+        m_context->getConnectionPool()->releaseConnection(connection);
         LOG(INFO) << "Cluster ping... ---> " << ans.answer_status();
     }
 

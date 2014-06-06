@@ -119,7 +119,7 @@ namespace client {
         msg.set_value(PUSH_MESSAGE_ACK);
         clm.set_input(msg.SerializeAsString());
 
-        boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+        boost::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
 
         try {
             connection->sendMessage(clm, messageId);
