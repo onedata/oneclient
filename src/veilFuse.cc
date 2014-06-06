@@ -383,7 +383,7 @@ int main(int argc, char* argv[], char* envp[])
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
-    auto testPool = boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler));
+    auto testPool = boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler), 1, 0);
     VeilFS::setConnectionPool(testPool);
     try{
         config->testHandshake();
