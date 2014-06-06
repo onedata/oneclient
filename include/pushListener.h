@@ -32,7 +32,7 @@ class PushListener : public boost::enable_shared_from_this<PushListener>, boost:
 {
 public:
     
-    PushListener(std::shared_ptr<Context> context);
+    PushListener(std::weak_ptr<Context> context);
     virtual ~PushListener();
     
     void onMessage(const protocol::communication_protocol::Answer); ///< Input callback. This method should be registered in connection object. This is the source of all processed messages.
@@ -61,7 +61,7 @@ protected:
     virtual void mainLoop();                                            ///< Worker thread's loop
 
 private:
-    std::shared_ptr<Context> m_context;
+    std::weak_ptr<Context> m_context;
 };
     
 } // namespace client

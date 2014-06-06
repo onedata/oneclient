@@ -20,7 +20,7 @@ using namespace veil::protocol::fuse_messages;
 namespace veil {
 namespace client {
 
-    PushListener::PushListener(std::shared_ptr<Context> context)
+    PushListener::PushListener(std::weak_ptr<Context> context)
         : m_currentSubId(0)
         , m_isRunning(true)
         , m_context{std::move(context)}
@@ -100,7 +100,7 @@ namespace client {
         if(msg.answer_status() == INVALID_FUSE_ID)
         {
             LOG(INFO) << "Received 'INVALID_FUSE_ID' message. Starting FuseID renegotiation...";
-            m_context->getConfig()->negotiateFuseID();
+            m_context.lock()->getConfig()->negotiateFuseID();
         }
     }
 
@@ -119,7 +119,7 @@ namespace client {
         msg.set_value(PUSH_MESSAGE_ACK);
         clm.set_input(msg.SerializeAsString());
 
-        boost::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
+        boost::shared_ptr<CommunicationHandler> connection = m_context.lock()->getConnectionPool()->selectConnection();
 
         try {
             connection->sendMessage(clm, messageId);

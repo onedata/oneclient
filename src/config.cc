@@ -248,7 +248,7 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
                 m_fuseID = resMsg.fuse_id();
 
                 // Update FUSE_ID in current connection pool
-                context->getConnectionPool()->setPushCallback(getFuseID(), boost::bind(&PushListener::onMessage, VeilFS::getPushListener(), _1));
+                context->getConnectionPool()->setPushCallback(getFuseID(), boost::bind(&PushListener::onMessage, m_context->getPushListener(), _1));
 
                 // Reset all connections. Each and every connection will send HandshakeAck with new fuse ID on its own.
                 context->getConnectionPool()->resetAllConnections(SimpleConnectionPool::META_POOL);

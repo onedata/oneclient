@@ -107,7 +107,7 @@ TEST_F(PushChannelTest, pushChannelInbox) {
     boost::unique_lock<boost::mutex> lock(cbMutex);
     
     // Register handler
-    VeilFS::getPushListener()->subscribe(boost::bind(&PushChannelTest::handler, this, _1, 2));
+    context->getPushListener()->subscribe(boost::bind(&PushChannelTest::handler, this, _1, 2));
     
     // Send test message from cluster
     string sendAns = erlExec(string("{push_msg, \"test\", \"") + config->getFuseID() + "\"}");

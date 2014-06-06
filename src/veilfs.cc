@@ -101,10 +101,11 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context, boost::shared_ptr<
     VeilFS::addScheduler(scheduler);
 
     // Construct new PushListener
-    m_pushListener.reset(new PushListener(context));
+    auto pushListener = std::make_shared<PushListener>(context);
+    context->setPushListener(pushListener);
 
     // Update FUSE_ID in current connection pool
-    m_context->getConnectionPool()->setPushCallback(m_context->getConfig()->getFuseID(), boost::bind(&PushListener::onMessage, VeilFS::getPushListener(), _1));
+    m_context->getConnectionPool()->setPushCallback(m_context->getConfig()->getFuseID(), boost::bind(&PushListener::onMessage, pushListener, _1));
 
     // Maximum connection count setup
     m_context->getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, m_context->getOptions()->get_alive_meta_connections_count());
@@ -149,7 +150,7 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context, boost::shared_ptr<
         m_eventCommunicator->addStatAfterWritesRule(m_context->getOptions()->get_write_bytes_before_stat());
     }
 
-    VeilFS::getPushListener()->subscribe(boost::bind(&events::EventCommunicator::pushMessagesHandler, m_eventCommunicator.get(), _1));
+    m_context->getPushListener()->subscribe(boost::bind(&events::EventCommunicator::pushMessagesHandler, m_eventCommunicator.get(), _1));
     VeilFS::getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
     VeilFS::getScheduler(ISchedulable::TASK_IS_WRITE_ENABLED)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_IS_WRITE_ENABLED));
 }
@@ -777,11 +778,6 @@ boost::shared_ptr<JobScheduler> VeilFS::getScheduler(TaskID taskId)
     m_jobSchedulers.push_back(front);
 
     return tmp;
-}
-
-boost::shared_ptr<PushListener> VeilFS::getPushListener()
-{
-    return m_pushListener;
 }
 
 void VeilFS::addScheduler(boost::shared_ptr<JobScheduler> injected)

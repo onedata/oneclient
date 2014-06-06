@@ -451,7 +451,7 @@ int main(int argc, char* argv[], char* envp[])
     VeilAppObject = VeilApp;
 
     // Register remote logWriter for log threshold level updates and start sending loop
-    VeilFS::getPushListener()->subscribe(boost::bind(&logging::RemoteLogWriter::handleThresholdChange,
+    context->getPushListener()->subscribe(boost::bind(&logging::RemoteLogWriter::handleThresholdChange,
                                                      logWriter, _1));
     logWriter->run();
 
