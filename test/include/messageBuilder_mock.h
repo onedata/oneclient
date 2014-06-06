@@ -12,10 +12,15 @@
 #include "testCommon.h"
 #include "gmock/gmock.h"
 
+#include "context.h"
+ 
+#include <memory>
+
 class MockMessageBuilder
     : public MessageBuilder {
 public:
-    MockMessageBuilder() {};
+    MockMessageBuilder(std::shared_ptr<Context> context)
+    	: MessageBuilder{std::move(context)} {};
     ~MockMessageBuilder() {};
 
     MOCK_METHOD4(packFuseMessage, ClusterMsg(const string&, const string&, const string&, const string&));

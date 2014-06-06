@@ -18,7 +18,8 @@ using namespace veil::protocol::communication_protocol;
 namespace veil {
 namespace client {
 
-LocalStorageManager::LocalStorageManager()
+LocalStorageManager::LocalStorageManager(std::shared_ptr<Context> context)
+    : m_context{std::move(context)}
 {
 }
 
@@ -139,7 +140,7 @@ bool LocalStorageManager::sendClientStorageInfo(std::vector< std::pair<int, std:
     Atom resMsg;
     Answer ans;
 
-    MessageBuilder builder;
+    MessageBuilder builder{m_context};
     boost::shared_ptr<CommunicationHandler> conn;
 
 	conn = VeilFS::getConnectionPool()->selectConnection();
@@ -174,7 +175,7 @@ bool LocalStorageManager::createStorageTestFile(int storageId, std::string& rela
     CreateStorageTestFileResponse resMsg;
     Answer ans;
 
-    MessageBuilder builder;
+    MessageBuilder builder{m_context};
     boost::shared_ptr<CommunicationHandler> conn;
 
     conn = VeilFS::getConnectionPool()->selectConnection();
@@ -242,7 +243,7 @@ bool LocalStorageManager::hasClientStorageWritePermission(int storageId, std::st
     StorageTestFileModifiedResponse resMsg;
     Answer ans;
 
-    MessageBuilder builder;
+    MessageBuilder builder{m_context};
     boost::shared_ptr<CommunicationHandler> conn;
 
     conn = VeilFS::getConnectionPool()->selectConnection();

@@ -18,12 +18,12 @@
 class ProxyVeilFS
     : public veil::client::VeilFS {
 public:
-    ProxyVeilFS(std::string path, std::shared_ptr<Context> context, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler,
+    ProxyVeilFS(std::string path, std::shared_ptr<Context> context, boost::shared_ptr<JobScheduler> scheduler,
                boost::shared_ptr<FslogicProxy> fslogic,  boost::shared_ptr<MetaCache> metaCache,
                boost::shared_ptr<LocalStorageManager> sManager, boost::shared_ptr<StorageMapper> mapper,
                boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
                boost::shared_ptr<EventCommunicator> eventCommunicator)
-      : VeilFS(path, std::move(context), cnf, scheduler, fslogic, metaCache, sManager, mapper, sh_factory, eventCommunicator)
+      : VeilFS(path, std::move(context), scheduler, fslogic, metaCache, sManager, mapper, sh_factory, eventCommunicator)
     {
 
     }

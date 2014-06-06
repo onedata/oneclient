@@ -20,7 +20,7 @@ using namespace veil::protocol::communication_protocol;
 
 INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
-#define CMSG_FROM(X) MessageBuilder().packFuseMessage("messageType", "answerType", "decoderName", X.SerializeAsString());
+#define CMSG_FROM(X) MessageBuilder(context).packFuseMessage("messageType", "answerType", "decoderName", X.SerializeAsString());
 
 // TEST definitions below
 
@@ -46,7 +46,7 @@ protected:
 
         EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(true));
 
-        msgBuilder.reset(new MockMessageBuilder());
+        msgBuilder.reset(new MockMessageBuilder(context));
         proxy->setMessageBuilder(msgBuilder);
         proxy->mockAtom = false;
         proxy->mockAnswer = false;

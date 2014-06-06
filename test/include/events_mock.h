@@ -33,7 +33,8 @@ public:
 
 class MockEventStreamCombiner : public EventStreamCombiner{
 public:
-	MockEventStreamCombiner(){}
+	MockEventStreamCombiner(std::shared_ptr<Context> context)
+		: EventStreamCombiner{std::move(context)} {}
 	~MockEventStreamCombiner(){}
 
 	MOCK_METHOD1(pushEventToProcess, void(boost::shared_ptr<Event>));

@@ -54,7 +54,7 @@ public:
         jobSchedulerMock.reset(new MockJobScheduler());
         fslogicMock.reset(new MockFslogicProxy(context));
         metaCacheMock.reset(new MockMetaCache(context));
-        storageManagerMock.reset(new MockLocalStorageManager());
+        storageManagerMock.reset(new MockLocalStorageManager(context));
         storageMapperMock.reset(new MockStorageMapper(fslogicMock));
         helperMock.reset(new MockGenericHelper());
         factoryFake.reset(new FakeStorageHelperFactory());
@@ -77,7 +77,7 @@ public:
         VeilFS::staticDestroy();
         VeilFS::setConnectionPool(connectionPool);
         context->setOptions(options);
-        client.reset(new ProxyVeilFS("/root", context, config,
+        client.reset(new ProxyVeilFS("/root", context,
                         jobSchedulerMock,
                         fslogicMock,
                         metaCacheMock,
@@ -123,7 +123,6 @@ public:
 
 TEST_F(VeilFSTest, Instantiate) {
     EXPECT_EQ(jobSchedulerMock.get(), VeilFS::getScheduler().get());
-    EXPECT_EQ(config.get(), VeilFS::getConfig().get());
     EXPECT_TRUE(client->getPushListener().get());
 }
 
@@ -613,7 +612,7 @@ TEST_F(VeilFSTest, init) { // struct fuse_conn_info *conn
 }
 
 TEST_F(VeilFSTest, processEvent) {
-    boost::shared_ptr<MockEventStreamCombiner> combinerMock(new MockEventStreamCombiner());
+    boost::shared_ptr<MockEventStreamCombiner> combinerMock(new MockEventStreamCombiner(context));
     ASSERT_TRUE((bool) combinerMock);
     EventCommunicator communicator(context, combinerMock);
     EXPECT_CALL(*combinerMock, pushEventToProcess(_)).WillOnce(Return());

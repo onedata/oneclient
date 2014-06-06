@@ -16,6 +16,8 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
 
+#include <cassert>
+
 using namespace std;
 using namespace boost;
 using namespace veil::protocol::communication_protocol;
@@ -30,7 +32,7 @@ string Config::m_envHOME;
 map<string, string> Config::m_envAll;
 path Config::m_mountPoint;
 
-Config::Config(std::shared_ptr<Context> context)
+Config::Config(std::weak_ptr<Context> context)
     : m_context{std::move(context)}
 {
     setEnv();
@@ -56,7 +58,7 @@ path Config::getMountPoint()
 
 string Config::getFuseID()
 {
-    return m_fuseID.empty() ? m_context->getOptions()->get_fuse_id() : m_fuseID;
+    return m_fuseID.empty() ? m_context.lock()->getOptions()->get_fuse_id() : m_fuseID;
 }
 
 void Config::setEnv()
@@ -99,8 +101,8 @@ string Config::absPathRelToHOME(const filesystem::path &p)
 void Config::negotiateFuseID(time_t delay)
 {
     // Delete old jobs, we dont need them since we are adding new one anyway
-    VeilFS::getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->deleteJobs(VeilFS::getConfig().get(), ISchedulable::TASK_CONNECTION_HANDSHAKE);
-    VeilFS::getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->addTask(Job(time(NULL) + delay, VeilFS::getConfig(), ISchedulable::TASK_CONNECTION_HANDSHAKE));
+    VeilFS::getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->deleteJobs(this, ISchedulable::TASK_CONNECTION_HANDSHAKE);
+    VeilFS::getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->addTask(Job(time(NULL) + delay, shared_from_this(), ISchedulable::TASK_CONNECTION_HANDSHAKE));
 }
 
 void Config::testHandshake()
@@ -113,7 +115,10 @@ void Config::testHandshake()
     HandshakeResponse resMsg;
     Answer ans;
 
-    MessageBuilder builder;
+    auto context = m_context.lock();
+    assert(context);
+
+    MessageBuilder builder(context);
     boost::shared_ptr<CommunicationHandler> conn;
 
     char tmpHost[1024];
@@ -143,11 +148,11 @@ void Config::testHandshake()
             varEntry->set_value( (*it).second );
         }
 
-        if(m_context->getOptions()->has_fuse_group_id() && !fuseIdFound) {
+        if(context->getOptions()->has_fuse_group_id() && !fuseIdFound) {
             varEntry = reqMsg.add_variable();
 
             varEntry->set_name( "GROUP_ID" );
-            varEntry->set_value( m_context->getOptions()->get_fuse_group_id() );
+            varEntry->set_value( context->getOptions()->get_fuse_group_id() );
         }
 
         cMsg = builder.createClusterMessage(FSLOGIC, HandshakeRequest::descriptor()->name(), HandshakeResponse::descriptor()->name(), FUSE_MESSAGES, true);
@@ -187,7 +192,10 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
     HandshakeResponse resMsg;
     Answer ans;
 
-    MessageBuilder builder;
+    auto context = m_context.lock();
+    assert(context);
+
+    MessageBuilder builder(context);
     boost::shared_ptr<CommunicationHandler> conn;
 
     char tmpHost[1024];
@@ -222,11 +230,11 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
                 varEntry->set_value( (*it).second );
             }
 
-            if(m_context->getOptions()->has_fuse_group_id() && !fuseIdFound) {
+            if(context->getOptions()->has_fuse_group_id() && !fuseIdFound) {
                 varEntry = reqMsg.add_variable();
 
                 varEntry->set_name( "GROUP_ID" );
-                varEntry->set_value( m_context->getOptions()->get_fuse_group_id() );
+                varEntry->set_value( context->getOptions()->get_fuse_group_id() );
             }
 
             cMsg = builder.createClusterMessage(FSLOGIC, HandshakeRequest::descriptor()->name(), HandshakeResponse::descriptor()->name(), FUSE_MESSAGES, true);

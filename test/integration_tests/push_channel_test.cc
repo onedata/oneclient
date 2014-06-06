@@ -73,7 +73,7 @@ public:
 TEST_F(PushChannelTest, RegisterAndClose) {
     // By default client should register at least one handler
     
-    ASSERT_LT(0, fromString<int>(erlExec(string("{get_handler_count, \"") + VeilFS::getConfig()->getFuseID() + string("\"}"))));
+    ASSERT_LT(0, fromString<int>(erlExec(string("{get_handler_count, \"") + config->getFuseID() + string("\"}"))));
     
     // Make sure we have only one connection
     VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, 1);
@@ -81,7 +81,7 @@ TEST_F(PushChannelTest, RegisterAndClose) {
     // Close PUSH channel
     VeilFS::getConnectionPool()->selectConnection()->disablePushChannel();
     sleep(2);
-    ASSERT_EQ(0, fromString<int>(erlExec(string("{get_handler_count, \"") + VeilFS::getConfig()->getFuseID() + string("\"}"))));
+    ASSERT_EQ(0, fromString<int>(erlExec(string("{get_handler_count, \"") + config->getFuseID() + string("\"}"))));
 }
 
 
@@ -98,7 +98,7 @@ TEST_F(PushChannelTest, pushChannelFailure) {
     ASSERT_EQ(0, connectRes);
     sleep(2);
     
-    ASSERT_LT(0, fromString<int>(erlExec(string("{get_handler_count, \"") + VeilFS::getConfig()->getFuseID() + string("\"}"))));
+    ASSERT_LT(0, fromString<int>(erlExec(string("{get_handler_count, \"") + config->getFuseID() + string("\"}"))));
 }
 
 
@@ -110,10 +110,10 @@ TEST_F(PushChannelTest, pushChannelInbox) {
     VeilFS::getPushListener()->subscribe(boost::bind(&PushChannelTest::handler, this, _1, 2));
     
     // Send test message from cluster
-    string sendAns = erlExec(string("{push_msg, \"test\", \"") + VeilFS::getConfig()->getFuseID() + "\"}");
+    string sendAns = erlExec(string("{push_msg, \"test\", \"") + config->getFuseID() + "\"}");
     EXPECT_EQ("ok", sendAns);
     
-    sendAns = erlExec(string("{push_msg, \"test\", \"") + VeilFS::getConfig()->getFuseID() + "\"}");
+    sendAns = erlExec(string("{push_msg, \"test\", \"") + config->getFuseID() + "\"}");
     EXPECT_EQ("ok", sendAns);
     
     // Timeout after 5 secs

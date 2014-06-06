@@ -10,6 +10,7 @@
 
 #include "ISchedulable.h"
 
+#include <boost/shared_ptr.hpp>
 #include <boost/thread/shared_mutex.hpp>
 
 #include <memory>
@@ -41,8 +42,8 @@ public:
     std::shared_ptr<Options> getOptions() const;
     void setOptions(std::shared_ptr<Options> options);
 
-    std::shared_ptr<Config> getConfig() const;
-    void setConfig(std::shared_ptr<Config> config);
+    boost::shared_ptr<Config> getConfig() const;
+    void setConfig(boost::shared_ptr<Config> config);
 
     std::shared_ptr<JobScheduler> getScheduler(const ISchedulable::TaskID taskId = ISchedulable::TaskID::TASK_LAST_ID);
     void addScheduler(std::shared_ptr<JobScheduler> scheduler);
@@ -55,7 +56,7 @@ public:
 
 private:
     std::shared_ptr<Options> m_options;
-    std::shared_ptr<Config> m_config;
+    boost::shared_ptr<Config> m_config;
     std::list<std::shared_ptr<JobScheduler>> m_jobSchedulers;
     std::shared_ptr<SimpleConnectionPool> m_connectionPool;
     std::shared_ptr<PushListener> m_pushListener;

@@ -75,13 +75,12 @@ using namespace veil::protocol::fuse_messages;
 namespace veil {
 namespace client {
 
-boost::shared_ptr<Config> VeilFS::m_config;
 list<boost::shared_ptr<JobScheduler> > VeilFS::m_jobSchedulers;
 boost::shared_ptr<SimpleConnectionPool> VeilFS::m_connectionPool;
 ReadWriteLock VeilFS::m_schedulerPoolLock;
 boost::shared_ptr<PushListener> VeilFS::m_pushListener;
 
-VeilFS::VeilFS(string path, std::shared_ptr<Context> context, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler,
+VeilFS::VeilFS(string path, std::shared_ptr<Context> context, boost::shared_ptr<JobScheduler> scheduler,
                boost::shared_ptr<FslogicProxy> fslogic,  boost::shared_ptr<MetaCache> metaCache,
                boost::shared_ptr<LocalStorageManager> sManager, boost::shared_ptr<StorageMapper> mapper,
                boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
@@ -100,25 +99,24 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context, boost::shared_ptr<
     LOG(INFO) << "setting VFS root dir as: " << string(path);
     m_root = path;
 
-    m_config = cnf;
     VeilFS::addScheduler(scheduler);
 
     // Construct new PushListener
-    m_pushListener.reset(new PushListener());
+    m_pushListener.reset(new PushListener(context));
 
     // Update FUSE_ID in current connection pool
-    VeilFS::getConnectionPool()->setPushCallback(VeilFS::getConfig()->getFuseID(), boost::bind(&PushListener::onMessage, VeilFS::getPushListener(), _1));
+    VeilFS::getConnectionPool()->setPushCallback(m_context->getConfig()->getFuseID(), boost::bind(&PushListener::onMessage, VeilFS::getPushListener(), _1));
 
     // Maximum connection count setup
     VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, m_context->getOptions()->get_alive_meta_connections_count());
     VeilFS::getConnectionPool()->setPoolSize(SimpleConnectionPool::DATA_POOL, m_context->getOptions()->get_alive_data_connections_count());
 
     // Initialize cluster handshake in order to receive FuseID
-    if(VeilFS::getConfig()->getFuseID() == "")
-        VeilFS::getConfig()->negotiateFuseID();
+    if(m_context->getConfig()->getFuseID() == "")
+        m_context->getConfig()->negotiateFuseID();
 
     if(m_fslogic) {
-        if(VeilFS::getScheduler() && VeilFS::getConfig()) {
+        if(VeilFS::getScheduler() && m_context->getConfig()) {
             int alive = m_context->getOptions()->get_alive_meta_connections_count();
             for(int i = 0; i < alive; ++i) {
                 Job pingTask = Job(time(NULL) + i, m_fslogic, ISchedulable::TASK_PING_CLUSTER, boost::lexical_cast<string>(m_context->getOptions()->get_alive_meta_connections_count()));
@@ -129,7 +127,7 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context, boost::shared_ptr<
             LOG(WARNING) << "Connection keep-alive subsystem cannot be started.";
     }
 
-    if(!m_context->getOptions()->has_fuse_group_id() && !VeilFS::getConfig()->isEnvSet(string(FUSE_OPT_PREFIX) + string("GROUP_ID"))) {
+    if(!m_context->getOptions()->has_fuse_group_id() && !m_context->getConfig()->isEnvSet(string(FUSE_OPT_PREFIX) + string("GROUP_ID"))) {
         if(m_sManager) {
             vector<string> mountPoints = LocalStorageManager::getMountPoints();
             vector< pair<int, string> > clientStorageInfo = m_sManager->getClientStorageInfo(mountPoints);
@@ -163,7 +161,6 @@ VeilFS::~VeilFS()
 
 void VeilFS::staticDestroy()
 {
-    m_config.reset();
     while(m_jobSchedulers.size()) {
         m_jobSchedulers.front().reset();
         m_jobSchedulers.pop_front();
@@ -784,11 +781,6 @@ boost::shared_ptr<JobScheduler> VeilFS::getScheduler(TaskID taskId)
     return tmp;
 }
 
-boost::shared_ptr<Config> VeilFS::getConfig()
-{
-    return m_config;
-}
-
 boost::shared_ptr<SimpleConnectionPool> VeilFS::getConnectionPool()
 {
     return m_connectionPool;
@@ -803,11 +795,6 @@ void VeilFS::addScheduler(boost::shared_ptr<JobScheduler> injected)
 {
     AutoLock lock(m_schedulerPoolLock, WRITE_LOCK);
     m_jobSchedulers.push_back(injected);
-}
-
-void VeilFS::setConfig(boost::shared_ptr<Config> injected)
-{
-    m_config = injected;
 }
 
 void VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> injected)

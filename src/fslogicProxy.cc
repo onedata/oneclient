@@ -30,7 +30,7 @@ namespace veil {
 namespace client {
 
 FslogicProxy::FslogicProxy(std::shared_ptr<Context> context)
-    : m_messageBuilder(new MessageBuilder())
+    : m_messageBuilder(new MessageBuilder(context))
     , m_context{std::move(context)}
 {
     LOG(INFO) << "FslogicProxy created";
@@ -312,7 +312,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, 
     {
         LOG(WARNING) << "Cluster send non-ok message. status = " << answer.answer_status();
         if(answer.answer_status() == INVALID_FUSE_ID)
-            VeilFS::getConfig()->negotiateFuseID(0);
+            m_context->getConfig()->negotiateFuseID(0);
         return false;
     }
 
@@ -348,7 +348,7 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
         VeilFS::getConnectionPool()->releaseConnection(connection);
 
     if(answer.answer_status() == INVALID_FUSE_ID)
-        VeilFS::getConfig()->negotiateFuseID(0);
+        m_context->getConfig()->negotiateFuseID(0);
 
     string atom = m_messageBuilder->decodeAtomAnswer(answer);
 

@@ -274,7 +274,7 @@ int main(int argc, char* argv[], char* envp[])
     helpers::config::checkCertificate.store(!options->get_no_check_certificate());
 
     auto config = boost::make_shared<Config>(context);
-    VeilFS::setConfig(config);
+    context->setConfig(config);
 
     // proper logger setup
     FLAGS_alsologtostderr = debug;
@@ -440,11 +440,11 @@ int main(int argc, char* argv[], char* envp[])
     // Initialize main application object
     auto eventCommunicator = boost::make_shared<events::EventCommunicator>(context);
     auto fslogicProxy = boost::make_shared<FslogicProxy>(context);
-    auto VeilApp = std::make_shared<VeilFS>(mountpoint, context, config,
+    auto VeilApp = std::make_shared<VeilFS>(mountpoint, context,
                     boost::make_shared<JobScheduler>(),
                     fslogicProxy,
                     boost::make_shared<MetaCache>(context),
-                    boost::make_shared<LocalStorageManager>(),
+                    boost::make_shared<LocalStorageManager>(context),
                     boost::make_shared<StorageMapper>(fslogicProxy),
                     boost::make_shared<helpers::StorageHelperFactory>(),
                     eventCommunicator);

@@ -242,7 +242,7 @@ TEST(EventStreamCombiner, CombineStreams) {
     boost::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
     boost::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
     boost::shared_ptr<IEventStream> mkdirFilter(new EventFilter("type", "mkdir_event"));
-    EventStreamCombiner combiner;
+    EventStreamCombiner combiner{nullptr};
     combiner.addSubstream(mkdirFilter);
 
     list<boost::shared_ptr<Event> > events = combiner.processEvent(mkdirEvent);
@@ -355,7 +355,7 @@ TEST_F(EventsTest, EventCombinerRunTask){
     boost::shared_ptr<MockEventStream> substreamMock1(new MockEventStream());
     EXPECT_CALL(*substreamMock1, processEvent(_)).WillRepeatedly(Return(Event::createMkdirEvent("file1")));
     boost::shared_ptr<Event> event(Event::createMkdirEvent("file"));
-    EventStreamCombiner combiner;
+    EventStreamCombiner combiner{nullptr};
 
     combiner.pushEventToProcess(event);
     ASSERT_EQ(1u, combiner.getEventsToProcess().size());

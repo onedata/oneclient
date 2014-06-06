@@ -13,11 +13,15 @@
 #include "events/IEventStream.h"
 
 #include <boost/shared_ptr.hpp>
+#include <memory>
 #include <string>
 #include <queue>
 
 namespace veil {
 namespace client {
+
+class Context;
+
 namespace events {
 
 /**
@@ -26,6 +30,8 @@ namespace events {
  */
 class EventStreamCombiner : public ISchedulable{
 public:
+    EventStreamCombiner(std::shared_ptr<Context> context);
+
     std::list<boost::shared_ptr<Event> > processEvent(boost::shared_ptr<Event> event);		   ///< Process input event. Returns list with output events.
                                                                                                ///< Length of list may be up to number of registered substream. If none of substreams returned non-empty event then empty list is returned.
     virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
@@ -34,6 +40,7 @@ public:
     std::queue<boost::shared_ptr<Event> > getEventsToProcess() const;						   ///< TODO: probably should be removed or replaced with getQueueSize
 
 private:
+    std::shared_ptr<Context> m_context;
     std::queue<boost::shared_ptr<Event> > m_eventsToProcess;								   ///< Queue of events waiting to be processed.
     std::list<boost::shared_ptr<IEventStream> > m_substreams;								   ///< Registred substreams.
     ReadWriteLock m_eventsToProcessLock;

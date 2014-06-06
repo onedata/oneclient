@@ -27,9 +27,9 @@ EventCommunicator::EventCommunicator(std::shared_ptr<Context> context, boost::sh
     , m_writeEnabled(true)
 {
     if(!eventsStream){
-        m_eventsStream = boost::shared_ptr<EventStreamCombiner>(new EventStreamCombiner());
+        m_eventsStream = boost::shared_ptr<EventStreamCombiner>(new EventStreamCombiner(m_context));
     }
-    m_messageBuilder.reset(new MessageBuilder());
+    m_messageBuilder.reset(new MessageBuilder(m_context));
 }
 
 void EventCommunicator::handlePushedConfig(const Answer &msg)
@@ -110,11 +110,12 @@ void EventCommunicator::configureByCluster()
     }
 }
 
-void EventCommunicator::sendEvent(boost::shared_ptr<EventMessage> eventMessage)
+void EventCommunicator::sendEvent(const std::shared_ptr<Context> &context,
+                                  boost::shared_ptr<EventMessage> eventMessage)
 {
     string encodedEventMessage = eventMessage->SerializeAsString();
 
-    MessageBuilder messageBuilder;
+    MessageBuilder messageBuilder{context};
     ClusterMsg clm = messageBuilder.createClusterMessage(CLUSTER_RENGINE, EVENT_MESSAGE, FUSE_MESSAGES, ATOM, COMMUNICATION_PROTOCOL, false, encodedEventMessage);
 
     boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();

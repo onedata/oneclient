@@ -42,13 +42,13 @@ void Context::setOptions(std::shared_ptr<Options> options)
     m_options = std::move(options);
 }
 
-std::shared_ptr<Config> Context::getConfig() const
+boost::shared_ptr<Config> Context::getConfig() const
 {
     boost::shared_lock<boost::shared_mutex> lock{m_configMutex};
     return m_config;
 }
 
-void Context::setConfig(std::shared_ptr<Config> config)
+void Context::setConfig(boost::shared_ptr<Config> config)
 {
     boost::unique_lock<boost::shared_mutex> lock{m_configMutex};
     m_config = std::move(config);

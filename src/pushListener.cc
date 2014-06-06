@@ -6,6 +6,8 @@
  */
 
 #include "pushListener.h"
+
+#include "context.h"
 #include "veilErrors.h"
 #include "jobScheduler.h"
 #include "veilfs.h"
@@ -18,9 +20,10 @@ using namespace veil::protocol::fuse_messages;
 namespace veil {
 namespace client {
 
-    PushListener::PushListener() :
-      m_currentSubId(0),
-      m_isRunning(true)
+    PushListener::PushListener(std::shared_ptr<Context> context)
+        : m_currentSubId(0)
+        , m_isRunning(true)
+        , m_context{std::move(context)}
     {
         // Start worker thread
         m_worker = boost::thread(boost::bind(&PushListener::mainLoop, this));
@@ -97,7 +100,7 @@ namespace client {
         if(msg.answer_status() == INVALID_FUSE_ID)
         {
             LOG(INFO) << "Received 'INVALID_FUSE_ID' message. Starting FuseID renegotiation...";
-            VeilFS::getConfig()->negotiateFuseID();
+            m_context->getConfig()->negotiateFuseID();
         }
     }
 
