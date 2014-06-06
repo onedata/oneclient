@@ -38,7 +38,7 @@
 #define GLOBUS_P12_PATH         ".globus/usercred.p12"
 #define GLOBUS_PEM_CERT_PATH    ".globus/usercert.pem"
 #define GLOBUS_PEM_KEY_PATH     ".globus/userkey.pem"
-#define GLOBUS_PROXY_PATH(UID)  Config::absPathRelToHOME(string("/tmp/x509up_u") + to_string(getuid()))
+#define GLOBUS_PROXY_PATH(UID)  m_context->getConfig()->absPathRelToHOME(string("/tmp/x509up_u") + to_string(getuid()))
 
 #define MSG_DEBUG_INFO (m_debug ? "" : "Use --debug_gsi for further information.")
 
@@ -145,23 +145,24 @@ static inline bool isFileOrSymlink(const boost::filesystem::path &p)
     return exists(p) && (is_regular_file(p) || is_symlink(p));
 }
 
-static const std::vector<std::pair<string, string> > &getCertSearchPath()
+const std::vector<std::pair<string, string> > &GSIHandler::getCertSearchPath()
 {
     static std::vector<std::pair<string, string> > searchPath;
 
     if(searchPath.empty())
     {
+        auto config = m_context->getConfig();
         searchPath.push_back(make_pair(GLOBUS_PROXY_PATH(getuid())));
-        searchPath.push_back(std::make_pair(Config::absPathRelToHOME(GLOBUS_PEM_CERT_PATH),
-                                            Config::absPathRelToHOME(GLOBUS_PEM_KEY_PATH)));
-        searchPath.push_back(make_pair(Config::absPathRelToHOME(GLOBUS_P12_PATH)));
-        searchPath.push_back(std::make_pair(Config::absPathRelToHOME(GLOBUS_DIR_PATH), string()));
+        searchPath.push_back(std::make_pair(config->absPathRelToHOME(GLOBUS_PEM_CERT_PATH),
+                                            config->absPathRelToHOME(GLOBUS_PEM_KEY_PATH)));
+        searchPath.push_back(make_pair(config->absPathRelToHOME(GLOBUS_P12_PATH)));
+        searchPath.push_back(std::make_pair(config->absPathRelToHOME(GLOBUS_DIR_PATH), string()));
     }
 
     return searchPath;
 }
 
-static std::pair<string, string> findUserCertAndKey(const boost::filesystem::path &dir)
+std::pair<string, string> GSIHandler::findUserCertAndKey(const boost::filesystem::path &dir)
 {
     using namespace boost::filesystem;
 
@@ -184,7 +185,7 @@ static std::pair<string, string> findUserCertAndKey(const boost::filesystem::pat
     return std::pair<string, string>();
 }
 
-static std::pair<string, string> findUserCertAndKey()
+std::pair<string, string> GSIHandler::findUserCertAndKey()
 {
     using namespace boost::filesystem;
 
@@ -208,7 +209,7 @@ std::pair<string, string> GSIHandler::getUserCertAndKey()
 {
     // Configuration options take precedence
     if(m_context->getOptions()->has_peer_certificate_file())
-        return make_pair(Config::absPathRelToHOME(m_context->getOptions()->get_peer_certificate_file()));
+        return make_pair(m_context->getConfig()->absPathRelToHOME(m_context->getOptions()->get_peer_certificate_file()));
 
     if(getenv(X509_USER_PROXY_ENV) && filesystem::exists(getenv(X509_USER_PROXY_ENV)))
         return make_pair<string>(getenv(X509_USER_PROXY_ENV));

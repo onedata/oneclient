@@ -17,6 +17,8 @@
 
 #define BASE_DOMAIN "cluster.veilfs.plgrid.pl"
 
+namespace boost { namespace filesystem { class path; } }
+
 namespace veil {
 namespace client {
 
@@ -33,7 +35,10 @@ public:
     CertificateInfo getCertInfo();
 
 private:
+    std::pair<std::string, std::string> findUserCertAndKey(const boost::filesystem::path &dir);
+    std::pair<std::string, std::string> findUserCertAndKey();
     std::pair<std::string, std::string> getUserCertAndKey();
+    const std::vector<std::pair<std::string, std::string>> &getCertSearchPath();
 
     std::shared_ptr<Context> m_context;
     const bool m_debug;

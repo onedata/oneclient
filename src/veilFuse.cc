@@ -305,7 +305,7 @@ int main(int argc, char* argv[], char* envp[])
         }
         
     } else {
-        log_path = filesystem::path( Config::absPathRelToCWD(options->get_log_dir()) );
+        log_path = filesystem::path(config->absPathRelToCWD(options->get_log_dir()));
     }
     
     
@@ -335,7 +335,7 @@ int main(int argc, char* argv[], char* envp[])
         if(tokens.size() != 2) // Invalid env variable. Expected format: NAME=VALUE
             continue;
         
-        Config::putEnv(tokens[0], tokens[1]);
+        config->putEnv(tokens[0], tokens[1]);
     }
 
     // FUSE main:
@@ -353,8 +353,8 @@ int main(int argc, char* argv[], char* envp[])
 
     // Set mount point in global config
     if(mountpoint) {
-        Config::setMountPoint(string(mountpoint));
-        LOG(INFO) << "Using mount point path: " << Config::getMountPoint().string();
+        config->setMountPoint(string(mountpoint));
+        LOG(INFO) << "Using mount point path: " << config->getMountPoint().string();
     }
 
     auto gsiHandler = std::make_shared<GSIHandler>(context, options->get_debug_gsi());

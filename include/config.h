@@ -62,20 +62,20 @@ class Config : public ISchedulable
     friend class IVeilFactory;
 public:
 
-    virtual std::string getFuseID();                            ///< Returns current FuseID.
-    virtual void negotiateFuseID(time_t delay = 0);             ///< Starts FuseID negotiation process.
-                                                                ///< @param delay Since this is async actions, you can specify execution delay in seconds.
-    virtual void testHandshake();								///< Synchronously negotiate FuseID to test if everything is ok
+    virtual std::string getFuseID();                             ///< Returns current FuseID.
+    virtual void negotiateFuseID(time_t delay = 0);              ///< Starts FuseID negotiation process.
+                                                                 ///< @param delay Since this is async actions, you can specify execution delay in seconds.
+    virtual void testHandshake();                                ///< Synchronously negotiate FuseID to test if everything is ok
 
 
-    std::string static absPathRelToCWD(const boost::filesystem::path&);///< Converts relative path, to absolute using CWD env as base prefix.
-    void static setMountPoint(boost::filesystem::path);         ///< Sets mount point path
-    boost::filesystem::path static getMountPoint();             ///< Gets mount point path
-    std::string static absPathRelToHOME(const boost::filesystem::path&);///< Converts relative path, to absolute using HOME env as base prefix.
+    std::string absPathRelToCWD(const boost::filesystem::path&); ///< Converts relative path, to absolute using CWD env as base prefix.
+    void setMountPoint(boost::filesystem::path);                 ///< Sets mount point path
+    boost::filesystem::path getMountPoint();                     ///< Gets mount point path
+    std::string absPathRelToHOME(const boost::filesystem::path&);///< Converts relative path, to absolute using HOME env as base prefix.
 
-    void setEnv();                                              ///< Saves current CWD and HOME env viariables. This is required as FUSE changes them after non-debug start. This is also done automatically in Config::Config
-    static void putEnv(std::string name, std::string value);
-    bool static isEnvSet(const std::string&);                   ///< Checks whether env variable is set.
+    void setEnv();                                               ///< Saves current CWD and HOME env viariables. This is required as FUSE changes them after non-debug start. This is also done automatically in Config::Config
+    void putEnv(std::string name, std::string value);
+    bool isEnvSet(const std::string&);                           ///< Checks whether env variable is set.
 
     Config(std::weak_ptr<Context> context);
     virtual ~Config();
@@ -83,14 +83,14 @@ public:
 protected:
     ReadWriteLock m_access;
 
-    static std::string m_envCWD;                     ///< Saved CWD env variable
-    static std::string m_envHOME;                    ///< Saved HOME env variable
-    static std::map<std::string, std::string> m_envAll; ///< All saved env variables
-    static boost::filesystem::path m_mountPoint;
+    std::string m_envCWD;                     ///< Saved CWD env variable
+    std::string m_envHOME;                    ///< Saved HOME env variable
+    std::map<std::string, std::string> m_envAll; ///< All saved env variables
+    boost::filesystem::path m_mountPoint;
 
     std::string m_fuseID;
 
-    std::string static absPathRelTo(const boost::filesystem::path &relTo, boost::filesystem::path p); ///< Converts relative path (second argument), to absolute (relative to first argument). Also preforms check against mount point.
+    std::string absPathRelTo(const boost::filesystem::path &relTo, boost::filesystem::path p); ///< Converts relative path (second argument), to absolute (relative to first argument). Also preforms check against mount point.
 
     virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 

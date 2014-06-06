@@ -27,11 +27,6 @@ using boost::filesystem::path;
 namespace veil {
 namespace client {
 
-string Config::m_envCWD;
-string Config::m_envHOME;
-map<string, string> Config::m_envAll;
-path Config::m_mountPoint;
-
 Config::Config(std::weak_ptr<Context> context)
     : m_context{std::move(context)}
 {
