@@ -58,7 +58,10 @@ path Config::getMountPoint()
 
 string Config::getFuseID()
 {
-    return m_fuseID.empty() ? m_context.lock()->getOptions()->get_fuse_id() : m_fuseID;
+    if(m_fuseID.empty() && m_context.lock()->getOptions()->has_fuse_id())
+	 m_context.lock()->getOptions()->get_fuse_id(); 
+
+    return m_fuseID;
 }
 
 void Config::setEnv()

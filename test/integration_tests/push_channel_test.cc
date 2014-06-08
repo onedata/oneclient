@@ -37,7 +37,7 @@ protected:
     boost::condition cbCond;
     int answerHandled;
     
-    PushChannelTest() : VFS(VeilFSMount("main", "peer.pem"))
+    PushChannelTest() : VFS("main", "peer.pem")
     {
     }
     

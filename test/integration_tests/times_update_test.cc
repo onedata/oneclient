@@ -29,7 +29,7 @@ protected:
 
     path directIO_root;
 
-    TimesUpdateTest() : VFS(VeilFSMount("main", "peer.pem")) 
+    TimesUpdateTest() : VFS("main", "peer.pem") 
     {
     }
 

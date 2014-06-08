@@ -79,6 +79,9 @@ using namespace veil::client::events;
         ProxyConfig *proxyConfig = new ProxyConfig(context); \
         proxyConfig->fuseID = "testID"; \
         config.reset(proxyConfig); \
+        const char* parseArgs[] = {"veilFuseTest"}; \
+        options->parseConfigs(1, parseArgs); \
+        veil::helpers::config::checkCertificate.store(!options->get_no_check_certificate()); \
         options.reset(new Options()); \
         context->setOptions(options); \
         fslogic.reset(new FslogicProxy(context)); \

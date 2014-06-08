@@ -66,7 +66,7 @@ std::vector<std::string> LocalStorageManager::getMountPoints()
                         mountPoint = token;
                         break;
                     case 2:
-                        if(strncmp(token, "fuse.", 5) != 0) {
+                        if(strncmp(token, "fuse", 4) != 0) {
                             mountPoints.push_back(std::string(mountPoint));
                         }
                         break;

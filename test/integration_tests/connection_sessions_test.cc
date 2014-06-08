@@ -34,7 +34,7 @@ protected:
 
     path directIO_root;
 
-    ConnectionSessionsTest() : VFS(VeilFSMount("main", "peer.pem"))
+    ConnectionSessionsTest() : VFS("main", "peer.pem")
     {
     }
 
