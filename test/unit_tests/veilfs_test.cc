@@ -57,7 +57,7 @@ public:
         context->setConfig(config);
         scheduler = std::make_shared<MockJobScheduler>();
         context->addScheduler(scheduler);
-        connectionPool = boost::make_shared<MockConnectionPool>();
+        connectionPool = std::make_shared<MockConnectionPool>();
         context->setConnectionPool(connectionPool);
 
         fslogicMock.reset(new MockFslogicProxy(context));
@@ -97,8 +97,8 @@ public:
         location.fileId = "fileid";
         location.storageId = 1;
         storage.storageHelperName = "sh_name";
-        storage.storageHelperArgs.push_back("arg1");
-        storage.storageHelperArgs.push_back("arg2");
+        storage.storageHelperArgs.emplace("srv_arg0", boost::any{std::string{"arg1"}});
+        storage.storageHelperArgs.emplace("srv_arg1", boost::any{std::string{"arg2"}});
 
         trueStat.st_atime = 1;
         trueStat.st_ctime = 2;

@@ -80,13 +80,13 @@ void Context::addScheduler(std::shared_ptr<JobScheduler> scheduler)
     m_jobSchedulers.emplace_back(std::move(scheduler));
 }
 
-boost::shared_ptr<SimpleConnectionPool> Context::getConnectionPool() const
+std::shared_ptr<SimpleConnectionPool> Context::getConnectionPool() const
 {
     boost::shared_lock<boost::shared_mutex> lock{m_connectionPoolMutex};
     return m_connectionPool;
 }
 
-void Context::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> connectionPool)
+void Context::setConnectionPool(std::shared_ptr<SimpleConnectionPool> connectionPool)
 {
     boost::unique_lock<boost::shared_mutex> lock{m_connectionPoolMutex};
     m_connectionPool = std::move(connectionPool);

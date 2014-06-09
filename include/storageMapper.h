@@ -20,6 +20,7 @@
 #include "ISchedulable.h"
 #include "lock.h"
 #include "veilException.h"
+#include "helpers/IStorageHelper.h"
 
 namespace veil {
 namespace client {
@@ -48,7 +49,7 @@ typedef struct storageInfo
 {
     time_t last_updated;                                ///< Last update time
     std::string storageHelperName;                      ///< Name of storage helper. @see StorageHelperFactory::getStorageHelper
-    std::vector<std::string> storageHelperArgs;         ///< Arguments for storage helper. @see StorageHelperFactory::getStorageHelper
+    helpers::IStorageHelper::ArgsMap storageHelperArgs; ///< Arguments for storage helper. @see StorageHelperFactory::getStorageHelper
 
     bool isValid()                                      ///< Checks if the structure contains vaild data.
     {

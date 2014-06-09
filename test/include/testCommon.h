@@ -53,7 +53,7 @@ using namespace veil::client::events;
         context->setConfig(config); \
         scheduler.reset(new MockJobScheduler()); \
         context->addScheduler(scheduler); \
-        connectionPool.reset(new MockConnectionPool()); \
+        connectionPool = std::make_shared<MockConnectionPool>(); \
         context->setConnectionPool(connectionPool); \
         EXPECT_CALL(*options, has_fuse_group_id()).WillRepeatedly(Return(true)); \
         EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(false)); \
@@ -65,7 +65,7 @@ using namespace veil::client::events;
         boost::shared_ptr<Config> config; \
         std::shared_ptr<MockOptions> options; \
         std::shared_ptr<MockJobScheduler> scheduler; \
-        boost::shared_ptr<MockConnectionPool> connectionPool;
+        std::shared_ptr<MockConnectionPool> connectionPool;
 
 #define COMMON_CLEANUP() \
         options.reset(); \
@@ -86,15 +86,14 @@ using namespace veil::client::events;
         context->addScheduler(std::make_shared<JobScheduler>()); \
         auto gsiHandler = boost::make_shared<GSIHandler>(context); \
         gsiHandler->validateProxyConfig(); \
-        context->setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (new SimpleConnectionPool(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler)))); \
-        veil::helpers::config::setConnectionPool(context->getConnectionPool()); \
+        context->setConnectionPool(std::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler))); \
         auto eventCommunicator = boost::make_shared<events::EventCommunicator>(context); \
         veilFS.reset(new VeilFS(VeilFSRoot, context, \
                             boost::shared_ptr<FslogicProxy>(fslogic), \
                             boost::shared_ptr<MetaCache>(new MetaCache(context)), \
                             boost::shared_ptr<LocalStorageManager>(new LocalStorageManager(context)), \
                             boost::shared_ptr<StorageMapper>(new StorageMapper(context, boost::shared_ptr<FslogicProxy>(fslogic))), \
-                            boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()), \
+                            boost::make_shared<helpers::StorageHelperFactory>(context->getConnectionPool()), \
                             eventCommunicator)); \
         sleep(5);
 

@@ -383,7 +383,7 @@ int main(int argc, char* argv[], char* envp[])
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
-    auto testPool = boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler), 1, 0);
+    auto testPool = std::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler), 1, 0);
     context->setConnectionPool(testPool);
     try{
         config->testHandshake();
@@ -422,11 +422,10 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     // Initialize VeilClient application
-    context->setConnectionPool(boost::make_shared<SimpleConnectionPool> (
+    context->setConnectionPool(std::make_shared<SimpleConnectionPool> (
         gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler)));
 
     // Setup veilhelpers config
-    veil::helpers::config::setConnectionPool(context->getConnectionPool());
     veil::helpers::config::buffers::writeBufferGlobalSizeLimit  = options->get_write_buffer_max_size();
     veil::helpers::config::buffers::readBufferGlobalSizeLimit   = options->get_read_buffer_max_size();
     veil::helpers::config::buffers::writeBufferPerFileSizeLimit = options->get_write_buffer_max_file_size();
@@ -445,14 +444,14 @@ int main(int argc, char* argv[], char* envp[])
                     boost::make_shared<MetaCache>(context),
                     boost::make_shared<LocalStorageManager>(context),
                     boost::make_shared<StorageMapper>(context, fslogicProxy),
-                    boost::make_shared<helpers::StorageHelperFactory>(),
+                    boost::make_shared<helpers::StorageHelperFactory>(context->getConnectionPool()),
                     eventCommunicator);
     VeilAppObject = VeilApp;
 
     // Register remote logWriter for log threshold level updates and start sending loop
     context->getPushListener()->subscribe(boost::bind(&logging::RemoteLogWriter::handleThresholdChange,
                                                      logWriter, _1));
-    logWriter->run();
+    logWriter->run(context->getConnectionPool());
 
     // Enter FUSE loop
     if (multithreaded)
