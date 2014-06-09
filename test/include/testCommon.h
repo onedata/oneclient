@@ -17,7 +17,6 @@
 #include "messageBuilder.h"
 #include "connectionPool_mock.h"
 #include "gsiHandler.h"
-#include "config_proxy.h"
 #include "options_mock.h"
 #include "options.h"
 #include "context.h"
@@ -49,7 +48,7 @@ using namespace veil::client::events;
         context = std::make_shared<Context>(); \
         options.reset(new MockOptions()); \
         context->setOptions(options); \
-        config.reset(new ProxyConfig(context)); \
+        config.reset(new Config(context)); \
         context->setConfig(config); \
         scheduler.reset(new MockJobScheduler()); \
         context->addScheduler(scheduler); \
@@ -76,28 +75,26 @@ using namespace veil::client::events;
 
 #define COMMON_INTEGRATION_SETUP() \
         context = std::make_shared<Context>(); \
-        ProxyConfig *proxyConfig = new ProxyConfig(context); \
-        proxyConfig->fuseID = "testID"; \
-        config.reset(proxyConfig); \
-        const char* parseArgs[] = {"veilFuseTest"}; \
-        options->parseConfigs(1, parseArgs); \
-        veil::helpers::config::checkCertificate.store(!options->get_no_check_certificate()); \
-        options.reset(new Options()); \
+        options = std::make_shared<Options>(); \
+        config = boost::make_shared<Config>(context); \
+        fslogic = boost::make_shared<FslogicProxy>(context); \
         context->setOptions(options); \
-        fslogic.reset(new FslogicProxy(context)); \
         context->setConfig(config); \
         context->addScheduler(std::make_shared<JobScheduler>()); \
+        const char* parseArgs[] = {"veilFuseTest"}; \
+        options->parseConfigs(1, parseArgs); \
         auto gsiHandler = boost::make_shared<GSIHandler>(context); \
         gsiHandler->validateProxyConfig(); \
-        context->setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (new SimpleConnectionPool(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler)))); \
+        context->setConnectionPool(boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler))); \
+        veil::helpers::config::checkCertificate.store(!options->get_no_check_certificate()); \
         veil::helpers::config::setConnectionPool(context->getConnectionPool()); \
         auto eventCommunicator = boost::make_shared<events::EventCommunicator>(context); \
         veilFS.reset(new VeilFS(VeilFSRoot, context, \
-                            boost::shared_ptr<FslogicProxy>(fslogic), \
-                            boost::shared_ptr<MetaCache>(new MetaCache(context)), \
-                            boost::shared_ptr<LocalStorageManager>(new LocalStorageManager(context)), \
-                            boost::shared_ptr<StorageMapper>(new StorageMapper(context, boost::shared_ptr<FslogicProxy>(fslogic))), \
-                            boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()), \
+                            fslogic, \
+                            boost::make_shared<MetaCache>(context), \
+                            boost::make_shared<LocalStorageManager>(context), \
+                            boost::make_shared<StorageMapper>(context, fslogic), \
+                            boost::make_shared<helpers::StorageHelperFactory>(), \
                             eventCommunicator)); \
         sleep(5);
 
