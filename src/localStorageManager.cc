@@ -6,12 +6,14 @@
  */
 
 #include "localStorageManager.h"
+#include "config.h"
 #include "veilfs.h"
 #include "logging.h"
 #include "communication_protocol.pb.h"
 #include "fuse_messages.pb.h"
 #include <google/protobuf/descriptor.h>
 
+using boost::filesystem::path;
 using namespace veil::protocol::fuse_messages;
 using namespace veil::protocol::communication_protocol;
 
@@ -26,106 +28,139 @@ LocalStorageManager::~LocalStorageManager()
 {
 }
 
-bool LocalStorageManager::validatePath(std::string& path)
-{
-    const char* delimiters = "/";
-    char* pathCopy = strdup(path.c_str());
-    char* token = strtok(pathCopy, delimiters);
-    std::string validatedPath = "";
-    while(token != NULL) {
-        if(strcmp(token, "..") == 0) {  // invalid path (contains '..')
-            free(pathCopy);
-            return false;
-        } else if(strcmp(token, ".") != 0) {    // skip '.' in path
-            validatedPath += "/" + std::string(token);
-        }
-        token = strtok(NULL, delimiters);
-    }
-    free(pathCopy);
-    path = validatedPath;
-    return true;
-}
+#ifdef __APPLE__
 
-std::vector<std::string> LocalStorageManager::getMountPoints()
+std::vector<path> LocalStorageManager::getMountPoints()
 {
-    std::vector<std::string> mountPoints;
-    FILE *file = fopen(MOUNTS_INFO_FILE_PATH, "r");
-    if(file != NULL) {
-        char line[1024];
-        while(fgets(line, sizeof(line), file) != NULL) {
-            const char* delimiters = " ";
-            char *token = strtok(line, delimiters);
-            char *mountPoint = NULL;
-            int position = 0;
-            while(token != NULL && position <= 2) {
-                switch(position) {
-                    case 1:
-                        mountPoint = token;
-                        break;
-                    case 2:
-                        if(strncmp(token, "fuse.", 5) != 0) {
-                            mountPoints.push_back(std::string(mountPoint));
-                        }
-                        break;
-                }
-                token = strtok(NULL, delimiters);
-                ++position;
-            }
-        }
-        fclose(file);
+    std::vector<path> mountPoints;
+
+    int fs_num;
+    if((fs_num = getfsstat(NULL, 0, MNT_NOWAIT)) < 0) {
+        LOG(ERROR) << "Can not count mounted filesystems.";
+        return mountPoints;
     }
+
+    int buf_size = sizeof(*buf) * fs_num;
+    struct statfs *buf = (struct statfs*) malloc(buf_size);
+    if(buf == NULL) {
+        LOG(ERROR) << "Can not allocate memory for statfs structures.";
+        return mountPoints;
+    }
+
+    int stat_num;
+    if((stat_num = getstatfs(buf, buf_size, MNT_NOWAIT)) < 0) {
+        LOG(ERROR) << "Can not get fsstat.";
+        return mountPoints;
+    }
+
+    for(int i = 0; i < stat_num; ++i) {
+        std::string type(buf[i].f_fstypename);
+        if(type.compare(0, 4, "fuse") != 0) {
+            mountPoints.push_back(path(buf[i].f_mntonname).normalize())
+        }
+    }
+
     return mountPoints;
 }
 
-std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorageInfo(std::vector<std::string> mountPoints)
+#else
+
+std::vector<path> LocalStorageManager::getMountPoints()
 {
-    std::vector< std::pair<int, std::string> > clientStorageInfo;
-    for(std::vector<std::string>::iterator mountPoint = mountPoints.begin(); mountPoint != mountPoints.end(); ++mountPoint) {
-        FILE *file = fopen((*mountPoint + "/" + STORAGE_INFO_FILENAME).c_str(), "r");
-        if(file != NULL) {
-            char line[1024];
-            while(fgets(line, sizeof(line), file) != NULL) {
-                const char* delimiters = " ,{}";
-                char* token = strtok(line, delimiters);
-                int position = 0;
-        
-                int storageId;
-                std::string absolutePath;
-                std::string relativePath = "";
-                std::string text = "";
-        
-                while(token != NULL && position <= 1) {
-                    switch(position) {
-                        case 0:
-                            storageId = atoi(token);
-                            break;
-                        case 1:
-                            absolutePath = *mountPoint + "/" + std::string(token);
-                            if(!validatePath(absolutePath)) {
-                                LOG(WARNING) << "Invalid path ( " << absolutePath << " ) for storage with id: " << storageId;
-                                break;
-                            }
-                            if(!createStorageTestFile(storageId, relativePath, text)) {
-                                LOG(WARNING) << "Cannot create storage test file for storage with id: " << storageId;
-                                break;
-                            }
-                            if(!hasClientStorageReadPermission(absolutePath, relativePath, text)) {
-                                LOG(WARNING) << "Client does not have read permission for storage with id: " << storageId;
-                                break;
-                            }
-                            if(!hasClientStorageWritePermission(storageId, absolutePath, relativePath)) {
-                                LOG(WARNING) << "Client does not have write permission for storage with id: " << storageId;
-                                break;
-                            }
-                            LOG(INFO) << "Storage with id: " << storageId << " is directly accessible to the client via: " << absolutePath;
-                            clientStorageInfo.push_back(make_pair(storageId, absolutePath));
-                            break;
+    std::vector<path> mountPoints;
+
+    FILE *file;
+    if((file = setmntent(MOUNTS_INFO_FILE_PATH, "r")) == NULL) {
+        LOG(ERROR) << "Can not parse /proc/mounts file.";
+        return mountPoints;
+    }
+
+    struct mntent *ent;
+    while ((ent = getmntent(file)) != NULL) {
+        std::string type(ent->mnt_type);
+        if(type.compare(0, 4, "fuse") != 0) {
+            mountPoints.push_back(path(ent->mnt_dir).normalize());
+        }
+    }
+
+    endmntent(file);
+
+    return mountPoints;
+}
+
+#endif
+
+std::vector< std::pair<int, std::string> > LocalStorageManager::parseStorageInfo(path mountPoint)
+{
+    std::vector< std::pair<int, std::string> > storageInfo;
+    path storageInfoPath = path(mountPoint.string() + std::string("/") + std::string(STORAGE_INFO_FILENAME)).normalize();
+
+    if(boost::filesystem::exists(storageInfoPath) && boost::filesystem::is_regular_file(storageInfoPath)) {
+        boost::filesystem::ifstream storageInfoFile(storageInfoPath);
+        std::string line;
+
+        while(std::getline(storageInfoFile, line)) {
+            std::vector<std::string> tokens;
+            boost::char_separator<char> sep(" ,{}");
+            boost::tokenizer< boost::char_separator<char> > tok(line, sep);
+
+            for(boost::tokenizer< boost::char_separator<char> >::iterator it = tok.begin(); it != tok.end(); ++it) {
+                tokens.push_back(*it);
+            }
+
+            if(tokens.size() == 2) {
+                try {
+                    int storageId = boost::lexical_cast<int>(tokens[0]);
+                    std::string absoluteStoragePath = mountPoint.string();
+
+                    while(!tokens[1].empty() && (*(tokens[1].begin()) == '.' || *(tokens[1].begin()) == '/')) {
+                        tokens[1].erase(tokens[1].begin());
                     }
-                    token = strtok(NULL, delimiters);
-                    ++position;
+                    if(!tokens[1].empty()) {
+                        absoluteStoragePath += "/" + tokens[1];
+                    }
+                    storageInfo.push_back(make_pair(storageId, absoluteStoragePath));
+                } catch(boost::bad_lexical_cast const&) {
+                    LOG(ERROR) << "Wrong format of storage id in file: " << storageInfoPath;
                 }
             }
-            fclose(file);
+        }
+    }
+    return storageInfo;
+}
+
+std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorageInfo(std::vector<path> mountPoints)
+{
+    std::vector< std::pair<int, std::string> > clientStorageInfo;
+
+    // Remove client mount point from vector of mount points (just in case)
+    std::vector<path>::iterator mountPointsEnd = std::remove(mountPoints.begin(), mountPoints.end(), Config::getMountPoint());
+
+    for(std::vector<path>::iterator mountPoint = mountPoints.begin(); mountPoint != mountPointsEnd; ++mountPoint) {
+
+        std::vector< std::pair<int, std::string> > storageInfo = parseStorageInfo(*mountPoint);
+
+        for(std::vector< std::pair<int, std::string> >::iterator it = storageInfo.begin(); it != storageInfo.end(); ++it) {
+            int storageId = it->first;
+            std::string absolutePath = it->second;
+            std::string relativePath = "";
+            std::string text = "";
+
+            if(!createStorageTestFile(storageId, relativePath, text)) {
+                LOG(WARNING) << "Cannot create storage test file for storage with id: " << storageId;
+                continue;
+            }
+            if(!hasClientStorageReadPermission(absolutePath, relativePath, text)) {
+                LOG(WARNING) << "Client does not have read permission for storage with id: " << storageId;
+                continue;
+            }
+            if(!hasClientStorageWritePermission(storageId, absolutePath, relativePath)) {
+                LOG(WARNING) << "Client does not have write permission for storage with id: " << storageId;
+                continue;
+            }
+
+            LOG(INFO) << "Storage with id: " << storageId << " is directly accessible to the client via: " << absolutePath;
+            clientStorageInfo.push_back(make_pair(storageId, absolutePath));
         }
     }
     return clientStorageInfo;

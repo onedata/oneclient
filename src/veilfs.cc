@@ -129,7 +129,7 @@ VeilFS::VeilFS(string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<Job
 
     if(!VeilFS::getOptions()->has_fuse_group_id() && !VeilFS::getConfig()->isEnvSet(string(FUSE_OPT_PREFIX) + string("GROUP_ID"))) {
         if(m_sManager) {
-            vector<string> mountPoints = LocalStorageManager::getMountPoints();
+            vector<boost::filesystem::path> mountPoints = LocalStorageManager::getMountPoints();
             vector< pair<int, string> > clientStorageInfo = m_sManager->getClientStorageInfo(mountPoints);
             if(!clientStorageInfo.empty()) {
                 m_sManager->sendClientStorageInfo(clientStorageInfo);

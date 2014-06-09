@@ -48,7 +48,7 @@ void Config::setMountPoint(filesystem::path mp)
 
 path Config::getMountPoint()
 {
-    return m_mountPoint;
+    return m_mountPoint.normalize();
 }
 
 string Config::getFuseID()
@@ -76,7 +76,7 @@ string Config::absPathRelTo(const path &relTo, path p)
     }
 
     if(!getMountPoint().empty() &&
-       out.normalize().string().find(getMountPoint().normalize().string()) == 0) {
+       out.normalize().string().find(getMountPoint().string()) == 0) {
         throw VeilException("path_error", string("Cannot access '") + out.string() + "' because the file is within your filesystem mount point - " + getMountPoint().string());
     }
 
