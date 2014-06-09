@@ -29,7 +29,7 @@ wipe_db([DB | Rest]) ->
     wipe_db(Rest);
 wipe_db([]) ->
     timer:sleep(1000), %% BigCouch needs some time before recreating databases
-    dao:init([]).
+    dao:set_db().
 
 
 %% Registers test user based on given cert file (path should be relative to common_files dir)
