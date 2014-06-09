@@ -53,7 +53,7 @@ using namespace veil::client;
 using boost::filesystem::path;
 
 /// Main  application object (filesystem state)
-static std::weak_ptr<VeilFS> VeilAppObject;
+static boost::weak_ptr<VeilFS> VeilAppObject;
 
 extern "C"
 {
@@ -440,7 +440,7 @@ int main(int argc, char* argv[], char* envp[])
     // Initialize main application object
     auto eventCommunicator = boost::make_shared<events::EventCommunicator>(context);
     auto fslogicProxy = boost::make_shared<FslogicProxy>(context);
-    auto VeilApp = std::make_shared<VeilFS>(mountpoint, context,
+    auto VeilApp = boost::make_shared<VeilFS>(mountpoint, context,
                     fslogicProxy,
                     boost::make_shared<MetaCache>(context),
                     boost::make_shared<LocalStorageManager>(context),
