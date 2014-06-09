@@ -272,7 +272,7 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     bool debug = options->get_debug();
-    helpers::config::checkCertificate.store(!options->get_no_check_certificate());
+    const auto checkCertificate = !options->get_no_check_certificate();
 
     auto config = boost::make_shared<Config>(context);
     context->setConfig(config);
@@ -384,7 +384,7 @@ int main(int argc, char* argv[], char* envp[])
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
-    auto testPool = boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler), 1, 0);
+    auto testPool = boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate, 1, 0);
     context->setConnectionPool(testPool);
     try{
         config->testHandshake();
@@ -424,7 +424,7 @@ int main(int argc, char* argv[], char* envp[])
 
     // Initialize VeilClient application
     context->setConnectionPool(boost::make_shared<SimpleConnectionPool> (
-        gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler)));
+        gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate));
 
     // Setup veilhelpers config
     veil::helpers::config::buffers::writeBufferGlobalSizeLimit  = options->get_write_buffer_max_size();
