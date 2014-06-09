@@ -63,13 +63,15 @@ std::shared_ptr<JobScheduler> Context::getScheduler(const ISchedulable::TaskID t
             std::find_if(m_jobSchedulers.begin(), m_jobSchedulers.end(),
             [&](const std::shared_ptr<JobScheduler> &jobScheduler){ return jobScheduler->hasTask(taskId); });
 
+    const auto res = jobSchedulerIt != m_jobSchedulers.end()
+            ? *jobSchedulerIt : m_jobSchedulers.front();
+
     // Round robin
     auto front = std::move(m_jobSchedulers.front());
     m_jobSchedulers.pop_front();
     m_jobSchedulers.emplace_back(std::move(front));
 
-    return jobSchedulerIt != m_jobSchedulers.end()
-            ? *jobSchedulerIt : m_jobSchedulers.back();
+    return res;
 }
 
 void Context::addScheduler(std::shared_ptr<JobScheduler> scheduler)
