@@ -244,9 +244,10 @@ int main(int argc, char* argv[], char* envp[])
     FLAGS_stderrthreshold = 3;
 
     // Set up a remote logger
-    auto logWriter = boost::make_shared<logging::RemoteLogWriter>();
-    logging::setLogSinks(new logging::RemoteLogSink{logWriter},
-                         new logging::RemoteLogSink{logWriter, protocol::logging::LDEBUG});
+    const auto logWriter = boost::make_shared<logging::RemoteLogWriter>();
+    const auto logSink = std::make_shared<logging::RemoteLogSink>(logWriter);
+    const auto debugLogSink = std::make_shared<logging::RemoteLogSink>(logWriter, protocol::logging::LDEBUG);
+    logging::setLogSinks(logSink, debugLogSink);
 
     // Create application context
     auto context = std::make_shared<Context>();
@@ -383,7 +384,7 @@ int main(int argc, char* argv[], char* envp[])
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
-    auto testPool = std::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler), 1, 0);
+    auto testPool = boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler), 1, 0);
     context->setConnectionPool(testPool);
     try{
         config->testHandshake();
@@ -422,7 +423,7 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     // Initialize VeilClient application
-    context->setConnectionPool(std::make_shared<SimpleConnectionPool> (
+    context->setConnectionPool(boost::make_shared<SimpleConnectionPool> (
         gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler)));
 
     // Setup veilhelpers config

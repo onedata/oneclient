@@ -57,7 +57,7 @@ public:
         context->setConfig(config);
         scheduler = std::make_shared<MockJobScheduler>();
         context->addScheduler(scheduler);
-        connectionPool = std::make_shared<MockConnectionPool>();
+        connectionPool = boost::make_shared<MockConnectionPool>();
         context->setConnectionPool(connectionPool);
 
         fslogicMock.reset(new MockFslogicProxy(context));

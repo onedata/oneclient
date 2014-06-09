@@ -53,7 +53,7 @@ using namespace veil::client::events;
         context->setConfig(config); \
         scheduler.reset(new MockJobScheduler()); \
         context->addScheduler(scheduler); \
-        connectionPool = std::make_shared<MockConnectionPool>(); \
+        connectionPool = boost::make_shared<MockConnectionPool>(); \
         context->setConnectionPool(connectionPool); \
         EXPECT_CALL(*options, has_fuse_group_id()).WillRepeatedly(Return(true)); \
         EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(false)); \
@@ -65,7 +65,7 @@ using namespace veil::client::events;
         boost::shared_ptr<Config> config; \
         std::shared_ptr<MockOptions> options; \
         std::shared_ptr<MockJobScheduler> scheduler; \
-        std::shared_ptr<MockConnectionPool> connectionPool;
+        boost::shared_ptr<MockConnectionPool> connectionPool;
 
 #define COMMON_CLEANUP() \
         options.reset(); \
@@ -86,7 +86,7 @@ using namespace veil::client::events;
         context->addScheduler(std::make_shared<JobScheduler>()); \
         auto gsiHandler = boost::make_shared<GSIHandler>(context); \
         gsiHandler->validateProxyConfig(); \
-        context->setConnectionPool(std::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler))); \
+        context->setConnectionPool(boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler))); \
         auto eventCommunicator = boost::make_shared<events::EventCommunicator>(context); \
         veilFS.reset(new VeilFS(VeilFSRoot, context, \
                             boost::shared_ptr<FslogicProxy>(fslogic), \

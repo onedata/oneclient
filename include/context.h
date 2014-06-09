@@ -48,8 +48,8 @@ public:
     std::shared_ptr<JobScheduler> getScheduler(const ISchedulable::TaskID taskId = ISchedulable::TaskID::TASK_LAST_ID);
     void addScheduler(std::shared_ptr<JobScheduler> scheduler);
 
-    std::shared_ptr<SimpleConnectionPool> getConnectionPool() const;
-    void setConnectionPool(std::shared_ptr<SimpleConnectionPool> connectionPool);
+    boost::shared_ptr<SimpleConnectionPool> getConnectionPool() const;
+    void setConnectionPool(boost::shared_ptr<SimpleConnectionPool> connectionPool);
 
     std::shared_ptr<PushListener> getPushListener() const;
     void setPushListener(std::shared_ptr<PushListener> pushListener);
@@ -58,7 +58,7 @@ private:
     std::shared_ptr<Options> m_options;
     boost::shared_ptr<Config> m_config;
     std::list<std::shared_ptr<JobScheduler>> m_jobSchedulers;
-    std::shared_ptr<SimpleConnectionPool> m_connectionPool;
+    boost::shared_ptr<SimpleConnectionPool> m_connectionPool;
     std::shared_ptr<PushListener> m_pushListener;
 
     mutable boost::shared_mutex m_optionsMutex;
