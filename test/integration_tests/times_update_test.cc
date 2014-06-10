@@ -86,7 +86,7 @@ TEST_F(TimesUpdateTest, writeUpdate) {
     EXPECT_LE(curr.st_mtime, (time(NULL) + 10));
 }
 
- Test if data read commnad updates times correctly
+// Test if data read commnad updates times correctly
 TEST_F(TimesUpdateTest, readUpdate) {
     struct stat old, curr;
     sleep(2);
