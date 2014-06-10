@@ -20,7 +20,7 @@ using namespace veil::helpers;
 class FakeStorageHelperFactory
     : public StorageHelperFactory {
 public:
-    FakeStorageHelperFactory() : StorageHelperFactory{nullptr} {}
+    FakeStorageHelperFactory() : StorageHelperFactory{nullptr, BufferLimits{}} {}
 
     boost::shared_ptr<IStorageHelper> presetMock;
 

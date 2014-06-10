@@ -93,7 +93,7 @@ using namespace veil::client::events;
                             boost::shared_ptr<MetaCache>(new MetaCache(context)), \
                             boost::shared_ptr<LocalStorageManager>(new LocalStorageManager(context)), \
                             boost::shared_ptr<StorageMapper>(new StorageMapper(context, boost::shared_ptr<FslogicProxy>(fslogic))), \
-                            boost::make_shared<helpers::StorageHelperFactory>(context->getConnectionPool()), \
+                            boost::make_shared<helpers::StorageHelperFactory>(context->getConnectionPool(), helpers::BufferLimits{}), \
                             eventCommunicator)); \
         sleep(5);
 

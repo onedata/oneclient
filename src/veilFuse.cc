@@ -427,11 +427,11 @@ int main(int argc, char* argv[], char* envp[])
         gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate));
 
     // Setup veilhelpers config
-    veil::helpers::config::buffers::writeBufferGlobalSizeLimit  = options->get_write_buffer_max_size();
-    veil::helpers::config::buffers::readBufferGlobalSizeLimit   = options->get_read_buffer_max_size();
-    veil::helpers::config::buffers::writeBufferPerFileSizeLimit = options->get_write_buffer_max_file_size();
-    veil::helpers::config::buffers::readBufferPerFileSizeLimit  = options->get_read_buffer_max_file_size();
-    veil::helpers::config::buffers::preferedBlockSize           = options->get_file_buffer_prefered_block_size();
+    helpers::BufferLimits bufferLimits{options->get_write_buffer_max_size(),
+                options->get_read_buffer_max_size(),
+                options->get_write_buffer_max_file_size(),
+                options->get_read_buffer_max_file_size(),
+                options->get_file_buffer_prefered_block_size()};
 
     // Start all jobSchedulers
     for(unsigned int i = 0; i < options->get_jobscheduler_threads(); ++i)
@@ -445,7 +445,7 @@ int main(int argc, char* argv[], char* envp[])
                     boost::make_shared<MetaCache>(context),
                     boost::make_shared<LocalStorageManager>(context),
                     boost::make_shared<StorageMapper>(context, fslogicProxy),
-                    boost::make_shared<helpers::StorageHelperFactory>(context->getConnectionPool()),
+                    boost::make_shared<helpers::StorageHelperFactory>(context->getConnectionPool(), bufferLimits),
                     eventCommunicator);
     VeilAppObject = VeilApp;
 
