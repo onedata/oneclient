@@ -66,7 +66,7 @@ main([TestName | Args]) ->
             os:cmd("ssh root@" ++ os:getenv("CLUSTER_NODE") ++ " rm -rf " ++ DirectIORoot),
             os:cmd("ssh root@" ++ os:getenv("CLUSTER_NODE") ++ " mkdir -p " ++ DirectIORoot),
 
-            os:cmd("restart_cluster.sh " ++ os:getenv("CLUSTER_NODE")),
+            io:format("Restarting nodes: ~p~n", [os:cmd("restart_cluster.sh " ++ os:getenv("CLUSTER_NODE"))]),
             timer:sleep(10000), %% Give node some time to boot 
 
             pong = net_adm:ping(?CCM_NODE_NAME),
