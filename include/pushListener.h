@@ -61,7 +61,7 @@ protected:
     virtual void mainLoop();                                            ///< Worker thread's loop
 
 private:
-    std::weak_ptr<Context> m_context;
+    const std::weak_ptr<Context> m_context;
 };
     
 } // namespace client

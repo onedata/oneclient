@@ -95,11 +95,7 @@ void StorageMapper::addLocation(const string &logicalName, const FileLocation &l
         storageInfo.storageHelperName = location.storage_helper_name();
 
     for(int i = 0; i < location.storage_helper_args_size(); ++i)
-    {
-        std::stringstream ss;
-        ss << "srv_arg" << i;
-        storageInfo.storageHelperArgs.emplace(ss.str(), boost::any{location.storage_helper_args(i)});
-    }
+        storageInfo.storageHelperArgs.emplace(helpers::srvArg(i), boost::any{location.storage_helper_args(i)});
 
     info.opened = 0;
 

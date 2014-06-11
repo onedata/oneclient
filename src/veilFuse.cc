@@ -44,6 +44,7 @@
 
 #include "fslogicProxy.h"
 
+#include <functional>
 #include <memory>
 
 using namespace std;
@@ -384,7 +385,7 @@ int main(int argc, char* argv[], char* envp[])
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
-    auto testPool = boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate, 1, 0);
+    auto testPool = boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), std::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate, 1, 0);
     context->setConnectionPool(testPool);
     try{
         config->testHandshake();
@@ -424,7 +425,7 @@ int main(int argc, char* argv[], char* envp[])
 
     // Initialize VeilClient application
     context->setConnectionPool(boost::make_shared<SimpleConnectionPool> (
-        gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate));
+        gsiHandler->getClusterHostname(), options->get_cluster_port(), std::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate));
 
     // Setup veilhelpers config
     helpers::BufferLimits bufferLimits{options->get_write_buffer_max_size(),
@@ -434,7 +435,8 @@ int main(int argc, char* argv[], char* envp[])
                 options->get_file_buffer_prefered_block_size()};
 
     // Start all jobSchedulers
-    for(unsigned int i = 0; i < options->get_jobscheduler_threads(); ++i)
+    context->addScheduler(std::make_shared<JobScheduler>());
+    for(unsigned int i = 1; i < options->get_jobscheduler_threads(); ++i)
         context->addScheduler(std::make_shared<JobScheduler>());
 
     // Initialize main application object

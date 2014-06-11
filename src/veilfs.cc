@@ -15,10 +15,15 @@
 #include "cstring"
 #include "veilErrors.h"
 #include "config.h"
+#include "communication_protocol.pb.h"
+#include "fuse_messages.pb.h"
+#include "messageBuilder.h"
+
 #include <sys/types.h>
 #include <pwd.h>
 #include <grp.h>
-#include <algorithm>
+#include <sys/stat.h>
+
 #include <boost/filesystem/path.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/functional.hpp>
@@ -26,11 +31,9 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
 
-#include "communication_protocol.pb.h"
-#include "fuse_messages.pb.h"
-#include "messageBuilder.h"
+#include <algorithm>
+#include <functional>
 
-#include <sys/stat.h>
 
 /// Runs FUN on NAME storage helper with constructed with ARGS. Return value is avaiable in 'int sh_return'.
 #define CUSTOM_SH_RUN(PTR, FUN) if(!PTR) { LOG(ERROR) << "Invalid storage helper's pointer!"; return -EIO; } \
@@ -99,7 +102,7 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
     m_context->setPushListener(pushListener);
 
     // Update FUSE_ID in current connection pool
-    m_context->getConnectionPool()->setPushCallback(m_context->getConfig()->getFuseID(), boost::bind(&PushListener::onMessage, pushListener, _1));
+    m_context->getConnectionPool()->setPushCallback(m_context->getConfig()->getFuseID(), std::bind(&PushListener::onMessage, pushListener, std::placeholders::_1));
 
     // Maximum connection count setup
     m_context->getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, m_context->getOptions()->get_alive_meta_connections_count());

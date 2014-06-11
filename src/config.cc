@@ -11,12 +11,14 @@
 #include "veilfs.h"
 #include "communication_protocol.pb.h"
 #include "fuse_messages.pb.h"
-#include <fstream>
+
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
 
 #include <cassert>
+#include <fstream>
+#include <functional>
 
 using namespace std;
 using namespace boost;
@@ -114,14 +116,13 @@ void Config::testHandshake()
     auto context = m_context.lock();
     assert(context);
 
-    MessageBuilder builder(context);
-    boost::shared_ptr<CommunicationHandler> conn;
+    MessageBuilder builder{context};
 
     char tmpHost[1024];
     gethostname(tmpHost, sizeof(tmpHost));
     string hostname = string(tmpHost);
 
-    conn =context->getConnectionPool()->selectConnection();
+    auto conn = context->getConnectionPool()->selectConnection();
     if(conn)
     {
         // Build HandshakeRequest message
@@ -191,7 +192,7 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
     auto context = m_context.lock();
     assert(context);
 
-    MessageBuilder builder(context);
+    MessageBuilder builder{context};
     boost::shared_ptr<CommunicationHandler> conn;
 
     char tmpHost[1024];
@@ -244,7 +245,7 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
                 m_fuseID = resMsg.fuse_id();
 
                 // Update FUSE_ID in current connection pool
-                context->getConnectionPool()->setPushCallback(getFuseID(), boost::bind(&PushListener::onMessage, context->getPushListener(), _1));
+                context->getConnectionPool()->setPushCallback(getFuseID(), std::bind(&PushListener::onMessage, context->getPushListener(), std::placeholders::_1));
 
                 // Reset all connections. Each and every connection will send HandshakeAck with new fuse ID on its own.
                 context->getConnectionPool()->resetAllConnections(SimpleConnectionPool::META_POOL);

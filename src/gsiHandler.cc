@@ -38,9 +38,9 @@
 #define GLOBUS_P12_PATH         ".globus/usercred.p12"
 #define GLOBUS_PEM_CERT_PATH    ".globus/usercert.pem"
 #define GLOBUS_PEM_KEY_PATH     ".globus/userkey.pem"
-#define GLOBUS_PROXY_PATH(UID)  m_context->getConfig()->absPathRelToHOME(string("/tmp/x509up_u") + to_string(getuid()))
+#define GLOBUS_PROXY_PATH(CONTEXT, UID)  (CONTEXT)->getConfig()->absPathRelToHOME(string("/tmp/x509up_u") + to_string(getuid()))
 
-#define MSG_DEBUG_INFO (m_debug ? "" : "Use --debug_gsi for further information.")
+#define MSG_DEBUG_INFO(DEBUG) ((DEBUG) ? "" : "Use --debug_gsi for further information.")
 
 #define CRYPTO_FREE(M, X) if(X) { M##_free(X); X = NULL; }
 
@@ -152,7 +152,7 @@ const std::vector<std::pair<string, string> > &GSIHandler::getCertSearchPath()
     if(searchPath.empty())
     {
         auto config = m_context->getConfig();
-        searchPath.push_back(make_pair(GLOBUS_PROXY_PATH(getuid())));
+        searchPath.push_back(make_pair(GLOBUS_PROXY_PATH(m_context, getuid())));
         searchPath.push_back(std::make_pair(config->absPathRelToHOME(GLOBUS_PEM_CERT_PATH),
                                             config->absPathRelToHOME(GLOBUS_PEM_KEY_PATH)));
         searchPath.push_back(make_pair(config->absPathRelToHOME(GLOBUS_P12_PATH)));
@@ -219,7 +219,7 @@ std::pair<string, string> GSIHandler::getUserCertAndKey()
     std::pair<string, string> certAndKey = findUserCertAndKey();
 
     // Any found path can be overriden by user's envs, provided it's not a proxy path
-    if(certAndKey.first != GLOBUS_PROXY_PATH(getuid()))
+    if(certAndKey.first != GLOBUS_PROXY_PATH(m_context, getuid()))
     {
         if(getenv(X509_USER_CERT_ENV) && filesystem::exists(getenv(X509_USER_CERT_ENV)))
             certAndKey.first = getenv(X509_USER_CERT_ENV);
@@ -372,7 +372,7 @@ bool GSIHandler::validateProxyCert()
             PKCS12 *p12 = d2i_PKCS12_bio(file, NULL);
             if(p12 == NULL) {
                 unsigned long e2 = ERR_get_error();
-                cerr << "Error: Invalid .pem or .p12 certificate file: " << userKey << " " << MSG_DEBUG_INFO << endl;
+                cerr << "Error: Invalid .pem or .p12 certificate file: " << userKey << " " << MSG_DEBUG_INFO(m_debug) << endl;
                 if(m_debug)
                     cerr << ERR_error_string(e2, NULL) << endl;
                 cerr << ERR_reason_error_string(e2) << endl;
@@ -392,7 +392,7 @@ bool GSIHandler::validateProxyCert()
                         CRYPTO_FREE(BIO, file);
                         return failureValue;
                     } else {
-                        cerr << "Error: Cannot parse .p12 file. " << MSG_DEBUG_INFO << endl;
+                        cerr << "Error: Cannot parse .p12 file. " << MSG_DEBUG_INFO(m_debug) << endl;
                         if(m_debug)
                             cerr << ERR_error_string(e1, NULL) << endl;
 

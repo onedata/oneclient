@@ -126,7 +126,7 @@ protected:
         ReadWriteLock m_shCacheLock;
 
 private:
-        std::shared_ptr<Context> m_context;
+        const std::shared_ptr<Context> m_context;
 };
 
 } // namespace client

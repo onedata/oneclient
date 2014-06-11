@@ -40,7 +40,7 @@ private:
     std::pair<std::string, std::string> getUserCertAndKey();
     const std::vector<std::pair<std::string, std::string>> &getCertSearchPath();
 
-    std::shared_ptr<Context> m_context;
+    const std::shared_ptr<Context> m_context;
     const bool m_debug;
 };
 
