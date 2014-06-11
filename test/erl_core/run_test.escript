@@ -57,6 +57,10 @@ main([TestName | Args]) ->
 
     if
         ?RESTART_CLUSTER ->
+            os:cmd("curl -X DELETE " ++ os:getenv("CLUSTER_NODE") ++ ":5984/files"),
+            os:cmd("curl -X DELETE " ++ os:getenv("CLUSTER_NODE") ++ ":5984/system_data"),
+            os:cmd("curl -X DELETE " ++ os:getenv("CLUSTER_NODE") ++ ":5984/file_descriptors"),
+            os:cmd("curl -X DELETE " ++ os:getenv("CLUSTER_NODE") ++ ":5984/users"),
 
             os:cmd("restart_cluster.sh " ++ os:getenv("CLUSTER_NODE")),
             timer:sleep(10000), %% Give node some time to boot 
@@ -93,12 +97,12 @@ main([TestName | Args]) ->
 %% Setup runs on cluster node !
 setup(worker, TestName) ->
     
-    WipeRes = 
-        try test_common:wipe_db(all) of 
-            Res -> Res
-        catch
-            Type:Error -> {Type, Error, erlang:get_stacktrace()}
-        end,
+    WipeRes = skipped,
+%%        try test_common:wipe_db(all) of 
+%%            Res -> Res
+%%        catch
+%%            Type:Error -> {Type, Error, erlang:get_stacktrace()}
+%%        end,
     RegisterRes = skipped,
         % try test_common:register_user("peer.pem") of
         %     Res1 -> Res1
