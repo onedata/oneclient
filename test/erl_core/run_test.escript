@@ -63,8 +63,8 @@ main([TestName | Args]) ->
             os:cmd("curl -X DELETE " ++ os:getenv("CLUSTER_NODE") ++ ":5984/users"),
 
             DirectIORoot = "/tmp/dio",
-            os:cmd("ssh root@" ++ os:getenv("CLUSTER_NODE") ++ " rm -rf " ++ DirectIORoot),
-            os:cmd("ssh root@" ++ os:getenv("CLUSTER_NODE") ++ " mkdir -p " ++ DirectIORoot),
+            io:format("Delete DirectIO dir: ~p~n", [os:cmd("ssh root@" ++ os:getenv("CLUSTER_NODE") ++ " rm -rf " ++ DirectIORoot)]),
+            io:format("Create DirectIO dir: ~p~n", [os:cmd("ssh root@" ++ os:getenv("CLUSTER_NODE") ++ " mkdir -p " ++ DirectIORoot)]),
 
             io:format("Restarting nodes: ~p~n", [os:cmd("restart_cluster.sh " ++ os:getenv("CLUSTER_NODE"))]),
             timer:sleep(10000), %% Give node some time to boot 
