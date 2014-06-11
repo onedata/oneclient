@@ -18,8 +18,6 @@ setup(ccm) ->
     ok;
 setup(worker) ->
     DirectIORoot = "/tmp/dio",
-    os:cmd("rm -rf " ++ DirectIORoot),
-    os:cmd("mkdir -p " ++ DirectIORoot),
     os:putenv("DIO_ROOT", DirectIORoot), 
     Fuse_groups = [{fuse_group_info, "cluster_fid", {storage_helper_info, "DirectIO", [DirectIORoot]}}],
     fslogic_storage:insert_storage("ClusterProxy", [], Fuse_groups),
@@ -48,7 +46,7 @@ exec({register_mkdir_handler, FilePath}) ->
   EventItem = {event_handler_item, standard, undefined, undefined, undefined, EventHandler, undefined},
 
   EventFilter = {eventfilterconfig, "type", "mkdir_event"},
-  EventFilterConfig = {eventstreamconfig, undefined, EventFilter, undefined},
+  EventFilterConfig = {eventstreamconfig, undefined, EventFilter, undefined, undefined},
   gen_server:call({request_dispatcher, node()}, {rule_manager, 1, self(), {add_event_handler, {mkdir_event, EventItem, EventFilterConfig}}});
 
 exec({prepare_for_quota_case, QuotaSizeInBytes}) ->

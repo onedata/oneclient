@@ -62,6 +62,10 @@ main([TestName | Args]) ->
             os:cmd("curl -X DELETE " ++ os:getenv("CLUSTER_NODE") ++ ":5984/file_descriptors"),
             os:cmd("curl -X DELETE " ++ os:getenv("CLUSTER_NODE") ++ ":5984/users"),
 
+            DirectIORoot = "/tmp/dio",
+            os:cmd("ssh root@" ++ os:getenv("CLUSTER_NODE") ++ " rm -rf " ++ DirectIORoot),
+            os:cmd("ssh root@" ++ os:getenv("CLUSTER_NODE") ++ " mkdir -p " ++ DirectIORoot),
+
             os:cmd("restart_cluster.sh " ++ os:getenv("CLUSTER_NODE")),
             timer:sleep(10000), %% Give node some time to boot 
 
