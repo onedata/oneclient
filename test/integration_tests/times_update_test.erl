@@ -18,8 +18,6 @@ setup(ccm) ->
     ok;
 setup(worker) ->
     DirectIORoot = "/tmp/dio",
-    os:cmd("rm -rf " ++ DirectIORoot),
-    os:cmd("mkdir -p " ++ DirectIORoot),
     os:putenv("DIO_ROOT", DirectIORoot), 
     Fuse_groups = [{fuse_group_info, "cluster_fid", {storage_helper_info, "DirectIO", [DirectIORoot]}}],
     fslogic_storage:insert_storage("ClusterProxy", [], Fuse_groups),
