@@ -181,6 +181,7 @@ bool LocalStorageManager::sendClientStorageInfo(std::vector< std::pair<int, std:
 		    info = reqMsg.add_storage_info();
 		    info->set_storage_id(it->first);
 		    info->set_absolute_path(it->second);
+		    LOG(INFO) << "Sending client storage info: {" << it->first << ", " << it->second << "}";
 		}
 		ClusterMsg cMsg = builder.packFuseMessage(ClientStorageInfo::descriptor()->name(), Atom::descriptor()->name(), COMMUNICATION_PROTOCOL, reqMsg.SerializeAsString());
         // Send CreateStorageTestFileRequest message
