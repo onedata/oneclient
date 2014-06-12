@@ -259,11 +259,15 @@ bool GSIHandler::validateProxyCert()
     // At this point we know that there is not valid proxy certificate
     // Lets find user certificate
     if(userCert == "") {
-        cerr << "Error: Couldn't find valid credentials." << endl;
-        cerr << "The user cert could not be found in: " << endl;
-        cerr << "   1) env. var. " << X509_USER_CERT_ENV << endl;
-        cerr << "   2) $HOME/" << GLOBUS_PEM_CERT_PATH << endl;
-        cerr << "   3) $HOME/" << GLOBUS_P12_PATH << endl;
+        cerr << "Error: Couldn't find valid credentials.\n" <<
+        "The user cert could not be found in: \n" <<
+        "   1) env. var. " << X509_USER_PROXY_ENV << "\n" <<
+        "   2) proxy crt. " << GLOBUS_PROXY_PATH(m_context, getuid()) << "\n" <<
+        "   3) env. var. " << X509_USER_CERT_ENV << "\n" <<
+        "   4) $HOME/" << GLOBUS_PEM_CERT_PATH << "\n" <<
+        "   5) $HOME/" << GLOBUS_P12_PATH << "\n" <<
+        "   6) $HOME/" << GLOBUS_DIR_PATH << "/*.p12\n" <<
+        "   6) $HOME/" << GLOBUS_DIR_PATH << "/*.pem + .key" << endl;
 
         return failureValue;
     }
@@ -282,11 +286,11 @@ bool GSIHandler::validateProxyCert()
 
     // Lets find user key
     if(userKey == "") {
-        cerr << "Error: Couldn't find valid credentials to generate a proxy." << endl;
-        cerr << "The user key could not be found in: " << endl;
-        cerr << "   1) env. var. " << X509_USER_KEY_ENV << endl;
-        cerr << "   2) $HOME/" << GLOBUS_PEM_KEY_PATH << endl;
-        cerr << "   3) $HOME/" << GLOBUS_P12_PATH << endl;
+        cerr << "Error: Couldn't find valid credentials to generate a proxy.\n" <<
+        "The user key could not be found in:\n" <<
+        "   1) env. var. " << X509_USER_KEY_ENV << "\n" <<
+        "   2) $HOME/" << GLOBUS_PEM_KEY_PATH << "\n" <<
+        "   3) $HOME/" << GLOBUS_P12_PATH << endl;
 
         return failureValue;
     }
