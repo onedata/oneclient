@@ -109,7 +109,7 @@ setup(ccm, TestName) ->
 
     {ListStatus, StorageList} = dao_lib:apply(dao_vfs, list_storage, [], 1),
     case ListStatus of
-        ok -> lists:forach(fun(VeilDoc) -> dao_lib:apply(dao_vfs, remove_storage, [{uuid, VeilDoc#veil_document.uuid}], 1);
+        ok -> lists:forach(fun(VeilDoc) -> dao_lib:apply(dao_vfs, remove_storage, [{uuid, VeilDoc#veil_document.uuid}], 1) end, StorageList);
         _ -> ?INFO("Error: ~p", [{error,storage_listing_error}])
     end,
 
