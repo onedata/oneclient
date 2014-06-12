@@ -25,14 +25,12 @@
 -define(CCM_NODE_NAME, list_to_atom(?default_ccm_name ++ "@" ++ os:getenv("CLUSTER_NODE"))).
 -define(WORKER_NODE_NAME, list_to_atom(?default_worker_name ++ "@" ++ os:getenv("CLUSTER_NODE"))).
 
--define(CCM, central_cluster_manager).
--define(Node_Manager_Name, node_manager).
-
 %% Restart cluster before each test suite (+20 secs). 
 -define(RESTART_CLUSTER, true).
 
 
 -define(CCM, central_cluster_manager).
+-define(Node_Manager_Name, node_manager).
 -define(Dispatcher_Name, request_dispatcher).
 -define(Modules_With_Args, [{central_logger, []}, {cluster_rengine, []}, {control_panel, []}, {dao, []}, {fslogic, []}, {gateway, []}, {rtransfer, []}, {rule_manager, []}, {dns_worker, []}, {remote_files_manager, []}]).
 
