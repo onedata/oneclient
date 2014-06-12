@@ -19,6 +19,7 @@
 #include <string>
 #include <vector>
 #include <utility>
+#include <boost/algorithm/string.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/filesystem.hpp>
@@ -39,11 +40,11 @@ class LocalStorageManager
 {
 public:
 
-    std::vector< boost::filesystem::path > static getMountPoints();             ///< Returns vector of mount points available in the system
+    std::vector< boost::filesystem::path > getMountPoints();                            ///< Returns vector of mount points available in the system
     std::vector< std::pair <int, std::string> >
-    getClientStorageInfo(std::vector< boost::filesystem::path > mountPoints);   ///< Returns vector of pairs of storage id and absolute path to storage that is directly accessible by a client
+    getClientStorageInfo(const std::vector< boost::filesystem::path > &mountPoints);    ///< Returns vector of pairs of storage id and absolute path to storage that is directly accessible by a client
     bool sendClientStorageInfo
-    (std::vector< std::pair<int, std::string> > clientStorageInfo);             ///< Informs server about storage that is directly accessible to the client
+    (std::vector< std::pair<int, std::string> > clientStorageInfo);                     ///< Informs server about storage that is directly accessible to the client
 
     LocalStorageManager();
     virtual ~LocalStorageManager();

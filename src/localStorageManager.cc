@@ -93,7 +93,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
 std::vector< std::pair<int, std::string> > LocalStorageManager::parseStorageInfo(path mountPoint)
 {
     std::vector< std::pair<int, std::string> > storageInfo;
-    path storageInfoPath = path(mountPoint.string() + std::string("/") + std::string(STORAGE_INFO_FILENAME)).normalize();
+    path storageInfoPath = (mountPoint / STORAGE_INFO_FILENAME).normalize();
 
     if(boost::filesystem::exists(storageInfoPath) && boost::filesystem::is_regular_file(storageInfoPath)) {
         boost::filesystem::ifstream storageInfoFile(storageInfoPath);
@@ -104,41 +104,38 @@ std::vector< std::pair<int, std::string> > LocalStorageManager::parseStorageInfo
             boost::char_separator<char> sep(" ,{}");
             boost::tokenizer< boost::char_separator<char> > tok(line, sep);
 
-            for(boost::tokenizer< boost::char_separator<char> >::iterator it = tok.begin(); it != tok.end(); ++it) {
-                tokens.push_back(*it);
-            }
+            for(auto token: tok) tokens.push_back(token);
 
+            // each line in file should by of form {storage id, relative path to storage against mount point}
             if(tokens.size() == 2) {
                 try {
                     int storageId = boost::lexical_cast<int>(tokens[0]);
-                    std::string absoluteStoragePath = mountPoint.string();
+                    path absoluteStoragePath = mountPoint;
 
-                    while(!tokens[1].empty() && (*(tokens[1].begin()) == '.' || *(tokens[1].begin()) == '/')) {
-                        tokens[1].erase(tokens[1].begin());
-                    }
+                    boost::algorithm::trim_left_if(tokens[1], boost::algorithm::is_any_of("./"));
                     if(!tokens[1].empty()) {
-                        absoluteStoragePath += "/" + tokens[1];
+                        absoluteStoragePath /= tokens[1];
                     }
-                    storageInfo.push_back(make_pair(storageId, absoluteStoragePath));
+                    storageInfo.push_back(make_pair(storageId, absoluteStoragePath.string()));
                 } catch(boost::bad_lexical_cast const&) {
                     LOG(ERROR) << "Wrong format of storage id in file: " << storageInfoPath;
                 }
             }
         }
     }
-    return storageInfo;
+    return std::move(storageInfo);
 }
 
-std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorageInfo(std::vector<path> mountPoints)
+std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorageInfo(const std::vector<path> &mountPoints)
 {
     std::vector< std::pair<int, std::string> > clientStorageInfo;
 
-    // Remove client mount point from vector of mount points (just in case)
-    std::vector<path>::iterator mountPointsEnd = std::remove(mountPoints.begin(), mountPoints.end(), Config::getMountPoint());
+    for(auto mountPoint: mountPoints) {
 
-    for(std::vector<path>::iterator mountPoint = mountPoints.begin(); mountPoint != mountPointsEnd; ++mountPoint) {
+        // Skip client mount point (just in case)
+        if(mountPoint == Config::getMountPoint()) continue;
 
-        std::vector< std::pair<int, std::string> > storageInfo = parseStorageInfo(*mountPoint);
+        std::vector< std::pair<int, std::string> > storageInfo = parseStorageInfo(mountPoint);
 
         for(std::vector< std::pair<int, std::string> >::iterator it = storageInfo.begin(); it != storageInfo.end(); ++it) {
             int storageId = it->first;
@@ -163,7 +160,7 @@ std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorage
             clientStorageInfo.push_back(make_pair(storageId, absolutePath));
         }
     }
-    return clientStorageInfo;
+    return std::move(clientStorageInfo);
 }
 
 bool LocalStorageManager::sendClientStorageInfo(std::vector< std::pair<int, std::string> > clientStorageInfo)
