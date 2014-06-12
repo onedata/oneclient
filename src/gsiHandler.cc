@@ -27,6 +27,8 @@
 #include "veilfs.h"
 #include "communicationHandler.h"
 
+#include "context.h"
+
 #define X509_USER_PROXY_ENV     "X509_USER_PROXY"
 
 #define X509_USER_CERT_ENV      "X509_USER_CERT"
@@ -36,9 +38,9 @@
 #define GLOBUS_P12_PATH         ".globus/usercred.p12"
 #define GLOBUS_PEM_CERT_PATH    ".globus/usercert.pem"
 #define GLOBUS_PEM_KEY_PATH     ".globus/userkey.pem"
-#define GLOBUS_PROXY_PATH(UID)  Config::absPathRelToHOME(string("/tmp/x509up_u") + to_string(getuid()))
+#define GLOBUS_PROXY_PATH(CONTEXT, UID)  (CONTEXT)->getConfig()->absPathRelToHOME(string("/tmp/x509up_u") + to_string(getuid()))
 
-#define MSG_DEBUG_INFO (debug ? "" : "Use --debug_gsi for further information.")
+#define MSG_DEBUG_INFO(DEBUG) ((DEBUG) ? "" : "Use --debug_gsi for further information.")
 
 #define CRYPTO_FREE(M, X) if(X) { M##_free(X); X = NULL; }
 
@@ -50,9 +52,12 @@ using boost::asio::const_buffer;
 
 namespace veil {
 namespace client {
-namespace gsi {
 
-bool debug = false;
+GSIHandler::GSIHandler(std::shared_ptr<Context> context, const bool debug)
+    : m_context{std::move(context)}
+    , m_debug(debug)
+{
+}
 
 namespace {
     string UserDN = "";
@@ -140,23 +145,24 @@ static inline bool isFileOrSymlink(const boost::filesystem::path &p)
     return exists(p) && (is_regular_file(p) || is_symlink(p));
 }
 
-static const std::vector<std::pair<string, string> > &getCertSearchPath()
+const std::vector<std::pair<string, string> > &GSIHandler::getCertSearchPath()
 {
     static std::vector<std::pair<string, string> > searchPath;
 
     if(searchPath.empty())
     {
-        searchPath.push_back(make_pair(GLOBUS_PROXY_PATH(getuid())));
-        searchPath.push_back(std::make_pair(Config::absPathRelToHOME(GLOBUS_PEM_CERT_PATH),
-                                            Config::absPathRelToHOME(GLOBUS_PEM_KEY_PATH)));
-        searchPath.push_back(make_pair(Config::absPathRelToHOME(GLOBUS_P12_PATH)));
-        searchPath.push_back(std::make_pair(Config::absPathRelToHOME(GLOBUS_DIR_PATH), string()));
+        auto config = m_context->getConfig();
+        searchPath.push_back(make_pair(GLOBUS_PROXY_PATH(m_context, getuid())));
+        searchPath.push_back(std::make_pair(config->absPathRelToHOME(GLOBUS_PEM_CERT_PATH),
+                                            config->absPathRelToHOME(GLOBUS_PEM_KEY_PATH)));
+        searchPath.push_back(make_pair(config->absPathRelToHOME(GLOBUS_P12_PATH)));
+        searchPath.push_back(std::make_pair(config->absPathRelToHOME(GLOBUS_DIR_PATH), string()));
     }
 
     return searchPath;
 }
 
-static std::pair<string, string> findUserCertAndKey(const boost::filesystem::path &dir)
+std::pair<string, string> GSIHandler::findUserCertAndKey(const boost::filesystem::path &dir)
 {
     using namespace boost::filesystem;
 
@@ -179,7 +185,7 @@ static std::pair<string, string> findUserCertAndKey(const boost::filesystem::pat
     return std::pair<string, string>();
 }
 
-static std::pair<string, string> findUserCertAndKey()
+std::pair<string, string> GSIHandler::findUserCertAndKey()
 {
     using namespace boost::filesystem;
 
@@ -199,11 +205,11 @@ static std::pair<string, string> findUserCertAndKey()
     return std::pair<string, string>();
 }
 
-static std::pair<string, string> getUserCertAndKey()
+std::pair<string, string> GSIHandler::getUserCertAndKey()
 {
     // Configuration options take precedence
-    if(VeilFS::getOptions()->has_peer_certificate_file())
-        return make_pair(Config::absPathRelToHOME(VeilFS::getOptions()->get_peer_certificate_file()));
+    if(m_context->getOptions()->has_peer_certificate_file())
+        return make_pair(m_context->getConfig()->absPathRelToHOME(m_context->getOptions()->get_peer_certificate_file()));
 
     if(getenv(X509_USER_PROXY_ENV) && filesystem::exists(getenv(X509_USER_PROXY_ENV)))
         return make_pair<string>(getenv(X509_USER_PROXY_ENV));
@@ -213,7 +219,7 @@ static std::pair<string, string> getUserCertAndKey()
     std::pair<string, string> certAndKey = findUserCertAndKey();
 
     // Any found path can be overriden by user's envs, provided it's not a proxy path
-    if(certAndKey.first != GLOBUS_PROXY_PATH(getuid()))
+    if(certAndKey.first != GLOBUS_PROXY_PATH(m_context, getuid()))
     {
         if(getenv(X509_USER_CERT_ENV) && filesystem::exists(getenv(X509_USER_CERT_ENV)))
             certAndKey.first = getenv(X509_USER_CERT_ENV);
@@ -227,19 +233,19 @@ static std::pair<string, string> getUserCertAndKey()
     return certAndKey;
 }
 
-bool validateProxyConfig()
+bool GSIHandler::validateProxyConfig()
 {
     LOG(INFO) << "GSI Handler: Starting global certificate system init";
     return validateProxyCert();
 }
 
-bool validateProxyCert()
+bool GSIHandler::validateProxyCert()
 {
     boost::unique_lock<boost::recursive_mutex> guard(certCallbackMutex);
 
     LOG(INFO) << "GSI Handler: Starting certificate (re) initialization";
 
-    string cPathMode = "", cPathMode1 = "", debugStr = (debug ? " -debug" : "");
+    string cPathMode = "", cPathMode1 = "", debugStr = (m_debug ? " -debug" : "");
     struct stat buf;
 
     std::pair<string, string> userCertAndKey = getUserCertAndKey();
@@ -253,15 +259,11 @@ bool validateProxyCert()
     // At this point we know that there is not valid proxy certificate
     // Lets find user certificate
     if(userCert == "") {
-        cerr << "Error: Couldn't find valid credentials.\n" <<
-                "The user cert could not be found in: \n" <<
-                "   1) env. var. " << X509_USER_PROXY_ENV << "\n" <<
-                "   2) proxy crt. " << GLOBUS_PROXY_PATH(getuid()) << "\n" <<
-                "   3) env. var. " << X509_USER_CERT_ENV << "\n" <<
-                "   4) $HOME/" << GLOBUS_PEM_CERT_PATH << "\n" <<
-                "   5) $HOME/" << GLOBUS_P12_PATH << "\n" <<
-                "   6) $HOME/" << GLOBUS_DIR_PATH << "/*.p12\n" <<
-                "   6) $HOME/" << GLOBUS_DIR_PATH << "/*.pem + .key" << endl;
+        cerr << "Error: Couldn't find valid credentials." << endl;
+        cerr << "The user cert could not be found in: " << endl;
+        cerr << "   1) env. var. " << X509_USER_CERT_ENV << endl;
+        cerr << "   2) $HOME/" << GLOBUS_PEM_CERT_PATH << endl;
+        cerr << "   3) $HOME/" << GLOBUS_P12_PATH << endl;
 
         return failureValue;
     }
@@ -280,11 +282,11 @@ bool validateProxyCert()
 
     // Lets find user key
     if(userKey == "") {
-        cerr << "Error: Couldn't find valid credentials to generate a proxy.\n" <<
-                "The user key could not be found in:\n" <<
-                "   1) env. var. " << X509_USER_KEY_ENV << "\n" <<
-                "   2) $HOME/" << GLOBUS_PEM_KEY_PATH << "\n" <<
-                "   3) $HOME/" << GLOBUS_P12_PATH << endl;
+        cerr << "Error: Couldn't find valid credentials to generate a proxy." << endl;
+        cerr << "The user key could not be found in: " << endl;
+        cerr << "   1) env. var. " << X509_USER_KEY_ENV << endl;
+        cerr << "   2) $HOME/" << GLOBUS_PEM_KEY_PATH << endl;
+        cerr << "   3) $HOME/" << GLOBUS_P12_PATH << endl;
 
         return failureValue;
     }
@@ -370,8 +372,8 @@ bool validateProxyCert()
             PKCS12 *p12 = d2i_PKCS12_bio(file, NULL);
             if(p12 == NULL) {
                 unsigned long e2 = ERR_get_error();
-                cerr << "Error: Invalid .pem or .p12 certificate file: " << userKey << " " << MSG_DEBUG_INFO << endl;
-                if(debug)
+                cerr << "Error: Invalid .pem or .p12 certificate file: " << userKey << " " << MSG_DEBUG_INFO(m_debug) << endl;
+                if(m_debug)
                     cerr << ERR_error_string(e2, NULL) << endl;
                 cerr << ERR_reason_error_string(e2) << endl;
                 LOG(ERROR) << "GSI Handler: parsing userKey PEM / PKCS12 failed due to: " << ERR_error_string(e, NULL) << " / " << ERR_error_string(e2, NULL);
@@ -390,8 +392,8 @@ bool validateProxyCert()
                         CRYPTO_FREE(BIO, file);
                         return failureValue;
                     } else {
-                        cerr << "Error: Cannot parse .p12 file. " << MSG_DEBUG_INFO << endl;
-                        if(debug)
+                        cerr << "Error: Cannot parse .p12 file. " << MSG_DEBUG_INFO(m_debug) << endl;
+                        if(m_debug)
                             cerr << ERR_error_string(e1, NULL) << endl;
 
                         LOG(ERROR) << "GSI Handler: parsing userKey as PKCS12 failed due to: " << ERR_error_string(e1, NULL);
@@ -448,44 +450,44 @@ bool validateProxyCert()
     }
 
     CRYPTO_FREE(BIO, file);
-
-
+    
+    
     // Check notAfter for EEC
     ASN1_TIME *notAfter  = X509_get_notAfter ( cert );
     if( X509_cmp_current_time( notAfter ) <= 0 ) {
         BUF_MEM *time_buff = BUF_MEM_new();
         BIO *time_bio = BIO_new(BIO_s_mem());
         BIO_set_mem_buf(time_bio, time_buff, BIO_CLOSE);
-
+        
         // Print expiration time to mem buffer
         ASN1_TIME_print(time_bio, notAfter);
-
+        
         LOG(ERROR) << "EEC certificate has expired!";
         cerr << "Error: Your certificate (" << userCert << ") has expired! Invalid since: " << string(time_buff->data, time_buff->length) << "." << endl;
-
+        
         BIO_free(time_bio);
-
+        
         CRYPTO_FREE(X509, cert);
         CRYPTO_FREE(EVP_PKEY, key);
         if(ca) sk_X509_free(ca);
         return false;
     }
-
+    
     // Check notBefore for EEC
     ASN1_TIME *notBefore  = X509_get_notBefore ( cert );
     if( X509_cmp_current_time( notBefore ) > 0 ) {
         BUF_MEM *time_buff = BUF_MEM_new();
         BIO *time_bio = BIO_new(BIO_s_mem());
         BIO_set_mem_buf(time_bio, time_buff, BIO_CLOSE);
-
+        
         // Print expiration time to mem buffer
         ASN1_TIME_print(time_bio, notBefore);
-
+        
         LOG(ERROR) << "EEC certificate used before 'notBefore'!";
         cerr << "Error: Your certificate (" << userCert << ") is not valid yet. Invalid before: " << string(time_buff->data, time_buff->length) << "." << endl;
-
+        
         BIO_free(time_bio);
-
+        
         CRYPTO_FREE(X509, cert);
         CRYPTO_FREE(EVP_PKEY, key);
         if(ca) sk_X509_free(ca);
@@ -558,7 +560,7 @@ bool validateProxyCert()
     return true;
 }
 
-CertificateInfo getCertInfo() {
+CertificateInfo GSIHandler::getCertInfo() {
     if(proxyInitialized) {
         LOG(INFO) << "Accesing certificates via filesystem: " << userCertPath << " " << userKeyPath;
         return CertificateInfo(userCertPath, userKeyPath, CertificateInfo::PEM);
@@ -570,10 +572,10 @@ CertificateInfo getCertInfo() {
 
 
 
-std::string getClusterHostname()
+std::string GSIHandler::getClusterHostname()
 {
-    if(VeilFS::getOptions()->has_cluster_hostname())
-        return VeilFS::getOptions()->get_cluster_hostname();
+    if(m_context->getOptions()->has_cluster_hostname())
+        return m_context->getOptions()->get_cluster_hostname();
 
     string URL = BASE_DOMAIN;
 
@@ -606,6 +608,5 @@ std::string getClusterHostname()
     return URL;
 }
 
-} // namespace gsi
 } // namespace client
 } // namespace veil
