@@ -105,7 +105,7 @@ main([TestName | Args]) ->
 setup(worker, TestName) ->    
     setup1(worker, TestName);
 setup(ccm, TestName) ->
-    % wait_for_cluster_init(),
+    wait_for_cluster_init(),
 
     {ListStatus, StorageList} = dao_lib:apply(dao_vfs, list_storage, [], 1),
     case ListStatus of
