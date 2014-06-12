@@ -106,7 +106,7 @@ setup(worker, TestName) ->
     setup1(worker, TestName);
 setup(ccm, TestName) ->
     wait_for_cluster_init(),
-    setup1(NodeType, TestName).
+    setup1(ccm, TestName).
 
 setup1(NodeType, TestName) ->
     %% Run test specific setup method
