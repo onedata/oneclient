@@ -23,7 +23,6 @@ setup(worker) ->
     fslogic_storage:insert_storage("ClusterProxy", [], Fuse_groups),
     
     test_common:register_user("peer.pem"),
-
     DirectIORoot.
 
 teardown(ccm, _State) ->
@@ -46,8 +45,8 @@ exec({register_mkdir_handler, FilePath}) ->
   EventItem = {event_handler_item, standard, undefined, undefined, undefined, EventHandler, undefined},
 
   EventFilter = {eventfilterconfig, "type", "mkdir_event"},
-  EventFilterConfig = {eventstreamconfig, undefined, EventFilter, undefined, undefined},
-  gen_server:call({request_dispatcher, node()}, {rule_manager, 1, self(), {add_event_handler, {mkdir_event, EventItem, EventFilterConfig}}});
+  EventFilterConfig = {eventstreamconfig, undefined, EventFilter, undefined, undefined, undefined},
+  gen_server:call({request_dispatcher, node()}, {rule_manager, 1, self(), {add_event_handler, {"mkdir_event", EventItem, EventFilterConfig}}});
 
 exec({prepare_for_quota_case, QuotaSizeInBytes}) ->
   cluster_rengine:register_write_event_handler(1),
