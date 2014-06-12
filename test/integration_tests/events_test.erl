@@ -35,7 +35,7 @@ delete_file(FilePath) ->
 
 update_quota(UserLogin, NewQuotaInBytes) ->
   {ok, UserDoc} = user_logic:get_user({login, UserLogin}),
-  user_logic:update_quota(UserDoc, {quota, NewQuotaInBytes}).
+  user_logic:update_quota(UserDoc, {quota, NewQuotaInBytes, false}).
 
 exec({register_mkdir_handler, FilePath}) ->
   EventHandler = fun(_) ->
@@ -49,11 +49,5 @@ exec({register_mkdir_handler, FilePath}) ->
   gen_server:call({request_dispatcher, node()}, {rule_manager, 1, self(), {add_event_handler, {"mkdir_event", EventItem, EventFilterConfig}}});
 
 exec({prepare_for_quota_case, QuotaSizeInBytes}) ->
-  cluster_rengine:register_write_event_handler(1),
-  cluster_rengine:register_quota_exceeded_handler(),
-  cluster_rengine:register_rm_event_handler(),
+  rule_definitions:register_for_write_events(10),
   update_quota("test_user", QuotaSizeInBytes);
-
-exec({add_dio}) ->
-  io:format("--~n---~n----~n add dio ~n"),
-  fslogic_storage:insert_storage("DirectIO", ["/tmp/dio/main"], []).
