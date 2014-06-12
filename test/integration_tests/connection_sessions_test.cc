@@ -53,14 +53,14 @@ TEST_F(ConnectionSessionsTest, SessionInitAndRegister) {
     // By default client should negotiate and register FuseId
 
     // Check if cluster already knows who we are
-    ASSERT_EQ("ok", erlExec(string("{check_session, \"") + VeilFS::getConfig()->getFuseID() + string("\"}")));
+    ASSERT_EQ("ok", erlExec(string("{check_session, \"") + config->getFuseID() + string("\"}")));
 }
 
 // Test if client can renegotiate FuseId and send env variables
 TEST_F(ConnectionSessionsTest, SessionEnvVairables_And_SessionReinitialization) {
     // By default client should negotiate and register FuseId
 
-    string currentFuseId = VeilFS::getConfig()->getFuseID();
+    string currentFuseId = config->getFuseID();
 
     // Now we can manually add some env varables
     static char env1[] = FUSE_OPT_PREFIX "varname1=varvalue1";
@@ -69,15 +69,15 @@ TEST_F(ConnectionSessionsTest, SessionEnvVairables_And_SessionReinitialization) 
     putenv(env2);
 
     // Start new handshake
-    VeilFS::getConfig()->negotiateFuseID();
+    config->negotiateFuseID();
 
     sleep(2); // This can take a while
 
     // New session ID (FuseId) shall be different from previous
-    ASSERT_NE(currentFuseId, VeilFS::getConfig()->getFuseID());
+    ASSERT_NE(currentFuseId, config->getFuseID());
 
     // Check if session variables are in place (in DB)
-    ASSERT_EQ("ok", erlExec(string("{check_session_variables, \"") + VeilFS::getConfig()->getFuseID() + string("\", [{varname1, \"varvalue1\"}, {varname2, \"varvalue2\"}]}")));
+    ASSERT_EQ("ok", erlExec(string("{check_session_variables, \"") + config->getFuseID() + string("\", [{varname1, \"varvalue1\"}, {varname2, \"varvalue2\"}]}")));
 }
 
 
