@@ -105,7 +105,14 @@ main([TestName | Args]) ->
 setup(worker, TestName) ->    
     setup1(worker, TestName);
 setup(ccm, TestName) ->
-    wait_for_cluster_init(),
+    % wait_for_cluster_init(),
+
+    {ListStatus, StorageList} = dao_lib:apply(dao_vfs, list_storage, [], 1),
+    case ListStatus of
+        ok -> lists:forach(fun(VeilDoc) -> dao_lib:apply(dao_vfs, remove_storage, [{uuid, VeilDoc#veil_document.uuid}], 1);
+        _ -> ?INFO("Error: ~p", [{error,storage_listing_error}])
+    end,
+
     setup1(ccm, TestName).
 
 setup1(NodeType, TestName) ->
