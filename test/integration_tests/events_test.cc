@@ -154,7 +154,7 @@ TEST_F(EventsTest, clientGettingBlockedWhenQuotaExceeded) {
     sleep(2);
 
     // force attributes reloading
-    ::system("stat " + filePath);
+    ::system(("stat " + filePath).c_str());
 
     // it may be enough to call dd just once but quota view results from db may be stale.
     // after 4 calls it has to be recent enough to trigger quota exceeded event
