@@ -40,7 +40,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
         return mountPoints;
     }
 
-    int buf_size = sizeof(*buf) * fs_num;
+    int buf_size = sizeof(struct statfs) * fs_num;
     struct statfs *buf = (struct statfs*) malloc(buf_size);
     if(buf == NULL) {
         LOG(ERROR) << "Can not allocate memory for statfs structures.";
@@ -48,7 +48,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
     }
 
     int stat_num;
-    if((stat_num = getstatfs(buf, buf_size, MNT_NOWAIT)) < 0) {
+    if((stat_num = getfsstat(buf, buf_size, MNT_NOWAIT)) < 0) {
         LOG(ERROR) << "Can not get fsstat.";
         return mountPoints;
     }
@@ -56,11 +56,11 @@ std::vector<path> LocalStorageManager::getMountPoints()
     for(int i = 0; i < stat_num; ++i) {
         std::string type(buf[i].f_fstypename);
         if(type.compare(0, 4, "fuse") != 0) {
-            mountPoints.push_back(path(buf[i].f_mntonname).normalize())
+            mountPoints.push_back(path(buf[i].f_mntonname).normalize());
         }
     }
 
-    return mountPoints;
+    return std::move(mountPoints);
 }
 
 #else
@@ -85,7 +85,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
 
     endmntent(file);
 
-    return mountPoints;
+    return std::move(mountPoints);
 }
 
 #endif
