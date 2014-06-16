@@ -44,13 +44,14 @@ std::vector<path> LocalStorageManager::getMountPoints()
     struct statfs *buf = (struct statfs*) malloc(buf_size);
     if(buf == NULL) {
         LOG(ERROR) << "Can not allocate memory for statfs structures.";
-        return mountPoints;
+        return std::move(mountPoints);
     }
 
     int stat_num;
     if((stat_num = getfsstat(buf, buf_size, MNT_NOWAIT)) < 0) {
         LOG(ERROR) << "Can not get fsstat.";
-        return mountPoints;
+        free(buf);
+        return std::move(mountPoints);
     }
 
     for(int i = 0; i < stat_num; ++i) {
@@ -60,6 +61,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
         }
     }
 
+    free(buf);
     return std::move(mountPoints);
 }
 
@@ -235,18 +237,18 @@ bool LocalStorageManager::createStorageTestFile(int storageId, std::string& rela
 
 bool LocalStorageManager::hasClientStorageReadPermission(std::string absolutePath, std::string relativePath, std::string expectedText)
 {
-    int fd = open((absolutePath + "/" + relativePath).c_str(), O_RDONLY);
+    int fd = open((absolutePath + "/" + relativePath).c_str(), O_RDONLY | O_FSYNC);
     if(fd == -1) {
         return false;
     }
     fsync(fd);
-    void* buf = malloc(expectedText.size());
+    void* buf = malloc(sizeof(char) * expectedText.size());
     if(read(fd, buf, expectedText.size()) != (int) expectedText.size()) {
         free(buf);
         close(fd);
         return false;
     }
-    std::string actualText((char *) buf);
+    std::string actualText((char *) buf, expectedText.size());
     free(buf);
     close(fd);
     return expectedText == actualText;
