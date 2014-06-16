@@ -74,7 +74,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
     FILE *file;
     if((file = setmntent(MOUNTS_INFO_FILE_PATH, "r")) == NULL) {
         LOG(ERROR) << "Can not parse /proc/mounts file.";
-        return mountPoints;
+        return std::move(mountPoints);
     }
 
     struct mntent *ent;
