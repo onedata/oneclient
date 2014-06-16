@@ -37,7 +37,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
     int fs_num;
     if((fs_num = getfsstat(NULL, 0, MNT_NOWAIT)) < 0) {
         LOG(ERROR) << "Can not count mounted filesystems.";
-        return mountPoints;
+        return std::move(mountPoints);
     }
 
     int buf_size = sizeof(struct statfs) * fs_num;
@@ -62,6 +62,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
     }
 
     free(buf);
+
     return std::move(mountPoints);
 }
 
