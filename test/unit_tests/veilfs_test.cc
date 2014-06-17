@@ -34,7 +34,6 @@ public:
     COMMON_DEFS();
     boost::shared_ptr<ProxyVeilFS> client;
 
-    boost::shared_ptr<MockJobScheduler> jobSchedulerMock;
     boost::shared_ptr<MockFslogicProxy> fslogicMock;
     boost::shared_ptr<MockMetaCache> metaCacheMock;
     boost::shared_ptr<MockLocalStorageManager> storageManagerMock;
@@ -50,21 +49,32 @@ public:
     storageInfo storage;
 
     virtual void SetUp() {
-        COMMON_SETUP();
-        jobSchedulerMock.reset(new MockJobScheduler());
-        fslogicMock.reset(new MockFslogicProxy());
-        metaCacheMock.reset(new MockMetaCache());
-        storageManagerMock.reset(new MockLocalStorageManager());
-        storageMapperMock.reset(new MockStorageMapper(fslogicMock));
+        context = std::make_shared<Context>();
+
+        options = std::make_shared<MockOptions>();
+        context->setOptions(options);
+        config = boost::make_shared<ProxyConfig>(context);
+        context->setConfig(config);
+        scheduler = std::make_shared<MockJobScheduler>();
+        context->addScheduler(scheduler);
+        connectionPool = boost::make_shared<MockConnectionPool>();
+        context->setConnectionPool(connectionPool);
+
+        fslogicMock.reset(new MockFslogicProxy(context));
+        metaCacheMock.reset(new MockMetaCache(context));
+        storageManagerMock.reset(new MockLocalStorageManager(context));
+        storageMapperMock.reset(new MockStorageMapper(context, fslogicMock));
         helperMock.reset(new MockGenericHelper());
         factoryFake.reset(new FakeStorageHelperFactory());
-        eventCommunicatorMock.reset(new MockEventCommunicator());
+        eventCommunicatorMock.reset(new MockEventCommunicator(context));
 
         EXPECT_CALL(*fslogicMock, pingCluster(_)).WillRepeatedly(Return());
         EXPECT_CALL(*options, get_alive_meta_connections_count()).WillRepeatedly(Return(0));
         EXPECT_CALL(*options, get_alive_data_connections_count()).WillRepeatedly(Return(0));
         EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(false));
+        EXPECT_CALL(*options, has_fuse_group_id()).WillRepeatedly(Return(true));
         EXPECT_CALL(*options, get_write_bytes_before_stat()).WillRepeatedly(Return(0));
+        EXPECT_CALL(*connectionPool, setPushCallback(_, _)).WillRepeatedly(Return());
 
         const ::testing::TestInfo* const test_info = ::testing::UnitTest::GetInstance()->current_test_info();
         string testCaseName = test_info->test_case_name();
@@ -74,11 +84,7 @@ public:
             EXPECT_CALL(*fslogicMock, isWriteEnabled()).WillRepeatedly(Return(true));
         }
 
-        VeilFS::staticDestroy();
-        VeilFS::setConnectionPool(connectionPool);
-        VeilFS::setOptions(options);
-        client.reset(new ProxyVeilFS("/root", config,
-                        jobSchedulerMock,
+        client.reset(new ProxyVeilFS("/root", context,
                         fslogicMock,
                         metaCacheMock,
                         storageManagerMock,
@@ -91,8 +97,8 @@ public:
         location.fileId = "fileid";
         location.storageId = 1;
         storage.storageHelperName = "sh_name";
-        storage.storageHelperArgs.push_back("arg1");
-        storage.storageHelperArgs.push_back("arg2");
+        storage.storageHelperArgs.emplace(helpers::srvArg(0), boost::any{std::string{"arg1"}});
+        storage.storageHelperArgs.emplace(helpers::srvArg(1), boost::any{std::string{"arg2"}});
 
         trueStat.st_atime = 1;
         trueStat.st_ctime = 2;
@@ -112,7 +118,7 @@ public:
         fileInfo.fh = 0;
         client->setCachedHelper(0, helperMock);
 
-        EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillRepeatedly(Return());
+        EXPECT_CALL(*scheduler, addTask(_)).WillRepeatedly(Return());
     }
 
     virtual void TearDown() {
@@ -122,9 +128,8 @@ public:
 };
 
 TEST_F(VeilFSTest, Instantiate) {
-    EXPECT_EQ(jobSchedulerMock.get(), VeilFS::getScheduler().get());
-    EXPECT_EQ(config.get(), VeilFS::getConfig().get());
-    EXPECT_TRUE(client->getPushListener().get());
+    EXPECT_EQ(scheduler.get(), context->getScheduler().get());
+    EXPECT_TRUE(context->getPushListener().get());
 }
 
 TEST_F(VeilFSTest, translateError) {
@@ -169,7 +174,7 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
 
     EXPECT_CALL(*options, get_enable_dir_prefetch()).WillOnce(Return(true));
     EXPECT_CALL(*options, get_enable_attr_cache()).WillOnce(Return(true));
-    EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
+    EXPECT_CALL(*scheduler, addTask(_)).WillOnce(Return());
 
     trueAttr.set_type("DIR");
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
@@ -200,7 +205,7 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
     EXPECT_EQ(static_cast<mode_t>(trueAttr.mode()) | S_IFLNK, statbuf.st_mode);
 
     trueAttr.set_type("REG");
-    EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
+    EXPECT_CALL(*scheduler, addTask(_)).WillOnce(Return());
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillOnce(DoAll(SetArgReferee<1>(trueAttr), Return(true)));
     EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, boost::cref(statbuf), _1))));
@@ -458,7 +463,7 @@ TEST_F(VeilFSTest, truncate) { // const char *path, off_t newSize
 TEST_F(VeilFSTest, utime) { // const char *path, struct utimbuf *ubuf
     struct utimbuf ubuf;
 
-    EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
+    EXPECT_CALL(*scheduler, addTask(_)).WillOnce(Return());
 
     EXPECT_EQ(0, client->utime("/path", &ubuf));
 }
@@ -590,7 +595,7 @@ TEST_F(VeilFSTest, removexattr) { // const char *path, const char *name
 }
 
 TEST_F(VeilFSTest, opendir) { // const char *path, struct fuse_file_info *fileInfo
-    EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
+    EXPECT_CALL(*scheduler, addTask(_)).WillOnce(Return());
     EXPECT_EQ(0, client->opendir("/path", &fileInfo));
 }
 
@@ -613,11 +618,11 @@ TEST_F(VeilFSTest, init) { // struct fuse_conn_info *conn
 }
 
 TEST_F(VeilFSTest, processEvent) {
-    boost::shared_ptr<MockEventStreamCombiner> combinerMock(new MockEventStreamCombiner());
+    boost::shared_ptr<MockEventStreamCombiner> combinerMock(new MockEventStreamCombiner(context));
     ASSERT_TRUE((bool) combinerMock);
-    EventCommunicator communicator(combinerMock);
+    EventCommunicator communicator(context, combinerMock);
     EXPECT_CALL(*combinerMock, pushEventToProcess(_)).WillOnce(Return());
-    EXPECT_CALL(*jobSchedulerMock, addTask(_)).WillOnce(Return());
+    EXPECT_CALL(*scheduler, addTask(_)).WillOnce(Return());
     boost::shared_ptr<Event> event = Event::createMkdirEvent("some_file");
 
     ASSERT_TRUE((bool) event);

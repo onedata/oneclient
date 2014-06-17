@@ -11,11 +11,17 @@
 #include "storageMapper.h"
 #include "testCommon.h"
 
+#include "context.h"
+
+#include <memory>
+
 class ProxyStorageMapper
     : public StorageMapper {
 
 public:
-    ProxyStorageMapper(boost::shared_ptr<FslogicProxy> mock) : StorageMapper(mock) {}
+    ProxyStorageMapper(std::shared_ptr<Context> context,
+                       boost::shared_ptr<FslogicProxy> mock)
+        : StorageMapper(std::move(context), mock) {}
 
     map<int, storageInfo>& getStorageMapping() {
         return m_storageMapping;

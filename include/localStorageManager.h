@@ -25,12 +25,15 @@
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <memory>
 
 #define MOUNTS_INFO_FILE_PATH           "/proc/mounts"
 #define STORAGE_INFO_FILENAME           "vfs_storage.info"
 
 namespace veil {
 namespace client {
+
+class Context;
 
 /**
  * Local Storage Manager.
@@ -46,7 +49,7 @@ public:
     bool sendClientStorageInfo
     (std::vector< std::pair<int, std::string> > clientStorageInfo);                     ///< Informs server about storage that is directly accessible to the client
 
-    LocalStorageManager();
+    LocalStorageManager(std::shared_ptr<Context> context);
     virtual ~LocalStorageManager();
 
 protected:
@@ -55,6 +58,9 @@ protected:
     bool createStorageTestFile(int storageId, std::string& relativePath, std::string& text);                    ///< Creates test file on storage in client home directory and returns path to created file and its content
     bool hasClientStorageReadPermission(std::string storagePath, std::string relativePath, std::string text);   ///< Checks whether client can read specified file on storage
     bool hasClientStorageWritePermission(int storageId, std::string storagePath, std::string relativePath);     ///< Checks whether client can write to specified file on storage
+
+private:
+    const std::shared_ptr<Context> m_context;
 };
 
 } // namespace client

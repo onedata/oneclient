@@ -7,6 +7,8 @@
 
 #include "localStorageManager.h"
 #include "config.h"
+
+#include "context.h"
 #include "veilfs.h"
 #include "logging.h"
 #include "communication_protocol.pb.h"
@@ -20,7 +22,8 @@ using namespace veil::protocol::communication_protocol;
 namespace veil {
 namespace client {
 
-LocalStorageManager::LocalStorageManager()
+LocalStorageManager::LocalStorageManager(std::shared_ptr<Context> context)
+    : m_context{std::move(context)}
 {
 }
 
@@ -171,10 +174,10 @@ bool LocalStorageManager::sendClientStorageInfo(std::vector< std::pair<int, std:
     Atom resMsg;
     Answer ans;
 
-    MessageBuilder builder;
+    MessageBuilder builder{m_context};
     boost::shared_ptr<CommunicationHandler> conn;
 
-	conn = VeilFS::getConnectionPool()->selectConnection();
+    conn = m_context->getConnectionPool()->selectConnection();
 	if(conn) {
 	    // Build CreateStorageTestFileRequest message
 		for(std::vector< std::pair<int,std::string> >::iterator it = clientStorageInfo.begin(); it != clientStorageInfo.end(); ++it) {
@@ -207,10 +210,10 @@ bool LocalStorageManager::createStorageTestFile(int storageId, std::string& rela
     CreateStorageTestFileResponse resMsg;
     Answer ans;
 
-    MessageBuilder builder;
+    MessageBuilder builder{m_context};
     boost::shared_ptr<CommunicationHandler> conn;
 
-    conn = VeilFS::getConnectionPool()->selectConnection();
+    conn = m_context->getConnectionPool()->selectConnection();
     if(conn) {
         // Build CreateStorageTestFileRequest message
         reqMsg.set_storage_id(storageId);
@@ -275,10 +278,10 @@ bool LocalStorageManager::hasClientStorageWritePermission(int storageId, std::st
     StorageTestFileModifiedResponse resMsg;
     Answer ans;
 
-    MessageBuilder builder;
+    MessageBuilder builder{m_context};
     boost::shared_ptr<CommunicationHandler> conn;
 
-    conn = VeilFS::getConnectionPool()->selectConnection();
+    conn = m_context->getConnectionPool()->selectConnection();
     if(conn) {
         // Build CreateStorageTestFileRequest message
         reqMsg.set_storage_id(storageId);

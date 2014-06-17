@@ -6,6 +6,8 @@
  */
 
 #include "metaCache.h"
+
+#include "context.h"
 #include "jobScheduler.h"
 #include "veilfs.h"
 #include "config.h"
@@ -15,14 +17,13 @@
 #include <memory.h>
 
 using namespace std;
-using boost::unordered_map;
-
 
 namespace veil {
 namespace client {
 
 
-MetaCache::MetaCache()
+MetaCache::MetaCache(std::shared_ptr<Context> context)
+    : m_context{std::move(context)}
 {
 }
 
@@ -32,7 +33,7 @@ MetaCache::~MetaCache()
 
 void MetaCache::addAttr(const string &path, struct stat &attr)
 {
-    if(!VeilFS::getOptions()->get_enable_attr_cache())
+    if(!m_context->getOptions()->get_enable_attr_cache())
         return;
 
     AutoLock lock(m_statMapLock, WRITE_LOCK);
@@ -41,19 +42,19 @@ void MetaCache::addAttr(const string &path, struct stat &attr)
 
     if(!wasBefore)
     {
-        int expiration_time = VeilFS::getOptions()->get_attr_cache_expiration_time();
+        int expiration_time = m_context->getOptions()->get_attr_cache_expiration_time();
         if(expiration_time <= 0)
             expiration_time = ATTR_DEFAULT_EXPIRATION_TIME;
         // because of random part, only small parts of cache will be updated at the same moment
         int when = time(NULL) + expiration_time / 2 + rand() % expiration_time;
-        VeilFS::getScheduler()->addTask(Job(when, shared_from_this(), TASK_CLEAR_FILE_ATTR, path));
+        m_context->getScheduler()->addTask(Job(when, shared_from_this(), TASK_CLEAR_FILE_ATTR, path));
     }
 }
 
 bool MetaCache::getAttr(const string &path, struct stat* attr)
 {
     AutoLock lock(m_statMapLock, READ_LOCK);
-    unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
+    std::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
     if(it == m_statMap.end())
         return false;
 
@@ -73,7 +74,7 @@ void MetaCache::clearAttr(const string &path)
 {
     AutoLock lock(m_statMapLock, WRITE_LOCK);
     LOG(INFO) << "delete attrs from cache for file: " << path;
-    unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
+    std::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
     if(it != m_statMap.end())
         m_statMap.erase(it);
 }
@@ -100,7 +101,7 @@ bool MetaCache::updateTimes(const string &path, time_t atime, time_t mtime, time
 bool MetaCache::updateSize(const string &path, size_t size)
 {
     AutoLock lock(m_statMapLock, WRITE_LOCK);
-    unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
+    std::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
     if(it == m_statMap.end())
         return false;
 

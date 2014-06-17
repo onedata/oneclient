@@ -31,7 +31,6 @@ public:
 
     virtual void SetUp() {
         COMMON_SETUP();
-        VeilFS::setConnectionPool(connectionPool);
         boost::shared_ptr<MockCommunicationHandler> connectionMock;
         connectionMock.reset(new MockCommunicationHandler());
         EXPECT_CALL(*connectionPool, selectConnection(_)).WillRepeatedly(Return(connectionMock));
@@ -238,11 +237,11 @@ TEST(EventTransformerTest, SimpleTransformation) {
     ASSERT_EQ("write_for_stats", output->getStringProperty("type", ""));
 }
 
-TEST(EventStreamCombiner, CombineStreams) {
+TEST_F(EventsTest, EventStreamCombiner_CombineStreams) {
     boost::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
     boost::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
     boost::shared_ptr<IEventStream> mkdirFilter(new EventFilter("type", "mkdir_event"));
-    EventStreamCombiner combiner;
+    EventStreamCombiner combiner{context};
     combiner.addSubstream(mkdirFilter);
 
     list<boost::shared_ptr<Event> > events = combiner.processEvent(mkdirEvent);
@@ -355,7 +354,7 @@ TEST_F(EventsTest, EventCombinerRunTask){
     boost::shared_ptr<MockEventStream> substreamMock1(new MockEventStream());
     EXPECT_CALL(*substreamMock1, processEvent(_)).WillRepeatedly(Return(Event::createMkdirEvent("file1")));
     boost::shared_ptr<Event> event(Event::createMkdirEvent("file"));
-    EventStreamCombiner combiner;
+    EventStreamCombiner combiner{context};
 
     combiner.pushEventToProcess(event);
     ASSERT_EQ(1u, combiner.getEventsToProcess().size());

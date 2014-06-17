@@ -14,6 +14,11 @@ using namespace std;
 using namespace boost;
 using namespace veil::protocol::fuse_messages;
 
+EventStreamCombiner::EventStreamCombiner(std::shared_ptr<veil::client::Context> context)
+    : m_context{std::move(context)}
+{
+}
+
 list<boost::shared_ptr<Event> > EventStreamCombiner::processEvent(boost::shared_ptr<Event> event)
 {
     list<boost::shared_ptr<Event> > producedEvents;
@@ -45,7 +50,7 @@ bool EventStreamCombiner::processNextEvent()
         for(list<boost::shared_ptr<Event> >::iterator it = processedEvents.begin(); it != processedEvents.end(); ++it){
             boost::shared_ptr<EventMessage> eventProtoMessage = (*it)->createProtoMessage();
 
-            EventCommunicator::sendEvent(eventProtoMessage);
+            EventCommunicator::sendEvent(m_context, eventProtoMessage);
         }
     }
 
