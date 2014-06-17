@@ -6,8 +6,6 @@
  */
 
 #include "localStorageManager.h"
-#include "config.h"
-
 #include "context.h"
 #include "veilfs.h"
 #include "logging.h"
@@ -132,11 +130,12 @@ std::vector< std::pair<int, std::string> > LocalStorageManager::parseStorageInfo
 std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorageInfo(const std::vector<path> &mountPoints)
 {
     std::vector< std::pair<int, std::string> > clientStorageInfo;
+    boost::shared_ptr<Config> m_config = m_context->getConfig();
 
     for(auto mountPoint: mountPoints) {
 
         // Skip client mount point (just in case)
-        if(mountPoint == Config::getMountPoint()) continue;
+        if(mountPoint == m_config->getMountPoint()) continue;
 
         std::vector< std::pair<int, std::string> > storageInfo = parseStorageInfo(mountPoint);
 
