@@ -243,14 +243,14 @@ bool LocalStorageManager::hasClientStorageReadPermission(std::string absolutePat
         return false;
     }
     fsync(fd);
-    void* buf = malloc(sizeof(char) * expectedText.size());
+    char* buf = new char[expectedText.size()];
     if(read(fd, buf, expectedText.size()) != (int) expectedText.size()) {
-        free(buf);
+        delete [] buf;
         close(fd);
         return false;
     }
-    std::string actualText((char *) buf, expectedText.size());
-    free(buf);
+    std::string actualText(buf, expectedText.size());
+    delete [] buf;
     close(fd);
     return expectedText == actualText;
 }
