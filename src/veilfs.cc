@@ -126,7 +126,7 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
 
     if(!m_context->getOptions()->has_fuse_group_id() && !m_context->getConfig()->isEnvSet(string(FUSE_OPT_PREFIX) + string("GROUP_ID"))) {
         if(m_sManager) {
-            vector<string> mountPoints = LocalStorageManager::getMountPoints();
+            vector<boost::filesystem::path> mountPoints = m_sManager->getMountPoints();
             vector< pair<int, string> > clientStorageInfo = m_sManager->getClientStorageInfo(mountPoints);
             if(!clientStorageInfo.empty()) {
                 m_sManager->sendClientStorageInfo(clientStorageInfo);
