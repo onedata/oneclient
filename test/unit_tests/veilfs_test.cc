@@ -409,10 +409,10 @@ TEST_F(VeilFSTest, chmod) { // const char *path, mode_t mode
 
 TEST_F(VeilFSTest, chown) { // const char *path, uid_t uid, gid_t gid
 
-    #ifdef __gnu_linux__
-        string group = "root";
-    #else
+    #ifdef __APPLE__
         string group = "wheel";
+    #else
+        string group = "root";
     #endif
 
     EXPECT_CALL(*metaCacheMock, clearAttr("/path")).WillRepeatedly(Return());
