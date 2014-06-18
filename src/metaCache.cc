@@ -51,7 +51,7 @@ void MetaCache::addAttr(const string &path, struct stat &attr)
 bool MetaCache::getAttr(const string &path, struct stat* attr)
 {
     AutoLock lock(m_statMapLock, READ_LOCK);
-    boost::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
+    std::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
     if(it == m_statMap.end())
         return false;
 
@@ -71,7 +71,7 @@ void MetaCache::clearAttr(const string &path)
 {
     AutoLock lock(m_statMapLock, WRITE_LOCK);
     LOG(INFO) << "delete attrs from cache for file: " << path;
-    boost::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
+    std::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
     if(it != m_statMap.end())
         m_statMap.erase(it);
 }
@@ -98,7 +98,7 @@ bool MetaCache::updateTimes(const string &path, time_t atime, time_t mtime, time
 bool MetaCache::updateSize(const string &path, size_t size)
 {
     AutoLock lock(m_statMapLock, WRITE_LOCK);
-    boost::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
+    std::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
     if(it == m_statMap.end())
         return false;
 
