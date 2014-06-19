@@ -105,48 +105,42 @@ std::vector< std::pair<int, std::string> > LocalStorageManager::parseStorageInfo
 {
     std::vector< std::pair<int, std::string> > storageInfo;
     path storageInfoPath = (mountPoint / STORAGE_INFO_FILENAME).normalize();
+    boost::system::error_code ec;
 
-    try
+    if(boost::filesystem::exists(storageInfoPath, ec) && boost::filesystem::is_regular_file(storageInfoPath, ec))
     {
-        if(boost::filesystem::exists(storageInfoPath) && boost::filesystem::is_regular_file(storageInfoPath))
+        boost::filesystem::ifstream storageInfoFile(storageInfoPath);
+        std::string line;
+
+        while(std::getline(storageInfoFile, line))
         {
-            boost::filesystem::ifstream storageInfoFile(storageInfoPath);
-            std::string line;
+            std::vector<std::string> tokens;
+            boost::char_separator<char> sep(" ,{}");
+            boost::tokenizer< boost::char_separator<char> > tokenizer(line, sep);
 
-            while(std::getline(storageInfoFile, line))
+            for(const auto &token: tokenizer) tokens.push_back(token);
+
+            // each line in file should by of form {storage id, relative path to storage against mount point}
+            if(tokens.size() == 2)
             {
-                std::vector<std::string> tokens;
-                boost::char_separator<char> sep(" ,{}");
-                boost::tokenizer< boost::char_separator<char> > tokenizer(line, sep);
-
-                for(const auto &token: tokenizer) tokens.push_back(token);
-
-                // each line in file should by of form {storage id, relative path to storage against mount point}
-                if(tokens.size() == 2)
+                try
                 {
-                    try
-                    {
-                        int storageId = boost::lexical_cast<int>(tokens[0]);
-                        path absoluteStoragePath = mountPoint;
+                    int storageId = boost::lexical_cast<int>(tokens[0]);
+                    path absoluteStoragePath = mountPoint;
 
-                        boost::algorithm::trim_left_if(tokens[1], boost::algorithm::is_any_of("./"));
-                        if(!tokens[1].empty())
-                        {
-                            absoluteStoragePath /= tokens[1];
-                        }
-                        storageInfo.push_back(std::make_pair(storageId, absoluteStoragePath.string()));
-                    }
-                    catch(const boost::bad_lexical_cast &ex)
+                    boost::algorithm::trim_left_if(tokens[1], boost::algorithm::is_any_of("./"));
+                    if(!tokens[1].empty())
                     {
-                        LOG(ERROR) << "Wrong format of storage id in file: " << storageInfoPath << ", error: " << ex.what();
+                        absoluteStoragePath /= tokens[1];
                     }
+                    storageInfo.push_back(std::make_pair(storageId, absoluteStoragePath.string()));
+                }
+                catch(const boost::bad_lexical_cast &ex)
+                {
+                    LOG(ERROR) << "Wrong format of storage id in file: " << storageInfoPath << ", error: " << ex.what();
                 }
             }
         }
-    }
-    catch (const boost::filesystem::filesystem_error &ex)
-    {
-        LOG(ERROR) << "Can not parse vfs_storage.info file: " << storageInfoPath << ", error: " << ex.what();
     }
 
     return std::move(storageInfo);
