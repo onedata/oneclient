@@ -28,7 +28,7 @@
 %% Restart cluster before each test suite (+20 secs). 
 -define(RESTART_CLUSTER, true).
 
-%% -record(veil_document, {uuid = "", rev_info = 0, record = none, force_update = false}).
+-record(veil_document, {uuid = "", rev_info = 0, record = none, force_update = false}).
 -define(CCM, central_cluster_manager).
 -define(Node_Manager_Name, node_manager).
 -define(Dispatcher_Name, request_dispatcher).
@@ -37,6 +37,8 @@
 
 main(["__exec" | [ TestName | Args ]]) ->
     set_up_net_kernel(),
+
+    #veil_document{}, %todo delete
 
     load_mods([?CCM_NODE_NAME, ?WORKER_NODE_NAME], [list_to_atom(TestName), test_common]),
 
