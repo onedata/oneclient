@@ -11,9 +11,12 @@
 #include "events/events.h"
 
 #include "testCommon.h"
+#include "fuse_messages.pb.h"
+#include "context.h"
+
+#include <memory>
 #include <list>
 #include <string>
-#include "fuse_messages.pb.h"
 
 class MockEvent : public events::Event {
 	
@@ -21,7 +24,8 @@ class MockEvent : public events::Event {
 
 class MockEventCommunicator : public EventCommunicator {
 public:
-	MockEventCommunicator(){}
+    MockEventCommunicator(std::shared_ptr<Context> context)
+    	: EventCommunicator{std::move(context)} {}
 	~MockEventCommunicator(){}
 
 	MOCK_METHOD1(processEvent, void(boost::shared_ptr<Event>));
@@ -29,7 +33,8 @@ public:
 
 class MockEventStreamCombiner : public EventStreamCombiner{
 public:
-	MockEventStreamCombiner(){}
+	MockEventStreamCombiner(std::shared_ptr<Context> context)
+		: EventStreamCombiner{std::move(context)} {}
 	~MockEventStreamCombiner(){}
 
 	MOCK_METHOD1(pushEventToProcess, void(boost::shared_ptr<Event>));

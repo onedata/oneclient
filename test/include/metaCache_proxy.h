@@ -9,13 +9,19 @@
 #define META_CACHE_PROXY_H
 
 #include "metaCache.h"
+
+#include "context.h"
 #include "testCommon.h"
+
+#include <memory>
 
 class ProxyMetaCache 
     : public MetaCache {
 
 public:
-    std::unordered_map<string, pair<time_t, struct stat> >& getStatMap() {
+    ProxyMetaCache(std::shared_ptr<Context> context) : MetaCache{std::move(context)} {}
+
+    auto getStatMap() -> decltype(m_statMap)& {
         return m_statMap;
     }
 

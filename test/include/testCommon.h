@@ -20,6 +20,11 @@
 #include "config_proxy.h"
 #include "options_mock.h"
 #include "options.h"
+#include "context.h"
+
+#include <boost/make_shared.hpp>
+
+#include <memory>
 
 using namespace testing;
 using namespace boost;
@@ -41,21 +46,25 @@ using namespace veil::client::events;
     }
 
 #define COMMON_SETUP() \
+        context = std::make_shared<Context>(); \
         options.reset(new MockOptions()); \
-        config.reset(new ProxyConfig()); \
+        context->setOptions(options); \
+        config.reset(new ProxyConfig(context)); \
+        context->setConfig(config); \
         scheduler.reset(new MockJobScheduler()); \
-        connectionPool.reset(new MockConnectionPool()); \
-        VeilFS::setOptions(options); \
-        VeilFS::setConnectionPool(connectionPool); \
+        context->addScheduler(scheduler); \
+        connectionPool = boost::make_shared<MockConnectionPool>(); \
+        context->setConnectionPool(connectionPool); \
         EXPECT_CALL(*options, has_fuse_group_id()).WillRepeatedly(Return(true)); \
         EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(false)); \
         EXPECT_CALL(*connectionPool, setPushCallback(_, _)).WillRepeatedly(Return()); \
-        boost::shared_ptr<VeilFS>(new VeilFS("/root", config, scheduler, boost::shared_ptr<FslogicProxy>(), boost::shared_ptr<MetaCache>(), boost::shared_ptr<LocalStorageManager>(), boost::shared_ptr<StorageMapper>(), boost::shared_ptr<helpers::StorageHelperFactory>(), boost::shared_ptr<EventCommunicator>()));
+        boost::shared_ptr<VeilFS>(new VeilFS("/root", context, boost::shared_ptr<FslogicProxy>(), boost::shared_ptr<MetaCache>(), boost::shared_ptr<LocalStorageManager>(), boost::shared_ptr<StorageMapper>(), boost::shared_ptr<helpers::StorageHelperFactory>(), boost::shared_ptr<EventCommunicator>()));
 
 #define COMMON_DEFS() \
+        std::shared_ptr<Context> context; \
         boost::shared_ptr<Config> config; \
-        boost::shared_ptr<MockOptions> options; \
-        boost::shared_ptr<MockJobScheduler> scheduler; \
+        std::shared_ptr<MockOptions> options; \
+        std::shared_ptr<MockJobScheduler> scheduler; \
         boost::shared_ptr<MockConnectionPool> connectionPool;
 
 #define COMMON_CLEANUP() \
@@ -63,44 +72,45 @@ using namespace veil::client::events;
         config.reset(); \
         scheduler.reset(); \
         connectionPool.reset(); \
-        VeilFS::staticDestroy();
-
+        context.reset();
 
 #define COMMON_INTEGRATION_SETUP() \
-        ProxyConfig *proxyConfig = new ProxyConfig(); \
+        context = std::make_shared<Context>(); \
+        ProxyConfig *proxyConfig = new ProxyConfig(context); \
         proxyConfig->fuseID = "testID"; \
         config.reset(proxyConfig); \
         options.reset(new Options()); \
-        fslogic.reset(new FslogicProxy()); \
-        VeilFS::setConfig(config); \
-        VeilFS::setOptions(options); \
-        gsi::validateProxyConfig(); \
-        VeilFS::setConnectionPool(boost::shared_ptr<SimpleConnectionPool> (new SimpleConnectionPool(gsi::getClusterHostname(), VeilFS::getOptions()->get_cluster_port(), boost::bind(&gsi::getCertInfo)))); \
-        veil::helpers::config::setConnectionPool(VeilFS::getConnectionPool()); \
-        boost::shared_ptr<veil::client::events::EventCommunicator> eventCommunicator(new veil::client::events::EventCommunicator()); \
-        veilFS.reset(new VeilFS(VeilFSRoot, config, \
-                            boost::shared_ptr<JobScheduler>(new JobScheduler()), \
+        context->setOptions(options); \
+        fslogic.reset(new FslogicProxy(context)); \
+        context->setConfig(config); \
+        context->addScheduler(std::make_shared<JobScheduler>()); \
+        auto gsiHandler = boost::make_shared<GSIHandler>(context); \
+        gsiHandler->validateProxyConfig(); \
+        context->setConnectionPool(boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler))); \
+        auto eventCommunicator = boost::make_shared<events::EventCommunicator>(context); \
+        veilFS.reset(new VeilFS(VeilFSRoot, context, \
                             boost::shared_ptr<FslogicProxy>(fslogic), \
-                            boost::shared_ptr<MetaCache>(new MetaCache()), \
-                            boost::shared_ptr<LocalStorageManager>(new LocalStorageManager()), \
-                            boost::shared_ptr<StorageMapper>(new StorageMapper(boost::shared_ptr<FslogicProxy>(fslogic))), \
-                            boost::shared_ptr<helpers::StorageHelperFactory>(new helpers::StorageHelperFactory()), \
+                            boost::shared_ptr<MetaCache>(new MetaCache(context)), \
+                            boost::shared_ptr<LocalStorageManager>(new LocalStorageManager(context)), \
+                            boost::shared_ptr<StorageMapper>(new StorageMapper(context, boost::shared_ptr<FslogicProxy>(fslogic))), \
+                            boost::make_shared<helpers::StorageHelperFactory>(context->getConnectionPool(), helpers::BufferLimits{}), \
                             eventCommunicator)); \
         sleep(5);
 
 #define COMMON_INTEGRATION_DEFS() \
         system::error_code ec; \
+        std::shared_ptr<Context> context; \
         boost::shared_ptr<VeilFS> veilFS; \
         boost::shared_ptr<FslogicProxy> fslogic; \
         boost::shared_ptr<Config> config; \
-        boost::shared_ptr<Options> options;
+        std::shared_ptr<Options> options;
 
 #define COMMON_INTEGRATION_CLEANUP() \
         veilFS.reset(); \
         fslogic.reset(); \
         config.reset(); \
         options.reset(); \
-        VeilFS::staticDestroy();
+        context.reset();
 
 template<typename T> bool identityEqual( const T &lhs, const T &rhs ) { return &lhs == &rhs; }
 bool pbMessageEqual( const google::protobuf::MessageLite &lhs, const google::protobuf::MessageLite &rhs ) { return lhs.SerializePartialAsString() == rhs.SerializePartialAsString(); }

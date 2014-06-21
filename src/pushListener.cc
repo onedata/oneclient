@@ -6,11 +6,15 @@
  */
 
 #include "pushListener.h"
+
+#include "context.h"
 #include "veilErrors.h"
 #include "jobScheduler.h"
 #include "veilfs.h"
 #include "logging.h"
 #include "fuse_messages.pb.h"
+
+#include <cassert>
 
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
@@ -18,9 +22,10 @@ using namespace veil::protocol::fuse_messages;
 namespace veil {
 namespace client {
 
-    PushListener::PushListener() :
-      m_currentSubId(0),
-      m_isRunning(true)
+    PushListener::PushListener(std::weak_ptr<Context> context)
+        : m_currentSubId(0)
+        , m_isRunning(true)
+        , m_context{std::move(context)}
     {
         // Start worker thread
         m_worker = boost::thread(boost::bind(&PushListener::mainLoop, this));
@@ -97,7 +102,9 @@ namespace client {
         if(msg.answer_status() == INVALID_FUSE_ID)
         {
             LOG(INFO) << "Received 'INVALID_FUSE_ID' message. Starting FuseID renegotiation...";
-            VeilFS::getConfig()->negotiateFuseID();
+            auto context = m_context.lock();
+            assert(context);
+            context->getConfig()->negotiateFuseID();
         }
     }
 
@@ -116,7 +123,9 @@ namespace client {
         msg.set_value(PUSH_MESSAGE_ACK);
         clm.set_input(msg.SerializeAsString());
 
-        boost::shared_ptr<CommunicationHandler> connection = VeilFS::getConnectionPool()->selectConnection();
+        auto context = m_context.lock();
+        assert(context);
+        boost::shared_ptr<CommunicationHandler> connection = context->getConnectionPool()->selectConnection();
 
         try {
             connection->sendMessage(clm, messageId);

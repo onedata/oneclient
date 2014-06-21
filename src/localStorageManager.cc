@@ -6,7 +6,7 @@
  */
 
 #include "localStorageManager.h"
-#include "config.h"
+#include "context.h"
 #include "veilfs.h"
 #include "logging.h"
 #include "communication_protocol.pb.h"
@@ -29,7 +29,8 @@ using namespace veil::protocol::communication_protocol;
 namespace veil {
 namespace client {
 
-LocalStorageManager::LocalStorageManager()
+LocalStorageManager::LocalStorageManager(std::shared_ptr<Context> context)
+    : m_context{std::move(context)}
 {
 }
 
@@ -149,12 +150,13 @@ std::vector< std::pair<int, std::string> > LocalStorageManager::parseStorageInfo
 std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorageInfo(const std::vector<path> &mountPoints)
 {
     std::vector< std::pair<int, std::string> > clientStorageInfo;
+    boost::shared_ptr<Config> m_config = m_context->getConfig();
 
     for(const auto &mountPoint: mountPoints)
     {
 
         // Skip client mount point (just in case)
-        if(mountPoint == Config::getMountPoint()) continue;
+        if(mountPoint == m_config->getMountPoint()) continue;
 
         std::vector< std::pair<int, std::string> > storageInfo = parseStorageInfo(mountPoint);
 
@@ -203,10 +205,10 @@ bool LocalStorageManager::sendClientStorageInfo(const std::vector< std::pair<int
     Atom resMsg;
     Answer ans;
 
-    MessageBuilder builder;
+    MessageBuilder builder{m_context};
     boost::shared_ptr<CommunicationHandler> conn;
 
-	conn = VeilFS::getConnectionPool()->selectConnection();
+	conn = m_context->getConnectionPool()->selectConnection();
 	if(conn)
 	{
 	    // Build ClientStorageInfo message
@@ -249,11 +251,11 @@ boost::optional< std::pair<std::string, std::string> > LocalStorageManager::crea
     Answer ans;
     boost::optional< std::pair<std::string, std::string> > result;
 
-    MessageBuilder builder;
+    MessageBuilder builder{m_context};
     boost::shared_ptr<CommunicationHandler> conn;
 
-    conn = VeilFS::getConnectionPool()->selectConnection();
-    if(conn)
+    conn = m_context->getConnectionPool()->selectConnection();
+    if(conn) 
     {
         // Build CreateStorageTestFileRequest message
         reqMsg.set_storage_id(storageId);
@@ -326,11 +328,11 @@ bool LocalStorageManager::hasClientStorageWritePermission(const int storageId, c
     StorageTestFileModifiedResponse resMsg;
     Answer ans;
 
-    MessageBuilder builder;
+    MessageBuilder builder{m_context};
     boost::shared_ptr<CommunicationHandler> conn;
 
-    conn = VeilFS::getConnectionPool()->selectConnection();
-    if(conn)
+    conn = m_context->getConnectionPool()->selectConnection();
+    if(conn) 
     {
         // Build CreateStorageTestFileRequest message
         reqMsg.set_storage_id(storageId);

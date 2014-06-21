@@ -11,7 +11,14 @@
 #include "config.h"
 #include "testCommon.h"
 
+#include "context.h"
+
+#include <memory>
+
 struct ProxyConfig: public veil::client::Config {
+    ProxyConfig(std::shared_ptr<veil::client::Context> context)
+        : veil::client::Config{std::move(context)} {}
+
     std::string getFuseID()
     {
         return fuseID;
