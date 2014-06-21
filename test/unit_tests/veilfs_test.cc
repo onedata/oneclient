@@ -413,6 +413,13 @@ TEST_F(VeilFSTest, chmod) { // const char *path, mode_t mode
 }
 
 TEST_F(VeilFSTest, chown) { // const char *path, uid_t uid, gid_t gid
+
+    #ifdef __APPLE__
+        string group = "wheel";
+    #else
+        string group = "root";
+    #endif
+
     EXPECT_CALL(*metaCacheMock, clearAttr("/path")).WillRepeatedly(Return());
 
     EXPECT_EQ(0, client->chown("/path", -1,-1)); // Dont change perms
@@ -428,15 +435,14 @@ TEST_F(VeilFSTest, chown) { // const char *path, uid_t uid, gid_t gid
     EXPECT_EQ(0, client->chown("/path", 64231, -1));
 
     EXPECT_CALL(*fslogicMock, changeFileOwner(_, _, _)).Times(0);
-    EXPECT_CALL(*fslogicMock, changeFileGroup("/path", 0, "root")).WillOnce(Return(VEACCES));
+    EXPECT_CALL(*fslogicMock, changeFileGroup("/path", 0, group)).WillOnce(Return(VEACCES));
     EXPECT_EQ(-EACCES, client->chown("/path", -1, 0));
 
-    EXPECT_CALL(*fslogicMock, changeFileGroup("/path", 0, "root")).WillOnce(Return(VOK));
+    EXPECT_CALL(*fslogicMock, changeFileGroup("/path", 0, group)).WillOnce(Return(VOK));
     EXPECT_EQ(0, client->chown("/path", -1, 0));
 
     EXPECT_CALL(*fslogicMock, changeFileGroup("/path", 54321, "")).WillOnce(Return(VOK));
     EXPECT_EQ(0, client->chown("/path", -1, 54321));
-
 
     EXPECT_CALL(*fslogicMock, changeFileOwner("/path", 0, "root")).WillOnce(Return(VOK));
     EXPECT_CALL(*fslogicMock, changeFileGroup("/path", 54321, "")).WillOnce(Return(VOK));
@@ -543,7 +549,11 @@ TEST_F(VeilFSTest, statfs) { // const char *path, struct statvfs *statInfo
     statFS.f_namemax   = NAME_MAX;
 
     EXPECT_CALL(*fslogicMock, getStatFS()).WillOnce(Return(make_pair(VEREMOTEIO, statFS)));
-    EXPECT_EQ(-EREMOTEIO, client->statfs("/path", &statInfo));
+    #ifdef __gnu_linux__
+        EXPECT_EQ(-EREMOTEIO, client->statfs("/path", &statInfo));
+    #else
+        EXPECT_EQ(-EIO, client->statfs("/path", &statInfo));
+    #endif
 
     EXPECT_CALL(*fslogicMock, getStatFS()).WillOnce(Return(make_pair(VOK, statFS)));
     EXPECT_EQ(0, client->statfs("/path", &statInfo));
