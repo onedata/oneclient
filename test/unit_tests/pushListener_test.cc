@@ -46,7 +46,7 @@ public:
         boost::unique_lock<boost::mutex> lock(cbMutex);
         if(msg.worker_answer() == "test")
             answerHandled++;
-        cbCond.notify_all();
+        cbCond.notify_one();
         
         return ret;
     }
@@ -70,11 +70,10 @@ TEST_F(PushListenerTest, simpleRegisterAndHandle)
     cbCond.timed_wait(lock, posix_time::milliseconds(500));
     
     listener.onMessage(ans);
-    listener.onMessage(ans);
     cbCond.timed_wait(lock, posix_time::milliseconds(500));
     
     
-    ASSERT_EQ(4, answerHandled);
+    ASSERT_EQ(3, answerHandled);
     
 }
 
