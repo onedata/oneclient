@@ -64,13 +64,17 @@ include_directories(${PROTOBUF_INCLUDE_DIR})
 # Setup OpenSSL
 message(STATUS "Checking for OpenSSL...")
 find_package(OpenSSL REQUIRED)
-find_library(SSL_LIBRARY NAMES libssl.a ssl)
-find_library(CRYPTO_LIBRARY NAMES libcrypto.a crypto)
+find_library(SSL_LIBRARY_S NAMES libssl.a ssl)
+find_library(CRYPTO_LIBRARY_S NAMES libcrypto.a crypto)
+find_library(SSL_LIBRARY_D NAMES ssl)
+find_library(CRYPTO_LIBRARY_D NAMES crypto)
 find_library(KRB5_LIBRARY krb5)
 if(${KRB5_LIBRARY} MATCHES KRB5_LIBRARY-NOTFOUND)
-    set(OPENSSL_LIBRARIES "${SSL_LIBRARY};${CRYPTO_LIBRARY}")
+    set(OPENSSL_LIBRARIES_S "${SSL_LIBRARY_S};${CRYPTO_LIBRARY_S}")
+    set(OPENSSL_LIBRARIES_D "${SSL_LIBRARY_D};${CRYPTO_LIBRARY_D}")
 else(${KRB5_LIBRARY} MATCHES KRB5_LIBRARY-NOTFOUND)
-    set(OPENSSL_LIBRARIES "${SSL_LIBRARY};${CRYPTO_LIBRARY};${KRB5_LIBRARY}")
+    set(OPENSSL_LIBRARIES_S "${SSL_LIBRARY_S};${CRYPTO_LIBRARY_S};${KRB5_LIBRARY}")
+    set(OPENSSL_LIBRARIES_D "${SSL_LIBRARY_D};${CRYPTO_LIBRARY_D};${KRB5_LIBRARY}")
 endif(${KRB5_LIBRARY} MATCHES KRB5_LIBRARY-NOTFOUND)
 include_directories(${OPENSSL_INCLUDE_DIR})
 
@@ -136,7 +140,7 @@ execute_process(COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=libstdc++.a OUTPU
 string(REGEX REPLACE "(\r?\n)+$" "" LIBSTD_NAME "${LIBSTD_NAME}")
 execute_process(COMMAND ln -sf "${LIBSTD_NAME}" WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
 
-set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/${LIB_DIR}:${CMAKE_CURRENT_BINARY_DIR}:.:${LIB_DIR}:../${LIB_DIR}")
+set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/${LIB_DIR}:${CMAKE_CURRENT_BINARY_DIR}:\$ORIGIN/../:${LIB_DIR}:../${LIB_DIR}")
 
 if(APPLE)
     set(PLATFORM_EXTRA_LIBS "${CMAKE_THREAD_LIBS_INIT};${LTDL_LIBRARY};${ZLIB_LIBRARY};${DL_LIBRARY}")
@@ -148,8 +152,6 @@ else()
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SECTION_FRAGMENTATION_FLAGS} -Wall -std=c++11")
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2")
 add_definitions(${FUSE_DEFINITIONS} -DFUSE_USE_VERSION=29 -D_WEBSOCKETPP_CPP11_STL_)
 
 set(CMAKE_SKIP_RPATH TRUE) # Something is wrong with CMake RPATH config, we need to use old-fashion way
@@ -159,7 +161,9 @@ set(CMAKE_SKIP_RPATH TRUE) # Something is wrong with CMake RPATH config, we need
 add_library(veilprotocol ${PROTO_SRCS})
 add_library(veilclient ${SOURCES})
 add_executable(veilFuse ${MAIN_SOURCE_FILE})
+add_executable(veilFuse_dynamic ${MAIN_SOURCE_FILE})
 
+add_dependencies(veilFuse_dynamic glog veilclient)
 add_dependencies(veilFuse glog veilclient)
 add_dependencies(veilclient glog veilprotocol veilhelpers)
 
@@ -176,6 +180,7 @@ target_link_libraries(veilclient
     veilprotocol
     ${PLATFORM_EXTRA_LIBS}
 )
+
 target_link_libraries(veilFuse
     ${GLOG_LIBRARIES}
     ${Boost_LIBRARIES}
@@ -183,12 +188,24 @@ target_link_libraries(veilFuse
     ${VEILHELPERS_LIBRARIES}
     ${PROTOBUF_LIBRARY_CUSTOM}
     veilclient
-    ${OPENSSL_LIBRARIES}
+    ${OPENSSL_LIBRARIES_S}
+    ${PLATFORM_EXTRA_LIBS}
+)
+
+target_link_libraries(veilFuse_dynamic
+    ${GLOG_LIBRARIES}
+    ${Boost_LIBRARIES}
+    ${FUSE_LIBRARY_CUSTOM}
+    ${VEILHELPERS_LIBRARIES}
+    ${PROTOBUF_LIBRARY_CUSTOM}
+    veilclient
+    ${OPENSSL_LIBRARIES_D}
     ${PLATFORM_EXTRA_LIBS}
 )
 
 # Install config
-install(TARGETS veilFuse
+install(TARGETS veilFuse_dynamic
+        RENAME veilFuse
         RUNTIME DESTINATION ${BIN_DIR}
         LIBRARY DESTINATION ${LIB_DIR}
 )
@@ -206,8 +223,8 @@ set(CPACK_PACKAGE_CONTACT "help@veilfs.com")
 set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CMAKE_SYSTEM_NAME}")
 
 # DEB and RPM deps
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse")
-set(CPACK_RPM_PACKAGE_REQUIRES "fuse")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse openssl")
+set(CPACK_RPM_PACKAGE_REQUIRES "fuse openssl")
 
 # autogenerate dependency information
 set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)

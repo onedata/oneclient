@@ -8,7 +8,7 @@ CPACK = $(shell which cpack || which cpack28)
 .PHONY: rpm build release debug docs clean all
 all: rpm test
 
-rpm: release
+rpm: deb-info
 	@cd ${RELEASE_DIR} && ${CPACK} -C CPackConfig.cmake -G RPM
 	@cd ${RELEASE_DIR} && ${CPACK} -C CPackConfig.cmake -G DEB
 
@@ -25,6 +25,12 @@ build: release
 	@echo "'build' target is obsolete, use 'release' instead !"
 	@echo "*****************************************************"
 	@ln -sf ${RELEASE_DIR} build
+
+deb-info:
+	@mkdir -p ${RELEASE_DIR}
+	-@find ${RELEASE_DIR} -name "veilhelpers-update" -exec rm -rf {} \;
+	@cd ${RELEASE_DIR} && ${CMAKE} -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
+	@(cd ${RELEASE_DIR} && make veilFuse -j`nproc`)
 
 release:
 	@mkdir -p ${RELEASE_DIR}
