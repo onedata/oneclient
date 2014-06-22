@@ -227,8 +227,8 @@ set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse openssl")
 set(CPACK_RPM_PACKAGE_REQUIRES "fuse openssl")
 
 # autogenerate dependency information
-set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-# set(CPACK_RPM_PACKAGE_AUTOREQPROV " no") ## Uncomment ot get rid of automatic deps generation
+# set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+set(CPACK_RPM_PACKAGE_AUTOREQPROV " no") ## Uncomment ot get rid of automatic deps generation
 set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
 include(CPack)
 
