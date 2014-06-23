@@ -9,9 +9,8 @@
 #include "jobScheduler_proxy.h"
 #include "options_mock.h"
 #include "jobScheduler_mock.h"
-#include "boost/shared_ptr.hpp"
 
-using namespace boost;
+#include <memory>
 
 INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
@@ -36,8 +35,8 @@ class JobSchedulerTest
 protected:
     COMMON_DEFS();
     ProxyJobScheduler proxy;
-    boost::shared_ptr<MockJobObject> jobContext1_;
-    boost::shared_ptr<MockJobObject> jobContext2_;
+    std::shared_ptr<MockJobObject> jobContext1_;
+    std::shared_ptr<MockJobObject> jobContext2_;
 
     virtual void SetUp() {
         jobContext1_.reset(new MockJobObject());

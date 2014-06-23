@@ -22,13 +22,13 @@ class FakeStorageHelperFactory
 public:
     FakeStorageHelperFactory() : StorageHelperFactory{nullptr, BufferLimits{}} {}
 
-    boost::shared_ptr<IStorageHelper> presetMock;
+    std::shared_ptr<IStorageHelper> presetMock;
 
-    boost::shared_ptr<IStorageHelper> getStorageHelper(const string &sh_name, const IStorageHelper::ArgsMap &args) override {
+    std::shared_ptr<IStorageHelper> getStorageHelper(const string &sh_name, const IStorageHelper::ArgsMap &args) override {
         if(presetMock)
             return presetMock;
         else
-            return boost::shared_ptr<IStorageHelper>(new MockGenericHelper());
+            return std::shared_ptr<IStorageHelper>(new MockGenericHelper());
     }
 
 };

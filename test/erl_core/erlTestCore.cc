@@ -10,11 +10,10 @@
 #include <boost/filesystem.hpp>
 
 using namespace std;
-using namespace boost;
 
 
 namespace veil {
-namespace testing { 
+namespace testing {
 
 // Global variables
 string VeilFSRoot =             (getenv(VEILFS_ROOT_VAR) ? string(getenv(VEILFS_ROOT_VAR)) : "");
@@ -23,7 +22,7 @@ string CommonFilesRoot =        (getenv(TEST_ROOT_VAR) ? (string(getenv(TEST_ROO
 string erlExec(string arg) {
     string testRunner = getenv("TEST_RUNNER") ? string(getenv("TEST_RUNNER")) : "";
     string testName = getenv("TEST_NAME") ? string(getenv("TEST_NAME")): "";
-    if(!filesystem::exists(testRunner))
+    if(!boost::filesystem::exists(testRunner))
         return "[ERROR] Test runner not found !";
 
     string command = testRunner + " __exec " + testName + " '" + arg + "'";
@@ -32,25 +31,25 @@ string erlExec(string arg) {
     FILE *out = popen(command.c_str(), "r");
     if(!out)
         return "[ERROR] popen failed !";
-    
+
     char buff[1024];
-    while(fgets(buff, 1024, out)) 
+    while(fgets(buff, 1024, out))
         ret += string(buff);
-        
+
     pclose(out);
     return ret;
 }
 
 
-VeilFSMount::VeilFSMount(string path, string cert) 
-{ 
-    if(mount(path, cert, "")) 
+VeilFSMount::VeilFSMount(string path, string cert)
+{
+    if(mount(path, cert, ""))
         throw string("Cannot mount VFS");
 }
 
 VeilFSMount::VeilFSMount(string path, string cert, string opts)
-{ 
-    if(mount(path, cert, opts)) 
+{
+    if(mount(path, cert, opts))
         throw string("Cannot mount VFS");
 }
 
@@ -64,18 +63,18 @@ string VeilFSMount::getRoot() {
 
 int VeilFSMount::mount(string path, string cert, string opts) {
     m_mountPoint = MOUNT_POINT(path);
-    (void) umount(true);
-    if(!filesystem::create_directories(m_mountPoint))
+    umount(true);
+    if(!boost::filesystem::create_directories(m_mountPoint))
         return -1;
 
-    return ::system(("PEER_CERTIFICATE_FILE='" + COMMON_FILE(cert) + "' ENABLE_ATTR_CACHE='false' " + 
+    return ::system(("PEER_CERTIFICATE_FILE='" + COMMON_FILE(cert) + "' ENABLE_ATTR_CACHE='false' " +
                      opts + " veilFuse " + m_mountPoint).c_str());
 }
 
 int VeilFSMount::umount(bool silent) {
     boost::system::error_code ec;
     int res = ::system(("fusermount -u " + m_mountPoint + (silent ? " 2> /dev/null" : "")).c_str());
-    (void) filesystem::remove_all(m_mountPoint, ec);
+    boost::filesystem::remove_all(m_mountPoint, ec);
     return res;
 }
 

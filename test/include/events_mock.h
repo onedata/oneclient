@@ -19,34 +19,34 @@
 #include <string>
 
 class MockEvent : public events::Event {
-	
+
 };
 
 class MockEventCommunicator : public EventCommunicator {
 public:
     MockEventCommunicator(std::shared_ptr<Context> context)
-    	: EventCommunicator{std::move(context)} {}
-	~MockEventCommunicator(){}
+        : EventCommunicator{std::move(context)} {}
+    ~MockEventCommunicator(){}
 
-	MOCK_METHOD1(processEvent, void(boost::shared_ptr<Event>));
+    MOCK_METHOD1(processEvent, void(std::shared_ptr<Event>));
 };
 
 class MockEventStreamCombiner : public EventStreamCombiner{
 public:
-	MockEventStreamCombiner(std::shared_ptr<Context> context)
-		: EventStreamCombiner{std::move(context)} {}
-	~MockEventStreamCombiner(){}
+    MockEventStreamCombiner(std::shared_ptr<Context> context)
+        : EventStreamCombiner{std::move(context)} {}
+    ~MockEventStreamCombiner(){}
 
-	MOCK_METHOD1(pushEventToProcess, void(boost::shared_ptr<Event>));
+    MOCK_METHOD1(pushEventToProcess, void(std::shared_ptr<Event>));
 };
 
 class MockEventStream : public IEventStream{
 public:
-	MockEventStream(){}
-	~MockEventStream(){}
+    MockEventStream(){}
+    ~MockEventStream(){}
 
-	MOCK_METHOD1(processEvent, boost::shared_ptr<Event>(boost::shared_ptr<Event>));
-	MOCK_METHOD1(actualProcessEvent, boost::shared_ptr<Event>(boost::shared_ptr<Event>));
+    MOCK_METHOD1(processEvent, std::shared_ptr<Event>(std::shared_ptr<Event>));
+    MOCK_METHOD1(actualProcessEvent, std::shared_ptr<Event>(std::shared_ptr<Event>));
 };
 
 #endif // EVENTS_MOCK_H
