@@ -14,7 +14,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/xattr.h>
-#include <boost/shared_ptr.hpp>
 #include "fslogicProxy.h"
 #include "config.h"
 #include "storageMapper.h"
@@ -30,7 +29,7 @@
 #include "events/events.h"
 
 #include <list>
-#include <boost/unordered_map.hpp>
+#include <memory>
 
 /// The name of default global config file
 #define GLOBAL_CONFIG_FILE      "veilFuse.conf"
@@ -47,7 +46,7 @@ namespace client {
 class Context;
 
 /// Pointer to the Storage Helper's instance
-typedef boost::shared_ptr<helpers::IStorageHelper> sh_ptr;
+using sh_ptr = std::shared_ptr<helpers::IStorageHelper>;
 
 typedef uint64_t helper_cache_idx_t;
 
@@ -65,10 +64,10 @@ class EventCommunicator;
 class VeilFS : public ISchedulable {
 public:
         VeilFS(std::string path, std::shared_ptr<Context> context,
-                boost::shared_ptr<FslogicProxy> fslogic, boost::shared_ptr<MetaCache> metaCache,
-                boost::shared_ptr<LocalStorageManager> sManager, boost::shared_ptr<StorageMapper> mapper,
-                boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
-                boost::shared_ptr<events::EventCommunicator> eventCommunicator); ///< VeilFS constructor.
+               std::shared_ptr<FslogicProxy> fslogic, std::shared_ptr<MetaCache> metaCache,
+               std::shared_ptr<LocalStorageManager> sManager, std::shared_ptr<StorageMapper> mapper,
+               std::shared_ptr<helpers::StorageHelperFactory> sh_factory,
+               std::shared_ptr<events::EventCommunicator> eventCommunicator); ///< VeilFS constructor.
         virtual ~VeilFS();
 
         int access(const char *path, int mask); /**< *access* FUSE callback. Not implemented yet. */
@@ -112,17 +111,17 @@ protected:
         gid_t       m_rgid;  ///< Filesystem root real gid
         uint64_t    m_fh;
 
-        boost::shared_ptr<FslogicProxy> m_fslogic;             ///< FslogicProxy instance
-        boost::shared_ptr<StorageMapper> m_storageMapper;      ///< StorageMapper instance
-        boost::shared_ptr<MetaCache> m_metaCache;              ///< MetaCache instance
-        boost::shared_ptr<LocalStorageManager> m_sManager;     ///< LocalStorageManager instance
-        boost::shared_ptr<helpers::StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance
-        boost::shared_ptr<events::EventCommunicator> m_eventCommunicator;
+        std::shared_ptr<FslogicProxy> m_fslogic;             ///< FslogicProxy instance
+        std::shared_ptr<StorageMapper> m_storageMapper;      ///< StorageMapper instance
+        std::shared_ptr<MetaCache> m_metaCache;              ///< MetaCache instance
+        std::shared_ptr<LocalStorageManager> m_sManager;     ///< LocalStorageManager instance
+        std::shared_ptr<helpers::StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance
+        std::shared_ptr<events::EventCommunicator> m_eventCommunicator;
 
         std::map<std::string, std::pair<std::string, time_t> > m_linkCache;         ///< Simple links cache.
         ReadWriteLock m_linkCacheLock;
 
-        boost::unordered_map<helper_cache_idx_t, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
+        std::unordered_map<helper_cache_idx_t, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
         ReadWriteLock m_shCacheLock;
 
 private:

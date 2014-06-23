@@ -14,20 +14,21 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
 
+#include <functional>
+
 using namespace veil::client;
 using namespace veil::client::events;
 using namespace std;
-using namespace boost;
 using namespace veil::protocol::fuse_messages;
 using namespace veil::protocol::communication_protocol;
 
-EventCommunicator::EventCommunicator(std::shared_ptr<Context> context, boost::shared_ptr<EventStreamCombiner> eventsStream)
+EventCommunicator::EventCommunicator(std::shared_ptr<Context> context, std::shared_ptr<EventStreamCombiner> eventsStream)
     : m_context{std::move(context)}
     , m_eventsStream(eventsStream)
     , m_writeEnabled(true)
 {
     if(!eventsStream){
-        m_eventsStream = boost::shared_ptr<EventStreamCombiner>(new EventStreamCombiner(m_context));
+        m_eventsStream = std::shared_ptr<EventStreamCombiner>(new EventStreamCombiner(m_context));
     }
     m_messageBuilder.reset(new MessageBuilder(m_context));
 }
@@ -84,7 +85,7 @@ void EventCommunicator::configureByCluster()
 
     ClusterMsg clm = m_messageBuilder->createClusterMessage(RULE_MANAGER, ATOM, COMMUNICATION_PROTOCOL, EVENT_PRODUCER_CONFIG, FUSE_MESSAGES, true, atom.SerializeAsString());
 
-    boost::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
+    std::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
 
     Answer ans;
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
@@ -111,14 +112,14 @@ void EventCommunicator::configureByCluster()
 }
 
 void EventCommunicator::sendEvent(const std::shared_ptr<Context> &context,
-                                  boost::shared_ptr<EventMessage> eventMessage)
+                                  std::shared_ptr<EventMessage> eventMessage)
 {
     string encodedEventMessage = eventMessage->SerializeAsString();
 
     MessageBuilder messageBuilder{context};
     ClusterMsg clm = messageBuilder.createClusterMessage(CLUSTER_RENGINE, EVENT_MESSAGE, FUSE_MESSAGES, ATOM, COMMUNICATION_PROTOCOL, false, encodedEventMessage);
 
-    boost::shared_ptr<CommunicationHandler> connection = context->getConnectionPool()->selectConnection();
+    std::shared_ptr<CommunicationHandler> connection = context->getConnectionPool()->selectConnection();
 
     Answer ans;
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
@@ -136,7 +137,7 @@ bool EventCommunicator::askClusterIfWriteEnabled()
 
     ClusterMsg clm = m_messageBuilder->createClusterMessage(FSLOGIC, ATOM, COMMUNICATION_PROTOCOL, ATOM, COMMUNICATION_PROTOCOL, true, atom.SerializeAsString());
 
-    boost::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
+    std::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
 
     Answer ans;
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
@@ -158,7 +159,7 @@ bool EventCommunicator::askClusterIfWriteEnabled()
     return result;
 }
 
-void EventCommunicator::addEventSubstream(boost::shared_ptr<IEventStream> newStream)
+void EventCommunicator::addEventSubstream(std::shared_ptr<IEventStream> newStream)
 {
     AutoLock lock(m_eventsStreamLock, WRITE_LOCK);
     m_eventsStream->addSubstream(newStream);
@@ -167,13 +168,13 @@ void EventCommunicator::addEventSubstream(boost::shared_ptr<IEventStream> newStr
 
 void EventCommunicator::addEventSubstreamFromConfig(const EventStreamConfig & eventStreamConfig)
 {
-    boost::shared_ptr<IEventStream> newStream = IEventStreamFactory::fromConfig(eventStreamConfig);
+    std::shared_ptr<IEventStream> newStream = IEventStreamFactory::fromConfig(eventStreamConfig);
     if(newStream){
         addEventSubstream(newStream);
     }
 }
 
-void EventCommunicator::processEvent(boost::shared_ptr<Event> event)
+void EventCommunicator::processEvent(std::shared_ptr<Event> event)
 {
     if(event){
         m_eventsStream->pushEventToProcess(event);
@@ -199,19 +200,19 @@ bool EventCommunicator::runTask(TaskID taskId, const string &arg0, const string 
 }
 
 void EventCommunicator::addStatAfterWritesRule(int bytes){
-    boost::shared_ptr<IEventStream> filter(new EventFilter("type", "write_event"));
-    boost::shared_ptr<IEventStream> aggregator(new EventAggregator(filter, "filePath", bytes, "bytes"));
-    boost::shared_ptr<IEventStream> customAction(new CustomActionStream(aggregator, boost::bind(&EventCommunicator::statFromWriteEvent, this, _1)));
+    std::shared_ptr<IEventStream> filter(new EventFilter("type", "write_event"));
+    std::shared_ptr<IEventStream> aggregator(new EventAggregator(filter, "filePath", bytes, "bytes"));
+    std::shared_ptr<IEventStream> customAction(new CustomActionStream(aggregator, std::bind(&EventCommunicator::statFromWriteEvent, this, std::placeholders::_1)));
 
     addEventSubstream(customAction);
 }
 
-void EventCommunicator::setFslogic(boost::shared_ptr<FslogicProxy> fslogicProxy)
+void EventCommunicator::setFslogic(std::shared_ptr<FslogicProxy> fslogicProxy)
 {
     m_fslogic = fslogicProxy;
 }
 
-void EventCommunicator::setMetaCache(boost::shared_ptr<MetaCache> metaCache)
+void EventCommunicator::setMetaCache(std::shared_ptr<MetaCache> metaCache)
 {
     m_metaCache = metaCache;
 }
@@ -221,7 +222,7 @@ bool EventCommunicator::isWriteEnabled()
     return m_writeEnabled;
 }
 
-boost::shared_ptr<Event> EventCommunicator::statFromWriteEvent(boost::shared_ptr<Event> event){
+std::shared_ptr<Event> EventCommunicator::statFromWriteEvent(std::shared_ptr<Event> event){
     string path = event->getStringProperty("filePath", "");
     if(!path.empty() && m_metaCache && m_fslogic){
         time_t currentTime = time(NULL);
@@ -237,5 +238,5 @@ boost::shared_ptr<Event> EventCommunicator::statFromWriteEvent(boost::shared_ptr
     }
 
     // we don't want to forward this event - it has already been handled by this function
-    return boost::shared_ptr<Event> ();
+    return std::shared_ptr<Event> ();
 }

@@ -8,19 +8,20 @@
 #ifndef CONFIG_HH
 #define CONFIG_HH
 
-#include <string>
-#include <unistd.h>
-#include <map>
-#include <sstream>
-#include <memory>
-#include <boost/filesystem.hpp>
-#include <boost/unordered_set.hpp>
-#include <boost/algorithm/string/case_conv.hpp>
-
-#include "veilConfig.h"
 #include "ISchedulable.h"
-#include "logging.h"
 #include "lock.h"
+#include "logging.h"
+#include "veilConfig.h"
+
+#include <unistd.h>
+
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/filesystem.hpp>
+
+#include <map>
+#include <memory>
+#include <sstream>
+#include <string>
 
 /// Prefix for all env variables that will be send to cluster
 #define FUSE_OPT_PREFIX               "fuse_opt_"

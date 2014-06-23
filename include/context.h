@@ -10,7 +10,6 @@
 
 #include "ISchedulable.h"
 
-#include <boost/shared_ptr.hpp>
 #include <boost/thread/shared_mutex.hpp>
 
 #include <memory>
@@ -36,23 +35,23 @@ public:
     std::shared_ptr<Options> getOptions() const;
     void setOptions(std::shared_ptr<Options> options);
 
-    boost::shared_ptr<Config> getConfig() const;
-    void setConfig(boost::shared_ptr<Config> config);
+    std::shared_ptr<Config> getConfig() const;
+    void setConfig(std::shared_ptr<Config> config);
 
     std::shared_ptr<JobScheduler> getScheduler(const ISchedulable::TaskID taskId = ISchedulable::TaskID::TASK_LAST_ID);
     void addScheduler(std::shared_ptr<JobScheduler> scheduler);
 
-    boost::shared_ptr<SimpleConnectionPool> getConnectionPool() const;
-    void setConnectionPool(boost::shared_ptr<SimpleConnectionPool> connectionPool);
+    std::shared_ptr<SimpleConnectionPool> getConnectionPool() const;
+    void setConnectionPool(std::shared_ptr<SimpleConnectionPool> connectionPool);
 
     std::shared_ptr<PushListener> getPushListener() const;
     void setPushListener(std::shared_ptr<PushListener> pushListener);
 
 private:
     std::shared_ptr<Options> m_options;
-    boost::shared_ptr<Config> m_config;
+    std::shared_ptr<Config> m_config;
     std::list<std::shared_ptr<JobScheduler>> m_jobSchedulers;
-    boost::shared_ptr<SimpleConnectionPool> m_connectionPool;
+    std::shared_ptr<SimpleConnectionPool> m_connectionPool;
     std::shared_ptr<PushListener> m_pushListener;
 
     mutable boost::shared_mutex m_optionsMutex;

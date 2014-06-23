@@ -13,7 +13,7 @@
 #include <list>
 #include <queue>
 #include <map>
-#include <boost/shared_ptr.hpp>
+#include <memory>
 #include "glog/logging.h"
 #include "fuse_messages.pb.h"
 #include "ISchedulable.h"
@@ -33,32 +33,32 @@ namespace veil {
 namespace client {
 namespace events {
 
-	/**
-	 * The IEventStream interface.
-	 * IEventStream is an abstract class that should inherited by classes that process events.
-	 * Every IEventStream can have wrappedStream. The most inner object process original event,
-	 * object that has the most inner object as wrappedStream process event returned by wrappedStream.
-	 *
-	 * Classes implementing this interface should implement pure virtual method actualProcessEvent.
-	 */
-	class IEventStream {
-	public:
-		IEventStream();
-		IEventStream(boost::shared_ptr<IEventStream> wrappedStream);
-    	virtual ~IEventStream();
+    /**
+     * The IEventStream interface.
+     * IEventStream is an abstract class that should inherited by classes that process events.
+     * Every IEventStream can have wrappedStream. The most inner object process original event,
+     * object that has the most inner object as wrappedStream process event returned by wrappedStream.
+     *
+     * Classes implementing this interface should implement pure virtual method actualProcessEvent.
+     */
+    class IEventStream {
+    public:
+        IEventStream();
+        IEventStream(std::shared_ptr<IEventStream> wrappedStream);
+        virtual ~IEventStream();
 
-    	virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event);
+        virtual std::shared_ptr<Event> processEvent(std::shared_ptr<Event> event);
 
-    	/* Access methods for m_wrappedStream */
-    	virtual boost::shared_ptr<IEventStream> getWrappedStream() const;
-    	virtual void setWrappedStream(boost::shared_ptr<IEventStream> wrappedStream);
+        /* Access methods for m_wrappedStream */
+        virtual std::shared_ptr<IEventStream> getWrappedStream() const;
+        virtual void setWrappedStream(std::shared_ptr<IEventStream> wrappedStream);
 
     protected:
-		boost::shared_ptr<IEventStream> m_wrappedStream;
+        std::shared_ptr<IEventStream> m_wrappedStream;
 
-    	virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event) = 0; ///< Method to be implemented in derived classes.
-    																							 ///< Method is called by IEventStream::processEvent only when m_wrappedStream returned non-empty event.
-	};
+        virtual std::shared_ptr<Event> actualProcessEvent(std::shared_ptr<Event> event) = 0; ///< Method to be implemented in derived classes.
+                                                                                                 ///< Method is called by IEventStream::processEvent only when m_wrappedStream returned non-empty event.
+    };
 
 } // namespace events
 } // namespace client

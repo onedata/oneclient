@@ -10,7 +10,6 @@
 
 using namespace veil::client::events;
 using namespace std;
-using namespace boost;
 using namespace veil::protocol::fuse_messages;
 
 EventTransformer::EventTransformer(const vector<string> &fieldNamesToReplace, const vector<string> &valuesToReplace, const vector<string> &newValues) :
@@ -19,11 +18,11 @@ EventTransformer::EventTransformer(const vector<string> &fieldNamesToReplace, co
 
 }
 
-boost::shared_ptr<IEventStream> EventTransformer::fromConfig(const EventTransformerConfig & config)
+std::shared_ptr<IEventStream> EventTransformer::fromConfig(const EventTransformerConfig & config)
 {
     if(config.field_names_to_replace_size() != config.values_to_replace_size() || config.values_to_replace_size() != config.new_values_size()){
         LOG(WARNING) << "Fields of EventTransformerConfig field_names_to_replace, values_to_replace and new_values are supposed to have the same length";
-        return boost::shared_ptr<IEventStream>();
+        return std::shared_ptr<IEventStream>();
     }
     vector<string> fieldNamesToReplace;
     for(int i=0; i<config.field_names_to_replace_size(); ++i){
@@ -37,12 +36,12 @@ boost::shared_ptr<IEventStream> EventTransformer::fromConfig(const EventTransfor
     for(int i=0; i<config.new_values_size(); ++i){
         newValues.push_back(config.new_values(i));
     }
-    return boost::shared_ptr<IEventStream> (new EventTransformer(fieldNamesToReplace, valuesToReplace, newValues));
+    return std::shared_ptr<IEventStream> (new EventTransformer(fieldNamesToReplace, valuesToReplace, newValues));
 }
 
-boost::shared_ptr<Event> EventTransformer::actualProcessEvent(boost::shared_ptr<Event> event)
+std::shared_ptr<Event> EventTransformer::actualProcessEvent(std::shared_ptr<Event> event)
 {
-    boost::shared_ptr<Event> newEvent (new Event(*event.get()));
+    std::shared_ptr<Event> newEvent (new Event(*event.get()));
 
     // TODO: EventTransformer works only for string properties.
     for(size_t i=0; i<m_fieldNamesToReplace.size(); ++i)
