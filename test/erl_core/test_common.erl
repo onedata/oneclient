@@ -41,4 +41,4 @@ register_user(PEMFile) ->
     {ok, EEC} = gsi_handler:find_eec_cert(Leaf, Chain, gsi_handler:is_proxy_certificate(Leaf)), 
     {rdnSequence, Rdn} = gsi_handler:proxy_subject(EEC),
     {ok, DnString} = user_logic:rdn_sequence_to_dn_string(Rdn),
-    user_logic:create_user("test_user", "Test Name", [], "test@test.com", [DnString]).
+    user_logic:create_user("VeilClientTest", "Test Name", [], "test@test.com", [DnString]).

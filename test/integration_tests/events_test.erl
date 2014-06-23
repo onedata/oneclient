@@ -53,7 +53,7 @@ exec({prepare_for_quota_case, QuotaSizeInBytes}) ->
   cluster_rengine:register_write_event_handler(1),
   cluster_rengine:register_quota_exceeded_handler(),
   cluster_rengine:register_rm_event_handler(),
-  update_quota("test_user", QuotaSizeInBytes);
+  update_quota("VeilClientTest", QuotaSizeInBytes);
 
 exec({add_dio}) ->
   io:format("--~n---~n----~n add dio ~n"),
