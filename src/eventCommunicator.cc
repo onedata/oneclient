@@ -28,9 +28,9 @@ EventCommunicator::EventCommunicator(std::shared_ptr<Context> context, std::shar
     , m_writeEnabled(true)
 {
     if(!eventsStream){
-        m_eventsStream = std::shared_ptr<EventStreamCombiner>(new EventStreamCombiner(m_context));
+        m_eventsStream = std::make_shared<EventStreamCombiner>(m_context);
     }
-    m_messageBuilder.reset(new MessageBuilder(m_context));
+    m_messageBuilder = std::make_shared<MessageBuilder>(m_context);
 }
 
 void EventCommunicator::handlePushedConfig(const Answer &msg)
@@ -200,9 +200,10 @@ bool EventCommunicator::runTask(TaskID taskId, const string &arg0, const string 
 }
 
 void EventCommunicator::addStatAfterWritesRule(int bytes){
-    std::shared_ptr<IEventStream> filter(new EventFilter("type", "write_event"));
-    std::shared_ptr<IEventStream> aggregator(new EventAggregator(filter, "filePath", bytes, "bytes"));
-    std::shared_ptr<IEventStream> customAction(new CustomActionStream(aggregator, std::bind(&EventCommunicator::statFromWriteEvent, this, std::placeholders::_1)));
+    auto filter = std::make_shared<EventFilter>("type", "write_event");
+    auto aggregator = std::make_shared<EventAggregator>(filter, "filePath", bytes, "bytes");
+    auto customAction = std::make_shared<CustomActionStream>(aggregator,
+        std::bind(&EventCommunicator::statFromWriteEvent, this, std::placeholders::_1));
 
     addEventSubstream(customAction);
 }

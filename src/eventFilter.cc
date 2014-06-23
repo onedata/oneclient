@@ -23,7 +23,7 @@ EventFilter::EventFilter(std::shared_ptr<IEventStream> wrappedStream, const std:
 
 std::shared_ptr<IEventStream> EventFilter::fromConfig(const EventFilterConfig & config)
 {
-    return std::shared_ptr<IEventStream> (new EventFilter(config.field_name(), config.desired_value()));
+    return std::make_shared<EventFilter>(config.field_name(), config.desired_value());
 }
 
 std::shared_ptr<Event> EventFilter::actualProcessEvent(std::shared_ptr<Event> event)
@@ -32,12 +32,10 @@ std::shared_ptr<Event> EventFilter::actualProcessEvent(std::shared_ptr<Event> ev
     string defaultValue = m_desiredValue + "_";
     string value = event->getStringProperty(m_fieldName, defaultValue);
 
-    if(value == m_desiredValue){
-        std::shared_ptr<Event> newEvent (new Event(*event.get()));
-        return newEvent;
-    }else{
-        return std::shared_ptr<Event>();
-    }
+    if(value == m_desiredValue)
+        return std::make_shared<Event>(*event);
+
+    return {};
 }
 
 string EventFilter::getFieldName()

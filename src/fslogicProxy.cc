@@ -29,7 +29,7 @@ namespace veil {
 namespace client {
 
 FslogicProxy::FslogicProxy(std::shared_ptr<Context> context)
-    : m_messageBuilder(new MessageBuilder(context))
+    : m_messageBuilder{std::make_shared<MessageBuilder>(context)}
     , m_context{std::move(context)}
 {
     LOG(INFO) << "FslogicProxy created";

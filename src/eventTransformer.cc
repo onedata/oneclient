@@ -36,12 +36,12 @@ std::shared_ptr<IEventStream> EventTransformer::fromConfig(const EventTransforme
     for(int i=0; i<config.new_values_size(); ++i){
         newValues.push_back(config.new_values(i));
     }
-    return std::shared_ptr<IEventStream> (new EventTransformer(fieldNamesToReplace, valuesToReplace, newValues));
+    return std::make_shared<EventTransformer>(fieldNamesToReplace, valuesToReplace, newValues);
 }
 
 std::shared_ptr<Event> EventTransformer::actualProcessEvent(std::shared_ptr<Event> event)
 {
-    std::shared_ptr<Event> newEvent (new Event(*event.get()));
+    auto newEvent = std::make_shared<Event>(*event);
 
     // TODO: EventTransformer works only for string properties.
     for(size_t i=0; i<m_fieldNamesToReplace.size(); ++i)
@@ -51,5 +51,5 @@ std::shared_ptr<Event> EventTransformer::actualProcessEvent(std::shared_ptr<Even
             newEvent->setStringProperty(fieldName, m_newValues[i]);
         }
     }
-    return newEvent;
+    return std::move(newEvent);
 }
