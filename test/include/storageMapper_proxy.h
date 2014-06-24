@@ -14,18 +14,18 @@
 class ProxyStorageMapper: public veil::client::StorageMapper
 {
 public:
-    ProxyStorageMapper(std::shared_ptr<Context> context,
-                       boost::shared_ptr<FslogicProxy> mock)
+    ProxyStorageMapper(std::shared_ptr<veil::client::Context> context,
+                       boost::shared_ptr<veil::client::FslogicProxy> mock)
         : StorageMapper(std::move(context), mock)
     {
     }
 
-    std::map<int, storageInfo>& getStorageMapping()
+    std::map<int, veil::client::storageInfo>& getStorageMapping()
     {
         return m_storageMapping;
     }
 
-    std::map<std::string, locationInfo>& getFileMapping()
+    std::map<std::string, veil::client::locationInfo>& getFileMapping()
     {
         return m_fileMapping;
     }

@@ -12,30 +12,24 @@
 #include <boost/thread.hpp>
 #include <boost/thread/thread_time.hpp>
 
-
+using namespace ::testing;
+using namespace veil::client;
 using namespace veil::protocol::communication_protocol;
 
-// TEST definitions below
-
-class PushListenerTest
-: public ::testing::Test {
+class PushListenerTest: public CommonTest
+{
 protected:
-    COMMON_DEFS();
-    
     boost::mutex cbMutex;
     boost::condition cbCond;
     std::unique_ptr<PushListener> listener;
     
     int answerHandled;
     
-    virtual void SetUp() {
-        COMMON_SETUP();
+    void SetUp() override
+    {
+        CommonTest::SetUp();
         listener.reset(new PushListener(context));
         answerHandled = 0;
-    }
-    
-    virtual void TearDown() {
-        COMMON_CLEANUP();
     }
     
 public:
@@ -49,7 +43,6 @@ public:
         
         return ret;
     }
-    
 };
 
 
@@ -63,14 +56,14 @@ TEST_F(PushListenerTest, simpleRegisterAndHandle)
     listener->subscribe(boost::bind(&PushListenerTest::handler, this, _1, true));
     
     listener->onMessage(ans);
-    cbCond.timed_wait(lock, posix_time::milliseconds(500));
+    cbCond.timed_wait(lock, boost::posix_time::milliseconds(500));
     
     listener->onMessage(ans);
-    cbCond.timed_wait(lock, posix_time::milliseconds(500));
+    cbCond.timed_wait(lock, boost::posix_time::milliseconds(500));
     
     listener->onMessage(ans);
     listener->onMessage(ans);
-    cbCond.timed_wait(lock, posix_time::milliseconds(500));
+    cbCond.timed_wait(lock, boost::posix_time::milliseconds(500));
     
     
     ASSERT_EQ(4, answerHandled);
@@ -88,11 +81,11 @@ TEST_F(PushListenerTest, removeHandler)
     int handlerId = listener->subscribe(boost::bind(&PushListenerTest::handler, this, _1, false)); // Should be removed after first call
     
     listener->onMessage(ans);
-    cbCond.timed_wait(lock, posix_time::milliseconds(500));
+    cbCond.timed_wait(lock, boost::posix_time::milliseconds(500));
     
     listener->onMessage(ans);
     listener->onMessage(ans);
-    cbCond.timed_wait(lock, posix_time::milliseconds(500));
+    cbCond.timed_wait(lock, boost::posix_time::milliseconds(500));
     
     
     ASSERT_EQ(1, answerHandled);
@@ -101,13 +94,13 @@ TEST_F(PushListenerTest, removeHandler)
     handlerId = listener->subscribe(boost::bind(&PushListenerTest::handler, this, _1, true));
     
     listener->onMessage(ans);
-    cbCond.timed_wait(lock, posix_time::milliseconds(500));
+    cbCond.timed_wait(lock, boost::posix_time::milliseconds(500));
     
     listener->unsubscribe(handlerId);
     
     listener->onMessage(ans);
     listener->onMessage(ans);
-    cbCond.timed_wait(lock, posix_time::milliseconds(500));
+    cbCond.timed_wait(lock, boost::posix_time::milliseconds(500));
     
     ASSERT_EQ(1, answerHandled);
     

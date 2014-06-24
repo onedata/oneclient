@@ -15,30 +15,28 @@
 
 #include <memory>
 
+using namespace ::testing;
+using namespace veil::client;
 using namespace veil::protocol::fuse_messages;
 using namespace veil::protocol::communication_protocol;
 
 #define CMSG_FROM(X) MessageBuilder(context).packFuseMessage("messageType", "answerType", "decoderName", X.SerializeAsString());
-
-// TEST definitions below
 
 // Helper function used to constuct protobuf message (arg<1>) from another protobuf message (arg<0>)
 void setupAnswerResponse(google::protobuf::Message& from, google::protobuf::Message& to) {
     to.ParsePartialFromString(from.SerializePartialAsString());
 }
 
-class FslogicProxyTest
-    : public ::testing::Test
+class FslogicProxyTest: public CommonTest
 {
 protected:
-    COMMON_DEFS();
     std::unique_ptr<ProxyFslogicProxy> proxy;
     boost::shared_ptr<MockMessageBuilder> msgBuilder;
 
     ClusterMsg fullClusterMsg;
 
-    virtual void SetUp() {
-        COMMON_SETUP();
+    void SetUp() override {
+        CommonTest::SetUp();
 
         proxy.reset(new ProxyFslogicProxy{context});
 
@@ -51,13 +49,7 @@ protected:
         proxy->ch_mock.reset(new MockCommunicationHandler());
         EXPECT_CALL(*connectionPool, selectConnection(_)).WillRepeatedly(Return(proxy->ch_mock));
         EXPECT_CALL(*connectionPool, releaseConnection(_)).WillRepeatedly(Return());
-
     }
-
-    virtual void TearDown() {
-        COMMON_CLEANUP();
-    }
-
 };
 
 TEST_F(FslogicProxyTest, sendFuseReceiveAnswerFails) {
@@ -408,7 +400,7 @@ TEST_F(FslogicProxyTest, getLink) {
 
     LinkInfo response;
 
-    pair<string, string> resp;
+    std::pair<std::string, std::string> resp;
 
     EXPECT_CALL(*proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(false)));
     resp = proxy->getLink("/from");

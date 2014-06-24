@@ -16,16 +16,16 @@
 class MockStorageMapper: public veil::client::StorageMapper
 {
 public:
-    MockStorageMapper(std::shared_ptr<Context> context,
-                      boost::shared_ptr<FslogicProxy> fslogicProxy)
+    MockStorageMapper(std::shared_ptr<veil::client::Context> context,
+                      boost::shared_ptr<veil::client::FslogicProxy> fslogicProxy)
         : StorageMapper(std::move(context), fslogicProxy)
     {
     }
 
     MOCK_METHOD1(releaseFile, void(const std::string&));
-    MOCK_METHOD2(getLocationInfo, pair<locationInfo, storageInfo>(const std::string&, bool));
+    MOCK_METHOD2(getLocationInfo, std::pair<veil::client::locationInfo, veil::client::storageInfo>(const std::string&, bool));
     MOCK_METHOD2(addLocation, void(const std::string&, const veil::protocol::fuse_messages::FileLocation&));
-    MOCK_METHOD1(findLocation, string(const std::string&));
+    MOCK_METHOD1(findLocation, std::string(const std::string&));
 };
 
 

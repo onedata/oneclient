@@ -8,13 +8,12 @@
 #ifndef META_CACHE_PROXY_H
 #define META_CACHE_PROXY_H
 
-#include "metaCache.h"
 
-#include <memory>
+#include "metaCache.h"
 
 class ProxyMetaCache: public veil::client::MetaCache {
 public:
-    ProxyMetaCache(std::shared_ptr<Context> context)
+    ProxyMetaCache(std::shared_ptr<veil::client::Context> context)
         : MetaCache{std::move(context)}
     {
     }

@@ -14,33 +14,24 @@ using namespace std;
 
 // TEST definitions below
 
-class SampleTest 
-    : public ::testing::Test 
+class SampleTest: CommonIntegrationTest
 {
 protected:
-    COMMON_INTEGRATION_DEFS();
-
-    VeilFSMount VFS;
-
     path directIO_root;
 
     // Mount file system in "main" subdir with "peer.pem" cert
     // use VFS.getRoot() to get absolute mount point
-    SampleTest() : VFS(VeilFSMount("main", "peer.pem")) 
+    SampleTest()
+        : CommonIntegrationTest{{"main", "peer.pem"}}
     {
     }
 
-    virtual void SetUp() {
-
+    void SetUp() override
+    {
         // Initialization of the whole client. 
         // This initialization is not required if test uses only filesystem (theres no VeilClient code calls)
-        COMMON_INTEGRATION_SETUP();
+        CommonIntegrationTest::SetUp();
     }
-
-    virtual void TearDown() {
-        COMMON_INTEGRATION_CLEANUP();
-    }
-
 };
 
 // This test shows how you can call sample_test:exec/1 method on cluster environment

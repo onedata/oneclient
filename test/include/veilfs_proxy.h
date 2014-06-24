@@ -16,16 +16,19 @@
 class ProxyVeilFS: public veil::client::VeilFS
 {
 public:
-    ProxyVeilFS(std::string path, std::shared_ptr<Context> context,
-               boost::shared_ptr<FslogicProxy> fslogic,  boost::shared_ptr<MetaCache> metaCache,
-               boost::shared_ptr<LocalStorageManager> sManager, boost::shared_ptr<StorageMapper> mapper,
-               boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
-               boost::shared_ptr<EventCommunicator> eventCommunicator)
+    ProxyVeilFS(std::string path,
+                std::shared_ptr<veil::client::Context> context,
+                boost::shared_ptr<veil::client::FslogicProxy> fslogic,
+                boost::shared_ptr<veil::client::MetaCache> metaCache,
+                boost::shared_ptr<veil::client::LocalStorageManager> sManager,
+                boost::shared_ptr<veil::client::StorageMapper> mapper,
+                boost::shared_ptr<veil::helpers::StorageHelperFactory> sh_factory,
+                boost::shared_ptr<veil::client::events::EventCommunicator> eventCommunicator)
         : VeilFS{path, std::move(context), fslogic, metaCache, sManager, mapper, sh_factory, eventCommunicator}
     {
     }
 
-    void setCachedHelper(helper_cache_idx_t idx, sh_ptr sh)
+    void setCachedHelper(veil::client::helper_cache_idx_t idx, veil::client::sh_ptr sh)
     {
         m_shCache[idx] = sh;
     }

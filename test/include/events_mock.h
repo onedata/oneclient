@@ -25,30 +25,30 @@ class MockEvent: public veil::client::events::Event
 class MockEventCommunicator: public veil::client::events::EventCommunicator
 {
 public:
-    MockEventCommunicator(std::shared_ptr<Context> context)
+    MockEventCommunicator(std::shared_ptr<veil::client::Context> context)
         : EventCommunicator{std::move(context)}
     {
     }
 
-    MOCK_METHOD1(processEvent, void(boost::shared_ptr<Event>));
+    MOCK_METHOD1(processEvent, void(boost::shared_ptr<veil::client::events::Event>));
 };
 
 class MockEventStreamCombiner: public veil::client::events::EventStreamCombiner
 {
 public:
-	MockEventStreamCombiner(std::shared_ptr<Context> context)
+    MockEventStreamCombiner(std::shared_ptr<veil::client::Context> context)
         : EventStreamCombiner{std::move(context)}
     {
     }
 
-	MOCK_METHOD1(pushEventToProcess, void(boost::shared_ptr<Event>));
+    MOCK_METHOD1(pushEventToProcess, void(boost::shared_ptr<veil::client::events::Event>));
 };
 
 class MockEventStream: public veil::client::events::IEventStream
 {
 public:
-	MOCK_METHOD1(processEvent, boost::shared_ptr<Event>(boost::shared_ptr<Event>));
-	MOCK_METHOD1(actualProcessEvent, boost::shared_ptr<Event>(boost::shared_ptr<Event>));
+    MOCK_METHOD1(processEvent, boost::shared_ptr<veil::client::events::Event>(boost::shared_ptr<veil::client::events::Event>));
+    MOCK_METHOD1(actualProcessEvent, boost::shared_ptr<veil::client::events::Event>(boost::shared_ptr<veil::client::events::Event>));
 };
 
 

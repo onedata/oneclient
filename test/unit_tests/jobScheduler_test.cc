@@ -12,8 +12,8 @@
 #include "boost/shared_ptr.hpp"
 
 using namespace boost;
-
-// TEST definitions below
+using namespace ::testing;
+using namespace veil::client;
 
 bool operator==(const Job &lhs, const Job &rhs)
 {
@@ -22,29 +22,25 @@ bool operator==(const Job &lhs, const Job &rhs)
            lhs.arg2 == rhs.arg2;
 }
 
-class MockJobObject
-    : public ISchedulable {
+class MockJobObject: public ISchedulable
+{
 public:
-    MOCK_METHOD4(runTask, bool(TaskID, const string&, const string&, const string&));
+    MOCK_METHOD4(runTask, bool(TaskID, const std::string&, const std::string&, const std::string&));
 };
 
-class JobSchedulerTest
-    : public ::testing::Test {
+class JobSchedulerTest: public CommonTest
+{
 
 protected:
-    COMMON_DEFS();
     ProxyJobScheduler proxy;
     boost::shared_ptr<MockJobObject> jobContext1_;
     boost::shared_ptr<MockJobObject> jobContext2_;
 
-    virtual void SetUp() {
+    void SetUp() override
+    {
+        CommonTest::SetUp();
         jobContext1_.reset(new MockJobObject());
         jobContext2_.reset(new MockJobObject());
-        COMMON_SETUP();
-    }
-
-    virtual void TearDown() {
-        COMMON_CLEANUP();
     }
 };
 

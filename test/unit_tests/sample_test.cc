@@ -7,8 +7,7 @@
 
 #include "testCommon.h"
 
-// TEST definitions below
-
-TEST(sampleTest, trueAssertion) {
+TEST(sampleTest, trueAssertion)
+{
     EXPECT_TRUE(true);
 }

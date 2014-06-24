@@ -12,29 +12,23 @@
 #include "jobScheduler_mock.h"
 #include "veilfs.h"
 
-// TEST definitions below
-
+using namespace ::testing;
+using namespace veil::client;
 using namespace veil::protocol::fuse_messages;
 
-class StorageMapperTest
-    : public ::testing::Test {
-
+class StorageMapperTest: public CommonTest
+{
 protected:
-    COMMON_DEFS();
     boost::shared_ptr<MockFslogicProxy> mockFslogic;
     boost::shared_ptr<ProxyStorageMapper> proxy;
 
-    virtual void SetUp() {
-        COMMON_SETUP();
+    void SetUp() override
+    {
+        CommonTest::SetUp();
         mockFslogic.reset(new MockFslogicProxy(context));
         proxy.reset(new ProxyStorageMapper(context, mockFslogic));
 
     }
-
-    virtual void TearDown() {
-        COMMON_CLEANUP();
-    }
-
 };
 
 TEST_F(StorageMapperTest, AddAndGet) {
@@ -70,8 +64,8 @@ TEST_F(StorageMapperTest, AddAndGet) {
     proxy->addLocation("/file2", location);
     EXPECT_NO_THROW(proxy->getLocationInfo("/file2"));
 
-    pair<locationInfo, storageInfo> ret1 = proxy->getLocationInfo("/file1");
-    pair<locationInfo, storageInfo> ret2 = proxy->getLocationInfo("/file2");
+    std::pair<locationInfo, storageInfo> ret1 = proxy->getLocationInfo("/file1");
+    std::pair<locationInfo, storageInfo> ret2 = proxy->getLocationInfo("/file2");
     EXPECT_EQ(1, ret1.first.storageId);
     EXPECT_EQ(2, ret2.first.storageId);
 
@@ -88,8 +82,8 @@ TEST_F(StorageMapperTest, OpenClose) {
     proxy->addLocation("/file1", location);
     proxy->addLocation("/file2", location);
 
-    pair<locationInfo, storageInfo> ret1 = proxy->getLocationInfo("/file1");
-    pair<locationInfo, storageInfo> ret2 = proxy->getLocationInfo("/file2");
+    std::pair<locationInfo, storageInfo> ret1 = proxy->getLocationInfo("/file1");
+    std::pair<locationInfo, storageInfo> ret2 = proxy->getLocationInfo("/file2");
 
     EXPECT_EQ(0, ret1.first.opened);
     EXPECT_EQ(0, ret2.first.opened);

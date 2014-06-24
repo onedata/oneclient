@@ -1,3 +1,11 @@
+/**
+ * @file testRunner.cc
+ * @author Rafal Slota
+ * @author Konrad Zemek
+ * @copyright (C) 2013-2014 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
+ */
+
 #include <glog/logging.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

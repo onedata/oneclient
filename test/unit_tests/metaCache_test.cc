@@ -13,18 +13,19 @@
 
 #include <chrono>
 
-// TEST definitions below
+using namespace ::testing;
+using namespace veil::client;
 
-class MetaCacheTest
-    : public ::testing::Test {
-
+class MetaCacheTest: public CommonTest
+{
 protected:
-    COMMON_DEFS();
     boost::shared_ptr <ProxyMetaCache> proxy;
     struct stat stat;
 
-    virtual void SetUp() {
-        COMMON_SETUP();
+    void SetUp() override
+    {
+        CommonTest::SetUp();
+
         proxy.reset(new ProxyMetaCache(context));
 
         EXPECT_CALL(*options, has_enable_attr_cache()).WillRepeatedly(Return(true));
@@ -32,12 +33,6 @@ protected:
         EXPECT_CALL(*options, has_attr_cache_expiration_time()).WillRepeatedly(Return(true));
         EXPECT_CALL(*options, get_attr_cache_expiration_time()).WillRepeatedly(Return(20));
     }
-
-    virtual void TearDown() {
-        COMMON_CLEANUP();
-    }
-
-
 };
 
 TEST_F(MetaCacheTest, InsertAndRemove) {

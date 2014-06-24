@@ -17,7 +17,7 @@
 class ProxyFslogicProxy: public veil::client::FslogicProxy
 {
 public:
-    ProxyFslogicProxy(std::shared_ptr<Context> context)
+    ProxyFslogicProxy(std::shared_ptr<veil::client::Context> context)
         : FslogicProxy{std::move(context)} {}
 
     bool useMockConnectionSelector;
@@ -25,7 +25,7 @@ public:
     bool mockAnswer;
     bool mockAtom;
     
-    void setMessageBuilder(boost::shared_ptr<MessageBuilder> mock)
+    void setMessageBuilder(boost::shared_ptr<veil::client::MessageBuilder> mock)
     {
         m_messageBuilder = mock;
     }

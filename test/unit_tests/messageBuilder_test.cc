@@ -11,26 +11,21 @@
 #include "options_mock.h"
 #include "messageBuilder.h"
 
+using namespace ::testing;
+using namespace veil::client;
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
 
-// TEST definitions below
-
-class MessageBuilderTest
-    : public ::testing::Test {
+class MessageBuilderTest: public CommonTest
+{
 protected:
-    COMMON_DEFS();
     std::unique_ptr<MessageBuilder> proxy;
 
-    virtual void SetUp() {
-        COMMON_SETUP();
+    void SetUp() override
+    {
+        CommonTest::SetUp();
         proxy.reset(new MessageBuilder{context});
     }
-
-    virtual void TearDown() {
-        COMMON_CLEANUP();
-    }
-
 };
 
 TEST_F(MessageBuilderTest, createFuseMessage) {
@@ -98,14 +93,14 @@ TEST_F(MessageBuilderTest, decodeFuseAnswerNormalAns) {
 TEST_F(MessageBuilderTest, decodeAtomAnswerWrongInput) {
     Answer ans;
     ans.set_worker_answer("wrong input");
-    string msg = proxy->decodeAtomAnswer(ans);
+    std::string msg = proxy->decodeAtomAnswer(ans);
 
     EXPECT_EQ("", msg);
 }
 
 TEST_F(MessageBuilderTest, decodeAtomAnswerNoInput) {
     Answer ans;
-    string msg = proxy->decodeAtomAnswer(ans);
+    std::string msg = proxy->decodeAtomAnswer(ans);
 
     EXPECT_EQ("", msg);
 }
@@ -115,7 +110,7 @@ TEST_F(MessageBuilderTest, decodeAtomAnswerNormalInput) {
     Atom a;
     a.set_value("value");
     ans.set_worker_answer(a.SerializeAsString());
-    string msg = proxy->decodeAtomAnswer(ans);
+    std::string msg = proxy->decodeAtomAnswer(ans);
 
     EXPECT_EQ("value", msg);
 }

@@ -17,18 +17,21 @@
 #include "jobScheduler_mock.h"
 #include "fslogicProxy_proxy.h"
 
+#include <list>
+#include <vector>
+
 using namespace boost;
+using namespace ::testing;
+using namespace veil::client;
+using namespace veil::client::events;
 
-// TEST definitions below
-
-class EventsTest
-    : public ::testing::Test
+class EventsTest: public CommonTest
 {
 public:
-    COMMON_DEFS();
+    void SetUp() override
+    {
+        CommonTest::SetUp();
 
-    virtual void SetUp() {
-        COMMON_SETUP();
         boost::shared_ptr<MockCommunicationHandler> connectionMock;
         connectionMock.reset(new MockCommunicationHandler());
         EXPECT_CALL(*connectionPool, selectConnection(_)).WillRepeatedly(Return(connectionMock));
@@ -36,10 +39,6 @@ public:
         veil::protocol::communication_protocol::Answer ans;
         ans.set_answer_status(VOK);
         EXPECT_CALL(*connectionMock, communicate(_, _, _)).WillRepeatedly(Return(ans));
-    }
-
-    virtual void TearDown() {
-        COMMON_CLEANUP();
     }
 };
 
@@ -67,7 +66,7 @@ TEST(EventFilter, SimpleFilter) {
 
     resEvent = filter.processEvent(mkdirEvent);
     ASSERT_TRUE((bool) resEvent);
-    ASSERT_EQ(string("file1"), resEvent->getStringProperty("filePath", ""));
+    ASSERT_EQ("file1", resEvent->getStringProperty("filePath", ""));
 }
 
 // checks simple stream with single EventAggregator
@@ -221,11 +220,11 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
 
 TEST(EventTransformerTest, SimpleTransformation) {
     boost::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
-    vector<string> fieldNames;
+    std::vector<std::string> fieldNames;
     fieldNames.push_back("type");
-    vector<string> toReplace;
+    std::vector<std::string> toReplace;
     toReplace.push_back("write_event");
-    vector<string> replaceWith;
+    std::vector<std::string> replaceWith;
     replaceWith.push_back("write_for_stats");
     boost::shared_ptr<IEventStream> transformer(new EventTransformer(fieldNames, toReplace, replaceWith));
 
@@ -242,7 +241,7 @@ TEST_F(EventsTest, EventStreamCombiner_CombineStreams) {
     EventStreamCombiner combiner{context};
     combiner.addSubstream(mkdirFilter);
 
-    list<boost::shared_ptr<Event> > events = combiner.processEvent(mkdirEvent);
+    std::list<boost::shared_ptr<Event> > events = combiner.processEvent(mkdirEvent);
     ASSERT_EQ(1u, events.size());
 
     events = combiner.processEvent(writeEvent);
@@ -272,7 +271,7 @@ TEST(IEventStream, CustomActionStreamTest){
     res = action.processEvent(mkdirEvent);
     ASSERT_TRUE((bool) res);
 
-    string r = res->getStringProperty("customActionKey", "");
+    std::string r = res->getStringProperty("customActionKey", "");
 
     ASSERT_EQ("custom_action_invoked", res->getStringProperty("customActionKey", ""));
 }

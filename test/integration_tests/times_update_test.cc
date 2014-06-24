@@ -17,31 +17,27 @@ using namespace std;
 
 // TEST definitions below
 
-class TimesUpdateTest 
-    : public ::testing::Test 
+class TimesUpdateTest: CommonIntegrationTest
 {
 protected:
-    COMMON_INTEGRATION_DEFS();
-
-    VeilFSMount VFS;
-
     path directIO_root;
 
-    TimesUpdateTest() : VFS(VeilFSMount("main", "peer.pem")) 
+    TimesUpdateTest()
+        : CommonIntegrationTest{{"main", "peer.pem"}}
     {
     }
 
-    virtual void SetUp() {
-        COMMON_INTEGRATION_SETUP();
+    void SetUp() override
+    {
+        CommonIntegrationTest::SetUp();
 
         // Get storage helper root dir path from cluster env variable 
         ASSERT_EQ(0, ::system(("touch " + VFS.getRoot() + "/file").c_str()));
     }
 
-    virtual void TearDown() {
+    void TearDown() override {
         ASSERT_EQ(0, ::system(("rm -rf " + VFS.getRoot() + "/file").c_str()));
-
-        COMMON_INTEGRATION_CLEANUP();
+        CommonIntegrationTest::TearDown();
     }
 
 };

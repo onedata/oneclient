@@ -8,16 +8,19 @@
 #ifndef LOCAL_STORAGE_MANAGER_MOCK_H
 #define LOCAL_STORAGE_MANAGER_MOCK_H
 
+
 #include "localStorageManager.h"
 
-#include <memory>
+#include <gmock/gmock.h>
 
-class MockLocalStorageManager: public LocalStorageManager
+class MockLocalStorageManager: public veil::client::LocalStorageManager
 {
 public:
-    MockLocalStorageManager(std::shared_ptr<Context> context)
+    MockLocalStorageManager(std::shared_ptr<veil::client::Context> context)
         : LocalStorageManager{std::move(context)}
     {
     }
 };
+
+
 #endif // LOCAL_STORAGE_MANAGER_MOCK_H

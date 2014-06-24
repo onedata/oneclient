@@ -22,28 +22,15 @@ using namespace veil::client::utils;
 
 // TEST definitions below
 
-class ConnectionSessionsTest
-: public ::testing::Test
+class ConnectionSessionsTest: public CommonIntegrationTest
 {
 protected:
-    COMMON_INTEGRATION_DEFS();
-
-    VeilFSMount VFS;
-
     path directIO_root;
 
-    ConnectionSessionsTest() : VFS(VeilFSMount("main", "peer.pem"))
+    ConnectionSessionsTest()
+        : CommonIntegrationTest{{"main", "peer.pem"}}
     {
     }
-
-    virtual void SetUp() {
-        COMMON_INTEGRATION_SETUP();
-    }
-
-    virtual void TearDown() {
-        COMMON_INTEGRATION_CLEANUP();
-    }
-
 };
 
 // Test if client negotiates and registers its FuseId after start

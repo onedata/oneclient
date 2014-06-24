@@ -17,19 +17,17 @@ using namespace std;
 
 // TEST definitions below
 
-class EventsTest 
-    : public ::testing::Test 
+class EventsTest: CommonIntegrationTest
 {
 protected:
-    COMMON_INTEGRATION_DEFS();
-
-    boost::shared_ptr<VeilFSMount> VFS;
-
     path directIO_root;
 
-    // VFS is not initialized here because in some test cases we want to perform some actions on cluster before client initialization
-    EventsTest() {}
-
+    // VFS is not initialized here because in some test cases we want to perform
+    // some actions on cluster before client initialization
+    EventsTest()
+        : CommonIntegrationTest{veil::testing::VeilFSMount{}}
+    {
+    }
 };
 
 string exec(const char* cmd) {

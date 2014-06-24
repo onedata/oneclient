@@ -21,31 +21,24 @@ using namespace veil::client::utils;
 
 // TEST definitions below
 
-class PushChannelTest
-: public ::testing::Test
+class PushChannelTest: CommonIntegrationTest
 {
 protected:
-    COMMON_INTEGRATION_DEFS();
-    
-    VeilFSMount VFS;
-    
     path directIO_root;
     
     boost::mutex cbMutex;
     boost::condition cbCond;
     int answerHandled;
     
-    PushChannelTest() : VFS(VeilFSMount("main", "peer.pem"))
+    PushChannelTest():
+        : CommonIntegrationTest{{"main", "peer.pem"}}
     {
     }
     
-    virtual void SetUp() {
-        COMMON_INTEGRATION_SETUP();
+    void SetUp() override
+    {
+        CommonIntegrationTest::SetUp();
         answerHandled = 0;
-    }
-    
-    virtual void TearDown() {
-        COMMON_INTEGRATION_CLEANUP();
     }
     
 public:
@@ -115,7 +108,7 @@ TEST_F(PushChannelTest, pushChannelInbox) {
     EXPECT_EQ("ok", sendAns);
     
     // Timeout after 5 secs
-    cbCond.timed_wait(lock, posix_time::milliseconds(5000));
+    cbCond.timed_wait(lock, boost::posix_time::milliseconds(5000));
     
     ASSERT_EQ(2, answerHandled);
 }
