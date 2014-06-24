@@ -71,7 +71,7 @@ TEST_F(EventsTest, mkdirExample) {
     EXPECT_EQ(before + 1, after);
 
     // event handler registration, directory dirName1 will be deleted on directory creation
-    erlExec("{register_mkdir_handler, \"VeilClientTest/" + dirName1 + "\"}");
+    erlExec("{register_mkdir_handler, \"veilfstestuser/" + dirName1 + "\"}");
 
     // given
     res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
@@ -99,7 +99,7 @@ TEST_F(EventsTest, clientConfiguredAtStartup) {
     string dirPath2 = root + "/test_dir_2";
 
     // this is essential for this test to register event handler before mounting and initializing client
-    erlExec("{register_mkdir_handler, \"VeilClientTest/" + dirName1 + "\"}");
+    erlExec("{register_mkdir_handler, \"veilfstestuser/" + dirName1 + "\"}");
     sleep(1);
 
     VFS.reset(new VeilFSMount("main", "peer.pem"));
