@@ -51,7 +51,7 @@ protected:
 // Test if client negotiates and registers its FuseId after start
 TEST_F(ConnectionSessionsTest, SessionInitAndRegister) {
     // By default client should negotiate and register FuseId
-
+    std::cout << "!!!storage list: "<< erlExec(string("storage"))<<"\n"; //todo remove
     // Check if cluster already knows who we are
     ASSERT_EQ("ok", erlExec(string("{check_session, \"") + config->getFuseID() + string("\"}")));
 }
