@@ -8,23 +8,22 @@
 #ifndef TEST_COMMON_H
 #define TEST_COMMON_H
 
-#include "logging.h"
-#include "gtest/gtest.h"
-#include "gmock/gmock.h"
-#include "boost/bind.hpp"
-#include "boost/shared_ptr.hpp"
-#include "veilfs.h"
-#include "messageBuilder.h"
-#include "connectionPool_mock.h"
-#include "gsiHandler.h"
+#include "config.h"
 #include "config_proxy.h"
-#include "options_mock.h"
-#include "options.h"
+#include "connectionPool_mock.h"
 #include "context.h"
+#include "gsiHandler.h"
+#include "jobScheduler_mock.h"
+#include "options_mock.h"
+#include "veilfs.h"
 
 #include <boost/make_shared.hpp>
 
 #include <memory>
+
+
+
+#include <events/events.h>
 
 using namespace testing;
 using namespace boost;
@@ -34,16 +33,32 @@ using namespace veil;
 using namespace veil::client;
 using namespace veil::client::events;
 
+struct CommonTest: public ::testing::Test
+{
+    virtual void SetUp()
+    {
+        context = std::make_shared<Context>();
+        options = std::make_shared<MockOptions>();
+        config = boost::make_shared<ProxyConfig>(context);
+        scheduler = std::make_shared<MockJobScheduler>();
+        connectionPool = boost::make_shared<MockConnectionPool>();
 
-#define INIT_AND_RUN_ALL_TESTS() \
-    int main(int argc, char **argv) { \
-        ::testing::InitGoogleTest(&argc, argv); \
-        ::testing::InitGoogleMock(&argc, argv); \
-        google::InitGoogleLogging(argv[0]); \
-        FLAGS_alsologtostderr = false; \
-        FLAGS_stderrthreshold = 3; \
-        return RUN_ALL_TESTS(); \
+        context->setOptions(options);
+        context->setConfig(config);
+        context->addScheduler(scheduler);
+        context->setConnectionPool(connectionPool);
+
+        EXPECT_CALL(*options, has_fuse_group_id()).WillRepeatedly(Return(true));
+        EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(false));
+        EXPECT_CALL(*connectionPool, setPushCallback(_, _)).WillRepeatedly(Return());
     }
+
+    std::shared_ptr<Context> context;
+    boost::shared_ptr<Config> config;
+    std::shared_ptr<MockOptions> options;
+    std::shared_ptr<MockJobScheduler> scheduler;
+    boost::shared_ptr<MockConnectionPool> connectionPool;
+};
 
 #define COMMON_SETUP() \
         context = std::make_shared<Context>(); \
@@ -57,8 +72,8 @@ using namespace veil::client::events;
         context->setConnectionPool(connectionPool); \
         EXPECT_CALL(*options, has_fuse_group_id()).WillRepeatedly(Return(true)); \
         EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(false)); \
-        EXPECT_CALL(*connectionPool, setPushCallback(_, _)).WillRepeatedly(Return()); \
-        boost::shared_ptr<VeilFS>(new VeilFS("/root", context, boost::shared_ptr<FslogicProxy>(), boost::shared_ptr<MetaCache>(), boost::shared_ptr<LocalStorageManager>(), boost::shared_ptr<StorageMapper>(), boost::shared_ptr<helpers::StorageHelperFactory>(), boost::shared_ptr<EventCommunicator>()));
+        EXPECT_CALL(*connectionPool, setPushCallback(_, _)).WillRepeatedly(Return());
+        //boost::shared_ptr<VeilFS>(new VeilFS("/root", context, boost::shared_ptr<FslogicProxy>(), boost::shared_ptr<MetaCache>(), boost::shared_ptr<LocalStorageManager>(), boost::shared_ptr<StorageMapper>(), boost::shared_ptr<helpers::StorageHelperFactory>(), boost::shared_ptr<EventCommunicator>()));
 
 #define COMMON_DEFS() \
         std::shared_ptr<Context> context; \

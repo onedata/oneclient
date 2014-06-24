@@ -10,18 +10,12 @@
 
 #include "fslogicProxy.h"
 
-#include "context.h"
 #include "communicationHandler_mock.h"
-#include "messageBuilder_mock.h"
-#include "testCommon.h"
-#include "gmock/gmock.h"
 
-#include <memory>
+#include <gmock/gmock.h>
 
-using namespace boost;
-
-class ProxyFslogicProxy
-    : public FslogicProxy {
+class ProxyFslogicProxy: public veil::client::FslogicProxy
+{
 public:
     ProxyFslogicProxy(std::shared_ptr<Context> context)
         : FslogicProxy{std::move(context)} {}
@@ -31,25 +25,28 @@ public:
     bool mockAnswer;
     bool mockAtom;
     
-    void setMessageBuilder(boost::shared_ptr<MessageBuilder> mock) {
+    void setMessageBuilder(boost::shared_ptr<MessageBuilder> mock)
+    {
         m_messageBuilder = mock;
     }
 
-    bool sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, google::protobuf::Message& response) {
+    bool sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, google::protobuf::Message& response) override
+    {
         if(mockAnswer)
             return mockAnswerFun(fMsg, response);
-        else 
-            return FslogicProxy::sendFuseReceiveAnswer(fMsg, response);
+
+        return FslogicProxy::sendFuseReceiveAnswer(fMsg, response);
     }
 
-    string sendFuseReceiveAtom(const google::protobuf::Message& fMsg) {
+    std::string sendFuseReceiveAtom(const google::protobuf::Message& fMsg) override
+    {
         if(mockAtom)
             return mockAtomFun(fMsg);
-        else 
-            return FslogicProxy::sendFuseReceiveAtom(fMsg);
+
+        return FslogicProxy::sendFuseReceiveAtom(fMsg);
     }
 
-    MOCK_METHOD1(mockAtomFun, string(const google::protobuf::Message&));
+    MOCK_METHOD1(mockAtomFun, std::string(const google::protobuf::Message&));
     MOCK_METHOD2(mockAnswerFun, bool(const google::protobuf::Message&, google::protobuf::Message&));
 };
 

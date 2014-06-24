@@ -8,9 +8,9 @@
 #ifndef EVENTS_MOCK_H
 #define EVENTS_MOCK_H
 
+
 #include "events/events.h"
 
-#include "testCommon.h"
 #include "fuse_messages.pb.h"
 #include "context.h"
 
@@ -18,35 +18,38 @@
 #include <list>
 #include <string>
 
-class MockEvent : public events::Event {
-	
+class MockEvent: public veil::client::events::Event
+{
 };
 
-class MockEventCommunicator : public EventCommunicator {
+class MockEventCommunicator: public veil::client::events::EventCommunicator
+{
 public:
     MockEventCommunicator(std::shared_ptr<Context> context)
-    	: EventCommunicator{std::move(context)} {}
-	~MockEventCommunicator(){}
+        : EventCommunicator{std::move(context)}
+    {
+    }
 
-	MOCK_METHOD1(processEvent, void(boost::shared_ptr<Event>));
+    MOCK_METHOD1(processEvent, void(boost::shared_ptr<Event>));
 };
 
-class MockEventStreamCombiner : public EventStreamCombiner{
+class MockEventStreamCombiner: public veil::client::events::EventStreamCombiner
+{
 public:
 	MockEventStreamCombiner(std::shared_ptr<Context> context)
-		: EventStreamCombiner{std::move(context)} {}
-	~MockEventStreamCombiner(){}
+        : EventStreamCombiner{std::move(context)}
+    {
+    }
 
 	MOCK_METHOD1(pushEventToProcess, void(boost::shared_ptr<Event>));
 };
 
-class MockEventStream : public IEventStream{
+class MockEventStream: public veil::client::events::IEventStream
+{
 public:
-	MockEventStream(){}
-	~MockEventStream(){}
-
 	MOCK_METHOD1(processEvent, boost::shared_ptr<Event>(boost::shared_ptr<Event>));
 	MOCK_METHOD1(actualProcessEvent, boost::shared_ptr<Event>(boost::shared_ptr<Event>));
 };
+
 
 #endif // EVENTS_MOCK_H

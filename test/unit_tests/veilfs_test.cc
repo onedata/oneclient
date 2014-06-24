@@ -23,9 +23,8 @@
 
 #include "events_mock.h"
 
-INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
-
 // TEST definitions below
+using namespace veil::protocol::fuse_messages;
 
 class VeilFSTest
     : public ::testing::Test

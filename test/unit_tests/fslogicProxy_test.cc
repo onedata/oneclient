@@ -18,8 +18,6 @@
 using namespace veil::protocol::fuse_messages;
 using namespace veil::protocol::communication_protocol;
 
-INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
-
 #define CMSG_FROM(X) MessageBuilder(context).packFuseMessage("messageType", "answerType", "decoderName", X.SerializeAsString());
 
 // TEST definitions below

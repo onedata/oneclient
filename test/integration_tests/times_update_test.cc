@@ -15,8 +15,6 @@
 using namespace boost::filesystem;
 using namespace std;
 
-INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
-
 // TEST definitions below
 
 class TimesUpdateTest 

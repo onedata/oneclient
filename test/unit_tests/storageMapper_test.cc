@@ -12,10 +12,9 @@
 #include "jobScheduler_mock.h"
 #include "veilfs.h"
 
-
-INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
-
 // TEST definitions below
+
+using namespace veil::protocol::fuse_messages;
 
 class StorageMapperTest
     : public ::testing::Test {

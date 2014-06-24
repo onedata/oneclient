@@ -10,21 +10,19 @@
 
 #include "metaCache.h"
 
-#include "context.h"
-#include "testCommon.h"
-
 #include <memory>
 
-class ProxyMetaCache 
-    : public MetaCache {
-
+class ProxyMetaCache: public veil::client::MetaCache {
 public:
-    ProxyMetaCache(std::shared_ptr<Context> context) : MetaCache{std::move(context)} {}
-
-    auto getStatMap() -> decltype(m_statMap)& {
-        return m_statMap;
+    ProxyMetaCache(std::shared_ptr<Context> context)
+        : MetaCache{std::move(context)}
+    {
     }
 
+    auto getStatMap() -> decltype(m_statMap)&
+    {
+        return m_statMap;
+    }
 };
 
 

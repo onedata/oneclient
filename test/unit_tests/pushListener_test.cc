@@ -15,8 +15,6 @@
 
 using namespace veil::protocol::communication_protocol;
 
-INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
-
 // TEST definitions below
 
 class PushListenerTest

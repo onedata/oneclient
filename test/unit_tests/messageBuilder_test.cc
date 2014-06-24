@@ -14,8 +14,6 @@
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
 
-INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
-
 // TEST definitions below
 
 class MessageBuilderTest
