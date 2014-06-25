@@ -146,8 +146,10 @@ teardown(NodeType, TestName, CTX) ->
 
 call(Node, Fun) ->
     Self = self(),
-    pong = net_adm:ping(Node), 
+    pong = net_adm:ping(Node),
+    io:format("~nTEST1: ~p~n",[rpc:call('worker@172.16.67.170',dao_lib,apply,[dao_users,list_users,[10,0],1])]),
     Pid = spawn(Node, fun() -> Self ! {self(), Fun()} end),
+    io:format("~nTEST2: ~p~n",[Pid]),
     receive 
         {Pid, Ans} ->
             Ans
@@ -164,7 +166,6 @@ set_up_net_kernel() ->
 load_mods(_Nodes, []) ->
     ok;
 load_mods(Nodes, [Module | Rest]) ->
-    io:format("~nnodes: ~p ~n",[Nodes]), %todo delete
     {Mod, Bin, File} = code:get_object_code(Module),
     {_, _} = rpc:multicall(Nodes, code, delete, [Mod]),
     {_, _} = rpc:multicall(Nodes, code, purge, [Mod]),
