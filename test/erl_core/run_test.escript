@@ -164,6 +164,7 @@ set_up_net_kernel() ->
 load_mods(_Nodes, []) ->
     ok;
 load_mods(Nodes, [Module | Rest]) ->
+    io:format("~nnodes: ~p ~n",[Nodes]), %todo delete
     {Mod, Bin, File} = code:get_object_code(Module),
     {_, _} = rpc:multicall(Nodes, code, delete, [Mod]),
     {_, _} = rpc:multicall(Nodes, code, purge, [Mod]),
