@@ -32,7 +32,7 @@ teardown(worker, _State) ->
     ok.
 
 exec(storage) -> % todo remove
-    {dao_lib:apply(dao_vfs,list_storage,[],1), ?COMMON_FILE("peer.pem")};
+    ok;
 exec({env, VarName}) ->
     os:getenv(VarName);
 
