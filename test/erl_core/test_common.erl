@@ -13,7 +13,9 @@
 
 -include("test_common.hrl").
 
--export([wipe_db/1, register_user/1]).
+-define(INFO(X, Y), io:format(X ++ "~n", Y)).
+
+-export([wipe_db/1, register_user/1, setup/2, teardown/3]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -42,3 +44,38 @@ register_user(PEMFile) ->
     {rdnSequence, Rdn} = gsi_handler:proxy_subject(EEC),
     {ok, DnString} = user_logic:rdn_sequence_to_dn_string(Rdn),
     user_logic:create_user("veilfstestuser", "Test Name", [], "test@test.com", [DnString]).
+
+%% Setup runs on cluster node !
+setup(worker, TestName) ->
+    setup_test_specific(worker, TestName);
+setup(ccm, TestName) ->
+    wait_for_cluster_init(),
+
+    {ListStatus, StorageList} = dao_lib:apply(dao_vfs, list_storage, [], 1),
+    case ListStatus of
+        ok -> lists:foreach(fun(VeilDoc) -> dao_lib:apply(dao_vfs, remove_storage, [{uuid, element(2,VeilDoc)}], 1) end, StorageList);
+        _ -> {error,storage_listing_error}
+    end,
+    setup_test_specific(ccm, TestName).
+
+setup_test_specific(NodeType, TestName) ->
+    %% Run test specific setup method
+    R =
+        try apply(list_to_atom(TestName), setup, [NodeType]) of
+            Res2 -> Res2
+        catch
+            Type2:Error2 -> {Type2, Error2, erlang:get_stacktrace()}
+        end,
+    ?INFO("Setup {~p, ~p}: ~p", [NodeType, TestName, R]).
+
+
+%% Teardown runs on cluster node !
+teardown(NodeType, TestName, CTX) ->
+    ?INFO("TearDown: ~p:~p (CTX: ~p)", [NodeType, TestName, CTX]),
+
+    %% Run test specific teardown method
+    try apply(list_to_atom(TestName), teardown, [NodeType, CTX]) of
+        Res1 -> Res1
+    catch
+        Type1:Error1 -> {Type1, Error1, erlang:get_stacktrace()}
+    end.
