@@ -16,8 +16,6 @@
 
 -include("test_common.hrl").
 
--define(INFO(X, Y), io:format(X ++ "~n", Y)).
-
 -define(default_cookie, veil_cluster_node).
 -define(default_ccm_name, "ccm").
 -define(default_worker_name, "worker").
@@ -29,14 +27,13 @@
 -define(RESTART_CLUSTER, true).
 
 -record(veil_document, {uuid = "", rev_info = 0, record = none, force_update = false}).
--define(CCM, central_cluster_manager).
 -define(Node_Manager_Name, node_manager).
 
 
 main(["__exec" | [ TestName | Args ]]) ->
     set_up_net_kernel(),
 
-    #veil_document{}, %todo delete
+    _A = #veil_document{}, %todo delete
 
     load_mods([?CCM_NODE_NAME, ?WORKER_NODE_NAME], [list_to_atom(TestName), test_common]),
 

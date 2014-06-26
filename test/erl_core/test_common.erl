@@ -52,7 +52,7 @@ setup(ccm, TestName) ->
     {ListStatus, StorageList} = dao_lib:apply(dao_vfs, list_storage, [], 1),
     case ListStatus of
         ok -> lists:foreach(fun(VeilDoc) -> dao_lib:apply(dao_vfs, remove_storage, [{uuid, element(2,VeilDoc)}], 1) end, StorageList);
-        _ -> {error,storage_listing_error}
+        _ -> throw({error,storage_listing_error})
     end,
     setup_test_specific(ccm, TestName).
 
