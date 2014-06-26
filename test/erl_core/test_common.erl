@@ -13,8 +13,6 @@
 
 -include("test_common.hrl").
 
--define(INFO(X, Y), io:format(X ++ "~n", Y)).
-
 -export([wipe_db/1, register_user/1, setup/2, teardown/3]).
 
 
@@ -78,4 +76,86 @@ teardown(NodeType, TestName, CTX) ->
         Res1 -> Res1
     catch
         Type1:Error1 -> {Type1, Error1, erlang:get_stacktrace()}
+    end.
+
+%% ====================================================================
+%% Internal Functions
+%% ====================================================================
+
+%% wait_for_cluster_init/0
+%% ====================================================================
+%% @doc Wait until cluster is initialized properly.
+%% @end
+-spec wait_for_cluster_init() -> Ans when
+    Ans :: boolean() | {exception, E1, E2},
+    E1 :: term(),
+    E2 :: term().
+%% ====================================================================
+wait_for_cluster_init() ->
+    wait_for_cluster_init(0).
+
+%% wait_for_cluster_init/1
+%% ====================================================================
+%% @doc Wait until cluster is initialized properly.
+%% @end
+-spec wait_for_cluster_init(ModulesNum :: integer()) -> Ans when
+    Ans :: boolean() | {exception, E1, E2},
+    E1 :: term(),
+    E2 :: term().
+%% ====================================================================
+wait_for_cluster_init(ModulesNum) ->
+    wait_for_cluster_init(ModulesNum + length(?Modules_With_Args), 20).
+
+%% wait_for_cluster_init/2
+%% ====================================================================
+%% @doc Wait until cluster is initialized properly.
+%% @end
+-spec wait_for_cluster_init(ModulesNum :: integer(), TriesNum :: integer()) -> Ans when
+    Ans :: boolean() | {exception, E1, E2},
+    E1 :: term(),
+    E2 :: term().
+%% ====================================================================
+wait_for_cluster_init(ModulesNum, 0) ->
+    check_init(ModulesNum);
+
+wait_for_cluster_init(ModulesNum, TriesNum) ->
+    case check_init(ModulesNum) of
+        true -> true;
+        _ ->
+            timer:sleep(5000),
+            wait_for_cluster_init(ModulesNum, TriesNum - 1)
+    end.
+
+%% check_init/1
+%% ====================================================================
+%% @doc Check if cluster is initialized properly.
+%% @end
+-spec check_init(ModulesNum :: integer()) -> Ans when
+    Ans :: boolean() | {exception, E1, E2},
+    E1 :: term(),
+    E2 :: term().
+%% ====================================================================
+check_init(ModulesNum) ->
+    try
+        {WList, StateNum} = gen_server:call({global, ?CCM}, get_workers, 1000),
+        case length(WList) >= ModulesNum of
+            true ->
+                timer:sleep(500),
+                Nodes = gen_server:call({global, ?CCM}, get_nodes, 1000),
+                {_, CStateNum} = gen_server:call({global, ?CCM}, get_callbacks, 1000),
+                CheckNode = fun(Node, TmpAns) ->
+                    StateNum2 = gen_server:call({?Dispatcher_Name, Node}, get_state_num, 1000),
+                    {_, CStateNum2} = gen_server:call({?Dispatcher_Name, Node}, get_callbacks, 1000),
+                    case (StateNum == StateNum2) and (CStateNum == CStateNum2) of
+                        true -> TmpAns;
+                        false -> false
+                    end
+                end,
+                lists:foldl(CheckNode, true, Nodes);
+            false ->
+                false
+        end
+    catch
+        E1:E2 ->
+            {exception, E1, E2}
     end.
