@@ -205,7 +205,8 @@ target_link_libraries(veilFuse_dynamic
 
 # Install config
 get_property(VEILFUSE_DYNAMIC_LOCATION TARGET veilFuse_dynamic PROPERTY LOCATION)
-install(FILES ${VEILFUSE_DYNAMIC_LOCATION} DESTINATION ${BIN_DIR}
+install(FILES ${VEILFUSE_DYNAMIC_LOCATION} 
+        DESTINATION ${BIN_DIR}
         RENAME veilFuse
 )
 install(DIRECTORY config/ DESTINATION ${CONFIG_DIR})
