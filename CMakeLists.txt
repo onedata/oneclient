@@ -204,10 +204,8 @@ target_link_libraries(veilFuse_dynamic
 )
 
 # Install config
-install(TARGETS veilFuse_dynamic
+install(TARGET veilFuse_dynamic
         RENAME veilFuse
-        RUNTIME DESTINATION ${BIN_DIR}
-        LIBRARY DESTINATION ${LIB_DIR}
 )
 install(DIRECTORY config/ DESTINATION ${CONFIG_DIR})
 
@@ -223,8 +221,8 @@ set(CPACK_PACKAGE_CONTACT "help@veilfs.com")
 set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CMAKE_SYSTEM_NAME}")
 
 # DEB and RPM deps
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse openssl")
-set(CPACK_RPM_PACKAGE_REQUIRES "fuse openssl")
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse, openssl")
+set(CPACK_RPM_PACKAGE_REQUIRES "fuse, openssl")
 
 # autogenerate dependency information
 # set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)

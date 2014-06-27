@@ -44,11 +44,11 @@ debug:
 	@cd ${DEBUG_DIR} && ${CMAKE} -DCMAKE_BUILD_TYPE=debug ..
 	@(cd ${DEBUG_DIR} && make veilFuse -j`nproc`)
 
-test: release
+test: deb-info
 	@cd ${RELEASE_DIR} && make
 	@cd ${RELEASE_DIR} && make test
 
-cunit: release
+cunit: deb-info
 	@cd ${RELEASE_DIR} && make
 	@cd ${RELEASE_DIR} && make cunit
 
