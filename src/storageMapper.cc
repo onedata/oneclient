@@ -18,13 +18,12 @@
 #include <arpa/inet.h>
 
 using namespace std;
-using namespace boost;
 using namespace veil::protocol::fuse_messages;
 
 namespace veil {
 namespace client {
 
-StorageMapper::StorageMapper(std::shared_ptr<Context> context, boost::shared_ptr<FslogicProxy> fslogicProxy)
+StorageMapper::StorageMapper(std::shared_ptr<Context> context, std::shared_ptr<FslogicProxy> fslogicProxy)
     : m_fslogic(fslogicProxy)
     , m_context{std::move(context)}
 {

@@ -29,8 +29,6 @@
 #endif
 
 #include <boost/filesystem.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/smart_ptr/make_shared.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/program_options.hpp>
 #include <iostream>
@@ -48,13 +46,13 @@
 #include <memory>
 
 using namespace std;
-using namespace boost;
+using namespace std::placeholders;
 using namespace veil;
 using namespace veil::client;
 using boost::filesystem::path;
 
 /// Main  application object (filesystem state)
-static boost::weak_ptr<VeilFS> VeilAppObject;
+static std::weak_ptr<VeilFS> VeilAppObject;
 
 extern "C"
 {
@@ -245,7 +243,7 @@ int main(int argc, char* argv[], char* envp[])
     FLAGS_stderrthreshold = 3;
 
     // Set up a remote logger
-    const auto logWriter = boost::make_shared<logging::RemoteLogWriter>();
+    const auto logWriter = std::make_shared<logging::RemoteLogWriter>();
     const auto logSink = std::make_shared<logging::RemoteLogSink>(logWriter);
     const auto debugLogSink = std::make_shared<logging::RemoteLogSink>(logWriter, protocol::logging::LDEBUG);
     logging::setLogSinks(logSink, debugLogSink);
@@ -275,7 +273,7 @@ int main(int argc, char* argv[], char* envp[])
     bool debug = options->get_debug();
     const auto checkCertificate = !options->get_no_check_certificate();
 
-    auto config = boost::make_shared<Config>(context);
+    auto config = std::make_shared<Config>(context);
     context->setConfig(config);
 
     // proper logger setup
@@ -283,41 +281,41 @@ int main(int argc, char* argv[], char* envp[])
     FLAGS_logtostderr = debug;
     if(debug)
         FLAGS_stderrthreshold = 2;
-    
-    filesystem::path log_path;
-    system::error_code ec;
-    
+
+    boost::filesystem::path log_path;
+    boost::system::error_code ec;
+
     if(options->is_default_log_dir()) {
         using namespace boost::filesystem;
-        
+
         uid_t uid = geteuid();
         std::string userIdent = to_string(uid);
-        struct passwd *pw = getpwuid(uid);      // Use UID when getting user name fails 
+        struct passwd *pw = getpwuid(uid);      // Use UID when getting user name fails
         if(pw) {
             userIdent = pw->pw_name;
         }
-        
+
         string log_subdir_name = string(argv[0]) + string("_") + userIdent + "_logs";
         log_path = path(options->get_log_dir()) / path( log_subdir_name ).leaf();
-        
-        
+
+
         create_directories(log_path, ec);
         if(ec.value() > 0) {
             cerr << "Error: Cannot create log directory: " << log_path.normalize().string() << ". Aborting.";
         }
-        
+
     } else {
-        log_path = filesystem::path(config->absPathRelToCWD(options->get_log_dir()));
+        log_path = boost::filesystem::path(config->absPathRelToCWD(options->get_log_dir()));
     }
-    
-    
-    
+
+
+
     FLAGS_log_dir = log_path.normalize().string();
     LOG(INFO) << "Setting log dir to: " << log_path.normalize().string();
     google::ShutdownGoogleLogging();
     google::InitGoogleLogging(argv[0]);
- 
-    filesystem::permissions(log_path, filesystem::owner_all, ec);
+
+    boost::filesystem::permissions(log_path, boost::filesystem::owner_all, ec);
     if(ec.value() > 0) {
         LOG(WARNING) << "Cannot change permissions for log directory (" << log_path.normalize().string() << ") due to: " << ec.message();
     }
@@ -325,8 +323,8 @@ int main(int argc, char* argv[], char* envp[])
 
     // after logger setup - log version
     LOG(INFO) << "VeilFuse version: " << getVersionString();
-    
-    
+
+
     // Iterate over all env variables and save them in Config
     char** env;
     for (env = envp; *env != 0; env++)
@@ -336,7 +334,7 @@ int main(int argc, char* argv[], char* envp[])
         boost::split(tokens, tEnv, boost::is_any_of("="));
         if(tokens.size() != 2) // Invalid env variable. Expected format: NAME=VALUE
             continue;
-        
+
         config->putEnv(tokens[0], tokens[1]);
     }
 
@@ -385,7 +383,7 @@ int main(int argc, char* argv[], char* envp[])
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
-    auto testPool = boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), std::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate, 1, 0);
+    auto testPool = std::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), std::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate, 1, 0);
     context->setConnectionPool(testPool);
     try{
         config->testHandshake();
@@ -424,7 +422,7 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     // Initialize VeilClient application
-    context->setConnectionPool(boost::make_shared<SimpleConnectionPool> (
+    context->setConnectionPool(std::make_shared<SimpleConnectionPool> (
         gsiHandler->getClusterHostname(), options->get_cluster_port(), std::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate));
 
     // Setup veilhelpers config
@@ -440,19 +438,19 @@ int main(int argc, char* argv[], char* envp[])
         context->addScheduler(std::make_shared<JobScheduler>());
 
     // Initialize main application object
-    auto eventCommunicator = boost::make_shared<events::EventCommunicator>(context);
-    auto fslogicProxy = boost::make_shared<FslogicProxy>(context);
-    auto VeilApp = boost::make_shared<VeilFS>(mountpoint, context,
+    auto eventCommunicator = std::make_shared<events::EventCommunicator>(context);
+    auto fslogicProxy = std::make_shared<FslogicProxy>(context);
+    auto VeilApp = std::make_shared<VeilFS>(mountpoint, context,
                     fslogicProxy,
-                    boost::make_shared<MetaCache>(context),
-                    boost::make_shared<LocalStorageManager>(context),
-                    boost::make_shared<StorageMapper>(context, fslogicProxy),
-                    boost::make_shared<helpers::StorageHelperFactory>(context->getConnectionPool(), bufferLimits),
+                    std::make_shared<MetaCache>(context),
+                    std::make_shared<LocalStorageManager>(context),
+                    std::make_shared<StorageMapper>(context, fslogicProxy),
+                    std::make_shared<helpers::StorageHelperFactory>(context->getConnectionPool(), bufferLimits),
                     eventCommunicator);
     VeilAppObject = VeilApp;
 
     // Register remote logWriter for log threshold level updates and start sending loop
-    context->getPushListener()->subscribe(boost::bind(&logging::RemoteLogWriter::handleThresholdChange,
+    context->getPushListener()->subscribe(std::bind(&logging::RemoteLogWriter::handleThresholdChange,
                                                      logWriter, _1));
     logWriter->run(context->getConnectionPool());
 

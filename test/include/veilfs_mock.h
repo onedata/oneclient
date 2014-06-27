@@ -16,7 +16,7 @@ public:
     VeilFSMock(){}
     ~VeilFSMock(){}
 
-    MOCK_METHOD0(getScheduler, boost::shared_ptr<JobScheduler>());
+    MOCK_METHOD0(getScheduler, std::shared_ptr<JobScheduler>());
 };
 
 #endif // VEILFS_MOCK_H

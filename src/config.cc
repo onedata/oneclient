@@ -12,7 +12,6 @@
 #include "communication_protocol.pb.h"
 #include "fuse_messages.pb.h"
 
-#include <boost/filesystem.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
 
@@ -21,7 +20,6 @@
 #include <functional>
 
 using namespace std;
-using namespace boost;
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
 using boost::filesystem::path;
@@ -38,12 +36,12 @@ Config::Config(std::weak_ptr<Context> context)
 Config::~Config()
 {
 }
-    
+
 void Config::putEnv(std::string name, std::string value) {
     m_envAll[name] = value;
 }
 
-void Config::setMountPoint(filesystem::path mp)
+void Config::setMountPoint(boost::filesystem::path mp)
 {
     m_mountPoint = mp.normalize();
 }
@@ -85,12 +83,12 @@ string Config::absPathRelTo(const path &relTo, path p)
     return out.normalize().string();
 }
 
-string Config::absPathRelToCWD(const filesystem::path &p)
+string Config::absPathRelToCWD(const boost::filesystem::path &p)
 {
     return absPathRelTo(string(m_envCWD), p);
 }
 
-string Config::absPathRelToHOME(const filesystem::path &p)
+string Config::absPathRelToHOME(const boost::filesystem::path &p)
 {
     return absPathRelTo(string(m_envHOME), p);
 }
@@ -193,7 +191,7 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
     assert(context);
 
     MessageBuilder builder{context};
-    boost::shared_ptr<CommunicationHandler> conn;
+    std::shared_ptr<CommunicationHandler> conn;
 
     char tmpHost[1024];
     gethostname(tmpHost, sizeof(tmpHost));

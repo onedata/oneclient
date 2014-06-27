@@ -23,7 +23,7 @@ class MockStorageMapper
 
 public:
     MockStorageMapper(std::shared_ptr<Context> context,
-                      boost::shared_ptr<FslogicProxy> fslogicProxy)
+                      std::shared_ptr<FslogicProxy> fslogicProxy)
         : StorageMapper(std::move(context), fslogicProxy) {}
 
     ~MockStorageMapper() {}

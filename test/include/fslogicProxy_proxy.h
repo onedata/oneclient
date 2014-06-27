@@ -18,8 +18,6 @@
 
 #include <memory>
 
-using namespace boost;
-
 class ProxyFslogicProxy
     : public FslogicProxy {
 public:
@@ -27,25 +25,25 @@ public:
         : FslogicProxy{std::move(context)} {}
 
     bool useMockConnectionSelector;
-    boost::shared_ptr<MockCommunicationHandler> ch_mock;
+    std::shared_ptr<MockCommunicationHandler> ch_mock;
     bool mockAnswer;
     bool mockAtom;
-    
-    void setMessageBuilder(boost::shared_ptr<MessageBuilder> mock) {
+
+    void setMessageBuilder(std::shared_ptr<MessageBuilder> mock) {
         m_messageBuilder = mock;
     }
 
     bool sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, google::protobuf::Message& response) {
         if(mockAnswer)
             return mockAnswerFun(fMsg, response);
-        else 
+        else
             return FslogicProxy::sendFuseReceiveAnswer(fMsg, response);
     }
 
     string sendFuseReceiveAtom(const google::protobuf::Message& fMsg) {
         if(mockAtom)
             return mockAtomFun(fMsg);
-        else 
+        else
             return FslogicProxy::sendFuseReceiveAtom(fMsg);
     }
 

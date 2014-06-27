@@ -16,7 +16,6 @@
 #include <boost/algorithm/string.hpp>
 
 using namespace std;
-using namespace boost;
 using namespace boost::algorithm;
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;

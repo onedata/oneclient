@@ -9,12 +9,12 @@
 #ifndef EVENT_TRANSFORMER_H
 #define EVENT_TRANSFORMER_H
 
-#include <string>
-
-#include <boost/shared_ptr.hpp>
 #include "fuse_messages.pb.h"
 #include "fslogicProxy.h"
 #include "events/IEventStream.h"
+
+#include <memory>
+#include <string>
 
 namespace veil {
 namespace client {
@@ -28,8 +28,8 @@ class EventTransformer : public IEventStream {
 public:
     EventTransformer(const std::vector<std::string> &fieldNamesToReplace, const std::vector<std::string> &valuesToReplace, const std::vector<std::string> &newValues);
 
-    static boost::shared_ptr<IEventStream> fromConfig(const :: veil::protocol::fuse_messages::EventTransformerConfig & config); ///<  Creates EventTransformer object from protocol buffer message EventTransformerConfig
-    virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event); ///<  Implements pure virtual method IEventStream::actualProcessEvent
+    static std::shared_ptr<IEventStream> fromConfig(const :: veil::protocol::fuse_messages::EventTransformerConfig & config); ///<  Creates EventTransformer object from protocol buffer message EventTransformerConfig
+    virtual std::shared_ptr<Event> actualProcessEvent(std::shared_ptr<Event> event); ///<  Implements pure virtual method IEventStream::actualProcessEvent
 
 private:
     std::vector<std::string> m_fieldNamesToReplace;

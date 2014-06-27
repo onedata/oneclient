@@ -20,7 +20,7 @@ class ProxyStorageMapper
 
 public:
     ProxyStorageMapper(std::shared_ptr<Context> context,
-                       boost::shared_ptr<FslogicProxy> mock)
+                       std::shared_ptr<FslogicProxy> mock)
         : StorageMapper(std::move(context), mock) {}
 
     map<int, storageInfo>& getStorageMapping() {

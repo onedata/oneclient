@@ -15,55 +15,54 @@
 using namespace veil::client;
 using namespace veil::client::events;
 using namespace std;
-using namespace boost;
 using namespace veil::protocol::fuse_messages;
 using namespace veil::protocol::communication_protocol;
 
-boost::shared_ptr<Event> Event::createMkdirEvent(const string & filePath)
+std::shared_ptr<Event> Event::createMkdirEvent(const string & filePath)
 {
-    boost::shared_ptr<Event> event (new Event());
+    auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = "mkdir_event";
     event->m_stringProperties["filePath"] = filePath;
-    return event;
+    return std::move(event);
 }
 
-boost::shared_ptr<Event> Event::createWriteEvent(const string & filePath, long long bytes)
+std::shared_ptr<Event> Event::createWriteEvent(const string & filePath, long long bytes)
 {
-    boost::shared_ptr<Event> event (new Event());
+    auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = string("write_event");
     event->m_stringProperties["filePath"] = filePath;
     event->m_numericProperties["bytes"] = bytes;
-    return event;
+    return std::move(event);
 }
 
-boost::shared_ptr<Event> Event::createReadEvent(const string & filePath, long long bytes)
+std::shared_ptr<Event> Event::createReadEvent(const string & filePath, long long bytes)
 {
-    boost::shared_ptr<Event> event (new Event());
+    auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = string("read_event");
     event->m_stringProperties["filePath"] = filePath;
     event->m_numericProperties["bytes"] = bytes;
-    return event;
+    return std::move(event);
 }
 
-boost::shared_ptr<Event> Event::createRmEvent(const string & filePath)
+std::shared_ptr<Event> Event::createRmEvent(const string & filePath)
 {
-    boost::shared_ptr<Event> event (new Event());
+    auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = string("rm_event");
     event->m_stringProperties["filePath"] = filePath;
-    return event;
+    return std::move(event);
 }
 
-boost::shared_ptr<Event> Event::createTruncateEvent(const string & filePath, off_t newSize){
-    boost::shared_ptr<Event> event (new Event());
+std::shared_ptr<Event> Event::createTruncateEvent(const string & filePath, off_t newSize){
+    auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = "truncate_event";
     event->m_stringProperties["filePath"] = filePath;
     event->m_stringProperties["newSize"] = "newSize";
-    return event;
+    return std::move(event);
 }
 
-boost::shared_ptr<EventMessage> Event::createProtoMessage()
+std::shared_ptr<EventMessage> Event::createProtoMessage()
 {
-    boost::shared_ptr<EventMessage> eventMessage (new EventMessage());
+    auto eventMessage = std::make_shared<EventMessage>();
     for(map<string, string>::iterator it = m_stringProperties.begin(); it != m_stringProperties.end(); ++it){
         eventMessage->add_string_properties_keys(it->first);
         eventMessage->add_string_properties_values(it->second);
@@ -74,7 +73,7 @@ boost::shared_ptr<EventMessage> Event::createProtoMessage()
         eventMessage->add_numeric_properties_values(it->second);
     }
 
-    return eventMessage;
+    return std::move(eventMessage);
 }
 
 NumericProperty Event::getNumericProperty(const string & key, const NumericProperty defaultValue) const {

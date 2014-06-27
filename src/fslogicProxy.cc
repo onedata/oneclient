@@ -21,7 +21,6 @@
 #include <sys/types.h>
 
 using namespace std;
-using namespace boost;
 using namespace boost::algorithm;
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
@@ -30,7 +29,7 @@ namespace veil {
 namespace client {
 
 FslogicProxy::FslogicProxy(std::shared_ptr<Context> context)
-    : m_messageBuilder(new MessageBuilder(context))
+    : m_messageBuilder{std::make_shared<MessageBuilder>(context)}
     , m_context{std::move(context)}
 {
     LOG(INFO) << "FslogicProxy created";
@@ -294,7 +293,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, 
         return false;
     }
 
-    boost::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
+    std::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
     if(!connection)
     {
         LOG(ERROR) << "Cannot select connection from connectionPool";
@@ -335,7 +334,7 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
         return VEIO;
     }
 
-    boost::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
+    std::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
     if(!connection)
     {
         LOG(ERROR) << "Cannot select connection from connectionPool";
@@ -408,7 +407,7 @@ void FslogicProxy::pingCluster(const string& nth)
     int nthInt;
     istringstream iss(nth);
     iss >> nthInt;
-    boost::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
+    std::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
 
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
         LOG(WARNING) << "Pinging cluster " << (connection ? "failed" : "not needed");

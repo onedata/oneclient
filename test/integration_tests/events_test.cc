@@ -19,13 +19,13 @@ INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
 // TEST definitions below
 
-class EventsTest 
-    : public ::testing::Test 
+class EventsTest
+    : public ::testing::Test
 {
 protected:
     COMMON_INTEGRATION_DEFS();
 
-    boost::shared_ptr<VeilFSMount> VFS;
+    std::shared_ptr<VeilFSMount> VFS;
 
     path directIO_root;
 
@@ -81,7 +81,7 @@ TEST_F(EventsTest, mkdirExample) {
     EXPECT_EQ(0, ::system(("mkdir " + dirPath2).c_str()));
     sleep(3);
 
-    // then 
+    // then
     res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
     after = atoi(res.c_str());
 

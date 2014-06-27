@@ -12,7 +12,6 @@
 #include <vector>
 #include <list>
 #include <google/protobuf/repeated_field.h>
-#include <boost/shared_ptr.hpp>
 #include <memory>
 #include <sys/statvfs.h>
 
@@ -72,7 +71,7 @@ class FslogicProxy : public ISchedulable
 {
 
 protected:
-    boost::shared_ptr<MessageBuilder> m_messageBuilder;                ///< MessageBuilder used to construct cluster packets
+    std::shared_ptr<MessageBuilder> m_messageBuilder;                ///< MessageBuilder used to construct cluster packets
     /**
      * Sends and receives given protobuf message.
      * High level method used to send serialized protobuf message to cluster and return its response as given by reference object.
