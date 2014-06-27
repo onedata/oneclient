@@ -23,6 +23,7 @@ setup(worker) ->
     fslogic_storage:insert_storage("ClusterProxy", [], Fuse_groups),
     
     test_common:register_user("peer.pem"),
+
     DirectIORoot.
 
 teardown(ccm, _State) ->

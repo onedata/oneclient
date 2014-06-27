@@ -51,7 +51,7 @@ protected:
 // Test if client negotiates and registers its FuseId after start
 TEST_F(ConnectionSessionsTest, SessionInitAndRegister) {
     // By default client should negotiate and register FuseId
-
+    std::cout << "!!!storage list: "<< erlExec(string("storage"))<<"\n"; //todo remove
     // Check if cluster already knows who we are
     ASSERT_EQ("ok", erlExec(string("{check_session, \"") + config->getFuseID() + string("\"}")));
 }
@@ -61,7 +61,7 @@ TEST_F(ConnectionSessionsTest, SessionEnvVairables_And_SessionReinitialization) 
     // By default client should negotiate and register FuseId
 
     string currentFuseId = config->getFuseID();
-
+    std::cout << "FUSE_ID: " << currentFuseId;
     // Now we can manually add some env varables
     static char env1[] = FUSE_OPT_PREFIX "varname1=varvalue1";
     static char env2[] = FUSE_OPT_PREFIX "varname2=varvalue2";
@@ -71,8 +71,9 @@ TEST_F(ConnectionSessionsTest, SessionEnvVairables_And_SessionReinitialization) 
     // Start new handshake
     config->negotiateFuseID();
 
-    sleep(2); // This can take a while
+    sleep(10); // This can take a while
 
+    std::cout << "NEW FUSE_ID: " << config->getFuseID();
     // New session ID (FuseId) shall be different from previous
     ASSERT_NE(currentFuseId, config->getFuseID());
 

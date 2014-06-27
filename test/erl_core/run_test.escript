@@ -16,8 +16,6 @@
 
 -include("test_common.hrl").
 
--define(INFO(X, Y), io:format(X ++ "~n", Y)).
-
 -define(default_cookie, veil_cluster_node).
 -define(default_ccm_name, "ccm").
 -define(default_worker_name, "worker").
@@ -29,14 +27,13 @@
 -define(RESTART_CLUSTER, true).
 
 -record(veil_document, {uuid = "", rev_info = 0, record = none, force_update = false}).
--define(CCM, central_cluster_manager).
 -define(Node_Manager_Name, node_manager).
--define(Dispatcher_Name, request_dispatcher).
--define(Modules_With_Args, [{central_logger, []}, {cluster_rengine, []}, {control_panel, []}, {dao, []}, {fslogic, []}, {gateway, []}, {rtransfer, []}, {rule_manager, []}, {dns_worker, []}, {remote_files_manager, []}]).
 
 
 main(["__exec" | [ TestName | Args ]]) ->
     set_up_net_kernel(),
+
+    _A = #veil_document{}, %todo delete
 
     load_mods([?CCM_NODE_NAME, ?WORKER_NODE_NAME], [list_to_atom(TestName), test_common]),
 
@@ -45,7 +42,7 @@ main(["__exec" | [ TestName | Args ]]) ->
     {ok, AbsForm} = erl_parse:parse_exprs(Tokens),
     {value, Value, _Bs} = erl_eval:exprs(AbsForm, erl_eval:new_bindings()),
 
-    try call(?WORKER_NODE_NAME, fun() -> apply(list_to_atom(TestName), exec, [Value]) end) of 
+    try rpc:call(?WORKER_NODE_NAME, list_to_atom(TestName), exec, [Value]) of
         Res ->
             IsString = io_lib:printable_unicode_list(Res),
             if 
@@ -86,72 +83,41 @@ main([TestName | Args]) ->
     env_setup([?CCM_NODE_NAME, ?WORKER_NODE_NAME]),
     load_mods([?CCM_NODE_NAME, ?WORKER_NODE_NAME], [list_to_atom(TestName), test_common]),
 
-    CTX_CCM = call(?CCM_NODE_NAME, fun() -> setup(ccm, TestName) end),
-    CTX_W = call(?WORKER_NODE_NAME, fun() -> setup(worker, TestName) end),
-    
+%%     CTX_CCM = call(?CCM_NODE_NAME, fun() -> setup(ccm, TestName) end),
+%%     CTX_W = call(?WORKER_NODE_NAME, fun() -> setup(worker, TestName) end),
+
+    CTX_CCM = rpc:call(?CCM_NODE_NAME, test_common,setup,[ccm, TestName]),
+    CTX_W = rpc:call(?WORKER_NODE_NAME, test_common,setup,[worker, TestName]),
+
     CMD = "TEST_NAME=\"" ++ TestName ++"\" TEST_RUNNER=\"" ++ escript:script_name() ++ "\" ./" ++ TestName ++ "_i " ++ string:join(Args, " "),
     ?INFO("CMD: ~p", [CMD]),
     ?INFO("STDOUT: ~s", [os:cmd(CMD)]),
     
-    call(?CCM_NODE_NAME, fun() -> teardown(ccm, TestName, CTX_CCM) end),
-    call(?WORKER_NODE_NAME, fun() -> teardown(worker, TestName, CTX_W) end).
+    rpc:call(?CCM_NODE_NAME, test_common, teardown, [ccm, TestName, CTX_CCM]),
+    rpc:call(?WORKER_NODE_NAME, test_common, teardown, [worker, TestName, CTX_W]).
 
 
 %%
 %% Main SETPU/TEARDOWN methods
 %%
 
-%% Setup runs on cluster node !
-setup(worker, TestName) ->    
-    setup1(worker, TestName);
-setup(ccm, TestName) ->
-    % wait_for_cluster_init(),
-
-    {ListStatus, StorageList} = dao_lib:apply(dao_vfs, list_storage, [], 1),
-    case ListStatus of
-        ok -> lists:forach(fun(VeilDoc) -> dao_lib:apply(dao_vfs, remove_storage, [{uuid, VeilDoc#veil_document.uuid}], 1) end, StorageList);
-        _ -> ?INFO("Error: ~p", [{error,storage_listing_error}])
-    end,
-
-    setup1(ccm, TestName).
-
-setup1(NodeType, TestName) ->
-    %% Run test specific setup method
-    R = 
-    try apply(list_to_atom(TestName), setup, [NodeType]) of
-        Res2 -> Res2 
-    catch 
-        Type2:Error2 -> {Type2, Error2, erlang:get_stacktrace()}
-    end,
-    ?INFO("Setup {~p, ~p}: ~p", [NodeType, TestName, R]).
-   
-
-%% Teardown runs on cluster node !    
-teardown(NodeType, TestName, CTX) ->
-    ?INFO("TearDown: ~p:~p (CTX: ~p)", [NodeType, TestName, CTX]),
-
-    %% Run test specific teardown method
-    try apply(list_to_atom(TestName), teardown, [NodeType, CTX]) of 
-        Res1 -> Res1 
-    catch 
-        Type1:Error1 -> {Type1, Error1, erlang:get_stacktrace()}
-    end.
-
-
 %% 
 %% HELPER METHODS
 %%
 
-call(Node, Fun) ->
-    Self = self(),
-    pong = net_adm:ping(Node), 
-    Pid = spawn(Node, fun() -> Self ! {self(), Fun()} end),
-    receive 
-        {Pid, Ans} ->
-            Ans
-    after 150000 ->
-        {error, timeout}
-    end.
+%% call(Node, Module, Method, Args) ->
+%%     Self = self(),
+%%     pong = net_adm:ping(Node),
+%%     io:format("~nTEST1: ~p~n",[rpc:call('worker@172.16.67.170',dao_lib,apply,[dao_users,list_users,[10,0],1])]),
+%% %%     Pid = spawn(Node, fun() -> Self ! {self(), Fun()} end),
+%%     rpc:call(Node,Mo)
+%%     io:format("~nTEST2: ~p~n",[Pid]),
+%%     receive
+%%         {Pid, Ans} ->
+%%             Ans
+%%     after 150000 ->
+%%         {error, timeout}
+%%     end.
 
 set_up_net_kernel() ->
     {A, B, C} = erlang:now(),
@@ -172,86 +138,3 @@ load_mods(Nodes, [Module | Rest]) ->
 env_setup(Nodes) ->
     rpc:multicall(Nodes, os, putenv, [?TEST_ROOT_VAR, os:getenv(?TEST_ROOT_VAR)]),
     rpc:multicall(Nodes, os, putenv, [?COMMON_FILES_ROOT_VAR, os:getenv(?COMMON_FILES_ROOT_VAR)]).
-
-
-
-%% wait_for_cluster_init/0
-%% ====================================================================
-%% @doc Wait until cluster is initialized properly.
-%% @end
--spec wait_for_cluster_init() -> Ans when
-  Ans :: boolean() | {exception, E1, E2},
-  E1 :: term(),
-  E2 :: term().
-%% ====================================================================
-wait_for_cluster_init() ->
-  wait_for_cluster_init(0).
-
-%% wait_for_cluster_init/1
-%% ====================================================================
-%% @doc Wait until cluster is initialized properly.
-%% @end
--spec wait_for_cluster_init(ModulesNum :: integer()) -> Ans when
-  Ans :: boolean() | {exception, E1, E2},
-  E1 :: term(),
-  E2 :: term().
-%% ====================================================================
-wait_for_cluster_init(ModulesNum) ->
-  wait_for_cluster_init(ModulesNum + length(?Modules_With_Args), 20).
-
-%% wait_for_cluster_init/2
-%% ====================================================================
-%% @doc Wait until cluster is initialized properly.
-%% @end
--spec wait_for_cluster_init(ModulesNum :: integer(), TriesNum :: integer()) -> Ans when
-  Ans :: boolean() | {exception, E1, E2},
-  E1 :: term(),
-  E2 :: term().
-%% ====================================================================
-wait_for_cluster_init(ModulesNum, 0) ->
-  check_init(ModulesNum);
-
-wait_for_cluster_init(ModulesNum, TriesNum) ->
-  case check_init(ModulesNum) of
-    true -> true;
-    _ ->
-      timer:sleep(5000),
-      wait_for_cluster_init(ModulesNum, TriesNum - 1)
-  end.
-
-
-%% check_init/1
-%% ====================================================================
-%% @doc Check if cluster is initialized properly.
-%% @end
--spec check_init(ModulesNum :: integer()) -> Ans when
-  Ans :: boolean() | {exception, E1, E2},
-  E1 :: term(),
-  E2 :: term().
-%% ====================================================================
-check_init(ModulesNum) ->
-  try
-    {WList, StateNum} = gen_server:call({global, ?CCM}, get_workers, 1000),
-    case length(WList) >= ModulesNum of
-      true ->
-        timer:sleep(500),
-        Nodes = gen_server:call({global, ?CCM}, get_nodes, 1000),
-        {_, CStateNum} = gen_server:call({global, ?CCM}, get_callbacks, 1000),
-        CheckNode = fun(Node, TmpAns) ->
-          StateNum2 = gen_server:call({?Dispatcher_Name, Node}, get_state_num, 1000),
-          {_, CStateNum2} = gen_server:call({?Dispatcher_Name, Node}, get_callbacks, 1000),
-          case (StateNum == StateNum2) and (CStateNum == CStateNum2) of
-            true -> TmpAns;
-            false -> false
-          end
-        end,
-        lists:foldl(CheckNode, true, Nodes);
-      false ->
-        false
-    end
-  catch
-    E1:E2 ->
-      {exception, E1, E2}
-  end.
-
-
