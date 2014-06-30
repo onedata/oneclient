@@ -5,12 +5,14 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.h"
 #include "erlTestCore.h"
-#include "boost/filesystem.hpp"
+#include "fslogicProxy.h"
+#include "veilErrors.h"
+#include "testCommon.h"
+
+#include <boost/filesystem.hpp>
 
 using namespace boost::filesystem;
-using namespace std;
 
 // TEST definitions below
 

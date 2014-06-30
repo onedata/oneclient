@@ -13,7 +13,6 @@
 #include <unistd.h>
 
 using namespace boost::filesystem;
-using namespace std;
 
 class TimesUpdateTest: public CommonIntegrationTest
 {

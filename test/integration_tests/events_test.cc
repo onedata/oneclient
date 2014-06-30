@@ -13,7 +13,7 @@
 #include <unistd.h>
 
 using namespace boost::filesystem;
-using namespace std;
+using namespace veil;
 
 class EventsTest: public CommonIntegrationTest
 {

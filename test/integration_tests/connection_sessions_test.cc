@@ -5,20 +5,26 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.h"
+#include "communication_protocol.pb.h"
+#include "config_proxy.h"
 #include "erlTestCore.h"
-#include "boost/filesystem.hpp"
+#include "fuse_messages.pb.h"
+#include "veilErrors.h"
+#include "testCommon.h"
+
+#include <boost/filesystem.hpp>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <boost/thread/thread_time.hpp>
+
 #include <cstdlib>
 
 using namespace boost::filesystem;
-using namespace std;
+using namespace veil;
+using namespace veil::client::utils;
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
-using namespace veil::client::utils;
 
 class ConnectionSessionsTest: public CommonIntegrationTest
 {

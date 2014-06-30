@@ -227,7 +227,13 @@ set(TEST_SOURCES_DIR "${PROJECT_SOURCE_DIR}/test")
 include_directories(${TEST_SOURCES_DIR}/include)
 include_directories(${VEILHELPERS_TEST_INCLUDE_DIR})
 
-add_library(testRunner STATIC ${TEST_SOURCES_DIR}/testRunner.cc)
+set(TEST_UTILS_DIR ${TEST_SOURCES_DIR}/erl_core)
+add_library(testCommon STATIC
+    ${TEST_SOURCES_DIR}/testRunner.cc
+    ${TEST_SOURCES_DIR}/testCommon.cc
+    ${TEST_SOURCES_DIR}/testCommon.cc
+    ${TEST_UTILS_DIR}/erlTestCore.cc
+)
 
 # Unit tests
 
@@ -247,6 +253,7 @@ foreach(file ${files})
     add_executable(${TEST_NAME} ${file})
     add_dependencies(${TEST_NAME} gtest gmock veilFuse veilhelpers veilclient veilprotocol)
     target_link_libraries(${TEST_NAME}
+        testCommon
         ${GTEST_LIBRARIES}
         ${GMOCK_LIBRARIES}
         ${FUSE_LIBRARY_CUSTOM}
@@ -255,7 +262,6 @@ foreach(file ${files})
         veilclient
         ${OPENSSL_LIBRARIES}
         ${PLATFORM_EXTRA_LIBS}
-        testRunner
     )
     add_test(${TEST_NAME} ${TEST_NAME})
     run_test(${TEST_NAME})
@@ -263,9 +269,6 @@ endforeach()
 
 
 # Integration tests
-
-set(TEST_UTILS_DIR ${TEST_SOURCES_DIR}/erl_core)
-add_library(erlTestCore ${TEST_UTILS_DIR}/erlTestCore.cc)
 
 file(GLOB erlc_files ${TEST_SOURCES_DIR}/*/*.erl)
 add_custom_target(build_erl_core
@@ -291,6 +294,7 @@ foreach(file ${files})
     add_executable(${TEST_NAME} ${file} ${TEST_UTILS_DIR}/erlTestCore.cc)
     add_dependencies(${TEST_NAME} gtest gmock veilFuse veilhelpers veilclient veilprotocol)
     target_link_libraries(${TEST_NAME}
+        testCommon
         ${GTEST_LIBRARIES}
         ${GMOCK_LIBRARIES}
         ${FUSE_LIBRARY_CUSTOM}
@@ -298,9 +302,7 @@ foreach(file ${files})
         ${PROTOBUF_LIBRARY_CUSTOM}
         veilclient
         ${OPENSSL_LIBRARIES}
-        erlTestCore
         ${PLATFORM_EXTRA_LIBS}
-        testRunner
     )
     run_test_i(${TEST_NAME})
 endforeach()

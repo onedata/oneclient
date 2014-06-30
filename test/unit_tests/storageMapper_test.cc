@@ -5,14 +5,16 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.h"
-#include "storageMapper_proxy.h"
-#include "options_mock.h"
 #include "fslogicProxy_mock.h"
+#include "helpers/storageHelperFactory.h"
 #include "jobScheduler_mock.h"
+#include "options_mock.h"
+#include "storageMapper_proxy.h"
+#include "testCommon.h"
 #include "veilfs.h"
 
 using namespace ::testing;
+using namespace veil;
 using namespace veil::client;
 using namespace veil::protocol::fuse_messages;
 

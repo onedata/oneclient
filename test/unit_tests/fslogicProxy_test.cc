@@ -5,11 +5,12 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.h"
+#include "connectionPool_mock.h"
 #include "fslogicProxy_proxy.h"
+#include "jobScheduler_mock.h"
 #include "messageBuilder_mock.h"
 #include "options_mock.h"
-#include "jobScheduler_mock.h"
+#include "testCommon.h"
 
 #include <google/protobuf/descriptor.h>
 
@@ -21,6 +22,8 @@ using namespace std::placeholders;
 using namespace veil::client;
 using namespace veil::protocol::fuse_messages;
 using namespace veil::protocol::communication_protocol;
+
+bool pbMessageEqual( const google::protobuf::MessageLite &lhs, const google::protobuf::MessageLite &rhs ) { return lhs.SerializePartialAsString() == rhs.SerializePartialAsString(); }
 
 #define CMSG_FROM(X) MessageBuilder(context).packFuseMessage("messageType", "answerType", "decoderName", X.SerializeAsString());
 

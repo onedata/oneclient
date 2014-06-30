@@ -11,8 +11,10 @@
 
 #include "events/events.h"
 
-#include "fuse_messages.pb.h"
 #include "context.h"
+#include "fuse_messages.pb.h"
+
+#include <gmock/gmock.h>
 
 #include <memory>
 #include <list>

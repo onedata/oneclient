@@ -7,14 +7,14 @@
 
 #include "testCommon.h"
 
-#include "events/events.h"
-
-#include "events_mock.h"
-#include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"
-#include "options_mock.h"
-#include "jobScheduler_mock.h"
+#include "connectionPool_mock.h"
+#include "events/events.h"
+#include "events_mock.h"
 #include "fslogicProxy_proxy.h"
+#include "fuse_messages.pb.h"
+#include "jobScheduler_mock.h"
+#include "options_mock.h"
 
 #include <list>
 #include <vector>

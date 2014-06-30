@@ -5,29 +5,30 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.h"
-#include "veilfs_proxy.h"
-#include "fslogicProxy_proxy.h"
-#include "messageBuilder_mock.h"
-#include "options_mock.h"
-#include "events_mock.h"
-#include "jobScheduler_mock.h"
-#include "storageHelperFactory_fake.h"
-#include "fslogicProxy_mock.h"
-#include "metaCache_mock.h"
-#include "localStorageManager_mock.h"
-#include "storageMapper_mock.h"
-#include "veilErrors.h"
-
+#include "config_proxy.h"
+#include "connectionPool_mock.h"
 #include "events/events.h"
-
 #include "events_mock.h"
+#include "fslogicProxy_mock.h"
+#include "fslogicProxy_proxy.h"
+#include "jobScheduler_mock.h"
+#include "localStorageManager_mock.h"
+#include "messageBuilder_mock.h"
+#include "metaCache_mock.h"
+#include "options_mock.h"
+#include "storageHelperFactory_fake.h"
+#include "storageMapper_mock.h"
+#include "testCommon.h"
+#include "veilErrors.h"
+#include "veilfs_proxy.h"
 
 using namespace ::testing;
 using namespace std::placeholders;
 using namespace veil::client;
 using namespace veil::client::events;
 using namespace veil::protocol::fuse_messages;
+
+template<typename T> bool identityEqual( const T &lhs, const T &rhs ) { return &lhs == &rhs; }
 
 class VeilFSTest: public CommonTest
 {
