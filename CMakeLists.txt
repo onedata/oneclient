@@ -118,6 +118,10 @@ find_library(RT_LIBRARY rt)
 find_library(ZLIB_LIBRARY NAMES libz.a z)
 find_library(DL_LIBRARY dl)
 
+
+# gpertools lib
+find_library(PROFILER_LIBRARY NAMES libprofiler.a)
+
 # Pull git submodules
 message(STATUS "Pulling submodules using git...")
 execute_process(COMMAND ${GIT_EXECUTABLE} submodule init
@@ -205,10 +209,20 @@ target_link_libraries(veilFuse_dynamic
     ${PLATFORM_EXTRA_LIBS}
 )
 
+if(NOT ${PROFILER_LIBRARY} MATCHES PROFILER_LIBRARY-NOTFOUND)
+    target_link_libraries(veilFuse
+        ${PROFILER_LIBRARY}
+    )
+
+    target_link_libraries(veilFuse_dynamic
+        ${PROFILER_LIBRARY}
+    )
+endif(NOT ${PROFILER_LIBRARY} MATCHES PROFILER_LIBRARY-NOTFOUND)
+
 # Install config
 get_property(VEILFUSE_DYNAMIC_LOCATION TARGET veilFuse_dynamic PROPERTY LOCATION)
 install(FILES ${VEILFUSE_DYNAMIC_LOCATION} 
-        PERMISSIONS OWNER_READ, OWNER_WRITE, OWNER_EXECUTE, GROUP_READ, GROUP_EXECUTE, WORLD_READ, WORLD_EXECUTE
+        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
         DESTINATION ${BIN_DIR}
         RENAME veilFuse
 )
