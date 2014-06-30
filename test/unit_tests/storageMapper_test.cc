@@ -27,8 +27,8 @@ protected:
     void SetUp() override
     {
         CommonTest::SetUp();
-        mockFslogic.reset(new MockFslogicProxy(context));
-        proxy.reset(new ProxyStorageMapper(context, mockFslogic));
+        mockFslogic = std::make_shared<MockFslogicProxy>(context);
+        proxy = std::make_shared<ProxyStorageMapper>(context, mockFslogic);
     }
 };
 

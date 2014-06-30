@@ -39,8 +39,8 @@ protected:
     void SetUp() override
     {
         CommonTest::SetUp();
-        jobContext1_.reset(new MockJobObject());
-        jobContext2_.reset(new MockJobObject());
+        jobContext1_ = std::make_shared<MockJobObject>();
+        jobContext2_ = std::make_shared<MockJobObject>();
     }
 };
 

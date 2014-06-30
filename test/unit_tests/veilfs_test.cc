@@ -61,13 +61,13 @@ public:
         connectionPool = std::make_shared<MockConnectionPool>();
         context->setConnectionPool(connectionPool);
 
-        fslogicMock.reset(new MockFslogicProxy(context));
-        metaCacheMock.reset(new MockMetaCache(context));
-        storageManagerMock.reset(new MockLocalStorageManager(context));
-        storageMapperMock.reset(new MockStorageMapper(context, fslogicMock));
-        helperMock.reset(new MockGenericHelper());
-        factoryFake.reset(new FakeStorageHelperFactory());
-        eventCommunicatorMock.reset(new MockEventCommunicator(context));
+        fslogicMock = std::make_shared<MockFslogicProxy>(context);
+        metaCacheMock = std::make_shared<MockMetaCache>(context);
+        storageManagerMock = std::make_shared<MockLocalStorageManager>(context);
+        storageMapperMock = std::make_shared<MockStorageMapper>(context, fslogicMock);
+        helperMock = std::make_shared<MockGenericHelper>();
+        factoryFake = std::make_shared<FakeStorageHelperFactory>();
+        eventCommunicatorMock = std::make_shared<MockEventCommunicator>(context);
 
         EXPECT_CALL(*fslogicMock, pingCluster(_)).WillRepeatedly(Return());
         EXPECT_CALL(*options, get_alive_meta_connections_count()).WillRepeatedly(Return(0));
@@ -85,13 +85,13 @@ public:
             EXPECT_CALL(*fslogicMock, isWriteEnabled()).WillRepeatedly(Return(true));
         }
 
-        client.reset(new ProxyVeilFS("/root", context,
+        client = std::make_shared<ProxyVeilFS>("/root", context,
                         fslogicMock,
                         metaCacheMock,
                         storageManagerMock,
                         storageMapperMock,
                         factoryFake,
-                        eventCommunicatorMock));
+                        eventCommunicatorMock);
 
         factoryFake->presetMock = helperMock;
 
@@ -629,7 +629,7 @@ TEST_F(VeilFSTest, init) { // struct fuse_conn_info *conn
 }
 
 TEST_F(VeilFSTest, processEvent) {
-    std::shared_ptr<MockEventStreamCombiner> combinerMock(new MockEventStreamCombiner(context));
+    auto combinerMock = std::make_shared<MockEventStreamCombiner>(context);
     ASSERT_TRUE((bool) combinerMock);
     EventCommunicator communicator(context, combinerMock);
     EXPECT_CALL(*combinerMock, pushEventToProcess(_)).WillOnce(Return());

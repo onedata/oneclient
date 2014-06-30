@@ -231,7 +231,6 @@ set(TEST_UTILS_DIR ${TEST_SOURCES_DIR}/erl_core)
 add_library(testCommon STATIC
     ${TEST_SOURCES_DIR}/testRunner.cc
     ${TEST_SOURCES_DIR}/testCommon.cc
-    ${TEST_SOURCES_DIR}/testCommon.cc
     ${TEST_UTILS_DIR}/erlTestCore.cc
 )
 

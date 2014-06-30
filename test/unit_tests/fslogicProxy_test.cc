@@ -47,11 +47,11 @@ protected:
 
         EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(true));
 
-        msgBuilder.reset(new MockMessageBuilder(context));
+        msgBuilder = std::make_shared<MockMessageBuilder>(context);
         proxy->setMessageBuilder(msgBuilder);
         proxy->mockAtom = false;
         proxy->mockAnswer = false;
-        proxy->ch_mock.reset(new MockCommunicationHandler());
+        proxy->ch_mock = std::make_shared<MockCommunicationHandler>();
         EXPECT_CALL(*connectionPool, selectConnection(_)).WillRepeatedly(Return(proxy->ch_mock));
         EXPECT_CALL(*connectionPool, releaseConnection(_)).WillRepeatedly(Return());
     }

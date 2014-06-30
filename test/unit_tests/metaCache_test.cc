@@ -26,7 +26,7 @@ protected:
     {
         CommonTest::SetUp();
 
-        proxy.reset(new ProxyMetaCache(context));
+        proxy = std::make_shared<ProxyMetaCache>(context);
 
         EXPECT_CALL(*options, has_enable_attr_cache()).WillRepeatedly(Return(true));
         EXPECT_CALL(*options, get_enable_attr_cache()).WillRepeatedly(Return(true));
