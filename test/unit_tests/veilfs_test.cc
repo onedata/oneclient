@@ -24,6 +24,7 @@
 #include "events_mock.h"
 
 using namespace ::testing;
+using namespace std::placeholders;
 using namespace veil::client;
 using namespace veil::client::events;
 using namespace veil::protocol::fuse_messages;

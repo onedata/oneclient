@@ -13,9 +13,11 @@
 
 #include <google/protobuf/descriptor.h>
 
+#include <functional>
 #include <memory>
 
 using namespace ::testing;
+using namespace std::placeholders;
 using namespace veil::client;
 using namespace veil::protocol::fuse_messages;
 using namespace veil::protocol::communication_protocol;

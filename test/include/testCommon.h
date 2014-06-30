@@ -62,12 +62,10 @@ public:
     std::shared_ptr<veil::client::FslogicProxy> fslogic;
     std::shared_ptr<ProxyConfig> config;
     std::shared_ptr<veil::client::Options> options;
-    veil::testing::VeilFSMount veilFsMount;
+    std::unique_ptr<veil::testing::VeilFSMount> veilFsMount;
 
 protected:
-    CommonIntegrationTest() = default;
-
-    CommonIntegrationTest(veil::testing::VeilFSMount veilFsMount)
+    CommonIntegrationTest(std::unique_ptr<veil::testing::VeilFSMount> veilFsMount)
         : veilFsMount{std::move(veilFsMount)}
     {
     }
@@ -95,9 +93,9 @@ protected:
         veilFS = std::make_shared<veil::client::VeilFS>(VeilFSRoot, context, fslogic,
                             std::make_shared<veil::client::MetaCache>(context),
                             std::make_shared<veil::client::LocalStorageManager>(context),
-                            std::make_shared<veil::client::StorageMapper>(context, (fslogic),
+                            std::make_shared<veil::client::StorageMapper>(context, fslogic),
                             std::make_shared<veil::helpers::StorageHelperFactory>(context->getConnectionPool(), veil::helpers::BufferLimits{}),
-                            std::make_shared<veil::client::events::EventCommunicator>(context)));
+                            std::make_shared<veil::client::events::EventCommunicator>(context));
 
         std::this_thread::sleep_for(std::chrono::seconds{5});
     }

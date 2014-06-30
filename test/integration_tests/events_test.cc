@@ -15,8 +15,6 @@
 using namespace boost::filesystem;
 using namespace std;
 
-// TEST definitions below
-
 class EventsTest: public CommonIntegrationTest
 {
 protected:
@@ -25,6 +23,7 @@ protected:
     // VFS is not initialized here because in some test cases we want to perform
     // some actions on cluster before client initialization
     EventsTest()
+        : CommonIntegrationTest{{}}
     {
     }
 };
@@ -45,13 +44,13 @@ string exec(const char* cmd) {
 // In this test we perform some action with and without event handler registered
 TEST_F(EventsTest, mkdirExample) {
     // given
-    VFS.reset(new VeilFSMount("main", "peer.pem"));
+    veilFsMount.reset(new veil::testing::VeilFSMount("main", "peer.pem"));
     sleep(2);
     string dirName1 = "test_dir_7";
-    string dirPath1 = VFS->getRoot() + "/" + dirName1;
-    string dirPath2 = VFS->getRoot() + "/test_dir_8";
+    string dirPath1 = veilFsMount->getRoot() + "/" + dirName1;
+    string dirPath2 = veilFsMount->getRoot() + "/test_dir_8";
 
-    string res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
+    string res = exec(("ls -al " + veilFsMount->getRoot() + " | wc -l").c_str());
     int before = atoi(res.c_str());
 
     // what
@@ -59,7 +58,7 @@ TEST_F(EventsTest, mkdirExample) {
     sleep(3);
 
     // then
-    res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
+    res = exec(("ls -al " + veilFsMount->getRoot() + " | wc -l").c_str());
     int after = atoi(res.c_str());
 
     // no event handler was registered so number of files after should be equal before + 1
@@ -69,7 +68,7 @@ TEST_F(EventsTest, mkdirExample) {
     erlExec("{register_mkdir_handler, \"test_user/" + dirName1 + "\"}");
 
     // given
-    res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
+    res = exec(("ls -al " + veilFsMount->getRoot() + " | wc -l").c_str());
     before = atoi(res.c_str());
 
     // what
@@ -77,7 +76,7 @@ TEST_F(EventsTest, mkdirExample) {
     sleep(3);
 
     // then
-    res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
+    res = exec(("ls -al " + veilFsMount->getRoot() + " | wc -l").c_str());
     after = atoi(res.c_str());
 
     // this time we expect that dirPath2 has been created, event handler applied which deleted dirPath1, so we expect before == after
@@ -97,7 +96,7 @@ TEST_F(EventsTest, clientConfiguredAtStartup) {
     erlExec("{register_mkdir_handler, \"test_user/" + dirName1 + "\"}");
     sleep(1);
 
-    VFS.reset(new VeilFSMount("main", "peer.pem"));
+    veilFsMount.reset(new VeilFSMount("main", "peer.pem"));
     sleep(2);
 
     // given
@@ -132,7 +131,7 @@ TEST_F(EventsTest, clientConfiguredAtStartup) {
 }
 
 TEST_F(EventsTest, clientGettingBlockedWhenQuotaExceeded) {
-    VFS.reset(new VeilFSMount("main", "peer.pem"));
+    veilFsMount.reset(new veil::testing::VeilFSMount("main", "peer.pem"));
     sleep(1);
 
     string root = MOUNT_POINT("main");

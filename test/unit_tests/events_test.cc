@@ -20,10 +20,8 @@
 #include <vector>
 #include <memory>
 
-INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
-
-using namespace boost;
 using namespace ::testing;
+using namespace std::placeholders;
 using namespace veil::client;
 using namespace veil::client::events;
 
@@ -265,7 +263,7 @@ TEST(IEventStream, CustomActionStreamTest){
     std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
 
     std::shared_ptr<IEventStream> filter(new EventFilter("type", "mkdir_event"));
-    CustomActionStream action(filter, bind(&TestHelper::processEvent, &testHelper, _1));
+    CustomActionStream action(filter, std::bind(&TestHelper::processEvent, &testHelper, _1));
 
     std::shared_ptr<Event> res = action.processEvent(writeEvent);
     ASSERT_FALSE((bool) res);

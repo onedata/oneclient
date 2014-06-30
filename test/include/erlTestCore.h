@@ -37,6 +37,7 @@ extern string CommonFilesRoot;
 class VeilFSMount {
 
 public:
+    VeilFSMount() = default;
     VeilFSMount(string path, string cert);
     VeilFSMount(string path, string cert, string opts);
     ~VeilFSMount();

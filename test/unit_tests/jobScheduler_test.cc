@@ -12,7 +12,6 @@
 
 #include <memory>
 
-using namespace boost;
 using namespace ::testing;
 using namespace veil::client;
 

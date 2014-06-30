@@ -18,11 +18,10 @@
 
 using namespace boost::filesystem;
 using namespace std;
+using namespace std::placeholders;
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
 using namespace veil::client::utils;
-
-// TEST definitions below
 
 class PushChannelTest: public CommonIntegrationTest
 {
@@ -34,7 +33,7 @@ protected:
     int answerHandled;
     
     PushChannelTest()
-        : CommonIntegrationTest{{"main", "peer.pem"}}
+        : CommonIntegrationTest{std::unique_ptr<veil::testing::VeilFSMount>{new veil::testing::VeilFSMount{"main", "peer.pem"}}}
     {
     }
     
