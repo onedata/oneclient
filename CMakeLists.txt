@@ -15,6 +15,8 @@ set(BIN_DIR "bin")
 set(LIB_DIR "lib")
 
 # CMake config
+SET(CMAKE_CXX_FLAGS_PROFILE "-pg")
+SET(CMAKE_C_FLAGS_PROFILE "-pg")
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
 set(DEPS_DIR "deps")
 # set(CMAKE_FIND_LIBRARY_SUFFIXES .a) # Uncomment in order to force looking for static achives instead .so
@@ -206,6 +208,7 @@ target_link_libraries(veilFuse_dynamic
 # Install config
 get_property(VEILFUSE_DYNAMIC_LOCATION TARGET veilFuse_dynamic PROPERTY LOCATION)
 install(FILES ${VEILFUSE_DYNAMIC_LOCATION} 
+        PERMISSIONS OWNER_READ, OWNER_WRITE, OWNER_EXECUTE, GROUP_READ, GROUP_EXECUTE, WORLD_READ, WORLD_EXECUTE
         DESTINATION ${BIN_DIR}
         RENAME veilFuse
 )
