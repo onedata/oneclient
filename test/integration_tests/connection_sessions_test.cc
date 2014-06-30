@@ -38,18 +38,20 @@ protected:
 };
 
 // Test if client negotiates and registers its FuseId after start
-TEST_F(ConnectionSessionsTest, SessionInitAndRegister) {
+TEST_F(ConnectionSessionsTest, SessionInitAndRegister)
+{
     // By default client should negotiate and register FuseId
 
     // Check if cluster already knows who we are
-    ASSERT_EQ("ok", erlExec(string("{check_session, \"") + config->getFuseID() + string("\"}")));
+    ASSERT_EQ("ok", veil::testing::erlExec("{check_session, \"" + config->getFuseID() + "\"}"));
 }
 
 // Test if client can renegotiate FuseId and send env variables
-TEST_F(ConnectionSessionsTest, SessionEnvVairables_And_SessionReinitialization) {
+TEST_F(ConnectionSessionsTest, SessionEnvVairables_And_SessionReinitialization)
+{
     // By default client should negotiate and register FuseId
 
-    string currentFuseId = config->getFuseID();
+    std::string currentFuseId = config->getFuseID();
 
     // Now we can manually add some env varables
     static char env1[] = FUSE_OPT_PREFIX "varname1=varvalue1";
@@ -66,8 +68,5 @@ TEST_F(ConnectionSessionsTest, SessionEnvVairables_And_SessionReinitialization) 
     ASSERT_NE(currentFuseId, config->getFuseID());
 
     // Check if session variables are in place (in DB)
-    ASSERT_EQ("ok", erlExec(string("{check_session_variables, \"") + config->getFuseID() + string("\", [{varname1, \"varvalue1\"}, {varname2, \"varvalue2\"}]}")));
+    ASSERT_EQ("ok", veil::testing::erlExec("{check_session_variables, \"" + config->getFuseID() + "\", [{varname1, \"varvalue1\"}, {varname2, \"varvalue2\"}]}"));
 }
-
-
-

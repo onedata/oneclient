@@ -38,7 +38,7 @@ protected:
 
 // This test shows how you can call sample_test:exec/1 method on cluster environment
 TEST_F(SampleTest, clusterCommandExec) {
-    EXPECT_EQ(string("/tmp/dio"), erlExec("{env, \"DIO_ROOT\"}"));
+    EXPECT_EQ("/tmp/dio", veil::testing::erlExec("{env, \"DIO_ROOT\"}"));
 }
 
 // veilFsMount->getRoot() is set to the root of mounted VeilFS. Therefore you can just
