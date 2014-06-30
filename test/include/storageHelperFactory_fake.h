@@ -19,19 +19,19 @@ class FakeStorageHelperFactory: public veil::helpers::StorageHelperFactory
 {
 public:
     FakeStorageHelperFactory()
-        : StorageHelperFactory{nullptr, BufferLimits{}}
+        : StorageHelperFactory{nullptr, veil::helpers::BufferLimits{}}
     {
     }
 
-    std::shared_ptr<IStorageHelper> presetMock;
+    std::shared_ptr<veil::helpers::IStorageHelper> presetMock;
 
-    std::shared_ptr<IStorageHelper> getStorageHelper(const std::string &sh_name,
-                                                     const IStorageHelper::ArgsMap &args) override
+    std::shared_ptr<veil::helpers::IStorageHelper> getStorageHelper(const std::string &sh_name,
+                                                                    const veil::helpers::IStorageHelper::ArgsMap &args) override
     {
         if(presetMock)
             return presetMock;
 
-        return std::make_shared<MockGenericHelper>();
+        return {};
     }
 };
 
