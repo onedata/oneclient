@@ -17,7 +17,7 @@ class MockStorageMapper: public veil::client::StorageMapper
 {
 public:
     MockStorageMapper(std::shared_ptr<veil::client::Context> context,
-                      boost::shared_ptr<veil::client::FslogicProxy> fslogicProxy)
+                      std::shared_ptr<veil::client::FslogicProxy> fslogicProxy)
         : StorageMapper(std::move(context), fslogicProxy)
     {
     }

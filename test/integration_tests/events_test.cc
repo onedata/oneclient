@@ -17,7 +17,7 @@ using namespace std;
 
 // TEST definitions below
 
-class EventsTest: CommonIntegrationTest
+class EventsTest: public CommonIntegrationTest
 {
 protected:
     path directIO_root;
@@ -25,7 +25,6 @@ protected:
     // VFS is not initialized here because in some test cases we want to perform
     // some actions on cluster before client initialization
     EventsTest()
-        : CommonIntegrationTest{veil::testing::VeilFSMount{}}
     {
     }
 };
@@ -77,7 +76,7 @@ TEST_F(EventsTest, mkdirExample) {
     EXPECT_EQ(0, ::system(("mkdir " + dirPath2).c_str()));
     sleep(3);
 
-    // then 
+    // then
     res = exec(("ls -al " + VFS->getRoot() + " | wc -l").c_str());
     after = atoi(res.c_str());
 

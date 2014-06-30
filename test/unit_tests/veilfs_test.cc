@@ -31,15 +31,14 @@ using namespace veil::protocol::fuse_messages;
 class VeilFSTest: public CommonTest
 {
 public:
-    boost::shared_ptr<ProxyVeilFS> client;
-
-    boost::shared_ptr<MockFslogicProxy> fslogicMock;
-    boost::shared_ptr<MockMetaCache> metaCacheMock;
-    boost::shared_ptr<MockLocalStorageManager> storageManagerMock;
-    boost::shared_ptr<MockStorageMapper> storageMapperMock;
-    boost::shared_ptr<MockGenericHelper> helperMock;
-    boost::shared_ptr<FakeStorageHelperFactory> factoryFake;
-    boost::shared_ptr<MockEventCommunicator> eventCommunicatorMock;
+    std::shared_ptr<ProxyVeilFS> client;
+    std::shared_ptr<MockFslogicProxy> fslogicMock;
+    std::shared_ptr<MockMetaCache> metaCacheMock;
+    std::shared_ptr<MockLocalStorageManager> storageManagerMock;
+    std::shared_ptr<MockStorageMapper> storageMapperMock;
+    std::shared_ptr<MockGenericHelper> helperMock;
+    std::shared_ptr<FakeStorageHelperFactory> factoryFake;
+    std::shared_ptr<MockEventCommunicator> eventCommunicatorMock;
 
     struct fuse_file_info fileInfo;
     struct stat trueStat;
@@ -53,11 +52,11 @@ public:
 
         options = std::make_shared<MockOptions>();
         context->setOptions(options);
-        config = boost::make_shared<ProxyConfig>(context);
+        config = std::make_shared<ProxyConfig>(context);
         context->setConfig(config);
         scheduler = std::make_shared<MockJobScheduler>();
         context->addScheduler(scheduler);
-        connectionPool = boost::make_shared<MockConnectionPool>();
+        connectionPool = std::make_shared<MockConnectionPool>();
         context->setConnectionPool(connectionPool);
 
         fslogicMock.reset(new MockFslogicProxy(context));
@@ -183,7 +182,7 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
 
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillOnce(DoAll(SetArgReferee<1>(trueAttr), Return(true)));
-    EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, boost::cref(statbuf), _1))));
+    EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, std::cref(statbuf), _1))));
     EXPECT_EQ(0, client->getattr("/path", &statbuf));
 
     EXPECT_EQ(trueAttr.atime(), statbuf.st_atime);
@@ -199,7 +198,7 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
     trueAttr.set_type("LNK");
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillOnce(DoAll(SetArgReferee<1>(trueAttr), Return(true)));
-    EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, boost::cref(statbuf), _1))));
+    EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, std::cref(statbuf), _1))));
     EXPECT_EQ(0, client->getattr("/path", &statbuf));
 
     EXPECT_EQ(static_cast<mode_t>(trueAttr.mode()) | S_IFLNK, statbuf.st_mode);
@@ -208,7 +207,7 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
     EXPECT_CALL(*scheduler, addTask(_)).WillOnce(Return());
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillOnce(DoAll(SetArgReferee<1>(trueAttr), Return(true)));
-    EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, boost::cref(statbuf), _1))));
+    EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, std::cref(statbuf), _1))));
     EXPECT_EQ(0, client->getattr("/path", &statbuf));
 
     EXPECT_EQ(static_cast<mode_t>(trueAttr.mode()) | S_IFREG, statbuf.st_mode);
@@ -628,12 +627,12 @@ TEST_F(VeilFSTest, init) { // struct fuse_conn_info *conn
 }
 
 TEST_F(VeilFSTest, processEvent) {
-    boost::shared_ptr<MockEventStreamCombiner> combinerMock(new MockEventStreamCombiner(context));
+    std::shared_ptr<MockEventStreamCombiner> combinerMock(new MockEventStreamCombiner(context));
     ASSERT_TRUE((bool) combinerMock);
     EventCommunicator communicator(context, combinerMock);
     EXPECT_CALL(*combinerMock, pushEventToProcess(_)).WillOnce(Return());
     EXPECT_CALL(*scheduler, addTask(_)).WillOnce(Return());
-    boost::shared_ptr<Event> event = Event::createMkdirEvent("some_file");
+    std::shared_ptr<Event> event = Event::createMkdirEvent("some_file");
 
     ASSERT_TRUE((bool) event);
     communicator.processEvent(event);

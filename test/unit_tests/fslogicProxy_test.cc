@@ -31,7 +31,7 @@ class FslogicProxyTest: public CommonTest
 {
 protected:
     std::unique_ptr<ProxyFslogicProxy> proxy;
-    boost::shared_ptr<MockMessageBuilder> msgBuilder;
+    std::shared_ptr<MockMessageBuilder> msgBuilder;
 
     ClusterMsg fullClusterMsg;
 

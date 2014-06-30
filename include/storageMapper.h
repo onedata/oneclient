@@ -66,11 +66,11 @@ protected:
     std::map<std::string, locationInfo> m_fileMapping;      ///< Contains storage info accessd by its ID. @see storageInfo
     ReadWriteLock m_fileMappingLock;                        ///< Lock used while operationg on StorageMapper::m_fileMapping. @see StorageMapper::m_fileMapping
 
-    boost::shared_ptr<FslogicProxy> m_fslogic;              ///< Reference to FslogicProxy instance. @see VeilFS::m_fslogic
+    std::shared_ptr<FslogicProxy> m_fslogic;              ///< Reference to FslogicProxy instance. @see VeilFS::m_fslogic
 
 public:
 
-    StorageMapper(std::shared_ptr<Context> context, boost::shared_ptr<FslogicProxy> fslogicProxy);
+    StorageMapper(std::shared_ptr<Context> context, std::shared_ptr<FslogicProxy> fslogicProxy);
     virtual ~StorageMapper();
 
     /**

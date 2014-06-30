@@ -13,7 +13,8 @@
 #include "fslogicProxy.h"
 #include "events/IEventStream.h"
 
-#include <boost/shared_ptr.hpp>
+#include <functional>
+#include <memory>
 #include <string>
 
 namespace veil {
@@ -26,11 +27,11 @@ namespace events {
  */
 class CustomActionStream : public IEventStream {
 public:
-	CustomActionStream(boost::shared_ptr<IEventStream> wrappedStream, boost::function<boost::shared_ptr<Event>(boost::shared_ptr<Event>)> customActionFun);
-	virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event); ///<  Implements pure virtual method IEventStream::actualProcessEvent
+    CustomActionStream(std::shared_ptr<IEventStream> wrappedStream, std::function<std::shared_ptr<Event>(std::shared_ptr<Event>)> customActionFun);
+    virtual std::shared_ptr<Event> actualProcessEvent(std::shared_ptr<Event> event); ///<  Implements pure virtual method IEventStream::actualProcessEvent
 
 private:
-	boost::function<boost::shared_ptr<Event>(boost::shared_ptr<Event>)> m_customActionFun; ///<  Function to be called by actualProcessEvent
+    std::function<std::shared_ptr<Event>(std::shared_ptr<Event>)> m_customActionFun; ///<  Function to be called by actualProcessEvent
 };
 
 } // namespace events

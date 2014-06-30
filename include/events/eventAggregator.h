@@ -10,12 +10,12 @@
 #ifndef EVENT_AGGREGATOR_H
 #define EVENT_AGGREGATOR_H
 
-#include <string>
-
-#include <boost/shared_ptr.hpp>
 #include "fuse_messages.pb.h"
 #include "fslogicProxy.h"
 #include "events/IEventStream.h"
+
+#include <memory>
+#include <string>
 
 namespace veil {
 namespace client {
@@ -38,7 +38,7 @@ public:
         ActualEventAggregator();
 
         // Process event. Threshold, fieldName and sumFieldName are passed from outside because those parameters are the same for all substreams.
-        virtual boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event, NumericProperty threshold,  const std::string & fieldName, const std::string & sumFieldName);
+        virtual std::shared_ptr<Event> processEvent(std::shared_ptr<Event> event, NumericProperty threshold,  const std::string & fieldName, const std::string & sumFieldName);
 
     private:
         NumericProperty m_counter;			 ///< Aggregated value
@@ -50,11 +50,11 @@ public:
     //TODO: too many constructors
     EventAggregator(NumericProperty threshold, const std::string & sumFieldName = "count");
     EventAggregator(const std::string & fieldName, NumericProperty threshold, const std::string & sumFieldName = "count");
-    EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, NumericProperty threshold, const std::string & sumFieldName = "count");
-    EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, const std::string & fieldName, NumericProperty threshold, const std::string & sumFieldName = "count");
+    EventAggregator(std::shared_ptr<IEventStream> wrappedStream, NumericProperty threshold, const std::string & sumFieldName = "count");
+    EventAggregator(std::shared_ptr<IEventStream> wrappedStream, const std::string & fieldName, NumericProperty threshold, const std::string & sumFieldName = "count");
 
-    static boost::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventAggregatorConfig & config); ///< Constructs EventFilter for protocol buffer message EventFilterConfig
-    virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event); 									  ///<  Implements pure virtual method IEventStream::actualProcessEvent
+    static std::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventAggregatorConfig & config); ///< Constructs EventFilter for protocol buffer message EventFilterConfig
+    virtual std::shared_ptr<Event> actualProcessEvent(std::shared_ptr<Event> event); 									  ///<  Implements pure virtual method IEventStream::actualProcessEvent
 
     // for unit test purposes
     std::string getFieldName();

@@ -9,38 +9,41 @@
 #include "jobScheduler_mock.h"
 #include "testCommon.h"
 #include "pushListener.h"
-#include <boost/thread.hpp>
-#include <boost/thread/thread_time.hpp>
+
+#include <atomic>
+#include <chrono>
+#include <mutex>
+#include <condition_variable>
 
 using namespace ::testing;
+using namespace std::placeholders;
 using namespace veil::client;
 using namespace veil::protocol::communication_protocol;
 
 class PushListenerTest: public CommonTest
 {
 protected:
-    boost::mutex cbMutex;
-    boost::condition cbCond;
+    std::mutex cbMutex;
+    std::condition_variable cbCond;
     std::unique_ptr<PushListener> listener;
-    
-    int answerHandled;
-    
+
+    std::atomic<int> answerHandled;
+
     void SetUp() override
     {
         CommonTest::SetUp();
-        listener.reset(new PushListener(context));
+        listener.reset(new PushListener{context});
         answerHandled = 0;
     }
-    
+
 public:
-    
     bool handler(const Answer &msg, bool ret = true)
     {
-        boost::unique_lock<boost::mutex> lock(cbMutex);
         if(msg.worker_answer() == "test")
-            answerHandled++;
+            ++answerHandled;
+
         cbCond.notify_all();
-        
+
         return ret;
     }
 };
@@ -48,62 +51,59 @@ public:
 
 TEST_F(PushListenerTest, simpleRegisterAndHandle)
 {
-    boost::unique_lock<boost::mutex> lock(cbMutex);
+    std::unique_lock<std::mutex> lock(cbMutex);
     Answer ans; // Message to handle
     ans.set_answer_status("ok");
     ans.set_worker_answer("test");
-    
-    listener->subscribe(boost::bind(&PushListenerTest::handler, this, _1, true));
-    
+
+    listener->subscribe(std::bind(&PushListenerTest::handler, this, _1, true));
+
     listener->onMessage(ans);
-    cbCond.timed_wait(lock, boost::posix_time::milliseconds(500));
-    
+    ASSERT_TRUE(cbCond.wait_for(lock, std::chrono::seconds(10),
+                                [&]{ return answerHandled == 1; }));
+
     listener->onMessage(ans);
-    cbCond.timed_wait(lock, boost::posix_time::milliseconds(500));
-    
+    ASSERT_TRUE(cbCond.wait_for(lock, std::chrono::seconds(10),
+                                [&]{ return answerHandled == 2; }));
+
     listener->onMessage(ans);
     listener->onMessage(ans);
-    cbCond.timed_wait(lock, boost::posix_time::milliseconds(500));
-    
-    
-    ASSERT_EQ(4, answerHandled);
-    
+    ASSERT_TRUE(cbCond.wait_for(lock, std::chrono::seconds(10),
+                                [&]{ return answerHandled == 4; }));
 }
 
 
 TEST_F(PushListenerTest, removeHandler)
 {
-    boost::unique_lock<boost::mutex> lock(cbMutex);
+    std::unique_lock<std::mutex> lock(cbMutex);
     Answer ans; // Message to handle
     ans.set_answer_status("ok");
     ans.set_worker_answer("test");
-    
-    int handlerId = listener->subscribe(boost::bind(&PushListenerTest::handler, this, _1, false)); // Should be removed after first call
-    
+
+    int handlerId = listener->subscribe(std::bind(&PushListenerTest::handler, this, _1, false)); // Should be removed after first call
+
     listener->onMessage(ans);
-    cbCond.timed_wait(lock, boost::posix_time::milliseconds(500));
-    
+    cbCond.wait_for(lock, std::chrono::milliseconds(500));
+
     listener->onMessage(ans);
     listener->onMessage(ans);
-    cbCond.timed_wait(lock, boost::posix_time::milliseconds(500));
-    
-    
+    cbCond.wait_for(lock, std::chrono::milliseconds(500));
+
     ASSERT_EQ(1, answerHandled);
-    
+
     answerHandled = 0;
-    handlerId = listener->subscribe(boost::bind(&PushListenerTest::handler, this, _1, true));
-    
+    handlerId = listener->subscribe(std::bind(&PushListenerTest::handler, this, _1, true));
+
     listener->onMessage(ans);
-    cbCond.timed_wait(lock, boost::posix_time::milliseconds(500));
-    
+    cbCond.wait_for(lock, std::chrono::milliseconds(500));
+
     listener->unsubscribe(handlerId);
-    
+
     listener->onMessage(ans);
     listener->onMessage(ans);
-    cbCond.timed_wait(lock, boost::posix_time::milliseconds(500));
-    
+    cbCond.wait_for(lock, std::chrono::milliseconds(500));
+
     ASSERT_EQ(1, answerHandled);
-    
 }
 
 

@@ -19,7 +19,7 @@ using namespace veil::client;
 class MetaCacheTest: public CommonTest
 {
 protected:
-    boost::shared_ptr <ProxyMetaCache> proxy;
+    std::shared_ptr <ProxyMetaCache> proxy;
     struct stat stat;
 
     void SetUp() override

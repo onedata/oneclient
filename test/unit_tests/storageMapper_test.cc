@@ -19,15 +19,14 @@ using namespace veil::protocol::fuse_messages;
 class StorageMapperTest: public CommonTest
 {
 protected:
-    boost::shared_ptr<MockFslogicProxy> mockFslogic;
-    boost::shared_ptr<ProxyStorageMapper> proxy;
+    std::shared_ptr<MockFslogicProxy> mockFslogic;
+    std::shared_ptr<ProxyStorageMapper> proxy;
 
     void SetUp() override
     {
         CommonTest::SetUp();
         mockFslogic.reset(new MockFslogicProxy(context));
         proxy.reset(new ProxyStorageMapper(context, mockFslogic));
-
     }
 };
 

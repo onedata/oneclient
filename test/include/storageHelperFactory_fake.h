@@ -13,7 +13,7 @@
 #include "genericHelper_mock.h"
 #include "helpers/IStorageHelper.h"
 
-#include <boost/make_shared.hpp>
+#include <memory>
 
 class FakeStorageHelperFactory: public veil::helpers::StorageHelperFactory
 {
@@ -23,15 +23,15 @@ public:
     {
     }
 
-    boost::shared_ptr<IStorageHelper> presetMock;
+    std::shared_ptr<IStorageHelper> presetMock;
 
-    boost::shared_ptr<IStorageHelper> getStorageHelper(const std::string &sh_name,
-                                                       const IStorageHelper::ArgsMap &args) override
+    std::shared_ptr<IStorageHelper> getStorageHelper(const std::string &sh_name,
+                                                     const IStorageHelper::ArgsMap &args) override
     {
         if(presetMock)
             return presetMock;
 
-        return boost::make_shared<MockGenericHelper>();
+        return std::make_shared<MockGenericHelper>();
     }
 };
 
