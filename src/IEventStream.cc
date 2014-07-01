@@ -10,28 +10,27 @@
 
 using namespace veil::client::events;
 using namespace std;
-using namespace boost;
 using namespace veil::protocol::fuse_messages;
 
-boost::shared_ptr<Event> IEventStream::processEvent(boost::shared_ptr<Event> event)
+std::shared_ptr<Event> IEventStream::processEvent(std::shared_ptr<Event> event)
 {
     if(m_wrappedStream){
-        boost::shared_ptr<Event> processedEvent = m_wrappedStream->processEvent(event);
+        std::shared_ptr<Event> processedEvent = m_wrappedStream->processEvent(event);
         if(processedEvent)
             return actualProcessEvent(processedEvent);
         else
-            return boost::shared_ptr<Event>();
+            return std::shared_ptr<Event>();
     }else{
         return actualProcessEvent(event);
     }
 }
 
 IEventStream::IEventStream() :
-    m_wrappedStream(boost::shared_ptr<IEventStream>())
+    m_wrappedStream(std::shared_ptr<IEventStream>())
 {
 }
 
-IEventStream::IEventStream(boost::shared_ptr<IEventStream> wrappedStream) :
+IEventStream::IEventStream(std::shared_ptr<IEventStream> wrappedStream) :
     m_wrappedStream(wrappedStream)
 {
 }
@@ -40,12 +39,12 @@ IEventStream::~IEventStream(){
 
 }
 
-boost::shared_ptr<IEventStream> IEventStream::getWrappedStream() const
+std::shared_ptr<IEventStream> IEventStream::getWrappedStream() const
 {
     return m_wrappedStream;
 }
 
-void IEventStream::setWrappedStream(boost::shared_ptr<IEventStream> wrappedStream)
+void IEventStream::setWrappedStream(std::shared_ptr<IEventStream> wrappedStream)
 {
     m_wrappedStream = wrappedStream;
 }

@@ -11,15 +11,19 @@
 #include "veilfs.h"
 #include "testCommon.h"
 
+#include "context.h"
+
+#include <memory>
+
 class ProxyVeilFS
     : public veil::client::VeilFS {
 public:
-    ProxyVeilFS(std::string path, boost::shared_ptr<Config> cnf, boost::shared_ptr<JobScheduler> scheduler, 
-               boost::shared_ptr<FslogicProxy> fslogic,  boost::shared_ptr<MetaCache> metaCache,
-               boost::shared_ptr<LocalStorageManager> sManager, boost::shared_ptr<StorageMapper> mapper,
-               boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
-               boost::shared_ptr<EventCommunicator> eventCommunicator)
-      : VeilFS(path, cnf, scheduler, fslogic, metaCache, sManager, mapper, sh_factory, eventCommunicator)
+    ProxyVeilFS(std::string path, std::shared_ptr<Context> context,
+               std::shared_ptr<FslogicProxy> fslogic,  std::shared_ptr<MetaCache> metaCache,
+               std::shared_ptr<LocalStorageManager> sManager, std::shared_ptr<StorageMapper> mapper,
+               std::shared_ptr<helpers::StorageHelperFactory> sh_factory,
+               std::shared_ptr<EventCommunicator> eventCommunicator)
+      : VeilFS(path, std::move(context), fslogic, metaCache, sManager, mapper, sh_factory, eventCommunicator)
     {
 
     }

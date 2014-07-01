@@ -11,6 +11,10 @@
 #include "storageMapper.h"
 #include "testCommon.h"
 
+#include "config.h"
+
+#include <memory>
+
 using namespace veil::protocol::fuse_messages;
 using namespace veil::protocol::communication_protocol;
 
@@ -18,7 +22,10 @@ class MockStorageMapper
     : public StorageMapper {
 
 public:
-    MockStorageMapper(boost::shared_ptr<FslogicProxy> fslogicProxy) : StorageMapper(fslogicProxy) {}
+    MockStorageMapper(std::shared_ptr<Context> context,
+                      std::shared_ptr<FslogicProxy> fslogicProxy)
+        : StorageMapper(std::move(context), fslogicProxy) {}
+
     ~MockStorageMapper() {}
 
     MOCK_METHOD1(releaseFile, void(const string&));

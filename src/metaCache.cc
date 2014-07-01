@@ -6,6 +6,8 @@
  */
 
 #include "metaCache.h"
+
+#include "context.h"
 #include "jobScheduler.h"
 #include "veilfs.h"
 #include "config.h"
@@ -20,7 +22,8 @@ namespace veil {
 namespace client {
 
 
-MetaCache::MetaCache()
+MetaCache::MetaCache(std::shared_ptr<Context> context)
+    : m_context{std::move(context)}
 {
 }
 
@@ -30,7 +33,7 @@ MetaCache::~MetaCache()
 
 void MetaCache::addAttr(const string &path, struct stat &attr)
 {
-    if(!VeilFS::getOptions()->get_enable_attr_cache())
+    if(!m_context->getOptions()->get_enable_attr_cache())
         return;
 
     AutoLock lock(m_statMapLock, WRITE_LOCK);
@@ -39,12 +42,12 @@ void MetaCache::addAttr(const string &path, struct stat &attr)
 
     if(!wasBefore)
     {
-        int expiration_time = VeilFS::getOptions()->get_attr_cache_expiration_time();
+        int expiration_time = m_context->getOptions()->get_attr_cache_expiration_time();
         if(expiration_time <= 0)
             expiration_time = ATTR_DEFAULT_EXPIRATION_TIME;
         // because of random part, only small parts of cache will be updated at the same moment
         int when = time(NULL) + expiration_time / 2 + rand() % expiration_time;
-        VeilFS::getScheduler()->addTask(Job(when, shared_from_this(), TASK_CLEAR_FILE_ATTR, path));
+        m_context->getScheduler()->addTask(Job(when, shared_from_this(), TASK_CLEAR_FILE_ATTR, path));
     }
 }
 

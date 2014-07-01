@@ -13,8 +13,8 @@
 #include "fslogicProxy.h"
 #include "events/IEventStream.h"
 
+#include <memory>
 #include <string>
-#include <boost/shared_ptr.hpp>
 
 namespace veil {
 namespace client {
@@ -27,21 +27,21 @@ namespace events {
  */
 class EventFilter : public IEventStream {
 public:
-	EventFilter(const std::string & fieldName, const std::string & desiredValue);
-	EventFilter(boost::shared_ptr<IEventStream> wrappedStream, const std::string & fieldName, const std::string & desiredValue);
+    EventFilter(const std::string & fieldName, const std::string & desiredValue);
+    EventFilter(std::shared_ptr<IEventStream> wrappedStream, const std::string & fieldName, const std::string & desiredValue);
 
-	static boost::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventFilterConfig & config); ///< Constructs EventFilter for protocol buffer message EventFilterConfig
-	virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event); ///<  Implements pure virtual method IEventStream::actualProcessEvent
+    static std::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventFilterConfig & config); ///< Constructs EventFilter for protocol buffer message EventFilterConfig
+    virtual std::shared_ptr<Event> actualProcessEvent(std::shared_ptr<Event> event); ///<  Implements pure virtual method IEventStream::actualProcessEvent
 
-	// for unit test purposes
-	std::string getFieldName();
-	std::string getDesiredValue();
+    // for unit test purposes
+    std::string getFieldName();
+    std::string getDesiredValue();
 
 private:
-	std::string m_fieldName; ///< FieldName for which desired DesiredValue should be satisfied
+    std::string m_fieldName; ///< FieldName for which desired DesiredValue should be satisfied
 
-	// TODO: type of m_desiredValue hardcoded here and in a few other places so far, it may (but also may not) be a good idea to parametrize this
-	std::string m_desiredValue; ///< Expected value.
+    // TODO: type of m_desiredValue hardcoded here and in a few other places so far, it may (but also may not) be a good idea to parametrize this
+    std::string m_desiredValue; ///< Expected value.
 };
 
 } // namespace events

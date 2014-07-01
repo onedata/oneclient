@@ -11,14 +11,18 @@
 
 using namespace veil::client::events;
 using namespace std;
-using namespace boost;
 using namespace veil::protocol::fuse_messages;
 
-list<boost::shared_ptr<Event> > EventStreamCombiner::processEvent(boost::shared_ptr<Event> event)
+EventStreamCombiner::EventStreamCombiner(std::shared_ptr<veil::client::Context> context)
+    : m_context{std::move(context)}
 {
-    list<boost::shared_ptr<Event> > producedEvents;
-    for(list<boost::shared_ptr<IEventStream> >::iterator it = m_substreams.begin(); it != m_substreams.end(); it++){
-        boost::shared_ptr<Event> produced = (*it)->processEvent(event);
+}
+
+list<std::shared_ptr<Event> > EventStreamCombiner::processEvent(std::shared_ptr<Event> event)
+{
+    list<std::shared_ptr<Event> > producedEvents;
+    for(list<std::shared_ptr<IEventStream> >::iterator it = m_substreams.begin(); it != m_substreams.end(); it++){
+        std::shared_ptr<Event> produced = (*it)->processEvent(event);
         if(produced)
             producedEvents.push_back(produced);
     }
@@ -38,44 +42,44 @@ bool EventStreamCombiner::runTask(TaskID taskId, const string &arg0, const strin
 
 bool EventStreamCombiner::processNextEvent()
 {
-    boost::shared_ptr<Event> event = getNextEventToProcess();
+    std::shared_ptr<Event> event = getNextEventToProcess();
     if(event){
-        list<boost::shared_ptr<Event> > processedEvents = processEvent(event);
+        list<std::shared_ptr<Event> > processedEvents = processEvent(event);
 
-        for(list<boost::shared_ptr<Event> >::iterator it = processedEvents.begin(); it != processedEvents.end(); ++it){
-            boost::shared_ptr<EventMessage> eventProtoMessage = (*it)->createProtoMessage();
+        for(list<std::shared_ptr<Event> >::iterator it = processedEvents.begin(); it != processedEvents.end(); ++it){
+            std::shared_ptr<EventMessage> eventProtoMessage = (*it)->createProtoMessage();
 
-            EventCommunicator::sendEvent(eventProtoMessage);
+            EventCommunicator::sendEvent(m_context, eventProtoMessage);
         }
     }
 
     return true;
 }
 
-void EventStreamCombiner::pushEventToProcess(boost::shared_ptr<Event> eventToProcess)
+void EventStreamCombiner::pushEventToProcess(std::shared_ptr<Event> eventToProcess)
 {
     AutoLock lock(m_eventsToProcessLock, WRITE_LOCK);
     m_eventsToProcess.push(eventToProcess);
 }
 
-std::queue<boost::shared_ptr<Event> > EventStreamCombiner::getEventsToProcess() const
+std::queue<std::shared_ptr<Event> > EventStreamCombiner::getEventsToProcess() const
 {
     return m_eventsToProcess;
 }
 
-boost::shared_ptr<Event> EventStreamCombiner::getNextEventToProcess()
+std::shared_ptr<Event> EventStreamCombiner::getNextEventToProcess()
 {
     AutoLock lock(m_eventsToProcessLock, WRITE_LOCK);
     if(m_eventsToProcess.empty()){
-        return boost::shared_ptr<Event>();
+        return std::shared_ptr<Event>();
     }
 
-    boost::shared_ptr<Event> event = m_eventsToProcess.front();
+    std::shared_ptr<Event> event = m_eventsToProcess.front();
     m_eventsToProcess.pop();
     return event;
 }
 
-void EventStreamCombiner::addSubstream(boost::shared_ptr<IEventStream> substream)
+void EventStreamCombiner::addSubstream(std::shared_ptr<IEventStream> substream)
 {
     m_substreams.push_back(substream);
 }

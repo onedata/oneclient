@@ -13,18 +13,22 @@
 #include "testCommon.h"
 #include "gmock/gmock.h"
 
+#include "helpers/IStorageHelper.h"
+
 using namespace veil::helpers;
 
 class FakeStorageHelperFactory
     : public StorageHelperFactory {
 public:
-    boost::shared_ptr<IStorageHelper> presetMock;
+    FakeStorageHelperFactory() : StorageHelperFactory{nullptr, BufferLimits{}} {}
 
-    boost::shared_ptr<IStorageHelper> getStorageHelper(const string &sh_name, const vector<string> &args) {
+    std::shared_ptr<IStorageHelper> presetMock;
+
+    std::shared_ptr<IStorageHelper> getStorageHelper(const string &sh_name, const IStorageHelper::ArgsMap &args) override {
         if(presetMock)
             return presetMock;
         else
-            return boost::shared_ptr<IStorageHelper>(new MockGenericHelper());
+            return std::shared_ptr<IStorageHelper>(new MockGenericHelper());
     }
 
 };

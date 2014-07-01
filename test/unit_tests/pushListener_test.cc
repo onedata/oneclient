@@ -34,7 +34,7 @@ protected:
 
     virtual void SetUp() {
         COMMON_SETUP();
-        listener.reset(new PushListener());
+        listener.reset(new PushListener(context));
         answerHandled = 0;
     }
 
@@ -64,7 +64,7 @@ TEST_F(PushListenerTest, simpleRegisterAndHandle)
     ans.set_answer_status("ok");
     ans.set_worker_answer("test");
 
-    listener->subscribe(std::bind(&PushListenerTest::handler, this, std::placeholders::_1, true));
+    listener->subscribe(std::bind(&PushListenerTest::handler, this, _1, true));
 
     listener->onMessage(ans);
     ASSERT_TRUE(cbCond.wait_for(lock, std::chrono::seconds(10),
@@ -88,7 +88,7 @@ TEST_F(PushListenerTest, removeHandler)
     ans.set_answer_status("ok");
     ans.set_worker_answer("test");
 
-    int handlerId = listener->subscribe(std::bind(&PushListenerTest::handler, this, std::placeholders::_1, false)); // Should be removed after first call
+    int handlerId = listener->subscribe(std::bind(&PushListenerTest::handler, this, _1, false)); // Should be removed after first call
 
     listener->onMessage(ans);
     cbCond.wait_for(lock, std::chrono::milliseconds(500));
@@ -101,7 +101,7 @@ TEST_F(PushListenerTest, removeHandler)
     ASSERT_EQ(1, answerHandled);
 
     answerHandled = 0;
-    handlerId = listener->subscribe(std::bind(&PushListenerTest::handler, this, std::placeholders::_1, true));
+    handlerId = listener->subscribe(std::bind(&PushListenerTest::handler, this, _1, true));
 
     listener->onMessage(ans);
     cbCond.wait_for(lock, std::chrono::milliseconds(500));

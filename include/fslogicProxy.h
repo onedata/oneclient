@@ -12,7 +12,6 @@
 #include <vector>
 #include <list>
 #include <google/protobuf/repeated_field.h>
-#include <boost/shared_ptr.hpp>
 #include <memory>
 #include <sys/statvfs.h>
 
@@ -59,6 +58,8 @@
 namespace veil {
 namespace client {
 
+class Context;
+
 /**
  * The FslogicProxy class.
  * This class provides proxy-methods that runs their correspondent cluster-fslogic methods.
@@ -70,7 +71,7 @@ class FslogicProxy : public ISchedulable
 {
 
 protected:
-    boost::shared_ptr<MessageBuilder> m_messageBuilder;                ///< MessageBuilder used to construct cluster packets
+    std::shared_ptr<MessageBuilder> m_messageBuilder;                ///< MessageBuilder used to construct cluster packets
     /**
      * Sends and receives given protobuf message.
      * High level method used to send serialized protobuf message to cluster and return its response as given by reference object.
@@ -84,7 +85,7 @@ protected:
                                                                                         ///< But receives simple atom cluster response. @see FslogicProxy::sendFuseReceiveAnswer
 
 public:
-    FslogicProxy();
+    FslogicProxy(std::shared_ptr<Context> context);
     virtual ~FslogicProxy();
 
     virtual bool            getFileAttr(const std::string& logicName, protocol::fuse_messages::FileAttr& attr);                 ///< Downloads file attributes from cluster
@@ -108,6 +109,9 @@ public:
     virtual void            pingCluster(const std::string &);
 
     virtual bool            runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+
+private:
+    const std::shared_ptr<Context> m_context;
 };
 
 } // namespace client

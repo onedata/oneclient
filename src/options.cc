@@ -12,8 +12,6 @@
 #include "veilException.h"
 #include "veilfs.h"
 
-#include <boost/bind.hpp>
-#include <boost/foreach.hpp>
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
@@ -22,6 +20,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <functional>
 #include <string>
 #include <vector>
 #include <utility>
@@ -273,8 +272,8 @@ void Options::parseEnv()
 {
     LOG(INFO) << "Parsing environment variables";
     store(parse_environment(m_common,
-                            boost::bind(&Options::mapEnvNames, this, _1)),
-          m_vm);
+                            std::bind(&Options::mapEnvNames, this,
+                                      std::placeholders::_1)), m_vm);
 }
 
 
@@ -291,8 +290,7 @@ struct fuse_args Options::getFuseArgs() const
 
     if(m_vm.count("-o"))
     {
-        BOOST_FOREACH(const std::string &opt,
-                      m_vm.at("-o").as<std::vector<std::string> >())
+        for(const auto &opt: m_vm.at("-o").as<std::vector<std::string> >())
                 fuse_opt_add_arg(&args, ("-o" + opt).c_str());
     }
 

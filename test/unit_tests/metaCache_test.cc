@@ -22,12 +22,12 @@ class MetaCacheTest
 
 protected:
     COMMON_DEFS();
-    boost::shared_ptr <ProxyMetaCache> proxy;
+    std::shared_ptr <ProxyMetaCache> proxy;
     struct stat stat;
 
     virtual void SetUp() {
         COMMON_SETUP();
-        proxy.reset(new ProxyMetaCache());
+        proxy.reset(new ProxyMetaCache(context));
 
         EXPECT_CALL(*options, has_enable_attr_cache()).WillRepeatedly(Return(true));
         EXPECT_CALL(*options, get_enable_attr_cache()).WillRepeatedly(Return(true));

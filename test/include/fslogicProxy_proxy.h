@@ -9,36 +9,41 @@
 #define FSLOGIC_PROXY_PROXY_H
 
 #include "fslogicProxy.h"
+
+#include "context.h"
 #include "communicationHandler_mock.h"
 #include "messageBuilder_mock.h"
 #include "testCommon.h"
 #include "gmock/gmock.h"
 
-using namespace boost;
+#include <memory>
 
 class ProxyFslogicProxy
     : public FslogicProxy {
 public:
+    ProxyFslogicProxy(std::shared_ptr<Context> context)
+        : FslogicProxy{std::move(context)} {}
+
     bool useMockConnectionSelector;
-    boost::shared_ptr<MockCommunicationHandler> ch_mock;
+    std::shared_ptr<MockCommunicationHandler> ch_mock;
     bool mockAnswer;
     bool mockAtom;
-    
-    void setMessageBuilder(boost::shared_ptr<MessageBuilder> mock) {
+
+    void setMessageBuilder(std::shared_ptr<MessageBuilder> mock) {
         m_messageBuilder = mock;
     }
 
     bool sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, google::protobuf::Message& response) {
         if(mockAnswer)
             return mockAnswerFun(fMsg, response);
-        else 
+        else
             return FslogicProxy::sendFuseReceiveAnswer(fMsg, response);
     }
 
     string sendFuseReceiveAtom(const google::protobuf::Message& fMsg) {
         if(mockAtom)
             return mockAtomFun(fMsg);
-        else 
+        else
             return FslogicProxy::sendFuseReceiveAtom(fMsg);
     }
 

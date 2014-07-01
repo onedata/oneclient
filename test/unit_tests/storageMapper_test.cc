@@ -22,13 +22,13 @@ class StorageMapperTest
 
 protected:
     COMMON_DEFS();
-    boost::shared_ptr<MockFslogicProxy> mockFslogic;
-    boost::shared_ptr<ProxyStorageMapper> proxy;
+    std::shared_ptr<MockFslogicProxy> mockFslogic;
+    std::shared_ptr<ProxyStorageMapper> proxy;
 
     virtual void SetUp() {
         COMMON_SETUP();
-        mockFslogic.reset(new MockFslogicProxy());
-        proxy.reset(new ProxyStorageMapper(mockFslogic));
+        mockFslogic.reset(new MockFslogicProxy(context));
+        proxy.reset(new ProxyStorageMapper(context, mockFslogic));
 
     }
 
@@ -76,8 +76,8 @@ TEST_F(StorageMapperTest, AddAndGet) {
     EXPECT_EQ(1, ret1.first.storageId);
     EXPECT_EQ(2, ret2.first.storageId);
 
-    EXPECT_EQ("arg0", ret1.second.storageHelperArgs[0]);
-    EXPECT_EQ("arg3", ret2.second.storageHelperArgs[1]);
+    EXPECT_EQ("arg0", boost::any_cast<std::string>(ret1.second.storageHelperArgs[helpers::srvArg(0)]));
+    EXPECT_EQ("arg3", boost::any_cast<std::string>(ret2.second.storageHelperArgs[helpers::srvArg(1)]));
 }
 
 TEST_F(StorageMapperTest, OpenClose) {
