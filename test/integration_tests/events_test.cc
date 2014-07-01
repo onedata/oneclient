@@ -171,7 +171,7 @@ TEST_F(EventsTest, clientGettingBlockedWhenQuotaExceeded) {
     // we are deleting big file - after that we should fits our quota again
     EXPECT_EQ(0, ::system(("rm " + filePath).c_str()));
 
-    sleep(4);
+    sleep(10);
 
     // now we should be able to write again
     EXPECT_EQ(0, ::system(("dd if=/dev/zero bs=1 count=10 >> " + filePath2).c_str()));
