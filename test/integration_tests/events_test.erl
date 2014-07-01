@@ -51,4 +51,4 @@ exec({register_mkdir_handler, FilePath}) ->
 
 exec({prepare_for_quota_case, QuotaSizeInBytes}) ->
   rule_definitions:register_for_write_events(10),
-  update_quota("test_user", QuotaSizeInBytes).
+  update_quota("veilfstestuser", QuotaSizeInBytes).

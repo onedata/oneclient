@@ -163,6 +163,8 @@ TEST_F(EventsTest, clientGettingBlockedWhenQuotaExceeded) {
         sleep(1);
     }
 
+    sleep(2);
+
     // trying to write something should return error
     EXPECT_TRUE(::system(("dd if=/dev/zero bs=1 count=10 >> " + filePath).c_str()) != 0);
 
