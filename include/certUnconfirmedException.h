@@ -22,6 +22,12 @@ class Config;
 class JobScheduler;
 class PushListener;
 
+
+/**
+ * CertUnconfirmedException.
+ * Exception used when connection message/connection could not be send/established due to unconfirmed certificate. 
+ * The excpetion carries username associated with account that is assigned to used certificate. 
+ */
 class CertUnconfirmedException : public VeilException
 {
 public:
