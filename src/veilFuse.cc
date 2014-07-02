@@ -364,8 +364,8 @@ int main(int argc, char* argv[], char* envp[])
     {
         try 
         {
-        config->testHandshake();
-    }
+            config->testHandshake();
+        }
         catch (CertUnconfirmedException &exception) 
         {
             std::string username = exception.getUsername();
@@ -380,7 +380,6 @@ int main(int argc, char* argv[], char* envp[])
             config->testHandshake(username, userAns[0] == 'y' || userAns[0] == 't');
         }
     }
-    
     catch (VeilException &exception) {
         if(exception.veilError()==NO_USER_FOUND_ERROR)
             cerr << "Cannot find user, remember to login through website before mounting fuse. Aborting" << endl;

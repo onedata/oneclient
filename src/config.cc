@@ -14,13 +14,6 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
 
-#include <cassert>
-#include <fstream>
-#include <functional>
-
-
-#define CERT_CONFIRMATION_REQUIRED_ERROR "cert_confirmation_required"
-
 using namespace std;
 using namespace boost;
 using namespace veil::protocol::communication_protocol;
@@ -108,8 +101,8 @@ void Config::negotiateFuseID(time_t delay)
 }
 
 void Config::testHandshake()
-    testHandshake("", false);
 {
+    testHandshake("", false);
 }
 
 void Config::testHandshake(std::string usernameToConfirm, bool confirm)

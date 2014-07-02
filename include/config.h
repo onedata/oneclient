@@ -10,12 +10,7 @@
 
 #include <string>
 #include <unistd.h>
-
-#include <boost/algorithm/string/case_conv.hpp>
-#include <boost/filesystem.hpp>
-
 #include <map>
-#include <memory>
 #include <sstream>
 #include <boost/filesystem.hpp>
 #include <boost/unordered_set.hpp>
