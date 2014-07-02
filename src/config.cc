@@ -152,6 +152,7 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
             varEntry->set_value( VeilFS::getOptions()->get_fuse_group_id() );
         }
 
+        // If there is username spcecified, send account confirmation along with handshake request
         if(usernameToConfirm.size() > 0) 
         {
             HandshakeRequest_CertConfirmation confirmationMsg;

@@ -370,6 +370,7 @@ int main(int argc, char* argv[], char* envp[])
         {
             std::string username = exception.getUsername();
 
+            // Prompt user for account confirmation
             std::string userAns;
             do {
                 std::cout << "Warning ! You are tring to connect with unconfirmed certificate as: '" << username << "'. Is it your account? (y/n): ";
@@ -377,6 +378,7 @@ int main(int argc, char* argv[], char* envp[])
                 std::transform(userAns.begin(), userAns.end(), userAns.begin(), ::tolower);
             } while(userAns.size() == 0 || (userAns[0] != 'y' && userAns[0] != 't' && userAns[0] != 'n'));
 
+            // Resend handshake request along with account confirmation / rejection
             config->testHandshake(username, userAns[0] == 'y' || userAns[0] == 't');
         }
     }
