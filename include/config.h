@@ -10,7 +10,12 @@
 
 #include <string>
 #include <unistd.h>
+
+#include <boost/algorithm/string/case_conv.hpp>
+#include <boost/filesystem.hpp>
+
 #include <map>
+#include <memory>
 #include <sstream>
 #include <boost/filesystem.hpp>
 #include <boost/unordered_set.hpp>
@@ -62,7 +67,8 @@ public:
     virtual std::string getFuseID();                            ///< Returns current FuseID.
     virtual void negotiateFuseID(time_t delay = 0);             ///< Starts FuseID negotiation process.
                                                                 ///< @param delay Since this is async actions, you can specify execution delay in seconds.
-    virtual void testHandshake();								///< Synchronously negotiate FuseID to test if everything is ok
+    virtual void testHandshake();                                ///< Synchronously negotiate FuseID to test if everything is ok
+    virtual void testHandshake(std::string usernameToConfirm, bool confirm);    ///< Synchronously negotiate FuseID to test if everything is ok. Also, confirms/rejects certificate registration for specified username
 
 
     std::string static absPathRelToCWD(const boost::filesystem::path&);///< Converts relative path, to absolute using CWD env as base prefix.
