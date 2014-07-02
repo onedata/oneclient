@@ -176,6 +176,7 @@ TEST_F(FslogicProxyTest, getFileLocation) {
     proxy.mockAnswer = true;
     GetFileLocation msg;
     msg.set_file_logic_name("/file");
+    msg.set_open_mode(UNSPECIFIED_MODE);
 
     FileLocation location;
     FileLocation response;
