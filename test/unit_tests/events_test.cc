@@ -7,40 +7,38 @@
 
 #include "testCommon.h"
 
-#include "events/events.h"
-
-#include "events_mock.h"
-#include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"
-#include "options_mock.h"
-#include "jobScheduler_mock.h"
+#include "connectionPool_mock.h"
+#include "events/events.h"
+#include "events_mock.h"
 #include "fslogicProxy_proxy.h"
+#include "fuse_messages.pb.h"
+#include "jobScheduler_mock.h"
+#include "options_mock.h"
 
+#include <list>
+#include <vector>
 #include <memory>
 
-INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
+using namespace ::testing;
+using namespace std::placeholders;
+using namespace veil::client;
+using namespace veil::client::events;
 
-// TEST definitions below
-
-class EventsTest
-    : public ::testing::Test
+class EventsTest: public CommonTest
 {
 public:
-    COMMON_DEFS();
+    void SetUp() override
+    {
+        CommonTest::SetUp();
 
-    virtual void SetUp() {
-        COMMON_SETUP();
         std::shared_ptr<MockCommunicationHandler> connectionMock;
-        connectionMock.reset(new MockCommunicationHandler());
+        connectionMock = std::make_shared<MockCommunicationHandler>();
         EXPECT_CALL(*connectionPool, selectConnection(_)).WillRepeatedly(Return(connectionMock));
         EXPECT_CALL(*connectionPool, releaseConnection(_)).WillRepeatedly(Return());
         veil::protocol::communication_protocol::Answer ans;
         ans.set_answer_status(VOK);
         EXPECT_CALL(*connectionMock, communicate(_, _, _)).WillRepeatedly(Return(ans));
-    }
-
-    virtual void TearDown() {
-        COMMON_CLEANUP();
     }
 };
 
@@ -48,8 +46,7 @@ class TestHelper
 {
 public:
     std::shared_ptr<Event> processEvent(std::shared_ptr<Event> event){
-        std::shared_ptr<Event> newEvent(new Event());
-        //Event * newEvent = new Event();
+        auto newEvent = std::make_shared<Event>();
         newEvent->setStringProperty("customActionKey", "custom_action_invoked");
         return newEvent;
     }
@@ -68,7 +65,7 @@ TEST(EventFilter, SimpleFilter) {
 
     resEvent = filter.processEvent(mkdirEvent);
     ASSERT_TRUE((bool) resEvent);
-    ASSERT_EQ(string("file1"), resEvent->getStringProperty("filePath", ""));
+    ASSERT_EQ("file1", resEvent->getStringProperty("filePath", ""));
 }
 
 // checks simple stream with single EventAggregator
@@ -181,8 +178,8 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
     std::shared_ptr<Event> file2Event = Event::createMkdirEvent("file2");
     std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
     std::shared_ptr<Event> writeEvent2 = Event::createWriteEvent("file2", 100);
-    std::shared_ptr<IEventStream> filter(new EventFilter("type", "mkdir_event"));
-    std::shared_ptr<IEventStream> aggregator(new EventAggregator(filter, "filePath", 5));
+    std::shared_ptr<IEventStream> filter = std::make_shared<EventFilter>("type", "mkdir_event");
+    std::shared_ptr<IEventStream> aggregator = std::make_shared<EventAggregator>(filter, "filePath", 5);
 
     for(int i=0; i<4; ++i){
         std::shared_ptr<Event> res = aggregator->processEvent(file1Event);
@@ -222,13 +219,13 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
 
 TEST(EventTransformerTest, SimpleTransformation) {
     std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
-    vector<string> fieldNames;
+    std::vector<std::string> fieldNames;
     fieldNames.push_back("type");
-    vector<string> toReplace;
+    std::vector<std::string> toReplace;
     toReplace.push_back("write_event");
-    vector<string> replaceWith;
+    std::vector<std::string> replaceWith;
     replaceWith.push_back("write_for_stats");
-    std::shared_ptr<IEventStream> transformer(new EventTransformer(fieldNames, toReplace, replaceWith));
+    std::shared_ptr<IEventStream> transformer = std::make_shared<EventTransformer>(fieldNames, toReplace, replaceWith);
 
     std::shared_ptr<Event> output = transformer->processEvent(writeEvent);
     ASSERT_EQ(1, output->getNumericPropertiesSize());
@@ -239,17 +236,17 @@ TEST(EventTransformerTest, SimpleTransformation) {
 TEST_F(EventsTest, EventStreamCombiner_CombineStreams) {
     std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
     std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
-    std::shared_ptr<IEventStream> mkdirFilter(new EventFilter("type", "mkdir_event"));
+    std::shared_ptr<IEventStream> mkdirFilter = std::make_shared<EventFilter>("type", "mkdir_event");
     EventStreamCombiner combiner{context};
     combiner.addSubstream(mkdirFilter);
 
-    list<std::shared_ptr<Event> > events = combiner.processEvent(mkdirEvent);
+    auto events = combiner.processEvent(mkdirEvent);
     ASSERT_EQ(1u, events.size());
 
     events = combiner.processEvent(writeEvent);
     ASSERT_EQ(0u, events.size());
 
-    std::shared_ptr<IEventStream> writeFilter(new EventFilter("type", "write_event"));
+    std::shared_ptr<IEventStream> writeFilter = std::make_shared<EventFilter>("type", "write_event");
     combiner.addSubstream(writeFilter);
 
     events = combiner.processEvent(writeEvent);
@@ -264,8 +261,8 @@ TEST(IEventStream, CustomActionStreamTest){
     std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
     std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
 
-    std::shared_ptr<IEventStream> filter(new EventFilter("type", "mkdir_event"));
-    CustomActionStream action(filter, bind(&TestHelper::processEvent, &testHelper, _1));
+    std::shared_ptr<IEventStream> filter = std::make_shared<EventFilter>("type", "mkdir_event");
+    CustomActionStream action(filter, std::bind(&TestHelper::processEvent, &testHelper, _1));
 
     std::shared_ptr<Event> res = action.processEvent(writeEvent);
     ASSERT_FALSE((bool) res);
@@ -273,7 +270,7 @@ TEST(IEventStream, CustomActionStreamTest){
     res = action.processEvent(mkdirEvent);
     ASSERT_TRUE((bool) res);
 
-    string r = res->getStringProperty("customActionKey", "");
+    std::string r = res->getStringProperty("customActionKey", "");
 
     ASSERT_EQ("custom_action_invoked", res->getStringProperty("customActionKey", ""));
 }
@@ -350,7 +347,7 @@ TEST(IEventStream, ConstructFromConfigReturnsEmptyPointerWhenConfigIncorrect){
 }
 
 TEST_F(EventsTest, EventCombinerRunTask){
-    std::shared_ptr<MockEventStream> substreamMock1(new MockEventStream());
+    std::shared_ptr<MockEventStream> substreamMock1 = std::make_shared<MockEventStream>();
     EXPECT_CALL(*substreamMock1, processEvent(_)).WillRepeatedly(Return(Event::createMkdirEvent("file1")));
     std::shared_ptr<Event> event(Event::createMkdirEvent("file"));
     EventStreamCombiner combiner{context};

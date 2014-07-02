@@ -5,9 +5,16 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.h"
+#include "communication_protocol.pb.h"
+#include "config_proxy.h"
+#include "context.h"
 #include "erlTestCore.h"
-#include "boost/filesystem.hpp"
+#include "fuse_messages.pb.h"
+#include "pushListener.h"
+#include "simpleConnectionPool.h"
+#include "testCommon.h"
+
+#include <boost/filesystem.hpp>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -17,45 +24,35 @@
 #include <mutex>
 
 using namespace boost::filesystem;
-using namespace std;
+using namespace std::placeholders;
+using namespace veil;
+using namespace veil::client::utils;
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
-using namespace veil::client::utils;
 
-INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
-
-// TEST definitions below
-
-class PushChannelTest
-: public ::testing::Test
+class PushChannelTest: public CommonIntegrationTest
 {
 protected:
-    COMMON_INTEGRATION_DEFS();
-
-    VeilFSMount VFS;
-
     path directIO_root;
 
     std::mutex cbMutex;
     std::condition_variable cbCond;
     int answerHandled;
-
-    PushChannelTest() : VFS(VeilFSMount("main", "peer.pem"))
+    
+    PushChannelTest()
+        : CommonIntegrationTest{std::unique_ptr<veil::testing::VeilFSMount>{new veil::testing::VeilFSMount{"main", "peer.pem"}}}
     {
     }
-
-    virtual void SetUp() {
-        COMMON_INTEGRATION_SETUP();
+    
+    void SetUp() override
+    {
+        CommonIntegrationTest::SetUp();
         answerHandled = 0;
     }
-
-    virtual void TearDown() {
-        COMMON_INTEGRATION_CLEANUP();
-    }
-
+    
 public:
 
-    bool handler(const protocol::communication_protocol::Answer &msg, int waitFor)
+    bool handler(const veil::protocol::communication_protocol::Answer &msg, int waitFor)
     {
         std::unique_lock<std::mutex> lock(cbMutex);
         TestChannelAnswer tMsg;
@@ -73,10 +70,11 @@ public:
 };
 
 // Test if PUSH channel registration and close works well
-TEST_F(PushChannelTest, RegisterAndClose) {
+TEST_F(PushChannelTest, RegisterAndClose)
+{
     // By default client should register at least one handler
 
-    ASSERT_LT(0, fromString<int>(erlExec(string("{get_handler_count, \"") + config->getFuseID() + string("\"}"))));
+    ASSERT_LT(0, fromString<int>(veil::testing::erlExec("{get_handler_count, \"" + config->getFuseID() + "\"}")));
 
     // Make sure we have only one connection
     context->getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, 1);
@@ -84,12 +82,13 @@ TEST_F(PushChannelTest, RegisterAndClose) {
     // Close PUSH channel
     context->getConnectionPool()->selectConnection()->disablePushChannel();
     sleep(2);
-    ASSERT_EQ(0, fromString<int>(erlExec(string("{get_handler_count, \"") + config->getFuseID() + string("\"}"))));
+    ASSERT_EQ(0, fromString<int>(veil::testing::erlExec("{get_handler_count, \"" + config->getFuseID() + "\"}")));
 }
 
 
 // Test if PUSH channel failure doesnt break its PUSH handler status
-TEST_F(PushChannelTest, pushChannelFailure) {
+TEST_F(PushChannelTest, pushChannelFailure)
+{
     // Make sure we have only one connection
     context->getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, 1);
 
@@ -101,22 +100,23 @@ TEST_F(PushChannelTest, pushChannelFailure) {
     ASSERT_EQ(0, connectRes);
     sleep(2);
 
-    ASSERT_LT(0, fromString<int>(erlExec(string("{get_handler_count, \"") + config->getFuseID() + string("\"}"))));
+    ASSERT_LT(0, fromString<int>(veil::testing::erlExec("{get_handler_count, \"" + config->getFuseID() + "\"}")));
 }
 
 
 // Test if PUSH channel receives messages
-TEST_F(PushChannelTest, pushChannelInbox) {
+TEST_F(PushChannelTest, pushChannelInbox)
+{
     std::unique_lock<std::mutex> lock(cbMutex);
 
     // Register handler
     context->getPushListener()->subscribe(std::bind(&PushChannelTest::handler, this, _1, 2));
 
     // Send test message from cluster
-    string sendAns = erlExec(string("{push_msg, \"test\", \"") + config->getFuseID() + "\"}");
+    auto sendAns = veil::testing::erlExec("{push_msg, \"test\", \"" + config->getFuseID() + "\"}");
     EXPECT_EQ("ok", sendAns);
 
-    sendAns = erlExec(string("{push_msg, \"test\", \"") + config->getFuseID() + "\"}");
+    sendAns = veil::testing::erlExec("{push_msg, \"test\", \"" + config->getFuseID() + "\"}");
     EXPECT_EQ("ok", sendAns);
 
     cbCond.wait_for(lock, std::chrono::seconds(5));

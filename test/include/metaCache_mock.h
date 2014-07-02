@@ -9,22 +9,21 @@
 #define META_CACHE_MOCK_H
 
 #include "metaCache.h"
-#include "testCommon.h"
-#include "context.h"
 
-#include <memory>
+#include <gmock/gmock.h>
 
-class MockMetaCache
-    : public MetaCache {
+class MockMetaCache: public veil::client::MetaCache
+{
 public:
-    MockMetaCache(std::shared_ptr<Context> context)
-    	: MetaCache{std::move(context)} {};
-    ~MockMetaCache() {};
+    MockMetaCache(std::shared_ptr<veil::client::Context> context)
+        : MetaCache{std::move(context)}
+    {
+    }
 
-    MOCK_METHOD1(clearAttr, void(const string&));
-    MOCK_METHOD2(addAttr, void(const string&, struct stat&));
-    MOCK_METHOD2(getAttr, bool(const string&, struct stat*));
-    MOCK_METHOD2(updateSize, bool(const string&, size_t size));
+    MOCK_METHOD1(clearAttr, void(const std::string&));
+    MOCK_METHOD2(addAttr, void(const std::string&, struct stat&));
+    MOCK_METHOD2(getAttr, bool(const std::string&, struct stat*));
+    MOCK_METHOD2(updateSize, bool(const std::string&, size_t size));
 };
 
 

@@ -15,35 +15,28 @@
 #include <mutex>
 #include <condition_variable>
 
+using namespace ::testing;
+using namespace std::placeholders;
+using namespace veil::client;
 using namespace veil::protocol::communication_protocol;
 
-INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
-
-// TEST definitions below
-
-class PushListenerTest
-: public ::testing::Test {
+class PushListenerTest: public CommonTest
+{
 protected:
-    COMMON_DEFS();
-
     std::mutex cbMutex;
     std::condition_variable cbCond;
     std::unique_ptr<PushListener> listener;
 
     std::atomic<int> answerHandled;
 
-    virtual void SetUp() {
-        COMMON_SETUP();
-        listener.reset(new PushListener(context));
+    void SetUp() override
+    {
+        CommonTest::SetUp();
+        listener.reset(new PushListener{context});
         answerHandled = 0;
     }
 
-    virtual void TearDown() {
-        COMMON_CLEANUP();
-    }
-
 public:
-
     bool handler(const Answer &msg, bool ret = true)
     {
         if(msg.worker_answer() == "test")
@@ -53,7 +46,6 @@ public:
 
         return ret;
     }
-
 };
 
 
@@ -97,7 +89,6 @@ TEST_F(PushListenerTest, removeHandler)
     listener->onMessage(ans);
     cbCond.wait_for(lock, std::chrono::milliseconds(500));
 
-
     ASSERT_EQ(1, answerHandled);
 
     answerHandled = 0;
@@ -113,7 +104,6 @@ TEST_F(PushListenerTest, removeHandler)
     cbCond.wait_for(lock, std::chrono::milliseconds(500));
 
     ASSERT_EQ(1, answerHandled);
-
 }
 
 

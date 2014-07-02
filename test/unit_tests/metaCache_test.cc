@@ -13,33 +13,26 @@
 
 #include <chrono>
 
-INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
+using namespace ::testing;
+using namespace veil::client;
 
-// TEST definitions below
-
-class MetaCacheTest
-    : public ::testing::Test {
-
+class MetaCacheTest: public CommonTest
+{
 protected:
-    COMMON_DEFS();
     std::shared_ptr <ProxyMetaCache> proxy;
     struct stat stat;
 
-    virtual void SetUp() {
-        COMMON_SETUP();
-        proxy.reset(new ProxyMetaCache(context));
+    void SetUp() override
+    {
+        CommonTest::SetUp();
+
+        proxy = std::make_shared<ProxyMetaCache>(context);
 
         EXPECT_CALL(*options, has_enable_attr_cache()).WillRepeatedly(Return(true));
         EXPECT_CALL(*options, get_enable_attr_cache()).WillRepeatedly(Return(true));
         EXPECT_CALL(*options, has_attr_cache_expiration_time()).WillRepeatedly(Return(true));
         EXPECT_CALL(*options, get_attr_cache_expiration_time()).WillRepeatedly(Return(20));
     }
-
-    virtual void TearDown() {
-        COMMON_CLEANUP();
-    }
-
-
 };
 
 TEST_F(MetaCacheTest, InsertAndRemove) {
