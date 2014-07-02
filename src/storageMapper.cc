@@ -60,11 +60,11 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &log
     return make_pair(it->second, it1->second);
 }
 
-string StorageMapper::findLocation(const string &logicalName)
+string StorageMapper::findLocation(const string &logicalName, const string &openMode)
 {
     LOG(INFO) << "quering cluster about storage mapping for file: " << logicalName;
     FileLocation location;
-    if(m_fslogic->getFileLocation(logicalName, location))
+    if(m_fslogic->getFileLocation(logicalName, location, openMode))
     {
         if(location.answer() == VOK)
             addLocation(logicalName, location);
@@ -93,9 +93,9 @@ void StorageMapper::addLocation(const string &logicalName, const FileLocation &l
     for(int i = 0; i < location.storage_helper_args_size(); ++i)
         storageInfo.storageHelperArgs.push_back(location.storage_helper_args(i));
 
-    info.opened = 0;
-
     AutoLock lock(m_fileMappingLock, WRITE_LOCK);
+    auto previous = m_fileMapping.find(logicalName);
+    info.opened = (previous == m_fileMapping.end() ? 0 : previous->second.opened) ;
     m_fileMapping[logicalName] = info;
     AutoLock sLock(m_storageMappingLock, WRITE_LOCK);
     m_storageMapping[info.storageId] = storageInfo;
