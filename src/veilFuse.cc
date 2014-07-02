@@ -373,7 +373,7 @@ int main(int argc, char* argv[], char* envp[])
             // Prompt user for account confirmation
             std::string userAns;
             do {
-                std::cout << "Warning ! You are tring to connect with unconfirmed certificate as: '" << username << "'. Is it your account? (y/n): ";
+                std::cout << "Warning ! You are trying to connect with unconfirmed certificate as: '" << username << "'. Is it your account? (y/n): ";
                 std::getline(std::cin, userAns);
                 std::transform(userAns.begin(), userAns.end(), userAns.begin(), ::tolower);
             } while(userAns.size() == 0 || (userAns[0] != 'y' && userAns[0] != 't' && userAns[0] != 'n'));
