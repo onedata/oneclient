@@ -182,7 +182,7 @@ TEST_F(FslogicProxyTest, getFileLocation) {
     FileLocation response;
 
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(false)));
-    EXPECT_FALSE(proxy.getFileLocation("/file", response));
+    EXPECT_FALSE(proxy.getFileLocation("/file", response,UNSPECIFIED_MODE));
 
     location.set_validity(10);
     location.set_answer(VEACCES);
@@ -190,7 +190,7 @@ TEST_F(FslogicProxyTest, getFileLocation) {
     location.set_file_id("fileid");
 
     EXPECT_CALL(proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, location, _1) )), Return(true)));
-    ASSERT_TRUE(proxy.getFileLocation("/file", response));
+    ASSERT_TRUE(proxy.getFileLocation("/file", response,UNSPECIFIED_MODE));
 
     EXPECT_EQ(location.validity(), response.validity());
     EXPECT_EQ(location.answer(), response.answer());
