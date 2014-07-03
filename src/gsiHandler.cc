@@ -5,10 +5,11 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
+#include "gsiHandler.h"
+
 #include "communicationHandler.h"
 #include "config.h"
 #include "context.h"
-#include "gsiHandler.h"
 #include "logging.h"
 #include "options.h"
 #include "veilfs.h"

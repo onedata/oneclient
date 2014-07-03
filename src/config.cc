@@ -7,6 +7,7 @@
 
 #include "config.h"
 
+#include "certUnconfirmedException.h"
 #include "communication_protocol.pb.h"
 #include "context.h"
 #include "fslogicProxy.h"
@@ -17,8 +18,6 @@
 #include "options.h"
 #include "pushListener.h"
 #include "simpleConnectionPool.h"
-#include "veilException.h"
-#include "veilfs.h"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
@@ -111,6 +110,11 @@ void Config::negotiateFuseID(time_t delay)
 
 void Config::testHandshake()
 {
+    testHandshake("", false);
+}
+
+void Config::testHandshake(std::string usernameToConfirm, bool confirm)
+{
     AutoLock lock(m_access, WRITE_LOCK);
 
     ClusterMsg cMsg;
@@ -158,6 +162,15 @@ void Config::testHandshake()
             varEntry->set_value( context->getOptions()->get_fuse_group_id() );
         }
 
+        // If there is username spcecified, send account confirmation along with handshake request
+        if(usernameToConfirm.size() > 0) 
+        {
+            HandshakeRequest_CertConfirmation confirmationMsg;
+            confirmationMsg.set_login(usernameToConfirm);
+            confirmationMsg.set_result(confirm);
+            reqMsg.mutable_cert_confirmation()->CopyFrom(confirmationMsg);
+        }
+
         cMsg = builder.createClusterMessage(FSLOGIC, HandshakeRequest::descriptor()->name(), HandshakeResponse::descriptor()->name(), FUSE_MESSAGES, true);
         cMsg.set_input(reqMsg.SerializeAsString());
 
@@ -174,6 +187,8 @@ void Config::testHandshake()
         }
         else if(ans.answer_status() == NO_USER_FOUND_ERROR)
             throw VeilException(NO_USER_FOUND_ERROR,"Cannot find user in database.");
+        else if(ans.answer_status() == CERT_CONFIRMATION_REQUIRED_ERROR)
+            throw CertUnconfirmedException(ans.error_description());
         else
             throw VeilException(ans.answer_status(),"Cannot negotatiate FUSE_ID");
     }

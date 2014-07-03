@@ -5,8 +5,9 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "events/event.h"
 #include "events/eventFilter.h"
+
+#include "events/event.h"
 #include "fuse_messages.pb.h"
 
 using namespace veil::client::events;

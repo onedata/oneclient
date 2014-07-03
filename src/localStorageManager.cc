@@ -5,11 +5,12 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
+#include "localStorageManager.h"
+
 #include "communication_protocol.pb.h"
 #include "config.h"
 #include "context.h"
 #include "fuse_messages.pb.h"
-#include "localStorageManager.h"
 #include "logging.h"
 #include "messageBuilder.h"
 #include "simpleConnectionPool.h"

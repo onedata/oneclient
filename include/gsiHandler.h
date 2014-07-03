@@ -21,6 +21,12 @@ namespace veil
 
 static constexpr const char *BASE_DOMAIN = "cluster.veilfs.plgrid.pl";
 
+inline std::string CONFIRM_CERTIFICATE_PROMPT(const std::string &USERNAME)
+{
+    return "Warning ! You are trying to connect using unconfirmed certificate "
+           "as: '" + USERNAME + "'. Is it your account? (y/n): ";
+}
+
 namespace client
 {
 

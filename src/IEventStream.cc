@@ -6,6 +6,7 @@
  */
 
 #include "events/IEventStream.h"
+
 #include "fuse_messages.pb.h"
 
 using namespace veil::client::events;
