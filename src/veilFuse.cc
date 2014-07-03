@@ -14,44 +14,44 @@
 #define _XOPEN_SOURCE 700
 #endif
 
-#include <fuse.h>
-#include <fuse/fuse_opt.h>
-#include <fuse/fuse_lowlevel.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/stat.h>
+#include "config.h"
+#include "context.h"
+#include "events/eventCommunicator.h"
+#include "fslogicProxy.h"
+#include "gsiHandler.h"
+#include "helpers/storageHelperFactory.h"
+#include "ISchedulable.h"
+#include "jobScheduler.h"
+#include "localStorageManager.h"
+#include "logging.h"
+#include "metaCache.h"
+#include "options.h"
+#include "pushListener.h"
+#include "simpleConnectionPool.h"
+#include "storageMapper.h"
+#include "veilConfig.h"
+#include "veilException.h"
+#include "veilfs.h"
+
 #include <dirent.h>
+#include <fcntl.h>
+#include <fuse.h>
+#include <fuse/fuse_lowlevel.h>
+#include <fuse/fuse_opt.h>
 #include <pwd.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <unistd.h>
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
 #endif
 
-#include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
-#include <iostream>
-
-#include "context.h"
-#include "veilfs.h"
-#include "config.h"
-#include "gsiHandler.h"
-#include "logging.h"
-#include "options.h"
-#include "veilConfig.h"
-#include "veilException.h"
-#include "ISchedulable.h"
-#include "simpleConnectionPool.h"
-#include "helpers/storageHelperFactory.h"
-#include "pushListener.h"
-#include "jobScheduler.h"
-#include "events/eventCommunicator.h"
-#include "metaCache.h"
-#include "fslogicProxy.h"
-#include "localStorageManager.h"
-#include "storageMapper.h"
 
 #include <functional>
+#include <iostream>
 #include <memory>
 
 using namespace std;

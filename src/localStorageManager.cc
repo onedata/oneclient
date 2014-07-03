@@ -5,26 +5,27 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "localStorageManager.h"
-#include "context.h"
-#include "veilfs.h"
-#include "logging.h"
 #include "communication_protocol.pb.h"
-#include "fuse_messages.pb.h"
-#include "messageBuilder.h"
 #include "config.h"
+#include "context.h"
+#include "fuse_messages.pb.h"
+#include "localStorageManager.h"
+#include "logging.h"
+#include "messageBuilder.h"
 #include "simpleConnectionPool.h"
+#include "veilfs.h"
 
-#include <random>
+#include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/filesystem/fstream.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/tokenizer.hpp>
+#include <google/protobuf/descriptor.h>
+
 #include <algorithm>
 #include <iterator>
 #include <memory>
-#include <boost/algorithm/string.hpp>
-#include <boost/tokenizer.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/fstream.hpp>
-#include <google/protobuf/descriptor.h>
+#include <random>
 
 using boost::filesystem::path;
 using namespace veil::protocol::fuse_messages;

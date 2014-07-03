@@ -7,8 +7,8 @@
 
 #include "events/eventAggregator.h"
 
-#include "fuse_messages.pb.h"
 #include "events/event.h"
+#include "fuse_messages.pb.h"
 
 using namespace veil::client::events;
 using namespace std;

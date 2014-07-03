@@ -8,14 +8,14 @@
 
 #include "storageMapper.h"
 
-#include "veilfs.h"
 #include "context.h"
-#include "logging.h"
-#include "veilException.h"
-#include "fuse_messages.pb.h"
 #include "fslogicProxy.h"
+#include "fuse_messages.pb.h"
 #include "helpers/storageHelperFactory.h"
 #include "jobScheduler.h"
+#include "logging.h"
+#include "veilException.h"
+#include "veilfs.h"
 
 #include <boost/any.hpp>
 

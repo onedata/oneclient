@@ -7,18 +7,18 @@
 
 #include "config.h"
 
-#include "messageBuilder.h"
-#include "logging.h"
-#include "context.h"
-#include "veilfs.h"
 #include "communication_protocol.pb.h"
-#include "fuse_messages.pb.h"
-#include "veilException.h"
-#include "options.h"
-#include "jobScheduler.h"
-#include "simpleConnectionPool.h"
+#include "context.h"
 #include "fslogicProxy.h"
+#include "fuse_messages.pb.h"
+#include "jobScheduler.h"
+#include "logging.h"
+#include "messageBuilder.h"
+#include "options.h"
 #include "pushListener.h"
+#include "simpleConnectionPool.h"
+#include "veilException.h"
+#include "veilfs.h"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>

@@ -5,33 +5,34 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
+#include "communicationHandler.h"
+#include "config.h"
+#include "context.h"
+#include "gsiHandler.h"
+#include "logging.h"
+#include "options.h"
+#include "veilfs.h"
+
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
+#include <openssl/bio.h>
+#include <openssl/err.h>
+#include <openssl/evp.h>
+#include <openssl/md5.h>
+#include <openssl/pem.h>
+#include <openssl/pkcs12.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/types.h>
+#include <termios.h>
+#include <unistd.h>
+
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
 #include <utility>
 #include <mutex>
-#include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
-#include <openssl/md5.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <termios.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <openssl/pem.h>
-#include <openssl/pkcs12.h>
-#include <openssl/err.h>
-#include <openssl/bio.h>
-#include <openssl/evp.h>
-#include <boost/algorithm/string.hpp>
-#include "gsiHandler.h"
-#include "veilfs.h"
-#include "communicationHandler.h"
-#include "logging.h"
-#include "config.h"
-#include "options.h"
-
-#include "context.h"
 
 #define X509_USER_PROXY_ENV     "X509_USER_PROXY"
 

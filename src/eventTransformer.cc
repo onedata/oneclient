@@ -8,7 +8,6 @@
 #include "events/event.h"
 #include "events/eventTransformer.h"
 #include "fuse_messages.pb.h"
-
 #include "logging.h"
 
 using namespace veil::client::events;

@@ -5,8 +5,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-
 #include "lock.h"
+
 #include "logging.h"
 
 namespace veil {

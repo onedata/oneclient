@@ -7,10 +7,12 @@
 
 #include "events/event.h"
 
-#include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"
+#include "fuse_messages.pb.h"
+
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
+ 
 #include <map>
 
 using namespace veil::client;

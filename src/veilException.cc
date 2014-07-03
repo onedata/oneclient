@@ -6,8 +6,9 @@
  */
 
 #include "veilException.h"
-#include "veilfs.h"
+
 #include "logging.h"
+#include "veilfs.h"
 
 namespace veil {
 namespace client {

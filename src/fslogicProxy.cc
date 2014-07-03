@@ -8,26 +8,27 @@
 
 #include "fslogicProxy.h"
 
-#include "context.h"
-#include "veilfs.h"
-#include "logging.h"
-#include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"
-#include "messageBuilder.h"
-#include "veilErrors.h"
 #include "communicationHandler.h"
-#include "simpleConnectionPool.h"
 #include "config.h"
+#include "context.h"
+#include "fuse_messages.pb.h"
 #include "jobScheduler.h"
+#include "logging.h"
+#include "messageBuilder.h"
 #include "options.h"
+#include "simpleConnectionPool.h"
+#include "veilErrors.h"
+#include "veilfs.h"
 
+#include <boost/algorithm/string.hpp>
+#include <google/protobuf/descriptor.h>
+#include <sys/types.h>
 #include <unistd.h>
+
+#include <fstream>
 #include <iostream>
 #include <string>
-#include <fstream>
-#include <google/protobuf/descriptor.h>
-#include <boost/algorithm/string.hpp>
-#include <sys/types.h>
 
 using namespace std;
 using namespace boost::algorithm;

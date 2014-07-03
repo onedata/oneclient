@@ -8,10 +8,10 @@
 
 #include "events/IEventStreamFactory.h"
 
-#include "events/IEventStream.h"
-#include "events/eventFilter.h"
 #include "events/eventAggregator.h"
+#include "events/eventFilter.h"
 #include "events/eventTransformer.h"
+#include "events/IEventStream.h"
 #include "fuse_messages.pb.h"
 
 namespace veil

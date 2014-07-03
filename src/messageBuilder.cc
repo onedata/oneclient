@@ -7,15 +7,16 @@
 
 #include "messageBuilder.h"
 
-#include "context.h"
-#include "config.h"
 #include "communicationHandler.h"
-#include "veilfs.h"
+#include "config.h"
+#include "context.h"
 #include "fslogicProxy.h"
+#include "veilfs.h"
+
+#include <boost/algorithm/string.hpp>
+#include <unistd.h>
 
 #include <iostream>
-#include <unistd.h>
-#include <boost/algorithm/string.hpp>
 
 using namespace std;
 using namespace boost::algorithm;
