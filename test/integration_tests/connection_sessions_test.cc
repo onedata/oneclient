@@ -61,19 +61,17 @@ TEST_F(ConnectionSessionsTest, SessionEnvVairables_And_SessionReinitialization) 
     // By default client should negotiate and register FuseId
 
     string currentFuseId = config->getFuseID();
-    std::cout << "FUSE_ID: " << currentFuseId;
     // Now we can manually add some env varables
-    static char env1[] = FUSE_OPT_PREFIX "varname1=varvalue1";
-    static char env2[] = FUSE_OPT_PREFIX "varname2=varvalue2";
-    putenv(env1);
-    putenv(env2);
+    static auto env1 = std::string{FUSE_OPT_PREFIX} + "varname1=varvalue1";
+    static auto env2 = std::string{FUSE_OPT_PREFIX} + "varname2=varvalue2";
+    putenv(const_cast<char*>(env1.c_str()));
+    putenv(const_cast<char*>(env2.c_str()));
 
     // Start new handshake
     config->negotiateFuseID();
 
     sleep(10); // This can take a while
 
-    std::cout << "NEW FUSE_ID: " << config->getFuseID();
     // New session ID (FuseId) shall be different from previous
     ASSERT_NE(currentFuseId, config->getFuseID());
 
