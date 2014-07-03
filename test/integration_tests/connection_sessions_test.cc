@@ -61,8 +61,8 @@ TEST_F(ConnectionSessionsTest, SessionEnvVairables_And_SessionReinitialization) 
 
     string currentFuseId = config->getFuseID();
     // Now we can manually add some env varables
-    config->putEnv(FUSE_OPT_PREFIX + "varname1","varvalue1");
-    config->putEnv(FUSE_OPT_PREFIX + "varname2","varvalue2");
+    config->putEnv(string(FUSE_OPT_PREFIX) + string("varname1"),"varvalue1");
+    config->putEnv(string(FUSE_OPT_PREFIX) + string("varname2"),"varvalue2");
 
     // Start new handshake
     config->negotiateFuseID();
