@@ -221,10 +221,10 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
             // Iterate over all env variables
             for(it = m_envAll.begin(); it != m_envAll.end(); ++it)
             {
-                std::cout <<  (*it).first<<"\n";
+                LOG(WARNING) << "!!!"<< (*it).first<<"\n";
                 if(!boost::istarts_with((*it).first, FUSE_OPT_PREFIX)) // Reject vars with invalid prefix
                     continue;
-                std::cout <<  (*it).first <<"\n";
+                LOG(WARNING) <<"!!!"<< (*it).first <<"\n";
 
                 if(boost::iequals((*it).first, string(FUSE_OPT_PREFIX) + string("GROUP_ID"))) {
                     fuseIdFound = true;
