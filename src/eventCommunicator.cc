@@ -7,9 +7,26 @@
 
 #include "events/eventCommunicator.h"
 
-#include "context.h"
-#include "veilfs.h"
 #include "communication_protocol.pb.h"
+#include "communicationHandler.h"
+#include "context.h"
+#include "events/customActionStream.h"
+#include "events/event.h"
+#include "events/eventAggregator.h"
+#include "events/eventFilter.h"
+#include "events/eventStreamCombiner.h"
+#include "events/IEventStream.h"
+#include "events/IEventStreamFactory.h"
+#include "fslogicProxy.h"
+#include "fuse_messages.pb.h"
+#include "jobScheduler.h"
+#include "logging.h"
+#include "messageBuilder.h"
+#include "metaCache.h"
+#include "options.h"
+#include "pushListener.h"
+#include "simpleConnectionPool.h"
+#include "veilfs.h"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>

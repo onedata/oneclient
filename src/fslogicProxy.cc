@@ -8,17 +8,27 @@
 
 #include "fslogicProxy.h"
 
+#include "communication_protocol.pb.h"
+#include "communicationHandler.h"
+#include "config.h"
 #include "context.h"
-#include "veilfs.h"
+#include "fuse_messages.pb.h"
+#include "jobScheduler.h"
 #include "logging.h"
+#include "messageBuilder.h"
+#include "options.h"
+#include "simpleConnectionPool.h"
+#include "veilErrors.h"
+#include "veilfs.h"
 
+#include <boost/algorithm/string.hpp>
+#include <google/protobuf/descriptor.h>
+#include <sys/types.h>
 #include <unistd.h>
+
+#include <fstream>
 #include <iostream>
 #include <string>
-#include <fstream>
-#include <google/protobuf/descriptor.h>
-#include <boost/algorithm/string.hpp>
-#include <sys/types.h>
 
 using namespace std;
 using namespace boost::algorithm;
@@ -285,7 +295,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, 
         return false;
     }
 
-    ClusterMsg clusterMessage = m_messageBuilder->packFuseMessage(fMsg.GetDescriptor()->name(), response.GetDescriptor()->name(), FUSE_MESSAGES, fMsg.SerializeAsString());
+    ClusterMsg clusterMessage = m_messageBuilder->packFuseMessage(fMsg.GetDescriptor()->name(), response.GetDescriptor()->name(), veil::FUSE_MESSAGES, fMsg.SerializeAsString());
 
     if(!clusterMessage.IsInitialized())
     {

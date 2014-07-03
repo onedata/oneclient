@@ -6,30 +6,37 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef EVENT_H
-#define EVENT_H
+#ifndef VEILCLIENT_EVENT_H
+#define VEILCLIENT_EVENT_H
 
-#include "fuse_messages.pb.h"
 
 #include <map>
 #include <memory>
 #include <string>
 
-namespace veil {
-namespace client {
-namespace events {
+namespace veil
+{
 
-typedef long long NumericProperty;
+namespace protocol{ namespace fuse_messages { class EventMessage; } }
+
+namespace client
+{
+namespace events
+{
+
+using NumericProperty = long long;
 
 /**
  * Class Event is key-value container for events.
  * It can store numerical and string values.
  * TODO: consider making it immutable.
  */
-class Event{
+class Event
+{
 public:
-    Event();
+    Event() = default;
     Event(const Event & anotherEvent);
+    virtual ~Event() = default;
 
     virtual std::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> createProtoMessage(); ///< Creates protocol buffer message representing Event.
 
@@ -59,4 +66,4 @@ private:
 } // namespace client
 } // namespace veil
 
-#endif // EVENT_H
+#endif // VEILCLIENT_EVENT_H

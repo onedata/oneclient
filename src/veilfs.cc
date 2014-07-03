@@ -7,30 +7,39 @@
 
 #include "veilfs.h"
 
-#include "context.h"
-#include "fslogicProxy.h"
-#include "helpers/storageHelperFactory.h"
-#include "metaCache.h"
-#include "logging.h"
-#include "cstring"
-#include "veilErrors.h"
-#include "config.h"
 #include "communication_protocol.pb.h"
+#include "config.h"
+#include "context.h"
+#include "events/event.h"
+#include "events/eventCommunicator.h"
+#include "fslogicProxy.h"
 #include "fuse_messages.pb.h"
+#include "helpers/storageHelperFactory.h"
+#include "jobScheduler.h"
+#include "localStorageManager.h"
+#include "logging.h"
 #include "messageBuilder.h"
+#include "metaCache.h"
+#include "options.h"
+#include "pushListener.h"
+#include "simpleConnectionPool.h"
+#include "storageMapper.h"
+#include "veilErrors.h"
+#include "veilException.h"
 
-#include <sys/types.h>
-#include <pwd.h>
 #include <grp.h>
+#include <pwd.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
-#include <boost/filesystem/path.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/lexical_cast.hpp>
 #include <google/protobuf/descriptor.h>
 
 #include <algorithm>
+#include <cstring>
 #include <functional>
 
 

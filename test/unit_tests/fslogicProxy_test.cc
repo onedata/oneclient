@@ -22,6 +22,8 @@ using namespace std::placeholders;
 using namespace veil::client;
 using namespace veil::protocol::fuse_messages;
 using namespace veil::protocol::communication_protocol;
+using veil::FUSE_MESSAGES;
+using veil::COMMUNICATION_PROTOCOL;
 
 bool pbMessageEqual( const google::protobuf::MessageLite &lhs, const google::protobuf::MessageLite &rhs ) { return lhs.SerializePartialAsString() == rhs.SerializePartialAsString(); }
 

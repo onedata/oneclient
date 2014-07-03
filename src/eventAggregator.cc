@@ -7,6 +7,9 @@
 
 #include "events/eventAggregator.h"
 
+#include "events/event.h"
+#include "fuse_messages.pb.h"
+
 using namespace veil::client::events;
 using namespace std;
 using namespace veil::protocol::fuse_messages;
@@ -69,10 +72,6 @@ long long EventAggregator::getThreshold()
 {
     return m_threshold;
 }
-
-EventAggregator::ActualEventAggregator::ActualEventAggregator() :
-    m_counter(0)
-{}
 
 std::shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(std::shared_ptr<Event> event, long long threshold, const string & fieldName, const string & sumFieldName)
 {

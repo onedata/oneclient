@@ -8,9 +8,14 @@
 
 #include "storageMapper.h"
 
-#include "veilfs.h"
 #include "context.h"
+#include "fslogicProxy.h"
+#include "fuse_messages.pb.h"
+#include "helpers/storageHelperFactory.h"
+#include "jobScheduler.h"
 #include "logging.h"
+#include "veilException.h"
+#include "veilfs.h"
 
 #include <boost/any.hpp>
 
@@ -26,10 +31,6 @@ namespace client {
 StorageMapper::StorageMapper(std::shared_ptr<Context> context, std::shared_ptr<FslogicProxy> fslogicProxy)
     : m_fslogic(fslogicProxy)
     , m_context{std::move(context)}
-{
-}
-
-StorageMapper::~StorageMapper()
 {
 }
 

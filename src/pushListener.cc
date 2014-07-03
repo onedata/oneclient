@@ -7,12 +7,16 @@
 
 #include "pushListener.h"
 
+#include "communicationHandler.h"
+#include "config.h"
 #include "context.h"
-#include "veilErrors.h"
-#include "jobScheduler.h"
-#include "veilfs.h"
-#include "logging.h"
+#include "fslogicProxy.h"
 #include "fuse_messages.pb.h"
+#include "jobScheduler.h"
+#include "logging.h"
+#include "simpleConnectionPool.h"
+#include "veilErrors.h"
+#include "veilfs.h"
 
 #include <cassert>
 
@@ -40,7 +44,7 @@ namespace client {
         m_worker.join();
     }
 
-    void PushListener::onMessage(const protocol::communication_protocol::Answer msg)
+    void PushListener::onMessage(const Answer &msg)
     {
         std::lock_guard<std::mutex> guard{m_queueMutex};
         m_msgQueue.push_back(msg);

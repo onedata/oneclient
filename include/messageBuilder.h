@@ -1,4 +1,3 @@
-
 /**
  * @file messageBuilder.h
  * @author Beata Skiba
@@ -6,9 +5,9 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
+#ifndef VEILCLIENT_MESSAGE_BUILDER_H
+#define VEILCLIENT_MESSAGE_BUILDER_H
 
-#ifndef MESSAGE_BUILDER_H
-#define MESSAGE_BUILDER_H
 
 #include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"
@@ -16,14 +15,10 @@
 #include <memory>
 #include <string>
 
-#define FUSE_MESSAGES "fuse_messages"
-#define COMMUNICATION_PROTOCOL "communication_protocol"
-#define GET_FILE_LOCATION "getfilelocation"
-#define FUSE_MESSAGE "fusemessage"
-#define FSLOGIC "fslogic"
-
-namespace veil {
-namespace client {
+namespace veil
+{
+namespace client
+{
 
 class Context;
 
@@ -53,4 +48,5 @@ private:
 } // namespace client
 } // namespace veil
 
-#endif // MESSAGE_BUILDER_H
+
+#endif // VEILCLIENT_MESSAGE_BUILDER_H

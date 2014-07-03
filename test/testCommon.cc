@@ -15,6 +15,12 @@
 #include "jobScheduler_mock.h"
 #include "options_mock.h"
 #include "veilfs.h"
+#include "fslogicProxy.h"
+#include "helpers/storageHelperFactory.h"
+#include "metaCache.h"
+#include "storageMapper.h"
+#include "localStorageManager.h"
+#include "events/eventCommunicator.h"
 
 #include <memory>
 #include <thread>

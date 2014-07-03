@@ -6,21 +6,27 @@
  */
 
 #include "localStorageManager.h"
-#include "context.h"
-#include "veilfs.h"
-#include "logging.h"
-#include "communication_protocol.pb.h"
-#include "fuse_messages.pb.h"
 
-#include <random>
+#include "communication_protocol.pb.h"
+#include "config.h"
+#include "context.h"
+#include "fuse_messages.pb.h"
+#include "logging.h"
+#include "messageBuilder.h"
+#include "simpleConnectionPool.h"
+#include "veilfs.h"
+
+#include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/filesystem/fstream.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/tokenizer.hpp>
+#include <google/protobuf/descriptor.h>
+
 #include <algorithm>
 #include <iterator>
 #include <memory>
-#include <boost/algorithm/string.hpp>
-#include <boost/tokenizer.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/filesystem/fstream.hpp>
-#include <google/protobuf/descriptor.h>
+#include <random>
 
 using boost::filesystem::path;
 using namespace veil::protocol::fuse_messages;

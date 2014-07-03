@@ -1,6 +1,8 @@
-#ifndef EVENTS_H
-#define EVENTS_H
+#ifndef VEILCLIENT_EVENTS_H
+#define VEILCLIENT_EVENTS_H
 
+
+#include "events/event.h"
 #include "events/IEventStreamFactory.h"
 #include "events/eventStreamCombiner.h"
 #include "events/eventCommunicator.h"
@@ -11,4 +13,5 @@
 #include "events/eventTransformer.h"
 #include "events/customActionStream.h"
 
-#endif // EVENTS_H
+
+#endif // VEILCLIENT_EVENTS_H

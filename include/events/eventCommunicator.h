@@ -6,30 +6,55 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef EVENT_COMMUNICATOR_H
-#define EVENT_COMMUNICATOR_H
+#ifndef VEILCLIENT_EVENT_COMMUNICATOR_H
+#define VEILCLIENT_EVENT_COMMUNICATOR_H
 
-#include "fslogicProxy.h"
-#include "metaCache.h"
-#include "events/event.h"
-#include "events/eventStreamCombiner.h"
+
+#include "ISchedulable.h"
+
+#include "lock.h"
 
 #include <string>
 #include <memory>
 
-namespace veil {
-namespace client {
+namespace veil
+{
+
+namespace protocol
+{
+namespace fuse_messages
+{
+class EventStreamConfig;
+class EventMessage;
+}
+namespace communication_protocol
+{
+class Answer;
+}
+}
+
+namespace client
+{
 
 class Context;
+class FslogicProxy;
+class MessageBuilder;
+class MetaCache;
 
-namespace events {
+namespace events
+{
+
+class IEventStream;
+class Event;
+class EventStreamCombiner;
 
 /**
  * The EventCommunicator class.
  * EventCommunicator class is facade for event handling module. Holds registered substreams and enables event-related communication with cluster.
  * Enables registering substreams (addEventSubstream* methods) and handles event-related communication with cluster.
  */
-class EventCommunicator : public ISchedulable{
+class EventCommunicator: public ISchedulable
+{
 public:
     EventCommunicator(std::shared_ptr<Context> context, std::shared_ptr<EventStreamCombiner> eventsStream = std::shared_ptr<EventStreamCombiner>());
 
@@ -70,4 +95,5 @@ private:
 } // namespace client
 } // namespace veil
 
-#endif // EVENT_COMMUNICATOR_H
+
+#endif // VEILCLIENT_EVENT_COMMUNICATOR_H

@@ -7,41 +7,51 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef EVENT_AGGREGATOR_H
-#define EVENT_AGGREGATOR_H
+#ifndef VEILCLIENT_EVENT_AGGREGATOR_H
+#define VEILCLIENT_EVENT_AGGREGATOR_H
 
-#include "fuse_messages.pb.h"
-#include "fslogicProxy.h"
+
 #include "events/IEventStream.h"
 
+#include "lock.h"
+
+#include <map>
 #include <memory>
 #include <string>
 
-namespace veil {
-namespace client {
-namespace events {
+namespace veil
+{
+
+namespace protocol{ namespace fuse_messages { class EventAggregatorConfig; }}
+
+namespace client
+{
+namespace events
+{
+
+using NumericProperty = long long;
 
 /**
  * The EventAggregator class.
  * EventAggregator is event stream that divide stream on smaller substreams according to some FieldName value and forward aggregated event when SumField
  * exceeds Threshold.
  */
-class EventAggregator : public IEventStream {
+class EventAggregator: public IEventStream
+{
 public:
 
     // TODO: make it less visible
     /**
      * ActualEventAggregator is responsible for holding state of single EventAggregator substream.
      */
-    class ActualEventAggregator{
+    class ActualEventAggregator
+    {
     public:
-        ActualEventAggregator();
-
         // Process event. Threshold, fieldName and sumFieldName are passed from outside because those parameters are the same for all substreams.
         virtual std::shared_ptr<Event> processEvent(std::shared_ptr<Event> event, NumericProperty threshold,  const std::string & fieldName, const std::string & sumFieldName);
 
     private:
-        NumericProperty m_counter;			 ///< Aggregated value
+        NumericProperty m_counter = 0;			 ///< Aggregated value
         ReadWriteLock m_aggregatorStateLock;
 
         void resetState();					 ///< Resets state - should be called after every event forward.
@@ -73,4 +83,5 @@ private:
 } // namespace client
 } // namespace veil
 
- #endif // EVENT_AGGREGATOR_H
+
+#endif // VEILCLIENT_EVENT_AGGREGATOR_H

@@ -7,12 +7,12 @@
 
 #include "metaCache.h"
 
+#include "config.h"
 #include "context.h"
 #include "jobScheduler.h"
-#include "veilfs.h"
-#include "config.h"
-
 #include "logging.h"
+#include "options.h"
+#include "veilfs.h"
 
 #include <memory.h>
 
