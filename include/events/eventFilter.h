@@ -6,26 +6,32 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef EVENT_FILTER_H
-#define EVENT_FILTER_H
+#ifndef VEILCLIENT_EVENT_FILTER_H
+#define VEILCLIENT_EVENT_FILTER_H
 
-#include "fuse_messages.pb.h"
-#include "fslogicProxy.h"
+
 #include "events/IEventStream.h"
 
 #include <memory>
 #include <string>
 
-namespace veil {
-namespace client {
-namespace events {
+namespace veil
+{
+
+namespace protocol{ namespace fuse_messages { class EventFilterConfig; }}
+
+namespace client
+{
+namespace events
+{
 
 /**
  * The EventFilter class.
  * EventFilter implements IEventStream. EventFilter filters-in events that satisfy some condition, other events are filtered-out.
  * For now condition is simple fieldName == desiredValue, in future it will be extended.
  */
-class EventFilter : public IEventStream {
+class EventFilter: public IEventStream
+{
 public:
     EventFilter(const std::string & fieldName, const std::string & desiredValue);
     EventFilter(std::shared_ptr<IEventStream> wrappedStream, const std::string & fieldName, const std::string & desiredValue);
@@ -48,4 +54,5 @@ private:
 } // namespace client
 } // namespace veil
 
- #endif // EVENT_FILTER_H
+
+#endif // VEILCLIENT_EVENT_FILTER_H

@@ -7,6 +7,11 @@
 
 #include "events/eventCommunicator.h"
 
+#include "fuse_messages.pb.h"
+#include "events/event.h"
+#include "events/eventStreamCombiner.h"
+#include "fslogicProxy.h"
+#include "metaCache.h"
 #include "context.h"
 #include "veilfs.h"
 #include "communication_protocol.pb.h"

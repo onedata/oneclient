@@ -10,30 +10,33 @@
 #define VEILCLIENT_EVENT_H
 
 
-#include "fuse_messages.pb.h"
-
 #include <map>
 #include <memory>
 #include <string>
 
 namespace veil
 {
+
+namespace protocol{ namespace fuse_messages { class EventMessage; } }
+
 namespace client
 {
 namespace events
 {
 
-typedef long long NumericProperty;
+using NumericProperty = long long;
 
 /**
  * Class Event is key-value container for events.
  * It can store numerical and string values.
  * TODO: consider making it immutable.
  */
-class Event{
+class Event
+{
 public:
-    Event();
+    Event() = default;
     Event(const Event & anotherEvent);
+    virtual ~Event() = default;
 
     virtual std::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> createProtoMessage(); ///< Creates protocol buffer message representing Event.
 

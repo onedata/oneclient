@@ -6,25 +6,32 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef EVENT_TRANSFORMER_H
-#define EVENT_TRANSFORMER_H
+#ifndef VEILCLIENT_EVENT_TRANSFORMER_H
+#define VEILCLIENT_EVENT_TRANSFORMER_H
 
-#include "fuse_messages.pb.h"
-#include "fslogicProxy.h"
+
 #include "events/IEventStream.h"
 
 #include <memory>
+#include <vector>
 #include <string>
 
-namespace veil {
-namespace client {
-namespace events {
+namespace veil
+{
+
+namespace protocol{ namespace fuse_messages{ class EventTransformerConfig; }}
+
+namespace client
+{
+namespace events
+{
 
 /**
  * The EventFilter class.
  * EventFilter implements IEventStream. EventTransformer replaces ValuesToReplace of FieldNamesToReplace with NewValues.
  */
-class EventTransformer : public IEventStream {
+class EventTransformer: public IEventStream
+{
 public:
     EventTransformer(const std::vector<std::string> &fieldNamesToReplace, const std::vector<std::string> &valuesToReplace, const std::vector<std::string> &newValues);
 
@@ -41,4 +48,5 @@ private:
 } // namespace client
 } // namespace veil
 
- #endif // EVENT_TRANSFORMER_H
+
+#endif // VEILCLIENT_EVENT_TRANSFORMER_H

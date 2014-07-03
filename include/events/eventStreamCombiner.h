@@ -6,28 +6,38 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef EVENT_STREAM_COMBINER_H
-#define EVENT_STREAM_COMBINER_H
+#ifndef VEILCLIENT_EVENT_STREAM_COMBINER_H
+#define VEILCLIENT_EVENT_STREAM_COMBINER_H
 
-#include "events/event.h"
-#include "events/IEventStream.h"
 
+#include "ISchedulable.h"
+
+#include "lock.h"
+
+#include <list>
 #include <memory>
 #include <string>
 #include <queue>
 
-namespace veil {
-namespace client {
+namespace veil
+{
+namespace client
+{
 
 class Context;
 
-namespace events {
+namespace events
+{
+
+class IEventStream;
+class Event;
 
 /**
  * The EventStreamCombiner class.
  * EventStreamCombiner class is an event sink. Input event will be processed by all registered substreams.
  */
-class EventStreamCombiner : public ISchedulable{
+class EventStreamCombiner: public ISchedulable
+{
 public:
     EventStreamCombiner(std::shared_ptr<Context> context);
 
@@ -52,4 +62,5 @@ private:
 } // namespace client
 } // namespace veil
 
-#endif // EVENT_STREAM_COMBINER_H
+
+#endif // VEILCLIENT_EVENT_STREAM_COMBINER_H

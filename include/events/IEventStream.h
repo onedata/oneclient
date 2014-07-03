@@ -6,62 +6,62 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef I_EVENT_STREAM_H
-#define I_EVENT_STREAM_H
+#ifndef VEILCLIENT_I_EVENT_STREAM_H
+#define VEILCLIENT_I_EVENT_STREAM_H
 
-#include <string>
-#include <list>
-#include <queue>
-#include <map>
+
 #include <memory>
-#include "glog/logging.h"
-#include "fuse_messages.pb.h"
-#include "ISchedulable.h"
-#include "fslogicProxy.h"
-#include "events/event.h"
 
-#define RULE_MANAGER "rule_manager"
-#define CLUSTER_RENGINE "cluster_rengine"
+namespace veil
+{
+namespace client
+{
+namespace events
+{
 
-#define EVENT_PRODUCER_CONFIG_REQUEST "event_producer_config_request"
-#define EVENT_PRODUCER_CONFIG "eventproducerconfig"
-#define EVENT_MESSAGE "eventmessage"
+class Event;
 
-#define SUM_FIELD_NAME "_sum_field_name"
+static constexpr const char
+    *RULE_MANAGER                   = "rule_manager",
+    *CLUSTER_RENGINE                = "cluster_rengine",
 
-namespace veil {
-namespace client {
-namespace events {
+    *EVENT_PRODUCER_CONFIG_REQUEST  = "event_producer_config_request",
+    *EVENT_PRODUCER_CONFIG          = "eventproducerconfig",
+    *EVENT_MESSAGE                  = "eventmessage",
 
-    /**
-     * The IEventStream interface.
-     * IEventStream is an abstract class that should inherited by classes that process events.
-     * Every IEventStream can have wrappedStream. The most inner object process original event,
-     * object that has the most inner object as wrappedStream process event returned by wrappedStream.
-     *
-     * Classes implementing this interface should implement pure virtual method actualProcessEvent.
-     */
-    class IEventStream {
-    public:
-        IEventStream();
-        IEventStream(std::shared_ptr<IEventStream> wrappedStream);
-        virtual ~IEventStream();
+    *SUM_FIELD_NAME                 = "_sum_field_name";
 
-        virtual std::shared_ptr<Event> processEvent(std::shared_ptr<Event> event);
+/**
+ * The IEventStream interface.
+ * IEventStream is an abstract class that should inherited by classes that process events.
+ * Every IEventStream can have wrappedStream. The most inner object process original event,
+ * object that has the most inner object as wrappedStream process event returned by wrappedStream.
+ *
+ * Classes implementing this interface should implement pure virtual method actualProcessEvent.
+ */
+class IEventStream
+{
+public:
+    IEventStream() = default;
+    IEventStream(std::shared_ptr<IEventStream> wrappedStream);
+    virtual ~IEventStream() = default;
 
-        /* Access methods for m_wrappedStream */
-        virtual std::shared_ptr<IEventStream> getWrappedStream() const;
-        virtual void setWrappedStream(std::shared_ptr<IEventStream> wrappedStream);
+    virtual std::shared_ptr<Event> processEvent(std::shared_ptr<Event> event);
 
-    protected:
-        std::shared_ptr<IEventStream> m_wrappedStream;
+    /* Access methods for m_wrappedStream */
+    virtual std::shared_ptr<IEventStream> getWrappedStream() const;
+    virtual void setWrappedStream(std::shared_ptr<IEventStream> wrappedStream);
 
-        virtual std::shared_ptr<Event> actualProcessEvent(std::shared_ptr<Event> event) = 0; ///< Method to be implemented in derived classes.
-                                                                                                 ///< Method is called by IEventStream::processEvent only when m_wrappedStream returned non-empty event.
-    };
+protected:
+    std::shared_ptr<IEventStream> m_wrappedStream;
+
+    virtual std::shared_ptr<Event> actualProcessEvent(std::shared_ptr<Event> event) = 0; ///< Method to be implemented in derived classes.
+                                                                                             ///< Method is called by IEventStream::processEvent only when m_wrappedStream returned non-empty event.
+};
 
 } // namespace events
 } // namespace client
 } // namespace veil
 
- #endif // I_EVENT_STREAM_H
+
+#endif // VEILCLIENT_I_EVENT_STREAM_H

@@ -25,18 +25,9 @@ std::shared_ptr<Event> IEventStream::processEvent(std::shared_ptr<Event> event)
     }
 }
 
-IEventStream::IEventStream() :
-    m_wrappedStream(std::shared_ptr<IEventStream>())
-{
-}
-
 IEventStream::IEventStream(std::shared_ptr<IEventStream> wrappedStream) :
     m_wrappedStream(wrappedStream)
 {
-}
-
-IEventStream::~IEventStream(){
-
 }
 
 std::shared_ptr<IEventStream> IEventStream::getWrappedStream() const

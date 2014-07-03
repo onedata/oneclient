@@ -5,6 +5,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
+#include "events/event.h"
+#include "events/IEventStream.h"
 #include "events/eventStreamCombiner.h"
 #include "events/eventCommunicator.h"
 #include "fuse_messages.pb.h"

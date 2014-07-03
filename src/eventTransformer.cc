@@ -5,8 +5,11 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
+#include "events/event.h"
 #include "events/eventTransformer.h"
 #include "fuse_messages.pb.h"
+
+#include "logging.h"
 
 using namespace veil::client::events;
 using namespace std;

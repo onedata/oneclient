@@ -6,6 +6,8 @@
  */
 
 #include "events/eventFilter.h"
+#include "fuse_messages.pb.h"
+#include "events/event.h"
 
 using namespace veil::client::events;
 using namespace std;

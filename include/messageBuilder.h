@@ -19,7 +19,7 @@
 namespace veil
 {
 
-constexpr const char
+static constexpr const char
 //    *FUSE_MESSAGES          = "fuse_messages",
 //    *COMMUNICATION_PROTOCOL = "communication_protocol",
     *GET_FILE_LOCATION      = "getfilelocation",
