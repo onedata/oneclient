@@ -5,17 +5,13 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef CONFIG_HH
-#define CONFIG_HH
+#ifndef VEILCLIENT_CONFIG_H
+#define VEILCLIENT_CONFIG_H
+
 
 #include "ISchedulable.h"
 #include "lock.h"
-#include "logging.h"
-#include "veilConfig.h"
 
-#include <unistd.h>
-
-#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/filesystem.hpp>
 
 #include <map>
@@ -23,28 +19,32 @@
 #include <sstream>
 #include <string>
 
+namespace veil
+{
+
 /// Prefix for all env variables that will be send to cluster
-#define FUSE_OPT_PREFIX               "fuse_opt_"
+static constexpr const char *FUSE_OPT_PREFIX = "fuse_opt_";
+static constexpr int ATTR_DEFAULT_EXPIRATION_TIME = 60;
 
-#define ATTR_DEFAULT_EXPIRATION_TIME 60
-
-
-namespace veil {
-namespace client {
+namespace client
+{
 
 class Context;
 
-namespace utils {
+namespace utils
+{
 
 template<typename T>
-std::string toString(const T &in) {
+std::string toString(const T &in)
+{
     std::ostringstream ss;
     ss << in;
     return ss.str();
 }
 
 template<typename T>
-T fromString(const std::string &in) {
+T fromString(const std::string &in)
+{
     T out = 0;
     std::istringstream iss(in);
     iss >> out;
@@ -57,11 +57,9 @@ T fromString(const std::string &in) {
  * The Config.
  * Parses config files and provides safe access to configuration map.
  */
-class Config : public ISchedulable
+class Config: public ISchedulable
 {
-    friend class IVeilFactory;
 public:
-
     virtual std::string getFuseID();                             ///< Returns current FuseID.
     virtual void negotiateFuseID(time_t delay = 0);              ///< Starts FuseID negotiation process.
                                                                  ///< @param delay Since this is async actions, you can specify execution delay in seconds.
@@ -101,4 +99,5 @@ private:
 } // namespace client
 } // namespace veil
 
-#endif // CONFIG_HH
+
+#endif // VEILCLIENT_CONFIG_H

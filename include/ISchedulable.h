@@ -5,14 +5,17 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef ISCHEDULABLE_H
-#define ISCHEDULABLE_H
+#ifndef VEILCLIENT_ISCHEDULABLE_H
+#define VEILCLIENT_ISCHEDULABLE_H
+
 
 #include <memory>
 #include <string>
 
-namespace veil {
-namespace client {
+namespace veil
+{
+namespace client
+{
 
 /**
  * The ISchedulable interface.
@@ -55,4 +58,5 @@ public:
 } // namespace client
 } // namespace veil
 
-#endif // ISCHEDULABLE_H
+
+#endif // VEILCLIENT_ISCHEDULABLE_H

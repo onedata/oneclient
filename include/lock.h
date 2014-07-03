@@ -5,14 +5,11 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
+#ifndef VEILCLIENT_LOCK_H
+#define VEILCLIENT_LOCK_H
 
-#ifndef LOCK_H
-#define LOCK_H
 
 #include <pthread.h>
-
-/// Defines how many readers (minimum) should be processed after each writer (which has priority)
-#define FAIRNESS_LEVEL 5
 
 /// Constructs name for mutex
 #define MUTEX(X) &X##Mutex
@@ -28,8 +25,14 @@
                                     pthread_mutex_init(&X##Mutex, &mutexattr); \
                                 }
 
-namespace veil {
-namespace client {
+namespace veil
+{
+
+/// Defines how many readers (minimum) should be processed after each writer (which has priority)
+constexpr int FAIRNESS_LEVEL = 5;
+
+namespace client
+{
 
 /// @enum LockType. @see AutoLock::AutoLock
 enum LockType
@@ -90,4 +93,5 @@ public:
 } // namespace client
 } // namespace veil
 
-#endif // LOCK_H
+
+#endif // VEILCLIENT_LOCK_H

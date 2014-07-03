@@ -7,6 +7,7 @@
 
 #include "options.h"
 
+#include "logging.h"
 #include "veilConfig.h"
 #include "veilErrors.h"
 #include "veilException.h"

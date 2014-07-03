@@ -12,6 +12,8 @@
 #include "storageMapper_proxy.h"
 #include "testCommon.h"
 #include "veilfs.h"
+#include "fuse_messages.pb.h"
+#include "veilException.h"
 
 using namespace ::testing;
 using namespace veil;

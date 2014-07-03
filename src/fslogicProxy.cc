@@ -11,6 +11,15 @@
 #include "context.h"
 #include "veilfs.h"
 #include "logging.h"
+#include "fuse_messages.pb.h"
+#include "communication_protocol.pb.h"
+#include "messageBuilder.h"
+#include "veilErrors.h"
+#include "communicationHandler.h"
+#include "simpleConnectionPool.h"
+#include "config.h"
+#include "jobScheduler.h"
+#include "options.h"
 
 #include <unistd.h>
 #include <iostream>
@@ -285,7 +294,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, 
         return false;
     }
 
-    ClusterMsg clusterMessage = m_messageBuilder->packFuseMessage(fMsg.GetDescriptor()->name(), response.GetDescriptor()->name(), FUSE_MESSAGES, fMsg.SerializeAsString());
+    ClusterMsg clusterMessage = m_messageBuilder->packFuseMessage(fMsg.GetDescriptor()->name(), response.GetDescriptor()->name(), veil::FUSE_MESSAGES, fMsg.SerializeAsString());
 
     if(!clusterMessage.IsInitialized())
     {

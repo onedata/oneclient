@@ -21,6 +21,7 @@
 #include "testCommon.h"
 #include "veilErrors.h"
 #include "veilfs_proxy.h"
+#include "veilException.h"
 
 using namespace ::testing;
 using namespace std::placeholders;

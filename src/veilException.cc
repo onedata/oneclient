@@ -12,10 +12,6 @@
 namespace veil {
 namespace client {
 
-VeilException::VeilException() : m_veilError(VEIO)
-{
-}
-
 VeilException::VeilException(const std::string &veilError, const std::string &logMsg) :
     m_logMessage(logMsg),
     m_veilError(veilError)
@@ -24,11 +20,7 @@ VeilException::VeilException(const std::string &veilError, const std::string &lo
         LOG(WARNING) << "Exception: " << logMsg;
 }
 
-VeilException::~VeilException() throw()
-{
-}
-
-const char* VeilException::what() const throw()
+const char* VeilException::what() const noexcept
 {
     return m_logMessage.c_str();
 }

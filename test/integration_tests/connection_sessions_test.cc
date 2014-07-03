@@ -25,6 +25,7 @@ using namespace veil;
 using namespace veil::client::utils;
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
+using veil::FUSE_OPT_PREFIX;
 
 class ConnectionSessionsTest: public CommonIntegrationTest
 {
@@ -54,10 +55,10 @@ TEST_F(ConnectionSessionsTest, SessionEnvVairables_And_SessionReinitialization)
     std::string currentFuseId = config->getFuseID();
 
     // Now we can manually add some env varables
-    static char env1[] = FUSE_OPT_PREFIX "varname1=varvalue1";
-    static char env2[] = FUSE_OPT_PREFIX "varname2=varvalue2";
-    putenv(env1);
-    putenv(env2);
+    static auto env1 = std::string{FUSE_OPT_PREFIX} + "varname1=varvalue1";
+    static auto env2 = std::string{FUSE_OPT_PREFIX} + "varname2=varvalue2";
+    putenv(const_cast<char*>(env1.c_str()));
+    putenv(const_cast<char*>(env2.c_str()));
 
     // Start new handshake
     config->negotiateFuseID();

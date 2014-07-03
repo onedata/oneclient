@@ -5,45 +5,46 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEIL_FS_H
-#define VEIL_FS_H
+#ifndef VEILCLIENT_VEIL_FS_H
+#define VEILCLIENT_VEIL_FS_H
 
-#include <errno.h>
-#include <fcntl.h>
-#include <cstdlib>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/xattr.h>
-#include "fslogicProxy.h"
-#include "config.h"
-#include "storageMapper.h"
-#include "jobScheduler.h"
-#include "metaCache.h"
-#include "localStorageManager.h"
-#include "helpers/storageHelperFactory.h"
-#include "simpleConnectionPool.h"
+
 #include "ISchedulable.h"
-#include "pushListener.h"
-#include "options.h"
+#include "lock.h"
 
-#include "events/events.h"
+#include <fuse.h>
 
 #include <list>
+#include <map>
 #include <memory>
+#include <unordered_map>
+
+namespace veil
+{
 
 /// The name of default global config file
-#define GLOBAL_CONFIG_FILE      "veilFuse.conf"
+static constexpr const char *GLOBAL_CONFIG_FILE = "veilFuse.conf";
 
 /**
  * How many dirent should be fetch from cluster at once.
  * Note that each opendir syscall will query at least DIR_BATCH_SIZE dirents
  */
-#define DIR_BATCH_SIZE  10
+static constexpr int DIR_BATCH_SIZE = 10;
 
-namespace veil {
-namespace client {
+namespace helpers
+{
+class IStorageHelper;
+class StorageHelperFactory;
+}
+
+namespace client
+{
 
 class Context;
+class FslogicProxy;
+class LocalStorageManager;
+class MetaCache;
+class StorageMapper;
 
 /// Pointer to the Storage Helper's instance
 using sh_ptr = std::shared_ptr<helpers::IStorageHelper>;
@@ -51,7 +52,8 @@ using sh_ptr = std::shared_ptr<helpers::IStorageHelper>;
 typedef uint64_t helper_cache_idx_t;
 
 /// forward declarations
-namespace events{
+namespace events
+{
 class EventCommunicator;
 }
 
@@ -61,7 +63,8 @@ class EventCommunicator;
  * Technically VeilFS is an singleton created on programm start and registred in FUSE
  * daemon.
  */
-class VeilFS : public ISchedulable {
+class VeilFS: public ISchedulable
+{
 public:
         VeilFS(std::string path, std::shared_ptr<Context> context,
                std::shared_ptr<FslogicProxy> fslogic, std::shared_ptr<MetaCache> metaCache,
@@ -131,4 +134,4 @@ private:
 } // namespace client
 } // namespace veil
 
-#endif // VEIL_FS_H
+#endif // VEILCLIENT_VEIL_FS_H

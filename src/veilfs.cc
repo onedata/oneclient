@@ -18,6 +18,15 @@
 #include "communication_protocol.pb.h"
 #include "fuse_messages.pb.h"
 #include "messageBuilder.h"
+#include "veilException.h"
+#include "simpleConnectionPool.h"
+#include "pushListener.h"
+#include "options.h"
+#include "jobScheduler.h"
+#include "localStorageManager.h"
+#include "events/eventCommunicator.h"
+#include "storageMapper.h"
+#include "events/event.h"
 
 #include <sys/types.h>
 #include <pwd.h>

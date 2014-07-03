@@ -11,6 +11,9 @@
 #include "logging.h"
 #include "communication_protocol.pb.h"
 #include "fuse_messages.pb.h"
+#include "messageBuilder.h"
+#include "config.h"
+#include "simpleConnectionPool.h"
 
 #include <random>
 #include <algorithm>
@@ -19,6 +22,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <google/protobuf/descriptor.h>
 

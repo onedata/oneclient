@@ -9,7 +9,9 @@
 
 #include "context.h"
 #include "config.h"
+#include "communicationHandler.h"
 #include "veilfs.h"
+#include "fslogicProxy.h"
 
 #include <iostream>
 #include <unistd.h>

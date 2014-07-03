@@ -6,8 +6,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef JOBSCHEDULER_H
-#define JOBSCHEDULER_H
+#ifndef VEILCLIENT_JOBSCHEDULER_H
+#define VEILCLIENT_JOBSCHEDULER_H
 
 
 #include "ISchedulable.h"
@@ -23,8 +23,10 @@
 #include <thread>
 #include <vector>
 
-namespace veil {
-namespace client {
+namespace veil
+{
+namespace client
+{
 
 /**
  * The Job struct.
@@ -139,4 +141,4 @@ public:
 } // namespace veil
 
 
-#endif // JOBSCHEDULER_H
+#endif // VEILCLIENT_JOBSCHEDULER_H

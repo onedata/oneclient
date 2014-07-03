@@ -11,6 +11,7 @@
 #include "jobScheduler.h"
 #include "veilfs.h"
 #include "config.h"
+#include "options.h"
 
 #include "logging.h"
 

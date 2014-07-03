@@ -5,21 +5,25 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef META_CACHE_H
-#define META_CACHE_H
+#ifndef VEILCLIENT_META_CACHE_H
+#define VEILCLIENT_META_CACHE_H
 
-#include <map>
-#include <unordered_map>
-#include <string>
-#include <sys/stat.h>
-#include <ctime>
-#include <memory>
 
 #include "ISchedulable.h"
+
 #include "lock.h"
 
-namespace veil {
-namespace client {
+#include <sys/stat.h>
+
+#include <ctime>
+#include <memory>
+#include <string>
+#include <unordered_map>
+
+namespace veil
+{
+namespace client
+{
 
 class Context;
 
@@ -63,4 +67,5 @@ private:
 } // namespace client
 } // namespace veil
 
-#endif // META_CACHE_H
+
+#endif // VEILCLIENT_META_CACHE_H

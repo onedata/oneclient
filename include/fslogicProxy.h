@@ -6,59 +6,68 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef FSLOGIC_PROXY_H
-#define FSLOGIC_PROXY_H
+#ifndef VEILCLIENT_FSLOGIC_PROXY_H
+#define VEILCLIENT_FSLOGIC_PROXY_H
 
-#include <vector>
-#include <list>
-#include <google/protobuf/repeated_field.h>
-#include <memory>
+
+#include "ISchedulable.h"
+
+#include <google/protobuf/message.h>
 #include <sys/statvfs.h>
 
-#include "fuse_messages.pb.h"
-#include "communication_protocol.pb.h"
-#include "communicationHandler.h"
-#include "messageBuilder.h"
-#include "lock.h"
-#include "ISchedulable.h"
-#include "simpleConnectionPool.h"
+#include <vector>
+#include <memory>
+
+namespace veil
+{
+
+namespace protocol
+{
+namespace fuse_messages
+{
+class FileAttr;
+class FileLocation;
+}
+}
 
 /// How many secs before expiration should focation mapping be renewed
-#define RENEW_LOCATION_MAPPING_TIME     30
+static constexpr int RENEW_LOCATION_MAPPING_TIME = 30;
 
-#define GET_FILE_ATTR "getfileattr"
-#define GET_FILE_LOCATION "getfilelocation"
-#define GET_NEW_FILE_LOCATION "getnewfilelocation"
-#define RENEW_FILE_LOCATION "renewfilelocation"
-#define GET_FILE_CHILDREN "getfilechildren"
-#define FILE_CHILDREN "filechildren"
-#define FILE_ATTR "fileattr"
-#define FILE_LOCATION "filelocation"
-#define CREATE_DIR "createdir"
-#define DELETE_FILE "deletefile"
-#define FILE_NOT_USED "filenotused"
-#define RENAME_FILE "renamefile"
-#define CHANGE_FILE_PERMS "changefileperms"
-#define FILE_LOCATION_VALIDITY "filelocationvalidity"
-#define CREATE_LINK "createlink"
-#define GET_LINK "getlink"
-#define LINK_INFO "linkinfo"
-#define GET_STATFS "getstatfs"
-#define STATFS_INFO "statfsinfo"
+static constexpr const char
+    *GET_FILE_ATTR          = "getfileattr",
+    *GET_FILE_LOCATION      = "getfilelocation",
+    *GET_NEW_FILE_LOCATION  = "getnewfilelocation",
+    *RENEW_FILE_LOCATION    = "renewfilelocation",
+    *GET_FILE_CHILDREN      = "getfilechildren",
+    *FILE_CHILDREN          = "filechildren",
+    *FILE_ATTR              = "fileattr",
+    *FILE_LOCATION          = "filelocation",
+    *CREATE_DIR             = "createdir",
+    *DELETE_FILE            = "deletefile",
+    *FILE_NOT_USED          = "filenotused",
+    *RENAME_FILE            = "renamefile",
+    *CHANGE_FILE_PERMS      = "changefileperms",
+    *FILE_LOCATION_VALIDITY = "filelocationvalidity",
+    *CREATE_LINK            = "createlink",
+    *GET_LINK               = "getlink",
+    *LINK_INFO              = "linkinfo",
+    *GET_STATFS             = "getstatfs",
+    *STATFS_INFO            = "statfsinfo",
 
-#define FUSE_MESSAGE "fusemessage"
-#define ATOM "atom"
-#define PUSH_MESSAGE_ACK "ack"
+    *FUSE_MESSAGE           = "fusemessage",
+    *ATOM                   = "atom",
+    *PUSH_MESSAGE_ACK       = "ack",
 
-#define FSLOGIC "fslogic"
+    *FSLOGIC                = "fslogic",
 
-#define ACTION_NOT_ALLOWED "not_allowed"
-#define ACTION_FAILED "action_failed"
+    *ACTION_NOT_ALLOWED     = "not_allowed",
+    *ACTION_FAILED          = "action_failed";
 
-namespace veil {
-namespace client {
+namespace client
+{
 
 class Context;
+class MessageBuilder;
 
 /**
  * The FslogicProxy class.
@@ -67,9 +76,8 @@ class Context;
  * opened connections there should be only one instance of this class unless you really need connection isolation
  * between successive cluster requests.
  */
-class FslogicProxy : public ISchedulable
+class FslogicProxy: public ISchedulable
 {
-
 protected:
     std::shared_ptr<MessageBuilder> m_messageBuilder;                ///< MessageBuilder used to construct cluster packets
     /**
@@ -117,4 +125,5 @@ private:
 } // namespace client
 } // namespace veil
 
-#endif // FSLOGIC_PROXY_H
+
+#endif // VEILCLIENT_FSLOGIC_PROXY_H

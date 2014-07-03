@@ -23,7 +23,6 @@
 #include <dirent.h>
 #include <pwd.h>
 #include <unistd.h>
-#include "ISchedulable.h"
 #ifdef HAVE_SETXATTR
 #include <sys/xattr.h>
 #endif
@@ -39,8 +38,18 @@
 #include "gsiHandler.h"
 #include "logging.h"
 #include "options.h"
-
+#include "veilConfig.h"
+#include "veilException.h"
+#include "ISchedulable.h"
+#include "simpleConnectionPool.h"
+#include "helpers/storageHelperFactory.h"
+#include "pushListener.h"
+#include "jobScheduler.h"
+#include "events/eventCommunicator.h"
+#include "metaCache.h"
 #include "fslogicProxy.h"
+#include "localStorageManager.h"
+#include "storageMapper.h"
 
 #include <functional>
 #include <memory>

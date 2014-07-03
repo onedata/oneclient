@@ -10,6 +10,7 @@
 #include "jobScheduler_mock.h"
 #include "options_mock.h"
 #include "messageBuilder.h"
+#include "fslogicProxy.h"
 
 using namespace ::testing;
 using namespace veil::client;

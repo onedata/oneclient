@@ -5,8 +5,9 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef CONTEXT_H
-#define CONTEXT_H
+#ifndef VEILCLIENT_CONTEXT_H
+#define VEILCLIENT_CONTEXT_H
+
 
 #include "ISchedulable.h"
 
@@ -64,4 +65,4 @@ private:
 } // namespace client
 } // namespace veil
 
-#endif // CONTEXT_H
+#endif // VEILCLIENT_CONTEXT_H

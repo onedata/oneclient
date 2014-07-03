@@ -27,6 +27,9 @@
 #include "gsiHandler.h"
 #include "veilfs.h"
 #include "communicationHandler.h"
+#include "logging.h"
+#include "config.h"
+#include "options.h"
 
 #include "context.h"
 

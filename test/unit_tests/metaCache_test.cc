@@ -83,8 +83,8 @@ TEST_F(MetaCacheTest, InsertAndGet) {
 
     EXPECT_CALL(*options, get_attr_cache_expiration_time()).WillRepeatedly(Return(-5));
     EXPECT_CALL(*scheduler, addTask(Field(&Job::when, AllOf(
-                            Ge(steady_clock::now() + seconds{ATTR_DEFAULT_EXPIRATION_TIME / 2 - 5}),
-                            Le(steady_clock::now() + seconds{ATTR_DEFAULT_EXPIRATION_TIME * 2}) )))).Times(1);
+                            Ge(steady_clock::now() + seconds{veil::ATTR_DEFAULT_EXPIRATION_TIME / 2 - 5}),
+                            Le(steady_clock::now() + seconds{veil::ATTR_DEFAULT_EXPIRATION_TIME * 2}) )))).Times(1);
     proxy->addAttr("/test3", stat);
 
     EXPECT_TRUE(proxy->getAttr("/test3", &tmp));
