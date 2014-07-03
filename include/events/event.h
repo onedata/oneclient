@@ -6,8 +6,9 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef EVENT_H
-#define EVENT_H
+#ifndef VEILCLIENT_EVENT_H
+#define VEILCLIENT_EVENT_H
+
 
 #include "fuse_messages.pb.h"
 
@@ -15,9 +16,12 @@
 #include <memory>
 #include <string>
 
-namespace veil {
-namespace client {
-namespace events {
+namespace veil
+{
+namespace client
+{
+namespace events
+{
 
 typedef long long NumericProperty;
 
@@ -59,4 +63,4 @@ private:
 } // namespace client
 } // namespace veil
 
-#endif // EVENT_H
+#endif // VEILCLIENT_EVENT_H

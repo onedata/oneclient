@@ -16,14 +16,18 @@
 #include <memory>
 #include <string>
 
-#define FUSE_MESSAGES "fuse_messages"
-#define COMMUNICATION_PROTOCOL "communication_protocol"
-#define GET_FILE_LOCATION "getfilelocation"
-#define FUSE_MESSAGE "fusemessage"
-#define FSLOGIC "fslogic"
+namespace veil
+{
 
-namespace veil {
-namespace client {
+constexpr const char
+//    *FUSE_MESSAGES          = "fuse_messages",
+//    *COMMUNICATION_PROTOCOL = "communication_protocol",
+    *GET_FILE_LOCATION      = "getfilelocation",
+    *FUSE_MESSAGE           = "fusemessage",
+    *FSLOGIC                = "fslogic";
+
+namespace client
+{
 
 class Context;
 

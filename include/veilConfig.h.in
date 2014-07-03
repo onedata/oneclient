@@ -1,6 +1,7 @@
 #ifndef VEILCONFIG_H
 #define VEILCONFIG_H
 
+
 #define VeilClient_VERSION_MAJOR 	@VeilClient_VERSION_MAJOR@
 #define VeilClient_VERSION_MINOR 	@VeilClient_VERSION_MINOR@
 #define VeilClient_VERSION_PATCH 	@VeilClient_VERSION_PATCH@
@@ -8,13 +9,5 @@
 #define VeilClient_INSTALL_PATH		"@CMAKE_INSTALL_PREFIX@"
 #define VeilClient_CONFIG_DIR		"@CONFIG_DIR@"
 
-#define VeilClient_DEBUG   @VeilClient_DEBUG@
-#if VeilClient_DEBUG == 1
-    #define DEBUG
-#else
-#ifndef NDEBUG
-    #define NDEBUG
-#endif
-#endif
 
 #endif // VEILCONFIG_H

@@ -19,13 +19,6 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
 set(DEPS_DIR "deps")
 # set(CMAKE_FIND_LIBRARY_SUFFIXES .a) # Uncomment in order to force looking for static achives instead .so
 
-string( TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_L )
-if(CMAKE_BUILD_TYPE_L MATCHES "debug")
-    set(VeilClient_DEBUG 1)
-else()
-    set(VeilClient_DEBUG 0)
-endif()
-
 configure_file (
     "${PROJECT_SOURCE_DIR}/include/veilConfig.h.in"
     "${PROJECT_BINARY_DIR}/veilConfig.h"
@@ -322,7 +315,7 @@ file(GLOB files ${TEST_SOURCES_DIR}/integration_tests/*_test.cc)
 foreach(file ${files})
     get_filename_component(TEST_NAME ${file} NAME_WE)
     set(TEST_NAME "${TEST_NAME}_i")
-    add_executable(${TEST_NAME} ${file} ${TEST_UTILS_DIR}/erlTestCore.cc)
+    add_executable(${TEST_NAME} ${file})
     add_dependencies(${TEST_NAME} gtest gmock veilFuse veilhelpers veilclient veilprotocol)
     target_link_libraries(${TEST_NAME}
         testCommon

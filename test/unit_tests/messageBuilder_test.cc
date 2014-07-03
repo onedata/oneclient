@@ -15,6 +15,8 @@ using namespace ::testing;
 using namespace veil::client;
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
+using veil::FUSE_MESSAGE;
+using veil::FSLOGIC;
 
 class MessageBuilderTest: public CommonTest
 {

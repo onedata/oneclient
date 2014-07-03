@@ -567,7 +567,7 @@ bool GSIHandler::validateProxyCert()
 CertificateInfo GSIHandler::getCertInfo() {
     if(proxyInitialized) {
         LOG(INFO) << "Accesing certificates via filesystem: " << userCertPath << " " << userKeyPath;
-        return CertificateInfo(userCertPath, userKeyPath, CertificateInfo::PEM);
+        return CertificateInfo(userCertPath, userKeyPath, CertificateInfo::CertificateType::PEM);
     } else {
         LOG(INFO) << "Accesing certificates via internal memory buffer.";
         return CertificateInfo(const_buffer(chain_buff->data, chain_buff->length), const_buffer(key_buff->data, key_buff->length));

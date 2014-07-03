@@ -26,7 +26,6 @@
 /// Prefix for all env variables that will be send to cluster
 #define FUSE_OPT_PREFIX               "fuse_opt_"
 
-#define PROTOCOL_VERSION    1
 #define ATTR_DEFAULT_EXPIRATION_TIME 60
 
 
