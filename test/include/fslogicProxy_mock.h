@@ -20,7 +20,7 @@ public:
     MockFslogicProxy() {};
     ~MockFslogicProxy() {};
 
-    MOCK_METHOD2(getFileLocation, bool(const string&, FileLocation&));
+    MOCK_METHOD3(getFileLocation, bool(const string&, FileLocation&, const string&));
     MOCK_METHOD2(changeFilePerms, string(const string&, mode_t));
     MOCK_METHOD2(renameFile, string(const string&, const string&));
     MOCK_METHOD1(deleteFile, string(const string&));

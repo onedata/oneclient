@@ -55,13 +55,13 @@ bool FslogicProxy::getFileAttr(const string& logicName, FileAttr& attr)
     return true;
 }
 
-bool FslogicProxy::getFileLocation(const string &logicName, FileLocation& location)
+bool FslogicProxy::getFileLocation(const string &logicName, FileLocation& location, const string &openMode)
 {
     LOG(INFO) << "getting file location from cluster for file: " << logicName;
 
     GetFileLocation msg;
     msg.set_file_logic_name(logicName);
-
+    msg.set_open_mode(openMode);
     if(!sendFuseReceiveAnswer(msg, location))
     {
         LOG(ERROR) << "cannot parse cluster answer";
