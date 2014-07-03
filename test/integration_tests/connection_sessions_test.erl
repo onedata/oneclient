@@ -31,8 +31,6 @@ teardown(ccm, _State) ->
 teardown(worker, _State) ->
     ok.
 
-exec(storage) -> % todo remove
-    ok;
 exec({env, VarName}) ->
     os:getenv(VarName);
 

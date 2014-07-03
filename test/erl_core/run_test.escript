@@ -83,9 +83,6 @@ main([TestName | Args]) ->
     env_setup([?CCM_NODE_NAME, ?WORKER_NODE_NAME]),
     load_mods([?CCM_NODE_NAME, ?WORKER_NODE_NAME], [list_to_atom(TestName), test_common]),
 
-%%     CTX_CCM = call(?CCM_NODE_NAME, fun() -> setup(ccm, TestName) end),
-%%     CTX_W = call(?WORKER_NODE_NAME, fun() -> setup(worker, TestName) end),
-
     CTX_CCM = rpc:call(?CCM_NODE_NAME, test_common,setup,[ccm, TestName]),
     CTX_W = rpc:call(?WORKER_NODE_NAME, test_common,setup,[worker, TestName]),
 
@@ -104,20 +101,6 @@ main([TestName | Args]) ->
 %% 
 %% HELPER METHODS
 %%
-
-%% call(Node, Module, Method, Args) ->
-%%     Self = self(),
-%%     pong = net_adm:ping(Node),
-%%     io:format("~nTEST1: ~p~n",[rpc:call('worker@172.16.67.170',dao_lib,apply,[dao_users,list_users,[10,0],1])]),
-%% %%     Pid = spawn(Node, fun() -> Self ! {self(), Fun()} end),
-%%     rpc:call(Node,Mo)
-%%     io:format("~nTEST2: ~p~n",[Pid]),
-%%     receive
-%%         {Pid, Ans} ->
-%%             Ans
-%%     after 150000 ->
-%%         {error, timeout}
-%%     end.
 
 set_up_net_kernel() ->
     {A, B, C} = erlang:now(),

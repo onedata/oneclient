@@ -237,10 +237,6 @@ static std::string getVersionString()
 
 int main(int argc, char* argv[], char* envp[])
 {
-    putenv("fuse_opt_varname1=varvalue2");
-    setenv("fuse_opt_varname2","varvalue1",1);
-    std::system("export fuse_opt_varname3=varvalue2");
-
     // Turn off logging for a while
     google::InitGoogleLogging(argv[0]);
     FLAGS_alsologtostderr = false;
