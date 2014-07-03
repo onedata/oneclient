@@ -385,7 +385,7 @@ int main(int argc, char* argv[], char* envp[])
 
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
     auto testPool = std::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), std::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate, 1, 0);
-    VeilFS::setConnectionPool(testPool);
+    context->setConnectionPool(testPool);
 
     try
     {
@@ -403,8 +403,8 @@ int main(int argc, char* argv[], char* envp[])
                 std::cout << CONFIRM_CERTIFICATE_PROMPT(username);
                 std::getline(std::cin, userAns);
                 std::transform(userAns.begin(), userAns.end(), userAns.begin(), ::tolower);
-    context->setConnectionPool(testPool);
-
+            } while(userAns.size() == 0 || (userAns[0] != 'y' && userAns[0] != 't' && userAns[0] != 'n'));
+            
             // Resend handshake request along with account confirmation / rejection
             config->testHandshake(username, userAns[0] == 'y' || userAns[0] == 't');
         }
