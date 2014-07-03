@@ -237,6 +237,10 @@ static std::string getVersionString()
 
 int main(int argc, char* argv[], char* envp[])
 {
+    putenv("fuse_opt_varname1=varvalue2");
+    setenv("fuse_opt_varname2","varvalue1",1);
+    std::system("export fuse_opt_varname3=varvalue2");
+
     // Turn off logging for a while
     google::InitGoogleLogging(argv[0]);
     FLAGS_alsologtostderr = false;
@@ -334,7 +338,7 @@ int main(int argc, char* argv[], char* envp[])
         boost::split(tokens, tEnv, boost::is_any_of("="));
         if(tokens.size() != 2) // Invalid env variable. Expected format: NAME=VALUE
             continue;
-        
+        std::cout << tokens[0] << " " << tokens[1] << "\n";
         Config::putEnv(tokens[0], tokens[1]);
     }
 
