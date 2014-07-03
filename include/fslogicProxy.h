@@ -59,7 +59,7 @@
 #define READ_MODE "read"
 #define WRITE_MODE "write"
 #define RDWR_MODE "rdwr"
-#define UNSPECIFIED_MODE "none"
+#define UNSPECIFIED_MODE ""
 
 namespace veil {
 namespace client {
