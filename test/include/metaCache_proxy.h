@@ -8,17 +8,20 @@
 #ifndef META_CACHE_PROXY_H
 #define META_CACHE_PROXY_H
 
+
 #include "metaCache.h"
-#include "testCommon.h"
 
-class ProxyMetaCache 
-    : public MetaCache {
-
+class ProxyMetaCache: public veil::client::MetaCache {
 public:
-    std::unordered_map<string, pair<time_t, struct stat> >& getStatMap() {
-        return m_statMap;
+    ProxyMetaCache(std::shared_ptr<veil::client::Context> context)
+        : MetaCache{std::move(context)}
+    {
     }
 
+    auto getStatMap() -> decltype(m_statMap)&
+    {
+        return m_statMap;
+    }
 };
 
 

@@ -6,6 +6,8 @@
  */
 
 #include "messageBuilder.h"
+
+#include "context.h"
 #include "config.h"
 #include "veilfs.h"
 
@@ -14,7 +16,6 @@
 #include <boost/algorithm/string.hpp>
 
 using namespace std;
-using namespace boost;
 using namespace boost::algorithm;
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
@@ -27,7 +28,8 @@ static inline string tolower(string input) {
 namespace veil {
 namespace client {
 
-MessageBuilder::MessageBuilder()
+MessageBuilder::MessageBuilder(std::shared_ptr<Context> context)
+    : m_context{std::move(context)}
 {
 }
 
@@ -78,7 +80,7 @@ ClusterMsg MessageBuilder::packFuseMessage(const string &messageType, const stri
 
 
 
-    FuseMessage fuseMessage = createFuseMessage(VeilFS::getConfig()->getFuseID(), messageType, messageInput);
+    FuseMessage fuseMessage = createFuseMessage(m_context->getConfig()->getFuseID(), messageType, messageInput);
 
     if(fuseMessage.IsInitialized())
         clusterMessage = createClusterMessage(FSLOGIC, FUSE_MESSAGE, answerType, answerDecoderName, true, fuseMessage.SerializeAsString());

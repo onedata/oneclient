@@ -156,7 +156,7 @@ else()
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SECTION_FRAGMENTATION_FLAGS} -Wall -std=c++11")
-add_definitions(${FUSE_DEFINITIONS} -DFUSE_USE_VERSION=29 -D_WEBSOCKETPP_CPP11_STL_)
+add_definitions(${FUSE_DEFINITIONS} -DFUSE_USE_VERSION=29 -D_WEBSOCKETPP_CPP11_STL_ -DBOOST_BIND_NO_PLACEHOLDERS)
 
 set(CMAKE_SKIP_RPATH TRUE) # Something is wrong with CMake RPATH config, we need to use old-fashion way
 
@@ -259,6 +259,13 @@ set(TEST_SOURCES_DIR "${PROJECT_SOURCE_DIR}/test")
 include_directories(${TEST_SOURCES_DIR}/include)
 include_directories(${VEILHELPERS_TEST_INCLUDE_DIR})
 
+set(TEST_UTILS_DIR ${TEST_SOURCES_DIR}/erl_core)
+add_library(testCommon STATIC
+    ${TEST_SOURCES_DIR}/testRunner.cc
+    ${TEST_SOURCES_DIR}/testCommon.cc
+    ${TEST_UTILS_DIR}/erlTestCore.cc
+)
+
 # Unit tests
 
 add_custom_target(cunit)
@@ -277,6 +284,7 @@ foreach(file ${files})
     add_executable(${TEST_NAME} ${file})
     add_dependencies(${TEST_NAME} gtest gmock veilFuse veilhelpers veilclient veilprotocol)
     target_link_libraries(${TEST_NAME}
+        testCommon
         ${GTEST_LIBRARIES}
         ${GMOCK_LIBRARIES}
         ${FUSE_LIBRARY_CUSTOM}
@@ -292,9 +300,6 @@ endforeach()
 
 
 # Integration tests
-
-set(TEST_UTILS_DIR ${TEST_SOURCES_DIR}/erl_core)
-add_library(erlTestCore ${TEST_UTILS_DIR}/erlTestCore.cc)
 
 file(GLOB erlc_files ${TEST_SOURCES_DIR}/*/*.erl)
 add_custom_target(build_erl_core
@@ -320,6 +325,7 @@ foreach(file ${files})
     add_executable(${TEST_NAME} ${file} ${TEST_UTILS_DIR}/erlTestCore.cc)
     add_dependencies(${TEST_NAME} gtest gmock veilFuse veilhelpers veilclient veilprotocol)
     target_link_libraries(${TEST_NAME}
+        testCommon
         ${GTEST_LIBRARIES}
         ${GMOCK_LIBRARIES}
         ${FUSE_LIBRARY_CUSTOM}
@@ -327,7 +333,6 @@ foreach(file ${files})
         ${PROTOBUF_LIBRARY_CUSTOM}
         veilclient
         ${OPENSSL_LIBRARIES}
-        erlTestCore
         ${PLATFORM_EXTRA_LIBS}
     )
     run_test_i(${TEST_NAME})

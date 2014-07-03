@@ -8,22 +8,28 @@
 #ifndef STORAGE_MAPPER_PROXY_H
 #define STORAGE_MAPPER_PROXY_H
 
+
 #include "storageMapper.h"
-#include "testCommon.h"
 
-class ProxyStorageMapper
-    : public StorageMapper {
-
+class ProxyStorageMapper: public veil::client::StorageMapper
+{
 public:
-    ProxyStorageMapper(boost::shared_ptr<FslogicProxy> mock) : StorageMapper(mock) {}
+    ProxyStorageMapper(std::shared_ptr<veil::client::Context> context,
+                       std::shared_ptr<veil::client::FslogicProxy> mock)
+        : StorageMapper(std::move(context), mock)
+    {
+    }
 
-    map<int, storageInfo>& getStorageMapping() {
+    std::map<int, veil::client::storageInfo>& getStorageMapping()
+    {
         return m_storageMapping;
     }
 
-    map<string, locationInfo>& getFileMapping() {
+    std::map<std::string, veil::client::locationInfo>& getFileMapping()
+    {
         return m_fileMapping;
     }
-
 };
+
+
 #endif // STORAGE_MAPPER_PROXY_H

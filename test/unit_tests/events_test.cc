@@ -7,51 +7,46 @@
 
 #include "testCommon.h"
 
-#include "events/events.h"
-
-#include "events_mock.h"
-#include "boost/shared_ptr.hpp"
-#include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"
-#include "options_mock.h"
-#include "jobScheduler_mock.h"
+#include "connectionPool_mock.h"
+#include "events/events.h"
+#include "events_mock.h"
 #include "fslogicProxy_proxy.h"
+#include "fuse_messages.pb.h"
+#include "jobScheduler_mock.h"
+#include "options_mock.h"
 
-using namespace boost;
+#include <list>
+#include <vector>
+#include <memory>
 
-INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
+using namespace ::testing;
+using namespace std::placeholders;
+using namespace veil::client;
+using namespace veil::client::events;
 
-// TEST definitions below
-
-class EventsTest
-    : public ::testing::Test
+class EventsTest: public CommonTest
 {
 public:
-    COMMON_DEFS();
+    void SetUp() override
+    {
+        CommonTest::SetUp();
 
-    virtual void SetUp() {
-        COMMON_SETUP();
-        VeilFS::setConnectionPool(connectionPool);
-        boost::shared_ptr<MockCommunicationHandler> connectionMock;
-        connectionMock.reset(new MockCommunicationHandler());
+        std::shared_ptr<MockCommunicationHandler> connectionMock;
+        connectionMock = std::make_shared<MockCommunicationHandler>();
         EXPECT_CALL(*connectionPool, selectConnection(_)).WillRepeatedly(Return(connectionMock));
         EXPECT_CALL(*connectionPool, releaseConnection(_)).WillRepeatedly(Return());
         veil::protocol::communication_protocol::Answer ans;
         ans.set_answer_status(VOK);
         EXPECT_CALL(*connectionMock, communicate(_, _, _)).WillRepeatedly(Return(ans));
     }
-
-    virtual void TearDown() {
-        COMMON_CLEANUP();
-    }
 };
 
 class TestHelper
 {
 public:
-    boost::shared_ptr<Event> processEvent(boost::shared_ptr<Event> event){
-        boost::shared_ptr<Event> newEvent(new Event());
-        //Event * newEvent = new Event();
+    std::shared_ptr<Event> processEvent(std::shared_ptr<Event> event){
+        auto newEvent = std::make_shared<Event>();
         newEvent->setStringProperty("customActionKey", "custom_action_invoked");
         return newEvent;
     }
@@ -60,34 +55,34 @@ public:
 // checks simple stream with single EventFilter
 TEST(EventFilter, SimpleFilter) {
     // given
-    boost::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
-    boost::shared_ptr<Event> writeEvent = Event::createWriteEvent("file2", 100);
+    std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
+    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file2", 100);
     EventFilter filter("type", "mkdir_event");
 
     // what
-    boost::shared_ptr<Event> resEvent = filter.processEvent(writeEvent);
+    std::shared_ptr<Event> resEvent = filter.processEvent(writeEvent);
     ASSERT_FALSE((bool) resEvent);
 
     resEvent = filter.processEvent(mkdirEvent);
     ASSERT_TRUE((bool) resEvent);
-    ASSERT_EQ(string("file1"), resEvent->getStringProperty("filePath", ""));
+    ASSERT_EQ("file1", resEvent->getStringProperty("filePath", ""));
 }
 
 // checks simple stream with single EventAggregator
 TEST(EventAggregatorTest, SimpleAggregation) {
     // given
-    boost::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
-    boost::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
+    std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
+    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
     EventAggregator aggregator(5);
 
     // what
     for(int i=0; i<4; ++i){
-        boost::shared_ptr<Event> res = aggregator.processEvent(mkdirEvent);
+        std::shared_ptr<Event> res = aggregator.processEvent(mkdirEvent);
         ASSERT_FALSE((bool) res);
     }
 
     // then
-    boost::shared_ptr<Event> res = aggregator.processEvent(writeEvent);
+    std::shared_ptr<Event> res = aggregator.processEvent(writeEvent);
     ASSERT_TRUE((bool) res);
 
     ASSERT_EQ(1, res->getNumericPropertiesSize());
@@ -96,7 +91,7 @@ TEST(EventAggregatorTest, SimpleAggregation) {
     ASSERT_EQ(5, res->getNumericProperty("count", -1));
 
     for(int i=0; i<4; ++i){
-        boost::shared_ptr<Event> res = aggregator.processEvent(mkdirEvent);
+        std::shared_ptr<Event> res = aggregator.processEvent(mkdirEvent);
         ASSERT_FALSE((bool) res);
     }
 
@@ -110,16 +105,16 @@ TEST(EventAggregatorTest, SimpleAggregation) {
 
 TEST(EventAggregatorTest, AggregationByOneField) {
     // given
-    boost::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
-    boost::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
+    std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
+    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
     EventAggregator aggregator("type", 5);
 
     // what
     for(int i=0; i<4; ++i){
-        boost::shared_ptr<Event> res = aggregator.processEvent(mkdirEvent);
+        std::shared_ptr<Event> res = aggregator.processEvent(mkdirEvent);
         ASSERT_FALSE((bool) res);
     }
-    boost::shared_ptr<Event> res = aggregator.processEvent(writeEvent);
+    std::shared_ptr<Event> res = aggregator.processEvent(writeEvent);
     ASSERT_FALSE((bool) res);
 
     res = aggregator.processEvent(mkdirEvent);
@@ -132,7 +127,7 @@ TEST(EventAggregatorTest, AggregationByOneField) {
 
     // we are sending just 3 writeEvents because one has already been sent
     for(int i=0; i<3; ++i){
-        boost::shared_ptr<Event> res = aggregator.processEvent(writeEvent);
+        std::shared_ptr<Event> res = aggregator.processEvent(writeEvent);
         ASSERT_FALSE((bool) res);
     }
 
@@ -148,11 +143,11 @@ TEST(EventAggregatorTest, AggregationByOneField) {
 }
 
 TEST(EventAggregatorTest, AggregationWithSum) {
-    boost::shared_ptr<Event> smallWriteEvent = Event::createWriteEvent("file1", 5);
-    boost::shared_ptr<Event> bigWriteEvent = Event::createWriteEvent("file2", 100);
+    std::shared_ptr<Event> smallWriteEvent = Event::createWriteEvent("file1", 5);
+    std::shared_ptr<Event> bigWriteEvent = Event::createWriteEvent("file2", 100);
     EventAggregator aggregator("type", 110, "bytes");
 
-    boost::shared_ptr<Event> res = aggregator.processEvent(smallWriteEvent);
+    std::shared_ptr<Event> res = aggregator.processEvent(smallWriteEvent);
     ASSERT_FALSE((bool) res);
     res = aggregator.processEvent(bigWriteEvent);
     ASSERT_FALSE((bool) res);
@@ -179,19 +174,19 @@ TEST(EventAggregatorTest, AggregationWithSum) {
 
 // checks event filter composed with event aggregator
 TEST(EventAggregatorTest, FilterAndAggregation) {
-    boost::shared_ptr<Event> file1Event = Event::createMkdirEvent("file1");
-    boost::shared_ptr<Event> file2Event = Event::createMkdirEvent("file2");
-    boost::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
-    boost::shared_ptr<Event> writeEvent2 = Event::createWriteEvent("file2", 100);
-    boost::shared_ptr<IEventStream> filter(new EventFilter("type", "mkdir_event"));
-    boost::shared_ptr<IEventStream> aggregator(new EventAggregator(filter, "filePath", 5));
+    std::shared_ptr<Event> file1Event = Event::createMkdirEvent("file1");
+    std::shared_ptr<Event> file2Event = Event::createMkdirEvent("file2");
+    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
+    std::shared_ptr<Event> writeEvent2 = Event::createWriteEvent("file2", 100);
+    std::shared_ptr<IEventStream> filter = std::make_shared<EventFilter>("type", "mkdir_event");
+    std::shared_ptr<IEventStream> aggregator = std::make_shared<EventAggregator>(filter, "filePath", 5);
 
     for(int i=0; i<4; ++i){
-        boost::shared_ptr<Event> res = aggregator->processEvent(file1Event);
+        std::shared_ptr<Event> res = aggregator->processEvent(file1Event);
         ASSERT_FALSE((bool) res);
     }
 
-    boost::shared_ptr<Event> res = aggregator->processEvent(file2Event);
+    std::shared_ptr<Event> res = aggregator->processEvent(file2Event);
     ASSERT_FALSE((bool) res);
 
     res = aggregator->processEvent(writeEvent);
@@ -205,7 +200,7 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
     ASSERT_EQ("file1", res->getStringProperty("filePath", ""));
 
     for(int i=0; i<3; ++i){
-        boost::shared_ptr<Event> res = aggregator->processEvent(file2Event);
+        std::shared_ptr<Event> res = aggregator->processEvent(file2Event);
         ASSERT_FALSE((bool) res);
     }
 
@@ -217,41 +212,41 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
     ASSERT_EQ("file2", res->getStringProperty("filePath", ""));
 
     for(int i=0; i<5; ++i){
-        boost::shared_ptr<Event> res = aggregator->processEvent(writeEvent2);
+        std::shared_ptr<Event> res = aggregator->processEvent(writeEvent2);
         ASSERT_FALSE((bool) res);
     }
 }
 
 TEST(EventTransformerTest, SimpleTransformation) {
-    boost::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
-    vector<string> fieldNames;
+    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
+    std::vector<std::string> fieldNames;
     fieldNames.push_back("type");
-    vector<string> toReplace;
+    std::vector<std::string> toReplace;
     toReplace.push_back("write_event");
-    vector<string> replaceWith;
+    std::vector<std::string> replaceWith;
     replaceWith.push_back("write_for_stats");
-    boost::shared_ptr<IEventStream> transformer(new EventTransformer(fieldNames, toReplace, replaceWith));
+    std::shared_ptr<IEventStream> transformer = std::make_shared<EventTransformer>(fieldNames, toReplace, replaceWith);
 
-    boost::shared_ptr<Event> output = transformer->processEvent(writeEvent);
+    std::shared_ptr<Event> output = transformer->processEvent(writeEvent);
     ASSERT_EQ(1, output->getNumericPropertiesSize());
     ASSERT_EQ(2, output->getStringPropertiesSize());
     ASSERT_EQ("write_for_stats", output->getStringProperty("type", ""));
 }
 
-TEST(EventStreamCombiner, CombineStreams) {
-    boost::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
-    boost::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
-    boost::shared_ptr<IEventStream> mkdirFilter(new EventFilter("type", "mkdir_event"));
-    EventStreamCombiner combiner;
+TEST_F(EventsTest, EventStreamCombiner_CombineStreams) {
+    std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
+    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
+    std::shared_ptr<IEventStream> mkdirFilter = std::make_shared<EventFilter>("type", "mkdir_event");
+    EventStreamCombiner combiner{context};
     combiner.addSubstream(mkdirFilter);
 
-    list<boost::shared_ptr<Event> > events = combiner.processEvent(mkdirEvent);
+    auto events = combiner.processEvent(mkdirEvent);
     ASSERT_EQ(1u, events.size());
 
     events = combiner.processEvent(writeEvent);
     ASSERT_EQ(0u, events.size());
 
-    boost::shared_ptr<IEventStream> writeFilter(new EventFilter("type", "write_event"));
+    std::shared_ptr<IEventStream> writeFilter = std::make_shared<EventFilter>("type", "write_event");
     combiner.addSubstream(writeFilter);
 
     events = combiner.processEvent(writeEvent);
@@ -263,19 +258,19 @@ TEST(EventStreamCombiner, CombineStreams) {
 
 TEST(IEventStream, CustomActionStreamTest){
     TestHelper testHelper;
-    boost::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
-    boost::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
+    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
+    std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
 
-    boost::shared_ptr<IEventStream> filter(new EventFilter("type", "mkdir_event"));
-    CustomActionStream action(filter, bind(&TestHelper::processEvent, &testHelper, _1));
+    std::shared_ptr<IEventStream> filter = std::make_shared<EventFilter>("type", "mkdir_event");
+    CustomActionStream action(filter, std::bind(&TestHelper::processEvent, &testHelper, _1));
 
-    boost::shared_ptr<Event> res = action.processEvent(writeEvent);
+    std::shared_ptr<Event> res = action.processEvent(writeEvent);
     ASSERT_FALSE((bool) res);
 
     res = action.processEvent(mkdirEvent);
     ASSERT_TRUE((bool) res);
 
-    string r = res->getStringProperty("customActionKey", "");
+    std::string r = res->getStringProperty("customActionKey", "");
 
     ASSERT_EQ("custom_action_invoked", res->getStringProperty("customActionKey", ""));
 }
@@ -294,7 +289,7 @@ TEST(IEventStream, ConstructFromConfig1) {
     filterConfig->set_desired_value("write_event");
 
     // what
-    boost::shared_ptr<IEventStream> stream = IEventStreamFactory::fromConfig(config);
+    std::shared_ptr<IEventStream> stream = IEventStreamFactory::fromConfig(config);
 
     // then
     ASSERT_TRUE((bool) stream);
@@ -320,7 +315,7 @@ TEST(IEventStream, ConstructFromConfig2) {
     filterConfig->set_desired_value("write_event");
 
     // what
-    boost::shared_ptr<IEventStream> stream = IEventStreamFactory::fromConfig(config);
+    std::shared_ptr<IEventStream> stream = IEventStreamFactory::fromConfig(config);
 
     // then
     ASSERT_TRUE((bool) stream);
@@ -329,7 +324,7 @@ TEST(IEventStream, ConstructFromConfig2) {
     ASSERT_EQ("filePath", eventAggregator->getFieldName());
     ASSERT_EQ("count", eventAggregator->getSumFieldName());
     ASSERT_EQ(15, eventAggregator->getThreshold());
-    boost::shared_ptr<IEventStream> wrappedStream = eventAggregator->getWrappedStream();
+    std::shared_ptr<IEventStream> wrappedStream = eventAggregator->getWrappedStream();
     ASSERT_TRUE((bool) wrappedStream);
     EventFilter * eventFilter = dynamic_cast<EventFilter *> (wrappedStream.get());
     ASSERT_TRUE(eventFilter != NULL);
@@ -345,17 +340,17 @@ TEST(IEventStream, ConstructFromConfigReturnsEmptyPointerWhenConfigIncorrect){
     EventStreamConfig config;
 
     // what
-    boost::shared_ptr<IEventStream> stream = IEventStreamFactory::fromConfig(config);
+    std::shared_ptr<IEventStream> stream = IEventStreamFactory::fromConfig(config);
 
-    //config was incorrect so we expect IEventStreamFactory::fromConfig to return empty boost::shared_ptr
+    //config was incorrect so we expect IEventStreamFactory::fromConfig to return empty std::shared_ptr
     ASSERT_FALSE((bool) stream);
 }
 
 TEST_F(EventsTest, EventCombinerRunTask){
-    boost::shared_ptr<MockEventStream> substreamMock1(new MockEventStream());
+    std::shared_ptr<MockEventStream> substreamMock1 = std::make_shared<MockEventStream>();
     EXPECT_CALL(*substreamMock1, processEvent(_)).WillRepeatedly(Return(Event::createMkdirEvent("file1")));
-    boost::shared_ptr<Event> event(Event::createMkdirEvent("file"));
-    EventStreamCombiner combiner;
+    std::shared_ptr<Event> event(Event::createMkdirEvent("file"));
+    EventStreamCombiner combiner{context};
 
     combiner.pushEventToProcess(event);
     ASSERT_EQ(1u, combiner.getEventsToProcess().size());

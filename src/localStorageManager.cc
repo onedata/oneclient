@@ -6,7 +6,7 @@
  */
 
 #include "localStorageManager.h"
-#include "config.h"
+#include "context.h"
 #include "veilfs.h"
 #include "logging.h"
 #include "communication_protocol.pb.h"
@@ -15,8 +15,8 @@
 #include <random>
 #include <algorithm>
 #include <iterator>
+#include <memory>
 #include <boost/algorithm/string.hpp>
-#include <boost/shared_ptr.hpp>
 #include <boost/tokenizer.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/filesystem/fstream.hpp>
@@ -29,7 +29,8 @@ using namespace veil::protocol::communication_protocol;
 namespace veil {
 namespace client {
 
-LocalStorageManager::LocalStorageManager()
+LocalStorageManager::LocalStorageManager(std::shared_ptr<Context> context)
+    : m_context{std::move(context)}
 {
 }
 
@@ -149,12 +150,13 @@ std::vector< std::pair<int, std::string> > LocalStorageManager::parseStorageInfo
 std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorageInfo(const std::vector<path> &mountPoints)
 {
     std::vector< std::pair<int, std::string> > clientStorageInfo;
+    auto m_config = m_context->getConfig();
 
     for(const auto &mountPoint: mountPoints)
     {
 
         // Skip client mount point (just in case)
-        if(mountPoint == Config::getMountPoint()) continue;
+        if(mountPoint == m_config->getMountPoint()) continue;
 
         std::vector< std::pair<int, std::string> > storageInfo = parseStorageInfo(mountPoint);
 
@@ -203,30 +205,28 @@ bool LocalStorageManager::sendClientStorageInfo(const std::vector< std::pair<int
     Atom resMsg;
     Answer ans;
 
-    MessageBuilder builder;
-    boost::shared_ptr<CommunicationHandler> conn;
-
-	conn = VeilFS::getConnectionPool()->selectConnection();
-	if(conn)
-	{
-	    // Build ClientStorageInfo message
-		for(const auto &info : clientStorageInfo)
-		{
-		    storageInfo = reqMsg.add_storage_info();
-		    storageInfo->set_storage_id(info.first);
-		    storageInfo->set_absolute_path(info.second);
-		    LOG(INFO) << "Sending client storage info: {" << info.first << ", " << info.second << "}";
-		}
-		ClusterMsg cMsg = builder.packFuseMessage(ClientStorageInfo::descriptor()->name(), Atom::descriptor()->name(), COMMUNICATION_PROTOCOL, reqMsg.SerializeAsString());
+    MessageBuilder builder{m_context};
+    auto conn = m_context->getConnectionPool()->selectConnection();
+    if(conn)
+    {
+        // Build ClientStorageInfo message
+        for(const auto &info : clientStorageInfo)
+        {
+            storageInfo = reqMsg.add_storage_info();
+            storageInfo->set_storage_id(info.first);
+            storageInfo->set_absolute_path(info.second);
+            LOG(INFO) << "Sending client storage info: {" << info.first << ", " << info.second << "}";
+        }
+        ClusterMsg cMsg = builder.packFuseMessage(ClientStorageInfo::descriptor()->name(), Atom::descriptor()->name(), COMMUNICATION_PROTOCOL, reqMsg.SerializeAsString());
         // Send ClientStorageInfo message
-		ans = conn->communicate(cMsg, 2);
-		// Check answer
-		if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
-		{
-			return resMsg.value() == "ok";
-		}
-		else if(ans.answer_status() == NO_USER_FOUND_ERROR)
-		{
+        ans = conn->communicate(cMsg, 2);
+        // Check answer
+        if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
+        {
+            return resMsg.value() == "ok";
+        }
+        else if(ans.answer_status() == NO_USER_FOUND_ERROR)
+        {
             LOG(ERROR) << "Cannot find user in database.";
         }
         else
@@ -249,10 +249,8 @@ boost::optional< std::pair<std::string, std::string> > LocalStorageManager::crea
     Answer ans;
     boost::optional< std::pair<std::string, std::string> > result;
 
-    MessageBuilder builder;
-    boost::shared_ptr<CommunicationHandler> conn;
-
-    conn = VeilFS::getConnectionPool()->selectConnection();
+    MessageBuilder builder{m_context};
+    auto conn = m_context->getConnectionPool()->selectConnection();
     if(conn)
     {
         // Build CreateStorageTestFileRequest message
@@ -260,13 +258,13 @@ boost::optional< std::pair<std::string, std::string> > LocalStorageManager::crea
         ClusterMsg cMsg = builder.packFuseMessage(CreateStorageTestFileRequest::descriptor()->name(), CreateStorageTestFileResponse::descriptor()->name(), FUSE_MESSAGES, reqMsg.SerializeAsString());
         // Send CreateStorageTestFileRequest message
         ans = conn->communicate(cMsg, 2);
-    	// Check answer
+        // Check answer
         if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
         {
-			result.reset({resMsg.relative_path(), resMsg.text()});
-		}
-		else if(ans.answer_status() == NO_USER_FOUND_ERROR)
-		{
+            result.reset({resMsg.relative_path(), resMsg.text()});
+        }
+        else if(ans.answer_status() == NO_USER_FOUND_ERROR)
+        {
             LOG(ERROR) << "Cannot find user in database.";
         }
         else
@@ -326,10 +324,8 @@ bool LocalStorageManager::hasClientStorageWritePermission(const int storageId, c
     StorageTestFileModifiedResponse resMsg;
     Answer ans;
 
-    MessageBuilder builder;
-    boost::shared_ptr<CommunicationHandler> conn;
-
-    conn = VeilFS::getConnectionPool()->selectConnection();
+    MessageBuilder builder{m_context};
+    auto conn = m_context->getConnectionPool()->selectConnection();
     if(conn)
     {
         // Build CreateStorageTestFileRequest message
@@ -339,13 +335,13 @@ bool LocalStorageManager::hasClientStorageWritePermission(const int storageId, c
         ClusterMsg cMsg = builder.packFuseMessage(StorageTestFileModifiedRequest::descriptor()->name(), StorageTestFileModifiedResponse::descriptor()->name(), FUSE_MESSAGES, reqMsg.SerializeAsString());
         // Send CreateStorageTestFileRequest message
         ans = conn->communicate(cMsg, 2);
-    	// Check answer
+        // Check answer
         if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
         {
             return resMsg.answer();
-    	}
-    	else if(ans.answer_status() == NO_USER_FOUND_ERROR)
-    	{
+        }
+        else if(ans.answer_status() == NO_USER_FOUND_ERROR)
+        {
             LOG(ERROR) << "Cannot find user in database.";
         }
         else

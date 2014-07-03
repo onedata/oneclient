@@ -3,6 +3,7 @@ DEBUG_DIR = debug
 
 CMAKE = $(shell which cmake || which cmake28)
 CPACK = $(shell which cpack || which cpack28)
+MAKE = make -j`nproc`
 
 
 .PHONY: rpm build release debug docs clean all
@@ -36,13 +37,13 @@ release:
 	@mkdir -p ${RELEASE_DIR}
 	-@find ${RELEASE_DIR} -name "veilhelpers-update" -exec rm -rf {} \;
 	@cd ${RELEASE_DIR} && ${CMAKE} -DCMAKE_BUILD_TYPE=release ..
-	@(cd ${RELEASE_DIR} && make veilFuse -j`nproc`)
+	@(cd ${RELEASE_DIR} && ${MAKE} veilFuse)
 
 debug:
 	@mkdir -p ${DEBUG_DIR}
 	-@find ${DEBUG_DIR} -name "veilhelpers-update" -exec rm -rf {} \;
 	@cd ${DEBUG_DIR} && ${CMAKE} -DCMAKE_BUILD_TYPE=debug ..
-	@(cd ${DEBUG_DIR} && make veilFuse -j`nproc`)
+	@(cd ${DEBUG_DIR} && ${MAKE} veilFuse)
 
 test: deb-info
 	@cd ${RELEASE_DIR} && make
@@ -56,7 +57,7 @@ integration_tests: debug
 	@cd ${DEBUG_DIR} && make integration_tests
 
 install: release
-	@cd ${RELEASE_DIR} && make install
+	@cd ${RELEASE_DIR} && ${MAKE} install
 
 docs:
 	@doxygen Doxyfile

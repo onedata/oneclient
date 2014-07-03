@@ -11,18 +11,21 @@
 #define STORAGE_MAPPER_H
 
 #include <map>
+#include <memory>
 #include <string>
 #include <pthread.h>
-
 
 #include "fuse_messages.pb.h"
 #include "fslogicProxy.h"
 #include "ISchedulable.h"
 #include "lock.h"
 #include "veilException.h"
+#include "helpers/IStorageHelper.h"
 
 namespace veil {
 namespace client {
+
+class Context;
 
 /**
  * Structure containing file mapping base information.
@@ -46,7 +49,7 @@ typedef struct storageInfo
 {
     time_t last_updated;                                ///< Last update time
     std::string storageHelperName;                      ///< Name of storage helper. @see StorageHelperFactory::getStorageHelper
-    std::vector<std::string> storageHelperArgs;         ///< Arguments for storage helper. @see StorageHelperFactory::getStorageHelper
+    helpers::IStorageHelper::ArgsMap storageHelperArgs; ///< Arguments for storage helper. @see StorageHelperFactory::getStorageHelper
 
     bool isValid()                                      ///< Checks if the structure contains vaild data.
     {
@@ -63,11 +66,11 @@ protected:
     std::map<std::string, locationInfo> m_fileMapping;      ///< Contains storage info accessd by its ID. @see storageInfo
     ReadWriteLock m_fileMappingLock;                        ///< Lock used while operationg on StorageMapper::m_fileMapping. @see StorageMapper::m_fileMapping
 
-    boost::shared_ptr<FslogicProxy> m_fslogic;              ///< Reference to FslogicProxy instance. @see VeilFS::m_fslogic
+    std::shared_ptr<FslogicProxy> m_fslogic;              ///< Reference to FslogicProxy instance. @see VeilFS::m_fslogic
 
 public:
 
-    StorageMapper(boost::shared_ptr<FslogicProxy> fslogicProxy);
+    StorageMapper(std::shared_ptr<Context> context, std::shared_ptr<FslogicProxy> fslogicProxy);
     virtual ~StorageMapper();
 
     /**
@@ -85,6 +88,8 @@ public:
 
     virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
+private:
+    const std::shared_ptr<Context> m_context;
 };
 
 } // namespace client

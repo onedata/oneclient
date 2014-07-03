@@ -8,16 +8,23 @@
 #ifndef CONFIG_PROXY_H
 #define CONFIG_PROXY_H
 
-#include "config.h"
-#include "testCommon.h"
 
-struct ProxyConfig: public veil::client::Config {
-    std::string getFuseID()
+#include "config.h"
+
+struct ProxyConfig: public veil::client::Config
+{
+    ProxyConfig(std::shared_ptr<veil::client::Context> context)
+        : veil::client::Config{std::move(context)}
+    {
+    }
+
+    std::string getFuseID() override
     {
         return fuseID;
     }
 
     std::string fuseID;
 };
+
 
 #endif // CONFIG_PROXY_H

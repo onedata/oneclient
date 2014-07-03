@@ -12,13 +12,16 @@
 #include "fslogicProxy.h"
 #include "metaCache.h"
 #include "events/event.h"
- #include "events/eventStreamCombiner.h"
+#include "events/eventStreamCombiner.h"
 
-#include <boost/shared_ptr.hpp>
 #include <string>
+#include <memory>
 
 namespace veil {
 namespace client {
+
+class Context;
+
 namespace events {
 
 /**
@@ -28,11 +31,11 @@ namespace events {
  */
 class EventCommunicator : public ISchedulable{
 public:
-    EventCommunicator(boost::shared_ptr<EventStreamCombiner> eventsStream = boost::shared_ptr<EventStreamCombiner>());
+    EventCommunicator(std::shared_ptr<Context> context, std::shared_ptr<EventStreamCombiner> eventsStream = std::shared_ptr<EventStreamCombiner>());
 
-    void addEventSubstream(boost::shared_ptr<IEventStream> eventStreamConfig);  ///< Adds event substream.
+    void addEventSubstream(std::shared_ptr<IEventStream> eventStreamConfig);  ///< Adds event substream.
     void addEventSubstreamFromConfig(const ::veil::protocol::fuse_messages::EventStreamConfig & eventStreamConfig);
-    virtual void processEvent(boost::shared_ptr<Event> event);
+    virtual void processEvent(std::shared_ptr<Event> event);
 
     void configureByCluster();				///< Gets streams configuration from cluster, create substreams from fetched configuration and register them.
     bool pushMessagesHandler(const protocol::communication_protocol::Answer &msg); ///< Handles event-related push messages
@@ -41,23 +44,26 @@ public:
     bool askClusterIfWriteEnabled(); 		///< Sends to fslogic to get know if writing is enabled. Writing may be disabled if quota is exceeded.
                                             ///< This method is mostly useful on startup, if quota is exeeded during client work cluster will send push message.
     bool isWriteEnabled(); 					///< Getter for m_writeEnabled, does not communicate with cluster.
-    static void sendEvent(boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> eventMessage); ///< Sends eventMessage to cluster.
+    static void sendEvent(const std::shared_ptr<Context> &context,
+                          std::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> eventMessage); ///< Sends eventMessage to cluster.
 
     /* Access methods */
-    void setFslogic(boost::shared_ptr<FslogicProxy> fslogicProxy);
-    void setMetaCache(boost::shared_ptr<MetaCache> metaCache);
+    void setFslogic(std::shared_ptr<FslogicProxy> fslogicProxy);
+    void setMetaCache(std::shared_ptr<MetaCache> metaCache);
 
 private:
+    const std::shared_ptr<Context> m_context;
+
     ReadWriteLock m_eventsStreamLock;
-    boost::shared_ptr<EventStreamCombiner> m_eventsStream;
+    std::shared_ptr<EventStreamCombiner> m_eventsStream;
     bool m_writeEnabled;
-    boost::shared_ptr<MessageBuilder> m_messageBuilder;
-    boost::shared_ptr<FslogicProxy> m_fslogic;
-    boost::shared_ptr<MetaCache> m_metaCache;
+    std::shared_ptr<MessageBuilder> m_messageBuilder;
+    std::shared_ptr<FslogicProxy> m_fslogic;
+    std::shared_ptr<MetaCache> m_metaCache;
 
     void handlePushedConfig(const veil::protocol::communication_protocol::Answer &msg);
     void handlePushedAtom(const veil::protocol::communication_protocol::Answer &msg);
-    boost::shared_ptr<Event> statFromWriteEvent(boost::shared_ptr<Event> event);
+    std::shared_ptr<Event> statFromWriteEvent(std::shared_ptr<Event> event);
 };
 
 } // namespace events

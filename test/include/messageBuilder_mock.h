@@ -9,17 +9,21 @@
 #define MESSAGE_BUILDER_MOCK_H
 
 #include "messageBuilder.h"
-#include "testCommon.h"
-#include "gmock/gmock.h"
 
-class MockMessageBuilder
-    : public MessageBuilder {
+#include <gmock/gmock.h>
+ 
+#include <memory>
+
+class MockMessageBuilder: public veil::client::MessageBuilder
+{
 public:
-    MockMessageBuilder() {};
-    ~MockMessageBuilder() {};
+    MockMessageBuilder(std::shared_ptr<veil::client::Context> context)
+        : MessageBuilder{std::move(context)}
+    {
+    }
 
-    MOCK_METHOD4(packFuseMessage, ClusterMsg(const string&, const string&, const string&, const string&));
-    MOCK_METHOD1(decodeAtomAnswer, string(Answer&));
+    MOCK_METHOD4(packFuseMessage, veil::protocol::communication_protocol::ClusterMsg(const std::string&, const std::string&, const std::string&, const std::string&));
+    MOCK_METHOD1(decodeAtomAnswer, std::string(veil::protocol::communication_protocol::Answer&));
 };
 
 #endif // MESSAGE_BUILDER_MOCK_H
