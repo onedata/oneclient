@@ -89,16 +89,6 @@ find_package(Boost COMPONENTS system thread filesystem random program_options RE
 
 set(BOOST_LIBS boost_system boost_thread boost_filesystem boost_random boost_program_options)
 
-foreach(LIB ${BOOST_LIBS})
-    find_library(BOOST_${LIB}_LIBRARY NAMES lib${LIB}-mt.a lib${LIB}.a ${LIB}-mt ${LIB})
-    if(${BOOST_${LIB}_LIBRARY} MATCHES .*_LIBRARY-NOTFOUND)
-        message( FATAL_ERROR "ERROR: ${LIB} NOT FOUND!")
-    endif()
-    set(BOOST_DEPS ${BOOST_DEPS};${BOOST_${LIB}_LIBRARY})
-endforeach()
-
-set(Boost_LIBRARIES ${BOOST_DEPS})
-
 link_directories(${Boost_LIBRARY_DIRS})
 include_directories(${Boost_INCLUDE_DIRS})
 
@@ -253,11 +243,12 @@ include_directories(${TEST_SOURCES_DIR}/include)
 include_directories(${VEILHELPERS_TEST_INCLUDE_DIR})
 
 set(TEST_UTILS_DIR ${TEST_SOURCES_DIR}/erl_core)
-add_library(testCommon STATIC
+add_library(testCommon OBJECT
     ${TEST_SOURCES_DIR}/testRunner.cc
     ${TEST_SOURCES_DIR}/testCommon.cc
     ${TEST_UTILS_DIR}/erlTestCore.cc
 )
+add_dependencies(testCommon veilclient gmock gtest)
 
 # Unit tests
 
@@ -274,10 +265,9 @@ endmacro()
 file(GLOB files ${TEST_SOURCES_DIR}/unit_tests/*_test.cc)
 foreach(file ${files})
     get_filename_component(TEST_NAME ${file} NAME_WE)
-    add_executable(${TEST_NAME} ${file})
+    add_executable(${TEST_NAME} ${file} $<TARGET_OBJECTS:testCommon>)
     add_dependencies(${TEST_NAME} gtest gmock veilFuse veilhelpers veilclient veilprotocol)
     target_link_libraries(${TEST_NAME}
-        testCommon
         ${GTEST_LIBRARIES}
         ${GMOCK_LIBRARIES}
         ${FUSE_LIBRARY_CUSTOM}
@@ -315,10 +305,9 @@ file(GLOB files ${TEST_SOURCES_DIR}/integration_tests/*_test.cc)
 foreach(file ${files})
     get_filename_component(TEST_NAME ${file} NAME_WE)
     set(TEST_NAME "${TEST_NAME}_i")
-    add_executable(${TEST_NAME} ${file})
+    add_executable(${TEST_NAME} ${file} $<TARGET_OBJECTS:testCommon>)
     add_dependencies(${TEST_NAME} gtest gmock veilFuse veilhelpers veilclient veilprotocol)
     target_link_libraries(${TEST_NAME}
-        testCommon
         ${GTEST_LIBRARIES}
         ${GMOCK_LIBRARIES}
         ${FUSE_LIBRARY_CUSTOM}
