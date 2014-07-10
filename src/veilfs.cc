@@ -401,6 +401,8 @@ int VeilFS::unlink(const char *path)
 
     m_metaCache->clearAttr(string(path)); // Clear cache
 
+    RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
+
     if(!isLink)
     {
         GET_LOCATION_INFO(path);
@@ -409,7 +411,6 @@ int VeilFS::unlink(const char *path)
             return sh_return;
     }
 
-    RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
     VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
 
     boost::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(path);
