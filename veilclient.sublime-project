@@ -38,12 +38,14 @@
             "-I${folder:${project_path:veilclient.sublime-project}}/debug/deps/veilhelpers/src/veilhelpers/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/debug/deps/veilhelpers/src/veilhelpers/test/include",
             "-I${folder:${project_path:veilclient.sublime-project}}/debug/deps/veilhelpers/src/veilhelpers-build/include",
+            "-I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/c++/v1",
 
 
             "-D_FILE_OFFSET_BITS=64",
             "-DFUSE_USE_VERSION=29",
             "-ferror-limit=0",
-            "-Wno-deprecated-declarations"
+            "-Wno-deprecated-declarations",
+            "-std=c++11"
         ]
 	}
 

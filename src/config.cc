@@ -11,8 +11,8 @@
 #include "veilfs.h"
 #include "communication_protocol.pb.h"
 #include "fuse_messages.pb.h"
-#include <fstream>
-#include <boost/filesystem.hpp>
+#include "certUnconfirmedException.h"
+
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
 
@@ -53,7 +53,7 @@ void Config::setMountPoint(filesystem::path mp)
 
 path Config::getMountPoint()
 {
-    return m_mountPoint;
+    return m_mountPoint.normalize();
 }
 
 string Config::getFuseID()
@@ -84,7 +84,7 @@ string Config::absPathRelTo(const path &relTo, path p)
     }
 
     if(!getMountPoint().empty() &&
-       out.normalize().string().find(getMountPoint().normalize().string()) == 0) {
+       out.normalize().string().find(getMountPoint().string()) == 0) {
         throw VeilException("path_error", string("Cannot access '") + out.string() + "' because the file is within your filesystem mount point - " + getMountPoint().string());
     }
 
@@ -110,6 +110,11 @@ void Config::negotiateFuseID(time_t delay)
 }
 
 void Config::testHandshake()
+{
+    testHandshake("", false);
+}
+
+void Config::testHandshake(std::string usernameToConfirm, bool confirm)
 {
     AutoLock lock(m_access, WRITE_LOCK);
 
@@ -159,6 +164,15 @@ void Config::testHandshake()
             varEntry->set_value( context->getOptions()->get_fuse_group_id() );
         }
 
+        // If there is username spcecified, send account confirmation along with handshake request
+        if(usernameToConfirm.size() > 0) 
+        {
+            HandshakeRequest_CertConfirmation confirmationMsg;
+            confirmationMsg.set_login(usernameToConfirm);
+            confirmationMsg.set_result(confirm);
+            reqMsg.mutable_cert_confirmation()->CopyFrom(confirmationMsg);
+        }
+
         cMsg = builder.createClusterMessage(FSLOGIC, HandshakeRequest::descriptor()->name(), HandshakeResponse::descriptor()->name(), FUSE_MESSAGES, true);
         cMsg.set_input(reqMsg.SerializeAsString());
 
@@ -175,6 +189,8 @@ void Config::testHandshake()
         }
         else if(ans.answer_status() == NO_USER_FOUND_ERROR)
             throw VeilException(NO_USER_FOUND_ERROR,"Cannot find user in database.");
+        else if(ans.answer_status() == CERT_CONFIRMATION_REQUIRED_ERROR)
+            throw CertUnconfirmedException(ans.error_description());
         else
             throw VeilException(ans.answer_status(),"Cannot negotatiate FUSE_ID");
     }

@@ -123,7 +123,7 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
 
     if(!m_context->getOptions()->has_fuse_group_id() && !m_context->getConfig()->isEnvSet(string(FUSE_OPT_PREFIX) + string("GROUP_ID"))) {
         if(m_sManager) {
-            vector<string> mountPoints = LocalStorageManager::getMountPoints();
+            vector<boost::filesystem::path> mountPoints = m_sManager->getMountPoints();
             vector< pair<int, string> > clientStorageInfo = m_sManager->getClientStorageInfo(mountPoints);
             if(!clientStorageInfo.empty()) {
                 m_sManager->sendClientStorageInfo(clientStorageInfo);
@@ -383,6 +383,8 @@ int VeilFS::unlink(const char *path)
 
     m_metaCache->clearAttr(string(path)); // Clear cache
 
+    RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
+
     if(!isLink)
     {
         GET_LOCATION_INFO(path);
@@ -391,7 +393,6 @@ int VeilFS::unlink(const char *path)
             return sh_return;
     }
 
-    RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
     m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
 
     boost::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(path);
@@ -525,6 +526,20 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
     LOG(INFO) << "FUSE: open(path: " << string(path) << ", ...)";
     fileInfo->direct_io = 1;
     fileInfo->fh = ++m_fh;
+    mode_t accMode = fileInfo->flags & O_ACCMODE;
+
+    if(m_context->getOptions()->get_enable_permission_checking()){
+        string openMode = UNSPECIFIED_MODE;
+        if(accMode == O_RDWR)
+            openMode = RDWR_MODE;
+        else if(accMode== O_RDONLY)
+            openMode = READ_MODE;
+        else if(accMode == O_WRONLY)
+            openMode = WRITE_MODE;
+        std::string status;
+        if(VOK != (status =  m_storageMapper->findLocation(string(path), openMode)))
+            return translateError(status);
+    }
 
     GET_LOCATION_INFO(path);
 
@@ -537,7 +552,6 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
         m_shCache[fileInfo->fh] = ptr;
 
         time_t atime = 0, mtime = 0;
-        mode_t accMode = fileInfo->flags & O_ACCMODE;
 
         if((accMode == O_WRONLY) || (fileInfo->flags & O_APPEND) || (accMode == O_RDWR))
             mtime = time(NULL);

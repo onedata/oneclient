@@ -331,13 +331,10 @@ TEST_F(VeilFSTest, unlink) { // const char *path
     EXPECT_CALL(*metaCacheMock, getAttr("/path", _)).WillRepeatedly(DoAll(SetArgPointee<1>(st), Return(false)));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillRepeatedly(DoAll(SetArgReferee<1>(attrs), Return(true)));
 
-    EXPECT_CALL(*fslogicMock, deleteFile("/path")).Times(0);
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Throw(VeilException(VEACCES)));
+    EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VEACCES));
     EXPECT_EQ(-EACCES, client->unlink("/path"));
 
-    EXPECT_CALL(*fslogicMock, deleteFile("/path")).Times(0);
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Return(make_pair(location, storage)));
-    EXPECT_CALL(*helperMock, sh_unlink(StrEq("fileid"))).WillOnce(Return(-ENOENT));
+    EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VENOENT));
     EXPECT_EQ(-ENOENT, client->unlink("/path"));
 
     EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VOK));
@@ -413,6 +410,13 @@ TEST_F(VeilFSTest, chmod) { // const char *path, mode_t mode
 }
 
 TEST_F(VeilFSTest, chown) { // const char *path, uid_t uid, gid_t gid
+
+    #ifdef __APPLE__
+        string group = "wheel";
+    #else
+        string group = "root";
+    #endif
+
     EXPECT_CALL(*metaCacheMock, clearAttr("/path")).WillRepeatedly(Return());
 
     EXPECT_EQ(0, client->chown("/path", -1,-1)); // Dont change perms
@@ -428,15 +432,14 @@ TEST_F(VeilFSTest, chown) { // const char *path, uid_t uid, gid_t gid
     EXPECT_EQ(0, client->chown("/path", 64231, -1));
 
     EXPECT_CALL(*fslogicMock, changeFileOwner(_, _, _)).Times(0);
-    EXPECT_CALL(*fslogicMock, changeFileGroup("/path", 0, "root")).WillOnce(Return(VEACCES));
+    EXPECT_CALL(*fslogicMock, changeFileGroup("/path", 0, group)).WillOnce(Return(VEACCES));
     EXPECT_EQ(-EACCES, client->chown("/path", -1, 0));
 
-    EXPECT_CALL(*fslogicMock, changeFileGroup("/path", 0, "root")).WillOnce(Return(VOK));
+    EXPECT_CALL(*fslogicMock, changeFileGroup("/path", 0, group)).WillOnce(Return(VOK));
     EXPECT_EQ(0, client->chown("/path", -1, 0));
 
     EXPECT_CALL(*fslogicMock, changeFileGroup("/path", 54321, "")).WillOnce(Return(VOK));
     EXPECT_EQ(0, client->chown("/path", -1, 54321));
-
 
     EXPECT_CALL(*fslogicMock, changeFileOwner("/path", 0, "root")).WillOnce(Return(VOK));
     EXPECT_CALL(*fslogicMock, changeFileGroup("/path", 54321, "")).WillOnce(Return(VOK));
@@ -543,7 +546,11 @@ TEST_F(VeilFSTest, statfs) { // const char *path, struct statvfs *statInfo
     statFS.f_namemax   = NAME_MAX;
 
     EXPECT_CALL(*fslogicMock, getStatFS()).WillOnce(Return(make_pair(VEREMOTEIO, statFS)));
-    EXPECT_EQ(-EREMOTEIO, client->statfs("/path", &statInfo));
+    #ifdef __gnu_linux__
+        EXPECT_EQ(-EREMOTEIO, client->statfs("/path", &statInfo));
+    #else
+        EXPECT_EQ(-EIO, client->statfs("/path", &statInfo));
+    #endif
 
     EXPECT_CALL(*fslogicMock, getStatFS()).WillOnce(Return(make_pair(VOK, statFS)));
     EXPECT_EQ(0, client->statfs("/path", &statInfo));

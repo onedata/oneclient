@@ -258,11 +258,15 @@ bool GSIHandler::validateProxyCert()
     // At this point we know that there is not valid proxy certificate
     // Lets find user certificate
     if(userCert == "") {
-        cerr << "Error: Couldn't find valid credentials." << endl;
-        cerr << "The user cert could not be found in: " << endl;
-        cerr << "   1) env. var. " << X509_USER_CERT_ENV << endl;
-        cerr << "   2) $HOME/" << GLOBUS_PEM_CERT_PATH << endl;
-        cerr << "   3) $HOME/" << GLOBUS_P12_PATH << endl;
+        cerr << "Error: Couldn't find valid credentials.\n" <<
+                "The user cert could not be found in: \n" <<
+                "   1) env. var. " << X509_USER_PROXY_ENV << "\n" <<
+                "   2) proxy crt. " << GLOBUS_PROXY_PATH(getuid()) << "\n" <<
+                "   3) env. var. " << X509_USER_CERT_ENV << "\n" <<
+                "   4) $HOME/" << GLOBUS_PEM_CERT_PATH << "\n" <<
+                "   5) $HOME/" << GLOBUS_P12_PATH << "\n" <<
+                "   6) $HOME/" << GLOBUS_DIR_PATH << "/*.p12\n" <<
+                "   6) $HOME/" << GLOBUS_DIR_PATH << "/*.pem + .key" << endl;
 
         return failureValue;
     }
@@ -281,11 +285,11 @@ bool GSIHandler::validateProxyCert()
 
     // Lets find user key
     if(userKey == "") {
-        cerr << "Error: Couldn't find valid credentials to generate a proxy." << endl;
-        cerr << "The user key could not be found in: " << endl;
-        cerr << "   1) env. var. " << X509_USER_KEY_ENV << endl;
-        cerr << "   2) $HOME/" << GLOBUS_PEM_KEY_PATH << endl;
-        cerr << "   3) $HOME/" << GLOBUS_P12_PATH << endl;
+        cerr << "Error: Couldn't find valid credentials to generate a proxy.\n" <<
+                "The user key could not be found in:\n" <<
+                "   1) env. var. " << X509_USER_KEY_ENV << "\n" <<
+                "   2) $HOME/" << GLOBUS_PEM_KEY_PATH << "\n" <<
+                "   3) $HOME/" << GLOBUS_P12_PATH << endl;
 
         return failureValue;
     }
@@ -449,44 +453,44 @@ bool GSIHandler::validateProxyCert()
     }
 
     CRYPTO_FREE(BIO, file);
-    
-    
+
+
     // Check notAfter for EEC
     ASN1_TIME *notAfter  = X509_get_notAfter ( cert );
     if( X509_cmp_current_time( notAfter ) <= 0 ) {
         BUF_MEM *time_buff = BUF_MEM_new();
         BIO *time_bio = BIO_new(BIO_s_mem());
         BIO_set_mem_buf(time_bio, time_buff, BIO_CLOSE);
-        
+
         // Print expiration time to mem buffer
         ASN1_TIME_print(time_bio, notAfter);
-        
+
         LOG(ERROR) << "EEC certificate has expired!";
         cerr << "Error: Your certificate (" << userCert << ") has expired! Invalid since: " << string(time_buff->data, time_buff->length) << "." << endl;
-        
+
         BIO_free(time_bio);
-        
+
         CRYPTO_FREE(X509, cert);
         CRYPTO_FREE(EVP_PKEY, key);
         if(ca) sk_X509_free(ca);
         return false;
     }
-    
+
     // Check notBefore for EEC
     ASN1_TIME *notBefore  = X509_get_notBefore ( cert );
     if( X509_cmp_current_time( notBefore ) > 0 ) {
         BUF_MEM *time_buff = BUF_MEM_new();
         BIO *time_bio = BIO_new(BIO_s_mem());
         BIO_set_mem_buf(time_bio, time_buff, BIO_CLOSE);
-        
+
         // Print expiration time to mem buffer
         ASN1_TIME_print(time_bio, notBefore);
-        
+
         LOG(ERROR) << "EEC certificate used before 'notBefore'!";
         cerr << "Error: Your certificate (" << userCert << ") is not valid yet. Invalid before: " << string(time_buff->data, time_buff->length) << "." << endl;
-        
+
         BIO_free(time_bio);
-        
+
         CRYPTO_FREE(X509, cert);
         CRYPTO_FREE(EVP_PKEY, key);
         if(ca) sk_X509_free(ca);

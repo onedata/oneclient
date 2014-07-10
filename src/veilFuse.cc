@@ -41,6 +41,7 @@
 #include "gsiHandler.h"
 #include "logging.h"
 #include "options.h"
+#include "certUnconfirmedException.h"
 
 #include "fslogicProxy.h"
 
@@ -334,7 +335,6 @@ int main(int argc, char* argv[], char* envp[])
         boost::split(tokens, tEnv, boost::is_any_of("="));
         if(tokens.size() != 2) // Invalid env variable. Expected format: NAME=VALUE
             continue;
-        std::cout << tokens[0] << " " << tokens[1] << "\n";
         Config::putEnv(tokens[0], tokens[1]);
     }
 
