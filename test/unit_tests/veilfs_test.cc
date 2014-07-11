@@ -333,13 +333,10 @@ TEST_F(VeilFSTest, unlink) { // const char *path
     EXPECT_CALL(*metaCacheMock, getAttr("/path", _)).WillRepeatedly(DoAll(SetArgPointee<1>(st), Return(false)));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillRepeatedly(DoAll(SetArgReferee<1>(attrs), Return(true)));
 
-    EXPECT_CALL(*fslogicMock, deleteFile("/path")).Times(0);
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Throw(VeilException(VEACCES)));
+    EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VEACCES));
     EXPECT_EQ(-EACCES, client->unlink("/path"));
 
-    EXPECT_CALL(*fslogicMock, deleteFile("/path")).Times(0);
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Return(std::make_pair(location, storage)));
-    EXPECT_CALL(*helperMock, sh_unlink(StrEq("fileid"))).WillOnce(Return(-ENOENT));
+    EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VENOENT));
     EXPECT_EQ(-ENOENT, client->unlink("/path"));
 
     EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VOK));

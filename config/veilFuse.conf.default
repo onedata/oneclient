@@ -59,6 +59,8 @@
   # Enables parallel file attribute fetching (speeds up directory listing) [default = true]
     # enable_parallel_getattr = true
 
+  # Enables permission checking during each file opening (gives concrete permission errors, but decreases performance) [default = false]
+    # enable_permission_checking = false
 
   # BufferAgent config
 
