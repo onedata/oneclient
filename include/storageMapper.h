@@ -14,6 +14,7 @@
 
 #include "helpers/IStorageHelper.h"
 #include "lock.h"
+#include "fslogicProxy.h"
 
 #include <map>
 #include <memory>

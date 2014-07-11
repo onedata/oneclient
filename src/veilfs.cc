@@ -542,7 +542,7 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
     fileInfo->fh = ++m_fh;
     mode_t accMode = fileInfo->flags & O_ACCMODE;
 
-    if(VeilFS::getOptions()->get_enable_permission_checking()){
+    if(m_context->getOptions()->get_enable_permission_checking()){
         string openMode = UNSPECIFIED_MODE;
         if(accMode == O_RDWR)
             openMode = RDWR_MODE;
