@@ -400,15 +400,18 @@ int VeilFS::unlink(const char *path)
         isLink = (attr.type() == "LNK");
 
     m_metaCache->clearAttr(string(path)); // Clear cache
-    GET_LOCATION_INFO(path); //Get file location from cluster
-
-    RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
 
     if(!isLink)
     {
+        GET_LOCATION_INFO(path); //Get file location from cluster
+        RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
+
         SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_unlink(lInfo.fileId.c_str()));
         if(sh_return < 0)
             return sh_return;
+    } else
+    {
+        RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
     }
 
     VeilFS::getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
