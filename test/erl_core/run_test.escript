@@ -26,14 +26,10 @@
 %% Restart cluster before each test suite (+20 secs). 
 -define(RESTART_CLUSTER, true).
 
--record(veil_document, {uuid = "", rev_info = 0, record = none, force_update = false}).
 -define(Node_Manager_Name, node_manager).
-
 
 main(["__exec" | [ TestName | Args ]]) ->
     set_up_net_kernel(),
-
-    _A = #veil_document{}, %todo delete
 
     load_mods([?CCM_NODE_NAME, ?WORKER_NODE_NAME], [list_to_atom(TestName), test_common]),
 
@@ -92,11 +88,6 @@ main([TestName | Args]) ->
     
     rpc:call(?CCM_NODE_NAME, test_common, teardown, [ccm, TestName, CTX_CCM]),
     rpc:call(?WORKER_NODE_NAME, test_common, teardown, [worker, TestName, CTX_W]).
-
-
-%%
-%% Main SETPU/TEARDOWN methods
-%%
 
 %% 
 %% HELPER METHODS
