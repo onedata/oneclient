@@ -51,30 +51,22 @@ protected:
 // Test if touch commnad updates times correctly
 TEST_F(TimesUpdateTest, touchUpdate) {
     setbuf(stdout, NULL);
-    std::cout << "#1\n";
     struct stat old, curr;
-    std::cout << "#2\n";
     sleep(2);
     stat((VFS.getRoot() + "/file").c_str(), &old);
-    std::cout << "#3\n";
     sleep(2);
     ASSERT_EQ(0, ::system(("touch " + VFS.getRoot() + "/file").c_str()));
-    std::cout << "#4\n";
     sleep(1);
     stat((VFS.getRoot() + "/file").c_str(), &curr);
-    std::cout << "#5\n";
 
     EXPECT_GT(curr.st_atime, old.st_atime);
     EXPECT_GT(curr.st_mtime, old.st_mtime);
-    std::cout << "#6\n";
 
     EXPECT_GT(curr.st_atime, (time(NULL) - 10));
     EXPECT_GT(curr.st_mtime, (time(NULL) - 10));
-    std::cout << "#7\n";
 
     EXPECT_LE(curr.st_atime, (time(NULL) + 10));
     EXPECT_LE(curr.st_mtime, (time(NULL) + 10));
-    std::cout << "#8\n";
 }
 
 // Test if data write updates times correctly
