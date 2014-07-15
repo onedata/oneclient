@@ -333,11 +333,11 @@ TEST_F(VeilFSTest, unlink) { // const char *path
     EXPECT_CALL(*metaCacheMock, getAttr("/path", _)).WillRepeatedly(DoAll(SetArgPointee<1>(st), Return(false)));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillRepeatedly(DoAll(SetArgReferee<1>(attrs), Return(true)));
 
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(std::make_pair(location, storage)));
     EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VEACCES));
     EXPECT_EQ(-EACCES, client->unlink("/path"));
 
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(std::make_pair(location, storage)));
     EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VENOENT));
     EXPECT_EQ(-ENOENT, client->unlink("/path"));
 
@@ -461,7 +461,7 @@ TEST_F(VeilFSTest, truncate) { // const char *path, off_t newSize
     EXPECT_CALL(*helperMock, sh_truncate(StrEq("fileid"), _)).WillOnce(Return(-EEXIST));
     EXPECT_EQ(-EEXIST, client->truncate("/path", 10));
 
-    EXPECT_CALL(*metaCacheMock, updateSize("/path", 10)).WillOnce(Return(true));
+    EXPECT_CALL(*metaCacheMock, updateSize(336"/path", 10)).WillOnce(Return(true));
 
     EXPECT_CALL(*helperMock, sh_truncate(StrEq("fileid"), _)).WillOnce(Return(0));
     EXPECT_EQ(0, client->truncate("/path", 10));
