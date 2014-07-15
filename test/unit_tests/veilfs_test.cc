@@ -461,7 +461,7 @@ TEST_F(VeilFSTest, truncate) { // const char *path, off_t newSize
     EXPECT_CALL(*helperMock, sh_truncate(StrEq("fileid"), _)).WillOnce(Return(-EEXIST));
     EXPECT_EQ(-EEXIST, client->truncate("/path", 10));
 
-    EXPECT_CALL(*metaCacheMock, updateSize(336"/path", 10)).WillOnce(Return(true));
+    EXPECT_CALL(*metaCacheMock, updateSize("/path", 10)).WillOnce(Return(true));
 
     EXPECT_CALL(*helperMock, sh_truncate(StrEq("fileid"), _)).WillOnce(Return(0));
     EXPECT_EQ(0, client->truncate("/path", 10));
