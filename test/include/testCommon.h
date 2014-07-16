@@ -89,9 +89,9 @@ using namespace veil::client::events;
         auto eventCommunicator = boost::make_shared<events::EventCommunicator>(context); \
         veilFS.reset(new VeilFS(VeilFSRoot, context, \
                             fslogic, \
-                            boost::shared_ptr<MetaCache>(context), \
-                            boost::shared_ptr<LocalStorageManager>(context), \
-                            boost::shared_ptr<StorageMapper>(context, fslogic), \
+                            boost::make_shared<MetaCache>(context), \
+                            boost::make_shared<LocalStorageManager>(context), \
+                            boost::make_shared<StorageMapper>(context, fslogic), \
                             boost::make_shared<helpers::StorageHelperFactory>(context->getConnectionPool(), helpers::BufferLimits{}), \
                             eventCommunicator)); \
         sleep(5);
