@@ -22,6 +22,7 @@ AutoLock::AutoLock(ReadWriteLock &ctx, LockType type) :
 
 AutoLock::~AutoLock()
 {
+
     release();
 }
 

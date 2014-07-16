@@ -21,7 +21,7 @@ public:
     {
     }
 
-    MOCK_METHOD2(getFileLocation, bool(const std::string&, veil::protocol::fuse_messages::FileLocation&));
+    MOCK_METHOD3(getFileLocation, bool(const std::string&, veil::protocol::fuse_messages::FileLocation&, const std::string&));
     MOCK_METHOD2(changeFilePerms, std::string(const std::string&, mode_t));
     MOCK_METHOD2(renameFile, std::string(const std::string&, const std::string&));
     MOCK_METHOD1(deleteFile, std::string(const std::string&));

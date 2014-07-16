@@ -399,13 +399,17 @@ int VeilFS::unlink(const char *path)
 
     if(!isLink)
     {
-        GET_LOCATION_INFO(path);
+        GET_LOCATION_INFO(path); //Get file location from cluster
+        RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
+
         SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_unlink(lInfo.fileId.c_str()));
         if(sh_return < 0)
             return sh_return;
+    } else
+    {
+        RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
     }
 
-    RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
     m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path))); // Clear cache of parent (possible change of modify time)
 
     std::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(path);
@@ -539,6 +543,20 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
     LOG(INFO) << "FUSE: open(path: " << string(path) << ", ...)";
     fileInfo->direct_io = 1;
     fileInfo->fh = ++m_fh;
+    mode_t accMode = fileInfo->flags & O_ACCMODE;
+
+    if(m_context->getOptions()->get_enable_permission_checking()){
+        string openMode = UNSPECIFIED_MODE;
+        if(accMode == O_RDWR)
+            openMode = RDWR_MODE;
+        else if(accMode== O_RDONLY)
+            openMode = READ_MODE;
+        else if(accMode == O_WRONLY)
+            openMode = WRITE_MODE;
+        std::string status;
+        if(VOK != (status =  m_storageMapper->findLocation(string(path), openMode)))
+            return translateError(status);
+    }
 
     GET_LOCATION_INFO(path);
 
@@ -551,7 +569,6 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
         m_shCache[fileInfo->fh] = ptr;
 
         time_t atime = 0, mtime = 0;
-        mode_t accMode = fileInfo->flags & O_ACCMODE;
 
         if((accMode == O_WRONLY) || (fileInfo->flags & O_APPEND) || (accMode == O_RDWR))
             mtime = time(NULL);

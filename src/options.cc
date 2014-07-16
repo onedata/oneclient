@@ -64,6 +64,7 @@ void Options::setDescriptions()
     add_jobscheduler_threads(m_common);
     add_enable_dir_prefetch(m_common);
     add_enable_parallel_getattr(m_common);
+    add_enable_permission_checking(m_common);
     add_enable_location_cache(m_common);
 
     // Restricted options exclusive to global config file
