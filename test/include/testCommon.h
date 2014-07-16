@@ -52,7 +52,7 @@ using namespace veil::client::events;
         context->setConfig(config); \
         scheduler.reset(new MockJobScheduler()); \
         context->addScheduler(scheduler); \
-        connectionPool.reset(new MockConnectionPool()); \
+        connectionPool = boost::make_shared<MockConnectionPool>(); \
         context->setConnectionPool(connectionPool); \
         EXPECT_CALL(*options, has_fuse_group_id()).WillRepeatedly(Return(true)); \
         EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(false)); \
@@ -86,15 +86,13 @@ using namespace veil::client::events;
         auto gsiHandler = boost::make_shared<GSIHandler>(context); \
         gsiHandler->validateProxyConfig(); \
         context->setConnectionPool(boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler))); \
-        veil::helpers::config::checkCertificate.store(!options->get_no_check_certificate()); \
-        veil::helpers::config::setConnectionPool(context->getConnectionPool()); \
         auto eventCommunicator = boost::make_shared<events::EventCommunicator>(context); \
         veilFS.reset(new VeilFS(VeilFSRoot, context, \
                             fslogic, \
-                            boost::make_shared<MetaCache>(context), \
-                            boost::make_shared<LocalStorageManager>(context), \
-                            boost::make_shared<StorageMapper>(context, fslogic), \
-                            boost::make_shared<helpers::StorageHelperFactory>(), \
+                            boost::shared_ptr<MetaCache>(context), \
+                            boost::shared_ptr<LocalStorageManager>(context), \
+                            boost::shared_ptr<StorageMapper>(context, fslogic), \
+                            boost::make_shared<helpers::StorageHelperFactory>(context->getConnectionPool(), helpers::BufferLimits{}), \
                             eventCommunicator)); \
         sleep(5);
 

@@ -16,20 +16,6 @@ namespace veil
 {
 namespace client
 {
-
-//Context::Context(std::shared_ptr<Options> options,
-//                 std::shared_ptr<Config> config,
-//                 std::shared_ptr<JobScheduler> jobScheduler,
-//                 std::shared_ptr<SimpleConnectionPool> connectionPool,
-//                 std::shared_ptr<PushListener> pushListener)
-//    : m_options{std::move(options)}
-//    , m_config{std::move(config)}
-//    , m_jobSchedulers{std::move(jobScheduler)}
-//    , m_connectionPool{std::move(connectionPool)}
-//    , m_pushListener{std::move(pushListener)}
-//{
-//}
-
 std::shared_ptr<Options> Context::getOptions() const
 {
     boost::shared_lock<boost::shared_mutex> lock{m_optionsMutex};

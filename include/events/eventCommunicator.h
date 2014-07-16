@@ -53,7 +53,7 @@ public:
     void setMetaCache(boost::shared_ptr<MetaCache> metaCache);
 
 private:
-    std::shared_ptr<Context> m_context;
+    const std::shared_ptr<Context> m_context;
 
     ReadWriteLock m_eventsStreamLock;
     boost::shared_ptr<EventStreamCombiner> m_eventsStream;

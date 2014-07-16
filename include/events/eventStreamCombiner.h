@@ -40,7 +40,7 @@ public:
     std::queue<boost::shared_ptr<Event> > getEventsToProcess() const;						   ///< TODO: probably should be removed or replaced with getQueueSize
 
 private:
-    std::shared_ptr<Context> m_context;
+    const std::shared_ptr<Context> m_context;
     std::queue<boost::shared_ptr<Event> > m_eventsToProcess;								   ///< Queue of events waiting to be processed.
     std::list<boost::shared_ptr<IEventStream> > m_substreams;								   ///< Registred substreams.
     ReadWriteLock m_eventsToProcessLock;

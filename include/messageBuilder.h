@@ -47,7 +47,7 @@ public:
     virtual std::string                                     decodeAtomAnswer(protocol::communication_protocol::Answer& answer);
 
 private:
-    std::shared_ptr<Context> m_context;
+    const std::shared_ptr<Context> m_context;
 };
 
 } // namespace client

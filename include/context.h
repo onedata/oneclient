@@ -33,12 +33,6 @@ class PushListener;
 class Context
 {
 public:
-//    Context(std::shared_ptr<Options> options = nullptr,
-//            std::shared_ptr<Config> config = nullptr,
-//            std::shared_ptr<JobScheduler> jobScheduler = nullptr,
-//            std::shared_ptr<SimpleConnectionPool> connectionPool = nullptr,
-//            std::shared_ptr<PushListener> pushListener = nullptr);
-
     std::shared_ptr<Options> getOptions() const;
     void setOptions(std::shared_ptr<Options> options);
 

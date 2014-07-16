@@ -14,6 +14,8 @@
 #include "logging.h"
 #include "fuse_messages.pb.h"
 
+#include <cassert>
+
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
 
@@ -100,7 +102,9 @@ namespace client {
         if(msg.answer_status() == INVALID_FUSE_ID)
         {
             LOG(INFO) << "Received 'INVALID_FUSE_ID' message. Starting FuseID renegotiation...";
-            m_context.lock()->getConfig()->negotiateFuseID();
+            auto context = m_context.lock();
+            assert(context);
+            context->getConfig()->negotiateFuseID();
         }
     }
 
@@ -119,7 +123,9 @@ namespace client {
         msg.set_value(PUSH_MESSAGE_ACK);
         clm.set_input(msg.SerializeAsString());
 
-        boost::shared_ptr<CommunicationHandler> connection = m_context.lock()->getConnectionPool()->selectConnection();
+        auto context = m_context.lock();
+        assert(context);
+        boost::shared_ptr<CommunicationHandler> connection = context->getConnectionPool()->selectConnection();
 
         try {
             connection->sendMessage(clm, messageId);

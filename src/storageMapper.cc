@@ -12,6 +12,8 @@
 #include "context.h"
 #include "logging.h"
 
+#include <boost/any.hpp>
+
 #include <ctime>
 #include <arpa/inet.h>
 
@@ -93,7 +95,7 @@ void StorageMapper::addLocation(const string &logicalName, const FileLocation &l
         storageInfo.storageHelperName = location.storage_helper_name();
 
     for(int i = 0; i < location.storage_helper_args_size(); ++i)
-        storageInfo.storageHelperArgs.push_back(location.storage_helper_args(i));
+        storageInfo.storageHelperArgs.emplace(helpers::srvArg(i), boost::any{location.storage_helper_args(i)});
 
     AutoLock lock(m_fileMappingLock, WRITE_LOCK);
     auto previous = m_fileMapping.find(logicalName);

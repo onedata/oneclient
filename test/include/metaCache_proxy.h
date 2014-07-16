@@ -21,7 +21,7 @@ class ProxyMetaCache
 public:
     ProxyMetaCache(std::shared_ptr<Context> context) : MetaCache{std::move(context)} {}
 
-    std::unordered_map<string, pair<time_t, struct stat> >& getStatMap() {
+    auto getStatMap() -> decltype(m_statMap)& {
         return m_statMap;
     }
 

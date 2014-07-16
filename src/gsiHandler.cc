@@ -38,9 +38,9 @@
 #define GLOBUS_P12_PATH         ".globus/usercred.p12"
 #define GLOBUS_PEM_CERT_PATH    ".globus/usercert.pem"
 #define GLOBUS_PEM_KEY_PATH     ".globus/userkey.pem"
-#define GLOBUS_PROXY_PATH(UID)  Config::absPathRelToHOME(string("/tmp/x509up_u") + to_string(getuid()))
+#define GLOBUS_PROXY_PATH(CONTEXT, UID)  (CONTEXT)->getConfig()->absPathRelToHOME(string("/tmp/x509up_u") + to_string(getuid()))
 
-#define MSG_DEBUG_INFO (m_debug ? "" : "Use --debug_gsi for further information.")
+#define MSG_DEBUG_INFO(DEBUG) ((DEBUG) ? "" : "Use --debug_gsi for further information.")
 
 #define CRYPTO_FREE(M, X) if(X) { M##_free(X); X = NULL; }
 
@@ -145,23 +145,24 @@ static inline bool isFileOrSymlink(const boost::filesystem::path &p)
     return exists(p) && (is_regular_file(p) || is_symlink(p));
 }
 
-static const std::vector<std::pair<string, string> > &getCertSearchPath()
+const std::vector<std::pair<string, string> > &GSIHandler::getCertSearchPath()
 {
     static std::vector<std::pair<string, string> > searchPath;
 
     if(searchPath.empty())
     {
-        searchPath.push_back(make_pair(GLOBUS_PROXY_PATH(getuid())));
-        searchPath.push_back(std::make_pair(Config::absPathRelToHOME(GLOBUS_PEM_CERT_PATH),
-                                            Config::absPathRelToHOME(GLOBUS_PEM_KEY_PATH)));
-        searchPath.push_back(make_pair(Config::absPathRelToHOME(GLOBUS_P12_PATH)));
-        searchPath.push_back(std::make_pair(Config::absPathRelToHOME(GLOBUS_DIR_PATH), string()));
+        auto config = m_context->getConfig();
+        searchPath.push_back(make_pair(GLOBUS_PROXY_PATH(m_context, getuid())));
+        searchPath.push_back(std::make_pair(config->absPathRelToHOME(GLOBUS_PEM_CERT_PATH),
+                                            config->absPathRelToHOME(GLOBUS_PEM_KEY_PATH)));
+        searchPath.push_back(make_pair(config->absPathRelToHOME(GLOBUS_P12_PATH)));
+        searchPath.push_back(std::make_pair(config->absPathRelToHOME(GLOBUS_DIR_PATH), string()));
     }
 
     return searchPath;
 }
 
-static std::pair<string, string> findUserCertAndKey(const boost::filesystem::path &dir)
+std::pair<string, string> GSIHandler::findUserCertAndKey(const boost::filesystem::path &dir)
 {
     using namespace boost::filesystem;
 
@@ -184,7 +185,7 @@ static std::pair<string, string> findUserCertAndKey(const boost::filesystem::pat
     return std::pair<string, string>();
 }
 
-static std::pair<string, string> findUserCertAndKey()
+std::pair<string, string> GSIHandler::findUserCertAndKey()
 {
     using namespace boost::filesystem;
 
@@ -208,7 +209,7 @@ std::pair<string, string> GSIHandler::getUserCertAndKey()
 {
     // Configuration options take precedence
     if(m_context->getOptions()->has_peer_certificate_file())
-        return make_pair(Config::absPathRelToHOME(m_context->getOptions()->get_peer_certificate_file()));
+        return make_pair(m_context->getConfig()->absPathRelToHOME(m_context->getOptions()->get_peer_certificate_file()));
 
     if(getenv(X509_USER_PROXY_ENV) && filesystem::exists(getenv(X509_USER_PROXY_ENV)))
         return make_pair<string>(getenv(X509_USER_PROXY_ENV));
@@ -218,7 +219,7 @@ std::pair<string, string> GSIHandler::getUserCertAndKey()
     std::pair<string, string> certAndKey = findUserCertAndKey();
 
     // Any found path can be overriden by user's envs, provided it's not a proxy path
-    if(certAndKey.first != GLOBUS_PROXY_PATH(getuid()))
+    if(certAndKey.first != GLOBUS_PROXY_PATH(m_context, getuid()))
     {
         if(getenv(X509_USER_CERT_ENV) && filesystem::exists(getenv(X509_USER_CERT_ENV)))
             certAndKey.first = getenv(X509_USER_CERT_ENV);
@@ -261,7 +262,7 @@ bool GSIHandler::validateProxyCert()
         cerr << "Error: Couldn't find valid credentials.\n" <<
                 "The user cert could not be found in: \n" <<
                 "   1) env. var. " << X509_USER_PROXY_ENV << "\n" <<
-                "   2) proxy crt. " << GLOBUS_PROXY_PATH(getuid()) << "\n" <<
+                "   2) proxy crt. " << GLOBUS_PROXY_PATH(m_context, getuid()) << "\n" <<
                 "   3) env. var. " << X509_USER_CERT_ENV << "\n" <<
                 "   4) $HOME/" << GLOBUS_PEM_CERT_PATH << "\n" <<
                 "   5) $HOME/" << GLOBUS_P12_PATH << "\n" <<
@@ -375,7 +376,7 @@ bool GSIHandler::validateProxyCert()
             PKCS12 *p12 = d2i_PKCS12_bio(file, NULL);
             if(p12 == NULL) {
                 unsigned long e2 = ERR_get_error();
-                cerr << "Error: Invalid .pem or .p12 certificate file: " << userKey << " " << MSG_DEBUG_INFO << endl;
+                cerr << "Error: Invalid .pem or .p12 certificate file: " << userKey << " " << MSG_DEBUG_INFO(m_debug) << endl;
                 if(m_debug)
                     cerr << ERR_error_string(e2, NULL) << endl;
                 cerr << ERR_reason_error_string(e2) << endl;
@@ -395,7 +396,7 @@ bool GSIHandler::validateProxyCert()
                         CRYPTO_FREE(BIO, file);
                         return failureValue;
                     } else {
-                        cerr << "Error: Cannot parse .p12 file. " << MSG_DEBUG_INFO << endl;
+                        cerr << "Error: Cannot parse .p12 file. " << MSG_DEBUG_INFO(m_debug) << endl;
                         if(m_debug)
                             cerr << ERR_error_string(e1, NULL) << endl;
 
@@ -453,44 +454,44 @@ bool GSIHandler::validateProxyCert()
     }
 
     CRYPTO_FREE(BIO, file);
-
-
+    
+    
     // Check notAfter for EEC
     ASN1_TIME *notAfter  = X509_get_notAfter ( cert );
     if( X509_cmp_current_time( notAfter ) <= 0 ) {
         BUF_MEM *time_buff = BUF_MEM_new();
         BIO *time_bio = BIO_new(BIO_s_mem());
         BIO_set_mem_buf(time_bio, time_buff, BIO_CLOSE);
-
+        
         // Print expiration time to mem buffer
         ASN1_TIME_print(time_bio, notAfter);
-
+        
         LOG(ERROR) << "EEC certificate has expired!";
         cerr << "Error: Your certificate (" << userCert << ") has expired! Invalid since: " << string(time_buff->data, time_buff->length) << "." << endl;
-
+        
         BIO_free(time_bio);
-
+        
         CRYPTO_FREE(X509, cert);
         CRYPTO_FREE(EVP_PKEY, key);
         if(ca) sk_X509_free(ca);
         return false;
     }
-
+    
     // Check notBefore for EEC
     ASN1_TIME *notBefore  = X509_get_notBefore ( cert );
     if( X509_cmp_current_time( notBefore ) > 0 ) {
         BUF_MEM *time_buff = BUF_MEM_new();
         BIO *time_bio = BIO_new(BIO_s_mem());
         BIO_set_mem_buf(time_bio, time_buff, BIO_CLOSE);
-
+        
         // Print expiration time to mem buffer
         ASN1_TIME_print(time_bio, notBefore);
-
+        
         LOG(ERROR) << "EEC certificate used before 'notBefore'!";
         cerr << "Error: Your certificate (" << userCert << ") is not valid yet. Invalid before: " << string(time_buff->data, time_buff->length) << "." << endl;
-
+        
         BIO_free(time_bio);
-
+        
         CRYPTO_FREE(X509, cert);
         CRYPTO_FREE(EVP_PKEY, key);
         if(ca) sk_X509_free(ca);

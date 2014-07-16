@@ -45,6 +45,7 @@
 
 #include "fslogicProxy.h"
 
+#include <functional>
 #include <memory>
 
 using namespace std;
@@ -245,9 +246,10 @@ int main(int argc, char* argv[], char* envp[])
     FLAGS_stderrthreshold = 3;
 
     // Set up a remote logger
-    auto logWriter = boost::make_shared<logging::RemoteLogWriter>();
-    logging::setLogSinks(new logging::RemoteLogSink{logWriter},
-                         new logging::RemoteLogSink{logWriter, protocol::logging::LDEBUG});
+    const auto logWriter = boost::make_shared<logging::RemoteLogWriter>();
+    const auto logSink = std::make_shared<logging::RemoteLogSink>(logWriter);
+    const auto debugLogSink = std::make_shared<logging::RemoteLogSink>(logWriter, protocol::logging::LDEBUG);
+    logging::setLogSinks(logSink, debugLogSink);
 
     // Create application context
     auto context = std::make_shared<Context>();
@@ -272,7 +274,7 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     bool debug = options->get_debug();
-    helpers::config::checkCertificate.store(!options->get_no_check_certificate());
+    const auto checkCertificate = !options->get_no_check_certificate();
 
     auto config = boost::make_shared<Config>(context);
     context->setConfig(config);
@@ -306,7 +308,7 @@ int main(int argc, char* argv[], char* envp[])
         }
         
     } else {
-        log_path = filesystem::path( Config::absPathRelToCWD(options->get_log_dir()) );
+        log_path = filesystem::path(config->absPathRelToCWD(options->get_log_dir()));
     }
     
     
@@ -335,7 +337,8 @@ int main(int argc, char* argv[], char* envp[])
         boost::split(tokens, tEnv, boost::is_any_of("="));
         if(tokens.size() != 2) // Invalid env variable. Expected format: NAME=VALUE
             continue;
-        Config::putEnv(tokens[0], tokens[1]);
+        
+        config->putEnv(tokens[0], tokens[1]);
     }
 
     // FUSE main:
@@ -353,8 +356,8 @@ int main(int argc, char* argv[], char* envp[])
 
     // Set mount point in global config
     if(mountpoint) {
-        Config::setMountPoint(string(mountpoint));
-        LOG(INFO) << "Using mount point path: " << Config::getMountPoint().string();
+        config->setMountPoint(string(mountpoint));
+        LOG(INFO) << "Using mount point path: " << config->getMountPoint().string();
     }
 
     auto gsiHandler = std::make_shared<GSIHandler>(context, options->get_debug_gsi());
@@ -383,7 +386,7 @@ int main(int argc, char* argv[], char* envp[])
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
-    auto testPool = boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler), 1, 0);
+    auto testPool = boost::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), std::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate, 1, 0);
     context->setConnectionPool(testPool);
     try{
         config->testHandshake();
@@ -423,18 +426,18 @@ int main(int argc, char* argv[], char* envp[])
 
     // Initialize VeilClient application
     context->setConnectionPool(boost::make_shared<SimpleConnectionPool> (
-        gsiHandler->getClusterHostname(), options->get_cluster_port(), boost::bind(&GSIHandler::getCertInfo, gsiHandler)));
+        gsiHandler->getClusterHostname(), options->get_cluster_port(), std::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate));
 
     // Setup veilhelpers config
-    veil::helpers::config::setConnectionPool(context->getConnectionPool());
-    veil::helpers::config::buffers::writeBufferGlobalSizeLimit  = options->get_write_buffer_max_size();
-    veil::helpers::config::buffers::readBufferGlobalSizeLimit   = options->get_read_buffer_max_size();
-    veil::helpers::config::buffers::writeBufferPerFileSizeLimit = options->get_write_buffer_max_file_size();
-    veil::helpers::config::buffers::readBufferPerFileSizeLimit  = options->get_read_buffer_max_file_size();
-    veil::helpers::config::buffers::preferedBlockSize           = options->get_file_buffer_prefered_block_size();
+    helpers::BufferLimits bufferLimits{options->get_write_buffer_max_size(),
+                options->get_read_buffer_max_size(),
+                options->get_write_buffer_max_file_size(),
+                options->get_read_buffer_max_file_size(),
+                options->get_file_buffer_prefered_block_size()};
 
     // Start all jobSchedulers
-    for(unsigned int i = 0; i < options->get_jobscheduler_threads(); ++i)
+    context->addScheduler(std::make_shared<JobScheduler>());
+    for(unsigned int i = 1; i < options->get_jobscheduler_threads(); ++i)
         context->addScheduler(std::make_shared<JobScheduler>());
 
     // Initialize main application object
@@ -445,14 +448,14 @@ int main(int argc, char* argv[], char* envp[])
                     boost::make_shared<MetaCache>(context),
                     boost::make_shared<LocalStorageManager>(context),
                     boost::make_shared<StorageMapper>(context, fslogicProxy),
-                    boost::make_shared<helpers::StorageHelperFactory>(),
+                    boost::make_shared<helpers::StorageHelperFactory>(context->getConnectionPool(), bufferLimits),
                     eventCommunicator);
     VeilAppObject = VeilApp;
 
     // Register remote logWriter for log threshold level updates and start sending loop
     context->getPushListener()->subscribe(boost::bind(&logging::RemoteLogWriter::handleThresholdChange,
                                                      logWriter, _1));
-    logWriter->run();
+    logWriter->run(context->getConnectionPool());
 
     // Enter FUSE loop
     if (multithreaded)
