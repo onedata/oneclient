@@ -152,12 +152,13 @@ std::vector< std::pair<int, std::string> > LocalStorageManager::parseStorageInfo
 std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorageInfo(const std::vector<path> &mountPoints)
 {
     std::vector< std::pair<int, std::string> > clientStorageInfo;
+    auto m_config = m_context->getConfig();
 
     for(const auto &mountPoint: mountPoints)
     {
 
         // Skip client mount point (just in case)
-        if(mountPoint == Config::getMountPoint()) continue;
+        if(mountPoint == m_config->getMountPoint()) continue;
 
         std::vector< std::pair<int, std::string> > storageInfo = parseStorageInfo(mountPoint);
 
