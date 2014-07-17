@@ -6,13 +6,20 @@
  */
 
 #include "config.h"
+
+#include "context.h"
 #include "veilfs.h"
 #include "communication_protocol.pb.h"
 #include "fuse_messages.pb.h"
 #include "certUnconfirmedException.h"
 
+#include <boost/filesystem.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
+
+#include <cassert>
+#include <fstream>
+#include <functional>
 
 using namespace std;
 using namespace boost;
@@ -23,12 +30,8 @@ using boost::filesystem::path;
 namespace veil {
 namespace client {
 
-string Config::m_envCWD;
-string Config::m_envHOME;
-map<string, string> Config::m_envAll;
-path Config::m_mountPoint;
-
-Config::Config()
+Config::Config(std::weak_ptr<Context> context)
+    : m_context{std::move(context)}
 {
     setEnv();
 }
@@ -53,7 +56,10 @@ path Config::getMountPoint()
 
 string Config::getFuseID()
 {
-    return m_fuseID.empty() ? VeilFS::getOptions()->get_fuse_id() : m_fuseID;
+    if(m_fuseID.empty() && m_context.lock()->getOptions()->has_fuse_id())
+        return m_context.lock()->getOptions()->get_fuse_id();
+
+    return m_fuseID;
 }
 
 void Config::setEnv()
@@ -95,9 +101,10 @@ string Config::absPathRelToHOME(const filesystem::path &p)
 
 void Config::negotiateFuseID(time_t delay)
 {
+    auto context = m_context.lock();
     // Delete old jobs, we dont need them since we are adding new one anyway
-    VeilFS::getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->deleteJobs(VeilFS::getConfig().get(), ISchedulable::TASK_CONNECTION_HANDSHAKE);
-    VeilFS::getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->addTask(Job(time(NULL) + delay, VeilFS::getConfig(), ISchedulable::TASK_CONNECTION_HANDSHAKE));
+    context->getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->deleteJobs(this, ISchedulable::TASK_CONNECTION_HANDSHAKE);
+    context->getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->addTask(Job(time(NULL) + delay, shared_from_this(), ISchedulable::TASK_CONNECTION_HANDSHAKE));
 }
 
 void Config::testHandshake()
@@ -115,14 +122,16 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
     HandshakeResponse resMsg;
     Answer ans;
 
-    MessageBuilder builder;
-    boost::shared_ptr<CommunicationHandler> conn;
+    auto context = m_context.lock();
+    assert(context);
+
+    MessageBuilder builder{context};
 
     char tmpHost[1024];
     gethostname(tmpHost, sizeof(tmpHost));
     string hostname = string(tmpHost);
 
-    conn = VeilFS::getConnectionPool()->selectConnection();
+    auto conn = context->getConnectionPool()->selectConnection();
     if(conn)
     {
         // Build HandshakeRequest message
@@ -145,11 +154,11 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
             varEntry->set_value( (*it).second );
         }
 
-        if(VeilFS::getOptions()->has_fuse_group_id() && !fuseIdFound) {
+        if(context->getOptions()->has_fuse_group_id() && !fuseIdFound) {
             varEntry = reqMsg.add_variable();
 
             varEntry->set_name( "GROUP_ID" );
-            varEntry->set_value( VeilFS::getOptions()->get_fuse_group_id() );
+            varEntry->set_value( context->getOptions()->get_fuse_group_id() );
         }
 
         // If there is username spcecified, send account confirmation along with handshake request
@@ -200,7 +209,10 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
     HandshakeResponse resMsg;
     Answer ans;
 
-    MessageBuilder builder;
+    auto context = m_context.lock();
+    assert(context);
+
+    MessageBuilder builder{context};
     boost::shared_ptr<CommunicationHandler> conn;
 
     char tmpHost[1024];
@@ -211,7 +223,7 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
     {
     case TASK_CONNECTION_HANDSHAKE: // Send connection handshake request to cluster (in order to get FUSE_ID)
 
-        conn = VeilFS::getConnectionPool()->selectConnection();
+        conn = context->getConnectionPool()->selectConnection();
         if(conn)
         {
             // Build HandshakeRequest message
@@ -235,11 +247,11 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
                 varEntry->set_value( (*it).second );
             }
 
-            if(VeilFS::getOptions()->has_fuse_group_id() && !fuseIdFound) {
+            if(context->getOptions()->has_fuse_group_id() && !fuseIdFound) {
                 varEntry = reqMsg.add_variable();
 
                 varEntry->set_name( "GROUP_ID" );
-                varEntry->set_value( VeilFS::getOptions()->get_fuse_group_id() );
+                varEntry->set_value( context->getOptions()->get_fuse_group_id() );
             }
 
             cMsg = builder.createClusterMessage(FSLOGIC, HandshakeRequest::descriptor()->name(), HandshakeResponse::descriptor()->name(), FUSE_MESSAGES, true);
@@ -253,11 +265,11 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
                 m_fuseID = resMsg.fuse_id();
 
                 // Update FUSE_ID in current connection pool
-                VeilFS::getConnectionPool()->setPushCallback(getFuseID(), boost::bind(&PushListener::onMessage, VeilFS::getPushListener(), _1));
+                context->getConnectionPool()->setPushCallback(getFuseID(), std::bind(&PushListener::onMessage, context->getPushListener(), std::placeholders::_1));
 
                 // Reset all connections. Each and every connection will send HandshakeAck with new fuse ID on its own.
-                VeilFS::getConnectionPool()->resetAllConnections(SimpleConnectionPool::META_POOL);
-                VeilFS::getConnectionPool()->resetAllConnections(SimpleConnectionPool::DATA_POOL);
+                context->getConnectionPool()->resetAllConnections(SimpleConnectionPool::META_POOL);
+                context->getConnectionPool()->resetAllConnections(SimpleConnectionPool::DATA_POOL);
 
 
                 LOG(INFO) << "Newly negotiated FUSE_ID: " << resMsg.fuse_id();

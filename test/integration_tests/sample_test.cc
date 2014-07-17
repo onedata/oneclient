@@ -28,7 +28,7 @@ protected:
 
     // Mount file system in "main" subdir with "peer.pem" cert
     // use VFS.getRoot() to get absolute mount point
-    SampleTest() : VFS(VeilFSMount("main", "peer.pem")) 
+    SampleTest() : VFS("main", "peer.pem") 
     {
     }
 

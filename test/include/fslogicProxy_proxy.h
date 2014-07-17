@@ -9,16 +9,23 @@
 #define FSLOGIC_PROXY_PROXY_H
 
 #include "fslogicProxy.h"
+
+#include "context.h"
 #include "communicationHandler_mock.h"
 #include "messageBuilder_mock.h"
 #include "testCommon.h"
 #include "gmock/gmock.h"
+
+#include <memory>
 
 using namespace boost;
 
 class ProxyFslogicProxy
     : public FslogicProxy {
 public:
+    ProxyFslogicProxy(std::shared_ptr<Context> context)
+        : FslogicProxy{std::move(context)} {}
+
     bool useMockConnectionSelector;
     boost::shared_ptr<MockCommunicationHandler> ch_mock;
     bool mockAnswer;

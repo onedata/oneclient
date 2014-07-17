@@ -29,7 +29,7 @@ protected:
 
     path directIO_root;
 
-    TimesUpdateTest() : VFS(VeilFSMount("main", "peer.pem")) 
+    TimesUpdateTest() : VFS("main", "peer.pem") 
     {
     }
 
@@ -50,6 +50,7 @@ protected:
 
 // Test if touch commnad updates times correctly
 TEST_F(TimesUpdateTest, touchUpdate) {
+    setbuf(stdout, NULL);
     struct stat old, curr;
     sleep(2);
     stat((VFS.getRoot() + "/file").c_str(), &old);
@@ -57,13 +58,13 @@ TEST_F(TimesUpdateTest, touchUpdate) {
     ASSERT_EQ(0, ::system(("touch " + VFS.getRoot() + "/file").c_str()));
     sleep(1);
     stat((VFS.getRoot() + "/file").c_str(), &curr);
-    
+
     EXPECT_GT(curr.st_atime, old.st_atime);
     EXPECT_GT(curr.st_mtime, old.st_mtime);
-    
+
     EXPECT_GT(curr.st_atime, (time(NULL) - 10));
     EXPECT_GT(curr.st_mtime, (time(NULL) - 10));
-    
+
     EXPECT_LE(curr.st_atime, (time(NULL) + 10));
     EXPECT_LE(curr.st_mtime, (time(NULL) + 10));
 }
@@ -94,7 +95,7 @@ TEST_F(TimesUpdateTest, readUpdate) {
     sleep(2);
     ASSERT_EQ(0, ::system(("cat " + VFS.getRoot() + "/file").c_str()));
     sleep(1);
-    stat((VFS.getRoot() + "/file").c_str(), &curr);
+   stat((VFS.getRoot() + "/file").c_str(), &curr);
 
     EXPECT_GT(curr.st_atime, old.st_atime);
     EXPECT_EQ(curr.st_mtime, old.st_mtime);

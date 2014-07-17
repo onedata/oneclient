@@ -34,26 +34,26 @@ protected:
 
     virtual void SetUp() {
         COMMON_SETUP();
-        listener.reset(new PushListener());
+        listener.reset(new PushListener(context));
         answerHandled = 0;
     }
-
+    
     virtual void TearDown() {
         COMMON_CLEANUP();
     }
-
+    
 public:
-
+    
     bool handler(const Answer &msg, bool ret = true)
     {
         if(msg.worker_answer() == "test")
             ++answerHandled;
 
         cbCond.notify_all();
-
+        
         return ret;
     }
-
+    
 };
 
 
@@ -99,7 +99,7 @@ TEST_F(PushListenerTest, removeHandler)
 
 
     ASSERT_EQ(1, answerHandled);
-
+    
     answerHandled = 0;
     handlerId = listener->subscribe(std::bind(&PushListenerTest::handler, this, std::placeholders::_1, true));
 
@@ -113,7 +113,7 @@ TEST_F(PushListenerTest, removeHandler)
     cbCond.wait_for(lock, std::chrono::milliseconds(500));
 
     ASSERT_EQ(1, answerHandled);
-
+    
 }
 
 

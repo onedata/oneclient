@@ -7,9 +7,12 @@
  */
 
 #include "storageMapper.h"
-#include "veilfs.h"
 
+#include "veilfs.h"
+#include "context.h"
 #include "logging.h"
+
+#include <boost/any.hpp>
 
 #include <ctime>
 #include <arpa/inet.h>
@@ -21,8 +24,9 @@ using namespace veil::protocol::fuse_messages;
 namespace veil {
 namespace client {
 
-StorageMapper::StorageMapper(boost::shared_ptr<FslogicProxy> fslogicProxy) :
-    m_fslogic(fslogicProxy)
+StorageMapper::StorageMapper(std::shared_ptr<Context> context, boost::shared_ptr<FslogicProxy> fslogicProxy)
+    : m_fslogic(fslogicProxy)
+    , m_context{std::move(context)}
 {
 }
 
@@ -91,7 +95,7 @@ void StorageMapper::addLocation(const string &logicalName, const FileLocation &l
         storageInfo.storageHelperName = location.storage_helper_name();
 
     for(int i = 0; i < location.storage_helper_args_size(); ++i)
-        storageInfo.storageHelperArgs.push_back(location.storage_helper_args(i));
+        storageInfo.storageHelperArgs.emplace(helpers::srvArg(i), boost::any{location.storage_helper_args(i)});
 
     AutoLock lock(m_fileMappingLock, WRITE_LOCK);
     auto previous = m_fileMapping.find(logicalName);
@@ -100,8 +104,8 @@ void StorageMapper::addLocation(const string &logicalName, const FileLocation &l
     AutoLock sLock(m_storageMappingLock, WRITE_LOCK);
     m_storageMapping[info.storageId] = storageInfo;
 
-    VeilFS::getScheduler()->addTask(Job(info.validTo, shared_from_this(), TASK_REMOVE_EXPIRED_LOCATON_MAPPING, logicalName));
-    VeilFS::getScheduler()->addTask(Job(info.validTo - RENEW_LOCATION_MAPPING_TIME, shared_from_this(), TASK_RENEW_LOCATION_MAPPING, logicalName));
+    m_context->getScheduler()->addTask(Job(info.validTo, shared_from_this(), TASK_REMOVE_EXPIRED_LOCATON_MAPPING, logicalName));
+    m_context->getScheduler()->addTask(Job(info.validTo - RENEW_LOCATION_MAPPING_TIME, shared_from_this(), TASK_RENEW_LOCATION_MAPPING, logicalName));
 }
 
 void StorageMapper::openFile(const string &logicalName)
@@ -149,7 +153,7 @@ bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg
             else if(it != m_fileMapping.end())
             {
                 LOG(INFO) << "Recheduling old location mapping removal for file: " << arg0;
-                VeilFS::getScheduler()->addTask(Job((*it).second.validTo, shared_from_this(), TASK_REMOVE_EXPIRED_LOCATON_MAPPING, arg0));
+                m_context->getScheduler()->addTask(Job((*it).second.validTo, shared_from_this(), TASK_REMOVE_EXPIRED_LOCATON_MAPPING, arg0));
             }
 
             return true;
