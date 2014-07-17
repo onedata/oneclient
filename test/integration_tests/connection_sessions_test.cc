@@ -6,7 +6,7 @@
  */
 
 #include "communication_protocol.pb.h"
-#include "config_proxy.h"
+#include "config.h"
 #include "erlTestCore.h"
 #include "fuse_messages.pb.h"
 #include "veilErrors.h"
@@ -55,19 +55,17 @@ TEST_F(ConnectionSessionsTest, SessionEnvVairables_And_SessionReinitialization)
     std::string currentFuseId = config->getFuseID();
 
     // Now we can manually add some env varables
-    static auto env1 = std::string{FUSE_OPT_PREFIX} + "varname1=varvalue1";
-    static auto env2 = std::string{FUSE_OPT_PREFIX} + "varname2=varvalue2";
-    putenv(const_cast<char*>(env1.c_str()));
-    putenv(const_cast<char*>(env2.c_str()));
+    config->putEnv(std::string(FUSE_OPT_PREFIX) + std::string("varname1"), "varvalue1");
+    config->putEnv(std::string(FUSE_OPT_PREFIX) + std::string("varname2"), "varvalue2");
 
     // Start new handshake
     config->negotiateFuseID();
 
-    sleep(2); // This can take a while
+    sleep(10); // This can take a while
 
     // New session ID (FuseId) shall be different from previous
     ASSERT_NE(currentFuseId, config->getFuseID());
 
     // Check if session variables are in place (in DB)
-    ASSERT_EQ("ok", veil::testing::erlExec("{check_session_variables, \"" + config->getFuseID() + "\", [{varname1, \"varvalue1\"}, {varname2, \"varvalue2\"}]}"));
+    ASSERT_EQ("ok", veil::testing::erlExec(std::string("{check_session_variables, \"") + config->getFuseID() + std::string("\", [{varname1, \"varvalue1\"}, {varname2, \"varvalue2\"}]}")));
 }

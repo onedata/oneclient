@@ -23,6 +23,7 @@ namespace veil
     }
     namespace client
     {
+        class Config;
         class Context;
         class VeilFS;
         class FslogicProxy;
@@ -30,9 +31,7 @@ namespace veil
     }
 }
 
-class ProxyConfig;
 class MockOptions;
-class ProxyConfig;
 class MockJobScheduler;
 class MockConnectionPool;
 
@@ -40,7 +39,7 @@ class CommonTest: public ::testing::Test
 {
 public:
     std::shared_ptr<veil::client::Context> context;
-    std::shared_ptr<ProxyConfig> config;
+    std::shared_ptr<veil::client::Config> config;
     std::shared_ptr<MockOptions> options;
     std::shared_ptr<MockJobScheduler> scheduler;
     std::shared_ptr<MockConnectionPool> connectionPool;
@@ -56,7 +55,7 @@ public:
     std::shared_ptr<veil::client::Context> context;
     std::shared_ptr<veil::client::VeilFS> veilFS;
     std::shared_ptr<veil::client::FslogicProxy> fslogic;
-    std::shared_ptr<ProxyConfig> config;
+    std::shared_ptr<veil::client::Config> config;
     std::shared_ptr<veil::client::Options> options;
     std::unique_ptr<veil::testing::VeilFSMount> veilFsMount;
 

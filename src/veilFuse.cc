@@ -398,11 +398,11 @@ int main(int argc, char* argv[], char* envp[])
 
     try
     {
-        try 
+        try
         {
             config->testHandshake();
         }
-        catch (CertUnconfirmedException &exception) 
+        catch(CertUnconfirmedException &exception)
         {
             std::string username = exception.getUsername();
 
@@ -413,7 +413,7 @@ int main(int argc, char* argv[], char* envp[])
                 std::getline(std::cin, userAns);
                 std::transform(userAns.begin(), userAns.end(), userAns.begin(), ::tolower);
             } while(userAns.size() == 0 || (userAns[0] != 'y' && userAns[0] != 't' && userAns[0] != 'n'));
-            
+
             // Resend handshake request along with account confirmation / rejection
             config->testHandshake(username, userAns[0] == 'y' || userAns[0] == 't');
         }

@@ -5,7 +5,7 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "config_proxy.h"
+#include "config.h"
 #include "connectionPool_mock.h"
 #include "events/events.h"
 #include "events_mock.h"
@@ -55,7 +55,7 @@ public:
 
         options = std::make_shared<MockOptions>();
         context->setOptions(options);
-        config = std::make_shared<ProxyConfig>(context);
+        config = std::make_shared<veil::client::Config>(context);
         context->setConfig(config);
         scheduler = std::make_shared<MockJobScheduler>();
         context->addScheduler(scheduler);

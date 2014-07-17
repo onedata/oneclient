@@ -30,7 +30,7 @@ protected:
 
     void SetUp() override
     {
-        // Initialization of the whole client. 
+        // Initialization of the whole client.
         // This initialization is not required if test uses only filesystem (theres no VeilClient code calls)
         CommonIntegrationTest::SetUp();
     }
@@ -38,11 +38,11 @@ protected:
 
 // This test shows how you can call sample_test:exec/1 method on cluster environment
 TEST_F(SampleTest, clusterCommandExec) {
-    EXPECT_EQ("/tmp/dio", veil::testing::erlExec("{env, \"DIO_ROOT\"}"));
+    EXPECT_EQ(std::string("/tmp/dio"), veil::testing::erlExec("{env, \"DIO_ROOT\"}"));
 }
 
 // veilFsMount->getRoot() is set to the root of mounted VeilFS. Therefore you can just
-// manage some files in order to test whole VeilClient behaviourally 
+// manage some files in order to test whole VeilClient behaviourally
 TEST_F(SampleTest, mkdirExample) {
     EXPECT_EQ(0, ::system(("mkdir " + veilFsMount->getRoot() + "/testDir").c_str()));
     EXPECT_EQ(0, ::system(("rm -rf " + veilFsMount->getRoot() + "/testDir").c_str()));

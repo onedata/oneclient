@@ -7,7 +7,7 @@
 
 #include "testCommon.h"
 
-#include "config_proxy.h"
+#include "config.h"
 #include "connectionPool_mock.h"
 #include "context.h"
 #include "erlTestCore.h"
@@ -31,7 +31,7 @@ void CommonTest::SetUp()
 
     context = std::make_shared<veil::client::Context>();
     options = std::make_shared<StrictMock<MockOptions>>();
-    config = std::make_shared<ProxyConfig>(context);
+    config = std::make_shared<veil::client::Config>(context);
     scheduler = std::make_shared<MockJobScheduler>();
     connectionPool = std::make_shared<MockConnectionPool>();
 
@@ -56,14 +56,16 @@ void CommonIntegrationTest::SetUp()
 
     context = std::make_shared<veil::client::Context>();
 
-    config = std::make_shared<ProxyConfig>(context);
+    config = std::make_shared<veil::client::Config>(context);
     options = std::make_shared<veil::client::Options>();
     fslogic = std::make_shared<veil::client::FslogicProxy>(context);
 
-    config->fuseID = "testID";
     context->setOptions(options);
     context->setConfig(config);
     context->addScheduler(std::make_shared<veil::client::JobScheduler>());
+
+    const char* parseArgs[] = {"veilFuseTest"};
+    options->parseConfigs(1, parseArgs);
 
     auto gsiHandler = std::make_shared<veil::client::GSIHandler>(context);
     gsiHandler->validateProxyConfig();

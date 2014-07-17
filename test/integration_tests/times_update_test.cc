@@ -41,6 +41,7 @@ protected:
 
 // Test if touch commnad updates times correctly
 TEST_F(TimesUpdateTest, touchUpdate) {
+    setbuf(stdout, NULL);
     struct stat old, curr;
     sleep(2);
     stat((veilFsMount->getRoot() + "/file").c_str(), &old);
@@ -51,10 +52,10 @@ TEST_F(TimesUpdateTest, touchUpdate) {
     
     EXPECT_GT(curr.st_atime, old.st_atime);
     EXPECT_GT(curr.st_mtime, old.st_mtime);
-    
+
     EXPECT_GT(curr.st_atime, (time(NULL) - 10));
     EXPECT_GT(curr.st_mtime, (time(NULL) - 10));
-    
+
     EXPECT_LE(curr.st_atime, (time(NULL) + 10));
     EXPECT_LE(curr.st_mtime, (time(NULL) + 10));
 }

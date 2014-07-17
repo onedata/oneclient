@@ -46,12 +46,12 @@ debug:
 	@(cd ${DEBUG_DIR} && ${MAKE} veilFuse)
 
 test: deb-info
-	@cd ${RELEASE_DIR} && make
-	@cd ${RELEASE_DIR} && make test
+	@cd ${RELEASE_DIR} && ${MAKE}
+	@cd ${RELEASE_DIR} && ${MAKE} test
 
 cunit: deb-info
-	@cd ${RELEASE_DIR} && make
-	@cd ${RELEASE_DIR} && make cunit
+	@cd ${RELEASE_DIR} && ${MAKE}
+	@cd ${RELEASE_DIR} && ${MAKE} cunit
 
 integration_tests: debug
 	@cd ${DEBUG_DIR} && make integration_tests

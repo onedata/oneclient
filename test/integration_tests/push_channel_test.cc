@@ -6,7 +6,7 @@
  */
 
 #include "communication_protocol.pb.h"
-#include "config_proxy.h"
+#include "config.h"
 #include "context.h"
 #include "erlTestCore.h"
 #include "fuse_messages.pb.h"
@@ -38,18 +38,18 @@ protected:
     std::mutex cbMutex;
     std::condition_variable cbCond;
     int answerHandled;
-    
+
     PushChannelTest()
         : CommonIntegrationTest{std::unique_ptr<veil::testing::VeilFSMount>{new veil::testing::VeilFSMount{"main", "peer.pem"}}}
     {
     }
-    
+
     void SetUp() override
     {
         CommonIntegrationTest::SetUp();
         answerHandled = 0;
     }
-    
+
 public:
 
     bool handler(const veil::protocol::communication_protocol::Answer &msg, int waitFor)
@@ -74,7 +74,7 @@ TEST_F(PushChannelTest, RegisterAndClose)
 {
     // By default client should register at least one handler
 
-    ASSERT_LT(0, fromString<int>(veil::testing::erlExec("{get_handler_count, \"" + config->getFuseID() + "\"}")));
+    ASSERT_LT(0, fromString<int>(veil::testing::erlExec(std::string("{get_handler_count, \"") + config->getFuseID() + std::string("\"}"))));
 
     // Make sure we have only one connection
     context->getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, 1);
@@ -82,7 +82,7 @@ TEST_F(PushChannelTest, RegisterAndClose)
     // Close PUSH channel
     context->getConnectionPool()->selectConnection()->disablePushChannel();
     sleep(2);
-    ASSERT_EQ(0, fromString<int>(veil::testing::erlExec("{get_handler_count, \"" + config->getFuseID() + "\"}")));
+    ASSERT_EQ(0, fromString<int>(veil::testing::erlExec(std::string("{get_handler_count, \"") + config->getFuseID() + std::string("\"}"))));
 }
 
 
@@ -100,7 +100,7 @@ TEST_F(PushChannelTest, pushChannelFailure)
     ASSERT_EQ(0, connectRes);
     sleep(2);
 
-    ASSERT_LT(0, fromString<int>(veil::testing::erlExec("{get_handler_count, \"" + config->getFuseID() + "\"}")));
+    ASSERT_LT(0, fromString<int>(veil::testing::erlExec(std::string("{get_handler_count, \"") + config->getFuseID() + std::string("\"}"))));
 }
 
 
@@ -113,10 +113,10 @@ TEST_F(PushChannelTest, pushChannelInbox)
     context->getPushListener()->subscribe(std::bind(&PushChannelTest::handler, this, _1, 2));
 
     // Send test message from cluster
-    auto sendAns = veil::testing::erlExec("{push_msg, \"test\", \"" + config->getFuseID() + "\"}");
+    std::string sendAns = veil::testing::erlExec(std::string("{push_msg, \"test\", \"") + config->getFuseID() + "\"}");
     EXPECT_EQ("ok", sendAns);
 
-    sendAns = veil::testing::erlExec("{push_msg, \"test\", \"" + config->getFuseID() + "\"}");
+    sendAns = veil::testing::erlExec(std::string("{push_msg, \"test\", \"") + config->getFuseID() + "\"}");
     EXPECT_EQ("ok", sendAns);
 
     cbCond.wait_for(lock, std::chrono::seconds(5));
