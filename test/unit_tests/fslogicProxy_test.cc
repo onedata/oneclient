@@ -46,8 +46,8 @@ protected:
         CommonTest::SetUp();
 
         proxy.reset(new ProxyFslogicProxy{context});
-
         EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(true));
+        EXPECT_CALL(*options, get_fuse_id()).WillRepeatedly(Return("testID"));
 
         msgBuilder = std::make_shared<MockMessageBuilder>(context);
         proxy->setMessageBuilder(msgBuilder);

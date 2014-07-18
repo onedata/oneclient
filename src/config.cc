@@ -19,6 +19,7 @@
 #include "pushListener.h"
 #include "simpleConnectionPool.h"
 
+#include <boost/filesystem.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
 
@@ -60,7 +61,10 @@ path Config::getMountPoint()
 
 string Config::getFuseID()
 {
-    return m_fuseID.empty() ? m_context.lock()->getOptions()->get_fuse_id() : m_fuseID;
+    if(m_fuseID.empty() && m_context.lock()->getOptions()->has_fuse_id())
+        return m_context.lock()->getOptions()->get_fuse_id();
+
+    return m_fuseID;
 }
 
 void Config::setEnv()

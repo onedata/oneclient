@@ -20,7 +20,7 @@
 /// Declare a new configuration option
 #define DECL_CONFIG(NAME, TYPE) \
     public: virtual bool has_##NAME() const { return m_vm.count(#NAME) && !m_vm[#NAME].defaulted(); } \
-    public: TYPE get_##NAME() const { return m_vm.at(#NAME).as<TYPE>(); } \
+    public: virtual TYPE get_##NAME() const { return m_vm.at(#NAME).as<TYPE>(); } \
     private: void add_##NAME(boost::program_options::options_description &desc) const \
              { desc.add_options()(#NAME, boost::program_options::value<TYPE>()); }
 

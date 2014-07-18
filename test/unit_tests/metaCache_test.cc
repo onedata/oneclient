@@ -7,7 +7,6 @@
 
 #include "testCommon.h"
 #include "metaCache_proxy.h"
-#include "config_proxy.h"
 #include "options_mock.h"
 #include "jobScheduler_mock.h"
 
