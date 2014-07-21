@@ -284,40 +284,40 @@ int main(int argc, char* argv[], char* envp[])
     FLAGS_logtostderr = debug;
     if(debug)
         FLAGS_stderrthreshold = 2;
-    
+
     filesystem::path log_path;
     system::error_code ec;
-    
+
     if(options->is_default_log_dir()) {
         using namespace boost::filesystem;
-        
+
         uid_t uid = geteuid();
         std::string userIdent = to_string(uid);
-        struct passwd *pw = getpwuid(uid);      // Use UID when getting user name fails 
+        struct passwd *pw = getpwuid(uid);      // Use UID when getting user name fails
         if(pw) {
             userIdent = pw->pw_name;
         }
-        
+
         string log_subdir_name = string(argv[0]) + string("_") + userIdent + "_logs";
         log_path = path(options->get_log_dir()) / path( log_subdir_name ).leaf();
-        
-        
+
+
         create_directories(log_path, ec);
         if(ec.value() > 0) {
             cerr << "Error: Cannot create log directory: " << log_path.normalize().string() << ". Aborting.";
         }
-        
+
     } else {
         log_path = filesystem::path(config->absPathRelToCWD(options->get_log_dir()));
     }
-    
-    
-    
+
+
+
     FLAGS_log_dir = log_path.normalize().string();
     LOG(INFO) << "Setting log dir to: " << log_path.normalize().string();
     google::ShutdownGoogleLogging();
     google::InitGoogleLogging(argv[0]);
- 
+
     filesystem::permissions(log_path, filesystem::owner_all, ec);
     if(ec.value() > 0) {
         LOG(WARNING) << "Cannot change permissions for log directory (" << log_path.normalize().string() << ") due to: " << ec.message();
@@ -326,8 +326,8 @@ int main(int argc, char* argv[], char* envp[])
 
     // after logger setup - log version
     LOG(INFO) << "VeilFuse version: " << getVersionString();
-    
-    
+
+
     // Iterate over all env variables and save them in Config
     char** env;
     for (env = envp; *env != 0; env++)
@@ -337,7 +337,7 @@ int main(int argc, char* argv[], char* envp[])
         boost::split(tokens, tEnv, boost::is_any_of("="));
         if(tokens.size() != 2) // Invalid env variable. Expected format: NAME=VALUE
             continue;
-        
+
         config->putEnv(tokens[0], tokens[1]);
     }
 
@@ -403,9 +403,14 @@ int main(int argc, char* argv[], char* envp[])
                 std::cout << CONFIRM_CERTIFICATE_PROMPT(username);
                 std::getline(std::cin, userAns);
                 std::transform(userAns.begin(), userAns.end(), userAns.begin(), ::tolower);
-            } while(userAns.size() == 0 || (userAns[0] != 'y' && userAns[0] != 't' && userAns[0] != 'n'));
+            } while( std::cin &&  (userAns.size() == 0 || (userAns[0] != 'y' && userAns[0] != 't' && userAns[0] != 'n')));
 
             // Resend handshake request along with account confirmation / rejection
+            if(!userAns.size()) {
+                std::cerr << std::endl << "Cannot confirm certificate. Aborting." << std::endl;
+                exit(EXIT_FAILURE);
+            }
+
             config->testHandshake(username, userAns[0] == 'y' || userAns[0] == 't');
         }
     }
