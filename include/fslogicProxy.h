@@ -14,6 +14,7 @@
 
 #include <google/protobuf/message.h>
 #include <sys/statvfs.h>
+#include <sys/types.h>
 
 #include <vector>
 #include <memory>
