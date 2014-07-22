@@ -407,6 +407,7 @@ int main(int argc, char* argv[], char* envp[])
 
             // Exit if input stream was interrupted somehow
             if(!userAns.size()) {
+                fuse_unmount(mountpoint, ch);
                 std::cerr << std::endl << "Cannot confirm certificate. Aborting." << std::endl;
                 exit(EXIT_FAILURE);
             }
