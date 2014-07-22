@@ -61,14 +61,17 @@ public:
         context->addScheduler(scheduler);
         connectionPool = std::make_shared<MockConnectionPool>();
         context->setConnectionPool(connectionPool);
-
         fslogicMock = std::make_shared<MockFslogicProxy>(context);
+        storageMapperMock = std::make_shared<MockStorageMapper>(context, fslogicMock);
+        context->setStorageMapper(storageMapperMock);
+
         metaCacheMock = std::make_shared<MockMetaCache>(context);
         storageManagerMock = std::make_shared<MockLocalStorageManager>(context);
-        storageMapperMock = std::make_shared<MockStorageMapper>(context, fslogicMock);
         helperMock = std::make_shared<MockGenericHelper>();
         factoryFake = std::make_shared<FakeStorageHelperFactory>();
         eventCommunicatorMock = std::make_shared<MockEventCommunicator>(context);
+
+
 
         EXPECT_CALL(*fslogicMock, pingCluster(_)).WillRepeatedly(Return());
         EXPECT_CALL(*options, get_alive_meta_connections_count()).WillRepeatedly(Return(0));
@@ -77,6 +80,8 @@ public:
         EXPECT_CALL(*options, has_fuse_group_id()).WillRepeatedly(Return(true));
         EXPECT_CALL(*options, get_write_bytes_before_stat()).WillRepeatedly(Return(0));
         EXPECT_CALL(*connectionPool, setPushCallback(_, _)).WillRepeatedly(Return());
+
+        EXPECT_CALL(*metaCacheMock, canUseDefaultPermissions(_)).WillRepeatedly(Return(true));
 
         const ::testing::TestInfo* const test_info = ::testing::UnitTest::GetInstance()->current_test_info();
         std::string testCaseName = test_info->test_case_name();

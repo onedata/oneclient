@@ -18,6 +18,11 @@ public:
     {
     }
 
+    bool canUseDefaultPermissions(const struct stat &attrs)
+    {
+        return true;
+    }
+
     auto getStatMap() -> decltype(m_statMap)&
     {
         return m_statMap;

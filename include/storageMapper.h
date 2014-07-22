@@ -86,11 +86,9 @@ protected:
 
     std::shared_ptr<FslogicProxy> m_fslogic;              ///< Reference to FslogicProxy instance. @see VeilFS::m_fslogic
 
-    void overrideStorageInfo(boost::filesystem::path file);
-
 public:
 
-    StorageMapper(std::weak_ptr<Context> context, std::shared_ptr<FslogicProxy> fslogicProxy);
+    StorageMapper(std::weak_ptr<Context> context, std::weak_ptr<FslogicProxy> fslogicProxy);
     virtual ~StorageMapper() = default;
 
     /**
@@ -105,8 +103,8 @@ public:
                                                                             ///< Insert to file location cache new FileLocation received from cluster.
     virtual void openFile(const std::string &logicalName);                  ///< Increases open file count for specified file. @see locationInfo::opened
     virtual void releaseFile(const std::string &logicalName);               ///< Decreases open file count for specified file. @see locationInfo::opened
-    virtual void helperOverride(const boost::filesystem::path &filePath, const storageInfo &mapping);
-    virtual void resetHelperOverride(const boost::filesystem::path &filePath);
+    virtual void helperOverride(const std::string &filePath, const storageInfo &mapping);
+    virtual void resetHelperOverride(const std::string &filePath);
 
     virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 

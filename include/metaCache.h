@@ -60,7 +60,7 @@ public:
 
     virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
-private:
+protected:
     const std::shared_ptr<Context> m_context;
 
     virtual bool canUseDefaultPermissions(const struct stat &attrs);
