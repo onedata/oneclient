@@ -470,11 +470,15 @@ int main(int argc, char* argv[], char* envp[])
     // Initialize main application object
     auto eventCommunicator = std::make_shared<events::EventCommunicator>(context);
     auto fslogicProxy = std::make_shared<FslogicProxy>(context);
+    auto storageMapper = std::make_shared<StorageMapper>(context, fslogicProxy);
+
+    context->setStorageMapper(storageMapper);
+
     auto VeilApp = std::make_shared<VeilFS>(mountpoint, context,
                     fslogicProxy,
                     std::make_shared<MetaCache>(context),
                     std::make_shared<LocalStorageManager>(context),
-                    std::make_shared<StorageMapper>(context, fslogicProxy),
+                    storageMapper,
                     std::make_shared<helpers::StorageHelperFactory>(context->getConnectionPool(), bufferLimits),
                     eventCommunicator);
     VeilAppObject = VeilApp;
