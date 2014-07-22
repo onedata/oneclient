@@ -13,6 +13,7 @@
 #include "logging.h"
 #include "options.h"
 #include "veilfs.h"
+#include <storageMapper.h>
 
 #include <memory.h>
 
@@ -33,6 +34,16 @@ MetaCache::~MetaCache()
 
 void MetaCache::addAttr(const string &path, struct stat &attr)
 {
+    if(!canUseDefaultPermissions(attr))
+    {
+        storageInfo override(CLUSTER_PROXY_HELPER, helpers::IStorageHelper::ArgsMap{});
+        m_context->getStorageMapper()->helperOverride(path, override);
+    }
+    else
+    {
+        m_context->getStorageMapper()->resetHelperOverride(path);
+    }
+
     if(!m_context->getOptions()->get_enable_attr_cache())
         return;
 
@@ -108,6 +119,17 @@ bool MetaCache::updateSize(const string &path, size_t size)
     it->second.second.st_size = size;
 
     return true;
+}
+
+bool MetaCache::canUseDefaultPermissions(const struct stat &attrs)
+{
+    if(geteuid() == attrs.st_uid || getegid() == attrs.st_gid)
+        return true;
+
+    std::vector<gid_t> suppGroups( getgroups(0, NULL) );
+    getgroups(suppGroups.size(), suppGroups.data());
+
+    return std::any_of(suppGroups.begin(), suppGroups.end(), [attrs](gid_t cgid) { return cgid == attrs.st_gid; });
 }
 
 

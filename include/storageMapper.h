@@ -19,6 +19,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <boost/filesystem.hpp>
 
 namespace veil
 {
@@ -27,6 +28,8 @@ namespace protocol{ namespace fuse_messages{ class FileLocation; }}
 
 namespace client
 {
+
+static constexpr const char *CLUSTER_PROXY_HELPER = "ClusterProxy";
 
 class Context;
 class FslogicProxy;
@@ -56,6 +59,15 @@ struct storageInfo
     std::string storageHelperName;                      ///< Name of storage helper. @see StorageHelperFactory::getStorageHelper
     helpers::IStorageHelper::ArgsMap storageHelperArgs; ///< Arguments for storage helper. @see StorageHelperFactory::getStorageHelper
 
+    storageInfo() {}
+
+    storageInfo(const std::string &helperName, const helpers::IStorageHelper::ArgsMap &helperArgs)
+        : last_updated(time(NULL))
+        , storageHelperName(helperName)
+        , storageHelperArgs(helperArgs)
+    {
+    }
+
     bool isValid()                                      ///< Checks if the structure contains vaild data.
     {
         return storageHelperName.size() > 0 && last_updated > 0;
@@ -69,13 +81,16 @@ protected:
     std::map<int, storageInfo> m_storageMapping;            ///< Contains storage info accessd by its ID. @see storageInfo
     ReadWriteLock m_storageMappingLock;                     ///< Lock used while operating on StorageMapper::m_storageMapping. @see StorageMapper::m_storageMapping
     std::map<std::string, locationInfo> m_fileMapping;      ///< Contains storage info accessd by its ID. @see storageInfo
+    std::map<std::string, storageInfo> m_fileHelperOverride;
     ReadWriteLock m_fileMappingLock;                        ///< Lock used while operationg on StorageMapper::m_fileMapping. @see StorageMapper::m_fileMapping
 
     std::shared_ptr<FslogicProxy> m_fslogic;              ///< Reference to FslogicProxy instance. @see VeilFS::m_fslogic
 
+    void overrideStorageInfo(boost::filesystem::path file);
+
 public:
 
-    StorageMapper(std::shared_ptr<Context> context, std::shared_ptr<FslogicProxy> fslogicProxy);
+    StorageMapper(std::weak_ptr<Context> context, std::shared_ptr<FslogicProxy> fslogicProxy);
     virtual ~StorageMapper() = default;
 
     /**
@@ -90,11 +105,13 @@ public:
                                                                             ///< Insert to file location cache new FileLocation received from cluster.
     virtual void openFile(const std::string &logicalName);                  ///< Increases open file count for specified file. @see locationInfo::opened
     virtual void releaseFile(const std::string &logicalName);               ///< Decreases open file count for specified file. @see locationInfo::opened
+    virtual void helperOverride(const boost::filesystem::path &filePath, const storageInfo &mapping);
+    virtual void resetHelperOverride(const boost::filesystem::path &filePath);
 
     virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 private:
-    const std::shared_ptr<Context> m_context;
+    const std::weak_ptr<Context> m_context;
 };
 
 } // namespace client

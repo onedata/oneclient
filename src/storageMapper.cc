@@ -28,7 +28,7 @@ using namespace veil::protocol::fuse_messages;
 namespace veil {
 namespace client {
 
-StorageMapper::StorageMapper(std::shared_ptr<Context> context, std::shared_ptr<FslogicProxy> fslogicProxy)
+StorageMapper::StorageMapper(std::weak_ptr<Context> context, std::shared_ptr<FslogicProxy> fslogicProxy)
     : m_fslogic(fslogicProxy)
     , m_context{std::move(context)}
 {
@@ -54,13 +54,20 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &log
 
     locationInfo location = it->second;
 
-    // Find matching storage info storage
     AutoLock sLock(m_storageMappingLock, READ_LOCK);
-    map<int, storageInfo>::iterator it1 = m_storageMapping.find(location.storageId);
+
+    // Check for helper overrides for this file
+    auto it0 = m_fileHelperOverride.find(logicalName);
+    if(it0 != m_fileHelperOverride.end())
+    {
+        return make_pair(it->second, it0->second);
+    }
+
+    // Find matching storage info
+    auto it1 = m_storageMapping.find(location.storageId);
     if(it1 == m_storageMapping.end())
         throw VeilException(VEIO, "cannot find storage information");
 
-    //LOG(INFO) << "found mapping for file: " << logicalName << " fileId: " << location.fileId << " storageId: " << location.storageId;
     return make_pair(it->second, it1->second);
 }
 
@@ -104,8 +111,8 @@ void StorageMapper::addLocation(const string &logicalName, const FileLocation &l
     AutoLock sLock(m_storageMappingLock, WRITE_LOCK);
     m_storageMapping[info.storageId] = storageInfo;
 
-    m_context->getScheduler()->addTask(Job(info.validTo, shared_from_this(), TASK_REMOVE_EXPIRED_LOCATON_MAPPING, logicalName));
-    m_context->getScheduler()->addTask(Job(info.validTo - RENEW_LOCATION_MAPPING_TIME, shared_from_this(), TASK_RENEW_LOCATION_MAPPING, logicalName));
+    m_context.lock()->getScheduler()->addTask(Job(info.validTo, shared_from_this(), TASK_REMOVE_EXPIRED_LOCATON_MAPPING, logicalName));
+    m_context.lock()->getScheduler()->addTask(Job(info.validTo - RENEW_LOCATION_MAPPING_TIME, shared_from_this(), TASK_RENEW_LOCATION_MAPPING, logicalName));
 }
 
 void StorageMapper::openFile(const string &logicalName)
@@ -136,6 +143,21 @@ void StorageMapper::releaseFile(const string &logicalName)
     }
 }
 
+
+void StorageMapper::helperOverride(const boost::filesystem::path &filePath, const storageInfo &mapping)
+{
+    AutoLock lock(m_fileMappingLock, WRITE_LOCK);
+    m_fileHelperOverride[filePath.string()] = mapping;
+}
+
+
+void StorageMapper::resetHelperOverride(const boost::filesystem::path &filePath)
+{
+    AutoLock lock(m_fileMappingLock, WRITE_LOCK);
+    m_fileHelperOverride.erase(filePath.string());
+}
+
+
 bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg3)
 {
     map<string, locationInfo>::iterator it;
@@ -153,7 +175,7 @@ bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg
             else if(it != m_fileMapping.end())
             {
                 LOG(INFO) << "Recheduling old location mapping removal for file: " << arg0;
-                m_context->getScheduler()->addTask(Job((*it).second.validTo, shared_from_this(), TASK_REMOVE_EXPIRED_LOCATON_MAPPING, arg0));
+                m_context.lock()->getScheduler()->addTask(Job((*it).second.validTo, shared_from_this(), TASK_REMOVE_EXPIRED_LOCATON_MAPPING, arg0));
             }
 
             return true;

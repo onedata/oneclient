@@ -29,6 +29,7 @@ class Options;
 class Config;
 class JobScheduler;
 class PushListener;
+class StorageMapper;
 
 class Context
 {
@@ -48,18 +49,23 @@ public:
     std::shared_ptr<PushListener> getPushListener() const;
     void setPushListener(std::shared_ptr<PushListener> pushListener);
 
+    std::shared_ptr<StorageMapper> getStorageMapper() const;
+    void setStorageMapper(std::shared_ptr<StorageMapper>);
+
 private:
     std::shared_ptr<Options> m_options;
     std::shared_ptr<Config> m_config;
     std::list<std::shared_ptr<JobScheduler>> m_jobSchedulers;
     std::shared_ptr<SimpleConnectionPool> m_connectionPool;
     std::shared_ptr<PushListener> m_pushListener;
+    std::shared_ptr<StorageMapper> m_storageMapper;
 
     mutable boost::shared_mutex m_optionsMutex;
     mutable boost::shared_mutex m_configMutex;
     std::mutex m_jobSchedulersMutex;
     mutable boost::shared_mutex m_connectionPoolMutex;
     mutable boost::shared_mutex m_pushListenerMutex;
+    mutable boost::shared_mutex m_storageMapperMutex;
 };
 
 } // namespace client

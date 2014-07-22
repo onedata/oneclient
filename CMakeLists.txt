@@ -118,8 +118,9 @@ PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 # Setup sources
-file(GLOB SOURCES "src/[a-zA-Z]*.cc")
-file(GLOB MAIN_SOURCE_FILE "src/veilFuse.cc")
+file(GLOB_RECURSE SOURCES src/*.cc)
+file(GLOB_RECURSE HEADERS include/*.h)
+set(MAIN_SOURCE_FILE src/veilFuse.cc)
 string(REGEX REPLACE "${MAIN_SOURCE_FILE}" "" SOURCES "${SOURCES}")
 
 # Setup compile flags
@@ -146,7 +147,7 @@ set(CMAKE_SKIP_RPATH TRUE) # Something is wrong with CMake RPATH config, we need
 # Define targets
 
 add_library(veilprotocol ${PROTO_SRCS})
-add_library(veilclient ${SOURCES})
+add_library(veilclient ${SOURCES} ${HEADERS})
 add_executable(veilFuse ${MAIN_SOURCE_FILE})
 add_executable(veilFuse_dynamic ${MAIN_SOURCE_FILE})
 

@@ -62,6 +62,8 @@ public:
 
 private:
     const std::shared_ptr<Context> m_context;
+
+    virtual bool canUseDefaultPermissions(const struct stat &attrs);
 };
 
 } // namespace client
