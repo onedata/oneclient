@@ -103,7 +103,18 @@ public:
                                                                             ///< Insert to file location cache new FileLocation received from cluster.
     virtual void openFile(const std::string &logicalName);                  ///< Increases open file count for specified file. @see locationInfo::opened
     virtual void releaseFile(const std::string &logicalName);               ///< Decreases open file count for specified file. @see locationInfo::opened
+
+    /**
+     * Overrides helper info that shall be used for the given file.
+     * @param filePath to the file
+     * @param mapping to override to
+     */
     virtual void helperOverride(const std::string &filePath, const storageInfo &mapping);
+
+    /**
+     * Resets helper override setup with StorageMapper::helperOverride.
+     * @param filePath to the file
+     */
     virtual void resetHelperOverride(const std::string &filePath);
 
     virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
