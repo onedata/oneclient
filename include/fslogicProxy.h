@@ -92,7 +92,8 @@ protected:
      * Both message and response types have to be subtype of FuseMessage.
      * @return true only if received response message is initialized (see google::protobuff::Message::IsInitialized())
      */
-    virtual bool        sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, google::protobuf::Message& response);
+    template<typename Ans>
+    bool sendFuseReceiveAnswer(const google::protobuf::Message &fMsg, Ans &response);
 
     virtual std::string sendFuseReceiveAtom(const google::protobuf::Message& fMsg);     ///< Sends given protobuf message and receives atom.
                                                                                         ///< This method is simalar to FslogicProxy::sendFuseReceiveAnswer

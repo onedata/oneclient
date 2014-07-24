@@ -15,6 +15,9 @@
 #endif
 
 #include "certUnconfirmedException.h"
+#include "communication/communicator.h"
+#include "communication/communicationHandler.h"
+#include "communication/websocketConnectionPool.h"
 #include "config.h"
 #include "context.h"
 #include "events/eventCommunicator.h"
@@ -25,10 +28,10 @@
 #include "jobScheduler.h"
 #include "localStorageManager.h"
 #include "logging.h"
+#include "make_unique.h"
 #include "metaCache.h"
 #include "options.h"
 #include "pushListener.h"
-#include "simpleConnectionPool.h"
 #include "storageMapper.h"
 #include "veilConfig.h"
 #include "veilException.h"
@@ -393,8 +396,25 @@ int main(int argc, char* argv[], char* envp[])
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
-    auto testPool = std::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), std::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate, 1, 0);
-    context->setConnectionPool(testPool);
+    auto testDataPool = std::make_unique<communication::WebsocketConnectionPool>(
+                /*connectionsNumber*/ 1,
+                /*uri*/ "wss://" + gsiHandler->getClusterHostname() + ":" + std::to_string(options->get_cluster_port()) + "/veilclient",
+                gsiHandler->getCertData(),
+                checkCertificate);
+
+    auto testMetaPool = std::make_unique<communication::WebsocketConnectionPool>(
+                /*connectionsNumber*/ 1,
+                /*uri*/ "wss://" + gsiHandler->getClusterHostname() + ":" + std::to_string(options->get_cluster_port()) + "/veilclient",
+                gsiHandler->getCertData(),
+                checkCertificate);
+
+    auto testCommunicationHandler = std::make_unique<communication::CommunicationHandler>(
+                std::move(testDataPool), std::move(testMetaPool));
+
+    auto testCommunicator = std::make_shared<communication::Communicator>(
+                std::move(testCommunicationHandler));
+
+    context->setCommunicator(testCommunicator);
 
     try
     {
@@ -423,9 +443,9 @@ int main(int argc, char* argv[], char* envp[])
             cerr << "Cannot find user, remember to login through website before mounting fuse. Aborting" << endl;
         else if(exception.veilError()==NO_CONNECTION_FOR_HANDSHAKE)
         {
-            if(testPool->getLastError() == error::SERVER_CERT_VERIFICATION_FAILED)
-                cerr << "Server certificate verification failed. Aborting" << endl;
-            else
+//            if(testPool->getLastError() == error::SERVER_CERT_VERIFICATION_FAILED)
+//                cerr << "Server certificate verification failed. Aborting" << endl;
+//            else
                 cerr << "Cannot connect to server. Aborting." << endl;
         }
         else
@@ -435,8 +455,8 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     //cleanup test connections
-    context->setConnectionPool(nullptr);
-    testPool.reset();
+    context->setCommunicator(nullptr);
+    testCommunicator.reset();
 
     cout << "VeilFS has been successfully mounted in " + string(mountpoint) << endl;
 
@@ -452,8 +472,25 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     // Initialize VeilClient application
-    context->setConnectionPool(std::make_shared<SimpleConnectionPool> (
-        gsiHandler->getClusterHostname(), options->get_cluster_port(), std::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate));
+    auto dataPool = std::make_unique<communication::WebsocketConnectionPool>(
+                /*connectionsNumber*/ options->get_alive_data_connections_count(),
+                /*uri*/ "wss://" + gsiHandler->getClusterHostname() + ":" + std::to_string(options->get_cluster_port()) + "/veilclient",
+                gsiHandler->getCertData(),
+                checkCertificate);
+
+    auto metaPool = std::make_unique<communication::WebsocketConnectionPool>(
+                /*connectionsNumber*/ options->get_alive_meta_connections_count(),
+                /*uri*/ "wss://" + gsiHandler->getClusterHostname() + ":" + std::to_string(options->get_cluster_port()) + "/veilclient",
+                gsiHandler->getCertData(),
+                checkCertificate);
+
+    auto communicationHandler = std::make_unique<communication::CommunicationHandler>(
+                std::move(dataPool), std::move(metaPool));
+
+    auto communicator = std::make_shared<communication::Communicator>(
+                std::move(communicationHandler));
+
+    context->setCommunicator(communicator);
 
     // Setup veilhelpers config
     helpers::BufferLimits bufferLimits{options->get_write_buffer_max_size(),
@@ -475,14 +512,14 @@ int main(int argc, char* argv[], char* envp[])
                     std::make_shared<MetaCache>(context),
                     std::make_shared<LocalStorageManager>(context),
                     std::make_shared<StorageMapper>(context, fslogicProxy),
-                    std::make_shared<helpers::StorageHelperFactory>(context->getConnectionPool(), bufferLimits),
+                    std::make_shared<helpers::StorageHelperFactory>(context->getCommunicator(), bufferLimits),
                     eventCommunicator);
     VeilAppObject = VeilApp;
 
     // Register remote logWriter for log threshold level updates and start sending loop
     context->getPushListener()->subscribe(std::bind(&logging::RemoteLogWriter::handleThresholdChange,
                                                      logWriter, _1));
-    logWriter->run(context->getConnectionPool());
+    logWriter->run(context->getCommunicator());
 
     // Enter FUSE loop
     if (multithreaded)

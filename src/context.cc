@@ -66,16 +66,16 @@ void Context::addScheduler(std::shared_ptr<JobScheduler> scheduler)
     m_jobSchedulers.emplace_back(std::move(scheduler));
 }
 
-std::shared_ptr<SimpleConnectionPool> Context::getConnectionPool() const
+std::shared_ptr<communication::Communicator> Context::getCommunicator() const
 {
-    boost::shared_lock<boost::shared_mutex> lock{m_connectionPoolMutex};
-    return m_connectionPool;
+    boost::shared_lock<boost::shared_mutex> lock{m_communicatorMutex};
+    return m_communicator;
 }
 
-void Context::setConnectionPool(std::shared_ptr<SimpleConnectionPool> connectionPool)
+void Context::setCommunicator(std::shared_ptr<communication::Communicator> communicator)
 {
-    boost::unique_lock<boost::shared_mutex> lock{m_connectionPoolMutex};
-    m_connectionPool = std::move(connectionPool);
+    boost::unique_lock<boost::shared_mutex> lock{m_communicatorMutex};
+    m_communicator = std::move(communicator);
 }
 
 std::shared_ptr<PushListener> Context::getPushListener() const

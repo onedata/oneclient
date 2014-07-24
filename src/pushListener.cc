@@ -7,14 +7,14 @@
 
 #include "pushListener.h"
 
-#include "communicationHandler.h"
+#include "communication/communicator.h"
+#include "communication/exception.h"
 #include "config.h"
 #include "context.h"
 #include "fslogicProxy.h"
 #include "fuse_messages.pb.h"
 #include "jobScheduler.h"
 #include "logging.h"
-#include "simpleConnectionPool.h"
 #include "veilErrors.h"
 #include "veilfs.h"
 
@@ -23,8 +23,10 @@
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
 
-namespace veil {
-namespace client {
+namespace veil
+{
+namespace client
+{
 
     PushListener::PushListener(std::weak_ptr<Context> context)
         : m_currentSubId(0)
@@ -110,30 +112,25 @@ namespace client {
         }
     }
 
-    void PushListener::sendPushMessageAck(const std::string & moduleName, int messageId){
-        protocol::communication_protocol::ClusterMsg clm;
-        clm.set_protocol_version(PROTOCOL_VERSION);
-        clm.set_synch(false);
-        clm.set_module_name(moduleName);
-        clm.set_message_type(ATOM);
-        clm.set_answer_type(ATOM); // this value does not matter because we do not expect answer and server is not going to send anything in reply to PUSH_MESSAGE_ACK
-        clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
-        clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL); // this value does not matter because we do not expect answer and server is not going to send anything in reply to PUSH_MESSAGE_ACK
-        clm.set_message_id(messageId);
-
+    void PushListener::sendPushMessageAck(const Answer &pushMessage, const std::string &moduleName)
+    {
         protocol::communication_protocol::Atom msg;
         msg.set_value(PUSH_MESSAGE_ACK);
-        clm.set_input(msg.SerializeAsString());
 
         auto context = m_context.lock();
         assert(context);
-        auto connection = context->getConnectionPool()->selectConnection();
 
-        try {
-            connection->sendMessage(clm, messageId);
+        auto communicator = context->getCommunicator();
+
+        try
+        {
+            communicator->reply(pushMessage, moduleName, msg);
             DLOG(INFO) << "push message ack sent successfully";
-        } catch(CommunicationHandler::ConnectionStatus &connectionStatus) {
-            LOG(WARNING) << "Cannot send ack for push message with messageId: " << messageId << ", connectionsStatus: " << connectionStatus;
+        }
+        catch(communication::Exception &e)
+        {
+            LOG(WARNING) << "Cannot send ack for push message with messageId: " <<
+                            pushMessage.message_id() << ", error: " << e.what();
         }
     }
 

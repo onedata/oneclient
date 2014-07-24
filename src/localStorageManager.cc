@@ -8,12 +8,13 @@
 #include "localStorageManager.h"
 
 #include "communication_protocol.pb.h"
+#include "communication/communicator.h"
+#include "communication/exception.h"
 #include "config.h"
 #include "context.h"
 #include "fuse_messages.pb.h"
 #include "logging.h"
 #include "messageBuilder.h"
-#include "simpleConnectionPool.h"
 #include "veilfs.h"
 
 #include <boost/algorithm/string.hpp>
@@ -209,11 +210,10 @@ bool LocalStorageManager::sendClientStorageInfo(const std::vector< std::pair<int
     ClientStorageInfo reqMsg;
     ClientStorageInfo::StorageInfo *storageInfo;
     Atom resMsg;
-    Answer ans;
 
-    MessageBuilder builder{m_context};
-    auto conn = m_context->getConnectionPool()->selectConnection();
-    if(conn)
+    auto communicator = m_context->getCommunicator();
+
+    try
     {
         // Build ClientStorageInfo message
         for(const auto &info : clientStorageInfo)
@@ -223,15 +223,15 @@ bool LocalStorageManager::sendClientStorageInfo(const std::vector< std::pair<int
             storageInfo->set_absolute_path(info.second);
             LOG(INFO) << "Sending client storage info: {" << info.first << ", " << info.second << "}";
         }
-        ClusterMsg cMsg = builder.packFuseMessage(ClientStorageInfo::descriptor()->name(), Atom::descriptor()->name(), COMMUNICATION_PROTOCOL, reqMsg.SerializeAsString());
+
         // Send ClientStorageInfo message
-        ans = conn->communicate(cMsg, 2);
+        auto ans = communicator->communicate<>(communication::FSLOGIC_MODULE_NAME, reqMsg);
         // Check answer
-        if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
+        if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
         {
             return resMsg.value() == "ok";
         }
-        else if(ans.answer_status() == NO_USER_FOUND_ERROR)
+        else if(ans->answer_status() == NO_USER_FOUND_ERROR)
         {
             LOG(ERROR) << "Cannot find user in database.";
         }
@@ -240,10 +240,11 @@ bool LocalStorageManager::sendClientStorageInfo(const std::vector< std::pair<int
             LOG(ERROR) << "Cannot send client storage info.";
         }
     }
-    else
+    catch(communication::Exception &e)
     {
-        LOG(ERROR) << "Cannot select connection for storage test file creation";
+        LOG(ERROR) << "Cannot select connection for storage test file creation: " << e.what();
     }
+
     return false;
 }
 
@@ -252,24 +253,21 @@ boost::optional< std::pair<std::string, std::string> > LocalStorageManager::crea
     ClusterMsg cMsg;
     CreateStorageTestFileRequest reqMsg;
     CreateStorageTestFileResponse resMsg;
-    Answer ans;
     boost::optional< std::pair<std::string, std::string> > result;
 
-    MessageBuilder builder{m_context};
-    auto conn = m_context->getConnectionPool()->selectConnection();
-    if(conn)
+    auto communicator = m_context->getCommunicator();
+
+    try
     {
-        // Build CreateStorageTestFileRequest message
         reqMsg.set_storage_id(storageId);
-        ClusterMsg cMsg = builder.packFuseMessage(CreateStorageTestFileRequest::descriptor()->name(), CreateStorageTestFileResponse::descriptor()->name(), FUSE_MESSAGES, reqMsg.SerializeAsString());
-        // Send CreateStorageTestFileRequest message
-        ans = conn->communicate(cMsg, 2);
-        // Check answer
-        if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
+
+        auto ans = communicator->communicate<CreateStorageTestFileResponse>(communication::FSLOGIC_MODULE_NAME, reqMsg);
+
+        if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
         {
             result.reset({resMsg.relative_path(), resMsg.text()});
         }
-        else if(ans.answer_status() == NO_USER_FOUND_ERROR)
+        else if(ans->answer_status() == NO_USER_FOUND_ERROR)
         {
             LOG(ERROR) << "Cannot find user in database.";
         }
@@ -278,10 +276,11 @@ boost::optional< std::pair<std::string, std::string> > LocalStorageManager::crea
             LOG(ERROR) << "Cannot create test file for storage with id: " << storageId;
         }
     }
-    else
+    catch(communication::Exception &e)
     {
-        LOG(ERROR) << "Cannot select connection for storage test file creation";
+        LOG(ERROR) << "Cannot select connection for storage test file creation: " << e.what();
     }
+
     return result;
 }
 
@@ -330,23 +329,21 @@ bool LocalStorageManager::hasClientStorageWritePermission(const int storageId, c
     StorageTestFileModifiedResponse resMsg;
     Answer ans;
 
-    MessageBuilder builder{m_context};
-    auto conn = m_context->getConnectionPool()->selectConnection();
-    if(conn)
+    auto communicator = m_context->getCommunicator();
+
+    try
     {
-        // Build CreateStorageTestFileRequest message
         reqMsg.set_storage_id(storageId);
         reqMsg.set_relative_path(relativePath);
         reqMsg.set_text(text);
-        ClusterMsg cMsg = builder.packFuseMessage(StorageTestFileModifiedRequest::descriptor()->name(), StorageTestFileModifiedResponse::descriptor()->name(), FUSE_MESSAGES, reqMsg.SerializeAsString());
-        // Send CreateStorageTestFileRequest message
-        ans = conn->communicate(cMsg, 2);
-        // Check answer
-        if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
+
+        auto ans = communicator->communicate<StorageTestFileModifiedResponse>(communication::FSLOGIC_MODULE_NAME, reqMsg);
+
+        if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
         {
             return resMsg.answer();
         }
-        else if(ans.answer_status() == NO_USER_FOUND_ERROR)
+        else if(ans->answer_status() == NO_USER_FOUND_ERROR)
         {
             LOG(ERROR) << "Cannot find user in database.";
         }
@@ -355,10 +352,11 @@ bool LocalStorageManager::hasClientStorageWritePermission(const int storageId, c
             LOG(ERROR) << "Cannot check client write permission for storage with id: " << storageId;
         }
     }
-    else
+    catch(communication::Exception &e)
     {
-        LOG(ERROR) << "Cannot select connection for storage test file creation";
+        LOG(ERROR) << "Cannot select connection for storage test file creation: " << e.what();
     }
+
     return false;
 }
 

@@ -1,13 +1,13 @@
 /**
  * @file gsiHandler.cc
  * @author Rafal Slota
- * @copyright (C) 2013 ACK CYFRONET AGH
+ * @author Konrad Zemek
+ * @copyright (C) 2013-2014 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
 #include "gsiHandler.h"
 
-#include "communicationHandler.h"
 #include "config.h"
 #include "context.h"
 #include "logging.h"
@@ -569,13 +569,21 @@ bool GSIHandler::validateProxyCert()
     return true;
 }
 
-CertificateInfo GSIHandler::getCertInfo() {
-    if(proxyInitialized) {
+std::shared_ptr<communication::CertificateData> GSIHandler::getCertData()
+{
+    if(proxyInitialized)
+    {
         LOG(INFO) << "Accesing certificates via filesystem: " << userCertPath << " " << userKeyPath;
-        return CertificateInfo(userCertPath, userKeyPath, CertificateInfo::CertificateType::PEM);
-    } else {
+        return std::make_shared<communication::FilesystemCertificate>(userCertPath,
+                                                                      userKeyPath,
+                                                                      communication::CertificateData::KeyFormat::PEM);
+    }
+    else
+    {
         LOG(INFO) << "Accesing certificates via internal memory buffer.";
-        return CertificateInfo(const_buffer(chain_buff->data, chain_buff->length), const_buffer(key_buff->data, key_buff->length));
+        return std::make_shared<communication::InMemoryCertificate>(const_buffer(chain_buff->data, chain_buff->length),
+                                                                    const_buffer(key_buff->data, key_buff->length),
+                                                                    communication::CertificateData::KeyFormat::PEM);
     }
 }
 

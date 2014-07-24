@@ -11,7 +11,6 @@
 #include "erlTestCore.h"
 #include "fuse_messages.pb.h"
 #include "pushListener.h"
-#include "simpleConnectionPool.h"
 #include "testCommon.h"
 
 #include <boost/filesystem.hpp>
