@@ -84,10 +84,10 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &log
         DLOG(INFO) << "Default helper / fileId: " << it1->second.storageHelperName << " / " << it->second.fileId << " "
                    << "Overriden helper / fileId: " << it0->second.storageHelperName << " / " << location.fileId;
 
-        return make_pair(location, it0->second);
+        return make_pair(std::move(location), it0->second);
     }
 
-    return make_pair(location, it1->second);
+    return make_pair(std::move(location), it1->second);
 }
 
 string StorageMapper::findLocation(const string &logicalName, const string &openMode)
