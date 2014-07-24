@@ -28,7 +28,7 @@ using namespace veil::protocol::fuse_messages;
 namespace veil {
 namespace client {
 
-StorageMapper::StorageMapper(std::weak_ptr<Context> context, std::weak_ptr<FslogicProxy> fslogicProxy)
+StorageMapper::StorageMapper(std::weak_ptr<Context> context, std::shared_ptr<FslogicProxy> fslogicProxy)
     : m_fslogic(fslogicProxy)
     , m_context{std::move(context)}
 {
@@ -75,7 +75,7 @@ string StorageMapper::findLocation(const string &logicalName, const string &open
 {
     LOG(INFO) << "quering cluster about storage mapping for file: " << logicalName;
     FileLocation location;
-    if(m_fslogic.lock()->getFileLocation(logicalName, location, openMode))
+    if(m_fslogic->getFileLocation(logicalName, location, openMode))
     {
         if(location.answer() == VOK)
             addLocation(logicalName, location);
@@ -137,7 +137,7 @@ void StorageMapper::releaseFile(const string &logicalName)
             it->second.opened--;
             if(it->second.opened == 0) {
                 m_fileMapping.erase(logicalName);
-                m_fslogic.lock()->sendFileNotUsed(logicalName);
+                m_fslogic->sendFileNotUsed(logicalName);
             }
         }
     }
@@ -181,7 +181,7 @@ bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg
             return true;
         case TASK_RENEW_LOCATION_MAPPING:
             LOG(INFO) << "Renewing file mapping for file: " << arg0;
-            if((validity = m_fslogic.lock()->renewFileLocation(arg0)) <= 0)
+            if((validity = m_fslogic->renewFileLocation(arg0)) <= 0)
             {
                 LOG(WARNING) << "Renewing file mapping for file: " << arg0 << " failed";
                 return true;

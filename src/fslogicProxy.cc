@@ -38,7 +38,7 @@ using namespace veil::protocol::fuse_messages;
 namespace veil {
 namespace client {
 
-FslogicProxy::FslogicProxy(std::shared_ptr<Context> context)
+FslogicProxy::FslogicProxy(std::weak_ptr<Context> context)
     : m_messageBuilder{std::make_shared<MessageBuilder>(context)}
     , m_context{std::move(context)}
 {
@@ -303,7 +303,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, 
         return false;
     }
 
-    std::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
+    std::shared_ptr<CommunicationHandler> connection = m_context.lock()->getConnectionPool()->selectConnection();
     if(!connection)
     {
         LOG(ERROR) << "Cannot select connection from connectionPool";
@@ -315,13 +315,13 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, 
     Answer answer = connection->communicate(clusterMessage, 2);
 
     if(answer.answer_status() != VEIO)
-        m_context->getConnectionPool()->releaseConnection(connection);
+        m_context.lock()->getConnectionPool()->releaseConnection(connection);
 
     if(answer.answer_status() != VOK)
     {
         LOG(WARNING) << "Cluster send non-ok message. status = " << answer.answer_status();
         if(answer.answer_status() == INVALID_FUSE_ID)
-            m_context->getConfig()->negotiateFuseID(0);
+            m_context.lock()->getConfig()->negotiateFuseID(0);
         return false;
     }
 
@@ -344,7 +344,7 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
         return VEIO;
     }
 
-    std::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
+    std::shared_ptr<CommunicationHandler> connection = m_context.lock()->getConnectionPool()->selectConnection();
     if(!connection)
     {
         LOG(ERROR) << "Cannot select connection from connectionPool";
@@ -354,10 +354,10 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
     Answer answer = connection->communicate(clusterMessage, 2);
 
     if(answer.answer_status() != VEIO)
-        m_context->getConnectionPool()->releaseConnection(connection);
+        m_context.lock()->getConnectionPool()->releaseConnection(connection);
 
     if(answer.answer_status() == INVALID_FUSE_ID)
-        m_context->getConfig()->negotiateFuseID(0);
+        m_context.lock()->getConfig()->negotiateFuseID(0);
 
     string atom = m_messageBuilder->decodeAtomAnswer(answer);
 
@@ -417,18 +417,18 @@ void FslogicProxy::pingCluster(const string& nth)
     int nthInt;
     istringstream iss(nth);
     iss >> nthInt;
-    std::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
+    std::shared_ptr<CommunicationHandler> connection = m_context.lock()->getConnectionPool()->selectConnection();
 
     if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
         LOG(WARNING) << "Pinging cluster " << (connection ? "failed" : "not needed");
     } else {
-        m_context->getConnectionPool()->releaseConnection(connection);
+        m_context.lock()->getConnectionPool()->releaseConnection(connection);
         LOG(INFO) << "Cluster ping... ---> " << ans.answer_status();
     }
 
     // Send another...
-    Job pingTask = Job(time(NULL) + m_context->getOptions()->get_cluster_ping_interval(), shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth);
-    m_context->getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
+    Job pingTask = Job(time(NULL) + m_context.lock()->getOptions()->get_cluster_ping_interval(), shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth);
+    m_context.lock()->getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
 }
 
 bool FslogicProxy::runTask(TaskID taskId, const string& arg0, const string&, const string&)

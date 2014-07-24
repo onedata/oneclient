@@ -31,7 +31,7 @@ class Context;
 class MessageBuilder
 {
 public:
-    MessageBuilder(std::shared_ptr<Context> context);
+    MessageBuilder(std::weak_ptr<Context> context);
     virtual ~MessageBuilder();
     virtual protocol::fuse_messages::FuseMessage            createFuseMessage(const std::string &id, const std::string &messageType, const std::string &messageInput);
     virtual protocol::communication_protocol::ClusterMsg    createClusterMessage(const std::string &moduleName, const std::string &messageType, const std::string &messageDecoderName, const std::string &answerType, const std::string &answerDecoderName, bool synch, const std::string &input);
@@ -42,7 +42,7 @@ public:
     virtual std::string                                     decodeAtomAnswer(protocol::communication_protocol::Answer& answer);
 
 private:
-    const std::shared_ptr<Context> m_context;
+    const std::weak_ptr<Context> m_context;
 };
 
 } // namespace client

@@ -84,11 +84,11 @@ protected:
     std::map<std::string, storageInfo> m_fileHelperOverride;
     ReadWriteLock m_fileMappingLock;                        ///< Lock used while operationg on StorageMapper::m_fileMapping. @see StorageMapper::m_fileMapping
 
-    std::weak_ptr<FslogicProxy> m_fslogic;              ///< Reference to FslogicProxy instance. @see VeilFS::m_fslogic
+    std::shared_ptr<FslogicProxy> m_fslogic;              ///< Reference to FslogicProxy instance. @see VeilFS::m_fslogic
 
 public:
 
-    StorageMapper(std::weak_ptr<Context> context, std::weak_ptr<FslogicProxy> fslogicProxy);
+    StorageMapper(std::weak_ptr<Context> context, std::shared_ptr<FslogicProxy> fslogicProxy);
     virtual ~StorageMapper() = default;
 
     /**

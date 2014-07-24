@@ -31,7 +31,7 @@ static inline string tolower(string input) {
 namespace veil {
 namespace client {
 
-MessageBuilder::MessageBuilder(std::shared_ptr<Context> context)
+MessageBuilder::MessageBuilder(std::weak_ptr<Context> context)
     : m_context{std::move(context)}
 {
 }
@@ -83,7 +83,7 @@ ClusterMsg MessageBuilder::packFuseMessage(const string &messageType, const stri
 
 
 
-    FuseMessage fuseMessage = createFuseMessage(m_context->getConfig()->getFuseID(), messageType, messageInput);
+    FuseMessage fuseMessage = createFuseMessage(m_context.lock()->getConfig()->getFuseID(), messageType, messageInput);
 
     if(fuseMessage.IsInitialized())
         clusterMessage = createClusterMessage(FSLOGIC, FUSE_MESSAGE, answerType, answerDecoderName, true, fuseMessage.SerializeAsString());
