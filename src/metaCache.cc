@@ -34,16 +34,6 @@ MetaCache::~MetaCache()
 
 void MetaCache::addAttr(const string &path, struct stat &attr)
 {
-    if(!canUseDefaultPermissions(attr))
-    {
-        storageInfo override(CLUSTER_PROXY_HELPER, helpers::IStorageHelper::ArgsMap{});
-        m_context->getStorageMapper()->helperOverride(path, override);
-    }
-    else
-    {
-        m_context->getStorageMapper()->resetHelperOverride(path);
-    }
-
     if(!m_context->getOptions()->get_enable_attr_cache())
         return;
 
