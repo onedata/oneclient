@@ -56,19 +56,38 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &log
 
     AutoLock sLock(m_storageMappingLock, READ_LOCK);
 
-    // Check for helper overrides for this file
-    auto it0 = m_fileHelperOverride.find(logicalName);
-    if(it0 != m_fileHelperOverride.end())
-    {
-        return make_pair(it->second, it0->second);
-    }
-
     // Find matching storage info
     auto it1 = m_storageMapping.find(location.storageId);
     if(it1 == m_storageMapping.end())
         throw VeilException(VEIO, "cannot find storage information");
 
-    return make_pair(it->second, it1->second);
+    // Check for helper overrides for this file
+    auto it0 = m_fileHelperOverride.find(logicalName);
+    if(it0 != m_fileHelperOverride.end())
+    {
+
+        // BEGIN HACK
+        /*
+         * @todo
+         * If override changes helper to "ClusterProxy", we need to tuneup fileId since "ClusterProxy" handles
+         * it differently. Right now logic that format fileId for "ClusterProxy" is both on server and client side which is
+         * unacceptable. Easiest fix would be moving storageId to "ClusterProxy"'s arguments map, so that
+         * "ClusterProxy" could accept standard fileId.
+        */
+
+        if(it1->second.storageHelperName != it0->second.storageHelperName && it0->second.storageHelperName == CLUSTER_PROXY_HELPER)
+        {
+            location.fileId = std::to_string(location.storageId) + "///" + location.fileId;
+        }
+        // END HACK
+
+        DLOG(INFO) << "Default helper / fileId: " << it1->second.storageHelperName << " / " << it->second.fileId << " "
+                   << "Overriden helper / fileId: " << it0->second.storageHelperName << " / " << location.fileId;
+
+        return make_pair(location, it0->second);
+    }
+
+    return make_pair(location, it1->second);
 }
 
 string StorageMapper::findLocation(const string &logicalName, const string &openMode)
@@ -137,6 +156,7 @@ void StorageMapper::releaseFile(const string &logicalName)
             it->second.opened--;
             if(it->second.opened == 0) {
                 m_fileMapping.erase(logicalName);
+                m_fileHelperOverride.erase(logicalName);
                 m_fslogic->sendFileNotUsed(logicalName);
             }
         }
@@ -171,6 +191,7 @@ bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg
             {
                 LOG(INFO) << "Removing old location mapping for file: " << arg0;
                 m_fileMapping.erase(arg0);
+                m_fileHelperOverride.erase(arg0);
             }
             else if(it != m_fileMapping.end())
             {

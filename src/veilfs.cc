@@ -193,85 +193,95 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
     statbuf->st_mtime = 0;
     statbuf->st_ctime = 0;
 
-    if(m_metaCache->getAttr(string(path), statbuf))
-        return 0;
+    m_storageMapper->resetHelperOverride(path);
 
-    // We do not have storage mapping so we have to comunicate with cluster anyway
-    LOG(INFO) << "storage mapping not exists in cache for file: " << string(path);
-
-    if(!m_fslogic->getFileAttr(string(path), attr))
-        return -EIO;
-
-    if(attr.answer() != VOK)
+    if(!m_metaCache->getAttr(string(path), statbuf))
     {
-        LOG(WARNING) << "Cluster answer: " << attr.answer();
-        return translateError(attr.answer());
-    }
+        // We do not have storage mapping so we have to comunicate with cluster anyway
+        LOG(INFO) << "storage mapping not exists in cache for file: " << string(path);
 
-    if(attr.type() == "REG" && fuse_ctx) // We'll need storage mapping for regular file
-    {
-        Job getLocTask = Job(time(NULL), m_storageMapper, ISchedulable::TASK_ASYNC_GET_FILE_LOCATION, string(path));
-        m_context->getScheduler()->addTask(getLocTask);
-    }
+        if(!m_fslogic->getFileAttr(string(path), attr))
+            return -EIO;
 
-    // At this point we have attributes from cluster
-
-    statbuf->st_mode = attr.mode(); // File type still has to be set, fslogic gives only permissions in mode field
-    statbuf->st_nlink = attr.links();
-
-    statbuf->st_atime = attr.atime();
-    statbuf->st_mtime = attr.mtime();
-    statbuf->st_ctime = attr.ctime();
-
-    uid_t uid = attr.uid();
-    gid_t gid = attr.gid();
-
-    if(string(path) == "/") { // VeilFS root should always belong to FUSE owner
-        m_ruid = uid;
-        m_rgid = gid;
-    }
-
-    // If file belongs to filesystems owner, show FUSE owner ID
-    if(m_ruid == uid)
-        uid = m_uid;
-    if(m_rgid == gid)
-        gid = m_gid;
-
-    struct passwd *ownerInfo = getpwnam(attr.uname().c_str()); // Static buffer, do NOT free !
-    struct group *groupInfo = getgrnam(attr.gname().c_str());  // Static buffer, do NOT free !
-
-    statbuf->st_uid   = (ownerInfo ? ownerInfo->pw_uid : uid);
-    statbuf->st_gid   = (groupInfo ? groupInfo->gr_gid : gid);
-
-    if(attr.type() == "DIR")
-    {
-        statbuf->st_mode |= S_IFDIR;
-
-        // Prefetch "ls" resault
-        if(fuse_ctx && m_context->getOptions()->get_enable_dir_prefetch()  && m_context->getOptions()->get_enable_attr_cache()) {
-            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, string(path), "0");
-            m_context->getScheduler()->addTask(readDirTask);
-        }
-    }
-    else if(attr.type() == "LNK")
-    {
-        statbuf->st_mode |= S_IFLNK;
-
-        // Check cache for validity
-        AutoLock lock(m_linkCacheLock, WRITE_LOCK);
-        map<string, pair<string, time_t> >::iterator it = m_linkCache.find(string(path));
-        if(it != m_linkCache.end() && statbuf->st_mtime > (*it).second.second)
+        if(attr.answer() != VOK)
         {
-            m_linkCache.erase(it);
+            LOG(WARNING) << "Cluster answer: " << attr.answer();
+            return translateError(attr.answer());
         }
-    }
-    else
-    {
-        statbuf->st_mode |= S_IFREG;
-        statbuf->st_size = attr.size();
+
+        if(attr.type() == "REG" && fuse_ctx) // We'll need storage mapping for regular file
+        {
+            Job getLocTask = Job(time(NULL), m_storageMapper, ISchedulable::TASK_ASYNC_GET_FILE_LOCATION, string(path));
+            m_context->getScheduler()->addTask(getLocTask);
+        }
+
+        // At this point we have attributes from cluster
+
+        statbuf->st_mode = attr.mode(); // File type still has to be set, fslogic gives only permissions in mode field
+        statbuf->st_nlink = attr.links();
+
+        statbuf->st_atime = attr.atime();
+        statbuf->st_mtime = attr.mtime();
+        statbuf->st_ctime = attr.ctime();
+
+        uid_t uid = attr.uid();
+        gid_t gid = attr.gid();
+
+        if(string(path) == "/") { // VeilFS root should always belong to FUSE owner
+            m_ruid = uid;
+            m_rgid = gid;
+        }
+
+        // If file belongs to filesystems owner, show FUSE owner ID
+        if(m_ruid == uid)
+            uid = m_uid;
+        if(m_rgid == gid)
+            gid = m_gid;
+
+        struct passwd *ownerInfo = getpwnam(attr.uname().c_str()); // Static buffer, do NOT free !
+        struct group *groupInfo = getgrnam(attr.gname().c_str());  // Static buffer, do NOT free !
+
+        statbuf->st_uid   = (ownerInfo ? ownerInfo->pw_uid : uid);
+        statbuf->st_gid   = (groupInfo ? groupInfo->gr_gid : gid);
+
+        if(attr.type() == "DIR")
+        {
+            statbuf->st_mode |= S_IFDIR;
+
+            // Prefetch "ls" resault
+            if(fuse_ctx && m_context->getOptions()->get_enable_dir_prefetch()  && m_context->getOptions()->get_enable_attr_cache()) {
+                Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, string(path), "0");
+                m_context->getScheduler()->addTask(readDirTask);
+            }
+        }
+        else if(attr.type() == "LNK")
+        {
+            statbuf->st_mode |= S_IFLNK;
+
+            // Check cache for validity
+            AutoLock lock(m_linkCacheLock, WRITE_LOCK);
+            map<string, pair<string, time_t> >::iterator it = m_linkCache.find(string(path));
+            if(it != m_linkCache.end() && statbuf->st_mtime > (*it).second.second)
+            {
+                m_linkCache.erase(it);
+            }
+        }
+        else
+        {
+            statbuf->st_mode |= S_IFREG;
+            statbuf->st_size = attr.size();
+        }
+
+        m_metaCache->addAttr(string(path), *statbuf);
     }
 
-    m_metaCache->addAttr(string(path), *statbuf);
+    // If there is a chance that user won't be able to access files directly
+    // due to lack of permissions, make sure that "ClusterProxy" is used.
+    if(!m_metaCache->canUseDefaultPermissions(*statbuf))
+    {
+        m_context->getStorageMapper()->helperOverride(path, storageInfo{CLUSTER_PROXY_HELPER, helpers::IStorageHelper::ArgsMap{}});
+    }
+
     return 0;
 }
 
