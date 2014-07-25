@@ -38,32 +38,6 @@ TEST_F(MessageBuilderTest, createFuseMessage) {
     EXPECT_EQ("input", msg.input());
 }
 
-TEST_F(MessageBuilderTest, createClusterMessage) {
-    ClusterMsg msg = proxy->createClusterMessage("moduleName", "messageType", "answerType", "answerDecoderName", true, "input");
-
-    EXPECT_EQ("moduleName", msg.module_name());
-    EXPECT_EQ("messagetype", msg.message_type());
-    EXPECT_EQ("answertype", msg.answer_type());
-    EXPECT_EQ("answerdecodername", msg.answer_decoder_name());
-    EXPECT_EQ(true, msg.synch());
-    EXPECT_EQ("input", msg.input());
-}
-
-TEST_F(MessageBuilderTest, packFuseMessage) {
-    ClusterMsg msg = proxy->packFuseMessage("messageType", "answerType", "answerDecoderName", "messageInput");
-
-    EXPECT_EQ(FUSE_MESSAGE, msg.message_type());
-    EXPECT_EQ("answertype", msg.answer_type());
-    EXPECT_EQ("answerdecodername", msg.answer_decoder_name());
-    EXPECT_EQ(FSLOGIC, msg.module_name());
-
-    FuseMessage fMsg;
-    fMsg.ParseFromString(msg.input());
-
-    EXPECT_EQ("messagetype", fMsg.message_type());
-    EXPECT_EQ("messageInput", fMsg.input());
-}
-
 TEST_F(MessageBuilderTest, decodeFuseAnswerNoWorkerAns) {
     Answer ans;
     FuseMessage msg = proxy->decodeFuseAnswer(ans);

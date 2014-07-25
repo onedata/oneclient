@@ -112,6 +112,10 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
     auto pushListener = std::make_shared<PushListener>(m_context);
     m_context->setPushListener(pushListener);
 
+    // Update FUSE_ID in current connection pool
+    m_context->getCommunicator()->setFuseId(m_context->getConfig()->getFuseID());
+    m_context->getCommunicator()->setupPushChannels(std::bind(&PushListener::onMessage, pushListener, std::placeholders::_1));
+
     // Initialize cluster handshake in order to receive FuseID
     if(m_context->getConfig()->getFuseID() == "")
         m_context->getConfig()->negotiateFuseID();

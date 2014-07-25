@@ -27,7 +27,6 @@
 #include <unistd.h>
 
 #include <fstream>
-#include <iostream>
 #include <string>
 
 using namespace std;
@@ -305,7 +304,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message &fMsg, 
     {
         LOG(INFO) << "Sending message (type: " << fMsg.GetDescriptor()->name() << "). Expecting answer with type: " << response.GetDescriptor()->name();
 
-        auto answer = communicator->communicate<Ans>(communication::FSLOGIC_MODULE_NAME, fuseMsg);
+        auto answer = communicator->communicate<Ans>(communication::FSLOGIC_MODULE_NAME, fuseMsg, 2);
 
         if(answer->answer_status() != VOK)
         {
@@ -320,7 +319,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message &fMsg, 
     catch(communication::Exception &e)
     {
         LOG(ERROR) << "Cannot select connection from connectionPool: " << e.what();
-        return VEIO;
+        return false;
     }
 }
 
@@ -341,7 +340,7 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
     {
         LOG(INFO) << "Sending message (type: " << fMsg.GetDescriptor()->name() << "). Expecting answer with type: atom";
 
-        auto answer = communicator->communicate<>(communication::FSLOGIC_MODULE_NAME, fuseMsg);
+        auto answer = communicator->communicate<>(communication::FSLOGIC_MODULE_NAME, fuseMsg, 2);
 
         if(answer->answer_status() == INVALID_FUSE_ID)
             m_context->getConfig()->negotiateFuseID(0);

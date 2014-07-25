@@ -395,24 +395,17 @@ int main(int argc, char* argv[], char* envp[])
 
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
+    const auto certificateData = gsiHandler->getCertData();
+    const auto clusterUri = "wss://" + gsiHandler->getClusterHostname() + ":" +
+            std::to_string(options->get_cluster_port()) + "/veilclient";
+
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
-    auto testDataPool = std::make_unique<communication::WebsocketConnectionPool>(
-                /*connectionsNumber*/ 1,
-                /*uri*/ "wss://" + gsiHandler->getClusterHostname() + ":" + std::to_string(options->get_cluster_port()) + "/veilclient",
-                gsiHandler->getCertData(),
-                checkCertificate);
-
-    auto testMetaPool = std::make_unique<communication::WebsocketConnectionPool>(
-                /*connectionsNumber*/ 1,
-                /*uri*/ "wss://" + gsiHandler->getClusterHostname() + ":" + std::to_string(options->get_cluster_port()) + "/veilclient",
-                gsiHandler->getCertData(),
-                checkCertificate);
-
-    auto testCommunicationHandler = std::make_unique<communication::CommunicationHandler>(
-                std::move(testDataPool), std::move(testMetaPool));
-
-    auto testCommunicator = std::make_shared<communication::Communicator>(
-                std::move(testCommunicationHandler));
+    auto testCommunicator =
+            communication::createWebsocketCommunicator(/*dataPoolSize*/ 0,
+                                                       /*metaPoolSize*/ 1,
+                                                       clusterUri,
+                                                       certificateData,
+                                                       checkCertificate);
 
     context->setCommunicator(testCommunicator);
 
@@ -472,23 +465,12 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     // Initialize VeilClient application
-    auto dataPool = std::make_unique<communication::WebsocketConnectionPool>(
-                /*connectionsNumber*/ options->get_alive_data_connections_count(),
-                /*uri*/ "wss://" + gsiHandler->getClusterHostname() + ":" + std::to_string(options->get_cluster_port()) + "/veilclient",
-                gsiHandler->getCertData(),
-                checkCertificate);
-
-    auto metaPool = std::make_unique<communication::WebsocketConnectionPool>(
-                /*connectionsNumber*/ options->get_alive_meta_connections_count(),
-                /*uri*/ "wss://" + gsiHandler->getClusterHostname() + ":" + std::to_string(options->get_cluster_port()) + "/veilclient",
-                gsiHandler->getCertData(),
-                checkCertificate);
-
-    auto communicationHandler = std::make_unique<communication::CommunicationHandler>(
-                std::move(dataPool), std::move(metaPool));
-
-    auto communicator = std::make_shared<communication::Communicator>(
-                std::move(communicationHandler));
+    const auto communicator =
+            communication::createWebsocketCommunicator(options->get_alive_data_connections_count(),
+                                                       options->get_alive_meta_connections_count(),
+                                                       clusterUri,
+                                                       certificateData,
+                                                       checkCertificate);
 
     context->setCommunicator(communicator);
 

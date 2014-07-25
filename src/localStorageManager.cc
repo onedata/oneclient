@@ -225,7 +225,7 @@ bool LocalStorageManager::sendClientStorageInfo(const std::vector< std::pair<int
         }
 
         // Send ClientStorageInfo message
-        auto ans = communicator->communicate<>(communication::FSLOGIC_MODULE_NAME, reqMsg);
+        auto ans = communicator->communicate<>(communication::FSLOGIC_MODULE_NAME, reqMsg, 2);
         // Check answer
         if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
         {
@@ -261,7 +261,7 @@ boost::optional< std::pair<std::string, std::string> > LocalStorageManager::crea
     {
         reqMsg.set_storage_id(storageId);
 
-        auto ans = communicator->communicate<CreateStorageTestFileResponse>(communication::FSLOGIC_MODULE_NAME, reqMsg);
+        auto ans = communicator->communicate<CreateStorageTestFileResponse>(communication::FSLOGIC_MODULE_NAME, reqMsg, 2);
 
         if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
         {
@@ -337,7 +337,7 @@ bool LocalStorageManager::hasClientStorageWritePermission(const int storageId, c
         reqMsg.set_relative_path(relativePath);
         reqMsg.set_text(text);
 
-        auto ans = communicator->communicate<StorageTestFileModifiedResponse>(communication::FSLOGIC_MODULE_NAME, reqMsg);
+        auto ans = communicator->communicate<StorageTestFileModifiedResponse>(communication::FSLOGIC_MODULE_NAME, reqMsg, 2);
 
         if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
         {

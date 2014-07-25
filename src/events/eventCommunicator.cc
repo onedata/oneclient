@@ -174,6 +174,7 @@ bool EventCommunicator::askClusterIfWriteEnabled()
     catch(communication::Exception &e)
     {
         LOG(WARNING) << "sending atom is_write_enabled failed: " << e.what();
+        return true;
     }
 }
 

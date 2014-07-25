@@ -167,7 +167,7 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
         }
 
         // If there is username spcecified, send account confirmation along with handshake request
-        if(usernameToConfirm.size() > 0) 
+        if(usernameToConfirm.size() > 0)
         {
             HandshakeRequest_CertConfirmation confirmationMsg;
             confirmationMsg.set_login(usernameToConfirm);
@@ -176,7 +176,7 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
         }
 
         // Send HandshakeRequest message
-        auto ans = communicator->communicate<HandshakeResponse>(communication::FSLOGIC_MODULE_NAME, reqMsg);
+        auto ans = communicator->communicate<HandshakeResponse>(communication::FSLOGIC_MODULE_NAME, reqMsg, 2);
 
         // Check answer
         if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
@@ -259,7 +259,7 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
                 }
 
                 // Send HandshakeRequest message
-                auto ans = communicator->communicate<HandshakeResponse>(communication::FSLOGIC_MODULE_NAME, reqMsg);
+                auto ans = communicator->communicate<HandshakeResponse>(communication::FSLOGIC_MODULE_NAME, reqMsg, 2);
                 if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
                 {
                     // Set FUSE_ID in config
@@ -267,9 +267,7 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
 
                     // Update FUSE_ID in current connection pool
                     communicator->setFuseId(m_fuseID);
-                    communicator->enablePushChannel(std::bind(&PushListener::onMessage, context->getPushListener(), std::placeholders::_1));
-                    communicator->enableHandshakeAck();
-
+                    communicator->setupPushChannels(std::bind(&PushListener::onMessage, context->getPushListener(), std::placeholders::_1));
 
                     LOG(INFO) << "Newly negotiated FUSE_ID: " << resMsg.fuse_id();
 

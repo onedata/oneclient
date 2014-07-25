@@ -11,11 +11,10 @@
 #include "context.h"
 #include "fslogicProxy.h"
 #include "veilfs.h"
+#include "logging.h"
 
 #include <boost/algorithm/string.hpp>
 #include <unistd.h>
-
-#include <iostream>
 
 using namespace std;
 using namespace boost::algorithm;
