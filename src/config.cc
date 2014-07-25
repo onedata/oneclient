@@ -11,6 +11,7 @@
 #include "communication_protocol.pb.h"
 #include "communication/communicator.h"
 #include "communication/exception.h"
+#include "communication/websocketConnection.h"
 #include "context.h"
 #include "fslogicProxy.h"
 #include "fuse_messages.pb.h"
@@ -192,6 +193,10 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
             throw CertUnconfirmedException(ans->error_description());
         else
             throw VeilException(ans->answer_status(),"Cannot negotatiate FUSE_ID");
+    }
+    catch(communication::InvalidServerCertificate&)
+    {
+        throw;
     }
     catch(communication::Exception &e)
     {

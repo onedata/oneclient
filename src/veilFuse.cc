@@ -18,6 +18,7 @@
 #include "communication/communicator.h"
 #include "communication/communicationHandler.h"
 #include "communication/websocketConnectionPool.h"
+#include "communication/websocketConnection.h"
 #include "config.h"
 #include "context.h"
 #include "events/eventCommunicator.h"
@@ -411,40 +412,42 @@ int main(int argc, char* argv[], char* envp[])
 
     try
     {
-        try
-        {
-            config->testHandshake();
-        }
-        catch(CertUnconfirmedException &exception)
-        {
-            std::string username = exception.getUsername();
-
-            // Prompt user for account confirmation
-            std::string userAns;
-            do {
-                std::cout << CONFIRM_CERTIFICATE_PROMPT(username);
-                std::getline(std::cin, userAns);
-                std::transform(userAns.begin(), userAns.end(), userAns.begin(), ::tolower);
-            } while(userAns.size() == 0 || (userAns[0] != 'y' && userAns[0] != 't' && userAns[0] != 'n'));
-
-            // Resend handshake request along with account confirmation / rejection
-            config->testHandshake(username, userAns[0] == 'y' || userAns[0] == 't');
-        }
+        config->testHandshake();
     }
-    catch (VeilException &exception) {
+    catch(CertUnconfirmedException &exception)
+    {
+        std::string username = exception.getUsername();
+
+        // Prompt user for account confirmation
+        std::string userAns;
+        do {
+            std::cout << CONFIRM_CERTIFICATE_PROMPT(username);
+            std::getline(std::cin, userAns);
+            std::transform(userAns.begin(), userAns.end(), userAns.begin(), ::tolower);
+        } while(userAns.size() == 0 || (userAns[0] != 'y' && userAns[0] != 't' && userAns[0] != 'n'));
+
+        // Resend handshake request along with account confirmation / rejection
+        config->testHandshake(username, userAns[0] == 'y' || userAns[0] == 't');
+    }
+    catch(communication::InvalidServerCertificate &e)
+    {
+        cerr << "Server certificate verification failed: " << e.what() <<
+                ". Aborting" << endl;
+
+        fuse_unmount(mountpoint, ch);
+        exit(EXIT_FAILURE);
+    }
+    catch(VeilException &exception)
+    {
         if(exception.veilError()==NO_USER_FOUND_ERROR)
             cerr << "Cannot find user, remember to login through website before mounting fuse. Aborting" << endl;
         else if(exception.veilError()==NO_CONNECTION_FOR_HANDSHAKE)
-        {
-//            if(testPool->getLastError() == error::SERVER_CERT_VERIFICATION_FAILED)
-//                cerr << "Server certificate verification failed. Aborting" << endl;
-//            else
-                cerr << "Cannot connect to server. Aborting." << endl;
-        }
+            cerr << "Cannot connect to server. Aborting." << endl;
         else
             cerr << "Handshake error. Aborting" << endl;
+
         fuse_unmount(mountpoint, ch);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     //cleanup test connections
