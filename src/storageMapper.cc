@@ -34,17 +34,32 @@ StorageMapper::StorageMapper(std::weak_ptr<Context> context, std::shared_ptr<Fsl
 {
 }
 
-pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &logicalName, bool useCluster)
+pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &logicalName, bool useCluster, bool forceClusterProxy)
 {
     AutoLock lock(m_fileMappingLock, READ_LOCK);
-    map<string, locationInfo>::iterator it = m_fileMapping.find(logicalName);
+    auto it = m_fileMapping.find(logicalName);
+
+    if(it != m_fileMapping.end())
+    {
+        AutoLock sLock(m_storageMappingLock, READ_LOCK);
+        auto it1 = m_storageMapping.find(it->second.storageId);
+        if(forceClusterProxy && useCluster && (it1 == m_storageMapping.end() || it1->second.storageHelperName != CLUSTER_PROXY_HELPER))
+        {
+            lock.release();
+            findLocation(logicalName, UNSPECIFIED_MODE, forceClusterProxy);
+            lock.lock();
+
+            it = m_fileMapping.find(logicalName);
+        }
+    }
+
     if(it == m_fileMapping.end())
     {
         if(!useCluster)
             throw VeilException(VEIO, "cannot find file mapping in cache but using cluster is not allowed in this context");
 
         lock.release();
-        string status = findLocation(logicalName);
+        findLocation(logicalName, UNSPECIFIED_MODE, forceClusterProxy);
         lock.lock();
 
         it = m_fileMapping.find(logicalName);
@@ -61,40 +76,40 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &log
     if(it1 == m_storageMapping.end())
         throw VeilException(VEIO, "cannot find storage information");
 
-    // Check for helper overrides for this file
-    auto it0 = m_fileHelperOverride.find(logicalName);
-    if(it0 != m_fileHelperOverride.end())
-    {
+//    // Check for helper overrides for this file
+//    auto it0 = m_fileHelperOverride.find(logicalName);
+//    if(it0 != m_fileHelperOverride.end())
+//    {
 
-        // BEGIN HACK
-        /*
-         * @todo
-         * If override changes helper to "ClusterProxy", we need to tuneup fileId since "ClusterProxy" handles
-         * it differently. Right now logic that format fileId for "ClusterProxy" is both on server and client side which is
-         * unacceptable. Easiest fix would be moving storageId to "ClusterProxy"'s arguments map, so that
-         * "ClusterProxy" could accept standard fileId.
-        */
+//        // BEGIN HACK
+//        /*
+//         * @todo
+//         * If override changes helper to "ClusterProxy", we need to tuneup fileId since "ClusterProxy" handles
+//         * it differently. Right now logic that format fileId for "ClusterProxy" is both on server and client side which is
+//         * unacceptable. Easiest fix would be moving storageId to "ClusterProxy"'s arguments map, so that
+//         * "ClusterProxy" could accept standard fileId.
+//        */
 
-        if(it1->second.storageHelperName != it0->second.storageHelperName && it0->second.storageHelperName == CLUSTER_PROXY_HELPER)
-        {
-            location.fileId = std::to_string(location.storageId) + "///" + location.fileId;
-        }
-        // END HACK
+//        if(it1->second.storageHelperName != it0->second.storageHelperName && it0->second.storageHelperName == CLUSTER_PROXY_HELPER)
+//        {
+//            location.fileId = std::to_string(location.storageId) + "///" + location.fileId;
+//        }
+//        // END HACK
 
-        DLOG(INFO) << "Default helper / fileId: " << it1->second.storageHelperName << " / " << it->second.fileId << " "
-                   << "Overriden helper / fileId: " << it0->second.storageHelperName << " / " << location.fileId;
+//        DLOG(INFO) << "Default helper / fileId: " << it1->second.storageHelperName << " / " << it->second.fileId << " "
+//                   << "Overriden helper / fileId: " << it0->second.storageHelperName << " / " << location.fileId;
 
-        return make_pair(std::move(location), it0->second);
-    }
+//        return make_pair(std::move(location), it0->second);
+//    }
 
     return make_pair(std::move(location), it1->second);
 }
 
-string StorageMapper::findLocation(const string &logicalName, const string &openMode)
+string StorageMapper::findLocation(const string &logicalName, const string &openMode, bool forceClusterProxy)
 {
     LOG(INFO) << "quering cluster about storage mapping for file: " << logicalName;
     FileLocation location;
-    if(m_fslogic->getFileLocation(logicalName, location, openMode))
+    if(m_fslogic->getFileLocation(logicalName, location, openMode, forceClusterProxy))
     {
         if(location.answer() == VOK)
             addLocation(logicalName, location);

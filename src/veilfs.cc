@@ -60,11 +60,11 @@
 /// Fetch locationInfo and storageInfo for given file.
 /// On success - lInfo and sInfo variables will be set.
 /// On error - POSIX error code will be returned, interrupting code execution.
-#define GET_LOCATION_INFO(PATH) locationInfo lInfo; \
+#define GET_LOCATION_INFO(PATH, FORCE_PROXY) locationInfo lInfo; \
                                 storageInfo sInfo; \
                                 try \
                                 { \
-                                    pair<locationInfo, storageInfo> tmpLoc = m_storageMapper->getLocationInfo(string(PATH), true); \
+                                    pair<locationInfo, storageInfo> tmpLoc = m_storageMapper->getLocationInfo(string(PATH), true, FORCE_PROXY); \
                                     lInfo = tmpLoc.first; \
                                     sInfo = tmpLoc.second; \
                                 } \
@@ -277,10 +277,10 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
 
     // If there is a chance that user won't be able to access files directly
     // due to lack of permissions, make sure that "ClusterProxy" is used.
-    if(!m_metaCache->canUseDefaultPermissions(*statbuf))
-    {
-        m_context->getStorageMapper()->helperOverride(path, storageInfo{CLUSTER_PROXY_HELPER, helpers::IStorageHelper::ArgsMap{}});
-    }
+//    if(!m_metaCache->canUseDefaultPermissions(*statbuf))
+//    {
+//        m_context->getStorageMapper()->helperOverride(path, storageInfo{CLUSTER_PROXY_HELPER, helpers::IStorageHelper::ArgsMap{}});
+//    }
 
     return 0;
 }
@@ -329,8 +329,11 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
 
     m_metaCache->clearAttr(string(path));
 
+    struct stat parentAttrs;
+    auto parentAttrsStatus = getattr(parent(path), &parentAttrs, false);
+
     FileLocation location;
-    if(!m_fslogic->getNewFileLocation(string(path), mode & ALLPERMS, location))
+    if(!m_fslogic->getNewFileLocation(string(path), mode & ALLPERMS, location, !parentAttrsStatus && !m_metaCache->canUseDefaultPermissions(parentAttrs)))
     {
         LOG(WARNING) << "cannot fetch new file location mapping";
         return -EIO;
@@ -343,7 +346,7 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
     }
 
     m_storageMapper->addLocation(string(path), location);
-    GET_LOCATION_INFO(path);
+    GET_LOCATION_INFO(path, false);
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_mknod(lInfo.fileId.c_str(), mode, dev));
 
@@ -409,7 +412,10 @@ int VeilFS::unlink(const char *path)
 
     if(!isLink)
     {
-        GET_LOCATION_INFO(path); //Get file location from cluster
+        struct stat parentAttrs;
+        auto parentAttrsStatus = getattr(parent(path), &parentAttrs, false);
+
+        GET_LOCATION_INFO(path, (!parentAttrsStatus && !m_metaCache->canUseDefaultPermissions(parentAttrs)) || !m_metaCache->canUseDefaultPermissions(statbuf)); //Get file location from cluster
         RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
 
         SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_unlink(lInfo.fileId.c_str()));
@@ -482,6 +488,9 @@ int VeilFS::chmod(const char *path, mode_t mode)
     LOG(INFO) << "FUSE: chmod(path: " << string(path) << ", mode: "<< mode << ")";
     RETURN_IF_ERROR(m_fslogic->changeFilePerms(string(path), mode & ALLPERMS)); // ALLPERMS = 07777
 
+    struct stat attrs;
+    auto attrsStatus = getattr(path, &attrs, false);
+
     m_metaCache->clearAttr(string(path));
 
     // Chceck is its not regular file
@@ -489,7 +498,7 @@ int VeilFS::chmod(const char *path, mode_t mode)
         return 0;
 
     // If it is, we have to call storage haleper's chmod
-    GET_LOCATION_INFO(path);
+    GET_LOCATION_INFO(path, !attrsStatus && !m_metaCache->canUseDefaultPermissions(attrs));
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_chmod(lInfo.fileId.c_str(), mode));
     return sh_return;
@@ -522,7 +531,11 @@ int VeilFS::chown(const char *path, uid_t uid, gid_t gid)
 int VeilFS::truncate(const char *path, off_t newSize)
 {
     LOG(INFO) << "FUSE: truncate(path: " << string(path) << ", newSize: "<< newSize <<")";
-    GET_LOCATION_INFO(path);
+
+    struct stat attrs;
+    auto attrsStatus = getattr(path, &attrs, false);
+
+    GET_LOCATION_INFO(path, !attrsStatus && !m_metaCache->canUseDefaultPermissions(attrs));
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_truncate(lInfo.fileId.c_str(), newSize));
 
@@ -568,7 +581,10 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
             return translateError(status);
     }
 
-    GET_LOCATION_INFO(path);
+    struct stat attrs;
+    auto attrsStatus = getattr(path, &attrs, false);
+
+    GET_LOCATION_INFO(path, !attrsStatus && !m_metaCache->canUseDefaultPermissions(attrs));
 
     m_storageMapper->openFile(string(path));
 
@@ -604,7 +620,7 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
 int VeilFS::read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
 {
     //LOG(INFO) << "FUSE: read(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
-    GET_LOCATION_INFO(path);
+    GET_LOCATION_INFO(path, false);
 
     AutoLock guard(m_shCacheLock, READ_LOCK);
     CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
@@ -624,7 +640,7 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
         return -EDQUOT;
     }
 
-    GET_LOCATION_INFO(path);
+    GET_LOCATION_INFO(path, false);
 
     AutoLock guard(m_shCacheLock, READ_LOCK);
     CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
@@ -661,7 +677,7 @@ int VeilFS::statfs(const char *path, struct statvfs *statInfo)
 int VeilFS::flush(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: flush(path: " << string(path) << ", ...)";
-    GET_LOCATION_INFO(path);
+    GET_LOCATION_INFO(path, false);
 
     sh_ptr storage_helper;
     {
@@ -682,7 +698,7 @@ int VeilFS::release(const char *path, struct fuse_file_info *fileInfo)
     /// Remove Storage Helper's pointer from cache
     AutoLock guard(m_shCacheLock, WRITE_LOCK);
 
-    GET_LOCATION_INFO(path);
+    GET_LOCATION_INFO(path, false);
 
     CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_release(lInfo.fileId.c_str(), fileInfo));
 

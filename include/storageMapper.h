@@ -97,8 +97,8 @@ public:
      * @param useCluster Specify if the method should use cache only (deafault) or try quering cluster.
      * @return std::pair of locationInfo and storageInfo structs for this file
      */
-    virtual std::pair<locationInfo, storageInfo> getLocationInfo(const std::string &logical_name, bool useCluster = false);
-    virtual std::string findLocation(const std::string &logicalName, const std::string &openMode = UNSPECIFIED_MODE);///< Query cluster about file location and instert it to cache. @see StorageMapper::addLocation
+    virtual std::pair<locationInfo, storageInfo> getLocationInfo(const std::string &logical_name, bool useCluster = false, bool forceClusterProxy = false);
+    virtual std::string findLocation(const std::string &logicalName, const std::string &openMode = UNSPECIFIED_MODE, bool forceClusterProxy = false);///< Query cluster about file location and instert it to cache. @see StorageMapper::addLocation
     virtual void addLocation(const std::string &logicalName, const protocol::fuse_messages::FileLocation &location); ///< Cache given file location.
                                                                             ///< Insert to file location cache new FileLocation received from cluster.
     virtual void openFile(const std::string &logicalName);                  ///< Increases open file count for specified file. @see locationInfo::opened

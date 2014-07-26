@@ -66,13 +66,15 @@ bool FslogicProxy::getFileAttr(const string& logicName, FileAttr& attr)
     return true;
 }
 
-bool FslogicProxy::getFileLocation(const string &logicName, FileLocation& location, const string &openMode)
+bool FslogicProxy::getFileLocation(const string &logicName, FileLocation& location, const string &openMode, bool forceClusterProxy)
 {
     LOG(INFO) << "getting file location from cluster for file: " << logicName;
 
     GetFileLocation msg;
     msg.set_file_logic_name(logicName);
     msg.set_open_mode(openMode);
+    msg.set_force_cluster_proxy(forceClusterProxy);
+
     if(!sendFuseReceiveAnswer(msg, location))
     {
         LOG(ERROR) << "cannot parse cluster answer";
@@ -82,13 +84,14 @@ bool FslogicProxy::getFileLocation(const string &logicName, FileLocation& locati
     return true;
 }
 
-bool FslogicProxy::getNewFileLocation(const string &logicName, mode_t mode, FileLocation& location)
+bool FslogicProxy::getNewFileLocation(const string &logicName, mode_t mode, FileLocation& location, bool forceClusterProxy)
 {
     LOG(INFO) << "getting new file location for file: " << logicName;
 
     GetNewFileLocation msg;
     msg.set_file_logic_name(logicName);
     msg.set_mode(mode);
+    msg.set_force_cluster_proxy(forceClusterProxy);
 
     if(!sendFuseReceiveAnswer(msg, location))
     {
