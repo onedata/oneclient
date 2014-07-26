@@ -21,12 +21,12 @@ public:
     {
     }
 
-    MOCK_METHOD3(getFileLocation, bool(const std::string&, veil::protocol::fuse_messages::FileLocation&, const std::string&));
+    MOCK_METHOD4(getFileLocation, bool(const std::string&, veil::protocol::fuse_messages::FileLocation&, const std::string&, bool));
     MOCK_METHOD2(changeFilePerms, std::string(const std::string&, mode_t));
     MOCK_METHOD2(renameFile, std::string(const std::string&, const std::string&));
     MOCK_METHOD1(deleteFile, std::string(const std::string&));
     MOCK_METHOD2(createDir, std::string(const std::string&, mode_t));
-    MOCK_METHOD3(getNewFileLocation, bool(const std::string&, mode_t, veil::protocol::fuse_messages::FileLocation&));
+    MOCK_METHOD4(getNewFileLocation, bool(const std::string&, mode_t, veil::protocol::fuse_messages::FileLocation&, bool));
     MOCK_METHOD1(sendFileCreatedAck, std::string(const std::string&));
     MOCK_METHOD2(getFileAttr, bool(const std::string&, veil::protocol::fuse_messages::FileAttr&));
     MOCK_METHOD2(createLink, std::string(const std::string&, const std::string&));

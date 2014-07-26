@@ -23,11 +23,11 @@ public:
     }
 
     MOCK_METHOD1(releaseFile, void(const std::string&));
-    MOCK_METHOD2(getLocationInfo, std::pair<veil::client::locationInfo, veil::client::storageInfo>(const std::string&, bool));
+    MOCK_METHOD3(getLocationInfo, std::pair<veil::client::locationInfo, veil::client::storageInfo>(const std::string&, bool, bool));
     MOCK_METHOD2(addLocation, void(const std::string&, const veil::protocol::fuse_messages::FileLocation&));
-    MOCK_METHOD1(findLocation, std::string(const std::string&));
-    MOCK_METHOD2(helperOverride, void(const boost::filesystem::path&, const veil::client::storageInfo&));
-    MOCK_METHOD1(resetHelperOverride, void(const boost::filesystem::path&));
+    MOCK_METHOD3(findLocation, std::string(const std::string&, const std::string&, bool));
+    MOCK_METHOD2(helperOverride, void(const std::string&, const veil::client::storageInfo&));
+    MOCK_METHOD1(resetHelperOverride, void(const std::string&));
 };
 
 

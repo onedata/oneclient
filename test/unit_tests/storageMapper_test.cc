@@ -114,12 +114,12 @@ TEST_F(StorageMapperTest, OpenClose) {
 }
 
 TEST_F(StorageMapperTest, FindAndGet) {
-    EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _, _)).WillOnce(Return(false));
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _, _, _)).WillOnce(Return(false));
     EXPECT_NE(VOK, proxy->findLocation("/file1"));
 
     FileLocation location;
     location.set_answer(VEACCES);
-    EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
     EXPECT_EQ(VEACCES, proxy->findLocation("/file1"));
 
     EXPECT_THROW(proxy->getLocationInfo("/file1"), VeilException);
@@ -127,7 +127,7 @@ TEST_F(StorageMapperTest, FindAndGet) {
     location.set_validity(20);
     time_t currentTime = time(NULL);
     EXPECT_CALL(*scheduler, addTask(_)).Times(2);
-    EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
     EXPECT_EQ(VOK, proxy->findLocation("/file1"));
 
     EXPECT_NO_THROW(proxy->getLocationInfo("/file1"));
@@ -135,10 +135,10 @@ TEST_F(StorageMapperTest, FindAndGet) {
 
     EXPECT_GE(currentTime + 20, proxy->getLocationInfo("/file1").first.validTo);
 
-    EXPECT_CALL(*mockFslogic, getFileLocation("/file2", _, _)).WillOnce(Return(false));
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file2", _, _, _)).WillOnce(Return(false));
     EXPECT_THROW(proxy->getLocationInfo("/file2", true), VeilException);
 
     EXPECT_CALL(*scheduler, addTask(_)).Times(2);
-    EXPECT_CALL(*mockFslogic, getFileLocation("/file2", _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file2", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
     EXPECT_NO_THROW(proxy->getLocationInfo("/file2", true));
 }

@@ -178,12 +178,13 @@ TEST_F(FslogicProxyTest, getFileLocation) {
     GetFileLocation msg;
     msg.set_file_logic_name("/file");
     msg.set_open_mode(UNSPECIFIED_MODE);
+    msg.set_force_cluster_proxy(true);
 
     FileLocation location;
     FileLocation response;
 
     EXPECT_CALL(*proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(false)));
-    EXPECT_FALSE(proxy->getFileLocation("/file", response,UNSPECIFIED_MODE));
+    EXPECT_FALSE(proxy->getFileLocation("/file", response, UNSPECIFIED_MODE, true));
 
     location.set_validity(10);
     location.set_answer(VEACCES);
@@ -191,7 +192,7 @@ TEST_F(FslogicProxyTest, getFileLocation) {
     location.set_file_id("fileid");
 
     EXPECT_CALL(*proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, location, _1) )), Return(true)));
-    ASSERT_TRUE(proxy->getFileLocation("/file", response,UNSPECIFIED_MODE));
+    ASSERT_TRUE(proxy->getFileLocation("/file", response, UNSPECIFIED_MODE, true));
 
     EXPECT_EQ(location.validity(), response.validity());
     EXPECT_EQ(location.answer(), response.answer());
@@ -202,12 +203,13 @@ TEST_F(FslogicProxyTest, getNewFileLocation) {
     GetNewFileLocation msg;
     msg.set_file_logic_name("/file");
     msg.set_mode(234);
+    msg.set_force_cluster_proxy(true);
 
     FileLocation location;
     FileLocation response;
 
     EXPECT_CALL(*proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, response, _1) )), Return(false)));
-    EXPECT_FALSE(proxy->getNewFileLocation("/file", 234, response));
+    EXPECT_FALSE(proxy->getNewFileLocation("/file", 234, response, true));
 
 
     location.set_validity(10);
@@ -216,7 +218,7 @@ TEST_F(FslogicProxyTest, getNewFileLocation) {
     location.set_file_id("fileid");
 
     EXPECT_CALL(*proxy, mockAnswerFun( Truly(bind(pbMessageEqual, msg, _1)), _ ) ).WillOnce(DoAll(WithArgs<1>(Invoke( bind(setupAnswerResponse, location, _1) )), Return(true)));
-    ASSERT_TRUE(proxy->getNewFileLocation("/file", 234, response));
+    ASSERT_TRUE(proxy->getNewFileLocation("/file", 234, response, true));
 
 
     EXPECT_EQ(location.validity(), response.validity());

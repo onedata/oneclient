@@ -13,7 +13,8 @@
 
 #include <gmock/gmock.h>
 
-struct MockOptions: public veil::client::Options {
+class MockOptions: public veil::client::Options {
+public:
     MOCK_CONST_METHOD0(has_fuse_id, bool());
     MOCK_CONST_METHOD0(has_fuse_group_id, bool());
     MOCK_CONST_METHOD0(has_enable_attr_cache, bool());
