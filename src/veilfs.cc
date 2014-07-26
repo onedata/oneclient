@@ -233,10 +233,10 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
         }
 
         // If file belongs to filesystems owner, show FUSE owner ID
-        if(m_ruid == uid)
-            uid = m_uid;
-        if(m_rgid == gid)
-            gid = m_gid;
+//        if(m_ruid == uid)
+//            uid = m_uid;
+//        if(m_rgid == gid)
+//            gid = m_gid;
 
         struct passwd *ownerInfo = getpwnam(attr.uname().c_str()); // Static buffer, do NOT free !
         struct group *groupInfo = getgrnam(attr.gname().c_str());  // Static buffer, do NOT free !

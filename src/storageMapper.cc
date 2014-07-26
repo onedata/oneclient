@@ -43,6 +43,8 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &log
     {
         AutoLock sLock(m_storageMappingLock, READ_LOCK);
         auto it1 = m_storageMapping.find(it->second.storageId);
+        sLock.release();
+
         if(forceClusterProxy && useCluster && (it1 == m_storageMapping.end() || it1->second.storageHelperName != CLUSTER_PROXY_HELPER))
         {
             lock.release();
