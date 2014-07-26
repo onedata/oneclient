@@ -330,7 +330,7 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
     m_metaCache->clearAttr(string(path));
 
     struct stat parentAttrs;
-    auto parentAttrsStatus = getattr(parent(path), &parentAttrs, false);
+    auto parentAttrsStatus = getattr(parent(path).c_str(), &parentAttrs, false);
 
     FileLocation location;
     if(!m_fslogic->getNewFileLocation(string(path), mode & ALLPERMS, location, !parentAttrsStatus && !m_metaCache->canUseDefaultPermissions(parentAttrs)))
@@ -373,7 +373,7 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
                 LOG(ERROR) << "Cannot change group owner of file " << sPath << " to: " << groupName;
         }
 
-        m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path))); // Clear cache of parent (possible change of modify time)
+        m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
 
         RETURN_IF_ERROR(m_fslogic->sendFileCreatedAck(string(path)));
     }
@@ -385,10 +385,10 @@ int VeilFS::mkdir(const char *path, mode_t mode)
     LOG(INFO) << "FUSE: mkdir(path: " << string(path) << ", mode: " << mode << ")";
     m_metaCache->clearAttr(string(path));
     // Clear parent's cache
-    m_metaCache->clearAttr(parent(path));
+    m_metaCache->clearAttr(parent(path).c_str());
 
     RETURN_IF_ERROR(m_fslogic->createDir(string(path), mode & ALLPERMS));
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
 
     std::shared_ptr<events::Event> mkdirEvent = events::Event::createMkdirEvent(path);
     m_eventCommunicator->processEvent(mkdirEvent);
@@ -413,7 +413,7 @@ int VeilFS::unlink(const char *path)
     if(!isLink)
     {
         struct stat parentAttrs;
-        auto parentAttrsStatus = getattr(parent(path), &parentAttrs, false);
+        auto parentAttrsStatus = getattr(parent(path).c_str(), &parentAttrs, false);
 
         GET_LOCATION_INFO(path, (!parentAttrsStatus && !m_metaCache->canUseDefaultPermissions(parentAttrs)) || !m_metaCache->canUseDefaultPermissions(statbuf)); //Get file location from cluster
         RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
@@ -426,7 +426,7 @@ int VeilFS::unlink(const char *path)
         RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
     }
 
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
 
     std::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(path);
     m_eventCommunicator->processEvent(rmEvent);
@@ -439,10 +439,10 @@ int VeilFS::rmdir(const char *path)
     LOG(INFO) << "FUSE: rmdir(path: " << string(path) << ")";
     m_metaCache->clearAttr(string(path));
     // Clear parent's cache
-    m_metaCache->clearAttr(parent(path));
+    m_metaCache->clearAttr(parent(path).c_str());
 
     RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
 
     return 0;
 }
@@ -470,7 +470,7 @@ int VeilFS::rename(const char *path, const char *newpath)
     LOG(INFO) << "FUSE: rename(path: " << string(path) << ", newpath: "<< string(newpath)  <<")";
 
     RETURN_IF_ERROR(m_fslogic->renameFile(string(path), string(newpath)));
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
     m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(newpath))); // Clear cache of parent (possible change of modify time)
 
     m_metaCache->clearAttr(string(path));
