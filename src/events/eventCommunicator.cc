@@ -75,7 +75,7 @@ void EventCommunicator::handlePushedAtom(const Answer &msg)
             // do nothing
         }else if(atom.value() == "test_atom2_ack" && msg.has_message_id() && msg.message_id() < -1){
             // just for test purposes
-            m_context->getPushListener()->sendPushMessageAck(msg, "rule_manager");
+            m_context->getPushListener()->sendPushMessageAck(msg, communication::ServerModule::RULE_MANAGER);
         }
     }else{
         LOG(WARNING) << "Cannot parse pushed message as " << atom.GetDescriptor()->name();
@@ -103,7 +103,7 @@ void EventCommunicator::configureByCluster()
     auto communicator = m_context->getCommunicator();
     try
     {
-        auto ans = communicator->communicate<EventProducerConfig>(communication::RULE_MANAGER_MODULE_NAME, atom);
+        auto ans = communicator->communicate<EventProducerConfig>(communication::ServerModule::RULE_MANAGER, atom);
         if(ans->answer_status() == VEIO)
             LOG(WARNING) << "sending atom eventproducerconfigrequest failed: not needed";
 
@@ -134,7 +134,7 @@ void EventCommunicator::sendEvent(const std::shared_ptr<Context> &context,
     auto communicator = context->getCommunicator();
     try
     {
-        auto ans = communicator->communicate<>(communication::CLUSTER_RENGINE_MODULE_NAME, *eventMessage);
+        auto ans = communicator->communicate<>(communication::ServerModule::CLUSTER_RENGINE, *eventMessage);
         if(ans->answer_status() == VEIO)
             LOG(WARNING) << "sending event message failed";
         else
@@ -154,7 +154,7 @@ bool EventCommunicator::askClusterIfWriteEnabled()
     auto communicator = m_context->getCommunicator();
     try
     {
-        auto ans = communicator->communicate<>(communication::FSLOGIC_MODULE_NAME, atom);
+        auto ans = communicator->communicate<>(communication::ServerModule::FSLOGIC, atom);
         if(ans->answer_status() == VEIO)
             LOG(WARNING) << "sending atom is_write_enabled failed";
         else

@@ -10,6 +10,7 @@
 
 
 #include "communication_protocol.pb.h"
+#include "communication/communicator.h"
 
 #include <condition_variable>
 #include <functional>
@@ -47,7 +48,7 @@ public:
     void onChannelError(const protocol::communication_protocol::Answer& msg); ///< Callback called fo each non-ok Answer from cluster.
 
     void sendPushMessageAck(const protocol::communication_protocol::Answer &pushMessage,
-                            const std::string & moduleName); ///< Sends push message ack for a given pushmessage.
+                            const veil::communication::ServerModule module); ///< Sends push message ack for a given pushmessage.
 
 protected:
 

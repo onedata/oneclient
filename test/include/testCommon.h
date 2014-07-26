@@ -31,7 +31,7 @@ namespace veil
     }
 }
 
-class MockOptions;
+struct MockOptions;
 class MockJobScheduler;
 class MockCommunicator;
 

@@ -112,7 +112,8 @@ namespace client
         }
     }
 
-    void PushListener::sendPushMessageAck(const Answer &pushMessage, const std::string &moduleName)
+    void PushListener::sendPushMessageAck(const Answer &pushMessage,
+                                          const communication::ServerModule module)
     {
         protocol::communication_protocol::Atom msg;
         msg.set_value(PUSH_MESSAGE_ACK);
@@ -124,7 +125,7 @@ namespace client
 
         try
         {
-            communicator->reply(pushMessage, moduleName, msg);
+            communicator->reply(pushMessage, module, msg);
             DLOG(INFO) << "push message ack sent successfully";
         }
         catch(communication::Exception &e)

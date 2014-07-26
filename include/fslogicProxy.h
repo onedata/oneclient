@@ -59,8 +59,6 @@ static constexpr const char
     *ATOM                   = "atom",
     *PUSH_MESSAGE_ACK       = "ack",
 
-    *FSLOGIC                = "fslogic",
-
     *ACTION_NOT_ALLOWED     = "not_allowed",
     *ACTION_FAILED          = "action_failed";
 

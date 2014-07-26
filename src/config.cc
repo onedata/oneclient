@@ -177,7 +177,7 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
         }
 
         // Send HandshakeRequest message
-        auto ans = communicator->communicate<HandshakeResponse>(communication::FSLOGIC_MODULE_NAME, reqMsg, 2);
+        auto ans = communicator->communicate<HandshakeResponse>(communication::ServerModule::FSLOGIC, reqMsg, 2);
 
         // Check answer
         if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
@@ -264,7 +264,7 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
                 }
 
                 // Send HandshakeRequest message
-                auto ans = communicator->communicate<HandshakeResponse>(communication::FSLOGIC_MODULE_NAME, reqMsg, 2);
+                auto ans = communicator->communicate<HandshakeResponse>(communication::ServerModule::FSLOGIC, reqMsg, 2);
                 if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
                 {
                     // Set FUSE_ID in config

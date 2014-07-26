@@ -304,7 +304,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message &fMsg, 
     {
         LOG(INFO) << "Sending message (type: " << fMsg.GetDescriptor()->name() << "). Expecting answer with type: " << response.GetDescriptor()->name();
 
-        auto answer = communicator->communicate<Ans>(communication::FSLOGIC_MODULE_NAME, fuseMsg, 2);
+        auto answer = communicator->communicate<Ans>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
 
         if(answer->answer_status() != VOK)
         {
@@ -340,7 +340,7 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
     {
         LOG(INFO) << "Sending message (type: " << fMsg.GetDescriptor()->name() << "). Expecting answer with type: atom";
 
-        auto answer = communicator->communicate<>(communication::FSLOGIC_MODULE_NAME, fuseMsg, 2);
+        auto answer = communicator->communicate<>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
 
         if(answer->answer_status() == INVALID_FUSE_ID)
             m_context->getConfig()->negotiateFuseID(0);
@@ -396,7 +396,7 @@ void FslogicProxy::pingCluster(const string &nth)
     {
         Atom ping;
         ping.set_value("ping");
-        auto answer = communicator->communicate<>(communication::FSLOGIC_MODULE_NAME, ping);
+        auto answer = communicator->communicate<>(communication::ServerModule::FSLOGIC, ping);
 
         if(answer->answer_status() == VEIO)
             LOG(WARNING) << "Pinging cluster failed";
