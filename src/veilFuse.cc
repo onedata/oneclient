@@ -412,7 +412,15 @@ int main(int argc, char* argv[], char* envp[])
                 std::cout << CONFIRM_CERTIFICATE_PROMPT(username);
                 std::getline(std::cin, userAns);
                 std::transform(userAns.begin(), userAns.end(), userAns.begin(), ::tolower);
-            } while(userAns.size() == 0 || (userAns[0] != 'y' && userAns[0] != 't' && userAns[0] != 'n'));
+            } while( std::cin && (userAns.size() == 0 || (userAns[0] != 'y' && userAns[0] != 't' && userAns[0] != 'n')));
+
+            // Exit if input stream was interrupted somehow
+            if(!userAns.size())
+            {
+                fuse_unmount(mountpoint, ch);
+                std::cerr << std::endl << "Cannot confirm certificate. Aborting." << std::endl;
+                exit(EXIT_FAILURE);
+            }
 
             // Resend handshake request along with account confirmation / rejection
             config->testHandshake(username, userAns[0] == 'y' || userAns[0] == 't');
