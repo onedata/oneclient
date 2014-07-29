@@ -7,7 +7,6 @@
 
 #include "testCommon.h"
 #include "metaCache_proxy.h"
-#include "config_proxy.h"
 #include "options_mock.h"
 #include "jobScheduler_mock.h"
 
@@ -27,7 +26,7 @@ protected:
 
     virtual void SetUp() {
         COMMON_SETUP();
-        proxy.reset(new ProxyMetaCache());
+        proxy.reset(new ProxyMetaCache(context));
 
         EXPECT_CALL(*options, has_enable_attr_cache()).WillRepeatedly(Return(true));
         EXPECT_CALL(*options, get_enable_attr_cache()).WillRepeatedly(Return(true));

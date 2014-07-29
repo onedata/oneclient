@@ -19,7 +19,7 @@
 /// Declare a new configuration option
 #define DECL_CONFIG(NAME, TYPE) \
     public: virtual bool has_##NAME() const { return m_vm.count(#NAME) && !m_vm[#NAME].defaulted(); } \
-    public: TYPE get_##NAME() const { return m_vm.at(#NAME).as<TYPE>(); } \
+    public: virtual TYPE get_##NAME() const { return m_vm.at(#NAME).as<TYPE>(); } \
     private: void add_##NAME(boost::program_options::options_description &desc) const \
              { desc.add_options()(#NAME, boost::program_options::value<TYPE>()); }
 
@@ -120,6 +120,7 @@ private:
     DECL_CONFIG_DEF(alive_data_connections_count, unsigned int, 2)
     DECL_CONFIG_DEF(enable_dir_prefetch, bool, true)
     DECL_CONFIG_DEF(enable_parallel_getattr, bool, true)
+    DECL_CONFIG_DEF(enable_permission_checking, bool, false)
     DECL_CONFIG_DEF(write_buffer_max_size, std::size_t, 64 * 1024 * 1024) // 64 MB
     DECL_CONFIG_DEF(read_buffer_max_size, std::size_t, 10 * 1024 * 1024) // 10 MB
     DECL_CONFIG_DEF(write_buffer_max_file_size, std::size_t, 64 * 1024 * 1024) // 64 MB

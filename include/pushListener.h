@@ -16,6 +16,7 @@
 #include <boost/thread.hpp>
 #include <boost/unordered_map.hpp>
 #include <list>
+#include <memory>
 
 #include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"
@@ -23,13 +24,15 @@
 namespace veil {
 namespace client {
     
+class Context;
+
 typedef boost::function<bool(const protocol::communication_protocol::Answer&)> listener_fun;
     
 class PushListener : public boost::enable_shared_from_this<PushListener>, boost::noncopyable
 {
 public:
     
-    PushListener();
+    PushListener(std::weak_ptr<Context> context);
     virtual ~PushListener();
     
     void onMessage(const protocol::communication_protocol::Answer); ///< Input callback. This method should be registered in connection object. This is the source of all processed messages.
@@ -42,7 +45,7 @@ public:
 
     void onChannelError(const protocol::communication_protocol::Answer& msg); ///< Callback called fo each non-ok Answer from cluster. 
 
-    static void sendPushMessageAck(const std::string & moduleName, int messageId); ///< Sends push message ack for message with messageId.
+    void sendPushMessageAck(const std::string & moduleName, int messageId); ///< Sends push message ack for message with messageId.
     
 protected:
     
@@ -56,6 +59,9 @@ protected:
     std::list<protocol::communication_protocol::Answer> m_msgQueue;     ///< Message inbox
     
     virtual void mainLoop();                                            ///< Worker thread's loop
+
+private:
+    const std::weak_ptr<Context> m_context;
 };
     
 } // namespace client

@@ -9,16 +9,19 @@
 #define META_CACHE_H
 
 #include <map>
-#include <boost/unordered_map.hpp>
+#include <unordered_map>
 #include <string>
 #include <sys/stat.h>
-#include <time.h>
+#include <ctime>
+#include <memory>
 
 #include "ISchedulable.h"
 #include "lock.h"
 
 namespace veil {
 namespace client {
+
+class Context;
 
 /**
  * Class responsible for caching file attributes.
@@ -27,14 +30,14 @@ namespace client {
 class MetaCache : public ISchedulable
 {
 protected:
-    boost::unordered_map<std::string, std::pair<time_t, struct stat> > m_statMap;  ///< This is the cache map.
+    std::unordered_map<std::string, std::pair<time_t, struct stat> > m_statMap;  ///< This is the cache map.
                                                                         ///< Value of this std::map is std::pair containing expiration time of attributes and
                                                                         ///< stat struct itself
     ReadWriteLock m_statMapLock;                                        ///< Lock used to synchronize access to MetaCache::m_statMap
 
 public:
 
-    MetaCache();
+    MetaCache(std::shared_ptr<Context> context);
     virtual ~MetaCache();
 
     virtual void addAttr(const std::string&, struct stat&); ///< Cache given attributes
@@ -53,6 +56,8 @@ public:
 
     virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
+private:
+    const std::shared_ptr<Context> m_context;
 };
 
 } // namespace client

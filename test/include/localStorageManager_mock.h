@@ -11,11 +11,16 @@
 #include "localStorageManager.h"
 #include "testCommon.h"
 
+#include "context.h"
+
+#include <memory>
+
 class MockLocalStorageManager
     : public LocalStorageManager {
 
 public:
-    MockLocalStorageManager() {};
-    ~MockLocalStorageManager() {};
+    MockLocalStorageManager(std::shared_ptr<Context> context)
+        : LocalStorageManager{std::move(context)} {}
+    ~MockLocalStorageManager() {}
 };
 #endif // LOCAL_STORAGE_MANAGER_MOCK_H

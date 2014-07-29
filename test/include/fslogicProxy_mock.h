@@ -11,16 +11,20 @@
 #include "fslogicProxy.h"
 #include "testCommon.h"
 #include "gmock/gmock.h"
+#include "context.h"
+
+#include <memory>
 
 using namespace veil::protocol::fuse_messages;
 
 class MockFslogicProxy
     : public FslogicProxy {
 public:
-    MockFslogicProxy() {};
+    MockFslogicProxy(std::shared_ptr<Context> context)
+        : FslogicProxy{std::move(context)} {};
     ~MockFslogicProxy() {};
 
-    MOCK_METHOD2(getFileLocation, bool(const string&, FileLocation&));
+    MOCK_METHOD3(getFileLocation, bool(const string&, FileLocation&, const string&));
     MOCK_METHOD2(changeFilePerms, string(const string&, mode_t));
     MOCK_METHOD2(renameFile, string(const string&, const string&));
     MOCK_METHOD1(deleteFile, string(const string&));

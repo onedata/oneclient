@@ -10,9 +10,11 @@
 #ifndef MESSAGE_BUILDER_H
 #define MESSAGE_BUILDER_H
 
-#include <string>
 #include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"
+
+#include <memory>
+#include <string>
 
 #define FUSE_MESSAGES "fuse_messages"
 #define COMMUNICATION_PROTOCOL "communication_protocol"
@@ -23,6 +25,8 @@
 namespace veil {
 namespace client {
 
+class Context;
+
 /**
  * The MessageBuilder class.
  * This class can be used to build protobuf messages used to communicate with cluster.
@@ -32,7 +36,7 @@ namespace client {
 class MessageBuilder
 {
 public:
-    MessageBuilder();
+    MessageBuilder(std::shared_ptr<Context> context);
     virtual ~MessageBuilder();
     virtual protocol::fuse_messages::FuseMessage            createFuseMessage(const std::string &id, const std::string &messageType, const std::string &messageInput);
     virtual protocol::communication_protocol::ClusterMsg    createClusterMessage(const std::string &moduleName, const std::string &messageType, const std::string &messageDecoderName, const std::string &answerType, const std::string &answerDecoderName, bool synch, const std::string &input);
@@ -42,6 +46,8 @@ public:
     virtual protocol::fuse_messages::FuseMessage            decodeFuseAnswer(protocol::communication_protocol::Answer& answer);
     virtual std::string                                     decodeAtomAnswer(protocol::communication_protocol::Answer& answer);
 
+private:
+    const std::shared_ptr<Context> m_context;
 };
 
 } // namespace client

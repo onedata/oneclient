@@ -56,8 +56,15 @@
 #define ACTION_NOT_ALLOWED "not_allowed"
 #define ACTION_FAILED "action_failed"
 
+#define READ_MODE "read"
+#define WRITE_MODE "write"
+#define RDWR_MODE "rdwr"
+#define UNSPECIFIED_MODE ""
+
 namespace veil {
 namespace client {
+
+class Context;
 
 /**
  * The FslogicProxy class.
@@ -84,11 +91,11 @@ protected:
                                                                                         ///< But receives simple atom cluster response. @see FslogicProxy::sendFuseReceiveAnswer
 
 public:
-    FslogicProxy();
+    FslogicProxy(std::shared_ptr<Context> context);
     virtual ~FslogicProxy();
 
     virtual bool            getFileAttr(const std::string& logicName, protocol::fuse_messages::FileAttr& attr);                 ///< Downloads file attributes from cluster
-    virtual bool            getFileLocation(const std::string& logicName, protocol::fuse_messages::FileLocation& location);     ///< Downloads file location info
+    virtual bool            getFileLocation(const std::string& logicName, protocol::fuse_messages::FileLocation& location, const std::string &openMode = UNSPECIFIED_MODE); ///< Downloads file location info
     virtual bool            getNewFileLocation(const std::string& logicName, mode_t mode, protocol::fuse_messages::FileLocation& location); ///< Query cluser to create new file in DB and get its real location
     virtual std::string     sendFileCreatedAck(const std::string& logicName);                                                   ///< Send acknowledgement about created file to cluster
     virtual int             renewFileLocation(const std::string& logicName);                                                    ///< Try to renew location validity for given file
@@ -108,6 +115,9 @@ public:
     virtual void            pingCluster(const std::string &);
 
     virtual bool            runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+
+private:
+    const std::shared_ptr<Context> m_context;
 };
 
 } // namespace client
