@@ -91,6 +91,7 @@ namespace client {
 
 VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
                std::shared_ptr<FslogicProxy> fslogic,  std::shared_ptr<MetaCache> metaCache,
+               std::shared_ptr<LocalStorageManager> sManager,
                std::shared_ptr<helpers::StorageHelperFactory> sh_factory,
                std::shared_ptr<events::EventCommunicator> eventCommunicator) :
     m_fh(0),
