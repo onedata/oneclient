@@ -57,13 +57,13 @@ public:
     virtual void clearAttr(const std::string &path);        ///< Remove cache for given file
     virtual bool updateTimes(const std::string &path, time_t atime = 0, time_t mtime = 0, time_t ctime = 0); ///< Update *time meta attributes for specific file in cache. Returns true if cache was updated or false if given file wasn't found in cache.
     virtual bool updateSize(const std::string &path, size_t size); ///< Update size meta attribute for specific file in cache. Returns true if cache was updated or false if given file wasn't found in cache.
-\
+
     /**
      * Checks if file with given attributes can be accessed directly considering
      * user's group membership.
      * @param attrs of the file
      */
-    virtual bool canUseDefaultPermissions(const struct stat &attrs); ///<
+    virtual bool canUseDefaultPermissions(const struct stat &attrs);
 
     virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 

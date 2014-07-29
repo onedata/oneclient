@@ -116,7 +116,7 @@ bool MetaCache::canUseDefaultPermissions(const struct stat &attrs)
     if(geteuid() == attrs.st_uid || getegid() == attrs.st_gid)
         return true;
 
-    std::vector<gid_t> suppGroups( getgroups(0, NULL) );
+    std::vector<gid_t> suppGroups( getgroups(0, nullptr) );
     getgroups(suppGroups.size(), suppGroups.data());
 
     return std::any_of(suppGroups.begin(), suppGroups.end(), [attrs](gid_t cgid) { return cgid == attrs.st_gid; });

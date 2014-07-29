@@ -62,7 +62,7 @@ struct storageInfo
     storageInfo() {}
 
     storageInfo(const std::string &helperName, const helpers::IStorageHelper::ArgsMap &helperArgs)
-        : last_updated(time(NULL))
+        : last_updated(time(nullptr))
         , storageHelperName(helperName)
         , storageHelperArgs(helperArgs)
     {
