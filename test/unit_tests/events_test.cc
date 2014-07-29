@@ -8,10 +8,9 @@
 #include "testCommon.h"
 
 #include "communication_protocol.pb.h"
-#include "connectionPool_mock.h"
+#include "communication/communicator_mock.h"
 #include "events/events.h"
 #include "events_mock.h"
-#include "fslogicProxy_proxy.h"
 #include "fuse_messages.pb.h"
 #include "jobScheduler_mock.h"
 #include "options_mock.h"
@@ -32,13 +31,9 @@ public:
     {
         CommonTest::SetUp();
 
-        std::shared_ptr<MockCommunicationHandler> connectionMock;
-        connectionMock = std::make_shared<MockCommunicationHandler>();
-        EXPECT_CALL(*connectionPool, selectConnection(_)).WillRepeatedly(Return(connectionMock));
-        EXPECT_CALL(*connectionPool, releaseConnection(_)).WillRepeatedly(Return());
         veil::protocol::communication_protocol::Answer ans;
         ans.set_answer_status(VOK);
-        EXPECT_CALL(*connectionMock, communicate(_, _, _)).WillRepeatedly(Return(ans));
+        EXPECT_CALL(*communicator, communicateMock(_, _, _, _)).WillRepeatedly(Return(ans));
     }
 };
 

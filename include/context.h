@@ -20,7 +20,7 @@
 namespace veil
 {
 
-class SimpleConnectionPool;
+namespace communication{ class Communicator; }
 
 namespace client
 {
@@ -43,8 +43,8 @@ public:
     std::shared_ptr<JobScheduler> getScheduler(const ISchedulable::TaskID taskId = ISchedulable::TaskID::TASK_LAST_ID);
     void addScheduler(std::shared_ptr<JobScheduler> scheduler);
 
-    std::shared_ptr<SimpleConnectionPool> getConnectionPool() const;
-    void setConnectionPool(std::shared_ptr<SimpleConnectionPool> connectionPool);
+    std::shared_ptr<communication::Communicator> getCommunicator() const;
+    void setCommunicator(std::shared_ptr<communication::Communicator> communicator);
 
     std::shared_ptr<PushListener> getPushListener() const;
     void setPushListener(std::shared_ptr<PushListener> pushListener);
@@ -56,14 +56,14 @@ private:
     std::shared_ptr<Options> m_options;
     std::shared_ptr<Config> m_config;
     std::list<std::shared_ptr<JobScheduler>> m_jobSchedulers;
-    std::shared_ptr<SimpleConnectionPool> m_connectionPool;
+    std::shared_ptr<communication::Communicator> m_communicator;
     std::shared_ptr<PushListener> m_pushListener;
     std::shared_ptr<StorageMapper> m_storageMapper;
 
     mutable boost::shared_mutex m_optionsMutex;
     mutable boost::shared_mutex m_configMutex;
     std::mutex m_jobSchedulersMutex;
-    mutable boost::shared_mutex m_connectionPoolMutex;
+    mutable boost::shared_mutex m_communicatorMutex;
     mutable boost::shared_mutex m_pushListenerMutex;
     mutable boost::shared_mutex m_storageMapperMutex;
 };

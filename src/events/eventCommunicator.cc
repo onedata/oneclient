@@ -8,7 +8,8 @@
 #include "events/eventCommunicator.h"
 
 #include "communication_protocol.pb.h"
-#include "communicationHandler.h"
+#include "communication/communicator.h"
+#include "communication/exception.h"
 #include "context.h"
 #include "events/customActionStream.h"
 #include "events/event.h"
@@ -25,7 +26,6 @@
 #include "metaCache.h"
 #include "options.h"
 #include "pushListener.h"
-#include "simpleConnectionPool.h"
 #include "veilfs.h"
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -75,7 +75,7 @@ void EventCommunicator::handlePushedAtom(const Answer &msg)
             // do nothing
         }else if(atom.value() == "test_atom2_ack" && msg.has_message_id() && msg.message_id() < -1){
             // just for test purposes
-            m_context->getPushListener()->sendPushMessageAck("rule_manager", msg.message_id());
+            m_context->getPushListener()->sendPushMessageAck(msg, communication::ServerModule::RULE_MANAGER);
         }
     }else{
         LOG(WARNING) << "Cannot parse pushed message as " << atom.GetDescriptor()->name();
@@ -100,50 +100,49 @@ void EventCommunicator::configureByCluster()
     Atom atom;
     atom.set_value(EVENT_PRODUCER_CONFIG_REQUEST);
 
-    ClusterMsg clm = m_messageBuilder->createClusterMessage(RULE_MANAGER, ATOM, COMMUNICATION_PROTOCOL, EVENT_PRODUCER_CONFIG, FUSE_MESSAGES, true, atom.SerializeAsString());
-
-    std::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
-
-    Answer ans;
-    if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
-        LOG(WARNING) << "sending atom eventproducerconfigrequest failed: " << (connection ? "failed" : "not needed");
-    } else {
-        m_context->getConnectionPool()->releaseConnection(connection);
-        LOG(INFO) << "atom eventproducerconfigrequest sent";
-    }
-
-    LOG(INFO) << "eventproducerconfigrequest answer_status: " << ans.answer_status();
-
-    EventProducerConfig config;
-    if(!config.ParseFromString(ans.worker_answer())){
-        LOG(WARNING) << "Cannot parse eventproducerconfigrequest answer as EventProducerConfig";
-        return;
-    }
-
-    LOG(INFO) << "Fetched EventProducerConfig contains " << config.event_streams_configs_size() << " stream configurations";
-
-    for(int i=0; i<config.event_streams_configs_size(); ++i)
+    auto communicator = m_context->getCommunicator();
+    try
     {
-        addEventSubstreamFromConfig(config.event_streams_configs(i));
+        auto ans = communicator->communicate<EventProducerConfig>(communication::ServerModule::RULE_MANAGER, atom);
+        if(ans->answer_status() == VEIO)
+            LOG(WARNING) << "sending atom eventproducerconfigrequest failed: not needed";
+
+        LOG(INFO) << "eventproducerconfigrequest answer_status: " << ans->answer_status();
+
+        EventProducerConfig config;
+        if(!config.ParseFromString(ans->worker_answer())){
+            LOG(WARNING) << "Cannot parse eventproducerconfigrequest answer as EventProducerConfig";
+            return;
+        }
+
+        LOG(INFO) << "Fetched EventProducerConfig contains " << config.event_streams_configs_size() << " stream configurations";
+
+        for(int i=0; i<config.event_streams_configs_size(); ++i)
+        {
+            addEventSubstreamFromConfig(config.event_streams_configs(i));
+        }
+    }
+    catch(communication::Exception &e)
+    {
+        LOG(WARNING) << "sending atom eventproducerconfigrequest failed: " << e.what();
     }
 }
 
 void EventCommunicator::sendEvent(const std::shared_ptr<Context> &context,
                                   std::shared_ptr<EventMessage> eventMessage)
 {
-    string encodedEventMessage = eventMessage->SerializeAsString();
-
-    MessageBuilder messageBuilder{context};
-    ClusterMsg clm = messageBuilder.createClusterMessage(CLUSTER_RENGINE, EVENT_MESSAGE, FUSE_MESSAGES, ATOM, COMMUNICATION_PROTOCOL, false, encodedEventMessage);
-
-    std::shared_ptr<CommunicationHandler> connection = context->getConnectionPool()->selectConnection();
-
-    Answer ans;
-    if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
-        LOG(WARNING) << "sending event message failed";
-    } else {
-        context->getConnectionPool()->releaseConnection(connection);
-        DLOG(INFO) << "Event message sent";
+    auto communicator = context->getCommunicator();
+    try
+    {
+        auto ans = communicator->communicate<>(communication::ServerModule::CLUSTER_RENGINE, *eventMessage);
+        if(ans->answer_status() == VEIO)
+            LOG(WARNING) << "sending event message failed";
+        else
+            DLOG(INFO) << "Event message sent";
+    }
+    catch(communication::Exception &e)
+    {
+        LOG(WARNING) << "sending event message failed: " << e.what();
     }
 }
 
@@ -152,28 +151,31 @@ bool EventCommunicator::askClusterIfWriteEnabled()
     Atom atom;
     atom.set_value("is_write_enabled");
 
-    ClusterMsg clm = m_messageBuilder->createClusterMessage(FSLOGIC, ATOM, COMMUNICATION_PROTOCOL, ATOM, COMMUNICATION_PROTOCOL, true, atom.SerializeAsString());
+    auto communicator = m_context->getCommunicator();
+    try
+    {
+        auto ans = communicator->communicate<>(communication::ServerModule::FSLOGIC, atom);
+        if(ans->answer_status() == VEIO)
+            LOG(WARNING) << "sending atom is_write_enabled failed";
+        else
+            LOG(INFO) << "atom is_write_enabled sent";
 
-    std::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
-
-    Answer ans;
-    if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
-        LOG(WARNING) << "sending atom is_write_enabled failed";
-    } else {
-        m_context->getConnectionPool()->releaseConnection(connection);
-        LOG(INFO) << "atom is_write_enabled sent";
+        Atom response;
+        if(!response.ParseFromString(ans->worker_answer()))
+        {
+            LOG(WARNING) << " cannot parse is_write_enabled response as atom. Using WriteEnabled = true mode.";
+            return true;
+        }
+        else
+        {
+            return response.value() != "false";
+        }
     }
-
-    Atom response;
-    bool result;
-    if(!response.ParseFromString(ans.worker_answer())){
-        result = true;
-        LOG(WARNING) << " cannot parse is_write_enabled response as atom. Using WriteEnabled = true mode.";
-    }else{
-        result = response.value() == "false" ? false : true;
+    catch(communication::Exception &e)
+    {
+        LOG(WARNING) << "sending atom is_write_enabled failed: " << e.what();
+        return true;
     }
-
-    return result;
 }
 
 void EventCommunicator::addEventSubstream(std::shared_ptr<IEventStream> newStream)

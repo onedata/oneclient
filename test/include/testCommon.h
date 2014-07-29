@@ -32,9 +32,9 @@ namespace veil
     }
 }
 
-class MockOptions;
+struct MockOptions;
 class MockJobScheduler;
-class MockConnectionPool;
+class MockCommunicator;
 class MockStorageMapper;
 class MockFslogicProxy;
 
@@ -45,7 +45,7 @@ public:
     std::shared_ptr<veil::client::Config> config;
     std::shared_ptr<MockOptions> options;
     std::shared_ptr<MockJobScheduler> scheduler;
-    std::shared_ptr<MockConnectionPool> connectionPool;
+    std::shared_ptr<MockCommunicator> communicator;
     std::shared_ptr<MockStorageMapper> storageMapper;
     std::shared_ptr<MockFslogicProxy> fslogic;
 

@@ -11,7 +11,6 @@
 #include "erlTestCore.h"
 #include "fuse_messages.pb.h"
 #include "pushListener.h"
-#include "simpleConnectionPool.h"
 #include "testCommon.h"
 
 #include <boost/filesystem.hpp>
@@ -73,36 +72,15 @@ public:
 TEST_F(PushChannelTest, RegisterAndClose)
 {
     // By default client should register at least one handler
-
     ASSERT_LT(0, fromString<int>(veil::testing::erlExec(std::string("{get_handler_count, \"") + config->getFuseID() + std::string("\"}"))));
 
-    // Make sure we have only one connection
-    context->getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, 1);
+    // Close communication channels
+    context->setCommunicator(nullptr);
 
     // Close PUSH channel
-    context->getConnectionPool()->selectConnection()->disablePushChannel();
     sleep(2);
     ASSERT_EQ(0, fromString<int>(veil::testing::erlExec(std::string("{get_handler_count, \"") + config->getFuseID() + std::string("\"}"))));
 }
-
-
-// Test if PUSH channel failure doesnt break its PUSH handler status
-TEST_F(PushChannelTest, pushChannelFailure)
-{
-    // Make sure we have only one connection
-    context->getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, 1);
-
-    // Close PUSH channel
-    std::shared_ptr<CommunicationHandler> conn = context->getConnectionPool()->selectConnection();
-
-    conn->closeConnection();
-    int connectRes = conn->openConnection();
-    ASSERT_EQ(0, connectRes);
-    sleep(2);
-
-    ASSERT_LT(0, fromString<int>(veil::testing::erlExec(std::string("{get_handler_count, \"") + config->getFuseID() + std::string("\"}"))));
-}
-
 
 // Test if PUSH channel receives messages
 TEST_F(PushChannelTest, pushChannelInbox)

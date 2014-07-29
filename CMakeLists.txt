@@ -118,8 +118,7 @@ PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 # Setup sources
-file(GLOB_RECURSE SOURCES src/*.cc)
-file(GLOB_RECURSE HEADERS include/*.h)
+file(GLOB_RECURSE SOURCES src/*.cc include/*.h)
 set(MAIN_SOURCE_FILE src/veilFuse.cc)
 string(REGEX REPLACE "${MAIN_SOURCE_FILE}" "" SOURCES "${SOURCES}")
 
@@ -243,6 +242,8 @@ set(TEST_SOURCES_DIR "${PROJECT_SOURCE_DIR}/test")
 include_directories(${TEST_SOURCES_DIR}/include)
 include_directories(${VEILHELPERS_TEST_INCLUDE_DIR})
 
+file(GLOB_RECURSE TEST_HEADERS ${TEST_SOURCES_DIR}/include/*.h)
+
 set(TEST_UTILS_DIR ${TEST_SOURCES_DIR}/erl_core)
 add_library(testCommon OBJECT
     ${TEST_SOURCES_DIR}/testRunner.cc
@@ -266,7 +267,7 @@ endmacro()
 file(GLOB files ${TEST_SOURCES_DIR}/unit_tests/*_test.cc)
 foreach(file ${files})
     get_filename_component(TEST_NAME ${file} NAME_WE)
-    add_executable(${TEST_NAME} ${file} $<TARGET_OBJECTS:testCommon>)
+    add_executable(${TEST_NAME} ${file} ${TEST_HEADERS} $<TARGET_OBJECTS:testCommon>)
     add_dependencies(${TEST_NAME} gtest gmock veilFuse veilhelpers veilclient veilprotocol)
     target_link_libraries(${TEST_NAME}
         ${GTEST_LIBRARIES}

@@ -10,6 +10,8 @@
 
 #include "messageBuilder.h"
 
+#include "fuse_messages.pb.h"
+
 #include <gmock/gmock.h>
  
 #include <memory>
@@ -22,7 +24,7 @@ public:
     {
     }
 
-    MOCK_METHOD4(packFuseMessage, veil::protocol::communication_protocol::ClusterMsg(const std::string&, const std::string&, const std::string&, const std::string&));
+    MOCK_METHOD3(createFuseMessage, veil::protocol::fuse_messages::FuseMessage(const std::string&, const std::string&, const std::string&));
     MOCK_METHOD1(decodeAtomAnswer, std::string(veil::protocol::communication_protocol::Answer&));
 };
 

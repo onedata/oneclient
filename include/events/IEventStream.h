@@ -22,9 +22,6 @@ namespace events
 class Event;
 
 static constexpr const char
-    *RULE_MANAGER                   = "rule_manager",
-    *CLUSTER_RENGINE                = "cluster_rengine",
-
     *EVENT_PRODUCER_CONFIG_REQUEST  = "event_producer_config_request",
     *EVENT_PRODUCER_CONFIG          = "eventproducerconfig",
     *EVENT_MESSAGE                  = "eventmessage",

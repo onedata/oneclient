@@ -9,7 +9,7 @@
 #define VEILCLIENT_GSI_HANDLER_H
 
 
-#include "communicationHandler.h"
+#include "communication/certificateData.h"
 
 #include <memory>
 #include <string>
@@ -40,7 +40,7 @@ public:
     bool validateProxyConfig();
     bool validateProxyCert();
     std::string getClusterHostname();
-    CertificateInfo getCertInfo();
+    std::shared_ptr<communication::CertificateData> getCertData();
 
 private:
     std::pair<std::string, std::string> findUserCertAndKey(const boost::filesystem::path &dir);

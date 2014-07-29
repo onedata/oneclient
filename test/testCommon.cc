@@ -7,8 +7,9 @@
 
 #include "testCommon.h"
 
+#include "communication/communicator.h"
+#include "communication/communicator_mock.h"
 #include "config.h"
-#include "connectionPool_mock.h"
 #include "context.h"
 #include "erlTestCore.h"
 #include "gsiHandler.h"
@@ -38,19 +39,18 @@ void CommonTest::SetUp()
     options = std::make_shared<StrictMock<MockOptions>>();
     config = std::make_shared<veil::client::Config>(context);
     scheduler = std::make_shared<MockJobScheduler>();
-    connectionPool = std::make_shared<MockConnectionPool>();
+    communicator = std::make_shared<NiceMock<MockCommunicator>>();
     fslogic = std::make_shared<MockFslogicProxy>(context);
     storageMapper = std::make_shared<MockStorageMapper>(context, fslogic);
 
     context->setOptions(options);
     context->setConfig(config);
     context->addScheduler(scheduler);
-    context->setConnectionPool(connectionPool);
+    context->setCommunicator(communicator);
     context->setStorageMapper(storageMapper);
 
     EXPECT_CALL(*options, has_fuse_group_id()).WillRepeatedly(Return(true));
     EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(false));
-    EXPECT_CALL(*connectionPool, setPushCallback(_, _)).WillRepeatedly(Return());
 }
 
 CommonIntegrationTest::CommonIntegrationTest(std::unique_ptr<veil::testing::VeilFSMount> veilFsMount)
@@ -80,13 +80,22 @@ void CommonIntegrationTest::SetUp()
     auto gsiHandler = std::make_shared<veil::client::GSIHandler>(context);
     gsiHandler->validateProxyConfig();
 
-    context->setConnectionPool(std::make_shared<veil::SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), std::bind(&veil::client::GSIHandler::getCertInfo, gsiHandler)));
+    const auto clusterUri = "wss://" + gsiHandler->getClusterHostname() + ":" +
+            std::to_string(options->get_cluster_port()) + "/veilclient";
+
+    const auto communicator = veil::communication::createWebsocketCommunicator(
+                options->get_alive_data_connections_count(),
+                options->get_alive_meta_connections_count(),
+                clusterUri, gsiHandler->getCertData(),
+                /*checkCertificate*/ false);
+
+    context->setCommunicator(communicator);
 
     veilFS = std::make_shared<veil::client::VeilFS>(veil::testing::VeilFSRoot, context, fslogic,
                         std::make_shared<veil::client::MetaCache>(context),
                         std::make_shared<veil::client::LocalStorageManager>(context),
-                        storageMapper,
-                        std::make_shared<veil::helpers::StorageHelperFactory>(context->getConnectionPool(), veil::helpers::BufferLimits{}),
+                        std::make_shared<veil::client::StorageMapper>(context, fslogic),
+                        std::make_shared<veil::helpers::StorageHelperFactory>(context->getCommunicator(), veil::helpers::BufferLimits{}),
                         std::make_shared<veil::client::events::EventCommunicator>(context));
 
     std::this_thread::sleep_for(std::chrono::seconds{5});

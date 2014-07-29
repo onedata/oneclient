@@ -5,12 +5,11 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
+#include "communication/communicator_mock.h"
 #include "config.h"
-#include "connectionPool_mock.h"
 #include "events/events.h"
 #include "events_mock.h"
 #include "fslogicProxy_mock.h"
-#include "fslogicProxy_proxy.h"
 #include "jobScheduler_mock.h"
 #include "localStorageManager_mock.h"
 #include "messageBuilder_mock.h"
@@ -59,8 +58,8 @@ public:
         context->setConfig(config);
         scheduler = std::make_shared<MockJobScheduler>();
         context->addScheduler(scheduler);
-        connectionPool = std::make_shared<MockConnectionPool>();
-        context->setConnectionPool(connectionPool);
+        communicator = std::make_shared<MockCommunicator>();
+        context->setCommunicator(communicator);
         fslogicMock = std::make_shared<MockFslogicProxy>(context);
         storageMapperMock = std::make_shared<MockStorageMapper>(context, fslogicMock);
         context->setStorageMapper(storageMapperMock);
@@ -79,9 +78,6 @@ public:
         EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(false));
         EXPECT_CALL(*options, has_fuse_group_id()).WillRepeatedly(Return(true));
         EXPECT_CALL(*options, get_write_bytes_before_stat()).WillRepeatedly(Return(0));
-        EXPECT_CALL(*connectionPool, setPushCallback(_, _)).WillRepeatedly(Return());
-
-        EXPECT_CALL(*metaCacheMock, canUseDefaultPermissions(_)).WillRepeatedly(Return(true));
 
         const ::testing::TestInfo* const test_info = ::testing::UnitTest::GetInstance()->current_test_info();
         std::string testCaseName = test_info->test_case_name();
