@@ -94,7 +94,6 @@ void CommonIntegrationTest::SetUp()
     veilFS = std::make_shared<veil::client::VeilFS>(veil::testing::VeilFSRoot, context, fslogic,
                         std::make_shared<veil::client::MetaCache>(context),
                         std::make_shared<veil::client::LocalStorageManager>(context),
-                        std::make_shared<veil::client::StorageMapper>(context, fslogic),
                         std::make_shared<veil::helpers::StorageHelperFactory>(context->getCommunicator(), veil::helpers::BufferLimits{}),
                         std::make_shared<veil::client::events::EventCommunicator>(context));
 
