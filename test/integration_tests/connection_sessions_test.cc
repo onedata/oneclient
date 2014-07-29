@@ -5,64 +5,58 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.h"
+#include "communication_protocol.pb.h"
+#include "config.h"
 #include "erlTestCore.h"
-#include "boost/filesystem.hpp"
+#include "fuse_messages.pb.h"
+#include "veilErrors.h"
+#include "testCommon.h"
+
+#include <boost/filesystem.hpp>
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <boost/thread/thread_time.hpp>
+
 #include <cstdlib>
 
 using namespace boost::filesystem;
-using namespace std;
+using namespace veil;
+using namespace veil::client::utils;
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
-using namespace veil::client::utils;
+using veil::FUSE_OPT_PREFIX;
 
-INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
-
-// TEST definitions below
-
-class ConnectionSessionsTest
-: public ::testing::Test
+class ConnectionSessionsTest: public CommonIntegrationTest
 {
 protected:
-    COMMON_INTEGRATION_DEFS();
-
-    VeilFSMount VFS;
-
     path directIO_root;
 
-    ConnectionSessionsTest() : VFS("main", "peer.pem")
+    ConnectionSessionsTest()
+        : CommonIntegrationTest{std::unique_ptr<veil::testing::VeilFSMount>{new veil::testing::VeilFSMount{"main", "peer.pem"}}}
     {
     }
-
-    virtual void SetUp() {
-        COMMON_INTEGRATION_SETUP();
-    }
-
-    virtual void TearDown() {
-        COMMON_INTEGRATION_CLEANUP();
-    }
-
 };
 
 // Test if client negotiates and registers its FuseId after start
-TEST_F(ConnectionSessionsTest, SessionInitAndRegister) {
+TEST_F(ConnectionSessionsTest, SessionInitAndRegister)
+{
     // By default client should negotiate and register FuseId
+
     // Check if cluster already knows who we are
-    ASSERT_EQ("ok", erlExec(string("{check_session, \"") + config->getFuseID() + string("\"}")));
+    ASSERT_EQ("ok", veil::testing::erlExec("{check_session, \"" + config->getFuseID() + "\"}"));
 }
 
 // Test if client can renegotiate FuseId and send env variables
-TEST_F(ConnectionSessionsTest, SessionEnvVairables_And_SessionReinitialization) {
+TEST_F(ConnectionSessionsTest, SessionEnvVairables_And_SessionReinitialization)
+{
     // By default client should negotiate and register FuseId
 
-    string currentFuseId = config->getFuseID();
+    std::string currentFuseId = config->getFuseID();
+
     // Now we can manually add some env varables
-    config->putEnv(string(FUSE_OPT_PREFIX) + string("varname1"),"varvalue1");
-    config->putEnv(string(FUSE_OPT_PREFIX) + string("varname2"),"varvalue2");
+    config->putEnv(std::string(FUSE_OPT_PREFIX) + std::string("varname1"), "varvalue1");
+    config->putEnv(std::string(FUSE_OPT_PREFIX) + std::string("varname2"), "varvalue2");
 
     // Start new handshake
     config->negotiateFuseID();
@@ -73,8 +67,5 @@ TEST_F(ConnectionSessionsTest, SessionEnvVairables_And_SessionReinitialization) 
     ASSERT_NE(currentFuseId, config->getFuseID());
 
     // Check if session variables are in place (in DB)
-    ASSERT_EQ("ok", erlExec(string("{check_session_variables, \"") + config->getFuseID() + string("\", [{varname1, \"varvalue1\"}, {varname2, \"varvalue2\"}]}")));
+    ASSERT_EQ("ok", veil::testing::erlExec(std::string("{check_session_variables, \"") + config->getFuseID() + std::string("\", [{varname1, \"varvalue1\"}, {varname2, \"varvalue2\"}]}")));
 }
-
-
-

@@ -7,31 +7,39 @@
 
 #include "veilfs.h"
 
-#include "context.h"
-#include "fslogicProxy.h"
-#include "helpers/storageHelperFactory.h"
-#include "metaCache.h"
-#include "logging.h"
-#include "cstring"
-#include "veilErrors.h"
-#include "config.h"
 #include "communication_protocol.pb.h"
+#include "config.h"
+#include "context.h"
+#include "events/event.h"
+#include "events/eventCommunicator.h"
+#include "fslogicProxy.h"
 #include "fuse_messages.pb.h"
+#include "helpers/storageHelperFactory.h"
+#include "jobScheduler.h"
+#include "localStorageManager.h"
+#include "logging.h"
 #include "messageBuilder.h"
+#include "metaCache.h"
+#include "options.h"
+#include "pushListener.h"
+#include "simpleConnectionPool.h"
+#include "storageMapper.h"
+#include "veilErrors.h"
+#include "veilException.h"
 
-#include <sys/types.h>
-#include <pwd.h>
 #include <grp.h>
+#include <pwd.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
-#include <boost/filesystem/path.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/functional.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/lexical_cast.hpp>
 #include <google/protobuf/descriptor.h>
 
 #include <algorithm>
+#include <cstring>
 #include <functional>
 
 
@@ -39,7 +47,7 @@
 #define CUSTOM_SH_RUN(PTR, FUN) if(!PTR) { LOG(ERROR) << "Invalid storage helper's pointer!"; return -EIO; } \
                                 int sh_return = PTR->FUN; \
                                 if(sh_return < 0) LOG(INFO) << "Storage helper returned error: " << sh_return;
-#define SH_RUN(NAME, ARGS, FUN) boost::shared_ptr<helpers::IStorageHelper> ptr = m_shFactory->getStorageHelper(NAME, ARGS); \
+#define SH_RUN(NAME, ARGS, FUN) auto ptr = m_shFactory->getStorageHelper(NAME, ARGS); \
                                 if(!ptr) { LOG(ERROR) << "storage helper '" << NAME << "' not found"; return -EIO; } \
                                 CUSTOM_SH_RUN(ptr, FUN)
 
@@ -66,23 +74,26 @@
                                     return translateError(e.veilError()); \
                                 }
 
-/// Get parent path (as string)
-#define PARENT(X) filesystem::path(X).branch_path().string()
-
-
 using namespace std;
-using namespace boost;
 using namespace veil::protocol::fuse_messages;
 
+namespace
+{
+/// Get parent path (as string)
+inline std::string parent(const boost::filesystem::path &p)
+{
+    return p.branch_path().string();
+}
+}
 
 namespace veil {
 namespace client {
 
 VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
-               boost::shared_ptr<FslogicProxy> fslogic,  boost::shared_ptr<MetaCache> metaCache,
-               boost::shared_ptr<LocalStorageManager> sManager, boost::shared_ptr<StorageMapper> mapper,
-               boost::shared_ptr<helpers::StorageHelperFactory> sh_factory,
-               boost::shared_ptr<events::EventCommunicator> eventCommunicator) :
+               std::shared_ptr<FslogicProxy> fslogic,  std::shared_ptr<MetaCache> metaCache,
+               std::shared_ptr<LocalStorageManager> sManager, std::shared_ptr<StorageMapper> mapper,
+               std::shared_ptr<helpers::StorageHelperFactory> sh_factory,
+               std::shared_ptr<events::EventCommunicator> eventCommunicator) :
     m_fh(0),
     m_fslogic(fslogic),
     m_storageMapper(mapper),
@@ -116,7 +127,7 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
         if(m_context->getScheduler() && m_context->getConfig()) {
             int alive = m_context->getOptions()->get_alive_meta_connections_count();
             for(int i = 0; i < alive; ++i) {
-                Job pingTask = Job(time(NULL) + i, m_fslogic, ISchedulable::TASK_PING_CLUSTER, boost::lexical_cast<string>(m_context->getOptions()->get_alive_meta_connections_count()));
+                Job pingTask = Job(time(NULL) + i, m_fslogic, ISchedulable::TASK_PING_CLUSTER, std::to_string(m_context->getOptions()->get_alive_meta_connections_count()));
                 m_context->getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
             }
 
@@ -147,7 +158,7 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
         m_eventCommunicator->addStatAfterWritesRule(m_context->getOptions()->get_write_bytes_before_stat());
     }
 
-    m_context->getPushListener()->subscribe(boost::bind(&events::EventCommunicator::pushMessagesHandler, m_eventCommunicator.get(), _1));
+    m_context->getPushListener()->subscribe(std::bind(&events::EventCommunicator::pushMessagesHandler, m_eventCommunicator.get(), std::placeholders::_1));
     m_context->getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
     m_context->getScheduler(ISchedulable::TASK_IS_WRITE_ENABLED)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_IS_WRITE_ENABLED));
 }
@@ -349,7 +360,7 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
                 LOG(ERROR) << "Cannot change group owner of file " << sPath << " to: " << groupName;
         }
 
-        m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
+        m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path))); // Clear cache of parent (possible change of modify time)
 
         RETURN_IF_ERROR(m_fslogic->sendFileCreatedAck(string(path)));
     }
@@ -361,12 +372,12 @@ int VeilFS::mkdir(const char *path, mode_t mode)
     LOG(INFO) << "FUSE: mkdir(path: " << string(path) << ", mode: " << mode << ")";
     m_metaCache->clearAttr(string(path));
     // Clear parent's cache
-    m_metaCache->clearAttr(PARENT(path));
+    m_metaCache->clearAttr(parent(path));
 
     RETURN_IF_ERROR(m_fslogic->createDir(string(path), mode & ALLPERMS));
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path))); // Clear cache of parent (possible change of modify time)
 
-    boost::shared_ptr<events::Event> mkdirEvent = events::Event::createMkdirEvent(path);
+    std::shared_ptr<events::Event> mkdirEvent = events::Event::createMkdirEvent(path);
     m_eventCommunicator->processEvent(mkdirEvent);
 
     return 0;
@@ -399,9 +410,9 @@ int VeilFS::unlink(const char *path)
         RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
     }
 
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path))); // Clear cache of parent (possible change of modify time)
 
-    boost::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(path);
+    std::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(path);
     m_eventCommunicator->processEvent(rmEvent);
 
     return 0;
@@ -412,10 +423,10 @@ int VeilFS::rmdir(const char *path)
     LOG(INFO) << "FUSE: rmdir(path: " << string(path) << ")";
     m_metaCache->clearAttr(string(path));
     // Clear parent's cache
-    m_metaCache->clearAttr(PARENT(path));
+    m_metaCache->clearAttr(parent(path));
 
     RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path))); // Clear cache of parent (possible change of modify time)
 
     return 0;
 }
@@ -443,8 +454,8 @@ int VeilFS::rename(const char *path, const char *newpath)
     LOG(INFO) << "FUSE: rename(path: " << string(path) << ", newpath: "<< string(newpath)  <<")";
 
     RETURN_IF_ERROR(m_fslogic->renameFile(string(path), string(newpath)));
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(path))); // Clear cache of parent (possible change of modify time)
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, PARENT(newpath))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(newpath))); // Clear cache of parent (possible change of modify time)
 
     m_metaCache->clearAttr(string(path));
     return 0;
@@ -588,7 +599,7 @@ int VeilFS::read(const char *path, char *buf, size_t size, off_t offset, struct 
     AutoLock guard(m_shCacheLock, READ_LOCK);
     CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
 
-    boost::shared_ptr<events::Event> writeEvent = events::Event::createReadEvent(path, sh_return);
+    std::shared_ptr<events::Event> writeEvent = events::Event::createReadEvent(path, sh_return);
     m_eventCommunicator->processEvent(writeEvent);
 
     return sh_return;
@@ -617,7 +628,7 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
             m_metaCache->updateSize(string(path), offset + sh_return);
         }
 
-        boost::shared_ptr<events::Event> writeEvent = events::Event::createWriteEvent(path, size);
+        std::shared_ptr<events::Event> writeEvent = events::Event::createWriteEvent(path, size);
         m_eventCommunicator->processEvent(writeEvent);
     }
 
@@ -712,7 +723,7 @@ int VeilFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
     for(std::vector<string>::iterator it = children.begin(); it < children.end(); ++it)
     {
         if(m_context->getOptions()->get_enable_parallel_getattr() && m_context->getOptions()->get_enable_attr_cache()) {
-            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, (filesystem::path(path) / (*it)).normalize().string());
+            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, (boost::filesystem::path(path) / (*it)).normalize().string());
             m_context->getScheduler()->addTask(readDirTask);
         }
 
@@ -769,7 +780,7 @@ bool VeilFS::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
     struct stat attr;
     vector<string> children;
     time_t currentTime;
-    boost::shared_ptr<events::Event> truncateEvent;
+    std::shared_ptr<events::Event> truncateEvent;
 
     switch(taskId)
     {
@@ -782,7 +793,7 @@ bool VeilFS::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
         }
 
         for(vector<string>::iterator it = children.begin(); it < children.end(); ++it) {
-            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, (filesystem::path(arg0) / (*it)).normalize().string());
+            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, (boost::filesystem::path(arg0) / (*it)).normalize().string());
             m_context->getScheduler()->addTask(readDirTask);
         }
 

@@ -5,15 +5,14 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef certUnconfirmedException_h
-#define certUnconfirmedException_h
+#ifndef VEILCLIENT_CERT_UNCONFIRMED_EXCEPTION_H
+#define VEILCLIENT_CERT_UNCONFIRMED_EXCEPTION_H
+
 
 #include "veilException.h"
 
 namespace veil
 {
-
-
 namespace client
 {
 
@@ -21,7 +20,6 @@ class Options;
 class Config;
 class JobScheduler;
 class PushListener;
-
 
 /**
  * CertUnconfirmedException.
@@ -36,7 +34,10 @@ public:
      * @param username username that is currently assigned to the certificate
      * @param logMsg Human readable excpetion reason message.
      */
-     CertUnconfirmedException(const std::string &username, const std::string &logMsg = "") : VeilException(username, logMsg) {};
+     CertUnconfirmedException(const std::string &username, const std::string &logMsg = ""):
+         VeilException(username, logMsg)
+     {
+     }
 
      std::string getUsername() const
      {
@@ -47,4 +48,4 @@ public:
 } // namespace client
 } // namespace veil
 
-#endif // certUnconfirmedException_h
+#endif // VEILCLIENT_CERT_UNCONFIRMED_EXCEPTION_H

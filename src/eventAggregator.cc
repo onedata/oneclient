@@ -7,9 +7,11 @@
 
 #include "events/eventAggregator.h"
 
+#include "events/event.h"
+#include "fuse_messages.pb.h"
+
 using namespace veil::client::events;
 using namespace std;
-using namespace boost;
 using namespace veil::protocol::fuse_messages;
 
 EventAggregator::EventAggregator(long long threshold, const string & sumFieldName) :
@@ -22,22 +24,22 @@ EventAggregator::EventAggregator(const string & fieldName, long long threshold, 
 {
 }
 
-EventAggregator::EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, long long threshold, const string & sumFieldName) :
+EventAggregator::EventAggregator(std::shared_ptr<IEventStream> wrappedStream, long long threshold, const string & sumFieldName) :
     IEventStream(wrappedStream), m_threshold(threshold), m_sumFieldName(sumFieldName)
 {
 }
 
-EventAggregator::EventAggregator(boost::shared_ptr<IEventStream> wrappedStream, const string & fieldName, long long threshold, const string & sumFieldName) :
+EventAggregator::EventAggregator(std::shared_ptr<IEventStream> wrappedStream, const string & fieldName, long long threshold, const string & sumFieldName) :
     IEventStream(wrappedStream), m_fieldName(fieldName), m_threshold(threshold), m_sumFieldName(sumFieldName)
 {
 }
 
-boost::shared_ptr<IEventStream> EventAggregator::fromConfig(const EventAggregatorConfig & config)
+std::shared_ptr<IEventStream> EventAggregator::fromConfig(const EventAggregatorConfig & config)
 {
-    return boost::shared_ptr<IEventStream> (new EventAggregator(config.field_name(), config.threshold(), config.sum_field_name()));
+    return std::make_shared<EventAggregator>(config.field_name(), config.threshold(), config.sum_field_name());
 }
 
-boost::shared_ptr<Event> EventAggregator::actualProcessEvent(boost::shared_ptr<Event> event)
+std::shared_ptr<Event> EventAggregator::actualProcessEvent(std::shared_ptr<Event> event)
 {
     string value;
     if(m_fieldName.empty())
@@ -47,7 +49,7 @@ boost::shared_ptr<Event> EventAggregator::actualProcessEvent(boost::shared_ptr<E
 
         // we simply ignores events without field on which we aggregate
         if(value == "")
-            return boost::shared_ptr<Event>();
+            return std::shared_ptr<Event>();
     }
 
     if(m_substreams.find(value) == m_substreams.end())
@@ -71,11 +73,7 @@ long long EventAggregator::getThreshold()
     return m_threshold;
 }
 
-EventAggregator::ActualEventAggregator::ActualEventAggregator() :
-    m_counter(0)
-{}
-
-boost::shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(boost::shared_ptr<Event> event, long long threshold, const string & fieldName, const string & sumFieldName)
+std::shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(std::shared_ptr<Event> event, long long threshold, const string & fieldName, const string & sumFieldName)
 {
     AutoLock lock(m_aggregatorStateLock, WRITE_LOCK);
     NumericProperty count = event->getNumericProperty(sumFieldName, 1);
@@ -84,7 +82,7 @@ boost::shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(bo
     bool forward = m_counter >= threshold;
 
     if(forward){
-        boost::shared_ptr<Event> newEvent (new Event());
+        auto newEvent = std::make_shared<Event>();
         newEvent->setStringProperty(SUM_FIELD_NAME, sumFieldName);
         newEvent->setNumericProperty(sumFieldName, m_counter);
         if(!fieldName.empty()){
@@ -92,10 +90,10 @@ boost::shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(bo
             newEvent->setStringProperty(fieldName, value);
         }
         resetState();
-        return newEvent;
+        return std::move(newEvent);
     }
 
-    return boost::shared_ptr<Event>();
+    return std::shared_ptr<Event>();
 }
 
 void EventAggregator::ActualEventAggregator::resetState()

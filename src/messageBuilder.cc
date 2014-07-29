@@ -7,16 +7,18 @@
 
 #include "messageBuilder.h"
 
-#include "context.h"
+#include "communicationHandler.h"
 #include "config.h"
+#include "context.h"
+#include "fslogicProxy.h"
 #include "veilfs.h"
 
-#include <iostream>
-#include <unistd.h>
 #include <boost/algorithm/string.hpp>
+#include <unistd.h>
+
+#include <iostream>
 
 using namespace std;
-using namespace boost;
 using namespace boost::algorithm;
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;

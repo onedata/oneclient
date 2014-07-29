@@ -36,14 +36,14 @@ deb-info:
 release:
 	@mkdir -p ${RELEASE_DIR}
 	-@find ${RELEASE_DIR} -name "veilhelpers-update" -exec rm -rf {} \;
-	@cd ${RELEASE_DIR} && ${CMAKE} -DCMAKE_BUILD_TYPE=release ..
-	@(cd ${RELEASE_DIR} && ${MAKE} veilFuse -j`nproc`)
+	@cd ${RELEASE_DIR} && ${CMAKE} -DCMAKE_BUILD_TYPE=Release ..
+	@(cd ${RELEASE_DIR} && ${MAKE} veilFuse)
 
 debug:
 	@mkdir -p ${DEBUG_DIR}
 	-@find ${DEBUG_DIR} -name "veilhelpers-update" -exec rm -rf {} \;
-	@cd ${DEBUG_DIR} && ${CMAKE} -DCMAKE_BUILD_TYPE=debug ..
-	@(cd ${DEBUG_DIR} && ${MAKE} veilFuse -j`nproc`)
+	@cd ${DEBUG_DIR} && ${CMAKE} -DCMAKE_BUILD_TYPE=Debug ..
+	@(cd ${DEBUG_DIR} && ${MAKE} veilFuse)
 
 test: deb-info
 	@cd ${RELEASE_DIR} && ${MAKE}

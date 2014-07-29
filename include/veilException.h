@@ -5,27 +5,31 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILEXCEPTION_H
-#define VEILEXCEPTION_H
+#ifndef VEILCLIENT_VEILEXCEPTION_H
+#define VEILCLIENT_VEILEXCEPTION_H
 
+
+#include "veilErrors.h"
+
+#include <exception>
 #include <string>
 
-namespace veil {
-namespace client {
+namespace veil
+{
+namespace client
+{
 
 /**
  * Base class of all VeilClient exceptions.
  */
-class VeilException : public std::exception
+class VeilException: public std::exception
 {
 private:
     std::string m_logMessage; ///< Human readable excpetion reason message.
-    std::string m_veilError; ///< POSIX error name.
-                             ///< This error string should be compatibile with VeilFS::translateError. @see VeilFS::translateError
+    std::string m_veilError = VEIO; ///< POSIX error name.
+                                    ///< This error string should be compatibile with VeilFS::translateError. @see VeilFS::translateError
 
 public:
-    VeilException(); ///< Default, empty constuctor
-
     /**
      * VeilException main constructor.
      * @param veilError POSIX error name. Should be compatibile with VeilFS::translateError
@@ -33,13 +37,14 @@ public:
      * @see VeilFS::translateError
      */
     VeilException(const std::string &veilError, const std::string &logMsg = "");
-    virtual ~VeilException() throw();
+    virtual ~VeilException() = default;
 
-    const char* what() const throw(); ///< Returns VeilException::m_logMessage
+    const char* what() const noexcept; ///< Returns VeilException::m_logMessage
     std::string veilError() const; ///< Returns VeilException::m_veilError.
 };
 
 } // namespace client
 } // namespace veil
 
-#endif // VEILEXCEPTION_H
+
+#endif // VEILCLIENT_VEILEXCEPTION_H

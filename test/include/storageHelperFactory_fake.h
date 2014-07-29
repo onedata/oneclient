@@ -9,28 +9,30 @@
 #define STORAGE_HELPER_FACTORY_FAKE_H
 
 #include "helpers/storageHelperFactory.h"
-#include "genericHelper_mock.h"
-#include "testCommon.h"
-#include "gmock/gmock.h"
 
+#include "genericHelper_mock.h"
 #include "helpers/IStorageHelper.h"
 
-using namespace veil::helpers;
+#include <memory>
 
-class FakeStorageHelperFactory
-    : public StorageHelperFactory {
+class FakeStorageHelperFactory: public veil::helpers::StorageHelperFactory
+{
 public:
-    FakeStorageHelperFactory() : StorageHelperFactory{nullptr, BufferLimits{}} {}
-
-    boost::shared_ptr<IStorageHelper> presetMock;
-
-    boost::shared_ptr<IStorageHelper> getStorageHelper(const string &sh_name, const IStorageHelper::ArgsMap &args) override {
-        if(presetMock)
-            return presetMock;
-        else
-            return boost::shared_ptr<IStorageHelper>(new MockGenericHelper());
+    FakeStorageHelperFactory()
+        : StorageHelperFactory{nullptr, veil::helpers::BufferLimits{}}
+    {
     }
 
+    std::shared_ptr<veil::helpers::IStorageHelper> presetMock;
+
+    std::shared_ptr<veil::helpers::IStorageHelper> getStorageHelper(const std::string &sh_name,
+                                                                    const veil::helpers::IStorageHelper::ArgsMap &args) override
+    {
+        if(presetMock)
+            return presetMock;
+
+        return {};
+    }
 };
 
 #endif //STORAGE_HELPER_FACTORY_FAKE_H

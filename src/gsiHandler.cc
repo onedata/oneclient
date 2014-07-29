@@ -5,29 +5,35 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
+#include "gsiHandler.h"
+
+#include "communicationHandler.h"
+#include "config.h"
+#include "context.h"
+#include "logging.h"
+#include "options.h"
+#include "veilfs.h"
+
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
+#include <openssl/bio.h>
+#include <openssl/err.h>
+#include <openssl/evp.h>
+#include <openssl/md5.h>
+#include <openssl/pem.h>
+#include <openssl/pkcs12.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/types.h>
+#include <termios.h>
+#include <unistd.h>
+
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
 #include <utility>
-#include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
-#include <openssl/md5.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <termios.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <openssl/pem.h>
-#include <openssl/pkcs12.h>
-#include <openssl/err.h>
-#include <openssl/bio.h>
-#include <openssl/evp.h>
-#include <boost/algorithm/string.hpp>
-#include "gsiHandler.h"
-#include "veilfs.h"
-#include "communicationHandler.h"
-
-#include "context.h"
+#include <mutex>
 
 #define X509_USER_PROXY_ENV     "X509_USER_PROXY"
 
@@ -47,7 +53,6 @@
 
 using namespace std;
 using namespace boost::algorithm;
-using namespace boost;
 using boost::asio::const_buffer;
 
 namespace veil {
@@ -73,7 +78,7 @@ namespace {
 
 
     ReadWriteLock mutex;
-    boost::recursive_mutex certCallbackMutex;
+    std::recursive_mutex certCallbackMutex;
 
     // Disables stdout ECHO and reads input form /dev/tty up to max_size chars or newline
     static string getPasswd(const string &prompt, int max_size) {
@@ -211,7 +216,7 @@ std::pair<string, string> GSIHandler::getUserCertAndKey()
     if(m_context->getOptions()->has_peer_certificate_file())
         return make_pair(m_context->getConfig()->absPathRelToHOME(m_context->getOptions()->get_peer_certificate_file()));
 
-    if(getenv(X509_USER_PROXY_ENV) && filesystem::exists(getenv(X509_USER_PROXY_ENV)))
+    if(getenv(X509_USER_PROXY_ENV) && boost::filesystem::exists(getenv(X509_USER_PROXY_ENV)))
         return make_pair<string>(getenv(X509_USER_PROXY_ENV));
 
     LOG(INFO) << "GSI Handler: Searching for userCert and userKey file...";
@@ -221,9 +226,9 @@ std::pair<string, string> GSIHandler::getUserCertAndKey()
     // Any found path can be overriden by user's envs, provided it's not a proxy path
     if(certAndKey.first != GLOBUS_PROXY_PATH(m_context, getuid()))
     {
-        if(getenv(X509_USER_CERT_ENV) && filesystem::exists(getenv(X509_USER_CERT_ENV)))
+        if(getenv(X509_USER_CERT_ENV) && boost::filesystem::exists(getenv(X509_USER_CERT_ENV)))
             certAndKey.first = getenv(X509_USER_CERT_ENV);
-        if(getenv(X509_USER_KEY_ENV) && filesystem::exists(getenv(X509_USER_KEY_ENV)))
+        if(getenv(X509_USER_KEY_ENV) && boost::filesystem::exists(getenv(X509_USER_KEY_ENV)))
             certAndKey.second = getenv(X509_USER_KEY_ENV);
     }
 
@@ -241,7 +246,7 @@ bool GSIHandler::validateProxyConfig()
 
 bool GSIHandler::validateProxyCert()
 {
-    boost::unique_lock<boost::recursive_mutex> guard(certCallbackMutex);
+    std::unique_lock<std::recursive_mutex> guard(certCallbackMutex);
 
     LOG(INFO) << "GSI Handler: Starting certificate (re) initialization";
 
@@ -454,44 +459,44 @@ bool GSIHandler::validateProxyCert()
     }
 
     CRYPTO_FREE(BIO, file);
-    
-    
+
+
     // Check notAfter for EEC
     ASN1_TIME *notAfter  = X509_get_notAfter ( cert );
     if( X509_cmp_current_time( notAfter ) <= 0 ) {
         BUF_MEM *time_buff = BUF_MEM_new();
         BIO *time_bio = BIO_new(BIO_s_mem());
         BIO_set_mem_buf(time_bio, time_buff, BIO_CLOSE);
-        
+
         // Print expiration time to mem buffer
         ASN1_TIME_print(time_bio, notAfter);
-        
+
         LOG(ERROR) << "EEC certificate has expired!";
         cerr << "Error: Your certificate (" << userCert << ") has expired! Invalid since: " << string(time_buff->data, time_buff->length) << "." << endl;
-        
+
         BIO_free(time_bio);
-        
+
         CRYPTO_FREE(X509, cert);
         CRYPTO_FREE(EVP_PKEY, key);
         if(ca) sk_X509_free(ca);
         return false;
     }
-    
+
     // Check notBefore for EEC
     ASN1_TIME *notBefore  = X509_get_notBefore ( cert );
     if( X509_cmp_current_time( notBefore ) > 0 ) {
         BUF_MEM *time_buff = BUF_MEM_new();
         BIO *time_bio = BIO_new(BIO_s_mem());
         BIO_set_mem_buf(time_bio, time_buff, BIO_CLOSE);
-        
+
         // Print expiration time to mem buffer
         ASN1_TIME_print(time_bio, notBefore);
-        
+
         LOG(ERROR) << "EEC certificate used before 'notBefore'!";
         cerr << "Error: Your certificate (" << userCert << ") is not valid yet. Invalid before: " << string(time_buff->data, time_buff->length) << "." << endl;
-        
+
         BIO_free(time_bio);
-        
+
         CRYPTO_FREE(X509, cert);
         CRYPTO_FREE(EVP_PKEY, key);
         if(ca) sk_X509_free(ca);
@@ -567,7 +572,7 @@ bool GSIHandler::validateProxyCert()
 CertificateInfo GSIHandler::getCertInfo() {
     if(proxyInitialized) {
         LOG(INFO) << "Accesing certificates via filesystem: " << userCertPath << " " << userKeyPath;
-        return CertificateInfo(userCertPath, userKeyPath, CertificateInfo::PEM);
+        return CertificateInfo(userCertPath, userKeyPath, CertificateInfo::CertificateType::PEM);
     } else {
         LOG(INFO) << "Accesing certificates via internal memory buffer.";
         return CertificateInfo(const_buffer(chain_buff->data, chain_buff->length), const_buffer(key_buff->data, key_buff->length));

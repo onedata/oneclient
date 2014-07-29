@@ -15,7 +15,7 @@
 namespace veil {
 namespace client {
 
-Job::Job(const std::time_t when, boost::shared_ptr<ISchedulable> subject,
+Job::Job(const std::time_t when, std::shared_ptr<ISchedulable> subject,
          const ISchedulable::TaskID task, const std::string &arg0,
          const std::string &arg1, const std::string &arg2)
     : when{std::chrono::steady_clock::now() +

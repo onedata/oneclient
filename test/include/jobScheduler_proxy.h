@@ -8,16 +8,19 @@
 #ifndef JOB_SCHEDULER_PROXY_H
 #define JOB_SCHEDULER_PROXY_H
 
-#include "jobScheduler.h"
-#include "testCommon.h"
-#include "gmock/gmock.h"
 
-class ProxyJobScheduler
-    : public JobScheduler {
+#include "jobScheduler.h"
+
+#include <gmock/gmock.h>
+
+class ProxyJobScheduler: public veil::client::JobScheduler
+{
 public:
-    std::multiset<Job> &getJobQueue() {
+    std::multiset<veil::client::Job> &getJobQueue()
+    {
         return m_jobQueue;
     }
 };
+
 
 #endif // JOB_SCHEDULER_PROXY_H

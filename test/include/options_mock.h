@@ -10,7 +10,8 @@
 
 
 #include "options.h"
-#include "testCommon.h"
+
+#include <gmock/gmock.h>
 
 struct MockOptions: public veil::client::Options {
     MOCK_CONST_METHOD0(has_fuse_id, bool());

@@ -6,31 +6,36 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
+#ifndef VEILCLIENT_STORAGE_MAPPER_H
+#define VEILCLIENT_STORAGE_MAPPER_H
 
-#ifndef STORAGE_MAPPER_H
-#define STORAGE_MAPPER_H
+
+#include "ISchedulable.h"
+
+#include "helpers/IStorageHelper.h"
+#include "lock.h"
+#include "fslogicProxy.h"
 
 #include <map>
 #include <memory>
 #include <string>
-#include <pthread.h>
 
-#include "fuse_messages.pb.h"
-#include "fslogicProxy.h"
-#include "ISchedulable.h"
-#include "lock.h"
-#include "veilException.h"
-#include "helpers/IStorageHelper.h"
+namespace veil
+{
 
-namespace veil {
-namespace client {
+namespace protocol{ namespace fuse_messages{ class FileLocation; }}
+
+namespace client
+{
 
 class Context;
+class FslogicProxy;
 
 /**
  * Structure containing file mapping base information.
  */
-typedef struct locationInfo {
+struct locationInfo
+{
     int storageId; ///< Storage identificator. @see StorageMapper::m_storageMapping
     std::string fileId; ///< File identificator.
                    ///< This ID should be recognisable by _storage helper_. Most commonly it's just
@@ -43,9 +48,9 @@ typedef struct locationInfo {
     {
         return storageId > 0;
     }
-} locationInfo;
+};
 
-typedef struct storageInfo
+struct storageInfo
 {
     time_t last_updated;                                ///< Last update time
     std::string storageHelperName;                      ///< Name of storage helper. @see StorageHelperFactory::getStorageHelper
@@ -55,9 +60,9 @@ typedef struct storageInfo
     {
         return storageHelperName.size() > 0 && last_updated > 0;
     }
-} storageInfo;
+};
 
-class StorageMapper : public ISchedulable
+class StorageMapper: public ISchedulable
 {
 
 protected:
@@ -66,12 +71,12 @@ protected:
     std::map<std::string, locationInfo> m_fileMapping;      ///< Contains storage info accessd by its ID. @see storageInfo
     ReadWriteLock m_fileMappingLock;                        ///< Lock used while operationg on StorageMapper::m_fileMapping. @see StorageMapper::m_fileMapping
 
-    boost::shared_ptr<FslogicProxy> m_fslogic;              ///< Reference to FslogicProxy instance. @see VeilFS::m_fslogic
+    std::shared_ptr<FslogicProxy> m_fslogic;              ///< Reference to FslogicProxy instance. @see VeilFS::m_fslogic
 
 public:
 
-    StorageMapper(std::shared_ptr<Context> context, boost::shared_ptr<FslogicProxy> fslogicProxy);
-    virtual ~StorageMapper();
+    StorageMapper(std::shared_ptr<Context> context, std::shared_ptr<FslogicProxy> fslogicProxy);
+    virtual ~StorageMapper() = default;
 
     /**
      * Gets file location information along with storage info for storage heleper's calls.
@@ -95,4 +100,5 @@ private:
 } // namespace client
 } // namespace veil
 
-#endif // STORAGE_MAPPER_H
+
+#endif // VEILCLIENT_STORAGE_MAPPER_H

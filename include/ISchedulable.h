@@ -5,29 +5,28 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef ISCHEDULABLE_H
-#define ISCHEDULABLE_H
+#ifndef VEILCLIENT_ISCHEDULABLE_H
+#define VEILCLIENT_ISCHEDULABLE_H
 
+
+#include <memory>
 #include <string>
-#include <boost/shared_ptr.hpp>
-#include <boost/enable_shared_from_this.hpp>
 
-namespace veil {
-namespace client {
+namespace veil
+{
+namespace client
+{
 
 /**
  * The ISchedulable interface.
- * Deriving from this interface gives possibility to schedule and run async, delayed tasks
- * using JobScheduler.
+ * Deriving from this interface gives possibility to schedule and run async,
+ * delayed tasks using JobScheduler.
  * @see JobScheduler::addTask
  */
-class ISchedulable : public boost::enable_shared_from_this<ISchedulable>
+class ISchedulable : public std::enable_shared_from_this<ISchedulable>
 {
 public:
-    /**
-     * @enum TaskID
-     * The TaskID enum
-     */
+    /// The TaskID enum.
     enum TaskID
     {
         TASK_CLEAR_FILE_ATTR,
@@ -48,13 +47,16 @@ public:
         TASK_POST_TRUNCATE_ACTIONS
     };
 
-    ISchedulable();
-    virtual ~ISchedulable();    ///< Interface destructor.
+    virtual ~ISchedulable() = default;
 
-    virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3) = 0; ///< Callback which are called by JobScheduler when requested. @see JobScheduler
+    /// Callback which are called by JobScheduler when requested.
+    /// @see JobScheduler
+    virtual bool runTask(TaskID taskId, const std::string &arg0,
+                         const std::string &arg1, const std::string &arg3) = 0;
 };
 
 } // namespace client
 } // namespace veil
 
-#endif // ISCHEDULABLE_H
+
+#endif // VEILCLIENT_ISCHEDULABLE_H

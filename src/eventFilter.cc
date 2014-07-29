@@ -7,9 +7,11 @@
 
 #include "events/eventFilter.h"
 
+#include "events/event.h"
+#include "fuse_messages.pb.h"
+
 using namespace veil::client::events;
 using namespace std;
-using namespace boost;
 using namespace veil::protocol::fuse_messages;
 
 EventFilter::EventFilter(const string & fieldName, const string & desiredValue) :
@@ -17,28 +19,26 @@ EventFilter::EventFilter(const string & fieldName, const string & desiredValue) 
 {
 }
 
-EventFilter::EventFilter(boost::shared_ptr<IEventStream> wrappedStream, const std::string & fieldName, const std::string & desiredValue) :
+EventFilter::EventFilter(std::shared_ptr<IEventStream> wrappedStream, const std::string & fieldName, const std::string & desiredValue) :
     IEventStream(wrappedStream), m_fieldName(fieldName), m_desiredValue(desiredValue)
 {
 }
 
-boost::shared_ptr<IEventStream> EventFilter::fromConfig(const EventFilterConfig & config)
+std::shared_ptr<IEventStream> EventFilter::fromConfig(const EventFilterConfig & config)
 {
-    return boost::shared_ptr<IEventStream> (new EventFilter(config.field_name(), config.desired_value()));
+    return std::make_shared<EventFilter>(config.field_name(), config.desired_value());
 }
 
-boost::shared_ptr<Event> EventFilter::actualProcessEvent(boost::shared_ptr<Event> event)
+std::shared_ptr<Event> EventFilter::actualProcessEvent(std::shared_ptr<Event> event)
 {
     // defaultValue is generated some way because if we set precomputed value it will not work if desiredValue is the same as precomputed value
     string defaultValue = m_desiredValue + "_";
     string value = event->getStringProperty(m_fieldName, defaultValue);
 
-    if(value == m_desiredValue){
-        boost::shared_ptr<Event> newEvent (new Event(*event.get()));
-        return newEvent;
-    }else{
-        return boost::shared_ptr<Event>();
-    }
+    if(value == m_desiredValue)
+        return std::make_shared<Event>(*event);
+
+    return {};
 }
 
 string EventFilter::getFieldName()

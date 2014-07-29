@@ -5,23 +5,30 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
+#ifndef VEILCLIENT_GSI_HANDLER_H
+#define VEILCLIENT_GSI_HANDLER_H
 
-#ifndef GSI_HANDLER_H
-#define GSI_HANDLER_H
 
 #include "communicationHandler.h"
 
-#include <iostream>
 #include <memory>
 #include <string>
 
-#define BASE_DOMAIN "cluster.veilfs.plgrid.pl"
-#define CONFIRM_CERTIFICATE_PROMPT(USERNAME) "Warning ! You are trying to connect using unconfirmed certificate as: '" + USERNAME + "'. Is it your account? (y/n): "
-
 namespace boost { namespace filesystem { class path; } }
 
-namespace veil {
-namespace client {
+namespace veil
+{
+
+static constexpr const char *BASE_DOMAIN = "cluster.veilfs.plgrid.pl";
+
+inline std::string CONFIRM_CERTIFICATE_PROMPT(const std::string &USERNAME)
+{
+    return "Warning ! You are trying to connect using unconfirmed certificate "
+           "as: '" + USERNAME + "'. Is it your account? (y/n): ";
+}
+
+namespace client
+{
 
 class Context;
 
@@ -49,4 +56,4 @@ private:
 } // namespace veil
 
 
-#endif // GSI_HANDLER_H
+#endif // VEILCLIENT_GSI_HANDLER_H

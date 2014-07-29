@@ -7,22 +7,26 @@
 
 #include "localStorageManager.h"
 
-#include "context.h"
-#include "config.h"
-#include "veilfs.h"
-#include "logging.h"
 #include "communication_protocol.pb.h"
+#include "config.h"
+#include "context.h"
 #include "fuse_messages.pb.h"
+#include "logging.h"
+#include "messageBuilder.h"
+#include "simpleConnectionPool.h"
+#include "veilfs.h"
 
-#include <random>
+#include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/filesystem/fstream.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/tokenizer.hpp>
+#include <google/protobuf/descriptor.h>
+
 #include <algorithm>
 #include <iterator>
-#include <boost/algorithm/string.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/tokenizer.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/filesystem/fstream.hpp>
-#include <google/protobuf/descriptor.h>
+#include <memory>
+#include <random>
 
 using boost::filesystem::path;
 using namespace veil::protocol::fuse_messages;
@@ -208,29 +212,27 @@ bool LocalStorageManager::sendClientStorageInfo(const std::vector< std::pair<int
     Answer ans;
 
     MessageBuilder builder{m_context};
-    boost::shared_ptr<CommunicationHandler> conn;
-
-	conn = m_context->getConnectionPool()->selectConnection();
-	if(conn)
-	{
-	    // Build ClientStorageInfo message
-		for(const auto &info : clientStorageInfo)
-		{
-		    storageInfo = reqMsg.add_storage_info();
-		    storageInfo->set_storage_id(info.first);
-		    storageInfo->set_absolute_path(info.second);
-		    LOG(INFO) << "Sending client storage info: {" << info.first << ", " << info.second << "}";
-		}
-		ClusterMsg cMsg = builder.packFuseMessage(ClientStorageInfo::descriptor()->name(), Atom::descriptor()->name(), COMMUNICATION_PROTOCOL, reqMsg.SerializeAsString());
+    auto conn = m_context->getConnectionPool()->selectConnection();
+    if(conn)
+    {
+        // Build ClientStorageInfo message
+        for(const auto &info : clientStorageInfo)
+        {
+            storageInfo = reqMsg.add_storage_info();
+            storageInfo->set_storage_id(info.first);
+            storageInfo->set_absolute_path(info.second);
+            LOG(INFO) << "Sending client storage info: {" << info.first << ", " << info.second << "}";
+        }
+        ClusterMsg cMsg = builder.packFuseMessage(ClientStorageInfo::descriptor()->name(), Atom::descriptor()->name(), COMMUNICATION_PROTOCOL, reqMsg.SerializeAsString());
         // Send ClientStorageInfo message
-		ans = conn->communicate(cMsg, 2);
-		// Check answer
-		if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
-		{
-			return resMsg.value() == "ok";
-		}
-		else if(ans.answer_status() == NO_USER_FOUND_ERROR)
-		{
+        ans = conn->communicate(cMsg, 2);
+        // Check answer
+        if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
+        {
+            return resMsg.value() == "ok";
+        }
+        else if(ans.answer_status() == NO_USER_FOUND_ERROR)
+        {
             LOG(ERROR) << "Cannot find user in database.";
         }
         else
@@ -254,9 +256,7 @@ boost::optional< std::pair<std::string, std::string> > LocalStorageManager::crea
     boost::optional< std::pair<std::string, std::string> > result;
 
     MessageBuilder builder{m_context};
-    boost::shared_ptr<CommunicationHandler> conn;
-
-    conn = m_context->getConnectionPool()->selectConnection();
+    auto conn = m_context->getConnectionPool()->selectConnection();
     if(conn)
     {
         // Build CreateStorageTestFileRequest message
@@ -264,13 +264,13 @@ boost::optional< std::pair<std::string, std::string> > LocalStorageManager::crea
         ClusterMsg cMsg = builder.packFuseMessage(CreateStorageTestFileRequest::descriptor()->name(), CreateStorageTestFileResponse::descriptor()->name(), FUSE_MESSAGES, reqMsg.SerializeAsString());
         // Send CreateStorageTestFileRequest message
         ans = conn->communicate(cMsg, 2);
-    	// Check answer
+        // Check answer
         if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
         {
-			result.reset({resMsg.relative_path(), resMsg.text()});
-		}
-		else if(ans.answer_status() == NO_USER_FOUND_ERROR)
-		{
+            result.reset({resMsg.relative_path(), resMsg.text()});
+        }
+        else if(ans.answer_status() == NO_USER_FOUND_ERROR)
+        {
             LOG(ERROR) << "Cannot find user in database.";
         }
         else
@@ -331,9 +331,7 @@ bool LocalStorageManager::hasClientStorageWritePermission(const int storageId, c
     Answer ans;
 
     MessageBuilder builder{m_context};
-    boost::shared_ptr<CommunicationHandler> conn;
-
-    conn = m_context->getConnectionPool()->selectConnection();
+    auto conn = m_context->getConnectionPool()->selectConnection();
     if(conn)
     {
         // Build CreateStorageTestFileRequest message
@@ -343,13 +341,13 @@ bool LocalStorageManager::hasClientStorageWritePermission(const int storageId, c
         ClusterMsg cMsg = builder.packFuseMessage(StorageTestFileModifiedRequest::descriptor()->name(), StorageTestFileModifiedResponse::descriptor()->name(), FUSE_MESSAGES, reqMsg.SerializeAsString());
         // Send CreateStorageTestFileRequest message
         ans = conn->communicate(cMsg, 2);
-    	// Check answer
+        // Check answer
         if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
         {
             return resMsg.answer();
-    	}
-    	else if(ans.answer_status() == NO_USER_FOUND_ERROR)
-    	{
+        }
+        else if(ans.answer_status() == NO_USER_FOUND_ERROR)
+        {
             LOG(ERROR) << "Cannot find user in database.";
         }
         else

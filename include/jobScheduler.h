@@ -6,26 +6,27 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef JOBSCHEDULER_H
-#define JOBSCHEDULER_H
+#ifndef VEILCLIENT_JOBSCHEDULER_H
+#define VEILCLIENT_JOBSCHEDULER_H
 
 
 #include "ISchedulable.h"
-
-#include <boost/shared_ptr.hpp>
 
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <ctime>
+#include <memory>
 #include <mutex>
 #include <set>
 #include <string>
 #include <thread>
 #include <vector>
 
-namespace veil {
-namespace client {
+namespace veil
+{
+namespace client
+{
 
 /**
  * The Job struct.
@@ -41,7 +42,7 @@ struct Job
     /**
      * Pointer to object being context of Job execution.
      */
-    boost::shared_ptr<ISchedulable> subject;
+    std::shared_ptr<ISchedulable> subject;
 
     /**
      * ID of the task.
@@ -67,7 +68,7 @@ struct Job
     /**
      * Constructor.
      */
-    Job(const std::time_t when, boost::shared_ptr<ISchedulable> subject,
+    Job(const std::time_t when, std::shared_ptr<ISchedulable> subject,
         const ISchedulable::TaskID task, const std::string &arg0 = "",
         const std::string &arg1 = "", const std::string &arg2 = "");
 
@@ -140,4 +141,4 @@ public:
 } // namespace veil
 
 
-#endif // JOBSCHEDULER_H
+#endif // VEILCLIENT_JOBSCHEDULER_H

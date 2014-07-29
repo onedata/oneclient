@@ -5,8 +5,9 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef OPTIONS_H
-#define OPTIONS_H
+#ifndef VEILCLIENT_OPTIONS_H
+#define VEILCLIENT_OPTIONS_H
+
 
 #include "config.h"
 
@@ -141,4 +142,4 @@ private:
 #undef DECL_CMDLINE_SWITCH_DEF
 
 
-#endif // OPTIONS_H
+#endif // VEILCLIENT_OPTIONS_H
