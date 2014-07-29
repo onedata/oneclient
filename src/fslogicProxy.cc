@@ -298,11 +298,11 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message &fMsg, 
         return false;
     }
 
-    auto fuseMsg = m_messageBuilder->createFuseMessage(m_context->getConfig()->getFuseID(),
+    auto fuseMsg = m_messageBuilder->createFuseMessage(m_context.lock()->getConfig()->getFuseID(),
                                                        fMsg.GetDescriptor()->name(),
                                                        fMsg.SerializeAsString());
 
-    auto communicator = m_context->getCommunicator();
+    auto communicator = m_context.lock()->getCommunicator();
     try
     {
         LOG(INFO) << "Sending message (type: " << fMsg.GetDescriptor()->name() << "). Expecting answer with type: " << response.GetDescriptor()->name();
@@ -313,7 +313,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message &fMsg, 
         {
             LOG(WARNING) << "Cluster send non-ok message. status = " << answer->answer_status();
             if(answer->answer_status() == INVALID_FUSE_ID)
-                m_context->getConfig()->negotiateFuseID(0);
+                m_context.lock()->getConfig()->negotiateFuseID(0);
             return false;
         }
 
@@ -334,11 +334,11 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
         return VEIO;
     }
 
-    auto fuseMsg = m_messageBuilder->createFuseMessage(m_context->getConfig()->getFuseID(),
+    auto fuseMsg = m_messageBuilder->createFuseMessage(m_context.lock()->getConfig()->getFuseID(),
                                                        fMsg.GetDescriptor()->name(),
                                                        fMsg.SerializeAsString());
 
-    auto communicator = m_context->getCommunicator();
+    auto communicator = m_context.lock()->getCommunicator();
     try
     {
         LOG(INFO) << "Sending message (type: " << fMsg.GetDescriptor()->name() << "). Expecting answer with type: atom";
@@ -346,7 +346,7 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
         auto answer = communicator->communicate<>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
 
         if(answer->answer_status() == INVALID_FUSE_ID)
-            m_context->getConfig()->negotiateFuseID(0);
+            m_context.lock()->getConfig()->negotiateFuseID(0);
 
         std::string atom = m_messageBuilder->decodeAtomAnswer(*answer);
 
@@ -394,7 +394,7 @@ pair<string, struct statvfs> FslogicProxy::getStatFS()
 
 void FslogicProxy::pingCluster(const string &nth)
 {
-    auto communicator = m_context->getCommunicator();
+    auto communicator = m_context.lock()->getCommunicator();
     try
 {
     Atom ping;
@@ -412,8 +412,8 @@ void FslogicProxy::pingCluster(const string &nth)
     }
 
     // Send another...
-    Job pingTask = Job(time(NULL) + m_context.lock()->getOptions()->get_cluster_ping_interval(), shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth);
-    m_context.lock()->getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
+    Job pingTask = Job(time(NULL) + m_context.lock().lock()->getOptions()->get_cluster_ping_interval(), shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth);
+    m_context.lock().lock()->getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
 }
 
 bool FslogicProxy::runTask(TaskID taskId, const string& arg0, const string&, const string&)
