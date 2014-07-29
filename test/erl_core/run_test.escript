@@ -84,7 +84,7 @@ main([TestName | Args]) ->
 
     CMD = "TEST_NAME=\"" ++ TestName ++"\" TEST_RUNNER=\"" ++ escript:script_name() ++ "\" ./" ++ TestName ++ "_i " ++ string:join(Args, " "),
     ?INFO("CMD: ~p", [CMD]),
-    ?INFO("STDOUT: ~s", [os:cmd(CMD)]),
+    ?INFO("STDOUT: ~p", [os:cmd(CMD)]),
     
     rpc:call(?CCM_NODE_NAME, test_common, teardown, [ccm, TestName, CTX_CCM]),
     rpc:call(?WORKER_NODE_NAME, test_common, teardown, [worker, TestName, CTX_W]).
