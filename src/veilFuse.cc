@@ -15,6 +15,10 @@
 #endif
 
 #include "certUnconfirmedException.h"
+#include "communication/communicator.h"
+#include "communication/communicationHandler.h"
+#include "communication/websocketConnectionPool.h"
+#include "communication/websocketConnection.h"
 #include "config.h"
 #include "context.h"
 #include "events/eventCommunicator.h"
@@ -25,10 +29,10 @@
 #include "jobScheduler.h"
 #include "localStorageManager.h"
 #include "logging.h"
+#include "make_unique.h"
 #include "metaCache.h"
 #include "options.h"
 #include "pushListener.h"
-#include "simpleConnectionPool.h"
 #include "storageMapper.h"
 #include "veilConfig.h"
 #include "veilException.h"
@@ -392,59 +396,71 @@ int main(int argc, char* argv[], char* envp[])
 
     fuse_set_signal_handlers(fuse_get_session(fuse));
 
+    const auto certificateData = gsiHandler->getCertData();
+    const auto clusterUri = "wss://" + gsiHandler->getClusterHostname() + ":" +
+            std::to_string(options->get_cluster_port()) + "/veilclient";
+
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
-    auto testPool = std::make_shared<SimpleConnectionPool>(gsiHandler->getClusterHostname(), options->get_cluster_port(), std::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate, 1, 0);
-    context->setConnectionPool(testPool);
+    auto testCommunicator =
+            communication::createWebsocketCommunicator(/*dataPoolSize*/ 0,
+                                                       /*metaPoolSize*/ 1,
+                                                       clusterUri,
+                                                       certificateData,
+                                                       checkCertificate);
+
+    context->setCommunicator(testCommunicator);
 
     try
     {
-        try
-        {
-            config->testHandshake();
-        }
-        catch(CertUnconfirmedException &exception)
-        {
-            std::string username = exception.getUsername();
-
-            // Prompt user for account confirmation
-            std::string userAns;
-            do {
-                std::cout << CONFIRM_CERTIFICATE_PROMPT(username);
-                std::getline(std::cin, userAns);
-                std::transform(userAns.begin(), userAns.end(), userAns.begin(), ::tolower);
-            } while( std::cin && (userAns.size() == 0 || (userAns[0] != 'y' && userAns[0] != 't' && userAns[0] != 'n')));
-
-            // Exit if input stream was interrupted somehow
-            if(!userAns.size())
-            {
-                fuse_unmount(mountpoint, ch);
-                std::cerr << std::endl << "Cannot confirm certificate. Aborting." << std::endl;
-                exit(EXIT_FAILURE);
-            }
-
-            // Resend handshake request along with account confirmation / rejection
-            config->testHandshake(username, userAns[0] == 'y' || userAns[0] == 't');
-        }
+        config->testHandshake();
     }
-    catch (VeilException &exception) {
+    catch(CertUnconfirmedException &exception)
+    {
+        std::string username = exception.getUsername();
+
+        // Prompt user for account confirmation
+        std::string userAns;
+        do {
+            std::cout << CONFIRM_CERTIFICATE_PROMPT(username);
+            std::getline(std::cin, userAns);
+            std::transform(userAns.begin(), userAns.end(), userAns.begin(), ::tolower);
+        } while( std::cin && (userAns.size() == 0 || (userAns[0] != 'y' && userAns[0] != 't' && userAns[0] != 'n')));
+
+        // Exit if input stream was interrupted somehow
+        if(!userAns.size())
+        {
+            fuse_unmount(mountpoint, ch);
+            std::cerr << std::endl << "Cannot confirm certificate. Aborting." << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        // Resend handshake request along with account confirmation / rejection
+        config->testHandshake(username, userAns[0] == 'y' || userAns[0] == 't');
+    }
+    catch(communication::InvalidServerCertificate &e)
+    {
+        cerr << "Server certificate verification failed: " << e.what() <<
+                ". Aborting" << endl;
+
+        fuse_unmount(mountpoint, ch);
+        exit(EXIT_FAILURE);
+    }
+    catch(VeilException &exception)
+    {
         if(exception.veilError()==NO_USER_FOUND_ERROR)
             cerr << "Cannot find user, remember to login through website before mounting fuse. Aborting" << endl;
         else if(exception.veilError()==NO_CONNECTION_FOR_HANDSHAKE)
-        {
-            if(testPool->getLastError() == error::SERVER_CERT_VERIFICATION_FAILED)
-                cerr << "Server certificate verification failed. Aborting" << endl;
-            else
-                cerr << "Cannot connect to server. Aborting." << endl;
-        }
+            cerr << "Cannot connect to server. Aborting." << endl;
         else
             cerr << "Handshake error. Aborting" << endl;
+
         fuse_unmount(mountpoint, ch);
-        exit(1);
+        exit(EXIT_FAILURE);
     }
 
     //cleanup test connections
-    context->setConnectionPool(nullptr);
-    testPool.reset();
+    context->setCommunicator(nullptr);
+    testCommunicator.reset();
 
     cout << "VeilFS has been successfully mounted in " + string(mountpoint) << endl;
 
@@ -460,8 +476,14 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     // Initialize VeilClient application
-    context->setConnectionPool(std::make_shared<SimpleConnectionPool> (
-        gsiHandler->getClusterHostname(), options->get_cluster_port(), std::bind(&GSIHandler::getCertInfo, gsiHandler), checkCertificate));
+    const auto communicator =
+            communication::createWebsocketCommunicator(options->get_alive_data_connections_count(),
+                                                       options->get_alive_meta_connections_count(),
+                                                       clusterUri,
+                                                       certificateData,
+                                                       checkCertificate);
+
+    context->setCommunicator(communicator);
 
     // Setup veilhelpers config
     helpers::BufferLimits bufferLimits{options->get_write_buffer_max_size(),
@@ -483,14 +505,14 @@ int main(int argc, char* argv[], char* envp[])
                     std::make_shared<MetaCache>(context),
                     std::make_shared<LocalStorageManager>(context),
                     std::make_shared<StorageMapper>(context, fslogicProxy),
-                    std::make_shared<helpers::StorageHelperFactory>(context->getConnectionPool(), bufferLimits),
+                    std::make_shared<helpers::StorageHelperFactory>(context->getCommunicator(), bufferLimits),
                     eventCommunicator);
     VeilAppObject = VeilApp;
 
     // Register remote logWriter for log threshold level updates and start sending loop
     context->getPushListener()->subscribe(std::bind(&logging::RemoteLogWriter::handleThresholdChange,
                                                      logWriter, _1));
-    logWriter->run(context->getConnectionPool());
+    logWriter->run(context->getCommunicator());
 
     // Enter FUSE loop
     if (multithreaded)

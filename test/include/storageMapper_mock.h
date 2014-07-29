@@ -25,7 +25,7 @@ public:
     MOCK_METHOD1(releaseFile, void(const std::string&));
     MOCK_METHOD2(getLocationInfo, std::pair<veil::client::locationInfo, veil::client::storageInfo>(const std::string&, bool));
     MOCK_METHOD2(addLocation, void(const std::string&, const veil::protocol::fuse_messages::FileLocation&));
-    MOCK_METHOD1(findLocation, std::string(const std::string&));
+    MOCK_METHOD2(findLocation, std::string(const std::string&, const std::string&));
 };
 
 

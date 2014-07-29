@@ -7,16 +7,14 @@
 
 #include "messageBuilder.h"
 
-#include "communicationHandler.h"
 #include "config.h"
 #include "context.h"
 #include "fslogicProxy.h"
 #include "veilfs.h"
+#include "logging.h"
 
 #include <boost/algorithm/string.hpp>
 #include <unistd.h>
-
-#include <iostream>
 
 using namespace std;
 using namespace boost::algorithm;
@@ -48,47 +46,6 @@ FuseMessage MessageBuilder::createFuseMessage(const string &id, const string &me
     msg.set_message_type(tolower(messageType));
     msg.set_input(messageInput);
     return msg;
-}
-
-ClusterMsg MessageBuilder::createClusterMessage(const string &moduleName, const string &messageType, const string &messageDecoderName, const string &answerType, const string &answerDecoderName, bool synch, const string &input)
-{
-    ClusterMsg msg = createClusterMessage(moduleName, messageType, answerType, answerDecoderName, synch, input);
-    msg.set_message_decoder_name(tolower(messageDecoderName));
-    return msg;
-}
-
-ClusterMsg MessageBuilder::createClusterMessage(const string &moduleName, const string &messageType, const string &answerType, const string &answerDecoderName, bool synch, const string &input)
-{
-    ClusterMsg msg = createClusterMessage(moduleName, messageType, answerType, answerDecoderName, synch);
-    msg.set_input(input);
-    return msg;
-}
-
-ClusterMsg MessageBuilder::createClusterMessage(const string &moduleName, const string &messageType, const string &answerType, const string &answerDecoderName, bool synch)
-{
-    ClusterMsg msg;
-    msg.set_module_name(moduleName);
-    msg.set_protocol_version(PROTOCOL_VERSION);
-    msg.set_message_type(tolower(messageType));
-    msg.set_message_decoder_name(tolower(FUSE_MESSAGES));
-    msg.set_answer_type(tolower(answerType));
-    msg.set_answer_decoder_name(tolower(answerDecoderName));
-    msg.set_synch(synch);
-    return msg;
-}
-
-ClusterMsg MessageBuilder::packFuseMessage(const string &messageType, const string &answerType, const string &answerDecoderName, const string &messageInput)
-{
-    ClusterMsg clusterMessage;
-
-
-
-    FuseMessage fuseMessage = createFuseMessage(m_context->getConfig()->getFuseID(), messageType, messageInput);
-
-    if(fuseMessage.IsInitialized())
-        clusterMessage = createClusterMessage(FSLOGIC, FUSE_MESSAGE, answerType, answerDecoderName, true, fuseMessage.SerializeAsString());
-
-    return clusterMessage;
 }
 
 FuseMessage MessageBuilder::decodeFuseAnswer(Answer& answer)

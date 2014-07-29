@@ -8,6 +8,7 @@
 #include "veilfs.h"
 
 #include "communication_protocol.pb.h"
+#include "communication/communicator.h"
 #include "config.h"
 #include "context.h"
 #include "events/event.h"
@@ -22,7 +23,6 @@
 #include "metaCache.h"
 #include "options.h"
 #include "pushListener.h"
-#include "simpleConnectionPool.h"
 #include "storageMapper.h"
 #include "veilErrors.h"
 #include "veilException.h"
@@ -113,11 +113,8 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
     m_context->setPushListener(pushListener);
 
     // Update FUSE_ID in current connection pool
-    m_context->getConnectionPool()->setPushCallback(m_context->getConfig()->getFuseID(), std::bind(&PushListener::onMessage, pushListener, std::placeholders::_1));
-
-    // Maximum connection count setup
-    m_context->getConnectionPool()->setPoolSize(SimpleConnectionPool::META_POOL, m_context->getOptions()->get_alive_meta_connections_count());
-    m_context->getConnectionPool()->setPoolSize(SimpleConnectionPool::DATA_POOL, m_context->getOptions()->get_alive_data_connections_count());
+    m_context->getCommunicator()->setFuseId(m_context->getConfig()->getFuseID());
+    m_context->getCommunicator()->setupPushChannels(std::bind(&PushListener::onMessage, pushListener, std::placeholders::_1));
 
     // Initialize cluster handshake in order to receive FuseID
     if(m_context->getConfig()->getFuseID() == "")

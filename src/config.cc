@@ -9,6 +9,9 @@
 
 #include "certUnconfirmedException.h"
 #include "communication_protocol.pb.h"
+#include "communication/communicator.h"
+#include "communication/exception.h"
+#include "communication/websocketConnection.h"
 #include "context.h"
 #include "fslogicProxy.h"
 #include "fuse_messages.pb.h"
@@ -17,7 +20,6 @@
 #include "messageBuilder.h"
 #include "options.h"
 #include "pushListener.h"
-#include "simpleConnectionPool.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -125,7 +127,6 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
     HandshakeRequest reqMsg;
     HandshakeRequest::EnvVariable *varEntry;
     HandshakeResponse resMsg;
-    Answer ans;
 
     auto context = m_context.lock();
     assert(context);
@@ -136,8 +137,8 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
     gethostname(tmpHost, sizeof(tmpHost));
     string hostname = string(tmpHost);
 
-    auto conn = context->getConnectionPool()->selectConnection();
-    if(conn)
+    auto communicator = context->getCommunicator();
+    try
     {
         // Build HandshakeRequest message
         reqMsg.set_hostname(hostname);
@@ -167,7 +168,7 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
         }
 
         // If there is username spcecified, send account confirmation along with handshake request
-        if(usernameToConfirm.size() > 0) 
+        if(usernameToConfirm.size() > 0)
         {
             HandshakeRequest_CertConfirmation confirmationMsg;
             confirmationMsg.set_login(usernameToConfirm);
@@ -175,29 +176,34 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
             reqMsg.mutable_cert_confirmation()->CopyFrom(confirmationMsg);
         }
 
-        cMsg = builder.createClusterMessage(FSLOGIC, HandshakeRequest::descriptor()->name(), HandshakeResponse::descriptor()->name(), FUSE_MESSAGES, true);
-        cMsg.set_input(reqMsg.SerializeAsString());
-
         // Send HandshakeRequest message
-        ans = conn->communicate(cMsg, 2);
+        auto ans = communicator->communicate<HandshakeResponse>(communication::ServerModule::FSLOGIC, reqMsg, 2);
 
         // Check answer
-        if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
+        if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
         {
             // Set FUSE_ID in config
             m_fuseID = resMsg.fuse_id();
 
             return;
         }
-        else if(ans.answer_status() == NO_USER_FOUND_ERROR)
+        else if(ans->answer_status() == NO_USER_FOUND_ERROR)
             throw VeilException(NO_USER_FOUND_ERROR,"Cannot find user in database.");
-        else if(ans.answer_status() == CERT_CONFIRMATION_REQUIRED_ERROR)
-            throw CertUnconfirmedException(ans.error_description());
+        else if(ans->answer_status() == CERT_CONFIRMATION_REQUIRED_ERROR)
+            throw CertUnconfirmedException(ans->error_description());
         else
-            throw VeilException(ans.answer_status(),"Cannot negotatiate FUSE_ID");
+            throw VeilException(ans->answer_status(),"Cannot negotatiate FUSE_ID");
     }
-    else
-        throw VeilException(NO_CONNECTION_FOR_HANDSHAKE,"Cannot select connection for handshake operation,");
+    catch(communication::InvalidServerCertificate&)
+    {
+        throw;
+    }
+    catch(communication::Exception &e)
+    {
+        throw VeilException(NO_CONNECTION_FOR_HANDSHAKE,
+                            "Cannot select connection for handshake operation: " +
+                            std::string{e.what()});
+    }
 }
 
 bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
@@ -212,13 +218,11 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
     HandshakeRequest reqMsg;
     HandshakeRequest::EnvVariable *varEntry;
     HandshakeResponse resMsg;
-    Answer ans;
 
     auto context = m_context.lock();
     assert(context);
 
     MessageBuilder builder{context};
-    std::shared_ptr<CommunicationHandler> conn;
 
     char tmpHost[1024];
     gethostname(tmpHost, sizeof(tmpHost));
@@ -226,78 +230,76 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
 
     switch(taskId)
     {
-    case TASK_CONNECTION_HANDSHAKE: // Send connection handshake request to cluster (in order to get FUSE_ID)
-
-        conn = context->getConnectionPool()->selectConnection();
-        if(conn)
+        case TASK_CONNECTION_HANDSHAKE: // Send connection handshake request to cluster (in order to get FUSE_ID)
         {
-            // Build HandshakeRequest message
-            reqMsg.set_hostname(hostname);
-
-            bool fuseIdFound = false;
-            map<string, string>::const_iterator it;
-            // Iterate over all env variables
-            for(it = m_envAll.begin(); it != m_envAll.end(); ++it)
+            auto communicator = context->getCommunicator();
+            try
             {
-                if(!boost::istarts_with((*it).first, FUSE_OPT_PREFIX)) // Reject vars with invalid prefix
-                    continue;
+                // Build HandshakeRequest message
+                reqMsg.set_hostname(hostname);
 
-                if(boost::iequals((*it).first, string(FUSE_OPT_PREFIX) + string("GROUP_ID"))) {
-                    fuseIdFound = true;
+                bool fuseIdFound = false;
+                map<string, string>::const_iterator it;
+                // Iterate over all env variables
+                for(it = m_envAll.begin(); it != m_envAll.end(); ++it)
+                {
+                    if(!boost::istarts_with((*it).first, FUSE_OPT_PREFIX)) // Reject vars with invalid prefix
+                        continue;
+
+                    if(boost::iequals((*it).first, string(FUSE_OPT_PREFIX) + string("GROUP_ID"))) {
+                        fuseIdFound = true;
+                    }
+
+                    varEntry = reqMsg.add_variable();
+
+                    varEntry->set_name( (*it).first.substr(string(FUSE_OPT_PREFIX).size()) );
+                    varEntry->set_value( (*it).second );
                 }
 
-                varEntry = reqMsg.add_variable();
+                if(context->getOptions()->has_fuse_group_id() && !fuseIdFound) {
+                    varEntry = reqMsg.add_variable();
 
-                varEntry->set_name( (*it).first.substr(string(FUSE_OPT_PREFIX).size()) );
-                varEntry->set_value( (*it).second );
+                    varEntry->set_name( "GROUP_ID" );
+                    varEntry->set_value( context->getOptions()->get_fuse_group_id() );
+                }
+
+                // Send HandshakeRequest message
+                auto ans = communicator->communicate<HandshakeResponse>(communication::ServerModule::FSLOGIC, reqMsg, 2);
+                if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
+                {
+                    // Set FUSE_ID in config
+                    m_fuseID = resMsg.fuse_id();
+
+                    // Update FUSE_ID in current connection pool
+                    communicator->setFuseId(m_fuseID);
+                    communicator->setupPushChannels(std::bind(&PushListener::onMessage, context->getPushListener(), std::placeholders::_1));
+
+                    LOG(INFO) << "Newly negotiated FUSE_ID: " << resMsg.fuse_id();
+
+                    return true;
+                }
+                else
+                    LOG(WARNING) << "Cannot negotatiate FUSE_ID. Invalid cluster answer with status: " << ans->answer_status();
+
             }
-
-            if(context->getOptions()->has_fuse_group_id() && !fuseIdFound) {
-                varEntry = reqMsg.add_variable();
-
-                varEntry->set_name( "GROUP_ID" );
-                varEntry->set_value( context->getOptions()->get_fuse_group_id() );
-            }
-
-            cMsg = builder.createClusterMessage(FSLOGIC, HandshakeRequest::descriptor()->name(), HandshakeResponse::descriptor()->name(), FUSE_MESSAGES, true);
-            cMsg.set_input(reqMsg.SerializeAsString());
-
-            // Send HandshakeRequest message
-            ans = conn->communicate(cMsg, 2);
-            if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
+            catch(communication::Exception &e)
             {
-                // Set FUSE_ID in config
-                m_fuseID = resMsg.fuse_id();
-
-                // Update FUSE_ID in current connection pool
-                context->getConnectionPool()->setPushCallback(getFuseID(), std::bind(&PushListener::onMessage, context->getPushListener(), std::placeholders::_1));
-
-                // Reset all connections. Each and every connection will send HandshakeAck with new fuse ID on its own.
-                context->getConnectionPool()->resetAllConnections(SimpleConnectionPool::META_POOL);
-                context->getConnectionPool()->resetAllConnections(SimpleConnectionPool::DATA_POOL);
-
-
-                LOG(INFO) << "Newly negotiated FUSE_ID: " << resMsg.fuse_id();
-
-                return true;
+                LOG(ERROR) << "Cannot select connection for handshake operation: " <<
+                              e.what();
             }
-            else
-                LOG(WARNING) << "Cannot negotatiate FUSE_ID. Invalid cluster answer with status: " << ans.answer_status();
 
+
+            // At this point we know that something went wrong
+            LOG(ERROR) << "Cannot negotatiate FUSE_ID, retrying in 3 secs.";
+
+            // Retry in 3 secs
+            negotiateFuseID(3);
+
+            return true;
         }
-        else
-            LOG(ERROR) << "Cannot select connection for handshake operation,";
 
-        // At this point we know that something went wrong
-        LOG(ERROR) << "Cannot negotatiate FUSE_ID, retrying in 3 secs.";
-
-        // Retry in 3 secs
-        negotiateFuseID(3);
-
-        return true;
-
-    default:
-        return false;
+        default:
+            return false;
     }
 }
 

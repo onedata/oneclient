@@ -9,7 +9,8 @@
 #include "fslogicProxy.h"
 
 #include "communication_protocol.pb.h"
-#include "communicationHandler.h"
+#include "communication/communicator.h"
+#include "communication/exception.h"
 #include "config.h"
 #include "context.h"
 #include "fuse_messages.pb.h"
@@ -17,7 +18,6 @@
 #include "logging.h"
 #include "messageBuilder.h"
 #include "options.h"
-#include "simpleConnectionPool.h"
 #include "veilErrors.h"
 #include "veilfs.h"
 
@@ -27,7 +27,6 @@
 #include <unistd.h>
 
 #include <fstream>
-#include <iostream>
 #include <string>
 
 using namespace std;
@@ -287,7 +286,8 @@ pair<string, string> FslogicProxy::getLink(const string& path)
     return make_pair(answer.answer(), answer.file_logic_name());
 }
 
-bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, google::protobuf::Message& response)
+template<typename Ans>
+bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message &fMsg, Ans &response)
 {
     if(!fMsg.IsInitialized())
     {
@@ -295,37 +295,32 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, 
         return false;
     }
 
-    ClusterMsg clusterMessage = m_messageBuilder->packFuseMessage(fMsg.GetDescriptor()->name(), response.GetDescriptor()->name(), veil::FUSE_MESSAGES, fMsg.SerializeAsString());
+    auto fuseMsg = m_messageBuilder->createFuseMessage(m_context->getConfig()->getFuseID(),
+                                                       fMsg.GetDescriptor()->name(),
+                                                       fMsg.SerializeAsString());
 
-    if(!clusterMessage.IsInitialized())
+    auto communicator = m_context->getCommunicator();
+    try
     {
-        LOG(ERROR) << "Cannot build ClusterMsg";
+        LOG(INFO) << "Sending message (type: " << fMsg.GetDescriptor()->name() << "). Expecting answer with type: " << response.GetDescriptor()->name();
+
+        auto answer = communicator->communicate<Ans>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
+
+        if(answer->answer_status() != VOK)
+        {
+            LOG(WARNING) << "Cluster send non-ok message. status = " << answer->answer_status();
+            if(answer->answer_status() == INVALID_FUSE_ID)
+                m_context->getConfig()->negotiateFuseID(0);
+            return false;
+        }
+
+        return response.ParseFromString(answer->worker_answer());
+    }
+    catch(communication::Exception &e)
+    {
+        LOG(ERROR) << "Cannot select connection from connectionPool: " << e.what();
         return false;
     }
-
-    std::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
-    if(!connection)
-    {
-        LOG(ERROR) << "Cannot select connection from connectionPool";
-        return false;
-    }
-
-    LOG(INFO) << "Sending message (type: " << fMsg.GetDescriptor()->name() << "). Expecting answer with type: " << response.GetDescriptor()->name();
-
-    Answer answer = connection->communicate(clusterMessage, 2);
-
-    if(answer.answer_status() != VEIO)
-        m_context->getConnectionPool()->releaseConnection(connection);
-
-    if(answer.answer_status() != VOK)
-    {
-        LOG(WARNING) << "Cluster send non-ok message. status = " << answer.answer_status();
-        if(answer.answer_status() == INVALID_FUSE_ID)
-            m_context->getConfig()->negotiateFuseID(0);
-        return false;
-    }
-
-    return response.ParseFromString(answer.worker_answer());
 }
 
 string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
@@ -336,38 +331,35 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
         return VEIO;
     }
 
-    ClusterMsg clusterMessage = m_messageBuilder->packFuseMessage(fMsg.GetDescriptor()->name(), Atom::descriptor()->name(), COMMUNICATION_PROTOCOL, fMsg.SerializeAsString());
+    auto fuseMsg = m_messageBuilder->createFuseMessage(m_context->getConfig()->getFuseID(),
+                                                       fMsg.GetDescriptor()->name(),
+                                                       fMsg.SerializeAsString());
 
-    if(!clusterMessage.IsInitialized())
+    auto communicator = m_context->getCommunicator();
+    try
     {
-        LOG(ERROR) << "Cannot build ClusterMsg";
+        LOG(INFO) << "Sending message (type: " << fMsg.GetDescriptor()->name() << "). Expecting answer with type: atom";
+
+        auto answer = communicator->communicate<>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
+
+        if(answer->answer_status() == INVALID_FUSE_ID)
+            m_context->getConfig()->negotiateFuseID(0);
+
+        std::string atom = m_messageBuilder->decodeAtomAnswer(*answer);
+
+        if(atom.size() == 0)
+        {
+            LOG(ERROR) << "Cannot parse cluster atom answer";
+            return VEIO;
+        }
+
+        return atom;
+    }
+    catch(communication::Exception &e)
+    {
+        LOG(ERROR) << "Cannot select connection from connectionPool: " << e.what();
         return VEIO;
     }
-
-    std::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
-    if(!connection)
-    {
-        LOG(ERROR) << "Cannot select connection from connectionPool";
-        return VEIO;
-    }
-
-    Answer answer = connection->communicate(clusterMessage, 2);
-
-    if(answer.answer_status() != VEIO)
-        m_context->getConnectionPool()->releaseConnection(connection);
-
-    if(answer.answer_status() == INVALID_FUSE_ID)
-        m_context->getConfig()->negotiateFuseID(0);
-
-    string atom = m_messageBuilder->decodeAtomAnswer(answer);
-
-    if(atom.size() == 0)
-    {
-        LOG(ERROR) << "Cannot parse cluster atom answer";
-        return VEIO;
-    }
-
-    return atom;
 }
 
 pair<string, struct statvfs> FslogicProxy::getStatFS()
@@ -397,33 +389,23 @@ pair<string, struct statvfs> FslogicProxy::getStatFS()
     return make_pair(answer.answer(), statFS);
 }
 
-void FslogicProxy::pingCluster(const string& nth)
+void FslogicProxy::pingCluster(const string &nth)
 {
+    auto communicator = m_context->getCommunicator();
+    try
+    {
+        Atom ping;
+        ping.set_value("ping");
+        auto answer = communicator->communicate<>(communication::ServerModule::FSLOGIC, ping);
 
-    ClusterMsg clm;
-    clm.set_protocol_version(PROTOCOL_VERSION);
-    clm.set_synch(false);
-    clm.set_module_name(FSLOGIC);
-    clm.set_message_type(ATOM);
-    clm.set_answer_type(ATOM);
-    clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
-    clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL);
-
-    Atom ping;
-    ping.set_value("ping");
-    clm.set_input(ping.SerializeAsString());
-
-    Answer ans;
-    int nthInt;
-    istringstream iss(nth);
-    iss >> nthInt;
-    std::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
-
-    if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
-        LOG(WARNING) << "Pinging cluster " << (connection ? "failed" : "not needed");
-    } else {
-        m_context->getConnectionPool()->releaseConnection(connection);
-        LOG(INFO) << "Cluster ping... ---> " << ans.answer_status();
+        if(answer->answer_status() == VEIO)
+            LOG(WARNING) << "Pinging cluster failed";
+        else
+            LOG(INFO) << "Cluster ping... ---> " << answer->answer_status();
+    }
+    catch(communication::Exception &e)
+    {
+        LOG(ERROR) << "Cluster ping failed: " << e.what();
     }
 
     // Send another...
