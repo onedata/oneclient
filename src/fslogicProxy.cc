@@ -309,13 +309,13 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message &fMsg, 
 
         auto answer = communicator->communicate<Ans>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
 
-    if(answer->answer_status() != VOK)
-    {
+        if(answer->answer_status() != VOK)
+        {
             LOG(WARNING) << "Cluster send non-ok message. status = " << answer->answer_status();
             if(answer->answer_status() == INVALID_FUSE_ID)
                 m_context->getConfig()->negotiateFuseID(0);
-        return false;
-    }
+            return false;
+        }
 
         return response.ParseFromString(answer->worker_answer());
     }
@@ -348,21 +348,15 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
         if(answer->answer_status() == INVALID_FUSE_ID)
             m_context->getConfig()->negotiateFuseID(0);
 
-    if(answer.answer_status() != VEIO)
-        m_context.lock()->getConnectionPool()->releaseConnection(connection);
-
-    if(answer.answer_status() == INVALID_FUSE_ID)
-        m_context.lock()->getConfig()->negotiateFuseID(0);
-
         std::string atom = m_messageBuilder->decodeAtomAnswer(*answer);
 
-    if(atom.size() == 0)
-    {
-        LOG(ERROR) << "Cannot parse cluster atom answer";
-        return VEIO;
-    }
+        if(atom.size() == 0)
+        {
+            LOG(ERROR) << "Cannot parse cluster atom answer";
+            return VEIO;
+        }
 
-    return atom;
+        return atom;
     }
     catch(communication::Exception &e)
     {

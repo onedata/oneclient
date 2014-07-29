@@ -412,18 +412,18 @@ int main(int argc, char* argv[], char* envp[])
 
     try
     {
-            config->testHandshake();
-        }
-        catch(CertUnconfirmedException &exception)
-        {
-            std::string username = exception.getUsername();
+        config->testHandshake();
+    }
+    catch(CertUnconfirmedException &exception)
+    {
+        std::string username = exception.getUsername();
 
-            // Prompt user for account confirmation
-            std::string userAns;
-            do {
-                std::cout << CONFIRM_CERTIFICATE_PROMPT(username);
-                std::getline(std::cin, userAns);
-                std::transform(userAns.begin(), userAns.end(), userAns.begin(), ::tolower);
+        // Prompt user for account confirmation
+        std::string userAns;
+        do {
+            std::cout << CONFIRM_CERTIFICATE_PROMPT(username);
+            std::getline(std::cin, userAns);
+            std::transform(userAns.begin(), userAns.end(), userAns.begin(), ::tolower);
         } while( std::cin && (userAns.size() == 0 || (userAns[0] != 'y' && userAns[0] != 't' && userAns[0] != 'n')));
 
         // Exit if input stream was interrupted somehow
@@ -434,9 +434,9 @@ int main(int argc, char* argv[], char* envp[])
             exit(EXIT_FAILURE);
         }
 
-            // Resend handshake request along with account confirmation / rejection
-            config->testHandshake(username, userAns[0] == 'y' || userAns[0] == 't');
-        }
+        // Resend handshake request along with account confirmation / rejection
+        config->testHandshake(username, userAns[0] == 'y' || userAns[0] == 't');
+    }
     catch(communication::InvalidServerCertificate &e)
     {
         cerr << "Server certificate verification failed: " << e.what() <<
@@ -450,7 +450,7 @@ int main(int argc, char* argv[], char* envp[])
         if(exception.veilError()==NO_USER_FOUND_ERROR)
             cerr << "Cannot find user, remember to login through website before mounting fuse. Aborting" << endl;
         else if(exception.veilError()==NO_CONNECTION_FOR_HANDSHAKE)
-                cerr << "Cannot connect to server. Aborting." << endl;
+            cerr << "Cannot connect to server. Aborting." << endl;
         else
             cerr << "Handshake error. Aborting" << endl;
 
