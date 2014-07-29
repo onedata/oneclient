@@ -64,7 +64,7 @@
                                 storageInfo sInfo; \
                                 try \
                                 { \
-                                    pair<locationInfo, storageInfo> tmpLoc = m_storageMapper->getLocationInfo(string(PATH), true, FORCE_PROXY); \
+                                    pair<locationInfo, storageInfo> tmpLoc = m_context->getStorageMapper()->getLocationInfo(string(PATH), true, FORCE_PROXY); \
                                     lInfo = tmpLoc.first; \
                                     sInfo = tmpLoc.second; \
                                 } \
@@ -91,12 +91,10 @@ namespace client {
 
 VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
                std::shared_ptr<FslogicProxy> fslogic,  std::shared_ptr<MetaCache> metaCache,
-               std::shared_ptr<LocalStorageManager> sManager, std::shared_ptr<StorageMapper> mapper,
                std::shared_ptr<helpers::StorageHelperFactory> sh_factory,
                std::shared_ptr<events::EventCommunicator> eventCommunicator) :
     m_fh(0),
     m_fslogic(fslogic),
-    m_storageMapper(mapper),
     m_metaCache(metaCache),
     m_sManager(sManager),
     m_shFactory(sh_factory),
@@ -193,7 +191,7 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
     statbuf->st_mtime = 0;
     statbuf->st_ctime = 0;
 
-    m_storageMapper->resetHelperOverride(path);
+    m_context->getStorageMapper()->resetHelperOverride(path);
 
     if(!m_metaCache->getAttr(string(path), statbuf))
     {
@@ -211,7 +209,7 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
 
         if(attr.type() == "REG" && fuse_ctx) // We'll need storage mapping for regular file
         {
-            Job getLocTask = Job(time(NULL), m_storageMapper, ISchedulable::TASK_ASYNC_GET_FILE_LOCATION, string(path));
+            Job getLocTask = Job(time(NULL), m_context->getStorageMapper(), ISchedulable::TASK_ASYNC_GET_FILE_LOCATION, string(path));
             m_context->getScheduler()->addTask(getLocTask);
         }
 
@@ -231,12 +229,6 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
             m_ruid = uid;
             m_rgid = gid;
         }
-
-        // If file belongs to filesystems owner, show FUSE owner ID
-//        if(m_ruid == uid)
-//            uid = m_uid;
-//        if(m_rgid == gid)
-//            gid = m_gid;
 
         struct passwd *ownerInfo = getpwnam(attr.uname().c_str()); // Static buffer, do NOT free !
         struct group *groupInfo = getgrnam(attr.gname().c_str());  // Static buffer, do NOT free !
@@ -345,7 +337,7 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
         return translateError(location.answer());
     }
 
-    m_storageMapper->addLocation(string(path), location);
+    m_context->getStorageMapper()->addLocation(string(path), location);
     GET_LOCATION_INFO(path, false);
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_mknod(lInfo.fileId.c_str(), mode, dev));
@@ -577,7 +569,7 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
         else if(accMode == O_WRONLY)
             openMode = WRITE_MODE;
         std::string status;
-        if(VOK != (status =  m_storageMapper->findLocation(string(path), openMode)))
+        if(VOK != (status =  m_context->getStorageMapper()->findLocation(string(path), openMode)))
             return translateError(status);
     }
 
@@ -586,7 +578,7 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
 
     GET_LOCATION_INFO(path, !attrsStatus && !m_metaCache->canUseDefaultPermissions(attrs));
 
-    m_storageMapper->openFile(string(path));
+    m_context->getStorageMapper()->openFile(string(path));
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_open(lInfo.fileId.c_str(), fileInfo));
 
@@ -704,7 +696,7 @@ int VeilFS::release(const char *path, struct fuse_file_info *fileInfo)
 
     m_shCache.erase(fileInfo->fh);
 
-    m_storageMapper->releaseFile(string(path));
+    m_context->getStorageMapper()->releaseFile(string(path));
 
     return sh_return;
 }

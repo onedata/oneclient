@@ -78,32 +78,6 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &log
     if(it1 == m_storageMapping.end())
         throw VeilException(VEIO, "cannot find storage information");
 
-//    // Check for helper overrides for this file
-//    auto it0 = m_fileHelperOverride.find(logicalName);
-//    if(it0 != m_fileHelperOverride.end())
-//    {
-
-//        // BEGIN HACK
-//        /*
-//         * @todo
-//         * If override changes helper to "ClusterProxy", we need to tuneup fileId since "ClusterProxy" handles
-//         * it differently. Right now logic that format fileId for "ClusterProxy" is both on server and client side which is
-//         * unacceptable. Easiest fix would be moving storageId to "ClusterProxy"'s arguments map, so that
-//         * "ClusterProxy" could accept standard fileId.
-//        */
-
-//        if(it1->second.storageHelperName != it0->second.storageHelperName && it0->second.storageHelperName == CLUSTER_PROXY_HELPER)
-//        {
-//            location.fileId = std::to_string(location.storageId) + "///" + location.fileId;
-//        }
-//        // END HACK
-
-//        DLOG(INFO) << "Default helper / fileId: " << it1->second.storageHelperName << " / " << it->second.fileId << " "
-//                   << "Overriden helper / fileId: " << it0->second.storageHelperName << " / " << location.fileId;
-
-//        return make_pair(std::move(location), it0->second);
-//    }
-
     return make_pair(std::move(location), it1->second);
 }
 

@@ -95,7 +95,6 @@ public:
                         fslogicMock,
                         metaCacheMock,
                         storageManagerMock,
-                        storageMapperMock,
                         factoryFake,
                         eventCommunicatorMock);
 

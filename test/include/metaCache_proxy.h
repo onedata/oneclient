@@ -18,7 +18,7 @@ public:
     {
     }
 
-    bool canUseDefaultPermissions(const struct stat &attrs)
+    bool canUseDefaultPermissions(const struct stat &attrs) override
     {
         return true;
     }

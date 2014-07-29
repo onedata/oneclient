@@ -478,7 +478,6 @@ int main(int argc, char* argv[], char* envp[])
                     fslogicProxy,
                     std::make_shared<MetaCache>(context),
                     std::make_shared<LocalStorageManager>(context),
-                    storageMapper,
                     std::make_shared<helpers::StorageHelperFactory>(context->getConnectionPool(), bufferLimits),
                     eventCommunicator);
     VeilAppObject = VeilApp;
