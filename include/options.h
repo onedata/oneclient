@@ -128,7 +128,7 @@ private:
     DECL_CONFIG_DEF(file_buffer_prefered_block_size, std::size_t, 100 * 1024) // 100 kB
     DECL_CONFIG_DEF(write_bytes_before_stat, std::size_t, 5 * 1024 * 1024) // 5 MB
     DECL_CONFIG(fuse_group_id, std::string)
-    DECL_CMDLINE_SWITCH_DEF(no_check_certificate, "", true, "disable remote certificate validation")
+    DECL_CMDLINE_SWITCH_DEF(no_check_certificate, "", false, "disable remote certificate validation")
     DECL_CMDLINE_SWITCH_DEF(debug, ",d", false, "enable debug output (implies -f)")
     DECL_CMDLINE_SWITCH_DEF(debug_gsi, "", false, "enable GSI debug output")
 };
