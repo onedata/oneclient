@@ -122,7 +122,7 @@ public:
 
         // Root directory stat
         struct stat root_st = {0};
-        st.st_mode |= S_IFDIR;
+        root_st.st_mode |= S_IFDIR;
         EXPECT_CALL(*metaCacheMock, getAttr("/", _)).WillRepeatedly(DoAll(SetArgPointee<1>(root_st), Return(true)));
 
         EXPECT_CALL(*scheduler, addTask(_)).WillRepeatedly(Return());
