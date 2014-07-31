@@ -37,8 +37,7 @@ extern string CommonFilesRoot;
 class VeilFSMount {
 
 public:
-    VeilFSMount(string path, string cert);
-    VeilFSMount(string path, string cert, string opts);
+    VeilFSMount(string path, string cert, string opts = "", string args = "--no-check-certificate");
     ~VeilFSMount();
 
     string getRoot();
@@ -46,7 +45,7 @@ public:
 private:
     string m_mountPoint;
 
-    int mount(string path, string cert, string opts);
+    int mount(string path, string cert, string opts, string args);
     int umount(bool silent = false);
 
 };
