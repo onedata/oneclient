@@ -393,7 +393,7 @@ int VeilFS::unlink(const char *path)
     FileAttr attr;
     int isLink = 0;
 
-    int attrStatus = getattr(path, &statbuf, false)
+    int attrStatus = getattr(path, &statbuf, false);
     isLink = S_ISLNK(statbuf.st_mode);
 
     m_metaCache->clearAttr(string(path)); // Clear cache
