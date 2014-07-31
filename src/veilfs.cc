@@ -393,10 +393,8 @@ int VeilFS::unlink(const char *path)
     FileAttr attr;
     int isLink = 0;
 
-    if(m_metaCache->getAttr(string(path), &statbuf)) // Check file type in cache
-        isLink = S_ISLNK(statbuf.st_mode);
-    else if(m_fslogic->getFileAttr(string(path), attr)) // ... or fetch it from cluster
-        isLink = (attr.type() == "LNK");
+    int attrStatus = getattr(path, &statbuf, false)
+    isLink = S_ISLNK(statbuf.st_mode);
 
     m_metaCache->clearAttr(string(path)); // Clear cache
 
@@ -405,7 +403,7 @@ int VeilFS::unlink(const char *path)
         struct stat parentAttrs;
         auto parentAttrsStatus = getattr(parent(path).c_str(), &parentAttrs, false);
 
-        GET_LOCATION_INFO(path, (!parentAttrsStatus && !m_metaCache->canUseDefaultPermissions(parentAttrs)) || !m_metaCache->canUseDefaultPermissions(statbuf)); //Get file location from cluster
+        GET_LOCATION_INFO(path, (!parentAttrsStatus && !attrStatus && !m_metaCache->canUseDefaultPermissions(parentAttrs)) || !m_metaCache->canUseDefaultPermissions(statbuf)); //Get file location from cluster
         RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
 
         SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_unlink(lInfo.fileId.c_str()));
