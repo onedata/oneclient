@@ -403,7 +403,7 @@ int VeilFS::unlink(const char *path)
         struct stat parentAttrs;
         auto parentAttrsStatus = getattr(parent(path).c_str(), &parentAttrs, false);
 
-        GET_LOCATION_INFO(path, (!parentAttrsStatus && !attrStatus && !m_metaCache->canUseDefaultPermissions(parentAttrs)) || !m_metaCache->canUseDefaultPermissions(statbuf)); //Get file location from cluster
+        GET_LOCATION_INFO(path, (!parentAttrsStatus && !m_metaCache->canUseDefaultPermissions(parentAttrs)) || (!attrStatus && !m_metaCache->canUseDefaultPermissions(statbuf))); //Get file location from cluster
         RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
 
         SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_unlink(lInfo.fileId.c_str()));

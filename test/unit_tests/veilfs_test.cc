@@ -316,6 +316,10 @@ TEST_F(VeilFSTest, unlink) { // const char *path
     FileAttr attrs;
     attrs.set_type("LNK");
 
+    struct stat root_st = {0};
+    root_st.st_mode |= S_IFDIR;
+    EXPECT_CALL(*metaCacheMock, getAttr("/", _)).WillRepeatedly(DoAll(SetArgPointee<1>(root_st), Return(true)));
+
     EXPECT_CALL(*metaCacheMock, getAttr("/path", _)).WillOnce(DoAll(SetArgPointee<1>(st), Return(true)));
     EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VOK));
     EXPECT_CALL(*storageMapperMock, getLocationInfo(_, _, _)).Times(0);
