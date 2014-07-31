@@ -396,9 +396,9 @@ void FslogicProxy::pingCluster(const string &nth)
 {
     auto communicator = m_context.lock()->getCommunicator();
     try
-{
-    Atom ping;
-    ping.set_value("ping");
+    {
+        Atom ping;
+        ping.set_value("ping");
         auto answer = communicator->communicate<>(communication::ServerModule::FSLOGIC, ping);
 
         if(answer->answer_status() == VEIO)
