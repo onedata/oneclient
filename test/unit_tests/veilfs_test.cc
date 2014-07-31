@@ -120,11 +120,6 @@ public:
         fileInfo.fh = 0;
         client->setCachedHelper(0, helperMock);
 
-        // Root directory stat
-        struct stat root_st = {0};
-        root_st.st_mode |= S_IFDIR;
-        EXPECT_CALL(*metaCacheMock, getAttr("/", _)).WillRepeatedly(DoAll(SetArgPointee<1>(root_st), Return(true)));
-
         EXPECT_CALL(*scheduler, addTask(_)).WillRepeatedly(Return());
     }
 
@@ -336,7 +331,7 @@ TEST_F(VeilFSTest, unlink) { // const char *path
 
     attrs.set_type("REG");
     EXPECT_CALL(*metaCacheMock, getAttr("/path", _)).WillRepeatedly(DoAll(SetArgPointee<1>(st), Return(false)));
-    EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillRepeatedly(DoAll(SetArgReferee<1>(attrs), Return(true)));
+    EXPECT_CALL(*fslogicMock, getFileAttr(_, _)).WillRepeatedly(DoAll(SetArgReferee<1>(attrs), Return(true)));
 
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
     EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VEACCES));
