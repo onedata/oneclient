@@ -104,7 +104,7 @@ public:
         int fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo); /**< *fsyncdir* FUSE callback. Not implemented yet. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
         int init(struct fuse_conn_info *conn); /**< *init* FUSE callback. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
 
-        virtual bool needsForceClusterProxy(const std::string &path); ///< Checks if users is able to use 'user' or 'group' permissions to access the file given by path.
+        virtual bool needsForceClusterProxy(const std::string &path); ///< Checks if user is able to use 'user' or 'group' permissions to access the file given by path.
         virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 protected:
