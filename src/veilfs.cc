@@ -771,7 +771,7 @@ int VeilFS::init(struct fuse_conn_info *conn) {
 bool VeilFS::needsForceClusterProxy(const std::string &path)
 {
     struct stat attrs;
-    auto attrsStatus = getattr(path, &attrs, false);
+    auto attrsStatus = getattr(path.c_str(), &attrs, false);
     return attrsStatus || !m_metaCache->canUseDefaultPermissions(attrs);
 }
 
