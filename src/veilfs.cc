@@ -265,13 +265,6 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
         m_metaCache->addAttr(string(path), *statbuf);
     }
 
-    // If there is a chance that user won't be able to access files directly
-    // due to lack of permissions, make sure that "ClusterProxy" is used.
-//    if(!m_metaCache->canUseDefaultPermissions(*statbuf))
-//    {
-//        m_context->getStorageMapper()->helperOverride(path, storageInfo{CLUSTER_PROXY_HELPER, helpers::IStorageHelper::ArgsMap{}});
-//    }
-
     return 0;
 }
 
@@ -319,11 +312,8 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
 
     m_metaCache->clearAttr(string(path));
 
-    struct stat parentAttrs;
-    auto parentAttrsStatus = getattr(parent(path).c_str(), &parentAttrs, false);
-
     FileLocation location;
-    if(!m_fslogic->getNewFileLocation(string(path), mode & ALLPERMS, location, !parentAttrsStatus && !m_metaCache->canUseDefaultPermissions(parentAttrs)))
+    if(!m_fslogic->getNewFileLocation(string(path), mode & ALLPERMS, location, needsForceClusterProxy(parent(path))))
     {
         LOG(WARNING) << "cannot fetch new file location mapping";
         return -EIO;
@@ -400,10 +390,7 @@ int VeilFS::unlink(const char *path)
 
     if(!isLink)
     {
-        struct stat parentAttrs;
-        auto parentAttrsStatus = getattr(parent(path).c_str(), &parentAttrs, false);
-
-        GET_LOCATION_INFO(path, (!parentAttrsStatus && !m_metaCache->canUseDefaultPermissions(parentAttrs)) || (!attrStatus && !m_metaCache->canUseDefaultPermissions(statbuf))); //Get file location from cluster
+        GET_LOCATION_INFO(path, (needsForceClusterProxy(parent(path))) || attrStatus || !m_metaCache->canUseDefaultPermissions(statbuf)); //Get file location from cluster
         RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
 
         SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_unlink(lInfo.fileId.c_str()));
@@ -476,9 +463,6 @@ int VeilFS::chmod(const char *path, mode_t mode)
     LOG(INFO) << "FUSE: chmod(path: " << string(path) << ", mode: "<< mode << ")";
     RETURN_IF_ERROR(m_fslogic->changeFilePerms(string(path), mode & ALLPERMS)); // ALLPERMS = 07777
 
-    struct stat attrs;
-    auto attrsStatus = getattr(path, &attrs, false);
-
     m_metaCache->clearAttr(string(path));
 
     // Chceck is its not regular file
@@ -486,7 +470,7 @@ int VeilFS::chmod(const char *path, mode_t mode)
         return 0;
 
     // If it is, we have to call storage haleper's chmod
-    GET_LOCATION_INFO(path, !attrsStatus && !m_metaCache->canUseDefaultPermissions(attrs));
+    GET_LOCATION_INFO(path, needsForceClusterProxy(path));
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_chmod(lInfo.fileId.c_str(), mode));
     return sh_return;
@@ -520,10 +504,7 @@ int VeilFS::truncate(const char *path, off_t newSize)
 {
     LOG(INFO) << "FUSE: truncate(path: " << string(path) << ", newSize: "<< newSize <<")";
 
-    struct stat attrs;
-    auto attrsStatus = getattr(path, &attrs, false);
-
-    GET_LOCATION_INFO(path, !attrsStatus && !m_metaCache->canUseDefaultPermissions(attrs));
+    GET_LOCATION_INFO(path, needsForceClusterProxy(path));
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_truncate(lInfo.fileId.c_str(), newSize));
 
@@ -569,10 +550,7 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
             return translateError(status);
     }
 
-    struct stat attrs;
-    auto attrsStatus = getattr(path, &attrs, false);
-
-    GET_LOCATION_INFO(path, !attrsStatus && !m_metaCache->canUseDefaultPermissions(attrs));
+    GET_LOCATION_INFO(path, needsForceClusterProxy(path));
 
     m_context->getStorageMapper()->openFile(string(path));
 
@@ -787,6 +765,14 @@ int VeilFS::removexattr(const char *path, const char *name)
 int VeilFS::init(struct fuse_conn_info *conn) {
     LOG(INFO) << "FUSE: init(...)";
     return 0;
+}
+
+
+bool VeilFS::needsForceClusterProxy(const std::string &path)
+{
+    struct stat attrs;
+    auto attrsStatus = getattr(path, &attrs, false);
+    return attrsStatus || !m_metaCache->canUseDefaultPermissions(attrs);
 }
 
 bool VeilFS::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
