@@ -94,7 +94,7 @@ std::shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(std:
             newEvent->setStringProperty(fieldName, value);
         }
         resetState();
-        return std::move(newEvent);
+        return newEvent;
     }
 
     return std::shared_ptr<Event>();
