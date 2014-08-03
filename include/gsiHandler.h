@@ -11,6 +11,8 @@
 
 #include "communication/certificateData.h"
 
+#include <openssl/ossl_typ.h>
+
 #include <memory>
 #include <mutex>
 #include <string>
@@ -52,6 +54,12 @@ private:
     const std::shared_ptr<Context> m_context;
     const bool m_debug;
     std::mutex m_certCallbackMutex;
+    std::string m_userDN;
+    bool m_proxyInitialized = false;
+    BUF_MEM *m_keyBuff = nullptr;
+    BUF_MEM *m_chainBuff = nullptr;
+    std::string m_userCertPath;
+    std::string m_userKeyPath;
 };
 
 } // namespace client
