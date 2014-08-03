@@ -52,8 +52,7 @@ std::shared_ptr<Event> EventAggregator::actualProcessEvent(std::shared_ptr<Event
             return std::shared_ptr<Event>();
     }
 
-    if(m_substreams.find(value) == m_substreams.end())
-        m_substreams[value] = EventAggregator::ActualEventAggregator();
+    m_substreams.emplace(value, ActualEventAggregator{});
 
     return m_substreams[value].processEvent(event, m_threshold, m_fieldName, m_sumFieldName);
 }
@@ -73,9 +72,14 @@ long long EventAggregator::getThreshold()
     return m_threshold;
 }
 
+EventAggregator::ActualEventAggregator::ActualEventAggregator(ActualEventAggregator &&other)
+    : m_counter{other.m_counter}
+{
+}
+
 std::shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(std::shared_ptr<Event> event, long long threshold, const string & fieldName, const string & sumFieldName)
 {
-    AutoLock lock(m_aggregatorStateLock, WRITE_LOCK);
+    std::lock_guard<std::mutex> guard{m_aggregatorStateMutex};
     NumericProperty count = event->getNumericProperty(sumFieldName, 1);
     m_counter += count;
 

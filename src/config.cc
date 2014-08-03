@@ -121,7 +121,7 @@ void Config::testHandshake()
 
 void Config::testHandshake(std::string usernameToConfirm, bool confirm)
 {
-    AutoLock lock(m_access, WRITE_LOCK);
+    std::lock_guard<std::mutex> guard{m_accessMutex};
 
     ClusterMsg cMsg;
     HandshakeRequest reqMsg;
@@ -209,7 +209,7 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
 bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
 {
     string oldSessId = getFuseID();
-    AutoLock lock(m_access, WRITE_LOCK);
+    std::lock_guard<std::mutex> guard{m_accessMutex};
 
     if(taskId == TASK_CONNECTION_HANDSHAKE && getFuseID() != oldSessId)
         return true;

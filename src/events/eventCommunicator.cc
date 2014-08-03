@@ -180,7 +180,7 @@ bool EventCommunicator::askClusterIfWriteEnabled()
 
 void EventCommunicator::addEventSubstream(std::shared_ptr<IEventStream> newStream)
 {
-    AutoLock lock(m_eventsStreamLock, WRITE_LOCK);
+    std::lock_guard<std::mutex> guard{m_eventsStreamMutex};
     m_eventsStream->addSubstream(newStream);
     LOG(INFO) << "New EventStream added to EventCommunicator.";
 }

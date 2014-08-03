@@ -12,6 +12,7 @@
 #include "communication/certificateData.h"
 
 #include <memory>
+#include <mutex>
 #include <string>
 
 namespace boost { namespace filesystem { class path; } }
@@ -50,6 +51,7 @@ private:
 
     const std::shared_ptr<Context> m_context;
     const bool m_debug;
+    std::mutex m_certCallbackMutex;
 };
 
 } // namespace client

@@ -33,7 +33,6 @@
 #include <cstdlib>
 #include <cstdio>
 #include <utility>
-#include <mutex>
 
 #define X509_USER_PROXY_ENV     "X509_USER_PROXY"
 
@@ -75,10 +74,6 @@ namespace {
     // Paths to currently loaded certs
     string userCertPath;
     string userKeyPath;
-
-
-    ReadWriteLock mutex;
-    std::recursive_mutex certCallbackMutex;
 
     // Disables stdout ECHO and reads input form /dev/tty up to max_size chars or newline
     static string getPasswd(const string &prompt, int max_size) {
@@ -246,7 +241,7 @@ bool GSIHandler::validateProxyConfig()
 
 bool GSIHandler::validateProxyCert()
 {
-    std::unique_lock<std::recursive_mutex> guard(certCallbackMutex);
+    std::lock_guard<std::mutex> guard(m_certCallbackMutex);
 
     LOG(INFO) << "GSI Handler: Starting certificate (re) initialization";
 
