@@ -10,12 +10,12 @@
 
 
 #include "ISchedulable.h"
-#include "lock.h"
 
 #include <boost/filesystem.hpp>
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 
@@ -80,7 +80,7 @@ public:
     virtual ~Config();
 
 protected:
-    ReadWriteLock m_access;
+    std::mutex m_accessMutex;
 
     std::string m_envCWD;                     ///< Saved CWD env variable
     std::string m_envHOME;                    ///< Saved HOME env variable

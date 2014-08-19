@@ -11,7 +11,7 @@
 
 #include "ISchedulable.h"
 
-#include "lock.h"
+#include <boost/thread/shared_mutex.hpp>
 
 #include <sys/stat.h>
 
@@ -37,7 +37,7 @@ protected:
     std::unordered_map<std::string, std::pair<time_t, struct stat> > m_statMap;  ///< This is the cache map.
                                                                         ///< Value of this std::map is std::pair containing expiration time of attributes and
                                                                         ///< stat struct itself
-    ReadWriteLock m_statMapLock;                                        ///< Lock used to synchronize access to MetaCache::m_statMap
+    boost::shared_mutex m_statMapMutex;                                 ///< Mutex used to synchronize access to MetaCache::m_statMap
 
 public:
 

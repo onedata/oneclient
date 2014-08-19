@@ -10,7 +10,8 @@
 
 
 #include "ISchedulable.h"
-#include "lock.h"
+
+#include <boost/thread/shared_mutex.hpp>
 
 #include <fuse.h>
 
@@ -121,11 +122,11 @@ protected:
         std::shared_ptr<helpers::StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance
         std::shared_ptr<events::EventCommunicator> m_eventCommunicator;
 
-        std::map<std::string, std::pair<std::string, time_t> > m_linkCache;         ///< Simple links cache.
-        ReadWriteLock m_linkCacheLock;
+        std::map<std::string, std::pair<std::string, time_t> > m_linkCache;         ///< Simple links cache
+        boost::upgrade_mutex m_linkCacheMutex;
 
         std::unordered_map<helper_cache_idx_t, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
-        ReadWriteLock m_shCacheLock;
+        boost::shared_mutex m_shCacheMutex;
 
 private:
         const std::shared_ptr<Context> m_context;

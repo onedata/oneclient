@@ -12,7 +12,7 @@
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
- 
+
 #include <map>
 
 using namespace veil::client;
@@ -26,7 +26,7 @@ std::shared_ptr<Event> Event::createMkdirEvent(const string & filePath)
     auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = "mkdir_event";
     event->m_stringProperties["filePath"] = filePath;
-    return std::move(event);
+    return event;
 }
 
 std::shared_ptr<Event> Event::createWriteEvent(const string & filePath, long long bytes)
@@ -35,7 +35,7 @@ std::shared_ptr<Event> Event::createWriteEvent(const string & filePath, long lon
     event->m_stringProperties["type"] = string("write_event");
     event->m_stringProperties["filePath"] = filePath;
     event->m_numericProperties["bytes"] = bytes;
-    return std::move(event);
+    return event;
 }
 
 std::shared_ptr<Event> Event::createReadEvent(const string & filePath, long long bytes)
@@ -44,7 +44,7 @@ std::shared_ptr<Event> Event::createReadEvent(const string & filePath, long long
     event->m_stringProperties["type"] = string("read_event");
     event->m_stringProperties["filePath"] = filePath;
     event->m_numericProperties["bytes"] = bytes;
-    return std::move(event);
+    return event;
 }
 
 std::shared_ptr<Event> Event::createRmEvent(const string & filePath)
@@ -52,7 +52,7 @@ std::shared_ptr<Event> Event::createRmEvent(const string & filePath)
     auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = string("rm_event");
     event->m_stringProperties["filePath"] = filePath;
-    return std::move(event);
+    return event;
 }
 
 std::shared_ptr<Event> Event::createTruncateEvent(const string & filePath, off_t newSize){
@@ -60,7 +60,7 @@ std::shared_ptr<Event> Event::createTruncateEvent(const string & filePath, off_t
     event->m_stringProperties["type"] = "truncate_event";
     event->m_stringProperties["filePath"] = filePath;
     event->m_stringProperties["newSize"] = "newSize";
-    return std::move(event);
+    return event;
 }
 
 std::shared_ptr<EventMessage> Event::createProtoMessage()
@@ -76,7 +76,7 @@ std::shared_ptr<EventMessage> Event::createProtoMessage()
         eventMessage->add_numeric_properties_values(it->second);
     }
 
-    return std::move(eventMessage);
+    return eventMessage;
 }
 
 NumericProperty Event::getNumericProperty(const string & key, const NumericProperty defaultValue) const {

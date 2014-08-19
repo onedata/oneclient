@@ -12,10 +12,9 @@
 
 #include "ISchedulable.h"
 
-#include "lock.h"
-
 #include <string>
 #include <memory>
+#include <mutex>
 
 namespace veil
 {
@@ -79,7 +78,7 @@ public:
 private:
     const std::shared_ptr<Context> m_context;
 
-    ReadWriteLock m_eventsStreamLock;
+    std::mutex m_eventsStreamMutex;
     std::shared_ptr<EventStreamCombiner> m_eventsStream;
     bool m_writeEnabled;
     std::shared_ptr<MessageBuilder> m_messageBuilder;

@@ -61,7 +61,7 @@ bool EventStreamCombiner::processNextEvent()
 
 void EventStreamCombiner::pushEventToProcess(std::shared_ptr<Event> eventToProcess)
 {
-    AutoLock lock(m_eventsToProcessLock, WRITE_LOCK);
+    std::lock_guard<std::mutex> guard{m_eventsToProcessMutex};
     m_eventsToProcess.push(eventToProcess);
 }
 
@@ -72,7 +72,7 @@ std::queue<std::shared_ptr<Event> > EventStreamCombiner::getEventsToProcess() co
 
 std::shared_ptr<Event> EventStreamCombiner::getNextEventToProcess()
 {
-    AutoLock lock(m_eventsToProcessLock, WRITE_LOCK);
+    std::lock_guard<std::mutex> guard{m_eventsToProcessMutex};
     if(m_eventsToProcess.empty()){
         return std::shared_ptr<Event>();
     }

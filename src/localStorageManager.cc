@@ -55,7 +55,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
     if(fs_num < 0)
     {
         LOG(ERROR) << "Can not count mounted filesystems.";
-        return std::move(mountPoints);
+        return mountPoints;
     }
 
     std::vector<struct statfs> stats(fs_num);
@@ -64,7 +64,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
     if(stat_num < 0)
     {
         LOG(ERROR) << "Can not get fsstat.";
-        return std::move(mountPoints);
+        return mountPoints;
     }
 
     for(const auto &stat : stats)
@@ -76,7 +76,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
         }
     }
 
-    return std::move(mountPoints);
+    return mountPoints;
 }
 
 #else
@@ -89,7 +89,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
     if(file == NULL)
     {
         LOG(ERROR) << "Can not parse /proc/mounts file.";
-        return std::move(mountPoints);
+        return mountPoints;
     }
 
     struct mntent *ent;
@@ -104,7 +104,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
 
     endmntent(file);
 
-    return std::move(mountPoints);
+    return mountPoints;
 }
 
 #endif
@@ -151,7 +151,7 @@ std::vector< std::pair<int, std::string> > LocalStorageManager::parseStorageInfo
         }
     }
 
-    return std::move(storageInfo);
+    return storageInfo;
 }
 
 std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorageInfo(const std::vector<path> &mountPoints)
@@ -201,7 +201,7 @@ std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorage
             clientStorageInfo.push_back(std::make_pair(storageId, absolutePath));
         }
     }
-    return std::move(clientStorageInfo);
+    return clientStorageInfo;
 }
 
 bool LocalStorageManager::sendClientStorageInfo(const std::vector< std::pair<int, std::string> > &clientStorageInfo)
