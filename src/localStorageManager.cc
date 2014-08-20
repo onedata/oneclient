@@ -14,7 +14,6 @@
 #include "context.h"
 #include "fuse_messages.pb.h"
 #include "logging.h"
-#include "messageBuilder.h"
 #include "veilfs.h"
 
 #include <boost/algorithm/string.hpp>
@@ -225,7 +224,9 @@ bool LocalStorageManager::sendClientStorageInfo(const std::vector< std::pair<int
         }
 
         // Send ClientStorageInfo message
-        auto ans = communicator->communicate<>(communication::ServerModule::FSLOGIC, reqMsg, 2);
+        auto fuseMsg = m_messageBuilder.createFuseMessage(reqMsg);
+        auto ans = communicator->communicate<>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
+
         // Check answer
         if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
         {
@@ -261,7 +262,8 @@ boost::optional< std::pair<std::string, std::string> > LocalStorageManager::crea
     {
         reqMsg.set_storage_id(storageId);
 
-        auto ans = communicator->communicate<CreateStorageTestFileResponse>(communication::ServerModule::FSLOGIC, reqMsg, 2);
+        auto fuseMsg = m_messageBuilder.createFuseMessage(reqMsg);
+        auto ans = communicator->communicate<CreateStorageTestFileResponse>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
 
         if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
         {
@@ -337,7 +339,8 @@ bool LocalStorageManager::hasClientStorageWritePermission(const int storageId, c
         reqMsg.set_relative_path(relativePath);
         reqMsg.set_text(text);
 
-        auto ans = communicator->communicate<StorageTestFileModifiedResponse>(communication::ServerModule::FSLOGIC, reqMsg, 2);
+        auto fuseMsg = m_messageBuilder.createFuseMessage(reqMsg);
+        auto ans = communicator->communicate<StorageTestFileModifiedResponse>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
 
         if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
         {

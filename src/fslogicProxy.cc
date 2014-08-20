@@ -16,6 +16,7 @@
 #include "fuse_messages.pb.h"
 #include "jobScheduler.h"
 #include "logging.h"
+#include "make_unique.h"
 #include "messageBuilder.h"
 #include "options.h"
 #include "veilErrors.h"
@@ -38,7 +39,7 @@ namespace veil {
 namespace client {
 
 FslogicProxy::FslogicProxy(std::shared_ptr<Context> context)
-    : m_messageBuilder{std::make_shared<MessageBuilder>(context)}
+    : m_messageBuilder{std::make_unique<MessageBuilder>()}
     , m_context{std::move(context)}
 {
     LOG(INFO) << "FslogicProxy created";
@@ -295,9 +296,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message &fMsg, 
         return false;
     }
 
-    auto fuseMsg = m_messageBuilder->createFuseMessage(m_context->getConfig()->getFuseID(),
-                                                       fMsg.GetDescriptor()->name(),
-                                                       fMsg.SerializeAsString());
+    auto fuseMsg = m_messageBuilder->createFuseMessage(fMsg);
 
     auto communicator = m_context->getCommunicator();
     try
@@ -331,9 +330,7 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
         return VEIO;
     }
 
-    auto fuseMsg = m_messageBuilder->createFuseMessage(m_context->getConfig()->getFuseID(),
-                                                       fMsg.GetDescriptor()->name(),
-                                                       fMsg.SerializeAsString());
+    auto fuseMsg = m_messageBuilder->createFuseMessage(fMsg);
 
     auto communicator = m_context->getCommunicator();
     try

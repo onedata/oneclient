@@ -1,74 +1,55 @@
 /**
  * @file messageBuilder.cc
  * @author Beata Skiba
- * @copyright (C) 2013 ACK CYFRONET AGH
+ * @author Konrad Zemek
+ * @copyright (C) 2013-2014 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
 #include "messageBuilder.h"
 
-#include "config.h"
-#include "context.h"
-#include "fslogicProxy.h"
-#include "veilfs.h"
-#include "logging.h"
-
 #include <boost/algorithm/string.hpp>
-#include <unistd.h>
 
-using namespace std;
-using namespace boost::algorithm;
 using namespace veil::protocol::communication_protocol;
 using namespace veil::protocol::fuse_messages;
 
-static inline string tolower(string input) {
-    to_lower(input);
-    return input;
-}
-
-namespace veil {
-namespace client {
-
-MessageBuilder::MessageBuilder(std::shared_ptr<Context> context)
-    : m_context{std::move(context)}
+namespace veil
 {
-}
-
-MessageBuilder::~MessageBuilder()
+namespace client
 {
-}
 
-FuseMessage MessageBuilder::createFuseMessage(const string &id, const string &messageType,
-    const string &messageInput)
+FuseMessage MessageBuilder::createFuseMessage(
+        const google::protobuf::Message &content) const
 {
     FuseMessage msg;
-    (void) id; // Message level FUSE ID in no longer supported by cluster
-    msg.set_message_type(tolower(messageType));
-    msg.set_input(messageInput);
+
+    std::string messageType{content.GetDescriptor()->name()};
+    boost::algorithm::to_lower(messageType);
+
+    msg.set_message_type(messageType);
+    content.SerializeToString(msg.mutable_input());
+
     return msg;
 }
 
-FuseMessage MessageBuilder::decodeFuseAnswer(Answer& answer)
+FuseMessage MessageBuilder::decodeFuseAnswer(const Answer &answer) const
 {
     FuseMessage fuseMessage;
 
     if(answer.has_worker_answer())
-        (void) fuseMessage.ParseFromString(answer.worker_answer());
+        fuseMessage.ParseFromString(answer.worker_answer());
 
     return fuseMessage;
-
 }
 
-string MessageBuilder::decodeAtomAnswer(Answer& answer)
+std::string MessageBuilder::decodeAtomAnswer(const Answer &answer) const
 {
-     if(!answer.has_worker_answer()){
-        return "";
-     }
+     if(!answer.has_worker_answer())
+        return {};
 
      Atom atom;
-     if(!atom.ParseFromString(answer.worker_answer())){
-        return "";
-     }
+     if(!atom.ParseFromString(answer.worker_answer()))
+        return {};
 
      return atom.value();
 }

@@ -1,7 +1,8 @@
 /**
  * @file messageBuilder.h
  * @author Beata Skiba
- * @copyright (C) 2013 ACK CYFRONET AGH
+ * @author Konrad Zemek
+ * @copyright (C) 2013-2014 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
@@ -9,10 +10,11 @@
 #define VEILCLIENT_MESSAGE_BUILDER_H
 
 
-#include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"
+#include "fuse_messages.pb.h"
 
-#include <memory>
+#include <google/protobuf/message.h>
+
 #include <string>
 
 namespace veil
@@ -31,14 +33,16 @@ class Context;
 class MessageBuilder
 {
 public:
-    MessageBuilder(std::shared_ptr<Context> context);
-    virtual ~MessageBuilder();
-    virtual protocol::fuse_messages::FuseMessage            createFuseMessage(const std::string &id, const std::string &messageType, const std::string &messageInput);
-    virtual protocol::fuse_messages::FuseMessage            decodeFuseAnswer(protocol::communication_protocol::Answer& answer);
-    virtual std::string                                     decodeAtomAnswer(protocol::communication_protocol::Answer& answer);
+    virtual ~MessageBuilder() = default;
 
-private:
-    const std::shared_ptr<Context> m_context;
+    virtual protocol::fuse_messages::FuseMessage createFuseMessage(
+            const google::protobuf::Message &content) const;
+
+    virtual protocol::fuse_messages::FuseMessage decodeFuseAnswer(
+            const protocol::communication_protocol::Answer &answer) const;
+
+    virtual std::string decodeAtomAnswer(
+            const protocol::communication_protocol::Answer &answer) const;
 };
 
 } // namespace client
