@@ -43,11 +43,11 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &log
     {
         boost::shared_lock<boost::shared_mutex> sLock{m_storageMappingMutex};
         auto it1 = m_storageMapping.find(it->second.storageId);
-        sLock.release();
+        sLock.unlock();
 
         if(forceClusterProxy && useCluster && (it1 == m_storageMapping.end() || it1->second.storageHelperName != CLUSTER_PROXY_HELPER))
         {
-            lock.release();
+            lock.unlock();
             findLocation(logicalName, UNSPECIFIED_MODE, forceClusterProxy);
             lock.lock();
 
@@ -60,7 +60,7 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &log
         if(!useCluster)
             throw VeilException(VEIO, "cannot find file mapping in cache but using cluster is not allowed in this context");
 
-        lock.release();
+        lock.unlock();
         findLocation(logicalName, UNSPECIFIED_MODE, forceClusterProxy);
         lock.lock();
 
