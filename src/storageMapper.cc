@@ -41,7 +41,7 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &log
 
     if(it != m_fileMapping.end())
     {
-        AutoLock sLock(m_storageMappingLock, READ_LOCK);
+        boost::shared_lock<boost::shared_mutex> sLock{m_storageMappingMutex};
         auto it1 = m_storageMapping.find(it->second.storageId);
         sLock.release();
 
@@ -157,14 +157,14 @@ void StorageMapper::releaseFile(const string &logicalName)
 
 void StorageMapper::helperOverride(const std::string &filePath, const storageInfo &mapping)
 {
-    AutoLock lock(m_fileMappingLock, WRITE_LOCK);
+    boost::lock_guard<boost::shared_mutex> lock{m_fileMappingMutex};
     m_fileHelperOverride[filePath] = mapping;
 }
 
 
 void StorageMapper::resetHelperOverride(const std::string &filePath)
 {
-    AutoLock lock(m_fileMappingLock, WRITE_LOCK);
+    boost::lock_guard<boost::shared_mutex> lock{m_fileMappingMutex};
     m_fileHelperOverride.erase(filePath);
 }
 

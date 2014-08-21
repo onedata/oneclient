@@ -15,6 +15,7 @@
 
 #include <google/protobuf/message.h>
 
+#include <memory>
 #include <string>
 
 namespace veil
