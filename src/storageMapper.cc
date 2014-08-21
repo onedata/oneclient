@@ -36,7 +36,7 @@ StorageMapper::StorageMapper(std::weak_ptr<Context> context, std::shared_ptr<Fsl
 
 pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &logicalName, bool useCluster, bool forceClusterProxy)
 {
-    AutoLock lock(m_fileMappingLock, READ_LOCK);
+    boost::shared_lock<boost::shared_mutex> lock{m_fileMappingMutex};
     auto it = m_fileMapping.find(logicalName);
 
     if(it != m_fileMapping.end())
@@ -71,9 +71,9 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &log
 
     locationInfo location = it->second;
 
-    AutoLock sLock(m_storageMappingLock, READ_LOCK);
+    // Find matching storage info storage
 
-    // Find matching storage info
+    boost::shared_lock<boost::shared_mutex> sLock{m_storageMappingMutex};
     auto it1 = m_storageMapping.find(location.storageId);
     if(it1 == m_storageMapping.end())
         throw VeilException(VEIO, "cannot find storage information");
@@ -114,11 +114,11 @@ void StorageMapper::addLocation(const string &logicalName, const FileLocation &l
     for(int i = 0; i < location.storage_helper_args_size(); ++i)
         storageInfo.storageHelperArgs.emplace(helpers::srvArg(i), boost::any{location.storage_helper_args(i)});
 
-    AutoLock lock(m_fileMappingLock, WRITE_LOCK);
+    boost::lock_guard<boost::shared_mutex> lock{m_fileMappingMutex};
     auto previous = m_fileMapping.find(logicalName);
     info.opened = (previous == m_fileMapping.end() ? 0 : previous->second.opened) ;
     m_fileMapping[logicalName] = info;
-    AutoLock sLock(m_storageMappingLock, WRITE_LOCK);
+    boost::lock_guard<boost::shared_mutex> sLock{m_storageMappingMutex};
     m_storageMapping[info.storageId] = storageInfo;
 
     m_context.lock()->getScheduler()->addTask(Job(info.validTo, shared_from_this(), TASK_REMOVE_EXPIRED_LOCATON_MAPPING, logicalName));
@@ -129,7 +129,7 @@ void StorageMapper::openFile(const string &logicalName)
 {
     LOG(INFO) << "marking file '" << logicalName << "' as open";
 
-    AutoLock lock(m_fileMappingLock, WRITE_LOCK);
+    boost::lock_guard<boost::shared_mutex> lock{m_fileMappingMutex};
     map<string, locationInfo>::iterator it = m_fileMapping.find(logicalName);
     if(it != m_fileMapping.end()){
          it->second.opened++;
@@ -140,7 +140,7 @@ void StorageMapper::releaseFile(const string &logicalName)
 {
     LOG(INFO) << "marking file '" << logicalName << "' closed";
 
-    AutoLock lock(m_fileMappingLock, WRITE_LOCK);
+    boost::lock_guard<boost::shared_mutex> lock{m_fileMappingMutex};
     map<string, locationInfo>::iterator it = m_fileMapping.find(logicalName);
     if(it != m_fileMapping.end()){
         if(it->second.opened > 0){
@@ -173,7 +173,7 @@ bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg
 {
     map<string, locationInfo>::iterator it;
     int validity;
-    AutoLock lock(m_fileMappingLock, WRITE_LOCK);
+    boost::lock_guard<boost::shared_mutex> lock{m_fileMappingMutex};
     switch(taskId)
     {
         case TASK_REMOVE_EXPIRED_LOCATON_MAPPING:

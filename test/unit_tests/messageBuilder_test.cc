@@ -5,12 +5,15 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.h"
-#include "options_mock.h"
-#include "jobScheduler_mock.h"
-#include "options_mock.h"
+
 #include "messageBuilder.h"
+
 #include "fslogicProxy.h"
+#include "jobScheduler_mock.h"
+#include "make_unique.h"
+#include "options_mock.h"
+#include "testCommon.h"
+#include "testUtils.h"
 
 using namespace ::testing;
 using namespace veil::client;
@@ -26,15 +29,17 @@ protected:
     void SetUp() override
     {
         CommonTest::SetUp();
-        proxy.reset(new MessageBuilder{context});
+        proxy = std::make_unique<MessageBuilder>();
     }
 };
 
 TEST_F(MessageBuilderTest, createFuseMessage) {
-    FuseMessage msg = proxy->createFuseMessage("id", "Type", "input");
+    GetFileLocation loc;
+    loc.set_file_logic_name(randomString());
+    FuseMessage msg = proxy->createFuseMessage(loc);
 
-    EXPECT_EQ("type", msg.message_type());
-    EXPECT_EQ("input", msg.input());
+    EXPECT_EQ("getfilelocation", msg.message_type());
+    EXPECT_EQ(loc.SerializeAsString(), msg.input());
 }
 
 TEST_F(MessageBuilderTest, decodeFuseAnswerNoWorkerAns) {
@@ -54,12 +59,14 @@ TEST_F(MessageBuilderTest, decodeFuseAnswerWrongWorkerAns) {
 
 
 TEST_F(MessageBuilderTest, decodeFuseAnswerNormalAns) {
+    GetFileLocation loc;
+    loc.set_file_logic_name(randomString());
+    FuseMessage fMsg = proxy->createFuseMessage(loc);
+
     Answer ans;
-    FuseMessage fMsg =  proxy->createFuseMessage("id", "type", "input");
     ans.set_worker_answer(fMsg.SerializeAsString());
 
     FuseMessage msg = proxy->decodeFuseAnswer(ans);
-
     ASSERT_TRUE(msg.IsInitialized());
 
     EXPECT_EQ(fMsg.message_type(), msg.message_type());

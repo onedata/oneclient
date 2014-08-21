@@ -16,6 +16,7 @@
 #include "fuse_messages.pb.h"
 #include "jobScheduler.h"
 #include "logging.h"
+#include "make_unique.h"
 #include "messageBuilder.h"
 #include "options.h"
 #include "veilErrors.h"
@@ -298,9 +299,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message &fMsg, 
         return false;
     }
 
-    auto fuseMsg = m_messageBuilder->createFuseMessage(m_context.lock()->getConfig()->getFuseID(),
-                                                       fMsg.GetDescriptor()->name(),
-                                                       fMsg.SerializeAsString());
+    auto fuseMsg = m_messageBuilder->createFuseMessage(fMsg);
 
     auto communicator = m_context.lock()->getCommunicator();
     try
@@ -334,9 +333,7 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
         return VEIO;
     }
 
-    auto fuseMsg = m_messageBuilder->createFuseMessage(m_context.lock()->getConfig()->getFuseID(),
-                                                       fMsg.GetDescriptor()->name(),
-                                                       fMsg.SerializeAsString());
+    auto fuseMsg = m_messageBuilder->createFuseMessage(fMsg);
 
     auto communicator = m_context.lock()->getCommunicator();
     try

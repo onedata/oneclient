@@ -82,21 +82,6 @@ class MessageBuilder;
  */
 class FslogicProxy: public ISchedulable
 {
-protected:
-    std::shared_ptr<MessageBuilder> m_messageBuilder;                ///< MessageBuilder used to construct cluster packets
-    /**
-     * Sends and receives given protobuf message.
-     * High level method used to send serialized protobuf message to cluster and return its response as given by reference object.
-     * Both message and response types have to be subtype of FuseMessage.
-     * @return true only if received response message is initialized (see google::protobuff::Message::IsInitialized())
-     */
-    template<typename Ans>
-    bool sendFuseReceiveAnswer(const google::protobuf::Message &fMsg, Ans &response);
-
-    virtual std::string sendFuseReceiveAtom(const google::protobuf::Message& fMsg);     ///< Sends given protobuf message and receives atom.
-                                                                                        ///< This method is simalar to FslogicProxy::sendFuseReceiveAnswer
-                                                                                        ///< But receives simple atom cluster response. @see FslogicProxy::sendFuseReceiveAnswer
-
 public:
     FslogicProxy(std::weak_ptr<Context> context);
     virtual ~FslogicProxy();
@@ -124,6 +109,22 @@ public:
     virtual void            pingCluster(const std::string &);
 
     virtual bool            runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+
+protected:
+    /**
+     * Sends and receives given protobuf message.
+     * High level method used to send serialized protobuf message to cluster and return its response as given by reference object.
+     * Both message and response types have to be subtype of FuseMessage.
+     * @return true only if received response message is initialized (see google::protobuff::Message::IsInitialized())
+     */
+    template<typename Ans>
+    bool sendFuseReceiveAnswer(const google::protobuf::Message &fMsg, Ans &response);
+
+    virtual std::string sendFuseReceiveAtom(const google::protobuf::Message& fMsg);     ///< Sends given protobuf message and receives atom.
+                                                                                        ///< This method is simalar to FslogicProxy::sendFuseReceiveAnswer
+                                                                                        ///< But receives simple atom cluster response. @see FslogicProxy::sendFuseReceiveAnswer
+
+    std::unique_ptr<const MessageBuilder> m_messageBuilder;
 
 private:
     const std::weak_ptr<Context> m_context;

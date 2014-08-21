@@ -13,8 +13,9 @@
 #include "ISchedulable.h"
 
 #include "helpers/IStorageHelper.h"
-#include "lock.h"
 #include "fslogicProxy.h"
+
+#include <boost/thread/shared_mutex.hpp>
 
 #include <map>
 #include <memory>
@@ -79,10 +80,10 @@ class StorageMapper: public ISchedulable
 
 protected:
     std::map<int, storageInfo> m_storageMapping;            ///< Contains storage info accessd by its ID. @see storageInfo
-    ReadWriteLock m_storageMappingLock;                     ///< Lock used while operating on StorageMapper::m_storageMapping. @see StorageMapper::m_storageMapping
+    boost::shared_mutex m_storageMappingMutex;              ///< Mutex used while operating on StorageMapper::m_storageMapping. @see StorageMapper::m_storageMapping
     std::map<std::string, locationInfo> m_fileMapping;      ///< Contains storage info accessd by its ID. @see storageInfo
     std::map<std::string, storageInfo> m_fileHelperOverride;
-    ReadWriteLock m_fileMappingLock;                        ///< Lock used while operationg on StorageMapper::m_fileMapping. @see StorageMapper::m_fileMapping
+    boost::shared_mutex m_fileMappingMutex;                 ///< Mutex used while operationg on StorageMapper::m_fileMapping. @see StorageMapper::m_fileMapping
 
     std::shared_ptr<FslogicProxy> m_fslogic;              ///< Reference to FslogicProxy instance. @see VeilFS::m_fslogic
 

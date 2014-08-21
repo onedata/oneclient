@@ -9,6 +9,8 @@
 #define VEILCLIENT_LOCAL_STORAGE_MANAGER_H
 
 
+#include "messageBuilder.h"
+
 #ifdef __APPLE__
 #include <sys/mount.h>
 #else
@@ -61,6 +63,7 @@ protected:
     bool hasClientStorageWritePermission(const int storageId, const std::string &absolutePath, const std::string &relativePath);    ///< Checks whether client can write to specified file on storage
 
 private:
+    const MessageBuilder m_messageBuilder;
     const std::shared_ptr<Context> m_context;
 };
 

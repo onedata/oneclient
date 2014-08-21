@@ -12,10 +12,9 @@
 
 #include "ISchedulable.h"
 
-#include "lock.h"
-
 #include <list>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <queue>
 
@@ -52,7 +51,7 @@ private:
     const std::shared_ptr<Context> m_context;
     std::queue<std::shared_ptr<Event> > m_eventsToProcess;								   ///< Queue of events waiting to be processed.
     std::list<std::shared_ptr<IEventStream> > m_substreams;								   ///< Registred substreams.
-    ReadWriteLock m_eventsToProcessLock;
+    std::mutex m_eventsToProcessMutex;
 
     std::shared_ptr<Event> getNextEventToProcess();										   ///< Returns next event to process from queue.
     bool processNextEvent();																   ///< Process next event in queue.

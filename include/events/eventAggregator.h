@@ -13,10 +13,9 @@
 
 #include "events/IEventStream.h"
 
-#include "lock.h"
-
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 
 namespace veil
@@ -47,12 +46,14 @@ public:
     class ActualEventAggregator
     {
     public:
+        ActualEventAggregator() = default;
+        ActualEventAggregator(ActualEventAggregator&&);
         // Process event. Threshold, fieldName and sumFieldName are passed from outside because those parameters are the same for all substreams.
         virtual std::shared_ptr<Event> processEvent(std::shared_ptr<Event> event, NumericProperty threshold,  const std::string & fieldName, const std::string & sumFieldName);
 
     private:
         NumericProperty m_counter = 0;			 ///< Aggregated value
-        ReadWriteLock m_aggregatorStateLock;
+        std::mutex m_aggregatorStateMutex;
 
         void resetState();					 ///< Resets state - should be called after every event forward.
     };

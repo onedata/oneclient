@@ -54,5 +54,5 @@ std::shared_ptr<Event> EventTransformer::actualProcessEvent(std::shared_ptr<Even
             newEvent->setStringProperty(fieldName, m_newValues[i]);
         }
     }
-    return std::move(newEvent);
+    return newEvent;
 }

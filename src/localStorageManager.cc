@@ -14,7 +14,6 @@
 #include "context.h"
 #include "fuse_messages.pb.h"
 #include "logging.h"
-#include "messageBuilder.h"
 #include "veilfs.h"
 
 #include <boost/algorithm/string.hpp>
@@ -55,7 +54,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
     if(fs_num < 0)
     {
         LOG(ERROR) << "Can not count mounted filesystems.";
-        return std::move(mountPoints);
+        return mountPoints;
     }
 
     std::vector<struct statfs> stats(fs_num);
@@ -64,7 +63,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
     if(stat_num < 0)
     {
         LOG(ERROR) << "Can not get fsstat.";
-        return std::move(mountPoints);
+        return mountPoints;
     }
 
     for(const auto &stat : stats)
@@ -76,7 +75,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
         }
     }
 
-    return std::move(mountPoints);
+    return mountPoints;
 }
 
 #else
@@ -89,7 +88,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
     if(file == NULL)
     {
         LOG(ERROR) << "Can not parse /proc/mounts file.";
-        return std::move(mountPoints);
+        return mountPoints;
     }
 
     struct mntent *ent;
@@ -104,7 +103,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
 
     endmntent(file);
 
-    return std::move(mountPoints);
+    return mountPoints;
 }
 
 #endif
@@ -151,7 +150,7 @@ std::vector< std::pair<int, std::string> > LocalStorageManager::parseStorageInfo
         }
     }
 
-    return std::move(storageInfo);
+    return storageInfo;
 }
 
 std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorageInfo(const std::vector<path> &mountPoints)
@@ -201,7 +200,7 @@ std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorage
             clientStorageInfo.push_back(std::make_pair(storageId, absolutePath));
         }
     }
-    return std::move(clientStorageInfo);
+    return clientStorageInfo;
 }
 
 bool LocalStorageManager::sendClientStorageInfo(const std::vector< std::pair<int, std::string> > &clientStorageInfo)
@@ -225,7 +224,9 @@ bool LocalStorageManager::sendClientStorageInfo(const std::vector< std::pair<int
         }
 
         // Send ClientStorageInfo message
-        auto ans = communicator->communicate<>(communication::ServerModule::FSLOGIC, reqMsg, 2);
+        auto fuseMsg = m_messageBuilder.createFuseMessage(reqMsg);
+        auto ans = communicator->communicate<>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
+
         // Check answer
         if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
         {
@@ -261,7 +262,8 @@ boost::optional< std::pair<std::string, std::string> > LocalStorageManager::crea
     {
         reqMsg.set_storage_id(storageId);
 
-        auto ans = communicator->communicate<CreateStorageTestFileResponse>(communication::ServerModule::FSLOGIC, reqMsg, 2);
+        auto fuseMsg = m_messageBuilder.createFuseMessage(reqMsg);
+        auto ans = communicator->communicate<CreateStorageTestFileResponse>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
 
         if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
         {
@@ -337,7 +339,8 @@ bool LocalStorageManager::hasClientStorageWritePermission(const int storageId, c
         reqMsg.set_relative_path(relativePath);
         reqMsg.set_text(text);
 
-        auto ans = communicator->communicate<StorageTestFileModifiedResponse>(communication::ServerModule::FSLOGIC, reqMsg, 2);
+        auto fuseMsg = m_messageBuilder.createFuseMessage(reqMsg);
+        auto ans = communicator->communicate<StorageTestFileModifiedResponse>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
 
         if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
         {

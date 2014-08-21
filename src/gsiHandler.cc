@@ -33,7 +33,6 @@
 #include <cstdlib>
 #include <cstdio>
 #include <utility>
-#include <mutex>
 
 #define X509_USER_PROXY_ENV     "X509_USER_PROXY"
 
@@ -55,6 +54,79 @@ using namespace std;
 using namespace boost::algorithm;
 using boost::asio::const_buffer;
 
+namespace
+{
+// Disables stdout ECHO and reads input form /dev/tty up to max_size chars or newline
+string getPasswd(const string &prompt, int max_size) {
+    char passwd[max_size];
+    const char endline = 10;
+    int i = 0;
+
+    cout << prompt;
+
+    // Turn off terminal ECHO
+    termios oldt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    oldt.c_lflag &= ~ECHO;
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+
+    FILE *f = fopen("/dev/tty", "r");
+    if(f) {
+        while(fread(passwd + i++, 1, 1, f) == 1 && passwd[i-1] != endline && i < max_size);
+        fclose(f);
+    }
+
+    // Turn on terminal ECHO
+    oldt.c_lflag |= ECHO;
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+
+    cout << endl;
+
+    if(i > 0 && passwd[i-1] == endline) --i;
+    return string(passwd, i);
+}
+
+int pass_cb(char *buf, int size, int rwflag, void *u) {
+    LOG(INFO) << "GSI Handler: Asking for passphrase for PEM certificate.";
+    string passphrase = getPasswd ("Enter GRID pass phrase for your identity: ", size);
+
+    const int len = passphrase.size();
+    memcpy(buf, passphrase.c_str(), len);
+
+    return len;
+}
+
+string extractDN(X509 *eec)
+{
+    X509_NAME *name = X509_get_subject_name(eec);
+    BUF_MEM* bio_buff = BUF_MEM_new();
+    BIO* out = BIO_new(BIO_s_mem());
+    BIO_set_mem_buf(out, bio_buff, BIO_CLOSE);
+
+    string nm = "";
+
+    if(X509_NAME_print_ex(out, name, 0, XN_FLAG_RFC2253)) {
+        return string(bio_buff->data, bio_buff->length);
+    }
+
+    BIO_free(out);
+    return nm;
+}
+
+template<typename T>
+inline std::pair<T, T> make_pair(const T &elem)
+{
+    return std::make_pair(elem, elem);
+}
+
+inline bool isFileOrSymlink(const boost::filesystem::path &p)
+{
+    using namespace boost::filesystem;
+    return exists(p) && (is_regular_file(p) || is_symlink(p));
+}
+
+} // namespace
+
 namespace veil {
 namespace client {
 
@@ -62,92 +134,6 @@ GSIHandler::GSIHandler(std::shared_ptr<Context> context, const bool debug)
     : m_context{std::move(context)}
     , m_debug(debug)
 {
-}
-
-namespace {
-    string UserDN = "";
-    bool proxyInitialized = false;
-
-    // Buffers containing user certificates
-    BUF_MEM *key_buff = NULL;
-    BUF_MEM *chain_buff = NULL;
-
-    // Paths to currently loaded certs
-    string userCertPath;
-    string userKeyPath;
-
-
-    ReadWriteLock mutex;
-    std::recursive_mutex certCallbackMutex;
-
-    // Disables stdout ECHO and reads input form /dev/tty up to max_size chars or newline
-    static string getPasswd(const string &prompt, int max_size) {
-        char passwd[max_size];
-        const char endline = 10;
-        int i = 0;
-
-        cout << prompt;
-
-        // Turn off terminal ECHO
-        termios oldt;
-        tcgetattr(STDIN_FILENO, &oldt);
-        oldt.c_lflag &= ~ECHO;
-        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-
-        FILE *f = fopen("/dev/tty", "r");
-        if(f) {
-            while(fread(passwd + i++, 1, 1, f) == 1 && passwd[i-1] != endline && i < max_size);
-            fclose(f);
-        }
-
-        // Turn on terminal ECHO
-        oldt.c_lflag |= ECHO;
-        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-
-        cout << endl;
-
-        if(i > 0 && passwd[i-1] == endline) --i;
-        return string(passwd, i);
-    }
-
-    static int pass_cb(char *buf, int size, int rwflag, void *u) {
-        LOG(INFO) << "GSI Handler: Asking for passphrase for PEM certificate.";
-        string passphrase = getPasswd ("Enter GRID pass phrase for your identity: ", size);
-
-        const int len = passphrase.size();
-        memcpy(buf, passphrase.c_str(), len);
-
-        return len;
-    }
-
-    string extractDN(X509 *eec)
-    {
-        X509_NAME *name = X509_get_subject_name(eec);
-        BUF_MEM* bio_buff = BUF_MEM_new();
-        BIO* out = BIO_new(BIO_s_mem());
-        BIO_set_mem_buf(out, bio_buff, BIO_CLOSE);
-
-        string nm = "";
-
-        if(X509_NAME_print_ex(out, name, 0, XN_FLAG_RFC2253)) {
-            return string(bio_buff->data, bio_buff->length);
-        }
-
-        BIO_free(out);
-        return nm;
-    }
-}
-
-template<typename T>
-static inline std::pair<T, T> make_pair(const T &elem)
-{
-    return std::make_pair(elem, elem);
-}
-
-static inline bool isFileOrSymlink(const boost::filesystem::path &p)
-{
-    using namespace boost::filesystem;
-    return exists(p) && (is_regular_file(p) || is_symlink(p));
 }
 
 const std::vector<std::pair<string, string> > &GSIHandler::getCertSearchPath()
@@ -246,7 +232,7 @@ bool GSIHandler::validateProxyConfig()
 
 bool GSIHandler::validateProxyCert()
 {
-    std::unique_lock<std::recursive_mutex> guard(certCallbackMutex);
+    std::lock_guard<std::mutex> guard(m_certCallbackMutex);
 
     LOG(INFO) << "GSI Handler: Starting certificate (re) initialization";
 
@@ -318,13 +304,13 @@ bool GSIHandler::validateProxyCert()
     BIO* file = BIO_new(BIO_s_file());
 
     // Initialize OpenSSL memory BIO
-    key_buff = BUF_MEM_new();
+    m_keyBuff = BUF_MEM_new();
     BIO* key_mem = BIO_new(BIO_s_mem());
-    BIO_set_mem_buf(key_mem, key_buff, BIO_NOCLOSE);
+    BIO_set_mem_buf(key_mem, m_keyBuff, BIO_NOCLOSE);
 
-    chain_buff = BUF_MEM_new();
+    m_chainBuff = BUF_MEM_new();
     BIO* chain_mem = BIO_new(BIO_s_mem());
-    BIO_set_mem_buf(chain_mem, chain_buff, BIO_NOCLOSE);
+    BIO_set_mem_buf(chain_mem, m_chainBuff, BIO_NOCLOSE);
 
     if(file == NULL)
     {
@@ -526,8 +512,8 @@ bool GSIHandler::validateProxyCert()
     }
 
     // Save cert/key file path for further use
-    userCertPath = userCert;
-    userKeyPath = userKey;
+    m_userCertPath = userCert;
+    m_userKeyPath = userKey;
 
     // Look for proxy extension
     for(int i = 0; i < X509_get_ext_count(cert); ++i)
@@ -535,7 +521,7 @@ bool GSIHandler::validateProxyCert()
         X509_EXTENSION *ext = X509_get_ext(cert, i);
         int nid = OBJ_obj2nid(ext->object);
         if(nid == NID_proxyCertInfo && userCert == userKey) { // Proxy certificate
-            proxyInitialized = true;
+            m_proxyInitialized = true;
             LOG(INFO) << "Proxy certificate detected.";
         }
     }
@@ -564,25 +550,25 @@ bool GSIHandler::validateProxyCert()
     CRYPTO_FREE(EVP_PKEY, key);
     if(ca) sk_X509_free(ca);
 
-    UserDN = current_dn;
+    m_userDN = current_dn;
 
     return true;
 }
 
 std::shared_ptr<communication::CertificateData> GSIHandler::getCertData()
 {
-    if(proxyInitialized)
+    if(m_proxyInitialized)
     {
-        LOG(INFO) << "Accesing certificates via filesystem: " << userCertPath << " " << userKeyPath;
-        return std::make_shared<communication::FilesystemCertificate>(userCertPath,
-                                                                      userKeyPath,
+        LOG(INFO) << "Accesing certificates via filesystem: " << m_userCertPath << " " << m_userKeyPath;
+        return std::make_shared<communication::FilesystemCertificate>(m_userCertPath,
+                                                                      m_userKeyPath,
                                                                       communication::CertificateData::KeyFormat::PEM);
     }
     else
     {
         LOG(INFO) << "Accesing certificates via internal memory buffer.";
-        return std::make_shared<communication::InMemoryCertificate>(const_buffer(chain_buff->data, chain_buff->length),
-                                                                    const_buffer(key_buff->data, key_buff->length),
+        return std::make_shared<communication::InMemoryCertificate>(const_buffer(m_chainBuff->data, m_chainBuff->length),
+                                                                    const_buffer(m_keyBuff->data, m_keyBuff->length),
                                                                     communication::CertificateData::KeyFormat::PEM);
     }
 }
@@ -596,7 +582,7 @@ std::string GSIHandler::getClusterHostname()
 
     string URL = BASE_DOMAIN;
 
-    string DN = UserDN;
+    string DN = m_userDN;
 
     if(DN == "")
     {

@@ -22,7 +22,6 @@
 #include "fuse_messages.pb.h"
 #include "jobScheduler.h"
 #include "logging.h"
-#include "messageBuilder.h"
 #include "metaCache.h"
 #include "options.h"
 #include "pushListener.h"
@@ -47,7 +46,6 @@ EventCommunicator::EventCommunicator(std::shared_ptr<Context> context, std::shar
     if(!eventsStream){
         m_eventsStream = std::make_shared<EventStreamCombiner>(m_context);
     }
-    m_messageBuilder = std::make_shared<MessageBuilder>(m_context);
 }
 
 void EventCommunicator::handlePushedConfig(const Answer &msg)
@@ -180,7 +178,7 @@ bool EventCommunicator::askClusterIfWriteEnabled()
 
 void EventCommunicator::addEventSubstream(std::shared_ptr<IEventStream> newStream)
 {
-    AutoLock lock(m_eventsStreamLock, WRITE_LOCK);
+    std::lock_guard<std::mutex> guard{m_eventsStreamMutex};
     m_eventsStream->addSubstream(newStream);
     LOG(INFO) << "New EventStream added to EventCommunicator.";
 }
