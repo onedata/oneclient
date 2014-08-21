@@ -46,7 +46,7 @@ class FslogicProxyTest: public CommonTest
 {
 protected:
     std::unique_ptr<ProxyFslogicProxy> proxy;
-    std::shared_ptr<MockMessageBuilder> msgBuilder;
+    const MockMessageBuilder *msgBuilder;
 
     ClusterMsg fullClusterMsg;
 
@@ -54,21 +54,20 @@ protected:
         CommonTest::SetUp();
 
         proxy = std::make_unique<ProxyFslogicProxy>(context);
-        msgBuilder = std::make_shared<NiceMock<MockMessageBuilder>>(context);
-        proxy->m_messageBuilder = msgBuilder;
+
+        auto p = std::make_unique<NiceMock<MockMessageBuilder>>();
+        msgBuilder = p.get();
+        proxy->m_messageBuilder = std::move(p);
 
         EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(true));
         EXPECT_CALL(*options, get_fuse_id()).WillRepeatedly(Return("testID"));
         ON_CALL(*communicator, communicateMock(_, _, _, _)).WillByDefault(Return(Answer{}));
-        ON_CALL(*msgBuilder, createFuseMessage(_, _, _)).WillByDefault(Return(FuseMessage{}));
+        ON_CALL(*msgBuilder, createFuseMessage(_)).WillByDefault(Return(FuseMessage{}));
     }
 
     veil::protocol::fuse_messages::FuseMessage fmsgFrom(const google::protobuf::Message &msg)
     {
-        return MessageBuilder{context}.createFuseMessage(
-            config->getFuseID(),
-            boost::algorithm::to_lower_copy(msg.GetDescriptor()->name()),
-            msg.SerializeAsString());
+        return MessageBuilder{}.createFuseMessage(msg);
     }
 };
 
@@ -79,10 +78,10 @@ TEST_F(FslogicProxyTest, sendFuseReceiveAnswerFails) {
     msg.set_offset(0);
     FileChildren answer;
 
-    EXPECT_CALL(*msgBuilder, createFuseMessage(_, _, _)).WillOnce(Return(FuseMessage{}));
+    EXPECT_CALL(*msgBuilder, createFuseMessage(_)).WillOnce(Return(FuseMessage{}));
     EXPECT_FALSE(proxy->sendFuseReceiveAnswer(msg, answer));
 
-    EXPECT_CALL(*msgBuilder, createFuseMessage(_, _, _)).WillRepeatedly(Return(fmsgFrom(msg)));
+    EXPECT_CALL(*msgBuilder, createFuseMessage(_)).WillRepeatedly(Return(fmsgFrom(msg)));
 
     Answer ans;
     ans.set_answer_status("not ok");
@@ -98,7 +97,7 @@ TEST_F(FslogicProxyTest, sendFuseReceiveAnswerOK) {
     msg.set_offset(0);
     FileChildren answer;
 
-    EXPECT_CALL(*msgBuilder, createFuseMessage(_, _, _)).WillRepeatedly(Return(fmsgFrom(msg)));
+    EXPECT_CALL(*msgBuilder, createFuseMessage(_)).WillRepeatedly(Return(fmsgFrom(msg)));
 
     Answer ans;
     FileChildren response;
@@ -117,10 +116,10 @@ TEST_F(FslogicProxyTest, sendFuseReceiveAtomFails) {
     msg.set_children_num(10);
     msg.set_offset(0);
 
-    EXPECT_CALL(*msgBuilder, createFuseMessage(_, _, _)).WillOnce(Return(FuseMessage{}));
+    EXPECT_CALL(*msgBuilder, createFuseMessage(_)).WillOnce(Return(FuseMessage{}));
     EXPECT_EQ(VEIO, proxy->sendFuseReceiveAtom(msg));
 
-    EXPECT_CALL(*msgBuilder, createFuseMessage(_, _, _)).WillRepeatedly(Return(fmsgFrom(msg)));
+    EXPECT_CALL(*msgBuilder, createFuseMessage(_)).WillRepeatedly(Return(fmsgFrom(msg)));
 
     Answer ans;
     ans.set_answer_status("not ok");
@@ -135,7 +134,7 @@ TEST_F(FslogicProxyTest, sendFuseReceiveAtomOK) {
     msg.set_children_num(10);
     msg.set_offset(0);
 
-    EXPECT_CALL(*msgBuilder, createFuseMessage(_, _, _)).WillRepeatedly(Return(fmsgFrom(msg)));
+    EXPECT_CALL(*msgBuilder, createFuseMessage(_)).WillRepeatedly(Return(fmsgFrom(msg)));
 
     Answer ans;
     Atom response;
@@ -170,7 +169,7 @@ TEST_F(FslogicProxyTest, getFileAttr) {
     ans.set_answer_status(VOK);
     attributes.SerializePartialToString(ans.mutable_worker_answer());
     EXPECT_CALL(*communicator, communicateMock(_, _, _, _)).WillOnce(Return(ans));
-    EXPECT_CALL(*msgBuilder, createFuseMessage(_, _, _)).WillOnce(Return(fmsgFrom(msg)));
+    EXPECT_CALL(*msgBuilder, createFuseMessage(_)).WillOnce(Return(fmsgFrom(msg)));
 
     ASSERT_TRUE(proxy->getFileAttr("/file", response));
 
@@ -198,7 +197,7 @@ TEST_F(FslogicProxyTest, getFileLocation) {
     ans.set_answer_status(VOK);
     location.SerializePartialToString(ans.mutable_worker_answer());
     EXPECT_CALL(*communicator, communicateMock(_, _, _, _)).WillOnce(Return(ans));
-    EXPECT_CALL(*msgBuilder, createFuseMessage(_, _, _)).WillOnce(Return(fmsgFrom(msg)));
+    EXPECT_CALL(*msgBuilder, createFuseMessage(_)).WillOnce(Return(fmsgFrom(msg)));
     ASSERT_TRUE(proxy->getFileLocation("/file", response,UNSPECIFIED_MODE));
 
     EXPECT_EQ(location.validity(), response.validity());
@@ -226,7 +225,7 @@ TEST_F(FslogicProxyTest, getNewFileLocation) {
     ans.set_answer_status(VOK);
     location.SerializePartialToString(ans.mutable_worker_answer());
     EXPECT_CALL(*communicator, communicateMock(_, _, _, _)).WillOnce(Return(ans));
-    EXPECT_CALL(*msgBuilder, createFuseMessage(_, _, _)).WillOnce(Return(fmsgFrom(msg)));
+    EXPECT_CALL(*msgBuilder, createFuseMessage(_)).WillOnce(Return(fmsgFrom(msg)));
     ASSERT_TRUE(proxy->getNewFileLocation("/file", 234, response));
 
 

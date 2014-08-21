@@ -37,7 +37,6 @@ namespace client
 
 class Context;
 class FslogicProxy;
-class MessageBuilder;
 class MetaCache;
 
 namespace events
@@ -81,7 +80,6 @@ private:
     std::mutex m_eventsStreamMutex;
     std::shared_ptr<EventStreamCombiner> m_eventsStream;
     bool m_writeEnabled;
-    std::shared_ptr<MessageBuilder> m_messageBuilder;
     std::shared_ptr<FslogicProxy> m_fslogic;
     std::shared_ptr<MetaCache> m_metaCache;
 

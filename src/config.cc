@@ -17,7 +17,6 @@
 #include "fuse_messages.pb.h"
 #include "jobScheduler.h"
 #include "logging.h"
-#include "messageBuilder.h"
 #include "options.h"
 #include "pushListener.h"
 
@@ -131,8 +130,6 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
     auto context = m_context.lock();
     assert(context);
 
-    MessageBuilder builder{context};
-
     char tmpHost[1024];
     gethostname(tmpHost, sizeof(tmpHost));
     string hostname = string(tmpHost);
@@ -221,8 +218,6 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
 
     auto context = m_context.lock();
     assert(context);
-
-    MessageBuilder builder{context};
 
     char tmpHost[1024];
     gethostname(tmpHost, sizeof(tmpHost));

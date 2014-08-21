@@ -19,7 +19,6 @@
 #include "jobScheduler.h"
 #include "localStorageManager.h"
 #include "logging.h"
-#include "messageBuilder.h"
 #include "metaCache.h"
 #include "options.h"
 #include "pushListener.h"
