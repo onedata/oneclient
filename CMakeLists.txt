@@ -44,6 +44,7 @@ message(STATUS "Checking for FUSE...")
 find_package(FUSE REQUIRED)
 #find_library(FUSE_LIBRARY_CUSTOM NAMES libfuse.a fuse)
 set(FUSE_LIBRARY_CUSTOM ${FUSE_LIBRARIES})
+include_directories(${FUSE_INCLUDE_DIRS}/..)
 include_directories(${FUSE_INCLUDE_DIRS})
 message(STATUS "FUSE: ${FUSE_LIBRARY_CUSTOM}")
 

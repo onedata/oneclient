@@ -114,12 +114,18 @@ void StorageMapper::addLocation(const string &logicalName, const FileLocation &l
     for(int i = 0; i < location.storage_helper_args_size(); ++i)
         storageInfo.storageHelperArgs.emplace(helpers::srvArg(i), boost::any{location.storage_helper_args(i)});
 
+    LOG(INFO) << "1: adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(NULL) << " + " << location.validity();
+
+
     boost::lock_guard<boost::shared_mutex> lock{m_fileMappingMutex};
     auto previous = m_fileMapping.find(logicalName);
     info.opened = (previous == m_fileMapping.end() ? 0 : previous->second.opened) ;
     m_fileMapping[logicalName] = info;
+    LOG(INFO) << "2: adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(NULL) << " + " << location.validity();
+
     boost::lock_guard<boost::shared_mutex> sLock{m_storageMappingMutex};
     m_storageMapping[info.storageId] = storageInfo;
+    LOG(INFO) << "3: adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(NULL) << " + " << location.validity();
 
     m_context.lock()->getScheduler()->addTask(Job(info.validTo, shared_from_this(), TASK_REMOVE_EXPIRED_LOCATON_MAPPING, logicalName));
     m_context.lock()->getScheduler()->addTask(Job(info.validTo - RENEW_LOCATION_MAPPING_TIME, shared_from_this(), TASK_RENEW_LOCATION_MAPPING, logicalName));
@@ -173,10 +179,12 @@ bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg
 {
     map<string, locationInfo>::iterator it;
     int validity;
-    boost::lock_guard<boost::shared_mutex> lock{m_fileMappingMutex};
+
     switch(taskId)
     {
         case TASK_REMOVE_EXPIRED_LOCATON_MAPPING:
+        {
+            boost::lock_guard<boost::shared_mutex> lock{m_fileMappingMutex};
             it = m_fileMapping.find(arg0);
             if(it != m_fileMapping.end() && (*it).second.validTo <= time(NULL))
             {
@@ -191,7 +199,10 @@ bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg
             }
 
             return true;
+        }
         case TASK_RENEW_LOCATION_MAPPING:
+        {
+            boost::lock_guard<boost::shared_mutex> lock{m_fileMappingMutex};
             LOG(INFO) << "Renewing file mapping for file: " << arg0;
             if((validity = m_fslogic->renewFileLocation(arg0)) <= 0)
             {
@@ -205,6 +216,7 @@ bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg
                 LOG(INFO) << "Renewed location mapping for file: " << arg0 << ". New validity: time + " << ntohl(validity);
             }
             return true;
+        }
         case TASK_ASYNC_GET_FILE_LOCATION:
             (void) findLocation(arg0);
             return true;
