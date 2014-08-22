@@ -99,7 +99,7 @@ string StorageMapper::findLocation(const string &logicalName, const string &open
 
 void StorageMapper::addLocation(const string &logicalName, const FileLocation &location)
 {
-    LOG(INFO) << "adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(NULL) << " + " << location.validity();
+    LOG(INFO) << "0: adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(NULL) << " + " << location.validity();
 
     locationInfo info;
     info.validTo = time(NULL) + location.validity();
