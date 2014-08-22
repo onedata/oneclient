@@ -41,16 +41,9 @@ string erlExec(string arg) {
     return ret;
 }
 
-
-VeilFSMount::VeilFSMount(string path, string cert) 
+VeilFSMount::VeilFSMount(string path, string cert, string opts, string args)
 { 
-    if(mount(path, cert, "")) 
-        throw string("Cannot mount VFS");
-}
-
-VeilFSMount::VeilFSMount(string path, string cert, string opts)
-{ 
-    if(mount(path, cert, opts)) 
+    if(mount(path, cert, opts, args))
         throw string("Cannot mount VFS");
 }
 
@@ -62,14 +55,14 @@ string VeilFSMount::getRoot() {
     return m_mountPoint;
 }
 
-int VeilFSMount::mount(string path, string cert, string opts) {
+int VeilFSMount::mount(string path, string cert, string opts, string args) {
     m_mountPoint = MOUNT_POINT(path);
     (void) umount(true);
     if(!filesystem::create_directories(m_mountPoint))
         return -1;
 
     return ::system(("PEER_CERTIFICATE_FILE='" + COMMON_FILE(cert) + "' ENABLE_ATTR_CACHE='false' " + 
-                     opts + " veilFuse " + m_mountPoint).c_str());
+                     opts + " veilFuse " + args + " " + m_mountPoint).c_str());
 }
 
 int VeilFSMount::umount(bool silent) {
