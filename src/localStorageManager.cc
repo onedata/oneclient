@@ -36,8 +36,8 @@ namespace veil {
 namespace client {
 
 LocalStorageManager::LocalStorageManager(std::shared_ptr<Context> context)
-    : m_messageBuilder{MessageBuilder{context}}
-    , m_context{std::move(context)}
+    : m_context{std::move(context)}
+    , m_messageBuilder{MessageBuilder{context}}
 {
 }
 
