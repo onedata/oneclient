@@ -10,9 +10,9 @@ set(VeilClient_VERSION_PATCH 1)
 set(VeilClient_VERSION $(VeilClient_VERSION_MAJOR).$(VeilClient_VERSION_MINOR).$(VeilClient_VERSION_PATCH))
 
 # Install dirs
-set(CONFIG_DIR "etc")
-set(BIN_DIR "bin")
-set(LIB_DIR "lib")
+set(CONFIG_DIR etc)
+set(BIN_DIR bin)
+set(LIB_DIR lib)
 
 # CMake config
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
@@ -150,6 +150,13 @@ add_library(veilclient ${SOURCES})
 add_executable(veilFuse ${MAIN_SOURCE_FILE})
 add_executable(veilFuse_dynamic ${MAIN_SOURCE_FILE})
 
+set_target_properties(veilFuse_dynamic PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY dynamic/
+    OUTPUT_NAME veilFuse)
+
+add_custom_command(TARGET veilFuse_dynamic POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:veilFuse_dynamic> veilFuse_dynamic)
+
 add_dependencies(veilFuse_dynamic glog veilclient)
 add_dependencies(veilFuse glog veilclient)
 add_dependencies(veilclient glog veilprotocol veilhelpers)
@@ -201,12 +208,7 @@ if(NOT ${PROFILER_LIBRARY} MATCHES PROFILER_LIBRARY-NOTFOUND)
 endif(NOT ${PROFILER_LIBRARY} MATCHES PROFILER_LIBRARY-NOTFOUND)
 
 # Install config
-get_property(VEILFUSE_DYNAMIC_LOCATION TARGET veilFuse_dynamic PROPERTY LOCATION)
-install(FILES ${VEILFUSE_DYNAMIC_LOCATION} 
-        PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-        DESTINATION ${BIN_DIR}
-        RENAME veilFuse
-)
+install(TARGETS veilFuse_dynamic DESTINATION ${BIN_DIR})
 install(DIRECTORY config/ DESTINATION ${CONFIG_DIR})
 
 # build a CPack driven installer package

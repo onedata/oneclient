@@ -11,10 +11,10 @@ rpm: deb-info
 	@cd ${RELEASE_DIR} && ${CPACK} -C CPackConfig.cmake -G RPM
 	@cd ${RELEASE_DIR} && ${CPACK} -C CPackConfig.cmake -G DEB
 
-	@echo ""
-	@echo ""
-	@echo "Fallowing packages are now available in PROJECT_DIR directory: "
-	@echo ""
+	@echo
+	@echo
+	@echo "Following packages are now available in PROJECT_DIR directory: "
+	@echo
 	@for pkg in `ls ${RELEASE_DIR}/*.rpm 2>/dev/null`; do echo $$pkg; done
 	@for pkg in `ls ${RELEASE_DIR}/*.deb 2>/dev/null`; do echo $$pkg; done
 
@@ -29,19 +29,19 @@ deb-info:
 	@mkdir -p ${RELEASE_DIR}
 	-@find ${RELEASE_DIR} -name "veilhelpers-update" -exec rm -rf {} \;
 	@cd ${RELEASE_DIR} && ${CMAKE} -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
-	@(cd ${RELEASE_DIR} && ninja veilFuse)
+	@cd ${RELEASE_DIR} && ninja veilFuse
 
 release:
 	@mkdir -p ${RELEASE_DIR}
 	-@find ${RELEASE_DIR} -name "veilhelpers-update" -exec rm -rf {} \;
 	@cd ${RELEASE_DIR} && ${CMAKE} -GNinja -DCMAKE_BUILD_TYPE=Release ..
-	@(cd ${RELEASE_DIR} && ninja veilFuse)
+	@cd ${RELEASE_DIR} && ninja veilFuse
 
 debug:
 	@mkdir -p ${DEBUG_DIR}
 	-@find ${DEBUG_DIR} -name "veilhelpers-update" -exec rm -rf {} \;
 	@cd ${DEBUG_DIR} && ${CMAKE} -GNinja -DCMAKE_BUILD_TYPE=Debug ..
-	@(cd ${DEBUG_DIR} && ninja veilFuse)
+	@cd ${DEBUG_DIR} && ninja veilFuse
 
 test: deb-info
 	@cd ${RELEASE_DIR} && ninja
