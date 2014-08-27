@@ -19,7 +19,6 @@
 #include <boost/xpressive/xpressive.hpp>
 #include <fuse/fuse_lowlevel.h>
 
-#include <iostream>
 #include <fstream>
 #include <functional>
 #include <string>
@@ -66,6 +65,9 @@ void Options::setDescriptions()
     add_enable_parallel_getattr(m_common);
     add_enable_permission_checking(m_common);
     add_enable_location_cache(m_common);
+    add_global_registry_url(m_common);
+    add_global_registry_port(m_common);
+    add_authentication(m_common);
 
     // Restricted options exclusive to global config file
     m_restricted.add_options()
@@ -84,6 +86,7 @@ void Options::setDescriptions()
             ("help,h",    "print help")
             ("version,V", "print version")
             ("config",    value<std::string>(), "path to user config file");
+    add_authentication(m_commandline);
     add_switch_debug(m_commandline);
     add_switch_debug_gsi(m_commandline);
     add_switch_no_check_certificate(m_commandline);

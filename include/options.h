@@ -24,20 +24,21 @@
     private: void add_##NAME(boost::program_options::options_description &desc) const \
              { desc.add_options()(#NAME, boost::program_options::value<TYPE>()); }
 
-/// Declare a new configuration option with a default value
-#define DECL_CONFIG_DEF(NAME, TYPE, DEFAULT) \
+/// Declare a new configuration option with a default value and a description
+#define DECL_CONFIG_DEF_DESC(NAME, TYPE, DEFAULT, DESC) \
     public: virtual bool is_default_##NAME() const { return !m_vm.count(#NAME); } \
     public: virtual TYPE get_##NAME() const { return m_vm.count(#NAME) ? m_vm.at(#NAME).as<TYPE>() : DEFAULT; } \
     private: void add_##NAME(boost::program_options::options_description &desc) const \
-             { desc.add_options()(#NAME, boost::program_options::value<TYPE>()); }
+             { desc.add_options()(#NAME, boost::program_options::value<TYPE>(), DESC); }
+
+/// Declare a new configuration option with a default value
+#define DECL_CONFIG_DEF(NAME, TYPE, DEFAULT) \
+    DECL_CONFIG_DEF_DESC(NAME, TYPE, DEFAULT, "")
 
 /// Declare a command line switch (a boolean which is set to true if the switch is present)
 /// The description will be used in the --help.
 #define DECL_CMDLINE_SWITCH_DEF(NAME, SHORT, DEFAULT, DESC) \
-    public: virtual bool is_default_##NAME() const { return !m_vm.count(#NAME); } \
-    public: virtual bool get_##NAME() const { return m_vm.count(#NAME) ? m_vm.at(#NAME).as<bool>() : DEFAULT; } \
-    private: void add_##NAME(boost::program_options::options_description &desc) const \
-             { desc.add_options()(#NAME, boost::program_options::value<bool>()); } \
+    DECL_CONFIG_DEF(NAME, bool, DEFAULT) \
     private: void add_switch_##NAME(boost::program_options::options_description &desc) const \
              { desc.add_options()(#NAME SHORT, boost::program_options::value<bool>() \
                 ->zero_tokens()->implicit_value(true), DESC); }
@@ -129,6 +130,10 @@ private:
     DECL_CONFIG_DEF(file_buffer_prefered_block_size, std::size_t, 100 * 1024) // 100 kB
     DECL_CONFIG_DEF(write_bytes_before_stat, std::size_t, 5 * 1024 * 1024) // 5 MB
     DECL_CONFIG(fuse_group_id, std::string)
+    DECL_CONFIG_DEF(global_registry_url, std::string, "onedata.org")
+    DECL_CONFIG_DEF(global_registry_port, unsigned int, 8443)
+    DECL_CONFIG_DEF_DESC(authentication, std::string, "token", "authentication type to use for connection with a Provider. "
+                         "Accepted values are 'token' and 'certificate'.")
     DECL_CMDLINE_SWITCH_DEF(no_check_certificate, "", true, "disable remote certificate validation")
     DECL_CMDLINE_SWITCH_DEF(debug, ",d", false, "enable debug output (implies -f)")
     DECL_CMDLINE_SWITCH_DEF(debug_gsi, "", false, "enable GSI debug output")
@@ -139,6 +144,7 @@ private:
 
 #undef DECL_CONFIG
 #undef DECL_CONFIG_DEF
+#undef DECL_CONFIG_DEF_DESC
 #undef DECL_CMDLINE_SWITCH_DEF
 
 
