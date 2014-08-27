@@ -16,12 +16,11 @@
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
-#include <boost/xpressive/xpressive.hpp>
-#include <fuse/fuse_lowlevel.h>
 
 #include <fstream>
 #include <functional>
-#include <string>
+#include <regex>
+#include <sstream>
 #include <vector>
 #include <utility>
 
@@ -103,14 +102,16 @@ void Options::setDescriptions()
 }
 
 
-void Options::parseConfigs(const int argc, const char * const argv[])
+Options::Result Options::parseConfigs(const int argc, const char * const argv[])
 {
     if(argc > 0)
         argv0 = argv[0];
 
     try
     {
-        parseCommandLine(argc, argv);
+        const auto result = parseCommandLine(argc, argv);
+        if(result != Result::PARSED)
+            return result;
     }
     catch(boost::program_options::error &e)
     {
@@ -162,6 +163,7 @@ void Options::parseConfigs(const int argc, const char * const argv[])
     }
 
     notify(m_vm);
+    return Result::PARSED;
 }
 
 
@@ -174,22 +176,18 @@ void Options::parseConfigs(const int argc, const char * const argv[])
  */
 static std::pair<std::string, std::string> cmdParser(const std::string &str)
 {
-    using namespace boost::xpressive;
+    static const std::regex regex{"\\s*--([\\w\\-]+)(=(\\S+))?\\s*"};
 
-    static const sregex rex =
-            sregex::compile("\\s*--([\\w\\-]+)(=(\\S+))?\\s*");
+    std::smatch what;
+    if(std::regex_match(str, what, regex))
+        return { boost::algorithm::replace_all_copy(what[1].str(), "-", "_"),
+                 what.size() > 2 ? what[3].str() : std::string() };
 
-    smatch what;
-    if(regex_match(str, what, rex))
-        return std::make_pair(
-            boost::algorithm::replace_all_copy(what[1].str(), "-", "_"),
-            what.size() > 2 ? what[3].str() : std::string());
-
-    return std::pair<std::string, std::string>();
+    return {};
 }
 
 
-void Options::parseCommandLine(const int argc, const char * const argv[])
+Options::Result Options::parseCommandLine(const int argc, const char * const argv[])
 {
     positional_options_description pos;
     pos.add("mountpoint", 1);
@@ -201,24 +199,12 @@ void Options::parseCommandLine(const int argc, const char * const argv[])
             .options(all).positional(pos).extra_parser(cmdParser).run(), m_vm);
 
     if(m_vm.count("help"))
-    {
-        options_description visible("");
-        visible.add(m_commandline).add(m_fuse);
-
-        std::cout << "Usage: " << argv[0] << " [options] mountpoint" << std::endl;
-        std::cout << visible;
-        exit(EXIT_SUCCESS);
-    }
+        return Result::HELP;
 
     if(m_vm.count("version"))
-    {
-        std::cout << "VeilFuse version: " << VeilClient_VERSION_MAJOR << "." <<
-                     VeilClient_VERSION_MINOR << "." <<
-                     VeilClient_VERSION_PATCH << std::endl;
-        std::cout << "FUSE library version: " << FUSE_MAJOR_VERSION << "." <<
-                     FUSE_MINOR_VERSION << std::endl;
-        exit(EXIT_SUCCESS);
-    }
+        return Result::VERSION;
+
+    return Result::PARSED;
 }
 
 
@@ -303,6 +289,17 @@ struct fuse_args Options::getFuseArgs() const
         fuse_opt_add_arg(&args, m_vm.at("mountpoint").as<std::string>().c_str());
 
     return args;
+}
+
+std::string Options::describeCommandlineOptions() const
+{
+    options_description visible("");
+    visible.add(m_commandline).add(m_fuse);
+
+    std::stringstream ss;
+    ss << visible;
+
+    return ss.str();
 }
 
 }

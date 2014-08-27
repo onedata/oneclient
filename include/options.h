@@ -68,6 +68,16 @@ class Options
 {
 public:
     /**
+     * Describes the result of parsing options.
+     */
+    enum class Result
+    {
+        HELP,
+        VERSION,
+        PARSED
+    };
+
+    /**
      * Constructor.
      */
     Options();
@@ -75,11 +85,13 @@ public:
     /**
      * Parses all available configuration sources.
      * If --help (-h) or --version (-V) options were requested, the method
-     * prints the relevant output and calls exit(EXIT_SUCCESS).
+     * prints the relevant output and doesn't continue with parsing.
      * @param argc The number of commandline arguments passed.
      * @param argv The commandline arguments.
+     * @returns Result::HELP if -h option was given, Result::VERSION if -v
+     * option was given, Result::PARSED otherwise.
      */
-    void parseConfigs(const int argc, const char * const argv[]);
+    Result parseConfigs(const int argc, const char * const argv[]);
 
     /**
      * Destructor.
@@ -92,10 +104,15 @@ public:
      */
     struct fuse_args getFuseArgs() const;
 
+    /**
+     * @returns A text description of commandline options.
+     */
+    std::string describeCommandlineOptions() const;
+
 private:
     std::string mapEnvNames(std::string env) const;
     void setDescriptions();
-    void parseCommandLine(const int argc, const char * const argv[]);
+    Result parseCommandLine(const int argc, const char * const argv[]);
     void parseUserConfig(boost::program_options::variables_map &fileConfigMap);
     void parseGlobalConfig(boost::program_options::variables_map &fileConfigMap);
     void parseEnv();

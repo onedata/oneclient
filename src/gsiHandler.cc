@@ -32,23 +32,32 @@
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>
+#include <iostream>
 #include <utility>
-
-#define X509_USER_PROXY_ENV     "X509_USER_PROXY"
-
-#define X509_USER_CERT_ENV      "X509_USER_CERT"
-#define X509_USER_KEY_ENV       "X509_USER_KEY"
-
-#define GLOBUS_DIR_PATH         ".globus"
-#define GLOBUS_P12_PATH         ".globus/usercred.p12"
-#define GLOBUS_PEM_CERT_PATH    ".globus/usercert.pem"
-#define GLOBUS_PEM_KEY_PATH     ".globus/userkey.pem"
-#define GLOBUS_PROXY_PATH(CONTEXT, UID)  (CONTEXT)->getConfig()->absPathRelToHOME(string("/tmp/x509up_u") + to_string(getuid()))
-
-#define MSG_DEBUG_INFO(DEBUG) ((DEBUG) ? "" : "Use --debug_gsi for further information.")
 
 #define CRYPTO_FREE(M, X) if(X) { M##_free(X); X = NULL; }
 
+constexpr const char
+    *X509_USER_PROXY_ENV  = "X509_USER_PROXY",
+    *X509_USER_CERT_ENV   = "X509_USER_CERT",
+    *X509_USER_KEY_ENV    = "X509_USER_KEY",
+    *GLOBUS_DIR_PATH      = ".globus",
+    *GLOBUS_P12_PATH      = ".globus/usercred.p12",
+    *GLOBUS_PEM_CERT_PATH = ".globus/usercert.pem",
+    *GLOBUS_PEM_KEY_PATH  = ".globus/userkey.pem";
+
+namespace
+{
+inline std::string GLOBUS_PROXY_PATH(const std::shared_ptr<veil::client::Context> &context)
+{
+    return context->getConfig()->absPathRelToHOME("/tmp/x509up_u") + std::to_string(getuid());
+}
+
+inline std::string MSG_DEBUG_INFO(const bool debug)
+{
+    return debug ? "" : "Use --debug_gsi for further information.";
+}
+}
 
 using namespace std;
 using namespace boost::algorithm;
@@ -143,7 +152,7 @@ const std::vector<std::pair<string, string> > &GSIHandler::getCertSearchPath()
     if(searchPath.empty())
     {
         auto config = m_context->getConfig();
-        searchPath.push_back(make_pair(GLOBUS_PROXY_PATH(m_context, getuid())));
+        searchPath.push_back(make_pair(GLOBUS_PROXY_PATH(m_context)));
         searchPath.push_back(std::make_pair(config->absPathRelToHOME(GLOBUS_PEM_CERT_PATH),
                                             config->absPathRelToHOME(GLOBUS_PEM_KEY_PATH)));
         searchPath.push_back(make_pair(config->absPathRelToHOME(GLOBUS_P12_PATH)));
@@ -210,7 +219,7 @@ std::pair<string, string> GSIHandler::getUserCertAndKey()
     std::pair<string, string> certAndKey = findUserCertAndKey();
 
     // Any found path can be overriden by user's envs, provided it's not a proxy path
-    if(certAndKey.first != GLOBUS_PROXY_PATH(m_context, getuid()))
+    if(certAndKey.first != GLOBUS_PROXY_PATH(m_context))
     {
         if(getenv(X509_USER_CERT_ENV) && boost::filesystem::exists(getenv(X509_USER_CERT_ENV)))
             certAndKey.first = getenv(X509_USER_CERT_ENV);
@@ -224,13 +233,13 @@ std::pair<string, string> GSIHandler::getUserCertAndKey()
     return certAndKey;
 }
 
-bool GSIHandler::validateProxyConfig()
+std::pair<bool, std::string> GSIHandler::validateProxyConfig()
 {
     LOG(INFO) << "GSI Handler: Starting global certificate system init";
     return validateProxyCert();
 }
 
-bool GSIHandler::validateProxyCert()
+std::pair<bool, std::string> GSIHandler::validateProxyCert()
 {
     std::lock_guard<std::mutex> guard(m_certCallbackMutex);
 
@@ -243,59 +252,55 @@ bool GSIHandler::validateProxyCert()
     const string &userCert = userCertAndKey.first;
     const string &userKey = userCertAndKey.second;
 
-    /// This value shall be returned instead of 'false' in this function
-    /// After first proxy initialization, failure doesn't break existing proxy, so the function shall return 'true'
-    int failureValue = 0;
-
     // At this point we know that there is not valid proxy certificate
     // Lets find user certificate
-    if(userCert == "") {
-        cerr << "Error: Couldn't find valid credentials.\n" <<
-                "The user cert could not be found in: \n" <<
-                "   1) env. var. " << X509_USER_PROXY_ENV << "\n" <<
-                "   2) proxy crt. " << GLOBUS_PROXY_PATH(m_context, getuid()) << "\n" <<
-                "   3) env. var. " << X509_USER_CERT_ENV << "\n" <<
-                "   4) $HOME/" << GLOBUS_PEM_CERT_PATH << "\n" <<
-                "   5) $HOME/" << GLOBUS_P12_PATH << "\n" <<
-                "   6) $HOME/" << GLOBUS_DIR_PATH << "/*.p12\n" <<
-                "   6) $HOME/" << GLOBUS_DIR_PATH << "/*.pem + .key" << endl;
-
-        return failureValue;
+    if(userCert == "")
+    {
+        return {false,
+            "Error: Couldn't find valid credentials.\n"
+            "The user cert could not be found in: \n"
+            "   1) env. var. " + std::string{X509_USER_PROXY_ENV} + "\n"
+            "   2) proxy crt. " + GLOBUS_PROXY_PATH(m_context) + "\n"
+            "   3) env. var. " + std::string{X509_USER_CERT_ENV} + "\n"
+            "   4) $HOME/" + std::string{GLOBUS_PEM_CERT_PATH} + "\n"
+            "   5) $HOME/" + std::string{GLOBUS_P12_PATH} + "\n"
+            "   6) $HOME/" + std::string{GLOBUS_DIR_PATH} + "/*.p12\n"
+            "   6) $HOME/" + std::string{GLOBUS_DIR_PATH} + "/*.pem + .key"};
     }
 
-    if(stat(userCert.c_str(), &buf) != 0) {
-        cerr << "Error: Couldn't find valid credentials." << endl;
-        cerr << "You have no permissions to read user cert file: " << userCert << endl;
-        return failureValue;
+    if(stat(userCert.c_str(), &buf) != 0)
+    {
+        return {false,
+            "Error: Couldn't find valid credentials.\n"
+            "You have no permissions to read user cert file: " + userCert};
     }
 
     if((buf.st_mode & ACCESSPERMS) > 0644 || (buf.st_mode & (S_IWGRP | S_IXGRP | S_IWOTH | S_IXOTH))) {
-        cerr << "Error: Couldn't find valid credentials." << endl;
-        cerr << "Your user cert file: " << userCert << " is to permissive. Maximum of 0644." << endl;
-        return failureValue;
+        return {false,
+            "Error: Couldn't find valid credentials.\n"
+            "Your user cert file: " + userCert + " is to permissive. Maximum of 0644."};
     }
 
     // Lets find user key
     if(userKey == "") {
-        cerr << "Error: Couldn't find valid credentials to generate a proxy.\n" <<
-                "The user key could not be found in:\n" <<
-                "   1) env. var. " << X509_USER_KEY_ENV << "\n" <<
-                "   2) $HOME/" << GLOBUS_PEM_KEY_PATH << "\n" <<
-                "   3) $HOME/" << GLOBUS_P12_PATH << endl;
-
-        return failureValue;
+        return {false,
+            "Error: Couldn't find valid credentials to generate a proxy.\n"
+            "The user key could not be found in:\n"
+            "   1) env. var. " + std::string{X509_USER_KEY_ENV} + "\n"
+            "   2) $HOME/" + std::string{GLOBUS_PEM_KEY_PATH} + "\n"
+            "   3) $HOME/" + std::string{GLOBUS_P12_PATH}};
     }
 
     if(stat(userKey.c_str(), &buf) != 0) {
-        cerr << "Error: Couldn't find valid credentials to generate a proxy." << endl;
-        cerr << "You have no permissions to read user key file: " << userKey << endl;
-        return failureValue;
+        return {false,
+            "Error: Couldn't find valid credentials to generate a proxy.\n"
+            "You have no permissions to read user key file: " + userKey};
     }
 
     if((buf.st_mode & ACCESSPERMS) > 0600 || (buf.st_mode & (S_IRWXO | S_IRWXG))) {
-        cerr << "Error: Couldn't find valid credentials to generate a proxy." << endl;
-        cerr << "Your user key file: " << userKey << " is to permissive. Maximum of 0600." << endl;
-        return failureValue;
+        return {false,
+            "Error: Couldn't find valid credentials to generate a proxy.\n"
+            "Your user key file: " + userKey + " is to permissive. Maximum of 0600."};
     }
 
     LOG(INFO) << "GSI Handler: Starting OpenSSL for certificate init";
@@ -314,18 +319,17 @@ bool GSIHandler::validateProxyCert()
 
     if(file == NULL)
     {
-        cerr << "Internal SSL BIO error." << endl;
-        return failureValue;
+        return {false, "Internal SSL BIO error."};
     }
 
     // Read key file
     if(BIO_read_filename(file, userKey.c_str()) <= 0)
     {
-         cerr << "Error: Couldn't find valid credentials to generate a proxy." << endl;
-         cerr << "Failed to read your key file: " << userKey << " (try checking read permissions)." << endl;
+        CRYPTO_FREE(BIO, file);
 
-         CRYPTO_FREE(BIO, file);
-         return failureValue;
+        return {false,
+            "Error: Couldn't find valid credentials to generate a proxy.\n"
+            "Failed to read your key file: " + userKey + " (try checking read permissions)."};
     }
 
     LOG(INFO) << "GSI Handler: parsing userKey file: " << userKey
@@ -347,54 +351,47 @@ bool GSIHandler::validateProxyCert()
     {
         unsigned long e = ERR_get_error();
         if(ERR_GET_REASON(e) == 100) { // Invalid passphrase
-            cerr << "Error: Entered key passphrase is invalid." << endl;
-
             LOG(ERROR) << "GSI Handler: parsing userKey as PEM failed due to inavlid passphrase";
-
             CRYPTO_FREE(BIO, file);
-            return failureValue;
+
+            return {false, "Error: Entered key passphrase is invalid."};
         } else { // Try to read .p12
             LOG(INFO) << "GSI Handler: parsing userKey as PEM failed, trying as PKCS12: " << userKey;
             if(BIO_read_filename(file, userKey.c_str()) <= 0)
             {
-                 cerr << "Error: Couldn't find valid credentials to generate a proxy." << endl;
-                 cerr << "Failed to read your key file: " << userKey << " (try checking read permissions)." << endl;
-
                  BIO_free(file);
-                 return failureValue;
+                 return {false,
+                     "Error: Couldn't find valid credentials to generate a proxy.\n"
+                     "Failed to read your key file: " + userKey + " (try checking read permissions)."};
             }
 
             PKCS12 *p12 = d2i_PKCS12_bio(file, NULL);
             if(p12 == NULL) {
                 unsigned long e2 = ERR_get_error();
-                cerr << "Error: Invalid .pem or .p12 certificate file: " << userKey << " " << MSG_DEBUG_INFO(m_debug) << endl;
-                if(m_debug)
-                    cerr << ERR_error_string(e2, NULL) << endl;
-                cerr << ERR_reason_error_string(e2) << endl;
                 LOG(ERROR) << "GSI Handler: parsing userKey PEM / PKCS12 failed due to: " << ERR_error_string(e, NULL) << " / " << ERR_error_string(e2, NULL);
 
                 CRYPTO_FREE(BIO, file);
-                return failureValue;
+                return {false,
+                    "Error: Invalid .pem or .p12 certificate file: " + userKey + " " + MSG_DEBUG_INFO(m_debug) + "\n" +
+                    (m_debug ? std::string{ERR_error_string(e2, NULL)} + "\n" : std::string{}) +
+                    ERR_reason_error_string(e2)};
+
             } else {
                 string pswd = getPasswd("Enter MAC pass phrase for your identity: ", 1024);
                 if(!PKCS12_parse(p12, pswd.c_str(), &key, &cert, &ca)) {
                     unsigned long e1 = ERR_get_error();
                     if(ERR_GET_REASON(e1) == 113) { // MAC Validation error
-                        cerr << "Error: Entered key passphrase is invalid." << endl;
-
                         LOG(ERROR) << "GSI Handler: parsing userKey as PKCS12 failed due to inavlid passphrase";
 
                         CRYPTO_FREE(BIO, file);
-                        return failureValue;
+                        return {false, "Error: Entered key passphrase is invalid."};
                     } else {
-                        cerr << "Error: Cannot parse .p12 file. " << MSG_DEBUG_INFO(m_debug) << endl;
-                        if(m_debug)
-                            cerr << ERR_error_string(e1, NULL) << endl;
-
                         LOG(ERROR) << "GSI Handler: parsing userKey as PKCS12 failed due to: " << ERR_error_string(e1, NULL);
 
                         CRYPTO_FREE(BIO, file);
-                        return failureValue;
+                        return {false,
+                            "Error: Cannot parse .p12 file. " + MSG_DEBUG_INFO(m_debug) +
+                            (m_debug ? "\n" + std::string{ERR_error_string(e1, NULL)} : std::string{})};
                     }
                 }
             }
@@ -405,18 +402,14 @@ bool GSIHandler::validateProxyCert()
         BIO* cert_file = BIO_new(BIO_s_file());
 
         if(cert_file == NULL)
-        {
-            cerr << "Internal SSL BIO error." << endl;
-            return failureValue;
-        }
+            return {false, "Internal SSL BIO error."};
 
         if(BIO_read_filename(cert_file, userCert.c_str()) <= 0)
         {
-             cerr << "Error: Couldn't find valid credentials to generate a proxy." << endl;
-             cerr << "Failed to read your key file: " << userKey << " (try checking read permissions)." << endl;
-
              CRYPTO_FREE(BIO, cert_file);
-             return failureValue;
+             return {false,
+                 "Error: Couldn't find valid credentials to generate a proxy.\n"
+                 "Failed to read your key file: " + userKey + " (try checking read permissions)."};
         }
 
         // Read main cert file
@@ -458,14 +451,15 @@ bool GSIHandler::validateProxyCert()
         ASN1_TIME_print(time_bio, notAfter);
 
         LOG(ERROR) << "EEC certificate has expired!";
-        cerr << "Error: Your certificate (" << userCert << ") has expired! Invalid since: " << string(time_buff->data, time_buff->length) << "." << endl;
 
         BIO_free(time_bio);
 
         CRYPTO_FREE(X509, cert);
         CRYPTO_FREE(EVP_PKEY, key);
         if(ca) sk_X509_free(ca);
-        return false;
+        return {false,
+            "Error: Your certificate (" + userCert + ") has expired!\n"
+            "Invalid since: " + string(time_buff->data, time_buff->length) + "."};
     }
 
     // Check notBefore for EEC
@@ -479,14 +473,15 @@ bool GSIHandler::validateProxyCert()
         ASN1_TIME_print(time_bio, notBefore);
 
         LOG(ERROR) << "EEC certificate used before 'notBefore'!";
-        cerr << "Error: Your certificate (" << userCert << ") is not valid yet. Invalid before: " << string(time_buff->data, time_buff->length) << "." << endl;
 
         BIO_free(time_bio);
 
         CRYPTO_FREE(X509, cert);
         CRYPTO_FREE(EVP_PKEY, key);
         if(ca) sk_X509_free(ca);
-        return false;
+        return {false,
+            "Error: Your certificate (" + userCert + ") is not valid yet.\n"
+            "Invalid before: " + string(time_buff->data, time_buff->length) + "."};
     }
 
     // Write unprotected private key to internal buffer
@@ -497,7 +492,7 @@ bool GSIHandler::validateProxyCert()
         CRYPTO_FREE(X509, cert);
         CRYPTO_FREE(EVP_PKEY, key);
         if(ca) sk_X509_free(ca);
-        return false;
+        return {false, {}};
     }
 
     // Write EEC cert to internal buffer
@@ -508,7 +503,7 @@ bool GSIHandler::validateProxyCert()
         CRYPTO_FREE(X509, cert);
         CRYPTO_FREE(EVP_PKEY, key);
         if(ca) sk_X509_free(ca);
-        return false;
+        return {false, {}};
     }
 
     // Save cert/key file path for further use
@@ -552,7 +547,7 @@ bool GSIHandler::validateProxyCert()
 
     m_userDN = current_dn;
 
-    return true;
+    return {true, {}};
 }
 
 std::shared_ptr<communication::CertificateData> GSIHandler::getCertData()
