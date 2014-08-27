@@ -16,43 +16,45 @@ set(LIB_DIR lib)
 
 # CMake config
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
-set(DEPS_DIR "deps")
+set(DEPS_DIR deps)
 # set(CMAKE_FIND_LIBRARY_SUFFIXES .a) # Uncomment in order to force looking for static achives instead .so
 
 configure_file (
-    "${PROJECT_SOURCE_DIR}/include/veilConfig.h.in"
-    "${PROJECT_BINARY_DIR}/veilConfig.h"
+    ${PROJECT_SOURCE_DIR}/include/veilConfig.h.in
+    ${PROJECT_BINARY_DIR}/veilConfig.h
 )
 
 # Deps
 add_subdirectory(${DEPS_DIR}/glog)
 add_subdirectory(${DEPS_DIR}/gmock)
+add_subdirectory(${DEPS_DIR}/json11)
 add_subdirectory(${DEPS_DIR}/veilhelpers)
 
 link_directories(${PROJECT_BINARY_DIR})
 
-
 # Include paths
-include_directories(${PROJECT_SOURCE_DIR}/include)
-include_directories(${PROJECT_SOURCE_DIR}/include/fuse)
-include_directories(${PROJECT_BINARY_DIR})
-include_directories(${GLOG_INCLUDE_DIR})
-include_directories(${VEILHELPERS_INCLUDE_DIR})
+include_directories(
+    ${PROJECT_SOURCE_DIR}/include
+    ${PROJECT_BINARY_DIR}
+    ${VEILHELPERS_INCLUDE_DIR})
+include_directories(SYSTEM
+    ${PROJECT_SOURCE_DIR}/include/fuse
+    ${GLOG_INCLUDE_DIR}
+    ${JSON11_INCLUDE_DIR})
 
 # Setup fuse
 message(STATUS "Checking for FUSE...")
 find_package(FUSE REQUIRED)
 #find_library(FUSE_LIBRARY_CUSTOM NAMES libfuse.a fuse)
 set(FUSE_LIBRARY_CUSTOM ${FUSE_LIBRARIES})
-include_directories(${FUSE_INCLUDE_DIRS})
+include_directories(SYSTEM ${FUSE_INCLUDE_DIRS})
 message(STATUS "FUSE: ${FUSE_LIBRARY_CUSTOM}")
 
 # Setup ProtoBuf
 message(STATUS "Checking for Protobuf...")
 find_package(Protobuf REQUIRED)
 find_library(PROTOBUF_LIBRARY_CUSTOM NAMES libprotobuf.a protobuf)
-include_directories(${PROTOBUF_INCLUDE_DIR})
-
+include_directories(SYSTEM ${PROTOBUF_INCLUDE_DIR})
 
 # Setup OpenSSL
 message(STATUS "Checking for OpenSSL...")
@@ -69,13 +71,11 @@ else(${KRB5_LIBRARY} MATCHES KRB5_LIBRARY-NOTFOUND)
     set(OPENSSL_LIBRARIES_S "${SSL_LIBRARY_S};${CRYPTO_LIBRARY_S};${KRB5_LIBRARY}")
     set(OPENSSL_LIBRARIES_D "${SSL_LIBRARY_D};${CRYPTO_LIBRARY_D};${KRB5_LIBRARY}")
 endif(${KRB5_LIBRARY} MATCHES KRB5_LIBRARY-NOTFOUND)
-include_directories(${OPENSSL_INCLUDE_DIR})
-
+include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
 
 # Setup pthreads
 message(STATUS "Checking for pthreads...")
 find_package(Threads REQUIRED)
-
 
 # Setup git
 message(STATUS "Checking for Git...")
@@ -90,8 +90,7 @@ find_package(Boost COMPONENTS system thread filesystem random program_options RE
 set(BOOST_LIBS boost_system boost_thread boost_filesystem boost_random boost_program_options)
 
 link_directories(${Boost_LIBRARY_DIRS})
-include_directories(${Boost_INCLUDE_DIRS})
-
+include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 
 # Utility libs
 find_library(LTDL_LIBRARY NAMES libltdl.a ltdl)
@@ -144,7 +143,6 @@ add_definitions(${FUSE_DEFINITIONS} -DFUSE_USE_VERSION=29 -D_WEBSOCKETPP_CPP11_S
 set(CMAKE_SKIP_RPATH TRUE) # Something is wrong with CMake RPATH config, we need to use old-fashion way
 
 # Define targets
-
 add_library(veilprotocol ${PROTO_SRCS})
 add_library(veilclient ${SOURCES})
 add_executable(veilFuse ${MAIN_SOURCE_FILE})
@@ -157,9 +155,9 @@ set_target_properties(veilFuse_dynamic PROPERTIES
 add_custom_command(TARGET veilFuse_dynamic POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:veilFuse_dynamic> veilFuse_dynamic)
 
-add_dependencies(veilFuse_dynamic glog veilclient)
-add_dependencies(veilFuse glog veilclient)
 add_dependencies(veilclient glog veilprotocol veilhelpers)
+add_dependencies(veilFuse_dynamic veilclient)
+add_dependencies(veilFuse veilclient)
 
 target_link_libraries(veilprotocol
     ${PROTOBUF_LIBRARY_CUSTOM}
@@ -171,6 +169,7 @@ target_link_libraries(veilclient
     ${GLOG_LIBRARIES}
     ${PROTOBUF_LIBRARY_CUSTOM}
     ${VEILHELPERS_LIBRARIES}
+    json11
     veilprotocol
     ${PLATFORM_EXTRA_LIBS}
 )
@@ -237,12 +236,10 @@ include(CPack)
 ###########################
 
 enable_testing()
-include_directories(${GTEST_INCLUDE_DIR})
-include_directories(${GMOCK_INCLUDE_DIR})
+include_directories(SYSTEM ${GTEST_INCLUDE_DIR} ${GMOCK_INCLUDE_DIR})
 
 set(TEST_SOURCES_DIR "${PROJECT_SOURCE_DIR}/test")
-include_directories(${TEST_SOURCES_DIR}/include)
-include_directories(${VEILHELPERS_TEST_INCLUDE_DIR})
+include_directories(${TEST_SOURCES_DIR}/include ${VEILHELPERS_TEST_INCLUDE_DIR})
 
 file(GLOB_RECURSE TEST_HEADERS ${TEST_SOURCES_DIR}/include/*.h)
 
