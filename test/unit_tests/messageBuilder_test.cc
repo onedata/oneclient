@@ -29,7 +29,7 @@ protected:
     void SetUp() override
     {
         CommonTest::SetUp();
-        proxy = std::make_unique<MessageBuilder>();
+        proxy = std::make_unique<MessageBuilder>(context);
     }
 };
 

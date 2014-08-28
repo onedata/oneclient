@@ -83,12 +83,14 @@ class MessageBuilder;
 class FslogicProxy: public ISchedulable
 {
 public:
-    FslogicProxy(std::shared_ptr<Context> context);
+    FslogicProxy(std::weak_ptr<Context> context);
     virtual ~FslogicProxy();
 
     virtual bool            getFileAttr(const std::string& logicName, protocol::fuse_messages::FileAttr& attr);                 ///< Downloads file attributes from cluster
-    virtual bool            getFileLocation(const std::string& logicName, protocol::fuse_messages::FileLocation& location, const std::string &openMode = UNSPECIFIED_MODE); ///< Downloads file location info
-    virtual bool            getNewFileLocation(const std::string& logicName, mode_t mode, protocol::fuse_messages::FileLocation& location); ///< Query cluser to create new file in DB and get its real location
+    virtual bool            getFileLocation(const std::string& logicName, protocol::fuse_messages::FileLocation& location,
+                                            const std::string &openMode = UNSPECIFIED_MODE, bool forceClusterProxy = false); ///< Downloads file location info
+    virtual bool            getNewFileLocation(const std::string& logicName, mode_t mode,
+                                               protocol::fuse_messages::FileLocation& location, bool forceClusterProxy = false); ///< Query cluser to create new file in DB and get its real location
     virtual std::string     sendFileCreatedAck(const std::string& logicName);                                                   ///< Send acknowledgement about created file to cluster
     virtual int             renewFileLocation(const std::string& logicName);                                                    ///< Try to renew location validity for given file
     virtual bool            getFileChildren(const std::string &dirLogicName, uint32_t children_num, uint32_t offset, std::vector<std::string>& childrenNames);    ///< List files in given folder
@@ -125,7 +127,7 @@ protected:
     std::unique_ptr<const MessageBuilder> m_messageBuilder;
 
 private:
-    const std::shared_ptr<Context> m_context;
+    const std::weak_ptr<Context> m_context;
 };
 
 } // namespace client

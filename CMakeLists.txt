@@ -44,6 +44,7 @@ message(STATUS "Checking for FUSE...")
 find_package(FUSE REQUIRED)
 #find_library(FUSE_LIBRARY_CUSTOM NAMES libfuse.a fuse)
 set(FUSE_LIBRARY_CUSTOM ${FUSE_LIBRARIES})
+include_directories(${FUSE_INCLUDE_DIRS}/..)
 include_directories(${FUSE_INCLUDE_DIRS})
 message(STATUS "FUSE: ${FUSE_LIBRARY_CUSTOM}")
 
@@ -146,7 +147,7 @@ set(CMAKE_SKIP_RPATH TRUE) # Something is wrong with CMake RPATH config, we need
 # Define targets
 
 add_library(veilprotocol ${PROTO_SRCS})
-add_library(veilclient ${SOURCES})
+add_library(veilclient ${SOURCES} ${HEADERS})
 add_executable(veilFuse ${MAIN_SOURCE_FILE})
 add_executable(veilFuse_dynamic ${MAIN_SOURCE_FILE})
 

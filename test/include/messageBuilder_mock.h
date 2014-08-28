@@ -17,6 +17,11 @@
 class MockMessageBuilder: public veil::client::MessageBuilder
 {
 public:
+    MockMessageBuilder(std::weak_ptr<veil::client::Context> ctx)
+        : MessageBuilder(ctx)
+    {
+    }
+
     MOCK_CONST_METHOD1(createFuseMessage, veil::protocol::fuse_messages::FuseMessage(
                      const google::protobuf::Message&));
 

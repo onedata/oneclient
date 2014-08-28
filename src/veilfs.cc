@@ -59,11 +59,11 @@
 /// Fetch locationInfo and storageInfo for given file.
 /// On success - lInfo and sInfo variables will be set.
 /// On error - POSIX error code will be returned, interrupting code execution.
-#define GET_LOCATION_INFO(PATH) locationInfo lInfo; \
+#define GET_LOCATION_INFO(PATH, FORCE_PROXY) locationInfo lInfo; \
                                 storageInfo sInfo; \
                                 try \
                                 { \
-                                    pair<locationInfo, storageInfo> tmpLoc = m_storageMapper->getLocationInfo(string(PATH), true); \
+                                    pair<locationInfo, storageInfo> tmpLoc = m_context->getStorageMapper()->getLocationInfo(string(PATH), true, FORCE_PROXY); \
                                     lInfo = tmpLoc.first; \
                                     sInfo = tmpLoc.second; \
                                 } \
@@ -90,12 +90,11 @@ namespace client {
 
 VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
                std::shared_ptr<FslogicProxy> fslogic,  std::shared_ptr<MetaCache> metaCache,
-               std::shared_ptr<LocalStorageManager> sManager, std::shared_ptr<StorageMapper> mapper,
+               std::shared_ptr<LocalStorageManager> sManager,
                std::shared_ptr<helpers::StorageHelperFactory> sh_factory,
                std::shared_ptr<events::EventCommunicator> eventCommunicator) :
     m_fh(0),
     m_fslogic(fslogic),
-    m_storageMapper(mapper),
     m_metaCache(metaCache),
     m_sManager(sManager),
     m_shFactory(sh_factory),
@@ -189,85 +188,82 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
     statbuf->st_mtime = 0;
     statbuf->st_ctime = 0;
 
-    if(m_metaCache->getAttr(string(path), statbuf))
-        return 0;
+    m_context->getStorageMapper()->resetHelperOverride(path);
 
-    // We do not have storage mapping so we have to comunicate with cluster anyway
-    LOG(INFO) << "storage mapping not exists in cache for file: " << string(path);
-
-    if(!m_fslogic->getFileAttr(string(path), attr))
-        return -EIO;
-
-    if(attr.answer() != VOK)
+    if(!m_metaCache->getAttr(string(path), statbuf))
     {
-        LOG(WARNING) << "Cluster answer: " << attr.answer();
-        return translateError(attr.answer());
-    }
+        // We do not have storage mapping so we have to comunicate with cluster anyway
+        LOG(INFO) << "storage mapping not exists in cache for file: " << string(path);
 
-    if(attr.type() == "REG" && fuse_ctx) // We'll need storage mapping for regular file
-    {
-        Job getLocTask = Job(time(NULL), m_storageMapper, ISchedulable::TASK_ASYNC_GET_FILE_LOCATION, string(path));
-        m_context->getScheduler()->addTask(getLocTask);
-    }
+        if(!m_fslogic->getFileAttr(string(path), attr))
+            return -EIO;
 
-    // At this point we have attributes from cluster
-
-    statbuf->st_mode = attr.mode(); // File type still has to be set, fslogic gives only permissions in mode field
-    statbuf->st_nlink = attr.links();
-
-    statbuf->st_atime = attr.atime();
-    statbuf->st_mtime = attr.mtime();
-    statbuf->st_ctime = attr.ctime();
-
-    uid_t uid = attr.uid();
-    gid_t gid = attr.gid();
-
-    if(string(path) == "/") { // VeilFS root should always belong to FUSE owner
-        m_ruid = uid;
-        m_rgid = gid;
-    }
-
-    // If file belongs to filesystems owner, show FUSE owner ID
-    if(m_ruid == uid)
-        uid = m_uid;
-    if(m_rgid == gid)
-        gid = m_gid;
-
-    struct passwd *ownerInfo = getpwnam(attr.uname().c_str()); // Static buffer, do NOT free !
-    struct group *groupInfo = getgrnam(attr.gname().c_str());  // Static buffer, do NOT free !
-
-    statbuf->st_uid   = (ownerInfo ? ownerInfo->pw_uid : uid);
-    statbuf->st_gid   = (groupInfo ? groupInfo->gr_gid : gid);
-
-    if(attr.type() == "DIR")
-    {
-        statbuf->st_mode |= S_IFDIR;
-
-        // Prefetch "ls" resault
-        if(fuse_ctx && m_context->getOptions()->get_enable_dir_prefetch()  && m_context->getOptions()->get_enable_attr_cache()) {
-            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, string(path), "0");
-            m_context->getScheduler()->addTask(readDirTask);
-        }
-    }
-    else if(attr.type() == "LNK")
-    {
-        statbuf->st_mode |= S_IFLNK;
-
-        // Check cache for validity
-        boost::unique_lock<boost::upgrade_mutex> lock{m_linkCacheMutex};
-        map<string, pair<string, time_t> >::iterator it = m_linkCache.find(string(path));
-        if(it != m_linkCache.end() && statbuf->st_mtime > (*it).second.second)
+        if(attr.answer() != VOK)
         {
-            m_linkCache.erase(it);
+            LOG(WARNING) << "Cluster answer: " << attr.answer();
+            return translateError(attr.answer());
         }
-    }
-    else
-    {
-        statbuf->st_mode |= S_IFREG;
-        statbuf->st_size = attr.size();
+
+        if(attr.type() == "REG" && fuse_ctx) // We'll need storage mapping for regular file
+        {
+            Job getLocTask = Job(time(NULL), m_context->getStorageMapper(), ISchedulable::TASK_ASYNC_GET_FILE_LOCATION, string(path));
+            m_context->getScheduler()->addTask(getLocTask);
+        }
+
+        // At this point we have attributes from cluster
+
+        statbuf->st_mode = attr.mode(); // File type still has to be set, fslogic gives only permissions in mode field
+        statbuf->st_nlink = attr.links();
+
+        statbuf->st_atime = attr.atime();
+        statbuf->st_mtime = attr.mtime();
+        statbuf->st_ctime = attr.ctime();
+
+        uid_t uid = attr.uid();
+        gid_t gid = attr.gid();
+
+        if(string(path) == "/") { // VeilFS root should always belong to FUSE owner
+            m_ruid = uid;
+            m_rgid = gid;
+        }
+
+        struct passwd *ownerInfo = getpwnam(attr.uname().c_str()); // Static buffer, do NOT free !
+        struct group *groupInfo = getgrnam(attr.gname().c_str());  // Static buffer, do NOT free !
+
+        statbuf->st_uid   = (ownerInfo ? ownerInfo->pw_uid : uid);
+        statbuf->st_gid   = (groupInfo ? groupInfo->gr_gid : gid);
+
+        if(attr.type() == "DIR")
+        {
+            statbuf->st_mode |= S_IFDIR;
+
+            // Prefetch "ls" resault
+            if(fuse_ctx && m_context->getOptions()->get_enable_dir_prefetch()  && m_context->getOptions()->get_enable_attr_cache()) {
+                Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, string(path), "0");
+                m_context->getScheduler()->addTask(readDirTask);
+            }
+        }
+        else if(attr.type() == "LNK")
+        {
+            statbuf->st_mode |= S_IFLNK;
+
+            // Check cache for validity
+        boost::unique_lock<boost::upgrade_mutex> lock{m_linkCacheMutex};
+            map<string, pair<string, time_t> >::iterator it = m_linkCache.find(string(path));
+            if(it != m_linkCache.end() && statbuf->st_mtime > (*it).second.second)
+            {
+                m_linkCache.erase(it);
+            }
+        }
+        else
+        {
+            statbuf->st_mode |= S_IFREG;
+            statbuf->st_size = attr.size();
+        }
+
+        m_metaCache->addAttr(string(path), *statbuf);
     }
 
-    m_metaCache->addAttr(string(path), *statbuf);
     return 0;
 }
 
@@ -316,7 +312,7 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
     m_metaCache->clearAttr(string(path));
 
     FileLocation location;
-    if(!m_fslogic->getNewFileLocation(string(path), mode & ALLPERMS, location))
+    if(!m_fslogic->getNewFileLocation(string(path), mode & ALLPERMS, location, needsForceClusterProxy(parent(path))))
     {
         LOG(WARNING) << "cannot fetch new file location mapping";
         return -EIO;
@@ -328,8 +324,8 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
         return translateError(location.answer());
     }
 
-    m_storageMapper->addLocation(string(path), location);
-    GET_LOCATION_INFO(path);
+    m_context->getStorageMapper()->addLocation(string(path), location);
+    GET_LOCATION_INFO(path, false);
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_mknod(lInfo.fileId.c_str(), mode, dev));
 
@@ -356,7 +352,7 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
                 LOG(ERROR) << "Cannot change group owner of file " << sPath << " to: " << groupName;
         }
 
-        m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path))); // Clear cache of parent (possible change of modify time)
+        m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
 
         RETURN_IF_ERROR(m_fslogic->sendFileCreatedAck(string(path)));
     }
@@ -368,10 +364,10 @@ int VeilFS::mkdir(const char *path, mode_t mode)
     LOG(INFO) << "FUSE: mkdir(path: " << string(path) << ", mode: " << mode << ")";
     m_metaCache->clearAttr(string(path));
     // Clear parent's cache
-    m_metaCache->clearAttr(parent(path));
+    m_metaCache->clearAttr(parent(path).c_str());
 
     RETURN_IF_ERROR(m_fslogic->createDir(string(path), mode & ALLPERMS));
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
 
     std::shared_ptr<events::Event> mkdirEvent = events::Event::createMkdirEvent(path);
     m_eventCommunicator->processEvent(mkdirEvent);
@@ -386,16 +382,14 @@ int VeilFS::unlink(const char *path)
     FileAttr attr;
     int isLink = 0;
 
-    if(m_metaCache->getAttr(string(path), &statbuf)) // Check file type in cache
-        isLink = S_ISLNK(statbuf.st_mode);
-    else if(m_fslogic->getFileAttr(string(path), attr)) // ... or fetch it from cluster
-        isLink = (attr.type() == "LNK");
+    int attrStatus = getattr(path, &statbuf, false);
+    isLink = S_ISLNK(statbuf.st_mode);
 
     m_metaCache->clearAttr(string(path)); // Clear cache
 
     if(!isLink)
     {
-        GET_LOCATION_INFO(path); //Get file location from cluster
+        GET_LOCATION_INFO(path, needsForceClusterProxy(parent(path)) || attrStatus || !m_metaCache->canUseDefaultPermissions(statbuf)); //Get file location from cluster
         RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
 
         SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_unlink(lInfo.fileId.c_str()));
@@ -406,7 +400,7 @@ int VeilFS::unlink(const char *path)
         RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
     }
 
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
 
     std::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(path);
     m_eventCommunicator->processEvent(rmEvent);
@@ -419,10 +413,10 @@ int VeilFS::rmdir(const char *path)
     LOG(INFO) << "FUSE: rmdir(path: " << string(path) << ")";
     m_metaCache->clearAttr(string(path));
     // Clear parent's cache
-    m_metaCache->clearAttr(parent(path));
+    m_metaCache->clearAttr(parent(path).c_str());
 
     RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
 
     return 0;
 }
@@ -450,7 +444,7 @@ int VeilFS::rename(const char *path, const char *newpath)
     LOG(INFO) << "FUSE: rename(path: " << string(path) << ", newpath: "<< string(newpath)  <<")";
 
     RETURN_IF_ERROR(m_fslogic->renameFile(string(path), string(newpath)));
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
     m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(newpath))); // Clear cache of parent (possible change of modify time)
 
     m_metaCache->clearAttr(string(path));
@@ -475,7 +469,7 @@ int VeilFS::chmod(const char *path, mode_t mode)
         return 0;
 
     // If it is, we have to call storage haleper's chmod
-    GET_LOCATION_INFO(path);
+    GET_LOCATION_INFO(path, needsForceClusterProxy(path));
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_chmod(lInfo.fileId.c_str(), mode));
     return sh_return;
@@ -508,7 +502,8 @@ int VeilFS::chown(const char *path, uid_t uid, gid_t gid)
 int VeilFS::truncate(const char *path, off_t newSize)
 {
     LOG(INFO) << "FUSE: truncate(path: " << string(path) << ", newSize: "<< newSize <<")";
-    GET_LOCATION_INFO(path);
+
+    GET_LOCATION_INFO(path, needsForceClusterProxy(path));
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_truncate(lInfo.fileId.c_str(), newSize));
 
@@ -550,13 +545,13 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
         else if(accMode == O_WRONLY)
             openMode = WRITE_MODE;
         std::string status;
-        if(VOK != (status =  m_storageMapper->findLocation(string(path), openMode)))
+        if(VOK != (status =  m_context->getStorageMapper()->findLocation(string(path), openMode)))
             return translateError(status);
     }
 
-    GET_LOCATION_INFO(path);
+    GET_LOCATION_INFO(path, needsForceClusterProxy(path));
 
-    m_storageMapper->openFile(string(path));
+    m_context->getStorageMapper()->openFile(string(path));
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_open(lInfo.fileId.c_str(), fileInfo));
 
@@ -590,7 +585,7 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
 int VeilFS::read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
 {
     //LOG(INFO) << "FUSE: read(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
-    GET_LOCATION_INFO(path);
+    GET_LOCATION_INFO(path, false);
 
     boost::shared_lock<boost::shared_mutex> lock{m_shCacheMutex};
     CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
@@ -610,7 +605,7 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
         return -EDQUOT;
     }
 
-    GET_LOCATION_INFO(path);
+    GET_LOCATION_INFO(path, false);
 
     boost::shared_lock<boost::shared_mutex> lock{m_shCacheMutex};
     CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
@@ -647,7 +642,7 @@ int VeilFS::statfs(const char *path, struct statvfs *statInfo)
 int VeilFS::flush(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: flush(path: " << string(path) << ", ...)";
-    GET_LOCATION_INFO(path);
+    GET_LOCATION_INFO(path, false);
 
     sh_ptr storage_helper;
     {
@@ -668,13 +663,13 @@ int VeilFS::release(const char *path, struct fuse_file_info *fileInfo)
     /// Remove Storage Helper's pointer from cache
     boost::unique_lock<boost::shared_mutex> lock{m_shCacheMutex};
 
-    GET_LOCATION_INFO(path);
+    GET_LOCATION_INFO(path, false);
 
     CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_release(lInfo.fileId.c_str(), fileInfo));
 
     m_shCache.erase(fileInfo->fh);
 
-    m_storageMapper->releaseFile(string(path));
+    m_context->getStorageMapper()->releaseFile(string(path));
 
     return sh_return;
 }
@@ -769,6 +764,14 @@ int VeilFS::removexattr(const char *path, const char *name)
 int VeilFS::init(struct fuse_conn_info *conn) {
     LOG(INFO) << "FUSE: init(...)";
     return 0;
+}
+
+
+bool VeilFS::needsForceClusterProxy(const std::string &path)
+{
+    struct stat attrs;
+    auto attrsStatus = getattr(path.c_str(), &attrs, false);
+    return attrsStatus || !m_metaCache->canUseDefaultPermissions(attrs);
 }
 
 bool VeilFS::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
