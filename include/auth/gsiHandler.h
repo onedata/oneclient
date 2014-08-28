@@ -38,8 +38,8 @@ class GSIHandler
 public:
     GSIHandler(std::weak_ptr<Context> context, const bool debug = false);
 
-    std::pair<bool, std::string> validateProxyConfig();
-    std::pair<bool, std::string> validateProxyCert();
+    void validateProxyConfig();
+    void validateProxyCert();
     std::string getClusterHostname(const std::string &baseDomain);
     std::shared_ptr<communication::CertificateData> getCertData();
 

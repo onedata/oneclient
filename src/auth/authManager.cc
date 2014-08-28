@@ -5,6 +5,7 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
+#include "auth/authException.h"
 #include "auth/authManager.h"
 #include "auth/grAdapter.h"
 #include "auth/gsiHandler.h"
@@ -30,41 +31,43 @@ AuthManager::AuthManager(std::weak_ptr<Context> context,
 {
 }
 
-std::pair<bool, std::string> AuthManager::authenticateWithCertificate(const bool debugGsi)
+void AuthManager::authenticateWithCertificate(const bool debugGsi)
 {
     GSIHandler gsiHandler{m_context, debugGsi};
-    const auto result = gsiHandler.validateProxyConfig();
+    gsiHandler.validateProxyConfig();
 
-    if(result.first)
-    {
-        m_certificateData = gsiHandler.getCertData();
-        m_hostname = gsiHandler.getClusterHostname(m_hostname);
-    }
-
-    return result;
+    m_certificateData = gsiHandler.getCertData();
+    m_hostname = gsiHandler.getClusterHostname(m_hostname);
 }
 
-bool AuthManager::authenticateWithToken(std::string globalRegistryUrl, const unsigned int port)
+void AuthManager::authenticateWithToken(std::string globalRegistryHostname,
+                                        const unsigned int globalRegistryPort)
 {
-    GRAdapter grAdapter{m_context, globalRegistryUrl, port, m_checkCertificate};
-
-    const auto tokenOption = grAdapter.retrieveToken();
-    if(tokenOption)
+    try
     {
-        m_context.lock()->getConfig()->setTokenAuthDetails(
-                    tokenOption.get());
+        GRAdapter grAdapter{m_context,
+                    std::move(globalRegistryHostname),
+                    globalRegistryPort,
+                    m_checkCertificate};
+
+        if(const auto details = grAdapter.retrieveToken())
+        {
+            m_context.lock()->getConfig()->setTokenAuthDetails(details.get());
+        }
+        else
+        {
+            std::cout << "Authentication Code: ";
+            std::string code;
+            std::cin >> code;
+
+            m_context.lock()->getConfig()->setTokenAuthDetails(
+                        grAdapter.exchangeCode(code));
+        }
     }
-    else
+    catch(boost::system::error_code &ec)
     {
-        std::cout << "Authentication Code: ";
-        std::string code;
-        std::cin >> code;
-
-        m_context.lock()->getConfig()->setTokenAuthDetails(
-                    grAdapter.exchangeCode(code));
+        throw AuthException{ec.message()};
     }
-
-    return true; // TODO
 }
 
 std::shared_ptr<communication::Communicator> AuthManager::createCommunicator(

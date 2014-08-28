@@ -7,8 +7,10 @@
 
 #include "auth/grAdapter.h"
 
+#include "auth/authException.h"
 #include "config.h"
 #include "context.h"
+#include "logging.h"
 #include "make_unique.h"
 
 #include <boost/algorithm/string.hpp>
@@ -43,25 +45,34 @@ GRAdapter::GRAdapter(std::weak_ptr<Context> context, const std::string hostname,
 
 boost::optional<TokenAuthDetails> GRAdapter::retrieveToken() const
 {
-    const auto accessTokenFile = tokenFile();
+    const auto accessTokenFile = tokenFilePath();
 
     boost::system::error_code ec;
     const auto exists = boost::filesystem::exists(accessTokenFile, ec);
     if(ec || !exists)
+    {
+        LOG(INFO) << "No previously saved authorization details exist under "
+                     "path " << accessTokenFile.string();
         return {};
+    }
 
     boost::filesystem::ifstream stream{accessTokenFile};
 
     TokenAuthDetails auth;
     stream >> auth;
     if(!stream)
-        std::terminate(); // omg
+    {
+        LOG(WARNING) << "Failed to retrieve authorization details from " <<
+                        accessTokenFile.string();
+        return {};
+    }
 
     return auth;
 }
 
 TokenAuthDetails GRAdapter::exchangeCode(const std::string &code) const
 {
+    LOG(INFO) << "Exchanging OpenID Access Code for authorization details";
     boost::asio::io_service ioService;
     const auto socket = connect(ioService);
     requestToken(code, *socket);
@@ -95,7 +106,7 @@ void GRAdapter::requestToken(const std::string &code, GRAdapter::Socket &socket)
     const auto requestSize = request.size();
     const auto writtenSize = boost::asio::write(socket, request);
     if(writtenSize != requestSize)
-        std::terminate(); // omg
+        throw AuthException{"error while sending a request"};
 }
 
 std::string GRAdapter::getResponse(GRAdapter::Socket &socket) const
@@ -112,10 +123,11 @@ std::string GRAdapter::getResponse(GRAdapter::Socket &socket) const
     std::getline(responseStream, statusMessage);
 
     if(!responseStream || !boost::algorithm::starts_with(httpVersion, "HTTP/"))
-        std::terminate(); // invalid response
+        throw AuthException{"malformed response headers"};
 
     if(statusCode != 200)
-        std::terminate(); // wrong status code
+        throw AuthException{"Global Registry responded with non-ok code " +
+                            std::to_string(statusCode)};
 
     const auto headersSize = boost::asio::read_until(socket, response, "\r\n\r\n");
     response.consume(headersSize);
@@ -123,7 +135,7 @@ std::string GRAdapter::getResponse(GRAdapter::Socket &socket) const
     boost::system::error_code ec;
     boost::asio::read(socket, response, boost::asio::transfer_all(), ec);
     if(ec != boost::asio::error::eof)
-        std::terminate(); // wrong answer
+        throw AuthException{"malformed response: " + ec.message()};
 
     std::istreambuf_iterator<char> eos;
     return {std::istreambuf_iterator<char>{responseStream}, eos};
@@ -135,7 +147,7 @@ TokenAuthDetails GRAdapter::parseToken(const std::string &response) const
     const auto json = json11::Json::parse(response, err);
 
     if(!err.empty())
-        std::terminate(); // omg
+        throw AuthException{"malformed JSON response: " + err};
 
     const auto accessToken = json["access_token"].string_value();
     const auto refreshToken = json["refresh_token"].string_value();
@@ -152,12 +164,15 @@ TokenAuthDetails GRAdapter::parseToken(const std::string &response) const
     const auto idTokenJson = json11::Json::parse(idTokenRaw, err);
 
     if(!err.empty())
-        std::terminate(); // omg
+        throw AuthException{"malformed id_token: " + err};
 
     TokenAuthDetails auth{accessToken, refreshToken, idTokenJson["sub"].string_value()};
 
-    boost::filesystem::ofstream stream{tokenFile(), std::ios_base::trunc};
+    boost::filesystem::ofstream stream{tokenFilePath(), std::ios_base::trunc};
     stream << auth;
+    if(!stream)
+        LOG(WARNING) << "Failed to save authorization details to a file: " <<
+                        tokenFilePath().string();
 
     return auth;
 }
@@ -189,7 +204,7 @@ std::unique_ptr<GRAdapter::Socket> GRAdapter::connect(boost::asio::io_service &i
     return socket;
 }
 
-boost::filesystem::path GRAdapter::tokenFile() const
+boost::filesystem::path GRAdapter::tokenFilePath() const
 {
     const auto dataDir = m_context.lock()->getConfig()->userDataDir();
     return dataDir/"accessToken";

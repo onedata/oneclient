@@ -77,9 +77,17 @@ public:
     void putEnv(std::string name, std::string value);
     bool isEnvSet(const std::string&);                           ///< Checks whether env variable is set.
 
+
+    /**
+     * Sets the @c TokenAuthDetails object used for populating handshake request.
+     * @param authDetails The details to populate handshake request with.
+     */
     void setTokenAuthDetails(TokenAuthDetails authDetails);
 
-    boost::filesystem::path userDataDir() const;                 ///< Returns directory in which veilFuse can store user data files.
+    /**
+     * @return Directory path under which veilFuse can store user data files.
+     */
+    boost::filesystem::path userDataDir() const;
 
     Config(std::weak_ptr<Context> context);
     virtual ~Config();

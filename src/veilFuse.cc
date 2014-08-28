@@ -14,8 +14,8 @@
 #define _XOPEN_SOURCE 700
 #endif
 
+#include "auth/authException.h"
 #include "auth/authManager.h"
-#include "auth/grAdapter.h"
 #include "auth/gsiHandler.h"
 #include "certUnconfirmedException.h"
 #include "communication/communicator.h"
@@ -400,36 +400,28 @@ int main(int argc, char* argv[], char* envp[])
         options->get_cluster_port(),
         checkCertificate};
 
-    if(options->get_authentication() == "certificate")
+    try
     {
-        const auto validationResult =
-                authManager.authenticateWithCertificate(options->get_debug_gsi());
-
-        if(!validationResult.first)
+        if(options->get_authentication() == "certificate")
         {
-            std::cerr << validationResult.second << std::endl;
-            std::cerr << "Cannot continue. Aborting" << std::endl;
-            return EXIT_FAILURE;
+            authManager.authenticateWithCertificate(options->get_debug_gsi());
+        }
+        else if(options->get_authentication() == "token")
+        {
+            authManager.authenticateWithToken(
+                        options->get_global_registry_url(),
+                        options->get_global_registry_port());
+        }
+        else
+        {
+            throw AuthException{"unknown authentication type: " +
+                                options->get_authentication()};
         }
     }
-    else if(options->get_authentication() == "token")
+    catch(AuthException &e)
     {
-        const auto validationResult = authManager.authenticateWithToken(
-                    options->get_global_registry_url(),
-                    options->get_global_registry_port());
-
-        if(!validationResult) // TODO
-        {
-            std::cerr << "validationResult.second" << std::endl;
-            std::cerr << "Cannot continue. Aborting" << std::endl;
-            return EXIT_FAILURE;
-        }
-    }
-    else
-    {
-        std::cerr << "Unknown authentication type: '" <<
-                     options->get_authentication() << "'.\n" <<
-                     "Cannot continue. Aborting" << std::endl;
+        std::cerr << "Authentication error: " << e.what() << std::endl;
+        std::cerr << "Cannot continue. Aborting" << std::endl;
         return EXIT_FAILURE;
     }
 
