@@ -21,10 +21,9 @@ public:
                 std::shared_ptr<veil::client::FslogicProxy> fslogic,
                 std::shared_ptr<veil::client::MetaCache> metaCache,
                 std::shared_ptr<veil::client::LocalStorageManager> sManager,
-                std::shared_ptr<veil::client::StorageMapper> mapper,
                 std::shared_ptr<veil::helpers::StorageHelperFactory> sh_factory,
                 std::shared_ptr<veil::client::events::EventCommunicator> eventCommunicator)
-        : VeilFS{path, std::move(context), fslogic, metaCache, sManager, mapper, sh_factory, eventCommunicator}
+        : VeilFS{path, std::move(context), fslogic, metaCache, sManager, sh_factory, eventCommunicator}
     {
     }
 

@@ -90,6 +90,19 @@ void Context::setPushListener(std::shared_ptr<PushListener> pushListener)
     m_pushListener = std::move(pushListener);
 }
 
+
+std::shared_ptr<StorageMapper> Context::getStorageMapper() const
+{
+    boost::shared_lock<boost::shared_mutex> lock{m_storageMapperMutex};
+    return m_storageMapper;
+}
+
+void Context::setStorageMapper(std::shared_ptr<StorageMapper> storageMapper)
+{
+    boost::unique_lock<boost::shared_mutex> lock{m_storageMapperMutex};
+    m_storageMapper = std::move(storageMapper);
+}
+
 }
 }
 

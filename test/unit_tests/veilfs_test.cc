@@ -60,14 +60,17 @@ public:
         context->addScheduler(scheduler);
         communicator = std::make_shared<MockCommunicator>();
         context->setCommunicator(communicator);
-
         fslogicMock = std::make_shared<MockFslogicProxy>(context);
+        storageMapperMock = std::make_shared<MockStorageMapper>(context, fslogicMock);
+        context->setStorageMapper(storageMapperMock);
+
         metaCacheMock = std::make_shared<MockMetaCache>(context);
         storageManagerMock = std::make_shared<MockLocalStorageManager>(context);
-        storageMapperMock = std::make_shared<MockStorageMapper>(context, fslogicMock);
         helperMock = std::make_shared<MockGenericHelper>();
         factoryFake = std::make_shared<FakeStorageHelperFactory>();
         eventCommunicatorMock = std::make_shared<MockEventCommunicator>(context);
+
+
 
         EXPECT_CALL(*fslogicMock, pingCluster(_)).WillRepeatedly(Return());
         EXPECT_CALL(*options, get_alive_meta_connections_count()).WillRepeatedly(Return(0));
@@ -88,7 +91,6 @@ public:
                         fslogicMock,
                         metaCacheMock,
                         storageManagerMock,
-                        storageMapperMock,
                         factoryFake,
                         eventCommunicatorMock);
 
@@ -243,51 +245,51 @@ TEST_F(VeilFSTest, mknod) { // const char *path, mode_t mode, dev_t dev
     EXPECT_CALL(*metaCacheMock, clearAttr("/path")).Times(AtLeast(3));
 
     newLoc.set_answer(VOK);
-    EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _)).WillOnce(Return(false));
+    EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _, _)).WillOnce(Return(false));
     EXPECT_CALL(*fslogicMock, sendFileCreatedAck(_)).Times(0);
     EXPECT_EQ(-EIO, client->mknod("/path", 123 | S_IFREG, dev));
 
     newLoc.set_answer(VEACCES);
-    EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _)).WillOnce(DoAll(SetArgReferee<2>(newLoc), Return(true)));
+    EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _, _)).WillOnce(DoAll(SetArgReferee<2>(newLoc), Return(true)));
     EXPECT_CALL(*fslogicMock, sendFileCreatedAck(_)).Times(0);
     EXPECT_EQ(-EACCES, client->mknod("/path", 123 | S_IFREG, dev));
 
     newLoc.set_answer(VOK);
     newLoc.set_file_id("fid");
-    EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _)).WillOnce(DoAll(SetArgReferee<2>(newLoc), Return(true)));
+    EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _, _)).WillOnce(DoAll(SetArgReferee<2>(newLoc), Return(true)));
     EXPECT_CALL(*storageMapperMock, addLocation("/path", Property(&FileLocation::file_id, StrEq("fid")))).WillOnce(Return());
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _)).WillOnce(Throw(VeilException(VEACCES)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _, _)).WillOnce(Throw(VeilException(VEACCES)));
     EXPECT_CALL(*fslogicMock, sendFileCreatedAck(_)).Times(0);
     EXPECT_EQ(-EACCES, client->mknod("/path", 123 | S_IFREG, dev));
 
     newLoc.set_answer(VOK);
     newLoc.set_file_id("fid");
-    EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _)).WillOnce(DoAll(SetArgReferee<2>(newLoc), Return(true)));
+    EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _, _)).WillOnce(DoAll(SetArgReferee<2>(newLoc), Return(true)));
     EXPECT_CALL(*storageMapperMock, addLocation("/path", Property(&FileLocation::file_id, StrEq("fid")))).WillOnce(Return());
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _)).WillOnce(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _, _)).WillOnce(Return(std::make_pair(location, storage)));
     EXPECT_CALL(*helperMock, sh_mknod(StrEq("fileid"), 123 | S_IFREG, dev));
     EXPECT_CALL(*fslogicMock, sendFileCreatedAck("/path")).WillOnce(Return(VOK));
     EXPECT_EQ(0, client->mknod("/path", 123 | S_IFREG, dev));
 
     newLoc.set_answer(VEEXIST);
-    EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _)).WillOnce(DoAll(SetArgReferee<2>(newLoc), Return(true)));
+    EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _, _)).WillOnce(DoAll(SetArgReferee<2>(newLoc), Return(true)));
     EXPECT_CALL(*fslogicMock, sendFileCreatedAck(_)).Times(0);
     EXPECT_EQ(-EEXIST, client->mknod("/path", 123 | S_IFREG, dev));
 
     newLoc.set_answer(VOK);
     newLoc.set_file_id("fid");
-    EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _)).WillOnce(DoAll(SetArgReferee<2>(newLoc), Return(true)));
+    EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _, _)).WillOnce(DoAll(SetArgReferee<2>(newLoc), Return(true)));
     EXPECT_CALL(*storageMapperMock, addLocation("/path", Property(&FileLocation::file_id, StrEq("fid")))).WillOnce(Return());
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _)).WillOnce(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _, _)).WillOnce(Return(std::make_pair(location, storage)));
     EXPECT_CALL(*helperMock, sh_mknod(StrEq("fileid"), 123 | S_IFREG, dev)).WillOnce(Return(-EEXIST));
     EXPECT_CALL(*fslogicMock, sendFileCreatedAck("/path")).WillOnce(Return(VEIO));
     EXPECT_EQ(-EIO, client->mknod("/path", 123 | S_IFREG, dev));
 
     newLoc.set_answer(VOK);
     newLoc.set_file_id("fid");
-    EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _)).WillOnce(DoAll(SetArgReferee<2>(newLoc), Return(true)));
+    EXPECT_CALL(*fslogicMock, getNewFileLocation("/path", 123, _, _)).WillOnce(DoAll(SetArgReferee<2>(newLoc), Return(true)));
     EXPECT_CALL(*storageMapperMock, addLocation("/path", Property(&FileLocation::file_id, StrEq("fid")))).WillOnce(Return());
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _)).WillOnce(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _, _)).WillOnce(Return(std::make_pair(location, storage)));
     EXPECT_CALL(*helperMock, sh_mknod(StrEq("fileid"), 123 | S_IFREG, dev)).WillOnce(Return(-EEXIST));
     EXPECT_CALL(*fslogicMock, sendFileCreatedAck("/path")).WillOnce(Return(VOK));
     EXPECT_EQ(0, client->mknod("/path", 123 | S_IFREG, dev));
@@ -306,7 +308,7 @@ TEST_F(VeilFSTest, mkdir) { // const char *path, mode_t mode
 }
 
 TEST_F(VeilFSTest, unlink) { // const char *path
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
     EXPECT_CALL(*metaCacheMock, clearAttr("/path")).Times(AtLeast(3));
 
     struct stat st = {0};
@@ -314,16 +316,20 @@ TEST_F(VeilFSTest, unlink) { // const char *path
     FileAttr attrs;
     attrs.set_type("LNK");
 
+    struct stat root_st = {0};
+    root_st.st_mode |= S_IFDIR;
+    EXPECT_CALL(*metaCacheMock, getAttr("/", _)).WillRepeatedly(DoAll(SetArgPointee<1>(root_st), Return(true)));
+
     EXPECT_CALL(*metaCacheMock, getAttr("/path", _)).WillOnce(DoAll(SetArgPointee<1>(st), Return(true)));
     EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VOK));
-    EXPECT_CALL(*storageMapperMock, getLocationInfo(_, _)).Times(0);
+    EXPECT_CALL(*storageMapperMock, getLocationInfo(_, _, _)).Times(0);
     EXPECT_CALL(*helperMock, sh_unlink(_)).Times(0);
     EXPECT_EQ(0, client->unlink("/path"));
 
     EXPECT_CALL(*metaCacheMock, getAttr("/path", _)).WillOnce(DoAll(SetArgPointee<1>(st), Return(false)));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillOnce(DoAll(SetArgReferee<1>(attrs), Return(true)));
     EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VOK));
-    EXPECT_CALL(*storageMapperMock, getLocationInfo(_, _)).Times(0);
+    EXPECT_CALL(*storageMapperMock, getLocationInfo(_, _, _)).Times(0);
     EXPECT_CALL(*helperMock, sh_unlink(_)).Times(0);
     EXPECT_EQ(0, client->unlink("/path"));
 
@@ -331,16 +337,16 @@ TEST_F(VeilFSTest, unlink) { // const char *path
     EXPECT_CALL(*metaCacheMock, getAttr("/path", _)).WillRepeatedly(DoAll(SetArgPointee<1>(st), Return(false)));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillRepeatedly(DoAll(SetArgReferee<1>(attrs), Return(true)));
 
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
     EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VEACCES));
     EXPECT_EQ(-EACCES, client->unlink("/path"));
 
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
     EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VENOENT));
     EXPECT_EQ(-ENOENT, client->unlink("/path"));
 
     EXPECT_CALL(*fslogicMock, deleteFile("/path")).WillOnce(Return(VOK));
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillOnce(Return(std::make_pair(location, storage)));
     EXPECT_CALL(*helperMock, sh_unlink(StrEq("fileid"))).WillOnce(Return(0));
     EXPECT_EQ(0, client->unlink("/path"));
 }
@@ -395,18 +401,18 @@ TEST_F(VeilFSTest, chmod) { // const char *path, mode_t mode
 
     EXPECT_CALL(*fslogicMock, changeFilePerms("/path", 123)).WillOnce(Return(VOK));
     EXPECT_CALL(*metaCacheMock, clearAttr("/path"));
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Throw(VeilException(VEACCES)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillOnce(Throw(VeilException(VEACCES)));
     EXPECT_EQ(-EACCES, client->chmod("/path", regMode));
 
     EXPECT_CALL(*fslogicMock, changeFilePerms("/path", 123)).WillOnce(Return(VOK));
     EXPECT_CALL(*metaCacheMock, clearAttr("/path"));
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
     EXPECT_CALL(*helperMock, sh_chmod(StrEq("fileid"), regMode)).WillOnce(Return(-EACCES));
     EXPECT_EQ(-EACCES, client->chmod("/path", regMode));
 
     EXPECT_CALL(*fslogicMock, changeFilePerms("/path", 123)).WillOnce(Return(VOK));
     EXPECT_CALL(*metaCacheMock, clearAttr("/path"));
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
     EXPECT_CALL(*helperMock, sh_chmod(StrEq("fileid"), regMode)).WillOnce(Return(0));
     EXPECT_EQ(0, client->chmod("/path", regMode));
 }
@@ -451,10 +457,10 @@ TEST_F(VeilFSTest, chown) { // const char *path, uid_t uid, gid_t gid
 
 TEST_F(VeilFSTest, truncate) { // const char *path, off_t newSize
 
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Throw(VeilException(VEACCES)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillOnce(Throw(VeilException(VEACCES)));
     EXPECT_EQ(-EACCES, client->truncate("/path", 10));
 
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
 
     EXPECT_CALL(*helperMock, sh_truncate(StrEq("fileid"), _)).WillOnce(Return(-EEXIST));
     EXPECT_EQ(-EEXIST, client->truncate("/path", 10));
@@ -475,10 +481,10 @@ TEST_F(VeilFSTest, utime) { // const char *path, struct utimbuf *ubuf
 
 TEST_F(VeilFSTest, open) { // const char *path, struct fuse_file_info *fileInfo
 
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Throw(VeilException(VEACCES)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillOnce(Throw(VeilException(VEACCES)));
     EXPECT_EQ(-EACCES, client->open("/path", &fileInfo));
 
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
 
     EXPECT_CALL(*helperMock, sh_open(StrEq("fileid"), _)).WillOnce(Return(-EEXIST));
     EXPECT_EQ(-EEXIST, client->open("/path", &fileInfo));
@@ -491,10 +497,10 @@ TEST_F(VeilFSTest, open) { // const char *path, struct fuse_file_info *fileInfo
 TEST_F(VeilFSTest, read) { // const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo
     char tmpBuff[4];
 
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Throw(VeilException(VEACCES)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillOnce(Throw(VeilException(VEACCES)));
     EXPECT_EQ(-EACCES, client->read("/path", tmpBuff, 4, 0, &fileInfo));
 
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
 
     EXPECT_CALL(*helperMock, sh_read(StrEq("fileid"), tmpBuff, 4, 0, _)).WillOnce(Return(-EEXIST));
     EXPECT_EQ(-EEXIST, client->read("/path", tmpBuff, 4, 0, &fileInfo));
@@ -505,10 +511,10 @@ TEST_F(VeilFSTest, read) { // const char *path, char *buf, size_t size, off_t of
 
 TEST_F(VeilFSTest, write) { // const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo
 
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillOnce(Throw(VeilException(VEACCES)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillOnce(Throw(VeilException(VEACCES)));
     EXPECT_EQ(-EACCES, client->write("/path", "abcd", 4, 0, &fileInfo));
 
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
 
     EXPECT_CALL(*helperMock, sh_write(StrEq("fileid"), StrEq("abcd"), 4, 0, _)).WillOnce(Return(-EEXIST));
     EXPECT_EQ(-EEXIST, client->write("/path", "abcd", 4, 0, &fileInfo));
@@ -571,12 +577,12 @@ TEST_F(VeilFSTest, statfs) { // const char *path, struct statvfs *statInfo
 }
 
 TEST_F(VeilFSTest, flush) { // const char *path, struct fuse_file_info *fileInfo
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
     EXPECT_EQ(0, client->flush("/path", &fileInfo));
 }
 
 TEST_F(VeilFSTest, release) { // const char *path, struct fuse_file_info *fileInfo
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
     EXPECT_CALL(*storageMapperMock, releaseFile("/path")).Times(1);
     EXPECT_EQ(0, client->release("/path", &fileInfo));
 }

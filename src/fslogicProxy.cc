@@ -38,8 +38,8 @@ using namespace veil::protocol::fuse_messages;
 namespace veil {
 namespace client {
 
-FslogicProxy::FslogicProxy(std::shared_ptr<Context> context)
-    : m_messageBuilder{std::make_unique<MessageBuilder>()}
+FslogicProxy::FslogicProxy(std::weak_ptr<Context> context)
+    : m_messageBuilder{std::make_unique<MessageBuilder>(context)}
     , m_context{std::move(context)}
 {
     LOG(INFO) << "FslogicProxy created";
@@ -66,13 +66,15 @@ bool FslogicProxy::getFileAttr(const string& logicName, FileAttr& attr)
     return true;
 }
 
-bool FslogicProxy::getFileLocation(const string &logicName, FileLocation& location, const string &openMode)
+bool FslogicProxy::getFileLocation(const string &logicName, FileLocation& location, const string &openMode, bool forceClusterProxy)
 {
     LOG(INFO) << "getting file location from cluster for file: " << logicName;
 
     GetFileLocation msg;
     msg.set_file_logic_name(logicName);
     msg.set_open_mode(openMode);
+    msg.set_force_cluster_proxy(forceClusterProxy);
+
     if(!sendFuseReceiveAnswer(msg, location))
     {
         LOG(ERROR) << "cannot parse cluster answer";
@@ -82,13 +84,14 @@ bool FslogicProxy::getFileLocation(const string &logicName, FileLocation& locati
     return true;
 }
 
-bool FslogicProxy::getNewFileLocation(const string &logicName, mode_t mode, FileLocation& location)
+bool FslogicProxy::getNewFileLocation(const string &logicName, mode_t mode, FileLocation& location, bool forceClusterProxy)
 {
     LOG(INFO) << "getting new file location for file: " << logicName;
 
     GetNewFileLocation msg;
     msg.set_file_logic_name(logicName);
     msg.set_mode(mode);
+    msg.set_force_cluster_proxy(forceClusterProxy);
 
     if(!sendFuseReceiveAnswer(msg, location))
     {
@@ -298,7 +301,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message &fMsg, 
 
     auto fuseMsg = m_messageBuilder->createFuseMessage(fMsg);
 
-    auto communicator = m_context->getCommunicator();
+    auto communicator = m_context.lock()->getCommunicator();
     try
     {
         LOG(INFO) << "Sending message (type: " << fMsg.GetDescriptor()->name() << "). Expecting answer with type: " << response.GetDescriptor()->name();
@@ -309,7 +312,7 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message &fMsg, 
         {
             LOG(WARNING) << "Cluster send non-ok message. status = " << answer->answer_status();
             if(answer->answer_status() == INVALID_FUSE_ID)
-                m_context->getConfig()->negotiateFuseID(0);
+                m_context.lock()->getConfig()->negotiateFuseID(0);
             return false;
         }
 
@@ -332,7 +335,7 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
 
     auto fuseMsg = m_messageBuilder->createFuseMessage(fMsg);
 
-    auto communicator = m_context->getCommunicator();
+    auto communicator = m_context.lock()->getCommunicator();
     try
     {
         LOG(INFO) << "Sending message (type: " << fMsg.GetDescriptor()->name() << "). Expecting answer with type: atom";
@@ -340,7 +343,7 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
         auto answer = communicator->communicate<>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
 
         if(answer->answer_status() == INVALID_FUSE_ID)
-            m_context->getConfig()->negotiateFuseID(0);
+            m_context.lock()->getConfig()->negotiateFuseID(0);
 
         std::string atom = m_messageBuilder->decodeAtomAnswer(*answer);
 
@@ -388,7 +391,7 @@ pair<string, struct statvfs> FslogicProxy::getStatFS()
 
 void FslogicProxy::pingCluster(const string &nth)
 {
-    auto communicator = m_context->getCommunicator();
+    auto communicator = m_context.lock()->getCommunicator();
     try
     {
         Atom ping;
@@ -406,8 +409,8 @@ void FslogicProxy::pingCluster(const string &nth)
     }
 
     // Send another...
-    Job pingTask = Job(time(NULL) + m_context->getOptions()->get_cluster_ping_interval(), shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth);
-    m_context->getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
+    Job pingTask = Job(time(NULL) + m_context.lock()->getOptions()->get_cluster_ping_interval(), shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth);
+    m_context.lock()->getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
 }
 
 bool FslogicProxy::runTask(TaskID taskId, const string& arg0, const string&, const string&)

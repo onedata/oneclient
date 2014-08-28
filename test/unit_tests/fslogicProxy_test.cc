@@ -55,7 +55,7 @@ protected:
 
         proxy = std::make_unique<ProxyFslogicProxy>(context);
 
-        auto p = std::make_unique<NiceMock<MockMessageBuilder>>();
+        auto p = std::make_unique<NiceMock<MockMessageBuilder>>(context);
         msgBuilder = p.get();
         proxy->m_messageBuilder = std::move(p);
 
@@ -67,7 +67,7 @@ protected:
 
     veil::protocol::fuse_messages::FuseMessage fmsgFrom(const google::protobuf::Message &msg)
     {
-        return MessageBuilder{}.createFuseMessage(msg);
+        return MessageBuilder{context}.createFuseMessage(msg);
     }
 };
 
@@ -142,7 +142,7 @@ TEST_F(FslogicProxyTest, sendFuseReceiveAtomOK) {
     ans.set_answer_status(VOK);
     ans.set_worker_answer(response.SerializeAsString());
     EXPECT_CALL(*communicator, communicateMock(_, _, _, _)).WillOnce(Return(ans));
-    EXPECT_CALL(*msgBuilder, decodeAtomAnswer(Truly(bind(pbMessageEqual, ans, _1)))).WillOnce(Return("value"));
+    EXPECT_CALL(*msgBuilder, decodeAtomAnswer(Truly(std::bind(pbMessageEqual, ans, _1)))).WillOnce(Return("value"));
     EXPECT_EQ("value", proxy->sendFuseReceiveAtom(msg));
 }
 
@@ -181,6 +181,7 @@ TEST_F(FslogicProxyTest, getFileLocation) {
     GetFileLocation msg;
     msg.set_file_logic_name("/file");
     msg.set_open_mode(UNSPECIFIED_MODE);
+    msg.set_force_cluster_proxy(true);
 
     FileLocation location;
     FileLocation response;
@@ -198,7 +199,7 @@ TEST_F(FslogicProxyTest, getFileLocation) {
     location.SerializePartialToString(ans.mutable_worker_answer());
     EXPECT_CALL(*communicator, communicateMock(_, _, _, _)).WillOnce(Return(ans));
     EXPECT_CALL(*msgBuilder, createFuseMessage(_)).WillOnce(Return(fmsgFrom(msg)));
-    ASSERT_TRUE(proxy->getFileLocation("/file", response,UNSPECIFIED_MODE));
+    ASSERT_TRUE(proxy->getFileLocation("/file", response, UNSPECIFIED_MODE, true));
 
     EXPECT_EQ(location.validity(), response.validity());
     EXPECT_EQ(location.answer(), response.answer());
@@ -208,6 +209,7 @@ TEST_F(FslogicProxyTest, getNewFileLocation) {
     GetNewFileLocation msg;
     msg.set_file_logic_name("/file");
     msg.set_mode(234);
+    msg.set_force_cluster_proxy(true);
 
     FileLocation location;
     FileLocation response;
@@ -226,7 +228,7 @@ TEST_F(FslogicProxyTest, getNewFileLocation) {
     location.SerializePartialToString(ans.mutable_worker_answer());
     EXPECT_CALL(*communicator, communicateMock(_, _, _, _)).WillOnce(Return(ans));
     EXPECT_CALL(*msgBuilder, createFuseMessage(_)).WillOnce(Return(fmsgFrom(msg)));
-    ASSERT_TRUE(proxy->getNewFileLocation("/file", 234, response));
+    ASSERT_TRUE(proxy->getNewFileLocation("/file", 234, response, true));
 
 
     EXPECT_EQ(location.validity(), response.validity());

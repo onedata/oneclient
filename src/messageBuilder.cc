@@ -18,6 +18,11 @@ namespace veil
 namespace client
 {
 
+MessageBuilder::MessageBuilder(std::weak_ptr<Context> context)
+    : m_context{std::move(context)}
+{
+}
+
 FuseMessage MessageBuilder::createFuseMessage(
         const google::protobuf::Message &content) const
 {

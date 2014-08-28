@@ -15,6 +15,7 @@
 
 #include <google/protobuf/message.h>
 
+#include <memory>
 #include <string>
 
 namespace veil
@@ -33,6 +34,7 @@ class Context;
 class MessageBuilder
 {
 public:
+    MessageBuilder(std::weak_ptr<Context> context);
     virtual ~MessageBuilder() = default;
 
     virtual protocol::fuse_messages::FuseMessage createFuseMessage(
@@ -43,6 +45,9 @@ public:
 
     virtual std::string decodeAtomAnswer(
             const protocol::communication_protocol::Answer &answer) const;
+
+private:
+    const std::weak_ptr<Context> m_context;
 };
 
 } // namespace client

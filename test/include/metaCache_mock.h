@@ -24,6 +24,7 @@ public:
     MOCK_METHOD2(addAttr, void(const std::string&, struct stat&));
     MOCK_METHOD2(getAttr, bool(const std::string&, struct stat*));
     MOCK_METHOD2(updateSize, bool(const std::string&, size_t size));
+    MOCK_METHOD1(canUseDefaultPermissions, bool(const struct stat &attrs));
 };
 
 
