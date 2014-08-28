@@ -6,8 +6,9 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "gsiHandler.h"
+#include "auth/gsiHandler.h"
 
+#include "auth/authManager.h"
 #include "config.h"
 #include "context.h"
 #include "logging.h"
@@ -48,9 +49,9 @@ constexpr const char
 
 namespace
 {
-inline std::string GLOBUS_PROXY_PATH(const std::shared_ptr<veil::client::Context> &context)
+inline std::string GLOBUS_PROXY_PATH(const std::weak_ptr<veil::client::Context> &context)
 {
-    return context->getConfig()->absPathRelToHOME("/tmp/x509up_u") + std::to_string(getuid());
+    return context.lock()->getConfig()->absPathRelToHOME("/tmp/x509up_u") + std::to_string(getuid());
 }
 
 inline std::string MSG_DEBUG_INFO(const bool debug)
@@ -139,7 +140,7 @@ inline bool isFileOrSymlink(const boost::filesystem::path &p)
 namespace veil {
 namespace client {
 
-GSIHandler::GSIHandler(std::shared_ptr<Context> context, const bool debug)
+GSIHandler::GSIHandler(std::weak_ptr<Context> context, const bool debug)
     : m_context{std::move(context)}
     , m_debug(debug)
 {
@@ -151,7 +152,7 @@ const std::vector<std::pair<string, string> > &GSIHandler::getCertSearchPath()
 
     if(searchPath.empty())
     {
-        auto config = m_context->getConfig();
+        auto config = m_context.lock()->getConfig();
         searchPath.push_back(make_pair(GLOBUS_PROXY_PATH(m_context)));
         searchPath.push_back(std::make_pair(config->absPathRelToHOME(GLOBUS_PEM_CERT_PATH),
                                             config->absPathRelToHOME(GLOBUS_PEM_KEY_PATH)));
@@ -208,8 +209,8 @@ std::pair<string, string> GSIHandler::findUserCertAndKey()
 std::pair<string, string> GSIHandler::getUserCertAndKey()
 {
     // Configuration options take precedence
-    if(m_context->getOptions()->has_peer_certificate_file())
-        return make_pair(m_context->getConfig()->absPathRelToHOME(m_context->getOptions()->get_peer_certificate_file()));
+    if(m_context.lock()->getOptions()->has_peer_certificate_file())
+        return make_pair(m_context.lock()->getConfig()->absPathRelToHOME(m_context.lock()->getOptions()->get_peer_certificate_file()));
 
     if(getenv(X509_USER_PROXY_ENV) && boost::filesystem::exists(getenv(X509_USER_PROXY_ENV)))
         return make_pair<string>(getenv(X509_USER_PROXY_ENV));
@@ -570,12 +571,12 @@ std::shared_ptr<communication::CertificateData> GSIHandler::getCertData()
 
 
 
-std::string GSIHandler::getClusterHostname()
+std::string GSIHandler::getClusterHostname(const std::string &baseDomain)
 {
-    if(m_context->getOptions()->has_cluster_hostname())
-        return m_context->getOptions()->get_cluster_hostname();
+    if(m_context.lock()->getOptions()->has_cluster_hostname())
+        return m_context.lock()->getOptions()->get_cluster_hostname();
 
-    string URL = BASE_DOMAIN;
+    string URL = baseDomain;
 
     string DN = m_userDN;
 
@@ -599,7 +600,7 @@ std::string GSIHandler::getClusterHostname()
         sprintf(buf, "%02x", digest[i]);
         URL += string(buf, 2);
     }
-    URL += string(".") + BASE_DOMAIN;
+    URL += string(".") + baseDomain;
 
     LOG(INFO) << "Generating cluster hostname based on user DN: " << DN << " || -> " << URL;
 

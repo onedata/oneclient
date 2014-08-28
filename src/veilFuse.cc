@@ -14,6 +14,9 @@
 #define _XOPEN_SOURCE 700
 #endif
 
+#include "auth/authManager.h"
+#include "auth/grAdapter.h"
+#include "auth/gsiHandler.h"
 #include "certUnconfirmedException.h"
 #include "communication/communicator.h"
 #include "communication/communicationHandler.h"
@@ -23,8 +26,6 @@
 #include "context.h"
 #include "events/eventCommunicator.h"
 #include "fslogicProxy.h"
-#include "grAdapter.h"
-#include "gsiHandler.h"
 #include "helpers/storageHelperFactory.h"
 #include "ISchedulable.h"
 #include "jobScheduler.h"
@@ -66,6 +67,8 @@ using namespace std::placeholders;
 using namespace veil;
 using namespace veil::client;
 using boost::filesystem::path;
+
+static constexpr const char *BASE_DOMAIN = "cluster.veilfs.plgrid.pl";
 
 /// Main  application object (filesystem state)
 static std::weak_ptr<VeilFS> VeilAppObject;
@@ -391,17 +394,17 @@ int main(int argc, char* argv[], char* envp[])
         LOG(INFO) << "Using mount point path: " << config->getMountPoint().string();
     }
 
-    auto gsiHandler = std::make_shared<GSIHandler>(context, options->get_debug_gsi());
-    std::string token; // TODO:
-    GRAdapter grAdapter{context,
-                options->get_global_registry_url(),
-                options->get_global_registry_port(),
-                "/home/kzemek/plgrid/globalregistry/grpca/cacert.pem"}; // TODO:
+    AuthManager authManager{
+        context,
+        options->has_cluster_hostname() ? options->get_cluster_hostname() : BASE_DOMAIN,
+        options->get_cluster_port(),
+        checkCertificate};
 
     if(options->get_authentication() == "certificate")
     {
-        // Check proxy certificate
-        const auto validationResult = gsiHandler->validateProxyConfig();
+        const auto validationResult =
+                authManager.authenticateWithCertificate(options->get_debug_gsi());
+
         if(!validationResult.first)
         {
             std::cerr << validationResult.second << std::endl;
@@ -411,17 +414,16 @@ int main(int argc, char* argv[], char* envp[])
     }
     else if(options->get_authentication() == "token")
     {
-        const auto tokenOption = grAdapter.retrieveToken();
-        if(tokenOption)
-            token = tokenOption.get();
-        else
+        const auto validationResult = authManager.authenticateWithToken(
+                    options->get_global_registry_url(),
+                    options->get_global_registry_port());
+
+        if(!validationResult) // TODO
         {
-            std::cout << "Authentication Code: ";
-            std::string code;
-            std::cin >> code;
-            token = grAdapter.exchangeCode(code);
+            std::cerr << "validationResult.second" << std::endl;
+            std::cerr << "Cannot continue. Aborting" << std::endl;
+            return EXIT_FAILURE;
         }
-        std::cerr << "token: " << token << std::endl;
     }
     else
     {
@@ -450,17 +452,9 @@ int main(int argc, char* argv[], char* envp[])
     fuse_set_signal_handlers(fuse_get_session(fuse));
     ScopeExit removeHandlers{[&]{ fuse_remove_signal_handlers(fuse_get_session(fuse)); }};
 
-    const auto certificateData = gsiHandler->getCertData();
-    const auto clusterUri = "wss://" + gsiHandler->getClusterHostname() + ":" +
-            std::to_string(options->get_cluster_port()) + "/veilclient";
-
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
     auto testCommunicator =
-            communication::createWebsocketCommunicator(/*dataPoolSize*/ 0,
-                                                       /*metaPoolSize*/ 1,
-                                                       clusterUri,
-                                                       certificateData,
-                                                       checkCertificate);
+            authManager.createCommunicator(/*dataPoolSize*/ 0, /*metaPoolSize*/ 1);
 
     context->setCommunicator(testCommunicator);
 
@@ -524,12 +518,9 @@ int main(int argc, char* argv[], char* envp[])
         return EXIT_FAILURE;
 
     // Initialize VeilClient application
-    const auto communicator =
-            communication::createWebsocketCommunicator(options->get_alive_data_connections_count(),
-                                                       options->get_alive_meta_connections_count(),
-                                                       clusterUri,
-                                                       certificateData,
-                                                       checkCertificate);
+    const auto communicator = authManager.createCommunicator(
+                options->get_alive_data_connections_count(),
+                options->get_alive_meta_connections_count());
 
     context->setCommunicator(communicator);
 

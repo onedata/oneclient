@@ -5,13 +5,15 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "grAdapter.h"
+#include "auth/grAdapter.h"
 
 #include "config.h"
 #include "context.h"
 #include "make_unique.h"
 
-#include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/archive/iterators/binary_from_base64.hpp>
+#include <boost/archive/iterators/transform_width.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/filesystem.hpp>
@@ -31,15 +33,15 @@ namespace client
 {
 
 GRAdapter::GRAdapter(std::weak_ptr<Context> context, const std::string hostname,
-                     unsigned int port, const boost::filesystem::path grpcacert)
+                     const unsigned int port, const bool checkCertificate)
     : m_context{std::move(context)}
     , m_hostname{std::move(hostname)}
-    , m_port(port)
-    , m_grpcacert{std::move(grpcacert)}
+    , m_port{port}
+    , m_checkCertificate{checkCertificate}
 {
 }
 
-boost::optional<std::string> GRAdapter::retrieveToken() const
+boost::optional<TokenAuthDetails> GRAdapter::retrieveToken() const
 {
     const auto accessTokenFile = tokenFile();
 
@@ -50,35 +52,21 @@ boost::optional<std::string> GRAdapter::retrieveToken() const
 
     boost::filesystem::ifstream stream{accessTokenFile};
 
-    std::string token;
-    stream >> token;
+    TokenAuthDetails auth;
+    stream >> auth;
     if(!stream)
         std::terminate(); // omg
 
-    using namespace json11;
-    std::string err;
-    const auto json = Json::parse(token, err);
-
-    if(!err.empty())
-        std::terminate(); //omg
-
-    return json["access_token"].string_value();
+    return auth;
 }
 
-std::string GRAdapter::exchangeCode(const std::string &code) const
+TokenAuthDetails GRAdapter::exchangeCode(const std::string &code) const
 {
     boost::asio::io_service ioService;
     const auto socket = connect(ioService);
     requestToken(code, *socket);
     const auto response = getResponse(*socket);
-
-    std::string err;
-    const auto json = json11::Json::parse(response, err);
-
-    if(!err.empty())
-        std::terminate(); // omg
-
-    return json["access_token"].string_value();
+    return parseToken(response);
 }
 
 void GRAdapter::requestToken(const std::string &code, GRAdapter::Socket &socket) const
@@ -141,10 +129,37 @@ std::string GRAdapter::getResponse(GRAdapter::Socket &socket) const
     return {std::istreambuf_iterator<char>{responseStream}, eos};
 }
 
-void GRAdapter::saveToken(const std::string &token) const
+TokenAuthDetails GRAdapter::parseToken(const std::string &response) const
 {
+    std::string err;
+    const auto json = json11::Json::parse(response, err);
+
+    if(!err.empty())
+        std::terminate(); // omg
+
+    const auto accessToken = json["access_token"].string_value();
+    const auto refreshToken = json["refresh_token"].string_value();
+    const auto jwt = json["id_token"].string_value();
+
+    using unbase = boost::archive::iterators::transform_width<
+            boost::archive::iterators::binary_from_base64<std::string::const_iterator>,
+            8, 6>;
+
+    std::vector<std::string> items;
+    boost::algorithm::split(items, jwt, boost::is_any_of("."));
+    const std::string idTokenRaw{unbase{items[1].begin()}, unbase{items[1].end()}};
+
+    const auto idTokenJson = json11::Json::parse(idTokenRaw, err);
+
+    if(!err.empty())
+        std::terminate(); // omg
+
+    TokenAuthDetails auth{accessToken, refreshToken, idTokenJson["sub"].string_value()};
+
     boost::filesystem::ofstream stream{tokenFile(), std::ios_base::trunc};
-    stream << token;
+    stream << auth;
+
+    return auth;
 }
 
 std::unique_ptr<GRAdapter::Socket> GRAdapter::connect(boost::asio::io_service &ioService) const
@@ -159,10 +174,12 @@ std::unique_ptr<GRAdapter::Socket> GRAdapter::connect(boost::asio::io_service &i
     auto iterator = resolver.resolve(query);
 
     ssl::context ctx{ssl::context::method::tlsv12_client};
-    ctx.load_verify_file(m_grpcacert.generic_string());
+    ctx.set_default_verify_paths();
 
     auto socket = std::make_unique<Socket>(ioService, ctx);
-    socket->set_verify_mode(ssl::verify_peer);
+    socket->set_verify_mode(m_checkCertificate
+                            ? boost::asio::ssl::verify_peer
+                            : boost::asio::ssl::verify_none);
     socket->set_verify_callback(ssl::rfc2818_verification{m_hostname});
 
     boost::asio::connect(socket->lowest_layer(), iterator);

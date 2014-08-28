@@ -11,6 +11,8 @@
 
 #include "ISchedulable.h"
 
+#include "auth/tokenAuthDetails.h"
+
 #include <boost/filesystem.hpp>
 
 #include <map>
@@ -75,6 +77,8 @@ public:
     void putEnv(std::string name, std::string value);
     bool isEnvSet(const std::string&);                           ///< Checks whether env variable is set.
 
+    void setTokenAuthDetails(TokenAuthDetails authDetails);
+
     boost::filesystem::path userDataDir() const;                 ///< Returns directory in which veilFuse can store user data files.
 
     Config(std::weak_ptr<Context> context);
@@ -95,7 +99,10 @@ protected:
     virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 private:
+    std::string hashAndBase64(const std::string &token) const;
+
     const std::weak_ptr<Context> m_context;
+    TokenAuthDetails m_authDetails;
 };
 
 } // namespace client

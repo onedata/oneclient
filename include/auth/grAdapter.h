@@ -9,6 +9,8 @@
 #define VEILCLIENT_GR_ADAPTER_H
 
 
+#include "tokenAuthDetails.h"
+
 #include <boost/asio.hpp>
 #include <boost/asio/ssl/stream.hpp>
 #include <boost/filesystem/path.hpp>
@@ -30,10 +32,10 @@ class GRAdapter
 
 public:
     GRAdapter(std::weak_ptr<Context> context, const std::string hostname,
-              unsigned int port, const boost::filesystem::path grpcacert);
+              const unsigned int port, const bool checkCertificate);
 
-    boost::optional<std::string> retrieveToken() const;
-    std::string exchangeCode(const std::string &code) const;
+    boost::optional<TokenAuthDetails> retrieveToken() const;
+    TokenAuthDetails exchangeCode(const std::string &code) const;
 
 protected:
 
@@ -41,13 +43,13 @@ private:
     std::unique_ptr<Socket> connect(boost::asio::io_service &ioService) const;
     void requestToken(const std::string &code, Socket &socket) const;
     std::string getResponse(Socket &socket) const;
-    void saveToken(const std::string &token) const;
+    TokenAuthDetails parseToken(const std::string &response) const;
     boost::filesystem::path tokenFile() const;
 
     std::weak_ptr<Context> m_context;
     const std::string m_hostname;
-    const int m_port;
-    const boost::filesystem::path m_grpcacert;
+    const unsigned int m_port;
+    const bool m_checkCertificate;
 };
 
 } // namespace client
