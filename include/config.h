@@ -66,7 +66,6 @@ public:
     virtual void testHandshake();                                ///< Synchronously negotiate FuseID to test if everything is ok
     virtual void testHandshake(std::string usernameToConfirm, bool confirm);    ///< Synchronously negotiate FuseID to test if everything is ok. Also, confirms/rejects certificate registration for specified username
 
-
     std::string absPathRelToCWD(const boost::filesystem::path&); ///< Converts relative path, to absolute using CWD env as base prefix.
     void setMountPoint(boost::filesystem::path);                 ///< Sets mount point path
     boost::filesystem::path getMountPoint();                     ///< Gets mount point path
@@ -75,6 +74,8 @@ public:
     void setEnv();                                               ///< Saves current CWD and HOME env viariables. This is required as FUSE changes them after non-debug start. This is also done automatically in Config::Config
     void putEnv(std::string name, std::string value);
     bool isEnvSet(const std::string&);                           ///< Checks whether env variable is set.
+
+    boost::filesystem::path userDataDir() const;                 ///< Returns directory in which veilFuse can store user data files.
 
     Config(std::weak_ptr<Context> context);
     virtual ~Config();
