@@ -12,7 +12,7 @@
 
   # A method for authenticating the veilFuse client with a Provider.
   # When set to 'token', the client will use a token-based authentication scheme
-  # in cooperation with a Global Resistry.
+  # in cooperation with a Global Registry.
   # When set to 'certificate', the client will authenticate itself directly
   # with a Provider using a X509 certificate.
   # [default = token]

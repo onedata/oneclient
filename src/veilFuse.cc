@@ -23,6 +23,7 @@
 #include "context.h"
 #include "events/eventCommunicator.h"
 #include "fslogicProxy.h"
+#include "grAdapter.h"
 #include "gsiHandler.h"
 #include "helpers/storageHelperFactory.h"
 #include "ISchedulable.h"
@@ -248,7 +249,7 @@ static std::string getVersionString()
         << VeilClient_VERSION_PATCH;
     return ss.str();
 }
-
+#include <regex>
 int main(int argc, char* argv[], char* envp[])
 {
     // Turn off logging for a while
@@ -391,13 +392,42 @@ int main(int argc, char* argv[], char* envp[])
     }
 
     auto gsiHandler = std::make_shared<GSIHandler>(context, options->get_debug_gsi());
+    std::string token; // TODO:
+    GRAdapter grAdapter{context,
+                options->get_global_registry_url(),
+                options->get_global_registry_port(),
+                "/home/kzemek/plgrid/globalregistry/grpca/cacert.pem"}; // TODO:
 
-    // Check proxy certificate
-    const auto validationResult = gsiHandler->validateProxyConfig();
-    if(!validationResult.first)
+    if(options->get_authentication() == "certificate")
     {
-        std::cerr << validationResult.second << std::endl;
-        std::cerr << "Cannot continue. Aborting" << std::endl;
+        // Check proxy certificate
+        const auto validationResult = gsiHandler->validateProxyConfig();
+        if(!validationResult.first)
+        {
+            std::cerr << validationResult.second << std::endl;
+            std::cerr << "Cannot continue. Aborting" << std::endl;
+            return EXIT_FAILURE;
+        }
+    }
+    else if(options->get_authentication() == "token")
+    {
+        const auto tokenOption = grAdapter.retrieveToken();
+        if(tokenOption)
+            token = tokenOption.get();
+        else
+        {
+            std::cout << "Authentication Code: ";
+            std::string code;
+            std::cin >> code;
+            token = grAdapter.exchangeCode(code);
+        }
+        std::cerr << "token: " << token << std::endl;
+    }
+    else
+    {
+        std::cerr << "Unknown authentication type: '" <<
+                     options->get_authentication() << "'.\n" <<
+                     "Cannot continue. Aborting" << std::endl;
         return EXIT_FAILURE;
     }
 

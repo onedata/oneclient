@@ -13,13 +13,13 @@
 #include "veilException.h"
 #include "veilfs.h"
 
-#include <boost/program_options.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/program_options.hpp>
+#include <boost/xpressive/xpressive.hpp>
 
 #include <fstream>
 #include <functional>
-#include <regex>
 #include <sstream>
 #include <vector>
 #include <utility>
@@ -176,14 +176,18 @@ Options::Result Options::parseConfigs(const int argc, const char * const argv[])
  */
 static std::pair<std::string, std::string> cmdParser(const std::string &str)
 {
-    static const std::regex regex{"\\s*--([\\w\\-]+)(=(\\S+))?\\s*"};
+    using namespace boost::xpressive;
 
-    std::smatch what;
-    if(std::regex_match(str, what, regex))
-        return { boost::algorithm::replace_all_copy(what[1].str(), "-", "_"),
-                 what.size() > 2 ? what[3].str() : std::string() };
+    static const sregex rex =
+            sregex::compile(R"(\s*--([\w\-]+)(?:=(\S+))?\s*)");
 
-    return {};
+    smatch what;
+    if(regex_match(str, what, rex))
+        return std::make_pair(
+            boost::algorithm::replace_all_copy(what[1].str(), "-", "_"),
+            what.size() > 1 ? what[2].str() : std::string());
+
+    return std::pair<std::string, std::string>();
 }
 
 
