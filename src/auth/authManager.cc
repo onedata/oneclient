@@ -74,7 +74,7 @@ std::shared_ptr<communication::Communicator> AuthManager::createCommunicator(
         const unsigned int dataPoolSize,
         const unsigned int metaPoolSize) const
 {
-    const auto clusterUri = m_hostname+":"+std::to_string(m_port)+"/veilclient";
+    const auto clusterUri = "wss://"+m_hostname+":"+std::to_string(m_port)+"/veilclient";
 
     if(m_certificateData)
         return communication::createWebsocketCommunicator(
