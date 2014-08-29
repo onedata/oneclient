@@ -26,6 +26,8 @@ namespace client
 
 class Context;
 
+namespace auth
+{
 
 /**
  * The GRAdapter class is responsible for retrieving an OpenID Access Token,
@@ -75,6 +77,7 @@ private:
     const bool m_checkCertificate;
 };
 
+} // namespace auth
 } // namespace client
 } // namespace veil
 

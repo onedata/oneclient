@@ -89,7 +89,7 @@ bool Config::isEnvSet(const string &name)
     return m_envAll.find(name) != m_envAll.end();
 }
 
-void Config::setTokenAuthDetails(TokenAuthDetails authDetails)
+void Config::setTokenAuthDetails(auth::TokenAuthDetails authDetails)
 {
     m_authDetails = std::move(authDetails);
 }

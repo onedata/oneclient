@@ -33,6 +33,8 @@ namespace veil
 {
 namespace client
 {
+namespace auth
+{
 
 GRAdapter::GRAdapter(std::weak_ptr<Context> context, const std::string hostname,
                      const unsigned int port, const bool checkCertificate)
@@ -210,5 +212,6 @@ boost::filesystem::path GRAdapter::tokenFilePath() const
     return dataDir/"accessToken";
 }
 
+} // namespace auth
 } // namespace client
 } // namespace veil

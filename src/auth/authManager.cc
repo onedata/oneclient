@@ -19,6 +19,8 @@ namespace veil
 {
 namespace client
 {
+namespace auth
+{
 
 AuthManager::AuthManager(std::weak_ptr<Context> context,
                          std::string defaultHostname,
@@ -85,6 +87,6 @@ std::shared_ptr<communication::Communicator> AuthManager::createCommunicator(
                 dataPoolSize, metaPoolSize, clusterUri, m_checkCertificate);
 }
 
-
+} // namespace auth
 } // namespace client
 } // namespace veil

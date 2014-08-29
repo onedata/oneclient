@@ -138,12 +138,16 @@ inline bool isFileOrSymlink(const boost::filesystem::path &p)
 
 } // namespace
 
-namespace veil {
-namespace client {
+namespace veil
+{
+namespace client
+{
+namespace auth
+{
 
 GSIHandler::GSIHandler(std::weak_ptr<Context> context, const bool debug)
     : m_context{std::move(context)}
-    , m_debug(debug)
+    , m_debug{debug}
 {
 }
 
@@ -606,5 +610,6 @@ std::string GSIHandler::getClusterHostname(const std::string &baseDomain)
     return URL;
 }
 
+} // namespace auth
 } // namespace client
 } // namespace veil

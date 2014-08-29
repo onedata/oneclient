@@ -82,7 +82,7 @@ public:
      * Sets the @c TokenAuthDetails object used for populating handshake request.
      * @param authDetails The details to populate handshake request with.
      */
-    void setTokenAuthDetails(TokenAuthDetails authDetails);
+    void setTokenAuthDetails(auth::TokenAuthDetails authDetails);
 
     /**
      * @return Directory path under which veilFuse can store user data files.
@@ -110,7 +110,7 @@ private:
     std::string hashAndBase64(const std::string &token) const;
 
     const std::weak_ptr<Context> m_context;
-    TokenAuthDetails m_authDetails;
+    auth::TokenAuthDetails m_authDetails;
 };
 
 } // namespace client

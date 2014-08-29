@@ -33,6 +33,9 @@ namespace client
 
 class Context;
 
+namespace auth
+{
+
 class GSIHandler
 {
 public:
@@ -60,6 +63,7 @@ private:
     std::string m_userKeyPath;
 };
 
+} // namespace auth
 } // namespace client
 } // namespace veil
 

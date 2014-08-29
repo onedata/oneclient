@@ -11,6 +11,8 @@ namespace veil
 {
 namespace client
 {
+namespace auth
+{
 
 TokenAuthDetails::TokenAuthDetails(std::string accessToken,
                                    std::string refreshToken,
@@ -46,5 +48,6 @@ std::istream &operator>>(std::istream &i, TokenAuthDetails &auth)
     return i >> auth.m_accessToken >> auth.m_refreshToken >> auth.m_gruid;
 }
 
+} // namespace auth
 } // namespace client
 } // namespace veil

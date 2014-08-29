@@ -27,6 +27,9 @@ namespace client
 
 class Context;
 
+namespace auth
+{
+
 /**
  * The AuthManager class is responsible for setting an authentication scheme
  * for Client - Provider communication.
@@ -83,6 +86,7 @@ private:
     std::shared_ptr<communication::CertificateData> m_certificateData;
 };
 
+} // namespace auth
 } // namespace client
 } // namespace veil
 

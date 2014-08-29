@@ -394,7 +394,7 @@ int main(int argc, char* argv[], char* envp[])
         LOG(INFO) << "Using mount point path: " << config->getMountPoint().string();
     }
 
-    AuthManager authManager{
+    auth::AuthManager authManager{
         context,
         options->has_cluster_hostname() ? options->get_cluster_hostname() : BASE_DOMAIN,
         options->get_cluster_port(),
@@ -414,11 +414,11 @@ int main(int argc, char* argv[], char* envp[])
         }
         else
         {
-            throw AuthException{"unknown authentication type: " +
+            throw auth::AuthException{"unknown authentication type: " +
                                 options->get_authentication()};
         }
     }
-    catch(AuthException &e)
+    catch(auth::AuthException &e)
     {
         std::cerr << "Authentication error: " << e.what() << std::endl;
         std::cerr << "Cannot continue. Aborting" << std::endl;

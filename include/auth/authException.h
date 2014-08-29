@@ -15,6 +15,8 @@ namespace veil
 {
 namespace client
 {
+namespace auth
+{
 
 /**
  * The AuthException class is responsible for representing
@@ -26,6 +28,7 @@ public:
     using std::runtime_error::runtime_error;
 };
 
+} // namespace auth
 } // namespace client
 } // namespace veil
 

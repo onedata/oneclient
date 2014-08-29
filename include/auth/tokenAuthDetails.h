@@ -17,6 +17,8 @@ namespace veil
 {
 namespace client
 {
+namespace auth
+{
 
 /**
  * The TokenAuthDetails class is responsible for holding token-based
@@ -77,6 +79,7 @@ std::ostream &operator<<(std::ostream &o, const TokenAuthDetails &auth);
  */
 std::istream &operator>>(std::istream &i, TokenAuthDetails &auth);
 
+} // namespace auth
 } // namespace client
 } // namespace veil
 
