@@ -16,10 +16,12 @@ namespace auth
 
 TokenAuthDetails::TokenAuthDetails(std::string accessToken,
                                    std::string refreshToken,
-                                   std::string gruid)
+                                   std::string gruid,
+                                   const int expiresIn)
     : m_accessToken{std::move(accessToken)}
     , m_refreshToken{std::move(refreshToken)}
     , m_gruid{std::move(gruid)}
+    , m_expirationTime{std::chrono::system_clock::now() + std::chrono::seconds{expiresIn}}
 {
 }
 
@@ -38,14 +40,27 @@ const std::string &TokenAuthDetails::gruid() const
     return m_gruid;
 }
 
+const std::chrono::system_clock::time_point &TokenAuthDetails::expirationTime() const
+{
+    return m_expirationTime;
+}
+
 std::ostream &operator<<(std::ostream &o, const TokenAuthDetails &auth)
 {
-    return o << auth.m_accessToken << " " << auth.m_refreshToken << " " << auth.m_gruid;
+    return o << auth.m_accessToken << " " << auth.m_refreshToken << " " <<
+                auth.m_gruid << " " <<
+                auth.m_expirationTime.time_since_epoch().count();
 }
 
 std::istream &operator>>(std::istream &i, TokenAuthDetails &auth)
 {
-    return i >> auth.m_accessToken >> auth.m_refreshToken >> auth.m_gruid;
+    std::chrono::system_clock::time_point::duration::rep reps;
+
+    i >> auth.m_accessToken >> auth.m_refreshToken >> auth.m_gruid >> reps;
+
+    const auto duration = std::chrono::system_clock::time_point::duration{reps};
+    auth.m_expirationTime = std::chrono::system_clock::time_point{duration};
+    return i;
 }
 
 } // namespace auth

@@ -9,6 +9,7 @@
 #define VEILCLIENT_TOKEN_AUTH_DETAILS_H
 
 
+#include <chrono>
 #include <istream>
 #include <ostream>
 #include <string>
@@ -40,7 +41,7 @@ public:
      * @param gruid The Global Registry User ID of a user.
      */
     TokenAuthDetails(std::string accessToken, std::string refreshToken,
-                     std::string gruid);
+                     std::string gruid, const int expiresIn);
 
     /**
      * @return The OpenID Access Token stored in this object.
@@ -57,10 +58,16 @@ public:
      */
     const std::string &gruid() const;
 
+    /**
+     * @return The time point when the token expires.
+     */
+    const std::chrono::system_clock::time_point &expirationTime() const;
+
 private:
     std::string m_accessToken;
     std::string m_refreshToken;
     std::string m_gruid;
+    std::chrono::system_clock::time_point m_expirationTime;
 };
 
 /**

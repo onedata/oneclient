@@ -23,7 +23,7 @@
 #include <json11.hpp>
 
 #include <array>
-#include <cstdlib>
+#include <chrono>
 #include <fstream>
 #include <istream>
 #include <ostream>
@@ -66,6 +66,12 @@ boost::optional<TokenAuthDetails> GRAdapter::retrieveToken() const
     {
         LOG(WARNING) << "Failed to retrieve authorization details from " <<
                         accessTokenFile.string();
+        return {};
+    }
+
+    if(auth.expirationTime() < std::chrono::system_clock::now())
+    {
+        LOG(INFO) << "Saved Access Token expired.";
         return {};
     }
 
@@ -154,6 +160,7 @@ TokenAuthDetails GRAdapter::parseToken(const std::string &response) const
     const auto accessToken = json["access_token"].string_value();
     const auto refreshToken = json["refresh_token"].string_value();
     const auto jwt = json["id_token"].string_value();
+    const auto expiresIn = json["expires_in"].int_value();
 
     using unbase = boost::archive::iterators::transform_width<
             boost::archive::iterators::binary_from_base64<std::string::const_iterator>,
@@ -168,7 +175,8 @@ TokenAuthDetails GRAdapter::parseToken(const std::string &response) const
     if(!err.empty())
         throw AuthException{"malformed id_token: " + err};
 
-    TokenAuthDetails auth{accessToken, refreshToken, idTokenJson["sub"].string_value()};
+    TokenAuthDetails auth{accessToken, refreshToken,
+                idTokenJson["sub"].string_value(), expiresIn};
 
     boost::filesystem::ofstream stream{tokenFilePath(), std::ios_base::trunc};
     stream << auth;
