@@ -68,8 +68,6 @@ using namespace veil;
 using namespace veil::client;
 using boost::filesystem::path;
 
-static constexpr const char *BASE_DOMAIN = "cluster.veilfs.plgrid.pl";
-
 /// Main  application object (filesystem state)
 static std::weak_ptr<VeilFS> VeilAppObject;
 

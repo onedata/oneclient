@@ -28,6 +28,8 @@ namespace veil
 static constexpr const char *FUSE_OPT_PREFIX = "fuse_opt_";
 static constexpr int ATTR_DEFAULT_EXPIRATION_TIME = 60;
 
+static constexpr const char *BASE_DOMAIN = "cluster.veilfs.plgrid.pl";
+
 namespace client
 {
 
