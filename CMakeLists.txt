@@ -225,6 +225,7 @@ set(TEST_COMMON_LIBRARIES
     ${PROTOBUF_LIBRARY_CUSTOM}
     ${OPENSSL_LIBRARIES}
     ${PLATFORM_EXTRA_LIBS}
+    json11
     veilprotocol
 )
 
