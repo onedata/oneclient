@@ -16,20 +16,38 @@ namespace veil
 namespace client
 {
 
+/**
+ * The ScopeExit class ensures that a given function will be triggered at
+ * the end of the scope in which ScopeExit object is created.
+ */
 class ScopeExit
 {
 public:
+    /**
+     * Constructor.
+     * @param f The function to execute at scope exit.
+     * @param after A reference to @c ScopeExit object that should be triggered
+     * before this one.
+     */
     ScopeExit(std::function<void()> f, ScopeExit &after)
         : m_f{std::move(f)}
         , m_after{&after}
     {
     }
 
+    /**
+     * Constructor.
+     * @param f The function to execute at scope exit.
+     */
     ScopeExit(std::function<void()> f)
         : m_f{std::move(f)}
     {
     }
 
+    /**
+     * Destructor. Ensures that preconditions (functions triggered before)
+     * and postconditions (function triggered) are met.
+     */
     ~ScopeExit()
     {
         if(m_after)
