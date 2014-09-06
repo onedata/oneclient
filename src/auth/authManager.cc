@@ -19,6 +19,7 @@ namespace veil
 {
 namespace client
 {
+
 namespace auth
 {
 
@@ -76,15 +77,14 @@ std::shared_ptr<communication::Communicator> AuthManager::createCommunicator(
         const unsigned int dataPoolSize,
         const unsigned int metaPoolSize) const
 {
-    const auto clusterUri = "wss://"+m_hostname+":"+std::to_string(m_port)+"/veilclient";
-
     if(m_certificateData)
         return communication::createWebsocketCommunicator(
-                    dataPoolSize, metaPoolSize, clusterUri,
-                    m_checkCertificate, m_certificateData);
+                    dataPoolSize, metaPoolSize, m_hostname, m_port,
+                    PROVIDER_CLIENT_ENDPOINT, m_checkCertificate, m_certificateData);
 
     return communication::createWebsocketCommunicator(
-                dataPoolSize, metaPoolSize, clusterUri, m_checkCertificate);
+                dataPoolSize, metaPoolSize, m_hostname, m_port,
+                PROVIDER_CLIENT_ENDPOINT, m_checkCertificate);
 }
 
 } // namespace auth

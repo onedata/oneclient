@@ -86,8 +86,9 @@ void CommonIntegrationTest::SetUp()
     const auto communicator = veil::communication::createWebsocketCommunicator(
                 options->get_alive_data_connections_count(),
                 options->get_alive_meta_connections_count(),
-                clusterUri, /*checkCertificate*/ false,
-                gsiHandler->getCertData());
+                gsiHandler->getClusterHostname(veil::BASE_DOMAIN),
+                options->get_cluster_port(), veil::PROVIDER_CLIENT_ENDPOINT,
+                /*checkCertificate*/ false, gsiHandler->getCertData());
 
     context->setCommunicator(communicator);
 

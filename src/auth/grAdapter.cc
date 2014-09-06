@@ -33,6 +33,9 @@ namespace veil
 {
 namespace client
 {
+
+static constexpr const char *OPENID_CLIENT_TOKENS_ENDPOINT = "/openid/client/tokens";
+
 namespace auth
 {
 
@@ -99,7 +102,7 @@ void GRAdapter::requestToken(const std::string &code, GRAdapter::Socket &socket)
 
     boost::asio::streambuf request;
     std::ostream requestStream(&request);
-    requestStream << "POST /openid/client/tokens HTTP/1.1\r\n"
+    requestStream << "POST " << OPENID_CLIENT_TOKENS_ENDPOINT << " HTTP/1.1\r\n"
                   << "Host: " << m_hostname << ":" << m_port << "\r\n"
                   << "User-Agent: veilFuse\r\n"
                   << "Connection: close\r\n"
