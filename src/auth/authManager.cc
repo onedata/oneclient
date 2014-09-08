@@ -67,9 +67,9 @@ void AuthManager::authenticateWithToken(std::string globalRegistryHostname,
                         grAdapter.exchangeCode(code));
         }
     }
-    catch(boost::system::error_code &ec)
+    catch(boost::system::system_error &e)
     {
-        throw AuthException{ec.message()};
+        throw AuthException{e.what()};
     }
 }
 
