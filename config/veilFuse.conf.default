@@ -15,8 +15,8 @@
   # in cooperation with a Global Registry.
   # When set to 'certificate', the client will authenticate itself directly
   # with a Provider using a X509 certificate.
-  # [default = token]
-    # authentication = token
+  # [default = certificate]
+    # authentication = certificate
 
   # Certificate file should be in PEM format and should contain all data
   # required to establish connection (peer cert, private key, CA stack)

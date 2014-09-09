@@ -149,7 +149,7 @@ private:
     DECL_CONFIG(fuse_group_id, std::string)
     DECL_CONFIG_DEF(global_registry_url, std::string, "onedata.org")
     DECL_CONFIG_DEF(global_registry_port, unsigned int, 8443)
-    DECL_CONFIG_DEF_DESC(authentication, std::string, "token", "authentication type to use for connection with a Provider. "
+    DECL_CONFIG_DEF_DESC(authentication, std::string, "certificate", "authentication type to use for connection with a Provider. "
                          "Accepted values are 'token' and 'certificate'.")
     DECL_CMDLINE_SWITCH_DEF(no_check_certificate, "", true, "disable remote certificate validation")
     DECL_CMDLINE_SWITCH_DEF(debug, ",d", false, "enable debug output (implies -f)")
