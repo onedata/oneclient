@@ -11,7 +11,10 @@
 
 #include "auth/tokenAuthDetails.h"
 
+#include <boost/optional.hpp>
+
 #include <memory>
+#include <string>
 
 namespace veil
 {
@@ -79,11 +82,14 @@ public:
             const unsigned int metaPoolSize) const;
 
 private:
+    std::string hashAndBase64(const std::string &token) const;
+
     std::weak_ptr<Context> m_context;
     std::string m_hostname;
     const unsigned int m_port;
     const bool m_checkCertificate;
     std::shared_ptr<communication::CertificateData> m_certificateData;
+    boost::optional<TokenAuthDetails> m_tokenAuthDetails;
 };
 
 } // namespace auth

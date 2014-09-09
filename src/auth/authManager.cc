@@ -15,6 +15,14 @@
 #include "context.h"
 #include "make_unique.h"
 
+#include <boost/archive/iterators/base64_from_binary.hpp>
+#include <boost/archive/iterators/transform_width.hpp>
+#include <openssl/sha.h>
+
+#include <array>
+#include <cassert>
+#include <unordered_map>
+
 namespace veil
 {
 namespace client
@@ -53,9 +61,9 @@ void AuthManager::authenticateWithToken(std::string globalRegistryHostname,
                     globalRegistryPort,
                     m_checkCertificate};
 
-        if(const auto details = grAdapter.retrieveToken())
+        if(auto details = grAdapter.retrieveToken())
         {
-            m_context.lock()->getConfig()->setTokenAuthDetails(details.get());
+            m_tokenAuthDetails = std::move(details);
         }
         else
         {
@@ -63,8 +71,7 @@ void AuthManager::authenticateWithToken(std::string globalRegistryHostname,
             std::string code;
             std::cin >> code;
 
-            m_context.lock()->getConfig()->setTokenAuthDetails(
-                        grAdapter.exchangeCode(code));
+            m_tokenAuthDetails = grAdapter.exchangeCode(code);
         }
     }
     catch(boost::system::system_error &e)
@@ -77,14 +84,39 @@ std::shared_ptr<communication::Communicator> AuthManager::createCommunicator(
         const unsigned int dataPoolSize,
         const unsigned int metaPoolSize) const
 {
+    std::unordered_map<std::string, std::string> authHeaders;
+
     if(m_certificateData)
         return communication::createWebsocketCommunicator(
                     dataPoolSize, metaPoolSize, m_hostname, m_port,
-                    PROVIDER_CLIENT_ENDPOINT, m_checkCertificate, m_certificateData);
+                    PROVIDER_CLIENT_ENDPOINT, m_checkCertificate,
+                    authHeaders, m_certificateData);
+
+    assert(m_tokenAuthDetails);
+    const auto &authDetails = m_tokenAuthDetails.get();
+
+    authHeaders.emplace("global-user-id", authDetails.gruid());
+    authHeaders.emplace("authentication-secret", hashAndBase64(authDetails.accessToken()));
 
     return communication::createWebsocketCommunicator(
                 dataPoolSize, metaPoolSize, m_hostname, m_port,
-                PROVIDER_CLIENT_ENDPOINT, m_checkCertificate);
+                PROVIDER_CLIENT_ENDPOINT, m_checkCertificate, authHeaders);
+}
+
+std::string AuthManager::hashAndBase64(const std::string &token) const
+{
+    std::array<unsigned char, SHA512_DIGEST_LENGTH> digest;
+
+    SHA512(reinterpret_cast<const unsigned char*>(token.c_str()),
+           token.length(), digest.data());
+
+    using base = boost::archive::iterators::base64_from_binary<
+        boost::archive::iterators::transform_width<decltype(digest)::const_iterator, 6, 8>>;
+
+    const std::string base64hash{base{digest.begin()}, base{digest.end()}};
+    const std::string padding{3 - SHA512_DIGEST_LENGTH % 3, '='};
+
+    return base64hash + padding;
 }
 
 } // namespace auth

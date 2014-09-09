@@ -30,6 +30,7 @@
 
 #include <memory>
 #include <thread>
+#include <unordered_map>
 
 void CommonTest::SetUp()
 {
@@ -88,7 +89,9 @@ void CommonIntegrationTest::SetUp()
                 options->get_alive_meta_connections_count(),
                 gsiHandler->getClusterHostname(veil::BASE_DOMAIN),
                 options->get_cluster_port(), veil::PROVIDER_CLIENT_ENDPOINT,
-                /*checkCertificate*/ false, gsiHandler->getCertData());
+                /*checkCertificate*/ false,
+                std::unordered_map<std::string, std::string>{},
+                gsiHandler->getCertData());
 
     context->setCommunicator(communicator);
 

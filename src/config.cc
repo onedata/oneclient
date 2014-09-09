@@ -20,18 +20,14 @@
 #include "options.h"
 #include "pushListener.h"
 
-#include <boost/archive/iterators/base64_from_binary.hpp>
-#include <boost/archive/iterators/transform_width.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
-#include <openssl/sha.h>
 
 #include <pwd.h>
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <array>
 #include <cassert>
 #include <fstream>
 #include <functional>
@@ -87,11 +83,6 @@ void Config::setEnv()
 bool Config::isEnvSet(const string &name)
 {
     return m_envAll.find(name) != m_envAll.end();
-}
-
-void Config::setTokenAuthDetails(auth::TokenAuthDetails authDetails)
-{
-    m_authDetails = std::move(authDetails);
 }
 
 boost::filesystem::path Config::userDataDir() const
@@ -173,8 +164,6 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
     {
         // Build HandshakeRequest message
         reqMsg.set_hostname(hostname);
-        reqMsg.mutable_identity()->set_gruid(m_authDetails.gruid());
-        reqMsg.mutable_identity()->set_secret(hashAndBase64(m_authDetails.accessToken()));
 
         bool fuseIdFound = false;
         // Iterate over all env variables
@@ -268,8 +257,6 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
             {
                 // Build HandshakeRequest message
                 reqMsg.set_hostname(hostname);
-                reqMsg.mutable_identity()->set_gruid(m_authDetails.gruid());
-                reqMsg.mutable_identity()->set_secret(hashAndBase64(m_authDetails.accessToken()));
 
                 bool fuseIdFound = false;
                 map<string, string>::const_iterator it;
@@ -334,22 +321,6 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
         default:
             return false;
     }
-}
-
-string Config::hashAndBase64(const string &token) const
-{
-    std::array<unsigned char, SHA512_DIGEST_LENGTH> digest;
-
-    SHA512(reinterpret_cast<const unsigned char*>(token.c_str()),
-           token.length(), digest.data());
-
-    using base = boost::archive::iterators::base64_from_binary<
-        boost::archive::iterators::transform_width<decltype(digest)::const_iterator, 6, 8>>;
-
-    const std::string base64hash{base{digest.begin()}, base{digest.end()}};
-    const std::string padding{3 - SHA512_DIGEST_LENGTH % 3, '='};
-
-    return base64hash + padding;
 }
 
 } // namespace client
