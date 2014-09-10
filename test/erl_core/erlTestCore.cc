@@ -44,9 +44,9 @@ std::string erlExec(const std::string &arg)
 }
 
 VeilFSMount::VeilFSMount(const std::string &path, const std::string &cert,
-                         const std::string &opts)
+                         const std::string &opts, const std::string &args)
 {
-    if(mount(path, cert, opts))
+    if(mount(path, cert, opts, args))
         throw std::string{"Cannot mount VFS"};
 }
 
@@ -61,15 +61,15 @@ std::string VeilFSMount::getRoot()
 }
 
 int VeilFSMount::mount(const std::string &path, const std::string &cert,
-                       const std::string &opts)
+                       const std::string &opts, const std::string &args)
 {
     m_mountPoint = MOUNT_POINT(path);
     umount(true);
     if(!boost::filesystem::create_directories(m_mountPoint))
         return -1;
 
-    return ::system(("PEER_CERTIFICATE_FILE='" + COMMON_FILE(cert) +"' ENABLE_ATTR_CACHE='false' " +
-                     opts + " veilFuse " + m_mountPoint).c_str());
+    return ::system(("PEER_CERTIFICATE_FILE='" + COMMON_FILE(cert) + "' ENABLE_ATTR_CACHE='false' " + 
+                     opts + " veilFuse " + args + " " + m_mountPoint).c_str());
 }
 
 int VeilFSMount::umount(const bool silent)

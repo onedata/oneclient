@@ -174,6 +174,10 @@ void StorageMapper::resetHelperOverride(const std::string &filePath)
     m_fileHelperOverride.erase(filePath);
 }
 
+void StorageMapper::clearMappings(const string &logicalName)
+{
+    m_fileMapping.erase(logicalName);
+}
 
 bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg3)
 {
