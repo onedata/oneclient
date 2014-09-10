@@ -118,6 +118,8 @@ public:
      */
     virtual void resetHelperOverride(const std::string &filePath);
 
+    virtual void clearMappings(const std::string &logicalName);             ///< Clears location cache for the file.
+
     virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 private:

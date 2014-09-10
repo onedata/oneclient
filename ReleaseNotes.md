@@ -1,3 +1,24 @@
+VeilClient 1.6
+===========
+
+VeilClient 1.6 is a part of VeilFS 1.6. This is mainly a bug-fix release. See further details below.
+
+Fixed Bugs
+-----
+
+* RPATH fixed
+* Invalid use of location cache fixed
+
+VeilClient 1.5
+===========
+
+VeilClient 1.5 is a part of VeilFS 1.5. This is mainly a bug-fix release. See further details below. VeilFS 1.5 updates only VeilClient and VeilCluster so it links version 1.0 of other modules.
+
+Fixed Bugs
+-----
+
+* Using default settings, VeilClient will not connect to VeilCluster that uses untrusted certificate.
+
 VeilClient 1.0
 ===========
 
