@@ -153,9 +153,9 @@ bool FslogicProxy::getFileChildren(const string &dirLogicName, uint32_t children
         return false;
     }
 
-    for(int i = 0; i < children.child_logic_name_size(); ++i)
+    for(int i = 0; i < children.entry_size(); ++i)
     {
-        childrenNames.push_back(children.child_logic_name(i));
+        childrenNames.push_back(children.entry(i).name());
     }
 
     return true;
