@@ -44,7 +44,8 @@ class VeilFSMount
 public:
     VeilFSMount() = default;
     VeilFSMount(const std::string &path, const std::string &cert,
-                const std::string &opts = "");
+                const std::string &opts = "",
+                const std::string &args = "--no-check-certificate");
     ~VeilFSMount();
 
     std::string getRoot();
@@ -53,7 +54,7 @@ private:
     std::string m_mountPoint;
 
     int mount(const std::string &path, const std::string &cert,
-              const std::string &opts);
+              const std::string &opts, const std::string &args);
 
     int umount(const bool silent = false);
 };
