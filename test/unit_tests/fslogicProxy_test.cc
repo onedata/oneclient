@@ -101,7 +101,9 @@ TEST_F(FslogicProxyTest, sendFuseReceiveAnswerOK) {
 
     Answer ans;
     FileChildren response;
-    response.add_child_logic_name("cos");
+    auto entry = response.add_entry();
+    entry->set_name("cos");
+    entry->set_type("DIR");
     ans.set_answer_status(VOK);
     ans.set_worker_answer(response.SerializeAsString());
     EXPECT_CALL(*communicator, communicateMock(_, _, _, _)).WillOnce(Return(ans));
@@ -318,8 +320,15 @@ TEST_F(FslogicProxyTest, getFileChildren) {
     EXPECT_TRUE(proxy->getFileChildren("/dir", 10, 5, childrenVect));
     EXPECT_EQ(0u, childrenVect.size());
 
-    response.add_child_logic_name("/child2");
-    response.add_child_logic_name("/child1");
+    auto entry1 = response.add_entry();
+    auto entry2 = response.add_entry();
+
+    entry1->set_name("/child2");
+    entry1->set_type("REG");
+    entry2->set_name("/child1");
+    entry2->set_type("REG");
+
+
     response.SerializeToString(ans.mutable_worker_answer());
     EXPECT_CALL(*communicator, communicateMock(_, _, _, _)).WillOnce(Return(ans));
     EXPECT_TRUE(proxy->getFileChildren("/dir", 10, 5, childrenVect));
