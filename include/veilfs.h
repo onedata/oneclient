@@ -117,7 +117,6 @@ protected:
         uint64_t    m_fh;
 
         std::shared_ptr<FslogicProxy> m_fslogic;             ///< FslogicProxy instance
-        std::shared_ptr<StorageMapper> m_storageMapper;      ///< StorageMapper instance
         std::shared_ptr<MetaCache> m_metaCache;              ///< MetaCache instance
         std::shared_ptr<LocalStorageManager> m_sManager;     ///< LocalStorageManager instance
         std::shared_ptr<helpers::StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance

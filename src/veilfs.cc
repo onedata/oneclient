@@ -389,6 +389,7 @@ int VeilFS::unlink(const char *path)
 
     if(!isLink)
     {
+        m_context->getStorageMapper()->clearMappings(path);
         GET_LOCATION_INFO(path, needsForceClusterProxy(parent(path)) || attrStatus || !m_metaCache->canUseDefaultPermissions(statbuf)); //Get file location from cluster
         RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
 
