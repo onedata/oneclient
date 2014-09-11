@@ -1,0 +1,9 @@
+BasedOnStyle:  WebKit
+AlignTrailingComments: true
+ColumnLimit:     80
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+IndentCaseLabels: true
+PenaltyReturnTypeOnItsOwnLine: 200
+PointerBindsToType: false
+Cpp11BracedListStyle: true
+Standard:        Cpp11

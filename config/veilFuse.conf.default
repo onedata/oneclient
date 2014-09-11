@@ -2,9 +2,21 @@
 # Note: Options with [Restricted] tag are only available in global config file.
 #       Those options cannot be set with env variables nor with user's config file.
 
-  # Hostname and port used to connect to VeilCluster
+  # Hostname and port used to connect to a Provider
     # cluster_hostname = veilfs.com
     # cluster_port = 5555
+
+  # Hostname and port used to connect to Global Registry
+    # global_registry_hostname = onedata.org
+    # global_registry_port = 8443
+
+  # A method for authenticating the veilFuse client with a Provider.
+  # When set to 'token', the client will use a token-based authentication scheme
+  # in cooperation with a Global Registry.
+  # When set to 'certificate', the client will authenticate itself directly
+  # with a Provider using a X509 certificate.
+  # [default = certificate]
+    # authentication = certificate
 
   # Certificate file should be in PEM format and should contain all data
   # required to establish connection (peer cert, private key, CA stack)

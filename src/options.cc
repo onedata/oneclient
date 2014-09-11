@@ -13,16 +13,14 @@
 #include "veilException.h"
 #include "veilfs.h"
 
-#include <boost/program_options.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/program_options.hpp>
 #include <boost/xpressive/xpressive.hpp>
-#include <fuse/fuse_lowlevel.h>
 
-#include <iostream>
 #include <fstream>
 #include <functional>
-#include <string>
+#include <sstream>
 #include <vector>
 #include <utility>
 
@@ -66,6 +64,9 @@ void Options::setDescriptions()
     add_enable_parallel_getattr(m_common);
     add_enable_permission_checking(m_common);
     add_enable_location_cache(m_common);
+    add_global_registry_url(m_common);
+    add_global_registry_port(m_common);
+    add_authentication(m_common);
 
     // Restricted options exclusive to global config file
     m_restricted.add_options()
@@ -84,6 +85,7 @@ void Options::setDescriptions()
             ("help,h",    "print help")
             ("version,V", "print version")
             ("config",    value<std::string>(), "path to user config file");
+    add_authentication(m_commandline);
     add_switch_debug(m_commandline);
     add_switch_debug_gsi(m_commandline);
     add_switch_no_check_certificate(m_commandline);
@@ -100,14 +102,16 @@ void Options::setDescriptions()
 }
 
 
-void Options::parseConfigs(const int argc, const char * const argv[])
+Options::Result Options::parseConfigs(const int argc, const char * const argv[])
 {
     if(argc > 0)
         argv0 = argv[0];
 
     try
     {
-        parseCommandLine(argc, argv);
+        const auto result = parseCommandLine(argc, argv);
+        if(result != Result::PARSED)
+            return result;
     }
     catch(boost::program_options::error &e)
     {
@@ -159,6 +163,7 @@ void Options::parseConfigs(const int argc, const char * const argv[])
     }
 
     notify(m_vm);
+    return Result::PARSED;
 }
 
 
@@ -174,19 +179,19 @@ static std::pair<std::string, std::string> cmdParser(const std::string &str)
     using namespace boost::xpressive;
 
     static const sregex rex =
-            sregex::compile("\\s*--([\\w\\-]+)(=(\\S+))?\\s*");
+            sregex::compile(R"(\s*--([\w\-]+)(?:=(\S+))?\s*)");
 
     smatch what;
     if(regex_match(str, what, rex))
         return std::make_pair(
             boost::algorithm::replace_all_copy(what[1].str(), "-", "_"),
-            what.size() > 2 ? what[3].str() : std::string());
+            what.size() > 1 ? what[2].str() : std::string());
 
     return std::pair<std::string, std::string>();
 }
 
 
-void Options::parseCommandLine(const int argc, const char * const argv[])
+Options::Result Options::parseCommandLine(const int argc, const char * const argv[])
 {
     positional_options_description pos;
     pos.add("mountpoint", 1);
@@ -198,24 +203,12 @@ void Options::parseCommandLine(const int argc, const char * const argv[])
             .options(all).positional(pos).extra_parser(cmdParser).run(), m_vm);
 
     if(m_vm.count("help"))
-    {
-        options_description visible("");
-        visible.add(m_commandline).add(m_fuse);
-
-        std::cout << "Usage: " << argv[0] << " [options] mountpoint" << std::endl;
-        std::cout << visible;
-        exit(EXIT_SUCCESS);
-    }
+        return Result::HELP;
 
     if(m_vm.count("version"))
-    {
-        std::cout << "VeilFuse version: " << VeilClient_VERSION_MAJOR << "." <<
-                     VeilClient_VERSION_MINOR << "." <<
-                     VeilClient_VERSION_PATCH << std::endl;
-        std::cout << "FUSE library version: " << FUSE_MAJOR_VERSION << "." <<
-                     FUSE_MINOR_VERSION << std::endl;
-        exit(EXIT_SUCCESS);
-    }
+        return Result::VERSION;
+
+    return Result::PARSED;
 }
 
 
@@ -300,6 +293,17 @@ struct fuse_args Options::getFuseArgs() const
         fuse_opt_add_arg(&args, m_vm.at("mountpoint").as<std::string>().c_str());
 
     return args;
+}
+
+std::string Options::describeCommandlineOptions() const
+{
+    options_description visible("");
+    visible.add(m_commandline).add(m_fuse);
+
+    std::stringstream ss;
+    ss << visible;
+
+    return ss.str();
 }
 
 }

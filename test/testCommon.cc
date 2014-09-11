@@ -12,7 +12,7 @@
 #include "config.h"
 #include "context.h"
 #include "erlTestCore.h"
-#include "gsiHandler.h"
+#include "auth/gsiHandler.h"
 #include "jobScheduler_mock.h"
 #include "storageMapper_mock.h"
 #include "fslogicProxy_mock.h"
@@ -30,6 +30,7 @@
 
 #include <memory>
 #include <thread>
+#include <unordered_map>
 
 void CommonTest::SetUp()
 {
@@ -77,17 +78,20 @@ void CommonIntegrationTest::SetUp()
     const char* parseArgs[] = {"veilFuseTest"};
     options->parseConfigs(1, parseArgs);
 
-    auto gsiHandler = std::make_shared<veil::client::GSIHandler>(context);
+    auto gsiHandler = std::make_shared<veil::client::auth::GSIHandler>(context);
     gsiHandler->validateProxyConfig();
 
-    const auto clusterUri = "wss://" + gsiHandler->getClusterHostname() + ":" +
+    const auto clusterUri = "wss://" + gsiHandler->getClusterHostname(veil::BASE_DOMAIN) + ":" +
             std::to_string(options->get_cluster_port()) + "/veilclient";
 
     const auto communicator = veil::communication::createWebsocketCommunicator(
                 options->get_alive_data_connections_count(),
                 options->get_alive_meta_connections_count(),
-                clusterUri, gsiHandler->getCertData(),
-                /*checkCertificate*/ false);
+                gsiHandler->getClusterHostname(veil::BASE_DOMAIN),
+                options->get_cluster_port(), veil::PROVIDER_CLIENT_ENDPOINT,
+                /*checkCertificate*/ false,
+                std::unordered_map<std::string, std::string>{},
+                gsiHandler->getCertData());
 
     context->setCommunicator(communicator);
 

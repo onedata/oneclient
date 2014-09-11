@@ -22,8 +22,6 @@ namespace boost { namespace filesystem { class path; } }
 namespace veil
 {
 
-static constexpr const char *BASE_DOMAIN = "cluster.veilfs.plgrid.pl";
-
 inline std::string CONFIRM_CERTIFICATE_PROMPT(const std::string &USERNAME)
 {
     return "Warning ! You are trying to connect using unconfirmed certificate "
@@ -35,14 +33,17 @@ namespace client
 
 class Context;
 
+namespace auth
+{
+
 class GSIHandler
 {
 public:
-    GSIHandler(std::shared_ptr<Context> context, const bool debug = false);
+    GSIHandler(std::weak_ptr<Context> context, const bool debug = false);
 
-    bool validateProxyConfig();
-    bool validateProxyCert();
-    std::string getClusterHostname();
+    void validateProxyConfig();
+    void validateProxyCert();
+    std::string getClusterHostname(const std::string &baseDomain);
     std::shared_ptr<communication::CertificateData> getCertData();
 
 private:
@@ -51,7 +52,7 @@ private:
     std::pair<std::string, std::string> getUserCertAndKey();
     const std::vector<std::pair<std::string, std::string>> &getCertSearchPath();
 
-    const std::shared_ptr<Context> m_context;
+    const std::weak_ptr<Context> m_context;
     const bool m_debug;
     std::mutex m_certCallbackMutex;
     std::string m_userDN;
@@ -62,6 +63,7 @@ private:
     std::string m_userKeyPath;
 };
 
+} // namespace auth
 } // namespace client
 } // namespace veil
 

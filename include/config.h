@@ -26,6 +26,9 @@ namespace veil
 static constexpr const char *FUSE_OPT_PREFIX = "fuse_opt_";
 static constexpr int ATTR_DEFAULT_EXPIRATION_TIME = 60;
 
+static constexpr const char *BASE_DOMAIN = "cluster.veilfs.plgrid.pl";
+static constexpr const char *PROVIDER_CLIENT_ENDPOINT = "/veilclient";
+
 namespace client
 {
 
@@ -66,7 +69,6 @@ public:
     virtual void testHandshake();                                ///< Synchronously negotiate FuseID to test if everything is ok
     virtual void testHandshake(std::string usernameToConfirm, bool confirm);    ///< Synchronously negotiate FuseID to test if everything is ok. Also, confirms/rejects certificate registration for specified username
 
-
     std::string absPathRelToCWD(const boost::filesystem::path&); ///< Converts relative path, to absolute using CWD env as base prefix.
     void setMountPoint(boost::filesystem::path);                 ///< Sets mount point path
     boost::filesystem::path getMountPoint();                     ///< Gets mount point path
@@ -75,6 +77,11 @@ public:
     void setEnv();                                               ///< Saves current CWD and HOME env viariables. This is required as FUSE changes them after non-debug start. This is also done automatically in Config::Config
     void putEnv(std::string name, std::string value);
     bool isEnvSet(const std::string&);                           ///< Checks whether env variable is set.
+
+    /**
+     * @return Directory path under which veilFuse can store user data files.
+     */
+    boost::filesystem::path userDataDir() const;
 
     Config(std::weak_ptr<Context> context);
     virtual ~Config();

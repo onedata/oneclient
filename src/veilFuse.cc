@@ -14,6 +14,9 @@
 #define _XOPEN_SOURCE 700
 #endif
 
+#include "auth/authException.h"
+#include "auth/authManager.h"
+#include "auth/gsiHandler.h"
 #include "certUnconfirmedException.h"
 #include "communication/communicator.h"
 #include "communication/communicationHandler.h"
@@ -23,7 +26,6 @@
 #include "context.h"
 #include "events/eventCommunicator.h"
 #include "fslogicProxy.h"
-#include "gsiHandler.h"
 #include "helpers/storageHelperFactory.h"
 #include "ISchedulable.h"
 #include "jobScheduler.h"
@@ -33,6 +35,7 @@
 #include "metaCache.h"
 #include "options.h"
 #include "pushListener.h"
+#include "scopeExit.h"
 #include "storageMapper.h"
 #include "veilConfig.h"
 #include "veilException.h"
@@ -247,7 +250,7 @@ static std::string getVersionString()
         << VeilClient_VERSION_PATCH;
     return ss.str();
 }
-
+#include <regex>
 int main(int argc, char* argv[], char* envp[])
 {
     // Turn off logging for a while
@@ -274,14 +277,28 @@ int main(int argc, char* argv[], char* envp[])
     context->setOptions(options);
     try
     {
-        // On --version (-V), --help (-h) prints and exits with success
-        options->parseConfigs(argc, argv);
+        const auto result = options->parseConfigs(argc, argv);
+        if(result == Options::Result::HELP)
+        {
+            std::cout << "Usage: " << argv[0] << " [options] mountpoint" << std::endl;
+            std::cout << options->describeCommandlineOptions() << std::endl;
+            return EXIT_SUCCESS;
+        }
+        if(result == Options::Result::VERSION)
+        {
+            std::cout << "VeilFuse version: " << VeilClient_VERSION_MAJOR << "." <<
+                         VeilClient_VERSION_MINOR << "." <<
+                         VeilClient_VERSION_PATCH << std::endl;
+            std::cout << "FUSE library version: " << FUSE_MAJOR_VERSION << "." <<
+                         FUSE_MINOR_VERSION << std::endl;
+            return EXIT_SUCCESS;
+        }
     }
     catch(VeilException &e)
     {
         std::cerr << "Cannot parse configuration: " << e.what() <<
                      ". Check logs for more details. Aborting" << std::endl;
-        exit(EXIT_FAILURE);
+        return EXIT_FAILURE;
     }
 
     bool debug = options->get_debug();
@@ -299,7 +316,8 @@ int main(int argc, char* argv[], char* envp[])
     boost::filesystem::path log_path;
     boost::system::error_code ec;
 
-    if(options->is_default_log_dir()) {
+    if(options->is_default_log_dir())
+    {
         using namespace boost::filesystem;
 
         uid_t uid = geteuid();
@@ -318,10 +336,11 @@ int main(int argc, char* argv[], char* envp[])
             cerr << "Error: Cannot create log directory: " << log_path.normalize().string() << ". Aborting.";
         }
 
-    } else {
+    }
+    else
+    {
         log_path = boost::filesystem::path(config->absPathRelToCWD(options->get_log_dir()));
     }
-
 
 
     FLAGS_log_dir = log_path.normalize().string();
@@ -363,7 +382,9 @@ int main(int argc, char* argv[], char* envp[])
     struct fuse_args args = options->getFuseArgs();
     res = fuse_parse_cmdline(&args, &mountpoint, &multithreaded, &foreground);
     if (res == -1)
-        exit(1);
+        return EXIT_FAILURE;
+
+    ScopeExit freeMountpoint{[&]{ free(mountpoint); }};
 
     // Set mount point in global config
     if(mountpoint) {
@@ -371,42 +392,59 @@ int main(int argc, char* argv[], char* envp[])
         LOG(INFO) << "Using mount point path: " << config->getMountPoint().string();
     }
 
-    auto gsiHandler = std::make_shared<GSIHandler>(context, options->get_debug_gsi());
+    auth::AuthManager authManager{
+        context,
+        options->has_cluster_hostname() ? options->get_cluster_hostname() : BASE_DOMAIN,
+        options->get_cluster_port(),
+        checkCertificate};
 
-    // Check proxy certificate
-    if(!gsiHandler->validateProxyConfig())
+    try
     {
+        if(options->get_authentication() == "certificate")
+        {
+            authManager.authenticateWithCertificate(options->get_debug_gsi());
+        }
+        else if(options->get_authentication() == "token")
+        {
+            authManager.authenticateWithToken(
+                        options->get_global_registry_url(),
+                        options->get_global_registry_port());
+        }
+        else
+        {
+            throw auth::AuthException{"unknown authentication type: " +
+                                options->get_authentication()};
+        }
+    }
+    catch(auth::AuthException &e)
+    {
+        std::cerr << "Authentication error: " << e.what() << std::endl;
         std::cerr << "Cannot continue. Aborting" << std::endl;
-        exit(1);
+        return EXIT_FAILURE;
     }
 
     ch = fuse_mount(mountpoint, &args);
     if (!ch)
-        exit(1);
+        return EXIT_FAILURE;
+
+    ScopeExit unmountFuse{[&]{ fuse_unmount(mountpoint, ch); }};
 
     res = fcntl(fuse_chan_fd(ch), F_SETFD, FD_CLOEXEC);
     if (res == -1)
         perror("WARNING: failed to set FD_CLOEXEC on fuse device");
 
     fuse = fuse_new(ch, &args, &vfs_oper, sizeof(struct fuse_operations), NULL);
-    if (fuse == NULL) {
-        fuse_unmount(mountpoint, ch);
-        exit(1);
-    }
+    if (fuse == NULL)
+        return EXIT_FAILURE;
+
+    ScopeExit destroyFuse{[&]{ fuse_destroy(fuse); }, unmountFuse};
 
     fuse_set_signal_handlers(fuse_get_session(fuse));
-
-    const auto certificateData = gsiHandler->getCertData();
-    const auto clusterUri = "wss://" + gsiHandler->getClusterHostname() + ":" +
-            std::to_string(options->get_cluster_port()) + "/veilclient";
+    ScopeExit removeHandlers{[&]{ fuse_remove_signal_handlers(fuse_get_session(fuse)); }};
 
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
     auto testCommunicator =
-            communication::createWebsocketCommunicator(/*dataPoolSize*/ 0,
-                                                       /*metaPoolSize*/ 1,
-                                                       clusterUri,
-                                                       certificateData,
-                                                       checkCertificate);
+            authManager.createCommunicator(/*dataPoolSize*/ 0, /*metaPoolSize*/ 1);
 
     context->setCommunicator(testCommunicator);
 
@@ -429,9 +467,8 @@ int main(int argc, char* argv[], char* envp[])
         // Exit if input stream was interrupted somehow
         if(!userAns.size())
         {
-            fuse_unmount(mountpoint, ch);
             std::cerr << std::endl << "Cannot confirm certificate. Aborting." << std::endl;
-            exit(EXIT_FAILURE);
+            return EXIT_FAILURE;
         }
 
         // Resend handshake request along with account confirmation / rejection
@@ -442,8 +479,7 @@ int main(int argc, char* argv[], char* envp[])
         cerr << "Server certificate verification failed: " << e.what() <<
                 ". Aborting" << endl;
 
-        fuse_unmount(mountpoint, ch);
-        exit(EXIT_FAILURE);
+        return EXIT_FAILURE;
     }
     catch(VeilException &exception)
     {
@@ -454,8 +490,7 @@ int main(int argc, char* argv[], char* envp[])
         else
             cerr << "Handshake error. Aborting" << endl;
 
-        fuse_unmount(mountpoint, ch);
-        exit(EXIT_FAILURE);
+        return EXIT_FAILURE;
     }
 
     //cleanup test connections
@@ -469,19 +504,13 @@ int main(int argc, char* argv[], char* envp[])
     if (res != -1)
         res = fuse_set_signal_handlers(fuse_get_session(fuse));
 
-    if (res == -1) {
-        fuse_unmount(mountpoint, ch);
-        fuse_destroy(fuse);
-        exit(1);
-    }
+    if (res == -1)
+        return EXIT_FAILURE;
 
     // Initialize VeilClient application
-    const auto communicator =
-            communication::createWebsocketCommunicator(options->get_alive_data_connections_count(),
-                                                       options->get_alive_meta_connections_count(),
-                                                       clusterUri,
-                                                       certificateData,
-                                                       checkCertificate);
+    const auto communicator = authManager.createCommunicator(
+                options->get_alive_data_connections_count(),
+                options->get_alive_meta_connections_count());
 
     context->setCommunicator(communicator);
 
@@ -518,22 +547,6 @@ int main(int argc, char* argv[], char* envp[])
     logWriter->run(context->getCommunicator());
 
     // Enter FUSE loop
-    if (multithreaded)
-        res = fuse_loop_mt(fuse);
-    else
-        res = fuse_loop(fuse);
-
-    if (res == -1)
-        res = 1;
-    else
-        res = 0;
-
-
-    // Cleanup
-    fuse_remove_signal_handlers(fuse_get_session(fuse));
-    fuse_unmount(mountpoint, ch);
-    fuse_destroy(fuse);
-    free(mountpoint);
-
-    return res;
+    res = multithreaded ? fuse_loop_mt(fuse) : fuse_loop(fuse);
+    return res == -1 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

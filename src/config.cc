@@ -24,6 +24,10 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
 
+#include <pwd.h>
+#include <sys/types.h>
+#include <unistd.h>
+
 #include <cassert>
 #include <fstream>
 #include <functional>
@@ -71,12 +75,33 @@ string Config::getFuseID()
 void Config::setEnv()
 {
     m_envCWD = boost::filesystem::current_path().string();
-    m_envHOME = string(getenv("HOME"));
+
+    const auto homeEnv = getenv("HOME");
+    m_envHOME = homeEnv ? homeEnv : getpwuid(getuid())->pw_dir;
 }
 
 bool Config::isEnvSet(const string &name)
 {
     return m_envAll.find(name) != m_envAll.end();
+}
+
+boost::filesystem::path Config::userDataDir() const
+{
+    const auto xdgEnv = m_envAll.find("XDG_DATA_HOME");
+    if(xdgEnv != m_envAll.end())
+    {
+        const boost::filesystem::path configDir =
+                boost::filesystem::path{xdgEnv->second}/"veilFuse";
+
+        boost::filesystem::create_directories(configDir);
+        return configDir;
+    }
+
+    const boost::filesystem::path configDir =
+            boost::filesystem::path{m_envHOME}/".local"/"share"/"veilFuse";
+
+    boost::filesystem::create_directories(configDir);
+    return configDir;
 }
 
 string Config::absPathRelTo(const path &relTo, path p)
