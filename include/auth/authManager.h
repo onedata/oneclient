@@ -12,9 +12,11 @@
 #include "auth/tokenAuthDetails.h"
 
 #include <boost/optional.hpp>
+#include <boost/thread/shared_mutex.hpp>
 
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 namespace veil
 {
@@ -89,7 +91,8 @@ private:
     const unsigned int m_port;
     const bool m_checkCertificate;
     std::shared_ptr<communication::CertificateData> m_certificateData;
-    boost::optional<TokenAuthDetails> m_tokenAuthDetails;
+    std::unordered_map<std::string, std::string> m_headers;
+    mutable boost::shared_mutex m_headersMutex;
 };
 
 } // namespace auth

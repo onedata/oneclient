@@ -21,6 +21,7 @@
 
 #include <array>
 #include <cassert>
+#include <functional>
 #include <unordered_map>
 
 namespace veil
@@ -61,9 +62,10 @@ void AuthManager::authenticateWithToken(std::string globalRegistryHostname,
                     globalRegistryPort,
                     m_checkCertificate};
 
+        TokenAuthDetails authDetails;
         if(auto details = grAdapter.retrieveToken())
         {
-            m_tokenAuthDetails = std::move(details);
+            authDetails = std::move(details.get());
         }
         else
         {
@@ -71,8 +73,12 @@ void AuthManager::authenticateWithToken(std::string globalRegistryHostname,
             std::string code;
             std::cin >> code;
 
-            m_tokenAuthDetails = grAdapter.exchangeCode(code);
+            authDetails = grAdapter.exchangeCode(code);
         }
+
+        boost::lock_guard<boost::shared_mutex> guard{m_headersMutex};
+        m_headers.emplace("global-user-id", authDetails.gruid());
+        m_headers.emplace("authentication-secret", hashAndBase64(authDetails.accessToken()));
     }
     catch(boost::system::system_error &e)
     {
@@ -84,23 +90,20 @@ std::shared_ptr<communication::Communicator> AuthManager::createCommunicator(
         const unsigned int dataPoolSize,
         const unsigned int metaPoolSize) const
 {
-    std::unordered_map<std::string, std::string> authHeaders;
+    std::function<const decltype(m_headers)&()> getHeadersFun = [this]{
+        boost::shared_lock<boost::shared_mutex> lock{m_headersMutex};
+        return m_headers;
+    };
 
     if(m_certificateData)
         return communication::createWebsocketCommunicator(
                     dataPoolSize, metaPoolSize, m_hostname, m_port,
                     PROVIDER_CLIENT_ENDPOINT, m_checkCertificate,
-                    authHeaders, m_certificateData);
-
-    assert(m_tokenAuthDetails);
-    const auto &authDetails = m_tokenAuthDetails.get();
-
-    authHeaders.emplace("global-user-id", authDetails.gruid());
-    authHeaders.emplace("authentication-secret", hashAndBase64(authDetails.accessToken()));
+                    getHeadersFun, m_certificateData);
 
     return communication::createWebsocketCommunicator(
                 dataPoolSize, metaPoolSize, m_hostname, m_port,
-                PROVIDER_CLIENT_ENDPOINT, m_checkCertificate, authHeaders);
+                PROVIDER_CLIENT_ENDPOINT, m_checkCertificate, getHeadersFun);
 }
 
 std::string AuthManager::hashAndBase64(const std::string &token) const
