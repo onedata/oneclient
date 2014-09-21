@@ -13,6 +13,7 @@
 #include "communication/communicator.h"
 #include "config.h"
 #include "context.h"
+#include "jobScheduler.h"
 #include "make_unique.h"
 
 #include <boost/archive/iterators/base64_from_binary.hpp>
@@ -79,6 +80,7 @@ void AuthManager::authenticateWithToken(std::string globalRegistryHostname,
         boost::lock_guard<boost::shared_mutex> guard{m_headersMutex};
         m_headers.emplace("global-user-id", authDetails.gruid());
         m_headers.emplace("authentication-secret", hashAndBase64(authDetails.accessToken()));
+
     }
     catch(boost::system::system_error &e)
     {

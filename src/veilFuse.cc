@@ -35,6 +35,7 @@
 #include "metaCache.h"
 #include "options.h"
 #include "pushListener.h"
+#include "scheduler.h"
 #include "scopeExit.h"
 #include "storageMapper.h"
 #include "veilConfig.h"
@@ -522,6 +523,10 @@ int main(int argc, char* argv[], char* envp[])
                 options->get_file_buffer_prefered_block_size()};
 
     // Start all jobSchedulers
+    const auto schedulerThreadsNo = options->get_jobscheduler_threads() > 1
+            ? options->get_jobscheduler_threads() : 1;
+    context->setScheduler(std::make_shared<Scheduler>(schedulerThreadsNo));
+
     context->addScheduler(std::make_shared<JobScheduler>());
     for(unsigned int i = 1; i < options->get_jobscheduler_threads(); ++i)
         context->addScheduler(std::make_shared<JobScheduler>());
