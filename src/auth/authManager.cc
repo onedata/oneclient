@@ -69,7 +69,7 @@ void AuthManager::authenticateWithToken(std::string globalRegistryHostname,
         }
         else
         {
-            std::cout << "Authentication Code: ";
+            std::cout << "Authorization Code: ";
             std::string code;
             std::cin >> code;
 
@@ -90,7 +90,7 @@ std::shared_ptr<communication::Communicator> AuthManager::createCommunicator(
         const unsigned int dataPoolSize,
         const unsigned int metaPoolSize) const
 {
-    std::function<const decltype(m_headers)&()> getHeadersFun = [this]{
+    std::function<decltype(m_headers)()> getHeadersFun = [this]{
         boost::shared_lock<boost::shared_mutex> lock{m_headersMutex};
         return m_headers;
     };
