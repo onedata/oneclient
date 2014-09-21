@@ -13,8 +13,8 @@
 #include "communication/communicator.h"
 #include "config.h"
 #include "context.h"
-#include "jobScheduler.h"
 #include "make_unique.h"
+#include "scheduler.h"
 
 #include <boost/archive/iterators/base64_from_binary.hpp>
 #include <boost/archive/iterators/transform_width.hpp>
@@ -58,15 +58,15 @@ void AuthManager::authenticateWithToken(std::string globalRegistryHostname,
 {
     try
     {
-        GRAdapter grAdapter{m_context,
+        GRAdapter grAdapter{
+                    m_context,
                     std::move(globalRegistryHostname),
                     globalRegistryPort,
                     m_checkCertificate};
 
-        TokenAuthDetails authDetails;
         if(auto details = grAdapter.retrieveToken())
         {
-            authDetails = std::move(details.get());
+            m_authDetails = std::move(details.get());
         }
         else
         {
@@ -74,13 +74,14 @@ void AuthManager::authenticateWithToken(std::string globalRegistryHostname,
             std::string code;
             std::cin >> code;
 
-            authDetails = grAdapter.exchangeCode(code);
+            m_authDetails = grAdapter.exchangeCode(code);
         }
 
         boost::lock_guard<boost::shared_mutex> guard{m_headersMutex};
-        m_headers.emplace("global-user-id", authDetails.gruid());
-        m_headers.emplace("authentication-secret", hashAndBase64(authDetails.accessToken()));
+        m_headers.emplace("global-user-id", m_authDetails.get().gruid());
+        m_headers.emplace("authentication-secret", hashAndBase64(m_authDetails.get().accessToken()));
 
+        m_grAdapter = std::move(grAdapter);
     }
     catch(boost::system::system_error &e)
     {
@@ -90,7 +91,7 @@ void AuthManager::authenticateWithToken(std::string globalRegistryHostname,
 
 std::shared_ptr<communication::Communicator> AuthManager::createCommunicator(
         const unsigned int dataPoolSize,
-        const unsigned int metaPoolSize) const
+        const unsigned int metaPoolSize)
 {
     std::function<decltype(m_headers)()> getHeadersFun = [this]{
         boost::shared_lock<boost::shared_mutex> lock{m_headersMutex};
@@ -103,9 +104,41 @@ std::shared_ptr<communication::Communicator> AuthManager::createCommunicator(
                     PROVIDER_CLIENT_ENDPOINT, m_checkCertificate,
                     getHeadersFun, m_certificateData);
 
-    return communication::createWebsocketCommunicator(
+
+
+    auto communicator = communication::createWebsocketCommunicator(
                 dataPoolSize, metaPoolSize, m_hostname, m_port,
                 PROVIDER_CLIENT_ENDPOINT, m_checkCertificate, getHeadersFun);
+
+    scheduleRefresh(communicator);
+    return communicator;
+}
+
+void AuthManager::scheduleRefresh(std::weak_ptr<communication::Communicator> communicator)
+{
+    const auto refreshIn = std::chrono::duration_cast<std::chrono::milliseconds>(
+                m_authDetails.get().expirationTime() -
+                std::chrono::system_clock::now()) * 4 / 5;
+
+    m_context.lock()->scheduler()->schedule(
+                refreshIn,
+                std::bind(&AuthManager::refresh, this, communicator));
+}
+
+void AuthManager::refresh(std::weak_ptr<communication::Communicator> communicator)
+{
+    auto c = communicator.lock();
+    if(!c)
+        return;
+
+    m_authDetails = m_grAdapter.get().refreshAccess(m_authDetails.get());
+    scheduleRefresh(communicator);
+
+    boost::lock_guard<boost::shared_mutex> guard{m_headersMutex};
+    m_headers.emplace("global-user-id", m_authDetails.get().gruid());
+    m_headers.emplace("authentication-secret", hashAndBase64(m_authDetails.get().accessToken()));
+
+    c->recreate();
 }
 
 std::string AuthManager::hashAndBase64(const std::string &token) const

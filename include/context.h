@@ -53,7 +53,7 @@ public:
     std::shared_ptr<StorageMapper> getStorageMapper() const;
     void setStorageMapper(std::shared_ptr<StorageMapper>);
 
-    std::shared_ptr<Scheduler> getScheduler() const;
+    std::shared_ptr<Scheduler> scheduler() const;
     void setScheduler(std::shared_ptr<Scheduler> scheduler);
 
 private:

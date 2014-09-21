@@ -72,7 +72,7 @@ boost::optional<TokenAuthDetails> GRAdapter::retrieveToken() const
         return {};
     }
 
-    if(auth.expirationTime() < std::chrono::system_clock::now())
+    if(auth.expirationTime() < std::chrono::system_clock::now() + std::chrono::minutes{1})
     {
         LOG(INFO) << "Saved Access Token expired. Refreshing";
         try

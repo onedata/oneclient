@@ -9,6 +9,7 @@
 #define VEILCLIENT_AUTH_MANAGER_H
 
 
+#include "auth/grAdapter.h"
 #include "auth/tokenAuthDetails.h"
 
 #include <boost/optional.hpp>
@@ -81,9 +82,11 @@ public:
      */
     std::shared_ptr<communication::Communicator> createCommunicator(
             const unsigned int dataPoolSize,
-            const unsigned int metaPoolSize) const;
+            const unsigned int metaPoolSize);
 
 private:
+    void scheduleRefresh(std::weak_ptr<communication::Communicator> communicator);
+    void refresh(std::weak_ptr<communication::Communicator> communicator);
     std::string hashAndBase64(const std::string &token) const;
 
     std::weak_ptr<Context> m_context;
@@ -91,6 +94,8 @@ private:
     const unsigned int m_port;
     const bool m_checkCertificate;
     std::shared_ptr<communication::CertificateData> m_certificateData;
+    boost::optional<TokenAuthDetails> m_authDetails;
+    boost::optional<GRAdapter> m_grAdapter;
     std::unordered_map<std::string, std::string> m_headers;
     mutable boost::shared_mutex m_headersMutex;
 };

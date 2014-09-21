@@ -103,7 +103,7 @@ void Context::setStorageMapper(std::shared_ptr<StorageMapper> storageMapper)
     m_storageMapper = std::move(storageMapper);
 }
 
-std::shared_ptr<Scheduler> Context::getScheduler() const
+std::shared_ptr<Scheduler> Context::scheduler() const
 {
     boost::shared_lock<boost::shared_mutex> lock{m_schedulerMutex};
     return m_scheduler;

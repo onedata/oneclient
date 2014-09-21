@@ -81,9 +81,9 @@ private:
     boost::filesystem::path tokenFilePath() const;
 
     std::weak_ptr<Context> m_context;
-    const std::string m_hostname;
-    const unsigned int m_port;
-    const bool m_checkCertificate;
+    std::string m_hostname;
+    unsigned int m_port;
+    bool m_checkCertificate;
 };
 
 } // namespace auth
