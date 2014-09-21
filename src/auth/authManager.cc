@@ -44,7 +44,12 @@ AuthManager::AuthManager(std::weak_ptr<Context> context,
 {
 }
 
-void AuthManager::authenticateWithCertificate(const bool debugGsi)
+CertificateAuthManager::CertificateAuthManager(std::weak_ptr<Context> context,
+                                               std::string defaultHostname,
+                                               const unsigned int port,
+                                               const bool checkCertificate,
+                                               const bool debugGsi)
+    : AuthManager{context, defaultHostname, port, checkCertificate}
 {
     GSIHandler gsiHandler{m_context, debugGsi};
     gsiHandler.validateProxyConfig();
@@ -53,18 +58,32 @@ void AuthManager::authenticateWithCertificate(const bool debugGsi)
     m_hostname = gsiHandler.getClusterHostname(m_hostname);
 }
 
-void AuthManager::authenticateWithToken(std::string globalRegistryHostname,
-                                        const unsigned int globalRegistryPort)
+std::shared_ptr<communication::Communicator> CertificateAuthManager::createCommunicator(
+        const unsigned int dataPoolSize,
+        const unsigned int metaPoolSize)
+{
+    const auto getHeadersFun = []{
+        return std::unordered_map<std::string, std::string>{};
+    };
+
+    return communication::createWebsocketCommunicator(
+                dataPoolSize, metaPoolSize, m_hostname, m_port,
+                PROVIDER_CLIENT_ENDPOINT, m_checkCertificate,
+                std::move(getHeadersFun), m_certificateData);
+}
+
+TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
+                                   std::string defaultHostname,
+                                   const unsigned int port,
+                                   const bool checkCertificate,
+                                   std::string globalRegistryHostname,
+                                   const unsigned int globalRegistryPort)
+    : AuthManager{context, defaultHostname, port, checkCertificate}
+    , m_grAdapter{m_context, std::move(globalRegistryHostname), globalRegistryPort, m_checkCertificate}
 {
     try
     {
-        GRAdapter grAdapter{
-                    m_context,
-                    std::move(globalRegistryHostname),
-                    globalRegistryPort,
-                    m_checkCertificate};
-
-        if(auto details = grAdapter.retrieveToken())
+        if(auto details = m_grAdapter.retrieveToken())
         {
             m_authDetails = std::move(details.get());
         }
@@ -74,14 +93,12 @@ void AuthManager::authenticateWithToken(std::string globalRegistryHostname,
             std::string code;
             std::cin >> code;
 
-            m_authDetails = grAdapter.exchangeCode(code);
+            m_authDetails = m_grAdapter.exchangeCode(code);
         }
 
         boost::lock_guard<boost::shared_mutex> guard{m_headersMutex};
-        m_headers.emplace("global-user-id", m_authDetails.get().gruid());
-        m_headers.emplace("authentication-secret", hashAndBase64(m_authDetails.get().accessToken()));
-
-        m_grAdapter = std::move(grAdapter);
+        m_headers.emplace("global-user-id", m_authDetails.gruid());
+        m_headers.emplace("authentication-secret", hashAndBase64(m_authDetails.accessToken()));
     }
     catch(boost::system::system_error &e)
     {
@@ -89,59 +106,51 @@ void AuthManager::authenticateWithToken(std::string globalRegistryHostname,
     }
 }
 
-std::shared_ptr<communication::Communicator> AuthManager::createCommunicator(
+std::shared_ptr<communication::Communicator> TokenAuthManager::createCommunicator(
         const unsigned int dataPoolSize,
         const unsigned int metaPoolSize)
 {
-    std::function<decltype(m_headers)()> getHeadersFun = [this]{
+    auto getHeadersFun = [this]{
         boost::shared_lock<boost::shared_mutex> lock{m_headersMutex};
         return m_headers;
     };
 
-    if(m_certificateData)
-        return communication::createWebsocketCommunicator(
-                    dataPoolSize, metaPoolSize, m_hostname, m_port,
-                    PROVIDER_CLIENT_ENDPOINT, m_checkCertificate,
-                    getHeadersFun, m_certificateData);
-
-
-
     auto communicator = communication::createWebsocketCommunicator(
                 dataPoolSize, metaPoolSize, m_hostname, m_port,
-                PROVIDER_CLIENT_ENDPOINT, m_checkCertificate, getHeadersFun);
+                PROVIDER_CLIENT_ENDPOINT, m_checkCertificate,
+                std::move(getHeadersFun));
 
     scheduleRefresh(communicator);
     return communicator;
 }
 
-void AuthManager::scheduleRefresh(std::weak_ptr<communication::Communicator> communicator)
+
+void TokenAuthManager::scheduleRefresh(std::weak_ptr<communication::Communicator> communicator)
 {
     const auto refreshIn = std::chrono::duration_cast<std::chrono::milliseconds>(
-                m_authDetails.get().expirationTime() -
-                std::chrono::system_clock::now()) * 4 / 5;
+                m_authDetails.expirationTime() - std::chrono::system_clock::now()) * 4 / 5;
 
     m_context.lock()->scheduler()->schedule(
-                refreshIn,
-                std::bind(&AuthManager::refresh, this, communicator));
+                refreshIn, std::bind(&TokenAuthManager::refresh, this, communicator));
 }
 
-void AuthManager::refresh(std::weak_ptr<communication::Communicator> communicator)
+void TokenAuthManager::refresh(std::weak_ptr<communication::Communicator> communicator)
 {
     auto c = communicator.lock();
     if(!c)
         return;
 
-    m_authDetails = m_grAdapter.get().refreshAccess(m_authDetails.get());
+    m_authDetails = m_grAdapter.refreshAccess(m_authDetails);
     scheduleRefresh(communicator);
 
     boost::lock_guard<boost::shared_mutex> guard{m_headersMutex};
-    m_headers.emplace("global-user-id", m_authDetails.get().gruid());
-    m_headers.emplace("authentication-secret", hashAndBase64(m_authDetails.get().accessToken()));
+    m_headers.emplace("global-user-id", m_authDetails.gruid());
+    m_headers.emplace("authentication-secret", hashAndBase64(m_authDetails.accessToken()));
 
     c->recreate();
 }
 
-std::string AuthManager::hashAndBase64(const std::string &token) const
+std::string TokenAuthManager::hashAndBase64(const std::string &token) const
 {
     std::array<unsigned char, SHA512_DIGEST_LENGTH> digest;
 
@@ -156,6 +165,7 @@ std::string AuthManager::hashAndBase64(const std::string &token) const
 
     return base64hash + padding;
 }
+
 
 } // namespace auth
 } // namespace client

@@ -57,22 +57,6 @@ public:
                 const unsigned int port, const bool checkCertificate);
 
     /**
-     * Sets up the object for certificate-based authentication.
-     * @param debugGsi Determines whether to enable more detailed (debug) logs.
-     */
-    void authenticateWithCertificate(const bool debugGsi);
-
-    /**
-     * Sets up the object for token-based authentication.
-     * @param globalRegistryHostname A hostname of Global Registry to be used
-     * for token-based authentication.
-     * @param globalRegistryPort A port of GlobalRegistry to be used for
-     * token-based authentication
-     */
-    void authenticateWithToken(std::string globalRegistryHostname,
-                               const unsigned int globalRegistryPort);
-
-    /**
      * Creates a @c veil::communication::Communicator object set up with proper
      * authentication settings.
      * @see veil::communication::createCommunicator
@@ -80,22 +64,74 @@ public:
      * @param metaPoolSize The size of meta pool to be created.
      * @return A new instance of @c Communicator .
      */
+    virtual std::shared_ptr<communication::Communicator> createCommunicator(
+            const unsigned int dataPoolSize,
+            const unsigned int metaPoolSize) = 0;
+
+protected:
+    std::weak_ptr<Context> m_context;
+    std::string m_hostname;
+    const unsigned int m_port;
+    const bool m_checkCertificate;
+};
+
+/**
+ * The CertificateAuthManager class is responsible for setting up user
+ * authentication using X509 certificates.
+ */
+class CertificateAuthManager: public AuthManager
+{
+public:
+    /**
+     * @copydoc AuthManager::AuthManager()
+     * @param debugGsi Determines whether to enable more detailed (debug) logs.
+     */
+    CertificateAuthManager(std::weak_ptr<Context> context,
+                           std::string defaultHostname,
+                           const unsigned int port,
+                           const bool checkCertificate,
+                           const bool debugGsi);
+
     std::shared_ptr<communication::Communicator> createCommunicator(
             const unsigned int dataPoolSize,
-            const unsigned int metaPoolSize);
+            const unsigned int metaPoolSize) override;
+
+private:
+    std::shared_ptr<communication::CertificateData> m_certificateData;
+};
+
+/**
+ * The TokenAuthManager class is responsible for setting up user authentication
+ * using an OpenID token-based scheme.
+ */
+class TokenAuthManager: public AuthManager
+{
+public:
+    /**
+     * @copydoc AuthManager::AuthManager()
+     * @param globalRegistryHostname A hostname of Global Registry to be used
+     * for token-based authentication.
+     * @param globalRegistryPort A port of GlobalRegistry to be used for
+     * token-based authentication
+     */
+    TokenAuthManager(std::weak_ptr<Context> context,
+                     std::string defaultHostname,
+                     const unsigned int port,
+                     const bool checkCertificate,
+                     std::string globalRegistryHostname,
+                     const unsigned int globalRegistryPort);
+
+    std::shared_ptr<communication::Communicator> createCommunicator(
+            const unsigned int dataPoolSize,
+            const unsigned int metaPoolSize) override;
 
 private:
     void scheduleRefresh(std::weak_ptr<communication::Communicator> communicator);
     void refresh(std::weak_ptr<communication::Communicator> communicator);
     std::string hashAndBase64(const std::string &token) const;
 
-    std::weak_ptr<Context> m_context;
-    std::string m_hostname;
-    const unsigned int m_port;
-    const bool m_checkCertificate;
-    std::shared_ptr<communication::CertificateData> m_certificateData;
-    boost::optional<TokenAuthDetails> m_authDetails;
-    boost::optional<GRAdapter> m_grAdapter;
+    TokenAuthDetails m_authDetails;
+    GRAdapter m_grAdapter;
     std::unordered_map<std::string, std::string> m_headers;
     mutable boost::shared_mutex m_headersMutex;
 };

@@ -393,21 +393,29 @@ int main(int argc, char* argv[], char* envp[])
         LOG(INFO) << "Using mount point path: " << config->getMountPoint().string();
     }
 
-    auth::AuthManager authManager{
-        context,
-        options->has_cluster_hostname() ? options->get_cluster_hostname() : BASE_DOMAIN,
-        options->get_cluster_port(),
-        checkCertificate};
+    const auto schedulerThreadsNo = options->get_jobscheduler_threads() > 1
+            ? options->get_jobscheduler_threads() : 1;
+    context->setScheduler(std::make_shared<Scheduler>(schedulerThreadsNo));
 
+    std::unique_ptr<auth::AuthManager> authManager;
     try
     {
         if(options->get_authentication() == "certificate")
         {
-            authManager.authenticateWithCertificate(options->get_debug_gsi());
+            authManager = std::make_unique<auth::CertificateAuthManager>(
+                        context,
+                        options->has_cluster_hostname() ? options->get_cluster_hostname() : BASE_DOMAIN,
+                        options->get_cluster_port(),
+                        checkCertificate,
+                        options->get_debug_gsi());
         }
         else if(options->get_authentication() == "token")
         {
-            authManager.authenticateWithToken(
+            authManager = std::make_unique<auth::TokenAuthManager>(
+                        context,
+                        options->has_cluster_hostname() ? options->get_cluster_hostname() : BASE_DOMAIN,
+                        options->get_cluster_port(),
+                        checkCertificate,
                         options->get_global_registry_url(),
                         options->get_global_registry_port());
         }
@@ -445,7 +453,7 @@ int main(int argc, char* argv[], char* envp[])
 
     // Initialize cluster handshake in order to check if everything is ok before becoming daemon
     auto testCommunicator =
-            authManager.createCommunicator(/*dataPoolSize*/ 0, /*metaPoolSize*/ 1);
+            authManager->createCommunicator(/*dataPoolSize*/ 0, /*metaPoolSize*/ 1);
 
     context->setCommunicator(testCommunicator);
 
@@ -509,7 +517,7 @@ int main(int argc, char* argv[], char* envp[])
         return EXIT_FAILURE;
 
     // Initialize VeilClient application
-    const auto communicator = authManager.createCommunicator(
+    const auto communicator = authManager->createCommunicator(
                 options->get_alive_data_connections_count(),
                 options->get_alive_meta_connections_count());
 
@@ -523,10 +531,6 @@ int main(int argc, char* argv[], char* envp[])
                 options->get_file_buffer_prefered_block_size()};
 
     // Start all jobSchedulers
-    const auto schedulerThreadsNo = options->get_jobscheduler_threads() > 1
-            ? options->get_jobscheduler_threads() : 1;
-    context->setScheduler(std::make_shared<Scheduler>(schedulerThreadsNo));
-
     context->addScheduler(std::make_shared<JobScheduler>());
     for(unsigned int i = 1; i < options->get_jobscheduler_threads(); ++i)
         context->addScheduler(std::make_shared<JobScheduler>());
