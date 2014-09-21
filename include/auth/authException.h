@@ -28,6 +28,16 @@ public:
     using std::runtime_error::runtime_error;
 };
 
+/**
+ * The BadAccess class is responsible for representing an authentication error
+ * due to bad client credentials.
+ */
+class BadAccess: public AuthException
+{
+public:
+    using AuthException::AuthException;
+};
+
 } // namespace auth
 } // namespace client
 } // namespace veil

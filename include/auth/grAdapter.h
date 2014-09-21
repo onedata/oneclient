@@ -64,9 +64,18 @@ public:
      */
     TokenAuthDetails exchangeCode(const std::string &code) const;
 
+    /**
+     * Refreshes a previously retrieved access.
+     * @param detail The details of previously retrieved access.
+     * @return Updated access details.
+     */
+    TokenAuthDetails refreshAccess(const TokenAuthDetails &details) const;
+
 private:
+    TokenAuthDetails communicate(const std::string &content) const;
     std::unique_ptr<Socket> connect(boost::asio::io_service &ioService) const;
-    void requestToken(const std::string &code, Socket &socket) const;
+    void requestToken(const std::string &content, Socket &socket) const;
+
     std::string getResponse(Socket &socket) const;
     TokenAuthDetails parseToken(const std::string &response) const;
     boost::filesystem::path tokenFilePath() const;
