@@ -164,14 +164,6 @@ std::string GRAdapter::getResponse(GRAdapter::Socket &socket) const
     if(!responseStream || !boost::algorithm::starts_with(httpVersion, "HTTP/"))
         throw AuthException{"malformed response headers"};
 
-    if(statusCode >= 400 && statusCode <= 499)
-        throw BadAccess{"invalid data used to access Global Registry. "
-                        "Status: " + std::to_string(statusCode)};
-
-    if(statusCode != 200)
-        throw AuthException{"Global Registry responded with non-ok code " +
-                            std::to_string(statusCode)};
-
     const auto headersSize = boost::asio::read_until(socket, response, "\r\n\r\n");
     response.consume(headersSize);
 
@@ -181,7 +173,19 @@ std::string GRAdapter::getResponse(GRAdapter::Socket &socket) const
         throw AuthException{"malformed response: " + ec.message()};
 
     std::istreambuf_iterator<char> eos;
-    return {std::istreambuf_iterator<char>{responseStream}, eos};
+    std::string content{std::istreambuf_iterator<char>{responseStream}, eos};
+
+    if(statusCode >= 400 && statusCode <= 499)
+        throw BadAccess{"invalid data used to access Global Registry. "
+                        "Status: " + std::to_string(statusCode) +
+                        ". Response: '" + content + "'"};
+
+    if(statusCode != 200)
+        throw AuthException{"Global Registry responded with non-ok code " +
+                            std::to_string(statusCode) +
+                            ". Response: '" + content + "'"};
+
+    return content;
 }
 
 TokenAuthDetails GRAdapter::parseToken(const std::string &response) const
