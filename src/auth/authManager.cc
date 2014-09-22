@@ -143,9 +143,11 @@ void TokenAuthManager::refresh(std::weak_ptr<communication::Communicator> commun
     m_authDetails = m_grAdapter.refreshAccess(m_authDetails);
     scheduleRefresh(communicator);
 
-    boost::lock_guard<boost::shared_mutex> guard{m_headersMutex};
-    m_headers.emplace("global-user-id", m_authDetails.gruid());
-    m_headers.emplace("authentication-secret", hashAndBase64(m_authDetails.accessToken()));
+    {
+        boost::lock_guard<boost::shared_mutex> guard{m_headersMutex};
+        m_headers.emplace("global-user-id", m_authDetails.gruid());
+        m_headers.emplace("authentication-secret", hashAndBase64(m_authDetails.accessToken()));
+    }
 
     c->recreate();
 }
