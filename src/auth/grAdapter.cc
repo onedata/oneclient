@@ -77,7 +77,7 @@ boost::optional<TokenAuthDetails> GRAdapter::retrieveToken() const
         LOG(INFO) << "Saved Access Token expired. Refreshing";
         try
         {
-            refreshAccess(auth);
+            return refreshAccess(auth);
         }
         catch(const BadAccess &e)
         {
