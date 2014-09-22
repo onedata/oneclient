@@ -7,8 +7,6 @@
 
 #include "scheduler.h"
 
-#include "make_unique.h"
-
 #include <boost/asio.hpp>
 
 using steady_timer = boost::asio::basic_waitable_timer<std::chrono::steady_clock>;
@@ -39,6 +37,7 @@ Scheduler::Scheduler(const unsigned int threadNumber)
 
 Scheduler::~Scheduler()
 {
+    m_ioService.stop();
     for(auto &t: m_workers)
         t.join();
 }
