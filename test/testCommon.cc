@@ -21,6 +21,7 @@
 #include "fslogicProxy.h"
 #include "helpers/storageHelperFactory.h"
 #include "metaCache.h"
+#include "scheduler.h"
 #include "storageMapper.h"
 #include "localStorageManager.h"
 #include "events/eventCommunicator.h"
@@ -39,16 +40,18 @@ void CommonTest::SetUp()
     context = std::make_shared<veil::client::Context>();
     options = std::make_shared<StrictMock<MockOptions>>();
     config = std::make_shared<veil::client::Config>(context);
-    scheduler = std::make_shared<MockJobScheduler>();
+    jobScheduler = std::make_shared<MockJobScheduler>();
     communicator = std::make_shared<NiceMock<MockCommunicator>>();
     fslogic = std::make_shared<MockFslogicProxy>(context);
     storageMapper = std::make_shared<MockStorageMapper>(context, fslogic);
+    scheduler = std::make_shared<veil::Scheduler>(1);
 
     context->setOptions(options);
     context->setConfig(config);
-    context->addScheduler(scheduler);
+    context->addScheduler(jobScheduler);
     context->setCommunicator(communicator);
     context->setStorageMapper(storageMapper);
+    context->setScheduler(scheduler);
 
     EXPECT_CALL(*options, has_fuse_group_id()).WillRepeatedly(Return(true));
     EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(false));
@@ -70,10 +73,12 @@ void CommonIntegrationTest::SetUp()
     fslogic = std::make_shared<veil::client::FslogicProxy>(context);
     storageMapper = std::make_shared<veil::client::StorageMapper>(context, fslogic);
 
+
     context->setOptions(options);
     context->setConfig(config);
     context->addScheduler(std::make_shared<veil::client::JobScheduler>());
     context->setStorageMapper(storageMapper);
+    context->setScheduler(std::make_shared<veil::Scheduler>(1));
 
     const char* parseArgs[] = {"veilFuseTest"};
     options->parseConfigs(1, parseArgs);
@@ -85,12 +90,13 @@ void CommonIntegrationTest::SetUp()
             std::to_string(options->get_cluster_port()) + "/veilclient";
 
     const auto communicator = veil::communication::createWebsocketCommunicator(
+                context->scheduler(),
                 options->get_alive_data_connections_count(),
                 options->get_alive_meta_connections_count(),
                 gsiHandler->getClusterHostname(veil::BASE_DOMAIN),
                 options->get_cluster_port(), veil::PROVIDER_CLIENT_ENDPOINT,
                 /*checkCertificate*/ false,
-                std::unordered_map<std::string, std::string>{},
+                []{ return std::unordered_map<std::string, std::string>{}; },
                 gsiHandler->getCertData());
 
     context->setCommunicator(communicator);

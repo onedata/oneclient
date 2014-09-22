@@ -45,12 +45,12 @@ TEST_F(StorageMapperTest, AddAndGet) {
     location.add_storage_helper_args("arg1");
 
     EXPECT_THROW(proxy->getLocationInfo("/file1"), VeilException);
-    EXPECT_CALL(*scheduler, addTask(_)).Times(2);
+    EXPECT_CALL(*jobScheduler, addTask(_)).Times(2);
     proxy->addLocation("/file1", location);
     EXPECT_EQ(1u, proxy->getStorageMapping().size());
     EXPECT_EQ(1u, proxy->getFileMapping().size());
 
-    EXPECT_CALL(*scheduler, addTask(_)).Times(2);
+    EXPECT_CALL(*jobScheduler, addTask(_)).Times(2);
     proxy->addLocation("/file1", location);
     EXPECT_EQ(1u, proxy->getStorageMapping().size());
     EXPECT_EQ(1u, proxy->getFileMapping().size());
@@ -63,7 +63,7 @@ TEST_F(StorageMapperTest, AddAndGet) {
     location.clear_storage_helper_args();
     location.add_storage_helper_args("arg2");
     location.add_storage_helper_args("arg3");
-    EXPECT_CALL(*scheduler, addTask(_)).Times(2);
+    EXPECT_CALL(*jobScheduler, addTask(_)).Times(2);
     proxy->addLocation("/file2", location);
     EXPECT_NO_THROW(proxy->getLocationInfo("/file2"));
 
@@ -77,7 +77,7 @@ TEST_F(StorageMapperTest, AddAndGet) {
 }
 
 TEST_F(StorageMapperTest, OpenClose) {
-    EXPECT_CALL(*scheduler, addTask(_)).Times(4);
+    EXPECT_CALL(*jobScheduler, addTask(_)).Times(4);
     EXPECT_CALL(*mockFslogic, sendFileNotUsed("/file1")).WillOnce(Return(true));
     EXPECT_CALL(*mockFslogic, sendFileNotUsed("/file2")).WillOnce(Return(true));
 
@@ -126,7 +126,7 @@ TEST_F(StorageMapperTest, FindAndGet) {
     location.set_answer(VOK);
     location.set_validity(20);
     time_t currentTime = time(NULL);
-    EXPECT_CALL(*scheduler, addTask(_)).Times(2);
+    EXPECT_CALL(*jobScheduler, addTask(_)).Times(2);
     EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
     EXPECT_EQ(VOK, proxy->findLocation("/file1"));
 
@@ -138,7 +138,7 @@ TEST_F(StorageMapperTest, FindAndGet) {
     EXPECT_CALL(*mockFslogic, getFileLocation("/file2", _, _, _)).WillOnce(Return(false));
     EXPECT_THROW(proxy->getLocationInfo("/file2", true), VeilException);
 
-    EXPECT_CALL(*scheduler, addTask(_)).Times(2);
+    EXPECT_CALL(*jobScheduler, addTask(_)).Times(2);
     EXPECT_CALL(*mockFslogic, getFileLocation("/file2", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
     EXPECT_NO_THROW(proxy->getLocationInfo("/file2", true));
 }

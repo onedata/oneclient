@@ -22,6 +22,8 @@ namespace veil
 
 namespace communication{ class Communicator; }
 
+class Scheduler;
+
 namespace client
 {
 
@@ -29,7 +31,6 @@ class Options;
 class Config;
 class JobScheduler;
 class PushListener;
-class Scheduler;
 class StorageMapper;
 
 class Context

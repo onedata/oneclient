@@ -67,6 +67,7 @@ std::shared_ptr<communication::Communicator> CertificateAuthManager::createCommu
     };
 
     return communication::createWebsocketCommunicator(
+                m_context.lock()->scheduler(),
                 dataPoolSize, metaPoolSize, m_hostname, m_port,
                 PROVIDER_CLIENT_ENDPOINT, m_checkCertificate,
                 std::move(getHeadersFun), m_certificateData);
@@ -116,6 +117,7 @@ std::shared_ptr<communication::Communicator> TokenAuthManager::createCommunicato
     };
 
     auto communicator = communication::createWebsocketCommunicator(
+                m_context.lock()->scheduler(),
                 dataPoolSize, metaPoolSize, m_hostname, m_port,
                 PROVIDER_CLIENT_ENDPOINT, m_checkCertificate,
                 std::move(getHeadersFun));

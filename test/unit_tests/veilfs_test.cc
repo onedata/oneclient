@@ -56,8 +56,8 @@ public:
         context->setOptions(options);
         config = std::make_shared<veil::client::Config>(context);
         context->setConfig(config);
-        scheduler = std::make_shared<MockJobScheduler>();
-        context->addScheduler(scheduler);
+        jobScheduler = std::make_shared<MockJobScheduler>();
+        context->addScheduler(jobScheduler);
         communicator = std::make_shared<MockCommunicator>();
         context->setCommunicator(communicator);
         fslogicMock = std::make_shared<MockFslogicProxy>(context);
@@ -120,7 +120,7 @@ public:
         fileInfo.fh = 0;
         client->setCachedHelper(0, helperMock);
 
-        EXPECT_CALL(*scheduler, addTask(_)).WillRepeatedly(Return());
+        EXPECT_CALL(*jobScheduler, addTask(_)).WillRepeatedly(Return());
     }
 
     void TearDown() override
@@ -130,7 +130,7 @@ public:
 };
 
 TEST_F(VeilFSTest, Instantiate) {
-    EXPECT_EQ(scheduler.get(), context->getScheduler().get());
+    EXPECT_EQ(jobScheduler.get(), context->getScheduler().get());
     EXPECT_TRUE(context->getPushListener().get());
 }
 
@@ -176,7 +176,7 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
 
     EXPECT_CALL(*options, get_enable_dir_prefetch()).WillOnce(Return(true));
     EXPECT_CALL(*options, get_enable_attr_cache()).WillOnce(Return(true));
-    EXPECT_CALL(*scheduler, addTask(_)).WillOnce(Return());
+    EXPECT_CALL(*jobScheduler, addTask(_)).WillOnce(Return());
 
     trueAttr.set_type("DIR");
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
@@ -207,7 +207,7 @@ TEST_F(VeilFSTest, getattr) { // const char *path, struct stat *statbuf
     EXPECT_EQ(static_cast<mode_t>(trueAttr.mode()) | S_IFLNK, statbuf.st_mode);
 
     trueAttr.set_type("REG");
-    EXPECT_CALL(*scheduler, addTask(_)).WillOnce(Return());
+    EXPECT_CALL(*jobScheduler, addTask(_)).WillOnce(Return());
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillOnce(DoAll(SetArgReferee<1>(trueAttr), Return(true)));
     EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, std::cref(statbuf), _1))));
@@ -474,7 +474,7 @@ TEST_F(VeilFSTest, truncate) { // const char *path, off_t newSize
 TEST_F(VeilFSTest, utime) { // const char *path, struct utimbuf *ubuf
     struct utimbuf ubuf;
 
-    EXPECT_CALL(*scheduler, addTask(_)).WillOnce(Return());
+    EXPECT_CALL(*jobScheduler, addTask(_)).WillOnce(Return());
 
     EXPECT_EQ(0, client->utime("/path", &ubuf));
 }
@@ -610,7 +610,7 @@ TEST_F(VeilFSTest, removexattr) { // const char *path, const char *name
 }
 
 TEST_F(VeilFSTest, opendir) { // const char *path, struct fuse_file_info *fileInfo
-    EXPECT_CALL(*scheduler, addTask(_)).WillOnce(Return());
+    EXPECT_CALL(*jobScheduler, addTask(_)).WillOnce(Return());
     EXPECT_EQ(0, client->opendir("/path", &fileInfo));
 }
 
@@ -637,7 +637,7 @@ TEST_F(VeilFSTest, processEvent) {
     ASSERT_TRUE((bool) combinerMock);
     EventCommunicator communicator(context, combinerMock);
     EXPECT_CALL(*combinerMock, pushEventToProcess(_)).WillOnce(Return());
-    EXPECT_CALL(*scheduler, addTask(_)).WillOnce(Return());
+    EXPECT_CALL(*jobScheduler, addTask(_)).WillOnce(Return());
     std::shared_ptr<Event> event = Event::createMkdirEvent("some_file");
 
     ASSERT_TRUE((bool) event);
