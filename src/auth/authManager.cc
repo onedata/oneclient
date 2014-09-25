@@ -165,7 +165,7 @@ std::string TokenAuthManager::hashAndBase64(const std::string &token) const
         boost::archive::iterators::transform_width<decltype(digest)::const_iterator, 6, 8>>;
 
     const std::string base64hash{base{digest.begin()}, base{digest.end()}};
-    const std::string padding(3 - (SHA512_DIGEST_LENGTH % 3), '=');
+    const std::string padding((3 - (SHA512_DIGEST_LENGTH % 3)) % 3, '=');
 
     return base64hash + padding;
 }
