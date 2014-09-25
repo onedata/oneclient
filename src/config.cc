@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <array>
 #include <cassert>
 #include <fstream>
 #include <functional>
@@ -102,6 +103,23 @@ boost::filesystem::path Config::userDataDir() const
 
     boost::filesystem::create_directories(configDir);
     return configDir;
+}
+
+string Config::clientName() const
+{
+    std::array<char, 128> usernameBuf, hostnameBuf;
+
+    const std::string username{
+        getlogin_r(usernameBuf.data(), usernameBuf.size()) == 0
+                ? usernameBuf.data()
+                : "unknown"};
+
+    const std::string hostname{
+        gethostname(hostnameBuf.data(), hostnameBuf.size()) == 0
+                ? hostnameBuf.data()
+                : "unknown"};
+
+    return username+'@'+hostname;
 }
 
 string Config::absPathRelTo(const path &relTo, path p)
