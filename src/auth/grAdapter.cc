@@ -72,10 +72,18 @@ boost::optional<TokenAuthDetails> GRAdapter::retrieveToken() const
         return {};
     }
 
-    if(auth.expirationTime() < std::chrono::system_clock::now())
+    if(auth.expirationTime() < std::chrono::system_clock::now() + std::chrono::minutes{1})
     {
-        LOG(INFO) << "Saved Access Token expired.";
-        return {};
+        LOG(INFO) << "Saved Access Token expired. Refreshing";
+        try
+        {
+            return refreshAccess(auth);
+        }
+        catch(const BadAccess &e)
+        {
+            LOG(WARNING) << "Authorization error: " << e.what();
+            return {}; // Try with new credentials
+        }
     }
 
     return auth;
@@ -83,23 +91,43 @@ boost::optional<TokenAuthDetails> GRAdapter::retrieveToken() const
 
 TokenAuthDetails GRAdapter::exchangeCode(const std::string &code) const
 {
-    LOG(INFO) << "Exchanging OpenID Access Code for authorization details";
-    boost::asio::io_service ioService;
-    const auto socket = connect(ioService);
-    requestToken(code, *socket);
-    const auto response = getResponse(*socket);
-    return parseToken(response);
-}
-
-void GRAdapter::requestToken(const std::string &code, GRAdapter::Socket &socket) const
-{
     using namespace json11;
+
+    LOG(INFO) << "Exchanging OpenID Authorization Code for authorization details";
 
     const auto content = Json{Json::object{
         { "grant_type", "authorization_code" },
         { "code", code }
     }}.dump();
 
+    return communicate(content);
+}
+
+TokenAuthDetails GRAdapter::refreshAccess(const TokenAuthDetails &details) const
+{
+    using namespace json11;
+
+    LOG(INFO) << "Refreshing OpenID Access Token";
+
+    const auto content = Json{Json::object{
+        { "grant_type", "refresh_token" },
+        { "refresh_token", details.refreshToken() }
+    }}.dump();
+
+    return communicate(content);
+}
+
+TokenAuthDetails GRAdapter::communicate(const std::string &content) const
+{
+    boost::asio::io_service ioService;
+    const auto socket = connect(ioService);
+    requestToken(content, *socket);
+    const auto response = getResponse(*socket);
+    return parseToken(response);
+}
+
+void GRAdapter::requestToken(const std::string &content, GRAdapter::Socket &socket) const
+{
     boost::asio::streambuf request;
     std::ostream requestStream(&request);
     requestStream << "POST " << OPENID_CLIENT_TOKENS_ENDPOINT << " HTTP/1.1\r\n"
@@ -136,10 +164,6 @@ std::string GRAdapter::getResponse(GRAdapter::Socket &socket) const
     if(!responseStream || !boost::algorithm::starts_with(httpVersion, "HTTP/"))
         throw AuthException{"malformed response headers"};
 
-    if(statusCode != 200)
-        throw AuthException{"Global Registry responded with non-ok code " +
-                            std::to_string(statusCode)};
-
     const auto headersSize = boost::asio::read_until(socket, response, "\r\n\r\n");
     response.consume(headersSize);
 
@@ -149,7 +173,19 @@ std::string GRAdapter::getResponse(GRAdapter::Socket &socket) const
         throw AuthException{"malformed response: " + ec.message()};
 
     std::istreambuf_iterator<char> eos;
-    return {std::istreambuf_iterator<char>{responseStream}, eos};
+    std::string content{std::istreambuf_iterator<char>{responseStream}, eos};
+
+    if(statusCode >= 400 && statusCode <= 499)
+        throw BadAccess{"invalid data used to access Global Registry. "
+                        "Status: " + std::to_string(statusCode) +
+                        ". Response: '" + content + "'"};
+
+    if(statusCode != 200)
+        throw AuthException{"Global Registry responded with non-ok code " +
+                            std::to_string(statusCode) +
+                            ". Response: '" + content + "'"};
+
+    return content;
 }
 
 TokenAuthDetails GRAdapter::parseToken(const std::string &response) const

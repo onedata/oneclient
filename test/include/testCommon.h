@@ -17,6 +17,8 @@
 
 namespace veil
 {
+    class Scheduler;
+
     namespace testing
     {
         class VeilFSMount;
@@ -44,10 +46,11 @@ public:
     std::shared_ptr<veil::client::Context> context;
     std::shared_ptr<veil::client::Config> config;
     std::shared_ptr<MockOptions> options;
-    std::shared_ptr<MockJobScheduler> scheduler;
+    std::shared_ptr<MockJobScheduler> jobScheduler;
     std::shared_ptr<MockCommunicator> communicator;
     std::shared_ptr<MockStorageMapper> storageMapper;
     std::shared_ptr<MockFslogicProxy> fslogic;
+    std::shared_ptr<veil::Scheduler> scheduler;
 
 protected:
     virtual void SetUp() override;
