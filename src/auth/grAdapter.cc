@@ -93,11 +93,15 @@ TokenAuthDetails GRAdapter::exchangeCode(const std::string &code) const
 {
     using namespace json11;
 
-    LOG(INFO) << "Exchanging OpenID Authorization Code for authorization details";
+    const auto clientName = m_context.lock()->getConfig()->clientName();
+
+    LOG(INFO) << "Exchanging OpenID Authorization Code for authorization "
+                 "details. Identifying as '" << clientName << "'";
 
     const auto content = Json{Json::object{
         { "grant_type", "authorization_code" },
-        { "code", code }
+        { "code", code },
+        { "client_name", clientName }
     }}.dump();
 
     return communicate(content);

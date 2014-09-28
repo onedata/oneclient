@@ -83,6 +83,11 @@ public:
      */
     boost::filesystem::path userDataDir() const;
 
+    /**
+     * @return 'username@hostname' string.
+     */
+    std::string clientName() const;
+
     Config(std::weak_ptr<Context> context);
     virtual ~Config();
 
