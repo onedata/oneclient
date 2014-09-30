@@ -100,7 +100,7 @@ execute_process(COMMAND ${GIT_EXECUTABLE} submodule foreach git checkout
                 WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 # Compile .proto files
-file(GLOB PROTO_FILES protocol/proto/*.proto)
+file(GLOB PROTO_FILES clproto/proto/*.proto)
 PROTOBUF_GENERATE_CPP(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
@@ -131,7 +131,7 @@ add_definitions(${FUSE_DEFINITIONS} -DFUSE_USE_VERSION=29 -D_WEBSOCKETPP_CPP11_S
 set(CMAKE_SKIP_RPATH TRUE) # Something is wrong with CMake RPATH config, we need to use old-fashion way
 
 # Define targets
-add_library(protocol ${PROTO_SRCS})
+add_library(clproto ${PROTO_SRCS})
 add_library(clientObjects OBJECT ${SOURCES} ${HEADERS})
 add_executable(oneclient ${MAIN_SOURCE_FILE} $<TARGET_OBJECTS:clientObjects>)
 add_executable(oneclient_dynamic ${MAIN_SOURCE_FILE} $<TARGET_OBJECTS:clientObjects>)
@@ -143,14 +143,14 @@ set_target_properties(oneclient_dynamic PROPERTIES
 add_custom_command(TARGET oneclient_dynamic POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:oneclient_dynamic> oneclient_dynamic)
 
-add_dependencies(clientObjects glog protocol helpers)
+add_dependencies(clientObjects glog clproto helpers)
 set(COMMON_LIBRARIES
     ${FUSE_LIBRARY_CUSTOM}
     ${Boost_LIBRARIES}
     ${GLOG_LIBRARIES}
     ${PROTOBUF_LIBRARY_CUSTOM}
     ${HELPERS_LIBRARIES}
-    protocol
+    clproto
     json11
     ${PLATFORM_EXTRA_LIBS}
 )
@@ -165,7 +165,7 @@ target_link_libraries(oneclient_dynamic
     ${OPENSSL_LIBRARIES_D}
 )
 
-target_link_libraries(protocol
+target_link_libraries(clproto
     ${PROTOBUF_LIBRARY_CUSTOM}
 )
 
@@ -226,7 +226,7 @@ set(TEST_COMMON_LIBRARIES
     ${OPENSSL_LIBRARIES}
     ${PLATFORM_EXTRA_LIBS}
     json11
-    protocol
+    clproto
 )
 
 # Unit tests
@@ -245,7 +245,7 @@ file(GLOB TEST_SOURCES test/unit_tests/*_test.cc)
 foreach(TEST_SRC ${TEST_SOURCES})
     get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
     add_executable(${TEST_NAME} ${TEST_SRC} ${TEST_HEADERS} $<TARGET_OBJECTS:clientObjects> $<TARGET_OBJECTS:testCommon>)
-    add_dependencies(${TEST_NAME} gtest gmock oneclient helpers protocol)
+    add_dependencies(${TEST_NAME} gtest gmock oneclient helpers clproto)
     target_link_libraries(${TEST_NAME} ${TEST_COMMON_LIBRARIES})
     add_test(${TEST_NAME} ${TEST_NAME})
     run_test(${TEST_NAME})
@@ -276,7 +276,7 @@ foreach(TEST_SRC ${TEST_SOURCES})
     get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
     set(TEST_NAME "${TEST_NAME}_i")
     add_executable(${TEST_NAME} ${TEST_SRC} ${TEST_HEADERS} $<TARGET_OBJECTS:clientObjects> $<TARGET_OBJECTS:testCommon>)
-    add_dependencies(${TEST_NAME} gtest gmock oneclient helpers protocol)
+    add_dependencies(${TEST_NAME} gtest gmock oneclient helpers clproto)
     target_link_libraries(${TEST_NAME} ${TEST_COMMON_LIBRARIES})
     run_test_i(${TEST_NAME})
 endforeach()
