@@ -12,11 +12,11 @@
 #include <string>
 
 static constexpr const char
-    *VEILFS_ROOT_VAR        = "VEILFS_ROOT",
+    *ONEDATA_ROOT_VAR        = "ONEDATA_ROOT",
     *COMMON_FILES_ROOT_VAR  = "COMMON_FILES_ROOT",
     *TEST_ROOT_VAR          = "TEST_ROOT";
 
-namespace veil
+namespace one
 {
 namespace testing
 {
@@ -25,28 +25,28 @@ namespace testing
 std::string erlExec(const std::string &arg);
 
 // Path to dir containg all mount points
-extern const std::string VeilFSRoot;
+extern const std::string onedataRoot;
 inline std::string MOUNT_POINT(const std::string &X)
 {
-    return veil::testing::VeilFSRoot + "/" + X;
+    return one::testing::onedataRoot + "/" + X;
 }
 
 // Common files directory 
 extern const std::string CommonFilesRoot;
 inline std::string COMMON_FILE(const std::string &X)
 {
-    return veil::testing::CommonFilesRoot + "/" + X;
+    return one::testing::CommonFilesRoot + "/" + X;
 }
 
 
-class VeilFSMount
+class FsImplMount
 {
 public:
-    VeilFSMount() = default;
-    VeilFSMount(const std::string &path, const std::string &cert,
+    FsImplMount() = default;
+    FsImplMount(const std::string &path, const std::string &cert,
                 const std::string &opts = "",
                 const std::string &args = "--no-check-certificate");
-    ~VeilFSMount();
+    ~FsImplMount();
 
     std::string getRoot();
 
@@ -61,7 +61,7 @@ private:
 
 
 } // namespace testing
-} // namespace veil
+} // namespace one
 
 
 #endif // ERL_TEST_CORE_H

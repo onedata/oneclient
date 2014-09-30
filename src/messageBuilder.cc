@@ -10,10 +10,10 @@
 
 #include <boost/algorithm/string.hpp>
 
-using namespace veil::protocol::communication_protocol;
-using namespace veil::protocol::fuse_messages;
+using namespace one::clproto::communication_protocol;
+using namespace one::clproto::fuse_messages;
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -60,4 +60,4 @@ std::string MessageBuilder::decodeAtomAnswer(const Answer &answer) const
 }
 
 } // namespace client
-} // namespace veil
+} // namespace one

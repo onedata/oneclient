@@ -1,12 +1,12 @@
 /**
- * @file veilfs.h
+ * @file fsImpl.h
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_VEIL_FS_H
-#define VEILCLIENT_VEIL_FS_H
+#ifndef ONECLIENT_FS_IMPL_H
+#define ONECLIENT_FS_IMPL_H
 
 
 #include "ISchedulable.h"
@@ -20,11 +20,11 @@
 #include <memory>
 #include <unordered_map>
 
-namespace veil
+namespace one
 {
 
 /// The name of default global config file
-static constexpr const char *GLOBAL_CONFIG_FILE = "veilFuse.conf";
+static constexpr const char *GLOBAL_CONFIG_FILE = "oneclient.conf";
 
 /**
  * How many dirent should be fetch from cluster at once.
@@ -59,20 +59,20 @@ class EventCommunicator;
 }
 
 /**
- * The VeilFS main class.
+ * The FsImpl main class.
  * This class contains FUSE all callbacks, so it basically is an heart of the filesystem.
- * Technically VeilFS is an singleton created on programm start and registred in FUSE
+ * Technically FsImpl is an singleton created on programm start and registred in FUSE
  * daemon.
  */
-class VeilFS: public ISchedulable
+class FsImpl: public ISchedulable
 {
 public:
-        VeilFS(std::string path, std::shared_ptr<Context> context,
+        FsImpl(std::string path, std::shared_ptr<Context> context,
                std::shared_ptr<FslogicProxy> fslogic, std::shared_ptr<MetaCache> metaCache,
                std::shared_ptr<LocalStorageManager> sManager,
                std::shared_ptr<helpers::StorageHelperFactory> sh_factory,
-               std::shared_ptr<events::EventCommunicator> eventCommunicator); ///< VeilFS constructor.
-        virtual ~VeilFS();
+               std::shared_ptr<events::EventCommunicator> eventCommunicator); ///< FsImpl constructor.
+        virtual ~FsImpl();
 
         int access(const char *path, int mask); /**< *access* FUSE callback. Not implemented yet. */
         int getattr(const char *path, struct stat *statbuf, bool fuse_ctx = true); /**< *getattr* FUSE callback. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
@@ -133,6 +133,6 @@ private:
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
-#endif // VEILCLIENT_VEIL_FS_H
+#endif // ONECLIENT_FS_IMPL_H

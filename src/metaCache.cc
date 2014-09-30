@@ -12,14 +12,14 @@
 #include "jobScheduler.h"
 #include "logging.h"
 #include "options.h"
-#include "veilfs.h"
+#include "fsImpl.h"
 #include <storageMapper.h>
 
 #include <memory.h>
 
 using namespace std;
 
-namespace veil {
+namespace one {
 namespace client {
 
 
@@ -136,4 +136,4 @@ bool MetaCache::runTask(TaskID taskId, const string &arg0, const string &arg1, c
 }
 
 } // namespace client
-} // namespace veil
+} // namespace one

@@ -5,13 +5,13 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_SCOPE_EXIT_H
-#define VEILCLIENT_SCOPE_EXIT_H
+#ifndef ONECLIENT_SCOPE_EXIT_H
+#define ONECLIENT_SCOPE_EXIT_H
 
 
 #include <functional>
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -71,7 +71,7 @@ private:
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_SCOPE_EXIT_H
+#endif // ONECLIENT_SCOPE_EXIT_H

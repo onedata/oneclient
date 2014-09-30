@@ -6,8 +6,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_EVENT_FILTER_H
-#define VEILCLIENT_EVENT_FILTER_H
+#ifndef ONECLIENT_EVENT_FILTER_H
+#define ONECLIENT_EVENT_FILTER_H
 
 
 #include "events/IEventStream.h"
@@ -15,10 +15,10 @@
 #include <memory>
 #include <string>
 
-namespace veil
+namespace one
 {
 
-namespace protocol{ namespace fuse_messages { class EventFilterConfig; }}
+namespace clproto{ namespace fuse_messages { class EventFilterConfig; }}
 
 namespace client
 {
@@ -36,7 +36,7 @@ public:
     EventFilter(const std::string & fieldName, const std::string & desiredValue);
     EventFilter(std::shared_ptr<IEventStream> wrappedStream, const std::string & fieldName, const std::string & desiredValue);
 
-    static std::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventFilterConfig & config); ///< Constructs EventFilter for protocol buffer message EventFilterConfig
+    static std::shared_ptr<IEventStream> fromConfig(const ::one::clproto::fuse_messages::EventFilterConfig & config); ///< Constructs EventFilter for protocol buffer message EventFilterConfig
     virtual std::shared_ptr<Event> actualProcessEvent(std::shared_ptr<Event> event); ///<  Implements pure virtual method IEventStream::actualProcessEvent
 
     // for unit test purposes
@@ -52,7 +52,7 @@ private:
 
 } // namespace events
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_EVENT_FILTER_H
+#endif // ONECLIENT_EVENT_FILTER_H

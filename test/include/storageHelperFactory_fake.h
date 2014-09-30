@@ -15,18 +15,18 @@
 
 #include <memory>
 
-class FakeStorageHelperFactory: public veil::helpers::StorageHelperFactory
+class FakeStorageHelperFactory: public one::helpers::StorageHelperFactory
 {
 public:
     FakeStorageHelperFactory()
-        : StorageHelperFactory{nullptr, veil::helpers::BufferLimits{}}
+        : StorageHelperFactory{nullptr, one::helpers::BufferLimits{}}
     {
     }
 
-    std::shared_ptr<veil::helpers::IStorageHelper> presetMock;
+    std::shared_ptr<one::helpers::IStorageHelper> presetMock;
 
-    std::shared_ptr<veil::helpers::IStorageHelper> getStorageHelper(const std::string &sh_name,
-                                                                    const veil::helpers::IStorageHelper::ArgsMap &args) override
+    std::shared_ptr<one::helpers::IStorageHelper> getStorageHelper(const std::string &sh_name,
+                                                                    const one::helpers::IStorageHelper::ArgsMap &args) override
     {
         if(presetMock)
             return presetMock;

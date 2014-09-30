@@ -12,11 +12,11 @@
 #include "events/IEventStream.h"
 #include "fuse_messages.pb.h"
 
-using namespace veil::client::events;
+using namespace one::client::events;
 using namespace std;
-using namespace veil::protocol::fuse_messages;
+using namespace one::clproto::fuse_messages;
 
-EventStreamCombiner::EventStreamCombiner(std::shared_ptr<veil::client::Context> context)
+EventStreamCombiner::EventStreamCombiner(std::shared_ptr<one::client::Context> context)
     : m_context{std::move(context)}
 {
 }

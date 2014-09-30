@@ -6,16 +6,16 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_IEVENT_STREAM_FACTORY_H
-#define VEILCLIENT_IEVENT_STREAM_FACTORY_H
+#ifndef ONECLIENT_IEVENT_STREAM_FACTORY_H
+#define ONECLIENT_IEVENT_STREAM_FACTORY_H
 
 
 #include <memory>
 
-namespace veil
+namespace one
 {
 
-namespace protocol{ namespace fuse_messages{ class EventStreamConfig; }}
+namespace clproto{ namespace fuse_messages{ class EventStreamConfig; }}
 
 namespace client
 {
@@ -34,12 +34,12 @@ public:
     /**
      * Creates IEventStream derived object from protocol message EventStreamConfig.
      */
-    static std::shared_ptr<IEventStream> fromConfig(const veil::protocol::fuse_messages::EventStreamConfig & config);
+    static std::shared_ptr<IEventStream> fromConfig(const one::clproto::fuse_messages::EventStreamConfig & config);
 };
 
 } // namespace events
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_IEVENT_STREAM_FACTORY_H
+#endif // ONECLIENT_IEVENT_STREAM_FACTORY_H

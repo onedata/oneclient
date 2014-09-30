@@ -1,35 +1,35 @@
 /**
- * @file veilExcpetion.cc
+ * @file oneException.cc
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "veilException.h"
+#include "oneException.h"
 
 #include "logging.h"
-#include "veilfs.h"
+#include "fsImpl.h"
 
-namespace veil {
+namespace one {
 namespace client {
 
-VeilException::VeilException(const std::string &veilError, const std::string &logMsg) :
+OneException::OneException(const std::string &oneError, const std::string &logMsg) :
     m_logMessage(logMsg),
-    m_veilError(veilError)
+    m_oneError(oneError)
 {
     if(logMsg.size())
         LOG(WARNING) << "Exception: " << logMsg;
 }
 
-const char* VeilException::what() const noexcept
+const char* OneException::what() const noexcept
 {
     return m_logMessage.c_str();
 }
 
-std::string VeilException::veilError() const
+std::string OneException::oneError() const
 {
-    return m_veilError;
+    return m_oneError;
 }
 
 } // namespace client
-} // namespace veil
+} // namespace one

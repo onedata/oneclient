@@ -9,7 +9,7 @@
 #include "config.h"
 #include "erlTestCore.h"
 #include "fuse_messages.pb.h"
-#include "veilErrors.h"
+#include "oneErrors.h"
 #include "testCommon.h"
 
 #include <boost/filesystem.hpp>
@@ -21,11 +21,11 @@
 #include <cstdlib>
 
 using namespace boost::filesystem;
-using namespace veil;
-using namespace veil::client::utils;
-using namespace veil::protocol::communication_protocol;
-using namespace veil::protocol::fuse_messages;
-using veil::FUSE_OPT_PREFIX;
+using namespace one;
+using namespace one::client::utils;
+using namespace one::clproto::communication_protocol;
+using namespace one::clproto::fuse_messages;
+using one::FUSE_OPT_PREFIX;
 
 class ConnectionSessionsTest: public CommonIntegrationTest
 {
@@ -33,7 +33,7 @@ protected:
     path directIO_root;
 
     ConnectionSessionsTest()
-        : CommonIntegrationTest{std::unique_ptr<veil::testing::VeilFSMount>{new veil::testing::VeilFSMount{"main", "peer.pem"}}}
+        : CommonIntegrationTest{std::unique_ptr<one::testing::FsImplMount>{new one::testing::FsImplMount{"main", "peer.pem"}}}
     {
     }
 };
@@ -44,7 +44,7 @@ TEST_F(ConnectionSessionsTest, SessionInitAndRegister)
     // By default client should negotiate and register FuseId
 
     // Check if cluster already knows who we are
-    ASSERT_EQ("ok", veil::testing::erlExec("{check_session, \"" + config->getFuseID() + "\"}"));
+    ASSERT_EQ("ok", one::testing::erlExec("{check_session, \"" + config->getFuseID() + "\"}"));
 }
 
 // Test if client can renegotiate FuseId and send env variables
@@ -67,5 +67,5 @@ TEST_F(ConnectionSessionsTest, SessionEnvVairables_And_SessionReinitialization)
     ASSERT_NE(currentFuseId, config->getFuseID());
 
     // Check if session variables are in place (in DB)
-    ASSERT_EQ("ok", veil::testing::erlExec(std::string("{check_session_variables, \"") + config->getFuseID() + std::string("\", [{varname1, \"varvalue1\"}, {varname2, \"varvalue2\"}]}")));
+    ASSERT_EQ("ok", one::testing::erlExec(std::string("{check_session_variables, \"") + config->getFuseID() + std::string("\", [{varname1, \"varvalue1\"}, {varname2, \"varvalue2\"}]}")));
 }

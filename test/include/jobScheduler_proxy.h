@@ -13,10 +13,10 @@
 
 #include <gmock/gmock.h>
 
-class ProxyJobScheduler: public veil::client::JobScheduler
+class ProxyJobScheduler: public one::client::JobScheduler
 {
 public:
-    std::multiset<veil::client::Job> &getJobQueue()
+    std::multiset<one::client::Job> &getJobQueue()
     {
         return m_jobQueue;
     }

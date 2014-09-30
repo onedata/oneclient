@@ -6,13 +6,13 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_I_EVENT_STREAM_H
-#define VEILCLIENT_I_EVENT_STREAM_H
+#ifndef ONECLIENT_I_EVENT_STREAM_H
+#define ONECLIENT_I_EVENT_STREAM_H
 
 
 #include <memory>
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -58,7 +58,7 @@ protected:
 
 } // namespace events
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_I_EVENT_STREAM_H
+#endif // ONECLIENT_I_EVENT_STREAM_H

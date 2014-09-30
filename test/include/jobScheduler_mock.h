@@ -13,7 +13,7 @@
 
 #include <gmock/gmock.h>
 
-class MockJobScheduler: public veil::client::JobScheduler
+class MockJobScheduler: public one::client::JobScheduler
 {
 public:
     MockJobScheduler()
@@ -22,9 +22,9 @@ public:
         EXPECT_CALL(*this, deleteJobs(_, _)).Times(AtLeast(0));
     }
 
-    MOCK_METHOD1(addTask, void(veil::client::Job));
-    MOCK_METHOD2(deleteJobs, void(const veil::client::ISchedulable * const,
-                                  const veil::client::ISchedulable::TaskID));
+    MOCK_METHOD1(addTask, void(one::client::Job));
+    MOCK_METHOD2(deleteJobs, void(const one::client::ISchedulable * const,
+                                  const one::client::ISchedulable::TaskID));
 };
 
 

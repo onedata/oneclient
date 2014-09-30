@@ -12,7 +12,7 @@
 #include <algorithm>
 #include <atomic>
 
-namespace veil
+namespace one
 {
 namespace client
 {

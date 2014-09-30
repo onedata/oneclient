@@ -14,26 +14,26 @@
 #include "events/IEventStream.h"
 #include "fuse_messages.pb.h"
 
-namespace veil
+namespace one
 {
 namespace client
 {
 namespace events
 {
 
-std::shared_ptr<IEventStream> IEventStreamFactory::fromConfig(const veil::protocol::fuse_messages::EventStreamConfig & config)
+std::shared_ptr<IEventStream> IEventStreamFactory::fromConfig(const one::clproto::fuse_messages::EventStreamConfig & config)
 {
     std::shared_ptr<IEventStream> res;
 
     // this piece of code will need to be updated when new EventConfig type is added
     if(config.has_filter_config()){
-        ::veil::protocol::fuse_messages::EventFilterConfig cfg = config.filter_config();
+        ::one::clproto::fuse_messages::EventFilterConfig cfg = config.filter_config();
         res = EventFilter::fromConfig(cfg);
     }else if(config.has_aggregator_config()){
-        ::veil::protocol::fuse_messages::EventAggregatorConfig cfg = config.aggregator_config();
+        ::one::clproto::fuse_messages::EventAggregatorConfig cfg = config.aggregator_config();
         res = EventAggregator::fromConfig(cfg);
     }else if(config.has_transformer_config()){
-        ::veil::protocol::fuse_messages::EventTransformerConfig cfg = config.transformer_config();
+        ::one::clproto::fuse_messages::EventTransformerConfig cfg = config.transformer_config();
         res = EventTransformer::fromConfig(cfg);
     }
 
@@ -47,4 +47,4 @@ std::shared_ptr<IEventStream> IEventStreamFactory::fromConfig(const veil::protoc
 
 } // namespace events
 } // namespace client
-} // namespace veil
+} // namespace one

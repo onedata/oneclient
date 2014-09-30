@@ -13,22 +13,22 @@
 
 #include <gmock/gmock.h>
 
-class MockFslogicProxy: public veil::client::FslogicProxy
+class MockFslogicProxy: public one::client::FslogicProxy
 {
 public:
-    MockFslogicProxy(std::shared_ptr<veil::client::Context> context)
+    MockFslogicProxy(std::shared_ptr<one::client::Context> context)
         : FslogicProxy{std::move(context)}
     {
     }
 
-    MOCK_METHOD4(getFileLocation, bool(const std::string&, veil::protocol::fuse_messages::FileLocation&, const std::string&, bool));
+    MOCK_METHOD4(getFileLocation, bool(const std::string&, one::clproto::fuse_messages::FileLocation&, const std::string&, bool));
     MOCK_METHOD2(changeFilePerms, std::string(const std::string&, mode_t));
     MOCK_METHOD2(renameFile, std::string(const std::string&, const std::string&));
     MOCK_METHOD1(deleteFile, std::string(const std::string&));
     MOCK_METHOD2(createDir, std::string(const std::string&, mode_t));
-    MOCK_METHOD4(getNewFileLocation, bool(const std::string&, mode_t, veil::protocol::fuse_messages::FileLocation&, bool));
+    MOCK_METHOD4(getNewFileLocation, bool(const std::string&, mode_t, one::clproto::fuse_messages::FileLocation&, bool));
     MOCK_METHOD1(sendFileCreatedAck, std::string(const std::string&));
-    MOCK_METHOD2(getFileAttr, bool(const std::string&, veil::protocol::fuse_messages::FileAttr&));
+    MOCK_METHOD2(getFileAttr, bool(const std::string&, one::clproto::fuse_messages::FileAttr&));
     MOCK_METHOD2(createLink, std::string(const std::string&, const std::string&));
     MOCK_METHOD1(getLink, std::pair<std::string, std::string>(const std::string&));
     MOCK_METHOD1(pingCluster, void(const std::string&));

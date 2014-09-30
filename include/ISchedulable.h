@@ -5,14 +5,14 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_ISCHEDULABLE_H
-#define VEILCLIENT_ISCHEDULABLE_H
+#ifndef ONECLIENT_ISCHEDULABLE_H
+#define ONECLIENT_ISCHEDULABLE_H
 
 
 #include <memory>
 #include <string>
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -56,7 +56,7 @@ public:
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_ISCHEDULABLE_H
+#endif // ONECLIENT_ISCHEDULABLE_H

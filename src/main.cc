@@ -1,5 +1,5 @@
 /**
- * @file veilFuse.cc
+ * @file main.cc
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
@@ -38,9 +38,9 @@
 #include "scheduler.h"
 #include "scopeExit.h"
 #include "storageMapper.h"
-#include "veilConfig.h"
-#include "veilException.h"
-#include "veilfs.h"
+#include "version.h"
+#include "oneException.h"
+#include "fsImpl.h"
 
 #include <dirent.h>
 #include <fcntl.h>
@@ -65,136 +65,136 @@
 
 using namespace std;
 using namespace std::placeholders;
-using namespace veil;
-using namespace veil::client;
+using namespace one;
+using namespace one::client;
 using boost::filesystem::path;
 
 /// Main  application object (filesystem state)
-static std::weak_ptr<VeilFS> VeilAppObject;
+static std::weak_ptr<FsImpl> OneclientAppObject;
 
 extern "C"
 {
     static int wrap_access(const char *path, int mask)
     {
-        return VeilAppObject.lock()->access(path, mask);
+        return OneclientAppObject.lock()->access(path, mask);
     }
     static int wrap_getattr(const char *path, struct stat *statbuf)
     {
-        return VeilAppObject.lock()->getattr(path, statbuf);
+        return OneclientAppObject.lock()->getattr(path, statbuf);
     }
     static int wrap_readlink(const char *path, char *link, size_t size)
     {
-        return VeilAppObject.lock()->readlink(path, link, size);
+        return OneclientAppObject.lock()->readlink(path, link, size);
     }
     static int wrap_mknod(const char *path, mode_t mode, dev_t dev)
     {
-        return VeilAppObject.lock()->mknod(path, mode, dev);
+        return OneclientAppObject.lock()->mknod(path, mode, dev);
     }
     static int wrap_mkdir(const char *path, mode_t mode)
     {
-        return VeilAppObject.lock()->mkdir(path, mode);
+        return OneclientAppObject.lock()->mkdir(path, mode);
     }
     static int wrap_unlink(const char *path)
     {
-        return VeilAppObject.lock()->unlink(path);
+        return OneclientAppObject.lock()->unlink(path);
     }
     static int wrap_rmdir(const char *path)
     {
-        return VeilAppObject.lock()->rmdir(path);
+        return OneclientAppObject.lock()->rmdir(path);
     }
     static int wrap_symlink(const char *path, const char *link)
     {
-        return VeilAppObject.lock()->symlink(path, link);
+        return OneclientAppObject.lock()->symlink(path, link);
     }
     static int wrap_rename(const char *path, const char *newpath)
     {
-        return VeilAppObject.lock()->rename(path, newpath);
+        return OneclientAppObject.lock()->rename(path, newpath);
     }
     static int wrap_link(const char *path, const char *newpath)
     {
-        return VeilAppObject.lock()->link(path, newpath);
+        return OneclientAppObject.lock()->link(path, newpath);
     }
     static int wrap_chmod(const char *path, mode_t mode)
     {
-        return VeilAppObject.lock()->chmod(path, mode);
+        return OneclientAppObject.lock()->chmod(path, mode);
     }
     static int wrap_chown(const char *path, uid_t uid, gid_t gid)
     {
-        return VeilAppObject.lock()->chown(path, uid, gid);
+        return OneclientAppObject.lock()->chown(path, uid, gid);
     }
     static int wrap_truncate(const char *path, off_t newSize)
     {
-        return VeilAppObject.lock()->truncate(path, newSize);
+        return OneclientAppObject.lock()->truncate(path, newSize);
     }
     static int wrap_utime(const char *path, struct utimbuf *ubuf)
     {
-        return VeilAppObject.lock()->utime(path, ubuf);
+        return OneclientAppObject.lock()->utime(path, ubuf);
     }
     static int wrap_open(const char *path, struct fuse_file_info *fileInfo)
     {
-        return VeilAppObject.lock()->open(path, fileInfo);
+        return OneclientAppObject.lock()->open(path, fileInfo);
     }
     static int wrap_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
     {
-        return VeilAppObject.lock()->read(path, buf, size, offset, fileInfo);
+        return OneclientAppObject.lock()->read(path, buf, size, offset, fileInfo);
     }
     static int wrap_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
     {
-        return VeilAppObject.lock()->write(path, buf, size, offset, fileInfo);
+        return OneclientAppObject.lock()->write(path, buf, size, offset, fileInfo);
     }
     static int wrap_statfs(const char *path, struct statvfs *statInfo)
     {
-        return VeilAppObject.lock()->statfs(path, statInfo);
+        return OneclientAppObject.lock()->statfs(path, statInfo);
     }
     static int wrap_flush(const char *path, struct fuse_file_info *fileInfo)
     {
-        return VeilAppObject.lock()->flush(path, fileInfo);
+        return OneclientAppObject.lock()->flush(path, fileInfo);
     }
     static int wrap_release(const char *path, struct fuse_file_info *fileInfo)
     {
-        return VeilAppObject.lock()->release(path, fileInfo);
+        return OneclientAppObject.lock()->release(path, fileInfo);
     }
     static int wrap_fsync(const char *path, int datasync, struct fuse_file_info *fi)
     {
-        return VeilAppObject.lock()->fsync(path, datasync, fi);
+        return OneclientAppObject.lock()->fsync(path, datasync, fi);
     }
     #ifdef HAVE_SETXATTR
     static int wrap_setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
     {
-        return VeilAppObject.lock()->setxattr(path, name, value, size, flags);
+        return OneclientAppObject.lock()->setxattr(path, name, value, size, flags);
     }
     static int wrap_getxattr(const char *path, const char *name, char *value, size_t size)
     {
-        return VeilAppObject.lock()->getxattr(path, name, value, size);
+        return OneclientAppObject.lock()->getxattr(path, name, value, size);
     }
     static int wrap_listxattr(const char *path, char *list, size_t size)
     {
-        return VeilAppObject.lock()->listxattr(path, list, size);
+        return OneclientAppObject.lock()->listxattr(path, list, size);
     }
     static int wrap_removexattr(const char *path, const char *name)
     {
-        return VeilAppObject.lock()->removexattr(path, name);
+        return OneclientAppObject.lock()->removexattr(path, name);
     }
     #endif // HAVE_SETXATTR
     static int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo)
     {
-        return VeilAppObject.lock()->readdir(path, buf, filler, offset, fileInfo);
+        return OneclientAppObject.lock()->readdir(path, buf, filler, offset, fileInfo);
     }
     static int wrap_opendir(const char *path, struct fuse_file_info *fileInfo)
     {
-        return VeilAppObject.lock()->opendir(path, fileInfo);
+        return OneclientAppObject.lock()->opendir(path, fileInfo);
     }
     static int wrap_releasedir(const char *path, struct fuse_file_info *fileInfo)
     {
-        return VeilAppObject.lock()->releasedir(path, fileInfo);
+        return OneclientAppObject.lock()->releasedir(path, fileInfo);
     }
     static int wrap_fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo)
     {
-        return VeilAppObject.lock()->fsyncdir(path, datasync, fileInfo);
+        return OneclientAppObject.lock()->fsyncdir(path, datasync, fileInfo);
     }
 //    static int wrap_init(struct fuse_conn_info *conn)
 //    {
-//        return VeilAppObject.lock()->init(conn);
+//        return OneclientAppObject.lock()->init(conn);
 //    }
 
 } // extern "C"
@@ -246,9 +246,9 @@ static struct fuse_operations fuse_init() {
 static std::string getVersionString()
 {
     std::stringstream ss;
-    ss << VeilClient_VERSION_MAJOR << "."
-        << VeilClient_VERSION_MINOR << "."
-        << VeilClient_VERSION_PATCH;
+    ss << oneclient_VERSION_MAJOR << "."
+        << oneclient_VERSION_MINOR << "."
+        << oneclient_VERSION_PATCH;
     return ss.str();
 }
 #include <regex>
@@ -263,7 +263,7 @@ int main(int argc, char* argv[], char* envp[])
     // Set up a remote logger
     const auto logWriter = std::make_shared<logging::RemoteLogWriter>();
     const auto logSink = std::make_shared<logging::RemoteLogSink>(logWriter);
-    const auto debugLogSink = std::make_shared<logging::RemoteLogSink>(logWriter, protocol::logging::LDEBUG);
+    const auto debugLogSink = std::make_shared<logging::RemoteLogSink>(logWriter, clproto::logging::LDEBUG);
     logging::setLogSinks(logSink, debugLogSink);
 
     // Create application context
@@ -287,15 +287,15 @@ int main(int argc, char* argv[], char* envp[])
         }
         if(result == Options::Result::VERSION)
         {
-            std::cout << "VeilFuse version: " << VeilClient_VERSION_MAJOR << "." <<
-                         VeilClient_VERSION_MINOR << "." <<
-                         VeilClient_VERSION_PATCH << std::endl;
+            std::cout << "oneclient version: " << oneclient_VERSION_MAJOR << "." <<
+                         oneclient_VERSION_MINOR << "." <<
+                         oneclient_VERSION_PATCH << std::endl;
             std::cout << "FUSE library version: " << FUSE_MAJOR_VERSION << "." <<
                          FUSE_MINOR_VERSION << std::endl;
             return EXIT_SUCCESS;
         }
     }
-    catch(VeilException &e)
+    catch(OneException &e)
     {
         std::cerr << "Cannot parse configuration: " << e.what() <<
                      ". Check logs for more details. Aborting" << std::endl;
@@ -356,7 +356,7 @@ int main(int argc, char* argv[], char* envp[])
     // Logger setup END
 
     // after logger setup - log version
-    LOG(INFO) << "VeilFuse version: " << getVersionString();
+    LOG(INFO) << "oneclient version: " << getVersionString();
 
 
     // Iterate over all env variables and save them in Config
@@ -404,8 +404,8 @@ int main(int argc, char* argv[], char* envp[])
         {
             authManager = std::make_unique<auth::CertificateAuthManager>(
                         context,
-                        options->has_cluster_hostname() ? options->get_cluster_hostname() : BASE_DOMAIN,
-                        options->get_cluster_port(),
+                        options->has_provider_hostname() ? options->get_provider_hostname() : BASE_DOMAIN,
+                        options->get_provider_port(),
                         checkCertificate,
                         options->get_debug_gsi());
         }
@@ -413,8 +413,8 @@ int main(int argc, char* argv[], char* envp[])
         {
             authManager = std::make_unique<auth::TokenAuthManager>(
                         context,
-                        options->has_cluster_hostname() ? options->get_cluster_hostname() : BASE_DOMAIN,
-                        options->get_cluster_port(),
+                        options->has_provider_hostname() ? options->get_provider_hostname() : BASE_DOMAIN,
+                        options->get_provider_port(),
                         checkCertificate,
                         options->get_global_registry_url(),
                         options->get_global_registry_port());
@@ -490,11 +490,11 @@ int main(int argc, char* argv[], char* envp[])
 
         return EXIT_FAILURE;
     }
-    catch(VeilException &exception)
+    catch(OneException &exception)
     {
-        if(exception.veilError()==NO_USER_FOUND_ERROR)
+        if(exception.oneError()==NO_USER_FOUND_ERROR)
             cerr << "Cannot find user, remember to login through website before mounting fuse. Aborting" << endl;
-        else if(exception.veilError()==NO_CONNECTION_FOR_HANDSHAKE)
+        else if(exception.oneError()==NO_CONNECTION_FOR_HANDSHAKE)
             cerr << "Cannot connect to server. Aborting." << endl;
         else
             cerr << "Handshake error. Aborting" << endl;
@@ -506,7 +506,7 @@ int main(int argc, char* argv[], char* envp[])
     context->setCommunicator(nullptr);
     testCommunicator.reset();
 
-    cout << "VeilFS has been successfully mounted in " + string(mountpoint) << endl;
+    cout << "oneclient has been successfully mounted in " + string(mountpoint) << endl;
 
     fuse_remove_signal_handlers(fuse_get_session(fuse));
     res = fuse_daemonize(foreground);
@@ -516,14 +516,14 @@ int main(int argc, char* argv[], char* envp[])
     if (res == -1)
         return EXIT_FAILURE;
 
-    // Initialize VeilClient application
+    // Initialize oneclient application
     const auto communicator = authManager->createCommunicator(
                 options->get_alive_data_connections_count(),
                 options->get_alive_meta_connections_count());
 
     context->setCommunicator(communicator);
 
-    // Setup veilhelpers config
+    // Setup helpers config
     helpers::BufferLimits bufferLimits{options->get_write_buffer_max_size(),
                 options->get_read_buffer_max_size(),
                 options->get_write_buffer_max_file_size(),
@@ -542,13 +542,13 @@ int main(int argc, char* argv[], char* envp[])
 
     context->setStorageMapper(storageMapper);
 
-    auto VeilApp = std::make_shared<VeilFS>(mountpoint, context,
+    auto OneclientApp = std::make_shared<FsImpl>(mountpoint, context,
                     fslogicProxy,
                     std::make_shared<MetaCache>(context),
                     std::make_shared<LocalStorageManager>(context),
                     std::make_shared<helpers::StorageHelperFactory>(context->getCommunicator(), bufferLimits),
                     eventCommunicator);
-    VeilAppObject = VeilApp;
+    OneclientAppObject = OneclientApp;
 
     // Register remote logWriter for log threshold level updates and start sending loop
     context->getPushListener()->subscribe(std::bind(&logging::RemoteLogWriter::handleThresholdChange,

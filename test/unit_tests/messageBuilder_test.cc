@@ -16,10 +16,10 @@
 #include "testUtils.h"
 
 using namespace ::testing;
-using namespace veil::client;
-using namespace veil::protocol::communication_protocol;
-using namespace veil::protocol::fuse_messages;
-using veil::FUSE_MESSAGE;
+using namespace one::client;
+using namespace one::clproto::communication_protocol;
+using namespace one::clproto::fuse_messages;
+using one::FUSE_MESSAGE;
 
 class MessageBuilderTest: public CommonTest
 {

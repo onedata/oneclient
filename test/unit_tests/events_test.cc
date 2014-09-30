@@ -21,8 +21,8 @@
 
 using namespace ::testing;
 using namespace std::placeholders;
-using namespace veil::client;
-using namespace veil::client::events;
+using namespace one::client;
+using namespace one::client::events;
 
 class EventsTest: public CommonTest
 {
@@ -31,7 +31,7 @@ public:
     {
         CommonTest::SetUp();
 
-        veil::protocol::communication_protocol::Answer ans;
+        one::clproto::communication_protocol::Answer ans;
         ans.set_answer_status(VOK);
         EXPECT_CALL(*communicator, communicateMock(_, _, _, _)).WillRepeatedly(Return(ans));
     }
@@ -274,7 +274,7 @@ TEST(IEventStream, CustomActionStreamTest){
 // proto buff messages are not easy to mock because their methods are nonvirtual. Mocking is possible but would need
 // changes in code which is not worth it
 TEST(IEventStream, ConstructFromConfig1) {
-    using namespace veil::protocol::fuse_messages;
+    using namespace one::clproto::fuse_messages;
 
     // given
     //EventFilterConfig filterConfig;
@@ -296,7 +296,7 @@ TEST(IEventStream, ConstructFromConfig1) {
 }
 
 TEST(IEventStream, ConstructFromConfig2) {
-    using namespace veil::protocol::fuse_messages;
+    using namespace one::clproto::fuse_messages;
 
     // given
     EventStreamConfig config;
@@ -329,7 +329,7 @@ TEST(IEventStream, ConstructFromConfig2) {
 }
 
 TEST(IEventStream, ConstructFromConfigReturnsEmptyPointerWhenConfigIncorrect){
-    using namespace veil::protocol::fuse_messages;
+    using namespace one::clproto::fuse_messages;
 
     // given
     EventStreamConfig config;

@@ -5,8 +5,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_META_CACHE_H
-#define VEILCLIENT_META_CACHE_H
+#ifndef ONECLIENT_META_CACHE_H
+#define ONECLIENT_META_CACHE_H
 
 
 #include "ISchedulable.h"
@@ -20,7 +20,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -29,7 +29,7 @@ class Context;
 
 /**
  * Class responsible for caching file attributes.
- * @see VeilFS::getattr
+ * @see FsImpl::getattr
  */
 class MetaCache : public ISchedulable
 {
@@ -72,7 +72,7 @@ protected:
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_META_CACHE_H
+#endif // ONECLIENT_META_CACHE_H

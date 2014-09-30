@@ -14,8 +14,8 @@
 #include "helpers/storageHelperFactory.h"
 #include "jobScheduler.h"
 #include "logging.h"
-#include "veilException.h"
-#include "veilfs.h"
+#include "oneException.h"
+#include "fsImpl.h"
 
 #include <boost/any.hpp>
 
@@ -23,9 +23,9 @@
 #include <arpa/inet.h>
 
 using namespace std;
-using namespace veil::protocol::fuse_messages;
+using namespace one::clproto::fuse_messages;
 
-namespace veil {
+namespace one {
 namespace client {
 
 StorageMapper::StorageMapper(std::weak_ptr<Context> context, std::shared_ptr<FslogicProxy> fslogicProxy)
@@ -58,7 +58,7 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &log
     if(it == m_fileMapping.end())
     {
         if(!useCluster)
-            throw VeilException(VEIO, "cannot find file mapping in cache but using cluster is not allowed in this context");
+            throw OneException(VEIO, "cannot find file mapping in cache but using cluster is not allowed in this context");
 
         lock.unlock();
         findLocation(logicalName, UNSPECIFIED_MODE, forceClusterProxy);
@@ -66,7 +66,7 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &log
 
         it = m_fileMapping.find(logicalName);
         if(it == m_fileMapping.end())
-            throw VeilException(VEIO, "cannot find file mapping (cluster was used)");
+            throw OneException(VEIO, "cannot find file mapping (cluster was used)");
     }
 
     locationInfo location = it->second;
@@ -76,7 +76,7 @@ pair<locationInfo, storageInfo> StorageMapper::getLocationInfo(const string &log
     boost::shared_lock<boost::shared_mutex> sLock{m_storageMappingMutex};
     auto it1 = m_storageMapping.find(location.storageId);
     if(it1 == m_storageMapping.end())
-        throw VeilException(VEIO, "cannot find storage information");
+        throw OneException(VEIO, "cannot find storage information");
 
     return make_pair(std::move(location), it1->second);
 }
@@ -230,4 +230,4 @@ bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg
 }
 
 } // namespace client
-} // namespace veil
+} // namespace one

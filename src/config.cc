@@ -34,11 +34,11 @@
 #include <functional>
 
 using namespace std;
-using namespace veil::protocol::communication_protocol;
-using namespace veil::protocol::fuse_messages;
+using namespace one::clproto::communication_protocol;
+using namespace one::clproto::fuse_messages;
 using boost::filesystem::path;
 
-namespace veil {
+namespace one {
 namespace client {
 
 Config::Config(std::weak_ptr<Context> context)
@@ -92,14 +92,14 @@ boost::filesystem::path Config::userDataDir() const
     if(xdgEnv != m_envAll.end())
     {
         const boost::filesystem::path configDir =
-                boost::filesystem::path{xdgEnv->second}/"veilFuse";
+                boost::filesystem::path{xdgEnv->second}/"oneclient";
 
         boost::filesystem::create_directories(configDir);
         return configDir;
     }
 
     const boost::filesystem::path configDir =
-            boost::filesystem::path{m_envHOME}/".local"/"share"/"veilFuse";
+            boost::filesystem::path{m_envHOME}/".local"/"share"/"oneclient";
 
     boost::filesystem::create_directories(configDir);
     return configDir;
@@ -132,7 +132,7 @@ string Config::absPathRelTo(const path &relTo, path p)
 
     if(!getMountPoint().empty() &&
        out.normalize().string().find(getMountPoint().string()) == 0) {
-        throw VeilException("path_error", string("Cannot access '") + out.string() + "' because the file is within your filesystem mount point - " + getMountPoint().string());
+        throw OneException("path_error", string("Cannot access '") + out.string() + "' because the file is within your filesystem mount point - " + getMountPoint().string());
     }
 
     return out.normalize().string();
@@ -228,11 +228,11 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
             return;
         }
         else if(ans->answer_status() == NO_USER_FOUND_ERROR)
-            throw VeilException(NO_USER_FOUND_ERROR,"Cannot find user in database.");
+            throw OneException(NO_USER_FOUND_ERROR,"Cannot find user in database.");
         else if(ans->answer_status() == CERT_CONFIRMATION_REQUIRED_ERROR)
             throw CertUnconfirmedException(ans->error_description());
         else
-            throw VeilException(ans->answer_status(),"Cannot negotatiate FUSE_ID");
+            throw OneException(ans->answer_status(),"Cannot negotatiate FUSE_ID");
     }
     catch(communication::InvalidServerCertificate&)
     {
@@ -240,7 +240,7 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
     }
     catch(communication::Exception &e)
     {
-        throw VeilException(NO_CONNECTION_FOR_HANDSHAKE,
+        throw OneException(NO_CONNECTION_FOR_HANDSHAKE,
                             "Cannot select connection for handshake operation: " +
                             std::string{e.what()});
     }
@@ -342,4 +342,4 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
 }
 
 } // namespace client
-} // namespace veil
+} // namespace one
