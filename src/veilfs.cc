@@ -154,12 +154,8 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
         m_eventCommunicator->addStatAfterWritesRule(m_context->getOptions()->get_write_bytes_before_stat());
     }
 
-    std::weak_ptr<events::EventCommunicator> weakEventCommunicator{m_eventCommunicator};
-    m_context->getPushListener()->subscribe([=](const protocol::communication_protocol::Answer &answer){
-        if(auto e = weakEventCommunicator.lock())
-            return e->pushMessagesHandler(answer);
-        return false;
-    });
+    m_context->getPushListener()->subscribe(
+                &events::EventCommunicator::pushMessagesHandler, m_eventCommunicator);
 
     m_context->scheduler()->post(&events::EventCommunicator::configureByCluster,
                                  m_eventCommunicator);

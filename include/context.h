@@ -11,6 +11,7 @@
 
 #include <boost/thread/shared_mutex.hpp>
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <list>

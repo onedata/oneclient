@@ -90,7 +90,7 @@ namespace client
     int PushListener::subscribe(listener_fun fun)
     {
         std::lock_guard<std::mutex> guard{m_queueMutex};
-        m_listeners.insert(std::make_pair(m_currentSubId, fun));
+        m_listeners.emplace(std::make_pair(m_currentSubId, std::move(fun)));
         return m_currentSubId++;
     }
 

@@ -543,8 +543,8 @@ int main(int argc, char* argv[], char* envp[])
     VeilAppObject = VeilApp;
 
     // Register remote logWriter for log threshold level updates and start sending loop
-    context->getPushListener()->subscribe(std::bind(&logging::RemoteLogWriter::handleThresholdChange,
-                                                     logWriter, _1));
+    context->getPushListener()->subscribe(
+                &logging::RemoteLogWriter::handleThresholdChange, logWriter);
     logWriter->run(context->getCommunicator());
 
     // Enter FUSE loop
