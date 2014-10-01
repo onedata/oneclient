@@ -27,8 +27,6 @@
 #include "events/eventCommunicator.h"
 #include "fslogicProxy.h"
 #include "helpers/storageHelperFactory.h"
-#include "ISchedulable.h"
-#include "jobScheduler.h"
 #include "localStorageManager.h"
 #include "logging.h"
 #include "make_unique.h"
@@ -251,7 +249,7 @@ static std::string getVersionString()
         << VeilClient_VERSION_PATCH;
     return ss.str();
 }
-#include <regex>
+
 int main(int argc, char* argv[], char* envp[])
 {
     // Turn off logging for a while
@@ -529,11 +527,6 @@ int main(int argc, char* argv[], char* envp[])
                 options->get_write_buffer_max_file_size(),
                 options->get_read_buffer_max_file_size(),
                 options->get_file_buffer_prefered_block_size()};
-
-    // Start all jobSchedulers
-    context->addScheduler(std::make_shared<JobScheduler>());
-    for(unsigned int i = 1; i < options->get_jobscheduler_threads(); ++i)
-        context->addScheduler(std::make_shared<JobScheduler>());
 
     // Initialize main application object
     auto eventCommunicator = std::make_shared<events::EventCommunicator>(context);

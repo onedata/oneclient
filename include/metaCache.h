@@ -9,10 +9,7 @@
 #define VEILCLIENT_META_CACHE_H
 
 
-#include "ISchedulable.h"
-
 #include <boost/thread/shared_mutex.hpp>
-
 #include <sys/stat.h>
 
 #include <ctime>
@@ -64,8 +61,6 @@ public:
      * @param attrs of the file
      */
     virtual bool canUseDefaultPermissions(const struct stat &attrs);
-
-    virtual void runTask(ISchedulable::TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 protected:
     const std::shared_ptr<Context> m_context;

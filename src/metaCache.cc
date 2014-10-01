@@ -48,9 +48,7 @@ void MetaCache::addAttr(const string &path, struct stat &attr)
             expiration_time = ATTR_DEFAULT_EXPIRATION_TIME;
         // because of random part, only small parts of cache will be updated at the same moment
         std::chrono::seconds after{expiration_time / 2 + rand() % expiration_time};
-        m_context->scheduler()->schedule(
-                    after,
-                    std::bind(&MetaCache::runTask, shared_from_this(), ISchedulable::TASK_CLEAR_ATTR, path, "", ""));
+        m_context->scheduler()->schedule(after, &MetaCache::clearAttr, shared_from_this(), path);
     }
 }
 
@@ -122,16 +120,6 @@ bool MetaCache::canUseDefaultPermissions(const struct stat &attrs)
     getgroups(suppGroups.size(), suppGroups.data());
 
     return std::any_of(suppGroups.begin(), suppGroups.end(), [attrs](gid_t cgid) { return cgid == attrs.st_gid; });
-}
-
-
-void MetaCache::runTask(ISchedulable::TaskID taskId, const string &arg0, const string &arg1, const string &arg3)
-{
-    switch(taskId)
-    {
-    case ISchedulable::TASK_CLEAR_FILE_ATTR:
-        clearAttr(arg0);
-    }
 }
 
 } // namespace client

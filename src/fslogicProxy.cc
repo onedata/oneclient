@@ -389,7 +389,7 @@ pair<string, struct statvfs> FslogicProxy::getStatFS()
     return make_pair(answer.answer(), statFS);
 }
 
-void FslogicProxy::pingCluster(const string &nth)
+void FslogicProxy::pingCluster()
 {
     auto communicator = m_context.lock()->getCommunicator();
     try
@@ -411,22 +411,7 @@ void FslogicProxy::pingCluster(const string &nth)
     // Send another...
     m_context.lock()->scheduler()->schedule(
                 std::chrono::seconds{m_context.lock()->getOptions()->get_cluster_ping_interval()},
-                std::bind(&FslogicProxy::runTask, shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth, "", ""));
-}
-
-void FslogicProxy::runTask(ISchedulable::TaskID taskId, const string& arg0, const string&, const string&)
-{
-    string res;
-    switch(taskId)
-    {
-    case ISchedulable::TASK_SEND_FILE_NOT_USED:
-        res = sendFileNotUsed(arg0);
-        LOG(INFO) << "FUSE sendFileNotUsed for file: " << arg0 << ", response: " << res;
-        return;
-    case ISchedulable::TASK_PING_CLUSTER:
-        pingCluster(arg0);
-        return;
-    }
+                &FslogicProxy::pingCluster, shared_from_this());
 }
 
 } // namespace client

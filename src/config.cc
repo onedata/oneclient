@@ -154,8 +154,7 @@ void Config::negotiateFuseID(time_t delay)
     // Delete old jobs, we dont need them since we are adding new one anyway
     m_cancelPreviousHandshake();
     m_cancelPreviousHandshake = m_context.lock()->scheduler()->schedule(
-                std::chrono::seconds{delay},
-                std::bind(&Config::runTask, shared_from_this(), ISchedulable::TASK_CONNECTION_HANDSHAKE, "", "", ""));
+                std::chrono::seconds{delay}, &Config::handshake, shared_from_this());
 }
 
 void Config::testHandshake()
@@ -248,12 +247,12 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
     }
 }
 
-void Config::runTask(ISchedulable::TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
+void Config::handshake()
 {
     string oldSessId = getFuseID();
     std::lock_guard<std::mutex> guard{m_accessMutex};
 
-    if(taskId == ISchedulable::TASK_CONNECTION_HANDSHAKE && getFuseID() != oldSessId)
+    if(getFuseID() != oldSessId)
         return;
 
     ClusterMsg cMsg;
@@ -268,79 +267,70 @@ void Config::runTask(ISchedulable::TaskID taskId, const string &arg0, const stri
     gethostname(tmpHost, sizeof(tmpHost));
     string hostname = string(tmpHost);
 
-    switch(taskId)
+    auto communicator = context->getCommunicator();
+    try
     {
-        case ISchedulable::TASK_CONNECTION_HANDSHAKE: // Send connection handshake request to cluster (in order to get FUSE_ID)
+        // Build HandshakeRequest message
+        reqMsg.set_hostname(hostname);
+
+        bool fuseIdFound = false;
+        map<string, string>::const_iterator it;
+        // Iterate over all env variables
+        for(it = m_envAll.begin(); it != m_envAll.end(); ++it)
         {
-            auto communicator = context->getCommunicator();
-            try
-            {
-                // Build HandshakeRequest message
-                reqMsg.set_hostname(hostname);
+            if(!boost::istarts_with((*it).first, FUSE_OPT_PREFIX)) // Reject vars with invalid prefix
+                continue;
 
-                bool fuseIdFound = false;
-                map<string, string>::const_iterator it;
-                // Iterate over all env variables
-                for(it = m_envAll.begin(); it != m_envAll.end(); ++it)
-                {
-                    if(!boost::istarts_with((*it).first, FUSE_OPT_PREFIX)) // Reject vars with invalid prefix
-                        continue;
-
-                    if(boost::iequals((*it).first, string(FUSE_OPT_PREFIX) + string("GROUP_ID"))) {
-                        fuseIdFound = true;
-                    }
-
-                    varEntry = reqMsg.add_variable();
-
-                    varEntry->set_name( (*it).first.substr(string(FUSE_OPT_PREFIX).size()) );
-                    varEntry->set_value( (*it).second );
-                }
-
-                if(context->getOptions()->has_fuse_group_id() && !fuseIdFound) {
-                    varEntry = reqMsg.add_variable();
-
-                    varEntry->set_name( "GROUP_ID" );
-                    varEntry->set_value( context->getOptions()->get_fuse_group_id() );
-                }
-
-                // Send HandshakeRequest message
-                auto ans = communicator->communicate<HandshakeResponse>(communication::ServerModule::FSLOGIC, reqMsg, 2);
-                if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
-                {
-                    // Set FUSE_ID in config
-                    m_fuseID = resMsg.fuse_id();
-
-                    // Update FUSE_ID in current connection pool
-                    communicator->setFuseId(m_fuseID);
-                    communicator->setupPushChannels(std::bind(&PushListener::onMessage, context->getPushListener(), std::placeholders::_1));
-
-                    LOG(INFO) << "Newly negotiated FUSE_ID: " << resMsg.fuse_id();
-
-                    return;
-                }
-                else
-                    LOG(WARNING) << "Cannot negotatiate FUSE_ID. Invalid cluster answer with status: " << ans->answer_status();
-
-            }
-            catch(communication::Exception &e)
-            {
-                LOG(ERROR) << "Cannot select connection for handshake operation: " <<
-                              e.what();
+            if(boost::iequals((*it).first, string(FUSE_OPT_PREFIX) + string("GROUP_ID"))) {
+                fuseIdFound = true;
             }
 
+            varEntry = reqMsg.add_variable();
 
-            // At this point we know that something went wrong
-            LOG(ERROR) << "Cannot negotatiate FUSE_ID, retrying in 3 secs.";
+            varEntry->set_name( (*it).first.substr(string(FUSE_OPT_PREFIX).size()) );
+            varEntry->set_value( (*it).second );
+        }
 
-            // Retry in 3 secs
-            negotiateFuseID(3);
+        if(context->getOptions()->has_fuse_group_id() && !fuseIdFound) {
+            varEntry = reqMsg.add_variable();
+
+            varEntry->set_name( "GROUP_ID" );
+            varEntry->set_value( context->getOptions()->get_fuse_group_id() );
+        }
+
+        // Send HandshakeRequest message
+        auto ans = communicator->communicate<HandshakeResponse>(communication::ServerModule::FSLOGIC, reqMsg, 2);
+        if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
+        {
+            // Set FUSE_ID in config
+            m_fuseID = resMsg.fuse_id();
+
+            // Update FUSE_ID in current connection pool
+            communicator->setFuseId(m_fuseID);
+            communicator->setupPushChannels(std::bind(&PushListener::onMessage, context->getPushListener(), std::placeholders::_1));
+
+            LOG(INFO) << "Newly negotiated FUSE_ID: " << resMsg.fuse_id();
 
             return;
         }
+        else
+            LOG(WARNING) << "Cannot negotatiate FUSE_ID. Invalid cluster answer with status: " << ans->answer_status();
 
-        default:
-            return;
+        return;
+
     }
+    catch(communication::Exception &e)
+    {
+        LOG(ERROR) << "Cannot select connection for handshake operation: " <<
+                      e.what();
+    }
+
+
+    // At this point we know that something went wrong
+    LOG(ERROR) << "Cannot negotatiate FUSE_ID, retrying in 3 secs.";
+
+    // Retry in 3 secs
+    negotiateFuseID(3);
 }
 
 } // namespace client

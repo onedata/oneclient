@@ -6,7 +6,6 @@
  */
 
 #include "options_mock.h"
-#include "jobScheduler_mock.h"
 #include "testCommon.h"
 #include "pushListener.h"
 

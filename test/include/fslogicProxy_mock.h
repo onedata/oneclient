@@ -31,7 +31,7 @@ public:
     MOCK_METHOD2(getFileAttr, bool(const std::string&, veil::protocol::fuse_messages::FileAttr&));
     MOCK_METHOD2(createLink, std::string(const std::string&, const std::string&));
     MOCK_METHOD1(getLink, std::pair<std::string, std::string>(const std::string&));
-    MOCK_METHOD1(pingCluster, void(const std::string&));
+    MOCK_METHOD0(pingCluster, void());
     MOCK_METHOD4(updateTimes, std::string(const std::string&, time_t, time_t, time_t));
     MOCK_METHOD3(changeFileOwner, std::string(const std::string&, uid_t, const std::string&));
     MOCK_METHOD3(changeFileGroup, std::string(const std::string&, gid_t, const std::string&));

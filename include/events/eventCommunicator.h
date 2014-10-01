@@ -10,8 +10,6 @@
 #define VEILCLIENT_EVENT_COMMUNICATOR_H
 
 
-#include "ISchedulable.h"
-
 #include <string>
 #include <memory>
 #include <mutex>
@@ -51,7 +49,7 @@ class EventStreamCombiner;
  * EventCommunicator class is facade for event handling module. Holds registered substreams and enables event-related communication with cluster.
  * Enables registering substreams (addEventSubstream* methods) and handles event-related communication with cluster.
  */
-class EventCommunicator: public ISchedulable
+class EventCommunicator
 {
 public:
     EventCommunicator(std::shared_ptr<Context> context, std::shared_ptr<EventStreamCombiner> eventsStream = std::shared_ptr<EventStreamCombiner>());
@@ -62,9 +60,8 @@ public:
 
     void configureByCluster();				///< Gets streams configuration from cluster, create substreams from fetched configuration and register them.
     bool pushMessagesHandler(const protocol::communication_protocol::Answer &msg); ///< Handles event-related push messages
-    virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
     void addStatAfterWritesRule(int bytes); ///< create and add rule that cause getting attributes and updatetimes after N bytes has been written to single file
-    bool askClusterIfWriteEnabled(); 		///< Sends to fslogic to get know if writing is enabled. Writing may be disabled if quota is exceeded.
+    void askIfWriteEnabled();           	///< Sends to fslogic to get know if writing is enabled. Writing may be disabled if quota is exceeded.
                                             ///< This method is mostly useful on startup, if quota is exeeded during client work cluster will send push message.
     bool isWriteEnabled(); 					///< Getter for m_writeEnabled, does not communicate with cluster.
     static void sendEvent(const std::shared_ptr<Context> &context,

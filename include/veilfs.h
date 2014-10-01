@@ -9,10 +9,7 @@
 #define VEILCLIENT_VEIL_FS_H
 
 
-#include "ISchedulable.h"
-
 #include <boost/thread/shared_mutex.hpp>
-
 #include <fuse.h>
 
 #include <list>
@@ -106,7 +103,6 @@ public:
         int init(struct fuse_conn_info *conn); /**< *init* FUSE callback. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
 
         virtual bool needsForceClusterProxy(const std::string &path); ///< Checks if user is able to use 'user' or 'group' permissions to access the file given by path.
-        virtual void runTask(ISchedulable::TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 protected:
         std::string m_root; ///< Filesystem root directory
@@ -129,6 +125,11 @@ protected:
         boost::shared_mutex m_shCacheMutex;
 
 private:
+        void scheduleClearAttr(const std::string &path);
+        void asyncReaddir(const std::string &path, const size_t offset);
+        void updateTimes(const std::string &path, const time_t atime, const time_t mtime);
+        void performPostTruncateActions(const std::string &path, const off_t newSize);
+
         const std::shared_ptr<Context> m_context;
 };
 

@@ -18,7 +18,6 @@ namespace client
 
 class Options;
 class Config;
-class JobScheduler;
 class PushListener;
 
 /**

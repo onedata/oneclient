@@ -8,7 +8,7 @@
 #include "testCommon.h"
 #include "metaCache_proxy.h"
 #include "options_mock.h"
-#include "jobScheduler_mock.h"
+#include "scheduler_mock.h"
 
 #include <chrono>
 
@@ -31,13 +31,14 @@ protected:
         EXPECT_CALL(*options, get_enable_attr_cache()).WillRepeatedly(Return(true));
         EXPECT_CALL(*options, has_attr_cache_expiration_time()).WillRepeatedly(Return(true));
         EXPECT_CALL(*options, get_attr_cache_expiration_time()).WillRepeatedly(Return(20));
+        ON_CALL(*scheduler, schedule(_, _)).WillByDefault(Return([]{}));
     }
 };
 
 TEST_F(MetaCacheTest, InsertAndRemove) {
     EXPECT_EQ(0u, proxy->getStatMap().size());
 
-    EXPECT_CALL(*jobScheduler, addTask(_)).Times(3);
+    EXPECT_CALL(*scheduler, schedule(_, _)).Times(3);
     proxy->addAttr("/test1", stat);
     proxy->addAttr("/test2", stat);
     proxy->addAttr("/test3", stat);
@@ -56,7 +57,7 @@ TEST_F(MetaCacheTest, InsertAndRemove) {
     proxy->clearAttr("/test3");
     EXPECT_EQ(0u, proxy->getStatMap().size());
 
-    EXPECT_CALL(*jobScheduler, addTask(_)).Times(3);
+    EXPECT_CALL(*scheduler, schedule(_, _)).Times(3);
     proxy->addAttr("/test1", stat);
     proxy->addAttr("/test2", stat);
     proxy->addAttr("/test3", stat);
@@ -71,9 +72,7 @@ TEST_F(MetaCacheTest, InsertAndGet) {
 
     struct stat tmp;
 
-    EXPECT_CALL(*jobScheduler, addTask(Field(&Job::when, AllOf(
-                            Ge(steady_clock::now() + seconds{5}),
-                            Le(steady_clock::now() + seconds{40}) )))).Times(2);
+    EXPECT_CALL(*scheduler, schedule(AllOf(Ge(seconds{5}), Le(seconds{40})), _)).Times(2);
     stat.st_size = 1;
     proxy->addAttr("/test1", stat);
     stat.st_size = 2;
@@ -81,9 +80,10 @@ TEST_F(MetaCacheTest, InsertAndGet) {
     stat.st_size = 3;
 
     EXPECT_CALL(*options, get_attr_cache_expiration_time()).WillRepeatedly(Return(-5));
-    EXPECT_CALL(*jobScheduler, addTask(Field(&Job::when, AllOf(
-                            Ge(steady_clock::now() + seconds{veil::ATTR_DEFAULT_EXPIRATION_TIME / 2 - 5}),
-                            Le(steady_clock::now() + seconds{veil::ATTR_DEFAULT_EXPIRATION_TIME * 2}) )))).Times(1);
+    EXPECT_CALL(*scheduler, schedule(AllOf(
+                            Ge(seconds{veil::ATTR_DEFAULT_EXPIRATION_TIME / 2 - 5}),
+                            Le(seconds{veil::ATTR_DEFAULT_EXPIRATION_TIME * 2})), _)).Times(1);
+
     proxy->addAttr("/test3", stat);
 
     EXPECT_TRUE(proxy->getAttr("/test3", &tmp));

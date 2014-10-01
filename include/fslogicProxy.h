@@ -10,8 +10,6 @@
 #define VEILCLIENT_FSLOGIC_PROXY_H
 
 
-#include "ISchedulable.h"
-
 #include <google/protobuf/message.h>
 #include <sys/statvfs.h>
 #include <sys/types.h>
@@ -106,9 +104,7 @@ public:
     virtual std::string     changeFileGroup(const std::string &path, gid_t gid, const std::string &gname = "");                 ///< Updates file's group owner
     virtual std::pair<std::string, struct statvfs>   getStatFS();   ///< Gets file system statistics
 
-    virtual void            pingCluster(const std::string &);
-
-    virtual void            runTask(ISchedulable::TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+    virtual void            pingCluster();
 
 protected:
     /**

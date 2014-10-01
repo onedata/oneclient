@@ -13,7 +13,6 @@
 #include "context.h"
 #include "fslogicProxy.h"
 #include "fuse_messages.pb.h"
-#include "jobScheduler.h"
 #include "logging.h"
 #include "veilErrors.h"
 #include "veilfs.h"

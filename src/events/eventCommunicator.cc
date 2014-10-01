@@ -144,7 +144,7 @@ void EventCommunicator::sendEvent(const std::shared_ptr<Context> &context,
     }
 }
 
-bool EventCommunicator::askClusterIfWriteEnabled()
+void EventCommunicator::askIfWriteEnabled()
 {
     Atom atom;
     atom.set_value("is_write_enabled");
@@ -162,17 +162,15 @@ bool EventCommunicator::askClusterIfWriteEnabled()
         if(!response.ParseFromString(ans->worker_answer()))
         {
             LOG(WARNING) << " cannot parse is_write_enabled response as atom. Using WriteEnabled = true mode.";
-            return true;
+            m_writeEnabled = true;
         }
         else
-        {
-            return response.value() != "false";
-        }
+            m_writeEnabled = response.value() != "false";
     }
     catch(communication::Exception &e)
     {
         LOG(WARNING) << "sending atom is_write_enabled failed: " << e.what();
-        return true;
+        m_writeEnabled = true;
     }
 }
 
@@ -197,24 +195,8 @@ void EventCommunicator::processEvent(std::shared_ptr<Event> event)
         m_eventsStream->pushEventToProcess(event);
         m_context->scheduler()->schedule(
                     std::chrono::seconds{1},
-                    std::bind(&EventStreamCombiner::runTask, m_eventsStream, ISchedulable::TASK_PROCESS_EVENT, "", "", ""));
-    }
-}
-
-bool EventCommunicator::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
-{
-    switch(taskId)
-    {
-    case TASK_GET_EVENT_PRODUCER_CONFIG:
-        configureByCluster();
-        return true;
-
-    case TASK_IS_WRITE_ENABLED:
-        m_writeEnabled = askClusterIfWriteEnabled();
-        return true;
-
-    default:
-        return false;
+                    &EventStreamCombiner::processNextEvent,
+                    m_eventsStream);
     }
 }
 
