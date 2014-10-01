@@ -12,8 +12,8 @@
 #include "fslogicProxy.h"
 #include "fuse_messages.pb.h"
 #include "helpers/storageHelperFactory.h"
-#include "jobScheduler.h"
 #include "logging.h"
+#include "scheduler.h"
 #include "veilException.h"
 #include "veilfs.h"
 
@@ -127,8 +127,14 @@ void StorageMapper::addLocation(const string &logicalName, const FileLocation &l
     m_storageMapping[info.storageId] = storageInfo;
     LOG(INFO) << "3: adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(NULL) << " + " << location.validity();
 
-    m_context.lock()->getScheduler()->addTask(Job(info.validTo, shared_from_this(), TASK_REMOVE_EXPIRED_LOCATON_MAPPING, logicalName));
-    m_context.lock()->getScheduler()->addTask(Job(info.validTo - RENEW_LOCATION_MAPPING_TIME, shared_from_this(), TASK_RENEW_LOCATION_MAPPING, logicalName));
+    const auto after = std::chrono::system_clock::now() - std::chrono::system_clock::from_time_t(info.validTo);
+    m_context.lock()->scheduler()->schedule(
+                after,
+                std::bind(&StorageMapper::runTask, shared_from_this(), ISchedulable::TASK_REMOVE_EXPIRED_LOCATON_MAPPING, logicalName, "", ""));
+
+    m_context.lock()->scheduler()->schedule(
+                after - std::chrono::seconds{RENEW_LOCATION_MAPPING_TIME},
+                std::bind(&StorageMapper::runTask, shared_from_this(), ISchedulable::TASK_RENEW_LOCATION_MAPPING, logicalName, "", ""));
 }
 
 void StorageMapper::openFile(const string &logicalName)
@@ -179,14 +185,14 @@ void StorageMapper::clearMappings(const string &logicalName)
     m_fileMapping.erase(logicalName);
 }
 
-bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg3)
+void StorageMapper::runTask(ISchedulable::TaskID taskId, const string &arg0, const string &arg1, const string &arg3)
 {
     map<string, locationInfo>::iterator it;
     int validity;
 
     switch(taskId)
     {
-        case TASK_REMOVE_EXPIRED_LOCATON_MAPPING:
+        case ISchedulable::TASK_REMOVE_EXPIRED_LOCATON_MAPPING:
         {
             boost::lock_guard<boost::shared_mutex> lock{m_fileMappingMutex};
             it = m_fileMapping.find(arg0);
@@ -199,19 +205,22 @@ bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg
             else if(it != m_fileMapping.end())
             {
                 LOG(INFO) << "Recheduling old location mapping removal for file: " << arg0;
-                m_context.lock()->getScheduler()->addTask(Job((*it).second.validTo, shared_from_this(), TASK_REMOVE_EXPIRED_LOCATON_MAPPING, arg0));
+                const auto after = std::chrono::system_clock::now() - std::chrono::system_clock::from_time_t(it->second.validTo);
+                m_context.lock()->scheduler()->schedule(
+                            after,
+                            std::bind(&StorageMapper::runTask, shared_from_this(), ISchedulable::TASK_REMOVE_EXPIRED_LOCATON_MAPPING, arg0, "", ""));
             }
 
-            return true;
+            return;
         }
-        case TASK_RENEW_LOCATION_MAPPING:
+        case ISchedulable::TASK_RENEW_LOCATION_MAPPING:
         {
             boost::lock_guard<boost::shared_mutex> lock{m_fileMappingMutex};
             LOG(INFO) << "Renewing file mapping for file: " << arg0;
             if((validity = m_fslogic->renewFileLocation(arg0)) <= 0)
             {
                 LOG(WARNING) << "Renewing file mapping for file: " << arg0 << " failed";
-                return true;
+                return;
             }
             it = m_fileMapping.find(arg0);
             if(it != m_fileMapping.end())
@@ -219,13 +228,10 @@ bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg
                 (*it).second.validTo = time(NULL) + validity;
                 LOG(INFO) << "Renewed location mapping for file: " << arg0 << ". New validity: time + " << ntohl(validity);
             }
-            return true;
+            return;
         }
-        case TASK_ASYNC_GET_FILE_LOCATION:
+        case ISchedulable::TASK_ASYNC_GET_FILE_LOCATION:
             (void) findLocation(arg0);
-            return true;
-        default:
-            return false;
     }
 }
 

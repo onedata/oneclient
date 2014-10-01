@@ -31,7 +31,7 @@ class Context;
  * Class responsible for caching file attributes.
  * @see VeilFS::getattr
  */
-class MetaCache : public ISchedulable
+class MetaCache: public std::enable_shared_from_this<MetaCache>
 {
 protected:
     std::unordered_map<std::string, std::pair<time_t, struct stat> > m_statMap;  ///< This is the cache map.
@@ -65,7 +65,7 @@ public:
      */
     virtual bool canUseDefaultPermissions(const struct stat &attrs);
 
-    virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+    virtual void runTask(ISchedulable::TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 protected:
     const std::shared_ptr<Context> m_context;

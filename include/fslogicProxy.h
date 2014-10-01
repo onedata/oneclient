@@ -80,7 +80,7 @@ class MessageBuilder;
  * opened connections there should be only one instance of this class unless you really need connection isolation
  * between successive cluster requests.
  */
-class FslogicProxy: public ISchedulable
+class FslogicProxy: public std::enable_shared_from_this<FslogicProxy>
 {
 public:
     FslogicProxy(std::weak_ptr<Context> context);
@@ -108,7 +108,7 @@ public:
 
     virtual void            pingCluster(const std::string &);
 
-    virtual bool            runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+    virtual void            runTask(ISchedulable::TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 protected:
     /**

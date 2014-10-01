@@ -60,7 +60,7 @@ T fromString(const std::string &in)
  * The Config.
  * Parses config files and provides safe access to configuration map.
  */
-class Config: public ISchedulable
+class Config: public std::enable_shared_from_this<Config>
 {
 public:
     virtual std::string getFuseID();                             ///< Returns current FuseID.
@@ -103,10 +103,11 @@ protected:
 
     std::string absPathRelTo(const boost::filesystem::path &relTo, boost::filesystem::path p); ///< Converts relative path (second argument), to absolute (relative to first argument). Also preforms check against mount point.
 
-    virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+    virtual void runTask(ISchedulable::TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 private:
     const std::weak_ptr<Context> m_context;
+    std::function<void()> m_cancelPreviousHandshake = []{};
 };
 
 } // namespace client

@@ -9,9 +9,9 @@
 
 #include "config.h"
 #include "context.h"
-#include "jobScheduler.h"
 #include "logging.h"
 #include "options.h"
+#include "scheduler.h"
 #include "veilfs.h"
 #include <storageMapper.h>
 
@@ -47,8 +47,10 @@ void MetaCache::addAttr(const string &path, struct stat &attr)
         if(expiration_time <= 0)
             expiration_time = ATTR_DEFAULT_EXPIRATION_TIME;
         // because of random part, only small parts of cache will be updated at the same moment
-        int when = time(NULL) + expiration_time / 2 + rand() % expiration_time;
-        m_context->getScheduler()->addTask(Job(when, shared_from_this(), TASK_CLEAR_FILE_ATTR, path));
+        std::chrono::seconds after{expiration_time / 2 + rand() % expiration_time};
+        m_context->scheduler()->schedule(
+                    after,
+                    std::bind(&MetaCache::runTask, shared_from_this(), ISchedulable::TASK_CLEAR_ATTR, path, "", ""));
     }
 }
 
@@ -123,15 +125,12 @@ bool MetaCache::canUseDefaultPermissions(const struct stat &attrs)
 }
 
 
-bool MetaCache::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg3)
+void MetaCache::runTask(ISchedulable::TaskID taskId, const string &arg0, const string &arg1, const string &arg3)
 {
     switch(taskId)
     {
-    case TASK_CLEAR_FILE_ATTR:
+    case ISchedulable::TASK_CLEAR_FILE_ATTR:
         clearAttr(arg0);
-        return true;
-    default:
-        return false;
     }
 }
 

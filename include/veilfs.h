@@ -64,7 +64,7 @@ class EventCommunicator;
  * Technically VeilFS is an singleton created on programm start and registred in FUSE
  * daemon.
  */
-class VeilFS: public ISchedulable
+class VeilFS: public std::enable_shared_from_this<VeilFS>
 {
 public:
         VeilFS(std::string path, std::shared_ptr<Context> context,
@@ -106,7 +106,7 @@ public:
         int init(struct fuse_conn_info *conn); /**< *init* FUSE callback. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
 
         virtual bool needsForceClusterProxy(const std::string &path); ///< Checks if user is able to use 'user' or 'group' permissions to access the file given by path.
-        virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+        virtual void runTask(ISchedulable::TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 protected:
         std::string m_root; ///< Filesystem root directory

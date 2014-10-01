@@ -14,11 +14,11 @@
 #include "config.h"
 #include "context.h"
 #include "fuse_messages.pb.h"
-#include "jobScheduler.h"
 #include "logging.h"
 #include "make_unique.h"
 #include "messageBuilder.h"
 #include "options.h"
+#include "scheduler.h"
 #include "veilErrors.h"
 #include "veilfs.h"
 
@@ -409,24 +409,23 @@ void FslogicProxy::pingCluster(const string &nth)
     }
 
     // Send another...
-    Job pingTask = Job(time(NULL) + m_context.lock()->getOptions()->get_cluster_ping_interval(), shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth);
-    m_context.lock()->getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
+    m_context.lock()->scheduler()->schedule(
+                std::chrono::seconds{m_context.lock()->getOptions()->get_cluster_ping_interval()},
+                std::bind(&FslogicProxy::runTask, shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth, "", ""));
 }
 
-bool FslogicProxy::runTask(TaskID taskId, const string& arg0, const string&, const string&)
+void FslogicProxy::runTask(ISchedulable::TaskID taskId, const string& arg0, const string&, const string&)
 {
     string res;
     switch(taskId)
     {
-    case TASK_SEND_FILE_NOT_USED:
+    case ISchedulable::TASK_SEND_FILE_NOT_USED:
         res = sendFileNotUsed(arg0);
         LOG(INFO) << "FUSE sendFileNotUsed for file: " << arg0 << ", response: " << res;
-        return true;
-    case TASK_PING_CLUSTER:
+        return;
+    case ISchedulable::TASK_PING_CLUSTER:
         pingCluster(arg0);
-        return true;
-    default:
-        return false;
+        return;
     }
 }
 

@@ -20,11 +20,11 @@
 #include "events/IEventStreamFactory.h"
 #include "fslogicProxy.h"
 #include "fuse_messages.pb.h"
-#include "jobScheduler.h"
 #include "logging.h"
 #include "metaCache.h"
 #include "options.h"
 #include "pushListener.h"
+#include "scheduler.h"
 #include "veilfs.h"
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -195,7 +195,9 @@ void EventCommunicator::processEvent(std::shared_ptr<Event> event)
 {
     if(event){
         m_eventsStream->pushEventToProcess(event);
-        m_context->getScheduler()->addTask(Job(time(NULL) + 1, m_eventsStream, ISchedulable::TASK_PROCESS_EVENT));
+        m_context->scheduler()->schedule(
+                    std::chrono::seconds{1},
+                    std::bind(&EventStreamCombiner::runTask, m_eventsStream, ISchedulable::TASK_PROCESS_EVENT, "", "", ""));
     }
 }
 

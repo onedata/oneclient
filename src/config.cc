@@ -15,10 +15,10 @@
 #include "context.h"
 #include "fslogicProxy.h"
 #include "fuse_messages.pb.h"
-#include "jobScheduler.h"
 #include "logging.h"
 #include "options.h"
 #include "pushListener.h"
+#include "scheduler.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -30,6 +30,7 @@
 
 #include <array>
 #include <cassert>
+#include <chrono>
 #include <fstream>
 #include <functional>
 
@@ -150,10 +151,11 @@ string Config::absPathRelToHOME(const boost::filesystem::path &p)
 
 void Config::negotiateFuseID(time_t delay)
 {
-    auto context = m_context.lock();
     // Delete old jobs, we dont need them since we are adding new one anyway
-    context->getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->deleteJobs(this, ISchedulable::TASK_CONNECTION_HANDSHAKE);
-    context->getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->addTask(Job(time(NULL) + delay, shared_from_this(), ISchedulable::TASK_CONNECTION_HANDSHAKE));
+    m_cancelPreviousHandshake();
+    m_cancelPreviousHandshake = m_context.lock()->scheduler()->schedule(
+                std::chrono::seconds{delay},
+                std::bind(&Config::runTask, shared_from_this(), ISchedulable::TASK_CONNECTION_HANDSHAKE, "", "", ""));
 }
 
 void Config::testHandshake()
@@ -246,13 +248,13 @@ void Config::testHandshake(std::string usernameToConfirm, bool confirm)
     }
 }
 
-bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
+void Config::runTask(ISchedulable::TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
 {
     string oldSessId = getFuseID();
     std::lock_guard<std::mutex> guard{m_accessMutex};
 
-    if(taskId == TASK_CONNECTION_HANDSHAKE && getFuseID() != oldSessId)
-        return true;
+    if(taskId == ISchedulable::TASK_CONNECTION_HANDSHAKE && getFuseID() != oldSessId)
+        return;
 
     ClusterMsg cMsg;
     HandshakeRequest reqMsg;
@@ -268,7 +270,7 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
 
     switch(taskId)
     {
-        case TASK_CONNECTION_HANDSHAKE: // Send connection handshake request to cluster (in order to get FUSE_ID)
+        case ISchedulable::TASK_CONNECTION_HANDSHAKE: // Send connection handshake request to cluster (in order to get FUSE_ID)
         {
             auto communicator = context->getCommunicator();
             try
@@ -314,7 +316,7 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
 
                     LOG(INFO) << "Newly negotiated FUSE_ID: " << resMsg.fuse_id();
 
-                    return true;
+                    return;
                 }
                 else
                     LOG(WARNING) << "Cannot negotatiate FUSE_ID. Invalid cluster answer with status: " << ans->answer_status();
@@ -333,11 +335,11 @@ bool Config::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
             // Retry in 3 secs
             negotiateFuseID(3);
 
-            return true;
+            return;
         }
 
         default:
-            return false;
+            return;
     }
 }
 

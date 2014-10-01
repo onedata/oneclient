@@ -16,12 +16,12 @@
 #include "fslogicProxy.h"
 #include "fuse_messages.pb.h"
 #include "helpers/storageHelperFactory.h"
-#include "jobScheduler.h"
 #include "localStorageManager.h"
 #include "logging.h"
 #include "metaCache.h"
 #include "options.h"
 #include "pushListener.h"
+#include "scheduler.h"
 #include "storageMapper.h"
 #include "veilErrors.h"
 #include "veilException.h"
@@ -119,11 +119,12 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
         m_context->getConfig()->negotiateFuseID();
 
     if(m_fslogic) {
-        if(m_context->getScheduler() && m_context->getConfig()) {
+        if(m_context->scheduler() && m_context->getConfig()) {
             int alive = m_context->getOptions()->get_alive_meta_connections_count();
             for(int i = 0; i < alive; ++i) {
-                Job pingTask = Job(time(NULL) + i, m_fslogic, ISchedulable::TASK_PING_CLUSTER, std::to_string(m_context->getOptions()->get_alive_meta_connections_count()));
-                m_context->getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
+                m_context->scheduler()->schedule(
+                            std::chrono::seconds{i},
+                            std::bind(&FslogicProxy::runTask, m_fslogic, ISchedulable::TASK_PING_CLUSTER, std::to_string(m_context->getOptions()->get_alive_meta_connections_count()), "", ""));
             }
 
         } else
@@ -154,8 +155,12 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
     }
 
     m_context->getPushListener()->subscribe(std::bind(&events::EventCommunicator::pushMessagesHandler, m_eventCommunicator.get(), std::placeholders::_1));
-    m_context->getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
-    m_context->getScheduler(ISchedulable::TASK_IS_WRITE_ENABLED)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_IS_WRITE_ENABLED));
+    m_context->scheduler()->schedule(
+                std::chrono::seconds{0},
+                std::bind(&events::EventCommunicator::runTask, m_eventCommunicator, ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG, "", "", ""));
+    m_context->scheduler()->schedule(
+                std::chrono::seconds{0},
+                std::bind(&events::EventCommunicator::runTask, m_eventCommunicator, ISchedulable::TASK_IS_WRITE_ENABLED, "", "", ""));
 }
 
 VeilFS::~VeilFS()
@@ -206,8 +211,9 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
 
         if(attr.type() == "REG" && fuse_ctx) // We'll need storage mapping for regular file
         {
-            Job getLocTask = Job(time(NULL), m_context->getStorageMapper(), ISchedulable::TASK_ASYNC_GET_FILE_LOCATION, string(path));
-            m_context->getScheduler()->addTask(getLocTask);
+            m_context->scheduler()->schedule(
+                        std::chrono::seconds{0},
+                        std::bind(&StorageMapper::runTask, m_context->getStorageMapper(), ISchedulable::TASK_ASYNC_GET_FILE_LOCATION, path, "", ""));
         }
 
         // At this point we have attributes from cluster
@@ -238,9 +244,11 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
             statbuf->st_mode |= S_IFDIR;
 
             // Prefetch "ls" resault
-            if(fuse_ctx && m_context->getOptions()->get_enable_dir_prefetch()  && m_context->getOptions()->get_enable_attr_cache()) {
-                Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, string(path), "0");
-                m_context->getScheduler()->addTask(readDirTask);
+            if(fuse_ctx && m_context->getOptions()->get_enable_dir_prefetch()  && m_context->getOptions()->get_enable_attr_cache())
+            {
+                m_context->scheduler()->schedule(
+                            std::chrono::seconds{0},
+                            std::bind(&events::EventCommunicator::runTask, m_eventCommunicator, ISchedulable::TASK_ASYNC_READDIR, path, "0", ""));
             }
         }
         else if(attr.type() == "LNK")
@@ -352,7 +360,9 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
                 LOG(ERROR) << "Cannot change group owner of file " << sPath << " to: " << groupName;
         }
 
-        m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
+        m_context->scheduler()->schedule(
+                    std::chrono::seconds{5},
+                    std::bind(&VeilFS::runTask, shared_from_this(), ISchedulable::TASK_CLEAR_ATTR, parent(path), "", "")); // Clear cache of parent (possible change of modify time)
 
         RETURN_IF_ERROR(m_fslogic->sendFileCreatedAck(string(path)));
     }
@@ -367,7 +377,9 @@ int VeilFS::mkdir(const char *path, mode_t mode)
     m_metaCache->clearAttr(parent(path).c_str());
 
     RETURN_IF_ERROR(m_fslogic->createDir(string(path), mode & ALLPERMS));
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
+    m_context->scheduler()->schedule(
+                std::chrono::seconds{5},
+                std::bind(&VeilFS::runTask, shared_from_this(), ISchedulable::TASK_CLEAR_ATTR, parent(path), "", "")); // Clear cache of parent (possible change of modify time)
 
     std::shared_ptr<events::Event> mkdirEvent = events::Event::createMkdirEvent(path);
     m_eventCommunicator->processEvent(mkdirEvent);
@@ -401,7 +413,9 @@ int VeilFS::unlink(const char *path)
         RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
     }
 
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
+    m_context->scheduler()->schedule(
+                std::chrono::seconds{5},
+                std::bind(&VeilFS::runTask, shared_from_this(), ISchedulable::TASK_CLEAR_ATTR, parent(path), "", "")); // Clear cache of parent (possible change of modify time)
 
     std::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(path);
     m_eventCommunicator->processEvent(rmEvent);
@@ -417,7 +431,9 @@ int VeilFS::rmdir(const char *path)
     m_metaCache->clearAttr(parent(path).c_str());
 
     RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
+    m_context->scheduler()->schedule(
+                std::chrono::seconds{5},
+                std::bind(&VeilFS::runTask, shared_from_this(), ISchedulable::TASK_CLEAR_ATTR, parent(path), "", "")); // Clear cache of parent (possible change of modify time)
 
     return 0;
 }
@@ -445,8 +461,12 @@ int VeilFS::rename(const char *path, const char *newpath)
     LOG(INFO) << "FUSE: rename(path: " << string(path) << ", newpath: "<< string(newpath)  <<")";
 
     RETURN_IF_ERROR(m_fslogic->renameFile(string(path), string(newpath)));
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(newpath))); // Clear cache of parent (possible change of modify time)
+    m_context->scheduler()->schedule(
+                std::chrono::seconds{5},
+                std::bind(&VeilFS::runTask, shared_from_this(), ISchedulable::TASK_CLEAR_ATTR, parent(path), "", "")); // Clear cache of parent (possible change of modify time)
+    m_context->scheduler()->schedule(
+                std::chrono::seconds{5},
+                std::bind(&VeilFS::runTask, shared_from_this(), ISchedulable::TASK_CLEAR_ATTR, parent(newpath), "", "")); // Clear cache of parent (possible change of modify time)
 
     m_metaCache->clearAttr(string(path));
     return 0;
@@ -511,8 +531,9 @@ int VeilFS::truncate(const char *path, off_t newSize)
     if(sh_return == 0) {
         (void) m_metaCache->updateSize(string(path), newSize);
 
-        Job postTruncateTask = Job(time(NULL), shared_from_this(), TASK_POST_TRUNCATE_ACTIONS, path, utils::toString(newSize));
-        m_context->getScheduler()->addTask(postTruncateTask);
+        m_context->scheduler()->schedule(
+                    std::chrono::seconds{0},
+                    std::bind(&VeilFS::runTask, shared_from_this(), ISchedulable::TASK_POST_TRUNCATE_ACTIONS, path, std::to_string(newSize), ""));
     }
 
     return sh_return;
@@ -525,7 +546,9 @@ int VeilFS::utime(const char *path, struct utimbuf *ubuf)
     // Update access times in meta cache right away
     (void) m_metaCache->updateTimes(string(path), ubuf->actime, ubuf->modtime);
 
-    m_context->getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(ubuf->actime), utils::toString(ubuf->modtime)));
+    m_context->scheduler()->schedule(
+                std::chrono::seconds{0},
+                std::bind(&VeilFS::runTask, shared_from_this(), ISchedulable::TASK_ASYNC_UPDATE_TIMES, path, std::to_string(ubuf->actime), std::to_string(ubuf->modtime)));
 
     return 0;
 }
@@ -576,7 +599,9 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
             // Update access times in meta cache right away
             (void) m_metaCache->updateTimes(string(path), atime, mtime);
 
-            m_context->getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(atime), utils::toString(mtime)));
+            m_context->scheduler()->schedule(
+                        std::chrono::seconds{0},
+                        std::bind(&VeilFS::runTask, shared_from_this(), ISchedulable::TASK_ASYNC_UPDATE_TIMES, path, std::to_string(atime), std::to_string(mtime)));
         }
     }
 
@@ -610,7 +635,7 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
 
     boost::shared_lock<boost::shared_mutex> lock{m_shCacheMutex};
     CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
-    lock.release();
+    lock.unlock();
 
     if(sh_return > 0) { // Update file size in cache
         struct stat buf;
@@ -652,7 +677,9 @@ int VeilFS::flush(const char *path, struct fuse_file_info *fileInfo)
     }
     CUSTOM_SH_RUN(storage_helper , sh_flush(lInfo.fileId.c_str(), fileInfo));
 
-    m_context->getScheduler()->addTask(Job(time(NULL) + 3, shared_from_this(), TASK_CLEAR_ATTR, string(path)));
+    m_context->scheduler()->schedule(
+                std::chrono::seconds{3},
+                std::bind(&VeilFS::runTask, shared_from_this(), ISchedulable::TASK_CLEAR_ATTR, path, "", ""));
 
     return sh_return;
 }
@@ -692,7 +719,9 @@ int VeilFS::opendir(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: opendir(path: " << string(path) << ", ...)";
 
-    m_context->getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(time(NULL))));
+    m_context->scheduler()->schedule(
+                std::chrono::seconds{0},
+                std::bind(&VeilFS::runTask, shared_from_this(), ISchedulable::TASK_ASYNC_UPDATE_TIMES, path, std::to_string(time(nullptr)), ""));
 
     return 0;
 }
@@ -714,9 +743,12 @@ int VeilFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
 
     for(std::vector<string>::iterator it = children.begin(); it < children.end(); ++it)
     {
-        if(m_context->getOptions()->get_enable_parallel_getattr() && m_context->getOptions()->get_enable_attr_cache()) {
-            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, (boost::filesystem::path(path) / (*it)).normalize().string());
-            m_context->getScheduler()->addTask(readDirTask);
+        if(m_context->getOptions()->get_enable_parallel_getattr() && m_context->getOptions()->get_enable_attr_cache())
+        {
+            const auto arg = (boost::filesystem::path(path) / (*it)).normalize().string();
+            m_context->scheduler()->schedule(
+                        std::chrono::seconds{0},
+                        std::bind(&VeilFS::runTask, shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, arg, "", ""));
         }
 
         if(filler(buf, it->c_str(), NULL, ++offset))
@@ -775,7 +807,7 @@ bool VeilFS::needsForceClusterProxy(const std::string &path)
     return attrsStatus || !m_metaCache->canUseDefaultPermissions(attrs);
 }
 
-bool VeilFS::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
+void VeilFS::runTask(ISchedulable::TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
 {
     struct stat attr;
     vector<string> children;
@@ -784,41 +816,45 @@ bool VeilFS::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
 
     switch(taskId)
     {
-    case TASK_ASYNC_READDIR: // arg0 = path, arg1 = offset
+    case ISchedulable::TASK_ASYNC_READDIR: // arg0 = path, arg1 = offset
         if(!m_context->getOptions()->get_enable_attr_cache())
-            return true;
+            return;
 
         if(!m_fslogic->getFileChildren(arg0, DIR_BATCH_SIZE, utils::fromString<unsigned int>(arg1), children)) {
-            return false;
+            return;
         }
 
         for(vector<string>::iterator it = children.begin(); it < children.end(); ++it) {
-            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, (boost::filesystem::path(arg0) / (*it)).normalize().string());
-            m_context->getScheduler()->addTask(readDirTask);
+            const auto path = (boost::filesystem::path(arg0) / (*it)).normalize().string();
+            m_context->scheduler()->schedule(
+                        std::chrono::seconds{0},
+                        std::bind(&VeilFS::runTask, shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, path, "", ""));
         }
 
         if(children.size() > 0) {
-            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, arg0, utils::toString(utils::fromString<unsigned int>(arg1) + children.size()));
-            m_context->getScheduler()->addTask(readDirTask);
+            const auto num = std::to_string(utils::fromString<unsigned int>(arg1) + children.size());
+            m_context->scheduler()->schedule(
+                        std::chrono::seconds{0},
+                        std::bind(&VeilFS::runTask, shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, arg0, num, ""));
         }
 
-        return true;
+        return;
 
-    case TASK_CLEAR_ATTR:
+    case ISchedulable::TASK_CLEAR_ATTR:
         m_metaCache->clearAttr(arg0);
-        return true;
+        return;
 
-    case TASK_ASYNC_GETATTR:
+    case ISchedulable::TASK_ASYNC_GETATTR:
         if(m_context->getOptions()->get_enable_attr_cache())
             getattr(arg0.c_str(), &attr, false);
-        return true;
+        return;
 
-    case TASK_ASYNC_UPDATE_TIMES: // arg0 = path, arg1 = atime, arg2 = mtime
+    case ISchedulable::TASK_ASYNC_UPDATE_TIMES: // arg0 = path, arg1 = atime, arg2 = mtime
         if(m_fslogic->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2)) == VOK)
             m_metaCache->updateTimes(arg0, utils::fromString<time_t>(arg1), utils::fromString<time_t>(arg2));
-        return true;
+        return;
 
-    case TASK_POST_TRUNCATE_ACTIONS: // arg0 = path, arg1 = newSize
+    case ISchedulable::TASK_POST_TRUNCATE_ACTIONS: // arg0 = path, arg1 = newSize
         // we need to statAndUpdatetimes before processing event because we want event to be run with new size value on cluster
         currentTime = time(NULL);
         m_fslogic->updateTimes(arg0, 0, currentTime, currentTime);
@@ -829,10 +865,10 @@ bool VeilFS::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
 
         truncateEvent = events::Event::createTruncateEvent(arg0, utils::fromString<off_t>(arg1));
         m_eventCommunicator->processEvent(truncateEvent);
-        return true;
+        return;
 
     default:
-        return false;
+        return;
     }
 }
 
