@@ -29,7 +29,6 @@
 #include "helpers/storageHelperFactory.h"
 #include "localStorageManager.h"
 #include "logging.h"
-#include "make_unique.h"
 #include "metaCache.h"
 #include "options.h"
 #include "pushListener.h"

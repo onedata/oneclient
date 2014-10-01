@@ -13,7 +13,6 @@
 #include "communication/communicator.h"
 #include "config.h"
 #include "context.h"
-#include "make_unique.h"
 #include "scheduler.h"
 
 #include <boost/archive/iterators/base64_from_binary.hpp>

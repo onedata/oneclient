@@ -9,7 +9,6 @@
 #include "messageBuilder.h"
 
 #include "fslogicProxy.h"
-#include "make_unique.h"
 #include "options_mock.h"
 #include "testCommon.h"
 #include "testUtils.h"

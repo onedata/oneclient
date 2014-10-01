@@ -11,7 +11,6 @@
 #include "config.h"
 #include "context.h"
 #include "logging.h"
-#include "make_unique.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/archive/iterators/binary_from_base64.hpp>
