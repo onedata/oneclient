@@ -104,14 +104,33 @@ public:
         virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 protected:
+        /**
+         * The SHCache struct is responsible for mapping file ID to an instance
+         * of @c helpers::IStorageHelper in a thread-safe manner.
+         */
         struct SHCache
         {
             using key = uint64_t;
             using value = std::shared_ptr<helpers::IStorageHelper>;
 
         public:
+            /**
+             * @param id The file id.
+             * @return @c helpers::IStorageHelper instance mapped for the id.
+             */
             value get(const key id);
+
+            /**
+             * @param id A file id.
+             * @param sh A @c helpers::IStorageHelper instance to bind to the id.
+             */
             void  set(const key id, value sh);
+
+            /**
+             * Removes a cached @c helpers::IStorageHelper instance and returns
+             * it.
+             * @copydoc SHCache::get(id)
+             */
             value take(const key id);
 
         private:
