@@ -237,7 +237,7 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
         {
             statbuf->st_mode |= S_IFDIR;
 
-            // Prefetch "ls" resault
+            // Prefetch "ls" result
             if(fuse_ctx && m_context->getOptions()->get_enable_dir_prefetch()  && m_context->getOptions()->get_enable_attr_cache()) {
                 Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, string(path), "0");
                 m_context->getScheduler()->addTask(readDirTask);
@@ -772,7 +772,8 @@ bool VeilFS::needsForceClusterProxy(const std::string &path)
 {
     struct stat attrs;
     auto attrsStatus = getattr(path.c_str(), &attrs, false);
-    return attrsStatus || !m_metaCache->canUseDefaultPermissions(attrs);
+    auto filePermissions = attrs->st_mode && (S_IRWXU || S_IRWXG || S_IRWXO);
+    return attrsStatus || (filePermissions == 0) || !m_metaCache->canUseDefaultPermissions(attrs);
 }
 
 bool VeilFS::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
