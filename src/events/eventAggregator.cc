@@ -52,8 +52,7 @@ std::shared_ptr<Event> EventAggregator::actualProcessEvent(std::shared_ptr<Event
             return std::shared_ptr<Event>();
     }
 
-    m_substreams.emplace(value, ActualEventAggregator{});
-
+    std::lock_guard<std::mutex> guard{m_substreamsMutex};
     return m_substreams[value].processEvent(event, m_threshold, m_fieldName, m_sumFieldName);
 }
 

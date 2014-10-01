@@ -35,6 +35,7 @@
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/thread/shared_lock_guard.hpp>
 #include <google/protobuf/descriptor.h>
 
 #include <algorithm>
@@ -557,8 +558,7 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_open(lInfo.fileId.c_str(), fileInfo));
 
     if(sh_return == 0) {
-        boost::unique_lock<boost::shared_mutex> lock{m_shCacheMutex};
-        m_shCache[fileInfo->fh] = ptr;
+        m_shCache.set(fileInfo->fh, ptr);
 
         time_t atime = 0, mtime = 0;
 
@@ -588,8 +588,8 @@ int VeilFS::read(const char *path, char *buf, size_t size, off_t offset, struct 
     //LOG(INFO) << "FUSE: read(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
     GET_LOCATION_INFO(path, false);
 
-    boost::shared_lock<boost::shared_mutex> lock{m_shCacheMutex};
-    CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
+    auto sh = m_shCache.get(fileInfo->fh);
+    CUSTOM_SH_RUN(sh, sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
 
     std::shared_ptr<events::Event> writeEvent = events::Event::createReadEvent(path, sh_return);
     m_eventCommunicator->processEvent(writeEvent);
@@ -608,9 +608,8 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
 
     GET_LOCATION_INFO(path, false);
 
-    boost::shared_lock<boost::shared_mutex> lock{m_shCacheMutex};
-    CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
-    lock.release();
+    auto sh = m_shCache.get(fileInfo->fh);
+    CUSTOM_SH_RUN(sh, sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
 
     if(sh_return > 0) { // Update file size in cache
         struct stat buf;
@@ -645,12 +644,8 @@ int VeilFS::flush(const char *path, struct fuse_file_info *fileInfo)
     LOG(INFO) << "FUSE: flush(path: " << string(path) << ", ...)";
     GET_LOCATION_INFO(path, false);
 
-    sh_ptr storage_helper;
-    {
-        boost::shared_lock<boost::shared_mutex> lock{m_shCacheMutex};
-        storage_helper = m_shCache[fileInfo->fh];
-    }
-    CUSTOM_SH_RUN(storage_helper , sh_flush(lInfo.fileId.c_str(), fileInfo));
+    auto sh = m_shCache.get(fileInfo->fh);
+    CUSTOM_SH_RUN(sh, sh_flush(lInfo.fileId.c_str(), fileInfo));
 
     m_context->getScheduler()->addTask(Job(time(NULL) + 3, shared_from_this(), TASK_CLEAR_ATTR, string(path)));
 
@@ -661,14 +656,11 @@ int VeilFS::release(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: release(path: " << string(path) << ", ...)";
 
-    /// Remove Storage Helper's pointer from cache
-    boost::unique_lock<boost::shared_mutex> lock{m_shCacheMutex};
-
     GET_LOCATION_INFO(path, false);
 
-    CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_release(lInfo.fileId.c_str(), fileInfo));
-
-    m_shCache.erase(fileInfo->fh);
+    /// Remove Storage Helper's pointer from cache
+    auto sh = m_shCache.take(fileInfo->fh);
+    CUSTOM_SH_RUN(sh, sh_release(lInfo.fileId.c_str(), fileInfo));
 
     m_context->getStorageMapper()->releaseFile(string(path));
 
@@ -834,6 +826,27 @@ bool VeilFS::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
     default:
         return false;
     }
+}
+
+VeilFS::SHCache::value VeilFS::SHCache::get(const key id)
+{
+    boost::shared_lock_guard<boost::shared_mutex> guard{m_shCacheMutex};
+    return m_shCache[id];
+}
+
+void VeilFS::SHCache::set(const key id, value sh)
+{
+    boost::lock_guard<boost::shared_mutex> guard{m_shCacheMutex};
+    m_shCache[id] = std::move(sh);
+}
+
+VeilFS::SHCache::value VeilFS::SHCache::take(const key id)
+{
+    boost::lock_guard<boost::shared_mutex> guard{m_shCacheMutex};
+    const auto it = m_shCache.find(id);
+    auto sh = std::move(it->second);
+    m_shCache.erase(it);
+    return sh;
 }
 
 } // namespace client
