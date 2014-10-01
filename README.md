@@ -1,14 +1,14 @@
 oneclient
 =========
 
-*oneclient* is a part of a meta file system, called *onedata*, which unifies access to different storage systems and 
+*Oneclient* is a part of a meta file system, called *Onedata*, which unifies access to different storage systems and 
 provides a POSIX compatible interface.
 
 Goals
 -----
 
 The main goal of *oneclient* is to provide a file system to different, heterogeneous storage systems, which will work
-in the user space, e.g. *Lustre*, *GPFS*, *DPM*, *iRODS*. *oneclient* intends to reduce the complexity of accessing
+in the user space, e.g. *Lustre*, *GPFS*, *DPM*, *iRODS*. *Oneclient* intends to reduce the complexity of accessing
 various storage systems by providing a standard, POSIX compatible interface. Furthermore, storage systems connected to 
 *oneclient* can be geographically distributed, and operated by different organizations. The end user may operate on data
 from the storage systems as if they were stored at a local file system.
@@ -16,7 +16,7 @@ from the storage systems as if they were stored at a local file system.
 
 Getting Started
 ---------------
-*oneclient* is built with *CMake*. More informations about compiling the project in [Compilation](#compilation) section.
+*Oneclient* is built with *CMake*. More informations about compiling the project in [Compilation](#compilation) section.
 Sources are put in *src*.
 
 Prerequisites
@@ -58,7 +58,7 @@ If there was no errors, you will get list of generated packages (rpm or dep).
 
 ### "The standard way"
 
-*oneclient* uses *cmake* as a build tool thus building process is same as for most cmake-based projects. However you can 
+*Oneclient* uses *cmake* as a build tool thus building process is same as for most cmake-based projects. However you can 
 use Makefile-proxy with following interface: 
 (Note that -s flag is optional - it's a silent mode which makes output much prettier, because it leaves only cmake's stdout/stderr)
 
@@ -133,7 +133,7 @@ Use this command to install the required dependency packages:
 
 #### Starting
 
-In order to mount onedata just enter:
+In order to mount Onedata just enter:
 
     oneclient /mount/point
 

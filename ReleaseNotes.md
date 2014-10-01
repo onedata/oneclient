@@ -1,7 +1,7 @@
 oneclient 1.6
 =============
 
-*oneclient 1.6* is a part of *onedata 1.6*. This is mainly a bug-fix release. See further details below.
+*Oneclient 1.6* is a part of *Onedata 1.6*. This is mainly a bug-fix release. See further details below.
 
 Fixed Bugs
 ----------
@@ -12,7 +12,7 @@ Fixed Bugs
 oneclient 1.5
 =============
 
-*oneclient 1.5* is a part of *onedata 1.5*. This is mainly a bug-fix release. See further details below. *onedata 1.5*
+*Oneclient 1.5* is a part of *Onedata 1.5*. This is mainly a bug-fix release. See further details below. *Onedata 1.5*
 updates only *oneclient* and *oneprovider* so it links version 1.0 of other modules.
 
 Fixed Bugs
@@ -23,19 +23,19 @@ Fixed Bugs
 oneclient 1.0
 =============
 
-*oneclient 1.0* is a part of *onedata 1.0*. *onedata 1.0* is a system that provides a unified and efficient access to
-data stored at various storage systems in one site. *oneclient 1.0* is fully customizable (three levels of 
+*Oneclient 1.0* is a part of *Onedata 1.0*. *Onedata 1.0* is a system that provides a unified and efficient access to
+data stored at various storage systems in one site. *Oneclient 1.0* is fully customizable (three levels of 
 configuration: administrator, user and dynamic reconfiguration by *oneprovider*).
 
 Issue Summary
 -------------
 
-* *oneclient* provides file system API.
-* *oneclient* produces basic notifications for monitoring purpose.
-* *oneclient* may be distributed using RPM or DEP packages. It is also distributed as singe binary file. Single binary 
+* *Oneclient* provides file system API.
+* *Oneclient* produces basic notifications for monitoring purpose.
+* *Oneclient* may be distributed using RPM or DEP packages. It is also distributed as singe binary file. Single binary 
 is linked with static libraries while RPM and DEB with dynamic.
-* *oneclient* supports user authentication using certificates.
-* *oneclient* may be configured using appropriate config files. All options may be configured by administrators, 
+* *Oneclient* supports user authentication using certificates.
+* *Oneclient* may be configured using appropriate config files. All options may be configured by administrators, 
 only chosen options may be changed by users.
-* *oneclient* may be reconfigured by *oneprovider* using callbacks.
+* *Oneclient* may be reconfigured by *oneprovider* using callbacks.
 
