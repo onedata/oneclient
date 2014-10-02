@@ -10,7 +10,7 @@
     # global_registry_hostname = onedata.org
     # global_registry_port = 8443
 
-  # A method for authenticating the oneclient client with a Provider.
+  # A method for authenticating the oneclient with a oneprovider.
   # When set to 'token', the client will use a token-based authentication scheme
   # in cooperation with a Global Registry.
   # When set to 'certificate', the client will authenticate itself directly
