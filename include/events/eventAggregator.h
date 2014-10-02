@@ -78,6 +78,7 @@ private:
     NumericProperty m_threshold;								///< When SumFieldName is greater or equal to threshold aggregated event is emited.
     std::string m_sumFieldName;									///< Name of field for which sum is computed.
     std::map<std::string, ActualEventAggregator> m_substreams;  ///< Substreams for different value of FieldName (key is FieldName)
+    std::mutex m_substreamsMutex;
 };
 
 } // namespace events

@@ -47,11 +47,6 @@ class LocalStorageManager;
 class MetaCache;
 class StorageMapper;
 
-/// Pointer to the Storage Helper's instance
-using sh_ptr = std::shared_ptr<helpers::IStorageHelper>;
-
-typedef uint64_t helper_cache_idx_t;
-
 /// forward declarations
 namespace events
 {
@@ -109,6 +104,41 @@ public:
         virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
 
 protected:
+        /**
+         * The SHCache struct is responsible for mapping file ID to an instance
+         * of @c helpers::IStorageHelper in a thread-safe manner.
+         */
+        struct SHCache
+        {
+            using key = uint64_t;
+            using value = std::shared_ptr<helpers::IStorageHelper>;
+
+        public:
+            /**
+             * @param id The file id.
+             * @return @c helpers::IStorageHelper instance mapped for the id.
+             */
+            value get(const key id);
+
+            /**
+             * @param id A file id.
+             * @param sh A @c helpers::IStorageHelper instance to bind to the id.
+             */
+            void  set(const key id, value sh);
+
+            /**
+             * Removes a cached @c helpers::IStorageHelper instance and returns
+             * it.
+             * @copydoc SHCache::get(id)
+             */
+            value take(const key id);
+
+        private:
+            std::unordered_map<key, value> m_shCache;
+            boost::shared_mutex m_shCacheMutex;
+        };
+
+
         std::string m_root; ///< Filesystem root directory
         uid_t       m_uid;  ///< Filesystem owner's effective uid
         gid_t       m_gid;  ///< Filesystem owner's effective gid
@@ -124,9 +154,7 @@ protected:
 
         std::map<std::string, std::pair<std::string, time_t> > m_linkCache;         ///< Simple links cache
         boost::upgrade_mutex m_linkCacheMutex;
-
-        std::unordered_map<helper_cache_idx_t, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
-        boost::shared_mutex m_shCacheMutex;
+        SHCache m_shCache; ///< Storage Helpers' cache.
 
 private:
         const std::shared_ptr<Context> m_context;
