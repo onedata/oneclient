@@ -5,7 +5,7 @@
 DOXYFILE_ENCODING      = UTF-8
 PROJECT_NAME           = oneclient
 PROJECT_NUMBER         =
-PROJECT_BRIEF          = "This program is user space file system. It is a part of Onedata project."
+PROJECT_BRIEF          = "This program is user space file system. It is a part of onedata project."
 PROJECT_LOGO           =
 OUTPUT_DIRECTORY       = ./doc
 CREATE_SUBDIRS         = NO

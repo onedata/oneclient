@@ -70,131 +70,131 @@ using namespace one::client;
 using boost::filesystem::path;
 
 /// Main  application object (filesystem state)
-static std::weak_ptr<FsImpl> OneclientAppObject;
+static std::weak_ptr<FsImpl> AppObject;
 
 extern "C"
 {
     static int wrap_access(const char *path, int mask)
     {
-        return OneclientAppObject.lock()->access(path, mask);
+        return AppObject.lock()->access(path, mask);
     }
     static int wrap_getattr(const char *path, struct stat *statbuf)
     {
-        return OneclientAppObject.lock()->getattr(path, statbuf);
+        return AppObject.lock()->getattr(path, statbuf);
     }
     static int wrap_readlink(const char *path, char *link, size_t size)
     {
-        return OneclientAppObject.lock()->readlink(path, link, size);
+        return AppObject.lock()->readlink(path, link, size);
     }
     static int wrap_mknod(const char *path, mode_t mode, dev_t dev)
     {
-        return OneclientAppObject.lock()->mknod(path, mode, dev);
+        return AppObject.lock()->mknod(path, mode, dev);
     }
     static int wrap_mkdir(const char *path, mode_t mode)
     {
-        return OneclientAppObject.lock()->mkdir(path, mode);
+        return AppObject.lock()->mkdir(path, mode);
     }
     static int wrap_unlink(const char *path)
     {
-        return OneclientAppObject.lock()->unlink(path);
+        return AppObject.lock()->unlink(path);
     }
     static int wrap_rmdir(const char *path)
     {
-        return OneclientAppObject.lock()->rmdir(path);
+        return AppObject.lock()->rmdir(path);
     }
     static int wrap_symlink(const char *path, const char *link)
     {
-        return OneclientAppObject.lock()->symlink(path, link);
+        return AppObject.lock()->symlink(path, link);
     }
     static int wrap_rename(const char *path, const char *newpath)
     {
-        return OneclientAppObject.lock()->rename(path, newpath);
+        return AppObject.lock()->rename(path, newpath);
     }
     static int wrap_link(const char *path, const char *newpath)
     {
-        return OneclientAppObject.lock()->link(path, newpath);
+        return AppObject.lock()->link(path, newpath);
     }
     static int wrap_chmod(const char *path, mode_t mode)
     {
-        return OneclientAppObject.lock()->chmod(path, mode);
+        return AppObject.lock()->chmod(path, mode);
     }
     static int wrap_chown(const char *path, uid_t uid, gid_t gid)
     {
-        return OneclientAppObject.lock()->chown(path, uid, gid);
+        return AppObject.lock()->chown(path, uid, gid);
     }
     static int wrap_truncate(const char *path, off_t newSize)
     {
-        return OneclientAppObject.lock()->truncate(path, newSize);
+        return AppObject.lock()->truncate(path, newSize);
     }
     static int wrap_utime(const char *path, struct utimbuf *ubuf)
     {
-        return OneclientAppObject.lock()->utime(path, ubuf);
+        return AppObject.lock()->utime(path, ubuf);
     }
     static int wrap_open(const char *path, struct fuse_file_info *fileInfo)
     {
-        return OneclientAppObject.lock()->open(path, fileInfo);
+        return AppObject.lock()->open(path, fileInfo);
     }
     static int wrap_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
     {
-        return OneclientAppObject.lock()->read(path, buf, size, offset, fileInfo);
+        return AppObject.lock()->read(path, buf, size, offset, fileInfo);
     }
     static int wrap_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
     {
-        return OneclientAppObject.lock()->write(path, buf, size, offset, fileInfo);
+        return AppObject.lock()->write(path, buf, size, offset, fileInfo);
     }
     static int wrap_statfs(const char *path, struct statvfs *statInfo)
     {
-        return OneclientAppObject.lock()->statfs(path, statInfo);
+        return AppObject.lock()->statfs(path, statInfo);
     }
     static int wrap_flush(const char *path, struct fuse_file_info *fileInfo)
     {
-        return OneclientAppObject.lock()->flush(path, fileInfo);
+        return AppObject.lock()->flush(path, fileInfo);
     }
     static int wrap_release(const char *path, struct fuse_file_info *fileInfo)
     {
-        return OneclientAppObject.lock()->release(path, fileInfo);
+        return AppObject.lock()->release(path, fileInfo);
     }
     static int wrap_fsync(const char *path, int datasync, struct fuse_file_info *fi)
     {
-        return OneclientAppObject.lock()->fsync(path, datasync, fi);
+        return AppObject.lock()->fsync(path, datasync, fi);
     }
     #ifdef HAVE_SETXATTR
     static int wrap_setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
     {
-        return OneclientAppObject.lock()->setxattr(path, name, value, size, flags);
+        return AppObject.lock()->setxattr(path, name, value, size, flags);
     }
     static int wrap_getxattr(const char *path, const char *name, char *value, size_t size)
     {
-        return OneclientAppObject.lock()->getxattr(path, name, value, size);
+        return AppObject.lock()->getxattr(path, name, value, size);
     }
     static int wrap_listxattr(const char *path, char *list, size_t size)
     {
-        return OneclientAppObject.lock()->listxattr(path, list, size);
+        return AppObject.lock()->listxattr(path, list, size);
     }
     static int wrap_removexattr(const char *path, const char *name)
     {
-        return OneclientAppObject.lock()->removexattr(path, name);
+        return AppObject.lock()->removexattr(path, name);
     }
     #endif // HAVE_SETXATTR
     static int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo)
     {
-        return OneclientAppObject.lock()->readdir(path, buf, filler, offset, fileInfo);
+        return AppObject.lock()->readdir(path, buf, filler, offset, fileInfo);
     }
     static int wrap_opendir(const char *path, struct fuse_file_info *fileInfo)
     {
-        return OneclientAppObject.lock()->opendir(path, fileInfo);
+        return AppObject.lock()->opendir(path, fileInfo);
     }
     static int wrap_releasedir(const char *path, struct fuse_file_info *fileInfo)
     {
-        return OneclientAppObject.lock()->releasedir(path, fileInfo);
+        return AppObject.lock()->releasedir(path, fileInfo);
     }
     static int wrap_fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo)
     {
-        return OneclientAppObject.lock()->fsyncdir(path, datasync, fileInfo);
+        return AppObject.lock()->fsyncdir(path, datasync, fileInfo);
     }
 //    static int wrap_init(struct fuse_conn_info *conn)
 //    {
-//        return OneclientAppObject.lock()->init(conn);
+//        return AppObject.lock()->init(conn);
 //    }
 
 } // extern "C"
@@ -542,13 +542,13 @@ int main(int argc, char* argv[], char* envp[])
 
     context->setStorageMapper(storageMapper);
 
-    auto OneclientApp = std::make_shared<FsImpl>(mountpoint, context,
+    auto App = std::make_shared<FsImpl>(mountpoint, context,
                     fslogicProxy,
                     std::make_shared<MetaCache>(context),
                     std::make_shared<LocalStorageManager>(context),
                     std::make_shared<helpers::StorageHelperFactory>(context->getCommunicator(), bufferLimits),
                     eventCommunicator);
-    OneclientAppObject = OneclientApp;
+    AppObject = App;
 
     // Register remote logWriter for log threshold level updates and start sending loop
     context->getPushListener()->subscribe(std::bind(&logging::RemoteLogWriter::handleThresholdChange,
