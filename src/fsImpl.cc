@@ -828,19 +828,19 @@ bool FsImpl::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
     }
 }
 
-VeilFS::SHCache::value VeilFS::SHCache::get(const key id)
+FsImpl::SHCache::value FsImpl::SHCache::get(const key id)
 {
     boost::shared_lock_guard<boost::shared_mutex> guard{m_shCacheMutex};
     return m_shCache[id];
 }
 
-void VeilFS::SHCache::set(const key id, value sh)
+void FsImpl::SHCache::set(const key id, value sh)
 {
     boost::lock_guard<boost::shared_mutex> guard{m_shCacheMutex};
     m_shCache[id] = std::move(sh);
 }
 
-VeilFS::SHCache::value VeilFS::SHCache::take(const key id)
+FsImpl::SHCache::value FsImpl::SHCache::take(const key id)
 {
     boost::lock_guard<boost::shared_mutex> guard{m_shCacheMutex};
     const auto it = m_shCache.find(id);
