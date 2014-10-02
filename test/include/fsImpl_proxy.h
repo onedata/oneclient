@@ -27,9 +27,9 @@ public:
     {
     }
 
-    void setCachedHelper(one::client::helper_cache_idx_t idx, one::client::sh_ptr sh)
+    void setCachedHelper(SHCache::key idx, SHCache::value sh)
     {
-        m_shCache[idx] = sh;
+        m_shCache.set(idx, sh);
     }
 };
 

@@ -576,7 +576,7 @@ std::shared_ptr<communication::CertificateData> GSIHandler::getCertData()
 
 std::string GSIHandler::getClusterHostname(const std::string &baseDomain)
 {
-    if(m_context.lock()->getOptions()->has_provider_hostname())
+    if(!m_context.lock()->getOptions()->is_default_provider_hostname())
         return m_context.lock()->getOptions()->get_provider_hostname();
 
     string URL = baseDomain;

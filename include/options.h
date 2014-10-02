@@ -125,7 +125,7 @@ private:
     boost::program_options::options_description m_fuse;
     boost::program_options::options_description m_hidden;
 
-    DECL_CONFIG(provider_hostname, std::string)
+    DECL_CONFIG_DEF(provider_hostname, std::string, BASE_DOMAIN)
     DECL_CONFIG_DEF(provider_port, unsigned int, 5555)
     DECL_CONFIG_DEF(log_dir, std::string, "/tmp")
     DECL_CONFIG(peer_certificate_file, std::string)

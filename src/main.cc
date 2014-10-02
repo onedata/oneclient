@@ -404,7 +404,7 @@ int main(int argc, char* argv[], char* envp[])
         {
             authManager = std::make_unique<auth::CertificateAuthManager>(
                         context,
-                        options->has_provider_hostname() ? options->get_provider_hostname() : BASE_DOMAIN,
+                        options->get_provider_hostname(),
                         options->get_provider_port(),
                         checkCertificate,
                         options->get_debug_gsi());
@@ -413,7 +413,7 @@ int main(int argc, char* argv[], char* envp[])
         {
             authManager = std::make_unique<auth::TokenAuthManager>(
                         context,
-                        options->has_provider_hostname() ? options->get_provider_hostname() : BASE_DOMAIN,
+                        options->get_provider_hostname(),
                         options->get_provider_port(),
                         checkCertificate,
                         options->get_global_registry_url(),
