@@ -5,8 +5,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_LOCAL_STORAGE_MANAGER_H
-#define VEILCLIENT_LOCAL_STORAGE_MANAGER_H
+#ifndef ONECLIENT_LOCAL_STORAGE_MANAGER_H
+#define ONECLIENT_LOCAL_STORAGE_MANAGER_H
 
 
 #include "messageBuilder.h"
@@ -26,7 +26,7 @@
 
 namespace boost{ namespace filesystem{ class path; }}
 
-namespace veil
+namespace one
 {
 
 static constexpr const char
@@ -68,7 +68,7 @@ private:
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_LOCAL_STORAGE_MANAGER_H
+#endif // ONECLIENT_LOCAL_STORAGE_MANAGER_H

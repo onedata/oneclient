@@ -25,7 +25,7 @@
 #include <functional>
 #include <unordered_map>
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -173,4 +173,4 @@ std::string TokenAuthManager::hashAndBase64(const std::string &token) const
 
 } // namespace auth
 } // namespace client
-} // namespace veil
+} // namespace one

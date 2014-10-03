@@ -13,7 +13,7 @@
 #include <memory>
 
 using namespace ::testing;
-using namespace veil::client;
+using namespace one::client;
 
 bool operator==(const Job &lhs, const Job &rhs)
 {

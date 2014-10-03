@@ -7,8 +7,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_EVENT_AGGREGATOR_H
-#define VEILCLIENT_EVENT_AGGREGATOR_H
+#ifndef ONECLIENT_EVENT_AGGREGATOR_H
+#define ONECLIENT_EVENT_AGGREGATOR_H
 
 
 #include "events/IEventStream.h"
@@ -18,10 +18,10 @@
 #include <mutex>
 #include <string>
 
-namespace veil
+namespace one
 {
 
-namespace protocol{ namespace fuse_messages { class EventAggregatorConfig; }}
+namespace clproto{ namespace fuse_messages { class EventAggregatorConfig; }}
 
 namespace client
 {
@@ -64,7 +64,7 @@ public:
     EventAggregator(std::shared_ptr<IEventStream> wrappedStream, NumericProperty threshold, const std::string & sumFieldName = "count");
     EventAggregator(std::shared_ptr<IEventStream> wrappedStream, const std::string & fieldName, NumericProperty threshold, const std::string & sumFieldName = "count");
 
-    static std::shared_ptr<IEventStream> fromConfig(const ::veil::protocol::fuse_messages::EventAggregatorConfig & config); ///< Constructs EventFilter for protocol buffer message EventFilterConfig
+    static std::shared_ptr<IEventStream> fromConfig(const ::one::clproto::fuse_messages::EventAggregatorConfig & config); ///< Constructs EventFilter for protocol buffer message EventFilterConfig
     virtual std::shared_ptr<Event> actualProcessEvent(std::shared_ptr<Event> event); 									  ///<  Implements pure virtual method IEventStream::actualProcessEvent
 
     // for unit test purposes
@@ -83,7 +83,7 @@ private:
 
 } // namespace events
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_EVENT_AGGREGATOR_H
+#endif // ONECLIENT_EVENT_AGGREGATOR_H

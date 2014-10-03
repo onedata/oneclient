@@ -1,5 +1,5 @@
-#ifndef VEILCLIENT_EVENTS_H
-#define VEILCLIENT_EVENTS_H
+#ifndef ONECLIENT_EVENTS_H
+#define ONECLIENT_EVENTS_H
 
 
 #include "events/event.h"
@@ -14,4 +14,4 @@
 #include "events/customActionStream.h"
 
 
-#endif // VEILCLIENT_EVENTS_H
+#endif // ONECLIENT_EVENTS_H

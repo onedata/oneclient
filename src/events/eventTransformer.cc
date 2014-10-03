@@ -11,9 +11,9 @@
 #include "fuse_messages.pb.h"
 #include "logging.h"
 
-using namespace veil::client::events;
+using namespace one::client::events;
 using namespace std;
-using namespace veil::protocol::fuse_messages;
+using namespace one::clproto::fuse_messages;
 
 EventTransformer::EventTransformer(const vector<string> &fieldNamesToReplace, const vector<string> &valuesToReplace, const vector<string> &newValues) :
     m_fieldNamesToReplace(fieldNamesToReplace), m_valuesToReplace(valuesToReplace), m_newValues(newValues)

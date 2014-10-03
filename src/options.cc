@@ -8,10 +8,10 @@
 #include "options.h"
 
 #include "logging.h"
-#include "veilConfig.h"
-#include "veilErrors.h"
-#include "veilException.h"
-#include "veilfs.h"
+#include "version.h"
+#include "oneErrors.h"
+#include "oneException.h"
+#include "fsImpl.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
@@ -26,7 +26,7 @@
 
 using namespace boost::program_options;
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -50,8 +50,8 @@ Options::~Options()
 void Options::setDescriptions()
 {
     // Common options found in environment, global and user config files
-    add_cluster_hostname(m_common);
-    add_cluster_port(m_common);
+    add_provider_hostname(m_common);
+    add_provider_port(m_common);
     add_peer_certificate_file(m_common);
     add_no_check_certificate(m_common);
     add_fuse_group_id(m_common);
@@ -116,7 +116,7 @@ Options::Result Options::parseConfigs(const int argc, const char * const argv[])
     catch(boost::program_options::error &e)
     {
         LOG(ERROR) << "Error while parsing command line arguments: " << e.what();
-        throw VeilException(VEINVAL, e.what());
+        throw OneException(VEINVAL, e.what());
     }
 
     variables_map fileConfigMap;
@@ -128,16 +128,16 @@ Options::Result Options::parseConfigs(const int argc, const char * const argv[])
     {
         LOG(ERROR) << "Error while parsing user configuration file: " << e.what();
         if(m_restricted.find_nothrow(e.get_option_name(), false))
-            throw VeilException(VEINVAL,
+            throw OneException(VEINVAL,
                                 "restricted option '" + e.get_option_name() +
                                 "' found in user configuration file");
 
-        throw VeilException(VEINVAL, e.what());
+        throw OneException(VEINVAL, e.what());
     }
     catch(boost::program_options::error &e)
     {
         LOG(ERROR) << "Error while parsing user configuration file: " << e.what();
-        throw VeilException(VEINVAL, e.what());
+        throw OneException(VEINVAL, e.what());
     }
 
     try
@@ -147,7 +147,7 @@ Options::Result Options::parseConfigs(const int argc, const char * const argv[])
     catch(boost::program_options::error &e)
     {
         LOG(ERROR) << "Error while parsing global configuration file: " << e.what();
-        throw VeilException(VEINVAL, e.what());
+        throw OneException(VEINVAL, e.what());
     }
 
     // If override is allowed then we merge in environment variables first
@@ -237,8 +237,8 @@ void Options::parseGlobalConfig(variables_map &fileConfigMap)
     options_description global("Global configuration");
     global.add(m_restricted).add(m_common);
 
-    const path globalConfigPath = path(VeilClient_INSTALL_PATH) /
-            VeilClient_CONFIG_DIR / GLOBAL_CONFIG_FILE;
+    const path globalConfigPath = path(oneclient_INSTALL_PATH) /
+            oneclient_CONFIG_DIR / GLOBAL_CONFIG_FILE;
     std::ifstream globalConfig(globalConfigPath.c_str());
 
     if(globalConfig)

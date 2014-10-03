@@ -6,8 +6,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_STORAGE_MAPPER_H
-#define VEILCLIENT_STORAGE_MAPPER_H
+#ifndef ONECLIENT_STORAGE_MAPPER_H
+#define ONECLIENT_STORAGE_MAPPER_H
 
 
 #include "ISchedulable.h"
@@ -22,10 +22,10 @@
 #include <string>
 #include <boost/filesystem.hpp>
 
-namespace veil
+namespace one
 {
 
-namespace protocol{ namespace fuse_messages{ class FileLocation; }}
+namespace clproto{ namespace fuse_messages{ class FileLocation; }}
 
 namespace client
 {
@@ -85,7 +85,7 @@ protected:
     std::map<std::string, storageInfo> m_fileHelperOverride;
     boost::shared_mutex m_fileMappingMutex;                 ///< Mutex used while operationg on StorageMapper::m_fileMapping. @see StorageMapper::m_fileMapping
 
-    std::shared_ptr<FslogicProxy> m_fslogic;              ///< Reference to FslogicProxy instance. @see VeilFS::m_fslogic
+    std::shared_ptr<FslogicProxy> m_fslogic;              ///< Reference to FslogicProxy instance. @see FsImpl::m_fslogic
 
 public:
 
@@ -94,13 +94,13 @@ public:
 
     /**
      * Gets file location information along with storage info for storage heleper's calls.
-     * @param logical_name File path (relative to VeilFS mount point)
+     * @param logical_name File path (relative to FsImpl mount point)
      * @param useCluster Specify if the method should use cache only (deafault) or try quering cluster.
      * @return std::pair of locationInfo and storageInfo structs for this file
      */
     virtual std::pair<locationInfo, storageInfo> getLocationInfo(const std::string &logical_name, bool useCluster = false, bool forceClusterProxy = false);
     virtual std::string findLocation(const std::string &logicalName, const std::string &openMode = UNSPECIFIED_MODE, bool forceClusterProxy = false);///< Query cluster about file location and instert it to cache. @see StorageMapper::addLocation
-    virtual void addLocation(const std::string &logicalName, const protocol::fuse_messages::FileLocation &location); ///< Cache given file location.
+    virtual void addLocation(const std::string &logicalName, const clproto::fuse_messages::FileLocation &location); ///< Cache given file location.
                                                                             ///< Insert to file location cache new FileLocation received from cluster.
     virtual void openFile(const std::string &logicalName);                  ///< Increases open file count for specified file. @see locationInfo::opened
     virtual void releaseFile(const std::string &logicalName);               ///< Decreases open file count for specified file. @see locationInfo::opened
@@ -127,7 +127,7 @@ private:
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_STORAGE_MAPPER_H
+#endif // ONECLIENT_STORAGE_MAPPER_H

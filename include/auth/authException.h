@@ -5,13 +5,13 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_AUTH_EXCEPTION_H
-#define VEILCLIENT_AUTH_EXCEPTION_H
+#ifndef ONECLIENT_AUTH_EXCEPTION_H
+#define ONECLIENT_AUTH_EXCEPTION_H
 
 
 #include <stdexcept>
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -40,7 +40,7 @@ public:
 
 } // namespace auth
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_AUTH_EXCEPTION_H
+#endif // ONECLIENT_AUTH_EXCEPTION_H

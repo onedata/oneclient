@@ -14,7 +14,7 @@
 #include "context.h"
 #include "logging.h"
 #include "options.h"
-#include "veilfs.h"
+#include "fsImpl.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string.hpp>
@@ -50,7 +50,7 @@ constexpr const char
 
 namespace
 {
-inline std::string GLOBUS_PROXY_PATH(const std::weak_ptr<veil::client::Context> &context)
+inline std::string GLOBUS_PROXY_PATH(const std::weak_ptr<one::client::Context> &context)
 {
     return context.lock()->getConfig()->absPathRelToHOME("/tmp/x509up_u") + std::to_string(getuid());
 }
@@ -138,7 +138,7 @@ inline bool isFileOrSymlink(const boost::filesystem::path &p)
 
 } // namespace
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -576,8 +576,8 @@ std::shared_ptr<communication::CertificateData> GSIHandler::getCertData()
 
 std::string GSIHandler::getClusterHostname(const std::string &baseDomain)
 {
-    if(m_context.lock()->getOptions()->has_cluster_hostname())
-        return m_context.lock()->getOptions()->get_cluster_hostname();
+    if(!m_context.lock()->getOptions()->is_default_provider_hostname())
+        return m_context.lock()->getOptions()->get_provider_hostname();
 
     string URL = baseDomain;
 
@@ -612,4 +612,4 @@ std::string GSIHandler::getClusterHostname(const std::string &baseDomain)
 
 } // namespace auth
 } // namespace client
-} // namespace veil
+} // namespace one

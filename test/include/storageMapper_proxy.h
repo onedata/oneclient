@@ -11,21 +11,21 @@
 
 #include "storageMapper.h"
 
-class ProxyStorageMapper: public veil::client::StorageMapper
+class ProxyStorageMapper: public one::client::StorageMapper
 {
 public:
-    ProxyStorageMapper(std::shared_ptr<veil::client::Context> context,
-                       std::shared_ptr<veil::client::FslogicProxy> mock)
+    ProxyStorageMapper(std::shared_ptr<one::client::Context> context,
+                       std::shared_ptr<one::client::FslogicProxy> mock)
         : StorageMapper(std::move(context), mock)
     {
     }
 
-    std::map<int, veil::client::storageInfo>& getStorageMapping()
+    std::map<int, one::client::storageInfo>& getStorageMapping()
     {
         return m_storageMapping;
     }
 
-    std::map<std::string, veil::client::locationInfo>& getFileMapping()
+    std::map<std::string, one::client::locationInfo>& getFileMapping()
     {
         return m_fileMapping;
     }

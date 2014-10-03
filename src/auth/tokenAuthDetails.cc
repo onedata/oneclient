@@ -7,7 +7,7 @@
 
 #include "auth/tokenAuthDetails.h"
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -65,4 +65,4 @@ std::istream &operator>>(std::istream &i, TokenAuthDetails &auth)
 
 } // namespace auth
 } // namespace client
-} // namespace veil
+} // namespace one

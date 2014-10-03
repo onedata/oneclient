@@ -13,20 +13,20 @@
 
 #include <gmock/gmock.h>
 
-class MockStorageMapper: public veil::client::StorageMapper
+class MockStorageMapper: public one::client::StorageMapper
 {
 public:
-    MockStorageMapper(std::weak_ptr<veil::client::Context> context,
-                      std::shared_ptr<veil::client::FslogicProxy> fslogicProxy)
+    MockStorageMapper(std::weak_ptr<one::client::Context> context,
+                      std::shared_ptr<one::client::FslogicProxy> fslogicProxy)
         : StorageMapper(std::move(context), fslogicProxy)
     {
     }
 
     MOCK_METHOD1(releaseFile, void(const std::string&));
-    MOCK_METHOD3(getLocationInfo, std::pair<veil::client::locationInfo, veil::client::storageInfo>(const std::string&, bool, bool));
-    MOCK_METHOD2(addLocation, void(const std::string&, const veil::protocol::fuse_messages::FileLocation&));
+    MOCK_METHOD3(getLocationInfo, std::pair<one::client::locationInfo, one::client::storageInfo>(const std::string&, bool, bool));
+    MOCK_METHOD2(addLocation, void(const std::string&, const one::clproto::fuse_messages::FileLocation&));
     MOCK_METHOD3(findLocation, std::string(const std::string&, const std::string&, bool));
-    MOCK_METHOD2(helperOverride, void(const std::string&, const veil::client::storageInfo&));
+    MOCK_METHOD2(helperOverride, void(const std::string&, const one::client::storageInfo&));
     MOCK_METHOD1(resetHelperOverride, void(const std::string&));
 };
 

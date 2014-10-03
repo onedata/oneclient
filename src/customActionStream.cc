@@ -7,7 +7,7 @@
 
 #include "events/customActionStream.h"
 
-using namespace veil::client::events;
+using namespace one::client::events;
 using namespace std;
 
 CustomActionStream::CustomActionStream(std::shared_ptr<IEventStream> wrappedStream, std::function<std::shared_ptr<Event>(std::shared_ptr<Event>)> customActionFun) :

@@ -5,8 +5,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_CONTEXT_H
-#define VEILCLIENT_CONTEXT_H
+#ifndef ONECLIENT_CONTEXT_H
+#define ONECLIENT_CONTEXT_H
 
 
 #include "ISchedulable.h"
@@ -17,7 +17,7 @@
 #include <mutex>
 #include <list>
 
-namespace veil
+namespace one
 {
 
 namespace communication{ class Communicator; }
@@ -76,6 +76,6 @@ private:
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
-#endif // VEILCLIENT_CONTEXT_H
+#endif // ONECLIENT_CONTEXT_H

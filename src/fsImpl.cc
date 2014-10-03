@@ -1,11 +1,11 @@
 /**
- * @file veilfs.cc
+ * @file fsImpl.cc
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "veilfs.h"
+#include "fsImpl.h"
 
 #include "communication_protocol.pb.h"
 #include "communication/communicator.h"
@@ -23,8 +23,8 @@
 #include "options.h"
 #include "pushListener.h"
 #include "storageMapper.h"
-#include "veilErrors.h"
-#include "veilException.h"
+#include "oneErrors.h"
+#include "oneException.h"
 
 #include <grp.h>
 #include <pwd.h>
@@ -51,7 +51,7 @@
                                 if(!ptr) { LOG(ERROR) << "storage helper '" << NAME << "' not found"; return -EIO; } \
                                 CUSTOM_SH_RUN(ptr, FUN)
 
-/// If given veilError does not produce POSIX 0 return code, interrupt execution by returning POSIX error code.
+/// If given oneError does not produce POSIX 0 return code, interrupt execution by returning POSIX error code.
 #define RETURN_IF_ERROR(X)  { \
                                 int err = translateError(X); \
                                 if(err != 0) { LOG(INFO) << "Returning error: " << err; return err; } \
@@ -68,14 +68,14 @@
                                     lInfo = tmpLoc.first; \
                                     sInfo = tmpLoc.second; \
                                 } \
-                                catch(VeilException e) \
+                                catch(OneException e) \
                                 { \
                                     LOG(WARNING) << "cannot get file mapping for file: " << string(PATH) << " (error: " << e.what() << ")"; \
-                                    return translateError(e.veilError()); \
+                                    return translateError(e.oneError()); \
                                 }
 
 using namespace std;
-using namespace veil::protocol::fuse_messages;
+using namespace one::clproto::fuse_messages;
 
 namespace
 {
@@ -86,10 +86,10 @@ inline std::string parent(const boost::filesystem::path &p)
 }
 }
 
-namespace veil {
+namespace one {
 namespace client {
 
-VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
+FsImpl::FsImpl(string path, std::shared_ptr<Context> context,
                std::shared_ptr<FslogicProxy> fslogic,  std::shared_ptr<MetaCache> metaCache,
                std::shared_ptr<LocalStorageManager> sManager,
                std::shared_ptr<helpers::StorageHelperFactory> sh_factory,
@@ -159,11 +159,11 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
     m_context->getScheduler(ISchedulable::TASK_IS_WRITE_ENABLED)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_IS_WRITE_ENABLED));
 }
 
-VeilFS::~VeilFS()
+FsImpl::~FsImpl()
 {
 }
 
-int VeilFS::access(const char *path, int mask)
+int FsImpl::access(const char *path, int mask)
 {
     LOG(INFO) << "FUSE: access(path: " << string(path) << ", mask: " << mask << ")";
 
@@ -173,7 +173,7 @@ int VeilFS::access(const char *path, int mask)
     return 0;
 }
 
-int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
+int FsImpl::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
 {
     if(fuse_ctx)
         LOG(INFO) << "FUSE: getattr(path: " << string(path) << ", statbuf)";
@@ -223,7 +223,7 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
         uid_t uid = attr.uid();
         gid_t gid = attr.gid();
 
-        if(string(path) == "/") { // VeilFS root should always belong to FUSE owner
+        if(string(path) == "/") { // FsImpl root should always belong to FUSE owner
             m_ruid = uid;
             m_rgid = gid;
         }
@@ -268,7 +268,7 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
     return 0;
 }
 
-int VeilFS::readlink(const char *path, char *link, size_t size)
+int FsImpl::readlink(const char *path, char *link, size_t size)
 {
     LOG(INFO) << "FUSE: readlink(path: " << string(path) << ")";
     string target;
@@ -301,7 +301,7 @@ int VeilFS::readlink(const char *path, char *link, size_t size)
     return 0;
 }
 
-int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
+int FsImpl::mknod(const char *path, mode_t mode, dev_t dev)
 {
     LOG(INFO) << "FUSE: mknod(path: " << string(path) << ", mode: " << mode << ", ...)";
     if(!(mode & S_IFREG))
@@ -360,7 +360,7 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
     return sh_return;
 }
 
-int VeilFS::mkdir(const char *path, mode_t mode)
+int FsImpl::mkdir(const char *path, mode_t mode)
 {
     LOG(INFO) << "FUSE: mkdir(path: " << string(path) << ", mode: " << mode << ")";
     m_metaCache->clearAttr(string(path));
@@ -376,7 +376,7 @@ int VeilFS::mkdir(const char *path, mode_t mode)
     return 0;
 }
 
-int VeilFS::unlink(const char *path)
+int FsImpl::unlink(const char *path)
 {
     LOG(INFO) << "FUSE: unlink(path: " << string(path) << ")";
     struct stat statbuf;
@@ -410,7 +410,7 @@ int VeilFS::unlink(const char *path)
     return 0;
 }
 
-int VeilFS::rmdir(const char *path)
+int FsImpl::rmdir(const char *path)
 {
     LOG(INFO) << "FUSE: rmdir(path: " << string(path) << ")";
     m_metaCache->clearAttr(string(path));
@@ -423,7 +423,7 @@ int VeilFS::rmdir(const char *path)
     return 0;
 }
 
-int VeilFS::symlink(const char *to, const char *from)
+int FsImpl::symlink(const char *to, const char *from)
 {
     LOG(INFO) << "FUSE: symlink(path: " << string(from) << ", link: "<< string(to)  <<")";
     string toStr = string(to);
@@ -441,7 +441,7 @@ int VeilFS::symlink(const char *to, const char *from)
     return 0;
 }
 
-int VeilFS::rename(const char *path, const char *newpath)
+int FsImpl::rename(const char *path, const char *newpath)
 {
     LOG(INFO) << "FUSE: rename(path: " << string(path) << ", newpath: "<< string(newpath)  <<")";
 
@@ -453,13 +453,13 @@ int VeilFS::rename(const char *path, const char *newpath)
     return 0;
 }
 
-int VeilFS::link(const char *path, const char *newpath)
+int FsImpl::link(const char *path, const char *newpath)
 {
     LOG(INFO) << "FUSE: link(path: " << string(path) << ", newpath: "<< string(newpath)  <<")";
     return -ENOTSUP;
 }
 
-int VeilFS::chmod(const char *path, mode_t mode)
+int FsImpl::chmod(const char *path, mode_t mode)
 {
     LOG(INFO) << "FUSE: chmod(path: " << string(path) << ", mode: "<< mode << ")";
     RETURN_IF_ERROR(m_fslogic->changeFilePerms(string(path), mode & ALLPERMS)); // ALLPERMS = 07777
@@ -477,7 +477,7 @@ int VeilFS::chmod(const char *path, mode_t mode)
     return sh_return;
 }
 
-int VeilFS::chown(const char *path, uid_t uid, gid_t gid)
+int FsImpl::chown(const char *path, uid_t uid, gid_t gid)
 {
     LOG(INFO) << "FUSE: chown(path: " << string(path) << ", uid: "<< uid << ", gid: " << gid <<")";
 
@@ -501,7 +501,7 @@ int VeilFS::chown(const char *path, uid_t uid, gid_t gid)
     return 0;
 }
 
-int VeilFS::truncate(const char *path, off_t newSize)
+int FsImpl::truncate(const char *path, off_t newSize)
 {
     LOG(INFO) << "FUSE: truncate(path: " << string(path) << ", newSize: "<< newSize <<")";
 
@@ -519,7 +519,7 @@ int VeilFS::truncate(const char *path, off_t newSize)
     return sh_return;
 }
 
-int VeilFS::utime(const char *path, struct utimbuf *ubuf)
+int FsImpl::utime(const char *path, struct utimbuf *ubuf)
 {
     LOG(INFO) << "FUSE: utime(path: " << string(path) << ", ...)";
 
@@ -531,7 +531,7 @@ int VeilFS::utime(const char *path, struct utimbuf *ubuf)
     return 0;
 }
 
-int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
+int FsImpl::open(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: open(path: " << string(path) << ", ...)";
     fileInfo->direct_io = 1;
@@ -583,7 +583,7 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
     return sh_return;
 }
 
-int VeilFS::read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
+int FsImpl::read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
 {
     //LOG(INFO) << "FUSE: read(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
     GET_LOCATION_INFO(path, false);
@@ -597,7 +597,7 @@ int VeilFS::read(const char *path, char *buf, size_t size, off_t offset, struct 
     return sh_return;
 }
 
-int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
+int FsImpl::write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
 {
     //LOG(INFO) << "FUSE: write(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
 
@@ -627,7 +627,7 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
 }
 
 // not yet implemented
-int VeilFS::statfs(const char *path, struct statvfs *statInfo)
+int FsImpl::statfs(const char *path, struct statvfs *statInfo)
 {
     LOG(INFO) << "FUSE: statfs(path: " << string(path) << ", ...)";
 
@@ -639,7 +639,7 @@ int VeilFS::statfs(const char *path, struct statvfs *statInfo)
 }
 
 // not yet implemented
-int VeilFS::flush(const char *path, struct fuse_file_info *fileInfo)
+int FsImpl::flush(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: flush(path: " << string(path) << ", ...)";
     GET_LOCATION_INFO(path, false);
@@ -652,7 +652,7 @@ int VeilFS::flush(const char *path, struct fuse_file_info *fileInfo)
     return sh_return;
 }
 
-int VeilFS::release(const char *path, struct fuse_file_info *fileInfo)
+int FsImpl::release(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: release(path: " << string(path) << ", ...)";
 
@@ -668,7 +668,7 @@ int VeilFS::release(const char *path, struct fuse_file_info *fileInfo)
 }
 
 // not yet implemented
-int VeilFS::fsync(const char *path, int datasync, struct fuse_file_info *fi)
+int FsImpl::fsync(const char *path, int datasync, struct fuse_file_info *fi)
 {
     LOG(INFO) << "FUSE: fsync(path: " << string(path) << ", datasync: " << datasync << ")";
     /* Just a stub.  This method is optional and can safely be left
@@ -680,7 +680,7 @@ int VeilFS::fsync(const char *path, int datasync, struct fuse_file_info *fi)
     return 0;
 }
 
-int VeilFS::opendir(const char *path, struct fuse_file_info *fileInfo)
+int FsImpl::opendir(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: opendir(path: " << string(path) << ", ...)";
 
@@ -689,7 +689,7 @@ int VeilFS::opendir(const char *path, struct fuse_file_info *fileInfo)
     return 0;
 }
 
-int VeilFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo)
+int FsImpl::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: readdir(path: " << string(path) << ", ..., offset: " << offset << ", ...)";
     vector<string> children;
@@ -722,52 +722,52 @@ int VeilFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
     return 0;
 }
 
-int VeilFS::releasedir(const char *path, struct fuse_file_info *fileInfo)
+int FsImpl::releasedir(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: releasedir(path: " << string(path) << ", ...)";
     return 0;
 }
 
-int VeilFS::fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo)
+int FsImpl::fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: fsyncdir(path: " << string(path) << ", datasync: " << datasync << ", ...)";
     return 0;
 }
 
-int VeilFS::setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
+int FsImpl::setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
 {
     return -EIO;
 }
 
-int VeilFS::getxattr(const char *path, const char *name, char *value, size_t size)
+int FsImpl::getxattr(const char *path, const char *name, char *value, size_t size)
 {
     return -EIO;
 }
 
-int VeilFS::listxattr(const char *path, char *list, size_t size)
+int FsImpl::listxattr(const char *path, char *list, size_t size)
 {
     return -EIO;
 }
 
-int VeilFS::removexattr(const char *path, const char *name)
+int FsImpl::removexattr(const char *path, const char *name)
 {
     return -EIO;
 }
 
-int VeilFS::init(struct fuse_conn_info *conn) {
+int FsImpl::init(struct fuse_conn_info *conn) {
     LOG(INFO) << "FUSE: init(...)";
     return 0;
 }
 
 
-bool VeilFS::needsForceClusterProxy(const std::string &path)
+bool FsImpl::needsForceClusterProxy(const std::string &path)
 {
     struct stat attrs;
     auto attrsStatus = getattr(path.c_str(), &attrs, false);
     return attrsStatus || !m_metaCache->canUseDefaultPermissions(attrs);
 }
 
-bool VeilFS::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
+bool FsImpl::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
 {
     struct stat attr;
     vector<string> children;
@@ -828,19 +828,19 @@ bool VeilFS::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
     }
 }
 
-VeilFS::SHCache::value VeilFS::SHCache::get(const key id)
+FsImpl::SHCache::value FsImpl::SHCache::get(const key id)
 {
     boost::shared_lock_guard<boost::shared_mutex> guard{m_shCacheMutex};
     return m_shCache[id];
 }
 
-void VeilFS::SHCache::set(const key id, value sh)
+void FsImpl::SHCache::set(const key id, value sh)
 {
     boost::lock_guard<boost::shared_mutex> guard{m_shCacheMutex};
     m_shCache[id] = std::move(sh);
 }
 
-VeilFS::SHCache::value VeilFS::SHCache::take(const key id)
+FsImpl::SHCache::value FsImpl::SHCache::take(const key id)
 {
     boost::lock_guard<boost::shared_mutex> guard{m_shCacheMutex};
     const auto it = m_shCache.find(id);
@@ -850,4 +850,4 @@ VeilFS::SHCache::value VeilFS::SHCache::take(const key id)
 }
 
 } // namespace client
-} // namespace veil
+} // namespace one
