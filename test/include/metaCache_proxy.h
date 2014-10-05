@@ -11,9 +11,9 @@
 
 #include "metaCache.h"
 
-class ProxyMetaCache: public veil::client::MetaCache {
+class ProxyMetaCache: public one::client::MetaCache {
 public:
-    ProxyMetaCache(std::shared_ptr<veil::client::Context> context)
+    ProxyMetaCache(std::shared_ptr<one::client::Context> context)
         : MetaCache{std::move(context)}
     {
     }

@@ -12,7 +12,7 @@
 
 #include <algorithm>
 
-namespace veil {
+namespace one {
 namespace client {
 
 Job::Job(const std::time_t when, std::shared_ptr<ISchedulable> subject,
@@ -125,4 +125,4 @@ bool JobScheduler::hasTask(const ISchedulable::TaskID task) {
 }
 
 } // namespace client
-} // namespace veil
+} // namespace one

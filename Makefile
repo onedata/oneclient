@@ -27,21 +27,21 @@ build: release
 
 deb-info:
 	@mkdir -p ${RELEASE_DIR}
-	-@find ${RELEASE_DIR} -name "veilhelpers-update" -exec rm -rf {} \;
+	-@find ${RELEASE_DIR} -name "helpers-update" -exec rm -rf {} \;
 	@cd ${RELEASE_DIR} && ${CMAKE} -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
-	@cd ${RELEASE_DIR} && ninja veilFuse
+	@cd ${RELEASE_DIR} && ninja oneclient
 
 release:
 	@mkdir -p ${RELEASE_DIR}
-	-@find ${RELEASE_DIR} -name "veilhelpers-update" -exec rm -rf {} \;
+	-@find ${RELEASE_DIR} -name "helpers-update" -exec rm -rf {} \;
 	@cd ${RELEASE_DIR} && ${CMAKE} -GNinja -DCMAKE_BUILD_TYPE=Release ..
-	@cd ${RELEASE_DIR} && ninja veilFuse
+	@cd ${RELEASE_DIR} && ninja oneclient
 
 debug:
 	@mkdir -p ${DEBUG_DIR}
-	-@find ${DEBUG_DIR} -name "veilhelpers-update" -exec rm -rf {} \;
+	-@find ${DEBUG_DIR} -name "helpers-update" -exec rm -rf {} \;
 	@cd ${DEBUG_DIR} && ${CMAKE} -GNinja -DCMAKE_BUILD_TYPE=Debug ..
-	@cd ${DEBUG_DIR} && ninja veilFuse
+	@cd ${DEBUG_DIR} && ninja oneclient
 
 test: deb-info
 	@cd ${RELEASE_DIR} && ninja

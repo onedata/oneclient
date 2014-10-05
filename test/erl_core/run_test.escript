@@ -16,12 +16,12 @@
 
 -include("test_common.hrl").
 
--define(default_cookie, veil_cluster_node).
+-define(default_cookie, oneprovider_node).
 -define(default_ccm_name, "ccm").
 -define(default_worker_name, "worker").
 
--define(CCM_NODE_NAME, list_to_atom(?default_ccm_name ++ "@" ++ os:getenv("CLUSTER_NODE"))).
--define(WORKER_NODE_NAME, list_to_atom(?default_worker_name ++ "@" ++ os:getenv("CLUSTER_NODE"))).
+-define(CCM_NODE_NAME, list_to_atom(?default_ccm_name ++ "@" ++ os:getenv("PROVIDER_NODE"))).
+-define(WORKER_NODE_NAME, list_to_atom(?default_worker_name ++ "@" ++ os:getenv("PROVIDER_NODE"))).
 
 %% Restart cluster before each test suite (+20 secs). 
 -define(RESTART_CLUSTER, true).
@@ -53,16 +53,16 @@ main([TestName | Args]) ->
 
     if
         ?RESTART_CLUSTER ->
-            os:cmd("curl -X DELETE " ++ os:getenv("CLUSTER_NODE") ++ ":5984/files"),
-            os:cmd("curl -X DELETE " ++ os:getenv("CLUSTER_NODE") ++ ":5984/system_data"),
-            os:cmd("curl -X DELETE " ++ os:getenv("CLUSTER_NODE") ++ ":5984/file_descriptors"),
-            os:cmd("curl -X DELETE " ++ os:getenv("CLUSTER_NODE") ++ ":5984/users"),
+            os:cmd("curl -X DELETE " ++ os:getenv("PROVIDER_NODE") ++ ":5984/files"),
+            os:cmd("curl -X DELETE " ++ os:getenv("PROVIDER_NODE") ++ ":5984/system_data"),
+            os:cmd("curl -X DELETE " ++ os:getenv("PROVIDER_NODE") ++ ":5984/file_descriptors"),
+            os:cmd("curl -X DELETE " ++ os:getenv("PROVIDER_NODE") ++ ":5984/users"),
 
             DirectIORoot = "/tmp/dio",
-            io:format("Delete DirectIO dir: ~p~n", [os:cmd("ssh root@" ++ os:getenv("CLUSTER_NODE") ++ " rm -rf " ++ DirectIORoot)]),
-            io:format("Create DirectIO dir: ~p~n", [os:cmd("ssh root@" ++ os:getenv("CLUSTER_NODE") ++ " mkdir -p " ++ DirectIORoot)]),
+            io:format("Delete DirectIO dir: ~p~n", [os:cmd("ssh root@" ++ os:getenv("PROVIDER_NODE") ++ " rm -rf " ++ DirectIORoot)]),
+            io:format("Create DirectIO dir: ~p~n", [os:cmd("ssh root@" ++ os:getenv("PROVIDER_NODE") ++ " mkdir -p " ++ DirectIORoot)]),
 
-            io:format("Restarting nodes: ~p~n", [os:cmd("ssh root@" ++ os:getenv("CLUSTER_NODE") ++ " /etc/init.d/veil restart")]),
+            io:format("Restarting nodes: ~p~n", [os:cmd("ssh root@" ++ os:getenv("PROVIDER_NODE") ++ " /etc/init.d/oneprovider restart")]),
             timer:sleep(10000), %% Give node some time to boot 
 
             pong = net_adm:ping(?CCM_NODE_NAME),

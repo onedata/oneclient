@@ -14,19 +14,19 @@
 
 #include <gmock/gmock.h>
 
-class MockMessageBuilder: public veil::client::MessageBuilder
+class MockMessageBuilder: public one::client::MessageBuilder
 {
 public:
-    MockMessageBuilder(std::weak_ptr<veil::client::Context> ctx)
+    MockMessageBuilder(std::weak_ptr<one::client::Context> ctx)
         : MessageBuilder(ctx)
     {
     }
 
-    MOCK_CONST_METHOD1(createFuseMessage, veil::protocol::fuse_messages::FuseMessage(
+    MOCK_CONST_METHOD1(createFuseMessage, one::clproto::fuse_messages::FuseMessage(
                      const google::protobuf::Message&));
 
     MOCK_CONST_METHOD1(decodeAtomAnswer, std::string(
-                     const veil::protocol::communication_protocol::Answer&));
+                     const one::clproto::communication_protocol::Answer&));
 };
 
 

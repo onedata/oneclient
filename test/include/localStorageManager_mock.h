@@ -13,10 +13,10 @@
 
 #include <gmock/gmock.h>
 
-class MockLocalStorageManager: public veil::client::LocalStorageManager
+class MockLocalStorageManager: public one::client::LocalStorageManager
 {
 public:
-    MockLocalStorageManager(std::shared_ptr<veil::client::Context> context)
+    MockLocalStorageManager(std::shared_ptr<one::client::Context> context)
         : LocalStorageManager{std::move(context)}
     {
     }

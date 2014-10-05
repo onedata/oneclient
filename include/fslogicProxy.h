@@ -6,8 +6,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_FSLOGIC_PROXY_H
-#define VEILCLIENT_FSLOGIC_PROXY_H
+#ifndef ONECLIENT_FSLOGIC_PROXY_H
+#define ONECLIENT_FSLOGIC_PROXY_H
 
 
 #include "ISchedulable.h"
@@ -19,10 +19,10 @@
 #include <vector>
 #include <memory>
 
-namespace veil
+namespace one
 {
 
-namespace protocol
+namespace clproto
 {
 namespace fuse_messages
 {
@@ -86,11 +86,11 @@ public:
     FslogicProxy(std::weak_ptr<Context> context);
     virtual ~FslogicProxy();
 
-    virtual bool            getFileAttr(const std::string& logicName, protocol::fuse_messages::FileAttr& attr);                 ///< Downloads file attributes from cluster
-    virtual bool            getFileLocation(const std::string& logicName, protocol::fuse_messages::FileLocation& location,
+    virtual bool            getFileAttr(const std::string& logicName, clproto::fuse_messages::FileAttr& attr);                 ///< Downloads file attributes from cluster
+    virtual bool            getFileLocation(const std::string& logicName, clproto::fuse_messages::FileLocation& location,
                                             const std::string &openMode = UNSPECIFIED_MODE, bool forceClusterProxy = false); ///< Downloads file location info
     virtual bool            getNewFileLocation(const std::string& logicName, mode_t mode,
-                                               protocol::fuse_messages::FileLocation& location, bool forceClusterProxy = false); ///< Query cluser to create new file in DB and get its real location
+                                               clproto::fuse_messages::FileLocation& location, bool forceClusterProxy = false); ///< Query cluser to create new file in DB and get its real location
     virtual std::string     sendFileCreatedAck(const std::string& logicName);                                                   ///< Send acknowledgement about created file to cluster
     virtual int             renewFileLocation(const std::string& logicName);                                                    ///< Try to renew location validity for given file
     virtual bool            getFileChildren(const std::string &dirLogicName, uint32_t children_num, uint32_t offset, std::vector<std::string>& childrenNames);    ///< List files in given folder
@@ -131,7 +131,7 @@ private:
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_FSLOGIC_PROXY_H
+#endif // ONECLIENT_FSLOGIC_PROXY_H

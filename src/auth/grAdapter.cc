@@ -29,7 +29,7 @@
 #include <ostream>
 #include <sstream>
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -136,7 +136,7 @@ void GRAdapter::requestToken(const std::string &content, GRAdapter::Socket &sock
     std::ostream requestStream(&request);
     requestStream << "POST " << OPENID_CLIENT_TOKENS_ENDPOINT << " HTTP/1.1\r\n"
                   << "Host: " << m_hostname << ":" << m_port << "\r\n"
-                  << "User-Agent: veilFuse\r\n"
+                  << "User-Agent: oneclient\r\n"
                   << "Connection: close\r\n"
                   << "Accept: application/json\r\n"
                   << "Content-Type: application/json\r\n"
@@ -265,4 +265,4 @@ boost::filesystem::path GRAdapter::tokenFilePath() const
 
 } // namespace auth
 } // namespace client
-} // namespace veil
+} // namespace one

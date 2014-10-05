@@ -10,9 +10,9 @@
 #include "events/event.h"
 #include "fuse_messages.pb.h"
 
-using namespace veil::client::events;
+using namespace one::client::events;
 using namespace std;
-using namespace veil::protocol::fuse_messages;
+using namespace one::clproto::fuse_messages;
 
 EventAggregator::EventAggregator(long long threshold, const string & sumFieldName) :
     IEventStream(), m_fieldName(""), m_threshold(threshold), m_sumFieldName(sumFieldName)
@@ -52,8 +52,7 @@ std::shared_ptr<Event> EventAggregator::actualProcessEvent(std::shared_ptr<Event
             return std::shared_ptr<Event>();
     }
 
-    m_substreams.emplace(value, ActualEventAggregator{});
-
+    std::lock_guard<std::mutex> guard{m_substreamsMutex};
     return m_substreams[value].processEvent(event, m_threshold, m_fieldName, m_sumFieldName);
 }
 

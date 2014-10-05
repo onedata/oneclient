@@ -6,8 +6,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_CUSTOM_ACTION_STREAM_H
-#define VEILCLIENT_CUSTOM_ACTION_STREAM_H
+#ifndef ONECLIENT_CUSTOM_ACTION_STREAM_H
+#define ONECLIENT_CUSTOM_ACTION_STREAM_H
 
 
 #include "events/IEventStream.h"
@@ -15,7 +15,7 @@
 #include <functional>
 #include <memory>
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -40,7 +40,7 @@ private:
 
 } // namespace events
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_CUSTOM_ACTION_STREAM_H
+#endif // ONECLIENT_CUSTOM_ACTION_STREAM_H

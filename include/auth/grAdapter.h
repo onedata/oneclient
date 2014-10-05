@@ -5,8 +5,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_GR_ADAPTER_H
-#define VEILCLIENT_GR_ADAPTER_H
+#ifndef ONECLIENT_GR_ADAPTER_H
+#define ONECLIENT_GR_ADAPTER_H
 
 
 #include "tokenAuthDetails.h"
@@ -19,7 +19,7 @@
 #include <memory>
 #include <string>
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -88,7 +88,7 @@ private:
 
 } // namespace auth
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_GR_ADAPTER_H
+#endif // ONECLIENT_GR_ADAPTER_H

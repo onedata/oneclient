@@ -14,7 +14,7 @@
 #include "context.h"
 #include "fuse_messages.pb.h"
 #include "logging.h"
-#include "veilfs.h"
+#include "fsImpl.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
@@ -29,10 +29,10 @@
 #include <random>
 
 using boost::filesystem::path;
-using namespace veil::protocol::fuse_messages;
-using namespace veil::protocol::communication_protocol;
+using namespace one::clproto::fuse_messages;
+using namespace one::clproto::communication_protocol;
 
-namespace veil {
+namespace one {
 namespace client {
 
 LocalStorageManager::LocalStorageManager(std::shared_ptr<Context> context)
@@ -365,4 +365,4 @@ bool LocalStorageManager::hasClientStorageWritePermission(const int storageId, c
 }
 
 } // namespace client
-} // namespace veil
+} // namespace one

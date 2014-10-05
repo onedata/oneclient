@@ -10,9 +10,9 @@
 #include "events/event.h"
 #include "fuse_messages.pb.h"
 
-using namespace veil::client::events;
+using namespace one::client::events;
 using namespace std;
-using namespace veil::protocol::fuse_messages;
+using namespace one::clproto::fuse_messages;
 
 EventFilter::EventFilter(const string & fieldName, const string & desiredValue) :
     IEventStream(), m_fieldName(fieldName), m_desiredValue(desiredValue)

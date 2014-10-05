@@ -15,11 +15,11 @@
 
 #include <map>
 
-using namespace veil::client;
-using namespace veil::client::events;
+using namespace one::client;
+using namespace one::client::events;
 using namespace std;
-using namespace veil::protocol::fuse_messages;
-using namespace veil::protocol::communication_protocol;
+using namespace one::clproto::fuse_messages;
+using namespace one::clproto::communication_protocol;
 
 std::shared_ptr<Event> Event::createMkdirEvent(const string & filePath)
 {

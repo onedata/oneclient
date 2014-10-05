@@ -5,8 +5,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_AUTH_MANAGER_H
-#define VEILCLIENT_AUTH_MANAGER_H
+#ifndef ONECLIENT_AUTH_MANAGER_H
+#define ONECLIENT_AUTH_MANAGER_H
 
 
 #include "auth/grAdapter.h"
@@ -19,7 +19,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace veil
+namespace one
 {
 
 namespace communication
@@ -57,9 +57,9 @@ public:
                 const unsigned int port, const bool checkCertificate);
 
     /**
-     * Creates a @c veil::communication::Communicator object set up with proper
+     * Creates a @c one::communication::Communicator object set up with proper
      * authentication settings.
-     * @see veil::communication::createCommunicator
+     * @see one::communication::createCommunicator
      * @param dataPoolSize The size of data pool to be created.
      * @param metaPoolSize The size of meta pool to be created.
      * @return A new instance of @c Communicator .
@@ -138,7 +138,7 @@ private:
 
 } // namespace auth
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_AUTH_MANAGER_H
+#endif // ONECLIENT_AUTH_MANAGER_H

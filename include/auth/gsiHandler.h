@@ -5,8 +5,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_GSI_HANDLER_H
-#define VEILCLIENT_GSI_HANDLER_H
+#ifndef ONECLIENT_GSI_HANDLER_H
+#define ONECLIENT_GSI_HANDLER_H
 
 
 #include "communication/certificateData.h"
@@ -19,7 +19,7 @@
 
 namespace boost { namespace filesystem { class path; } }
 
-namespace veil
+namespace one
 {
 
 inline std::string CONFIRM_CERTIFICATE_PROMPT(const std::string &USERNAME)
@@ -65,7 +65,7 @@ private:
 
 } // namespace auth
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_GSI_HANDLER_H
+#endif // ONECLIENT_GSI_HANDLER_H

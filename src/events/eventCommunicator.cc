@@ -25,18 +25,18 @@
 #include "metaCache.h"
 #include "options.h"
 #include "pushListener.h"
-#include "veilfs.h"
+#include "fsImpl.h"
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <google/protobuf/descriptor.h>
 
 #include <functional>
 
-using namespace veil::client;
-using namespace veil::client::events;
+using namespace one::client;
+using namespace one::client::events;
 using namespace std;
-using namespace veil::protocol::fuse_messages;
-using namespace veil::protocol::communication_protocol;
+using namespace one::clproto::fuse_messages;
+using namespace one::clproto::communication_protocol;
 
 EventCommunicator::EventCommunicator(std::shared_ptr<Context> context, std::shared_ptr<EventStreamCombiner> eventsStream)
     : m_context{std::move(context)}
@@ -80,7 +80,7 @@ void EventCommunicator::handlePushedAtom(const Answer &msg)
     }
 }
 
-bool EventCommunicator::pushMessagesHandler(const protocol::communication_protocol::Answer &msg)
+bool EventCommunicator::pushMessagesHandler(const clproto::communication_protocol::Answer &msg)
 {
     string messageType = msg.message_type();
 

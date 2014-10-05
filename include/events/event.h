@@ -6,18 +6,18 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_EVENT_H
-#define VEILCLIENT_EVENT_H
+#ifndef ONECLIENT_EVENT_H
+#define ONECLIENT_EVENT_H
 
 
 #include <map>
 #include <memory>
 #include <string>
 
-namespace veil
+namespace one
 {
 
-namespace protocol{ namespace fuse_messages { class EventMessage; } }
+namespace clproto{ namespace fuse_messages { class EventMessage; } }
 
 namespace client
 {
@@ -38,7 +38,7 @@ public:
     Event(const Event & anotherEvent);
     virtual ~Event() = default;
 
-    virtual std::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> createProtoMessage(); ///< Creates protocol buffer message representing Event.
+    virtual std::shared_ptr< ::one::clproto::fuse_messages::EventMessage> createProtoMessage(); ///< Creates protocol buffer message representing Event.
 
     /* Access methods for m_numericProperties */
     NumericProperty getNumericProperty(const std::string & key, const NumericProperty defaultValue) const; ///< Returns numericProperty for key. If cannot be found defaultValue is returned instead.
@@ -64,6 +64,6 @@ private:
 
 } // namespace events
 } // namespace client
-} // namespace veil
+} // namespace one
 
-#endif // VEILCLIENT_EVENT_H
+#endif // ONECLIENT_EVENT_H
