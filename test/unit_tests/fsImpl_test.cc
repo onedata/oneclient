@@ -15,6 +15,7 @@
 #include "messageBuilder_mock.h"
 #include "metaCache_mock.h"
 #include "options_mock.h"
+#include "scheduler_mock.h"
 #include "storageHelperFactory_fake.h"
 #include "storageMapper_mock.h"
 #include "testCommon.h"
@@ -45,8 +46,8 @@ public:
     struct fuse_file_info fileInfo;
     struct stat trueStat;
     FileAttr trueAttr;
-    locationInfo location;
-    storageInfo storage;
+    LocationInfo location;
+    StorageInfo storage;
 
     void SetUp() override
     {
@@ -58,6 +59,8 @@ public:
         context->setConfig(config);
         jobScheduler = std::make_shared<MockJobScheduler>();
         context->addScheduler(jobScheduler);
+        scheduler = std::make_shared<MockScheduler>();
+        context->setScheduler(scheduler);
         communicator = std::make_shared<MockCommunicator>();
         context->setCommunicator(communicator);
         fslogicMock = std::make_shared<MockFslogicProxy>(context);
@@ -207,7 +210,7 @@ TEST_F(FsImplTest, getattr) { // const char *path, struct stat *statbuf
     EXPECT_EQ(static_cast<mode_t>(trueAttr.mode()) | S_IFLNK, statbuf.st_mode);
 
     trueAttr.set_type("REG");
-    EXPECT_CALL(*jobScheduler, addTask(_)).WillOnce(Return());
+    EXPECT_CALL(*scheduler, schedule(_, _));
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillOnce(DoAll(SetArgReferee<1>(trueAttr), Return(true)));
     EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, std::cref(statbuf), _1))));

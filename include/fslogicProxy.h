@@ -31,9 +31,6 @@ class FileLocation;
 }
 }
 
-/// How many secs before expiration should focation mapping be renewed
-static constexpr int RENEW_LOCATION_MAPPING_TIME = 30;
-
 static constexpr const char
     *GET_FILE_ATTR          = "getfileattr",
     *GET_FILE_LOCATION      = "getfilelocation",

@@ -17,8 +17,6 @@
 
 namespace one
 {
-    class Scheduler;
-
     namespace testing
     {
         class FsImplMount;
@@ -39,6 +37,7 @@ class MockJobScheduler;
 class MockCommunicator;
 class MockStorageMapper;
 class MockFslogicProxy;
+class MockScheduler;
 
 class CommonTest: public ::testing::Test
 {
@@ -50,7 +49,7 @@ public:
     std::shared_ptr<MockCommunicator> communicator;
     std::shared_ptr<MockStorageMapper> storageMapper;
     std::shared_ptr<MockFslogicProxy> fslogic;
-    std::shared_ptr<one::Scheduler> scheduler;
+    std::shared_ptr<MockScheduler> scheduler;
 
 protected:
     virtual void SetUp() override;

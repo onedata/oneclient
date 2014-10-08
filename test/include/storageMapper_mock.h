@@ -23,10 +23,10 @@ public:
     }
 
     MOCK_METHOD1(releaseFile, void(const std::string&));
-    MOCK_METHOD3(getLocationInfo, std::pair<one::client::locationInfo, one::client::storageInfo>(const std::string&, bool, bool));
+    MOCK_METHOD3(getLocationInfo, std::pair<one::client::LocationInfo, one::client::StorageInfo>(const std::string&, bool, bool));
     MOCK_METHOD2(addLocation, void(const std::string&, const one::clproto::fuse_messages::FileLocation&));
     MOCK_METHOD3(findLocation, std::string(const std::string&, const std::string&, bool));
-    MOCK_METHOD2(helperOverride, void(const std::string&, const one::client::storageInfo&));
+    MOCK_METHOD2(helperOverride, void(const std::string&, const one::client::StorageInfo&));
     MOCK_METHOD1(resetHelperOverride, void(const std::string&));
 };
 

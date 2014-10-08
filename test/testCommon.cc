@@ -21,7 +21,7 @@
 #include "fslogicProxy.h"
 #include "helpers/storageHelperFactory.h"
 #include "metaCache.h"
-#include "scheduler.h"
+#include "scheduler_mock.h"
 #include "storageMapper.h"
 #include "localStorageManager.h"
 #include "events/eventCommunicator.h"
@@ -44,7 +44,7 @@ void CommonTest::SetUp()
     communicator = std::make_shared<NiceMock<MockCommunicator>>();
     fslogic = std::make_shared<MockFslogicProxy>(context);
     storageMapper = std::make_shared<MockStorageMapper>(context, fslogic);
-    scheduler = std::make_shared<one::Scheduler>(1);
+    scheduler = std::make_shared<MockScheduler>();
 
     context->setOptions(options);
     context->setConfig(config);

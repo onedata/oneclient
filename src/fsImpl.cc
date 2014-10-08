@@ -22,6 +22,7 @@
 #include "metaCache.h"
 #include "options.h"
 #include "pushListener.h"
+#include "scheduler.h"
 #include "storageMapper.h"
 #include "oneErrors.h"
 #include "oneException.h"
@@ -60,13 +61,14 @@
 /// Fetch locationInfo and storageInfo for given file.
 /// On success - lInfo and sInfo variables will be set.
 /// On error - POSIX error code will be returned, interrupting code execution.
-#define GET_LOCATION_INFO(PATH, FORCE_PROXY) locationInfo lInfo; \
-                                storageInfo sInfo; \
+#define GET_LOCATION_INFO(PATH, FORCE_PROXY) \
+                                LocationInfo lInfo; \
+                                StorageInfo sInfo; \
                                 try \
                                 { \
-                                    pair<locationInfo, storageInfo> tmpLoc = m_context->getStorageMapper()->getLocationInfo(string(PATH), true, FORCE_PROXY); \
-                                    lInfo = tmpLoc.first; \
-                                    sInfo = tmpLoc.second; \
+                                    auto tmpLoc = m_context->getStorageMapper()->getLocationInfo(string(PATH), true, FORCE_PROXY); \
+                                    lInfo = std::move(tmpLoc.first); \
+                                    sInfo = std::move(tmpLoc.second); \
                                 } \
                                 catch(OneException e) \
                                 { \
@@ -207,8 +209,9 @@ int FsImpl::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
 
         if(attr.type() == "REG" && fuse_ctx) // We'll need storage mapping for regular file
         {
-            Job getLocTask = Job(time(NULL), m_context->getStorageMapper(), ISchedulable::TASK_ASYNC_GET_FILE_LOCATION, string(path));
-            m_context->getScheduler()->addTask(getLocTask);
+            m_context->scheduler()->schedule(
+                        std::chrono::seconds{0},
+                        std::bind(&StorageMapper::asyncGetFileLocation, m_context->getStorageMapper(), path));
         }
 
         // At this point we have attributes from cluster
