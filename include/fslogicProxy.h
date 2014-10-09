@@ -102,6 +102,7 @@ public:
     virtual std::string     changeFileOwner(const std::string &path, uid_t uid, const std::string &uname = "");                 ///< Updates file's owner
     virtual std::string     changeFileGroup(const std::string &path, gid_t gid, const std::string &gname = "");                 ///< Updates file's group owner
     virtual std::pair<std::string, struct statvfs>   getStatFS();   ///< Gets file system statistics
+    virtual bool            requestFileBlock(const std::string &logicalName, const off_t offset, const size_t size);
 
     virtual void            pingCluster(const std::string &);
 

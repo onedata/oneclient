@@ -245,6 +245,9 @@ private:
                                       const bool useCluster,
                                       const bool forceClusterProxy);
 
+    boost::icl::discrete_interval<off_t>
+    offsetSizeToInterval(const off_t offset, const size_t size) const;
+
     void addFileMapping(const std::string &logicalName,
                         const clproto::fuse_messages::FileLocation &location);
 

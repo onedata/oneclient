@@ -219,12 +219,8 @@ bool StorageMapper::handlePushMessage(const Answer &answer)
         return true;
     }
 
-    for (auto &block : msg.blocks()) {
-        const auto begin = static_cast<off_t>(block.offset());
-        const auto end = begin + static_cast<off_t>(block.size());
-        it->second.blocks +=
-            icl::discrete_interval<off_t>::right_open(begin, end);
-    }
+    for (auto &block : msg.blocks())
+        it->second.blocks += offsetSizeToInterval(block.offset(), block.size());
 
     m_newBlocksCondition.notify_all();
 
@@ -294,6 +290,17 @@ LocationInfo StorageMapper::retrieveLocationInfo(const std::string &logicalName,
     return it->second;
 }
 
+boost::icl::discrete_interval<off_t>
+StorageMapper::offsetSizeToInterval(const off_t offset, const size_t size) const
+{
+    const off_t end =
+        size > static_cast<size_t>(std::numeric_limits<off_t>::max() - offset)
+            ? std::numeric_limits<off_t>::max()
+            : offset + size;
+
+    return icl::discrete_interval<off_t>::right_open(offset, end);
+}
+
 StorageInfo StorageMapper::retrieveStorageInfo(const LocationInfo &locationInfo)
 {
     boost::shared_lock<boost::shared_mutex> sLock{m_storageMappingMutex};
@@ -318,9 +325,10 @@ void StorageMapper::addFileMapping(const std::string &logicalName,
     info.validTo = std::chrono::steady_clock::now() + validity;
 
     for (auto &block : location.available()) {
-        const auto begin = static_cast<off_t>(block.offset());
-        const auto end = begin + static_cast<off_t>(block.size());
-        info.blocks += icl::discrete_interval<off_t>::right_open(begin, end);
+        auto interval = offsetSizeToInterval(block.offset(), block.size());
+        DLOG(INFO) << "Adding block for file '" << logicalName << "': ["
+                   << interval.lower() << ", " << interval.upper() << ")";
+        info.blocks += interval;
     }
 
     m_context.lock()->scheduler()->schedule(

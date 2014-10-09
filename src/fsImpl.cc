@@ -61,12 +61,12 @@
 /// Fetch locationInfo and storageInfo for given file.
 /// On success - lInfo and sInfo variables will be set.
 /// On error - POSIX error code will be returned, interrupting code execution.
-#define GET_LOCATION_INFO(PATH, FORCE_PROXY) \
+#define GET_LOCATION_INFO(PATH, USE_CLUSTER, FORCE_PROXY) \
                                 LocationInfo lInfo; \
                                 StorageInfo sInfo; \
                                 try \
                                 { \
-                                    auto tmpLoc = m_context->getStorageMapper()->getLocationInfo(string(PATH), true, FORCE_PROXY); \
+                                    auto tmpLoc = m_context->getStorageMapper()->getLocationInfo(string(PATH), USE_CLUSTER, FORCE_PROXY); \
                                     lInfo = std::move(tmpLoc.first); \
                                     sInfo = std::move(tmpLoc.second); \
                                 } \
@@ -149,12 +149,17 @@ FsImpl::FsImpl(string path, std::shared_ptr<Context> context,
     m_ruid = -1;
     m_rgid = -1;
 
-    if(m_eventCommunicator){
+    if(m_eventCommunicator)
+    {
         eventCommunicator->setFslogic(m_fslogic);
         eventCommunicator->setMetaCache(m_metaCache);
 
         m_eventCommunicator->addStatAfterWritesRule(m_context->getOptions()->get_write_bytes_before_stat());
     }
+
+    m_context->getPushListener()->subscribe(
+        std::bind(&StorageMapper::handlePushMessage,
+                  m_context->getStorageMapper(), std::placeholders::_1));
 
     m_context->getPushListener()->subscribe(std::bind(&events::EventCommunicator::pushMessagesHandler, m_eventCommunicator.get(), std::placeholders::_1));
     m_context->getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
@@ -329,7 +334,7 @@ int FsImpl::mknod(const char *path, mode_t mode, dev_t dev)
     }
 
     m_context->getStorageMapper()->addLocation(string(path), location);
-    GET_LOCATION_INFO(path, false);
+    GET_LOCATION_INFO(path, true, false);
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_mknod(lInfo.fileId.c_str(), mode, dev));
 
@@ -394,7 +399,7 @@ int FsImpl::unlink(const char *path)
     if(!isLink)
     {
         m_context->getStorageMapper()->clearMappings(path);
-        GET_LOCATION_INFO(path, needsForceClusterProxy(parent(path)) || attrStatus || !m_metaCache->canUseDefaultPermissions(statbuf)); //Get file location from cluster
+        GET_LOCATION_INFO(path, true, needsForceClusterProxy(parent(path)) || attrStatus || !m_metaCache->canUseDefaultPermissions(statbuf)); //Get file location from cluster
         RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
 
         SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_unlink(lInfo.fileId.c_str()));
@@ -474,7 +479,7 @@ int FsImpl::chmod(const char *path, mode_t mode)
         return 0;
 
     // If it is, we have to call storage haleper's chmod
-    GET_LOCATION_INFO(path, needsForceClusterProxy(path));
+    GET_LOCATION_INFO(path, true, needsForceClusterProxy(path));
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_chmod(lInfo.fileId.c_str(), mode));
     return sh_return;
@@ -508,7 +513,7 @@ int FsImpl::truncate(const char *path, off_t newSize)
 {
     LOG(INFO) << "FUSE: truncate(path: " << string(path) << ", newSize: "<< newSize <<")";
 
-    GET_LOCATION_INFO(path, needsForceClusterProxy(path));
+    GET_LOCATION_INFO(path, true, needsForceClusterProxy(path));
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_truncate(lInfo.fileId.c_str(), newSize));
 
@@ -554,7 +559,7 @@ int FsImpl::open(const char *path, struct fuse_file_info *fileInfo)
             return translateError(status);
     }
 
-    GET_LOCATION_INFO(path, needsForceClusterProxy(path));
+    GET_LOCATION_INFO(path, true, needsForceClusterProxy(path));
 
     m_context->getStorageMapper()->openFile(string(path));
 
@@ -589,7 +594,30 @@ int FsImpl::open(const char *path, struct fuse_file_info *fileInfo)
 int FsImpl::read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
 {
     //LOG(INFO) << "FUSE: read(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
-    GET_LOCATION_INFO(path, false);
+
+    struct stat statbuf;
+    if (!m_metaCache->getAttr(path, &statbuf))
+        return -EIO;
+
+    const auto fileSize = statbuf.st_size;
+    if (offset >= fileSize)
+        return 0;
+
+    { // make sure that we have anything to read
+        GET_LOCATION_INFO(path, false, false);
+
+        const auto block = lInfo.blocks.find(offset);
+        if (block == lInfo.blocks.end()) {
+            m_fslogic->requestFileBlock(path, offset, size);
+            if (!m_context->getStorageMapper()->waitForBlock(path, offset))
+                return -EIO;
+        }
+    }
+
+    GET_LOCATION_INFO(path, false, false);
+    const auto block = lInfo.blocks.find(offset);
+    if (block == lInfo.blocks.end())
+        return -EIO;
 
     auto sh = m_shCache.get(fileInfo->fh);
     CUSTOM_SH_RUN(sh, sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
@@ -609,7 +637,7 @@ int FsImpl::write(const char *path, const char *buf, size_t size, off_t offset, 
         return -EDQUOT;
     }
 
-    GET_LOCATION_INFO(path, false);
+    GET_LOCATION_INFO(path, false, false);
 
     auto sh = m_shCache.get(fileInfo->fh);
     CUSTOM_SH_RUN(sh, sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
@@ -645,7 +673,7 @@ int FsImpl::statfs(const char *path, struct statvfs *statInfo)
 int FsImpl::flush(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: flush(path: " << string(path) << ", ...)";
-    GET_LOCATION_INFO(path, false);
+    GET_LOCATION_INFO(path, false, false);
 
     auto sh = m_shCache.get(fileInfo->fh);
     CUSTOM_SH_RUN(sh, sh_flush(lInfo.fileId.c_str(), fileInfo));
@@ -659,7 +687,7 @@ int FsImpl::release(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: release(path: " << string(path) << ", ...)";
 
-    GET_LOCATION_INFO(path, false);
+    GET_LOCATION_INFO(path, false, false);
 
     /// Remove Storage Helper's pointer from cache
     auto sh = m_shCache.take(fileInfo->fh);

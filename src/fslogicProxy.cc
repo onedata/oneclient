@@ -389,6 +389,17 @@ pair<string, struct statvfs> FslogicProxy::getStatFS()
     return make_pair(answer.answer(), statFS);
 }
 
+bool FslogicProxy::requestFileBlock(const string &logicalName,
+                                    const off_t offset, const size_t size)
+{
+    RequestFileBlock msg;
+    msg.set_logical_name(logicalName);
+    msg.set_offset(offset);
+    msg.set_size(size);
+
+    return sendFuseReceiveAtom(msg) == VOK;
+}
+
 void FslogicProxy::pingCluster(const string &nth)
 {
     auto communicator = m_context.lock()->getCommunicator();
