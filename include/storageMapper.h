@@ -14,14 +14,15 @@
 #include "helpers/IStorageHelper.h"
 #include "fslogicProxy.h"
 
+#include <boost/icl/interval_set.hpp>
 #include <boost/thread/shared_mutex.hpp>
+#include <boost/thread/condition_variable.hpp>
 
 #include <chrono>
 #include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
-#include <boost/filesystem.hpp>
 
 namespace one {
 
@@ -29,12 +30,16 @@ namespace clproto {
 namespace fuse_messages {
 class FileLocation;
 }
+namespace communication_protocol {
+class Answer;
+}
 }
 
 namespace client {
 
 static constexpr const char *CLUSTER_PROXY_HELPER = "ClusterProxy";
 static constexpr std::chrono::seconds RENEW_LOCATION_MAPPING_TIME{30};
+static constexpr boost::chrono::seconds WAIT_FOR_BLOCK_TIMEOUT{10};
 
 class Context;
 class FslogicProxy;
@@ -63,9 +68,14 @@ struct LocationInfo {
     std::chrono::steady_clock::time_point validTo;
 
     /**
+     * Blocks available on the storage for the particular location.
+     */
+    boost::icl::interval_set<off_t> blocks;
+
+    /**
      * How many files are currently opened using this mapping.
      */
-    int opened;
+    int opened = 0;
 };
 
 struct StorageInfo {
@@ -123,18 +133,18 @@ public:
      * Query cluster about file location and instert it to cache.
      * @see StorageMapper::addLocation
      */
-    virtual std::string findLocation(const std::string &logicalName,
-                                     const std::string &openMode
-                                     = UNSPECIFIED_MODE,
-                                     bool forceClusterProxy = false);
+    virtual std::string
+    findLocation(const std::string &logicalName,
+                 const std::string &openMode = UNSPECIFIED_MODE,
+                 bool forceClusterProxy = false);
 
     /**
      * Cache given file location.
      * Insert to file location cache new FileLocation received from cluster.
      */
-    virtual void addLocation(const std::string &logicalName,
-                             const clproto::fuse_messages::FileLocation
-                             &location);
+    virtual void
+    addLocation(const std::string &logicalName,
+                const clproto::fuse_messages::FileLocation &location);
 
     /**
      * Increases open file count for specified file.
@@ -173,6 +183,24 @@ public:
      */
     void asyncGetFileLocation(const std::string &location);
 
+    /**
+     * Handles push messages containing block updates.
+     * @returns true
+     * @see PushListener::subscribe()
+     */
+    bool
+    handlePushMessage(const clproto::communication_protocol::Answer &answer);
+
+    /**
+     * Blocks current thread until a block of data of the specified file that
+     * starts from a given offset becomes available.
+     * @see @c one::client::WAIT_FOR_BLOCK_TIMEOUT
+     * @param logicalName The logical name of the file the block is a part of.
+     * @param offset The file offset.
+     * @returns true if the condition was met, false otherwise (after a timeout)
+     */
+    bool waitForBlock(const std::string &logicalName, const off_t offset);
+
 protected:
     /**
      * Contains storage info accessd by its ID.
@@ -190,7 +218,13 @@ protected:
      * Contains storage info accessd by its ID.
      * @see storageInfo
      */
-    std::map<std::string, LocationInfo> m_fileMapping;
+    std::map<std::pair<std::uint32_t, std::string>, LocationInfo> m_fileMapping;
+
+    /**
+     * Maps a logical file name to a {storage_id, file_id} pair that uniquely
+     * identify a file location.
+     */
+    std::map<std::string, std::pair<std::uint32_t, std::string>> m_locationToId;
 
     std::map<std::string, StorageInfo> m_fileHelperOverride;
 
@@ -207,9 +241,25 @@ protected:
     std::shared_ptr<FslogicProxy> m_fslogic;
 
 private:
-    void removeExpiredLocationMapping(const std::string &location);
+    LocationInfo retrieveLocationInfo(const std::string &logicalName,
+                                      const bool useCluster,
+                                      const bool forceClusterProxy);
+
+    void addFileMapping(const std::string &logicalName,
+                        const clproto::fuse_messages::FileLocation &location);
+
+    void
+    addStorageMapping(const clproto::fuse_messages::FileLocation &location);
+
+    auto mappingFromLogicalName(const std::string &logicalName)
+        -> decltype(m_fileMapping)::iterator;
+
+    StorageInfo retrieveStorageInfo(const LocationInfo &locationInfo);
+    void removeExpiredLocationMappings(const std::string &location);
     void renewLocationMapping(const std::string &location);
+
     const std::weak_ptr<Context> m_context;
+    boost::condition_variable_any m_newBlocksCondition;
 };
 
 } // namespace client

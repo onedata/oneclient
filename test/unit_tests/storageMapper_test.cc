@@ -37,7 +37,7 @@ protected:
 
 TEST_F(StorageMapperTest, AddAndGet) {
     EXPECT_EQ(0u, proxy->getStorageMapping().size());
-    EXPECT_EQ(0u, proxy->getFileMapping().size());
+    EXPECT_EQ(0u, proxy->getFileMappingSize());
 
     FileLocation location;
     location.set_validity(10);
@@ -49,12 +49,12 @@ TEST_F(StorageMapperTest, AddAndGet) {
     EXPECT_CALL(*scheduler, schedule(_, _)).Times(2);
     proxy->addLocation("/file1", location);
     EXPECT_EQ(1u, proxy->getStorageMapping().size());
-    EXPECT_EQ(1u, proxy->getFileMapping().size());
+    EXPECT_EQ(1u, proxy->getFileMappingSize());
 
     EXPECT_CALL(*scheduler, schedule(_, _)).Times(2);
     proxy->addLocation("/file1", location);
     EXPECT_EQ(1u, proxy->getStorageMapping().size());
-    EXPECT_EQ(1u, proxy->getFileMapping().size());
+    EXPECT_EQ(1u, proxy->getFileMappingSize());
 
     EXPECT_THROW(proxy->getLocationInfo("/file0"), OneException);
     EXPECT_NO_THROW(proxy->getLocationInfo("/file1"));
@@ -84,6 +84,7 @@ TEST_F(StorageMapperTest, OpenClose) {
 
     FileLocation location;
     proxy->addLocation("/file1", location);
+    location.set_file_id("lol");
     proxy->addLocation("/file2", location);
 
     std::pair<LocationInfo, StorageInfo> ret1 = proxy->getLocationInfo("/file1");
@@ -140,6 +141,7 @@ TEST_F(StorageMapperTest, FindAndGet) {
     EXPECT_CALL(*mockFslogic, getFileLocation("/file2", _, _, _)).WillOnce(Return(false));
     EXPECT_THROW(proxy->getLocationInfo("/file2", true), OneException);
 
+    location.set_file_id("other");
     EXPECT_CALL(*scheduler, schedule(_, _)).Times(2);
     EXPECT_CALL(*mockFslogic, getFileLocation("/file2", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
     EXPECT_NO_THROW(proxy->getLocationInfo("/file2", true));

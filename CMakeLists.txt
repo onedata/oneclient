@@ -77,7 +77,7 @@ find_package(Git REQUIRED)
 set(Boost_USE_STATIC_LIBS        ON)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
-find_package(Boost COMPONENTS system thread filesystem random program_options REQUIRED)
+find_package(Boost COMPONENTS system thread filesystem random program_options chrono REQUIRED)
 link_directories(${Boost_LIBRARY_DIRS})
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 

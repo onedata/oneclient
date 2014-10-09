@@ -25,9 +25,9 @@ public:
         return m_storageMapping;
     }
 
-    std::map<std::string, one::client::LocationInfo>& getFileMapping()
+    std::size_t getFileMappingSize()
     {
-        return m_fileMapping;
+        return m_fileMapping.size();
     }
 };
 
