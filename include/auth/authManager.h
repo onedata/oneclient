@@ -111,7 +111,7 @@ public:
      * @copydoc AuthManager::AuthManager()
      * @param globalRegistryHostname A hostname of Global Registry to be used
      * for token-based authentication.
-     * @param globalRegistryPort A port of GlobalRegistry to be used for
+     * @param globalRegistryPort A port of globalregistry to be used for
      * token-based authentication
      */
     TokenAuthManager(std::weak_ptr<Context> context,
