@@ -764,7 +764,7 @@ bool FsImpl::needsForceClusterProxy(const std::string &path)
 {
     struct stat attrs;
     auto attrsStatus = getattr(path.c_str(), &attrs, false);
-    auto filePermissions = attrs->st_mode && (S_IRWXU || S_IRWXG || S_IRWXO);
+    auto filePermissions = attrs.st_mode && (S_IRWXU || S_IRWXG || S_IRWXO);
     return attrsStatus || (filePermissions == 0) || !m_metaCache->canUseDefaultPermissions(attrs);
 }
 
