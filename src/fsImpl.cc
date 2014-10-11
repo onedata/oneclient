@@ -249,12 +249,9 @@ int FsImpl::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
             statbuf->st_mode |= S_IFLNK;
 
             // Check cache for validity
-        boost::unique_lock<boost::upgrade_mutex> lock{m_linkCacheMutex};
-            map<string, pair<string, time_t> >::iterator it = m_linkCache.find(string(path));
-            if(it != m_linkCache.end() && statbuf->st_mtime > (*it).second.second)
-            {
-                m_linkCache.erase(it);
-            }
+            if(const auto &cached = m_linkCache.get(path))
+                if(statbuf->st_mtime > cached.get().second)
+                    m_linkCache.take(path);
         }
         else
         {
@@ -273,17 +270,13 @@ int FsImpl::readlink(const char *path, char *link, size_t size)
     LOG(INFO) << "FUSE: readlink(path: " << string(path) << ")";
     string target;
 
-    boost::upgrade_lock<boost::upgrade_mutex> lock{m_linkCacheMutex};
-    map<string, pair<string, time_t> >::const_iterator it = m_linkCache.find(string(path));
-    if(it != m_linkCache.end()) {
-        target = (*it).second.first;
+    if(const auto &cached = m_linkCache.get(path)) {
+        target = cached.get().first;
     } else {
         pair<string, string> resp = m_fslogic->getLink(string(path));
         target = resp.second;
         RETURN_IF_ERROR(resp.first);
-
-        boost::upgrade_to_unique_lock<boost::upgrade_mutex> writeLock{lock};
-        m_linkCache[string(path)] = pair<string, time_t>(target, time(NULL));
+        m_linkCache.set(path, std::make_pair(target, time(nullptr)));
     }
 
     if(target.size() == 0) {
@@ -588,7 +581,7 @@ int FsImpl::read(const char *path, char *buf, size_t size, off_t offset, struct 
     //LOG(INFO) << "FUSE: read(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
     GET_LOCATION_INFO(path, false);
 
-    auto sh = m_shCache.get(fileInfo->fh);
+    auto sh = m_shCache.get(fileInfo->fh).get();
     CUSTOM_SH_RUN(sh, sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
 
     std::shared_ptr<events::Event> writeEvent = events::Event::createReadEvent(path, sh_return);
@@ -608,7 +601,7 @@ int FsImpl::write(const char *path, const char *buf, size_t size, off_t offset, 
 
     GET_LOCATION_INFO(path, false);
 
-    auto sh = m_shCache.get(fileInfo->fh);
+    auto sh = m_shCache.get(fileInfo->fh).get();
     CUSTOM_SH_RUN(sh, sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
 
     if(sh_return > 0) { // Update file size in cache
@@ -644,7 +637,7 @@ int FsImpl::flush(const char *path, struct fuse_file_info *fileInfo)
     LOG(INFO) << "FUSE: flush(path: " << string(path) << ", ...)";
     GET_LOCATION_INFO(path, false);
 
-    auto sh = m_shCache.get(fileInfo->fh);
+    auto sh = m_shCache.get(fileInfo->fh).get();
     CUSTOM_SH_RUN(sh, sh_flush(lInfo.fileId.c_str(), fileInfo));
 
     m_context->getScheduler()->addTask(Job(time(NULL) + 3, shared_from_this(), TASK_CLEAR_ATTR, string(path)));
@@ -829,24 +822,32 @@ bool FsImpl::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
     }
 }
 
-FsImpl::SHCache::value FsImpl::SHCache::get(const key id)
+template<typename key, typename value>
+boost::optional<value&> FsImpl::ThreadsafeCache<key, value>::get(const key id)
 {
-    boost::shared_lock_guard<boost::shared_mutex> guard{m_shCacheMutex};
-    return m_shCache[id];
+    std::shared_lock<std::shared_timed_mutex> lock{m_cacheMutex};
+    const auto it = m_cache.find(id);
+
+    if(it == m_cache.end())
+        return {};
+
+    return {it->second};
 }
 
-void FsImpl::SHCache::set(const key id, value sh)
+template<typename key, typename value>
+void FsImpl::ThreadsafeCache<key, value>::set(const key id, value val)
 {
-    boost::lock_guard<boost::shared_mutex> guard{m_shCacheMutex};
-    m_shCache[id] = std::move(sh);
+    std::lock_guard<std::shared_timed_mutex> guard{m_cacheMutex};
+    m_cache[id] = std::move(val);
 }
 
-FsImpl::SHCache::value FsImpl::SHCache::take(const key id)
+template<typename key, typename value>
+value FsImpl::ThreadsafeCache<key, value>::take(const key id)
 {
-    boost::lock_guard<boost::shared_mutex> guard{m_shCacheMutex};
-    const auto it = m_shCache.find(id);
+    std::lock_guard<std::shared_timed_mutex> guard{m_cacheMutex};
+    const auto it = m_cache.find(id);
     auto sh = std::move(it->second);
-    m_shCache.erase(it);
+    m_cache.erase(it);
     return sh;
 }
 

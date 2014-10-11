@@ -16,7 +16,6 @@
 #include "fuse_messages.pb.h"
 #include "jobScheduler.h"
 #include "logging.h"
-#include "make_unique.h"
 #include "messageBuilder.h"
 #include "options.h"
 #include "oneErrors.h"

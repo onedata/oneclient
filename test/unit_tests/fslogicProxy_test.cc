@@ -9,7 +9,6 @@
 
 #include "communication/communicator_mock.h"
 #include "jobScheduler_mock.h"
-#include "make_unique.h"
 #include "messageBuilder_mock.h"
 #include "options_mock.h"
 #include "testCommon.h"

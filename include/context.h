@@ -11,11 +11,10 @@
 
 #include "ISchedulable.h"
 
-#include <boost/thread/shared_mutex.hpp>
-
 #include <memory>
 #include <mutex>
 #include <list>
+#include <shared_mutex>
 
 namespace one
 {
@@ -66,13 +65,13 @@ private:
     std::shared_ptr<StorageMapper> m_storageMapper;
     std::shared_ptr<Scheduler> m_scheduler;
 
-    mutable boost::shared_mutex m_optionsMutex;
-    mutable boost::shared_mutex m_configMutex;
+    mutable std::shared_timed_mutex m_optionsMutex;
+    mutable std::shared_timed_mutex m_configMutex;
     std::mutex m_jobSchedulersMutex;
-    mutable boost::shared_mutex m_communicatorMutex;
-    mutable boost::shared_mutex m_pushListenerMutex;
-    mutable boost::shared_mutex m_storageMapperMutex;
-    mutable boost::shared_mutex m_schedulerMutex;
+    mutable std::shared_timed_mutex m_communicatorMutex;
+    mutable std::shared_timed_mutex m_pushListenerMutex;
+    mutable std::shared_timed_mutex m_storageMapperMutex;
+    mutable std::shared_timed_mutex m_schedulerMutex;
 };
 
 } // namespace client

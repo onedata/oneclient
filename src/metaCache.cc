@@ -37,7 +37,7 @@ void MetaCache::addAttr(const string &path, struct stat &attr)
     if(!m_context->getOptions()->get_enable_attr_cache())
         return;
 
-    boost::lock_guard<boost::shared_mutex> guard{m_statMapMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
     bool wasBefore = m_statMap.count(path);
     m_statMap[path] = make_pair(time(NULL), attr);
 
@@ -54,7 +54,7 @@ void MetaCache::addAttr(const string &path, struct stat &attr)
 
 bool MetaCache::getAttr(const string &path, struct stat* attr)
 {
-    boost::shared_lock<boost::shared_mutex> guard{m_statMapMutex};
+    std::shared_lock<std::shared_timed_mutex> guard{m_statMapMutex};
     std::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
     if(it == m_statMap.end())
         return false;
@@ -67,13 +67,13 @@ bool MetaCache::getAttr(const string &path, struct stat* attr)
 
 void MetaCache::clearAttrs()
 {
-    boost::lock_guard<boost::shared_mutex> guard{m_statMapMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
     m_statMap.clear();
 }
 
 void MetaCache::clearAttr(const string &path)
 {
-    boost::lock_guard<boost::shared_mutex> guard{m_statMapMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
     LOG(INFO) << "delete attrs from cache for file: " << path;
     std::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
     if(it != m_statMap.end())
@@ -101,7 +101,7 @@ bool MetaCache::updateTimes(const string &path, time_t atime, time_t mtime, time
 
 bool MetaCache::updateSize(const string &path, size_t size)
 {
-    boost::lock_guard<boost::shared_mutex> guard{m_statMapMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
     std::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
     if(it == m_statMap.end())
         return false;
