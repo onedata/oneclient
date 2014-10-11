@@ -9,9 +9,9 @@
 
 #include "fuse_messages.pb.h"
 
-using namespace veil::client::events;
+using namespace one::client::events;
 using namespace std;
-using namespace veil::protocol::fuse_messages;
+using namespace one::clproto::fuse_messages;
 
 std::shared_ptr<Event> IEventStream::processEvent(std::shared_ptr<Event> event)
 {
@@ -27,7 +27,7 @@ std::shared_ptr<Event> IEventStream::processEvent(std::shared_ptr<Event> event)
 }
 
 IEventStream::IEventStream(std::shared_ptr<IEventStream> wrappedStream) :
-    m_wrappedStream(wrappedStream)
+    m_wrappedStream(std::move(wrappedStream))
 {
 }
 

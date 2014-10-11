@@ -13,7 +13,7 @@
 #include <chrono>
 
 using namespace ::testing;
-using namespace veil::client;
+using namespace one::client;
 
 class MetaCacheTest: public CommonTest
 {

@@ -6,8 +6,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_EVENT_STREAM_COMBINER_H
-#define VEILCLIENT_EVENT_STREAM_COMBINER_H
+#ifndef ONECLIENT_EVENT_STREAM_COMBINER_H
+#define ONECLIENT_EVENT_STREAM_COMBINER_H
 
 
 #include <list>
@@ -16,7 +16,7 @@
 #include <string>
 #include <queue>
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -56,7 +56,7 @@ private:
 
 } // namespace events
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_EVENT_STREAM_COMBINER_H
+#endif // ONECLIENT_EVENT_STREAM_COMBINER_H

@@ -5,13 +5,13 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_CERT_UNCONFIRMED_EXCEPTION_H
-#define VEILCLIENT_CERT_UNCONFIRMED_EXCEPTION_H
+#ifndef ONECLIENT_CERT_UNCONFIRMED_EXCEPTION_H
+#define ONECLIENT_CERT_UNCONFIRMED_EXCEPTION_H
 
 
-#include "veilException.h"
+#include "oneException.h"
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -25,7 +25,7 @@ class PushListener;
  * Exception used when connection message/connection could not be send/established due to unconfirmed certificate. 
  * The excpetion carries username associated with account that is assigned to used certificate. 
  */
-class CertUnconfirmedException : public VeilException
+class CertUnconfirmedException : public OneException
 {
 public:
     /**
@@ -34,17 +34,17 @@ public:
      * @param logMsg Human readable excpetion reason message.
      */
      CertUnconfirmedException(const std::string &username, const std::string &logMsg = ""):
-         VeilException(username, logMsg)
+         OneException(username, logMsg)
      {
      }
 
      std::string getUsername() const
      {
-        return VeilException::veilError();
+        return OneException::oneError();
      }
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
-#endif // VEILCLIENT_CERT_UNCONFIRMED_EXCEPTION_H
+#endif // ONECLIENT_CERT_UNCONFIRMED_EXCEPTION_H

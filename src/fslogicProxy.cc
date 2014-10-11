@@ -18,8 +18,8 @@
 #include "messageBuilder.h"
 #include "options.h"
 #include "scheduler.h"
-#include "veilErrors.h"
-#include "veilfs.h"
+#include "oneErrors.h"
+#include "fsImpl.h"
 
 #include <boost/algorithm/string.hpp>
 #include <google/protobuf/descriptor.h>
@@ -31,10 +31,10 @@
 
 using namespace std;
 using namespace boost::algorithm;
-using namespace veil::protocol::communication_protocol;
-using namespace veil::protocol::fuse_messages;
+using namespace one::clproto::communication_protocol;
+using namespace one::clproto::fuse_messages;
 
-namespace veil {
+namespace one {
 namespace client {
 
 FslogicProxy::FslogicProxy(std::weak_ptr<Context> context)
@@ -414,4 +414,4 @@ void FslogicProxy::pingCluster()
 }
 
 } // namespace client
-} // namespace veil
+} // namespace one

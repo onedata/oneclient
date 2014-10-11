@@ -20,8 +20,8 @@
 
 using namespace ::testing;
 using namespace std::placeholders;
-using namespace veil::client;
-using namespace veil::client::events;
+using namespace one::client;
+using namespace one::client::events;
 
 class EventsTest: public CommonTest
 {
@@ -30,7 +30,7 @@ public:
     {
         CommonTest::SetUp();
 
-        veil::protocol::communication_protocol::Answer ans;
+        one::clproto::communication_protocol::Answer ans;
         ans.set_answer_status(VOK);
         EXPECT_CALL(*communicator, communicateMock(_, _, _, _)).WillRepeatedly(Return(ans));
     }
@@ -273,7 +273,7 @@ TEST(IEventStream, CustomActionStreamTest){
 // proto buff messages are not easy to mock because their methods are nonvirtual. Mocking is possible but would need
 // changes in code which is not worth it
 TEST(IEventStream, ConstructFromConfig1) {
-    using namespace veil::protocol::fuse_messages;
+    using namespace one::clproto::fuse_messages;
 
     // given
     //EventFilterConfig filterConfig;
@@ -288,14 +288,14 @@ TEST(IEventStream, ConstructFromConfig1) {
     // then
     ASSERT_TRUE((bool) stream);
     EventFilter * eventFilter = dynamic_cast<EventFilter *>(stream.get());
-    ASSERT_TRUE(eventFilter != NULL);
+    ASSERT_TRUE(eventFilter != nullptr);
     ASSERT_EQ("type", eventFilter->getFieldName());
     ASSERT_EQ("write_event", eventFilter->getDesiredValue());
     ASSERT_FALSE((bool) eventFilter->getWrappedStream());
 }
 
 TEST(IEventStream, ConstructFromConfig2) {
-    using namespace veil::protocol::fuse_messages;
+    using namespace one::clproto::fuse_messages;
 
     // given
     EventStreamConfig config;
@@ -314,21 +314,21 @@ TEST(IEventStream, ConstructFromConfig2) {
     // then
     ASSERT_TRUE((bool) stream);
     EventAggregator * eventAggregator = dynamic_cast<EventAggregator *>(stream.get());
-    ASSERT_TRUE(eventAggregator != NULL);
+    ASSERT_TRUE(eventAggregator != nullptr);
     ASSERT_EQ("filePath", eventAggregator->getFieldName());
     ASSERT_EQ("count", eventAggregator->getSumFieldName());
     ASSERT_EQ(15, eventAggregator->getThreshold());
     std::shared_ptr<IEventStream> wrappedStream = eventAggregator->getWrappedStream();
     ASSERT_TRUE((bool) wrappedStream);
     EventFilter * eventFilter = dynamic_cast<EventFilter *> (wrappedStream.get());
-    ASSERT_TRUE(eventFilter != NULL);
+    ASSERT_TRUE(eventFilter != nullptr);
     ASSERT_EQ("type", eventFilter->getFieldName());
     ASSERT_EQ("write_event", eventFilter->getDesiredValue());
     ASSERT_FALSE((bool) eventFilter->getWrappedStream());
 }
 
 TEST(IEventStream, ConstructFromConfigReturnsEmptyPointerWhenConfigIncorrect){
-    using namespace veil::protocol::fuse_messages;
+    using namespace one::clproto::fuse_messages;
 
     // given
     EventStreamConfig config;

@@ -1,3 +1,3 @@
-[submodule "veilprotocol"]
-	path = veilprotocol
-	url = ssh://git@git.plgrid.pl:7999/VFS/veilprotocol.git
+[submodule "clproto"]
+	path = clproto
+	url = ssh://git@git.plgrid.pl:7999/VFS/clproto.git

@@ -7,7 +7,7 @@
 
 #include "erlTestCore.h"
 #include "fslogicProxy.h"
-#include "veilErrors.h"
+#include "oneErrors.h"
 #include "testCommon.h"
 
 #include <boost/filesystem.hpp>
@@ -22,34 +22,34 @@ protected:
     path directIO_root;
 
     // Mount file system in "main" subdir with "peer.pem" cert
-    // use veilFsMount->getRoot() to get absolute mount point
+    // use onedataMount->getRoot() to get absolute mount point
     SampleTest()
-        : CommonIntegrationTest{std::unique_ptr<veil::testing::VeilFSMount>{new veil::testing::VeilFSMount{"main", "peer.pem"}}}
+        : CommonIntegrationTest{std::unique_ptr<one::testing::FsImplMount>{new one::testing::FsImplMount{"main", "peer.pem"}}}
     {
     }
 
     void SetUp() override
     {
         // Initialization of the whole client.
-        // This initialization is not required if test uses only filesystem (theres no VeilClient code calls)
+        // This initialization is not required if test uses only filesystem (theres no oneclient code calls)
         CommonIntegrationTest::SetUp();
     }
 };
 
 // This test shows how you can call sample_test:exec/1 method on cluster environment
 TEST_F(SampleTest, clusterCommandExec) {
-    EXPECT_EQ(std::string("/tmp/dio"), veil::testing::erlExec("{env, \"DIO_ROOT\"}"));
+    EXPECT_EQ(std::string("/tmp/dio"), one::testing::erlExec("{env, \"DIO_ROOT\"}"));
 }
 
-// veilFsMount->getRoot() is set to the root of mounted VeilFS. Therefore you can just
-// manage some files in order to test whole VeilClient behaviourally
+// onedataMount->getRoot() is set to the root of mounted FsImpl. Therefore you can just
+// manage some files in order to test whole oneclient behaviourally
 TEST_F(SampleTest, mkdirExample) {
-    EXPECT_EQ(0, ::system(("mkdir " + veilFsMount->getRoot() + "/testDir").c_str()));
-    EXPECT_EQ(0, ::system(("rm -rf " + veilFsMount->getRoot() + "/testDir").c_str()));
+    EXPECT_EQ(0, ::system(("mkdir " + onedataMount->getRoot() + "/testDir").c_str()));
+    EXPECT_EQ(0, ::system(("rm -rf " + onedataMount->getRoot() + "/testDir").c_str()));
 }
 
 TEST_F(SampleTest, fileExample) {
-    EXPECT_EQ(0, ::system(("touch " + veilFsMount->getRoot() + "/file").c_str()));
+    EXPECT_EQ(0, ::system(("touch " + onedataMount->getRoot() + "/file").c_str()));
 }
 
 TEST_F(SampleTest, fslogicExample) {

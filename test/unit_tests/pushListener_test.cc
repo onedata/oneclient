@@ -16,8 +16,8 @@
 
 using namespace ::testing;
 using namespace std::placeholders;
-using namespace veil::client;
-using namespace veil::protocol::communication_protocol;
+using namespace one::client;
+using namespace one::clproto::communication_protocol;
 
 class PushListenerTest: public CommonTest
 {

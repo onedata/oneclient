@@ -14,15 +14,15 @@
 #include "fslogicProxy.h"
 #include "fuse_messages.pb.h"
 #include "logging.h"
-#include "veilErrors.h"
-#include "veilfs.h"
+#include "oneErrors.h"
+#include "fsImpl.h"
 
 #include <cassert>
 
-using namespace veil::protocol::communication_protocol;
-using namespace veil::protocol::fuse_messages;
+using namespace one::clproto::communication_protocol;
+using namespace one::clproto::fuse_messages;
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -114,7 +114,7 @@ namespace client
     void PushListener::sendPushMessageAck(const Answer &pushMessage,
                                           const communication::ServerModule module)
     {
-        protocol::communication_protocol::Atom msg;
+        clproto::communication_protocol::Atom msg;
         msg.set_value(PUSH_MESSAGE_ACK);
 
         auto context = m_context.lock();
@@ -135,4 +135,4 @@ namespace client
     }
 
 } // namespace client
-} // namespace veil
+} // namespace one

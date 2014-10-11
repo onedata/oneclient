@@ -1,11 +1,11 @@
 /**
- * @file veilfs.cc
+ * @file fsImpl.cc
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "veilfs.h"
+#include "fsImpl.h"
 
 #include "communication_protocol.pb.h"
 #include "communication/communicator.h"
@@ -23,8 +23,8 @@
 #include "pushListener.h"
 #include "scheduler.h"
 #include "storageMapper.h"
-#include "veilErrors.h"
-#include "veilException.h"
+#include "oneErrors.h"
+#include "oneException.h"
 
 #include <grp.h>
 #include <pwd.h>
@@ -50,7 +50,7 @@
                                 if(!ptr) { LOG(ERROR) << "storage helper '" << NAME << "' not found"; return -EIO; } \
                                 CUSTOM_SH_RUN(ptr, FUN)
 
-/// If given veilError does not produce POSIX 0 return code, interrupt execution by returning POSIX error code.
+/// If given oneError does not produce POSIX 0 return code, interrupt execution by returning POSIX error code.
 #define RETURN_IF_ERROR(X)  { \
                                 int err = translateError(X); \
                                 if(err != 0) { LOG(INFO) << "Returning error: " << err; return err; } \
@@ -67,14 +67,14 @@
                                     lInfo = tmpLoc.first; \
                                     sInfo = tmpLoc.second; \
                                 } \
-                                catch(VeilException e) \
+                                catch(OneException e) \
                                 { \
                                     LOG(WARNING) << "cannot get file mapping for file: " << string(PATH) << " (error: " << e.what() << ")"; \
-                                    return translateError(e.veilError()); \
+                                    return translateError(e.oneError()); \
                                 }
 
 using namespace std;
-using namespace veil::protocol::fuse_messages;
+using namespace one::clproto::fuse_messages;
 
 namespace
 {
@@ -85,19 +85,19 @@ inline std::string parent(const boost::filesystem::path &p)
 }
 }
 
-namespace veil {
+namespace one {
 namespace client {
 
-VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
+FsImpl::FsImpl(string path, std::shared_ptr<Context> context,
                std::shared_ptr<FslogicProxy> fslogic,  std::shared_ptr<MetaCache> metaCache,
                std::shared_ptr<LocalStorageManager> sManager,
                std::shared_ptr<helpers::StorageHelperFactory> sh_factory,
                std::shared_ptr<events::EventCommunicator> eventCommunicator) :
     m_fh(0),
-    m_fslogic(fslogic),
-    m_metaCache(metaCache),
-    m_sManager(sManager),
-    m_shFactory(sh_factory),
+    m_fslogic(std::move(fslogic)),
+    m_metaCache(std::move(metaCache)),
+    m_sManager(std::move(sManager)),
+    m_shFactory(std::move(sh_factory)),
     m_eventCommunicator(eventCommunicator),
     m_context{std::move(context)}
 {
@@ -163,11 +163,11 @@ VeilFS::VeilFS(string path, std::shared_ptr<Context> context,
                                  m_eventCommunicator);
 }
 
-VeilFS::~VeilFS()
+FsImpl::~FsImpl()
 {
 }
 
-int VeilFS::access(const char *path, int mask)
+int FsImpl::access(const char *path, int mask)
 {
     LOG(INFO) << "FUSE: access(path: " << string(path) << ", mask: " << mask << ")";
 
@@ -177,7 +177,7 @@ int VeilFS::access(const char *path, int mask)
     return 0;
 }
 
-int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
+int FsImpl::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
 {
     if(fuse_ctx)
         LOG(INFO) << "FUSE: getattr(path: " << string(path) << ", statbuf)";
@@ -233,7 +233,7 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
         uid_t uid = attr.uid();
         gid_t gid = attr.gid();
 
-        if(string(path) == "/") { // VeilFS root should always belong to FUSE owner
+        if(string(path) == "/") { // FsImpl root should always belong to FUSE owner
             m_ruid = uid;
             m_rgid = gid;
         }
@@ -252,7 +252,7 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
             if(fuse_ctx && m_context->getOptions()->get_enable_dir_prefetch() && m_context->getOptions()->get_enable_attr_cache())
             {
                 m_context->scheduler()->post(
-                            &VeilFS::asyncReaddir, shared_from_this(), path, 0);
+                            &FsImpl::asyncReaddir, shared_from_this(), path, 0);
             }
         }
         else if(attr.type() == "LNK")
@@ -260,12 +260,9 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
             statbuf->st_mode |= S_IFLNK;
 
             // Check cache for validity
-            boost::unique_lock<boost::upgrade_mutex> lock{m_linkCacheMutex};
-            map<string, pair<string, time_t> >::iterator it = m_linkCache.find(string(path));
-            if(it != m_linkCache.end() && statbuf->st_mtime > (*it).second.second)
-            {
-                m_linkCache.erase(it);
-            }
+            if(const auto &cached = m_linkCache.get(path))
+                if(statbuf->st_mtime > cached.get().second)
+                    m_linkCache.take(path);
         }
         else
         {
@@ -279,22 +276,18 @@ int VeilFS::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
     return 0;
 }
 
-int VeilFS::readlink(const char *path, char *link, size_t size)
+int FsImpl::readlink(const char *path, char *link, size_t size)
 {
     LOG(INFO) << "FUSE: readlink(path: " << string(path) << ")";
     string target;
 
-    boost::upgrade_lock<boost::upgrade_mutex> lock{m_linkCacheMutex};
-    map<string, pair<string, time_t> >::const_iterator it = m_linkCache.find(string(path));
-    if(it != m_linkCache.end()) {
-        target = (*it).second.first;
+    if(const auto &cached = m_linkCache.get(path)) {
+        target = cached.get().first;
     } else {
         pair<string, string> resp = m_fslogic->getLink(string(path));
         target = resp.second;
         RETURN_IF_ERROR(resp.first);
-
-        boost::upgrade_to_unique_lock<boost::upgrade_mutex> writeLock{lock};
-        m_linkCache[string(path)] = pair<string, time_t>(target, time(NULL));
+        m_linkCache.set(path, std::make_pair(target, time(nullptr)));
     }
 
     if(target.size() == 0) {
@@ -312,7 +305,7 @@ int VeilFS::readlink(const char *path, char *link, size_t size)
     return 0;
 }
 
-int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
+int FsImpl::mknod(const char *path, mode_t mode, dev_t dev)
 {
     LOG(INFO) << "FUSE: mknod(path: " << string(path) << ", mode: " << mode << ", ...)";
     if(!(mode & S_IFREG))
@@ -371,7 +364,7 @@ int VeilFS::mknod(const char *path, mode_t mode, dev_t dev)
     return sh_return;
 }
 
-int VeilFS::mkdir(const char *path, mode_t mode)
+int FsImpl::mkdir(const char *path, mode_t mode)
 {
     LOG(INFO) << "FUSE: mkdir(path: " << string(path) << ", mode: " << mode << ")";
     m_metaCache->clearAttr(string(path));
@@ -387,7 +380,7 @@ int VeilFS::mkdir(const char *path, mode_t mode)
     return 0;
 }
 
-int VeilFS::unlink(const char *path)
+int FsImpl::unlink(const char *path)
 {
     LOG(INFO) << "FUSE: unlink(path: " << string(path) << ")";
     struct stat statbuf;
@@ -421,7 +414,7 @@ int VeilFS::unlink(const char *path)
     return 0;
 }
 
-int VeilFS::rmdir(const char *path)
+int FsImpl::rmdir(const char *path)
 {
     LOG(INFO) << "FUSE: rmdir(path: " << string(path) << ")";
     m_metaCache->clearAttr(string(path));
@@ -434,7 +427,7 @@ int VeilFS::rmdir(const char *path)
     return 0;
 }
 
-int VeilFS::symlink(const char *to, const char *from)
+int FsImpl::symlink(const char *to, const char *from)
 {
     LOG(INFO) << "FUSE: symlink(path: " << string(from) << ", link: "<< string(to)  <<")";
     string toStr = string(to);
@@ -452,7 +445,7 @@ int VeilFS::symlink(const char *to, const char *from)
     return 0;
 }
 
-int VeilFS::rename(const char *path, const char *newpath)
+int FsImpl::rename(const char *path, const char *newpath)
 {
     LOG(INFO) << "FUSE: rename(path: " << string(path) << ", newpath: "<< string(newpath)  <<")";
 
@@ -463,13 +456,13 @@ int VeilFS::rename(const char *path, const char *newpath)
     return 0;
 }
 
-int VeilFS::link(const char *path, const char *newpath)
+int FsImpl::link(const char *path, const char *newpath)
 {
     LOG(INFO) << "FUSE: link(path: " << string(path) << ", newpath: "<< string(newpath)  <<")";
     return -ENOTSUP;
 }
 
-int VeilFS::chmod(const char *path, mode_t mode)
+int FsImpl::chmod(const char *path, mode_t mode)
 {
     LOG(INFO) << "FUSE: chmod(path: " << string(path) << ", mode: "<< mode << ")";
     RETURN_IF_ERROR(m_fslogic->changeFilePerms(string(path), mode & ALLPERMS)); // ALLPERMS = 07777
@@ -487,7 +480,7 @@ int VeilFS::chmod(const char *path, mode_t mode)
     return sh_return;
 }
 
-int VeilFS::chown(const char *path, uid_t uid, gid_t gid)
+int FsImpl::chown(const char *path, uid_t uid, gid_t gid)
 {
     LOG(INFO) << "FUSE: chown(path: " << string(path) << ", uid: "<< uid << ", gid: " << gid <<")";
 
@@ -511,7 +504,7 @@ int VeilFS::chown(const char *path, uid_t uid, gid_t gid)
     return 0;
 }
 
-int VeilFS::truncate(const char *path, off_t newSize)
+int FsImpl::truncate(const char *path, off_t newSize)
 {
     LOG(INFO) << "FUSE: truncate(path: " << string(path) << ", newSize: "<< newSize <<")";
 
@@ -521,27 +514,27 @@ int VeilFS::truncate(const char *path, off_t newSize)
 
     if(sh_return == 0) {
         m_metaCache->updateSize(string(path), newSize);
-        m_context->scheduler()->post(&VeilFS::performPostTruncateActions,
+        m_context->scheduler()->post(&FsImpl::performPostTruncateActions,
                                      shared_from_this(), path, newSize);
     }
 
     return sh_return;
 }
 
-int VeilFS::utime(const char *path, struct utimbuf *ubuf)
+int FsImpl::utime(const char *path, struct utimbuf *ubuf)
 {
     LOG(INFO) << "FUSE: utime(path: " << string(path) << ", ...)";
 
     // Update access times in meta cache right away
     (void) m_metaCache->updateTimes(string(path), ubuf->actime, ubuf->modtime);
 
-    m_context->scheduler()->post(&VeilFS::updateTimes, shared_from_this(), path,
+    m_context->scheduler()->post(&FsImpl::updateTimes, shared_from_this(), path,
                                  ubuf->actime, ubuf->modtime);
 
     return 0;
 }
 
-int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
+int FsImpl::open(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: open(path: " << string(path) << ", ...)";
     fileInfo->direct_io = 1;
@@ -568,25 +561,24 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_open(lInfo.fileId.c_str(), fileInfo));
 
     if(sh_return == 0) {
-        boost::unique_lock<boost::shared_mutex> lock{m_shCacheMutex};
-        m_shCache[fileInfo->fh] = ptr;
+        m_shCache.set(fileInfo->fh, ptr);
 
         time_t atime = 0, mtime = 0;
 
         if((accMode == O_WRONLY) || (fileInfo->flags & O_APPEND) || (accMode == O_RDWR))
-            mtime = time(NULL);
+            mtime = time(nullptr);
 #ifdef __APPLE__
         if( ( (accMode == O_RDONLY) || (accMode == O_RDWR) ) )
 #else
         if( ( (accMode == O_RDONLY) || (accMode == O_RDWR) ) && !(fileInfo->flags & O_NOATIME) )
 #endif
-            atime = time(NULL);
+            atime = time(nullptr);
 
         if(atime || mtime)
         {
             // Update access times in meta cache right away
             m_metaCache->updateTimes(path, atime, mtime);
-            m_context->scheduler()->post(&VeilFS::updateTimes, shared_from_this(),
+            m_context->scheduler()->post(&FsImpl::updateTimes, shared_from_this(),
                                          path, atime, mtime);
         }
     }
@@ -594,13 +586,13 @@ int VeilFS::open(const char *path, struct fuse_file_info *fileInfo)
     return sh_return;
 }
 
-int VeilFS::read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
+int FsImpl::read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
 {
     //LOG(INFO) << "FUSE: read(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
     GET_LOCATION_INFO(path, false);
 
-    boost::shared_lock<boost::shared_mutex> lock{m_shCacheMutex};
-    CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
+    auto sh = m_shCache.get(fileInfo->fh).get();
+    CUSTOM_SH_RUN(sh, sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
 
     std::shared_ptr<events::Event> writeEvent = events::Event::createReadEvent(path, sh_return);
     m_eventCommunicator->processEvent(writeEvent);
@@ -608,7 +600,7 @@ int VeilFS::read(const char *path, char *buf, size_t size, off_t offset, struct 
     return sh_return;
 }
 
-int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
+int FsImpl::write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
 {
     //LOG(INFO) << "FUSE: write(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
 
@@ -619,9 +611,8 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
 
     GET_LOCATION_INFO(path, false);
 
-    boost::shared_lock<boost::shared_mutex> lock{m_shCacheMutex};
-    CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
-    lock.unlock();
+    auto sh = m_shCache.get(fileInfo->fh).get();
+    CUSTOM_SH_RUN(sh, sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
 
     if(sh_return > 0) { // Update file size in cache
         struct stat buf;
@@ -639,7 +630,7 @@ int VeilFS::write(const char *path, const char *buf, size_t size, off_t offset, 
 }
 
 // not yet implemented
-int VeilFS::statfs(const char *path, struct statvfs *statInfo)
+int FsImpl::statfs(const char *path, struct statvfs *statInfo)
 {
     LOG(INFO) << "FUSE: statfs(path: " << string(path) << ", ...)";
 
@@ -651,35 +642,28 @@ int VeilFS::statfs(const char *path, struct statvfs *statInfo)
 }
 
 // not yet implemented
-int VeilFS::flush(const char *path, struct fuse_file_info *fileInfo)
+int FsImpl::flush(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: flush(path: " << string(path) << ", ...)";
     GET_LOCATION_INFO(path, false);
 
-    sh_ptr storage_helper;
-    {
-        boost::shared_lock<boost::shared_mutex> lock{m_shCacheMutex};
-        storage_helper = m_shCache[fileInfo->fh];
-    }
-    CUSTOM_SH_RUN(storage_helper , sh_flush(lInfo.fileId.c_str(), fileInfo));
+    auto sh = m_shCache.get(fileInfo->fh).get();
+    CUSTOM_SH_RUN(sh, sh_flush(lInfo.fileId.c_str(), fileInfo));
 
     scheduleClearAttr(path);
 
     return sh_return;
 }
 
-int VeilFS::release(const char *path, struct fuse_file_info *fileInfo)
+int FsImpl::release(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: release(path: " << string(path) << ", ...)";
 
-    /// Remove Storage Helper's pointer from cache
-    boost::unique_lock<boost::shared_mutex> lock{m_shCacheMutex};
-
     GET_LOCATION_INFO(path, false);
 
-    CUSTOM_SH_RUN(m_shCache[fileInfo->fh], sh_release(lInfo.fileId.c_str(), fileInfo));
-
-    m_shCache.erase(fileInfo->fh);
+    /// Remove Storage Helper's pointer from cache
+    auto sh = m_shCache.take(fileInfo->fh);
+    CUSTOM_SH_RUN(sh, sh_release(lInfo.fileId.c_str(), fileInfo));
 
     m_context->getStorageMapper()->releaseFile(string(path));
 
@@ -687,7 +671,7 @@ int VeilFS::release(const char *path, struct fuse_file_info *fileInfo)
 }
 
 // not yet implemented
-int VeilFS::fsync(const char *path, int datasync, struct fuse_file_info *fi)
+int FsImpl::fsync(const char *path, int datasync, struct fuse_file_info *fi)
 {
     LOG(INFO) << "FUSE: fsync(path: " << string(path) << ", datasync: " << datasync << ")";
     /* Just a stub.  This method is optional and can safely be left
@@ -699,17 +683,17 @@ int VeilFS::fsync(const char *path, int datasync, struct fuse_file_info *fi)
     return 0;
 }
 
-int VeilFS::opendir(const char *path, struct fuse_file_info *fileInfo)
+int FsImpl::opendir(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: opendir(path: " << string(path) << ", ...)";
 
-    m_context->scheduler()->post(&VeilFS::updateTimes, shared_from_this(),
+    m_context->scheduler()->post(&FsImpl::updateTimes, shared_from_this(),
                                  path, time(nullptr), 0);
 
     return 0;
 }
 
-int VeilFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo)
+int FsImpl::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: readdir(path: " << string(path) << ", ..., offset: " << offset << ", ...)";
     vector<string> children;
@@ -724,16 +708,16 @@ int VeilFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
         return -EIO;
     }
 
-    for(std::vector<string>::iterator it = children.begin(); it < children.end(); ++it)
+    for(auto it = children.begin(); it < children.end(); ++it)
     {
         if(m_context->getOptions()->get_enable_parallel_getattr() && m_context->getOptions()->get_enable_attr_cache())
         {
             const auto arg = (boost::filesystem::path(path) / (*it)).normalize().string();
-            m_context->scheduler()->post(&VeilFS::getattr, shared_from_this(),
+            m_context->scheduler()->post(&FsImpl::getattr, shared_from_this(),
                                          arg.c_str(), nullptr, false);
         }
 
-        if(filler(buf, it->c_str(), NULL, ++offset))
+        if(filler(buf, it->c_str(), nullptr, ++offset))
         {
             LOG(WARNING) << "filler buffer overflow";
             break;
@@ -744,52 +728,53 @@ int VeilFS::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
     return 0;
 }
 
-int VeilFS::releasedir(const char *path, struct fuse_file_info *fileInfo)
+int FsImpl::releasedir(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: releasedir(path: " << string(path) << ", ...)";
     return 0;
 }
 
-int VeilFS::fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo)
+int FsImpl::fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: fsyncdir(path: " << string(path) << ", datasync: " << datasync << ", ...)";
     return 0;
 }
 
-int VeilFS::setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
+int FsImpl::setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
 {
     return -EIO;
 }
 
-int VeilFS::getxattr(const char *path, const char *name, char *value, size_t size)
+int FsImpl::getxattr(const char *path, const char *name, char *value, size_t size)
 {
     return -EIO;
 }
 
-int VeilFS::listxattr(const char *path, char *list, size_t size)
+int FsImpl::listxattr(const char *path, char *list, size_t size)
 {
     return -EIO;
 }
 
-int VeilFS::removexattr(const char *path, const char *name)
+int FsImpl::removexattr(const char *path, const char *name)
 {
     return -EIO;
 }
 
-int VeilFS::init(struct fuse_conn_info *conn) {
+int FsImpl::init(struct fuse_conn_info *conn) {
     LOG(INFO) << "FUSE: init(...)";
     return 0;
 }
 
 
-bool VeilFS::needsForceClusterProxy(const std::string &path)
+bool FsImpl::needsForceClusterProxy(const std::string &path)
 {
     struct stat attrs;
     auto attrsStatus = getattr(path.c_str(), &attrs, false);
-    return attrsStatus || !m_metaCache->canUseDefaultPermissions(attrs);
+    auto filePermissions = attrs.st_mode && (S_IRWXU || S_IRWXG || S_IRWXO);
+    return attrsStatus || (filePermissions == 0) || !m_metaCache->canUseDefaultPermissions(attrs);
 }
 
-void VeilFS::scheduleClearAttr(const string &path)
+void FsImpl::scheduleClearAttr(const string &path)
 {
     // Clear cache of parent (possible change of modify time)
     m_context->scheduler()->schedule(
@@ -797,7 +782,7 @@ void VeilFS::scheduleClearAttr(const string &path)
                 m_metaCache, path);
 }
 
-void VeilFS::asyncReaddir(const string &path, const size_t offset)
+void FsImpl::asyncReaddir(const string &path, const size_t offset)
 {
     if(!m_context->getOptions()->get_enable_attr_cache())
         return;
@@ -809,24 +794,24 @@ void VeilFS::asyncReaddir(const string &path, const size_t offset)
     for(const auto &name: children)
     {
         const auto arg = (boost::filesystem::path(path) / name).normalize().string();
-        m_context->scheduler()->post(&VeilFS::getattr, shared_from_this(),
+        m_context->scheduler()->post(&FsImpl::getattr, shared_from_this(),
                                      arg.c_str(), nullptr, false);
     }
 
     if(!children.empty())
     {
-        m_context->scheduler()->post(&VeilFS::asyncReaddir, shared_from_this(),
+        m_context->scheduler()->post(&FsImpl::asyncReaddir, shared_from_this(),
                                      path, offset + children.size());
     }
 }
 
-void VeilFS::updateTimes(const string &path, const time_t atime, const time_t mtime)
+void FsImpl::updateTimes(const string &path, const time_t atime, const time_t mtime)
 {
     if(m_fslogic->updateTimes(path, atime, mtime) == VOK)
         m_metaCache->updateTimes(path, atime, mtime);
 }
 
-void VeilFS::performPostTruncateActions(const string &path, const off_t newSize)
+void FsImpl::performPostTruncateActions(const string &path, const off_t newSize)
 {
     // we need to statAndUpdatetimes before processing event because we want event to be run with new size value on cluster
     const auto currentTime = time(nullptr);
@@ -840,5 +825,34 @@ void VeilFS::performPostTruncateActions(const string &path, const off_t newSize)
     m_eventCommunicator->processEvent(truncateEvent);
 }
 
+template<typename key, typename value>
+boost::optional<value&> FsImpl::ThreadsafeCache<key, value>::get(const key id)
+{
+    std::shared_lock<std::shared_timed_mutex> lock{m_cacheMutex};
+    const auto it = m_cache.find(id);
+
+    if(it == m_cache.end())
+        return {};
+
+    return {it->second};
+}
+
+template<typename key, typename value>
+void FsImpl::ThreadsafeCache<key, value>::set(const key id, value val)
+{
+    std::lock_guard<std::shared_timed_mutex> guard{m_cacheMutex};
+    m_cache[id] = std::move(val);
+}
+
+template<typename key, typename value>
+value FsImpl::ThreadsafeCache<key, value>::take(const key id)
+{
+    std::lock_guard<std::shared_timed_mutex> guard{m_cacheMutex};
+    const auto it = m_cache.find(id);
+    auto sh = std::move(it->second);
+    m_cache.erase(it);
+    return sh;
+}
+
 } // namespace client
-} // namespace veil
+} // namespace one

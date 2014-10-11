@@ -10,14 +10,14 @@
 
 #include <boost/filesystem.hpp>
 
-namespace veil
+namespace one
 {
 namespace testing
 {
 
 // Global variables
-const std::string VeilFSRoot =
-        getenv(VEILFS_ROOT_VAR) ? getenv(VEILFS_ROOT_VAR) : "";
+const std::string onedataRoot =
+        getenv(ONEDATA_ROOT_VAR) ? getenv(ONEDATA_ROOT_VAR) : "";
 const std::string CommonFilesRoot =
         getenv(TEST_ROOT_VAR) ? std::string{getenv(TEST_ROOT_VAR)} + "/test/integration_tests/common_files" : "";
 
@@ -43,24 +43,24 @@ std::string erlExec(const std::string &arg)
     return ret;
 }
 
-VeilFSMount::VeilFSMount(const std::string &path, const std::string &cert,
+FsImplMount::FsImplMount(const std::string &path, const std::string &cert,
                          const std::string &opts, const std::string &args)
 {
     if(mount(path, cert, opts, args))
         throw std::string{"Cannot mount VFS"};
 }
 
-VeilFSMount::~VeilFSMount()
+FsImplMount::~FsImplMount()
 {
     umount();
 }
 
-std::string VeilFSMount::getRoot()
+std::string FsImplMount::getRoot()
 {
     return m_mountPoint;
 }
 
-int VeilFSMount::mount(const std::string &path, const std::string &cert,
+int FsImplMount::mount(const std::string &path, const std::string &cert,
                        const std::string &opts, const std::string &args)
 {
     m_mountPoint = MOUNT_POINT(path);
@@ -69,10 +69,10 @@ int VeilFSMount::mount(const std::string &path, const std::string &cert,
         return -1;
 
     return ::system(("PEER_CERTIFICATE_FILE='" + COMMON_FILE(cert) + "' ENABLE_ATTR_CACHE='false' " + 
-                     opts + " veilFuse " + args + " " + m_mountPoint).c_str());
+                     opts + " oneclient " + args + " " + m_mountPoint).c_str());
 }
 
-int VeilFSMount::umount(const bool silent)
+int FsImplMount::umount(const bool silent)
 {
     boost::system::error_code ec;
     int res = ::system(("fusermount -u " + m_mountPoint + (silent ? " 2> /dev/null" : "")).c_str());
@@ -81,4 +81,4 @@ int VeilFSMount::umount(const bool silent)
 }
 
 } // namespace testing
-} // namespace veil
+} // namespace one

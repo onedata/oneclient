@@ -15,11 +15,11 @@
 
 #include <map>
 
-using namespace veil::client;
-using namespace veil::client::events;
+using namespace one::client;
+using namespace one::client::events;
 using namespace std;
-using namespace veil::protocol::fuse_messages;
-using namespace veil::protocol::communication_protocol;
+using namespace one::clproto::fuse_messages;
+using namespace one::clproto::communication_protocol;
 
 std::shared_ptr<Event> Event::createMkdirEvent(const string & filePath)
 {
@@ -66,21 +66,21 @@ std::shared_ptr<Event> Event::createTruncateEvent(const string & filePath, off_t
 std::shared_ptr<EventMessage> Event::createProtoMessage()
 {
     auto eventMessage = std::make_shared<EventMessage>();
-    for(map<string, string>::iterator it = m_stringProperties.begin(); it != m_stringProperties.end(); ++it){
-        eventMessage->add_string_properties_keys(it->first);
-        eventMessage->add_string_properties_values(it->second);
+    for(auto & elem : m_stringProperties){
+        eventMessage->add_string_properties_keys(elem.first);
+        eventMessage->add_string_properties_values(elem.second);
     }
 
-    for(map<string, NumericProperty>::iterator it = m_numericProperties.begin(); it != m_numericProperties.end(); ++it){
-        eventMessage->add_numeric_properties_keys(it->first);
-        eventMessage->add_numeric_properties_values(it->second);
+    for(auto & elem : m_numericProperties){
+        eventMessage->add_numeric_properties_keys(elem.first);
+        eventMessage->add_numeric_properties_values(elem.second);
     }
 
     return eventMessage;
 }
 
 NumericProperty Event::getNumericProperty(const string & key, const NumericProperty defaultValue) const {
-    map<string, NumericProperty>::const_iterator it = m_numericProperties.find(key);
+    auto it = m_numericProperties.find(key);
     if(it == m_numericProperties.end()){
         return defaultValue;
     }else{
@@ -97,7 +97,7 @@ int Event::getNumericPropertiesSize() const {
 }
 
 string Event::getStringProperty(const string & key, const string & defaultValue) const {
-    map<string, string>::const_iterator it = m_stringProperties.find(key);
+    auto it = m_stringProperties.find(key);
     if(it == m_stringProperties.end()){
         return defaultValue;
     }else{

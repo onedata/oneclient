@@ -5,19 +5,19 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_META_CACHE_H
-#define VEILCLIENT_META_CACHE_H
+#ifndef ONECLIENT_META_CACHE_H
+#define ONECLIENT_META_CACHE_H
 
 
-#include <boost/thread/shared_mutex.hpp>
 #include <sys/stat.h>
 
 #include <ctime>
 #include <memory>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -26,7 +26,7 @@ class Context;
 
 /**
  * Class responsible for caching file attributes.
- * @see VeilFS::getattr
+ * @see FsImpl::getattr
  */
 class MetaCache: public std::enable_shared_from_this<MetaCache>
 {
@@ -34,7 +34,7 @@ protected:
     std::unordered_map<std::string, std::pair<time_t, struct stat> > m_statMap;  ///< This is the cache map.
                                                                         ///< Value of this std::map is std::pair containing expiration time of attributes and
                                                                         ///< stat struct itself
-    boost::shared_mutex m_statMapMutex;                                 ///< Mutex used to synchronize access to MetaCache::m_statMap
+    std::shared_timed_mutex m_statMapMutex;                                 ///< Mutex used to synchronize access to MetaCache::m_statMap
 
 public:
 
@@ -67,7 +67,7 @@ protected:
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_META_CACHE_H
+#endif // ONECLIENT_META_CACHE_H

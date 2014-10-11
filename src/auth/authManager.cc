@@ -22,9 +22,10 @@
 #include <array>
 #include <cassert>
 #include <functional>
+#include <iostream>
 #include <unordered_map>
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -96,7 +97,7 @@ TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
             m_authDetails = m_grAdapter.exchangeCode(code);
         }
 
-        boost::lock_guard<boost::shared_mutex> guard{m_headersMutex};
+        std::lock_guard<std::shared_timed_mutex> guard{m_headersMutex};
         m_headers.emplace("global-user-id", m_authDetails.gruid());
         m_headers.emplace("authentication-secret", hashAndBase64(m_authDetails.accessToken()));
     }
@@ -111,7 +112,7 @@ std::shared_ptr<communication::Communicator> TokenAuthManager::createCommunicato
         const unsigned int metaPoolSize)
 {
     auto getHeadersFun = [this]{
-        boost::shared_lock<boost::shared_mutex> lock{m_headersMutex};
+        std::shared_lock<std::shared_timed_mutex> lock{m_headersMutex};
         return m_headers;
     };
 
@@ -145,7 +146,7 @@ void TokenAuthManager::refresh(std::weak_ptr<communication::Communicator> commun
     scheduleRefresh(communicator);
 
     {
-        boost::lock_guard<boost::shared_mutex> guard{m_headersMutex};
+        std::lock_guard<std::shared_timed_mutex> guard{m_headersMutex};
         m_headers["global-user-id"] = m_authDetails.gruid();
         m_headers["authentication-secret"] = hashAndBase64(m_authDetails.accessToken());
     }
@@ -172,4 +173,4 @@ std::string TokenAuthManager::hashAndBase64(const std::string &token) const
 
 } // namespace auth
 } // namespace client
-} // namespace veil
+} // namespace one

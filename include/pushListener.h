@@ -5,8 +5,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_PUSH_LISTENER_H
-#define VEILCLIENT_PUSH_LISTENER_H
+#ifndef ONECLIENT_PUSH_LISTENER_H
+#define ONECLIENT_PUSH_LISTENER_H
 
 
 #include "communication_protocol.pb.h"
@@ -20,7 +20,7 @@
 #include <thread>
 #include <unordered_map>
 
-namespace veil
+namespace one
 {
 
 namespace client
@@ -28,7 +28,7 @@ namespace client
 
 class Context;
 
-using listener_fun = std::function<bool(const protocol::communication_protocol::Answer&)>;
+using listener_fun = std::function<bool(const clproto::communication_protocol::Answer&)>;
 
 class PushListener: public std::enable_shared_from_this<PushListener>
 {
@@ -37,7 +37,7 @@ public:
     PushListener(const PushListener&) = delete;
     virtual ~PushListener();
 
-    void onMessage(const protocol::communication_protocol::Answer&); ///< Input callback. This method should be registered in connection object. This is the source of all processed messages.
+    void onMessage(const clproto::communication_protocol::Answer&); ///< Input callback. This method should be registered in connection object. This is the source of all processed messages.
 
     int subscribe(listener_fun);    ///< Register callback function. Each registered by this method function will be called for every incoming PUSH message.
                                     ///< Registered callback has to return bool value which tells if subscription shall remain active (false - callback will be removed).
@@ -71,10 +71,10 @@ public:
     void unsubscribe(int subId);    ///< Remove previously added callback.
                                     ///< @param subId shall match the ID returned by PushListener::subscribe
 
-    void onChannelError(const protocol::communication_protocol::Answer& msg); ///< Callback called fo each non-ok Answer from cluster.
+    void onChannelError(const clproto::communication_protocol::Answer& msg); ///< Callback called fo each non-ok Answer from cluster.
 
-    void sendPushMessageAck(const protocol::communication_protocol::Answer &pushMessage,
-                            const veil::communication::ServerModule module); ///< Sends push message ack for a given pushmessage.
+    void sendPushMessageAck(const clproto::communication_protocol::Answer &pushMessage,
+                            const one::communication::ServerModule module); ///< Sends push message ack for a given pushmessage.
 
 protected:
 
@@ -85,7 +85,7 @@ protected:
     std::mutex          m_queueMutex;
 
     std::unordered_map<int, listener_fun>               m_listeners;    ///< Listeners callbacks
-    std::list<protocol::communication_protocol::Answer> m_msgQueue;     ///< Message inbox
+    std::list<clproto::communication_protocol::Answer> m_msgQueue;     ///< Message inbox
 
     virtual void mainLoop();                                            ///< Worker thread's loop
 
@@ -94,7 +94,7 @@ private:
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_PUSH_LISTENER_H
+#endif // ONECLIENT_PUSH_LISTENER_H

@@ -5,8 +5,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_OPTIONS_H
-#define VEILCLIENT_OPTIONS_H
+#ifndef ONECLIENT_OPTIONS_H
+#define ONECLIENT_OPTIONS_H
 
 
 #include "config.h"
@@ -43,7 +43,7 @@
              { desc.add_options()(#NAME SHORT, boost::program_options::value<bool>() \
                 ->zero_tokens()->implicit_value(true), DESC); }
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -125,8 +125,8 @@ private:
     boost::program_options::options_description m_fuse;
     boost::program_options::options_description m_hidden;
 
-    DECL_CONFIG(cluster_hostname, std::string)
-    DECL_CONFIG_DEF(cluster_port, unsigned int, 5555)
+    DECL_CONFIG_DEF(provider_hostname, std::string, BASE_DOMAIN)
+    DECL_CONFIG_DEF(provider_port, unsigned int, 5555)
     DECL_CONFIG_DEF(log_dir, std::string, "/tmp")
     DECL_CONFIG(peer_certificate_file, std::string)
     DECL_CONFIG_DEF(enable_attr_cache, bool, true)
@@ -165,4 +165,4 @@ private:
 #undef DECL_CMDLINE_SWITCH_DEF
 
 
-#endif // VEILCLIENT_OPTIONS_H
+#endif // ONECLIENT_OPTIONS_H

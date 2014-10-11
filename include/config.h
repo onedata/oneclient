@@ -5,8 +5,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_CONFIG_H
-#define VEILCLIENT_CONFIG_H
+#ifndef ONECLIENT_CONFIG_H
+#define ONECLIENT_CONFIG_H
 
 
 #include <boost/filesystem.hpp>
@@ -17,7 +17,7 @@
 #include <sstream>
 #include <string>
 
-namespace veil
+namespace one
 {
 
 /// Prefix for all env variables that will be send to cluster
@@ -25,7 +25,7 @@ static constexpr const char *FUSE_OPT_PREFIX = "fuse_opt_";
 static constexpr int ATTR_DEFAULT_EXPIRATION_TIME = 60;
 
 static constexpr const char *BASE_DOMAIN = "cluster.veilfs.plgrid.pl";
-static constexpr const char *PROVIDER_CLIENT_ENDPOINT = "/veilclient";
+static constexpr const char *PROVIDER_CLIENT_ENDPOINT = "/oneclient";
 
 namespace client
 {
@@ -77,7 +77,7 @@ public:
     bool isEnvSet(const std::string&);                           ///< Checks whether env variable is set.
 
     /**
-     * @return Directory path under which veilFuse can store user data files.
+     * @return Directory path under which oneclient can store user data files.
      */
     boost::filesystem::path userDataDir() const;
 
@@ -112,7 +112,7 @@ private:
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_CONFIG_H
+#endif // ONECLIENT_CONFIG_H

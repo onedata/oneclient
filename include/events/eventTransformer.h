@@ -6,8 +6,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_EVENT_TRANSFORMER_H
-#define VEILCLIENT_EVENT_TRANSFORMER_H
+#ifndef ONECLIENT_EVENT_TRANSFORMER_H
+#define ONECLIENT_EVENT_TRANSFORMER_H
 
 
 #include "events/IEventStream.h"
@@ -16,10 +16,10 @@
 #include <vector>
 #include <string>
 
-namespace veil
+namespace one
 {
 
-namespace protocol{ namespace fuse_messages{ class EventTransformerConfig; }}
+namespace clproto{ namespace fuse_messages{ class EventTransformerConfig; }}
 
 namespace client
 {
@@ -35,7 +35,7 @@ class EventTransformer: public IEventStream
 public:
     EventTransformer(const std::vector<std::string> &fieldNamesToReplace, const std::vector<std::string> &valuesToReplace, const std::vector<std::string> &newValues);
 
-    static std::shared_ptr<IEventStream> fromConfig(const :: veil::protocol::fuse_messages::EventTransformerConfig & config); ///<  Creates EventTransformer object from protocol buffer message EventTransformerConfig
+    static std::shared_ptr<IEventStream> fromConfig(const :: one::clproto::fuse_messages::EventTransformerConfig & config); ///<  Creates EventTransformer object from protocol buffer message EventTransformerConfig
     virtual std::shared_ptr<Event> actualProcessEvent(std::shared_ptr<Event> event); ///<  Implements pure virtual method IEventStream::actualProcessEvent
 
 private:
@@ -46,7 +46,7 @@ private:
 
 } // namespace events
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_EVENT_TRANSFORMER_H
+#endif // ONECLIENT_EVENT_TRANSFORMER_H

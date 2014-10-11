@@ -12,10 +12,10 @@
 
 #include <gmock/gmock.h>
 
-class MockMetaCache: public veil::client::MetaCache
+class MockMetaCache: public one::client::MetaCache
 {
 public:
-    MockMetaCache(std::shared_ptr<veil::client::Context> context)
+    MockMetaCache(std::shared_ptr<one::client::Context> context)
         : MetaCache{std::move(context)}
     {
     }

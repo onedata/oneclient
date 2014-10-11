@@ -1,27 +1,29 @@
 /**
- * @file veilfs.h
+ * @file fsImpl.h
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_VEIL_FS_H
-#define VEILCLIENT_VEIL_FS_H
+#ifndef ONECLIENT_FS_IMPL_H
+#define ONECLIENT_FS_IMPL_H
 
 
-#include <boost/thread/shared_mutex.hpp>
+#include <boost/optional.hpp>
 #include <fuse.h>
 
+#include <cstdint>
 #include <list>
 #include <map>
 #include <memory>
+#include <shared_mutex>
 #include <unordered_map>
 
-namespace veil
+namespace one
 {
 
 /// The name of default global config file
-static constexpr const char *GLOBAL_CONFIG_FILE = "veilFuse.conf";
+static constexpr const char *GLOBAL_CONFIG_FILE = "oneclient.conf";
 
 /**
  * How many dirent should be fetch from cluster at once.
@@ -44,11 +46,6 @@ class LocalStorageManager;
 class MetaCache;
 class StorageMapper;
 
-/// Pointer to the Storage Helper's instance
-using sh_ptr = std::shared_ptr<helpers::IStorageHelper>;
-
-typedef uint64_t helper_cache_idx_t;
-
 /// forward declarations
 namespace events
 {
@@ -56,20 +53,20 @@ class EventCommunicator;
 }
 
 /**
- * The VeilFS main class.
+ * The FsImpl main class.
  * This class contains FUSE all callbacks, so it basically is an heart of the filesystem.
- * Technically VeilFS is an singleton created on programm start and registred in FUSE
+ * Technically FsImpl is an singleton created on programm start and registred in FUSE
  * daemon.
  */
-class VeilFS: public std::enable_shared_from_this<VeilFS>
+class FsImpl: public std::enable_shared_from_this<FsImpl>
 {
 public:
-        VeilFS(std::string path, std::shared_ptr<Context> context,
+        FsImpl(std::string path, std::shared_ptr<Context> context,
                std::shared_ptr<FslogicProxy> fslogic, std::shared_ptr<MetaCache> metaCache,
                std::shared_ptr<LocalStorageManager> sManager,
                std::shared_ptr<helpers::StorageHelperFactory> sh_factory,
-               std::shared_ptr<events::EventCommunicator> eventCommunicator); ///< VeilFS constructor.
-        virtual ~VeilFS();
+               std::shared_ptr<events::EventCommunicator> eventCommunicator); ///< FsImpl constructor.
+        virtual ~FsImpl();
 
         int access(const char *path, int mask); /**< *access* FUSE callback. Not implemented yet. */
         int getattr(const char *path, struct stat *statbuf, bool fuse_ctx = true); /**< *getattr* FUSE callback. @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html */
@@ -105,6 +102,39 @@ public:
         virtual bool needsForceClusterProxy(const std::string &path); ///< Checks if user is able to use 'user' or 'group' permissions to access the file given by path.
 
 protected:
+        /**
+         * ThreadsafeCache is responsible for mapping a key to value in a thread
+         * safe manner.
+         */
+        template<typename key, typename value>
+        struct ThreadsafeCache
+        {
+        public:
+            /**
+             * @param id The cached value's id.
+             * @return The cached value if exists, empty option otherwise.
+             */
+            boost::optional<value&> get(const key id);
+
+            /**
+             * @param id The cached value's id.
+             * @param val The cached value.
+             */
+            void set(const key id, value val);
+
+            /**
+             * Removes a cached value from the cache and returns it.
+             * @param id The cached value's id.
+             * @returns The cached value.
+             */
+            value take(const key id);
+
+        private:
+            std::unordered_map<key, value> m_cache;
+            std::shared_timed_mutex m_cacheMutex;
+        };
+
+
         std::string m_root; ///< Filesystem root directory
         uid_t       m_uid;  ///< Filesystem owner's effective uid
         gid_t       m_gid;  ///< Filesystem owner's effective gid
@@ -118,11 +148,8 @@ protected:
         std::shared_ptr<helpers::StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance
         std::shared_ptr<events::EventCommunicator> m_eventCommunicator;
 
-        std::map<std::string, std::pair<std::string, time_t> > m_linkCache;         ///< Simple links cache
-        boost::upgrade_mutex m_linkCacheMutex;
-
-        std::unordered_map<helper_cache_idx_t, sh_ptr> m_shCache;         ///< Storage Helpers' cache.
-        boost::shared_mutex m_shCacheMutex;
+        ThreadsafeCache<std::string, std::pair<std::string, time_t>> m_linkCache;           ///< Simple links cache
+        ThreadsafeCache<std::uint64_t, std::shared_ptr<helpers::IStorageHelper>> m_shCache; ///< Storage Helpers' cache.
 
 private:
         void scheduleClearAttr(const std::string &path);
@@ -134,6 +161,6 @@ private:
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
-#endif // VEILCLIENT_VEIL_FS_H
+#endif // ONECLIENT_FS_IMPL_H

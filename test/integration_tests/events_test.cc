@@ -13,7 +13,7 @@
 #include <unistd.h>
 
 using namespace boost::filesystem;
-using namespace veil;
+using namespace one;
 
 class EventsTest: public CommonIntegrationTest
 {
@@ -46,13 +46,13 @@ std::string exec(const char* cmd)
 TEST_F(EventsTest, mkdirExample)
 {
     // given
-    veilFsMount.reset(new veil::testing::VeilFSMount("main", "peer.pem"));
+    onedataMount.reset(new one::testing::FsImplMount("main", "peer.pem"));
     sleep(2);
     std::string dirName1 = "test_dir_7";
-    std::string dirPath1 = veilFsMount->getRoot() + "/" + dirName1;
-    std::string dirPath2 = veilFsMount->getRoot() + "/test_dir_8";
+    std::string dirPath1 = onedataMount->getRoot() + "/" + dirName1;
+    std::string dirPath2 = onedataMount->getRoot() + "/test_dir_8";
 
-    std::string res = exec(("ls -al " + veilFsMount->getRoot() + " | wc -l").c_str());
+    std::string res = exec(("ls -al " + onedataMount->getRoot() + " | wc -l").c_str());
     int before = atoi(res.c_str());
 
     // what
@@ -60,17 +60,17 @@ TEST_F(EventsTest, mkdirExample)
     sleep(3);
 
     // then
-    res = exec(("ls -al " + veilFsMount->getRoot() + " | wc -l").c_str());
+    res = exec(("ls -al " + onedataMount->getRoot() + " | wc -l").c_str());
     int after = atoi(res.c_str());
 
     // no event handler was registered so number of files after should be equal before + 1
     EXPECT_EQ(before + 1, after);
 
     // event handler registration, directory dirName1 will be deleted on directory creation
-    veil::testing::erlExec("{register_mkdir_handler, \"veilfstestuser/" + dirName1 + "\"}");
+    one::testing::erlExec("{register_mkdir_handler, \"onedatatestuser/" + dirName1 + "\"}");
 
     // given
-    res = exec(("ls -al " + veilFsMount->getRoot() + " | wc -l").c_str());
+    res = exec(("ls -al " + onedataMount->getRoot() + " | wc -l").c_str());
     before = atoi(res.c_str());
 
     // what
@@ -78,7 +78,7 @@ TEST_F(EventsTest, mkdirExample)
     sleep(3);
 
     // then
-    res = exec(("ls -al " + veilFsMount->getRoot() + " | wc -l").c_str());
+    res = exec(("ls -al " + onedataMount->getRoot() + " | wc -l").c_str());
     after = atoi(res.c_str());
 
     // this time we expect that dirPath2 has been created, event handler applied which deleted dirPath1, so we expect before == after
@@ -90,16 +90,16 @@ TEST_F(EventsTest, mkdirExample)
 // Checks if client get event producer configuration on startup
 TEST_F(EventsTest, clientConfiguredAtStartup)
 {
-    std::string root = veil::testing::MOUNT_POINT("main");
+    std::string root = one::testing::MOUNT_POINT("main");
     std::string dirName1 = "test_dir_1";
     std::string dirPath1 = root + "/" + dirName1;
     std::string dirPath2 = root + "/test_dir_2";
 
     // this is essential for this test to register event handler before mounting and initializing client
-    veil::testing::erlExec("{register_mkdir_handler, \"veilfstestuser/" + dirName1 + "\"}");
+    one::testing::erlExec("{register_mkdir_handler, \"onedatatestuser/" + dirName1 + "\"}");
     sleep(1);
 
-    veilFsMount.reset(new veil::testing::VeilFSMount("main", "peer.pem"));
+    onedataMount.reset(new one::testing::FsImplMount("main", "peer.pem"));
     sleep(2);
 
     // given
@@ -135,16 +135,16 @@ TEST_F(EventsTest, clientConfiguredAtStartup)
 
 TEST_F(EventsTest, clientGettingBlockedWhenQuotaExceeded)
 {
-    veilFsMount.reset(new veil::testing::VeilFSMount("main", "peer.pem"));
+    onedataMount.reset(new one::testing::FsImplMount("main", "peer.pem"));
     sleep(1);
 
-    std::string root = veil::testing::MOUNT_POINT("main");
+    std::string root = one::testing::MOUNT_POINT("main");
     std::string filePath = root + "/quota_test_file";
     std::string filePath2 = root + "/quota_test_file2";
     EXPECT_EQ(0, ::system(("touch " + filePath).c_str()));
     EXPECT_EQ(0, ::system(("touch " + filePath2).c_str()));
 
-    veil::testing::erlExec("{prepare_for_quota_case, 100}");
+    one::testing::erlExec("{prepare_for_quota_case, 100}");
     sleep(2);
 
     // write 110 bytes

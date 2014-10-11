@@ -3,14 +3,14 @@
 #       Those options cannot be set with env variables nor with user's config file.
 
   # Hostname and port used to connect to a Provider
-    # cluster_hostname = veilfs.com
-    # cluster_port = 5555
+    # provider_hostname = provider.example.com
+    # provider_port = 5555
 
   # Hostname and port used to connect to Global Registry
     # global_registry_hostname = onedata.org
     # global_registry_port = 8443
 
-  # A method for authenticating the veilFuse client with a Provider.
+  # A method for authenticating the oneclient with a oneprovider.
   # When set to 'token', the client will use a token-based authentication scheme
   # in cooperation with a Global Registry.
   # When set to 'certificate', the client will authenticate itself directly
@@ -33,7 +33,7 @@
     # fuse_group_id = some_group
 
   # If this option is enabled, it will be possible to override other options
-  # with env variable - toupper(option_name), e.g. CLUSTER_PORT overrides cluster_port option
+  # with env variable - toupper(option_name), e.g. CLUSTER_PORT overrides provider_port option
   # [Restricted] [default = true]
     enable_env_option_override = true
 

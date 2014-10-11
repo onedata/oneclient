@@ -21,9 +21,9 @@
 
 using namespace ::testing;
 using namespace std::placeholders;
-using namespace veil::client;
-using namespace veil::protocol::fuse_messages;
-using namespace veil::protocol::communication_protocol;
+using namespace one::client;
+using namespace one::clproto::fuse_messages;
+using namespace one::clproto::communication_protocol;
 
 bool pbMessageEqual( const google::protobuf::MessageLite &lhs, const google::protobuf::MessageLite &rhs ) { return lhs.SerializePartialAsString() == rhs.SerializePartialAsString(); }
 
@@ -32,12 +32,12 @@ void setupAnswerResponse(google::protobuf::Message& from, google::protobuf::Mess
     to.ParsePartialFromString(from.SerializePartialAsString());
 }
 
-struct ProxyFslogicProxy: public veil::client::FslogicProxy
+struct ProxyFslogicProxy: public one::client::FslogicProxy
 {
-    using veil::client::FslogicProxy::FslogicProxy;
-    using veil::client::FslogicProxy::m_messageBuilder;
-    using veil::client::FslogicProxy::sendFuseReceiveAnswer;
-    using veil::client::FslogicProxy::sendFuseReceiveAtom;
+    using one::client::FslogicProxy::FslogicProxy;
+    using one::client::FslogicProxy::m_messageBuilder;
+    using one::client::FslogicProxy::sendFuseReceiveAnswer;
+    using one::client::FslogicProxy::sendFuseReceiveAtom;
 };
 
 class FslogicProxyTest: public CommonTest
@@ -63,7 +63,7 @@ protected:
         ON_CALL(*msgBuilder, createFuseMessage(_)).WillByDefault(Return(FuseMessage{}));
     }
 
-    veil::protocol::fuse_messages::FuseMessage fmsgFrom(const google::protobuf::Message &msg)
+    one::clproto::fuse_messages::FuseMessage fmsgFrom(const google::protobuf::Message &msg)
     {
         return MessageBuilder{context}.createFuseMessage(msg);
     }

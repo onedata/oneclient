@@ -5,8 +5,8 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef VEILCLIENT_TOKEN_AUTH_DETAILS_H
-#define VEILCLIENT_TOKEN_AUTH_DETAILS_H
+#ifndef ONECLIENT_TOKEN_AUTH_DETAILS_H
+#define ONECLIENT_TOKEN_AUTH_DETAILS_H
 
 
 #include <chrono>
@@ -14,7 +14,7 @@
 #include <ostream>
 #include <string>
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -88,7 +88,7 @@ std::istream &operator>>(std::istream &i, TokenAuthDetails &auth);
 
 } // namespace auth
 } // namespace client
-} // namespace veil
+} // namespace one
 
 
-#endif // VEILCLIENT_TOKEN_AUTH_DETAILS_H
+#endif // ONECLIENT_TOKEN_AUTH_DETAILS_H

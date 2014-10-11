@@ -14,7 +14,7 @@
 #include "context.h"
 #include "fuse_messages.pb.h"
 #include "logging.h"
-#include "veilfs.h"
+#include "fsImpl.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
@@ -29,10 +29,10 @@
 #include <random>
 
 using boost::filesystem::path;
-using namespace veil::protocol::fuse_messages;
-using namespace veil::protocol::communication_protocol;
+using namespace one::clproto::fuse_messages;
+using namespace one::clproto::communication_protocol;
 
-namespace veil {
+namespace one {
 namespace client {
 
 LocalStorageManager::LocalStorageManager(std::shared_ptr<Context> context)
@@ -86,14 +86,14 @@ std::vector<path> LocalStorageManager::getMountPoints()
     std::vector<path> mountPoints;
 
     FILE *file = setmntent(MOUNTS_INFO_FILE_PATH, "r");
-    if(file == NULL)
+    if(file == nullptr)
     {
         LOG(ERROR) << "Can not parse /proc/mounts file.";
         return mountPoints;
     }
 
     struct mntent *ent;
-    while ((ent = getmntent(file)) != NULL)
+    while ((ent = getmntent(file)) != nullptr)
     {
         std::string type(ent->mnt_type);
         if(type.compare(0, 4, "fuse") != 0)
@@ -365,4 +365,4 @@ bool LocalStorageManager::hasClientStorageWritePermission(const int storageId, c
 }
 
 } // namespace client
-} // namespace veil
+} // namespace one

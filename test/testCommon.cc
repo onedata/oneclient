@@ -16,7 +16,7 @@
 #include "storageMapper_mock.h"
 #include "fslogicProxy_mock.h"
 #include "options_mock.h"
-#include "veilfs.h"
+#include "fsImpl.h"
 #include "fslogicProxy.h"
 #include "helpers/storageHelperFactory.h"
 #include "metaCache.h"
@@ -36,9 +36,9 @@ void CommonTest::SetUp()
 {
     using namespace ::testing;
 
-    context = std::make_shared<veil::client::Context>();
+    context = std::make_shared<one::client::Context>();
     options = std::make_shared<StrictMock<MockOptions>>();
-    config = std::make_shared<veil::client::Config>(context);
+    config = std::make_shared<one::client::Config>(context);
     communicator = std::make_shared<NiceMock<MockCommunicator>>();
     fslogic = std::make_shared<MockFslogicProxy>(context);
     storageMapper = std::make_shared<MockStorageMapper>(context, fslogic);
@@ -54,8 +54,8 @@ void CommonTest::SetUp()
     EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(false));
 }
 
-CommonIntegrationTest::CommonIntegrationTest(std::unique_ptr<veil::testing::VeilFSMount> veilFsMount)
-    : veilFsMount{std::move(veilFsMount)}
+CommonIntegrationTest::CommonIntegrationTest(std::unique_ptr<one::testing::FsImplMount> onedataMount)
+    : onedataMount{std::move(onedataMount)}
 {
 }
 
@@ -63,45 +63,45 @@ void CommonIntegrationTest::SetUp()
 {
     using namespace ::testing;
 
-    context = std::make_shared<veil::client::Context>();
+    context = std::make_shared<one::client::Context>();
 
-    config = std::make_shared<veil::client::Config>(context);
-    options = std::make_shared<veil::client::Options>();
-    fslogic = std::make_shared<veil::client::FslogicProxy>(context);
-    storageMapper = std::make_shared<veil::client::StorageMapper>(context, fslogic);
+    config = std::make_shared<one::client::Config>(context);
+    options = std::make_shared<one::client::Options>();
+    fslogic = std::make_shared<one::client::FslogicProxy>(context);
+    storageMapper = std::make_shared<one::client::StorageMapper>(context, fslogic);
 
 
     context->setOptions(options);
     context->setConfig(config);
     context->setStorageMapper(storageMapper);
-    context->setScheduler(std::make_shared<veil::Scheduler>(1));
+    context->setScheduler(std::make_shared<one::Scheduler>(1));
 
-    const char* parseArgs[] = {"veilFuseTest"};
+    const char* parseArgs[] = {"oneclientTest"};
     options->parseConfigs(1, parseArgs);
 
-    auto gsiHandler = std::make_shared<veil::client::auth::GSIHandler>(context);
+    auto gsiHandler = std::make_shared<one::client::auth::GSIHandler>(context);
     gsiHandler->validateProxyConfig();
 
-    const auto clusterUri = "wss://" + gsiHandler->getClusterHostname(veil::BASE_DOMAIN) + ":" +
-            std::to_string(options->get_cluster_port()) + "/veilclient";
+    const auto clusterUri = "wss://" + gsiHandler->getClusterHostname(one::BASE_DOMAIN) + ":" +
+            std::to_string(options->get_provider_port()) + "/oneclient";
 
-    const auto communicator = veil::communication::createWebsocketCommunicator(
+    const auto communicator = one::communication::createWebsocketCommunicator(
                 context->scheduler(),
                 options->get_alive_data_connections_count(),
                 options->get_alive_meta_connections_count(),
-                gsiHandler->getClusterHostname(veil::BASE_DOMAIN),
-                options->get_cluster_port(), veil::PROVIDER_CLIENT_ENDPOINT,
+                gsiHandler->getClusterHostname(one::BASE_DOMAIN),
+                options->get_provider_port(), one::PROVIDER_CLIENT_ENDPOINT,
                 /*checkCertificate*/ false,
                 []{ return std::unordered_map<std::string, std::string>{}; },
                 gsiHandler->getCertData());
 
     context->setCommunicator(communicator);
 
-    veilFS = std::make_shared<veil::client::VeilFS>(veil::testing::VeilFSRoot, context, fslogic,
-                        std::make_shared<veil::client::MetaCache>(context),
-                        std::make_shared<veil::client::LocalStorageManager>(context),
-                        std::make_shared<veil::helpers::StorageHelperFactory>(context->getCommunicator(), veil::helpers::BufferLimits{}),
-                        std::make_shared<veil::client::events::EventCommunicator>(context));
+    onedata = std::make_shared<one::client::FsImpl>(one::testing::onedataRoot, context, fslogic,
+                        std::make_shared<one::client::MetaCache>(context),
+                        std::make_shared<one::client::LocalStorageManager>(context),
+                        std::make_shared<one::helpers::StorageHelperFactory>(context->getCommunicator(), one::helpers::BufferLimits{}),
+                        std::make_shared<one::client::events::EventCommunicator>(context));
 
     std::this_thread::sleep_for(std::chrono::seconds{5});
 }
