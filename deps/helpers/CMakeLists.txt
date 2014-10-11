@@ -2,8 +2,8 @@ include(ExternalProject)
 
 ExternalProject_Add(helpersBuild
     PREFIX ${CMAKE_CURRENT_BINARY_DIR}
-    GIT_REPOSITORY ssh://git@git.plgrid.pl:7999/vfs/veilhelpers.git
-    GIT_TAG 36d543f
+    GIT_REPOSITORY ssh://git@git.plgrid.pl:7999/vfs/helpers.git
+    GIT_TAG 4bfb3fd
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${PROJECT_BINARY_DIR}
                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     UPDATE_COMMAND git pull || exit 0
