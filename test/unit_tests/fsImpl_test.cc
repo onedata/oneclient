@@ -606,7 +606,7 @@ TEST_F(FsImplTest, removexattr) { // const char *path, const char *name
     EXPECT_EQ(-EIO, client->removexattr("/path", "key"));
 }
 
-TEST_F(VeilFSTest, opendir) { // const char *path, struct fuse_file_info *fileInfo
+TEST_F(FsImplTest, opendir) { // const char *path, struct fuse_file_info *fileInfo
     EXPECT_CALL(*scheduler, post(_));
     EXPECT_EQ(0, client->opendir("/path", &fileInfo));
 }

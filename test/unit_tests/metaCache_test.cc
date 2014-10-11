@@ -81,8 +81,8 @@ TEST_F(MetaCacheTest, InsertAndGet) {
 
     EXPECT_CALL(*options, get_attr_cache_expiration_time()).WillRepeatedly(Return(-5));
     EXPECT_CALL(*scheduler, schedule(AllOf(
-                            Ge(seconds{veil::ATTR_DEFAULT_EXPIRATION_TIME / 2 - 5}),
-                            Le(seconds{veil::ATTR_DEFAULT_EXPIRATION_TIME * 2})), _)).Times(1);
+                            Ge(seconds{one::ATTR_DEFAULT_EXPIRATION_TIME / 2 - 5}),
+                            Le(seconds{one::ATTR_DEFAULT_EXPIRATION_TIME * 2})), _)).Times(1);
 
     proxy->addAttr("/test3", stat);
 

@@ -45,7 +45,7 @@ TEST_F(StorageMapperTest, AddAndGet) {
     location.add_storage_helper_args("arg0");
     location.add_storage_helper_args("arg1");
 
-    EXPECT_THROW(proxy->getLocationInfo("/file1"), VeilException);
+    EXPECT_THROW(proxy->getLocationInfo("/file1"), OneException);
     EXPECT_CALL(*scheduler, schedule(_, _)).Times(2);
     proxy->addLocation("/file1", location);
     EXPECT_EQ(1u, proxy->getStorageMapping().size());
