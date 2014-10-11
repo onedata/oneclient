@@ -127,8 +127,6 @@ endif(APPLE)
 add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Wall -std=c++14)
 add_definitions(${FUSE_DEFINITIONS} -DFUSE_USE_VERSION=29 -D_WEBSOCKETPP_CPP11_STL_ -DBOOST_BIND_NO_PLACEHOLDERS)
 
-set(CMAKE_SKIP_RPATH TRUE) # Something is wrong with CMake RPATH config, we need to use old-fashion way
-
 # Define targets
 add_library(clproto ${PROTO_SRCS})
 add_library(clientObjects OBJECT ${SOURCES} ${HEADERS})
