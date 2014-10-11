@@ -66,9 +66,9 @@ TEST_F(JobSchedulerTest, JobCompare) {
 
 TEST_F(JobSchedulerTest, AddAndDelete) {
     EXPECT_CALL(*jobContext1_, runTask(jobContext1_->TASK_CLEAR_FILE_ATTR, "a", "b", "c")).WillOnce(Return(true));
-    proxy.addTask(Job(time(NULL) - 1, jobContext1_, jobContext1_->TASK_CLEAR_FILE_ATTR, "a", "b", "c"));
+    proxy.addTask(Job(time(nullptr) - 1, jobContext1_, jobContext1_->TASK_CLEAR_FILE_ATTR, "a", "b", "c"));
     EXPECT_CALL(*jobContext1_, runTask(jobContext1_->TASK_SEND_FILE_NOT_USED, "a", "b", "")).WillOnce(Return(true));
-    proxy.addTask(Job(time(NULL) - 1, jobContext1_, jobContext1_->TASK_SEND_FILE_NOT_USED, "a", "b", ""));
+    proxy.addTask(Job(time(nullptr) - 1, jobContext1_, jobContext1_->TASK_SEND_FILE_NOT_USED, "a", "b", ""));
 
     sleep(1);
 
@@ -80,7 +80,7 @@ TEST_F(JobSchedulerTest, AddAndDelete) {
         EXPECT_CALL(*jobContext1_, runTask(jobContext1_->TASK_SEND_FILE_NOT_USED, "a4", "b", "4"));
     }
 
-    time_t currT = time(NULL);
+    time_t currT = time(nullptr);
     proxy.addTask(Job(currT - 4, jobContext1_, jobContext1_->TASK_SEND_FILE_NOT_USED, "a1", "b", "1"));
     proxy.addTask(Job(currT - 3, jobContext2_, jobContext1_->TASK_SEND_FILE_NOT_USED, "a2", "b", "2"));
     proxy.addTask(Job(currT - 2, jobContext2_, jobContext1_->TASK_SEND_FILE_NOT_USED, "a3", "b", "3"));

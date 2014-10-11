@@ -408,7 +408,7 @@ void FslogicProxy::pingCluster(const string &nth)
     }
 
     // Send another...
-    Job pingTask = Job(time(NULL) + m_context.lock()->getOptions()->get_cluster_ping_interval(), shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth);
+    Job pingTask = Job(time(nullptr) + m_context.lock()->getOptions()->get_cluster_ping_interval(), shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth);
     m_context.lock()->getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
 }
 

@@ -29,7 +29,7 @@ namespace one {
 namespace client {
 
 StorageMapper::StorageMapper(std::weak_ptr<Context> context, std::shared_ptr<FslogicProxy> fslogicProxy)
-    : m_fslogic(fslogicProxy)
+    : m_fslogic(std::move(fslogicProxy))
     , m_context{std::move(context)}
 {
 }
@@ -99,33 +99,33 @@ string StorageMapper::findLocation(const string &logicalName, const string &open
 
 void StorageMapper::addLocation(const string &logicalName, const FileLocation &location)
 {
-    LOG(INFO) << "0: adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(NULL) << " + " << location.validity();
+    LOG(INFO) << "0: adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(nullptr) << " + " << location.validity();
 
     locationInfo info;
-    info.validTo = time(NULL) + location.validity();
+    info.validTo = time(nullptr) + location.validity();
     info.storageId = location.storage_id();
     info.fileId = location.file_id();
 
     storageInfo storageInfo;
-    storageInfo.last_updated = time(NULL); /// @todo: last_updated field should be fetched from cluster
+    storageInfo.last_updated = time(nullptr); /// @todo: last_updated field should be fetched from cluster
     if(location.has_storage_helper_name())
         storageInfo.storageHelperName = location.storage_helper_name();
 
     for(int i = 0; i < location.storage_helper_args_size(); ++i)
         storageInfo.storageHelperArgs.emplace(helpers::srvArg(i), boost::any{location.storage_helper_args(i)});
 
-    LOG(INFO) << "1: adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(NULL) << " + " << location.validity();
+    LOG(INFO) << "1: adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(nullptr) << " + " << location.validity();
 
 
     std::lock_guard<std::shared_timed_mutex> lock{m_fileMappingMutex};
     auto previous = m_fileMapping.find(logicalName);
     info.opened = (previous == m_fileMapping.end() ? 0 : previous->second.opened) ;
     m_fileMapping[logicalName] = info;
-    LOG(INFO) << "2: adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(NULL) << " + " << location.validity();
+    LOG(INFO) << "2: adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(nullptr) << " + " << location.validity();
 
     std::lock_guard<std::shared_timed_mutex> sLock{m_storageMappingMutex};
     m_storageMapping[info.storageId] = storageInfo;
-    LOG(INFO) << "3: adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(NULL) << " + " << location.validity();
+    LOG(INFO) << "3: adding location for file '" << logicalName << "', fileId: " << location.file_id() << " storageId: " << location.storage_id() << ", validTo: " << time(nullptr) << " + " << location.validity();
 
     m_context.lock()->getScheduler()->addTask(Job(info.validTo, shared_from_this(), TASK_REMOVE_EXPIRED_LOCATON_MAPPING, logicalName));
     m_context.lock()->getScheduler()->addTask(Job(info.validTo - RENEW_LOCATION_MAPPING_TIME, shared_from_this(), TASK_RENEW_LOCATION_MAPPING, logicalName));
@@ -136,7 +136,7 @@ void StorageMapper::openFile(const string &logicalName)
     LOG(INFO) << "marking file '" << logicalName << "' as open";
 
     std::lock_guard<std::shared_timed_mutex> lock{m_fileMappingMutex};
-    map<string, locationInfo>::iterator it = m_fileMapping.find(logicalName);
+    auto it = m_fileMapping.find(logicalName);
     if(it != m_fileMapping.end()){
          it->second.opened++;
     }
@@ -147,7 +147,7 @@ void StorageMapper::releaseFile(const string &logicalName)
     LOG(INFO) << "marking file '" << logicalName << "' closed";
 
     std::lock_guard<std::shared_timed_mutex> lock{m_fileMappingMutex};
-    map<string, locationInfo>::iterator it = m_fileMapping.find(logicalName);
+    auto it = m_fileMapping.find(logicalName);
     if(it != m_fileMapping.end()){
         if(it->second.opened > 0){
             it->second.opened--;
@@ -190,7 +190,7 @@ bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg
         {
             std::lock_guard<std::shared_timed_mutex> lock{m_fileMappingMutex};
             it = m_fileMapping.find(arg0);
-            if(it != m_fileMapping.end() && (*it).second.validTo <= time(NULL))
+            if(it != m_fileMapping.end() && (*it).second.validTo <= time(nullptr))
             {
                 LOG(INFO) << "Removing old location mapping for file: " << arg0;
                 m_fileMapping.erase(arg0);
@@ -216,7 +216,7 @@ bool StorageMapper::runTask(TaskID taskId, const string &arg0, const string &arg
             it = m_fileMapping.find(arg0);
             if(it != m_fileMapping.end())
             {
-                (*it).second.validTo = time(NULL) + validity;
+                (*it).second.validTo = time(nullptr) + validity;
                 LOG(INFO) << "Renewed location mapping for file: " << arg0 << ". New validity: time + " << ntohl(validity);
             }
             return true;

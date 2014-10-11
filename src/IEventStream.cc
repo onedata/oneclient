@@ -27,7 +27,7 @@ std::shared_ptr<Event> IEventStream::processEvent(std::shared_ptr<Event> event)
 }
 
 IEventStream::IEventStream(std::shared_ptr<IEventStream> wrappedStream) :
-    m_wrappedStream(wrappedStream)
+    m_wrappedStream(std::move(wrappedStream))
 {
 }
 

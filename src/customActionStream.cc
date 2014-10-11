@@ -11,7 +11,7 @@ using namespace one::client::events;
 using namespace std;
 
 CustomActionStream::CustomActionStream(std::shared_ptr<IEventStream> wrappedStream, std::function<std::shared_ptr<Event>(std::shared_ptr<Event>)> customActionFun) :
-    IEventStream(wrappedStream), m_customActionFun(customActionFun)
+    IEventStream(wrappedStream), m_customActionFun(std::move(customActionFun))
 {}
 
 std::shared_ptr<Event> CustomActionStream::actualProcessEvent(std::shared_ptr<Event> event){

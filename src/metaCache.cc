@@ -39,7 +39,7 @@ void MetaCache::addAttr(const string &path, struct stat &attr)
 
     std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
     bool wasBefore = m_statMap.count(path);
-    m_statMap[path] = make_pair(time(NULL), attr);
+    m_statMap[path] = make_pair(time(nullptr), attr);
 
     if(!wasBefore)
     {
@@ -47,7 +47,7 @@ void MetaCache::addAttr(const string &path, struct stat &attr)
         if(expiration_time <= 0)
             expiration_time = ATTR_DEFAULT_EXPIRATION_TIME;
         // because of random part, only small parts of cache will be updated at the same moment
-        int when = time(NULL) + expiration_time / 2 + rand() % expiration_time;
+        int when = time(nullptr) + expiration_time / 2 + rand() % expiration_time;
         m_context->getScheduler()->addTask(Job(when, shared_from_this(), TASK_CLEAR_FILE_ATTR, path));
     }
 }
@@ -55,11 +55,11 @@ void MetaCache::addAttr(const string &path, struct stat &attr)
 bool MetaCache::getAttr(const string &path, struct stat* attr)
 {
     std::shared_lock<std::shared_timed_mutex> guard{m_statMapMutex};
-    std::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
+    auto it = m_statMap.find(path);
     if(it == m_statMap.end())
         return false;
 
-    if(attr != NULL) // NULL pointer is allowed to be used as parameter
+    if(attr != nullptr) // NULL pointer is allowed to be used as parameter
         memcpy(attr, &(*it).second.second, sizeof(struct stat));
 
     return true;
@@ -75,7 +75,7 @@ void MetaCache::clearAttr(const string &path)
 {
     std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
     LOG(INFO) << "delete attrs from cache for file: " << path;
-    std::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
+    auto it = m_statMap.find(path);
     if(it != m_statMap.end())
         m_statMap.erase(it);
 }
@@ -102,7 +102,7 @@ bool MetaCache::updateTimes(const string &path, time_t atime, time_t mtime, time
 bool MetaCache::updateSize(const string &path, size_t size)
 {
     std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
-    std::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
+    auto it = m_statMap.find(path);
     if(it == m_statMap.end())
         return false;
 

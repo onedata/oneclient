@@ -199,7 +199,7 @@ extern "C"
 } // extern "C"
 
 static struct fuse_operations fuse_init() {
-    struct fuse_operations vfs_oper = {0};
+    struct fuse_operations vfs_oper = {nullptr};
 
     vfs_oper.getattr    = wrap_getattr;
     vfs_oper.access     = wrap_access;
@@ -360,7 +360,7 @@ int main(int argc, char* argv[], char* envp[])
 
     // Iterate over all env variables and save them in Config
     char** env;
-    for (env = envp; *env != 0; env++)
+    for (env = envp; *env != nullptr; env++)
     {
         std::vector<std::string> tokens;
         std::string tEnv = std::string(*env);
@@ -441,8 +441,8 @@ int main(int argc, char* argv[], char* envp[])
     if (res == -1)
         perror("WARNING: failed to set FD_CLOEXEC on fuse device");
 
-    fuse = fuse_new(ch, &args, &vfs_oper, sizeof(struct fuse_operations), NULL);
-    if (fuse == NULL)
+    fuse = fuse_new(ch, &args, &vfs_oper, sizeof(struct fuse_operations), nullptr);
+    if (fuse == nullptr)
         return EXIT_FAILURE;
 
     ScopeExit destroyFuse{[&]{ fuse_destroy(fuse); }, unmountFuse};
