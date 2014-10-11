@@ -18,6 +18,7 @@ using namespace ::testing;
 using namespace std::placeholders;
 using namespace one::client;
 using namespace one::clproto::communication_protocol;
+using namespace std::literals::chrono_literals;
 
 class PushListenerTest: public CommonTest
 {
@@ -58,17 +59,14 @@ TEST_F(PushListenerTest, simpleRegisterAndHandle)
     listener->subscribe(std::bind(&PushListenerTest::handler, this, _1, true));
 
     listener->onMessage(ans);
-    ASSERT_TRUE(cbCond.wait_for(lock, std::chrono::seconds(10),
-                                [&]{ return answerHandled == 1; }));
+    ASSERT_TRUE(cbCond.wait_for(lock, 10s, [&]{ return answerHandled == 1; }));
 
     listener->onMessage(ans);
-    ASSERT_TRUE(cbCond.wait_for(lock, std::chrono::seconds(10),
-                                [&]{ return answerHandled == 2; }));
+    ASSERT_TRUE(cbCond.wait_for(lock, 10s, [&]{ return answerHandled == 2; }));
 
     listener->onMessage(ans);
     listener->onMessage(ans);
-    ASSERT_TRUE(cbCond.wait_for(lock, std::chrono::seconds(10),
-                                [&]{ return answerHandled == 4; }));
+    ASSERT_TRUE(cbCond.wait_for(lock, 10s, [&]{ return answerHandled == 4; }));
 }
 
 
@@ -82,11 +80,11 @@ TEST_F(PushListenerTest, removeHandler)
     int handlerId = listener->subscribe(std::bind(&PushListenerTest::handler, this, _1, false)); // Should be removed after first call
 
     listener->onMessage(ans);
-    cbCond.wait_for(lock, std::chrono::milliseconds(500));
+    cbCond.wait_for(lock, 500ms);
 
     listener->onMessage(ans);
     listener->onMessage(ans);
-    cbCond.wait_for(lock, std::chrono::milliseconds(500));
+    cbCond.wait_for(lock, 500ms);
 
     ASSERT_EQ(1, answerHandled);
 
@@ -94,13 +92,13 @@ TEST_F(PushListenerTest, removeHandler)
     handlerId = listener->subscribe(std::bind(&PushListenerTest::handler, this, _1, true));
 
     listener->onMessage(ans);
-    cbCond.wait_for(lock, std::chrono::milliseconds(500));
+    cbCond.wait_for(lock, 500ms);
 
     listener->unsubscribe(handlerId);
 
     listener->onMessage(ans);
     listener->onMessage(ans);
-    cbCond.wait_for(lock, std::chrono::milliseconds(500));
+    cbCond.wait_for(lock, 500ms);
 
     ASSERT_EQ(1, answerHandled);
 }

@@ -37,6 +37,7 @@ using namespace one::client::events;
 using namespace std;
 using namespace one::clproto::fuse_messages;
 using namespace one::clproto::communication_protocol;
+using namespace std::literals::chrono_literals;
 
 EventCommunicator::EventCommunicator(std::shared_ptr<Context> context, std::shared_ptr<EventStreamCombiner> eventsStream)
     : m_context{std::move(context)}
@@ -194,7 +195,7 @@ void EventCommunicator::processEvent(std::shared_ptr<Event> event)
     if(event){
         m_eventsStream->pushEventToProcess(event);
         m_context->scheduler()->schedule(
-                    std::chrono::seconds{1},
+                    1s,
                     &EventStreamCombiner::processNextEvent,
                     m_eventsStream);
     }

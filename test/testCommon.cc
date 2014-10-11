@@ -32,6 +32,8 @@
 #include <thread>
 #include <unordered_map>
 
+using namespace std::literals::chrono_literals;
+
 void CommonTest::SetUp()
 {
     using namespace ::testing;
@@ -103,5 +105,5 @@ void CommonIntegrationTest::SetUp()
                         std::make_shared<one::helpers::StorageHelperFactory>(context->getCommunicator(), one::helpers::BufferLimits{}),
                         std::make_shared<one::client::events::EventCommunicator>(context));
 
-    std::this_thread::sleep_for(std::chrono::seconds{5});
+    std::this_thread::sleep_for(5s);
 }

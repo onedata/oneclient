@@ -75,6 +75,7 @@
 
 using namespace std;
 using namespace one::clproto::fuse_messages;
+using namespace std::literals::chrono_literals;
 
 namespace
 {
@@ -777,9 +778,7 @@ bool FsImpl::needsForceClusterProxy(const std::string &path)
 void FsImpl::scheduleClearAttr(const string &path)
 {
     // Clear cache of parent (possible change of modify time)
-    m_context->scheduler()->schedule(
-                std::chrono::seconds{5}, &MetaCache::clearAttr,
-                m_metaCache, path);
+    m_context->scheduler()->schedule(5s, &MetaCache::clearAttr, m_metaCache, path);
 }
 
 void FsImpl::asyncReaddir(const string &path, const size_t offset)
