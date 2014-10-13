@@ -13,9 +13,9 @@
 #include "auth/tokenAuthDetails.h"
 
 #include <boost/optional.hpp>
-#include <boost/thread/shared_mutex.hpp>
 
 #include <memory>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 
@@ -133,7 +133,7 @@ private:
     TokenAuthDetails m_authDetails;
     GRAdapter m_grAdapter;
     std::unordered_map<std::string, std::string> m_headers;
-    mutable boost::shared_mutex m_headersMutex;
+    mutable std::shared_timed_mutex m_headersMutex;
 };
 
 } // namespace auth

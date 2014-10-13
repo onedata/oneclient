@@ -195,7 +195,7 @@ void EventCommunicator::processEvent(std::shared_ptr<Event> event)
 {
     if(event){
         m_eventsStream->pushEventToProcess(event);
-        m_context->getScheduler()->addTask(Job(time(NULL) + 1, m_eventsStream, ISchedulable::TASK_PROCESS_EVENT));
+        m_context->getScheduler()->addTask(Job(time(nullptr) + 1, m_eventsStream, ISchedulable::TASK_PROCESS_EVENT));
     }
 }
 
@@ -243,7 +243,7 @@ bool EventCommunicator::isWriteEnabled()
 std::shared_ptr<Event> EventCommunicator::statFromWriteEvent(std::shared_ptr<Event> event){
     string path = event->getStringProperty("filePath", "");
     if(!path.empty() && m_metaCache && m_fslogic){
-        time_t currentTime = time(NULL);
+        time_t currentTime = time(nullptr);
         m_fslogic->updateTimes(path, 0, currentTime, currentTime);
 
         FileAttr attr;

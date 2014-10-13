@@ -18,25 +18,25 @@ namespace client
 {
 std::shared_ptr<Options> Context::getOptions() const
 {
-    boost::shared_lock<boost::shared_mutex> lock{m_optionsMutex};
+    std::shared_lock<std::shared_timed_mutex> lock{m_optionsMutex};
     return m_options;
 }
 
 void Context::setOptions(std::shared_ptr<Options> options)
 {
-    boost::unique_lock<boost::shared_mutex> lock{m_optionsMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_optionsMutex};
     m_options = std::move(options);
 }
 
 std::shared_ptr<Config> Context::getConfig() const
 {
-    boost::shared_lock<boost::shared_mutex> lock{m_configMutex};
+    std::shared_lock<std::shared_timed_mutex> lock{m_configMutex};
     return m_config;
 }
 
 void Context::setConfig(std::shared_ptr<Config> config)
 {
-    boost::unique_lock<boost::shared_mutex> lock{m_configMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_configMutex};
     m_config = std::move(config);
 }
 
@@ -68,50 +68,50 @@ void Context::addScheduler(std::shared_ptr<JobScheduler> scheduler)
 
 std::shared_ptr<communication::Communicator> Context::getCommunicator() const
 {
-    boost::shared_lock<boost::shared_mutex> lock{m_communicatorMutex};
+    std::shared_lock<std::shared_timed_mutex> lock{m_communicatorMutex};
     return m_communicator;
 }
 
 void Context::setCommunicator(std::shared_ptr<communication::Communicator> communicator)
 {
-    boost::unique_lock<boost::shared_mutex> lock{m_communicatorMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_communicatorMutex};
     m_communicator = std::move(communicator);
 }
 
 std::shared_ptr<PushListener> Context::getPushListener() const
 {
-    boost::shared_lock<boost::shared_mutex> lock{m_pushListenerMutex};
+    std::shared_lock<std::shared_timed_mutex> lock{m_pushListenerMutex};
     return m_pushListener;
 }
 
 void Context::setPushListener(std::shared_ptr<PushListener> pushListener)
 {
-    boost::unique_lock<boost::shared_mutex> lock{m_pushListenerMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_pushListenerMutex};
     m_pushListener = std::move(pushListener);
 }
 
 
 std::shared_ptr<StorageMapper> Context::getStorageMapper() const
 {
-    boost::shared_lock<boost::shared_mutex> lock{m_storageMapperMutex};
+    std::shared_lock<std::shared_timed_mutex> lock{m_storageMapperMutex};
     return m_storageMapper;
 }
 
 void Context::setStorageMapper(std::shared_ptr<StorageMapper> storageMapper)
 {
-    boost::unique_lock<boost::shared_mutex> lock{m_storageMapperMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_storageMapperMutex};
     m_storageMapper = std::move(storageMapper);
 }
 
 std::shared_ptr<Scheduler> Context::scheduler() const
 {
-    boost::shared_lock<boost::shared_mutex> lock{m_schedulerMutex};
+    std::shared_lock<std::shared_timed_mutex> lock{m_schedulerMutex};
     return m_scheduler;
 }
 
 void Context::setScheduler(std::shared_ptr<Scheduler> scheduler)
 {
-    boost::lock_guard<boost::shared_mutex> guard{m_schedulerMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_schedulerMutex};
     m_scheduler = std::move(scheduler);
 }
 

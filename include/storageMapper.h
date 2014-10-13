@@ -15,12 +15,12 @@
 #include "helpers/IStorageHelper.h"
 #include "fslogicProxy.h"
 
-#include <boost/thread/shared_mutex.hpp>
+#include <boost/filesystem.hpp>
 
 #include <map>
 #include <memory>
+#include <shared_mutex>
 #include <string>
-#include <boost/filesystem.hpp>
 
 namespace one
 {
@@ -80,10 +80,10 @@ class StorageMapper: public ISchedulable
 
 protected:
     std::map<int, storageInfo> m_storageMapping;            ///< Contains storage info accessd by its ID. @see storageInfo
-    boost::shared_mutex m_storageMappingMutex;              ///< Mutex used while operating on StorageMapper::m_storageMapping. @see StorageMapper::m_storageMapping
+    std::shared_timed_mutex m_storageMappingMutex;              ///< Mutex used while operating on StorageMapper::m_storageMapping. @see StorageMapper::m_storageMapping
     std::map<std::string, locationInfo> m_fileMapping;      ///< Contains storage info accessd by its ID. @see storageInfo
     std::map<std::string, storageInfo> m_fileHelperOverride;
-    boost::shared_mutex m_fileMappingMutex;                 ///< Mutex used while operationg on StorageMapper::m_fileMapping. @see StorageMapper::m_fileMapping
+    std::shared_timed_mutex m_fileMappingMutex;                 ///< Mutex used while operationg on StorageMapper::m_fileMapping. @see StorageMapper::m_fileMapping
 
     std::shared_ptr<FslogicProxy> m_fslogic;              ///< Reference to FslogicProxy instance. @see FsImpl::m_fslogic
 

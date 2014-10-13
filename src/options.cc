@@ -274,7 +274,7 @@ void Options::parseEnv()
 
 struct fuse_args Options::getFuseArgs() const
 {
-    struct fuse_args args = FUSE_ARGS_INIT(0, 0);
+    struct fuse_args args = FUSE_ARGS_INIT(0, nullptr);
 
     fuse_opt_add_arg(&args, argv0.c_str());
     fuse_opt_add_arg(&args, "-obig_writes");

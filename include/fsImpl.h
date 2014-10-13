@@ -11,13 +11,14 @@
 
 #include "ISchedulable.h"
 
-#include <boost/thread/shared_mutex.hpp>
-
+#include <boost/optional.hpp>
 #include <fuse.h>
 
+#include <cstdint>
 #include <list>
 #include <map>
 #include <memory>
+#include <shared_mutex>
 #include <unordered_map>
 
 namespace one
@@ -105,37 +106,35 @@ public:
 
 protected:
         /**
-         * The SHCache struct is responsible for mapping file ID to an instance
-         * of @c helpers::IStorageHelper in a thread-safe manner.
+         * ThreadsafeCache is responsible for mapping a key to value in a thread
+         * safe manner.
          */
-        struct SHCache
+        template<typename key, typename value>
+        struct ThreadsafeCache
         {
-            using key = uint64_t;
-            using value = std::shared_ptr<helpers::IStorageHelper>;
-
         public:
             /**
-             * @param id The file id.
-             * @return @c helpers::IStorageHelper instance mapped for the id.
+             * @param id The cached value's id.
+             * @return The cached value if exists, empty option otherwise.
              */
-            value get(const key id);
+            boost::optional<value&> get(const key id);
 
             /**
-             * @param id A file id.
-             * @param sh A @c helpers::IStorageHelper instance to bind to the id.
+             * @param id The cached value's id.
+             * @param val The cached value.
              */
-            void  set(const key id, value sh);
+            void set(const key id, value val);
 
             /**
-             * Removes a cached @c helpers::IStorageHelper instance and returns
-             * it.
-             * @copydoc SHCache::get(id)
+             * Removes a cached value from the cache and returns it.
+             * @param id The cached value's id.
+             * @returns The cached value.
              */
             value take(const key id);
 
         private:
-            std::unordered_map<key, value> m_shCache;
-            boost::shared_mutex m_shCacheMutex;
+            std::unordered_map<key, value> m_cache;
+            std::shared_timed_mutex m_cacheMutex;
         };
 
 
@@ -152,9 +151,8 @@ protected:
         std::shared_ptr<helpers::StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance
         std::shared_ptr<events::EventCommunicator> m_eventCommunicator;
 
-        std::map<std::string, std::pair<std::string, time_t> > m_linkCache;         ///< Simple links cache
-        boost::upgrade_mutex m_linkCacheMutex;
-        SHCache m_shCache; ///< Storage Helpers' cache.
+        ThreadsafeCache<std::string, std::pair<std::string, time_t>> m_linkCache;           ///< Simple links cache
+        ThreadsafeCache<std::uint64_t, std::shared_ptr<helpers::IStorageHelper>> m_shCache; ///< Storage Helpers' cache.
 
 private:
         const std::shared_ptr<Context> m_context;

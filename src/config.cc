@@ -153,7 +153,7 @@ void Config::negotiateFuseID(time_t delay)
     auto context = m_context.lock();
     // Delete old jobs, we dont need them since we are adding new one anyway
     context->getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->deleteJobs(this, ISchedulable::TASK_CONNECTION_HANDSHAKE);
-    context->getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->addTask(Job(time(NULL) + delay, shared_from_this(), ISchedulable::TASK_CONNECTION_HANDSHAKE));
+    context->getScheduler(ISchedulable::TASK_CONNECTION_HANDSHAKE)->addTask(Job(time(nullptr) + delay, shared_from_this(), ISchedulable::TASK_CONNECTION_HANDSHAKE));
 }
 
 void Config::testHandshake()

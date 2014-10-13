@@ -289,7 +289,7 @@ TEST(IEventStream, ConstructFromConfig1) {
     // then
     ASSERT_TRUE((bool) stream);
     EventFilter * eventFilter = dynamic_cast<EventFilter *>(stream.get());
-    ASSERT_TRUE(eventFilter != NULL);
+    ASSERT_TRUE(eventFilter != nullptr);
     ASSERT_EQ("type", eventFilter->getFieldName());
     ASSERT_EQ("write_event", eventFilter->getDesiredValue());
     ASSERT_FALSE((bool) eventFilter->getWrappedStream());
@@ -315,14 +315,14 @@ TEST(IEventStream, ConstructFromConfig2) {
     // then
     ASSERT_TRUE((bool) stream);
     EventAggregator * eventAggregator = dynamic_cast<EventAggregator *>(stream.get());
-    ASSERT_TRUE(eventAggregator != NULL);
+    ASSERT_TRUE(eventAggregator != nullptr);
     ASSERT_EQ("filePath", eventAggregator->getFieldName());
     ASSERT_EQ("count", eventAggregator->getSumFieldName());
     ASSERT_EQ(15, eventAggregator->getThreshold());
     std::shared_ptr<IEventStream> wrappedStream = eventAggregator->getWrappedStream();
     ASSERT_TRUE((bool) wrappedStream);
     EventFilter * eventFilter = dynamic_cast<EventFilter *> (wrappedStream.get());
-    ASSERT_TRUE(eventFilter != NULL);
+    ASSERT_TRUE(eventFilter != nullptr);
     ASSERT_EQ("type", eventFilter->getFieldName());
     ASSERT_EQ("write_event", eventFilter->getDesiredValue());
     ASSERT_FALSE((bool) eventFilter->getWrappedStream());

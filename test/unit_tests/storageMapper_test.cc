@@ -125,7 +125,7 @@ TEST_F(StorageMapperTest, FindAndGet) {
     EXPECT_THROW(proxy->getLocationInfo("/file1"), OneException);
     location.set_answer(VOK);
     location.set_validity(20);
-    time_t currentTime = time(NULL);
+    time_t currentTime = time(nullptr);
     EXPECT_CALL(*jobScheduler, addTask(_)).Times(2);
     EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
     EXPECT_EQ(VOK, proxy->findLocation("/file1"));
