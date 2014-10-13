@@ -9,9 +9,9 @@
 
 #include "config.h"
 #include "context.h"
-#include "jobScheduler.h"
 #include "logging.h"
 #include "options.h"
+#include "scheduler.h"
 #include "fsImpl.h"
 #include <storageMapper.h>
 
@@ -47,8 +47,8 @@ void MetaCache::addAttr(const string &path, struct stat &attr)
         if(expiration_time <= 0)
             expiration_time = ATTR_DEFAULT_EXPIRATION_TIME;
         // because of random part, only small parts of cache will be updated at the same moment
-        int when = time(nullptr) + expiration_time / 2 + rand() % expiration_time;
-        m_context->getScheduler()->addTask(Job(when, shared_from_this(), TASK_CLEAR_FILE_ATTR, path));
+        std::chrono::seconds after{expiration_time / 2 + rand() % expiration_time};
+        m_context->scheduler()->schedule(after, &MetaCache::clearAttr, shared_from_this(), path);
     }
 }
 
@@ -120,19 +120,6 @@ bool MetaCache::canUseDefaultPermissions(const struct stat &attrs)
     getgroups(suppGroups.size(), suppGroups.data());
 
     return std::any_of(suppGroups.begin(), suppGroups.end(), [attrs](gid_t cgid) { return cgid == attrs.st_gid; });
-}
-
-
-bool MetaCache::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg3)
-{
-    switch(taskId)
-    {
-    case TASK_CLEAR_FILE_ATTR:
-        clearAttr(arg0);
-        return true;
-    default:
-        return false;
-    }
 }
 
 } // namespace client

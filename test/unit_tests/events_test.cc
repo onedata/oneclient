@@ -12,7 +12,6 @@
 #include "events/events.h"
 #include "events_mock.h"
 #include "fuse_messages.pb.h"
-#include "jobScheduler_mock.h"
 #include "options_mock.h"
 
 #include <list>
@@ -350,7 +349,7 @@ TEST_F(EventsTest, EventCombinerRunTask){
     combiner.pushEventToProcess(event);
     ASSERT_EQ(1u, combiner.getEventsToProcess().size());
 
-    combiner.runTask(ISchedulable::TASK_PROCESS_EVENT, "", "", "");
+    combiner.processNextEvent();
     ASSERT_EQ(0u, combiner.getEventsToProcess().size());
 
     combiner.addSubstream(substreamMock1);
@@ -359,12 +358,12 @@ TEST_F(EventsTest, EventCombinerRunTask){
     combiner.pushEventToProcess(event);
     ASSERT_EQ(2u, combiner.getEventsToProcess().size());
 
-    combiner.runTask(ISchedulable::TASK_PROCESS_EVENT, "", "", "");
+    combiner.processNextEvent();
     ASSERT_EQ(1u, combiner.getEventsToProcess().size());
 
-    combiner.runTask(ISchedulable::TASK_PROCESS_EVENT, "", "", "");
+    combiner.processNextEvent();
     ASSERT_EQ(0u, combiner.getEventsToProcess().size());
 
-    combiner.runTask(ISchedulable::TASK_PROCESS_EVENT, "", "", "");
+    combiner.processNextEvent();
     ASSERT_EQ(0u, combiner.getEventsToProcess().size());
 }

@@ -13,7 +13,6 @@
 #include "context.h"
 #include "erlTestCore.h"
 #include "auth/gsiHandler.h"
-#include "jobScheduler_mock.h"
 #include "storageMapper_mock.h"
 #include "fslogicProxy_mock.h"
 #include "options_mock.h"
@@ -21,7 +20,7 @@
 #include "fslogicProxy.h"
 #include "helpers/storageHelperFactory.h"
 #include "metaCache.h"
-#include "scheduler.h"
+#include "scheduler_mock.h"
 #include "storageMapper.h"
 #include "localStorageManager.h"
 #include "events/eventCommunicator.h"
@@ -33,6 +32,8 @@
 #include <thread>
 #include <unordered_map>
 
+using namespace std::literals::chrono_literals;
+
 void CommonTest::SetUp()
 {
     using namespace ::testing;
@@ -40,15 +41,13 @@ void CommonTest::SetUp()
     context = std::make_shared<one::client::Context>();
     options = std::make_shared<StrictMock<MockOptions>>();
     config = std::make_shared<one::client::Config>(context);
-    jobScheduler = std::make_shared<MockJobScheduler>();
     communicator = std::make_shared<NiceMock<MockCommunicator>>();
     fslogic = std::make_shared<MockFslogicProxy>(context);
     storageMapper = std::make_shared<MockStorageMapper>(context, fslogic);
-    scheduler = std::make_shared<one::Scheduler>(1);
+    scheduler = std::make_shared<MockScheduler>();
 
     context->setOptions(options);
     context->setConfig(config);
-    context->addScheduler(jobScheduler);
     context->setCommunicator(communicator);
     context->setStorageMapper(storageMapper);
     context->setScheduler(scheduler);
@@ -76,7 +75,6 @@ void CommonIntegrationTest::SetUp()
 
     context->setOptions(options);
     context->setConfig(config);
-    context->addScheduler(std::make_shared<one::client::JobScheduler>());
     context->setStorageMapper(storageMapper);
     context->setScheduler(std::make_shared<one::Scheduler>(1));
 
@@ -107,5 +105,5 @@ void CommonIntegrationTest::SetUp()
                         std::make_shared<one::helpers::StorageHelperFactory>(context->getCommunicator(), one::helpers::BufferLimits{}),
                         std::make_shared<one::client::events::EventCommunicator>(context));
 
-    std::this_thread::sleep_for(std::chrono::seconds{5});
+    std::this_thread::sleep_for(5s);
 }

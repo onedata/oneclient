@@ -9,7 +9,6 @@
 #include "messageBuilder.h"
 
 #include "fslogicProxy.h"
-#include "jobScheduler_mock.h"
 #include "options_mock.h"
 #include "testCommon.h"
 #include "testUtils.h"

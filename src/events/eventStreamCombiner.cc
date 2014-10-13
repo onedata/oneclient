@@ -32,17 +32,6 @@ list<std::shared_ptr<Event> > EventStreamCombiner::processEvent(std::shared_ptr<
     return producedEvents;
 }
 
-bool EventStreamCombiner::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
-{
-    switch(taskId){
-    case TASK_PROCESS_EVENT:
-        return processNextEvent();
-
-    default:
-        return false;
-    }
-}
-
 bool EventStreamCombiner::processNextEvent()
 {
     std::shared_ptr<Event> event = getNextEventToProcess();

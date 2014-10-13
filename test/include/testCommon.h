@@ -35,10 +35,10 @@ namespace one
 }
 
 struct MockOptions;
-class MockJobScheduler;
 class MockCommunicator;
 class MockStorageMapper;
 class MockFslogicProxy;
+class MockScheduler;
 
 class CommonTest: public ::testing::Test
 {
@@ -46,11 +46,10 @@ public:
     std::shared_ptr<one::client::Context> context;
     std::shared_ptr<one::client::Config> config;
     std::shared_ptr<MockOptions> options;
-    std::shared_ptr<MockJobScheduler> jobScheduler;
     std::shared_ptr<MockCommunicator> communicator;
     std::shared_ptr<MockStorageMapper> storageMapper;
     std::shared_ptr<MockFslogicProxy> fslogic;
-    std::shared_ptr<one::Scheduler> scheduler;
+    std::shared_ptr<MockScheduler> scheduler;
 
 protected:
     virtual void SetUp() override;
