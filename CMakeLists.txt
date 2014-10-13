@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.0)
+cmake_minimum_required(VERSION 3.0.0)
 project(oneclient C CXX)
 
 # The version number.
@@ -111,17 +111,20 @@ list(REMOVE_ITEM SOURCES ${MAIN_SOURCE_FILE})
 
 # Setup compile flags
 execute_process(COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=libstdc++.a OUTPUT_VARIABLE LIBSTD_NAME)
-string(REGEX REPLACE "(\r?\n)+$" "" LIBSTD_NAME "${LIBSTD_NAME}")
-execute_process(COMMAND ln -sf "${LIBSTD_NAME}" WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+string(STRIP ${LIBSTD_NAME} LIBSTD_NAME)
+if(EXISTS ${LIBSTD_NAME})
+    execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${LIBSTD_NAME} ${PROJECT_BINARY_DIR}/libstdc++.a)
+endif(EXISTS ${LIBSTD_NAME})
 
 set(PLATFORM_EXTRA_LIBS ${CMAKE_THREAD_LIBS_INIT} ${LTDL_LIBRARY} ${ZLIB_LIBRARY} ${DL_LIBRARY})
 
 if(APPLE)
     set(SECTION_FRAGMENTATION_FLAGS -Wno-deprecated-declarations)
+    set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 else(NOT APPLE)
     set(PLATFORM_EXTRA_LIBS ${PLATFORM_EXTRA_LIBS} ${RT_LIBRARY})
     set(SECTION_FRAGMENTATION_FLAGS -fdata-sections -ffunction-sections)
-    set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/lib" "\$ORIGIN" "\$ORIGIN/../lib" "lib" "../lib")
+    set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/lib" "\$ORIGIN" "\$ORIGIN/../lib")
 endif(APPLE)
 
 add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Wall -std=c++14)
