@@ -11,17 +11,17 @@
 #ifndef ONECLIENT_STORAGE_MAPPER_H
 #define ONECLIENT_STORAGE_MAPPER_H
 
+
 #include "helpers/IStorageHelper.h"
 #include "fslogicProxy.h"
 
 #include <boost/icl/interval_set.hpp>
-#include <boost/thread/shared_mutex.hpp>
 #include <boost/thread/condition_variable.hpp>
 
-#include <chrono>
-#include <cstdint>
+#include <condition_variable>
 #include <map>
 #include <memory>
+#include <shared_mutex>
 #include <string>
 
 namespace one {
@@ -39,7 +39,7 @@ namespace client {
 
 static constexpr const char *CLUSTER_PROXY_HELPER = "ClusterProxy";
 static constexpr std::chrono::seconds RENEW_LOCATION_MAPPING_TIME{30};
-static constexpr boost::chrono::seconds WAIT_FOR_BLOCK_TIMEOUT{10};
+static constexpr std::chrono::seconds WAIT_FOR_BLOCK_TIMEOUT{10};
 
 class Context;
 class FslogicProxy;
@@ -212,7 +212,7 @@ protected:
      * Mutex used while operating on StorageMapper::m_storageMapping.
      * @see StorageMapper::m_storageMapping
      */
-    boost::shared_mutex m_storageMappingMutex;
+    std::shared_timed_mutex m_storageMappingMutex;
 
     /**
      * Contains storage info accessd by its ID.
@@ -232,7 +232,7 @@ protected:
      * Mutex used while operationg on StorageMapper::m_fileMapping.
      * @see StorageMapper::m_fileMapping
      */
-    boost::shared_mutex m_fileMappingMutex;
+    std::shared_timed_mutex m_fileMappingMutex;
 
     /**
      * Reference to FslogicProxy instance.
@@ -262,10 +262,11 @@ private:
     void renewLocationMapping(const std::string &location);
 
     const std::weak_ptr<Context> m_context;
-    boost::condition_variable_any m_newBlocksCondition;
+    std::condition_variable_any m_newBlocksCondition;
 };
 
 } // namespace client
 } // namespace one
+
 
 #endif // ONECLIENT_STORAGE_MAPPER_H

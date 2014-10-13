@@ -125,7 +125,7 @@ FsImpl::FsImpl(string path, std::shared_ptr<Context> context,
         if(m_context->getScheduler() && m_context->getConfig()) {
             int alive = m_context->getOptions()->get_alive_meta_connections_count();
             for(int i = 0; i < alive; ++i) {
-                Job pingTask = Job(time(NULL) + i, m_fslogic, ISchedulable::TASK_PING_CLUSTER, std::to_string(m_context->getOptions()->get_alive_meta_connections_count()));
+                Job pingTask = Job(time(nullptr) + i, m_fslogic, ISchedulable::TASK_PING_CLUSTER, std::to_string(m_context->getOptions()->get_alive_meta_connections_count()));
                 m_context->getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
             }
 
@@ -162,8 +162,8 @@ FsImpl::FsImpl(string path, std::shared_ptr<Context> context,
                   m_context->getStorageMapper(), std::placeholders::_1));
 
     m_context->getPushListener()->subscribe(std::bind(&events::EventCommunicator::pushMessagesHandler, m_eventCommunicator.get(), std::placeholders::_1));
-    m_context->getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
-    m_context->getScheduler(ISchedulable::TASK_IS_WRITE_ENABLED)->addTask(Job(time(NULL), m_eventCommunicator, ISchedulable::TASK_IS_WRITE_ENABLED));
+    m_context->getScheduler(ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG)->addTask(Job(time(nullptr), m_eventCommunicator, ISchedulable::TASK_GET_EVENT_PRODUCER_CONFIG));
+    m_context->getScheduler(ISchedulable::TASK_IS_WRITE_ENABLED)->addTask(Job(time(nullptr), m_eventCommunicator, ISchedulable::TASK_IS_WRITE_ENABLED));
 }
 
 FsImpl::~FsImpl()
@@ -246,9 +246,9 @@ int FsImpl::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
         {
             statbuf->st_mode |= S_IFDIR;
 
-            // Prefetch "ls" resault
+            // Prefetch "ls" result
             if(fuse_ctx && m_context->getOptions()->get_enable_dir_prefetch()  && m_context->getOptions()->get_enable_attr_cache()) {
-                Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, string(path), "0");
+                Job readDirTask = Job(time(nullptr), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, string(path), "0");
                 m_context->getScheduler()->addTask(readDirTask);
             }
         }
@@ -257,12 +257,9 @@ int FsImpl::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
             statbuf->st_mode |= S_IFLNK;
 
             // Check cache for validity
-        boost::unique_lock<boost::upgrade_mutex> lock{m_linkCacheMutex};
-            map<string, pair<string, time_t> >::iterator it = m_linkCache.find(string(path));
-            if(it != m_linkCache.end() && statbuf->st_mtime > (*it).second.second)
-            {
-                m_linkCache.erase(it);
-            }
+            if(const auto &cached = m_linkCache.get(path))
+                if(statbuf->st_mtime > cached.get().second)
+                    m_linkCache.take(path);
         }
         else
         {
@@ -281,17 +278,13 @@ int FsImpl::readlink(const char *path, char *link, size_t size)
     LOG(INFO) << "FUSE: readlink(path: " << string(path) << ")";
     string target;
 
-    boost::upgrade_lock<boost::upgrade_mutex> lock{m_linkCacheMutex};
-    map<string, pair<string, time_t> >::const_iterator it = m_linkCache.find(string(path));
-    if(it != m_linkCache.end()) {
-        target = (*it).second.first;
+    if(const auto &cached = m_linkCache.get(path)) {
+        target = cached.get().first;
     } else {
         pair<string, string> resp = m_fslogic->getLink(string(path));
         target = resp.second;
         RETURN_IF_ERROR(resp.first);
-
-        boost::upgrade_to_unique_lock<boost::upgrade_mutex> writeLock{lock};
-        m_linkCache[string(path)] = pair<string, time_t>(target, time(NULL));
+        m_linkCache.set(path, std::make_pair(target, time(nullptr)));
     }
 
     if(target.size() == 0) {
@@ -361,7 +354,7 @@ int FsImpl::mknod(const char *path, mode_t mode, dev_t dev)
                 LOG(ERROR) << "Cannot change group owner of file " << sPath << " to: " << groupName;
         }
 
-        m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
+        m_context->getScheduler()->addTask(Job(time(nullptr) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
 
         RETURN_IF_ERROR(m_fslogic->sendFileCreatedAck(string(path)));
     }
@@ -376,7 +369,7 @@ int FsImpl::mkdir(const char *path, mode_t mode)
     m_metaCache->clearAttr(parent(path).c_str());
 
     RETURN_IF_ERROR(m_fslogic->createDir(string(path), mode & ALLPERMS));
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(nullptr) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
 
     std::shared_ptr<events::Event> mkdirEvent = events::Event::createMkdirEvent(path);
     m_eventCommunicator->processEvent(mkdirEvent);
@@ -410,7 +403,7 @@ int FsImpl::unlink(const char *path)
         RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
     }
 
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(nullptr) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
 
     std::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(path);
     m_eventCommunicator->processEvent(rmEvent);
@@ -426,7 +419,7 @@ int FsImpl::rmdir(const char *path)
     m_metaCache->clearAttr(parent(path).c_str());
 
     RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(nullptr) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
 
     return 0;
 }
@@ -454,8 +447,8 @@ int FsImpl::rename(const char *path, const char *newpath)
     LOG(INFO) << "FUSE: rename(path: " << string(path) << ", newpath: "<< string(newpath)  <<")";
 
     RETURN_IF_ERROR(m_fslogic->renameFile(string(path), string(newpath)));
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
-    m_context->getScheduler()->addTask(Job(time(NULL) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(newpath))); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(nullptr) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(path).c_str())); // Clear cache of parent (possible change of modify time)
+    m_context->getScheduler()->addTask(Job(time(nullptr) + 5, shared_from_this(), TASK_CLEAR_ATTR, parent(newpath))); // Clear cache of parent (possible change of modify time)
 
     m_metaCache->clearAttr(string(path));
     return 0;
@@ -520,7 +513,7 @@ int FsImpl::truncate(const char *path, off_t newSize)
     if(sh_return == 0) {
         (void) m_metaCache->updateSize(string(path), newSize);
 
-        Job postTruncateTask = Job(time(NULL), shared_from_this(), TASK_POST_TRUNCATE_ACTIONS, path, utils::toString(newSize));
+        Job postTruncateTask = Job(time(nullptr), shared_from_this(), TASK_POST_TRUNCATE_ACTIONS, path, utils::toString(newSize));
         m_context->getScheduler()->addTask(postTruncateTask);
     }
 
@@ -534,7 +527,7 @@ int FsImpl::utime(const char *path, struct utimbuf *ubuf)
     // Update access times in meta cache right away
     (void) m_metaCache->updateTimes(string(path), ubuf->actime, ubuf->modtime);
 
-    m_context->getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(ubuf->actime), utils::toString(ubuf->modtime)));
+    m_context->getScheduler()->addTask(Job(time(nullptr), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(ubuf->actime), utils::toString(ubuf->modtime)));
 
     return 0;
 }
@@ -571,20 +564,20 @@ int FsImpl::open(const char *path, struct fuse_file_info *fileInfo)
         time_t atime = 0, mtime = 0;
 
         if((accMode == O_WRONLY) || (fileInfo->flags & O_APPEND) || (accMode == O_RDWR))
-            mtime = time(NULL);
+            mtime = time(nullptr);
 #ifdef __APPLE__
         if( ( (accMode == O_RDONLY) || (accMode == O_RDWR) ) )
 #else
         if( ( (accMode == O_RDONLY) || (accMode == O_RDWR) ) && !(fileInfo->flags & O_NOATIME) )
 #endif
-            atime = time(NULL);
+            atime = time(nullptr);
 
         if(atime || mtime)
         {
             // Update access times in meta cache right away
             (void) m_metaCache->updateTimes(string(path), atime, mtime);
 
-            m_context->getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(atime), utils::toString(mtime)));
+            m_context->getScheduler()->addTask(Job(time(nullptr), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(atime), utils::toString(mtime)));
         }
     }
 
@@ -619,7 +612,7 @@ int FsImpl::read(const char *path, char *buf, size_t size, off_t offset, struct 
     if (block == lInfo.blocks.end())
         return -EIO;
 
-    auto sh = m_shCache.get(fileInfo->fh);
+    auto sh = m_shCache.get(fileInfo->fh).get();
     CUSTOM_SH_RUN(sh, sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
 
     std::shared_ptr<events::Event> writeEvent = events::Event::createReadEvent(path, sh_return);
@@ -639,7 +632,7 @@ int FsImpl::write(const char *path, const char *buf, size_t size, off_t offset, 
 
     GET_LOCATION_INFO(path, false, false);
 
-    auto sh = m_shCache.get(fileInfo->fh);
+    auto sh = m_shCache.get(fileInfo->fh).get();
     CUSTOM_SH_RUN(sh, sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
 
     if(sh_return > 0) { // Update file size in cache
@@ -675,10 +668,10 @@ int FsImpl::flush(const char *path, struct fuse_file_info *fileInfo)
     LOG(INFO) << "FUSE: flush(path: " << string(path) << ", ...)";
     GET_LOCATION_INFO(path, false, false);
 
-    auto sh = m_shCache.get(fileInfo->fh);
+    auto sh = m_shCache.get(fileInfo->fh).get();
     CUSTOM_SH_RUN(sh, sh_flush(lInfo.fileId.c_str(), fileInfo));
 
-    m_context->getScheduler()->addTask(Job(time(NULL) + 3, shared_from_this(), TASK_CLEAR_ATTR, string(path)));
+    m_context->getScheduler()->addTask(Job(time(nullptr) + 3, shared_from_this(), TASK_CLEAR_ATTR, string(path)));
 
     return sh_return;
 }
@@ -715,7 +708,7 @@ int FsImpl::opendir(const char *path, struct fuse_file_info *fileInfo)
 {
     LOG(INFO) << "FUSE: opendir(path: " << string(path) << ", ...)";
 
-    m_context->getScheduler()->addTask(Job(time(NULL), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(time(NULL))));
+    m_context->getScheduler()->addTask(Job(time(nullptr), shared_from_this(), TASK_ASYNC_UPDATE_TIMES, string(path), utils::toString(time(nullptr))));
 
     return 0;
 }
@@ -735,14 +728,14 @@ int FsImpl::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
         return -EIO;
     }
 
-    for(std::vector<string>::iterator it = children.begin(); it < children.end(); ++it)
+    for(auto it = children.begin(); it < children.end(); ++it)
     {
         if(m_context->getOptions()->get_enable_parallel_getattr() && m_context->getOptions()->get_enable_attr_cache()) {
-            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, (boost::filesystem::path(path) / (*it)).normalize().string());
+            Job readDirTask = Job(time(nullptr), shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, (boost::filesystem::path(path) / (*it)).normalize().string());
             m_context->getScheduler()->addTask(readDirTask);
         }
 
-        if(filler(buf, it->c_str(), NULL, ++offset))
+        if(filler(buf, it->c_str(), nullptr, ++offset))
         {
             LOG(WARNING) << "filler buffer overflow";
             break;
@@ -795,7 +788,8 @@ bool FsImpl::needsForceClusterProxy(const std::string &path)
 {
     struct stat attrs;
     auto attrsStatus = getattr(path.c_str(), &attrs, false);
-    return attrsStatus || !m_metaCache->canUseDefaultPermissions(attrs);
+    auto filePermissions = attrs.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO);
+    return attrsStatus || (filePermissions == 0) || !m_metaCache->canUseDefaultPermissions(attrs);
 }
 
 bool FsImpl::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg2)
@@ -815,13 +809,13 @@ bool FsImpl::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
             return false;
         }
 
-        for(vector<string>::iterator it = children.begin(); it < children.end(); ++it) {
-            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, (boost::filesystem::path(arg0) / (*it)).normalize().string());
+        for(auto it = children.begin(); it < children.end(); ++it) {
+            Job readDirTask = Job(time(nullptr), shared_from_this(), ISchedulable::TASK_ASYNC_GETATTR, (boost::filesystem::path(arg0) / (*it)).normalize().string());
             m_context->getScheduler()->addTask(readDirTask);
         }
 
         if(children.size() > 0) {
-            Job readDirTask = Job(time(NULL), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, arg0, utils::toString(utils::fromString<unsigned int>(arg1) + children.size()));
+            Job readDirTask = Job(time(nullptr), shared_from_this(), ISchedulable::TASK_ASYNC_READDIR, arg0, utils::toString(utils::fromString<unsigned int>(arg1) + children.size()));
             m_context->getScheduler()->addTask(readDirTask);
         }
 
@@ -843,7 +837,7 @@ bool FsImpl::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
 
     case TASK_POST_TRUNCATE_ACTIONS: // arg0 = path, arg1 = newSize
         // we need to statAndUpdatetimes before processing event because we want event to be run with new size value on cluster
-        currentTime = time(NULL);
+        currentTime = time(nullptr);
         m_fslogic->updateTimes(arg0, 0, currentTime, currentTime);
 
         m_metaCache->clearAttr(arg0);
@@ -859,24 +853,32 @@ bool FsImpl::runTask(TaskID taskId, const string &arg0, const string &arg1, cons
     }
 }
 
-FsImpl::SHCache::value FsImpl::SHCache::get(const key id)
+template<typename key, typename value>
+boost::optional<value&> FsImpl::ThreadsafeCache<key, value>::get(const key id)
 {
-    boost::shared_lock_guard<boost::shared_mutex> guard{m_shCacheMutex};
-    return m_shCache[id];
+    std::shared_lock<std::shared_timed_mutex> lock{m_cacheMutex};
+    const auto it = m_cache.find(id);
+
+    if(it == m_cache.end())
+        return {};
+
+    return {it->second};
 }
 
-void FsImpl::SHCache::set(const key id, value sh)
+template<typename key, typename value>
+void FsImpl::ThreadsafeCache<key, value>::set(const key id, value val)
 {
-    boost::lock_guard<boost::shared_mutex> guard{m_shCacheMutex};
-    m_shCache[id] = std::move(sh);
+    std::lock_guard<std::shared_timed_mutex> guard{m_cacheMutex};
+    m_cache[id] = std::move(val);
 }
 
-FsImpl::SHCache::value FsImpl::SHCache::take(const key id)
+template<typename key, typename value>
+value FsImpl::ThreadsafeCache<key, value>::take(const key id)
 {
-    boost::lock_guard<boost::shared_mutex> guard{m_shCacheMutex};
-    const auto it = m_shCache.find(id);
+    std::lock_guard<std::shared_timed_mutex> guard{m_cacheMutex};
+    const auto it = m_cache.find(id);
     auto sh = std::move(it->second);
-    m_shCache.erase(it);
+    m_cache.erase(it);
     return sh;
 }
 

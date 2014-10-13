@@ -195,17 +195,16 @@ std::pair<string, string> GSIHandler::findUserCertAndKey()
 {
     using namespace boost::filesystem;
 
-    for(std::vector<std::pair<string, string> >::const_iterator it = getCertSearchPath().begin();
-        it != getCertSearchPath().end(); ++it)
+    for(const auto & elem : getCertSearchPath())
     {
-        if(exists(it->first) && is_directory(it->first) && it->second.empty())
+        if(exists(elem.first) && is_directory(elem.first) && elem.second.empty())
         {
-            std::pair<string, string> paths = findUserCertAndKey(it->first);
+            std::pair<string, string> paths = findUserCertAndKey(elem.first);
             if(!paths.first.empty() && !paths.second.empty())
                 return paths;
         }
-        else if(isFileOrSymlink(it->first) && isFileOrSymlink(it->second))
-            return *it;
+        else if(isFileOrSymlink(elem.first) && isFileOrSymlink(elem.second))
+            return elem;
     }
 
     return std::pair<string, string>();
@@ -323,7 +322,7 @@ void GSIHandler::validateProxyCert()
     BIO* chain_mem = BIO_new(BIO_s_mem());
     BIO_set_mem_buf(chain_mem, m_chainBuff, BIO_NOCLOSE);
 
-    if(file == NULL)
+    if(file == nullptr)
     {
         throw AuthException{"Internal SSL BIO error."};
     }
@@ -349,11 +348,11 @@ void GSIHandler::validateProxyCert()
     ERR_load_crypto_strings();
 
     // Parse RSA/DSA private key from file.
-    EVP_PKEY *key = PEM_read_bio_PrivateKey(file, NULL, pass_cb, NULL); // Try to read key faile as .pem
-    X509 *cert = NULL;
-    STACK_OF(X509) *ca = NULL;
+    EVP_PKEY *key = PEM_read_bio_PrivateKey(file, nullptr, pass_cb, nullptr); // Try to read key faile as .pem
+    X509 *cert = nullptr;
+    STACK_OF(X509) *ca = nullptr;
 
-    if(key == NULL)
+    if(key == nullptr)
     {
         unsigned long e = ERR_get_error();
         if(ERR_GET_REASON(e) == 100) { // Invalid passphrase
@@ -371,15 +370,15 @@ void GSIHandler::validateProxyCert()
                      "Failed to read your key file: " + userKey + " (try checking read permissions)."};
             }
 
-            PKCS12 *p12 = d2i_PKCS12_bio(file, NULL);
-            if(p12 == NULL) {
+            PKCS12 *p12 = d2i_PKCS12_bio(file, nullptr);
+            if(p12 == nullptr) {
                 unsigned long e2 = ERR_get_error();
-                LOG(ERROR) << "GSI Handler: parsing userKey PEM / PKCS12 failed due to: " << ERR_error_string(e, NULL) << " / " << ERR_error_string(e2, NULL);
+                LOG(ERROR) << "GSI Handler: parsing userKey PEM / PKCS12 failed due to: " << ERR_error_string(e, nullptr) << " / " << ERR_error_string(e2, nullptr);
 
                 CRYPTO_FREE(BIO, file);
                 throw AuthException{
                     "Invalid .pem or .p12 certificate file: " + userKey + " " + MSG_DEBUG_INFO(m_debug) + "\n" +
-                    (m_debug ? std::string{ERR_error_string(e2, NULL)} + "\n" : std::string{}) +
+                    (m_debug ? std::string{ERR_error_string(e2, nullptr)} + "\n" : std::string{}) +
                     ERR_reason_error_string(e2)};
 
             } else {
@@ -392,12 +391,12 @@ void GSIHandler::validateProxyCert()
                         CRYPTO_FREE(BIO, file);
                         throw AuthException{"Entered key passphrase is invalid."};
                     } else {
-                        LOG(ERROR) << "GSI Handler: parsing userKey as PKCS12 failed due to: " << ERR_error_string(e1, NULL);
+                        LOG(ERROR) << "GSI Handler: parsing userKey as PKCS12 failed due to: " << ERR_error_string(e1, nullptr);
 
                         CRYPTO_FREE(BIO, file);
                         throw AuthException{
                             "Cannot parse .p12 file. " + MSG_DEBUG_INFO(m_debug) +
-                            (m_debug ? "\n" + std::string{ERR_error_string(e1, NULL)} : std::string{})};
+                            (m_debug ? "\n" + std::string{ERR_error_string(e1, nullptr)} : std::string{})};
                     }
                 }
             }
@@ -407,7 +406,7 @@ void GSIHandler::validateProxyCert()
         // Read PEM certificate file
         BIO* cert_file = BIO_new(BIO_s_file());
 
-        if(cert_file == NULL)
+        if(cert_file == nullptr)
             throw AuthException{"Internal SSL BIO error."};
 
         if(BIO_read_filename(cert_file, userCert.c_str()) <= 0)
@@ -419,20 +418,20 @@ void GSIHandler::validateProxyCert()
         }
 
         // Read main cert file
-        PEM_read_bio_X509(cert_file, &cert, NULL, NULL);
+        PEM_read_bio_X509(cert_file, &cert, nullptr, nullptr);
 
-        X509 *tmp = NULL;
+        X509 *tmp = nullptr;
         STACK_OF(X509) *st = sk_X509_new_null();
         ca = sk_X509_new_null();
 
         // Read cert chain
         do {
-            tmp = NULL;
-            PEM_read_bio_X509(cert_file, &tmp, NULL, NULL);
+            tmp = nullptr;
+            PEM_read_bio_X509(cert_file, &tmp, nullptr, nullptr);
             if(tmp) {
                 sk_X509_push(st, tmp);
             }
-        } while (tmp != NULL);
+        } while (tmp != nullptr);
 
         // Reverse stack
         while(sk_X509_num(st) > 0) {
@@ -491,7 +490,7 @@ void GSIHandler::validateProxyCert()
     }
 
     // Write unprotected private key to internal buffer
-    if(!PEM_write_bio_PrivateKey(key_mem, key, NULL, NULL, 0, NULL, NULL))
+    if(!PEM_write_bio_PrivateKey(key_mem, key, nullptr, nullptr, 0, nullptr, nullptr))
     {
         LOG(ERROR) << "Cannot write PrivateKey to internal buffer";
 
@@ -590,7 +589,7 @@ std::string GSIHandler::getClusterHostname(const std::string &baseDomain)
     }
 
     const char *DNStr = DN.c_str();
-    unsigned char *digest = MD5((const unsigned char*) DNStr, DN.length(), NULL);
+    unsigned char *digest = MD5((const unsigned char*) DNStr, DN.length(), nullptr);
     if(!digest)
     {
         LOG(INFO) << "MD5 generation error";

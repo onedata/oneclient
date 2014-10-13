@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.0)
+cmake_minimum_required(VERSION 3.0.0)
 project(oneclient C CXX)
 
 # The version number.
@@ -59,7 +59,7 @@ find_library(KRB5_LIBRARY krb5)
 if(${KRB5_LIBRARY} MATCHES KRB5_LIBRARY-NOTFOUND)
     set(OPENSSL_LIBRARIES_S ${SSL_LIBRARY_S} ${CRYPTO_LIBRARY_S})
     set(OPENSSL_LIBRARIES_D ${SSL_LIBRARY_D} ${CRYPTO_LIBRARY_D})
-else()
+else(NOT ${KRB5_LIBRARY} MATCHES KRB5_LIBRARY-NOTFOUND)
     set(OPENSSL_LIBRARIES_S ${SSL_LIBRARY_S} ${CRYPTO_LIBRARY_S} ${KRB5_LIBRARY})
     set(OPENSSL_LIBRARIES_D ${SSL_LIBRARY_D} ${CRYPTO_LIBRARY_D} ${KRB5_LIBRARY})
 endif(${KRB5_LIBRARY} MATCHES KRB5_LIBRARY-NOTFOUND)
@@ -77,7 +77,7 @@ find_package(Git REQUIRED)
 set(Boost_USE_STATIC_LIBS        ON)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
-find_package(Boost COMPONENTS system thread filesystem random program_options chrono REQUIRED)
+find_package(Boost COMPONENTS system thread filesystem random program_options REQUIRED)
 link_directories(${Boost_LIBRARY_DIRS})
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 
@@ -111,24 +111,24 @@ list(REMOVE_ITEM SOURCES ${MAIN_SOURCE_FILE})
 
 # Setup compile flags
 execute_process(COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=libstdc++.a OUTPUT_VARIABLE LIBSTD_NAME)
-string(REGEX REPLACE "(\r?\n)+$" "" LIBSTD_NAME "${LIBSTD_NAME}")
-execute_process(COMMAND ln -sf "${LIBSTD_NAME}" WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+string(STRIP ${LIBSTD_NAME} LIBSTD_NAME)
+if(EXISTS ${LIBSTD_NAME})
+    execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink ${LIBSTD_NAME} ${PROJECT_BINARY_DIR}/libstdc++.a)
+endif(EXISTS ${LIBSTD_NAME})
 
-set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/lib:\$ORIGIN:\$ORIGIN/../lib:lib:../lib")
 set(PLATFORM_EXTRA_LIBS ${CMAKE_THREAD_LIBS_INIT} ${LTDL_LIBRARY} ${ZLIB_LIBRARY} ${DL_LIBRARY})
 
 if(APPLE)
-    set(SECTION_FRAGMENTATION_FLAGS "-Wno-deprecated-declarations")
-else()
+    set(SECTION_FRAGMENTATION_FLAGS -Wno-deprecated-declarations)
+    set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+else(NOT APPLE)
     set(PLATFORM_EXTRA_LIBS ${PLATFORM_EXTRA_LIBS} ${RT_LIBRARY})
-    set(SECTION_FRAGMENTATION_FLAGS "-fdata-sections -ffunction-sections")
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections -Wl,-rpath,${CUSTOM_RPATH}")
+    set(SECTION_FRAGMENTATION_FLAGS -fdata-sections -ffunction-sections)
+    set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/lib" "\$ORIGIN" "\$ORIGIN/../lib")
 endif(APPLE)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SECTION_FRAGMENTATION_FLAGS} -Wall -std=c++11")
+add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Wall -std=c++14)
 add_definitions(${FUSE_DEFINITIONS} -DFUSE_USE_VERSION=29 -D_WEBSOCKETPP_CPP11_STL_ -DBOOST_BIND_NO_PLACEHOLDERS)
-
-set(CMAKE_SKIP_RPATH TRUE) # Something is wrong with CMake RPATH config, we need to use old-fashion way
 
 # Define targets
 add_library(clproto ${PROTO_SRCS})
@@ -136,9 +136,17 @@ add_library(clientObjects OBJECT ${SOURCES} ${HEADERS})
 add_executable(oneclient ${MAIN_SOURCE_FILE} $<TARGET_OBJECTS:clientObjects>)
 add_executable(oneclient_dynamic ${MAIN_SOURCE_FILE} $<TARGET_OBJECTS:clientObjects>)
 
+set_target_properties(oneclient PROPERTIES
+    BUILD_WITH_INSTALL_RPATH true
+    INSTALL_RPATH_USE_LINK_PATH true
+    INSTALL_RPATH "${CUSTOM_RPATH}")
+
 set_target_properties(oneclient_dynamic PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY dynamic/
-    OUTPUT_NAME oneclient)
+    OUTPUT_NAME oneclient
+    BUILD_WITH_INSTALL_RPATH true
+    INSTALL_RPATH_USE_LINK_PATH true
+    INSTALL_RPATH "${CUSTOM_RPATH}")
 
 add_custom_command(TARGET oneclient_dynamic POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:oneclient_dynamic> oneclient_dynamic)

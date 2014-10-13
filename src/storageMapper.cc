@@ -88,7 +88,7 @@ void StorageMapper::openFile(const std::string &logicalName)
 {
     LOG(INFO) << "marking file '" << logicalName << "' as open";
 
-    boost::lock_guard<boost::shared_mutex> guard{m_fileMappingMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_fileMappingMutex};
     const auto it = mappingFromLogicalName(logicalName);
     if (it != m_fileMapping.end())
         ++it->second.opened;
@@ -98,7 +98,7 @@ void StorageMapper::releaseFile(const std::string &logicalName)
 {
     LOG(INFO) << "marking file '" << logicalName << "' closed";
 
-    boost::unique_lock<boost::shared_mutex> lock{m_fileMappingMutex};
+    std::unique_lock<std::shared_timed_mutex> lock{m_fileMappingMutex};
     const auto it = mappingFromLogicalName(logicalName);
 
     // The file was not opened
@@ -117,19 +117,19 @@ void StorageMapper::releaseFile(const std::string &logicalName)
 void StorageMapper::helperOverride(const std::string &filePath,
                                    const StorageInfo &mapping)
 {
-    boost::lock_guard<boost::shared_mutex> guard{m_fileMappingMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_fileMappingMutex};
     m_fileHelperOverride[filePath] = mapping;
 }
 
 void StorageMapper::resetHelperOverride(const std::string &filePath)
 {
-    boost::lock_guard<boost::shared_mutex> guard{m_fileMappingMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_fileMappingMutex};
     m_fileHelperOverride.erase(filePath);
 }
 
 void StorageMapper::clearMappings(const std::string &logicalName)
 {
-    boost::lock_guard<boost::shared_mutex> guard{m_fileMappingMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_fileMappingMutex};
     const auto it = m_locationToId.find(logicalName);
     if (it != m_locationToId.end()) {
         m_fileMapping.erase(it->second);
@@ -139,7 +139,7 @@ void StorageMapper::clearMappings(const std::string &logicalName)
 
 void StorageMapper::removeExpiredLocationMappings(const std::string &location)
 {
-    boost::lock_guard<boost::shared_mutex> guard{m_fileMappingMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_fileMappingMutex};
     const auto it = mappingFromLogicalName(location);
     if (it != m_fileMapping.end() &&
         (*it).second.validTo <= std::chrono::steady_clock::now()) {
@@ -176,7 +176,7 @@ void StorageMapper::renewLocationMapping(const std::string &location)
         return;
     }
 
-    boost::lock_guard<boost::shared_mutex> lock{m_fileMappingMutex};
+    std::lock_guard<std::shared_timed_mutex> lock{m_fileMappingMutex};
     const auto it = mappingFromLogicalName(location);
     if (it != m_fileMapping.end()) {
         it->second.validTo = std::chrono::steady_clock::now() + validity;
@@ -208,7 +208,7 @@ bool StorageMapper::handlePushMessage(const Answer &answer)
     LOG(INFO) << "Adding blocks for file: {storageId: '" << msg.storage_id()
               << "', fileId: '" << msg.file_id() << "'}";
 
-    boost::lock_guard<boost::shared_mutex> guard{m_fileMappingMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_fileMappingMutex};
     const auto it =
         m_fileMapping.find(std::make_pair(msg.storage_id(), msg.file_id()));
 
@@ -233,7 +233,7 @@ bool StorageMapper::waitForBlock(const std::string &logicalName,
     LOG(INFO) << "Waiting for block of '" << logicalName << "' at offset "
               << offset;
 
-    boost::shared_lock<boost::shared_mutex> lock{m_fileMappingMutex};
+    std::shared_lock<std::shared_timed_mutex> lock{m_fileMappingMutex};
 
     const auto pred = [&] {
         const auto it = mappingFromLogicalName(logicalName);
@@ -251,11 +251,11 @@ LocationInfo StorageMapper::retrieveLocationInfo(const std::string &logicalName,
                                                  const bool useCluster,
                                                  const bool forceClusterProxy)
 {
-    boost::shared_lock<boost::shared_mutex> lock{m_fileMappingMutex};
+    std::shared_lock<std::shared_timed_mutex> lock{m_fileMappingMutex};
     auto it = mappingFromLogicalName(logicalName);
 
     if (it != m_fileMapping.end()) {
-        boost::shared_lock<boost::shared_mutex> sLock{m_storageMappingMutex};
+        std::shared_lock<std::shared_timed_mutex> sLock{m_storageMappingMutex};
         auto it1 = m_storageMapping.find(it->second.storageId);
         sLock.unlock();
 
@@ -303,7 +303,7 @@ StorageMapper::offsetSizeToInterval(const off_t offset, const size_t size) const
 
 StorageInfo StorageMapper::retrieveStorageInfo(const LocationInfo &locationInfo)
 {
-    boost::shared_lock<boost::shared_mutex> sLock{m_storageMappingMutex};
+    std::shared_lock<std::shared_timed_mutex> sLock{m_storageMappingMutex};
     try {
         return m_storageMapping.at(locationInfo.storageId);
     }
@@ -340,7 +340,7 @@ void StorageMapper::addFileMapping(const std::string &logicalName,
         std::bind(&StorageMapper::renewLocationMapping, shared_from_this(),
                   logicalName));
 
-    boost::lock_guard<boost::shared_mutex> guard{m_fileMappingMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_fileMappingMutex};
     const auto previous = m_fileMapping.lower_bound(locationId);
     if (previous != m_fileMapping.end() && previous->first == locationId) {
         info.opened = previous->second.opened;
@@ -366,7 +366,7 @@ void StorageMapper::addStorageMapping(const FileLocation &location)
         info.storageHelperArgs.emplace(
             helpers::srvArg(i), boost::any{location.storage_helper_args(i)});
 
-    boost::lock_guard<boost::shared_mutex> guard{m_storageMappingMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_storageMappingMutex};
     m_storageMapping.emplace(location.storage_id(), std::move(info));
 }
 

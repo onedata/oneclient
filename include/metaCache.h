@@ -11,12 +11,11 @@
 
 #include "ISchedulable.h"
 
-#include <boost/thread/shared_mutex.hpp>
-
 #include <sys/stat.h>
 
 #include <ctime>
 #include <memory>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 
@@ -37,7 +36,7 @@ protected:
     std::unordered_map<std::string, std::pair<time_t, struct stat> > m_statMap;  ///< This is the cache map.
                                                                         ///< Value of this std::map is std::pair containing expiration time of attributes and
                                                                         ///< stat struct itself
-    boost::shared_mutex m_statMapMutex;                                 ///< Mutex used to synchronize access to MetaCache::m_statMap
+    std::shared_timed_mutex m_statMapMutex;                                 ///< Mutex used to synchronize access to MetaCache::m_statMap
 
 public:
 

@@ -86,14 +86,14 @@ std::vector<path> LocalStorageManager::getMountPoints()
     std::vector<path> mountPoints;
 
     FILE *file = setmntent(MOUNTS_INFO_FILE_PATH, "r");
-    if(file == NULL)
+    if(file == nullptr)
     {
         LOG(ERROR) << "Can not parse /proc/mounts file.";
         return mountPoints;
     }
 
     struct mntent *ent;
-    while ((ent = getmntent(file)) != NULL)
+    while ((ent = getmntent(file)) != nullptr)
     {
         std::string type(ent->mnt_type);
         if(type.compare(0, 4, "fuse") != 0)

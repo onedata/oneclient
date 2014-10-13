@@ -20,7 +20,7 @@ Job::Job(const std::time_t when, std::shared_ptr<ISchedulable> subject,
          const std::string &arg1, const std::string &arg2)
     : when{std::chrono::steady_clock::now() +
            std::chrono::seconds{when - std::time(nullptr)}}
-    , subject{subject}
+    , subject{std::move(subject)}
     , task{task}
     , arg0{arg0}
     , arg1{arg1}

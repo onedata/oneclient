@@ -24,8 +24,8 @@ EventStreamCombiner::EventStreamCombiner(std::shared_ptr<one::client::Context> c
 list<std::shared_ptr<Event> > EventStreamCombiner::processEvent(std::shared_ptr<Event> event)
 {
     list<std::shared_ptr<Event> > producedEvents;
-    for(list<std::shared_ptr<IEventStream> >::iterator it = m_substreams.begin(); it != m_substreams.end(); it++){
-        std::shared_ptr<Event> produced = (*it)->processEvent(event);
+    for(auto & elem : m_substreams){
+        std::shared_ptr<Event> produced = (elem)->processEvent(event);
         if(produced)
             producedEvents.push_back(produced);
     }
@@ -49,8 +49,8 @@ bool EventStreamCombiner::processNextEvent()
     if(event){
         list<std::shared_ptr<Event> > processedEvents = processEvent(event);
 
-        for(list<std::shared_ptr<Event> >::iterator it = processedEvents.begin(); it != processedEvents.end(); ++it){
-            std::shared_ptr<EventMessage> eventProtoMessage = (*it)->createProtoMessage();
+        for(auto & processedEvent : processedEvents){
+            std::shared_ptr<EventMessage> eventProtoMessage = (processedEvent)->createProtoMessage();
 
             EventCommunicator::sendEvent(m_context, eventProtoMessage);
         }

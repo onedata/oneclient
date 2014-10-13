@@ -27,9 +27,10 @@ public:
     {
     }
 
-    void setCachedHelper(SHCache::key idx, SHCache::value sh)
+    void setCachedHelper(const std::uint64_t idx,
+                         std::shared_ptr<one::helpers::IStorageHelper> sh)
     {
-        m_shCache.set(idx, sh);
+        m_shCache.set(idx, std::move(sh));
     }
 };
 
