@@ -28,6 +28,7 @@ public:
     MOCK_METHOD3(findLocation, std::string(const std::string&, const std::string&, bool));
     MOCK_METHOD2(helperOverride, void(const std::string&, const one::client::StorageInfo&));
     MOCK_METHOD1(resetHelperOverride, void(const std::string&));
+    MOCK_METHOD3(waitForBlock, bool(const std::string&, const off_t, const std::chrono::milliseconds));
 };
 
 

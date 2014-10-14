@@ -11,7 +11,6 @@
 #ifndef ONECLIENT_STORAGE_MAPPER_H
 #define ONECLIENT_STORAGE_MAPPER_H
 
-
 #include "helpers/IStorageHelper.h"
 #include "fslogicProxy.h"
 
@@ -197,9 +196,12 @@ public:
      * @see @c one::client::WAIT_FOR_BLOCK_TIMEOUT
      * @param logicalName The logical name of the file the block is a part of.
      * @param offset The file offset.
+     * @param timeout The timeout for the wait operation.
      * @returns true if the condition was met, false otherwise (after a timeout)
      */
-    bool waitForBlock(const std::string &logicalName, const off_t offset);
+    virtual bool waitForBlock(
+        const std::string &logicalName, const off_t offset,
+        const std::chrono::milliseconds timeout = WAIT_FOR_BLOCK_TIMEOUT);
 
 protected:
     /**
@@ -267,6 +269,5 @@ private:
 
 } // namespace client
 } // namespace one
-
 
 #endif // ONECLIENT_STORAGE_MAPPER_H

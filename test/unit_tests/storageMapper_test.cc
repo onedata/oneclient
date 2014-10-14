@@ -5,6 +5,7 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
+#include "communication_protocol.pb.h"
 #include "fslogicProxy_mock.h"
 #include "helpers/storageHelperFactory.h"
 #include "options_mock.h"
@@ -19,6 +20,7 @@ using namespace ::testing;
 using namespace one;
 using namespace one::client;
 using namespace one::clproto::fuse_messages;
+using namespace one::clproto::communication_protocol;
 using namespace std::literals::chrono_literals;
 
 class StorageMapperTest: public CommonTest
@@ -146,4 +148,105 @@ TEST_F(StorageMapperTest, FindAndGet) {
     EXPECT_CALL(*scheduler, schedule(_, _)).Times(2);
     EXPECT_CALL(*mockFslogic, getFileLocation("/file2", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
     EXPECT_NO_THROW(proxy->getLocationInfo("/file2", true));
+}
+
+TEST_F(StorageMapperTest, ShouldHandleBlocksAvailableMessages) {
+    FileLocation location;
+    location.set_answer(VOK);
+    location.set_validity(20);
+    location.set_storage_id(1);
+    location.set_file_id("123");
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
+
+    const auto info = proxy->getLocationInfo("/file", true);
+    ASSERT_TRUE(info.first.blocks.empty());
+
+    FileLocation::BlockAvailability block;
+    block.set_offset(0);
+    block.set_size(100);
+
+    BlocksAvailable msg;
+    msg.add_blocks()->CopyFrom(block);
+    msg.set_storage_id(1);
+    msg.set_file_id("123");
+
+    Answer ans;
+    ans.set_answer_status(VOK);
+    ans.set_message_type(msg.descriptor()->name());
+    msg.SerializeToString(ans.mutable_worker_answer());
+
+    proxy->handlePushMessage(ans);
+
+    const auto updatedInfo = proxy->getLocationInfo("/file", true);
+    ASSERT_EQ(100u, updatedInfo.first.blocks.size());
+    ASSERT_NE(updatedInfo.first.blocks.end(),
+              updatedInfo.first.blocks.find(boost::icl::discrete_interval<off_t>::right_open(0, 100)));
+}
+
+TEST_F(StorageMapperTest, ShouldWaitForABlock) {
+    FileLocation location;
+    location.set_answer(VOK);
+    location.set_validity(20);
+    location.set_storage_id(1);
+    location.set_file_id("123");
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
+
+    proxy->getLocationInfo("/file", true);
+
+    std::thread t{[=]{
+        ASSERT_TRUE(proxy->waitForBlock("/file", 0));
+    }};
+
+    FileLocation::BlockAvailability block;
+    block.set_offset(0);
+    block.set_size(100);
+
+    BlocksAvailable msg;
+    msg.add_blocks()->CopyFrom(block);
+    msg.set_storage_id(1);
+    msg.set_file_id("123");
+
+    Answer ans;
+    ans.set_answer_status(VOK);
+    ans.set_message_type(msg.descriptor()->name());
+    msg.SerializeToString(ans.mutable_worker_answer());
+
+    proxy->handlePushMessage(ans);
+
+    t.join();
+}
+
+TEST_F(StorageMapperTest, ShouldTimeoutOnWaitingForABlockIfNoBlockArrives) {
+    FileLocation location;
+    location.set_answer(VOK);
+    location.set_validity(20);
+    location.set_storage_id(1);
+    location.set_file_id("123");
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
+
+    proxy->getLocationInfo("/file", true);
+
+    const auto then = std::chrono::steady_clock::now();
+    ASSERT_FALSE(proxy->waitForBlock("/file", 0, 20ms));
+    ASSERT_TRUE(then + 20ms <= std::chrono::steady_clock::now());
+}
+
+TEST_F(StorageMapperTest, ShouldSetBlocksAsAvailableOnAddFileMapping) {
+    FileLocation::BlockAvailability block;
+    block.set_offset(0);
+    block.set_size(100);
+
+    FileLocation location;
+    location.set_answer(VOK);
+    location.set_validity(20);
+    location.set_storage_id(1);
+    location.set_file_id("123");
+    location.add_available()->CopyFrom(block);
+
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
+
+    const auto info = proxy->getLocationInfo("/file", true);
+    ASSERT_EQ(100u, info.first.blocks.size());
+    ASSERT_NE(info.first.blocks.end(),
+              info.first.blocks.find(boost::icl::discrete_interval<off_t>::right_open(0, 100)));
 }

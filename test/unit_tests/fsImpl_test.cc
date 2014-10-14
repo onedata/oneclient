@@ -120,11 +120,6 @@ public:
         fileInfo.fh = 0;
         client->setCachedHelper(0, helperMock);
     }
-
-    void TearDown() override
-    {
-        Mock::VerifyAndClearExpectations(storageMapperMock.get());
-    }
 };
 
 TEST_F(FsImplTest, Instantiate) {
@@ -644,4 +639,28 @@ TEST_F(FsImplTest, processEvent) {
 
     ASSERT_TRUE((bool) event);
     communicator.processEvent(event);
+}
+
+TEST_F(FsImplTest, shouldWaitForBlocksOnRead) {
+    location.blocks.clear();
+    trueStat.st_size = 100;
+
+    EXPECT_CALL(*metaCacheMock, getAttr("/file", _)).WillOnce(DoAll(SetArgPointee<1>(trueStat), Return(true)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/file", _, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, waitForBlock("/file", _, _)).WillOnce(Return(true));
+
+    std::array<char, 4> buff;
+    client->read("/file", buff.data(), buff.size(), 0, &fileInfo);
+}
+
+TEST_F(FsImplTest, shouldRequestAFileBlockIfMissing) {
+    location.blocks.clear();
+    trueStat.st_size = 100;
+
+    EXPECT_CALL(*metaCacheMock, getAttr("/file", _)).WillOnce(DoAll(SetArgPointee<1>(trueStat), Return(true)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/file", _, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*fslogicMock, requestFileBlock("/file", _, _));
+
+    std::array<char, 4> buff;
+    client->read("/file", buff.data(), buff.size(), 0, &fileInfo);
 }

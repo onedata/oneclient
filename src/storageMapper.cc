@@ -229,7 +229,8 @@ bool StorageMapper::handlePushMessage(const Answer &answer)
 }
 
 bool StorageMapper::waitForBlock(const std::string &logicalName,
-                                 const off_t offset)
+                                 const off_t offset,
+                                 const std::chrono::milliseconds timeout)
 {
     LOG(INFO) << "Waiting for block of '" << logicalName << "' at offset "
               << offset;
@@ -245,7 +246,7 @@ bool StorageMapper::waitForBlock(const std::string &logicalName,
         return it->second.blocks.find(offset) != it->second.blocks.end();
     };
 
-    return m_newBlocksCondition.wait_for(lock, WAIT_FOR_BLOCK_TIMEOUT, pred);
+    return m_newBlocksCondition.wait_for(lock, timeout, pred);
 }
 
 LocationInfo StorageMapper::retrieveLocationInfo(const std::string &logicalName,
@@ -305,10 +306,12 @@ StorageMapper::offsetSizeToInterval(const off_t offset, const size_t size) const
 StorageInfo StorageMapper::retrieveStorageInfo(const LocationInfo &locationInfo)
 {
     std::shared_lock<std::shared_timed_mutex> sLock{m_storageMappingMutex};
-    try {
+    try
+    {
         return m_storageMapping.at(locationInfo.storageId);
     }
-    catch (const std::out_of_range &) {
+    catch (const std::out_of_range &)
+    {
         throw OneException(VEIO, "cannot find storage information");
     }
 }
