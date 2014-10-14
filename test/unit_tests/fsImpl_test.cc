@@ -97,6 +97,7 @@ public:
 
         location.fileId = "fileid";
         location.storageId = 1;
+        location.blocks += boost::icl::discrete_interval<off_t>::closed(0, 100);
         storage.storageHelperName = "sh_name";
         storage.storageHelperArgs.emplace(one::helpers::srvArg(0), boost::any{std::string{"arg1"}});
         storage.storageHelperArgs.emplace(one::helpers::srvArg(1), boost::any{std::string{"arg2"}});
@@ -494,10 +495,14 @@ TEST_F(FsImplTest, open) { // const char *path, struct fuse_file_info *fileInfo
 TEST_F(FsImplTest, read) { // const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo
     char tmpBuff[4];
 
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillOnce(Throw(OneException(VEACCES)));
+    struct stat statbuf = {0};
+    statbuf.st_size = 10;
+    EXPECT_CALL(*metaCacheMock, getAttr("/path", _)).WillRepeatedly(DoAll(SetArgPointee<1>(statbuf), Return(true)));
+
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _, _)).WillOnce(Throw(OneException(VEACCES)));
     EXPECT_EQ(-EACCES, client->read("/path", tmpBuff, 4, 0, &fileInfo));
 
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
 
     EXPECT_CALL(*helperMock, sh_read(StrEq("fileid"), tmpBuff, 4, 0, _)).WillOnce(Return(-EEXIST));
     EXPECT_EQ(-EEXIST, client->read("/path", tmpBuff, 4, 0, &fileInfo));
@@ -508,10 +513,10 @@ TEST_F(FsImplTest, read) { // const char *path, char *buf, size_t size, off_t of
 
 TEST_F(FsImplTest, write) { // const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo
 
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillOnce(Throw(OneException(VEACCES)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _, _)).WillOnce(Throw(OneException(VEACCES)));
     EXPECT_EQ(-EACCES, client->write("/path", "abcd", 4, 0, &fileInfo));
 
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
 
     EXPECT_CALL(*helperMock, sh_write(StrEq("fileid"), StrEq("abcd"), 4, 0, _)).WillOnce(Return(-EEXIST));
     EXPECT_EQ(-EEXIST, client->write("/path", "abcd", 4, 0, &fileInfo));
@@ -574,12 +579,12 @@ TEST_F(FsImplTest, statfs) { // const char *path, struct statvfs *statInfo
 }
 
 TEST_F(FsImplTest, flush) { // const char *path, struct fuse_file_info *fileInfo
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
     EXPECT_EQ(0, client->flush("/path", &fileInfo));
 }
 
 TEST_F(FsImplTest, release) { // const char *path, struct fuse_file_info *fileInfo
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
+    EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
     EXPECT_CALL(*storageMapperMock, releaseFile("/path"));
     EXPECT_EQ(0, client->release("/path", &fileInfo));
 }
