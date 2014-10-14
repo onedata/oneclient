@@ -7,7 +7,6 @@
 
 #include "fslogicProxy_mock.h"
 #include "helpers/storageHelperFactory.h"
-#include "jobScheduler_mock.h"
 #include "options_mock.h"
 #include "storageMapper_proxy.h"
 #include "scheduler_mock.h"
@@ -20,6 +19,7 @@ using namespace ::testing;
 using namespace one;
 using namespace one::client;
 using namespace one::clproto::fuse_messages;
+using namespace std::literals::chrono_literals;
 
 class StorageMapperTest: public CommonTest
 {
@@ -32,6 +32,7 @@ protected:
         CommonTest::SetUp();
         mockFslogic = std::make_shared<MockFslogicProxy>(context);
         proxy = std::make_shared<ProxyStorageMapper>(context, mockFslogic);
+        ON_CALL(*scheduler, schedule(_, _)).WillByDefault(Return([]{}));
     }
 };
 
@@ -84,7 +85,7 @@ TEST_F(StorageMapperTest, OpenClose) {
 
     FileLocation location;
     proxy->addLocation("/file1", location);
-    location.set_file_id("lol");
+    location.set_file_id("location");
     proxy->addLocation("/file2", location);
 
     std::pair<LocationInfo, StorageInfo> ret1 = proxy->getLocationInfo("/file1");
@@ -136,7 +137,7 @@ TEST_F(StorageMapperTest, FindAndGet) {
     EXPECT_THROW(proxy->getLocationInfo("/file2"), OneException);
 
     auto currentTime = std::chrono::steady_clock::now();
-    EXPECT_TRUE(currentTime + std::chrono::seconds{20} >= proxy->getLocationInfo("/file1").first.validTo);
+    EXPECT_TRUE(currentTime + 20s >= proxy->getLocationInfo("/file1").first.validTo);
 
     EXPECT_CALL(*mockFslogic, getFileLocation("/file2", _, _, _)).WillOnce(Return(false));
     EXPECT_THROW(proxy->getLocationInfo("/file2", true), OneException);

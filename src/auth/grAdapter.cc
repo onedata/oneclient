@@ -28,6 +28,8 @@
 #include <ostream>
 #include <sstream>
 
+using namespace std::literals::chrono_literals;
+
 namespace one
 {
 namespace client
@@ -71,7 +73,7 @@ boost::optional<TokenAuthDetails> GRAdapter::retrieveToken() const
         return {};
     }
 
-    if(auth.expirationTime() < std::chrono::system_clock::now() + std::chrono::minutes{1})
+    if(auth.expirationTime() < std::chrono::system_clock::now() + 1min)
     {
         LOG(INFO) << "Saved Access Token expired. Refreshing";
         try

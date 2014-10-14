@@ -28,6 +28,7 @@
 namespace icl = boost::icl;
 using namespace one::clproto::communication_protocol;
 using namespace one::clproto::fuse_messages;
+using namespace std::literals::chrono_literals;
 
 namespace one {
 namespace client {
@@ -170,7 +171,7 @@ void StorageMapper::renewLocationMapping(const std::string &location)
     const auto validity =
         std::chrono::seconds{m_fslogic->renewFileLocation(location)};
 
-    if (validity <= std::chrono::seconds{0}) {
+    if (validity <= 0s) {
         LOG(WARNING) << "Renewing file mapping for file: " << location
                      << " failed";
         return;

@@ -14,10 +14,10 @@
 #include "config.h"
 #include "context.h"
 #include "fuse_messages.pb.h"
-#include "jobScheduler.h"
 #include "logging.h"
 #include "messageBuilder.h"
 #include "options.h"
+#include "scheduler.h"
 #include "oneErrors.h"
 #include "fsImpl.h"
 
@@ -399,7 +399,7 @@ bool FslogicProxy::requestFileBlock(const string &logicalName,
     return sendFuseReceiveAtom(msg) == VOK;
 }
 
-void FslogicProxy::pingCluster(const string &nth)
+void FslogicProxy::pingCluster()
 {
     auto communicator = m_context.lock()->getCommunicator();
     try
@@ -419,25 +419,9 @@ void FslogicProxy::pingCluster(const string &nth)
     }
 
     // Send another...
-    Job pingTask = Job(time(nullptr) + m_context.lock()->getOptions()->get_cluster_ping_interval(), shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth);
-    m_context.lock()->getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
-}
-
-bool FslogicProxy::runTask(TaskID taskId, const string& arg0, const string&, const string&)
-{
-    string res;
-    switch(taskId)
-    {
-    case TASK_SEND_FILE_NOT_USED:
-        res = sendFileNotUsed(arg0);
-        LOG(INFO) << "FUSE sendFileNotUsed for file: " << arg0 << ", response: " << res;
-        return true;
-    case TASK_PING_CLUSTER:
-        pingCluster(arg0);
-        return true;
-    default:
-        return false;
-    }
+    m_context.lock()->scheduler()->schedule(
+                std::chrono::seconds{m_context.lock()->getOptions()->get_cluster_ping_interval()},
+                &FslogicProxy::pingCluster, shared_from_this());
 }
 
 } // namespace client

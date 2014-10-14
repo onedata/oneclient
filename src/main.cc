@@ -27,8 +27,6 @@
 #include "events/eventCommunicator.h"
 #include "fslogicProxy.h"
 #include "helpers/storageHelperFactory.h"
-#include "ISchedulable.h"
-#include "jobScheduler.h"
 #include "localStorageManager.h"
 #include "logging.h"
 #include "metaCache.h"
@@ -250,7 +248,7 @@ static std::string getVersionString()
         << oneclient_VERSION_PATCH;
     return ss.str();
 }
-#include <regex>
+
 int main(int argc, char* argv[], char* envp[])
 {
     // Turn off logging for a while
@@ -529,11 +527,6 @@ int main(int argc, char* argv[], char* envp[])
                 options->get_read_buffer_max_file_size(),
                 options->get_file_buffer_prefered_block_size()};
 
-    // Start all jobSchedulers
-    context->addScheduler(std::make_shared<JobScheduler>());
-    for(unsigned int i = 1; i < options->get_jobscheduler_threads(); ++i)
-        context->addScheduler(std::make_shared<JobScheduler>());
-
     // Initialize main application object
     auto eventCommunicator = std::make_shared<events::EventCommunicator>(context);
     auto fslogicProxy = std::make_shared<FslogicProxy>(context);
@@ -550,8 +543,8 @@ int main(int argc, char* argv[], char* envp[])
     AppObject = App;
 
     // Register remote logWriter for log threshold level updates and start sending loop
-    context->getPushListener()->subscribe(std::bind(&logging::RemoteLogWriter::handleThresholdChange,
-                                                     logWriter, _1));
+    context->getPushListener()->subscribe(
+                &logging::RemoteLogWriter::handleThresholdChange, logWriter);
     logWriter->run(context->getCommunicator());
 
     // Enter FUSE loop

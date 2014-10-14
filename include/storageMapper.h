@@ -119,7 +119,7 @@ public:
 
     /**
      * Gets file location information along with storage info for storage
-     * heleper's calls.
+     * helper's calls.
      * @param logical_name File path (relative to FsImpl mount point)
      * @param useCluster Specify if the method should use cache only (default)
      * or try quering cluster.

@@ -10,8 +10,6 @@
 #define ONECLIENT_EVENT_STREAM_COMBINER_H
 
 
-#include "ISchedulable.h"
-
 #include <list>
 #include <memory>
 #include <mutex>
@@ -35,17 +33,17 @@ class Event;
  * The EventStreamCombiner class.
  * EventStreamCombiner class is an event sink. Input event will be processed by all registered substreams.
  */
-class EventStreamCombiner: public ISchedulable
+class EventStreamCombiner
 {
 public:
     EventStreamCombiner(std::shared_ptr<Context> context);
 
     std::list<std::shared_ptr<Event> > processEvent(std::shared_ptr<Event> event);		   ///< Process input event. Returns list with output events.
                                                                                                ///< Length of list may be up to number of registered substream. If none of substreams returned non-empty event then empty list is returned.
-    virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
     void addSubstream(std::shared_ptr<IEventStream> substream);							   ///< Adds substream.
     virtual void pushEventToProcess(std::shared_ptr<Event> event);						   ///< Pushes event to queue m_eventsToProcess.
     std::queue<std::shared_ptr<Event> > getEventsToProcess() const;						   ///< TODO: probably should be removed or replaced with getQueueSize
+    bool processNextEvent();																   ///< Process next event in queue.
 
 private:
     const std::shared_ptr<Context> m_context;
@@ -54,7 +52,6 @@ private:
     std::mutex m_eventsToProcessMutex;
 
     std::shared_ptr<Event> getNextEventToProcess();										   ///< Returns next event to process from queue.
-    bool processNextEvent();																   ///< Process next event in queue.
 };
 
 } // namespace events

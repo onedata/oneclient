@@ -42,6 +42,32 @@ public:
     int subscribe(listener_fun);    ///< Register callback function. Each registered by this method function will be called for every incoming PUSH message.
                                     ///< Registered callback has to return bool value which tells if subscription shall remain active (false - callback will be removed).
                                     ///< @return ID of subscription that can be used to unsubscribe manually.
+
+    /**
+     * @copydoc subscribe(listener_fun)
+     * The callback target is referenced by a non-owning pointer.
+     * @param member The member to invoke.
+     * @param subject The subject whose member is to be invoked.
+     */
+    template<class R, class T>
+    int subscribe(R (T::*member), std::weak_ptr<T> subject)
+    {
+        return subscribe([member, s = std::move(subject)](const auto &answer){
+            if(auto subject = s.lock())
+                return ((*subject).*member)(answer);
+            return false;
+        });
+    }
+
+    /**
+     * A convenience overload for @c subscribe taking a @c std::shared_ptr.
+     */
+    template<class R, class T>
+    int subscribe(R (T::*member), const std::shared_ptr<T> &subject)
+    {
+        return subscribe(member, std::weak_ptr<T>{subject});
+    }
+
     void unsubscribe(int subId);    ///< Remove previously added callback.
                                     ///< @param subId shall match the ID returned by PushListener::subscribe
 

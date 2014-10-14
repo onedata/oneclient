@@ -10,7 +10,6 @@
 #include "events/events.h"
 #include "events_mock.h"
 #include "fslogicProxy_mock.h"
-#include "jobScheduler_mock.h"
 #include "localStorageManager_mock.h"
 #include "messageBuilder_mock.h"
 #include "metaCache_mock.h"
@@ -57,8 +56,6 @@ public:
         context->setOptions(options);
         config = std::make_shared<one::client::Config>(context);
         context->setConfig(config);
-        jobScheduler = std::make_shared<MockJobScheduler>();
-        context->addScheduler(jobScheduler);
         scheduler = std::make_shared<MockScheduler>();
         context->setScheduler(scheduler);
         communicator = std::make_shared<MockCommunicator>();
@@ -73,14 +70,13 @@ public:
         factoryFake = std::make_shared<FakeStorageHelperFactory>();
         eventCommunicatorMock = std::make_shared<MockEventCommunicator>(context);
 
-
-
-        EXPECT_CALL(*fslogicMock, pingCluster(_)).WillRepeatedly(Return());
+        EXPECT_CALL(*fslogicMock, pingCluster()).WillRepeatedly(Return());
         EXPECT_CALL(*options, get_alive_meta_connections_count()).WillRepeatedly(Return(0));
         EXPECT_CALL(*options, get_alive_data_connections_count()).WillRepeatedly(Return(0));
         EXPECT_CALL(*options, has_fuse_id()).WillRepeatedly(Return(false));
         EXPECT_CALL(*options, has_fuse_group_id()).WillRepeatedly(Return(true));
         EXPECT_CALL(*options, get_write_bytes_before_stat()).WillRepeatedly(Return(0));
+        ON_CALL(*scheduler, schedule(_, _)).WillByDefault(Return([]{}));
 
         const ::testing::TestInfo* const test_info = ::testing::UnitTest::GetInstance()->current_test_info();
         std::string testCaseName = test_info->test_case_name();
@@ -122,8 +118,6 @@ public:
 
         fileInfo.fh = 0;
         client->setCachedHelper(0, helperMock);
-
-        EXPECT_CALL(*jobScheduler, addTask(_)).WillRepeatedly(Return());
     }
 
     void TearDown() override
@@ -133,7 +127,7 @@ public:
 };
 
 TEST_F(FsImplTest, Instantiate) {
-    EXPECT_EQ(jobScheduler.get(), context->getScheduler().get());
+    EXPECT_EQ(scheduler.get(), context->scheduler().get());
     EXPECT_TRUE(context->getPushListener().get());
 }
 
@@ -179,7 +173,7 @@ TEST_F(FsImplTest, getattr) { // const char *path, struct stat *statbuf
 
     EXPECT_CALL(*options, get_enable_dir_prefetch()).WillOnce(Return(true));
     EXPECT_CALL(*options, get_enable_attr_cache()).WillOnce(Return(true));
-    EXPECT_CALL(*jobScheduler, addTask(_)).WillOnce(Return());
+    EXPECT_CALL(*scheduler, post(_));
 
     trueAttr.set_type("DIR");
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
@@ -210,7 +204,7 @@ TEST_F(FsImplTest, getattr) { // const char *path, struct stat *statbuf
     EXPECT_EQ(static_cast<mode_t>(trueAttr.mode()) | S_IFLNK, statbuf.st_mode);
 
     trueAttr.set_type("REG");
-    EXPECT_CALL(*scheduler, schedule(_, _));
+    EXPECT_CALL(*scheduler, post(_));
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillOnce(DoAll(SetArgReferee<1>(trueAttr), Return(true)));
     EXPECT_CALL(*metaCacheMock, addAttr("/path", Truly(bind(identityEqual<struct stat>, std::cref(statbuf), _1))));
@@ -477,7 +471,7 @@ TEST_F(FsImplTest, truncate) { // const char *path, off_t newSize
 TEST_F(FsImplTest, utime) { // const char *path, struct utimbuf *ubuf
     struct utimbuf ubuf;
 
-    EXPECT_CALL(*jobScheduler, addTask(_)).WillOnce(Return());
+    EXPECT_CALL(*scheduler, post(_));
 
     EXPECT_EQ(0, client->utime("/path", &ubuf));
 }
@@ -535,7 +529,7 @@ TEST_F(FsImplTest, write) { // const char *path, const char *buf, size_t size, o
     EXPECT_CALL(*metaCacheMock, updateSize("/path", _)).Times(0);
 
     EXPECT_CALL(*helperMock, sh_write(StrEq("fileid"), StrEq("abcd"), 4, 2, _)).WillOnce(Return(4));
-    EXPECT_CALL(*eventCommunicatorMock, processEvent(_)).Times(1);
+    EXPECT_CALL(*eventCommunicatorMock, processEvent(_));
     EXPECT_EQ(4, client->write("/path", "abcd", 4, 2, &fileInfo));
 
 }
@@ -586,7 +580,7 @@ TEST_F(FsImplTest, flush) { // const char *path, struct fuse_file_info *fileInfo
 
 TEST_F(FsImplTest, release) { // const char *path, struct fuse_file_info *fileInfo
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
-    EXPECT_CALL(*storageMapperMock, releaseFile("/path")).Times(1);
+    EXPECT_CALL(*storageMapperMock, releaseFile("/path"));
     EXPECT_EQ(0, client->release("/path", &fileInfo));
 }
 
@@ -613,7 +607,7 @@ TEST_F(FsImplTest, removexattr) { // const char *path, const char *name
 }
 
 TEST_F(FsImplTest, opendir) { // const char *path, struct fuse_file_info *fileInfo
-    EXPECT_CALL(*jobScheduler, addTask(_)).WillOnce(Return());
+    EXPECT_CALL(*scheduler, post(_));
     EXPECT_EQ(0, client->opendir("/path", &fileInfo));
 }
 
@@ -640,7 +634,7 @@ TEST_F(FsImplTest, processEvent) {
     ASSERT_TRUE((bool) combinerMock);
     EventCommunicator communicator(context, combinerMock);
     EXPECT_CALL(*combinerMock, pushEventToProcess(_)).WillOnce(Return());
-    EXPECT_CALL(*jobScheduler, addTask(_)).WillOnce(Return());
+    EXPECT_CALL(*scheduler, schedule(_, _));
     std::shared_ptr<Event> event = Event::createMkdirEvent("some_file");
 
     ASSERT_TRUE((bool) event);
