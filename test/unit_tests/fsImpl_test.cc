@@ -641,26 +641,55 @@ TEST_F(FsImplTest, processEvent) {
     communicator.processEvent(event);
 }
 
-TEST_F(FsImplTest, shouldWaitForBlocksOnRead) {
-    location.blocks.clear();
-    trueStat.st_size = 100;
+struct FSImplBlockTest: public FsImplTest
+{
+    void SetUp() override
+    {
+        FsImplTest::SetUp();
 
-    EXPECT_CALL(*metaCacheMock, getAttr("/file", _)).WillOnce(DoAll(SetArgPointee<1>(trueStat), Return(true)));
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/file", _, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
-    EXPECT_CALL(*storageMapperMock, waitForBlock("/file", _, _)).WillOnce(Return(true));
+        location.blocks.clear();
+        trueStat.st_size = 100;
 
-    std::array<char, 4> buff;
-    client->read("/file", buff.data(), buff.size(), 0, &fileInfo);
+        ON_CALL(*metaCacheMock, getAttr("/file", _))
+            .WillByDefault(DoAll(SetArgPointee<1>(trueStat), Return(true)));
+
+        EXPECT_CALL(*storageMapperMock, getLocationInfo("/file", _, _))
+            .WillRepeatedly(InvokeWithoutArgs([&] {
+                 return std::make_pair(location, storage);
+             }));
+    }
+
+    std::array<char, 10> buff;
+};
+
+TEST_F(FSImplBlockTest, shouldWaitForBlocksOnRead)
+{
+    EXPECT_CALL(*storageMapperMock, waitForBlock("/file", _, _))
+        .WillOnce(Return(true));
+
+    client->read("/file", buff.data(), 3, 0, &fileInfo);
 }
 
-TEST_F(FsImplTest, shouldRequestAFileBlockIfMissing) {
-    location.blocks.clear();
-    trueStat.st_size = 100;
+TEST_F(FSImplBlockTest, shouldRequestAFileBlockIfMissing)
+{
+    EXPECT_CALL(*fslogicMock, requestFileBlock("/file", 0, _));
+    client->read("/file", buff.data(), 4, 0, &fileInfo);
 
-    EXPECT_CALL(*metaCacheMock, getAttr("/file", _)).WillOnce(DoAll(SetArgPointee<1>(trueStat), Return(true)));
-    EXPECT_CALL(*storageMapperMock, getLocationInfo("/file", _, _)).WillRepeatedly(Return(std::make_pair(location, storage)));
-    EXPECT_CALL(*fslogicMock, requestFileBlock("/file", _, _));
+    location.blocks += boost::icl::discrete_interval<off_t>::closed(2, 5);
+    EXPECT_CALL(*fslogicMock, requestFileBlock("/file", Le(3), _));
+    client->read("/file", buff.data(), 4, 0, &fileInfo);
+}
 
-    std::array<char, 4> buff;
+TEST_F(FSImplBlockTest, shouldNotBlockOnAvailableBlock)
+{
+    location.blocks += boost::icl::discrete_interval<off_t>::closed(0, 3);
+    EXPECT_CALL(*fslogicMock, requestFileBlock("/file", _, _)).Times(0);
+    client->read("/file", buff.data(), 4, 0, &fileInfo);
+}
+
+TEST_F(FSImplBlockTest, shouldImmediatelyReturnDataIfPossible)
+{
+    location.blocks += boost::icl::discrete_interval<off_t>::closed(0, 3);
+    EXPECT_CALL(*helperMock, sh_read(_, _, 3, 0, _));
     client->read("/file", buff.data(), buff.size(), 0, &fileInfo);
 }

@@ -603,9 +603,16 @@ int FsImpl::read(const char *path, char *buf, size_t size, off_t offset, struct 
     { // make sure that we have anything to read
         GET_LOCATION_INFO(path, false, false);
 
-        const auto block = lInfo.blocks.find(offset);
-        if (block == lInfo.blocks.end()) {
+        const auto wantedBlock = boost::icl::discrete_interval<off_t>(offset, offset + size);
+        const auto availableBlock = lInfo.blocks.lower_bound(wantedBlock);
+
+        if (availableBlock == lInfo.blocks.end() || !boost::icl::contains(*availableBlock, wantedBlock))
+        {
             m_fslogic->requestFileBlock(path, offset, size);
+        }
+
+        if (availableBlock == lInfo.blocks.end() || !boost::icl::contains(*availableBlock, offset))
+        {
             if (!m_context->getStorageMapper()->waitForBlock(path, offset))
                 return -EIO;
         }
@@ -616,8 +623,10 @@ int FsImpl::read(const char *path, char *buf, size_t size, off_t offset, struct 
     if (block == lInfo.blocks.end())
         return -EIO;
 
+    const auto toRead = std::min<size_t>(size, boost::icl::last(*block) - offset);
+
     auto sh = m_shCache.get(fileInfo->fh).get();
-    CUSTOM_SH_RUN(sh, sh_read(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
+    CUSTOM_SH_RUN(sh, sh_read(lInfo.fileId.c_str(), buf, toRead, offset, fileInfo));
 
     std::shared_ptr<events::Event> writeEvent = events::Event::createReadEvent(path, sh_return);
     m_eventCommunicator->processEvent(writeEvent);
