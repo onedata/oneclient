@@ -5,60 +5,51 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.h"
 #include "erlTestCore.h"
-#include "boost/filesystem.hpp"
+#include "fslogicProxy.h"
+#include "oneErrors.h"
+#include "testCommon.h"
+
+#include <boost/filesystem.hpp>
 
 using namespace boost::filesystem;
-using namespace std;
-
-INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
 
 // TEST definitions below
 
-class SampleTest 
-    : public ::testing::Test 
+class SampleTest: public CommonIntegrationTest
 {
 protected:
-    COMMON_INTEGRATION_DEFS();
-
-    VeilFSMount VFS;
-
     path directIO_root;
 
     // Mount file system in "main" subdir with "peer.pem" cert
-    // use VFS.getRoot() to get absolute mount point
-    SampleTest() : VFS("main", "peer.pem") 
+    // use onedataMount->getRoot() to get absolute mount point
+    SampleTest()
+        : CommonIntegrationTest{std::unique_ptr<one::testing::FsImplMount>{new one::testing::FsImplMount{"main", "peer.pem"}}}
     {
     }
 
-    virtual void SetUp() {
-
-        // Initialization of the whole client. 
-        // This initialization is not required if test uses only filesystem (theres no VeilClient code calls)
-        COMMON_INTEGRATION_SETUP();
+    void SetUp() override
+    {
+        // Initialization of the whole client.
+        // This initialization is not required if test uses only filesystem (theres no oneclient code calls)
+        CommonIntegrationTest::SetUp();
     }
-
-    virtual void TearDown() {
-        COMMON_INTEGRATION_CLEANUP();
-    }
-
 };
 
 // This test shows how you can call sample_test:exec/1 method on cluster environment
 TEST_F(SampleTest, clusterCommandExec) {
-    EXPECT_EQ(string("/tmp/dio"), erlExec("{env, \"DIO_ROOT\"}"));
+    EXPECT_EQ(std::string("/tmp/dio"), one::testing::erlExec("{env, \"DIO_ROOT\"}"));
 }
 
-// VFS.getRoot() is set to the root of mounted VeilFS. Therefore you can just 
-// manage some files in order to test whole VeilClient behaviourally 
+// onedataMount->getRoot() is set to the root of mounted FsImpl. Therefore you can just
+// manage some files in order to test whole oneclient behaviourally
 TEST_F(SampleTest, mkdirExample) {
-    EXPECT_EQ(0, ::system(("mkdir " + VFS.getRoot() + "/testDir").c_str()));
-    EXPECT_EQ(0, ::system(("rm -rf " + VFS.getRoot() + "/testDir").c_str()));
+    EXPECT_EQ(0, ::system(("mkdir " + onedataMount->getRoot() + "/testDir").c_str()));
+    EXPECT_EQ(0, ::system(("rm -rf " + onedataMount->getRoot() + "/testDir").c_str()));
 }
 
 TEST_F(SampleTest, fileExample) {
-    EXPECT_EQ(0, ::system(("touch " + VFS.getRoot() + "/file").c_str()));
+    EXPECT_EQ(0, ::system(("touch " + onedataMount->getRoot() + "/file").c_str()));
 }
 
 TEST_F(SampleTest, fslogicExample) {

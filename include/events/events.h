@@ -1,6 +1,8 @@
-#ifndef EVENTS_H
-#define EVENTS_H
+#ifndef ONECLIENT_EVENTS_H
+#define ONECLIENT_EVENTS_H
 
+
+#include "events/event.h"
 #include "events/IEventStreamFactory.h"
 #include "events/eventStreamCombiner.h"
 #include "events/eventCommunicator.h"
@@ -11,4 +13,5 @@
 #include "events/eventTransformer.h"
 #include "events/customActionStream.h"
 
-#endif // EVENTS_H
+
+#endif // ONECLIENT_EVENTS_H

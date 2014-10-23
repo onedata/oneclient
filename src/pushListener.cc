@@ -7,20 +7,25 @@
 
 #include "pushListener.h"
 
+#include "communication/communicator.h"
+#include "communication/exception.h"
+#include "config.h"
 #include "context.h"
-#include "veilErrors.h"
-#include "jobScheduler.h"
-#include "veilfs.h"
-#include "logging.h"
+#include "fslogicProxy.h"
 #include "fuse_messages.pb.h"
+#include "logging.h"
+#include "oneErrors.h"
+#include "fsImpl.h"
 
 #include <cassert>
 
-using namespace veil::protocol::communication_protocol;
-using namespace veil::protocol::fuse_messages;
+using namespace one::clproto::communication_protocol;
+using namespace one::clproto::fuse_messages;
 
-namespace veil {
-namespace client {
+namespace one
+{
+namespace client
+{
 
     PushListener::PushListener(std::weak_ptr<Context> context)
         : m_currentSubId(0)
@@ -28,30 +33,30 @@ namespace client {
         , m_context{std::move(context)}
     {
         // Start worker thread
-        m_worker = boost::thread(boost::bind(&PushListener::mainLoop, this));
-        LOG(INFO) << "PUSH Listener has beed constructed.";
+        m_worker = std::thread(&PushListener::mainLoop, this);
+        LOG(INFO) << "PUSH Listener has been constructed.";
     }
 
     PushListener::~PushListener()
     {
-        LOG(INFO) << "PUSH Listener has beed stopped.";
+        LOG(INFO) << "PUSH Listener has been stopped.";
         m_isRunning = false;
         m_queueCond.notify_all();
         m_worker.join();
     }
 
-    void PushListener::onMessage(const protocol::communication_protocol::Answer msg)
+    void PushListener::onMessage(const Answer &msg)
     {
-        boost::unique_lock<boost::mutex> lock(m_queueMutex);
+        std::lock_guard<std::mutex> guard{m_queueMutex};
         m_msgQueue.push_back(msg);
         m_queueCond.notify_all();
     }
 
     void PushListener::mainLoop()
     {
-        LOG(INFO) << "PUSH Listener has beed successfully started!";
+        LOG(INFO) << "PUSH Listener has been successfully started!";
         while(m_isRunning) {
-            boost::unique_lock<boost::mutex> lock(m_queueMutex);
+            std::unique_lock<std::mutex> lock(m_queueMutex);
 
             if(m_msgQueue.empty())
                 m_queueCond.wait(lock);
@@ -68,14 +73,12 @@ namespace client {
                 LOG(INFO) << "Got PUSH message ID: " << msg.message_id() << ". Passing to " << m_listeners.size() << " listeners.";
 
                 // Dispatch message to all subscribed listeners
-                boost::unordered_map<int, listener_fun>::iterator it = m_listeners.begin();
-                while(it != m_listeners.end())
+                for(auto it = m_listeners.begin(); it != m_listeners.end();)
                 {
-                    if (!(*it).second || !(*it).second(msg)) {
+                    if (!(*it).second || !(*it).second(msg))
                         it = m_listeners.erase(it);
-                    } else {
+                    else
                         ++it;
-                    }
                 }
             } else {
                 LOG(INFO) << "Got ERROR message ID: " << msg.message_id() << ". Status: " << msg.answer_status();
@@ -86,14 +89,14 @@ namespace client {
 
     int PushListener::subscribe(listener_fun fun)
     {
-        boost::unique_lock<boost::mutex> lock(m_queueMutex);
-        m_listeners.insert(std::make_pair(m_currentSubId, fun));
+        std::lock_guard<std::mutex> guard{m_queueMutex};
+        m_listeners.emplace(std::make_pair(m_currentSubId, std::move(fun)));
         return m_currentSubId++;
     }
 
     void PushListener::unsubscribe(int subId)
     {
-        boost::unique_lock<boost::mutex> lock(m_queueMutex);
+        std::lock_guard<std::mutex> guard{m_queueMutex};
         m_listeners.erase(subId);
     }
 
@@ -108,32 +111,28 @@ namespace client {
         }
     }
 
-    void PushListener::sendPushMessageAck(const std::string & moduleName, int messageId){
-        protocol::communication_protocol::ClusterMsg clm;
-        clm.set_protocol_version(PROTOCOL_VERSION);
-        clm.set_synch(false);
-        clm.set_module_name(moduleName);
-        clm.set_message_type(ATOM);
-        clm.set_answer_type(ATOM); // this value does not matter because we do not expect answer and server is not going to send anything in reply to PUSH_MESSAGE_ACK
-        clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
-        clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL); // this value does not matter because we do not expect answer and server is not going to send anything in reply to PUSH_MESSAGE_ACK
-        clm.set_message_id(messageId);
-
-        protocol::communication_protocol::Atom msg;
+    void PushListener::sendPushMessageAck(const Answer &pushMessage,
+                                          const communication::ServerModule module)
+    {
+        clproto::communication_protocol::Atom msg;
         msg.set_value(PUSH_MESSAGE_ACK);
-        clm.set_input(msg.SerializeAsString());
 
         auto context = m_context.lock();
         assert(context);
-        boost::shared_ptr<CommunicationHandler> connection = context->getConnectionPool()->selectConnection();
 
-        try {
-            connection->sendMessage(clm, messageId);
+        auto communicator = context->getCommunicator();
+
+        try
+        {
+            communicator->reply(pushMessage, module, msg);
             DLOG(INFO) << "push message ack sent successfully";
-        } catch(CommunicationHandler::ConnectionStatus &connectionStatus) {
-            LOG(WARNING) << "Cannot send ack for push message with messageId: " << messageId << ", connectionsStatus: " << connectionStatus;
+        }
+        catch(communication::Exception &e)
+        {
+            LOG(WARNING) << "Cannot send ack for push message with messageId: " <<
+                            pushMessage.message_id() << ", error: " << e.what();
         }
     }
 
 } // namespace client
-} // namespace veil
+} // namespace one

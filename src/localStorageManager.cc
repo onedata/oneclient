@@ -7,32 +7,37 @@
 
 #include "localStorageManager.h"
 
-#include "context.h"
-#include "config.h"
-#include "veilfs.h"
-#include "logging.h"
 #include "communication_protocol.pb.h"
+#include "communication/communicator.h"
+#include "communication/exception.h"
+#include "config.h"
+#include "context.h"
 #include "fuse_messages.pb.h"
+#include "logging.h"
+#include "fsImpl.h"
 
-#include <random>
-#include <algorithm>
-#include <iterator>
 #include <boost/algorithm/string.hpp>
-#include <boost/shared_ptr.hpp>
-#include <boost/tokenizer.hpp>
-#include <boost/lexical_cast.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/tokenizer.hpp>
 #include <google/protobuf/descriptor.h>
 
-using boost::filesystem::path;
-using namespace veil::protocol::fuse_messages;
-using namespace veil::protocol::communication_protocol;
+#include <algorithm>
+#include <iterator>
+#include <memory>
+#include <random>
 
-namespace veil {
+using boost::filesystem::path;
+using namespace one::clproto::fuse_messages;
+using namespace one::clproto::communication_protocol;
+
+namespace one {
 namespace client {
 
 LocalStorageManager::LocalStorageManager(std::shared_ptr<Context> context)
     : m_context{std::move(context)}
+    , m_messageBuilder{MessageBuilder{context}}
 {
 }
 
@@ -50,7 +55,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
     if(fs_num < 0)
     {
         LOG(ERROR) << "Can not count mounted filesystems.";
-        return std::move(mountPoints);
+        return mountPoints;
     }
 
     std::vector<struct statfs> stats(fs_num);
@@ -59,7 +64,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
     if(stat_num < 0)
     {
         LOG(ERROR) << "Can not get fsstat.";
-        return std::move(mountPoints);
+        return mountPoints;
     }
 
     for(const auto &stat : stats)
@@ -71,7 +76,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
         }
     }
 
-    return std::move(mountPoints);
+    return mountPoints;
 }
 
 #else
@@ -81,14 +86,14 @@ std::vector<path> LocalStorageManager::getMountPoints()
     std::vector<path> mountPoints;
 
     FILE *file = setmntent(MOUNTS_INFO_FILE_PATH, "r");
-    if(file == NULL)
+    if(file == nullptr)
     {
         LOG(ERROR) << "Can not parse /proc/mounts file.";
-        return std::move(mountPoints);
+        return mountPoints;
     }
 
     struct mntent *ent;
-    while ((ent = getmntent(file)) != NULL)
+    while ((ent = getmntent(file)) != nullptr)
     {
         std::string type(ent->mnt_type);
         if(type.compare(0, 4, "fuse") != 0)
@@ -99,7 +104,7 @@ std::vector<path> LocalStorageManager::getMountPoints()
 
     endmntent(file);
 
-    return std::move(mountPoints);
+    return mountPoints;
 }
 
 #endif
@@ -146,7 +151,7 @@ std::vector< std::pair<int, std::string> > LocalStorageManager::parseStorageInfo
         }
     }
 
-    return std::move(storageInfo);
+    return storageInfo;
 }
 
 std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorageInfo(const std::vector<path> &mountPoints)
@@ -196,7 +201,7 @@ std::vector< std::pair<int, std::string> > LocalStorageManager::getClientStorage
             clientStorageInfo.push_back(std::make_pair(storageId, absolutePath));
         }
     }
-    return std::move(clientStorageInfo);
+    return clientStorageInfo;
 }
 
 bool LocalStorageManager::sendClientStorageInfo(const std::vector< std::pair<int, std::string> > &clientStorageInfo)
@@ -205,32 +210,31 @@ bool LocalStorageManager::sendClientStorageInfo(const std::vector< std::pair<int
     ClientStorageInfo reqMsg;
     ClientStorageInfo::StorageInfo *storageInfo;
     Atom resMsg;
-    Answer ans;
 
-    MessageBuilder builder{m_context};
-    boost::shared_ptr<CommunicationHandler> conn;
+    auto communicator = m_context->getCommunicator();
 
-	conn = m_context->getConnectionPool()->selectConnection();
-	if(conn)
-	{
-	    // Build ClientStorageInfo message
-		for(const auto &info : clientStorageInfo)
-		{
-		    storageInfo = reqMsg.add_storage_info();
-		    storageInfo->set_storage_id(info.first);
-		    storageInfo->set_absolute_path(info.second);
-		    LOG(INFO) << "Sending client storage info: {" << info.first << ", " << info.second << "}";
-		}
-		ClusterMsg cMsg = builder.packFuseMessage(ClientStorageInfo::descriptor()->name(), Atom::descriptor()->name(), COMMUNICATION_PROTOCOL, reqMsg.SerializeAsString());
+    try
+    {
+        // Build ClientStorageInfo message
+        for(const auto &info : clientStorageInfo)
+        {
+            storageInfo = reqMsg.add_storage_info();
+            storageInfo->set_storage_id(info.first);
+            storageInfo->set_absolute_path(info.second);
+            LOG(INFO) << "Sending client storage info: {" << info.first << ", " << info.second << "}";
+        }
+
         // Send ClientStorageInfo message
-		ans = conn->communicate(cMsg, 2);
-		// Check answer
-		if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
-		{
-			return resMsg.value() == "ok";
-		}
-		else if(ans.answer_status() == NO_USER_FOUND_ERROR)
-		{
+        auto fuseMsg = m_messageBuilder.createFuseMessage(reqMsg);
+        auto ans = communicator->communicate<>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
+
+        // Check answer
+        if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
+        {
+            return resMsg.value() == "ok";
+        }
+        else if(ans->answer_status() == NO_USER_FOUND_ERROR)
+        {
             LOG(ERROR) << "Cannot find user in database.";
         }
         else
@@ -238,10 +242,11 @@ bool LocalStorageManager::sendClientStorageInfo(const std::vector< std::pair<int
             LOG(ERROR) << "Cannot send client storage info.";
         }
     }
-    else
+    catch(communication::Exception &e)
     {
-        LOG(ERROR) << "Cannot select connection for storage test file creation";
+        LOG(ERROR) << "Cannot select connection for storage test file creation: " << e.what();
     }
+
     return false;
 }
 
@@ -250,27 +255,23 @@ boost::optional< std::pair<std::string, std::string> > LocalStorageManager::crea
     ClusterMsg cMsg;
     CreateStorageTestFileRequest reqMsg;
     CreateStorageTestFileResponse resMsg;
-    Answer ans;
     boost::optional< std::pair<std::string, std::string> > result;
 
-    MessageBuilder builder{m_context};
-    boost::shared_ptr<CommunicationHandler> conn;
+    auto communicator = m_context->getCommunicator();
 
-    conn = m_context->getConnectionPool()->selectConnection();
-    if(conn)
+    try
     {
-        // Build CreateStorageTestFileRequest message
         reqMsg.set_storage_id(storageId);
-        ClusterMsg cMsg = builder.packFuseMessage(CreateStorageTestFileRequest::descriptor()->name(), CreateStorageTestFileResponse::descriptor()->name(), FUSE_MESSAGES, reqMsg.SerializeAsString());
-        // Send CreateStorageTestFileRequest message
-        ans = conn->communicate(cMsg, 2);
-    	// Check answer
-        if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
+
+        auto fuseMsg = m_messageBuilder.createFuseMessage(reqMsg);
+        auto ans = communicator->communicate<CreateStorageTestFileResponse>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
+
+        if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
         {
-			result.reset({resMsg.relative_path(), resMsg.text()});
-		}
-		else if(ans.answer_status() == NO_USER_FOUND_ERROR)
-		{
+            result.reset({resMsg.relative_path(), resMsg.text()});
+        }
+        else if(ans->answer_status() == NO_USER_FOUND_ERROR)
+        {
             LOG(ERROR) << "Cannot find user in database.";
         }
         else
@@ -278,10 +279,11 @@ boost::optional< std::pair<std::string, std::string> > LocalStorageManager::crea
             LOG(ERROR) << "Cannot create test file for storage with id: " << storageId;
         }
     }
-    else
+    catch(communication::Exception &e)
     {
-        LOG(ERROR) << "Cannot select connection for storage test file creation";
+        LOG(ERROR) << "Cannot select connection for storage test file creation: " << e.what();
     }
+
     return result;
 }
 
@@ -330,26 +332,23 @@ bool LocalStorageManager::hasClientStorageWritePermission(const int storageId, c
     StorageTestFileModifiedResponse resMsg;
     Answer ans;
 
-    MessageBuilder builder{m_context};
-    boost::shared_ptr<CommunicationHandler> conn;
+    auto communicator = m_context->getCommunicator();
 
-    conn = m_context->getConnectionPool()->selectConnection();
-    if(conn)
+    try
     {
-        // Build CreateStorageTestFileRequest message
         reqMsg.set_storage_id(storageId);
         reqMsg.set_relative_path(relativePath);
         reqMsg.set_text(text);
-        ClusterMsg cMsg = builder.packFuseMessage(StorageTestFileModifiedRequest::descriptor()->name(), StorageTestFileModifiedResponse::descriptor()->name(), FUSE_MESSAGES, reqMsg.SerializeAsString());
-        // Send CreateStorageTestFileRequest message
-        ans = conn->communicate(cMsg, 2);
-    	// Check answer
-        if(ans.answer_status() == VOK && resMsg.ParseFromString(ans.worker_answer()))
+
+        auto fuseMsg = m_messageBuilder.createFuseMessage(reqMsg);
+        auto ans = communicator->communicate<StorageTestFileModifiedResponse>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
+
+        if(ans->answer_status() == VOK && resMsg.ParseFromString(ans->worker_answer()))
         {
             return resMsg.answer();
-    	}
-    	else if(ans.answer_status() == NO_USER_FOUND_ERROR)
-    	{
+        }
+        else if(ans->answer_status() == NO_USER_FOUND_ERROR)
+        {
             LOG(ERROR) << "Cannot find user in database.";
         }
         else
@@ -357,12 +356,13 @@ bool LocalStorageManager::hasClientStorageWritePermission(const int storageId, c
             LOG(ERROR) << "Cannot check client write permission for storage with id: " << storageId;
         }
     }
-    else
+    catch(communication::Exception &e)
     {
-        LOG(ERROR) << "Cannot select connection for storage test file creation";
+        LOG(ERROR) << "Cannot select connection for storage test file creation: " << e.what();
     }
+
     return false;
 }
 
 } // namespace client
-} // namespace veil
+} // namespace one

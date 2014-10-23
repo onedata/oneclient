@@ -6,65 +6,67 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef FSLOGIC_PROXY_H
-#define FSLOGIC_PROXY_H
+#ifndef ONECLIENT_FSLOGIC_PROXY_H
+#define ONECLIENT_FSLOGIC_PROXY_H
+
+
+#include <google/protobuf/message.h>
+#include <sys/statvfs.h>
+#include <sys/types.h>
 
 #include <vector>
-#include <list>
-#include <google/protobuf/repeated_field.h>
-#include <boost/shared_ptr.hpp>
 #include <memory>
-#include <sys/statvfs.h>
 
-#include "fuse_messages.pb.h"
-#include "communication_protocol.pb.h"
-#include "communicationHandler.h"
-#include "messageBuilder.h"
-#include "lock.h"
-#include "ISchedulable.h"
-#include "simpleConnectionPool.h"
+namespace one
+{
 
-/// How many secs before expiration should focation mapping be renewed
-#define RENEW_LOCATION_MAPPING_TIME     30
+namespace clproto
+{
+namespace fuse_messages
+{
+class FileAttr;
+class FileLocation;
+}
+}
 
-#define GET_FILE_ATTR "getfileattr"
-#define GET_FILE_LOCATION "getfilelocation"
-#define GET_NEW_FILE_LOCATION "getnewfilelocation"
-#define RENEW_FILE_LOCATION "renewfilelocation"
-#define GET_FILE_CHILDREN "getfilechildren"
-#define FILE_CHILDREN "filechildren"
-#define FILE_ATTR "fileattr"
-#define FILE_LOCATION "filelocation"
-#define CREATE_DIR "createdir"
-#define DELETE_FILE "deletefile"
-#define FILE_NOT_USED "filenotused"
-#define RENAME_FILE "renamefile"
-#define CHANGE_FILE_PERMS "changefileperms"
-#define FILE_LOCATION_VALIDITY "filelocationvalidity"
-#define CREATE_LINK "createlink"
-#define GET_LINK "getlink"
-#define LINK_INFO "linkinfo"
-#define GET_STATFS "getstatfs"
-#define STATFS_INFO "statfsinfo"
+static constexpr const char
+    *GET_FILE_ATTR          = "getfileattr",
+    *GET_FILE_LOCATION      = "getfilelocation",
+    *GET_NEW_FILE_LOCATION  = "getnewfilelocation",
+    *RENEW_FILE_LOCATION    = "renewfilelocation",
+    *GET_FILE_CHILDREN      = "getfilechildren",
+    *FILE_CHILDREN          = "filechildren",
+    *FILE_ATTR              = "fileattr",
+    *FILE_LOCATION          = "filelocation",
+    *CREATE_DIR             = "createdir",
+    *DELETE_FILE            = "deletefile",
+    *FILE_NOT_USED          = "filenotused",
+    *RENAME_FILE            = "renamefile",
+    *CHANGE_FILE_PERMS      = "changefileperms",
+    *FILE_LOCATION_VALIDITY = "filelocationvalidity",
+    *CREATE_LINK            = "createlink",
+    *GET_LINK               = "getlink",
+    *LINK_INFO              = "linkinfo",
+    *GET_STATFS             = "getstatfs",
+    *STATFS_INFO            = "statfsinfo",
 
-#define FUSE_MESSAGE "fusemessage"
-#define ATOM "atom"
-#define PUSH_MESSAGE_ACK "ack"
+    *FUSE_MESSAGE           = "fusemessage",
+    *ATOM                   = "atom",
+    *PUSH_MESSAGE_ACK       = "ack",
 
-#define FSLOGIC "fslogic"
-
-#define ACTION_NOT_ALLOWED "not_allowed"
-#define ACTION_FAILED "action_failed"
+    *ACTION_NOT_ALLOWED     = "not_allowed",
+    *ACTION_FAILED          = "action_failed";
 
 #define READ_MODE "read"
 #define WRITE_MODE "write"
 #define RDWR_MODE "rdwr"
 #define UNSPECIFIED_MODE ""
 
-namespace veil {
-namespace client {
+namespace client
+{
 
 class Context;
+class MessageBuilder;
 
 /**
  * The FslogicProxy class.
@@ -73,30 +75,17 @@ class Context;
  * opened connections there should be only one instance of this class unless you really need connection isolation
  * between successive cluster requests.
  */
-class FslogicProxy : public ISchedulable
+class FslogicProxy: public std::enable_shared_from_this<FslogicProxy>
 {
-
-protected:
-    boost::shared_ptr<MessageBuilder> m_messageBuilder;                ///< MessageBuilder used to construct cluster packets
-    /**
-     * Sends and receives given protobuf message.
-     * High level method used to send serialized protobuf message to cluster and return its response as given by reference object.
-     * Both message and response types have to be subtype of FuseMessage.
-     * @return true only if received response message is initialized (see google::protobuff::Message::IsInitialized())
-     */
-    virtual bool        sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, google::protobuf::Message& response);
-
-    virtual std::string sendFuseReceiveAtom(const google::protobuf::Message& fMsg);     ///< Sends given protobuf message and receives atom.
-                                                                                        ///< This method is simalar to FslogicProxy::sendFuseReceiveAnswer
-                                                                                        ///< But receives simple atom cluster response. @see FslogicProxy::sendFuseReceiveAnswer
-
 public:
-    FslogicProxy(std::shared_ptr<Context> context);
+    FslogicProxy(std::weak_ptr<Context> context);
     virtual ~FslogicProxy();
 
-    virtual bool            getFileAttr(const std::string& logicName, protocol::fuse_messages::FileAttr& attr);                 ///< Downloads file attributes from cluster
-    virtual bool            getFileLocation(const std::string& logicName, protocol::fuse_messages::FileLocation& location, const std::string &openMode = UNSPECIFIED_MODE); ///< Downloads file location info
-    virtual bool            getNewFileLocation(const std::string& logicName, mode_t mode, protocol::fuse_messages::FileLocation& location); ///< Query cluser to create new file in DB and get its real location
+    virtual bool            getFileAttr(const std::string& logicName, clproto::fuse_messages::FileAttr& attr);                 ///< Downloads file attributes from cluster
+    virtual bool            getFileLocation(const std::string& logicName, clproto::fuse_messages::FileLocation& location,
+                                            const std::string &openMode = UNSPECIFIED_MODE, bool forceClusterProxy = false); ///< Downloads file location info
+    virtual bool            getNewFileLocation(const std::string& logicName, mode_t mode,
+                                               clproto::fuse_messages::FileLocation& location, bool forceClusterProxy = false); ///< Query cluser to create new file in DB and get its real location
     virtual std::string     sendFileCreatedAck(const std::string& logicName);                                                   ///< Send acknowledgement about created file to cluster
     virtual int             renewFileLocation(const std::string& logicName);                                                    ///< Try to renew location validity for given file
     virtual bool            getFileChildren(const std::string &dirLogicName, uint32_t children_num, uint32_t offset, std::vector<std::string>& childrenNames);    ///< List files in given folder
@@ -111,16 +100,32 @@ public:
     virtual std::string     changeFileOwner(const std::string &path, uid_t uid, const std::string &uname = "");                 ///< Updates file's owner
     virtual std::string     changeFileGroup(const std::string &path, gid_t gid, const std::string &gname = "");                 ///< Updates file's group owner
     virtual std::pair<std::string, struct statvfs>   getStatFS();   ///< Gets file system statistics
+    virtual bool            requestFileBlock(const std::string &logicalName, const off_t offset, const size_t size);
 
-    virtual void            pingCluster(const std::string &);
+    virtual void            pingCluster();
 
-    virtual bool            runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+protected:
+    /**
+     * Sends and receives given protobuf message.
+     * High level method used to send serialized protobuf message to cluster and return its response as given by reference object.
+     * Both message and response types have to be subtype of FuseMessage.
+     * @return true only if received response message is initialized (see google::protobuff::Message::IsInitialized())
+     */
+    template<typename Ans>
+    bool sendFuseReceiveAnswer(const google::protobuf::Message &fMsg, Ans &response);
+
+    virtual std::string sendFuseReceiveAtom(const google::protobuf::Message& fMsg);     ///< Sends given protobuf message and receives atom.
+                                                                                        ///< This method is simalar to FslogicProxy::sendFuseReceiveAnswer
+                                                                                        ///< But receives simple atom cluster response. @see FslogicProxy::sendFuseReceiveAnswer
+
+    std::unique_ptr<const MessageBuilder> m_messageBuilder;
 
 private:
-    const std::shared_ptr<Context> m_context;
+    const std::weak_ptr<Context> m_context;
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
-#endif // FSLOGIC_PROXY_H
+
+#endif // ONECLIENT_FSLOGIC_PROXY_H

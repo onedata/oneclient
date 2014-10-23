@@ -8,28 +8,28 @@
 #ifndef STORAGE_MAPPER_PROXY_H
 #define STORAGE_MAPPER_PROXY_H
 
+
 #include "storageMapper.h"
-#include "testCommon.h"
 
-#include "context.h"
-
-#include <memory>
-
-class ProxyStorageMapper
-    : public StorageMapper {
-
+class ProxyStorageMapper: public one::client::StorageMapper
+{
 public:
-    ProxyStorageMapper(std::shared_ptr<Context> context,
-                       boost::shared_ptr<FslogicProxy> mock)
-        : StorageMapper(std::move(context), mock) {}
+    ProxyStorageMapper(std::shared_ptr<one::client::Context> context,
+                       std::shared_ptr<one::client::FslogicProxy> mock)
+        : StorageMapper(std::move(context), mock)
+    {
+    }
 
-    map<int, storageInfo>& getStorageMapping() {
+    std::map<int, one::client::StorageInfo>& getStorageMapping()
+    {
         return m_storageMapping;
     }
 
-    map<string, locationInfo>& getFileMapping() {
-        return m_fileMapping;
+    std::size_t getFileMappingSize()
+    {
+        return m_fileMapping.size();
     }
-
 };
+
+
 #endif // STORAGE_MAPPER_PROXY_H

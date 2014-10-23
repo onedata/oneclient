@@ -5,42 +5,42 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#include "testCommon.h"
-#include "storageMapper_proxy.h"
-#include "options_mock.h"
+#include "communication_protocol.pb.h"
 #include "fslogicProxy_mock.h"
-#include "jobScheduler_mock.h"
-#include "veilfs.h"
+#include "helpers/storageHelperFactory.h"
+#include "options_mock.h"
+#include "storageMapper_proxy.h"
+#include "scheduler_mock.h"
+#include "testCommon.h"
+#include "fsImpl.h"
+#include "fuse_messages.pb.h"
+#include "oneException.h"
 
+using namespace ::testing;
+using namespace one;
+using namespace one::client;
+using namespace one::clproto::fuse_messages;
+using namespace one::clproto::communication_protocol;
+using namespace std::literals::chrono_literals;
 
-INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
-
-// TEST definitions below
-
-class StorageMapperTest
-    : public ::testing::Test {
-
+class StorageMapperTest: public CommonTest
+{
 protected:
-    COMMON_DEFS();
-    boost::shared_ptr<MockFslogicProxy> mockFslogic;
-    boost::shared_ptr<ProxyStorageMapper> proxy;
+    std::shared_ptr<MockFslogicProxy> mockFslogic;
+    std::shared_ptr<ProxyStorageMapper> proxy;
 
-    virtual void SetUp() {
-        COMMON_SETUP();
-        mockFslogic.reset(new MockFslogicProxy(context));
-        proxy.reset(new ProxyStorageMapper(context, mockFslogic));
-
+    void SetUp() override
+    {
+        CommonTest::SetUp();
+        mockFslogic = std::make_shared<MockFslogicProxy>(context);
+        proxy = std::make_shared<ProxyStorageMapper>(context, mockFslogic);
+        ON_CALL(*scheduler, schedule(_, _)).WillByDefault(Return([]{}));
     }
-
-    virtual void TearDown() {
-        COMMON_CLEANUP();
-    }
-
 };
 
 TEST_F(StorageMapperTest, AddAndGet) {
     EXPECT_EQ(0u, proxy->getStorageMapping().size());
-    EXPECT_EQ(0u, proxy->getFileMapping().size());
+    EXPECT_EQ(0u, proxy->getFileMappingSize());
 
     FileLocation location;
     location.set_validity(10);
@@ -48,18 +48,18 @@ TEST_F(StorageMapperTest, AddAndGet) {
     location.add_storage_helper_args("arg0");
     location.add_storage_helper_args("arg1");
 
-    EXPECT_THROW(proxy->getLocationInfo("/file1"), VeilException);
-    EXPECT_CALL(*scheduler, addTask(_)).Times(2);
+    EXPECT_THROW(proxy->getLocationInfo("/file1"), OneException);
+    EXPECT_CALL(*scheduler, schedule(_, _)).Times(2);
     proxy->addLocation("/file1", location);
     EXPECT_EQ(1u, proxy->getStorageMapping().size());
-    EXPECT_EQ(1u, proxy->getFileMapping().size());
+    EXPECT_EQ(1u, proxy->getFileMappingSize());
 
-    EXPECT_CALL(*scheduler, addTask(_)).Times(2);
+    EXPECT_CALL(*scheduler, schedule(_, _)).Times(2);
     proxy->addLocation("/file1", location);
     EXPECT_EQ(1u, proxy->getStorageMapping().size());
-    EXPECT_EQ(1u, proxy->getFileMapping().size());
+    EXPECT_EQ(1u, proxy->getFileMappingSize());
 
-    EXPECT_THROW(proxy->getLocationInfo("/file0"), VeilException);
+    EXPECT_THROW(proxy->getLocationInfo("/file0"), OneException);
     EXPECT_NO_THROW(proxy->getLocationInfo("/file1"));
 
     location.set_validity(20);
@@ -67,12 +67,12 @@ TEST_F(StorageMapperTest, AddAndGet) {
     location.clear_storage_helper_args();
     location.add_storage_helper_args("arg2");
     location.add_storage_helper_args("arg3");
-    EXPECT_CALL(*scheduler, addTask(_)).Times(2);
+    EXPECT_CALL(*scheduler, schedule(_, _)).Times(2);
     proxy->addLocation("/file2", location);
     EXPECT_NO_THROW(proxy->getLocationInfo("/file2"));
 
-    pair<locationInfo, storageInfo> ret1 = proxy->getLocationInfo("/file1");
-    pair<locationInfo, storageInfo> ret2 = proxy->getLocationInfo("/file2");
+    std::pair<LocationInfo, StorageInfo> ret1 = proxy->getLocationInfo("/file1");
+    std::pair<LocationInfo, StorageInfo> ret2 = proxy->getLocationInfo("/file2");
     EXPECT_EQ(1, ret1.first.storageId);
     EXPECT_EQ(2, ret2.first.storageId);
 
@@ -81,16 +81,17 @@ TEST_F(StorageMapperTest, AddAndGet) {
 }
 
 TEST_F(StorageMapperTest, OpenClose) {
-    EXPECT_CALL(*scheduler, addTask(_)).Times(4);
+    EXPECT_CALL(*scheduler, schedule(_, _)).Times(4);
     EXPECT_CALL(*mockFslogic, sendFileNotUsed("/file1")).WillOnce(Return(true));
     EXPECT_CALL(*mockFslogic, sendFileNotUsed("/file2")).WillOnce(Return(true));
 
     FileLocation location;
     proxy->addLocation("/file1", location);
+    location.set_file_id("location");
     proxy->addLocation("/file2", location);
 
-    pair<locationInfo, storageInfo> ret1 = proxy->getLocationInfo("/file1");
-    pair<locationInfo, storageInfo> ret2 = proxy->getLocationInfo("/file2");
+    std::pair<LocationInfo, StorageInfo> ret1 = proxy->getLocationInfo("/file1");
+    std::pair<LocationInfo, StorageInfo> ret2 = proxy->getLocationInfo("/file2");
 
     EXPECT_EQ(0, ret1.first.opened);
     EXPECT_EQ(0, ret2.first.opened);
@@ -113,36 +114,139 @@ TEST_F(StorageMapperTest, OpenClose) {
     proxy->releaseFile("/file1");
     proxy->releaseFile("/file2");
 
-    EXPECT_THROW(proxy->getLocationInfo("/file1"), VeilException);
-    EXPECT_THROW(proxy->getLocationInfo("/file2"), VeilException);
+    EXPECT_THROW(proxy->getLocationInfo("/file1"), OneException);
+    EXPECT_THROW(proxy->getLocationInfo("/file2"), OneException);
 }
 
 TEST_F(StorageMapperTest, FindAndGet) {
-    EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _, _)).WillOnce(Return(false));
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _, _, _)).WillOnce(Return(false));
     EXPECT_NE(VOK, proxy->findLocation("/file1"));
 
     FileLocation location;
     location.set_answer(VEACCES);
-    EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
     EXPECT_EQ(VEACCES, proxy->findLocation("/file1"));
 
-    EXPECT_THROW(proxy->getLocationInfo("/file1"), VeilException);
+    EXPECT_THROW(proxy->getLocationInfo("/file1"), OneException);
     location.set_answer(VOK);
     location.set_validity(20);
-    time_t currentTime = time(NULL);
-    EXPECT_CALL(*scheduler, addTask(_)).Times(2);
-    EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
+
+    EXPECT_CALL(*scheduler, schedule(_, _)).Times(2);
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file1", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
     EXPECT_EQ(VOK, proxy->findLocation("/file1"));
 
     EXPECT_NO_THROW(proxy->getLocationInfo("/file1"));
-    EXPECT_THROW(proxy->getLocationInfo("/file2"), VeilException);
+    EXPECT_THROW(proxy->getLocationInfo("/file2"), OneException);
 
-    EXPECT_GE(currentTime + 20, proxy->getLocationInfo("/file1").first.validTo);
+    auto currentTime = std::chrono::steady_clock::now();
+    EXPECT_TRUE(currentTime + 20s >= proxy->getLocationInfo("/file1").first.validTo);
 
-    EXPECT_CALL(*mockFslogic, getFileLocation("/file2", _, _)).WillOnce(Return(false));
-    EXPECT_THROW(proxy->getLocationInfo("/file2", true), VeilException);
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file2", _, _, _)).WillOnce(Return(false));
+    EXPECT_THROW(proxy->getLocationInfo("/file2", true), OneException);
 
-    EXPECT_CALL(*scheduler, addTask(_)).Times(2);
-    EXPECT_CALL(*mockFslogic, getFileLocation("/file2", _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
+    location.set_file_id("other");
+    EXPECT_CALL(*scheduler, schedule(_, _)).Times(2);
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file2", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
     EXPECT_NO_THROW(proxy->getLocationInfo("/file2", true));
+}
+
+TEST_F(StorageMapperTest, ShouldHandleBlocksAvailableMessages) {
+    FileLocation location;
+    location.set_answer(VOK);
+    location.set_validity(20);
+    location.set_storage_id(1);
+    location.set_file_id("123");
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
+
+    const auto info = proxy->getLocationInfo("/file", true);
+    ASSERT_TRUE(info.first.blocks.empty());
+
+    FileLocation::BlockAvailability block;
+    block.set_offset(0);
+    block.set_size(100);
+
+    BlocksAvailable msg;
+    msg.add_blocks()->CopyFrom(block);
+    msg.set_storage_id(1);
+    msg.set_file_id("123");
+
+    Answer ans;
+    ans.set_answer_status(VOK);
+    ans.set_message_type(msg.descriptor()->name());
+    msg.SerializeToString(ans.mutable_worker_answer());
+
+    proxy->handlePushMessage(ans);
+
+    const auto updatedInfo = proxy->getLocationInfo("/file", true);
+    ASSERT_EQ(100u, updatedInfo.first.blocks.size());
+    ASSERT_NE(updatedInfo.first.blocks.end(),
+              updatedInfo.first.blocks.find(boost::icl::discrete_interval<off_t>::right_open(0, 100)));
+}
+
+TEST_F(StorageMapperTest, ShouldWaitForABlock) {
+    FileLocation location;
+    location.set_answer(VOK);
+    location.set_validity(20);
+    location.set_storage_id(1);
+    location.set_file_id("123");
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
+
+    proxy->getLocationInfo("/file", true);
+
+    std::thread t{[=]{
+        ASSERT_TRUE(proxy->waitForBlock("/file", 0));
+    }};
+
+    FileLocation::BlockAvailability block;
+    block.set_offset(0);
+    block.set_size(100);
+
+    BlocksAvailable msg;
+    msg.add_blocks()->CopyFrom(block);
+    msg.set_storage_id(1);
+    msg.set_file_id("123");
+
+    Answer ans;
+    ans.set_answer_status(VOK);
+    ans.set_message_type(msg.descriptor()->name());
+    msg.SerializeToString(ans.mutable_worker_answer());
+
+    proxy->handlePushMessage(ans);
+
+    t.join();
+}
+
+TEST_F(StorageMapperTest, ShouldTimeoutOnWaitingForABlockIfNoBlockArrives) {
+    FileLocation location;
+    location.set_answer(VOK);
+    location.set_validity(20);
+    location.set_storage_id(1);
+    location.set_file_id("123");
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
+
+    proxy->getLocationInfo("/file", true);
+
+    const auto then = std::chrono::steady_clock::now();
+    ASSERT_FALSE(proxy->waitForBlock("/file", 0, 20ms));
+    ASSERT_TRUE(then + 20ms <= std::chrono::steady_clock::now());
+}
+
+TEST_F(StorageMapperTest, ShouldSetBlocksAsAvailableOnAddFileMapping) {
+    FileLocation::BlockAvailability block;
+    block.set_offset(0);
+    block.set_size(100);
+
+    FileLocation location;
+    location.set_answer(VOK);
+    location.set_validity(20);
+    location.set_storage_id(1);
+    location.set_file_id("123");
+    location.add_available()->CopyFrom(block);
+
+    EXPECT_CALL(*mockFslogic, getFileLocation("/file", _, _, _)).WillOnce(DoAll(SetArgReferee<1>(location), Return(true)));
+
+    const auto info = proxy->getLocationInfo("/file", true);
+    ASSERT_EQ(100u, info.first.blocks.size());
+    ASSERT_NE(info.first.blocks.end(),
+              info.first.blocks.find(boost::icl::discrete_interval<off_t>::right_open(0, 100)));
 }

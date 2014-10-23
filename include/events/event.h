@@ -6,33 +6,39 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef EVENT_H
-#define EVENT_H
+#ifndef ONECLIENT_EVENT_H
+#define ONECLIENT_EVENT_H
 
-#include "fuse_messages.pb.h"
-
-#include <boost/shared_ptr.hpp>
 
 #include <map>
+#include <memory>
 #include <string>
 
-namespace veil {
-namespace client {
-namespace events {
+namespace one
+{
 
-typedef long long NumericProperty;
+namespace clproto{ namespace fuse_messages { class EventMessage; } }
+
+namespace client
+{
+namespace events
+{
+
+using NumericProperty = long long;
 
 /**
  * Class Event is key-value container for events.
  * It can store numerical and string values.
  * TODO: consider making it immutable.
  */
-class Event{
+class Event
+{
 public:
-    Event();
+    Event() = default;
     Event(const Event & anotherEvent);
+    virtual ~Event() = default;
 
-    virtual boost::shared_ptr< ::veil::protocol::fuse_messages::EventMessage> createProtoMessage(); ///< Creates protocol buffer message representing Event.
+    virtual std::shared_ptr< ::one::clproto::fuse_messages::EventMessage> createProtoMessage(); ///< Creates protocol buffer message representing Event.
 
     /* Access methods for m_numericProperties */
     NumericProperty getNumericProperty(const std::string & key, const NumericProperty defaultValue) const; ///< Returns numericProperty for key. If cannot be found defaultValue is returned instead.
@@ -45,11 +51,11 @@ public:
     int getStringPropertiesSize() const;
 
     /* Factory methods */
-    static boost::shared_ptr<Event> createMkdirEvent(const std::string & filePath);
-    static boost::shared_ptr<Event> createWriteEvent(const std::string & filePath, NumericProperty bytes);
-    static boost::shared_ptr<Event> createReadEvent(const std::string & filePath, NumericProperty bytes);
-    static boost::shared_ptr<Event> createRmEvent(const std::string & filePath);
-    static boost::shared_ptr<Event> createTruncateEvent(const std::string & filePath, off_t newSize);
+    static std::shared_ptr<Event> createMkdirEvent(const std::string & filePath);
+    static std::shared_ptr<Event> createWriteEvent(const std::string & filePath, NumericProperty bytes);
+    static std::shared_ptr<Event> createReadEvent(const std::string & filePath, NumericProperty bytes);
+    static std::shared_ptr<Event> createRmEvent(const std::string & filePath);
+    static std::shared_ptr<Event> createTruncateEvent(const std::string & filePath, off_t newSize);
 
 private:
     std::map<std::string, NumericProperty> m_numericProperties; ///< Stores numeric properties
@@ -58,6 +64,6 @@ private:
 
 } // namespace events
 } // namespace client
-} // namespace veil
+} // namespace one
 
-#endif // EVENT_H
+#endif // ONECLIENT_EVENT_H

@@ -6,57 +6,40 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef IEVENT_STREAM_FACTORY_H
-#define IEVENT_STREAM_FACTORY_H
+#ifndef ONECLIENT_IEVENT_STREAM_FACTORY_H
+#define ONECLIENT_IEVENT_STREAM_FACTORY_H
 
-#include "events/IEventStream.h"
-#include "events/eventFilter.h"
-#include "events/eventAggregator.h"
-#include "events/eventTransformer.h"
 
-#include <boost/shared_ptr.hpp>
+#include <memory>
 
-namespace veil {
-namespace client {
-namespace events {
-	class IEventStream;
+namespace one
+{
 
-	/**
-	 * The IEventStreamFactory class.
-	 * EventAggregator is factory for creating IEventStream derived objects from protocol message EventStreamConfig.
-	 */
-	class IEventStreamFactory{
-	public:
+namespace clproto{ namespace fuse_messages{ class EventStreamConfig; }}
 
-		/**
-		 * Creates IEventStream derived object from protocol message EventStreamConfig.
-		 */
-    	static boost::shared_ptr<IEventStream> fromConfig(const veil::protocol::fuse_messages::EventStreamConfig & config){
-			boost::shared_ptr<IEventStream> res;
+namespace client
+{
+namespace events
+{
+class IEventStream;
 
-			// this piece of code will need to be updated when new EventConfig type is added
-			if(config.has_filter_config()){
-				::veil::protocol::fuse_messages::EventFilterConfig cfg = config.filter_config();
-			 	res = EventFilter::fromConfig(cfg);
-			}else if(config.has_aggregator_config()){
-				::veil::protocol::fuse_messages::EventAggregatorConfig cfg = config.aggregator_config();
-				res = EventAggregator::fromConfig(cfg);
-			}else if(config.has_transformer_config()){
-				::veil::protocol::fuse_messages::EventTransformerConfig cfg = config.transformer_config();
-				res = EventTransformer::fromConfig(cfg);
-			}
+/**
+ * The IEventStreamFactory class.
+ * EventAggregator is factory for creating IEventStream derived objects from protocol message EventStreamConfig.
+ */
+class IEventStreamFactory
+{
+public:
 
-			if(config.has_wrapped_config()){
-				boost::shared_ptr<IEventStream> wrapped = IEventStreamFactory::fromConfig(config.wrapped_config());
-				res->setWrappedStream(wrapped);
-			}
-
-			return res;
-		}
-	};
+    /**
+     * Creates IEventStream derived object from protocol message EventStreamConfig.
+     */
+    static std::shared_ptr<IEventStream> fromConfig(const one::clproto::fuse_messages::EventStreamConfig & config);
+};
 
 } // namespace events
 } // namespace client
-} // namespace veil
+} // namespace one
 
-#endif // IEVENT_STREAM_FACTORY_H
+
+#endif // ONECLIENT_IEVENT_STREAM_FACTORY_H

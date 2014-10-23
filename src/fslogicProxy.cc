@@ -8,29 +8,37 @@
 
 #include "fslogicProxy.h"
 
+#include "communication_protocol.pb.h"
+#include "communication/communicator.h"
+#include "communication/exception.h"
+#include "config.h"
 #include "context.h"
-#include "veilfs.h"
+#include "fuse_messages.pb.h"
 #include "logging.h"
+#include "messageBuilder.h"
+#include "options.h"
+#include "scheduler.h"
+#include "oneErrors.h"
+#include "fsImpl.h"
 
-#include <unistd.h>
-#include <iostream>
-#include <string>
-#include <fstream>
-#include <google/protobuf/descriptor.h>
 #include <boost/algorithm/string.hpp>
+#include <google/protobuf/descriptor.h>
 #include <sys/types.h>
+#include <unistd.h>
+
+#include <fstream>
+#include <string>
 
 using namespace std;
-using namespace boost;
 using namespace boost::algorithm;
-using namespace veil::protocol::communication_protocol;
-using namespace veil::protocol::fuse_messages;
+using namespace one::clproto::communication_protocol;
+using namespace one::clproto::fuse_messages;
 
-namespace veil {
+namespace one {
 namespace client {
 
-FslogicProxy::FslogicProxy(std::shared_ptr<Context> context)
-    : m_messageBuilder(new MessageBuilder(context))
+FslogicProxy::FslogicProxy(std::weak_ptr<Context> context)
+    : m_messageBuilder{std::make_unique<MessageBuilder>(context)}
     , m_context{std::move(context)}
 {
     LOG(INFO) << "FslogicProxy created";
@@ -57,13 +65,15 @@ bool FslogicProxy::getFileAttr(const string& logicName, FileAttr& attr)
     return true;
 }
 
-bool FslogicProxy::getFileLocation(const string &logicName, FileLocation& location, const string &openMode)
+bool FslogicProxy::getFileLocation(const string &logicName, FileLocation& location, const string &openMode, bool forceClusterProxy)
 {
     LOG(INFO) << "getting file location from cluster for file: " << logicName;
 
     GetFileLocation msg;
     msg.set_file_logic_name(logicName);
     msg.set_open_mode(openMode);
+    msg.set_force_cluster_proxy(forceClusterProxy);
+
     if(!sendFuseReceiveAnswer(msg, location))
     {
         LOG(ERROR) << "cannot parse cluster answer";
@@ -73,13 +83,14 @@ bool FslogicProxy::getFileLocation(const string &logicName, FileLocation& locati
     return true;
 }
 
-bool FslogicProxy::getNewFileLocation(const string &logicName, mode_t mode, FileLocation& location)
+bool FslogicProxy::getNewFileLocation(const string &logicName, mode_t mode, FileLocation& location, bool forceClusterProxy)
 {
     LOG(INFO) << "getting new file location for file: " << logicName;
 
     GetNewFileLocation msg;
     msg.set_file_logic_name(logicName);
     msg.set_mode(mode);
+    msg.set_force_cluster_proxy(forceClusterProxy);
 
     if(!sendFuseReceiveAnswer(msg, location))
     {
@@ -141,9 +152,9 @@ bool FslogicProxy::getFileChildren(const string &dirLogicName, uint32_t children
         return false;
     }
 
-    for(int i = 0; i < children.child_logic_name_size(); ++i)
+    for(int i = 0; i < children.entry_size(); ++i)
     {
-        childrenNames.push_back(children.child_logic_name(i));
+        childrenNames.push_back(children.entry(i).name());
     }
 
     return true;
@@ -278,7 +289,8 @@ pair<string, string> FslogicProxy::getLink(const string& path)
     return make_pair(answer.answer(), answer.file_logic_name());
 }
 
-bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, google::protobuf::Message& response)
+template<typename Ans>
+bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message &fMsg, Ans &response)
 {
     if(!fMsg.IsInitialized())
     {
@@ -286,37 +298,30 @@ bool FslogicProxy::sendFuseReceiveAnswer(const google::protobuf::Message& fMsg, 
         return false;
     }
 
-    ClusterMsg clusterMessage = m_messageBuilder->packFuseMessage(fMsg.GetDescriptor()->name(), response.GetDescriptor()->name(), FUSE_MESSAGES, fMsg.SerializeAsString());
+    auto fuseMsg = m_messageBuilder->createFuseMessage(fMsg);
 
-    if(!clusterMessage.IsInitialized())
+    auto communicator = m_context.lock()->getCommunicator();
+    try
     {
-        LOG(ERROR) << "Cannot build ClusterMsg";
+        LOG(INFO) << "Sending message (type: " << fMsg.GetDescriptor()->name() << "). Expecting answer with type: " << response.GetDescriptor()->name();
+
+        auto answer = communicator->communicate<Ans>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
+
+        if(answer->answer_status() != VOK)
+        {
+            LOG(WARNING) << "Cluster send non-ok message. status = " << answer->answer_status();
+            if(answer->answer_status() == INVALID_FUSE_ID)
+                m_context.lock()->getConfig()->negotiateFuseID(0);
+            return false;
+        }
+
+        return response.ParseFromString(answer->worker_answer());
+    }
+    catch(communication::Exception &e)
+    {
+        LOG(ERROR) << "Cannot select connection from connectionPool: " << e.what();
         return false;
     }
-
-    boost::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
-    if(!connection)
-    {
-        LOG(ERROR) << "Cannot select connection from connectionPool";
-        return false;
-    }
-
-    LOG(INFO) << "Sending message (type: " << fMsg.GetDescriptor()->name() << "). Expecting answer with type: " << response.GetDescriptor()->name();
-
-    Answer answer = connection->communicate(clusterMessage, 2);
-
-    if(answer.answer_status() != VEIO)
-        m_context->getConnectionPool()->releaseConnection(connection);
-
-    if(answer.answer_status() != VOK)
-    {
-        LOG(WARNING) << "Cluster send non-ok message. status = " << answer.answer_status();
-        if(answer.answer_status() == INVALID_FUSE_ID)
-            m_context->getConfig()->negotiateFuseID(0);
-        return false;
-    }
-
-    return response.ParseFromString(answer.worker_answer());
 }
 
 string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
@@ -327,38 +332,33 @@ string FslogicProxy::sendFuseReceiveAtom(const google::protobuf::Message& fMsg)
         return VEIO;
     }
 
-    ClusterMsg clusterMessage = m_messageBuilder->packFuseMessage(fMsg.GetDescriptor()->name(), Atom::descriptor()->name(), COMMUNICATION_PROTOCOL, fMsg.SerializeAsString());
+    auto fuseMsg = m_messageBuilder->createFuseMessage(fMsg);
 
-    if(!clusterMessage.IsInitialized())
+    auto communicator = m_context.lock()->getCommunicator();
+    try
     {
-        LOG(ERROR) << "Cannot build ClusterMsg";
+        LOG(INFO) << "Sending message (type: " << fMsg.GetDescriptor()->name() << "). Expecting answer with type: atom";
+
+        auto answer = communicator->communicate<>(communication::ServerModule::FSLOGIC, fuseMsg, 2);
+
+        if(answer->answer_status() == INVALID_FUSE_ID)
+            m_context.lock()->getConfig()->negotiateFuseID(0);
+
+        std::string atom = m_messageBuilder->decodeAtomAnswer(*answer);
+
+        if(atom.size() == 0)
+        {
+            LOG(ERROR) << "Cannot parse cluster atom answer";
+            return VEIO;
+        }
+
+        return atom;
+    }
+    catch(communication::Exception &e)
+    {
+        LOG(ERROR) << "Cannot select connection from connectionPool: " << e.what();
         return VEIO;
     }
-
-    boost::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
-    if(!connection)
-    {
-        LOG(ERROR) << "Cannot select connection from connectionPool";
-        return VEIO;
-    }
-
-    Answer answer = connection->communicate(clusterMessage, 2);
-
-    if(answer.answer_status() != VEIO)
-        m_context->getConnectionPool()->releaseConnection(connection);
-
-    if(answer.answer_status() == INVALID_FUSE_ID)
-        m_context->getConfig()->negotiateFuseID(0);
-
-    string atom = m_messageBuilder->decodeAtomAnswer(answer);
-
-    if(atom.size() == 0)
-    {
-        LOG(ERROR) << "Cannot parse cluster atom answer";
-        return VEIO;
-    }
-
-    return atom;
 }
 
 pair<string, struct statvfs> FslogicProxy::getStatFS()
@@ -388,56 +388,41 @@ pair<string, struct statvfs> FslogicProxy::getStatFS()
     return make_pair(answer.answer(), statFS);
 }
 
-void FslogicProxy::pingCluster(const string& nth)
+bool FslogicProxy::requestFileBlock(const string &logicalName,
+                                    const off_t offset, const size_t size)
 {
+    RequestFileBlock msg;
+    msg.set_logical_name(logicalName);
+    msg.set_offset(offset);
+    msg.set_size(size);
 
-    ClusterMsg clm;
-    clm.set_protocol_version(PROTOCOL_VERSION);
-    clm.set_synch(false);
-    clm.set_module_name(FSLOGIC);
-    clm.set_message_type(ATOM);
-    clm.set_answer_type(ATOM);
-    clm.set_message_decoder_name(COMMUNICATION_PROTOCOL);
-    clm.set_answer_decoder_name(COMMUNICATION_PROTOCOL);
+    return sendFuseReceiveAtom(msg) == VOK;
+}
 
-    Atom ping;
-    ping.set_value("ping");
-    clm.set_input(ping.SerializeAsString());
+void FslogicProxy::pingCluster()
+{
+    auto communicator = m_context.lock()->getCommunicator();
+    try
+    {
+        Atom ping;
+        ping.set_value("ping");
+        auto answer = communicator->communicate<>(communication::ServerModule::FSLOGIC, ping);
 
-    Answer ans;
-    int nthInt;
-    istringstream iss(nth);
-    iss >> nthInt;
-    boost::shared_ptr<CommunicationHandler> connection = m_context->getConnectionPool()->selectConnection();
-
-    if(!connection || (ans=connection->communicate(clm, 0)).answer_status() == VEIO) {
-        LOG(WARNING) << "Pinging cluster " << (connection ? "failed" : "not needed");
-    } else {
-        m_context->getConnectionPool()->releaseConnection(connection);
-        LOG(INFO) << "Cluster ping... ---> " << ans.answer_status();
+        if(answer->answer_status() == VEIO)
+            LOG(WARNING) << "Pinging cluster failed";
+        else
+            LOG(INFO) << "Cluster ping... ---> " << answer->answer_status();
+    }
+    catch(communication::Exception &e)
+    {
+        LOG(ERROR) << "Cluster ping failed: " << e.what();
     }
 
     // Send another...
-    Job pingTask = Job(time(NULL) + m_context->getOptions()->get_cluster_ping_interval(), shared_from_this(), ISchedulable::TASK_PING_CLUSTER, nth);
-    m_context->getScheduler(ISchedulable::TASK_PING_CLUSTER)->addTask(pingTask);
-}
-
-bool FslogicProxy::runTask(TaskID taskId, const string& arg0, const string&, const string&)
-{
-    string res;
-    switch(taskId)
-    {
-    case TASK_SEND_FILE_NOT_USED:
-        res = sendFileNotUsed(arg0);
-        LOG(INFO) << "FUSE sendFileNotUsed for file: " << arg0 << ", response: " << res;
-        return true;
-    case TASK_PING_CLUSTER:
-        pingCluster(arg0);
-        return true;
-    default:
-        return false;
-    }
+    m_context.lock()->scheduler()->schedule(
+                std::chrono::seconds{m_context.lock()->getOptions()->get_cluster_ping_interval()},
+                &FslogicProxy::pingCluster, shared_from_this());
 }
 
 } // namespace client
-} // namespace veil
+} // namespace one

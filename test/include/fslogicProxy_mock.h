@@ -8,40 +8,38 @@
 #ifndef FSLOGIC_PROXY_MOCK_H
 #define FSLOGIC_PROXY_MOCK_H
 
+
 #include "fslogicProxy.h"
-#include "testCommon.h"
-#include "gmock/gmock.h"
-#include "context.h"
 
-#include <memory>
+#include <gmock/gmock.h>
 
-using namespace veil::protocol::fuse_messages;
-
-class MockFslogicProxy
-    : public FslogicProxy {
+class MockFslogicProxy: public one::client::FslogicProxy
+{
 public:
-    MockFslogicProxy(std::shared_ptr<Context> context)
-        : FslogicProxy{std::move(context)} {};
-    ~MockFslogicProxy() {};
+    MockFslogicProxy(std::shared_ptr<one::client::Context> context)
+        : FslogicProxy{std::move(context)}
+    {
+    }
 
-    MOCK_METHOD3(getFileLocation, bool(const string&, FileLocation&, const string&));
-    MOCK_METHOD2(changeFilePerms, string(const string&, mode_t));
-    MOCK_METHOD2(renameFile, string(const string&, const string&));
-    MOCK_METHOD1(deleteFile, string(const string&));
-    MOCK_METHOD2(createDir, string(const string&, mode_t));
-    MOCK_METHOD3(getNewFileLocation, bool(const string&, mode_t, FileLocation&));
-    MOCK_METHOD1(sendFileCreatedAck, string(const string&));
-    MOCK_METHOD2(getFileAttr, bool(const string&, FileAttr&));
-    MOCK_METHOD2(createLink, string(const string&, const string&));
-    MOCK_METHOD1(getLink, pair<string, string>(const string&));
-    MOCK_METHOD1(pingCluster, void(const string&));
-    MOCK_METHOD4(updateTimes, string(const string&, time_t, time_t, time_t));
-    MOCK_METHOD3(changeFileOwner, string(const string&, uid_t, const string&));
-    MOCK_METHOD3(changeFileGroup, string(const string&, gid_t, const string&));
-    MOCK_METHOD1(sendFileNotUsed, bool(const string&));
-    MOCK_METHOD0(getStatFS, pair<string, struct statvfs>());
+    MOCK_METHOD4(getFileLocation, bool(const std::string&, one::clproto::fuse_messages::FileLocation&, const std::string&, bool));
+    MOCK_METHOD2(changeFilePerms, std::string(const std::string&, mode_t));
+    MOCK_METHOD2(renameFile, std::string(const std::string&, const std::string&));
+    MOCK_METHOD1(deleteFile, std::string(const std::string&));
+    MOCK_METHOD2(createDir, std::string(const std::string&, mode_t));
+    MOCK_METHOD4(getNewFileLocation, bool(const std::string&, mode_t, one::clproto::fuse_messages::FileLocation&, bool));
+    MOCK_METHOD1(sendFileCreatedAck, std::string(const std::string&));
+    MOCK_METHOD2(getFileAttr, bool(const std::string&, one::clproto::fuse_messages::FileAttr&));
+    MOCK_METHOD2(createLink, std::string(const std::string&, const std::string&));
+    MOCK_METHOD1(getLink, std::pair<std::string, std::string>(const std::string&));
+    MOCK_METHOD0(pingCluster, void());
+    MOCK_METHOD4(updateTimes, std::string(const std::string&, time_t, time_t, time_t));
+    MOCK_METHOD3(changeFileOwner, std::string(const std::string&, uid_t, const std::string&));
+    MOCK_METHOD3(changeFileGroup, std::string(const std::string&, gid_t, const std::string&));
+    MOCK_METHOD1(sendFileNotUsed, bool(const std::string&));
+    MOCK_METHOD0(getStatFS, std::pair<std::string, struct statvfs>());
     MOCK_METHOD0(isWriteEnabled, bool());
-
+    MOCK_METHOD3(requestFileBlock, bool(const std::string&, const off_t, const size_t));
 };
+
 
 #endif // FSLOGIC_PROXY_MOCK_H

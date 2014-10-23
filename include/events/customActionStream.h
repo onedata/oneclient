@@ -6,35 +6,41 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef CUSTOM_ACTION_STREAM_H
-#define CUSTOM_ACTION_STREAM_H
+#ifndef ONECLIENT_CUSTOM_ACTION_STREAM_H
+#define ONECLIENT_CUSTOM_ACTION_STREAM_H
 
-#include "fuse_messages.pb.h"
-#include "fslogicProxy.h"
+
 #include "events/IEventStream.h"
 
-#include <boost/shared_ptr.hpp>
-#include <string>
+#include <functional>
+#include <memory>
 
-namespace veil {
-namespace client {
-namespace events {
+namespace one
+{
+namespace client
+{
+namespace events
+{
+
+class Event;
 
 /**
  * The CustomActionStream class
  * CustomActionStream implements interface IEventStream. Enables to do custom action CustomActionFun on event arrival. Returns event returned by CustomActionFun.
  */
-class CustomActionStream : public IEventStream {
+class CustomActionStream: public IEventStream
+{
 public:
-	CustomActionStream(boost::shared_ptr<IEventStream> wrappedStream, boost::function<boost::shared_ptr<Event>(boost::shared_ptr<Event>)> customActionFun);
-	virtual boost::shared_ptr<Event> actualProcessEvent(boost::shared_ptr<Event> event); ///<  Implements pure virtual method IEventStream::actualProcessEvent
+    CustomActionStream(std::shared_ptr<IEventStream> wrappedStream, std::function<std::shared_ptr<Event>(std::shared_ptr<Event>)> customActionFun);
+    virtual std::shared_ptr<Event> actualProcessEvent(std::shared_ptr<Event> event); ///<  Implements pure virtual method IEventStream::actualProcessEvent
 
 private:
-	boost::function<boost::shared_ptr<Event>(boost::shared_ptr<Event>)> m_customActionFun; ///<  Function to be called by actualProcessEvent
+    std::function<std::shared_ptr<Event>(std::shared_ptr<Event>)> m_customActionFun; ///<  Function to be called by actualProcessEvent
 };
 
 } // namespace events
 } // namespace client
-} // namespace veil
+} // namespace one
 
- #endif // CUSTOM_ACTION_STREAM_H
+
+#endif // ONECLIENT_CUSTOM_ACTION_STREAM_H

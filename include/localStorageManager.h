@@ -5,8 +5,11 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef LOCAL_STORAGE_MANAGER_HH
-#define LOCAL_STORAGE_MANAGER_HH
+#ifndef ONECLIENT_LOCAL_STORAGE_MANAGER_H
+#define ONECLIENT_LOCAL_STORAGE_MANAGER_H
+
+
+#include "messageBuilder.h"
 
 #ifdef __APPLE__
 #include <sys/mount.h>
@@ -14,20 +17,24 @@
 #include <mntent.h>
 #endif
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <boost/optional/optional.hpp>
+
 #include <string>
 #include <vector>
 #include <utility>
-#include <boost/filesystem.hpp>
-#include <boost/optional/optional.hpp>
 #include <memory>
 
-#define MOUNTS_INFO_FILE_PATH           "/proc/mounts"
-#define STORAGE_INFO_FILENAME           "vfs_storage.info"
+namespace boost{ namespace filesystem{ class path; }}
 
-namespace veil {
-namespace client {
+namespace one
+{
+
+static constexpr const char
+    *MOUNTS_INFO_FILE_PATH = "/proc/mounts",
+    *STORAGE_INFO_FILENAME = "vfs_storage.info";
+
+namespace client
+{
 
 class Context;
 
@@ -38,7 +45,6 @@ class Context;
 class LocalStorageManager
 {
 public:
-
     std::vector< boost::filesystem::path > getMountPoints();                            ///< Returns vector of mount points available in the system
 
     std::vector< std::pair <int, std::string> >
@@ -51,7 +57,6 @@ public:
     virtual ~LocalStorageManager();
 
 protected:
-
     std::vector< std::pair<int, std::string> > parseStorageInfo(const boost::filesystem::path &mountPoint);                         ///< Returns vector of pairs of storage id and absolute path to storage read from vfs_storage.info file located at mount point
     boost::optional< std::pair<std::string, std::string> > createStorageTestFile(const int storageId);                              ///< Creates test file on storage in client home directory and returns path to created file and its content
     bool hasClientStorageReadPermission(const std::string &storagePath, const std::string &relativePath, const std::string &text);  ///< Checks whether client can read specified file on storage
@@ -59,9 +64,11 @@ protected:
 
 private:
     const std::shared_ptr<Context> m_context;
+    const MessageBuilder m_messageBuilder;
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
-#endif // CONFIG_HH
+
+#endif // ONECLIENT_LOCAL_STORAGE_MANAGER_H

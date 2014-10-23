@@ -1,118 +1,63 @@
 /**
  * @file messageBuilder.cc
  * @author Beata Skiba
- * @copyright (C) 2013 ACK CYFRONET AGH
+ * @author Konrad Zemek
+ * @copyright (C) 2013-2014 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
 #include "messageBuilder.h"
 
-#include "context.h"
-#include "config.h"
-#include "veilfs.h"
-
-#include <iostream>
-#include <unistd.h>
 #include <boost/algorithm/string.hpp>
 
-using namespace std;
-using namespace boost;
-using namespace boost::algorithm;
-using namespace veil::protocol::communication_protocol;
-using namespace veil::protocol::fuse_messages;
+using namespace one::clproto::communication_protocol;
+using namespace one::clproto::fuse_messages;
 
-static inline string tolower(string input) {
-    to_lower(input);
-    return input;
-}
+namespace one
+{
+namespace client
+{
 
-namespace veil {
-namespace client {
-
-MessageBuilder::MessageBuilder(std::shared_ptr<Context> context)
+MessageBuilder::MessageBuilder(std::weak_ptr<Context> context)
     : m_context{std::move(context)}
 {
 }
 
-MessageBuilder::~MessageBuilder()
-{
-}
-
-FuseMessage MessageBuilder::createFuseMessage(const string &id, const string &messageType,
-    const string &messageInput)
+FuseMessage MessageBuilder::createFuseMessage(
+        const google::protobuf::Message &content) const
 {
     FuseMessage msg;
-    (void) id; // Message level FUSE ID in no longer supported by cluster
-    msg.set_message_type(tolower(messageType));
-    msg.set_input(messageInput);
+
+    std::string messageType{content.GetDescriptor()->name()};
+    boost::algorithm::to_lower(messageType);
+
+    msg.set_message_type(messageType);
+    content.SerializeToString(msg.mutable_input());
+
     return msg;
 }
 
-ClusterMsg MessageBuilder::createClusterMessage(const string &moduleName, const string &messageType, const string &messageDecoderName, const string &answerType, const string &answerDecoderName, bool synch, const string &input)
-{
-    ClusterMsg msg = createClusterMessage(moduleName, messageType, answerType, answerDecoderName, synch, input);
-    msg.set_message_decoder_name(tolower(messageDecoderName));
-    return msg;
-}
-
-ClusterMsg MessageBuilder::createClusterMessage(const string &moduleName, const string &messageType, const string &answerType, const string &answerDecoderName, bool synch, const string &input)
-{
-    ClusterMsg msg = createClusterMessage(moduleName, messageType, answerType, answerDecoderName, synch);
-    msg.set_input(input);
-    return msg;
-}
-
-ClusterMsg MessageBuilder::createClusterMessage(const string &moduleName, const string &messageType, const string &answerType, const string &answerDecoderName, bool synch)
-{
-    ClusterMsg msg;
-    msg.set_module_name(moduleName);
-    msg.set_protocol_version(PROTOCOL_VERSION);
-    msg.set_message_type(tolower(messageType));
-    msg.set_message_decoder_name(tolower(FUSE_MESSAGES));
-    msg.set_answer_type(tolower(answerType));
-    msg.set_answer_decoder_name(tolower(answerDecoderName));
-    msg.set_synch(synch);
-    return msg;
-}
-
-ClusterMsg MessageBuilder::packFuseMessage(const string &messageType, const string &answerType, const string &answerDecoderName, const string &messageInput)
-{
-    ClusterMsg clusterMessage;
-
-
-
-    FuseMessage fuseMessage = createFuseMessage(m_context->getConfig()->getFuseID(), messageType, messageInput);
-
-    if(fuseMessage.IsInitialized())
-        clusterMessage = createClusterMessage(FSLOGIC, FUSE_MESSAGE, answerType, answerDecoderName, true, fuseMessage.SerializeAsString());
-
-    return clusterMessage;
-}
-
-FuseMessage MessageBuilder::decodeFuseAnswer(Answer& answer)
+FuseMessage MessageBuilder::decodeFuseAnswer(const Answer &answer) const
 {
     FuseMessage fuseMessage;
 
     if(answer.has_worker_answer())
-        (void) fuseMessage.ParseFromString(answer.worker_answer());
+        fuseMessage.ParseFromString(answer.worker_answer());
 
     return fuseMessage;
-
 }
 
-string MessageBuilder::decodeAtomAnswer(Answer& answer)
+std::string MessageBuilder::decodeAtomAnswer(const Answer &answer) const
 {
-     if(!answer.has_worker_answer()){
-        return "";
-     }
+     if(!answer.has_worker_answer())
+        return {};
 
      Atom atom;
-     if(!atom.ParseFromString(answer.worker_answer())){
-        return "";
-     }
+     if(!atom.ParseFromString(answer.worker_answer()))
+        return {};
 
      return atom.value();
 }
 
 } // namespace client
-} // namespace veil
+} // namespace one

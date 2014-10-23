@@ -7,18 +7,19 @@
 
 #include "metaCache.h"
 
-#include "context.h"
-#include "jobScheduler.h"
-#include "veilfs.h"
 #include "config.h"
-
+#include "context.h"
 #include "logging.h"
+#include "options.h"
+#include "scheduler.h"
+#include "fsImpl.h"
+#include <storageMapper.h>
 
 #include <memory.h>
 
 using namespace std;
 
-namespace veil {
+namespace one {
 namespace client {
 
 
@@ -36,9 +37,9 @@ void MetaCache::addAttr(const string &path, struct stat &attr)
     if(!m_context->getOptions()->get_enable_attr_cache())
         return;
 
-    AutoLock lock(m_statMapLock, WRITE_LOCK);
-    bool wasBefore = getAttr(path, NULL);
-    m_statMap[path] = make_pair(time(NULL), attr);
+    std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
+    bool wasBefore = m_statMap.count(path);
+    m_statMap[path] = make_pair(time(nullptr), attr);
 
     if(!wasBefore)
     {
@@ -46,19 +47,19 @@ void MetaCache::addAttr(const string &path, struct stat &attr)
         if(expiration_time <= 0)
             expiration_time = ATTR_DEFAULT_EXPIRATION_TIME;
         // because of random part, only small parts of cache will be updated at the same moment
-        int when = time(NULL) + expiration_time / 2 + rand() % expiration_time;
-        m_context->getScheduler()->addTask(Job(when, shared_from_this(), TASK_CLEAR_FILE_ATTR, path));
+        std::chrono::seconds after{expiration_time / 2 + rand() % expiration_time};
+        m_context->scheduler()->schedule(after, &MetaCache::clearAttr, shared_from_this(), path);
     }
 }
 
 bool MetaCache::getAttr(const string &path, struct stat* attr)
 {
-    AutoLock lock(m_statMapLock, READ_LOCK);
-    std::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
+    std::shared_lock<std::shared_timed_mutex> guard{m_statMapMutex};
+    auto it = m_statMap.find(path);
     if(it == m_statMap.end())
         return false;
 
-    if(attr != NULL) // NULL pointer is allowed to be used as parameter
+    if(attr != nullptr) // NULL pointer is allowed to be used as parameter
         memcpy(attr, &(*it).second.second, sizeof(struct stat));
 
     return true;
@@ -66,15 +67,15 @@ bool MetaCache::getAttr(const string &path, struct stat* attr)
 
 void MetaCache::clearAttrs()
 {
-    AutoLock lock(m_statMapLock, WRITE_LOCK);
+    std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
     m_statMap.clear();
 }
 
 void MetaCache::clearAttr(const string &path)
 {
-    AutoLock lock(m_statMapLock, WRITE_LOCK);
+    std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
     LOG(INFO) << "delete attrs from cache for file: " << path;
-    std::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
+    auto it = m_statMap.find(path);
     if(it != m_statMap.end())
         m_statMap.erase(it);
 }
@@ -100,8 +101,8 @@ bool MetaCache::updateTimes(const string &path, time_t atime, time_t mtime, time
 
 bool MetaCache::updateSize(const string &path, size_t size)
 {
-    AutoLock lock(m_statMapLock, WRITE_LOCK);
-    std::unordered_map<string, pair<time_t, struct stat> >::iterator it = m_statMap.find(path);
+    std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
+    auto it = m_statMap.find(path);
     if(it == m_statMap.end())
         return false;
 
@@ -110,18 +111,16 @@ bool MetaCache::updateSize(const string &path, size_t size)
     return true;
 }
 
-
-bool MetaCache::runTask(TaskID taskId, const string &arg0, const string &arg1, const string &arg3)
+bool MetaCache::canUseDefaultPermissions(const struct stat &attrs)
 {
-    switch(taskId)
-    {
-    case TASK_CLEAR_FILE_ATTR:
-        clearAttr(arg0);
+    if(geteuid() == attrs.st_uid || getegid() == attrs.st_gid)
         return true;
-    default:
-        return false;
-    }
+
+    std::vector<gid_t> suppGroups( getgroups(0, nullptr) );
+    getgroups(suppGroups.size(), suppGroups.data());
+
+    return std::any_of(suppGroups.begin(), suppGroups.end(), [attrs](gid_t cgid) { return cgid == attrs.st_gid; });
 }
 
 } // namespace client
-} // namespace veil
+} // namespace one

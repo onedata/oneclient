@@ -5,30 +5,29 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef CONTEXT_H
-#define CONTEXT_H
+#ifndef ONECLIENT_CONTEXT_H
+#define ONECLIENT_CONTEXT_H
 
-#include "ISchedulable.h"
-
-#include <boost/shared_ptr.hpp>
-#include <boost/thread/shared_mutex.hpp>
 
 #include <memory>
 #include <mutex>
 #include <list>
+#include <shared_mutex>
 
-namespace veil
+namespace one
 {
 
-class SimpleConnectionPool;
+namespace communication{ class Communicator; }
+
+class Scheduler;
 
 namespace client
 {
 
 class Options;
 class Config;
-class JobScheduler;
 class PushListener;
+class StorageMapper;
 
 class Context
 {
@@ -36,33 +35,38 @@ public:
     std::shared_ptr<Options> getOptions() const;
     void setOptions(std::shared_ptr<Options> options);
 
-    boost::shared_ptr<Config> getConfig() const;
-    void setConfig(boost::shared_ptr<Config> config);
+    std::shared_ptr<Config> getConfig() const;
+    void setConfig(std::shared_ptr<Config> config);
 
-    std::shared_ptr<JobScheduler> getScheduler(const ISchedulable::TaskID taskId = ISchedulable::TaskID::TASK_LAST_ID);
-    void addScheduler(std::shared_ptr<JobScheduler> scheduler);
-
-    boost::shared_ptr<SimpleConnectionPool> getConnectionPool() const;
-    void setConnectionPool(boost::shared_ptr<SimpleConnectionPool> connectionPool);
+    std::shared_ptr<communication::Communicator> getCommunicator() const;
+    void setCommunicator(std::shared_ptr<communication::Communicator> communicator);
 
     std::shared_ptr<PushListener> getPushListener() const;
     void setPushListener(std::shared_ptr<PushListener> pushListener);
 
+    std::shared_ptr<StorageMapper> getStorageMapper() const;
+    void setStorageMapper(std::shared_ptr<StorageMapper>);
+
+    std::shared_ptr<Scheduler> scheduler() const;
+    void setScheduler(std::shared_ptr<Scheduler> scheduler);
+
 private:
     std::shared_ptr<Options> m_options;
-    boost::shared_ptr<Config> m_config;
-    std::list<std::shared_ptr<JobScheduler>> m_jobSchedulers;
-    boost::shared_ptr<SimpleConnectionPool> m_connectionPool;
+    std::shared_ptr<Config> m_config;
+    std::shared_ptr<communication::Communicator> m_communicator;
     std::shared_ptr<PushListener> m_pushListener;
+    std::shared_ptr<StorageMapper> m_storageMapper;
+    std::shared_ptr<Scheduler> m_scheduler;
 
-    mutable boost::shared_mutex m_optionsMutex;
-    mutable boost::shared_mutex m_configMutex;
-    std::mutex m_jobSchedulersMutex;
-    mutable boost::shared_mutex m_connectionPoolMutex;
-    mutable boost::shared_mutex m_pushListenerMutex;
+    mutable std::shared_timed_mutex m_optionsMutex;
+    mutable std::shared_timed_mutex m_configMutex;
+    mutable std::shared_timed_mutex m_communicatorMutex;
+    mutable std::shared_timed_mutex m_pushListenerMutex;
+    mutable std::shared_timed_mutex m_storageMapperMutex;
+    mutable std::shared_timed_mutex m_schedulerMutex;
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
-#endif // CONTEXT_H
+#endif // ONECLIENT_CONTEXT_H

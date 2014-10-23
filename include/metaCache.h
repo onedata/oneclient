@@ -5,35 +5,36 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef META_CACHE_H
-#define META_CACHE_H
+#ifndef ONECLIENT_META_CACHE_H
+#define ONECLIENT_META_CACHE_H
 
-#include <map>
-#include <unordered_map>
-#include <string>
+
 #include <sys/stat.h>
+
 #include <ctime>
 #include <memory>
+#include <shared_mutex>
+#include <string>
+#include <unordered_map>
 
-#include "ISchedulable.h"
-#include "lock.h"
-
-namespace veil {
-namespace client {
+namespace one
+{
+namespace client
+{
 
 class Context;
 
 /**
  * Class responsible for caching file attributes.
- * @see VeilFS::getattr
+ * @see FsImpl::getattr
  */
-class MetaCache : public ISchedulable
+class MetaCache: public std::enable_shared_from_this<MetaCache>
 {
 protected:
     std::unordered_map<std::string, std::pair<time_t, struct stat> > m_statMap;  ///< This is the cache map.
                                                                         ///< Value of this std::map is std::pair containing expiration time of attributes and
                                                                         ///< stat struct itself
-    ReadWriteLock m_statMapLock;                                        ///< Lock used to synchronize access to MetaCache::m_statMap
+    std::shared_timed_mutex m_statMapMutex;                                 ///< Mutex used to synchronize access to MetaCache::m_statMap
 
 public:
 
@@ -54,13 +55,19 @@ public:
     virtual bool updateTimes(const std::string &path, time_t atime = 0, time_t mtime = 0, time_t ctime = 0); ///< Update *time meta attributes for specific file in cache. Returns true if cache was updated or false if given file wasn't found in cache.
     virtual bool updateSize(const std::string &path, size_t size); ///< Update size meta attribute for specific file in cache. Returns true if cache was updated or false if given file wasn't found in cache.
 
-    virtual bool runTask(TaskID taskId, const std::string &arg0, const std::string &arg1, const std::string &arg3); ///< Task runner derived from ISchedulable. @see ISchedulable::runTask
+    /**
+     * Checks if file with given attributes can be accessed directly considering
+     * user's group membership.
+     * @param attrs of the file
+     */
+    virtual bool canUseDefaultPermissions(const struct stat &attrs);
 
-private:
+protected:
     const std::shared_ptr<Context> m_context;
 };
 
 } // namespace client
-} // namespace veil
+} // namespace one
 
-#endif // META_CACHE_H
+
+#endif // ONECLIENT_META_CACHE_H

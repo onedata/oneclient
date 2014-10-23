@@ -13,37 +13,28 @@
 #include <unistd.h>
 
 using namespace boost::filesystem;
-using namespace std;
 
-INIT_AND_RUN_ALL_TESTS(); // TEST RUNNER !
-
-// TEST definitions below
-
-class TimesUpdateTest 
-    : public ::testing::Test 
+class TimesUpdateTest: public CommonIntegrationTest
 {
 protected:
-    COMMON_INTEGRATION_DEFS();
-
-    VeilFSMount VFS;
-
     path directIO_root;
 
-    TimesUpdateTest() : VFS("main", "peer.pem") 
+    TimesUpdateTest()
+        : CommonIntegrationTest{std::unique_ptr<one::testing::FsImplMount>{new one::testing::FsImplMount{"main", "peer.pem"}}}
     {
     }
 
-    virtual void SetUp() {
-        COMMON_INTEGRATION_SETUP();
+    void SetUp() override
+    {
+        CommonIntegrationTest::SetUp();
 
         // Get storage helper root dir path from cluster env variable 
-        ASSERT_EQ(0, ::system(("touch " + VFS.getRoot() + "/file").c_str()));
+        ASSERT_EQ(0, ::system(("touch " + onedataMount->getRoot() + "/file").c_str()));
     }
 
-    virtual void TearDown() {
-        ASSERT_EQ(0, ::system(("rm -rf " + VFS.getRoot() + "/file").c_str()));
-
-        COMMON_INTEGRATION_CLEANUP();
+    void TearDown() override {
+        ASSERT_EQ(0, ::system(("rm -rf " + onedataMount->getRoot() + "/file").c_str()));
+        CommonIntegrationTest::TearDown();
     }
 
 };
@@ -53,12 +44,12 @@ TEST_F(TimesUpdateTest, touchUpdate) {
     setbuf(stdout, NULL);
     struct stat old, curr;
     sleep(2);
-    stat((VFS.getRoot() + "/file").c_str(), &old);
+    stat((onedataMount->getRoot() + "/file").c_str(), &old);
     sleep(2);
-    ASSERT_EQ(0, ::system(("touch " + VFS.getRoot() + "/file").c_str()));
+    ASSERT_EQ(0, ::system(("touch " + onedataMount->getRoot() + "/file").c_str()));
     sleep(1);
-    stat((VFS.getRoot() + "/file").c_str(), &curr);
-
+    stat((onedataMount->getRoot() + "/file").c_str(), &curr);
+    
     EXPECT_GT(curr.st_atime, old.st_atime);
     EXPECT_GT(curr.st_mtime, old.st_mtime);
 
@@ -73,11 +64,11 @@ TEST_F(TimesUpdateTest, touchUpdate) {
 TEST_F(TimesUpdateTest, writeUpdate) {
     struct stat old, curr;
     sleep(2);
-    stat((VFS.getRoot() + "/file").c_str(), &old);
+    stat((onedataMount->getRoot() + "/file").c_str(), &old);
     sleep(2);
-    ASSERT_EQ(0, ::system(("echo 'test' > " + VFS.getRoot() + "/file").c_str()));
+    ASSERT_EQ(0, ::system(("echo 'test' > " + onedataMount->getRoot() + "/file").c_str()));
     sleep(1);
-    stat((VFS.getRoot() + "/file").c_str(), &curr);
+    stat((onedataMount->getRoot() + "/file").c_str(), &curr);
 
     EXPECT_EQ(curr.st_atime, old.st_atime);
     EXPECT_GT(curr.st_mtime, old.st_mtime);
@@ -91,11 +82,11 @@ TEST_F(TimesUpdateTest, writeUpdate) {
 TEST_F(TimesUpdateTest, readUpdate) {
     struct stat old, curr;
     sleep(2);
-    stat((VFS.getRoot() + "/file").c_str(), &old);
+    stat((onedataMount->getRoot() + "/file").c_str(), &old);
     sleep(2);
-    ASSERT_EQ(0, ::system(("cat " + VFS.getRoot() + "/file").c_str()));
+    ASSERT_EQ(0, ::system(("cat " + onedataMount->getRoot() + "/file").c_str()));
     sleep(1);
-   stat((VFS.getRoot() + "/file").c_str(), &curr);
+    stat((onedataMount->getRoot() + "/file").c_str(), &curr);
 
     EXPECT_GT(curr.st_atime, old.st_atime);
     EXPECT_EQ(curr.st_mtime, old.st_mtime);

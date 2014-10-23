@@ -41,7 +41,7 @@ register_user(PEMFile) ->
     {ok, EEC} = gsi_handler:find_eec_cert(Leaf, Chain, gsi_handler:is_proxy_certificate(Leaf)), 
     {rdnSequence, Rdn} = gsi_handler:proxy_subject(EEC),
     {ok, DnString} = user_logic:rdn_sequence_to_dn_string(Rdn),
-    user_logic:create_user("veilfstestuser", "Test Name", [], "test@test.com", [DnString]).
+    user_logic:create_user("onedatatestuser", "Test Name", [], "test@test.com", [DnString]).
 
 %% Setup runs on cluster node !
 setup(worker, TestName) ->
@@ -51,7 +51,7 @@ setup(ccm, TestName) ->
 
     {ListStatus, StorageList} = dao_lib:apply(dao_vfs, list_storage, [], 1),
     case ListStatus of
-        ok -> lists:foreach(fun(VeilDoc) -> dao_lib:apply(dao_vfs, remove_storage, [{uuid, element(2,VeilDoc)}], 1) end, StorageList);
+        ok -> lists:foreach(fun(DbDoc) -> dao_lib:apply(dao_vfs, remove_storage, [{uuid, element(2,DbDoc)}], 1) end, StorageList);
         _ -> throw({error,storage_listing_error})
     end,
     setup_test_specific(ccm, TestName).

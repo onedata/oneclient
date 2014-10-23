@@ -5,8 +5,9 @@
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
 
-#ifndef OPTIONS_H
-#define OPTIONS_H
+#ifndef ONECLIENT_OPTIONS_H
+#define ONECLIENT_OPTIONS_H
+
 
 #include "config.h"
 
@@ -23,25 +24,26 @@
     private: void add_##NAME(boost::program_options::options_description &desc) const \
              { desc.add_options()(#NAME, boost::program_options::value<TYPE>()); }
 
-/// Declare a new configuration option with a default value
-#define DECL_CONFIG_DEF(NAME, TYPE, DEFAULT) \
+/// Declare a new configuration option with a default value and a description
+#define DECL_CONFIG_DEF_DESC(NAME, TYPE, DEFAULT, DESC) \
     public: virtual bool is_default_##NAME() const { return !m_vm.count(#NAME); } \
     public: virtual TYPE get_##NAME() const { return m_vm.count(#NAME) ? m_vm.at(#NAME).as<TYPE>() : DEFAULT; } \
     private: void add_##NAME(boost::program_options::options_description &desc) const \
-             { desc.add_options()(#NAME, boost::program_options::value<TYPE>()); }
+             { desc.add_options()(#NAME, boost::program_options::value<TYPE>(), DESC); }
+
+/// Declare a new configuration option with a default value
+#define DECL_CONFIG_DEF(NAME, TYPE, DEFAULT) \
+    DECL_CONFIG_DEF_DESC(NAME, TYPE, DEFAULT, "")
 
 /// Declare a command line switch (a boolean which is set to true if the switch is present)
 /// The description will be used in the --help.
 #define DECL_CMDLINE_SWITCH_DEF(NAME, SHORT, DEFAULT, DESC) \
-    public: virtual bool is_default_##NAME() const { return !m_vm.count(#NAME); } \
-    public: virtual bool get_##NAME() const { return m_vm.count(#NAME) ? m_vm.at(#NAME).as<bool>() : DEFAULT; } \
-    private: void add_##NAME(boost::program_options::options_description &desc) const \
-             { desc.add_options()(#NAME, boost::program_options::value<bool>()); } \
+    DECL_CONFIG_DEF(NAME, bool, DEFAULT) \
     private: void add_switch_##NAME(boost::program_options::options_description &desc) const \
              { desc.add_options()(#NAME SHORT, boost::program_options::value<bool>() \
                 ->zero_tokens()->implicit_value(true), DESC); }
 
-namespace veil
+namespace one
 {
 namespace client
 {
@@ -66,6 +68,16 @@ class Options
 {
 public:
     /**
+     * Describes the result of parsing options.
+     */
+    enum class Result
+    {
+        HELP,
+        VERSION,
+        PARSED
+    };
+
+    /**
      * Constructor.
      */
     Options();
@@ -73,11 +85,13 @@ public:
     /**
      * Parses all available configuration sources.
      * If --help (-h) or --version (-V) options were requested, the method
-     * prints the relevant output and calls exit(EXIT_SUCCESS).
+     * prints the relevant output and doesn't continue with parsing.
      * @param argc The number of commandline arguments passed.
      * @param argv The commandline arguments.
+     * @returns Result::HELP if -h option was given, Result::VERSION if -v
+     * option was given, Result::PARSED otherwise.
      */
-    void parseConfigs(const int argc, const char * const argv[]);
+    Result parseConfigs(const int argc, const char * const argv[]);
 
     /**
      * Destructor.
@@ -90,10 +104,15 @@ public:
      */
     struct fuse_args getFuseArgs() const;
 
+    /**
+     * @returns A text description of commandline options.
+     */
+    std::string describeCommandlineOptions() const;
+
 private:
     std::string mapEnvNames(std::string env) const;
     void setDescriptions();
-    void parseCommandLine(const int argc, const char * const argv[]);
+    Result parseCommandLine(const int argc, const char * const argv[]);
     void parseUserConfig(boost::program_options::variables_map &fileConfigMap);
     void parseGlobalConfig(boost::program_options::variables_map &fileConfigMap);
     void parseEnv();
@@ -106,8 +125,8 @@ private:
     boost::program_options::options_description m_fuse;
     boost::program_options::options_description m_hidden;
 
-    DECL_CONFIG(cluster_hostname, std::string)
-    DECL_CONFIG_DEF(cluster_port, unsigned int, 5555)
+    DECL_CONFIG_DEF(provider_hostname, std::string, BASE_DOMAIN)
+    DECL_CONFIG_DEF(provider_port, unsigned int, 5555)
     DECL_CONFIG_DEF(log_dir, std::string, "/tmp")
     DECL_CONFIG(peer_certificate_file, std::string)
     DECL_CONFIG_DEF(enable_attr_cache, bool, true)
@@ -128,6 +147,10 @@ private:
     DECL_CONFIG_DEF(file_buffer_prefered_block_size, std::size_t, 100 * 1024) // 100 kB
     DECL_CONFIG_DEF(write_bytes_before_stat, std::size_t, 5 * 1024 * 1024) // 5 MB
     DECL_CONFIG(fuse_group_id, std::string)
+    DECL_CONFIG_DEF(global_registry_url, std::string, "onedata.org")
+    DECL_CONFIG_DEF(global_registry_port, unsigned int, 8443)
+    DECL_CONFIG_DEF_DESC(authentication, std::string, "certificate", "authentication type to use for connection with a Provider. "
+                         "Accepted values are 'token' and 'certificate'.")
     DECL_CMDLINE_SWITCH_DEF(no_check_certificate, "", false, "disable remote certificate validation")
     DECL_CMDLINE_SWITCH_DEF(debug, ",d", false, "enable debug output (implies -f)")
     DECL_CMDLINE_SWITCH_DEF(debug_gsi, "", false, "enable GSI debug output")
@@ -138,7 +161,8 @@ private:
 
 #undef DECL_CONFIG
 #undef DECL_CONFIG_DEF
+#undef DECL_CONFIG_DEF_DESC
 #undef DECL_CMDLINE_SWITCH_DEF
 
 
-#endif // OPTIONS_H
+#endif // ONECLIENT_OPTIONS_H
