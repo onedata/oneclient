@@ -38,6 +38,7 @@ public:
     MOCK_METHOD1(sendFileNotUsed, bool(const std::string&));
     MOCK_METHOD0(getStatFS, std::pair<std::string, struct statvfs>());
     MOCK_METHOD0(isWriteEnabled, bool());
+    MOCK_METHOD3(requestFileBlock, bool(const std::string&, const off_t, const size_t));
 };
 
 

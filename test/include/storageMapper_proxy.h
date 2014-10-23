@@ -20,14 +20,14 @@ public:
     {
     }
 
-    std::map<int, one::client::storageInfo>& getStorageMapping()
+    std::map<int, one::client::StorageInfo>& getStorageMapping()
     {
         return m_storageMapping;
     }
 
-    std::map<std::string, one::client::locationInfo>& getFileMapping()
+    std::size_t getFileMappingSize()
     {
-        return m_fileMapping;
+        return m_fileMapping.size();
     }
 };
 

@@ -17,8 +17,6 @@
 
 namespace one
 {
-    class Scheduler;
-
     namespace testing
     {
         class FsImplMount;
