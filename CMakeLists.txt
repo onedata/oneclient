@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(oneclient C CXX)
 
+# CMake config
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
+# set(CMAKE_FIND_LIBRARY_SUFFIXES .a) # Uncomment in order to force looking for static achieves instead .so
 
 #================================================================================================
 # Automatic git versioning: http://ipenguin.ws/2012/11/cmake-automatically-use-git-tags-as.html
@@ -12,14 +15,10 @@ git_describe(VERSION --tags --dirty=-d)
 string(REGEX REPLACE "^v([0-9]+)\\..*" "\\1" oneclient_VERSION_MAJOR "${VERSION}")
 string(REGEX REPLACE "^v[0-9]+\\.([0-9]+).*" "\\1" oneclient_VERSION_MINOR "${VERSION}")
 string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" oneclient_VERSION_PATCH "${VERSION}")
-#================================================================================================
 
 # The version number.
 set(oneclient_VERSION $(oneclient_VERSION_MAJOR).$(oneclient_VERSION_MINOR).$(oneclient_VERSION_PATCH))
-
-# CMake config
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
-# set(CMAKE_FIND_LIBRARY_SUFFIXES .a) # Uncomment in order to force looking for static achieves instead .so
+#================================================================================================
 
 configure_file (
     include/version.h.in
