@@ -1,10 +1,20 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(oneclient C CXX)
 
+
+#================================================================================================
+# Automatic git versioning: http://ipenguin.ws/2012/11/cmake-automatically-use-git-tags-as.html
+# Make a version file containing the current version from git.
+include(GetGitRevisionDescription)
+git_describe(VERSION --tags --dirty=-d)
+
+#parse the version information into pieces.
+string(REGEX REPLACE "^v([0-9]+)\\..*" "\\1" oneclient_VERSION_MAJOR "${VERSION}")
+string(REGEX REPLACE "^v[0-9]+\\.([0-9]+).*" "\\1" oneclient_VERSION_MINOR "${VERSION}")
+string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" oneclient_VERSION_PATCH "${VERSION}")
+#================================================================================================
+
 # The version number.
-set(oneclient_VERSION_MAJOR 0)
-set(oneclient_VERSION_MINOR 4)
-set(oneclient_VERSION_PATCH 1)
 set(oneclient_VERSION $(oneclient_VERSION_MAJOR).$(oneclient_VERSION_MINOR).$(oneclient_VERSION_PATCH))
 
 # CMake config
@@ -192,7 +202,7 @@ set(CPACK_SET_DESTDIR ON) # Uncomment this line if you need a non-relocatable RP
 set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE.txt)
 set(CPACK_PACKAGE_VERSION_MAJOR ${oneclient_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${oneclient_VERSION_MINOR})
-set(CPACK_PACKAGE_CONTACT support@onedata.org)
+set(CPACK_PACKAGE_CONTACT @onedata.org)
 set(CPACK_PACKAGE_FILE_NAME ${CMAKE_PROJECT_NAME}-${CMAKE_SYSTEM_NAME})
 
 # DEB and RPM deps
