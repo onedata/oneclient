@@ -9,7 +9,7 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
 # Automatic git versioning: http://ipenguin.ws/2012/11/cmake-automatically-use-git-tags-as.html
 # Make a version file containing the current version from git.
 include(GetGitRevisionDescription)
-git_describe(VERSION --tags --dirty=-d)
+git_describe(VERSION --tags)
 
 #parse the version information into pieces.
 string(REGEX REPLACE "^v([0-9]+)\\..*" "\\1" VERSION_MAJOR "${VERSION}")
