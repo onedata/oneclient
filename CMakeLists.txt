@@ -12,9 +12,26 @@ include(GetGitRevisionDescription)
 git_describe(VERSION --tags --dirty=-d)
 
 #parse the version information into pieces.
-string(REGEX REPLACE "^v([0-9]+)\\..*" "\\1" oneclient_VERSION_MAJOR "${VERSION}")
-string(REGEX REPLACE "^v[0-9]+\\.([0-9]+).*" "\\1" oneclient_VERSION_MINOR "${VERSION}")
-string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" oneclient_VERSION_PATCH "${VERSION}")
+string(REGEX REPLACE "^v([0-9]+)\\..*" "\\1" VERSION_MAJOR "${VERSION}")
+string(REGEX REPLACE "^v[0-9]+\\.([0-9]+).*" "\\1" VERSION_MINOR "${VERSION}")
+string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" VERSION_PATCH "${VERSION}")
+
+set(oneclient_VERSION_MAJOR 0)
+set(oneclient_VERSION_MINOR 0)
+set(oneclient_VERSION_PATCH 0)
+
+# set version (if no tag is specified, the version stays at 0.0.0)
+if(NOT ${VERSION_MAJOR} MATCHES -128-NOTFOUND)
+    set(oneclient_VERSION_MAJOR ${VERSION_MAJOR})
+endif(NOT ${VERSION_MAJOR} MATCHES -128-NOTFOUND)
+
+if(NOT ${VERSION_MINOR} MATCHES -128-NOTFOUND)
+    set(oneclient_VERSION_MINOR ${VERSION_MINOR})
+endif(NOT ${VERSION_MINOR} MATCHES -128-NOTFOUND)
+
+if(NOT ${VERSION_PATCH} MATCHES -128-NOTFOUND)
+    set(oneclient_VERSION_PATCH ${VERSION_PATCH})
+endif(NOT ${VERSION_PATCH} MATCHES -128-NOTFOUND)
 
 # The version number.
 set(oneclient_VERSION $(oneclient_VERSION_MAJOR).$(oneclient_VERSION_MINOR).$(oneclient_VERSION_PATCH))
