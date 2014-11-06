@@ -1,3 +1,13 @@
+oneclient 2.1
+===============
+
+*oneclient 2.1* is a part of *onedata 2.1*. This is mainly a bug-fix release. See further details below.
+
+Fixed Bugs
+----------
+
+* Building of rpm and deb packages updated
+
 oneclient 1.6
 =============
 
