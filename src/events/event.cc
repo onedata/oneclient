@@ -29,21 +29,23 @@ std::shared_ptr<Event> Event::createMkdirEvent(const string & filePath)
     return event;
 }
 
-std::shared_ptr<Event> Event::createWriteEvent(const string & filePath, long long bytes)
+std::shared_ptr<Event> Event::createWriteEvent(const string & filePath, long long offset, long long size)
 {
     auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = string("write_event");
     event->m_stringProperties["filePath"] = filePath;
-    event->m_numericProperties["bytes"] = bytes;
+    event->m_numericProperties["bytes"] = size;
+    event->m_blocks = list< pair<long long, long long> > { std::pair<long long, long long>(offset, size) };
     return event;
 }
 
-std::shared_ptr<Event> Event::createReadEvent(const string & filePath, long long bytes)
+std::shared_ptr<Event> Event::createReadEvent(const string & filePath, long long offset, long long size)
 {
     auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = string("read_event");
     event->m_stringProperties["filePath"] = filePath;
-    event->m_numericProperties["bytes"] = bytes;
+    event->m_numericProperties["bytes"] = size;
+    event->m_blocks = list< pair<long long, long long> > { std::pair<long long, long long>(offset, size) };
     return event;
 }
 
@@ -66,14 +68,21 @@ std::shared_ptr<Event> Event::createTruncateEvent(const string & filePath, off_t
 std::shared_ptr<EventMessage> Event::createProtoMessage()
 {
     auto eventMessage = std::make_shared<EventMessage>();
-    for(auto & elem : m_stringProperties){
+    for(const auto & elem : m_stringProperties){
         eventMessage->add_string_properties_keys(elem.first);
         eventMessage->add_string_properties_values(elem.second);
     }
 
-    for(auto & elem : m_numericProperties){
+    for(const auto & elem : m_numericProperties){
         eventMessage->add_numeric_properties_keys(elem.first);
         eventMessage->add_numeric_properties_values(elem.second);
+    }
+
+    EventMessage::Block *blockMessage;
+    for(const auto & block : m_blocks) {
+        blockMessage = eventMessage->add_block();
+        blockMessage->set_offset(block.first);
+        blockMessage->set_size(block.second);
     }
 
     return eventMessage;

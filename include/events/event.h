@@ -13,6 +13,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <list>
 
 namespace one
 {
@@ -28,7 +29,7 @@ using NumericProperty = long long;
 
 /**
  * Class Event is key-value container for events.
- * It can store numerical and string values.
+ * It can store numerical, string and block values.
  * TODO: consider making it immutable.
  */
 class Event
@@ -52,14 +53,15 @@ public:
 
     /* Factory methods */
     static std::shared_ptr<Event> createMkdirEvent(const std::string & filePath);
-    static std::shared_ptr<Event> createWriteEvent(const std::string & filePath, NumericProperty bytes);
-    static std::shared_ptr<Event> createReadEvent(const std::string & filePath, NumericProperty bytes);
+    static std::shared_ptr<Event> createWriteEvent(const std::string & filePath, NumericProperty offset, NumericProperty size);
+    static std::shared_ptr<Event> createReadEvent(const std::string & filePath, NumericProperty offset, NumericProperty size);
     static std::shared_ptr<Event> createRmEvent(const std::string & filePath);
     static std::shared_ptr<Event> createTruncateEvent(const std::string & filePath, off_t newSize);
 
 private:
     std::map<std::string, NumericProperty> m_numericProperties; ///< Stores numeric properties
     std::map<std::string, std::string> m_stringProperties; ///< Stores string properties
+    std::list< std::pair<long long, long long> > m_blocks; ///< Stores blocks
 };
 
 } // namespace events
