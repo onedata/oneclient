@@ -80,7 +80,12 @@ std::shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(std:
 {
     std::lock_guard<std::mutex> guard{m_aggregatorStateMutex};
     NumericProperty count = event->getNumericProperty(sumFieldName, 1);
+    const auto& blocks = event->getBlocks();
     m_counter += count;
+    if(!blocks.empty()) {
+        const auto& block = blocks.front();
+        m_blocks += boost::icl::discrete_interval<long long>::right_open(block.first, block.first + block.second);
+    }
 
     bool forward = m_counter >= threshold;
 
@@ -92,6 +97,11 @@ std::shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(std:
             string value = event->getStringProperty(fieldName, "");
             newEvent->setStringProperty(fieldName, value);
         }
+        std::list< std::pair<long long, long long> > blocks;
+        for(const auto& block : m_blocks) {
+            blocks.push_back(std::pair<long long, long long>(block.lower(), block.upper() - block.lower()));
+        }
+        newEvent->setBlocks(blocks);
         resetState();
         return newEvent;
     }
@@ -102,4 +112,5 @@ std::shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(std:
 void EventAggregator::ActualEventAggregator::resetState()
 {
     m_counter = 0;
+    m_blocks.clear();
 }

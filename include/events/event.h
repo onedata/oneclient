@@ -51,6 +51,10 @@ public:
     void setStringProperty(const std::string & key, const std::string & value);
     int getStringPropertiesSize() const;
 
+    /* Access method for m_blocks */
+    const std::list< std::pair<long long, long long> >& getBlocks() const;
+    void setBlocks(const std::list< std::pair<long long, long long> >& blocks);
+
     /* Factory methods */
     static std::shared_ptr<Event> createMkdirEvent(const std::string & filePath);
     static std::shared_ptr<Event> createWriteEvent(const std::string & filePath, NumericProperty offset, NumericProperty size);

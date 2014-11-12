@@ -17,6 +17,8 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <list>
+#include <boost/icl/interval_set.hpp>
 
 namespace one
 {
@@ -52,7 +54,8 @@ public:
         virtual std::shared_ptr<Event> processEvent(std::shared_ptr<Event> event, NumericProperty threshold,  const std::string & fieldName, const std::string & sumFieldName);
 
     private:
-        NumericProperty m_counter = 0;			 ///< Aggregated value
+        NumericProperty m_counter = 0;			        ///< Aggregated value
+        boost::icl::interval_set<long long> m_blocks;   ///< Aggregated blocks
         std::mutex m_aggregatorStateMutex;
 
         void resetState();					 ///< Resets state - should be called after every event forward.

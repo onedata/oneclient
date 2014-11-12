@@ -122,8 +122,17 @@ int Event::getStringPropertiesSize() const {
     return m_stringProperties.size();
 }
 
+const std::list< std::pair<long long, long long> >& Event::getBlocks() const {
+    return m_blocks;
+}
+
+void Event::setBlocks(const std::list< std::pair<long long, long long> >& blocks) {
+    m_blocks = blocks;
+}
+
 Event::Event(const Event & anotherEvent)
 {
     m_numericProperties = anotherEvent.m_numericProperties;
     m_stringProperties = anotherEvent.m_stringProperties;
+    m_blocks = anotherEvent.m_blocks;
 }
