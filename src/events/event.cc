@@ -79,8 +79,7 @@ std::shared_ptr<EventMessage> Event::createProtoMessage()
     }
 
     for(const auto & block : m_blocks) {
-        EventMessage::Block *blockMessage;
-        blockMessage = eventMessage->add_block();
+        auto blockMessage = eventMessage->add_block();
         blockMessage->set_offset(block.first);
         blockMessage->set_size(block.second);
     }
