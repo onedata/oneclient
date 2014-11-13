@@ -220,6 +220,12 @@ bool StorageMapper::handlePushMessage(const Answer &answer)
         return true;
     }
 
+    if (msg.clear_map()) {
+        LOG(INFO) << "Clearing file blocks mapping for file: {storageId: '"
+                  << msg.storage_id() << "', fileId: '" << msg.file_id() << "'}";
+        it->second.blocks.clear();
+    }
+
     for (auto &block : msg.blocks())
         it->second.blocks += offsetSizeToInterval(block.offset(), block.size());
 
