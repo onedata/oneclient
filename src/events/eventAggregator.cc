@@ -83,7 +83,7 @@ std::shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(std:
     const auto& blocks = event->getBlocks();
     m_counter += count;
     for(const auto& block : blocks) {
-        m_blocks += boost::icl::discrete_interval<long long>::right_open(block.first, block.first + block.second);
+        m_blocks += boost::icl::discrete_interval<off_t>::right_open(block.first, block.first + block.second);
     }
 
     bool forward = m_counter >= threshold;
@@ -96,9 +96,9 @@ std::shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(std:
             string value = event->getStringProperty(fieldName, "");
             newEvent->setStringProperty(fieldName, value);
         }
-        std::list< std::pair<long long, long long> > blocks;
+        std::list< std::pair<off_t, size_t> > blocks;
         for(const auto& block : m_blocks) {
-            blocks.push_back(std::pair<long long, long long>(block.lower(), block.upper() - block.lower()));
+            blocks.push_back(std::pair<off_t, size_t>(block.lower(), block.upper() - block.lower()));
         }
         newEvent->setBlocks(blocks);
         resetState();

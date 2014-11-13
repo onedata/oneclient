@@ -29,23 +29,23 @@ std::shared_ptr<Event> Event::createMkdirEvent(const string & filePath)
     return event;
 }
 
-std::shared_ptr<Event> Event::createWriteEvent(const string & filePath, long long offset, long long size)
+std::shared_ptr<Event> Event::createWriteEvent(const string & filePath, off_t offset, size_t size)
 {
     auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = string("write_event");
     event->m_stringProperties["filePath"] = filePath;
     event->m_numericProperties["bytes"] = size;
-    event->m_blocks = list< pair<long long, long long> > { std::pair<long long, long long>(offset, size) };
+    event->m_blocks = list< pair<off_t, size_t> > { std::pair<off_t, size_t>(offset, size) };
     return event;
 }
 
-std::shared_ptr<Event> Event::createReadEvent(const string & filePath, long long offset, long long size)
+std::shared_ptr<Event> Event::createReadEvent(const string & filePath, off_t offset, size_t size)
 {
     auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = string("read_event");
     event->m_stringProperties["filePath"] = filePath;
     event->m_numericProperties["bytes"] = size;
-    event->m_blocks = list< pair<long long, long long> > { std::pair<long long, long long>(offset, size) };
+    event->m_blocks = list< pair<off_t, size_t> > { std::pair<off_t, size_t>(offset, size) };
     return event;
 }
 
@@ -122,11 +122,11 @@ int Event::getStringPropertiesSize() const {
     return m_stringProperties.size();
 }
 
-const std::list< std::pair<long long, long long> >& Event::getBlocks() const {
+const std::list< std::pair<off_t, size_t> >& Event::getBlocks() const {
     return m_blocks;
 }
 
-void Event::setBlocks(const std::list< std::pair<long long, long long> >& blocks) {
+void Event::setBlocks(const std::list< std::pair<off_t, size_t> >& blocks) {
     m_blocks = blocks;
 }
 
