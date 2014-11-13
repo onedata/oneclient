@@ -13,12 +13,13 @@
 
 #include "events/IEventStream.h"
 
+#include <boost/icl/interval_set.hpp>
+
 #include <map>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <list>
-#include <boost/icl/interval_set.hpp>
 
 namespace one
 {

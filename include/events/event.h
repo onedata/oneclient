@@ -52,20 +52,20 @@ public:
     int getStringPropertiesSize() const;
 
     /* Access method for m_blocks */
-    const std::list< std::pair<long long, long long> >& getBlocks() const;
-    void setBlocks(const std::list< std::pair<long long, long long> >& blocks);
+    const std::list< std::pair<off_t, size_t> >& getBlocks() const;
+    void setBlocks(const std::list< std::pair<off_t, size_t> >& blocks);
 
     /* Factory methods */
     static std::shared_ptr<Event> createMkdirEvent(const std::string & filePath);
-    static std::shared_ptr<Event> createWriteEvent(const std::string & filePath, NumericProperty offset, NumericProperty size);
-    static std::shared_ptr<Event> createReadEvent(const std::string & filePath, NumericProperty offset, NumericProperty size);
+    static std::shared_ptr<Event> createWriteEvent(const std::string & filePath, off_t offset, size_t size);
+    static std::shared_ptr<Event> createReadEvent(const std::string & filePath, off_t offset, size_t size);
     static std::shared_ptr<Event> createRmEvent(const std::string & filePath);
     static std::shared_ptr<Event> createTruncateEvent(const std::string & filePath, off_t newSize);
 
 private:
     std::map<std::string, NumericProperty> m_numericProperties; ///< Stores numeric properties
     std::map<std::string, std::string> m_stringProperties; ///< Stores string properties
-    std::list< std::pair<long long, long long> > m_blocks; ///< Stores blocks
+    std::list< std::pair<off_t, size_t> > m_blocks; ///< Stores blocks
 };
 
 } // namespace events
