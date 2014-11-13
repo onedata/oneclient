@@ -82,8 +82,7 @@ std::shared_ptr<Event> EventAggregator::ActualEventAggregator::processEvent(std:
     NumericProperty count = event->getNumericProperty(sumFieldName, 1);
     const auto& blocks = event->getBlocks();
     m_counter += count;
-    if(!blocks.empty()) {
-        const auto& block = blocks.front();
+    for(const auto& block : blocks) {
         m_blocks += boost::icl::discrete_interval<long long>::right_open(block.first, block.first + block.second);
     }
 
