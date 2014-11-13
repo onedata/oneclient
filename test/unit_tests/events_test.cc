@@ -50,7 +50,7 @@ public:
 TEST(EventFilter, SimpleFilter) {
     // given
     std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
-    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file2", 100);
+    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file2", 0, 100);
     EventFilter filter("type", "mkdir_event");
 
     // what
@@ -66,7 +66,7 @@ TEST(EventFilter, SimpleFilter) {
 TEST(EventAggregatorTest, SimpleAggregation) {
     // given
     std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
-    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
+    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 0, 100);
     EventAggregator aggregator(5);
 
     // what
@@ -100,7 +100,7 @@ TEST(EventAggregatorTest, SimpleAggregation) {
 TEST(EventAggregatorTest, AggregationByOneField) {
     // given
     std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
-    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
+    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 0, 100);
     EventAggregator aggregator("type", 5);
 
     // what
@@ -137,8 +137,8 @@ TEST(EventAggregatorTest, AggregationByOneField) {
 }
 
 TEST(EventAggregatorTest, AggregationWithSum) {
-    std::shared_ptr<Event> smallWriteEvent = Event::createWriteEvent("file1", 5);
-    std::shared_ptr<Event> bigWriteEvent = Event::createWriteEvent("file2", 100);
+    std::shared_ptr<Event> smallWriteEvent = Event::createWriteEvent("file1", 0, 5);
+    std::shared_ptr<Event> bigWriteEvent = Event::createWriteEvent("file2", 0, 100);
     EventAggregator aggregator("type", 110, "bytes");
 
     std::shared_ptr<Event> res = aggregator.processEvent(smallWriteEvent);
@@ -170,8 +170,8 @@ TEST(EventAggregatorTest, AggregationWithSum) {
 TEST(EventAggregatorTest, FilterAndAggregation) {
     std::shared_ptr<Event> file1Event = Event::createMkdirEvent("file1");
     std::shared_ptr<Event> file2Event = Event::createMkdirEvent("file2");
-    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
-    std::shared_ptr<Event> writeEvent2 = Event::createWriteEvent("file2", 100);
+    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 0, 100);
+    std::shared_ptr<Event> writeEvent2 = Event::createWriteEvent("file2", 0, 100);
     std::shared_ptr<IEventStream> filter = std::make_shared<EventFilter>("type", "mkdir_event");
     std::shared_ptr<IEventStream> aggregator = std::make_shared<EventAggregator>(filter, "filePath", 5);
 
@@ -212,7 +212,7 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
 }
 
 TEST(EventTransformerTest, SimpleTransformation) {
-    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
+    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 0, 100);
     std::vector<std::string> fieldNames;
     fieldNames.push_back("type");
     std::vector<std::string> toReplace;
@@ -229,7 +229,7 @@ TEST(EventTransformerTest, SimpleTransformation) {
 
 TEST_F(EventsTest, EventStreamCombiner_CombineStreams) {
     std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
-    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
+    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 0, 100);
     std::shared_ptr<IEventStream> mkdirFilter = std::make_shared<EventFilter>("type", "mkdir_event");
     EventStreamCombiner combiner{context};
     combiner.addSubstream(mkdirFilter);
@@ -252,7 +252,7 @@ TEST_F(EventsTest, EventStreamCombiner_CombineStreams) {
 
 TEST(IEventStream, CustomActionStreamTest){
     TestHelper testHelper;
-    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 100);
+    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 0, 100);
     std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
 
     std::shared_ptr<IEventStream> filter = std::make_shared<EventFilter>("type", "mkdir_event");

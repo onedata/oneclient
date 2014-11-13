@@ -628,8 +628,8 @@ int FsImpl::read(const char *path, char *buf, size_t size, off_t offset, struct 
     auto sh = m_shCache.get(fileInfo->fh).get();
     CUSTOM_SH_RUN(sh, sh_read(lInfo.fileId.c_str(), buf, toRead, offset, fileInfo));
 
-    std::shared_ptr<events::Event> writeEvent = events::Event::createReadEvent(path, sh_return);
-    m_eventCommunicator->processEvent(writeEvent);
+    std::shared_ptr<events::Event> readEvent = events::Event::createReadEvent(path, offset, sh_return);
+    m_eventCommunicator->processEvent(readEvent);
 
     return sh_return;
 }
@@ -656,7 +656,7 @@ int FsImpl::write(const char *path, const char *buf, size_t size, off_t offset, 
             m_metaCache->updateSize(string(path), offset + sh_return);
         }
 
-        std::shared_ptr<events::Event> writeEvent = events::Event::createWriteEvent(path, size);
+        std::shared_ptr<events::Event> writeEvent = events::Event::createWriteEvent(path, offset, sh_return);
         m_eventCommunicator->processEvent(writeEvent);
     }
 

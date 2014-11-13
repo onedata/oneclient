@@ -29,21 +29,23 @@ std::shared_ptr<Event> Event::createMkdirEvent(const string & filePath)
     return event;
 }
 
-std::shared_ptr<Event> Event::createWriteEvent(const string & filePath, long long bytes)
+std::shared_ptr<Event> Event::createWriteEvent(const string & filePath, off_t offset, size_t size)
 {
     auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = string("write_event");
     event->m_stringProperties["filePath"] = filePath;
-    event->m_numericProperties["bytes"] = bytes;
+    event->m_numericProperties["bytes"] = size;
+    event->m_blocks = list< pair<off_t, size_t> > { std::pair<off_t, size_t>(offset, size) };
     return event;
 }
 
-std::shared_ptr<Event> Event::createReadEvent(const string & filePath, long long bytes)
+std::shared_ptr<Event> Event::createReadEvent(const string & filePath, off_t offset, size_t size)
 {
     auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = string("read_event");
     event->m_stringProperties["filePath"] = filePath;
-    event->m_numericProperties["bytes"] = bytes;
+    event->m_numericProperties["bytes"] = size;
+    event->m_blocks = list< pair<off_t, size_t> > { std::pair<off_t, size_t>(offset, size) };
     return event;
 }
 
@@ -66,14 +68,20 @@ std::shared_ptr<Event> Event::createTruncateEvent(const string & filePath, off_t
 std::shared_ptr<EventMessage> Event::createProtoMessage()
 {
     auto eventMessage = std::make_shared<EventMessage>();
-    for(auto & elem : m_stringProperties){
+    for(const auto & elem : m_stringProperties){
         eventMessage->add_string_properties_keys(elem.first);
         eventMessage->add_string_properties_values(elem.second);
     }
 
-    for(auto & elem : m_numericProperties){
+    for(const auto & elem : m_numericProperties){
         eventMessage->add_numeric_properties_keys(elem.first);
         eventMessage->add_numeric_properties_values(elem.second);
+    }
+
+    for(const auto & block : m_blocks) {
+        auto blockMessage = eventMessage->add_block();
+        blockMessage->set_offset(block.first);
+        blockMessage->set_size(block.second);
     }
 
     return eventMessage;
@@ -113,8 +121,17 @@ int Event::getStringPropertiesSize() const {
     return m_stringProperties.size();
 }
 
+const std::list< std::pair<off_t, size_t> >& Event::getBlocks() const {
+    return m_blocks;
+}
+
+void Event::setBlocks(const std::list< std::pair<off_t, size_t> >& blocks) {
+    m_blocks = blocks;
+}
+
 Event::Event(const Event & anotherEvent)
 {
     m_numericProperties = anotherEvent.m_numericProperties;
     m_stringProperties = anotherEvent.m_stringProperties;
+    m_blocks = anotherEvent.m_blocks;
 }
