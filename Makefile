@@ -7,7 +7,7 @@ CPACK = $(shell which cpack || which cpack28)
 .PHONY: rpm build release debug docs clean all
 all: rpm test
 
-rpm: deb-info
+rpm: dynamic
 	@cd ${RELEASE_DIR} && ${CPACK} -C CPackConfig.cmake -G RPM
 	@cd ${RELEASE_DIR} && ${CPACK} -C CPackConfig.cmake -G DEB
 
@@ -30,6 +30,9 @@ deb-info:
 	-@find ${RELEASE_DIR} -name "helpers-update" -exec rm -rf {} \;
 	@cd ${RELEASE_DIR} && ${CMAKE} -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
 	@cd ${RELEASE_DIR} && ninja oneclient
+
+dynamic: deb-info
+	@cd ${RELEASE_DIR} && ninja oneclient_dynamic
 
 release:
 	@mkdir -p ${RELEASE_DIR}
