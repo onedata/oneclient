@@ -8,7 +8,6 @@
 #ifndef ONECLIENT_META_CACHE_H
 #define ONECLIENT_META_CACHE_H
 
-
 #include <sys/stat.h>
 
 #include <ctime>
@@ -16,9 +15,20 @@
 #include <shared_mutex>
 #include <string>
 #include <unordered_map>
+#include <tuple>
 
 namespace one
 {
+
+namespace clproto {
+namespace communication_protocol {
+    class Answer;
+}
+namespace fuse_messages {
+    class FileAttr;
+}
+}
+
 namespace client
 {
 
@@ -34,14 +44,17 @@ protected:
     std::unordered_map<std::string, std::pair<time_t, struct stat> > m_statMap;  ///< This is the cache map.
                                                                         ///< Value of this std::map is std::pair containing expiration time of attributes and
                                                                         ///< stat struct itself
+    std::unordered_map<std::string, std::string> m_uuidMap;
     std::shared_timed_mutex m_statMapMutex;                                 ///< Mutex used to synchronize access to MetaCache::m_statMap
+
+
 
 public:
 
     MetaCache(std::shared_ptr<Context> context);
     virtual ~MetaCache();
 
-    virtual void addAttr(const std::string&, struct stat&); ///< Cache given attributes
+    virtual void addAttr(const std::string&, const std::string&, struct stat&); ///< Cache given attributes
                                                         ///< Expiration time can be set using configuration file.
     virtual void clearAttrs();                          ///< Clear whole cache
 
@@ -62,8 +75,13 @@ public:
      */
     virtual bool canUseDefaultPermissions(const struct stat &attrs);
 
+    virtual bool handleNotification(const clproto::communication_protocol::Answer&);
+
+    virtual std::tuple<std::string, struct stat> parseFileAttr(const clproto::fuse_messages::FileAttr &attr);
+
 protected:
-    const std::shared_ptr<Context> m_context;
+    const   std::shared_ptr<Context> m_context;
+    int     m_asyncAttrsSubId;
 };
 
 } // namespace client
