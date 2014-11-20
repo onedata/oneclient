@@ -39,9 +39,9 @@ TEST_F(MetaCacheTest, InsertAndRemove) {
     EXPECT_EQ(0u, proxy->getStatMap().size());
 
     EXPECT_CALL(*scheduler, schedule(_, _)).Times(3);
-    proxy->addAttr("/test1", stat);
-    proxy->addAttr("/test2", stat);
-    proxy->addAttr("/test3", stat);
+    proxy->addAttr("u1", "/test1", stat);
+    proxy->addAttr("u2", "/test2", stat);
+    proxy->addAttr("u3", "/test3", stat);
     EXPECT_EQ(3u, proxy->getStatMap().size());
 
     proxy->clearAttr("/test2");
@@ -58,9 +58,9 @@ TEST_F(MetaCacheTest, InsertAndRemove) {
     EXPECT_EQ(0u, proxy->getStatMap().size());
 
     EXPECT_CALL(*scheduler, schedule(_, _)).Times(3);
-    proxy->addAttr("/test1", stat);
-    proxy->addAttr("/test2", stat);
-    proxy->addAttr("/test3", stat);
+    proxy->addAttr("u1", "/test1", stat);
+    proxy->addAttr("u2", "/test2", stat);
+    proxy->addAttr("u3", "/test3", stat);
     EXPECT_EQ(3u, proxy->getStatMap().size());
 
     proxy->clearAttrs();
@@ -74,9 +74,9 @@ TEST_F(MetaCacheTest, InsertAndGet) {
 
     EXPECT_CALL(*scheduler, schedule(AllOf(Ge(seconds{5}), Le(seconds{40})), _)).Times(2);
     stat.st_size = 1;
-    proxy->addAttr("/test1", stat);
+    proxy->addAttr("u1", "/test1", stat);
     stat.st_size = 2;
-    proxy->addAttr("/test2", stat);
+    proxy->addAttr("u2", "/test2", stat);
     stat.st_size = 3;
 
     EXPECT_CALL(*options, get_attr_cache_expiration_time()).WillRepeatedly(Return(-5));
@@ -84,7 +84,7 @@ TEST_F(MetaCacheTest, InsertAndGet) {
                             Ge(seconds{one::ATTR_DEFAULT_EXPIRATION_TIME / 2 - 5}),
                             Le(seconds{one::ATTR_DEFAULT_EXPIRATION_TIME * 2})), _)).Times(1);
 
-    proxy->addAttr("/test3", stat);
+    proxy->addAttr("u3", "/test3", stat);
 
     EXPECT_TRUE(proxy->getAttr("/test3", &tmp));
     proxy->clearAttr("/test3");
@@ -100,8 +100,8 @@ TEST_F(MetaCacheTest, CacheTurnOff) {
     EXPECT_CALL(*options, get_enable_attr_cache()).WillRepeatedly(Return(false));
 
     struct stat tmp;
-    proxy->addAttr("/test1", stat);
-    proxy->addAttr("/test2", stat);
+    proxy->addAttr("u1", "/test1", stat);
+    proxy->addAttr("u2", "/test2", stat);
 
     EXPECT_FALSE(proxy->getAttr("/test1", &tmp));
     EXPECT_FALSE(proxy->getAttr("/test2", &tmp));
