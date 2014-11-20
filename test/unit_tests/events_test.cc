@@ -220,8 +220,7 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
 TEST(EventAggregatorTest, PathAggregationAndClearing) {
     std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 0, 100);
     std::shared_ptr<Event> writeEvent2 = Event::createWriteEvent("file2", 0, 100);
-    std::shared_ptr<IEventStream> filter = std::make_shared<EventFilter>("type", "mkdir_event");
-    std::shared_ptr<IEventStream> aggregator = std::make_shared<EventAggregator>(filter, "bytes", 505);
+    std::shared_ptr<IEventStream> aggregator = std::make_shared<EventAggregator>("type", 505, "bytes");
 
     std::shared_ptr<Event> res = aggregator->processEvent(writeEvent);
     ASSERT_FALSE((bool) res);
@@ -233,10 +232,10 @@ TEST(EventAggregatorTest, PathAggregationAndClearing) {
     ASSERT_FALSE((bool) res);
 
     res = aggregator->processEvent(writeEvent2);
-    ASSERT_TRUE((bool) res);
+    ASSERT_FALSE((bool) res);
 
     res = aggregator->processEvent(writeEvent2);
-    ASSERT_TRUE((bool) res);
+    ASSERT_FALSE((bool) res);
 
     std::list<std::shared_ptr<Event> > pendingEvents = aggregator->getPendingEvents(std::list<std::shared_ptr<Event> >{});
     ASSERT_EQ(2, pendingEvents.size());
@@ -244,11 +243,11 @@ TEST(EventAggregatorTest, PathAggregationAndClearing) {
     {
         if(event->getNumericProperty("bytes", -1) == 200)
         {
-            ASSERT_EQ("file2", res->getStringProperty("filePath", ""));
+            ASSERT_EQ("file2", event->getStringProperty("filePath", ""));
         }
         else
         {
-            ASSERT_EQ("file1", res->getStringProperty("filePath", ""));
+            ASSERT_EQ("file1", event->getStringProperty("filePath", ""));
             ASSERT_EQ(300, event->getNumericProperty("bytes", -1));
         }
     }
