@@ -228,6 +228,7 @@ int FsImpl::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
 
         // At this point we have attributes from cluster
 
+        std::string fileUUID;
         std::tie(fileUUID, *statbuf) = m_metaCache->parseFileAttr(attr);
 
         uid_t uid = attr.uid();

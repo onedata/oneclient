@@ -75,9 +75,18 @@ public:
      */
     virtual bool canUseDefaultPermissions(const struct stat &attrs);
 
+    /**
+     * Handles notification from provider (PUSH channel listener)
+     * @return Bool saying if listener shall not be removed
+     */
     virtual bool handleNotification(const clproto::communication_protocol::Answer&);
 
-    virtual std::tuple<std::string, struct stat> parseFileAttr(const clproto::fuse_messages::FileAttr &attr);
+    /**
+     * Parses file attributes from protocol's format
+     * @param attrs of the file
+     * @return File UUID and POSIX struct with file attributes
+     */
+    virtual std::tuple<std::string, struct stat> parseFileAttr(const clproto::fuse_messages::FileAttr &attrs);
 
 protected:
     const   std::shared_ptr<Context> m_context;

@@ -41,18 +41,15 @@ MetaCache::~MetaCache()
 
 bool MetaCache::handleNotification(const clproto::communication_protocol::Answer& msg)
 {
-    if(!msg.has_message_decoder_name())
-        return true;
-
     if(msg.message_type() == boost::algorithm::to_lower_copy(clproto::fuse_messages::FileAttr::descriptor()->name())) {
         clproto::fuse_messages::FileAttr attrs;
         attrs.ParseFromString(msg.worker_answer());
+
         std::string fileUUID;
         struct stat statbuf;
         std::tie(fileUUID, statbuf) = parseFileAttr(attrs);
-        addAttr(fileUUID, "", statbuf);
 
-        LOG(INFO) << "================> Got async META for " << fileUUID;
+        addAttr(fileUUID, "", statbuf);
     }
 
     return true;
@@ -91,7 +88,7 @@ std::tuple<std::string, struct stat> MetaCache::parseFileAttr(const clproto::fus
         statbuf.st_size = attr.size();
     }
 
-    return {attr.uuid(), std::move(statbuf)};
+    return std::make_tuple(attr.uuid(), std::move(statbuf));
 }
 
 void MetaCache::addAttr(const string &uuid, const string &path, struct stat &attr)
@@ -169,7 +166,7 @@ bool MetaCache::updateTimes(const string &path, time_t atime, time_t mtime, time
         attr.st_ctime = ctime;
 
 
-    addAttr(*uuid_it, path, attr);
+    addAttr(uuid_it->second, path, attr);
 
     return true;
 }
