@@ -9,6 +9,7 @@
 #ifndef ONECLIENT_I_EVENT_STREAM_H
 #define ONECLIENT_I_EVENT_STREAM_H
 
+#include <list>
 
 #include <memory>
 
@@ -44,6 +45,11 @@ public:
     virtual ~IEventStream() = default;
 
     virtual std::shared_ptr<Event> processEvent(std::shared_ptr<Event> event);
+
+    /**
+     * Processes events, gathers events that were stopped in stream.
+     */
+    virtual std::list<std::shared_ptr<Event> > getPendingEvents(std::list<std::shared_ptr<Event> > events);
 
     /* Access methods for m_wrappedStream */
     virtual std::shared_ptr<IEventStream> getWrappedStream() const;

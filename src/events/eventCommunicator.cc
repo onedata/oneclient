@@ -31,6 +31,8 @@
 #include <google/protobuf/descriptor.h>
 
 #include <functional>
+#include <iostream>
+#include <memory>
 
 using namespace one::client;
 using namespace one::client::events;
@@ -44,6 +46,7 @@ EventCommunicator::EventCommunicator(std::shared_ptr<Context> context, std::shar
     , m_eventsStream(eventsStream)
     , m_writeEnabled(true)
 {
+    shared_from_this();
     if(!eventsStream){
         m_eventsStream = std::make_shared<EventStreamCombiner>(m_context);
     }
@@ -199,6 +202,16 @@ void EventCommunicator::processEvent(std::shared_ptr<Event> event)
                     &EventStreamCombiner::processNextEvent,
                     m_eventsStream);
     }
+}
+
+void EventCommunicator::scheduleSendingAllPendingEvents()
+{
+    m_eventsStream->sendAllPendingEvents();
+    m_context->scheduler()->schedule(
+                15s,
+                &EventCommunicator::scheduleSendingAllPendingEvents,
+                shared_from_this());
+    std::cout<<"Send all\n";
 }
 
 void EventCommunicator::addStatAfterWritesRule(int bytes){

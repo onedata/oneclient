@@ -164,6 +164,8 @@ FsImpl::FsImpl(string path, std::shared_ptr<Context> context,
                                  m_eventCommunicator);
     m_context->scheduler()->post(&events::EventCommunicator::askIfWriteEnabled,
                                  m_eventCommunicator);
+    m_context->scheduler()->post(&events::EventCommunicator::scheduleSendingAllPendingEvents,
+                                 m_eventCommunicator);
 }
 
 FsImpl::~FsImpl()

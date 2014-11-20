@@ -9,6 +9,8 @@
 
 #include "fuse_messages.pb.h"
 
+#include <list>
+
 using namespace one::client::events;
 using namespace std;
 using namespace one::clproto::fuse_messages;
@@ -25,6 +27,19 @@ std::shared_ptr<Event> IEventStream::processEvent(std::shared_ptr<Event> event)
         return actualProcessEvent(event);
     }
 }
+
+std::list<std::shared_ptr<Event> > IEventStream::getPendingEvents(std::list<std::shared_ptr<Event> > events)
+{
+    std::list<std::shared_ptr<Event> > processedEvents;
+    for(auto & event : events)
+    {
+        auto processedEvent = actualProcessEvent(event);
+        if(processedEvent)
+            processedEvents.push_back(processedEvent);
+    }
+    return processedEvents;
+}
+
 
 IEventStream::IEventStream(std::shared_ptr<IEventStream> wrappedStream) :
     m_wrappedStream(std::move(wrappedStream))

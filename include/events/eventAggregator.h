@@ -50,16 +50,19 @@ public:
     {
     public:
         ActualEventAggregator() = default;
-        ActualEventAggregator(ActualEventAggregator&&);
         // Process event. Threshold, fieldName and sumFieldName are passed from outside because those parameters are the same for all substreams.
         virtual std::shared_ptr<Event> processEvent(std::shared_ptr<Event> event, NumericProperty threshold,  const std::string & fieldName, const std::string & sumFieldName);
-
+        // Returns all pending events and clears state.
+        std::list<std::shared_ptr<Event> > getPendingEvents(const std::string & value, const std::string & fieldName,
+                                                            const std::string & sumFieldName);
     private:
-        NumericProperty m_counter = 0;			  ///< Aggregated value
-        boost::icl::interval_set<off_t> m_blocks; ///< Aggregated blocks
+        std::map<std::string, NumericProperty> m_counters;			  ///< Aggregated values
+        std::map<std::string, boost::icl::interval_set<off_t> > m_blocks; ///< Aggregated blocks
         std::mutex m_aggregatorStateMutex;
 
         void resetState();					 ///< Resets state - should be called after every event forward.
+        std::shared_ptr<Event> getEventByProperty(const std::string & path, const std::string & value,
+                                                  const std::string & fieldName, const std::string & sumFieldName);
     };
 
     //TODO: too many constructors
@@ -70,6 +73,8 @@ public:
 
     static std::shared_ptr<IEventStream> fromConfig(const ::one::clproto::fuse_messages::EventAggregatorConfig & config); ///< Constructs EventFilter for protocol buffer message EventFilterConfig
     virtual std::shared_ptr<Event> actualProcessEvent(std::shared_ptr<Event> event); 									  ///<  Implements pure virtual method IEventStream::actualProcessEvent
+
+    std::list<std::shared_ptr<Event> > getPendingEvents(std::list<std::shared_ptr<Event> > events) override;
 
     // for unit test purposes
     std::string getFieldName();

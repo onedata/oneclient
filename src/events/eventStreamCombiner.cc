@@ -10,6 +10,7 @@
 #include "events/event.h"
 #include "events/eventCommunicator.h"
 #include "events/IEventStream.h"
+#include "context.h"
 #include "fuse_messages.pb.h"
 
 using namespace one::client::events;
@@ -47,6 +48,21 @@ bool EventStreamCombiner::processNextEvent()
 
     return true;
 }
+
+void EventStreamCombiner::sendAllPendingEvents()
+{
+    for(auto & elem : m_substreams)
+    {
+        auto producedEvents = elem->getPendingEvents(std::list<std::shared_ptr<Event> >{});
+
+        for(auto & processedEvent : producedEvents)
+        {
+            std::shared_ptr<EventMessage> eventProtoMessage = (processedEvent)->createProtoMessage();
+            EventCommunicator::sendEvent(m_context, eventProtoMessage);
+        }
+    }
+}
+
 
 void EventStreamCombiner::pushEventToProcess(std::shared_ptr<Event> eventToProcess)
 {
