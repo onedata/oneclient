@@ -39,7 +39,7 @@ bool EventStreamCombiner::processNextEvent()
         list<std::shared_ptr<Event> > processedEvents = processEvent(event);
 
         for(auto & processedEvent : processedEvents){
-            std::shared_ptr<EventMessage> eventProtoMessage = (processedEvent)->createProtoMessage();
+            std::shared_ptr<EventMessage> eventProtoMessage = processedEvent->createProtoMessage();
 
             EventCommunicator::sendEvent(m_context, eventProtoMessage);
         }
@@ -56,7 +56,7 @@ void EventStreamCombiner::sendAllPendingEvents()
 
         for(auto & processedEvent : producedEvents)
         {
-            std::shared_ptr<EventMessage> eventProtoMessage = (processedEvent)->createProtoMessage();
+            std::shared_ptr<EventMessage> eventProtoMessage = processedEvent->createProtoMessage();
             EventCommunicator::sendEvent(m_context, eventProtoMessage);
         }
     }
