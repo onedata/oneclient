@@ -61,6 +61,10 @@ public:
         std::mutex m_aggregatorStateMutex;
 
         void resetState();					 ///< Resets state - should be called after every event forward.
+
+        /**
+         * Creates event based on aggregated values for specified property.
+         */
         std::shared_ptr<Event> getEventByProperty(const std::string & path, const std::string & value,
                                                   const std::string & fieldName, const std::string & sumFieldName);
     };
@@ -74,6 +78,9 @@ public:
     static std::shared_ptr<IEventStream> fromConfig(const ::one::clproto::fuse_messages::EventAggregatorConfig & config); ///< Constructs EventFilter for protocol buffer message EventFilterConfig
     virtual std::shared_ptr<Event> actualProcessEvent(std::shared_ptr<Event> event); 									  ///<  Implements pure virtual method IEventStream::actualProcessEvent
 
+    /**
+     * Clears aggregating tables. Creates list of aggregated events.
+     */
     std::list<std::shared_ptr<Event> > getPendingEvents(std::list<std::shared_ptr<Event> > events) override;
 
     // for unit test purposes

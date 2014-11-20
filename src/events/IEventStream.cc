@@ -37,6 +37,16 @@ std::list<std::shared_ptr<Event> > IEventStream::getPendingEvents(std::list<std:
         if(processedEvent)
             processedEvents.push_back(processedEvent);
     }
+    if(m_wrappedStream)
+    {
+       auto inner_events = m_wrappedStream->getPendingEvents(std::list<std::shared_ptr<Event> >{});
+       for(auto & event : inner_events)
+       {
+           auto processedEvent = actualProcessEvent(event);
+           if(processedEvent)
+               processedEvents.push_back(processedEvent);
+       }
+    }
     return processedEvents;
 }
 

@@ -34,6 +34,8 @@ using NumericProperty = long long;
  */
 class Event
 {
+friend std::ostream& operator<<(std::ostream& os, const Event& obj);
+
 public:
     Event() = default;
     Event(const Event & anotherEvent);

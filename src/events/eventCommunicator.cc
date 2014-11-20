@@ -46,7 +46,6 @@ EventCommunicator::EventCommunicator(std::shared_ptr<Context> context, std::shar
     , m_eventsStream(eventsStream)
     , m_writeEnabled(true)
 {
-    shared_from_this();
     if(!eventsStream){
         m_eventsStream = std::make_shared<EventStreamCombiner>(m_context);
     }
@@ -211,7 +210,6 @@ void EventCommunicator::scheduleSendingAllPendingEvents()
                 15s,
                 &EventCommunicator::scheduleSendingAllPendingEvents,
                 shared_from_this());
-    std::cout<<"Send all\n";
 }
 
 void EventCommunicator::addStatAfterWritesRule(int bytes){
