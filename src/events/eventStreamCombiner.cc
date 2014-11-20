@@ -10,7 +10,6 @@
 #include "events/event.h"
 #include "events/eventCommunicator.h"
 #include "events/IEventStream.h"
-#include "context.h"
 #include "fuse_messages.pb.h"
 
 using namespace one::client::events;

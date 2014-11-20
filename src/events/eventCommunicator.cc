@@ -31,7 +31,6 @@
 #include <google/protobuf/descriptor.h>
 
 #include <functional>
-#include <iostream>
 #include <memory>
 
 using namespace one::client;
