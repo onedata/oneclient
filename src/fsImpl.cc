@@ -164,6 +164,9 @@ FsImpl::FsImpl(string path, std::shared_ptr<Context> context,
                                  m_eventCommunicator);
     m_context->scheduler()->post(&events::EventCommunicator::askIfWriteEnabled,
                                  m_eventCommunicator);
+
+
+    m_context->getPushListener()->subscribe(&MetaCache::handleNotification, m_metaCache);
 }
 
 FsImpl::~FsImpl()
@@ -225,12 +228,8 @@ int FsImpl::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
 
         // At this point we have attributes from cluster
 
-        statbuf->st_mode = attr.mode(); // File type still has to be set, fslogic gives only permissions in mode field
-        statbuf->st_nlink = attr.links();
-
-        statbuf->st_atime = attr.atime();
-        statbuf->st_mtime = attr.mtime();
-        statbuf->st_ctime = attr.ctime();
+        std::string fileUUID;
+        std::tie(fileUUID, *statbuf) = m_metaCache->parseFileAttr(attr);
 
         uid_t uid = attr.uid();
         gid_t gid = attr.gid();
@@ -240,16 +239,8 @@ int FsImpl::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
             m_rgid = gid;
         }
 
-        struct passwd *ownerInfo = getpwnam(attr.uname().c_str()); // Static buffer, do NOT free !
-        struct group *groupInfo = getgrnam(attr.gname().c_str());  // Static buffer, do NOT free !
-
-        statbuf->st_uid   = (ownerInfo ? ownerInfo->pw_uid : uid);
-        statbuf->st_gid   = (groupInfo ? groupInfo->gr_gid : gid);
-
         if(attr.type() == "DIR")
         {
-            statbuf->st_mode |= S_IFDIR;
-
             // Prefetch "ls" result
             if(fuse_ctx && m_context->getOptions()->get_enable_dir_prefetch() && m_context->getOptions()->get_enable_attr_cache())
             {
@@ -259,20 +250,13 @@ int FsImpl::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
         }
         else if(attr.type() == "LNK")
         {
-            statbuf->st_mode |= S_IFLNK;
-
             // Check cache for validity
             if(const auto &cached = m_linkCache.get(path))
                 if(statbuf->st_mtime > cached.get().second)
                     m_linkCache.take(path);
         }
-        else
-        {
-            statbuf->st_mode |= S_IFREG;
-            statbuf->st_size = attr.size();
-        }
 
-        m_metaCache->addAttr(string(path), *statbuf);
+        m_metaCache->addAttr(fileUUID, string(path), *statbuf);
     }
 
     return 0;
