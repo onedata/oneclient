@@ -206,7 +206,7 @@ void EventCommunicator::scheduleSendingAllPendingEvents()
 {
     m_eventsStream->sendAllPendingEvents();
     m_context->scheduler()->schedule(
-                15s,
+                500ms,
                 &EventCommunicator::scheduleSendingAllPendingEvents,
                 shared_from_this());
 }
