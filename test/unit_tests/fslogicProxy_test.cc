@@ -157,6 +157,7 @@ TEST_F(FslogicProxyTest, getFileAttr) {
     EXPECT_FALSE(proxy->getFileAttr("/file", response));
 
 
+    attributes.set_uuid("uuid");
     attributes.set_atime(0);
     attributes.set_mtime(0);
     attributes.set_ctime(0);
