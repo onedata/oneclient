@@ -59,7 +59,7 @@ std::tuple<std::string, struct stat> MetaCache::parseFileAttr(const clproto::fus
     struct stat statbuf = {0};
     statbuf.st_uid = -1;
     statbuf.st_gid = -1;
-    \
+
     statbuf.st_mode = attr.mode(); // File type still has to be set, fslogic gives only permissions in mode field
     statbuf.st_nlink = attr.links();
 
