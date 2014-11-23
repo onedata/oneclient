@@ -44,6 +44,7 @@ public:
     virtual void pushEventToProcess(std::shared_ptr<Event> event);						   ///< Pushes event to queue m_eventsToProcess.
     std::queue<std::shared_ptr<Event> > getEventsToProcess() const;						   ///< TODO: probably should be removed or replaced with getQueueSize
     bool processNextEvent();																   ///< Process next event in queue.
+    void sendAllPendingEvents();                                                           ///< Sends all pending events.
 
 private:
     const std::shared_ptr<Context> m_context;

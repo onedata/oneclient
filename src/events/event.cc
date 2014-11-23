@@ -15,11 +15,16 @@
 
 #include <map>
 
-using namespace one::client;
-using namespace one::client::events;
 using namespace std;
 using namespace one::clproto::fuse_messages;
 using namespace one::clproto::communication_protocol;
+
+namespace one
+{
+namespace client
+{
+namespace events
+{
 
 std::shared_ptr<Event> Event::createMkdirEvent(const string & filePath)
 {
@@ -61,7 +66,7 @@ std::shared_ptr<Event> Event::createTruncateEvent(const string & filePath, off_t
     auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = "truncate_event";
     event->m_stringProperties["filePath"] = filePath;
-    event->m_stringProperties["newSize"] = "newSize";
+    event->m_numericProperties["newSize"] = newSize;
     return event;
 }
 
@@ -135,3 +140,26 @@ Event::Event(const Event & anotherEvent)
     m_stringProperties = anotherEvent.m_stringProperties;
     m_blocks = anotherEvent.m_blocks;
 }
+
+std::ostream& operator<<(std::ostream& os, const Event& obj)
+{
+    os << "event:\n";
+    for(auto & entry : obj.m_stringProperties)
+    {
+        os << entry.first << " : " << entry.second << "\n";
+    }
+    for(auto & entry : obj.m_numericProperties)
+    {
+        os << entry.first << " : " << entry.second << "\n";
+    }
+    os << "blocks: \n";
+    for(auto &block : obj.m_blocks)
+    {
+        os << block.first << " - " << block.second << "\n";
+    }
+    return os;
+}
+
+} // namespace events
+} // namespace client
+} // namespace one

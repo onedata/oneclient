@@ -11,8 +11,8 @@
 
 
 #include <string>
-#include <memory>
 #include <mutex>
+#include <memory>
 
 namespace one
 {
@@ -49,7 +49,7 @@ class EventStreamCombiner;
  * EventCommunicator class is facade for event handling module. Holds registered substreams and enables event-related communication with cluster.
  * Enables registering substreams (addEventSubstream* methods) and handles event-related communication with cluster.
  */
-class EventCommunicator
+class EventCommunicator: public std::enable_shared_from_this<EventCommunicator>
 {
 public:
     EventCommunicator(std::shared_ptr<Context> context, std::shared_ptr<EventStreamCombiner> eventsStream = std::shared_ptr<EventStreamCombiner>());
@@ -66,6 +66,7 @@ public:
     bool isWriteEnabled(); 					///< Getter for m_writeEnabled, does not communicate with cluster.
     static void sendEvent(const std::shared_ptr<Context> &context,
                           std::shared_ptr< ::one::clproto::fuse_messages::EventMessage> eventMessage); ///< Sends eventMessage to cluster.
+    void scheduleSendingAllPendingEvents();            ///< Schedules sending all pending events.
 
     /* Access methods */
     void setFslogic(std::shared_ptr<FslogicProxy> fslogicProxy);
