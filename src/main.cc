@@ -547,6 +547,10 @@ int main(int argc, char* argv[], char* envp[])
                 &logging::RemoteLogWriter::handleThresholdChange, logWriter);
     logWriter->run(context->getCommunicator());
 
+    // Register remote storageMapper for push messages with available blocks
+    context->getPushListener()->subscribe(
+                &StorageMapper::handlePushMessage, storageMapper);
+
     // Enter FUSE loop
     res = multithreaded ? fuse_loop_mt(fuse) : fuse_loop(fuse);
     return res == -1 ? EXIT_FAILURE : EXIT_SUCCESS;
