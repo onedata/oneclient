@@ -145,6 +145,7 @@ std::shared_ptr<Event> EventAggregator::ActualEventAggregator::getEventByPropert
 
 std::list<std::shared_ptr<Event> > EventAggregator::ActualEventAggregator::getPendingEvents(const string & value, const string & fieldName, const string & sumFieldName)
 {
+    std::lock_guard<std::mutex> guard{m_aggregatorStateMutex};
     std::list<std::shared_ptr<Event> > processedEvents;
     for(auto & entry : m_counters)
     {

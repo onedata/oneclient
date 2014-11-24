@@ -80,8 +80,9 @@ TEST(EventAggregatorTest, SimpleAggregation) {
     ASSERT_TRUE((bool) res);
 
     ASSERT_EQ(1, res->getNumericPropertiesSize());
-    ASSERT_EQ(1, res->getStringPropertiesSize());
+    ASSERT_EQ(2, res->getStringPropertiesSize());
     ASSERT_EQ("count", res->getStringProperty(SUM_FIELD_NAME, ""));
+    ASSERT_EQ("file1", res->getStringProperty("filePath", ""));
     ASSERT_EQ(5, res->getNumericProperty("count", -1));
 
     for(int i=0; i<4; ++i){
@@ -92,8 +93,9 @@ TEST(EventAggregatorTest, SimpleAggregation) {
     res = aggregator.processEvent(writeEvent);
     ASSERT_TRUE((bool) res);
     ASSERT_EQ(1, res->getNumericPropertiesSize());
-    ASSERT_EQ(1, res->getStringPropertiesSize());
+    ASSERT_EQ(2, res->getStringPropertiesSize());
     ASSERT_EQ("count", res->getStringProperty(SUM_FIELD_NAME, ""));
+    ASSERT_EQ("file1", res->getStringProperty("filePath", ""));
     ASSERT_EQ(5, res->getNumericProperty("count", -1));
 }
 
@@ -114,8 +116,9 @@ TEST(EventAggregatorTest, AggregationByOneField) {
     res = aggregator.processEvent(mkdirEvent);
     ASSERT_TRUE((bool) res);
     ASSERT_EQ(1, res->getNumericPropertiesSize());
-    ASSERT_EQ(2, res->getStringPropertiesSize());
+    ASSERT_EQ(3, res->getStringPropertiesSize());
     ASSERT_EQ("count", res->getStringProperty(SUM_FIELD_NAME, ""));
+    ASSERT_EQ("file1", res->getStringProperty("filePath", ""));
     ASSERT_EQ(5, res->getNumericProperty("count", -1));
     ASSERT_EQ("mkdir_event", res->getStringProperty("type", ""));
 
@@ -131,14 +134,15 @@ TEST(EventAggregatorTest, AggregationByOneField) {
     res = aggregator.processEvent(writeEvent);
     ASSERT_TRUE((bool) res);
     ASSERT_EQ(1, res->getNumericPropertiesSize());
-    ASSERT_EQ(2, res->getStringPropertiesSize());
+    ASSERT_EQ(3, res->getStringPropertiesSize());
     ASSERT_EQ(5, res->getNumericProperty("count", -1));
     ASSERT_EQ("write_event", res->getStringProperty("type", ""));
+    ASSERT_EQ("file1", res->getStringProperty("filePath", ""));
 }
 
 TEST(EventAggregatorTest, AggregationWithSum) {
     std::shared_ptr<Event> smallWriteEvent = Event::createWriteEvent("file1", 0, 5);
-    std::shared_ptr<Event> bigWriteEvent = Event::createWriteEvent("file2", 0, 100);
+    std::shared_ptr<Event> bigWriteEvent = Event::createWriteEvent("file1", 0, 100);
     EventAggregator aggregator("type", 110, "bytes");
 
     std::shared_ptr<Event> res = aggregator.processEvent(smallWriteEvent);
@@ -149,9 +153,10 @@ TEST(EventAggregatorTest, AggregationWithSum) {
     res = aggregator.processEvent(smallWriteEvent);
     ASSERT_TRUE((bool) res);
     ASSERT_EQ(1, res->getNumericPropertiesSize());
-    ASSERT_EQ(2, res->getStringPropertiesSize());
+    ASSERT_EQ(3, res->getStringPropertiesSize());
     ASSERT_EQ(110, res->getNumericProperty("bytes", -1));
     ASSERT_EQ("write_event", res->getStringProperty("type", ""));
+    ASSERT_EQ("file1", res->getStringProperty("filePath", ""));
 
     res = aggregator.processEvent(smallWriteEvent);
     ASSERT_FALSE((bool) res);
@@ -161,9 +166,10 @@ TEST(EventAggregatorTest, AggregationWithSum) {
     res = aggregator.processEvent(bigWriteEvent);
     ASSERT_TRUE((bool) res);
     ASSERT_EQ(1, res->getNumericPropertiesSize());
-    ASSERT_EQ(2, res->getStringPropertiesSize());
+    ASSERT_EQ(3, res->getStringPropertiesSize());
     ASSERT_EQ(205, res->getNumericProperty("bytes", -1));
     ASSERT_EQ("write_event", res->getStringProperty("type", ""));
+    ASSERT_EQ("file1", res->getStringProperty("filePath", ""));
 }
 
 // checks event filter composed with event aggregator
@@ -208,6 +214,42 @@ TEST(EventAggregatorTest, FilterAndAggregation) {
     for(int i=0; i<5; ++i){
         std::shared_ptr<Event> res = aggregator->processEvent(writeEvent2);
         ASSERT_FALSE((bool) res);
+    }
+}
+
+TEST(EventAggregatorTest, PathAggregationAndClearing) {
+    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 0, 100);
+    std::shared_ptr<Event> writeEvent2 = Event::createWriteEvent("file2", 0, 100);
+    std::shared_ptr<IEventStream> aggregator = std::make_shared<EventAggregator>("type", 505, "bytes");
+
+    std::shared_ptr<Event> res = aggregator->processEvent(writeEvent);
+    ASSERT_FALSE((bool) res);
+
+    res = aggregator->processEvent(writeEvent);
+    ASSERT_FALSE((bool) res);
+
+    res = aggregator->processEvent(writeEvent);
+    ASSERT_FALSE((bool) res);
+
+    res = aggregator->processEvent(writeEvent2);
+    ASSERT_FALSE((bool) res);
+
+    res = aggregator->processEvent(writeEvent2);
+    ASSERT_FALSE((bool) res);
+
+    std::list<std::shared_ptr<Event> > pendingEvents = aggregator->getPendingEvents(std::list<std::shared_ptr<Event> >{});
+    ASSERT_EQ(2, pendingEvents.size());
+    for(auto event : pendingEvents)
+    {
+        if(event->getNumericProperty("bytes", -1) == 200)
+        {
+            ASSERT_EQ("file2", event->getStringProperty("filePath", ""));
+        }
+        else
+        {
+            ASSERT_EQ("file1", event->getStringProperty("filePath", ""));
+            ASSERT_EQ(300, event->getNumericProperty("bytes", -1));
+        }
     }
 }
 

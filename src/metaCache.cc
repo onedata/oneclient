@@ -13,9 +13,16 @@
 #include "options.h"
 #include "scheduler.h"
 #include "fsImpl.h"
+#include "fuse_messages.pb.h"
+#include "communication_protocol.pb.h"
 #include <storageMapper.h>
 
 #include <memory.h>
+#include <grp.h>
+#include <pwd.h>
+
+#include <google/protobuf/descriptor.h>
+#include <boost/algorithm/string/case_conv.hpp>
 
 using namespace std;
 
@@ -32,14 +39,67 @@ MetaCache::~MetaCache()
 {
 }
 
-void MetaCache::addAttr(const string &path, struct stat &attr)
+bool MetaCache::handleNotification(const clproto::communication_protocol::Answer& msg)
+{
+    if(msg.message_type() == boost::algorithm::to_lower_copy(clproto::fuse_messages::FileAttr::descriptor()->name())) {
+        clproto::fuse_messages::FileAttr attrs;
+        attrs.ParseFromString(msg.worker_answer());
+
+        std::string fileUUID;
+        struct stat statbuf;
+        std::tie(fileUUID, statbuf) = parseFileAttr(attrs);
+
+        addAttr(fileUUID, "", statbuf);
+    }
+
+    return true;
+}
+
+std::tuple<std::string, struct stat> MetaCache::parseFileAttr(const clproto::fuse_messages::FileAttr &attr) {
+    struct stat statbuf = {0};
+    statbuf.st_uid = -1;
+    statbuf.st_gid = -1;
+
+    statbuf.st_mode = attr.mode(); // File type still has to be set, fslogic gives only permissions in mode field
+    statbuf.st_nlink = attr.links();
+
+    statbuf.st_atime = attr.atime();
+    statbuf.st_mtime = attr.mtime();
+    statbuf.st_ctime = attr.ctime();
+
+    uid_t uid = attr.uid();
+    gid_t gid = attr.gid();
+
+    struct passwd *ownerInfo = getpwnam(attr.uname().c_str());
+    struct group *groupInfo = getgrnam(attr.gname().c_str());
+
+    statbuf.st_uid   = (ownerInfo ? ownerInfo->pw_uid : uid);
+    statbuf.st_gid   = (groupInfo ? groupInfo->gr_gid : gid);
+
+    if(attr.type() == "DIR") {
+        statbuf.st_mode |= S_IFDIR;
+    }
+    else if(attr.type() == "LNK") {
+        statbuf.st_mode |= S_IFLNK;
+    }
+    else
+    {
+        statbuf.st_mode |= S_IFREG;
+        statbuf.st_size = attr.size();
+    }
+
+    return std::make_tuple(attr.uuid(), std::move(statbuf));
+}
+
+void MetaCache::addAttr(const string &uuid, const string &path, struct stat &attr)
 {
     if(!m_context->getOptions()->get_enable_attr_cache())
         return;
 
     std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
-    bool wasBefore = m_statMap.count(path);
-    m_statMap[path] = make_pair(time(nullptr), attr);
+    bool wasBefore = m_statMap.count(uuid);
+    m_uuidMap[path] = uuid;
+    m_statMap[uuid] = make_pair(time(nullptr), attr);
 
     if(!wasBefore)
     {
@@ -55,14 +115,19 @@ void MetaCache::addAttr(const string &path, struct stat &attr)
 bool MetaCache::getAttr(const string &path, struct stat* attr)
 {
     std::shared_lock<std::shared_timed_mutex> guard{m_statMapMutex};
-    auto it = m_statMap.find(path);
-    if(it == m_statMap.end())
-        return false;
+    auto uuid_it = m_uuidMap.find(path);
+    if(uuid_it != m_uuidMap.end()) {
+        auto it = m_statMap.find(uuid_it->second);
+        if(it == m_statMap.end())
+            return false;
 
-    if(attr != nullptr) // NULL pointer is allowed to be used as parameter
-        memcpy(attr, &(*it).second.second, sizeof(struct stat));
+        if(attr != nullptr) // NULL pointer is allowed to be used as parameter
+            memcpy(attr, &(*it).second.second, sizeof(struct stat));
 
-    return true;
+        return true;
+    }
+
+    return false;
 }
 
 void MetaCache::clearAttrs()
@@ -75,15 +140,22 @@ void MetaCache::clearAttr(const string &path)
 {
     std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
     LOG(INFO) << "delete attrs from cache for file: " << path;
-    auto it = m_statMap.find(path);
-    if(it != m_statMap.end())
-        m_statMap.erase(it);
+    auto uuid_it = m_uuidMap.find(path);
+    if(uuid_it != m_uuidMap.end()) {
+        auto it = m_statMap.find(uuid_it->second);
+        if(it != m_statMap.end())
+            m_statMap.erase(it);
+    }
 }
 
 bool MetaCache::updateTimes(const string &path, time_t atime, time_t mtime, time_t ctime)
 {
     struct stat attr;
     if(!getAttr(path, &attr))
+        return false;
+
+    auto uuid_it = m_uuidMap.find(path);
+    if(uuid_it == m_uuidMap.end())
         return false;
 
     if(atime)
@@ -93,7 +165,8 @@ bool MetaCache::updateTimes(const string &path, time_t atime, time_t mtime, time
     if(ctime)
         attr.st_ctime = ctime;
 
-    addAttr(path, attr);
+
+    addAttr(uuid_it->second, path, attr);
 
     return true;
 }
