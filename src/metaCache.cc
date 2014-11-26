@@ -152,7 +152,8 @@ void MetaCache::clearAttr(const string &path)
     if(uuid_it != m_uuidMap.end()) {
         auto it = m_statMap.find(uuid_it->second);
         if(it != m_statMap.end()) {
-            m_context->scheduler()->schedule(0ms, [&](){ m_fslproxy->attrUnsubscribe(uuid_it->second); });
+            auto uuid = uuid_it->second;
+            m_context->scheduler()->schedule(0ms, [uuid, this](){ m_fslproxy->attrUnsubscribe(uuid); });
             m_statMap.erase(it);
         }
     }
