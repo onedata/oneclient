@@ -100,7 +100,7 @@ void CommonIntegrationTest::SetUp()
     context->setCommunicator(communicator);
 
     onedata = std::make_shared<one::client::FsImpl>(one::testing::onedataRoot, context, fslogic,
-                        std::make_shared<one::client::MetaCache>(context),
+                        std::make_shared<one::client::MetaCache>(context, fslogic),
                         std::make_shared<one::client::LocalStorageManager>(context),
                         std::make_shared<one::helpers::StorageHelperFactory>(context->getCommunicator(), one::helpers::BufferLimits{}),
                         std::make_shared<one::client::events::EventCommunicator>(context));

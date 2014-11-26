@@ -102,17 +102,22 @@ void MetaCache::addAttr(const string &uuid, const string &path, struct stat &att
     std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
     bool wasBefore = m_statMap.count(uuid);
     m_uuidMap[path] = uuid;
-    m_statMap[uuid] = make_pair(time(nullptr), attr);
 
-    if(!wasBefore)
-    {
+
+    if(!wasBefore) {
         int expiration_time = m_context->getOptions()->get_attr_cache_expiration_time();
         if(expiration_time <= 0)
             expiration_time = ATTR_DEFAULT_EXPIRATION_TIME;
         // because of random part, only small parts of cache will be updated at the same moment
         std::chrono::seconds after{expiration_time / 2 + rand() % expiration_time};
         m_context->scheduler()->schedule(after, &MetaCache::clearAttr, shared_from_this(), path);
+    } else {
+        auto oldSize = m_statMap[uuid].second.st_size;
+        if(oldSize > attr.st_size && m_context->getStorageMapper()->isOpen(path))
+            attr.st_size = oldSize;
     }
+
+    m_statMap[uuid] = make_pair(time(nullptr), attr);
 }
 
 bool MetaCache::getAttr(const string &path, struct stat* attr)

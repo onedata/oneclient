@@ -64,7 +64,7 @@ public:
         storageMapperMock = std::make_shared<MockStorageMapper>(context, fslogicMock);
         context->setStorageMapper(storageMapperMock);
 
-        metaCacheMock = std::make_shared<MockMetaCache>(context);
+        metaCacheMock = std::make_shared<MockMetaCache>(context, fslogicMock);
         storageManagerMock = std::make_shared<MockLocalStorageManager>(context);
         helperMock = std::make_shared<MockGenericHelper>();
         factoryFake = std::make_shared<FakeStorageHelperFactory>();

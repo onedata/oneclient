@@ -9,6 +9,8 @@
 #include "metaCache_proxy.h"
 #include "options_mock.h"
 #include "scheduler_mock.h"
+#include "fslogicProxy_mock.h"
+#include "fuse_messages.pb.h"
 
 #include <chrono>
 
@@ -19,13 +21,16 @@ class MetaCacheTest: public CommonTest
 {
 protected:
     std::shared_ptr <ProxyMetaCache> proxy;
+    std::shared_ptr<MockFslogicProxy> fslogicMock;
     struct stat stat;
 
     void SetUp() override
     {
         CommonTest::SetUp();
 
-        proxy = std::make_shared<ProxyMetaCache>(context);
+        fslogicMock = std::make_shared<MockFslogicProxy>(context);
+        proxy = std::make_shared<ProxyMetaCache>(context, fslogicMock);
+
 
         EXPECT_CALL(*options, has_enable_attr_cache()).WillRepeatedly(Return(true));
         EXPECT_CALL(*options, get_enable_attr_cache()).WillRepeatedly(Return(true));
