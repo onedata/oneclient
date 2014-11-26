@@ -34,7 +34,7 @@ std::shared_ptr<Event> Event::createMkdirEvent(const string & filePath)
     return event;
 }
 
-std::shared_ptr<Event> Event::createWriteEvent(const string & filePath, off_t offset, size_t size)
+std::shared_ptr<Event> Event::createWriteEvent(const string& fileUUID, const string & filePath, off_t offset, size_t size)
 {
     auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = string("write_event");
@@ -44,7 +44,7 @@ std::shared_ptr<Event> Event::createWriteEvent(const string & filePath, off_t of
     return event;
 }
 
-std::shared_ptr<Event> Event::createReadEvent(const string & filePath, off_t offset, size_t size)
+std::shared_ptr<Event> Event::createReadEvent(const string& fileUUID, const string & filePath, off_t offset, size_t size)
 {
     auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = string("read_event");
@@ -54,7 +54,7 @@ std::shared_ptr<Event> Event::createReadEvent(const string & filePath, off_t off
     return event;
 }
 
-std::shared_ptr<Event> Event::createRmEvent(const string & filePath)
+std::shared_ptr<Event> Event::createRmEvent(const string& fileUUID, const string & filePath)
 {
     auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = string("rm_event");
@@ -62,7 +62,7 @@ std::shared_ptr<Event> Event::createRmEvent(const string & filePath)
     return event;
 }
 
-std::shared_ptr<Event> Event::createTruncateEvent(const string & filePath, off_t newSize){
+std::shared_ptr<Event> Event::createTruncateEvent(const string& fileUUID, const string & filePath, off_t newSize){
     auto event = std::make_shared<Event>();
     event->m_stringProperties["type"] = "truncate_event";
     event->m_stringProperties["filePath"] = filePath;

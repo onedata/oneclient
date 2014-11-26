@@ -200,5 +200,14 @@ bool MetaCache::canUseDefaultPermissions(const struct stat &attrs)
     return std::any_of(suppGroups.begin(), suppGroups.end(), [attrs](gid_t cgid) { return cgid == attrs.st_gid; });
 }
 
+std::string MetaCache::getFileUUID(const std::string& filePath)
+{
+    auto uuid_it = m_uuidMap.find(filePath);
+    if(uuid_it == m_uuidMap.end())
+        return "";
+
+    return uuid_it->second;
+}
+
 } // namespace client
 } // namespace one
