@@ -15,7 +15,9 @@
 #include "fsImpl.h"
 #include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"
+#include "fslogicProxy.h"
 #include <storageMapper.h>
+
 
 #include <memory.h>
 #include <grp.h>
@@ -30,8 +32,9 @@ namespace one {
 namespace client {
 
 
-MetaCache::MetaCache(std::shared_ptr<Context> context)
+MetaCache::MetaCache(std::shared_ptr<Context> context, std::shared_ptr<FslogicProxy> fslproxy)
     : m_context{std::move(context)}
+    , m_fslproxy{std::move(fslproxy)}
 {
 }
 
@@ -143,8 +146,10 @@ void MetaCache::clearAttr(const string &path)
     auto uuid_it = m_uuidMap.find(path);
     if(uuid_it != m_uuidMap.end()) {
         auto it = m_statMap.find(uuid_it->second);
-        if(it != m_statMap.end())
+        if(it != m_statMap.end()) {
+            m_context->scheduler()->schedule(0ms, [&](){ m_fslproxy->attrUnsubscribe(uuid_it->second); });
             m_statMap.erase(it);
+        }
     }
 }
 

@@ -51,6 +51,8 @@ FslogicProxy::~FslogicProxy()
 
 bool FslogicProxy::attrUnsubscribe(const string& fileUUID)
 {
+    LOG(INFO) << "attributes unsubscribe for file: " << fileUUID;
+
     AttrUnsubscribe msg;
     msg.set_file_uuid(fileUUID);
 
