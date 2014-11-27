@@ -396,7 +396,7 @@ int FsImpl::unlink(const char *path)
 
     scheduleClearAttr(parent(path));
 
-    std::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(path);
+    std::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(m_metaCache->getFileUUID(path), path);
     m_eventCommunicator->processEvent(rmEvent);
 
     return 0;
@@ -614,7 +614,7 @@ int FsImpl::read(const char *path, char *buf, size_t size, off_t offset, struct 
     auto sh = m_shCache.get(fileInfo->fh).get();
     CUSTOM_SH_RUN(sh, sh_read(lInfo.fileId.c_str(), buf, toRead, offset, fileInfo));
 
-    std::shared_ptr<events::Event> readEvent = events::Event::createReadEvent(path, offset, sh_return);
+    std::shared_ptr<events::Event> readEvent = events::Event::createReadEvent(m_metaCache->getFileUUID(path), path, offset, sh_return);
     m_eventCommunicator->processEvent(readEvent);
 
     return sh_return;
@@ -642,7 +642,7 @@ int FsImpl::write(const char *path, const char *buf, size_t size, off_t offset, 
             m_metaCache->updateSize(string(path), offset + sh_return);
         }
 
-        std::shared_ptr<events::Event> writeEvent = events::Event::createWriteEvent(path, offset, sh_return);
+        std::shared_ptr<events::Event> writeEvent = events::Event::createWriteEvent(m_metaCache->getFileUUID(path), path, offset, sh_return);
         m_eventCommunicator->processEvent(writeEvent);
     }
 
@@ -839,7 +839,7 @@ void FsImpl::performPostTruncateActions(const string &path, const off_t newSize)
     if(m_context->getOptions()->get_enable_attr_cache())
         getattr(path.c_str(), nullptr, false);
 
-    auto truncateEvent = events::Event::createTruncateEvent(path, newSize);
+    auto truncateEvent = events::Event::createTruncateEvent(m_metaCache->getFileUUID(path), path, newSize);
     m_eventCommunicator->processEvent(truncateEvent);
 }
 

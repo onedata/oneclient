@@ -49,6 +49,18 @@ FslogicProxy::~FslogicProxy()
     LOG(INFO) << "FslogicProxy destroyed";
 }
 
+bool FslogicProxy::attrUnsubscribe(const string& fileUUID)
+{
+    LOG(INFO) << "attributes unsubscribe for file: " << fileUUID;
+
+    AttrUnsubscribe msg;
+    msg.set_file_uuid(fileUUID);
+
+    string serializedAnswer = sendFuseReceiveAtom(msg);
+
+    return serializedAnswer == VOK;
+}
+
 bool FslogicProxy::getFileAttr(const string& logicName, FileAttr& attr)
 {
     LOG(INFO) << "getting attributes from cluster for file: " << logicName;

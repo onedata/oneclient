@@ -536,7 +536,7 @@ int main(int argc, char* argv[], char* envp[])
 
     auto App = std::make_shared<FsImpl>(mountpoint, context,
                     fslogicProxy,
-                    std::make_shared<MetaCache>(context),
+                    std::make_shared<MetaCache>(context, fslogicProxy),
                     std::make_shared<LocalStorageManager>(context),
                     std::make_shared<helpers::StorageHelperFactory>(context->getCommunicator(), bufferLimits),
                     eventCommunicator);

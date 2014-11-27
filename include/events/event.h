@@ -59,10 +59,10 @@ public:
 
     /* Factory methods */
     static std::shared_ptr<Event> createMkdirEvent(const std::string & filePath);
-    static std::shared_ptr<Event> createWriteEvent(const std::string & filePath, off_t offset, size_t size);
-    static std::shared_ptr<Event> createReadEvent(const std::string & filePath, off_t offset, size_t size);
-    static std::shared_ptr<Event> createRmEvent(const std::string & filePath);
-    static std::shared_ptr<Event> createTruncateEvent(const std::string & filePath, off_t newSize);
+    static std::shared_ptr<Event> createWriteEvent(const std::string& fileUUID, const std::string & filePath, off_t offset, size_t size);
+    static std::shared_ptr<Event> createReadEvent(const std::string& fileUUID, const std::string & filePath, off_t offset, size_t size);
+    static std::shared_ptr<Event> createRmEvent(const std::string& fileUUID, const std::string & filePath);
+    static std::shared_ptr<Event> createTruncateEvent(const std::string& fileUUID, const std::string & filePath, off_t newSize);
 
 private:
     std::map<std::string, NumericProperty> m_numericProperties; ///< Stores numeric properties

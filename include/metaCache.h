@@ -33,6 +33,7 @@ namespace client
 {
 
 class Context;
+class FslogicProxy;
 
 /**
  * Class responsible for caching file attributes.
@@ -51,7 +52,7 @@ protected:
 
 public:
 
-    MetaCache(std::shared_ptr<Context> context);
+    MetaCache(std::shared_ptr<Context> context, std::shared_ptr<FslogicProxy> fslproxy);
     virtual ~MetaCache();
 
     virtual void addAttr(const std::string&, const std::string&, struct stat&); ///< Cache given attributes
@@ -88,8 +89,11 @@ public:
      */
     virtual std::tuple<std::string, struct stat> parseFileAttr(const clproto::fuse_messages::FileAttr &attrs);
 
+    virtual std::string getFileUUID(const std::string& filePath);
+
 protected:
     const   std::shared_ptr<Context> m_context;
+    const   std::shared_ptr<FslogicProxy> m_fslproxy;
     int     m_asyncAttrsSubId;
 };
 

@@ -101,6 +101,7 @@ public:
     virtual std::string     changeFileGroup(const std::string &path, gid_t gid, const std::string &gname = "");                 ///< Updates file's group owner
     virtual std::pair<std::string, struct statvfs>   getStatFS();   ///< Gets file system statistics
     virtual bool            requestFileBlock(const std::string &logicalName, const off_t offset, const size_t size);
+    virtual bool            attrUnsubscribe(const std::string& fileUUID);
 
     virtual void            pingCluster();
 
