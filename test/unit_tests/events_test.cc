@@ -265,7 +265,7 @@ TEST(EventTransformerTest, SimpleTransformation) {
 
     std::shared_ptr<Event> output = transformer->processEvent(writeEvent);
     ASSERT_EQ(1, output->getNumericPropertiesSize());
-    ASSERT_EQ(2, output->getStringPropertiesSize());
+    ASSERT_EQ(3, output->getStringPropertiesSize());
     ASSERT_EQ("write_for_stats", output->getStringProperty("type", ""));
 }
 

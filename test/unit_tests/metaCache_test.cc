@@ -43,7 +43,7 @@ protected:
 TEST_F(MetaCacheTest, InsertAndRemove) {
     EXPECT_EQ(0u, proxy->getStatMap().size());
 
-    EXPECT_CALL(*scheduler, schedule(_, _)).Times(3);
+    EXPECT_CALL(*scheduler, schedule(_, _)).Times(6);
     proxy->addAttr("u1", "/test1", stat);
     proxy->addAttr("u2", "/test2", stat);
     proxy->addAttr("u3", "/test3", stat);
@@ -92,6 +92,8 @@ TEST_F(MetaCacheTest, InsertAndGet) {
     proxy->addAttr("u3", "/test3", stat);
 
     EXPECT_TRUE(proxy->getAttr("/test3", &tmp));
+
+    EXPECT_CALL(*scheduler, schedule(_, _)).Times(1);
     proxy->clearAttr("/test3");
     EXPECT_FALSE(proxy->getAttr("/test3", &tmp));
 
