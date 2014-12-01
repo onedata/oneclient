@@ -51,14 +51,16 @@ FslogicProxy::~FslogicProxy()
 
 bool FslogicProxy::attrUnsubscribe(const string& fileUUID)
 {
-    LOG(INFO) << "attributes unsubscribe for file: " << fileUUID;
-
-    AttrUnsubscribe msg;
-    msg.set_file_uuid(fileUUID);
-
-    string serializedAnswer = sendFuseReceiveAtom(msg);
-
-    return serializedAnswer == VOK;
+    //    todo uncomment after applying changes in oneprovider
+//    LOG(INFO) << "attributes unsubscribe for file: " << fileUUID;
+//
+//    AttrUnsubscribe msg;
+//    msg.set_file_uuid(fileUUID);
+//
+//    string serializedAnswer = sendFuseReceiveAtom(msg);
+//
+//    return serializedAnswer == VOK;
+    return true;
 }
 
 bool FslogicProxy::getFileAttr(const string& logicName, FileAttr& attr)

@@ -153,8 +153,7 @@ void MetaCache::clearAttr(const string &path)
         auto it = m_statMap.find(uuid_it->second);
         if(it != m_statMap.end()) {
             auto uuid = uuid_it->second;
-//            todo uncomment after applying changes in oneprovider
-//            m_context->scheduler()->schedule(0ms, [uuid, this](){ m_fslproxy->attrUnsubscribe(uuid); });
+            m_context->scheduler()->schedule(0ms, [uuid, this](){ m_fslproxy->attrUnsubscribe(uuid); });
             m_statMap.erase(it);
         }
     }
