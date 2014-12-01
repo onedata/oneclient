@@ -89,12 +89,10 @@ void StorageMapper::openFile(const std::string &logicalName)
 {
     LOG(INFO) << "marking file '" << logicalName << "' as open";
 
-    std::unique_lock<std::shared_timed_mutex> lock{m_fileMappingMutex};
+    std::lock_guard<std::shared_timed_mutex> guard{m_fileMappingMutex};
     const auto it = mappingFromLogicalName(logicalName);
     if (it != m_fileMapping.end())
         ++it->second.opened;
-    lock.unlock();
-    getLocationInfo(logicalName, true, false); //todo remove this temporary hack
 }
 
 void StorageMapper::releaseFile(const std::string &logicalName)
@@ -123,7 +121,7 @@ bool StorageMapper::isOpen(const std::string &logicalName)
     const auto it = mappingFromLogicalName(logicalName);
 
     if(it != m_fileMapping.end() && it->second.opened > 0)
-        return false;
+        return true;
 
     return false;
 }

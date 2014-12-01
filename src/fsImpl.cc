@@ -524,6 +524,7 @@ int FsImpl::utime(const char *path, struct utimbuf *ubuf)
 
 int FsImpl::open(const char *path, struct fuse_file_info *fileInfo)
 {
+    std::lock_guard<std::shared_timed_mutex> guard{m_openCloseMutex};
     LOG(INFO) << "FUSE: open(path: " << string(path) << ", ...)";
     fileInfo->direct_io = 1;
     fileInfo->fh = ++m_fh;
@@ -677,6 +678,8 @@ int FsImpl::flush(const char *path, struct fuse_file_info *fileInfo)
 
 int FsImpl::release(const char *path, struct fuse_file_info *fileInfo)
 {
+    std::lock_guard<std::shared_timed_mutex> guard{m_openCloseMutex};
+
     LOG(INFO) << "FUSE: release(path: " << string(path) << ", ...)";
 
     GET_LOCATION_INFO(path, false, false);

@@ -153,6 +153,8 @@ protected:
         ThreadsafeCache<std::uint64_t, std::shared_ptr<helpers::IStorageHelper>> m_shCache; ///< Storage Helpers' cache.
 
 private:
+        std::shared_timed_mutex m_openCloseMutex;
+
         void scheduleClearAttr(const std::string &path);
         void asyncReaddir(const std::string &path, const size_t offset);
         void updateTimes(const std::string &path, const time_t atime, const time_t mtime);

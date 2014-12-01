@@ -153,7 +153,8 @@ void MetaCache::clearAttr(const string &path)
         auto it = m_statMap.find(uuid_it->second);
         if(it != m_statMap.end()) {
             auto uuid = uuid_it->second;
-            m_context->scheduler()->schedule(0ms, [uuid, this](){ m_fslproxy->attrUnsubscribe(uuid); });
+//            todo uncomment after applying changes in oneprovider
+//            m_context->scheduler()->schedule(0ms, [uuid, this](){ m_fslproxy->attrUnsubscribe(uuid); });
             m_statMap.erase(it);
         }
     }
@@ -186,7 +187,11 @@ bool MetaCache::updateTimes(const string &path, time_t atime, time_t mtime, time
 bool MetaCache::updateSize(const string &path, size_t size)
 {
     std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
-    auto it = m_statMap.find(path);
+    auto uuid_it = m_uuidMap.find(path);
+    if(uuid_it == m_uuidMap.end())
+        return false;
+
+    auto it = m_statMap.find(uuid_it->second);
     if(it == m_statMap.end())
         return false;
 
