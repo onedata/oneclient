@@ -109,7 +109,7 @@ void MetaCache::addAttr(const string &uuid, const string &path, struct stat &att
         // because of random part, only small parts of cache will be updated at the same moment
         std::chrono::seconds after{expiration_time / 2 + rand() % expiration_time};
         m_context->scheduler()->schedule(after, &MetaCache::clearAttr, shared_from_this(), path);
-    } else {
+    } else if(wasBefore){
         auto oldSize = m_statMap[uuid].second.st_size;
         if(oldSize > attr.st_size && m_context->getStorageMapper()->isOpen(path))
             attr.st_size = oldSize;
