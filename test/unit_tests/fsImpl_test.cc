@@ -167,8 +167,8 @@ TEST_F(FsImplTest, getattrNoCluster) { // const char *path, struct stat *statbuf
 TEST_F(FsImplTest, getattr) { // const char *path, struct stat *statbuf
     struct stat statbuf;
 
-    EXPECT_CALL(*options, get_enable_dir_prefetch()).WillOnce(Return(true));
-    EXPECT_CALL(*options, get_enable_attr_cache()).WillOnce(Return(true));
+    EXPECT_CALL(*options, get_enable_dir_prefetch()).WillRepeatedly(Return(true));
+    EXPECT_CALL(*options, get_enable_attr_cache()).WillRepeatedly(Return(true));
     EXPECT_CALL(*scheduler, post(_));
 
     trueAttr.set_type("DIR");
@@ -178,7 +178,7 @@ TEST_F(FsImplTest, getattr) { // const char *path, struct stat *statbuf
 
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillOnce(DoAll(SetArgReferee<1>(trueAttr), Return(true)));
-    EXPECT_CALL(*metaCacheMock, addAttr(_, "/path", Truly(bind(identityEqual<struct stat>, std::cref(statbuf), _1))));
+    EXPECT_CALL(*metaCacheMock, addAttr(_, "/path", Truly(bind(identityEqual<struct stat>, std::cref(statbuf), _1)), _));
     EXPECT_EQ(0, client->getattr("/path", &statbuf));
 
     EXPECT_EQ(trueAttr.atime(), statbuf.st_atime);
@@ -194,7 +194,7 @@ TEST_F(FsImplTest, getattr) { // const char *path, struct stat *statbuf
     trueAttr.set_type("LNK");
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillOnce(DoAll(SetArgReferee<1>(trueAttr), Return(true)));
-    EXPECT_CALL(*metaCacheMock, addAttr(_, "/path", Truly(bind(identityEqual<struct stat>, std::cref(statbuf), _1))));
+    EXPECT_CALL(*metaCacheMock, addAttr(_, "/path", Truly(bind(identityEqual<struct stat>, std::cref(statbuf), _1)), _));
     EXPECT_EQ(0, client->getattr("/path", &statbuf));
 
     EXPECT_EQ(static_cast<mode_t>(trueAttr.mode()) | S_IFLNK, statbuf.st_mode);
@@ -203,7 +203,7 @@ TEST_F(FsImplTest, getattr) { // const char *path, struct stat *statbuf
     EXPECT_CALL(*scheduler, post(_));
     EXPECT_CALL(*metaCacheMock, getAttr("/path", &statbuf)).WillOnce(Return(false));
     EXPECT_CALL(*fslogicMock, getFileAttr("/path", _)).WillOnce(DoAll(SetArgReferee<1>(trueAttr), Return(true)));
-    EXPECT_CALL(*metaCacheMock, addAttr(_, "/path", Truly(bind(identityEqual<struct stat>, std::cref(statbuf), _1))));
+    EXPECT_CALL(*metaCacheMock, addAttr(_, "/path", Truly(bind(identityEqual<struct stat>, std::cref(statbuf), _1)), _));
     EXPECT_EQ(0, client->getattr("/path", &statbuf));
 
     EXPECT_EQ(static_cast<mode_t>(trueAttr.mode()) | S_IFREG, statbuf.st_mode);

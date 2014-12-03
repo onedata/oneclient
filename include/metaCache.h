@@ -55,7 +55,7 @@ public:
     MetaCache(std::shared_ptr<Context> context, std::shared_ptr<FslogicProxy> fslproxy);
     virtual ~MetaCache();
 
-    virtual void addAttr(const std::string&, const std::string&, struct stat&); ///< Cache given attributes
+    virtual void addAttr(const std::string&, const std::string&, struct stat&, const bool createIfNotExists = true); ///< Cache given attributes
                                                         ///< Expiration time can be set using configuration file.
     virtual void clearAttrs();                          ///< Clear whole cache
 
