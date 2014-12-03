@@ -544,7 +544,7 @@ int main(int argc, char* argv[], char* envp[])
 
     auto App = std::make_shared<FsImpl>(mountpoint, context,
                     fslogicProxy,
-                    std::make_shared<MetaCache>(context, fslogicProxy),
+                    std::make_shared<MetaCache>(context),
                     std::make_shared<LocalStorageManager>(context),
                     std::make_shared<helpers::StorageHelperFactory>(context->getCommunicator(), bufferLimits),
                     eventCommunicator);
@@ -554,10 +554,6 @@ int main(int argc, char* argv[], char* envp[])
     context->getPushListener()->subscribe(
                 &logging::RemoteLogWriter::handleThresholdChange, logWriter);
     logWriter->run(context->getCommunicator());
-
-    // Register remote storageMapper for push messages with available blocks
-    context->getPushListener()->subscribe(
-                &StorageMapper::handlePushMessage, storageMapper);
 
     // Enter FUSE loop
     res = multithreaded ? fuse_loop_mt(fuse) : fuse_loop(fuse);

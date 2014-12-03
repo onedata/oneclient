@@ -9,8 +9,6 @@
 #include "metaCache_proxy.h"
 #include "options_mock.h"
 #include "scheduler_mock.h"
-#include "fslogicProxy_mock.h"
-#include "fuse_messages.pb.h"
 
 #include <chrono>
 
@@ -21,16 +19,13 @@ class MetaCacheTest: public CommonTest
 {
 protected:
     std::shared_ptr <ProxyMetaCache> proxy;
-    std::shared_ptr<MockFslogicProxy> fslogicMock;
     struct stat stat;
 
     void SetUp() override
     {
         CommonTest::SetUp();
 
-        fslogicMock = std::make_shared<MockFslogicProxy>(context);
-        proxy = std::make_shared<ProxyMetaCache>(context, fslogicMock);
-
+        proxy = std::make_shared<ProxyMetaCache>(context);
 
         EXPECT_CALL(*options, has_enable_attr_cache()).WillRepeatedly(Return(true));
         EXPECT_CALL(*options, get_enable_attr_cache()).WillRepeatedly(Return(true));
@@ -43,7 +38,7 @@ protected:
 TEST_F(MetaCacheTest, InsertAndRemove) {
     EXPECT_EQ(0u, proxy->getStatMap().size());
 
-    EXPECT_CALL(*scheduler, schedule(_, _)).Times(6);
+    EXPECT_CALL(*scheduler, schedule(_, _)).Times(3);
     proxy->addAttr("u1", "/test1", stat);
     proxy->addAttr("u2", "/test2", stat);
     proxy->addAttr("u3", "/test3", stat);
@@ -92,8 +87,6 @@ TEST_F(MetaCacheTest, InsertAndGet) {
     proxy->addAttr("u3", "/test3", stat);
 
     EXPECT_TRUE(proxy->getAttr("/test3", &tmp));
-
-    EXPECT_CALL(*scheduler, schedule(_, _)).Times(1);
     proxy->clearAttr("/test3");
     EXPECT_FALSE(proxy->getAttr("/test3", &tmp));
 

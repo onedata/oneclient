@@ -396,7 +396,7 @@ int FsImpl::unlink(const char *path)
 
     scheduleClearAttr(parent(path));
 
-    std::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(m_metaCache->getFileUUID(path), path);
+    std::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(path);
     m_eventCommunicator->processEvent(rmEvent);
 
     return 0;
@@ -524,7 +524,6 @@ int FsImpl::utime(const char *path, struct utimbuf *ubuf)
 
 int FsImpl::open(const char *path, struct fuse_file_info *fileInfo)
 {
-    std::lock_guard<std::shared_timed_mutex> guard{m_openCloseMutex};
     LOG(INFO) << "FUSE: open(path: " << string(path) << ", ...)";
     fileInfo->direct_io = 1;
     fileInfo->fh = ++m_fh;
@@ -615,7 +614,7 @@ int FsImpl::read(const char *path, char *buf, size_t size, off_t offset, struct 
     auto sh = m_shCache.get(fileInfo->fh).get();
     CUSTOM_SH_RUN(sh, sh_read(lInfo.fileId.c_str(), buf, toRead, offset, fileInfo));
 
-    std::shared_ptr<events::Event> readEvent = events::Event::createReadEvent(m_metaCache->getFileUUID(path), path, offset, sh_return);
+    std::shared_ptr<events::Event> readEvent = events::Event::createReadEvent(path, offset, sh_return);
     m_eventCommunicator->processEvent(readEvent);
 
     return sh_return;
@@ -643,7 +642,7 @@ int FsImpl::write(const char *path, const char *buf, size_t size, off_t offset, 
             m_metaCache->updateSize(string(path), offset + sh_return);
         }
 
-        std::shared_ptr<events::Event> writeEvent = events::Event::createWriteEvent(m_metaCache->getFileUUID(path), path, offset, sh_return);
+        std::shared_ptr<events::Event> writeEvent = events::Event::createWriteEvent(path, offset, sh_return);
         m_eventCommunicator->processEvent(writeEvent);
     }
 
@@ -678,8 +677,6 @@ int FsImpl::flush(const char *path, struct fuse_file_info *fileInfo)
 
 int FsImpl::release(const char *path, struct fuse_file_info *fileInfo)
 {
-    std::lock_guard<std::shared_timed_mutex> guard{m_openCloseMutex};
-
     LOG(INFO) << "FUSE: release(path: " << string(path) << ", ...)";
 
     GET_LOCATION_INFO(path, false, false);
@@ -800,7 +797,7 @@ bool FsImpl::needsForceClusterProxy(const std::string &path)
 void FsImpl::scheduleClearAttr(const string &path)
 {
     // Clear cache of parent (possible change of modify time)
-    m_context->scheduler()->schedule(2min, &MetaCache::clearAttr, m_metaCache, path);
+    m_context->scheduler()->schedule(5s, &MetaCache::clearAttr, m_metaCache, path);
 }
 
 void FsImpl::asyncReaddir(const string &path, const size_t offset)
@@ -842,7 +839,7 @@ void FsImpl::performPostTruncateActions(const string &path, const off_t newSize)
     if(m_context->getOptions()->get_enable_attr_cache())
         getattr(path.c_str(), nullptr, false);
 
-    auto truncateEvent = events::Event::createTruncateEvent(m_metaCache->getFileUUID(path), path, newSize);
+    auto truncateEvent = events::Event::createTruncateEvent(path, newSize);
     m_eventCommunicator->processEvent(truncateEvent);
 }
 

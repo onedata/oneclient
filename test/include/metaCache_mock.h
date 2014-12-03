@@ -15,14 +15,13 @@
 class MockMetaCache: public one::client::MetaCache
 {
 public:
-    MockMetaCache(std::shared_ptr<one::client::Context> context, std::shared_ptr<one::client::FslogicProxy> fslproxy)
-        : MetaCache{std::move(context), std::move(fslproxy)}
+    MockMetaCache(std::shared_ptr<one::client::Context> context)
+        : MetaCache{std::move(context)}
     {
     }
 
-    MOCK_METHOD1(getFileUUID, std::string(const std::string&));
     MOCK_METHOD1(clearAttr, void(const std::string&));
-    MOCK_METHOD4(addAttr, void(const std::string&, const std::string&, struct stat&, const bool createIfNotExists));
+    MOCK_METHOD3(addAttr, void(const std::string&, const std::string&, struct stat&));
     MOCK_METHOD2(getAttr, bool(const std::string&, struct stat*));
     MOCK_METHOD2(updateSize, bool(const std::string&, size_t size));
     MOCK_METHOD1(canUseDefaultPermissions, bool(const struct stat &attrs));

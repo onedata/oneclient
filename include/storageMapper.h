@@ -203,8 +203,6 @@ public:
         const std::string &logicalName, const off_t offset,
         const std::chrono::milliseconds timeout = WAIT_FOR_BLOCK_TIMEOUT);
 
-    virtual bool isOpen(const std::string &logicalName);
-
 protected:
     /**
      * Contains storage info accessd by its ID.
