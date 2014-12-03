@@ -3,7 +3,7 @@ include(ExternalProject)
 ExternalProject_Add(helpersBuild
     PREFIX ${CMAKE_CURRENT_BINARY_DIR}
     GIT_REPOSITORY ssh://git@git.plgrid.pl:7999/vfs/helpers.git
-    GIT_TAG e2bf2cd
+    GIT_TAG 9e790f9
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${PROJECT_BINARY_DIR}
                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     UPDATE_COMMAND git pull || exit 0
@@ -20,3 +20,4 @@ set(HELPERS_LIBRARIES ${HELPERS_LIBRARIES} PARENT_SCOPE)
 
 add_custom_command(OUTPUT ${HELPERS_LIBRARIES} DEPENDS helpersBuild)
 add_custom_target(helpers DEPENDS ${HELPERS_LIBRARIES})
+
