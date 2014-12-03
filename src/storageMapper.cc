@@ -115,6 +115,17 @@ void StorageMapper::releaseFile(const std::string &logicalName)
     }
 }
 
+bool StorageMapper::isOpen(const std::string &logicalName)
+{
+    std::unique_lock<std::shared_timed_mutex> lock{m_fileMappingMutex};
+    const auto it = mappingFromLogicalName(logicalName);
+
+    if(it != m_fileMapping.end() && it->second.opened > 0)
+        return true;
+
+    return false;
+}
+
 void StorageMapper::helperOverride(const std::string &filePath,
                                    const StorageInfo &mapping)
 {

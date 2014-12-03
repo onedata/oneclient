@@ -15,7 +15,9 @@
 #include "fsImpl.h"
 #include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"
+#include "fslogicProxy.h"
 #include <storageMapper.h>
+
 
 #include <memory.h>
 #include <grp.h>
@@ -30,8 +32,9 @@ namespace one {
 namespace client {
 
 
-MetaCache::MetaCache(std::shared_ptr<Context> context)
+MetaCache::MetaCache(std::shared_ptr<Context> context, std::shared_ptr<FslogicProxy> fslproxy)
     : m_context{std::move(context)}
+    , m_fslproxy{std::move(fslproxy)}
 {
 }
 
@@ -49,7 +52,7 @@ bool MetaCache::handleNotification(const clproto::communication_protocol::Answer
         struct stat statbuf;
         std::tie(fileUUID, statbuf) = parseFileAttr(attrs);
 
-        addAttr(fileUUID, "", statbuf);
+        addAttr(fileUUID, "", statbuf, false);
     }
 
     return true;
@@ -91,24 +94,30 @@ std::tuple<std::string, struct stat> MetaCache::parseFileAttr(const clproto::fus
     return std::make_tuple(attr.uuid(), std::move(statbuf));
 }
 
-void MetaCache::addAttr(const string &uuid, const string &path, struct stat &attr)
+void MetaCache::addAttr(const string &uuid, const string &path, struct stat &attr, const bool createIfNotExists)
 {
     if(!m_context->getOptions()->get_enable_attr_cache())
         return;
 
     std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
     bool wasBefore = m_statMap.count(uuid);
-    m_uuidMap[path] = uuid;
-    m_statMap[uuid] = make_pair(time(nullptr), attr);
 
-    if(!wasBefore)
-    {
+    if(createIfNotExists && !wasBefore) {
         int expiration_time = m_context->getOptions()->get_attr_cache_expiration_time();
         if(expiration_time <= 0)
             expiration_time = ATTR_DEFAULT_EXPIRATION_TIME;
         // because of random part, only small parts of cache will be updated at the same moment
         std::chrono::seconds after{expiration_time / 2 + rand() % expiration_time};
         m_context->scheduler()->schedule(after, &MetaCache::clearAttr, shared_from_this(), path);
+    } else if(wasBefore){
+        auto oldSize = m_statMap[uuid].second.st_size;
+        if(oldSize > attr.st_size && m_context->getStorageMapper()->isOpen(path))
+            attr.st_size = oldSize;
+    }
+
+    if(createIfNotExists || wasBefore) {
+        m_uuidMap[path] = uuid;
+        m_statMap[uuid] = make_pair(time(nullptr), attr);
     }
 }
 
@@ -143,8 +152,11 @@ void MetaCache::clearAttr(const string &path)
     auto uuid_it = m_uuidMap.find(path);
     if(uuid_it != m_uuidMap.end()) {
         auto it = m_statMap.find(uuid_it->second);
-        if(it != m_statMap.end())
+        if(it != m_statMap.end()) {
+            auto uuid = uuid_it->second;
+            m_context->scheduler()->schedule(0ms, [uuid, this](){ m_fslproxy->attrUnsubscribe(uuid); });
             m_statMap.erase(it);
+        }
     }
 }
 
@@ -175,7 +187,11 @@ bool MetaCache::updateTimes(const string &path, time_t atime, time_t mtime, time
 bool MetaCache::updateSize(const string &path, size_t size)
 {
     std::lock_guard<std::shared_timed_mutex> guard{m_statMapMutex};
-    auto it = m_statMap.find(path);
+    auto uuid_it = m_uuidMap.find(path);
+    if(uuid_it == m_uuidMap.end())
+        return false;
+
+    auto it = m_statMap.find(uuid_it->second);
     if(it == m_statMap.end())
         return false;
 
@@ -193,6 +209,15 @@ bool MetaCache::canUseDefaultPermissions(const struct stat &attrs)
     getgroups(suppGroups.size(), suppGroups.data());
 
     return std::any_of(suppGroups.begin(), suppGroups.end(), [attrs](gid_t cgid) { return cgid == attrs.st_gid; });
+}
+
+std::string MetaCache::getFileUUID(const std::string& filePath)
+{
+    auto uuid_it = m_uuidMap.find(filePath);
+    if(uuid_it == m_uuidMap.end())
+        return "";
+
+    return uuid_it->second;
 }
 
 } // namespace client
