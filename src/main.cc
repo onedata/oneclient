@@ -505,13 +505,21 @@ int main(int argc, char* argv[], char* envp[])
 
     cout << "oneclient has been successfully mounted in " + string(mountpoint) << endl;
 
-    fuse_remove_signal_handlers(fuse_get_session(fuse));
-    res = fuse_daemonize(foreground);
-    if (res != -1)
-        res = fuse_set_signal_handlers(fuse_get_session(fuse));
+    if (!foreground)
+    {
+        context->scheduler()->prepareForDaemonize();
 
-    if (res == -1)
-        return EXIT_FAILURE;
+        fuse_remove_signal_handlers(fuse_get_session(fuse));
+        res = fuse_daemonize(foreground);
+
+        if (res != -1)
+            res = fuse_set_signal_handlers(fuse_get_session(fuse));
+
+        if (res == -1)
+            return EXIT_FAILURE;
+
+        context->scheduler()->restartAfterDaemonize();
+    }
 
     // Initialize oneclient application
     const auto communicator = authManager->createCommunicator(
