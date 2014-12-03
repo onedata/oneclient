@@ -13,8 +13,8 @@
 
 class ProxyMetaCache: public one::client::MetaCache {
 public:
-    ProxyMetaCache(std::shared_ptr<one::client::Context> context, std::shared_ptr<one::client::FslogicProxy> fslproxy)
-        : MetaCache{std::move(context), std::move(fslproxy)}
+    ProxyMetaCache(std::shared_ptr<one::client::Context> context)
+        : MetaCache{std::move(context)}
     {
     }
 

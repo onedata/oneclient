@@ -21,7 +21,6 @@ public:
     {
     }
 
-    MOCK_METHOD1(attrUnsubscribe, bool(const std::string&));
     MOCK_METHOD4(getFileLocation, bool(const std::string&, one::clproto::fuse_messages::FileLocation&, const std::string&, bool));
     MOCK_METHOD2(changeFilePerms, std::string(const std::string&, mode_t));
     MOCK_METHOD2(renameFile, std::string(const std::string&, const std::string&));
