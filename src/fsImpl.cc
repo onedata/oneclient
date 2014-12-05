@@ -64,17 +64,16 @@
                                 StorageInfo sInfo; \
                                 try \
                                 { \
-                                    auto tmpLoc = m_context->getStorageMapper()->getLocationInfo(string(PATH), USE_CLUSTER, FORCE_PROXY); \
+                                    auto tmpLoc = m_context->getStorageMapper()->getLocationInfo(PATH, USE_CLUSTER, FORCE_PROXY); \
                                     lInfo = std::move(tmpLoc.first); \
                                     sInfo = std::move(tmpLoc.second); \
                                 } \
                                 catch(OneException e) \
                                 { \
-                                    LOG(WARNING) << "cannot get file mapping for file: " << string(PATH) << " (error: " << e.what() << ")"; \
+                                    LOG(WARNING) << "cannot get file mapping for file: " << PATH << " (error: " << e.what() << ")"; \
                                     return translateError(e.oneError()); \
                                 }
 
-using namespace std;
 using namespace one::clproto::fuse_messages;
 using namespace std::literals::chrono_literals;
 
@@ -90,7 +89,7 @@ inline std::string parent(const boost::filesystem::path &p)
 namespace one {
 namespace client {
 
-FsImpl::FsImpl(string path, std::shared_ptr<Context> context,
+FsImpl::FsImpl(std::string path, std::shared_ptr<Context> context,
                std::shared_ptr<FslogicProxy> fslogic,  std::shared_ptr<MetaCache> metaCache,
                std::shared_ptr<LocalStorageManager> sManager,
                std::shared_ptr<helpers::StorageHelperFactory> sh_factory,
@@ -105,7 +104,7 @@ FsImpl::FsImpl(string path, std::shared_ptr<Context> context,
 {
     if(path.size() > 1 && path[path.size()-1] == '/')
         path = path.substr(0, path.size()-1);
-    LOG(INFO) << "setting VFS root dir as: " << string(path);
+    LOG(INFO) << "setting VFS root dir as: " << path;
     m_root = path;
 
     // Construct new PushListener
@@ -133,10 +132,10 @@ FsImpl::FsImpl(string path, std::shared_ptr<Context> context,
             LOG(WARNING) << "Connection keep-alive subsystem cannot be started.";
     }
 
-    if(!m_context->getOptions()->has_fuse_group_id() && !m_context->getConfig()->isEnvSet(string(FUSE_OPT_PREFIX) + string("GROUP_ID"))) {
+    if(!m_context->getOptions()->has_fuse_group_id() && !m_context->getConfig()->isEnvSet(std::string(FUSE_OPT_PREFIX) + std::string("GROUP_ID"))) {
         if(m_sManager) {
-            vector<boost::filesystem::path> mountPoints = m_sManager->getMountPoints();
-            vector< pair<int, string> > clientStorageInfo = m_sManager->getClientStorageInfo(mountPoints);
+            std::vector<boost::filesystem::path> mountPoints = m_sManager->getMountPoints();
+            std::vector<std::pair<int, std::string>> clientStorageInfo = m_sManager->getClientStorageInfo(mountPoints);
             if(!clientStorageInfo.empty()) {
                 m_sManager->sendClientStorageInfo(clientStorageInfo);
             }
@@ -166,7 +165,7 @@ FsImpl::FsImpl(string path, std::shared_ptr<Context> context,
                                  m_eventCommunicator);
     m_context->scheduler()->post(&events::EventCommunicator::scheduleSendingAllPendingEvents,
                                  m_eventCommunicator);
-    
+
 
     m_context->getPushListener()->subscribe(&MetaCache::handleNotification, m_metaCache);
 }
@@ -175,9 +174,9 @@ FsImpl::~FsImpl()
 {
 }
 
-int FsImpl::access(const char *path, int mask)
+int FsImpl::access(const std::string &path, int mask)
 {
-    LOG(INFO) << "FUSE: access(path: " << string(path) << ", mask: " << mask << ")";
+    LOG(INFO) << "FUSE: access(path: " << path << ", mask: " << mask << ")";
 
     // Always allow accessing file
     // This method should be not called in first place. If it is, use 'default_permissions' FUSE flag.
@@ -185,10 +184,10 @@ int FsImpl::access(const char *path, int mask)
     return 0;
 }
 
-int FsImpl::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
+int FsImpl::getattr(const std::string &path, struct stat *statbuf, bool fuse_ctx)
 {
     if(fuse_ctx)
-        LOG(INFO) << "FUSE: getattr(path: " << string(path) << ", statbuf)";
+        LOG(INFO) << "FUSE: getattr(path: " << path << ", statbuf)";
 
     // Initialize statbuf in case getattr is called for its side-effects.
     struct stat scopedStatbuf;
@@ -208,12 +207,12 @@ int FsImpl::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
 
     m_context->getStorageMapper()->resetHelperOverride(path);
 
-    if(!m_metaCache->getAttr(string(path), statbuf))
+    if(!m_metaCache->getAttr(path, statbuf))
     {
         // We do not have storage mapping so we have to comunicate with cluster anyway
-        LOG(INFO) << "storage mapping not exists in cache for file: " << string(path);
+        LOG(INFO) << "storage mapping not exists in cache for file: " << path;
 
-        if(!m_fslogic->getFileAttr(string(path), attr))
+        if(!m_fslogic->getFileAttr(path, attr))
             return -EIO;
 
         if(attr.answer() != VOK)
@@ -236,7 +235,7 @@ int FsImpl::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
         uid_t uid = attr.uid();
         gid_t gid = attr.gid();
 
-        if(string(path) == "/") { // FsImpl root should always belong to FUSE owner
+        if(path == "/") { // FsImpl root should always belong to FUSE owner
             m_ruid = uid;
             m_rgid = gid;
         }
@@ -258,21 +257,21 @@ int FsImpl::getattr(const char *path, struct stat *statbuf, bool fuse_ctx)
                     m_linkCache.take(path);
         }
 
-        m_metaCache->addAttr(fileUUID, string(path), *statbuf);
+        m_metaCache->addAttr(fileUUID, path, *statbuf);
     }
 
     return 0;
 }
 
-int FsImpl::readlink(const char *path, char *link, size_t size)
+int FsImpl::readlink(const std::string &path, char *link, size_t size)
 {
-    LOG(INFO) << "FUSE: readlink(path: " << string(path) << ")";
-    string target;
+    LOG(INFO) << "FUSE: readlink(path: " << path << ")";
+    std::string target;
 
     if(const auto &cached = m_linkCache.get(path)) {
         target = cached.get().first;
     } else {
-        pair<string, string> resp = m_fslogic->getLink(string(path));
+        std::pair<std::string, std::string> resp = m_fslogic->getLink(path);
         target = resp.second;
         RETURN_IF_ERROR(resp.first);
         m_linkCache.set(path, std::make_pair(target, time(nullptr)));
@@ -286,26 +285,26 @@ int FsImpl::readlink(const char *path, char *link, size_t size)
     if(target[0] == '/')
         target = m_root + target;
 
-    int path_size = min(size - 1, target.size()); // truncate path if needed
+    int path_size = std::min(size - 1, target.size()); // truncate path if needed
     memcpy(link, target.c_str(), path_size);
     link[path_size] = 0;
 
     return 0;
 }
 
-int FsImpl::mknod(const char *path, mode_t mode, dev_t dev)
+int FsImpl::mknod(const std::string &path, mode_t mode, dev_t dev)
 {
-    LOG(INFO) << "FUSE: mknod(path: " << string(path) << ", mode: " << mode << ", ...)";
+    LOG(INFO) << "FUSE: mknod(path: " << path << ", mode: " << mode << ", ...)";
     if(!(mode & S_IFREG))
     {
         LOG(WARNING) << "cannot create non-regular file"; // TODO: or maybe it could be?
         return -EFAULT;
     }
 
-    m_metaCache->clearAttr(string(path));
+    m_metaCache->clearAttr(path);
 
     FileLocation location;
-    if(!m_fslogic->getNewFileLocation(string(path), mode & ALLPERMS, location, needsForceClusterProxy(parent(path))))
+    if(!m_fslogic->getNewFileLocation(path, mode & ALLPERMS, location, needsForceClusterProxy(parent(path))))
     {
         LOG(WARNING) << "cannot fetch new file location mapping";
         return -EIO;
@@ -317,7 +316,7 @@ int FsImpl::mknod(const char *path, mode_t mode, dev_t dev)
         return translateError(location.answer());
     }
 
-    m_context->getStorageMapper()->addLocation(string(path), location);
+    m_context->getStorageMapper()->addLocation(path, location);
     GET_LOCATION_INFO(path, true, false);
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_mknod(lInfo.fileId.c_str(), mode, dev));
@@ -327,15 +326,15 @@ int FsImpl::mknod(const char *path, mode_t mode, dev_t dev)
         sh_return = 0;
 
     if(sh_return != 0)
-        (void) m_fslogic->deleteFile(string(path));
+        (void) m_fslogic->deleteFile(path);
     else { // File created, now we shall take care of its owner.
         std::vector<std::string> tokens;
-        std::string sPath = string(path).substr(1);
+        std::string sPath = path.substr(1);
         boost::split(tokens, sPath, boost::is_any_of("/"));
 
         if(tokens.size() > 2 && tokens[0] == "groups") // We are creating file in groups directory
         {
-            string groupName = tokens[1];
+            std::string groupName = tokens[1];
             struct group *groupInfo = getgrnam(groupName.c_str());  // Static buffer, do NOT free !
             gid_t gid = (groupInfo ? groupInfo->gr_gid : -1);
 
@@ -347,19 +346,19 @@ int FsImpl::mknod(const char *path, mode_t mode, dev_t dev)
 
         scheduleClearAttr(parent(path));
 
-        RETURN_IF_ERROR(m_fslogic->sendFileCreatedAck(string(path)));
+        RETURN_IF_ERROR(m_fslogic->sendFileCreatedAck(path));
     }
     return sh_return;
 }
 
-int FsImpl::mkdir(const char *path, mode_t mode)
+int FsImpl::mkdir(const std::string &path, mode_t mode)
 {
-    LOG(INFO) << "FUSE: mkdir(path: " << string(path) << ", mode: " << mode << ")";
-    m_metaCache->clearAttr(string(path));
+    LOG(INFO) << "FUSE: mkdir(path: " << path << ", mode: " << mode << ")";
+    m_metaCache->clearAttr(path);
     // Clear parent's cache
     m_metaCache->clearAttr(parent(path).c_str());
 
-    RETURN_IF_ERROR(m_fslogic->createDir(string(path), mode & ALLPERMS));
+    RETURN_IF_ERROR(m_fslogic->createDir(path, mode & ALLPERMS));
     scheduleClearAttr(parent(path));
 
     std::shared_ptr<events::Event> mkdirEvent = events::Event::createMkdirEvent(path);
@@ -368,9 +367,9 @@ int FsImpl::mkdir(const char *path, mode_t mode)
     return 0;
 }
 
-int FsImpl::unlink(const char *path)
+int FsImpl::unlink(const std::string &path)
 {
-    LOG(INFO) << "FUSE: unlink(path: " << string(path) << ")";
+    LOG(INFO) << "FUSE: unlink(path: " << path << ")";
     struct stat statbuf;
     FileAttr attr;
     int isLink = 0;
@@ -378,20 +377,20 @@ int FsImpl::unlink(const char *path)
     int attrStatus = getattr(path, &statbuf, false);
     isLink = S_ISLNK(statbuf.st_mode);
 
-    m_metaCache->clearAttr(string(path)); // Clear cache
+    m_metaCache->clearAttr(path); // Clear cache
 
     if(!isLink)
     {
         m_context->getStorageMapper()->clearMappings(path);
         GET_LOCATION_INFO(path, true, needsForceClusterProxy(parent(path)) || attrStatus || !m_metaCache->canUseDefaultPermissions(statbuf)); //Get file location from cluster
-        RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
+        RETURN_IF_ERROR(m_fslogic->deleteFile(path));
 
         SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_unlink(lInfo.fileId.c_str()));
         if(sh_return < 0)
             return sh_return;
     } else
     {
-        RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
+        RETURN_IF_ERROR(m_fslogic->deleteFile(path));
     }
 
     scheduleClearAttr(parent(path));
@@ -402,60 +401,61 @@ int FsImpl::unlink(const char *path)
     return 0;
 }
 
-int FsImpl::rmdir(const char *path)
+int FsImpl::rmdir(const std::string &path)
 {
-    LOG(INFO) << "FUSE: rmdir(path: " << string(path) << ")";
-    m_metaCache->clearAttr(string(path));
+    LOG(INFO) << "FUSE: rmdir(path: " << path << ")";
+    m_metaCache->clearAttr(path);
     // Clear parent's cache
     m_metaCache->clearAttr(parent(path).c_str());
 
-    RETURN_IF_ERROR(m_fslogic->deleteFile(string(path)));
+    RETURN_IF_ERROR(m_fslogic->deleteFile(path));
     scheduleClearAttr(parent(path));
 
     return 0;
 }
 
-int FsImpl::symlink(const char *to, const char *from)
+int FsImpl::symlink(const std::string &to, const std::string &from)
 {
-    LOG(INFO) << "FUSE: symlink(path: " << string(from) << ", link: "<< string(to)  <<")";
-    string toStr = string(to);
+    LOG(INFO) << "FUSE: symlink(path: " << from << ", link: " << to << ")";
+
+    std::string toStr = to;
     if(toStr.size() >= m_root.size() && mismatch(m_root.begin(), m_root.end(), toStr.begin()).first == m_root.end()) {
         toStr = toStr.substr(m_root.size());
         if(toStr.size() == 0)
             toStr = "/";
         else if(toStr[0] != '/')
-            toStr = string(to);
+            toStr = to;
     }
 
-    LOG(INFO) << "Creating link " << string(from) << "pointing to: " << toStr;
+    LOG(INFO) << "Creating link " << from << "pointing to: " << toStr;
 
-    RETURN_IF_ERROR(m_fslogic->createLink(string(from), toStr));
+    RETURN_IF_ERROR(m_fslogic->createLink(from, toStr));
     return 0;
 }
 
-int FsImpl::rename(const char *path, const char *newpath)
+int FsImpl::rename(const std::string &path, const std::string &newpath)
 {
-    LOG(INFO) << "FUSE: rename(path: " << string(path) << ", newpath: "<< string(newpath)  <<")";
+    LOG(INFO) << "FUSE: rename(path: " << path << ", newpath: " << newpath << ")";
 
-    RETURN_IF_ERROR(m_fslogic->renameFile(string(path), string(newpath)));
+    RETURN_IF_ERROR(m_fslogic->renameFile(path, newpath));
     scheduleClearAttr(parent(path));
     scheduleClearAttr(parent(newpath));
     m_metaCache->clearAttr(path);
     return 0;
 }
 
-int FsImpl::link(const char *path, const char *newpath)
+int FsImpl::link(const std::string &path, const std::string &newpath)
 {
-    LOG(INFO) << "FUSE: link(path: " << string(path) << ", newpath: "<< string(newpath)  <<")";
+    LOG(INFO) << "FUSE: link(path: " << path << ", newpath: " << newpath << ")";
     return -ENOTSUP;
 }
 
-int FsImpl::chmod(const char *path, mode_t mode)
+int FsImpl::chmod(const std::string &path, mode_t mode)
 {
-    LOG(INFO) << "FUSE: chmod(path: " << string(path) << ", mode: "<< mode << ")";
-    RETURN_IF_ERROR(m_fslogic->changeFilePerms(string(path), mode & ALLPERMS)); // ALLPERMS = 07777
+    LOG(INFO) << "FUSE: chmod(path: " << path << ", mode: " << mode << ")";
+    RETURN_IF_ERROR(m_fslogic->changeFilePerms(path, mode & ALLPERMS)); // ALLPERMS = 07777
 
-    m_metaCache->clearAttr(string(path));
+    m_metaCache->clearAttr(path);
 
     // Chceck is its not regular file
     if(!S_ISREG(mode))
@@ -468,40 +468,40 @@ int FsImpl::chmod(const char *path, mode_t mode)
     return sh_return;
 }
 
-int FsImpl::chown(const char *path, uid_t uid, gid_t gid)
+int FsImpl::chown(const std::string &path, uid_t uid, gid_t gid)
 {
-    LOG(INFO) << "FUSE: chown(path: " << string(path) << ", uid: "<< uid << ", gid: " << gid <<")";
+    LOG(INFO) << "FUSE: chown(path: " << path << ", uid: " << uid << ", gid: " << gid << ")";
 
     struct passwd *ownerInfo = getpwuid(uid); // Static buffer, do NOT free !
     struct group *groupInfo = getgrgid(gid); // Static buffer, do NOT free !
 
-    string uname = "", gname = "";
+    std::string uname = "", gname = "";
     if(ownerInfo)
         uname = ownerInfo->pw_name;
     if(groupInfo)
         gname = groupInfo->gr_name;
 
-    m_metaCache->clearAttr(string(path));
+    m_metaCache->clearAttr(path);
 
     if((uid_t)-1 != uid)
-        RETURN_IF_ERROR(m_fslogic->changeFileOwner(string(path), uid, uname));
+        RETURN_IF_ERROR(m_fslogic->changeFileOwner(path, uid, uname));
 
     if((gid_t)-1 != gid)
-        RETURN_IF_ERROR(m_fslogic->changeFileGroup(string(path), gid, gname));
+        RETURN_IF_ERROR(m_fslogic->changeFileGroup(path, gid, gname));
 
     return 0;
 }
 
-int FsImpl::truncate(const char *path, off_t newSize)
+int FsImpl::truncate(const std::string &path, off_t newSize)
 {
-    LOG(INFO) << "FUSE: truncate(path: " << string(path) << ", newSize: "<< newSize <<")";
+    LOG(INFO) << "FUSE: truncate(path: " << path << ", newSize: " << newSize << ")";
 
     GET_LOCATION_INFO(path, true, needsForceClusterProxy(path));
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_truncate(lInfo.fileId.c_str(), newSize));
 
     if(sh_return == 0) {
-        m_metaCache->updateSize(string(path), newSize);
+        m_metaCache->updateSize(path, newSize);
         m_context->scheduler()->post(&FsImpl::performPostTruncateActions,
                                      shared_from_this(), path, newSize);
     }
@@ -509,12 +509,12 @@ int FsImpl::truncate(const char *path, off_t newSize)
     return sh_return;
 }
 
-int FsImpl::utime(const char *path, struct utimbuf *ubuf)
+int FsImpl::utime(const std::string &path, struct utimbuf *ubuf)
 {
-    LOG(INFO) << "FUSE: utime(path: " << string(path) << ", ...)";
+    LOG(INFO) << "FUSE: utime(path: " << path << ", ...)";
 
     // Update access times in meta cache right away
-    (void) m_metaCache->updateTimes(string(path), ubuf->actime, ubuf->modtime);
+    (void) m_metaCache->updateTimes(path, ubuf->actime, ubuf->modtime);
 
     m_context->scheduler()->post(&FsImpl::updateTimes, shared_from_this(), path,
                                  ubuf->actime, ubuf->modtime);
@@ -522,15 +522,15 @@ int FsImpl::utime(const char *path, struct utimbuf *ubuf)
     return 0;
 }
 
-int FsImpl::open(const char *path, struct fuse_file_info *fileInfo)
+int FsImpl::open(const std::string &path, struct fuse_file_info *fileInfo)
 {
-    LOG(INFO) << "FUSE: open(path: " << string(path) << ", ...)";
+    LOG(INFO) << "FUSE: open(path: " << path << ", ...)";
     fileInfo->direct_io = 1;
     fileInfo->fh = ++m_fh;
     mode_t accMode = fileInfo->flags & O_ACCMODE;
 
     if(m_context->getOptions()->get_enable_permission_checking()){
-        string openMode = UNSPECIFIED_MODE;
+        std::string openMode = UNSPECIFIED_MODE;
         if(accMode == O_RDWR)
             openMode = RDWR_MODE;
         else if(accMode== O_RDONLY)
@@ -538,13 +538,13 @@ int FsImpl::open(const char *path, struct fuse_file_info *fileInfo)
         else if(accMode == O_WRONLY)
             openMode = WRITE_MODE;
         std::string status;
-        if(VOK != (status =  m_context->getStorageMapper()->findLocation(string(path), openMode)))
+        if(VOK != (status =  m_context->getStorageMapper()->findLocation(path, openMode)))
             return translateError(status);
     }
 
     GET_LOCATION_INFO(path, true, needsForceClusterProxy(path));
 
-    m_context->getStorageMapper()->openFile(string(path));
+    m_context->getStorageMapper()->openFile(path);
 
     SH_RUN(sInfo.storageHelperName, sInfo.storageHelperArgs, sh_open(lInfo.fileId.c_str(), fileInfo));
 
@@ -574,9 +574,9 @@ int FsImpl::open(const char *path, struct fuse_file_info *fileInfo)
     return sh_return;
 }
 
-int FsImpl::read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
+int FsImpl::read(const std::string &path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
 {
-    //LOG(INFO) << "FUSE: read(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
+    //LOG(INFO) << "FUSE: read(path: " << path << ", size: " << size << ", offset: " << offset << ", ...)";
 
     struct stat statbuf;
     if (!m_metaCache->getAttr(path, &statbuf))
@@ -620,9 +620,9 @@ int FsImpl::read(const char *path, char *buf, size_t size, off_t offset, struct 
     return sh_return;
 }
 
-int FsImpl::write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
+int FsImpl::write(const std::string &path, const std::string &buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
 {
-    //LOG(INFO) << "FUSE: write(path: " << string(path) << ", size: " << size << ", offset: " << offset << ", ...)";
+    //LOG(INFO) << "FUSE: write(path: " << path << ", size: " << size << ", offset: " << offset << ", ...)";
 
     if(!m_eventCommunicator->isWriteEnabled()){
         LOG(WARNING) << "Attempt to write when write disabled.";
@@ -632,14 +632,14 @@ int FsImpl::write(const char *path, const char *buf, size_t size, off_t offset, 
     GET_LOCATION_INFO(path, false, false);
 
     auto sh = m_shCache.get(fileInfo->fh).get();
-    CUSTOM_SH_RUN(sh, sh_write(lInfo.fileId.c_str(), buf, size, offset, fileInfo));
+    CUSTOM_SH_RUN(sh, sh_write(lInfo.fileId.c_str(), buf.c_str(), size, offset, fileInfo));
 
     if(sh_return > 0) { // Update file size in cache
         struct stat buf;
-        if(!m_metaCache->getAttr(string(path), &buf))
+        if(!m_metaCache->getAttr(path, &buf))
             buf.st_size = 0;
         if(offset + sh_return > buf.st_size) {
-            m_metaCache->updateSize(string(path), offset + sh_return);
+            m_metaCache->updateSize(path, offset + sh_return);
         }
 
         std::shared_ptr<events::Event> writeEvent = events::Event::createWriteEvent(path, offset, sh_return);
@@ -650,11 +650,11 @@ int FsImpl::write(const char *path, const char *buf, size_t size, off_t offset, 
 }
 
 // not yet implemented
-int FsImpl::statfs(const char *path, struct statvfs *statInfo)
+int FsImpl::statfs(const std::string &path, struct statvfs *statInfo)
 {
-    LOG(INFO) << "FUSE: statfs(path: " << string(path) << ", ...)";
+    LOG(INFO) << "FUSE: statfs(path: " << path << ", ...)";
 
-    pair<string, struct statvfs> resp = m_fslogic->getStatFS();
+    std::pair<std::string, struct statvfs> resp = m_fslogic->getStatFS();
     RETURN_IF_ERROR(resp.first);
 
     memcpy(statInfo, &resp.second, sizeof(struct statvfs));
@@ -662,9 +662,9 @@ int FsImpl::statfs(const char *path, struct statvfs *statInfo)
 }
 
 // not yet implemented
-int FsImpl::flush(const char *path, struct fuse_file_info *fileInfo)
+int FsImpl::flush(const std::string &path, struct fuse_file_info *fileInfo)
 {
-    LOG(INFO) << "FUSE: flush(path: " << string(path) << ", ...)";
+    LOG(INFO) << "FUSE: flush(path: " << path << ", ...)";
     GET_LOCATION_INFO(path, false, false);
 
     auto sh = m_shCache.get(fileInfo->fh).get();
@@ -675,9 +675,9 @@ int FsImpl::flush(const char *path, struct fuse_file_info *fileInfo)
     return sh_return;
 }
 
-int FsImpl::release(const char *path, struct fuse_file_info *fileInfo)
+int FsImpl::release(const std::string &path, struct fuse_file_info *fileInfo)
 {
-    LOG(INFO) << "FUSE: release(path: " << string(path) << ", ...)";
+    LOG(INFO) << "FUSE: release(path: " << path << ", ...)";
 
     GET_LOCATION_INFO(path, false, false);
 
@@ -685,15 +685,15 @@ int FsImpl::release(const char *path, struct fuse_file_info *fileInfo)
     auto sh = m_shCache.take(fileInfo->fh);
     CUSTOM_SH_RUN(sh, sh_release(lInfo.fileId.c_str(), fileInfo));
 
-    m_context->getStorageMapper()->releaseFile(string(path));
+    m_context->getStorageMapper()->releaseFile(path);
 
     return sh_return;
 }
 
 // not yet implemented
-int FsImpl::fsync(const char *path, int datasync, struct fuse_file_info *fi)
+int FsImpl::fsync(const std::string &path, int datasync, struct fuse_file_info *fi)
 {
-    LOG(INFO) << "FUSE: fsync(path: " << string(path) << ", datasync: " << datasync << ")";
+    LOG(INFO) << "FUSE: fsync(path: " << path << ", datasync: " << datasync << ")";
     /* Just a stub.  This method is optional and can safely be left
        unimplemented */
 
@@ -703,9 +703,9 @@ int FsImpl::fsync(const char *path, int datasync, struct fuse_file_info *fi)
     return 0;
 }
 
-int FsImpl::opendir(const char *path, struct fuse_file_info *fileInfo)
+int FsImpl::opendir(const std::string &path, struct fuse_file_info *fileInfo)
 {
-    LOG(INFO) << "FUSE: opendir(path: " << string(path) << ", ...)";
+    LOG(INFO) << "FUSE: opendir(path: " << path << ", ...)";
 
     m_context->scheduler()->post(&FsImpl::updateTimes, shared_from_this(),
                                  path, time(nullptr), 0);
@@ -713,10 +713,10 @@ int FsImpl::opendir(const char *path, struct fuse_file_info *fileInfo)
     return 0;
 }
 
-int FsImpl::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo)
+int FsImpl::readdir(const std::string &path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo)
 {
-    LOG(INFO) << "FUSE: readdir(path: " << string(path) << ", ..., offset: " << offset << ", ...)";
-    vector<string> children;
+    LOG(INFO) << "FUSE: readdir(path: " << path << ", ..., offset: " << offset << ", ...)";
+    std::vector<std::string> children;
 
     if(offset == 0) {
         children.push_back(".");
@@ -748,34 +748,34 @@ int FsImpl::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t o
     return 0;
 }
 
-int FsImpl::releasedir(const char *path, struct fuse_file_info *fileInfo)
+int FsImpl::releasedir(const std::string &path, struct fuse_file_info *fileInfo)
 {
-    LOG(INFO) << "FUSE: releasedir(path: " << string(path) << ", ...)";
+    LOG(INFO) << "FUSE: releasedir(path: " << path << ", ...)";
     return 0;
 }
 
-int FsImpl::fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo)
+int FsImpl::fsyncdir(const std::string &path, int datasync, struct fuse_file_info *fileInfo)
 {
-    LOG(INFO) << "FUSE: fsyncdir(path: " << string(path) << ", datasync: " << datasync << ", ...)";
+    LOG(INFO) << "FUSE: fsyncdir(path: " << path << ", datasync: " << datasync << ", ...)";
     return 0;
 }
 
-int FsImpl::setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
+int FsImpl::setxattr(const std::string &path, const std::string &name, const std::string &value, size_t size, int flags)
 {
     return -EIO;
 }
 
-int FsImpl::getxattr(const char *path, const char *name, char *value, size_t size)
+int FsImpl::getxattr(const std::string &path, const std::string &name, char *value, size_t size)
 {
     return -EIO;
 }
 
-int FsImpl::listxattr(const char *path, char *list, size_t size)
+int FsImpl::listxattr(const std::string &path, char *list, size_t size)
 {
     return -EIO;
 }
 
-int FsImpl::removexattr(const char *path, const char *name)
+int FsImpl::removexattr(const std::string &path, const std::string &name)
 {
     return -EIO;
 }
@@ -794,13 +794,13 @@ bool FsImpl::needsForceClusterProxy(const std::string &path)
     return attrsStatus || (filePermissions == 0) || !m_metaCache->canUseDefaultPermissions(attrs);
 }
 
-void FsImpl::scheduleClearAttr(const string &path)
+void FsImpl::scheduleClearAttr(const std::string &path)
 {
     // Clear cache of parent (possible change of modify time)
     m_context->scheduler()->schedule(5s, &MetaCache::clearAttr, m_metaCache, path);
 }
 
-void FsImpl::asyncReaddir(const string &path, const size_t offset)
+void FsImpl::asyncReaddir(const std::string &path, const size_t offset)
 {
     if(!m_context->getOptions()->get_enable_attr_cache())
         return;
@@ -823,13 +823,13 @@ void FsImpl::asyncReaddir(const string &path, const size_t offset)
     }
 }
 
-void FsImpl::updateTimes(const string &path, const time_t atime, const time_t mtime)
+void FsImpl::updateTimes(const std::string &path, const time_t atime, const time_t mtime)
 {
     if(m_fslogic->updateTimes(path, atime, mtime) == VOK)
         m_metaCache->updateTimes(path, atime, mtime);
 }
 
-void FsImpl::performPostTruncateActions(const string &path, const off_t newSize)
+void FsImpl::performPostTruncateActions(const std::string &path, const off_t newSize)
 {
     // we need to statAndUpdatetimes before processing event because we want event to be run with new size value on cluster
     const auto currentTime = time(nullptr);
