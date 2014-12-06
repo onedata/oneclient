@@ -609,7 +609,7 @@ int FsImpl::read(const std::string &path, char *buf, size_t size, off_t offset, 
     if (block == lInfo.blocks.end())
         return -EIO;
 
-    const auto toRead = std::min<size_t>(size, boost::icl::last(*block) - offset);
+    const auto toRead = std::min<size_t>(size, boost::icl::last(*block) - offset + 1);
 
     auto sh = m_shCache.get(fileInfo->fh).get();
     CUSTOM_SH_RUN(sh, sh_read(lInfo.fileId.c_str(), buf, toRead, offset, fileInfo));

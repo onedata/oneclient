@@ -689,7 +689,7 @@ TEST_F(FSImplBlockTest, shouldNotBlockOnAvailableBlock)
 
 TEST_F(FSImplBlockTest, shouldImmediatelyReturnDataIfPossible)
 {
-    location.blocks += boost::icl::discrete_interval<off_t>::closed(0, 3);
-    EXPECT_CALL(*helperMock, sh_read(_, _, 3, 0, _));
+    location.blocks += boost::icl::discrete_interval<off_t>::right_open(0, 4);
+    EXPECT_CALL(*helperMock, sh_read(_, _, 4, 0, _));
     client->read("/file", buff.data(), buff.size(), 0, &fileInfo);
 }
