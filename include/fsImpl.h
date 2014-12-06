@@ -9,6 +9,8 @@
 #define ONECLIENT_FS_IMPL_H
 
 
+#include "storageMapper.h"
+
 #include <boost/optional.hpp>
 #include <fuse.h>
 
@@ -45,7 +47,6 @@ class Context;
 class FslogicProxy;
 class LocalStorageManager;
 class MetaCache;
-class StorageMapper;
 
 /// forward declarations
 namespace events
@@ -153,6 +154,20 @@ protected:
         ThreadsafeCache<std::uint64_t, std::shared_ptr<helpers::IStorageHelper>> m_shCache; ///< Storage Helpers' cache.
 
 private:
+        template <typename... Args1, typename... Args2>
+        int customSHRun(int (one::helpers::IStorageHelper::*fun)(Args1...),
+                        const std::shared_ptr<one::helpers::IStorageHelper> &ptr,
+                        Args2... args);
+
+        template <typename... Args1, typename... Args2>
+        std::pair<int, std::shared_ptr<one::helpers::IStorageHelper>>
+        shRun(int (one::helpers::IStorageHelper::*fun)(Args1...),
+              const StorageInfo &shName, Args2... args);
+
+        std::pair<LocationInfo, StorageInfo>
+        getLocationInfo(const std::string &path, const bool useCluster,
+                        const bool forceProxy);
+
         void scheduleClearAttr(const std::string &path);
         void asyncReaddir(const std::string &path, const size_t offset);
         void updateTimes(const std::string &path, const time_t atime, const time_t mtime);

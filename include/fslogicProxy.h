@@ -57,10 +57,11 @@ static constexpr const char
     *ACTION_NOT_ALLOWED     = "not_allowed",
     *ACTION_FAILED          = "action_failed";
 
-#define READ_MODE "read"
-#define WRITE_MODE "write"
-#define RDWR_MODE "rdwr"
-#define UNSPECIFIED_MODE ""
+constexpr const char
+    *READ_MODE        = "read",
+    *WRITE_MODE       = "write",
+    *RDWR_MODE        = "rdwr",
+    *UNSPECIFIED_MODE = "";
 
 namespace client
 {

@@ -181,14 +181,14 @@ TEST_F(FslogicProxyTest, getFileAttr) {
 TEST_F(FslogicProxyTest, getFileLocation) {
     GetFileLocation msg;
     msg.set_file_logic_name("/file");
-    msg.set_open_mode(UNSPECIFIED_MODE);
+    msg.set_open_mode(one::UNSPECIFIED_MODE);
     msg.set_force_cluster_proxy(true);
 
     FileLocation location;
     FileLocation response;
 
     EXPECT_CALL(*communicator, communicateMock(_, _, _, _)).WillOnce(Return(Answer{}));
-    EXPECT_FALSE(proxy->getFileLocation("/file", response,UNSPECIFIED_MODE));
+    EXPECT_FALSE(proxy->getFileLocation("/file", response, one::UNSPECIFIED_MODE));
 
     location.set_validity(10);
     location.set_answer(VEACCES);
@@ -200,7 +200,7 @@ TEST_F(FslogicProxyTest, getFileLocation) {
     location.SerializePartialToString(ans.mutable_worker_answer());
     EXPECT_CALL(*communicator, communicateMock(_, _, _, _)).WillOnce(Return(ans));
     EXPECT_CALL(*msgBuilder, createFuseMessage(_)).WillOnce(Return(fmsgFrom(msg)));
-    ASSERT_TRUE(proxy->getFileLocation("/file", response, UNSPECIFIED_MODE, true));
+    ASSERT_TRUE(proxy->getFileLocation("/file", response, one::UNSPECIFIED_MODE, true));
 
     EXPECT_EQ(location.validity(), response.validity());
     EXPECT_EQ(location.answer(), response.answer());
