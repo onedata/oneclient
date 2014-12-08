@@ -2,7 +2,8 @@
  * @file main.cc
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
- * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
  */
 
 #ifdef HAVE_CONFIG_H
@@ -39,6 +40,7 @@
 #include "oneException.h"
 #include "fsImpl.h"
 
+#include <execinfo.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <fuse.h>
@@ -56,6 +58,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
+#include <array>
 #include <functional>
 #include <iostream>
 #include <memory>
@@ -66,175 +69,204 @@ using namespace one;
 using namespace one::client;
 using boost::filesystem::path;
 
-/// Main  application object (filesystem state)
-static std::weak_ptr<FsImpl> AppObject;
+namespace {
 
-extern "C"
+/// Main  application object (filesystem state)
+std::weak_ptr<FsImpl> AppObject;
+
+template <typename... Args1, typename... Args2>
+int wrap(int (FsImpl::*operation)(Args2...), Args1 &&... args)
 {
-    static int wrap_access(const char *path, int mask)
-    {
-        return AppObject.lock()->access(path, mask);
+    try {
+        return ((*AppObject.lock()).*operation)(std::forward<Args1>(args)...);
     }
-    static int wrap_getattr(const char *path, struct stat *statbuf)
-    {
-        return AppObject.lock()->getattr(path, statbuf);
+    catch (const OneException &e) {
+        return one::translateError(e.oneError());
     }
-    static int wrap_readlink(const char *path, char *link, size_t size)
-    {
-        return AppObject.lock()->readlink(path, link, size);
+    catch (...) {
+        std::array<void*, 64> trace;
+
+        const auto size = backtrace(trace.data(), trace.size());
+        std::unique_ptr<char*[]> strings{backtrace_symbols(trace.data(), size)};
+
+        LOG(ERROR) << "Unknown exception caught at the top level. Stacktrace:";
+        for(auto i = 0; i < size; ++i)
+            LOG(ERROR) << strings[i];
+
+        return -EIO;
     }
-    static int wrap_mknod(const char *path, mode_t mode, dev_t dev)
-    {
-        return AppObject.lock()->mknod(path, mode, dev);
-    }
-    static int wrap_mkdir(const char *path, mode_t mode)
-    {
-        return AppObject.lock()->mkdir(path, mode);
-    }
-    static int wrap_unlink(const char *path)
-    {
-        return AppObject.lock()->unlink(path);
-    }
-    static int wrap_rmdir(const char *path)
-    {
-        return AppObject.lock()->rmdir(path);
-    }
-    static int wrap_symlink(const char *path, const char *link)
-    {
-        return AppObject.lock()->symlink(path, link);
-    }
-    static int wrap_rename(const char *path, const char *newpath)
-    {
-        return AppObject.lock()->rename(path, newpath);
-    }
-    static int wrap_link(const char *path, const char *newpath)
-    {
-        return AppObject.lock()->link(path, newpath);
-    }
-    static int wrap_chmod(const char *path, mode_t mode)
-    {
-        return AppObject.lock()->chmod(path, mode);
-    }
-    static int wrap_chown(const char *path, uid_t uid, gid_t gid)
-    {
-        return AppObject.lock()->chown(path, uid, gid);
-    }
-    static int wrap_truncate(const char *path, off_t newSize)
-    {
-        return AppObject.lock()->truncate(path, newSize);
-    }
-    static int wrap_utime(const char *path, struct utimbuf *ubuf)
-    {
-        return AppObject.lock()->utime(path, ubuf);
-    }
-    static int wrap_open(const char *path, struct fuse_file_info *fileInfo)
-    {
-        return AppObject.lock()->open(path, fileInfo);
-    }
-    static int wrap_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
-    {
-        return AppObject.lock()->read(path, buf, size, offset, fileInfo);
-    }
-    static int wrap_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
-    {
-        return AppObject.lock()->write(path, buf, size, offset, fileInfo);
-    }
-    static int wrap_statfs(const char *path, struct statvfs *statInfo)
-    {
-        return AppObject.lock()->statfs(path, statInfo);
-    }
-    static int wrap_flush(const char *path, struct fuse_file_info *fileInfo)
-    {
-        return AppObject.lock()->flush(path, fileInfo);
-    }
-    static int wrap_release(const char *path, struct fuse_file_info *fileInfo)
-    {
-        return AppObject.lock()->release(path, fileInfo);
-    }
-    static int wrap_fsync(const char *path, int datasync, struct fuse_file_info *fi)
-    {
-        return AppObject.lock()->fsync(path, datasync, fi);
-    }
-    #ifdef HAVE_SETXATTR
-    static int wrap_setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
-    {
-        return AppObject.lock()->setxattr(path, name, value, size, flags);
-    }
-    static int wrap_getxattr(const char *path, const char *name, char *value, size_t size)
-    {
-        return AppObject.lock()->getxattr(path, name, value, size);
-    }
-    static int wrap_listxattr(const char *path, char *list, size_t size)
-    {
-        return AppObject.lock()->listxattr(path, list, size);
-    }
-    static int wrap_removexattr(const char *path, const char *name)
-    {
-        return AppObject.lock()->removexattr(path, name);
-    }
-    #endif // HAVE_SETXATTR
-    static int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo)
-    {
-        return AppObject.lock()->readdir(path, buf, filler, offset, fileInfo);
-    }
-    static int wrap_opendir(const char *path, struct fuse_file_info *fileInfo)
-    {
-        return AppObject.lock()->opendir(path, fileInfo);
-    }
-    static int wrap_releasedir(const char *path, struct fuse_file_info *fileInfo)
-    {
-        return AppObject.lock()->releasedir(path, fileInfo);
-    }
-    static int wrap_fsyncdir(const char *path, int datasync, struct fuse_file_info *fileInfo)
-    {
-        return AppObject.lock()->fsyncdir(path, datasync, fileInfo);
-    }
-//    static int wrap_init(struct fuse_conn_info *conn)
+}
+
+int wrap_access(const char *path, int mask)
+{
+    return wrap(&FsImpl::access, path, mask);
+}
+int wrap_getattr(const char *path, struct stat *statbuf)
+{
+    return wrap(&FsImpl::getattr, path, statbuf, true);
+}
+int wrap_readlink(const char *path, char *link, size_t size)
+{
+    return wrap(&FsImpl::readlink, path, link, size);
+}
+int wrap_mknod(const char *path, mode_t mode, dev_t dev)
+{
+    return wrap(&FsImpl::mknod, path, mode, dev);
+}
+int wrap_mkdir(const char *path, mode_t mode)
+{
+    return wrap(&FsImpl::mkdir, path, mode);
+}
+int wrap_unlink(const char *path)
+{
+    return wrap(&FsImpl::unlink, path);
+}
+int wrap_rmdir(const char *path)
+{
+    return wrap(&FsImpl::rmdir, path);
+}
+int wrap_symlink(const char *path, const char *link)
+{
+    return wrap(&FsImpl::symlink, path, link);
+}
+int wrap_rename(const char *path, const char *newpath)
+{
+    return wrap(&FsImpl::rename, path, newpath);
+}
+int wrap_link(const char *path, const char *newpath)
+{
+    return wrap(&FsImpl::link, path, newpath);
+}
+int wrap_chmod(const char *path, mode_t mode)
+{
+    return wrap(&FsImpl::chmod, path, mode);
+}
+int wrap_chown(const char *path, uid_t uid, gid_t gid)
+{
+    return wrap(&FsImpl::chown, path, uid, gid);
+}
+int wrap_truncate(const char *path, off_t newSize)
+{
+    return wrap(&FsImpl::truncate, path, newSize);
+}
+int wrap_utime(const char *path, struct utimbuf *ubuf)
+{
+    return wrap(&FsImpl::utime, path, ubuf);
+}
+int wrap_open(const char *path, struct fuse_file_info *fileInfo)
+{
+    return wrap(&FsImpl::open, path, fileInfo);
+}
+int wrap_read(const char *path, char *buf, size_t size, off_t offset,
+              struct fuse_file_info *fileInfo)
+{
+    return wrap(&FsImpl::read, path, buf, size, offset, fileInfo);
+}
+int wrap_write(const char *path, const char *buf, size_t size, off_t offset,
+               struct fuse_file_info *fileInfo)
+{
+    return wrap(&FsImpl::write, path, buf, size, offset, fileInfo);
+}
+int wrap_statfs(const char *path, struct statvfs *statInfo)
+{
+    return wrap(&FsImpl::statfs, path, statInfo);
+}
+int wrap_flush(const char *path, struct fuse_file_info *fileInfo)
+{
+    return wrap(&FsImpl::flush, path, fileInfo);
+}
+int wrap_release(const char *path, struct fuse_file_info *fileInfo)
+{
+    return wrap(&FsImpl::release, path, fileInfo);
+}
+int wrap_fsync(const char *path, int datasync, struct fuse_file_info *fi)
+{
+    return wrap(&FsImpl::fsync, path, datasync, fi);
+}
+#ifdef HAVE_SETXATTR
+int wrap_setxattr(const char *path, const char *name, const char *value,
+                  size_t size, int flags)
+{
+    return wrap(&FsImpl::setxattr, path, name, value, size, flags);
+}
+int wrap_getxattr(const char *path, const char *name, char *value, size_t size)
+{
+    return wrap(&FsImpl::getxattr, path, name, value, size);
+}
+int wrap_listxattr(const char *path, char *list, size_t size)
+{
+    return wrap(&FsImpl::listxattr, path, list, size);
+}
+int wrap_removexattr(const char *path, const char *name)
+{
+    return wrap(&FsImpl::removexattr, path, name);
+}
+#endif // HAVE_SETXATTR
+int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+                 off_t offset, struct fuse_file_info *fileInfo)
+{
+    return wrap(&FsImpl::readdir, path, buf, filler, offset, fileInfo);
+}
+int wrap_opendir(const char *path, struct fuse_file_info *fileInfo)
+{
+    return wrap(&FsImpl::opendir, path, fileInfo);
+}
+int wrap_releasedir(const char *path, struct fuse_file_info *fileInfo)
+{
+    return wrap(&FsImpl::releasedir, path, fileInfo);
+}
+int wrap_fsyncdir(const char *path, int datasync,
+                  struct fuse_file_info *fileInfo)
+{
+    return wrap(&FsImpl::fsyncdir, path, datasync, fileInfo);
+}
+//    int wrap_init(struct fuse_conn_info *conn)
 //    {
-//        return AppObject.lock()->init(conn);
+//        return wrap(&FsImpl::init, conn);
 //    }
 
-} // extern "C"
+} // namespace
 
-static struct fuse_operations fuse_init() {
+static struct fuse_operations fuse_init()
+{
     struct fuse_operations vfs_oper = {nullptr};
 
-    vfs_oper.getattr    = wrap_getattr;
-    vfs_oper.access     = wrap_access;
-    vfs_oper.readlink   = wrap_readlink;
-    vfs_oper.readdir    = wrap_readdir;
-    vfs_oper.mknod      = wrap_mknod;
-    vfs_oper.mkdir      = wrap_mkdir;
-    vfs_oper.symlink    = wrap_symlink;
-    vfs_oper.unlink     = wrap_unlink;
-    vfs_oper.rmdir      = wrap_rmdir;
-    vfs_oper.rename     = wrap_rename;
-    vfs_oper.link       = wrap_link;
-    vfs_oper.chmod      = wrap_chmod;
-    vfs_oper.chown      = wrap_chown;
-    vfs_oper.truncate   = wrap_truncate;
+    vfs_oper.getattr = wrap_getattr;
+    vfs_oper.access = wrap_access;
+    vfs_oper.readlink = wrap_readlink;
+    vfs_oper.readdir = wrap_readdir;
+    vfs_oper.mknod = wrap_mknod;
+    vfs_oper.mkdir = wrap_mkdir;
+    vfs_oper.symlink = wrap_symlink;
+    vfs_oper.unlink = wrap_unlink;
+    vfs_oper.rmdir = wrap_rmdir;
+    vfs_oper.rename = wrap_rename;
+    vfs_oper.link = wrap_link;
+    vfs_oper.chmod = wrap_chmod;
+    vfs_oper.chown = wrap_chown;
+    vfs_oper.truncate = wrap_truncate;
 #ifdef HAVE_UTIMENSAT
-    vfs_oper.utimens    = wrap_utimens;
+    vfs_oper.utimens = wrap_utimens;
 #endif
-    vfs_oper.open       = wrap_open;
-    vfs_oper.read       = wrap_read;
-    vfs_oper.write      = wrap_write;
-    vfs_oper.statfs     = wrap_statfs;
-    vfs_oper.release    = wrap_release;
-    vfs_oper.fsync      = wrap_fsync;
-    vfs_oper.utime      = wrap_utime;
-    vfs_oper.flush      = wrap_flush;
-    vfs_oper.opendir    = wrap_opendir;
+    vfs_oper.open = wrap_open;
+    vfs_oper.read = wrap_read;
+    vfs_oper.write = wrap_write;
+    vfs_oper.statfs = wrap_statfs;
+    vfs_oper.release = wrap_release;
+    vfs_oper.fsync = wrap_fsync;
+    vfs_oper.utime = wrap_utime;
+    vfs_oper.flush = wrap_flush;
+    vfs_oper.opendir = wrap_opendir;
     vfs_oper.releasedir = wrap_releasedir;
-    vfs_oper.fsyncdir   = wrap_fsyncdir;
+    vfs_oper.fsyncdir = wrap_fsyncdir;
 #ifdef HAVE_POSIX_FALLOCATE
-    vfs_oper.fallocate  = wrap_fallocate;
+    vfs_oper.fallocate = wrap_fallocate;
 #endif
 #ifdef HAVE_SETXATTR
-    vfs_oper.setxattr   = wrap_setxattr;
-    vfs_oper.getxattr   = wrap_getxattr;
-    vfs_oper.listxattr  = wrap_listxattr;
-    vfs_oper.removexattr= wrap_removexattr;
+    vfs_oper.setxattr = wrap_setxattr;
+    vfs_oper.getxattr = wrap_getxattr;
+    vfs_oper.listxattr = wrap_listxattr;
+    vfs_oper.removexattr = wrap_removexattr;
 #endif
 
     return vfs_oper;
@@ -243,13 +275,12 @@ static struct fuse_operations fuse_init() {
 static std::string getVersionString()
 {
     std::stringstream ss;
-    ss << oneclient_VERSION_MAJOR << "."
-        << oneclient_VERSION_MINOR << "."
-        << oneclient_VERSION_PATCH;
+    ss << oneclient_VERSION_MAJOR << "." << oneclient_VERSION_MINOR << "."
+       << oneclient_VERSION_PATCH;
     return ss.str();
 }
 
-int main(int argc, char* argv[], char* envp[])
+int main(int argc, char *argv[], char *envp[])
 {
     // Turn off logging for a while
     google::InitGoogleLogging(argv[0]);
@@ -260,7 +291,8 @@ int main(int argc, char* argv[], char* envp[])
     // Set up a remote logger
     const auto logWriter = std::make_shared<logging::RemoteLogWriter>();
     const auto logSink = std::make_shared<logging::RemoteLogSink>(logWriter);
-    const auto debugLogSink = std::make_shared<logging::RemoteLogSink>(logWriter, clproto::logging::LDEBUG);
+    const auto debugLogSink = std::make_shared<logging::RemoteLogSink>(
+        logWriter, clproto::logging::LDEBUG);
     logging::setLogSinks(logSink, debugLogSink);
 
     // Create application context
@@ -273,29 +305,26 @@ int main(int argc, char* argv[], char* envp[])
     // Get configuration options
     auto options = std::make_shared<Options>();
     context->setOptions(options);
-    try
-    {
+    try {
         const auto result = options->parseConfigs(argc, argv);
-        if(result == Options::Result::HELP)
-        {
-            std::cout << "Usage: " << argv[0] << " [options] mountpoint" << std::endl;
+        if (result == Options::Result::HELP) {
+            std::cout << "Usage: " << argv[0] << " [options] mountpoint"
+                      << std::endl;
             std::cout << options->describeCommandlineOptions() << std::endl;
             return EXIT_SUCCESS;
         }
-        if(result == Options::Result::VERSION)
-        {
-            std::cout << "oneclient version: " << oneclient_VERSION_MAJOR << "." <<
-                         oneclient_VERSION_MINOR << "." <<
-                         oneclient_VERSION_PATCH << std::endl;
-            std::cout << "FUSE library version: " << FUSE_MAJOR_VERSION << "." <<
-                         FUSE_MINOR_VERSION << std::endl;
+        if (result == Options::Result::VERSION) {
+            std::cout << "oneclient version: " << oneclient_VERSION_MAJOR << "."
+                      << oneclient_VERSION_MINOR << "."
+                      << oneclient_VERSION_PATCH << std::endl;
+            std::cout << "FUSE library version: " << FUSE_MAJOR_VERSION << "."
+                      << FUSE_MINOR_VERSION << std::endl;
             return EXIT_SUCCESS;
         }
     }
-    catch(OneException &e)
-    {
-        std::cerr << "Cannot parse configuration: " << e.what() <<
-                     ". Check logs for more details. Aborting" << std::endl;
+    catch (OneException &e) {
+        std::cerr << "Cannot parse configuration: " << e.what()
+                  << ". Check logs for more details. Aborting" << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -308,38 +337,37 @@ int main(int argc, char* argv[], char* envp[])
     // proper logger setup
     FLAGS_alsologtostderr = debug;
     FLAGS_logtostderr = debug;
-    if(debug)
+    if (debug)
         FLAGS_stderrthreshold = 2;
 
     boost::filesystem::path log_path;
     boost::system::error_code ec;
 
-    if(options->is_default_log_dir())
-    {
+    if (options->is_default_log_dir()) {
         using namespace boost::filesystem;
 
         uid_t uid = geteuid();
         std::string userIdent = to_string(uid);
-        struct passwd *pw = getpwuid(uid);      // Use UID when getting user name fails
-        if(pw) {
+        struct passwd *pw =
+            getpwuid(uid); // Use UID when getting user name fails
+        if (pw) {
             userIdent = pw->pw_name;
         }
 
-        string log_subdir_name = string(argv[0]) + string("_") + userIdent + "_logs";
-        log_path = path(options->get_log_dir()) / path( log_subdir_name ).leaf();
-
+        string log_subdir_name =
+            string(argv[0]) + string("_") + userIdent + "_logs";
+        log_path = path(options->get_log_dir()) / path(log_subdir_name).leaf();
 
         create_directories(log_path, ec);
-        if(ec.value() > 0) {
-            cerr << "Error: Cannot create log directory: " << log_path.normalize().string() << ". Aborting.";
+        if (ec.value() > 0) {
+            cerr << "Error: Cannot create log directory: "
+                 << log_path.normalize().string() << ". Aborting.";
         }
 
+    } else {
+        log_path = boost::filesystem::path(
+            config->absPathRelToCWD(options->get_log_dir()));
     }
-    else
-    {
-        log_path = boost::filesystem::path(config->absPathRelToCWD(options->get_log_dir()));
-    }
-
 
     FLAGS_log_dir = log_path.normalize().string();
     LOG(INFO) << "Setting log dir to: " << log_path.normalize().string();
@@ -347,23 +375,24 @@ int main(int argc, char* argv[], char* envp[])
     google::InitGoogleLogging(argv[0]);
 
     boost::filesystem::permissions(log_path, boost::filesystem::owner_all, ec);
-    if(ec.value() > 0) {
-        LOG(WARNING) << "Cannot change permissions for log directory (" << log_path.normalize().string() << ") due to: " << ec.message();
+    if (ec.value() > 0) {
+        LOG(WARNING) << "Cannot change permissions for log directory ("
+                     << log_path.normalize().string()
+                     << ") due to: " << ec.message();
     }
     // Logger setup END
 
     // after logger setup - log version
     LOG(INFO) << "oneclient version: " << getVersionString();
 
-
     // Iterate over all env variables and save them in Config
-    char** env;
-    for (env = envp; *env != nullptr; env++)
-    {
+    char **env;
+    for (env = envp; *env != nullptr; env++) {
         std::vector<std::string> tokens;
         std::string tEnv = std::string(*env);
         boost::split(tokens, tEnv, boost::is_any_of("="));
-        if(tokens.size() != 2) // Invalid env variable. Expected format: NAME=VALUE
+        if (tokens.size() !=
+            2) // Invalid env variable. Expected format: NAME=VALUE
             continue;
 
         config->putEnv(tokens[0], tokens[1]);
@@ -382,48 +411,39 @@ int main(int argc, char* argv[], char* envp[])
     if (res == -1)
         return EXIT_FAILURE;
 
-    ScopeExit freeMountpoint{[&]{ free(mountpoint); }};
+    ScopeExit freeMountpoint{[&] { free(mountpoint); }};
 
     // Set mount point in global config
-    if(mountpoint) {
+    if (mountpoint) {
         config->setMountPoint(string(mountpoint));
-        LOG(INFO) << "Using mount point path: " << config->getMountPoint().string();
+        LOG(INFO) << "Using mount point path: "
+                  << config->getMountPoint().string();
     }
 
     const auto schedulerThreadsNo = options->get_jobscheduler_threads() > 1
-            ? options->get_jobscheduler_threads() : 1;
+                                        ? options->get_jobscheduler_threads()
+                                        : 1;
     context->setScheduler(std::make_shared<Scheduler>(schedulerThreadsNo));
 
     std::unique_ptr<auth::AuthManager> authManager;
-    try
-    {
-        if(options->get_authentication() == "certificate")
-        {
+    try {
+        if (options->get_authentication() == "certificate") {
             authManager = std::make_unique<auth::CertificateAuthManager>(
-                        context,
-                        options->get_provider_hostname(),
-                        options->get_provider_port(),
-                        checkCertificate,
-                        options->get_debug_gsi());
-        }
-        else if(options->get_authentication() == "token")
-        {
+                context, options->get_provider_hostname(),
+                options->get_provider_port(), checkCertificate,
+                options->get_debug_gsi());
+        } else if (options->get_authentication() == "token") {
             authManager = std::make_unique<auth::TokenAuthManager>(
-                        context,
-                        options->get_provider_hostname(),
-                        options->get_provider_port(),
-                        checkCertificate,
-                        options->get_global_registry_url(),
-                        options->get_global_registry_port());
-        }
-        else
-        {
+                context, options->get_provider_hostname(),
+                options->get_provider_port(), checkCertificate,
+                options->get_global_registry_url(),
+                options->get_global_registry_port());
+        } else {
             throw auth::AuthException{"unknown authentication type: " +
-                                options->get_authentication()};
+                                      options->get_authentication()};
         }
     }
-    catch(auth::AuthException &e)
-    {
+    catch (auth::AuthException &e) {
         std::cerr << "Authentication error: " << e.what() << std::endl;
         std::cerr << "Cannot continue. Aborting" << std::endl;
         return EXIT_FAILURE;
@@ -433,33 +453,34 @@ int main(int argc, char* argv[], char* envp[])
     if (!ch)
         return EXIT_FAILURE;
 
-    ScopeExit unmountFuse{[&]{ fuse_unmount(mountpoint, ch); }};
+    ScopeExit unmountFuse{[&] { fuse_unmount(mountpoint, ch); }};
 
     res = fcntl(fuse_chan_fd(ch), F_SETFD, FD_CLOEXEC);
     if (res == -1)
         perror("WARNING: failed to set FD_CLOEXEC on fuse device");
 
-    fuse = fuse_new(ch, &args, &vfs_oper, sizeof(struct fuse_operations), nullptr);
+    fuse =
+        fuse_new(ch, &args, &vfs_oper, sizeof(struct fuse_operations), nullptr);
     if (fuse == nullptr)
         return EXIT_FAILURE;
 
-    ScopeExit destroyFuse{[&]{ fuse_destroy(fuse); }, unmountFuse};
+    ScopeExit destroyFuse{[&] { fuse_destroy(fuse); }, unmountFuse};
 
     fuse_set_signal_handlers(fuse_get_session(fuse));
-    ScopeExit removeHandlers{[&]{ fuse_remove_signal_handlers(fuse_get_session(fuse)); }};
+    ScopeExit removeHandlers{
+        [&] { fuse_remove_signal_handlers(fuse_get_session(fuse)); }};
 
-    // Initialize cluster handshake in order to check if everything is ok before becoming daemon
+    // Initialize cluster handshake in order to check if everything is ok before
+    // becoming daemon
     auto testCommunicator =
-            authManager->createCommunicator(/*dataPoolSize*/ 0, /*metaPoolSize*/ 1);
+        authManager->createCommunicator(/*dataPoolSize*/ 0, /*metaPoolSize*/ 1);
 
     context->setCommunicator(testCommunicator);
 
-    try
-    {
+    try {
         config->testHandshake();
     }
-    catch(CertUnconfirmedException &exception)
-    {
+    catch (CertUnconfirmedException &exception) {
         std::string username = exception.getUsername();
 
         // Prompt user for account confirmation
@@ -467,31 +488,33 @@ int main(int argc, char* argv[], char* envp[])
         do {
             std::cout << CONFIRM_CERTIFICATE_PROMPT(username);
             std::getline(std::cin, userAns);
-            std::transform(userAns.begin(), userAns.end(), userAns.begin(), ::tolower);
-        } while( std::cin && (userAns.size() == 0 || (userAns[0] != 'y' && userAns[0] != 't' && userAns[0] != 'n')));
+            std::transform(userAns.begin(), userAns.end(), userAns.begin(),
+                           ::tolower);
+        } while (std::cin && (userAns.size() == 0 ||
+                              (userAns[0] != 'y' && userAns[0] != 't' &&
+                               userAns[0] != 'n')));
 
         // Exit if input stream was interrupted somehow
-        if(!userAns.size())
-        {
-            std::cerr << std::endl << "Cannot confirm certificate. Aborting." << std::endl;
+        if (!userAns.size()) {
+            std::cerr << std::endl << "Cannot confirm certificate. Aborting."
+                      << std::endl;
             return EXIT_FAILURE;
         }
 
         // Resend handshake request along with account confirmation / rejection
         config->testHandshake(username, userAns[0] == 'y' || userAns[0] == 't');
     }
-    catch(communication::InvalidServerCertificate &e)
-    {
-        cerr << "Server certificate verification failed: " << e.what() <<
-                ". Aborting" << endl;
+    catch (communication::InvalidServerCertificate &e) {
+        cerr << "Server certificate verification failed: " << e.what()
+             << ". Aborting" << endl;
 
         return EXIT_FAILURE;
     }
-    catch(OneException &exception)
-    {
-        if(exception.oneError()==NO_USER_FOUND_ERROR)
-            cerr << "Cannot find user, remember to login through website before mounting fuse. Aborting" << endl;
-        else if(exception.oneError()==NO_CONNECTION_FOR_HANDSHAKE)
+    catch (OneException &exception) {
+        if (exception.oneError() == NO_USER_FOUND_ERROR)
+            cerr << "Cannot find user, remember to login through website "
+                    "before mounting fuse. Aborting" << endl;
+        else if (exception.oneError() == NO_CONNECTION_FOR_HANDSHAKE)
             cerr << "Cannot connect to server. Aborting." << endl;
         else
             cerr << "Handshake error. Aborting" << endl;
@@ -499,14 +522,14 @@ int main(int argc, char* argv[], char* envp[])
         return EXIT_FAILURE;
     }
 
-    //cleanup test connections
+    // cleanup test connections
     context->setCommunicator(nullptr);
     testCommunicator.reset();
 
-    cout << "oneclient has been successfully mounted in " + string(mountpoint) << endl;
+    cout << "oneclient has been successfully mounted in " + string(mountpoint)
+         << endl;
 
-    if (!foreground)
-    {
+    if (!foreground) {
         context->scheduler()->prepareForDaemonize();
 
         fuse_remove_signal_handlers(fuse_get_session(fuse));
@@ -523,36 +546,39 @@ int main(int argc, char* argv[], char* envp[])
 
     // Initialize oneclient application
     const auto communicator = authManager->createCommunicator(
-                options->get_alive_data_connections_count(),
-                options->get_alive_meta_connections_count());
+        options->get_alive_data_connections_count(),
+        options->get_alive_meta_connections_count());
 
     context->setCommunicator(communicator);
 
     // Setup helpers config
-    helpers::BufferLimits bufferLimits{options->get_write_buffer_max_size(),
-                options->get_read_buffer_max_size(),
-                options->get_write_buffer_max_file_size(),
-                options->get_read_buffer_max_file_size(),
-                options->get_file_buffer_prefered_block_size()};
+    helpers::BufferLimits bufferLimits{
+        options->get_write_buffer_max_size(),
+        options->get_read_buffer_max_size(),
+        options->get_write_buffer_max_file_size(),
+        options->get_read_buffer_max_file_size(),
+        options->get_file_buffer_prefered_block_size()};
 
     // Initialize main application object
-    auto eventCommunicator = std::make_shared<events::EventCommunicator>(context);
+    auto eventCommunicator =
+        std::make_shared<events::EventCommunicator>(context);
     auto fslogicProxy = std::make_shared<FslogicProxy>(context);
     auto storageMapper = std::make_shared<StorageMapper>(context, fslogicProxy);
 
     context->setStorageMapper(storageMapper);
 
-    auto App = std::make_shared<FsImpl>(mountpoint, context,
-                    fslogicProxy,
-                    std::make_shared<MetaCache>(context),
-                    std::make_shared<LocalStorageManager>(context),
-                    std::make_shared<helpers::StorageHelperFactory>(context->getCommunicator(), bufferLimits),
-                    eventCommunicator);
+    auto App = std::make_shared<FsImpl>(
+        mountpoint, context, fslogicProxy, std::make_shared<MetaCache>(context),
+        std::make_shared<LocalStorageManager>(context),
+        std::make_shared<helpers::StorageHelperFactory>(
+            context->getCommunicator(), bufferLimits),
+        eventCommunicator);
     AppObject = App;
 
-    // Register remote logWriter for log threshold level updates and start sending loop
+    // Register remote logWriter for log threshold level updates and start
+    // sending loop
     context->getPushListener()->subscribe(
-                &logging::RemoteLogWriter::handleThresholdChange, logWriter);
+        &logging::RemoteLogWriter::handleThresholdChange, logWriter);
     logWriter->run(context->getCommunicator());
 
     // Enter FUSE loop
