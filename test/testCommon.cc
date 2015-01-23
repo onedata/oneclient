@@ -23,7 +23,6 @@
 #include "scheduler_mock.h"
 #include "storageMapper.h"
 #include "localStorageManager.h"
-#include "events/eventCommunicator.h"
 
 #include "fuse_messages.pb.h"
 #include "communication_protocol.pb.h"
@@ -102,8 +101,7 @@ void CommonIntegrationTest::SetUp()
     onedata = std::make_shared<one::client::FsImpl>(one::testing::onedataRoot, context, fslogic,
                         std::make_shared<one::client::MetaCache>(context),
                         std::make_shared<one::client::LocalStorageManager>(context),
-                        std::make_shared<one::helpers::StorageHelperFactory>(context->getCommunicator(), one::helpers::BufferLimits{}),
-                        std::make_shared<one::client::events::EventCommunicator>(context));
+                        std::make_shared<one::helpers::StorageHelperFactory>(context->getCommunicator(), one::helpers::BufferLimits{}));
 
     std::this_thread::sleep_for(5s);
 }

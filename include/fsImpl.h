@@ -48,12 +48,6 @@ class FslogicProxy;
 class LocalStorageManager;
 class MetaCache;
 
-/// forward declarations
-namespace events
-{
-class EventCommunicator;
-}
-
 /**
  * The FsImpl main class.
  * This class contains FUSE all callbacks, so it basically is an heart of the filesystem.
@@ -66,8 +60,7 @@ public:
         FsImpl(std::string path, std::shared_ptr<Context> context,
                std::shared_ptr<FslogicProxy> fslogic, std::shared_ptr<MetaCache> metaCache,
                std::shared_ptr<LocalStorageManager> sManager,
-               std::shared_ptr<helpers::StorageHelperFactory> sh_factory,
-               std::shared_ptr<events::EventCommunicator> eventCommunicator); ///< FsImpl constructor.
+               std::shared_ptr<helpers::StorageHelperFactory> sh_factory); ///< FsImpl constructor.
         virtual ~FsImpl();
 
         int access(const std::string &path, int mask); /**< *access* FUSE callback. Not implemented yet. */
@@ -148,7 +141,6 @@ protected:
         std::shared_ptr<MetaCache> m_metaCache;              ///< MetaCache instance
         std::shared_ptr<LocalStorageManager> m_sManager;     ///< LocalStorageManager instance
         std::shared_ptr<helpers::StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance
-        std::shared_ptr<events::EventCommunicator> m_eventCommunicator;
 
         ThreadsafeCache<std::string, std::pair<std::string, time_t>> m_linkCache;           ///< Simple links cache
         ThreadsafeCache<std::uint64_t, std::shared_ptr<helpers::IStorageHelper>> m_shCache; ///< Storage Helpers' cache.

@@ -25,7 +25,6 @@
 #include "communication/websocketConnection.h"
 #include "config.h"
 #include "context.h"
-#include "events/eventCommunicator.h"
 #include "fslogicProxy.h"
 #include "helpers/storageHelperFactory.h"
 #include "localStorageManager.h"
@@ -560,8 +559,6 @@ int main(int argc, char *argv[], char *envp[])
         options->get_file_buffer_prefered_block_size()};
 
     // Initialize main application object
-    auto eventCommunicator =
-        std::make_shared<events::EventCommunicator>(context);
     auto fslogicProxy = std::make_shared<FslogicProxy>(context);
     auto storageMapper = std::make_shared<StorageMapper>(context, fslogicProxy);
 
@@ -571,8 +568,7 @@ int main(int argc, char *argv[], char *envp[])
         mountpoint, context, fslogicProxy, std::make_shared<MetaCache>(context),
         std::make_shared<LocalStorageManager>(context),
         std::make_shared<helpers::StorageHelperFactory>(
-            context->getCommunicator(), bufferLimits),
-        eventCommunicator);
+            context->getCommunicator(), bufferLimits));
     AppObject = App;
 
     // Register remote logWriter for log threshold level updates and start
