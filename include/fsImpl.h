@@ -8,7 +8,6 @@
 #ifndef ONECLIENT_FS_IMPL_H
 #define ONECLIENT_FS_IMPL_H
 
-
 #include "storageMapper.h"
 
 #include <boost/optional.hpp>
@@ -48,6 +47,11 @@ class FslogicProxy;
 class LocalStorageManager;
 class MetaCache;
 
+namespace events
+{
+class EventManager;
+}
+
 /**
  * The FsImpl main class.
  * This class contains FUSE all callbacks, so it basically is an heart of the filesystem.
@@ -60,7 +64,8 @@ public:
         FsImpl(std::string path, std::shared_ptr<Context> context,
                std::shared_ptr<FslogicProxy> fslogic, std::shared_ptr<MetaCache> metaCache,
                std::shared_ptr<LocalStorageManager> sManager,
-               std::shared_ptr<helpers::StorageHelperFactory> sh_factory); ///< FsImpl constructor.
+               std::shared_ptr<helpers::StorageHelperFactory> sh_factory,
+               std::shared_ptr<events::EventManager> eventManager); ///< FsImpl constructor.
         virtual ~FsImpl();
 
         int access(const std::string &path, int mask); /**< *access* FUSE callback. Not implemented yet. */
@@ -141,6 +146,7 @@ protected:
         std::shared_ptr<MetaCache> m_metaCache;              ///< MetaCache instance
         std::shared_ptr<LocalStorageManager> m_sManager;     ///< LocalStorageManager instance
         std::shared_ptr<helpers::StorageHelperFactory> m_shFactory;   ///< Storage Helpers Factory instance
+        std::shared_ptr<events::EventManager> m_eventManager; ///< EventManager instance
 
         ThreadsafeCache<std::string, std::pair<std::string, time_t>> m_linkCache;           ///< Simple links cache
         ThreadsafeCache<std::uint64_t, std::shared_ptr<helpers::IStorageHelper>> m_shCache; ///< Storage Helpers' cache.
@@ -163,7 +169,6 @@ private:
         void scheduleClearAttr(const std::string &path);
         void asyncReaddir(const std::string &path, const size_t offset);
         void updateTimes(const std::string &path, const time_t atime, const time_t mtime);
-        void performPostTruncateActions(const std::string &path, const off_t newSize);
 
         const std::shared_ptr<Context> m_context;
 };

@@ -18,6 +18,7 @@
 #include "auth/authException.h"
 #include "auth/authManager.h"
 #include "auth/gsiHandler.h"
+#include "events/eventManager.h"
 #include "certUnconfirmedException.h"
 #include "communication/communicator.h"
 #include "communication/communicationHandler.h"
@@ -83,13 +84,15 @@ int wrap(int (FsImpl::*operation)(Args2...), Args1 &&... args)
         return one::translateError(e.oneError());
     }
     catch (...) {
-        std::array<void*, 64> trace;
+        std::array<void *, 64> trace;
 
         const auto size = backtrace(trace.data(), trace.size());
-        std::unique_ptr<char*[]> strings{backtrace_symbols(trace.data(), size)};
+        std::unique_ptr<char *[]> strings {
+            backtrace_symbols(trace.data(), size)
+        };
 
         LOG(ERROR) << "Unknown exception caught at the top level. Stacktrace:";
-        for(auto i = 0; i < size; ++i)
+        for (auto i = 0; i < size; ++i)
             LOG(ERROR) << strings[i];
 
         return -EIO;
@@ -116,14 +119,8 @@ int wrap_mkdir(const char *path, mode_t mode)
 {
     return wrap(&FsImpl::mkdir, path, mode);
 }
-int wrap_unlink(const char *path)
-{
-    return wrap(&FsImpl::unlink, path);
-}
-int wrap_rmdir(const char *path)
-{
-    return wrap(&FsImpl::rmdir, path);
-}
+int wrap_unlink(const char *path) { return wrap(&FsImpl::unlink, path); }
+int wrap_rmdir(const char *path) { return wrap(&FsImpl::rmdir, path); }
 int wrap_symlink(const char *path, const char *link)
 {
     return wrap(&FsImpl::symlink, path, link);
@@ -568,7 +565,8 @@ int main(int argc, char *argv[], char *envp[])
         mountpoint, context, fslogicProxy, std::make_shared<MetaCache>(context),
         std::make_shared<LocalStorageManager>(context),
         std::make_shared<helpers::StorageHelperFactory>(
-            context->getCommunicator(), bufferLimits));
+            context->getCommunicator(), bufferLimits),
+        std::make_shared<events::EventManager>(context));
     AppObject = App;
 
     // Register remote logWriter for log threshold level updates and start
