@@ -91,7 +91,7 @@ EventManager::subscribe(const EventSubscription &subscription)
 {
     auto stream =
         subscription.createEventStream(subscription, m_context, m_buffer);
-    return m_mapper->addOrUpdateEventStream(*stream);
+    return m_mapper->addOrUpdateEventStream(std::move(stream));
 }
 
 bool EventManager::unsubscribe(const std::string &id)

@@ -18,15 +18,21 @@ namespace events {
 
 EventMapper::EventMapper(std::shared_ptr<Context> context)
     : m_context{std::move(context)}
+    , m_streams{}
 {
 }
 
-void EventMapper::map(const Event &event) {}
+void EventMapper::map(const Event &event)
+{
+    auto stream = m_streams.find(event.type());
+    if (stream != m_streams.end())
+        stream->second->add(event);
+}
 
 const std::string &
-EventMapper::addOrUpdateEventStream(const EventStream &stream)
+EventMapper::addOrUpdateEventStream(std::unique_ptr<EventStream> stream)
 {
-    return stream.id();
+    return stream->id();
 }
 
 bool EventMapper::removeEventStream(const std::string &id) { return false; }

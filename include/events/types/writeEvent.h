@@ -34,7 +34,8 @@ class WriteEvent : public Event {
     friend class WriteEventSerializer;
 
 public:
-    WriteEvent(std::string fileId, off_t offset, size_t size, off_t fileSize);
+    WriteEvent(std::string fileId, off_t offset, size_t size, off_t fileSize,
+               size_t counter = 1);
 
     virtual ~WriteEvent() = default;
 

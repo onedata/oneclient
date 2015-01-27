@@ -19,8 +19,10 @@ namespace one {
 namespace client {
 namespace events {
 
-ReadEvent::ReadEvent(std::string fileId, off_t offset, size_t size)
-    : m_fileId{std::move(fileId)}
+ReadEvent::ReadEvent(std::string fileId, off_t offset, size_t size,
+                     size_t counter)
+    : Event{counter}
+    , m_fileId{std::move(fileId)}
     , m_size{size}
     , m_blocks{boost::icl::discrete_interval<off_t>::right_open(offset,
                                                                 offset + size)}

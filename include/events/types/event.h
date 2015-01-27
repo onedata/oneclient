@@ -30,8 +30,8 @@ class Event {
 public:
     enum class Type { READ, WRITE };
 
-    Event()
-        : m_counter{1} {};
+    Event(size_t counter)
+        : m_counter{counter} {};
 
     virtual ~Event() = default;
 

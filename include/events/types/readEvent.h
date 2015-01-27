@@ -34,7 +34,8 @@ class ReadEvent : public Event {
     friend class ReadEventSerializer;
 
 public:
-    ReadEvent(std::string fileId, off_t offset, size_t size);
+    ReadEvent(std::string fileId, off_t offset, size_t size,
+              size_t counter = 1);
 
     virtual ~ReadEvent() = default;
 
