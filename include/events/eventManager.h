@@ -9,6 +9,7 @@
 #ifndef ONECLIENT_EVENTS_EVENT_MANAGER_H
 #define ONECLIENT_EVENTS_EVENT_MANAGER_H
 
+#include <map>
 #include <memory>
 
 namespace one {
@@ -27,11 +28,10 @@ namespace events {
 
 class Event;
 class EventBuffer;
-class EventMapper;
 class EventFactory;
+class ReadEventStream;
+class WriteEventStream;
 class EventCommunicator;
-class EventSubscription;
-class EventMessageSerializer;
 
 class EventManager {
     using Message = one::clproto::communication_protocol::Answer;
@@ -39,26 +39,27 @@ class EventManager {
 public:
     EventManager(std::shared_ptr<Context> context);
 
-    const EventFactory &eventFactory() const;
-
-    void emit(unsigned long long id);
-
-    void emit(const Event &event);
-
-    void removeConfirmedEvents(unsigned long long id);
-
     bool handle(const Message &message);
 
-    const std::string &subscribe(const EventSubscription &subscription);
+    bool cancelSubscription(const std::string &id);
 
-    bool unsubscribe(const std::string &id);
+    std::unique_ptr<Event> createReadEvent(const std::string &fileId,
+                                           off_t offset, size_t size) const;
+
+    std::unique_ptr<Event> createWriteEvent(const std::string &fileId,
+                                            off_t offset, size_t size,
+                                            off_t fileSize) const;
+
+    std::unique_ptr<Event> createTruncateEvent(const std::string &fileId,
+                                               off_t fileSize) const;
 
 private:
     std::shared_ptr<Context> m_context;
     std::shared_ptr<EventFactory> m_factory;
     std::shared_ptr<EventCommunicator> m_communicator;
     std::shared_ptr<EventBuffer> m_buffer;
-    std::shared_ptr<EventMapper> m_mapper;
+    std::shared_ptr<ReadEventStream> m_readEventStream;
+    std::shared_ptr<WriteEventStream> m_writeEventStream;
 };
 
 } // namespace events

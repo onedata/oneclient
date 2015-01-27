@@ -23,12 +23,12 @@ SubscriptionCancellation::SubscriptionCancellation(std::string id)
 {
 }
 
-bool SubscriptionCancellation::process(EventManager &manager) const
+void SubscriptionCancellation::process(EventManager &manager) const
 {
-    return manager.unsubscribe(m_id);
+    manager.cancelSubscription(m_id);
 }
 
-std::unique_ptr<EventMessage>
+std::unique_ptr<SubscriptionCancellation>
 SubscriptionCancellationSerializer::deserialize(const Message &message) const
 {
     one::clproto::events::SubscriptionCancellation subscriptionCancellation{};

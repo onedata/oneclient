@@ -10,33 +10,36 @@
 #define ONECLIENT_EVENTS_MESSAGES_EVENT_EMISSION_REQUEST_H
 
 #include "events.pb.h"
-#include "eventMessage.h"
+
+#include <memory>
 
 namespace one {
 namespace client {
 namespace events {
 
+class EventBuffer;
+class EventCommunicator;
+
 static const std::string EVENT_EMISSION_REQUEST_MESSAGE =
     one::clproto::events::EventEmissionRequest::descriptor()->name();
 
-class EventEmissionRequest : public EventMessage {
+class EventEmissionRequest {
 public:
     EventEmissionRequest(unsigned long long id);
 
-    virtual ~EventEmissionRequest() = default;
-
-    virtual bool process(EventManager &manager) const override;
+    void process(std::weak_ptr<EventBuffer> buffer,
+                 std::weak_ptr<EventCommunicator> communicator) const;
 
 private:
     unsigned long long m_id;
 };
 
-class EventEmissionRequestSerializer : public EventMessageSerializer {
-public:
-    virtual ~EventEmissionRequestSerializer() = default;
+class EventEmissionRequestSerializer {
+    using Message = one::clproto::communication_protocol::Answer;
 
-    virtual std::unique_ptr<EventMessage>
-    deserialize(const Message &message) const override;
+public:
+    std::unique_ptr<EventEmissionRequest>
+    deserialize(const Message &message) const;
 };
 
 } // namespace events

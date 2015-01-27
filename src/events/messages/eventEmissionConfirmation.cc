@@ -11,7 +11,7 @@
 #include "events.pb.h"
 #include "communication_protocol.pb.h"
 
-#include "events/eventManager.h"
+#include "events/eventBuffer.h"
 #include "events/messages/eventEmissionConfirmation.h"
 
 namespace one {
@@ -23,13 +23,12 @@ EventEmissionConfirmation::EventEmissionConfirmation(unsigned long long id)
 {
 }
 
-bool EventEmissionConfirmation::process(EventManager &manager) const
+void EventEmissionConfirmation::process(std::weak_ptr<EventBuffer> buffer) const
 {
-    manager.removeConfirmedEvents(m_id);
-    return true;
+    buffer.lock()->removeSentMessages(m_id);
 }
 
-std::unique_ptr<EventMessage>
+std::unique_ptr<EventEmissionConfirmation>
 EventEmissionConfirmationSerializer::deserialize(const Message &message) const
 {
     one::clproto::events::EventEmissionConfirmation eventEmissionConfirmation{};

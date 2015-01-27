@@ -10,33 +10,34 @@
 #define ONECLIENT_EVENTS_MESSAGES_EVENT_EMISSION_CONFIRMATION_H
 
 #include "events.pb.h"
-#include "eventMessage.h"
+
+#include <memory>
 
 namespace one {
 namespace client {
 namespace events {
 
+class EventBuffer;
+
 static const std::string EVENT_EMISSION_CONFIRMATION_MESSAGE =
     one::clproto::events::EventEmissionConfirmation::descriptor()->name();
 
-class EventEmissionConfirmation : public EventMessage {
+class EventEmissionConfirmation {
 public:
     EventEmissionConfirmation(unsigned long long id);
 
-    virtual ~EventEmissionConfirmation() = default;
-
-    virtual bool process(EventManager &manager) const override;
+    void process(std::weak_ptr<EventBuffer> buffer) const;
 
 private:
     unsigned long long m_id;
 };
 
-class EventEmissionConfirmationSerializer : public EventMessageSerializer {
-public:
-    virtual ~EventEmissionConfirmationSerializer() = default;
+class EventEmissionConfirmationSerializer {
+    using Message = one::clproto::communication_protocol::Answer;
 
-    virtual std::unique_ptr<EventMessage>
-    deserialize(const Message &message) const override;
+public:
+    std::unique_ptr<EventEmissionConfirmation>
+    deserialize(const Message &message) const;
 };
 
 } // namespace events

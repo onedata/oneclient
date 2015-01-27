@@ -28,14 +28,12 @@ class EventSerializer;
 
 class Event {
 public:
-    enum class Type { READ, WRITE };
-
-    Event(size_t counter)
-        : m_counter{counter} {};
+    Event()
+        : m_counter{1} {};
 
     virtual ~Event() = default;
 
-    virtual Type type() const = 0;
+    virtual void emit() = 0;
 
     virtual std::unique_ptr<EventSerializer> serializer() const = 0;
 
@@ -49,25 +47,6 @@ public:
 
     virtual std::unique_ptr<google::protobuf::Message>
     serialize(unsigned long long id, const Event &event) const = 0;
-};
-
-class EventStream {
-public:
-    EventStream(std::string id)
-        : m_id{std::move(id)} {};
-
-    virtual ~EventStream() = default;
-
-    const std::string &id() const { return m_id; }
-
-    virtual Event::Type type() const = 0;
-
-    virtual void add(const Event &event) = 0;
-
-    virtual void emit() = 0;
-
-protected:
-    std::string m_id;
 };
 
 } // namespace events

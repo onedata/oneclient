@@ -16,18 +16,23 @@ namespace client {
 namespace events {
 
 class Event;
+class ReadEventStream;
+class WriteEventStream;
 
 class EventFactory {
 public:
-    std::unique_ptr<Event> createReadEvent(const std::string &fileId,
-                                           off_t offset, size_t size) const;
+    std::unique_ptr<Event>
+    createReadEvent(const std::string &fileId, off_t offset, size_t size,
+                    std::weak_ptr<ReadEventStream> stream) const;
 
-    std::unique_ptr<Event> createWriteEvent(const std::string &fileId,
-                                            off_t offset, size_t size,
-                                            off_t fileSize) const;
+    std::unique_ptr<Event>
+    createWriteEvent(const std::string &fileId, off_t offset, size_t size,
+                     off_t fileSize,
+                     std::weak_ptr<WriteEventStream> stream) const;
 
-    std::unique_ptr<Event> createTruncateEvent(const std::string &fileId,
-                                               off_t fileSize) const;
+    std::unique_ptr<Event>
+    createTruncateEvent(const std::string &fileId, off_t fileSize,
+                        std::weak_ptr<WriteEventStream> stream) const;
 };
 
 } // namespace events

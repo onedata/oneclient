@@ -7,19 +7,19 @@
 */
 
 #include "context.h"
-#include "logging.h"
 
 #include "events.pb.h"
 #include "communication_protocol.pb.h"
 
 #include "events/types/event.h"
-#include "events/eventMapper.h"
+#include "events/types/readEvent.h"
+#include "events/types/writeEvent.h"
+
 #include "events/eventBuffer.h"
 #include "events/eventFactory.h"
 #include "events/eventManager.h"
 #include "events/eventCommunicator.h"
 
-#include "events/messages/eventMessage.h"
 #include "events/messages/eventEmissionRequest.h"
 #include "events/messages/readEventSubscription.h"
 #include "events/messages/writeEventSubscription.h"
@@ -35,68 +35,73 @@ namespace events {
 EventManager::EventManager(std::shared_ptr<Context> context)
     : m_context{std::move(context)}
     , m_factory{std::make_shared<EventFactory>()}
-    , m_communicator{std::make_shared<EventCommunicator>(std::move(context))}
+    , m_communicator{std::make_shared<EventCommunicator>(context)}
     , m_buffer{std::make_shared<EventBuffer>(m_communicator)}
-    , m_mapper{std::make_shared<EventMapper>(std::move(context))}
+    , m_readEventStream{}
+    , m_writeEventStream{}
 {
-}
-
-const EventFactory &EventManager::eventFactory() const { return *m_factory; }
-
-void EventManager::emit(unsigned long long id)
-{
-    try {
-        const auto &message = m_buffer->getSentMessage(id);
-        m_communicator->send(message);
-    }
-    catch (const std::exception &e) {
-        LOG(WARNING) << "Cannot emit message with ID: " << id
-                     << " due to: " << e.what();
-    }
-}
-
-void EventManager::emit(const Event &event) { m_mapper->map(event); }
-
-void EventManager::removeConfirmedEvents(unsigned long long id)
-{
-    m_buffer->removeSentMessages(id);
 }
 
 bool EventManager::handle(const Message &message)
 {
     const auto &messageType = message.message_type();
-    std::unique_ptr<EventMessageSerializer> serializer;
 
     if (boost::iequals(messageType, READ_EVENT_SUBSCRIPTION_MESSAGE)) {
-        serializer = std::make_unique<ReadEventSubscriptionSerializer>();
+        ReadEventSubscriptionSerializer serializer{};
+        auto eventMessage = serializer.deserialize(message);
+        if (eventMessage)
+            eventMessage->process(m_readEventStream);
     } else if (boost::iequals(messageType, WRITE_EVENT_SUBSCRIPTION_MESSAGE)) {
-        serializer = std::make_unique<WriteEventSubscriptionSerializer>();
+        WriteEventSubscriptionSerializer serializer{};
+        auto eventMessage = serializer.deserialize(message);
+        if (eventMessage)
+            eventMessage->process(m_writeEventStream);
     } else if (boost::iequals(messageType, SUBSCRIPTION_CANCELLATION_MESSAGE)) {
-        serializer = std::make_unique<SubscriptionCancellationSerializer>();
+        SubscriptionCancellationSerializer serializer{};
+        auto eventMessage = serializer.deserialize(message);
+        if (eventMessage)
+            eventMessage->process(*this);
     } else if (boost::iequals(messageType, EVENT_EMISSION_REQUEST_MESSAGE)) {
-        serializer = std::make_unique<EventEmissionRequestSerializer>();
+        EventEmissionRequestSerializer serializer{};
+        auto eventMessage = serializer.deserialize(message);
+        if (eventMessage)
+            eventMessage->process(m_buffer, m_communicator);
     } else if (boost::iequals(messageType,
                               EVENT_EMISSION_CONFIRMATION_MESSAGE)) {
-        serializer = std::make_unique<EventEmissionConfirmationSerializer>();
+        EventEmissionConfirmationSerializer serializer{};
+        auto eventMessage = serializer.deserialize(message);
+        if (eventMessage)
+            eventMessage->process(m_buffer);
     }
-
-    auto eventMessage = serializer->deserialize(message);
-    if (eventMessage)
-        return eventMessage->process(*this);
     return true;
 }
 
-const std::string &
-EventManager::subscribe(const EventSubscription &subscription)
+bool EventManager::cancelSubscription(const std::string &id)
 {
-    auto stream =
-        subscription.createEventStream(subscription, m_context, m_buffer);
-    return m_mapper->addOrUpdateEventStream(std::move(stream));
+    return m_readEventStream->cancelSubscription(id) ||
+           m_writeEventStream->cancelSubscription(id);
 }
 
-bool EventManager::unsubscribe(const std::string &id)
+std::unique_ptr<Event> EventManager::createReadEvent(const std::string &fileId,
+                                                     off_t offset,
+                                                     size_t size) const
 {
-    return m_mapper->removeEventStream(id);
+    return m_factory->createReadEvent(fileId, offset, size, m_readEventStream);
+}
+
+std::unique_ptr<Event> EventManager::createWriteEvent(const std::string &fileId,
+                                                      off_t offset, size_t size,
+                                                      off_t fileSize) const
+{
+    return m_factory->createWriteEvent(fileId, offset, size, fileSize,
+                                       m_writeEventStream);
+}
+
+std::unique_ptr<Event>
+EventManager::createTruncateEvent(const std::string &fileId,
+                                  off_t fileSize) const
+{
+    return m_factory->createTruncateEvent(fileId, fileSize, m_writeEventStream);
 }
 
 } // namespace events

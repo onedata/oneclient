@@ -15,25 +15,27 @@ namespace one {
 namespace client {
 namespace events {
 
-std::unique_ptr<Event> EventFactory::createReadEvent(const std::string &fileId,
-                                                     off_t offset,
-                                                     size_t size) const
+std::unique_ptr<Event>
+EventFactory::createReadEvent(const std::string &fileId, off_t offset,
+                              size_t size,
+                              std::weak_ptr<ReadEventStream> stream) const
 {
-    return std::make_unique<ReadEvent>(fileId, offset, size);
-}
-
-std::unique_ptr<Event> EventFactory::createWriteEvent(const std::string &fileId,
-                                                      off_t offset, size_t size,
-                                                      off_t fileSize) const
-{
-    return std::make_unique<WriteEvent>(fileId, offset, size, fileSize);
+    return std::make_unique<ReadEvent>(fileId, offset, size, stream);
 }
 
 std::unique_ptr<Event>
-EventFactory::createTruncateEvent(const std::string &fileId,
-                                  off_t fileSize) const
+EventFactory::createWriteEvent(const std::string &fileId, off_t offset,
+                               size_t size, off_t fileSize,
+                               std::weak_ptr<WriteEventStream> stream) const
 {
-    return std::make_unique<WriteEvent>(fileId, 0, 0, fileSize);
+    return std::make_unique<WriteEvent>(fileId, offset, size, fileSize, stream);
+}
+
+std::unique_ptr<Event>
+EventFactory::createTruncateEvent(const std::string &fileId, off_t fileSize,
+                                  std::weak_ptr<WriteEventStream> stream) const
+{
+    return std::make_unique<WriteEvent>(fileId, 0, 0, fileSize, stream);
 }
 
 } // namespace events

@@ -10,10 +10,13 @@
 #define ONECLIENT_EVENTS_TYPES_READ_EVENT_H
 
 #include "event.h"
+#include "events/messages/readEventSubscription.h"
 
 #include <boost/optional.hpp>
 #include <boost/icl/interval_set.hpp>
 
+#include <map>
+#include <set>
 #include <chrono>
 #include <memory>
 
@@ -27,7 +30,6 @@ namespace events {
 class EventBuffer;
 class ReadEventStream;
 class ReadEventSerializer;
-class ReadEventSubscription;
 
 class ReadEvent : public Event {
     friend class ReadEventStream;
@@ -35,13 +37,13 @@ class ReadEvent : public Event {
 
 public:
     ReadEvent(std::string fileId, off_t offset, size_t size,
-              size_t counter = 1);
+              std::weak_ptr<ReadEventStream> stream);
 
     virtual ~ReadEvent() = default;
 
-    ReadEvent &operator+=(const ReadEvent &event);
+    virtual void emit() override;
 
-    virtual Type type() const override;
+    ReadEvent &operator+=(const ReadEvent &event);
 
     virtual std::unique_ptr<EventSerializer> serializer() const override;
 
@@ -49,6 +51,7 @@ protected:
     std::string m_fileId;
     size_t m_size;
     boost::icl::interval_set<off_t> m_blocks;
+    std::weak_ptr<ReadEventStream> m_stream;
 };
 
 class ReadEventSerializer : public EventSerializer {
@@ -57,24 +60,21 @@ public:
     serialize(unsigned long long id, const Event &event) const override;
 };
 
-class ReadEventStream : public EventStream {
+class ReadEventStream {
 public:
-    ReadEventStream(const ReadEventSubscription &subscription,
-                    std::weak_ptr<Context> context,
+    ReadEventStream(std::weak_ptr<Context> context,
                     std::weak_ptr<EventBuffer> buffer);
 
-    ~ReadEventStream() = default;
+    void push(const ReadEvent &event);
 
-    ReadEventStream &operator+=(const ReadEventStream &stream);
+    const std::string &subscribe(const ReadEventSubscription &subscription);
 
-    virtual Event::Type type() const override;
-
-    virtual void add(const Event &event) override;
-
-    virtual void emit() override;
+    bool cancelSubscription(const std::string &id);
 
 private:
     bool isEmissionRuleSatisfied();
+
+    void emit();
 
     size_t m_counter;
     boost::optional<size_t> m_counterThreshold;
@@ -84,6 +84,11 @@ private:
     boost::optional<size_t> m_sizeThreshold;
     std::weak_ptr<Context> m_context;
     std::weak_ptr<EventBuffer> m_buffer;
+    std::map<std::string, ReadEvent> m_events;
+    std::map<std::string, ReadEventSubscription> m_subscriptions;
+    std::multiset<size_t> m_counterThresholds;
+    std::multiset<std::chrono::milliseconds> m_timeThresholds;
+    std::multiset<size_t> m_sizeThresholds;
 };
 
 } // namespace events

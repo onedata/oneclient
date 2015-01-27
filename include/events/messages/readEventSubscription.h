@@ -10,8 +10,6 @@
 #define ONECLIENT_EVENTS_MESSAGES_READ_EVENT_SUBSCRIPTION_H
 
 #include "events.pb.h"
-#include "eventMessage.h"
-#include "eventSubscription.h"
 
 #include <chrono>
 #include <boost/optional.hpp>
@@ -20,14 +18,16 @@ namespace one {
 namespace client {
 namespace events {
 
+class ReadEventStream;
+
 static const std::string READ_EVENT_SUBSCRIPTION_MESSAGE =
     one::clproto::events::ReadEventSubscription::descriptor()->name();
 
-class ReadEventSubscription : public EventMessage, public EventSubscription {
+class ReadEventSubscription {
+    friend class ReadEventStream;
+
 public:
     ReadEventSubscription(std::string id);
-
-    virtual ~ReadEventSubscription() = default;
 
     const std::string &id() const;
 
@@ -43,12 +43,7 @@ public:
 
     void setTimeThreshold(const std::chrono::milliseconds &timeThreshold);
 
-    virtual bool process(EventManager &manager) const override;
-
-    virtual std::unique_ptr<EventStream>
-    createEventStream(const EventSubscription &subscription,
-                      std::weak_ptr<Context> context,
-                      std::weak_ptr<EventBuffer> buffer) const override;
+    void process(std::weak_ptr<ReadEventStream> stream) const;
 
 private:
     std::string m_id;
@@ -57,12 +52,12 @@ private:
     boost::optional<std::chrono::milliseconds> m_timeThreshold;
 };
 
-class ReadEventSubscriptionSerializer : public EventMessageSerializer {
-public:
-    virtual ~ReadEventSubscriptionSerializer() = default;
+class ReadEventSubscriptionSerializer {
+    using Message = one::clproto::communication_protocol::Answer;
 
-    virtual std::unique_ptr<EventMessage>
-    deserialize(const Message &message) const override;
+public:
+    std::unique_ptr<ReadEventSubscription>
+    deserialize(const Message &message) const;
 };
 
 } // namespace events

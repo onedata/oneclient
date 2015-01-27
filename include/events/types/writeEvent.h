@@ -10,10 +10,13 @@
 #define ONECLIENT_EVENTS_TYPES_WRITE_EVENT_H
 
 #include "event.h"
+#include "events/messages/writeEventSubscription.h"
 
 #include <boost/optional.hpp>
 #include <boost/icl/interval_set.hpp>
 
+#include <map>
+#include <set>
 #include <chrono>
 #include <memory>
 
@@ -27,7 +30,6 @@ namespace events {
 class EventBuffer;
 class WriteEventStream;
 class WriteEventSerializer;
-class WriteEventSubscription;
 
 class WriteEvent : public Event {
     friend class WriteEventStream;
@@ -35,13 +37,13 @@ class WriteEvent : public Event {
 
 public:
     WriteEvent(std::string fileId, off_t offset, size_t size, off_t fileSize,
-               size_t counter = 1);
+               std::weak_ptr<WriteEventStream> stream);
 
     virtual ~WriteEvent() = default;
 
-    WriteEvent &operator+=(const WriteEvent &event);
+    virtual void emit() override;
 
-    virtual Type type() const override;
+    WriteEvent &operator+=(const WriteEvent &event);
 
     virtual std::unique_ptr<EventSerializer> serializer() const override;
 
@@ -50,6 +52,7 @@ protected:
     size_t m_size;
     boost::icl::interval_set<off_t> m_blocks;
     off_t m_fileSize;
+    std::weak_ptr<WriteEventStream> m_stream;
 };
 
 class WriteEventSerializer : public EventSerializer {
@@ -58,24 +61,21 @@ public:
     serialize(unsigned long long id, const Event &event) const override;
 };
 
-class WriteEventStream : public EventStream {
+class WriteEventStream {
 public:
-    WriteEventStream(const WriteEventSubscription &subscription,
-                     std::weak_ptr<Context> context,
+    WriteEventStream(std::weak_ptr<Context> context,
                      std::weak_ptr<EventBuffer> buffer);
 
-    ~WriteEventStream() = default;
+    void push(const WriteEvent &event);
 
-    WriteEventStream &operator+=(const WriteEventStream &stream);
+    const std::string &subscribe(const WriteEventSubscription &subscription);
 
-    virtual Event::Type type() const override;
-
-    virtual void add(const Event &event) override;
-
-    virtual void emit() override;
+    bool cancelSubscription(const std::string &id);
 
 private:
     bool isEmissionRuleSatisfied();
+
+    void emit();
 
     size_t m_counter;
     boost::optional<size_t> m_counterThreshold;
@@ -85,6 +85,11 @@ private:
     boost::optional<size_t> m_sizeThreshold;
     std::weak_ptr<Context> m_context;
     std::weak_ptr<EventBuffer> m_buffer;
+    std::map<std::string, WriteEvent> m_events;
+    std::map<std::string, WriteEventSubscription> m_subscriptions;
+    std::multiset<size_t> m_counterThresholds;
+    std::multiset<std::chrono::milliseconds> m_timeThresholds;
+    std::multiset<size_t> m_sizeThresholds;
 };
 
 } // namespace events

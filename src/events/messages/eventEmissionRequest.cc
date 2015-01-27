@@ -11,7 +11,8 @@
 #include "events.pb.h"
 #include "communication_protocol.pb.h"
 
-#include "events/eventManager.h"
+#include "events/eventBuffer.h"
+#include "events/eventCommunicator.h"
 #include "events/messages/eventEmissionRequest.h"
 
 namespace one {
@@ -23,13 +24,14 @@ EventEmissionRequest::EventEmissionRequest(unsigned long long id)
 {
 }
 
-bool EventEmissionRequest::process(EventManager &manager) const
+void EventEmissionRequest::process(
+    std::weak_ptr<EventBuffer> buffer,
+    std::weak_ptr<EventCommunicator> communicator) const
 {
-    manager.emit(m_id);
-    return true;
+    communicator.lock()->send(buffer.lock()->getSentMessage(m_id));
 }
 
-std::unique_ptr<EventMessage>
+std::unique_ptr<EventEmissionRequest>
 EventEmissionRequestSerializer::deserialize(const Message &message) const
 {
     one::clproto::events::EventEmissionRequest eventEmissionRequest{};
