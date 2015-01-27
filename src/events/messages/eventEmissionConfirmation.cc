@@ -6,10 +6,11 @@
 * 'LICENSE.txt'
 */
 
+#include "logging.h"
+
 #include "events.pb.h"
 #include "communication_protocol.pb.h"
 
-#include "logging.h"
 #include "events/eventManager.h"
 #include "events/messages/eventEmissionConfirmation.h"
 
@@ -17,13 +18,14 @@ namespace one {
 namespace client {
 namespace events {
 
-EventEmissionConfirmation::EventEmissionConfirmation(long long id)
+EventEmissionConfirmation::EventEmissionConfirmation(unsigned long long id)
     : m_id{id}
 {
 }
 
 bool EventEmissionConfirmation::process(EventManager &manager) const
 {
+    manager.removeConfirmedEvents(m_id);
     return true;
 }
 

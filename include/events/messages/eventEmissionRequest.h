@@ -21,14 +21,14 @@ static const std::string EVENT_EMISSION_REQUEST_MESSAGE =
 
 class EventEmissionRequest : public EventMessage {
 public:
-    EventEmissionRequest(long long id);
+    EventEmissionRequest(unsigned long long id);
 
     virtual ~EventEmissionRequest() = default;
 
     virtual bool process(EventManager &manager) const override;
 
 private:
-    long long m_id;
+    unsigned long long m_id;
 };
 
 class EventEmissionRequestSerializer : public EventMessageSerializer {

@@ -21,14 +21,14 @@ static const std::string EVENT_EMISSION_CONFIRMATION_MESSAGE =
 
 class EventEmissionConfirmation : public EventMessage {
 public:
-    EventEmissionConfirmation(long long id);
+    EventEmissionConfirmation(unsigned long long id);
 
     virtual ~EventEmissionConfirmation() = default;
 
     virtual bool process(EventManager &manager) const override;
 
 private:
-    long long m_id;
+    unsigned long long m_id;
 };
 
 class EventEmissionConfirmationSerializer : public EventMessageSerializer {

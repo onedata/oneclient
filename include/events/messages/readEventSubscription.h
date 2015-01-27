@@ -11,6 +11,7 @@
 
 #include "events.pb.h"
 #include "eventMessage.h"
+#include "eventSubscription.h"
 
 #include <chrono>
 #include <boost/optional.hpp>
@@ -22,7 +23,7 @@ namespace events {
 static const std::string READ_EVENT_SUBSCRIPTION_MESSAGE =
     one::clproto::events::ReadEventSubscription::descriptor()->name();
 
-class ReadEventSubscription : public EventMessage {
+class ReadEventSubscription : public EventMessage, public EventSubscription {
 public:
     ReadEventSubscription(std::string id);
 
@@ -42,7 +43,12 @@ public:
 
     void setTimeThreshold(const std::chrono::milliseconds &timeThreshold);
 
-    bool process(EventManager &manager) const override;
+    virtual bool process(EventManager &manager) const override;
+
+    virtual std::unique_ptr<EventStream>
+    createEventStream(const EventSubscription &subscription,
+                      std::weak_ptr<Context> context,
+                      std::weak_ptr<EventBuffer> buffer) const override;
 
 private:
     std::string m_id;

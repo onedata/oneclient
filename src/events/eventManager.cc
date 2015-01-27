@@ -7,11 +7,16 @@
 */
 
 #include "context.h"
+#include "logging.h"
 
+#include "events.pb.h"
+#include "communication_protocol.pb.h"
+
+#include "events/types/event.h"
 #include "events/eventMapper.h"
 #include "events/eventBuffer.h"
-#include "events/eventManager.h"
 #include "events/eventFactory.h"
+#include "events/eventManager.h"
 #include "events/eventCommunicator.h"
 
 #include "events/messages/eventMessage.h"
@@ -21,9 +26,6 @@
 #include "events/messages/subscriptionCancellation.h"
 #include "events/messages/eventEmissionConfirmation.h"
 
-#include "events.pb.h"
-#include "communication_protocol.pb.h"
-
 #include <boost/algorithm/string/predicate.hpp>
 
 namespace one {
@@ -31,23 +33,38 @@ namespace client {
 namespace events {
 
 EventManager::EventManager(std::shared_ptr<Context> context)
-    : m_buffer{std::make_shared<EventBuffer>()}
-    , m_mapper{std::make_shared<EventMapper>(m_buffer, std::move(context))}
+    : m_context{std::move(context)}
     , m_factory{std::make_shared<EventFactory>()}
-    , m_communicator{
-          std::make_shared<EventCommunicator>(m_buffer, std::move(context))}
+    , m_communicator{std::make_shared<EventCommunicator>(std::move(context))}
+    , m_buffer{std::make_shared<EventBuffer>(m_communicator)}
+    , m_mapper{std::make_shared<EventMapper>(std::move(context))}
 {
 }
 
 const EventFactory &EventManager::eventFactory() const { return *m_factory; }
 
-void EventManager::emit(long long id) {}
+void EventManager::emit(unsigned long long id)
+{
+    try {
+        const auto &message = m_buffer->getSentMessage(id);
+        m_communicator->send(message);
+    }
+    catch (const std::exception &e) {
+        LOG(WARNING) << "Cannot emit message with ID: " << id
+                     << " due to: " << e.what();
+    }
+}
 
 void EventManager::emit(const Event &event) { m_mapper->map(event); }
 
+void EventManager::removeConfirmedEvents(unsigned long long id)
+{
+    m_buffer->removeSentMessages(id);
+}
+
 bool EventManager::handle(const Message &message)
 {
-    auto messageType = message.message_type();
+    const auto &messageType = message.message_type();
     std::unique_ptr<EventMessageSerializer> serializer;
 
     if (boost::iequals(messageType, READ_EVENT_SUBSCRIPTION_MESSAGE)) {
@@ -69,12 +86,15 @@ bool EventManager::handle(const Message &message)
     return true;
 }
 
-const std::string &EventManager::registerEventStream(const EventStream &stream)
+const std::string &
+EventManager::subscribe(const EventSubscription &subscription)
 {
-    return m_mapper->addOrUpdateEventStream(stream);
+    auto stream =
+        subscription.createEventStream(subscription, m_context, m_buffer);
+    return m_mapper->addOrUpdateEventStream(*stream);
 }
 
-bool EventManager::unregisterEventStream(const std::string &id)
+bool EventManager::unsubscribe(const std::string &id)
 {
     return m_mapper->removeEventStream(id);
 }

@@ -28,9 +28,9 @@ namespace events {
 class Event;
 class EventBuffer;
 class EventMapper;
-class EventStream;
 class EventFactory;
 class EventCommunicator;
+class EventSubscription;
 class EventMessageSerializer;
 
 class EventManager {
@@ -41,21 +41,24 @@ public:
 
     const EventFactory &eventFactory() const;
 
-    void emit(long long id);
+    void emit(unsigned long long id);
 
     void emit(const Event &event);
 
+    void removeConfirmedEvents(unsigned long long id);
+
     bool handle(const Message &message);
 
-    const std::string &registerEventStream(const EventStream &stream);
+    const std::string &subscribe(const EventSubscription &subscription);
 
-    bool unregisterEventStream(const std::string &id);
+    bool unsubscribe(const std::string &id);
 
 private:
-    std::shared_ptr<EventBuffer> m_buffer;
-    std::shared_ptr<EventMapper> m_mapper;
+    std::shared_ptr<Context> m_context;
     std::shared_ptr<EventFactory> m_factory;
     std::shared_ptr<EventCommunicator> m_communicator;
+    std::shared_ptr<EventBuffer> m_buffer;
+    std::shared_ptr<EventMapper> m_mapper;
 };
 
 } // namespace events

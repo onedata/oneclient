@@ -20,18 +20,13 @@ class Context;
 
 namespace events {
 
-class EventBuffer;
-
 class EventCommunicator {
 public:
-    EventCommunicator(std::weak_ptr<EventBuffer> buffer,
-                      std::shared_ptr<Context> context);
+    EventCommunicator(std::shared_ptr<Context> context);
 
-private:
     void send(const google::protobuf::Message &message) const;
 
-    long long m_sequence_number;
-    std::weak_ptr<EventBuffer> m_buffer;
+private:
     std::shared_ptr<Context> m_context;
 };
 

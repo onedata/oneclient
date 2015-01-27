@@ -19,8 +19,12 @@
 
 namespace one {
 namespace client {
+
+class Context;
+
 namespace events {
 
+class EventBuffer;
 class WriteEventStream;
 class WriteEventSerializer;
 class WriteEventSubscription;
@@ -50,12 +54,14 @@ protected:
 class WriteEventSerializer : public EventSerializer {
 public:
     virtual std::unique_ptr<google::protobuf::Message>
-    serialize(long long id, const Event &event) const override;
+    serialize(unsigned long long id, const Event &event) const override;
 };
 
 class WriteEventStream : public EventStream {
 public:
-    WriteEventStream(const WriteEventSubscription &subscription);
+    WriteEventStream(const WriteEventSubscription &subscription,
+                     std::weak_ptr<Context> context,
+                     std::weak_ptr<EventBuffer> buffer);
 
     ~WriteEventStream() = default;
 
@@ -76,6 +82,8 @@ private:
     boost::optional<std::chrono::milliseconds> m_timeThreshold;
     size_t m_size;
     boost::optional<size_t> m_sizeThreshold;
+    std::weak_ptr<Context> m_context;
+    std::weak_ptr<EventBuffer> m_buffer;
 };
 
 } // namespace events

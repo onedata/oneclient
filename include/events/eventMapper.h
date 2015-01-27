@@ -24,8 +24,7 @@ class EventStream;
 
 class EventMapper {
 public:
-    EventMapper(std::weak_ptr<EventBuffer> buffer,
-                std::shared_ptr<Context> context);
+    EventMapper(std::shared_ptr<Context> context);
 
     void map(const Event &event);
 
@@ -34,7 +33,6 @@ public:
     bool removeEventStream(const std::string &id);
 
 private:
-    const std::weak_ptr<EventBuffer> m_buffer;
     const std::shared_ptr<Context> m_context;
 };
 

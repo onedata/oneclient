@@ -6,8 +6,12 @@
 * 'LICENSE.txt'
 */
 
+#include "context.h"
+
 #include "events.pb.h"
 #include "communication_protocol.pb.h"
+
+#include "events/eventBuffer.h"
 #include "events/types/readEvent.h"
 #include "events/messages/readEventSubscription.h"
 
@@ -39,7 +43,7 @@ std::unique_ptr<EventSerializer> ReadEvent::serializer() const
 }
 
 std::unique_ptr<google::protobuf::Message>
-ReadEventSerializer::serialize(long long id, const Event &event) const
+ReadEventSerializer::serialize(unsigned long long id, const Event &event) const
 {
     auto readEvent = static_cast<const ReadEvent &>(event);
     auto message = std::make_unique<one::clproto::events::ReadEvent>();
@@ -55,7 +59,9 @@ ReadEventSerializer::serialize(long long id, const Event &event) const
     return std::move(message);
 }
 
-ReadEventStream::ReadEventStream(const ReadEventSubscription &subscription)
+ReadEventStream::ReadEventStream(const ReadEventSubscription &subscription,
+                                 std::weak_ptr<Context> context,
+                                 std::weak_ptr<EventBuffer> buffer)
     : EventStream{subscription.id()}
     , m_counter{0}
     , m_counterThreshold{subscription.counterThreshold()}
@@ -63,6 +69,8 @@ ReadEventStream::ReadEventStream(const ReadEventSubscription &subscription)
     , m_timeThreshold{subscription.timeThreshold()}
     , m_size{0}
     , m_sizeThreshold{subscription.sizeThreshold()}
+    , m_context{std::move(context)}
+    , m_buffer{std::move(buffer)}
 {
 }
 

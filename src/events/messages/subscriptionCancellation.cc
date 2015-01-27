@@ -6,10 +6,11 @@
 * 'LICENSE.txt'
 */
 
+#include "logging.h"
+
 #include "events.pb.h"
 #include "communication_protocol.pb.h"
 
-#include "logging.h"
 #include "events/eventManager.h"
 #include "events/messages/subscriptionCancellation.h"
 
@@ -24,7 +25,7 @@ SubscriptionCancellation::SubscriptionCancellation(std::string id)
 
 bool SubscriptionCancellation::process(EventManager &manager) const
 {
-    return manager.unregisterEventStream(m_id);
+    return manager.unsubscribe(m_id);
 }
 
 std::unique_ptr<EventMessage>
@@ -32,10 +33,8 @@ SubscriptionCancellationSerializer::deserialize(const Message &message) const
 {
     one::clproto::events::SubscriptionCancellation subscriptionCancellation{};
     if (subscriptionCancellation.ParseFromString(message.worker_answer())) {
-        //        return
-        //        std::make_unique<one::client::events::SubscriptionCancellation>(
-        //            subscriptionCancellation.id());
-        return nullptr;
+        return std::make_unique<one::client::events::SubscriptionCancellation>(
+            subscriptionCancellation.id());
     }
     LOG(WARNING) << "Cannot deserialize message of type: '"
                  << message.message_type()

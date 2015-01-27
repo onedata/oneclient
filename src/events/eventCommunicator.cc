@@ -7,7 +7,8 @@
 */
 
 #include "context.h"
-#include "events/eventBuffer.h"
+#include "logging.h"
+
 #include "events/eventCommunicator.h"
 #include "communication/exception.h"
 #include "communication/communicator.h"
@@ -16,11 +17,8 @@ namespace one {
 namespace client {
 namespace events {
 
-EventCommunicator::EventCommunicator(std::weak_ptr<EventBuffer> buffer,
-                                     std::shared_ptr<Context> context)
-    : m_sequence_number{0}
-    , m_buffer{std::move(buffer)}
-    , m_context{std::move(context)}
+EventCommunicator::EventCommunicator(std::shared_ptr<Context> context)
+    : m_context{std::move(context)}
 {
 }
 
@@ -30,7 +28,8 @@ void EventCommunicator::send(const google::protobuf::Message &message) const
         m_context->getCommunicator()->send(
             communication::ServerModule::EVENT_MANAGER, message);
     }
-    catch (communication::Exception &e) {
+    catch (const communication::Exception &e) {
+        LOG(WARNING) << "Cannot send event message due to: " << e.what();
     }
 }
 

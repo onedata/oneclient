@@ -6,10 +6,11 @@
 * 'LICENSE.txt'
 */
 
+#include "logging.h"
+
 #include "events.pb.h"
 #include "communication_protocol.pb.h"
 
-#include "logging.h"
 #include "events/eventManager.h"
 #include "events/messages/eventEmissionRequest.h"
 
@@ -17,7 +18,7 @@ namespace one {
 namespace client {
 namespace events {
 
-EventEmissionRequest::EventEmissionRequest(long long id)
+EventEmissionRequest::EventEmissionRequest(unsigned long long id)
     : m_id{id}
 {
 }

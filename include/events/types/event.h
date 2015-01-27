@@ -48,7 +48,7 @@ public:
     using EventMessage = one::clproto::communication_protocol::Answer;
 
     virtual std::unique_ptr<google::protobuf::Message>
-    serialize(long long id, const Event &event) const = 0;
+    serialize(unsigned long long id, const Event &event) const = 0;
 };
 
 class EventStream {

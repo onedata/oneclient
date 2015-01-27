@@ -6,8 +6,12 @@
 * 'LICENSE.txt'
 */
 
+#include "context.h"
+
 #include "events.pb.h"
 #include "communication_protocol.pb.h"
+
+#include "events/eventBuffer.h"
 #include "events/types/writeEvent.h"
 #include "events/messages/writeEventSubscription.h"
 
@@ -42,13 +46,14 @@ std::unique_ptr<EventSerializer> WriteEvent::serializer() const
 }
 
 std::unique_ptr<google::protobuf::Message>
-WriteEventSerializer::serialize(long long id, const Event &event) const
+WriteEventSerializer::serialize(unsigned long long id, const Event &event) const
 {
     auto writeEvent = static_cast<const WriteEvent &>(event);
     auto message = std::make_unique<one::clproto::events::WriteEvent>();
     message->set_id(id);
     message->set_counter(writeEvent.m_counter);
     message->set_file_id(std::move(writeEvent.m_fileId));
+    message->set_file_size(writeEvent.m_fileSize);
     message->set_size(writeEvent.m_size);
     for (const auto &block : writeEvent.m_blocks) {
         auto blockMessage = message->add_blocks();
@@ -58,7 +63,9 @@ WriteEventSerializer::serialize(long long id, const Event &event) const
     return std::move(message);
 }
 
-WriteEventStream::WriteEventStream(const WriteEventSubscription &subscription)
+WriteEventStream::WriteEventStream(const WriteEventSubscription &subscription,
+                                   std::weak_ptr<Context> context,
+                                   std::weak_ptr<EventBuffer> buffer)
     : EventStream(subscription.id())
     , m_counter{0}
     , m_counterThreshold{subscription.counterThreshold()}
@@ -66,6 +73,8 @@ WriteEventStream::WriteEventStream(const WriteEventSubscription &subscription)
     , m_timeThreshold{subscription.timeThreshold()}
     , m_size{0}
     , m_sizeThreshold{subscription.sizeThreshold()}
+    , m_context{std::move(context)}
+    , m_buffer{std::move(buffer)}
 {
 }
 

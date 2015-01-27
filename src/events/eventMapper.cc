@@ -7,6 +7,7 @@
 */
 
 #include "context.h"
+
 #include "events/eventMapper.h"
 #include "events/eventBuffer.h"
 #include "events/types/event.h"
@@ -15,10 +16,8 @@ namespace one {
 namespace client {
 namespace events {
 
-EventMapper::EventMapper(std::weak_ptr<EventBuffer> buffer,
-                         std::shared_ptr<Context> context)
-    : m_buffer{std::move(buffer)}
-    , m_context{std::move(context)}
+EventMapper::EventMapper(std::shared_ptr<Context> context)
+    : m_context{std::move(context)}
 {
 }
 

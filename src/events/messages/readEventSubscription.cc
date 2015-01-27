@@ -6,10 +6,13 @@
 * 'LICENSE.txt'
 */
 
+#include "context.h"
+#include "logging.h"
+
 #include "events.pb.h"
 #include "communication_protocol.pb.h"
 
-#include "logging.h"
+#include "events/eventBuffer.h"
 #include "events/eventManager.h"
 #include "events/types/readEvent.h"
 #include "events/messages/readEventSubscription.h"
@@ -59,8 +62,7 @@ void ReadEventSubscription::setTimeThreshold(
 
 bool ReadEventSubscription::process(EventManager &manager) const
 {
-    ReadEventStream stream{*this};
-    manager.registerEventStream(stream);
+    manager.subscribe(*this);
     return true;
 }
 
@@ -87,6 +89,16 @@ ReadEventSubscriptionSerializer::deserialize(const Message &message) const
                  << message.message_type()
                  << "' with ID: " << message.message_id();
     return nullptr;
+}
+
+std::unique_ptr<EventStream> ReadEventSubscription::createEventStream(
+    const EventSubscription &subscription, std::weak_ptr<Context> context,
+    std::weak_ptr<EventBuffer> buffer) const
+{
+    auto readEventSubscription =
+        static_cast<const ReadEventSubscription &>(subscription);
+    return std::make_unique<ReadEventStream>(
+        readEventSubscription, std::move(context), std::move(buffer));
 }
 
 } // namespace events
