@@ -33,6 +33,11 @@ public:
     std::unique_ptr<Event>
     createTruncateEvent(const std::string &fileId, off_t fileSize,
                         std::weak_ptr<WriteEventStream> stream) const;
+
+    std::unique_ptr<Event> createSubscriptionEvent(unsigned long long id) const;
+
+    std::unique_ptr<Event>
+    createSubscriptionCancellationEvent(unsigned long long id) const;
 };
 
 } // namespace events

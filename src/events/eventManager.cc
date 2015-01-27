@@ -20,11 +20,9 @@
 #include "events/eventManager.h"
 #include "events/eventCommunicator.h"
 
-#include "events/messages/eventEmissionRequest.h"
-#include "events/messages/readEventSubscription.h"
-#include "events/messages/writeEventSubscription.h"
+#include "events/messages/eventRequest.h"
 #include "events/messages/subscriptionCancellation.h"
-#include "events/messages/eventEmissionConfirmation.h"
+#include "events/messages/eventAcknowledgement.h"
 
 #include <boost/algorithm/string/predicate.hpp>
 
@@ -50,25 +48,25 @@ bool EventManager::handle(const Message &message)
         ReadEventSubscriptionSerializer serializer{};
         auto eventMessage = serializer.deserialize(message);
         if (eventMessage)
-            eventMessage->process(m_readEventStream);
+            eventMessage->process(m_readEventStream, m_factory, m_buffer);
     } else if (boost::iequals(messageType, WRITE_EVENT_SUBSCRIPTION_MESSAGE)) {
         WriteEventSubscriptionSerializer serializer{};
         auto eventMessage = serializer.deserialize(message);
         if (eventMessage)
-            eventMessage->process(m_writeEventStream);
+            eventMessage->process(m_writeEventStream, m_factory, m_buffer);
     } else if (boost::iequals(messageType, SUBSCRIPTION_CANCELLATION_MESSAGE)) {
         SubscriptionCancellationSerializer serializer{};
         auto eventMessage = serializer.deserialize(message);
         if (eventMessage)
-            eventMessage->process(*this);
+            eventMessage->process(*this, m_factory, m_buffer);
     } else if (boost::iequals(messageType, EVENT_EMISSION_REQUEST_MESSAGE)) {
-        EventEmissionRequestSerializer serializer{};
+        EventRequestSerializer serializer{};
         auto eventMessage = serializer.deserialize(message);
         if (eventMessage)
             eventMessage->process(m_buffer, m_communicator);
     } else if (boost::iequals(messageType,
                               EVENT_EMISSION_CONFIRMATION_MESSAGE)) {
-        EventEmissionConfirmationSerializer serializer{};
+        EventAcknowledgementSerializer serializer{};
         auto eventMessage = serializer.deserialize(message);
         if (eventMessage)
             eventMessage->process(m_buffer);
@@ -76,7 +74,7 @@ bool EventManager::handle(const Message &message)
     return true;
 }
 
-bool EventManager::cancelSubscription(const std::string &id)
+bool EventManager::cancelSubscription(unsigned long long id)
 {
     return m_readEventStream->cancelSubscription(id) ||
            m_writeEventStream->cancelSubscription(id);

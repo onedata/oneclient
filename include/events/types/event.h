@@ -14,13 +14,6 @@
 #include <memory>
 
 namespace one {
-
-namespace clproto {
-namespace communication_protocol {
-class Answer;
-}
-}
-
 namespace client {
 namespace events {
 
@@ -43,10 +36,10 @@ protected:
 
 class EventSerializer {
 public:
-    using EventMessage = one::clproto::communication_protocol::Answer;
+    virtual ~EventSerializer() = default;
 
     virtual std::unique_ptr<google::protobuf::Message>
-    serialize(unsigned long long id, const Event &event) const = 0;
+    serialize(unsigned long long sequenceNumber, const Event &event) const = 0;
 };
 
 } // namespace events

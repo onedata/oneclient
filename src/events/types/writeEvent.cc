@@ -9,11 +9,9 @@
 #include "context.h"
 
 #include "events.pb.h"
-#include "communication_protocol.pb.h"
 
 #include "events/eventBuffer.h"
 #include "events/types/writeEvent.h"
-#include "events/messages/writeEventSubscription.h"
 
 namespace one {
 namespace client {
@@ -51,9 +49,10 @@ WriteEventSerializer::serialize(unsigned long long id, const Event &event) const
 {
     auto writeEvent = static_cast<const WriteEvent &>(event);
     auto message = std::make_unique<one::clproto::events::WriteEvent>();
-    message->set_id(id);
+    message->set_seq_num(id);
     message->set_counter(writeEvent.m_counter);
     message->set_file_id(std::move(writeEvent.m_fileId));
+    message->set_file_size(writeEvent.m_fileSize);
     message->set_size(writeEvent.m_size);
     for (const auto &block : writeEvent.m_blocks) {
         auto blockMessage = message->add_blocks();
@@ -98,9 +97,12 @@ void WriteEventStream::push(const WriteEvent &event)
     }
 }
 
-const std::string &
+unsigned long long
 WriteEventStream::subscribe(const WriteEventSubscription &subscription)
 {
+    if (m_subscriptions.find(subscription.m_id) != m_subscriptions.end())
+        return subscription.m_id;
+
     m_subscriptions.insert(std::make_pair(subscription.m_id, subscription));
 
     bool isTimeThresholdUpdated = false;
@@ -130,7 +132,7 @@ WriteEventStream::subscribe(const WriteEventSubscription &subscription)
     return subscription.m_id;
 }
 
-bool WriteEventStream::cancelSubscription(const std::string &id)
+bool WriteEventStream::cancelSubscription(unsigned long long id)
 {
     auto subscription = m_subscriptions.find(id);
     if (subscription != m_subscriptions.end()) {

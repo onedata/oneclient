@@ -14,22 +14,32 @@
 #include <memory>
 
 namespace one {
+
+namespace clproto {
+namespace communication_protocol {
+class Answer;
+}
+}
+
 namespace client {
 namespace events {
 
+class EventBuffer;
 class EventManager;
+class EventFactory;
 
 static const std::string SUBSCRIPTION_CANCELLATION_MESSAGE =
     one::clproto::events::SubscriptionCancellation::descriptor()->name();
 
 class SubscriptionCancellation {
 public:
-    SubscriptionCancellation(std::string id);
+    SubscriptionCancellation(unsigned long long id);
 
-    void process(EventManager &manager) const;
+    void process(EventManager &manager, std::weak_ptr<EventFactory> factory,
+                 std::weak_ptr<EventBuffer> buffer) const;
 
 private:
-    std::string m_id;
+    unsigned long long m_id;
 };
 
 class SubscriptionCancellationSerializer {

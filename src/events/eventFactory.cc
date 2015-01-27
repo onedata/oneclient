@@ -9,6 +9,8 @@
 #include "events/types/event.h"
 #include "events/types/readEvent.h"
 #include "events/types/writeEvent.h"
+#include "events/types/subscriptionEvent.h"
+#include "events/types/subscriptionCancellationEvent.h"
 #include "events/eventFactory.h"
 
 namespace one {
@@ -36,6 +38,18 @@ EventFactory::createTruncateEvent(const std::string &fileId, off_t fileSize,
                                   std::weak_ptr<WriteEventStream> stream) const
 {
     return std::make_unique<WriteEvent>(fileId, 0, 0, fileSize, stream);
+}
+
+std::unique_ptr<Event>
+EventFactory::createSubscriptionEvent(unsigned long long id) const
+{
+    return std::make_unique<SubscriptionEvent>(id);
+}
+
+std::unique_ptr<Event>
+EventFactory::createSubscriptionCancellationEvent(unsigned long long id) const
+{
+    return std::make_unique<SubscriptionCancellationEvent>(id);
 }
 
 } // namespace events

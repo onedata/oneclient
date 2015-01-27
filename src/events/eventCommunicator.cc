@@ -28,8 +28,9 @@ void EventCommunicator::send(const google::protobuf::Message &message) const
         m_context->getCommunicator()->send(
             communication::ServerModule::EVENT_MANAGER, message);
     }
-    catch (const communication::Exception &e) {
-        LOG(WARNING) << "Cannot send event message due to: " << e.what();
+    catch (communication::Exception &e) {
+        LOG(WARNING) << "Cannot send message due to: '" << e.what()
+                     << "' exception.";
     }
 }
 

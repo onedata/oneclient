@@ -9,7 +9,6 @@
 #ifndef ONECLIENT_EVENTS_EVENT_MANAGER_H
 #define ONECLIENT_EVENTS_EVENT_MANAGER_H
 
-#include <map>
 #include <memory>
 
 namespace one {
@@ -41,7 +40,7 @@ public:
 
     bool handle(const Message &message);
 
-    bool cancelSubscription(const std::string &id);
+    bool cancelSubscription(unsigned long long id);
 
     std::unique_ptr<Event> createReadEvent(const std::string &fileId,
                                            off_t offset, size_t size) const;

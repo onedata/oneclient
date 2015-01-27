@@ -20,13 +20,12 @@ EventBuffer::EventBuffer(std::weak_ptr<EventCommunicator> communicator)
     : m_communicator{std::move(communicator)}
     , m_isThreadRunning{true}
     , m_sequenceNumber{1}
-    , m_lastConfirmedMessageId{0}
+    , m_lastConfirmedSequenceNumber{0}
     , m_pendingEvents{}
     , m_sentMessages{}
 {
     m_thread = std::thread(&EventBuffer::processPendingEvents, this);
-    LOG(INFO) << "Processing pending events thread has been started"
-                 " successfully.";
+    LOG(INFO) << "Event buffer constructed successfully.";
 }
 
 EventBuffer::~EventBuffer()
@@ -34,8 +33,7 @@ EventBuffer::~EventBuffer()
     m_isThreadRunning = false;
     m_pendingEventsConditionVariable.notify_one();
     m_thread.join();
-    LOG(INFO) << "Processing pending events thread has been stopped"
-                 " successfully.";
+    LOG(INFO) << "Event buffer destroyed successfully.";
 }
 
 void EventBuffer::push(std::unique_ptr<Event> event)
@@ -49,8 +47,8 @@ const google::protobuf::Message &
 EventBuffer::getSentMessage(unsigned long long id)
 {
     std::lock_guard<std::mutex> guard{m_sentMessagesMutex};
-    if (id <= m_sentMessages.size() - m_lastConfirmedMessageId) {
-        return *m_sentMessages[id - m_lastConfirmedMessageId - 1];
+    if (id <= m_sentMessages.size() - m_lastConfirmedSequenceNumber) {
+        return *m_sentMessages[id - m_lastConfirmedSequenceNumber - 1];
     } else {
         throw std::out_of_range{"Message not found."};
     }
@@ -59,9 +57,9 @@ EventBuffer::getSentMessage(unsigned long long id)
 void EventBuffer::removeSentMessages(unsigned long long id)
 {
     std::lock_guard<std::mutex> guard{m_sentMessagesMutex};
-    while (!m_sentMessages.empty() && m_lastConfirmedMessageId <= id) {
+    while (!m_sentMessages.empty() && m_lastConfirmedSequenceNumber <= id) {
         m_sentMessages.pop_front();
-        ++m_lastConfirmedMessageId;
+        ++m_lastConfirmedSequenceNumber;
     }
 }
 

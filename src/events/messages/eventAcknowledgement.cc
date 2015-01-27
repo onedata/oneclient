@@ -1,5 +1,5 @@
 /**
-* @file eventEmissionConfirmation.cc
+* @file eventAcknowledgement.cc
 * @author Krzysztof Trzepla
 * @copyright (C) 2015 ACK CYFRONET AGH
 * @copyright This software is released under the MIT license cited in
@@ -12,29 +12,29 @@
 #include "communication_protocol.pb.h"
 
 #include "events/eventBuffer.h"
-#include "events/messages/eventEmissionConfirmation.h"
+#include "events/messages/eventAcknowledgement.h"
 
 namespace one {
 namespace client {
 namespace events {
 
-EventEmissionConfirmation::EventEmissionConfirmation(unsigned long long id)
+EventAcknowledgement::EventAcknowledgement(unsigned long long id)
     : m_id{id}
 {
 }
 
-void EventEmissionConfirmation::process(std::weak_ptr<EventBuffer> buffer) const
+void EventAcknowledgement::process(std::weak_ptr<EventBuffer> buffer) const
 {
     buffer.lock()->removeSentMessages(m_id);
 }
 
-std::unique_ptr<EventEmissionConfirmation>
-EventEmissionConfirmationSerializer::deserialize(const Message &message) const
+std::unique_ptr<EventAcknowledgement>
+EventAcknowledgementSerializer::deserialize(const Message &message) const
 {
-    one::clproto::events::EventEmissionConfirmation eventEmissionConfirmation{};
-    if (eventEmissionConfirmation.ParseFromString(message.worker_answer())) {
-        return std::make_unique<one::client::events::EventEmissionConfirmation>(
-            eventEmissionConfirmation.id());
+    one::clproto::events::EventAcknowledgement eventAcknowledgement{};
+    if (eventAcknowledgement.ParseFromString(message.worker_answer())) {
+        return std::make_unique<one::client::events::EventAcknowledgement>(
+            eventAcknowledgement.seq_num());
     }
     LOG(WARNING) << "Cannot deserialize message of type: '"
                  << message.message_type()

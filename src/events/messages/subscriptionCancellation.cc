@@ -11,6 +11,9 @@
 #include "events.pb.h"
 #include "communication_protocol.pb.h"
 
+#include "events/types/event.h"
+#include "events/eventBuffer.h"
+#include "events/eventFactory.h"
 #include "events/eventManager.h"
 #include "events/messages/subscriptionCancellation.h"
 
@@ -18,14 +21,19 @@ namespace one {
 namespace client {
 namespace events {
 
-SubscriptionCancellation::SubscriptionCancellation(std::string id)
-    : m_id{std::move(id)}
+SubscriptionCancellation::SubscriptionCancellation(unsigned long long id)
+    : m_id{id}
 {
 }
 
-void SubscriptionCancellation::process(EventManager &manager) const
+void SubscriptionCancellation::process(EventManager &manager,
+                                       std::weak_ptr<EventFactory> factory,
+                                       std::weak_ptr<EventBuffer> buffer) const
 {
-    manager.cancelSubscription(m_id);
+    if (manager.cancelSubscription(m_id)) {
+        auto event = factory.lock()->createSubscriptionCancellationEvent(m_id);
+        buffer.lock()->push(std::move(event));
+    }
 }
 
 std::unique_ptr<SubscriptionCancellation>

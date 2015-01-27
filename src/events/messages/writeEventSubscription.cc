@@ -12,19 +12,20 @@
 #include "events.pb.h"
 #include "communication_protocol.pb.h"
 
+#include "events/eventBuffer.h"
+#include "events/eventFactory.h"
 #include "events/types/writeEvent.h"
-#include "events/messages/writeEventSubscription.h"
 
 namespace one {
 namespace client {
 namespace events {
 
-WriteEventSubscription::WriteEventSubscription(std::string id)
-    : m_id{std::move(id)}
+WriteEventSubscription::WriteEventSubscription(unsigned long long id)
+    : m_id{id}
 {
 }
 
-const std::string &WriteEventSubscription::id() const { return m_id; }
+unsigned long long WriteEventSubscription::id() const { return m_id; }
 
 const boost::optional<size_t> &WriteEventSubscription::sizeThreshold() const
 {
@@ -58,10 +59,13 @@ void WriteEventSubscription::setTimeThreshold(
     m_timeThreshold.reset(timeThreshold);
 }
 
-void
-WriteEventSubscription::process(std::weak_ptr<WriteEventStream> stream) const
+void WriteEventSubscription::process(std::weak_ptr<WriteEventStream> stream,
+                                     std::weak_ptr<EventFactory> factory,
+                                     std::weak_ptr<EventBuffer> buffer) const
 {
-    stream.lock()->subscribe(*this);
+    unsigned long long id = stream.lock()->subscribe(*this);
+    auto event = factory.lock()->createSubscriptionEvent(id);
+    buffer.lock()->push(std::move(event));
 }
 
 std::unique_ptr<WriteEventSubscription>

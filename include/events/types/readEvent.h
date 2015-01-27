@@ -56,8 +56,11 @@ protected:
 
 class ReadEventSerializer : public EventSerializer {
 public:
+    virtual ~ReadEventSerializer() = default;
+
     virtual std::unique_ptr<google::protobuf::Message>
-    serialize(unsigned long long id, const Event &event) const override;
+    serialize(unsigned long long sequenceNumber,
+              const Event &event) const override;
 };
 
 class ReadEventStream {
@@ -67,9 +70,9 @@ public:
 
     void push(const ReadEvent &event);
 
-    const std::string &subscribe(const ReadEventSubscription &subscription);
+    unsigned long long subscribe(const ReadEventSubscription &subscription);
 
-    bool cancelSubscription(const std::string &id);
+    bool cancelSubscription(unsigned long long id);
 
 private:
     bool isEmissionRuleSatisfied();
@@ -85,7 +88,7 @@ private:
     std::weak_ptr<Context> m_context;
     std::weak_ptr<EventBuffer> m_buffer;
     std::map<std::string, ReadEvent> m_events;
-    std::map<std::string, ReadEventSubscription> m_subscriptions;
+    std::map<unsigned long long, ReadEventSubscription> m_subscriptions;
     std::multiset<size_t> m_counterThresholds;
     std::multiset<std::chrono::milliseconds> m_timeThresholds;
     std::multiset<size_t> m_sizeThresholds;

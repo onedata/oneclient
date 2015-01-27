@@ -49,7 +49,7 @@ private:
     std::mutex m_pendingEventsMutex;
     std::mutex m_sentMessagesMutex;
     unsigned long long m_sequenceNumber;
-    unsigned long long m_lastConfirmedMessageId;
+    unsigned long long m_lastConfirmedSequenceNumber;
     std::queue<std::unique_ptr<Event>> m_pendingEvents;
     std::deque<std::unique_ptr<google::protobuf::Message>> m_sentMessages;
 };

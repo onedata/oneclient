@@ -9,11 +9,9 @@
 #include "context.h"
 
 #include "events.pb.h"
-#include "communication_protocol.pb.h"
 
 #include "events/eventBuffer.h"
 #include "events/types/readEvent.h"
-#include "events/messages/readEventSubscription.h"
 
 namespace one {
 namespace client {
@@ -45,11 +43,12 @@ std::unique_ptr<EventSerializer> ReadEvent::serializer() const
 }
 
 std::unique_ptr<google::protobuf::Message>
-ReadEventSerializer::serialize(unsigned long long id, const Event &event) const
+ReadEventSerializer::serialize(unsigned long long sequenceNumber,
+                               const Event &event) const
 {
     auto readEvent = static_cast<const ReadEvent &>(event);
     auto message = std::make_unique<one::clproto::events::ReadEvent>();
-    message->set_id(id);
+    message->set_seq_num(sequenceNumber);
     message->set_counter(readEvent.m_counter);
     message->set_file_id(std::move(readEvent.m_fileId));
     message->set_size(readEvent.m_size);
@@ -96,9 +95,12 @@ void ReadEventStream::push(const ReadEvent &event)
     }
 }
 
-const std::string &
+unsigned long long
 ReadEventStream::subscribe(const ReadEventSubscription &subscription)
 {
+    if (m_subscriptions.find(subscription.m_id) != m_subscriptions.end())
+        return subscription.m_id;
+
     m_subscriptions.insert(std::make_pair(subscription.m_id, subscription));
 
     bool isTimeThresholdUpdated = false;
@@ -128,7 +130,7 @@ ReadEventStream::subscribe(const ReadEventSubscription &subscription)
     return subscription.m_id;
 }
 
-bool ReadEventStream::cancelSubscription(const std::string &id)
+bool ReadEventStream::cancelSubscription(unsigned long long id)
 {
     auto subscription = m_subscriptions.find(id);
     if (subscription != m_subscriptions.end()) {

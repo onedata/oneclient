@@ -15,9 +15,18 @@
 #include <boost/optional.hpp>
 
 namespace one {
+
+namespace clproto {
+namespace communication_protocol {
+class Answer;
+}
+}
+
 namespace client {
 namespace events {
 
+class EventBuffer;
+class EventFactory;
 class ReadEventStream;
 
 static const std::string READ_EVENT_SUBSCRIPTION_MESSAGE =
@@ -27,9 +36,9 @@ class ReadEventSubscription {
     friend class ReadEventStream;
 
 public:
-    ReadEventSubscription(std::string id);
+    ReadEventSubscription(unsigned long long id);
 
-    const std::string &id() const;
+    unsigned long long id() const;
 
     const boost::optional<size_t> &sizeThreshold() const;
 
@@ -43,10 +52,12 @@ public:
 
     void setTimeThreshold(const std::chrono::milliseconds &timeThreshold);
 
-    void process(std::weak_ptr<ReadEventStream> stream) const;
+    void process(std::weak_ptr<ReadEventStream> stream,
+                 std::weak_ptr<EventFactory> factory,
+                 std::weak_ptr<EventBuffer> buffer) const;
 
 private:
-    std::string m_id;
+    unsigned long long m_id;
     boost::optional<size_t> m_sizeThreshold;
     boost::optional<size_t> m_counterThreshold;
     boost::optional<std::chrono::milliseconds> m_timeThreshold;
