@@ -25,7 +25,7 @@ EventBuffer::EventBuffer(std::weak_ptr<EventCommunicator> communicator)
     , m_sentMessages{}
 {
     m_thread = std::thread(&EventBuffer::processPendingEvents, this);
-    LOG(INFO) << "Event buffer constructed successfully.";
+    LOG(INFO) << "Event buffer has been constructed successfully.";
 }
 
 EventBuffer::~EventBuffer()
@@ -33,7 +33,7 @@ EventBuffer::~EventBuffer()
     m_isThreadRunning = false;
     m_pendingEventsConditionVariable.notify_one();
     m_thread.join();
-    LOG(INFO) << "Event buffer destroyed successfully.";
+    LOG(INFO) << "Event buffer has been destroyed successfully.";
 }
 
 void EventBuffer::push(std::unique_ptr<Event> event)

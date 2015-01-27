@@ -41,9 +41,11 @@ public:
 
     virtual ~WriteEvent() = default;
 
-    virtual void emit() override;
+    friend std::ostream &operator<<(std::ostream &, const WriteEvent &event);
 
     WriteEvent &operator+=(const WriteEvent &event);
+
+    virtual void emit() override;
 
     virtual std::unique_ptr<EventSerializer> serializer() const override;
 

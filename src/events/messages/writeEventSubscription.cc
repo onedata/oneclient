@@ -15,6 +15,7 @@
 #include "events/eventBuffer.h"
 #include "events/eventFactory.h"
 #include "events/types/writeEvent.h"
+#include "events/types/subscriptionEvent.h"
 
 namespace one {
 namespace client {
@@ -65,6 +66,7 @@ void WriteEventSubscription::process(std::weak_ptr<WriteEventStream> stream,
 {
     unsigned long long id = stream.lock()->subscribe(*this);
     auto event = factory.lock()->createSubscriptionEvent(id);
+    DLOG(INFO) << "Pushing event (" << *event << ") to buffer.";
     buffer.lock()->push(std::move(event));
 }
 

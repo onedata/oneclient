@@ -7,6 +7,7 @@
 */
 
 #include "context.h"
+#include "logging.h"
 
 #include "events.pb.h"
 
@@ -33,6 +34,13 @@ ReadEvent &ReadEvent::operator+=(const ReadEvent &event)
     m_size += event.m_size;
     m_blocks += event.m_blocks;
     return *this;
+}
+
+std::ostream &operator<<(std::ostream &ostream, const ReadEvent &event)
+{
+    return ostream << "type: 'READ', counter: '" << event.m_counter
+                   << "', file ID: '" << event.m_fileId << "', size: '"
+                   << event.m_size << "', blocks: " << event.m_blocks;
 }
 
 void ReadEvent::emit() { m_stream.lock()->push(*this); }
@@ -168,8 +176,10 @@ bool ReadEventStream::isEmissionRuleSatisfied()
 
 void ReadEventStream::emit()
 {
-    for (const auto &event : m_events)
+    for (const auto &event : m_events) {
+        DLOG(INFO) << "Pushing event (" << event.second << ") to buffer.";
         m_buffer.lock()->push(std::make_unique<ReadEvent>(event.second));
+    }
     m_events.clear();
 }
 

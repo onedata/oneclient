@@ -41,9 +41,11 @@ public:
 
     virtual ~ReadEvent() = default;
 
-    virtual void emit() override;
-
     ReadEvent &operator+=(const ReadEvent &event);
+
+    friend std::ostream &operator<<(std::ostream &, const ReadEvent &event);
+
+    virtual void emit() override;
 
     virtual std::unique_ptr<EventSerializer> serializer() const override;
 

@@ -7,6 +7,7 @@
 */
 
 #include "context.h"
+#include "logging.h"
 
 #include "events.pb.h"
 
@@ -35,6 +36,14 @@ WriteEvent &WriteEvent::operator+=(const WriteEvent &event)
     m_blocks += event.m_blocks;
     m_fileSize += event.m_fileSize;
     return *this;
+}
+
+std::ostream &operator<<(std::ostream &ostream, const WriteEvent &event)
+{
+    return ostream << "type: 'WRITE', counter: '" << event.m_counter
+                   << "', file ID: '" << event.m_fileId << "', file size: '"
+                   << event.m_fileSize << "', size: '" << event.m_size
+                   << "', blocks: " << event.m_blocks;
 }
 
 void WriteEvent::emit() { m_stream.lock()->push(*this); }
@@ -170,8 +179,10 @@ bool WriteEventStream::isEmissionRuleSatisfied()
 
 void WriteEventStream::emit()
 {
-    for (const auto &event : m_events)
+    for (const auto &event : m_events) {
+        DLOG(INFO) << "Pushing event (" << event.second << ") to buffer.";
         m_buffer.lock()->push(std::make_unique<WriteEvent>(event.second));
+    }
     m_events.clear();
 }
 

@@ -25,6 +25,9 @@ public:
 
     virtual ~SubscriptionEvent() = default;
 
+    friend std::ostream &operator<<(std::ostream &,
+                                    const SubscriptionEvent &event);
+
     virtual void emit() override;
 
     virtual std::unique_ptr<EventSerializer> serializer() const override;

@@ -11,11 +11,11 @@
 #include "events.pb.h"
 #include "communication_protocol.pb.h"
 
-#include "events/types/event.h"
 #include "events/eventBuffer.h"
 #include "events/eventFactory.h"
 #include "events/eventManager.h"
 #include "events/messages/subscriptionCancellation.h"
+#include "events/types/subscriptionCancellationEvent.h"
 
 namespace one {
 namespace client {
@@ -32,6 +32,7 @@ void SubscriptionCancellation::process(EventManager &manager,
 {
     if (manager.cancelSubscription(m_id)) {
         auto event = factory.lock()->createSubscriptionCancellationEvent(m_id);
+        DLOG(INFO) << "Pushing event (" << *event << ") to buffer.";
         buffer.lock()->push(std::move(event));
     }
 }

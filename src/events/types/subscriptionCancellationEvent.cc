@@ -21,6 +21,14 @@ SubscriptionCancellationEvent::SubscriptionCancellationEvent(
 {
 }
 
+std::ostream &operator<<(std::ostream &ostream,
+                         const SubscriptionCancellationEvent &event)
+{
+    return ostream << "type: 'SUBSCRIPTION CANCELLATION', counter: '"
+                   << event.m_counter << "', subscription ID: '" << event.m_id
+                   << "'";
+}
+
 void SubscriptionCancellationEvent::emit() {}
 
 std::unique_ptr<EventSerializer>

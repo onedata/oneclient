@@ -15,28 +15,32 @@ namespace one {
 namespace client {
 namespace events {
 
-class Event;
+class ReadEvent;
+class WriteEvent;
 class ReadEventStream;
 class WriteEventStream;
+class SubscriptionEvent;
+class SubscriptionCancellationEvent;
 
 class EventFactory {
 public:
-    std::unique_ptr<Event>
+    std::unique_ptr<ReadEvent>
     createReadEvent(const std::string &fileId, off_t offset, size_t size,
                     std::weak_ptr<ReadEventStream> stream) const;
 
-    std::unique_ptr<Event>
+    std::unique_ptr<WriteEvent>
     createWriteEvent(const std::string &fileId, off_t offset, size_t size,
                      off_t fileSize,
                      std::weak_ptr<WriteEventStream> stream) const;
 
-    std::unique_ptr<Event>
+    std::unique_ptr<WriteEvent>
     createTruncateEvent(const std::string &fileId, off_t fileSize,
                         std::weak_ptr<WriteEventStream> stream) const;
 
-    std::unique_ptr<Event> createSubscriptionEvent(unsigned long long id) const;
+    std::unique_ptr<SubscriptionEvent>
+    createSubscriptionEvent(unsigned long long id) const;
 
-    std::unique_ptr<Event>
+    std::unique_ptr<SubscriptionCancellationEvent>
     createSubscriptionCancellationEvent(unsigned long long id) const;
 };
 

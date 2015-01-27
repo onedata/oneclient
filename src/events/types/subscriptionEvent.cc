@@ -20,6 +20,12 @@ SubscriptionEvent::SubscriptionEvent(unsigned long long id)
 {
 }
 
+std::ostream &operator<<(std::ostream &ostream, const SubscriptionEvent &event)
+{
+    return ostream << "type: 'SUBSCRIPTION', counter: '" << event.m_counter
+                   << "', subscription ID: '" << event.m_id << "'";
+}
+
 void SubscriptionEvent::emit() {}
 
 std::unique_ptr<EventSerializer> SubscriptionEvent::serializer() const
