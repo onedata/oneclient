@@ -68,7 +68,7 @@ public:
     WriteEvent &operator+=(const WriteEvent &event);
 
     /**
-    * Emits an @c WriteEvent by pushing it to an @c WriteEventStream.
+    * Emits a @c WriteEvent by pushing it to a @c WriteEventStream.
     */
     virtual void emit() override;
 

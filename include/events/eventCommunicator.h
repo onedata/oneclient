@@ -20,10 +20,24 @@ class Context;
 
 namespace events {
 
+/**
+* The EventCommunicator class is responsible for sending event messages to the
+* server.
+*/
 class EventCommunicator {
 public:
+    /**
+    * Constructor.
+    * @param context An @c Context instance.
+    */
     EventCommunicator(std::shared_ptr<Context> context);
 
+    /**
+    * Sends event message to the server.
+    * @param message Message to be sent.
+    * @return Returns @c true in case of successful emission or @c false
+    * otherwise.
+    */
     bool send(const google::protobuf::Message &message) const;
 
 private:

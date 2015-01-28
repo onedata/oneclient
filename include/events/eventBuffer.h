@@ -25,17 +25,40 @@ namespace events {
 class Event;
 class EventCommunicator;
 
+/**
+* The EventBuffer class is responsible for buffering events to be sent and
+* storing unconfirmed events.
+*/
 class EventBuffer {
 public:
+    /**
+    * Constructor.
+    * @param communicator An @EventCommunicator instance.
+    */
     EventBuffer(std::weak_ptr<EventCommunicator> communicator);
 
     ~EventBuffer();
 
+    /**
+    * Pushed an event to the buffer.
+    * @param event Event to be pushed to the buffer.
+    */
     void push(std::unique_ptr<Event> event);
 
+    /**
+    * Returns unconfirmed event by sequence number or throws an exception if an
+    * event associated with given @p sequenceNumber is missing.
+    * @param sequenceNumber Sequence number of an event.
+    * @return Serialized event message or throws an exception if event is
+    * missing.
+    */
     const google::protobuf::Message &
     getSentMessage(unsigned long long sequenceNumber);
 
+    /**
+    * Removes all stored event messages up to given @p sequenceNumber.
+    * @param sequenceNumber Sequence number of last event message to be removed.
+    */
     void removeSentMessages(unsigned long long sequenceNumber);
 
 private:

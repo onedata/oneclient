@@ -67,7 +67,7 @@ public:
     ReadEvent &operator+=(const ReadEvent &event);
 
     /**
-    * Emits an @c ReadEvent by pushing it to an @c ReadEventStream.
+    * Emits a @c ReadEvent by pushing it to a @c ReadEventStream.
     */
     virtual void emit() override;
 

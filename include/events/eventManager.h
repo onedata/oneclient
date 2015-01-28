@@ -32,23 +32,66 @@ class ReadEventStream;
 class WriteEventStream;
 class EventCommunicator;
 
+/**
+* The EventManager class is responsible for events management. It handles and
+* dispatch client requests.
+*/
 class EventManager {
     using Message = one::clproto::communication_protocol::Answer;
 
 public:
+    /**
+    * Constructor.
+    * context A @c Context instance.
+    */
     EventManager(std::shared_ptr<Context> context);
 
+    /**
+    * A @c PushListener callback. @see PushListener::subscribe
+    * Handles and dispatches client requests.
+    * @message Message sent by client.
+    * @return Allways returns @c true.
+    */
     bool handle(const Message &message);
 
+    /**
+    * Cancels subscription by subscription ID.
+    * @param id ID of subscription to be cancelled.
+    * @return Returns @c true in case of successful subscription cancellation or
+    * @c false otherwise.
+    */
     bool cancelSubscription(unsigned long long id);
 
+    /**
+    * Delegates creation of read event instance to an @c EventFactory.
+    * @param fileId ID of file associated with a read operation.
+    * @param offset Distance from the beginning of the file to the first byte
+    * read.
+    * @param size Amount of bytes read.
+    * @return Returns a @c ReadEvent instance.
+    */
     std::unique_ptr<Event> createReadEvent(const std::string &fileId,
                                            off_t offset, size_t size) const;
 
+    /**
+    * Delegates creation of write event instance to an @c EventFactory.
+    * @param fileId ID of file associated with a read operation.
+    * @param offset Distance from the beginning of the file to the first byte
+    * read.
+    * @param size Amount of bytes read.
+    * @param fileSize Size of file associated with a write operation.
+    * @return Returns a @c WriteEvent instance.
+    */
     std::unique_ptr<Event> createWriteEvent(const std::string &fileId,
                                             off_t offset, size_t size,
                                             off_t fileSize) const;
 
+    /**
+    * Delegates creation of truncate event instance to an @c EventFactory.
+    * @param fileId ID of file associated with a read operation.
+    * @param fileSize Size of file associated with a write operation.
+    * @return Returns a @c WriteEvent instance.
+    */
     std::unique_ptr<Event> createTruncateEvent(const std::string &fileId,
                                                off_t fileSize) const;
 
