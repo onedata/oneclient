@@ -30,7 +30,7 @@ class EventFactory;
 class WriteEventStream;
 
 /**
-* Name of a write event subscription message.
+* Name of a @c WriteEventSubscription message.
 */
 static const std::string WRITE_EVENT_SUBSCRIPTION_MESSAGE =
     one::clproto::events::WriteEventSubscription::descriptor()->name();
@@ -74,9 +74,9 @@ public:
     /**
     * Processes an write event subscription message by subscribing for write
     * events.
-    * @param stream Weak pointer to a write event stream.
-    * @param factory Weak pointer to an event factory.
-    * @param buffer Weak pointer to an event buffer.
+    * @param stream A @c WriteEventStream instance.
+    * @param factory An @c EventFactory instance.
+    * @param buffer An @c EventBuffer instance.
     */
     void process(std::weak_ptr<WriteEventStream> stream,
                  std::weak_ptr<EventFactory> factory,
@@ -91,15 +91,16 @@ private:
 
 /**
 * The WriteEventSubscriptionSerializer class is responsible for deserialization
-* of the WriteEventSubscription messages.
+* of the @c WriteEventSubscription messages.
 */
 class WriteEventSubscriptionSerializer {
     using Message = one::clproto::communication_protocol::Answer;
 
 public:
     /**
-    * Deserializes the WriteEventSubscription message.
+    * Deserializes the @c WriteEventSubscription message.
     * @param message Message to deserialize.
+    * @return Returns deserialized @c WriteEventSubscription instance.
     */
     std::unique_ptr<WriteEventSubscription>
     deserialize(const Message &message) const;

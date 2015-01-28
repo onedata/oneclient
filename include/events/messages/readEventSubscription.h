@@ -30,7 +30,7 @@ class EventFactory;
 class ReadEventStream;
 
 /**
-* Name of a read event subscription message.
+* Name of a @c ReadEventSubscription message.
 */
 static const std::string READ_EVENT_SUBSCRIPTION_MESSAGE =
     one::clproto::events::ReadEventSubscription::descriptor()->name();
@@ -74,9 +74,9 @@ public:
     /**
     * Processes an read event subscription message by subscribing for read
     * events.
-    * @param stream Weak pointer to a read event stream.
-    * @param factory Weak pointer to an event factory.
-    * @param buffer Weak pointer to an event buffer.
+    * @param stream A @c ReadEventStream instance.
+    * @param factory An @c EventFactory instance.
+    * @param buffer An @c EventBuffer instance.
     */
     void process(std::weak_ptr<ReadEventStream> stream,
                  std::weak_ptr<EventFactory> factory,
@@ -91,15 +91,16 @@ private:
 
 /**
 * The ReadEventSubscriptionSerializer class is responsible for deserialization
-* of the ReadEventSubscription messages.
+* of the @c ReadEventSubscription messages.
 */
 class ReadEventSubscriptionSerializer {
     using Message = one::clproto::communication_protocol::Answer;
 
 public:
     /**
-    * Deserializes the ReadEventSubscription message.
+    * Deserializes the @c ReadEventSubscription message.
     * @param message Message to deserialize.
+    * @return Returns deserialized @c ReadEventSubscription instance.
     */
     std::unique_ptr<ReadEventSubscription>
     deserialize(const Message &message) const;

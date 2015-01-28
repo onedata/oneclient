@@ -27,7 +27,7 @@ namespace events {
 class EventBuffer;
 
 /**
-* Name of an event acknowledgement message.
+* Name of an @c EventAcknowledgement message.
 */
 static const std::string EVENT_ACKNOWLEDGEMENT_MESSAGE =
     one::clproto::events::EventAcknowledgement::descriptor()->name();
@@ -52,7 +52,7 @@ public:
     * Processes an event acknowledgement message by removing from an event
     * buffer all events with a sequence number less than or equal to @p
     * sequenceNumber.
-    * @param buffer Weak pointer to an event buffer.
+    * @param buffer An @c EventBuffer instance.
     */
     void process(std::weak_ptr<EventBuffer> buffer) const;
 
@@ -62,15 +62,16 @@ private:
 
 /**
 * The EventAcknowledgementSerializer class is responsible for deserialization of
-* the EventAcknowledgement messages.
+* the @c EventAcknowledgement messages.
 */
 class EventAcknowledgementSerializer {
     using Message = one::clproto::communication_protocol::Answer;
 
 public:
     /**
-    * Deserializes the EventAcknowledgement message.
+    * Deserializes the @c EventAcknowledgement message.
     * @param message Message to deserialize.
+    * @return Returns deserialized @c EventAcknowledgement instance.
     */
     std::unique_ptr<EventAcknowledgement>
     deserialize(const Message &message) const;

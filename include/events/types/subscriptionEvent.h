@@ -17,29 +17,49 @@ namespace events {
 
 class SubscriptionEventSerializer;
 
+/**
+* The SubscriptionCancellationEvent class represents a successful subscription.
+*/
 class SubscriptionEvent : public Event {
     friend class SubscriptionEventSerializer;
+    friend std::ostream &operator<<(std::ostream &,
+                                    const SubscriptionEvent &event);
 
 public:
+    /**
+    * Constructor.
+    * @param id ID of added subscription.
+    */
     SubscriptionEvent(unsigned long long id);
 
     virtual ~SubscriptionEvent() = default;
 
-    friend std::ostream &operator<<(std::ostream &,
-                                    const SubscriptionEvent &event);
-
+    /**
+    * Does noting.
+    * A @c SubscriptionEvent can not be emitted by itself.
+    */
     virtual void emit() override;
 
+    /**
+    * @copydoc Event::serializer()
+    */
     virtual std::unique_ptr<EventSerializer> serializer() const override;
 
 private:
     unsigned long long m_id;
 };
 
+/**
+* The SubscriptionEventSerializer class is responsible for serialization of the
+* @c SubscriptionEvent objects.
+*/
 class SubscriptionEventSerializer : public EventSerializer {
 public:
     virtual ~SubscriptionEventSerializer() = default;
 
+    /**
+    * @copydoc EventSerializer::serialize(unsigned long long, const Event &)
+    */
     virtual std::unique_ptr<google::protobuf::Message>
     serialize(unsigned long long sequenceNumber,
               const Event &event) const override;

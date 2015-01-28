@@ -28,7 +28,7 @@ class EventBuffer;
 class EventCommunicator;
 
 /**
-* Name of an event request message.
+* Name of an @c EventRequest message.
 */
 static const std::string EVENT_REQUEST_MESSAGE =
     one::clproto::events::EventRequest::descriptor()->name();
@@ -51,8 +51,8 @@ public:
     /**
     * Processes an event request message by retrieving an event from an event
     * buffer and resend it.
-    * @param buffer Weak pointer to an event buffer.
-    * @param communicator Weak pointer to an event communicator.
+    * @param buffer An @c EventBuffer instance.
+    * @param communicator An @c EventCommunicator instance.
     */
     void process(std::weak_ptr<EventBuffer> buffer,
                  std::weak_ptr<EventCommunicator> communicator) const;
@@ -63,15 +63,16 @@ private:
 
 /**
 * The EventRequestSerializer class is responsible for deserialization of the
-* EventRequest messages.
+* @c EventRequest messages.
 */
 class EventRequestSerializer {
     using Message = one::clproto::communication_protocol::Answer;
 
 public:
     /**
-    * Deserializes the EventRequest message.
+    * Deserializes the @c EventRequest message.
     * @param message Message to deserialize.
+    * @return Returns deserialized @c EventRequest instance.
     */
     std::unique_ptr<EventRequest> deserialize(const Message &message) const;
 };

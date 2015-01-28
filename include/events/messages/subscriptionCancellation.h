@@ -29,7 +29,7 @@ class EventManager;
 class EventFactory;
 
 /**
-* Name of an subscription cancellation message.
+* Name of an @c SubscriptionCancellation message.
 */
 static const std::string SUBSCRIPTION_CANCELLATION_MESSAGE =
     one::clproto::events::SubscriptionCancellation::descriptor()->name();
@@ -52,9 +52,9 @@ public:
     /**
     * Processes an subscription cancellation message by removing event
     * subscription from an event stream.
-    * @param manager Reference to an event manager.
-    * @param factory Weak pointer to an event facotry.
-    * @param buffer Weak pointer to an event buffer.
+    * @param manager An @c EventManager instance.
+    * @param factory An @c EventFactory instance.
+    * @param buffer An @c EventBuffer.
     */
     void process(EventManager &manager, std::weak_ptr<EventFactory> factory,
                  std::weak_ptr<EventBuffer> buffer) const;
@@ -65,16 +65,17 @@ private:
 
 /**
 * The SubscriptionCancellationSerializer class is responsible for
-* deserialization
-* of the SubscriptionCancellation messages.
+* deserialization of the @c SubscriptionCancellation messages.
 */
 class SubscriptionCancellationSerializer {
     using Message = one::clproto::communication_protocol::Answer;
 
 public:
+public:
     /**
-    * Deserializes the SubscriptionCancellation message.
+    * Deserializes the @c SubscriptionCancellation message.
     * @param message Message to deserialize.
+    * @return Returns deserialized @c SubscriptionCancellation instance.
     */
     std::unique_ptr<SubscriptionCancellation>
     deserialize(const Message &message) const;
