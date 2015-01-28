@@ -23,8 +23,16 @@ EventAcknowledgement::EventAcknowledgement(unsigned long long id)
 {
 }
 
+std::ostream &operator<<(std::ostream &ostream,
+                         const EventAcknowledgement &acknowledgement)
+{
+    return ostream << "type: 'EVENT ACKNOWLEDGEMENT', ID: '"
+                   << acknowledgement.m_id << "'";
+}
+
 void EventAcknowledgement::process(std::weak_ptr<EventBuffer> buffer) const
 {
+    LOG(INFO) << "Event manager processing message (" << *this << ").";
     buffer.lock()->removeSentMessages(m_id);
 }
 

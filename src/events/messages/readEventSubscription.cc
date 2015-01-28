@@ -60,13 +60,30 @@ void ReadEventSubscription::setTimeThreshold(
     m_timeThreshold.reset(timeThreshold);
 }
 
+std::ostream &operator<<(std::ostream &ostream,
+                         const ReadEventSubscription &subscription)
+{
+    ostream << "type: 'READ EVENT SUBSCRIPTION'";
+    if (subscription.m_counterThreshold)
+        ostream << ", counter threshold: '"
+                << subscription.m_counterThreshold.get() << "'";
+    if (subscription.m_timeThreshold)
+        ostream << ", time threshold: '"
+                << subscription.m_timeThreshold.get().count() << "'";
+    if (subscription.m_sizeThreshold)
+        ostream << ", size threshold: '" << subscription.m_sizeThreshold.get()
+                << "'";
+    return ostream;
+}
+
 void ReadEventSubscription::process(std::weak_ptr<ReadEventStream> stream,
                                     std::weak_ptr<EventFactory> factory,
                                     std::weak_ptr<EventBuffer> buffer) const
 {
+    LOG(INFO) << "Event manager processing message (" << *this << ").";
     unsigned long long id = stream.lock()->subscribe(*this);
     auto event = factory.lock()->createSubscriptionEvent(id);
-    DLOG(INFO) << "Pushing event (" << *event << ") to buffer.";
+    LOG(INFO) << "Pushing event (" << *event << ") to the event buffer.";
     buffer.lock()->push(std::move(event));
 }
 

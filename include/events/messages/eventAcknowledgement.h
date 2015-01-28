@@ -33,6 +33,9 @@ class EventAcknowledgement {
 public:
     EventAcknowledgement(unsigned long long id);
 
+    friend std::ostream &
+    operator<<(std::ostream &, const EventAcknowledgement &acknowledgement);
+
     void process(std::weak_ptr<EventBuffer> buffer) const;
 
 private:

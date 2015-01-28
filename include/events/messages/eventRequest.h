@@ -34,6 +34,9 @@ class EventRequest {
 public:
     EventRequest(unsigned long long id);
 
+    friend std::ostream &operator<<(std::ostream &,
+                                    const EventRequest &request);
+
     void process(std::weak_ptr<EventBuffer> buffer,
                  std::weak_ptr<EventCommunicator> communicator) const;
 

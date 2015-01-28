@@ -22,16 +22,18 @@ EventCommunicator::EventCommunicator(std::shared_ptr<Context> context)
 {
 }
 
-void EventCommunicator::send(const google::protobuf::Message &message) const
+bool EventCommunicator::send(const google::protobuf::Message &message) const
 {
     try {
         m_context->getCommunicator()->send(
             communication::ServerModule::EVENT_MANAGER, message);
+        return true;
     }
     catch (communication::Exception &e) {
         LOG(WARNING) << "Cannot send message due to: '" << e.what()
                      << "' exception.";
     }
+    return false;
 }
 
 } // namespace events

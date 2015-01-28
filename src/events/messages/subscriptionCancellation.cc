@@ -26,13 +26,23 @@ SubscriptionCancellation::SubscriptionCancellation(unsigned long long id)
 {
 }
 
+std::ostream &operator<<(std::ostream &ostream,
+                         const SubscriptionCancellation &cancellation)
+{
+    return ostream << "type: 'EVENT REQUEST', ID: '" << cancellation.m_id
+                   << "'";
+}
+
 void SubscriptionCancellation::process(EventManager &manager,
                                        std::weak_ptr<EventFactory> factory,
                                        std::weak_ptr<EventBuffer> buffer) const
 {
+    LOG(INFO) << "Event manager processing message (" << *this << ").";
     if (manager.cancelSubscription(m_id)) {
+        LOG(INFO) << "Subscription with ID: '" << m_id
+                  << "' cancelled succssfully.";
         auto event = factory.lock()->createSubscriptionCancellationEvent(m_id);
-        DLOG(INFO) << "Pushing event (" << *event << ") to buffer.";
+        LOG(INFO) << "Pushing event (" << *event << ") to the event buffer.";
         buffer.lock()->push(std::move(event));
     }
 }

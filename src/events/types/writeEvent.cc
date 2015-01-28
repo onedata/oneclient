@@ -35,7 +35,7 @@ WriteEvent &WriteEvent::operator+=(const WriteEvent &event)
     m_counter += event.m_counter;
     m_size += event.m_size;
     m_blocks += event.m_blocks;
-    m_fileSize += event.m_fileSize;
+    m_fileSize = event.m_fileSize;
     return *this;
 }
 
@@ -47,11 +47,7 @@ std::ostream &operator<<(std::ostream &ostream, const WriteEvent &event)
                    << "', blocks: " << event.m_blocks;
 }
 
-void WriteEvent::emit()
-{
-    DLOG(INFO) << "Pushing event (" << *this << ") to the stream.";
-    m_stream.lock()->push(*this);
-}
+void WriteEvent::emit() { m_stream.lock()->push(*this); }
 
 std::unique_ptr<EventSerializer> WriteEvent::serializer() const
 {
@@ -95,6 +91,8 @@ void WriteEventStream::push(const WriteEvent &event)
             writeEvent->second += event;
         else
             m_events.insert(std::make_pair(event.m_fileId, event));
+        LOG(INFO) << "Event (" << event
+                  << ") pushed to the write event stream.";
 
         if (isEmissionRuleSatisfied())
             emit();
@@ -133,6 +131,9 @@ WriteEventStream::subscribe(const WriteEventSubscription &subscription)
     }
     if (isTimeThresholdUpdated || isEmissionRuleSatisfied())
         emit();
+
+    LOG(INFO) << "Subscription (" << subscription
+              << ") processed successfully.";
 
     return subscription.m_id;
 }
@@ -174,9 +175,14 @@ bool WriteEventStream::isEmissionRuleSatisfied()
 
 void WriteEventStream::emit()
 {
-    for (const auto &event : m_events) {
-        DLOG(INFO) << "Pushing event (" << event.second << ") to buffer.";
+    for (auto &event : m_events) {
+        boost::icl::interval_set<off_t> fileSizeBlock{
+            boost::icl::discrete_interval<off_t>::right_open(
+                0, event.second.m_fileSize)};
+        event.second.m_blocks &= fileSizeBlock;
         m_buffer.lock()->push(std::make_unique<WriteEvent>(event.second));
+        LOG(INFO) << "Event (" << event.second
+                  << ") pushed to the event buffer.";
     }
     m_events.clear();
     resetStatistics();
@@ -185,6 +191,7 @@ void WriteEventStream::emit()
 void WriteEventStream::periodicEmit()
 {
     std::lock_guard<std::mutex> streamGuard{m_streamMutex};
+    LOG(INFO) << "Periodic emission for write event stream.";
     emit();
     resetStatistics();
 }

@@ -24,7 +24,7 @@ class EventCommunicator {
 public:
     EventCommunicator(std::shared_ptr<Context> context);
 
-    void send(const google::protobuf::Message &message) const;
+    bool send(const google::protobuf::Message &message) const;
 
 private:
     std::shared_ptr<Context> m_context;

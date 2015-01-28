@@ -20,7 +20,6 @@ EventBuffer::EventBuffer(std::weak_ptr<EventCommunicator> communicator)
     : m_communicator{std::move(communicator)}
 {
     m_thread = std::thread(&EventBuffer::processPendingEvents, this);
-    LOG(INFO) << "Event buffer has been constructed successfully.";
 }
 
 EventBuffer::~EventBuffer()
@@ -28,7 +27,6 @@ EventBuffer::~EventBuffer()
     m_isThreadRunning = false;
     m_pendingEventsConditionVariable.notify_one();
     m_thread.join();
-    LOG(INFO) << "Event buffer has been destroyed successfully.";
 }
 
 void EventBuffer::push(std::unique_ptr<Event> event)
@@ -69,7 +67,10 @@ void EventBuffer::processPendingEvents()
         auto event = std::move(m_pendingEvents.front());
         auto message = event->serializer()->serialize(m_sequenceNumber, *event);
         ++m_sequenceNumber;
-        m_communicator.lock()->send(*message);
+        if (m_communicator.lock()->send(*message))
+            LOG(INFO)
+                << "Event communicator sent message with sequence number: '"
+                << m_sequenceNumber - 1 << "'.";
         push(std::move(message));
         m_pendingEvents.pop();
     }

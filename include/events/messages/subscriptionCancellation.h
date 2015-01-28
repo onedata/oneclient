@@ -35,6 +35,9 @@ class SubscriptionCancellation {
 public:
     SubscriptionCancellation(unsigned long long id);
 
+    friend std::ostream &
+    operator<<(std::ostream &, const SubscriptionCancellation &subscription);
+
     void process(EventManager &manager, std::weak_ptr<EventFactory> factory,
                  std::weak_ptr<EventBuffer> buffer) const;
 

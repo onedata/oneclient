@@ -44,11 +44,7 @@ std::ostream &operator<<(std::ostream &ostream, const ReadEvent &event)
                    << event.m_size << "', blocks: " << event.m_blocks;
 }
 
-void ReadEvent::emit()
-{
-    DLOG(INFO) << "Pushing event (" << *this << ") to the stream.";
-    m_stream.lock()->push(*this);
-}
+void ReadEvent::emit() { m_stream.lock()->push(*this); }
 
 std::unique_ptr<EventSerializer> ReadEvent::serializer() const
 {
@@ -92,6 +88,7 @@ void ReadEventStream::push(const ReadEvent &event)
             readEvent->second += event;
         else
             m_events.insert(std::make_pair(event.m_fileId, event));
+        LOG(INFO) << "Event (" << event << ") pushed to the read event stream.";
 
         if (isEmissionRuleSatisfied())
             emit();
@@ -130,6 +127,9 @@ ReadEventStream::subscribe(const ReadEventSubscription &subscription)
     }
     if (isTimeThresholdUpdated || isEmissionRuleSatisfied())
         emit();
+
+    LOG(INFO) << "Subscription (" << subscription
+              << ") processed successfully.";
 
     return subscription.m_id;
 }
@@ -172,8 +172,9 @@ bool ReadEventStream::isEmissionRuleSatisfied()
 void ReadEventStream::emit()
 {
     for (const auto &event : m_events) {
-        DLOG(INFO) << "Pushing event (" << event.second << ") to buffer.";
         m_buffer.lock()->push(std::make_unique<ReadEvent>(event.second));
+        LOG(INFO) << "Event (" << event.second
+                  << ") pushed to the event buffer.";
     }
     m_events.clear();
     resetStatistics();
@@ -182,6 +183,7 @@ void ReadEventStream::emit()
 void ReadEventStream::periodicEmit()
 {
     std::lock_guard<std::mutex> streamGuard{m_streamMutex};
+    LOG(INFO) << "Periodic emission for read event stream.";
     emit();
     resetStatistics();
 }

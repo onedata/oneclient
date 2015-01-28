@@ -24,9 +24,15 @@ EventRequest::EventRequest(unsigned long long id)
 {
 }
 
+std::ostream &operator<<(std::ostream &ostream, const EventRequest &request)
+{
+    return ostream << "type: 'EVENT REQUEST', ID: '" << request.m_id << "'";
+}
+
 void EventRequest::process(std::weak_ptr<EventBuffer> buffer,
                            std::weak_ptr<EventCommunicator> communicator) const
 {
+    LOG(INFO) << "Event manager processing message (" << *this << ").";
     try {
         communicator.lock()->send(buffer.lock()->getSentMessage(m_id));
     }

@@ -52,6 +52,9 @@ public:
 
     void setTimeThreshold(const std::chrono::milliseconds &timeThreshold);
 
+    friend std::ostream &operator<<(std::ostream &,
+                                    const WriteEventSubscription &subscription);
+
     void process(std::weak_ptr<WriteEventStream> stream,
                  std::weak_ptr<EventFactory> factory,
                  std::weak_ptr<EventBuffer> buffer) const;
