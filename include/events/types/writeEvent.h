@@ -109,4 +109,4 @@ private:
 } // namespace client
 } // namespace one
 
-#endif
+#endif // ONECLIENT_EVENTS_TYPES_WRITE_EVENT_H

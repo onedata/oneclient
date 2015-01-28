@@ -60,13 +60,12 @@ bool EventManager::handle(const Message &message)
         auto eventMessage = serializer.deserialize(message);
         if (eventMessage)
             eventMessage->process(*this, m_factory, m_buffer);
-    } else if (boost::iequals(messageType, EVENT_EMISSION_REQUEST_MESSAGE)) {
+    } else if (boost::iequals(messageType, EVENT_REQUEST_MESSAGE)) {
         EventRequestSerializer serializer{};
         auto eventMessage = serializer.deserialize(message);
         if (eventMessage)
             eventMessage->process(m_buffer, m_communicator);
-    } else if (boost::iequals(messageType,
-                              EVENT_EMISSION_CONFIRMATION_MESSAGE)) {
+    } else if (boost::iequals(messageType, EVENT_ACKNOWLEDGEMENT_MESSAGE)) {
         EventAcknowledgementSerializer serializer{};
         auto eventMessage = serializer.deserialize(message);
         if (eventMessage)

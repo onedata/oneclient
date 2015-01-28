@@ -33,9 +33,10 @@ public:
 
     void push(std::unique_ptr<Event> event);
 
-    const google::protobuf::Message &getSentMessage(unsigned long long id);
+    const google::protobuf::Message &
+    getSentMessage(unsigned long long sequenceNumber);
 
-    void removeSentMessages(unsigned long long id);
+    void removeSentMessages(unsigned long long sequenceNumber);
 
 private:
     void processPendingEvents();
@@ -58,4 +59,4 @@ private:
 } // namespace client
 } // namespace one
 
-#endif
+#endif // ONECLIENT_EVENTS_EVENT_BUFFER_H

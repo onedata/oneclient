@@ -29,32 +29,55 @@ class EventBuffer;
 class EventFactory;
 class WriteEventStream;
 
+/**
+* Name of a write event subscription message.
+*/
 static const std::string WRITE_EVENT_SUBSCRIPTION_MESSAGE =
     one::clproto::events::WriteEventSubscription::descriptor()->name();
 
+/**
+* The WriteEventSubscription class represents a message sent by the server to
+* subscribe for write events.
+*/
 class WriteEventSubscription {
     friend class WriteEventStream;
-
-public:
-    WriteEventSubscription(unsigned long long id);
-
-    unsigned long long id() const;
-
-    const boost::optional<size_t> &sizeThreshold() const;
-
-    const boost::optional<size_t> &counterThreshold() const;
-
-    const boost::optional<std::chrono::milliseconds> &timeThreshold() const;
-
-    void setSizeThreshold(size_t sizeThreshold);
-
-    void setCounterThreshold(size_t counterThreshold);
-
-    void setTimeThreshold(const std::chrono::milliseconds &timeThreshold);
-
     friend std::ostream &operator<<(std::ostream &,
                                     const WriteEventSubscription &subscription);
 
+public:
+    /**
+    * Constructor.
+    * @param id Subscription id.
+    */
+    WriteEventSubscription(unsigned long long id);
+
+    /**
+    * Sets size threshold of subscription.
+    * @param sizeThreshold Maximal amount of write bytes before event emission.
+    */
+    void setSizeThreshold(size_t sizeThreshold);
+
+    /**
+    * Sets counter threshold of subscription.
+    * @param counterThreshold Maximal amount of aggregated events before
+    * emission.
+    */
+    void setCounterThreshold(size_t counterThreshold);
+
+    /**
+    * Sets time threshold of subscription.
+    * @param timeThreshold Maximal delay in milliseconds between successive
+    * events emission.
+    */
+    void setTimeThreshold(const std::chrono::milliseconds &timeThreshold);
+
+    /**
+    * Processes an write event subscription message by subscribing for write
+    * events.
+    * @param stream Weak pointer to a write event stream.
+    * @param factory Weak pointer to an event factory.
+    * @param buffer Weak pointer to an event buffer.
+    */
     void process(std::weak_ptr<WriteEventStream> stream,
                  std::weak_ptr<EventFactory> factory,
                  std::weak_ptr<EventBuffer> buffer) const;
@@ -66,10 +89,18 @@ private:
     boost::optional<std::chrono::milliseconds> m_timeThreshold{};
 };
 
+/**
+* The WriteEventSubscriptionSerializer class is responsible for deserialization
+* of the WriteEventSubscription messages.
+*/
 class WriteEventSubscriptionSerializer {
     using Message = one::clproto::communication_protocol::Answer;
 
 public:
+    /**
+    * Deserializes the WriteEventSubscription message.
+    * @param message Message to deserialize.
+    */
     std::unique_ptr<WriteEventSubscription>
     deserialize(const Message &message) const;
 };
@@ -78,4 +109,4 @@ public:
 } // namespace client
 } // namespace one
 
-#endif
+#endif // ONECLIENT_EVENTS_MESSAGES_WRITE_EVENT_SUBSCRIPTION_H

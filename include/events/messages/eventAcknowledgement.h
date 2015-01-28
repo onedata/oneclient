@@ -26,26 +26,52 @@ namespace events {
 
 class EventBuffer;
 
-static const std::string EVENT_EMISSION_CONFIRMATION_MESSAGE =
+/**
+* Name of an event acknowledgement message.
+*/
+static const std::string EVENT_ACKNOWLEDGEMENT_MESSAGE =
     one::clproto::events::EventAcknowledgement::descriptor()->name();
 
+/**
+* The EventAcknowledgement class represents a message sent by the server to
+* inform about a sequence number of a last successfully processed event.
+*/
 class EventAcknowledgement {
-public:
-    EventAcknowledgement(unsigned long long id);
-
     friend std::ostream &
     operator<<(std::ostream &, const EventAcknowledgement &acknowledgement);
 
+public:
+    /**
+    * Constructor.
+    * @param sequenceNumber Sequence number of a last successfully processed
+    * event.
+    */
+    EventAcknowledgement(unsigned long long sequenceNumber);
+
+    /**
+    * Processes an event acknowledgement message by removing from an event
+    * buffer all events with a sequence number less than or equal to @p
+    * sequenceNumber.
+    * @param buffer Weak pointer to an event buffer.
+    */
     void process(std::weak_ptr<EventBuffer> buffer) const;
 
 private:
-    unsigned long long m_id;
+    unsigned long long m_sequenceNumber;
 };
 
+/**
+* The EventAcknowledgementSerializer class is responsible for deserialization of
+* the EventAcknowledgement messages.
+*/
 class EventAcknowledgementSerializer {
     using Message = one::clproto::communication_protocol::Answer;
 
 public:
+    /**
+    * Deserializes the EventAcknowledgement message.
+    * @param message Message to deserialize.
+    */
     std::unique_ptr<EventAcknowledgement>
     deserialize(const Message &message) const;
 };
@@ -54,4 +80,4 @@ public:
 } // namespace client
 } // namespace one
 
-#endif
+#endif // ONECLIENT_EVENTS_MESSAGES_EVENT_ACKNOWLEDGEMENT_H

@@ -43,4 +43,4 @@ public:
 } // namespace client
 } // namespace one
 
-#endif
+#endif // ONECLIENT_EVENTS_TYPES_EVENT_H

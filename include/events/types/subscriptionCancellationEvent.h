@@ -49,4 +49,4 @@ public:
 } // namespace client
 } // namespace one
 
-#endif
+#endif // ONECLIENT_EVENTS_TYPES_SUBSCRIPTION_CANCELLATION_EVENT_H

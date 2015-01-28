@@ -37,20 +37,23 @@ void EventBuffer::push(std::unique_ptr<Event> event)
 }
 
 const google::protobuf::Message &
-EventBuffer::getSentMessage(unsigned long long id)
+EventBuffer::getSentMessage(unsigned long long sequenceNumber)
 {
     std::lock_guard<std::mutex> guard{m_sentMessagesMutex};
-    if (id <= m_sentMessages.size() - m_lastConfirmedSequenceNumber) {
-        return *m_sentMessages[id - m_lastConfirmedSequenceNumber - 1];
+    if (sequenceNumber <=
+        m_sentMessages.size() - m_lastConfirmedSequenceNumber) {
+        return *m_sentMessages[sequenceNumber - m_lastConfirmedSequenceNumber -
+                               1];
     } else {
         throw std::out_of_range{"Message not found."};
     }
 }
 
-void EventBuffer::removeSentMessages(unsigned long long id)
+void EventBuffer::removeSentMessages(unsigned long long sequenceNumber)
 {
     std::lock_guard<std::mutex> guard{m_sentMessagesMutex};
-    while (!m_sentMessages.empty() && m_lastConfirmedSequenceNumber <= id) {
+    while (!m_sentMessages.empty() &&
+           m_lastConfirmedSequenceNumber <= sequenceNumber) {
         m_sentMessages.pop_front();
         ++m_lastConfirmedSequenceNumber;
     }
@@ -68,10 +71,7 @@ void EventBuffer::processPendingEvents()
         auto message = event->serializer()->serialize(m_sequenceNumber, *event);
         ++m_sequenceNumber;
         if (m_communicator.lock()->send(*message))
-            LOG(INFO)
-                << "Event communicator sent message with sequence number: '"
-                << m_sequenceNumber - 1 << "'.";
-        push(std::move(message));
+            push(std::move(message));
         m_pendingEvents.pop();
     }
 }

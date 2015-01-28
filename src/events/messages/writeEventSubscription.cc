@@ -26,24 +26,6 @@ WriteEventSubscription::WriteEventSubscription(unsigned long long id)
 {
 }
 
-unsigned long long WriteEventSubscription::id() const { return m_id; }
-
-const boost::optional<size_t> &WriteEventSubscription::sizeThreshold() const
-{
-    return m_sizeThreshold;
-}
-
-const boost::optional<size_t> &WriteEventSubscription::counterThreshold() const
-{
-    return m_counterThreshold;
-}
-
-const boost::optional<std::chrono::milliseconds> &
-WriteEventSubscription::timeThreshold() const
-{
-    return m_timeThreshold;
-}
-
 void WriteEventSubscription::setSizeThreshold(size_t sizeThreshold)
 {
     m_sizeThreshold.reset(sizeThreshold);

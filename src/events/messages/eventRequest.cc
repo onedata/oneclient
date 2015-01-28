@@ -19,14 +19,15 @@ namespace one {
 namespace client {
 namespace events {
 
-EventRequest::EventRequest(unsigned long long id)
-    : m_id{id}
+EventRequest::EventRequest(unsigned long long sequenceNumber)
+    : m_sequenceNumber{sequenceNumber}
 {
 }
 
 std::ostream &operator<<(std::ostream &ostream, const EventRequest &request)
 {
-    return ostream << "type: 'EVENT REQUEST', ID: '" << request.m_id << "'";
+    return ostream << "type: 'EVENT REQUEST', sequence number: '"
+                   << request.m_sequenceNumber << "'";
 }
 
 void EventRequest::process(std::weak_ptr<EventBuffer> buffer,
@@ -34,11 +35,13 @@ void EventRequest::process(std::weak_ptr<EventBuffer> buffer,
 {
     LOG(INFO) << "Event manager processing message (" << *this << ").";
     try {
-        communicator.lock()->send(buffer.lock()->getSentMessage(m_id));
+        communicator.lock()->send(
+            buffer.lock()->getSentMessage(m_sequenceNumber));
     }
     catch (std::exception &e) {
-        LOG(WARNING) << "Cannot reemit message with ID: '" << m_id
-                     << "' due to: '" << e.what() << "' exception.";
+        LOG(WARNING) << "Cannot send message with sequence number: '"
+                     << m_sequenceNumber << "' due to: '" << e.what()
+                     << "' exception.";
     }
 }
 

@@ -48,4 +48,4 @@ public:
 } // namespace client
 } // namespace one
 
-#endif
+#endif // ONECLIENT_EVENTS_EVENT_FACTORY_H

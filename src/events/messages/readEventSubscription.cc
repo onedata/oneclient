@@ -26,24 +26,6 @@ ReadEventSubscription::ReadEventSubscription(unsigned long long id)
 {
 }
 
-unsigned long long ReadEventSubscription::id() const { return m_id; }
-
-const boost::optional<size_t> &ReadEventSubscription::sizeThreshold() const
-{
-    return m_sizeThreshold;
-}
-
-const boost::optional<size_t> &ReadEventSubscription::counterThreshold() const
-{
-    return m_counterThreshold;
-}
-
-const boost::optional<std::chrono::milliseconds> &
-ReadEventSubscription::timeThreshold() const
-{
-    return m_timeThreshold;
-}
-
 void ReadEventSubscription::setSizeThreshold(size_t sizeThreshold)
 {
     m_sizeThreshold.reset(sizeThreshold);

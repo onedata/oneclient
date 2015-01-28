@@ -34,4 +34,4 @@ private:
 } // namespace client
 } // namespace one
 
-#endif
+#endif // ONECLIENT_EVENTS_EVENT_COMMUNICATOR_H

@@ -29,32 +29,55 @@ class EventBuffer;
 class EventFactory;
 class ReadEventStream;
 
+/**
+* Name of a read event subscription message.
+*/
 static const std::string READ_EVENT_SUBSCRIPTION_MESSAGE =
     one::clproto::events::ReadEventSubscription::descriptor()->name();
 
+/**
+  * The ReadEventSubscription class represents a message sent by the server to
+  * subscribe for read events.
+  */
 class ReadEventSubscription {
     friend class ReadEventStream;
-
-public:
-    ReadEventSubscription(unsigned long long id);
-
-    unsigned long long id() const;
-
-    const boost::optional<size_t> &sizeThreshold() const;
-
-    const boost::optional<size_t> &counterThreshold() const;
-
-    const boost::optional<std::chrono::milliseconds> &timeThreshold() const;
-
-    void setSizeThreshold(size_t sizeThreshold);
-
-    void setCounterThreshold(size_t counterThreshold);
-
-    void setTimeThreshold(const std::chrono::milliseconds &timeThreshold);
-
     friend std::ostream &operator<<(std::ostream &,
                                     const ReadEventSubscription &subscription);
 
+public:
+    /**
+    * Constructor.
+    * @param id Subscription id.
+    */
+    ReadEventSubscription(unsigned long long id);
+
+    /**
+    * Sets size threshold of subscription.
+    * @param sizeThreshold Maximal amount of read bytes before event emission.
+    */
+    void setSizeThreshold(size_t sizeThreshold);
+
+    /**
+    * Sets counter threshold of subscription.
+    * @param counterThreshold Maximal amount of aggregated events before
+    * emission.
+    */
+    void setCounterThreshold(size_t counterThreshold);
+
+    /**
+    * Sets time threshold of subscription.
+    * @param timeThreshold Maximal delay in milliseconds between successive
+    * events emission.
+    */
+    void setTimeThreshold(const std::chrono::milliseconds &timeThreshold);
+
+    /**
+    * Processes an read event subscription message by subscribing for read
+    * events.
+    * @param stream Weak pointer to a read event stream.
+    * @param factory Weak pointer to an event factory.
+    * @param buffer Weak pointer to an event buffer.
+    */
     void process(std::weak_ptr<ReadEventStream> stream,
                  std::weak_ptr<EventFactory> factory,
                  std::weak_ptr<EventBuffer> buffer) const;
@@ -66,10 +89,18 @@ private:
     boost::optional<std::chrono::milliseconds> m_timeThreshold{};
 };
 
+/**
+* The ReadEventSubscriptionSerializer class is responsible for deserialization
+* of the ReadEventSubscription messages.
+*/
 class ReadEventSubscriptionSerializer {
     using Message = one::clproto::communication_protocol::Answer;
 
 public:
+    /**
+    * Deserializes the ReadEventSubscription message.
+    * @param message Message to deserialize.
+    */
     std::unique_ptr<ReadEventSubscription>
     deserialize(const Message &message) const;
 };
@@ -78,4 +109,4 @@ public:
 } // namespace client
 } // namespace one
 
-#endif
+#endif // ONECLIENT_EVENTS_MESSAGES_READ_EVENT_SUBSCRIPTION_H
