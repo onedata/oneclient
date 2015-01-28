@@ -17,8 +17,10 @@
 
 #include <map>
 #include <set>
+#include <mutex>
 #include <chrono>
 #include <memory>
+#include <functional>
 
 namespace one {
 namespace client {
@@ -78,22 +80,29 @@ public:
 
 private:
     bool isEmissionRuleSatisfied();
-
     void emit();
+    void periodicEmit();
+    void resetStatistics();
 
-    size_t m_counter;
+    size_t m_counter = 0;
     boost::optional<size_t> m_counterThreshold;
-    std::chrono::time_point<std::chrono::system_clock> m_time;
+    std::multiset<size_t> m_counterThresholds;
+
     boost::optional<std::chrono::milliseconds> m_timeThreshold;
-    size_t m_size;
+    std::multiset<std::chrono::milliseconds> m_timeThresholds;
+
+    size_t m_size = 0;
     boost::optional<size_t> m_sizeThreshold;
+    std::multiset<size_t> m_sizeThresholds;
+
     std::weak_ptr<Context> m_context;
     std::weak_ptr<EventBuffer> m_buffer;
+
     std::map<std::string, ReadEvent> m_events;
     std::map<unsigned long long, ReadEventSubscription> m_subscriptions;
-    std::multiset<size_t> m_counterThresholds;
-    std::multiset<std::chrono::milliseconds> m_timeThresholds;
-    std::multiset<size_t> m_sizeThresholds;
+
+    std::mutex m_streamMutex;
+    std::function<void()> m_periodicEmissionCancellation = [] {};
 };
 
 } // namespace events

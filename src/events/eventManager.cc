@@ -33,10 +33,11 @@ namespace events {
 EventManager::EventManager(std::shared_ptr<Context> context)
     : m_context{std::move(context)}
     , m_factory{std::make_shared<EventFactory>()}
-    , m_communicator{std::make_shared<EventCommunicator>(context)}
+    , m_communicator{std::make_shared<EventCommunicator>(m_context)}
     , m_buffer{std::make_shared<EventBuffer>(m_communicator)}
-    , m_readEventStream{}
-    , m_writeEventStream{}
+    , m_readEventStream{std::make_shared<ReadEventStream>(m_context, m_buffer)}
+    , m_writeEventStream{
+          std::make_shared<WriteEventStream>(m_context, m_buffer)}
 {
 }
 

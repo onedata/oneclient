@@ -18,11 +18,6 @@ namespace events {
 
 EventBuffer::EventBuffer(std::weak_ptr<EventCommunicator> communicator)
     : m_communicator{std::move(communicator)}
-    , m_isThreadRunning{true}
-    , m_sequenceNumber{1}
-    , m_lastConfirmedSequenceNumber{0}
-    , m_pendingEvents{}
-    , m_sentMessages{}
 {
     m_thread = std::thread(&EventBuffer::processPendingEvents, this);
     LOG(INFO) << "Event buffer has been constructed successfully.";

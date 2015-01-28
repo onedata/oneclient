@@ -21,9 +21,6 @@ class EventSerializer;
 
 class Event {
 public:
-    Event()
-        : m_counter{1} {};
-
     virtual ~Event() = default;
 
     virtual void emit() = 0;
@@ -31,7 +28,7 @@ public:
     virtual std::unique_ptr<EventSerializer> serializer() const = 0;
 
 protected:
-    size_t m_counter;
+    size_t m_counter = 1;
 };
 
 class EventSerializer {

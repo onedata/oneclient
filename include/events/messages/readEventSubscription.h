@@ -58,9 +58,9 @@ public:
 
 private:
     unsigned long long m_id;
-    boost::optional<size_t> m_sizeThreshold;
-    boost::optional<size_t> m_counterThreshold;
-    boost::optional<std::chrono::milliseconds> m_timeThreshold;
+    boost::optional<size_t> m_sizeThreshold{};
+    boost::optional<size_t> m_counterThreshold{};
+    boost::optional<std::chrono::milliseconds> m_timeThreshold{};
 };
 
 class ReadEventSubscriptionSerializer {

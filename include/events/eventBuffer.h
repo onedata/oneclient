@@ -43,13 +43,13 @@ private:
     void push(std::unique_ptr<google::protobuf::Message> message);
 
     std::weak_ptr<EventCommunicator> m_communicator;
-    bool m_isThreadRunning;
+    bool m_isThreadRunning = true;
     std::thread m_thread;
     std::condition_variable m_pendingEventsConditionVariable;
     std::mutex m_pendingEventsMutex;
     std::mutex m_sentMessagesMutex;
-    unsigned long long m_sequenceNumber;
-    unsigned long long m_lastConfirmedSequenceNumber;
+    unsigned long long m_sequenceNumber = 1;
+    unsigned long long m_lastConfirmedSequenceNumber = 0;
     std::queue<std::unique_ptr<Event>> m_pendingEvents;
     std::deque<std::unique_ptr<google::protobuf::Message>> m_sentMessages;
 };

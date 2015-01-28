@@ -8,6 +8,7 @@
 
 #include "context.h"
 #include "logging.h"
+#include "scheduler.h"
 
 #include "events.pb.h"
 
@@ -46,7 +47,11 @@ std::ostream &operator<<(std::ostream &ostream, const WriteEvent &event)
                    << "', blocks: " << event.m_blocks;
 }
 
-void WriteEvent::emit() { m_stream.lock()->push(*this); }
+void WriteEvent::emit()
+{
+    DLOG(INFO) << "Pushing event (" << *this << ") to the stream.";
+    m_stream.lock()->push(*this);
+}
 
 std::unique_ptr<EventSerializer> WriteEvent::serializer() const
 {
@@ -73,24 +78,14 @@ WriteEventSerializer::serialize(unsigned long long id, const Event &event) const
 
 WriteEventStream::WriteEventStream(std::weak_ptr<Context> context,
                                    std::weak_ptr<EventBuffer> buffer)
-    : m_counter{0}
-    , m_counterThreshold{}
-    , m_time{}
-    , m_timeThreshold{}
-    , m_size{0}
-    , m_sizeThreshold{}
-    , m_context{std::move(context)}
+    : m_context{std::move(context)}
     , m_buffer{std::move(buffer)}
-    , m_events{}
-    , m_subscriptions{}
-    , m_counterThresholds{}
-    , m_timeThresholds{}
-    , m_sizeThresholds{}
 {
 }
 
 void WriteEventStream::push(const WriteEvent &event)
 {
+    std::lock_guard<std::mutex> streamGuard{m_streamMutex};
     if (!m_subscriptions.empty()) {
         m_counter += event.m_counter;
         m_size += event.m_size;
@@ -109,6 +104,7 @@ void WriteEventStream::push(const WriteEvent &event)
 unsigned long long
 WriteEventStream::subscribe(const WriteEventSubscription &subscription)
 {
+    std::lock_guard<std::mutex> streamGuard{m_streamMutex};
     if (m_subscriptions.find(subscription.m_id) != m_subscriptions.end())
         return subscription.m_id;
 
@@ -143,6 +139,7 @@ WriteEventStream::subscribe(const WriteEventSubscription &subscription)
 
 bool WriteEventStream::cancelSubscription(unsigned long long id)
 {
+    std::lock_guard<std::mutex> streamGuard{m_streamMutex};
     auto subscription = m_subscriptions.find(id);
     if (subscription != m_subscriptions.end()) {
         if (subscription->second.m_counterThreshold)
@@ -171,9 +168,7 @@ bool WriteEventStream::cancelSubscription(unsigned long long id)
 
 bool WriteEventStream::isEmissionRuleSatisfied()
 {
-    auto time = std::chrono::system_clock::now() - m_time;
     return (m_counterThreshold && m_counter >= m_counterThreshold.get()) ||
-           (m_timeThreshold && time >= m_timeThreshold.get()) ||
            (m_sizeThreshold && m_size >= m_sizeThreshold.get());
 }
 
@@ -184,6 +179,26 @@ void WriteEventStream::emit()
         m_buffer.lock()->push(std::make_unique<WriteEvent>(event.second));
     }
     m_events.clear();
+    resetStatistics();
+}
+
+void WriteEventStream::periodicEmit()
+{
+    std::lock_guard<std::mutex> streamGuard{m_streamMutex};
+    emit();
+    resetStatistics();
+}
+
+void WriteEventStream::resetStatistics()
+{
+    m_counter = 0;
+    m_size = 0;
+    m_periodicEmissionCancellation();
+    if (m_timeThreshold)
+        m_periodicEmissionCancellation =
+            m_context.lock()->scheduler()->schedule(
+                m_timeThreshold.get(),
+                std::bind(&WriteEventStream::periodicEmit, this));
 }
 
 } // namespace events
