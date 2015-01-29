@@ -33,7 +33,7 @@ std::ostream &operator<<(std::ostream &ostream,
                    << "'";
 }
 
-void SubscriptionCancellation::process(EventManager &manager,
+void SubscriptionCancellation::process(const EventManager &manager,
                                        std::weak_ptr<EventFactory> factory,
                                        std::weak_ptr<EventBuffer> buffer) const
 {

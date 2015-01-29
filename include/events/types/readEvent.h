@@ -95,8 +95,7 @@ public:
     * @copydoc EventSerializer::serialize(unsigned long long, const Event &)
     */
     virtual std::unique_ptr<google::protobuf::Message>
-    serialize(unsigned long long sequenceNumber,
-              const Event &event) const override;
+    serialize(unsigned long long seqNum, const Event &event) const override;
 };
 
 /**

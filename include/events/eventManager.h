@@ -60,7 +60,7 @@ public:
     * @return Returns @c true in case of successful subscription cancellation or
     * @c false otherwise.
     */
-    bool cancelSubscription(unsigned long long id);
+    bool cancelSubscription(unsigned long long id) const;
 
     /**
     * Delegates creation of read event instance to an @c EventFactory.

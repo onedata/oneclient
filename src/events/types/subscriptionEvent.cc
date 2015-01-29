@@ -34,12 +34,12 @@ std::unique_ptr<EventSerializer> SubscriptionEvent::serializer() const
 }
 
 std::unique_ptr<google::protobuf::Message>
-SubscriptionEventSerializer::serialize(unsigned long long sequenceNumber,
+SubscriptionEventSerializer::serialize(unsigned long long seqNum,
                                        const Event &event) const
 {
     auto subscriptionEvent = static_cast<const SubscriptionEvent &>(event);
     auto message = std::make_unique<one::clproto::events::SubscriptionEvent>();
-    message->set_seq_num(sequenceNumber);
+    message->set_seq_num(seqNum);
     message->set_id(subscriptionEvent.m_id);
     return std::move(message);
 }

@@ -47,19 +47,18 @@ public:
 
     /**
     * Returns unconfirmed event by sequence number or throws an exception if an
-    * event associated with given @p sequenceNumber is missing.
-    * @param sequenceNumber Sequence number of an event.
+    * event associated with given @p seqNum is missing.
+    * @param seqNum Sequence number of an event.
     * @return Serialized event message or throws an exception if event is
     * missing.
     */
-    const google::protobuf::Message &
-    getSentMessage(unsigned long long sequenceNumber);
+    const google::protobuf::Message &getSentMessage(unsigned long long seqNum);
 
     /**
-    * Removes all stored event messages up to given @p sequenceNumber.
-    * @param sequenceNumber Sequence number of last event message to be removed.
+    * Removes all stored event messages up to given @p seqNum.
+    * @param seqNum Sequence number of last event message to be removed.
     */
-    void removeSentMessages(unsigned long long sequenceNumber);
+    void removeSentMessages(unsigned long long seqNum);
 
 private:
     void processPendingEvents();
@@ -72,8 +71,8 @@ private:
     std::condition_variable m_pendingEventsConditionVariable;
     std::mutex m_pendingEventsMutex;
     std::mutex m_sentMessagesMutex;
-    unsigned long long m_sequenceNumber = 1;
-    unsigned long long m_lastConfirmedSequenceNumber = 0;
+    unsigned long long m_seqNum = 1;
+    unsigned long long m_lastConfirmedSeqNum = 0;
     std::queue<std::unique_ptr<Event>> m_pendingEvents;
     std::deque<std::unique_ptr<google::protobuf::Message>> m_sentMessages;
 };

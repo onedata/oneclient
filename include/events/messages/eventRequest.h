@@ -44,9 +44,9 @@ class EventRequest {
 public:
     /**
     * Constructor.
-    * @param sequenceNumber Sequence number of a requested event.
+    * @param seqNum Sequence number of a requested event.
     */
-    EventRequest(unsigned long long sequenceNumber);
+    EventRequest(unsigned long long seqNum);
 
     /**
     * Processes an event request message by retrieving an event from an event
@@ -58,7 +58,7 @@ public:
                  std::weak_ptr<EventCommunicator> communicator) const;
 
 private:
-    unsigned long long m_sequenceNumber;
+    unsigned long long m_seqNum;
 };
 
 /**

@@ -74,7 +74,7 @@ bool EventManager::handle(const Message &message)
     return true;
 }
 
-bool EventManager::cancelSubscription(unsigned long long id)
+bool EventManager::cancelSubscription(unsigned long long id) const
 {
     return m_readEventStream->cancelSubscription(id) ||
            m_writeEventStream->cancelSubscription(id);

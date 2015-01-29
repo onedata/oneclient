@@ -51,13 +51,13 @@ public:
 
     /**
     * Serializes an event to Protocol Buffers message.
-    * @param sequenceNumber Unique number associated with each message sent by
+    * @param seqNum Unique number associated with each message sent by
     * an @c EventCommunicator.
     * @param event An @c Event instance to be serialized.
     * @return A serialized event message.
     */
     virtual std::unique_ptr<google::protobuf::Message>
-    serialize(unsigned long long sequenceNumber, const Event &event) const = 0;
+    serialize(unsigned long long seqNum, const Event &event) const = 0;
 };
 
 } // namespace events

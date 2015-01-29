@@ -52,12 +52,12 @@ std::unique_ptr<EventSerializer> ReadEvent::serializer() const
 }
 
 std::unique_ptr<google::protobuf::Message>
-ReadEventSerializer::serialize(unsigned long long sequenceNumber,
+ReadEventSerializer::serialize(unsigned long long seqNum,
                                const Event &event) const
 {
     auto readEvent = static_cast<const ReadEvent &>(event);
     auto message = std::make_unique<one::clproto::events::ReadEvent>();
-    message->set_seq_num(sequenceNumber);
+    message->set_seq_num(seqNum);
     message->set_counter(readEvent.m_counter);
     message->set_file_id(std::move(readEvent.m_fileId));
     message->set_size(readEvent.m_size);
@@ -78,7 +78,7 @@ ReadEventStream::ReadEventStream(std::weak_ptr<Context> context,
 
 void ReadEventStream::push(const ReadEvent &event)
 {
-    std::lock_guard<std::mutex> streamGuard{m_streamMutex};
+    std::lock_guard<std::mutex> guard{m_streamMutex};
     if (!m_subscriptions.empty()) {
         m_counter += event.m_counter;
         m_size += event.m_size;
@@ -98,7 +98,7 @@ void ReadEventStream::push(const ReadEvent &event)
 unsigned long long
 ReadEventStream::subscribe(const ReadEventSubscription &subscription)
 {
-    std::lock_guard<std::mutex> streamGuard{m_streamMutex};
+    std::lock_guard<std::mutex> guard{m_streamMutex};
     if (m_subscriptions.find(subscription.m_id) != m_subscriptions.end())
         return subscription.m_id;
 
@@ -136,7 +136,7 @@ ReadEventStream::subscribe(const ReadEventSubscription &subscription)
 
 bool ReadEventStream::cancelSubscription(unsigned long long id)
 {
-    std::lock_guard<std::mutex> streamGuard{m_streamMutex};
+    std::lock_guard<std::mutex> guard{m_streamMutex};
     auto subscription = m_subscriptions.find(id);
     if (subscription != m_subscriptions.end()) {
         if (subscription->second.m_counterThreshold)
@@ -182,7 +182,7 @@ void ReadEventStream::emit()
 
 void ReadEventStream::periodicEmit()
 {
-    std::lock_guard<std::mutex> streamGuard{m_streamMutex};
+    std::lock_guard<std::mutex> guard{m_streamMutex};
     LOG(INFO) << "Periodic emission for read event stream.";
     emit();
     resetStatistics();

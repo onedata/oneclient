@@ -632,7 +632,6 @@ int FsImpl::write(const std::string &path, const std::string &buf, size_t size, 
     int shReturn = customSHRun(&SH::sh_write, sh, lInfo.fileId.c_str(), buf.c_str(), size, offset, fileInfo);
 
     if(shReturn > 0) { // Update file size in cache
-        LOG(INFO) << "FUSE: write(path: " << path << ", size: " << shReturn << ", offset: " << offset << ", ...)";
         struct stat buf;
         if(!m_metaCache->getAttr(path, &buf))
             buf.st_size = 0;

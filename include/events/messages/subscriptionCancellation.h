@@ -56,7 +56,8 @@ public:
     * @param factory An @c EventFactory instance.
     * @param buffer An @c EventBuffer.
     */
-    void process(EventManager &manager, std::weak_ptr<EventFactory> factory,
+    void process(const EventManager &manager,
+                 std::weak_ptr<EventFactory> factory,
                  std::weak_ptr<EventBuffer> buffer) const;
 
 private:

@@ -43,21 +43,21 @@ class EventAcknowledgement {
 public:
     /**
     * Constructor.
-    * @param sequenceNumber Sequence number of a last successfully processed
+    * @param seqNum Sequence number of a last successfully processed
     * event.
     */
-    EventAcknowledgement(unsigned long long sequenceNumber);
+    EventAcknowledgement(unsigned long long seqNum);
 
     /**
     * Processes an event acknowledgement message by removing from an event
     * buffer all events with a sequence number less than or equal to @p
-    * sequenceNumber.
+    * seqNum.
     * @param buffer An @c EventBuffer instance.
     */
     void process(std::weak_ptr<EventBuffer> buffer) const;
 
 private:
-    unsigned long long m_sequenceNumber;
+    unsigned long long m_seqNum;
 };
 
 /**

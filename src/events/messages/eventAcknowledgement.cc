@@ -18,8 +18,8 @@ namespace one {
 namespace client {
 namespace events {
 
-EventAcknowledgement::EventAcknowledgement(unsigned long long sequenceNumber)
-    : m_sequenceNumber{sequenceNumber}
+EventAcknowledgement::EventAcknowledgement(unsigned long long seqNum)
+    : m_seqNum{seqNum}
 {
 }
 
@@ -27,13 +27,13 @@ std::ostream &operator<<(std::ostream &ostream,
                          const EventAcknowledgement &acknowledgement)
 {
     return ostream << "type: 'EVENT ACKNOWLEDGEMENT', sequence number: '"
-                   << acknowledgement.m_sequenceNumber << "'";
+                   << acknowledgement.m_seqNum << "'";
 }
 
 void EventAcknowledgement::process(std::weak_ptr<EventBuffer> buffer) const
 {
     LOG(INFO) << "Event manager processing message (" << *this << ").";
-    buffer.lock()->removeSentMessages(m_sequenceNumber);
+    buffer.lock()->removeSentMessages(m_seqNum);
 }
 
 std::unique_ptr<EventAcknowledgement>

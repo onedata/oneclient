@@ -38,14 +38,14 @@ SubscriptionCancellationEvent::serializer() const
 }
 
 std::unique_ptr<google::protobuf::Message>
-SubscriptionCancellationEventSerializer::serialize(
-    unsigned long long sequenceNumber, const Event &event) const
+SubscriptionCancellationEventSerializer::serialize(unsigned long long seqNum,
+                                                   const Event &event) const
 {
     auto subscriptionCancellationEvent =
         static_cast<const SubscriptionCancellationEvent &>(event);
     auto message =
         std::make_unique<one::clproto::events::SubscriptionCancellationEvent>();
-    message->set_seq_num(sequenceNumber);
+    message->set_seq_num(seqNum);
     message->set_id(subscriptionCancellationEvent.m_id);
     return std::move(message);
 }

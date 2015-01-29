@@ -81,7 +81,7 @@ WriteEventStream::WriteEventStream(std::weak_ptr<Context> context,
 
 void WriteEventStream::push(const WriteEvent &event)
 {
-    std::lock_guard<std::mutex> streamGuard{m_streamMutex};
+    std::lock_guard<std::mutex> guard{m_streamMutex};
     if (!m_subscriptions.empty()) {
         m_counter += event.m_counter;
         m_size += event.m_size;
@@ -102,7 +102,7 @@ void WriteEventStream::push(const WriteEvent &event)
 unsigned long long
 WriteEventStream::subscribe(const WriteEventSubscription &subscription)
 {
-    std::lock_guard<std::mutex> streamGuard{m_streamMutex};
+    std::lock_guard<std::mutex> guard{m_streamMutex};
     if (m_subscriptions.find(subscription.m_id) != m_subscriptions.end())
         return subscription.m_id;
 
@@ -140,7 +140,7 @@ WriteEventStream::subscribe(const WriteEventSubscription &subscription)
 
 bool WriteEventStream::cancelSubscription(unsigned long long id)
 {
-    std::lock_guard<std::mutex> streamGuard{m_streamMutex};
+    std::lock_guard<std::mutex> guard{m_streamMutex};
     auto subscription = m_subscriptions.find(id);
     if (subscription != m_subscriptions.end()) {
         if (subscription->second.m_counterThreshold)
@@ -190,7 +190,7 @@ void WriteEventStream::emit()
 
 void WriteEventStream::periodicEmit()
 {
-    std::lock_guard<std::mutex> streamGuard{m_streamMutex};
+    std::lock_guard<std::mutex> guard{m_streamMutex};
     LOG(INFO) << "Periodic emission for write event stream.";
     emit();
     resetStatistics();
