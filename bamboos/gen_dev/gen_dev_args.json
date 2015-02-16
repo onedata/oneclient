@@ -1,0 +1,51 @@
+{
+    "oneprovider_node": {
+        "config": {
+            "input_dir": "rel/oneprovider_node",
+            "target_dir": "rel/test_cluster"
+        },
+        "nodes": {
+            "ccm1": {
+                "vm.args": {
+                    "name": "ccm1@",
+                    "setcookie": "cookie"
+                },
+                "sys.config": {
+                    "node_type": "ccm",
+                    "ccm_nodes": [ "ccm1@" ],
+                    "db_nodes": [ "db@" ],
+                    "workers_to_trigger_init": 1
+                }
+            },
+            "worker": {
+                "vm.args": {
+                    "name": "worker@",
+                    "setcookie": "cookie"
+                },
+                "sys.config": {
+                    "node_type": "worker",
+                    "ccm_nodes": [ "ccm1@"],
+                    "db_nodes": [ "db@" ]
+                }
+            }
+        }
+    },
+    "globalregistry": {
+        "config": {
+            "input_dir": "rel/globalregistry",
+            "target_dir": "rel/test_cluster"
+        },
+        "nodes": {
+            "gr1": {
+                "vm.args": {
+                    "name": "gr1@",
+                    "setcookie": "cookie"
+                },
+                "sys.config": {
+                    "db_nodes": [ "gr1_db@" ],
+                    "grpcert_domain": "127.0.0.1"
+                }
+            }
+        }
+    }
+}
