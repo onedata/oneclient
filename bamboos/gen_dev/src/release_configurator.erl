@@ -18,6 +18,12 @@
 -define(DIST_APP_FAILOVER_TIMEOUT, timer:seconds(5)).
 -define(SYNC_NODES_TIMEOUT, timer:minutes(1)).
 
+-define(SED_COMMAND,
+    case os:type() of
+        {unix, darwin}  -> "sed -i '' -e ";
+        _               -> "sed -i "
+    end).
+
 %% API
 -export([configure_release/4]).
 
@@ -124,8 +130,13 @@ replace_application_config(SysConfigPath, ApplicationName, ApplicationEnvs) ->
 %%--------------------------------------------------------------------
 -spec replace_vm_arg(string(), string(), string()) -> ok | no_return().
 replace_vm_arg(VMArgsPath, FullArgName, ArgValue) ->
-    [] = os:cmd("sed -i \"s#" ++ FullArgName ++ " .*#" ++ FullArgName ++ " " ++
-        ArgValue ++ "#g\" \"" ++ VMArgsPath ++ "\"").
+    {ok, Data} = file:read_file(VMArgsPath),
+    NewData = re:replace(
+        Data,
+        <<(list_to_binary(FullArgName))/binary, " .*">>,
+        <<(list_to_binary(FullArgName))/binary, " ", (list_to_binary(ArgValue))/binary>>
+    ),
+    ok = file:write_file(VMArgsPath, NewData).
 
 %%--------------------------------------------------------------------
 %% @doc
