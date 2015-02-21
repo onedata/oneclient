@@ -1,12 +1,15 @@
-.PHONY: all builder worker bigcouch
+.PHONY: all base builder worker bigcouch
 
-all: builder worker bigcouch
+all: base builder worker bigcouch
 
-builder: builder/Dockerfile
-	docker build -t onedata/builder builder/
+base: base/Dockerfile
+	docker build -t onedata/base:v2 base/
 
-worker: worker/Dockerfile
-	docker build -t onedata/worker worker/
+builder: base builder/Dockerfile
+	docker build -t onedata/builder:v3 builder/
+
+worker: base worker/Dockerfile
+	docker build -t onedata/worker:v2 worker/
 
 bigcouch: bigcouch/Dockerfile
-	docker build -t onedata/bigcouch bigcouch/
+	docker build -t onedata/bigcouch:v1 bigcouch/
