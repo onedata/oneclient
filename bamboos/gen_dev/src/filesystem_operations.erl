@@ -50,7 +50,7 @@ remove_dir(Path) ->
 %%--------------------------------------------------------------------
 -spec copy_dir(From :: string(), To :: string()) -> ok | no_return().
 copy_dir(From, To) ->
-    case os:cmd("cp -R '" ++ From ++ "' '" ++ To ++ "'") of
+    case os:cmd("cp -RTf '" ++ From ++ "' '" ++ To ++ "'") of
         [] -> ok;
         Err -> throw(Err)
     end.
