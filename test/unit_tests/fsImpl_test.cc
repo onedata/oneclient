@@ -13,6 +13,7 @@
 #include "metaCache_mock.h"
 #include "options_mock.h"
 #include "scheduler_mock.h"
+#include "eventManager_mock.h"
 #include "storageHelperFactory_fake.h"
 #include "storageMapper_mock.h"
 #include "testCommon.h"
@@ -23,6 +24,7 @@
 using namespace ::testing;
 using namespace std::placeholders;
 using namespace one::client;
+using namespace one::client::events;
 using namespace one::clproto::fuse_messages;
 
 template<typename T> bool identityEqual( const T &lhs, const T &rhs ) { return &lhs == &rhs; }
@@ -46,6 +48,7 @@ public:
     std::shared_ptr<MockLocalStorageManager> storageManagerMock;
     std::shared_ptr<MockStorageMapper> storageMapperMock;
     std::shared_ptr<MockGenericHelper> helperMock;
+    std::shared_ptr<MockEventManager> eventManagerMock;
     std::shared_ptr<FakeStorageHelperFactory> factoryFake;
 
     struct fuse_file_info fileInfo;
@@ -74,6 +77,7 @@ public:
         storageManagerMock = std::make_shared<MockLocalStorageManager>(context);
         helperMock = std::make_shared<MockGenericHelper>();
         factoryFake = std::make_shared<FakeStorageHelperFactory>();
+        eventManagerMock = std::make_shared<MockEventManager>(context);
 
         EXPECT_CALL(*fslogicMock, pingCluster()).WillRepeatedly(Return());
         EXPECT_CALL(*options, get_alive_meta_connections_count()).WillRepeatedly(Return(0));
@@ -95,7 +99,8 @@ public:
                         fslogicMock,
                         metaCacheMock,
                         storageManagerMock,
-                        factoryFake);
+                        factoryFake,
+                        eventManagerMock);
 
         factoryFake->presetMock = helperMock;
 
@@ -453,6 +458,7 @@ TEST_F(FsImplTest, chown) { // const char *path, uid_t uid, gid_t gid
 }
 
 TEST_F(FsImplTest, truncate) { // const char *path, off_t newSize
+    EXPECT_CALL(*eventManagerMock, emitTruncateEvent(_, _)).WillRepeatedly(Return());
 
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillOnce(Throw(OneException(VEACCES)));
     EXPECT_EQ(-EACCES, getError([&]{ return client->truncate("/path", 10); }));
@@ -496,6 +502,8 @@ TEST_F(FsImplTest, read) { // const char *path, char *buf, size_t size, off_t of
 
     struct stat statbuf = {0};
     statbuf.st_size = 10;
+    EXPECT_CALL(*eventManagerMock, emitReadEvent(_, _, _)).WillRepeatedly(Return());
+
     EXPECT_CALL(*metaCacheMock, getAttr("/path", _)).WillRepeatedly(DoAll(SetArgPointee<1>(statbuf), Return(true)));
 
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _, _)).WillOnce(Throw(OneException(VEACCES)));
@@ -511,6 +519,7 @@ TEST_F(FsImplTest, read) { // const char *path, char *buf, size_t size, off_t of
 }
 
 TEST_F(FsImplTest, write) { // const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo
+    EXPECT_CALL(*eventManagerMock, emitWriteEvent(_, _, _, _)).WillRepeatedly(Return());
 
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _, _)).WillOnce(Throw(OneException(VEACCES)));
     EXPECT_EQ(-EACCES, getError([&]{ return client->write("/path", "abcd", 4, 0, &fileInfo); }));

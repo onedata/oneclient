@@ -22,8 +22,6 @@
 #include "storageMapper.h"
 #include "oneErrors.h"
 #include "oneException.h"
-#include "events/types/event.h"
-#include "events/eventFactory.h"
 #include "events/eventManager.h"
 
 #include <grp.h>
@@ -128,7 +126,6 @@ FsImpl::FsImpl(std::string path, std::shared_ptr<Context> context,
     m_rgid = -1;
 
     m_context->getPushListener()->subscribe(&MetaCache::handleNotification, m_metaCache);
-    m_context->getPushListener()->subscribe(&events::EventManager::handle, m_eventManager);
 }
 
 FsImpl::~FsImpl()
@@ -495,8 +492,7 @@ int FsImpl::truncate(const std::string &path, off_t newSize)
 
     if(shReturn == 0) {
         m_metaCache->updateSize(path, newSize);
-        auto event = m_eventManager->createTruncateEvent(path, newSize);
-        event->emit();
+        m_eventManager->emitTruncateEvent(path, newSize);
     }
 
     return shReturn;
@@ -614,8 +610,7 @@ int FsImpl::read(const std::string &path, char *buf, size_t size, off_t offset, 
     auto sh = m_shCache.get(fileInfo->fh).get();
     int shReturn = customSHRun(&SH::sh_read, sh, lInfo.fileId.c_str(), buf, toRead, offset, fileInfo);
 
-    auto event = m_eventManager->createReadEvent(path, offset, shReturn);
-    event->emit();
+    m_eventManager->emitReadEvent(path, offset, shReturn);
 
     return shReturn;
 }
@@ -637,11 +632,9 @@ int FsImpl::write(const std::string &path, const std::string &buf, size_t size, 
             buf.st_size = 0;
         if(offset + shReturn > buf.st_size) {
             m_metaCache->updateSize(path, offset + shReturn);
-            auto event = m_eventManager->createWriteEvent(path, offset, shReturn, offset + shReturn);
-            event->emit();
+            m_eventManager->emitWriteEvent(path, offset, shReturn, offset + shReturn);
         } else {
-            auto event = m_eventManager->createWriteEvent(path, offset, shReturn, buf.st_size);
-            event->emit();
+            m_eventManager->emitWriteEvent(path, offset, shReturn, buf.st_size);
         }
     }
 

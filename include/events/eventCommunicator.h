@@ -9,39 +9,36 @@
 #ifndef ONECLIENT_EVENTS_EVENT_COMMUNICATOR_H
 #define ONECLIENT_EVENTS_EVENT_COMMUNICATOR_H
 
-#include <google/protobuf/message.h>
-
 #include <memory>
 
 namespace one {
 namespace client {
 
 class Context;
+class ClientMessage;
 
 namespace events {
 
 /**
 * The EventCommunicator class is responsible for sending event messages to the
-* server.
+* server using communication stream.
 */
 class EventCommunicator {
 public:
     /**
     * Constructor.
-    * @param context An @c Context instance.
+    * @param context A @c Context instance used to acquire communication stream.
     */
-    EventCommunicator(std::shared_ptr<Context> context);
+    EventCommunicator(std::weak_ptr<Context> context);
 
     /**
-    * Sends event message to the server.
+    * Sends event message to the server using communication stream.
     * @param message Message to be sent.
-    * @return Returns @c true in case of successful emission or @c false
-    * otherwise.
     */
-    bool send(const google::protobuf::Message &message) const;
+    void send(const ClientMessage &clientMessage) const;
 
 private:
-    std::shared_ptr<Context> m_context;
+    std::weak_ptr<Context> m_context;
 };
 
 } // namespace events

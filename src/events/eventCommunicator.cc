@@ -7,34 +7,18 @@
 */
 
 #include "context.h"
-#include "logging.h"
-
 #include "events/eventCommunicator.h"
-#include "communication/exception.h"
-#include "communication/communicator.h"
 
 namespace one {
 namespace client {
 namespace events {
 
-EventCommunicator::EventCommunicator(std::shared_ptr<Context> context)
+EventCommunicator::EventCommunicator(std::weak_ptr<Context> context)
     : m_context{std::move(context)}
 {
 }
 
-bool EventCommunicator::send(const google::protobuf::Message &message) const
-{
-    try {
-        m_context->getCommunicator()->send(
-            communication::ServerModule::EVENT_MANAGER, message);
-        return true;
-    }
-    catch (communication::Exception &e) {
-        LOG(WARNING) << "Cannot send message due to: '" << e.what()
-                     << "' exception.";
-    }
-    return false;
-}
+void EventCommunicator::send(const ClientMessage &clientMessage) const {}
 
 } // namespace events
 } // namespace client
