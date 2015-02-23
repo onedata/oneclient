@@ -21,4 +21,3 @@ set(HELPERS_LIBRARIES ${HELPERS_LIBRARIES} PARENT_SCOPE)
 
 add_custom_command(OUTPUT ${HELPERS_LIBRARIES} DEPENDS helpersBuild)
 add_custom_target(helpers DEPENDS ${HELPERS_LIBRARIES})
-

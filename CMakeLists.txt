@@ -63,32 +63,16 @@ include_directories(SYSTEM
 # Setup fuse
 message(STATUS "Checking for FUSE...")
 find_package(FUSE REQUIRED)
-#find_library(FUSE_LIBRARY_CUSTOM NAMES libfuse.a fuse)
-set(FUSE_LIBRARY_CUSTOM ${FUSE_LIBRARIES})
-include_directories(SYSTEM ${FUSE_INCLUDE_DIRS}/.. ${FUSE_INCLUDE_DIRS})
-message(STATUS "FUSE: ${FUSE_LIBRARY_CUSTOM}")
+include_directories(SYSTEM ${FUSE_INCLUDE_DIRS})
 
 # Setup ProtoBuf
 message(STATUS "Checking for Protobuf...")
 find_package(Protobuf REQUIRED)
-find_library(PROTOBUF_LIBRARY_CUSTOM NAMES libprotobuf.a protobuf)
 include_directories(SYSTEM ${PROTOBUF_INCLUDE_DIR})
 
 # Setup OpenSSL
 message(STATUS "Checking for OpenSSL...")
 find_package(OpenSSL REQUIRED)
-find_library(SSL_LIBRARY_S NAMES libssl.a ssl)
-find_library(CRYPTO_LIBRARY_S NAMES libcrypto.a crypto)
-find_library(SSL_LIBRARY_D NAMES ssl)
-find_library(CRYPTO_LIBRARY_D NAMES crypto)
-find_library(KRB5_LIBRARY krb5)
-if(${KRB5_LIBRARY} MATCHES KRB5_LIBRARY-NOTFOUND)
-    set(OPENSSL_LIBRARIES_S ${SSL_LIBRARY_S} ${CRYPTO_LIBRARY_S})
-    set(OPENSSL_LIBRARIES_D ${SSL_LIBRARY_D} ${CRYPTO_LIBRARY_D})
-else(NOT ${KRB5_LIBRARY} MATCHES KRB5_LIBRARY-NOTFOUND)
-    set(OPENSSL_LIBRARIES_S ${SSL_LIBRARY_S} ${CRYPTO_LIBRARY_S} ${KRB5_LIBRARY})
-    set(OPENSSL_LIBRARIES_D ${SSL_LIBRARY_D} ${CRYPTO_LIBRARY_D} ${KRB5_LIBRARY})
-endif(${KRB5_LIBRARY} MATCHES KRB5_LIBRARY-NOTFOUND)
 include_directories(SYSTEM ${OPENSSL_INCLUDE_DIR})
 
 # Setup pthreads
@@ -100,21 +84,20 @@ message(STATUS "Checking for Git...")
 find_package(Git REQUIRED)
 
 # Setup Boost
-set(Boost_USE_STATIC_LIBS        ON)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
+set(Boost_USE_STATIC_LIBS       OFF)
 find_package(Boost COMPONENTS system thread filesystem random program_options REQUIRED)
-link_directories(${Boost_LIBRARY_DIRS})
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 
 # Utility libs
-find_library(LTDL_LIBRARY NAMES libltdl.a ltdl)
+find_library(LTDL_LIBRARY NAMES ltdl)
 find_library(RT_LIBRARY rt)
-find_library(ZLIB_LIBRARY NAMES libz.a z)
+find_library(ZLIB_LIBRARY NAMES z)
 find_library(DL_LIBRARY dl)
 
 # gpertools lib
-find_library(PROFILER_LIBRARY NAMES libprofiler.a)
+find_library(PROFILER_LIBRARY NAMES profiler)
 
 # Pull git submodules
 message(STATUS "Pulling submodules using git...")
@@ -132,8 +115,8 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 # Setup sources
 file(GLOB_RECURSE SOURCES RELATIVE ${CMAKE_SOURCE_DIR} src/*.cc include/*.h)
-set(MAIN_SOURCE_FILE src/main.cc)
-list(REMOVE_ITEM SOURCES ${MAIN_SOURCE_FILE})
+#set(MAIN_SOURCE_FILE src/main.cc)
+#list(REMOVE_ITEM SOURCES ${MAIN_SOURCE_FILE})
 
 # Setup compile flags
 execute_process(COMMAND ${CMAKE_CXX_COMPILER} -print-file-name=libstdc++.a OUTPUT_VARIABLE LIBSTD_NAME)
@@ -153,63 +136,48 @@ else(NOT APPLE)
     set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/lib" "\$ORIGIN" "\$ORIGIN/../lib")
 endif(APPLE)
 
-add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Wall -std=c++14)
-add_definitions(${FUSE_DEFINITIONS} -DFUSE_USE_VERSION=29 -D_WEBSOCKETPP_CPP11_STL_ -DBOOST_BIND_NO_PLACEHOLDERS)
-
 # Define targets
-add_library(clproto ${PROTO_SRCS})
-add_library(clientObjects OBJECT ${SOURCES} ${HEADERS})
-add_executable(oneclient ${MAIN_SOURCE_FILE} $<TARGET_OBJECTS:clientObjects>)
-add_executable(oneclient_dynamic ${MAIN_SOURCE_FILE} $<TARGET_OBJECTS:clientObjects>)
+add_library(commonOptions INTERFACE)
+target_compile_options(commonOptions INTERFACE -Wall -std=c++14)
+target_compile_definitions(commonOptions INTERFACE
+    ${FUSE_DEFINITIONS}
+    -DFUSE_USE_VERSION=29
+    -D_WEBSOCKETPP_CPP11_STL_)
 
+add_library(clientLibs INTERFACE)
+target_link_libraries(clientLibs INTERFACE
+    commonOptions
+    json11
+    ${GLOG_LIBRARIES}
+    ${HELPERS_LIBRARIES}
+    ${FUSE_LIBRARIES}
+    ${Boost_LIBRARIES}
+    ${PROTOBUF_LIBRARIES}
+    ${PLATFORM_EXTRA_LIBS}
+    ${OPENSSL_LIBRARIES})
+
+add_library(clientObjects OBJECT ${SOURCES} ${HEADERS} ${PROTO_SRCS})
+add_dependencies(clientObjects glog helpers)
+set_target_properties(clientObjects PROPERTIES POSITION_INDEPENDENT_CODE True)
+target_compile_options(clientObjects PRIVATE
+    $<TARGET_PROPERTY:commonOptions,INTERFACE_COMPILE_OPTIONS>)
+target_compile_definitions(clientObjects PRIVATE
+    $<TARGET_PROPERTY:commonOptions,INTERFACE_COMPILE_DEFINITIONS>
+    -DBOOST_BIND_NO_PLACEHOLDERS)
+
+add_executable(oneclient $<TARGET_OBJECTS:clientObjects>)
+target_link_libraries(oneclient clientLibs)
 set_target_properties(oneclient PROPERTIES
     BUILD_WITH_INSTALL_RPATH true
     INSTALL_RPATH_USE_LINK_PATH true
     INSTALL_RPATH "${CUSTOM_RPATH}")
 
-set_target_properties(oneclient_dynamic PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY dynamic/
-    OUTPUT_NAME oneclient
-    BUILD_WITH_INSTALL_RPATH true
-    INSTALL_RPATH_USE_LINK_PATH true
-    INSTALL_RPATH "${CUSTOM_RPATH}")
-
-add_custom_command(TARGET oneclient_dynamic POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:oneclient_dynamic> oneclient_dynamic)
-
-add_dependencies(clientObjects glog clproto helpers)
-set(COMMON_LIBRARIES
-    ${FUSE_LIBRARY_CUSTOM}
-    ${Boost_LIBRARIES}
-    ${GLOG_LIBRARIES}
-    ${PROTOBUF_LIBRARY_CUSTOM}
-    ${HELPERS_LIBRARIES}
-    clproto
-    json11
-    ${PLATFORM_EXTRA_LIBS}
-)
-
-target_link_libraries(oneclient
-    ${COMMON_LIBRARIES}
-    ${OPENSSL_LIBRARIES_S}
-)
-
-target_link_libraries(oneclient_dynamic
-    ${COMMON_LIBRARIES}
-    ${OPENSSL_LIBRARIES_D}
-)
-
-target_link_libraries(clproto
-    ${PROTOBUF_LIBRARY_CUSTOM}
-)
-
 if(NOT ${PROFILER_LIBRARY} MATCHES PROFILER_LIBRARY-NOTFOUND)
     target_link_libraries(oneclient ${PROFILER_LIBRARY})
-    target_link_libraries(oneclient_dynamic ${PROFILER_LIBRARY})
 endif(NOT ${PROFILER_LIBRARY} MATCHES PROFILER_LIBRARY-NOTFOUND)
 
 # Install config
-install(TARGETS oneclient_dynamic DESTINATION bin)
+install(TARGETS oneclient DESTINATION bin)
 install(DIRECTORY config/ DESTINATION etc)
 
 # build a CPack driven installer package

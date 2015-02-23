@@ -84,7 +84,7 @@ endif(NOT FUSE_INCLUDE_DIRS)
 
 find_library(
     FUSE_LIBRARIES
-    NAMES libfuse4x.a libfuse4x.dylib libosxfuse.a libosxfuse.dylib libfuse.a libfuse.dylib fuse
+    NAMES osxfuse fuse
     PATHS "${PC_FUSE_LIBRARY_DIRS}"
     DOC "Libraries for FUSE"
 )

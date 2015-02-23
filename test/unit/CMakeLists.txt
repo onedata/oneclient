@@ -4,6 +4,10 @@ include_directories(SYSTEM ${GTEST_INCLUDE_DIR} ${GMOCK_INCLUDE_DIR})
 file(GLOB_RECURSE TEST_HEADERS include/*.h)
 add_library(testCommon OBJECT testRunner.cc testCommon.cc)
 add_dependencies(testCommon gmock gtest)
+target_compile_options(testCommon PRIVATE
+    $<TARGET_PROPERTY:commonOptions,INTERFACE_COMPILE_OPTIONS>)
+target_compile_definitions(testCommon PRIVATE
+    $<TARGET_PROPERTY:commonOptions,INTERFACE_COMPILE_DEFINITIONS>)
 
 add_custom_target(cunit)
 macro(run_test test_target)
@@ -18,20 +22,14 @@ endmacro()
 file(GLOB TEST_SOURCES *_test.cc)
 foreach(TEST_SRC ${TEST_SOURCES})
     get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
-    add_executable(${TEST_NAME} ${TEST_SRC} ${TEST_HEADERS} $<TARGET_OBJECTS:clientObjects> $<TARGET_OBJECTS:testCommon>)
-    add_dependencies(${TEST_NAME} gtest gmock oneclient helpers clproto)
+    add_executable(${TEST_NAME} ${TEST_SRC} ${TEST_HEADERS} $<TARGET_OBJECTS:testCommon>)
+    add_dependencies(${TEST_NAME} gtest gmock)
     target_link_libraries(${TEST_NAME}
-        ${Boost_LIBRARIES}
-        ${GLOG_LIBRARIES}
+        commonOptions
+        clientShared
+        ${BOOST_LIBRARIES}
         ${GTEST_LIBRARIES}
-        ${GMOCK_LIBRARIES}
-        ${FUSE_LIBRARY_CUSTOM}
-        ${HELPERS_LIBRARIES}
-        ${PROTOBUF_LIBRARY_CUSTOM}
-        ${OPENSSL_LIBRARIES}
-        ${PLATFORM_EXTRA_LIBS}
-        json11
-        clproto)
+        ${GMOCK_LIBRARIES})
     add_test(${TEST_NAME} ${TEST_NAME})
     run_test(${TEST_NAME})
 endforeach()
