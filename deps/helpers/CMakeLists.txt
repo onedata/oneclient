@@ -6,7 +6,8 @@ ExternalProject_Add(helpersBuild
     GIT_TAG 6457373
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${PROJECT_BINARY_DIR}
                -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-    UPDATE_COMMAND git pull || exit 0
+               -DBUILD_INTEGRATION_TESTS=FALSE
+    UPDATE_COMMAND git pull || true
 )
 
 # Export dep includes and lib paths

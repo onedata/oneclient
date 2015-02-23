@@ -17,10 +17,6 @@
 
 namespace one
 {
-    namespace testing
-    {
-        class FsImplMount;
-    }
     namespace client
     {
         class Config;
@@ -50,24 +46,6 @@ public:
     std::shared_ptr<MockScheduler> scheduler;
 
 protected:
-    virtual void SetUp() override;
-};
-
-class CommonIntegrationTest: public ::testing::Test
-{
-public:
-    boost::system::error_code ec;
-    std::shared_ptr<one::client::Context> context;
-    std::shared_ptr<one::client::FsImpl> onedata;
-    std::shared_ptr<one::client::FslogicProxy> fslogic;
-    std::shared_ptr<one::client::Config> config;
-    std::shared_ptr<one::client::Options> options;
-    std::unique_ptr<one::testing::FsImplMount> onedataMount;
-    std::shared_ptr<one::client::StorageMapper> storageMapper;
-
-protected:
-    CommonIntegrationTest(std::unique_ptr<one::testing::FsImplMount> onedataMount);
-
     virtual void SetUp() override;
 };
 
