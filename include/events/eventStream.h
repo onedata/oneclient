@@ -53,7 +53,7 @@ public:
     void push(const EventType &event);
 
     /**
-    * Adds subscription for events of type @c EventType.
+    * Adds a subscription for events of type @c EventType.
     * @param subscription An instance of subscription of type @c
     * SubscriptionType to be added.
     * @return Subscription ID.
@@ -61,7 +61,7 @@ public:
     uint64_t addSubscription(const SubscriptionType &subscription);
 
     /**
-    * Removes subscription for events of type @c EventType.
+    * Removes a subscription for events of type @c EventType.
     * @param subscription An instance of subscription of type @c
     * SubscriptionType to removed.
     */

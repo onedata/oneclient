@@ -48,7 +48,7 @@ public:
     * @param fileId ID of file associated with a read operation.
     * @param offset Distance from the beginning of the file to the first
     * byte read.
-    * @param size Amount of bytes read.
+    * @param size Number of bytes read.
     */
     ReadEvent(std::string fileId, off_t offset, size_t size);
 

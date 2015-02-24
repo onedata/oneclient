@@ -48,7 +48,7 @@ public:
     * @param fileId ID of file associated with a write operation.
     * @param offset Distance from the beginning of the file to the first
     * byte written.
-    * @param size Amount of bytes written.
+    * @param size Number of bytes written.
     * @param fileSize Size of file after a write operation.
     */
     WriteEvent(std::string fileId, off_t offset, size_t size, off_t fileSize);

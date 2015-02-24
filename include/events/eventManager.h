@@ -44,26 +44,26 @@ public:
     * @param fileId ID of file associated with a read operation.
     * @param offset Distance from the beginning of the file to the first byte
     * read.
-    * @param size Amount of bytes read.
+    * @param size Number of bytes read.
     */
     void emitReadEvent(const std::string &fileId, off_t offset,
                        size_t size) const;
 
     /**
     * Emits a write event.
-    * @param fileId ID of file associated with a read operation.
+    * @param fileId ID of file associated with a write operation.
     * @param offset Distance from the beginning of the file to the first byte
-    * read.
-    * @param size Amount of bytes read.
-    * @param fileSize Size of file associated with a write operation.
+    * written.
+    * @param size Number of bytes written.
+    * @param fileSize Size of file after a write operation.
     */
     void emitWriteEvent(const std::string &fileId, off_t offset, size_t size,
                         off_t fileSize) const;
 
     /**
     * Emits a truncate event.
-    * @param fileId ID of file associated with a read operation.
-    * @param fileSize Size of file associated with a write operation.
+    * @param fileId ID of file associated with a truncate operation.
+    * @param fileSize Size of file after a truncate operation.
     */
     void emitTruncateEvent(const std::string &fileId, off_t fileSize) const;
 
