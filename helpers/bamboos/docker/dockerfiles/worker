@@ -1,0 +1,4 @@
+FROM onedata/base:v4
+MAINTAINER Konrad Zemek <konrad.zemek@gmail.com>
+
+EXPOSE 53 5555 443 8443 80 8876 8877
