@@ -39,6 +39,19 @@ public:
     WriteEventSubscription(
         std::unique_ptr<ProtocolServerMessage> serverMessage);
 
+    /**
+    * Constructor.
+    * @param id Subscription ID.
+    * @param counterThreshold Maximal number of aggregated events before
+    * emission.
+    * @param timeThreshold Maximal delay in milliseconds between successive
+    * events emissions.
+    * @param sizeThreshold Maximal number of read bytes before emission
+    */
+    WriteEventSubscription(uint64_t id, size_t counterThreshold,
+                           std::chrono::milliseconds timeThreshold,
+                           size_t sizeThreshold);
+
 private:
     uint64_t m_id;
     size_t m_counterThreshold;

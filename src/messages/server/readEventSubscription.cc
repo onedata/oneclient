@@ -16,5 +16,15 @@ ReadEventSubscription::ReadEventSubscription(
 {
 }
 
-} // namespace client
+ReadEventSubscription::ReadEventSubscription(
+    uint64_t id, size_t counterThreshold,
+    std::chrono::milliseconds timeThreshold, size_t sizeThreshold)
+    : m_id{id}
+    , m_counterThreshold{counterThreshold}
+    , m_timeThreshold{timeThreshold}
+    , m_sizeThreshold{sizeThreshold}
+{
+}
+
+}; // namespace client
 } // namespace one

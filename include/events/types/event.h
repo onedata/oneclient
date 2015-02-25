@@ -9,6 +9,8 @@
 #ifndef ONECLIENT_EVENTS_TYPES_EVENT_H
 #define ONECLIENT_EVENTS_TYPES_EVENT_H
 
+#include "messages/client/clientMessage.h"
+
 #include <cstddef>
 
 namespace one {
@@ -18,9 +20,15 @@ namespace events {
 /**
 * The Event class represents an operation in the file system.
 */
-class Event {
+class Event : public ClientMessage {
 public:
     virtual ~Event() = default;
+
+    /**
+    * Returns event's counter.
+    * @return Counter.
+    */
+    size_t counter() const { return m_counter; };
 
 protected:
     std::size_t m_counter = 1;

@@ -12,6 +12,7 @@
 #include "eventStream.h"
 
 #include <memory>
+#include <sys/types.h>
 
 namespace one {
 namespace client {
@@ -38,6 +39,8 @@ public:
     * acquire communicator instance to register for push messages.
     */
     EventManager(std::shared_ptr<Context> context);
+
+    ~EventManager() = default;
 
     /**
     * Emits a read event.

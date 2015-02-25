@@ -17,6 +17,7 @@
 #include <string>
 #include <memory>
 #include <ostream>
+#include <sys/types.h>
 
 namespace one {
 namespace client {
@@ -26,13 +27,11 @@ class ReadEventSubscription;
 namespace events {
 
 class ReadEventSerializer;
-template <class EventType, class SubscriptionType> class EventStream;
 
 /**
 * The ReadEvent class represents a read operation in the file system.
 */
-class ReadEvent : public Event, public ClientMessage {
-    friend class EventStream<ReadEvent, one::client::ReadEventSubscription>;
+class ReadEvent : public Event {
     friend class ReadEventSerializer;
     friend std::ostream &operator<<(std::ostream &, const ReadEvent &event);
 
@@ -48,9 +47,27 @@ public:
     * @param fileId ID of file associated with a read operation.
     * @param offset Distance from the beginning of the file to the first
     * byte read.
-    * @param size Number of bytes read.
+    * @param size Number of read bytes.
     */
     ReadEvent(std::string fileId, off_t offset, size_t size);
+
+    /**
+    * Returns ID of file associated with the read event.
+    * @return File ID.
+    */
+    const std::string &fileId() const;
+
+    /**
+    * Returns the total number of bytes read.
+    * @return Number of bytes read.
+    */
+    size_t size() const;
+
+    /**
+    * Returns the set of bytes blocks read.
+    * @return Set of bytes blocks read.
+    */
+    const boost::icl::interval_set<off_t> &blocks() const;
 
     /**
     * Aggregates this read event with an other read event.
@@ -64,12 +81,6 @@ public:
     ReadEvent &operator+=(const ReadEvent &event);
 
     /**
-    * Returns ID of file associated with the read event.
-    * @return File ID.
-    */
-    const std::string &fileId() const;
-
-    /**
     * Returns a @c ClientMessageSerializer instance for the @c ClientMessage.
     * @return Unique pointer to a @ClientMessageSerializer instance.
     */
@@ -78,9 +89,18 @@ public:
 
 private:
     std::string m_fileId;
-    size_t m_size;
+    size_t m_size = 0;
     boost::icl::interval_set<off_t> m_blocks;
 };
+
+/**
+* Compares two read events.
+* Read events are equal if corresponding event's fields are equal.
+* @param lhs Read event to be compared.
+* @param rhs Read event to be compared.
+* @return true if read events are equal and false otherwise.
+*/
+bool operator==(const ReadEvent &lhs, const ReadEvent &rhs);
 
 } // namespace events
 } // namespace client

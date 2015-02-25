@@ -25,6 +25,17 @@ WriteEvent::WriteEvent(std::string fileId, off_t offset, size_t size,
 {
 }
 
+const std::string &WriteEvent::fileId() const { return m_fileId; }
+
+size_t WriteEvent::size() const { return m_size; }
+
+off_t WriteEvent::fileSize() const { return m_fileSize; }
+
+const boost::icl::interval_set<off_t> &WriteEvent::blocks() const
+{
+    return m_blocks;
+}
+
 WriteEvent &WriteEvent::operator+=(const WriteEvent &event)
 {
     m_counter += event.m_counter;
@@ -35,11 +46,10 @@ WriteEvent &WriteEvent::operator+=(const WriteEvent &event)
     return *this;
 }
 
-const std::string &WriteEvent::fileId() const { return m_fileId; }
-
-std::unique_ptr<ClientMessageSerializer> WriteEvent::createSerializer() const
+bool operator==(const WriteEvent &lhs, const WriteEvent &rhs)
 {
-    return std::make_unique<one::client::WriteEventSerializer>();
+    return lhs.fileId() == rhs.fileId() && lhs.size() == rhs.size() &&
+           lhs.fileSize() == rhs.fileSize() && lhs.blocks() == rhs.blocks();
 }
 
 std::ostream &operator<<(std::ostream &ostream, const WriteEvent &event)
@@ -49,6 +59,11 @@ std::ostream &operator<<(std::ostream &ostream, const WriteEvent &event)
                    << "', file size: " << event.m_fileSize
                    << ", size: " << event.m_size
                    << ", blocks: " << event.m_blocks;
+}
+
+std::unique_ptr<ClientMessageSerializer> WriteEvent::createSerializer() const
+{
+    return std::make_unique<one::client::WriteEventSerializer>();
 }
 
 } // namespace events

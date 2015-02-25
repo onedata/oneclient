@@ -17,6 +17,7 @@
 #include <string>
 #include <memory>
 #include <ostream>
+#include <sys/types.h>
 
 namespace one {
 namespace client {
@@ -26,13 +27,11 @@ class WriteEventSubscription;
 namespace events {
 
 class WriteEventSerializer;
-template <class EventType, class SubscriptionType> class EventStream;
 
 /**
 * The WriteEvent class represents a write operation in the file system.
 */
-class WriteEvent : public Event, public ClientMessage {
-    friend class EventStream<WriteEvent, one::client::WriteEventSubscription>;
+class WriteEvent : public Event {
     friend class WriteEventSerializer;
     friend std::ostream &operator<<(std::ostream &, const WriteEvent &event);
 
@@ -54,6 +53,30 @@ public:
     WriteEvent(std::string fileId, off_t offset, size_t size, off_t fileSize);
 
     /**
+    * Returns ID of file associated with the write event.
+    * @return File ID.
+    */
+    const std::string &fileId() const;
+
+    /**
+    * Returns the total number of bytes written.
+    * @return Number of bytes written.
+    */
+    size_t size() const;
+
+    /**
+    * Returns size of file associated with the write event.
+    * @return File size.
+    */
+    off_t fileSize() const;
+
+    /**
+    * Returns the set of bytes blocks written.
+    * @return Set of bytes blocks written.
+    */
+    const boost::icl::interval_set<off_t> &blocks() const;
+
+    /**
     * Aggregates this write event with an other write event.
     * Aggregation is done by:
     * - addition of events counters
@@ -65,12 +88,6 @@ public:
     WriteEvent &operator+=(const WriteEvent &event);
 
     /**
-    * Returns ID of file associated with the write event.
-    * @return File ID.
-    */
-    const std::string &fileId() const;
-
-    /**
     * Returns a @c ClientMessageSerializer instance for the @c ClientMessage.
     * @return Unique pointer to a @ClientMessageSerializer instance.
     */
@@ -79,10 +96,19 @@ public:
 
 private:
     std::string m_fileId;
-    size_t m_size;
-    off_t m_fileSize;
+    size_t m_size = 0;
+    off_t m_fileSize = 0;
     boost::icl::interval_set<off_t> m_blocks;
 };
+
+/**
+* Compares two write events.
+* Write events are equal if corresponding event's fields are equal.
+* @param lhs Write event to be compared.
+* @param rhs Write event to be compared.
+* @return true if write events are equal and false otherwise.
+*/
+bool operator==(const WriteEvent &lhs, const WriteEvent &rhs);
 
 } // namespace events
 } // namespace client

@@ -23,6 +23,15 @@ ReadEvent::ReadEvent(std::string fileId, off_t offset, size_t size)
 {
 }
 
+const std::string &ReadEvent::fileId() const { return m_fileId; }
+
+size_t ReadEvent::size() const { return m_size; }
+
+const boost::icl::interval_set<off_t> &ReadEvent::blocks() const
+{
+    return m_blocks;
+}
+
 ReadEvent &ReadEvent::operator+=(const ReadEvent &event)
 {
     m_counter += event.m_counter;
@@ -31,19 +40,23 @@ ReadEvent &ReadEvent::operator+=(const ReadEvent &event)
     return *this;
 }
 
-const std::string &ReadEvent::fileId() const { return m_fileId; }
-
-std::unique_ptr<ClientMessageSerializer> ReadEvent::createSerializer() const
+bool operator==(const ReadEvent &lhs, const ReadEvent &rhs)
 {
-    return std::make_unique<one::client::ReadEventSerializer>();
+    return lhs.fileId() == rhs.fileId() && lhs.size() == rhs.size() &&
+           lhs.blocks() == rhs.blocks();
 }
 
 std::ostream &operator<<(std::ostream &ostream, const ReadEvent &event)
 {
     return ostream << "type: READ, counter: " << event.m_counter
                    << ", file ID: '" << event.m_fileId
-                   << "', size: " << event.m_size
+                   << ", size: " << event.m_size
                    << ", blocks: " << event.m_blocks;
+}
+
+std::unique_ptr<ClientMessageSerializer> ReadEvent::createSerializer() const
+{
+    return std::make_unique<one::client::ReadEventSerializer>();
 }
 
 } // namespace events

@@ -21,12 +21,13 @@ public:
     {
     }
 
-    MOCK_METHOD3(emitReadEvent,
-                 void(const std::string &fileId, off_t offset, size_t size));
-    MOCK_METHOD4(emitWriteEvent, void(const std::string &fileId, off_t offset,
-                                      size_t size, off_t fileSize));
-    MOCK_METHOD2(emitTruncateEvent,
-                 void(const std::string &fileId, off_t fileSize));
+    MOCK_CONST_METHOD3(emitReadEvent, void(const std::string &fileId,
+                                           off_t offset, size_t size));
+    MOCK_CONST_METHOD4(emitWriteEvent,
+                       void(const std::string &fileId, off_t offset,
+                            size_t size, off_t fileSize));
+    MOCK_CONST_METHOD2(emitTruncateEvent,
+                       void(const std::string &fileId, off_t fileSize));
 };
 
 #endif // EVENT_MANAGER_MOCK_H

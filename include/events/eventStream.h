@@ -20,6 +20,7 @@
 #include <memory>
 #include <cstdint>
 #include <functional>
+#include <sys/types.h>
 
 namespace one {
 namespace client {
@@ -75,7 +76,7 @@ private:
 
     std::multiset<size_t> m_counterThresholds{SIZE_MAX};
     std::multiset<std::chrono::milliseconds> m_timeThresholds{
-        std::chrono::duration_values<std::chrono::milliseconds>::max()};
+        std::chrono::milliseconds::max()};
     std::multiset<size_t> m_sizeThresholds{SIZE_MAX};
 
     std::weak_ptr<Context> m_context;
@@ -139,8 +140,8 @@ template <class EventType, class SubscriptionType>
 bool EventStream<EventType, SubscriptionType>::isEmissionRuleSatisfied(
     EventType const &event)
 {
-    return event.m_counter >= *m_counterThresholds.begin() ||
-           event.m_size >= *m_sizeThresholds.begin();
+    return event.counter() >= *m_counterThresholds.begin() ||
+           event.size() >= *m_sizeThresholds.begin();
 }
 
 template <class EventType, class SubscriptionType>

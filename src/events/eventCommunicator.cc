@@ -18,7 +18,7 @@ EventCommunicator::EventCommunicator(std::weak_ptr<Context> context)
 {
 }
 
-void EventCommunicator::send(const ClientMessage &clientMessage) const {}
+void EventCommunicator::send(const Event &event) const {}
 
 } // namespace events
 } // namespace client

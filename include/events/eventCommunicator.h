@@ -15,9 +15,10 @@ namespace one {
 namespace client {
 
 class Context;
-class ClientMessage;
 
 namespace events {
+
+class Event;
 
 /**
 * The EventCommunicator class is responsible for sending event messages to the
@@ -31,11 +32,13 @@ public:
     */
     EventCommunicator(std::weak_ptr<Context> context);
 
+    virtual ~EventCommunicator() = default;
+
     /**
-    * Sends event message to the server using communication stream.
-    * @param message Message to be sent.
+    * Sends event to the server using communication stream.
+    * @param event Event to be sent.
     */
-    void send(const ClientMessage &clientMessage) const;
+    virtual void send(const Event &event) const;
 
 private:
     std::weak_ptr<Context> m_context;
