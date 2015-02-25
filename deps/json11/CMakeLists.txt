@@ -17,6 +17,4 @@ set(JSON11_SOURCE ${JSON11_SOURCE} PARENT_SCOPE)
 add_custom_command(OUTPUT ${JSON11_SOURCE} DEPENDS json11Build)
 
 add_library(json11 STATIC ${JSON11_SOURCE})
-set_target_properties(json11 PROPERTIES
-    POSITION_INDEPENDENT_CODE True
-    COMPILE_OPTIONS "-std=c++11;-w")
+target_compile_options(json11 PRIVATE -std=c++11 -w)

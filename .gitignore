@@ -1,5 +1,6 @@
-src/proto
-build
+/release
+/debug
+/relwithdebinfo
 
 # Compiled Object files
 *.slo

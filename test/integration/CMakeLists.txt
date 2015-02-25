@@ -11,6 +11,7 @@ add_custom_target(appmock ALL DEPENDS ${APPMOCK_BINARY})
 find_package(Boost COMPONENTS python REQUIRED)
 find_package(PythonLibs REQUIRED)
 include_directories(SYSTEM ${PYTHON_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
+remove_definitions(-DBOOST_BIND_NO_PLACEHOLDERS)
 
 file(GLOB TEST_DIRS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} *_test)
 foreach(TEST_DIR ${TEST_DIRS})
@@ -29,7 +30,6 @@ foreach(TEST_DIR ${TEST_DIRS})
 
     target_link_libraries(${TEST_NAME}
         clientShared
-        commonOptions
         ${Boost_LIBRARIES}
         ${PYTHON_LIBRARIES})
 endforeach()

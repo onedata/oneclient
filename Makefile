@@ -1,64 +1,47 @@
-RELEASE_DIR = release
-DEBUG_DIR = debug
-
-CMAKE = $(shell which cmake || which cmake28)
-CPACK = $(shell which cpack || which cpack28)
-
-.PHONY: rpm build release debug docs clean all
+.PHONY: rpm cmake release debug deb-info test cunit install docs clean all
 all: rpm test
 
 rpm: release
-	@cd ${RELEASE_DIR} && ${CPACK} -C CPackConfig.cmake -G RPM
-	@cd ${RELEASE_DIR} && ${CPACK} -C CPackConfig.cmake -G DEB
+	@cd release && cpack -C CPackConfig.cmake -G RPM
+	@cd release && cpack -C CPackConfig.cmake -G DEB
 
 	@echo
 	@echo
 	@echo "Following packages are now available in PROJECT_DIR directory: "
 	@echo
-	@for pkg in `ls ${RELEASE_DIR}/*.rpm 2>/dev/null`; do echo $$pkg; done
-	@for pkg in `ls ${RELEASE_DIR}/*.deb 2>/dev/null`; do echo $$pkg; done
+	@for pkg in `ls release/*.rpm 2>/dev/null`; do echo $$pkg; done
+	@for pkg in `ls release/*.deb 2>/dev/null`; do echo $$pkg; done
 
-## Obsolete target, use 'make release' instead
-build: release
-	@echo "*****************************************************"
-	@echo "'build' target is obsolete, use 'release' instead !"
-	@echo "*****************************************************"
-	@ln -sf ${RELEASE_DIR} build
+cmake: BUILD_DIR = $$(echo $(BUILD_TYPE) | tr '[:upper:]' '[:lower:]')
+cmake:
+	mkdir -p ${BUILD_DIR}
+	cd ${BUILD_DIR} && cmake -GNinja -DCMAKE_BUILD_TYPE=${BUILD_TYPE} ..
 
-deb-info:
-	@mkdir -p ${RELEASE_DIR}
-	-@find ${RELEASE_DIR} -name "helpers-update" -exec rm -rf {} \;
-	@cd ${RELEASE_DIR} && ${CMAKE} -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
-	@cd ${RELEASE_DIR} && ninja oneclient
+deb-info: BUILD_TYPE = RelWithDebInfo
+deb-info: cmake
+	ninja -C relwithdebinfo oneclient
 
-release:
-	@mkdir -p ${RELEASE_DIR}
-	-@find ${RELEASE_DIR} -name "helpers-update" -exec rm -rf {} \;
-	@cd ${RELEASE_DIR} && ${CMAKE} -GNinja -DCMAKE_BUILD_TYPE=Release ..
-	@cd ${RELEASE_DIR} && ninja oneclient
+release: BUILD_TYPE = Release
+release: cmake
+	ninja -C release oneclient
 
-debug:
-	@mkdir -p ${DEBUG_DIR}
-	-@find ${DEBUG_DIR} -name "helpers-update" -exec rm -rf {} \;
-	@cd ${DEBUG_DIR} && ${CMAKE} -GNinja -DCMAKE_BUILD_TYPE=Debug ..
-	@cd ${DEBUG_DIR} && ninja oneclient
+debug: BUILD_TYPE = Debug
+debug: cmake
+	ninja -C debug oneclient
 
 test: deb-info
-	@cd ${RELEASE_DIR} && ninja
-	@cd ${RELEASE_DIR} && ninja test
+	ninja -C relwithdebinfo
+	ninja -C relwithdebinfo test
 
 cunit: deb-info
-	@cd ${RELEASE_DIR} && ninja
-	@cd ${RELEASE_DIR} && ninja cunit
-
-integration_tests: debug
-	@cd ${DEBUG_DIR} && ninja integration_tests
+	ninja -C relwithdebinfo
+	ninja -C relwithdebinfo cunit
 
 install: release
-	@cd ${RELEASE_DIR} && ninja install
+	ninja -C release install
 
 docs:
 	@doxygen Doxyfile
 
 clean:
-	@rm -rf ${DEBUG_DIR} ${RELEASE_DIR} build doc
+	rm -rf debug release relwithdebinfo build doc
