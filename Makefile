@@ -1,5 +1,5 @@
 .PHONY: rpm cmake release debug deb-info test cunit install docs clean all
-all: rpm test
+all: rpm
 
 rpm: release
 	@cd release && cpack -C CPackConfig.cmake -G RPM
