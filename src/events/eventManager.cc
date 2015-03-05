@@ -27,25 +27,27 @@ EventManager::EventManager(std::shared_ptr<Context> context)
         std::make_unique<EventStream<WriteEvent>>(context, communicator);
 }
 
-void EventManager::emitReadEvent(const std::string &fileId, off_t offset,
-                                 size_t size) const
+std::unique_ptr<Event> EventManager::createReadEvent(const std::string &fileId,
+                                                     off_t offset,
+                                                     size_t size) const
 {
-    ReadEvent event{fileId, offset, size};
-    m_readEventStream->push(event);
+    return std::make_unique<ReadEvent>(m_readEventStream, fileId, offset, size);
 }
 
-void EventManager::emitWriteEvent(const std::string &fileId, off_t offset,
-                                  size_t size, off_t fileSize) const
+std::unique_ptr<Event> EventManager::createWriteEvent(const std::string &fileId,
+                                                      off_t offset, size_t size,
+                                                      off_t fileSize) const
 {
-    WriteEvent event{fileId, offset, size, fileSize};
-    m_writeEventStream->push(event);
+    return std::make_unique<WriteEvent>(m_writeEventStream, fileId, offset,
+                                        size, fileSize);
 }
 
-void EventManager::emitTruncateEvent(const std::string &fileId,
-                                     off_t fileSize) const
+std::unique_ptr<Event>
+EventManager::createTruncateEvent(const std::string &fileId,
+                                  off_t fileSize) const
 {
-    TruncateEvent event{fileId, fileSize};
-    m_writeEventStream->push(event);
+    return std::make_unique<TruncateEvent>(m_writeEventStream, fileId,
+                                           fileSize);
 }
 
 } // namespace events

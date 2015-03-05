@@ -15,6 +15,8 @@ namespace one {
 namespace client {
 namespace events {
 
+template <class EventType> class EventStream;
+
 /**
 * The TruncateEvent class represents a truncate operation in the file system.
 */
@@ -22,11 +24,15 @@ class TruncateEvent : public WriteEvent {
 public:
     /**
     * Constructor.
+    * @param eventStream Weak pointer to @c WriteEventStream to which this event
+    * will be pushed when emitted.
     * @param fileId ID of file associated with a truncate operation.
     * @param fileSize Size of file after a truncate operation.
     */
-    TruncateEvent(std::string fileId, off_t fileSize)
-        : WriteEvent(std::move(fileId), 0, 0, fileSize){};
+    TruncateEvent(std::weak_ptr<EventStream<WriteEvent>> eventStream,
+                  std::string fileId, off_t fileSize)
+        : WriteEvent(std::move(eventStream), std::move(fileId), 0, 0,
+                     fileSize){};
 };
 
 } // namespace events

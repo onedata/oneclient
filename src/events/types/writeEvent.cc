@@ -6,6 +6,7 @@
 * 'LICENSE.txt'
 */
 
+#include "events/eventStream.h"
 #include "events/types/writeEvent.h"
 #include "messages/client/writeEventSerializer.h"
 
@@ -15,14 +16,23 @@ namespace events {
 
 WriteEvent::WriteEvent() { m_counter = 0; }
 
-WriteEvent::WriteEvent(std::string fileId, off_t offset, size_t size,
+WriteEvent::WriteEvent(std::weak_ptr<EventStream<WriteEvent>> eventStream,
+                       std::string fileId, off_t offset, size_t size,
                        off_t fileSize)
-    : m_fileId{std::move(fileId)}
+    : m_eventStream(std::move(eventStream))
+    , m_fileId{std::move(fileId)}
     , m_size{size}
     , m_fileSize{fileSize}
     , m_blocks{boost::icl::discrete_interval<off_t>::right_open(offset,
                                                                 offset + size)}
 {
+}
+
+void WriteEvent::emit() const
+{
+    auto eventStream = m_eventStream.lock();
+    if (eventStream)
+        eventStream->push(*this);
 }
 
 const std::string &WriteEvent::fileId() const { return m_fileId; }

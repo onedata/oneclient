@@ -27,6 +27,7 @@ class ReadEventSubscription;
 namespace events {
 
 class ReadEventSerializer;
+template <class EventType> class EventStream;
 
 /**
 * The ReadEvent class represents a read operation in the file system.
@@ -46,12 +47,17 @@ public:
 
     /**
     * Constructor.
+    * @param eventStream Weak pointer to @c ReadEventStream to which this event
+    * will be pushed when emitted.
     * @param fileId ID of file associated with a read operation.
     * @param offset Distance from the beginning of the file to the first
     * byte read.
     * @param size Number of read bytes.
     */
-    ReadEvent(std::string fileId, off_t offset, size_t size);
+    ReadEvent(std::weak_ptr<EventStream<ReadEvent>> eventStream,
+              std::string fileId, off_t offset, size_t size);
+
+    virtual void emit() const override;
 
     /**
     * @return ID of file associated with the read event.
@@ -83,6 +89,7 @@ public:
     createSerializer() const override;
 
 private:
+    std::weak_ptr<EventStream<ReadEvent>> m_eventStream;
     std::string m_fileId;
     size_t m_size = 0;
     boost::icl::interval_set<off_t> m_blocks;

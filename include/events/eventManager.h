@@ -21,6 +21,7 @@ class Context;
 
 namespace events {
 
+class Event;
 class ReadEvent;
 class WriteEvent;
 
@@ -40,36 +41,41 @@ public:
     ~EventManager() = default;
 
     /**
-    * Emits a read event.
+    * Creates a read event.
     * @param fileId ID of file associated with a read operation.
     * @param offset Distance from the beginning of the file to the first byte
     * read.
     * @param size Number of bytes read.
+    * @return Unique pointer to read event.
     */
-    void emitReadEvent(const std::string &fileId, off_t offset,
-                       size_t size) const;
+    std::unique_ptr<Event> createReadEvent(const std::string &fileId,
+                                           off_t offset, size_t size) const;
 
     /**
-    * Emits a write event.
+    * Creates a write event.
     * @param fileId ID of file associated with a write operation.
     * @param offset Distance from the beginning of the file to the first byte
     * written.
     * @param size Number of bytes written.
     * @param fileSize Size of file after a write operation.
+    * @return Unique pointer to write event.
     */
-    void emitWriteEvent(const std::string &fileId, off_t offset, size_t size,
-                        off_t fileSize) const;
+    std::unique_ptr<Event> createWriteEvent(const std::string &fileId,
+                                            off_t offset, size_t size,
+                                            off_t fileSize) const;
 
     /**
-    * Emits a truncate event.
+    * Creates a truncate event.
     * @param fileId ID of file associated with a truncate operation.
     * @param fileSize Size of file after a truncate operation.
+    * @return Unique pointer to truncate event.
     */
-    void emitTruncateEvent(const std::string &fileId, off_t fileSize) const;
+    std::unique_ptr<Event> createTruncateEvent(const std::string &fileId,
+                                               off_t fileSize) const;
 
 private:
-    std::unique_ptr<EventStream<ReadEvent>> m_readEventStream;
-    std::unique_ptr<EventStream<WriteEvent>> m_writeEventStream;
+    std::shared_ptr<EventStream<ReadEvent>> m_readEventStream;
+    std::shared_ptr<EventStream<WriteEvent>> m_writeEventStream;
 };
 
 } // namespace events

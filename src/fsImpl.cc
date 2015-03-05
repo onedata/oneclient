@@ -492,7 +492,7 @@ int FsImpl::truncate(const std::string &path, off_t newSize)
 
     if(shReturn == 0) {
         m_metaCache->updateSize(path, newSize);
-        m_eventManager->emitTruncateEvent(path, newSize);
+        m_eventManager->createTruncateEvent(path, newSize)->emit();
     }
 
     return shReturn;
@@ -610,7 +610,7 @@ int FsImpl::read(const std::string &path, char *buf, size_t size, off_t offset, 
     auto sh = m_shCache.get(fileInfo->fh).get();
     int shReturn = customSHRun(&SH::sh_read, sh, lInfo.fileId.c_str(), buf, toRead, offset, fileInfo);
 
-    m_eventManager->emitReadEvent(path, offset, shReturn);
+    m_eventManager->createReadEvent(path, offset, shReturn)->emit();
 
     return shReturn;
 }
@@ -632,9 +632,9 @@ int FsImpl::write(const std::string &path, const std::string &buf, size_t size, 
             buf.st_size = 0;
         if(offset + shReturn > buf.st_size) {
             m_metaCache->updateSize(path, offset + shReturn);
-            m_eventManager->emitWriteEvent(path, offset, shReturn, offset + shReturn);
+            m_eventManager->createWriteEvent(path, offset, shReturn, offset + shReturn)->emit();
         } else {
-            m_eventManager->emitWriteEvent(path, offset, shReturn, buf.st_size);
+            m_eventManager->createWriteEvent(path, offset, shReturn, buf.st_size)->emit();
         }
     }
 

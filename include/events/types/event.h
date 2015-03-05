@@ -25,6 +25,11 @@ public:
     virtual ~Event() = default;
 
     /**
+    * Emits the event.
+    */
+    virtual void emit() const = 0;
+
+    /**
     * @return Event's counter.
     */
     size_t counter() const { return m_counter; };

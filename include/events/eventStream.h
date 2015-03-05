@@ -9,6 +9,7 @@
 #ifndef ONECLIENT_EVENTS_STREAMS_EVENT_STREAM_H
 #define ONECLIENT_EVENTS_STREAMS_EVENT_STREAM_H
 
+#include "context.h"
 #include "scheduler.h"
 #include "eventCommunicator.h"
 #include "events/aggregators/nullAggregator.h"
@@ -27,9 +28,6 @@
 
 namespace one {
 namespace client {
-
-class Context;
-
 namespace events {
 
 /**

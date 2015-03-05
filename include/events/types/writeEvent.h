@@ -27,6 +27,7 @@ class WriteEventSubscription;
 namespace events {
 
 class WriteEventSerializer;
+template <class EventType> class EventStream;
 
 /**
 * The WriteEvent class represents a write operation in the file system.
@@ -46,13 +47,18 @@ public:
 
     /**
     * Constructor.
+    * @param eventStream Weak pointer to @c WriteEventStream to which this event
+    * will be pushed when emitted.
     * @param fileId ID of file associated with a write operation.
     * @param offset Distance from the beginning of the file to the first
     * byte written.
     * @param size Number of bytes written.
     * @param fileSize Size of file after a write operation.
     */
-    WriteEvent(std::string fileId, off_t offset, size_t size, off_t fileSize);
+    WriteEvent(std::weak_ptr<EventStream<WriteEvent>> eventStream,
+               std::string fileId, off_t offset, size_t size, off_t fileSize);
+
+    virtual void emit() const override;
 
     /**
     * @return ID of file associated with the write event.
@@ -89,6 +95,7 @@ public:
     createSerializer() const override;
 
 private:
+    std::weak_ptr<EventStream<WriteEvent>> m_eventStream;
     std::string m_fileId;
     size_t m_size = 0;
     off_t m_fileSize = 0;
