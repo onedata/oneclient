@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_EVENTS_AGGREGATORS_AGGREGATOR_H
 #define ONECLIENT_EVENTS_AGGREGATORS_AGGREGATOR_H
 
-#include <list>
+#include <vector>
 
 namespace one {
 namespace client {
@@ -39,9 +39,9 @@ public:
 
     /**
     * Retrieves all aggregated events by emptying the aggregator.
-    * @return List of aggregated events.
+    * @return Vector of aggregated events.
     */
-    virtual std::list<EventType> reset() = 0;
+    virtual std::vector<EventType> reset() = 0;
 };
 
 } // namespace events

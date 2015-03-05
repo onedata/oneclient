@@ -14,6 +14,8 @@ namespace client {
 std::unique_ptr<ClientMessageSerializer::ProtocolClientMessage>
 WriteEventSerializer::serialize(const ClientMessage &clientMessage) const
 {
+    // @todo Complete implementation after integration with new protocol,
+    // consider moving 'messages' directory do helpers project
     return nullptr;
 }
 

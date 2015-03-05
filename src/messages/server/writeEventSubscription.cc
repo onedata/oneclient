@@ -14,6 +14,8 @@ namespace client {
 WriteEventSubscription::WriteEventSubscription(
     std::unique_ptr<ServerMessage::ProtocolServerMessage> serverMessage)
 {
+    // @todo Complete implementation after integration with new protocol,
+    // consider moving 'messages' directory do helpers project
 }
 
 WriteEventSubscription::WriteEventSubscription(

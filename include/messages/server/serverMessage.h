@@ -11,6 +11,8 @@
 
 namespace one {
 
+// @todo Replace definition with forward declaration after introduction of new
+// protocol.
 namespace clproto {
 class ServerMessage {
 };
@@ -25,6 +27,8 @@ namespace client {
 class ServerMessage {
 public:
     using ProtocolServerMessage = one::clproto::ServerMessage;
+
+    virtual ~ServerMessage() = default;
 };
 
 } // namespace client

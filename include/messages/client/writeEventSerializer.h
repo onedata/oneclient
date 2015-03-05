@@ -20,10 +20,6 @@ namespace client {
 */
 class WriteEventSerializer : public ClientMessageSerializer {
 public:
-    /**
-    * @copydoc ClientMessageSerializer::serialize(const ClientMessage
-    * &clientMessage)
-    */
     virtual std::unique_ptr<ProtocolClientMessage>
     serialize(const ClientMessage &clientMessage) const override;
 };

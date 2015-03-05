@@ -53,25 +53,21 @@ public:
     WriteEvent(std::string fileId, off_t offset, size_t size, off_t fileSize);
 
     /**
-    * Returns ID of file associated with the write event.
-    * @return File ID.
+    * @return ID of file associated with the write event.
     */
     const std::string &fileId() const;
 
     /**
-    * Returns the total number of bytes written.
     * @return Number of bytes written.
     */
     size_t size() const;
 
     /**
-    * Returns size of file associated with the write event.
-    * @return File size.
+    * @return Size of file associated with the write event.
     */
     off_t fileSize() const;
 
     /**
-    * Returns the set of bytes blocks written.
     * @return Set of bytes blocks written.
     */
     const boost::icl::interval_set<off_t> &blocks() const;
@@ -87,10 +83,6 @@ public:
     */
     WriteEvent &operator+=(const WriteEvent &event);
 
-    /**
-    * Returns a @c ClientMessageSerializer instance for the @c ClientMessage.
-    * @return Unique pointer to a @ClientMessageSerializer instance.
-    */
     virtual std::unique_ptr<ClientMessageSerializer>
     createSerializer() const override;
 

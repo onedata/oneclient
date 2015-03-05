@@ -25,8 +25,7 @@ public:
     virtual ~Event() = default;
 
     /**
-    * Returns event's counter.
-    * @return Counter.
+    * @return Event's counter.
     */
     size_t counter() const { return m_counter; };
 

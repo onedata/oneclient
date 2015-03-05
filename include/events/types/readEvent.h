@@ -52,19 +52,16 @@ public:
     ReadEvent(std::string fileId, off_t offset, size_t size);
 
     /**
-    * Returns ID of file associated with the read event.
-    * @return File ID.
+    * @return ID of file associated with the read event.
     */
     const std::string &fileId() const;
 
     /**
-    * Returns the total number of bytes read.
-    * @return Number of bytes read.
+    * @return Total number of bytes read.
     */
     size_t size() const;
 
     /**
-    * Returns the set of bytes blocks read.
     * @return Set of bytes blocks read.
     */
     const boost::icl::interval_set<off_t> &blocks() const;
@@ -80,10 +77,6 @@ public:
     */
     ReadEvent &operator+=(const ReadEvent &event);
 
-    /**
-    * Returns a @c ClientMessageSerializer instance for the @c ClientMessage.
-    * @return Unique pointer to a @ClientMessageSerializer instance.
-    */
     virtual std::unique_ptr<ClientMessageSerializer>
     createSerializer() const override;
 

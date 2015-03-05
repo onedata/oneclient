@@ -23,11 +23,12 @@
 
 #include <boost/icl/interval_set.hpp>
 
-#include <list>
+#include <vector>
 #include <memory>
 #include <chrono>
 #include <thread>
 #include <cstdint>
+#include <algorithm>
 
 using namespace ::testing;
 using namespace one;
@@ -41,6 +42,12 @@ inline boost::icl::discrete_interval<off_t> block(off_t offset, size_t size)
 {
     return boost::icl::discrete_interval<off_t>::right_open(offset,
                                                             offset + size);
+}
+
+template <class EventType>
+bool greaterFileId(const EventType &lhs, const EventType &rhs)
+{
+    return lhs.fileId() > rhs.fileId();
 }
 
 class Streams : public CommonTest {
@@ -97,26 +104,28 @@ TEST(Aggregators, FileIdReadEventAggregatorTest)
     EXPECT_EQ(30, aggregatedEvent4.size());
     EXPECT_EQ(aggregatedEvent4, aggregator->all());
 
-    std::list<ReadEvent> aggregatedEvents = aggregator->reset();
+    std::vector<ReadEvent> aggregatedEvents = aggregator->reset();
+    std::sort(aggregatedEvents.begin(), aggregatedEvents.end(),
+              greaterFileId<ReadEvent>);
 
     EXPECT_EQ(3, aggregatedEvents.size());
-    EXPECT_EQ("fileId1", aggregatedEvents.front().fileId());
-    EXPECT_EQ(2, aggregatedEvents.front().counter());
-    EXPECT_EQ(15, aggregatedEvents.front().size());
-    EXPECT_TRUE(Blocks{block(0, 15)} == aggregatedEvents.front().blocks());
-    aggregatedEvents.pop_front();
+    EXPECT_EQ("fileId1", aggregatedEvents.back().fileId());
+    EXPECT_EQ(2, aggregatedEvents.back().counter());
+    EXPECT_EQ(15, aggregatedEvents.back().size());
+    EXPECT_TRUE(Blocks{block(0, 15)} == aggregatedEvents.back().blocks());
+    aggregatedEvents.pop_back();
 
-    EXPECT_EQ("fileId2", aggregatedEvents.front().fileId());
-    EXPECT_EQ(1, aggregatedEvents.front().counter());
-    EXPECT_EQ(5, aggregatedEvents.front().size());
-    EXPECT_TRUE(Blocks{block(0, 5)} == aggregatedEvents.front().blocks());
-    aggregatedEvents.pop_front();
+    EXPECT_EQ("fileId2", aggregatedEvents.back().fileId());
+    EXPECT_EQ(1, aggregatedEvents.back().counter());
+    EXPECT_EQ(5, aggregatedEvents.back().size());
+    EXPECT_TRUE(Blocks{block(0, 5)} == aggregatedEvents.back().blocks());
+    aggregatedEvents.pop_back();
 
-    EXPECT_EQ("fileId3", aggregatedEvents.front().fileId());
-    EXPECT_EQ(1, aggregatedEvents.front().counter());
-    EXPECT_EQ(10, aggregatedEvents.front().size());
-    EXPECT_TRUE(Blocks{block(0, 10)} == aggregatedEvents.front().blocks());
-    aggregatedEvents.pop_front();
+    EXPECT_EQ("fileId3", aggregatedEvents.back().fileId());
+    EXPECT_EQ(1, aggregatedEvents.back().counter());
+    EXPECT_EQ(10, aggregatedEvents.back().size());
+    EXPECT_TRUE(Blocks{block(0, 10)} == aggregatedEvents.back().blocks());
+    aggregatedEvents.pop_back();
 
     EXPECT_EQ(ReadEvent(), aggregator->all());
     EXPECT_EQ(aggregatedEvents, aggregator->reset());
@@ -160,22 +169,24 @@ TEST(Aggregators, FileIdWriteEventAggregatorTest)
     EXPECT_EQ(30, aggregatedEvent5.size());
     EXPECT_EQ(aggregatedEvent5, aggregator->all());
 
-    std::list<WriteEvent> aggregatedEvents = aggregator->reset();
+    std::vector<WriteEvent> aggregatedEvents = aggregator->reset();
+    std::sort(aggregatedEvents.begin(), aggregatedEvents.end(),
+              greaterFileId<WriteEvent>);
 
     EXPECT_EQ(2, aggregatedEvents.size());
-    EXPECT_EQ("fileId1", aggregatedEvents.front().fileId());
-    EXPECT_EQ(3, aggregatedEvents.front().counter());
-    EXPECT_EQ(15, aggregatedEvents.front().size());
-    EXPECT_EQ(10, aggregatedEvents.front().fileSize());
-    EXPECT_TRUE(Blocks{block(0, 10)} == aggregatedEvents.front().blocks());
-    aggregatedEvents.pop_front();
+    EXPECT_EQ("fileId1", aggregatedEvents.back().fileId());
+    EXPECT_EQ(3, aggregatedEvents.back().counter());
+    EXPECT_EQ(15, aggregatedEvents.back().size());
+    EXPECT_EQ(10, aggregatedEvents.back().fileSize());
+    EXPECT_TRUE(Blocks{block(0, 10)} == aggregatedEvents.back().blocks());
+    aggregatedEvents.pop_back();
 
-    EXPECT_EQ("fileId2", aggregatedEvents.front().fileId());
-    EXPECT_EQ(2, aggregatedEvents.front().counter());
-    EXPECT_EQ(15, aggregatedEvents.front().size());
-    EXPECT_EQ(10, aggregatedEvents.front().fileSize());
-    EXPECT_TRUE(Blocks{block(0, 10)} == aggregatedEvents.front().blocks());
-    aggregatedEvents.pop_front();
+    EXPECT_EQ("fileId2", aggregatedEvents.back().fileId());
+    EXPECT_EQ(2, aggregatedEvents.back().counter());
+    EXPECT_EQ(15, aggregatedEvents.back().size());
+    EXPECT_EQ(10, aggregatedEvents.back().fileSize());
+    EXPECT_TRUE(Blocks{block(0, 10)} == aggregatedEvents.back().blocks());
+    aggregatedEvents.pop_back();
 
     EXPECT_EQ(WriteEvent(), aggregator->all());
     EXPECT_EQ(aggregatedEvents, aggregator->reset());

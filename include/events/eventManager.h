@@ -35,7 +35,7 @@ class EventManager {
 public:
     /**
     * Constructor.
-    * context A @c Context instance used to instantiate event streams and
+    * @param context A @c Context instance used to instantiate event streams and
     * acquire communicator instance to register for push messages.
     */
     EventManager(std::shared_ptr<Context> context);

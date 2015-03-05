@@ -13,6 +13,8 @@
 
 namespace one {
 
+// @todo Replace definition with forward declaration after introduction of new
+// protocol.
 namespace clproto {
 class ClientMessage {
 };
@@ -23,7 +25,7 @@ namespace client {
 class ClientMessageSerializer;
 
 /**
-* The ClientMessage class represents a message that can by sent form the client
+* The ClientMessage class represents a message that can by sent from the client
 * to the server.
 */
 class ClientMessage {
@@ -31,8 +33,8 @@ public:
     virtual ~ClientMessage() = default;
 
     /**
-    * Returns a @c ClientMessageSerializer instance for the @c ClientMessage.
-    * @return Unique pointer to a @ClientMessageSerializer instance.
+    * @return Unique pointer to a @ClientMessageSerializer instance for the @c
+    * ClientMessage.
     */
     virtual std::unique_ptr<ClientMessageSerializer>
     createSerializer() const = 0;
@@ -40,8 +42,7 @@ public:
 
 /**
 * The ClientMessageSerializer class is responsible for creation of @c
-* ClientMessage
-* counterpart using Protocol Buffers standard.
+* ClientMessage counterpart using Protocol Buffers standard.
 */
 class ClientMessageSerializer {
 public:

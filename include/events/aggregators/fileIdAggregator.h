@@ -11,10 +11,10 @@
 
 #include "aggregator.h"
 
-#include <map>
-#include <list>
+#include <vector>
 #include <algorithm>
 #include <functional>
+#include <unordered_map>
 
 namespace one {
 namespace client {
@@ -36,9 +36,6 @@ public:
     */
     const EventType &aggregate(const EventType &event) override;
 
-    /**
-    * @copydoc Aggregator::all()
-    */
     virtual const EventType &all() const override;
 
     /**
@@ -46,19 +43,18 @@ public:
     * @c FileIdAggregator returns list of aggregation results for events with
     * different file ID.
     */
-    std::list<EventType> reset() override;
+    std::vector<EventType> reset() override;
 
 private:
     EventType m_all;
-    std::map<std::string, EventType> m_eventsByFileId;
+    std::unordered_map<std::string, EventType> m_eventsByFileId;
 };
 
 template <class EventType>
 const EventType &FileIdAggregator<EventType>::aggregate(const EventType &event)
 {
     m_all += event;
-    auto insertionResult =
-        m_eventsByFileId.insert(std::make_pair(event.fileId(), event));
+    auto insertionResult = m_eventsByFileId.emplace(event.fileId(), event);
     if (!insertionResult.second)
         insertionResult.first->second += event;
     return m_all;
@@ -71,14 +67,15 @@ const EventType &FileIdAggregator<EventType>::all() const
 }
 
 template <class EventType>
-std::list<EventType> FileIdAggregator<EventType>::reset()
+std::vector<EventType> FileIdAggregator<EventType>::reset()
 {
-    std::list<EventType> events;
+    std::vector<EventType> events;
     std::transform(
         m_eventsByFileId.begin(), m_eventsByFileId.end(),
         std::back_inserter(events),
-        std::bind(&std::map<std::string, EventType>::value_type::second,
-                  std::placeholders::_1));
+        std::bind(
+            &std::unordered_map<std::string, EventType>::value_type::second,
+            std::placeholders::_1));
     m_all = EventType{};
     m_eventsByFileId.clear();
     return events;

@@ -18,6 +18,7 @@
 #include <mutex>
 #include <chrono>
 #include <memory>
+#include <vector>
 #include <cstdint>
 #include <functional>
 #include <sys/types.h>
@@ -115,12 +116,15 @@ uint64_t EventStream<EventType, SubscriptionType>::addSubscription(
     m_counterThresholds.insert(subscription.m_counterThreshold);
     m_timeThresholds.insert(subscription.m_timeThreshold);
     m_sizeThresholds.insert(subscription.m_sizeThreshold);
+
     if (isEmissionRuleSatisfied(m_aggregator->all()))
         emit();
     else if (timeThreshold != *m_timeThresholds.begin())
         resetPeriodicEmission();
+
     if (m_counterThresholds.size() == 2)
         m_aggregator = std::make_unique<FileIdAggregator<EventType>>();
+
     return subscription.m_id;
 }
 
@@ -147,7 +151,7 @@ bool EventStream<EventType, SubscriptionType>::isEmissionRuleSatisfied(
 template <class EventType, class SubscriptionType>
 void EventStream<EventType, SubscriptionType>::emit()
 {
-    std::list<EventType> events = m_aggregator->reset();
+    std::vector<EventType> events = m_aggregator->reset();
     for (const EventType &event : events)
         m_communicator->send(event);
     resetPeriodicEmission();

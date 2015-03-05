@@ -35,21 +35,21 @@ EventManager::EventManager(std::shared_ptr<Context> context)
 void EventManager::emitReadEvent(const std::string &fileId, off_t offset,
                                  size_t size) const
 {
-    ReadEvent event{std::move(fileId), offset, size};
+    ReadEvent event{fileId, offset, size};
     m_readEventStream->push(event);
 }
 
 void EventManager::emitWriteEvent(const std::string &fileId, off_t offset,
                                   size_t size, off_t fileSize) const
 {
-    WriteEvent event{std::move(fileId), offset, size, fileSize};
+    WriteEvent event{fileId, offset, size, fileSize};
     m_writeEventStream->push(event);
 }
 
 void EventManager::emitTruncateEvent(const std::string &fileId,
                                      off_t fileSize) const
 {
-    TruncateEvent event{std::move(fileId), fileSize};
+    TruncateEvent event{fileId, fileSize};
     m_writeEventStream->push(event);
 }
 

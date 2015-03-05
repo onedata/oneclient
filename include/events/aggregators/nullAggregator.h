@@ -11,7 +11,7 @@
 
 #include "aggregator.h"
 
-#include <list>
+#include <vector>
 
 namespace one {
 namespace client {
@@ -38,9 +38,9 @@ public:
 
     /**
     * @copydoc Aggregator::reset()
-    * @c NullAggregator always return an empty list of aggregated events.
+    * @c NullAggregator always returns an empty list of aggregated events.
     */
-    std::list<EventType> reset() override;
+    std::vector<EventType> reset() override;
 
 private:
     EventType m_all;
@@ -59,9 +59,9 @@ const EventType &NullAggregator<EventType>::all() const
 }
 
 template <class EventType>
-std::list<EventType> NullAggregator<EventType>::reset()
+std::vector<EventType> NullAggregator<EventType>::reset()
 {
-    return std::list<EventType>();
+    return {};
 }
 
 } // namespace events
