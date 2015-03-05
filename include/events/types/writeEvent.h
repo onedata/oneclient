@@ -36,6 +36,8 @@ class WriteEvent : public Event {
     friend std::ostream &operator<<(std::ostream &, const WriteEvent &event);
 
 public:
+    typedef typename one::client::WriteEventSubscription subscription;
+
     /**
     * Default constructor.
     * Creates identity element for write events aggregation operation.

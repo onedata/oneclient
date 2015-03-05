@@ -13,6 +13,8 @@
 #include "eventCommunicator.h"
 #include "events/aggregators/nullAggregator.h"
 #include "events/aggregators/fileIdAggregator.h"
+#include "events/types/readEvent.h"
+#include "events/types/writeEvent.h"
 
 #include <set>
 #include <mutex>
@@ -34,7 +36,7 @@ namespace events {
 * The EventStream class is responsible aggregation and emission of events of
 * type @c EventType.
 */
-template <class EventType, class SubscriptionType> class EventStream {
+template <class EventType> class EventStream {
 public:
     /**
     * Constructor.
@@ -60,14 +62,16 @@ public:
     * SubscriptionType to be added.
     * @return Subscription ID.
     */
-    uint64_t addSubscription(const SubscriptionType &subscription);
+    uint64_t
+    addSubscription(const typename EventType::subscription &subscription);
 
     /**
     * Removes a subscription for events of type @c EventType.
     * @param subscription An instance of subscription of type @c
     * SubscriptionType to removed.
     */
-    void removeSubscription(const SubscriptionType &subscription);
+    void
+    removeSubscription(const typename EventType::subscription &subscription);
 
 private:
     bool isEmissionRuleSatisfied(const EventType &event);
@@ -88,8 +92,8 @@ private:
     std::function<void()> m_cancelPeriodicEmission = [] {};
 };
 
-template <class EventType, class SubscriptionType>
-EventStream<EventType, SubscriptionType>::EventStream(
+template <class EventType>
+EventStream<EventType>::EventStream(
     std::weak_ptr<Context> context,
     std::shared_ptr<EventCommunicator> communicator)
     : m_context{std::move(context)}
@@ -98,8 +102,8 @@ EventStream<EventType, SubscriptionType>::EventStream(
 {
 }
 
-template <class EventType, class SubscriptionType>
-void EventStream<EventType, SubscriptionType>::push(EventType const &event)
+template <class EventType>
+void EventStream<EventType>::push(EventType const &event)
 {
     std::lock_guard<std::mutex> guard{m_streamMutex};
     const EventType &aggregatedEvent = m_aggregator->aggregate(event);
@@ -107,9 +111,9 @@ void EventStream<EventType, SubscriptionType>::push(EventType const &event)
         emit();
 }
 
-template <class EventType, class SubscriptionType>
-uint64_t EventStream<EventType, SubscriptionType>::addSubscription(
-    SubscriptionType const &subscription)
+template <class EventType>
+uint64_t EventStream<EventType>::addSubscription(
+    const typename EventType::subscription &subscription)
 {
     std::lock_guard<std::mutex> guard{m_streamMutex};
     auto timeThreshold = *m_timeThresholds.begin();
@@ -128,9 +132,9 @@ uint64_t EventStream<EventType, SubscriptionType>::addSubscription(
     return subscription.m_id;
 }
 
-template <class EventType, class SubscriptionType>
-void EventStream<EventType, SubscriptionType>::removeSubscription(
-    const SubscriptionType &subscription)
+template <class EventType>
+void EventStream<EventType>::removeSubscription(
+    const typename EventType::subscription &subscription)
 {
     std::lock_guard<std::mutex> guard{m_streamMutex};
     m_counterThresholds.erase(subscription.m_counterThreshold);
@@ -140,16 +144,14 @@ void EventStream<EventType, SubscriptionType>::removeSubscription(
         m_aggregator = std::make_unique<NullAggregator<EventType>>();
 }
 
-template <class EventType, class SubscriptionType>
-bool EventStream<EventType, SubscriptionType>::isEmissionRuleSatisfied(
-    EventType const &event)
+template <class EventType>
+bool EventStream<EventType>::isEmissionRuleSatisfied(EventType const &event)
 {
     return event.counter() >= *m_counterThresholds.begin() ||
            event.size() >= *m_sizeThresholds.begin();
 }
 
-template <class EventType, class SubscriptionType>
-void EventStream<EventType, SubscriptionType>::emit()
+template <class EventType> void EventStream<EventType>::emit()
 {
     std::vector<EventType> events = m_aggregator->reset();
     for (const EventType &event : events)
@@ -157,21 +159,18 @@ void EventStream<EventType, SubscriptionType>::emit()
     resetPeriodicEmission();
 }
 
-template <class EventType, class SubscriptionType>
-void EventStream<EventType, SubscriptionType>::periodicEmission()
+template <class EventType> void EventStream<EventType>::periodicEmission()
 {
     std::lock_guard<std::mutex> guard{m_streamMutex};
     emit();
 }
 
-template <class EventType, class SubscriptionType>
-void EventStream<EventType, SubscriptionType>::resetPeriodicEmission()
+template <class EventType> void EventStream<EventType>::resetPeriodicEmission()
 {
     m_cancelPeriodicEmission();
     m_cancelPeriodicEmission = m_context.lock()->scheduler()->schedule(
         *m_timeThresholds.begin(),
-        std::bind(&EventStream<EventType, SubscriptionType>::periodicEmission,
-                  this));
+        std::bind(&EventStream<EventType>::periodicEmission, this));
 }
 
 } // namespace events

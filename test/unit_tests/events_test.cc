@@ -194,8 +194,8 @@ TEST(Aggregators, FileIdWriteEventAggregatorTest)
 
 TEST_F(Streams, CounterThresholdEmission)
 {
-    std::unique_ptr<EventStream<ReadEvent, ReadEventSubscription>> stream =
-        std::make_unique<EventStream<ReadEvent, ReadEventSubscription>>(
+    std::unique_ptr<EventStream<ReadEvent>> stream =
+        std::make_unique<EventStream<ReadEvent>>(
             context, eventCommunicator);
 
     EXPECT_CALL(*eventCommunicator, send(_))
@@ -226,8 +226,8 @@ TEST_F(Streams, TimeThresholdEmission)
     auto context = std::make_shared<Context>();
     context->setScheduler(std::make_shared<Scheduler>(2));
 
-    std::unique_ptr<EventStream<ReadEvent, ReadEventSubscription>> stream =
-        std::make_unique<EventStream<ReadEvent, ReadEventSubscription>>(
+    std::unique_ptr<EventStream<ReadEvent>> stream =
+        std::make_unique<EventStream<ReadEvent>>(
             context, eventCommunicator);
 
     EXPECT_CALL(*eventCommunicator, send(_))
@@ -253,8 +253,8 @@ TEST_F(Streams, TimeThresholdEmission)
 
 TEST_F(Streams, SizeThresholdEmission)
 {
-    std::unique_ptr<EventStream<ReadEvent, ReadEventSubscription>> stream =
-        std::make_unique<EventStream<ReadEvent, ReadEventSubscription>>(
+    std::unique_ptr<EventStream<ReadEvent>> stream =
+        std::make_unique<EventStream<ReadEvent>>(
             context, eventCommunicator);
 
     EXPECT_CALL(*eventCommunicator, send(_))

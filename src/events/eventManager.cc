@@ -14,9 +14,6 @@
 #include "events/types/writeEvent.h"
 #include "events/types/truncateEvent.h"
 
-#include "messages/server/readEventSubscription.h"
-#include "messages/server/writeEventSubscription.h"
-
 namespace one {
 namespace client {
 namespace events {
@@ -24,12 +21,10 @@ namespace events {
 EventManager::EventManager(std::shared_ptr<Context> context)
 {
     auto communicator = std::make_shared<EventCommunicator>(context);
-    m_readEventStream = std::make_unique<
-        EventStream<ReadEvent, one::client::ReadEventSubscription>>(
-        context, communicator);
-    m_writeEventStream = std::make_unique<
-        EventStream<WriteEvent, one::client::WriteEventSubscription>>(
-        context, communicator);
+    m_readEventStream =
+        std::make_unique<EventStream<ReadEvent>>(context, communicator);
+    m_writeEventStream =
+        std::make_unique<EventStream<WriteEvent>>(context, communicator);
 }
 
 void EventManager::emitReadEvent(const std::string &fileId, off_t offset,

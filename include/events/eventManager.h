@@ -17,9 +17,6 @@
 namespace one {
 namespace client {
 
-class ReadEventSubscription;
-class WriteEventSubscription;
-
 class Context;
 
 namespace events {
@@ -71,10 +68,8 @@ public:
     void emitTruncateEvent(const std::string &fileId, off_t fileSize) const;
 
 private:
-    std::unique_ptr<EventStream<ReadEvent, one::client::ReadEventSubscription>>
-        m_readEventStream;
-    std::unique_ptr<EventStream<
-        WriteEvent, one::client::WriteEventSubscription>> m_writeEventStream;
+    std::unique_ptr<EventStream<ReadEvent>> m_readEventStream;
+    std::unique_ptr<EventStream<WriteEvent>> m_writeEventStream;
 };
 
 } // namespace events

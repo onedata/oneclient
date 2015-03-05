@@ -36,6 +36,8 @@ class ReadEvent : public Event {
     friend std::ostream &operator<<(std::ostream &, const ReadEvent &event);
 
 public:
+    typedef typename one::client::ReadEventSubscription subscription;
+
     /**
     * Default constructor.
     * Creates identity element for read events aggregation operation.

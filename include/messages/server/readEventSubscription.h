@@ -19,7 +19,7 @@ namespace client {
 
 namespace events {
 class ReadEvent;
-template <class EventType, class SubscriptionType> class EventStream;
+template <class EventType> class EventStream;
 }
 
 /**
@@ -27,7 +27,7 @@ template <class EventType, class SubscriptionType> class EventStream;
 * sent by the server.
 */
 class ReadEventSubscription : public ServerMessage {
-    friend class events::EventStream<events::ReadEvent, ReadEventSubscription>;
+    friend class events::EventStream<events::ReadEvent>;
 
 public:
     /**
