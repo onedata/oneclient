@@ -22,8 +22,8 @@ public:
                 std::shared_ptr<one::client::MetaCache> metaCache,
                 std::shared_ptr<one::client::LocalStorageManager> sManager,
                 std::shared_ptr<one::helpers::StorageHelperFactory> sh_factory,
-                std::shared_ptr<one::client::events::EventCommunicator> eventCommunicator)
-        : FsImpl{path, std::move(context), fslogic, metaCache, sManager, sh_factory, eventCommunicator}
+                std::shared_ptr<one::client::events::EventManager> eventManager)
+        : FsImpl{path, std::move(context), fslogic, metaCache, sManager, sh_factory, eventManager}
     {
     }
 

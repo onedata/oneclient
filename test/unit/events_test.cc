@@ -1,411 +1,301 @@
 /**
  * @file events_test.cc
- * @author Michal Sitko
- * @copyright (C) 2014 ACK CYFRONET AGH
- * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
  */
 
+#include "context.h"
 #include "testCommon.h"
+#include "scheduler.h"
+#include "scheduler_mock.h"
+#include "eventCommunicator_mock.h"
 
-#include "communication_protocol.pb.h"
-#include "communication/communicator_mock.h"
-#include "events/events.h"
-#include "events_mock.h"
-#include "fuse_messages.pb.h"
-#include "options_mock.h"
+#include "events/eventStream.h"
+#include "events/eventCommunicator.h"
+#include "events/types/readEvent.h"
+#include "events/types/writeEvent.h"
+#include "events/types/truncateEvent.h"
+#include "events/aggregators/nullAggregator.h"
+#include "events/aggregators/fileIdAggregator.h"
+#include "messages/server/readEventSubscription.h"
 
-#include <list>
+#include <boost/icl/interval_set.hpp>
+
 #include <vector>
 #include <memory>
+#include <chrono>
+#include <thread>
+#include <cstdint>
+#include <algorithm>
 
 using namespace ::testing;
-using namespace std::placeholders;
+using namespace one;
 using namespace one::client;
 using namespace one::client::events;
+using namespace std::literals::chrono_literals;
 
-class EventsTest: public CommonTest
+typedef boost::icl::interval_set<off_t> Blocks;
+
+inline boost::icl::discrete_interval<off_t> block(off_t offset, size_t size)
 {
-public:
+    return boost::icl::discrete_interval<off_t>::right_open(offset,
+                                                            offset + size);
+}
+
+template <class EventType>
+bool greaterFileId(const EventType &lhs, const EventType &rhs)
+{
+    return lhs.fileId() > rhs.fileId();
+}
+
+class Aggregators : public CommonTest {
+protected:
+    std::shared_ptr<MockEventCommunicator> eventCommunicator;
+
     void SetUp() override
     {
         CommonTest::SetUp();
+        eventCommunicator = std::make_shared<MockEventCommunicator>(context);
 
-        one::clproto::communication_protocol::Answer ans;
-        ans.set_answer_status(VOK);
-        EXPECT_CALL(*communicator, communicateMock(_, _, _, _)).WillRepeatedly(Return(ans));
+        ON_CALL(*scheduler, schedule(_, _)).WillByDefault(Return([] {}));
     }
 };
 
-class TestHelper
-{
-public:
-    std::shared_ptr<Event> processEvent(std::shared_ptr<Event> event){
-        auto newEvent = std::make_shared<Event>();
-        newEvent->setStringProperty("customActionKey", "custom_action_invoked");
-        return newEvent;
-    }
-};
+class Streams : public CommonTest {
+protected:
+    std::shared_ptr<MockEventCommunicator> eventCommunicator;
 
-// checks simple stream with single EventFilter
-TEST(EventFilter, SimpleFilter) {
-    // given
-    std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
-    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file2", 0, 100);
-    EventFilter filter("type", "mkdir_event");
-
-    // what
-    std::shared_ptr<Event> resEvent = filter.processEvent(writeEvent);
-    ASSERT_FALSE((bool) resEvent);
-
-    resEvent = filter.processEvent(mkdirEvent);
-    ASSERT_TRUE((bool) resEvent);
-    ASSERT_EQ("file1", resEvent->getStringProperty("filePath", ""));
-}
-
-// checks simple stream with single EventAggregator
-TEST(EventAggregatorTest, SimpleAggregation) {
-    // given
-    std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
-    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 0, 100);
-    EventAggregator aggregator(5);
-
-    // what
-    for(int i=0; i<4; ++i){
-        std::shared_ptr<Event> res = aggregator.processEvent(mkdirEvent);
-        ASSERT_FALSE((bool) res);
-    }
-
-    // then
-    std::shared_ptr<Event> res = aggregator.processEvent(writeEvent);
-    ASSERT_TRUE((bool) res);
-
-    ASSERT_EQ(1, res->getNumericPropertiesSize());
-    ASSERT_EQ(2, res->getStringPropertiesSize());
-    ASSERT_EQ("count", res->getStringProperty(SUM_FIELD_NAME, ""));
-    ASSERT_EQ("file1", res->getStringProperty("filePath", ""));
-    ASSERT_EQ(5, res->getNumericProperty("count", -1));
-
-    for(int i=0; i<4; ++i){
-        std::shared_ptr<Event> res = aggregator.processEvent(mkdirEvent);
-        ASSERT_FALSE((bool) res);
-    }
-
-    res = aggregator.processEvent(writeEvent);
-    ASSERT_TRUE((bool) res);
-    ASSERT_EQ(1, res->getNumericPropertiesSize());
-    ASSERT_EQ(2, res->getStringPropertiesSize());
-    ASSERT_EQ("count", res->getStringProperty(SUM_FIELD_NAME, ""));
-    ASSERT_EQ("file1", res->getStringProperty("filePath", ""));
-    ASSERT_EQ(5, res->getNumericProperty("count", -1));
-}
-
-TEST(EventAggregatorTest, AggregationByOneField) {
-    // given
-    std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
-    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 0, 100);
-    EventAggregator aggregator("type", 5);
-
-    // what
-    for(int i=0; i<4; ++i){
-        std::shared_ptr<Event> res = aggregator.processEvent(mkdirEvent);
-        ASSERT_FALSE((bool) res);
-    }
-    std::shared_ptr<Event> res = aggregator.processEvent(writeEvent);
-    ASSERT_FALSE((bool) res);
-
-    res = aggregator.processEvent(mkdirEvent);
-    ASSERT_TRUE((bool) res);
-    ASSERT_EQ(1, res->getNumericPropertiesSize());
-    ASSERT_EQ(3, res->getStringPropertiesSize());
-    ASSERT_EQ("count", res->getStringProperty(SUM_FIELD_NAME, ""));
-    ASSERT_EQ("file1", res->getStringProperty("filePath", ""));
-    ASSERT_EQ(5, res->getNumericProperty("count", -1));
-    ASSERT_EQ("mkdir_event", res->getStringProperty("type", ""));
-
-    // we are sending just 3 writeEvents because one has already been sent
-    for(int i=0; i<3; ++i){
-        std::shared_ptr<Event> res = aggregator.processEvent(writeEvent);
-        ASSERT_FALSE((bool) res);
-    }
-
-    res = aggregator.processEvent(mkdirEvent);
-    ASSERT_FALSE((bool) res);
-
-    res = aggregator.processEvent(writeEvent);
-    ASSERT_TRUE((bool) res);
-    ASSERT_EQ(1, res->getNumericPropertiesSize());
-    ASSERT_EQ(3, res->getStringPropertiesSize());
-    ASSERT_EQ(5, res->getNumericProperty("count", -1));
-    ASSERT_EQ("write_event", res->getStringProperty("type", ""));
-    ASSERT_EQ("file1", res->getStringProperty("filePath", ""));
-}
-
-TEST(EventAggregatorTest, AggregationWithSum) {
-    std::shared_ptr<Event> smallWriteEvent = Event::createWriteEvent("file1", 0, 5);
-    std::shared_ptr<Event> bigWriteEvent = Event::createWriteEvent("file1", 0, 100);
-    EventAggregator aggregator("type", 110, "bytes");
-
-    std::shared_ptr<Event> res = aggregator.processEvent(smallWriteEvent);
-    ASSERT_FALSE((bool) res);
-    res = aggregator.processEvent(bigWriteEvent);
-    ASSERT_FALSE((bool) res);
-
-    res = aggregator.processEvent(smallWriteEvent);
-    ASSERT_TRUE((bool) res);
-    ASSERT_EQ(1, res->getNumericPropertiesSize());
-    ASSERT_EQ(3, res->getStringPropertiesSize());
-    ASSERT_EQ(110, res->getNumericProperty("bytes", -1));
-    ASSERT_EQ("write_event", res->getStringProperty("type", ""));
-    ASSERT_EQ("file1", res->getStringProperty("filePath", ""));
-
-    res = aggregator.processEvent(smallWriteEvent);
-    ASSERT_FALSE((bool) res);
-    res = aggregator.processEvent(bigWriteEvent);
-    ASSERT_FALSE((bool) res);
-
-    res = aggregator.processEvent(bigWriteEvent);
-    ASSERT_TRUE((bool) res);
-    ASSERT_EQ(1, res->getNumericPropertiesSize());
-    ASSERT_EQ(3, res->getStringPropertiesSize());
-    ASSERT_EQ(205, res->getNumericProperty("bytes", -1));
-    ASSERT_EQ("write_event", res->getStringProperty("type", ""));
-    ASSERT_EQ("file1", res->getStringProperty("filePath", ""));
-}
-
-// checks event filter composed with event aggregator
-TEST(EventAggregatorTest, FilterAndAggregation) {
-    std::shared_ptr<Event> file1Event = Event::createMkdirEvent("file1");
-    std::shared_ptr<Event> file2Event = Event::createMkdirEvent("file2");
-    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 0, 100);
-    std::shared_ptr<Event> writeEvent2 = Event::createWriteEvent("file2", 0, 100);
-    std::shared_ptr<IEventStream> filter = std::make_shared<EventFilter>("type", "mkdir_event");
-    std::shared_ptr<IEventStream> aggregator = std::make_shared<EventAggregator>(filter, "filePath", 5);
-
-    for(int i=0; i<4; ++i){
-        std::shared_ptr<Event> res = aggregator->processEvent(file1Event);
-        ASSERT_FALSE((bool) res);
-    }
-
-    std::shared_ptr<Event> res = aggregator->processEvent(file2Event);
-    ASSERT_FALSE((bool) res);
-
-    res = aggregator->processEvent(writeEvent);
-    ASSERT_FALSE((bool) res);
-
-    res = aggregator->processEvent(file1Event);
-    ASSERT_TRUE((bool) res);
-    ASSERT_EQ(1, res->getNumericPropertiesSize());
-    ASSERT_EQ(2, res->getStringPropertiesSize());
-    ASSERT_EQ(5, res->getNumericProperty("count", -1));
-    ASSERT_EQ("file1", res->getStringProperty("filePath", ""));
-
-    for(int i=0; i<3; ++i){
-        std::shared_ptr<Event> res = aggregator->processEvent(file2Event);
-        ASSERT_FALSE((bool) res);
-    }
-
-    res = aggregator->processEvent(file2Event);
-    ASSERT_TRUE((bool) res);
-    ASSERT_EQ(1, res->getNumericPropertiesSize());
-    ASSERT_EQ(2, res->getStringPropertiesSize());
-    ASSERT_EQ(5, res->getNumericProperty("count", -1));
-    ASSERT_EQ("file2", res->getStringProperty("filePath", ""));
-
-    for(int i=0; i<5; ++i){
-        std::shared_ptr<Event> res = aggregator->processEvent(writeEvent2);
-        ASSERT_FALSE((bool) res);
-    }
-}
-
-TEST(EventAggregatorTest, PathAggregationAndClearing) {
-    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 0, 100);
-    std::shared_ptr<Event> writeEvent2 = Event::createWriteEvent("file2", 0, 100);
-    std::shared_ptr<IEventStream> aggregator = std::make_shared<EventAggregator>("type", 505, "bytes");
-
-    std::shared_ptr<Event> res = aggregator->processEvent(writeEvent);
-    ASSERT_FALSE((bool) res);
-
-    res = aggregator->processEvent(writeEvent);
-    ASSERT_FALSE((bool) res);
-
-    res = aggregator->processEvent(writeEvent);
-    ASSERT_FALSE((bool) res);
-
-    res = aggregator->processEvent(writeEvent2);
-    ASSERT_FALSE((bool) res);
-
-    res = aggregator->processEvent(writeEvent2);
-    ASSERT_FALSE((bool) res);
-
-    std::list<std::shared_ptr<Event> > pendingEvents = aggregator->getPendingEvents(std::list<std::shared_ptr<Event> >{});
-    ASSERT_EQ(2, pendingEvents.size());
-    for(auto event : pendingEvents)
+    void SetUp() override
     {
-        if(event->getNumericProperty("bytes", -1) == 200)
-        {
-            ASSERT_EQ("file2", event->getStringProperty("filePath", ""));
-        }
-        else
-        {
-            ASSERT_EQ("file1", event->getStringProperty("filePath", ""));
-            ASSERT_EQ(300, event->getNumericProperty("bytes", -1));
-        }
+        CommonTest::SetUp();
+        eventCommunicator = std::make_shared<MockEventCommunicator>(context);
+
+        ON_CALL(*scheduler, schedule(_, _)).WillByDefault(Return([] {}));
     }
+};
+
+TEST_F(Aggregators, NullAggregatorTest)
+{
+    std::unique_ptr<Aggregator<ReadEvent>> aggregator =
+        std::make_unique<NullAggregator<ReadEvent>>();
+
+    std::shared_ptr<EventStream<ReadEvent>> stream =
+        std::make_shared<EventStream<ReadEvent>>(context, eventCommunicator);
+
+    const ReadEvent &aggregatedEvent =
+        aggregator->aggregate(ReadEvent{stream, "fileId1", 0, 10});
+    EXPECT_EQ(ReadEvent(), aggregatedEvent);
+    EXPECT_EQ(aggregatedEvent, aggregator->all());
+    EXPECT_TRUE(aggregator->reset().empty());
 }
 
-TEST(EventTransformerTest, SimpleTransformation) {
-    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 0, 100);
-    std::vector<std::string> fieldNames;
-    fieldNames.push_back("type");
-    std::vector<std::string> toReplace;
-    toReplace.push_back("write_event");
-    std::vector<std::string> replaceWith;
-    replaceWith.push_back("write_for_stats");
-    std::shared_ptr<IEventStream> transformer = std::make_shared<EventTransformer>(fieldNames, toReplace, replaceWith);
+TEST_F(Aggregators, FileIdReadEventAggregatorTest)
+{
+    std::unique_ptr<Aggregator<ReadEvent>> aggregator =
+        std::make_unique<FileIdAggregator<ReadEvent>>();
 
-    std::shared_ptr<Event> output = transformer->processEvent(writeEvent);
-    ASSERT_EQ(1, output->getNumericPropertiesSize());
-    ASSERT_EQ(2, output->getStringPropertiesSize());
-    ASSERT_EQ("write_for_stats", output->getStringProperty("type", ""));
+    std::shared_ptr<EventStream<ReadEvent>> stream =
+        std::make_shared<EventStream<ReadEvent>>(context, eventCommunicator);
+
+    const ReadEvent &aggregatedEvent1 =
+        aggregator->aggregate(ReadEvent{stream, "fileId1", 0, 10});
+    EXPECT_EQ(1, aggregatedEvent1.counter());
+    EXPECT_EQ(10, aggregatedEvent1.size());
+    EXPECT_EQ(aggregatedEvent1, aggregator->all());
+
+    const ReadEvent &aggregatedEvent2 =
+        aggregator->aggregate(ReadEvent{stream, "fileId1", 10, 5});
+    EXPECT_EQ(2, aggregatedEvent2.counter());
+    EXPECT_EQ(15, aggregatedEvent2.size());
+    EXPECT_EQ(aggregatedEvent2, aggregator->all());
+
+    const ReadEvent &aggregatedEvent3 =
+        aggregator->aggregate(ReadEvent{stream, "fileId2", 0, 5});
+    EXPECT_EQ(3, aggregatedEvent3.counter());
+    EXPECT_EQ(20, aggregatedEvent3.size());
+    EXPECT_EQ(aggregatedEvent3, aggregator->all());
+
+    const ReadEvent &aggregatedEvent4 =
+        aggregator->aggregate(ReadEvent{stream, "fileId3", 0, 10});
+    EXPECT_EQ(4, aggregatedEvent4.counter());
+    EXPECT_EQ(30, aggregatedEvent4.size());
+    EXPECT_EQ(aggregatedEvent4, aggregator->all());
+
+    std::vector<ReadEvent> aggregatedEvents = aggregator->reset();
+    std::sort(aggregatedEvents.begin(), aggregatedEvents.end(),
+              greaterFileId<ReadEvent>);
+
+    EXPECT_EQ(3, aggregatedEvents.size());
+    EXPECT_EQ("fileId1", aggregatedEvents.back().fileId());
+    EXPECT_EQ(2, aggregatedEvents.back().counter());
+    EXPECT_EQ(15, aggregatedEvents.back().size());
+    EXPECT_TRUE(Blocks{block(0, 15)} == aggregatedEvents.back().blocks());
+    aggregatedEvents.pop_back();
+
+    EXPECT_EQ("fileId2", aggregatedEvents.back().fileId());
+    EXPECT_EQ(1, aggregatedEvents.back().counter());
+    EXPECT_EQ(5, aggregatedEvents.back().size());
+    EXPECT_TRUE(Blocks{block(0, 5)} == aggregatedEvents.back().blocks());
+    aggregatedEvents.pop_back();
+
+    EXPECT_EQ("fileId3", aggregatedEvents.back().fileId());
+    EXPECT_EQ(1, aggregatedEvents.back().counter());
+    EXPECT_EQ(10, aggregatedEvents.back().size());
+    EXPECT_TRUE(Blocks{block(0, 10)} == aggregatedEvents.back().blocks());
+    aggregatedEvents.pop_back();
+
+    EXPECT_EQ(ReadEvent(), aggregator->all());
+    EXPECT_EQ(aggregatedEvents, aggregator->reset());
 }
 
-TEST_F(EventsTest, EventStreamCombiner_CombineStreams) {
-    std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
-    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 0, 100);
-    std::shared_ptr<IEventStream> mkdirFilter = std::make_shared<EventFilter>("type", "mkdir_event");
-    EventStreamCombiner combiner{context};
-    combiner.addSubstream(mkdirFilter);
+TEST_F(Aggregators, FileIdWriteEventAggregatorTest)
+{
+    std::unique_ptr<Aggregator<WriteEvent>> aggregator =
+        std::make_unique<FileIdAggregator<WriteEvent>>();
 
-    auto events = combiner.processEvent(mkdirEvent);
-    ASSERT_EQ(1u, events.size());
+    std::shared_ptr<EventStream<WriteEvent>> stream =
+        std::make_shared<EventStream<WriteEvent>>(context, eventCommunicator);
 
-    events = combiner.processEvent(writeEvent);
-    ASSERT_EQ(0u, events.size());
+    const WriteEvent &aggregatedEvent1 =
+        aggregator->aggregate(WriteEvent{stream, "fileId1", 0, 10, 10});
+    EXPECT_EQ(1, aggregatedEvent1.counter());
+    EXPECT_EQ(10, aggregatedEvent1.size());
+    EXPECT_EQ(10, aggregatedEvent1.fileSize());
+    EXPECT_EQ(aggregatedEvent1, aggregator->all());
 
-    std::shared_ptr<IEventStream> writeFilter = std::make_shared<EventFilter>("type", "write_event");
-    combiner.addSubstream(writeFilter);
+    const WriteEvent &aggregatedEvent2 =
+        aggregator->aggregate(WriteEvent{stream, "fileId1", 10, 5, 15});
+    EXPECT_EQ(2, aggregatedEvent2.counter());
+    EXPECT_EQ(15, aggregatedEvent2.size());
+    EXPECT_EQ(15, aggregatedEvent2.fileSize());
+    EXPECT_EQ(aggregatedEvent2, aggregator->all());
 
-    events = combiner.processEvent(writeEvent);
-    ASSERT_EQ(1u, events.size());
+    const WriteEvent &aggregatedEvent3 =
+        aggregator->aggregate(TruncateEvent{stream, "fileId1", 10});
+    EXPECT_EQ(3, aggregatedEvent3.counter());
+    EXPECT_EQ(15, aggregatedEvent3.size());
+    EXPECT_EQ(10, aggregatedEvent3.fileSize());
+    EXPECT_EQ(aggregatedEvent3, aggregator->all());
 
-    events = combiner.processEvent(mkdirEvent);
-    ASSERT_EQ(1u, events.size());
+    const WriteEvent &aggregatedEvent4 =
+        aggregator->aggregate(WriteEvent{stream, "fileId2", 0, 5, 5});
+    EXPECT_EQ(4, aggregatedEvent4.counter());
+    EXPECT_EQ(20, aggregatedEvent4.size());
+    EXPECT_EQ(aggregatedEvent4, aggregator->all());
+
+    const WriteEvent &aggregatedEvent5 =
+        aggregator->aggregate(WriteEvent{stream, "fileId2", 0, 10, 10});
+    EXPECT_EQ(5, aggregatedEvent5.counter());
+    EXPECT_EQ(30, aggregatedEvent5.size());
+    EXPECT_EQ(aggregatedEvent5, aggregator->all());
+
+    std::vector<WriteEvent> aggregatedEvents = aggregator->reset();
+    std::sort(aggregatedEvents.begin(), aggregatedEvents.end(),
+              greaterFileId<WriteEvent>);
+
+    EXPECT_EQ(2, aggregatedEvents.size());
+    EXPECT_EQ("fileId1", aggregatedEvents.back().fileId());
+    EXPECT_EQ(3, aggregatedEvents.back().counter());
+    EXPECT_EQ(15, aggregatedEvents.back().size());
+    EXPECT_EQ(10, aggregatedEvents.back().fileSize());
+    EXPECT_TRUE(Blocks{block(0, 10)} == aggregatedEvents.back().blocks());
+    aggregatedEvents.pop_back();
+
+    EXPECT_EQ("fileId2", aggregatedEvents.back().fileId());
+    EXPECT_EQ(2, aggregatedEvents.back().counter());
+    EXPECT_EQ(15, aggregatedEvents.back().size());
+    EXPECT_EQ(10, aggregatedEvents.back().fileSize());
+    EXPECT_TRUE(Blocks{block(0, 10)} == aggregatedEvents.back().blocks());
+    aggregatedEvents.pop_back();
+
+    EXPECT_EQ(WriteEvent(), aggregator->all());
+    EXPECT_EQ(aggregatedEvents, aggregator->reset());
 }
 
-TEST(IEventStream, CustomActionStreamTest){
-    TestHelper testHelper;
-    std::shared_ptr<Event> writeEvent = Event::createWriteEvent("file1", 0, 100);
-    std::shared_ptr<Event> mkdirEvent = Event::createMkdirEvent("file1");
+TEST_F(Streams, CounterThresholdEmission)
+{
+    std::shared_ptr<EventStream<ReadEvent>> stream =
+        std::make_shared<EventStream<ReadEvent>>(context, eventCommunicator);
 
-    std::shared_ptr<IEventStream> filter = std::make_shared<EventFilter>("type", "mkdir_event");
-    CustomActionStream action(filter, std::bind(&TestHelper::processEvent, &testHelper, _1));
+    EXPECT_CALL(*eventCommunicator, send(_))
+        .WillOnce(Invoke([](const Event &event) {
+            const ReadEvent &readEvent = static_cast<const ReadEvent &>(event);
+            EXPECT_EQ("fileId", readEvent.fileId());
+            EXPECT_EQ(10, readEvent.counter());
+            EXPECT_EQ(10, readEvent.size());
+            EXPECT_TRUE(Blocks{block(0, 10)} == readEvent.blocks());
+        }));
 
-    std::shared_ptr<Event> res = action.processEvent(writeEvent);
-    ASSERT_FALSE((bool) res);
+    ReadEventSubscription subscription{1, 10, 10s, 100};
 
-    res = action.processEvent(mkdirEvent);
-    ASSERT_TRUE((bool) res);
+    stream->push(ReadEvent{stream, "fileId", 0, 100});
 
-    std::string r = res->getStringProperty("customActionKey", "");
+    EXPECT_EQ(1, stream->addSubscription(subscription));
 
-    ASSERT_EQ("custom_action_invoked", res->getStringProperty("customActionKey", ""));
+    for (int i = 0; i < 10; ++i)
+        stream->push(ReadEvent{stream, "fileId", i, 1});
+
+    stream->removeSubscription(subscription);
+
+    stream->push(ReadEvent{stream, "fileId", 0, 100});
 }
 
-// checks if EventStreams are created correctly from EventStreamConfig proto buff message
-// proto buff messages are not easy to mock because their methods are nonvirtual. Mocking is possible but would need
-// changes in code which is not worth it
-TEST(IEventStream, ConstructFromConfig1) {
-    using namespace one::clproto::fuse_messages;
+TEST_F(Streams, TimeThresholdEmission)
+{
+    auto context = std::make_shared<Context>();
+    context->setScheduler(std::make_shared<Scheduler>(2));
 
-    // given
-    //EventFilterConfig filterConfig;
-    EventStreamConfig config;
-    EventFilterConfig * filterConfig = config.mutable_filter_config();
-    filterConfig->set_field_name("type");
-    filterConfig->set_desired_value("write_event");
+    std::shared_ptr<EventStream<ReadEvent>> stream =
+        std::make_shared<EventStream<ReadEvent>>(context, eventCommunicator);
 
-    // what
-    std::shared_ptr<IEventStream> stream = IEventStreamFactory::fromConfig(config);
+    EXPECT_CALL(*eventCommunicator, send(_))
+        .WillOnce(Invoke([](const Event &event) {
+            const ReadEvent &readEvent = static_cast<const ReadEvent &>(event);
+            EXPECT_EQ("fileId", readEvent.fileId());
+            EXPECT_EQ(5, readEvent.counter());
+            EXPECT_EQ(5, readEvent.size());
+            EXPECT_TRUE(Blocks{block(0, 5)} == readEvent.blocks());
+        }));
 
-    // then
-    ASSERT_TRUE((bool) stream);
-    EventFilter * eventFilter = dynamic_cast<EventFilter *>(stream.get());
-    ASSERT_TRUE(eventFilter != nullptr);
-    ASSERT_EQ("type", eventFilter->getFieldName());
-    ASSERT_EQ("write_event", eventFilter->getDesiredValue());
-    ASSERT_FALSE((bool) eventFilter->getWrappedStream());
+    ReadEventSubscription subscription{1, 100, 1s, 100};
+
+    EXPECT_EQ(1, stream->addSubscription(subscription));
+
+    for (int i = 0; i < 5; ++i)
+        stream->push(ReadEvent{stream, "fileId", i, 1});
+
+    std::this_thread::sleep_for(2s);
+
+    stream->removeSubscription(subscription);
 }
 
-TEST(IEventStream, ConstructFromConfig2) {
-    using namespace one::clproto::fuse_messages;
+TEST_F(Streams, SizeThresholdEmission)
+{
+    std::shared_ptr<EventStream<ReadEvent>> stream =
+        std::make_shared<EventStream<ReadEvent>>(context, eventCommunicator);
 
-    // given
-    EventStreamConfig config;
-    EventAggregatorConfig * aggregatorConfig = config.mutable_aggregator_config();
-    aggregatorConfig->set_field_name("filePath");
-    aggregatorConfig->set_sum_field_name("count");
-    aggregatorConfig->set_threshold(15);
-    EventStreamConfig * wrappedConfig = config.mutable_wrapped_config();
-    EventFilterConfig * filterConfig = wrappedConfig->mutable_filter_config();
-    filterConfig->set_field_name("type");
-    filterConfig->set_desired_value("write_event");
+    EXPECT_CALL(*eventCommunicator, send(_))
+        .WillOnce(Invoke([](const Event &event) {
+            const ReadEvent &readEvent = static_cast<const ReadEvent &>(event);
+            EXPECT_EQ("fileId", readEvent.fileId());
+            EXPECT_EQ(10, readEvent.counter());
+            EXPECT_EQ(1000, readEvent.size());
+            EXPECT_TRUE(Blocks{block(0, 1000)} == readEvent.blocks());
+        }));
 
-    // what
-    std::shared_ptr<IEventStream> stream = IEventStreamFactory::fromConfig(config);
+    ReadEventSubscription subscription{1, 100, 10s, 1000};
 
-    // then
-    ASSERT_TRUE((bool) stream);
-    EventAggregator * eventAggregator = dynamic_cast<EventAggregator *>(stream.get());
-    ASSERT_TRUE(eventAggregator != nullptr);
-    ASSERT_EQ("filePath", eventAggregator->getFieldName());
-    ASSERT_EQ("count", eventAggregator->getSumFieldName());
-    ASSERT_EQ(15, eventAggregator->getThreshold());
-    std::shared_ptr<IEventStream> wrappedStream = eventAggregator->getWrappedStream();
-    ASSERT_TRUE((bool) wrappedStream);
-    EventFilter * eventFilter = dynamic_cast<EventFilter *> (wrappedStream.get());
-    ASSERT_TRUE(eventFilter != nullptr);
-    ASSERT_EQ("type", eventFilter->getFieldName());
-    ASSERT_EQ("write_event", eventFilter->getDesiredValue());
-    ASSERT_FALSE((bool) eventFilter->getWrappedStream());
-}
+    stream->push(ReadEvent{stream, "fileId", 0, 100});
 
-TEST(IEventStream, ConstructFromConfigReturnsEmptyPointerWhenConfigIncorrect){
-    using namespace one::clproto::fuse_messages;
+    EXPECT_EQ(1, stream->addSubscription(subscription));
 
-    // given
-    EventStreamConfig config;
+    for (int i = 0; i < 10; ++i)
+        stream->push(ReadEvent{stream, "fileId", i * 100, 100});
 
-    // what
-    std::shared_ptr<IEventStream> stream = IEventStreamFactory::fromConfig(config);
+    stream->removeSubscription(subscription);
 
-    //config was incorrect so we expect IEventStreamFactory::fromConfig to return empty std::shared_ptr
-    ASSERT_FALSE((bool) stream);
-}
-
-TEST_F(EventsTest, EventCombinerRunTask){
-    std::shared_ptr<MockEventStream> substreamMock1 = std::make_shared<MockEventStream>();
-    EXPECT_CALL(*substreamMock1, processEvent(_)).WillRepeatedly(Return(Event::createMkdirEvent("file1")));
-    std::shared_ptr<Event> event(Event::createMkdirEvent("file"));
-    EventStreamCombiner combiner{context};
-
-    combiner.pushEventToProcess(event);
-    ASSERT_EQ(1u, combiner.getEventsToProcess().size());
-
-    combiner.processNextEvent();
-    ASSERT_EQ(0u, combiner.getEventsToProcess().size());
-
-    combiner.addSubstream(substreamMock1);
-
-    combiner.pushEventToProcess(event);
-    combiner.pushEventToProcess(event);
-    ASSERT_EQ(2u, combiner.getEventsToProcess().size());
-
-    combiner.processNextEvent();
-    ASSERT_EQ(1u, combiner.getEventsToProcess().size());
-
-    combiner.processNextEvent();
-    ASSERT_EQ(0u, combiner.getEventsToProcess().size());
-
-    combiner.processNextEvent();
-    ASSERT_EQ(0u, combiner.getEventsToProcess().size());
+    for (int i = 0; i < 100; ++i)
+        stream->push(ReadEvent{stream, "fileId", i, 1});
 }

@@ -7,14 +7,13 @@
 
 #include "communication/communicator_mock.h"
 #include "config.h"
-#include "events/events.h"
-#include "events_mock.h"
 #include "fslogicProxy_mock.h"
 #include "localStorageManager_mock.h"
 #include "messageBuilder_mock.h"
 #include "metaCache_mock.h"
 #include "options_mock.h"
 #include "scheduler_mock.h"
+#include "eventManager_mock.h"
 #include "storageHelperFactory_fake.h"
 #include "storageMapper_mock.h"
 #include "testCommon.h"
@@ -49,8 +48,8 @@ public:
     std::shared_ptr<MockLocalStorageManager> storageManagerMock;
     std::shared_ptr<MockStorageMapper> storageMapperMock;
     std::shared_ptr<MockGenericHelper> helperMock;
+    std::shared_ptr<MockEventManager> eventManagerMock;
     std::shared_ptr<FakeStorageHelperFactory> factoryFake;
-    std::shared_ptr<MockEventCommunicator> eventCommunicatorMock;
 
     struct fuse_file_info fileInfo;
     struct stat trueStat;
@@ -78,7 +77,7 @@ public:
         storageManagerMock = std::make_shared<MockLocalStorageManager>(context);
         helperMock = std::make_shared<MockGenericHelper>();
         factoryFake = std::make_shared<FakeStorageHelperFactory>();
-        eventCommunicatorMock = std::make_shared<MockEventCommunicator>(context);
+        eventManagerMock = std::make_shared<MockEventManager>(context);
 
         EXPECT_CALL(*fslogicMock, pingCluster()).WillRepeatedly(Return());
         EXPECT_CALL(*options, get_alive_meta_connections_count()).WillRepeatedly(Return(0));
@@ -101,7 +100,7 @@ public:
                         metaCacheMock,
                         storageManagerMock,
                         factoryFake,
-                        eventCommunicatorMock);
+                        eventManagerMock);
 
         factoryFake->presetMock = helperMock;
 
@@ -459,6 +458,7 @@ TEST_F(FsImplTest, chown) { // const char *path, uid_t uid, gid_t gid
 }
 
 TEST_F(FsImplTest, truncate) { // const char *path, off_t newSize
+    EXPECT_CALL(*eventManagerMock, emitTruncateEvent(_, _)).WillRepeatedly(Return());
 
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", true, _)).WillOnce(Throw(OneException(VEACCES)));
     EXPECT_EQ(-EACCES, getError([&]{ return client->truncate("/path", 10); }));
@@ -502,6 +502,8 @@ TEST_F(FsImplTest, read) { // const char *path, char *buf, size_t size, off_t of
 
     struct stat statbuf = {0};
     statbuf.st_size = 10;
+    EXPECT_CALL(*eventManagerMock, emitReadEvent(_, _, _)).WillRepeatedly(Return());
+
     EXPECT_CALL(*metaCacheMock, getAttr("/path", _)).WillRepeatedly(DoAll(SetArgPointee<1>(statbuf), Return(true)));
 
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _, _)).WillOnce(Throw(OneException(VEACCES)));
@@ -517,6 +519,7 @@ TEST_F(FsImplTest, read) { // const char *path, char *buf, size_t size, off_t of
 }
 
 TEST_F(FsImplTest, write) { // const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fileInfo
+    EXPECT_CALL(*eventManagerMock, emitWriteEvent(_, _, _, _)).WillRepeatedly(Return());
 
     EXPECT_CALL(*storageMapperMock, getLocationInfo("/path", _, _)).WillOnce(Throw(OneException(VEACCES)));
     EXPECT_EQ(-EACCES, getError([&]{ return client->write("/path", "abcd", 4, 0, &fileInfo); }));
@@ -539,7 +542,6 @@ TEST_F(FsImplTest, write) { // const char *path, const char *buf, size_t size, o
     EXPECT_CALL(*metaCacheMock, updateSize("/path", _)).Times(0);
 
     EXPECT_CALL(*helperMock, sh_write(StrEq("fileid"), StrEq("abcd"), 4, 2, _)).WillOnce(Return(4));
-    EXPECT_CALL(*eventCommunicatorMock, processEvent(_));
     EXPECT_EQ(4, client->write("/path", "abcd", 4, 2, &fileInfo));
 
 }
@@ -637,18 +639,6 @@ TEST_F(FsImplTest, fsyncdir) { // const char *path, int datasync, struct fuse_fi
 TEST_F(FsImplTest, init) { // struct fuse_conn_info *conn
     struct fuse_conn_info info;
     EXPECT_EQ(0, client->init(&info));
-}
-
-TEST_F(FsImplTest, processEvent) {
-    auto combinerMock = std::make_shared<MockEventStreamCombiner>(context);
-    ASSERT_TRUE((bool) combinerMock);
-    EventCommunicator communicator(context, combinerMock);
-    EXPECT_CALL(*combinerMock, pushEventToProcess(_)).WillOnce(Return());
-    EXPECT_CALL(*scheduler, schedule(_, _));
-    std::shared_ptr<Event> event = Event::createMkdirEvent("some_file");
-
-    ASSERT_TRUE((bool) event);
-    communicator.processEvent(event);
 }
 
 struct FSImplBlockTest: public FsImplTest

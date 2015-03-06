@@ -18,6 +18,7 @@
 #include "auth/authException.h"
 #include "auth/authManager.h"
 #include "auth/gsiHandler.h"
+#include "events/eventManager.h"
 #include "certUnconfirmedException.h"
 #include "communication/communicator.h"
 #include "communication/communicationHandler.h"
@@ -25,7 +26,6 @@
 #include "communication/websocket/connection.h"
 #include "config.h"
 #include "context.h"
-#include "events/eventCommunicator.h"
 #include "fslogicProxy.h"
 #include "helpers/storageHelperFactory.h"
 #include "localStorageManager.h"
@@ -84,13 +84,15 @@ int wrap(int (FsImpl::*operation)(Args2...), Args1 &&... args)
         return one::translateError(e.oneError());
     }
     catch (...) {
-        std::array<void*, 64> trace;
+        std::array<void *, 64> trace;
 
         const auto size = backtrace(trace.data(), trace.size());
-        std::unique_ptr<char*[]> strings{backtrace_symbols(trace.data(), size)};
+        std::unique_ptr<char *[]> strings {
+            backtrace_symbols(trace.data(), size)
+        };
 
         LOG(ERROR) << "Unknown exception caught at the top level. Stacktrace:";
-        for(auto i = 0; i < size; ++i)
+        for (auto i = 0; i < size; ++i)
             LOG(ERROR) << strings[i];
 
         return -EIO;
@@ -117,14 +119,8 @@ int wrap_mkdir(const char *path, mode_t mode)
 {
     return wrap(&FsImpl::mkdir, path, mode);
 }
-int wrap_unlink(const char *path)
-{
-    return wrap(&FsImpl::unlink, path);
-}
-int wrap_rmdir(const char *path)
-{
-    return wrap(&FsImpl::rmdir, path);
-}
+int wrap_unlink(const char *path) { return wrap(&FsImpl::unlink, path); }
+int wrap_rmdir(const char *path) { return wrap(&FsImpl::rmdir, path); }
 int wrap_symlink(const char *path, const char *link)
 {
     return wrap(&FsImpl::symlink, path, link);
@@ -560,8 +556,6 @@ int main(int argc, char *argv[], char *envp[])
         options->get_file_buffer_prefered_block_size()};
 
     // Initialize main application object
-    auto eventCommunicator =
-        std::make_shared<events::EventCommunicator>(context);
     auto fslogicProxy = std::make_shared<FslogicProxy>(context);
     auto storageMapper = std::make_shared<StorageMapper>(context, fslogicProxy);
 
@@ -572,7 +566,7 @@ int main(int argc, char *argv[], char *envp[])
         std::make_shared<LocalStorageManager>(context),
         std::make_shared<helpers::StorageHelperFactory>(
             context->getCommunicator(), bufferLimits),
-        eventCommunicator);
+        std::make_shared<events::EventManager>(context));
     AppObject = App;
 
     // Register remote logWriter for log threshold level updates and start

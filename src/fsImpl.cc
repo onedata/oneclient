@@ -4,15 +4,12 @@
  * @copyright (C) 2013 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
  */
-
 #include "fsImpl.h"
 
 #include "communication_protocol.pb.h"
 #include "communication/communicator.h"
 #include "config.h"
 #include "context.h"
-#include "events/event.h"
-#include "events/eventCommunicator.h"
 #include "fslogicProxy.h"
 #include "fuse_messages.pb.h"
 #include "helpers/storageHelperFactory.h"
@@ -25,6 +22,7 @@
 #include "storageMapper.h"
 #include "oneErrors.h"
 #include "oneException.h"
+#include "events/eventManager.h"
 
 #include <grp.h>
 #include <pwd.h>
@@ -72,13 +70,13 @@ FsImpl::FsImpl(std::string path, std::shared_ptr<Context> context,
                std::shared_ptr<FslogicProxy> fslogic,  std::shared_ptr<MetaCache> metaCache,
                std::shared_ptr<LocalStorageManager> sManager,
                std::shared_ptr<helpers::StorageHelperFactory> sh_factory,
-               std::shared_ptr<events::EventCommunicator> eventCommunicator) :
+               std::shared_ptr<events::EventManager> eventManager) :
     m_fh(0),
     m_fslogic(std::move(fslogic)),
     m_metaCache(std::move(metaCache)),
     m_sManager(std::move(sManager)),
     m_shFactory(std::move(sh_factory)),
-    m_eventCommunicator(eventCommunicator),
+    m_eventManager{std::move(eventManager)},
     m_context{std::move(context)}
 {
     if(path.size() > 1 && path[path.size()-1] == '/')
@@ -126,25 +124,6 @@ FsImpl::FsImpl(std::string path, std::shared_ptr<Context> context,
     // Real IDs should be set real owner's ID of "/" directory by first getattr call
     m_ruid = -1;
     m_rgid = -1;
-
-    if(m_eventCommunicator)
-    {
-        eventCommunicator->setFslogic(m_fslogic);
-        eventCommunicator->setMetaCache(m_metaCache);
-
-        m_eventCommunicator->addStatAfterWritesRule(m_context->getOptions()->get_write_bytes_before_stat());
-    }
-
-    m_context->getPushListener()->subscribe(
-                &events::EventCommunicator::pushMessagesHandler, m_eventCommunicator);
-
-    m_context->scheduler()->post(&events::EventCommunicator::configureByCluster,
-                                 m_eventCommunicator);
-    m_context->scheduler()->post(&events::EventCommunicator::askIfWriteEnabled,
-                                 m_eventCommunicator);
-    m_context->scheduler()->post(&events::EventCommunicator::scheduleSendingAllPendingEvents,
-                                 m_eventCommunicator);
-
 
     m_context->getPushListener()->subscribe(&MetaCache::handleNotification, m_metaCache);
 }
@@ -352,9 +331,6 @@ int FsImpl::mkdir(const std::string &path, mode_t mode)
 
     scheduleClearAttr(parent(path));
 
-    std::shared_ptr<events::Event> mkdirEvent = events::Event::createMkdirEvent(path);
-    m_eventCommunicator->processEvent(mkdirEvent);
-
     return 0;
 }
 
@@ -396,9 +372,6 @@ int FsImpl::unlink(const std::string &path)
     }
 
     scheduleClearAttr(parent(path));
-
-    std::shared_ptr<events::Event> rmEvent = events::Event::createRmEvent(path);
-    m_eventCommunicator->processEvent(rmEvent);
 
     return 0;
 }
@@ -519,8 +492,7 @@ int FsImpl::truncate(const std::string &path, off_t newSize)
 
     if(shReturn == 0) {
         m_metaCache->updateSize(path, newSize);
-        m_context->scheduler()->post(&FsImpl::performPostTruncateActions,
-                                     shared_from_this(), path, newSize);
+        m_eventManager->createTruncateEvent(path, newSize)->emit();
     }
 
     return shReturn;
@@ -638,8 +610,7 @@ int FsImpl::read(const std::string &path, char *buf, size_t size, off_t offset, 
     auto sh = m_shCache.get(fileInfo->fh).get();
     int shReturn = customSHRun(&SH::sh_read, sh, lInfo.fileId.c_str(), buf, toRead, offset, fileInfo);
 
-    std::shared_ptr<events::Event> readEvent = events::Event::createReadEvent(path, offset, shReturn);
-    m_eventCommunicator->processEvent(readEvent);
+    m_eventManager->createReadEvent(path, offset, shReturn)->emit();
 
     return shReturn;
 }
@@ -647,11 +618,6 @@ int FsImpl::read(const std::string &path, char *buf, size_t size, off_t offset, 
 int FsImpl::write(const std::string &path, const std::string &buf, size_t size, off_t offset, struct fuse_file_info *fileInfo)
 {
     //LOG(INFO) << "FUSE: write(path: " << path << ", size: " << size << ", offset: " << offset << ", ...)";
-
-    if(!m_eventCommunicator->isWriteEnabled()){
-        LOG(WARNING) << "Attempt to write when write disabled.";
-        return -EDQUOT;
-    }
 
     LocationInfo lInfo;
     StorageInfo sInfo;
@@ -666,10 +632,10 @@ int FsImpl::write(const std::string &path, const std::string &buf, size_t size, 
             buf.st_size = 0;
         if(offset + shReturn > buf.st_size) {
             m_metaCache->updateSize(path, offset + shReturn);
+            m_eventManager->createWriteEvent(path, offset, shReturn, offset + shReturn)->emit();
+        } else {
+            m_eventManager->createWriteEvent(path, offset, shReturn, buf.st_size)->emit();
         }
-
-        std::shared_ptr<events::Event> writeEvent = events::Event::createWriteEvent(path, offset, shReturn);
-        m_eventCommunicator->processEvent(writeEvent);
     }
 
     return shReturn;
@@ -874,20 +840,6 @@ void FsImpl::updateTimes(const std::string &path, const time_t atime, const time
 {
     if(m_fslogic->updateTimes(path, atime, mtime) == VOK)
         m_metaCache->updateTimes(path, atime, mtime);
-}
-
-void FsImpl::performPostTruncateActions(const std::string &path, const off_t newSize)
-{
-    // we need to statAndUpdatetimes before processing event because we want event to be run with new size value on cluster
-    const auto currentTime = time(nullptr);
-    m_fslogic->updateTimes(path, 0, currentTime, currentTime);
-
-    m_metaCache->clearAttr(path);
-    if(m_context->getOptions()->get_enable_attr_cache())
-        getattr(path.c_str(), nullptr, false);
-
-    auto truncateEvent = events::Event::createTruncateEvent(path, newSize);
-    m_eventCommunicator->processEvent(truncateEvent);
 }
 
 template<typename key, typename value>
