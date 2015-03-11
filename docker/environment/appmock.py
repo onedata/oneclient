@@ -15,7 +15,7 @@ def _tweak_config(config, name, uid):
     cfg['nodes'] = {'node': cfg['nodes'][name]}
 
     vm_args = cfg['nodes']['node']['vm.args']
-    vm_args['name'] = common.format_hostname(vm_args['name'], uid)
+    vm_args['name'] = common.format_nodename(vm_args['name'], uid)
     # Set random cookie so the node does not try to connect to others
     vm_args['setcookie'] = ''.join(
         random.sample(string.ascii_letters + string.digits, 16))

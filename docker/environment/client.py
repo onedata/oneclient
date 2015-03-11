@@ -13,9 +13,9 @@ def _tweak_config(config, name, uid):
     cfg = copy.deepcopy(config)
     cfg['nodes'] = {'node': cfg['nodes'][name]}
     node = cfg['nodes']['node']
-    node['name'] = common.format_hostname(node['name'], uid)
-    node['op_hostname'] = common.format_hostname(node['op_hostname'], uid)
-    node['gr_hostname'] = common.format_hostname(node['gr_hostname'], uid)
+    node['name'] = common.format_nodename(node['name'], uid)
+    node['op_hostname'] = common.format_nodename(node['op_hostname'], uid)
+    node['gr_hostname'] = common.format_nodename(node['gr_hostname'], uid)
 
     return cfg
 

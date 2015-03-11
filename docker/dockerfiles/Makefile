@@ -14,3 +14,6 @@ worker: base worker
 bigcouch: bigcouch
 	docker build -t onedata/bigcouch:v1 -f bigcouch .
 
+riak: riak
+	docker build -t onedata/riak:v1 -f riak .
+
