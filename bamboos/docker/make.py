@@ -129,5 +129,6 @@ ret = docker.run(tty=True,
                           (args.src, '/tmp/src', 'ro')],
                  workdir=workdir,
                  image=args.image,
+                 run_params=['--privileged'],
                  command=['python', '-c', command])
 sys.exit(ret)

@@ -166,7 +166,7 @@ public:
     virtual int onOpen(const std::string &path, ffi_type);
 
     /// Starts BufferAgent worker threads
-    /// @param worker_count How many worker threads shall be stared to process prefetch request and send buffored data.
+    /// @param worker_count How many worker threads shall be stared to process prefetch request and send buffered data.
     virtual void agentStart(int worker_count = 5);
 
     /// Stops BufferAgent worker threads
