@@ -14,11 +14,11 @@ def _tweak_config(config, name, uid):
     cfg['nodes'] = {'node': cfg['nodes'][name]}
 
     sys_config = cfg['nodes']['node']['sys.config']
-    sys_config['db_nodes'] = [common.format_hostname(n, uid) for n in
+    sys_config['db_nodes'] = [common.format_nodename(n, uid) for n in
                               sys_config['db_nodes']]
 
     vm_args = cfg['nodes']['node']['vm.args']
-    vm_args['name'] = common.format_hostname(vm_args['name'], uid)
+    vm_args['name'] = common.format_nodename(vm_args['name'], uid)
 
     return cfg
 

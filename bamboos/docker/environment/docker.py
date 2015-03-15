@@ -6,10 +6,9 @@ import subprocess
 
 # noinspection PyDefaultArgument
 def run(image, docker_host=None, detach=False, dns_list=[], envs={},
-        hostname=None,
-        interactive=False, link={}, tty=False, rm=False, reflect=[],
-        volumes=[], name=None, workdir=None, user=None, run_params=[],
-        command=None):
+        hostname=None, interactive=False, link={}, tty=False, rm=False,
+        reflect=[], volumes=[], name=None, workdir=None, user=None,
+        run_params=[], command=None, stdin=None, stdout=None, stderr=None):
     cmd = ['docker']
 
     if docker_host:
@@ -71,13 +70,14 @@ def run(image, docker_host=None, detach=False, dns_list=[], envs={},
         cmd.extend(command)
 
     if detach:
-        return subprocess.check_output(cmd).decode('utf-8').strip()
+        return subprocess.check_output(cmd, stdin=stdin, stderr=stderr).decode(
+            'utf-8').strip()
 
-    return subprocess.call(cmd)
+    return subprocess.call(cmd, stdin=stdin, stderr=stderr, stdout=stdout)
 
 
 def exec_(container, command, docker_host=None, detach=False, interactive=False,
-          tty=False):
+          tty=False, output=False, stdin=None, stdout=None, stderr=None):
     cmd = ['docker']
 
     if docker_host:
@@ -101,10 +101,11 @@ def exec_(container, command, docker_host=None, detach=False, interactive=False,
     elif isinstance(command, list):
         cmd.extend(command)
 
-    if detach:
-        return subprocess.check_output(cmd).decode('utf-8').strip()
+    if detach or output:
+        return subprocess.check_output(cmd, stdin=stdin, stderr=stderr).decode(
+            'utf-8').strip()
 
-    return subprocess.call(cmd)
+    return subprocess.call(cmd, stdin=stdin, stderr=stderr, stdout=stdout)
 
 
 def inspect(container, docker_host=None):
