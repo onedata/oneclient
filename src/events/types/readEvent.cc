@@ -64,7 +64,7 @@ std::ostream &operator<<(std::ostream &ostream, const ReadEvent &event)
                    << ", blocks: " << event.m_blocks;
 }
 
-std::unique_ptr<ClientMessageSerializer> ReadEvent::createSerializer() const
+std::unique_ptr<messages::client::ClientMessageSerializer> ReadEvent::createSerializer() const
 {
     return std::make_unique<one::client::ReadEventSerializer>();
 }

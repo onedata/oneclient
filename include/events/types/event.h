@@ -20,7 +20,7 @@ namespace events {
 /**
 * The Event class represents an operation in the file system.
 */
-class Event : public ClientMessage {
+class Event : public messages::client::ClientMessage {
 public:
     virtual ~Event() = default;
 

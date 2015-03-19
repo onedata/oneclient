@@ -85,7 +85,7 @@ public:
     */
     ReadEvent &operator+=(const ReadEvent &event);
 
-    virtual std::unique_ptr<ClientMessageSerializer>
+    virtual std::unique_ptr<messages::client::ClientMessageSerializer>
     createSerializer() const override;
 
 private:

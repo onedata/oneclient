@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_MESSAGES_CLIENT_READ_EVENT_SERIALIZER_H
 #define ONECLIENT_MESSAGES_CLIENT_READ_EVENT_SERIALIZER_H
 
-#include "clientMessage.h"
+#include "messages/client/clientMessage.h"
 
 namespace one {
 namespace client {
@@ -18,10 +18,10 @@ namespace client {
 * The ReadEventSerializer class is responsible for creation of @c ReadEvent
 * Protocol Buffers message.
 */
-class ReadEventSerializer : public ClientMessageSerializer {
+class ReadEventSerializer : public messages::client::ClientMessageSerializer {
 public:
-    virtual std::unique_ptr<ProtocolClientMessage>
-    serialize(const ClientMessage &clientMessage) const override;
+    virtual std::unique_ptr<ProtocolClientMessage> serialize(
+        const messages::client::ClientMessage &clientMessage) const override;
 };
 
 } // namespace client

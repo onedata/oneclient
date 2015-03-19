@@ -91,7 +91,7 @@ public:
     */
     WriteEvent &operator+=(const WriteEvent &event);
 
-    virtual std::unique_ptr<ClientMessageSerializer>
+    virtual std::unique_ptr<messages::client::ClientMessageSerializer>
     createSerializer() const override;
 
 private:

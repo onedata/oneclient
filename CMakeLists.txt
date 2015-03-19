@@ -3,7 +3,7 @@ project(oneclient C CXX)
 
 # CMake config
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/helpers)
 
 #================================================================================================
 # Automatic git versioning: http://ipenguin.ws/2012/11/cmake-automatically-use-git-tags-as.html
@@ -11,7 +11,7 @@ set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
 include(GetGitRevisionDescription)
 git_describe(VERSION --tags)
 
-#parse the version information into pieces.
+# parse the version information into pieces.
 string(REGEX REPLACE "^v([0-9]+)\\..*" "\\1" VERSION_MAJOR "${VERSION}")
 string(REGEX REPLACE "^v[0-9]+\\.([0-9]+).*" "\\1" VERSION_MINOR "${VERSION}")
 string(REGEX REPLACE "^v[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" VERSION_PATCH "${VERSION}")
@@ -136,7 +136,7 @@ set(CLIENT_LIBRARIES
 
 # Define targets
 add_library(client OBJECT ${SOURCES} ${HEADERS})
-add_dependencies(client websocketpp glog)
+add_dependencies(client glog)
 
 set(CLIENT_SOURCES
     ${MAIN_SOURCE_FILE}

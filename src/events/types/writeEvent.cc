@@ -71,7 +71,7 @@ std::ostream &operator<<(std::ostream &ostream, const WriteEvent &event)
                    << ", blocks: " << event.m_blocks;
 }
 
-std::unique_ptr<ClientMessageSerializer> WriteEvent::createSerializer() const
+std::unique_ptr<messages::client::ClientMessageSerializer> WriteEvent::createSerializer() const
 {
     return std::make_unique<one::client::WriteEventSerializer>();
 }

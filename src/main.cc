@@ -22,8 +22,10 @@
 #include "scheduler.h"
 #include "scopeExit.h"
 #include "oneException.h"
+#include "auth/authManager.h"
+#include "auth/authException.h"
+#include "logging.h"
 
-#include <glog/logging.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
@@ -51,6 +53,7 @@ using namespace one;
 using namespace one::client;
 using namespace std::placeholders;
 using boost::filesystem::path;
+using namespace std::literals::chrono_literals;
 
 namespace {
 
@@ -133,12 +136,12 @@ int wrap_open(const char *path, struct fuse_file_info *fileInfo)
     return wrap(&FsLogic::open, path, fileInfo);
 }
 int wrap_read(const char *path, char *buf, size_t size, off_t offset,
-              struct fuse_file_info *fileInfo)
+    struct fuse_file_info *fileInfo)
 {
     return wrap(&FsLogic::read, path, buf, size, offset, fileInfo);
 }
 int wrap_write(const char *path, const char *buf, size_t size, off_t offset,
-               struct fuse_file_info *fileInfo)
+    struct fuse_file_info *fileInfo)
 {
     return wrap(&FsLogic::write, path, buf, size, offset, fileInfo);
 }
@@ -159,7 +162,7 @@ int wrap_fsync(const char *path, int datasync, struct fuse_file_info *fi)
     return wrap(&FsLogic::fsync, path, datasync, fi);
 }
 int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-                 off_t offset, struct fuse_file_info *fileInfo)
+    off_t offset, struct fuse_file_info *fileInfo)
 {
     return wrap(&FsLogic::readdir, path, buf, filler, offset, fileInfo);
 }
@@ -171,8 +174,8 @@ int wrap_releasedir(const char *path, struct fuse_file_info *fileInfo)
 {
     return wrap(&FsLogic::releasedir, path, fileInfo);
 }
-int wrap_fsyncdir(const char *path, int datasync,
-                  struct fuse_file_info *fileInfo)
+int wrap_fsyncdir(
+    const char *path, int datasync, struct fuse_file_info *fileInfo)
 {
     return wrap(&FsLogic::fsyncdir, path, datasync, fileInfo);
 }
@@ -217,9 +220,45 @@ static struct fuse_operations get_fuse_operations()
     return fuse_oper;
 }
 
+class PingSerializer : public one::messages::client::ClientMessageSerializer {
+public:
+    std::unique_ptr<ProtocolClientMessage> serialize(
+        const messages::client::ClientMessage &clientMessage) const
+    {
+        auto msg = std::make_unique<ProtocolClientMessage>();
+        msg->mutable_ping();
+        return msg;
+    }
+};
+
+class Ping : public one::messages::client::ClientMessage {
+public:
+    std::unique_ptr<messages::client::ClientMessageSerializer>
+    createSerializer() const
+    {
+        return std::make_unique<PingSerializer>();
+    }
+};
+
+class Pong : public one::messages::server::ServerMessage {
+public:
+    Pong(std::unique_ptr<one::clproto::ServerMessage>)
+    {
+        LOG(INFO) << "Received PONG";
+    }
+};
+
+void handler(std::shared_ptr<communication::Communicator> &communicator,
+    std::shared_ptr<Context> context)
+{
+    communicator->communicate<Pong>(Ping{}, 3).get();
+    context->scheduler()->schedule(
+        5s, std::bind(handler, communicator, context));
+}
+
 int main(int argc, char *argv[], char *envp[])
 {
-    google::InitGoogleLogging(argv[0]);
+//    google::InitGoogleLogging(argv[0]);
 
     // Create application context
     auto context = std::make_shared<Context>();
@@ -271,9 +310,22 @@ int main(int argc, char *argv[], char *envp[])
     ScopeExit freeMountpoint{[&] { free(mountpoint); }};
 
     const auto schedulerThreadsNo = options->get_jobscheduler_threads() > 1
-                                        ? options->get_jobscheduler_threads()
-                                        : 1;
+        ? options->get_jobscheduler_threads()
+        : 1;
     context->setScheduler(std::make_shared<Scheduler>(schedulerThreadsNo));
+
+    std::unique_ptr<auth::AuthManager> authManager;
+    try {
+        authManager = std::make_unique<auth::TokenAuthManager>(context,
+            options->get_provider_hostname(), options->get_provider_port(),
+            false, options->get_global_registry_url(),
+            options->get_global_registry_port());
+    }
+    catch (auth::AuthException &e) {
+        std::cerr << "Authentication error: " << e.what() << std::endl;
+        std::cerr << "Cannot continue. Aborting" << std::endl;
+        return EXIT_FAILURE;
+    }
 
     ch = fuse_mount(mountpoint, &args);
     if (!ch)
@@ -288,8 +340,8 @@ int main(int argc, char *argv[], char *envp[])
     FsLogic *fsLogic = new FsLogic(mountpoint, context);
     ScopeExit destroyFsLogic{[&] { delete fsLogic; }};
 
-    fuse = fuse_new(ch, &args, &fuse_oper, sizeof(struct fuse_operations),
-                    fsLogic);
+    fuse = fuse_new(
+        ch, &args, &fuse_oper, sizeof(struct fuse_operations), fsLogic);
     if (fuse == nullptr)
         return EXIT_FAILURE;
 
@@ -316,6 +368,13 @@ int main(int argc, char *argv[], char *envp[])
 
         context->scheduler()->restartAfterDaemonize();
     }
+
+    auto communicator = authManager->createCommunicator(
+        options->get_alive_data_connections_count() +
+        options->get_alive_meta_connections_count());
+
+    communicator->connect();
+    handler(communicator, context);
 
     // Enter FUSE loop
     res = multithreaded ? fuse_loop_mt(fuse) : fuse_loop(fuse);

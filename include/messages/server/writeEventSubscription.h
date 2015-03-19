@@ -1,15 +1,15 @@
 /**
-* @file writeEventSubscription.h
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file writeEventSubscription.h
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef ONECLIENT_MESSAGES_SERVER_WRITE_EVENT_SUBSCRIPTION_H
 #define ONECLIENT_MESSAGES_SERVER_WRITE_EVENT_SUBSCRIPTION_H
 
-#include "serverMessage.h"
+#include "messages/server/serverMessage.h"
 
 #include <chrono>
 #include <memory>
@@ -26,7 +26,7 @@ template <class EventType> class EventStream;
 * The WriteEventSubscription class represents write event subscription request
 * sent by the server.
 */
-class WriteEventSubscription : public ServerMessage {
+class WriteEventSubscription : public messages::server::ServerMessage {
     friend class events::EventStream<events::WriteEvent>;
 
 public:

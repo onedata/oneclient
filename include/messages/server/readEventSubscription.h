@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_MESSAGES_SERVER_READ_EVENT_SUBSCRIPTION_H
 #define ONECLIENT_MESSAGES_SERVER_READ_EVENT_SUBSCRIPTION_H
 
-#include "serverMessage.h"
+#include "messages/server/serverMessage.h"
 
 #include <chrono>
 #include <memory>
@@ -26,7 +26,7 @@ template <class EventType> class EventStream;
 * The ReadEventSubscription class represents read event subscription request
 * sent by the server.
 */
-class ReadEventSubscription : public ServerMessage {
+class ReadEventSubscription : public messages::server::ServerMessage {
     friend class events::EventStream<events::ReadEvent>;
 
 public:
