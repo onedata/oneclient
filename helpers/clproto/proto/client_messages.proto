@@ -22,12 +22,15 @@ message ClientMessage {
     oneof message_body { // list of messages that can be sent from
                          // the client to the server
         // handshake_messages.proto
-        HandshakeRequest handshake_request = 3;
+        HandshakeRequest   handshake_request = 3;
 
         // common_messages.proto
-        Status           status            = 4;
+        Status             status            = 4;
 
         // event_messages.proto
-        Event            event             = 5;
+        Event              event             = 5;
+
+        // stream_messages.proto
+        EndOfMessageStream end_of_stream     = 6;
     }
 }
