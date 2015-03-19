@@ -1,5 +1,6 @@
 src/proto
-build
+/release
+/debug
 
 # Compiled Object files
 *.slo

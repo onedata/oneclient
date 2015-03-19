@@ -1,0 +1,38 @@
+/**
+ * Generic server message.
+ * This file should contain all messages that can be send from the server to the
+ * client.
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
+package one.clproto;
+
+import "event_messages.proto";
+import "stream_messages.proto";
+import "common_messages.proto";
+import "handshake_messages.proto";
+
+message ServerMessage {
+    optional bytes         message_id     = 1; // should be set when respons is
+                                               // expected
+    optional MessageStream message_stream = 2; // identifies message as part of
+                                               // a stream
+    oneof message_body { // list of messages that can be sent from
+                         // the server to the client
+        // handshake_messages.proto
+        HandshakeResponse      handshake_response      = 3;
+
+        // common_messages.proto
+        Status                 status                  = 4;
+
+        // stream_messages.proto
+        MessageStreamReset     message_stream_reset    = 5;
+        MessageRequest         message_request         = 6;
+        MessageAcknowledgement message_acknowledgement = 7;
+
+        // event_messages.proto
+        EventSubscription      event_subscription      = 8;
+    }
+}

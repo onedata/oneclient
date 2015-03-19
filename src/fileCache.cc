@@ -7,8 +7,6 @@
 
 #include "fileCache.h"
 
-#include "logging.h"
-
 #include <chrono>
 #include <iostream>
 
