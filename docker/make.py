@@ -71,11 +71,30 @@ parser.add_argument(
     action='store',
     default=None,
     help='path to the working directory; defaults to destination dir if unset',
-    dest='workdir'
-)
+    dest='workdir')
+
+parser.add_argument(
+    '-e', '--env',
+    action='append',
+    default=[],
+    help='env variables to set in the environment',
+    dest='envs')
+
+parser.add_argument(
+    '--group',
+    action='append',
+    default=[],
+    help='system groups user should be a part of',
+    dest='groups')
+
+parser.add_argument(
+    '--privileged',
+    action='store_true',
+    default=False,
+    help='run the container with --privileged=true',
+    dest='privileged')
 
 [args, pass_args] = parser.parse_known_args()
-home = expanduser('~')
 
 destination = args.dst if args.dst else args.src
 workdir = args.workdir if args.workdir else destination
@@ -83,11 +102,18 @@ workdir = args.workdir if args.workdir else destination
 command = '''
 import os, shutil, subprocess, sys
 
-os.environ['HOME'] = '{home}'
+os.environ['HOME'] = '/root'
 
 ssh_home = '/root/.ssh'
 if {shed_privileges}:
-    subprocess.call(['useradd', '--create-home', '--uid', '{uid}', 'maketmp'])
+    useradd = ['useradd', '--create-home', '--uid', '{uid}', 'maketmp']
+    if {groups}:
+        useradd.extend(['-G', ','.join({groups})])
+
+    subprocess.call(useradd)
+
+    os.environ['PATH'] = os.environ['PATH'].replace('sbin', 'bin')
+    os.environ['HOME'] = '/home/maketmp'
     ssh_home = '/home/maketmp/.ssh'
     os.setregid({gid}, {gid})
     os.setreuid({uid}, {uid})
@@ -115,10 +141,10 @@ command = command.format(
     gid=os.getegid(),
     src=args.src,
     dst=destination,
-    home=home,
-    shed_privileges=(platform.system() == 'Linux'))
+    shed_privileges=(platform.system() == 'Linux'),
+    groups=args.groups)
 
-reflect = [(home, 'ro'), (destination, 'rw')]
+reflect = [(destination, 'rw')]
 reflect.extend(zip(args.reflect, ['rw'] * len(args.reflect)))
 
 ret = docker.run(tty=True,
@@ -129,5 +155,6 @@ ret = docker.run(tty=True,
                           (args.src, '/tmp/src', 'ro')],
                  workdir=workdir,
                  image=args.image,
+                 run_params=(['--privileged=true'] if args.privileged else []),
                  command=['python', '-c', command])
 sys.exit(ret)

@@ -119,6 +119,17 @@ def inspect(container, docker_host=None):
     return json.loads(out)[0]
 
 
+def logs(container, docker_host=None):
+    cmd = ['docker']
+
+    if docker_host:
+        cmd.extend(['-H', docker_host])
+
+    cmd.extend(['logs', container])
+    return subprocess.check_output(cmd, universal_newlines=True,
+                                   stderr=subprocess.STDOUT).decode('utf-8')
+
+
 def remove(containers, docker_host=None, force=False,
            link=False, volumes=False):
     cmd = ['docker']
