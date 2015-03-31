@@ -4,6 +4,7 @@ They can create separate clusters.
 
 import copy
 import json
+import os
 
 import common
 import docker
@@ -23,7 +24,7 @@ def _tweak_config(config, name, uid):
     return cfg
 
 
-def _node_up(image, bindir, uid, config, dns_servers):
+def _node_up(image, bindir, logdir, uid, config, dns_servers):
     node_name = config['nodes']['node']['vm.args']['name']
     cookie = config['nodes']['node']['vm.args']['setcookie']
     db_nodes = config['nodes']['node']['sys.config']['db_nodes']
@@ -62,6 +63,10 @@ sed -i 's/-setcookie monster/-setcookie {cookie}/g' /opt/bigcouch/etc/vm.args
         hostname=db_hostname,
         command=db_command)
 
+    logdir = os.path.join(os.path.abspath(logdir), gr_name)
+    volumes = [(bindir, '/root/build', 'ro')]
+    volumes.extend([(logdir, '/root/bin/node/log', 'rw')] if logdir else [])
+
     gr = docker.run(
         image=image,
         hostname=gr_hostname,
@@ -70,27 +75,35 @@ sed -i 's/-setcookie monster/-setcookie {cookie}/g' /opt/bigcouch/etc/vm.args
         tty=True,
         workdir='/root/build',
         name=gr_dockername,
-        volumes=[(bindir, '/root/build', 'ro')],
+        volumes=volumes,
         dns_list=dns_servers,
         link={db_dockername: db_hostname},
         command=gr_command)
 
-    return {
+    return gr, {
         'docker_ids': [bigcouch, gr],
         'gr_db_nodes': ['{0}@{1}'.format(db_name, db_hostname)],
         'gr_nodes': ['{0}@{1}'.format(gr_name, gr_hostname)]
     }
 
 
-def up(image, bindir, dns, uid, config_path):
+def up(image, bindir, logdir, dns, uid, config_path):
     config = common.parse_json_file(config_path)['globalregistry']
     config['config']['target_dir'] = '/root/bin'
     configs = [_tweak_config(config, node, uid) for node in config['nodes']]
 
     dns_servers, output = common.set_up_dns(dns, uid)
 
+    gr_containers = []
     for cfg in configs:
-        node_out = _node_up(image, bindir, uid, cfg, dns_servers)
+        gr_container, node_out = _node_up(image, bindir, logdir, uid, cfg, dns_servers)
         common.merge(output, node_out)
+        gr_containers.append(gr_container)
+
+    if logdir:
+        for node in gr_containers:
+            docker.exec_(node, ['chown', '-R',
+                                '{0}:{1}'.format(os.geteuid(), os.getegid()),
+                                '/root/bin/node/log/'])
 
     return output
