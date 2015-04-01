@@ -52,8 +52,12 @@ json_proplist_to_term(Json) ->
 -spec json_proplist_to_term(term(), DefaultConversion :: string | atom) -> term().
 json_proplist_to_term([], _) ->
     [];
+json_proplist_to_term([{<<"string">>, V}], _) when is_binary(V) ->
+    binary_to_list(V);
 json_proplist_to_term({<<"string">>, V}, _) when is_binary(V) ->
     binary_to_list(V);
+json_proplist_to_term([{<<"atom">>, V}], _) when is_binary(V) ->
+    binary_to_atom(V, unicode);
 json_proplist_to_term({<<"atom">>, V}, _) when is_binary(V) ->
     binary_to_atom(V, unicode);
 json_proplist_to_term({<<"config">>, V}, _) ->
