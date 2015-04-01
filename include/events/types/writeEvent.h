@@ -10,7 +10,6 @@
 #define ONECLIENT_EVENTS_TYPES_WRITE_EVENT_H
 
 #include "event.h"
-#include "messages/client/clientMessage.h"
 
 #include <boost/icl/interval_set.hpp>
 
@@ -26,14 +25,12 @@ class WriteEventSubscription;
 
 namespace events {
 
-class WriteEventSerializer;
 template <class EventType> class EventStream;
 
 /**
 * The WriteEvent class represents a write operation in the file system.
 */
 class WriteEvent : public Event {
-    friend class WriteEventSerializer;
     friend std::ostream &operator<<(std::ostream &, const WriteEvent &event);
 
 public:
@@ -91,8 +88,8 @@ public:
     */
     WriteEvent &operator+=(const WriteEvent &event);
 
-    virtual std::unique_ptr<messages::client::ClientMessageSerializer>
-    createSerializer() const override;
+    virtual std::unique_ptr<one::messages::ProtocolClientMessage>
+    serialize() const override;
 
 private:
     std::weak_ptr<EventStream<WriteEvent>> m_eventStream;
