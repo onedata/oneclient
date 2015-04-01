@@ -10,9 +10,12 @@
 #define HELPERS_COMMUNICATION_LAYERS_TRANSLATOR_H
 
 #include "communication/declarations.h"
-#include "messages/client/clientMessage.h"
-#include "messages/server/serverMessage.h"
+#include "messages/clientMessage.h"
+#include "messages/serverMessage.h"
+#include "messages/handshakeRequest.h"
+#include "messages/handshakeResponse.h"
 
+#include <functional>
 #include <future>
 #include <type_traits>
 
@@ -28,6 +31,7 @@ template <class LowerLayer> class Translator : public LowerLayer {
 public:
     using LowerLayer::LowerLayer;
     using LowerLayer::send;
+    using LowerLayer::setHandshake;
     virtual ~Translator() = default;
 
     /**
@@ -42,8 +46,20 @@ public:
      * @param retires The retries argument to pass to the lower layer.
      * @see ConnectionPool::send()
      */
-    auto send(const messages::client::ClientMessage &msg,
+    auto send(const messages::ClientMessage &msg,
         const int retries = DEFAULT_RETRY_NUMBER);
+
+    /**
+     * Wraps lower layer's @c setHandshake.
+     * The handshake message is serialized into @c one::clproto::ClientMessage
+     * and handshake response is deserialized into a
+     * @c one::clproto::ServerMessage instance.
+     * @see ConnectionPool::setHandshake()
+     */
+    auto setHandshake(
+        std::function<one::messages::HandshakeRequest()> getHandshake,
+        std::function<bool(one::messages::HandshakeResponse)>
+            onHandshakeResponse);
 
     /**
      * Wraps lower layer's @c reply.
@@ -54,9 +70,9 @@ public:
      */
     template <typename = void>
     auto reply(clproto::ServerMessage &replyTo,
-        const messages::client::ClientMessage &msg, const int retry)
+        const messages::ClientMessage &msg, const int retry)
     {
-        auto protoMsg = msg.createSerializer()->serialize(msg);
+        auto protoMsg = msg.serialize();
         return LowerLayer::reply(replyTo, std::move(protoMsg), retry);
     }
 
@@ -69,9 +85,9 @@ public:
      */
     template <class SvrMsg>
     std::future<SvrMsg> communicate(
-        const messages::client::ClientMessage &msg, const int retries)
+        const messages::ClientMessage &msg, const int retries)
     {
-        auto protoMsg = msg.createSerializer()->serialize(msg);
+        auto protoMsg = msg.serialize();
         auto future = LowerLayer::communicate(std::move(protoMsg), retries);
         return std::async(
             std::launch::deferred, [future = std::move(future)]() mutable {
@@ -82,10 +98,25 @@ public:
 
 template <class LowerLayer>
 auto Translator<LowerLayer>::send(
-    const messages::client::ClientMessage &msg, const int retries)
+    const messages::ClientMessage &msg, const int retries)
 {
-    auto protoMsg = msg.createSerializer()->serialize(msg);
+    auto protoMsg = msg.serialize();
     return LowerLayer::send(std::move(protoMsg), retries);
+}
+
+template <class LowerLayer>
+auto Translator<LowerLayer>::setHandshake(
+    std::function<one::messages::HandshakeRequest()> getHandshake,
+    std::function<bool(one::messages::HandshakeResponse)> onHandshakeResponse)
+{
+    return LowerLayer::setHandshake(
+        [getHandshake = std::move(getHandshake)] {
+            return getHandshake().serialize();
+        },
+        [onHandshakeResponse = std::move(onHandshakeResponse)](
+            ServerMessagePtr msg) {
+            return onHandshakeResponse({std::move(msg)});
+        });
 }
 
 } // namespace layers

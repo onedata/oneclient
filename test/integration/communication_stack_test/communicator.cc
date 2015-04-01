@@ -1,7 +1,7 @@
 #include "communication/communicator.h"
 #include "communication/declarations.h"
-#include "messages/client/clientMessage.h"
-#include "messages/server/serverMessage.h"
+#include "messages/clientMessage.h"
+#include "messages/serverMessage.h"
 
 #include "client_messages.pb.h"
 #include "server_messages.pb.h"
@@ -19,6 +19,7 @@ using namespace std::literals::chrono_literals;
 using namespace one::communication;
 using namespace one;
 using namespace boost::python;
+using namespace one::messages;
 
 template <class LowerLayer> class Hijacker : public LowerLayer {
 public:
@@ -39,7 +40,11 @@ public:
         return LowerLayer::setHandshake(std::move(getHandshake),
             [ this, onHandshakeResponse = std::move(onHandshakeResponse) ](
                                             std::string response) {
-                m_handshakeResponsePromise.set_value(response);
+                try {
+                    m_handshakeResponsePromise.set_value(response);
+                }
+                catch (std::future_error) {
+                }
                 return onHandshakeResponse(std::move(response));
             });
     }
@@ -61,45 +66,27 @@ using CustomCommunicator =
     layers::Translator<layers::Replier<layers::Inbox<layers::Sequencer<
         layers::BinaryTranslator<Hijacker<layers::Retrier<ConnectionPool>>>>>>>;
 
-class ExampleClientMessage : public messages::client::ClientMessage {
-    class Serializer : public messages::client::ClientMessageSerializer {
-    public:
-        Serializer(std::string description)
-            : m_description{std::move(description)}
-        {
-        }
-
-        std::unique_ptr<ProtocolClientMessage> serialize(
-            const messages::client::ClientMessage &) const
-        {
-            auto msg = std::make_unique<ProtocolClientMessage>();
-            auto status = msg->mutable_status();
-            status->set_code(one::clproto::Status_Code_VOK);
-            status->set_description(m_description);
-            return msg;
-        }
-
-    private:
-        std::string m_description;
-    };
-
+class ExampleClientMessage : public messages::ClientMessage {
 public:
     ExampleClientMessage(std::string description)
         : m_description{std::move(description)}
     {
     }
 
-    virtual std::unique_ptr<messages::client::ClientMessageSerializer>
-    createSerializer() const override
+    virtual std::unique_ptr<ProtocolClientMessage> serialize() const override
     {
-        return std::make_unique<Serializer>(m_description);
+        auto msg = std::make_unique<ProtocolClientMessage>();
+        auto status = msg->mutable_status();
+        status->set_code(one::clproto::Status_Code_VOK);
+        status->set_description(m_description);
+        return msg;
     }
 
 private:
     std::string m_description;
 };
 
-class ExampleServerMessage : public messages::server::ServerMessage {
+class ExampleServerMessage : public messages::ServerMessage {
 public:
     ExampleServerMessage(std::unique_ptr<ProtocolServerMessage> protocolMsg)
         : m_protocolMsg{std::move(protocolMsg)}
@@ -125,7 +112,7 @@ public:
 
     std::string send(const std::string &description)
     {
-        m_communicator.send(ExampleClientMessage{description}).get();
+        m_communicator.send(ExampleClientMessage{description});
         return m_communicator.lastMessageSent();
     }
 
@@ -150,7 +137,7 @@ public:
         m_communicator.setHandshake(
             [=] {
                 ExampleClientMessage msg{description};
-                return msg.createSerializer()->serialize(msg);
+                return msg.serialize();
             },
             [=](ServerMessagePtr) { return !fail; });
 
