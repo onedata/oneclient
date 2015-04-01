@@ -30,7 +30,7 @@ std::unique_ptr<ProtocolClientMessage> HandshakeRequest::serialize() const
     auto handshakeRequestMsg = clientMsg->mutable_handshake_request();
     auto tokenMsg = handshakeRequestMsg->mutable_token();
     handshakeRequestMsg->set_session_id(m_sessionId);
-    if(m_token)
+    if (m_token)
         tokenMsg->set_value(m_token.get());
 
     return clientMsg;
