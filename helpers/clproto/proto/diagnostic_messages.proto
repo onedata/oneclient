@@ -1,0 +1,22 @@
+/**
+ * Diagnostic messages used to check connection, and get protocol version.
+ * @author Tomasz Lichon
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
+package one.clproto;
+
+message Ping {
+}
+
+message Pong {
+}
+
+message GetProtocolVersion {
+}
+
+message ProtocolVersion {
+  required uint32 major = 1;
+  required uint32 minor = 2;
+}

@@ -24,6 +24,9 @@ src/proto
 *.out
 *.app
 
+# Compiled Python files
+*.pyc
+
 # CMake
 CMakeCache.txt
 CMakeFiles

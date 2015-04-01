@@ -6,6 +6,7 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.dirname(script_dir))
 from test_common import *
 
+# noinspection PyUnresolvedReferences
 from environment import appmock, common, docker
 import communication_stack
 import appmock_client
@@ -72,3 +73,23 @@ class TestCommunicator:
         assert com.handshakeResponse() == reply
         assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555,
                                                             request)
+
+    def test_unsuccessful_handshake(self):
+        com = communication_stack.Communicator(3, self.ip, 5555)
+        handshake = com.setHandshake("anotherHanshake", True)
+        com.connect()
+
+        time.sleep(0.5)
+
+        assert 3 == appmock_client.tcp_server_message_count(self.ip, 5555,
+                                                            handshake)
+
+        reply = communication_stack.prepareReply(handshake, "anotherHandshakeR")
+        appmock_client.tcp_server_send(self.ip, 5555, reply)
+
+        # assert com.handshakeResponse() == reply
+
+        # The connections should now be recreated and another handshake sent
+        time.sleep(1.5)
+        assert 6 == appmock_client.tcp_server_message_count(self.ip, 5555,
+                                                            handshake)
