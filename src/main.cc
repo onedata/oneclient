@@ -22,6 +22,9 @@
 #include "scheduler.h"
 #include "scopeExit.h"
 #include "oneException.h"
+#include "auth/authException.h"
+#include "auth/authManager.h"
+#include "messages/handshakeResponse.h"
 
 #include <glog/logging.h>
 #include <boost/algorithm/string.hpp>
@@ -29,9 +32,12 @@
 #include <boost/program_options.hpp>
 
 #include <array>
+#include <exception>
 #include <functional>
+#include <future>
 #include <iostream>
 #include <memory>
+#include <random>
 
 #include <fcntl.h>
 #include <dirent.h>
@@ -133,12 +139,12 @@ int wrap_open(const char *path, struct fuse_file_info *fileInfo)
     return wrap(&FsLogic::open, path, fileInfo);
 }
 int wrap_read(const char *path, char *buf, size_t size, off_t offset,
-              struct fuse_file_info *fileInfo)
+    struct fuse_file_info *fileInfo)
 {
     return wrap(&FsLogic::read, path, buf, size, offset, fileInfo);
 }
 int wrap_write(const char *path, const char *buf, size_t size, off_t offset,
-               struct fuse_file_info *fileInfo)
+    struct fuse_file_info *fileInfo)
 {
     return wrap(&FsLogic::write, path, buf, size, offset, fileInfo);
 }
@@ -159,7 +165,7 @@ int wrap_fsync(const char *path, int datasync, struct fuse_file_info *fi)
     return wrap(&FsLogic::fsync, path, datasync, fi);
 }
 int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-                 off_t offset, struct fuse_file_info *fileInfo)
+    off_t offset, struct fuse_file_info *fileInfo)
 {
     return wrap(&FsLogic::readdir, path, buf, filler, offset, fileInfo);
 }
@@ -171,8 +177,8 @@ int wrap_releasedir(const char *path, struct fuse_file_info *fileInfo)
 {
     return wrap(&FsLogic::releasedir, path, fileInfo);
 }
-int wrap_fsyncdir(const char *path, int datasync,
-                  struct fuse_file_info *fileInfo)
+int wrap_fsyncdir(
+    const char *path, int datasync, struct fuse_file_info *fileInfo)
 {
     return wrap(&FsLogic::fsyncdir, path, datasync, fileInfo);
 }
@@ -180,6 +186,14 @@ int wrap_fsyncdir(const char *path, int datasync,
 void *init(struct fuse_conn_info *conn)
 {
     return fuse_get_context()->private_data;
+}
+
+std::string generateFuseID()
+{
+    std::random_device rd;
+    std::default_random_engine randomEngine{rd()};
+    std::uniform_int_distribution<unsigned long long> fuseIdDistribution;
+    return std::to_string(fuseIdDistribution(randomEngine));
 }
 
 } // namespace
@@ -271,9 +285,35 @@ int main(int argc, char *argv[], char *envp[])
     ScopeExit freeMountpoint{[&] { free(mountpoint); }};
 
     const auto schedulerThreadsNo = options->get_jobscheduler_threads() > 1
-                                        ? options->get_jobscheduler_threads()
-                                        : 1;
+        ? options->get_jobscheduler_threads()
+        : 1;
     context->setScheduler(std::make_shared<Scheduler>(schedulerThreadsNo));
+
+    std::unique_ptr<auth::AuthManager> authManager;
+    try {
+        if (options->get_authentication() == "certificate") {
+            authManager = std::make_unique<auth::CertificateAuthManager>(
+                context, options->get_provider_hostname(),
+                options->get_provider_port(),
+                !options->get_no_check_certificate(), options->get_debug_gsi());
+        }
+        else if (options->get_authentication() == "token") {
+            authManager = std::make_unique<auth::TokenAuthManager>(context,
+                options->get_provider_hostname(), options->get_provider_port(),
+                !options->get_no_check_certificate(),
+                options->get_global_registry_url(),
+                options->get_global_registry_port());
+        }
+        else {
+            throw auth::AuthException{"unknown authentication type: " +
+                options->get_authentication()};
+        }
+    }
+    catch (auth::AuthException &e) {
+        std::cerr << "Authentication error: " << e.what() << std::endl;
+        std::cerr << "Cannot continue. Aborting" << std::endl;
+        return EXIT_FAILURE;
+    }
 
     ch = fuse_mount(mountpoint, &args);
     if (!ch)
@@ -288,8 +328,8 @@ int main(int argc, char *argv[], char *envp[])
     FsLogic *fsLogic = new FsLogic(mountpoint, context);
     ScopeExit destroyFsLogic{[&] { delete fsLogic; }};
 
-    fuse = fuse_new(ch, &args, &fuse_oper, sizeof(struct fuse_operations),
-                    fsLogic);
+    fuse = fuse_new(
+        ch, &args, &fuse_oper, sizeof(struct fuse_operations), fsLogic);
     if (fuse == nullptr)
         return EXIT_FAILURE;
 
@@ -298,6 +338,42 @@ int main(int argc, char *argv[], char *envp[])
     fuse_set_signal_handlers(fuse_get_session(fuse));
     ScopeExit removeHandlers{
         [&] { fuse_remove_signal_handlers(fuse_get_session(fuse)); }};
+
+    // Initialize cluster handshake in order to check if everything is ok before
+    // becoming daemon
+    const auto fuseId = generateFuseID();
+
+    std::promise<void> handshakePromise;
+    auto handshakeFuture = handshakePromise.get_future();
+    auto onHandshakeResponse([&](auto response) mutable {
+        if (response.sessionId() != fuseId) {
+            handshakePromise.set_exception(
+                std::make_exception_ptr(OneException{"error"}));
+            return false;
+        }
+
+        handshakePromise.set_value();
+        return true;
+    });
+
+    auto testCommunicator = authManager->createCommunicator(
+        1, fuseId, std::move(onHandshakeResponse));
+
+    testCommunicator->connect();
+
+    try {
+        /// @todo InvalidServerCertificate
+        /// @todo More specific errors.
+        /// @todo boost::system::system_error throwed on host not found
+        handshakeFuture.get();
+    }
+    catch (OneException &exception) {
+        std::cerr << "Handshake error. Aborting" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // cleanup test connections
+    testCommunicator.reset();
 
     std::cout << "oneclient has been successfully mounted in " << mountpoint
               << std::endl;
@@ -316,6 +392,11 @@ int main(int argc, char *argv[], char *envp[])
 
         context->scheduler()->restartAfterDaemonize();
     }
+
+    testCommunicator =
+        authManager->createCommunicator(3, fuseId, [](auto) { return true; });
+
+    testCommunicator->connect();
 
     // Enter FUSE loop
     res = multithreaded ? fuse_loop_mt(fuse) : fuse_loop(fuse);

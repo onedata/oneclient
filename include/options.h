@@ -74,7 +74,7 @@ namespace one {
 static constexpr const char *FUSE_OPT_PREFIX = "fuse_opt_";
 static constexpr int ATTR_DEFAULT_EXPIRATION_TIME = 60;
 static constexpr const char *GLOBAL_CONFIG_FILE = "oneclient.conf";
-static constexpr const char *BASE_DOMAIN = "cluster.veilfs.plgrid.pl";
+static constexpr const char *BASE_DOMAIN = "onedata.org";
 static constexpr const char *PROVIDER_CLIENT_ENDPOINT = "/oneclient";
 
 namespace client {
@@ -156,8 +156,7 @@ private:
     DECL_CONFIG_DEF(log_dir, std::string, "/tmp")
     DECL_CONFIG(peer_certificate_file, std::string)
     DECL_CONFIG_DEF(enable_attr_cache, bool, true)
-    DECL_CONFIG_DEF(attr_cache_expiration_time, int,
-                    ATTR_DEFAULT_EXPIRATION_TIME)
+    DECL_CONFIG_DEF(attr_cache_expiration_time, int, ATTR_DEFAULT_EXPIRATION_TIME)
     DECL_CONFIG(enable_location_cache, bool)
     DECL_CONFIG(fuse_id, std::string)
     DECL_CONFIG_DEF(cluster_ping_interval, std::time_t, 60)
@@ -167,33 +166,23 @@ private:
     DECL_CONFIG_DEF(enable_dir_prefetch, bool, true)
     DECL_CONFIG_DEF(enable_parallel_getattr, bool, true)
     DECL_CONFIG_DEF(enable_permission_checking, bool, false)
-    DECL_CONFIG_DEF(write_buffer_max_size, std::size_t,
-                    64 * 1024 * 1024) // 64 MB
-    DECL_CONFIG_DEF(read_buffer_max_size, std::size_t,
-                    10 * 1024 * 1024) // 10 MB
-    DECL_CONFIG_DEF(write_buffer_max_file_size, std::size_t,
-                    64 * 1024 * 1024) // 64 MB
-    DECL_CONFIG_DEF(read_buffer_max_file_size, std::size_t,
-                    10 * 1024 * 1024) // 10 MB
-    DECL_CONFIG_DEF(file_buffer_prefered_block_size, std::size_t,
-                    100 * 1024) // 100 kB
-    DECL_CONFIG_DEF(write_bytes_before_stat, std::size_t,
-                    5 * 1024 * 1024) // 5 MB
+    DECL_CONFIG_DEF(write_buffer_max_size, std::size_t, 64 * 1024 * 1024) // 64 MB
+    DECL_CONFIG_DEF(read_buffer_max_size, std::size_t, 10 * 1024 * 1024) // 10 MB
+    DECL_CONFIG_DEF(write_buffer_max_file_size, std::size_t, 64 * 1024 * 1024) // 64 MB
+    DECL_CONFIG_DEF(read_buffer_max_file_size, std::size_t, 10 * 1024 * 1024) // 10 MB
+    DECL_CONFIG_DEF(file_buffer_prefered_block_size, std::size_t, 100 * 1024) // 100 kB
+    DECL_CONFIG_DEF(write_bytes_before_stat, std::size_t, 5 * 1024 * 1024) // 5 MB
     DECL_CONFIG(fuse_group_id, std::string)
     DECL_CONFIG_DEF(global_registry_url, std::string, "onedata.org")
     DECL_CONFIG_DEF(global_registry_port, unsigned int, 8443)
-    DECL_CONFIG_DEF_DESC(
-        authentication, std::string, "certificate",
-        "authentication type to use for connection with a Provider. "
-        "Accepted values are 'token' and 'certificate'.")
-    DECL_CMDLINE_SWITCH_DEF(no_check_certificate, "", false,
-                            "disable remote certificate validation")
-    DECL_CMDLINE_SWITCH_DEF(debug, ",d", false,
-                            "enable debug output (implies -f)")
+    DECL_CONFIG_DEF_DESC(authentication, std::string, "certificate", "authentication type to use for connection with a Provider. Accepted values are 'token' and 'certificate'.")
+    DECL_CMDLINE_SWITCH_DEF(no_check_certificate, "", false, "disable remote certificate validation")
+    DECL_CMDLINE_SWITCH_DEF(debug, ",d", false, "enable debug output (implies -f)")
     DECL_CMDLINE_SWITCH_DEF(debug_gsi, "", false, "enable GSI debug output")
 };
-}
-}
+
+} // namespace client
+} // namespace one
 
 #undef DECL_CONFIG
 #undef DECL_CONFIG_DEF

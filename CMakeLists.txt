@@ -3,7 +3,7 @@ project(oneclient C CXX)
 
 # CMake config
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/helpers)
 
 #================================================================================================
 # Automatic git versioning: http://ipenguin.ws/2012/11/cmake-automatically-use-git-tags-as.html
@@ -100,7 +100,6 @@ add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Wall -std=c++14)
 add_definitions(
     ${FUSE_DEFINITIONS}
     -DFUSE_USE_VERSION=29
-    -D_WEBSOCKETPP_CPP11_STL_
     -DBOOST_BIND_NO_PLACEHOLDERS)
 
 # Add helpers after setting compilation flags but before setting include
@@ -136,7 +135,7 @@ set(CLIENT_LIBRARIES
 
 # Define targets
 add_library(client OBJECT ${SOURCES} ${HEADERS})
-add_dependencies(client websocketpp glog)
+add_dependencies(client glog)
 
 set(CLIENT_SOURCES
     ${MAIN_SOURCE_FILE}
