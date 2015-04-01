@@ -2,8 +2,27 @@
 different dockers to see each other by hostnames.
 """
 
+from __future__ import print_function
+
+import sys
+import time
+
 import common
 import docker
+
+
+DNS_WAIT_FOR_SECONDS = 60
+
+
+def _wait_for(text, container):
+    deadline = time.time() + DNS_WAIT_FOR_SECONDS
+    while text not in docker.logs(container):
+        if time.time() > deadline:
+            print("DNS didn't come up in ", DNS_WAIT_FOR_SECONDS, 'seconds',
+                  file=sys.stderr)
+            break
+
+        time.sleep(1)
 
 
 def up(uid):
@@ -14,6 +33,8 @@ def up(uid):
         detach=True,
         name=common.format_dockername('skydns', uid),
         command=['-nameserver', '8.8.8.8:53', '-domain', 'docker'])
+
+    _wait_for('Initializing new cluster', skydns)
 
     skydock = docker.run(
         image='crosbymichael/skydock',
@@ -26,6 +47,8 @@ def up(uid):
                  '-domain', 'docker', '-name', 'skydns_{0}'.format(uid),
                  '-plugins',
                  '/createService.js'])
+
+    _wait_for('skydock: starting main process', skydock)
 
     skydns_config = docker.inspect(skydns)
     dns = skydns_config['NetworkSettings']['IPAddress']

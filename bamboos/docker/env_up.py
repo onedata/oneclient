@@ -89,7 +89,7 @@ if 'appmock' in config:
 
 # Start globalregistry instances
 if 'globalregistry' in config:
-    gr_output = globalregistry.up(args.image, args.bin_gr, dns, uid,
+    gr_output = globalregistry.up(args.image, args.bin_gr, args.logdir, dns, uid,
                                   args.config_path)
     common.merge(output, gr_output)
 

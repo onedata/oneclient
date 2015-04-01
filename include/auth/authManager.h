@@ -1,7 +1,7 @@
 /**
  * @file authManager.h
  * @author Konrad Zemek
- * @copyright (C) 2014 ACK CYFRONET AGH
+ * @copyright (C) 2014-2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
@@ -9,9 +9,12 @@
 #ifndef ONECLIENT_AUTH_MANAGER_H
 #define ONECLIENT_AUTH_MANAGER_H
 
+#include "environment.h"
 #include "auth/grAdapter.h"
 #include "auth/tokenAuthDetails.h"
 #include "communication/communicator.h"
+#include "messages/handshakeRequest.h"
+#include "messages/handshakeResponse.h"
 
 #include <boost/optional.hpp>
 
@@ -23,7 +26,9 @@
 namespace one {
 
 namespace communication {
+namespace cert {
 class CertificateData;
+}
 }
 
 namespace client {
@@ -60,13 +65,40 @@ public:
      * @return A new instance of @c Communicator .
      */
     virtual std::shared_ptr<communication::Communicator> createCommunicator(
-        const unsigned int poolSize) = 0;
+        const unsigned int poolSize, std::string sessionId,
+        std::function<bool(messages::HandshakeResponse)>
+            onHandshakeResponse) = 0;
 
 protected:
     std::weak_ptr<Context> m_context;
     std::string m_hostname;
     const unsigned int m_port;
     const bool m_checkCertificate;
+
+    Environment m_environment;
+};
+
+/**
+ * The CertificateAuthManager class is responsible for setting up user
+ * authentication using X509 certificates.
+ */
+class CertificateAuthManager : public AuthManager {
+public:
+    /**
+     * @copydoc AuthManager::AuthManager()
+     * @param debugGsi Determines whether to enable more detailed (debug) logs.
+     */
+    CertificateAuthManager(std::weak_ptr<Context> context,
+        std::string defaultHostname, const unsigned int port,
+        const bool checkCertificate, const bool debugGsi);
+
+    std::shared_ptr<communication::Communicator> createCommunicator(
+        const unsigned int poolSize, std::string sessionId,
+        std::function<bool(messages::HandshakeResponse)> onHandshakeResponse)
+        override;
+
+private:
+    std::shared_ptr<communication::cert::CertificateData> m_certificateData;
 };
 
 /**
@@ -88,7 +120,9 @@ public:
         const unsigned int globalRegistryPort);
 
     std::shared_ptr<communication::Communicator> createCommunicator(
-        const unsigned int poolSize) override;
+        const unsigned int poolSize, std::string sessionId,
+        std::function<bool(messages::HandshakeResponse)> onHandshakeResponse)
+        override;
 
 private:
     void scheduleRefresh(

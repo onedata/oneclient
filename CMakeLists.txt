@@ -100,7 +100,6 @@ add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Wall -std=c++14)
 add_definitions(
     ${FUSE_DEFINITIONS}
     -DFUSE_USE_VERSION=29
-    -D_WEBSOCKETPP_CPP11_STL_
     -DBOOST_BIND_NO_PLACEHOLDERS)
 
 # Add helpers after setting compilation flags but before setting include

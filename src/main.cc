@@ -22,18 +22,22 @@
 #include "scheduler.h"
 #include "scopeExit.h"
 #include "oneException.h"
-#include "auth/authManager.h"
 #include "auth/authException.h"
-#include "logging.h"
+#include "auth/authManager.h"
+#include "messages/handshakeResponse.h"
 
+#include <glog/logging.h>
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/program_options.hpp>
 
 #include <array>
+#include <exception>
 #include <functional>
+#include <future>
 #include <iostream>
 #include <memory>
+#include <random>
 
 #include <fcntl.h>
 #include <dirent.h>
@@ -53,7 +57,6 @@ using namespace one;
 using namespace one::client;
 using namespace std::placeholders;
 using boost::filesystem::path;
-using namespace std::literals::chrono_literals;
 
 namespace {
 
@@ -185,6 +188,14 @@ void *init(struct fuse_conn_info *conn)
     return fuse_get_context()->private_data;
 }
 
+std::string generateFuseID()
+{
+    std::random_device rd;
+    std::default_random_engine randomEngine{rd()};
+    std::uniform_int_distribution<unsigned long long> fuseIdDistribution;
+    return std::to_string(fuseIdDistribution(randomEngine));
+}
+
 } // namespace
 
 static struct fuse_operations get_fuse_operations()
@@ -220,45 +231,9 @@ static struct fuse_operations get_fuse_operations()
     return fuse_oper;
 }
 
-class PingSerializer : public one::messages::client::ClientMessageSerializer {
-public:
-    std::unique_ptr<ProtocolClientMessage> serialize(
-        const messages::client::ClientMessage &clientMessage) const
-    {
-        auto msg = std::make_unique<ProtocolClientMessage>();
-        msg->mutable_ping();
-        return msg;
-    }
-};
-
-class Ping : public one::messages::client::ClientMessage {
-public:
-    std::unique_ptr<messages::client::ClientMessageSerializer>
-    createSerializer() const
-    {
-        return std::make_unique<PingSerializer>();
-    }
-};
-
-class Pong : public one::messages::server::ServerMessage {
-public:
-    Pong(std::unique_ptr<one::clproto::ServerMessage>)
-    {
-        LOG(INFO) << "Received PONG";
-    }
-};
-
-void handler(std::shared_ptr<communication::Communicator> &communicator,
-    std::shared_ptr<Context> context)
-{
-    communicator->communicate<Pong>(Ping{}, 3).get();
-    context->scheduler()->schedule(
-        5s, std::bind(handler, communicator, context));
-}
-
 int main(int argc, char *argv[], char *envp[])
 {
-//    google::InitGoogleLogging(argv[0]);
+    google::InitGoogleLogging(argv[0]);
 
     // Create application context
     auto context = std::make_shared<Context>();
@@ -316,10 +291,23 @@ int main(int argc, char *argv[], char *envp[])
 
     std::unique_ptr<auth::AuthManager> authManager;
     try {
-        authManager = std::make_unique<auth::TokenAuthManager>(context,
-            options->get_provider_hostname(), options->get_provider_port(),
-            false, options->get_global_registry_url(),
-            options->get_global_registry_port());
+        if (options->get_authentication() == "certificate") {
+            authManager = std::make_unique<auth::CertificateAuthManager>(
+                context, options->get_provider_hostname(),
+                options->get_provider_port(),
+                !options->get_no_check_certificate(), options->get_debug_gsi());
+        }
+        else if (options->get_authentication() == "token") {
+            authManager = std::make_unique<auth::TokenAuthManager>(context,
+                options->get_provider_hostname(), options->get_provider_port(),
+                !options->get_no_check_certificate(),
+                options->get_global_registry_url(),
+                options->get_global_registry_port());
+        }
+        else {
+            throw auth::AuthException{"unknown authentication type: " +
+                options->get_authentication()};
+        }
     }
     catch (auth::AuthException &e) {
         std::cerr << "Authentication error: " << e.what() << std::endl;
@@ -351,6 +339,42 @@ int main(int argc, char *argv[], char *envp[])
     ScopeExit removeHandlers{
         [&] { fuse_remove_signal_handlers(fuse_get_session(fuse)); }};
 
+    // Initialize cluster handshake in order to check if everything is ok before
+    // becoming daemon
+    const auto fuseId = generateFuseID();
+
+    std::promise<void> handshakePromise;
+    auto handshakeFuture = handshakePromise.get_future();
+    auto onHandshakeResponse([&](auto response) mutable {
+        if (response.sessionId() != fuseId) {
+            handshakePromise.set_exception(
+                std::make_exception_ptr(OneException{"error"}));
+            return false;
+        }
+
+        handshakePromise.set_value();
+        return true;
+    });
+
+    auto testCommunicator = authManager->createCommunicator(
+        1, fuseId, std::move(onHandshakeResponse));
+
+    testCommunicator->connect();
+
+    try {
+        /// @todo InvalidServerCertificate
+        /// @todo More specific errors.
+        /// @todo boost::system::system_error throwed on host not found
+        handshakeFuture.get();
+    }
+    catch (OneException &exception) {
+        std::cerr << "Handshake error. Aborting" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // cleanup test connections
+    testCommunicator.reset();
+
     std::cout << "oneclient has been successfully mounted in " << mountpoint
               << std::endl;
 
@@ -368,13 +392,6 @@ int main(int argc, char *argv[], char *envp[])
 
         context->scheduler()->restartAfterDaemonize();
     }
-
-    auto communicator = authManager->createCommunicator(
-        options->get_alive_data_connections_count() +
-        options->get_alive_meta_connections_count());
-
-    communicator->connect();
-    handler(communicator, context);
 
     // Enter FUSE loop
     res = multithreaded ? fuse_loop_mt(fuse) : fuse_loop(fuse);

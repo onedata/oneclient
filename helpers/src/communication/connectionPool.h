@@ -61,8 +61,7 @@ public:
      * @param certificateData Certificate data to use for SSL authentication.
      */
     ConnectionPool(const unsigned int connectionsNumber, std::string host,
-        std::string service, const bool verifyServerCertificate,
-        std::shared_ptr<const cert::CertificateData> certificateData);
+        std::string service, const bool verifyServerCertificate);
 
     /**
      * Creates connections and threads that will work for them.
@@ -90,6 +89,13 @@ public:
      * @param onMessage The received message.
      */
     void setOnMessageCallback(std::function<void(std::string)> onMessage);
+
+    /**
+     * Sets certificate data to be used to authorize the client.
+     * @param certificateData The certificate data to set.
+     */
+    void setCertificateData(
+        std::shared_ptr<cert::CertificateData> certificateData);
 
     /**
      * Sends a message through one of the managed connections.

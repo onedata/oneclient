@@ -1,19 +1,20 @@
 /**
  * @file authManager.cc
  * @author Konrad Zemek
- * @copyright (C) 2014 ACK CYFRONET AGH
+ * @copyright (C) 2014-2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
+#include "context.h"
+#include "environment.h"
+#include "options.h"
 #include "auth/authException.h"
 #include "auth/authManager.h"
 #include "auth/grAdapter.h"
+#include "auth/gsiHandler.h"
+#include "communication/cert/certificateData.h"
 #include "communication/communicator.h"
-#include "context.h"
-#include "scheduler.h"
-#include "options.h"
-#include "system.h"
 
 #include <boost/archive/iterators/base64_from_binary.hpp>
 #include <boost/archive/iterators/transform_width.hpp>
@@ -40,12 +41,41 @@ AuthManager::AuthManager(std::weak_ptr<Context> context,
 {
 }
 
+CertificateAuthManager::CertificateAuthManager(std::weak_ptr<Context> context,
+    std::string defaultHostname, const unsigned int port,
+    const bool checkCertificate, const bool debugGsi)
+    : AuthManager{context, defaultHostname, port, checkCertificate}
+{
+    GSIHandler gsiHandler{m_context, debugGsi};
+    gsiHandler.validateProxyConfig();
+
+    m_certificateData = gsiHandler.getCertData();
+    m_hostname = gsiHandler.getClusterHostname(m_hostname);
+}
+
+std::shared_ptr<communication::Communicator>
+CertificateAuthManager::createCommunicator(const unsigned int poolSize,
+    std::string sessionId,
+    std::function<bool(messages::HandshakeResponse)> onHandshakeResponse)
+{
+    auto communicator = std::make_shared<communication::Communicator>(
+        poolSize, m_hostname, std::to_string(m_port), m_checkCertificate);
+
+    communicator->setCertificateData(m_certificateData);
+
+    one::messages::HandshakeRequest handshake{std::move(sessionId)};
+    communicator->setHandshake(
+        [=] { return handshake; }, std::move(onHandshakeResponse));
+
+    return communicator;
+}
+
 TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
     std::string defaultHostname, const unsigned int port,
     const bool checkCertificate, std::string globalRegistryHostname,
     const unsigned int globalRegistryPort)
     : AuthManager{context, defaultHostname, port, checkCertificate}
-    , m_grAdapter{System{}.clientName(), System{}.userDataDir(),
+    , m_grAdapter{m_environment.clientName(), m_environment.userDataDir(),
           std::move(globalRegistryHostname), globalRegistryPort,
           m_checkCertificate}
 {
@@ -61,9 +91,8 @@ TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
             m_authDetails = m_grAdapter.exchangeCode(code);
         }
 
-        if (m_context.lock()->options()->is_default_provider_hostname())
-            m_hostname =
-                "uuid_" + m_authDetails.gruid() + "." + defaultHostname;
+        if(m_context.lock()->options()->is_default_provider_hostname())
+            m_hostname = "uid_" + m_authDetails.gruid() + "." + m_hostname;
     }
     catch (boost::system::system_error &e) {
         throw AuthException{e.what()};
@@ -71,49 +100,22 @@ TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
 }
 
 std::shared_ptr<communication::Communicator>
-TokenAuthManager::createCommunicator(const unsigned int poolSize)
+TokenAuthManager::createCommunicator(const unsigned int poolSize,
+    std::string sessionId,
+    std::function<bool(messages::HandshakeResponse)> onHandshakeResponse)
 {
-    /// @todo certificateData should be optional / set after construction
-    auto communicator = std::make_shared<communication::Communicator>(poolSize,
-        m_hostname, std::to_string(m_port), m_checkCertificate, nullptr);
+    auto communicator = std::make_shared<communication::Communicator>(
+        poolSize, m_hostname, std::to_string(m_port), m_checkCertificate);
+
+    one::messages::HandshakeRequest handshake{
+        sessionId, m_authDetails.accessToken()};
 
     communicator->setHandshake(
-        [this] {
-            auto msg = std::make_unique<clproto::ClientMessage>();
-            auto handshake = msg->mutable_handshake_request();
-            auto token = handshake->mutable_token();
+        [=] { return handshake; }, std::move(onHandshakeResponse));
 
-            handshake->set_session_id("testSessionId");
-            token->set_value(m_authDetails.accessToken());
-            return msg;
-        },
-        [](communication::ServerMessagePtr) { return true; });
+    /// @todo Refreshing the token
 
-    scheduleRefresh(communicator);
     return communicator;
-}
-
-void TokenAuthManager::scheduleRefresh(
-    std::weak_ptr<communication::Communicator> communicator)
-{
-    const auto refreshIn =
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            m_authDetails.expirationTime() - std::chrono::system_clock::now()) *
-        4 / 5;
-
-    m_context.lock()->scheduler()->schedule(
-        refreshIn, std::bind(&TokenAuthManager::refresh, this, communicator));
-}
-
-void TokenAuthManager::refresh(
-    std::weak_ptr<communication::Communicator> communicator)
-{
-    auto c = communicator.lock();
-    if (!c)
-        return;
-
-    m_authDetails = m_grAdapter.refreshAccess(m_authDetails);
-    scheduleRefresh(communicator);
 }
 
 } // namespace auth
