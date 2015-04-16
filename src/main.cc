@@ -393,6 +393,11 @@ int main(int argc, char *argv[], char *envp[])
         context->scheduler()->restartAfterDaemonize();
     }
 
+    testCommunicator =
+        authManager->createCommunicator(3, fuseId, [](auto) { return true; });
+
+    testCommunicator->connect();
+
     // Enter FUSE loop
     res = multithreaded ? fuse_loop_mt(fuse) : fuse_loop(fuse);
     return res == -1 ? EXIT_FAILURE : EXIT_SUCCESS;
