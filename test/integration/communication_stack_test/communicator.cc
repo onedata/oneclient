@@ -103,8 +103,8 @@ class CommunicatorProxy {
 public:
     CommunicatorProxy(const unsigned int connectionsNumber, std::string host,
         const unsigned short port)
-        : m_communicator{connectionsNumber, std::move(host),
-              std::to_string(port), false, nullptr}
+        : m_communicator{
+              connectionsNumber, std::move(host), std::to_string(port), false}
     {
     }
 

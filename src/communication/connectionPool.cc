@@ -34,13 +34,11 @@ namespace one {
 namespace communication {
 
 ConnectionPool::ConnectionPool(const unsigned int connectionsNumber,
-    std::string host, std::string service, const bool verifyServerCertificate,
-    std::shared_ptr<const cert::CertificateData> certificateData)
+    std::string host, std::string service, const bool verifyServerCertificate)
     : m_connectionsNumber{connectionsNumber}
     , m_host{std::move(host)}
     , m_service{std::move(service)}
     , m_verifyServerCertificate{verifyServerCertificate}
-    , m_certificateData{std::move(certificateData)}
     , m_idleWork{m_ioService}
     , m_blockingStrand{m_ioService}
     , m_connectionsStrand{m_ioService}
@@ -107,6 +105,12 @@ void ConnectionPool::setOnMessageCallback(
     std::function<void(std::string)> onMessage)
 {
     m_onMessage = std::move(onMessage);
+}
+
+void ConnectionPool::setCertificateData(
+    std::shared_ptr<cert::CertificateData> certificateData)
+{
+    m_certificateData = std::move(certificateData);
 }
 
 std::future<void> ConnectionPool::send(std::string message, const int)
