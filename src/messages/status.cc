@@ -15,8 +15,8 @@
 
 namespace {
 
-typedef boost::bimap<one::clproto::Status_Code, one::messages::Status::Code>
-    translation_type;
+using translation_type =
+    boost::bimap<one::clproto::Status_Code, one::messages::Status::Code>;
 
 translation_type createTranslation()
 {
@@ -83,7 +83,13 @@ Status::Status(std::unique_ptr<ProtocolServerMessage> serverMessage)
 {
     auto &statusMsg = serverMessage->status();
 
-    m_code = translation.left.at(statusMsg.code());
+    auto searchResult = translation.left.find(statusMsg.code());
+    if (searchResult != translation.left.end()) {
+        m_code = searchResult->second;
+    }
+    else {
+        m_code = Code::eremoteio;
+    }
 
     if (statusMsg.has_description())
         m_description = statusMsg.description();
@@ -94,7 +100,13 @@ std::unique_ptr<ProtocolClientMessage> Status::serialize() const
     auto clientMsg = std::make_unique<ProtocolClientMessage>();
     auto statusMsg = clientMsg->mutable_status();
 
-    statusMsg->set_code(translation.right.at(m_code));
+    auto searchResult = translation.right.find(m_code);
+    if (searchResult != translation.right.end()) {
+        statusMsg->set_code(searchResult->second);
+    }
+    else {
+        statusMsg->set_code(one::clproto::Status_Code_VEREMOTEIO);
+    }
 
     if (m_description)
         statusMsg->set_description(m_description.get());
