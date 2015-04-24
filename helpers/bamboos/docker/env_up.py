@@ -53,6 +53,13 @@ parser.add_argument(
     dest='bin_oc')
 
 parser.add_argument(
+    '-l', '--logdir',
+    action='store',
+    default=None,
+    help='path to a directory where the logs will be stored',
+    dest='logdir')
+
+parser.add_argument(
     'config_path',
     action='store',
     help='path to json configuration file')
@@ -75,21 +82,22 @@ output = {
 [dns], dns_output = common.set_up_dns('auto', uid)
 common.merge(output, dns_output)
 
+# Start appmock instances
+if 'appmock' in config:
+    am_output = appmock.up(args.image, args.bin_am, dns, uid, args.config_path)
+    common.merge(output, am_output)
+
 # Start globalregistry instances
 if 'globalregistry' in config:
-    gr_output = globalregistry.up(args.image, args.bin_gr, dns, uid,
+    gr_output = globalregistry.up(args.image, args.bin_gr, args.logdir, dns, uid,
                                   args.config_path)
     common.merge(output, gr_output)
 
 # Start oneprovider_node instances
 if 'oneprovider_node' in config:
-    op_output = provider.up(args.image, args.bin_op, dns, uid, args.config_path)
+    op_output = provider.up(args.image, args.bin_op, args.logdir, dns, uid,
+                            args.config_path)
     common.merge(output, op_output)
-
-# Start appmock instances
-if 'appmock' in config:
-    am_output = appmock.up(args.image, args.bin_am, dns, uid, args.config_path)
-    common.merge(output, am_output)
 
 # Start oneclient instances
 if 'oneclient' in config:

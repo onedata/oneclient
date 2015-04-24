@@ -62,12 +62,7 @@ void ConnectionPool::connect()
             }};
         });
 
-    boost::asio::ip::tcp::resolver resolver{m_ioService};
-    boost::asio::ip::tcp::resolver::query query{m_host, m_service};
-
     try {
-        m_endpointIterator = resolver.resolve(query);
-
         m_context.set_options(boost::asio::ssl::context::default_workarounds |
             boost::asio::ssl::context::no_sslv2 |
             boost::asio::ssl::context::no_sslv3 |
@@ -168,7 +163,7 @@ void ConnectionPool::createConnection()
         std::bind(&ConnectionPool::onConnectionClosed, this, _1));
 
     m_connectionsStrand.post([this, conn] { m_connections.emplace(conn); });
-    conn->connect(m_endpointIterator);
+    conn->connect(m_host, m_service);
 }
 
 ConnectionPool::~ConnectionPool()
