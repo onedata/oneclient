@@ -7,6 +7,8 @@
 
 #include "helpers/storageHelperFactory.h"
 
+#include "clusterProxyHelper.h"
+#include "communication/communicator.h"
 #include "directIOHelper.h"
 
 #include <boost/algorithm/string/case_conv.hpp>
@@ -46,6 +48,9 @@ std::shared_ptr<IStorageHelper> StorageHelperFactory::getStorageHelper(const std
                                                                        const IStorageHelper::ArgsMap &args) {
     if(sh_name == "DirectIO")
         return std::make_shared<DirectIOHelper>(args);
+
+    if(sh_name == "ClusterProxy")
+        return std::make_shared<ClusterProxyHelper>(m_communicator, m_limits, args);
 
     return {};
 }

@@ -1,6 +1,5 @@
 src/proto
-/release
-/debug
+build
 
 # Compiled Object files
 *.slo
@@ -23,9 +22,6 @@ src/proto
 *.exe
 *.out
 *.app
-
-# Compiled Python files
-*.pyc
 
 # CMake
 CMakeCache.txt

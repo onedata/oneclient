@@ -161,10 +161,10 @@ handle_call(healthcheck, _From, State) ->
             {ok, RCPort} = application:get_env(?APP_NAME, remote_control_port),
             % Check connectivity to rest endpoint verification path with some random data
             {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, <<?REST_ENDPOINT_REQUEST_COUNT_PATH>>, get, [],
-                <<"{\"port\":10, \"path\":\"/\", \"number\":7}">>),
+                binary_to_list(appmock_utils:encode_to_json(?REST_ENDPOINT_REQUEST_COUNT_REQUEST(8080, <<"/">>)))),
             % Check connectivity to rest history verification path with some random data
             {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, <<?VERIFY_REST_HISTORY_PATH>>, get, [],
-                <<"{\"endpoint\":{\"port\":8080, \"path\":\"/\"}}">>),
+                binary_to_list(appmock_utils:encode_to_json(?VERIFY_REST_HISTORY_PACK_REQUEST([{8080, <<"/">>}])))),
             % Check connectivity to tcp server mock verification path with some random data
             Path = list_to_binary(?TCP_SERVER_MESSAGE_COUNT_PATH(8080)),
             {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, Path, get, [],
