@@ -40,3 +40,6 @@ install_manifest.txt
 
 # XCode project files
 *.xcodeproj
+
+# Clion project files
+.idea
