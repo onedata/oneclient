@@ -45,5 +45,6 @@
 % This record represents a TCP server mock.
 -record(tcp_server_mock, {
     port = 5555,
-    ssl = true
+    ssl = true,
+    packet = raw
 }).
