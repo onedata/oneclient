@@ -12,8 +12,8 @@
                 },
                 "sys.config": {
                     "node_type": "ccm",
-                    "ccm_nodes": [ "ccm1@" ],
-                    "db_nodes": [ "127.0.0.1:49161" ],
+                    "ccm_nodes": ["ccm1@"],
+                    "db_nodes": ["127.0.0.1:49161"],
                     "workers_to_trigger_init": 1
                 }
             },
@@ -24,8 +24,8 @@
                 },
                 "sys.config": {
                     "node_type": "worker",
-                    "ccm_nodes": [ "ccm1@"],
-                    "db_nodes": [ "127.0.0.1:49161" ]
+                    "ccm_nodes": ["ccm1@"],
+                    "db_nodes": ["127.0.0.1:49161"]
                 }
             }
         }
@@ -42,8 +42,8 @@
                     "setcookie": "cookie1"
                 },
                 "sys.config": {
-                    "db_nodes": [ "gr1_db@" ],
-                    "grpcert_domain": {"string" : "127.0.0.1"}
+                    "db_nodes": ["gr1_db@"],
+                    "grpcert_domain": {"string": "127.0.0.1"}
                 }
             }
         }
@@ -79,6 +79,32 @@
                 "gr_hostname": "gr1@",
                 "user_cert": "./cert.pem",
                 "user_key": "./cert.pem"
+            }
+        }
+    },
+    "onepanel": {
+        "config": {
+            "input_dir": "rel_oneprovider/onepanel",
+            "target_dir": "rel/test_cluster"
+        },
+        "nodes": {
+            "onepanel1": {
+                "vm.args": {
+                    "name": "onepanel@onepanel1",
+                    "setcookie": "oneprovider_node"
+                },
+                "sys.config": {
+                    "multicast_address": {"string": "239.255.0.1"}
+                }
+            },
+            "onepanel2": {
+                "vm.args": {
+                    "name": "onepanel@onepanel2",
+                    "setcookie": "oneprovider_node"
+                },
+                "sys.config": {
+                    "multicast_address": {"string": "239.255.0.1"}
+                }
             }
         }
     }
