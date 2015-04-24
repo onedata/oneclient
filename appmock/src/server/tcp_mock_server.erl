@@ -329,7 +329,7 @@ code_change(_OldVsn, State, _Extra) ->
 start_listeners(AppDescriptionModule) ->
     TCPServerMocks = AppDescriptionModule:tcp_server_mocks(),
     ListenerIDsAndPorts = lists:map(
-        fun(#tcp_server_mock{port = Port, ssl = UseSSL}) ->
+        fun(#tcp_server_mock{port = Port, ssl = UseSSL, packet = Packet}) ->
             % Generate listener name
             ListenerID = "tcp" ++ integer_to_list(Port),
             Protocol = case UseSSL of
@@ -351,7 +351,7 @@ start_listeners(AppDescriptionModule) ->
                            [{port, Port}]
                    end,
             {ok, _} = ranch:start_listener(ListenerID, ?NUMBER_OF_ACCEPTORS,
-                Protocol, Opts, tcp_mock_handler, [Port]),
+                Protocol, Opts, tcp_mock_handler, [Port, Packet]),
             {ListenerID, Port}
         end, TCPServerMocks),
     {_ListenerIDs, _Ports} = lists:unzip(ListenerIDsAndPorts).

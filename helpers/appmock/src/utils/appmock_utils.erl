@@ -68,14 +68,61 @@ decode_from_json(JSON) ->
 %% Compiles and loads a given .erl file.
 %% @end
 %%--------------------------------------------------------------------
--spec load_description_module(FilePath :: string()) -> module() | no_return().
+-spec load_description_module(FilePath :: string() | module()) -> module() | no_return().
+load_description_module(FilePath) when is_atom(FilePath) ->
+    load_description_module(atom_to_list(FilePath));
 load_description_module(FilePath) ->
     try
-        FileName = filename:basename(FilePath),
-        {ok, ModuleName} = compile:file(FilePath),
+        {ok, TmpFileCopyPath} = create_tmp_copy_with_erl_extension(FilePath),
+        FileName = filename:basename(TmpFileCopyPath),
+        {ok, ModuleName} = compile:file(TmpFileCopyPath),
         {ok, Bin} = file:read_file(filename:rootname(FileName) ++ ".beam"),
         erlang:load_module(ModuleName, Bin),
+        cleanup_tmp_copy(FilePath, TmpFileCopyPath),
         ModuleName
     catch T:M ->
+        cleanup_tmp_copy(FilePath, convert_from_cfg_to_erl_ext(FilePath)),
         throw({invalid_app_description_module, {type, T}, {message, M}, {stacktrace, erlang:get_stacktrace()}})
     end.
+
+%%%===================================================================
+%%% Internal functions
+%%%===================================================================
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Convert:
+%% "foo.erl.cfg" -> "foo.erl"
+%% "bar.erl" -> "bar.erl"
+%% @end
+%%--------------------------------------------------------------------
+-spec convert_from_cfg_to_erl_ext(string()) -> string().
+convert_from_cfg_to_erl_ext(String) ->
+    case lists:reverse(String) of
+        [$g, $f, $c, $. | Name] -> lists:reverse(Name);
+        _ -> String
+    end.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Creates temporary copy of file, ommiting optional ".cfg" extension,
+%% so file may be compiled as erlang module
+%% @end
+%%--------------------------------------------------------------------
+-spec create_tmp_copy_with_erl_extension(string()) -> {ok, Copy :: string()}.
+create_tmp_copy_with_erl_extension(FilePath) ->
+    FilePathWithProperExt = convert_from_cfg_to_erl_ext(FilePath),
+    utils:cmd(["cp", "-f", FilePath, FilePathWithProperExt]),
+    {ok, FilePathWithProperExt}.
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Removes TmpCopy, if its path is different from FilePath
+%% @end
+%%--------------------------------------------------------------------
+-spec cleanup_tmp_copy(FilePath :: string(), TmpCopyPath :: string()) ->
+    ok | {error, term()}.
+cleanup_tmp_copy(FilePath, TmpCopyPath) when FilePath =:= TmpCopyPath ->
+    ok;
+cleanup_tmp_copy(_, TmpCopyPath) ->
+    file:delete(TmpCopyPath).

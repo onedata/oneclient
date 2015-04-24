@@ -134,7 +134,6 @@ private:
     boost::asio::io_service::strand m_connectionsStrand;
 
     std::vector<std::thread> m_workers;
-    boost::asio::ip::tcp::resolver::iterator m_endpointIterator;
     boost::asio::ssl::context m_context;
 
     tbb::concurrent_bounded_queue<std::shared_ptr<SendTask>> m_outbox;

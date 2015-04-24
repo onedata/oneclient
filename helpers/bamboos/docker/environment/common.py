@@ -1,11 +1,51 @@
-"""A custom utils library used across docker scripts."""
+# coding=utf-8
+"""Authors: Łukasz Opioła, Konrad Zemek
+Copyright (C) 2015 ACK CYFRONET AGH
+This software is released under the MIT license cited in 'LICENSE.txt'
+
+A custom utils library used across docker scripts.
+"""
+
+from __future__ import print_function
 
 import argparse
-import dns
 import inspect
 import json
 import os
+import requests
 import time
+import sys
+
+
+try:
+    import xml.etree.cElementTree as eTree
+except ImportError:
+    import xml.etree.ElementTree as eTree
+
+
+def nagios_up(ip, port=None):
+    url = 'https://{0}{1}/nagios'.format(ip, (':' + port) if port else '')
+    try:
+        r = requests.get(url, verify=False, timeout=5)
+        if r.status_code != requests.codes.ok:
+            return False
+
+        healthdata = eTree.fromstring(r.text)
+        return healthdata.attrib['status'] == 'ok'
+    except requests.ConnectionError:
+        return False
+
+
+def wait_until(condition, containers, timeout):
+    deadline = time.time() + timeout
+    for container in containers:
+        while not condition(container):
+            if time.time() > deadline:
+                warning = 'WARNING: timeout while waiting for condition {0}'
+                print(warning.format(condition.__name__), file=sys.stderr)
+                break
+
+            time.sleep(1)
 
 
 def standard_arg_parser(desc):
@@ -58,18 +98,6 @@ def merge(d, merged):
         d[key] = d[key] + value if key in d else value
 
 
-def set_up_dns(config, uid):
-    """Sets up DNS configuration values, starting the server if needed."""
-    if config == 'auto':
-        dns_config = dns.up(uid)
-        return [dns_config['dns']], dns_config
-
-    if config == 'none':
-        return [], {}
-
-    return [config], {}
-
-
 def get_file_dir(file_path):
     """Returns the absolute path to directory containing given file"""
     return os.path.dirname(os.path.realpath(file_path))
@@ -89,12 +117,23 @@ def parse_json_file(path):
 
 
 def format_hostname(node_name, uid):
-    """Formats hostname for a docker based on node name and uid
+    """Formats hostname for a docker based on node name and uid.
+    node_name can be in format 'somename@' or 'somename'.
+    """
+    (name, _, hostname) = node_name.partition('@')
+    if hostname:
+        return '{0}.{1}.dev.docker'.format(hostname.replace('.', '-'), uid)
+    else:
+        return '{0}.{1}.dev.docker'.format(name, uid)
+
+
+def format_nodename(node_name, uid):
+    """Formats full node name for a docker based on node name and uid
     node_name can be in format 'somename@' or 'somename'.
     This is needed so different components are resolvable through DNS.
     """
     (name, _, _) = node_name.partition('@')
-    return '{0}@{0}.{1}.dev.docker'.format(name, uid)
+    return '{0}@{1}'.format(name, format_hostname(node_name, uid))
 
 
 def format_dockername(node_name, uid):
@@ -102,8 +141,11 @@ def format_dockername(node_name, uid):
     node_name can be in format 'somename@' or 'somename'.
     This is needed so different components are resolvable through DNS.
     """
-    (name, _, _) = node_name.partition('@')
-    return '{0}_{1}'.format(name, uid)
+    (name, _, hostname) = node_name.partition('@')
+    if hostname:
+        return hostname.replace('.', '_')
+    else:
+        return '{0}_{1}'.format(name, uid)
 
 
 def generate_uid():

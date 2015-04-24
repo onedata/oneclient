@@ -100,14 +100,14 @@ public:
      * connection, through performing an SSL handshake, to performing a custom
      * handshake set in the constructor, to starting a read loop and emitting
      * an @c onReady event.
-     * @param endpointIt An iterator of list of endpoints to try to connect to.
-     * The list is usually retrieved through DNS lookup of a hostname.
+     * @param host The hostname/ip address to connect to.
+     * @param service The service/port to connect to.
      * @note @c connect is separated from the constructor because calling
      * @c shared_from_this() is invalid in constructors and to avoid race
      * conditions from events (e.g. @c onClosed is emitted before the connection
      * is added to an array in a parent object).
      */
-    void connect(boost::asio::ip::tcp::resolver::iterator endpointIt);
+    void connect(const std::string &host, const std::string &service);
 
     /**
      * Sends a message, fulfilling a promise after the message is sent.
@@ -150,6 +150,7 @@ private:
     std::function<void(std::shared_ptr<Connection>)> m_onReady;
     std::function<void(std::shared_ptr<Connection>)> m_onClosed;
 
+    boost::asio::ip::tcp::resolver m_resolver;
     boost::asio::io_service::strand m_strand;
     boost::asio::ssl::stream<boost::asio::ip::tcp::socket> m_socket;
 

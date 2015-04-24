@@ -1,21 +1,25 @@
-"""Prepares a set dockers with oneclient instances that are configured and ready
+# coding=utf-8
+"""Authors: Łukasz Opioła, Konrad Zemek
+Copyright (C) 2015 ACK CYFRONET AGH
+This software is released under the MIT license cited in 'LICENSE.txt'
+
+Prepares a set dockers with oneclient instances that are configured and ready
 to start.
 """
 
 import copy
 import os
 
-import common
-import docker
+from . import common, docker, dns as dns_mod
 
 
 def _tweak_config(config, name, uid):
     cfg = copy.deepcopy(config)
     cfg['nodes'] = {'node': cfg['nodes'][name]}
     node = cfg['nodes']['node']
-    node['name'] = common.format_hostname(node['name'], uid)
-    node['op_hostname'] = common.format_hostname(node['op_hostname'], uid)
-    node['gr_hostname'] = common.format_hostname(node['gr_hostname'], uid)
+    node['name'] = common.format_nodename(node['name'], uid)
+    node['op_hostname'] = common.format_nodename(node['op_hostname'], uid)
+    node['gr_hostname'] = common.format_nodename(node['gr_hostname'], uid)
 
     return cfg
 
@@ -75,7 +79,7 @@ def up(image, bindir, dns, uid, config_path):
     config = common.parse_json_file(config_path)['oneclient']
     configs = [_tweak_config(config, node, uid) for node in config['nodes']]
 
-    dns_servers, output = common.set_up_dns(dns, uid)
+    dns_servers, output = dns_mod.set_up_dns(dns, uid)
 
     for cfg in configs:
         node_out = _node_up(image, bindir, uid, cfg, config_path, dns_servers)

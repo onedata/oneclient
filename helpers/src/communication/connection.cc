@@ -14,7 +14,10 @@
 #include <boost/asio.hpp>
 #include <openssl/ssl.h>
 
+#include <algorithm>
 #include <array>
+#include <vector>
+#include <random>
 
 using namespace std::placeholders;
 
@@ -34,6 +37,7 @@ Connection::Connection(boost::asio::io_service &ioService,
     , m_onMessageReceived{std::move(onMessageReceived)}
     , m_onReady{std::move(onReady)}
     , m_onClosed{std::move(onClosed)}
+    , m_resolver{ioService}
     , m_strand{ioService}
     , m_socket{ioService, context}
 {
@@ -63,46 +67,71 @@ void Connection::send(std::string message, std::promise<void> promise,
         std::bind(&Connection::writeOne, shared_from_this(), handler));
 }
 
-void Connection::connect(boost::asio::ip::tcp::resolver::iterator endpointIt)
+void Connection::connect(const std::string &host, const std::string &service)
 {
-    m_strand.dispatch([this, endpointIt] {
-        boost::asio::async_connect(
-            m_socket.lowest_layer(), endpointIt,
-            [ this, t = shared_from_this() ](
-                const boost::system::error_code &ec,
-                boost::asio::ip::tcp::resolver::iterator) {
+    boost::asio::ip::tcp::resolver::query query{host, service};
+    m_resolver.async_resolve(
+        query, [ this, host, service, t = shared_from_this() ](
+                   const boost::system::error_code &ec,
+                   decltype(m_resolver)::iterator iterator) {
 
-                if (ec) {
-                    close("Failed to establish TCP connection", ec);
-                    return;
-                }
+            if (ec) {
+                close("Failed to resolve host: " + host + " and service: " +
+                        service,
+                    ec);
+                return;
+            }
 
-                m_socket.lowest_layer().set_option(
-                    boost::asio::ip::tcp::no_delay{true});
+            std::vector<decltype(iterator)::value_type> endpoints;
+            std::move(
+                iterator, decltype(iterator){}, std::back_inserter(endpoints));
 
-                m_socket.async_handshake(boost::asio::ssl::stream_base::client,
-                    [this, t](const boost::system::error_code &ec) {
+            std::random_device rd;
+            std::default_random_engine engine{rd()};
+            std::shuffle(endpoints.begin(), endpoints.end(), engine);
+
+            m_strand.post([ this, endpoints = std::move(endpoints), t ] {
+                boost::asio::async_connect(m_socket.lowest_layer(),
+                    endpoints.begin(), endpoints.end(),
+                    [this, t](const boost::system::error_code &ec, auto it) {
+
                         if (ec) {
-                            auto verifyResult =
-                                SSL_get_verify_result(m_socket.native_handle());
-
-                            if (verifyResult != 0 &&
-                                m_verifyServerCertificate) {
-                                close("Server certificate verification failed. "
-                                      "OpenSSL error",
-                                    ec);
-                            }
-                            else {
-                                close("Failed to perform SSL handshake", ec);
-                            }
-
+                            this->close(
+                                "Failed to establish TCP connection", ec);
                             return;
                         }
 
-                        handshake();
+                        m_socket.lowest_layer().set_option(
+                            boost::asio::ip::tcp::no_delay{true});
+
+                        m_socket.async_handshake(
+                            boost::asio::ssl::stream_base::client,
+                            [this, t](const boost::system::error_code &ec) {
+                                if (ec) {
+                                    auto verifyResult = SSL_get_verify_result(
+                                        m_socket.native_handle());
+
+                                    if (verifyResult != 0 &&
+                                        m_verifyServerCertificate) {
+                                        this->close(
+                                            "Server certificate verification "
+                                            "failed. OpenSSL error",
+                                            ec);
+                                    }
+                                    else {
+                                        this->close(
+                                            "Failed to perform SSL handshake",
+                                            ec);
+                                    }
+
+                                    return;
+                                }
+
+                                this->handshake();
+                            });
                     });
             });
-    });
+        });
 }
 
 void Connection::handshake()
