@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
-"""A script to brings up a set of onepanel nodes. They can create separate
+"""Author: Krzysztof Trzepla
+Copyright (C) 2015 ACK CYFRONET AGH
+This software is released under the MIT license cited in 'LICENSE.txt'
+
+A script to brings up a set of onepanel nodes. They can create separate
 clusters.
 Run the script with -h flag to learn about script's running options.
 """

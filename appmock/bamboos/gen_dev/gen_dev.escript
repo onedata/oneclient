@@ -137,7 +137,6 @@ prepare_and_print_configuration(AppName, InputDir, ReleaseDir, NodeConfig) ->
 -spec prepare_fresh_release(InputDir :: string(), TargetDir :: string(), Name :: atom()) -> ReleaseDir :: string().
 prepare_fresh_release(InputDir, TargetDir, Name) ->
     ReleaseDir = filename:join(TargetDir, atom_to_list(Name)),
-    filesystem_operations:remove_dir(ReleaseDir),
     filesystem_operations:copy_dir(InputDir, ReleaseDir),
     ReleaseDir.
 

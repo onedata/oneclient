@@ -1,6 +1,11 @@
 #!/usr/bin/env python
+# coding=utf-8
 
-"""A script to bring up a DNS server with container (skydns + skydock) that
+"""Authors: Łukasz Opioła, Konrad Zemek
+Copyright (C) 2015 ACK CYFRONET AGH
+This software is released under the MIT license cited in 'LICENSE.txt'
+
+A script to bring up a DNS server with container (skydns + skydock) that
 allow different dockers to see each other by hostnames.
 Run the script with -h flag to learn about script's running options.
 """
