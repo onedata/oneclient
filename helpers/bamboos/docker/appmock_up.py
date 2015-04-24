@@ -1,6 +1,11 @@
 #!/usr/bin/env python
+# coding=utf-8
 
-"""A script that brings up a set of appmock instances.
+"""Authors: Łukasz Opioła, Konrad Zemek
+Copyright (C) 2015 ACK CYFRONET AGH
+This software is released under the MIT license cited in 'LICENSE.txt'
+
+A script that brings up a set of appmock instances.
 Run the script with -h flag to learn about script's running options.
 """
 
