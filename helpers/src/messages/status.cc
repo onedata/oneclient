@@ -11,6 +11,60 @@
 #include "client_messages.pb.h"
 #include "server_messages.pb.h"
 
+#include <boost/bimap.hpp>
+
+namespace {
+
+using Translation =
+    boost::bimap<one::clproto::Status_Code, one::messages::Status::Code>;
+
+Translation createTranslation()
+{
+
+    Translation translation;
+
+    translation.insert(Translation::value_type(
+        one::clproto::Status_Code_VOK, one::messages::Status::Code::ok));
+    translation.insert(
+        Translation::value_type(one::clproto::Status_Code_VENOENT,
+            one::messages::Status::Code::enoent));
+    translation.insert(
+        Translation::value_type(one::clproto::Status_Code_VEACCES,
+            one::messages::Status::Code::eacces));
+    translation.insert(
+        Translation::value_type(one::clproto::Status_Code_VEEXIST,
+            one::messages::Status::Code::eexist));
+    translation.insert(Translation::value_type(
+        one::clproto::Status_Code_VEIO, one::messages::Status::Code::eio));
+    translation.insert(
+        Translation::value_type(one::clproto::Status_Code_VENOTSUP,
+            one::messages::Status::Code::enotsup));
+    translation.insert(
+        Translation::value_type(one::clproto::Status_Code_VENOTEMPTY,
+            one::messages::Status::Code::enotempty));
+    translation.insert(Translation::value_type(
+        one::clproto::Status_Code_VEPERM, one::messages::Status::Code::eperm));
+    translation.insert(
+        Translation::value_type(one::clproto::Status_Code_VEINVAL,
+            one::messages::Status::Code::einval));
+    translation.insert(
+        Translation::value_type(one::clproto::Status_Code_VEDQUOT,
+            one::messages::Status::Code::edquot));
+    translation.insert(
+        Translation::value_type(one::clproto::Status_Code_VENOATTR,
+            one::messages::Status::Code::enoattr));
+    translation.insert(Translation::value_type(
+        one::clproto::Status_Code_VECOMM, one::messages::Status::Code::ecomm));
+    translation.insert(
+        Translation::value_type(one::clproto::Status_Code_VEREMOTEIO,
+            one::messages::Status::Code::eremoteio));
+
+    return translation;
+}
+
+const Translation translation = createTranslation();
+}
+
 namespace one {
 namespace messages {
 
@@ -28,34 +82,15 @@ Status::Status(Code code, std::string description)
 Status::Status(std::unique_ptr<ProtocolServerMessage> serverMessage)
 {
     auto &statusMsg = serverMessage->status();
-    switch (statusMsg.code()) {
-        case one::clproto::Status_Code_VOK:
-            m_code = Status::Code::ok;
-        case one::clproto::Status_Code_VENOENT:
-            m_code = Status::Code::enoent;
-        case one::clproto::Status_Code_VEACCES:
-            m_code = Status::Code::eacces;
-        case one::clproto::Status_Code_VEEXIST:
-            m_code = Status::Code::eexist;
-        case one::clproto::Status_Code_VEIO:
-            m_code = Status::Code::eio;
-        case one::clproto::Status_Code_VENOTSUP:
-            m_code = Status::Code::enotsup;
-        case one::clproto::Status_Code_VENOTEMPTY:
-            m_code = Status::Code::enotempty;
-        case one::clproto::Status_Code_VEPERM:
-            m_code = Status::Code::eperm;
-        case one::clproto::Status_Code_VEINVAL:
-            m_code = Status::Code::einval;
-        case one::clproto::Status_Code_VEDQUOT:
-            m_code = Status::Code::edquot;
-        case one::clproto::Status_Code_VENOATTR:
-            m_code = Status::Code::enoattr;
-        case one::clproto::Status_Code_VECOMM:
-            m_code = Status::Code::ecomm;
-        default:
-            m_code = Status::Code::eremoteio;
+
+    auto searchResult = translation.left.find(statusMsg.code());
+    if (searchResult != translation.left.end()) {
+        m_code = searchResult->second;
     }
+    else {
+        m_code = Code::eremoteio;
+    }
+
     if (statusMsg.has_description())
         m_description = statusMsg.description();
 }
@@ -65,33 +100,12 @@ std::unique_ptr<ProtocolClientMessage> Status::serialize() const
     auto clientMsg = std::make_unique<ProtocolClientMessage>();
     auto statusMsg = clientMsg->mutable_status();
 
-    switch (m_code) {
-        case Status::Code::ok:
-            statusMsg->set_code(one::clproto::Status_Code_VOK);
-        case Status::Code::enoent:
-            statusMsg->set_code(one::clproto::Status_Code_VENOENT);
-        case Status::Code::eacces:
-            statusMsg->set_code(one::clproto::Status_Code_VEACCES);
-        case Status::Code::eexist:
-            statusMsg->set_code(one::clproto::Status_Code_VEEXIST);
-        case Status::Code::eio:
-            statusMsg->set_code(one::clproto::Status_Code_VEIO);
-        case Status::Code::enotsup:
-            statusMsg->set_code(one::clproto::Status_Code_VENOTSUP);
-        case Status::Code::enotempty:
-            statusMsg->set_code(one::clproto::Status_Code_VENOTEMPTY);
-        case Status::Code::eperm:
-            statusMsg->set_code(one::clproto::Status_Code_VEPERM);
-        case Status::Code::einval:
-            statusMsg->set_code(one::clproto::Status_Code_VEINVAL);
-        case Status::Code::edquot:
-            statusMsg->set_code(one::clproto::Status_Code_VEDQUOT);
-        case Status::Code::enoattr:
-            statusMsg->set_code(one::clproto::Status_Code_VENOATTR);
-        case Status::Code::ecomm:
-            statusMsg->set_code(one::clproto::Status_Code_VECOMM);
-        default:
-            statusMsg->set_code(one::clproto::Status_Code_VEREMOTEIO);
+    auto searchResult = translation.right.find(m_code);
+    if (searchResult != translation.right.end()) {
+        statusMsg->set_code(searchResult->second);
+    }
+    else {
+        statusMsg->set_code(one::clproto::Status_Code_VEREMOTEIO);
     }
 
     if (m_description)
