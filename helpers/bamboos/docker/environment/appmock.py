@@ -1,10 +1,4 @@
-# coding=utf-8
-"""Authors: Łukasz Opioła, Konrad Zemek
-Copyright (C) 2015 ACK CYFRONET AGH
-This software is released under the MIT license cited in 'LICENSE.txt'
-
-Brings up a set of appmock instances.
-"""
+"""Brings up a set of appmock instances."""
 
 import copy
 import json
@@ -12,10 +6,8 @@ import os
 import random
 import string
 
-from . import common, docker, dns as dns_mod
-
-
-APPMOCK_WAIT_FOR_NAGIOS_SECONDS = 60 * 5
+import common
+import docker
 
 
 def _tweak_config(config, name, uid):
@@ -74,24 +66,15 @@ escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json
     return {'docker_ids': [container], 'appmock_nodes': [node_name]}
 
 
-def _ready(node):
-    node_ip = docker.inspect(node)['NetworkSettings']['IPAddress']
-    return common.nagios_up(node_ip, '9999')
-
-
 def up(image, bindir, dns, uid, config_path):
     config = common.parse_json_file(config_path)['appmock']
     config['config']['target_dir'] = '/root/bin'
     configs = [_tweak_config(config, node, uid) for node in config['nodes']]
 
-    dns_servers, output = dns_mod.set_up_dns(dns, uid)
-    appmock_node_ids = []
+    dns_servers, output = common.set_up_dns(dns, uid)
 
     for cfg in configs:
         node_out = _node_up(image, bindir, uid, cfg, config_path, dns_servers)
-        appmock_node_ids.extend(node_out['docker_ids'])
         common.merge(output, node_out)
-
-    common.wait_until(_ready, appmock_node_ids, APPMOCK_WAIT_FOR_NAGIOS_SECONDS)
 
     return output

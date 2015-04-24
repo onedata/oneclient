@@ -1,20 +1,18 @@
 #!/usr/bin/env python
-# coding=utf-8
 
-"""Authors: Łukasz Opioła, Konrad Zemek
-Copyright (C) 2015 ACK CYFRONET AGH
-This software is released under the MIT license cited in 'LICENSE.txt'
-
-A script to bring up a DNS server with container (skydns + skydock) that
-allow different dockers to see each other by hostnames.
+"""
+Brings up a DNS server with container (skydns + skydock) that allow
+different dockers to see each other by hostnames.
 Run the script with -h flag to learn about script's running options.
 """
 
 from __future__ import print_function
-import argparse
-import json
 
-from environment import common, dns
+import argparse
+import collections
+import common
+import docker
+import json
 
 
 parser = argparse.ArgumentParser(
@@ -22,12 +20,45 @@ parser = argparse.ArgumentParser(
     description='Bring up skydns.')
 
 parser.add_argument(
-    '-u', '--uid',
+    '--create-service', '-c',
+    action='store',
+    default='{0}/createService.js'.format(common.get_script_dir()),
+    help='path to createService.js plugin',
+    dest='create_service')
+
+parser.add_argument(
+    '--uid', '-u',
     action='store',
     default=common.generate_uid(),
     help='uid that will be concatenated to docker name',
     dest='uid')
 
 args = parser.parse_args()
-output = dns.up(args.uid)
+uid = args.uid
+
+skydns = docker.run(
+    image='crosbymichael/skydns',
+    detach=True,
+    name=common.format_dockername('skydns', uid),
+    command=['-nameserver', '8.8.8.8:53', '-domain', 'docker'])
+
+skydock = docker.run(
+    image='crosbymichael/skydock',
+    detach=True,
+    name=common.format_dockername('skydock', uid),
+    reflect=[('/var/run/docker.sock', 'rw')],
+    volumes=[(args.create_service, '/createService.js', 'ro')],
+    command=['-ttl', '30', '-environment', 'dev', '-s', '/var/run/docker.sock',
+             '-domain', 'docker', '-name', 'skydns_{0}'.format(uid), '-plugins',
+             '/createService.js'])
+
+skydns_config = docker.inspect(skydns)
+dns = skydns_config['NetworkSettings']['IPAddress']
+
+output = {
+    'dns': dns,
+    'docker_ids': [skydns, skydock]
+}
+
+# Print JSON to output so it can be parsed by other scripts
 print(json.dumps(output))

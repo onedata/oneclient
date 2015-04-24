@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 
-"""Author: Konrad Zemek
-Copyright (C) 2015 ACK CYFRONET AGH
-This software is released under the MIT license cited in 'LICENSE.txt'
-
-Cleans up Docker containers given by their name or id. Running containers are
+"""Cleans up Docker containers given by their name or id. Running containers are
 killed first. Volumes are not removed automatically.
 
 Run the script with -h flag to learn about script's running options.
