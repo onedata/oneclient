@@ -15,54 +15,54 @@
 
 namespace {
 
-using translation_type =
+using Translation =
     boost::bimap<one::clproto::Status_Code, one::messages::Status::Code>;
 
-translation_type createTranslation()
+Translation createTranslation()
 {
 
-    translation_type translation;
+    Translation translation;
 
-    translation.insert(translation_type::value_type(
+    translation.insert(Translation::value_type(
         one::clproto::Status_Code_VOK, one::messages::Status::Code::ok));
     translation.insert(
-        translation_type::value_type(one::clproto::Status_Code_VENOENT,
+        Translation::value_type(one::clproto::Status_Code_VENOENT,
             one::messages::Status::Code::enoent));
     translation.insert(
-        translation_type::value_type(one::clproto::Status_Code_VEACCES,
+        Translation::value_type(one::clproto::Status_Code_VEACCES,
             one::messages::Status::Code::eacces));
     translation.insert(
-        translation_type::value_type(one::clproto::Status_Code_VEEXIST,
+        Translation::value_type(one::clproto::Status_Code_VEEXIST,
             one::messages::Status::Code::eexist));
-    translation.insert(translation_type::value_type(
+    translation.insert(Translation::value_type(
         one::clproto::Status_Code_VEIO, one::messages::Status::Code::eio));
     translation.insert(
-        translation_type::value_type(one::clproto::Status_Code_VENOTSUP,
+        Translation::value_type(one::clproto::Status_Code_VENOTSUP,
             one::messages::Status::Code::enotsup));
     translation.insert(
-        translation_type::value_type(one::clproto::Status_Code_VENOTEMPTY,
+        Translation::value_type(one::clproto::Status_Code_VENOTEMPTY,
             one::messages::Status::Code::enotempty));
-    translation.insert(translation_type::value_type(
+    translation.insert(Translation::value_type(
         one::clproto::Status_Code_VEPERM, one::messages::Status::Code::eperm));
     translation.insert(
-        translation_type::value_type(one::clproto::Status_Code_VEINVAL,
+        Translation::value_type(one::clproto::Status_Code_VEINVAL,
             one::messages::Status::Code::einval));
     translation.insert(
-        translation_type::value_type(one::clproto::Status_Code_VEDQUOT,
+        Translation::value_type(one::clproto::Status_Code_VEDQUOT,
             one::messages::Status::Code::edquot));
     translation.insert(
-        translation_type::value_type(one::clproto::Status_Code_VENOATTR,
+        Translation::value_type(one::clproto::Status_Code_VENOATTR,
             one::messages::Status::Code::enoattr));
-    translation.insert(translation_type::value_type(
+    translation.insert(Translation::value_type(
         one::clproto::Status_Code_VECOMM, one::messages::Status::Code::ecomm));
     translation.insert(
-        translation_type::value_type(one::clproto::Status_Code_VEREMOTEIO,
+        Translation::value_type(one::clproto::Status_Code_VEREMOTEIO,
             one::messages::Status::Code::eremoteio));
 
     return translation;
 }
 
-const translation_type translation = createTranslation();
+const Translation translation = createTranslation();
 }
 
 namespace one {
