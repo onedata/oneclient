@@ -1,10 +1,10 @@
 /**
- * @file version.h.in
- * @author Rafal Slota
- * @copyright (C) 2013 ACK CYFRONET AGH
- * @copyright This software is released under the MIT license cited in
- * 'LICENSE.txt'
- */
+* @file version.h.in
+* @author Rafal Slota
+* @copyright (C) 2013 ACK CYFRONET AGH
+* @copyright This software is released under the MIT license cited in
+* 'LICENSE.txt'
+*/
 
 #ifndef ONECLIENT_VERSION_H
 #define ONECLIENT_VERSION_H

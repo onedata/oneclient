@@ -18,8 +18,6 @@ class TestConnectionPool:
                                 dns='none', uid=common.generate_uid(),
                                 config_path=os.path.join(script_dir,
                                                          'env.json'))
-        # TODO remove this sleep when appmock start is verified with nagios
-        time.sleep(30)
 
     @classmethod
     def teardown_class(cls):

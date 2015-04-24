@@ -2,12 +2,12 @@
  * @file grAdapter.h
  * @author Konrad Zemek
  * @copyright (C) 2014 ACK CYFRONET AGH
- * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
  */
 
 #ifndef ONECLIENT_GR_ADAPTER_H
 #define ONECLIENT_GR_ADAPTER_H
-
 
 #include "tokenAuthDetails.h"
 
@@ -19,26 +19,21 @@
 #include <memory>
 #include <string>
 
-namespace one
-{
-namespace client
-{
+namespace one {
+namespace client {
 
 class Context;
 
-namespace auth
-{
+namespace auth {
 
 /**
  * The GRAdapter class is responsible for retrieving an OpenID Access Token,
  * communicating with Global Registry's REST services if necessary. *
  */
-class GRAdapter
-{
+class GRAdapter {
     using Socket = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
 
 public:
-
     /**
      * Constructor.
      * @param context An application context.
@@ -47,8 +42,9 @@ public:
      * @param checkCertificate Determines whether to validate Global Registry's
      * certificate.
      */
-    GRAdapter(std::weak_ptr<Context> context, const std::string hostname,
-              const unsigned int port, const bool checkCertificate);
+    GRAdapter(std::string clientName, boost::filesystem::path userDataDir,
+        const std::string hostname, const unsigned int port,
+        const bool checkCertificate);
 
     /**
      * Attempts to retrieve token from local storage.
@@ -80,7 +76,8 @@ private:
     TokenAuthDetails parseToken(const std::string &response) const;
     boost::filesystem::path tokenFilePath() const;
 
-    std::weak_ptr<Context> m_context;
+    std::string m_clientName;
+    boost::filesystem::path m_userDataDir;
     std::string m_hostname;
     unsigned int m_port;
     bool m_checkCertificate;
@@ -89,6 +86,5 @@ private:
 } // namespace auth
 } // namespace client
 } // namespace one
-
 
 #endif // ONECLIENT_GR_ADAPTER_H

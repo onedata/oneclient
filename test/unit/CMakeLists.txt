@@ -3,8 +3,8 @@ include_directories(SYSTEM ${GTEST_INCLUDE_DIR} ${GMOCK_INCLUDE_DIR})
 set(TEST_LIBRARIES )
 
 file(GLOB_RECURSE TEST_HEADERS include/*.h)
-add_library(testCommon OBJECT testRunner.cc testCommon.cc)
-add_dependencies(testCommon glog gmock gtest)
+add_library(testRunner OBJECT testRunner.cc)
+add_dependencies(testRunner glog gmock gtest)
 
 add_custom_target(cunit)
 macro(run_test test_target)
@@ -22,7 +22,7 @@ foreach(TEST_SRC ${TEST_SOURCES})
     add_executable(${TEST_NAME}
         ${TEST_SRC}
         ${TEST_HEADERS}
-        $<TARGET_OBJECTS:testCommon>)
+        $<TARGET_OBJECTS:testRunner>)
     target_link_libraries(${TEST_NAME} PRIVATE
         clientShared
         ${GTEST_LIBRARIES}
