@@ -1,51 +1,11 @@
-# coding=utf-8
-"""Authors: Łukasz Opioła, Konrad Zemek
-Copyright (C) 2015 ACK CYFRONET AGH
-This software is released under the MIT license cited in 'LICENSE.txt'
-
-A custom utils library used across docker scripts.
-"""
-
-from __future__ import print_function
+"""A custom utils library used across docker scripts."""
 
 import argparse
+import dns
 import inspect
 import json
 import os
-import requests
 import time
-import sys
-
-
-try:
-    import xml.etree.cElementTree as eTree
-except ImportError:
-    import xml.etree.ElementTree as eTree
-
-
-def nagios_up(ip, port=None):
-    url = 'https://{0}{1}/nagios'.format(ip, (':' + port) if port else '')
-    try:
-        r = requests.get(url, verify=False, timeout=5)
-        if r.status_code != requests.codes.ok:
-            return False
-
-        healthdata = eTree.fromstring(r.text)
-        return healthdata.attrib['status'] == 'ok'
-    except requests.ConnectionError:
-        return False
-
-
-def wait_until(condition, containers, timeout):
-    deadline = time.time() + timeout
-    for container in containers:
-        while not condition(container):
-            if time.time() > deadline:
-                warning = 'WARNING: timeout while waiting for condition {0}'
-                print(warning.format(condition.__name__), file=sys.stderr)
-                break
-
-            time.sleep(1)
 
 
 def standard_arg_parser(desc):
@@ -96,6 +56,18 @@ def merge(d, merged):
     """
     for key, value in iter(merged.items()):
         d[key] = d[key] + value if key in d else value
+
+
+def set_up_dns(config, uid):
+    """Sets up DNS configuration values, starting the server if needed."""
+    if config == 'auto':
+        dns_config = dns.up(uid)
+        return [dns_config['dns']], dns_config
+
+    if config == 'none':
+        return [], {}
+
+    return [config], {}
 
 
 def get_file_dir(file_path):

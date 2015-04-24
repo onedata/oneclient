@@ -1,10 +1,6 @@
 #!/usr/bin/env python
 
-"""Author: Konrad Zemek
-Copyright (C) 2015 ACK CYFRONET AGH
-This software is released under the MIT license cited in 'LICENSE.txt'
-
-Brings up a riak cluster.
+"""Brings up a riak cluster.
 Run the script with -h flag to learn about script's running options.
 """
 
