@@ -9,7 +9,6 @@
 
 #include "fileCache.h"
 #include "helpers/storageHelperFactory.h"
-#include "logging.h"
 
 #include <functional>
 #include <thread>
@@ -104,7 +103,6 @@ size_t BufferAgent::getReadBufferSize()
 
 int BufferAgent::onOpen(const std::string &path, ffi_type ffi)
 {
-    DLOG(INFO) << "BufferAgent::onOpen(" << path << ")";
     // Initialize write buffer's holder
     {
         unique_lock guard(m_wrMutex);
@@ -143,7 +141,6 @@ int BufferAgent::onOpen(const std::string &path, ffi_type ffi)
 
 int BufferAgent::onWrite(const std::string &path, const std::string &buf, size_t size, off_t offset, ffi_type ffi)
 {
-    DLOG(INFO) << "BufferAgent::onWrite(path: " << path << ", size: " << size << ", offset: " << offset <<")";
     unique_lock guard(m_wrMutex);
         write_buffer_ptr wrapper = m_wrCacheMap[ffi->fh];
 
@@ -159,7 +156,6 @@ int BufferAgent::onWrite(const std::string &path, const std::string &buf, size_t
         // If memory limit is exceeded, force flush
         if(wrapper->buffer->byteSize() > m_bufferLimits.writeBufferPerFileSizeLimit ||
            getWriteBufferSize() > m_bufferLimits.writeBufferGlobalSizeLimit) {
-            DLOG(INFO) << "Write Buffer memory limit exceeded, force flush";
             if(int fRet = onFlush(path, ffi)) {
                 return fRet;
             }
@@ -458,7 +454,7 @@ void BufferAgent::writerLoop()
 
                 if(block)
                 {
-                    // Handle error or incomplete writes
+                    // HanFLOe error or incomplete writes
                     if(writeRes < 0)
                     {
                         while(wrapper->buffer->blockCount() > 0)

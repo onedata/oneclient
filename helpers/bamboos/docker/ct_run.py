@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
-"""Author: Konrad Zemek
-Copyright (C) 2015 ACK CYFRONET AGH
-This software is released under the MIT license cited in 'LICENSE.txt'
-
+"""
 Runs oneprovider integration tests, providing Erlang's ct_run with every
 environmental argument it needs for successful run. The output is put into
 'test_distributed/logs'. The (init|end)_per_suite "testcases" are removed from
@@ -47,11 +44,11 @@ parser.add_argument(
     dest='cases')
 
 parser.add_argument(
-    '--performance', '-p',
+    '--perf', '-p',
     action='store_true',
     default=False,
     help='run performance tests',
-    dest='performance')
+    dest='perf')
 
 args = parser.parse_args()
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -78,8 +75,8 @@ if args.cases:
     ct_command.append('-case')
     ct_command.extend(args.cases)
 
-if args.performance:
-    ct_command.extend(['-env', 'performance', 'true'])
+if args.perf:
+    ct_command.extend(['-env', 'perf_test', 'true'])
 
 command = '''
 import os, subprocess, sys, stat

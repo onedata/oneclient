@@ -1,11 +1,6 @@
 #!/usr/bin/env python
 
-# coding=utf-8
-"""Author: Konrad Zemek
-Copyright (C) 2015 ACK CYFRONET AGH
-This software is released under the MIT license cited in 'LICENSE.txt'
-
-Runs a command in a dockerized development environment. The files are copied
+"""Runs a command in a dockerized development environment. The files are copied
 from 'source directory' to 'output directory' and then the command is ran.
 The copy operation is optimized, so that only new and changed files are copied.
 The script uses user's SSH keys in case dependency fetching is needed.
@@ -47,7 +42,7 @@ parser.add_argument(
     action='store',
     default=None,
     help='destination directory where the build will be stored; defaults '
-         'to source dir if unset',
+          'to source dir if unset',
     dest='dst')
 
 parser.add_argument(

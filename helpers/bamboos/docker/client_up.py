@@ -1,11 +1,6 @@
 #!/usr/bin/env python
-# coding=utf-8
 
-"""Authors: Łukasz Opioła, Konrad Zemek
-Copyright (C) 2015 ACK CYFRONET AGH
-This software is released under the MIT license cited in 'LICENSE.txt'
-
-A script that prepares a set dockers with oneclient instances that are
+"""A script that prepares a set dockers with oneclient instances that are
 configured and ready to start.
 Run the script with -h flag to learn about script's running options.
 """
