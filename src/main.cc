@@ -15,6 +15,7 @@
 #define _XOPEN_SOURCE 700
 #endif
 
+#include "shMock.h"
 #include "version.h"
 #include "context.h"
 #include "options.h"

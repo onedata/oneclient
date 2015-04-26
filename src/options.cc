@@ -61,8 +61,8 @@ void Options::setDescriptions()
     add_authentication(m_common);
 
     // Restricted options exclusive to global config file
-    m_restricted.add_options()("enable_env_option_override",
-                               value<bool>()->default_value(true));
+    m_restricted.add_options()(
+        "enable_env_option_override", value<bool>()->default_value(true));
     add_cluster_ping_interval(m_restricted);
     add_alive_meta_connections_count(m_restricted);
     add_alive_data_connections_count(m_restricted);
@@ -74,16 +74,16 @@ void Options::setDescriptions()
 
     // General commandline options
     m_commandline.add_options()("help,h", "print help")(
-        "version,V", "print version")("config", value<std::string>(),
-                                      "path to user config file");
+        "version,V", "print version")(
+        "config", value<std::string>(), "path to user config file");
     add_authentication(m_commandline);
     add_switch_debug(m_commandline);
     add_switch_debug_gsi(m_commandline);
     add_switch_no_check_certificate(m_commandline);
 
     // FUSE-specific commandline options
-    m_fuse.add_options()(
-        ",o", value<std::vector<std::string>>()->value_name("opt,..."),
+    m_fuse.add_options()(",o",
+        value<std::vector<std::string>>()->value_name("opt,..."),
         "mount options")(",f", "foreground operation")(
         ",s", "disable multi-threaded operation");
 
@@ -116,7 +116,7 @@ Options::Result Options::parseConfigs(const int argc, const char *const argv[])
         //                   << e.what();
         if (m_restricted.find_nothrow(e.get_option_name(), false))
             throw OneException("", "restricted option '" + e.get_option_name() +
-                                       "' found in user configuration file");
+                    "' found in user configuration file");
 
         throw OneException("", e.what());
     }
@@ -140,7 +140,8 @@ Options::Result Options::parseConfigs(const int argc, const char *const argv[])
     if (fileConfigMap.at("enable_env_option_override").as<bool>()) {
         parseEnv();
         m_vm.insert(fileConfigMap.begin(), fileConfigMap.end());
-    } else {
+    }
+    else {
         m_vm.insert(fileConfigMap.begin(), fileConfigMap.end());
         parseEnv();
     }
@@ -172,8 +173,8 @@ static std::pair<std::string, std::string> cmdParser(const std::string &str)
     return std::pair<std::string, std::string>();
 }
 
-Options::Result Options::parseCommandLine(const int argc,
-                                          const char *const argv[])
+Options::Result Options::parseCommandLine(
+    const int argc, const char *const argv[])
 {
     positional_options_description pos;
     pos.add("mountpoint", 1);
@@ -186,7 +187,7 @@ Options::Result Options::parseCommandLine(const int argc,
               .positional(pos)
               .extra_parser(cmdParser)
               .run(),
-          m_vm);
+        m_vm);
 
     if (m_vm.count("help"))
         return Result::HELP;
@@ -223,7 +224,7 @@ void Options::parseGlobalConfig(variables_map &fileConfigMap)
     global.add(m_restricted).add(m_common);
 
     const path globalConfigPath = path(oneclient_INSTALL_PATH) /
-                                  oneclient_CONFIG_DIR / GLOBAL_CONFIG_FILE;
+        oneclient_CONFIG_DIR / GLOBAL_CONFIG_FILE;
     std::ifstream globalConfig(globalConfigPath.c_str());
 
     //    if (globalConfig)
@@ -251,9 +252,9 @@ std::string Options::mapEnvNames(std::string env) const
 void Options::parseEnv()
 {
     //    LOG(INFO) << "Parsing environment variables";
-    store(parse_environment(m_common, std::bind(&Options::mapEnvNames, this,
-                                                std::placeholders::_1)),
-          m_vm);
+    store(parse_environment(m_common,
+              std::bind(&Options::mapEnvNames, this, std::placeholders::_1)),
+        m_vm);
 }
 
 struct fuse_args Options::getFuseArgs() const
@@ -276,8 +277,8 @@ struct fuse_args Options::getFuseArgs() const
     }
 
     if (m_vm.count("mountpoint"))
-        fuse_opt_add_arg(&args,
-                         m_vm.at("mountpoint").as<std::string>().c_str());
+        fuse_opt_add_arg(
+            &args, m_vm.at("mountpoint").as<std::string>().c_str());
 
     return args;
 }
