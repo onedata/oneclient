@@ -20,11 +20,9 @@
 
 namespace one {
 namespace client {
-
-class ReadEventSubscription;
-
 namespace events {
 
+class ReadEventSubscription;
 template <class EventType> class EventStream;
 
 /**
@@ -34,7 +32,7 @@ class ReadEvent : public Event {
     friend std::ostream &operator<<(std::ostream &, const ReadEvent &event);
 
 public:
-    typedef typename one::client::ReadEventSubscription subscription;
+    typedef typename one::client::events::ReadEventSubscription subscription;
 
     /**
     * Default constructor.
@@ -52,7 +50,7 @@ public:
     * @param size Number of read bytes.
     */
     ReadEvent(std::weak_ptr<EventStream<ReadEvent>> eventStream,
-              std::string fileId, off_t offset, size_t size);
+        std::string fileId, off_t offset, size_t size);
 
     virtual void emit() const override;
 

@@ -15,9 +15,9 @@ namespace client {
 namespace events {
 
 WriteEventSubscription::WriteEventSubscription(
-    std::unique_ptr<messages::ProtocolServerMessage> serverMessage)
+    const messages::ProtocolServerMessage &serverMessage)
 {
-    auto &eventSubscriptionMsg = serverMessage->event_subscription();
+    auto &eventSubscriptionMsg = serverMessage.event_subscription();
     auto &writeEventSubscriptionMsg =
         eventSubscriptionMsg.write_event_subscription();
     m_id = writeEventSubscriptionMsg.id();
@@ -30,9 +30,9 @@ WriteEventSubscription::WriteEventSubscription(
         m_sizeThreshold = writeEventSubscriptionMsg.size_threshold();
 }
 
-WriteEventSubscription::WriteEventSubscription(
-    uint64_t id, size_t counterThreshold,
-    std::chrono::milliseconds timeThreshold, size_t sizeThreshold)
+WriteEventSubscription::WriteEventSubscription(uint64_t id,
+    size_t counterThreshold, std::chrono::milliseconds timeThreshold,
+    size_t sizeThreshold)
     : m_id{id}
     , m_counterThreshold{counterThreshold}
     , m_timeThreshold{std::move(timeThreshold)}

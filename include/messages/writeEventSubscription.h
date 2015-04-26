@@ -36,7 +36,7 @@ public:
      * WriteEventSubscription counterpart.
      */
     WriteEventSubscription(
-        std::unique_ptr<messages::ProtocolServerMessage> serverMessage);
+        const messages::ProtocolServerMessage &serverMessage);
 
     /**
      * Constructor.
@@ -48,8 +48,7 @@ public:
      * @param sizeThreshold Maximal number of read bytes before emission
      */
     WriteEventSubscription(uint64_t id, size_t counterThreshold,
-                           std::chrono::milliseconds timeThreshold,
-                           size_t sizeThreshold);
+        std::chrono::milliseconds timeThreshold, size_t sizeThreshold);
 
 private:
     uint64_t m_id;

@@ -18,14 +18,13 @@ namespace events {
 WriteEvent::WriteEvent() { m_counter = 0; }
 
 WriteEvent::WriteEvent(std::weak_ptr<EventStream<WriteEvent>> eventStream,
-                       std::string fileId, off_t offset, size_t size,
-                       off_t fileSize)
+    std::string fileId, off_t offset, size_t size, off_t fileSize)
     : m_eventStream(std::move(eventStream))
     , m_fileId{std::move(fileId)}
     , m_size{size}
     , m_fileSize{fileSize}
-    , m_blocks{boost::icl::discrete_interval<off_t>::right_open(offset,
-                                                                offset + size)}
+    , m_blocks{boost::icl::discrete_interval<off_t>::right_open(
+          offset, offset + size)}
 {
 }
 
@@ -60,7 +59,7 @@ WriteEvent &WriteEvent::operator+=(const WriteEvent &event)
 bool operator==(const WriteEvent &lhs, const WriteEvent &rhs)
 {
     return lhs.fileId() == rhs.fileId() && lhs.size() == rhs.size() &&
-           lhs.fileSize() == rhs.fileSize() && lhs.blocks() == rhs.blocks();
+        lhs.fileSize() == rhs.fileSize() && lhs.blocks() == rhs.blocks();
 }
 
 std::ostream &operator<<(std::ostream &ostream, const WriteEvent &event)

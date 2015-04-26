@@ -9,6 +9,8 @@
 #ifndef ONECLIENT_CONTEXT_H
 #define ONECLIENT_CONTEXT_H
 
+#include "communication/communicator.h"
+
 #include <memory>
 #include <mutex>
 #include <list>
@@ -30,12 +32,18 @@ public:
     std::shared_ptr<Scheduler> scheduler() const;
     void setScheduler(std::shared_ptr<Scheduler> scheduler);
 
+    std::shared_ptr<communication::Communicator> communicator() const;
+    void setCommunicator(
+        std::shared_ptr<communication::Communicator> communicator);
+
 private:
     std::shared_ptr<Options> m_options;
     std::shared_ptr<Scheduler> m_scheduler;
+    std::shared_ptr<communication::Communicator> m_communicator;
 
     mutable std::shared_timed_mutex m_optionsMutex;
     mutable std::shared_timed_mutex m_schedulerMutex;
+    mutable std::shared_timed_mutex m_communicatorMutex;
 };
 
 } // namespace client

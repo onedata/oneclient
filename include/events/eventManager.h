@@ -11,10 +11,17 @@
 
 #include "eventStream.h"
 
+#include <map>
 #include <memory>
+#include <functional>
 #include <sys/types.h>
 
 namespace one {
+
+namespace clproto {
+class ServerMessage;
+}
+
 namespace client {
 
 class Context;
@@ -48,8 +55,8 @@ public:
     * @param size Number of bytes read.
     * @return Unique pointer to read event.
     */
-    std::unique_ptr<Event> createReadEvent(const std::string &fileId,
-                                           off_t offset, size_t size) const;
+    std::unique_ptr<Event> createReadEvent(
+        const std::string &fileId, off_t offset, size_t size) const;
 
     /**
     * Creates a write event.
@@ -61,8 +68,7 @@ public:
     * @return Unique pointer to write event.
     */
     std::unique_ptr<Event> createWriteEvent(const std::string &fileId,
-                                            off_t offset, size_t size,
-                                            off_t fileSize) const;
+        off_t offset, size_t size, off_t fileSize) const;
 
     /**
     * Creates a truncate event.
@@ -70,10 +76,14 @@ public:
     * @param fileSize Size of file after a truncate operation.
     * @return Unique pointer to truncate event.
     */
-    std::unique_ptr<Event> createTruncateEvent(const std::string &fileId,
-                                               off_t fileSize) const;
+    std::unique_ptr<Event> createTruncateEvent(
+        const std::string &fileId, off_t fileSize) const;
 
 private:
+    void handleServerMessage(const clproto::ServerMessage &msg);
+
+    std::function<void()> m_unsubscribe;
+    std::map<uint64_t, std::function<void()>> m_subscriptionCancellations;
     std::shared_ptr<EventStream<ReadEvent>> m_readEventStream;
     std::shared_ptr<EventStream<WriteEvent>> m_writeEventStream;
 };

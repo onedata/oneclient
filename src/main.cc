@@ -361,6 +361,8 @@ int main(int argc, char *argv[], char *envp[])
     auto testCommunicator = authManager->createCommunicator(
         1, fuseId, std::move(onHandshakeResponse));
 
+    context->setCommunicator(testCommunicator);
+
     testCommunicator->connect();
 
     try {

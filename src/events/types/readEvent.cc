@@ -18,12 +18,12 @@ namespace events {
 ReadEvent::ReadEvent() { m_counter = 0; }
 
 ReadEvent::ReadEvent(std::weak_ptr<EventStream<ReadEvent>> eventStream,
-                     std::string fileId, off_t offset, size_t size)
+    std::string fileId, off_t offset, size_t size)
     : m_eventStream{std::move(eventStream)}
     , m_fileId{std::move(fileId)}
     , m_size{size}
-    , m_blocks{boost::icl::discrete_interval<off_t>::right_open(offset,
-                                                                offset + size)}
+    , m_blocks{boost::icl::discrete_interval<off_t>::right_open(
+          offset, offset + size)}
 {
 }
 
@@ -54,7 +54,7 @@ ReadEvent &ReadEvent::operator+=(const ReadEvent &event)
 bool operator==(const ReadEvent &lhs, const ReadEvent &rhs)
 {
     return lhs.fileId() == rhs.fileId() && lhs.size() == rhs.size() &&
-           lhs.blocks() == rhs.blocks();
+        lhs.blocks() == rhs.blocks();
 }
 
 std::ostream &operator<<(std::ostream &ostream, const ReadEvent &event)

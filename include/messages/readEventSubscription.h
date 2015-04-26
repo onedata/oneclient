@@ -6,8 +6,8 @@
 * 'LICENSE.txt'
 */
 
-#ifndef ONECLIENT_MESSAGES_SERVER_READ_EVENT_SUBSCRIPTION_H
-#define ONECLIENT_MESSAGES_SERVER_READ_EVENT_SUBSCRIPTION_H
+#ifndef ONECLIENT_MESSAGES_READ_EVENT_SUBSCRIPTION_H
+#define ONECLIENT_MESSAGES_READ_EVENT_SUBSCRIPTION_H
 
 #include "messages/serverMessage.h"
 
@@ -35,8 +35,7 @@ public:
      * @param serverMessage Protocol Buffers message representing @c
      * ReadEventSubscription counterpart.
      */
-    ReadEventSubscription(
-        std::unique_ptr<messages::ProtocolServerMessage> serverMessage);
+    ReadEventSubscription(const messages::ProtocolServerMessage &serverMessage);
 
     /**
      * Constructor.
@@ -48,8 +47,7 @@ public:
      * @param sizeThreshold Maximal number of read bytes before emission
      */
     ReadEventSubscription(uint64_t id, size_t counterThreshold,
-                          std::chrono::milliseconds timeThreshold,
-                          size_t sizeThreshold);
+        std::chrono::milliseconds timeThreshold, size_t sizeThreshold);
 
 private:
     uint64_t m_id;
@@ -63,4 +61,4 @@ private:
 } // namespace client
 } // namespace one
 
-#endif // ONECLIENT_MESSAGES_SERVER_READ_EVENT_SUBSCRIPTION_H
+#endif // ONECLIENT_MESSAGES_READ_EVENT_SUBSCRIPTION_H

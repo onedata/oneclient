@@ -20,11 +20,9 @@
 
 namespace one {
 namespace client {
-
-class WriteEventSubscription;
-
 namespace events {
 
+class WriteEventSubscription;
 template <class EventType> class EventStream;
 
 /**
@@ -34,7 +32,7 @@ class WriteEvent : public Event {
     friend std::ostream &operator<<(std::ostream &, const WriteEvent &event);
 
 public:
-    typedef typename one::client::WriteEventSubscription subscription;
+    typedef typename one::client::events::WriteEventSubscription subscription;
 
     /**
     * Default constructor.
@@ -53,7 +51,7 @@ public:
     * @param fileSize Size of file after a write operation.
     */
     WriteEvent(std::weak_ptr<EventStream<WriteEvent>> eventStream,
-               std::string fileId, off_t offset, size_t size, off_t fileSize);
+        std::string fileId, off_t offset, size_t size, off_t fileSize);
 
     virtual void emit() const override;
 

@@ -45,7 +45,7 @@ public:
     * event are forwarded.
     */
     EventStream(std::weak_ptr<Context> context,
-                std::shared_ptr<EventCommunicator> communicator);
+        std::shared_ptr<EventCommunicator> communicator);
 
     /**
     * Pushes an event of type @c EventType to the stream.
@@ -60,16 +60,16 @@ public:
     * SubscriptionType to be added.
     * @return Subscription ID.
     */
-    uint64_t
-    addSubscription(const typename EventType::subscription &subscription);
+    uint64_t addSubscription(
+        const typename EventType::subscription &subscription);
 
     /**
     * Removes a subscription for events of type @c EventType.
     * @param subscription An instance of subscription of type @c
-    * SubscriptionType to removed.
+    * SubscriptionType to be removed.
     */
-    void
-    removeSubscription(const typename EventType::subscription &subscription);
+    void removeSubscription(
+        const typename EventType::subscription &subscription);
 
 private:
     bool isEmissionRuleSatisfied(const EventType &event);
@@ -91,8 +91,7 @@ private:
 };
 
 template <class EventType>
-EventStream<EventType>::EventStream(
-    std::weak_ptr<Context> context,
+EventStream<EventType>::EventStream(std::weak_ptr<Context> context,
     std::shared_ptr<EventCommunicator> communicator)
     : m_context{std::move(context)}
     , m_communicator{std::move(communicator)}
@@ -146,7 +145,7 @@ template <class EventType>
 bool EventStream<EventType>::isEmissionRuleSatisfied(EventType const &event)
 {
     return event.counter() >= *m_counterThresholds.begin() ||
-           event.size() >= *m_sizeThresholds.begin();
+        event.size() >= *m_sizeThresholds.begin();
 }
 
 template <class EventType> void EventStream<EventType>::emit()
@@ -166,9 +165,9 @@ template <class EventType> void EventStream<EventType>::periodicEmission()
 template <class EventType> void EventStream<EventType>::resetPeriodicEmission()
 {
     m_cancelPeriodicEmission();
-    m_cancelPeriodicEmission = m_context.lock()->scheduler()->schedule(
-        *m_timeThresholds.begin(),
-        std::bind(&EventStream<EventType>::periodicEmission, this));
+    m_cancelPeriodicEmission =
+        m_context.lock()->scheduler()->schedule(*m_timeThresholds.begin(),
+            std::bind(&EventStream<EventType>::periodicEmission, this));
 }
 
 } // namespace events
