@@ -8,7 +8,7 @@
 
 #include "messages/handshakeRequest.h"
 
-#include "client_messages.pb.h"
+#include "messages.pb.h"
 
 namespace one {
 namespace messages {

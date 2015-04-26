@@ -3,8 +3,7 @@
 #include "messages/clientMessage.h"
 #include "messages/serverMessage.h"
 
-#include "client_messages.pb.h"
-#include "server_messages.pb.h"
+#include "messages.pb.h"
 
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>

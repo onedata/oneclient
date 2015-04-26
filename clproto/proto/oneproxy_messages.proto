@@ -1,0 +1,20 @@
+/**
+ * Communication protocol between the proxy and the server.
+ * server.
+ * @author Tomasz Lichon
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
+
+package one.proxy.proto;
+
+message ProxyInit {
+    required string host = 1;
+    required string port = 2;
+}
+
+message CertificateInfo {
+  optional bytes client_subject_dn = 1;
+  optional bytes client_session_id = 2;
+}
