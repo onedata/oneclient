@@ -8,7 +8,7 @@
 
 #include "messages/readEventSubscription.h"
 
-#include "server_messages.pb.h"
+#include "messages.pb.h"
 
 namespace one {
 namespace client {

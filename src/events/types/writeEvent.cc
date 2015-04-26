@@ -9,7 +9,7 @@
 #include "events/eventStream.h"
 #include "events/types/writeEvent.h"
 
-#include "client_messages.pb.h"
+#include "messages.pb.h"
 
 namespace one {
 namespace client {
