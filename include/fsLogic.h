@@ -19,6 +19,10 @@ namespace client {
 class Context;
 class SHMock;
 
+namespace events {
+class EventManager;
+}
+
 /**
 * The FsLogic main class.
 * This class contains FUSE all callbacks, so it basically is an heart of the
@@ -193,6 +197,7 @@ private:
 
     std::shared_ptr<Context> m_context;
     std::unique_ptr<SHMock> m_shMock;
+    std::unique_ptr<events::EventManager> m_eventManager;
 };
 
 } // namespace client

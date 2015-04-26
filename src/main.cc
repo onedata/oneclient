@@ -25,6 +25,7 @@
 #include "oneException.h"
 #include "auth/authException.h"
 #include "auth/authManager.h"
+#include "events/eventManager.h"
 #include "messages/handshakeResponse.h"
 
 #include <glog/logging.h>
