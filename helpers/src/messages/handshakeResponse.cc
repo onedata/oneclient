@@ -20,10 +20,7 @@ HandshakeResponse::HandshakeResponse(
     m_sessionId = handshakeResponseMsg.session_id();
 }
 
-const std::string &HandshakeResponse::sessionId() const
-{
-    return m_sessionId;
-}
+const std::string &HandshakeResponse::sessionId() const { return m_sessionId; }
 
 } // namespace messages
 } // namespace one

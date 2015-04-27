@@ -10,7 +10,6 @@
 #define ONECLIENT_EVENTS_TYPES_READ_EVENT_H
 
 #include "event.h"
-#include "messages/client/clientMessage.h"
 
 #include <boost/icl/interval_set.hpp>
 
@@ -26,14 +25,12 @@ class ReadEventSubscription;
 
 namespace events {
 
-class ReadEventSerializer;
 template <class EventType> class EventStream;
 
 /**
 * The ReadEvent class represents a read operation in the file system.
 */
 class ReadEvent : public Event {
-    friend class ReadEventSerializer;
     friend std::ostream &operator<<(std::ostream &, const ReadEvent &event);
 
 public:
@@ -85,8 +82,8 @@ public:
     */
     ReadEvent &operator+=(const ReadEvent &event);
 
-    virtual std::unique_ptr<ClientMessageSerializer>
-    createSerializer() const override;
+    virtual std::unique_ptr<one::messages::ProtocolClientMessage>
+    serialize() const override;
 
 private:
     std::weak_ptr<EventStream<ReadEvent>> m_eventStream;

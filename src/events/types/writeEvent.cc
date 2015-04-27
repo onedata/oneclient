@@ -8,7 +8,8 @@
 
 #include "events/eventStream.h"
 #include "events/types/writeEvent.h"
-#include "messages/client/writeEventSerializer.h"
+
+#include "client_messages.pb.h"
 
 namespace one {
 namespace client {
@@ -71,9 +72,23 @@ std::ostream &operator<<(std::ostream &ostream, const WriteEvent &event)
                    << ", blocks: " << event.m_blocks;
 }
 
-std::unique_ptr<ClientMessageSerializer> WriteEvent::createSerializer() const
+std::unique_ptr<one::messages::ProtocolClientMessage>
+WriteEvent::serialize() const
 {
-    return std::make_unique<one::client::WriteEventSerializer>();
+    auto clientMsg = std::make_unique<one::messages::ProtocolClientMessage>();
+    auto eventMsg = clientMsg->mutable_event();
+    auto writeEventMsg = eventMsg->mutable_write_event();
+    writeEventMsg->set_counter(m_counter);
+    writeEventMsg->set_file_id(m_fileId);
+    writeEventMsg->set_file_size(m_fileSize);
+    writeEventMsg->set_size(m_size);
+    for (const auto &block : m_blocks) {
+        auto blockMsg = writeEventMsg->add_blocks();
+        blockMsg->set_offset(block.lower());
+        blockMsg->set_size(block.upper() - block.lower());
+    }
+
+    return clientMsg;
 }
 
 } // namespace events

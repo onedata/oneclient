@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_EVENTS_TYPES_EVENT_H
 #define ONECLIENT_EVENTS_TYPES_EVENT_H
 
-#include "messages/client/clientMessage.h"
+#include "messages/clientMessage.h"
 
 #include <cstddef>
 
@@ -20,7 +20,7 @@ namespace events {
 /**
 * The Event class represents an operation in the file system.
 */
-class Event : public ClientMessage {
+class Event : public one::messages::ClientMessage {
 public:
     virtual ~Event() = default;
 

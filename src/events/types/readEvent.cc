@@ -8,7 +8,8 @@
 
 #include "events/eventStream.h"
 #include "events/types/readEvent.h"
-#include "messages/client/readEventSerializer.h"
+
+#include "client_messages.pb.h"
 
 namespace one {
 namespace client {
@@ -64,9 +65,22 @@ std::ostream &operator<<(std::ostream &ostream, const ReadEvent &event)
                    << ", blocks: " << event.m_blocks;
 }
 
-std::unique_ptr<ClientMessageSerializer> ReadEvent::createSerializer() const
+std::unique_ptr<one::messages::ProtocolClientMessage>
+ReadEvent::serialize() const
 {
-    return std::make_unique<one::client::ReadEventSerializer>();
+    auto clientMsg = std::make_unique<one::messages::ProtocolClientMessage>();
+    auto eventMsg = clientMsg->mutable_event();
+    auto readEventMsg = eventMsg->mutable_read_event();
+    readEventMsg->set_counter(m_counter);
+    readEventMsg->set_file_id(m_fileId);
+    readEventMsg->set_size(m_size);
+    for (const auto &block : m_blocks) {
+        auto blockMsg = readEventMsg->add_blocks();
+        blockMsg->set_offset(block.lower());
+        blockMsg->set_size(block.upper() - block.lower());
+    }
+
+    return clientMsg;
 }
 
 } // namespace events
