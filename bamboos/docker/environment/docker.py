@@ -1,3 +1,11 @@
+# coding=utf-8
+"""Author: Konrad Zemek
+Copyright (C) 2015 ACK CYFRONET AGH
+This software is released under the MIT license cited in 'LICENSE.txt'
+
+Functions wrapping capabilities of docker binary.
+"""
+
 import json
 import os
 import sys
@@ -127,7 +135,7 @@ def logs(container, docker_host=None):
 
     cmd.extend(['logs', container])
     return subprocess.check_output(cmd, universal_newlines=True,
-                                   stderr=subprocess.STDOUT).decode('utf-8')
+                                   stderr=subprocess.STDOUT)
 
 
 def remove(containers, docker_host=None, force=False,

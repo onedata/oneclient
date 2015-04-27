@@ -1,13 +1,22 @@
+# coding=utf-8
+"""Author: Konrad Zemek
+Copyright (C) 2015 ACK CYFRONET AGH
+This software is released under the MIT license cited in 'LICENSE.txt'
+
+Functions wrapping capabilities of docker binary.
+"""
+
 import json
 import os
 import sys
 import subprocess
 
-def run(image, docker_host=None, detach=False, dns_list=[], envs={}, hostname=None,
-        interactive=False, link={}, tty=False, rm=False, reflect=[],
-        volumes=[], name=None, workdir=None, user=None, run_params=[],
-        command=None):
 
+# noinspection PyDefaultArgument
+def run(image, docker_host=None, detach=False, dns_list=[], envs={},
+        hostname=None, interactive=False, link={}, tty=False, rm=False,
+        reflect=[], volumes=[], name=None, workdir=None, user=None,
+        run_params=[], command=None, stdin=None, stdout=None, stderr=None):
     cmd = ['docker']
 
     if docker_host:
@@ -69,9 +78,42 @@ def run(image, docker_host=None, detach=False, dns_list=[], envs={}, hostname=No
         cmd.extend(command)
 
     if detach:
-        return subprocess.check_output(cmd).decode('utf-8').strip()
+        return subprocess.check_output(cmd, stdin=stdin, stderr=stderr).decode(
+            'utf-8').strip()
 
-    return subprocess.call(cmd)
+    return subprocess.call(cmd, stdin=stdin, stderr=stderr, stdout=stdout)
+
+
+def exec_(container, command, docker_host=None, detach=False, interactive=False,
+          tty=False, output=False, stdin=None, stdout=None, stderr=None):
+    cmd = ['docker']
+
+    if docker_host:
+        cmd.extend(['-H', docker_host])
+
+    cmd.append('exec')
+
+    if detach:
+        cmd.append('-d')
+
+    if detach or sys.__stdin__.isatty():
+        if interactive:
+            cmd.append('-i')
+        if tty:
+            cmd.append('-t')
+
+    cmd.append(container)
+
+    if isinstance(command, str):
+        cmd.extend(['sh', '-c', command])
+    elif isinstance(command, list):
+        cmd.extend(command)
+
+    if detach or output:
+        return subprocess.check_output(cmd, stdin=stdin, stderr=stderr).decode(
+            'utf-8').strip()
+
+    return subprocess.call(cmd, stdin=stdin, stderr=stderr, stdout=stdout)
 
 
 def inspect(container, docker_host=None):
@@ -83,6 +125,17 @@ def inspect(container, docker_host=None):
     cmd.extend(['inspect', container])
     out = subprocess.check_output(cmd, universal_newlines=True)
     return json.loads(out)[0]
+
+
+def logs(container, docker_host=None):
+    cmd = ['docker']
+
+    if docker_host:
+        cmd.extend(['-H', docker_host])
+
+    cmd.extend(['logs', container])
+    return subprocess.check_output(cmd, universal_newlines=True,
+                                   stderr=subprocess.STDOUT)
 
 
 def remove(containers, docker_host=None, force=False,
