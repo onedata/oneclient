@@ -11,9 +11,10 @@
 
 #include "communication/exception.h"
 
+#include <boost/thread/future.hpp>
+
 #include <chrono>
 #include <functional>
-#include <future>
 #include <memory>
 
 namespace one {
@@ -46,34 +47,29 @@ public:
      * @return same as lower layer's @c send().
      * @see ConnectionPool::send()
      */
-    std::future<void> send(std::string message, const int retries);
+    boost::future<void> send(std::string message, const int retries);
 };
 
 template <class LowerLayer>
-std::future<void> Retrier<LowerLayer>::send(
+boost::future<void> Retrier<LowerLayer>::send(
     std::string message, const int retries)
 {
     auto future = LowerLayer::send(message, retries);
-    return std::async(std::launch::deferred, [
-        this,
-        retries,
-        message = std::move(message),
-        future = std::move(future)
-    ]() mutable {
-        try {
-            if (future.wait_for(DEFAULT_SEND_TIMEOUT) !=
-                std::future_status::ready)
-                throw SendError("timeout when waiting for results of send");
+    auto retriedWrappedFuture = future.then(
+        [ this, retries, message = std::move(message) ](auto f) mutable {
+            try {
+                f.get();
+                return boost::make_ready_future();
+            }
+            catch (SendError) {
+                if (retries == 0)
+                    throw;
 
-            return future.get();
-        }
-        catch (SendError) {
-            if (retries == 0)
-                throw;
+                return this->send(std::move(message), retries - 1);
+            }
+        });
 
-            return Retrier::send(std::move(message), retries - 1).get();
-        }
-    });
+    return retriedWrappedFuture.unwrap();
 }
 
 } // namespace layers

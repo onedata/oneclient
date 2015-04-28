@@ -43,6 +43,7 @@ ConnectionPool::ConnectionPool(const unsigned int connectionsNumber,
     , m_blockingStrand{m_ioService}
     , m_connectionsStrand{m_ioService}
     , m_context{boost::asio::ssl::context::tlsv12_client}
+    , m_ioServiceExecutor{m_ioService}
 {
     m_outbox.set_capacity(OUTBOX_SIZE);
 }
@@ -108,11 +109,11 @@ void ConnectionPool::setCertificateData(
     m_certificateData = std::move(certificateData);
 }
 
-std::future<void> ConnectionPool::send(std::string message, const int)
+boost::future<void> ConnectionPool::send(std::string message, const int)
 {
-    std::promise<void> promise;
+    boost::promise<void> promise;
     auto future = promise.get_future();
-    auto data = std::make_shared<std::tuple<std::string, std::promise<void>>>(
+    auto data = std::make_shared<std::tuple<std::string, boost::promise<void>>>(
         std::forward_as_tuple(std::move(message), std::move(promise)));
 
     m_outbox.emplace(std::move(data));
