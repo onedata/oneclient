@@ -51,13 +51,13 @@ Connection::~Connection()
     });
 }
 
-void Connection::send(std::string message, std::promise<void> promise)
+void Connection::send(std::string message, boost::promise<void> promise)
 {
     send(std::move(message), std::move(promise),
         std::bind(m_onReady, shared_from_this()));
 }
 
-void Connection::send(std::string message, std::promise<void> promise,
+void Connection::send(std::string message, boost::promise<void> promise,
     std::function<void()> handler)
 {
     m_outHeader = htonl(message.size());
@@ -142,7 +142,7 @@ void Connection::handshake()
         return;
     }
 
-    send(m_getHandshake(), std::promise<void>{}, [this] {
+    send(m_getHandshake(), boost::promise<void>{}, [this] {
         readOne([this] {
             if (!m_onHandshakeResponse(std::move(m_inBuffer))) {
                 LOG(WARNING)
