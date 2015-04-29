@@ -11,6 +11,8 @@
 
 #include "messages/serverMessage.h"
 
+#include <boost/optional.hpp>
+
 #include <chrono>
 #include <memory>
 #include <cstdint>
@@ -50,12 +52,22 @@ public:
     WriteEventSubscription(uint64_t id, size_t counterThreshold,
         std::chrono::milliseconds timeThreshold, size_t sizeThreshold);
 
+    /**
+     * Converts subscription to string format.
+     * @return Subscription in string format.
+     */
+    std::string toString() const;
+
+    /**
+     * @return @c Subscription's id.
+     */
+    uint64_t id() const;
+
 private:
     uint64_t m_id;
-    size_t m_counterThreshold = SIZE_MAX;
-    std::chrono::milliseconds m_timeThreshold =
-        std::chrono::milliseconds::max();
-    size_t m_sizeThreshold = SIZE_MAX;
+    boost::optional<size_t> m_counterThreshold;
+    boost::optional<std::chrono::milliseconds> m_timeThreshold;
+    boost::optional<size_t> m_sizeThreshold;
 };
 
 } // namespace events

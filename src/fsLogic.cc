@@ -26,8 +26,8 @@ FsLogic::FsLogic(std::string path, std::shared_ptr<Context> context)
         path.pop_back();
     m_root = std::move(path);
     m_shMock = std::make_unique<SHMock>("/tmp");
-    m_eventManager = std::make_unique<events::EventManager>(context);
-    LOG(INFO) << "Setting file system root directory to: '" << m_root << "'";
+    m_eventManager = std::make_unique<events::EventManager>(m_context);
+    DLOG(INFO) << "Setting file system root directory to: '" << m_root << "'";
 }
 
 int FsLogic::access(const std::string &path, int mask)
@@ -107,9 +107,8 @@ int FsLogic::truncate(const std::string &path, off_t newSize)
     DLOG(INFO) << "FUSE: truncate(path: '" << path << "', newSize: " << newSize
                << ")";
     int res = m_shMock->shTruncate(path, newSize);
-    if (res == 0) {
-        m_eventManager->createTruncateEvent(path, newSize);
-    }
+    if (res == 0)
+        m_eventManager->emitTruncateEvent(path, newSize);
     return res;
 }
 
@@ -132,7 +131,7 @@ int FsLogic::read(const std::string &path, char *buf, size_t size, off_t offset,
                << ", offset: " << offset << ", ...)";
     int res = m_shMock->shRead(path, buf, size, offset, fileInfo);
     if (res > 0)
-        m_eventManager->createReadEvent(path, offset, (size_t)res);
+        m_eventManager->emitReadEvent(path, offset, (size_t)res);
     return res;
 }
 
@@ -145,15 +144,14 @@ int FsLogic::write(const std::string &path, const char *buf, size_t size,
     if (res > 0) {
         struct stat statbuf;
         if (m_shMock->shGetattr(path, &statbuf, true) == 0) {
-            m_eventManager->createWriteEvent(path, offset, (size_t)res,
+            m_eventManager->emitWriteEvent(path, offset, (size_t)res,
                 std::max(offset + res, statbuf.st_size));
         }
         else {
-            m_eventManager->createWriteEvent(
+            m_eventManager->emitWriteEvent(
                 path, offset, (size_t)res, offset + res);
         }
     }
-
     return res;
 }
 

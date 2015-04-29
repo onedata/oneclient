@@ -29,10 +29,9 @@ public:
     * @param fileId ID of file associated with a truncate operation.
     * @param fileSize Size of file after a truncate operation.
     */
-    TruncateEvent(std::weak_ptr<EventStream<WriteEvent>> eventStream,
-        std::string fileId, off_t fileSize)
-        : WriteEvent(
-              std::move(eventStream), std::move(fileId), 0, 0, fileSize){};
+    TruncateEvent(std::string fileId, off_t fileSize);
+
+    virtual std::string toString() const override;
 };
 
 } // namespace events

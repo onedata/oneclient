@@ -118,6 +118,11 @@ public:
                         std::forward<Args>(args)...);
     }
 
+    /**
+     * @return @c Scheduler's IO service.
+     */
+    boost::asio::io_service &getIoService() { return m_ioService; }
+
 private:
     void start();
     void stop();

@@ -15,7 +15,6 @@
 
 #include <string>
 #include <memory>
-#include <ostream>
 #include <sys/types.h>
 
 namespace one {
@@ -29,8 +28,6 @@ template <class EventType> class EventStream;
 * The WriteEvent class represents a write operation in the file system.
 */
 class WriteEvent : public Event {
-    friend std::ostream &operator<<(std::ostream &, const WriteEvent &event);
-
 public:
     typedef typename one::client::events::WriteEventSubscription subscription;
 
@@ -50,10 +47,9 @@ public:
     * @param size Number of bytes written.
     * @param fileSize Size of file after a write operation.
     */
-    WriteEvent(std::weak_ptr<EventStream<WriteEvent>> eventStream,
-        std::string fileId, off_t offset, size_t size, off_t fileSize);
+    WriteEvent(std::string fileId, off_t offset, size_t size, off_t fileSize);
 
-    virtual void emit() const override;
+    virtual std::string toString() const override;
 
     /**
     * @return ID of file associated with the write event.
@@ -89,8 +85,7 @@ public:
     virtual std::unique_ptr<one::messages::ProtocolClientMessage>
     serialize() const override;
 
-private:
-    std::weak_ptr<EventStream<WriteEvent>> m_eventStream;
+protected:
     std::string m_fileId;
     size_t m_size = 0;
     off_t m_fileSize = 0;

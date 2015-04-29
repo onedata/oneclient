@@ -9,6 +9,8 @@
 #ifndef ONECLIENT_EVENTS_EVENT_COMMUNICATOR_H
 #define ONECLIENT_EVENTS_EVENT_COMMUNICATOR_H
 
+#include "communication/communicator.h"
+
 #include <memory>
 
 namespace one {
@@ -32,7 +34,7 @@ public:
     */
     EventCommunicator(std::weak_ptr<Context> context);
 
-    virtual ~EventCommunicator() = default;
+    virtual ~EventCommunicator();
 
     /**
     * Sends event to the server using communication stream.
@@ -42,6 +44,8 @@ public:
 
 private:
     std::weak_ptr<Context> m_context;
+    std::unique_ptr<communication::StreamManager> m_streamManager;
+    std::shared_ptr<communication::Stream> m_stream;
 };
 
 } // namespace events

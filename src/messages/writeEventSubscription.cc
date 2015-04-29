@@ -10,6 +10,8 @@
 
 #include "messages.pb.h"
 
+#include <sstream>
+
 namespace one {
 namespace client {
 namespace events {
@@ -22,12 +24,12 @@ WriteEventSubscription::WriteEventSubscription(
         eventSubscriptionMsg.write_event_subscription();
     m_id = writeEventSubscriptionMsg.id();
     if (writeEventSubscriptionMsg.has_counter_threshold())
-        m_counterThreshold = writeEventSubscriptionMsg.counter_threshold();
+        m_counterThreshold.reset(writeEventSubscriptionMsg.counter_threshold());
     if (writeEventSubscriptionMsg.has_time_threshold())
-        m_timeThreshold = std::chrono::milliseconds{
-            writeEventSubscriptionMsg.time_threshold()};
+        m_timeThreshold.reset(std::chrono::milliseconds{
+            writeEventSubscriptionMsg.time_threshold()});
     if (writeEventSubscriptionMsg.has_size_threshold())
-        m_sizeThreshold = writeEventSubscriptionMsg.size_threshold();
+        m_sizeThreshold.reset(writeEventSubscriptionMsg.size_threshold());
 }
 
 WriteEventSubscription::WriteEventSubscription(uint64_t id,
@@ -39,6 +41,29 @@ WriteEventSubscription::WriteEventSubscription(uint64_t id,
     , m_sizeThreshold{sizeThreshold}
 {
 }
+
+std::string WriteEventSubscription::toString() const
+{
+    std::stringstream stream;
+    stream << "type: WRITE, counter threshold: ";
+    if (m_counterThreshold)
+        stream << m_counterThreshold.get();
+    else
+        stream << "'undefined'";
+    stream << ", size threshold: ";
+    if (m_sizeThreshold)
+        stream << m_sizeThreshold.get() << " bytes";
+    else
+        stream << "'undefined'";
+    stream << ", time threshold: ";
+    if (m_timeThreshold)
+        stream << m_timeThreshold.get().count() << " ms";
+    else
+        stream << "'undefined'";
+    return stream.str();
+}
+
+uint64_t WriteEventSubscription::id() const { return m_id; }
 
 } // namespace events
 } // namespace client

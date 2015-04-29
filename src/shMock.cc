@@ -136,45 +136,47 @@ int SHMock::shOpen(const std::string &path, struct fuse_file_info *fileInfo)
 int SHMock::shRead(const std::string &path, char *buf, size_t size,
     off_t offset, struct fuse_file_info *fileInfo)
 {
-    int fd, res;
-    if (fileInfo->fh > 0)
-        fd = fileInfo->fh;
-    else
-        fd = open(root(path).c_str(), O_RDONLY);
-
-    if (fd == -1)
-        return -errno;
-
-    res = pread(fd, buf, size, offset);
-    if (res == -1)
-        res = -errno;
-
-    if (fileInfo->fh <= 0)
-        close(fd);
-
-    return res;
+    //    int fd, res;
+    //    if (fileInfo->fh > 0)
+    //        fd = fileInfo->fh;
+    //    else
+    //        fd = open(root(path).c_str(), O_RDONLY);
+    //
+    //    if (fd == -1)
+    //        return -errno;
+    //
+    //    res = pread(fd, buf, size, offset);
+    //    if (res == -1)
+    //        res = -errno;
+    //
+    //    if (fileInfo->fh <= 0)
+    //        close(fd);
+    //
+    //    return res;
+    return size;
 }
 
 int SHMock::shWrite(const std::string &path, const char *buf, size_t size,
     off_t offset, struct fuse_file_info *fileInfo)
 {
-    int fd, res;
-    if (fileInfo->fh > 0)
-        fd = fileInfo->fh;
-    else
-        fd = open(root(path).c_str(), O_WRONLY);
-
-    if (fd == -1)
-        return -errno;
-
-    res = pwrite(fd, buf, size, offset);
-    if (res == -1)
-        res = -errno;
-
-    if (fileInfo->fh <= 0)
-        close(fd);
-
-    return res;
+    //    int fd, res;
+    //    if (fileInfo->fh > 0)
+    //        fd = fileInfo->fh;
+    //    else
+    //        fd = open(root(path).c_str(), O_WRONLY);
+    //
+    //    if (fd == -1)
+    //        return -errno;
+    //
+    //    res = pwrite(fd, buf, size, offset);
+    //    if (res == -1)
+    //        res = -errno;
+    //
+    //    if (fileInfo->fh <= 0)
+    //        close(fd);
+    //
+    //    return res;
+    return size;
 }
 
 int SHMock::shStatfs(const std::string &path, struct statvfs *statInfo)

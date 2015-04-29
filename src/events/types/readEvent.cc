@@ -11,27 +11,28 @@
 
 #include "messages.pb.h"
 
+#include <sstream>
+
 namespace one {
 namespace client {
 namespace events {
 
 ReadEvent::ReadEvent() { m_counter = 0; }
 
-ReadEvent::ReadEvent(std::weak_ptr<EventStream<ReadEvent>> eventStream,
-    std::string fileId, off_t offset, size_t size)
-    : m_eventStream{std::move(eventStream)}
-    , m_fileId{std::move(fileId)}
+ReadEvent::ReadEvent(std::string fileId, off_t offset, size_t size)
+    : m_fileId{std::move(fileId)}
     , m_size{size}
     , m_blocks{boost::icl::discrete_interval<off_t>::right_open(
           offset, offset + size)}
 {
 }
 
-void ReadEvent::emit() const
+std::string ReadEvent::toString() const
 {
-    auto eventStream = m_eventStream.lock();
-    if (eventStream)
-        eventStream->push(*this);
+    std::stringstream stream;
+    stream << "type: READ, counter: " << m_counter << ", file ID: '" << m_fileId
+           << ", size: " << m_size << ", blocks: " << m_blocks;
+    return stream.str();
 }
 
 const std::string &ReadEvent::fileId() const { return m_fileId; }
@@ -56,15 +57,6 @@ bool operator==(const ReadEvent &lhs, const ReadEvent &rhs)
     return lhs.fileId() == rhs.fileId() && lhs.size() == rhs.size() &&
         lhs.blocks() == rhs.blocks();
 }
-
-std::ostream &operator<<(std::ostream &ostream, const ReadEvent &event)
-{
-    return ostream << "type: READ, counter: " << event.m_counter
-                   << ", file ID: '" << event.m_fileId
-                   << ", size: " << event.m_size
-                   << ", blocks: " << event.m_blocks;
-}
-
 std::unique_ptr<one::messages::ProtocolClientMessage>
 ReadEvent::serialize() const
 {

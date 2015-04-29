@@ -25,14 +25,15 @@ public:
     virtual ~Event() = default;
 
     /**
-    * Emits the event.
-    */
-    virtual void emit() const = 0;
-
-    /**
     * @return Event's counter.
     */
     size_t counter() const { return m_counter; };
+
+    /**
+     * Converts event to string format.
+     * @return Event in string format.
+     */
+    virtual std::string toString() const = 0;
 
 protected:
     std::size_t m_counter = 1;

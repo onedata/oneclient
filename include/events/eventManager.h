@@ -48,41 +48,37 @@ public:
     ~EventManager() = default;
 
     /**
-    * Creates a read event.
+    * Emits a read event.
     * @param fileId ID of file associated with a read operation.
     * @param offset Distance from the beginning of the file to the first byte
     * read.
     * @param size Number of bytes read.
-    * @return Unique pointer to read event.
     */
-    std::unique_ptr<Event> createReadEvent(
-        const std::string &fileId, off_t offset, size_t size) const;
+    void emitReadEvent(std::string fileId, off_t offset, size_t size) const;
 
     /**
-    * Creates a write event.
+    * Emits a write event.
     * @param fileId ID of file associated with a write operation.
     * @param offset Distance from the beginning of the file to the first byte
     * written.
     * @param size Number of bytes written.
     * @param fileSize Size of file after a write operation.
-    * @return Unique pointer to write event.
     */
-    std::unique_ptr<Event> createWriteEvent(const std::string &fileId,
-        off_t offset, size_t size, off_t fileSize) const;
+    void emitWriteEvent(std::string fileId, off_t offset, size_t size,
+        off_t fileSize) const;
 
     /**
-    * Creates a truncate event.
+    * Emits a truncate event.
     * @param fileId ID of file associated with a truncate operation.
     * @param fileSize Size of file after a truncate operation.
-    * @return Unique pointer to truncate event.
     */
-    std::unique_ptr<Event> createTruncateEvent(
-        const std::string &fileId, off_t fileSize) const;
+    void emitTruncateEvent(std::string fileId, off_t fileSize) const;
 
 private:
     void handleServerMessage(const clproto::ServerMessage &msg);
 
     std::function<void()> m_unsubscribe;
+    std::shared_ptr<Context> m_context;
     std::map<uint64_t, std::function<void()>> m_subscriptionCancellations;
     std::shared_ptr<EventStream<ReadEvent>> m_readEventStream;
     std::shared_ptr<EventStream<WriteEvent>> m_writeEventStream;

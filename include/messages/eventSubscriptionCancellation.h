@@ -39,6 +39,12 @@ public:
      */
     uint64_t id() const;
 
+    /**
+     * Converts subscription cancellation to string format.
+     * @return Subscription cancellation in string format.
+     */
+    std::string toString() const;
+
 private:
     uint64_t m_id;
 };

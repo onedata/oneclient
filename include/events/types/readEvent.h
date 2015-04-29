@@ -15,7 +15,6 @@
 
 #include <string>
 #include <memory>
-#include <ostream>
 #include <sys/types.h>
 
 namespace one {
@@ -29,8 +28,6 @@ template <class EventType> class EventStream;
 * The ReadEvent class represents a read operation in the file system.
 */
 class ReadEvent : public Event {
-    friend std::ostream &operator<<(std::ostream &, const ReadEvent &event);
-
 public:
     typedef typename one::client::events::ReadEventSubscription subscription;
 
@@ -49,10 +46,9 @@ public:
     * byte read.
     * @param size Number of read bytes.
     */
-    ReadEvent(std::weak_ptr<EventStream<ReadEvent>> eventStream,
-        std::string fileId, off_t offset, size_t size);
+    ReadEvent(std::string fileId, off_t offset, size_t size);
 
-    virtual void emit() const override;
+    virtual std::string toString() const override;
 
     /**
     * @return ID of file associated with the read event.
@@ -84,7 +80,6 @@ public:
     serialize() const override;
 
 private:
-    std::weak_ptr<EventStream<ReadEvent>> m_eventStream;
     std::string m_fileId;
     size_t m_size = 0;
     boost::icl::interval_set<off_t> m_blocks;

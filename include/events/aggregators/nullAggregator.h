@@ -28,7 +28,7 @@ public:
     * @c NullAggregator ignores provided @p event and always returns
     * aggregation identity element.
     */
-    const EventType &aggregate(const EventType &event) override;
+    const EventType &aggregate(EventType event) override;
 
     /**
     * @copydoc Aggregator::all()
@@ -47,7 +47,7 @@ private:
 };
 
 template <class EventType>
-const EventType &NullAggregator<EventType>::aggregate(const EventType &event)
+const EventType &NullAggregator<EventType>::aggregate(EventType event)
 {
     return m_all;
 }

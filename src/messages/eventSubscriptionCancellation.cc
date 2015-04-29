@@ -10,6 +10,8 @@
 
 #include "messages.pb.h"
 
+#include <sstream>
+
 namespace one {
 namespace client {
 namespace events {
@@ -24,6 +26,13 @@ EventSubscriptionCancellation::EventSubscriptionCancellation(
 }
 
 uint64_t EventSubscriptionCancellation::id() const { return m_id; }
+
+std::string EventSubscriptionCancellation::toString() const
+{
+    std::stringstream stream;
+    stream << "type: CANCELLATION, id: " << m_id;
+    return stream.str();
+}
 
 } // namespace events
 } // namespace client

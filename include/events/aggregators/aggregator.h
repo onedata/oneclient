@@ -29,7 +29,7 @@ public:
     * have to be aggregable using @c += operator.
     * @return Aggregation result.
     */
-    virtual const EventType &aggregate(const EventType &event) = 0;
+    virtual const EventType &aggregate(EventType event) = 0;
 
     /**
     * Returns overall aggregation result.

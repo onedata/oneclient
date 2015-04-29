@@ -34,7 +34,7 @@ public:
     * entities due to @c reset method call. Return value is an overall
     * aggregation result.
     */
-    const EventType &aggregate(const EventType &event) override;
+    const EventType &aggregate(EventType event) override;
 
     virtual const EventType &all() const override;
 
@@ -51,7 +51,7 @@ private:
 };
 
 template <class EventType>
-const EventType &FileIdAggregator<EventType>::aggregate(const EventType &event)
+const EventType &FileIdAggregator<EventType>::aggregate(EventType event)
 {
     m_all += event;
     auto insertionResult = m_eventsByFileId.emplace(event.fileId(), event);

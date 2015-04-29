@@ -31,7 +31,6 @@ template <class LowerLayer> class Translator : public LowerLayer {
 public:
     using LowerLayer::LowerLayer;
     using LowerLayer::send;
-    using LowerLayer::setHandshake;
     virtual ~Translator() = default;
 
     /**
@@ -56,10 +55,21 @@ public:
      * @c one::clproto::ServerMessage instance.
      * @see ConnectionPool::setHandshake()
      */
+    template <typename = void>
     auto setHandshake(
-        std::function<one::messages::HandshakeRequest()> getHandshake,
-        std::function<bool(one::messages::HandshakeResponse)>
-            onHandshakeResponse);
+            std::function<one::messages::HandshakeRequest()> getHandshake,
+            std::function<bool(one::messages::HandshakeResponse)>
+            onHandshakeResponse)
+    {
+        return LowerLayer::setHandshake(
+        [getHandshake = std::move(getHandshake)] {
+            return getHandshake().serialize();
+        },
+        [onHandshakeResponse = std::move(onHandshakeResponse)](
+                ServerMessagePtr msg) {
+            return onHandshakeResponse({std::move(msg)});
+        });
+    }
 
     /**
      * Wraps lower layer's @c reply.
@@ -102,21 +112,6 @@ auto Translator<LowerLayer>::send(
 {
     auto protoMsg = msg.serialize();
     return LowerLayer::send(std::move(protoMsg), retries);
-}
-
-template <class LowerLayer>
-auto Translator<LowerLayer>::setHandshake(
-    std::function<one::messages::HandshakeRequest()> getHandshake,
-    std::function<bool(one::messages::HandshakeResponse)> onHandshakeResponse)
-{
-    return LowerLayer::setHandshake(
-        [getHandshake = std::move(getHandshake)] {
-            return getHandshake().serialize();
-        },
-        [onHandshakeResponse = std::move(onHandshakeResponse)](
-            ServerMessagePtr msg) {
-            return onHandshakeResponse({std::move(msg)});
-        });
 }
 
 } // namespace layers
