@@ -30,6 +30,7 @@ boost::asio::ssl::context_base::file_format CertificateData::keyFormat() const
         case KeyFormat::ASN1:
             return boost::asio::ssl::context_base::file_format::asn1;
         case KeyFormat::PEM:
+        default:
             return boost::asio::ssl::context_base::file_format::pem;
     }
 }

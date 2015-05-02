@@ -9,7 +9,7 @@
 #ifndef HELPERS_MESSAGES_HANDSHAKE_RESPONSE_H
 #define HELPERS_MESSAGES_HANDSHAKE_RESPONSE_H
 
-#include "messages/serverMessage.h"
+#include "serverMessage.h"
 
 #include <memory>
 #include <string>

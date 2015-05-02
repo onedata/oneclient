@@ -9,7 +9,7 @@
 #ifndef HELPERS_MESSAGES_HANDSHAKE_REQUEST_H
 #define HELPERS_MESSAGES_HANDSHAKE_REQUEST_H
 
-#include "messages/clientMessage.h"
+#include "clientMessage.h"
 
 #include <boost/optional.hpp>
 

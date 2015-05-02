@@ -8,20 +8,21 @@ cmake:
 
 release: BUILD_TYPE = Release
 release: cmake
-	ninja -C release
+	cmake --build release
 
 debug: BUILD_TYPE = Debug
 debug: cmake
-	ninja -C debug
+	cmake --build debug
 
 test: release
-	ninja -C release test
+	cmake --build release --target test
 
 cunit: release
-	ninja -C release cunit
+	cmake --build release --target cunit
 
 install: release
-	ninja -C release install
+	cmake --build release --target install
 
 clean:
 	rm -rf debug release
+
