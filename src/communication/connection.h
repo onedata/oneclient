@@ -13,6 +13,7 @@
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/thread/future.hpp>
 
 #include <cstdint>
 #include <functional>
@@ -116,7 +117,7 @@ public:
      * @param promise The promise to fultill.
      * @note @c send can only be called after @c onReady has been emitted.
      */
-    void send(std::string message, std::promise<void> promise);
+    void send(std::string message, boost::promise<void> promise);
 
     /**
      * Gracefully closes the underlying connection.
@@ -131,7 +132,7 @@ public:
     Connection &operator=(Connection &&) = delete;
 
 private:
-    void send(std::string message, std::promise<void> promise,
+    void send(std::string message, boost::promise<void> promise,
         std::function<void()> handler);
 
     void handshake();
@@ -159,7 +160,7 @@ private:
 
     std::uint32_t m_outHeader;
     std::string m_outBuffer;
-    std::promise<void> m_outPromise;
+    boost::promise<void> m_outPromise;
 };
 
 } // namespace communication

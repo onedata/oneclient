@@ -1,5 +1,6 @@
 #include "communication/communicator.h"
 #include "communication/declarations.h"
+#include "communication/future.h"
 #include "messages/clientMessage.h"
 #include "messages/serverMessage.h"
 
@@ -8,10 +9,10 @@
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
 #include <boost/smart_ptr.hpp>
+#include <boost/thread/future.hpp>
 
 #include <chrono>
 #include <memory>
-#include <future>
 #include <string>
 
 using namespace std::literals::chrono_literals;
@@ -42,7 +43,7 @@ public:
                 try {
                     m_handshakeResponsePromise.set_value(response);
                 }
-                catch (std::future_error) {
+                catch (boost::future_error) {
                 }
                 return onHandshakeResponse(std::move(response));
             });
@@ -56,7 +57,7 @@ public:
     }
 
 private:
-    std::promise<std::string> m_handshakeResponsePromise;
+    boost::promise<std::string> m_handshakeResponsePromise;
     std::string m_handshake;
     std::string m_lastMessageSent;
 };
@@ -129,10 +130,7 @@ public:
 
     std::string communicateReceive()
     {
-        /// @todo No way to timeout on deferred future; a possible solution
-        /// would be to implement timeout inside deferred function definition
-        /// (in Retrier and Translator).
-        return m_future.get().protocolMsg().SerializeAsString();
+        return m_future.get(10s).protocolMsg().SerializeAsString();
     }
 
     std::string setHandshake(const std::string &description, bool fail)
@@ -154,7 +152,7 @@ public:
 
 private:
     CustomCommunicator m_communicator;
-    std::future<ExampleServerMessage> m_future;
+    Future<ExampleServerMessage> m_future;
 };
 
 boost::shared_ptr<CommunicatorProxy> create(

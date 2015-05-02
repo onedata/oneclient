@@ -9,15 +9,17 @@
 #ifndef HELPERS_COMMUNICATION_CONNECTION_POOL_H
 #define HELPERS_COMMUNICATION_CONNECTION_POOL_H
 
+#include "ioServiceExecutor.h"
+
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/ssl/stream.hpp>
+#include <boost/thread/future.hpp>
 #include <tbb/concurrent_queue.h>
 
 #include <functional>
-#include <future>
 #include <memory>
 #include <string>
 #include <queue>
@@ -41,7 +43,7 @@ class Connection;
  * do not interact with connections directly.
  */
 class ConnectionPool {
-    using SendTask = std::tuple<std::string, std::promise<void>>;
+    using SendTask = std::tuple<std::string, boost::promise<void>>;
 
 public:
     /**
@@ -103,7 +105,7 @@ public:
      * @return A future fulfilled when the message is sent or (with an
      * exception) when an error occured.
      */
-    std::future<void> send(std::string message, const int = int{});
+    boost::future<void> send(std::string message, const int = int{});
 
     /**
      * Destructor.
@@ -139,6 +141,13 @@ private:
     tbb::concurrent_bounded_queue<std::shared_ptr<SendTask>> m_outbox;
     tbb::concurrent_queue<std::shared_ptr<SendTask>> m_rejects;
     std::unordered_set<std::shared_ptr<Connection>> m_connections;
+
+protected:
+    /**
+     * A thread executor working on top of this pool's @c io_service.
+     * @note Defined after other variables as it depends on private ioService.
+     */
+    IoServiceExecutor m_ioServiceExecutor;
 };
 
 } // namespace communication
