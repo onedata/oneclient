@@ -2,12 +2,12 @@
  * @file scheduler.h
  * @author Konrad Zemek
  * @copyright (C) 2014 ACK CYFRONET AGH
- * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
  */
 
 #ifndef HELPERS_SCHEDULER_H
 #define HELPERS_SCHEDULER_H
-
 
 #include <boost/asio.hpp>
 
@@ -16,15 +16,13 @@
 #include <vector>
 #include <thread>
 
-namespace one
-{
+namespace one {
 
 /**
  * The Scheduler class is responsible for scheduling work to an underlying pool
  * of worker threads.
  */
-class Scheduler
-{
+class Scheduler {
 public:
     /**
      * Constructor.
@@ -55,12 +53,13 @@ public:
      * @param subject The subject whose member is to be invoked.
      * @param args Arguments to pass to the member.
      */
-    template<class R, class T, class... Args>
-    void post(R (T::*member), std::weak_ptr<T> subject, Args&&... args)
+    template <class R, class T, class... Args>
+    void post(R(T::*member), std::weak_ptr<T> subject, Args &&... args)
     {
-        auto task = std::bind(member, std::placeholders::_1, std::forward<Args>(args)...);
-        post([s = std::move(subject), t = std::move(task)]{
-            if(auto subject = s.lock())
+        auto task = std::bind(
+            member, std::placeholders::_1, std::forward<Args>(args)...);
+        post([ s = std::move(subject), t = std::move(task) ] {
+            if (auto subject = s.lock())
                 t(subject.get());
         });
     }
@@ -68,8 +67,8 @@ public:
     /**
      * A convenience overload for @c post taking a @c std::shared_ptr.
      */
-    template<class R, class T, class... Args>
-    void post(R (T::*member), const std::shared_ptr<T> &subject, Args&&... args)
+    template <class R, class T, class... Args>
+    void post(R(T::*member), const std::shared_ptr<T> &subject, Args &&... args)
     {
         post(member, std::weak_ptr<T>{subject}, std::forward<Args>(args)...);
     }
@@ -80,8 +79,8 @@ public:
      * @param task The task to execute.
      * @return A function to cancel the scheduled task.
      */
-    virtual std::function<void()> schedule(const std::chrono::milliseconds after,
-                                           std::function<void()> task);
+    virtual std::function<void()> schedule(
+        const std::chrono::milliseconds after, std::function<void()> task);
 
     /**
      * Schedules a task to be run after some time on an object referenced by a
@@ -92,31 +91,34 @@ public:
      * @param args Arguments to pass to the member.
      * @return A function to cancel the scheduled task.
      */
-    template<class R, class T, class... Args>
+    template <class R, class T, class... Args>
     std::function<void()> schedule(const std::chrono::milliseconds after,
-                                   R (T::*member),
-                                   std::weak_ptr<T> subject,
-                                   Args&&... args)
+        R(T::*member), std::weak_ptr<T> subject, Args &&... args)
     {
-        auto task = std::bind(member, std::placeholders::_1, std::forward<Args>(args)...);
-        return schedule(after, [s = std::move(subject), t = std::move(task)]{
-            if(auto subject = s.lock())
-                t(subject.get());
-        });
+        auto task = std::bind(
+            member, std::placeholders::_1, std::forward<Args>(args)...);
+        return schedule(
+            after, [ s = std::move(subject), t = std::move(task) ] {
+                if (auto subject = s.lock())
+                    t(subject.get());
+            });
     }
 
     /**
      * A convenience overload for @c schedule taking a @c std::shared_ptr.
      */
-    template<class R, class T, class... Args>
+    template <class R, class T, class... Args>
     std::function<void()> schedule(const std::chrono::milliseconds after,
-                                   R (T::*member),
-                                   const std::shared_ptr<T> &subject,
-                                   Args&&... args)
+        R(T::*member), const std::shared_ptr<T> &subject, Args &&... args)
     {
         return schedule(after, member, std::weak_ptr<T>{subject},
-                        std::forward<Args>(args)...);
+            std::forward<Args>(args)...);
     }
+
+    /**
+     * @return @c Scheduler's IO service.
+     */
+    boost::asio::io_service &getIoService() { return m_ioService; }
 
 private:
     void start();
@@ -129,6 +131,5 @@ private:
 };
 
 } // namespace one
-
 
 #endif // HELPERS_SCHEDULER_H

@@ -17,7 +17,7 @@ namespace one {
 namespace communication {
 namespace streaming {
 
-template<class Communicator>
+template <class Communicator>
 using Stream = layers::Translator<TypedStream<Communicator>>;
 
 } // namespace streaming
