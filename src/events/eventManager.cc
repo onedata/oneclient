@@ -50,7 +50,6 @@ void EventManager::emitReadEvent(
 {
     m_context->scheduler()->post([ =, fileId = std::move(fileId) ] {
         auto event = ReadEvent{std::move(fileId), offset, size};
-        LOG(INFO) << "Emitting event: " << event.toString();
         m_readEventStream->push(std::move(event));
     });
 }
@@ -60,7 +59,6 @@ void EventManager::emitWriteEvent(
 {
     m_context->scheduler()->post([ =, fileId = std::move(fileId) ] {
         auto event = WriteEvent{std::move(fileId), offset, size, fileSize};
-        LOG(INFO) << "Emitting event: " << event.toString();
         m_writeEventStream->push(std::move(event));
     });
 }
@@ -69,7 +67,6 @@ void EventManager::emitTruncateEvent(std::string fileId, off_t fileSize) const
 {
     m_context->scheduler()->post([ =, fileId = std::move(fileId) ] {
         auto event = TruncateEvent{std::move(fileId), fileSize};
-        LOG(INFO) << "Emitting event: " << event.toString();
         m_writeEventStream->push(std::move(event));
     });
 }
