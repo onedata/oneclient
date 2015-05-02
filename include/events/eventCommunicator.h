@@ -32,7 +32,7 @@ public:
     * Constructor.
     * @param context A @c Context instance used to acquire communication stream.
     */
-    EventCommunicator(std::weak_ptr<Context> context);
+    EventCommunicator(std::shared_ptr<Context> context);
 
     virtual ~EventCommunicator();
 
@@ -43,7 +43,7 @@ public:
     virtual void send(const Event &event) const;
 
 private:
-    std::weak_ptr<Context> m_context;
+    std::shared_ptr<Context> m_context;
     std::unique_ptr<communication::StreamManager> m_streamManager;
     std::shared_ptr<communication::Stream> m_stream;
 };

@@ -40,6 +40,12 @@ const boost::icl::interval_set<off_t> &WriteEvent::blocks() const
     return m_blocks;
 }
 
+bool operator==(const WriteEvent &lhs, const WriteEvent &rhs)
+{
+    return lhs.fileId() == rhs.fileId() && lhs.size() == rhs.size() &&
+        lhs.fileSize() == rhs.fileSize() && lhs.blocks() == rhs.blocks();
+}
+
 WriteEvent &WriteEvent::operator+=(const WriteEvent &event)
 {
     m_counter += event.m_counter;

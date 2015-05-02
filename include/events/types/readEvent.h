@@ -82,6 +82,15 @@ private:
     boost::icl::interval_set<off_t> m_blocks;
 };
 
+/**
+* Compares two read events.
+* Read events are equal if corresponding event's fields are equal.
+* @param lhs Read event to be compared.
+* @param rhs Read event to be compared.
+* @return true if read events are equal and false otherwise.
+*/
+bool operator==(const ReadEvent &lhs, const ReadEvent &rhs);
+
 } // namespace events
 } // namespace client
 } // namespace one

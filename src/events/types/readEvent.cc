@@ -36,6 +36,12 @@ const boost::icl::interval_set<off_t> &ReadEvent::blocks() const
     return m_blocks;
 }
 
+bool operator==(const ReadEvent &lhs, const ReadEvent &rhs)
+{
+    return lhs.fileId() == rhs.fileId() && lhs.size() == rhs.size() &&
+        lhs.blocks() == rhs.blocks();
+}
+
 ReadEvent &ReadEvent::operator+=(const ReadEvent &event)
 {
     m_counter += event.m_counter;

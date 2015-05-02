@@ -16,11 +16,11 @@ namespace one {
 namespace client {
 namespace events {
 
-EventCommunicator::EventCommunicator(std::weak_ptr<Context> context)
+EventCommunicator::EventCommunicator(std::shared_ptr<Context> context)
     : m_context{std::move(context)}
 {
     m_streamManager = std::make_unique<communication::StreamManager>(
-        m_context.lock()->communicator());
+        m_context->communicator());
     m_stream = m_streamManager->create();
 }
 

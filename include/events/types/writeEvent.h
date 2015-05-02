@@ -95,6 +95,15 @@ protected:
     boost::icl::interval_set<off_t> m_blocks;
 };
 
+/**
+* Compares two write events.
+* Write events are equal if corresponding event's fields are equal.
+* @param lhs Write event to be compared.
+* @param rhs Write event to be compared.
+* @return true if write events are equal and false otherwise.
+*/
+bool operator==(const WriteEvent &lhs, const WriteEvent &rhs);
+
 } // namespace events
 } // namespace client
 } // namespace one

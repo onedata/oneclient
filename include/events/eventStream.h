@@ -144,6 +144,7 @@ uint64_t EventStream<EventType>::addSubscription(
                 m_sizeThresholds.size() != 0))
             m_aggregator = std::make_unique<FileIdAggregator<EventType>>();
     });
+
     return id;
 }
 
