@@ -10,6 +10,7 @@
 #define HELPERS_MESSAGES_CLIENT_MESSAGE_H
 
 #include <memory>
+#include <string>
 
 namespace one {
 
@@ -28,6 +29,11 @@ using ProtocolClientMessage = one::clproto::ClientMessage;
 class ClientMessage {
 public:
     virtual ~ClientMessage() = default;
+
+    /**
+     * @return @c ClientMessage in string format.
+     */
+    virtual std::string toString() const = 0;
 
     /**
     * Creates Protocol Buffers message based on provided @c ClientMessage.

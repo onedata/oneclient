@@ -3,8 +3,7 @@
 #include "messages/clientMessage.h"
 #include "messages/serverMessage.h"
 
-#include "client_messages.pb.h"
-#include "server_messages.pb.h"
+#include "messages.pb.h"
 
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
@@ -73,6 +72,8 @@ public:
     {
     }
 
+    virtual std::string toString() const override { return ""; }
+
     virtual std::unique_ptr<ProtocolClientMessage> serialize() const override
     {
         auto msg = std::make_unique<ProtocolClientMessage>();
@@ -92,6 +93,8 @@ public:
         : m_protocolMsg{std::move(protocolMsg)}
     {
     }
+
+    virtual std::string toString() const override { return ""; }
 
     ProtocolServerMessage &protocolMsg() const { return *m_protocolMsg; }
 

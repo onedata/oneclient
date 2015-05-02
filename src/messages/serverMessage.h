@@ -6,8 +6,10 @@
 * 'LICENSE.txt'
 */
 
-#ifndef ONECLIENT_MESSAGES_SERVER_SERVER_MESSAGE_H
-#define ONECLIENT_MESSAGES_SERVER_SERVER_MESSAGE_H
+#ifndef ONECLIENT_MESSAGES_SERVER_MESSAGE_H
+#define ONECLIENT_MESSAGES_SERVER_MESSAGE_H
+
+#include <string>
 
 namespace one {
 
@@ -26,9 +28,14 @@ using ProtocolServerMessage = one::clproto::ServerMessage;
 class ServerMessage {
 public:
     virtual ~ServerMessage() = default;
+
+    /**
+     * @return Server message in string format.
+     */
+    virtual std::string toString() const = 0;
 };
 
 } // namespace messages
 } // namespace one
 
-#endif // ONECLIENT_MESSAGES_SERVER_SERVER_MESSAGE_H
+#endif // ONECLIENT_MESSAGES_SERVER_MESSAGE_H
