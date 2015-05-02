@@ -33,7 +33,6 @@ template <class LowerLayer> class Translator : public LowerLayer {
 public:
     using LowerLayer::LowerLayer;
     using LowerLayer::send;
-    using LowerLayer::setHandshake;
     virtual ~Translator() = default;
 
     /**
