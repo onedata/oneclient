@@ -6,12 +6,13 @@
 * 'LICENSE.txt'
 */
 
-#ifndef HELPERS_MESSAGES_MESSAGE_REQUEST_H
-#define HELPERS_MESSAGES_MESSAGE_REQUEST_H
+#ifndef ONECLIENT_MESSAGES_MESSAGE_REQUEST_H
+#define ONECLIENT_MESSAGES_MESSAGE_REQUEST_H
 
 #include "messages/serverMessage.h"
 
 #include <memory>
+#include <string>
 
 namespace one {
 namespace messages {
@@ -46,6 +47,8 @@ public:
      */
     uint64_t upperSequenceNumber() const;
 
+    virtual std::string toString() const override;
+
 private:
     uint64_t m_streamId;
     uint64_t m_lowerSequenceNumber;
@@ -55,4 +58,4 @@ private:
 } // namespace messages
 } // namespace one
 
-#endif // HELPERS_MESSAGES_MESSAGE_REQUEST_H
+#endif // ONECLIENT_MESSAGES_MESSAGE_REQUEST_H

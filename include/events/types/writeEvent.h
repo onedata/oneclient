@@ -22,14 +22,13 @@ namespace client {
 namespace events {
 
 class WriteEventSubscription;
-template <class EventType> class EventStream;
 
 /**
 * The WriteEvent class represents a write operation in the file system.
 */
 class WriteEvent : public Event {
 public:
-    typedef typename one::client::events::WriteEventSubscription subscription;
+    typedef typename one::client::events::WriteEventSubscription Subscription;
 
     /**
     * Default constructor.
@@ -48,8 +47,6 @@ public:
     * @param fileSize Size of file after a write operation.
     */
     WriteEvent(std::string fileId, off_t offset, size_t size, off_t fileSize);
-
-    virtual std::string toString() const override;
 
     /**
     * @return ID of file associated with the write event.
@@ -73,14 +70,20 @@ public:
 
     /**
     * Aggregates this write event with an other write event.
+    * Aggregates @c this event with an other write event.
     * Aggregation is done by:
-    * - addition of events counters
-    * - addition of events sizes
+    * - addition of events' counters
+    * - addition of events' sizes
     * - union of sets of write segments
+    * - substitution of file size with file size associated with other event
+    * - intersection of write segments and segment with length of file size
+    * associated with the truncate event
     * @param event Write event to be aggregated.
     * @return @c *this
     */
     WriteEvent &operator+=(const WriteEvent &event);
+
+    virtual std::string toString() const override;
 
     virtual std::unique_ptr<one::messages::ProtocolClientMessage>
     serialize() const override;
@@ -91,15 +94,6 @@ protected:
     off_t m_fileSize = 0;
     boost::icl::interval_set<off_t> m_blocks;
 };
-
-/**
-* Compares two write events.
-* Write events are equal if corresponding event's fields are equal.
-* @param lhs Write event to be compared.
-* @param rhs Write event to be compared.
-* @return true if write events are equal and false otherwise.
-*/
-bool operator==(const WriteEvent &lhs, const WriteEvent &rhs);
 
 } // namespace events
 } // namespace client

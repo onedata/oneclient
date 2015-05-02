@@ -9,6 +9,8 @@
 #ifndef ONECLIENT_MESSAGES_SERVER_MESSAGE_H
 #define ONECLIENT_MESSAGES_SERVER_MESSAGE_H
 
+#include <string>
+
 namespace one {
 
 namespace clproto {
@@ -26,6 +28,11 @@ using ProtocolServerMessage = one::clproto::ServerMessage;
 class ServerMessage {
 public:
     virtual ~ServerMessage() = default;
+
+    /**
+     * @return Server message in string format.
+     */
+    virtual std::string toString() const = 0;
 };
 
 } // namespace messages

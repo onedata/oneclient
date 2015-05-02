@@ -13,6 +13,8 @@
 namespace one {
 namespace messages {
 
+std::string EndOfStream::toString() const { return "type: 'EndOfStream'"; }
+
 std::unique_ptr<ProtocolClientMessage> EndOfStream::serialize() const
 {
     auto clientMsg = std::make_unique<ProtocolClientMessage>();

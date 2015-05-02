@@ -29,15 +29,6 @@ WriteEvent::WriteEvent(
 {
 }
 
-std::string WriteEvent::toString() const
-{
-    std::stringstream stream;
-    stream << "type: WRITE, counter: " << m_counter << ", file ID: '"
-           << m_fileId << "', file size: " << m_fileSize << ", size: " << m_size
-           << ", blocks: " << m_blocks;
-    return stream.str();
-}
-
 const std::string &WriteEvent::fileId() const { return m_fileId; }
 
 size_t WriteEvent::size() const { return m_size; }
@@ -59,10 +50,13 @@ WriteEvent &WriteEvent::operator+=(const WriteEvent &event)
     return *this;
 }
 
-bool operator==(const WriteEvent &lhs, const WriteEvent &rhs)
+std::string WriteEvent::toString() const
 {
-    return lhs.fileId() == rhs.fileId() && lhs.size() == rhs.size() &&
-        lhs.fileSize() == rhs.fileSize() && lhs.blocks() == rhs.blocks();
+    std::stringstream stream;
+    stream << "type: 'WriteEvent', counter: " << m_counter << ", file ID: '"
+           << m_fileId << "', file size: " << m_fileSize << ", size: " << m_size
+           << ", blocks: " << m_blocks;
+    return stream.str();
 }
 
 std::unique_ptr<one::messages::ProtocolClientMessage>

@@ -24,8 +24,6 @@ class TruncateEvent : public WriteEvent {
 public:
     /**
     * Constructor.
-    * @param eventStream Weak pointer to @c WriteEventStream to which this event
-    * will be pushed when emitted.
     * @param fileId ID of file associated with a truncate operation.
     * @param fileSize Size of file after a truncate operation.
     */

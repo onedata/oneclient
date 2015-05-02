@@ -28,7 +28,6 @@ EventCommunicator::~EventCommunicator() { m_stream->close(); }
 
 void EventCommunicator::send(const Event &event) const
 {
-    DLOG(INFO) << "Sending event: " << event.toString();
     m_stream->send(event.serialize(), 0);
 }
 

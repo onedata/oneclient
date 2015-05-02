@@ -10,6 +10,8 @@
 
 #include "messages.pb.h"
 
+#include <sstream>
+
 namespace one {
 namespace messages {
 
@@ -24,6 +26,14 @@ ProtocolVersion::ProtocolVersion(
 uint32_t ProtocolVersion::major() const { return m_major; }
 
 uint32_t ProtocolVersion::minor() const { return m_minor; }
+
+std::string ProtocolVersion::toString() const
+{
+    std::stringstream stream;
+    stream << "type: 'ProtocolVersion', major: " << m_major
+           << ", minor: " << m_minor;
+    return stream.str();
+}
 
 } // namespace messages
 } // namespace one

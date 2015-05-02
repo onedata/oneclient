@@ -35,6 +35,8 @@ public:
      */
     const std::string &sessionId() const;
 
+    virtual std::string toString() const override;
+
 private:
     std::string m_sessionId;
 };

@@ -30,7 +30,7 @@ uint64_t EventSubscriptionCancellation::id() const { return m_id; }
 std::string EventSubscriptionCancellation::toString() const
 {
     std::stringstream stream;
-    stream << "type: CANCELLATION, id: " << m_id;
+    stream << "type: 'EventSubscriptionCancellation', id: " << m_id;
     return stream.str();
 }
 

@@ -59,15 +59,16 @@ public:
     * Adds a subscription for events of type @c EventType.
     * @param subscription An instance of subscription of type @c
     * SubscriptionType to be added.
+    * @return Id of subscription.
     */
-    void addSubscription(typename EventType::subscription subscription);
+    uint64_t addSubscription(typename EventType::Subscription subscription);
 
     /**
     * Removes a subscription for events of type @c EventType.
     * @param subscription An instance of subscription of type @c
     * SubscriptionType to be removed.
     */
-    void removeSubscription(typename EventType::subscription subscription);
+    void removeSubscription(typename EventType::Subscription subscription);
 
 private:
     bool isEmissionRuleSatisfied(const EventType &event);
@@ -99,7 +100,7 @@ EventStream<EventType>::EventStream(std::weak_ptr<Context> context,
 
 template <class EventType> void EventStream<EventType>::push(EventType event)
 {
-    m_streamStrand.post([ event = std::move(event), this ] {
+    m_streamStrand.post([ this, event = std::move(event) ] {
         const EventType &aggregatedEvent =
             m_aggregator->aggregate(std::move(event));
         if (isEmissionRuleSatisfied(aggregatedEvent))
@@ -108,12 +109,13 @@ template <class EventType> void EventStream<EventType>::push(EventType event)
 }
 
 template <class EventType>
-void EventStream<EventType>::addSubscription(
-    typename EventType::subscription subscription)
+uint64_t EventStream<EventType>::addSubscription(
+    typename EventType::Subscription subscription)
 {
     LOG(INFO) << "Adding event subscripton: " << subscription.toString();
 
-    m_streamStrand.post([ subscription = std::move(subscription), this ] {
+    uint64_t id = subscription.id();
+    m_streamStrand.post([ this, subscription = std::move(subscription) ] {
         bool isAnyThresholdSet = true;
         if (m_counterThresholds.size() == 0 && m_timeThresholds.size() == 0 &&
             m_sizeThresholds.size() == 0) {
@@ -124,12 +126,12 @@ void EventStream<EventType>::addSubscription(
         if (!m_timeThresholds.empty())
             minTimeThreshold = *m_timeThresholds.begin();
 
-        if (subscription.m_counterThreshold)
-            m_counterThresholds.insert(subscription.m_counterThreshold.get());
-        if (subscription.m_timeThreshold)
-            m_timeThresholds.insert(subscription.m_timeThreshold.get());
-        if (subscription.m_sizeThreshold)
-            m_sizeThresholds.insert(subscription.m_sizeThreshold.get());
+        if (subscription.counterThreshold())
+            m_counterThresholds.insert(subscription.counterThreshold().get());
+        if (subscription.timeThreshold())
+            m_timeThresholds.insert(subscription.timeThreshold().get());
+        if (subscription.sizeThreshold())
+            m_sizeThresholds.insert(subscription.sizeThreshold().get());
 
         if (isEmissionRuleSatisfied(m_aggregator->all()))
             emit();
@@ -142,24 +144,25 @@ void EventStream<EventType>::addSubscription(
                 m_sizeThresholds.size() != 0))
             m_aggregator = std::make_unique<FileIdAggregator<EventType>>();
     });
+    return id;
 }
 
 template <class EventType>
 void EventStream<EventType>::removeSubscription(
-    typename EventType::subscription subscription)
+    typename EventType::Subscription subscription)
 {
     LOG(INFO) << "Removing event subscripton: " << subscription.toString();
 
-    m_streamStrand.post([ subscription = std::move(subscription), this ] {
-        if (subscription.m_counterThreshold)
+    m_streamStrand.post([ this, subscription = std::move(subscription) ] {
+        if (subscription.counterThreshold())
             m_counterThresholds.erase(m_counterThresholds.find(
-                subscription.m_counterThreshold.get()));
-        if (subscription.m_timeThreshold)
+                subscription.counterThreshold().get()));
+        if (subscription.timeThreshold())
             m_timeThresholds.erase(
-                m_timeThresholds.find(subscription.m_timeThreshold.get()));
-        if (subscription.m_sizeThreshold)
+                m_timeThresholds.find(subscription.timeThreshold().get()));
+        if (subscription.sizeThreshold())
             m_sizeThresholds.erase(
-                m_sizeThresholds.find(subscription.m_sizeThreshold.get()));
+                m_sizeThresholds.find(subscription.sizeThreshold().get()));
 
         if (m_counterThresholds.size() == 0 && m_timeThresholds.size() == 0 &&
             m_sizeThresholds.size() == 0)

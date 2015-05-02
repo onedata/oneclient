@@ -42,10 +42,28 @@ ReadEventSubscription::ReadEventSubscription(uint64_t id,
 {
 }
 
+uint64_t ReadEventSubscription::id() const { return m_id; }
+
+const boost::optional<size_t> &ReadEventSubscription::counterThreshold() const
+{
+    return m_counterThreshold;
+}
+
+const boost::optional<std::chrono::milliseconds> &
+ReadEventSubscription::timeThreshold() const
+{
+    return m_timeThreshold;
+}
+
+const boost::optional<size_t> &ReadEventSubscription::sizeThreshold() const
+{
+    return m_sizeThreshold;
+}
+
 std::string ReadEventSubscription::toString() const
 {
     std::stringstream stream;
-    stream << "type: READ, counter threshold: ";
+    stream << "type: 'ReadEventSubscription', counter threshold: ";
     if (m_counterThreshold)
         stream << m_counterThreshold.get();
     else
@@ -62,8 +80,6 @@ std::string ReadEventSubscription::toString() const
         stream << "'undefined'";
     return stream.str();
 }
-
-uint64_t ReadEventSubscription::id() const { return m_id; }
 
 } // namespace events
 } // namespace client

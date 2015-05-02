@@ -40,7 +40,7 @@ public:
 
     /**
     * @copydoc Aggregator::reset()
-    * @c FileIdAggregator returns list of aggregation results for events with
+    * @c FileIdAggregator returns vector of aggregation results for events with
     * different file ID.
     */
     std::vector<EventType> reset() override;
@@ -54,9 +54,11 @@ template <class EventType>
 const EventType &FileIdAggregator<EventType>::aggregate(EventType event)
 {
     m_all += event;
-    auto insertionResult = m_eventsByFileId.emplace(event.fileId(), event);
-    if (!insertionResult.second)
-        insertionResult.first->second += event;
+    auto searchResult = m_eventsByFileId.find(event.fileId());
+    if (searchResult != m_eventsByFileId.end())
+        searchResult->second += event;
+    else
+        m_eventsByFileId.emplace(event.fileId(), std::move(event));
     return m_all;
 }
 

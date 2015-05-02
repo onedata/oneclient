@@ -6,12 +6,13 @@
 * 'LICENSE.txt'
 */
 
-#ifndef HELPERS_MESSAGES_MESSAGE_STREAM_RESET_H
-#define HELPERS_MESSAGES_MESSAGE_STREAM_RESET_H
+#ifndef ONECLIENT_MESSAGES_MESSAGE_STREAM_RESET_H
+#define ONECLIENT_MESSAGES_MESSAGE_STREAM_RESET_H
 
 #include "messages/serverMessage.h"
 
 #include <memory>
+#include <string>
 
 namespace one {
 namespace messages {
@@ -28,9 +29,11 @@ public:
     * MessageStreamReset counterpart.
     */
     MessageStreamReset(std::unique_ptr<ProtocolServerMessage> serverMessage);
+
+    virtual std::string toString() const override;
 };
 
 } // namespace messages
 } // namespace one
 
-#endif // HELPERS_MESSAGES_MESSAGE_STREAM_RESET_H
+#endif // ONECLIENT_MESSAGES_MESSAGE_STREAM_RESET_H

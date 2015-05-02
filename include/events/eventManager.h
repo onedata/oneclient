@@ -11,10 +11,10 @@
 
 #include "eventStream.h"
 
-#include <map>
 #include <memory>
 #include <functional>
 #include <sys/types.h>
+#include <unordered_map>
 
 namespace one {
 
@@ -64,8 +64,8 @@ public:
     * @param size Number of bytes written.
     * @param fileSize Size of file after a write operation.
     */
-    void emitWriteEvent(std::string fileId, off_t offset, size_t size,
-        off_t fileSize) const;
+    void emitWriteEvent(
+        std::string fileId, off_t offset, size_t size, off_t fileSize) const;
 
     /**
     * Emits a truncate event.
@@ -77,11 +77,11 @@ public:
 private:
     void handleServerMessage(const clproto::ServerMessage &msg);
 
-    std::function<void()> m_unsubscribe;
     std::shared_ptr<Context> m_context;
-    std::map<uint64_t, std::function<void()>> m_subscriptionCancellations;
-    std::shared_ptr<EventStream<ReadEvent>> m_readEventStream;
-    std::shared_ptr<EventStream<WriteEvent>> m_writeEventStream;
+    std::unique_ptr<EventStream<ReadEvent>> m_readEventStream;
+    std::unique_ptr<EventStream<WriteEvent>> m_writeEventStream;
+    std::unordered_map<uint64_t, std::function<void()>>
+        m_subscriptionsCancellation;
 };
 
 } // namespace events

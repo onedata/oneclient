@@ -27,16 +27,10 @@ public:
     /**
     * @return Event's counter.
     */
-    size_t counter() const { return m_counter; };
-
-    /**
-     * Converts event to string format.
-     * @return Event in string format.
-     */
-    virtual std::string toString() const = 0;
+    size_t counter() const { return m_counter; }
 
 protected:
-    std::size_t m_counter = 1;
+    size_t m_counter = 1;
 };
 
 } // namespace events

@@ -34,42 +34,43 @@ EventManager::EventManager(std::shared_ptr<Context> context)
         std::make_unique<EventStream<ReadEvent>>(m_context, communicator);
     m_writeEventStream =
         std::make_unique<EventStream<WriteEvent>>(m_context, communicator);
+
     auto predicate = [](const clproto::ServerMessage &msg, const bool) {
         return msg.has_event_subscription();
     };
-
     auto callback =
         [this](const clproto::ServerMessage &msg) { handleServerMessage(msg); };
 
-    m_unsubscribe =
-        m_context->communicator()->subscribe(communication::SubscriptionData{
-            std::move(predicate), std::move(callback)});
+    m_context->communicator()->subscribe(communication::SubscriptionData{
+        std::move(predicate), std::move(callback)});
 }
 
 void EventManager::emitReadEvent(
     std::string fileId, off_t offset, size_t size) const
 {
-    m_context->scheduler()->post([=, fileId = std::move(fileId)] {
-        auto event = ReadEvent{fileId, offset, size};
-        m_readEventStream->push(event);
+    m_context->scheduler()->post([ =, fileId = std::move(fileId) ] {
+        auto event = ReadEvent{std::move(fileId), offset, size};
+        LOG(INFO) << "Emitting event: " << event.toString();
+        m_readEventStream->push(std::move(event));
     });
 }
 
 void EventManager::emitWriteEvent(
     std::string fileId, off_t offset, size_t size, off_t fileSize) const
 {
-    m_context->scheduler()->post([=, fileId = std::move(fileId)] {
-        auto event = WriteEvent{fileId, offset, size, fileSize};
-        m_writeEventStream->push(event);
+    m_context->scheduler()->post([ =, fileId = std::move(fileId) ] {
+        auto event = WriteEvent{std::move(fileId), offset, size, fileSize};
+        LOG(INFO) << "Emitting event: " << event.toString();
+        m_writeEventStream->push(std::move(event));
     });
 }
 
-void EventManager::emitTruncateEvent(
-    std::string fileId, off_t fileSize) const
+void EventManager::emitTruncateEvent(std::string fileId, off_t fileSize) const
 {
-    m_context->scheduler()->post([=, fileId = std::move(fileId)] {
-        auto event = TruncateEvent{fileId, fileSize};
-        m_writeEventStream->push(event);
+    m_context->scheduler()->post([ =, fileId = std::move(fileId) ] {
+        auto event = TruncateEvent{std::move(fileId), fileSize};
+        LOG(INFO) << "Emitting event: " << event.toString();
+        m_writeEventStream->push(std::move(event));
     });
 }
 
@@ -78,26 +79,26 @@ void EventManager::handleServerMessage(const clproto::ServerMessage &msg)
     auto subscriptionMsg = msg.event_subscription();
     if (subscriptionMsg.has_read_event_subscription()) {
         ReadEventSubscription subscription{msg};
-        m_readEventStream->addSubscription(subscription);
-        m_subscriptionCancellations.emplace(subscription.id(),
-            [ subscription = std::move(subscription), this ] {
-                m_readEventStream->removeSubscription(subscription);
+        auto id = m_readEventStream->addSubscription(subscription);
+        m_subscriptionsCancellation.emplace(
+            id, [ this, subscription = std::move(subscription) ] {
+                m_readEventStream->removeSubscription(std::move(subscription));
             });
     }
     else if (subscriptionMsg.has_write_event_subscription()) {
         WriteEventSubscription subscription{msg};
-        m_writeEventStream->addSubscription(subscription);
-        m_subscriptionCancellations.emplace(subscription.id(),
-            [ subscription = std::move(subscription), this ] {
-                m_writeEventStream->removeSubscription(subscription);
+        auto id = m_writeEventStream->addSubscription(subscription);
+        m_subscriptionsCancellation.emplace(
+            id, [ this, subscription = std::move(subscription) ] {
+                m_writeEventStream->removeSubscription(std::move(subscription));
             });
     }
     else if (subscriptionMsg.has_event_subscription_cancellation()) {
         EventSubscriptionCancellation cancellation{msg};
-        auto searchResult = m_subscriptionCancellations.find(cancellation.id());
-        if (searchResult != m_subscriptionCancellations.end()) {
+        auto searchResult = m_subscriptionsCancellation.find(cancellation.id());
+        if (searchResult != m_subscriptionsCancellation.end()) {
             searchResult->second();
-            m_subscriptionCancellations.erase(searchResult);
+            m_subscriptionsCancellation.erase(searchResult);
         }
     }
 }

@@ -20,7 +20,7 @@ TruncateEvent::TruncateEvent(std::string fileId, off_t fileSize)
 std::string TruncateEvent::toString() const
 {
     std::stringstream stream;
-    stream << "type: TRUNCATE, counter: " << m_counter << ", file ID: '"
+    stream << "type: 'TruncateEvent', counter: " << m_counter << ", file ID: '"
            << m_fileId << "', file size: " << m_fileSize;
     return stream.str();
 }

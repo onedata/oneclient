@@ -42,10 +42,28 @@ WriteEventSubscription::WriteEventSubscription(uint64_t id,
 {
 }
 
+uint64_t WriteEventSubscription::id() const { return m_id; }
+
+const boost::optional<size_t> &WriteEventSubscription::counterThreshold() const
+{
+    return m_counterThreshold;
+}
+
+const boost::optional<std::chrono::milliseconds> &
+WriteEventSubscription::timeThreshold() const
+{
+    return m_timeThreshold;
+}
+
+const boost::optional<size_t> &WriteEventSubscription::sizeThreshold() const
+{
+    return m_sizeThreshold;
+}
+
 std::string WriteEventSubscription::toString() const
 {
     std::stringstream stream;
-    stream << "type: WRITE, counter threshold: ";
+    stream << "type: 'WriteEventSubscription', counter threshold: ";
     if (m_counterThreshold)
         stream << m_counterThreshold.get();
     else
@@ -62,8 +80,6 @@ std::string WriteEventSubscription::toString() const
         stream << "'undefined'";
     return stream.str();
 }
-
-uint64_t WriteEventSubscription::id() const { return m_id; }
 
 } // namespace events
 } // namespace client

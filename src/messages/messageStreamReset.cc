@@ -1,24 +1,25 @@
 /**
- * @file ping.cc
+ * @file messageStreamReset.cc
  * @author Krzysztof Trzepla
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "messages/ping.h"
+#include "messages/messageStreamReset.h"
 
 #include "messages.pb.h"
 
 namespace one {
 namespace messages {
 
-std::unique_ptr<ProtocolClientMessage> Ping::serialize() const
+MessageStreamReset::MessageStreamReset(std::unique_ptr<ProtocolServerMessage>)
 {
-    auto clientMsg = std::make_unique<ProtocolClientMessage>();
-    clientMsg->mutable_ping();
+}
 
-    return clientMsg;
+std::string MessageStreamReset::toString() const
+{
+    return "type : 'MessageStreamReset'";
 }
 
 } // namespace messages

@@ -22,14 +22,13 @@ namespace client {
 namespace events {
 
 class ReadEventSubscription;
-template <class EventType> class EventStream;
 
 /**
 * The ReadEvent class represents a read operation in the file system.
 */
 class ReadEvent : public Event {
 public:
-    typedef typename one::client::events::ReadEventSubscription subscription;
+    typedef typename one::client::events::ReadEventSubscription Subscription;
 
     /**
     * Default constructor.
@@ -39,16 +38,12 @@ public:
 
     /**
     * Constructor.
-    * @param eventStream Weak pointer to @c ReadEventStream to which this event
-    * will be pushed when emitted.
     * @param fileId ID of file associated with a read operation.
-    * @param offset Distance from the beginning of the file to the first
-    * byte read.
+    * @param offset Distance from the beginning of the file to the first byte
+    * read.
     * @param size Number of read bytes.
     */
     ReadEvent(std::string fileId, off_t offset, size_t size);
-
-    virtual std::string toString() const override;
 
     /**
     * @return ID of file associated with the read event.
@@ -76,6 +71,8 @@ public:
     */
     ReadEvent &operator+=(const ReadEvent &event);
 
+    virtual std::string toString() const override;
+
     virtual std::unique_ptr<one::messages::ProtocolClientMessage>
     serialize() const override;
 
@@ -84,15 +81,6 @@ private:
     size_t m_size = 0;
     boost::icl::interval_set<off_t> m_blocks;
 };
-
-/**
-* Compares two read events.
-* Read events are equal if corresponding event's fields are equal.
-* @param lhs Read event to be compared.
-* @param rhs Read event to be compared.
-* @return true if read events are equal and false otherwise.
-*/
-bool operator==(const ReadEvent &lhs, const ReadEvent &rhs);
 
 } // namespace events
 } // namespace client

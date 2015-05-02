@@ -15,22 +15,18 @@
 
 #include <chrono>
 #include <memory>
-#include <cstdint>
+#include <string>
+#include <sys/types.h>
 
 namespace one {
 namespace client {
 namespace events {
-
-class WriteEvent;
-template <class EventType> class EventStream;
 
 /**
 * The WriteEventSubscription class represents write event subscription request
 * sent by the server.
 */
 class WriteEventSubscription : public one::messages::ServerMessage {
-    friend class events::EventStream<events::WriteEvent>;
-
 public:
     /**
      * Constructor.
@@ -53,15 +49,26 @@ public:
         std::chrono::milliseconds timeThreshold, size_t sizeThreshold);
 
     /**
-     * Converts subscription to string format.
-     * @return Subscription in string format.
-     */
-    std::string toString() const;
-
-    /**
      * @return @c Subscription's id.
      */
     uint64_t id() const;
+
+    /**
+     * @return Counter threshold of subscription.
+     */
+    const boost::optional<size_t> &counterThreshold() const;
+
+    /**
+     * @return Time threshold of subscription.
+     */
+    const boost::optional<std::chrono::milliseconds> &timeThreshold() const;
+
+    /**
+     * @return Size threshold of subscription.
+     */
+    const boost::optional<size_t> &sizeThreshold() const;
+
+    virtual std::string toString() const override;
 
 private:
     uint64_t m_id;

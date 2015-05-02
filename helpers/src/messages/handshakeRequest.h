@@ -38,6 +38,8 @@ public:
      */
     HandshakeRequest(std::string sessionId, std::string token);
 
+    virtual std::string toString() const override;
+
     virtual std::unique_ptr<ProtocolClientMessage> serialize() const override;
 
 private:

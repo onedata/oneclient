@@ -6,12 +6,13 @@
 * 'LICENSE.txt'
 */
 
-#ifndef HELPERS_MESSAGES_PROTOCOL_VERSION_H
-#define HELPERS_MESSAGES_PROTOCOL_VERSION_H
+#ifndef ONECLIENT_MESSAGES_PROTOCOL_VERSION_H
+#define ONECLIENT_MESSAGES_PROTOCOL_VERSION_H
 
 #include "messages/serverMessage.h"
 
 #include <memory>
+#include <string>
 
 namespace one {
 namespace messages {
@@ -39,6 +40,8 @@ public:
      */
     uint32_t minor() const;
 
+    virtual std::string toString() const override;
+
 private:
     uint32_t m_major;
     uint32_t m_minor;
@@ -47,4 +50,4 @@ private:
 } // namespace messages
 } // namespace one
 
-#endif // HELPERS_MESSAGES_PROTOCOL_VERSION_H
+#endif // ONECLIENT_MESSAGES_PROTOCOL_VERSION_H

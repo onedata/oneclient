@@ -6,8 +6,8 @@
 * 'LICENSE.txt'
 */
 
-#ifndef HELPERS_MESSAGES_STATUS_H
-#define HELPERS_MESSAGES_STATUS_H
+#ifndef ONECLIENT_MESSAGES_STATUS_H
+#define ONECLIENT_MESSAGES_STATUS_H
 
 #include "messages/serverMessage.h"
 #include "messages/clientMessage.h"
@@ -16,6 +16,8 @@
 
 #include <memory>
 #include <string>
+#include <ostream>
+#include <unordered_map>
 
 namespace one {
 namespace messages {
@@ -72,6 +74,8 @@ public:
      */
     const boost::optional<std::string> &description() const;
 
+    virtual std::string toString() const override;
+
     virtual std::unique_ptr<ProtocolClientMessage> serialize() const override;
 
 private:
@@ -79,7 +83,32 @@ private:
     boost::optional<std::string> m_description;
 };
 
+struct CodeHash {
+    template <typename T> std::size_t operator()(T t) const
+    {
+        return static_cast<std::size_t>(t);
+    }
+};
+
+std::ostream &operator<<(std::ostream &stream, Status::Code code)
+{
+    std::unordered_map<Status::Code, std::string, CodeHash> stringByCode = {
+        {Status::Code::ok, "OK"}, {Status::Code::enoent, "ENOENT"},
+        {Status::Code::eacces, "EACCESS"}, {Status::Code::eexist, "EEXISTS"},
+        {Status::Code::eio, "EIO"}, {Status::Code::enotsup, "ENOTSUP"},
+        {Status::Code::enotempty, "ENOTEMPTY"}, {Status::Code::ecomm, "ECOMM"},
+        {Status::Code::eremoteio, "EREMOTEIO"}, {Status::Code::eperm, "EPERM"},
+        {Status::Code::einval, "EINVAL"}, {Status::Code::edquot, "EDQUOT"},
+        {Status::Code::enoattr, "ENOATTR"}};
+    auto searchResult = stringByCode.find(code);
+    if (searchResult != stringByCode.end())
+        stream << searchResult->second;
+    else
+        stream << "EREMOTEIO";
+    return stream;
+}
+
 } // namespace messages
 } // namespace one
 
-#endif // HELPERS_MESSAGES_STATUS_H
+#endif // ONECLIENT_MESSAGES_STATUS_H

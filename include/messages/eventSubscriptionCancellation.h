@@ -13,7 +13,8 @@
 
 #include <chrono>
 #include <memory>
-#include <cstdint>
+#include <string>
+#include <sys/types.h>
 
 namespace one {
 namespace client {
@@ -21,8 +22,7 @@ namespace events {
 
 /**
 * The EventSubscriptionCancellation class represents read event subscription
-* request
-* sent by the server.
+* request sent by the server.
 */
 class EventSubscriptionCancellation : public one::messages::ServerMessage {
 public:
@@ -35,15 +35,11 @@ public:
         const messages::ProtocolServerMessage &serverMessage);
 
     /**
-     * @return Subscription id to be cancelled.
+     * @return Id of subscription to be cancelled.
      */
     uint64_t id() const;
 
-    /**
-     * Converts subscription cancellation to string format.
-     * @return Subscription cancellation in string format.
-     */
-    std::string toString() const;
+    virtual std::string toString() const override;
 
 private:
     uint64_t m_id;

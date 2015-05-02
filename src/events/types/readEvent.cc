@@ -27,14 +27,6 @@ ReadEvent::ReadEvent(std::string fileId, off_t offset, size_t size)
 {
 }
 
-std::string ReadEvent::toString() const
-{
-    std::stringstream stream;
-    stream << "type: READ, counter: " << m_counter << ", file ID: '" << m_fileId
-           << ", size: " << m_size << ", blocks: " << m_blocks;
-    return stream.str();
-}
-
 const std::string &ReadEvent::fileId() const { return m_fileId; }
 
 size_t ReadEvent::size() const { return m_size; }
@@ -52,11 +44,14 @@ ReadEvent &ReadEvent::operator+=(const ReadEvent &event)
     return *this;
 }
 
-bool operator==(const ReadEvent &lhs, const ReadEvent &rhs)
+std::string ReadEvent::toString() const
 {
-    return lhs.fileId() == rhs.fileId() && lhs.size() == rhs.size() &&
-        lhs.blocks() == rhs.blocks();
+    std::stringstream stream;
+    stream << "type: 'ReadEvent', counter: " << m_counter << ", file ID: '"
+           << m_fileId << ", size: " << m_size << ", blocks: " << m_blocks;
+    return stream.str();
 }
+
 std::unique_ptr<one::messages::ProtocolClientMessage>
 ReadEvent::serialize() const
 {

@@ -12,6 +12,8 @@
 
 #include <boost/bimap.hpp>
 
+#include <sstream>
+
 namespace {
 
 using Translation =
@@ -94,6 +96,24 @@ Status::Status(std::unique_ptr<ProtocolServerMessage> serverMessage)
         m_description = statusMsg.description();
 }
 
+Status::Code Status::code() const { return m_code; }
+
+const boost::optional<std::string> &Status::description() const
+{
+    return m_description;
+}
+
+std::string Status::toString() const
+{
+    std::stringstream stream;
+    stream << "type: 'Status', code: " << m_code << ", description: ";
+    if (m_description)
+        stream << "'" << m_description.get() << "'";
+    else
+        stream << "'undefined'";
+    return stream.str();
+}
+
 std::unique_ptr<ProtocolClientMessage> Status::serialize() const
 {
     auto clientMsg = std::make_unique<ProtocolClientMessage>();
@@ -111,13 +131,6 @@ std::unique_ptr<ProtocolClientMessage> Status::serialize() const
         statusMsg->set_description(m_description.get());
 
     return clientMsg;
-}
-
-Status::Code Status::code() const { return m_code; }
-
-const boost::optional<std::string> &Status::description() const
-{
-    return m_description;
 }
 
 } // namespace messages

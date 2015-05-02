@@ -10,6 +10,8 @@
 
 #include "messages.pb.h"
 
+#include <sstream>
+
 namespace one {
 namespace messages {
 
@@ -26,6 +28,14 @@ uint64_t MessageAcknowledgement::streamId() const { return m_streamId; }
 uint64_t MessageAcknowledgement::sequenceNumber() const
 {
     return m_sequenceNumber;
+}
+
+std::string MessageAcknowledgement::toString() const
+{
+    std::stringstream stream;
+    stream << "type: 'MessageAcknowledgement', stream ID: " << m_streamId
+           << ", sequence number: " << m_sequenceNumber;
+    return stream.str();
 }
 
 } // namespace messages
