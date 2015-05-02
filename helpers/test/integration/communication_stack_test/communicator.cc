@@ -72,6 +72,8 @@ public:
     {
     }
 
+    virtual std::string toString() const override { return ""; }
+
     virtual std::unique_ptr<ProtocolClientMessage> serialize() const override
     {
         auto msg = std::make_unique<ProtocolClientMessage>();
@@ -91,6 +93,8 @@ public:
         : m_protocolMsg{std::move(protocolMsg)}
     {
     }
+
+    virtual std::string toString() const override { return ""; }
 
     ProtocolServerMessage &protocolMsg() const { return *m_protocolMsg; }
 
