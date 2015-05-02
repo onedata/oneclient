@@ -63,7 +63,7 @@ find_package(TBB REQUIRED)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
 set(Boost_USE_STATIC_LIBS       OFF)
-find_package(Boost COMPONENTS system thread filesystem random program_options REQUIRED)
+find_package(Boost COMPONENTS system thread filesystem program_options REQUIRED)
 
 # Utility libs
 find_library(LTDL_LIBRARY NAMES ltdl)
@@ -96,11 +96,14 @@ else(NOT APPLE)
 endif(APPLE)
 
 # Define build settings
-add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Wall -std=c++14)
+add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wall -std=c++14)
 add_definitions(
     ${FUSE_DEFINITIONS}
     -DFUSE_USE_VERSION=29
-    -DBOOST_BIND_NO_PLACEHOLDERS)
+    -DBOOST_BIND_NO_PLACEHOLDERS
+    -DBOOST_THREAD_VERSION=4
+    -DBOOST_THREAD_PROVIDES_EXECUTORS
+    -DBOOST_CHRONO_HEADER_ONLY)
 
 # Add helpers after setting compilation flags but before setting include
 # directories; helpers specify their own includes, pulling from package-set
@@ -156,25 +159,6 @@ endif(NOT ${PROFILER_LIBRARY} MATCHES PROFILER_LIBRARY-NOTFOUND)
 # Install config
 install(TARGETS oneclient DESTINATION bin)
 install(DIRECTORY config/ DESTINATION etc)
-
-# build a CPack driven installer package
-include(InstallRequiredSystemLibraries)
-set(CPACK_SET_DESTDIR ON) # Uncomment this line if you need a non-relocatable RPM package
-set(CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE.txt)
-set(CPACK_PACKAGE_VERSION_MAJOR ${oneclient_VERSION_MAJOR})
-set(CPACK_PACKAGE_VERSION_MINOR ${oneclient_VERSION_MINOR})
-set(CPACK_PACKAGE_CONTACT support@onedata.org)
-set(CPACK_PACKAGE_FILE_NAME ${CMAKE_PROJECT_NAME}-${CMAKE_SYSTEM_NAME})
-
-# DEB and RPM deps
-set(CPACK_DEBIAN_PACKAGE_DEPENDS "fuse, openssl")
-set(CPACK_RPM_PACKAGE_REQUIRES "fuse, openssl")
-
-# autogenerate dependency information
-# set (CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-set(CPACK_RPM_PACKAGE_AUTOREQPROV " no") ## Uncomment ot get rid of automatic deps generation
-set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
-include(CPack)
 
 enable_testing()
 add_subdirectory(test)
