@@ -39,6 +39,14 @@ public:
 };
 
 /**
+ * An @c one::communication::ReceiveError specialization representing an
+ * exceeded timeout while waiting for message.
+ */
+class TimeoutExceeded : public ReceiveError {
+    using ReceiveError::ReceiveError;
+};
+
+/**
  * An @c Exception specialization for errors occuring while connecting to the
  * server.
  */

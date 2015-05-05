@@ -2,6 +2,9 @@ import os
 import sys
 import time
 
+import pytest
+
+
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.dirname(script_dir))
 from test_common import *
@@ -12,6 +15,7 @@ import communication_stack
 import appmock_client
 
 
+# noinspection PyClassHasNoInit
 class TestCommunicator:
     @classmethod
     def setup_class(cls):
@@ -29,7 +33,7 @@ class TestCommunicator:
         docker.remove(cls.result['docker_ids'], force=True, volumes=True)
 
     def test_send(self):
-        com = communication_stack.Communicator(3, self.ip, 5555)
+        com = communication_stack.Communicator(3, self.ip, 5555, False)
         com.connect()
 
         sent_bytes = com.send("this is a message")
@@ -38,7 +42,7 @@ class TestCommunicator:
                                                             sent_bytes)
 
     def test_communicate(self):
-        com = communication_stack.Communicator(1, self.ip, 5555)
+        com = communication_stack.Communicator(1, self.ip, 5555, False)
         com.connect()
 
         request = com.communicate("this is a request")
@@ -53,7 +57,7 @@ class TestCommunicator:
         assert com.communicateReceive() == reply
 
     def test_successful_handshake(self):
-        com = communication_stack.Communicator(1, self.ip, 5555)
+        com = communication_stack.Communicator(1, self.ip, 5555, False)
         handshake = com.setHandshake("handshake", False)
         com.connect()
 
@@ -73,7 +77,7 @@ class TestCommunicator:
                                                             request)
 
     def test_unsuccessful_handshake(self):
-        com = communication_stack.Communicator(3, self.ip, 5555)
+        com = communication_stack.Communicator(3, self.ip, 5555, False)
         handshake = com.setHandshake("anotherHanshake", True)
         com.connect()
 
@@ -85,9 +89,34 @@ class TestCommunicator:
         reply = communication_stack.prepareReply(handshake, "anotherHandshakeR")
         appmock_client.tcp_server_send(self.ip, 5555, reply)
 
-        # assert com.handshakeResponse() == reply
-
         # The connections should now be recreated and another handshake sent
         time.sleep(1.5)
         assert 6 == appmock_client.tcp_server_message_count(self.ip, 5555,
                                                             handshake)
+
+    def test_exception_on_unsuccessful_handshake(self):
+        com = communication_stack.Communicator(3, self.ip, 5555, True)
+        handshake = com.setHandshake("oneMoreHanshake", True)
+        com.connect()
+
+        com.communicate("communication")
+
+        reply = communication_stack.prepareReply(handshake, "oneMoreHandshakeR")
+        appmock_client.tcp_server_send(self.ip, 5555, reply)
+
+        with pytest.raises(RuntimeError) as exc:
+            com.communicateReceive()
+        assert "ConnectionError" in str(exc.value)
+        assert "handshake" in str(exc.value)
+
+    def test_exception_on_connection_error(self):
+        com = communication_stack.Communicator(3, self.ip,
+                                               9876, True)  # note the port
+        com.setHandshake("secondMoreHandshake", True)
+        com.connect()
+
+        com.communicate("communication2")
+        with pytest.raises(RuntimeError) as exc:
+            com.communicateReceive()
+        assert "ConnectionError" in str(exc.value)
+        assert "failed to establish" in str(exc.value)

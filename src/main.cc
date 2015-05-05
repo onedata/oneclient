@@ -24,7 +24,10 @@
 #include "oneException.h"
 #include "auth/authException.h"
 #include "auth/authManager.h"
+#include "communication/exception.h"
 #include "messages/handshakeResponse.h"
+#include "messages/ping.h"
+#include "messages/pong.h"
 
 #include <glog/logging.h>
 #include <boost/algorithm/string.hpp>
@@ -56,6 +59,7 @@
 using namespace one;
 using namespace one::client;
 using namespace std::placeholders;
+using namespace std::literals;
 using boost::filesystem::path;
 
 namespace {
@@ -342,33 +346,23 @@ int main(int argc, char *argv[], char *envp[])
     // Initialize cluster handshake in order to check if everything is ok before
     // becoming daemon
     const auto fuseId = generateFuseID();
+    auto handshakeHandler = [](auto) { return true; };
 
-    std::promise<void> handshakePromise;
-    auto handshakeFuture = handshakePromise.get_future();
-    auto onHandshakeResponse([&](auto response) mutable {
-        if (response.sessionId() != fuseId) {
-            handshakePromise.set_exception(
-                std::make_exception_ptr(OneException{"error"}));
-            return false;
-        }
-
-        handshakePromise.set_value();
-        return true;
-    });
-
-    auto testCommunicator = authManager->createCommunicator(
-        1, fuseId, std::move(onHandshakeResponse));
+    auto testCommunicator =
+        authManager->createCommunicator(1, fuseId, handshakeHandler,
+            communication::ConnectionPool::ErrorPolicy::propagate);
 
     testCommunicator->connect();
 
     try {
-        /// @todo InvalidServerCertificate
-        /// @todo More specific errors.
         /// @todo boost::system::system_error throwed on host not found
-        handshakeFuture.get();
+        auto futurePong =
+            testCommunicator->communicate<messages::Pong>(messages::Ping{}, 2);
+
+        futurePong.get(5s);
     }
-    catch (OneException &exception) {
-        std::cerr << "Handshake error. Aborting" << std::endl;
+    catch (const communication::Exception &e) {
+        std::cerr << "Error: " << e.what() << ". Aborting." << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -393,8 +387,8 @@ int main(int argc, char *argv[], char *envp[])
         context->scheduler()->restartAfterDaemonize();
     }
 
-    testCommunicator =
-        authManager->createCommunicator(3, fuseId, [](auto) { return true; });
+    testCommunicator = authManager->createCommunicator(3, fuseId,
+        handshakeHandler, communication::ConnectionPool::ErrorPolicy::ignore);
 
     testCommunicator->connect();
 

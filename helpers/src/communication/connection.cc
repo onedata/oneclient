@@ -12,6 +12,7 @@
 #include "logging.h"
 
 #include <boost/asio.hpp>
+#include <boost/asio/spawn.hpp>
 #include <openssl/ssl.h>
 
 #include <algorithm>
@@ -24,13 +25,34 @@ using namespace std::placeholders;
 namespace one {
 namespace communication {
 
+template <>
+std::string Connection::close<void>(
+    std::string what, const boost::system::error_code &ec)
+{
+    auto msg = what + (ec ? ": " + ec.message() : std::string{});
+    LOG(ERROR) << msg;
+    close();
+    return msg;
+}
+
+template <class Ex>
+std::string Connection::close(
+    std::string what, const boost::system::error_code &ec)
+{
+    auto msg = what + (ec ? ": " + ec.message() : std::string{});
+    LOG(ERROR) << msg;
+    close(boost::copy_exception(Ex{msg}));
+    return msg;
+}
+
 Connection::Connection(boost::asio::io_service &ioService,
     boost::asio::ssl::context &context, const bool verifyServerCertificate,
     std::function<std::string()> &getHandshake,
     std::function<bool(std::string)> &onHandshakeResponse,
     std::function<void(std::string)> onMessageReceived,
     std::function<void(std::shared_ptr<Connection>)> onReady,
-    std::function<void(std::shared_ptr<Connection>)> onClosed)
+    std::function<void(std::shared_ptr<Connection>, boost::exception_ptr)>
+        onClosed)
     : m_verifyServerCertificate{verifyServerCertificate}
     , m_getHandshake{getHandshake}
     , m_onHandshakeResponse{onHandshakeResponse}
@@ -53,173 +75,168 @@ Connection::~Connection()
 
 void Connection::send(std::string message, boost::promise<void> promise)
 {
-    send(std::move(message), std::move(promise),
-        std::bind(m_onReady, shared_from_this()));
+    prepareBuffer(std::move(message), std::move(promise));
+    boost::asio::spawn(m_strand, [t = shared_from_this()](auto yield) mutable {
+        boost::system::error_code ec;
+
+        t->send(ec, yield);
+        if (ec) {
+            auto msg = t->close("failed to write message", ec);
+            auto e = std::make_exception_ptr(SendError{msg});
+            t->m_outPromise.set_exception(e);
+        }
+        else {
+            t->m_outPromise.set_value();
+        }
+    });
 }
 
-void Connection::send(std::string message, boost::promise<void> promise,
-    std::function<void()> handler)
+void Connection::send(
+    boost::system::error_code &ec, boost::asio::yield_context yield)
+{
+    std::array<boost::asio::const_buffer, 2> buffer{
+        headerToBuffer(m_outHeader), boost::asio::buffer(m_outBuffer)};
+
+    boost::asio::async_write(m_socket, buffer, yield[ec]);
+}
+
+void Connection::prepareBuffer(
+    std::string message, boost::promise<void> promise)
 {
     m_outHeader = htonl(message.size());
     m_outBuffer = std::move(message);
     m_outPromise = std::move(promise);
-    m_strand.post(
-        std::bind(&Connection::writeOne, shared_from_this(), handler));
 }
 
 void Connection::connect(const std::string &host, const std::string &service)
 {
-    boost::asio::ip::tcp::resolver::query query{host, service};
-    m_resolver.async_resolve(
-        query, [ this, host, service, t = shared_from_this() ](
-                   const boost::system::error_code &ec,
-                   decltype(m_resolver)::iterator iterator) {
-
-            if (ec) {
-                close("Failed to resolve host: " + host + " and service: " +
-                        service,
-                    ec);
-                return;
-            }
-
-            std::vector<decltype(iterator)::value_type> endpoints;
-            std::move(
-                iterator, decltype(iterator){}, std::back_inserter(endpoints));
-
-            std::random_device rd;
-            std::default_random_engine engine{rd()};
-            std::shuffle(endpoints.begin(), endpoints.end(), engine);
-
-            m_strand.post([ this, endpoints = std::move(endpoints), t ] {
-                boost::asio::async_connect(m_socket.lowest_layer(),
-                    endpoints.begin(), endpoints.end(),
-                    [this, t](const boost::system::error_code &ec, auto it) {
-
-                        if (ec) {
-                            this->close(
-                                "Failed to establish TCP connection", ec);
-                            return;
-                        }
-
-                        m_socket.lowest_layer().set_option(
-                            boost::asio::ip::tcp::no_delay{true});
-
-                        m_socket.async_handshake(
-                            boost::asio::ssl::stream_base::client,
-                            [this, t](const boost::system::error_code &ec) {
-                                if (ec) {
-                                    auto verifyResult = SSL_get_verify_result(
-                                        m_socket.native_handle());
-
-                                    if (verifyResult != 0 &&
-                                        m_verifyServerCertificate) {
-                                        this->close(
-                                            "Server certificate verification "
-                                            "failed. OpenSSL error",
-                                            ec);
-                                    }
-                                    else {
-                                        this->close(
-                                            "Failed to perform SSL handshake",
-                                            ec);
-                                    }
-
-                                    return;
-                                }
-
-                                this->handshake();
-                            });
-                    });
-            });
+    boost::asio::spawn(
+        m_strand, [ =, t = shared_from_this() ](auto yield) mutable {
+            t->connect(std::move(host), std::move(service), yield);
         });
 }
 
-void Connection::handshake()
+void Connection::connect(
+    std::string host, std::string service, boost::asio::yield_context yield)
 {
-    if (!m_getHandshake) {
-        readLoop();
-        m_onReady(shared_from_this());
+    boost::system::error_code ec;
+    auto endpoints = resolve(host, service, ec, yield);
+
+    if (ec) {
+        close<ConnectionError>(
+            "failed to resolve '" + host + "' (service '" + service + "')", ec);
         return;
     }
 
-    send(m_getHandshake(), boost::promise<void>{}, [this] {
-        readOne([this] {
-            if (!m_onHandshakeResponse(std::move(m_inBuffer))) {
-                LOG(WARNING)
-                    << "Handshake handler asked to close the connection";
-                close();
-                return;
-            }
+    boost::asio::async_connect(
+        m_socket.lowest_layer(), endpoints.begin(), endpoints.end(), yield[ec]);
 
-            m_onReady(shared_from_this());
-            readLoop();
-        });
-    });
+    if (ec) {
+        close<ConnectionError>("failed to establish TCP connection", ec);
+        return;
+    }
+
+    m_socket.lowest_layer().set_option(boost::asio::ip::tcp::no_delay{true});
+    m_socket.async_handshake(boost::asio::ssl::stream_base::client, yield[ec]);
+
+    if (ec) {
+        auto verifyResult = SSL_get_verify_result(m_socket.native_handle());
+
+        if (verifyResult != 0 && m_verifyServerCertificate) {
+            close<InvalidServerCertificate>("server certificate verification "
+                                            "failed. OpenSSL error " +
+                    std::to_string(verifyResult),
+                ec);
+        }
+        else
+            close<ConnectionError>("failed to perform SSL handshake", ec);
+
+        return;
+    }
+
+    handshake(yield);
 }
 
-void Connection::readLoop()
+std::vector<boost::asio::ip::basic_resolver_entry<boost::asio::ip::tcp>>
+Connection::resolve(const std::string &host, const std::string &service,
+    boost::system::error_code &ec, boost::asio::yield_context yield)
 {
-    readOne([this] {
+    boost::asio::ip::tcp::resolver::query query{host, service};
+    auto iterator = m_resolver.async_resolve(query, yield[ec]);
+
+    if (ec)
+        return {};
+
+    std::vector<decltype(iterator)::value_type> endpoints;
+    std::move(iterator, decltype(iterator){}, std::back_inserter(endpoints));
+
+    std::random_device rd;
+    std::default_random_engine engine{rd()};
+    std::shuffle(endpoints.begin(), endpoints.end(), engine);
+
+    return endpoints;
+}
+
+void Connection::handshake(boost::asio::yield_context yield)
+{
+    if (m_getHandshake) {
+        boost::system::error_code ec;
+
+        prepareBuffer(m_getHandshake(), {});
+        send(ec, yield);
+        if (ec) {
+            close<ConnectionError>("failed to send handshake message", ec);
+            return;
+        }
+
+        receive(ec, yield);
+        if (ec) {
+            close<ConnectionError>("failed to receive handshake response", ec);
+            return;
+        }
+
+        if (!m_onHandshakeResponse(std::move(m_inBuffer))) {
+            close<ConnectionError>("handshake aborted by the client");
+            return;
+        }
+    }
+
+    m_onReady(shared_from_this());
+    readLoop(yield);
+}
+
+void Connection::readLoop(boost::asio::yield_context yield)
+{
+    boost::system::error_code ec;
+    while (true) {
+        receive(ec, yield);
+        if (ec) {
+            close("failed to receive a message", ec);
+            return;
+        }
+
         m_onMessageReceived(std::move(m_inBuffer));
-        readLoop();
-    });
+    }
 }
 
-void Connection::readOne(std::function<void()> handler)
+void Connection::receive(
+    boost::system::error_code &ec, boost::asio::yield_context yield)
 {
-    boost::asio::async_read(m_socket, headerToBuffer(m_inHeader),
-        m_strand.wrap(
-            [ this, t = shared_from_this(), handler = std::move(handler) ](
-                const boost::system::error_code &ec, size_t) {
+    boost::asio::async_read(m_socket, headerToBuffer(m_inHeader), yield[ec]);
 
-                if (ec) {
-                    close("Failed to read message header", ec);
-                    return;
-                }
+    if (ec)
+        return;
 
-                const auto messageSize = ntohl(m_inHeader);
-                m_inBuffer.resize(messageSize);
+    const auto messageSize = ntohl(m_inHeader);
+    m_inBuffer.resize(messageSize);
 
-                boost::asio::async_read(m_socket,
-                    boost::asio::mutable_buffers_1{
-                        &m_inBuffer[0], m_inBuffer.size()},
-                    m_strand.wrap([ this, t, handler = std::move(handler) ](
-                        const boost::system::error_code &ec, size_t) {
-                        if (ec) {
-                            close("Failed to read message body", ec);
-                            return;
-                        }
-
-                        handler();
-                    }));
-            }));
+    boost::asio::mutable_buffers_1 buffer{&m_inBuffer[0], m_inBuffer.size()};
+    boost::asio::async_read(m_socket, buffer, yield[ec]);
 }
 
-void Connection::writeOne(std::function<void()> handler)
+void Connection::close(boost::exception_ptr exception)
 {
-    std::array<boost::asio::const_buffer, 2> compositeBuffer{
-        {headerToBuffer(m_outHeader), boost::asio::buffer(m_outBuffer)}};
-
-    boost::asio::async_write(m_socket, compositeBuffer,
-        m_strand.wrap(
-            [ this, t = shared_from_this(), handler = std::move(handler) ](
-                const boost::system::error_code &ec, size_t) {
-
-                if (ec) {
-                    auto msg = close("Failed to write message", ec);
-                    auto e = std::make_exception_ptr(SendError{msg});
-                    m_outPromise.set_exception(e);
-                    return;
-                }
-
-                m_outPromise.set_value();
-                handler();
-            }));
-}
-
-void Connection::close()
-{
-    m_strand.dispatch([this] {
+    m_strand.dispatch([ this, exception = std::move(exception) ] {
         boost::system::error_code ec;
         auto logOnError = [&ec](auto what) {
             if (ec)
@@ -236,17 +253,8 @@ void Connection::close()
         m_socket.lowest_layer().close(ec);
         logOnError("Failed to cleanly close TCP socket");
 
-        m_onClosed(shared_from_this());
+        m_onClosed(shared_from_this(), std::move(exception));
     });
-}
-
-std::string Connection::close(
-    std::string what, const boost::system::error_code &ec)
-{
-    auto msg = what + ": " + ec.message();
-    LOG(ERROR) << msg;
-    close();
-    return msg;
 }
 
 boost::asio::mutable_buffers_1 Connection::headerToBuffer(std::uint32_t &header)
