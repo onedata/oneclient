@@ -136,7 +136,7 @@ public:
 
 private:
     std::vector<boost::asio::ip::basic_resolver_entry<boost::asio::ip::tcp>>
-    resolve(std::string host, std::string service,
+    resolve(const std::string &host, const std::string &service,
         boost::system::error_code &ec, boost::asio::yield_context yield);
     void connect(std::string host, std::string service,
         boost::asio::yield_context yield);

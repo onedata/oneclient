@@ -43,6 +43,8 @@ namespace auth {
  */
 class AuthManager {
 public:
+    using ErrorPolicy = communication::ConnectionPool::ErrorPolicy;
+
     /**
      * Constructor.
      * @param context An application context.
@@ -66,8 +68,8 @@ public:
      */
     virtual std::shared_ptr<communication::Communicator> createCommunicator(
         const unsigned int poolSize, std::string sessionId,
-        std::function<bool(messages::HandshakeResponse)>
-            onHandshakeResponse) = 0;
+        std::function<bool(messages::HandshakeResponse)> onHandshakeResponse,
+        ErrorPolicy errorPolicy) = 0;
 
 protected:
     std::weak_ptr<Context> m_context;
@@ -94,8 +96,8 @@ public:
 
     std::shared_ptr<communication::Communicator> createCommunicator(
         const unsigned int poolSize, std::string sessionId,
-        std::function<bool(messages::HandshakeResponse)> onHandshakeResponse)
-        override;
+        std::function<bool(messages::HandshakeResponse)> onHandshakeResponse,
+        ErrorPolicy errorPolicy) override;
 
 private:
     std::shared_ptr<communication::cert::CertificateData> m_certificateData;
@@ -121,8 +123,8 @@ public:
 
     std::shared_ptr<communication::Communicator> createCommunicator(
         const unsigned int poolSize, std::string sessionId,
-        std::function<bool(messages::HandshakeResponse)> onHandshakeResponse)
-        override;
+        std::function<bool(messages::HandshakeResponse)> onHandshakeResponse,
+        ErrorPolicy errorPolicy) override;
 
 private:
     void scheduleRefresh(

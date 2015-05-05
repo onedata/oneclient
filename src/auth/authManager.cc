@@ -56,10 +56,11 @@ CertificateAuthManager::CertificateAuthManager(std::weak_ptr<Context> context,
 std::shared_ptr<communication::Communicator>
 CertificateAuthManager::createCommunicator(const unsigned int poolSize,
     std::string sessionId,
-    std::function<bool(messages::HandshakeResponse)> onHandshakeResponse)
+    std::function<bool(messages::HandshakeResponse)> onHandshakeResponse,
+    ErrorPolicy errorPolicy)
 {
-    auto communicator = std::make_shared<communication::Communicator>(
-        poolSize, m_hostname, std::to_string(m_port), m_checkCertificate);
+    auto communicator = std::make_shared<communication::Communicator>(poolSize,
+        m_hostname, std::to_string(m_port), m_checkCertificate, errorPolicy);
 
     communicator->setCertificateData(m_certificateData);
 
@@ -91,7 +92,7 @@ TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
             m_authDetails = m_grAdapter.exchangeCode(code);
         }
 
-        if(m_context.lock()->options()->is_default_provider_hostname())
+        if (m_context.lock()->options()->is_default_provider_hostname())
             m_hostname = "uid_" + m_authDetails.gruid() + "." + m_hostname;
     }
     catch (boost::system::system_error &e) {
@@ -102,10 +103,11 @@ TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
 std::shared_ptr<communication::Communicator>
 TokenAuthManager::createCommunicator(const unsigned int poolSize,
     std::string sessionId,
-    std::function<bool(messages::HandshakeResponse)> onHandshakeResponse)
+    std::function<bool(messages::HandshakeResponse)> onHandshakeResponse,
+    ErrorPolicy errorPolicy)
 {
-    auto communicator = std::make_shared<communication::Communicator>(
-        poolSize, m_hostname, std::to_string(m_port), m_checkCertificate);
+    auto communicator = std::make_shared<communication::Communicator>(poolSize,
+        m_hostname, std::to_string(m_port), m_checkCertificate, errorPolicy);
 
     one::messages::HandshakeRequest handshake{
         sessionId, m_authDetails.accessToken()};

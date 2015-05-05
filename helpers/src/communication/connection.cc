@@ -120,11 +120,11 @@ void Connection::connect(
     std::string host, std::string service, boost::asio::yield_context yield)
 {
     boost::system::error_code ec;
-    auto endpoints = resolve(std::move(host), std::move(service), ec, yield);
+    auto endpoints = resolve(host, service, ec, yield);
 
     if (ec) {
         close<ConnectionError>(
-            "failed to resolve host: " + host + " and service: " + service, ec);
+            "failed to resolve '" + host + "' (service '" + service + "')", ec);
         return;
     }
 
@@ -158,11 +158,10 @@ void Connection::connect(
 }
 
 std::vector<boost::asio::ip::basic_resolver_entry<boost::asio::ip::tcp>>
-Connection::resolve(std::string host, std::string service,
+Connection::resolve(const std::string &host, const std::string &service,
     boost::system::error_code &ec, boost::asio::yield_context yield)
 {
-    boost::asio::ip::tcp::resolver::query query{
-        std::move(host), std::move(service)};
+    boost::asio::ip::tcp::resolver::query query{host, service};
     auto iterator = m_resolver.async_resolve(query, yield[ec]);
 
     if (ec)
