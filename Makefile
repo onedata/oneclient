@@ -1,16 +1,5 @@
 .PHONY: rpm cmake release debug deb-info test cunit install docs clean all
-all: rpm
-
-rpm: release
-	@cd release && cpack -C CPackConfig.cmake -G RPM
-	@cd release && cpack -C CPackConfig.cmake -G DEB
-
-	@echo
-	@echo
-	@echo "Following packages are now available in PROJECT_DIR directory: "
-	@echo
-	@for pkg in `ls release/*.rpm 2>/dev/null`; do echo $$pkg; done
-	@for pkg in `ls release/*.deb 2>/dev/null`; do echo $$pkg; done
+all: deb-info test
 
 cmake: BUILD_DIR = $$(echo $(BUILD_TYPE) | tr '[:upper:]' '[:lower:]')
 cmake:
@@ -19,23 +8,23 @@ cmake:
 
 deb-info: BUILD_TYPE = RelWithDebInfo
 deb-info: cmake
-	ninja -C relwithdebinfo oneclient
+	cmake --build relwithdebinfo --target oneclient
 
 release: BUILD_TYPE = Release
 release: cmake
-	ninja -C release oneclient
+	cmake --build release --target oneclient
 
 debug: BUILD_TYPE = Debug
 debug: cmake
-	ninja -C debug oneclient
+	cmake --build debug --target oneclient
 
 test: deb-info
-	ninja -C relwithdebinfo
-	ninja -C relwithdebinfo test
+	cmake --build relwithdebinfo
+	cmake --build relwithdebinfo --target test
 
 cunit: deb-info
-	ninja -C relwithdebinfo
-	ninja -C relwithdebinfo cunit
+	cmake --build relwithdebinfo
+	cmake --build relwithdebinfo --target cunit
 
 install: release
 	ninja -C release install
@@ -44,4 +33,5 @@ docs:
 	@doxygen Doxyfile
 
 clean:
-	rm -rf debug release relwithdebinfo build doc
+	rm -rf debug release relwithdebinfo doc
+
