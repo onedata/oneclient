@@ -10,6 +10,7 @@
 #define HELPERS_COMMUNICATION_CONNECTION_H
 
 #include <boost/asio/io_service.hpp>
+#include <boost/asio/spawn.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -88,7 +89,8 @@ public:
         std::function<bool(std::string)> &onHandshakeResponse,
         std::function<void(std::string)> onMessageReceived,
         std::function<void(std::shared_ptr<Connection>)> onReady,
-        std::function<void(std::shared_ptr<Connection>)> onClosed);
+        std::function<void(std::shared_ptr<Connection>, boost::exception_ptr)>
+            onClosed);
 
     /**
      * Destructor.
@@ -123,8 +125,9 @@ public:
      * Gracefully closes the underlying connection.
      * After calling the method. the @c Connection object is no longer in a
      * useful state. and should be destroyed.
+     * @param exception The exception that may be set on waiting send operations
      */
-    void close();
+    void close(boost::exception_ptr exception = boost::exception_ptr{});
 
     Connection(const Connection &) = delete;
     Connection(Connection &&) = delete;
@@ -132,15 +135,22 @@ public:
     Connection &operator=(Connection &&) = delete;
 
 private:
-    void send(std::string message, boost::promise<void> promise,
-        std::function<void()> handler);
-
-    void handshake();
-    void readOne(std::function<void()> handler);
-    void writeOne(std::function<void()> handler);
-    void readLoop();
-    std::string close(std::string what, const boost::system::error_code &ec);
+    std::vector<boost::asio::ip::basic_resolver_entry<boost::asio::ip::tcp>>
+    resolve(std::string host, std::string service,
+        boost::system::error_code &ec, boost::asio::yield_context yield);
+    void connect(std::string host, std::string service,
+        boost::asio::yield_context yield);
+    void handshake(boost::asio::yield_context yield);
+    void send(boost::system::error_code &ec, boost::asio::yield_context yield);
+    void receive(
+        boost::system::error_code &ec, boost::asio::yield_context yield);
+    void prepareBuffer(std::string message, boost::promise<void> promise);
+    void readLoop(boost::asio::yield_context yield);
     boost::asio::mutable_buffers_1 headerToBuffer(std::uint32_t &header);
+
+    template <class Ex = void>
+    std::string close(std::string what,
+        const boost::system::error_code &ec = boost::system::error_code{});
 
     const bool m_verifyServerCertificate;
 
@@ -149,7 +159,8 @@ private:
 
     std::function<void(std::string)> m_onMessageReceived;
     std::function<void(std::shared_ptr<Connection>)> m_onReady;
-    std::function<void(std::shared_ptr<Connection>)> m_onClosed;
+    std::function<void(std::shared_ptr<Connection>, boost::exception_ptr)>
+        m_onClosed;
 
     boost::asio::ip::tcp::resolver m_resolver;
     boost::asio::io_service::strand m_strand;
