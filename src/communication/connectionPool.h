@@ -46,6 +46,8 @@ class ConnectionPool {
     using SendTask = std::tuple<std::string, boost::promise<void>>;
 
 public:
+    enum class ErrorPolicy { ignore, propagate };
+
     /**
      * A reference to @c *this typed as a @c ConnectionPool.
      */
@@ -63,7 +65,8 @@ public:
      * @param certificateData Certificate data to use for SSL authentication.
      */
     ConnectionPool(const unsigned int connectionsNumber, std::string host,
-        std::string service, const bool verifyServerCertificate);
+        std::string service, const bool verifyServerCertificate,
+        ErrorPolicy errorPolicy = ErrorPolicy::ignore);
 
     /**
      * Creates connections and threads that will work for them.
@@ -118,12 +121,14 @@ private:
     void createConnection();
     void onMessageReceived(std::string message);
     void onConnectionReady(std::shared_ptr<Connection> conn);
-    void onConnectionClosed(std::shared_ptr<Connection> conn);
+    void onConnectionClosed(
+        std::shared_ptr<Connection> conn, boost::exception_ptr exception);
 
     const unsigned int m_connectionsNumber;
     std::string m_host;
     std::string m_service;
     const bool m_verifyServerCertificate;
+    ErrorPolicy m_errorPolicy;
     std::shared_ptr<const cert::CertificateData> m_certificateData;
 
     std::function<std::string()> m_getHandshake;
