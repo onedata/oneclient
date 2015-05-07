@@ -8,21 +8,24 @@ Brings up dockers with full onedata environment.
 
 import os
 
-from . import appmock, client, common, globalregistry, provider, dns as dns_mod
+from . import appmock, client, common, globalregistry, provider_ccm, \
+    provider_worker, dns as dns_mod
 
 
 def default(key):
     return {'image': 'onedata/worker',
             'bin_am': '{0}/appmock'.format(os.getcwd()),
             'bin_gr': '{0}/globalregistry'.format(os.getcwd()),
-            'bin_op': '{0}/oneprovider'.format(os.getcwd()),
+            'bin_op_worker': '{0}/oneprovider'.format(os.getcwd()),
+            'bin_op_ccm': '{0}/op_ccm'.format(os.getcwd()),
             'bin_oc': '{0}/oneclient'.format(os.getcwd()),
             'logdir': None}[key]
 
 
 def up(config_path, image=default('image'), bin_am=default('bin_am'),
-       bin_gr=default('bin_gr'), bin_op=default('bin_op'),
-       bin_oc=default('bin_oc'), logdir=default('logdir')):
+       bin_gr=default('bin_gr'), bin_op_ccm=default('bin_op_ccm'),
+       bin_op_worker=default('bin_op_worker'), bin_oc=default('bin_oc'),
+       logdir=default('logdir')):
     config = common.parse_json_file(config_path)
     uid = common.generate_uid()
 
@@ -51,10 +54,17 @@ def up(config_path, image=default('image'), bin_am=default('bin_am'),
                                       uid, config_path)
         common.merge(output, gr_output)
 
+    # Start op_ccm instances
+    if 'op_ccm' in config:
+        op_ccm_output = provider_ccm.up(image, bin_op_ccm, logdir, dns, uid,
+                                        config_path)
+        common.merge(output, op_ccm_output)
+
     # Start oneprovider_node instances
     if 'oneprovider_node' in config:
-        op_output = provider.up(image, bin_op, logdir, dns, uid, config_path)
-        common.merge(output, op_output)
+        op_worker_output = provider_worker.up(image, bin_op_worker, logdir, dns,
+                                              uid, config_path)
+        common.merge(output, op_worker_output)
 
     # Start oneclient instances
     if 'oneclient' in config:
