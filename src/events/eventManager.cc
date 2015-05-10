@@ -7,6 +7,7 @@
 */
 
 #include "context.h"
+#include "logging.h"
 #include "communication/subscriptionData.h"
 
 #include "events/eventManager.h"
@@ -19,8 +20,6 @@
 #include "messages/eventSubscriptionCancellation.h"
 
 #include "messages.pb.h"
-
-#include <glog/logging.h>
 
 namespace one {
 namespace client {
@@ -49,8 +48,8 @@ void EventManager::emitReadEvent(
     std::string fileId, off_t offset, size_t size) const
 {
     m_context->scheduler()->post([ =, fileId = std::move(fileId) ] {
-        auto event = ReadEvent{std::move(fileId), offset, size};
-        m_readEventStream->push(std::move(event));
+        ReadEvent event{std::move(fileId), offset, size};
+        m_readEventStream->pushAsync(std::move(event));
     });
 }
 
@@ -58,36 +57,38 @@ void EventManager::emitWriteEvent(
     std::string fileId, off_t offset, size_t size, off_t fileSize) const
 {
     m_context->scheduler()->post([ =, fileId = std::move(fileId) ] {
-        auto event = WriteEvent{std::move(fileId), offset, size, fileSize};
-        m_writeEventStream->push(std::move(event));
+        WriteEvent event{std::move(fileId), offset, size, fileSize};
+        m_writeEventStream->pushAsync(std::move(event));
     });
 }
 
 void EventManager::emitTruncateEvent(std::string fileId, off_t fileSize) const
 {
     m_context->scheduler()->post([ =, fileId = std::move(fileId) ] {
-        auto event = TruncateEvent{std::move(fileId), fileSize};
-        m_writeEventStream->push(std::move(event));
+        TruncateEvent event{std::move(fileId), fileSize};
+        m_writeEventStream->pushAsync(std::move(event));
     });
 }
 
 void EventManager::handleServerMessage(const clproto::ServerMessage &msg)
 {
-    auto subscriptionMsg = msg.event_subscription();
+    const auto &subscriptionMsg = msg.event_subscription();
     if (subscriptionMsg.has_read_event_subscription()) {
         ReadEventSubscription subscription{msg};
-        auto id = m_readEventStream->addSubscription(subscription);
+        auto id = m_readEventStream->addSubscriptionAsync(subscription);
         m_subscriptionsCancellation.emplace(
             id, [ this, subscription = std::move(subscription) ] {
-                m_readEventStream->removeSubscription(std::move(subscription));
+                m_readEventStream->removeSubscriptionAsync(
+                    std::move(subscription));
             });
     }
     else if (subscriptionMsg.has_write_event_subscription()) {
         WriteEventSubscription subscription{msg};
-        auto id = m_writeEventStream->addSubscription(subscription);
+        auto id = m_writeEventStream->addSubscriptionAsync(subscription);
         m_subscriptionsCancellation.emplace(
             id, [ this, subscription = std::move(subscription) ] {
-                m_writeEventStream->removeSubscription(std::move(subscription));
+                m_writeEventStream->removeSubscriptionAsync(
+                    std::move(subscription));
             });
     }
     else if (subscriptionMsg.has_event_subscription_cancellation()) {

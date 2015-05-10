@@ -10,6 +10,7 @@
 #define ONECLIENT_FS_LOGIC_H
 
 #include <fuse.h>
+
 #include <string>
 #include <memory>
 
@@ -87,7 +88,7 @@ public:
     * FUSE @c symlink callback.
     * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
     */
-    int symlink(const std::string &to, const std::string &from);
+    int symlink(const std::string &path, const std::string &link);
 
     /**
     * FUSE @c rename callback.

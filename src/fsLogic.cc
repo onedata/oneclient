@@ -27,7 +27,7 @@ FsLogic::FsLogic(std::string path, std::shared_ptr<Context> context)
     m_root = std::move(path);
     m_shMock = std::make_unique<SHMock>("/tmp");
     m_eventManager = std::make_unique<events::EventManager>(m_context);
-    DLOG(INFO) << "Setting file system root directory to: '" << m_root << "'";
+    LOG(INFO) << "Setting file system root directory to: '" << m_root << "'";
 }
 
 int FsLogic::access(const std::string &path, int mask)
@@ -76,10 +76,10 @@ int FsLogic::rmdir(const std::string &path)
     return m_shMock->shRmdir(path);
 }
 
-int FsLogic::symlink(const std::string &to, const std::string &from)
+int FsLogic::symlink(const std::string &path, const std::string &link)
 {
-    DLOG(INFO) << "FUSE: symlink(to: " << to << ", form: " << from << ")";
-    return m_shMock->shSymlink(to, from);
+    DLOG(INFO) << "FUSE: symlink(to: " << path << ", form: " << link << ")";
+    return m_shMock->shSymlink(path, link);
 }
 
 int FsLogic::rename(const std::string &path, const std::string &newPath)
@@ -131,7 +131,7 @@ int FsLogic::read(const std::string &path, char *buf, size_t size, off_t offset,
                << ", offset: " << offset << ", ...)";
     int res = m_shMock->shRead(path, buf, size, offset, fileInfo);
     if (res > 0)
-        m_eventManager->emitReadEvent(path, offset, (size_t)res);
+        m_eventManager->emitReadEvent(path, offset, static_cast<size_t>(res));
     return res;
 }
 
@@ -144,12 +144,13 @@ int FsLogic::write(const std::string &path, const char *buf, size_t size,
     if (res > 0) {
         struct stat statbuf;
         if (m_shMock->shGetattr(path, &statbuf, true) == 0) {
-            m_eventManager->emitWriteEvent(path, offset, (size_t)res,
+            m_eventManager->emitWriteEvent(path, offset,
+                static_cast<size_t>(res),
                 std::max(offset + res, statbuf.st_size));
         }
         else {
             m_eventManager->emitWriteEvent(
-                path, offset, (size_t)res, offset + res);
+                path, offset, static_cast<size_t>(res), offset + res);
         }
     }
     return res;

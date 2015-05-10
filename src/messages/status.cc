@@ -133,5 +133,26 @@ std::unique_ptr<ProtocolClientMessage> Status::serialize() const
     return clientMsg;
 }
 
+std::ostream &operator<<(std::ostream &stream, Status::Code code)
+{
+    const static std::unordered_map<Status::Code, std::string,
+        CodeHash> stringByCode = {{Status::Code::ok, "OK"},
+        {Status::Code::enoent, "ENOENT"}, {Status::Code::eacces, "EACCESS"},
+        {Status::Code::eexist, "EEXISTS"}, {Status::Code::eio, "EIO"},
+        {Status::Code::enotsup, "ENOTSUP"},
+        {Status::Code::enotempty, "ENOTEMPTY"}, {Status::Code::ecomm, "ECOMM"},
+        {Status::Code::eremoteio, "EREMOTEIO"}, {Status::Code::eperm, "EPERM"},
+        {Status::Code::einval, "EINVAL"}, {Status::Code::edquot, "EDQUOT"},
+        {Status::Code::enoattr, "ENOATTR"}};
+
+    auto searchResult = stringByCode.find(code);
+    if (searchResult != stringByCode.end())
+        stream << searchResult->second;
+    else
+        stream << "EREMOTEIO";
+
+    return stream;
+}
+
 } // namespace messages
 } // namespace one

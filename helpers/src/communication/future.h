@@ -31,13 +31,6 @@ extern boost::loop_executor g_executor;
 extern std::unordered_map<unsigned long long, boost::future<void> *> g_futures;
 
 /**
- * An exception representing a timeout.
- */
-class TimeoutExceeded : public ReceiveError {
-    using ReceiveError::ReceiveError;
-};
-
-/**
  * @c Future wraps a library future implementation to provide more
  * domain-specific future interface for communication stack's users.
  */

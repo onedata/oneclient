@@ -27,10 +27,10 @@ public:
     /**
     * @return Event's counter.
     */
-    size_t counter() const { return m_counter; }
+    std::size_t counter() const { return m_counter; }
 
 protected:
-    size_t m_counter = 1;
+    std::size_t m_counter = 1;
 };
 
 } // namespace events

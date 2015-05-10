@@ -16,16 +16,21 @@
 #endif
 
 #include "shMock.h"
+#include "fsLogic.h"
 #include "context.h"
 #include "version.h"
 #include "options.h"
 #include "scheduler.h"
 #include "scopeExit.h"
 #include "fsOperations.h"
+#include "oneException.h"
 #include "auth/authManager.h"
 #include "auth/authException.h"
 #include "events/eventManager.h"
-#include "communication/communicator.h"
+#include "communication/exception.h"
+#include "messages/handshakeResponse.h"
+#include "messages/ping.h"
+#include "messages/pong.h"
 
 #include <glog/logging.h>
 
@@ -42,6 +47,9 @@
 
 using namespace one;
 using namespace one::client;
+using namespace std::placeholders;
+using namespace std::literals;
+using boost::filesystem::path;
 
 void initializeLogging(const char *name, bool debug)
 {
@@ -120,28 +128,18 @@ std::shared_ptr<auth::AuthManager> createAuthManager(
 
 std::string handshake(std::shared_ptr<auth::AuthManager> authManager)
 {
-    std::string fuseId = generateFuseID();
+    const auto fuseId = generateFuseID();
+    auto handshakeHandler = [](auto) { return true; };
 
-    std::promise<void> handshakePromise;
-    auto handshakeFuture = handshakePromise.get_future();
-    auto onHandshakeResponse([&](auto response) mutable {
-        if (response.sessionId() != fuseId) {
-            handshakePromise.set_exception(
-                std::make_exception_ptr(OneException{"error"}));
-            return false;
-        }
+    auto testCommunicator =
+        authManager->createCommunicator(1, fuseId, handshakeHandler,
+            communication::ConnectionPool::ErrorPolicy::propagate);
 
-        handshakePromise.set_value();
-        return true;
-    });
+    /// @todo boost::system::system_error throwed on host not found
+    auto futurePong =
+        testCommunicator->communicate<messages::Pong>(messages::Ping{}, 2);
 
-    auto testCommunicator = authManager->createCommunicator(
-        1, fuseId, std::move(onHandshakeResponse));
-
-    testCommunicator->connect();
-    handshakeFuture.get();
-    // cleanup test connections
-    testCommunicator.reset();
+    futurePong.get(5s);
 
     return fuseId;
 }
@@ -150,8 +148,9 @@ std::shared_ptr<communication::Communicator> createCommunicator(
     std::shared_ptr<auth::AuthManager> authManager,
     std::shared_ptr<Context> context, std::string fuseId)
 {
-    auto communicator =
-        authManager->createCommunicator(3, fuseId, [](auto) { return true; });
+    auto handshakeHandler = [](auto) { return true; };
+    auto communicator = authManager->createCommunicator(3, fuseId,
+        handshakeHandler, communication::ConnectionPool::ErrorPolicy::ignore);
     context->setCommunicator(communicator);
     return communicator;
 }
@@ -202,6 +201,9 @@ int main(int argc, char *argv[])
     }
     catch (OneException &exception) {
         std::cerr << "Handshake error. Aborting" << std::endl;
+    }
+    catch (const communication::Exception &e) {
+        std::cerr << "Error: " << e.what() << ". Aborting." << std::endl;
         return EXIT_FAILURE;
     }
 

@@ -20,11 +20,6 @@ public:
     {
     }
 
-    MockScheduler(const unsigned int threadNumber)
-        : one::Scheduler{threadNumber}
-    {
-    }
-
     MOCK_METHOD1(post, void(const std::function<void()> &));
     MOCK_METHOD2(
         schedule, std::function<void()>(

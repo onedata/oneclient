@@ -10,6 +10,7 @@
 #include "communication/communicator.h"
 
 #include "scheduler_mock.h"
+#include "eventStream_mock.h"
 #include "eventCommunicator_mock.h"
 #include "events/eventStream.h"
 #include "events/types/readEvent.h"
@@ -25,9 +26,9 @@
 #include <vector>
 #include <memory>
 #include <chrono>
-#include <thread>
 #include <cstdint>
 #include <algorithm>
+#include <functional>
 
 using namespace ::testing;
 using namespace one;
@@ -65,10 +66,13 @@ protected:
         context = std::make_shared<Context>();
         communicator =
             std::make_shared<Communicator>(1, "localhost", "80", false);
-        scheduler = std::make_shared<MockScheduler>(1);
+        scheduler = std::make_shared<MockScheduler>();
         context->setCommunicator(communicator);
         context->setScheduler(scheduler);
         eventCommunicator = std::make_shared<MockEventCommunicator>(context);
+        ON_CALL(*scheduler, post(_))
+            .WillByDefault(WithArgs<0>(
+                Invoke([](const std::function<void()> &task) { task(); })));
         EXPECT_CALL(*scheduler, schedule(_, _)).WillRepeatedly(Return([] {}));
     }
 };
@@ -204,8 +208,9 @@ TEST_F(AggregatorTest, FileIdWriteEventEventTest)
 
 TEST_F(StreamTest, CounterThresholdEmission)
 {
-    std::shared_ptr<EventStream<ReadEvent>> stream =
-        std::make_shared<EventStream<ReadEvent>>(context, eventCommunicator);
+    std::shared_ptr<MockEventStream<ReadEvent>> stream =
+        std::make_shared<MockEventStream<ReadEvent>>(
+            context, eventCommunicator);
 
     EXPECT_CALL(*eventCommunicator, send(_))
         .WillOnce(Invoke([](const Event &event) {
@@ -218,27 +223,23 @@ TEST_F(StreamTest, CounterThresholdEmission)
 
     ReadEventSubscription subscription{1, 10, 10s, 100};
 
-    stream->push(ReadEvent{"fileId", 0, 100});
+    stream->pushAsync(ReadEvent{"fileId", 0, 100});
 
-    EXPECT_EQ(1, stream->addSubscription(subscription));
+    EXPECT_EQ(1, stream->addSubscriptionAsync(subscription));
 
     for (int i = 0; i < 10; ++i)
-        stream->push(ReadEvent{"fileId", i, 1});
+        stream->pushAsync(ReadEvent{"fileId", i, 1});
 
-    stream->removeSubscription(subscription);
+    stream->removeSubscriptionAsync(subscription);
 
-    stream->push(ReadEvent{"fileId", 0, 100});
-
-    std::this_thread::sleep_for(1s);
+    stream->pushAsync(ReadEvent{"fileId", 0, 100});
 }
 
 TEST_F(StreamTest, TimeThresholdEmission)
 {
-    auto context = std::make_shared<Context>();
-    context->setScheduler(std::make_shared<Scheduler>(2));
-
-    std::shared_ptr<EventStream<ReadEvent>> stream =
-        std::make_shared<EventStream<ReadEvent>>(context, eventCommunicator);
+    std::shared_ptr<MockEventStream<ReadEvent>> stream =
+        std::make_shared<MockEventStream<ReadEvent>>(
+            context, eventCommunicator);
 
     EXPECT_CALL(*eventCommunicator, send(_))
         .WillOnce(Invoke([](const Event &event) {
@@ -251,22 +252,21 @@ TEST_F(StreamTest, TimeThresholdEmission)
 
     ReadEventSubscription subscription{1, 100, 1s, 100};
 
-    EXPECT_EQ(1, stream->addSubscription(subscription));
+    EXPECT_EQ(1, stream->addSubscriptionAsync(subscription));
 
     for (int i = 0; i < 5; ++i)
-        stream->push(ReadEvent{"fileId", i, 1});
+        stream->pushAsync(ReadEvent{"fileId", i, 1});
 
-    std::this_thread::sleep_for(3s);
+    stream->periodicEmission();
 
-    stream->removeSubscription(subscription);
-
-    std::this_thread::sleep_for(1s);
+    stream->removeSubscriptionAsync(subscription);
 }
 
 TEST_F(StreamTest, SizeThresholdEmission)
 {
-    std::shared_ptr<EventStream<ReadEvent>> stream =
-        std::make_shared<EventStream<ReadEvent>>(context, eventCommunicator);
+    std::shared_ptr<MockEventStream<ReadEvent>> stream =
+        std::make_shared<MockEventStream<ReadEvent>>(
+            context, eventCommunicator);
 
     EXPECT_CALL(*eventCommunicator, send(_))
         .WillOnce(Invoke([](const Event &event) {
@@ -279,17 +279,15 @@ TEST_F(StreamTest, SizeThresholdEmission)
 
     ReadEventSubscription subscription{1, 100, 10s, 1000};
 
-    stream->push(ReadEvent{"fileId", 0, 100});
+    stream->pushAsync(ReadEvent{"fileId", 0, 100});
 
-    EXPECT_EQ(1, stream->addSubscription(subscription));
+    EXPECT_EQ(1, stream->addSubscriptionAsync(subscription));
 
     for (int i = 0; i < 10; ++i)
-        stream->push(ReadEvent{"fileId", i * 100, 100});
+        stream->pushAsync(ReadEvent{"fileId", i * 100, 100});
 
-    stream->removeSubscription(subscription);
+    stream->removeSubscriptionAsync(subscription);
 
     for (int i = 0; i < 100; ++i)
-        stream->push(ReadEvent{"fileId", i, 1});
-
-    std::this_thread::sleep_for(1s);
+        stream->pushAsync(ReadEvent{"fileId", i, 1});
 }

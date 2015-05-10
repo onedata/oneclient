@@ -13,9 +13,10 @@
 
 #include <boost/icl/interval_set.hpp>
 
+#include <sys/types.h>
+
 #include <string>
 #include <memory>
-#include <sys/types.h>
 
 namespace one {
 namespace client {
@@ -43,7 +44,7 @@ public:
     * read.
     * @param size Number of read bytes.
     */
-    ReadEvent(std::string fileId, off_t offset, size_t size);
+    ReadEvent(std::string fileId, off_t offset, std::size_t size);
 
     /**
     * @return ID of file associated with the read event.
@@ -53,7 +54,7 @@ public:
     /**
     * @return Total number of bytes read.
     */
-    size_t size() const;
+    std::size_t size() const;
 
     /**
     * @return Set of bytes blocks read.
@@ -78,7 +79,7 @@ public:
 
 private:
     std::string m_fileId;
-    size_t m_size = 0;
+    std::size_t m_size = 0;
     boost::icl::interval_set<off_t> m_blocks;
 };
 
