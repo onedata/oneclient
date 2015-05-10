@@ -163,7 +163,8 @@ void TypedStream<Communicator>::handleMessageRequest(
 
     std::shared_lock<std::shared_timed_mutex> lock{m_bufferMutex};
     for (ClientMessagePtr it; m_buffer.try_pop(it) &&
-         it->message_stream().sequence_number() <= msg.lower_sequence_number();)
+                 it->message_stream().sequence_number() <=
+                     msg.lower_sequence_number();)
         processed.emplace_back(std::move(it));
 
     for (auto &streamMsg : processed) {

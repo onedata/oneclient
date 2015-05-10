@@ -12,8 +12,7 @@
 #endif // linux
 
 #include "shMock.h"
-
-#include <glog/logging.h>
+#include "logging.h"
 
 #include <fuse.h>
 #include <errno.h>
@@ -93,9 +92,9 @@ int SHMock::shRmdir(const std::string &path)
     return rmdir(root(path).c_str()) == -1 ? -errno : 0;
 }
 
-int SHMock::shSymlink(const std::string &to, const std::string &from)
+int SHMock::shSymlink(const std::string &path, const std::string &link)
 {
-    return symlink(root(from).c_str(), root(to).c_str()) == -1 ? -errno : 0;
+    return symlink(root(link).c_str(), root(path).c_str()) == -1 ? -errno : 0;
 }
 
 int SHMock::shRename(const std::string &path, const std::string &newPath)

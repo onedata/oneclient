@@ -8,7 +8,7 @@
 
 #include "ioServiceExecutor.h"
 
-#include <boost/thread/sync_queue.hpp>
+#include "logging.h"
 
 namespace one {
 
@@ -25,8 +25,10 @@ bool IoServiceExecutor::closed() { return m_closed; }
 
 void IoServiceExecutor::submit(boost::executors::executor::work &&closure)
 {
-    if (m_closed)
-        throw boost::sync_queue_is_closed{};
+    if (m_closed) {
+        LOG(WARNING) << "Executor is closed";
+        return;
+    }
 
     m_ioService.post(
         std::forward<boost::executors::executor::work &&>(closure));

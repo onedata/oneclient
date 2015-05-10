@@ -10,18 +10,16 @@
 #include "events/types/event.h"
 #include "events/eventCommunicator.h"
 
-#include <glog/logging.h>
-
 namespace one {
 namespace client {
 namespace events {
 
 EventCommunicator::EventCommunicator(std::shared_ptr<Context> context)
     : m_context{std::move(context)}
+    , m_streamManager{std::make_unique<communication::StreamManager>(
+          m_context->communicator())}
+    , m_stream{m_streamManager->create()}
 {
-    m_streamManager = std::make_unique<communication::StreamManager>(
-        m_context->communicator());
-    m_stream = m_streamManager->create();
 }
 
 EventCommunicator::~EventCommunicator() { m_stream->close(); }

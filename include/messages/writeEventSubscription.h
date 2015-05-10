@@ -16,7 +16,7 @@
 #include <chrono>
 #include <memory>
 #include <string>
-#include <sys/types.h>
+#include <cstddef>
 
 namespace one {
 namespace client {
@@ -45,8 +45,8 @@ public:
      * events emissions.
      * @param sizeThreshold Maximal number of read bytes before emission
      */
-    WriteEventSubscription(uint64_t id, size_t counterThreshold,
-        std::chrono::milliseconds timeThreshold, size_t sizeThreshold);
+    WriteEventSubscription(uint64_t id, std::size_t counterThreshold,
+        std::chrono::milliseconds timeThreshold, std::size_t sizeThreshold);
 
     /**
      * @return @c Subscription's id.
@@ -56,7 +56,7 @@ public:
     /**
      * @return Counter threshold of subscription.
      */
-    const boost::optional<size_t> &counterThreshold() const;
+    const boost::optional<std::size_t> &counterThreshold() const;
 
     /**
      * @return Time threshold of subscription.
@@ -66,15 +66,15 @@ public:
     /**
      * @return Size threshold of subscription.
      */
-    const boost::optional<size_t> &sizeThreshold() const;
+    const boost::optional<std::size_t> &sizeThreshold() const;
 
     virtual std::string toString() const override;
 
 private:
     uint64_t m_id;
-    boost::optional<size_t> m_counterThreshold;
+    boost::optional<std::size_t> m_counterThreshold;
     boost::optional<std::chrono::milliseconds> m_timeThreshold;
-    boost::optional<size_t> m_sizeThreshold;
+    boost::optional<std::size_t> m_sizeThreshold;
 };
 
 } // namespace events

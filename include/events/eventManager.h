@@ -11,9 +11,11 @@
 
 #include "eventStream.h"
 
-#include <memory>
-#include <functional>
 #include <sys/types.h>
+
+#include <memory>
+#include <cstddef>
+#include <functional>
 #include <unordered_map>
 
 namespace one {
@@ -54,7 +56,8 @@ public:
     * read.
     * @param size Number of bytes read.
     */
-    void emitReadEvent(std::string fileId, off_t offset, size_t size) const;
+    void emitReadEvent(
+        std::string fileId, off_t offset, std::size_t size) const;
 
     /**
     * Emits a write event.
@@ -64,8 +67,8 @@ public:
     * @param size Number of bytes written.
     * @param fileSize Size of file after a write operation.
     */
-    void emitWriteEvent(
-        std::string fileId, off_t offset, size_t size, off_t fileSize) const;
+    void emitWriteEvent(std::string fileId, off_t offset, std::size_t size,
+        off_t fileSize) const;
 
     /**
     * Emits a truncate event.

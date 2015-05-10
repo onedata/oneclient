@@ -16,16 +16,20 @@
 #include "events/aggregators/fileIdAggregator.h"
 #include "events/types/readEvent.h"
 #include "events/types/writeEvent.h"
+#include "messages/readEventSubscription.h"
+#include "messages/writeEventSubscription.h"
 
 #include <boost/asio/strand.hpp>
+
+#include <sys/types.h>
 
 #include <set>
 #include <chrono>
 #include <memory>
 #include <vector>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
-#include <sys/types.h>
 
 namespace one {
 namespace client {
@@ -48,12 +52,14 @@ public:
     EventStream(std::weak_ptr<Context> context,
         std::shared_ptr<EventCommunicator> communicator);
 
+    virtual ~EventStream() = default;
+
     /**
     * Pushes an event of type @c EventType to the stream.
     * @param event An event of type @c EventType to be pushed to the @c
     * EventStream.
     */
-    void push(EventType event);
+    virtual void pushAsync(EventType event);
 
     /**
     * Adds a subscription for events of type @c EventType.
@@ -61,24 +67,31 @@ public:
     * SubscriptionType to be added.
     * @return Id of subscription.
     */
-    uint64_t addSubscription(typename EventType::Subscription subscription);
+    virtual uint64_t addSubscriptionAsync(
+        typename EventType::Subscription subscription);
 
     /**
     * Removes a subscription for events of type @c EventType.
     * @param subscription An instance of subscription of type @c
     * SubscriptionType to be removed.
     */
+    virtual void removeSubscriptionAsync(
+        typename EventType::Subscription subscription);
+
+protected:
+    void emit();
+    void push(EventType event);
+    void addSubscription(typename EventType::Subscription subscription);
     void removeSubscription(typename EventType::Subscription subscription);
 
 private:
     bool isEmissionRuleSatisfied(const EventType &event);
-    void emit();
     void periodicEmission();
     void resetPeriodicEmission();
 
-    std::multiset<size_t> m_counterThresholds;
+    std::multiset<std::size_t> m_counterThresholds;
     std::multiset<std::chrono::milliseconds> m_timeThresholds;
-    std::multiset<size_t> m_sizeThresholds;
+    std::multiset<std::size_t> m_sizeThresholds;
 
     std::weak_ptr<Context> m_context;
     std::shared_ptr<EventCommunicator> m_communicator;
@@ -98,54 +111,77 @@ EventStream<EventType>::EventStream(std::weak_ptr<Context> context,
 {
 }
 
-template <class EventType> void EventStream<EventType>::push(EventType event)
+template <class EventType>
+void EventStream<EventType>::pushAsync(EventType event)
 {
     m_streamStrand.post([ this, event = std::move(event) ] {
-        const EventType &aggregatedEvent =
-            m_aggregator->aggregate(std::move(event));
-        if (isEmissionRuleSatisfied(aggregatedEvent))
-            emit();
+        push(std::move(event));
     });
 }
 
+template <class EventType> void EventStream<EventType>::push(EventType event)
+{
+    const EventType &aggregatedEvent =
+        m_aggregator->aggregate(std::move(event));
+    if (isEmissionRuleSatisfied(aggregatedEvent))
+        emit();
+}
+
 template <class EventType>
-uint64_t EventStream<EventType>::addSubscription(
+uint64_t EventStream<EventType>::addSubscriptionAsync(
+    typename EventType::Subscription subscription)
+{
+    uint64_t id = subscription.id();
+
+    m_streamStrand.post([ this, subscription = std::move(subscription) ] {
+        addSubscription(std::move(subscription));
+    });
+
+    return id;
+}
+
+template <class EventType>
+void EventStream<EventType>::addSubscription(
     typename EventType::Subscription subscription)
 {
     LOG(INFO) << "Adding event subscripton: " << subscription.toString();
 
-    uint64_t id = subscription.id();
+    bool isAnyThresholdSet = true;
+    if (m_counterThresholds.size() == 0 && m_timeThresholds.size() == 0 &&
+        m_sizeThresholds.size() == 0) {
+        isAnyThresholdSet = false;
+    }
+
+    auto minTimeThreshold = std::chrono::milliseconds::max();
+    if (!m_timeThresholds.empty())
+        minTimeThreshold = *m_timeThresholds.begin();
+
+    if (subscription.counterThreshold())
+        m_counterThresholds.insert(subscription.counterThreshold().get());
+    if (subscription.timeThreshold())
+        m_timeThresholds.insert(subscription.timeThreshold().get());
+    if (subscription.sizeThreshold())
+        m_sizeThresholds.insert(subscription.sizeThreshold().get());
+
+    if (isEmissionRuleSatisfied(m_aggregator->all()))
+        emit();
+    else if (!m_timeThresholds.empty() &&
+        minTimeThreshold != *m_timeThresholds.begin())
+        resetPeriodicEmission();
+
+    if (!isAnyThresholdSet &&
+        (m_counterThresholds.size() != 0 || m_timeThresholds.size() != 0 ||
+            m_sizeThresholds.size() != 0))
+        m_aggregator = std::make_unique<FileIdAggregator<EventType>>();
+}
+
+template <class EventType>
+void EventStream<EventType>::removeSubscriptionAsync(
+    typename EventType::Subscription subscription)
+{
     m_streamStrand.post([ this, subscription = std::move(subscription) ] {
-        bool isAnyThresholdSet = true;
-        if (m_counterThresholds.size() == 0 && m_timeThresholds.size() == 0 &&
-            m_sizeThresholds.size() == 0) {
-            isAnyThresholdSet = false;
-        }
-
-        auto minTimeThreshold = std::chrono::milliseconds::max();
-        if (!m_timeThresholds.empty())
-            minTimeThreshold = *m_timeThresholds.begin();
-
-        if (subscription.counterThreshold())
-            m_counterThresholds.insert(subscription.counterThreshold().get());
-        if (subscription.timeThreshold())
-            m_timeThresholds.insert(subscription.timeThreshold().get());
-        if (subscription.sizeThreshold())
-            m_sizeThresholds.insert(subscription.sizeThreshold().get());
-
-        if (isEmissionRuleSatisfied(m_aggregator->all()))
-            emit();
-        else if (!m_timeThresholds.empty() &&
-            minTimeThreshold != *m_timeThresholds.begin())
-            resetPeriodicEmission();
-
-        if (!isAnyThresholdSet &&
-            (m_counterThresholds.size() != 0 || m_timeThresholds.size() != 0 ||
-                m_sizeThresholds.size() != 0))
-            m_aggregator = std::make_unique<FileIdAggregator<EventType>>();
+        removeSubscription(std::move(subscription));
     });
-
-    return id;
 }
 
 template <class EventType>
@@ -154,21 +190,19 @@ void EventStream<EventType>::removeSubscription(
 {
     LOG(INFO) << "Removing event subscripton: " << subscription.toString();
 
-    m_streamStrand.post([ this, subscription = std::move(subscription) ] {
-        if (subscription.counterThreshold())
-            m_counterThresholds.erase(m_counterThresholds.find(
-                subscription.counterThreshold().get()));
-        if (subscription.timeThreshold())
-            m_timeThresholds.erase(
-                m_timeThresholds.find(subscription.timeThreshold().get()));
-        if (subscription.sizeThreshold())
-            m_sizeThresholds.erase(
-                m_sizeThresholds.find(subscription.sizeThreshold().get()));
+    if (subscription.counterThreshold())
+        m_counterThresholds.erase(
+            m_counterThresholds.find(subscription.counterThreshold().get()));
+    if (subscription.timeThreshold())
+        m_timeThresholds.erase(
+            m_timeThresholds.find(subscription.timeThreshold().get()));
+    if (subscription.sizeThreshold())
+        m_sizeThresholds.erase(
+            m_sizeThresholds.find(subscription.sizeThreshold().get()));
 
-        if (m_counterThresholds.size() == 0 && m_timeThresholds.size() == 0 &&
-            m_sizeThresholds.size() == 0)
-            m_aggregator = std::make_unique<NullAggregator<EventType>>();
-    });
+    if (m_counterThresholds.size() == 0 && m_timeThresholds.size() == 0 &&
+        m_sizeThresholds.size() == 0)
+        m_aggregator = std::make_unique<NullAggregator<EventType>>();
 }
 
 template <class EventType>

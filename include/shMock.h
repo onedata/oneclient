@@ -12,6 +12,7 @@
 #include <boost/filesystem/path.hpp>
 
 #include <fuse.h>
+
 #include <string>
 
 namespace one {
@@ -72,7 +73,7 @@ public:
     * FUSE @c symlink callback.
     * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
     */
-    int shSymlink(const std::string &to, const std::string &from);
+    int shSymlink(const std::string &path, const std::string &link);
 
     /**
     * FUSE @c rename callback.

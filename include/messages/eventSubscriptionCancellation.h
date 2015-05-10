@@ -14,7 +14,6 @@
 #include <chrono>
 #include <memory>
 #include <string>
-#include <sys/types.h>
 
 namespace one {
 namespace client {

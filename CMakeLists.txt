@@ -63,7 +63,7 @@ find_package(TBB REQUIRED)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
 set(Boost_USE_STATIC_LIBS       OFF)
-find_package(Boost COMPONENTS system thread filesystem program_options REQUIRED)
+find_package(Boost COMPONENTS coroutine filesystem program_options system thread REQUIRED)
 
 # Utility libs
 find_library(LTDL_LIBRARY NAMES ltdl)

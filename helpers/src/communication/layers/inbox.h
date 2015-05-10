@@ -90,18 +90,27 @@ template <class LowerLayer>
 boost::future<ServerMessagePtr> Inbox<LowerLayer>::communicate(
     ClientMessagePtr message, const int retries)
 {
-    message->set_message_id(std::to_string(m_nextMsgId++));
+    const auto messageId = std::to_string(m_nextMsgId++);
+    message->set_message_id(messageId);
 
     auto promise = std::make_shared<boost::promise<ServerMessagePtr>>();
-    auto future = promise->get_future();
-
     typename decltype(m_promises)::accessor acc;
-    m_promises.insert(acc, message->message_id());
-    acc->second = std::move(promise);
+    m_promises.insert(acc, messageId);
+    acc->second = promise;
     acc.release();
 
-    LowerLayer::send(std::move(message), retries);
-    return future;
+    auto sendFuture = LowerLayer::send(std::move(message), retries);
+    auto future = sendFuture.then(LowerLayer::m_ioServiceExecutor,
+        [this, promise, messageId](auto f) mutable {
+            if (f.has_exception()) {
+                this->m_promises.erase(messageId);
+                f.get();
+            }
+
+            return promise->get_future();
+        });
+
+    return future.unwrap();
 }
 
 template <class LowerLayer>

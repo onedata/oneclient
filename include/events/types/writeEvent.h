@@ -13,9 +13,10 @@
 
 #include <boost/icl/interval_set.hpp>
 
+#include <sys/types.h>
+
 #include <string>
 #include <memory>
-#include <sys/types.h>
 
 namespace one {
 namespace client {
@@ -46,7 +47,8 @@ public:
     * @param size Number of bytes written.
     * @param fileSize Size of file after a write operation.
     */
-    WriteEvent(std::string fileId, off_t offset, size_t size, off_t fileSize);
+    WriteEvent(
+        std::string fileId, off_t offset, std::size_t size, off_t fileSize);
 
     /**
     * @return ID of file associated with the write event.
@@ -56,7 +58,7 @@ public:
     /**
     * @return Number of bytes written.
     */
-    size_t size() const;
+    std::size_t size() const;
 
     /**
     * @return Size of file associated with the write event.
@@ -90,7 +92,7 @@ public:
 
 protected:
     std::string m_fileId;
-    size_t m_size = 0;
+    std::size_t m_size = 0;
     off_t m_fileSize = 0;
     boost::icl::interval_set<off_t> m_blocks;
 };

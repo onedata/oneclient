@@ -9,6 +9,7 @@
 #include "options.h"
 
 #include "version.h"
+#include "logging.h"
 #include "oneException.h"
 
 #include <boost/algorithm/string.hpp>
@@ -102,8 +103,8 @@ Options::Result Options::parseConfigs(const int argc, const char *const argv[])
             return result;
     }
     catch (boost::program_options::error &e) {
-        //        LOG(ERROR) << "Error while parsing command line arguments: "
-        //                   << e.what();
+        LOG(ERROR) << "Error while parsing command line arguments: "
+                   << e.what();
         throw OneException("", e.what());
     }
 
@@ -112,8 +113,8 @@ Options::Result Options::parseConfigs(const int argc, const char *const argv[])
         parseUserConfig(fileConfigMap);
     }
     catch (boost::program_options::unknown_option &e) {
-        //        LOG(ERROR) << "Error while parsing user configuration file: "
-        //                   << e.what();
+        LOG(ERROR) << "Error while parsing user configuration file: "
+                   << e.what();
         if (m_restricted.find_nothrow(e.get_option_name(), false))
             throw OneException("", "restricted option '" + e.get_option_name() +
                     "' found in user configuration file");
@@ -121,8 +122,8 @@ Options::Result Options::parseConfigs(const int argc, const char *const argv[])
         throw OneException("", e.what());
     }
     catch (boost::program_options::error &e) {
-        //        LOG(ERROR) << "Error while parsing user configuration file: "
-        //                   << e.what();
+        LOG(ERROR) << "Error while parsing user configuration file: "
+                   << e.what();
         throw OneException("", e.what());
     }
 
@@ -130,9 +131,8 @@ Options::Result Options::parseConfigs(const int argc, const char *const argv[])
         parseGlobalConfig(fileConfigMap);
     }
     catch (boost::program_options::error &e) {
-        //        LOG(ERROR) << "Error while parsing global configuration file:
-        //        "
-        //                   << e.what();
+        LOG(ERROR) << "Error while parsing global configuration file: "
+                   << e.what();
         throw OneException("", e.what());
     }
 
@@ -207,11 +207,12 @@ void Options::parseUserConfig(variables_map &fileConfigMap)
     const path userConfigPath = absolute(m_vm.at("config").as<std::string>());
     std::ifstream userConfig(userConfigPath.c_str());
 
-    //    if (userConfig)
-    //        LOG(INFO) << "Parsing user configuration file " << userConfigPath;
-    //    else
-    //        LOG(WARNING) << "Couldn't open user configuration file "
-    //                     << userConfigPath;
+    if (userConfig)
+        LOG(INFO) << "Parsing user configuration file: '" << userConfigPath
+                  << "'";
+    else
+        LOG(WARNING) << "Couldn't open user configuration file: '"
+                     << userConfigPath << "'";
 
     store(parse_config_file(userConfig, m_common), fileConfigMap);
 }
@@ -227,12 +228,12 @@ void Options::parseGlobalConfig(variables_map &fileConfigMap)
         oneclient_CONFIG_DIR / GLOBAL_CONFIG_FILE;
     std::ifstream globalConfig(globalConfigPath.c_str());
 
-    //    if (globalConfig)
-    //        LOG(INFO) << "Parsing global configuration file " <<
-    //        globalConfigPath;
-    //    else
-    //        LOG(WARNING) << "Couldn't open global configuration file "
-    //                     << globalConfigPath;
+    if (globalConfig)
+        LOG(INFO) << "Parsing global configuration file: '" << globalConfigPath
+                  << "'";
+    else
+        LOG(WARNING) << "Couldn't open global configuration file: '"
+                     << globalConfigPath << "'";
 
     store(parse_config_file(globalConfig, global), fileConfigMap);
 }
@@ -241,8 +242,8 @@ std::string Options::mapEnvNames(std::string env) const
 {
     boost::algorithm::to_lower(env);
     if (m_common.find_nothrow(env, false) && m_vm.count(env) == 0) {
-        //        LOG(INFO) << "Using environment configuration variable " <<
-        //        env;
+        LOG(INFO) << "Using environment configuration variable: '" << env
+                  << "'";
         return env;
     }
 
@@ -251,7 +252,7 @@ std::string Options::mapEnvNames(std::string env) const
 
 void Options::parseEnv()
 {
-    //    LOG(INFO) << "Parsing environment variables";
+    LOG(INFO) << "Parsing environment variables";
     store(parse_environment(m_common,
               std::bind(&Options::mapEnvNames, this, std::placeholders::_1)),
         m_vm);
