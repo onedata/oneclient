@@ -8,10 +8,12 @@
 
 #include "messages/ping.h"
 
-#include "client_messages.pb.h"
+#include "messages.pb.h"
 
 namespace one {
 namespace messages {
+
+std::string Ping::toString() const { return "type: 'Ping'"; }
 
 std::unique_ptr<ProtocolClientMessage> Ping::serialize() const
 {

@@ -8,7 +8,9 @@
 
 #include "messages/handshakeRequest.h"
 
-#include "client_messages.pb.h"
+#include "messages.pb.h"
+
+#include <sstream>
 
 namespace one {
 namespace messages {
@@ -22,6 +24,18 @@ HandshakeRequest::HandshakeRequest(std::string sessionId, std::string token)
     : m_sessionId{std::move(sessionId)}
     , m_token{std::move(token)}
 {
+}
+
+std::string HandshakeRequest::toString() const
+{
+    std::stringstream stream;
+    stream << "type: 'HandshakeRequest', session ID: '" << m_sessionId
+           << "', token: ";
+    if (m_token)
+        stream << "'" << m_token.get() << "'";
+    else
+        stream << "'undefined'";
+    return stream.str();
 }
 
 std::unique_ptr<ProtocolClientMessage> HandshakeRequest::serialize() const

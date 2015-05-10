@@ -9,9 +9,10 @@
 #ifndef HELPERS_MESSAGES_PONG_H
 #define HELPERS_MESSAGES_PONG_H
 
-#include "messages/serverMessage.h"
+#include "serverMessage.h"
 
 #include <memory>
+#include <string>
 
 namespace one {
 namespace messages {
@@ -28,6 +29,8 @@ public:
     * Pong counterpart.
     */
     Pong(std::unique_ptr<ProtocolServerMessage> serverMessage);
+
+    virtual std::string toString() const override;
 };
 
 } // namespace messages

@@ -9,9 +9,10 @@
 #ifndef HELPERS_MESSAGES_MESSAGE_REQUEST_H
 #define HELPERS_MESSAGES_MESSAGE_REQUEST_H
 
-#include "messages/serverMessage.h"
+#include "serverMessage.h"
 
 #include <memory>
+#include <string>
 
 namespace one {
 namespace messages {
@@ -45,6 +46,8 @@ public:
      * messages.
      */
     uint64_t upperSequenceNumber() const;
+
+    virtual std::string toString() const override;
 
 private:
     uint64_t m_streamId;

@@ -8,7 +8,9 @@
 
 #include "messages/handshakeResponse.h"
 
-#include "server_messages.pb.h"
+#include "messages.pb.h"
+
+#include <sstream>
 
 namespace one {
 namespace messages {
@@ -21,6 +23,13 @@ HandshakeResponse::HandshakeResponse(
 }
 
 const std::string &HandshakeResponse::sessionId() const { return m_sessionId; }
+
+std::string HandshakeResponse::toString() const
+{
+    std::stringstream stream;
+    stream << "type: 'HandshakeResponse', session ID: '" << m_sessionId << "'";
+    return stream.str();
+}
 
 } // namespace messages
 } // namespace one

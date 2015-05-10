@@ -9,9 +9,10 @@
 #ifndef HELPERS_MESSAGES_PING_H
 #define HELPERS_MESSAGES_PING_H
 
-#include "messages/clientMessage.h"
+#include "clientMessage.h"
 
 #include <memory>
+#include <string>
 
 namespace one {
 namespace messages {
@@ -22,6 +23,8 @@ namespace messages {
 */
 class Ping : public ClientMessage {
 public:
+    virtual std::string toString() const override;
+
     virtual std::unique_ptr<ProtocolClientMessage> serialize() const override;
 };
 
