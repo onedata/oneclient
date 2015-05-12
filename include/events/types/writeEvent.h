@@ -1,10 +1,10 @@
 /**
-* @file writeEvent.h
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file writeEvent.h
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef ONECLIENT_EVENTS_TYPES_WRITE_EVENT_H
 #define ONECLIENT_EVENTS_TYPES_WRITE_EVENT_H

@@ -48,7 +48,7 @@ public:
     /**
      * Constructor.
      * @param code Status code.
-     * */
+     */
     Status(Code code);
 
     /**

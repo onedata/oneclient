@@ -94,7 +94,7 @@ public:
      * FUSE @c rename callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int rename(const std::string &oldpath, const std::string &newPath);
+    int rename(const std::string &oldPath, const std::string &newPath);
 
     /**
      * FUSE @c chmod callback.

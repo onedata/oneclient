@@ -84,11 +84,11 @@ int FsLogic::symlink(const std::string &target, const std::string &linkPath)
     return m_shMock->shSymlink(target, linkPath);
 }
 
-int FsLogic::rename(const std::string &path, const std::string &newPath)
+int FsLogic::rename(const std::string &oldPath, const std::string &newPath)
 {
-    DLOG(INFO) << "FUSE: rename(path: '" << path << "', newPath: '" << newPath
+    DLOG(INFO) << "FUSE: rename(path: '" << oldPath << "', newPath: '" << newPath
                << "')";
-    return m_shMock->shRename(path, newPath);
+    return m_shMock->shRename(oldPath, newPath);
 }
 
 int FsLogic::chmod(const std::string &path, mode_t mode)

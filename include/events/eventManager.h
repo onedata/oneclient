@@ -1,10 +1,10 @@
 /**
-* @file eventManager.h
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file eventManager.h
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef ONECLIENT_EVENTS_EVENT_MANAGER_H
 #define ONECLIENT_EVENTS_EVENT_MANAGER_H
