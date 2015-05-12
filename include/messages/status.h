@@ -83,13 +83,6 @@ private:
     boost::optional<std::string> m_description;
 };
 
-struct CodeHash {
-    template <typename T> std::size_t operator()(T t) const
-    {
-        return static_cast<std::size_t>(t);
-    }
-};
-
 std::ostream &operator<<(std::ostream &stream, Status::Code code);
 
 } // namespace messages

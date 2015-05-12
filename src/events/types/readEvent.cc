@@ -17,7 +17,10 @@ namespace one {
 namespace client {
 namespace events {
 
-ReadEvent::ReadEvent() { m_counter = 0; }
+ReadEvent::ReadEvent()
+    : Event{0}
+{
+}
 
 ReadEvent::ReadEvent(std::string fileId, off_t offset, size_t size)
     : m_fileId{std::move(fileId)}

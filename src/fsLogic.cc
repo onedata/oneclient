@@ -76,10 +76,11 @@ int FsLogic::rmdir(const std::string &path)
     return m_shMock->shRmdir(path);
 }
 
-int FsLogic::symlink(const std::string &path, const std::string &link)
+int FsLogic::symlink(const std::string &target, const std::string &linkPath)
 {
-    DLOG(INFO) << "FUSE: symlink(to: " << path << ", form: " << link << ")";
-    return m_shMock->shSymlink(path, link);
+    DLOG(INFO) << "FUSE: symlink(to: " << target << ", form: " << linkPath
+               << ")";
+    return m_shMock->shSymlink(target, linkPath);
 }
 
 int FsLogic::rename(const std::string &path, const std::string &newPath)

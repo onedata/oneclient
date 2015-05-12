@@ -133,6 +133,13 @@ std::unique_ptr<ProtocolClientMessage> Status::serialize() const
     return clientMsg;
 }
 
+struct CodeHash {
+    template <typename T> std::size_t operator()(T t) const
+    {
+        return static_cast<std::size_t>(t);
+    }
+};
+
 std::ostream &operator<<(std::ostream &stream, Status::Code code)
 {
     const static std::unordered_map<Status::Code, std::string,

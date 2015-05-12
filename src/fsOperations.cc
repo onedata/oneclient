@@ -19,6 +19,8 @@
 
 using namespace one::client;
 
+namespace {
+
 template <typename... Args1, typename... Args2>
 int wrap(int (FsLogic::*operation)(Args2...), Args1 &&... args)
 {
@@ -47,17 +49,19 @@ int wrap(int (FsLogic::*operation)(Args2...), Args1 &&... args)
     }
 }
 
-int wrap_access(const char *path, int mask)
+extern "C" {
+
+int wrap_access(const char *path, int mode)
 {
-    return wrap(&FsLogic::access, path, mask);
+    return wrap(&FsLogic::access, path, mode);
 }
 int wrap_getattr(const char *path, struct stat *statbuf)
 {
     return wrap(&FsLogic::getattr, path, statbuf, true);
 }
-int wrap_readlink(const char *path, char *link, size_t size)
+int wrap_readlink(const char *path, char *buf, size_t size)
 {
-    return wrap(&FsLogic::readlink, path, link, size);
+    return wrap(&FsLogic::readlink, path, buf, size);
 }
 int wrap_mknod(const char *path, mode_t mode, dev_t dev)
 {
@@ -69,13 +73,13 @@ int wrap_mkdir(const char *path, mode_t mode)
 }
 int wrap_unlink(const char *path) { return wrap(&FsLogic::unlink, path); }
 int wrap_rmdir(const char *path) { return wrap(&FsLogic::rmdir, path); }
-int wrap_symlink(const char *path, const char *link)
+int wrap_symlink(const char *target, const char *linkpath)
 {
-    return wrap(&FsLogic::symlink, path, link);
+    return wrap(&FsLogic::symlink, target, linkpath);
 }
-int wrap_rename(const char *path, const char *newpath)
+int wrap_rename(const char *oldpath, const char *newpath)
 {
-    return wrap(&FsLogic::rename, path, newpath);
+    return wrap(&FsLogic::rename, oldpath, newpath);
 }
 int wrap_chmod(const char *path, mode_t mode)
 {
@@ -146,6 +150,9 @@ void *init(struct fuse_conn_info *conn)
 {
     return fuse_get_context()->private_data;
 }
+
+} // extern "C"
+} // namespace
 
 struct fuse_operations fuseOperations()
 {

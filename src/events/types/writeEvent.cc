@@ -17,7 +17,10 @@ namespace one {
 namespace client {
 namespace events {
 
-WriteEvent::WriteEvent() { m_counter = 0; }
+WriteEvent::WriteEvent()
+    : Event{0}
+{
+}
 
 WriteEvent::WriteEvent(
     std::string fileId, off_t offset, size_t size, off_t fileSize)

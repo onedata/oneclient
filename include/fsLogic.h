@@ -45,7 +45,7 @@ public:
     * FUSE @c access callback.
     * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
     */
-    int access(const std::string &path, int mask);
+    int access(const std::string &path, int mode);
 
     /**
     * FUSE @c getattr callback.
@@ -88,13 +88,13 @@ public:
     * FUSE @c symlink callback.
     * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
     */
-    int symlink(const std::string &path, const std::string &link);
+    int symlink(const std::string &target, const std::string &linkPath);
 
     /**
     * FUSE @c rename callback.
     * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
     */
-    int rename(const std::string &path, const std::string &newPath);
+    int rename(const std::string &oldpath, const std::string &newPath);
 
     /**
     * FUSE @c chmod callback.

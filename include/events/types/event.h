@@ -22,6 +22,13 @@ namespace events {
 */
 class Event : public one::messages::ClientMessage {
 public:
+    Event() = default;
+
+    Event(std::size_t counter)
+        : m_counter{counter}
+    {
+    }
+
     virtual ~Event() = default;
 
     /**
