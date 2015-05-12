@@ -55,13 +55,13 @@ boost::future<void> Retrier<LowerLayer>::send(
     std::string message, const int retries)
 {
     auto future = LowerLayer::send(message, retries);
-    auto retriedWrappedFuture = future.then(
+    auto retriedWrappedFuture = future.then(LowerLayer::m_ioServiceExecutor,
         [ this, retries, message = std::move(message) ](auto f) mutable {
             try {
                 f.get();
                 return boost::make_ready_future();
             }
-            catch (SendError) {
+            catch (communication::Exception) {
                 if (retries == 0)
                     throw;
 

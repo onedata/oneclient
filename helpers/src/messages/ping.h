@@ -11,6 +11,8 @@
 
 #include "clientMessage.h"
 
+#include <boost/optional.hpp>
+
 #include <memory>
 #include <string>
 
@@ -23,9 +25,15 @@ namespace messages {
 */
 class Ping : public ClientMessage {
 public:
+    Ping() = default;
+    Ping(std::string data);
+
     virtual std::string toString() const override;
 
     virtual std::unique_ptr<ProtocolClientMessage> serialize() const override;
+
+private:
+    boost::optional<std::string> m_data;
 };
 
 } // namespace messages
