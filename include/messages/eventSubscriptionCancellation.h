@@ -1,10 +1,10 @@
 /**
-* @file eventSubscriptionCancellation.h
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file eventSubscriptionCancellation.h
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef ONECLIENT_MESSAGES_EVENT_SUBSCRIPTION_CANCELLATION_H
 #define ONECLIENT_MESSAGES_EVENT_SUBSCRIPTION_CANCELLATION_H
@@ -20,9 +20,9 @@ namespace client {
 namespace events {
 
 /**
-* The EventSubscriptionCancellation class represents read event subscription
-* request sent by the server.
-*/
+ * The EventSubscriptionCancellation class represents read event subscription
+ * request sent by the server.
+ */
 class EventSubscriptionCancellation : public one::messages::ServerMessage {
 public:
     /**

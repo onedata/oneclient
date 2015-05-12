@@ -23,9 +23,9 @@ namespace client {
 namespace events {
 
 /**
-* The WriteEventSubscription class represents write event subscription request
-* sent by the server.
-*/
+ * The WriteEventSubscription class represents write event subscription request
+ * sent by the server.
+ */
 class WriteEventSubscription : public one::messages::ServerMessage {
 public:
     /**

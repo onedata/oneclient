@@ -23,23 +23,24 @@ namespace events {
 class Event;
 
 /**
-* The EventCommunicator class is responsible for sending event messages to the
-* server using communication stream.
-*/
+ * The EventCommunicator class is responsible for sending event messages to the
+ * server using communication stream.
+ */
 class EventCommunicator {
 public:
     /**
-    * Constructor.
-    * @param context A @c Context instance used to acquire communication stream.
-    */
+     * Constructor.
+     * @param context A @c Context instance used to acquire communication
+     * stream.
+     */
     EventCommunicator(std::shared_ptr<Context> context);
 
     virtual ~EventCommunicator();
 
     /**
-    * Sends event to the server using communication stream.
-    * @param event Event to be sent.
-    */
+     * Sends event to the server using communication stream.
+     * @param event Event to be sent.
+     */
     virtual void send(const Event &event) const;
 
 private:

@@ -18,15 +18,15 @@ namespace events {
 template <class EventType> class EventStream;
 
 /**
-* The TruncateEvent class represents a truncate operation in the file system.
-*/
+ * The TruncateEvent class represents a truncate operation in the file system.
+ */
 class TruncateEvent : public WriteEvent {
 public:
     /**
-    * Constructor.
-    * @param fileId ID of file associated with a truncate operation.
-    * @param fileSize Size of file after a truncate operation.
-    */
+     * Constructor.
+     * @param fileId ID of file associated with a truncate operation.
+     * @param fileSize Size of file after a truncate operation.
+     */
     TruncateEvent(std::string fileId, off_t fileSize);
 
     virtual std::string toString() const override;
