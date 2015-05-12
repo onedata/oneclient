@@ -45,6 +45,14 @@ class Connection;
 class ConnectionPool {
     using SendTask = std::tuple<std::string, boost::promise<void>>;
 
+    using ConnectionFactory = std::function<std::shared_ptr<Connection>(
+        boost::asio::io_service &, boost::asio::ssl::context &, const bool,
+        std::function<std::string()> &, std::function<bool(std::string)> &,
+        std::function<void(std::string)>,
+        std::function<void(std::shared_ptr<Connection>)>,
+        std::function<void(
+            std::shared_ptr<Connection>, boost::exception_ptr)>)>;
+
 public:
     enum class ErrorPolicy { ignore, propagate };
 
@@ -66,6 +74,7 @@ public:
      */
     ConnectionPool(const unsigned int connectionsNumber, std::string host,
         std::string service, const bool verifyServerCertificate,
+        ConnectionFactory connectionFactory,
         ErrorPolicy errorPolicy = ErrorPolicy::ignore);
 
     /**
@@ -128,6 +137,7 @@ private:
     std::string m_host;
     std::string m_service;
     const bool m_verifyServerCertificate;
+    ConnectionFactory m_connectionFactory;
     ErrorPolicy m_errorPolicy;
     std::shared_ptr<const cert::CertificateData> m_certificateData;
 

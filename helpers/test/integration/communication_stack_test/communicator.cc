@@ -1,4 +1,5 @@
 #include "communication/communicator.h"
+#include "communication/connection.h"
 #include "communication/declarations.h"
 #include "communication/future.h"
 #include "messages/clientMessage.h"
@@ -105,7 +106,7 @@ public:
     CommunicatorProxy(const unsigned int connectionsNumber, std::string host,
         const unsigned short port, bool propagateExceptions)
         : m_communicator{connectionsNumber, std::move(host),
-              std::to_string(port), false,
+              std::to_string(port), false, createConnection,
               propagateExceptions ? ConnectionPool::ErrorPolicy::propagate
                                   : ConnectionPool::ErrorPolicy::ignore}
     {
@@ -134,7 +135,7 @@ public:
 
     std::string setHandshake(const std::string &description, bool fail)
     {
-        m_communicator.setHandshake(
+        m_communicator.binaryTranslator.setHandshake(
             [=] {
                 ExampleClientMessage msg{description};
                 return msg.serialize();
