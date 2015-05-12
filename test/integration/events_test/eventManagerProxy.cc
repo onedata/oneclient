@@ -7,13 +7,13 @@
  */
 
 #include "context.h"
-#include "scheduler.h"
+#include "communication/connection.h"
 #include "communication/communicator.h"
 #include "events/eventManager.h"
 #include "events/types/readEvent.h"
 #include "events/types/writeEvent.h"
 #include "events/types/truncateEvent.h"
-
+#include "scheduler.h"
 #include "messages.pb.h"
 
 #include <boost/python.hpp>
@@ -35,8 +35,9 @@ public:
     {
         auto context = std::make_shared<Context>();
         auto scheduler = std::make_shared<Scheduler>(1);
-        auto communicator = std::make_shared<Communicator>(
-            connectionsNumber, std::move(host), std::to_string(port), false);
+        auto communicator =
+            std::make_shared<Communicator>(connectionsNumber, std::move(host),
+                std::to_string(port), false, communication::createConnection);
         communicator->connect();
         context->setScheduler(std::move(scheduler));
         context->setCommunicator(std::move(communicator));
