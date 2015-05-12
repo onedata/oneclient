@@ -1,10 +1,10 @@
 /**
-* @file options.cc
-* @author Konrad Zemek
-* @copyright (C) 2014 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file options.cc
+ * @author Konrad Zemek
+ * @copyright (C) 2014 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #include "options.h"
 
@@ -62,8 +62,7 @@ void Options::setDescriptions()
     add_authentication(m_common);
 
     // Restricted options exclusive to global config file
-    m_restricted.add_options()(
-        "enable_env_option_override", value<bool>()->default_value(true));
+    add_enable_env_option_override(m_restricted);
     add_cluster_ping_interval(m_restricted);
     add_alive_meta_connections_count(m_restricted);
     add_alive_data_connections_count(m_restricted);
@@ -74,9 +73,9 @@ void Options::setDescriptions()
     add_file_buffer_prefered_block_size(m_restricted);
 
     // General commandline options
-    m_commandline.add_options()("help,h", "print help")(
-        "version,V", "print version")(
-        "config", value<std::string>(), "path to user config file");
+    add_switch_help(m_commandline);
+    add_switch_version(m_commandline);
+    add_config(m_commandline);
     add_authentication(m_commandline);
     add_switch_debug(m_commandline);
     add_switch_debug_gsi(m_commandline);
@@ -92,15 +91,14 @@ void Options::setDescriptions()
     m_hidden.add_options()("mountpoint", value<std::string>(), "mount point");
 }
 
-Options::Result Options::parseConfigs(const int argc, const char *const argv[])
+void Options::parseConfigs(const int argc, const char *const argv[])
 {
     if (argc > 0)
         argv0 = argv[0];
 
     try {
-        const auto result = parseCommandLine(argc, argv);
-        if (result != Result::PARSED)
-            return result;
+        if (!parseCommandLine(argc, argv))
+            return;
     }
     catch (boost::program_options::error &e) {
         LOG(ERROR) << "Error while parsing command line arguments: "
@@ -131,7 +129,7 @@ Options::Result Options::parseConfigs(const int argc, const char *const argv[])
         parseGlobalConfig(fileConfigMap);
     }
     catch (boost::program_options::error &e) {
-        LOG(ERROR) << "Error while parsing global configuration file: "
+        LOG(ERROR) << "Error while parsing global configuration file:"
                    << e.what();
         throw OneException("", e.what());
     }
@@ -147,7 +145,6 @@ Options::Result Options::parseConfigs(const int argc, const char *const argv[])
     }
 
     notify(m_vm);
-    return Result::PARSED;
 }
 
 /**
@@ -173,8 +170,7 @@ static std::pair<std::string, std::string> cmdParser(const std::string &str)
     return std::pair<std::string, std::string>();
 }
 
-Options::Result Options::parseCommandLine(
-    const int argc, const char *const argv[])
+bool Options::parseCommandLine(const int argc, const char *const argv[])
 {
     positional_options_description pos;
     pos.add("mountpoint", 1);
@@ -189,13 +185,7 @@ Options::Result Options::parseCommandLine(
               .run(),
         m_vm);
 
-    if (m_vm.count("help"))
-        return Result::HELP;
-
-    if (m_vm.count("version"))
-        return Result::VERSION;
-
-    return Result::PARSED;
+    return !m_vm.count("help") && !m_vm.count("version");
 }
 
 void Options::parseUserConfig(variables_map &fileConfigMap)
@@ -208,11 +198,10 @@ void Options::parseUserConfig(variables_map &fileConfigMap)
     std::ifstream userConfig(userConfigPath.c_str());
 
     if (userConfig)
-        LOG(INFO) << "Parsing user configuration file: '" << userConfigPath
-                  << "'";
+        LOG(INFO) << "Parsing user configuration file " << userConfigPath;
     else
-        LOG(WARNING) << "Couldn't open user configuration file: '"
-                     << userConfigPath << "'";
+        LOG(WARNING) << "Couldn't open user configuration file "
+                     << userConfigPath;
 
     store(parse_config_file(userConfig, m_common), fileConfigMap);
 }
@@ -229,11 +218,10 @@ void Options::parseGlobalConfig(variables_map &fileConfigMap)
     std::ifstream globalConfig(globalConfigPath.c_str());
 
     if (globalConfig)
-        LOG(INFO) << "Parsing global configuration file: '" << globalConfigPath
-                  << "'";
+        LOG(INFO) << "Parsing global configuration file " << globalConfigPath;
     else
-        LOG(WARNING) << "Couldn't open global configuration file: '"
-                     << globalConfigPath << "'";
+        LOG(WARNING) << "Couldn't open global configuration file "
+                     << globalConfigPath;
 
     store(parse_config_file(globalConfig, global), fileConfigMap);
 }
@@ -242,8 +230,7 @@ std::string Options::mapEnvNames(std::string env) const
 {
     boost::algorithm::to_lower(env);
     if (m_common.find_nothrow(env, false) && m_vm.count(env) == 0) {
-        LOG(INFO) << "Using environment configuration variable: '" << env
-                  << "'";
+        LOG(INFO) << "Using environment configuration variable " << env;
         return env;
     }
 
@@ -294,5 +281,6 @@ std::string Options::describeCommandlineOptions() const
 
     return ss.str();
 }
-}
-}
+
+} // namespace client
+} // namespace one

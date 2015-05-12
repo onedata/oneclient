@@ -157,19 +157,13 @@ std::shared_ptr<communication::Communicator> createCommunicator(
 
 int main(int argc, char *argv[])
 {
+    initializeLogging(argv[0], false);
+
     auto context = std::make_shared<Context>();
     auto options = std::make_shared<Options>();
     context->setOptions(options);
     try {
-        const auto result = options->parseConfigs(argc, argv);
-        if (result == Options::Result::HELP) {
-            printHelp(argv[0], std::move(options));
-            return EXIT_SUCCESS;
-        }
-        if (result == Options::Result::VERSION) {
-            printVersions();
-            return EXIT_SUCCESS;
-        }
+        options->parseConfigs(argc, argv);
     }
     catch (OneException &e) {
         std::cerr << "Cannot parse configuration: " << e.what()
@@ -177,7 +171,18 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    if (options->get_help()) {
+        printHelp(argv[0], std::move(options));
+        return EXIT_SUCCESS;
+    }
+    if (options->get_version()) {
+        printVersions();
+        return EXIT_SUCCESS;
+    }
+
+    google::ShutdownGoogleLogging();
     initializeLogging(argv[0], options->get_debug());
+
     createScheduler(context);
 
     std::shared_ptr<auth::AuthManager> authManager;
