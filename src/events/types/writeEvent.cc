@@ -1,14 +1,14 @@
 /**
-* @file writeEvent.cc
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file writeEvent.cc
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
-#include "events/eventStream.h"
 #include "events/types/writeEvent.h"
 
+#include "events/eventStream.h"
 #include "messages.pb.h"
 
 #include <sstream>
@@ -17,7 +17,10 @@ namespace one {
 namespace client {
 namespace events {
 
-WriteEvent::WriteEvent() { m_counter = 0; }
+WriteEvent::WriteEvent()
+    : Event{0}
+{
+}
 
 WriteEvent::WriteEvent(
     std::string fileId, off_t offset, size_t size, off_t fileSize)

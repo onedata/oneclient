@@ -18,16 +18,16 @@ namespace one {
 namespace messages {
 
 /**
-* The MessageStreamReset class represents a message that is sent by the server
-* to reset message streams.
-*/
+ * The MessageStreamReset class represents a message that is sent by the server
+ * to reset message streams.
+ */
 class MessageStreamReset : public ServerMessage {
 public:
     /**
-    * Constructor.
-    * @param serverMessage Protocol Buffers message representing @c
-    * MessageStreamReset counterpart.
-    */
+     * Constructor.
+     * @param serverMessage Protocol Buffers message representing @c
+     * MessageStreamReset counterpart.
+     */
     MessageStreamReset(std::unique_ptr<ProtocolServerMessage> serverMessage);
 
     virtual std::string toString() const override;

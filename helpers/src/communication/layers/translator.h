@@ -19,7 +19,6 @@
 #include <boost/thread/future.hpp>
 
 #include <functional>
-#include <type_traits>
 
 namespace one {
 namespace communication {
@@ -83,8 +82,9 @@ public:
      * method.
      */
     template <typename = void>
-    auto reply(clproto::ServerMessage &replyTo,
-        const messages::ClientMessage &msg, const int retry)
+    auto reply(const clproto::ServerMessage &replyTo,
+        const messages::ClientMessage &msg,
+        const int retry = DEFAULT_RETRY_NUMBER)
     {
         auto protoMsg = msg.serialize();
         return wrapFuture(
@@ -95,11 +95,12 @@ public:
      * Wraps lower layer's @c communicate.
      * The ougoing message is serialized as in @c send().
      * @see Inbox::communicate()
-     * @note This method is only instantiable if the lower layre has a
+     * @note This method is only instantiable if the lower layer has a
      * @c communicate method.
      */
     template <class SvrMsg>
-    auto communicate(const messages::ClientMessage &msg, const int retries)
+    auto communicate(const messages::ClientMessage &msg,
+        const int retries = DEFAULT_RETRY_NUMBER)
     {
         auto protoMsg = msg.serialize();
         auto future = LowerLayer::communicate(std::move(protoMsg), retries);

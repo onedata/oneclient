@@ -1,10 +1,10 @@
 /**
-* @file context.h
-* @author Konrad Zemek
-* @copyright (C) 2014 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file context.h
+ * @author Konrad Zemek
+ * @copyright (C) 2014 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef ONECLIENT_CONTEXT_H
 #define ONECLIENT_CONTEXT_H

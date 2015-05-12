@@ -96,7 +96,7 @@ public:
      * Destructor.
      * Closes the connection if it's not already closed.
      */
-    ~Connection();
+    virtual ~Connection();
 
     /**
      * Starts an asynchronous chain of events, from establishing a TCP
@@ -110,7 +110,7 @@ public:
      * conditions from events (e.g. @c onClosed is emitted before the connection
      * is added to an array in a parent object).
      */
-    void connect(const std::string &host, const std::string &service);
+    virtual void connect(const std::string &host, const std::string &service);
 
     /**
      * Sends a message, fulfilling a promise after the message is sent.
@@ -119,7 +119,7 @@ public:
      * @param promise The promise to fultill.
      * @note @c send can only be called after @c onReady has been emitted.
      */
-    void send(std::string message, boost::promise<void> promise);
+    virtual void send(std::string message, boost::promise<void> promise);
 
     /**
      * Gracefully closes the underlying connection.
@@ -127,7 +127,7 @@ public:
      * useful state. and should be destroyed.
      * @param exception The exception that may be set on waiting send operations
      */
-    void close(boost::exception_ptr exception = boost::exception_ptr{});
+    virtual void close(boost::exception_ptr exception = boost::exception_ptr{});
 
     Connection(const Connection &) = delete;
     Connection(Connection &&) = delete;
@@ -173,6 +173,15 @@ private:
     std::string m_outBuffer;
     boost::promise<void> m_outPromise;
 };
+
+std::shared_ptr<Connection> createConnection(boost::asio::io_service &ioService,
+    boost::asio::ssl::context &context, const bool verifyServerCertificate,
+    std::function<std::string()> &getHandshake,
+    std::function<bool(std::string)> &onHandshakeResponse,
+    std::function<void(std::string)> onMessageReceived,
+    std::function<void(std::shared_ptr<Connection>)> onReady,
+    std::function<void(std::shared_ptr<Connection>, boost::exception_ptr)>
+        onClosed);
 
 } // namespace communication
 } // namespace one

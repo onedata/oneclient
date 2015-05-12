@@ -37,6 +37,7 @@ class TestCommunicator:
         com.connect()
 
         sent_bytes = com.send("this is a message")
+        time.sleep(0.5)
 
         assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555,
                                                             sent_bytes)

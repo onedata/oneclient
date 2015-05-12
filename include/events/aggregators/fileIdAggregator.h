@@ -1,10 +1,10 @@
 /**
-* @file fileIdAggregator.h
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file fileIdAggregator.h
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef ONECLIENT_EVENTS_AGGREGATORS_FILE_ID_AGGREGATOR_H
 #define ONECLIENT_EVENTS_AGGREGATORS_FILE_ID_AGGREGATOR_H
@@ -21,28 +21,28 @@ namespace client {
 namespace events {
 
 /**
-* The FileIdAggregator class represents an aggregator that aggregates events
-* with the same file ID.
-*/
+ * The FileIdAggregator class represents an aggregator that aggregates events
+ * with the same file ID.
+ */
 template <class EventType>
 class FileIdAggregator : public Aggregator<EventType> {
 public:
     /**
-    * @copydoc Aggregator::aggregate(const EventType &event)
-    * @c FileIdAggregator aggregates events with the same file ID. Events
-    * with different file ID will not be aggregated and returned as separate
-    * entities due to @c reset method call. Return value is an overall
-    * aggregation result.
-    */
+     * @copydoc Aggregator::aggregate(const EventType &event)
+     * @c FileIdAggregator aggregates events with the same file ID. Events
+     * with different file ID will not be aggregated and returned as separate
+     * entities due to @c reset method call. Return value is an overall
+     * aggregation result.
+     */
     const EventType &aggregate(EventType event) override;
 
     virtual const EventType &all() const override;
 
     /**
-    * @copydoc Aggregator::reset()
-    * @c FileIdAggregator returns vector of aggregation results for events with
-    * different file ID.
-    */
+     * @copydoc Aggregator::reset()
+     * @c FileIdAggregator returns vector of aggregation results for events with
+     * different file ID.
+     */
     std::vector<EventType> reset() override;
 
 private:

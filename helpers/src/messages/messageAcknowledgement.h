@@ -1,10 +1,10 @@
 /**
-* @file messageAcknowledgement.h
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file messageAcknowledgement.h
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef HELPERS_MESSAGES_MESSAGE_ACKNOWLEDGEMENT_H
 #define HELPERS_MESSAGES_MESSAGE_ACKNOWLEDGEMENT_H
@@ -18,17 +18,17 @@ namespace one {
 namespace messages {
 
 /**
-* The MessageAcknowledgement class represents a message that is sent by the
-* server to inform about sequence number of last successfully processed stream
-* message.
-*/
+ * The MessageAcknowledgement class represents a message that is sent by the
+ * server to inform about sequence number of last successfully processed stream
+ * message.
+ */
 class MessageAcknowledgement : public ServerMessage {
 public:
     /**
-    * Constructor.
-    * @param serverMessage Protocol Buffers message representing @c
-    * MessageAcknowledgement counterpart.
-    */
+     * Constructor.
+     * @param serverMessage Protocol Buffers message representing @c
+     * MessageAcknowledgement counterpart.
+     */
     MessageAcknowledgement(
         std::unique_ptr<ProtocolServerMessage> serverMessage);
 
