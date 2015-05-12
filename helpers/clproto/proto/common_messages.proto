@@ -33,7 +33,3 @@ message FileBlock {
     required uint64 size   = 2;
 }
 
-// Binary data (e. g. for performance tests)
-message Data {
-    required bytes data = 1;
-}

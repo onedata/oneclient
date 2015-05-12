@@ -11,6 +11,8 @@
 
 #include "messages/serverMessage.h"
 
+#include <boost/optional.hpp>
+
 #include <memory>
 
 namespace one {
@@ -28,6 +30,11 @@ public:
     * Pong counterpart.
     */
     Pong(std::unique_ptr<ProtocolServerMessage> serverMessage);
+
+    const boost::optional<std::string> &data() const;
+
+private:
+    boost::optional<std::string> m_data;
 };
 
 } // namespace messages

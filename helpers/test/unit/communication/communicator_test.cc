@@ -10,8 +10,8 @@
 #include "messages/ping.h"
 #include "messages/pong.h"
 
-#include <boost/thread/executors/basic_thread_pool.hpp>
 #include <boost/thread/future.hpp>
+#include <boost/thread/executors/basic_thread_pool.hpp>
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -23,11 +23,6 @@ using namespace std::literals::chrono_literals;
 class LazyConnectionPool {
 public:
     void connect() {}
-
-    void setHandshake(
-        std::function<std::string()>, std::function<bool(std::string)>)
-    {
-    }
 
     void setOnMessageCallback(std::function<void(std::string)>) {}
 
@@ -54,7 +49,7 @@ struct CommunicatorTest : public ::testing::Test {
     CommunicatorTest() { comm.connect(); }
 };
 
-TEST_F(CommunicatorTest, shouldTimeoutOnCommunicateGet)
+TEST_F(CommunicatorTest, communicateShouldReturnTimeoutableFuture)
 {
     auto future = comm.communicate<messages::Pong>(messages::Ping{}, 0);
     ASSERT_THROW(future.get(10ms), TimeoutExceeded);

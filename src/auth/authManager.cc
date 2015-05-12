@@ -14,6 +14,7 @@
 #include "auth/grAdapter.h"
 #include "auth/gsiHandler.h"
 #include "communication/cert/certificateData.h"
+#include "communication/connection.h"
 #include "communication/communicator.h"
 
 #include <boost/archive/iterators/base64_from_binary.hpp>
@@ -60,7 +61,8 @@ CertificateAuthManager::createCommunicator(const unsigned int poolSize,
     ErrorPolicy errorPolicy)
 {
     auto communicator = std::make_shared<communication::Communicator>(poolSize,
-        m_hostname, std::to_string(m_port), m_checkCertificate, errorPolicy);
+        m_hostname, std::to_string(m_port), m_checkCertificate,
+        communication::createConnection, errorPolicy);
 
     communicator->setCertificateData(m_certificateData);
 
@@ -107,7 +109,8 @@ TokenAuthManager::createCommunicator(const unsigned int poolSize,
     ErrorPolicy errorPolicy)
 {
     auto communicator = std::make_shared<communication::Communicator>(poolSize,
-        m_hostname, std::to_string(m_port), m_checkCertificate, errorPolicy);
+        m_hostname, std::to_string(m_port), m_checkCertificate,
+        communication::createConnection, errorPolicy);
 
     one::messages::HandshakeRequest handshake{
         sessionId, m_authDetails.accessToken()};

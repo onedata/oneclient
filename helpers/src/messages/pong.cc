@@ -13,7 +13,13 @@
 namespace one {
 namespace messages {
 
-Pong::Pong(std::unique_ptr<ProtocolServerMessage> serverMessage) {}
+Pong::Pong(std::unique_ptr<ProtocolServerMessage> serverMessage)
+{
+    if (serverMessage->pong().has_data())
+        m_data = serverMessage->pong().data();
+}
+
+const boost::optional<std::string> &Pong::data() const { return m_data; }
 
 } // namespace messages
 } // namespace one
