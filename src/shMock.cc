@@ -1,10 +1,10 @@
 /**
-* @file shMock.cc
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file shMock.cc
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifdef linux
 /* For pread()/pwrite()/utimensat() */
@@ -12,13 +12,15 @@
 #endif // linux
 
 #include "shMock.h"
+
 #include "logging.h"
 
-#include <fuse.h>
-#include <errno.h>
-#include <unistd.h>
 #include <dirent.h>
+#include <errno.h>
+#include <fuse.h>
 #include <sys/stat.h>
+#include <unistd.h>
+
 #include <iostream>
 
 namespace one {

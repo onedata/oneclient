@@ -10,7 +10,6 @@
 #define ONECLIENT_EVENTS_STREAMS_EVENT_STREAM_H
 
 #include "context.h"
-#include "scheduler.h"
 #include "eventCommunicator.h"
 #include "events/aggregators/nullAggregator.h"
 #include "events/aggregators/fileIdAggregator.h"
@@ -18,6 +17,7 @@
 #include "events/types/writeEvent.h"
 #include "messages/readEventSubscription.h"
 #include "messages/writeEventSubscription.h"
+#include "scheduler.h"
 
 #include <boost/asio/strand.hpp>
 
@@ -55,14 +55,16 @@ public:
     virtual ~EventStream() = default;
 
     /**
-    * Pushes an event of type @c EventType to the stream.
+    * Asynchronously pushes an event of type @c EventType to the stream using @c
+    * Scheduler IO service.
     * @param event An event of type @c EventType to be pushed to the @c
     * EventStream.
     */
     virtual void pushAsync(EventType event);
 
     /**
-    * Adds a subscription for events of type @c EventType.
+    * Asynchronously adds a subscription for events of type @c EventType using
+    * @c Scheduler IO service.
     * @param subscription An instance of subscription of type @c
     * SubscriptionType to be added.
     * @return Id of subscription.
@@ -71,7 +73,8 @@ public:
         typename EventType::Subscription subscription);
 
     /**
-    * Removes a subscription for events of type @c EventType.
+    * Asynchronously removes a subscription for events of type @c EventType
+    * using @c Scheduler IO service.
     * @param subscription An instance of subscription of type @c
     * SubscriptionType to be removed.
     */
@@ -79,9 +82,38 @@ public:
         typename EventType::Subscription subscription);
 
 protected:
+    /**
+    * Retrieves all aggregated events by emptying the @c EventStream and passing
+    * them to the @c EventCommunicator.
+    */
     void emit();
+
+    /**
+    * Pushes an event of type @c EventType to the stream. No synchronization is
+    * done. This method should be only used for test purposes in single thread
+    * environment.
+    * @param event An event of type @c EventType to be pushed to the @c
+    * EventStream.
+    */
     void push(EventType event);
+
+    /**
+    * Adds a subscription for events of type @c EventType. No synchronization is
+    * done. This method should be only used for test purposes in single thread
+    * environment.
+    * @param subscription An instance of subscription of type @c
+    * SubscriptionType to be added.
+    * @return Id of subscription.
+    */
     void addSubscription(typename EventType::Subscription subscription);
+
+    /**
+    * Removes a subscription for events of type @c EventType. No synchronization
+    * is done. This method should be only used for test purposes in single
+    * thread environment.
+    * @param subscription An instance of subscription of type @c
+    * SubscriptionType to be removed.
+    */
     void removeSubscription(typename EventType::Subscription subscription);
 
 private:

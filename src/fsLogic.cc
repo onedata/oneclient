@@ -1,17 +1,18 @@
 /**
-* @file fsLogic.cc
-* @author Rafal Slota
-* @copyright (C) 2013 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file fsLogic.cc
+ * @author Rafal Slota
+ * @copyright (C) 2013 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #include "fsLogic.h"
-#include "context.h"
-#include "shMock.h"
-#include "events/eventManager.h"
 
-#include <glog/logging.h>
+#include "context.h"
+#include "events/eventManager.h"
+#include "logging.h"
+#include "shMock.h"
+
 #include <boost/algorithm/string.hpp>
 
 namespace one {
