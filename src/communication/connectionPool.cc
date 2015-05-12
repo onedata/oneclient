@@ -35,11 +35,12 @@ namespace communication {
 
 ConnectionPool::ConnectionPool(const unsigned int connectionsNumber,
     std::string host, std::string service, const bool verifyServerCertificate,
-    ErrorPolicy errorPolicy)
+    ConnectionFactory connectionFactory, ErrorPolicy errorPolicy)
     : m_connectionsNumber{connectionsNumber}
     , m_host{std::move(host)}
     , m_service{std::move(service)}
     , m_verifyServerCertificate{verifyServerCertificate}
+    , m_connectionFactory{std::move(connectionFactory)}
     , m_errorPolicy{errorPolicy}
     , m_idleWork{m_ioService}
     , m_blockingStrand{m_ioService}
@@ -167,7 +168,7 @@ void ConnectionPool::onConnectionClosed(
 
 void ConnectionPool::createConnection()
 {
-    auto conn = std::make_shared<Connection>(m_ioService, m_context,
+    auto conn = m_connectionFactory(m_ioService, m_context,
         m_verifyServerCertificate, m_getHandshake, m_onHandshakeResponse,
         std::bind(&ConnectionPool::onMessageReceived, this, _1),
         std::bind(&ConnectionPool::onConnectionReady, this, _1),
