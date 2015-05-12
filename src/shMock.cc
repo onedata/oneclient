@@ -24,8 +24,8 @@
 namespace one {
 namespace client {
 
-SHMock::SHMock(std::string root)
-    : m_root{std::move(root)}
+SHMock::SHMock(boost::filesystem::path rootPath)
+    : m_root{std::move(rootPath)}
 {
 }
 
@@ -34,29 +34,30 @@ boost::filesystem::path SHMock::root(const boost::filesystem::path &path)
     return m_root / path;
 }
 
-int SHMock::shAccess(const std::string &path, int mask)
+int SHMock::shAccess(const std::string &path, const int mask)
 {
     return access(root(path).c_str(), mask) == -1 ? -errno : 0;
 }
 
-int SHMock::shGetattr(
-    const std::string &path, struct stat *statbuf, bool fuse_ctx)
+int SHMock::shGetattr(const std::string &path, struct stat *const statbuf)
 {
     return lstat(root(path).c_str(), statbuf) == -1 ? -errno : 0;
 }
 
-int SHMock::shReadlink(const std::string &path, char *link, size_t size)
+int SHMock::shReadlink(const std::string &path, boost::asio::mutable_buffer buf)
 {
-    int res = readlink(root(path).c_str(), link, size - 1);
+    int res =
+        readlink(root(path).c_str(), boost::asio::buffer_cast<char *>(buf),
+            boost::asio::buffer_size(buf) - 1);
 
     if (res == -1)
         return -errno;
 
-    link[res] = '\0';
+    *(boost::asio::buffer_cast<char *>(buf) + res) = '\0';
     return 0;
 }
 
-int SHMock::shMknod(const std::string &path, mode_t mode, dev_t dev)
+int SHMock::shMknod(const std::string &path, const mode_t mode, const dev_t dev)
 {
     int res;
     const auto fullPath = root(path);
@@ -77,7 +78,7 @@ int SHMock::shMknod(const std::string &path, mode_t mode, dev_t dev)
     return 0;
 }
 
-int SHMock::shMkdir(const std::string &path, mode_t mode)
+int SHMock::shMkdir(const std::string &path, const mode_t mode)
 {
     return mkdir(root(path).c_str(), mode) == -1 ? -errno : 0;
 }
@@ -92,37 +93,40 @@ int SHMock::shRmdir(const std::string &path)
     return rmdir(root(path).c_str()) == -1 ? -errno : 0;
 }
 
-int SHMock::shSymlink(const std::string &path, const std::string &link)
+int SHMock::shSymlink(const std::string &target, const std::string &linkPath)
 {
-    return symlink(root(link).c_str(), root(path).c_str()) == -1 ? -errno : 0;
+    return symlink(root(target).c_str(), root(linkPath).c_str()) == -1 ? -errno
+                                                                       : 0;
 }
 
-int SHMock::shRename(const std::string &path, const std::string &newPath)
+int SHMock::shRename(const std::string &oldpath, const std::string &newPath)
 {
-    return rename(root(path).c_str(), root(newPath).c_str()) == -1 ? -errno : 0;
+    return rename(root(oldpath).c_str(), root(newPath).c_str()) == -1 ? -errno
+                                                                      : 0;
 }
 
-int SHMock::shChmod(const std::string &path, mode_t mode)
+int SHMock::shChmod(const std::string &path, const mode_t mode)
 {
     return chmod(root(path).c_str(), mode) == -1 ? -errno : 0;
 }
 
-int SHMock::shChown(const std::string &path, uid_t uid, gid_t gid)
+int SHMock::shChown(const std::string &path, const uid_t uid, const gid_t gid)
 {
     return lchown(root(path).c_str(), uid, gid) == -1 ? -errno : 0;
 }
 
-int SHMock::shTruncate(const std::string &path, off_t newSize)
+int SHMock::shTruncate(const std::string &path, const off_t newSize)
 {
     return truncate(root(path).c_str(), newSize) == -1 ? -errno : 0;
 }
 
-int SHMock::shUtime(const std::string &path, struct utimbuf *ubuf)
+int SHMock::shUtime(const std::string &path, struct utimbuf *const ubuf)
 {
     return utime(root(path).c_str(), ubuf) == -1 ? -errno : 0;
 }
 
-int SHMock::shOpen(const std::string &path, struct fuse_file_info *fileInfo)
+int SHMock::shOpen(
+    const std::string &path, struct fuse_file_info *const fileInfo)
 {
     int res = open(root(path).c_str(), fileInfo->flags);
     if (res == -1)
@@ -132,8 +136,8 @@ int SHMock::shOpen(const std::string &path, struct fuse_file_info *fileInfo)
     return 0;
 }
 
-int SHMock::shRead(const std::string &path, char *buf, size_t size,
-    off_t offset, struct fuse_file_info *fileInfo)
+int SHMock::shRead(const std::string &path, boost::asio::mutable_buffer buf,
+    const off_t offset, struct fuse_file_info *const fileInfo)
 {
     int fd, res;
     if (fileInfo->fh > 0)
@@ -144,7 +148,8 @@ int SHMock::shRead(const std::string &path, char *buf, size_t size,
     if (fd == -1)
         return -errno;
 
-    res = pread(fd, buf, size, offset);
+    res = pread(fd, boost::asio::buffer_cast<char *>(buf),
+        boost::asio::buffer_size(buf), offset);
     if (res == -1)
         res = -errno;
 
@@ -154,8 +159,8 @@ int SHMock::shRead(const std::string &path, char *buf, size_t size,
     return res;
 }
 
-int SHMock::shWrite(const std::string &path, const char *buf, size_t size,
-    off_t offset, struct fuse_file_info *fileInfo)
+int SHMock::shWrite(const std::string &path, boost::asio::const_buffer buf,
+    const off_t offset, struct fuse_file_info *const fileInfo)
 {
     int fd, res;
     if (fileInfo->fh > 0)
@@ -166,7 +171,8 @@ int SHMock::shWrite(const std::string &path, const char *buf, size_t size,
     if (fd == -1)
         return -errno;
 
-    res = pwrite(fd, buf, size, offset);
+    res = pwrite(fd, boost::asio::buffer_cast<const char *>(buf),
+        boost::asio::buffer_size(buf), offset);
     if (res == -1)
         res = -errno;
 
@@ -176,34 +182,38 @@ int SHMock::shWrite(const std::string &path, const char *buf, size_t size,
     return res;
 }
 
-int SHMock::shStatfs(const std::string &path, struct statvfs *statInfo)
+int SHMock::shStatfs(const std::string &path, struct statvfs *const statInfo)
 {
     return statvfs(root(path).c_str(), statInfo) == -1 ? -errno : 0;
 }
 
-int SHMock::shFlush(const std::string &path, struct fuse_file_info *fileInfo)
+int SHMock::shFlush(
+    const std::string &path, struct fuse_file_info *const fileInfo)
 {
     return 0;
 }
 
-int SHMock::shRelease(const std::string &path, struct fuse_file_info *fileInfo)
+int SHMock::shRelease(
+    const std::string &path, struct fuse_file_info *const fileInfo)
 {
     return fileInfo->fh > 0 ? close(fileInfo->fh) : 0;
 }
 
-int SHMock::shFsync(
-    const std::string &path, int datasync, struct fuse_file_info *fileInfo)
+int SHMock::shFsync(const std::string &path, const int datasync,
+    struct fuse_file_info *const fileInfo)
 {
     return 0;
 }
 
-int SHMock::shOpendir(const std::string &path, struct fuse_file_info *fileInfo)
+int SHMock::shOpendir(
+    const std::string &path, struct fuse_file_info *const fileInfo)
 {
     return 0;
 }
 
-int SHMock::shReaddir(const std::string &path, void *buf,
-    fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fileInfo)
+int SHMock::shReaddir(const std::string &path, void *const buf,
+    const fuse_fill_dir_t filler, const off_t offset,
+    struct fuse_file_info *const fileInfo)
 {
     DIR *dp = opendir(root(path).c_str());
     if (dp == nullptr)
@@ -223,13 +233,13 @@ int SHMock::shReaddir(const std::string &path, void *buf,
 }
 
 int SHMock::shReleasedir(
-    const std::string &path, struct fuse_file_info *fileInfo)
+    const std::string &path, struct fuse_file_info *const fileInfo)
 {
     return 0;
 }
 
-int SHMock::shFsyncdir(
-    const std::string &path, int datasync, struct fuse_file_info *fileInfo)
+int SHMock::shFsyncdir(const std::string &path, const int datasync,
+    struct fuse_file_info *const fileInfo)
 {
     return 0;
 }

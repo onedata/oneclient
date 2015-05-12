@@ -11,6 +11,8 @@
 #include "fsOperations.h"
 #include "oneException.h"
 
+#include <boost/asio/buffer.hpp>
+
 #include <execinfo.h>
 
 #include <array>
@@ -57,11 +59,11 @@ int wrap_access(const char *path, int mode)
 }
 int wrap_getattr(const char *path, struct stat *statbuf)
 {
-    return wrap(&FsLogic::getattr, path, statbuf, true);
+    return wrap(&FsLogic::getattr, path, statbuf);
 }
 int wrap_readlink(const char *path, char *buf, size_t size)
 {
-    return wrap(&FsLogic::readlink, path, buf, size);
+    return wrap(&FsLogic::readlink, path, boost::asio::buffer(buf, size));
 }
 int wrap_mknod(const char *path, mode_t mode, dev_t dev)
 {
@@ -104,12 +106,14 @@ int wrap_open(const char *path, struct fuse_file_info *fileInfo)
 int wrap_read(const char *path, char *buf, size_t size, off_t offset,
     struct fuse_file_info *fileInfo)
 {
-    return wrap(&FsLogic::read, path, buf, size, offset, fileInfo);
+    return wrap(
+        &FsLogic::read, path, boost::asio::buffer(buf, size), offset, fileInfo);
 }
 int wrap_write(const char *path, const char *buf, size_t size, off_t offset,
     struct fuse_file_info *fileInfo)
 {
-    return wrap(&FsLogic::write, path, buf, size, offset, fileInfo);
+    return wrap(&FsLogic::write, path, boost::asio::buffer(buf, size), offset,
+        fileInfo);
 }
 int wrap_statfs(const char *path, struct statvfs *statInfo)
 {
@@ -123,9 +127,9 @@ int wrap_release(const char *path, struct fuse_file_info *fileInfo)
 {
     return wrap(&FsLogic::release, path, fileInfo);
 }
-int wrap_fsync(const char *path, int datasync, struct fuse_file_info *fi)
+int wrap_fsync(const char *path, int datasync, struct fuse_file_info *fileInfo)
 {
-    return wrap(&FsLogic::fsync, path, datasync, fi);
+    return wrap(&FsLogic::fsync, path, datasync, fileInfo);
 }
 int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
     off_t offset, struct fuse_file_info *fileInfo)
