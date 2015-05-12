@@ -13,12 +13,19 @@
 namespace one {
 namespace messages {
 
+Ping::Ping(std::string data)
+    : m_data{data}
+{
+}
+
 std::string Ping::toString() const { return "type: 'Ping'"; }
 
 std::unique_ptr<ProtocolClientMessage> Ping::serialize() const
 {
     auto clientMsg = std::make_unique<ProtocolClientMessage>();
-    clientMsg->mutable_ping();
+    auto ping = clientMsg->mutable_ping();
+    if (m_data)
+        ping->set_data(m_data.get());
 
     return clientMsg;
 }

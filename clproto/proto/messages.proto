@@ -29,17 +29,16 @@ message ClientMessage {
 
         // common_messages.proto
         Status             status               = 4;
-        Data               data                 = 5;
 
         // event_messages.proto
-        Event              event                = 6;
+        Event              event                = 5;
 
         // diagnostic_messages.proto
-        Ping               ping                 = 7;
-        GetProtocolVersion get_protocol_version = 8;
+        Ping               ping                 = 6;
+        GetProtocolVersion get_protocol_version = 7;
 
         // stream_messages.proto
-        EndOfMessageStream end_of_stream        = 9;
+        EndOfMessageStream end_of_stream        = 8;
     }
 }
 
