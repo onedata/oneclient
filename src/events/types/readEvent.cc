@@ -1,37 +1,33 @@
 /**
-* @file readEvent.cc
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file readEvent.cc
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
-#include "events/eventStream.h"
 #include "events/types/readEvent.h"
 
-#include "client_messages.pb.h"
+#include "events/eventStream.h"
+#include "messages.pb.h"
+
+#include <sstream>
 
 namespace one {
 namespace client {
 namespace events {
 
-ReadEvent::ReadEvent() { m_counter = 0; }
-
-ReadEvent::ReadEvent(std::weak_ptr<EventStream<ReadEvent>> eventStream,
-                     std::string fileId, off_t offset, size_t size)
-    : m_eventStream{std::move(eventStream)}
-    , m_fileId{std::move(fileId)}
-    , m_size{size}
-    , m_blocks{boost::icl::discrete_interval<off_t>::right_open(offset,
-                                                                offset + size)}
+ReadEvent::ReadEvent()
+    : Event{0}
 {
 }
 
-void ReadEvent::emit() const
+ReadEvent::ReadEvent(std::string fileId, off_t offset, size_t size)
+    : m_fileId{std::move(fileId)}
+    , m_size{size}
+    , m_blocks{boost::icl::discrete_interval<off_t>::right_open(
+          offset, offset + size)}
 {
-    auto eventStream = m_eventStream.lock();
-    if (eventStream)
-        eventStream->push(*this);
 }
 
 const std::string &ReadEvent::fileId() const { return m_fileId; }
@@ -43,6 +39,12 @@ const boost::icl::interval_set<off_t> &ReadEvent::blocks() const
     return m_blocks;
 }
 
+bool operator==(const ReadEvent &lhs, const ReadEvent &rhs)
+{
+    return lhs.fileId() == rhs.fileId() && lhs.size() == rhs.size() &&
+        lhs.blocks() == rhs.blocks();
+}
+
 ReadEvent &ReadEvent::operator+=(const ReadEvent &event)
 {
     m_counter += event.m_counter;
@@ -51,18 +53,12 @@ ReadEvent &ReadEvent::operator+=(const ReadEvent &event)
     return *this;
 }
 
-bool operator==(const ReadEvent &lhs, const ReadEvent &rhs)
+std::string ReadEvent::toString() const
 {
-    return lhs.fileId() == rhs.fileId() && lhs.size() == rhs.size() &&
-           lhs.blocks() == rhs.blocks();
-}
-
-std::ostream &operator<<(std::ostream &ostream, const ReadEvent &event)
-{
-    return ostream << "type: READ, counter: " << event.m_counter
-                   << ", file ID: '" << event.m_fileId
-                   << ", size: " << event.m_size
-                   << ", blocks: " << event.m_blocks;
+    std::stringstream stream;
+    stream << "type: 'ReadEvent', counter: " << m_counter << ", file ID: '"
+           << m_fileId << ", size: " << m_size << ", blocks: " << m_blocks;
+    return stream.str();
 }
 
 std::unique_ptr<one::messages::ProtocolClientMessage>

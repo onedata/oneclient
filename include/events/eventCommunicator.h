@@ -1,13 +1,15 @@
 /**
-* @file eventCommunicator.h
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file eventCommunicator.h
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef ONECLIENT_EVENTS_EVENT_COMMUNICATOR_H
 #define ONECLIENT_EVENTS_EVENT_COMMUNICATOR_H
+
+#include "communication/communicator.h"
 
 #include <memory>
 
@@ -21,27 +23,30 @@ namespace events {
 class Event;
 
 /**
-* The EventCommunicator class is responsible for sending event messages to the
-* server using communication stream.
-*/
+ * The EventCommunicator class is responsible for sending event messages to the
+ * server using communication stream.
+ */
 class EventCommunicator {
 public:
     /**
-    * Constructor.
-    * @param context A @c Context instance used to acquire communication stream.
-    */
-    EventCommunicator(std::weak_ptr<Context> context);
+     * Constructor.
+     * @param context A @c Context instance used to acquire communication
+     * stream.
+     */
+    EventCommunicator(std::shared_ptr<Context> context);
 
-    virtual ~EventCommunicator() = default;
+    virtual ~EventCommunicator();
 
     /**
-    * Sends event to the server using communication stream.
-    * @param event Event to be sent.
-    */
+     * Sends event to the server using communication stream.
+     * @param event Event to be sent.
+     */
     virtual void send(const Event &event) const;
 
 private:
-    std::weak_ptr<Context> m_context;
+    std::shared_ptr<Context> m_context;
+    std::unique_ptr<communication::StreamManager> m_streamManager;
+    std::shared_ptr<communication::Stream> m_stream;
 };
 
 } // namespace events

@@ -1,10 +1,10 @@
 /**
-* @file main.cc
-* @author Rafal Slota
-* @copyright (C) 2013 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file main.cc
+ * @author Rafal Slota
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -15,46 +15,35 @@
 #define _XOPEN_SOURCE 700
 #endif
 
-#include "version.h"
-#include "context.h"
-#include "options.h"
-#include "fsLogic.h"
-#include "scheduler.h"
-#include "scopeExit.h"
-#include "oneException.h"
-#include "auth/authException.h"
 #include "auth/authManager.h"
+#include "auth/authException.h"
+#include "context.h"
 #include "communication/exception.h"
+#include "events/eventManager.h"
+#include "fsLogic.h"
+#include "fsOperations.h"
+#include "logging.h"
 #include "messages/handshakeResponse.h"
 #include "messages/ping.h"
 #include "messages/pong.h"
+#include "options.h"
+#include "oneException.h"
+#include "scopeExit.h"
+#include "scheduler.h"
+#include "shMock.h"
+#include "version.h"
 
-#include <glog/logging.h>
-#include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/program_options.hpp>
-
-#include <array>
-#include <exception>
-#include <functional>
-#include <future>
-#include <iostream>
-#include <memory>
-#include <random>
-
-#include <fcntl.h>
-#include <dirent.h>
-#include <execinfo.h>
-#include <pwd.h>
-#include <unistd.h>
-#include <sys/stat.h>
-#include <fuse.h>
 #include <fuse/fuse_opt.h>
 #include <fuse/fuse_lowlevel.h>
 
-#ifdef HAVE_SETXATTR
-#include <sys/xattr.h>
-#endif
+#include <future>
+#include <random>
+#include <string>
+#include <memory>
+#include <sstream>
+#include <iostream>
+#include <exception>
+#include <functional>
 
 using namespace one;
 using namespace one::client;
@@ -62,134 +51,12 @@ using namespace std::placeholders;
 using namespace std::literals;
 using boost::filesystem::path;
 
-namespace {
-
-template <typename... Args1, typename... Args2>
-int wrap(int (FsLogic::*operation)(Args2...), Args1 &&... args)
+void initializeLogging(const char *name, bool debug)
 {
-    try {
-        FsLogic *fsLogic =
-            static_cast<FsLogic *>(fuse_get_context()->private_data);
-        return (fsLogic->*operation)(std::forward<Args1>(args)...);
-    }
-    catch (const OneException &e) {
-        LOG(ERROR) << "OneException: " << e.what();
-        return -EIO;
-    }
-    catch (...) {
-        std::array<void *, 64> trace;
-
-        const auto size = backtrace(trace.data(), trace.size());
-        std::unique_ptr<char *[]> strings {
-            backtrace_symbols(trace.data(), size)
-        };
-
-        LOG(ERROR) << "Unknown exception caught at the top level. Stacktrace: ";
-        for (auto i = 0; i < size; ++i)
-            LOG(ERROR) << strings[i];
-
-        return -EIO;
-    }
-}
-
-int wrap_access(const char *path, int mask)
-{
-    return wrap(&FsLogic::access, path, mask);
-}
-int wrap_getattr(const char *path, struct stat *statbuf)
-{
-    return wrap(&FsLogic::getattr, path, statbuf, true);
-}
-int wrap_readlink(const char *path, char *link, size_t size)
-{
-    return wrap(&FsLogic::readlink, path, link, size);
-}
-int wrap_mknod(const char *path, mode_t mode, dev_t dev)
-{
-    return wrap(&FsLogic::mknod, path, mode, dev);
-}
-int wrap_mkdir(const char *path, mode_t mode)
-{
-    return wrap(&FsLogic::mkdir, path, mode);
-}
-int wrap_unlink(const char *path) { return wrap(&FsLogic::unlink, path); }
-int wrap_rmdir(const char *path) { return wrap(&FsLogic::rmdir, path); }
-int wrap_symlink(const char *path, const char *link)
-{
-    return wrap(&FsLogic::symlink, path, link);
-}
-int wrap_rename(const char *path, const char *newpath)
-{
-    return wrap(&FsLogic::rename, path, newpath);
-}
-int wrap_chmod(const char *path, mode_t mode)
-{
-    return wrap(&FsLogic::chmod, path, mode);
-}
-int wrap_chown(const char *path, uid_t uid, gid_t gid)
-{
-    return wrap(&FsLogic::chown, path, uid, gid);
-}
-int wrap_truncate(const char *path, off_t newSize)
-{
-    return wrap(&FsLogic::truncate, path, newSize);
-}
-int wrap_utime(const char *path, struct utimbuf *ubuf)
-{
-    return wrap(&FsLogic::utime, path, ubuf);
-}
-int wrap_open(const char *path, struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::open, path, fileInfo);
-}
-int wrap_read(const char *path, char *buf, size_t size, off_t offset,
-    struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::read, path, buf, size, offset, fileInfo);
-}
-int wrap_write(const char *path, const char *buf, size_t size, off_t offset,
-    struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::write, path, buf, size, offset, fileInfo);
-}
-int wrap_statfs(const char *path, struct statvfs *statInfo)
-{
-    return wrap(&FsLogic::statfs, path, statInfo);
-}
-int wrap_flush(const char *path, struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::flush, path, fileInfo);
-}
-int wrap_release(const char *path, struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::release, path, fileInfo);
-}
-int wrap_fsync(const char *path, int datasync, struct fuse_file_info *fi)
-{
-    return wrap(&FsLogic::fsync, path, datasync, fi);
-}
-int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-    off_t offset, struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::readdir, path, buf, filler, offset, fileInfo);
-}
-int wrap_opendir(const char *path, struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::opendir, path, fileInfo);
-}
-int wrap_releasedir(const char *path, struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::releasedir, path, fileInfo);
-}
-int wrap_fsyncdir(
-    const char *path, int datasync, struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::fsyncdir, path, datasync, fileInfo);
-}
-
-void *init(struct fuse_conn_info *conn)
-{
-    return fuse_get_context()->private_data;
+    google::InitGoogleLogging(name);
+    FLAGS_alsologtostderr = debug;
+    FLAGS_logtostderr = debug;
+    FLAGS_stderrthreshold = debug ? 2 : 3;
 }
 
 std::string generateFuseID()
@@ -200,65 +67,107 @@ std::string generateFuseID()
     return std::to_string(fuseIdDistribution(randomEngine));
 }
 
-} // namespace
-
-static struct fuse_operations get_fuse_operations()
+std::string clientVersion()
 {
-    struct fuse_operations fuse_oper = {nullptr};
-
-    fuse_oper.init = init;
-    fuse_oper.getattr = wrap_getattr;
-    fuse_oper.access = wrap_access;
-    fuse_oper.readlink = wrap_readlink;
-    fuse_oper.readdir = wrap_readdir;
-    fuse_oper.mknod = wrap_mknod;
-    fuse_oper.mkdir = wrap_mkdir;
-    fuse_oper.symlink = wrap_symlink;
-    fuse_oper.unlink = wrap_unlink;
-    fuse_oper.rmdir = wrap_rmdir;
-    fuse_oper.rename = wrap_rename;
-    fuse_oper.chmod = wrap_chmod;
-    fuse_oper.chown = wrap_chown;
-    fuse_oper.truncate = wrap_truncate;
-    fuse_oper.open = wrap_open;
-    fuse_oper.read = wrap_read;
-    fuse_oper.write = wrap_write;
-    fuse_oper.statfs = wrap_statfs;
-    fuse_oper.release = wrap_release;
-    fuse_oper.fsync = wrap_fsync;
-    fuse_oper.utime = wrap_utime;
-    fuse_oper.flush = wrap_flush;
-    fuse_oper.opendir = wrap_opendir;
-    fuse_oper.releasedir = wrap_releasedir;
-    fuse_oper.fsyncdir = wrap_fsyncdir;
-
-    return fuse_oper;
+    std::stringstream stream;
+    stream << oneclient_VERSION_MAJOR << "." << oneclient_VERSION_MINOR << "."
+           << oneclient_VERSION_PATCH;
+    return stream.str();
 }
 
-int main(int argc, char *argv[], char *envp[])
+std::string fuseVersion()
 {
-    google::InitGoogleLogging(argv[0]);
+    std::stringstream stream;
+    stream << FUSE_MAJOR_VERSION << "." << FUSE_MINOR_VERSION;
+    return stream.str();
+}
 
-    // Create application context
+void printHelp(const char *name, std::shared_ptr<Options> options)
+{
+    std::cout << "Usage: " << name << " [options] mountpoint" << std::endl;
+    std::cout << options->describeCommandlineOptions() << std::endl;
+}
+
+void printVersions()
+{
+    std::cout << "oneclient version: " << clientVersion() << std::endl;
+    std::cout << "FUSE library version: " << fuseVersion() << std::endl;
+}
+
+void createScheduler(std::shared_ptr<Context> context)
+{
+    auto options = context->options();
+    const auto schedulerThreadsNo = options->get_jobscheduler_threads() > 1
+        ? options->get_jobscheduler_threads()
+        : 1;
+    context->setScheduler(std::make_shared<Scheduler>(schedulerThreadsNo));
+}
+
+std::shared_ptr<auth::AuthManager> createAuthManager(
+    std::shared_ptr<Context> context)
+{
+    auto options = context->options();
+    if (options->get_authentication() == "certificate") {
+        return std::make_shared<auth::CertificateAuthManager>(
+            std::move(context), options->get_provider_hostname(),
+            options->get_provider_port(), !options->get_no_check_certificate(),
+            options->get_debug_gsi());
+    }
+    else if (options->get_authentication() == "token") {
+        return std::make_shared<auth::TokenAuthManager>(std::move(context),
+            options->get_provider_hostname(), options->get_provider_port(),
+            !options->get_no_check_certificate(),
+            options->get_global_registry_url(),
+            options->get_global_registry_port());
+    }
+    else {
+        throw auth::AuthException{
+            "unknown authentication type: " + options->get_authentication()};
+    }
+}
+
+std::string handshake(std::shared_ptr<auth::AuthManager> authManager)
+{
+    const auto fuseId = generateFuseID();
+    auto handshakeHandler = [](auto) { return true; };
+
+    auto testCommunicator =
+        authManager->createCommunicator(1, fuseId, handshakeHandler,
+            communication::ConnectionPool::ErrorPolicy::propagate);
+
+    /// @todo boost::system::system_error throwed on host not found
+    auto futurePong =
+        testCommunicator->communicate<messages::Pong>(messages::Ping{}, 2);
+
+    futurePong.get(5s);
+
+    return fuseId;
+}
+
+std::shared_ptr<communication::Communicator> createCommunicator(
+    std::shared_ptr<auth::AuthManager> authManager,
+    std::shared_ptr<Context> context, std::string fuseId)
+{
+    auto handshakeHandler = [](auto) { return true; };
+    auto communicator = authManager->createCommunicator(3, fuseId,
+        handshakeHandler, communication::ConnectionPool::ErrorPolicy::ignore);
+    context->setCommunicator(communicator);
+    return communicator;
+}
+
+int main(int argc, char *argv[])
+{
     auto context = std::make_shared<Context>();
-
-    // Get configuration options
     auto options = std::make_shared<Options>();
     context->setOptions(options);
     try {
         const auto result = options->parseConfigs(argc, argv);
         if (result == Options::Result::HELP) {
-            std::cout << "Usage: " << argv[0] << " [options] mountpoint"
-                      << std::endl;
-            std::cout << options->describeCommandlineOptions() << std::endl;
+            printHelp(argv[0], std::move(options));
             return EXIT_SUCCESS;
         }
         if (result == Options::Result::VERSION) {
-            std::cout << "oneclient version: " << oneclient_VERSION_MAJOR << "."
-                      << oneclient_VERSION_MINOR << "."
-                      << oneclient_VERSION_PATCH << std::endl;
-            std::cout << "FUSE library version: " << FUSE_MAJOR_VERSION << "."
-                      << FUSE_MINOR_VERSION << std::endl;
+            printVersions();
             return EXIT_SUCCESS;
         }
     }
@@ -268,14 +177,43 @@ int main(int argc, char *argv[], char *envp[])
         return EXIT_FAILURE;
     }
 
-    LOG(INFO) << "oneclient version: " << oneclient_VERSION_MAJOR << "."
-              << oneclient_VERSION_MINOR << "." << oneclient_VERSION_PATCH
-              << std::endl;
+    initializeLogging(argv[0], options->get_debug());
+    createScheduler(context);
+
+    std::shared_ptr<auth::AuthManager> authManager;
+    try {
+        authManager = createAuthManager(context);
+    }
+    catch (auth::AuthException &e) {
+        std::cerr << "Authentication error: " << e.what() << std::endl;
+        std::cerr << "Cannot continue. Aborting" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    // Initialize cluster handshake in order to check if everything is ok before
+    // becoming daemon
+    std::string fuseId;
+    try {
+        /// @todo InvalidServerCertificate
+        /// @todo More specific errors.
+        /// @todo boost::system::system_error thrown on host not found
+        fuseId = handshake(authManager);
+    }
+    catch (OneException &exception) {
+        std::cerr << "Handshake error. Aborting" << std::endl;
+    }
+    catch (const communication::Exception &e) {
+        std::cerr << "Error: " << e.what() << ". Aborting." << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    auto communicator =
+        createCommunicator(authManager, context, std::move(fuseId));
 
     // FUSE main:
     struct fuse *fuse;
     struct fuse_chan *ch;
-    struct fuse_operations fuse_oper = get_fuse_operations();
+    struct fuse_operations fuse_oper = fuseOperations();
     char *mountpoint;
     int multithreaded;
     int foreground;
@@ -287,37 +225,6 @@ int main(int argc, char *argv[], char *envp[])
         return EXIT_FAILURE;
 
     ScopeExit freeMountpoint{[&] { free(mountpoint); }};
-
-    const auto schedulerThreadsNo = options->get_jobscheduler_threads() > 1
-        ? options->get_jobscheduler_threads()
-        : 1;
-    context->setScheduler(std::make_shared<Scheduler>(schedulerThreadsNo));
-
-    std::unique_ptr<auth::AuthManager> authManager;
-    try {
-        if (options->get_authentication() == "certificate") {
-            authManager = std::make_unique<auth::CertificateAuthManager>(
-                context, options->get_provider_hostname(),
-                options->get_provider_port(),
-                !options->get_no_check_certificate(), options->get_debug_gsi());
-        }
-        else if (options->get_authentication() == "token") {
-            authManager = std::make_unique<auth::TokenAuthManager>(context,
-                options->get_provider_hostname(), options->get_provider_port(),
-                !options->get_no_check_certificate(),
-                options->get_global_registry_url(),
-                options->get_global_registry_port());
-        }
-        else {
-            throw auth::AuthException{"unknown authentication type: " +
-                options->get_authentication()};
-        }
-    }
-    catch (auth::AuthException &e) {
-        std::cerr << "Authentication error: " << e.what() << std::endl;
-        std::cerr << "Cannot continue. Aborting" << std::endl;
-        return EXIT_FAILURE;
-    }
 
     ch = fuse_mount(mountpoint, &args);
     if (!ch)
@@ -343,32 +250,6 @@ int main(int argc, char *argv[], char *envp[])
     ScopeExit removeHandlers{
         [&] { fuse_remove_signal_handlers(fuse_get_session(fuse)); }};
 
-    // Initialize cluster handshake in order to check if everything is ok before
-    // becoming daemon
-    const auto fuseId = generateFuseID();
-    auto handshakeHandler = [](auto) { return true; };
-
-    auto testCommunicator =
-        authManager->createCommunicator(1, fuseId, handshakeHandler,
-            communication::ConnectionPool::ErrorPolicy::propagate);
-
-    testCommunicator->connect();
-
-    try {
-        /// @todo boost::system::system_error throwed on host not found
-        auto futurePong =
-            testCommunicator->communicate<messages::Pong>(messages::Ping{}, 2);
-
-        futurePong.get(5s);
-    }
-    catch (const communication::Exception &e) {
-        std::cerr << "Error: " << e.what() << ". Aborting." << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    // cleanup test connections
-    testCommunicator.reset();
-
     std::cout << "oneclient has been successfully mounted in " << mountpoint
               << std::endl;
 
@@ -387,10 +268,7 @@ int main(int argc, char *argv[], char *envp[])
         context->scheduler()->restartAfterDaemonize();
     }
 
-    testCommunicator = authManager->createCommunicator(3, fuseId,
-        handshakeHandler, communication::ConnectionPool::ErrorPolicy::ignore);
-
-    testCommunicator->connect();
+    communicator->connect();
 
     // Enter FUSE loop
     res = multithreaded ? fuse_loop_mt(fuse) : fuse_loop(fuse);

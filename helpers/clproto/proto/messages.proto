@@ -1,27 +1,55 @@
 /**
- * Generic server message.
- * This file should contain all messages that can be send from the server to the
- * client.
+ * Generic client and server messages.
+ * This file should contain all messages that can be sent between the client and
+ * the server.
  * @author Krzysztof Trzepla
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
+
 package one.clproto;
 
-import "common_messages.proto";
 import "event_messages.proto";
+import "common_messages.proto";
 import "stream_messages.proto";
 import "handshake_messages.proto";
 import "diagnostic_messages.proto";
 
+// Messages that can be sent by the client to the server.
+message ClientMessage {
+    optional bytes         message_id     = 1; // should be set when response is
+    // expected
+    optional MessageStream message_stream = 2; // identifies message as part of
+    // a stream
+    oneof message_body { // list of messages that can be sent from
+        // the client to the server
+        // handshake_messages.proto
+        HandshakeRequest   handshake_request    = 3;
+
+        // common_messages.proto
+        Status             status               = 4;
+
+        // event_messages.proto
+        Event              event                = 5;
+
+        // diagnostic_messages.proto
+        Ping               ping                 = 6;
+        GetProtocolVersion get_protocol_version = 7;
+
+        // stream_messages.proto
+        EndOfMessageStream end_of_stream        = 8;
+    }
+}
+
+// Messages that can be sent by the server to the client.
 message ServerMessage {
     optional bytes         message_id     = 1; // should be set when respons is
-                                               // expected
+    // expected
     optional MessageStream message_stream = 2; // identifies message as part of
-                                               // a stream
+    // a stream
     oneof message_body { // list of messages that can be sent from
-                         // the server to the client
+        // the server to the client
         // handshake_messages.proto
         HandshakeResponse      handshake_response      = 3;
 

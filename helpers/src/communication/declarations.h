@@ -12,8 +12,7 @@
 
 // ClientMessage and ServerMessage are not forward-declared, because it's to be
 // used from header-only communication classes.
-#include "client_messages.pb.h"
-#include "server_messages.pb.h"
+#include "messages.pb.h"
 
 #include <memory>
 

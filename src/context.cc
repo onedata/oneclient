@@ -1,10 +1,10 @@
 /**
-* @file context.cc
-* @author Konrad Zemek
-* @copyright (C) 2014 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file context.cc
+ * @author Konrad Zemek
+ * @copyright (C) 2014 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #include "context.h"
 
@@ -13,6 +13,7 @@
 
 namespace one {
 namespace client {
+
 std::shared_ptr<Options> Context::options() const
 {
     std::shared_lock<std::shared_timed_mutex> lock{m_optionsMutex};
@@ -36,5 +37,19 @@ void Context::setScheduler(std::shared_ptr<Scheduler> scheduler)
     std::lock_guard<std::shared_timed_mutex> guard{m_schedulerMutex};
     m_scheduler = std::move(scheduler);
 }
+
+std::shared_ptr<communication::Communicator> Context::communicator() const
+{
+    std::shared_lock<std::shared_timed_mutex> lock{m_communicatorMutex};
+    return m_communicator;
 }
+
+void Context::setCommunicator(
+    std::shared_ptr<communication::Communicator> communicator)
+{
+    std::lock_guard<std::shared_timed_mutex> guard{m_communicatorMutex};
+    m_communicator = std::move(communicator);
 }
+
+} // namespace client
+} // namespace one

@@ -8,13 +8,18 @@
 
 #include "messages/messageStreamReset.h"
 
-#include "server_messages.pb.h"
+#include "messages.pb.h"
 
 namespace one {
 namespace messages {
 
 MessageStreamReset::MessageStreamReset(std::unique_ptr<ProtocolServerMessage>)
 {
+}
+
+std::string MessageStreamReset::toString() const
+{
+    return "type : 'MessageStreamReset'";
 }
 
 } // namespace messages

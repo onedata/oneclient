@@ -81,8 +81,11 @@ StreamManager<Communicator>::StreamManager(
     auto callback = [this](const clproto::ServerMessage &msg) {
         if (msg.has_message_request())
             handleMessageRequest(msg.message_request());
-        if (msg.has_message_acknowledgement())
+        else if (msg.has_message_acknowledgement())
             handleMessageAcknowledgement(msg.message_acknowledgement());
+        else if (msg.has_message_stream_reset()) {
+            reset();
+        }
     };
 
     m_unsubscribe = m_communicator->subscribe(

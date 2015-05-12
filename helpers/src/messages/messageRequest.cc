@@ -8,7 +8,9 @@
 
 #include "messages/messageRequest.h"
 
-#include "server_messages.pb.h"
+#include "messages.pb.h"
+
+#include <sstream>
 
 namespace one {
 namespace messages {
@@ -32,6 +34,15 @@ uint64_t MessageRequest::lowerSequenceNumber() const
 uint64_t MessageRequest::upperSequenceNumber() const
 {
     return m_upperSequenceNumber;
+}
+
+std::string MessageRequest::toString() const
+{
+    std::stringstream stream;
+    stream << "type: 'MessageRequest', stream ID: " << m_streamId
+           << ", lower sequence number: " << m_lowerSequenceNumber
+           << ", upper sequence number: " << m_upperSequenceNumber;
+    return stream.str();
 }
 
 } // namespace messages

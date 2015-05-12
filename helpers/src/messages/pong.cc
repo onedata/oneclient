@@ -8,7 +8,7 @@
 
 #include "messages/pong.h"
 
-#include "server_messages.pb.h"
+#include "messages.pb.h"
 
 namespace one {
 namespace messages {
@@ -20,6 +20,8 @@ Pong::Pong(std::unique_ptr<ProtocolServerMessage> serverMessage)
 }
 
 const boost::optional<std::string> &Pong::data() const { return m_data; }
+
+std::string Pong::toString() const { return "type: 'Pong'"; }
 
 } // namespace messages
 } // namespace one

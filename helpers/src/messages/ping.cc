@@ -8,7 +8,7 @@
 
 #include "messages/ping.h"
 
-#include "client_messages.pb.h"
+#include "messages.pb.h"
 
 namespace one {
 namespace messages {
@@ -18,11 +18,13 @@ Ping::Ping(std::string data)
 {
 }
 
+std::string Ping::toString() const { return "type: 'Ping'"; }
+
 std::unique_ptr<ProtocolClientMessage> Ping::serialize() const
 {
     auto clientMsg = std::make_unique<ProtocolClientMessage>();
     auto ping = clientMsg->mutable_ping();
-    if(m_data)
+    if (m_data)
         ping->set_data(m_data.get());
 
     return clientMsg;

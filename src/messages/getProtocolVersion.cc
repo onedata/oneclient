@@ -8,10 +8,15 @@
 
 #include "messages/getProtocolVersion.h"
 
-#include "client_messages.pb.h"
+#include "messages.pb.h"
 
 namespace one {
 namespace messages {
+
+std::string GetProtocolVersion::toString() const
+{
+    return "type: 'GetProtocolVersion'";
+}
 
 std::unique_ptr<ProtocolClientMessage> GetProtocolVersion::serialize() const
 {

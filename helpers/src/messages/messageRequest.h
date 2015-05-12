@@ -1,32 +1,33 @@
 /**
-* @file handshakeResponse.h
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file handshakeResponse.h
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef HELPERS_MESSAGES_MESSAGE_REQUEST_H
 #define HELPERS_MESSAGES_MESSAGE_REQUEST_H
 
-#include "messages/serverMessage.h"
+#include "serverMessage.h"
 
 #include <memory>
+#include <string>
 
 namespace one {
 namespace messages {
 
 /**
-* The MessageRequest class represents a message that is sent by the server to
-* request retransmission of stream messages.
-*/
+ * The MessageRequest class represents a message that is sent by the server to
+ * request retransmission of stream messages.
+ */
 class MessageRequest : public ServerMessage {
 public:
     /**
-    * Constructor.
-    * @param serverMessage Protocol Buffers message representing @c
-    * MessageRequest counterpart.
-    */
+     * Constructor.
+     * @param serverMessage Protocol Buffers message representing @c
+     * MessageRequest counterpart.
+     */
     MessageRequest(std::unique_ptr<ProtocolServerMessage> serverMessage);
 
     /**
@@ -45,6 +46,8 @@ public:
      * messages.
      */
     uint64_t upperSequenceNumber() const;
+
+    virtual std::string toString() const override;
 
 private:
     uint64_t m_streamId;

@@ -8,10 +8,12 @@
 
 #include "messages/endOfStream.h"
 
-#include "client_messages.pb.h"
+#include "messages.pb.h"
 
 namespace one {
 namespace messages {
+
+std::string EndOfStream::toString() const { return "type: 'EndOfStream'"; }
 
 std::unique_ptr<ProtocolClientMessage> EndOfStream::serialize() const
 {

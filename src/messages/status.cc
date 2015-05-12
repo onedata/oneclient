@@ -8,10 +8,11 @@
 
 #include "messages/status.h"
 
-#include "client_messages.pb.h"
-#include "server_messages.pb.h"
+#include "messages.pb.h"
 
 #include <boost/bimap.hpp>
+
+#include <sstream>
 
 namespace {
 
@@ -95,6 +96,24 @@ Status::Status(std::unique_ptr<ProtocolServerMessage> serverMessage)
         m_description = statusMsg.description();
 }
 
+Status::Code Status::code() const { return m_code; }
+
+const boost::optional<std::string> &Status::description() const
+{
+    return m_description;
+}
+
+std::string Status::toString() const
+{
+    std::stringstream stream;
+    stream << "type: 'Status', code: " << m_code << ", description: ";
+    if (m_description)
+        stream << "'" << m_description.get() << "'";
+    else
+        stream << "'undefined'";
+    return stream.str();
+}
+
 std::unique_ptr<ProtocolClientMessage> Status::serialize() const
 {
     auto clientMsg = std::make_unique<ProtocolClientMessage>();
@@ -114,11 +133,32 @@ std::unique_ptr<ProtocolClientMessage> Status::serialize() const
     return clientMsg;
 }
 
-Status::Code Status::code() const { return m_code; }
+struct CodeHash {
+    template <typename T> std::size_t operator()(T t) const
+    {
+        return static_cast<std::size_t>(t);
+    }
+};
 
-const boost::optional<std::string> &Status::description() const
+std::ostream &operator<<(std::ostream &stream, Status::Code code)
 {
-    return m_description;
+    const static std::unordered_map<Status::Code, std::string,
+        CodeHash> stringByCode = {{Status::Code::ok, "OK"},
+        {Status::Code::enoent, "ENOENT"}, {Status::Code::eacces, "EACCESS"},
+        {Status::Code::eexist, "EEXISTS"}, {Status::Code::eio, "EIO"},
+        {Status::Code::enotsup, "ENOTSUP"},
+        {Status::Code::enotempty, "ENOTEMPTY"}, {Status::Code::ecomm, "ECOMM"},
+        {Status::Code::eremoteio, "EREMOTEIO"}, {Status::Code::eperm, "EPERM"},
+        {Status::Code::einval, "EINVAL"}, {Status::Code::edquot, "EDQUOT"},
+        {Status::Code::enoattr, "ENOATTR"}};
+
+    auto searchResult = stringByCode.find(code);
+    if (searchResult != stringByCode.end())
+        stream << searchResult->second;
+    else
+        stream << "EREMOTEIO";
+
+    return stream;
 }
 
 } // namespace messages

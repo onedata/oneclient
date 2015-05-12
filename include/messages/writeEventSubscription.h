@@ -11,24 +11,22 @@
 
 #include "messages/serverMessage.h"
 
+#include <boost/optional.hpp>
+
 #include <chrono>
 #include <memory>
-#include <cstdint>
+#include <string>
+#include <cstddef>
 
 namespace one {
 namespace client {
 namespace events {
 
-class WriteEvent;
-template <class EventType> class EventStream;
-
 /**
-* The WriteEventSubscription class represents write event subscription request
-* sent by the server.
-*/
+ * The WriteEventSubscription class represents write event subscription request
+ * sent by the server.
+ */
 class WriteEventSubscription : public one::messages::ServerMessage {
-    friend class events::EventStream<events::WriteEvent>;
-
 public:
     /**
      * Constructor.
@@ -36,7 +34,7 @@ public:
      * WriteEventSubscription counterpart.
      */
     WriteEventSubscription(
-        std::unique_ptr<messages::ProtocolServerMessage> serverMessage);
+        const messages::ProtocolServerMessage &serverMessage);
 
     /**
      * Constructor.
@@ -47,16 +45,36 @@ public:
      * events emissions.
      * @param sizeThreshold Maximal number of read bytes before emission
      */
-    WriteEventSubscription(uint64_t id, size_t counterThreshold,
-                           std::chrono::milliseconds timeThreshold,
-                           size_t sizeThreshold);
+    WriteEventSubscription(uint64_t id, std::size_t counterThreshold,
+        std::chrono::milliseconds timeThreshold, std::size_t sizeThreshold);
+
+    /**
+     * @return @c Subscription's id.
+     */
+    uint64_t id() const;
+
+    /**
+     * @return Counter threshold of subscription.
+     */
+    const boost::optional<std::size_t> &counterThreshold() const;
+
+    /**
+     * @return Time threshold of subscription.
+     */
+    const boost::optional<std::chrono::milliseconds> &timeThreshold() const;
+
+    /**
+     * @return Size threshold of subscription.
+     */
+    const boost::optional<std::size_t> &sizeThreshold() const;
+
+    virtual std::string toString() const override;
 
 private:
     uint64_t m_id;
-    size_t m_counterThreshold = SIZE_MAX;
-    std::chrono::milliseconds m_timeThreshold =
-        std::chrono::milliseconds::max();
-    size_t m_sizeThreshold = SIZE_MAX;
+    boost::optional<std::size_t> m_counterThreshold;
+    boost::optional<std::chrono::milliseconds> m_timeThreshold;
+    boost::optional<std::size_t> m_sizeThreshold;
 };
 
 } // namespace events

@@ -1,15 +1,15 @@
 /**
-* @file handshakeRequest.h
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file handshakeRequest.h
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef HELPERS_MESSAGES_HANDSHAKE_REQUEST_H
 #define HELPERS_MESSAGES_HANDSHAKE_REQUEST_H
 
-#include "messages/clientMessage.h"
+#include "clientMessage.h"
 
 #include <boost/optional.hpp>
 
@@ -20,9 +20,9 @@ namespace one {
 namespace messages {
 
 /**
-* The HandshakeRequest class represents a message that is sent by the client to
-* establish session.
-*/
+ * The HandshakeRequest class represents a message that is sent by the client to
+ * establish session.
+ */
 class HandshakeRequest : public ClientMessage {
 public:
     /**
@@ -37,6 +37,8 @@ public:
      * @param token Access token used to established session
      */
     HandshakeRequest(std::string sessionId, std::string token);
+
+    virtual std::string toString() const override;
 
     virtual std::unique_ptr<ProtocolClientMessage> serialize() const override;
 
