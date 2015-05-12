@@ -1,10 +1,10 @@
 /**
-* @file eventStream.h
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file eventStream.h
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef ONECLIENT_EVENTS_STREAMS_EVENT_STREAM_H
 #define ONECLIENT_EVENTS_STREAMS_EVENT_STREAM_H
