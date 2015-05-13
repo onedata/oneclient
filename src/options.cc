@@ -129,7 +129,7 @@ void Options::parseConfigs(const int argc, const char *const argv[])
         parseGlobalConfig(fileConfigMap);
     }
     catch (boost::program_options::error &e) {
-        LOG(ERROR) << "Error while parsing global configuration file:"
+        LOG(ERROR) << "Error while parsing global configuration file: "
                    << e.what();
         throw OneException("", e.what());
     }
@@ -198,10 +198,11 @@ void Options::parseUserConfig(variables_map &fileConfigMap)
     std::ifstream userConfig(userConfigPath.c_str());
 
     if (userConfig)
-        LOG(INFO) << "Parsing user configuration file " << userConfigPath;
+        LOG(INFO) << "Parsing user configuration file: '" << userConfigPath
+                  << "'";
     else
-        LOG(WARNING) << "Couldn't open user configuration file "
-                     << userConfigPath;
+        LOG(WARNING) << "Couldn't open user configuration file: '"
+                     << userConfigPath << "'";
 
     store(parse_config_file(userConfig, m_common), fileConfigMap);
 }
@@ -218,10 +219,11 @@ void Options::parseGlobalConfig(variables_map &fileConfigMap)
     std::ifstream globalConfig(globalConfigPath.c_str());
 
     if (globalConfig)
-        LOG(INFO) << "Parsing global configuration file " << globalConfigPath;
+        LOG(INFO) << "Parsing global configuration file: '" << globalConfigPath
+                  << "'";
     else
-        LOG(WARNING) << "Couldn't open global configuration file "
-                     << globalConfigPath;
+        LOG(WARNING) << "Couldn't open global configuration file: '"
+                     << globalConfigPath << "'";
 
     store(parse_config_file(globalConfig, global), fileConfigMap);
 }
@@ -230,7 +232,8 @@ std::string Options::mapEnvNames(std::string env) const
 {
     boost::algorithm::to_lower(env);
     if (m_common.find_nothrow(env, false) && m_vm.count(env) == 0) {
-        LOG(INFO) << "Using environment configuration variable " << env;
+        LOG(INFO) << "Using environment configuration variable: '" << env
+                  << "'";
         return env;
     }
 
