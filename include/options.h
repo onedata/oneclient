@@ -1,10 +1,10 @@
 /**
-* @file options.h
-* @author Konrad Zemek
-* @copyright (C) 2014 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file options.h
+ * @author Konrad Zemek
+ * @copyright (C) 2014 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef ONECLIENT_OPTIONS_H
 #define ONECLIENT_OPTIONS_H

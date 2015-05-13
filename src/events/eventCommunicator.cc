@@ -1,14 +1,15 @@
 /**
-* @file eventCommunicator.cc
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file eventCommunicator.cc
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
+
+#include "events/eventCommunicator.h"
 
 #include "context.h"
 #include "events/types/event.h"
-#include "events/eventCommunicator.h"
 
 namespace one {
 namespace client {

@@ -1,14 +1,14 @@
 /**
-* @file readEvent.cc
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file readEvent.cc
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
-#include "events/eventStream.h"
 #include "events/types/readEvent.h"
 
+#include "events/eventStream.h"
 #include "messages.pb.h"
 
 #include <sstream>

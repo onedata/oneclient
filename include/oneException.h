@@ -1,10 +1,10 @@
 /**
-* @file oneException.h
-* @author Rafal Slota
-* @copyright (C) 2013 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file oneException.h
+ * @author Rafal Slota
+ * @copyright (C) 2013 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef ONECLIENT_ONEEXCEPTION_H
 #define ONECLIENT_ONEEXCEPTION_H
@@ -21,24 +21,24 @@ namespace client {
 class OneException : public std::exception {
 public:
     /**
-    * Constructor.
-    * @param code POSIX error code.
-    * @param message Error description.
-    */
+     * Constructor.
+     * @param code POSIX error code.
+     * @param message Error description.
+     */
     OneException(const std::string &code, const std::string &message = "");
 
     virtual ~OneException() = default;
 
     /**
-    * Returns error description.
-    * @return Error description.
-    */
+     * Returns error description.
+     * @return Error description.
+     */
     const char *what() const noexcept;
 
     /**
-    * Returns POSIX error code.
-    * @return Error code.
-    */
+     * Returns POSIX error code.
+     * @return Error code.
+     */
     std::string code() const;
 
 private:

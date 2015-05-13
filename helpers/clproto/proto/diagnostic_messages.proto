@@ -9,9 +9,11 @@
 package one.clproto;
 
 message Ping {
+  optional bytes data = 1;
 }
 
 message Pong {
+  optional bytes data = 1;
 }
 
 message GetProtocolVersion {

@@ -1,14 +1,15 @@
 /**
-* @file fsOperations.cc
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file fsOperations.cc
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
+
+#include "fsOperations.h"
 
 #include "fsLogic.h"
 #include "logging.h"
-#include "fsOperations.h"
 #include "oneException.h"
 
 #include <boost/asio/buffer.hpp>

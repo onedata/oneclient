@@ -26,7 +26,7 @@ foreach(TEST_DIR ${TEST_DIRS})
         LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/${TEST_DIR}
         BUILD_WITH_INSTALL_RPATH true
         INSTALL_RPATH_USE_LINK_PATH true
-        INSTALL_RPATH "\$ORIGIN/..")
+        INSTALL_RPATH "\$ORIGIN/../..")
 
     target_link_libraries(${TEST_NAME}
         clientShared

@@ -7,9 +7,8 @@
  */
 
 #include "context.h"
+#include "communication/connection.h"
 #include "communication/communicator.h"
-
-#include "scheduler_mock.h"
 #include "eventStream_mock.h"
 #include "eventCommunicator_mock.h"
 #include "events/eventStream.h"
@@ -19,6 +18,7 @@
 #include "events/aggregators/nullAggregator.h"
 #include "events/aggregators/fileIdAggregator.h"
 #include "messages/readEventSubscription.h"
+#include "scheduler_mock.h"
 
 #include <gtest/gtest.h>
 #include <boost/icl/interval_set.hpp>
@@ -60,12 +60,13 @@ protected:
     std::shared_ptr<Communicator> communicator;
     std::shared_ptr<MockScheduler> scheduler;
     std::shared_ptr<MockEventCommunicator> eventCommunicator;
+    std::shared_ptr<MockEventStream<ReadEvent>> stream;
 
     StreamTest()
     {
         context = std::make_shared<Context>();
-        communicator =
-            std::make_shared<Communicator>(1, "localhost", "80", false);
+        communicator = std::make_shared<Communicator>(
+            1, "localhost", "80", false, communication::createConnection);
         scheduler = std::make_shared<MockScheduler>();
         context->setCommunicator(communicator);
         context->setScheduler(scheduler);
@@ -74,10 +75,12 @@ protected:
             .WillByDefault(WithArgs<0>(
                 Invoke([](const std::function<void()> &task) { task(); })));
         EXPECT_CALL(*scheduler, schedule(_, _)).WillRepeatedly(Return([] {}));
+        stream = std::make_shared<MockEventStream<ReadEvent>>(
+            context, eventCommunicator);
     }
 };
 
-TEST_F(AggregatorTest, NullEventTest)
+TEST_F(AggregatorTest, nullAggregatorShouldAggregateEvents)
 {
     std::unique_ptr<Aggregator<ReadEvent>> aggregator =
         std::make_unique<NullAggregator<ReadEvent>>();
@@ -89,7 +92,7 @@ TEST_F(AggregatorTest, NullEventTest)
     EXPECT_TRUE(aggregator->reset().empty());
 }
 
-TEST_F(AggregatorTest, FileIdReadEventEventTest)
+TEST_F(AggregatorTest, fileIdAggregatorShouldAggregateReadEvents)
 {
     std::unique_ptr<Aggregator<ReadEvent>> aggregator =
         std::make_unique<FileIdAggregator<ReadEvent>>();
@@ -117,6 +120,17 @@ TEST_F(AggregatorTest, FileIdReadEventEventTest)
     EXPECT_EQ(4, aggregatedEvent4.counter());
     EXPECT_EQ(30, aggregatedEvent4.size());
     EXPECT_EQ(aggregatedEvent4, aggregator->all());
+}
+
+TEST_F(AggregatorTest, fileIdAggregatorShouldReturnListOfAggregatedReadEvents)
+{
+    std::unique_ptr<Aggregator<ReadEvent>> aggregator =
+        std::make_unique<FileIdAggregator<ReadEvent>>();
+
+    aggregator->aggregate(ReadEvent{"fileId1", 0, 10});
+    aggregator->aggregate(ReadEvent{"fileId1", 10, 5});
+    aggregator->aggregate(ReadEvent{"fileId2", 0, 5});
+    aggregator->aggregate(ReadEvent{"fileId3", 0, 10});
 
     std::vector<ReadEvent> aggregatedEvents = aggregator->reset();
     std::sort(aggregatedEvents.begin(), aggregatedEvents.end(),
@@ -145,7 +159,7 @@ TEST_F(AggregatorTest, FileIdReadEventEventTest)
     EXPECT_EQ(aggregatedEvents, aggregator->reset());
 }
 
-TEST_F(AggregatorTest, FileIdWriteEventEventTest)
+TEST_F(AggregatorTest, fileIdAggregatorShouldAggregateWriteEvents)
 {
     std::unique_ptr<Aggregator<WriteEvent>> aggregator =
         std::make_unique<FileIdAggregator<WriteEvent>>();
@@ -182,6 +196,18 @@ TEST_F(AggregatorTest, FileIdWriteEventEventTest)
     EXPECT_EQ(5, aggregatedEvent5.counter());
     EXPECT_EQ(30, aggregatedEvent5.size());
     EXPECT_EQ(aggregatedEvent5, aggregator->all());
+}
+
+TEST_F(AggregatorTest, fileIdAggregatorShouldReturnListOfAggregatedWriteEvents)
+{
+    std::unique_ptr<Aggregator<WriteEvent>> aggregator =
+        std::make_unique<FileIdAggregator<WriteEvent>>();
+
+    aggregator->aggregate(WriteEvent{"fileId1", 0, 10, 10});
+    aggregator->aggregate(WriteEvent{"fileId1", 10, 5, 15});
+    aggregator->aggregate(TruncateEvent{"fileId1", 10});
+    aggregator->aggregate(WriteEvent{"fileId2", 0, 5, 5});
+    aggregator->aggregate(WriteEvent{"fileId2", 0, 10, 10});
 
     std::vector<WriteEvent> aggregatedEvents = aggregator->reset();
     std::sort(aggregatedEvents.begin(), aggregatedEvents.end(),
@@ -206,12 +232,8 @@ TEST_F(AggregatorTest, FileIdWriteEventEventTest)
     EXPECT_EQ(aggregatedEvents, aggregator->reset());
 }
 
-TEST_F(StreamTest, CounterThresholdEmission)
+TEST_F(StreamTest, eventStreamShouldEmitEventsAfterCounterThresholdExcess)
 {
-    std::shared_ptr<MockEventStream<ReadEvent>> stream =
-        std::make_shared<MockEventStream<ReadEvent>>(
-            context, eventCommunicator);
-
     EXPECT_CALL(*eventCommunicator, send(_))
         .WillOnce(Invoke([](const Event &event) {
             const ReadEvent &readEvent = static_cast<const ReadEvent &>(event);
@@ -235,12 +257,8 @@ TEST_F(StreamTest, CounterThresholdEmission)
     stream->pushAsync(ReadEvent{"fileId", 0, 100});
 }
 
-TEST_F(StreamTest, TimeThresholdEmission)
+TEST_F(StreamTest, eventStreamShouldEmitEventsAfterTimeThresholdExcess)
 {
-    std::shared_ptr<MockEventStream<ReadEvent>> stream =
-        std::make_shared<MockEventStream<ReadEvent>>(
-            context, eventCommunicator);
-
     EXPECT_CALL(*eventCommunicator, send(_))
         .WillOnce(Invoke([](const Event &event) {
             const ReadEvent &readEvent = static_cast<const ReadEvent &>(event);
@@ -262,12 +280,8 @@ TEST_F(StreamTest, TimeThresholdEmission)
     stream->removeSubscriptionAsync(subscription);
 }
 
-TEST_F(StreamTest, SizeThresholdEmission)
+TEST_F(StreamTest, eventStreamShouldEmitEventsAfterSizeThresholdExcess)
 {
-    std::shared_ptr<MockEventStream<ReadEvent>> stream =
-        std::make_shared<MockEventStream<ReadEvent>>(
-            context, eventCommunicator);
-
     EXPECT_CALL(*eventCommunicator, send(_))
         .WillOnce(Invoke([](const Event &event) {
             const ReadEvent &readEvent = static_cast<const ReadEvent &>(event);

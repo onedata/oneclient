@@ -1,10 +1,10 @@
 /**
-* @file main.cc
-* @author Rafal Slota
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file main.cc
+ * @author Rafal Slota
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -15,24 +15,26 @@
 #define _XOPEN_SOURCE 700
 #endif
 
-#include "shMock.h"
-#include "fsLogic.h"
-#include "context.h"
-#include "version.h"
-#include "options.h"
-#include "scheduler.h"
-#include "scopeExit.h"
-#include "fsOperations.h"
-#include "oneException.h"
 #include "auth/authManager.h"
 #include "auth/authException.h"
-#include "events/eventManager.h"
+#include "context.h"
 #include "communication/exception.h"
+#include "events/eventManager.h"
+#include "fsLogic.h"
+#include "fsOperations.h"
+#include "logging.h"
 #include "messages/handshakeResponse.h"
 #include "messages/ping.h"
 #include "messages/pong.h"
+#include "options.h"
+#include "oneException.h"
+#include "scopeExit.h"
+#include "scheduler.h"
+#include "shMock.h"
+#include "version.h"
 
-#include <glog/logging.h>
+#include <fuse/fuse_opt.h>
+#include <fuse/fuse_lowlevel.h>
 
 #include <future>
 #include <random>
@@ -42,8 +44,6 @@
 #include <iostream>
 #include <exception>
 #include <functional>
-#include <fuse/fuse_opt.h>
-#include <fuse/fuse_lowlevel.h>
 
 using namespace one;
 using namespace one::client;

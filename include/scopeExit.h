@@ -1,10 +1,10 @@
 /**
-* @file scopeExit.h
-* @author Konrad Zemek
-* @copyright (C) 2014 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file scopeExit.h
+ * @author Konrad Zemek
+ * @copyright (C) 2014 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef ONECLIENT_SCOPE_EXIT_H
 #define ONECLIENT_SCOPE_EXIT_H
@@ -15,17 +15,17 @@ namespace one {
 namespace client {
 
 /**
-* The ScopeExit class ensures that a given function will be triggered at
-* the end of the scope in which ScopeExit object is created.
-*/
+ * The ScopeExit class ensures that a given function will be triggered at
+ * the end of the scope in which ScopeExit object is created.
+ */
 class ScopeExit {
 public:
     /**
-    * Constructor.
-    * @param f The function to execute at scope exit.
-    * @param after A reference to @c ScopeExit object that should be triggered
-    * before this one.
-    */
+     * Constructor.
+     * @param f The function to execute at scope exit.
+     * @param after A reference to @c ScopeExit object that should be triggered
+     * before this one.
+     */
     ScopeExit(std::function<void()> f, ScopeExit &after)
         : m_f{std::move(f)}
         , m_after{&after}
@@ -33,18 +33,18 @@ public:
     }
 
     /**
-    * Constructor.
-    * @param f The function to execute at scope exit.
-    */
+     * Constructor.
+     * @param f The function to execute at scope exit.
+     */
     ScopeExit(std::function<void()> f)
         : m_f{std::move(f)}
     {
     }
 
     /**
-    * Destructor. Ensures that preconditions (functions triggered before)
-    * and postconditions (function triggered) are met.
-    */
+     * Destructor. Ensures that preconditions (functions triggered before)
+     * and postconditions (function triggered) are met.
+     */
     ~ScopeExit()
     {
         if (m_after)
