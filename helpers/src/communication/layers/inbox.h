@@ -71,7 +71,7 @@ public:
      */
     auto connect();
 
-    void setOnMessageCallback(const clproto::ServerMessage &) = delete;
+    void setOnMessageCallback(std::function<void(ServerMessagePtr)>) = delete;
 
 private:
     tbb::concurrent_hash_map<std::string,
@@ -139,9 +139,9 @@ template <class LowerLayer> auto Inbox<LowerLayer>::connect()
                 sub.callback(*message);
 
         if (handled) {
-            auto promise = std::move(*acc->second);
+            auto promise = std::move(acc->second);
             m_promises.erase(acc);
-            promise.set_value(std::move(message));
+            promise->set_value(std::move(message));
         }
     });
 

@@ -1,10 +1,10 @@
 /**
-* @file readEventSubscription.h
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file readEventSubscription.h
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef ONECLIENT_MESSAGES_READ_EVENT_SUBSCRIPTION_H
 #define ONECLIENT_MESSAGES_READ_EVENT_SUBSCRIPTION_H
@@ -23,9 +23,9 @@ namespace client {
 namespace events {
 
 /**
-* The ReadEventSubscription class represents read event subscription request
-* sent by the server.
-*/
+ * The ReadEventSubscription class represents read event subscription request
+ * sent by the server.
+ */
 class ReadEventSubscription : public one::messages::ServerMessage {
 public:
     /**

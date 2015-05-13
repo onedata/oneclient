@@ -1,25 +1,23 @@
 /**
-* @file eventManager.cc
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
-
-#include "context.h"
-#include "logging.h"
-#include "communication/subscriptionData.h"
+ * @file eventManager.cc
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #include "events/eventManager.h"
+
+#include "context.h"
+#include "communication/subscriptionData.h"
 #include "events/types/readEvent.h"
 #include "events/types/writeEvent.h"
 #include "events/types/truncateEvent.h"
-
+#include "logging.h"
+#include "messages.pb.h"
 #include "messages/readEventSubscription.h"
 #include "messages/writeEventSubscription.h"
 #include "messages/eventSubscriptionCancellation.h"
-
-#include "messages.pb.h"
 
 namespace one {
 namespace client {
