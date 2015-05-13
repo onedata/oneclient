@@ -62,8 +62,7 @@ void Options::setDescriptions()
     add_authentication(m_common);
 
     // Restricted options exclusive to global config file
-    m_restricted.add_options()(
-        "enable_env_option_override", value<bool>()->default_value(true));
+    add_enable_env_option_override(m_restricted);
     add_cluster_ping_interval(m_restricted);
     add_alive_meta_connections_count(m_restricted);
     add_alive_data_connections_count(m_restricted);
@@ -74,9 +73,9 @@ void Options::setDescriptions()
     add_file_buffer_prefered_block_size(m_restricted);
 
     // General commandline options
-    m_commandline.add_options()("help,h", "print help")(
-        "version,V", "print version")(
-        "config", value<std::string>(), "path to user config file");
+    add_switch_help(m_commandline);
+    add_switch_version(m_commandline);
+    add_config(m_commandline);
     add_authentication(m_commandline);
     add_switch_debug(m_commandline);
     add_switch_debug_gsi(m_commandline);
@@ -92,15 +91,14 @@ void Options::setDescriptions()
     m_hidden.add_options()("mountpoint", value<std::string>(), "mount point");
 }
 
-Options::Result Options::parseConfigs(const int argc, const char *const argv[])
+void Options::parseConfigs(const int argc, const char *const argv[])
 {
     if (argc > 0)
         argv0 = argv[0];
 
     try {
-        const auto result = parseCommandLine(argc, argv);
-        if (result != Result::PARSED)
-            return result;
+        if (!parseCommandLine(argc, argv))
+            return;
     }
     catch (boost::program_options::error &e) {
         LOG(ERROR) << "Error while parsing command line arguments: "
@@ -147,7 +145,6 @@ Options::Result Options::parseConfigs(const int argc, const char *const argv[])
     }
 
     notify(m_vm);
-    return Result::PARSED;
 }
 
 /**
@@ -173,8 +170,7 @@ static std::pair<std::string, std::string> cmdParser(const std::string &str)
     return std::pair<std::string, std::string>();
 }
 
-Options::Result Options::parseCommandLine(
-    const int argc, const char *const argv[])
+bool Options::parseCommandLine(const int argc, const char *const argv[])
 {
     positional_options_description pos;
     pos.add("mountpoint", 1);
@@ -189,13 +185,7 @@ Options::Result Options::parseCommandLine(
               .run(),
         m_vm);
 
-    if (m_vm.count("help"))
-        return Result::HELP;
-
-    if (m_vm.count("version"))
-        return Result::VERSION;
-
-    return Result::PARSED;
+    return !m_vm.count("help") && !m_vm.count("version");
 }
 
 void Options::parseUserConfig(variables_map &fileConfigMap)
@@ -294,5 +284,6 @@ std::string Options::describeCommandlineOptions() const
 
     return ss.str();
 }
-}
-}
+
+} // namespace client
+} // namespace one

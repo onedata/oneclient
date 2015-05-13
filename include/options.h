@@ -15,8 +15,8 @@
 #include <ctime>
 #include <string>
 
-/// Declare a new configuration option
-#define DECL_CONFIG(NAME, TYPE)                                                \
+/// Declare a new configuration option with a description
+#define DECL_CONFIG_DESC(NAME, TYPE, DESC)                                     \
 public:                                                                        \
     virtual bool has_##NAME() const                                            \
     {                                                                          \
@@ -29,8 +29,12 @@ public:                                                                        \
 private:                                                                       \
     void add_##NAME(boost::program_options::options_description &desc) const   \
     {                                                                          \
-        desc.add_options()(#NAME, boost::program_options::value<TYPE>());      \
+        desc.add_options()(                                                    \
+            #NAME, boost::program_options::value<TYPE>(), DESC);               \
     }
+
+/// Declare a new configuration option
+#define DECL_CONFIG(NAME, TYPE) DECL_CONFIG_DESC(NAME, TYPE, "")
 
 /// Declare a new configuration option with a default value and a description
 #define DECL_CONFIG_DEF_DESC(NAME, TYPE, DEFAULT, DESC)                        \
@@ -46,8 +50,8 @@ public:                                                                        \
 private:                                                                       \
     void add_##NAME(boost::program_options::options_description &desc) const   \
     {                                                                          \
-        desc.add_options()(#NAME, boost::program_options::value<TYPE>(),       \
-                           DESC);                                              \
+        desc.add_options()(                                                    \
+            #NAME, boost::program_options::value<TYPE>(), DESC);               \
     }
 
 /// Declare a new configuration option with a default value
@@ -66,7 +70,7 @@ private:                                                                       \
         desc.add_options()(#NAME SHORT, boost::program_options::value<bool>()  \
                                             ->zero_tokens()                    \
                                             ->implicit_value(true),            \
-                           DESC);                                              \
+            DESC);                                                             \
     }
 
 namespace one {
@@ -98,11 +102,6 @@ namespace client {
 class Options {
 public:
     /**
-    * Describes the result of parsing options.
-    */
-    enum class Result { HELP, VERSION, PARSED };
-
-    /**
     * Constructor.
     */
     Options();
@@ -110,13 +109,11 @@ public:
     /**
     * Parses all available configuration sources.
     * If --help (-h) or --version (-V) options were requested, the method
-    * prints the relevant output and doesn't continue with parsing.
+    * returns immediately after recognizing them and does not parse further.
     * @param argc The number of commandline arguments passed.
     * @param argv The commandline arguments.
-    * @returns Result::HELP if -h option was given, Result::VERSION if -v
-    * option was given, Result::PARSED otherwise.
     */
-    Result parseConfigs(const int argc, const char *const argv[]);
+    void parseConfigs(const int argc, const char *const argv[]);
 
     /**
     * Destructor.
@@ -137,10 +134,10 @@ public:
 private:
     std::string mapEnvNames(std::string env) const;
     void setDescriptions();
-    Result parseCommandLine(const int argc, const char *const argv[]);
+    bool parseCommandLine(const int argc, const char *const argv[]);
     void parseUserConfig(boost::program_options::variables_map &fileConfigMap);
-    void
-    parseGlobalConfig(boost::program_options::variables_map &fileConfigMap);
+    void parseGlobalConfig(
+        boost::program_options::variables_map &fileConfigMap);
     void parseEnv();
 
     std::string argv0;
@@ -179,6 +176,10 @@ private:
     DECL_CMDLINE_SWITCH_DEF(no_check_certificate, "", false, "disable remote certificate validation")
     DECL_CMDLINE_SWITCH_DEF(debug, ",d", false, "enable debug output (implies -f)")
     DECL_CMDLINE_SWITCH_DEF(debug_gsi, "", false, "enable GSI debug output")
+    DECL_CMDLINE_SWITCH_DEF(help, ",h", false, "print help")
+    DECL_CMDLINE_SWITCH_DEF(version, ",V", false, "print version")
+    DECL_CONFIG_DESC(config, std::string, "path to user config file")
+    DECL_CONFIG_DEF(enable_env_option_override, bool, true)
 };
 
 } // namespace client
@@ -186,6 +187,7 @@ private:
 
 #undef DECL_CONFIG
 #undef DECL_CONFIG_DEF
+#undef DECL_CONFIG_DESC
 #undef DECL_CONFIG_DEF_DESC
 #undef DECL_CMDLINE_SWITCH_DEF
 
