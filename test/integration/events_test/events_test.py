@@ -47,7 +47,7 @@ def cycle_num(value):
 
 def evt_size(value):
     """Returns event size parameter."""
-    return Parameter('evt_size', 'Size of each evt.', value, 'B')
+    return Parameter('evt_size', 'Size of each event.', value, 'B')
 
 
 # noinspection PyClassHasNoInit
@@ -72,12 +72,12 @@ class TestCommunicator:
         'parameters': [ctr_thr(1), evt_num(10), evt_size(1)],
         'configs': {
             'multiple_small_events': {
-                'description': 'Emits multiple small events using event'
+                'description': 'Emits multiple small events using event '
                                'manager.',
                 'parameters': [ctr_thr(100), evt_num(100000), evt_size(10)]
             },
             'multiple_large_events': {
-                'description': 'Emits multiple large events using event'
+                'description': 'Emits multiple large events using event '
                                'manager.',
                 'parameters': [ctr_thr(100), evt_num(100000), evt_size(1000)]
             }
@@ -122,12 +122,12 @@ class TestCommunicator:
         'parameters': [size_thr(2), evt_num(10), evt_size(1)],
         'configs': {
             'multiple_small_events': {
-                'description': 'Emits multiple small events using event'
+                'description': 'Emits multiple small events using event '
                                'manager.',
                 'parameters': [size_thr(100), evt_num(100000), evt_size(1)]
             },
             'multiple_large_events': {
-                'description': 'Emits multiple large events using event'
+                'description': 'Emits multiple large events using event '
                                'manager.',
                 'parameters': [size_thr(10000), evt_num(100000), evt_size(100)]
             }
