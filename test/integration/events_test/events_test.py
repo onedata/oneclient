@@ -1,4 +1,4 @@
-"""This module tests events emission and subscription using event manager."""
+"""This module tests events emission and sub using evt manager."""
 
 __author__ = "Krzysztof Trzepla"
 __copyright__ = """(C) 2015 ACK CYFRONET AGH,
@@ -22,6 +22,18 @@ import events
 import appmock_client
 
 
+def ctr_thr(value):
+    return Parameter('ctr_thr', 'Counter threshold.', value)
+
+
+def evt_num(value):
+    return Parameter('evt_num', 'Number of emitted events.', value)
+
+
+def evt_size(value):
+    return Parameter('evt_size', 'Size of each evt.', value)
+
+
 # noinspection PyClassHasNoInit
 class TestCommunicator:
     @classmethod
@@ -41,9 +53,17 @@ class TestCommunicator:
 
     @performance({
         'repeats': 10,
+        'parameters': [ctr_thr(1), evt_num(10), evt_size(1)],
         'configs': {
-            'multiple_events': {
-                'description': 'Emits multiple events using event manager.',
+            'multiple_small_events': {
+                'description': 'Emits multiple small events using evt'
+                               'manager.',
+                'parameters': [ctr_thr(100), evt_num(100000), evt_size(10)]
+            },
+            'multiple_large_events': {
+                'description': 'Emits multiple large events using evt'
+                               'manager.',
+                'parameters': [ctr_thr(100), evt_num(100000), evt_size(1000)]
             }
         }
     })
@@ -51,123 +71,135 @@ class TestCommunicator:
         appmock_client.reset_tcp_server_history(self.ip)
         manager = events.EventManager(1, self.ip, 5555)
 
-        subscription = events.prepareSerializedReadEventSubscription(1, 1, 0,
-                                                                     0)
-        appmock_client.tcp_server_send(self.ip, 5555, subscription)
-        event = manager.emitReadEvent('fileId', 0, 10)
-        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, event, 1, 5)
+        ctr_thr = parameters['ctr_thr'].value
+        evt_num = parameters['evt_num'].value
+        evt_size = parameters['evt_size'].value
 
-        cancellation = events.prepareSerializedEventSubscriptionCancellation(1)
-        appmock_client.tcp_server_send(self.ip, 5555, cancellation)
-        event = manager.emitReadEvent('fileId', 0, 10)
+        sub = events.prepareSerializedReadEventSubscription(1, ctr_thr, 0, 0)
+        appmock_client.tcp_server_send(self.ip, 5555, sub)
+
+        emit_time = Duration()
+        for i in xrange(evt_num):
+            duration(emit_time, manager.emitReadEvent, 'fileId', i * evt_size,
+                     evt_size)
+
+        for i in xrange(evt_num / ctr_thr):
+            evt = events.prepareSerializedReadEvent(ctr_thr, 'fileId',
+                                                    i * ctr_thr * evt_size,
+                                                    ctr_thr * evt_size, i)
+            appmock_client.tcp_server_wait_for_messages(self.ip, 5555, evt, 1,
+                                                        5)
+
+        can = events.prepareSerializedEventSubscriptionCancellation(1)
+        appmock_client.tcp_server_send(self.ip, 5555, can)
+        seq_num = manager.emitReadEvent('fileId', 0, 10)
+        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 10, seq_num)
         time.sleep(0.5)
-        assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            event)
+        assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555, evt)
+
+        return Parameter('emit_time', 'Summary events emission time.',
+                         emit_time.ms(), 'ms')
 
     @performance(skip=True)
     def test_subscription_size_threshold(self, parameters):
+        appmock_client.reset_tcp_server_history(self.ip)
         manager = events.EventManager(1, self.ip, 5555)
 
-        subscription = events.prepareSerializedReadEventSubscription(1, 0, 0,
-                                                                     100)
-        appmock_client.tcp_server_send(self.ip, 5555, subscription)
-        event = manager.emitReadEvent('fileId', 0, 100)
-        time.sleep(0.5)
-        assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            event)
+        sub = events.prepareSerializedReadEventSubscription(1, 0, 0, 10)
+        appmock_client.tcp_server_send(self.ip, 5555, sub)
+        manager.emitReadEvent('fileId', 0, 10)
+        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 10, 0)
+        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, evt, 1, 5)
 
-        cancellation = events.prepareSerializedEventSubscriptionCancellation(1)
-        appmock_client.tcp_server_send(self.ip, 5555, cancellation)
-        event = manager.emitReadEvent('fileId', 0, 100)
+        can = events.prepareSerializedEventSubscriptionCancellation(1)
+        appmock_client.tcp_server_send(self.ip, 5555, can)
+        seq_num = manager.emitReadEvent('fileId', 0, 10)
+        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 10, seq_num)
         time.sleep(0.5)
-        assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            event)
+        assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555, evt)
 
     @performance(skip=True)
     def test_subscription_time_threshold(self, parameters):
+        appmock_client.reset_tcp_server_history(self.ip)
         manager = events.EventManager(1, self.ip, 5555)
 
-        subscription = events.prepareSerializedReadEventSubscription(1, 0, 100,
-                                                                     0)
-        appmock_client.tcp_server_send(self.ip, 5555, subscription)
-        event = manager.emitReadEvent('fileId', 0, 1)
-        time.sleep(0.5)
-        assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            event)
+        sub = events.prepareSerializedReadEventSubscription(1, 0, 100, 0)
+        appmock_client.tcp_server_send(self.ip, 5555, sub)
+        manager.emitReadEvent('fileId', 0, 10)
+        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 10, 0)
+        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, evt, 1, 5)
 
-        cancellation = events.prepareSerializedEventSubscriptionCancellation(1)
-        appmock_client.tcp_server_send(self.ip, 5555, cancellation)
-        event = manager.emitReadEvent('fileId', 0, 1)
+        can = events.prepareSerializedEventSubscriptionCancellation(1)
+        appmock_client.tcp_server_send(self.ip, 5555, can)
+        seq_num = manager.emitReadEvent('fileId', 0, 10)
+        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 10, seq_num)
         time.sleep(0.5)
-        assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            event)
+        assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555, evt)
 
     @performance(skip=True)
     def test_multiple_subscriptions(self, parameters):
+        appmock_client.reset_tcp_server_history(self.ip)
         manager = events.EventManager(1, self.ip, 5555)
 
-        subscription = events.prepareSerializedReadEventSubscription(1, 0, 0,
-                                                                     50)
-        appmock_client.tcp_server_send(self.ip, 5555, subscription)
-        subscription = events.prepareSerializedReadEventSubscription(2, 0, 0,
-                                                                     20)
-        appmock_client.tcp_server_send(self.ip, 5555, subscription)
-        subscription = events.prepareSerializedReadEventSubscription(3, 0, 0,
-                                                                     5)
-        appmock_client.tcp_server_send(self.ip, 5555, subscription)
+        sub = events.prepareSerializedReadEventSubscription(1, 0, 0, 50)
+        appmock_client.tcp_server_send(self.ip, 5555, sub)
+        sub = events.prepareSerializedReadEventSubscription(2, 0, 0, 20)
+        appmock_client.tcp_server_send(self.ip, 5555, sub)
+        sub = events.prepareSerializedReadEventSubscription(3, 0, 0, 5)
+        appmock_client.tcp_server_send(self.ip, 5555, sub)
 
-        event = manager.emitReadEvent('fileId', 0, 5)
+        seq_num = manager.emitReadEvent('fileId', 0, 5)
+        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 5, seq_num)
+        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, evt, 1, 5)
+
+        can = events.prepareSerializedEventSubscriptionCancellation(3)
+        appmock_client.tcp_server_send(self.ip, 5555, can)
+        seq_num = manager.emitReadEvent('fileId', 0, 20)
+        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 20, seq_num)
+        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, evt, 1, 5)
+
+        can = events.prepareSerializedEventSubscriptionCancellation(2)
+        appmock_client.tcp_server_send(self.ip, 5555, can)
+        seq_num = manager.emitReadEvent('fileId', 0, 50)
+        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 50, seq_num)
+        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, evt, 1, 5)
+
+        can = events.prepareSerializedEventSubscriptionCancellation(1)
+        appmock_client.tcp_server_send(self.ip, 5555, can)
+        seq_num = manager.emitReadEvent('fileId', 0, 10)
+        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 10, seq_num)
         time.sleep(0.5)
-        assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            event)
-        cancellation = events.prepareSerializedEventSubscriptionCancellation(3)
-        appmock_client.tcp_server_send(self.ip, 5555, cancellation)
-        event = manager.emitReadEvent('fileId', 0, 20)
-        time.sleep(0.5)
-        assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            event)
-        cancellation = events.prepareSerializedEventSubscriptionCancellation(2)
-        appmock_client.tcp_server_send(self.ip, 5555, cancellation)
-        event = manager.emitReadEvent('fileId', 0, 50)
-        time.sleep(0.5)
-        assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            event)
-        cancellation = events.prepareSerializedEventSubscriptionCancellation(1)
-        appmock_client.tcp_server_send(self.ip, 5555, cancellation)
-        event = manager.emitReadEvent('fileId', 0, 100)
-        time.sleep(0.5)
-        assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            event)
+        assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555, evt)
 
     @performance(skip=True)
     def test_different_subscriptions(self, parameters):
+        appmock_client.reset_tcp_server_history(self.ip)
         manager = events.EventManager(1, self.ip, 5555)
 
-        subscription = events.prepareSerializedReadEventSubscription(1, 1, 0,
-                                                                     0)
-        appmock_client.tcp_server_send(self.ip, 5555, subscription)
-        subscription = events.prepareSerializedWriteEventSubscription(2, 1, 0,
-                                                                      0)
-        appmock_client.tcp_server_send(self.ip, 5555, subscription)
+        sub = events.prepareSerializedReadEventSubscription(1, 1, 0, 0)
+        appmock_client.tcp_server_send(self.ip, 5555, sub)
+        sub = events.prepareSerializedWriteEventSubscription(2, 1, 0, 0)
+        appmock_client.tcp_server_send(self.ip, 5555, sub)
 
-        event = manager.emitReadEvent('fileId', 1, 1)
-        time.sleep(0.5)
-        assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            event)
-        cancellation = events.prepareSerializedEventSubscriptionCancellation(1)
-        appmock_client.tcp_server_send(self.ip, 5555, cancellation)
+        seq_num = manager.emitReadEvent('fileId', 0, 10)
+        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 10, seq_num)
+        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, evt, 1, 5)
 
-        event = manager.emitWriteEvent('fileId', 0, 1, 1)
+        can = events.prepareSerializedEventSubscriptionCancellation(1)
+        appmock_client.tcp_server_send(self.ip, 5555, can)
+
+        seq_num = manager.emitWriteEvent('fileId', 0, 10, 10)
+        evt = events.prepareSerializedWriteEvent(1, 'fileId', 0, 10, 10,
+                                                 seq_num)
+        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, evt, 1, 5)
+
+        seq_num = manager.emitTruncateEvent('fileId', 0)
+        evt = events.prepareSerializedTruncateEvent(1, 'fileId', 0, seq_num)
+        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, evt, 1, 5)
+
+        can = events.prepareSerializedEventSubscriptionCancellation(2)
+        appmock_client.tcp_server_send(self.ip, 5555, can)
+        seq_num = manager.emitTruncateEvent('fileId', 0)
+        evt = events.prepareSerializedTruncateEvent(1, 'fileId', 0, seq_num)
         time.sleep(0.5)
-        assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            event)
-        event = manager.emitTruncateEvent('fileId', 0)
-        time.sleep(0.5)
-        assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            event)
-        cancellation = events.prepareSerializedEventSubscriptionCancellation(2)
-        appmock_client.tcp_server_send(self.ip, 5555, cancellation)
-        event = manager.emitWriteEvent('fileId', 0, 1, 1)
-        time.sleep(0.5)
-        assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            event)
+        assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555, evt)

@@ -9,6 +9,7 @@
 #ifndef ONECLIENT_EVENTS_EVENT_COMMUNICATOR_H
 #define ONECLIENT_EVENTS_EVENT_COMMUNICATOR_H
 
+#include "ioServiceExecutor.h"
 #include "communication/communicator.h"
 
 #include <memory>

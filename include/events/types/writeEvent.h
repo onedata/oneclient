@@ -47,9 +47,10 @@ public:
      * byte written.
      * @param size Number of bytes written.
      * @param fileSize Size of file after a write operation.
+     * @param counter Number of write events aggregated in @c this event.
      */
-    WriteEvent(
-        std::string fileId, off_t offset, std::size_t size, off_t fileSize);
+    WriteEvent(std::string fileId, off_t offset, std::size_t size,
+        off_t fileSize, std::size_t counter = 1);
 
     /**
      * @return ID of file associated with the write event.

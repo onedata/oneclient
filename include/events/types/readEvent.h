@@ -43,8 +43,10 @@ public:
      * @param offset Distance from the beginning of the file to the first byte
      * read.
      * @param size Number of read bytes.
+     * @param counter Number of read events aggregated in @c this event.
      */
-    ReadEvent(std::string fileId, off_t offset, std::size_t size);
+    ReadEvent(std::string fileId, off_t offset, std::size_t size,
+        std::size_t counter = 1);
 
     /**
      * @return ID of file associated with the read event.
