@@ -146,7 +146,7 @@
 
 %%--------------------------------------------------------------------
 % Endpoint used to reset mocked TCP endpoint history.
--define(RESET_TCP_HISTORY_PATH, "/reset_tcp_server_history").
+-define(RESET_TCP_SERVER_HISTORY_PATH, "/reset_tcp_server_history").
 
 
 %%--------------------------------------------------------------------
@@ -155,7 +155,7 @@
 -define(TCP_SERVER_CONNECTION_COUNT_COWBOY_ROUTE, "/tcp_server_connection_count/:port").
 % No data is required to be sent
 -define(TCP_SERVER_CONNECTION_COUNT_PACK_REQUEST, []).
-% Produces success message which carries information of request count.
+% Produces success message which carries information of connection count.
 -define(TCP_SERVER_CONNECTION_COUNT_PACK_RESPONSE(_Count),
     [{<<"result">>, _Count}]
 ).

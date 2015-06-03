@@ -189,18 +189,31 @@ handle_call(healthcheck, _From, State) ->
     Reply =
         try
             {ok, RCPort} = application:get_env(?APP_NAME, remote_control_port),
+
             % Check connectivity to rest endpoint verification path with some random data
             {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, <<?REST_ENDPOINT_REQUEST_COUNT_PATH>>, get, [],
                 binary_to_list(appmock_utils:encode_to_json(?REST_ENDPOINT_REQUEST_COUNT_REQUEST(8080, <<"/">>)))),
+
             % Check connectivity to rest history verification path with some random data
             {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, <<?VERIFY_REST_HISTORY_PATH>>, get, [],
                 binary_to_list(appmock_utils:encode_to_json(?VERIFY_REST_HISTORY_PACK_REQUEST([{8080, <<"/">>}])))),
-            % Check connectivity to tcp server mock verification path with some random data
-            Path = list_to_binary(?TCP_SERVER_MESSAGE_COUNT_PATH(8080)),
-            {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, Path, get, [],
-                <<"random_data!%$$^&%^&*%^&*">>),
+
             % Check connectivity to rest history reset
             {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, <<?RESET_REST_HISTORY_PATH>>, get, [], <<"">>),
+
+            % Check connectivity to tcp server mock verification path with some random data
+            PathMessCount = list_to_binary(?TCP_SERVER_MESSAGE_COUNT_PATH(5555)),
+            {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, PathMessCount, get, [],
+                <<"random_data!%$$^&%^&*%^&*">>),
+
+            % Check connectivity to tcp server history reset
+            {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, <<?RESET_TCP_SERVER_HISTORY_PATH>>, get, [], <<"">>),
+
+            % Check connectivity to tcp server mock verification path with some random data
+            PathConnCount = list_to_binary(?TCP_SERVER_CONNECTION_COUNT_PATH(5555)),
+            {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, PathConnCount, get, [],
+                <<"random_data!%$$^&%^&*%^&*">>),
+
             ok
         catch T:M ->
             ?error_stacktrace("Error during ~p healthcheck- ~p:~p", [?MODULE, T, M]),
@@ -295,7 +308,7 @@ start_remote_control_listener() ->
             {?REST_ENDPOINT_REQUEST_COUNT_PATH, remote_control_handler, [?REST_ENDPOINT_REQUEST_COUNT_PATH]},
             {?TCP_SERVER_MESSAGE_COUNT_COWBOY_ROUTE, remote_control_handler, [?TCP_SERVER_MESSAGE_COUNT_COWBOY_ROUTE]},
             {?TCP_SERVER_SEND_COWBOY_ROUTE, remote_control_handler, [?TCP_SERVER_SEND_COWBOY_ROUTE]},
-            {?RESET_TCP_HISTORY_PATH, remote_control_handler, [?RESET_TCP_HISTORY_PATH]},
+            {?RESET_TCP_SERVER_HISTORY_PATH, remote_control_handler, [?RESET_TCP_SERVER_HISTORY_PATH]},
             {?TCP_SERVER_CONNECTION_COUNT_COWBOY_ROUTE, remote_control_handler, [?TCP_SERVER_CONNECTION_COUNT_COWBOY_ROUTE]}
         ]}
     ]),
