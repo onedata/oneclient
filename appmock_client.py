@@ -100,26 +100,23 @@ def tcp_server_message_count(appmock_ip, tcp_port, message_binary):
     return body['result']
 
 
-def tcp_server_wait_for_messages(appmock_ip, tcp_port, data, number_of_messages, accept_more, timeout_sec):
+def tcp_server_wait_for_messages(appmock_ip, tcp_port, data, number_of_messages, timeout_sec):
     """
     Returns when given number of connections are established on given port, or after it timeouts.
-    The AcceptMore flag makes the function succeed when there is the same or more messages than expected.
     """
-    start_time = time.clock()
+    start_time = time.time()
+    wait_for = WAIT_STARTING_CHECK_INTERVAL
 
-    def check_mess_num(wait_for):
+    while True:
         result = tcp_server_message_count(appmock_ip, tcp_port, data)
-        if accept_more and result >= number_of_messages:
+        if result >= number_of_messages:
             return
-        elif result == number_of_messages:
-            return
-        elif (time.clock() - start_time) * 1000 > timeout_sec:
+        elif time.time() - start_time > timeout_sec:
             raise Exception(
                 'tcp_server_wait_for_messages returned error: timeout')
         else:
             time.sleep(wait_for / 1000.0)
-            check_mess_num(wait_for * WAIT_INTERVAL_INCREMENT_RATE)
-    check_mess_num(WAIT_STARTING_CHECK_INTERVAL)
+            wait_for *= WAIT_INTERVAL_INCREMENT_RATE
 
 
 def tcp_server_send(appmock_ip, tcp_port, message_binary):
@@ -160,23 +157,20 @@ def tcp_server_connection_count(appmock_ip, tcp_port):
     return body['result']
 
 
-def tcp_server_wait_for_connections(appmock_ip, tcp_port, number_of_connections, accept_more, timeout_sec):
+def tcp_server_wait_for_connections(appmock_ip, tcp_port, number_of_connections, timeout_sec):
     """
     Returns when given number of connections are established on given port, or after it timeouts.
-    The AcceptMore flag makes the function succeed when there is the same or more connections than expected.
     """
     start_time = time.clock()
+    wait_for = WAIT_STARTING_CHECK_INTERVAL
 
-    def check_conns_num(wait_for):
+    while True:
         result = tcp_server_connection_count(appmock_ip, tcp_port)
-        if accept_more and result >= number_of_connections:
+        if result >= number_of_connections:
             return
-        elif result == number_of_connections:
-            return
-        elif (time.clock() - start_time) * 1000 > timeout_sec:
+        elif time.time() - start_time > timeout_sec:
             raise Exception(
                 'tcp_server_connection_count returned error: timeout')
         else:
             time.sleep(wait_for / 1000.0)
-            check_conns_num(wait_for * WAIT_INTERVAL_INCREMENT_RATE)
-    check_conns_num(WAIT_STARTING_CHECK_INTERVAL)
+            wait_for *= WAIT_INTERVAL_INCREMENT_RATE
