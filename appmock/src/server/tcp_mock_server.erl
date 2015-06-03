@@ -23,6 +23,7 @@
 %% API
 -export([start_link/0, healthcheck/0]).
 -export([report_connection_state/3, register_packet/2, tcp_server_message_count/2, tcp_server_send/2]).
+-export([reset_tcp_mock_history/0, tcp_server_connection_count/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -46,7 +47,8 @@
     % boolean value means if given packet was received.
     request_history = [] :: [{Port :: integer(), History :: dict:dict()}],
     % The connections proplist holds a list of active pids for each port.
-    connections = [] :: [{Port :: integer(), [pid()]}]
+    connections = [] :: [{Port :: integer(), [pid()]}],
+    initial_request_history = [] :: [{Port :: integer(), History :: dict:dict()}]
 }).
 
 %%%===================================================================
@@ -120,6 +122,25 @@ tcp_server_send(Port, Data) ->
     gen_server:call(?SERVER, {tcp_server_send, Port, Data}).
 
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Handles requests to reset ALL mocked TCP endpoints.
+%% @end
+%%--------------------------------------------------------------------
+-spec reset_tcp_mock_history() -> true.
+reset_tcp_mock_history() ->
+    gen_server:call(?SERVER, reset_tcp_mock_history).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Handles requests to check how many clients are connected to given endpoint.
+%% @end
+%%--------------------------------------------------------------------
+-spec tcp_server_connection_count(Port :: integer()) -> {ok, integer()} | {error, term()}.
+tcp_server_connection_count(Port) ->
+    gen_server:call(?SERVER, {tcp_server_connection_count, Port}).
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -147,7 +168,7 @@ init([]) ->
             {Port, []}
         end, Ports),
     {ok, #state{listeners = ListenersIDs, request_history = InitializedHistory,
-        connections = InitializedConnections}}.
+        connections = InitializedConnections, initial_request_history = InitializedHistory}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -240,6 +261,21 @@ handle_call({tcp_server_send, Port, Data}, _From, State) ->
                     end
             end,
 
+    {reply, Reply, State};
+
+handle_call(reset_tcp_mock_history, _From, State) ->
+    #state{initial_request_history = InitialRequestHistory} = State,
+    {reply, true, State#state{request_history = InitialRequestHistory}};
+
+handle_call({tcp_server_connection_count, Port}, _From, State) ->
+    #state{connections = Connections} = State,
+    ConnectionsForPort = proplists:get_value(Port, Connections, undefined),
+    Reply = case ConnectionsForPort of
+                undefined ->
+                    {error, wrong_endpoint};
+                _ ->
+                    {ok, length(ConnectionsForPort)}
+            end,
     {reply, Reply, State};
 
 handle_call(_Request, _From, State) ->

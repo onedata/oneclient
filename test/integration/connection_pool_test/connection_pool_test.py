@@ -1,3 +1,9 @@
+"""This module tests connection pool."""
+
+__author__ = "Konrad Zemek"
+__copyright__ = """(C) 2015 ACK CYFRONET AGH,
+This software is released under the MIT license cited in 'LICENSE.txt'."""
+
 import os
 import sys
 import time
@@ -5,6 +11,7 @@ import time
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.dirname(script_dir))
 from test_common import *
+from performance import *
 
 # noinspection PyUnresolvedReferences
 from environment import appmock, common, docker
@@ -30,36 +37,86 @@ class TestConnectionPool:
     def teardown_class(cls):
         docker.remove(cls.result['docker_ids'], force=True, volumes=True)
 
-    def test_cp_should_send_messages(self):
+    @performance({
+        'parameters': [
+            Parameter('msg_num', 'Number of messages sent.', 10),
+            Parameter('msg_size', 'Size of each sent message.', 100, 'B')
+        ],
+        'configs': {
+            'multiple_small_messages': {
+                'description': 'Sends multiple small messages using connection '
+                               'pool.',
+                'parameters': [
+                    Parameter('msg_num', 'Number of messages sent.', 10000)
+                ]
+            },
+            'multiple_large_messages': {
+                'description': 'Sends multiple large messages using connection '
+                               'pool.',
+                'parameters': [
+                    Parameter('msg_size', 'Size of each sent message.', 1, 'MB')
+                ]
+            }
+        }
+    })
+    def test_cp_should_send_messages(self, parameters):
         cp = connection_pool.ConnectionPoolProxy(3, self.ip, 5555)
 
-        messages = [random_str() for _ in range(10)]
+        msg_num = parameters['msg_num'].value
+        msg_size = parameters['msg_size'].value * translate_unit(
+            parameters['msg_size'].unit)
+        msgs = [random_str(msg_size) for _ in xrange(msg_num)]
 
-        for msg in messages:
+        for msg in msgs:
             cp.send(msg)
 
         time.sleep(1)
 
-        for msg in messages:
+        for msg in msgs:
             assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555,
                                                                 msg)
 
-    def test_cp_should_receive_messages(self):
+    @performance({
+        'parameters': [
+            Parameter('msg_num', 'Number of messages sent.', 10),
+            Parameter('msg_size', 'Size of each sent message.', 100, 'B')
+        ],
+        'configs': {
+            'multiple_small_messages': {
+                'description': 'Receives multiple small messages using '
+                               'connection pool.',
+                'parameters': [
+                    Parameter('msg_num', 'Number of messages sent.', 10000)
+                ]
+            },
+            'multiple_large_messages': {
+                'description': 'Receives multiple large messages using '
+                               'connection pool.',
+                'parameters': [
+                    Parameter('msg_size', 'Size of each sent message.', 1, 'MB')
+                ]
+            }
+        }
+    })
+    def test_cp_should_receive_messages(self, parameters):
         cp = connection_pool.ConnectionPoolProxy(3, self.ip, 5555)
 
-        messages = [random_str() for _ in range(10)]
+        msg_num = parameters['msg_num'].value
+        msg_size = parameters['msg_size'].value * translate_unit(
+            parameters['msg_size'].unit)
+        msgs = [random_str(msg_size) for _ in xrange(msg_num)]
 
-        for msg in messages:
+        for msg in msgs:
             appmock_client.tcp_server_send(self.ip, 5555, msg)
 
         time.sleep(1)
 
-        received = []
-        for _ in messages:
-            received.append(cp.popMessage())
+        recv = []
+        for _ in msgs:
+            recv.append(cp.popMessage())
 
-        assert len(messages) == len(received)
-        assert messages.sort() == received.sort()
+        assert len(msgs) == len(recv)
+        assert msgs.sort() == recv.sort()
 
 
 # noinspection PyClassHasNoInit
@@ -79,7 +136,8 @@ class TestConnection:
     def teardown_class(cls):
         docker.remove(cls.result['docker_ids'], force=True, volumes=True)
 
-    def test_connect_should_trigger_handshake(self):
+    @performance(skip=True)
+    def test_connect_should_trigger_handshake(self, parameters):
         handshake = random_str()
 
         conn = connection_pool.ConnectionProxy(handshake, True)
@@ -90,7 +148,8 @@ class TestConnection:
         assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555,
                                                             handshake)
 
-    def test_connection_should_receive_handshake_response(self):
+    @performance(skip=True)
+    def test_connection_should_receive_handshake_response(self, parameters):
         conn = connection_pool.ConnectionProxy(random_str(), True)
         conn.connect(self.ip, 5555)
 
@@ -99,7 +158,9 @@ class TestConnection:
 
         assert response == conn.getHandshakeResponse()
 
-    def test_connection_should_close_after_rejected_handshake_response(self):
+    @performance(skip=True)
+    def test_connection_should_close_after_rejected_handshake_response(self,
+                                                                       parameters):
         conn = connection_pool.ConnectionProxy(random_str(), False)
         conn.connect(self.ip, 5555)
 
@@ -109,7 +170,8 @@ class TestConnection:
 
         assert conn.waitForClosed()
 
-    def test_connection_is_ready_after_handshake_response(self):
+    @performance(skip=True)
+    def test_connection_is_ready_after_handshake_response(self, parameters):
         conn = connection_pool.ConnectionProxy(random_str(), True)
         conn.connect(self.ip, 5555)
 
@@ -119,7 +181,9 @@ class TestConnection:
 
         assert conn.waitForReady()
 
-    def test_connection_should_become_ready_after_message_sent(self):
+    @performance(skip=True)
+    def test_connection_should_become_ready_after_message_sent(self,
+                                                               parameters):
         conn = connection_pool.ConnectionProxy(random_str(), True)
         conn.connect(self.ip, 5555)
 
@@ -130,41 +194,73 @@ class TestConnection:
 
         assert conn.waitForReady()
 
-    def test_send_should_send_messages(self):
+    @performance({
+        'parameters': [
+            Parameter('msg_num', 'Number of messages sent.', 1),
+        ],
+        'configs': {
+            'multiple_messages': {
+                'description': 'Sends multiple messages using connection.',
+                'parameters': [
+                    Parameter('msg_num', 'Number of messages sent.', 100),
+                ]
+            }
+        }
+    })
+    def test_send_should_send_messages(self, parameters):
         conn = connection_pool.ConnectionProxy(random_str(), True)
         conn.connect(self.ip, 5555)
 
-        appmock_client.tcp_server_send(self.ip, 5555, random_str())
-
-        conn.waitForReady()
-
+        msg_num = parameters['msg_num'].value
         msg = random_str()
-        conn.send(msg)
-
-        conn.waitForReady()
-
         msg2 = random_str()
-        conn.send(msg2)
+
+        for _ in xrange(msg_num):
+            appmock_client.tcp_server_send(self.ip, 5555, random_str())
+
+            conn.waitForReady()
+            conn.send(msg)
+
+            conn.waitForReady()
+            conn.send(msg2)
 
         time.sleep(0.5)
-        assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555, msg)
-        assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555, msg2)
+        assert msg_num == appmock_client.tcp_server_message_count(self.ip, 5555,
+                                                                  msg)
+        assert msg_num == appmock_client.tcp_server_message_count(self.ip, 5555,
+                                                                  msg2)
 
-    def test_connection_should_receive(self):
+    @performance({
+        'parameters': [
+            Parameter('msg_num', 'Number of messages sent.', 1),
+        ],
+        'configs': {
+            'multiple_messages': {
+                'description': 'Receives multiple messages using connection.',
+                'parameters': [
+                    Parameter('msg_num', 'Number of messages sent.', 100),
+                ]
+            }
+        }
+    })
+    def test_connection_should_receive(self, parameters):
         conn = connection_pool.ConnectionProxy(random_str(), True)
         conn.connect(self.ip, 5555)
 
         appmock_client.tcp_server_send(self.ip, 5555, random_str())
         conn.getHandshakeResponse()
 
-        msg = random_str()
-        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        msg_num = parameters['msg_num'].value
 
-        assert conn.waitForMessage()
-        assert msg == conn.getMessage()
+        for _ in xrange(msg_num):
+            msg = random_str()
+            appmock_client.tcp_server_send(self.ip, 5555, msg)
 
-        msg2 = random_str()
-        appmock_client.tcp_server_send(self.ip, 5555, msg2)
+            assert conn.waitForMessage()
+            assert msg == conn.getMessage()
 
-        assert conn.waitForMessage()
-        assert msg2 == conn.getMessage()
+            msg2 = random_str()
+            appmock_client.tcp_server_send(self.ip, 5555, msg2)
+
+            assert conn.waitForMessage()
+            assert msg2 == conn.getMessage()

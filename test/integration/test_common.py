@@ -9,15 +9,25 @@ _script_dir = os.path.dirname(os.path.realpath(__file__))
 project_dir = os.path.dirname(os.path.dirname(_script_dir))
 appmock_dir = os.path.join(project_dir, 'appmock')
 docker_dir = os.path.join(project_dir, 'bamboos', 'docker')
+annotations_dir = os.path.join(project_dir, 'annotations')
 
 # Append useful modules to the path
-sys.path = [appmock_dir, docker_dir] + sys.path
+sys.path = [appmock_dir, docker_dir, annotations_dir] + sys.path
 
 
 def random_int():
     return random.randint(1, 100)
 
 
-def random_str():
+def random_str(size=random_int()):
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for
-                   _ in range(random_int()))
+                   _ in xrange(size))
+
+
+def translate_unit(unit):
+    if unit == 'kB':
+        return 1024
+    elif unit == 'MB':
+        return 1048576
+    else:
+        return 1
