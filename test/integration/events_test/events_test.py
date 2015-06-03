@@ -1,4 +1,4 @@
-"""This module tests events emission and sub using evt manager."""
+"""This module tests events emission and subscription using event manager."""
 
 __author__ = "Krzysztof Trzepla"
 __copyright__ = """(C) 2015 ACK CYFRONET AGH,
@@ -6,6 +6,7 @@ This software is released under the MIT license cited in 'LICENSE.txt'."""
 
 import os
 import sys
+import math
 import time
 
 import pytest
@@ -23,15 +24,30 @@ import appmock_client
 
 
 def ctr_thr(value):
+    """Returns counter threshold parameter."""
     return Parameter('ctr_thr', 'Counter threshold.', value)
 
 
+def size_thr(value):
+    """Returns size threshold parameter."""
+    return Parameter('size_thr', 'Size threshold.', value)
+
+
 def evt_num(value):
+    """Returns event number parameter."""
     return Parameter('evt_num', 'Number of emitted events.', value)
 
 
+def cycle_num(value):
+    """Returns parameter that describes number of write-read-truncate event
+    cycles."""
+    return Parameter('cycle_num', 'Number of write-read-truncate event cycles.',
+                     value)
+
+
 def evt_size(value):
-    return Parameter('evt_size', 'Size of each evt.', value)
+    """Returns event size parameter."""
+    return Parameter('evt_size', 'Size of each evt.', value, 'B')
 
 
 # noinspection PyClassHasNoInit
@@ -56,18 +72,19 @@ class TestCommunicator:
         'parameters': [ctr_thr(1), evt_num(10), evt_size(1)],
         'configs': {
             'multiple_small_events': {
-                'description': 'Emits multiple small events using evt'
+                'description': 'Emits multiple small events using event'
                                'manager.',
                 'parameters': [ctr_thr(100), evt_num(100000), evt_size(10)]
             },
             'multiple_large_events': {
-                'description': 'Emits multiple large events using evt'
+                'description': 'Emits multiple large events using event'
                                'manager.',
                 'parameters': [ctr_thr(100), evt_num(100000), evt_size(1000)]
             }
         }
     })
     def test_subscription_counter_threshold(self, parameters):
+        """Test event emission for subscription with counter threshold set."""
         appmock_client.reset_tcp_server_history(self.ip)
         manager = events.EventManager(1, self.ip, 5555)
 
@@ -100,26 +117,60 @@ class TestCommunicator:
         return Parameter('emit_time', 'Summary events emission time.',
                          emit_time.ms(), 'ms')
 
-    @performance(skip=True)
+    @performance({
+        'repeats': 10,
+        'parameters': [size_thr(2), evt_num(10), evt_size(1)],
+        'configs': {
+            'multiple_small_events': {
+                'description': 'Emits multiple small events using event'
+                               'manager.',
+                'parameters': [size_thr(100), evt_num(100000), evt_size(1)]
+            },
+            'multiple_large_events': {
+                'description': 'Emits multiple large events using event'
+                               'manager.',
+                'parameters': [size_thr(10000), evt_num(100000), evt_size(100)]
+            }
+        }
+    })
     def test_subscription_size_threshold(self, parameters):
+        """Test event emission for subscription with size threshold set."""
         appmock_client.reset_tcp_server_history(self.ip)
         manager = events.EventManager(1, self.ip, 5555)
 
-        sub = events.prepareSerializedReadEventSubscription(1, 0, 0, 10)
+        size_thr = parameters['size_thr'].value
+        evt_num = parameters['evt_num'].value
+        evt_size = parameters['evt_size'].value
+        ctr_thr = int(math.ceil(float(size_thr) / evt_size))
+
+        sub = events.prepareSerializedReadEventSubscription(1, 0, 0, size_thr)
         appmock_client.tcp_server_send(self.ip, 5555, sub)
-        manager.emitReadEvent('fileId', 0, 10)
-        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 10, 0)
-        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, evt, 1, 5)
+
+        emit_time = Duration()
+        for i in xrange(evt_num):
+            duration(emit_time, manager.emitReadEvent, 'fileId', i * evt_size,
+                     evt_size)
+
+        for i in xrange(evt_num * evt_size / size_thr):
+            evt = events.prepareSerializedReadEvent(ctr_thr, 'fileId',
+                                                    i * ctr_thr * evt_size,
+                                                    ctr_thr * evt_size, i)
+            appmock_client.tcp_server_wait_for_messages(self.ip, 5555, evt, 1,
+                                                        5)
 
         can = events.prepareSerializedEventSubscriptionCancellation(1)
         appmock_client.tcp_server_send(self.ip, 5555, can)
-        seq_num = manager.emitReadEvent('fileId', 0, 10)
+        seq_num = manager.emitReadEvent('fileId', 0, size_thr)
         evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 10, seq_num)
         time.sleep(0.5)
         assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555, evt)
 
+        return Parameter('emit_time', 'Summary events emission time.',
+                         emit_time.ms(), 'ms')
+
     @performance(skip=True)
     def test_subscription_time_threshold(self, parameters):
+        """Test event emission for subscription with time threshold set."""
         appmock_client.reset_tcp_server_history(self.ip)
         manager = events.EventManager(1, self.ip, 5555)
 
@@ -138,6 +189,7 @@ class TestCommunicator:
 
     @performance(skip=True)
     def test_multiple_subscriptions(self, parameters):
+        """Test event emission for multiple subscriptions of the same type."""
         appmock_client.reset_tcp_server_history(self.ip)
         manager = events.EventManager(1, self.ip, 5555)
 
@@ -171,8 +223,61 @@ class TestCommunicator:
         time.sleep(0.5)
         assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555, evt)
 
+    @performance({
+        'repeats': 10,
+        'parameters': [size_thr(100), cycle_num(10)],
+        'configs': {
+            'multiple_events': {
+                'description': 'Aggregates multiple events.',
+                'parameters': [size_thr(1000000), cycle_num(1000000)]
+            }
+        }
+    })
+    def test_write_read_truncate_event_aggregation(self, parameters):
+        """Test aggregation of write, read and truncate events."""
+        appmock_client.reset_tcp_server_history(self.ip)
+        manager = events.EventManager(1, self.ip, 5555)
+
+        size_thr = parameters['size_thr'].value
+        cycle_num = parameters['cycle_num'].value
+        evt_size = int(math.ceil(float(size_thr) / cycle_num))
+
+        sub = events.prepareSerializedReadEventSubscription(1, 0, 0, size_thr)
+        appmock_client.tcp_server_send(self.ip, 5555, sub)
+        sub = events.prepareSerializedWriteEventSubscription(2, 0, 0, size_thr)
+        appmock_client.tcp_server_send(self.ip, 5555, sub)
+
+        emit_time = Duration()
+        for i in xrange(cycle_num - 1):
+            duration(emit_time, manager.emitWriteEvent, 'fileId', i * evt_size,
+                     evt_size, (i + 1) * evt_size)
+            duration(emit_time, manager.emitReadEvent, 'fileId', i * evt_size,
+                     evt_size)
+            duration(emit_time, manager.emitTruncateEvent, 'fileId',
+                     (i + 1) * evt_size)
+
+        duration(emit_time, manager.emitReadEvent, 'fileId', (cycle_num - 1)
+                 * evt_size, evt_size)
+
+        evt = events.prepareSerializedReadEvent(cycle_num, 'fileId', 0,
+                                                cycle_num * evt_size, 0)
+        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, evt, 1, 30)
+
+        duration(emit_time, manager.emitWriteEvent, 'fileId', (cycle_num - 1)
+                 * evt_size, evt_size, cycle_num * evt_size)
+
+        evt = events.prepareSerializedWriteEvent(2 * cycle_num - 1, 'fileId', 0,
+                                                 cycle_num * evt_size,
+                                                 cycle_num * evt_size, 1)
+        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, evt, 1, 30)
+
+        return Parameter('emit_time', 'Summary events emission time.',
+                         emit_time.ms(), 'ms')
+
     @performance(skip=True)
     def test_different_subscriptions(self, parameters):
+        """Test event emission for multiple subscriptions of a different
+         type."""
         appmock_client.reset_tcp_server_history(self.ip)
         manager = events.EventManager(1, self.ip, 5555)
 
