@@ -38,63 +38,51 @@ class TestConnectionPool:
         docker.remove(cls.result['docker_ids'], force=True, volumes=True)
 
     @performance({
-        'parameters': [
-            Parameter('msg_num', 'Number of messages sent.', 10),
-            Parameter('msg_size', 'Size of each sent message.', 100, 'B')
-        ],
+        'parameters': [msg_num(10), msg_size(100, 'B')],
         'configs': {
             'multiple_small_messages': {
                 'description': 'Sends multiple small messages using connection '
                                'pool.',
-                'parameters': [
-                    Parameter('msg_num', 'Number of messages sent.', 10000)
-                ]
+                'parameters': [msg_num(10000)]
             },
             'multiple_large_messages': {
                 'description': 'Sends multiple large messages using connection '
                                'pool.',
-                'parameters': [
-                    Parameter('msg_size', 'Size of each sent message.', 1, 'MB')
-                ]
+                'parameters': [msg_size(1, 'MB')]
             }
         }
     })
     def test_cp_should_send_messages(self, parameters):
+        appmock_client.reset_tcp_server_history(self.ip)
         cp = connection_pool.ConnectionPoolProxy(3, self.ip, 5555)
 
         msg_num = parameters['msg_num'].value
         msg_size = parameters['msg_size'].value * translate_unit(
             parameters['msg_size'].unit)
-        msgs = [random_str(msg_size) for _ in xrange(msg_num)]
+        msg = random_str(msg_size)
 
-        for msg in msgs:
-            cp.send(msg)
+        send_time = Duration()
+        for _ in xrange(msg_num):
+            duration(send_time, cp.send, msg)
 
-        time.sleep(1)
+        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, msg, msg_num,
+                                                    5)
 
-        for msg in msgs:
-            assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                                msg)
+        return Parameter('send_time', 'Summary send time.', send_time.ms(),
+                         'ms')
 
     @performance({
-        'parameters': [
-            Parameter('msg_num', 'Number of messages sent.', 10),
-            Parameter('msg_size', 'Size of each sent message.', 100, 'B')
-        ],
+        'parameters': [msg_num(10), msg_size(100, 'B')],
         'configs': {
             'multiple_small_messages': {
                 'description': 'Receives multiple small messages using '
                                'connection pool.',
-                'parameters': [
-                    Parameter('msg_num', 'Number of messages sent.', 10000)
-                ]
+                'parameters': [msg_num(10000)]
             },
             'multiple_large_messages': {
                 'description': 'Receives multiple large messages using '
                                'connection pool.',
-                'parameters': [
-                    Parameter('msg_size', 'Size of each sent message.', 1, 'MB')
-                ]
+                'parameters': [msg_size(1, 'MB')]
             }
         }
     })
@@ -109,14 +97,16 @@ class TestConnectionPool:
         for msg in msgs:
             appmock_client.tcp_server_send(self.ip, 5555, msg)
 
-        time.sleep(1)
-
         recv = []
+        recv_time = Duration()
         for _ in msgs:
-            recv.append(cp.popMessage())
+            recv.append(duration(recv_time, cp.popMessage))
 
         assert len(msgs) == len(recv)
         assert msgs.sort() == recv.sort()
+
+        return Parameter('recv_time', 'Summary receive time.', recv_time.ms(),
+                         'ms')
 
 
 # noinspection PyClassHasNoInit
@@ -143,10 +133,8 @@ class TestConnection:
         conn = connection_pool.ConnectionProxy(handshake, True)
         conn.connect(self.ip, 5555)
 
-        time.sleep(0.5)
-
-        assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            handshake)
+        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, handshake, 1,
+                                                    5)
 
     @performance(skip=True)
     def test_connection_should_receive_handshake_response(self, parameters):
@@ -195,19 +183,16 @@ class TestConnection:
         assert conn.waitForReady()
 
     @performance({
-        'parameters': [
-            Parameter('msg_num', 'Number of messages sent.', 1),
-        ],
+        'parameters': [msg_num(1)],
         'configs': {
             'multiple_messages': {
                 'description': 'Sends multiple messages using connection.',
-                'parameters': [
-                    Parameter('msg_num', 'Number of messages sent.', 100),
-                ]
+                'parameters': [msg_num(100)],
             }
         }
     })
     def test_send_should_send_messages(self, parameters):
+        appmock_client.reset_tcp_server_history(self.ip)
         conn = connection_pool.ConnectionProxy(random_str(), True)
         conn.connect(self.ip, 5555)
 
@@ -215,31 +200,30 @@ class TestConnection:
         msg = random_str()
         msg2 = random_str()
 
+        send_time = Duration()
         for _ in xrange(msg_num):
             appmock_client.tcp_server_send(self.ip, 5555, random_str())
 
             conn.waitForReady()
-            conn.send(msg)
+            duration(send_time, conn.send, msg)
 
             conn.waitForReady()
-            conn.send(msg2)
+            duration(send_time, conn.send, msg2)
 
-        time.sleep(0.5)
-        assert msg_num == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                                  msg)
-        assert msg_num == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                                  msg2)
+        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, msg, msg_num,
+                                                    5)
+        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, msg2,
+                                                    msg_num, 5)
+
+        return Parameter('send_time', 'Summary send time.', send_time.ms(),
+                         'ms')
 
     @performance({
-        'parameters': [
-            Parameter('msg_num', 'Number of messages sent.', 1),
-        ],
+        'parameters': [msg_num(1)],
         'configs': {
             'multiple_messages': {
                 'description': 'Receives multiple messages using connection.',
-                'parameters': [
-                    Parameter('msg_num', 'Number of messages sent.', 100),
-                ]
+                'parameters': [msg_num(100)]
             }
         }
     })
@@ -252,15 +236,19 @@ class TestConnection:
 
         msg_num = parameters['msg_num'].value
 
+        recv_time = Duration()
         for _ in xrange(msg_num):
             msg = random_str()
             appmock_client.tcp_server_send(self.ip, 5555, msg)
 
             assert conn.waitForMessage()
-            assert msg == conn.getMessage()
+            assert msg == duration(recv_time, conn.getMessage)
 
             msg2 = random_str()
             appmock_client.tcp_server_send(self.ip, 5555, msg2)
 
             assert conn.waitForMessage()
-            assert msg2 == conn.getMessage()
+            assert msg2 == duration(recv_time, conn.getMessage)
+
+        return Parameter('recv_time', 'Summary receive time.', recv_time.ms(),
+                         'ms')

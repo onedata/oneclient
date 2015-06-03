@@ -15,6 +15,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <memory>
 
 using namespace one;
 using namespace one::communication;
@@ -36,7 +37,8 @@ public:
     }
 
     boost::promise<void> promise;
-    boost::basic_thread_pool m_ioServiceExecutor{1};
+    std::shared_ptr<boost::basic_thread_pool> m_ioServiceExecutor{
+        std::make_shared<boost::basic_thread_pool>(1)};
 };
 
 using CustomCommunicator =

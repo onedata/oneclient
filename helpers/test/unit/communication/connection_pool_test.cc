@@ -36,6 +36,7 @@ struct ConnectionMock : public Connection {
     }
 
     ConnectionMock(boost::asio::io_service &ioService,
+        std::shared_ptr<IoServiceExecutor> executor,
         boost::asio::ssl::context &context, const bool verifyServerCertificate,
         std::function<std::string()> &getHandshake,
         std::function<bool(std::string)> &onHandshakeResponse,
@@ -43,8 +44,9 @@ struct ConnectionMock : public Connection {
         std::function<void(std::shared_ptr<Connection>)> onReady,
         std::function<void(std::shared_ptr<Connection>, boost::exception_ptr)>
             onClosed)
-        : Connection{ioService, context, verifyServerCertificate, getHandshake,
-              onHandshakeResponse, onMessageReceived, onReady, onClosed}
+        : Connection{ioService, executor, context, verifyServerCertificate,
+              getHandshake, onHandshakeResponse, onMessageReceived, onReady,
+              onClosed}
         , getHandshake{getHandshake}
         , onHandshakeResponse{onHandshakeResponse}
         , onReady{onReady}
@@ -62,13 +64,14 @@ struct ConnectionPoolTest : public ::testing::Test {
 
     ConnectionPool connectionPool{1, host, service, true,
         std::bind(&ConnectionPoolTest::createConnectionMock, this, _1, _2, _3,
-                                      _4, _5, _6, _7, _8)};
+                                      _4, _5, _6, _7, _8, _9)};
 
     std::shared_ptr<ConnectionMock> connection;
 
     std::shared_ptr<Connection> createConnectionMock(
-        boost::asio::io_service &ioService, boost::asio::ssl::context &context,
-        const bool verifyServerCertificate,
+        boost::asio::io_service &ioService,
+        std::shared_ptr<IoServiceExecutor> executor,
+        boost::asio::ssl::context &context, const bool verifyServerCertificate,
         std::function<std::string()> &getHandshake,
         std::function<bool(std::string)> &onHandshakeResponse,
         std::function<void(std::string)> onMessageReceived,
@@ -76,8 +79,8 @@ struct ConnectionPoolTest : public ::testing::Test {
         std::function<void(std::shared_ptr<Connection>, boost::exception_ptr)>
             onClosed)
     {
-        auto conn = std::make_shared<ConnectionMock>(ioService, context,
-            verifyServerCertificate, getHandshake, onHandshakeResponse,
+        auto conn = std::make_shared<ConnectionMock>(ioService, executor,
+            context, verifyServerCertificate, getHandshake, onHandshakeResponse,
             std::move(onMessageReceived), std::move(onReady),
             std::move(onClosed));
 

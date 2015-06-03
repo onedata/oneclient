@@ -81,7 +81,7 @@ ret = docker.run(tty=True,
                  reflect=[(script_dir, 'rw'),
                           ('/var/run/docker.sock', 'rw')],
                  image=args.image,
-                 envs={'performance': args.performance,
-                       'base_test_dir': base_test_dir},
+                 envs={'PERFORMANCE': args.performance,
+                       'BASE_TEST_DIR': base_test_dir},
                  command=['python', '-c', command])
 sys.exit(ret)
