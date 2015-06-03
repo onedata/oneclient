@@ -1,13 +1,19 @@
+"""This module tests events emission and subscription using event manager."""
+
+__author__ = "Krzysztof Trzepla"
+__copyright__ = """(C) 2015 ACK CYFRONET AGH,
+This software is released under the MIT license cited in 'LICENSE.txt'."""
+
 import os
 import sys
 import time
 
 import pytest
 
-
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.dirname(script_dir))
 from test_common import *
+from performance import *
 
 # noinspection PyUnresolvedReferences
 from environment import appmock, common, docker
@@ -33,16 +39,23 @@ class TestCommunicator:
     def teardown_class(cls):
         docker.remove(cls.result['docker_ids'], force=True, volumes=True)
 
-    def test_subscription_counter_threshold(self):
+    @performance({
+        'repeats': 10,
+        'configs': {
+            'multiple_events': {
+                'description': 'Emits multiple events using event manager.',
+            }
+        }
+    })
+    def test_subscription_counter_threshold(self, parameters):
+        appmock_client.reset_tcp_server_history(self.ip)
         manager = events.EventManager(1, self.ip, 5555)
 
         subscription = events.prepareSerializedReadEventSubscription(1, 1, 0,
                                                                      0)
         appmock_client.tcp_server_send(self.ip, 5555, subscription)
         event = manager.emitReadEvent('fileId', 0, 10)
-        time.sleep(0.5)
-        assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            event)
+        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, event, 1, 5)
 
         cancellation = events.prepareSerializedEventSubscriptionCancellation(1)
         appmock_client.tcp_server_send(self.ip, 5555, cancellation)
@@ -51,7 +64,8 @@ class TestCommunicator:
         assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555,
                                                             event)
 
-    def test_subscription_size_threshold(self):
+    @performance(skip=True)
+    def test_subscription_size_threshold(self, parameters):
         manager = events.EventManager(1, self.ip, 5555)
 
         subscription = events.prepareSerializedReadEventSubscription(1, 0, 0,
@@ -69,7 +83,8 @@ class TestCommunicator:
         assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555,
                                                             event)
 
-    def test_subscription_time_threshold(self):
+    @performance(skip=True)
+    def test_subscription_time_threshold(self, parameters):
         manager = events.EventManager(1, self.ip, 5555)
 
         subscription = events.prepareSerializedReadEventSubscription(1, 0, 100,
@@ -87,7 +102,8 @@ class TestCommunicator:
         assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555,
                                                             event)
 
-    def test_multiple_subscriptions(self):
+    @performance(skip=True)
+    def test_multiple_subscriptions(self, parameters):
         manager = events.EventManager(1, self.ip, 5555)
 
         subscription = events.prepareSerializedReadEventSubscription(1, 0, 0,
@@ -123,7 +139,8 @@ class TestCommunicator:
         assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555,
                                                             event)
 
-    def test_different_subscriptions(self):
+    @performance(skip=True)
+    def test_different_subscriptions(self, parameters):
         manager = events.EventManager(1, self.ip, 5555)
 
         subscription = events.prepareSerializedReadEventSubscription(1, 1, 0,
