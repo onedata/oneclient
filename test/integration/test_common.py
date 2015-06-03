@@ -14,6 +14,8 @@ annotations_dir = os.path.join(project_dir, 'annotations')
 # Append useful modules to the path
 sys.path = [appmock_dir, docker_dir, annotations_dir] + sys.path
 
+from performance import Parameter
+
 
 def random_int():
     return random.randint(1, 100)
@@ -22,6 +24,14 @@ def random_int():
 def random_str(size=random_int()):
     return ''.join(random.choice(string.ascii_uppercase + string.digits) for
                    _ in xrange(size))
+
+
+def msg_num(num):
+    return Parameter('msg_num', 'Number of messages sent.', num)
+
+
+def msg_size(size, unit):
+    return Parameter('msg_size', 'Size of each message.', size, unit)
 
 
 def translate_unit(unit):

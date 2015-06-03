@@ -100,7 +100,7 @@ boost::future<ServerMessagePtr> Inbox<LowerLayer>::communicate(
     acc.release();
 
     auto sendFuture = LowerLayer::send(std::move(message), retries);
-    auto future = sendFuture.then(LowerLayer::m_ioServiceExecutor,
+    auto future = sendFuture.then(*LowerLayer::m_ioServiceExecutor,
         [this, promise, messageId](auto f) mutable {
             if (f.has_exception()) {
                 this->m_promises.erase(messageId);

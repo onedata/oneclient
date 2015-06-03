@@ -104,7 +104,7 @@ public:
     {
         auto protoMsg = msg.serialize();
         auto future = LowerLayer::communicate(std::move(protoMsg), retries);
-        return wrapFuture(future.then(LowerLayer::m_ioServiceExecutor,
+        return wrapFuture(future.then(*LowerLayer::m_ioServiceExecutor,
             [](auto f) { return SvrMsg{f.get()}; }));
     }
 };

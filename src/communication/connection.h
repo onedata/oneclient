@@ -25,6 +25,9 @@
 #include <tuple>
 
 namespace one {
+
+class IoServiceExecutor;
+
 namespace communication {
 
 /**
@@ -84,6 +87,7 @@ public:
      * @param onClosed A callback to call when onClosed event is emitted.
      */
     Connection(boost::asio::io_service &ioService,
+        std::shared_ptr<IoServiceExecutor> executor,
         boost::asio::ssl::context &context, const bool verifyServerCertificate,
         std::function<std::string()> &getHandshake,
         std::function<bool(std::string)> &onHandshakeResponse,
@@ -171,10 +175,13 @@ private:
 
     std::uint32_t m_outHeader;
     std::string m_outBuffer;
+
+    std::shared_ptr<IoServiceExecutor> m_executor;
     boost::promise<void> m_outPromise;
 };
 
 std::shared_ptr<Connection> createConnection(boost::asio::io_service &ioService,
+    std::shared_ptr<IoServiceExecutor> executor,
     boost::asio::ssl::context &context, const bool verifyServerCertificate,
     std::function<std::string()> &getHandshake,
     std::function<bool(std::string)> &onHandshakeResponse,

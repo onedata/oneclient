@@ -8,6 +8,7 @@
 
 #include "connection.h"
 
+#include "ioServiceExecutor.h"
 #include "exception.h"
 #include "logging.h"
 
@@ -46,6 +47,7 @@ std::string Connection::close(
 }
 
 Connection::Connection(boost::asio::io_service &ioService,
+    std::shared_ptr<IoServiceExecutor> executor,
     boost::asio::ssl::context &context, const bool verifyServerCertificate,
     std::function<std::string()> &getHandshake,
     std::function<bool(std::string)> &onHandshakeResponse,
@@ -62,6 +64,7 @@ Connection::Connection(boost::asio::io_service &ioService,
     , m_resolver{ioService}
     , m_strand{ioService}
     , m_socket{ioService, context}
+    , m_executor{std::move(executor)}
 {
 }
 
@@ -264,6 +267,7 @@ boost::asio::mutable_buffers_1 Connection::headerToBuffer(std::uint32_t &header)
 }
 
 std::shared_ptr<Connection> createConnection(boost::asio::io_service &ioService,
+    std::shared_ptr<IoServiceExecutor> executor,
     boost::asio::ssl::context &context, const bool verifyServerCertificate,
     std::function<std::string()> &getHandshake,
     std::function<bool(std::string)> &onHandshakeResponse,
@@ -272,7 +276,7 @@ std::shared_ptr<Connection> createConnection(boost::asio::io_service &ioService,
     std::function<void(std::shared_ptr<Connection>, boost::exception_ptr)>
         onClosed)
 {
-    return std::make_shared<Connection>(ioService, context,
+    return std::make_shared<Connection>(ioService, std::move(executor), context,
         verifyServerCertificate, getHandshake, onHandshakeResponse,
         std::move(onMessageReceived), std::move(onReady), std::move(onClosed));
 }

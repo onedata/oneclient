@@ -7,8 +7,8 @@ import time
 import traceback
 from subprocess import Popen, PIPE
 
-PERFORMANCE_ENV_VARIABLE = 'performance'
-PERFORMANCE_RESULT_FILE = os.path.join(os.environ.get('base_test_dir', '.'),
+PERFORMANCE_ENV_VARIABLE = 'PERFORMANCE'
+PERFORMANCE_RESULT_FILE = os.path.join(os.environ.get('BASE_TEST_DIR', '.'),
                                        'performance.json')
 
 
@@ -50,6 +50,36 @@ class Parameter(object):
                 'unit': self.unit}
 
 
+class Duration(object):
+    def __init__(self, value=0):
+        self.value = value
+
+    def increment(self, microseconds_diff):
+        """Increment duration by difference in microseconds."""
+        self.value += microseconds_diff
+
+    def us(self):
+        """Returns duration in microseconds."""
+        return self.value
+
+    def ms(self):
+        """Returns duration in milliseconds."""
+        return self.value / 1000
+
+    def s(self):
+        """Returns duration in seconds."""
+        return self.value / 1000000
+
+
+def duration(d, f, *args, **kwargs):
+    """Measures execution time of function call."""
+    start_time = time.time()
+    result = f(*args, **kwargs)
+    end_time = time.time()
+    d.increment(int((end_time - start_time) * 1000000))
+    return result
+
+
 # noinspection PyDefaultArgument
 def performance(config={}, skip=False):
     """Decorator that wraps test case and enables execution of performance
@@ -78,7 +108,6 @@ def performance(config={}, skip=False):
 
 def exec_ct_config(test_case, params, args, kwargs):
     """Executes integration test case using non-performance configuration."""
-
     kwargs['parameters'] = parameters_to_dict(params)
     test_case(*args, **kwargs)
 
@@ -86,7 +115,6 @@ def exec_ct_config(test_case, params, args, kwargs):
 def exec_perf_configs(test_suite, test_case, case_args, case_kwargs,
                       default_reps, default_params, configs):
     """Executes integration test case using performance configurations."""
-
     results = map(lambda (config_name, config):
                   exec_perf_config(test_suite, test_case, case_args,
                                    case_kwargs, config_name, config,
@@ -99,7 +127,6 @@ def exec_perf_configs(test_suite, test_case, case_args, case_kwargs,
 def exec_perf_config(test_suite, test_case, case_args, case_kwargs, config_name,
                      config, default_reps, default_params):
     """Executes integration test case using performance configuration."""
-
     # Fetch and prepare test case configuration.
     suite_name = test_suite.__name__
     case_name = test_case.func_name
@@ -164,7 +191,6 @@ def exec_perf_config(test_suite, test_case, case_args, case_kwargs, config_name,
 # noinspection PyShadowingNames
 def exec_test_repeats(test_case, case_args, case_kwargs, reps):
     """Executes test case multiple times."""
-
     reps_summary = []
     reps_details = []
     failed_reps = {}
@@ -195,18 +221,15 @@ def exec_test_repeats(test_case, case_args, case_kwargs, reps):
 
 def exec_test_repeat(test_case, case_args, case_kwargs):
     """Executes test case once."""
-
     try:
-        start_time = time.time()
-        result = test_case(*case_args, **case_kwargs)
-        end_time = time.time()
+        test_time = Duration()
+        result = duration(test_time, test_case, *case_args, **case_kwargs)
         result = [result] if not isinstance(result, list) else result
-        test_time = int((end_time - start_time) * 1000000)
         params = filter(lambda param: isinstance(param, Parameter), result)
         params.insert(0, Parameter(
             name='test_time',
             description='Test execution time.',
-            value=test_time,
+            value=test_time.ms(),
             unit='ms'))
         return True, params
     except Exception as e:
@@ -216,7 +239,6 @@ def exec_test_repeat(test_case, case_args, case_kwargs):
 # noinspection PyBroadException
 def load_performance_results():
     """Loads performance test results from a file."""
-
     try:
         with open(PERFORMANCE_RESULT_FILE, 'r') as f:
             content = f.read()
@@ -232,7 +254,6 @@ def load_performance_results():
 
 def save_performance_results(content):
     """Saves performance test results into a file."""
-
     with open(PERFORMANCE_RESULT_FILE, 'w') as f:
         f.write(json.dumps({'performance': content}, indent=2,
                            separators=(',', ': ')))
@@ -241,13 +262,11 @@ def save_performance_results(content):
 def parameters_to_dict(params):
     """Transforms list of parameters into a dictionary, where parameter name is
     a key and parameter itself is a value."""
-
     return dict(map(lambda param: (param.name, param), params))
 
 
 def format_parameters(params):
     """Returns list of formatted parameters."""
-
     return map(lambda param: param.format(), params)
 
 
@@ -255,7 +274,6 @@ def format_parameters(params):
 def merge_parameters(params, default_params):
     """Merges list of config parameters and list of default parameters, so that
     default parameter value is overwritten by specific one."""
-
     params_names = set(map(lambda param: param.name, params))
     for param in default_params:
         if param.name not in params_names:
@@ -265,14 +283,12 @@ def merge_parameters(params, default_params):
 
 def get_timestamp():
     """Returns number of milliseconds since the Epoch."""
-
     return int(time.time() * 1000)
 
 
 # noinspection PyBroadException
 def get_copyright(test_suite):
     """Returns copyright for test suite."""
-
     try:
         return test_suite.__copyright__
     except:
@@ -282,7 +298,6 @@ def get_copyright(test_suite):
 # noinspection PyBroadException
 def get_authors(test_suite):
     """Returns authors of test suite."""
-
     try:
         return re.split(r'\s*,\s*', test_suite.__author__)
     except:
@@ -292,5 +307,4 @@ def get_authors(test_suite):
 def cmd(command):
     """Executes command in shell of underlying operating system and returns
     standard output from command execution."""
-
     return Popen(command, shell=True, stdout=PIPE).stdout.read().strip()

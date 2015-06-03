@@ -2,6 +2,7 @@
 #include "communication/connection.h"
 #include "communication/declarations.h"
 #include "communication/future.h"
+#include "ioServiceExecutor.h"
 #include "messages/clientMessage.h"
 #include "messages/serverMessage.h"
 
