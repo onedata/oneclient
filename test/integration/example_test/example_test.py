@@ -40,7 +40,7 @@ class TestExample:
         pass
 
     @performance(skip=True)
-    def test_example(self):
+    def test_example(self, parameters):
         """Methods whose name begin with test_* are automatically run by pytest.
         The primary tool used in these methods is 'assert', which checks for
         a condition, and if not true fails the test and prints the code that
