@@ -46,8 +46,8 @@ ConnectionPool::ConnectionPool(const unsigned int connectionsNumber,
     , m_idleWork{m_ioService}
     , m_blockingStrand{m_ioService}
     , m_connectionsStrand{m_ioService}
-    , m_context{boost::asio::ssl::context::tlsv12_client}
     , m_ioServiceExecutor{std::make_shared<IoServiceExecutor>(m_ioService)}
+    , m_context{boost::asio::ssl::context::tlsv12_client}
 {
     m_outbox.set_capacity(OUTBOX_SIZE);
 }
