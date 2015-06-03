@@ -97,6 +97,8 @@ class TestConnectionPool:
         for msg in msgs:
             appmock_client.tcp_server_send(self.ip, 5555, msg)
 
+        time.sleep(1)
+
         recv = []
         recv_time = Duration()
         for _ in msgs:

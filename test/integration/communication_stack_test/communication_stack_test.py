@@ -76,6 +76,7 @@ class TestCommunicator:
                          'ms')
 
     @performance({
+        'repeats': 10,
         'parameters': [msg_num(1), msg_size(100, 'B')],
         'configs': {
             'multiple_small_messages': {
@@ -91,6 +92,7 @@ class TestCommunicator:
         }
     })
     def test_communicate(self, parameters):
+        appmock_client.reset_tcp_server_history(self.ip)
         com = communication_stack.Communicator(1, self.ip, 5555, False)
         com.connect()
 
@@ -109,7 +111,7 @@ class TestCommunicator:
             assert reply == duration(communicate_time, com.communicateReceive)
 
         appmock_client.tcp_server_wait_for_messages(self.ip, 5555, request,
-                                                    1, 5)
+                                                    1, 30)
 
         return Parameter('communicate_time', 'Summary communicate time.',
                          communicate_time.ms(), 'ms')

@@ -151,6 +151,14 @@ private:
     boost::asio::io_service::strand m_blockingStrand;
     boost::asio::io_service::strand m_connectionsStrand;
 
+protected:
+    /**
+     * A thread executor working on top of this pool's @c io_service.
+     * @note Defined after other variables as it depends on private ioService.
+     */
+    std::shared_ptr<IoServiceExecutor> m_ioServiceExecutor;
+
+private:
     std::vector<std::thread> m_workers;
     boost::asio::ssl::context m_context;
 
@@ -158,12 +166,7 @@ private:
     tbb::concurrent_queue<std::shared_ptr<SendTask>> m_rejects;
     std::unordered_set<std::shared_ptr<Connection>> m_connections;
 
-protected:
-    /**
-     * A thread executor working on top of this pool's @c io_service.
-     * @note Defined after other variables as it depends on private ioService.
-     */
-    std::shared_ptr<IoServiceExecutor> m_ioServiceExecutor;
+
 };
 
 } // namespace communication
