@@ -14,6 +14,7 @@ import sys
 # extends the Python path with more directories.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 from test_common import project_dir, appmock_dir, docker_dir
+from performance import *
 
 
 class TestExample:
@@ -38,6 +39,7 @@ class TestExample:
         """
         pass
 
+    @performance(skip=True)
     def test_example(self):
         """Methods whose name begin with test_* are automatically run by pytest.
         The primary tool used in these methods is 'assert', which checks for
