@@ -190,7 +190,7 @@ handle(Req, ?TCP_SERVER_SEND_COWBOY_ROUTE = State) ->
         end,
     {ok, NewReq, State};
 
-handle(Req, ?RESET_TCP_HISTORY_PATH = State) ->
+handle(Req, ?RESET_TCP_SERVER_HISTORY_PATH = State) ->
     {ok, NewReq} =
         try
             ReplyTerm = case remote_control_server:reset_tcp_mock_history() of

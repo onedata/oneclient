@@ -20,8 +20,8 @@
 %% API
 -export([rest_endpoint_request_count/3, verify_rest_history/2, reset_rest_history/1]).
 
--export([tcp_server_message_count/3, tcp_server_wait_for_messages/5, tcp_server_send/3, reset_tcp_server_history/1]).
--export([tcp_server_connection_count/2, tcp_server_wait_for_connections/4]).
+-export([tcp_server_message_count/3, tcp_server_wait_for_messages/6, tcp_server_send/3, reset_tcp_server_history/1]).
+-export([tcp_server_connection_count/2, tcp_server_wait_for_connections/5]).
 
 % These defines determine how often the appmock server will be requested to check for condition
 % when waiting for something. Increment rate causes each next interval to be longer
@@ -147,16 +147,19 @@ tcp_server_message_count(Hostname, Port, Data) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Returns when given number of given messages have been sent on given port, or after it timeouts.
+%% The AcceptMore flag makes the function succeed when there is the same or more messages than expected.
 %% @end
 %%--------------------------------------------------------------------
 -spec tcp_server_wait_for_messages(Hostname :: binary(), Port :: integer(),
-    Data :: binary(), MessageCount :: binary(), Timeout :: integer()) -> ok | {error, term()}.
-tcp_server_wait_for_messages(Hostname, Port, Data, MessageCount, Timeout) ->
+    Data :: binary(), MessageCount :: binary(), AcceptMore :: boolean(), Timeout :: integer()) -> ok | {error, term()}.
+tcp_server_wait_for_messages(Hostname, Port, Data, MessageCount, AcceptMore, Timeout) ->
     try
         StartingTime = now(),
         CheckMessNum = fun(ThisFun, WaitFor) ->
             case tcp_server_message_count(Hostname, Port, Data) of
-                {ok, Result} when Result >= MessageCount ->
+                {ok, Result} when AcceptMore andalso Result >= MessageCount ->
+                    ok;
+                {ok, Result} when Result =:= MessageCount ->
                     ok;
                 {error, wrong_endpoint} ->
                     {error, wrong_endpoint};
@@ -222,7 +225,7 @@ reset_tcp_server_history(Hostname) ->
     try
         {ok, RemoteControlPort} = application:get_env(?APP_NAME, remote_control_port),
         {200, _, RespBodyJSON} = appmock_utils:https_request(Hostname, RemoteControlPort,
-            <<?RESET_TCP_HISTORY_PATH>>, post, [], <<"">>),
+            <<?RESET_TCP_SERVER_HISTORY_PATH>>, post, [], <<"">>),
         RespBody = appmock_utils:decode_from_json(RespBodyJSON),
         case RespBody of
             ?TRUE_RESULT ->
@@ -258,16 +261,19 @@ tcp_server_connection_count(Hostname, Port) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Returns when given number of connections are established on given port, or after it timeouts.
+%% The AcceptMore flag makes the function succeed when there is the same or more connections than expected.
 %% @end
 %%--------------------------------------------------------------------
 -spec tcp_server_wait_for_connections(Hostname :: binary(), Port :: integer(),
-    ConnNumber :: integer(), Timeout :: integer()) -> ok | {error, term()}.
-tcp_server_wait_for_connections(Hostname, Port, ConnNumber, Timeout) ->
+    ConnNumber :: integer(), AcceptMore :: boolean(), Timeout :: integer()) -> ok | {error, term()}.
+tcp_server_wait_for_connections(Hostname, Port, ConnNumber, AcceptMore, Timeout) ->
     try
         StartingTime = now(),
         CheckConnNum = fun(ThisFun, WaitFor) ->
             case tcp_server_connection_count(Hostname, Port) of
-                {ok, Result} when Result >= ConnNumber ->
+                {ok, Result} when AcceptMore andalso Result >= ConnNumber ->
+                    ok;
+                {ok, Result} when Result =:= ConnNumber ->
                     ok;
                 {error, wrong_endpoint} ->
                     {error, wrong_endpoint};
