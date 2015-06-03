@@ -2,79 +2,132 @@
  * @file IStorageHelper.h
  * @author Rafal Slota
  * @copyright (C) 2013 ACK CYFRONET AGH
- * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
  */
 
 #ifndef HELPERS_I_STORAGE_HELPER_H
 #define HELPERS_I_STORAGE_HELPER_H
 
-
 #include <fuse.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 #include <boost/any.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/asio/buffer.hpp>
+#include <boost/thread.hpp>
+#include <boost/thread/future.hpp>
 
 #include <unordered_map>
+#include <string>
+#include <vector>
+#include <memory>
+#include <system_error>
+#include <future>
 
-namespace one
-{
-namespace helpers
-{
+namespace one {
+namespace helpers {
+
+struct StorageHelperCTX {
+
+    fuse_file_info &m_ffi;
+
+    StorageHelperCTX(fuse_file_info &ffi)
+        : m_ffi(ffi)
+    {
+    }
+};
+
+using CTXRef = StorageHelperCTX &;
+
+template<class T> using future_t = boost::future<T>;
+template<class T> using promise_t = boost::promise<T>;
 
 /**
  * The IStorageHelper interface.
  * Base class of all storage helpers. Unifies their interface.
- * All callback have their equivalent in FUSE API and should be used in that matter.
+ * All callback have their equivalent in FUSE API and should be used in that
+ * matter.
  */
-class IStorageHelper
-{
+class IStorageHelper {
 public:
     using ArgsMap = std::unordered_map<std::string, boost::any>;
 
     virtual ~IStorageHelper() = default;
 
-    virtual int sh_getattr(const char *path, struct stat *stbuf) = 0;
-    virtual int sh_access(const char *path, int mask) = 0;
-    virtual int sh_readlink(const char *path, char *buf, size_t size) = 0;
-    virtual int sh_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi) = 0;
-    virtual int sh_mknod(const char *path, mode_t mode, dev_t rdev) = 0;
-    virtual int sh_mkdir(const char *path, mode_t mode) = 0;
-    virtual int sh_unlink(const char *path) = 0;
-    virtual int sh_rmdir(const char *path) = 0;
-    virtual int sh_symlink(const char *from, const char *to) = 0;
-    virtual int sh_rename(const char *from, const char *to) = 0;
-    virtual int sh_link(const char *from, const char *to) = 0;
-    virtual int sh_chmod(const char *path, mode_t mode) = 0;
-    virtual int sh_chown(const char *path, uid_t uid, gid_t gid) = 0;
-    virtual int sh_truncate(const char *path, off_t size) = 0;
+    virtual future_t<struct stat> ash_getattr(
+        const boost::filesystem::path &p) = 0;
+    virtual future_t<void> ash_access(
+        const boost::filesystem::path &p, int mask) = 0;
+    virtual future_t<std::string> ash_readlink(
+        const boost::filesystem::path &p) = 0;
+    virtual future_t<std::vector<std::string>> ash_readdir(
+        const boost::filesystem::path &p, off_t offset, size_t count,
+        CTXRef ctx) = 0;
+    virtual future_t<void> ash_mknod(
+        const boost::filesystem::path &p, mode_t mode, dev_t rdev) = 0;
+    virtual future_t<void> ash_mkdir(
+        const boost::filesystem::path &p, mode_t mode) = 0;
+    virtual future_t<void> ash_unlink(const boost::filesystem::path &p) = 0;
+    virtual future_t<void> ash_rmdir(const boost::filesystem::path &p) = 0;
+    virtual future_t<void> ash_symlink(const boost::filesystem::path &from,
+        const boost::filesystem::path &to) = 0;
+    virtual future_t<void> ash_rename(const boost::filesystem::path &from,
+        const boost::filesystem::path &to) = 0;
+    virtual future_t<void> ash_link(const boost::filesystem::path &from,
+        const boost::filesystem::path &to) = 0;
+    virtual future_t<void> ash_chmod(
+        const boost::filesystem::path &p, mode_t mode) = 0;
+    virtual future_t<void> ash_chown(
+        const boost::filesystem::path &p, uid_t uid, gid_t gid) = 0;
+    virtual future_t<void> ash_truncate(
+        const boost::filesystem::path &p, off_t size) = 0;
 
-    #ifdef HAVE_UTIMENSAT
-    virtual int sh_utimens(const char *path, const struct timespec ts[2]) = 0;
-    #endif // HAVE_UTIMENSAT
+    virtual future_t<int> ash_open(
+        const boost::filesystem::path &p, CTXRef ctx) = 0;
+    virtual future_t<boost::asio::mutable_buffer> ash_read(
+        const boost::filesystem::path &p, boost::asio::mutable_buffer buf,
+        off_t offset, CTXRef ctx) = 0;
+    virtual future_t<int> ash_write(const boost::filesystem::path &p,
+        boost::asio::const_buffer buf, off_t offset, CTXRef ctx) = 0;
+    virtual future_t<void> ash_release(
+        const boost::filesystem::path &p, CTXRef ctx) = 0;
+    virtual future_t<void> ash_flush(
+        const boost::filesystem::path &p, CTXRef ctx) = 0;
+    virtual future_t<void> ash_fsync(
+        const boost::filesystem::path &p, int isdatasync, CTXRef ctx) = 0;
 
-    virtual int sh_open(const char *path, struct fuse_file_info *fi) = 0;
-    virtual int sh_read(const char *path, char *buf, size_t size, off_t offset, struct fuse_file_info *fi) = 0;
-    virtual int sh_write(const char *path, const char *buf, size_t size, off_t offset, struct fuse_file_info *fi) = 0;
-    virtual int sh_statfs(const char *path, struct statvfs *stbuf) = 0;
-    virtual int sh_release(const char *path, struct fuse_file_info *fi) = 0;
-    virtual int sh_flush(const char *path, struct fuse_file_info *fi) = 0;
-    virtual int sh_fsync(const char *path, int isdatasync, struct fuse_file_info *fi) = 0;
 
-    #ifdef HAVE_POSIX_FALLOCATE
-    virtual int sh_fallocate(const char *path, int mode, off_t offset, off_t length, struct fuse_file_info *fi) = 0;
-    #endif // HAVE_POSIX_FALLOCATE
+    virtual boost::asio::mutable_buffer sh_read(
+        const boost::filesystem::path &p, boost::asio::mutable_buffer buf,
+        off_t offset, CTXRef ctx) = 0;
+    virtual int sh_write(const boost::filesystem::path &p,
+        boost::asio::const_buffer buf, off_t offset, CTXRef ctx) = 0;
 
-    /* xattr operations are optional and can safely be left unimplemented */
-    #ifdef HAVE_SETXATTR
-    virtual int sh_setxattr(const char *path, const char *name, const char *value, size_t size, int flags) = 0;
-    virtual int sh_getxattr(const char *path, const char *name, char *value, size_t size) = 0;
-    virtual int sh_listxattr(const char *path, char *list, size_t size) = 0;
-    virtual int sh_removexattr(const char *path, const char *name) = 0;
-    #endif // HAVE_SETXATTR
+protected:
+    template <class T>
+    static void setPosixError(
+        std::shared_ptr<boost::promise<T>> p, int posixCode)
+    {
+        p->set_exception(makePosixError(posixCode));
+    }
+
+    template <class T>
+    static void setPosixError(
+        std::shared_ptr<std::promise<T>> p, int posixCode)
+    {
+        p->set_exception(std::make_exception_ptr(makePosixError(posixCode)));
+    }
+
+    static std::system_error makePosixError(int posixCode)
+    {
+        posixCode = posixCode > 0 ? posixCode : -posixCode;
+        return std::system_error(posixCode, std::system_category());
+    }
 };
 
 } // namespace helpers
 } // namespace one
-
 
 #endif // HELPERS_I_STORAGE_HELPER_H

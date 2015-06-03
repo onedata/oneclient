@@ -22,8 +22,8 @@
 
 %% API
 -export([start_link/0, healthcheck/0]).
--export([rest_endpoint_request_count/2, verify_rest_mock_history/1]).
--export([tcp_server_message_count/2, tcp_server_send/2]).
+-export([rest_endpoint_request_count/2, verify_rest_mock_history/1, reset_rest_mock_history/0]).
+-export([tcp_server_message_count/2, tcp_server_send/2, reset_tcp_mock_history/0, tcp_server_connection_count/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -97,6 +97,16 @@ verify_rest_mock_history(ExpectedHistory) ->
 
 %%--------------------------------------------------------------------
 %% @doc
+%% Handles requests to reset ALL mocked REST endpoints.
+%% @end
+%%--------------------------------------------------------------------
+-spec reset_rest_mock_history() -> true.
+reset_rest_mock_history() ->
+    rest_mock_server:reset_rest_mock_history().
+
+
+%%--------------------------------------------------------------------
+%% @doc
 %% Returns how many times has a TCP esrver received specific message.
 %% This task is delegated straight to tcp_mock_server, but this function is here
 %% for clear API.
@@ -117,6 +127,26 @@ tcp_server_message_count(Port, Data) ->
 -spec tcp_server_send(Port :: integer(), Data :: binary()) -> true | {error, term()}.
 tcp_server_send(Port, Data) ->
     tcp_mock_server:tcp_server_send(Port, Data).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Handles requests to reset ALL mocked TCP endpoints.
+%% @end
+%%--------------------------------------------------------------------
+-spec reset_tcp_mock_history() -> true.
+reset_tcp_mock_history() ->
+    tcp_mock_server:reset_tcp_mock_history().
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Handles requests to check how many clients are connected to given endpoint.
+%% @end
+%%--------------------------------------------------------------------
+-spec tcp_server_connection_count(Port :: integer()) -> {ok, integer()} | {error, term()}.
+tcp_server_connection_count(Port) ->
+    tcp_mock_server:tcp_server_connection_count(Port).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -169,6 +199,8 @@ handle_call(healthcheck, _From, State) ->
             Path = list_to_binary(?TCP_SERVER_MESSAGE_COUNT_PATH(8080)),
             {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, Path, get, [],
                 <<"random_data!%$$^&%^&*%^&*">>),
+            % Check connectivity to rest history reset
+            {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, <<?RESET_REST_HISTORY_PATH>>, get, [], <<"">>),
             ok
         catch T:M ->
             ?error_stacktrace("Error during ~p healthcheck- ~p:~p", [?MODULE, T, M]),
@@ -259,9 +291,12 @@ start_remote_control_listener() ->
         {'_', [
             {?NAGIOS_ENPOINT, remote_control_handler, [?NAGIOS_ENPOINT]},
             {?VERIFY_REST_HISTORY_PATH, remote_control_handler, [?VERIFY_REST_HISTORY_PATH]},
+            {?RESET_REST_HISTORY_PATH, remote_control_handler, [?RESET_REST_HISTORY_PATH]},
             {?REST_ENDPOINT_REQUEST_COUNT_PATH, remote_control_handler, [?REST_ENDPOINT_REQUEST_COUNT_PATH]},
             {?TCP_SERVER_MESSAGE_COUNT_COWBOY_ROUTE, remote_control_handler, [?TCP_SERVER_MESSAGE_COUNT_COWBOY_ROUTE]},
-            {?TCP_SERVER_SEND_COWBOY_ROUTE, remote_control_handler, [?TCP_SERVER_SEND_COWBOY_ROUTE]}
+            {?TCP_SERVER_SEND_COWBOY_ROUTE, remote_control_handler, [?TCP_SERVER_SEND_COWBOY_ROUTE]},
+            {?RESET_TCP_HISTORY_PATH, remote_control_handler, [?RESET_TCP_HISTORY_PATH]},
+            {?TCP_SERVER_CONNECTION_COUNT_COWBOY_ROUTE, remote_control_handler, [?TCP_SERVER_CONNECTION_COUNT_COWBOY_ROUTE]}
         ]}
     ]),
     % Load certificates' paths from env

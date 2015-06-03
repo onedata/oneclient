@@ -65,6 +65,11 @@ def _bucket_ready(bucket, container):
     return '{0} has been created and may be activated'.format(bucket) in output
 
 
+def _admin_test_ready(container):
+    result = docker.exec_(container, ['riak-admin', 'test'], stdout=sys.stderr)
+    return result == 0
+
+
 def _wait_until(condition, containers):
     common.wait_until(condition, containers, RIAK_READY_WAIT_SECONDS)
 
@@ -117,6 +122,8 @@ riak console'''
     docker.exec_(containers[0],
                  command=['riak-admin', 'bucket-type', 'activate', 'maps'],
                  stdout=sys.stderr)
+
+    _wait_until(_admin_test_ready, containers)
 
     common.merge(riak_output, dns_output)
     return riak_output

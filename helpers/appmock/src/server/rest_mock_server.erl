@@ -22,7 +22,7 @@
 
 %% API
 -export([start_link/0, healthcheck/0]).
--export([produce_response/2, rest_endpoint_request_count/2, verify_rest_mock_history/1]).
+-export([produce_response/2, rest_endpoint_request_count/2, verify_rest_mock_history/1, reset_rest_mock_history/0]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -40,7 +40,8 @@
 -record(state, {
     listeners = [] :: [term()],
     request_history = [] :: [{Port :: integer(), Path :: binary()}],
-    mock_states = dict:new() :: dict:dict()
+    mock_states = dict:new() :: dict:dict(),
+    initial_mock_states = dict:new() :: dict:dict()
 }).
 
 %%%===================================================================
@@ -105,6 +106,16 @@ verify_rest_mock_history(ExpectedOrder) ->
     gen_server:call(?SERVER, {verify_rest_mock_history, ExpectedOrder}).
 
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Handles requests to reset ALL mocked REST endpoints.
+%% @end
+%%--------------------------------------------------------------------
+-spec reset_rest_mock_history() -> true.
+reset_rest_mock_history() ->
+    gen_server:call(?SERVER, reset_rest_mock_history).
+
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -125,7 +136,7 @@ init([]) ->
     Mappings = get_mappings(DescriptionModule),
     StatesDict = convert_mappings_to_states_dict(Mappings),
     ListenersIDs = start_listeners_for_mappings(Mappings),
-    {ok, #state{mock_states = StatesDict, listeners = ListenersIDs}}.
+    {ok, #state{mock_states = StatesDict, listeners = ListenersIDs, initial_mock_states = StatesDict}}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -184,6 +195,10 @@ handle_call({verify_rest_mock_history, ExpectedHistory}, _From, State) ->
                 _ -> {false, ActualHistory}
             end,
     {reply, Reply, State};
+
+handle_call(reset_rest_mock_history, _From, State) ->
+    #state{initial_mock_states = InitialStatesDict} = State,
+    {reply, true, State#state{request_history = [], mock_states = InitialStatesDict}};
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
