@@ -3,7 +3,15 @@ It's important that the name of this file ends with *_test.py so that pytest
 can autodiscover it while looking for tests in the integration tests' top
 directory. By convention, the basename of this file should be identical to the
 name of test directory - in this case 'example_test'.
+
+This description is passed as a test suite description in case of performance
+tests. It is also important to provide comma-separated list of test suite
+authors and copyright as it will also be included in performance test report.
 """
+
+__author__ = "Konrad Zemek"
+__copyright__ = """(C) 2015 ACK CYFRONET AGH,
+This software is released under the MIT license cited in 'LICENSE.txt'."""
 
 import os
 import sys
@@ -39,12 +47,29 @@ class TestExample:
         """
         pass
 
-    @performance(skip=True)
+    @performance({
+        'repeats': 3,
+        # default parameters passed both into integration and performance tests
+        'parameters': [Parameter('name', 'description.', 'value', 'unit')],
+        'configs': {
+            'sample_config': {
+                'description': 'Short sample config description.',
+                # there is a possibility to overwrite default parameters in
+                # each performace test config
+                'parameters': [
+                    Parameter('name', 'description', 'other value', 'unit')
+                ]
+            }
+        }
+    })
     def test_example(self, parameters):
         """Methods whose name begin with test_* are automatically run by pytest.
         The primary tool used in these methods is 'assert', which checks for
         a condition, and if not true fails the test and prints the code that
         resulted in the failure.
+
+        This description is passed as a test case description in case of
+        performance tests.
         """
         assert project_dir
         assert appmock_dir
