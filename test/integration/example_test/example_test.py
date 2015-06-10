@@ -53,9 +53,12 @@ class TestExample:
         'parameters': [Parameter('name', 'description.', 'value', 'unit')],
         'configs': {
             'sample_config': {
+                # there is a possibility to overwrite default number of repeats
+                # for each performance test config
+                'repeats': 5,
                 'description': 'Short sample config description.',
-                # there is a possibility to overwrite default parameters in
-                # each performace test config
+                # there is a possibility to overwrite default parameters for
+                # each performance test config
                 'parameters': [
                     Parameter('name', 'description', 'other value', 'unit')
                 ]
@@ -75,3 +78,8 @@ class TestExample:
         assert appmock_dir
         assert docker_dir
         assert 1 == 1
+
+        # Each test case may return single parameter or list of parameters which
+        # will be included in performance test report.
+        # IMPORTANT! Parameter value must implement '+' operator.
+        return Parameter('name', 'description', 0, 'unit')
