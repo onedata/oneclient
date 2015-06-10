@@ -26,12 +26,33 @@ def random_str(size=random_int()):
                    _ in xrange(size))
 
 
-def msg_num(num):
-    return Parameter('msg_num', 'Number of messages sent.', num)
+def msg_num_param(num):
+    return Parameter('msg_num', 'Number of sent messages.', num)
 
 
-def msg_size(size, unit):
+def msg_size_param(size, unit):
     return Parameter('msg_size', 'Size of each message.', size, unit)
+
+
+def send_time_param(value, unit='ms'):
+    return Parameter('send_time', 'Summary time since first messages sent '
+                                  'till last message received.', value, unit)
+
+
+def recv_time_param(value, unit='ms'):
+    return Parameter('recv_time', 'Summary time since first reply sent '
+                                  'till last reply received.', value, unit)
+
+
+def communicate_time_param(value, unit='ms'):
+    return Parameter('communicate_time', 'Summary time since first message '
+                                         'sent till last reply received.',
+                     value, unit)
+
+
+def msg_per_sek_param(msg_num, us):
+    return Parameter('msg_per_sek', 'Number of sent messages per second.',
+                     1000000 * msg_num / us, 'msg/s')
 
 
 def translate_unit(unit):

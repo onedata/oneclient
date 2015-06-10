@@ -41,21 +41,23 @@ class TestCommunicator:
         docker.remove(cls.result['docker_ids'], force=True, volumes=True)
 
     @performance({
-        'parameters': [msg_num(1), msg_size(100, 'B')],
+        'parameters': [msg_num_param(1), msg_size_param(100, 'B')],
         'configs': {
             'multiple_small_messages': {
                 'description': 'Sends multiple small messages using '
                                'communicator.',
-                'parameters': [msg_num(10000)]
+                'parameters': [msg_num_param(1000000)]
             },
             'multiple_large_messages': {
                 'description': 'Sends multiple large messages using '
                                'communicator.',
-                'parameters': [msg_num(10), msg_size(1, 'MB')]
+                'parameters': [msg_num_param(50), msg_size_param(1, 'MB')]
             }
         }
     })
     def test_send(self, parameters):
+        """Sends multiple messages using communicator."""
+
         appmock_client.reset_tcp_server_history(self.ip)
         com = communication_stack.Communicator(3, self.ip, 5555, False)
         com.connect()
@@ -69,29 +71,33 @@ class TestCommunicator:
         for _ in xrange(msg_num):
             sent_bytes = duration(send_time, com.send, msg)
 
-        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, sent_bytes,
-                                                    msg_num, 5)
+        duration(send_time, appmock_client.tcp_server_wait_for_messages,
+                 self.ip, 5555, sent_bytes, msg_num, False, 30)
 
-        return Parameter('send_time', 'Summary send time.', send_time.ms(),
-                         'ms')
+        return [
+            send_time_param(send_time.ms()),
+            msg_per_sek_param(msg_num, send_time.us())
+        ]
 
     @performance({
         'repeats': 10,
-        'parameters': [msg_num(1), msg_size(100, 'B')],
+        'parameters': [msg_num_param(1), msg_size_param(100, 'B')],
         'configs': {
             'multiple_small_messages': {
                 'description': 'Receives multiple small messages using '
                                'communicator.',
-                'parameters': [msg_num(100)]
+                'parameters': [msg_num_param(1000)]
             },
             'multiple_large_messages': {
                 'description': 'Receives multiple large messages using '
                                'communicator.',
-                'parameters': [msg_num(10), msg_size(1, 'MB')]
+                'parameters': [msg_num_param(50), msg_size_param(1, 'MB')]
             }
         }
     })
     def test_communicate(self, parameters):
+        """Sends multiple messages and receives replies using communicator."""
+
         appmock_client.reset_tcp_server_history(self.ip)
         com = communication_stack.Communicator(1, self.ip, 5555, False)
         com.connect()
@@ -106,15 +112,18 @@ class TestCommunicator:
             request = duration(communicate_time, com.communicate, msg)
             reply = communication_stack.prepareReply(request, msg)
 
-            appmock_client.tcp_server_send(self.ip, 5555, reply)
+            duration(communicate_time, appmock_client.tcp_server_send, self.ip,
+                     5555, reply)
 
             assert reply == duration(communicate_time, com.communicateReceive)
 
-        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, request,
-                                                    1, 30)
+        duration(communicate_time, appmock_client.tcp_server_wait_for_messages,
+                 self.ip, 5555, request, 1, False, 30)
 
-        return Parameter('communicate_time', 'Summary communicate time.',
-                         communicate_time.ms(), 'ms')
+        return [
+            communicate_time_param(communicate_time.ms()),
+            msg_per_sek_param(msg_num, communicate_time.us())
+        ]
 
     @performance(skip=True)
     def test_successful_handshake(self, parameters):
@@ -125,7 +134,7 @@ class TestCommunicator:
         request = com.send("this is another request")
 
         appmock_client.tcp_server_wait_for_messages(self.ip, 5555, handshake, 1,
-                                                    5)
+                                                    False, 5)
         assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555,
                                                             request)
 
@@ -143,14 +152,14 @@ class TestCommunicator:
         com.connect()
 
         appmock_client.tcp_server_wait_for_messages(self.ip, 5555, handshake, 3,
-                                                    5)
+                                                    False, 5)
 
         reply = communication_stack.prepareReply(handshake, "anotherHandshakeR")
         appmock_client.tcp_server_send(self.ip, 5555, reply)
 
         # The connections should now be recreated and another handshake sent
         appmock_client.tcp_server_wait_for_messages(self.ip, 5555, handshake, 6,
-                                                    5)
+                                                    False, 5)
 
     @performance(skip=True)
     def test_exception_on_unsuccessful_handshake(self, parameters):
