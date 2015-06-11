@@ -55,6 +55,17 @@ def emit_time_param(value, unit='ms'):
     return Parameter('emit_time', 'Summary events emission time.', value, unit)
 
 
+def recv_time_param(value, unit='ms'):
+    """Returns parameter that describes summary events emission time."""
+    return Parameter('recv_time', 'Summary time to receive all aggregated event'
+                                  ' messages.', value, unit)
+
+
+def evtps_param(evt_num, us):
+    return Parameter('evtps', 'Number of events per second.',
+                     1000000 * evt_num / us, 'event/s')
+
+
 # noinspection PyClassHasNoInit
 class TestCommunicator:
     @classmethod
@@ -107,12 +118,13 @@ class TestCommunicator:
             duration(emit_time, manager.emitReadEvent, 'fileId', i * evt_size,
                      evt_size)
 
+        recv_time = Duration()
         for i in xrange(evt_num / ctr_thr):
             evt = events.prepareSerializedReadEvent(ctr_thr, 'fileId',
                                                     i * ctr_thr * evt_size,
                                                     ctr_thr * evt_size, i)
-            appmock_client.tcp_server_wait_for_messages(self.ip, 5555, evt, 1,
-                                                        False, 5)
+            duration(recv_time, appmock_client.tcp_server_wait_for_messages,
+                     self.ip, 5555, evt, 1, False, 5)
 
         can = events.prepareSerializedEventSubscriptionCancellation(1)
         appmock_client.tcp_server_send(self.ip, 5555, can)
@@ -121,7 +133,11 @@ class TestCommunicator:
         time.sleep(0.5)
         assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555, evt)
 
-        return emit_time_param(emit_time.ms())
+        return [
+            emit_time_param(emit_time.ms()),
+            recv_time_param(recv_time.ms()),
+            evtps_param(evt_num, emit_time.us() + recv_time.us())
+        ]
 
     @performance({
         'repeats': 10,
@@ -159,12 +175,13 @@ class TestCommunicator:
             duration(emit_time, manager.emitReadEvent, 'fileId', i * evt_size,
                      evt_size)
 
+        recv_time = Duration()
         for i in xrange(evt_num * evt_size / size_thr):
             evt = events.prepareSerializedReadEvent(ctr_thr, 'fileId',
                                                     i * ctr_thr * evt_size,
                                                     ctr_thr * evt_size, i)
-            appmock_client.tcp_server_wait_for_messages(self.ip, 5555, evt, 1,
-                                                        False, 5)
+            duration(recv_time, appmock_client.tcp_server_wait_for_messages,
+                     self.ip, 5555, evt, 1, False, 5)
 
         can = events.prepareSerializedEventSubscriptionCancellation(1)
         appmock_client.tcp_server_send(self.ip, 5555, can)
@@ -173,7 +190,11 @@ class TestCommunicator:
         time.sleep(0.5)
         assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555, evt)
 
-        return emit_time_param(emit_time.ms())
+        return [
+            emit_time_param(emit_time.ms()),
+            recv_time_param(recv_time.ms()),
+            evtps_param(evt_num, emit_time.us() + recv_time.us())
+        ]
 
     @performance(skip=True)
     def test_subscription_time_threshold(self, parameters):
