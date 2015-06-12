@@ -8,7 +8,7 @@ add_subdirectory(../clproto ${CMAKE_CURRENT_BINARY_DIR}/../clproto)
 # Set up helpers
 file(GLOB_RECURSE HELPER_SOURCES ../src/*.cc ../src/*.h)
 add_library(helpers OBJECT ${HELPER_SOURCES})
-add_dependencies(helpers glog)
+add_dependencies(helpers glog clproto)
 target_include_directories(helpers PRIVATE ../src)
 target_include_directories(helpers SYSTEM PRIVATE
     ${GLOG_INCLUDE_DIR}

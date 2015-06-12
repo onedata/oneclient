@@ -138,7 +138,7 @@ set(CLIENT_LIBRARIES
 
 # Define targets
 add_library(client OBJECT ${SOURCES} ${HEADERS})
-add_dependencies(client glog)
+add_dependencies(client glog helpers clproto json11Build)
 
 set(CLIENT_SOURCES
     ${MAIN_SOURCE_FILE}
