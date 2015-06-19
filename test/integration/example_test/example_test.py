@@ -3,7 +3,15 @@ It's important that the name of this file ends with *_test.py so that pytest
 can autodiscover it while looking for tests in the integration tests' top
 directory. By convention, the basename of this file should be identical to the
 name of test directory - in this case 'example_test'.
+
+This description is passed as a test suite description in case of performance
+tests. It is also important to provide comma-separated list of test suite
+authors and copyright as it will also be included in performance test report.
 """
+
+__author__ = "Konrad Zemek"
+__copyright__ = """(C) 2015 ACK CYFRONET AGH,
+This software is released under the MIT license cited in 'LICENSE.txt'."""
 
 import os
 import sys
@@ -14,6 +22,7 @@ import sys
 # extends the Python path with more directories.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 from test_common import project_dir, appmock_dir, docker_dir
+from performance import *
 
 
 class TestExample:
@@ -38,13 +47,39 @@ class TestExample:
         """
         pass
 
-    def test_example(self):
+    @performance({
+        'repeats': 3,
+        # default parameters passed both into integration and performance tests
+        'parameters': [Parameter('name', 'description.', 'value', 'unit')],
+        'configs': {
+            'sample_config': {
+                # there is a possibility to overwrite default number of repeats
+                # for each performance test config
+                'repeats': 5,
+                'description': 'Short sample config description.',
+                # there is a possibility to overwrite default parameters for
+                # each performance test config
+                'parameters': [
+                    Parameter('name', 'description', 'other value', 'unit')
+                ]
+            }
+        }
+    })
+    def test_example(self, parameters):
         """Methods whose name begin with test_* are automatically run by pytest.
         The primary tool used in these methods is 'assert', which checks for
         a condition, and if not true fails the test and prints the code that
         resulted in the failure.
+
+        This description is passed as a test case description in case of
+        performance tests.
         """
         assert project_dir
         assert appmock_dir
         assert docker_dir
         assert 1 == 1
+
+        # Each test case may return single parameter or list of parameters which
+        # will be included in performance test report.
+        # IMPORTANT! Parameter value must implement '+' operator.
+        return Parameter('name', 'description', 0, 'unit')

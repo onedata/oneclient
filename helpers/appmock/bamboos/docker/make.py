@@ -152,12 +152,16 @@ command = command.format(
 reflect = [(destination, 'rw')]
 reflect.extend(zip(args.reflect, ['rw'] * len(args.reflect)))
 
+split_envs = [e.split('=') for e in args.envs]
+envs = {kv[0]: kv[1] for kv in split_envs}
+
 ret = docker.run(tty=True,
                  interactive=True,
                  rm=True,
                  reflect=reflect,
                  volumes=[(args.keys, '/tmp/keys', 'ro'),
                           (args.src, '/tmp/src', 'ro')],
+                 envs=envs,
                  workdir=workdir,
                  image=args.image,
                  run_params=(['--privileged=true'] if args.privileged else []),

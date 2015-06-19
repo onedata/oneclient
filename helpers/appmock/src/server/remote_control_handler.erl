@@ -122,6 +122,24 @@ handle(Req, ?VERIFY_REST_HISTORY_PATH = State) ->
         end,
     {ok, NewReq, State};
 
+handle(Req, ?RESET_REST_HISTORY_PATH = State) ->
+    {ok, NewReq} =
+        try
+            ReplyTerm = case remote_control_server:reset_rest_mock_history() of
+                            true ->
+                                ?TRUE_RESULT
+                        end,
+            Req2 = cowboy_req:set_resp_body(appmock_utils:encode_to_json(ReplyTerm), Req),
+            Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
+            {ok, _NewReq} = cowboy_req:reply(200, Req3)
+        catch T:M ->
+            ?error_stacktrace("Error in remote_control_handler. Path: ~p. ~p:~p.",
+                [State, T, M]),
+            {ok, _ErrorReq} = cowboy_req:reply(500, Req)
+        end,
+    {ok, NewReq, State};
+
+
 handle(Req, ?TCP_SERVER_MESSAGE_COUNT_COWBOY_ROUTE = State) ->
     {ok, NewReq} =
         try
@@ -161,6 +179,44 @@ handle(Req, ?TCP_SERVER_SEND_COWBOY_ROUTE = State) ->
                                 ?TCP_SERVER_SEND_PACK_SEND_FAILED_ERROR;
                             {error, wrong_endpoint} ->
                                 ?TCP_SERVER_SEND_PACK_WRONG_ENDPOINT_ERROR
+                        end,
+            Req2 = cowboy_req:set_resp_body(appmock_utils:encode_to_json(ReplyTerm), Req),
+            Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
+            {ok, _NewReq} = cowboy_req:reply(200, Req3)
+        catch T:M ->
+            ?error_stacktrace("Error in remote_control_handler. Path: ~p. ~p:~p.",
+                [State, T, M]),
+            {ok, _ErrorReq} = cowboy_req:reply(500, Req)
+        end,
+    {ok, NewReq, State};
+
+handle(Req, ?RESET_TCP_SERVER_HISTORY_PATH = State) ->
+    {ok, NewReq} =
+        try
+            ReplyTerm = case remote_control_server:reset_tcp_mock_history() of
+                            true ->
+                                ?TRUE_RESULT
+                        end,
+            Req2 = cowboy_req:set_resp_body(appmock_utils:encode_to_json(ReplyTerm), Req),
+            Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
+            {ok, _NewReq} = cowboy_req:reply(200, Req3)
+        catch T:M ->
+            ?error_stacktrace("Error in remote_control_handler. Path: ~p. ~p:~p.",
+                [State, T, M]),
+            {ok, _ErrorReq} = cowboy_req:reply(500, Req)
+        end,
+    {ok, NewReq, State};
+
+handle(Req, ?TCP_SERVER_CONNECTION_COUNT_COWBOY_ROUTE = State) ->
+    {ok, NewReq} =
+        try
+            PortBin = req:binding(port, Req),
+            Port = binary_to_integer(PortBin),
+            ReplyTerm = case remote_control_server:tcp_server_connection_count(Port) of
+                            {ok, Count} ->
+                                ?TCP_SERVER_CONNECTION_COUNT_PACK_RESPONSE(Count);
+                            {error, wrong_endpoint} ->
+                                ?TCP_SERVER_CONNECTION_COUNT_PACK_ERROR_WRONG_ENDPOINT
                         end,
             Req2 = cowboy_req:set_resp_body(appmock_utils:encode_to_json(ReplyTerm), Req),
             Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),

@@ -9,8 +9,6 @@
 #ifndef HELPERS_COMMUNICATION_CONNECTION_POOL_H
 #define HELPERS_COMMUNICATION_CONNECTION_POOL_H
 
-#include "ioServiceExecutor.h"
-
 #include <boost/asio/io_service.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -29,6 +27,9 @@
 #include <unordered_set>
 
 namespace one {
+
+class IoServiceExecutor;
+
 namespace communication {
 
 namespace cert {
@@ -46,9 +47,9 @@ class ConnectionPool {
     using SendTask = std::tuple<std::string, boost::promise<void>>;
 
     using ConnectionFactory = std::function<std::shared_ptr<Connection>(
-        boost::asio::io_service &, boost::asio::ssl::context &, const bool,
-        std::function<std::string()> &, std::function<bool(std::string)> &,
-        std::function<void(std::string)>,
+        boost::asio::io_service &, std::shared_ptr<IoServiceExecutor>,
+        boost::asio::ssl::context &, const bool, std::function<std::string()> &,
+        std::function<bool(std::string)> &, std::function<void(std::string)>,
         std::function<void(std::shared_ptr<Connection>)>,
         std::function<void(
             std::shared_ptr<Connection>, boost::exception_ptr)>)>;
@@ -150,6 +151,14 @@ private:
     boost::asio::io_service::strand m_blockingStrand;
     boost::asio::io_service::strand m_connectionsStrand;
 
+protected:
+    /**
+     * A thread executor working on top of this pool's @c io_service.
+     * @note Defined after other variables as it depends on private ioService.
+     */
+    std::shared_ptr<IoServiceExecutor> m_ioServiceExecutor;
+
+private:
     std::vector<std::thread> m_workers;
     boost::asio::ssl::context m_context;
 
@@ -157,12 +166,7 @@ private:
     tbb::concurrent_queue<std::shared_ptr<SendTask>> m_rejects;
     std::unordered_set<std::shared_ptr<Connection>> m_connections;
 
-protected:
-    /**
-     * A thread executor working on top of this pool's @c io_service.
-     * @note Defined after other variables as it depends on private ioService.
-     */
-    IoServiceExecutor m_ioServiceExecutor;
+
 };
 
 } // namespace communication

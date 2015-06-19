@@ -44,41 +44,63 @@ public:
         m_eventManager = std::make_unique<EventManager>(std::move(context));
     }
 
-    std::string emitReadEvent(std::string fileId, off_t offset, size_t size)
+    uint64_t emitReadEvent(std::string fileId, off_t offset, size_t size)
     {
         m_eventManager->emitReadEvent(fileId, offset, size);
-        auto event = ReadEvent{std::move(fileId), offset, size};
-        return setMessageStream(event.serialize())->SerializeAsString();
+        return m_sequenceNumber++;
     }
 
-    std::string emitWriteEvent(
+    uint64_t emitWriteEvent(
         std::string fileId, off_t offset, size_t size, off_t fileSize)
     {
         m_eventManager->emitWriteEvent(fileId, offset, size, fileSize);
-        auto event = WriteEvent{std::move(fileId), offset, size, fileSize};
-        return setMessageStream(event.serialize())->SerializeAsString();
+        return m_sequenceNumber++;
     }
 
-    std::string emitTruncateEvent(std::string fileId, off_t fileSize)
+    uint64_t emitTruncateEvent(std::string fileId, off_t fileSize)
     {
         m_eventManager->emitTruncateEvent(fileId, fileSize);
-        auto event = TruncateEvent{std::move(fileId), fileSize};
-        return setMessageStream(event.serialize())->SerializeAsString();
+        return m_sequenceNumber++;
     }
 
 private:
-    std::unique_ptr<one::clproto::ClientMessage> setMessageStream(
-        std::unique_ptr<one::clproto::ClientMessage> clientMsg)
-    {
-        auto msgStream = clientMsg->mutable_message_stream();
-        msgStream->set_stream_id(0);
-        msgStream->set_sequence_number(m_sequenceNumber++);
-        return std::move(clientMsg);
-    }
-
     std::atomic<uint64_t> m_sequenceNumber{0};
     std::unique_ptr<EventManager> m_eventManager;
 };
+
+std::unique_ptr<one::clproto::ClientMessage> setMessageStream(
+    std::unique_ptr<one::clproto::ClientMessage> clientMsg,
+    uint64_t sequenceNumber)
+{
+    auto msgStream = clientMsg->mutable_message_stream();
+    msgStream->set_stream_id(0);
+    msgStream->set_sequence_number(sequenceNumber);
+    return std::move(clientMsg);
+}
+
+std::string prepareSerializedReadEvent(std::size_t counter, std::string fileId,
+    off_t offset, size_t size, uint64_t sequenceNumber)
+{
+    auto event = ReadEvent{std::move(fileId), offset, size, counter};
+    return setMessageStream(event.serialize(), sequenceNumber)
+        ->SerializeAsString();
+}
+
+std::string prepareSerializedWriteEvent(std::size_t counter, std::string fileId,
+    off_t offset, size_t size, off_t fileSize, uint64_t sequenceNumber)
+{
+    auto event = WriteEvent{std::move(fileId), offset, size, fileSize, counter};
+    return setMessageStream(event.serialize(), sequenceNumber)
+        ->SerializeAsString();
+}
+
+std::string prepareSerializedTruncateEvent(std::size_t counter,
+    std::string fileId, off_t fileSize, uint64_t sequenceNumber)
+{
+    auto event = TruncateEvent{std::move(fileId), fileSize, counter};
+    return setMessageStream(event.serialize(), sequenceNumber)
+        ->SerializeAsString();
+}
 
 std::string prepareSerializedReadEventSubscription(uint64_t id,
     size_t counterThreshold, uint64_t timeThreshold, size_t sizeThreshold)
@@ -141,6 +163,10 @@ BOOST_PYTHON_MODULE(events)
         .def("emitReadEvent", &EventManagerProxy::emitReadEvent)
         .def("emitWriteEvent", &EventManagerProxy::emitWriteEvent)
         .def("emitTruncateEvent", &EventManagerProxy::emitTruncateEvent);
+
+    def("prepareSerializedReadEvent", &prepareSerializedReadEvent);
+    def("prepareSerializedWriteEvent", &prepareSerializedWriteEvent);
+    def("prepareSerializedTruncateEvent", &prepareSerializedTruncateEvent);
 
     def("prepareSerializedReadEventSubscription",
         &prepareSerializedReadEventSubscription);

@@ -8,10 +8,11 @@
 
 #include "connectionPool.h"
 
-#include "exception.h"
-#include "connection.h"
-#include "logging.h"
 #include "cert/certificateData.h"
+#include "connection.h"
+#include "exception.h"
+#include "ioServiceExecutor.h"
+#include "logging.h"
 
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
@@ -45,8 +46,8 @@ ConnectionPool::ConnectionPool(const unsigned int connectionsNumber,
     , m_idleWork{m_ioService}
     , m_blockingStrand{m_ioService}
     , m_connectionsStrand{m_ioService}
+    , m_ioServiceExecutor{std::make_shared<IoServiceExecutor>(m_ioService)}
     , m_context{boost::asio::ssl::context::tlsv12_client}
-    , m_ioServiceExecutor{m_ioService}
 {
     m_outbox.set_capacity(OUTBOX_SIZE);
 }
@@ -168,7 +169,7 @@ void ConnectionPool::onConnectionClosed(
 
 void ConnectionPool::createConnection()
 {
-    auto conn = m_connectionFactory(m_ioService, m_context,
+    auto conn = m_connectionFactory(m_ioService, m_ioServiceExecutor, m_context,
         m_verifyServerCertificate, m_getHandshake, m_onHandshakeResponse,
         std::bind(&ConnectionPool::onMessageReceived, this, _1),
         std::bind(&ConnectionPool::onConnectionReady, this, _1),
@@ -187,6 +188,7 @@ ConnectionPool::~ConnectionPool()
         m_connections.clear();
     });
 
+    m_ioServiceExecutor->close();
     m_ioService.stop();
     m_outbox.abort();
 

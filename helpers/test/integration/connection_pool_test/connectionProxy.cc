@@ -7,6 +7,7 @@
  */
 
 #include "communication/connection.h"
+#include "ioServiceExecutor.h"
 
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
@@ -45,8 +46,8 @@ public:
             m_handshakeResponse.set_value(response);
             return acceptHandshake;
         }}
-        , m_connection{std::make_shared<Connection>(m_ioService, m_context,
-              false, m_getHandshake, m_onHandshakeResponse,
+        , m_connection{std::make_shared<Connection>(m_ioService, nullptr,
+              m_context, false, m_getHandshake, m_onHandshakeResponse,
               std::bind(&ConnectionProxy::onMessageReceived, this, p::_1),
               std::bind(&ConnectionProxy::onReady, this, p::_1),
               std::bind(&ConnectionProxy::onClosed, this, p::_1, p::_2))}
