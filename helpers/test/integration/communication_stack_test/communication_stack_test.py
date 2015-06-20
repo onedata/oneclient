@@ -76,7 +76,7 @@ class TestCommunicator:
 
         return [
             send_time_param(send_time.ms()),
-            msg_per_sek_param(msg_num, send_time.us())
+            mbps_param(msg_num, msg_size, send_time.us())
         ]
 
     @performance({
@@ -122,7 +122,7 @@ class TestCommunicator:
 
         return [
             communicate_time_param(communicate_time.ms()),
-            msg_per_sek_param(msg_num, communicate_time.us())
+            mbps_param(msg_num, msg_size, communicate_time.us())
         ]
 
     @performance(skip=True)
