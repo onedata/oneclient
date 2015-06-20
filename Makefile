@@ -1,3 +1,6 @@
+# distro for package building (oneof: sid, fedora-21-x86_64)
+DISTRIBUTION    ?= none
+
 PKG_REVISION    ?= $(shell git describe --tags --always)
 PKG_VERSION	    ?= $(shell git describe --tags --always| tr - .)
 PKG_BUILD       ?= 1
@@ -51,7 +54,7 @@ deb: package/$(PKG_ID).tar.gz
 	sed -i "s/oneclient (.*) .*;/oneclient ($(PKG_VERSION)-$(PKG_BUILD)) sid;/g" package/$(PKG_ID)/debian/changelog
 	sed -i "s/Build from .*/Build from $(PKG_VERSION)/g" package/$(PKG_ID)/debian/changelog
 
-	cd package/$(PKG_ID) && sg sbuild -c "sbuild -sd sid -j4"
+	cd package/$(PKG_ID) && sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j4"
 	mv package/*$(PKG_VERSION).orig.tar.gz package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD).dsc package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)_amd64.changes package/packages/
@@ -65,9 +68,9 @@ rpm: package/$(PKG_ID).tar.gz
 	sed -i "s/{{version}}/$(PKG_VERSION)/g" package/oneclient.spec
 	sed -i "s/{{build}}/$(PKG_BUILD)/g" package/oneclient.spec
 
-	mock --root fedora-21-x86_64 --buildsrpm --spec package/oneclient.spec --resultdir=package/packages \
+	mock --root $(DISTRIBUTION) --buildsrpm --spec package/oneclient.spec --resultdir=package/packages \
 		--sources package/$(PKG_ID).orig.tar.gz
-	mock --root fedora-21-x86_64  --resultdir=package/packages --rebuild package/packages/$(PKG_ID)*.src.rpm
+	mock --root $(DISTRIBUTION)  --resultdir=package/packages --rebuild package/packages/$(PKG_ID)*.src.rpm
 
 
 clean:
