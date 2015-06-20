@@ -9,7 +9,7 @@ set(helpers_VERSION $(helpers_VERSION_MAJOR).$(helpers_VERSION_MINOR).$(helpers_
 
 # CMake config
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR})
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 # Setup OpenSSL
 message(STATUS "Checking for OpenSSL...")

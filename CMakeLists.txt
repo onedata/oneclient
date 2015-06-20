@@ -3,7 +3,7 @@ project(oneclient C CXX)
 
 # CMake config
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/helpers)
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/helpers/cmake)
 
 #================================================================================================
 # Automatic git versioning: http://ipenguin.ws/2012/11/cmake-automatically-use-git-tags-as.html
