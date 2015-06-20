@@ -7,7 +7,7 @@ _script_dir = os.path.dirname(os.path.realpath(__file__))
 project_dir = os.path.dirname(os.path.dirname(_script_dir))
 appmock_dir = os.path.join(project_dir, 'appmock')
 docker_dir = os.path.join(project_dir, 'bamboos', 'docker')
-annotations_dir = os.path.join(project_dir, 'annotations')
+annotations_dir = os.path.join(project_dir, 'test', 'annotations')
 
 # Append useful modules to the path
 sys.path = [appmock_dir, docker_dir, annotations_dir] + sys.path
