@@ -72,7 +72,7 @@ class TestConnectionPool:
 
         return [
             send_time_param(send_time.ms()),
-            msg_per_sek_param(msg_num, send_time.us())
+            mbps_param(msg_num, msg_size, send_time.us())
         ]
 
     @performance({
@@ -114,7 +114,7 @@ class TestConnectionPool:
 
         return [
             recv_time_param(recv_time.ms()),
-            msg_per_sek_param(msg_num, recv_time.us())
+            mbps_param(msg_num, msg_size, recv_time.us())
         ]
 
 
@@ -192,8 +192,7 @@ class TestConnection:
         assert conn.waitForReady()
 
     @performance({
-        'repeats': 10,
-        'parameters': [msg_num_param(1)],
+        'parameters': [msg_num_param(1), msg_size_param(100, 'B')],
         'configs': {
             'multiple_messages': {
                 'description': 'Sends multiple messages using connection.',
@@ -210,8 +209,10 @@ class TestConnection:
         conn.connect(self.ip, 5555)
 
         msg_num = parameters['msg_num'].value
-        msg = random_str()
-        msg2 = random_str()
+        msg_size = parameters['msg_size'].value * translate_unit(
+            parameters['msg_size'].unit)
+        msg = random_str(msg_size)
+        msg2 = random_str(msg_size)
 
         send_time = Duration()
         for _ in xrange(msg_num):
@@ -231,12 +232,11 @@ class TestConnection:
 
         return [
             send_time_param(send_time.ms()),
-            msg_per_sek_param(msg_num, send_time.us())
+            mbps_param(msg_num, msg_size, send_time.us())
         ]
 
     @performance({
-        'repeats': 10,
-        'parameters': [msg_num_param(1)],
+        'parameters': [msg_num_param(1), msg_size_param(100, 'B')],
         'configs': {
             'multiple_messages': {
                 'description': 'Receives multiple messages using connection.',
@@ -254,17 +254,19 @@ class TestConnection:
         conn.getHandshakeResponse()
 
         msg_num = parameters['msg_num'].value
+        msg_size = parameters['msg_size'].value * translate_unit(
+            parameters['msg_size'].unit)
 
         recv_time = Duration()
         for _ in xrange(msg_num):
-            msg = random_str()
+            msg = random_str(msg_size)
             duration(recv_time, appmock_client.tcp_server_send, self.ip, 5555,
                      msg)
 
             assert duration(recv_time, conn.waitForMessage)
             assert msg == duration(recv_time, conn.getMessage)
 
-            msg2 = random_str()
+            msg2 = random_str(msg_size)
             duration(recv_time, appmock_client.tcp_server_send, self.ip, 5555,
                      msg2)
 
@@ -273,5 +275,5 @@ class TestConnection:
 
         return [
             recv_time_param(recv_time.ms()),
-            msg_per_sek_param(msg_num, recv_time.us())
+            mbps_param(msg_num, msg_size, recv_time.us())
         ]

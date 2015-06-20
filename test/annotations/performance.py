@@ -39,15 +39,21 @@ class Parameter(object):
     def average(self, n):
         """Returns average parameter value from n repeats."""
         param = copy.copy(self)
-        param.value = int(param.value / n)
+        param.value = float(param.value) / n
         return param
 
     def format(self):
         """Returns parameter fields as a dictionary."""
         return {'name': self.name,
                 'description': self.description,
-                'value': self.value,
+                'value': self.maybe_round(self.value),
                 'unit': self.unit}
+
+    def maybe_round(self, value):
+        try:
+            return round(value, 6)
+        except:
+            return value
 
 
 class Duration(object):
@@ -64,11 +70,11 @@ class Duration(object):
 
     def ms(self):
         """Returns duration in milliseconds."""
-        return self.value / 1000
+        return self.value / 1000.
 
     def s(self):
         """Returns duration in seconds."""
-        return self.value / 1000000
+        return self.value / 1000000.
 
 
 def duration(d, f, *args, **kwargs):
