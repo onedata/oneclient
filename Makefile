@@ -55,8 +55,8 @@ deb: package/$(PKG_ID).tar.gz
 	mv package/*$(PKG_VERSION).orig.tar.gz package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD).dsc package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)_amd64.changes package/packages/
-	mv package/*$(PKG_VERSION)-$(PKG_BUILD)_*.debian.tar.xz package/packages/
-	mv package/*$(PKG_VERSION)-$(PKG_BUILD)_*.deb package/packages/
+	mv package/*$(PKG_VERSION)-$(PKG_BUILD).debian.tar.xz package/packages/
+	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.deb package/packages/
 
 rpm: package/$(PKG_ID).tar.gz
 	rm -rf package/packages && mkdir -p package/packages
