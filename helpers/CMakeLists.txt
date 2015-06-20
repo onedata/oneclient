@@ -27,6 +27,10 @@ find_package(FUSE REQUIRED)
 message(STATUS "Checking for Intel TBB...")
 find_package(TBB REQUIRED)
 
+# Setup glog
+message(STATUS "Checking for glog...")
+find_package(Glog REQUIRED)
+
 # Setup Boost
 set(Boost_USE_STATIC_LIBS       OFF)
 set(Boost_USE_MULTITHREADED      ON)
