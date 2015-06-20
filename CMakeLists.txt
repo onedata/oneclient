@@ -3,7 +3,7 @@ project(oneclient C CXX)
 
 # CMake config
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/helpers)
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/helpers/cmake)
 
 #================================================================================================
 # Automatic git versioning: http://ipenguin.ws/2012/11/cmake-automatically-use-git-tags-as.html
@@ -58,6 +58,10 @@ find_package(Threads REQUIRED)
 # Setup Intel TBB
 message(STATUS "Checking for Intel TBB...")
 find_package(TBB REQUIRED)
+
+# Setup glog
+message(STATUS "Checking for glog...")
+find_package(Glog REQUIRED)
 
 # Setup Boost
 set(Boost_USE_MULTITHREADED      ON)
@@ -122,7 +126,7 @@ include_directories(SYSTEM
     ${OPENSSL_INCLUDE_DIR}
     ${TBB_INCLUDE_DIRS}
     ${Boost_INCLUDE_DIRS}
-    ${GLOG_INCLUDE_DIR}
+    ${GLOG_INCLUDE_DIRS}
     ${WSPP_INCLUDE_DIR}
     ${JSON11_INCLUDE_DIR})
 
@@ -138,7 +142,7 @@ set(CLIENT_LIBRARIES
 
 # Define targets
 add_library(client OBJECT ${SOURCES} ${HEADERS})
-add_dependencies(client glog)
+add_dependencies(client helpers clproto json11Build)
 
 set(CLIENT_SOURCES
     ${MAIN_SOURCE_FILE}
@@ -156,9 +160,13 @@ if(NOT ${PROFILER_LIBRARY} MATCHES PROFILER_LIBRARY-NOTFOUND)
     target_link_libraries(oneclient PRIVATE ${PROFILER_LIBRARY})
 endif(NOT ${PROFILER_LIBRARY} MATCHES PROFILER_LIBRARY-NOTFOUND)
 
+if(NOT SYSCONF_INSTALL_DIR)
+    set(SYSCONF_INSTALL_DIR etc CACHE PATH "")
+endif()
+
 # Install config
 install(TARGETS oneclient DESTINATION bin)
-install(DIRECTORY config/ DESTINATION etc)
+install(DIRECTORY config/ DESTINATION ${SYSCONF_INSTALL_DIR})
 
 enable_testing()
 add_subdirectory(test)

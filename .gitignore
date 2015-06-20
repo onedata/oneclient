@@ -1,6 +1,7 @@
 /release
 /debug
 /relwithdebinfo
+/package
 
 # Compiled Object files
 *.slo

@@ -4,7 +4,7 @@ set(TEST_LIBRARIES )
 
 file(GLOB_RECURSE TEST_HEADERS include/*.h)
 add_library(testRunner OBJECT testRunner.cc)
-add_dependencies(testRunner glog gmock gtest)
+add_dependencies(testRunner gmock gtest)
 
 add_custom_target(cunit)
 macro(run_test test_target)

@@ -3,7 +3,7 @@ include_directories(SYSTEM ${GTEST_INCLUDE_DIR} ${GMOCK_INCLUDE_DIR})
 
 file(GLOB_RECURSE HELPER_TEST_HEADERS include/*.h)
 add_library(testRunner OBJECT testRunner.cc)
-add_dependencies(testRunner glog gmock gtest)
+add_dependencies(testRunner gmock gtest)
 
 add_custom_target(cunit)
 macro(run_test test_target)
