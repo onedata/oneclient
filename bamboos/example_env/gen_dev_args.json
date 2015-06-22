@@ -17,9 +17,9 @@
             }
         }
     },
-    "oneprovider_node": {
+    "op_worker": {
         "config": {
-            "input_dir": "rel/oneprovider_node",
+            "input_dir": "rel/op_worker",
             "target_dir": "rel/test_cluster"
         },
         "nodes": {
@@ -96,7 +96,7 @@
             "onepanel1": {
                 "vm.args": {
                     "name": "onepanel@onepanel1",
-                    "setcookie": "oneprovider_node"
+                    "setcookie": "cookie"
                 },
                 "sys.config": {
                     "multicast_address": {"string": "239.255.0.1"}
@@ -105,7 +105,7 @@
             "onepanel2": {
                 "vm.args": {
                     "name": "onepanel@onepanel2",
-                    "setcookie": "oneprovider_node"
+                    "setcookie": "cookie"
                 },
                 "sys.config": {
                     "multicast_address": {"string": "239.255.0.1"}
