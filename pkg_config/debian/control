@@ -28,7 +28,7 @@ Build-Depends:
 	libgflags-dev,
 	libfuse-dev (>= 2.7),
 	libssl-dev,
-	libtbb-dev (= 4.3~20150209-1.1ubuntu1ppa2),
+	libtbb-dev (>= 4.3~),
 	libpython-dev,
 	python-dev,
 	git,

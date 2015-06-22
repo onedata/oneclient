@@ -20,7 +20,7 @@ BuildRequires:	git
 BuildRequires:	subversion
 BuildRequires:	openssl-devel
 BuildRequires:	subversion
-BuildRequires:	tbb-devel
+BuildRequires:	tbb-devel >= 4.3~
 BuildRequires:	python-devel
 BuildRequires:  glog-devel, gflags-devel
 
