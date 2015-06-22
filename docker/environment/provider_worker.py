@@ -50,9 +50,9 @@ cat <<"EOF" > /tmp/gen_dev_args.json
 {gen_dev_args}
 EOF
 escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json
-/root/bin/node/bin/oneprovider_node console'''
+/root/bin/node/bin/op_worker console'''
     command = command.format(
-        gen_dev_args=json.dumps({'oneprovider_node': config}),
+        gen_dev_args=json.dumps({'op_worker': config}),
         uid=os.geteuid(),
         gid=os.getegid())
 
@@ -99,6 +99,9 @@ def _riak_up(configs, dns_servers, uid):
         db_node_mappings[node] = riak.config_entry(i, uid)
         i += 1
 
+    if i == 0:
+        return db_node_mappings, {}
+
     [dns] = dns_servers
     riak_output = riak.up('onedata/riak', dns, uid, None,
                           len(db_node_mappings))
@@ -107,7 +110,7 @@ def _riak_up(configs, dns_servers, uid):
 
 
 def up(image, bindir, logdir, dns, uid, config_path):
-    config = common.parse_json_file(config_path)['oneprovider_node']
+    config = common.parse_json_file(config_path)['op_worker']
     config['config']['target_dir'] = '/root/bin'
     configs = [_tweak_config(config, node, uid) for node in config['nodes']]
 

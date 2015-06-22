@@ -30,7 +30,7 @@
 %% Configure release stored at ReleaseRootPath, according to given parameters
 %% @end
 %%--------------------------------------------------------------------
--spec configure_release(ApplicationName :: atom(), ReleaseRootPath :: string(),
+-spec configure_release(ApplicationName :: atom(), ReleaseRootPath :: string() | default,
     SysConfig :: list(), VmArgs :: list()) -> ok | no_return().
 configure_release(?ONEPROVIDER_CCM_APP_NAME, ReleaseRootPath, SysConfig, VmArgs) ->
     {SysConfigPath, VmArgsPath} = find_config_location(?ONEPROVIDER_CCM_APP_NAME, ReleaseRootPath),
@@ -82,8 +82,12 @@ configure_release(ApplicationName, ReleaseRootPath, SysConfig, VmArgs) ->
 %% sys.config are located
 %% @end
 %%--------------------------------------------------------------------
--spec find_config_location(ApplicationName :: atom(), ReleaseRootPath :: atom()) ->
+-spec find_config_location(ApplicationName :: atom(), ReleaseRootPath :: string() | default) ->
     {SysConfigPath :: string(), VmArgsPath :: string()}.
+find_config_location(ApplicationName, default) ->
+    SysConfigPath = filename:join(["/etc", ApplicationName, "app.config"]),
+    VmArgsPath = filename:join(["/etc", ApplicationName, "vm.args"]),
+    {SysConfigPath, VmArgsPath};
 find_config_location(ApplicationName, ReleaseRootPath) ->
     EtcDir = filename:join(ReleaseRootPath, "etc"),
     case filelib:is_dir(EtcDir) of

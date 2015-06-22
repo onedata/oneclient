@@ -4,6 +4,8 @@
 Copyright (C) 2015 ACK CYFRONET AGH
 This software is released under the MIT license cited in 'LICENSE.txt'
 
+A script to bring up a set of oneprovider ccm nodes. They can create separate
+clusters.
 Run the script with -h flag to learn about script's running options.
 """
 
