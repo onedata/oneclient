@@ -9,7 +9,6 @@
 #include "auth/grAdapter.h"
 
 #include "auth/authException.h"
-#include "config.h"
 #include "context.h"
 #include "logging.h"
 

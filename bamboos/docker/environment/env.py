@@ -16,7 +16,7 @@ def default(key):
     return {'image': 'onedata/worker',
             'bin_am': '{0}/appmock'.format(os.getcwd()),
             'bin_gr': '{0}/globalregistry'.format(os.getcwd()),
-            'bin_op_worker': '{0}/oneprovider'.format(os.getcwd()),
+            'bin_op_worker': '{0}/op_worker'.format(os.getcwd()),
             'bin_op_ccm': '{0}/op_ccm'.format(os.getcwd()),
             'bin_oc': '{0}/oneclient'.format(os.getcwd()),
             'logdir': None}[key]
@@ -60,8 +60,8 @@ def up(config_path, image=default('image'), bin_am=default('bin_am'),
                                         config_path)
         common.merge(output, op_ccm_output)
 
-    # Start oneprovider_node instances
-    if 'oneprovider_node' in config:
+    # Start op_worker instances
+    if 'op_worker' in config:
         op_worker_output = provider_worker.up(image, bin_op_worker, logdir, dns,
                                               uid, config_path)
         common.merge(output, op_worker_output)

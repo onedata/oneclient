@@ -1,0 +1,45 @@
+Source: oneclient
+Section: net
+Priority: optional
+Maintainer: onedata Package Maintainer <support@onedata.org>
+Build-Depends:
+	debhelper (>= 9),
+	cmake (>= 3.0.0),
+	g++ (>= 4.9.0),
+	libstdc++-4.9-dev,
+	libprotobuf-dev (>= 2.6.0),
+	protobuf-compiler (>= 2.6.0),
+	libltdl-dev,
+	libboost-coroutine1.58-dev,
+	libboost-filesystem1.58-dev,
+	libboost-program-options1.58-dev,
+	libboost-python1.58-dev,
+	libboost-random1.58-dev,
+	libboost-system1.58-dev,
+	libboost-thread1.58-dev,
+	libboost-coroutine1.58.0,
+	libboost-filesystem1.58.0,
+	libboost-program-options1.58.0,
+	libboost-python1.58.0,
+	libboost-random1.58.0,
+	libboost-system1.58.0,
+	libboost-thread1.58.0,
+	libgoogle-glog-dev,
+	libgflags-dev,
+	libfuse-dev (>= 2.7),
+	libssl-dev,
+	libtbb-dev (>= 4.3~),
+	libpython-dev,
+	python-dev,
+	git,
+	subversion,
+	pkg-config
+Standards-Version: 3.9.5
+Homepage: https://onedata.org
+
+Package: oneclient
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: FUSE client for onedata system.
+ oneclient is a software based on FUSE (Filesystem in Userspace) that allows
+ mounting onedata filesystem on Linux systems.

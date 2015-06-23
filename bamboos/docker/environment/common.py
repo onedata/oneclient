@@ -32,7 +32,7 @@ def nagios_up(ip, port=None):
 
         healthdata = eTree.fromstring(r.text)
         return healthdata.attrib['status'] == 'ok'
-    except requests.ConnectionError:
+    except requests.exceptions.RequestException:
         return False
 
 
