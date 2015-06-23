@@ -63,7 +63,7 @@ def recv_time_param(value, unit='ms'):
 
 def evtps_param(evt_num, us):
     return Parameter('evtps', 'Number of events per second.',
-                     1000000 * evt_num / us, 'event/s')
+                     1000000. * evt_num / us, 'event/s')
 
 
 # noinspection PyClassHasNoInit

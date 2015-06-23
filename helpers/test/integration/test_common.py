@@ -9,7 +9,7 @@ _script_dir = os.path.dirname(os.path.realpath(__file__))
 project_dir = os.path.dirname(os.path.dirname(_script_dir))
 appmock_dir = os.path.join(project_dir, 'appmock')
 docker_dir = os.path.join(project_dir, 'bamboos', 'docker')
-annotations_dir = os.path.join(project_dir, 'annotations')
+annotations_dir = os.path.join(project_dir, 'test', 'annotations')
 
 # Append useful modules to the path
 sys.path = [appmock_dir, docker_dir, annotations_dir] + sys.path
@@ -50,9 +50,9 @@ def communicate_time_param(value, unit='ms'):
                      value, unit)
 
 
-def msg_per_sek_param(msg_num, us):
-    return Parameter('msg_per_sek', 'Number of sent messages per second.',
-                     1000000 * msg_num / us, 'msg/s')
+def mbps_param(msg_num, msg_size, us):
+    return Parameter('mbps', 'Transfer speed.',
+                     (1000000. * msg_num * msg_size) / (1048576 * us), 'MB/s')
 
 
 def translate_unit(unit):
