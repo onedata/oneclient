@@ -9,6 +9,26 @@ Files: debian/*
 Copyright: 2015 ACK Cyfronet AGH
 License: MIT
 
+Files: helpers/cmake/FindTBB.cmake
+Copyright: 2011 Hannes Hofmann
+License: MIT
+
+Files: helpers/cmake/FindGlog.cmake
+Copyright: 2015 Google Inc. All rights reserved.
+License: BSD
+
+Files: helpers/cmake/FindFUSE.cmake
+Copyright: 2012, julp
+License: BSD
+
+Files: GetGitRevisionDescription.cmake
+Copyright: Iowa State University 2009-2010.
+License: Boost
+
+Files: GetGitRevisionDescription.cmake.in
+Copyright: Iowa State University 2009-2010.
+License: Boost
+
 License: MIT
  Permission is hereby granted, free of charge, to any person obtaining a
  copy of this software and associated documentation files (the "Software"),
