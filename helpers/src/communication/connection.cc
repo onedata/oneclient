@@ -99,7 +99,7 @@ void Connection::send(
     boost::system::error_code &ec, boost::asio::yield_context yield)
 {
     std::array<boost::asio::const_buffer, 2> buffer{
-        headerToBuffer(m_outHeader), boost::asio::buffer(m_outBuffer)};
+        {headerToBuffer(m_outHeader), boost::asio::buffer(m_outBuffer)}};
 
     boost::asio::async_write(m_socket, buffer, yield[ec]);
 }

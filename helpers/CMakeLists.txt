@@ -8,6 +8,7 @@ set(helpers_VERSION_PATCH 0)
 set(helpers_VERSION $(helpers_VERSION_MAJOR).$(helpers_VERSION_MINOR).$(helpers_VERSION_PATCH))
 
 # CMake config
+set(CMAKE_FIND_FRAMEWORK LAST)
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 

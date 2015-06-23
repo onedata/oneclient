@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.0.0)
 project(oneclient C CXX)
 
 # CMake config
+set(CMAKE_FIND_FRAMEWORK LAST)
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/helpers/cmake)
 
@@ -122,12 +123,12 @@ include_directories(
 include_directories(SYSTEM
     ${HELPERS_SYSTEM_INCLUDE_DIRS}
     ${FUSE_INCLUDE_DIRS}
+    ${FUSE_INCLUDE_DIRS}/..
     ${PROTOBUF_INCLUDE_DIR}
     ${OPENSSL_INCLUDE_DIR}
     ${TBB_INCLUDE_DIRS}
     ${Boost_INCLUDE_DIRS}
     ${GLOG_INCLUDE_DIRS}
-    ${WSPP_INCLUDE_DIR}
     ${JSON11_INCLUDE_DIR})
 
 set(CLIENT_LIBRARIES
