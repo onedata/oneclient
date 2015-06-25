@@ -258,13 +258,13 @@ future_t<boost::asio::mutable_buffer> DirectIOHelper::ash_read(
     const boost::filesystem::path &p, boost::asio::mutable_buffer buf,
     off_t offset, CTXRef ctx)
 {
-    auto promise =
-        std::make_shared<promise_t<boost::asio::mutable_buffer>>();
+    auto promise = std::make_shared<promise_t<boost::asio::mutable_buffer>>();
 
     m_workerService.post([=, &ctx]() {
         try {
             promise->set_value(sh_read(p, buf, offset, ctx));
-        } catch(std::system_error &e) {
+        }
+        catch (std::system_error &e) {
             setPosixError(promise, e.code().value());
         }
     });
@@ -280,7 +280,8 @@ future_t<int> DirectIOHelper::ash_write(const boost::filesystem::path &p,
     m_workerService.post([=, &ctx]() {
         try {
             promise->set_value(sh_write(p, buf, offset, ctx));
-        } catch(std::system_error &e) {
+        }
+        catch (std::system_error &e) {
             setPosixError(promise, e.code().value());
         }
     });
@@ -318,12 +319,10 @@ future_t<void> DirectIOHelper::ash_fsync(
     return boost::make_ready_future();
 }
 
-
 int DirectIOHelper::sh_write(const boost::filesystem::path &p,
     boost::asio::const_buffer buf, off_t offset, CTXRef ctx)
 {
-    int fd =
-        ctx.m_ffi.fh > 0 ? ctx.m_ffi.fh : open(root(p).c_str(), O_WRONLY);
+    int fd = ctx.m_ffi.fh > 0 ? ctx.m_ffi.fh : open(root(p).c_str(), O_WRONLY);
     if (fd == -1) {
         throw makePosixError(errno);
     }
@@ -346,8 +345,7 @@ boost::asio::mutable_buffer DirectIOHelper::sh_read(
     const boost::filesystem::path &p, boost::asio::mutable_buffer buf,
     off_t offset, CTXRef ctx)
 {
-   int fd =
-        ctx.m_ffi.fh > 0 ? ctx.m_ffi.fh : open(root(p).c_str(), O_RDONLY);
+    int fd = ctx.m_ffi.fh > 0 ? ctx.m_ffi.fh : open(root(p).c_str(), O_RDONLY);
     if (fd == -1) {
         throw makePosixError(errno);
     }

@@ -41,8 +41,8 @@ struct StorageHelperCTX {
 
 using CTXRef = StorageHelperCTX &;
 
-template<class T> using future_t = boost::future<T>;
-template<class T> using promise_t = boost::promise<T>;
+template <class T> using future_t = boost::future<T>;
+template <class T> using promise_t = boost::promise<T>;
 
 /**
  * The IStorageHelper interface.
@@ -98,7 +98,6 @@ public:
     virtual future_t<void> ash_fsync(
         const boost::filesystem::path &p, int isdatasync, CTXRef ctx) = 0;
 
-
     virtual boost::asio::mutable_buffer sh_read(
         const boost::filesystem::path &p, boost::asio::mutable_buffer buf,
         off_t offset, CTXRef ctx) = 0;
@@ -114,8 +113,7 @@ protected:
     }
 
     template <class T>
-    static void setPosixError(
-        std::shared_ptr<std::promise<T>> p, int posixCode)
+    static void setPosixError(std::shared_ptr<std::promise<T>> p, int posixCode)
     {
         p->set_exception(std::make_exception_ptr(makePosixError(posixCode)));
     }
