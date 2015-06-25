@@ -12,14 +12,19 @@
 #include "messages/serverMessage.h"
 #include "messages/clientMessage.h"
 
-#include <boost/optional.hpp>
-
 #include <memory>
-#include <string>
 #include <ostream>
+#include <string>
+#include <system_error>
+#include <tuple>
 #include <unordered_map>
 
 namespace one {
+
+namespace clproto {
+class Status;
+}
+
 namespace messages {
 
 /**
@@ -29,34 +34,18 @@ namespace messages {
  */
 class Status : public ClientMessage, public ServerMessage {
 public:
-    enum class Code {
-        ok,        // ok
-        enoent,    // no such file or directory
-        eacces,    // permission denied
-        eexist,    // file exists
-        eio,       // input/output error
-        enotsup,   // operation not supported
-        enotempty, // directory not empty
-        eremoteio, // remote input/output error
-        eperm,     // operation not permitted
-        einval,    // invalid argument
-        edquot,    // disc quota exceeded
-        enoattr,   // attribute not found
-        ecomm      // communication error on send
-    };
-
     /**
      * Constructor.
      * @param code Status code.
      */
-    Status(Code code);
+    Status(std::error_code code);
 
     /**
      * Constructor.
      * @param code Status code.
      * @param description Status description.
      */
-    Status(Code code, std::string description);
+    Status(std::error_code code, std::string description);
 
     /**
      * Constructor.
@@ -68,23 +57,29 @@ public:
     /**
      * @return Status code.
      */
-    Code code() const;
+    std::error_code code() const;
+
+    /**
+     * Translates the incoming status code.
+     * @param status The status to translate.
+     * @return Translated status.
+     */
+    static std::tuple<std::error_code, std::string> translate(
+        const clproto::Status &status);
 
     /**
      * @return Status description.
      */
-    const boost::optional<std::string> &description() const;
+    const std::string &description() const;
 
     virtual std::string toString() const override;
 
     virtual std::unique_ptr<ProtocolClientMessage> serialize() const override;
 
 private:
-    Code m_code;
-    boost::optional<std::string> m_description;
+    std::error_code m_code;
+    std::string m_description;
 };
-
-std::ostream &operator<<(std::ostream &stream, Status::Code code);
 
 } // namespace messages
 } // namespace one

@@ -17,12 +17,10 @@ message Status {
         VEIO       = 5;  // input/output error
         VENOTSUP   = 6;  // operation not supported
         VENOTEMPTY = 7;  // directory not empty
-        VEREMOTEIO = 8;  // remote input/output error
+        VEAGAIN    = 8;  // resource unavailable, try again
         VEPERM     = 9;  // operation not permitted
         VEINVAL    = 10; // invalid argument
-        VEDQUOT    = 11; // disc quota exceeded
-        VENOATTR   = 12; // attribute not found
-        VECOMM     = 13; // communication error on send
+        VENOSPC    = 11; // no space left on device 
     }
 
     required Code  code        = 1; // exit code
