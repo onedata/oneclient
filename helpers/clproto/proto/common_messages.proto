@@ -32,3 +32,7 @@ message FileBlock {
     required uint64 size   = 2;
 }
 
+message ChildLink {
+    required bytes uuid = 1;
+    required bytes name = 2;
+}
