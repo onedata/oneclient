@@ -1,0 +1,84 @@
+/**
+ * Communication protocol between FUSE client and the server.
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
+
+package one.clproto;
+
+import "common_messages.proto";
+
+enum FileType {
+    REG = 1; // regular file
+    DIR = 2; // directory
+    LNK = 3; // symbolic link
+}
+
+// Generic FUSE client request
+message FuseRequest {
+    oneof fuse_request { // list of all FUSE client requests
+        GetFileAttr     get_file_attr     = 1;
+        GetFileChildren get_file_children = 2;
+        CreateDir       create_dir        = 3;
+        DeleteFile      delete_file       = 4;
+        UpdateTimes     update_times      = 5;
+    }
+}
+
+message GetFileAttr {
+    oneof entry {
+        bytes path = 1;
+        bytes uuid = 2;
+    }
+}
+
+message GetFileChildren {
+    required bytes uuid   = 1;
+    required int32 offset = 2 [default = 0];
+    optional int32 size   = 3;
+}
+
+message CreateDir {
+    required bytes  parent_uuid = 1;
+    required bytes  name        = 2;
+    required uint32 mode        = 3;
+}
+
+message DeleteFile {
+    required bytes uuid = 1;
+}
+
+message UpdateTimes {
+    required bytes uuid  = 1;
+    optional int64 atime = 2 [default = -1];
+    optional int64 mtime = 3 [default = -1];
+    optional int64 ctime = 4 [default = -1];
+}
+
+// Generic FUSE client response
+message FuseResponse {
+    required Status status = 1;
+
+    oneof fuse_response { // list of all FUSE client responses
+        FileAttr     file_attr     = 2;
+        FileChildren file_children = 3;
+    }
+}
+
+message FileAttr {
+    required bytes    uuid   = 1;
+    required int32    mode   = 2;
+    required int32    uid    = 3;
+    required int32    gid    = 4;
+    required int64    atime  = 5;
+    required int64    mtime  = 6;
+    required int64    ctime  = 7;
+    required FileType type   = 8;
+    optional int64    size   = 9 [default = 0];
+}
+
+message FileChildren {
+    repeated bytes uuids = 1;
+}
