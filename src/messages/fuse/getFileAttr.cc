@@ -10,20 +10,25 @@
 
 #include "messages.pb.h"
 
+#include <cassert>
 #include <sstream>
 
 namespace one {
 namespace messages {
 namespace fuse {
 
-GetFileAttr::GetFileAttr(std::string uuid)
-    : m_uuid{std::move(uuid)}
+GetFileAttr::GetFileAttr()
 {
 }
 
-GetFileAttr::GetFileAttr(boost::filesystem::path path)
-    : m_path{std::move(path)}
+void GetFileAttr::setUUID(std::string uuid)
 {
+    m_uuid.emplace(std::move(uuid));
+}
+
+void GetFileAttr::setPath(std::string path)
+{
+    m_path.emplace(std::move(path));
 }
 
 std::string GetFileAttr::toString() const
@@ -43,6 +48,8 @@ std::unique_ptr<ProtocolClientMessage> GetFileAttr::serialize() const
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
     auto gfa = msg->mutable_fuse_request()->mutable_get_file_attr();
+
+    assert(m_uuid || m_path);
 
     if (m_uuid)
         gfa->set_uuid(m_uuid.get());

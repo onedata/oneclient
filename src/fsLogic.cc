@@ -1,7 +1,8 @@
 /**
  * @file fsLogic.cc
  * @author Rafal Slota
- * @copyright (C) 2013 ACK CYFRONET AGH
+ * @author Konrad Zemek
+ * @copyright (C) 2013-2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
@@ -12,8 +13,12 @@
 #include "events/eventManager.h"
 #include "logging.h"
 #include "shMock.h"
+#include "messages/fuse/getFileAttr.h"
+#include "messages/fuse/fileAttr.h"
 
 #include <boost/algorithm/string.hpp>
+
+using namespace std::literals;
 
 namespace one {
 namespace client {
@@ -38,10 +43,61 @@ int FsLogic::access(const std::string &path, const int mask)
     return m_shMock->shAccess(path, mask);
 }
 
+static void setattrs(struct stat *const statbuf, const messages::fuse::FileAttr &attr)
+{
+    statbuf->st_atime = std::chrono::system_clock::to_time_t(attr.atime());
+    statbuf->st_mtime = std::chrono::system_clock::to_time_t(attr.mtime());
+    statbuf->st_ctime = std::chrono::system_clock::to_time_t(attr.ctime());
+    statbuf->st_gid = attr.gid();
+    statbuf->st_uid = attr.uid();
+    statbuf->st_mode = attr.mode();
+    statbuf->st_size = attr.size();
+}
+
 int FsLogic::getattr(const std::string &path, struct stat *const statbuf)
 {
     DLOG(INFO) << "FUSE: getattr(path: '" << path << ", ...)";
-    return m_shMock->shGetattr(path, statbuf);
+
+    messages::fuse::GetFileAttr request;
+
+    decltype(m_uuidCache)::const_accessor acc;
+    if (m_uuidCache.find(acc, path)) {
+        auto uuid = acc->second;
+        acc.release();
+
+        decltype(m_attrCache)::const_accessor attrAcc;
+        if (m_attrCache.find(attrAcc, uuid)) {
+            setattrs(statbuf, attrAcc->second);
+            return 0;
+        }
+
+        request.setUUID(std::move(uuid));
+    }
+    else
+        request.setPath(path);
+
+    auto future =
+        m_context->communicator()->communicate<messages::fuse::FileAttr>(
+            request);
+
+    try {
+        auto attr = future.get(10s);
+        setattrs(statbuf, attr);
+
+        m_uuidCache.insert({path, attr.uuid()});
+        m_attrCache.insert({attr.uuid(), std::move(attr)});
+
+        return 0;
+    }
+    catch (const std::system_error &e) {
+        return -1 * e.code().value();
+    }
+    catch (const communication::TimeoutExceeded &t) {
+        return -1 * std::make_error_code(std::errc::timed_out).value();
+    }
+    catch (const communication::Exception &t) {
+        return -1 * std::make_error_code(std::errc::io_error).value();
+    }
 }
 
 int FsLogic::readlink(const std::string &path, boost::asio::mutable_buffer buf)

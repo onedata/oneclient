@@ -9,9 +9,11 @@
 #ifndef ONECLIENT_FS_LOGIC_H
 #define ONECLIENT_FS_LOGIC_H
 
-#include <boost/asio/buffer.hpp>
+#include "../src/messages/fuse/fileAttr.h"
 
+#include <boost/asio/buffer.hpp>
 #include <fuse.h>
+#include <tbb/concurrent_hash_map.h>
 
 #include <string>
 #include <memory>
@@ -193,6 +195,9 @@ public:
         struct fuse_file_info *const fileInfo);
 
 private:
+    tbb::concurrent_hash_map<std::string, std::string> m_uuidCache;
+    tbb::concurrent_hash_map<std::string, messages::fuse::FileAttr> m_attrCache;
+
     std::string m_root;
     const uid_t m_uid;
     const gid_t m_gid;

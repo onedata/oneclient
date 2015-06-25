@@ -11,6 +11,8 @@
 
 #include "messages/serverMessage.h"
 
+#include "messages.pb.h"
+
 #include <sys/types.h>
 
 #include <chrono>
@@ -19,11 +21,6 @@
 #include <string>
 
 namespace one {
-
-namespace clproto {
-class FileAttr;
-}
-
 namespace messages {
 namespace fuse {
 
@@ -41,9 +38,10 @@ public:
      */
     FileAttr(std::unique_ptr<ProtocolServerMessage> serverMessage);
 
-    std::uint32_t mode() const;
-    std::uint32_t uid() const;
-    std::uint32_t gid() const;
+    const std::string &uuid() const;
+    mode_t mode() const;
+    uid_t uid() const;
+    gid_t gid() const;
     std::chrono::system_clock::time_point atime() const;
     std::chrono::system_clock::time_point mtime() const;
     std::chrono::system_clock::time_point ctime() const;
@@ -53,8 +51,7 @@ public:
     std::string toString() const override;
 
 private:
-    std::unique_ptr<ProtocolServerMessage> m_serverMessage;
-    const clproto::FileAttr &m_fileAttr;
+    clproto::FileAttr m_fileAttr;
 };
 
 } // namespace fuse

@@ -11,6 +11,8 @@
 #include "messages.pb.h"
 #include "messages/status.h"
 
+#include <sys/types.h>
+
 #include <sstream>
 #include <system_error>
 #include <tuple>
@@ -20,10 +22,9 @@ namespace messages {
 namespace fuse {
 
 FileAttr::FileAttr(std::unique_ptr<ProtocolServerMessage> serverMessage)
-    : m_serverMessage{std::move(serverMessage)}
-    , m_fileAttr{m_serverMessage->fuse_response().file_attr()}
+    : m_fileAttr{std::move(serverMessage->fuse_response().file_attr())}
 {
-    auto &statusMsg = m_serverMessage->fuse_response().status();
+    auto &statusMsg = serverMessage->fuse_response().status();
 
     std::error_code code;
     std::string description;
@@ -33,11 +34,13 @@ FileAttr::FileAttr(std::unique_ptr<ProtocolServerMessage> serverMessage)
         throw std::system_error{code, description};
 }
 
-std::uint32_t FileAttr::mode() const { return m_fileAttr.mode(); }
+const std::string &FileAttr::uuid() const { return m_fileAttr.uuid(); }
 
-std::uint32_t FileAttr::uid() const { return m_fileAttr.uid(); }
+mode_t FileAttr::mode() const { return m_fileAttr.mode(); }
 
-std::uint32_t FileAttr::gid() const { return m_fileAttr.gid(); }
+uid_t FileAttr::uid() const { return m_fileAttr.uid(); }
+
+gid_t FileAttr::gid() const { return m_fileAttr.gid(); }
 
 std::chrono::system_clock::time_point FileAttr::atime() const
 {

@@ -27,15 +27,12 @@ class GetFileAttr : public ClientMessage {
 public:
     /**
      * Constructor.
-     * @param uuid
      */
-    GetFileAttr(std::string uuid);
+    GetFileAttr();
 
-    /**
-     * Constructor.
-     * @param path
-     */
-    GetFileAttr(boost::filesystem::path path);
+    void setUUID(std::string uuid);
+
+    void setPath(std::string path);
 
     std::string toString() const override;
 
