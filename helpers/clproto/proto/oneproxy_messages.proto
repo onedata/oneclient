@@ -15,6 +15,6 @@ message ProxyInit {
 }
 
 message CertificateInfo {
-  optional bytes client_subject_dn = 1;
-  optional bytes client_session_id = 2;
+    optional bytes client_subject_dn = 1;
+    optional bytes client_session_id = 2;
 }
