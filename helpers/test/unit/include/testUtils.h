@@ -29,8 +29,6 @@
         FAIL() << "Unknown exception";                                         \
     }
 
-namespace {
-
 thread_local std::random_device rd;
 thread_local std::mt19937 gen{rd()};
 
@@ -49,6 +47,5 @@ std::string randomString(const unsigned int length)
 }
 
 std::string randomString() { return randomString(randomInt()); }
-}
 
 #endif // HELPERS_TEST_UTILS_H

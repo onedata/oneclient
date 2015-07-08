@@ -13,7 +13,8 @@ set(HELPERS_SYSTEM_INCLUDE_DIRS
     ${TBB_INCLUDE_DIRS}
     ${Boost_INCLUDE_DIRS}
     ${CLPROTO_SYSTEM_INCLUDE_DIRS}
-    ${GLOG_INCLUDE_DIRS})
+    ${GLOG_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../deps/asio/asio/include)
 
 file(GLOB_RECURSE HELPER_SOURCES ../src/*.cc ../src/*.h)
 add_library(helpers OBJECT ${HELPER_SOURCES})

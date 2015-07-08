@@ -27,7 +27,7 @@ EventCommunicator::~EventCommunicator() { m_stream->close(); }
 
 void EventCommunicator::send(const Event &event) const
 {
-    m_stream->send(event.serialize(), 0);
+    m_stream->send(event);
 }
 
 } // namespace events

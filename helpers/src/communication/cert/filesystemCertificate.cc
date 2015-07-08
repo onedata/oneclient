@@ -20,7 +20,7 @@ FilesystemCertificate::FilesystemCertificate(
 {
 }
 
-void FilesystemCertificate::initContext(boost::asio::ssl::context &ctx) const
+void FilesystemCertificate::initContext(asio::ssl::context &ctx) const
 {
     ctx.use_certificate_chain_file(m_certPath);
     ctx.use_private_key_file(m_keyPath, keyFormat());

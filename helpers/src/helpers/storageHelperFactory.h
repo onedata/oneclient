@@ -13,7 +13,7 @@
 
 #include <memory>
 #include <string>
-#include <boost/asio/io_service.hpp>
+#include <asio/io_service.hpp>
 
 namespace one {
 
@@ -50,8 +50,8 @@ public:
     StorageHelperFactory() = default;
     StorageHelperFactory(
         std::shared_ptr<communication::Communicator> communicator,
-        const BufferLimits &limits, boost::asio::io_service &dio_service,
-        boost::asio::io_service &cproxy_service);
+        const BufferLimits &limits, asio::io_service &dio_service,
+        asio::io_service &cproxy_service);
     virtual ~StorageHelperFactory() = default;
 
     /**
@@ -67,7 +67,7 @@ public:
 private:
     const std::shared_ptr<communication::Communicator> m_communicator;
     const BufferLimits m_limits;
-    boost::asio::io_service &m_dioService;
+    asio::io_service &m_dio_service;
 };
 
 } // namespace helpers

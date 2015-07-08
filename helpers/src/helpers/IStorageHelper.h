@@ -13,11 +13,9 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include <asio/buffer.hpp>
 #include <boost/any.hpp>
 #include <boost/filesystem/path.hpp>
-#include <boost/asio/buffer.hpp>
-#include <boost/thread.hpp>
-#include <boost/thread/future.hpp>
 
 #include <unordered_map>
 #include <string>
@@ -41,8 +39,8 @@ struct StorageHelperCTX {
 
 using CTXRef = StorageHelperCTX &;
 
-template <class T> using future_t = boost::future<T>;
-template <class T> using promise_t = boost::promise<T>;
+template <class T> using future_t = std::future<T>;
+template <class T> using promise_t = std::promise<T>;
 
 /**
  * The IStorageHelper interface.
@@ -86,32 +84,23 @@ public:
 
     virtual future_t<int> ash_open(
         const boost::filesystem::path &p, CTXRef ctx) = 0;
-    virtual future_t<boost::asio::mutable_buffer> ash_read(
-        const boost::filesystem::path &p, boost::asio::mutable_buffer buf,
+    virtual future_t<asio::mutable_buffer> ash_read(
+        const boost::filesystem::path &p, asio::mutable_buffer buf,
         off_t offset, CTXRef ctx) = 0;
     virtual future_t<int> ash_write(const boost::filesystem::path &p,
-        boost::asio::const_buffer buf, off_t offset, CTXRef ctx) = 0;
+        asio::const_buffer buf, off_t offset, CTXRef ctx) = 0;
     virtual future_t<void> ash_release(
         const boost::filesystem::path &p, CTXRef ctx) = 0;
     virtual future_t<void> ash_flush(
         const boost::filesystem::path &p, CTXRef ctx) = 0;
     virtual future_t<void> ash_fsync(
         const boost::filesystem::path &p, int isdatasync, CTXRef ctx) = 0;
-
-    virtual boost::asio::mutable_buffer sh_read(
-        const boost::filesystem::path &p, boost::asio::mutable_buffer buf,
-        off_t offset, CTXRef ctx) = 0;
+    virtual asio::mutable_buffer sh_read(const boost::filesystem::path &p,
+        asio::mutable_buffer buf, off_t offset, CTXRef ctx) = 0;
     virtual int sh_write(const boost::filesystem::path &p,
-        boost::asio::const_buffer buf, off_t offset, CTXRef ctx) = 0;
+        asio::const_buffer buf, off_t offset, CTXRef ctx) = 0;
 
 protected:
-    template <class T>
-    static void setPosixError(
-        std::shared_ptr<boost::promise<T>> p, int posixCode)
-    {
-        p->set_exception(makePosixError(posixCode));
-    }
-
     template <class T>
     static void setPosixError(std::shared_ptr<std::promise<T>> p, int posixCode)
     {

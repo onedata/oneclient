@@ -21,6 +21,7 @@
 #include <memory>
 #include <shared_mutex>
 #include <string>
+#include <system_error>
 #include <unordered_map>
 
 namespace one {
@@ -68,7 +69,8 @@ public:
      */
     virtual std::shared_ptr<communication::Communicator> createCommunicator(
         const unsigned int poolSize, std::string sessionId,
-        std::function<bool(messages::HandshakeResponse)> onHandshakeResponse,
+        std::function<std::error_code(messages::HandshakeResponse)>
+            onHandshakeResponse,
         ErrorPolicy errorPolicy) = 0;
 
 protected:
@@ -96,7 +98,8 @@ public:
 
     std::shared_ptr<communication::Communicator> createCommunicator(
         const unsigned int poolSize, std::string sessionId,
-        std::function<bool(messages::HandshakeResponse)> onHandshakeResponse,
+        std::function<std::error_code(messages::HandshakeResponse)>
+            onHandshakeResponse,
         ErrorPolicy errorPolicy) override;
 
 private:
@@ -123,7 +126,8 @@ public:
 
     std::shared_ptr<communication::Communicator> createCommunicator(
         const unsigned int poolSize, std::string sessionId,
-        std::function<bool(messages::HandshakeResponse)> onHandshakeResponse,
+        std::function<std::error_code(messages::HandshakeResponse)>
+            onHandshakeResponse,
         ErrorPolicy errorPolicy) override;
 
 private:

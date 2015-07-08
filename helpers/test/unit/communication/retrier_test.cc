@@ -10,31 +10,30 @@
 #include "communication/layers/retrier.h"
 #include "testUtils.h"
 
-#include <boost/thread/future.hpp>
-#include <boost/thread/executors/basic_thread_pool.hpp>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include <atomic>
+#include <string>
 
 using namespace one;
 using namespace one::communication;
 using namespace ::testing;
 
 struct LowerLayer {
+    using Callback = std::function<void(const std::error_code &)>;
+
     LowerLayer &mock = static_cast<LowerLayer &>(*this);
 
     MOCK_METHOD2(sendProxy, bool(std::string, int));
 
-    boost::future<void> send(std::string msg, int i)
+    void send(std::string msg, Callback callback, int i)
     {
         if (!sendProxy(std::move(msg), i))
-            return boost::make_exceptional(ConnectionError{exceptionText});
-
-        return boost::make_ready_future();
+            callback(std::make_error_code(std::errc::owner_dead));
+        else
+            callback(std::error_code{});
     }
-
-    std::shared_ptr<boost::basic_thread_pool> m_ioServiceExecutor{
-        std::make_shared<boost::basic_thread_pool>(1)};
-    std::string exceptionText = "error";
 };
 
 struct RetrierTest : public ::testing::Test {
@@ -48,7 +47,7 @@ TEST_F(RetrierTest, sendShouldRetryCommunicationOnError)
         .WillOnce(Return(false))
         .WillOnce(Return(true));
 
-    retrier.send(randomString(), 2).get();
+    retrier.send(randomString(), [](auto &ec) { ASSERT_FALSE(!!ec); }, 2);
 }
 
 TEST_F(RetrierTest, sendShouldFinishOnFirstSuccess)
@@ -57,7 +56,7 @@ TEST_F(RetrierTest, sendShouldFinishOnFirstSuccess)
         .WillOnce(Return(false))
         .WillOnce(Return(true));
 
-    retrier.send(randomString(), 30).get();
+    retrier.send(randomString(), [](auto &ec) { ASSERT_FALSE(!!ec); }, 30);
 }
 
 TEST_F(RetrierTest, sendShouldPassExceptionAfterUnsuccessfulRetries)
@@ -66,15 +65,7 @@ TEST_F(RetrierTest, sendShouldPassExceptionAfterUnsuccessfulRetries)
         .WillOnce(Return(false))
         .WillOnce(Return(false));
 
-    retrier.mock.exceptionText = randomString();
-
-    try {
-        retrier.send(randomString(), 1).get();
-        FAIL();
-    }
-    catch (const ConnectionError &e) {
-        ASSERT_EQ(retrier.mock.exceptionText, e.what());
-    }
+    retrier.send(randomString(), [](auto &ec) { ASSERT_TRUE(!!ec); }, 1);
 }
 
 TEST_F(RetrierTest, sendShouldPassUninterestingArgumentsDown)
@@ -86,5 +77,5 @@ TEST_F(RetrierTest, sendShouldPassUninterestingArgumentsDown)
         .WillOnce(Return(false))
         .WillOnce(Return(true));
 
-    retrier.send(msg, 3).get();
+    retrier.send(msg, [](auto &ec) { ASSERT_FALSE(!!ec); }, 3);
 }

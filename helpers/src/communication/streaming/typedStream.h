@@ -10,6 +10,8 @@
 #define HELPERS_COMMUNICATION_STREAMING_TYPED_STREAM_H
 
 #include "communication/declarations.h"
+#include "messages/clientMessage.h"
+#include "messages/endOfStream.h"
 
 #include <tbb/concurrent_priority_queue.h>
 
@@ -57,11 +59,8 @@ public:
     /**
      * Sends a next message in the stream.
      * @param msg The message to send through the stream.
-     * @note The @c int argument is provided for interface compatibility with
-     * other communication layers. Stream's @c send always sets the retry
-     * number to 0.
      */
-    void send(ClientMessagePtr msg, const int);
+    void send(const messages::ClientMessage &msg);
 
     /**
      * Resends messages requested by the remote party.
@@ -119,19 +118,19 @@ template <class Communicator> TypedStream<Communicator>::~TypedStream()
 }
 
 template <class Communicator>
-void TypedStream<Communicator>::send(ClientMessagePtr msg, const int)
+void TypedStream<Communicator>::send(const messages::ClientMessage &msg)
 {
-    auto msgStream = msg->mutable_message_stream();
+    auto protoMsg = msg.serialize();
+    auto msgStream = protoMsg->mutable_message_stream();
     msgStream->set_stream_id(m_streamId);
     msgStream->set_sequence_number(m_sequenceId++);
-    saveAndPass(std::move(msg));
+    saveAndPass(std::move(protoMsg));
 }
 
 template <class Communicator> void TypedStream<Communicator>::close()
 {
-    auto msg = std::make_unique<clproto::ClientMessage>();
-    msg->mutable_end_of_stream();
-    send(std::move(msg), int{});
+    messages::EndOfStream eos;
+    send(std::move(eos));
 }
 
 template <class Communicator> void TypedStream<Communicator>::reset()
@@ -146,11 +145,12 @@ void TypedStream<Communicator>::saveAndPass(ClientMessagePtr msg)
 {
     auto msgCopy = std::make_unique<clproto::ClientMessage>(*msg);
 
-    std::shared_lock<std::shared_timed_mutex> lock{m_bufferMutex};
-    m_buffer.emplace(std::move(msgCopy));
-    lock.unlock();
+    {
+        std::shared_lock<std::shared_timed_mutex> lock{m_bufferMutex};
+        m_buffer.emplace(std::move(msgCopy));
+    }
 
-    m_communicator->send(std::move(msg), 0);
+    m_communicator->send(std::move(msg), [](auto) {}, 0);
 }
 
 template <class Communicator>
@@ -163,8 +163,8 @@ void TypedStream<Communicator>::handleMessageRequest(
 
     std::shared_lock<std::shared_timed_mutex> lock{m_bufferMutex};
     for (ClientMessagePtr it; m_buffer.try_pop(it) &&
-                 it->message_stream().sequence_number() <=
-                     msg.lower_sequence_number();)
+             it->message_stream().sequence_number() <=
+                 msg.lower_sequence_number();)
         processed.emplace_back(std::move(it));
 
     for (auto &streamMsg : processed) {

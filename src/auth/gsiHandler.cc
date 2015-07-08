@@ -17,6 +17,7 @@
 #include "communication/cert/filesystemCertificate.h"
 #include "communication/cert/inMemoryCertificate.h"
 
+#include <asio/buffer.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
@@ -66,7 +67,7 @@ inline std::string MSG_DEBUG_INFO(const bool debug)
 
 using namespace std;
 using namespace boost::algorithm;
-using boost::asio::const_buffer;
+using asio::const_buffer;
 
 namespace {
 // Disables stdout ECHO and reads input form /dev/tty up to max_size chars or

@@ -7,10 +7,9 @@
  */
 
 #include "communication/connection.h"
-#include "ioServiceExecutor.h"
 
-#include <boost/asio.hpp>
-#include <boost/asio/ssl.hpp>
+#include <asio.hpp>
+#include <asio/ssl.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
 
@@ -28,10 +27,10 @@ using namespace boost::python;
 using namespace std::literals;
 namespace p = std::placeholders;
 
-boost::asio::ssl::context prepareContext()
+asio::ssl::context prepareContext()
 {
-    boost::asio::ssl::context context{boost::asio::ssl::context::tlsv12_client};
-    context.set_verify_mode(boost::asio::ssl::verify_none);
+    asio::ssl::context context{asio::ssl::context::tlsv12_client};
+    context.set_verify_mode(asio::ssl::verify_none);
     return context;
 }
 
@@ -44,12 +43,13 @@ public:
         , m_getHandshake{[=] { return handshake; }}
         , m_onHandshakeResponse{[=](auto response) {
             m_handshakeResponse.set_value(response);
-            return acceptHandshake;
+            return acceptHandshake
+                ? std::error_code{}
+                : std::make_error_code(std::errc::connection_aborted);
         }}
-        , m_connection{std::make_shared<Connection>(m_ioService, nullptr,
-              m_context, false, m_getHandshake, m_onHandshakeResponse,
+        , m_connection{std::make_shared<Connection>(m_ioService, m_context,
+              false, m_getHandshake, m_onHandshakeResponse,
               std::bind(&ConnectionProxy::onMessageReceived, this, p::_1),
-              std::bind(&ConnectionProxy::onReady, this, p::_1),
               std::bind(&ConnectionProxy::onClosed, this, p::_1, p::_2))}
     {
     }
@@ -66,22 +66,18 @@ public:
         m_hasMessage = true;
     }
 
-    void onReady(std::shared_ptr<Connection>) { m_isReady = true; }
-
-    void onClosed(std::shared_ptr<Connection>, boost::exception_ptr)
-    {
-        m_isClosed = true;
-    }
+    void onClosed(Connection::Ptr, std::error_code) { m_isClosed = true; }
 
     void connect(std::string host, int port)
     {
-        m_connection->connect(std::move(host), std::to_string(port));
+        m_connection->connect(std::move(host), std::to_string(port),
+            [=](Connection::Ptr) { m_isReady = true; });
     }
 
     void send(std::string message)
     {
-        boost::promise<void> promise;
-        m_connection->send(std::move(message), std::move(promise));
+        m_connection->send(
+            std::move(message), [=](auto, auto) { m_isReady = true; });
     }
 
     std::string getHandshakeResponse()
@@ -125,13 +121,13 @@ private:
         return something;
     }
 
-    boost::asio::io_service m_ioService;
-    boost::asio::io_service::work m_idleWork;
-    boost::asio::ssl::context m_context;
+    asio::io_service m_ioService;
+    asio::io_service::work m_idleWork;
+    asio::ssl::context m_context;
     std::thread m_worker;
-    boost::promise<std::string> m_handshakeResponse;
+    std::promise<std::string> m_handshakeResponse;
     std::function<std::string()> m_getHandshake;
-    std::function<bool(std::string)> m_onHandshakeResponse;
+    std::function<std::error_code(std::string)> m_onHandshakeResponse;
     std::shared_ptr<Connection> m_connection;
     std::atomic<bool> m_isClosed{false};
     std::atomic<bool> m_isReady{false};

@@ -11,8 +11,8 @@
 
 #include "helpers/IStorageHelper.h"
 
+#include <asio.hpp>
 #include <boost/filesystem/path.hpp>
-#include <boost/asio.hpp>
 
 #include <fuse.h>
 #include <sys/types.h>
@@ -31,7 +31,7 @@ public:
      * It shall be ablosute path to diretory used by this storage helper as
      * root mount point.
      */
-    DirectIOHelper(const ArgsMap &, boost::asio::io_service &service);
+    DirectIOHelper(const ArgsMap &, asio::io_service &service);
 
     future_t<struct stat> ash_getattr(const boost::filesystem::path &p);
     future_t<void> ash_access(const boost::filesystem::path &p, int mask);
@@ -56,20 +56,19 @@ public:
     future_t<void> ash_truncate(const boost::filesystem::path &p, off_t size);
 
     future_t<int> ash_open(const boost::filesystem::path &p, CTXRef ctx);
-    future_t<boost::asio::mutable_buffer> ash_read(
-        const boost::filesystem::path &p, boost::asio::mutable_buffer buf,
-        off_t offset, CTXRef ctx);
+    future_t<asio::mutable_buffer> ash_read(const boost::filesystem::path &p,
+        asio::mutable_buffer buf, off_t offset, CTXRef ctx);
     future_t<int> ash_write(const boost::filesystem::path &p,
-        boost::asio::const_buffer buf, off_t offset, CTXRef ctx);
+        asio::const_buffer buf, off_t offset, CTXRef ctx);
     future_t<void> ash_release(const boost::filesystem::path &p, CTXRef ctx);
     future_t<void> ash_flush(const boost::filesystem::path &p, CTXRef ctx);
     future_t<void> ash_fsync(
         const boost::filesystem::path &p, int isdatasync, CTXRef ctx);
 
-    boost::asio::mutable_buffer sh_read(const boost::filesystem::path &p,
-        boost::asio::mutable_buffer buf, off_t offset, CTXRef ctx);
-    int sh_write(const boost::filesystem::path &p,
-        boost::asio::const_buffer buf, off_t offset, CTXRef ctx);
+    asio::mutable_buffer sh_read(const boost::filesystem::path &p,
+        asio::mutable_buffer buf, off_t offset, CTXRef ctx);
+    int sh_write(const boost::filesystem::path &p, asio::const_buffer buf,
+        off_t offset, CTXRef ctx);
 
 protected:
     template <class Result, typename... Args1, typename... Args2>
@@ -90,7 +89,7 @@ private:
     boost::filesystem::path root(const boost::filesystem::path &path);
 
     const boost::filesystem::path m_rootPath;
-    boost::asio::io_service &m_workerService;
+    asio::io_service &m_workerService;
 };
 
 } // namespace helpers

@@ -11,8 +11,8 @@
 
 #include "certificateData.h"
 
-#include <boost/asio/buffer.hpp>
-#include <boost/asio/ssl/context.hpp>
+#include <asio/buffer.hpp>
+#include <asio/ssl/context.hpp>
 
 #include <string>
 
@@ -31,19 +31,19 @@ public:
      * @param keyData Buffer holding the key data.
      * @param keyFormat Format in which the key is stored.
      */
-    InMemoryCertificate(boost::asio::const_buffer certData,
-        boost::asio::const_buffer keyData, KeyFormat keyFormat);
+    InMemoryCertificate(asio::const_buffer certData,
+        asio::const_buffer keyData, KeyFormat keyFormat);
 
     /**
      * Updates given context with certificate data given as data buffers.
      * @param ctx The context to update.
      * @return @p ctx.
      */
-    void initContext(boost::asio::ssl::context &ctx) const override;
+    void initContext(asio::ssl::context &ctx) const override;
 
 private:
-    const boost::asio::const_buffer m_certData;
-    const boost::asio::const_buffer m_keyData;
+    const asio::const_buffer m_certData;
+    const asio::const_buffer m_keyData;
 };
 
 } // namespace cert

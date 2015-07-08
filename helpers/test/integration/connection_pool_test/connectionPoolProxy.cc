@@ -33,7 +33,10 @@ public:
         m_pool.connect();
     }
 
-    void send(const std::string &msg) { m_pool.send(msg, int{}); }
+    void send(const std::string &msg)
+    {
+        m_pool.send(msg, [](auto) {}, int{});
+    }
 
     std::string popMessage()
     {

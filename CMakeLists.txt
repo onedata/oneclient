@@ -106,9 +106,9 @@ add_definitions(
     ${FUSE_DEFINITIONS}
     -DFUSE_USE_VERSION=29
     -DBOOST_BIND_NO_PLACEHOLDERS
-    -DBOOST_THREAD_VERSION=4
-    -DBOOST_THREAD_PROVIDES_EXECUTORS
-    -DBOOST_CHRONO_HEADER_ONLY)
+    -DBOOST_FILESYSTEM_NO_DEPRECATED
+    -DBOOST_ALL_DYN_LINK
+    -DASIO_STANDALONE)
 
 # Add helpers after setting compilation flags but before setting include
 # directories; helpers specify their own includes, pulling from package-set

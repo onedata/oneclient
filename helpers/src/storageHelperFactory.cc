@@ -37,11 +37,11 @@ std::string tolower(std::string input)
 
 StorageHelperFactory::StorageHelperFactory(
     std::shared_ptr<communication::Communicator> communicator,
-    const BufferLimits &limits, boost::asio::io_service &dio_service,
-    boost::asio::io_service & /*cproxy_service*/)
+    const BufferLimits &limits, asio::io_service &dio_service,
+    asio::io_service & /*cproxy_service*/)
     : m_communicator{std::move(communicator)}
     , m_limits{limits}
-    , m_dioService{dio_service}
+    , m_dio_service{dio_service}
 {
 }
 
