@@ -1,8 +1,6 @@
 #include "communication/communicator.h"
 #include "communication/connection.h"
 #include "communication/declarations.h"
-#include "communication/future.h"
-#include "ioServiceExecutor.h"
 #include "messages/clientMessage.h"
 #include "messages/serverMessage.h"
 
@@ -11,7 +9,6 @@
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
 #include <boost/smart_ptr.hpp>
-#include <boost/thread/future.hpp>
 
 #include <chrono>
 #include <memory>
@@ -25,18 +22,19 @@ using namespace one::messages;
 
 template <class LowerLayer> class Hijacker : public LowerLayer {
 public:
+    using Callback = typename LowerLayer::Callback;
     using LowerLayer::LowerLayer;
 
-    auto send(std::string msg, const int retry)
+    auto send(std::string msg, Callback callback, const int retry)
     {
         m_lastMessageSent = msg;
-        return LowerLayer::send(std::move(msg), retry);
+        return LowerLayer::send(std::move(msg), std::move(callback), retry);
     }
 
     std::string &lastMessageSent() { return m_lastMessageSent; }
 
     auto setHandshake(std::function<std::string()> getHandshake,
-        std::function<bool(std::string)> onHandshakeResponse)
+        std::function<std::error_code(std::string)> onHandshakeResponse)
     {
         m_handshake = getHandshake();
         return LowerLayer::setHandshake(std::move(getHandshake),
@@ -45,7 +43,7 @@ public:
                 try {
                     m_handshakeResponsePromise.set_value(response);
                 }
-                catch (boost::future_error) {
+                catch (std::future_error) {
                 }
                 return onHandshakeResponse(std::move(response));
             });
@@ -59,7 +57,7 @@ public:
     }
 
 private:
-    boost::promise<std::string> m_handshakeResponsePromise;
+    std::promise<std::string> m_handshakeResponsePromise;
     std::string m_handshake;
     std::string m_lastMessageSent;
 };
@@ -134,7 +132,10 @@ public:
 
     std::string communicateReceive()
     {
-        return m_future.get(10s).protocolMsg().SerializeAsString();
+        if (m_future.wait_for(10s) == std::future_status::ready)
+            return m_future.get().protocolMsg().SerializeAsString();
+        else
+            throw std::system_error(std::make_error_code(std::errc::timed_out));
     }
 
     std::string setHandshake(const std::string &description, bool fail)
@@ -144,7 +145,10 @@ public:
                 ExampleClientMessage msg{description};
                 return msg.serialize();
             },
-            [=](ServerMessagePtr) { return !fail; });
+            [=](ServerMessagePtr) {
+                return fail ? std::make_error_code(std::errc::bad_message)
+                            : std::error_code{};
+            });
 
         return m_communicator.handshake();
     }
@@ -156,7 +160,7 @@ public:
 
 private:
     CustomCommunicator m_communicator;
-    Future<ExampleServerMessage> m_future;
+    std::future<ExampleServerMessage> m_future;
 };
 
 boost::shared_ptr<CommunicatorProxy> create(
@@ -182,17 +186,8 @@ std::string prepareReply(
     return serverMsg.SerializeAsString();
 }
 
-void translate(const ConnectionError &e)
-{
-    PyErr_SetString(
-        PyExc_RuntimeError, ("ConnectionError "s + e.what()).c_str());
-}
-
-extern void server();
 BOOST_PYTHON_MODULE(communication_stack)
 {
-    register_exception_translator<ConnectionError>(&translate);
-
     class_<CommunicatorProxy, boost::noncopyable>("Communicator", no_init)
         .def("__init__", make_constructor(create))
         .def("connect", &CommunicatorProxy::connect)
@@ -203,6 +198,4 @@ BOOST_PYTHON_MODULE(communication_stack)
         .def("handshakeResponse", &CommunicatorProxy::handshakeResponse);
 
     def("prepareReply", prepareReply);
-
-    server();
 }

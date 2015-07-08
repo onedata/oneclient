@@ -9,8 +9,8 @@
 #ifndef HELPERS_COMMUNICATION_CERT_CERTIFICATE_DATA_H
 #define HELPERS_COMMUNICATION_CERT_CERTIFICATE_DATA_H
 
-#include <boost/asio/ssl/context.hpp>
-#include <boost/asio/ssl/context_base.hpp>
+#include <asio/ssl/context.hpp>
+#include <asio/ssl/context_base.hpp>
 
 #include <memory>
 #include <string>
@@ -44,22 +44,22 @@ public:
      * @param ctx The context to update.
      * @return @p ctx.
      */
-    virtual void initContext(boost::asio::ssl::context &ctx) const = 0;
+    virtual void initContext(asio::ssl::context &ctx) const = 0;
 
     /**
      * Convenience overload.
-     * @copydoc initContext(boost::asio::ssl::context&)
+     * @copydoc initContext(asio::ssl::context&)
      */
-    virtual std::shared_ptr<boost::asio::ssl::context> initContext(
-        std::shared_ptr<boost::asio::ssl::context> ctx) const;
+    virtual std::shared_ptr<asio::ssl::context> initContext(
+        std::shared_ptr<asio::ssl::context> ctx) const;
 
 protected:
     /**
      * Translator for stored key format value.
      * @return The keyFormat value given in constructor, translated to
-     * @c boost::asio::ssl::context_base::file_format type.
+     * @c asio::ssl::context_base::file_format type.
      */
-    boost::asio::ssl::context_base::file_format keyFormat() const;
+    asio::ssl::context_base::file_format keyFormat() const;
 
 private:
     const KeyFormat m_keyFormat;

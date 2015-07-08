@@ -35,13 +35,13 @@ namespace utils {
 
 } // namespace utils
 
-StorageHelperFactory::StorageHelperFactory(std::shared_ptr<communication::Communicator> communicator,
-                                           const BufferLimits &limits, boost::asio::io_service &dio_service,
-                                           boost::asio::io_service &cproxy_service)
+StorageHelperFactory::StorageHelperFactory(
+    std::shared_ptr<communication::Communicator> communicator,
+    const BufferLimits &limits, asio::io_service &dio_service,
+    asio::io_service & /*cproxy_service*/)
     : m_communicator{std::move(communicator)}
     , m_limits{limits}
     , m_dio_service{dio_service}
-    , m_cproxy_service{cproxy_service}
 {
 }
 

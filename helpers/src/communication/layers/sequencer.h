@@ -21,6 +21,7 @@ namespace layers {
  */
 template <class LowerLayer> class Sequencer : public LowerLayer {
 public:
+    using Callback = typename LowerLayer::Callback;
     using LowerLayer::LowerLayer;
     virtual ~Sequencer() = default;
 

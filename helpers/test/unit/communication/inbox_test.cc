@@ -11,8 +11,6 @@
 #include "communication/layers/inbox.h"
 #include "testUtils.h"
 
-#include <boost/thread/future.hpp>
-#include <boost/thread/executors/basic_thread_pool.hpp>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -23,6 +21,7 @@ using namespace one::communication;
 using namespace ::testing;
 
 struct LowerLayer {
+    using Callback = std::function<void(const std::error_code &)>;
     LowerLayer &mock = static_cast<LowerLayer &>(*this);
 
     MOCK_METHOD2(sendProxy, void(clproto::ClientMessage, int));
@@ -30,18 +29,18 @@ struct LowerLayer {
     MOCK_METHOD1(
         setOnMessageCallback, void(std::function<void(ServerMessagePtr)>));
 
-    boost::future<void> send(ClientMessagePtr cmp, int i)
+    void send(ClientMessagePtr cmp, Callback callback, int i)
     {
-        if (exception)
-            return boost::make_exceptional(ConnectionError("error"));
-
-        sendProxy(*cmp, i);
-        return boost::make_ready_future();
+        if (error) {
+            callback(std::make_error_code(std::errc::bad_message));
+        }
+        else {
+            sendProxy(*cmp, i);
+            callback(std::error_code{});
+        }
     }
 
-    std::shared_ptr<boost::basic_thread_pool> m_ioServiceExecutor{
-        std::make_shared<boost::basic_thread_pool>(1)};
-    bool exception = false;
+    bool error = false;
 };
 
 struct InboxTest : public ::testing::Test {
@@ -67,7 +66,7 @@ TEST_F(InboxTest, communicateShouldPassArgumentsToSend)
     auto ping = msg->mutable_ping();
     ping->set_data(data);
 
-    inbox.communicate(std::move(msg), retries);
+    inbox.communicate(std::move(msg), [](auto, auto) {}, retries);
 
     ASSERT_EQ(data, sentMsg.ping().data());
 }
@@ -81,12 +80,12 @@ TEST_F(InboxTest, communicateShouldSetMessageId)
         .WillOnce(SaveMessageId(&sentMsgId2));
 
     auto msg = std::make_unique<clproto::ClientMessage>();
-    inbox.communicate(std::move(msg), randomInt());
+    inbox.communicate(std::move(msg), [](auto, auto) {}, randomInt());
 
     EXPECT_FALSE(sentMsgId1.empty());
 
     msg = std::make_unique<clproto::ClientMessage>();
-    inbox.communicate(std::move(msg), randomInt());
+    inbox.communicate(std::move(msg), [](auto, auto) {}, randomInt());
 
     EXPECT_FALSE(sentMsgId2.empty());
     EXPECT_NE(sentMsgId1, sentMsgId2);
@@ -94,12 +93,11 @@ TEST_F(InboxTest, communicateShouldSetMessageId)
 
 TEST_F(InboxTest, communicateShouldReturnExceptionIfSendFails)
 {
-    inbox.mock.exception = true;
+    inbox.mock.error = true;
 
     auto msg = std::make_unique<clproto::ClientMessage>();
-    auto future = inbox.communicate(std::move(msg), randomInt());
-
-    ASSERT_THROW(future.get(), ConnectionError);
+    inbox.communicate(
+        std::move(msg), [](auto ec, auto) { ASSERT_TRUE(!!ec); }, randomInt());
 }
 
 TEST_F(InboxTest, InboxShouldFulfillCommunicatePromiseOnceReplyIsReceived)
@@ -115,10 +113,12 @@ TEST_F(InboxTest, InboxShouldFulfillCommunicatePromiseOnceReplyIsReceived)
 
     inbox.connect();
 
+    clproto::ServerMessage result;
     auto msg = std::make_unique<clproto::ClientMessage>();
-    auto future = inbox.communicate(std::move(msg), randomInt());
+    inbox.communicate(
+        std::move(msg), [&](auto, auto r) { result = *r; }, randomInt());
 
-    ASSERT_EQ(future.get_state(), boost::future_state::waiting);
+    ASSERT_FALSE(result.has_pong());
 
     const auto data = randomString();
 
@@ -128,7 +128,8 @@ TEST_F(InboxTest, InboxShouldFulfillCommunicatePromiseOnceReplyIsReceived)
     pong->set_data(data);
 
     onMessageCallback(std::move(replyMsg));
-    ASSERT_EQ(data, future.get()->pong().data());
+    ASSERT_TRUE(result.has_pong());
+    ASSERT_EQ(data, result.pong().data());
 }
 
 TEST_F(InboxTest, connectShouldSetOnMessageCallback)
@@ -206,15 +207,18 @@ TEST_F(InboxTest, InboxShouldMarkExpectedMessagesAsHandledForSubscribers)
     EXPECT_CALL(inbox.mock, sendProxy(_, _))
         .WillOnce(SaveMessageId(&sentMsgId));
 
+    clproto::ServerMessage result;
     auto clientMsg = std::make_unique<clproto::ClientMessage>();
-    auto f = inbox.communicate(std::move(clientMsg), randomInt());
+
+    inbox.communicate(
+        std::move(clientMsg), [&](auto, auto r) { result = *r; }, randomInt());
 
     msg = std::make_unique<clproto::ServerMessage>();
     msg->set_message_id(sentMsgId);
     onMessageCallback(std::move(msg));
 
     ASSERT_EQ(2, predicateCalled);
-    ASSERT_EQ(sentMsgId, f.get()->message_id());
+    ASSERT_EQ(sentMsgId, result.message_id());
 }
 
 TEST_F(InboxTest, InboxShouldNotCallSubscriptionCallbackWhenPredicateIsFalse)

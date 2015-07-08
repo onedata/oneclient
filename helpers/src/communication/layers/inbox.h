@@ -12,7 +12,6 @@
 #include "communication/declarations.h"
 #include "communication/subscriptionData.h"
 
-#include <boost/thread/future.hpp>
 #include <tbb/concurrent_hash_map.h>
 #include <tbb/concurrent_queue.h>
 #include <tbb/concurrent_vector.h>
@@ -21,6 +20,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <system_error>
 
 namespace one {
 namespace communication {
@@ -34,6 +34,10 @@ namespace layers {
  */
 template <class LowerLayer> class Inbox : public LowerLayer {
 public:
+    using Callback = typename LowerLayer::Callback;
+    using CommunicateCallback =
+        std::function<void(const std::error_code &ec, ServerMessagePtr)>;
+
     using LowerLayer::LowerLayer;
     virtual ~Inbox() = default;
 
@@ -48,8 +52,8 @@ public:
      * @param retries Number of retries in case of sending error.
      * @return A future which should be fulfiled with server's reply.
      */
-    boost::future<ServerMessagePtr> communicate(
-        ClientMessagePtr message, const int retries = DEFAULT_RETRY_NUMBER);
+    void communicate(ClientMessagePtr message, CommunicateCallback callback,
+        const int retries = DEFAULT_RETRY_NUMBER);
 
     /**
      * Subscribes a given callback to messages received from the server.
@@ -74,11 +78,11 @@ public:
     void setOnMessageCallback(std::function<void(ServerMessagePtr)>) = delete;
 
 private:
-    tbb::concurrent_hash_map<std::string,
-        std::shared_ptr<boost::promise<ServerMessagePtr>>> m_promises;
+    tbb::concurrent_hash_map<std::string, std::shared_ptr<CommunicateCallback>>
+        m_callbacks;
 
     /// The counter will loop after sending ~65000 messages, providing us with
-    /// a natural size bound for m_promises.
+    /// a natural size bound for m_callbacks.
     std::atomic<std::uint16_t> m_nextMsgId{0};
 
     tbb::concurrent_vector<SubscriptionData> m_subscriptions;
@@ -87,30 +91,33 @@ private:
 };
 
 template <class LowerLayer>
-boost::future<ServerMessagePtr> Inbox<LowerLayer>::communicate(
-    ClientMessagePtr message, const int retries)
+void Inbox<LowerLayer>::communicate(
+    ClientMessagePtr message, CommunicateCallback callback, const int retries)
 {
     const auto messageId = std::to_string(m_nextMsgId++);
     message->set_message_id(messageId);
 
-    auto promise = std::make_shared<boost::promise<ServerMessagePtr>>();
-    typename decltype(m_promises)::accessor acc;
-    m_promises.insert(acc, messageId);
-    acc->second = promise;
-    acc.release();
+    {
+        typename decltype(m_callbacks)::accessor acc;
+        m_callbacks.insert(acc, messageId);
+        acc->second =
+            std::make_shared<CommunicateCallback>(std::move(callback));
+    }
 
-    auto sendFuture = LowerLayer::send(std::move(message), retries);
-    auto future = sendFuture.then(*LowerLayer::m_ioServiceExecutor,
-        [this, promise, messageId](auto f) mutable {
-            if (f.has_exception()) {
-                this->m_promises.erase(messageId);
-                f.get();
+    auto sendCallback = [ =, messageId = std::move(messageId) ](
+        const std::error_code &ec)
+    {
+        if (ec) {
+            typename decltype(m_callbacks)::accessor acc;
+            if (m_callbacks.find(acc, messageId)) {
+                auto callback = std::move(*acc->second);
+                m_callbacks.erase(acc);
+                callback(ec, {});
             }
+        }
+    };
 
-            return promise->get_future();
-        });
-
-    return future.unwrap();
+    LowerLayer::send(std::move(message), std::move(sendCallback), retries);
 }
 
 template <class LowerLayer>
@@ -131,17 +138,17 @@ std::function<void()> Inbox<LowerLayer>::subscribe(SubscriptionData data)
 template <class LowerLayer> auto Inbox<LowerLayer>::connect()
 {
     LowerLayer::setOnMessageCallback([this](ServerMessagePtr message) {
-        typename decltype(m_promises)::accessor acc;
-        const bool handled = m_promises.find(acc, message->message_id());
+        typename decltype(m_callbacks)::accessor acc;
+        const bool handled = m_callbacks.find(acc, message->message_id());
 
         for (const auto &sub : m_subscriptions)
             if (sub.predicate(*message, handled))
                 sub.callback(*message);
 
         if (handled) {
-            auto promise = std::move(acc->second);
-            m_promises.erase(acc);
-            promise->set_value(std::move(message));
+            auto callback = std::move(*acc->second);
+            m_callbacks.erase(acc);
+            callback({}, std::move(message));
         }
     });
 

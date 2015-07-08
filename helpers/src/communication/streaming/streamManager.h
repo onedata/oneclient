@@ -9,7 +9,7 @@
 #ifndef HELPERS_COMMUNICATION_STREAMING_STREAM_MANAGER_H
 #define HELPERS_COMMUNICATION_STREAMING_STREAM_MANAGER_H
 
-#include "stream.h"
+#include "typedStream.h"
 #include "communication/subscriptionData.h"
 #include "communication/layers/translator.h"
 
@@ -30,7 +30,7 @@ namespace streaming {
 
 template <class Communicator> class StreamManager {
 public:
-    using Stream = ::one::communication::streaming::Stream<Communicator>;
+    using Stream = ::one::communication::streaming::TypedStream<Communicator>;
 
     /**
      * Constructor.

@@ -10,8 +10,6 @@
 #include "communication/layers/replier.h"
 #include "testUtils.h"
 
-#include <boost/thread/future.hpp>
-
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -20,14 +18,15 @@ using namespace one::communication;
 using namespace ::testing;
 
 struct LowerLayer {
+    using Callback = std::function<void(const std::error_code &)>;
+
     LowerLayer &mock = static_cast<LowerLayer &>(*this);
 
     MOCK_METHOD2(sendProxy, void(clproto::ClientMessage, int));
 
-    boost::future<void> send(ClientMessagePtr cmp, int i)
+    void send(ClientMessagePtr cmp, Callback /*callback*/, int i)
     {
         sendProxy(*cmp, i);
-        return {};
     }
 };
 
@@ -45,7 +44,7 @@ TEST_F(ReplierTest, replyShouldSetMessageId)
     clproto::ServerMessage replyTo;
     replyTo.set_message_id(messageId);
     auto msg = std::make_unique<clproto::ClientMessage>();
-    replier.reply(replyTo, std::move(msg), 1);
+    replier.reply(replyTo, std::move(msg), {}, 1);
 
     ASSERT_EQ(messageId, sentMsg.message_id());
 }
@@ -58,5 +57,5 @@ TEST_F(ReplierTest, replyShouldPassUninterestingValuesDown)
     clproto::ServerMessage replyTo;
     replyTo.set_message_id(randomString());
     auto msg = std::make_unique<clproto::ClientMessage>();
-    replier.reply(replyTo, std::move(msg), retries);
+    replier.reply(replyTo, std::move(msg), {}, retries);
 }

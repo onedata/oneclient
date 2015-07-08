@@ -9,9 +9,13 @@
 #ifndef HELPERS_SCHEDULER_H
 #define HELPERS_SCHEDULER_H
 
-#include <boost/asio.hpp>
+#include <asio/executor_work.hpp>
+#include <asio/io_service.hpp>
+#include <asio/post.hpp>
+#include <asio/steady_timer.hpp>
 
 #include <chrono>
+#include <cstdint>
 #include <functional>
 #include <vector>
 #include <thread>
@@ -29,13 +33,13 @@ public:
      * Creates worker threads.
      * @param threadNumber The number of threads to be spawned.
      */
-    Scheduler(const unsigned int threadNumber);
+    Scheduler(const std::size_t threadNumber);
 
     /**
      * Destructor.
      * Stops the scheduler and joins worker threads.
      */
-    virtual ~Scheduler();
+    ~Scheduler();
 
     void prepareForDaemonize();
     void restartAfterDaemonize();
@@ -44,7 +48,10 @@ public:
      * Runs a task asynchronously in @c Scheduler's thread pool.
      * @param task The task to execute.
      */
-    virtual void post(const std::function<void()> &task);
+    template <typename F> void post(F &&task)
+    {
+        asio::post(m_ioService, std::forward<F>(task));
+    }
 
     /**
      * Runs a task asynchronously in @c Scheduler's thread pool on an object
@@ -58,6 +65,7 @@ public:
     {
         auto task = std::bind(
             member, std::placeholders::_1, std::forward<Args>(args)...);
+
         post([ s = std::move(subject), t = std::move(task) ] {
             if (auto subject = s.lock())
                 t(subject.get());
@@ -79,8 +87,25 @@ public:
      * @param task The task to execute.
      * @return A function to cancel the scheduled task.
      */
-    virtual std::function<void()> schedule(
-        const std::chrono::milliseconds after, std::function<void()> task);
+    template <typename Rep, typename Period, typename F>
+    std::function<void()> schedule(
+        const std::chrono::duration<Rep, Period> after, F &&task)
+    {
+        using namespace std::placeholders;
+        const auto timer =
+            std::make_shared<asio::steady_timer>(m_ioService, after);
+
+        timer->async_wait([task, timer](auto ec) {
+            if (!ec)
+                task();
+        });
+
+        return [t = std::weak_ptr<asio::steady_timer>{timer}]
+        {
+            if (auto timer = t.lock())
+                timer->cancel();
+        };
+    }
 
     /**
      * Schedules a task to be run after some time on an object referenced by a
@@ -91,12 +116,14 @@ public:
      * @param args Arguments to pass to the member.
      * @return A function to cancel the scheduled task.
      */
-    template <class R, class T, class... Args>
-    std::function<void()> schedule(const std::chrono::milliseconds after,
-        R(T::*member), std::weak_ptr<T> subject, Args &&... args)
+    template <typename Rep, typename Period, class R, class T, class... Args>
+    std::function<void()> schedule(
+        const std::chrono::duration<Rep, Period> after, R(T::*member),
+        std::weak_ptr<T> subject, Args &&... args)
     {
         auto task = std::bind(
             member, std::placeholders::_1, std::forward<Args>(args)...);
+
         return schedule(
             after, [ s = std::move(subject), t = std::move(task) ] {
                 if (auto subject = s.lock())
@@ -107,9 +134,10 @@ public:
     /**
      * A convenience overload for @c schedule taking a @c std::shared_ptr.
      */
-    template <class R, class T, class... Args>
-    std::function<void()> schedule(const std::chrono::milliseconds after,
-        R(T::*member), const std::shared_ptr<T> &subject, Args &&... args)
+    template <typename Rep, typename Period, class R, class T, class... Args>
+    std::function<void()> schedule(
+        const std::chrono::duration<Rep, Period> after, R(T::*member),
+        const std::shared_ptr<T> &subject, Args &&... args)
     {
         return schedule(after, member, std::weak_ptr<T>{subject},
             std::forward<Args>(args)...);
@@ -118,16 +146,17 @@ public:
     /**
      * @return @c Scheduler's IO service.
      */
-    boost::asio::io_service &getIoService() { return m_ioService; }
+    asio::io_service &getIoService() { return m_ioService; }
 
 private:
     void start();
     void stop();
 
-    const unsigned int m_threadNumber;
+    const std::size_t m_threadNumber;
     std::vector<std::thread> m_workers;
-    boost::asio::io_service m_ioService;
-    boost::asio::io_service::work m_idleWork;
+    asio::io_service m_ioService{m_threadNumber};
+    asio::executor_work<asio::io_service::executor_type> m_idleWork =
+        asio::make_work(m_ioService);
 };
 
 } // namespace one

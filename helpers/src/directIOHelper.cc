@@ -254,17 +254,17 @@ future_t<int> DirectIOHelper::ash_open(
     return promise->get_future();
 }
 
-future_t<boost::asio::mutable_buffer> DirectIOHelper::ash_read(
-    const boost::filesystem::path &p, boost::asio::mutable_buffer buf,
-    off_t offset, CTXRef ctx)
+future_t<asio::mutable_buffer> DirectIOHelper::ash_read(
+    const boost::filesystem::path &p, asio::mutable_buffer buf, off_t offset,
+    CTXRef ctx)
 {
-    auto promise =
-        std::make_shared<promise_t<boost::asio::mutable_buffer>>();
+    auto promise = std::make_shared<promise_t<asio::mutable_buffer>>();
 
     m_workerService.post([=, &ctx]() {
         try {
             promise->set_value(sh_read(p, buf, offset, ctx));
-        } catch(std::system_error &e) {
+        }
+        catch (std::system_error &e) {
             setPosixError(promise, e.code().value());
         }
     });
@@ -273,14 +273,15 @@ future_t<boost::asio::mutable_buffer> DirectIOHelper::ash_read(
 }
 
 future_t<int> DirectIOHelper::ash_write(const boost::filesystem::path &p,
-    boost::asio::const_buffer buf, off_t offset, CTXRef ctx)
+    asio::const_buffer buf, off_t offset, CTXRef ctx)
 {
     auto promise = std::make_shared<promise_t<int>>();
 
     m_workerService.post([=, &ctx]() {
         try {
             promise->set_value(sh_write(p, buf, offset, ctx));
-        } catch(std::system_error &e) {
+        }
+        catch (std::system_error &e) {
             setPosixError(promise, e.code().value());
         }
     });
@@ -309,27 +310,29 @@ future_t<void> DirectIOHelper::ash_release(
 future_t<void> DirectIOHelper::ash_flush(
     const boost::filesystem::path &p, CTXRef ctx)
 {
-    return boost::make_ready_future();
+    std::promise<void> promise;
+    promise.set_value();
+    return promise.get_future();
 }
 
 future_t<void> DirectIOHelper::ash_fsync(
     const boost::filesystem::path &p, int isdatasync, CTXRef ctx)
 {
-    return boost::make_ready_future();
+    std::promise<void> promise;
+    promise.set_value();
+    return promise.get_future();
 }
 
-
 int DirectIOHelper::sh_write(const boost::filesystem::path &p,
-    boost::asio::const_buffer buf, off_t offset, CTXRef ctx)
+    asio::const_buffer buf, off_t offset, CTXRef ctx)
 {
-    int fd =
-        ctx.m_ffi.fh > 0 ? ctx.m_ffi.fh : open(root(p).c_str(), O_WRONLY);
+    int fd = ctx.m_ffi.fh > 0 ? ctx.m_ffi.fh : open(root(p).c_str(), O_WRONLY);
     if (fd == -1) {
         throw makePosixError(errno);
     }
 
-    auto res = pwrite(fd, boost::asio::buffer_cast<const char *>(buf),
-        boost::asio::buffer_size(buf), offset);
+    auto res = pwrite(fd, asio::buffer_cast<const char *>(buf),
+        asio::buffer_size(buf), offset);
 
     if (ctx.m_ffi.fh <= 0) {
         close(fd);
@@ -342,18 +345,16 @@ int DirectIOHelper::sh_write(const boost::filesystem::path &p,
     return res;
 }
 
-boost::asio::mutable_buffer DirectIOHelper::sh_read(
-    const boost::filesystem::path &p, boost::asio::mutable_buffer buf,
-    off_t offset, CTXRef ctx)
+asio::mutable_buffer DirectIOHelper::sh_read(const boost::filesystem::path &p,
+    asio::mutable_buffer buf, off_t offset, CTXRef ctx)
 {
-   int fd =
-        ctx.m_ffi.fh > 0 ? ctx.m_ffi.fh : open(root(p).c_str(), O_RDONLY);
+    int fd = ctx.m_ffi.fh > 0 ? ctx.m_ffi.fh : open(root(p).c_str(), O_RDONLY);
     if (fd == -1) {
         throw makePosixError(errno);
     }
 
-    auto res = pread(fd, boost::asio::buffer_cast<char *>(buf),
-        boost::asio::buffer_size(buf), offset);
+    auto res = pread(
+        fd, asio::buffer_cast<char *>(buf), asio::buffer_size(buf), offset);
 
     if (ctx.m_ffi.fh <= 0) {
         close(fd);
@@ -363,11 +364,10 @@ boost::asio::mutable_buffer DirectIOHelper::sh_read(
         throw makePosixError(errno);
     }
 
-    return std::move(boost::asio::buffer(buf, res));
+    return std::move(asio::buffer(buf, res));
 }
 
-DirectIOHelper::DirectIOHelper(
-    const ArgsMap &args, boost::asio::io_service &service)
+DirectIOHelper::DirectIOHelper(const ArgsMap &args, asio::io_service &service)
     : m_rootPath{extractPath(args)}
     , m_workerService{service}
 {

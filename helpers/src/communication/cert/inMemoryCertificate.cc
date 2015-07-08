@@ -12,15 +12,15 @@ namespace one {
 namespace communication {
 namespace cert {
 
-InMemoryCertificate::InMemoryCertificate(boost::asio::const_buffer certData,
-    boost::asio::const_buffer keyData, CertificateData::KeyFormat keyFormat)
+InMemoryCertificate::InMemoryCertificate(asio::const_buffer certData,
+    asio::const_buffer keyData, CertificateData::KeyFormat keyFormat)
     : CertificateData{keyFormat}
     , m_certData{std::move(certData)}
     , m_keyData{std::move(keyData)}
 {
 }
 
-void InMemoryCertificate::initContext(boost::asio::ssl::context &ctx) const
+void InMemoryCertificate::initContext(asio::ssl::context &ctx) const
 {
     ctx.use_certificate_chain(m_certData);
     ctx.use_private_key(m_keyData, keyFormat());

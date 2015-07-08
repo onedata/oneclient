@@ -10,8 +10,6 @@
 #include "messages/ping.h"
 #include "messages/pong.h"
 
-#include <boost/thread/future.hpp>
-#include <boost/thread/executors/basic_thread_pool.hpp>
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -23,22 +21,15 @@ using namespace std::literals::chrono_literals;
 
 class LazyConnectionPool {
 public:
+    using Callback = std::function<void(const std::error_code &)>;
+
     void connect() {}
 
     void setOnMessageCallback(std::function<void(std::string)>) {}
 
     void setCertificateData(std::shared_ptr<cert::CertificateData>) {}
 
-    boost::future<void> send(std::string, const int = int{})
-    {
-        auto future = promise.get_future();
-        promise.set_value();
-        return future;
-    }
-
-    boost::promise<void> promise;
-    std::shared_ptr<boost::basic_thread_pool> m_ioServiceExecutor{
-        std::make_shared<boost::basic_thread_pool>(1)};
+    void send(std::string, Callback /*callback*/, const int = int{}) {}
 };
 
 using CustomCommunicator =
@@ -54,5 +45,5 @@ struct CommunicatorTest : public ::testing::Test {
 TEST_F(CommunicatorTest, communicateShouldReturnTimeoutableFuture)
 {
     auto future = comm.communicate<messages::Pong>(messages::Ping{}, 0);
-    ASSERT_THROW(future.get(10ms), TimeoutExceeded);
+    ASSERT_EQ(std::future_status::timeout, future.wait_for(10ms));
 }
