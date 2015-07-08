@@ -129,17 +129,18 @@ std::shared_ptr<auth::AuthManager> createAuthManager(
 std::string handshake(std::shared_ptr<auth::AuthManager> authManager)
 {
     const auto fuseId = generateFuseID();
-    auto handshakeHandler = [](auto) { return true; };
+    auto handshakeHandler = [](auto) { return std::error_code{}; };
 
     auto testCommunicator =
         authManager->createCommunicator(1, fuseId, handshakeHandler,
             communication::ConnectionPool::ErrorPolicy::propagate);
 
-    /// @todo boost::system::system_error throwed on host not found
+    testCommunicator->connect();
+
     auto futurePong =
         testCommunicator->communicate<messages::Pong>(messages::Ping{}, 2);
 
-    futurePong.get(5s);
+    communication::wait(futurePong);
 
     return fuseId;
 }
@@ -148,7 +149,7 @@ std::shared_ptr<communication::Communicator> createCommunicator(
     std::shared_ptr<auth::AuthManager> authManager,
     std::shared_ptr<Context> context, std::string fuseId)
 {
-    auto handshakeHandler = [](auto) { return true; };
+    auto handshakeHandler = [](auto) { return std::error_code{}; };
     auto communicator = authManager->createCommunicator(3, fuseId,
         handshakeHandler, communication::ConnectionPool::ErrorPolicy::ignore);
     context->setCommunicator(communicator);

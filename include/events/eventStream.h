@@ -19,7 +19,7 @@
 #include "messages/writeEventSubscription.h"
 #include "scheduler.h"
 
-#include <boost/asio/strand.hpp>
+#include <asio/strand.hpp>
 
 #include <sys/types.h>
 
@@ -134,7 +134,7 @@ private:
     std::shared_ptr<EventCommunicator> m_communicator;
     std::unique_ptr<Aggregator<EventType>> m_aggregator;
 
-    boost::asio::strand m_streamStrand;
+    asio::io_service::strand m_streamStrand;
     std::function<void()> m_cancelPeriodicEmission = [] {};
 };
 
@@ -151,9 +151,8 @@ EventStream<EventType>::EventStream(std::weak_ptr<Context> context,
 template <class EventType>
 void EventStream<EventType>::pushAsync(EventType event)
 {
-    m_streamStrand.post([ this, event = std::move(event) ] {
-        push(std::move(event));
-    });
+    asio::post(m_streamStrand,
+        [ this, event = std::move(event) ] { push(std::move(event)); });
 }
 
 template <class EventType> void EventStream<EventType>::push(EventType event)
@@ -170,9 +169,10 @@ uint64_t EventStream<EventType>::addSubscriptionAsync(
 {
     uint64_t id = subscription.id();
 
-    m_streamStrand.post([ this, subscription = std::move(subscription) ] {
-        addSubscription(std::move(subscription));
-    });
+    asio::post(
+        m_streamStrand, [ this, subscription = std::move(subscription) ] {
+            addSubscription(std::move(subscription));
+        });
 
     return id;
 }
@@ -216,9 +216,10 @@ template <class EventType>
 void EventStream<EventType>::removeSubscriptionAsync(
     typename EventType::Subscription subscription)
 {
-    m_streamStrand.post([ this, subscription = std::move(subscription) ] {
-        removeSubscription(std::move(subscription));
-    });
+    asio::post(
+        m_streamStrand, [ this, subscription = std::move(subscription) ] {
+            removeSubscription(std::move(subscription));
+        });
 }
 
 template <class EventType>
@@ -261,7 +262,7 @@ template <class EventType> void EventStream<EventType>::emit()
 
 template <class EventType> void EventStream<EventType>::periodicEmission()
 {
-    m_streamStrand.post([this] { emit(); });
+    asio::post(m_streamStrand, [this] { emit(); });
 }
 
 template <class EventType> void EventStream<EventType>::resetPeriodicEmission()
