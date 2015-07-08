@@ -41,7 +41,7 @@ StorageHelperFactory::StorageHelperFactory(
     asio::io_service & /*cproxy_service*/)
     : m_communicator{std::move(communicator)}
     , m_limits{limits}
-    , m_dio_service{dio_service}
+    , m_dioService{dio_service}
 {
 }
 

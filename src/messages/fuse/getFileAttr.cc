@@ -47,10 +47,14 @@ std::unique_ptr<ProtocolClientMessage> GetFileAttr::serialize() const
 
     assert(m_uuid || m_path);
 
-    if (m_uuid)
-        gfa->set_uuid(m_uuid.get());
-    else
-        gfa->set_path(m_path.get().string());
+    if (m_uuid) {
+        gfa->set_entry_type(clproto::EntryType::UUID);
+        gfa->set_entry(m_uuid.get());
+    }
+    else {
+        gfa->set_entry_type(clproto::EntryType::PATH);
+        gfa->set_entry(m_path.get().string());
+    }
 
     return msg;
 }

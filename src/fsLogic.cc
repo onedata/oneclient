@@ -40,7 +40,7 @@ FsLogic::FsLogic(boost::filesystem::path root, std::shared_ptr<Context> context)
 int FsLogic::access(boost::filesystem::path path, const int mask)
 {
     DLOG(INFO) << "FUSE: access(path: '" << path << "', mask: " << mask << ")";
-    throw std::errc::operation_not_supported;
+    return 0;
 }
 
 int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
@@ -87,9 +87,11 @@ int FsLogic::mkdir(boost::filesystem::path path, const mode_t mode)
     messages::fuse::CreateDir msg{
         parentAttr.uuid(), path.filename().string(), mode};
 
-    m_context->communicator()
-        ->communicate<messages::fuse::FuseResponse>(msg)
-        .get(10s);
+    auto future =
+        m_context->communicator()->communicate<messages::fuse::FuseResponse>(
+            msg);
+
+    communication::wait(future);
 
     return 0;
 }
@@ -167,9 +169,11 @@ int FsLogic::utime(boost::filesystem::path path, struct utimbuf *const ubuf)
         msg.mtime(std::chrono::system_clock::from_time_t(ubuf->modtime));
     }
 
-    m_context->communicator()
-        ->communicate<messages::fuse::FuseResponse>(msg)
-        .get(10s);
+    auto future =
+        m_context->communicator()->communicate<messages::fuse::FuseResponse>(
+            msg);
+
+    communication::wait(future);
 
     return 0;
 }
@@ -249,7 +253,7 @@ int FsLogic::opendir(
     boost::filesystem::path path, struct fuse_file_info *const fileInfo)
 {
     DLOG(INFO) << "FUSE: opendir(path: '" << path << "', ...)";
-    throw std::errc::operation_not_supported;
+    return 0;
 }
 
 int FsLogic::readdir(boost::filesystem::path path, void *const buf,
@@ -268,7 +272,7 @@ int FsLogic::readdir(boost::filesystem::path path, void *const buf,
         m_context->communicator()->communicate<messages::fuse::FileChildren>(
             msg);
 
-    auto fileChildren = future.get(10s);
+    auto fileChildren = communication::wait(future);
     auto currentOffset = offset;
 
     for (const auto &uuidAndName : fileChildren.uuidsAndNames()) {
@@ -287,7 +291,7 @@ int FsLogic::releasedir(
     boost::filesystem::path path, struct fuse_file_info *const fileInfo)
 {
     DLOG(INFO) << "FUSE: releasedir(path: '" << path << "', ...)";
-    throw std::errc::operation_not_supported;
+    return 0;
 }
 
 int FsLogic::fsyncdir(boost::filesystem::path path, const int datasync,
@@ -296,7 +300,7 @@ int FsLogic::fsyncdir(boost::filesystem::path path, const int datasync,
     DLOG(INFO) << "FUSE: fsyncdir(path: '" << path
                << "', datasync: " << datasync << ", ...)";
 
-    throw std::errc::operation_not_supported;
+    return 0;
 }
 
 void FsLogic::removeFile(boost::filesystem::path path)
@@ -304,9 +308,11 @@ void FsLogic::removeFile(boost::filesystem::path path)
     auto attr = getAttr(path);
     messages::fuse::DeleteFile msg{attr.uuid()};
 
-    m_context->communicator()
-        ->communicate<messages::fuse::FuseResponse>(msg)
-        .get(10s);
+    auto future =
+        m_context->communicator()->communicate<messages::fuse::FuseResponse>(
+            msg);
+
+    communication::wait(future);
 
     m_uuidCache.erase(path);
     m_attrCache.erase(attr.uuid());
@@ -340,7 +346,7 @@ messages::fuse::FileAttr FsLogic::getAttr(
     auto future =
         m_context->communicator()->communicate<messages::fuse::FileAttr>(req);
 
-    auto attr = future.get(10s);
+    auto attr = communication::wait(future);
     m_attrCache.insert({attr.uuid(), attr});
 
     return attr;
