@@ -9,7 +9,7 @@
 #ifndef HELPERS_MESSAGES_FUSE_MESSAGES_FILE_ATTR_H
 #define HELPERS_MESSAGES_FUSE_MESSAGES_FILE_ATTR_H
 
-#include "messages/serverMessage.h"
+#include "fuseResponse.h"
 
 #include "messages.pb.h"
 
@@ -27,7 +27,7 @@ namespace fuse {
 /**
  * The FileAttr class represents server-sent file attributes.
  */
-class FileAttr : public ServerMessage {
+class FileAttr : public FuseResponse {
 public:
     enum class FileType { regular, directory, link };
 

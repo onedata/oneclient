@@ -12,6 +12,8 @@
 #include "messages/serverMessage.h"
 #include "messages/clientMessage.h"
 
+#include <boost/optional.hpp>
+
 #include <memory>
 #include <ostream>
 #include <string>
@@ -64,13 +66,13 @@ public:
      * @param status The status to translate.
      * @return Translated status.
      */
-    static std::tuple<std::error_code, std::string> translate(
+    static std::tuple<std::error_code, boost::optional<std::string>> translate(
         const clproto::Status &status);
 
     /**
      * @return Status description.
      */
-    const std::string &description() const;
+    const boost::optional<std::string> &description() const;
 
     virtual std::string toString() const override;
 
@@ -78,7 +80,7 @@ public:
 
 private:
     std::error_code m_code;
-    std::string m_description;
+    boost::optional<std::string> m_description;
 };
 
 } // namespace messages

@@ -9,10 +9,11 @@
 #ifndef HELPERS_MESSAGES_FUSE_MESSAGES_FILE_CHILDREN_H
 #define HELPERS_MESSAGES_FUSE_MESSAGES_FILE_CHILDREN_H
 
-#include "messages/serverMessage.h"
+#include "fuseResponse.h"
 
 #include <memory>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace one {
@@ -27,7 +28,7 @@ namespace fuse {
 /**
  * The FileChildren class represents server-sent file children list.
  */
-class FileChildren : public ServerMessage {
+class FileChildren : public FuseResponse {
 public:
     /**
      * Constructor.
@@ -36,12 +37,13 @@ public:
      */
     FileChildren(std::unique_ptr<ProtocolServerMessage> serverMessage);
 
-    const std::vector<std::string> &uuids() const;
+    const std::vector<std::tuple<std::string, std::string>> &
+    uuidsAndNames() const;
 
     std::string toString() const override;
 
 private:
-    std::vector<std::string> m_uuids;
+    std::vector<std::tuple<std::string, std::string>> m_uuidsAndNames;
 };
 
 } // namespace fuse

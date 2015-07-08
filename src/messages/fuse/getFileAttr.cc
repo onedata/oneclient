@@ -17,18 +17,14 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-GetFileAttr::GetFileAttr()
+GetFileAttr::GetFileAttr(std::string uuid)
+    : m_uuid{std::move(uuid)}
 {
 }
 
-void GetFileAttr::setUUID(std::string uuid)
+GetFileAttr::GetFileAttr(boost::filesystem::path path)
+    : m_path{std::move(path)}
 {
-    m_uuid.emplace(std::move(uuid));
-}
-
-void GetFileAttr::setPath(std::string path)
-{
-    m_path.emplace(std::move(path));
 }
 
 std::string GetFileAttr::toString() const

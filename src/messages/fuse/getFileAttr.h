@@ -25,14 +25,8 @@ namespace fuse {
  */
 class GetFileAttr : public ClientMessage {
 public:
-    /**
-     * Constructor.
-     */
-    GetFileAttr();
-
-    void setUUID(std::string uuid);
-
-    void setPath(std::string path);
+    GetFileAttr(std::string uuid);
+    GetFileAttr(boost::filesystem::path path);
 
     std::string toString() const override;
 

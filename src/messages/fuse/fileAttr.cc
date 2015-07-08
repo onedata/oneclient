@@ -9,7 +9,6 @@
 #include "fileAttr.h"
 
 #include "messages.pb.h"
-#include "messages/status.h"
 
 #include <sys/types.h>
 
@@ -22,16 +21,9 @@ namespace messages {
 namespace fuse {
 
 FileAttr::FileAttr(std::unique_ptr<ProtocolServerMessage> serverMessage)
-    : m_fileAttr{std::move(serverMessage->fuse_response().file_attr())}
+    : FuseResponse(serverMessage)
+    , m_fileAttr{std::move(serverMessage->fuse_response().file_attr())}
 {
-    auto &statusMsg = serverMessage->fuse_response().status();
-
-    std::error_code code;
-    std::string description;
-    std::tie(code, description) = Status::translate(statusMsg);
-
-    if (code)
-        throw std::system_error{code, description};
 }
 
 const std::string &FileAttr::uuid() const { return m_fileAttr.uuid(); }

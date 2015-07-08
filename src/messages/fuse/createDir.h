@@ -11,7 +11,8 @@
 
 #include "messages/clientMessage.h"
 
-#include <cstdint>
+#include <sys/types.h>
+
 #include <string>
 
 namespace one {
@@ -29,7 +30,7 @@ public:
      * @param name
      * @param mode
      */
-    CreateDir(std::string parentUUID, std::string name, std::uint32_t mode);
+    CreateDir(std::string parentUUID, std::string name, mode_t mode);
 
     std::string toString() const override;
 
@@ -38,7 +39,7 @@ public:
 private:
     std::string m_parentUUID;
     std::string m_name;
-    std::uint32_t m_mode;
+    mode_t m_mode;
 };
 
 } // namespace fuse

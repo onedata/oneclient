@@ -11,7 +11,9 @@
 #include "messages.pb.h"
 
 #include <boost/bimap.hpp>
+#include <boost/optional/optional_io.hpp>
 
+#include <cassert>
 #include <sstream>
 #include <system_error>
 #include <vector>
@@ -65,7 +67,7 @@ Status::Status(std::unique_ptr<ProtocolServerMessage> serverMessage)
 
 std::error_code Status::code() const { return m_code; }
 
-std::tuple<std::error_code, std::string> Status::translate(
+std::tuple<std::error_code, boost::optional<std::string>> Status::translate(
     const clproto::Status &status)
 {
     auto searchResult = translation.left.find(status.code());
@@ -73,10 +75,18 @@ std::tuple<std::error_code, std::string> Status::translate(
         ? std::errc::protocol_error
         : searchResult->second;
 
-    return std::make_tuple(std::make_error_code(code), status.description());
+    if (status.has_description())
+        return std::make_tuple(
+            std::make_error_code(code), status.description());
+
+    return std::make_tuple(
+        std::make_error_code(code), boost::optional<std::string>{});
 }
 
-const std::string &Status::description() const { return m_description; }
+const boost::optional<std::string> &Status::description() const
+{
+    return m_description;
+}
 
 std::string Status::toString() const
 {
@@ -94,15 +104,11 @@ std::unique_ptr<ProtocolClientMessage> Status::serialize() const
     auto searchResult =
         translation.right.find(static_cast<std::errc>(m_code.value()));
 
-    if (searchResult != translation.right.end()) {
-        statusMsg->set_code(searchResult->second);
-    }
-    else {
-        throw std::system_error{m_code, m_description};
-    }
+    assert(searchResult != translation.right.end());
+    statusMsg->set_code(searchResult->second);
 
-    if (!m_description.empty())
-        statusMsg->set_description(m_description);
+    if (m_description)
+        statusMsg->set_description(m_description.get());
 
     return clientMsg;
 }

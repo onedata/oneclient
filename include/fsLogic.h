@@ -12,13 +12,22 @@
 #include "../src/messages/fuse/fileAttr.h"
 
 #include <boost/asio/buffer.hpp>
+#include <boost/filesystem/path.hpp>
 #include <fuse.h>
 #include <tbb/concurrent_hash_map.h>
 
+#include <cstdint>
 #include <string>
 #include <memory>
 
 namespace one {
+
+namespace messages {
+namespace fuse {
+class GetFileAttr;
+}
+}
+
 namespace client {
 
 class Context;
@@ -41,142 +50,148 @@ public:
      * @param path File system root directory.
      * @param context Shared pointer to application context instance.
      */
-    FsLogic(std::string root, std::shared_ptr<Context> context);
+    FsLogic(boost::filesystem::path root, std::shared_ptr<Context> context);
 
     /**
      * FUSE @c access callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int access(const std::string &path, const int mode);
+    int access(boost::filesystem::path path, const int mode);
 
     /**
      * FUSE @c getattr callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int getattr(const std::string &path, struct stat *const statbuf);
+    int getattr(boost::filesystem::path path, struct stat *const statbuf);
 
     /**
      * FUSE @c readlink callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int readlink(const std::string &path, boost::asio::mutable_buffer buf);
+    int readlink(boost::filesystem::path path, boost::asio::mutable_buffer buf);
 
     /**
      * FUSE @c mknod callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int mknod(const std::string &path, const mode_t mode, const dev_t dev);
+    int mknod(boost::filesystem::path path, const mode_t mode, const dev_t dev);
 
     /**
      * FUSE @c mkdir callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int mkdir(const std::string &path, const mode_t mode);
+    int mkdir(boost::filesystem::path path, const mode_t mode);
 
     /**
      * FUSE @c unlink callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int unlink(const std::string &path);
+    int unlink(boost::filesystem::path path);
 
     /**
      * FUSE @c rmdir callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int rmdir(const std::string &path);
+    int rmdir(boost::filesystem::path path);
 
     /**
      * FUSE @c symlink callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int symlink(const std::string &target, const std::string &linkPath);
+    int symlink(
+        boost::filesystem::path target, boost::filesystem::path linkPath);
 
     /**
      * FUSE @c rename callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int rename(const std::string &oldPath, const std::string &newPath);
+    int rename(
+        boost::filesystem::path oldPath, boost::filesystem::path newPath);
 
     /**
      * FUSE @c chmod callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int chmod(const std::string &path, const mode_t mode);
+    int chmod(boost::filesystem::path path, const mode_t mode);
 
     /**
      * FUSE @c chown callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int chown(const std::string &path, const uid_t uid, const gid_t gid);
+    int chown(boost::filesystem::path path, const uid_t uid, const gid_t gid);
 
     /**
      * FUSE @c truncate callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int truncate(const std::string &path, const off_t newSize);
+    int truncate(boost::filesystem::path path, const off_t newSize);
 
     /**
      * FUSE @c utime callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int utime(const std::string &path, struct utimbuf *const ubuf);
+    int utime(boost::filesystem::path path, struct utimbuf *const ubuf);
 
     /**
      * FUSE @c open callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int open(const std::string &path, struct fuse_file_info *const fileInfo);
+    int open(
+        boost::filesystem::path path, struct fuse_file_info *const fileInfo);
 
     /**
      * FUSE @c read callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int read(const std::string &path, boost::asio::mutable_buffer buf,
+    int read(boost::filesystem::path path, boost::asio::mutable_buffer buf,
         const off_t offset, struct fuse_file_info *const fileInfo);
 
     /**
      * FUSE @c write callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int write(const std::string &path, boost::asio::const_buffer buf,
+    int write(boost::filesystem::path path, boost::asio::const_buffer buf,
         const off_t offset, struct fuse_file_info *const fileInfo);
 
     /**
      * FUSE @c statfs callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int statfs(const std::string &path, struct statvfs *const statInfo);
+    int statfs(boost::filesystem::path path, struct statvfs *const statInfo);
 
     /**
      * FUSE @c flush callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int flush(const std::string &path, struct fuse_file_info *const fileInfo);
+    int flush(
+        boost::filesystem::path path, struct fuse_file_info *const fileInfo);
 
     /**
      * FUSE @c release callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int release(const std::string &path, struct fuse_file_info *const fileInfo);
+    int release(
+        boost::filesystem::path path, struct fuse_file_info *const fileInfo);
 
     /**
      * FUSE @c fsync callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int fsync(const std::string &path, const int datasync,
+    int fsync(boost::filesystem::path path, const int datasync,
         struct fuse_file_info *const fileInfo);
 
     /**
      * FUSE @c opendir callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int opendir(const std::string &path, struct fuse_file_info *const fileInfo);
+    int opendir(
+        boost::filesystem::path path, struct fuse_file_info *const fileInfo);
 
     /**
      * FUSE @c readdir callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int readdir(const std::string &path, void *const buf,
+    int readdir(boost::filesystem::path path, void *const buf,
         const fuse_fill_dir_t filler, const off_t offset,
         struct fuse_file_info *fileInfo);
 
@@ -185,25 +200,36 @@ public:
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
     int releasedir(
-        const std::string &path, struct fuse_file_info *const fileInfo);
+        boost::filesystem::path path, struct fuse_file_info *const fileInfo);
 
     /**
      * FUSE @c fsyncdir callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int fsyncdir(const std::string &path, const int datasync,
+    int fsyncdir(boost::filesystem::path path, const int datasync,
         struct fuse_file_info *const fileInfo);
 
 private:
-    tbb::concurrent_hash_map<std::string, std::string> m_uuidCache;
+    void removeFile(boost::filesystem::path path);
+    messages::fuse::FileAttr getAttr(const boost::filesystem::path &path);
+    messages::fuse::FileAttr getAttr(const std::string &uuid);
+    messages::fuse::FileAttr getAttr(const messages::fuse::GetFileAttr &req);
+
+    struct PathHash {
+        static std::size_t hash(const boost::filesystem::path &);
+        static bool equal(
+            const boost::filesystem::path &, const boost::filesystem::path &);
+    };
+
+    tbb::concurrent_hash_map<boost::filesystem::path, std::string, PathHash>
+        m_uuidCache;
     tbb::concurrent_hash_map<std::string, messages::fuse::FileAttr> m_attrCache;
 
-    std::string m_root;
+    boost::filesystem::path m_root;
     const uid_t m_uid;
     const gid_t m_gid;
 
     std::shared_ptr<Context> m_context;
-    std::unique_ptr<SHMock> m_shMock;
     std::unique_ptr<events::EventManager> m_eventManager;
 };
 

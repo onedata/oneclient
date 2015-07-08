@@ -10,6 +10,7 @@
 
 #include "messages.pb.h"
 
+#include <algorithm>
 #include <sstream>
 
 namespace one {
@@ -17,20 +18,31 @@ namespace messages {
 namespace fuse {
 
 FileChildren::FileChildren(std::unique_ptr<ProtocolServerMessage> serverMessage)
-    : m_uuids{serverMessage->fuse_response().file_children().uuids().begin(),
-          serverMessage->fuse_response().file_children().uuids().end()}
+    : FuseResponse{serverMessage}
 {
+    const auto &fileChildren =
+        serverMessage->fuse_response().file_children().child_links();
+
+    std::transform(fileChildren.begin(), fileChildren.end(),
+        std::back_inserter(m_uuidsAndNames), [](const auto &child) {
+            return std::make_tuple(child.uuid(), child.name());
+        });
 }
 
-const std::vector<std::string> &FileChildren::uuids() const { return m_uuids; }
+const std::vector<std::tuple<std::string, std::string>> &
+FileChildren::uuidsAndNames() const
+{
+    return m_uuidsAndNames;
+}
 
 std::string FileChildren::toString() const
 {
     std::stringstream stream;
     stream << "type: 'FileChildren', uuids: [";
 
-    for (const auto &uuid : m_uuids)
-        stream << uuid << " ";
+    for (const auto &uuidAndName : m_uuidsAndNames)
+        stream << "(" << std::get<0>(uuidAndName) << ", "
+               << std::get<1>(uuidAndName) << ") ";
 
     stream << "]";
 

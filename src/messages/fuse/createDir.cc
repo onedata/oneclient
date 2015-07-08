@@ -16,8 +16,7 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-CreateDir::CreateDir(
-    std::string parentUUID, std::string name, std::uint32_t mode)
+CreateDir::CreateDir(std::string parentUUID, std::string name, mode_t mode)
     : m_parentUUID{std::move(parentUUID)}
     , m_name{std::move(name)}
     , m_mode{mode}
@@ -32,7 +31,8 @@ std::string CreateDir::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> CreateDir::serialize() const {
+std::unique_ptr<ProtocolClientMessage> CreateDir::serialize() const
+{
     auto msg = std::make_unique<ProtocolClientMessage>();
     auto cd = msg->mutable_fuse_request()->mutable_create_dir();
 

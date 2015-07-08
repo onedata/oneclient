@@ -21,7 +21,8 @@ GetFileChildren::GetFileChildren(std::string uuid)
 {
 }
 
-GetFileChildren::GetFileChildren(std::string uuid, std::size_t offset, std::size_t size)
+GetFileChildren::GetFileChildren(
+    std::string uuid, off_t offset, std::size_t size)
     : m_uuid{std::move(uuid)}
     , m_offset{offset}
     , m_size{size}

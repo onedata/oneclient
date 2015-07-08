@@ -13,6 +13,8 @@
 
 #include <boost/optional.hpp>
 
+#include <sys/types.h>
+
 #include <cstdint>
 #include <string>
 
@@ -37,7 +39,7 @@ public:
      * @param offset
      * @param size
      */
-    GetFileChildren(std::string uuid, std::size_t offset, std::size_t size);
+    GetFileChildren(std::string uuid, off_t offset, std::size_t size);
 
     std::string toString() const override;
 
@@ -45,7 +47,7 @@ public:
 
 private:
     std::string m_uuid;
-    boost::optional<std::size_t> m_offset;
+    boost::optional<off_t> m_offset;
     boost::optional<std::size_t> m_size;
 };
 
