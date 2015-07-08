@@ -47,10 +47,9 @@ class FsLogic {
 public:
     /**
      * Constructor.
-     * @param path File system root directory.
      * @param context Shared pointer to application context instance.
      */
-    FsLogic(boost::filesystem::path root, std::shared_ptr<Context> context);
+    FsLogic(std::shared_ptr<Context> context);
 
     /**
      * FUSE @c access callback.
@@ -225,7 +224,6 @@ private:
         m_uuidCache;
     tbb::concurrent_hash_map<std::string, messages::fuse::FileAttr> m_attrCache;
 
-    boost::filesystem::path m_root;
     const uid_t m_uid;
     const gid_t m_gid;
 

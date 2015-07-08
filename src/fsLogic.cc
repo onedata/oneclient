@@ -27,14 +27,12 @@ using namespace std::literals;
 namespace one {
 namespace client {
 
-FsLogic::FsLogic(boost::filesystem::path root, std::shared_ptr<Context> context)
-    : m_root{std::move(root)}
-    , m_uid{geteuid()}
+FsLogic::FsLogic(std::shared_ptr<Context> context)
+    : m_uid{geteuid()}
     , m_gid{getegid()}
     , m_context{std::move(context)}
     , m_eventManager{std::make_unique<events::EventManager>(m_context)}
 {
-    LOG(INFO) << "Setting file system root directory to: '" << m_root << "'";
 }
 
 int FsLogic::access(boost::filesystem::path path, const int mask)
