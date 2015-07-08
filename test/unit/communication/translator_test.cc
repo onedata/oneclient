@@ -14,8 +14,6 @@
 #include "messages/handshakeResponse.h"
 #include "testUtils.h"
 
-#include <boost/thread/future.hpp>
-#include <boost/thread/executors/basic_thread_pool.hpp>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -30,25 +28,26 @@ using namespace ::testing;
 using namespace std::literals;
 
 struct LowerLayer {
+    using Callback = std::function<void(const std::error_code &)>;
+    using CommunicateCallback =
+        std::function<void(const std::error_code &ec, ServerMessagePtr)>;
+
     LowerLayer &mock = static_cast<LowerLayer &>(*this);
 
     MOCK_METHOD2(sendProxy, void(clproto::ClientMessage, int));
 
     MOCK_METHOD2(communicateProxy, std::string(clproto::ClientMessage, int));
 
-    MOCK_METHOD2(setHandshake, void(std::function<ClientMessagePtr()>,
-                                   std::function<bool(ServerMessagePtr)>));
+    MOCK_METHOD2(
+        setHandshake, void(std::function<ClientMessagePtr()>,
+                          std::function<std::error_code(ServerMessagePtr)>));
 
     MOCK_METHOD3(replyProxy,
         void(const clproto::ServerMessage, const clproto::ClientMessage, int));
 
-    boost::future<void> send(ClientMessagePtr cmp, int i)
-    {
-        sendProxy(*cmp, i);
-        return {};
-    }
+    void send(ClientMessagePtr cmp, Callback, int i) { sendProxy(*cmp, i); }
 
-    auto communicate(ClientMessagePtr cmp, int i)
+    void communicate(ClientMessagePtr cmp, CommunicateCallback callback, int i)
     {
         std::string data = communicateProxy(*cmp, i);
 
@@ -56,17 +55,15 @@ struct LowerLayer {
         auto pong = msg->mutable_pong();
         pong->set_data(data);
 
-        return boost::make_ready_future(std::move(msg));
+        callback(std::error_code{}, std::move(msg));
     }
 
-    auto reply(const clproto::ServerMessage &a, ClientMessagePtr cmp, int i)
+    auto reply(const clproto::ServerMessage &a, ClientMessagePtr cmp,
+        Callback callback, int i)
     {
         replyProxy(a, *cmp, i);
-        return boost::make_ready_future();
+        callback(std::error_code{});
     }
-
-    std::shared_ptr<boost::basic_thread_pool> m_ioServiceExecutor{
-        std::make_shared<boost::basic_thread_pool>(1)};
 };
 
 struct TranslatorTest : public ::testing::Test {
@@ -115,7 +112,7 @@ TEST_F(TranslatorTest, communicateShouldDeserializeProtocolObjects)
     EXPECT_CALL(translator.mock, communicateProxy(_, 1)).WillOnce(Return(data));
 
     auto pong =
-        translator.communicate<messages::Pong>(messages::Ping{data}, 1).get(1s);
+        translator.communicate<messages::Pong>(messages::Ping{data}, 1).get();
 
     ASSERT_EQ(data, pong.data());
 }
@@ -172,7 +169,8 @@ TEST_F(TranslatorTest, setHandshakeShouldSerializeDomainObjects)
     const auto data = randomString();
 
     auto domainHandshakeF = [&]() { return messages::HandshakeRequest{data}; };
-    translator.setHandshake(domainHandshakeF, [&](auto) { return true; });
+    translator.setHandshake(
+        domainHandshakeF, [&](auto) { return std::error_code{}; });
 
     auto protoHandshake = protoHandshakeF();
     ASSERT_TRUE(protoHandshake->has_handshake_request());
@@ -181,7 +179,7 @@ TEST_F(TranslatorTest, setHandshakeShouldSerializeDomainObjects)
 
 TEST_F(TranslatorTest, onHandshakeResponseShouldDeserializeProtocolObjects)
 {
-    std::function<bool(ServerMessagePtr)> protoHandshakeResponseF;
+    std::function<std::error_code(ServerMessagePtr)> protoHandshakeResponseF;
 
     EXPECT_CALL(translator.mock, setHandshake(_, _))
         .WillOnce(SaveArg<1>(&protoHandshakeResponseF));
@@ -194,7 +192,7 @@ TEST_F(TranslatorTest, onHandshakeResponseShouldDeserializeProtocolObjects)
         [&](one::messages::HandshakeResponse msg) mutable {
             called = true;
             EXPECT_EQ(data, msg.sessionId());
-            return true;
+            return std::error_code{};
         };
 
     translator.setHandshake(domainHandshakeF, domainHandshakeResponseF);

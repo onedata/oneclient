@@ -11,7 +11,7 @@
 
 #include "certificateData.h"
 
-#include <boost/asio/ssl/context.hpp>
+#include <asio/ssl/context.hpp>
 
 #include <string>
 
@@ -38,7 +38,7 @@ public:
      * @param ctx The context to update.
      * @return @p ctx.
      */
-    void initContext(boost::asio::ssl::context &ctx) const override;
+    void initContext(asio::ssl::context &ctx) const override;
 
 private:
     const std::string m_certPath;

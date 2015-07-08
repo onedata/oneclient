@@ -8,6 +8,7 @@ set(helpers_VERSION_PATCH 0)
 set(helpers_VERSION $(helpers_VERSION_MAJOR).$(helpers_VERSION_MINOR).$(helpers_VERSION_PATCH))
 
 # CMake config
+set(CMAKE_FIND_FRAMEWORK LAST)
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
@@ -35,7 +36,7 @@ find_package(Glog REQUIRED)
 set(Boost_USE_STATIC_LIBS       OFF)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
-find_package(Boost COMPONENTS coroutine filesystem system thread REQUIRED)
+find_package(Boost COMPONENTS filesystem system REQUIRED)
 
 # Utility libs
 find_library(LTDL_LIBRARY ltdl)
@@ -59,14 +60,14 @@ else(NOT APPLE)
     set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/lib" "\$ORIGIN")
 endif(APPLE)
 
-add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Wall -std=c++14)
+add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Wall -std=c++14 -Wpedantic)
 add_definitions(
     ${FUSE_DEFINITIONS}
     -DFUSE_USE_VERSION=29
     -DBOOST_BIND_NO_PLACEHOLDERS
-    -DBOOST_THREAD_VERSION=4
-    -DBOOST_THREAD_PROVIDES_EXECUTORS
-    -DBOOST_CHRONO_HEADER_ONLY)
+    -DBOOST_FILESYSTEM_NO_DEPRECATED
+    -DBOOST_ALL_DYN_LINK
+    -DASIO_STANDALONE)
 
 include_directories(SYSTEM
     ${FUSE_INCLUDE_DIRS}

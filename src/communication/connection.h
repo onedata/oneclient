@@ -9,13 +9,13 @@
 #ifndef HELPERS_COMMUNICATION_CONNECTION_H
 #define HELPERS_COMMUNICATION_CONNECTION_H
 
-#include <boost/asio/io_service.hpp>
-#include <boost/asio/spawn.hpp>
-#include <boost/asio/ssl.hpp>
-#include <boost/asio/strand.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/thread/future.hpp>
+#include <asio/io_service.hpp>
+#include <asio/ssl.hpp>
+#include <asio/strand.hpp>
+#include <asio/ip/tcp.hpp>
 
+#include <atomic>
+#include <array>
 #include <cstdint>
 #include <functional>
 #include <future>
@@ -69,11 +69,14 @@ namespace communication {
  */
 class Connection : public std::enable_shared_from_this<Connection> {
 public:
+    using Ptr = std::shared_ptr<Connection>;
+    using Callback = std::function<void(const std::error_code &, Ptr)>;
+
     /**
      * Constructor.
      * @param ioService A reference to io_service that will handle this object's
-     * operations, including but not limited to a Boost::Asio socket.
-     * @param context Boost::Asio SSL context used to establish a secure
+     * operations, including but not limited to a asio:: socket.
+     * @param context asio:: SSL context used to establish a secure
      * connection with the server.
      * @param verifyServerCertificate Specifies whether to verify server's
      * SSL certificate.
@@ -86,15 +89,12 @@ public:
      * @param onReady A callback to call when onReady event is emitted.
      * @param onClosed A callback to call when onClosed event is emitted.
      */
-    Connection(boost::asio::io_service &ioService,
-        std::shared_ptr<IoServiceExecutor> executor,
-        boost::asio::ssl::context &context, const bool verifyServerCertificate,
+    Connection(asio::io_service &ioService, asio::ssl::context &context,
+        const bool verifyServerCertificate,
         std::function<std::string()> &getHandshake,
-        std::function<bool(std::string)> &onHandshakeResponse,
+        std::function<std::error_code(std::string)> &onHandshakeResponse,
         std::function<void(std::string)> onMessageReceived,
-        std::function<void(std::shared_ptr<Connection>)> onReady,
-        std::function<void(std::shared_ptr<Connection>, boost::exception_ptr)>
-            onClosed);
+        std::function<void(Ptr, const std::error_code &)> onClosed);
 
     /**
      * Destructor.
@@ -114,16 +114,16 @@ public:
      * conditions from events (e.g. @c onClosed is emitted before the connection
      * is added to an array in a parent object).
      */
-    virtual void connect(const std::string &host, const std::string &service);
+    virtual void connect(std::string host, std::string service,
+        std::function<void(Ptr)> callback);
 
     /**
-     * Sends a message, fulfilling a promise after the message is sent.
-     * The promise is fulfilled with an exception when appropriate.
+     * Sends a message, calling a callback after the message is sent.
      * @param message The message to send.
-     * @param promise The promise to fultill.
+     * @param callback The callback to call after send.
      * @note @c send can only be called after @c onReady has been emitted.
      */
-    virtual void send(std::string message, boost::promise<void> promise);
+    virtual void send(std::string message, Callback callback);
 
     /**
      * Gracefully closes the underlying connection.
@@ -131,7 +131,7 @@ public:
      * useful state. and should be destroyed.
      * @param exception The exception that may be set on waiting send operations
      */
-    virtual void close(boost::exception_ptr exception = boost::exception_ptr{});
+    virtual void close(const std::error_code &ec = std::error_code{});
 
     Connection(const Connection &) = delete;
     Connection(Connection &&) = delete;
@@ -139,56 +139,61 @@ public:
     Connection &operator=(Connection &&) = delete;
 
 private:
-    std::vector<boost::asio::ip::basic_resolver_entry<boost::asio::ip::tcp>>
-    resolve(const std::string &host, const std::string &service,
-        boost::system::error_code &ec, boost::asio::yield_context yield);
-    void connect(std::string host, std::string service,
-        boost::asio::yield_context yield);
-    void handshake(boost::asio::yield_context yield);
-    void send(boost::system::error_code &ec, boost::asio::yield_context yield);
-    void receive(
-        boost::system::error_code &ec, boost::asio::yield_context yield);
-    void prepareBuffer(std::string message, boost::promise<void> promise);
-    void readLoop(boost::asio::yield_context yield);
-    boost::asio::mutable_buffers_1 headerToBuffer(std::uint32_t &header);
+    std::vector<asio::ip::basic_resolver_entry<asio::ip::tcp>> shuffleEndpoints(
+        asio::ip::basic_resolver_iterator<asio::ip::tcp> iterator);
+
+    void onResolve(const std::error_code &ec,
+        asio::ip::basic_resolver_iterator<asio::ip::tcp> iterator,
+        std::function<void(Ptr)> callback);
+
+    void onConnect(
+        const std::error_code &ec, std::function<void(Ptr)> callback);
+
+    void onTLSHandshake(
+        const std::error_code &ec, std::function<void(Ptr)> callback);
+
+    void onHandshakeSent(
+        const std::error_code &ec, std::function<void(Ptr)> callback);
+
+    void onHandshakeReceived(
+        const std::error_code &ec, std::function<void(Ptr)> callback);
+
+    template <typename Handler> void asyncRead(Handler handler);
+
+    void readLoop();
+
+    std::array<asio::const_buffer, 2> prepareOutBuffer(std::string message);
+    asio::mutable_buffers_1 headerToBuffer(std::uint32_t &header);
 
     template <class Ex = void>
-    std::string close(std::string what,
-        const boost::system::error_code &ec = boost::system::error_code{});
+    std::string close(
+        std::string what, const std::error_code &ec = std::error_code{});
 
     const bool m_verifyServerCertificate;
 
     std::function<std::string()> &m_getHandshake;
-    std::function<bool(std::string)> &m_onHandshakeResponse;
+    std::function<std::error_code(std::string)> &m_onHandshakeResponse;
 
     std::function<void(std::string)> m_onMessageReceived;
-    std::function<void(std::shared_ptr<Connection>)> m_onReady;
-    std::function<void(std::shared_ptr<Connection>, boost::exception_ptr)>
-        m_onClosed;
+    std::function<void(Ptr, const std::error_code &)> m_onClosed;
 
-    boost::asio::ip::tcp::resolver m_resolver;
-    boost::asio::io_service::strand m_strand;
-    boost::asio::ssl::stream<boost::asio::ip::tcp::socket> m_socket;
+    asio::ip::tcp::resolver m_resolver;
+    asio::io_service::strand m_strand;
+    asio::ssl::stream<asio::ip::tcp::socket> m_socket;
 
     std::uint32_t m_inHeader;
-    std::string m_inBuffer;
+    std::string m_inData;
 
     std::uint32_t m_outHeader;
-    std::string m_outBuffer;
-
-    std::shared_ptr<IoServiceExecutor> m_executor;
-    boost::promise<void> m_outPromise;
+    std::string m_outData;
 };
 
-std::shared_ptr<Connection> createConnection(boost::asio::io_service &ioService,
-    std::shared_ptr<IoServiceExecutor> executor,
-    boost::asio::ssl::context &context, const bool verifyServerCertificate,
+Connection::Ptr createConnection(asio::io_service &ioService,
+    asio::ssl::context &context, const bool verifyServerCertificate,
     std::function<std::string()> &getHandshake,
-    std::function<bool(std::string)> &onHandshakeResponse,
+    std::function<std::error_code(std::string)> &onHandshakeResponse,
     std::function<void(std::string)> onMessageReceived,
-    std::function<void(std::shared_ptr<Connection>)> onReady,
-    std::function<void(std::shared_ptr<Connection>, boost::exception_ptr)>
-        onClosed);
+    std::function<void(Connection::Ptr, const std::error_code &)> onClosed);
 
 } // namespace communication
 } // namespace one
