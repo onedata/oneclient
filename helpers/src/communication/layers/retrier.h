@@ -11,11 +11,11 @@
 
 #include "communication/exception.h"
 
-#include <boost/thread/future.hpp>
-
 #include <chrono>
 #include <functional>
 #include <memory>
+#include <string>
+#include <system_error>
 
 namespace one {
 namespace communication {
@@ -29,6 +29,7 @@ constexpr std::chrono::seconds DEFAULT_SEND_TIMEOUT{5};
  */
 template <class LowerLayer> class Retrier : public LowerLayer {
 public:
+    using Callback = typename LowerLayer::Callback;
     using LowerLayer::LowerLayer;
     virtual ~Retrier() = default;
 
@@ -47,29 +48,23 @@ public:
      * @return same as lower layer's @c send().
      * @see ConnectionPool::send()
      */
-    boost::future<void> send(std::string message, const int retries);
+    void send(std::string message, Callback callback, const int retries);
 };
 
 template <class LowerLayer>
-boost::future<void> Retrier<LowerLayer>::send(
-    std::string message, const int retries)
+void Retrier<LowerLayer>::send(
+    std::string message, Callback callback, const int retries)
 {
-    auto future = LowerLayer::send(message, retries);
-    auto retriedWrappedFuture = future.then(*LowerLayer::m_ioServiceExecutor,
-        [ this, retries, message = std::move(message) ](auto f) mutable {
-            try {
-                f.get();
-                return boost::make_ready_future();
-            }
-            catch (communication::Exception) {
-                if (retries == 0)
-                    throw;
+    auto wrappedCallback = [ =, callback = std::move(callback) ](
+        const std::error_code &ec) mutable
+    {
+        if (ec && retries > 0)
+            send(std::move(message), std::move(callback), retries - 1);
+        else
+            callback(ec);
+    };
 
-                return this->send(std::move(message), retries - 1);
-            }
-        });
-
-    return retriedWrappedFuture.unwrap();
+    LowerLayer::send(std::move(message), std::move(wrappedCallback), retries);
 }
 
 } // namespace layers

@@ -57,7 +57,8 @@ CertificateAuthManager::CertificateAuthManager(std::weak_ptr<Context> context,
 std::shared_ptr<communication::Communicator>
 CertificateAuthManager::createCommunicator(const unsigned int poolSize,
     std::string sessionId,
-    std::function<bool(messages::HandshakeResponse)> onHandshakeResponse,
+    std::function<std::error_code(messages::HandshakeResponse)>
+        onHandshakeResponse,
     ErrorPolicy errorPolicy)
 {
     auto communicator = std::make_shared<communication::Communicator>(poolSize,
@@ -105,7 +106,8 @@ TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
 std::shared_ptr<communication::Communicator>
 TokenAuthManager::createCommunicator(const unsigned int poolSize,
     std::string sessionId,
-    std::function<bool(messages::HandshakeResponse)> onHandshakeResponse,
+    std::function<std::error_code(messages::HandshakeResponse)>
+        onHandshakeResponse,
     ErrorPolicy errorPolicy)
 {
     auto communicator = std::make_shared<communication::Communicator>(poolSize,

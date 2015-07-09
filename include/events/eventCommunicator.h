@@ -9,8 +9,8 @@
 #ifndef ONECLIENT_EVENTS_EVENT_COMMUNICATOR_H
 #define ONECLIENT_EVENTS_EVENT_COMMUNICATOR_H
 
-#include "ioServiceExecutor.h"
 #include "communication/communicator.h"
+#include "communication/streaming/streamManager.h"
 
 #include <memory>
 
@@ -47,7 +47,7 @@ public:
 private:
     std::shared_ptr<Context> m_context;
     std::unique_ptr<communication::StreamManager> m_streamManager;
-    std::shared_ptr<communication::Stream> m_stream;
+    std::shared_ptr<communication::StreamManager::Stream> m_stream;
 };
 
 } // namespace events

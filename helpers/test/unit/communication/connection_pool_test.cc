@@ -14,6 +14,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <atomic>
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <vector>
@@ -22,40 +24,37 @@ using namespace one;
 using namespace one::communication;
 using namespace ::testing;
 using namespace std::placeholders;
+using namespace std::literals;
 
 struct ConnectionMock : public Connection {
-    MOCK_METHOD2(connect, void(const std::string &, const std::string &));
+    MOCK_METHOD3(connect,
+        void(std::string, std::string, std::function<void(Connection::Ptr)>));
     MOCK_METHOD1(sendProxy, void(std::string));
-    MOCK_METHOD1(close, void(boost::exception_ptr));
+    MOCK_METHOD1(close, void(const std::error_code &));
 
-    virtual void send(
-        std::string message, boost::promise<void> promise) override
+    virtual void send(std::string message,
+        std::function<void(const std::error_code &, Connection::Ptr)> callback)
+        override
     {
         sendProxy(message);
-        promise.set_value();
+        callback(std::error_code{}, Connection::shared_from_this());
     }
 
-    ConnectionMock(boost::asio::io_service &ioService,
-        std::shared_ptr<IoServiceExecutor> executor,
-        boost::asio::ssl::context &context, const bool verifyServerCertificate,
+    ConnectionMock(asio::io_service &ioService, asio::ssl::context &context,
+        const bool verifyServerCertificate,
         std::function<std::string()> &getHandshake,
-        std::function<bool(std::string)> &onHandshakeResponse,
+        std::function<std::error_code(std::string)> &onHandshakeResponse,
         std::function<void(std::string)> onMessageReceived,
-        std::function<void(std::shared_ptr<Connection>)> onReady,
-        std::function<void(std::shared_ptr<Connection>, boost::exception_ptr)>
-            onClosed)
-        : Connection{ioService, executor, context, verifyServerCertificate,
-              getHandshake, onHandshakeResponse, onMessageReceived, onReady,
-              onClosed}
+        std::function<void(Connection::Ptr, const std::error_code &)> onClosed)
+        : Connection{ioService, context, verifyServerCertificate, getHandshake,
+              onHandshakeResponse, onMessageReceived, onClosed}
         , getHandshake{getHandshake}
         , onHandshakeResponse{onHandshakeResponse}
-        , onReady{onReady}
     {
     }
 
     std::function<std::string()> &getHandshake;
-    std::function<bool(std::string)> &onHandshakeResponse;
-    std::function<void(std::shared_ptr<Connection>)> onReady;
+    std::function<std::error_code(std::string)> &onHandshakeResponse;
 };
 
 struct ConnectionPoolTest : public ::testing::Test {
@@ -64,31 +63,30 @@ struct ConnectionPoolTest : public ::testing::Test {
 
     ConnectionPool connectionPool{1, host, service, true,
         std::bind(&ConnectionPoolTest::createConnectionMock, this, _1, _2, _3,
-                                      _4, _5, _6, _7, _8, _9)};
+                                      _4, _5, _6, _7)};
 
     std::shared_ptr<ConnectionMock> connection;
 
     std::shared_ptr<Connection> createConnectionMock(
-        boost::asio::io_service &ioService,
-        std::shared_ptr<IoServiceExecutor> executor,
-        boost::asio::ssl::context &context, const bool verifyServerCertificate,
+        asio::io_service &ioService, asio::ssl::context &context,
+        const bool verifyServerCertificate,
         std::function<std::string()> &getHandshake,
-        std::function<bool(std::string)> &onHandshakeResponse,
+        std::function<std::error_code(std::string)> &onHandshakeResponse,
         std::function<void(std::string)> onMessageReceived,
-        std::function<void(std::shared_ptr<Connection>)> onReady,
-        std::function<void(std::shared_ptr<Connection>, boost::exception_ptr)>
-            onClosed)
+        std::function<void(Connection::Ptr, const std::error_code &)> onClosed)
     {
-        auto conn = std::make_shared<ConnectionMock>(ioService, executor,
-            context, verifyServerCertificate, getHandshake, onHandshakeResponse,
-            std::move(onMessageReceived), std::move(onReady),
-            std::move(onClosed));
+        auto conn = std::make_shared<ConnectionMock>(ioService, context,
+            verifyServerCertificate, getHandshake, onHandshakeResponse,
+            std::move(onMessageReceived), std::move(onClosed));
 
-        EXPECT_CALL(*conn, connect(host, service));
+        EXPECT_CALL(*conn, connect(host, service, _))
+            .WillOnce(SaveArg<2>(&onConnect));
 
         connection = conn;
         return conn;
     }
+
+    std::function<void(Connection::Ptr)> onConnect;
 };
 
 TEST_F(ConnectionPoolTest, connectShouldCreateConnections)
@@ -104,7 +102,7 @@ TEST_F(ConnectionPoolTest, setHandshakeShouldPassGetHandshakeRefToConnections)
 
     connectionPool.connect();
     connectionPool.setHandshake(
-        [&] { return data; }, [](auto) { return true; });
+        [&] { return data; }, [](auto) { return std::error_code{}; });
 
     ASSERT_EQ(data, connection->getHandshake());
 
@@ -116,7 +114,9 @@ TEST_F(ConnectionPoolTest, setHandshakeShouldPassGetHandshakeRefToConnections)
 TEST_F(ConnectionPoolTest, setHandshakeShouldPassOnResponseRefToConnections)
 {
     int called = 0;
-    bool handshakeReturn = false;
+    std::error_code handshakeReturn =
+        std::make_error_code(std::errc::protocol_error);
+
     auto data = randomString();
 
     auto onHandshakeResponse = [&](std::string msg) {
@@ -128,11 +128,11 @@ TEST_F(ConnectionPoolTest, setHandshakeShouldPassOnResponseRefToConnections)
     connectionPool.connect();
     connectionPool.setHandshake([&] { return ""; }, onHandshakeResponse);
 
-    ASSERT_FALSE(connection->onHandshakeResponse(data));
+    ASSERT_TRUE(!!connection->onHandshakeResponse(data));
 
-    handshakeReturn = true;
+    handshakeReturn = std::error_code{};
 
-    ASSERT_TRUE(connection->onHandshakeResponse(data));
+    ASSERT_FALSE(!!connection->onHandshakeResponse(data));
 
     data = randomString();
 
@@ -147,19 +147,27 @@ TEST_F(ConnectionPoolTest, sendShouldCallSendOnConnection)
     connectionPool.connect();
 
     EXPECT_CALL(*connection, sendProxy(data));
-    connection->onReady(connection);
-    auto future = connectionPool.send(data);
+    onConnect(connection);
 
-    auto futureStatus = future.wait_for(boost::chrono::seconds(5));
-    ASSERT_EQ(boost::future_status::ready, futureStatus);
+    std::atomic<bool> sent{false};
+    connectionPool.send(data, [&](auto ec) {
+        if (!ec)
+            sent = true;
+    });
+
+    auto now = std::chrono::steady_clock::now();
+    while (!sent && now + 5s > std::chrono::steady_clock::now())
+        std::this_thread::sleep_for(1ms);
+
+    ASSERT_TRUE(sent);
 }
 
-TEST_F(ConnectionPoolTest, sendShouldNotCallSendOnConnectionBeforeOnReady)
+TEST_F(ConnectionPoolTest, sendShouldNotCallSendOnConnectionBeforeReady)
 {
     const auto data = randomString();
 
     connectionPool.connect();
 
     EXPECT_CALL(*connection, sendProxy(data)).Times(0);
-    connectionPool.send(data);
+    connectionPool.send(data, [](auto) {});
 }

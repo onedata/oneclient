@@ -11,11 +11,12 @@
 #include "messages/pong.h"
 #include "testUtils.h"
 
-#include <boost/thread/future.hpp>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <functional>
 #include <string>
+#include <system_error>
 
 using namespace one;
 using namespace one::communication;
@@ -23,17 +24,18 @@ using namespace std::literals;
 using namespace ::testing;
 
 struct LowerLayer {
+    using Callback = std::function<void(const std::error_code &)>;
     LowerLayer &mock = static_cast<LowerLayer &>(*this);
 
     MOCK_METHOD2(sendProxy, void(std::string, int));
     MOCK_METHOD1(setOnMessageCallback, void(std::function<void(std::string)>));
-    MOCK_METHOD2(setHandshake,
-        void(std::function<std::string()>, std::function<bool(std::string)>));
+    MOCK_METHOD2(
+        setHandshake, void(std::function<std::string()>,
+                          std::function<std::error_code(std::string)>));
 
-    auto send(std::string msg, int i)
+    void send(std::string msg, Callback, int i)
     {
         sendProxy(std::move(msg), i);
-        return boost::make_ready_future();
     }
 };
 
@@ -51,14 +53,15 @@ TEST_F(BinaryTranslatorTest, sendShouldSerializeProtocolObjects)
 
     EXPECT_CALL(binaryTranslator.mock, sendProxy(msg, _));
 
-    binaryTranslator.send(std::move(protoMsg), randomInt());
+    binaryTranslator.send(std::move(protoMsg), {}, randomInt());
 }
 
 TEST_F(BinaryTranslatorTest, sendShouldPassUninterestingArgumentsDown)
 {
     const auto retries = randomInt();
     EXPECT_CALL(binaryTranslator.mock, sendProxy(_, retries));
-    binaryTranslator.send(messages::Ping{randomString()}.serialize(), retries);
+    binaryTranslator.send(
+        messages::Ping{randomString()}.serialize(), {}, retries);
 }
 
 TEST_F(BinaryTranslatorTest, setOnMessageCallbackShouldDeserializeBytes)
@@ -95,14 +98,15 @@ TEST_F(BinaryTranslatorTest, setHandshakeShouldSerializeDomainObjects)
     auto msg = protoMsg->SerializeAsString();
 
     auto protoGetHandshake = [&] { return std::move(protoMsg); };
-    binaryTranslator.setHandshake(protoGetHandshake, [](auto) { return true; });
+    binaryTranslator.setHandshake(
+        protoGetHandshake, [](auto) { return std::error_code{}; });
 
     ASSERT_EQ(msg, byteGetHandshake());
 }
 
 TEST_F(BinaryTranslatorTest, setHandshakeShouldDeserializeBytes)
 {
-    std::function<bool(std::string)> byteOnHandshakeResponse;
+    std::function<std::error_code(std::string)> byteOnHandshakeResponse;
     EXPECT_CALL(binaryTranslator.mock, setHandshake(_, _))
         .WillOnce(SaveArg<1>(&byteOnHandshakeResponse));
 
@@ -115,7 +119,7 @@ TEST_F(BinaryTranslatorTest, setHandshakeShouldDeserializeBytes)
     auto protoOnHandshakeResponse = [&](ServerMessagePtr msg) mutable {
         called = true;
         EXPECT_EQ(data, msg->message_id());
-        return true;
+        return std::error_code{};
     };
 
     binaryTranslator.setHandshake(

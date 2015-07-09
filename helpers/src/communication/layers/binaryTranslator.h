@@ -14,6 +14,7 @@
 
 #include <functional>
 #include <memory>
+#include <system_error>
 
 namespace one {
 namespace communication {
@@ -26,6 +27,7 @@ namespace layers {
  */
 template <class LowerLayer> class BinaryTranslator : public LowerLayer {
 public:
+    using Callback = typename LowerLayer::Callback;
     using LowerLayer::LowerLayer;
     using LowerLayer::send;
     virtual ~BinaryTranslator() = default;
@@ -42,7 +44,7 @@ public:
      * @see ConnectionPool::setHandshake()
      */
     auto setHandshake(std::function<ClientMessagePtr()> getHandshake,
-        std::function<bool(ServerMessagePtr)> onHandshakeResponse);
+        std::function<std::error_code(ServerMessagePtr)> onHandshakeResponse);
 
     /**
      * Wraps lower layer's @c setOnMessageCallback.
@@ -57,17 +59,17 @@ public:
      * Serializes an instance of @c clproto::ClientMessage as @c std::string
      * and passes it down to the lower layer.
      * @param message The message to send.
-     * @param retires The retries argument to pass to the lower layer.
+     * @param retries The retries argument to pass to the lower layer.
      * @see ConnectionPool::send()
      */
-    auto send(
-        ClientMessagePtr message, const int retries = DEFAULT_RETRY_NUMBER);
+    auto send(ClientMessagePtr message, Callback callback,
+        const int retries = DEFAULT_RETRY_NUMBER);
 };
 
 template <class LowerLayer>
 auto BinaryTranslator<LowerLayer>::setHandshake(
     std::function<ClientMessagePtr()> getHandshake,
-    std::function<bool(ServerMessagePtr)> onHandshakeResponse)
+    std::function<std::error_code(ServerMessagePtr)> onHandshakeResponse)
 {
     return LowerLayer::setHandshake(
         [getHandshake = std::move(getHandshake)] {
@@ -79,8 +81,9 @@ auto BinaryTranslator<LowerLayer>::setHandshake(
             /// @todo A potential place for optimization [static serverMsg]
             auto serverMsg = std::make_unique<clproto::ServerMessage>();
 
+            /// @todo Custom error code.
             if (!serverMsg->ParseFromString(message))
-                return false;
+                return std::make_error_code(std::errc::protocol_error);
 
             return onHandshakeResponse(std::move(serverMsg));
         });
@@ -107,10 +110,11 @@ auto BinaryTranslator<LowerLayer>::setOnMessageCallback(
 
 template <class LowerLayer>
 auto BinaryTranslator<LowerLayer>::send(
-    ClientMessagePtr message, const int retries)
+    ClientMessagePtr message, Callback callback, const int retries)
 {
     /// @todo Possible optimization point here [static thread-local string]
-    return LowerLayer::send(message->SerializeAsString(), retries);
+    return LowerLayer::send(
+        message->SerializeAsString(), std::move(callback), retries);
 }
 
 } // namespace layers

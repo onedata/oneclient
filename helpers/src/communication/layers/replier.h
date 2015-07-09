@@ -11,6 +11,8 @@
 
 #include "communication/declarations.h"
 
+#include <system_error>
+
 namespace one {
 namespace communication {
 namespace layers {
@@ -21,6 +23,7 @@ namespace layers {
  */
 template <class LowerLayer> class Replier : public LowerLayer {
 public:
+    using Callback = typename LowerLayer::Callback;
     using LowerLayer::LowerLayer;
     virtual ~Replier() = default;
 
@@ -38,15 +41,15 @@ public:
      * @see ConnectionPool::send()
      */
     auto reply(const clproto::ServerMessage &replyTo, ClientMessagePtr msg,
-        const int retry = DEFAULT_RETRY_NUMBER);
+        Callback callback, const int retry = DEFAULT_RETRY_NUMBER);
 };
 
 template <class LowerLayer>
 auto Replier<LowerLayer>::reply(const clproto::ServerMessage &replyTo,
-    ClientMessagePtr msg, const int retry)
+    ClientMessagePtr msg, Callback callback, const int retry)
 {
     msg->set_message_id(replyTo.message_id());
-    return LowerLayer::send(std::move(msg), retry);
+    return LowerLayer::send(std::move(msg), std::move(callback), retry);
 }
 
 } // namespace layers

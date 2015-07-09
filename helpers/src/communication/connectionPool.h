@@ -9,12 +9,13 @@
 #ifndef HELPERS_COMMUNICATION_CONNECTION_POOL_H
 #define HELPERS_COMMUNICATION_CONNECTION_POOL_H
 
-#include <boost/asio/io_service.hpp>
-#include <boost/asio/strand.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/ssl/context.hpp>
-#include <boost/asio/ssl/stream.hpp>
-#include <boost/thread/future.hpp>
+#include "connection.h"
+
+#include <asio/io_service.hpp>
+#include <asio/strand.hpp>
+#include <asio/ip/tcp.hpp>
+#include <asio/ssl/context.hpp>
+#include <asio/ssl/stream.hpp>
 #include <tbb/concurrent_queue.h>
 
 #include <functional>
@@ -22,6 +23,7 @@
 #include <string>
 #include <queue>
 #include <vector>
+#include <system_error>
 #include <thread>
 #include <tuple>
 #include <unordered_set>
@@ -44,17 +46,17 @@ class Connection;
  * do not interact with connections directly.
  */
 class ConnectionPool {
-    using SendTask = std::tuple<std::string, boost::promise<void>>;
+    using SendTask =
+        std::tuple<std::string, std::function<void(const std::error_code &)>>;
 
-    using ConnectionFactory = std::function<std::shared_ptr<Connection>(
-        boost::asio::io_service &, std::shared_ptr<IoServiceExecutor>,
-        boost::asio::ssl::context &, const bool, std::function<std::string()> &,
-        std::function<bool(std::string)> &, std::function<void(std::string)>,
-        std::function<void(std::shared_ptr<Connection>)>,
-        std::function<void(
-            std::shared_ptr<Connection>, boost::exception_ptr)>)>;
+    using ConnectionFactory = std::function<Connection::Ptr(asio::io_service &,
+        asio::ssl::context &, const bool, std::function<std::string()> &,
+        std::function<std::error_code(std::string)> &,
+        std::function<void(std::string)>,
+        std::function<void(Connection::Ptr, const std::error_code &)>)>;
 
 public:
+    using Callback = std::function<void(const std::error_code &)>;
     enum class ErrorPolicy { ignore, propagate };
 
     /**
@@ -97,7 +99,7 @@ public:
      * messages can be translated by other communication layers.
      */
     void setHandshake(std::function<std::string()> getHandshake,
-        std::function<bool(std::string)> onHandshakeResponse);
+        std::function<std::error_code(std::string)> onHandshakeResponse);
 
     /**
      * Sets a function to handle received messages.
@@ -118,11 +120,11 @@ public:
      * @return A future fulfilled when the message is sent or (with an
      * exception) when an error occured.
      */
-    boost::future<void> send(std::string message, const int = int{});
+    void send(std::string message, Callback callback, const int = int{});
 
     /**
      * Destructor.
-     * Stops the underlying Boost::Asio endpoint and the worker thread and
+     * Stops the underlying asio:: endpoint and the worker thread and
      * closes maintained connections.
      */
     virtual ~ConnectionPool();
@@ -130,9 +132,8 @@ public:
 private:
     void createConnection();
     void onMessageReceived(std::string message);
-    void onConnectionReady(std::shared_ptr<Connection> conn);
-    void onConnectionClosed(
-        std::shared_ptr<Connection> conn, boost::exception_ptr exception);
+    void onConnectionReady(Connection::Ptr conn);
+    void onConnectionClosed(Connection::Ptr conn, const std::error_code &ec);
 
     const unsigned int m_connectionsNumber;
     std::string m_host;
@@ -143,30 +144,21 @@ private:
     std::shared_ptr<const cert::CertificateData> m_certificateData;
 
     std::function<std::string()> m_getHandshake;
-    std::function<bool(std::string)> m_onHandshakeResponse;
+    std::function<std::error_code(std::string)> m_onHandshakeResponse;
     std::function<void(std::string)> m_onMessage = [](auto) {};
 
-    boost::asio::io_service m_ioService;
-    boost::asio::io_service::work m_idleWork;
-    boost::asio::io_service::strand m_blockingStrand;
-    boost::asio::io_service::strand m_connectionsStrand;
-
-protected:
-    /**
-     * A thread executor working on top of this pool's @c io_service.
-     * @note Defined after other variables as it depends on private ioService.
-     */
-    std::shared_ptr<IoServiceExecutor> m_ioServiceExecutor;
+    asio::io_service m_ioService;
+    asio::io_service::work m_idleWork;
+    asio::io_service::strand m_blockingStrand;
+    asio::io_service::strand m_connectionsStrand;
 
 private:
     std::vector<std::thread> m_workers;
-    boost::asio::ssl::context m_context;
+    asio::ssl::context m_context;
 
     tbb::concurrent_bounded_queue<std::shared_ptr<SendTask>> m_outbox;
     tbb::concurrent_queue<std::shared_ptr<SendTask>> m_rejects;
-    std::unordered_set<std::shared_ptr<Connection>> m_connections;
-
-
+    std::unordered_set<Connection::Ptr> m_connections;
 };
 
 } // namespace communication

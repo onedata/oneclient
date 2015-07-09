@@ -11,11 +11,10 @@
 #include "cert/certificateData.h"
 #include "connection.h"
 #include "exception.h"
-#include "ioServiceExecutor.h"
 #include "logging.h"
 
-#include <boost/asio.hpp>
-#include <boost/asio/ssl.hpp>
+#include <asio.hpp>
+#include <asio/ssl.hpp>
 #include <openssl/ssl.h>
 
 #include <algorithm>
@@ -25,8 +24,7 @@
 
 using namespace std::placeholders;
 using namespace std::literals::chrono_literals;
-using steady_timer =
-    boost::asio::basic_waitable_timer<std::chrono::steady_clock>;
+using steady_timer = asio::basic_waitable_timer<std::chrono::steady_clock>;
 
 static constexpr size_t OUTBOX_SIZE = 1000;
 static constexpr auto RECREATE_DELAY = 1s;
@@ -46,8 +44,7 @@ ConnectionPool::ConnectionPool(const unsigned int connectionsNumber,
     , m_idleWork{m_ioService}
     , m_blockingStrand{m_ioService}
     , m_connectionsStrand{m_ioService}
-    , m_ioServiceExecutor{std::make_shared<IoServiceExecutor>(m_ioService)}
-    , m_context{boost::asio::ssl::context::tlsv12_client}
+    , m_context{asio::ssl::context::tlsv12_client}
 {
     m_outbox.set_capacity(OUTBOX_SIZE);
 }
@@ -67,36 +64,30 @@ void ConnectionPool::connect()
             }};
         });
 
-    try {
-        m_context.set_options(boost::asio::ssl::context::default_workarounds |
-            boost::asio::ssl::context::no_sslv2 |
-            boost::asio::ssl::context::no_sslv3 |
-            boost::asio::ssl::context::single_dh_use);
+    m_context.set_options(asio::ssl::context::default_workarounds |
+        asio::ssl::context::no_sslv2 | asio::ssl::context::no_sslv3 |
+        asio::ssl::context::no_tlsv1 | asio::ssl::context::no_tlsv1_1 |
+        asio::ssl::context::single_dh_use);
 
-        m_context.set_default_verify_paths();
-        m_context.set_verify_mode(m_verifyServerCertificate
-                ? boost::asio::ssl::verify_peer
-                : boost::asio::ssl::verify_none);
+    m_context.set_default_verify_paths();
+    m_context.set_verify_mode(m_verifyServerCertificate
+            ? asio::ssl::verify_peer
+            : asio::ssl::verify_none);
 
-        SSL_CTX *ssl_ctx = m_context.native_handle();
-        auto mode =
-            SSL_CTX_get_session_cache_mode(ssl_ctx) | SSL_SESS_CACHE_CLIENT;
+    SSL_CTX *ssl_ctx = m_context.native_handle();
+    auto mode = SSL_CTX_get_session_cache_mode(ssl_ctx) | SSL_SESS_CACHE_CLIENT;
 
-        SSL_CTX_set_session_cache_mode(ssl_ctx, mode);
+    SSL_CTX_set_session_cache_mode(ssl_ctx, mode);
 
-        if (m_certificateData)
-            m_certificateData->initContext(m_context);
-    }
-    catch (const boost::system::error_code &ec) {
-        throw ConnectionError{ec.message()};
-    }
+    if (m_certificateData)
+        m_certificateData->initContext(m_context);
 
     for (auto i = 0u; i < m_connectionsNumber; ++i)
         createConnection();
 }
 
 void ConnectionPool::setHandshake(std::function<std::string()> getHandshake,
-    std::function<bool(std::string)> onHandshakeResponse)
+    std::function<std::error_code(std::string)> onHandshakeResponse)
 {
     m_getHandshake = std::move(getHandshake);
     m_onHandshakeResponse = std::move(onHandshakeResponse);
@@ -114,15 +105,12 @@ void ConnectionPool::setCertificateData(
     m_certificateData = std::move(certificateData);
 }
 
-boost::future<void> ConnectionPool::send(std::string message, const int)
+void ConnectionPool::send(std::string message, Callback callback, const int)
 {
-    boost::promise<void> promise;
-    auto future = promise.get_future();
-    auto data = std::make_shared<std::tuple<std::string, boost::promise<void>>>(
-        std::forward_as_tuple(std::move(message), std::move(promise)));
+    auto data = std::make_shared<SendTask>(
+        std::forward_as_tuple(std::move(message), std::move(callback)));
 
     m_outbox.emplace(std::move(data));
-    return future;
 }
 
 void ConnectionPool::onMessageReceived(std::string message)
@@ -132,7 +120,7 @@ void ConnectionPool::onMessageReceived(std::string message)
     });
 }
 
-void ConnectionPool::onConnectionReady(std::shared_ptr<Connection> conn)
+void ConnectionPool::onConnectionReady(Connection::Ptr conn)
 {
     m_blockingStrand.post([ this, c = std::weak_ptr<Connection>{conn} ] {
         std::shared_ptr<SendTask> task;
@@ -140,8 +128,20 @@ void ConnectionPool::onConnectionReady(std::shared_ptr<Connection> conn)
             m_outbox.pop(task);
 
         if (auto conn = c.lock()) {
-            conn->send(
-                std::move(std::get<0>(*task)), std::move(std::get<1>(*task)));
+            std::string message;
+            std::function<void(const std::error_code &)> callback;
+            std::tie(message, callback) = std::move(*task);
+
+            auto wrappedCallback = [ =, callback = std::move(callback) ](
+                const std::error_code &ec, Connection::Ptr conn) mutable
+            {
+                if (!ec)
+                    onConnectionReady(std::move(conn));
+
+                callback(ec);
+            };
+
+            conn->send(std::move(message), std::move(wrappedCallback));
         }
         else {
             m_rejects.emplace(std::move(task));
@@ -150,18 +150,18 @@ void ConnectionPool::onConnectionReady(std::shared_ptr<Connection> conn)
 }
 
 void ConnectionPool::onConnectionClosed(
-    std::shared_ptr<Connection> conn, boost::exception_ptr exception)
+    Connection::Ptr conn, const std::error_code &ec)
 {
     m_connectionsStrand.post([this, conn] { m_connections.erase(conn); });
 
-    if (exception && m_errorPolicy == ErrorPolicy::propagate) {
+    if (ec && m_errorPolicy == ErrorPolicy::propagate) {
         std::shared_ptr<SendTask> task;
         if (m_rejects.try_pop(task) || m_outbox.try_pop(task))
-            std::get<1>(*task).set_exception(exception);
+            std::get<1>(*task)(ec);
     }
 
     auto timer = std::make_shared<steady_timer>(m_ioService, RECREATE_DELAY);
-    timer->async_wait([this, timer](const boost::system::error_code &ec) {
+    timer->async_wait([this, timer](const std::error_code &ec) {
         if (!ec)
             createConnection();
     });
@@ -169,14 +169,15 @@ void ConnectionPool::onConnectionClosed(
 
 void ConnectionPool::createConnection()
 {
-    auto conn = m_connectionFactory(m_ioService, m_ioServiceExecutor, m_context,
+    auto conn = m_connectionFactory(m_ioService, m_context,
         m_verifyServerCertificate, m_getHandshake, m_onHandshakeResponse,
         std::bind(&ConnectionPool::onMessageReceived, this, _1),
-        std::bind(&ConnectionPool::onConnectionReady, this, _1),
         std::bind(&ConnectionPool::onConnectionClosed, this, _1, _2));
 
     m_connectionsStrand.post([this, conn] { m_connections.emplace(conn); });
-    conn->connect(m_host, m_service);
+
+    conn->connect(m_host, m_service,
+        std::bind(&ConnectionPool::onConnectionReady, this, _1));
 }
 
 ConnectionPool::~ConnectionPool()
@@ -188,7 +189,6 @@ ConnectionPool::~ConnectionPool()
         m_connections.clear();
     });
 
-    m_ioServiceExecutor->close();
     m_ioService.stop();
     m_outbox.abort();
 

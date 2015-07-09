@@ -17,21 +17,21 @@ CertificateData::CertificateData(KeyFormat keyFormat)
 {
 }
 
-std::shared_ptr<boost::asio::ssl::context> CertificateData::initContext(
-    std::shared_ptr<boost::asio::ssl::context> ctx) const
+std::shared_ptr<asio::ssl::context> CertificateData::initContext(
+    std::shared_ptr<asio::ssl::context> ctx) const
 {
     initContext(*ctx);
     return std::move(ctx);
 }
 
-boost::asio::ssl::context_base::file_format CertificateData::keyFormat() const
+asio::ssl::context_base::file_format CertificateData::keyFormat() const
 {
     switch (m_keyFormat) {
         case KeyFormat::ASN1:
-            return boost::asio::ssl::context_base::file_format::asn1;
+            return asio::ssl::context_base::file_format::asn1;
         case KeyFormat::PEM:
         default:
-            return boost::asio::ssl::context_base::file_format::pem;
+            return asio::ssl::context_base::file_format::pem;
     }
 }
 

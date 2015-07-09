@@ -47,8 +47,8 @@ protected:
     StorageHelperCTX ctx;
     char buf[1024];
 
-    boost::asio::io_service io_service;
-    boost::asio::io_service::work io_work;
+    asio::io_service io_service;
+    asio::io_service::work io_work;
     std::thread th_handle1, th_handle2, th_handle3, th_handle4;
 
     boost::filesystem::path testFilePath;
@@ -105,7 +105,7 @@ TEST_F(DirectIOHelperTest, shouldWriteBytes)
 {
     std::string stmp("000");
     std::string tmp;
-    auto writeBuf = boost::asio::buffer(stmp);
+    auto writeBuf = asio::buffer(stmp);
 
     auto p2 = proxy->ash_write(testFileId, writeBuf, 5, ctx);
     auto bytes_written = p2.get();
@@ -121,13 +121,13 @@ TEST_F(DirectIOHelperTest, shouldWriteBytes)
 TEST_F(DirectIOHelperTest, shouldReadBytes)
 {
     char stmp[10];
-    auto buf1 = boost::asio::mutable_buffer(stmp, 10);
+    auto buf1 = asio::mutable_buffer(stmp, 10);
 
     auto p2 = proxy->ash_read(testFileId, buf1, 5, ctx);
     auto buf2 = p2.get();
 
-    EXPECT_EQ(10, boost::asio::buffer_size(buf2));
-    EXPECT_EQ("123456789_", std::string(boost::asio::buffer_cast<const char*>(buf2), boost::asio::buffer_size(buf2)));
+    EXPECT_EQ(10, asio::buffer_size(buf2));
+    EXPECT_EQ("123456789_", std::string(asio::buffer_cast<const char*>(buf2), asio::buffer_size(buf2)));
 }
 
 
@@ -261,7 +261,7 @@ TEST_F(DirectIOHelperTest, AsyncBench)
 
     char stmp[BENCH_BLOCK_SIZE];
     future_t<int> res[BENCH_LOOP_COUNT];
-    auto writeBuf = boost::asio::buffer(stmp, BENCH_BLOCK_SIZE);
+    auto writeBuf = asio::buffer(stmp, BENCH_BLOCK_SIZE);
 
     for(auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
         res[i] = proxy->ash_write(testFileId, writeBuf, 0, ctx);
@@ -281,7 +281,7 @@ TEST_F(DirectIOHelperTest, SyncBench)
     f1.get();
 
     char stmp[BENCH_BLOCK_SIZE];
-    auto writeBuf = boost::asio::buffer(stmp, BENCH_BLOCK_SIZE);
+    auto writeBuf = asio::buffer(stmp, BENCH_BLOCK_SIZE);
     for(auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
         proxy->sh_write(testFileId, writeBuf, 0, ctx);
     }
