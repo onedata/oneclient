@@ -86,27 +86,52 @@
 %%--------------------------------------------------------------------
 % Endpoint used to verify if a mocked TCP server has received a given packet.
 % The port binding is used to identify the TCP server.
--define(TCP_SERVER_MESSAGE_COUNT_PATH(_Port), "/tcp_server_message_count/" ++ integer_to_list(_Port)).
--define(TCP_SERVER_MESSAGE_COUNT_COWBOY_ROUTE, "/tcp_server_message_count/:port").
+-define(TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PATH(_Port), "/tcp_server_specific_message_count/" ++ integer_to_list(_Port)).
+-define(TCP_SERVER_SPECIFIC_MESSAGE_COUNT_COWBOY_ROUTE, "/tcp_server_specific_message_count/:port").
 % Creates message that is sent to tcp_server_message_count endpoint (client side).
 % For now, its just bare bytes, but the macro stays so it can be easily changed -
 % for example to base64 encoded.
--define(TCP_SERVER_MESSAGE_COUNT_PACK_REQUEST(_BinaryData),
+-define(TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PACK_REQUEST(_BinaryData),
     _BinaryData
 ).
 % Retrieves data sent to tcp_server_message_count endpoint (server side).
--define(TCP_SERVER_MESSAGE_COUNT_UNPACK_REQUEST(_BinaryData),
+-define(TCP_SERVER_SPECIFIC_MESSAGE_COUNT_UNPACK_REQUEST(_BinaryData),
     _BinaryData
 ).
 % Produces success message which carries information of request count.
--define(TCP_SERVER_MESSAGE_COUNT_PACK_RESPONSE(_Count),
+-define(TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PACK_RESPONSE(_Count),
     [{<<"result">>, _Count}]
 ).
 % Produces an error message if the tcp server requested to be verified does not exist (server side).
--define(TCP_SERVER_MESSAGE_COUNT_PACK_ERROR_WRONG_ENDPOINT,
+-define(TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PACK_ERROR_WRONG_ENDPOINT,
+    [{<<"result">>, <<"error">>}, {<<"reason">>, <<"wrong_endpoint">>}]).
+% Produces an error message if the tcp server requested to be verified works in counter mode.
+-define(TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PACK_ERROR_COUNTER_MODE,
+    [{<<"result">>, <<"error">>}, {<<"reason">>, <<"counter_mode">>}]).
+% Retrieves the response from appmock server (client side).
+-define(TCP_SERVER_SPECIFIC_MESSAGE_COUNT_UNPACK_RESPONSE(_RespBody),
+    case _RespBody of
+        [{<<"result">>, _Count}] -> {ok, _Count};
+        [{<<"result">>, <<"error">>}, {<<"reason">>, <<"wrong_endpoint">>}] -> {error, wrong_endpoint};
+        [{<<"result">>, <<"error">>}, {<<"reason">>, <<"counter_mode">>}] -> {error, counter_mode}
+    end
+).
+
+
+%%--------------------------------------------------------------------
+% Endpoint used to check number of all received requests on a TCP mock endpoint.
+% The port binding is used to identify the TCP server.
+-define(TCP_SERVER_ALL_MESSAGES_COUNT_PATH(_Port), "/tcp_server_all_messages_count/" ++ integer_to_list(_Port)).
+-define(TCP_SERVER_ALL_MESSAGES_COUNT_COWBOY_ROUTE, "/tcp_server_all_messages_count/:port").
+% Produces success message which carries information of request count.
+-define(TCP_SERVER_ALL_MESSAGES_COUNT_PACK_RESPONSE(_Count),
+    [{<<"result">>, _Count}]
+).
+% Produces an error message if the tcp server requested to be verified does not exist (server side).
+-define(TCP_SERVER_ALL_MESSAGES_COUNT_PACK_ERROR_WRONG_ENDPOINT,
     [{<<"result">>, <<"error">>}, {<<"reason">>, <<"wrong_endpoint">>}]).
 % Retrieves the response from appmock server (client side).
--define(TCP_SERVER_MESSAGE_COUNT_UNPACK_RESPONSE(_RespBody),
+-define(TCP_SERVER_ALL_MESSAGES_COUNT_UNPACK_RESPONSE(_RespBody),
     case _RespBody of
         [{<<"result">>, _Count}] -> {ok, _Count};
         [{<<"result">>, <<"error">>}, {<<"reason">>, <<"wrong_endpoint">>}] -> {error, wrong_endpoint}
@@ -117,9 +142,11 @@
 %%--------------------------------------------------------------------
 % Endpoint used to send given data to all clients connected to specified server.
 % The port binding is used to identify the TCP server.
--define(TCP_SERVER_SEND_PATH(_Port), "/tcp_server_send/" ++ integer_to_list(_Port)).
--define(TCP_SERVER_SEND_COWBOY_ROUTE, "/tcp_server_send/:port").
-% Creates message that is sent to tcp_server_send endpoint (client side).
+-define(TCP_SERVER_SEND_PATH(_Port, _MessageCount),
+    "/tcp_server_send/" ++ integer_to_list(_Port) ++ "/" ++ integer_to_list(_MessageCount)
+).
+-define(TCP_SERVER_SEND_COWBOY_ROUTE, "/tcp_server_send/:port/:count").
+% Creates message that is sent to tcp_server_send endpoint (client side), given amount of times.
 % For now, its just bare bytes, but the macro stays so it can be easily changed -
 % for example to base64 encoded.
 -define(TCP_SERVER_SEND_PACK_REQUEST(_BinaryData),
@@ -145,8 +172,42 @@
 
 
 %%--------------------------------------------------------------------
+% Endpoint used to obrain message history for given port.
+-define(TCP_SERVER_HISTORY_PATH(_Port), "/tcp_server_history/" ++ integer_to_list(_Port)).
+-define(TCP_SERVER_HISTORY_COWBOY_ROUTE, "/tcp_server_history/:port").
+% Creates message that is sent to tcp_server_history endpoint (client side).
+% For now, its just bare bytes, but the macro stays so it can be easily changed -
+% for example to base64 encoded.
+-define(TCP_SERVER_HISTORY_PACK_REQUEST(_BinaryData),
+    _BinaryData
+).
+% Retrieves data sent to tcp_server_history endpoint (server side).
+-define(TCP_SERVER_HISTORY_UNPACK_REQUEST(_BinaryData),
+    _BinaryData
+).
+% Produces success message which carries information of message history.
+-define(TCP_SERVER_HISTORY_PACK_RESPONSE(_Messages),
+    [{<<"result">>, _Messages}]
+).
+% Produces an error message if the tcp server requested to be verified does not exist (server side).
+-define(TCP_SERVER_HISTORY_PACK_ERROR_WRONG_ENDPOINT,
+    [{<<"result">>, <<"error">>}, {<<"reason">>, <<"wrong_endpoint">>}]).
+% Produces an error message if the tcp server requested to be verified works in counter mode.
+-define(TCP_SERVER_HISTORY_PACK_ERROR_COUNTER_MODE,
+    [{<<"result">>, <<"error">>}, {<<"reason">>, <<"counter_mode">>}]).
+% Retrieves the response from appmock server (client side).
+-define(TCP_SERVER_HISTORY_UNPACK_RESPONSE(_RespBody),
+    case _RespBody of
+        [{<<"result">>, _Messages}] -> {ok, _Messages};
+        [{<<"result">>, <<"error">>}, {<<"reason">>, <<"wrong_endpoint">>}] -> {error, wrong_endpoint};
+        [{<<"result">>, <<"error">>}, {<<"reason">>, <<"counter_mode">>}] -> {error, counter_mode}
+    end
+).
+
+
+%%--------------------------------------------------------------------
 % Endpoint used to reset mocked TCP endpoint history.
--define(RESET_TCP_SERVER_HISTORY_PATH, "/reset_tcp_server_history").
+-define(RESET_TCP_MOCK_HISTORY_PATH, "/reset_tcp_server_history").
 
 
 %%--------------------------------------------------------------------

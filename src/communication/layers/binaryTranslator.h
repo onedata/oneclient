@@ -81,7 +81,6 @@ auto BinaryTranslator<LowerLayer>::setHandshake(
             /// @todo A potential place for optimization [static serverMsg]
             auto serverMsg = std::make_unique<clproto::ServerMessage>();
 
-            /// @todo Custom error code.
             if (!serverMsg->ParseFromString(message))
                 return std::make_error_code(std::errc::protocol_error);
 

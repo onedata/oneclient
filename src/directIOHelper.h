@@ -53,27 +53,22 @@ public:
     future_t<void> ash_chmod(const boost::filesystem::path &p, mode_t mode);
     future_t<void> ash_chown(
         const boost::filesystem::path &p, uid_t uid, gid_t gid);
-    future_t<void> ash_truncate(
-        const boost::filesystem::path &p, off_t size);
+    future_t<void> ash_truncate(const boost::filesystem::path &p, off_t size);
 
     future_t<int> ash_open(const boost::filesystem::path &p, CTXRef ctx);
-    future_t<asio::mutable_buffer> ash_read(
-        const boost::filesystem::path &p, asio::mutable_buffer buf,
-        off_t offset, CTXRef ctx);
+    future_t<asio::mutable_buffer> ash_read(const boost::filesystem::path &p,
+        asio::mutable_buffer buf, off_t offset, CTXRef ctx);
     future_t<int> ash_write(const boost::filesystem::path &p,
         asio::const_buffer buf, off_t offset, CTXRef ctx);
-    future_t<void> ash_release(
-        const boost::filesystem::path &p, CTXRef ctx);
+    future_t<void> ash_release(const boost::filesystem::path &p, CTXRef ctx);
     future_t<void> ash_flush(const boost::filesystem::path &p, CTXRef ctx);
     future_t<void> ash_fsync(
         const boost::filesystem::path &p, int isdatasync, CTXRef ctx);
 
-
-    asio::mutable_buffer sh_read(
-        const boost::filesystem::path &p, asio::mutable_buffer buf,
+    asio::mutable_buffer sh_read(const boost::filesystem::path &p,
+        asio::mutable_buffer buf, off_t offset, CTXRef ctx);
+    int sh_write(const boost::filesystem::path &p, asio::const_buffer buf,
         off_t offset, CTXRef ctx);
-    int sh_write(const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset, CTXRef ctx);
 
 protected:
     template <class Result, typename... Args1, typename... Args2>

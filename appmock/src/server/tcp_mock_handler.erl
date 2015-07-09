@@ -82,10 +82,10 @@ loop(Socket, Transport, Port, TimeoutIn, OK) ->
             {ok, Timeout} = application:get_env(?APP_NAME, tcp_connection_timeout),
             loop(Socket, Transport, Port, Timeout, OK);
 
-        {ReplyToPid, send, DataToSend} ->
+        {ReplyToPid, send, DataToSend, MessageCount} ->
             % There is something to send, send it and
             % inform the requesting process that it succeeded.
-            Transport:send(Socket, DataToSend),
+            ok = send_messages(Transport, Socket, DataToSend, MessageCount),
             ReplyToPid ! {self(), ok},
             loop(Socket, Transport, Port, TimeoutIn - (timer:now_diff(now(), Now) div 1000), OK);
 
@@ -93,3 +93,16 @@ loop(Socket, Transport, Port, TimeoutIn, OK) ->
             % Close the connection
             loop(Socket, Transport, Port, -1, OK)
     end.
+
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Helper functions to send a given number of the same messages via a socket.
+%% @end
+%%--------------------------------------------------------------------
+send_messages(_, _, _, 0) ->
+    ok;
+send_messages(Transport, Socket, DataToSend, Count) ->
+    Transport:send(Socket, DataToSend),
+    send_messages(Transport, Socket, DataToSend, Count - 1).

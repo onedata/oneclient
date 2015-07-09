@@ -22,8 +22,9 @@
 
 %% API
 -export([start_link/0, healthcheck/0]).
--export([report_connection_state/3, register_packet/2, tcp_server_message_count/2, tcp_server_send/2]).
--export([reset_tcp_mock_history/0, tcp_server_connection_count/1]).
+-export([report_connection_state/3, register_packet/2]).
+-export([tcp_server_specific_message_count/2, tcp_server_all_messages_count/1, tcp_server_send/3]).
+-export([tcp_mock_history/1, reset_tcp_mock_history/0, tcp_server_connection_count/1]).
 
 %% gen_server callbacks
 -export([init/1,
@@ -38,17 +39,29 @@
 -define(NUMBER_OF_ACCEPTORS, 10).
 % Timeout of tcp_server_send function - if by this time all connection pids do not report
 % back, the sending is considered failed.
--define(SEND_TIMEOUT, 500).
+-define(SEND_TIMEOUT_BASE, timer:seconds(10)).
+-define(SEND_TIMEOUT_PER_MSG, timer:seconds(1)).
+
+-record(endpoint, {
+    name = "" :: term(),
+    port = 0 :: integer(),
+    use_ssl = false :: boolean(),
+    % The connections proplist holds a list of active pids for each port.
+    connections = [] :: [pid()],
+    % Should this endpoint collect the full history (it slows it down).
+    history_enabled = false :: boolean(),
+    % Summary request count
+    msg_count = 0 :: integer(),
+    % The msg_count_per_msg dict holds mappings Packet -> integer(), where the
+    % integer value means number of such packets received.
+    msg_count_per_msg = dict:new() :: dict:dict(),
+    % Complete message history for given port (NOTE: in reverse order!)
+    msg_history = [] :: [binary()]
+}).
 
 % Internal state of the gen server
 -record(state, {
-    listeners = [] :: [term()],
-    % The history dict holds mappings Packet -> boolean(), where the
-    % boolean value means if given packet was received.
-    request_history = [] :: [{Port :: integer(), History :: dict:dict()}],
-    % The connections proplist holds a list of active pids for each port.
-    connections = [] :: [{Port :: integer(), [pid()]}],
-    initial_request_history = [] :: [{Port :: integer(), History :: dict:dict()}]
+    endpoints = [] :: [{Port :: integer(), Endpoint :: #endpoint{}}]
 }).
 
 %%%===================================================================
@@ -102,14 +115,22 @@ register_packet(Port, Data) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Returns how many times has a TCP esrver received specific message.
-%% This task is delegated straight to tcp_mock_server, but this function is here
-%% for clear API.
+%% Returns how many times has a TCP server received specific message.
 %% @end
 %%--------------------------------------------------------------------
--spec tcp_server_message_count(Port :: integer(), Data :: binary()) -> {ok, integer()} | {error, term()}.
-tcp_server_message_count(Port, Data) ->
-    gen_server:call(?SERVER, {tcp_server_message_count, Port, Data}).
+-spec tcp_server_specific_message_count(Port :: integer(), Data :: binary()) -> {ok, integer()} | {error, term()}.
+tcp_server_specific_message_count(Port, Data) ->
+    gen_server:call(?SERVER, {tcp_server_specific_message_count, Port, Data}).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns the total number of messages that a TCP endpoint received.
+%% @end
+%%--------------------------------------------------------------------
+-spec tcp_server_all_messages_count(Port :: integer()) -> {ok, integer()} | {error, term()}.
+tcp_server_all_messages_count(Port) ->
+    gen_server:call(?SERVER, {tcp_server_all_messages_count, Port}).
 
 
 %%--------------------------------------------------------------------
@@ -117,9 +138,19 @@ tcp_server_message_count(Port, Data) ->
 %% Sends given data to all clients connected to the TCP server on specified port.
 %% @end
 %%--------------------------------------------------------------------
--spec tcp_server_send(Port :: integer(), Data :: binary()) -> true | {error, term()}.
-tcp_server_send(Port, Data) ->
-    gen_server:call(?SERVER, {tcp_server_send, Port, Data}).
+-spec tcp_server_send(Port :: integer(), Data :: binary(), Count :: integer()) -> true | {error, term()}.
+tcp_server_send(Port, Data, Count) ->
+    gen_server:call(?SERVER, {tcp_server_send, Port, Data, Count}, infinity).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Returns full history of messages received on given endpoint.
+%% @end
+%%--------------------------------------------------------------------
+-spec tcp_mock_history(Port :: integer()) -> {ok, [Message :: binary()]} | {error, term()}.
+tcp_mock_history(Port) ->
+    gen_server:call(?SERVER, {tcp_mock_history, Port}, infinity).
 
 
 %%--------------------------------------------------------------------
@@ -158,17 +189,10 @@ tcp_server_connection_count(Port) ->
 init([]) ->
     {ok, AppDescriptionFile} = application:get_env(?APP_NAME, app_description_file),
     DescriptionModule = appmock_utils:load_description_module(AppDescriptionFile),
-    {ListenersIDs, Ports} = start_listeners(DescriptionModule),
-    InitializedHistory = lists:map(
-        fun(Port) ->
-            {Port, dict:new()}
-        end, Ports),
-    InitializedConnections = lists:map(
-        fun(Port) ->
-            {Port, []}
-        end, Ports),
-    {ok, #state{listeners = ListenersIDs, request_history = InitializedHistory,
-        connections = InitializedConnections, initial_request_history = InitializedHistory}}.
+    Endpoints = start_listeners(DescriptionModule),
+    EndpointMappings = [{Endpoint#endpoint.port, Endpoint} || Endpoint <- Endpoints],
+    {ok, #state{endpoints = EndpointMappings}}.
+
 
 %%--------------------------------------------------------------------
 %% @private
@@ -185,15 +209,19 @@ init([]) ->
     {noreply, NewState :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
     {stop, Reason :: term(), NewState :: #state{}}).
-handle_call(healthcheck, _From, #state{request_history = RequestHistory} = State) ->
+handle_call(healthcheck, _From, #state{endpoints = Endpoints} = State) ->
     Reply =
         try
             % Check connectivity to all TCP listeners
             lists:foreach(
-                fun({Port, _}) ->
-                    {ok, Socket} = gen_tcp:connect("127.0.0.1", Port, []),
-                    gen_tcp:close(Socket)
-                end, RequestHistory),
+                fun({Port, #endpoint{use_ssl = UseSSL}}) ->
+                    Transport = case UseSSL of
+                                    true -> ssl2;
+                                    false -> gen_tcp
+                                end,
+                    {ok, Socket} = Transport:connect("127.0.0.1", Port, []),
+                    Transport:close(Socket)
+                end, Endpoints),
             ok
         catch T:M ->
             ?error_stacktrace("Error during ~p healthcheck- ~p:~p", [?MODULE, T, M]),
@@ -203,78 +231,120 @@ handle_call(healthcheck, _From, #state{request_history = RequestHistory} = State
 
 
 handle_call({report_connection_state, Port, Pid, IsAlive}, _From, State) ->
-    #state{connections = Connections} = State,
-    ConnectionsForPort = proplists:get_value(Port, Connections, []),
-    NewConnectionsForPort = case IsAlive of
-                                true -> [Pid | ConnectionsForPort];
-                                false -> lists:delete(Pid, ConnectionsForPort)
-                            end,
-    NewConnections = [{Port, NewConnectionsForPort} | proplists:delete(Port, Connections)],
-    {reply, ok, State#state{connections = NewConnections}};
+    Endpoint = get_endpoint(Port, State),
+    Connectiond = Endpoint#endpoint.connections,
+    NewConnections = case IsAlive of
+                         true -> [Pid | Connectiond];
+                         false -> lists:delete(Pid, Connectiond)
+                     end,
+    {reply, ok, update_endpoint(Endpoint#endpoint{connections = NewConnections}, State)};
 
 
 handle_call({register_packet, Port, Data}, _From, State) ->
-    #state{request_history = RequestHistory} = State,
-    HistoryForPort = proplists:get_value(Port, RequestHistory, dict:new()),
-    NewHistoryForPort = dict:update(Data, fun([Old]) -> [Old + 1] end, [1], HistoryForPort),
-    NewHistory = [{Port, NewHistoryForPort} | proplists:delete(Port, RequestHistory)],
-    {reply, ok, State#state{request_history = NewHistory}};
+    Endpoint = get_endpoint(Port, State),
+    MsgCountPerMsg = Endpoint#endpoint.msg_count_per_msg,
+    MsgCount = Endpoint#endpoint.msg_count,
+    MsgHistory = Endpoint#endpoint.msg_history,
+    HistoryEnabled = Endpoint#endpoint.history_enabled,
+    NewEndpoint = case HistoryEnabled of
+                      true ->
+                          Endpoint#endpoint{
+                              msg_count_per_msg = dict:update(Data, fun([Old]) -> [Old + 1] end, [1], MsgCountPerMsg),
+                              msg_history = [Data | MsgHistory],
+                              msg_count = MsgCount + 1
+                          };
+                      false ->
+                          Endpoint#endpoint{msg_count = MsgCount + 1}
+                  end,
+    {reply, ok, update_endpoint(NewEndpoint, State)};
 
-handle_call({tcp_server_message_count, Port, Data}, _From, State) ->
-    #state{request_history = RequestHistory} = State,
-    HistoryForPort = proplists:get_value(Port, RequestHistory, undefined),
-    Reply = case HistoryForPort of
+handle_call({tcp_server_specific_message_count, Port, Data}, _From, State) ->
+    Reply = case get_endpoint(Port, State) of
                 undefined ->
                     {error, wrong_endpoint};
-                _ ->
-                    case dict:find(Data, HistoryForPort) of
-                        {ok, [Count]} ->
-                            {ok, Count};
-                        error ->
-                            {ok, 0}
+                Endpoint ->
+                    case Endpoint#endpoint.history_enabled of
+                        false ->
+                            {error, counter_mode};
+                        true ->
+                            case dict:find(Data, Endpoint#endpoint.msg_count_per_msg) of
+                                {ok, [Count]} ->
+                                    {ok, Count};
+                                error ->
+                                    {ok, 0}
+                            end
                     end
+
             end,
     {reply, Reply, State};
 
-handle_call({tcp_server_send, Port, Data}, _From, State) ->
-    #state{connections = Connections} = State,
-    ConnectionsForPort = proplists:get_value(Port, Connections, undefined),
-    Reply = case ConnectionsForPort of
+handle_call({tcp_server_all_messages_count, Port}, _From, State) ->
+    Reply = case get_endpoint(Port, State) of
                 undefined ->
                     {error, wrong_endpoint};
-                _ ->
+                Endpoint ->
+                    {ok, Endpoint#endpoint.msg_count}
+            end,
+    {reply, Reply, State};
+
+handle_call({tcp_server_send, Port, Data, Count}, _From, State) ->
+    Reply = case get_endpoint(Port, State) of
+                undefined ->
+                    {error, wrong_endpoint};
+                Endpoint ->
+                    Timeout = ?SEND_TIMEOUT_BASE + Count * ?SEND_TIMEOUT_PER_MSG,
                     Result = utils:pmap(
                         fun(Pid) ->
-                            Pid ! {self(), send, Data},
+                            Pid ! {self(), send, Data, Count},
                             receive
                                 {Pid, ok} -> ok
                             after
-                                ?SEND_TIMEOUT -> error
+                                Timeout -> error
                             end
-                        end, ConnectionsForPort),
+                        end, Endpoint#endpoint.connections),
                     % If all pids reported back, sending succeded
                     case lists:duplicate(length(Result), ok) of
                         Result ->
                             true;
-                        _ ->
+                        SomethingElse ->
+                            ?error("failed_to_send_data: ~p", [SomethingElse]),
                             {error, failed_to_send_data}
                     end
             end,
+    {reply, Reply, State};
 
+handle_call({tcp_mock_history, Port}, _From, State) ->
+    Reply = case get_endpoint(Port, State) of
+                undefined ->
+                    {error, wrong_endpoint};
+                Endpoint ->
+                    case Endpoint#endpoint.history_enabled of
+                        false ->
+                            {error, counter_mode};
+                        true ->
+                            {ok, lists:reverse(Endpoint#endpoint.msg_history)}
+                    end
+            end,
     {reply, Reply, State};
 
 handle_call(reset_tcp_mock_history, _From, State) ->
-    #state{initial_request_history = InitialRequestHistory} = State,
-    {reply, true, State#state{request_history = InitialRequestHistory}};
+    NewState = lists:foldl(
+        fun(Endpoint, AccState) ->
+            NewEndpoint = Endpoint#endpoint{
+                msg_count_per_msg = dict:new(),
+                msg_count = 0,
+                msg_history = []
+            },
+            update_endpoint(NewEndpoint, AccState)
+        end, State, get_all_endpoints(State)),
+    {reply, true, NewState};
 
 handle_call({tcp_server_connection_count, Port}, _From, State) ->
-    #state{connections = Connections} = State,
-    ConnectionsForPort = proplists:get_value(Port, Connections, undefined),
-    Reply = case ConnectionsForPort of
+    Reply = case get_endpoint(Port, State) of
                 undefined ->
                     {error, wrong_endpoint};
-                _ ->
-                    {ok, length(ConnectionsForPort)}
+                Endpoint ->
+                    {ok, length(Endpoint#endpoint.connections)}
             end,
     {reply, Reply, State};
 
@@ -325,13 +395,13 @@ handle_info(_Info, State) ->
 %%--------------------------------------------------------------------
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
     State :: #state{}) -> term()).
-terminate(_Reason, #state{listeners = Listeners}) ->
+terminate(_Reason, State) ->
     % Stop all previously started ranch listeners
     lists:foreach(
-        fun(Listener) ->
-            ?info("Stopping ranch listener: ~p", [Listener]),
-            ranch:stop_listener(Listener)
-        end, Listeners),
+        fun(#endpoint{name = ListenerID}) ->
+            ?info("Stopping ranch listener: ~p", [ListenerID]),
+            ranch:stop_listener(ListenerID)
+        end, get_all_endpoints(State)),
     ok.
 
 %%--------------------------------------------------------------------
@@ -360,16 +430,15 @@ code_change(_OldVsn, State, _Extra) ->
 %% Returns a list of lsitener IDs and a list of ports on which servers have been started.
 %% @end
 %%--------------------------------------------------------------------
--spec start_listeners(AppDescriptionModule :: module()) ->
-    {ListenerIDs :: [term()], Ports :: [integer()]}.
+-spec start_listeners(AppDescriptionModule :: module()) -> [#endpoint{}].
 start_listeners(AppDescriptionModule) ->
     TCPServerMocks = AppDescriptionModule:tcp_server_mocks(),
-    ListenerIDsAndPorts = lists:map(
-        fun(#tcp_server_mock{port = Port, ssl = UseSSL, packet = Packet}) ->
+    lists:map(
+        fun(#tcp_server_mock{port = Port, ssl = UseSSL, packet = Packet, type = Type}) ->
             % Generate listener name
             ListenerID = "tcp" ++ integer_to_list(Port),
             Protocol = case UseSSL of
-                           true -> ranch_ssl;
+                           true -> ranch_ssl2;
                            false -> ranch_tcp
                        end,
             Opts = case UseSSL of
@@ -388,6 +457,40 @@ start_listeners(AppDescriptionModule) ->
                    end,
             {ok, _} = ranch:start_listener(ListenerID, ?NUMBER_OF_ACCEPTORS,
                 Protocol, Opts, tcp_mock_handler, [Port, Packet]),
-            {ListenerID, Port}
-        end, TCPServerMocks),
-    {_ListenerIDs, _Ports} = lists:unzip(ListenerIDsAndPorts).
+            HistoryEnabled = case Type of history -> true; _ -> false end,
+            #endpoint{name = ListenerID, port = Port, use_ssl = UseSSL, history_enabled = HistoryEnabled}
+        end, TCPServerMocks).
+
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Returns endpoint record by port.
+%% @end
+%%--------------------------------------------------------------------
+-spec get_endpoint(Port :: integer(), State :: #state{}) -> #endpoint{} | undefined.
+get_endpoint(Port, #state{endpoints = Endpoints}) ->
+    proplists:get_value(Port, Endpoints, undefined).
+
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Returns all endpoint list.
+%% @end
+%%--------------------------------------------------------------------
+-spec get_all_endpoints(State :: #state{}) -> [#endpoint{}].
+get_all_endpoints(#state{endpoints = Endpoints}) ->
+    {_, Res} = lists:unzip(Endpoints),
+    Res.
+
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Returns state with updated enpoint record.
+%% @end
+%%--------------------------------------------------------------------
+-spec update_endpoint(Endpoint :: #endpoint{}, State :: #state{}) -> NewState :: #state{}.
+update_endpoint(#endpoint{port = Port} = Endpoint, #state{endpoints = Endpoints}) ->
+    #state{endpoints = [{Port, Endpoint} | proplists:delete(Port, Endpoints)]}.

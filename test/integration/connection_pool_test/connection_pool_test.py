@@ -36,6 +36,9 @@ class TestConnectionPool:
     def teardown_class(cls):
         docker.remove(cls.result['docker_ids'], force=True, volumes=True)
 
+    def setup_method(self, _):
+        appmock_client.reset_tcp_server_history(self.ip)
+
     @performance({
         'parameters': [msg_num_param(10), msg_size_param(100, 'B')],
         'configs': {
@@ -55,7 +58,6 @@ class TestConnectionPool:
         """Sends multiple messages using connection pool and checks whether they
         have been received."""
 
-        appmock_client.reset_tcp_server_history(self.ip)
         cp = connection_pool.ConnectionPoolProxy(3, self.ip, 5555)
 
         msg_num = parameters['msg_num'].value
@@ -67,8 +69,9 @@ class TestConnectionPool:
         for _ in xrange(msg_num):
             duration(send_time, cp.send, msg)
 
-        duration(send_time, appmock_client.tcp_server_wait_for_messages,
-                 self.ip, 5555, msg, msg_num, False, 30)
+        duration(send_time,
+                 appmock_client.tcp_server_wait_for_specific_messages,
+                 self.ip, 5555, msg, msg_num, False, 600)
 
         return [
             send_time_param(send_time.ms()),
@@ -103,7 +106,7 @@ class TestConnectionPool:
         recv_time = Duration()
         for msg in msgs:
             duration(recv_time, appmock_client.tcp_server_send, self.ip, 5555,
-                     msg)
+                     msg, 1)
 
         recv = []
         for _ in msgs:
@@ -142,8 +145,8 @@ class TestConnection:
         conn = connection_pool.ConnectionProxy(handshake, True)
         conn.connect(self.ip, 5555)
 
-        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, handshake, 1,
-                                                    False, 5)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555,
+                                                             handshake)
 
     @performance(skip=True)
     def test_connection_should_receive_handshake_response(self, parameters):
@@ -204,7 +207,6 @@ class TestConnection:
         """Sends multiple messages using connection and checks whether they
         have been received."""
 
-        appmock_client.reset_tcp_server_history(self.ip)
         conn = connection_pool.ConnectionProxy(random_str(), True)
         conn.connect(self.ip, 5555)
 
@@ -217,7 +219,7 @@ class TestConnection:
         send_time = Duration()
         for _ in xrange(msg_num):
             duration(send_time, appmock_client.tcp_server_send, self.ip, 5555,
-                     random_str())
+                     random_str(), 1)
 
             duration(send_time, conn.waitForReady)
             duration(send_time, conn.send, msg)
@@ -225,10 +227,12 @@ class TestConnection:
             duration(send_time, conn.waitForReady)
             duration(send_time, conn.send, msg2)
 
-        duration(send_time, appmock_client.tcp_server_wait_for_messages,
-                 self.ip, 5555, msg, msg_num, False, 5)
-        duration(send_time, appmock_client.tcp_server_wait_for_messages,
-                 self.ip, 5555, msg2, msg_num, False, 5)
+        duration(send_time,
+                 appmock_client.tcp_server_wait_for_specific_messages,
+                 self.ip, 5555, msg, msg_num, False, 600)
+        duration(send_time,
+                 appmock_client.tcp_server_wait_for_specific_messages,
+                 self.ip, 5555, msg2, msg_num, False, 600)
 
         return [
             send_time_param(send_time.ms()),
@@ -261,14 +265,14 @@ class TestConnection:
         for _ in xrange(msg_num):
             msg = random_str(msg_size)
             duration(recv_time, appmock_client.tcp_server_send, self.ip, 5555,
-                     msg)
+                     msg, 1)
 
             assert duration(recv_time, conn.waitForMessage)
             assert msg == duration(recv_time, conn.getMessage)
 
             msg2 = random_str(msg_size)
             duration(recv_time, appmock_client.tcp_server_send, self.ip, 5555,
-                     msg2)
+                     msg2, 1)
 
             assert duration(recv_time, conn.waitForMessage)
             assert msg2 == duration(recv_time, conn.getMessage)
