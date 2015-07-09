@@ -40,6 +40,9 @@ class TestCommunicator:
     def teardown_class(cls):
         docker.remove(cls.result['docker_ids'], force=True, volumes=True)
 
+    def setup_method(self, _):
+        appmock_client.reset_tcp_server_history(self.ip)
+
     @performance({
         'parameters': [msg_num_param(1), msg_size_param(100, 'B')],
         'configs': {
@@ -58,7 +61,6 @@ class TestCommunicator:
     def test_send(self, parameters):
         """Sends multiple messages using communicator."""
 
-        appmock_client.reset_tcp_server_history(self.ip)
         com = communication_stack.Communicator(3, self.ip, 5555, False)
         com.connect()
 
@@ -71,8 +73,9 @@ class TestCommunicator:
         for _ in xrange(msg_num):
             sent_bytes = duration(send_time, com.send, msg)
 
-        duration(send_time, appmock_client.tcp_server_wait_for_messages,
-                 self.ip, 5555, sent_bytes, msg_num, False, 30)
+        duration(send_time,
+                 appmock_client.tcp_server_wait_for_specific_messages,
+                 self.ip, 5555, sent_bytes, msg_num, False, 600)
 
         return [
             send_time_param(send_time.ms()),
@@ -98,7 +101,6 @@ class TestCommunicator:
     def test_communicate(self, parameters):
         """Sends multiple messages and receives replies using communicator."""
 
-        appmock_client.reset_tcp_server_history(self.ip)
         com = communication_stack.Communicator(1, self.ip, 5555, False)
         com.connect()
 
@@ -113,12 +115,13 @@ class TestCommunicator:
             reply = communication_stack.prepareReply(request, msg)
 
             duration(communicate_time, appmock_client.tcp_server_send, self.ip,
-                     5555, reply)
+                     5555, reply, 1)
 
             assert reply == duration(communicate_time, com.communicateReceive)
 
-        duration(communicate_time, appmock_client.tcp_server_wait_for_messages,
-                 self.ip, 5555, request, 1, False, 30)
+        duration(communicate_time,
+                 appmock_client.tcp_server_wait_for_specific_messages,
+                 self.ip, 5555, request, 1, False, 600)
 
         return [
             communicate_time_param(communicate_time.ms()),
@@ -133,17 +136,19 @@ class TestCommunicator:
 
         request = com.send("this is another request")
 
-        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, handshake, 1,
-                                                    False, 5)
-        assert 0 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            request)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555,
+                                                             handshake)
+        assert 0 == appmock_client.tcp_server_specific_message_count(self.ip,
+                                                                     5555,
+                                                                     request)
 
         reply = communication_stack.prepareReply(handshake, "handshakeReply")
         appmock_client.tcp_server_send(self.ip, 5555, reply)
 
         assert com.handshakeResponse() == reply
-        assert 1 == appmock_client.tcp_server_message_count(self.ip, 5555,
-                                                            request)
+        assert 1 == appmock_client.tcp_server_specific_message_count(self.ip,
+                                                                     5555,
+                                                                     request)
 
     @performance(skip=True)
     def test_unsuccessful_handshake(self, parameters):
@@ -151,15 +156,15 @@ class TestCommunicator:
         handshake = com.setHandshake("anotherHanshake", True)
         com.connect()
 
-        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, handshake, 3,
-                                                    False, 5)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555,
+                                                             handshake, 3)
 
         reply = communication_stack.prepareReply(handshake, "anotherHandshakeR")
         appmock_client.tcp_server_send(self.ip, 5555, reply)
 
         # The connections should now be recreated and another handshake sent
-        appmock_client.tcp_server_wait_for_messages(self.ip, 5555, handshake, 6,
-                                                    False, 5)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555,
+                                                             handshake, 6)
 
     @performance(skip=True)
     def test_exception_on_unsuccessful_handshake(self, parameters):
@@ -174,7 +179,7 @@ class TestCommunicator:
 
         with pytest.raises(RuntimeError) as exc:
             com.communicateReceive()
-        # TODO Custom connection error
+            # TODO Custom connection error
 
     @performance(skip=True)
     def test_exception_on_connection_error(self, parameters):
