@@ -37,6 +37,10 @@ public:
      */
     FileChildren(std::unique_ptr<ProtocolServerMessage> serverMessage);
 
+    /**
+     * @return A list of directory's children, specified by their UUID and
+     * filename.
+     */
     const std::vector<std::tuple<std::string, std::string>> &
     uuidsAndNames() const;
 

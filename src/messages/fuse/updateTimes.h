@@ -27,12 +27,26 @@ class UpdateTimes : public ClientMessage {
 public:
     /**
      * Constructor.
-     * @param uuid
+     * @param uuid UUID of the file of which times are updated.
      */
     UpdateTimes(std::string uuid);
 
+    /**
+     * Requests setting the file's access time.
+     * @param t The access time to set.
+     */
     void atime(std::chrono::system_clock::time_point t);
+
+    /**
+     * Requests setting the file's creation time.
+     * @param t The creation time to set.
+     */
     void ctime(std::chrono::system_clock::time_point t);
+
+    /**
+     * Requests setting the file's modification time.
+     * @param t The modification time to set.
+     */
     void mtime(std::chrono::system_clock::time_point t);
 
     std::string toString() const override;

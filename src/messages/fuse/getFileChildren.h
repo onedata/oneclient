@@ -29,15 +29,15 @@ class GetFileChildren : public ClientMessage {
 public:
     /**
      * Constructor.
-     * @param uuid
+     * @param uuid UUID of the directory of which children are requested.
      */
     GetFileChildren(std::string uuid);
 
     /**
-     * Constructor.
-     * @param uuid
-     * @param offset
-     * @param size
+     * @copydoc GetFileChildren(std::string)
+     * @param offset A number of skipped entries at the beginning of directory's
+     * children list.
+     * @param size A number of returned entries of directory's children list.
      */
     GetFileChildren(std::string uuid, off_t offset, std::size_t size);
 

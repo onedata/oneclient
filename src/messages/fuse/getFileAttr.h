@@ -25,7 +25,16 @@ namespace fuse {
  */
 class GetFileAttr : public ClientMessage {
 public:
+    /**
+     * Constructor.
+     * @param uuid UUID of the file for which attributes are requested.
+     */
     GetFileAttr(std::string uuid);
+
+    /**
+     * Constructor.
+     * @param path Path of the file for which attributes are requested.
+     */
     GetFileAttr(boost::filesystem::path path);
 
     std::string toString() const override;

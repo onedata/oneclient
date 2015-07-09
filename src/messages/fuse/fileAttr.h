@@ -25,7 +25,7 @@ namespace messages {
 namespace fuse {
 
 /**
- * The FileAttr class represents server-sent file attributes.
+ * The FileAttr class represents server-sent attributes of a file.
  */
 class FileAttr : public FuseResponse {
 public:
@@ -38,14 +38,49 @@ public:
      */
     FileAttr(std::unique_ptr<ProtocolServerMessage> serverMessage);
 
+    /**
+     * @return UUID of the file.
+     */
     const std::string &uuid() const;
+
+    /**
+     * @return File access mode.
+     */
     mode_t mode() const;
+
+    /**
+     * @return ID of the file's owner.
+     */
     uid_t uid() const;
+
+    /**
+     * @return Group ID of the file's owner.
+     */
     gid_t gid() const;
+
+    /**
+     * @return Last access time to the file.
+     */
     std::chrono::system_clock::time_point atime() const;
+
+    /**
+     * @return Last modification time of the file.
+     */
     std::chrono::system_clock::time_point mtime() const;
+
+    /**
+     * @return File's creation time.
+     */
     std::chrono::system_clock::time_point ctime() const;
+
+    /**
+     * @return Type of the file (regular, link, directory).
+     */
     FileType type() const;
+
+    /**
+     * @return Size of the file.
+     */
     off_t size() const;
 
     std::string toString() const override;

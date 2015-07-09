@@ -26,9 +26,9 @@ class CreateDir : public ClientMessage {
 public:
     /**
      * Constructor.
-     * @param parentUUID
-     * @param name
-     * @param mode
+     * @param parentUUID UUID of the parent directory.
+     * @param name Name of the file to create.
+     * @param mode File mode to create the file with.
      */
     CreateDir(std::string parentUUID, std::string name, mode_t mode);
 

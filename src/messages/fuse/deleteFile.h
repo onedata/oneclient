@@ -25,7 +25,7 @@ class DeleteFile : public ClientMessage {
 public:
     /**
      * Constructor.
-     * @param uuid
+     * @param uuid UUID of the file to be deleted.
      */
     DeleteFile(std::string uuid);
 

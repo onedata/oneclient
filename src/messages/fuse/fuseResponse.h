@@ -28,6 +28,8 @@ public:
      * Constructor.
      * @param serverMessage Protocol Buffers message representing
      * @c FuseResponse counterpart.
+     * @note The constructor throws an applicable std::system_error exception if
+     * received message's status is not OK.
      */
     FuseResponse(const std::unique_ptr<ProtocolServerMessage> &serverMessage);
 
