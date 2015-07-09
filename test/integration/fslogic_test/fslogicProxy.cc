@@ -104,10 +104,10 @@ private:
 };
 
 namespace {
-boost::shared_ptr<FsLogicProxy> create(int port)
+boost::shared_ptr<FsLogicProxy> create(std::string ip, int port)
 {
-    auto communicator = std::make_shared<Communicator>(/*connections*/ 1,
-        "127.0.0.1", std::to_string(port),
+    auto communicator = std::make_shared<Communicator>(/*connections*/ 1, ip,
+        std::to_string(port),
         /*verifyServerCertificate*/ false, createConnection,
         ConnectionPool::ErrorPolicy::propagate);
 
@@ -139,21 +139,11 @@ BOOST_PYTHON_MODULE(fslogic)
 
     class_<FsLogicProxy, boost::noncopyable>("FsLogicProxy", no_init)
         .def("__init__", make_constructor(create))
-        .def("getattr", &FsLogicProxy::getattr);
-
-    //        .def("emitReadEvent", &EventManagerProxy::emitReadEvent)
-    //        .def("emitWriteEvent", &EventManagerProxy::emitWriteEvent)
-    //        .def("emitTruncateEvent", &EventManagerProxy::emitTruncateEvent);
-
-    //    def("prepareSerializedReadEvent", &prepareSerializedReadEvent);
-    //    def("prepareSerializedWriteEvent", &prepareSerializedWriteEvent);
-    //    def("prepareSerializedTruncateEvent",
-    //    &prepareSerializedTruncateEvent);
-
-    //    def("prepareSerializedReadEventSubscription",
-    //        &prepareSerializedReadEventSubscription);
-    //    def("prepareSerializedWriteEventSubscription",
-    //        &prepareSerializedWriteEventSubscription);
-    //    def("prepareSerializedEventSubscriptionCancellation",
-    //        &prepareSerializedEventSubscriptionCancellation);
+        .def("getattr", &FsLogicProxy::getattr)
+        .def("mkdir", &FsLogicProxy::mkdir)
+        .def("unlink", &FsLogicProxy::unlink)
+        .def("rmdir", &FsLogicProxy::rmdir)
+        .def("utime", &FsLogicProxy::utime)
+        .def("utime_buf", &FsLogicProxy::utime_buf)
+        .def("readdir", &FsLogicProxy::readdir);
 }
