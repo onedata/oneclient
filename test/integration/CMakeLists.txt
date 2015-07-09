@@ -16,6 +16,7 @@ remove_definitions(-DBOOST_BIND_NO_PLACEHOLDERS)
 
 set(PROTO_DIR ${PROJECT_SOURCE_DIR}/helpers/clproto/proto)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/proto)
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/proto/__init__.py "")
 file(GLOB PROTO_FILES ${PROTO_DIR}/*.proto)
 add_custom_target(pythonProto
     COMMAND ${PROTOBUF_PROTOC_EXECUTABLE} --python_out ${CMAKE_CURRENT_BINARY_DIR}/proto -I ${PROTO_DIR} ${PROTO_FILES}
