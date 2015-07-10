@@ -127,8 +127,14 @@ public:
             if (ec)
                 promise->set_exception(
                     std::make_exception_ptr(std::system_error{ec}));
-            else
-                promise->set_value(SvrMsg{std::move(protoMessage)});
+            else {
+                try {
+                    promise->set_value(SvrMsg{std::move(protoMessage)});
+                }
+                catch (const std::exception &e) {
+                    promise->set_exception(std::current_exception());
+                }
+            }
         };
 
         LowerLayer::communicate(msg.serialize(), std::move(callback), retries);
