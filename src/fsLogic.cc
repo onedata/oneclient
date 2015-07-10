@@ -53,6 +53,21 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
     statbuf->st_uid = attr.uid();
     statbuf->st_mode = attr.mode();
     statbuf->st_size = attr.size();
+    statbuf->st_nlink = 1;
+    statbuf->st_blocks = 0;
+
+    switch (attr.type()) {
+        case messages::fuse::FileAttr::FileType::directory:
+            statbuf->st_mode |= S_IFDIR;
+            break;
+        case messages::fuse::FileAttr::FileType::link:
+            statbuf->st_mode |= S_IFLNK;
+            break;
+        case messages::fuse::FileAttr::FileType::regular:
+            statbuf->st_mode |= S_IFREG;
+            break;
+    }
+
     return 0;
 }
 
