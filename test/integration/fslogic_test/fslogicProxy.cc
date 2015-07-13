@@ -120,6 +120,11 @@ boost::shared_ptr<FsLogicProxy> create(std::string ip, int port)
 
     return boost::make_shared<FsLogicProxy>(context);
 }
+
+int regularMode()
+{
+    return S_IFREG;
+}
 }
 
 BOOST_PYTHON_MODULE(fslogic)
@@ -146,4 +151,6 @@ BOOST_PYTHON_MODULE(fslogic)
         .def("utime", &FsLogicProxy::utime)
         .def("utime_buf", &FsLogicProxy::utime_buf)
         .def("readdir", &FsLogicProxy::readdir);
+
+    def("regularMode", &regularMode);
 }

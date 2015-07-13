@@ -24,10 +24,10 @@ from proto import messages_pb2, fuse_messages_pb2, common_messages_pb2
 
 
 def with_reply(ip, fuse_response, queue):
-    appmock_client.reset_tcp_server_history(ip)
-
     [received_msg] = appmock_client.tcp_server_wait_for_any_messages(ip, 5555,
                                                                      return_history=True)
+
+    appmock_client.reset_tcp_server_history(ip)
 
     client_message = messages_pb2.ClientMessage()
     client_message.ParseFromString(received_msg)
@@ -109,5 +109,5 @@ class TestCommunicator:
         assert stat.ctime == reply.ctime
         assert stat.gid == reply.gid
         assert stat.uid == reply.uid
-        assert stat.mode == reply.mode
+        assert stat.mode == reply.mode | fslogic.regularMode()
         assert stat.size == reply.size
