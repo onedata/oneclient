@@ -12,7 +12,7 @@ all: deb-info test
 cmake: BUILD_DIR = $$(echo $(BUILD_TYPE) | tr '[:upper:]' '[:lower:]')
 cmake:
 	mkdir -p ${BUILD_DIR}
-	cd ${BUILD_DIR} && cmake -GNinja -DCMAKE_BUILD_TYPE=${BUILD_TYPE} ..
+	cd ${BUILD_DIR} && cmake -GNinja -DCMAKE_BUILD_TYPE=${BUILD_TYPE} .. -DCODE_COVERAGE=${WITH_COVERAGE}
 
 deb-info: BUILD_TYPE = RelWithDebInfo
 deb-info: cmake
@@ -26,19 +26,25 @@ debug: BUILD_TYPE = Debug
 debug: cmake
 	cmake --build debug --target oneclient
 
-test: deb-info
-	cmake --build relwithdebinfo
-	cmake --build relwithdebinfo --target test
+test: debug
+	cmake --build debug
+	cmake --build debug --target test
 
-cunit: deb-info
-	cmake --build relwithdebinfo
-	cmake --build relwithdebinfo --target cunit
+cunit: debug
+	cmake --build debug
+	cmake --build Debug --target cunit
 
 install: release
 	ninja -C release install
 
 docs:
 	@doxygen Doxyfile
+
+coverage:
+	lcov --directory debug --capture --output-file oneclient.info
+	lcov --remove oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' 'relwithdebinfo/*' 'debug/*' 'release/*' '**/helpers/*' --output-file oneclient.info.cleaned
+	genhtml -o coverage oneclient.info.cleaned
+	echo "Coverage written to `pwd`/coverage/index.html"
 
 package/$(PKG_ID).tar.gz:
 	mkdir -p package
