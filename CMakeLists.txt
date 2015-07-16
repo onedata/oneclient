@@ -95,7 +95,7 @@ set(PLATFORM_EXTRA_LIBS
 option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
 if(CODE_COVERAGE)
   message("Code coverage enabled.")
-  add_definitions(--coverage)
+  add_compile_options(--coverage)
   set(PLATFORM_EXTRA_LIBS ${PLATFORM_EXTRA_LIBS} gcov)
 endif(CODE_COVERAGE)
 
