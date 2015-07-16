@@ -6,7 +6,7 @@ PKG_VERSION	    ?= $(shell git describe --tags --always| tr - .)
 PKG_BUILD       ?= 1
 PKG_ID           = oneclient-$(PKG_VERSION)
 
-.PHONY: rpm cmake release debug deb-info test cunit install docs clean all deb
+.PHONY: rpm cmake release debug deb-info test cunit install docs clean all deb coverage
 all: deb-info test
 
 cmake: BUILD_DIR = $$(echo $(BUILD_TYPE) | tr '[:upper:]' '[:lower:]')
@@ -43,8 +43,8 @@ docs:
 coverage:
 	lcov --directory debug --capture --output-file oneclient.info
 	lcov --remove oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' 'relwithdebinfo/*' 'debug/*' 'release/*' '**/helpers/*' --output-file oneclient.info.cleaned
-	genhtml -o coverage oneclient.info.cleaned
-	echo "Coverage written to `pwd`/coverage/index.html"
+	genhtml  -o coverage oneclient.info.cleaned
+	@echo "Coverage written to `pwd`/coverage/index.html"
 
 package/$(PKG_ID).tar.gz:
 	mkdir -p package
