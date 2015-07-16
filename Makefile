@@ -32,7 +32,7 @@ test: debug
 
 cunit: debug
 	cmake --build debug
-	cmake --build Debug --target cunit
+	cmake --build debug --target cunit
 
 install: release
 	ninja -C release install
