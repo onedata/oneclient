@@ -132,9 +132,9 @@ tcp_server_specific_message_count(Hostname, Port, Data) ->
     try
         Binary = ?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PACK_REQUEST(Data),
         {ok, RemoteControlPort} = application:get_env(?APP_NAME, remote_control_port),
-        Path = ?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PATH(Port),
+        Path = list_to_binary(?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PATH(Port)),
         {200, _, RespBodyJSON} = appmock_utils:https_request(Hostname, RemoteControlPort,
-            <<(list_to_binary(Path))/binary>>, post, [], Binary),
+            Path, post, [], Binary),
         RespBody = appmock_utils:decode_from_json(RespBodyJSON),
         ?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_UNPACK_RESPONSE(RespBody)
     catch T:M ->
@@ -201,9 +201,9 @@ tcp_server_wait_for_specific_messages(Hostname, Port, Data, MessageCount, Accept
 tcp_server_all_messages_count(Hostname, Port) ->
     try
         {ok, RemoteControlPort} = application:get_env(?APP_NAME, remote_control_port),
-        Path = ?TCP_SERVER_ALL_MESSAGES_COUNT_PATH(Port),
+        Path = list_to_binary(?TCP_SERVER_ALL_MESSAGES_COUNT_PATH(Port)),
         {200, _, RespBodyJSON} = appmock_utils:https_request(Hostname, RemoteControlPort,
-            <<(list_to_binary(Path))/binary>>, post, [], <<"">>),
+            Path, post, [], <<"">>),
         RespBody = appmock_utils:decode_from_json(RespBodyJSON),
         ?TCP_SERVER_ALL_MESSAGES_COUNT_UNPACK_RESPONSE(RespBody)
     catch T:M ->
@@ -273,9 +273,9 @@ tcp_server_send(Hostname, Port, Data, MessageCount) ->
     try
         Binary = ?TCP_SERVER_SEND_PACK_REQUEST(Data),
         {ok, RemoteControlPort} = application:get_env(?APP_NAME, remote_control_port),
-        Path = ?TCP_SERVER_SEND_PATH(Port, MessageCount),
+        Path = list_to_binary(?TCP_SERVER_SEND_PATH(Port, MessageCount)),
         {200, _, RespBodyJSON} = appmock_utils:https_request(Hostname, RemoteControlPort,
-            <<(list_to_binary(Path))/binary>>, post, [], Binary),
+            Path, post, [], Binary),
         RespBody = appmock_utils:decode_from_json(RespBodyJSON),
         case RespBody of
             ?TRUE_RESULT ->
@@ -301,7 +301,7 @@ reset_tcp_server_history(Hostname) ->
     try
         {ok, RemoteControlPort} = application:get_env(?APP_NAME, remote_control_port),
         {200, _, RespBodyJSON} = appmock_utils:https_request(Hostname, RemoteControlPort,
-            <<?RESET_TCP_MOCK_HISTORY_PATH>>, post, [], <<"">>),
+            <<?RESET_TCP_SERVER_HISTORY_PATH>>, post, [], <<"">>),
         RespBody = appmock_utils:decode_from_json(RespBodyJSON),
         case RespBody of
             ?TRUE_RESULT ->
@@ -324,7 +324,7 @@ reset_tcp_server_history(Hostname) ->
 tcp_server_history(Hostname, Port) ->
     try
         {ok, RemoteControlPort} = application:get_env(?APP_NAME, remote_control_port),
-        Path = ?TCP_SERVER_HISTORY_PATH(Port),
+        Path = list_to_binary(?TCP_SERVER_HISTORY_PATH(Port)),
         {200, _, RespBodyJSON} = appmock_utils:https_request(Hostname, RemoteControlPort,
             Path, post, [], <<"">>),
         RespBody = appmock_utils:decode_from_json(RespBodyJSON),
@@ -345,9 +345,9 @@ tcp_server_connection_count(Hostname, Port) ->
     try
         Binary = ?TCP_SERVER_CONNECTION_COUNT_PACK_REQUEST,
         {ok, RemoteControlPort} = application:get_env(?APP_NAME, remote_control_port),
-        Path = ?TCP_SERVER_CONNECTION_COUNT_PATH(Port),
+        Path = list_to_binary(?TCP_SERVER_CONNECTION_COUNT_PATH(Port)),
         {200, _, RespBodyJSON} = appmock_utils:https_request(Hostname, RemoteControlPort,
-            <<(list_to_binary(Path))/binary>>, post, [], Binary),
+            Path, post, [], Binary),
         RespBody = appmock_utils:decode_from_json(RespBodyJSON),
         ?TCP_SERVER_CONNECTION_COUNT_UNPACK_RESPONSE(RespBody)
     catch T:M ->

@@ -240,7 +240,7 @@ handle_call(healthcheck, _From, State) ->
             {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, PathMessHistory, get, [], <<"">>),
 
             % Check connectivity to tcp server history reset
-            {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, <<?RESET_TCP_MOCK_HISTORY_PATH>>, get, [], <<"">>),
+            {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, <<?RESET_TCP_SERVER_HISTORY_PATH>>, get, [], <<"">>),
 
             % Check connectivity to tcp server mock verification path with some random data
             PathConnCount = list_to_binary(?TCP_SERVER_CONNECTION_COUNT_PATH(5555)),
@@ -343,7 +343,7 @@ start_remote_control_listener() ->
             {?TCP_SERVER_ALL_MESSAGES_COUNT_COWBOY_ROUTE, remote_control_handler, [?TCP_SERVER_ALL_MESSAGES_COUNT_COWBOY_ROUTE]},
             {?TCP_SERVER_HISTORY_COWBOY_ROUTE, remote_control_handler, [?TCP_SERVER_HISTORY_COWBOY_ROUTE]},
             {?TCP_SERVER_SEND_COWBOY_ROUTE, remote_control_handler, [?TCP_SERVER_SEND_COWBOY_ROUTE]},
-            {?RESET_TCP_MOCK_HISTORY_PATH, remote_control_handler, [?RESET_TCP_MOCK_HISTORY_PATH]},
+            {?RESET_TCP_SERVER_HISTORY_PATH, remote_control_handler, [?RESET_TCP_SERVER_HISTORY_PATH]},
             {?TCP_SERVER_CONNECTION_COUNT_COWBOY_ROUTE, remote_control_handler, [?TCP_SERVER_CONNECTION_COUNT_COWBOY_ROUTE]}
         ]}
     ]),

@@ -15,6 +15,7 @@
 #include "messages/handshakeRequest.h"
 #include "messages/handshakeResponse.h"
 
+#include <atomic>
 #include <cassert>
 #include <chrono>
 #include <functional>
@@ -61,6 +62,7 @@ public:
      * @see ConnectionPool::setHandshake()
      * @note This method is only instantiable if the lower layer has a
      * @c setHandshake method.
+     * @return A future containing the status of the first handshake.
      */
     template <typename = void>
     auto setHandshake(
@@ -68,14 +70,37 @@ public:
         std::function<std::error_code(one::messages::HandshakeResponse)>
             onHandshakeResponse)
     {
-        return LowerLayer::setHandshake(
+        auto hasBeenSet = std::make_shared<std::atomic<int>>(0);
+        auto promise = std::make_shared<std::promise<void>>();
+
+        LowerLayer::setHandshake(
             [getHandshake = std::move(getHandshake)] {
                 return getHandshake().serialize();
             },
             [onHandshakeResponse = std::move(onHandshakeResponse)](
                 ServerMessagePtr msg) {
                 return onHandshakeResponse({std::move(msg)});
+            },
+            [=](const std::error_code &ec) mutable {
+                // The promise has been already set.
+                if (*hasBeenSet)
+                    return;
+
+                // In case of concurrent access, only one thread will get 1 from
+                // incrementation.
+                if ((*hasBeenSet)++ != 1)
+                    return;
+
+                if (ec) {
+                    promise->set_exception(
+                        std::make_exception_ptr(std::system_error{ec}));
+                }
+                else {
+                    promise->set_value();
+                }
             });
+
+        return promise->get_future();
     }
 
     /**

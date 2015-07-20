@@ -224,7 +224,7 @@ def tcp_server_wait_for_connections(appmock_ip, tcp_port, number_of_connections=
     Returns when given number of connections are established on given port, or after it timeouts.
     The accept_more flag makes the function succeed when there is the same or more connections than expected.
     """
-    start_time = time.clock()
+    start_time = time.time()
     wait_for = WAIT_STARTING_CHECK_INTERVAL
 
     while True:

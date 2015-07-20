@@ -11,6 +11,7 @@ tcp_server_mocks() -> [
     #tcp_server_mock{
         port = 5555,
         ssl = true,
-        packet = 4
+        packet = 4,
+        type = counter
     }
 ].

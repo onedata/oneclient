@@ -61,7 +61,8 @@
 
 % Internal state of the gen server
 -record(state, {
-    endpoints = [] :: [{Port :: integer(), Endpoint :: #endpoint{}}]
+    %% Mapping port -> #endpoint
+    endpoints = dict:new() :: dict:dict()
 }).
 
 %%%===================================================================
@@ -191,7 +192,7 @@ init([]) ->
     DescriptionModule = appmock_utils:load_description_module(AppDescriptionFile),
     Endpoints = start_listeners(DescriptionModule),
     EndpointMappings = [{Endpoint#endpoint.port, Endpoint} || Endpoint <- Endpoints],
-    {ok, #state{endpoints = EndpointMappings}}.
+    {ok, #state{endpoints = dict:from_list(EndpointMappings)}}.
 
 
 %%--------------------------------------------------------------------
@@ -209,19 +210,21 @@ init([]) ->
     {noreply, NewState :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
     {stop, Reason :: term(), NewState :: #state{}}).
-handle_call(healthcheck, _From, #state{endpoints = Endpoints} = State) ->
+handle_call(healthcheck, _From, State) ->
     Reply =
         try
             % Check connectivity to all TCP listeners
             lists:foreach(
-                fun({Port, #endpoint{use_ssl = UseSSL}}) ->
-                    Transport = case UseSSL of
-                                    true -> ssl2;
-                                    false -> gen_tcp
-                                end,
-                    {ok, Socket} = Transport:connect("127.0.0.1", Port, []),
-                    Transport:close(Socket)
-                end, Endpoints),
+                fun(#endpoint{port = Port, use_ssl = UseSSL}) ->
+                    case UseSSL of
+                        true ->
+                            {ok, Socket} = ssl2:connect("127.0.0.1", Port, []),
+                            ssl2:close(Socket);
+                        false ->
+                            {ok, Socket} = gen_tcp:connect("127.0.0.1", Port, []),
+                            gen_tcp:close(Socket)
+                    end
+                end, get_all_endpoints(State)),
             ok
         catch T:M ->
             ?error_stacktrace("Error during ~p healthcheck- ~p:~p", [?MODULE, T, M]),
@@ -246,16 +249,15 @@ handle_call({register_packet, Port, Data}, _From, State) ->
     MsgCount = Endpoint#endpoint.msg_count,
     MsgHistory = Endpoint#endpoint.msg_history,
     HistoryEnabled = Endpoint#endpoint.history_enabled,
-    NewEndpoint = case HistoryEnabled of
-                      true ->
-                          Endpoint#endpoint{
-                              msg_count_per_msg = dict:update(Data, fun([Old]) -> [Old + 1] end, [1], MsgCountPerMsg),
-                              msg_history = [Data | MsgHistory],
-                              msg_count = MsgCount + 1
-                          };
-                      false ->
-                          Endpoint#endpoint{msg_count = MsgCount + 1}
-                  end,
+    NewHistory = case HistoryEnabled of
+                     true -> append_to_history(Data, MsgHistory);
+                     false -> MsgHistory
+                 end,
+    NewEndpoint = Endpoint#endpoint{
+        msg_count_per_msg = dict:update(Data, fun(Old) -> Old + 1 end, 1, MsgCountPerMsg),
+        msg_history = NewHistory,
+        msg_count = MsgCount + 1
+    },
     {reply, ok, update_endpoint(NewEndpoint, State)};
 
 handle_call({tcp_server_specific_message_count, Port, Data}, _From, State) ->
@@ -263,16 +265,11 @@ handle_call({tcp_server_specific_message_count, Port, Data}, _From, State) ->
                 undefined ->
                     {error, wrong_endpoint};
                 Endpoint ->
-                    case Endpoint#endpoint.history_enabled of
-                        false ->
-                            {error, counter_mode};
-                        true ->
-                            case dict:find(Data, Endpoint#endpoint.msg_count_per_msg) of
-                                {ok, [Count]} ->
-                                    {ok, Count};
-                                error ->
-                                    {ok, 0}
-                            end
+                    case dict:find(Data, Endpoint#endpoint.msg_count_per_msg) of
+                        {ok, Count} ->
+                            {ok, Count};
+                        error ->
+                            {ok, 0}
                     end
 
             end,
@@ -322,7 +319,7 @@ handle_call({tcp_mock_history, Port}, _From, State) ->
                         false ->
                             {error, counter_mode};
                         true ->
-                            {ok, lists:reverse(Endpoint#endpoint.msg_history)}
+                            {ok, get_history(Endpoint#endpoint.msg_history)}
                     end
             end,
     {reply, Reply, State};
@@ -470,7 +467,10 @@ start_listeners(AppDescriptionModule) ->
 %%--------------------------------------------------------------------
 -spec get_endpoint(Port :: integer(), State :: #state{}) -> #endpoint{} | undefined.
 get_endpoint(Port, #state{endpoints = Endpoints}) ->
-    proplists:get_value(Port, Endpoints, undefined).
+    case dict:find(Port, Endpoints) of
+        {ok, Endpoint} -> Endpoint;
+        error -> undefined
+    end.
 
 
 %%--------------------------------------------------------------------
@@ -481,7 +481,7 @@ get_endpoint(Port, #state{endpoints = Endpoints}) ->
 %%--------------------------------------------------------------------
 -spec get_all_endpoints(State :: #state{}) -> [#endpoint{}].
 get_all_endpoints(#state{endpoints = Endpoints}) ->
-    {_, Res} = lists:unzip(Endpoints),
+    {_, Res} = lists:unzip(dict:to_list(Endpoints)),
     Res.
 
 
@@ -493,4 +493,43 @@ get_all_endpoints(#state{endpoints = Endpoints}) ->
 %%--------------------------------------------------------------------
 -spec update_endpoint(Endpoint :: #endpoint{}, State :: #state{}) -> NewState :: #state{}.
 update_endpoint(#endpoint{port = Port} = Endpoint, #state{endpoints = Endpoints}) ->
-    #state{endpoints = [{Port, Endpoint} | proplists:delete(Port, Endpoints)]}.
+    NewDict = dict:update(Port, fun(_) -> Endpoint end, Endpoint, Endpoints),
+    #state{endpoints = NewDict}.
+
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Appends new message to history. Aggregates the same, consecutive messages.
+%% get_history/1 must be used to retirevethe full history.
+%% @end
+%%--------------------------------------------------------------------
+-spec append_to_history(Message :: binary(), History) -> History when
+    History :: [{Message :: binary(), Count :: integer()}].
+append_to_history(Message, History) ->
+    case History of
+        [] ->
+            [{Message, 1}];
+        _ ->
+            [{Last, Counter} | Rest] = History,
+            case Message of
+                Last ->
+                    [{Last, Counter + 1} | Rest];
+                _ ->
+                    [{Message, 1}, {Last, Counter} | Rest]
+            end
+    end.
+
+
+%%--------------------------------------------------------------------
+%% @private
+%% @doc
+%% Retrieves the full history of an endpoint.
+%% @end
+%%--------------------------------------------------------------------
+-spec get_history(History :: [{Message :: binary(), Count :: integer()}]) -> [binary()].
+get_history(History) ->
+    lists:foldl(
+        fun({Message, Count}, Acc) ->
+            lists:concat([lists:duplicate(Count, Message), Acc])
+        end, [], History).

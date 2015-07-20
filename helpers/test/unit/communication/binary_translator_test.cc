@@ -29,9 +29,9 @@ struct LowerLayer {
 
     MOCK_METHOD2(sendProxy, void(std::string, int));
     MOCK_METHOD1(setOnMessageCallback, void(std::function<void(std::string)>));
-    MOCK_METHOD2(
-        setHandshake, void(std::function<std::string()>,
-                          std::function<std::error_code(std::string)>));
+    MOCK_METHOD3(setHandshake, void(std::function<std::string()>,
+                                   std::function<std::error_code(std::string)>,
+                                   std::function<void(std::error_code)>));
 
     void send(std::string msg, Callback, int i)
     {
@@ -90,7 +90,7 @@ TEST_F(BinaryTranslatorTest, setOnMessageCallbackShouldDeserializeBytes)
 TEST_F(BinaryTranslatorTest, setHandshakeShouldSerializeDomainObjects)
 {
     std::function<std::string()> byteGetHandshake;
-    EXPECT_CALL(binaryTranslator.mock, setHandshake(_, _))
+    EXPECT_CALL(binaryTranslator.mock, setHandshake(_, _, _))
         .WillOnce(SaveArg<0>(&byteGetHandshake));
 
     const auto data = randomString();
@@ -99,7 +99,7 @@ TEST_F(BinaryTranslatorTest, setHandshakeShouldSerializeDomainObjects)
 
     auto protoGetHandshake = [&] { return std::move(protoMsg); };
     binaryTranslator.setHandshake(
-        protoGetHandshake, [](auto) { return std::error_code{}; });
+        protoGetHandshake, [](auto) { return std::error_code{}; }, [](auto) {});
 
     ASSERT_EQ(msg, byteGetHandshake());
 }
@@ -107,7 +107,7 @@ TEST_F(BinaryTranslatorTest, setHandshakeShouldSerializeDomainObjects)
 TEST_F(BinaryTranslatorTest, setHandshakeShouldDeserializeBytes)
 {
     std::function<std::error_code(std::string)> byteOnHandshakeResponse;
-    EXPECT_CALL(binaryTranslator.mock, setHandshake(_, _))
+    EXPECT_CALL(binaryTranslator.mock, setHandshake(_, _, _))
         .WillOnce(SaveArg<1>(&byteOnHandshakeResponse));
 
     const auto data = randomString();
@@ -122,8 +122,8 @@ TEST_F(BinaryTranslatorTest, setHandshakeShouldDeserializeBytes)
         return std::error_code{};
     };
 
-    binaryTranslator.setHandshake(
-        [] { return ClientMessagePtr{}; }, protoOnHandshakeResponse);
+    binaryTranslator.setHandshake([] { return ClientMessagePtr{}; },
+        protoOnHandshakeResponse, [](auto) {});
 
     byteOnHandshakeResponse(protoMsg->SerializeAsString());
 

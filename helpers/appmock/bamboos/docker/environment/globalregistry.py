@@ -22,8 +22,10 @@ def _tweak_config(config, name, uid):
     sys_config['db_nodes'] = [common.format_nodename(n, uid) for n in
                               sys_config['db_nodes']]
 
+    if 'vm.args' not in cfg['nodes']['node']:
+        cfg['nodes']['node']['vm.args'] = {}
     vm_args = cfg['nodes']['node']['vm.args']
-    vm_args['name'] = common.format_nodename(vm_args['name'], uid)
+    vm_args['name'] = common.format_nodename(name, uid)
 
     return cfg
 

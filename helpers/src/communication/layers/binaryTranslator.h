@@ -44,7 +44,8 @@ public:
      * @see ConnectionPool::setHandshake()
      */
     auto setHandshake(std::function<ClientMessagePtr()> getHandshake,
-        std::function<std::error_code(ServerMessagePtr)> onHandshakeResponse);
+        std::function<std::error_code(ServerMessagePtr)> onHandshakeResponse,
+        std::function<void(std::error_code)> onHandshakeDone);
 
     /**
      * Wraps lower layer's @c setOnMessageCallback.
@@ -69,7 +70,8 @@ public:
 template <class LowerLayer>
 auto BinaryTranslator<LowerLayer>::setHandshake(
     std::function<ClientMessagePtr()> getHandshake,
-    std::function<std::error_code(ServerMessagePtr)> onHandshakeResponse)
+    std::function<std::error_code(ServerMessagePtr)> onHandshakeResponse,
+    std::function<void(std::error_code)> onHandshakeDone)
 {
     return LowerLayer::setHandshake(
         [getHandshake = std::move(getHandshake)] {
@@ -85,7 +87,9 @@ auto BinaryTranslator<LowerLayer>::setHandshake(
                 return std::make_error_code(std::errc::protocol_error);
 
             return onHandshakeResponse(std::move(serverMsg));
-        });
+        },
+
+        std::move(onHandshakeDone));
 }
 
 template <class LowerLayer>

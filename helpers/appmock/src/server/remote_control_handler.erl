@@ -148,9 +148,7 @@ handle_request(?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_COWBOY_ROUTE, Req) ->
                     {ok, Count} ->
                         ?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PACK_RESPONSE(Count);
                     {error, wrong_endpoint} ->
-                        ?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PACK_ERROR_WRONG_ENDPOINT;
-                    {error, counter_mode} ->
-                        ?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PACK_ERROR_COUNTER_MODE
+                        ?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PACK_ERROR_WRONG_ENDPOINT
                 end,
     Req2 = cowboy_req:set_resp_body(appmock_utils:encode_to_json(ReplyTerm), Req),
     Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
@@ -206,7 +204,7 @@ handle_request(?TCP_SERVER_HISTORY_COWBOY_ROUTE, Req) ->
     Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
-handle_request(?RESET_TCP_MOCK_HISTORY_PATH, Req) ->
+handle_request(?RESET_TCP_SERVER_HISTORY_PATH, Req) ->
     ReplyTerm = case remote_control_server:reset_tcp_mock_history() of
                     true ->
                         ?TRUE_RESULT
