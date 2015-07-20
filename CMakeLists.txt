@@ -91,6 +91,15 @@ set(PLATFORM_EXTRA_LIBS
     ${ZLIB_LIBRARY}
     ${DL_LIBRARY})
 
+# Code coverage
+option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
+if(CODE_COVERAGE)
+  message("Code coverage enabled.")
+  add_compile_options(--coverage)
+  set(PLATFORM_EXTRA_LIBS ${PLATFORM_EXTRA_LIBS} gcov)
+endif(CODE_COVERAGE)
+
+
 if(APPLE)
     set(SECTION_FRAGMENTATION_FLAGS -Wno-deprecated-declarations)
     set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
