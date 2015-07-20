@@ -1,6 +1,12 @@
+add_subdirectory(
+    ${ERLANG_TLS_DIR}/deps/gmock
+    ${PROJECT_BINARY_DIR}/deps/gmock)
+
+include_directories(SYSTEM
+    ${ERLANG_TLS_DIR}/deps/gmock/include
+    ${ERLANG_TLS_DIR}/deps/gtest/include)
+
 include_directories(include ${PROJECT_SOURCE_DIR}/helpers/test/unit/include)
-include_directories(SYSTEM ${GTEST_INCLUDE_DIR} ${GMOCK_INCLUDE_DIR})
-set(TEST_LIBRARIES )
 
 file(GLOB_RECURSE TEST_HEADERS include/*.h)
 add_library(testRunner OBJECT testRunner.cc)

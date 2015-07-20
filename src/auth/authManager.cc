@@ -14,7 +14,7 @@
 #include "auth/grAdapter.h"
 #include "auth/gsiHandler.h"
 #include "communication/cert/certificateData.h"
-#include "communication/connection.h"
+#include "communication/persistentConnection.h"
 #include "communication/communicator.h"
 
 #include <boost/archive/iterators/base64_from_binary.hpp>
@@ -54,24 +54,23 @@ CertificateAuthManager::CertificateAuthManager(std::weak_ptr<Context> context,
     m_hostname = gsiHandler.getClusterHostname(m_hostname);
 }
 
-std::shared_ptr<communication::Communicator>
+std::tuple<std::shared_ptr<communication::Communicator>, std::future<void>>
 CertificateAuthManager::createCommunicator(const unsigned int poolSize,
     std::string sessionId,
     std::function<std::error_code(messages::HandshakeResponse)>
-        onHandshakeResponse,
-    ErrorPolicy errorPolicy)
+        onHandshakeResponse)
 {
-    auto communicator = std::make_shared<communication::Communicator>(poolSize,
-        m_hostname, std::to_string(m_port), m_checkCertificate,
-        communication::createConnection, errorPolicy);
+    auto communicator =
+        std::make_shared<communication::Communicator>(poolSize, m_hostname,
+            m_port, m_checkCertificate, communication::createConnection);
 
     communicator->setCertificateData(m_certificateData);
 
     one::messages::HandshakeRequest handshake{std::move(sessionId)};
-    communicator->setHandshake(
+    auto future = communicator->setHandshake(
         [=] { return handshake; }, std::move(onHandshakeResponse));
 
-    return communicator;
+    return std::forward_as_tuple(std::move(communicator), std::move(future));
 }
 
 TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
@@ -103,26 +102,25 @@ TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
     }
 }
 
-std::shared_ptr<communication::Communicator>
+std::tuple<std::shared_ptr<communication::Communicator>, std::future<void>>
 TokenAuthManager::createCommunicator(const unsigned int poolSize,
     std::string sessionId,
     std::function<std::error_code(messages::HandshakeResponse)>
-        onHandshakeResponse,
-    ErrorPolicy errorPolicy)
+        onHandshakeResponse)
 {
-    auto communicator = std::make_shared<communication::Communicator>(poolSize,
-        m_hostname, std::to_string(m_port), m_checkCertificate,
-        communication::createConnection, errorPolicy);
+    auto communicator =
+        std::make_shared<communication::Communicator>(poolSize, m_hostname,
+            m_port, m_checkCertificate, communication::createConnection);
 
     one::messages::HandshakeRequest handshake{
         sessionId, m_authDetails.accessToken()};
 
-    communicator->setHandshake(
+    auto future = communicator->setHandshake(
         [=] { return handshake; }, std::move(onHandshakeResponse));
 
     /// @todo Refreshing the token
 
-    return communicator;
+    return std::forward_as_tuple(std::move(communicator), std::move(future));
 }
 
 } // namespace auth
