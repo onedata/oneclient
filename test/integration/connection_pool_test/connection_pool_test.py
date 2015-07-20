@@ -6,7 +6,6 @@ This software is released under the MIT license cited in 'LICENSE.txt'."""
 
 import os
 import sys
-import time
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.dirname(script_dir))
@@ -18,6 +17,7 @@ from environment import appmock, common, docker
 # noinspection PyUnresolvedReferences
 import connection_pool
 import appmock_client
+
 
 # noinspection PyClassHasNoInit
 class TestConnectionPool:
@@ -71,7 +71,7 @@ class TestConnectionPool:
 
         duration(send_time,
                  appmock_client.tcp_server_wait_for_specific_messages,
-                 self.ip, 5555, msg, msg_num, False, 600)
+                 self.ip, 5555, msg, msg_num, False, False, 600)
 
         return [
             send_time_param(send_time.ms()),
@@ -114,168 +114,6 @@ class TestConnectionPool:
 
         assert len(msgs) == len(recv)
         assert msgs.sort() == recv.sort()
-
-        return [
-            recv_time_param(recv_time.ms()),
-            mbps_param(msg_num, msg_size, recv_time.us())
-        ]
-
-
-# noinspection PyClassHasNoInit
-class TestConnection:
-    @classmethod
-    def setup_class(cls):
-        cls.result = appmock.up(image='onedata/builder', bindir=appmock_dir,
-                                dns='none', uid=common.generate_uid(),
-                                config_path=os.path.join(script_dir,
-                                                         'env.json'))
-
-        [container] = cls.result['docker_ids']
-        cls.ip = docker.inspect(container)['NetworkSettings']['IPAddress']. \
-            encode('ascii')
-
-    @classmethod
-    def teardown_class(cls):
-        docker.remove(cls.result['docker_ids'], force=True, volumes=True)
-
-    @performance(skip=True)
-    def test_connect_should_trigger_handshake(self, parameters):
-        handshake = random_str()
-
-        conn = connection_pool.ConnectionProxy(handshake, True)
-        conn.connect(self.ip, 5555)
-
-        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555,
-                                                             handshake)
-
-    @performance(skip=True)
-    def test_connection_should_receive_handshake_response(self, parameters):
-        conn = connection_pool.ConnectionProxy(random_str(), True)
-        conn.connect(self.ip, 5555)
-
-        response = random_str()
-        appmock_client.tcp_server_send(self.ip, 5555, response)
-
-        assert response == conn.getHandshakeResponse()
-
-    @performance(skip=True)
-    def test_connection_should_close_after_rejected_handshake_response(self,
-                                                                       parameters):
-        conn = connection_pool.ConnectionProxy(random_str(), False)
-        conn.connect(self.ip, 5555)
-
-        assert not conn.isClosed()
-
-        appmock_client.tcp_server_send(self.ip, 5555, random_str())
-
-        assert conn.waitForClosed()
-
-    @performance(skip=True)
-    def test_connection_is_ready_after_handshake_response(self, parameters):
-        conn = connection_pool.ConnectionProxy(random_str(), True)
-        conn.connect(self.ip, 5555)
-
-        assert not conn.isReady()
-
-        appmock_client.tcp_server_send(self.ip, 5555, random_str())
-
-        assert conn.waitForReady()
-
-    @performance(skip=True)
-    def test_connection_should_become_ready_after_message_sent(self,
-                                                               parameters):
-        conn = connection_pool.ConnectionProxy(random_str(), True)
-        conn.connect(self.ip, 5555)
-
-        appmock_client.tcp_server_send(self.ip, 5555, random_str())
-
-        conn.waitForReady()
-        conn.send(random_str())
-
-        assert conn.waitForReady()
-
-    @performance({
-        'parameters': [msg_num_param(1), msg_size_param(100, 'B')],
-        'configs': {
-            'multiple_messages': {
-                'description': 'Sends multiple messages using connection.',
-                'parameters': [msg_num_param(500)],
-            }
-        }
-    })
-    def test_send_should_send_messages(self, parameters):
-        """Sends multiple messages using connection and checks whether they
-        have been received."""
-
-        conn = connection_pool.ConnectionProxy(random_str(), True)
-        conn.connect(self.ip, 5555)
-
-        msg_num = parameters['msg_num'].value
-        msg_size = parameters['msg_size'].value * translate_unit(
-            parameters['msg_size'].unit)
-        msg = random_str(msg_size)
-        msg2 = random_str(msg_size)
-
-        send_time = Duration()
-        for _ in xrange(msg_num):
-            duration(send_time, appmock_client.tcp_server_send, self.ip, 5555,
-                     random_str(), 1)
-
-            duration(send_time, conn.waitForReady)
-            duration(send_time, conn.send, msg)
-
-            duration(send_time, conn.waitForReady)
-            duration(send_time, conn.send, msg2)
-
-        duration(send_time,
-                 appmock_client.tcp_server_wait_for_specific_messages,
-                 self.ip, 5555, msg, msg_num, False, 600)
-        duration(send_time,
-                 appmock_client.tcp_server_wait_for_specific_messages,
-                 self.ip, 5555, msg2, msg_num, False, 600)
-
-        return [
-            send_time_param(send_time.ms()),
-            mbps_param(msg_num, msg_size, send_time.us())
-        ]
-
-    @performance({
-        'parameters': [msg_num_param(1), msg_size_param(100, 'B')],
-        'configs': {
-            'multiple_messages': {
-                'description': 'Receives multiple messages using connection.',
-                'parameters': [msg_num_param(500)]
-            }
-        }
-    })
-    def test_connection_should_receive(self, parameters):
-        """Receives multiple messages using connection."""
-
-        conn = connection_pool.ConnectionProxy(random_str(), True)
-        conn.connect(self.ip, 5555)
-
-        appmock_client.tcp_server_send(self.ip, 5555, random_str())
-        conn.getHandshakeResponse()
-
-        msg_num = parameters['msg_num'].value
-        msg_size = parameters['msg_size'].value * translate_unit(
-            parameters['msg_size'].unit)
-
-        recv_time = Duration()
-        for _ in xrange(msg_num):
-            msg = random_str(msg_size)
-            duration(recv_time, appmock_client.tcp_server_send, self.ip, 5555,
-                     msg, 1)
-
-            assert duration(recv_time, conn.waitForMessage)
-            assert msg == duration(recv_time, conn.getMessage)
-
-            msg2 = random_str(msg_size)
-            duration(recv_time, appmock_client.tcp_server_send, self.ip, 5555,
-                     msg2, 1)
-
-            assert duration(recv_time, conn.waitForMessage)
-            assert msg2 == duration(recv_time, conn.getMessage)
 
         return [
             recv_time_param(recv_time.ms()),

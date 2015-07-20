@@ -38,7 +38,7 @@ parser.add_argument(
     dest='performance')
 
 parser.add_argument(
-    '--suite', '-s',
+    '--suite',
     action='append',
     default=[],
     help='name of the test suite',

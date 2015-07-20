@@ -12,7 +12,7 @@ Run the script with -h flag to learn about script's running options.
 from __future__ import print_function
 import json
 
-from environment import common, provider
+from environment import common, provider_worker
 
 
 parser = common.standard_arg_parser('Bring up oneprovider worker nodes.')
@@ -24,7 +24,7 @@ parser.add_argument(
     dest='logdir')
 
 args = parser.parse_args()
-output = provider.up(args.image, args.bin, args.logdir, args.dns, args.uid,
+output = provider_worker.up(args.image, args.bin, args.logdir, args.dns, args.uid,
                      args.config_path)
 
 print(json.dumps(output))

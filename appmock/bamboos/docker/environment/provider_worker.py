@@ -11,7 +11,6 @@ import os
 
 from . import common, docker, riak, dns as dns_mod
 
-
 PROVIDER_WAIT_FOR_NAGIOS_SECONDS = 60
 
 
@@ -27,8 +26,10 @@ def _tweak_config(config, name, uid):
         sys_config['global_registry_node'] = \
             common.format_hostname(sys_config['global_registry_node'], uid)
 
+    if 'vm.args' not in cfg['nodes']['node']:
+        cfg['nodes']['node']['vm.args'] = {}
     vm_args = cfg['nodes']['node']['vm.args']
-    vm_args['name'] = common.format_nodename(vm_args['name'], uid)
+    vm_args['name'] = common.format_nodename(name, uid)
 
     return cfg, sys_config['db_nodes']
 
@@ -42,17 +43,17 @@ def _node_up(image, bindir, logdir, uid, config, dns_servers, db_node_mappings):
     (name, sep, hostname) = node_name.partition('@')
 
     command = \
-        '''set -e
-mkdir -p /root/bin/node/log/
+        '''mkdir -p /root/bin/node/log/
 chown {uid}:{gid} /root/bin/node/log/
 chmod ug+s /root/bin/node/log/
 cat <<"EOF" > /tmp/gen_dev_args.json
 {gen_dev_args}
 EOF
+set -e
 escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json
-/root/bin/node/bin/oneprovider_node console'''
+/root/bin/node/bin/op_worker console'''
     command = command.format(
-        gen_dev_args=json.dumps({'oneprovider_node': config}),
+        gen_dev_args=json.dumps({'op_worker': config}),
         uid=os.geteuid(),
         gid=os.getegid())
 
@@ -88,44 +89,50 @@ def _ready(container):
     return common.nagios_up(ip)
 
 
-def _riak_up(configs, dns_servers, uid):
+def _riak_up(cluster_name, riak_nodes, dns_servers, uid):
     db_node_mappings = {}
-    for _, db_nodes in configs:
-        for node in db_nodes:
-            db_node_mappings[node] = ''
+    for node in riak_nodes:
+        db_node_mappings[node] = ''
 
     i = 0
     for node in iter(db_node_mappings.keys()):
-        db_node_mappings[node] = riak.config_entry(i, uid)
+        db_node_mappings[node] = riak.config_entry(cluster_name, i, uid)
         i += 1
 
     if i == 0:
         return db_node_mappings, {}
 
     [dns] = dns_servers
-    riak_output = riak.up('onedata/riak', dns, uid, None,
-                          len(db_node_mappings))
+    riak_output = riak.up('onedata/riak', dns, uid, None, cluster_name, len(db_node_mappings))
 
     return db_node_mappings, riak_output
 
 
 def up(image, bindir, logdir, dns, uid, config_path):
-    config = common.parse_json_file(config_path)['oneprovider_node']
-    config['config']['target_dir'] = '/root/bin'
-    configs = [_tweak_config(config, node, uid) for node in config['nodes']]
-
+    providers = common.parse_json_file(config_path)['providers']
     dns_servers, output = dns_mod.set_up_dns(dns, uid)
-    workers = []
+    # Workers of every provider are started together
+    for provider in providers:
+        config = providers[provider]['op_worker']
+        config['config']['target_dir'] = '/root/bin'
+        tweaked_configs = [_tweak_config(config, node, uid) for node in config['nodes']]
+        configs = []
+        riak_nodes = []
+        for tw_cfg, db_nodes in tweaked_configs:
+            configs.append(tw_cfg)
+            riak_nodes += db_nodes
 
-    db_node_mappings, riak_out = _riak_up(configs, dns_servers, uid)
-    common.merge(output, riak_out)
+        workers = []
 
-    for cfg, _ in configs:
-        worker, node_out = _node_up(image, bindir, logdir, uid, cfg,
-                                         dns_servers, db_node_mappings)
-        workers.extend(worker)
-        common.merge(output, node_out)
+        db_node_mappings, riak_out = _riak_up(provider, riak_nodes, dns_servers, uid)
+        common.merge(output, riak_out)
 
-    common.wait_until(_ready, workers[0:1], PROVIDER_WAIT_FOR_NAGIOS_SECONDS)
+        for cfg in configs:
+            worker, node_out = _node_up(image, bindir, logdir, uid, cfg,
+                                        dns_servers, db_node_mappings)
+            workers.extend(worker)
+            common.merge(output, node_out)
+
+        common.wait_until(_ready, workers[0:1], PROVIDER_WAIT_FOR_NAGIOS_SECONDS)
 
     return output
