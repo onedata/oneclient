@@ -22,14 +22,14 @@ WriteEvent::WriteEvent()
 {
 }
 
-WriteEvent::WriteEvent(std::string fileId, off_t offset, std::size_t size,
-    off_t fileSize, std::size_t counter)
-    : Event{counter}
-    , m_fileId{std::move(fileId)}
-    , m_size{size}
-    , m_fileSize{fileSize}
+WriteEvent::WriteEvent(std::string fileId_, off_t offset_, std::size_t size_,
+    off_t fileSize_, std::size_t counter_)
+    : Event{counter_}
+    , m_fileId{std::move(fileId_)}
+    , m_size{size_}
+    , m_fileSize{fileSize_}
     , m_blocks{boost::icl::discrete_interval<off_t>::right_open(
-          offset, offset + size)}
+          offset_, offset_ + size_)}
 {
 }
 

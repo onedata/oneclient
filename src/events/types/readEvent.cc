@@ -23,12 +23,12 @@ ReadEvent::ReadEvent()
 }
 
 ReadEvent::ReadEvent(
-    std::string fileId, off_t offset, size_t size, std::size_t counter)
-    : Event{counter}
-    , m_fileId{std::move(fileId)}
-    , m_size{size}
+    std::string fileId_, off_t offset_, size_t size_, std::size_t counter_)
+    : Event{counter_}
+    , m_fileId{std::move(fileId_)}
+    , m_size{size_}
     , m_blocks{boost::icl::discrete_interval<off_t>::right_open(
-          offset, offset + size)}
+          offset_, offset_ + size_)}
 {
 }
 

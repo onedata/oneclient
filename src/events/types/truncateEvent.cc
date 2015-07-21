@@ -15,8 +15,10 @@ namespace client {
 namespace events {
 
 TruncateEvent::TruncateEvent(
-    std::string fileId, off_t fileSize, std::size_t counter)
-    : WriteEvent(std::move(fileId), 0, 0, fileSize, counter){};
+    std::string fileId_, off_t fileSize_, std::size_t counter_)
+    : WriteEvent(std::move(fileId_), 0, 0, fileSize_, counter_)
+{
+}
 
 std::string TruncateEvent::toString() const
 {

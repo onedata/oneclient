@@ -48,14 +48,14 @@ const Translation translation = createTranslation();
 namespace one {
 namespace messages {
 
-Status::Status(std::error_code code)
-    : m_code{code}
+Status::Status(std::error_code ec)
+    : m_code{ec}
 {
 }
 
-Status::Status(std::error_code code, std::string description)
-    : m_code{code}
-    , m_description{std::move(description)}
+Status::Status(std::error_code ec, std::string desc)
+    : m_code{ec}
+    , m_description{std::move(desc)}
 {
 }
 

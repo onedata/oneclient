@@ -11,8 +11,8 @@
 namespace one {
 namespace client {
 
-OneException::OneException(const std::string &code, const std::string &message)
-    : m_code(std::move(code))
+OneException::OneException(const std::string &c, const std::string &message)
+    : m_code(std::move(c))
     , m_message(std::move(message))
 {
 }

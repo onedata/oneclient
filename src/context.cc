@@ -20,10 +20,10 @@ std::shared_ptr<Options> Context::options() const
     return m_options;
 }
 
-void Context::setOptions(std::shared_ptr<Options> options)
+void Context::setOptions(std::shared_ptr<Options> opt)
 {
     std::lock_guard<std::shared_timed_mutex> guard{m_optionsMutex};
-    m_options = std::move(options);
+    m_options = std::move(opt);
 }
 
 std::shared_ptr<Scheduler> Context::scheduler() const
@@ -32,10 +32,10 @@ std::shared_ptr<Scheduler> Context::scheduler() const
     return m_scheduler;
 }
 
-void Context::setScheduler(std::shared_ptr<Scheduler> scheduler)
+void Context::setScheduler(std::shared_ptr<Scheduler> sched)
 {
     std::lock_guard<std::shared_timed_mutex> guard{m_schedulerMutex};
-    m_scheduler = std::move(scheduler);
+    m_scheduler = std::move(sched);
 }
 
 std::shared_ptr<communication::Communicator> Context::communicator() const
@@ -45,10 +45,10 @@ std::shared_ptr<communication::Communicator> Context::communicator() const
 }
 
 void Context::setCommunicator(
-    std::shared_ptr<communication::Communicator> communicator)
+    std::shared_ptr<communication::Communicator> comm)
 {
     std::lock_guard<std::shared_timed_mutex> guard{m_communicatorMutex};
-    m_communicator = std::move(communicator);
+    m_communicator = std::move(comm);
 }
 
 } // namespace client

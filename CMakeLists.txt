@@ -146,7 +146,7 @@ include_directories(SYSTEM
     ${TBB_INCLUDE_DIRS}
     ${Boost_INCLUDE_DIRS}
     ${GLOG_INCLUDE_DIRS}
-    ${JSON11_INCLUDE_DIR})
+    ${CMAKE_CURRENT_SOURCE_DIR}/deps/json11)
 
 set(CLIENT_LIBRARIES
     json11
@@ -160,7 +160,7 @@ set(CLIENT_LIBRARIES
 
 # Define targets
 add_library(client OBJECT ${SOURCES} ${HEADERS})
-add_dependencies(client helpers clproto json11Build)
+add_dependencies(client helpers clproto)
 
 set(CLIENT_SOURCES
     ${MAIN_SOURCE_FILE}
