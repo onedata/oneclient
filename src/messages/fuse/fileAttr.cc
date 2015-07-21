@@ -30,6 +30,8 @@ const std::string &FileAttr::uuid() const { return m_fileAttr.uuid(); }
 
 mode_t FileAttr::mode() const { return m_fileAttr.mode(); }
 
+void FileAttr::mode(const mode_t newMode) { m_fileAttr.set_mode(newMode); }
+
 uid_t FileAttr::uid() const { return m_fileAttr.uid(); }
 
 gid_t FileAttr::gid() const { return m_fileAttr.gid(); }

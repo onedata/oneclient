@@ -31,6 +31,8 @@ class FileAttr : public FuseResponse {
 public:
     enum class FileType { regular, directory, link };
 
+    FileAttr() = default;
+
     /**
      * Constructor.
      * @param serverMessage Protocol Buffers message representing
@@ -47,6 +49,12 @@ public:
      * @return File access mode.
      */
     mode_t mode() const;
+
+    /**
+     * Sets a new mode.
+     * @param newMode The mode to set.
+     */
+    void mode(const mode_t newMode);
 
     /**
      * @return ID of the file's owner.

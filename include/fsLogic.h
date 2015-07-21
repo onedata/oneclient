@@ -31,7 +31,6 @@ class GetFileAttr;
 namespace client {
 
 class Context;
-class SHMock;
 
 namespace events {
 class EventManager;
@@ -210,9 +209,6 @@ public:
 
 private:
     void removeFile(boost::filesystem::path path);
-    messages::fuse::FileAttr getAttr(const boost::filesystem::path &path);
-    messages::fuse::FileAttr getAttr(const std::string &uuid);
-    messages::fuse::FileAttr getAttr(const messages::fuse::GetFileAttr &req);
 
     struct PathHash {
         static std::size_t hash(const boost::filesystem::path &);
@@ -223,6 +219,15 @@ private:
     tbb::concurrent_hash_map<boost::filesystem::path, std::string, PathHash>
         m_uuidCache;
     tbb::concurrent_hash_map<std::string, messages::fuse::FileAttr> m_attrCache;
+
+    messages::fuse::FileAttr getAttr(const boost::filesystem::path &path);
+    messages::fuse::FileAttr getAttr(const boost::filesystem::path &path,
+        decltype(m_uuidCache)::accessor &uuidAcc);
+    messages::fuse::FileAttr getAttr(const boost::filesystem::path &path,
+        decltype(m_uuidCache)::accessor &uuidAcc,
+        decltype(m_attrCache)::accessor &attrAcc);
+    messages::fuse::FileAttr getAttr(
+        const std::string &uuid, decltype(m_attrCache)::accessor &attrAcc);
 
     const uid_t m_uid;
     const gid_t m_gid;

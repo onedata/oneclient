@@ -19,6 +19,8 @@
 #include "messages/fuse/fileChildren.h"
 #include "messages/fuse/getFileChildren.h"
 #include "messages/fuse/updateTimes.h"
+#include "messages/fuse/rename.h"
+#include "messages/fuse/changeMode.h"
 
 #include <boost/algorithm/string.hpp>
 
@@ -102,7 +104,7 @@ int FsLogic::mkdir(boost::filesystem::path path, const mode_t mode)
 
     auto future =
         m_context->communicator()->communicate<messages::fuse::FuseResponse>(
-            msg);
+            std::move(msg));
 
     communication::wait(future);
 
@@ -138,13 +140,47 @@ int FsLogic::rename(
     DLOG(INFO) << "FUSE: rename(oldPath: '" << oldPath << "', newPath: '"
                << newPath << "')";
 
-    throw std::errc::operation_not_supported;
+    decltype(m_uuidCache)::accessor oldUUIDAcc, newUUIDAcc;
+    m_uuidCache.insert(newUUIDAcc, newPath);
+    auto uuid = getAttr(oldPath, oldUUIDAcc).uuid();
+
+    messages::fuse::Rename msg{uuid, std::move(newPath)};
+
+    auto future =
+        m_context->communicator()->communicate<messages::fuse::FuseResponse>(
+            std::move(msg));
+
+    try {
+        communication::wait(future);
+    }
+    catch (...) {
+        m_uuidCache.erase(newUUIDAcc);
+        throw;
+    }
+
+    newUUIDAcc->second = uuid;
+    m_uuidCache.erase(oldUUIDAcc);
+    return 0;
 }
 
 int FsLogic::chmod(boost::filesystem::path path, const mode_t mode)
 {
     DLOG(INFO) << "FUSE: chmod(path: '" << path << "', mode: " << mode << ")";
-    throw std::errc::operation_not_supported;
+
+    decltype(m_uuidCache)::accessor uuidAcc;
+    decltype(m_attrCache)::accessor attrAcc;
+    getAttr(path, uuidAcc, attrAcc);
+
+    messages::fuse::ChangeMode msg{attrAcc->second.uuid(), mode};
+
+    auto future =
+        m_context->communicator()->communicate<messages::fuse::FuseResponse>(
+            std::move(msg));
+
+    communication::wait(future);
+    attrAcc->second.mode(mode);
+
+    return 0;
 }
 
 int FsLogic::chown(
@@ -184,7 +220,7 @@ int FsLogic::utime(boost::filesystem::path path, struct utimbuf *const ubuf)
 
     auto future =
         m_context->communicator()->communicate<messages::fuse::FuseResponse>(
-            msg);
+            std::move(msg));
 
     communication::wait(future);
 
@@ -283,7 +319,7 @@ int FsLogic::readdir(boost::filesystem::path path, void *const buf,
     messages::fuse::GetFileChildren msg{attr.uuid(), offset, 1000};
     auto future =
         m_context->communicator()->communicate<messages::fuse::FileChildren>(
-            msg);
+            std::move(msg));
 
     auto fileChildren = communication::wait(future);
     auto currentOffset = offset;
@@ -323,7 +359,7 @@ void FsLogic::removeFile(boost::filesystem::path path)
 
     auto future =
         m_context->communicator()->communicate<messages::fuse::FuseResponse>(
-            msg);
+            std::move(msg));
 
     communication::wait(future);
 
@@ -333,35 +369,49 @@ void FsLogic::removeFile(boost::filesystem::path path)
 
 messages::fuse::FileAttr FsLogic::getAttr(const boost::filesystem::path &path)
 {
-    decltype(m_uuidCache)::const_accessor acc;
-    if (m_uuidCache.find(acc, path)) {
-        auto uuid = acc->second;
-        acc.release();
-
-        return getAttr(uuid);
-    }
-
-    return getAttr(messages::fuse::GetFileAttr{path});
+    decltype(m_uuidCache)::accessor uuidAcc;
+    return getAttr(path, uuidAcc);
 }
 
-messages::fuse::FileAttr FsLogic::getAttr(const std::string &uuid)
+messages::fuse::FileAttr FsLogic::getAttr(const boost::filesystem::path &path,
+    decltype(m_uuidCache)::accessor &uuidAcc)
 {
-    decltype(m_attrCache)::const_accessor acc;
-    if (m_attrCache.find(acc, uuid))
-        return acc->second;
+    decltype(m_attrCache)::accessor attrAcc;
+    return getAttr(path, uuidAcc, attrAcc);
+}
 
-    return getAttr(messages::fuse::GetFileAttr{uuid});
+messages::fuse::FileAttr FsLogic::getAttr(const boost::filesystem::path &path,
+    decltype(m_uuidCache)::accessor &uuidAcc,
+    decltype(m_attrCache)::accessor &attrAcc)
+{
+    if (!m_uuidCache.insert(uuidAcc, path))
+        return getAttr(uuidAcc->second, attrAcc);
+
+    auto future =
+        m_context->communicator()->communicate<messages::fuse::FileAttr>(
+            messages::fuse::GetFileAttr{path});
+
+    auto attr = communication::wait(future);
+    m_attrCache.insert(attrAcc, attr.uuid());
+
+    uuidAcc->second = attr.uuid();
+    attrAcc->second = attr;
+
+    return attr;
 }
 
 messages::fuse::FileAttr FsLogic::getAttr(
-    const messages::fuse::GetFileAttr &req)
+    const std::string &uuid, decltype(m_attrCache)::accessor &acc)
 {
+    if (!m_attrCache.insert(acc, uuid))
+        return acc->second;
+
     auto future =
-        m_context->communicator()->communicate<messages::fuse::FileAttr>(req);
+        m_context->communicator()->communicate<messages::fuse::FileAttr>(
+            messages::fuse::GetFileAttr{uuid});
 
     auto attr = communication::wait(future);
-    m_attrCache.insert({attr.uuid(), attr});
-
+    acc->second = attr;
     return attr;
 }
 
