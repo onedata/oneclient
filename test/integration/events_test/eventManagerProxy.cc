@@ -7,7 +7,7 @@
  */
 
 #include "context.h"
-#include "communication/connection.h"
+#include "communication/persistentConnection.h"
 #include "communication/communicator.h"
 #include "events/eventManager.h"
 #include "events/types/readEvent.h"
@@ -35,9 +35,8 @@ public:
     {
         auto context = std::make_shared<Context>();
         auto scheduler = std::make_shared<Scheduler>(1);
-        auto communicator =
-            std::make_shared<Communicator>(connectionsNumber, std::move(host),
-                std::to_string(port), false, communication::createConnection);
+        auto communicator = std::make_shared<Communicator>(connectionsNumber,
+            std::move(host), port, false, communication::createConnection);
         communicator->connect();
         context->setScheduler(std::move(scheduler));
         context->setCommunicator(std::move(communicator));

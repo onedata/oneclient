@@ -64,7 +64,7 @@ find_package(Glog REQUIRED)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
 set(Boost_USE_STATIC_LIBS       OFF)
-find_package(Boost COMPONENTS coroutine filesystem program_options system thread REQUIRED)
+find_package(Boost COMPONENTS filesystem program_options system REQUIRED)
 
 set(ERLANG_TLS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/helpers/erlang-tls/c_src)
 
@@ -115,7 +115,7 @@ else(NOT APPLE)
 endif(APPLE)
 
 # Define build settings
-add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wall -std=c++14)
+add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wshadow -Wall -std=c++14)
 add_definitions(
     ${FUSE_DEFINITIONS}
     -DFUSE_USE_VERSION=29

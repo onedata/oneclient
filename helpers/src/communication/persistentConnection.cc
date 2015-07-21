@@ -86,17 +86,17 @@ void PersistentConnection::onSent()
     m_onReady(*this);
 }
 
-void PersistentConnection::onError(const std::error_code &ec)
+void PersistentConnection::onError(const std::error_code &ec1)
 {
-    auto timer =
-        std::make_shared<asio::steady_timer>(m_app.ioService(), RECREATE_DELAY);
+    m_recreateTimer.expires_at(
+        std::chrono::steady_clock::now() + RECREATE_DELAY);
 
-    timer->async_wait([this, timer](auto ec) {
-        if (!ec)
+    m_recreateTimer.async_wait([this](auto ec2) {
+        if (!ec2)
             this->connect();
     });
 
-    notify(ec);
+    notify(ec1);
     close();
 }
 

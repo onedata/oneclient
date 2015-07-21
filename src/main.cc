@@ -272,5 +272,7 @@ int main(int argc, char *argv[])
 
     // Enter FUSE loop
     res = multithreaded ? fuse_loop_mt(fuse) : fuse_loop(fuse);
+
+    communicator->stop();
     return res == -1 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

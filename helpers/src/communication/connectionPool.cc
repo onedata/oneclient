@@ -9,7 +9,6 @@
 #include "connectionPool.h"
 
 #include "cert/certificateData.h"
-#include "persistentConnection.h"
 #include "exception.h"
 #include "logging.h"
 
@@ -70,6 +69,8 @@ void ConnectionPool::connect()
             connection->connect();
             return connection;
         });
+
+    m_connected = true;
 }
 
 void ConnectionPool::setHandshake(std::function<std::string()> getHandshake,
@@ -95,7 +96,7 @@ void ConnectionPool::setCertificateData(
 
 void ConnectionPool::send(std::string message, Callback callback, const int)
 {
-    if (m_stopped)
+    if (!m_connected)
         return;
 
     PersistentConnection *conn;
@@ -122,13 +123,15 @@ ConnectionPool::~ConnectionPool() { stop(); }
 
 void ConnectionPool::stop()
 {
-    if (!m_stopped) {
-        m_stopped = true;
-        m_connections.clear();
-        m_idleConnections.abort();
+    m_connected = false;
+    m_connections.clear();
+    m_idleConnections.abort();
+
+    if (!m_ioService.stopped())
         m_ioService.stop();
+
+    if (m_thread.joinable())
         m_thread.join();
-    }
 }
 
 } // namespace communication

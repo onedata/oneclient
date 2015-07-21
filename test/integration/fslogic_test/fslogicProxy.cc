@@ -106,10 +106,9 @@ private:
 namespace {
 boost::shared_ptr<FsLogicProxy> create(std::string ip, int port)
 {
-    auto communicator = std::make_shared<Communicator>(/*connections*/ 1, ip,
-        std::to_string(port),
-        /*verifyServerCertificate*/ false, createConnection,
-        ConnectionPool::ErrorPolicy::propagate);
+    auto communicator =
+        std::make_shared<Communicator>(/*connections*/ 1, ip, port,
+            /*verifyServerCertificate*/ false, createConnection);
 
     auto context = std::make_shared<Context>();
     context->setScheduler(std::make_shared<Scheduler>(1));
@@ -121,10 +120,7 @@ boost::shared_ptr<FsLogicProxy> create(std::string ip, int port)
     return boost::make_shared<FsLogicProxy>(context);
 }
 
-int regularMode()
-{
-    return S_IFREG;
-}
+int regularMode() { return S_IFREG; }
 }
 
 BOOST_PYTHON_MODULE(fslogic)
