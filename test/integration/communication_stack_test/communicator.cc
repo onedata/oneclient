@@ -92,8 +92,8 @@ private:
 
 class ExampleServerMessage : public messages::ServerMessage {
 public:
-    ExampleServerMessage(std::unique_ptr<ProtocolServerMessage> protocolMsg)
-        : m_protocolMsg{std::move(protocolMsg)}
+    ExampleServerMessage(std::unique_ptr<ProtocolServerMessage> protocolMsg_)
+        : m_protocolMsg{std::move(protocolMsg_)}
     {
     }
 

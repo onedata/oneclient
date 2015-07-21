@@ -107,6 +107,8 @@ public:
 
     /**
      * Sends a message through one of the managed connections.
+     * Returns immediately if @c connect() has not been called, or @c stop() has
+     * been called.
      * @param message The message to send.
      * @param callback Callback function that is called on send success or
      * error.
@@ -130,7 +132,7 @@ public:
 private:
     void onConnectionReady(PersistentConnection &conn);
 
-    std::atomic<bool> m_stopped{false};
+    std::atomic<bool> m_connected{false};
     const std::size_t m_connectionsNumber;
     std::string m_host;
     const unsigned short m_port;

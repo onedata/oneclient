@@ -32,16 +32,16 @@ struct ConnectionMock : public PersistentConnection {
 
     ConnectionMock(std::string host, const unsigned short port,
         asio::ssl::context &context, std::function<void(std::string)> onMessage,
-        std::function<void(PersistentConnection &)> onReady,
-        std::function<std::string()> getHandshake,
-        std::function<std::error_code(std::string)> onHandshakeResponse,
+        std::function<void(PersistentConnection &)> onReady_,
+        std::function<std::string()> getHandshake_,
+        std::function<std::error_code(std::string)> onHandshakeResponse_,
         std::function<void(std::error_code)> onHandshakeDone)
         : PersistentConnection{std::move(host), port, context,
-              std::move(onMessage), onReady, getHandshake, onHandshakeResponse,
-              std::move(onHandshakeDone)}
-        , onReady{onReady}
-        , getHandshake{getHandshake}
-        , onHandshakeResponse{onHandshakeResponse}
+              std::move(onMessage), onReady_, getHandshake_,
+              onHandshakeResponse_, std::move(onHandshakeDone)}
+        , onReady{onReady_}
+        , getHandshake{getHandshake_}
+        , onHandshakeResponse{onHandshakeResponse_}
     {
     }
 
@@ -60,16 +60,16 @@ struct ConnectionPoolTest : public ::testing::Test {
 
     ConnectionMock *connection = nullptr;
 
-    std::unique_ptr<PersistentConnection> createConnectionMock(std::string host,
-        const unsigned short port, asio::ssl::context &context,
-        std::function<void(std::string)> onMessage,
+    std::unique_ptr<PersistentConnection> createConnectionMock(
+        std::string host_, const unsigned short port_,
+        asio::ssl::context &context, std::function<void(std::string)> onMessage,
         std::function<void(PersistentConnection &)> onReady,
         std::function<std::string()> getHandshake,
         std::function<std::error_code(std::string)> onHandshakeResponse,
         std::function<void(std::error_code)> onHandshakeDone)
     {
         std::unique_ptr<PersistentConnection> conn =
-            std::make_unique<ConnectionMock>(std::move(host), port, context,
+            std::make_unique<ConnectionMock>(std::move(host_), port_, context,
                 std::move(onMessage), std::move(onReady),
                 std::move(getHandshake), std::move(onHandshakeResponse),
                 std::move(onHandshakeDone));

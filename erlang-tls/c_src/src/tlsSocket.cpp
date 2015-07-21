@@ -46,42 +46,44 @@ TLSSocket::TLSSocket(TLSApplication &app, asio::ssl::context &context)
 void TLSSocket::connectAsync(Ptr self, std::string host,
     const unsigned short port, Callback<Ptr> callback)
 {
-    m_resolver.async_resolve({std::move(host), std::to_string(port)},
-        [ =, self = std::move(self), callback = std::move(callback) ](
-                                 const auto ec, auto iterator) mutable {
+    m_resolver.async_resolve({std::move(host), std::to_string(port)}, [
+        this,
+        self = std::move(self),
+        callback = std::move(callback)
+    ](const auto ec1, auto iterator) mutable {
 
-            auto endpoints = this->shuffleEndpoints(std::move(iterator));
+        auto endpoints = this->shuffleEndpoints(std::move(iterator));
 
-            if (ec) {
-                callback(ec);
-                return;
-            }
+        if (ec1) {
+            callback(ec1);
+            return;
+        }
 
-            asio::async_connect(m_socket.lowest_layer(), endpoints.begin(),
-                endpoints.end(),
-                [ =, self = std::move(self), callback = std::move(callback) ](
-                                    const auto ec, auto iterator) mutable {
+        asio::async_connect(m_socket.lowest_layer(), endpoints.begin(),
+            endpoints.end(),
+            [ this, self = std::move(self), callback = std::move(callback) ](
+                                const auto ec2, auto) mutable {
 
-                    if (ec) {
-                        callback(ec);
-                        return;
-                    }
+                if (ec2) {
+                    callback(ec2);
+                    return;
+                }
 
-                    m_socket.lowest_layer().set_option(
-                        asio::ip::tcp::no_delay{true});
+                m_socket.lowest_layer().set_option(
+                    asio::ip::tcp::no_delay{true});
 
-                    m_socket.async_handshake(asio::ssl::stream_base::client, [
-                        =,
-                        self = std::move(self),
-                        callback = std::move(callback)
-                    ](const auto ec) mutable {
-                        if (ec)
-                            callback(ec);
-                        else
-                            callback(std::move(self));
-                    });
+                m_socket.async_handshake(asio::ssl::stream_base::client, [
+                    this,
+                    self = std::move(self),
+                    callback = std::move(callback)
+                ](const auto ec3) mutable {
+                    if (ec3)
+                        callback(ec3);
+                    else
+                        callback(std::move(self));
                 });
-        });
+            });
+    });
 }
 
 void TLSSocket::recvAsync(Ptr self, asio::mutable_buffer buffer,

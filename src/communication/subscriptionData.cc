@@ -12,10 +12,10 @@ namespace one {
 namespace communication {
 
 SubscriptionData::SubscriptionData(
-    std::function<bool(const ServerMessage &, const bool)> predicate,
-    std::function<void(const ServerMessage &)> callback)
-    : predicate(std::move(predicate))
-    , callback(std::move(callback))
+    std::function<bool(const ServerMessage &, const bool)> p,
+    std::function<void(const ServerMessage &)> c)
+    : predicate(std::move(p))
+    , callback(std::move(c))
 {
 }
 

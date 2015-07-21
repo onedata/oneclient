@@ -66,9 +66,9 @@ public:
         auto task = std::bind(
             member, std::placeholders::_1, std::forward<Args>(args)...);
 
-        post([ s = std::move(subject), t = std::move(task) ] {
-            if (auto subject = s.lock())
-                t(subject.get());
+        post([ subject = std::move(subject), task = std::move(task) ] {
+            if (auto s = subject.lock())
+                task(s.get());
         });
     }
 
@@ -100,10 +100,10 @@ public:
                 task();
         });
 
-        return [t = std::weak_ptr<asio::steady_timer>{timer}]
+        return [timer = std::weak_ptr<asio::steady_timer>{timer}]
         {
-            if (auto timer = t.lock())
-                timer->cancel();
+            if (auto t = timer.lock())
+                t->cancel();
         };
     }
 
@@ -125,9 +125,9 @@ public:
             member, std::placeholders::_1, std::forward<Args>(args)...);
 
         return schedule(
-            after, [ s = std::move(subject), t = std::move(task) ] {
-                if (auto subject = s.lock())
-                    t(subject.get());
+            after, [ subject = std::move(subject), task = std::move(task) ] {
+                if (auto s = subject.lock())
+                    task(s.get());
             });
     }
 

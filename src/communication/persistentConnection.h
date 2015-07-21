@@ -12,8 +12,9 @@
 #include "tlsApplication.hpp"
 #include "tlsSocket.hpp"
 
-#include "asio/buffer.hpp"
-#include "asio/ssl/context.hpp"
+#include <asio/buffer.hpp>
+#include <asio/steady_timer.hpp>
+#include <asio/ssl/context.hpp>
 
 #include <array>
 #include <chrono>
@@ -27,7 +28,6 @@ namespace one {
 namespace communication {
 
 static constexpr std::chrono::seconds RECREATE_DELAY{2};
-static constexpr std::chrono::seconds SHUTDOWN_TIMEOUT{5};
 
 /**
  * @c PersistentConnection class represents a single TCP/TLS connection between
@@ -79,8 +79,7 @@ public:
 
     /**
      * Destructor.
-     * Attempts to gracefully close the managed connection. The connection is
-     * given @c SHUTDOWN_TIMEOUT timeout after which it's forcefully shut down.
+     * Attempts to gracefully close the managed connection.
      */
     virtual ~PersistentConnection();
 
@@ -133,6 +132,7 @@ private:
 
     etls::TLSSocket::Ptr m_socket;
     etls::TLSApplication m_app{1};
+    asio::steady_timer m_recreateTimer{m_app.ioService()};
     bool m_connected = false;
     int m_connectionId = 0;
 

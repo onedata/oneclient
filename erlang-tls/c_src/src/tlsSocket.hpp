@@ -11,6 +11,7 @@
 
 #include "callback.hpp"
 
+#include <asio.hpp>
 #include <asio/io_service.hpp>
 #include <asio/ip/tcp.hpp>
 #include <asio/ssl/stream.hpp>

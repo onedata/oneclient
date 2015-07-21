@@ -12,8 +12,8 @@ namespace one {
 namespace communication {
 namespace cert {
 
-CertificateData::CertificateData(KeyFormat keyFormat)
-    : m_keyFormat{keyFormat}
+CertificateData::CertificateData(KeyFormat kf)
+    : m_keyFormat{kf}
 {
 }
 

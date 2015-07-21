@@ -70,7 +70,7 @@ else(NOT APPLE)
 endif(APPLE)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
-add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Wall -Wpedantic)
+add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wshadow -Wall -Wpedantic)
 add_definitions(
     ${FUSE_DEFINITIONS}
     -DFUSE_USE_VERSION=29
