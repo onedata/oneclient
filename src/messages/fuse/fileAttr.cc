@@ -26,24 +26,24 @@ FileAttr::FileAttr(std::unique_ptr<ProtocolServerMessage> serverMessage)
 {
 }
 
-const std::string &FileAttr::uuid() const { return m_fileAttr.uuid(); }
-
-mode_t FileAttr::mode() const { return m_fileAttr.mode(); }
-
-void FileAttr::mode(const mode_t newMode) { m_fileAttr.set_mode(newMode); }
-
-uid_t FileAttr::uid() const { return m_fileAttr.uid(); }
-
-gid_t FileAttr::gid() const { return m_fileAttr.gid(); }
-
 std::chrono::system_clock::time_point FileAttr::atime() const
 {
     return std::chrono::system_clock::from_time_t(m_fileAttr.atime());
 }
 
+void FileAttr::atime(std::chrono::system_clock::time_point t)
+{
+    m_fileAttr.set_atime(std::chrono::system_clock::to_time_t(t));
+}
+
 std::chrono::system_clock::time_point FileAttr::mtime() const
 {
     return std::chrono::system_clock::from_time_t(m_fileAttr.mtime());
+}
+
+void FileAttr::mtime(std::chrono::system_clock::time_point t)
+{
+    m_fileAttr.set_mtime(std::chrono::system_clock::to_time_t(t));
 }
 
 std::chrono::system_clock::time_point FileAttr::ctime() const
@@ -66,8 +66,6 @@ FileAttr::FileType FileAttr::type() const
                 "bad filetype"};
     }
 }
-
-off_t FileAttr::size() const { return m_fileAttr.size(); }
 
 std::string FileAttr::toString() const
 {
