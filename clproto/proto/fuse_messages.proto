@@ -29,6 +29,8 @@ message FuseRequest {
         CreateDir create_dir = 3;
         DeleteFile delete_file = 4;
         UpdateTimes update_times = 5;
+        ChangeMode change_mode = 6;
+        Rename rename = 7;
     }
 }
 

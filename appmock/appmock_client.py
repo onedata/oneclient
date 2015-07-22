@@ -1,15 +1,27 @@
+# coding=utf-8
+"""
+Authors: Lukasz Opiola
+Copyright (C) 2015 ACK CYFRONET AGH
+This software is released under the MIT license cited in 'LICENSE.txt'
+
+Client library to contact appmock instances.
+"""
+
 import json
 import requests
 import time
+import base64
 
 # Appmock remote control port
 appmock_rc_port = 9999
 
-# These defines determine how often the appmock server will be requested to check for condition
-# when waiting for something. Increment rate causes each next interval to be longer
+# These defines determine how often the appmock server will be requested
+# to check for condition when waiting for something.
+# Increment rate causes each next interval to be longer.
 WAIT_STARTING_CHECK_INTERVAL = 250
 WAIT_INTERVAL_INCREMENT_RATE = 1.3
 
+requests.packages.urllib3.disable_warnings()
 
 def _http_post(ip, port, path, use_ssl, data):
     """
@@ -74,10 +86,13 @@ def verify_rest_history(appmock_ip, expected_history):
 
 def reset_rest_history(appmock_ip):
     """
-    Performs a request to an appmock instance to reset all the history connected with ALL mocked rest endpoints.
-    The reset will cause this instance to act the same as if it was restarted clean.
+    Performs a request to an appmock instance to reset
+    all the history connected with ALL mocked rest endpoints.
+    The reset will cause this instance
+    to act the same as if it was restarted clean.
     """
-    _, _, body = _http_post(appmock_ip, appmock_rc_port, '/reset_rest_history', True, '')
+    _, _, body = _http_post(appmock_ip, appmock_rc_port, '/reset_rest_history',
+                            True, '')
     body = json.loads(body)
     if body['result'] == 'error':
         raise Exception(
@@ -90,28 +105,35 @@ def tcp_server_specific_message_count(appmock_ip, tcp_port, message_binary):
     Returns number of messages exactly matching given message,
     that has been received by the TCP server mock.
     """
-    _, _, body = _http_post(appmock_ip, appmock_rc_port,
-                            '/tcp_server_specific_message_count/' + str(tcp_port),
-                            True, message_binary)
+    encoded_message = base64.b64encode(message_binary)
+    path = '/tcp_server_specific_message_count/{0}'.format(tcp_port)
+    _, _, body = _http_post(appmock_ip, appmock_rc_port, path,
+                            True, encoded_message)
     body = json.loads(body)
     if body['result'] == 'error':
         raise Exception(
-            'tcp_server_specific_message_count returned error: ' + body['reason'])
+            'tcp_server_specific_message_count returned error: ' +
+            body['reason'])
     return body['result']
 
 
-def tcp_server_wait_for_specific_messages(appmock_ip, tcp_port, data, msg_count=1,
-                                          accept_more=False, return_history=False, timeout_sec=10):
+def tcp_server_wait_for_specific_messages(appmock_ip, tcp_port, message_binary,
+                                          msg_count=1, accept_more=False,
+                                          return_history=False, timeout_sec=10):
     """
-    Returns when given number of specific messages has been received on given port, or after it timeouts.
-    The accept_more flag makes the function succeed when there is the same or more messages than expected.
-    The return_history flag causes the function to return full msg history upon success.
+    Returns when given number of specific messages
+    has been received on given port, or after it timeouts.
+    The accept_more flag makes the function succeed when
+    there is the same or more messages than expected.
+    The return_history flag causes the function
+    to return full msg history upon success.
     """
     start_time = time.time()
     wait_for = WAIT_STARTING_CHECK_INTERVAL
 
     while True:
-        result = tcp_server_specific_message_count(appmock_ip, tcp_port, data)
+        result = tcp_server_specific_message_count(appmock_ip, tcp_port,
+                                                   message_binary)
         if accept_more and result >= msg_count:
             break
         elif result == msg_count:
@@ -131,8 +153,8 @@ def tcp_server_all_messages_count(appmock_ip, tcp_port):
     Returns number of all messages
     that has been received by the TCP server mock.
     """
-    _, _, body = _http_post(appmock_ip, appmock_rc_port,
-                            '/tcp_server_all_messages_count/' + str(tcp_port), True, '')
+    path = '/tcp_server_all_messages_count/{0}'.format(tcp_port)
+    _, _, body = _http_post(appmock_ip, appmock_rc_port, path, True, '')
     body = json.loads(body)
     if body['result'] == 'error':
         raise Exception(
@@ -140,12 +162,16 @@ def tcp_server_all_messages_count(appmock_ip, tcp_port):
     return body['result']
 
 
-def tcp_server_wait_for_any_messages(appmock_ip, tcp_port, msg_count=1, accept_more=False,
-                                     return_history=False, timeout_sec=10):
+def tcp_server_wait_for_any_messages(appmock_ip, tcp_port, msg_count=1,
+                                     accept_more=False, return_history=False,
+                                     timeout_sec=10):
     """
-    Returns when given number of any messages has been received on given port, or after it timeouts.
-    The accept_more flag makes the function succeed when there is the same or more messages than expected.
-    The return_history flag causes the function to return full msg history upon success.
+    Returns when given number of any messages has been received on given port,
+    or after it timeouts.
+    The accept_more flag makes the function succeed when
+    there is the same or more messages than expected.
+    The return_history flag causes the function to return
+    full msg history upon success.
     """
     start_time = time.time()
     wait_for = WAIT_STARTING_CHECK_INTERVAL
@@ -161,17 +187,21 @@ def tcp_server_wait_for_any_messages(appmock_ip, tcp_port, msg_count=1, accept_m
                 'tcp_server_wait_for_any_messages returned error: timeout')
         else:
             time.sleep(wait_for / 1000.0)
-            # No incrementing wait time here because this fun might be used for benchmarking.
+            # No incrementing wait time here because
+            # this fun might be used for benchmarking.
     if return_history:
         return tcp_server_history(appmock_ip, tcp_port)
 
 
 def tcp_server_send(appmock_ip, tcp_port, message_binary, msg_count=1):
     """
-    Orders appmock to send given message to all connected clients, given amount of times."""
-    _, _, body = _http_post(appmock_ip, appmock_rc_port,
-                            '/tcp_server_send/{0}/{1}'.format(tcp_port, msg_count),
-                            True, message_binary)
+    Orders appmock to send given message to all
+    connected clients, given amount of times.
+    """
+    encoded_message = base64.b64encode(message_binary)
+    path = '/tcp_server_send/{0}/{1}'.format(tcp_port, msg_count)
+    _, _, body = _http_post(appmock_ip, appmock_rc_port, path, True,
+                            encoded_message)
     body = json.loads(body)
     if body['result'] == 'error':
         raise Exception('tcp_server_send returned error: ' + body['reason'])
@@ -189,16 +219,21 @@ def tcp_server_history(appmock_ip, tcp_port):
     body = json.loads(body)
     if body['result'] == 'error':
         raise Exception('tcp_server_send returned error: ' + body['reason'])
+    for i in range(len(body['result'])):
+        body['result'][i] = base64.b64decode(body['result'][i])
     return body['result']
 
 
 def reset_tcp_server_history(appmock_ip):
     """
-    Performs a request to an appmock instance to reset all the history connected with ALL mocked TCP endpoints.
-    The reset will cause this instance to act the same as if it was restarted clean - e. g. counters will be reset.
+    Performs a request to an appmock instance to reset
+    all the history connected with ALL mocked TCP endpoints.
+    The reset will cause this instance to act
+    the same as if it was restarted clean - e. g. counters will be reset.
     Existing connections WILL NOT BE DISTURBED.
     """
-    _, _, body = _http_post(appmock_ip, appmock_rc_port, '/reset_tcp_server_history', True, '')
+    _, _, body = _http_post(appmock_ip, appmock_rc_port,
+                            '/reset_tcp_server_history', True, '')
     body = json.loads(body)
     if body['result'] == 'error':
         raise Exception(
@@ -208,9 +243,11 @@ def reset_tcp_server_history(appmock_ip):
 
 def tcp_server_connection_count(appmock_ip, tcp_port):
     """
-    Performs a request to an appmock instance to check how many clients are connected to given endpoint (by port).
+    Performs a request to an appmock instance to check
+    how many clients are connected to given endpoint (by port).
     """
-    _, _, body = _http_post(appmock_ip, appmock_rc_port, '/tcp_server_connection_count/' + str(tcp_port), True, '')
+    path = '/tcp_server_connection_count/{0}'.format(tcp_port)
+    _, _, body = _http_post(appmock_ip, appmock_rc_port, path, True, '')
     body = json.loads(body)
     if body['result'] == 'error':
         raise Exception(
@@ -218,11 +255,14 @@ def tcp_server_connection_count(appmock_ip, tcp_port):
     return body['result']
 
 
-def tcp_server_wait_for_connections(appmock_ip, tcp_port, number_of_connections=1,
-                                    accept_more=False, timeout_sec=10):
+def tcp_server_wait_for_connections(appmock_ip, tcp_port,
+                                    number_of_connections=1, accept_more=False,
+                                    timeout_sec=10):
     """
-    Returns when given number of connections are established on given port, or after it timeouts.
-    The accept_more flag makes the function succeed when there is the same or more connections than expected.
+    Returns when given number of connections
+    are established on given port, or after it timeouts.
+    The accept_more flag makes the function succeed when
+    there is the same or more connections than expected.
     """
     start_time = time.time()
     wait_for = WAIT_STARTING_CHECK_INTERVAL

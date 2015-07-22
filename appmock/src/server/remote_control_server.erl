@@ -229,7 +229,7 @@ handle_call(healthcheck, _From, State) ->
             % Check connectivity to tcp server mock verification path with some random data
             PathMessCount = list_to_binary(?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PATH(5555)),
             {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, PathMessCount, get, [],
-                <<"random_data!%$$^&%^&*%^&*">>),
+                base64:encode(<<"random_data!%$$^&%^&*%^&*">>)),
 
             % Check connectivity to tcp server mock verification path with some random data
             PathAllMessCount = list_to_binary(?TCP_SERVER_ALL_MESSAGES_COUNT_PATH(5555)),
@@ -245,7 +245,7 @@ handle_call(healthcheck, _From, State) ->
             % Check connectivity to tcp server mock verification path with some random data
             PathConnCount = list_to_binary(?TCP_SERVER_CONNECTION_COUNT_PATH(5555)),
             {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, PathConnCount, get, [],
-                <<"random_data!%$$^&%^&*%^&*">>),
+                <<"">>),
 
             ok
         catch T:M ->
