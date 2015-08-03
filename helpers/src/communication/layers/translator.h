@@ -88,7 +88,7 @@ public:
 
                 // In case of concurrent access, only one thread will get 1 from
                 // incrementation.
-                if ((*hasBeenSet)++ != 1)
+                if (++(*hasBeenSet) != 1)
                     return;
 
                 if (ec) {

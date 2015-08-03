@@ -31,6 +31,8 @@ class FileAttr : public FuseResponse {
 public:
     enum class FileType { regular, directory, link };
 
+    FileAttr() = default;
+
     /**
      * Constructor.
      * @param serverMessage Protocol Buffers message representing
@@ -41,22 +43,39 @@ public:
     /**
      * @return UUID of the file.
      */
-    const std::string &uuid() const;
+    const std::string &uuid() const { return m_fileAttr.uuid(); }
+
+    /**
+     * @return name of the file.
+     */
+    const std::string &name() const { return m_fileAttr.name(); }
+
+    /**
+     * Sets a new filename.
+     * @param newName New name od the file.
+     */
+    const void name(std::string newName) { m_fileAttr.set_name(newName); }
 
     /**
      * @return File access mode.
      */
-    mode_t mode() const;
+    mode_t mode() const { return m_fileAttr.mode(); }
+
+    /**
+     * Sets a new mode.
+     * @param newMode The mode to set.
+     */
+    void mode(const mode_t newMode) { m_fileAttr.set_mode(newMode); }
 
     /**
      * @return ID of the file's owner.
      */
-    uid_t uid() const;
+    uid_t uid() const { return m_fileAttr.uid(); }
 
     /**
      * @return Group ID of the file's owner.
      */
-    gid_t gid() const;
+    gid_t gid() const { return m_fileAttr.gid(); }
 
     /**
      * @return Last access time to the file.
@@ -64,12 +83,24 @@ public:
     std::chrono::system_clock::time_point atime() const;
 
     /**
+     * Set file's last access time.
+     * @param t The access time to set.
+     */
+    void atime(std::chrono::system_clock::time_point t);
+
+    /**
      * @return Last modification time of the file.
      */
     std::chrono::system_clock::time_point mtime() const;
 
     /**
-     * @return File's creation time.
+     * Set file's last modification time.
+     * @param t The modification time to set.
+     */
+    void mtime(std::chrono::system_clock::time_point t);
+
+    /**
+     * @return File's change time.
      */
     std::chrono::system_clock::time_point ctime() const;
 
@@ -81,7 +112,7 @@ public:
     /**
      * @return Size of the file.
      */
-    off_t size() const;
+    off_t size() const { return m_fileAttr.size(); }
 
     std::string toString() const override;
 

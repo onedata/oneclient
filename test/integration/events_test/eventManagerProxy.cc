@@ -35,12 +35,17 @@ public:
     {
         auto context = std::make_shared<Context>();
         auto scheduler = std::make_shared<Scheduler>(1);
-        auto communicator = std::make_shared<Communicator>(connectionsNumber,
+        m_communicator = std::make_shared<Communicator>(connectionsNumber,
             std::move(host), port, false, communication::createConnection);
-        communicator->connect();
+        m_communicator->connect();
         context->setScheduler(std::move(scheduler));
-        context->setCommunicator(std::move(communicator));
+        context->setCommunicator(m_communicator);
         m_eventManager = std::make_unique<EventManager>(std::move(context));
+    }
+
+    ~EventManagerProxy()
+    {
+        m_communicator->stop();
     }
 
     uint64_t emitReadEvent(std::string fileId, off_t offset, size_t size)
@@ -65,6 +70,7 @@ public:
 private:
     std::atomic<uint64_t> m_sequenceNumber{0};
     std::unique_ptr<EventManager> m_eventManager;
+    std::shared_ptr<Communicator> m_communicator;
 };
 
 std::unique_ptr<one::clproto::ClientMessage> setMessageStream(

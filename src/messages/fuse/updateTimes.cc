@@ -21,21 +21,6 @@ UpdateTimes::UpdateTimes(std::string uuid)
 {
 }
 
-void UpdateTimes::atime(std::chrono::system_clock::time_point t)
-{
-    m_atime = std::move(t);
-}
-
-void UpdateTimes::ctime(std::chrono::system_clock::time_point t)
-{
-    m_ctime = std::move(t);
-}
-
-void UpdateTimes::mtime(std::chrono::system_clock::time_point t)
-{
-    m_mtime = std::move(t);
-}
-
 std::string UpdateTimes::toString() const
 {
     std::stringstream stream;
