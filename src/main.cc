@@ -131,16 +131,11 @@ std::string handshake(std::shared_ptr<auth::AuthManager> authManager)
     const auto fuseId = generateFuseID();
     auto handshakeHandler = [](auto) { return std::error_code{}; };
 
-    auto testCommunicator =
-        authManager->createCommunicator(1, fuseId, handshakeHandler,
-            communication::ConnectionPool::ErrorPolicy::propagate);
+    auto testCommunicatorTuple =
+        authManager->createCommunicator(1, fuseId, handshakeHandler);
 
-    testCommunicator->connect();
-
-    auto futurePong =
-        testCommunicator->communicate<messages::Pong>(messages::Ping{}, 2);
-
-    communication::wait(futurePong);
+    std::get<0>(testCommunicatorTuple)->connect();
+    communication::wait(std::get<1>(testCommunicatorTuple));
 
     return fuseId;
 }
@@ -150,10 +145,10 @@ std::shared_ptr<communication::Communicator> createCommunicator(
     std::shared_ptr<Context> context, std::string fuseId)
 {
     auto handshakeHandler = [](auto) { return std::error_code{}; };
-    auto communicator = authManager->createCommunicator(3, fuseId,
-        handshakeHandler, communication::ConnectionPool::ErrorPolicy::ignore);
-    context->setCommunicator(communicator);
-    return communicator;
+    auto communicatorTuple =
+        authManager->createCommunicator(3, fuseId, handshakeHandler);
+    context->setCommunicator(std::get<0>(communicatorTuple));
+    return std::get<0>(communicatorTuple);
 }
 
 int main(int argc, char *argv[])
@@ -242,11 +237,10 @@ int main(int argc, char *argv[])
     if (res == -1)
         perror("WARNING: failed to set FD_CLOEXEC on fuse device");
 
-    FsLogic *fsLogic = new FsLogic(mountpoint, context);
-    ScopeExit destroyFsLogic{[&] { delete fsLogic; }};
+    auto fsLogic = std::make_unique<FsLogic>(context);
 
     fuse = fuse_new(
-        ch, &args, &fuse_oper, sizeof(struct fuse_operations), fsLogic);
+        ch, &args, &fuse_oper, sizeof(struct fuse_operations), fsLogic.get());
     if (fuse == nullptr)
         return EXIT_FAILURE;
 
@@ -278,5 +272,7 @@ int main(int argc, char *argv[])
 
     // Enter FUSE loop
     res = multithreaded ? fuse_loop_mt(fuse) : fuse_loop(fuse);
+
+    communicator->stop();
     return res == -1 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

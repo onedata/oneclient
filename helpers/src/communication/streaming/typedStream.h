@@ -129,8 +129,7 @@ void TypedStream<Communicator>::send(const messages::ClientMessage &msg)
 
 template <class Communicator> void TypedStream<Communicator>::close()
 {
-    messages::EndOfStream eos;
-    send(std::move(eos));
+    send(messages::EndOfStream{});
 }
 
 template <class Communicator> void TypedStream<Communicator>::reset()

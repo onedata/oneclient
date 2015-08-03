@@ -21,6 +21,7 @@
             public_key,
             crypto,
             ssl,
+            ssl2,
             xmerl,
             meck,
             % ctool already requires those apps below, but they are here

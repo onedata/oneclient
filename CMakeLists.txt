@@ -48,10 +48,6 @@ add_subdirectory(deps/json11)
 message(STATUS "Checking for FUSE...")
 find_package(FUSE REQUIRED)
 
-# Setup OpenSSL
-message(STATUS "Checking for OpenSSL...")
-find_package(OpenSSL REQUIRED)
-
 # Setup pthreads
 message(STATUS "Checking for thread support...")
 find_package(Threads REQUIRED)
@@ -68,7 +64,17 @@ find_package(Glog REQUIRED)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
 set(Boost_USE_STATIC_LIBS       OFF)
-find_package(Boost COMPONENTS coroutine filesystem program_options system thread REQUIRED)
+find_package(Boost COMPONENTS filesystem program_options system REQUIRED)
+
+set(ERLANG_TLS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/helpers/erlang-tls/c_src)
+
+# Setup BoringSSL
+add_subdirectory(${ERLANG_TLS_DIR}/deps/boringssl)
+set(BORINGSSL_LIBRARIES ssl crypto)
+set(BORINGSSL_INCLUDE_DIRS ${ERLANG_TLS_DIR}/deps/boringssl/include)
+
+# Setup Asio
+set(ASIO_INCLUDE_DIRS ${ERLANG_TLS_DIR}/deps/asio/asio/include)
 
 # Utility libs
 find_library(LTDL_LIBRARY NAMES ltdl)
@@ -99,7 +105,6 @@ if(CODE_COVERAGE)
   set(PLATFORM_EXTRA_LIBS ${PLATFORM_EXTRA_LIBS} gcov)
 endif(CODE_COVERAGE)
 
-
 if(APPLE)
     set(SECTION_FRAGMENTATION_FLAGS -Wno-deprecated-declarations)
     set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
@@ -110,7 +115,7 @@ else(NOT APPLE)
 endif(APPLE)
 
 # Define build settings
-add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wall -std=c++14)
+add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wshadow -Wall -std=c++14)
 add_definitions(
     ${FUSE_DEFINITIONS}
     -DFUSE_USE_VERSION=29
@@ -122,7 +127,9 @@ add_definitions(
 # Add helpers after setting compilation flags but before setting include
 # directories; helpers specify their own includes, pulling from package-set
 # variables when needed.
-add_subdirectory(helpers/object)
+add_subdirectory(helpers/clproto)
+add_subdirectory(${ERLANG_TLS_DIR}/src)
+add_subdirectory(helpers/src)
 
 include_directories(
     include
@@ -134,11 +141,12 @@ include_directories(SYSTEM
     ${FUSE_INCLUDE_DIRS}
     ${FUSE_INCLUDE_DIRS}/..
     ${PROTOBUF_INCLUDE_DIR}
-    ${OPENSSL_INCLUDE_DIR}
+    ${BORINGSSL_INCLUDE_DIR}
+    ${ASIO_INCLUDE_DIRS}
     ${TBB_INCLUDE_DIRS}
     ${Boost_INCLUDE_DIRS}
     ${GLOG_INCLUDE_DIRS}
-    ${JSON11_INCLUDE_DIR})
+    ${CMAKE_CURRENT_SOURCE_DIR}/deps/json11)
 
 set(CLIENT_LIBRARIES
     json11
@@ -147,12 +155,12 @@ set(CLIENT_LIBRARIES
     ${FUSE_LIBRARIES}
     ${Boost_LIBRARIES}
     ${PROTOBUF_LIBRARIES}
-    ${OPENSSL_LIBRARIES}
+    ${BORINGSSL_LIBRARIES}
     ${HELPERS_LIBRARIES})
 
 # Define targets
 add_library(client OBJECT ${SOURCES} ${HEADERS})
-add_dependencies(client helpers clproto json11Build)
+add_dependencies(client helpers clproto)
 
 set(CLIENT_SOURCES
     ${MAIN_SOURCE_FILE}

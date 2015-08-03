@@ -12,11 +12,11 @@
 #include "context.h"
 #include "logging.h"
 
+#include <asio.hpp>
+#include <asio/ssl.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/archive/iterators/binary_from_base64.hpp>
 #include <boost/archive/iterators/transform_width.hpp>
-#include <boost/asio.hpp>
-#include <boost/asio/ssl.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 #include <json11.hpp>
@@ -114,7 +114,7 @@ TokenAuthDetails GRAdapter::refreshAccess(const TokenAuthDetails &details) const
 
 TokenAuthDetails GRAdapter::communicate(const std::string &content) const
 {
-    boost::asio::io_service ioService;
+    asio::io_service ioService;
     const auto socket = connect(ioService);
     requestToken(content, *socket);
     const auto response = getResponse(*socket);
@@ -124,7 +124,7 @@ TokenAuthDetails GRAdapter::communicate(const std::string &content) const
 void GRAdapter::requestToken(
     const std::string &content, GRAdapter::Socket &socket) const
 {
-    boost::asio::streambuf request;
+    asio::streambuf request;
     std::ostream requestStream(&request);
     requestStream << "POST " << OPENID_CLIENT_TOKENS_ENDPOINT << " HTTP/1.1\r\n"
                   << "Host: " << m_hostname << ":" << m_port << "\r\n"
@@ -138,15 +138,15 @@ void GRAdapter::requestToken(
     requestStream.flush();
 
     const auto requestSize = request.size();
-    const auto writtenSize = boost::asio::write(socket, request);
+    const auto writtenSize = asio::write(socket, request);
     if (writtenSize != requestSize)
         throw AuthException{"error while sending a request"};
 }
 
 std::string GRAdapter::getResponse(GRAdapter::Socket &socket) const
 {
-    boost::asio::streambuf response;
-    boost::asio::read_until(socket, response, "\r\n");
+    asio::streambuf response;
+    asio::read_until(socket, response, "\r\n");
 
     std::istream responseStream(&response);
 
@@ -159,13 +159,12 @@ std::string GRAdapter::getResponse(GRAdapter::Socket &socket) const
     if (!responseStream || !boost::algorithm::starts_with(httpVersion, "HTTP/"))
         throw AuthException{"malformed response headers"};
 
-    const auto headersSize =
-        boost::asio::read_until(socket, response, "\r\n\r\n");
+    const auto headersSize = asio::read_until(socket, response, "\r\n\r\n");
     response.consume(headersSize);
 
-    boost::system::error_code ec;
-    boost::asio::read(socket, response, boost::asio::transfer_all(), ec);
-    if (ec != boost::asio::error::eof)
+    std::error_code ec;
+    asio::read(socket, response, ec);
+    if (ec != asio::error::eof)
         throw AuthException{"malformed response: " + ec.message()};
 
     std::istreambuf_iterator<char> eos;
@@ -178,8 +177,7 @@ std::string GRAdapter::getResponse(GRAdapter::Socket &socket) const
 
     if (statusCode != 200)
         throw AuthException{"Global Registry responded with non-ok code " +
-            std::to_string(statusCode) + ". Response: '" + content +
-                    "'"};
+            std::to_string(statusCode) + ". Response: '" + content + "'"};
 
     return content;
 }
@@ -225,14 +223,14 @@ TokenAuthDetails GRAdapter::parseToken(const std::string &response) const
 }
 
 std::unique_ptr<GRAdapter::Socket> GRAdapter::connect(
-    boost::asio::io_service &ioService) const
+    asio::io_service &ioService) const
 {
-    namespace ssl = boost::asio::ssl;
-    using boost::asio::ip::tcp;
+    namespace ssl = asio::ssl;
+    using asio::ip::tcp;
 
     tcp::resolver resolver{ioService};
     tcp::resolver::query query{m_hostname, std::to_string(m_port),
-        boost::asio::ip::resolver_query_base::numeric_service};
+        asio::ip::resolver_query_base::numeric_service};
 
     auto iterator = resolver.resolve(query);
 
@@ -240,11 +238,11 @@ std::unique_ptr<GRAdapter::Socket> GRAdapter::connect(
     ctx.set_default_verify_paths();
 
     auto socket = std::make_unique<Socket>(ioService, ctx);
-    socket->set_verify_mode(m_checkCertificate ? boost::asio::ssl::verify_peer
-                                               : boost::asio::ssl::verify_none);
+    socket->set_verify_mode(
+        m_checkCertificate ? asio::ssl::verify_peer : asio::ssl::verify_none);
     socket->set_verify_callback(ssl::rfc2818_verification{m_hostname});
 
-    boost::asio::connect(socket->lowest_layer(), iterator);
+    asio::connect(socket->lowest_layer(), iterator);
     socket->lowest_layer().set_option(tcp::no_delay(true));
     socket->handshake(ssl::stream_base::client);
 

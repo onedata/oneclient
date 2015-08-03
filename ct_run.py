@@ -8,7 +8,8 @@ import platform
 import sys
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
-docker_dir = os.path.join(script_dir, 'bamboos', 'docker')
+helpers_dir = os.path.join(script_dir, 'helpers')
+docker_dir = os.path.join(helpers_dir, 'bamboos', 'docker')
 sys.path.insert(0, docker_dir)
 from environment import docker
 

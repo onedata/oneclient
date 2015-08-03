@@ -11,6 +11,7 @@
 #include "fsLogic.h"
 #include "logging.h"
 #include "oneException.h"
+#include "communication/exception.h"
 
 #include <boost/asio/buffer.hpp>
 
@@ -19,6 +20,7 @@
 #include <array>
 #include <memory>
 #include <exception>
+#include <system_error>
 
 using namespace one::client;
 
@@ -32,9 +34,21 @@ int wrap(int (FsLogic::*operation)(Args2...), Args1 &&... args)
             static_cast<FsLogic *>(fuse_get_context()->private_data);
         return (fsLogic->*operation)(std::forward<Args1>(args)...);
     }
+    catch (const std::errc errc) {
+        return -1 * static_cast<int>(errc);
+    }
+    catch (const std::system_error &e) {
+        return -1 * e.code().value();
+    }
+    catch (const one::communication::TimeoutExceeded &t) {
+        return -1 * std::make_error_code(std::errc::timed_out).value();
+    }
+    catch (const one::communication::Exception &t) {
+        return -1 * std::make_error_code(std::errc::io_error).value();
+    }
     catch (const OneException &e) {
         LOG(ERROR) << "OneException: " << e.what();
-        return -EIO;
+        return -1 * std::make_error_code(std::errc::io_error).value();
     }
     catch (...) {
         std::array<void *, 64> trace;

@@ -7,7 +7,7 @@ PKG_BUILD       ?= 1
 PKG_ID           = oneclient-$(PKG_VERSION)
 
 .PHONY: rpm cmake release debug deb-info test cunit install docs clean all deb coverage
-all: deb-info test
+all: debug test
 
 cmake: BUILD_DIR = $$(echo $(BUILD_TYPE) | tr '[:upper:]' '[:lower:]')
 cmake:

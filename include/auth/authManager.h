@@ -18,10 +18,12 @@
 
 #include <boost/optional.hpp>
 
+#include <future>
 #include <memory>
 #include <shared_mutex>
 #include <string>
 #include <system_error>
+#include <tuple>
 #include <unordered_map>
 
 namespace one {
@@ -44,8 +46,6 @@ namespace auth {
  */
 class AuthManager {
 public:
-    using ErrorPolicy = communication::ConnectionPool::ErrorPolicy;
-
     /**
      * Constructor.
      * @param context An application context.
@@ -67,11 +67,11 @@ public:
      * @param metaPoolSize The size of meta pool to be created.
      * @return A new instance of @c Communicator .
      */
-    virtual std::shared_ptr<communication::Communicator> createCommunicator(
-        const unsigned int poolSize, std::string sessionId,
+    virtual std::tuple<std::shared_ptr<communication::Communicator>,
+        std::future<void>>
+    createCommunicator(const unsigned int poolSize, std::string sessionId,
         std::function<std::error_code(messages::HandshakeResponse)>
-            onHandshakeResponse,
-        ErrorPolicy errorPolicy) = 0;
+            onHandshakeResponse) = 0;
 
 protected:
     std::weak_ptr<Context> m_context;
@@ -96,11 +96,10 @@ public:
         std::string defaultHostname, const unsigned int port,
         const bool checkCertificate, const bool debugGsi);
 
-    std::shared_ptr<communication::Communicator> createCommunicator(
-        const unsigned int poolSize, std::string sessionId,
+    std::tuple<std::shared_ptr<communication::Communicator>, std::future<void>>
+    createCommunicator(const unsigned int poolSize, std::string sessionId,
         std::function<std::error_code(messages::HandshakeResponse)>
-            onHandshakeResponse,
-        ErrorPolicy errorPolicy) override;
+            onHandshakeResponse) override;
 
 private:
     std::shared_ptr<communication::cert::CertificateData> m_certificateData;
@@ -124,11 +123,10 @@ public:
         const bool checkCertificate, std::string globalRegistryHostname,
         const unsigned int globalRegistryPort);
 
-    std::shared_ptr<communication::Communicator> createCommunicator(
-        const unsigned int poolSize, std::string sessionId,
+    std::tuple<std::shared_ptr<communication::Communicator>, std::future<void>>
+    createCommunicator(const unsigned int poolSize, std::string sessionId,
         std::function<std::error_code(messages::HandshakeResponse)>
-            onHandshakeResponse,
-        ErrorPolicy errorPolicy) override;
+            onHandshakeResponse) override;
 
 private:
     void scheduleRefresh(

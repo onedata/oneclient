@@ -27,7 +27,7 @@ using namespace boost::python;
 class LittleHelper
 {
 public:
-    LittleHelper(int i) : m_i(i) {}
+    LittleHelper(int i_) : m_i(i_) {}
     int i() const { return m_i; }
 
 private:

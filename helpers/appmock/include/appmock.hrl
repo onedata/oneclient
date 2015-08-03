@@ -46,5 +46,13 @@
 -record(tcp_server_mock, {
     port = 5555,
     ssl = true,
-    packet = raw
+    % Erlang transport's packet option that will be passed to server initialization.
+    packet = raw,
+    % TCP mock can work in two modes:
+    % history - it remembers exact history of incoming requests and can validate requests per message contents.
+    %    This mode is slow and dedicated for content verification rather that tests with many messages.
+    % counter - the endpoint will ignore the content of incoming requests and only count them.
+    %    This mode is as fast as it gets.
+    % NOTE: in history mode, it is also possible to check the count of all received requests.
+    type = history :: counter | history
 }).

@@ -67,7 +67,7 @@ public:
 private:
     const std::shared_ptr<communication::Communicator> m_communicator;
     const BufferLimits m_limits;
-    asio::io_service &m_dio_service;
+    asio::io_service &m_dioService;
 };
 
 } // namespace helpers

@@ -7,7 +7,7 @@
  */
 
 #include "context.h"
-#include "communication/connection.h"
+#include "communication/persistentConnection.h"
 #include "communication/communicator.h"
 #include "eventStream_mock.h"
 #include "eventCommunicator_mock.h"
@@ -66,7 +66,7 @@ protected:
     {
         context = std::make_shared<Context>();
         communicator = std::make_shared<Communicator>(
-            1, "localhost", "80", false, communication::createConnection);
+            1, "localhost", 80, false, communication::createConnection);
         scheduler = std::make_shared<MockScheduler>();
         context->setCommunicator(communicator);
         context->setScheduler(scheduler);

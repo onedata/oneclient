@@ -104,15 +104,15 @@ void Inbox<LowerLayer>::communicate(
             std::make_shared<CommunicateCallback>(std::move(callback));
     }
 
-    auto sendCallback = [ =, messageId = std::move(messageId) ](
+    auto sendCallback = [ this, messageId = std::move(messageId) ](
         const std::error_code &ec)
     {
         if (ec) {
             typename decltype(m_callbacks)::accessor acc;
             if (m_callbacks.find(acc, messageId)) {
-                auto callback = std::move(*acc->second);
+                auto cb = std::move(*acc->second);
                 m_callbacks.erase(acc);
-                callback(ec, {});
+                cb(ec, {});
             }
         }
     };

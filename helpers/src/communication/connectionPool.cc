@@ -9,7 +9,6 @@
 #include "connectionPool.h"
 
 #include "cert/certificateData.h"
-#include "connection.h"
 #include "exception.h"
 #include "logging.h"
 
@@ -24,46 +23,24 @@
 
 using namespace std::placeholders;
 using namespace std::literals::chrono_literals;
-using steady_timer = asio::basic_waitable_timer<std::chrono::steady_clock>;
-
-static constexpr size_t OUTBOX_SIZE = 1000;
-static constexpr auto RECREATE_DELAY = 1s;
 
 namespace one {
 namespace communication {
 
-ConnectionPool::ConnectionPool(const unsigned int connectionsNumber,
-    std::string host, std::string service, const bool verifyServerCertificate,
-    ConnectionFactory connectionFactory, ErrorPolicy errorPolicy)
+ConnectionPool::ConnectionPool(const std::size_t connectionsNumber,
+    std::string host, const unsigned short port,
+    const bool verifyServerCertificate, ConnectionFactory connectionFactory)
     : m_connectionsNumber{connectionsNumber}
     , m_host{std::move(host)}
-    , m_service{std::move(service)}
+    , m_port{port}
     , m_verifyServerCertificate{verifyServerCertificate}
     , m_connectionFactory{std::move(connectionFactory)}
-    , m_errorPolicy{errorPolicy}
-    , m_idleWork{m_ioService}
-    , m_blockingStrand{m_ioService}
-    , m_connectionsStrand{m_ioService}
-    , m_context{asio::ssl::context::tlsv12_client}
 {
-    m_outbox.set_capacity(OUTBOX_SIZE);
+    m_thread = std::thread{[=] { m_ioService.run(); }};
 }
 
 void ConnectionPool::connect()
 {
-    m_workers.clear();
-    std::generate_n(std::back_inserter(m_workers),
-        std::max<int>(std::thread::hardware_concurrency(), 2), [=] {
-            return std::thread{[=] {
-                try {
-                    m_ioService.run();
-                }
-                catch (tbb::user_abort &) {
-                    return;
-                }
-            }};
-        });
-
     m_context.set_options(asio::ssl::context::default_workarounds |
         asio::ssl::context::no_sslv2 | asio::ssl::context::no_sslv3 |
         asio::ssl::context::no_tlsv1 | asio::ssl::context::no_tlsv1_1 |
@@ -82,15 +59,27 @@ void ConnectionPool::connect()
     if (m_certificateData)
         m_certificateData->initContext(m_context);
 
-    for (auto i = 0u; i < m_connectionsNumber; ++i)
-        createConnection();
+    std::generate_n(
+        std::back_inserter(m_connections), m_connectionsNumber, [&] {
+            auto connection = m_connectionFactory(m_host, m_port, m_context,
+                asio::wrap(m_ioService, m_onMessage),
+                std::bind(&ConnectionPool::onConnectionReady, this, _1),
+                m_getHandshake, m_onHandshakeResponse, m_onHandshakeDone);
+
+            connection->connect();
+            return connection;
+        });
+
+    m_connected = true;
 }
 
 void ConnectionPool::setHandshake(std::function<std::string()> getHandshake,
-    std::function<std::error_code(std::string)> onHandshakeResponse)
+    std::function<std::error_code(std::string)> onHandshakeResponse,
+    std::function<void(std::error_code)> onHandshakeDone)
 {
     m_getHandshake = std::move(getHandshake);
     m_onHandshakeResponse = std::move(onHandshakeResponse);
+    m_onHandshakeDone = std::move(onHandshakeDone);
 }
 
 void ConnectionPool::setOnMessageCallback(
@@ -107,93 +96,42 @@ void ConnectionPool::setCertificateData(
 
 void ConnectionPool::send(std::string message, Callback callback, const int)
 {
-    auto data = std::make_shared<SendTask>(
-        std::forward_as_tuple(std::move(message), std::move(callback)));
+    if (!m_connected)
+        return;
 
-    m_outbox.emplace(std::move(data));
-}
-
-void ConnectionPool::onMessageReceived(std::string message)
-{
-    m_ioService.post([ this, message = std::move(message) ] {
-        m_onMessage(message);
-    });
-}
-
-void ConnectionPool::onConnectionReady(Connection::Ptr conn)
-{
-    m_blockingStrand.post([ this, c = std::weak_ptr<Connection>{conn} ] {
-        std::shared_ptr<SendTask> task;
-        if (!m_rejects.try_pop(task))
-            m_outbox.pop(task);
-
-        if (auto conn = c.lock()) {
-            std::string message;
-            std::function<void(const std::error_code &)> callback;
-            std::tie(message, callback) = std::move(*task);
-
-            auto wrappedCallback = [ =, callback = std::move(callback) ](
-                const std::error_code &ec, Connection::Ptr conn) mutable
-            {
-                if (!ec)
-                    onConnectionReady(std::move(conn));
-
-                callback(ec);
-            };
-
-            conn->send(std::move(message), std::move(wrappedCallback));
-        }
-        else {
-            m_rejects.emplace(std::move(task));
-        }
-    });
-}
-
-void ConnectionPool::onConnectionClosed(
-    Connection::Ptr conn, const std::error_code &ec)
-{
-    m_connectionsStrand.post([this, conn] { m_connections.erase(conn); });
-
-    if (ec && m_errorPolicy == ErrorPolicy::propagate) {
-        std::shared_ptr<SendTask> task;
-        if (m_rejects.try_pop(task) || m_outbox.try_pop(task))
-            std::get<1>(*task)(ec);
+    PersistentConnection *conn;
+    try {
+        m_idleConnections.pop(conn);
+    }
+    catch (const tbb::user_abort &) {
+        // We have aborted the wait by calling stop()
+        return;
     }
 
-    auto timer = std::make_shared<steady_timer>(m_ioService, RECREATE_DELAY);
-    timer->async_wait([this, timer](const std::error_code &ec) {
-        if (!ec)
-            createConnection();
-    });
+    // There might be a case that the connection has failed between
+    // inserting it into ready queue and popping it here; that's ok
+    // since connection will fail the send instead of erroring out.
+    conn->send(std::move(message), std::move(callback));
 }
 
-void ConnectionPool::createConnection()
+void ConnectionPool::onConnectionReady(PersistentConnection &conn)
 {
-    auto conn = m_connectionFactory(m_ioService, m_context,
-        m_verifyServerCertificate, m_getHandshake, m_onHandshakeResponse,
-        std::bind(&ConnectionPool::onMessageReceived, this, _1),
-        std::bind(&ConnectionPool::onConnectionClosed, this, _1, _2));
-
-    m_connectionsStrand.post([this, conn] { m_connections.emplace(conn); });
-
-    conn->connect(m_host, m_service,
-        std::bind(&ConnectionPool::onConnectionReady, this, _1));
+    m_idleConnections.emplace(&conn);
 }
 
-ConnectionPool::~ConnectionPool()
+ConnectionPool::~ConnectionPool() { stop(); }
+
+void ConnectionPool::stop()
 {
-    m_connectionsStrand.dispatch([this] {
-        for (auto &conn : m_connections)
-            conn->close();
+    m_connected = false;
+    m_connections.clear();
+    m_idleConnections.abort();
 
-        m_connections.clear();
-    });
+    if (!m_ioService.stopped())
+        m_ioService.stop();
 
-    m_ioService.stop();
-    m_outbox.abort();
-
-    for (auto &thread : m_workers)
-        thread.join();
+    if (m_thread.joinable())
+        m_thread.join();
 }
 
 } // namespace communication

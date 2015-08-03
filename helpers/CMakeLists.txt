@@ -1,20 +1,10 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(helpers C CXX)
 
-# The version number.
-set(helpers_VERSION_MAJOR 0)
-set(helpers_VERSION_MINOR 2)
-set(helpers_VERSION_PATCH 0)
-set(helpers_VERSION $(helpers_VERSION_MAJOR).$(helpers_VERSION_MINOR).$(helpers_VERSION_PATCH))
-
 # CMake config
 set(CMAKE_FIND_FRAMEWORK LAST)
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
-
-# Setup OpenSSL
-message(STATUS "Checking for OpenSSL...")
-find_package(OpenSSL REQUIRED)
 
 # Setup pthreads
 message(STATUS "Checking for pthreads...")
@@ -38,6 +28,16 @@ set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
 find_package(Boost COMPONENTS filesystem system REQUIRED)
 
+set(ERLANG_TLS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/erlang-tls/c_src)
+
+# Setup BoringSSL
+add_subdirectory(${ERLANG_TLS_DIR}/deps/boringssl)
+set(BORINGSSL_LIBRARIES ssl crypto)
+set(BORINGSSL_INCLUDE_DIRS ${ERLANG_TLS_DIR}/deps/boringssl/include)
+
+# Setup Asio
+set(ASIO_INCLUDE_DIRS ${ERLANG_TLS_DIR}/deps/asio/asio/include)
+
 # Utility libs
 find_library(LTDL_LIBRARY ltdl)
 find_library(ZLIB_LIBRARY z)
@@ -51,6 +51,15 @@ set(PLATFORM_EXTRA_LIBS
     ${ZLIB_LIBRARY}
     ${DL_LIBRARY})
 
+# Code coverage
+option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
+if(CODE_COVERAGE)
+  message("Code coverage enabled.")
+  add_compile_options(--coverage)
+  set(PLATFORM_EXTRA_LIBS ${PLATFORM_EXTRA_LIBS} gcov)
+endif(CODE_COVERAGE)
+
+
 if(APPLE)
     set(SECTION_FRAGMENTATION_FLAGS -Wno-deprecated-declarations)
     set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
@@ -60,7 +69,8 @@ else(NOT APPLE)
     set(CUSTOM_RPATH "${CMAKE_INSTALL_PREFIX}/lib" "\$ORIGIN")
 endif(APPLE)
 
-add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Wall -std=c++14 -Wpedantic)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wshadow -Wall -Wpedantic)
 add_definitions(
     ${FUSE_DEFINITIONS}
     -DFUSE_USE_VERSION=29
@@ -69,17 +79,9 @@ add_definitions(
     -DBOOST_ALL_DYN_LINK
     -DASIO_STANDALONE)
 
-include_directories(SYSTEM
-    ${FUSE_INCLUDE_DIRS}
-    ${FUSE_INCLUDE_DIRS}/..
-    ${PROTOBUF_INCLUDE_DIR}
-    ${OPENSSL_INCLUDE_DIR}
-    ${TBB_INCLUDE_DIRS}
-    ${Boost_INCLUDE_DIRS})
-
-add_subdirectory(object)
-include_directories(${HELPERS_INCLUDE_DIRS})
-include_directories(SYSTEM ${HELPERS_SYSTEM_INCLUDE_DIRS})
+add_subdirectory(clproto)
+add_subdirectory(${ERLANG_TLS_DIR}/src)
+add_subdirectory(src)
 
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/dummy.cc "")
 set(HELPERS_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/dummy.cc ${PROJECT_SOURCES})
@@ -87,6 +89,8 @@ set(HELPERS_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/dummy.cc ${PROJECT_SOURCES})
 # Define targets
 add_library(helpersShared SHARED ${HELPERS_SOURCES})
 target_link_libraries(helpersShared PUBLIC ${HELPERS_LIBRARIES})
+target_include_directories(helpersShared SYSTEM PUBLIC ${HELPERS_SYSTEM_INCLUDE_DIRS})
+target_include_directories(helpersShared PUBLIC ${HELPERS_INCLUDE_DIRS})
 set_target_properties(helpersShared PROPERTIES
     OUTPUT_NAME helpers
     BUILD_WITH_INSTALL_RPATH true

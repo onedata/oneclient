@@ -32,13 +32,12 @@ WriteEventSubscription::WriteEventSubscription(
         m_sizeThreshold.reset(writeEventSubscriptionMsg.size_threshold());
 }
 
-WriteEventSubscription::WriteEventSubscription(uint64_t id,
-    size_t counterThreshold, std::chrono::milliseconds timeThreshold,
-    size_t sizeThreshold)
-    : m_id{id}
-    , m_counterThreshold{counterThreshold}
-    , m_timeThreshold{std::move(timeThreshold)}
-    , m_sizeThreshold{sizeThreshold}
+WriteEventSubscription::WriteEventSubscription(uint64_t i, size_t counterThresh,
+    std::chrono::milliseconds timeThresh, size_t sizeThresh)
+    : m_id{i}
+    , m_counterThreshold{counterThresh}
+    , m_timeThreshold{std::move(timeThresh)}
+    , m_sizeThreshold{sizeThresh}
 {
 }
 

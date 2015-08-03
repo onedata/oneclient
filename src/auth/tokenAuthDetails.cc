@@ -2,26 +2,23 @@
  * @file tokenAuthDetails.cc
  * @author Konrad Zemek
  * @copyright (C) 2014 ACK CYFRONET AGH
- * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
  */
 
 #include "auth/tokenAuthDetails.h"
 
-namespace one
-{
-namespace client
-{
-namespace auth
-{
+namespace one {
+namespace client {
+namespace auth {
 
-TokenAuthDetails::TokenAuthDetails(std::string accessToken,
-                                   std::string refreshToken,
-                                   std::string gruid,
-                                   const int expiresIn)
-    : m_accessToken{std::move(accessToken)}
-    , m_refreshToken{std::move(refreshToken)}
-    , m_gruid{std::move(gruid)}
-    , m_expirationTime{std::chrono::system_clock::now() + std::chrono::seconds{expiresIn}}
+TokenAuthDetails::TokenAuthDetails(std::string accessToken_,
+    std::string refreshToken_, std::string gruid_, const int expiresIn_)
+    : m_accessToken{std::move(accessToken_)}
+    , m_refreshToken{std::move(refreshToken_)}
+    , m_gruid{std::move(gruid_)}
+    , m_expirationTime{
+          std::chrono::system_clock::now() + std::chrono::seconds{expiresIn_}}
 {
 }
 
@@ -35,21 +32,19 @@ const std::string &TokenAuthDetails::refreshToken() const
     return m_refreshToken;
 }
 
-const std::string &TokenAuthDetails::gruid() const
-{
-    return m_gruid;
-}
+const std::string &TokenAuthDetails::gruid() const { return m_gruid; }
 
-const std::chrono::system_clock::time_point &TokenAuthDetails::expirationTime() const
+const std::chrono::system_clock::time_point &
+TokenAuthDetails::expirationTime() const
 {
     return m_expirationTime;
 }
 
 std::ostream &operator<<(std::ostream &o, const TokenAuthDetails &auth)
 {
-    return o << auth.m_accessToken << " " << auth.m_refreshToken << " " <<
-                auth.m_gruid << " " <<
-                auth.m_expirationTime.time_since_epoch().count();
+    return o << auth.m_accessToken << " " << auth.m_refreshToken << " "
+             << auth.m_gruid << " "
+             << auth.m_expirationTime.time_since_epoch().count();
 }
 
 std::istream &operator>>(std::istream &i, TokenAuthDetails &auth)

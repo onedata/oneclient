@@ -9,17 +9,17 @@
 package one.clproto;
 
 message Ping {
-  optional bytes data = 1;
+    optional bytes data = 1;
 }
 
 message Pong {
-  optional bytes data = 1;
+    optional bytes data = 1;
 }
 
 message GetProtocolVersion {
 }
 
 message ProtocolVersion {
-  required uint32 major = 1;
-  required uint32 minor = 2;
+    required uint32 major = 1;
+    required uint32 minor = 2;
 }

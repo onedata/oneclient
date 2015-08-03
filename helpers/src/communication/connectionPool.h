@@ -9,55 +9,45 @@
 #ifndef HELPERS_COMMUNICATION_CONNECTION_POOL_H
 #define HELPERS_COMMUNICATION_CONNECTION_POOL_H
 
-#include "connection.h"
+#include "persistentConnection.h"
 
-#include <asio/io_service.hpp>
-#include <asio/strand.hpp>
-#include <asio/ip/tcp.hpp>
 #include <asio/ssl/context.hpp>
-#include <asio/ssl/stream.hpp>
 #include <tbb/concurrent_queue.h>
 
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <string>
-#include <queue>
 #include <vector>
 #include <system_error>
 #include <thread>
 #include <tuple>
-#include <unordered_set>
+#include <unordered_map>
 
 namespace one {
-
-class IoServiceExecutor;
-
 namespace communication {
 
 namespace cert {
 class CertificateData;
 }
 
-class Connection;
-
 /**
- * A @c ConnectionPool is responsible for managing instances of @c Connection.
+ * A @c ConnectionPool is responsible for managing instances of
+ * @c PersistentConnection.
  * It provides a facade for the connections, ensuring that outside entities
  * do not interact with connections directly.
  */
 class ConnectionPool {
-    using SendTask =
-        std::tuple<std::string, std::function<void(const std::error_code &)>>;
-
-    using ConnectionFactory = std::function<Connection::Ptr(asio::io_service &,
-        asio::ssl::context &, const bool, std::function<std::string()> &,
-        std::function<std::error_code(std::string)> &,
-        std::function<void(std::string)>,
-        std::function<void(Connection::Ptr, const std::error_code &)>)>;
-
 public:
-    using Callback = std::function<void(const std::error_code &)>;
-    enum class ErrorPolicy { ignore, propagate };
+    using Callback = PersistentConnection::Callback;
+    using ConnectionFactory =
+        std::function<std::unique_ptr<PersistentConnection>(std::string,
+            const unsigned short, asio::ssl::context &,
+            std::function<void(std::string)>,
+            std::function<void(PersistentConnection &)>,
+            std::function<std::string()>,
+            std::function<std::error_code(std::string)>,
+            std::function<void(std::error_code)>)>;
 
     /**
      * A reference to @c *this typed as a @c ConnectionPool.
@@ -69,20 +59,18 @@ public:
      * @param connectionsNumber Number of connections that should be maintained
      * by this pool.
      * @param host Hostname of the remote endpoint.
-     * @param service Name of well-known service provided by the remote
-     * endpoint, or a port number.
+     * @param port Port number of the remote endpoint.
      * @param verifyServerCertificate Specifies whether to verify server's
      * SSL certificate.
-     * @param certificateData Certificate data to use for SSL authentication.
+     * @param connectionFactory A function that returns a new connection object
+     * that is then maintained by the @c ConnectionPool.
      */
-    ConnectionPool(const unsigned int connectionsNumber, std::string host,
-        std::string service, const bool verifyServerCertificate,
-        ConnectionFactory connectionFactory,
-        ErrorPolicy errorPolicy = ErrorPolicy::ignore);
+    ConnectionPool(const std::size_t connectionsNumber, std::string host,
+        const unsigned short port, const bool verifyServerCertificate,
+        ConnectionFactory connectionFactory);
 
     /**
-     * Creates connections and threads that will work for them.
-     * May throw a connection-related exception.
+     * Creates connections to the remote endpoint specified in the constructor.
      * @note This method is separated from the constructor so that the
      * initialization can be augmented by other communication layers.
      */
@@ -95,15 +83,18 @@ public:
      * @param getHandshake A function that returns a handshake to send through
      * connections.
      * @param onHandshakeResponse A function that takes a handshake response.
+     * @param onHandshakeDone A function that is called whenever handshake
+     * succeeds or fails.
      * @note This method is separated from constructor so that the handshake
      * messages can be translated by other communication layers.
      */
     void setHandshake(std::function<std::string()> getHandshake,
-        std::function<std::error_code(std::string)> onHandshakeResponse);
+        std::function<std::error_code(std::string)> onHandshakeResponse,
+        std::function<void(std::error_code)> onHandshakeDone);
 
     /**
      * Sets a function to handle received messages.
-     * @param onMessage The received message.
+     * @param onMessage The function handling received messages.
      */
     void setOnMessageCallback(std::function<void(std::string)> onMessage);
 
@@ -116,49 +107,53 @@ public:
 
     /**
      * Sends a message through one of the managed connections.
+     * Returns immediately if @c connect() has not been called, or @c stop() has
+     * been called.
      * @param message The message to send.
-     * @return A future fulfilled when the message is sent or (with an
-     * exception) when an error occured.
+     * @param callback Callback function that is called on send success or
+     * error.
      */
     void send(std::string message, Callback callback, const int = int{});
 
     /**
      * Destructor.
-     * Stops the underlying asio:: endpoint and the worker thread and
-     * closes maintained connections.
+     * Calls @c stop().
      */
     virtual ~ConnectionPool();
 
-private:
-    void createConnection();
-    void onMessageReceived(std::string message);
-    void onConnectionReady(Connection::Ptr conn);
-    void onConnectionClosed(Connection::Ptr conn, const std::error_code &ec);
+    /**
+     * Stops the @c ConnectionPool operations.
+     * All connections are dropped. This method exists to break the wait of any
+     * threads waiting in @c send. It is designed to be called at the end of the
+     * main application thread.
+     */
+    void stop();
 
-    const unsigned int m_connectionsNumber;
+private:
+    void onConnectionReady(PersistentConnection &conn);
+
+    std::atomic<bool> m_connected{false};
+    const std::size_t m_connectionsNumber;
     std::string m_host;
-    std::string m_service;
+    const unsigned short m_port;
     const bool m_verifyServerCertificate;
-    ConnectionFactory m_connectionFactory;
-    ErrorPolicy m_errorPolicy;
     std::shared_ptr<const cert::CertificateData> m_certificateData;
 
     std::function<std::string()> m_getHandshake;
     std::function<std::error_code(std::string)> m_onHandshakeResponse;
+    std::function<void(std::error_code)> m_onHandshakeDone;
+    ConnectionFactory m_connectionFactory;
+
     std::function<void(std::string)> m_onMessage = [](auto) {};
 
     asio::io_service m_ioService;
-    asio::io_service::work m_idleWork;
-    asio::io_service::strand m_blockingStrand;
-    asio::io_service::strand m_connectionsStrand;
+    asio::executor_work<asio::io_service::executor_type> m_work{
+        asio::make_work(m_ioService)};
+    std::thread m_thread;
+    asio::ssl::context m_context{asio::ssl::context::tlsv12_client};
 
-private:
-    std::vector<std::thread> m_workers;
-    asio::ssl::context m_context;
-
-    tbb::concurrent_bounded_queue<std::shared_ptr<SendTask>> m_outbox;
-    tbb::concurrent_queue<std::shared_ptr<SendTask>> m_rejects;
-    std::unordered_set<Connection::Ptr> m_connections;
+    std::vector<std::unique_ptr<PersistentConnection>> m_connections;
+    tbb::concurrent_bounded_queue<PersistentConnection *> m_idleConnections;
 };
 
 } // namespace communication

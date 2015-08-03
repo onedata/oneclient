@@ -11,8 +11,8 @@
 
 #include "tokenAuthDetails.h"
 
-#include <boost/asio.hpp>
-#include <boost/asio/ssl/stream.hpp>
+#include <asio.hpp>
+#include <asio/ssl/stream.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
 
@@ -31,7 +31,7 @@ namespace auth {
  * communicating with Global Registry's REST services if necessary. *
  */
 class GRAdapter {
-    using Socket = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
+    using Socket = asio::ssl::stream<asio::ip::tcp::socket>;
 
 public:
     /**
@@ -69,7 +69,7 @@ public:
 
 private:
     TokenAuthDetails communicate(const std::string &content) const;
-    std::unique_ptr<Socket> connect(boost::asio::io_service &ioService) const;
+    std::unique_ptr<Socket> connect(asio::io_service &ioService) const;
     void requestToken(const std::string &content, Socket &socket) const;
 
     std::string getResponse(Socket &socket) const;

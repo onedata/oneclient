@@ -11,56 +11,35 @@
 #include "messages.pb.h"
 
 #include <boost/bimap.hpp>
+#include <boost/optional/optional_io.hpp>
 
+#include <cassert>
 #include <sstream>
+#include <system_error>
+#include <vector>
 
 namespace {
 
-using Translation =
-    boost::bimap<one::clproto::Status_Code, one::messages::Status::Code>;
+using Translation = boost::bimap<one::clproto::Status_Code, std::errc>;
 
 Translation createTranslation()
 {
+    using namespace one::clproto;
 
-    Translation translation;
+    const std::vector<Translation::value_type> pairs{
+        {Status_Code_VOK, static_cast<std::errc>(0)},
+        {Status_Code_VENOENT, std::errc::no_such_file_or_directory},
+        {Status_Code_VEACCES, std::errc::permission_denied},
+        {Status_Code_VEEXIST, std::errc::file_exists},
+        {Status_Code_VEIO, std::errc::io_error},
+        {Status_Code_VENOTSUP, std::errc::not_supported},
+        {Status_Code_VENOTEMPTY, std::errc::directory_not_empty},
+        {Status_Code_VEPERM, std::errc::operation_not_permitted},
+        {Status_Code_VEINVAL, std::errc::invalid_argument},
+        {Status_Code_VENOSPC, std::errc::no_space_on_device},
+        {Status_Code_VEAGAIN, std::errc::resource_unavailable_try_again}};
 
-    translation.insert(Translation::value_type(
-        one::clproto::Status_Code_VOK, one::messages::Status::Code::ok));
-    translation.insert(
-        Translation::value_type(one::clproto::Status_Code_VENOENT,
-            one::messages::Status::Code::enoent));
-    translation.insert(
-        Translation::value_type(one::clproto::Status_Code_VEACCES,
-            one::messages::Status::Code::eacces));
-    translation.insert(
-        Translation::value_type(one::clproto::Status_Code_VEEXIST,
-            one::messages::Status::Code::eexist));
-    translation.insert(Translation::value_type(
-        one::clproto::Status_Code_VEIO, one::messages::Status::Code::eio));
-    translation.insert(
-        Translation::value_type(one::clproto::Status_Code_VENOTSUP,
-            one::messages::Status::Code::enotsup));
-    translation.insert(
-        Translation::value_type(one::clproto::Status_Code_VENOTEMPTY,
-            one::messages::Status::Code::enotempty));
-    translation.insert(Translation::value_type(
-        one::clproto::Status_Code_VEPERM, one::messages::Status::Code::eperm));
-    translation.insert(
-        Translation::value_type(one::clproto::Status_Code_VEINVAL,
-            one::messages::Status::Code::einval));
-    translation.insert(
-        Translation::value_type(one::clproto::Status_Code_VEDQUOT,
-            one::messages::Status::Code::edquot));
-    translation.insert(
-        Translation::value_type(one::clproto::Status_Code_VENOATTR,
-            one::messages::Status::Code::enoattr));
-    translation.insert(Translation::value_type(
-        one::clproto::Status_Code_VECOMM, one::messages::Status::Code::ecomm));
-    translation.insert(
-        Translation::value_type(one::clproto::Status_Code_VEREMOTEIO,
-            one::messages::Status::Code::eremoteio));
-
-    return translation;
+    return {pairs.begin(), pairs.end()};
 }
 
 const Translation translation = createTranslation();
@@ -69,34 +48,40 @@ const Translation translation = createTranslation();
 namespace one {
 namespace messages {
 
-Status::Status(Code code)
-    : m_code{code}
+Status::Status(std::error_code ec)
+    : m_code{ec}
 {
 }
 
-Status::Status(Code code, std::string description)
-    : m_code{code}
-    , m_description{std::move(description)}
+Status::Status(std::error_code ec, std::string desc)
+    : m_code{ec}
+    , m_description{std::move(desc)}
 {
 }
 
 Status::Status(std::unique_ptr<ProtocolServerMessage> serverMessage)
 {
     auto &statusMsg = serverMessage->status();
-
-    auto searchResult = translation.left.find(statusMsg.code());
-    if (searchResult != translation.left.end()) {
-        m_code = searchResult->second;
-    }
-    else {
-        m_code = Code::eremoteio;
-    }
-
-    if (statusMsg.has_description())
-        m_description = statusMsg.description();
+    std::tie(m_code, m_description) = translate(statusMsg);
 }
 
-Status::Code Status::code() const { return m_code; }
+std::error_code Status::code() const { return m_code; }
+
+std::tuple<std::error_code, boost::optional<std::string>> Status::translate(
+    const clproto::Status &status)
+{
+    auto searchResult = translation.left.find(status.code());
+    const auto code = (searchResult == translation.left.end())
+        ? std::errc::protocol_error
+        : searchResult->second;
+
+    if (status.has_description())
+        return std::make_tuple(
+            std::make_error_code(code), status.description());
+
+    return std::make_tuple(
+        std::make_error_code(code), boost::optional<std::string>{});
+}
 
 const boost::optional<std::string> &Status::description() const
 {
@@ -106,11 +91,8 @@ const boost::optional<std::string> &Status::description() const
 std::string Status::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'Status', code: " << m_code << ", description: ";
-    if (m_description)
-        stream << "'" << m_description.get() << "'";
-    else
-        stream << "'undefined'";
+    stream << "type: 'Status', code: " << m_code
+           << ", description: " << m_description;
     return stream.str();
 }
 
@@ -119,13 +101,11 @@ std::unique_ptr<ProtocolClientMessage> Status::serialize() const
     auto clientMsg = std::make_unique<ProtocolClientMessage>();
     auto statusMsg = clientMsg->mutable_status();
 
-    auto searchResult = translation.right.find(m_code);
-    if (searchResult != translation.right.end()) {
-        statusMsg->set_code(searchResult->second);
-    }
-    else {
-        statusMsg->set_code(one::clproto::Status_Code_VEREMOTEIO);
-    }
+    auto searchResult =
+        translation.right.find(static_cast<std::errc>(m_code.value()));
+
+    assert(searchResult != translation.right.end());
+    statusMsg->set_code(searchResult->second);
 
     if (m_description)
         statusMsg->set_description(m_description.get());
@@ -139,27 +119,6 @@ struct CodeHash {
         return static_cast<std::size_t>(t);
     }
 };
-
-std::ostream &operator<<(std::ostream &stream, Status::Code code)
-{
-    const static std::unordered_map<Status::Code, std::string,
-        CodeHash> stringByCode = {{Status::Code::ok, "OK"},
-        {Status::Code::enoent, "ENOENT"}, {Status::Code::eacces, "EACCESS"},
-        {Status::Code::eexist, "EEXISTS"}, {Status::Code::eio, "EIO"},
-        {Status::Code::enotsup, "ENOTSUP"},
-        {Status::Code::enotempty, "ENOTEMPTY"}, {Status::Code::ecomm, "ECOMM"},
-        {Status::Code::eremoteio, "EREMOTEIO"}, {Status::Code::eperm, "EPERM"},
-        {Status::Code::einval, "EINVAL"}, {Status::Code::edquot, "EDQUOT"},
-        {Status::Code::enoattr, "ENOATTR"}};
-
-    auto searchResult = stringByCode.find(code);
-    if (searchResult != stringByCode.end())
-        stream << searchResult->second;
-    else
-        stream << "EREMOTEIO";
-
-    return stream;
-}
 
 } // namespace messages
 } // namespace one

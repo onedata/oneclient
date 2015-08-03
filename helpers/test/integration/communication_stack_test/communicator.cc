@@ -1,8 +1,8 @@
 #include "communication/communicator.h"
-#include "communication/connection.h"
 #include "communication/declarations.h"
 #include "messages/clientMessage.h"
 #include "messages/serverMessage.h"
+#include "messages/handshakeRequest.h"
 
 #include "messages.pb.h"
 
@@ -34,7 +34,8 @@ public:
     std::string &lastMessageSent() { return m_lastMessageSent; }
 
     auto setHandshake(std::function<std::string()> getHandshake,
-        std::function<std::error_code(std::string)> onHandshakeResponse)
+        std::function<std::error_code(std::string)> onHandshakeResponse,
+        std::function<void(std::error_code)> onHandshakeDone)
     {
         m_handshake = getHandshake();
         return LowerLayer::setHandshake(std::move(getHandshake),
@@ -46,7 +47,8 @@ public:
                 catch (std::future_error) {
                 }
                 return onHandshakeResponse(std::move(response));
-            });
+            },
+            [](auto) {});
     }
 
     std::string &handshake() { return m_handshake; }
@@ -90,8 +92,8 @@ private:
 
 class ExampleServerMessage : public messages::ServerMessage {
 public:
-    ExampleServerMessage(std::unique_ptr<ProtocolServerMessage> protocolMsg)
-        : m_protocolMsg{std::move(protocolMsg)}
+    ExampleServerMessage(std::unique_ptr<ProtocolServerMessage> protocolMsg_)
+        : m_protocolMsg{std::move(protocolMsg_)}
     {
     }
 
@@ -105,12 +107,10 @@ private:
 
 class CommunicatorProxy {
 public:
-    CommunicatorProxy(const unsigned int connectionsNumber, std::string host,
-        const unsigned short port, bool propagateExceptions)
-        : m_communicator{connectionsNumber, std::move(host),
-              std::to_string(port), false, createConnection,
-              propagateExceptions ? ConnectionPool::ErrorPolicy::propagate
-                                  : ConnectionPool::ErrorPolicy::ignore}
+    CommunicatorProxy(const std::size_t connectionsNumber, std::string host,
+        const unsigned short port)
+        : m_communicator{
+              connectionsNumber, std::move(host), port, false, createConnection}
     {
     }
 
@@ -120,6 +120,11 @@ public:
     {
         m_communicator.send(ExampleClientMessage{description});
         return m_communicator.lastMessageSent();
+    }
+
+    void sendAsync(const std::string &description)
+    {
+        std::thread{[=] { send(description); }}.detach();
     }
 
     std::string communicate(const std::string &description)
@@ -140,12 +145,9 @@ public:
 
     std::string setHandshake(const std::string &description, bool fail)
     {
-        m_communicator.binaryTranslator.setHandshake(
-            [=] {
-                ExampleClientMessage msg{description};
-                return msg.serialize();
-            },
-            [=](ServerMessagePtr) {
+        m_communicator.setHandshake(
+            [=] { return messages::HandshakeRequest{description}; },
+            [=](auto) {
                 return fail ? std::make_error_code(std::errc::bad_message)
                             : std::error_code{};
             });
@@ -165,10 +167,10 @@ private:
 
 boost::shared_ptr<CommunicatorProxy> create(
     const unsigned int connectionsNumber, std::string host,
-    const unsigned short port, bool propagateExceptions)
+    const unsigned short port)
 {
     return boost::make_shared<CommunicatorProxy>(
-        connectionsNumber, std::move(host), port, propagateExceptions);
+        connectionsNumber, std::move(host), port);
 }
 
 std::string prepareReply(
@@ -192,6 +194,7 @@ BOOST_PYTHON_MODULE(communication_stack)
         .def("__init__", make_constructor(create))
         .def("connect", &CommunicatorProxy::connect)
         .def("send", &CommunicatorProxy::send)
+        .def("sendAsync", &CommunicatorProxy::sendAsync)
         .def("communicate", &CommunicatorProxy::communicate)
         .def("communicateReceive", &CommunicatorProxy::communicateReceive)
         .def("setHandshake", &CommunicatorProxy::setHandshake)

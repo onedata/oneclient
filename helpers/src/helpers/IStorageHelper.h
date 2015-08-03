@@ -95,7 +95,6 @@ public:
         const boost::filesystem::path &p, CTXRef ctx) = 0;
     virtual future_t<void> ash_fsync(
         const boost::filesystem::path &p, int isdatasync, CTXRef ctx) = 0;
-
     virtual asio::mutable_buffer sh_read(const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset, CTXRef ctx) = 0;
     virtual int sh_write(const boost::filesystem::path &p,

@@ -1,36 +1,103 @@
 {
-    "op_ccm": {
-        "config": {
-            "input_dir": "rel/op_ccm",
-            "target_dir": "rel/test_cluster"
-        },
-        "nodes": {
-            "ccm1": {
-                "vm.args": {
-                    "name": "ccm1@",
-                    "setcookie": "cookie"
+    "providers": {
+        "p1": {
+            "op_ccm": {
+                "config": {
+                    "input_dir": "rel/op_ccm",
+                    "target_dir": "rel/test_cluster"
                 },
-                "sys.config": {
-                    "ccm_nodes": [ "ccm1@" ],
-                    "worker_num": 1
+                "nodes": {
+                    "ccm1_p1": {
+                        "vm.args": {
+                            "setcookie": "cookie1"
+                        },
+                        "sys.config": {
+                            "ccm_nodes": [
+                                "ccm1_p1@"
+                            ],
+                            "worker_num": 1
+                        }
+                    }
+                }
+            },
+            "op_worker": {
+                "config": {
+                    "input_dir": "rel/op_worker",
+                    "target_dir": "rel/test_cluster"
+                },
+                "nodes": {
+                    "worker1_p1": {
+                        "vm.args": {
+                            "setcookie": "cookie1"
+                        },
+                        "sys.config": {
+                            "ccm_nodes": [
+                                "ccm1_p1@"
+                            ],
+                            "db_nodes": [
+                                "riaknode1",
+                                "riaknode2"
+                            ],
+                            "global_registry_node": "gr1@"
+                        }
+                    }
                 }
             }
-        }
-    },
-    "oneprovider_node": {
-        "config": {
-            "input_dir": "rel/oneprovider_node",
-            "target_dir": "rel/test_cluster"
         },
-        "nodes": {
-            "worker": {
-                "vm.args": {
-                    "name": "worker@",
-                    "setcookie": "cookie"
+        "p2": {
+            "op_ccm": {
+                "config": {
+                    "input_dir": "rel/op_ccm",
+                    "target_dir": "rel/test_cluster"
                 },
-                "sys.config": {
-                    "ccm_nodes": [ "ccm1@"],
-                    "db_nodes": [ "127.0.0.1:49161" ]
+                "nodes": {
+                    "ccm1_p2": {
+                        "vm.args": {
+                            "setcookie": "cookie2"
+                        },
+                        "sys.config": {
+                            "ccm_nodes": [
+                                "ccm1_p2@"
+                            ],
+                            "worker_num": 1
+                        }
+                    }
+                }
+            },
+            "op_worker": {
+                "config": {
+                    "input_dir": "rel/op_worker",
+                    "target_dir": "rel/test_cluster"
+                },
+                "nodes": {
+                    "worker1_p2": {
+                        "vm.args": {
+                            "setcookie": "cookie2"
+                        },
+                        "sys.config": {
+                            "ccm_nodes": [
+                                "ccm1_p2@"
+                            ],
+                            "db_nodes": [
+                                "riaknode1"
+                            ],
+                            "global_registry_node": "gr1@"
+                        }
+                    },
+                    "worker2_p2": {
+                        "vm.args": {
+                            "setcookie": "cookie2"
+                        },
+                        "sys.config": {
+                            "ccm_nodes": [
+                                "ccm1_p2@"
+                            ],
+                            "db_nodes": [
+                                "riaknode1"
+                            ],
+                            "global_registry_node": "gr1@"
+                        }
+                    }
                 }
             }
         }
@@ -43,13 +110,78 @@
         "nodes": {
             "gr1": {
                 "vm.args": {
-                    "name": "gr1@",
-                    "setcookie": "cookie1"
+                    "setcookie": "cookie3"
                 },
                 "sys.config": {
-                    "db_nodes": ["gr1_db@"],
-                    "grpcert_domain": {"string": "127.0.0.1"}
+                    "db_nodes": [
+                        "gr1_db@"
+                    ],
+                    "grpcert_domain": {
+                        "string": "127.0.0.1"
+                    },
+                    "dev_mode": true
                 }
+            }
+        }
+    },
+    "global_setup": {
+        "users": {
+            "u1": {
+                "default_space": "s1"
+            },
+            "u2": {
+                "default_space": "s2"
+            },
+            "u3": {
+                "default_space": "s1"
+            }
+        },
+        "groups": {
+            "g1": {
+                "users": [
+                    "u1",
+                    "u3"
+                ]
+            },
+            "g2": {
+                "users": [
+                    "u2"
+                ]
+            }
+        },
+        "spaces": {
+            "s1": {
+                "users": [
+                    "u1",
+                    "u3"
+                ],
+                "groups": [
+                    "g1"
+                ],
+                "providers": [
+                    {
+                        "provider": "p1",
+                        "supported_size": 1000000000
+                    },
+                    {
+                        "provider": "p2",
+                        "supported_size": 1000000000
+                    }
+                ]
+            },
+            "s2": {
+                "users": [
+                    "u2"
+                ],
+                "groups": [
+                    "g2"
+                ],
+                "providers": [
+                    {
+                        "provider": "p1",
+                        "supported_size": 1000000000
+                    }
+                ]
             }
         }
     },
@@ -96,7 +228,7 @@
             "onepanel1": {
                 "vm.args": {
                     "name": "onepanel@onepanel1",
-                    "setcookie": "oneprovider_node"
+                    "setcookie": "cookie"
                 },
                 "sys.config": {
                     "multicast_address": {"string": "239.255.0.1"}
@@ -105,7 +237,7 @@
             "onepanel2": {
                 "vm.args": {
                     "name": "onepanel@onepanel2",
-                    "setcookie": "oneprovider_node"
+                    "setcookie": "cookie"
                 },
                 "sys.config": {
                     "multicast_address": {"string": "239.255.0.1"}
