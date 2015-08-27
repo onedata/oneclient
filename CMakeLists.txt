@@ -4,7 +4,7 @@ project(oneclient C CXX)
 # CMake config
 set(CMAKE_FIND_FRAMEWORK LAST)
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/helpers/cmake)
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${PROJECT_SOURCE_DIR}/helpers/cmake)
 
 #================================================================================================
 # Automatic git versioning: http://ipenguin.ws/2012/11/cmake-automatically-use-git-tags-as.html
@@ -43,6 +43,8 @@ configure_file(include/version.h.in ${PROJECT_BINARY_DIR}/version/version.h)
 
 # Deps
 add_subdirectory(deps/json11)
+add_subdirectory(deps/libmacaroons)
+add_subdirectory(deps/libmacaroons-cpp)
 
 # Setup fuse
 message(STATUS "Checking for FUSE...")
@@ -66,6 +68,10 @@ set(Boost_USE_STATIC_RUNTIME    OFF)
 set(Boost_USE_STATIC_LIBS       OFF)
 find_package(Boost COMPONENTS filesystem program_options system REQUIRED)
 
+# Setup libsodium
+find_package(Sodium)
+
+# Setup Erlang-TLS
 set(ERLANG_TLS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/helpers/erlang-tls/c_src)
 
 # Setup BoringSSL
@@ -115,7 +121,8 @@ else(NOT APPLE)
 endif(APPLE)
 
 # Define build settings
-add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wshadow -Wall -std=c++14)
+add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wshadow -Wall)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 add_definitions(
     ${FUSE_DEFINITIONS}
     -DFUSE_USE_VERSION=29
@@ -146,14 +153,19 @@ include_directories(SYSTEM
     ${TBB_INCLUDE_DIRS}
     ${Boost_INCLUDE_DIRS}
     ${GLOG_INCLUDE_DIRS}
-    ${CMAKE_CURRENT_SOURCE_DIR}/deps/json11)
+    ${SODIUM_INCLUDE_DIRS}
+    ${CMAKE_CURRENT_SOURCE_DIR}/deps/json11
+    ${CMAKE_CURRENT_SOURCE_DIR}/deps/libmacaroons
+    ${CMAKE_CURRENT_SOURCE_DIR}/deps/libmacaroons-cpp)
 
 set(CLIENT_LIBRARIES
     json11
+    libmacaroons-cpp
     ${PLATFORM_EXTRA_LIBS}
     ${GLOG_LIBRARIES}
     ${FUSE_LIBRARIES}
     ${Boost_LIBRARIES}
+    ${SODIUM_LIBRARIES}
     ${PROTOBUF_LIBRARIES}
     ${BORINGSSL_LIBRARIES}
     ${HELPERS_LIBRARIES})
