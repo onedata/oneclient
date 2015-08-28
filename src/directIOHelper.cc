@@ -37,76 +37,64 @@ inline boost::filesystem::path extractPath(const IStorageHelper::ArgsMap &args)
 }
 }
 
+const error_t DirectIOHelper::SuccessCode = error_t();
+
 inline boost::filesystem::path DirectIOHelper::root(
     const boost::filesystem::path &path)
 {
     return m_rootPath / path;
 }
 
-future_t<struct stat> DirectIOHelper::ash_getattr(
-    const boost::filesystem::path &p)
+void DirectIOHelper::ash_getattr(CTXRef, const boost::filesystem::path &p,
+    GeneralCallback<struct stat> callback)
 {
-    auto promise = std::make_shared<promise_t<struct stat>>();
-
-    m_workerService.post([=]() {
+    m_workerService.post([=, callback = std::move(callback)]() {
         struct stat stbuf;
         if (lstat(root(p).c_str(), &stbuf) == -1) {
-            setPosixError(promise, errno);
+            callback(std::move(stbuf), makePosixError(errno));
         }
         else {
-            promise->set_value(std::move(stbuf));
+            callback(std::move(stbuf), SuccessCode);
         }
     });
-
-    return promise->get_future();
 }
 
-future_t<void> DirectIOHelper::ash_access(
-    const boost::filesystem::path &p, int mask)
+void DirectIOHelper::ash_access(
+    CTXRef, const boost::filesystem::path &p, int mask, VoidCallback callback)
 {
-    auto promise = std::make_shared<promise_t<void>>();
-
     m_workerService.post(
-        [=]() { setResult(promise, access, root(p).c_str(), mask); });
-
-    return promise->get_future();
+        [=, callback = std::move(callback)]() { setResult(callback, access, root(p).c_str(), mask); });
 }
 
-future_t<std::string> DirectIOHelper::ash_readlink(
-    const boost::filesystem::path &p)
+void DirectIOHelper::ash_readlink(CTXRef, const boost::filesystem::path &p,
+    GeneralCallback<std::string> callback)
 {
-    auto promise = std::make_shared<promise_t<std::string>>();
-
-    m_workerService.post([=]() {
+    m_workerService.post([=, callback = std::move(callback)]() {
         std::array<char, 1024> buf;
         const int res = readlink(root(p).c_str(), buf.data(), buf.size() - 1);
 
         if (res == -1) {
-            setPosixError(promise, errno);
+            callback(std::string(), makePosixError(errno));
         }
         else {
             buf[res] = '\0';
-            promise->set_value(buf.data());
+            callback(buf.data(), SuccessCode);
         }
     });
-
-    return promise->get_future();
 }
 
-future_t<std::vector<std::string>> DirectIOHelper::ash_readdir(
-    const boost::filesystem::path &p, off_t offset, size_t count, CTXRef ctx)
+void DirectIOHelper::ash_readdir(CTXRef ctx, const boost::filesystem::path &p,
+    off_t offset, size_t count,
+    GeneralCallback<const std::vector<std::string> &> callback)
 {
-    auto promise = std::make_shared<promise_t<std::vector<std::string>>>();
-    setPosixError(promise, ENOTSUP);
-    return promise->get_future();
+    std::vector<std::string> ret;
+    callback(ret, makePosixError(ENOTSUP));
 }
 
-future_t<void> DirectIOHelper::ash_mknod(
-    const boost::filesystem::path &p, mode_t mode, dev_t rdev)
+void DirectIOHelper::ash_mknod(CTXRef, const boost::filesystem::path &p,
+    mode_t mode, dev_t rdev, VoidCallback callback)
 {
-    auto promise = std::make_shared<promise_t<void>>();
-
-    m_workerService.post([=]() {
+    m_workerService.post([=, callback = std::move(callback)]() {
         int res;
         const auto fullPath = root(p);
 
@@ -125,210 +113,156 @@ future_t<void> DirectIOHelper::ash_mknod(
         }
 
         if (res == -1) {
-            setPosixError(promise, errno);
+            callback(makePosixError(errno));
         }
         else {
-            promise->set_value();
+            callback(SuccessCode);
         }
     });
-
-    return promise->get_future();
 }
 
-future_t<void> DirectIOHelper::ash_mkdir(
-    const boost::filesystem::path &p, mode_t mode)
+void DirectIOHelper::ash_mkdir(CTXRef, const boost::filesystem::path &p,
+    mode_t mode, VoidCallback callback)
 {
-    auto promise = std::make_shared<promise_t<void>>();
-
     m_workerService.post(
-        [=]() { setResult(promise, mkdir, root(p).c_str(), mode); });
-
-    return promise->get_future();
+        [=, callback = std::move(callback)]() { setResult(callback, mkdir, root(p).c_str(), mode); });
 }
 
-future_t<void> DirectIOHelper::ash_unlink(const boost::filesystem::path &p)
+void DirectIOHelper::ash_unlink(
+    CTXRef, const boost::filesystem::path &p, VoidCallback callback)
 {
-    auto promise = std::make_shared<promise_t<void>>();
-
     m_workerService.post(
-        [=]() { setResult(promise, unlink, root(p).c_str()); });
-
-    return promise->get_future();
+        [=, callback = std::move(callback)]() { setResult(callback, unlink, root(p).c_str()); });
 }
 
-future_t<void> DirectIOHelper::ash_rmdir(const boost::filesystem::path &p)
+void DirectIOHelper::ash_rmdir(
+    CTXRef, const boost::filesystem::path &p, VoidCallback callback)
 {
-    auto promise = std::make_shared<promise_t<void>>();
-
-    m_workerService.post([=]() { setResult(promise, rmdir, root(p).c_str()); });
-
-    return promise->get_future();
+    m_workerService.post(
+        [=, callback = std::move(callback)]() { setResult(callback, rmdir, root(p).c_str()); });
 }
 
-future_t<void> DirectIOHelper::ash_symlink(
-    const boost::filesystem::path &from, const boost::filesystem::path &to)
+void DirectIOHelper::ash_symlink(CTXRef, const boost::filesystem::path &from,
+    const boost::filesystem::path &to, VoidCallback callback)
 {
-    auto promise = std::make_shared<promise_t<void>>();
-
-    m_workerService.post([=]() {
-        setResult(promise, symlink, root(from).c_str(), root(to).c_str());
+    m_workerService.post([=, callback = std::move(callback)]() {
+        setResult(callback, symlink, root(from).c_str(), root(to).c_str());
     });
-
-    return promise->get_future();
 }
 
-future_t<void> DirectIOHelper::ash_rename(
-    const boost::filesystem::path &from, const boost::filesystem::path &to)
+void DirectIOHelper::ash_rename(CTXRef, const boost::filesystem::path &from,
+    const boost::filesystem::path &to, VoidCallback callback)
 {
-    auto promise = std::make_shared<promise_t<void>>();
-
-    m_workerService.post([=]() {
-        setResult(promise, rename, root(from).c_str(), root(to).c_str());
+    m_workerService.post([=, callback = std::move(callback)]() {
+        setResult(callback, rename, root(from).c_str(), root(to).c_str());
     });
-
-    return promise->get_future();
 }
 
-future_t<void> DirectIOHelper::ash_link(
-    const boost::filesystem::path &from, const boost::filesystem::path &to)
+void DirectIOHelper::ash_link(CTXRef, const boost::filesystem::path &from,
+    const boost::filesystem::path &to, VoidCallback callback)
 {
-    auto promise = std::make_shared<promise_t<void>>();
-
-    m_workerService.post([=]() {
-        setResult(promise, link, root(from).c_str(), root(to).c_str());
+    m_workerService.post([=, callback = std::move(callback)]() {
+        setResult(callback, link, root(from).c_str(), root(to).c_str());
     });
-
-    return promise->get_future();
 }
 
-future_t<void> DirectIOHelper::ash_chmod(
-    const boost::filesystem::path &p, mode_t mode)
+void DirectIOHelper::ash_chmod(CTXRef, const boost::filesystem::path &p,
+    mode_t mode, VoidCallback callback)
 {
-    auto promise = std::make_shared<promise_t<void>>();
-
     m_workerService.post(
-        [=]() { setResult(promise, chmod, root(p).c_str(), mode); });
-
-    return promise->get_future();
+        [=, callback = std::move(callback)]() { setResult(callback, chmod, root(p).c_str(), mode); });
 }
 
-future_t<void> DirectIOHelper::ash_chown(
-    const boost::filesystem::path &p, uid_t uid, gid_t gid)
+void DirectIOHelper::ash_chown(CTXRef, const boost::filesystem::path &p,
+    uid_t uid, gid_t gid, VoidCallback callback)
 {
-    auto promise = std::make_shared<promise_t<void>>();
-
     m_workerService.post(
-        [=]() { setResult(promise, lchown, root(p).c_str(), uid, gid); });
-
-    return promise->get_future();
+        [=, callback = std::move(callback)]() { setResult(callback, lchown, root(p).c_str(), uid, gid); });
 }
 
-future_t<void> DirectIOHelper::ash_truncate(
-    const boost::filesystem::path &p, off_t size)
+void DirectIOHelper::ash_truncate(
+    CTXRef, const boost::filesystem::path &p, off_t size, VoidCallback callback)
 {
-    auto promise = std::make_shared<promise_t<void>>();
-
     m_workerService.post(
-        [=]() { setResult(promise, truncate, root(p).c_str(), size); });
-
-    return promise->get_future();
+        [=, callback = std::move(callback)]() { setResult(callback, truncate, root(p).c_str(), size); });
 }
 
-future_t<int> DirectIOHelper::ash_open(
-    const boost::filesystem::path &p, CTXRef ctx)
+void DirectIOHelper::ash_open(
+    CTXRef ctx, const boost::filesystem::path &p, GeneralCallback<int> callback)
 {
-    auto promise = std::make_shared<promise_t<int>>();
-
-    m_workerService.post([=, &ctx]() {
-        const int res = open(root(p).c_str(), ctx.m_ffi.flags);
+    m_workerService.post([=, &ctx, callback = std::move(callback)]() {
+        int res = open(root(p).c_str(), ctx.m_ffi.flags);
         if (res == -1) {
-            setPosixError(promise, errno);
+            callback(-1, makePosixError(errno));
         }
         else {
-            fcntl(res, F_SETFL, O_NONBLOCK);
             ctx.m_ffi.fh = res;
-            promise->set_value(res);
+            callback(res, SuccessCode);
         }
     });
-
-    return promise->get_future();
 }
 
-future_t<asio::mutable_buffer> DirectIOHelper::ash_read(
-    const boost::filesystem::path &p, asio::mutable_buffer buf, off_t offset,
-    CTXRef ctx)
+void DirectIOHelper::ash_read(CTXRef ctx, const boost::filesystem::path &p,
+    asio::mutable_buffer buf, off_t offset,
+    GeneralCallback<asio::mutable_buffer> callback)
 {
-    auto promise = std::make_shared<promise_t<asio::mutable_buffer>>();
-
-    m_workerService.post([=, &ctx]() {
+    m_workerService.post([=, &ctx, callback = std::move(callback)]() {
         try {
-            promise->set_value(sh_read(p, buf, offset, ctx));
+            auto res = sh_read(ctx, p, buf, offset);
+            callback(res, SuccessCode);
         }
         catch (std::system_error &e) {
-            setPosixError(promise, e.code().value());
+            callback(asio::mutable_buffer(), e.code());
         }
     });
-
-    return promise->get_future();
 }
 
-future_t<int> DirectIOHelper::ash_write(const boost::filesystem::path &p,
-    asio::const_buffer buf, off_t offset, CTXRef ctx)
+void DirectIOHelper::ash_write(CTXRef ctx, const boost::filesystem::path &p,
+    asio::const_buffer buf, off_t offset, GeneralCallback<int> callback)
 {
-    auto promise = std::make_shared<promise_t<int>>();
-
-    m_workerService.post([=, &ctx]() {
+    m_workerService.post([=, &ctx, callback = std::move(callback)]() {
         try {
-            promise->set_value(sh_write(p, buf, offset, ctx));
+            auto res = sh_write(ctx, p, buf, offset);
+            callback(res, SuccessCode);
         }
         catch (std::system_error &e) {
-            setPosixError(promise, e.code().value());
+            callback(0, e.code());
         }
     });
-
-    return promise->get_future();
 }
 
-future_t<void> DirectIOHelper::ash_release(
-    const boost::filesystem::path &p, CTXRef ctx)
+void DirectIOHelper::ash_release(
+    CTXRef ctx, const boost::filesystem::path &p, VoidCallback callback)
 {
-    auto promise = std::make_shared<promise_t<void>>();
-
-    m_workerService.post([=, &ctx]() {
+    m_workerService.post([=, &ctx, callback = std::move(callback)]() {
         if (ctx.m_ffi.fh && close(ctx.m_ffi.fh) == -1) {
-            setPosixError(promise, errno);
+            callback(makePosixError(errno));
         }
         else {
             ctx.m_ffi.fh = 0;
-            promise->set_value();
+            callback(SuccessCode);
         }
     });
-
-    return promise->get_future();
 }
 
-future_t<void> DirectIOHelper::ash_flush(
-    const boost::filesystem::path &p, CTXRef ctx)
+void DirectIOHelper::ash_flush(
+    CTXRef ctx, const boost::filesystem::path &p, VoidCallback callback)
 {
-    std::promise<void> promise;
-    promise.set_value();
-    return promise.get_future();
+    m_workerService.post([=, callback = std::move(callback)]() { callback(SuccessCode); });
 }
 
-future_t<void> DirectIOHelper::ash_fsync(
-    const boost::filesystem::path &p, int isdatasync, CTXRef ctx)
+void DirectIOHelper::ash_fsync(CTXRef ctx, const boost::filesystem::path &p,
+    bool isDataSync, VoidCallback callback)
 {
-    std::promise<void> promise;
-    promise.set_value();
-    return promise.get_future();
+    m_workerService.post([=, callback = std::move(callback)]() { callback(SuccessCode); });
 }
 
-int DirectIOHelper::sh_write(const boost::filesystem::path &p,
-    asio::const_buffer buf, off_t offset, CTXRef ctx)
+std::size_t DirectIOHelper::sh_write(CTXRef ctx, const boost::filesystem::path &p,
+    asio::const_buffer buf, off_t offset)
 {
     int fd = ctx.m_ffi.fh > 0 ? ctx.m_ffi.fh : open(root(p).c_str(), O_WRONLY);
     if (fd == -1) {
-        throw makePosixError(errno);
+        throw std::system_error(makePosixError(errno));
     }
 
     auto res = pwrite(fd, asio::buffer_cast<const char *>(buf),
@@ -339,18 +273,18 @@ int DirectIOHelper::sh_write(const boost::filesystem::path &p,
     }
 
     if (res == -1) {
-        throw makePosixError(errno);
+        throw std::system_error(makePosixError(errno));
     }
 
     return res;
 }
 
-asio::mutable_buffer DirectIOHelper::sh_read(const boost::filesystem::path &p,
-    asio::mutable_buffer buf, off_t offset, CTXRef ctx)
+asio::mutable_buffer DirectIOHelper::sh_read(CTXRef ctx,
+    const boost::filesystem::path &p, asio::mutable_buffer buf, off_t offset)
 {
     int fd = ctx.m_ffi.fh > 0 ? ctx.m_ffi.fh : open(root(p).c_str(), O_RDONLY);
     if (fd == -1) {
-        throw makePosixError(errno);
+        throw std::system_error(makePosixError(errno));
     }
 
     auto res = pread(
@@ -361,7 +295,7 @@ asio::mutable_buffer DirectIOHelper::sh_read(const boost::filesystem::path &p,
     }
 
     if (res == -1) {
-        throw makePosixError(errno);
+        throw std::system_error(makePosixError(errno));
     }
 
     return std::move(asio::buffer(buf, res));

@@ -33,55 +33,63 @@ public:
      */
     DirectIOHelper(const ArgsMap &, asio::io_service &service);
 
-    future_t<struct stat> ash_getattr(const boost::filesystem::path &p);
-    future_t<void> ash_access(const boost::filesystem::path &p, int mask);
-    future_t<std::string> ash_readlink(const boost::filesystem::path &p);
-    future_t<std::vector<std::string>> ash_readdir(
-        const boost::filesystem::path &p, off_t offset, size_t count,
-        CTXRef ctx);
-    future_t<void> ash_mknod(
-        const boost::filesystem::path &p, mode_t mode, dev_t rdev);
-    future_t<void> ash_mkdir(const boost::filesystem::path &p, mode_t mode);
-    future_t<void> ash_unlink(const boost::filesystem::path &p);
-    future_t<void> ash_rmdir(const boost::filesystem::path &p);
-    future_t<void> ash_symlink(
-        const boost::filesystem::path &from, const boost::filesystem::path &to);
-    future_t<void> ash_rename(
-        const boost::filesystem::path &from, const boost::filesystem::path &to);
-    future_t<void> ash_link(
-        const boost::filesystem::path &from, const boost::filesystem::path &to);
-    future_t<void> ash_chmod(const boost::filesystem::path &p, mode_t mode);
-    future_t<void> ash_chown(
-        const boost::filesystem::path &p, uid_t uid, gid_t gid);
-    future_t<void> ash_truncate(const boost::filesystem::path &p, off_t size);
+    void ash_getattr(CTXRef ctx, const boost::filesystem::path &p,
+        GeneralCallback<struct stat>);
+    void ash_access(
+        CTXRef ctx, const boost::filesystem::path &p, int mask, VoidCallback);
+    void ash_readlink(CTXRef ctx, const boost::filesystem::path &p,
+        GeneralCallback<std::string>);
+    void ash_readdir(CTXRef ctx, const boost::filesystem::path &p, off_t offset,
+        size_t count, GeneralCallback<const std::vector<std::string> &>);
+    void ash_mknod(CTXRef ctx, const boost::filesystem::path &p, mode_t mode,
+        dev_t rdev, VoidCallback);
+    void ash_mkdir(CTXRef ctx, const boost::filesystem::path &p, mode_t mode,
+        VoidCallback);
+    void ash_unlink(CTXRef ctx, const boost::filesystem::path &p, VoidCallback);
+    void ash_rmdir(CTXRef ctx, const boost::filesystem::path &p, VoidCallback);
+    void ash_symlink(CTXRef ctx, const boost::filesystem::path &from,
+        const boost::filesystem::path &to, VoidCallback);
+    void ash_rename(CTXRef ctx, const boost::filesystem::path &from,
+        const boost::filesystem::path &to, VoidCallback);
+    void ash_link(CTXRef ctx, const boost::filesystem::path &from,
+        const boost::filesystem::path &to, VoidCallback);
+    void ash_chmod(CTXRef ctx, const boost::filesystem::path &p, mode_t mode,
+        VoidCallback);
+    void ash_chown(CTXRef ctx, const boost::filesystem::path &p, uid_t uid,
+        gid_t gid, VoidCallback);
+    void ash_truncate(
+        CTXRef ctx, const boost::filesystem::path &p, off_t size, VoidCallback);
 
-    future_t<int> ash_open(const boost::filesystem::path &p, CTXRef ctx);
-    future_t<asio::mutable_buffer> ash_read(const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset, CTXRef ctx);
-    future_t<int> ash_write(const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset, CTXRef ctx);
-    future_t<void> ash_release(const boost::filesystem::path &p, CTXRef ctx);
-    future_t<void> ash_flush(const boost::filesystem::path &p, CTXRef ctx);
-    future_t<void> ash_fsync(
-        const boost::filesystem::path &p, int isdatasync, CTXRef ctx);
+    void ash_open(
+        CTXRef ctx, const boost::filesystem::path &p, GeneralCallback<int>);
+    void ash_read(CTXRef ctx, const boost::filesystem::path &p,
+        asio::mutable_buffer buf, off_t offset,
+        GeneralCallback<asio::mutable_buffer>);
+    void ash_write(CTXRef ctx, const boost::filesystem::path &p,
+        asio::const_buffer buf, off_t offset, GeneralCallback<int>);
+    void ash_release(
+        CTXRef ctx, const boost::filesystem::path &p, VoidCallback);
+    void ash_flush(CTXRef ctx, const boost::filesystem::path &p, VoidCallback);
+    void ash_fsync(CTXRef ctx, const boost::filesystem::path &p, bool isDataSync,
+        VoidCallback);
 
-    asio::mutable_buffer sh_read(const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset, CTXRef ctx);
-    int sh_write(const boost::filesystem::path &p, asio::const_buffer buf,
-        off_t offset, CTXRef ctx);
+    asio::mutable_buffer sh_read(CTXRef ctx, const boost::filesystem::path &p,
+        asio::mutable_buffer buf, off_t offset);
+    std::size_t sh_write(CTXRef ctx, const boost::filesystem::path &p,
+        asio::const_buffer buf, off_t offset);
 
 protected:
     template <class Result, typename... Args1, typename... Args2>
-    static void setResult(std::shared_ptr<promise_t<void>> p,
-        Result (*fun)(Args2...), Args1 &&... args)
+    static void setResult(
+        const VoidCallback &callback, Result (*fun)(Args2...), Args1 &&... args)
     {
         auto posixStatus = fun(std::forward<Args1>(args)...);
 
         if (posixStatus < 0) {
-            setPosixError(p, errno);
+            callback(makePosixError(errno));
         }
         else {
-            p->set_value();
+            callback(SuccessCode);
         }
     }
 
@@ -90,6 +98,7 @@ private:
 
     const boost::filesystem::path m_rootPath;
     asio::io_service &m_workerService;
+    static const error_t SuccessCode;
 };
 
 } // namespace helpers
