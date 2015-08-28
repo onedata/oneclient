@@ -116,9 +116,7 @@ std::shared_ptr<auth::AuthManager> createAuthManager(
     else if (options->get_authentication() == "token") {
         return std::make_shared<auth::TokenAuthManager>(std::move(context),
             options->get_provider_hostname(), options->get_provider_port(),
-            !options->get_no_check_certificate(),
-            options->get_global_registry_url(),
-            options->get_global_registry_port());
+            !options->get_no_check_certificate());
     }
     else {
         throw auth::AuthException{

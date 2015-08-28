@@ -42,7 +42,6 @@ file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/version)
 configure_file(include/version.h.in ${PROJECT_BINARY_DIR}/version/version.h)
 
 # Deps
-add_subdirectory(deps/json11)
 add_subdirectory(deps/libmacaroons)
 add_subdirectory(deps/libmacaroons-cpp)
 
@@ -154,12 +153,10 @@ include_directories(SYSTEM
     ${Boost_INCLUDE_DIRS}
     ${GLOG_INCLUDE_DIRS}
     ${SODIUM_INCLUDE_DIRS}
-    ${CMAKE_CURRENT_SOURCE_DIR}/deps/json11
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/libmacaroons
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/libmacaroons-cpp)
 
 set(CLIENT_LIBRARIES
-    json11
     libmacaroons-cpp
     ${PLATFORM_EXTRA_LIBS}
     ${GLOG_LIBRARIES}

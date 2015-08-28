@@ -11,14 +11,15 @@
 #include "options.h"
 #include "auth/authException.h"
 #include "auth/authManager.h"
-#include "auth/grAdapter.h"
 #include "auth/gsiHandler.h"
+#include "auth/tokenHandler.h"
 #include "communication/cert/certificateData.h"
 #include "communication/persistentConnection.h"
 #include "communication/communicator.h"
 
 #include <boost/archive/iterators/base64_from_binary.hpp>
 #include <boost/archive/iterators/transform_width.hpp>
+#include <macaroons.hpp>
 #include <openssl/sha.h>
 
 #include <array>
@@ -75,31 +76,10 @@ CertificateAuthManager::createCommunicator(const unsigned int poolSize,
 
 TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
     std::string defaultHostname, const unsigned int port,
-    const bool checkCertificate, std::string globalRegistryHostname,
-    const unsigned int globalRegistryPort)
+    const bool checkCertificate)
     : AuthManager{context, defaultHostname, port, checkCertificate}
-    , m_grAdapter{m_environment.clientName(), m_environment.userDataDir(),
-          std::move(globalRegistryHostname), globalRegistryPort,
-          m_checkCertificate}
+    , m_tokenHandler{m_environment.userDataDir()}
 {
-    try {
-        if (auto details = m_grAdapter.retrieveToken()) {
-            m_authDetails = std::move(details.get());
-        }
-        else {
-            std::cout << "Authorization Code: ";
-            std::string code;
-            std::cin >> code;
-
-            m_authDetails = m_grAdapter.exchangeCode(code);
-        }
-
-        if (m_context.lock()->options()->is_default_provider_hostname())
-            m_hostname = "uid_" + m_authDetails.gruid() + "." + m_hostname;
-    }
-    catch (boost::system::system_error &e) {
-        throw AuthException{e.what()};
-    }
 }
 
 std::tuple<std::shared_ptr<communication::Communicator>, std::future<void>>
@@ -112,13 +92,12 @@ TokenAuthManager::createCommunicator(const unsigned int poolSize,
         std::make_shared<communication::Communicator>(poolSize, m_hostname,
             m_port, m_checkCertificate, communication::createConnection);
 
-    one::messages::HandshakeRequest handshake{
-        sessionId, m_authDetails.accessToken()};
+    auto future = communicator->setHandshake([=] {
+        one::messages::HandshakeRequest handshake{
+            sessionId, m_tokenHandler.restrictedToken("providerId")};
 
-    auto future = communicator->setHandshake(
-        [=] { return handshake; }, std::move(onHandshakeResponse));
-
-    /// @todo Refreshing the token
+        return handshake;
+    }, std::move(onHandshakeResponse));
 
     return std::forward_as_tuple(std::move(communicator), std::move(future));
 }

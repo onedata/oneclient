@@ -10,8 +10,7 @@
 #define ONECLIENT_AUTH_MANAGER_H
 
 #include "environment.h"
-#include "auth/grAdapter.h"
-#include "auth/tokenAuthDetails.h"
+#include "auth/tokenHandler.h"
 #include "communication/communicator.h"
 #include "messages/handshakeRequest.h"
 #include "messages/handshakeResponse.h"
@@ -111,17 +110,9 @@ private:
  */
 class TokenAuthManager : public AuthManager {
 public:
-    /**
-     * @copydoc AuthManager::AuthManager()
-     * @param globalRegistryHostname A hostname of Global Registry to be used
-     * for token-based authentication.
-     * @param globalRegistryPort A port of globalregistry to be used for
-     * token-based authentication
-     */
     TokenAuthManager(std::weak_ptr<Context> context,
         std::string defaultHostname, const unsigned int port,
-        const bool checkCertificate, std::string globalRegistryHostname,
-        const unsigned int globalRegistryPort);
+        const bool checkCertificate);
 
     std::tuple<std::shared_ptr<communication::Communicator>, std::future<void>>
     createCommunicator(const unsigned int poolSize, std::string sessionId,
@@ -129,13 +120,7 @@ public:
             onHandshakeResponse) override;
 
 private:
-    void scheduleRefresh(
-        std::weak_ptr<communication::Communicator> communicator);
-    void refresh(std::weak_ptr<communication::Communicator> communicator);
-    std::string hashAndBase64(const std::string &token) const;
-
-    TokenAuthDetails m_authDetails;
-    GRAdapter m_grAdapter;
+    TokenHandler m_tokenHandler;
 };
 
 } // namespace auth
