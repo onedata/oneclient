@@ -12,7 +12,7 @@
 #include "context.h"
 #include "eventCommunicator.h"
 #include "events/aggregators/nullAggregator.h"
-#include "events/aggregators/fileIdAggregator.h"
+#include "events/aggregators/fileUuidAggregator.h"
 #include "events/types/readEvent.h"
 #include "events/types/writeEvent.h"
 #include "messages/readEventSubscription.h"
@@ -209,7 +209,7 @@ void EventStream<EventType>::addSubscription(
     if (!isAnyThresholdSet &&
         (m_counterThresholds.size() != 0 || m_timeThresholds.size() != 0 ||
             m_sizeThresholds.size() != 0))
-        m_aggregator = std::make_unique<FileIdAggregator<EventType>>();
+        m_aggregator = std::make_unique<FileUuidAggregator<EventType>>();
 }
 
 template <class EventType>

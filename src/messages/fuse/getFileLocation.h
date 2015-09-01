@@ -1,15 +1,19 @@
 /**
- * @file deleteFile.h
+ * @file getFileLocation.h
  * @author Konrad Zemek
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#ifndef ONECLIENT_MESSAGES_FUSE_DELETE_FILE_H
-#define ONECLIENT_MESSAGES_FUSE_DELETE_FILE_H
+#ifndef ONECLIENT_MESSAGES_FUSE_GET_FILE_LOCATION_H
+#define ONECLIENT_MESSAGES_FUSE_GET_FILE_LOCATION_H
 
 #include "messages/clientMessage.h"
+
+#include <boost/optional.hpp>
+
+#include <sys/types.h>
 
 #include <cstdint>
 #include <string>
@@ -19,15 +23,15 @@ namespace messages {
 namespace fuse {
 
 /**
- * The DeleteFile class represents a FUSE request for file deletion.
+ * The GetFileLocation class represents a FUSE request for file location.
  */
-class DeleteFile : public ClientMessage {
+class GetFileLocation : public ClientMessage {
 public:
     /**
      * Constructor.
-     * @param uuid UUID of the file to be deleted.
+     * @param uuid UUID of the directory of which children are requested.
      */
-    DeleteFile(std::string uuid);
+    GetFileLocation(std::string uuid);
 
     std::string toString() const override;
 
@@ -41,4 +45,4 @@ private:
 } // namespace messages
 } // namespace one
 
-#endif // ONECLIENT_MESSAGES_FUSE_DELETE_FILE_H
+#endif // ONECLIENT_MESSAGES_FUSE_GET_FILE_LOCATION_H

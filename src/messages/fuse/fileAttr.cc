@@ -22,8 +22,12 @@ namespace fuse {
 
 FileAttr::FileAttr(std::unique_ptr<ProtocolServerMessage> serverMessage)
     : FuseResponse(serverMessage)
-    , m_fileAttr{std::move(serverMessage->fuse_response().file_attr())}
 {
+    if (!serverMessage->fuse_response().has_file_attr())
+        throw std::system_error{std::make_error_code(std::errc::protocol_error),
+            "file_attr field missing"};
+
+    m_fileAttr = std::move(serverMessage->fuse_response().file_attr());
 }
 
 std::chrono::system_clock::time_point FileAttr::atime() const

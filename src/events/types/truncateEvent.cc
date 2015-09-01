@@ -8,6 +8,8 @@
 
 #include "events/types/truncateEvent.h"
 
+#include <boost/optional/optional_io.hpp>
+
 #include <sstream>
 
 namespace one {
@@ -15,16 +17,16 @@ namespace client {
 namespace events {
 
 TruncateEvent::TruncateEvent(
-    std::string fileId_, off_t fileSize_, std::size_t counter_)
-    : WriteEvent(std::move(fileId_), 0, 0, fileSize_, counter_)
+    off_t fileSize_, std::string fileUuid_, std::size_t counter_)
+    : WriteEvent{0, 0, fileSize_, std::move(fileUuid_), counter_}
 {
 }
 
 std::string TruncateEvent::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'TruncateEvent', counter: " << m_counter << ", file ID: '"
-           << m_fileId << "', file size: " << m_fileSize;
+    stream << "type: 'TruncateEvent', counter: " << m_counter
+           << ", file UUID: '" << m_fileUuid << "', file size: " << m_fileSize;
     return stream.str();
 }
 

@@ -11,7 +11,9 @@
 
 #include "event.h"
 
-#include <boost/icl/interval_set.hpp>
+#include "messages/fuse/fileBlock.h"
+
+#include <boost/icl/interval_map.hpp>
 
 #include <sys/types.h>
 
@@ -30,6 +32,7 @@ class ReadEventSubscription;
 class ReadEvent : public Event {
 public:
     typedef typename one::client::events::ReadEventSubscription Subscription;
+    using FileBlock = one::messages::fuse::FileBlock;
 
     /**
      * Default constructor.
@@ -39,19 +42,22 @@ public:
 
     /**
      * Constructor.
-     * @param fileId ID of file associated with a read operation.
+     * @param fileUuid UUID of file associated with a read operation.
      * @param offset Distance from the beginning of the file to the first byte
      * read.
+     * @param storageId ID of a storage the write has been written to,
+     * @param fileId ID of a file on the storage.
      * @param size Number of read bytes.
      * @param counter Number of read events aggregated in @c this event.
      */
-    ReadEvent(std::string fileId, off_t offset, std::size_t size,
-        std::size_t counter = 1);
+    ReadEvent(off_t offset, std::size_t size, std::string fileUuid,
+        std::size_t counter = 1, std::string storageId = {},
+        std::string fileId = {});
 
     /**
      * @return ID of file associated with the read event.
      */
-    const std::string &fileId() const;
+    const std::string &fileUuid() const;
 
     /**
      * @return Total number of bytes read.
@@ -61,7 +67,7 @@ public:
     /**
      * @return Set of bytes blocks read.
      */
-    const boost::icl::interval_set<off_t> &blocks() const;
+    const auto &blocks() const { return m_blocks; }
 
     /**
      * Aggregates this read event with an other read event.
@@ -80,9 +86,9 @@ public:
     serialize() const override;
 
 private:
-    std::string m_fileId;
+    std::string m_fileUuid;
     std::size_t m_size = 0;
-    boost::icl::interval_set<off_t> m_blocks;
+    boost::icl::interval_map<off_t, FileBlock> m_blocks;
 };
 
 /**

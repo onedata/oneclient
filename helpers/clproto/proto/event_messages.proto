@@ -28,7 +28,7 @@ message ReadEvent {
 message WriteEvent {
     required uint32    counter   = 1; // amount of aggregated events
     required bytes     file_id   = 2; // ID of file associated with an event
-    required uint64    file_size = 3; // size of file associated with an event
+    optional uint64    file_size = 3; // size of file associated with an event
     required uint64    size      = 4; // amount of written bytes
     repeated FileBlock blocks    = 5; // list of written blocks
 }

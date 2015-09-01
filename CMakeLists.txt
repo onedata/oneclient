@@ -133,6 +133,7 @@ add_subdirectory(helpers/src)
 
 include_directories(
     include
+    src
     ${PROJECT_BINARY_DIR}/version
     ${HELPERS_INCLUDE_DIRS})
 

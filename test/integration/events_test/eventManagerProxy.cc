@@ -50,20 +50,20 @@ public:
 
     uint64_t emitReadEvent(std::string fileId, off_t offset, size_t size)
     {
-        m_eventManager->emitReadEvent(fileId, offset, size);
+        m_eventManager->emitReadEvent(offset, size, fileId);
         return m_sequenceNumber++;
     }
 
     uint64_t emitWriteEvent(
         std::string fileId, off_t offset, size_t size, off_t fileSize)
     {
-        m_eventManager->emitWriteEvent(fileId, offset, size, fileSize);
+        m_eventManager->emitWriteEvent(offset, size, fileId, {}, {});
         return m_sequenceNumber++;
     }
 
     uint64_t emitTruncateEvent(std::string fileId, off_t fileSize)
     {
-        m_eventManager->emitTruncateEvent(fileId, fileSize);
+        m_eventManager->emitTruncateEvent(fileSize, fileId);
         return m_sequenceNumber++;
     }
 
@@ -86,7 +86,7 @@ std::unique_ptr<one::clproto::ClientMessage> setMessageStream(
 std::string prepareSerializedReadEvent(std::size_t counter, std::string fileId,
     off_t offset, size_t size, uint64_t sequenceNumber)
 {
-    auto event = ReadEvent{std::move(fileId), offset, size, counter};
+    auto event = ReadEvent{offset, size, std::move(fileId), counter};
     return setMessageStream(event.serialize(), sequenceNumber)
         ->SerializeAsString();
 }
@@ -94,7 +94,7 @@ std::string prepareSerializedReadEvent(std::size_t counter, std::string fileId,
 std::string prepareSerializedWriteEvent(std::size_t counter, std::string fileId,
     off_t offset, size_t size, off_t fileSize, uint64_t sequenceNumber)
 {
-    auto event = WriteEvent{std::move(fileId), offset, size, fileSize, counter};
+    auto event = WriteEvent{offset, size, std::move(fileId), counter};
     return setMessageStream(event.serialize(), sequenceNumber)
         ->SerializeAsString();
 }
@@ -102,7 +102,7 @@ std::string prepareSerializedWriteEvent(std::size_t counter, std::string fileId,
 std::string prepareSerializedTruncateEvent(std::size_t counter,
     std::string fileId, off_t fileSize, uint64_t sequenceNumber)
 {
-    auto event = TruncateEvent{std::move(fileId), fileSize, counter};
+    auto event = TruncateEvent{fileSize, std::move(fileId), counter};
     return setMessageStream(event.serialize(), sequenceNumber)
         ->SerializeAsString();
 }

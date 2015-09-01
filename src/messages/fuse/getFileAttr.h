@@ -6,8 +6,8 @@
  * 'LICENSE.txt'
  */
 
-#ifndef HELPERS_MESSAGES_FUSE_MESSAGES_GET_FILE_ATTR_H
-#define HELPERS_MESSAGES_FUSE_MESSAGES_GET_FILE_ATTR_H
+#ifndef ONECLIENT_MESSAGES_FUSE_GET_FILE_ATTR_H
+#define ONECLIENT_MESSAGES_FUSE_GET_FILE_ATTR_H
 
 #include "messages/clientMessage.h"
 
@@ -50,4 +50,4 @@ private:
 } // namespace messages
 } // namespace one
 
-#endif // HELPERS_MESSAGES_FUSE_MESSAGES_DELETE_FILE_H
+#endif // ONECLIENT_MESSAGES_FUSE_GET_FILE_ATTR_H

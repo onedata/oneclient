@@ -6,8 +6,8 @@
  * 'LICENSE.txt'
  */
 
-#ifndef HELPERS_MESSAGES_FUSE_MESSAGES_FILE_ATTR_H
-#define HELPERS_MESSAGES_FUSE_MESSAGES_FILE_ATTR_H
+#ifndef ONECLIENT_MESSAGES_FUSE_FILE_ATTR_H
+#define ONECLIENT_MESSAGES_FUSE_FILE_ATTR_H
 
 #include "fuseResponse.h"
 
@@ -124,4 +124,4 @@ private:
 } // namespace messages
 } // namespace one
 
-#endif // HELPERS_MESSAGES_FUSE_MESSAGES_FILE_ATTR_H
+#endif // ONECLIENT_MESSAGES_FUSE_FILE_ATTR_H

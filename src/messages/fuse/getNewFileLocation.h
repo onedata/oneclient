@@ -1,13 +1,13 @@
 /**
- * @file changeMode.h
+ * @file getNewFileLocation.h
  * @author Konrad Zemek
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#ifndef ONECLIENT_MESSAGES_FUSE_CHANGE_MODE_H
-#define ONECLIENT_MESSAGES_FUSE_CHANGE_MODE_H
+#ifndef ONECLIENT_MESSAGES_FUSE_GET_NEW_FILE_LOCATION_H
+#define ONECLIENT_MESSAGES_FUSE_GET_NEW_FILE_LOCATION_H
 
 #include "messages/clientMessage.h"
 
@@ -20,23 +20,20 @@ namespace messages {
 namespace fuse {
 
 /**
- * The ChangeMode class represents a FUSE request for chmod.
+ * The GetNewFileLocation class represents a FUSE request for creation of a new
+ * file.
  */
-class ChangeMode : public ClientMessage {
+class GetNewFileLocation : public ClientMessage {
 public:
-    /**
-     * Constructor.
-     * @param uuid UUID of the file to change the mode of.
-     * @param mode File mode to set on the file.
-     */
-    ChangeMode(std::string uuid, mode_t mode);
+    GetNewFileLocation(std::string name, std::string parentUuid, mode_t mode);
 
     std::string toString() const override;
 
     std::unique_ptr<ProtocolClientMessage> serialize() const override;
 
 private:
-    std::string m_uuid;
+    std::string m_name;
+    std::string m_parentUuid;
     mode_t m_mode;
 };
 
@@ -44,4 +41,4 @@ private:
 } // namespace messages
 } // namespace one
 
-#endif // ONECLIENT_MESSAGES_FUSE_CHANGE_MODE_H
+#endif // ONECLIENT_MESSAGES_FUSE_GET_NEW_FILE_LOCATION_H
