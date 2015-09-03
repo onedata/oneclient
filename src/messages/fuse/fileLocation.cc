@@ -25,18 +25,20 @@ FileLocation::FileLocation(std::unique_ptr<ProtocolServerMessage> serverMessage)
 
     const auto &fileLocation = serverMessage->fuse_response().file_location();
     m_uuid = fileLocation.uuid();
+    m_storageId = fileLocation.storage_id();
+    m_fileId = fileLocation.file_id();
 
     for (const auto block : fileLocation.blocks()) {
         auto interval = boost::icl::discrete_interval<off_t>::right_open(
             block.offset(), block.offset() + block.size());
 
-        auto &fileId =
+        auto &fileId_ =
             block.has_file_id() ? block.file_id() : fileLocation.file_id();
 
-        auto &storageId = block.has_storage_id() ? block.storage_id()
-                                                 : fileLocation.storage_id();
+        auto &storageId_ = block.has_storage_id() ? block.storage_id()
+                                                  : fileLocation.storage_id();
 
-        m_blocks += std::make_pair(interval, FileBlock{fileId, storageId});
+        m_blocks += std::make_pair(interval, FileBlock{fileId_, storageId_});
     }
 }
 

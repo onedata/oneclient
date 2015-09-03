@@ -9,10 +9,15 @@
 #ifndef ONECLIENT_FS_LOGIC_H
 #define ONECLIENT_FS_LOGIC_H
 
-#include "../src/messages/fuse/fileAttr.h"
+#include "cache/helpersCache.h"
+#include "cache/metadataCache.h"
+#include "messages/fuse/fileAttr.h"
+#include "messages/fuse/fileLocation.h"
+#include "messages/fuse/helperParams.h"
 
-#include <boost/asio/buffer.hpp>
+#include <asio/buffer.hpp>
 #include <boost/filesystem/path.hpp>
+#include <boost/optional.hpp>
 #include <fuse.h>
 #include <tbb/concurrent_hash_map.h>
 
@@ -66,7 +71,7 @@ public:
      * FUSE @c readlink callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int readlink(boost::filesystem::path path, boost::asio::mutable_buffer buf);
+    int readlink(boost::filesystem::path path, asio::mutable_buffer buf);
 
     /**
      * FUSE @c mknod callback.
@@ -141,14 +146,14 @@ public:
      * FUSE @c read callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int read(boost::filesystem::path path, boost::asio::mutable_buffer buf,
+    int read(boost::filesystem::path path, asio::mutable_buffer buf,
         const off_t offset, struct fuse_file_info *const fileInfo);
 
     /**
      * FUSE @c write callback.
      * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
      */
-    int write(boost::filesystem::path path, boost::asio::const_buffer buf,
+    int write(boost::filesystem::path path, asio::const_buffer buf,
         const off_t offset, struct fuse_file_info *const fileInfo);
 
     /**
@@ -210,30 +215,14 @@ public:
 private:
     void removeFile(boost::filesystem::path path);
 
-    struct PathHash {
-        static std::size_t hash(const boost::filesystem::path &);
-        static bool equal(
-            const boost::filesystem::path &, const boost::filesystem::path &);
-    };
-
-    tbb::concurrent_hash_map<boost::filesystem::path, std::string, PathHash>
-        m_uuidCache;
-    tbb::concurrent_hash_map<std::string, messages::fuse::FileAttr> m_attrCache;
-
-    messages::fuse::FileAttr getAttr(const boost::filesystem::path &path);
-    messages::fuse::FileAttr getAttr(const boost::filesystem::path &path,
-        decltype(m_uuidCache)::accessor &uuidAcc);
-    messages::fuse::FileAttr getAttr(const boost::filesystem::path &path,
-        decltype(m_uuidCache)::accessor &uuidAcc,
-        decltype(m_attrCache)::accessor &attrAcc);
-    messages::fuse::FileAttr getAttr(
-        const std::string &uuid, decltype(m_attrCache)::accessor &attrAcc);
-
     const uid_t m_uid;
     const gid_t m_gid;
 
     std::shared_ptr<Context> m_context;
     std::unique_ptr<events::EventManager> m_eventManager;
+
+    HelpersCache m_helpersCache;
+    MetadataCache m_metadataCache;
 };
 
 } // namespace client

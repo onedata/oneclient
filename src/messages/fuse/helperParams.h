@@ -25,6 +25,8 @@ namespace fuse {
  */
 class HelperParams : public FuseResponse {
 public:
+    HelperParams() = default;
+
     /**
      * Constructor.
      * @param serverMessage Protocol Buffers message representing

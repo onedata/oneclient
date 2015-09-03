@@ -31,6 +31,8 @@ namespace fuse {
  */
 class FileLocation : public FuseResponse {
 public:
+    FileLocation() = default;
+
     /**
      * Constructor.
      * @param serverMessage Protocol Buffers message representing
@@ -44,6 +46,16 @@ public:
     const std::string &uuid() const { return m_uuid; }
 
     /**
+     * @return Default storage ID of the file.
+     */
+    const std::string &storageId() const { return m_storageId; }
+
+    /**
+     * @return File ID on the default storage id.
+     */
+    const std::string &fileId() const { return m_fileId; }
+
+    /**
      * @return Blocks per storageId/fileId pair.
      */
     const auto &blocks() const { return m_blocks; }
@@ -52,6 +64,8 @@ public:
 
 private:
     std::string m_uuid;
+    std::string m_storageId;
+    std::string m_fileId;
     boost::icl::interval_map<off_t, FileBlock> m_blocks;
 };
 

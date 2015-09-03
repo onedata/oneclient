@@ -65,8 +65,6 @@ template <class T> using promise_t = std::promise<T>;
  */
 class IStorageHelper {
 public:
-    using ArgsMap = std::unordered_map<std::string, boost::any>;
-
     virtual ~IStorageHelper() = default;
 
     virtual void ash_getattr(CTXRef ctx, const boost::filesystem::path &p,

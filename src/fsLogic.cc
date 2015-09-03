@@ -12,15 +12,22 @@
 #include "context.h"
 #include "events/eventManager.h"
 #include "logging.h"
-#include "messages/fuse/getFileAttr.h"
-#include "messages/fuse/fileAttr.h"
+#include "helpers/storageHelperFactory.h"
+
+#include "messages/fuse/changeMode.h"
 #include "messages/fuse/createDir.h"
 #include "messages/fuse/deleteFile.h"
+#include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileChildren.h"
+#include "messages/fuse/fileLocation.h"
+#include "messages/fuse/getFileAttr.h"
 #include "messages/fuse/getFileChildren.h"
-#include "messages/fuse/updateTimes.h"
+#include "messages/fuse/getFileLocation.h"
+#include "messages/fuse/getHelperParams.h"
+#include "messages/fuse/getNewFileLocation.h"
+#include "messages/fuse/helperParams.h"
 #include "messages/fuse/rename.h"
-#include "messages/fuse/changeMode.h"
+#include "messages/fuse/updateTimes.h"
 
 #include <boost/algorithm/string.hpp>
 
@@ -34,6 +41,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context)
     , m_gid{getegid()}
     , m_context{std::move(context)}
     , m_eventManager{std::make_unique<events::EventManager>(m_context)}
+    , m_helpersCache{*m_context->communicator()}
+    , m_metadataCache{*m_context->communicator()}
 {
 }
 
@@ -47,7 +56,8 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
 {
     DLOG(INFO) << "FUSE: getattr(path: " << path << ", ...)";
 
-    auto attr = getAttr(path);
+    auto attr = m_metadataCache.getAttr(path);
+
     statbuf->st_atime = std::chrono::system_clock::to_time_t(attr.atime());
     statbuf->st_mtime = std::chrono::system_clock::to_time_t(attr.mtime());
     statbuf->st_ctime = std::chrono::system_clock::to_time_t(attr.ctime());
@@ -73,11 +83,10 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
     return 0;
 }
 
-int FsLogic::readlink(
-    boost::filesystem::path path, boost::asio::mutable_buffer buf)
+int FsLogic::readlink(boost::filesystem::path path, asio::mutable_buffer buf)
 {
     DLOG(INFO) << "FUSE: readlink(path: " << path
-               << ", bufferSize: " << boost::asio::buffer_size(buf) << ")";
+               << ", bufferSize: " << asio::buffer_size(buf) << ")";
 
     throw std::errc::operation_not_supported;
 }
@@ -88,7 +97,51 @@ int FsLogic::mknod(
     DLOG(INFO) << "FUSE: mknod(path: " << path << ", mode: " << std::oct << mode
                << ", dev: " << dev << ")";
 
-    throw std::errc::operation_not_supported;
+    //    auto parentAttr = m_metadataCache.getAttr(path.parent_path());
+    //    if (parentAttr.type() !=
+    //    messages::fuse::FileAttr::FileType::directory)
+    //        throw std::errc::not_a_directory;
+
+    //    messages::fuse::GetNewFileLocation msg{
+    //        path.filename().string(), parentAttr.uuid(), mode};
+
+    //    auto future =
+    //        m_context->communicator()->communicate<messages::fuse::FileLocation>(
+    //            std::move(msg));
+
+    //    auto location = communication::wait(future);
+
+    //    decltype(m_locationCache)::accessor acc;
+    //    m_locationCache.insert(acc, location.uuid());
+    //    acc->second = std::move(location);
+
+    //    messages::fuse::GetHelperParams paramsMsg{location.storageId()};
+
+    //    auto paramsFuture =
+    //        m_context->communicator()->communicate<messages::fuse::HelperParams>(
+    //            std::move(paramsMsg));
+
+    //    auto params = communication::wait(paramsFuture);
+
+    //    auto helper =
+    //        m_helpersFactory.getStorageHelper(params.name(), params.args());
+
+    //    helpers::StorageHelperCTX helperCtx;
+    //    auto mknodPromise = std::make_shared<std::promise<void>>();
+    //    auto mknodFuture = mknodPromise->get_future();
+
+    //    helper->ash_mknod(
+    //        helperCtx, path, mode, dev, [=](const std::error_code &ec) mutable
+    //        {
+    //            if (ec)
+    //                mknodPromise->set_exception(
+    //                    std::make_exception_ptr(std::system_error{ec}));
+    //            else
+    //                mknodPromise->set_value();
+    //        });
+
+    //    communication::wait(mknodFuture);
+    return 0;
 }
 
 int FsLogic::mkdir(boost::filesystem::path path, const mode_t mode)
@@ -96,7 +149,7 @@ int FsLogic::mkdir(boost::filesystem::path path, const mode_t mode)
     DLOG(INFO) << "FUSE: mkdir(path: " << path << ", mode: " << std::oct << mode
                << ")";
 
-    auto parentAttr = getAttr(path.parent_path());
+    auto parentAttr = m_metadataCache.getAttr(path.parent_path());
     if (parentAttr.type() != messages::fuse::FileAttr::FileType::directory)
         throw std::errc::not_a_directory;
 
@@ -141,28 +194,8 @@ int FsLogic::rename(
     DLOG(INFO) << "FUSE: rename(oldpath: " << oldPath
                << ", newpath: " << newPath << "')";
 
-    decltype(m_uuidCache)::accessor oldUUIDAcc, newUUIDAcc;
-    decltype(m_attrCache)::accessor attrAcc;
-    m_uuidCache.insert(newUUIDAcc, newPath);
-    auto uuid = getAttr(oldPath, oldUUIDAcc, attrAcc).uuid();
+    m_metadataCache.rename(oldPath, newPath);
 
-    messages::fuse::Rename msg{uuid, std::move(newPath)};
-
-    auto future =
-        m_context->communicator()->communicate<messages::fuse::FuseResponse>(
-            std::move(msg));
-
-    try {
-        communication::wait(future);
-    }
-    catch (...) {
-        m_uuidCache.erase(newUUIDAcc);
-        throw;
-    }
-
-    attrAcc->second.name(newPath.filename().string());
-    newUUIDAcc->second = uuid;
-    m_uuidCache.erase(oldUUIDAcc);
     return 0;
 }
 
@@ -171,19 +204,16 @@ int FsLogic::chmod(boost::filesystem::path path, const mode_t mode)
     DLOG(INFO) << "FUSE: chmod(path: " << path << ", mode: " << std::oct << mode
                << ")";
 
-    decltype(m_uuidCache)::accessor uuidAcc;
-    decltype(m_attrCache)::accessor attrAcc;
-    getAttr(path, uuidAcc, attrAcc);
-
-    messages::fuse::ChangeMode msg{attrAcc->second.uuid(), mode};
-    LOG(INFO) << msg.serialize()->SerializeAsString();
+    MetadataCache::UuidAccessor uuidAcc;
+    MetadataCache::MetaAccessor metaAcc;
+    m_metadataCache.getAttr(uuidAcc, metaAcc, path);
 
     auto future =
         m_context->communicator()->communicate<messages::fuse::FuseResponse>(
-            std::move(msg));
+            messages::fuse::ChangeMode{uuidAcc->second, mode});
 
     communication::wait(future);
-    attrAcc->second.mode(mode);
+    metaAcc->second.attr.get().mode(mode);
 
     return 0;
 }
@@ -210,11 +240,11 @@ int FsLogic::utime(boost::filesystem::path path, struct utimbuf *const ubuf)
 {
     DLOG(INFO) << "FUSE: utime(path: " << path << ", ...)";
 
-    decltype(m_uuidCache)::accessor uuidAcc;
-    decltype(m_attrCache)::accessor attrAcc;
-    getAttr(path, uuidAcc, attrAcc);
+    MetadataCache::UuidAccessor uuidAcc;
+    MetadataCache::MetaAccessor metaAcc;
+    m_metadataCache.getAttr(uuidAcc, metaAcc, path);
 
-    messages::fuse::UpdateTimes msg{attrAcc->second.uuid()};
+    messages::fuse::UpdateTimes msg{uuidAcc->second};
 
     if (!ubuf) {
         const auto now = std::chrono::system_clock::now();
@@ -232,8 +262,9 @@ int FsLogic::utime(boost::filesystem::path path, struct utimbuf *const ubuf)
 
     communication::wait(future);
 
-    attrAcc->second.atime(msg.atime().get());
-    attrAcc->second.mtime(msg.mtime().get());
+    auto &attr = metaAcc->second.attr.get();
+    attr.atime(msg.atime().get());
+    attr.mtime(msg.mtime().get());
 
     return 0;
 }
@@ -245,11 +276,11 @@ int FsLogic::open(
     throw std::errc::operation_not_supported;
 }
 
-int FsLogic::read(boost::filesystem::path path, boost::asio::mutable_buffer buf,
+int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     const off_t offset, struct fuse_file_info *const fileInfo)
 {
     DLOG(INFO) << "FUSE: read(path: " << path
-               << ", bufferSize: " << boost::asio::buffer_size(buf)
+               << ", bufferSize: " << asio::buffer_size(buf)
                << ", offset: " << offset << ", ...)";
 
     //    m_eventManager->emitReadEvent(
@@ -258,11 +289,11 @@ int FsLogic::read(boost::filesystem::path path, boost::asio::mutable_buffer buf,
     throw std::errc::operation_not_supported;
 }
 
-int FsLogic::write(boost::filesystem::path path, boost::asio::const_buffer buf,
+int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     const off_t offset, struct fuse_file_info *const fileInfo)
 {
     DLOG(INFO) << "FUSE: write(path: " << path
-               << ", bufferSize: " << boost::asio::buffer_size(buf)
+               << ", bufferSize: " << asio::buffer_size(buf)
                << ", offset: " << offset << ", ...)";
 
     //    if (m_shMock->shGetattr(path.string(), &statbuf) == 0) {
@@ -323,7 +354,7 @@ int FsLogic::readdir(boost::filesystem::path path, void *const buf,
     DLOG(INFO) << "FUSE: readdir(path: " << path << ", ..., offset: " << offset
                << ", ...)";
 
-    auto attr = getAttr(path);
+    auto attr = m_metadataCache.getAttr(path);
     if (attr.type() != messages::fuse::FileAttr::FileType::directory)
         throw std::errc::not_a_directory;
 
@@ -338,7 +369,7 @@ int FsLogic::readdir(boost::filesystem::path path, void *const buf,
     for (const auto &uuidAndName : fileChildren.uuidsAndNames()) {
         auto name = std::get<1>(uuidAndName);
         auto childPath = path / name;
-        m_uuidCache.insert({std::move(childPath), std::get<0>(uuidAndName)});
+        m_metadataCache.map(std::move(childPath), std::get<0>(uuidAndName));
 
         if (filler(buf, name.c_str(), nullptr, ++currentOffset))
             break;
@@ -365,88 +396,17 @@ int FsLogic::fsyncdir(boost::filesystem::path path, const int datasync,
 
 void FsLogic::removeFile(boost::filesystem::path path)
 {
-    auto attr = getAttr(path);
-    messages::fuse::DeleteFile msg{attr.uuid()};
+    MetadataCache::UuidAccessor uuidAcc;
+    MetadataCache::MetaAccessor metaAcc;
+    m_metadataCache.getAttr(uuidAcc, metaAcc, path);
 
     auto future =
         m_context->communicator()->communicate<messages::fuse::FuseResponse>(
-            std::move(msg));
+            messages::fuse::DeleteFile{uuidAcc->second});
 
     communication::wait(future);
 
-    m_uuidCache.erase(path);
-    m_attrCache.erase(attr.uuid());
-}
-
-messages::fuse::FileAttr FsLogic::getAttr(const boost::filesystem::path &path)
-{
-    decltype(m_uuidCache)::accessor uuidAcc;
-    return getAttr(path, uuidAcc);
-}
-
-messages::fuse::FileAttr FsLogic::getAttr(const boost::filesystem::path &path,
-    decltype(m_uuidCache)::accessor &uuidAcc)
-{
-    decltype(m_attrCache)::accessor attrAcc;
-    return getAttr(path, uuidAcc, attrAcc);
-}
-
-messages::fuse::FileAttr FsLogic::getAttr(const boost::filesystem::path &path,
-    decltype(m_uuidCache)::accessor &uuidAcc,
-    decltype(m_attrCache)::accessor &attrAcc)
-{
-    if (!m_uuidCache.insert(uuidAcc, path))
-        return getAttr(uuidAcc->second, attrAcc);
-
-    try {
-        auto future =
-            m_context->communicator()->communicate<messages::fuse::FileAttr>(
-                messages::fuse::GetFileAttr{path});
-
-        auto attr = communication::wait(future);
-        m_attrCache.insert(attrAcc, attr.uuid());
-
-        uuidAcc->second = attr.uuid();
-        attrAcc->second = attr;
-
-        return attr;
-    }
-    catch (...) {
-        m_uuidCache.erase(uuidAcc);
-        throw;
-    }
-}
-
-messages::fuse::FileAttr FsLogic::getAttr(
-    const std::string &uuid, decltype(m_attrCache)::accessor &acc)
-{
-    if (!m_attrCache.insert(acc, uuid))
-        return acc->second;
-
-    try {
-        auto future =
-            m_context->communicator()->communicate<messages::fuse::FileAttr>(
-                messages::fuse::GetFileAttr{uuid});
-
-        auto attr = communication::wait(future);
-        acc->second = attr;
-        return attr;
-    }
-    catch (...) {
-        m_attrCache.erase(acc);
-        throw;
-    }
-}
-
-std::size_t FsLogic::PathHash::hash(const boost::filesystem::path &path)
-{
-    return std::hash<std::string>{}(path.string());
-}
-
-bool FsLogic::PathHash::equal(
-    const boost::filesystem::path &a, const boost::filesystem::path &b)
-{
-    return a == b;
+    m_metadataCache.remove(uuidAcc, metaAcc);
 }
 
 } // namespace client

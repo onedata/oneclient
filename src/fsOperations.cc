@@ -78,7 +78,7 @@ int wrap_getattr(const char *path, struct stat *statbuf)
 }
 int wrap_readlink(const char *path, char *buf, size_t size)
 {
-    return wrap(&FsLogic::readlink, path, boost::asio::buffer(buf, size));
+    return wrap(&FsLogic::readlink, path, asio::buffer(buf, size));
 }
 int wrap_mknod(const char *path, mode_t mode, dev_t dev)
 {
@@ -122,13 +122,13 @@ int wrap_read(const char *path, char *buf, size_t size, off_t offset,
     struct fuse_file_info *fileInfo)
 {
     return wrap(
-        &FsLogic::read, path, boost::asio::buffer(buf, size), offset, fileInfo);
+        &FsLogic::read, path, asio::buffer(buf, size), offset, fileInfo);
 }
 int wrap_write(const char *path, const char *buf, size_t size, off_t offset,
     struct fuse_file_info *fileInfo)
 {
-    return wrap(&FsLogic::write, path, boost::asio::buffer(buf, size), offset,
-        fileInfo);
+    return wrap(
+        &FsLogic::write, path, asio::buffer(buf, size), offset, fileInfo);
 }
 int wrap_statfs(const char *path, struct statvfs *statInfo)
 {
