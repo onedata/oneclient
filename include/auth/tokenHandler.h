@@ -21,6 +21,7 @@ namespace client {
 namespace auth {
 
 constexpr std::chrono::minutes RESTRICTED_MACAROON_EXPIRATION{15};
+constexpr std::chrono::minutes RESTRICTED_MACAROON_REFRESH{5};
 
 /**
  * The @c TokenHandler class is responsible for retrieving and manipulating an
@@ -30,17 +31,22 @@ class TokenHandler {
 public:
     /**
      * Constructor.
+     * Schedules a refresh task for a restricted macaroon.
      * @param userDataDir Directory where user's application data is saved.
+     * @param providerId ID of the provider who will be a recipient of
+     * restricted tokens.
      */
-    TokenHandler(boost::filesystem::path userDataDir);
+    TokenHandler(boost::filesystem::path userDataDir, std::string providerId);
 
     /**
-     * Creates a new restricted token for a given provider.
-     * @param providerId ID of the provider who is the recipient of the new
-     * token.
-     * @return The restricted token.
+     * @return A provider- and time-restricted token.
      */
-    std::string restrictedToken(const std::string &providerId) const;
+    std::string restrictedToken() const;
+
+    /**
+     * Refreshes a restricted token saved in this handler.
+     */
+    std::string refreshRestrictedToken();
 
 private:
     macaroons::Macaroon retrieveToken() const;
@@ -49,7 +55,10 @@ private:
     boost::filesystem::path tokenFilePath() const;
 
     boost::filesystem::path m_userDataDir;
+    std::string m_providerId;
+
     macaroons::Macaroon m_macaroon;
+    macaroons::Macaroon m_restrictedMacaroon;
 };
 
 } // namespace auth

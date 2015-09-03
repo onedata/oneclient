@@ -19,29 +19,45 @@
 #include <iostream>
 #include <system_error>
 
-using namespace std::literals::chrono_literals;
+namespace {
+
+macaroons::Macaroon restrictMacaroon(
+    const macaroons::Macaroon &macaroon, const std::string &providerId)
+{
+    auto expiration = std::chrono::system_clock::now() +
+        one::client::auth::RESTRICTED_MACAROON_EXPIRATION;
+
+    auto expirationSinceEpoch =
+        std::chrono::system_clock::to_time_t(expiration);
+
+    return macaroon /*.addFirstPartyCaveat("providerId = " + providerId)*/
+        .addFirstPartyCaveat("time < " + std::to_string(expirationSinceEpoch));
+}
+
+} // namespace
 
 namespace one {
 namespace client {
 namespace auth {
 
-TokenHandler::TokenHandler(boost::filesystem::path userDataDir)
+TokenHandler::TokenHandler(
+    boost::filesystem::path userDataDir, std::string providerId)
     : m_userDataDir{std::move(userDataDir)}
+    , m_providerId{std::move(providerId)}
     , m_macaroon{retrieveToken()}
+    , m_restrictedMacaroon{restrictMacaroon(m_macaroon, m_providerId)}
 {
 }
 
-std::string TokenHandler::restrictedToken(const std::string &providerId) const
+std::string TokenHandler::refreshRestrictedToken()
 {
-    auto expiration =
-        std::chrono::system_clock::now() + RESTRICTED_MACAROON_EXPIRATION;
+    m_restrictedMacaroon = restrictMacaroon(m_macaroon, m_providerId);
+    return restrictedToken();
+}
 
-    auto expirationSinceEpoch =
-        std::chrono::system_clock::to_time_t(expiration);
-
-    return m_macaroon.addFirstPartyCaveat("providerId = " + providerId)
-        .addFirstPartyCaveat("time < " + std::to_string(expirationSinceEpoch))
-        .serialize();
+std::string TokenHandler::restrictedToken() const
+{
+    return m_restrictedMacaroon.serialize();
 }
 
 macaroons::Macaroon TokenHandler::retrieveToken() const

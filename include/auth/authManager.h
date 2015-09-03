@@ -17,6 +17,7 @@
 
 #include <boost/optional.hpp>
 
+#include <chrono>
 #include <future>
 #include <memory>
 #include <shared_mutex>
@@ -39,6 +40,8 @@ class Context;
 
 namespace auth {
 
+constexpr std::chrono::seconds FAILED_TOKEN_REFRESH_RETRY{10};
+
 /**
  * The AuthManager class is responsible for setting an authentication scheme
  * for Client - Provider communication.
@@ -57,6 +60,8 @@ public:
      */
     AuthManager(std::weak_ptr<Context> context, std::string defaultHostname,
         const unsigned int port, const bool checkCertificate);
+
+    virtual ~AuthManager() = default;
 
     /**
      * Creates a @c one::communication::Communicator object set up with proper
@@ -106,7 +111,7 @@ private:
 
 /**
  * The TokenAuthManager class is responsible for setting up user authentication
- * using an OpenID token-based scheme.
+ * using a macaroon token-based scheme.
  */
 class TokenAuthManager : public AuthManager {
 public:
@@ -114,13 +119,19 @@ public:
         std::string defaultHostname, const unsigned int port,
         const bool checkCertificate);
 
+    ~TokenAuthManager();
+
     std::tuple<std::shared_ptr<communication::Communicator>, std::future<void>>
     createCommunicator(const unsigned int poolSize, std::string sessionId,
         std::function<std::error_code(messages::HandshakeResponse)>
             onHandshakeResponse) override;
 
 private:
+    void refreshToken();
+    void scheduleRefresh(const std::chrono::seconds after);
+
     TokenHandler m_tokenHandler;
+    std::function<void()> m_cancelRefresh = [] {};
 };
 
 } // namespace auth
