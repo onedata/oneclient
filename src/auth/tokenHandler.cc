@@ -15,6 +15,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 
+#include <ios>
 #include <fstream>
 #include <iostream>
 #include <system_error>
@@ -63,71 +64,61 @@ std::string TokenHandler::restrictedToken() const
 macaroons::Macaroon TokenHandler::retrieveToken() const
 {
     try {
-        if (auto macaroon = readTokenFromFile())
-            return macaroon.get();
-
-        return getTokenFromUser();
+        return readTokenFromFile();
+    }
+    catch (const std::ios_base::failure &e) {
+        LOG(WARNING) << "Failed to retrieve token from file " << tokenFilePath()
+                     << ": " << e.what();
     }
     catch (const macaroons::exception::Exception &e) {
-        LOG(ERROR) << e.what();
+        LOG(WARNING) << "Failed to parse macaroon retrieved from file "
+                     << tokenFilePath() << ": " << e.what();
+    }
+
+    try {
+        return getTokenFromUser();
+    }
+    catch (const std::exception &e) {
+        LOG(WARNING) << "Failed to retrieve token from user: " << e.what();
         throw BadAccess{"invalid authorization token"};
     }
 }
 
-boost::optional<macaroons::Macaroon> TokenHandler::readTokenFromFile() const
+macaroons::Macaroon TokenHandler::readTokenFromFile() const
 {
-    const auto accessTokenFile = tokenFilePath();
-
-    boost::system::error_code ec;
-    const auto exists = boost::filesystem::exists(accessTokenFile, ec);
-    if (ec || !exists) {
-        LOG(INFO) << "No previously saved authorization details exist under "
-                     "path " << accessTokenFile;
-        return {};
-    }
-
     std::string token;
 
-    try {
-        boost::filesystem::ifstream stream{accessTokenFile};
-        stream.exceptions(std::ios::failbit);
-        stream >> token;
-    }
-    catch (const std::system_error &e) {
-        LOG(WARNING) << "Failed to retrieve authorization details from "
-                     << accessTokenFile << " - " << e.code().message();
-        return {};
-    }
+    boost::filesystem::ifstream stream{tokenFilePath()};
+    stream.exceptions(std::ios::failbit | std::ios::badbit | std::ios::eofbit);
+    stream >> token;
 
-    try {
-        auto macaroon = macaroons::Macaroon::deserialize(token);
-        return macaroon;
-    }
-    catch (const std::exception &e) {
-        LOG(WARNING) << "Exception while deserializing saved macaroon - "
-                     << e.what();
-        return {};
-    }
+    return macaroons::Macaroon::deserialize(token);
 }
 
 macaroons::Macaroon TokenHandler::getTokenFromUser() const
 {
-    const auto accessTokenFile = tokenFilePath();
     std::cout << "Authorization token: ";
+
     std::string token;
+
+    auto prevExceptions = std::cin.exceptions();
+    std::cin.exceptions(
+        std::ios::failbit | std::ios::badbit | std::ios::eofbit);
     std::cin >> token;
+    std::cin.exceptions(prevExceptions);
 
     auto macaroon = macaroons::Macaroon::deserialize(token);
 
     try {
-        boost::filesystem::ofstream stream{accessTokenFile};
-        stream.exceptions(std::ios::failbit);
+        boost::filesystem::ofstream stream{tokenFilePath()};
+        stream.exceptions(
+            std::ios::failbit | std::ios::badbit | std::ios::eofbit);
         stream << token;
-        LOG(INFO) << "Saved authorization details to " << accessTokenFile;
+        LOG(INFO) << "Saved authorization details to " << tokenFilePath();
     }
     catch (const std::system_error &e) {
         LOG(WARNING) << "Failed to save authorization details to "
-                     << accessTokenFile << " - " << e.code().message();
+                     << tokenFilePath() << " - " << e.what();
     }
 
     return macaroon;

@@ -10,7 +10,6 @@
 #define ONECLIENT_TOKEN_HANDLER_H
 
 #include <boost/filesystem/path.hpp>
-#include <boost/optional.hpp>
 #include <macaroons.hpp>
 
 #include <chrono>
@@ -50,7 +49,7 @@ public:
 
 private:
     macaroons::Macaroon retrieveToken() const;
-    boost::optional<macaroons::Macaroon> readTokenFromFile() const;
+    macaroons::Macaroon readTokenFromFile() const;
     macaroons::Macaroon getTokenFromUser() const;
     boost::filesystem::path tokenFilePath() const;
 

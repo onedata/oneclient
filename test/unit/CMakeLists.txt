@@ -22,17 +22,17 @@ macro(run_test test_target)
   add_dependencies(cunit ${test_target}_runtest)
 endmacro()
 
-file(GLOB TEST_SOURCES *_test.cc)
+file(GLOB_RECURSE TEST_SOURCES *_test.cc)
 foreach(TEST_SRC ${TEST_SOURCES})
     get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
     add_executable(${TEST_NAME}
-        ${TEST_SRC}
-        ${TEST_HEADERS}
-        $<TARGET_OBJECTS:testRunner>)
+	${TEST_SRC}
+	${TEST_HEADERS}
+	$<TARGET_OBJECTS:testRunner>)
     target_link_libraries(${TEST_NAME} PRIVATE
-        clientShared
-        gmock_main
-        gtest)
+	clientShared
+	gmock_main
+	gtest)
     add_test(${TEST_NAME} ${TEST_NAME})
     run_test(${TEST_NAME})
 endforeach()
