@@ -111,7 +111,8 @@ protected:
     std::string m_fileUuid;
     std::size_t m_size = 0;
     boost::optional<off_t> m_fileSize;
-    boost::icl::interval_map<off_t, FileBlock> m_blocks;
+    boost::icl::interval_map<off_t, FileBlock, boost::icl::partial_enricher>
+        m_blocks;
 };
 
 /**

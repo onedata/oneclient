@@ -38,7 +38,8 @@ using namespace one::communication;
 using namespace one::client::events;
 using namespace std::literals::chrono_literals;
 
-typedef boost::icl::interval_map<off_t, one::messages::fuse::FileBlock> Blocks;
+typedef boost::icl::interval_map<off_t, one::messages::fuse::FileBlock,
+    boost::icl::partial_enricher> Blocks;
 
 inline std::pair<boost::icl::discrete_interval<off_t>,
     one::messages::fuse::FileBlock>
@@ -223,7 +224,7 @@ TEST_F(
     EXPECT_EQ(3, aggregatedEvents.back().counter());
     EXPECT_EQ(15, aggregatedEvents.back().size());
     EXPECT_EQ(10, aggregatedEvents.back().fileSize().get());
-    EXPECT_TRUE(Blocks{block(0, 10)} == aggregatedEvents.back().blocks());
+    EXPECT_TRUE(Blocks{block(0, 15)} == aggregatedEvents.back().blocks());
     aggregatedEvents.pop_back();
 
     EXPECT_EQ("fileId2", aggregatedEvents.back().fileUuid());

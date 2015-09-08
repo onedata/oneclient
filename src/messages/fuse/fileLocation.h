@@ -66,7 +66,8 @@ private:
     std::string m_uuid;
     std::string m_storageId;
     std::string m_fileId;
-    boost::icl::interval_map<off_t, FileBlock> m_blocks;
+    boost::icl::interval_map<off_t, FileBlock, boost::icl::partial_enricher>
+        m_blocks;
 };
 
 } // namespace fuse

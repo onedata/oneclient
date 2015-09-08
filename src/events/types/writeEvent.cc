@@ -67,8 +67,12 @@ WriteEvent &WriteEvent::operator+=(const WriteEvent &event)
 
     if (event.m_fileSize)
         m_fileSize = event.m_fileSize;
-    else if (m_fileSize && m_fileSize.get() < boost::icl::last(event.m_blocks))
-        m_fileSize = boost::icl::last(event.m_blocks);
+    else if (m_fileSize &&
+        m_fileSize.get() < boost::icl::last(event.m_blocks) + 1)
+        m_fileSize = boost::icl::last(event.m_blocks) + 1;
+
+    if (m_fileUuid.empty())
+        m_fileUuid = event.m_fileUuid;
 
     m_blocks += event.m_blocks;
     return *this;
@@ -99,7 +103,7 @@ WriteEvent::serialize() const
     for (const auto &block : m_blocks) {
         auto blockMsg = writeEventMsg->add_blocks();
         blockMsg->set_offset(block.first.lower());
-        blockMsg->set_size(block.first.upper() - block.first.lower() + 1);
+        blockMsg->set_size(boost::icl::size(block.first));
         blockMsg->set_storage_id(block.second.storageId());
         blockMsg->set_file_id(block.second.fileId());
     }

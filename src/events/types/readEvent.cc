@@ -45,6 +45,9 @@ bool operator==(const ReadEvent &lhs, const ReadEvent &rhs)
 
 ReadEvent &ReadEvent::operator+=(const ReadEvent &event)
 {
+    if (m_fileUuid.empty())
+        m_fileUuid = event.m_fileUuid;
+
     m_counter += event.m_counter;
     m_size += event.m_size;
     m_blocks += event.m_blocks;
@@ -54,7 +57,7 @@ ReadEvent &ReadEvent::operator+=(const ReadEvent &event)
 std::string ReadEvent::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'ReadEvent', counter: " << m_counter << ", file ID: '"
+    stream << "type: 'ReadEvent', counter: " << m_counter << ", file UUID: '"
            << m_fileUuid << ", size: " << m_size << ", blocks: " << m_blocks;
     return stream.str();
 }

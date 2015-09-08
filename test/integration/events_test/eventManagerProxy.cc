@@ -43,21 +43,17 @@ public:
         m_eventManager = std::make_unique<EventManager>(std::move(context));
     }
 
-    ~EventManagerProxy()
-    {
-        m_communicator->stop();
-    }
+    ~EventManagerProxy() { m_communicator->stop(); }
 
-    uint64_t emitReadEvent(std::string fileId, off_t offset, size_t size)
+    uint64_t emitReadEvent(std::string fileUuid, off_t offset, size_t size)
     {
-        m_eventManager->emitReadEvent(offset, size, fileId);
+        m_eventManager->emitReadEvent(offset, size, fileUuid);
         return m_sequenceNumber++;
     }
 
-    uint64_t emitWriteEvent(
-        std::string fileId, off_t offset, size_t size, off_t fileSize)
+    uint64_t emitWriteEvent(std::string fileUuid, off_t offset, size_t size)
     {
-        m_eventManager->emitWriteEvent(offset, size, fileId, {}, {});
+        m_eventManager->emitWriteEvent(offset, size, fileUuid, {}, {});
         return m_sequenceNumber++;
     }
 
@@ -91,10 +87,21 @@ std::string prepareSerializedReadEvent(std::size_t counter, std::string fileId,
         ->SerializeAsString();
 }
 
-std::string prepareSerializedWriteEvent(std::size_t counter, std::string fileId,
-    off_t offset, size_t size, off_t fileSize, uint64_t sequenceNumber)
+std::string prepareSerializedWriteEvent(std::size_t counter,
+    std::string fileUuid, off_t offset, size_t size, uint64_t sequenceNumber)
 {
-    auto event = WriteEvent{offset, size, std::move(fileId), counter};
+    auto event = WriteEvent{offset, size, std::move(fileUuid), counter};
+    return setMessageStream(event.serialize(), sequenceNumber)
+        ->SerializeAsString();
+}
+
+std::string prepareSerializedWriteTruncatedEvent(std::size_t counter,
+    std::string fileUuid, off_t offset, size_t size, off_t fileSize,
+    uint64_t sequenceNumber)
+{
+    auto event = WriteEvent{offset, size, fileUuid, counter - 1};
+    event += TruncateEvent{fileSize, std::move(fileUuid)};
+
     return setMessageStream(event.serialize(), sequenceNumber)
         ->SerializeAsString();
 }
@@ -172,6 +179,8 @@ BOOST_PYTHON_MODULE(events)
     def("prepareSerializedReadEvent", &prepareSerializedReadEvent);
     def("prepareSerializedWriteEvent", &prepareSerializedWriteEvent);
     def("prepareSerializedTruncateEvent", &prepareSerializedTruncateEvent);
+    def("prepareSerializedWriteTruncatedEvent",
+        &prepareSerializedWriteTruncatedEvent);
 
     def("prepareSerializedReadEventSubscription",
         &prepareSerializedReadEventSubscription);
