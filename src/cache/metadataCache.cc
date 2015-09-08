@@ -148,11 +148,23 @@ void MetadataCache::rename(
     }
 }
 
-void MetadataCache::map(MetadataCache::Path path, std::string uuid)
+void MetadataCache::map(Path path, std::string uuid)
 {
     UuidAccessor acc;
     m_pathToUuid.insert(acc, std::move(path));
     acc->second = std::move(uuid);
+}
+
+void MetadataCache::map(Path path, FileLocation location)
+{
+    UuidAccessor uuidAcc;
+    m_pathToUuid.insert(uuidAcc, std::move(path));
+
+    MetaAccessor metaAcc;
+    m_metaCache.insert(metaAcc, location.uuid());
+
+    uuidAcc->second = location.uuid();
+    metaAcc->second.location = std::move(location);
 }
 
 void MetadataCache::remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc)

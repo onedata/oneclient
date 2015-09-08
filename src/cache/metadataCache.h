@@ -50,8 +50,9 @@ public:
     void getAttr(MetaAccessor &metaAcc, const std::string &uuid);
     void getLocation(MetaAccessor &metaAcc, const std::string &uuid);
 
-    void rename(const Path &oldPath, const Path &newPath);
     void map(Path path, std::string uuid);
+    void map(Path uuid, FileLocation location);
+    void rename(const Path &oldPath, const Path &newPath);
     void remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
 };
 

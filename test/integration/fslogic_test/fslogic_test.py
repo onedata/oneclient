@@ -86,6 +86,31 @@ def prepare_getattr(filename, filetype):
     return fuse_response
 
 
+def prepare_helper():
+    reply = fuse_messages_pb2.HelperParams()
+    reply.helper_name = 'null'
+
+    fuse_response = fuse_messages_pb2.FuseResponse()
+    fuse_response.helper_params.CopyFrom(reply)
+    fuse_response.status.code = common_messages_pb2.Status.VOK
+
+    return fuse_response
+
+
+def prepare_location():
+    reply = fuse_messages_pb2.FileLocation()
+    reply.uuid = 'uuid1'
+    reply.storage_id = 'storage1'
+    reply.file_id = 'file1'
+    reply.provider_id = 'provider1'
+
+    fuse_response = fuse_messages_pb2.FuseResponse()
+    fuse_response.file_location.CopyFrom(reply)
+    fuse_response.status.code = common_messages_pb2.Status.VOK
+
+    return fuse_response
+
+
 # noinspection PyClassHasNoInit
 class TestFsLogic:
     @classmethod
@@ -596,3 +621,64 @@ class TestFsLogic:
                        self.fl.readdir, '/random/path', l)
 
         assert 'Operation not permitted' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_mknod_should_make_new_location(self, parameters):
+        getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
+        mknod_response = prepare_location()
+
+        (ret, [_, received_msg]) = with_reply(self.ip, [getattr_response,
+                                                        mknod_response],
+                                              self.fl.mknod, '/random/path',
+                                              0762, 0)
+
+        assert ret == 0
+
+        client_message = messages_pb2.ClientMessage()
+        client_message.ParseFromString(received_msg)
+
+        assert client_message.HasField('fuse_request')
+
+        fuse_request = client_message.fuse_request
+        assert fuse_request.HasField('get_new_file_location')
+
+        get_new_file_location = fuse_request.get_new_file_location
+        assert get_new_file_location.parent_uuid == \
+               getattr_response.file_attr.uuid
+        assert get_new_file_location.name == 'path'
+        assert get_new_file_location.mode == 0762
+
+    @performance(skip=True)
+    def test_mknod_should_pass_getattr_errors(self, parameters):
+        getattr_response = fuse_messages_pb2.FuseResponse()
+        getattr_response.status.code = common_messages_pb2.Status.VEPERM
+
+        with pytest.raises(RuntimeError) as excinfo:
+            with_reply(self.ip, getattr_response,
+                       self.fl.mknod, '/random/path', 0724, 0)
+
+        assert 'Operation not permitted' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_mknod_should_pass_location_errors(self, parameters):
+        getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
+        location_response = fuse_messages_pb2.FuseResponse()
+        location_response.status.code = common_messages_pb2.Status.VEPERM
+
+        with pytest.raises(RuntimeError) as excinfo:
+            with_reply(self.ip, [getattr_response, location_response],
+                       self.fl.mknod, '/random/path', 0123, 0)
+
+        assert 'Operation not permitted' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_mknod_should_pass_helper_errors(self, parameters):
+        getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
+        location_response = prepare_location()
+
+        with pytest.raises(RuntimeError) as excinfo:
+            self.fl.failHelper();
+            with_reply(self.ip, [getattr_response, location_response],
+                       self.fl.mknod, '/random/path', 0123, 0)
+
+        assert 'Owner died' in str(excinfo.value)

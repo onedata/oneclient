@@ -212,6 +212,10 @@ public:
     int fsyncdir(boost::filesystem::path path, const int datasync,
         struct fuse_file_info *const fileInfo);
 
+protected:
+    virtual HelpersCache::HelperPtr getHelper(
+        const std::string &storageId, const bool forceClusterProxy = false);
+
 private:
     void removeFile(boost::filesystem::path path);
 

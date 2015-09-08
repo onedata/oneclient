@@ -12,7 +12,7 @@
 #include "context.h"
 #include "events/eventManager.h"
 #include "logging.h"
-#include "helpers/storageHelperFactory.h"
+#include "helperWrapper.h"
 
 #include "messages/fuse/changeMode.h"
 #include "messages/fuse/createDir.h"
@@ -97,50 +97,22 @@ int FsLogic::mknod(
     DLOG(INFO) << "FUSE: mknod(path: " << path << ", mode: " << std::oct << mode
                << ", dev: " << dev << ")";
 
-    //    auto parentAttr = m_metadataCache.getAttr(path.parent_path());
-    //    if (parentAttr.type() !=
-    //    messages::fuse::FileAttr::FileType::directory)
-    //        throw std::errc::not_a_directory;
+    auto parentAttr = m_metadataCache.getAttr(path.parent_path());
+    if (parentAttr.type() != messages::fuse::FileAttr::FileType::directory)
+        throw std::errc::not_a_directory;
 
-    //    messages::fuse::GetNewFileLocation msg{
-    //        path.filename().string(), parentAttr.uuid(), mode};
+    messages::fuse::GetNewFileLocation msg{
+        path.filename().string(), parentAttr.uuid(), mode};
 
-    //    auto future =
-    //        m_context->communicator()->communicate<messages::fuse::FileLocation>(
-    //            std::move(msg));
+    auto future =
+        m_context->communicator()->communicate<messages::fuse::FileLocation>(
+            std::move(msg));
 
-    //    auto location = communication::wait(future);
+    auto location = communication::wait(future);
+    m_metadataCache.map(path, std::move(location));
 
-    //    decltype(m_locationCache)::accessor acc;
-    //    m_locationCache.insert(acc, location.uuid());
-    //    acc->second = std::move(location);
-
-    //    messages::fuse::GetHelperParams paramsMsg{location.storageId()};
-
-    //    auto paramsFuture =
-    //        m_context->communicator()->communicate<messages::fuse::HelperParams>(
-    //            std::move(paramsMsg));
-
-    //    auto params = communication::wait(paramsFuture);
-
-    //    auto helper =
-    //        m_helpersFactory.getStorageHelper(params.name(), params.args());
-
-    //    helpers::StorageHelperCTX helperCtx;
-    //    auto mknodPromise = std::make_shared<std::promise<void>>();
-    //    auto mknodFuture = mknodPromise->get_future();
-
-    //    helper->ash_mknod(
-    //        helperCtx, path, mode, dev, [=](const std::error_code &ec) mutable
-    //        {
-    //            if (ec)
-    //                mknodPromise->set_exception(
-    //                    std::make_exception_ptr(std::system_error{ec}));
-    //            else
-    //                mknodPromise->set_value();
-    //        });
-
-    //    communication::wait(mknodFuture);
+    auto helper = getHelper(location.storageId());
+    HelperWrapper(*helper).mknod(path, mode, dev);
     return 0;
 }
 
@@ -392,6 +364,12 @@ int FsLogic::fsyncdir(boost::filesystem::path path, const int datasync,
                << ", ...)";
 
     return 0;
+}
+
+HelpersCache::HelperPtr FsLogic::getHelper(
+    const std::string &storageId, const bool forceClusterProxy)
+{
+    return m_helpersCache.get(storageId, forceClusterProxy);
 }
 
 void FsLogic::removeFile(boost::filesystem::path path)

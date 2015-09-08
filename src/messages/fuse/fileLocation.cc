@@ -18,6 +18,7 @@ namespace messages {
 namespace fuse {
 
 FileLocation::FileLocation(std::unique_ptr<ProtocolServerMessage> serverMessage)
+    : FuseResponse{serverMessage}
 {
     if (!serverMessage->fuse_response().has_file_location())
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
