@@ -112,7 +112,7 @@ int FsLogic::mknod(
     m_metadataCache.map(path, std::move(location));
 
     auto helper = getHelper(location.storageId());
-    HelperWrapper(*helper).mknod(path, mode, dev);
+    HelperWrapper(*helper).mknod({location.fileId()}, mode, dev);
     return 0;
 }
 
@@ -245,7 +245,20 @@ int FsLogic::open(
     boost::filesystem::path path, struct fuse_file_info *const fileInfo)
 {
     DLOG(INFO) << "FUSE: open(path: " << path << ", ...)";
-    throw std::errc::operation_not_supported;
+
+    auto attr = m_metadataCache.getAttr(path);
+    m_metadataCache.getLocation(attr.uuid());
+
+    FileContextCache::Accessor acc;
+    m_fileContextCache.create(acc);
+
+    fileInfo->direct_io = 1;
+    fileInfo->fh = acc->first;
+
+    acc->second.uuid = attr.uuid();
+    acc->second.helperCtx.flags = fileInfo->flags;
+
+    return 0;
 }
 
 int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
@@ -255,10 +268,40 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
                << ", bufferSize: " << asio::buffer_size(buf)
                << ", offset: " << offset << ", ...)";
 
-    //    m_eventManager->emitReadEvent(
-    //        path.string(), offset, static_cast<size_t>(res));
+    auto context = m_fileContextCache.get(fileInfo->fh);
+    auto attr = m_metadataCache.getAttr(context.uuid);
+    auto location = m_metadataCache.getLocation(context.uuid);
 
-    throw std::errc::operation_not_supported;
+    const auto possibleRange =
+        boost::icl::discrete_interval<off_t>::right_open(0, attr.size());
+
+    const auto wantedRange = boost::icl::discrete_interval<off_t>::right_open(
+        offset, offset + asio::buffer_size(buf)) & possibleRange;
+
+    if (boost::icl::size(wantedRange) == 0)
+        return 0;
+
+    // Even if several "touching" blocks with different helpers are available to
+    // read right now, for simplicity we'll only read a single block per a read
+    // operation.
+    auto availableBlockIt = location.blocks().lower_bound(
+        boost::icl::discrete_interval<off_t>(offset));
+
+    if (availableBlockIt == location.blocks().end())
+        throw std::errc::bad_address; ///< @todo Waiting for blocks.
+
+    const messages::fuse::FileBlock &fileBlock = availableBlockIt->second;
+    auto availableRange = availableBlockIt->first & wantedRange;
+    buf = asio::buffer(buf, boost::icl::size(availableRange));
+
+    auto helper = getHelper(fileBlock.storageId());
+    buf = HelperWrapper(*helper, context.helperCtx)
+              .read({fileBlock.fileId()}, buf, offset);
+
+    const auto bytesRead = asio::buffer_size(buf);
+    m_eventManager->emitReadEvent(offset, bytesRead, context.uuid);
+
+    return bytesRead;
 }
 
 int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,

@@ -200,12 +200,12 @@ void DirectIOHelper::ash_open(
     CTXRef ctx, const boost::filesystem::path &p, GeneralCallback<int> callback)
 {
     m_workerService.post([ =, &ctx, callback = std::move(callback) ]() {
-        int res = open(root(p).c_str(), ctx.m_ffi.flags);
+        int res = open(root(p).c_str(), ctx.flags);
         if (res == -1) {
             callback(-1, makePosixError(errno));
         }
         else {
-            ctx.m_ffi.fh = res;
+            ctx.fh = res;
             callback(res, SuccessCode);
         }
     });
@@ -244,11 +244,11 @@ void DirectIOHelper::ash_release(
     CTXRef ctx, const boost::filesystem::path &p, VoidCallback callback)
 {
     m_workerService.post([ =, &ctx, callback = std::move(callback) ]() {
-        if (ctx.m_ffi.fh && close(ctx.m_ffi.fh) == -1) {
+        if (ctx.fh && close(ctx.fh) == -1) {
             callback(makePosixError(errno));
         }
         else {
-            ctx.m_ffi.fh = 0;
+            ctx.fh = 0;
             callback(SuccessCode);
         }
     });
@@ -273,7 +273,7 @@ void DirectIOHelper::ash_fsync(CTXRef ctx, const boost::filesystem::path &p,
 std::size_t DirectIOHelper::sh_write(CTXRef ctx,
     const boost::filesystem::path &p, asio::const_buffer buf, off_t offset)
 {
-    int fd = ctx.m_ffi.fh > 0 ? ctx.m_ffi.fh : open(root(p).c_str(), O_WRONLY);
+    int fd = ctx.fh > 0 ? ctx.fh : open(root(p).c_str(), O_WRONLY);
     if (fd == -1) {
         throw std::system_error(makePosixError(errno));
     }
@@ -281,7 +281,7 @@ std::size_t DirectIOHelper::sh_write(CTXRef ctx,
     auto res = pwrite(fd, asio::buffer_cast<const char *>(buf),
         asio::buffer_size(buf), offset);
 
-    if (ctx.m_ffi.fh <= 0) {
+    if (ctx.fh <= 0) {
         close(fd);
     }
 
@@ -295,7 +295,7 @@ std::size_t DirectIOHelper::sh_write(CTXRef ctx,
 asio::mutable_buffer DirectIOHelper::sh_read(CTXRef ctx,
     const boost::filesystem::path &p, asio::mutable_buffer buf, off_t offset)
 {
-    int fd = ctx.m_ffi.fh > 0 ? ctx.m_ffi.fh : open(root(p).c_str(), O_RDONLY);
+    int fd = ctx.fh > 0 ? ctx.fh : open(root(p).c_str(), O_RDONLY);
     if (fd == -1) {
         throw std::system_error(makePosixError(errno));
     }
@@ -303,7 +303,7 @@ asio::mutable_buffer DirectIOHelper::sh_read(CTXRef ctx,
     auto res = pread(
         fd, asio::buffer_cast<char *>(buf), asio::buffer_size(buf), offset);
 
-    if (ctx.m_ffi.fh <= 0) {
+    if (ctx.fh <= 0) {
         close(fd);
     }
 

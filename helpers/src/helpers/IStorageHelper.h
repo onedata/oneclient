@@ -28,23 +28,10 @@ namespace one {
 namespace helpers {
 
 struct StorageHelperCTX {
-
-    fuse_file_info &m_ffi;
     uid_t uid = 0;
     gid_t gid = 0;
-
-    StorageHelperCTX(fuse_file_info &ffi)
-        : m_ffi(ffi)
-    {
-    }
-
-    StorageHelperCTX()
-        : m_ffi(m_localFFI)
-    {
-    }
-
-private:
-    fuse_file_info m_localFFI = {0};
+    int flags = 0;
+    int fh = 0;
 };
 
 using CTXRef = StorageHelperCTX &;

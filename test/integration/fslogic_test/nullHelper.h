@@ -148,12 +148,18 @@ public:
         const boost::filesystem::path &, asio::mutable_buffer buf,
         off_t) override
     {
+        if (ec)
+            throw std::system_error{ec};
+
         return buf;
     }
 
     std::size_t sh_write(one::helpers::CTXRef, const boost::filesystem::path &,
         asio::const_buffer buf, off_t) override
     {
+        if (ec)
+            throw std::system_error{ec};
+
         return asio::buffer_size(buf);
     }
 };

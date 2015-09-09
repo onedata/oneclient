@@ -169,6 +169,28 @@ public:
         return m_fsLogic.mknod(path, mode, dev);
     }
 
+    int open(std::string path, int flags)
+    {
+        ReleaseGIL guard;
+        struct fuse_file_info ffi = {};
+        ffi.flags = flags;
+
+        if (const auto res = m_fsLogic.open(path, &ffi))
+            return -res;
+
+        return ffi.fh;
+    }
+
+    int read(std::string path, int offset, int size)
+    {
+        ReleaseGIL guard;
+        struct fuse_file_info ffi = {};
+        std::vector<char> buf(size);
+
+        return m_fsLogic.read(
+            path, asio::buffer(buf.data(), buf.size()), offset, &ffi);
+    }
+
 private:
     static int filler(void *buf, const char *name, const struct stat *, off_t)
     {
@@ -238,7 +260,9 @@ BOOST_PYTHON_MODULE(fslogic)
         .def("utime", &FsLogicProxy::utime)
         .def("utime_buf", &FsLogicProxy::utime_buf)
         .def("readdir", &FsLogicProxy::readdir)
-        .def("mknod", &FsLogicProxy::mknod);
+        .def("mknod", &FsLogicProxy::mknod)
+        .def("open", &FsLogicProxy::open)
+        .def("read", &FsLogicProxy::read);
 
     def("regularMode", &regularMode);
 }

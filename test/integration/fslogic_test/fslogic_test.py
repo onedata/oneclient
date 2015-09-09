@@ -66,7 +66,7 @@ def with_reply(ip, fuse_responses, fun, *args):
         p.join()
 
 
-def prepare_getattr(filename, filetype):
+def prepare_getattr(filename, filetype, size=None):
     reply = fuse_messages_pb2.FileAttr()
     reply.uuid = str(random.randint(0, 1000000000))
     reply.name = filename
@@ -77,7 +77,7 @@ def prepare_getattr(filename, filetype):
     reply.atime = reply.mtime - random.randint(0, 1000000)
     reply.ctime = reply.atime - random.randint(0, 1000000)
     reply.type = filetype
-    reply.size = random.randint(0, 1000000000)
+    reply.size = size if size else random.randint(0, 1000000000)
 
     fuse_response = fuse_messages_pb2.FuseResponse()
     fuse_response.file_attr.CopyFrom(reply)
@@ -97,12 +97,15 @@ def prepare_helper():
     return fuse_response
 
 
-def prepare_location():
+def prepare_location(file_blocks=None):
     reply = fuse_messages_pb2.FileLocation()
     reply.uuid = 'uuid1'
     reply.storage_id = 'storage1'
     reply.file_id = 'file1'
     reply.provider_id = 'provider1'
+
+    if file_blocks:
+        reply.blocks.extend(file_blocks)
 
     fuse_response = fuse_messages_pb2.FuseResponse()
     fuse_response.file_location.CopyFrom(reply)
@@ -677,8 +680,104 @@ class TestFsLogic:
         location_response = prepare_location()
 
         with pytest.raises(RuntimeError) as excinfo:
-            self.fl.failHelper();
+            self.fl.failHelper()
             with_reply(self.ip, [getattr_response, location_response],
                        self.fl.mknod, '/random/path', 0123, 0)
+
+        assert 'Owner died' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_open_should_get_file_location(self, parameters):
+        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+        open_response = prepare_location()
+
+        (ret, [_, received_msg]) = with_reply(self.ip,
+                                              [getattr_response, open_response],
+                                              self.fl.open, '/random/path', 0)
+
+        assert ret >= 0
+
+        client_message = messages_pb2.ClientMessage()
+        client_message.ParseFromString(received_msg)
+
+        assert client_message.HasField('fuse_request')
+
+        fuse_request = client_message.fuse_request
+        assert fuse_request.HasField('get_file_location')
+
+        get_file_location = fuse_request.get_file_location
+        assert get_file_location.uuid == getattr_response.file_attr.uuid
+
+    @performance(skip=True)
+    def test_open_should_pass_getattr_errors(self, parameters):
+        getattr_response = fuse_messages_pb2.FuseResponse()
+        getattr_response.status.code = common_messages_pb2.Status.VEPERM
+
+        with pytest.raises(RuntimeError) as excinfo:
+            with_reply(self.ip, getattr_response,
+                       self.fl.open, '/random/path', 0)
+
+        assert 'Operation not permitted' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_open_should_pass_location_errors(self, parameters):
+        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+        location_response = fuse_messages_pb2.FuseResponse()
+        location_response.status.code = common_messages_pb2.Status.VEPERM
+
+        with pytest.raises(RuntimeError) as excinfo:
+            with_reply(self.ip, [getattr_response, location_response],
+                       self.fl.open, '/random/path', 0)
+
+        assert 'Operation not permitted' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_read_should_read(self, parameters):
+        block = common_messages_pb2.FileBlock()
+        block.offset = 0
+        block.size = 10
+
+        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+        open_response = prepare_location([block])
+
+        (ret, _) = with_reply(self.ip, [getattr_response, open_response],
+                              self.fl.open, '/random/path', 0)
+
+        assert ret >= 0
+        assert 5 == self.fl.read('/random/path', 0, 5)
+
+    @performance(skip=True)
+    def test_read_should_read_zero_on_eof(self, parameters):
+        block = common_messages_pb2.FileBlock()
+        block.offset = 0
+        block.size = 10
+
+        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG,
+                                           size=10)
+
+        open_response = prepare_location([block])
+
+        (ret, _) = with_reply(self.ip, [getattr_response, open_response],
+                              self.fl.open, '/random/path', 0)
+
+        assert ret >= 0
+        assert 10 == self.fl.read('/random/path', 0, 12)
+        assert 0 == self.fl.read('/random/path', 10, 2)
+
+    @performance(skip=True)
+    def test_read_should_pass_helper_errors(self, parameters):
+        block = common_messages_pb2.FileBlock()
+        block.offset = 0
+        block.size = 10
+
+        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+        location_response = prepare_location([block])
+
+        with_reply(self.ip, [getattr_response, location_response],
+                   self.fl.open, '/random/path', 0)
+
+        with pytest.raises(RuntimeError) as excinfo:
+            self.fl.failHelper()
+            self.fl.read('/random/path', 0, 10)
 
         assert 'Owner died' in str(excinfo.value)

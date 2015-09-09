@@ -9,6 +9,7 @@
 #ifndef ONECLIENT_FS_LOGIC_H
 #define ONECLIENT_FS_LOGIC_H
 
+#include "cache/fileContextCache.h"
 #include "cache/helpersCache.h"
 #include "cache/metadataCache.h"
 #include "messages/fuse/fileAttr.h"
@@ -225,6 +226,7 @@ private:
     std::shared_ptr<Context> m_context;
     std::unique_ptr<events::EventManager> m_eventManager;
 
+    FileContextCache m_fileContextCache;
     HelpersCache m_helpersCache;
     MetadataCache m_metadataCache;
 };

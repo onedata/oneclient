@@ -44,7 +44,20 @@ void HelperWrapper::mknod(
     auto future = promise.get_future();
     m_helper.ash_mknod(
         m_context, p, mode, rdev, futureCallback(std::move(promise)));
+
     communication::wait(future);
+}
+
+asio::mutable_buffer HelperWrapper::read(
+    const boost::filesystem::path &p, asio::mutable_buffer buf, off_t offset)
+{
+    return m_helper.sh_read(m_context, p, buf, offset);
+}
+
+std::size_t HelperWrapper::write(
+    const boost::filesystem::path &p, asio::const_buffer buf, off_t offset)
+{
+    return m_helper.sh_write(m_context, p, buf, offset);
 }
 
 } // namespace one
