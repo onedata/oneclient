@@ -95,6 +95,8 @@ std::string FileAttr::toString() const
     return stream.str();
 }
 
+void FileAttr::size(const off_t s) { m_fileAttr.set_size(s); }
+
 } // namespace fuse
 } // namespace messages
 } // namespace one

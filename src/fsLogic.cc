@@ -31,6 +31,8 @@
 
 #include <boost/algorithm/string.hpp>
 
+#include <algorithm>
+
 using namespace std::literals;
 
 namespace one {
@@ -276,7 +278,8 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         boost::icl::discrete_interval<off_t>::right_open(0, attr.size());
 
     const auto wantedRange = boost::icl::discrete_interval<off_t>::right_open(
-        offset, offset + asio::buffer_size(buf)) & possibleRange;
+                                 offset, offset + asio::buffer_size(buf)) &
+        possibleRange;
 
     if (boost::icl::size(wantedRange) == 0)
         return 0;
@@ -311,18 +314,58 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
                << ", bufferSize: " << asio::buffer_size(buf)
                << ", offset: " << offset << ", ...)";
 
-    //    if (m_shMock->shGetattr(path.string(), &statbuf) == 0) {
-    //        m_eventManager->emitWriteEvent(path.string(), offset,
-    //            static_cast<size_t>(res),
-    //            std::max(offset + res, statbuf.st_size));
-    //    }
-    //    else {
-    //        m_eventManager->emitWriteEvent(
-    //            path.string(), offset, static_cast<size_t>(res), offset +
-    //            res);
-    //    }
+    const auto wantedRange = boost::icl::discrete_interval<off_t>::right_open(
+        offset, offset + asio::buffer_size(buf));
 
-    throw std::errc::operation_not_supported;
+    if (boost::icl::size(wantedRange) == 0)
+        return 0;
+
+    auto context = m_fileContextCache.get(fileInfo->fh);
+    auto attr = m_metadataCache.getAttr(context.uuid);
+    auto location = m_metadataCache.getLocation(context.uuid);
+
+    const auto existingRange =
+        boost::icl::discrete_interval<off_t>::right_open(0, attr.size());
+
+    // Even if several "touching" blocks with different helpers are
+    // available to write right now, for simplicity we'll only write to a
+    // single block per a write operation.
+
+    // Split write into parts before and after the end of file.
+    const auto availableRange = existingRange & wantedRange;
+    if (boost::icl::size(availableRange) != 0) {
+        auto availableBlockIt = location.blocks().lower_bound(
+            boost::icl::discrete_interval<off_t>(offset));
+
+        if (availableBlockIt == location.blocks().end())
+            throw std::errc::bad_address; ///< @todo Waiting for blocks.
+
+        const messages::fuse::FileBlock &fileBlock = availableBlockIt->second;
+        buf = asio::buffer(buf, boost::icl::size(availableRange));
+
+        auto helper = getHelper(fileBlock.storageId());
+        auto bytesWritten = HelperWrapper(*helper, context.helperCtx)
+                                .write(fileBlock.fileId(), buf, offset);
+
+        m_eventManager->emitWriteEvent(offset, bytesWritten, context.uuid,
+            fileBlock.storageId(), fileBlock.fileId());
+
+        return bytesWritten;
+    }
+
+    auto helper = getHelper(location.storageId());
+    auto bytesWritten = HelperWrapper(*helper, context.helperCtx)
+                            .write(location.fileId(), buf, offset);
+
+    m_eventManager->emitWriteEvent(offset, bytesWritten, context.uuid,
+        location.storageId(), location.fileId());
+
+    MetadataCache::MetaAccessor acc;
+    m_metadataCache.getAttr(acc, context.uuid);
+    acc->second.attr.get().size(std::max(acc->second.attr.get().size(),
+        static_cast<off_t>(offset + bytesWritten)));
+
+    return bytesWritten;
 }
 
 int FsLogic::statfs(

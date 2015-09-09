@@ -114,6 +114,11 @@ public:
      */
     off_t size() const { return m_fileAttr.size(); }
 
+    /**
+     * Set file size.
+     */
+    void size(const off_t s);
+
     std::string toString() const override;
 
 private:
