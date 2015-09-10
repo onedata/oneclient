@@ -191,6 +191,16 @@ public:
             path, asio::buffer(buf.data(), buf.size()), offset, &ffi);
     }
 
+    int write(std::string path, int offset, int size)
+    {
+        ReleaseGIL guard;
+        struct fuse_file_info ffi = {};
+        std::vector<char> buf(size);
+
+        return m_fsLogic.write(
+            path, asio::buffer(buf.data(), buf.size()), offset, &ffi);
+    }
+
 private:
     static int filler(void *buf, const char *name, const struct stat *, off_t)
     {
@@ -262,7 +272,8 @@ BOOST_PYTHON_MODULE(fslogic)
         .def("readdir", &FsLogicProxy::readdir)
         .def("mknod", &FsLogicProxy::mknod)
         .def("open", &FsLogicProxy::open)
-        .def("read", &FsLogicProxy::read);
+        .def("read", &FsLogicProxy::read)
+        .def("write", &FsLogicProxy::write);
 
     def("regularMode", &regularMode);
 }

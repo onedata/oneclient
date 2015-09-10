@@ -114,6 +114,26 @@ def prepare_location(file_blocks=None):
     return fuse_response
 
 
+def do_open(self, file_blocks=None, size=None):
+    blocks = []
+    if file_blocks:
+        for offset, size in file_blocks:
+            block = common_messages_pb2.FileBlock()
+            block.offset = offset
+            block.size = size
+            blocks.append(block)
+
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG,
+                                       size=size)
+
+    open_response = prepare_location(blocks)
+
+    (ret, _) = with_reply(self.ip, [getattr_response, open_response],
+                          self.fl.open, '/random/path', 0)
+
+    assert ret >= 0
+
+
 # noinspection PyClassHasNoInit
 class TestFsLogic:
     @classmethod
@@ -733,51 +753,51 @@ class TestFsLogic:
 
     @performance(skip=True)
     def test_read_should_read(self, parameters):
-        block = common_messages_pb2.FileBlock()
-        block.offset = 0
-        block.size = 10
-
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
-        open_response = prepare_location([block])
-
-        (ret, _) = with_reply(self.ip, [getattr_response, open_response],
-                              self.fl.open, '/random/path', 0)
-
-        assert ret >= 0
+        do_open(self, file_blocks=[(0, 10)])
         assert 5 == self.fl.read('/random/path', 0, 5)
 
     @performance(skip=True)
     def test_read_should_read_zero_on_eof(self, parameters):
-        block = common_messages_pb2.FileBlock()
-        block.offset = 0
-        block.size = 10
-
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG,
-                                           size=10)
-
-        open_response = prepare_location([block])
-
-        (ret, _) = with_reply(self.ip, [getattr_response, open_response],
-                              self.fl.open, '/random/path', 0)
-
-        assert ret >= 0
+        do_open(self, file_blocks=[(0, 10)], size=10)
         assert 10 == self.fl.read('/random/path', 0, 12)
         assert 0 == self.fl.read('/random/path', 10, 2)
 
     @performance(skip=True)
     def test_read_should_pass_helper_errors(self, parameters):
-        block = common_messages_pb2.FileBlock()
-        block.offset = 0
-        block.size = 10
-
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
-        location_response = prepare_location([block])
-
-        with_reply(self.ip, [getattr_response, location_response],
-                   self.fl.open, '/random/path', 0)
+        do_open(self, file_blocks=[(0, 10)], size=10)
 
         with pytest.raises(RuntimeError) as excinfo:
             self.fl.failHelper()
             self.fl.read('/random/path', 0, 10)
+
+        assert 'Owner died' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_write_should_write(self, parameters):
+        do_open(self, file_blocks=[(0, 10)], size=10)
+        assert 5 == self.fl.write('/random/path', 0, 5)
+
+    @performance(skip=True)
+    def test_write_should_partition_writes(self, parameters):
+        do_open(self, file_blocks=[(0, 5)], size=5)
+        assert 5 == self.fl.write('/random/path', 0, 11)
+        assert 6 == self.fl.write('/random/path', 5, 6)
+
+    @performance(skip=True)
+    def test_write_should_change_file_size(self, parameters):
+        do_open(self, file_blocks=[(0, 5)], size=5)
+        assert 20 == self.fl.write('/random/path', 10, 20)
+
+        stat = fslogic.Stat()
+        self.fl.getattr('/random/path', stat)
+        assert 30 == stat.size
+
+    @performance(skip=True)
+    def test_write_should_pass_helper_errors(self, parameters):
+        do_open(self, file_blocks=[(0, 10)], size=10)
+
+        with pytest.raises(RuntimeError) as excinfo:
+            self.fl.failHelper()
+            self.fl.write('/random/path', 0, 10)
 
         assert 'Owner died' in str(excinfo.value)
