@@ -201,6 +201,12 @@ public:
             path, asio::buffer(buf.data(), buf.size()), offset, &ffi);
     }
 
+    int truncate(std::string path, int size)
+    {
+        ReleaseGIL guard;
+        return m_fsLogic.truncate(path, size);
+    }
+
 private:
     static int filler(void *buf, const char *name, const struct stat *, off_t)
     {
@@ -273,7 +279,8 @@ BOOST_PYTHON_MODULE(fslogic)
         .def("mknod", &FsLogicProxy::mknod)
         .def("open", &FsLogicProxy::open)
         .def("read", &FsLogicProxy::read)
-        .def("write", &FsLogicProxy::write);
+        .def("write", &FsLogicProxy::write)
+        .def("truncate", &FsLogicProxy::truncate);
 
     def("regularMode", &regularMode);
 }

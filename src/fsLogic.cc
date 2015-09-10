@@ -15,6 +15,7 @@
 #include "helperWrapper.h"
 
 #include "messages/fuse/changeMode.h"
+#include "messages/fuse/close.h"
 #include "messages/fuse/createDir.h"
 #include "messages/fuse/deleteFile.h"
 #include "messages/fuse/fileAttr.h"
@@ -27,6 +28,7 @@
 #include "messages/fuse/getNewFileLocation.h"
 #include "messages/fuse/helperParams.h"
 #include "messages/fuse/rename.h"
+#include "messages/fuse/truncate.h"
 #include "messages/fuse/updateTimes.h"
 
 #include <boost/algorithm/string.hpp>
@@ -206,8 +208,20 @@ int FsLogic::truncate(boost::filesystem::path path, const off_t newSize)
     DLOG(INFO) << "FUSE: truncate(path: " << path << ", newSize: " << newSize
                << ")";
 
-    //    m_eventManager->emitTruncateEvent(path.string(), newSize);
-    throw std::errc::operation_not_supported;
+    MetadataCache::MetaAccessor acc;
+    m_metadataCache.getAttr(acc, path);
+    auto &attr = acc->second.attr.get();
+
+    auto future =
+        m_context->communicator()->communicate<messages::fuse::FuseResponse>(
+            messages::fuse::Truncate{attr.uuid(), newSize});
+
+    communication::wait(future);
+    attr.size(newSize);
+
+    m_eventManager->emitTruncateEvent(newSize, attr.uuid());
+
+    return 0;
 }
 
 int FsLogic::utime(boost::filesystem::path path, struct utimbuf *const ubuf)
@@ -379,14 +393,14 @@ int FsLogic::flush(
     boost::filesystem::path path, struct fuse_file_info *const fileInfo)
 {
     DLOG(INFO) << "FUSE: flush(path: " << path << ", ...)";
-    throw std::errc::operation_not_supported;
+    return 0;
 }
 
 int FsLogic::release(
     boost::filesystem::path path, struct fuse_file_info *const fileInfo)
 {
     DLOG(INFO) << "FUSE: release(path: " << path << ", ...)";
-    throw std::errc::operation_not_supported;
+    return 0;
 }
 
 int FsLogic::fsync(boost::filesystem::path path, const int datasync,

@@ -45,6 +45,7 @@ public:
     FileAttr getAttr(const std::string &uuid);
     FileLocation getLocation(const std::string &uuid);
 
+    void getAttr(MetaAccessor &metaAcc, const Path &path);
     void getAttr(
         UuidAccessor &uuidAcc, MetaAccessor &metaAcc, const Path &path);
     void getAttr(MetaAccessor &metaAcc, const std::string &uuid);

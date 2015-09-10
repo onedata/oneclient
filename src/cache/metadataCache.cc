@@ -54,6 +54,12 @@ MetadataCache::FileLocation MetadataCache::getLocation(const std::string &uuid)
     return acc->second.location.get();
 }
 
+void MetadataCache::getAttr(MetaAccessor &metaAcc, const Path &path)
+{
+    UuidAccessor uuidAcc;
+    getAttr(uuidAcc, metaAcc, path);
+}
+
 void MetadataCache::getAttr(
     UuidAccessor &uuidAcc, MetaAccessor &metaAcc, const Path &path)
 {

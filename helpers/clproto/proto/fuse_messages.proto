@@ -40,6 +40,8 @@ message FuseRequest {
         GetNewFileLocation get_new_file_location = 8;
         GetFileLocation get_file_location = 9;
         GetHelperParams get_helper_params = 10;
+        Close close = 11;
+        Truncate truncate = 12;
     }
 }
 
@@ -96,6 +98,15 @@ message GetFileLocation {
 message GetHelperParams {
     required bytes storage_id = 1;
     optional bool force_cluster_proxy = 2 [default = false];
+}
+
+message Truncate {
+    required bytes uuid = 1;
+    required int64 size = 2;
+}
+
+message Close {
+    required bytes uuid = 1;
 }
 
 // Generic FUSE client response

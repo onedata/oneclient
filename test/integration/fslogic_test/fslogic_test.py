@@ -801,3 +801,50 @@ class TestFsLogic:
             self.fl.write('/random/path', 0, 10)
 
         assert 'Owner died' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_truncate_should_truncate(self, parameters):
+        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+        truncate_response = fuse_messages_pb2.FuseResponse()
+        truncate_response.status.code = common_messages_pb2.Status.VOK
+
+        (ret, [_, received_msg]) = with_reply(
+            self.ip, [getattr_response, truncate_response],
+            self.fl.truncate, '/random/path', 4)
+
+        assert ret >= 0
+
+        client_message = messages_pb2.ClientMessage()
+        client_message.ParseFromString(received_msg)
+
+        assert client_message.HasField('fuse_request')
+
+        fuse_request = client_message.fuse_request
+        assert fuse_request.HasField('truncate')
+
+        truncate = fuse_request.truncate
+        assert truncate.uuid == getattr_response.file_attr.uuid
+        assert truncate.size == 4
+
+    @performance(skip=True)
+    def test_truncate_should_pass_getattr_errors(self, parameters):
+        getattr_response = fuse_messages_pb2.FuseResponse()
+        getattr_response.status.code = common_messages_pb2.Status.VEPERM
+
+        with pytest.raises(RuntimeError) as excinfo:
+            with_reply(self.ip, getattr_response,
+                       self.fl.truncate, '/random/path', 2)
+
+        assert 'Operation not permitted' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_truncate_should_pass_truncate_errors(self, parameters):
+        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+        truncate_response = fuse_messages_pb2.FuseResponse()
+        truncate_response.status.code = common_messages_pb2.Status.VEPERM
+
+        with pytest.raises(RuntimeError) as excinfo:
+            with_reply(self.ip, [getattr_response, truncate_response],
+                       self.fl.truncate, '/random/path', 3)
+
+        assert 'Operation not permitted' in str(excinfo.value)
