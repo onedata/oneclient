@@ -848,3 +848,26 @@ class TestFsLogic:
                        self.fl.truncate, '/random/path', 3)
 
         assert 'Operation not permitted' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_readdir_big_directory(self, parameters):
+        children_num = 100000
+
+        getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+
+        reply = fuse_messages_pb2.FileChildren()
+        for i in xrange(0, children_num):
+            link = reply.child_links.add()
+            link.uuid = "uuid{0}".format(i)
+            link.name = "file{0}".format(i)
+
+        readdir_response = fuse_messages_pb2.FuseResponse()
+        readdir_response.file_children.CopyFrom(reply)
+        readdir_response.status.code = common_messages_pb2.Status.VOK
+
+        children = []
+        (ret, _) = with_reply(self.ip, [getattr_response, readdir_response],
+                              self.fl.readdir, '/random/path', children)
+
+        assert ret == 0
+        assert len(children) == children_num
