@@ -345,28 +345,42 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     // available to write right now, for simplicity we'll only write to a
     // single block per a write operation.
 
-    // Split write into parts before and after the end of file.
-    const auto availableRange = existingRange & wantedRange;
-    if (boost::icl::size(availableRange) != 0) {
-        auto availableBlockIt = location.blocks().lower_bound(
-            boost::icl::discrete_interval<off_t>(offset));
+    if (boost::icl::size(existingRange & wantedRange) != 0)
+        return writeInFile(location, context, wantedRange, buf, offset);
 
-        if (availableBlockIt == location.blocks().end())
-            throw std::errc::bad_address; ///< @todo Waiting for blocks.
+    return writeAfterFile(location, context, wantedRange, buf, offset);
+}
 
-        const messages::fuse::FileBlock &fileBlock = availableBlockIt->second;
-        buf = asio::buffer(buf, boost::icl::size(availableRange));
+int FsLogic::writeInFile(const messages::fuse::FileLocation &location,
+    FileContext &context,
+    const boost::icl::discrete_interval<off_t> &wantedRange,
+    asio::const_buffer buf, const off_t offset)
+{
+    auto availableBlockIt = location.blocks().lower_bound(
+        boost::icl::discrete_interval<off_t>(offset));
 
-        auto helper = getHelper(fileBlock.storageId());
-        auto bytesWritten = HelperWrapper(*helper, context.helperCtx)
-                                .write(fileBlock.fileId(), buf, offset);
+    if (availableBlockIt == location.blocks().end())
+        throw std::errc::bad_address; ///< @todo Waiting for blocks.
 
-        m_eventManager->emitWriteEvent(offset, bytesWritten, context.uuid,
-            fileBlock.storageId(), fileBlock.fileId());
+    const messages::fuse::FileBlock &fileBlock = availableBlockIt->second;
+    buf = asio::buffer(
+        buf, boost::icl::size(availableBlockIt->first & wantedRange));
 
-        return bytesWritten;
-    }
+    auto helper = getHelper(fileBlock.storageId());
+    auto bytesWritten = HelperWrapper(*helper, context.helperCtx)
+                            .write(fileBlock.fileId(), buf, offset);
 
+    m_eventManager->emitWriteEvent(offset, bytesWritten, context.uuid,
+        fileBlock.storageId(), fileBlock.fileId());
+
+    return bytesWritten;
+}
+
+int FsLogic::writeAfterFile(const messages::fuse::FileLocation &location,
+    FileContext &context,
+    const boost::icl::discrete_interval<off_t> &wantedRange,
+    asio::const_buffer buf, const off_t offset)
+{
     auto helper = getHelper(location.storageId());
     auto bytesWritten = HelperWrapper(*helper, context.helperCtx)
                             .write(location.fileId(), buf, offset);
@@ -378,6 +392,13 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     m_metadataCache.getAttr(acc, context.uuid);
     acc->second.attr.get().size(std::max(acc->second.attr.get().size(),
         static_cast<off_t>(offset + bytesWritten)));
+
+    // Call `getLocation` instead of using existing acc for a corner case where
+    // location has been removed since initial `getLocation` call.
+    m_metadataCache.getLocation(acc, context.uuid);
+
+    acc->second.location.get().blocks() += std::make_pair(wantedRange,
+        messages::fuse::FileBlock{location.storageId(), location.fileId()});
 
     return bytesWritten;
 }

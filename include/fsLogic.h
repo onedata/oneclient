@@ -219,6 +219,14 @@ protected:
 
 private:
     void removeFile(boost::filesystem::path path);
+    int writeInFile(const messages::fuse::FileLocation &location,
+        FileContext &context,
+        const boost::icl::discrete_interval<off_t> &wantedRange,
+        asio::const_buffer buf, const off_t offset);
+    int writeAfterFile(const messages::fuse::FileLocation &location,
+        FileContext &context,
+        const boost::icl::discrete_interval<off_t> &wantedRange,
+        asio::const_buffer buf, const off_t offset);
 
     const uid_t m_uid;
     const gid_t m_gid;

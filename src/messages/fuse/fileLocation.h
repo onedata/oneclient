@@ -58,7 +58,12 @@ public:
     /**
      * @return Blocks per storageId/fileId pair.
      */
-    const auto &blocks() const { return m_blocks; }
+    auto &blocks() { return m_blocks; }
+
+    /**
+     * @return Blocks per storageId/fileId pair.
+     */
+    auto &blocks() const { return m_blocks; }
 
     std::string toString() const override;
 
