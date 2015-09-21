@@ -15,6 +15,10 @@
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
 
+#include <errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 #include <ios>
 #include <fstream>
 #include <iostream>
@@ -115,6 +119,12 @@ macaroons::Macaroon TokenHandler::getTokenFromUser() const
             std::ios::failbit | std::ios::badbit | std::ios::eofbit);
         stream << token;
         LOG(INFO) << "Saved authorization details to " << tokenFilePath();
+
+        if (chmod(tokenFilePath().c_str(), 0600) != 0) {
+            const auto err = errno;
+            LOG(ERROR) << "Failed to set file permissions on "
+                       << tokenFilePath() << ": " << strerror(err);
+        }
     }
     catch (const std::system_error &e) {
         LOG(WARNING) << "Failed to save authorization details to "
