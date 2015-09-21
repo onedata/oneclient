@@ -807,9 +807,10 @@ class TestFsLogic:
         getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
         truncate_response = fuse_messages_pb2.FuseResponse()
         truncate_response.status.code = common_messages_pb2.Status.VOK
+        location_response = prepare_location()
 
-        (ret, [_, received_msg]) = with_reply(
-            self.ip, [getattr_response, truncate_response],
+        (ret, [_, received_msg, _]) = with_reply(
+            self.ip, [getattr_response, truncate_response, location_response],
             self.fl.truncate, '/random/path', 4)
 
         assert ret >= 0
@@ -871,3 +872,9 @@ class TestFsLogic:
 
         assert ret == 0
         assert len(children) == children_num
+
+    @performance(skip=True)
+    def test_write_should_save_blocks(self, parameters):
+        do_open(self, size=0)
+        assert 5 == self.fl.write('/random/path', 0, 5)
+        assert 5 == self.fl.read('/random/path', 0, 10)

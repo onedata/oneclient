@@ -47,6 +47,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context)
     , m_eventManager{std::make_unique<events::EventManager>(m_context)}
     , m_helpersCache{*m_context->communicator()}
     , m_metadataCache{*m_context->communicator()}
+    , m_pushListener{*m_context->communicator(), m_metadataCache}
 {
 }
 
@@ -219,6 +220,10 @@ int FsLogic::truncate(boost::filesystem::path path, const off_t newSize)
     communication::wait(future);
     attr.size(newSize);
 
+    m_metadataCache.getLocation(acc, attr.uuid());
+    acc->second.location.get().blocks() &=
+        boost::icl::discrete_interval<off_t>::right_open(0, newSize);
+
     m_eventManager->emitTruncateEvent(newSize, attr.uuid());
 
     return 0;
@@ -338,49 +343,31 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     auto attr = m_metadataCache.getAttr(context.uuid);
     auto location = m_metadataCache.getLocation(context.uuid);
 
-    const auto existingRange =
-        boost::icl::discrete_interval<off_t>::right_open(0, attr.size());
-
     // Even if several "touching" blocks with different helpers are
     // available to write right now, for simplicity we'll only write to a
     // single block per a write operation.
 
-    if (boost::icl::size(existingRange & wantedRange) != 0)
-        return writeInFile(location, context, wantedRange, buf, offset);
+    boost::icl::discrete_interval<off_t> offsetInterval{offset};
+    auto availableBlockIt = location.blocks().lower_bound(offsetInterval);
 
-    return writeAfterFile(location, context, wantedRange, buf, offset);
-}
+    messages::fuse::FileBlock fileBlock{
+        location.storageId(), location.fileId()};
 
-int FsLogic::writeInFile(const messages::fuse::FileLocation &location,
-    FileContext &context,
-    const boost::icl::discrete_interval<off_t> &wantedRange,
-    asio::const_buffer buf, const off_t offset)
-{
-    auto availableBlockIt = location.blocks().lower_bound(
-        boost::icl::discrete_interval<off_t>(offset));
+    if (availableBlockIt == location.blocks().end()) {
+        // pass, write everything to default locations
+    }
+    else if (boost::icl::contains(availableBlockIt->first, offsetInterval)) {
+        fileBlock = availableBlockIt->second;
+        buf = asio::buffer(
+            buf, boost::icl::size(availableBlockIt->first & wantedRange));
+    }
+    else {
+        auto blankRange = boost::icl::discrete_interval<off_t>::right_open(
+            offset, boost::icl::first(availableBlockIt->first));
 
-    if (availableBlockIt == location.blocks().end())
-        throw std::errc::bad_address; ///< @todo Waiting for blocks.
+        buf = asio::buffer(buf, boost::icl::size(blankRange & wantedRange));
+    }
 
-    const messages::fuse::FileBlock &fileBlock = availableBlockIt->second;
-    buf = asio::buffer(
-        buf, boost::icl::size(availableBlockIt->first & wantedRange));
-
-    auto helper = getHelper(fileBlock.storageId());
-    auto bytesWritten = HelperWrapper(*helper, context.helperCtx)
-                            .write(fileBlock.fileId(), buf, offset);
-
-    m_eventManager->emitWriteEvent(offset, bytesWritten, context.uuid,
-        fileBlock.storageId(), fileBlock.fileId());
-
-    return bytesWritten;
-}
-
-int FsLogic::writeAfterFile(const messages::fuse::FileLocation &location,
-    FileContext &context,
-    const boost::icl::discrete_interval<off_t> &wantedRange,
-    asio::const_buffer buf, const off_t offset)
-{
     auto helper = getHelper(location.storageId());
     auto bytesWritten = HelperWrapper(*helper, context.helperCtx)
                             .write(location.fileId(), buf, offset);
@@ -393,12 +380,14 @@ int FsLogic::writeAfterFile(const messages::fuse::FileLocation &location,
     acc->second.attr.get().size(std::max(acc->second.attr.get().size(),
         static_cast<off_t>(offset + bytesWritten)));
 
-    // Call `getLocation` instead of using existing acc for a corner case where
-    // location has been removed since initial `getLocation` call.
-    m_metadataCache.getLocation(acc, context.uuid);
+    auto writtenRange = boost::icl::discrete_interval<off_t>::right_open(
+        offset, offset + bytesWritten);
 
-    acc->second.location.get().blocks() += std::make_pair(wantedRange,
-        messages::fuse::FileBlock{location.storageId(), location.fileId()});
+    // Call `getLocation` instead of using existing acc for a corner case
+    // where location has been removed since initial `getLocation` call.
+    m_metadataCache.getLocation(acc, context.uuid);
+    acc->second.location.get().blocks() +=
+        std::make_pair(writtenRange, std::move(fileBlock));
 
     return bytesWritten;
 }

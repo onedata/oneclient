@@ -46,17 +46,6 @@ public:
     const std::string &uuid() const { return m_fileAttr.uuid(); }
 
     /**
-     * @return name of the file.
-     */
-    const std::string &name() const { return m_fileAttr.name(); }
-
-    /**
-     * Sets a new filename.
-     * @param newName New name od the file.
-     */
-    const void name(std::string newName) { m_fileAttr.set_name(newName); }
-
-    /**
      * @return File access mode.
      */
     mode_t mode() const { return m_fileAttr.mode(); }
@@ -73,9 +62,21 @@ public:
     uid_t uid() const { return m_fileAttr.uid(); }
 
     /**
+     * Sets a new uid.
+     * @param newUid The uid to set.
+     */
+    void uid(const uid_t newUid) { m_fileAttr.set_uid(newUid); }
+
+    /**
      * @return Group ID of the file's owner.
      */
     gid_t gid() const { return m_fileAttr.gid(); }
+
+    /**
+     * Sets a new gid.
+     * @param newgid The gid to set.
+     */
+    void gid(const gid_t newgid) { m_fileAttr.set_gid(newgid); }
 
     /**
      * @return Last access time to the file.
@@ -103,6 +104,12 @@ public:
      * @return File's change time.
      */
     std::chrono::system_clock::time_point ctime() const;
+
+    /**
+     * Set file's change time.
+     * @param t The change time to set.
+     */
+    void ctime(std::chrono::system_clock::time_point t);
 
     /**
      * @return Type of the file (regular, link, directory).

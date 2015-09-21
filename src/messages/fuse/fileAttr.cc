@@ -97,6 +97,11 @@ std::string FileAttr::toString() const
 
 void FileAttr::size(const off_t s) { m_fileAttr.set_size(s); }
 
+void FileAttr::ctime(std::chrono::system_clock::time_point t)
+{
+    m_fileAttr.set_ctime(std::chrono::system_clock::to_time_t(t));
+}
+
 } // namespace fuse
 } // namespace messages
 } // namespace one

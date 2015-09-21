@@ -144,7 +144,6 @@ void MetadataCache::rename(
         communication::wait(future);
 
         metaAcc->second.path = newPath;
-        metaAcc->second.attr.get().name(newPath.filename().string());
         newUuidAcc->second = uuid;
         m_pathToUuid.erase(oldUuidAcc);
     }

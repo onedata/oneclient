@@ -39,7 +39,7 @@ FileLocation::FileLocation(std::unique_ptr<ProtocolServerMessage> serverMessage)
         auto &storageId_ = block.has_storage_id() ? block.storage_id()
                                                   : fileLocation.storage_id();
 
-        m_blocks += std::make_pair(interval, FileBlock{fileId_, storageId_});
+        m_blocks += std::make_pair(interval, FileBlock{storageId_, fileId_});
     }
 }
 

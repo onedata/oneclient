@@ -51,9 +51,21 @@ public:
     const std::string &storageId() const { return m_storageId; }
 
     /**
+     * Set new storage id.
+     * @param newStorageId The storage id to set.
+     */
+    void storageId(std::string newStorageId) { m_storageId.swap(newStorageId); }
+
+    /**
      * @return File ID on the default storage id.
      */
     const std::string &fileId() const { return m_fileId; }
+
+    /**
+     * Set new file id.
+     * @param newFileId The file id to set.
+     */
+    void fileId(std::string newFileId) { m_fileId.swap(newFileId); }
 
     /**
      * @return Blocks per storageId/fileId pair.
