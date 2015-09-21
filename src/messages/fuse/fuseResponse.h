@@ -24,7 +24,6 @@ namespace fuse {
  */
 class FuseResponse : public ServerMessage {
 public:
-    FuseResponse() = default;
 
     /**
      * Constructor.

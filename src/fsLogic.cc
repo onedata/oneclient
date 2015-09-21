@@ -113,7 +113,7 @@ int FsLogic::mknod(
             std::move(msg));
 
     auto location = communication::wait(future);
-    m_metadataCache.map(path, std::move(location));
+    m_metadataCache.map(path, location);
 
     auto helper = getHelper(location.storageId());
     HelperWrapper(*helper).mknod({location.fileId()}, mode, dev);
