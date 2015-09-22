@@ -41,6 +41,8 @@ public:
 
     MetadataCache(communication::Communicator &communicator);
 
+    bool get(MetaAccessor &metaAcc, const std::string &uuid);
+
     FileAttr getAttr(const Path &path);
     FileAttr getAttr(const std::string &uuid);
     FileLocation getLocation(const std::string &uuid);

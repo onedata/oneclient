@@ -8,6 +8,7 @@
 
 #include "pushListener.h"
 
+#include "logging.h"
 #include "cache/metadataCache.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
@@ -43,22 +44,27 @@ PushListener::~PushListener() { m_unsubscribe(); }
 void PushListener::onAttr(const messages::fuse::FileAttr &msg)
 {
     MetadataCache::MetaAccessor acc;
-    m_metaCache.getAttr(acc, msg.uuid());
+    if (!m_metaCache.get(acc, msg.uuid()) || !acc->second.attr) {
+        LOG(INFO) << "No attributes to update for uuid: '" << msg.uuid() << "'";
+        return;
+    }
 
+    LOG(INFO) << "Updating attributes for uuid: '" << msg.uuid() << "'";
     auto &attr = acc->second.attr.get();
+
+    if (msg.size() < attr.size() && acc->second.location) {
+        LOG(INFO) << "Truncating blocks attributes for uuid: '" << msg.uuid()
+                  << "'";
+
+        acc->second.location.get().blocks() &=
+            boost::icl::discrete_interval<off_t>::right_open(0, msg.size());
+    }
+
     attr.atime(std::max(attr.atime(), msg.atime()));
     attr.ctime(std::max(attr.ctime(), msg.ctime()));
     attr.mtime(std::max(attr.mtime(), msg.mtime()));
     attr.gid(msg.gid());
     attr.mode(msg.mode());
-
-    if (msg.size() < attr.size()) {
-        m_metaCache.getLocation(acc, msg.uuid());
-        auto &location = acc->second.location.get();
-        location.blocks() &=
-            boost::icl::discrete_interval<off_t>::right_open(0, msg.size());
-    }
-
     attr.size(msg.size());
     attr.uid(msg.uid());
 }
@@ -66,7 +72,12 @@ void PushListener::onAttr(const messages::fuse::FileAttr &msg)
 void PushListener::onLocation(const messages::fuse::FileLocation &msg)
 {
     MetadataCache::MetaAccessor acc;
-    m_metaCache.getLocation(acc, msg.uuid());
+    if (!m_metaCache.get(acc, msg.uuid()) || !acc->second.attr) {
+        LOG(INFO) << "No location to update for uuid: '" << msg.uuid() << "'";
+        return;
+    }
+
+    LOG(INFO) << "Updating location for uuid: '" << msg.uuid() << "'";
     auto &location = acc->second.location.get();
 
     location.storageId(msg.storageId());

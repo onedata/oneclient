@@ -88,6 +88,11 @@ void MetadataCache::getAttr(
     }
 }
 
+bool MetadataCache::get(MetaAccessor &metaAcc, const std::string &uuid)
+{
+    return m_metaCache.find(metaAcc, uuid);
+}
+
 void MetadataCache::getAttr(MetaAccessor &metaAcc, const std::string &uuid)
 {
     if (!m_metaCache.insert(metaAcc, uuid))
