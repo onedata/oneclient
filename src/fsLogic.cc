@@ -306,8 +306,8 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     // Even if several "touching" blocks with different helpers are available to
     // read right now, for simplicity we'll only read a single block per a read
     // operation.
-    auto availableBlockIt = location.blocks().lower_bound(
-        boost::icl::discrete_interval<off_t>(offset));
+    auto availableBlockIt =
+        location.blocks().find(boost::icl::discrete_interval<off_t>(offset));
 
     if (availableBlockIt == location.blocks().end())
         throw std::errc::bad_address; ///< @todo Waiting for blocks.
