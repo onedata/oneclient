@@ -25,6 +25,12 @@ namespace fuse {
  */
 class GetNewFileLocation : public ClientMessage {
 public:
+    /**
+     * Constructor.
+     * @param name Name of the file to create.
+     * @param parentUuid UUID of the directory in which to create the file.
+     * @param mode Mode of the newly created file.
+     */
     GetNewFileLocation(std::string name, std::string parentUuid, mode_t mode);
 
     std::string toString() const override;
