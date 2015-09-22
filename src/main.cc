@@ -208,9 +208,6 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    auto communicator =
-        createCommunicator(authManager, context, std::move(fuseId));
-
     // FUSE main:
     struct fuse *fuse;
     struct fuse_chan *ch;
@@ -266,7 +263,10 @@ int main(int argc, char *argv[])
         context->scheduler()->restartAfterDaemonize();
     }
 
+    auto communicator =
+        createCommunicator(authManager, context, std::move(fuseId));
     communicator->connect();
+
     fsLogicWrapper.logic = std::make_unique<FsLogic>(context);
 
     // Enter FUSE loop
