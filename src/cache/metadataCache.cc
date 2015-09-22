@@ -1,3 +1,11 @@
+/**
+ * @file metadataCache.cc
+ * @author Konrad Zemek
+ * @copyright (C) 2014 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
+
 #include "metadataCache.h"
 
 #include "messages/fuse/getFileAttr.h"
@@ -160,20 +168,26 @@ void MetadataCache::rename(
 
 void MetadataCache::map(Path path, std::string uuid)
 {
-    UuidAccessor acc;
-    m_pathToUuid.insert(acc, std::move(path));
-    acc->second = std::move(uuid);
+    UuidAccessor uuidAcc;
+    m_pathToUuid.insert(uuidAcc, path);
+
+    MetaAccessor metaAcc;
+    m_metaCache.insert(metaAcc, uuid);
+
+    uuidAcc->second = std::move(uuid);
+    metaAcc->second.path = std::move(path);
 }
 
 void MetadataCache::map(Path path, FileLocation location)
 {
     UuidAccessor uuidAcc;
-    m_pathToUuid.insert(uuidAcc, std::move(path));
+    m_pathToUuid.insert(uuidAcc, path);
 
     MetaAccessor metaAcc;
     m_metaCache.insert(metaAcc, location.uuid());
 
     uuidAcc->second = location.uuid();
+    metaAcc->second.path = std::move(path);
     metaAcc->second.location = std::move(location);
 }
 
