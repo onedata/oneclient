@@ -26,11 +26,25 @@ namespace client {
 
 class MetadataCache;
 
+/**
+ * @c PushListener is responsible for listening to push messages updating
+ * client's cached metadata.
+ */
 class PushListener {
 public:
+    /**
+     * Constructor.
+     * @param communicator Communicator instance used to subscribe for push
+     * messages.
+     * @param metaCache Cache instance to update on push messages.
+     */
     PushListener(
         communication::Communicator &communicator, MetadataCache &metaCache);
 
+    /**
+     * Destructor.
+     * Unsubscribes from communicator.
+     */
     ~PushListener();
 
 private:
