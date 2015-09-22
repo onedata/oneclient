@@ -1,3 +1,11 @@
+/**
+ * @file fileContextCache.cc
+ * @author Konrad Zemek
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
+
 #include "fileContextCache.h"
 
 #include <stdexcept>
@@ -6,7 +14,7 @@
 namespace one {
 namespace client {
 
-FileContext FileContextCache::get(FuseFileHandle fh)
+FileContextCache::FileContext FileContextCache::get(FuseFileHandle fh)
 {
     ConstAccessor constAcc;
     if (!m_cache.find(constAcc, fh))

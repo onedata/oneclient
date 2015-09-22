@@ -1,3 +1,11 @@
+/**
+ * @file helpersCache.h
+ * @author Konrad Zemek
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
+
 #ifndef ONECLIENT_HELPERS_CACHE_H
 #define ONECLIENT_HELPERS_CACHE_H
 
@@ -15,6 +23,10 @@
 namespace one {
 namespace client {
 
+/**
+ * @c HelpersCache is responsible for creating and caching
+ * @c helpers::IStorageHelper instances.
+ */
 class HelpersCache {
 public:
     using HelperPtr = std::shared_ptr<helpers::IStorageHelper>;
@@ -34,9 +46,28 @@ public:
     using ConstAccessor = decltype(m_cache)::const_accessor;
     using Accessor = decltype(m_cache)::accessor;
 
+    /**
+     * Constructor.
+     * Starts an @c asio::io_service instance with one worker thread for
+     * @c helpers::StorageHelperFactory .
+     * @param communicator Communicator instance used to fetch helper
+     * parameters.
+     */
     HelpersCache(communication::Communicator &communicator);
+
+    /**
+     * Destructor.
+     * Stops the @c asio::io_service instance and a worker thread.
+     */
     ~HelpersCache();
 
+    /**
+     * Retrieves a helper instance.
+     * @param storageId Storage id for which to retrieve a helper.
+     * @param forceClusterProxy Determines whether to return a ClusterProxy
+     * helper.
+     * @return Retrieved helper instance.
+     */
     HelperPtr get(
         const std::string &storageId, const bool forceClusterProxy = false);
 };
