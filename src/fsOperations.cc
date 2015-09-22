@@ -30,9 +30,10 @@ template <typename... Args1, typename... Args2>
 int wrap(int (FsLogic::*operation)(Args2...), Args1 &&... args)
 {
     try {
-        FsLogic *fsLogic =
-            static_cast<FsLogic *>(fuse_get_context()->private_data);
-        return (fsLogic->*operation)(std::forward<Args1>(args)...);
+        auto &fsLogic = static_cast<FsLogicWrapper *>(
+                            fuse_get_context()->private_data)->logic;
+
+        return ((*fsLogic).*operation)(std::forward<Args1>(args)...);
     }
     catch (const std::errc errc) {
         return -1 * static_cast<int>(errc);
@@ -165,7 +166,7 @@ int wrap_fsyncdir(
     return wrap(&FsLogic::fsyncdir, path, datasync, fileInfo);
 }
 
-void *init(struct fuse_conn_info *conn)
+void *init(struct fuse_conn_info * /*conn*/)
 {
     return fuse_get_context()->private_data;
 }

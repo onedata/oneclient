@@ -234,6 +234,10 @@ private:
     PushListener m_pushListener;
 };
 
+struct FsLogicWrapper {
+    std::unique_ptr<FsLogic> logic;
+};
+
 } // namespace client
 } // namespace one
 
