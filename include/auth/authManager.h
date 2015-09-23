@@ -10,14 +10,14 @@
 #define ONECLIENT_AUTH_MANAGER_H
 
 #include "environment.h"
-#include "auth/grAdapter.h"
-#include "auth/tokenAuthDetails.h"
+#include "auth/tokenHandler.h"
 #include "communication/communicator.h"
 #include "messages/handshakeRequest.h"
 #include "messages/handshakeResponse.h"
 
 #include <boost/optional.hpp>
 
+#include <chrono>
 #include <future>
 #include <memory>
 #include <shared_mutex>
@@ -40,6 +40,8 @@ class Context;
 
 namespace auth {
 
+constexpr std::chrono::seconds FAILED_TOKEN_REFRESH_RETRY{10};
+
 /**
  * The AuthManager class is responsible for setting an authentication scheme
  * for Client - Provider communication.
@@ -58,6 +60,8 @@ public:
      */
     AuthManager(std::weak_ptr<Context> context, std::string defaultHostname,
         const unsigned int port, const bool checkCertificate);
+
+    virtual ~AuthManager() = default;
 
     /**
      * Creates a @c one::communication::Communicator object set up with proper
@@ -107,21 +111,15 @@ private:
 
 /**
  * The TokenAuthManager class is responsible for setting up user authentication
- * using an OpenID token-based scheme.
+ * using a macaroon token-based scheme.
  */
 class TokenAuthManager : public AuthManager {
 public:
-    /**
-     * @copydoc AuthManager::AuthManager()
-     * @param globalRegistryHostname A hostname of Global Registry to be used
-     * for token-based authentication.
-     * @param globalRegistryPort A port of globalregistry to be used for
-     * token-based authentication
-     */
     TokenAuthManager(std::weak_ptr<Context> context,
         std::string defaultHostname, const unsigned int port,
-        const bool checkCertificate, std::string globalRegistryHostname,
-        const unsigned int globalRegistryPort);
+        const bool checkCertificate);
+
+    ~TokenAuthManager();
 
     std::tuple<std::shared_ptr<communication::Communicator>, std::future<void>>
     createCommunicator(const unsigned int poolSize, std::string sessionId,
@@ -129,13 +127,11 @@ public:
             onHandshakeResponse) override;
 
 private:
-    void scheduleRefresh(
-        std::weak_ptr<communication::Communicator> communicator);
-    void refresh(std::weak_ptr<communication::Communicator> communicator);
-    std::string hashAndBase64(const std::string &token) const;
+    void refreshToken();
+    void scheduleRefresh(const std::chrono::seconds after);
 
-    TokenAuthDetails m_authDetails;
-    GRAdapter m_grAdapter;
+    TokenHandler m_tokenHandler;
+    std::function<void()> m_cancelRefresh = [] {};
 };
 
 } // namespace auth
