@@ -18,5 +18,5 @@ message HandshakeResponse {
 }
 
 message Token {
-  required bytes value = 1;
+    required bytes value = 1;
 }

@@ -9,17 +9,16 @@
 #include "context.h"
 #include "environment.h"
 #include "options.h"
+#include "scheduler.h"
 #include "auth/authException.h"
 #include "auth/authManager.h"
-#include "auth/grAdapter.h"
 #include "auth/gsiHandler.h"
+#include "auth/tokenHandler.h"
 #include "communication/cert/certificateData.h"
 #include "communication/persistentConnection.h"
 #include "communication/communicator.h"
 
-#include <boost/archive/iterators/base64_from_binary.hpp>
-#include <boost/archive/iterators/transform_width.hpp>
-#include <openssl/sha.h>
+#include "messages/token.h"
 
 #include <array>
 #include <cassert>
@@ -75,32 +74,13 @@ CertificateAuthManager::createCommunicator(const unsigned int poolSize,
 
 TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
     std::string defaultHostname, const unsigned int port,
-    const bool checkCertificate, std::string globalRegistryHostname,
-    const unsigned int globalRegistryPort)
+    const bool checkCertificate)
     : AuthManager{context, defaultHostname, port, checkCertificate}
-    , m_grAdapter{m_environment.clientName(), m_environment.userDataDir(),
-          std::move(globalRegistryHostname), globalRegistryPort,
-          m_checkCertificate}
+    , m_tokenHandler{m_environment.userDataDir(), "TODO:ProviderId"}
 {
-    try {
-        if (auto details = m_grAdapter.retrieveToken()) {
-            m_authDetails = std::move(details.get());
-        }
-        else {
-            std::cout << "Authorization Code: ";
-            std::string code;
-            std::cin >> code;
-
-            m_authDetails = m_grAdapter.exchangeCode(code);
-        }
-
-        if (m_context.lock()->options()->is_default_provider_hostname())
-            m_hostname = "uid_" + m_authDetails.gruid() + "." + m_hostname;
-    }
-    catch (boost::system::system_error &e) {
-        throw AuthException{e.what()};
-    }
 }
+
+TokenAuthManager::~TokenAuthManager() { m_cancelRefresh(); }
 
 std::tuple<std::shared_ptr<communication::Communicator>, std::future<void>>
 TokenAuthManager::createCommunicator(const unsigned int poolSize,
@@ -108,19 +88,50 @@ TokenAuthManager::createCommunicator(const unsigned int poolSize,
     std::function<std::error_code(messages::HandshakeResponse)>
         onHandshakeResponse)
 {
+    m_cancelRefresh();
+
     auto communicator =
         std::make_shared<communication::Communicator>(poolSize, m_hostname,
             m_port, m_checkCertificate, communication::createConnection);
 
-    one::messages::HandshakeRequest handshake{
-        sessionId, m_authDetails.accessToken()};
+    auto future = communicator->setHandshake([=] {
+        one::messages::HandshakeRequest handshake{
+            sessionId, m_tokenHandler.restrictedToken()};
 
-    auto future = communicator->setHandshake(
-        [=] { return handshake; }, std::move(onHandshakeResponse));
+        return handshake;
+    }, std::move(onHandshakeResponse));
 
-    /// @todo Refreshing the token
+    scheduleRefresh(RESTRICTED_MACAROON_REFRESH);
 
     return std::forward_as_tuple(std::move(communicator), std::move(future));
+}
+
+void TokenAuthManager::refreshToken()
+{
+    LOG(INFO) << "Sending a refreshed token";
+    auto future = m_context.lock()->communicator()->send(
+        one::messages::Token{m_tokenHandler.refreshRestrictedToken()});
+
+    try {
+        communication::wait(future);
+        scheduleRefresh(RESTRICTED_MACAROON_REFRESH);
+    }
+    catch (const std::exception &e) {
+        LOG(WARNING) << "Sending a refreshed token failed with error: "
+                     << e.what();
+
+        scheduleRefresh(FAILED_TOKEN_REFRESH_RETRY);
+    }
+}
+
+void TokenAuthManager::scheduleRefresh(const std::chrono::seconds after)
+{
+    LOG(INFO) << "Scheduling next token refresh in "
+              << std::chrono::duration_cast<std::chrono::seconds>(after).count()
+              << " seconds";
+
+    m_cancelRefresh = m_context.lock()->scheduler()->schedule(
+        after, std::bind(&TokenAuthManager::refreshToken, this));
 }
 
 } // namespace auth
