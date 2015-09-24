@@ -695,18 +695,6 @@ class TestFsLogic:
         assert 'Operation not permitted' in str(excinfo.value)
 
     @performance(skip=True)
-    def test_mknod_should_pass_helper_errors(self, parameters):
-        getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
-        location_response = prepare_location()
-
-        with pytest.raises(RuntimeError) as excinfo:
-            self.fl.failHelper()
-            with_reply(self.ip, [getattr_response, location_response],
-                       self.fl.mknod, '/random/path', 0123, 0)
-
-        assert 'Owner died' in str(excinfo.value)
-
-    @performance(skip=True)
     def test_open_should_get_file_location(self, parameters):
         getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
         open_response = prepare_location()
