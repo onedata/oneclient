@@ -40,8 +40,6 @@ public:
      * Wrapped @c helpers::IStorageHelper operations.
      * Refer to @c helpers::IStorageHelper documentation for more information.
      */
-    void mknod(const boost::filesystem::path &p, mode_t mode, dev_t rdev);
-
     asio::mutable_buffer read(const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset);
 

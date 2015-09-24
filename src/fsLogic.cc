@@ -116,8 +116,6 @@ int FsLogic::mknod(
     auto location = communication::wait(future);
     m_metadataCache.map(path, location);
 
-    auto helper = getHelper(location.storageId());
-    HelperWrapper(*helper).mknod({location.fileId()}, mode, dev);
     return 0;
 }
 

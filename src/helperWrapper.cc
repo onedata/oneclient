@@ -45,17 +45,6 @@ HelperWrapper::HelperWrapper(
 {
 }
 
-void HelperWrapper::mknod(
-    const boost::filesystem::path &p, mode_t mode, dev_t rdev)
-{
-    std::promise<void> promise;
-    auto future = promise.get_future();
-    m_helper.ash_mknod(
-        m_context, p, mode, rdev, futureCallback(std::move(promise)));
-
-    communication::wait(future);
-}
-
 asio::mutable_buffer HelperWrapper::read(
     const boost::filesystem::path &p, asio::mutable_buffer buf, off_t offset)
 {
