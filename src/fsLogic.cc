@@ -33,6 +33,8 @@
 
 #include <boost/algorithm/string.hpp>
 
+#include <sys/stat.h>
+
 #include <algorithm>
 
 using namespace std::literals;
@@ -179,16 +181,18 @@ int FsLogic::chmod(boost::filesystem::path path, const mode_t mode)
     DLOG(INFO) << "FUSE: chmod(path: " << path << ", mode: " << std::oct << mode
                << ")";
 
+    const auto normalizedMode = mode & ALLPERMS;
+
     MetadataCache::UuidAccessor uuidAcc;
     MetadataCache::MetaAccessor metaAcc;
     m_metadataCache.getAttr(uuidAcc, metaAcc, path);
 
     auto future =
         m_context->communicator()->communicate<messages::fuse::FuseResponse>(
-            messages::fuse::ChangeMode{uuidAcc->second, mode});
+            messages::fuse::ChangeMode{uuidAcc->second, normalizedMode});
 
     communication::wait(future);
-    metaAcc->second.attr.get().mode(mode);
+    metaAcc->second.attr.get().mode(normalizedMode);
 
     return 0;
 }
