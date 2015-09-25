@@ -117,7 +117,7 @@ macaroons::Macaroon TokenHandler::getTokenFromUser() const
         boost::filesystem::ofstream stream{tokenFilePath()};
         stream.exceptions(
             std::ios::failbit | std::ios::badbit | std::ios::eofbit);
-        stream << token;
+        stream << token << std::endl;
         LOG(INFO) << "Saved authorization details to " << tokenFilePath();
 
         if (chmod(tokenFilePath().c_str(), 0600) != 0) {
