@@ -24,8 +24,9 @@
 #include <tbb/concurrent_hash_map.h>
 
 #include <cstdint>
-#include <string>
 #include <memory>
+#include <string>
+#include <tuple>
 
 namespace one {
 
@@ -220,6 +221,9 @@ protected:
 
 private:
     void removeFile(boost::filesystem::path path);
+    std::tuple<messages::fuse::FileBlock, asio::const_buffer> findWriteLocation(
+        const messages::fuse::FileLocation &fileLocation, const off_t offset,
+        const asio::const_buffer &buf);
 
     const uid_t m_uid;
     const gid_t m_gid;

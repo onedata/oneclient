@@ -181,7 +181,7 @@ int FsLogic::chmod(boost::filesystem::path path, const mode_t mode)
     DLOG(INFO) << "FUSE: chmod(path: " << path << ", mode: " << std::oct << mode
                << ")";
 
-    const auto normalizedMode = mode & ALLPERMS;
+    const mode_t normalizedMode = mode & ALLPERMS;
 
     MetadataCache::UuidAccessor uuidAcc;
     MetadataCache::MetaAccessor metaAcc;
@@ -335,40 +335,15 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
                << ", bufferSize: " << asio::buffer_size(buf)
                << ", offset: " << offset << ", ...)";
 
-    const auto wantedRange = boost::icl::discrete_interval<off_t>::right_open(
-        offset, offset + asio::buffer_size(buf));
-
-    if (boost::icl::size(wantedRange) == 0)
+    if (asio::buffer_size(buf) == 0)
         return 0;
 
     auto context = m_fileContextCache.get(fileInfo->fh);
     auto attr = m_metadataCache.getAttr(context.uuid);
     auto location = m_metadataCache.getLocation(context.uuid);
 
-    // Even if several "touching" blocks with different helpers are
-    // available to write right now, for simplicity we'll only write to a
-    // single block per a write operation.
-
-    boost::icl::discrete_interval<off_t> offsetInterval{offset};
-    auto availableBlockIt = location.blocks().lower_bound(offsetInterval);
-
-    messages::fuse::FileBlock fileBlock{
-        location.storageId(), location.fileId()};
-
-    if (availableBlockIt == location.blocks().end()) {
-        // pass, write everything to default locations
-    }
-    else if (boost::icl::contains(availableBlockIt->first, offsetInterval)) {
-        fileBlock = availableBlockIt->second;
-        buf = asio::buffer(
-            buf, boost::icl::size(availableBlockIt->first & wantedRange));
-    }
-    else {
-        auto blankRange = boost::icl::discrete_interval<off_t>::right_open(
-            offset, boost::icl::first(availableBlockIt->first));
-
-        buf = asio::buffer(buf, boost::icl::size(blankRange & wantedRange));
-    }
+    messages::fuse::FileBlock fileBlock;
+    std::tie(fileBlock, buf) = findWriteLocation(location, offset, buf);
 
     auto helper = getHelper(location.storageId());
     auto bytesWritten = HelperWrapper(*helper, context.helperCtx)
@@ -392,6 +367,38 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
         std::make_pair(writtenRange, std::move(fileBlock));
 
     return bytesWritten;
+}
+
+std::tuple<messages::fuse::FileBlock, asio::const_buffer>
+FsLogic::findWriteLocation(const messages::fuse::FileLocation &fileLocation,
+    const off_t offset, const asio::const_buffer &buf)
+{
+    const auto wantedRange = boost::icl::discrete_interval<off_t>::right_open(
+        offset, offset + asio::buffer_size(buf));
+
+    // Even if several "touching" blocks with different helpers are
+    // available to write right now, for simplicity we'll only write to a
+    // single block per a write operation.
+
+    boost::icl::discrete_interval<off_t> offsetInterval{offset};
+    auto availableBlockIt = fileLocation.blocks().lower_bound(offsetInterval);
+
+    messages::fuse::FileBlock defaultBlock{
+        fileLocation.storageId(), fileLocation.fileId()};
+
+    if (availableBlockIt == fileLocation.blocks().end())
+        return {defaultBlock, buf};
+
+    if (boost::icl::contains(availableBlockIt->first, offsetInterval))
+        return {availableBlockIt->second,
+            asio::buffer(buf,
+                    boost::icl::size(availableBlockIt->first & wantedRange))};
+
+    auto blankRange = boost::icl::discrete_interval<off_t>::right_open(
+        offset, boost::icl::first(availableBlockIt->first));
+
+    return {defaultBlock,
+        asio::buffer(buf, boost::icl::size(blankRange & wantedRange))};
 }
 
 int FsLogic::statfs(
