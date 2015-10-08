@@ -48,8 +48,8 @@ public:
     ~PushListener();
 
 private:
-    void onAttr(const messages::fuse::FileAttr &msg);
-    void onLocation(const messages::fuse::FileLocation &msg);
+    void onPushAttr(const messages::fuse::FileAttr &msg);
+    void onPushLocation(const messages::fuse::FileLocation &msg);
 
     MetadataCache &m_metaCache;
     std::function<void()> m_unsubscribe = [] {};

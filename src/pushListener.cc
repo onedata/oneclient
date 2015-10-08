@@ -30,9 +30,9 @@ PushListener::PushListener(
 
     auto callback = [this](const clproto::ServerMessage &msg) {
         if (msg.fuse_response().has_file_attr())
-            onAttr({std::make_unique<clproto::ServerMessage>(msg)});
+            onPushAttr({std::make_unique<clproto::ServerMessage>(msg)});
         else
-            onLocation({std::make_unique<clproto::ServerMessage>(msg)});
+            onPushLocation({std::make_unique<clproto::ServerMessage>(msg)});
     };
 
     m_unsubscribe = communicator.subscribe(
@@ -41,7 +41,7 @@ PushListener::PushListener(
 
 PushListener::~PushListener() { m_unsubscribe(); }
 
-void PushListener::onAttr(const messages::fuse::FileAttr &msg)
+void PushListener::onPushAttr(const messages::fuse::FileAttr &msg)
 {
     MetadataCache::MetaAccessor acc;
     if (!m_metaCache.get(acc, msg.uuid()) || !acc->second.attr) {
@@ -69,7 +69,7 @@ void PushListener::onAttr(const messages::fuse::FileAttr &msg)
     attr.uid(msg.uid());
 }
 
-void PushListener::onLocation(const messages::fuse::FileLocation &msg)
+void PushListener::onPushLocation(const messages::fuse::FileLocation &msg)
 {
     MetadataCache::MetaAccessor acc;
     if (!m_metaCache.get(acc, msg.uuid()) || !acc->second.attr) {
