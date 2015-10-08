@@ -387,18 +387,18 @@ FsLogic::findWriteLocation(const messages::fuse::FileLocation &fileLocation,
         fileLocation.storageId(), fileLocation.fileId()};
 
     if (availableBlockIt == fileLocation.blocks().end())
-        return {defaultBlock, buf};
+        return std::make_tuple(defaultBlock, buf);
 
     if (boost::icl::contains(availableBlockIt->first, offsetInterval))
-        return {availableBlockIt->second,
-            asio::buffer(buf,
-                    boost::icl::size(availableBlockIt->first & wantedRange))};
+        return std::make_tuple(availableBlockIt->second,
+            asio::buffer(buf, boost::icl::size(
+                                  availableBlockIt->first & wantedRange)));
 
     auto blankRange = boost::icl::discrete_interval<off_t>::right_open(
         offset, boost::icl::first(availableBlockIt->first));
 
-    return {defaultBlock,
-        asio::buffer(buf, boost::icl::size(blankRange & wantedRange))};
+    return std::make_tuple(defaultBlock,
+        asio::buffer(buf, boost::icl::size(blankRange & wantedRange)));
 }
 
 int FsLogic::statfs(
