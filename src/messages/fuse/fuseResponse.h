@@ -6,8 +6,8 @@
  * 'LICENSE.txt'
  */
 
-#ifndef HELPERS_MESSAGES_FUSE_MESSAGES_FUSE_RESPONSE_H
-#define HELPERS_MESSAGES_FUSE_MESSAGES_FUSE_RESPONSE_H
+#ifndef ONECLIENT_MESSAGES_FUSE_FUSE_RESPONSE_H
+#define ONECLIENT_MESSAGES_FUSE_FUSE_RESPONSE_H
 
 #include "messages/serverMessage.h"
 
@@ -24,7 +24,6 @@ namespace fuse {
  */
 class FuseResponse : public ServerMessage {
 public:
-    FuseResponse() = default;
 
     /**
      * Constructor.
@@ -42,4 +41,4 @@ public:
 } // namespace messages
 } // namespace one
 
-#endif // HELPERS_MESSAGES_FUSE_MESSAGES_FUSE_RESPONSE_H
+#endif // ONECLIENT_MESSAGES_FUSE_FUSE_RESPONSE_H

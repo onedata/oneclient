@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <sstream>
+#include <system_error>
 
 namespace one {
 namespace messages {
@@ -20,6 +21,10 @@ namespace fuse {
 FileChildren::FileChildren(std::unique_ptr<ProtocolServerMessage> serverMessage)
     : FuseResponse{serverMessage}
 {
+    if (!serverMessage->fuse_response().has_file_children())
+        throw std::system_error{std::make_error_code(std::errc::protocol_error),
+            "file_children field missing"};
+
     const auto &fileChildren =
         serverMessage->fuse_response().file_children().child_links();
 

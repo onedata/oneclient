@@ -121,7 +121,8 @@ class TestCommunicator:
 
         emit_time = Duration()
         for i in xrange(evt_num):
-            duration(emit_time, self.manager.emitReadEvent, 'fileId', i * evt_size,
+            duration(emit_time, self.manager.emitReadEvent, 'fileId',
+                     i * evt_size,
                      evt_size)
 
         recv_time = Duration()
@@ -179,7 +180,8 @@ class TestCommunicator:
 
         emit_time = Duration()
         for i in xrange(evt_num):
-            duration(emit_time, self.manager.emitReadEvent, 'fileId', i * evt_size,
+            duration(emit_time, self.manager.emitReadEvent, 'fileId',
+                     i * evt_size,
                      evt_size)
 
         recv_time = Duration()
@@ -286,14 +288,17 @@ class TestCommunicator:
 
         emit_time = Duration()
         for i in xrange(cycle_num - 1):
-            duration(emit_time, self.manager.emitWriteEvent, 'fileId', i * evt_size,
-                     evt_size, (i + 1) * evt_size)
-            duration(emit_time, self.manager.emitReadEvent, 'fileId', i * evt_size,
+            duration(emit_time, self.manager.emitWriteEvent, 'fileId',
+                     i * evt_size,
+                     evt_size)
+            duration(emit_time, self.manager.emitReadEvent, 'fileId',
+                     i * evt_size,
                      evt_size)
             duration(emit_time, self.manager.emitTruncateEvent, 'fileId',
                      (i + 1) * evt_size)
 
-        duration(emit_time, self.manager.emitReadEvent, 'fileId', (cycle_num - 1)
+        duration(emit_time, self.manager.emitReadEvent, 'fileId',
+                 (cycle_num - 1)
                  * evt_size, evt_size)
 
         evt = events.prepareSerializedReadEvent(cycle_num, 'fileId', 0,
@@ -301,12 +306,16 @@ class TestCommunicator:
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, evt,
                                                              timeout_sec=30)
 
-        duration(emit_time, self.manager.emitWriteEvent, 'fileId', (cycle_num - 1)
-                 * evt_size, evt_size, cycle_num * evt_size)
+        duration(emit_time, self.manager.emitWriteEvent, 'fileId',
+                 (cycle_num - 1)
+                 * evt_size, evt_size)
 
-        evt = events.prepareSerializedWriteEvent(2 * cycle_num - 1, 'fileId', 0,
-                                                 cycle_num * evt_size,
-                                                 cycle_num * evt_size, 1)
+        evt = events.prepareSerializedWriteTruncatedEvent(2 * cycle_num - 1,
+                                                          'fileId', 0,
+                                                          cycle_num * evt_size,
+                                                          cycle_num * evt_size,
+                                                          1)
+
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, evt,
                                                              timeout_sec=30)
 
@@ -330,9 +339,8 @@ class TestCommunicator:
         can = events.prepareSerializedEventSubscriptionCancellation(1)
         appmock_client.tcp_server_send(self.ip, 5555, can)
 
-        seq_num = self.manager.emitWriteEvent('fileId', 0, 10, 10)
-        evt = events.prepareSerializedWriteEvent(1, 'fileId', 0, 10, 10,
-                                                 seq_num)
+        seq_num = self.manager.emitWriteEvent('fileId', 0, 10)
+        evt = events.prepareSerializedWriteEvent(1, 'fileId', 0, 10, seq_num)
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, evt)
 
         seq_num = self.manager.emitTruncateEvent('fileId', 0)

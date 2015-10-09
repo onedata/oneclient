@@ -11,7 +11,10 @@
 
 #include "event.h"
 
-#include <boost/icl/interval_set.hpp>
+#include "messages/fuse/fileBlock.h"
+
+#include <boost/icl/interval_map.hpp>
+#include <boost/optional.hpp>
 
 #include <sys/types.h>
 
@@ -30,6 +33,7 @@ class WriteEventSubscription;
 class WriteEvent : public Event {
 public:
     typedef typename one::client::events::WriteEventSubscription Subscription;
+    using FileBlock = messages::fuse::FileBlock;
 
     /**
      * Default constructor.
@@ -42,20 +46,22 @@ public:
      * @param eventStream Weak pointer to @c WriteEventStream to which this
      * event
      * will be pushed when emitted.
-     * @param fileId ID of file associated with a write operation.
+     * @param fileUuid UUID of file associated with a write operation.
+     * @param storageId ID of a storage the write has been written to,
+     * @param fileId ID of a file on the storage.
      * @param offset Distance from the beginning of the file to the first
      * byte written.
      * @param size Number of bytes written.
-     * @param fileSize Size of file after a write operation.
      * @param counter Number of write events aggregated in @c this event.
      */
-    WriteEvent(std::string fileId, off_t offset, std::size_t size,
-        off_t fileSize, std::size_t counter = 1);
+    WriteEvent(off_t offset, std::size_t size, std::string fileUuid,
+        std::size_t counter = 1, std::string storageId = {},
+        std::string fileId = {});
 
     /**
-     * @return ID of file associated with the write event.
+     * @return UUID of file associated with the write event.
      */
-    const std::string &fileId() const;
+    const std::string &fileUuid() const;
 
     /**
      * @return Number of bytes written.
@@ -65,12 +71,12 @@ public:
     /**
      * @return Size of file associated with the write event.
      */
-    off_t fileSize() const;
+    boost::optional<off_t> fileSize() const;
 
     /**
      * @return Set of bytes blocks written.
      */
-    const boost::icl::interval_set<off_t> &blocks() const;
+    const auto &blocks() const { return m_blocks; }
 
     /**
      * Aggregates this write event with an other write event.
@@ -93,10 +99,20 @@ public:
     serialize() const override;
 
 protected:
-    std::string m_fileId;
+    /**
+     * @copydoc WriteEvent(off_t, std::size_t, std::string, std::string,
+     * std::string, std::size_t)
+     * @param fileSize Size of file after a write operation.
+     */
+    WriteEvent(off_t offset, std::size_t size, off_t fileSize,
+        std::string fileUuid, std::size_t counter = 1,
+        std::string storageId = {}, std::string fileId = {});
+
+    std::string m_fileUuid;
     std::size_t m_size = 0;
-    off_t m_fileSize = 0;
-    boost::icl::interval_set<off_t> m_blocks;
+    boost::optional<off_t> m_fileSize;
+    boost::icl::interval_map<off_t, FileBlock, boost::icl::partial_enricher>
+        m_blocks;
 };
 
 /**

@@ -66,7 +66,7 @@ def with_reply(ip, fuse_responses, fun, *args):
         p.join()
 
 
-def prepare_getattr(filename, filetype):
+def prepare_getattr(filename, filetype, size=None):
     reply = fuse_messages_pb2.FileAttr()
     reply.uuid = str(random.randint(0, 1000000000))
     reply.name = filename
@@ -77,13 +77,61 @@ def prepare_getattr(filename, filetype):
     reply.atime = reply.mtime - random.randint(0, 1000000)
     reply.ctime = reply.atime - random.randint(0, 1000000)
     reply.type = filetype
-    reply.size = random.randint(0, 1000000000)
+    reply.size = size if size else random.randint(0, 1000000000)
 
     fuse_response = fuse_messages_pb2.FuseResponse()
     fuse_response.file_attr.CopyFrom(reply)
     fuse_response.status.code = common_messages_pb2.Status.VOK
 
     return fuse_response
+
+
+def prepare_helper():
+    reply = fuse_messages_pb2.HelperParams()
+    reply.helper_name = 'null'
+
+    fuse_response = fuse_messages_pb2.FuseResponse()
+    fuse_response.helper_params.CopyFrom(reply)
+    fuse_response.status.code = common_messages_pb2.Status.VOK
+
+    return fuse_response
+
+
+def prepare_location(file_blocks=None):
+    reply = fuse_messages_pb2.FileLocation()
+    reply.uuid = 'uuid1'
+    reply.storage_id = 'storage1'
+    reply.file_id = 'file1'
+    reply.provider_id = 'provider1'
+
+    if file_blocks:
+        reply.blocks.extend(file_blocks)
+
+    fuse_response = fuse_messages_pb2.FuseResponse()
+    fuse_response.file_location.CopyFrom(reply)
+    fuse_response.status.code = common_messages_pb2.Status.VOK
+
+    return fuse_response
+
+
+def do_open(self, file_blocks=None, size=None):
+    blocks = []
+    if file_blocks:
+        for offset, size in file_blocks:
+            block = common_messages_pb2.FileBlock()
+            block.offset = offset
+            block.size = size
+            blocks.append(block)
+
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG,
+                                       size=size)
+
+    open_response = prepare_location(blocks)
+
+    (ret, _) = with_reply(self.ip, [getattr_response, open_response],
+                          self.fl.open, '/random/path', 0)
+
+    assert ret >= 0
 
 
 # noinspection PyClassHasNoInit
@@ -596,3 +644,225 @@ class TestFsLogic:
                        self.fl.readdir, '/random/path', l)
 
         assert 'Operation not permitted' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_mknod_should_make_new_location(self, parameters):
+        getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
+        mknod_response = prepare_location()
+
+        (ret, [_, received_msg]) = with_reply(self.ip, [getattr_response,
+                                                        mknod_response],
+                                              self.fl.mknod, '/random/path',
+                                              0762, 0)
+
+        assert ret == 0
+
+        client_message = messages_pb2.ClientMessage()
+        client_message.ParseFromString(received_msg)
+
+        assert client_message.HasField('fuse_request')
+
+        fuse_request = client_message.fuse_request
+        assert fuse_request.HasField('get_new_file_location')
+
+        get_new_file_location = fuse_request.get_new_file_location
+        assert get_new_file_location.parent_uuid == \
+               getattr_response.file_attr.uuid
+        assert get_new_file_location.name == 'path'
+        assert get_new_file_location.mode == 0762
+
+    @performance(skip=True)
+    def test_mknod_should_pass_getattr_errors(self, parameters):
+        getattr_response = fuse_messages_pb2.FuseResponse()
+        getattr_response.status.code = common_messages_pb2.Status.VEPERM
+
+        with pytest.raises(RuntimeError) as excinfo:
+            with_reply(self.ip, getattr_response,
+                       self.fl.mknod, '/random/path', 0724, 0)
+
+        assert 'Operation not permitted' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_mknod_should_pass_location_errors(self, parameters):
+        getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
+        location_response = fuse_messages_pb2.FuseResponse()
+        location_response.status.code = common_messages_pb2.Status.VEPERM
+
+        with pytest.raises(RuntimeError) as excinfo:
+            with_reply(self.ip, [getattr_response, location_response],
+                       self.fl.mknod, '/random/path', 0123, 0)
+
+        assert 'Operation not permitted' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_open_should_get_file_location(self, parameters):
+        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+        open_response = prepare_location()
+
+        (ret, [_, received_msg]) = with_reply(self.ip,
+                                              [getattr_response, open_response],
+                                              self.fl.open, '/random/path', 0)
+
+        assert ret >= 0
+
+        client_message = messages_pb2.ClientMessage()
+        client_message.ParseFromString(received_msg)
+
+        assert client_message.HasField('fuse_request')
+
+        fuse_request = client_message.fuse_request
+        assert fuse_request.HasField('get_file_location')
+
+        get_file_location = fuse_request.get_file_location
+        assert get_file_location.uuid == getattr_response.file_attr.uuid
+
+    @performance(skip=True)
+    def test_open_should_pass_getattr_errors(self, parameters):
+        getattr_response = fuse_messages_pb2.FuseResponse()
+        getattr_response.status.code = common_messages_pb2.Status.VEPERM
+
+        with pytest.raises(RuntimeError) as excinfo:
+            with_reply(self.ip, getattr_response,
+                       self.fl.open, '/random/path', 0)
+
+        assert 'Operation not permitted' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_open_should_pass_location_errors(self, parameters):
+        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+        location_response = fuse_messages_pb2.FuseResponse()
+        location_response.status.code = common_messages_pb2.Status.VEPERM
+
+        with pytest.raises(RuntimeError) as excinfo:
+            with_reply(self.ip, [getattr_response, location_response],
+                       self.fl.open, '/random/path', 0)
+
+        assert 'Operation not permitted' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_read_should_read(self, parameters):
+        do_open(self, file_blocks=[(0, 10)])
+        assert 5 == self.fl.read('/random/path', 0, 5)
+
+    @performance(skip=True)
+    def test_read_should_read_zero_on_eof(self, parameters):
+        do_open(self, file_blocks=[(0, 10)], size=10)
+        assert 10 == self.fl.read('/random/path', 0, 12)
+        assert 0 == self.fl.read('/random/path', 10, 2)
+
+    @performance(skip=True)
+    def test_read_should_pass_helper_errors(self, parameters):
+        do_open(self, file_blocks=[(0, 10)], size=10)
+
+        with pytest.raises(RuntimeError) as excinfo:
+            self.fl.failHelper()
+            self.fl.read('/random/path', 0, 10)
+
+        assert 'Owner died' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_write_should_write(self, parameters):
+        do_open(self, file_blocks=[(0, 10)], size=10)
+        assert 5 == self.fl.write('/random/path', 0, 5)
+
+    @performance(skip=True)
+    def test_write_should_partition_writes(self, parameters):
+        do_open(self, file_blocks=[(0, 5)], size=5)
+        assert 5 == self.fl.write('/random/path', 0, 11)
+        assert 6 == self.fl.write('/random/path', 5, 6)
+
+    @performance(skip=True)
+    def test_write_should_change_file_size(self, parameters):
+        do_open(self, file_blocks=[(0, 5)], size=5)
+        assert 20 == self.fl.write('/random/path', 10, 20)
+
+        stat = fslogic.Stat()
+        self.fl.getattr('/random/path', stat)
+        assert 30 == stat.size
+
+    @performance(skip=True)
+    def test_write_should_pass_helper_errors(self, parameters):
+        do_open(self, file_blocks=[(0, 10)], size=10)
+
+        with pytest.raises(RuntimeError) as excinfo:
+            self.fl.failHelper()
+            self.fl.write('/random/path', 0, 10)
+
+        assert 'Owner died' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_truncate_should_truncate(self, parameters):
+        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+        truncate_response = fuse_messages_pb2.FuseResponse()
+        truncate_response.status.code = common_messages_pb2.Status.VOK
+        location_response = prepare_location()
+
+        (ret, [_, received_msg, _]) = with_reply(
+            self.ip, [getattr_response, truncate_response, location_response],
+            self.fl.truncate, '/random/path', 4)
+
+        assert ret >= 0
+
+        client_message = messages_pb2.ClientMessage()
+        client_message.ParseFromString(received_msg)
+
+        assert client_message.HasField('fuse_request')
+
+        fuse_request = client_message.fuse_request
+        assert fuse_request.HasField('truncate')
+
+        truncate = fuse_request.truncate
+        assert truncate.uuid == getattr_response.file_attr.uuid
+        assert truncate.size == 4
+
+    @performance(skip=True)
+    def test_truncate_should_pass_getattr_errors(self, parameters):
+        getattr_response = fuse_messages_pb2.FuseResponse()
+        getattr_response.status.code = common_messages_pb2.Status.VEPERM
+
+        with pytest.raises(RuntimeError) as excinfo:
+            with_reply(self.ip, getattr_response,
+                       self.fl.truncate, '/random/path', 2)
+
+        assert 'Operation not permitted' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_truncate_should_pass_truncate_errors(self, parameters):
+        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+        truncate_response = fuse_messages_pb2.FuseResponse()
+        truncate_response.status.code = common_messages_pb2.Status.VEPERM
+
+        with pytest.raises(RuntimeError) as excinfo:
+            with_reply(self.ip, [getattr_response, truncate_response],
+                       self.fl.truncate, '/random/path', 3)
+
+        assert 'Operation not permitted' in str(excinfo.value)
+
+    @performance(skip=True)
+    def test_readdir_big_directory(self, parameters):
+        children_num = 100000
+
+        getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+
+        reply = fuse_messages_pb2.FileChildren()
+        for i in xrange(0, children_num):
+            link = reply.child_links.add()
+            link.uuid = "uuid{0}".format(i)
+            link.name = "file{0}".format(i)
+
+        readdir_response = fuse_messages_pb2.FuseResponse()
+        readdir_response.file_children.CopyFrom(reply)
+        readdir_response.status.code = common_messages_pb2.Status.VOK
+
+        children = []
+        (ret, _) = with_reply(self.ip, [getattr_response, readdir_response],
+                              self.fl.readdir, '/random/path', children)
+
+        assert ret == 0
+        assert len(children) == children_num
+
+    @performance(skip=True)
+    def test_write_should_save_blocks(self, parameters):
+        do_open(self, size=0)
+        assert 5 == self.fl.write('/random/path', 0, 5)
+        assert 5 == self.fl.read('/random/path', 0, 10)

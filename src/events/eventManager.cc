@@ -43,29 +43,38 @@ EventManager::EventManager(std::shared_ptr<Context> context)
 }
 
 void EventManager::emitReadEvent(
-    std::string fileId, off_t offset, size_t size) const
+    off_t offset, size_t size, std::string fileUuid) const
 {
-    m_context->scheduler()->post([ =, fileId = std::move(fileId) ] {
-        ReadEvent event{std::move(fileId), offset, size};
-        m_readEventStream->pushAsync(std::move(event));
-    });
+    m_context->scheduler()
+        ->post([ =, fileUuid = std::move(fileUuid) ]() mutable {
+            ReadEvent event{offset, size, std::move(fileUuid)};
+            m_readEventStream->pushAsync(std::move(event));
+        });
 }
 
-void EventManager::emitWriteEvent(
-    std::string fileId, off_t offset, size_t size, off_t fileSize) const
+void EventManager::emitWriteEvent(off_t offset, std::size_t size,
+    std::string fileUuid, std::string storageId, std::string fileId) const
 {
-    m_context->scheduler()->post([ =, fileId = std::move(fileId) ] {
-        WriteEvent event{std::move(fileId), offset, size, fileSize};
+    m_context->scheduler()->post([
+        =,
+        fileUuid = std::move(fileUuid),
+        storageId = std::move(storageId),
+        fileId = std::move(fileId)
+    ]() mutable {
+        WriteEvent event{offset, size, std::move(fileUuid), 1,
+            std::move(storageId), std::move(fileId)};
+
         m_writeEventStream->pushAsync(std::move(event));
     });
 }
 
-void EventManager::emitTruncateEvent(std::string fileId, off_t fileSize) const
+void EventManager::emitTruncateEvent(off_t fileSize, std::string fileUuid) const
 {
-    m_context->scheduler()->post([ =, fileId = std::move(fileId) ] {
-        TruncateEvent event{std::move(fileId), fileSize};
-        m_writeEventStream->pushAsync(std::move(event));
-    });
+    m_context->scheduler()
+        ->post([ =, fileUuid = std::move(fileUuid) ]() mutable {
+            TruncateEvent event{fileSize, std::move(fileUuid)};
+            m_writeEventStream->pushAsync(std::move(event));
+        });
 }
 
 void EventManager::handleServerMessage(const clproto::ServerMessage &msg)

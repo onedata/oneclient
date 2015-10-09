@@ -24,11 +24,12 @@ class TruncateEvent : public WriteEvent {
 public:
     /**
      * Constructor.
-     * @param fileId ID of file associated with a truncate operation.
+     * @param fileUuid UUID of file associated with a truncate operation.
      * @param fileSize Size of file after a truncate operation.
      * @param counter Number of truncate events aggregated in @c this event.
      */
-    TruncateEvent(std::string fileId, off_t fileSize, std::size_t counter = 1);
+    TruncateEvent(
+        off_t fileSize, std::string fileUuid, std::size_t counter = 1);
 
     virtual std::string toString() const override;
 };

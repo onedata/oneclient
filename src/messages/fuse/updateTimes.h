@@ -6,8 +6,8 @@
  * 'LICENSE.txt'
  */
 
-#ifndef HELPERS_MESSAGES_FUSE_MESSAGES_UPDATE_TIMES_H
-#define HELPERS_MESSAGES_FUSE_MESSAGES_UPDATE_TIMES_H
+#ifndef ONECLIENT_MESSAGES_FUSE_UPDATE_TIMES_H
+#define ONECLIENT_MESSAGES_FUSE_UPDATE_TIMES_H
 
 #include "messages/clientMessage.h"
 
@@ -80,4 +80,4 @@ private:
 } // namespace messages
 } // namespace one
 
-#endif // HELPERS_MESSAGES_FUSE_MESSAGES_UPDATE_TIMES_H
+#endif // ONECLIENT_MESSAGES_FUSE_UPDATE_TIMES_H

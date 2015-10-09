@@ -6,8 +6,8 @@
  * 'LICENSE.txt'
  */
 
-#ifndef HELPERS_MESSAGES_FUSE_MESSAGES_FILE_CHILDREN_H
-#define HELPERS_MESSAGES_FUSE_MESSAGES_FILE_CHILDREN_H
+#ifndef ONECLIENT_MESSAGES_FUSE_FILE_CHILDREN_H
+#define ONECLIENT_MESSAGES_FUSE_FILE_CHILDREN_H
 
 #include "fuseResponse.h"
 
@@ -17,11 +17,6 @@
 #include <vector>
 
 namespace one {
-
-namespace clproto {
-class FileChildren;
-}
-
 namespace messages {
 namespace fuse {
 
@@ -54,4 +49,4 @@ private:
 } // namespace messages
 } // namespace one
 
-#endif // HELPERS_MESSAGES_FUSE_MESSAGES_FILE_CHILDREN_H
+#endif // ONECLIENT_MESSAGES_FUSE_FILE_CHILDREN_H

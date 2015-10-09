@@ -6,6 +6,8 @@
  * 'LICENSE.txt'
  */
 
+#include "nullHelper.h"
+
 #include "context.h"
 #include "fsLogic.h"
 #include "options.h"
@@ -56,6 +58,22 @@ private:
     std::unique_ptr<PyThreadState, decltype(&PyEval_RestoreThread)> threadState;
 };
 
+class HelpableFsLogic : public one::client::FsLogic {
+public:
+    using one::client::FsLogic::FsLogic;
+
+    one::client::HelpersCache::HelperPtr getHelper(
+        const std::string &, const bool) override
+    {
+        auto helper = std::make_shared<NullHelper>();
+        if (failHelper)
+            helper->ec = std::make_error_code(std::errc::owner_dead);
+        return helper;
+    }
+
+    bool failHelper = false;
+};
+
 class FsLogicProxy {
 public:
     FsLogicProxy(std::shared_ptr<Context> context)
@@ -69,6 +87,8 @@ public:
         ReleaseGIL guard;
         m_context->communicator()->stop();
     }
+
+    void failHelper() { m_fsLogic.failHelper = true; }
 
     int getattr(std::string path, Stat &stat)
     {
@@ -139,9 +159,52 @@ public:
     int readdir(std::string path, boost::python::list &children)
     {
         ReleaseGIL guard;
-
         return m_fsLogic.readdir(path, static_cast<void *>(&children), filler,
             /*offset*/ 0, /*fileinfo*/ nullptr);
+    }
+
+    int mknod(std::string path, int mode, int dev)
+    {
+        ReleaseGIL guard;
+        return m_fsLogic.mknod(path, mode, dev);
+    }
+
+    int open(std::string path, int flags)
+    {
+        ReleaseGIL guard;
+        struct fuse_file_info ffi = {};
+        ffi.flags = flags;
+
+        if (const auto res = m_fsLogic.open(path, &ffi))
+            return -res;
+
+        return ffi.fh;
+    }
+
+    int read(std::string path, int offset, int size)
+    {
+        ReleaseGIL guard;
+        struct fuse_file_info ffi = {};
+        std::vector<char> buf(size);
+
+        return m_fsLogic.read(
+            path, asio::buffer(buf.data(), buf.size()), offset, &ffi);
+    }
+
+    int write(std::string path, int offset, int size)
+    {
+        ReleaseGIL guard;
+        struct fuse_file_info ffi = {};
+        std::vector<char> buf(size);
+
+        return m_fsLogic.write(
+            path, asio::buffer(buf.data(), buf.size()), offset, &ffi);
+    }
+
+    int truncate(std::string path, int size)
+    {
+        ReleaseGIL guard;
+        return m_fsLogic.truncate(path, size);
     }
 
 private:
@@ -152,7 +215,7 @@ private:
         return 0;
     }
 
-    FsLogic m_fsLogic;
+    HelpableFsLogic m_fsLogic;
     std::shared_ptr<Context> m_context;
 };
 
@@ -203,6 +266,7 @@ BOOST_PYTHON_MODULE(fslogic)
 
     class_<FsLogicProxy, boost::noncopyable>("FsLogicProxy", no_init)
         .def("__init__", make_constructor(create))
+        .def("failHelper", &FsLogicProxy::failHelper)
         .def("getattr", &FsLogicProxy::getattr)
         .def("mkdir", &FsLogicProxy::mkdir)
         .def("unlink", &FsLogicProxy::unlink)
@@ -211,7 +275,12 @@ BOOST_PYTHON_MODULE(fslogic)
         .def("chmod", &FsLogicProxy::chmod)
         .def("utime", &FsLogicProxy::utime)
         .def("utime_buf", &FsLogicProxy::utime_buf)
-        .def("readdir", &FsLogicProxy::readdir);
+        .def("readdir", &FsLogicProxy::readdir)
+        .def("mknod", &FsLogicProxy::mknod)
+        .def("open", &FsLogicProxy::open)
+        .def("read", &FsLogicProxy::read)
+        .def("write", &FsLogicProxy::write)
+        .def("truncate", &FsLogicProxy::truncate);
 
     def("regularMode", &regularMode);
 }

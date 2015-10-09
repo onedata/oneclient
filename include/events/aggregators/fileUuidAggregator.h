@@ -1,13 +1,13 @@
 /**
- * @file fileIdAggregator.h
+ * @file fileUuidAggregator.h
  * @author Krzysztof Trzepla
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#ifndef ONECLIENT_EVENTS_AGGREGATORS_FILE_ID_AGGREGATOR_H
-#define ONECLIENT_EVENTS_AGGREGATORS_FILE_ID_AGGREGATOR_H
+#ifndef ONECLIENT_EVENTS_AGGREGATORS_FILE_UUID_AGGREGATOR_H
+#define ONECLIENT_EVENTS_AGGREGATORS_FILE_UUID_AGGREGATOR_H
 
 #include "aggregator.h"
 
@@ -22,15 +22,15 @@ namespace events {
 
 /**
  * The FileIdAggregator class represents an aggregator that aggregates events
- * with the same file ID.
+ * with the same file UUID.
  */
 template <class EventType>
-class FileIdAggregator : public Aggregator<EventType> {
+class FileUuidAggregator : public Aggregator<EventType> {
 public:
     /**
      * @copydoc Aggregator::aggregate(const EventType &event)
-     * @c FileIdAggregator aggregates events with the same file ID. Events
-     * with different file ID will not be aggregated and returned as separate
+     * @c FileUuidAggregator aggregates events with the same file UUID. Events
+     * with different file UUID will not be aggregated and returned as separate
      * entities due to @c reset method call. Return value is an overall
      * aggregation result.
      */
@@ -40,46 +40,46 @@ public:
 
     /**
      * @copydoc Aggregator::reset()
-     * @c FileIdAggregator returns vector of aggregation results for events with
-     * different file ID.
+     * @c FileUuidAggregator returns vector of aggregation results for events
+     * with different file UUID.
      */
     std::vector<EventType> reset() override;
 
 private:
     EventType m_all;
-    std::unordered_map<std::string, EventType> m_eventsByFileId;
+    std::unordered_map<std::string, EventType> m_eventsByFileUuid;
 };
 
 template <class EventType>
-const EventType &FileIdAggregator<EventType>::aggregate(EventType event)
+const EventType &FileUuidAggregator<EventType>::aggregate(EventType event)
 {
     m_all += event;
-    auto searchResult = m_eventsByFileId.find(event.fileId());
-    if (searchResult != m_eventsByFileId.end())
+    auto searchResult = m_eventsByFileUuid.find(event.fileUuid());
+    if (searchResult != m_eventsByFileUuid.end())
         searchResult->second += event;
     else
-        m_eventsByFileId.emplace(event.fileId(), std::move(event));
+        m_eventsByFileUuid.emplace(event.fileUuid(), std::move(event));
     return m_all;
 }
 
 template <class EventType>
-const EventType &FileIdAggregator<EventType>::all() const
+const EventType &FileUuidAggregator<EventType>::all() const
 {
     return m_all;
 }
 
 template <class EventType>
-std::vector<EventType> FileIdAggregator<EventType>::reset()
+std::vector<EventType> FileUuidAggregator<EventType>::reset()
 {
     std::vector<EventType> events;
     std::transform(
-        m_eventsByFileId.begin(), m_eventsByFileId.end(),
+        m_eventsByFileUuid.begin(), m_eventsByFileUuid.end(),
         std::back_inserter(events),
         std::bind(
             &std::unordered_map<std::string, EventType>::value_type::second,
             std::placeholders::_1));
     m_all = EventType{};
-    m_eventsByFileId.clear();
+    m_eventsByFileUuid.clear();
     return events;
 }
 
@@ -87,4 +87,4 @@ std::vector<EventType> FileIdAggregator<EventType>::reset()
 } // namespace client
 } // namespace one
 
-#endif // ONECLIENT_EVENTS_AGGREGATORS_FILE_ID_AGGREGATOR_H
+#endif // ONECLIENT_EVENTS_AGGREGATORS_FILE_UUID_AGGREGATOR_H

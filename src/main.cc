@@ -206,9 +206,6 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    auto communicator =
-        createCommunicator(authManager, context, std::move(fuseId));
-
     // FUSE main:
     struct fuse *fuse;
     struct fuse_chan *ch;
@@ -235,10 +232,8 @@ int main(int argc, char *argv[])
     if (res == -1)
         perror("WARNING: failed to set FD_CLOEXEC on fuse device");
 
-    auto fsLogic = std::make_unique<FsLogic>(context);
-
-    fuse = fuse_new(
-        ch, &args, &fuse_oper, sizeof(struct fuse_operations), fsLogic.get());
+    FsLogicWrapper fsLogicWrapper;
+    fuse = fuse_new(ch, &args, &fuse_oper, sizeof(fuse_oper), &fsLogicWrapper);
     if (fuse == nullptr)
         return EXIT_FAILURE;
 
@@ -266,7 +261,11 @@ int main(int argc, char *argv[])
         context->scheduler()->restartAfterDaemonize();
     }
 
+    auto communicator =
+        createCommunicator(authManager, context, std::move(fuseId));
     communicator->connect();
+
+    fsLogicWrapper.logic = std::make_unique<FsLogic>(context);
 
     // Enter FUSE loop
     res = multithreaded ? fuse_loop_mt(fuse) : fuse_loop(fuse);

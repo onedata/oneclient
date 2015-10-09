@@ -30,9 +30,10 @@ template <typename... Args1, typename... Args2>
 int wrap(int (FsLogic::*operation)(Args2...), Args1 &&... args)
 {
     try {
-        FsLogic *fsLogic =
-            static_cast<FsLogic *>(fuse_get_context()->private_data);
-        return (fsLogic->*operation)(std::forward<Args1>(args)...);
+        auto &fsLogic = static_cast<FsLogicWrapper *>(
+                            fuse_get_context()->private_data)->logic;
+
+        return ((*fsLogic).*operation)(std::forward<Args1>(args)...);
     }
     catch (const std::errc errc) {
         return -1 * static_cast<int>(errc);
@@ -78,7 +79,7 @@ int wrap_getattr(const char *path, struct stat *statbuf)
 }
 int wrap_readlink(const char *path, char *buf, size_t size)
 {
-    return wrap(&FsLogic::readlink, path, boost::asio::buffer(buf, size));
+    return wrap(&FsLogic::readlink, path, asio::buffer(buf, size));
 }
 int wrap_mknod(const char *path, mode_t mode, dev_t dev)
 {
@@ -122,13 +123,13 @@ int wrap_read(const char *path, char *buf, size_t size, off_t offset,
     struct fuse_file_info *fileInfo)
 {
     return wrap(
-        &FsLogic::read, path, boost::asio::buffer(buf, size), offset, fileInfo);
+        &FsLogic::read, path, asio::buffer(buf, size), offset, fileInfo);
 }
 int wrap_write(const char *path, const char *buf, size_t size, off_t offset,
     struct fuse_file_info *fileInfo)
 {
-    return wrap(&FsLogic::write, path, boost::asio::buffer(buf, size), offset,
-        fileInfo);
+    return wrap(
+        &FsLogic::write, path, asio::buffer(buf, size), offset, fileInfo);
 }
 int wrap_statfs(const char *path, struct statvfs *statInfo)
 {
@@ -165,7 +166,7 @@ int wrap_fsyncdir(
     return wrap(&FsLogic::fsyncdir, path, datasync, fileInfo);
 }
 
-void *init(struct fuse_conn_info *conn)
+void *init(struct fuse_conn_info * /*conn*/)
 {
     return fuse_get_context()->private_data;
 }

@@ -53,31 +53,33 @@ public:
 
     /**
      * Emits a read event.
-     * @param fileId ID of file associated with a read operation.
+     * @param fileUuid UUID of file associated with a read operation.
      * @param offset Distance from the beginning of the file to the first byte
      * read.
      * @param size Number of bytes read.
      */
     void emitReadEvent(
-        std::string fileId, off_t offset, std::size_t size) const;
+        off_t offset, std::size_t size, std::string fileUuid) const;
 
     /**
      * Emits a write event.
-     * @param fileId ID of file associated with a write operation.
+     * @param fileUuid UUID of file associated with a write operation.
      * @param offset Distance from the beginning of the file to the first byte
      * written.
      * @param size Number of bytes written.
      * @param fileSize Size of file after a write operation.
+     * @param storageId ID of a storage the write has been written to,
+     * @param fileId ID of a file on the storage.
      */
-    void emitWriteEvent(std::string fileId, off_t offset, std::size_t size,
-        off_t fileSize) const;
+    void emitWriteEvent(off_t offset, std::size_t size, std::string fileUuid,
+        std::string storageId, std::string fileId) const;
 
     /**
      * Emits a truncate event.
-     * @param fileId ID of file associated with a truncate operation.
+     * @param fileUuid UUID of file associated with a truncate operation.
      * @param fileSize Size of file after a truncate operation.
      */
-    void emitTruncateEvent(std::string fileId, off_t fileSize) const;
+    void emitTruncateEvent(off_t fileSize, std::string fileUuid) const;
 
 private:
     void handleServerMessage(const clproto::ServerMessage &msg);
