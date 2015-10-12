@@ -22,13 +22,16 @@ template <class EventType> class EventStream;
  */
 class TruncateEvent : public WriteEvent {
 public:
+    static const std::string name;
+
+    TruncateEvent() = default;
+
     /**
      * Constructor.
      * @param fileId ID of file associated with a truncate operation.
      * @param fileSize Size of file after a truncate operation.
-     * @param counter Number of truncate events aggregated in @c this event.
      */
-    TruncateEvent(std::string fileId, off_t fileSize, std::size_t counter = 1);
+    TruncateEvent(std::string fileId, off_t fileSize);
 
     virtual std::string toString() const override;
 };

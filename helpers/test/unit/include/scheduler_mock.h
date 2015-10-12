@@ -20,10 +20,8 @@ public:
     {
     }
 
-    MOCK_METHOD1(post, void(const std::function<void()> &));
     MOCK_METHOD2(
-        schedule, std::function<void()>(
-                      const std::chrono::milliseconds, std::function<void()>));
+        post, void(const asio::io_service::strand &, std::function<void()>));
 };
 
 #endif // HELPERS_SCHEDULER_MOCK_H

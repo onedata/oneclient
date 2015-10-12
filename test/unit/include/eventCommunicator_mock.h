@@ -9,16 +9,23 @@
 #ifndef ONECLIENT_TEST_UNIT_EVENT_COMMUNICATOR_MOCK_H
 #define ONECLIENT_TEST_UNIT_EVENT_COMMUNICATOR_MOCK_H
 
-#include "context.h"
-#include "events/types/event.h"
 #include "events/eventCommunicator.h"
 
 #include <gmock/gmock.h>
 
+namespace one {
+namespace client {
+class Context;
+namespace events {
+class Event;
+}
+}
+}
+
 class MockEventCommunicator : public one::client::events::EventCommunicator {
 public:
-    MockEventCommunicator(std::shared_ptr<one::client::Context> context)
-        : EventCommunicator{std::move(context)}
+    MockEventCommunicator(std::shared_ptr<one::client::Context> ctx)
+        : EventCommunicator{std::move(ctx)}
     {
     }
 

@@ -11,6 +11,7 @@
 
 #include <asio/executor_work.hpp>
 #include <asio/io_service.hpp>
+#include <asio/io_service_strand.hpp>
 #include <asio/post.hpp>
 #include <asio/steady_timer.hpp>
 
@@ -39,10 +40,21 @@ public:
      * Destructor.
      * Stops the scheduler and joins worker threads.
      */
-    ~Scheduler();
+    virtual ~Scheduler();
 
     void prepareForDaemonize();
     void restartAfterDaemonize();
+
+    /**
+     * Runs a task asynchronously on a strand.
+     * @param strand The strand.
+     * @param task The task to execute.
+     */
+    virtual void post(
+        const asio::io_service::strand &strand, std::function<void()> task)
+    {
+        asio::post(strand, std::move(task));
+    }
 
     /**
      * Runs a task asynchronously in @c Scheduler's thread pool.

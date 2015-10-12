@@ -15,20 +15,15 @@ namespace one {
 namespace client {
 namespace events {
 
-EventCommunicator::EventCommunicator(std::shared_ptr<Context> context)
-    : m_context{std::move(context)}
-    , m_streamManager{std::make_unique<communication::StreamManager>(
-          m_context->communicator())}
-    , m_stream{m_streamManager->create()}
+EventCommunicator::EventCommunicator(std::shared_ptr<Context> ctx)
+    : m_stmManager{new communication::StreamManager{ctx->communicator()}}
+    , m_stm{m_stmManager->create()}
 {
 }
 
-EventCommunicator::~EventCommunicator() { m_stream->close(); }
+EventCommunicator::~EventCommunicator() { m_stm->close(); }
 
-void EventCommunicator::send(const Event &event) const
-{
-    m_stream->send(event);
-}
+void EventCommunicator::send(const Event &evt) const { m_stm->send(evt); }
 
 } // namespace events
 } // namespace client

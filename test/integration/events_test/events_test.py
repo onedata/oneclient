@@ -7,18 +7,15 @@ This software is released under the MIT license cited in 'LICENSE.txt'."""
 import os
 import sys
 import math
-import time
-
 import pytest
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.dirname(script_dir))
+
 from test_common import *
 from performance import *
-
-# noinspection PyUnresolvedReferences
 from environment import appmock, common, docker
-# noinspection PyUnresolvedReferences
+
 import events
 import appmock_client
 
@@ -66,8 +63,7 @@ def evtps_param(evt_num, us):
                      1000000. * evt_num / us, 'event/s')
 
 
-# noinspection PyClassHasNoInit
-class TestCommunicator:
+class TestEventManager:
     @classmethod
     def setup_class(cls):
         cls.result = appmock.up(image='onedata/builder', bindir=appmock_dir,
@@ -83,63 +79,44 @@ class TestCommunicator:
     def teardown_class(cls):
         docker.remove(cls.result['docker_ids'], force=True, volumes=True)
 
-    def setup_method(self, _):
-        appmock_client.reset_tcp_server_history(self.ip)
-        self.manager = events.EventManager(1, self.ip, 5555)
-
-    def teardown_method(self, _):
-        del self.manager
-
     @performance({
         'repeats': 10,
         'parameters': [ctr_thr_param(1), evt_num_param(10), evt_size_param(1)],
         'configs': {
-            'multiple_small_events': {
-                'description': 'Emits multiple small events using event '
-                               'self.manager.',
-                'parameters': [ctr_thr_param(100), evt_num_param(100000),
-                               evt_size_param(10)]
+            'large_counter_threshold': {
+                'description': 'Large counter threshold.',
+                'parameters': [ctr_thr_param(100000), evt_num_param(100000)]
             },
-            'multiple_large_events': {
-                'description': 'Emits multiple large events using event '
-                               'self.manager.',
-                'parameters': [ctr_thr_param(100), evt_num_param(100000),
-                               evt_size_param(1000)]
+            'small_counter_threshold': {
+                'description': 'Small counter threshold.',
+                'parameters': [ctr_thr_param(10000), evt_num_param(100000)]
             }
         }
     })
-    def test_subscription_counter_threshold(self, parameters):
+    def test_events_emission_when_counter_threshold_exceeded(self, parameters):
         """Test event emission for subscription with counter threshold set."""
-        self.manager = events.EventManager(1, self.ip, 5555)
+        appmock_client.reset_tcp_server_history(self.ip)
+        evt_man = events.EventManager(4, 1, self.ip, 5555)
 
         ctr_thr = parameters['ctr_thr'].value
         evt_num = parameters['evt_num'].value
         evt_size = parameters['evt_size'].value
 
-        sub = events.prepareSerializedReadEventSubscription(1, ctr_thr, 0, 0)
-        appmock_client.tcp_server_send(self.ip, 5555, sub)
+        msg = events.createReadEventSubscriptionMsg(1, ctr_thr, 0, 0)
+        appmock_client.tcp_server_send(self.ip, 5555, msg)
 
         emit_time = Duration()
         for i in xrange(evt_num):
-            duration(emit_time, self.manager.emitReadEvent, 'fileId', i * evt_size,
-                     evt_size)
+            duration(emit_time, evt_man.emitReadEvent, 'fileId',
+                     i * evt_size, evt_size)
 
         recv_time = Duration()
         for i in xrange(evt_num / ctr_thr):
-            evt = events.prepareSerializedReadEvent(ctr_thr, 'fileId',
-                                                    i * ctr_thr * evt_size,
-                                                    ctr_thr * evt_size, i)
+            msg = events.createReadEventMsg(ctr_thr, 'fileId', [
+                (i * ctr_thr * evt_size, ctr_thr * evt_size)], i)
             duration(recv_time,
                      appmock_client.tcp_server_wait_for_specific_messages,
-                     self.ip, 5555, evt, 1, False, 50)
-
-        can = events.prepareSerializedEventSubscriptionCancellation(1)
-        appmock_client.tcp_server_send(self.ip, 5555, can)
-        seq_num = self.manager.emitReadEvent('fileId', 0, 10)
-        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 10, seq_num)
-        time.sleep(0.5)
-        assert 0 == appmock_client.tcp_server_specific_message_count(self.ip,
-                                                                     5555, evt)
+                     self.ip, 5555, msg)
 
         return [
             emit_time_param(emit_time.ms()),
@@ -149,55 +126,44 @@ class TestCommunicator:
 
     @performance({
         'repeats': 10,
-        'parameters': [size_thr_param(2), evt_num_param(10), evt_size_param(1)],
+        'parameters': [size_thr_param(1), evt_num_param(10), evt_size_param(1)],
         'configs': {
-            'multiple_small_events': {
-                'description': 'Emits multiple small events using event '
-                               'self.manager.',
-                'parameters': [size_thr_param(100), evt_num_param(100000),
-                               evt_size_param(1)]
+            'large_size_threshold': {
+                'description': 'Large size threshold.',
+                'parameters': [size_thr_param(100000), evt_num_param(100000)]
             },
-            'multiple_large_events': {
-                'description': 'Emits multiple large events using event '
-                               'self.manager.',
-                'parameters': [size_thr_param(10000), evt_num_param(100000),
-                               evt_size_param(100)]
+            'small_size_threshold': {
+                'description': 'Small size threshold.',
+                'parameters': [size_thr_param(10000), evt_num_param(100000)]
             }
         }
     })
-    def test_subscription_size_threshold(self, parameters):
+    def test_events_emission_when_size_threshold_exceeded(self, parameters):
         """Test event emission for subscription with size threshold set."""
-        self.manager = events.EventManager(1, self.ip, 5555)
+        appmock_client.reset_tcp_server_history(self.ip)
+        evt_man = events.EventManager(4, 1, self.ip, 5555)
 
         size_thr = parameters['size_thr'].value
         evt_num = parameters['evt_num'].value
         evt_size = parameters['evt_size'].value
         ctr_thr = int(math.ceil(float(size_thr) / evt_size))
 
-        sub = events.prepareSerializedReadEventSubscription(1, 0, 0, size_thr)
-        appmock_client.tcp_server_send(self.ip, 5555, sub)
+        msg = events.createReadEventSubscriptionMsg(1, 0, 0, size_thr)
+        appmock_client.tcp_server_send(self.ip, 5555, msg)
 
         emit_time = Duration()
         for i in xrange(evt_num):
-            duration(emit_time, self.manager.emitReadEvent, 'fileId', i * evt_size,
+            duration(emit_time, evt_man.emitReadEvent, 'fileId', i * evt_size,
                      evt_size)
 
         recv_time = Duration()
         for i in xrange(evt_num * evt_size / size_thr):
-            evt = events.prepareSerializedReadEvent(ctr_thr, 'fileId',
-                                                    i * ctr_thr * evt_size,
-                                                    ctr_thr * evt_size, i)
+            msg = events.createReadEventMsg(ctr_thr, 'fileId',
+                                            [(i * ctr_thr * evt_size,
+                                              ctr_thr * evt_size)], i)
             duration(recv_time,
                      appmock_client.tcp_server_wait_for_specific_messages,
-                     self.ip, 5555, evt, 1, False, 10)
-
-        can = events.prepareSerializedEventSubscriptionCancellation(1)
-        appmock_client.tcp_server_send(self.ip, 5555, can)
-        seq_num = self.manager.emitReadEvent('fileId', 0, size_thr)
-        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 10, seq_num)
-        time.sleep(0.5)
-        assert 0 == appmock_client.tcp_server_specific_message_count(self.ip,
-                                                                     5555, evt)
+                     self.ip, 5555, msg)
 
         return [
             emit_time_param(emit_time.ms()),
@@ -208,57 +174,52 @@ class TestCommunicator:
     @performance(skip=True)
     def test_subscription_time_threshold(self, parameters):
         """Test event emission for subscription with time threshold set."""
-        self.manager = events.EventManager(1, self.ip, 5555)
+        appmock_client.reset_tcp_server_history(self.ip)
+        evt_man = events.EventManager(4, 1, self.ip, 5555)
 
-        sub = events.prepareSerializedReadEventSubscription(1, 0, 100, 0)
-        appmock_client.tcp_server_send(self.ip, 5555, sub)
-        self.manager.emitReadEvent('fileId', 0, 10)
-        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 10, 0)
-        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, evt)
-
-        can = events.prepareSerializedEventSubscriptionCancellation(1)
-        appmock_client.tcp_server_send(self.ip, 5555, can)
-        seq_num = self.manager.emitReadEvent('fileId', 0, 10)
-        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 10, seq_num)
-        time.sleep(0.5)
-        assert 0 == appmock_client.tcp_server_specific_message_count(self.ip,
-                                                                     5555, evt)
+        msg = events.createReadEventSubscriptionMsg(1, 0, 100, 0)
+        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        evt_man.emitReadEvent('fileId', 0, 10)
+        msg = events.createReadEventMsg(1, 'fileId', [(0, 10)], 0)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
     @performance(skip=True)
     def test_multiple_subscriptions(self, parameters):
         """Test event emission for multiple subscriptions of the same type."""
-        self.manager = events.EventManager(1, self.ip, 5555)
+        appmock_client.reset_tcp_server_history(self.ip)
+        evt_man = events.EventManager(4, 1, self.ip, 5555)
 
-        sub = events.prepareSerializedReadEventSubscription(1, 0, 0, 50)
-        appmock_client.tcp_server_send(self.ip, 5555, sub)
-        sub = events.prepareSerializedReadEventSubscription(2, 0, 0, 20)
-        appmock_client.tcp_server_send(self.ip, 5555, sub)
-        sub = events.prepareSerializedReadEventSubscription(3, 0, 0, 5)
-        appmock_client.tcp_server_send(self.ip, 5555, sub)
+        msg = events.createReadEventSubscriptionMsg(1, 0, 0, 50)
+        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        msg = events.createReadEventSubscriptionMsg(2, 0, 0, 20)
+        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        msg = events.createReadEventSubscriptionMsg(3, 0, 0, 5)
+        appmock_client.tcp_server_send(self.ip, 5555, msg)
 
-        seq_num = self.manager.emitReadEvent('fileId', 0, 5)
-        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 5, seq_num)
-        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, evt)
+        seq_num = evt_man.emitReadEvent('fileId', 0, 5)
+        msg = events.createReadEventMsg(1, 'fileId', [(0, 5)], seq_num)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
-        can = events.prepareSerializedEventSubscriptionCancellation(3)
-        appmock_client.tcp_server_send(self.ip, 5555, can)
-        seq_num = self.manager.emitReadEvent('fileId', 0, 20)
-        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 20, seq_num)
-        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, evt)
+        msg = events.createEventSubscriptionCancellationMsg(3)
+        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        seq_num = evt_man.emitReadEvent('fileId', 0, 20)
+        msg = events.createReadEventMsg(1, 'fileId', [(0, 20)], seq_num)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
-        can = events.prepareSerializedEventSubscriptionCancellation(2)
-        appmock_client.tcp_server_send(self.ip, 5555, can)
-        seq_num = self.manager.emitReadEvent('fileId', 0, 50)
-        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 50, seq_num)
-        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, evt)
+        msg = events.createEventSubscriptionCancellationMsg(2)
+        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        seq_num = evt_man.emitReadEvent('fileId', 0, 50)
+        msg = events.createReadEventMsg(1, 'fileId', [(0, 50)], seq_num)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
-        can = events.prepareSerializedEventSubscriptionCancellation(1)
-        appmock_client.tcp_server_send(self.ip, 5555, can)
-        seq_num = self.manager.emitReadEvent('fileId', 0, 10)
-        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 10, seq_num)
-        time.sleep(0.5)
-        assert 0 == appmock_client.tcp_server_specific_message_count(self.ip,
-                                                                     5555, evt)
+        msg = events.createEventSubscriptionCancellationMsg(1)
+        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        seq_num = evt_man.emitReadEvent('fileId', 0, 10)
+        msg = events.createReadEventMsg(1, 'fileId', [(0, 10)], seq_num)
+        with pytest.raises(Exception):
+            appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555,
+                                                                 msg,
+                                                                 timeout_sec=1)
 
     @performance({
         'repeats': 10,
@@ -273,76 +234,76 @@ class TestCommunicator:
     })
     def test_write_read_truncate_event_aggregation(self, parameters):
         """Test aggregation of write, read and truncate events."""
-        self.manager = events.EventManager(1, self.ip, 5555)
+        appmock_client.reset_tcp_server_history(self.ip)
+        evt_man = events.EventManager(4, 1, self.ip, 5555)
 
         size_thr = parameters['size_thr'].value
         cycle_num = parameters['cycle_num'].value
         evt_size = int(math.ceil(float(size_thr) / cycle_num))
 
-        sub = events.prepareSerializedReadEventSubscription(1, 0, 0, size_thr)
-        appmock_client.tcp_server_send(self.ip, 5555, sub)
-        sub = events.prepareSerializedWriteEventSubscription(2, 0, 0, size_thr)
-        appmock_client.tcp_server_send(self.ip, 5555, sub)
+        msg = events.createReadEventSubscriptionMsg(1, 0, 0, size_thr)
+        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        msg = events.createWriteEventSubscriptionMsg(2, 0, 0, size_thr)
+        appmock_client.tcp_server_send(self.ip, 5555, msg)
 
         emit_time = Duration()
         for i in xrange(cycle_num - 1):
-            duration(emit_time, self.manager.emitWriteEvent, 'fileId', i * evt_size,
+            duration(emit_time, evt_man.emitWriteEvent, 'fileId', i * evt_size,
                      evt_size, (i + 1) * evt_size)
-            duration(emit_time, self.manager.emitReadEvent, 'fileId', i * evt_size,
+            duration(emit_time, evt_man.emitReadEvent, 'fileId', i * evt_size,
                      evt_size)
-            duration(emit_time, self.manager.emitTruncateEvent, 'fileId',
+            duration(emit_time, evt_man.emitTruncateEvent, 'fileId',
                      (i + 1) * evt_size)
 
-        duration(emit_time, self.manager.emitReadEvent, 'fileId', (cycle_num - 1)
-                 * evt_size, evt_size)
+        duration(emit_time, evt_man.emitReadEvent, 'fileId',
+                 (cycle_num - 1) * evt_size, evt_size)
 
-        evt = events.prepareSerializedReadEvent(cycle_num, 'fileId', 0,
-                                                cycle_num * evt_size, 0)
-        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, evt,
-                                                             timeout_sec=30)
+        msg = events.createReadEventMsg(cycle_num, 'fileId',
+                                        [(0, cycle_num * evt_size)], 0)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
-        duration(emit_time, self.manager.emitWriteEvent, 'fileId', (cycle_num - 1)
-                 * evt_size, evt_size, cycle_num * evt_size)
+        duration(emit_time, evt_man.emitWriteEvent, 'fileId',
+                 (cycle_num - 1) * evt_size, evt_size, cycle_num * evt_size)
 
-        evt = events.prepareSerializedWriteEvent(2 * cycle_num - 1, 'fileId', 0,
-                                                 cycle_num * evt_size,
-                                                 cycle_num * evt_size, 1)
-        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, evt,
-                                                             timeout_sec=30)
+        msg = events.createWriteEventMsg(2 * cycle_num - 1, 'fileId',
+                                         cycle_num * evt_size,
+                                         [(0, cycle_num * evt_size)], 1)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
         return emit_time_param(emit_time.ms())
 
     @performance(skip=True)
     def test_different_subscriptions(self, parameters):
         """Test event emission for multiple subscriptions of a different
-         type."""
-        self.manager = events.EventManager(1, self.ip, 5555)
+        type."""
+        appmock_client.reset_tcp_server_history(self.ip)
+        evt_man = events.EventManager(4, 1, self.ip, 5555)
 
-        sub = events.prepareSerializedReadEventSubscription(1, 1, 0, 0)
-        appmock_client.tcp_server_send(self.ip, 5555, sub)
-        sub = events.prepareSerializedWriteEventSubscription(2, 1, 0, 0)
-        appmock_client.tcp_server_send(self.ip, 5555, sub)
+        msg = events.createReadEventSubscriptionMsg(1, 1, 0, 0)
+        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        msg = events.createWriteEventSubscriptionMsg(2, 1, 0, 0)
+        appmock_client.tcp_server_send(self.ip, 5555, msg)
 
-        seq_num = self.manager.emitReadEvent('fileId', 0, 10)
-        evt = events.prepareSerializedReadEvent(1, 'fileId', 0, 10, seq_num)
-        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, evt)
+        seq_num = evt_man.emitReadEvent('fileId', 0, 10)
+        msg = events.createReadEventMsg(1, 'fileId', [(0, 10)], seq_num)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
-        can = events.prepareSerializedEventSubscriptionCancellation(1)
-        appmock_client.tcp_server_send(self.ip, 5555, can)
+        msg = events.createEventSubscriptionCancellationMsg(1)
+        appmock_client.tcp_server_send(self.ip, 5555, msg)
 
-        seq_num = self.manager.emitWriteEvent('fileId', 0, 10, 10)
-        evt = events.prepareSerializedWriteEvent(1, 'fileId', 0, 10, 10,
-                                                 seq_num)
-        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, evt)
+        seq_num = evt_man.emitWriteEvent('fileId', 0, 10, 10)
+        msg = events.createWriteEventMsg(1, 'fileId', 10, [(0, 10)], seq_num)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
-        seq_num = self.manager.emitTruncateEvent('fileId', 0)
-        evt = events.prepareSerializedTruncateEvent(1, 'fileId', 0, seq_num)
-        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, evt)
+        seq_num = evt_man.emitTruncateEvent('fileId', 0)
+        msg = events.createTruncateEventMsg(1, 'fileId', 0, seq_num)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
-        can = events.prepareSerializedEventSubscriptionCancellation(2)
-        appmock_client.tcp_server_send(self.ip, 5555, can)
-        seq_num = self.manager.emitTruncateEvent('fileId', 0)
-        evt = events.prepareSerializedTruncateEvent(1, 'fileId', 0, seq_num)
-        time.sleep(0.5)
-        assert 0 == appmock_client.tcp_server_specific_message_count(self.ip,
-                                                                     5555, evt)
+        msg = events.createEventSubscriptionCancellationMsg(2)
+        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        seq_num = evt_man.emitTruncateEvent('fileId', 0)
+        msg = events.createTruncateEventMsg(1, 'fileId', 0, seq_num)
+        with pytest.raises(Exception):
+            appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555,
+                                                                 msg,
+                                                                 timeout_sec=1)

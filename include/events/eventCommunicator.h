@@ -34,20 +34,19 @@ public:
      * @param context A @c Context instance used to acquire communication
      * stream.
      */
-    EventCommunicator(std::shared_ptr<Context> context);
+    EventCommunicator(std::shared_ptr<Context> ctx);
 
     virtual ~EventCommunicator();
 
     /**
      * Sends event to the server using communication stream.
-     * @param event Event to be sent.
+     * @param evt Event to be sent.
      */
-    virtual void send(const Event &event) const;
+    virtual void send(const Event &evt) const;
 
 private:
-    std::shared_ptr<Context> m_context;
-    std::unique_ptr<communication::StreamManager> m_streamManager;
-    std::shared_ptr<communication::StreamManager::Stream> m_stream;
+    std::unique_ptr<communication::StreamManager> m_stmManager;
+    std::shared_ptr<communication::StreamManager::Stream> m_stm;
 };
 
 } // namespace events

@@ -14,16 +14,17 @@ namespace one {
 namespace client {
 namespace events {
 
-TruncateEvent::TruncateEvent(
-    std::string fileId_, off_t fileSize_, std::size_t counter_)
-    : WriteEvent(std::move(fileId_), 0, 0, fileSize_, counter_)
+const std::string TruncateEvent::name = "TruncateEvent";
+
+TruncateEvent::TruncateEvent(std::string fileId_, off_t fileSize_)
+    : WriteEvent{std::move(fileId_), 0, 0, fileSize_}
 {
 }
 
 std::string TruncateEvent::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'TruncateEvent', counter: " << m_counter << ", file ID: '"
+    stream << "type: 'TruncateEvent', counter: " << m_ctr << ", file ID: '"
            << m_fileId << "', file size: " << m_fileSize;
     return stream.str();
 }

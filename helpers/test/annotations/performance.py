@@ -239,7 +239,9 @@ def exec_test_repeat(test_case, case_args, case_kwargs):
             unit='ms'))
         return True, params
     except Exception as e:
-        return False, '{0}\n{1}'.format(e.message, traceback.format_exc())
+        msg = '{0}\n{1}'.format(e.message, traceback.format_exc())
+        print('Exception: {0}'.format(msg))
+        return False, msg
 
 
 # noinspection PyBroadException

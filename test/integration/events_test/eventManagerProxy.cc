@@ -7,18 +7,16 @@
  */
 
 #include "context.h"
-#include "communication/persistentConnection.h"
 #include "communication/communicator.h"
 #include "events/eventManager.h"
-#include "events/types/readEvent.h"
-#include "events/types/writeEvent.h"
-#include "events/types/truncateEvent.h"
 #include "scheduler.h"
+
 #include "messages.pb.h"
 
 #include <boost/python.hpp>
 #include <boost/make_shared.hpp>
 
+#include <map>
 #include <atomic>
 #include <memory>
 
@@ -30,134 +28,160 @@ using namespace boost::python;
 
 class EventManagerProxy {
 public:
-    EventManagerProxy(const unsigned int connectionsNumber, std::string host,
+    EventManagerProxy(const unsigned int threadsNumber,
+        const unsigned int connectionsNumber, std::string host,
         const unsigned short port)
     {
-        auto context = std::make_shared<Context>();
-        auto scheduler = std::make_shared<Scheduler>(1);
-        m_communicator = std::make_shared<Communicator>(connectionsNumber,
+        auto ctx = std::make_shared<Context>();
+        auto sched = std::make_shared<Scheduler>(threadsNumber);
+        m_comm = std::make_shared<Communicator>(connectionsNumber,
             std::move(host), port, false, communication::createConnection);
-        m_communicator->connect();
-        context->setScheduler(std::move(scheduler));
-        context->setCommunicator(m_communicator);
-        m_eventManager = std::make_unique<EventManager>(std::move(context));
+        m_comm->connect();
+        ctx->setScheduler(std::move(sched));
+        ctx->setCommunicator(m_comm);
+        m_evtMan = std::make_unique<EventManager>(std::move(ctx));
     }
 
-    ~EventManagerProxy()
-    {
-        m_communicator->stop();
-    }
+    ~EventManagerProxy() { m_comm->stop(); }
 
     uint64_t emitReadEvent(std::string fileId, off_t offset, size_t size)
     {
-        m_eventManager->emitReadEvent(fileId, offset, size);
-        return m_sequenceNumber++;
+        m_evtMan->emitReadEvent(std::move(fileId), offset, size);
+        return m_seqNum++;
     }
 
     uint64_t emitWriteEvent(
         std::string fileId, off_t offset, size_t size, off_t fileSize)
     {
-        m_eventManager->emitWriteEvent(fileId, offset, size, fileSize);
-        return m_sequenceNumber++;
+        m_evtMan->emitWriteEvent(std::move(fileId), offset, size, fileSize);
+        return m_seqNum++;
     }
 
     uint64_t emitTruncateEvent(std::string fileId, off_t fileSize)
     {
-        m_eventManager->emitTruncateEvent(fileId, fileSize);
-        return m_sequenceNumber++;
+        m_evtMan->emitTruncateEvent(std::move(fileId), fileSize);
+        return m_seqNum++;
     }
 
 private:
-    std::atomic<uint64_t> m_sequenceNumber{0};
-    std::unique_ptr<EventManager> m_eventManager;
-    std::shared_ptr<Communicator> m_communicator;
+    std::atomic<uint64_t> m_seqNum{0};
+    std::shared_ptr<Communicator> m_comm;
+    std::unique_ptr<EventManager> m_evtMan;
 };
 
-std::unique_ptr<one::clproto::ClientMessage> setMessageStream(
-    std::unique_ptr<one::clproto::ClientMessage> clientMsg,
-    uint64_t sequenceNumber)
+one::clproto::ClientMessage createStreamMessage(uint64_t seqNum)
 {
-    auto msgStream = clientMsg->mutable_message_stream();
-    msgStream->set_stream_id(0);
-    msgStream->set_sequence_number(sequenceNumber);
-    return std::move(clientMsg);
+    one::clproto::ClientMessage cliMsg{};
+    auto stmMsg = cliMsg.mutable_message_stream();
+    stmMsg->set_stream_id(0);
+    stmMsg->set_sequence_number(seqNum);
+    return std::move(cliMsg);
 }
 
-std::string prepareSerializedReadEvent(std::size_t counter, std::string fileId,
-    off_t offset, size_t size, uint64_t sequenceNumber)
+std::string createReadEventMsg(
+    std::size_t ctr, std::string fileId, list blocks, uint64_t seqNum)
 {
-    auto event = ReadEvent{std::move(fileId), offset, size, counter};
-    return setMessageStream(event.serialize(), sequenceNumber)
-        ->SerializeAsString();
+    auto cliMsg = createStreamMessage(seqNum);
+    auto evtMsg = cliMsg.mutable_event();
+    auto readEvtMsg = evtMsg->mutable_read_event();
+    readEvtMsg->set_counter(ctr);
+    readEvtMsg->set_file_id(std::move(fileId));
+    std::size_t size = 0;
+    for (int i = 0; i < len(blocks); ++i) {
+        off_t blockOffset = extract<off_t>(blocks[i][0]);
+        std::size_t blockSize = extract<std::size_t>(blocks[i][1]);
+        auto blockMsg = readEvtMsg->add_blocks();
+        blockMsg->set_offset(blockOffset);
+        blockMsg->set_size(blockSize);
+        size += blockSize;
+    }
+    readEvtMsg->set_size(size);
+    return cliMsg.SerializeAsString();
 }
 
-std::string prepareSerializedWriteEvent(std::size_t counter, std::string fileId,
-    off_t offset, size_t size, off_t fileSize, uint64_t sequenceNumber)
+std::string createWriteEventMsg(std::size_t ctr, std::string fileId,
+    std::size_t fileSize, list blocks, uint64_t seqNum)
 {
-    auto event = WriteEvent{std::move(fileId), offset, size, fileSize, counter};
-    return setMessageStream(event.serialize(), sequenceNumber)
-        ->SerializeAsString();
+    auto cliMsg = createStreamMessage(seqNum);
+    auto evtMsg = cliMsg.mutable_event();
+    auto writeEvtMsg = evtMsg->mutable_write_event();
+    writeEvtMsg->set_counter(ctr);
+    writeEvtMsg->set_file_id(std::move(fileId));
+    writeEvtMsg->set_file_size(fileSize);
+    std::size_t size = 0;
+    for (int i = 0; i < len(blocks); ++i) {
+        off_t blockOffset = extract<off_t>(blocks[i][0]);
+        std::size_t blockSize = extract<std::size_t>(blocks[i][1]);
+        auto blockMsg = writeEvtMsg->add_blocks();
+        blockMsg->set_offset(blockOffset);
+        blockMsg->set_size(blockSize);
+        size += blockSize;
+    }
+    writeEvtMsg->set_size(size);
+    return cliMsg.SerializeAsString();
 }
 
-std::string prepareSerializedTruncateEvent(std::size_t counter,
-    std::string fileId, off_t fileSize, uint64_t sequenceNumber)
+std::string createTruncateEventMsg(
+    std::size_t ctr, std::string fileId, size_t fileSize, uint64_t seqNum)
 {
-    auto event = TruncateEvent{std::move(fileId), fileSize, counter};
-    return setMessageStream(event.serialize(), sequenceNumber)
-        ->SerializeAsString();
+    auto cliMsg = createStreamMessage(seqNum);
+    auto evtMsg = cliMsg.mutable_event();
+    auto truncateEvtMsg = evtMsg->mutable_write_event();
+    truncateEvtMsg->set_counter(ctr);
+    truncateEvtMsg->set_file_id(std::move(fileId));
+    truncateEvtMsg->set_size(0);
+    truncateEvtMsg->set_file_size(fileSize);
+    return cliMsg.SerializeAsString();
 }
 
-std::string prepareSerializedReadEventSubscription(uint64_t id,
-    size_t counterThreshold, uint64_t timeThreshold, size_t sizeThreshold)
+std::string createReadEventSubscriptionMsg(
+    uint64_t id, size_t ctrThr, uint64_t timeThr, size_t sizeThr)
 {
-    auto serverMsg = std::make_unique<one::clproto::ServerMessage>();
-    auto eventSubscriptionMsg = serverMsg->mutable_event_subscription();
-    auto readEventSubscriptionMsg =
-        eventSubscriptionMsg->mutable_read_event_subscription();
-    readEventSubscriptionMsg->set_id(id);
-    if (counterThreshold > 0)
-        readEventSubscriptionMsg->set_counter_threshold(counterThreshold);
-    if (timeThreshold > 0)
-        readEventSubscriptionMsg->set_time_threshold(timeThreshold);
-    if (sizeThreshold > 0)
-        readEventSubscriptionMsg->set_size_threshold(sizeThreshold);
-    return serverMsg->SerializeAsString();
+    auto srvMsg = std::make_unique<one::clproto::ServerMessage>();
+    auto evtSubMsg = srvMsg->mutable_event_subscription();
+    auto readEvtSubMsg = evtSubMsg->mutable_read_event_subscription();
+    readEvtSubMsg->set_id(id);
+    if (ctrThr > 0)
+        readEvtSubMsg->set_counter_threshold(ctrThr);
+    if (timeThr > 0)
+        readEvtSubMsg->set_time_threshold(timeThr);
+    if (sizeThr > 0)
+        readEvtSubMsg->set_size_threshold(sizeThr);
+    return srvMsg->SerializeAsString();
 }
 
-std::string prepareSerializedWriteEventSubscription(uint64_t id,
-    size_t counterThreshold, uint64_t timeThreshold, size_t sizeThreshold)
+std::string createWriteEventSubscriptionMsg(
+    uint64_t id, size_t ctrThr, uint64_t timeThr, size_t sizeThr)
 {
-    auto serverMsg = std::make_unique<one::clproto::ServerMessage>();
-    auto eventSubscriptionMsg = serverMsg->mutable_event_subscription();
-    auto writeEventSubscriptionMsg =
-        eventSubscriptionMsg->mutable_write_event_subscription();
-    writeEventSubscriptionMsg->set_id(id);
-    if (counterThreshold > 0)
-        writeEventSubscriptionMsg->set_counter_threshold(counterThreshold);
-    if (timeThreshold > 0)
-        writeEventSubscriptionMsg->set_time_threshold(timeThreshold);
-    if (sizeThreshold > 0)
-        writeEventSubscriptionMsg->set_size_threshold(sizeThreshold);
-    return serverMsg->SerializeAsString();
+    auto srvMsg = std::make_unique<one::clproto::ServerMessage>();
+    auto evtSubMsg = srvMsg->mutable_event_subscription();
+    auto writeEvtSubMsg = evtSubMsg->mutable_write_event_subscription();
+    writeEvtSubMsg->set_id(id);
+    if (ctrThr > 0)
+        writeEvtSubMsg->set_counter_threshold(ctrThr);
+    if (timeThr > 0)
+        writeEvtSubMsg->set_time_threshold(timeThr);
+    if (sizeThr > 0)
+        writeEvtSubMsg->set_size_threshold(sizeThr);
+    return srvMsg->SerializeAsString();
 }
 
-std::string prepareSerializedEventSubscriptionCancellation(uint64_t id)
+std::string createEventSubscriptionCancellationMsg(uint64_t id)
 {
-    auto serverMsg = std::make_unique<one::clproto::ServerMessage>();
-    auto eventSubscriptionMsg = serverMsg->mutable_event_subscription();
-    auto eventSubscriptionCancellationMsg =
-        eventSubscriptionMsg->mutable_event_subscription_cancellation();
-    eventSubscriptionCancellationMsg->set_id(id);
-    return serverMsg->SerializeAsString();
+    auto srvMsg = std::make_unique<one::clproto::ServerMessage>();
+    auto evtSubMsg = srvMsg->mutable_event_subscription();
+    auto evtSubCanMsg = evtSubMsg->mutable_event_subscription_cancellation();
+    evtSubCanMsg->set_id(id);
+    return srvMsg->SerializeAsString();
 }
 
 namespace {
-boost::shared_ptr<EventManagerProxy> create(
+boost::shared_ptr<EventManagerProxy> create(const unsigned int threadsNumber,
     const unsigned int connectionsNumber, std::string host,
     const unsigned short port)
 {
     return boost::make_shared<EventManagerProxy>(
-        connectionsNumber, std::move(host), port);
+        threadsNumber, connectionsNumber, std::move(host), port);
 }
 }
 
@@ -169,14 +193,12 @@ BOOST_PYTHON_MODULE(events)
         .def("emitWriteEvent", &EventManagerProxy::emitWriteEvent)
         .def("emitTruncateEvent", &EventManagerProxy::emitTruncateEvent);
 
-    def("prepareSerializedReadEvent", &prepareSerializedReadEvent);
-    def("prepareSerializedWriteEvent", &prepareSerializedWriteEvent);
-    def("prepareSerializedTruncateEvent", &prepareSerializedTruncateEvent);
+    def("createReadEventMsg", &createReadEventMsg);
+    def("createWriteEventMsg", &createWriteEventMsg);
+    def("createTruncateEventMsg", &createTruncateEventMsg);
 
-    def("prepareSerializedReadEventSubscription",
-        &prepareSerializedReadEventSubscription);
-    def("prepareSerializedWriteEventSubscription",
-        &prepareSerializedWriteEventSubscription);
-    def("prepareSerializedEventSubscriptionCancellation",
-        &prepareSerializedEventSubscriptionCancellation);
+    def("createReadEventSubscriptionMsg", &createReadEventSubscriptionMsg);
+    def("createWriteEventSubscriptionMsg", &createWriteEventSubscriptionMsg);
+    def("createEventSubscriptionCancellationMsg",
+        &createEventSubscriptionCancellationMsg);
 }

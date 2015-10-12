@@ -19,34 +19,40 @@
 #include <memory>
 
 namespace one {
+
+namespace clproto {
+class ReadEventSubscription;
+}
+
 namespace client {
 namespace events {
-
-class ReadEventSubscription;
 
 /**
  * The ReadEvent class represents a read operation in the file system.
  */
 class ReadEvent : public Event {
 public:
-    typedef typename one::client::events::ReadEventSubscription Subscription;
+    static const std::string name;
+
+    typedef typename one::clproto::ReadEventSubscription Subscription;
 
     /**
      * Default constructor.
      * Creates identity element for read events aggregation operation.
      */
-    ReadEvent();
+    ReadEvent()
+        : Event{0}
+    {
+    }
 
     /**
      * Constructor.
      * @param fileId ID of file associated with a read operation.
      * @param offset Distance from the beginning of the file to the first byte
      * read.
-     * @param size Number of read bytes.
-     * @param counter Number of read events aggregated in @c this event.
+     * @param size Number of bytes read.
      */
-    ReadEvent(std::string fileId, off_t offset, std::size_t size,
-        std::size_t counter = 1);
+    ReadEvent(std::string fileId, off_t offset, std::size_t size);
 
     /**
      * @return ID of file associated with the read event.
@@ -66,13 +72,22 @@ public:
     /**
      * Aggregates this read event with an other read event.
      * Aggregation is done by:
-     * - addition of events counters
-     * - addition of events sizes
-     * - union of sets of read segments
+     * - addition of events' counters
+     * - addition of events' sizes
+     * - union of sets of read blocks
      * @param event Read event to be aggregated.
      * @return @c *this
      */
-    ReadEvent &operator+=(const ReadEvent &event);
+    ReadEvent &operator+=(const ReadEvent &evt);
+
+    /**
+     * Compares this read event with an other read event.
+     * @param evt Read event to be compared.
+     * @return 'true' if ID of file associated with this event is
+     * lexicographically less than the file ID associated with an other event,
+     * otherwise 'false'
+     */
+    bool operator<(const ReadEvent &evt);
 
     virtual std::string toString() const override;
 
@@ -84,15 +99,6 @@ private:
     std::size_t m_size = 0;
     boost::icl::interval_set<off_t> m_blocks;
 };
-
-/**
- * Compares two read events.
- * Read events are equal if corresponding event's fields are equal.
- * @param lhs Read event to be compared.
- * @param rhs Read event to be compared.
- * @return true if read events are equal and false otherwise.
- */
-bool operator==(const ReadEvent &lhs, const ReadEvent &rhs);
 
 } // namespace events
 } // namespace client

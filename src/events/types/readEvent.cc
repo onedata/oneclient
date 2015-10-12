@@ -8,7 +8,6 @@
 
 #include "events/types/readEvent.h"
 
-#include "events/eventStream.h"
 #include "messages.pb.h"
 
 #include <sstream>
@@ -17,15 +16,10 @@ namespace one {
 namespace client {
 namespace events {
 
-ReadEvent::ReadEvent()
-    : Event{0}
-{
-}
+const std::string ReadEvent::name = "ReadEvent";
 
-ReadEvent::ReadEvent(
-    std::string fileId_, off_t offset_, size_t size_, std::size_t counter_)
-    : Event{counter_}
-    , m_fileId{std::move(fileId_)}
+ReadEvent::ReadEvent(std::string fileId_, off_t offset_, size_t size_)
+    : m_fileId{std::move(fileId_)}
     , m_size{size_}
     , m_blocks{boost::icl::discrete_interval<off_t>::right_open(
           offset_, offset_ + size_)}
@@ -41,44 +35,43 @@ const boost::icl::interval_set<off_t> &ReadEvent::blocks() const
     return m_blocks;
 }
 
-bool operator==(const ReadEvent &lhs, const ReadEvent &rhs)
+ReadEvent &ReadEvent::operator+=(const ReadEvent &evt)
 {
-    return lhs.fileId() == rhs.fileId() && lhs.size() == rhs.size() &&
-        lhs.blocks() == rhs.blocks();
+    m_ctr += evt.m_ctr;
+    m_size += evt.m_size;
+    m_blocks += evt.m_blocks;
+    return *this;
 }
 
-ReadEvent &ReadEvent::operator+=(const ReadEvent &event)
+bool ReadEvent::operator<(const ReadEvent &evt)
 {
-    m_counter += event.m_counter;
-    m_size += event.m_size;
-    m_blocks += event.m_blocks;
-    return *this;
+    return m_fileId < evt.m_fileId;
 }
 
 std::string ReadEvent::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'ReadEvent', counter: " << m_counter << ", file ID: '"
-           << m_fileId << ", size: " << m_size << ", blocks: " << m_blocks;
+    stream << "type: 'ReadEvent', counter: " << m_ctr << ", file ID: '"
+           << m_fileId << "', size: " << m_size << ", blocks: " << m_blocks;
     return stream.str();
 }
 
 std::unique_ptr<one::messages::ProtocolClientMessage>
 ReadEvent::serialize() const
 {
-    auto clientMsg = std::make_unique<one::messages::ProtocolClientMessage>();
-    auto eventMsg = clientMsg->mutable_event();
-    auto readEventMsg = eventMsg->mutable_read_event();
-    readEventMsg->set_counter(m_counter);
-    readEventMsg->set_file_id(m_fileId);
-    readEventMsg->set_size(m_size);
+    auto cliMsg = std::make_unique<one::messages::ProtocolClientMessage>();
+    auto evtMsg = cliMsg->mutable_event();
+    auto readEvtMsg = evtMsg->mutable_read_event();
+    readEvtMsg->set_counter(m_ctr);
+    readEvtMsg->set_file_id(m_fileId);
+    readEvtMsg->set_size(m_size);
     for (const auto &block : m_blocks) {
-        auto blockMsg = readEventMsg->add_blocks();
+        auto blockMsg = readEvtMsg->add_blocks();
         blockMsg->set_offset(block.lower());
         blockMsg->set_size(block.upper() - block.lower());
     }
 
-    return clientMsg;
+    return cliMsg;
 }
 
 } // namespace events

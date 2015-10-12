@@ -16,6 +16,11 @@
 #include <string>
 
 namespace one {
+
+namespace clproto {
+class EventSubscriptionCancellation;
+}
+
 namespace client {
 namespace events {
 
@@ -27,11 +32,17 @@ class EventSubscriptionCancellation : public one::messages::ServerMessage {
 public:
     /**
      * Constructor.
-     * @param serverMessage Protocol Buffers message representing @c
+     * @param subCan Protocol Buffers message representing @c
      * EventSubscriptionCancellation counterpart.
      */
     EventSubscriptionCancellation(
-        const messages::ProtocolServerMessage &serverMessage);
+        const one::clproto::EventSubscriptionCancellation &subCan);
+
+    /**
+     * Constructor.
+     * @param id_ Id of subscription to be cancelled.
+     */
+    EventSubscriptionCancellation(uint64_t id);
 
     /**
      * @return Id of subscription to be cancelled.

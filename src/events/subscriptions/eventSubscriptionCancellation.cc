@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "messages/eventSubscriptionCancellation.h"
+#include "events/subscriptions/eventSubscriptionCancellation.h"
 
 #include "messages.pb.h"
 
@@ -17,12 +17,14 @@ namespace client {
 namespace events {
 
 EventSubscriptionCancellation::EventSubscriptionCancellation(
-    const messages::ProtocolServerMessage &serverMessage)
+    const one::clproto::EventSubscriptionCancellation &subCan)
 {
-    auto &eventSubscriptionMsg = serverMessage.event_subscription();
-    auto &eventSubscriptionCancellationMsg =
-        eventSubscriptionMsg.event_subscription_cancellation();
-    m_id = eventSubscriptionCancellationMsg.id();
+    m_id = subCan.id();
+}
+
+EventSubscriptionCancellation::EventSubscriptionCancellation(uint64_t id_)
+    : m_id{id_}
+{
 }
 
 uint64_t EventSubscriptionCancellation::id() const { return m_id; }

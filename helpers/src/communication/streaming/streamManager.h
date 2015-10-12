@@ -43,8 +43,6 @@ public:
     /**
      * Creates a new @c Stream.
      * The returned stream object must be destroyed before @c this is destroyed.
-     * @param communicator The communicator stack to use with the created
-     * stream.
      * @return A new stream instance.
      */
     std::shared_ptr<Stream> create();

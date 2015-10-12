@@ -9,14 +9,16 @@
 #ifndef ONECLIENT_EVENTS_EVENT_MANAGER_H
 #define ONECLIENT_EVENTS_EVENT_MANAGER_H
 
-#include "eventStream.h"
+#include "events/eventCommunicator.h"
+#include "events/buffers/ioEventBuffer.h"
+#include "events/buffers/voidEventBuffer.h"
+#include "events/streams/ioEventStream.h"
+#include "events/subscriptionRegistry.h"
 
 #include <sys/types.h>
 
 #include <memory>
 #include <cstddef>
-#include <functional>
-#include <unordered_map>
 
 namespace one {
 
@@ -30,14 +32,9 @@ class Context;
 
 namespace events {
 
-class Event;
-class ReadEvent;
-class WriteEvent;
-
 /**
  * The EventManager class is responsible for events management. It handles
- * server
- * push messages and provides interface for events emission.
+ * server push messages and provides interface for events emission.
  */
 class EventManager {
 public:
@@ -47,9 +44,7 @@ public:
      * and
      * acquire communicator instance to register for push messages.
      */
-    EventManager(std::shared_ptr<Context> context);
-
-    ~EventManager() = default;
+    EventManager(std::shared_ptr<Context> ctx);
 
     /**
      * Emits a read event.
@@ -58,8 +53,7 @@ public:
      * read.
      * @param size Number of bytes read.
      */
-    void emitReadEvent(
-        std::string fileId, off_t offset, std::size_t size) const;
+    void emitReadEvent(std::string fileId, off_t offset, std::size_t size);
 
     /**
      * Emits a write event.
@@ -69,24 +63,28 @@ public:
      * @param size Number of bytes written.
      * @param fileSize Size of file after a write operation.
      */
-    void emitWriteEvent(std::string fileId, off_t offset, std::size_t size,
-        off_t fileSize) const;
+    void emitWriteEvent(
+        std::string fileId, off_t offset, std::size_t size, off_t fileSize);
 
     /**
      * Emits a truncate event.
      * @param fileId ID of file associated with a truncate operation.
      * @param fileSize Size of file after a truncate operation.
      */
-    void emitTruncateEvent(std::string fileId, off_t fileSize) const;
+    void emitTruncateEvent(std::string fileId, off_t fileSize);
 
-private:
+    /**
+     * Handles server message.
+     * @param msg The server message.
+     */
     void handleServerMessage(const clproto::ServerMessage &msg);
 
-    std::shared_ptr<Context> m_context;
-    std::unique_ptr<EventStream<ReadEvent>> m_readEventStream;
-    std::unique_ptr<EventStream<WriteEvent>> m_writeEventStream;
-    std::unordered_map<uint64_t, std::function<void()>>
-        m_subscriptionsCancellation;
+protected:
+    std::shared_ptr<Context> m_ctx;
+    std::unique_ptr<EventCommunicator> m_evtComm;
+    std::unique_ptr<SubscriptionRegistry> m_subReg;
+    std::unique_ptr<IOEventStream<ReadEvent>> m_readEvtStm;
+    std::unique_ptr<IOEventStream<WriteEvent>> m_writeEvtStm;
 };
 
 } // namespace events

@@ -24,20 +24,24 @@ class Event : public one::messages::ClientMessage {
 public:
     Event() = default;
 
-    Event(std::size_t counter_)
-        : m_counter{counter_}
+    /**
+     * Constructor.
+     * @param ctr Number of aggregated events.
+     */
+    Event(std::size_t ctr)
+        : m_ctr{ctr}
     {
     }
 
     virtual ~Event() = default;
 
     /**
-     * @return Event's counter.
+     * @return Number of aggregated events.
      */
-    std::size_t counter() const { return m_counter; }
+    std::size_t counter() const { return m_ctr; }
 
 protected:
-    std::size_t m_counter = 1;
+    std::size_t m_ctr = 1;
 };
 
 } // namespace events
