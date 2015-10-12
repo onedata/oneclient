@@ -105,27 +105,27 @@ TYPED_TEST(IOEventBufferTest,
 TEST_F(ReadEventBufferTest, doesNotForwardEventsWhenThresholdsAreNotExceeded)
 {
     for (int i = 0; i < 5; ++i)
-        EXPECT_FALSE(buf->push(ReadEvent{"fileId", 0, 10}));
+        EXPECT_FALSE(buf->push(ReadEvent{0, 10, "fileUuid"}));
     EXPECT_TRUE(evts.empty());
 }
 
 TEST_F(ReadEventBufferTest, forwardsEventsWhenSizeThresholdMet)
 {
-    EXPECT_TRUE(buf->push(ReadEvent{"fileId", 0, 100}));
+    EXPECT_TRUE(buf->push(ReadEvent{0, 100, "fileUuid"}));
     EXPECT_EQ(1, evts.size());
 }
 
 TEST_F(ReadEventBufferTest, forwardsEventsWhenSizeThresholdExceeded)
 {
-    EXPECT_TRUE(buf->push(ReadEvent{"fileId", 0, 101}));
+    EXPECT_TRUE(buf->push(ReadEvent{0, 101, "fileUuid"}));
     EXPECT_EQ(1, evts.size());
 }
 
 TEST_F(ReadEventBufferTest, forwardsEventsWhenCounterThresholdMet)
 {
     for (int i = 0; i < 9; ++i)
-        EXPECT_FALSE(buf->push(ReadEvent{"fileId", 0, 10}));
-    EXPECT_TRUE(buf->push(ReadEvent{"fileId", 0, 10}));
+        EXPECT_FALSE(buf->push(ReadEvent{0, 10, "fileUuid"}));
+    EXPECT_TRUE(buf->push(ReadEvent{0, 10, "fileUuid"}));
     EXPECT_EQ(1, evts.size());
 }
 
@@ -133,83 +133,83 @@ TEST_F(ReadEventBufferTest, forwardsMultipleEvents)
 {
     for (int i = 0; i < 10; ++i) {
         for (int j = 0; j < 9; ++j)
-            EXPECT_FALSE(buf->push(ReadEvent{"fileId", 0, 10}));
-        EXPECT_TRUE(buf->push(ReadEvent{"fileId", 0, 10}));
+            EXPECT_FALSE(buf->push(ReadEvent{0, 10, "fileUuid"}));
+        EXPECT_TRUE(buf->push(ReadEvent{0, 10, "fileUuid"}));
         EXPECT_EQ(i + 1, evts.size());
     }
 }
 
-TEST_F(ReadEventBufferTest, aggregatesEventsByFileId)
+TEST_F(ReadEventBufferTest, aggregatesEventsByFileUuid)
 {
-    std::vector<std::string> fileIds{"1", "2", "3", "4", "5"};
+    std::vector<std::string> fileUuids{"1", "2", "3", "4", "5"};
     for (off_t i = 0; i < 2; ++i) {
-        for (const auto &fileId : fileIds)
-            buf->push(ReadEvent{fileId, i, 1});
+        for (const auto &fileUuid : fileUuids)
+            buf->push(ReadEvent{i, 1, fileUuid});
     }
-    EXPECT_EQ(fileIds.size(), evts.size());
+    EXPECT_EQ(fileUuids.size(), evts.size());
     std::sort(evts.begin(), evts.end());
-    for (unsigned int i = 0; i < fileIds.size(); ++i) {
-        EXPECT_EQ(fileIds[i], evts[i].fileId());
+    for (unsigned int i = 0; i < fileUuids.size(); ++i) {
+        EXPECT_EQ(fileUuids[i], evts[i].fileUuid());
         EXPECT_EQ(2, evts[i].counter());
         EXPECT_EQ(2, evts[i].size());
         EXPECT_TRUE(blocks({{0, 2}}) == evts[i].blocks());
     }
 }
 
-TEST_F(ReadEventBufferTest, aggregatesEventsForFileId)
+TEST_F(ReadEventBufferTest, aggregatesEventsForFileUuid)
 {
-    EXPECT_FALSE(buf->push(ReadEvent{"fileId", 0, 2}));
-    EXPECT_FALSE(buf->push(ReadEvent{"fileId", 3, 2}));
-    EXPECT_FALSE(buf->push(ReadEvent{"fileId", 1, 5}));
-    EXPECT_FALSE(buf->push(ReadEvent{"fileId", 10, 3}));
-    EXPECT_FALSE(buf->push(ReadEvent{"fileId", 12, 2}));
-    EXPECT_FALSE(buf->push(ReadEvent{"fileId", 15, 3}));
-    EXPECT_FALSE(buf->push(ReadEvent{"fileId", 15, 4}));
-    EXPECT_FALSE(buf->push(ReadEvent{"fileId", 15, 5}));
-    EXPECT_FALSE(buf->push(ReadEvent{"fileId", 20, 5}));
-    EXPECT_TRUE(buf->push(ReadEvent{"fileId", 22, 3}));
+    EXPECT_FALSE(buf->push(ReadEvent{0, 2, "fileUuid"}));
+    EXPECT_FALSE(buf->push(ReadEvent{3, 2, "fileUuid"}));
+    EXPECT_FALSE(buf->push(ReadEvent{1, 5, "fileUuid"}));
+    EXPECT_FALSE(buf->push(ReadEvent{10, 3, "fileUuid"}));
+    EXPECT_FALSE(buf->push(ReadEvent{12, 2, "fileUuid"}));
+    EXPECT_FALSE(buf->push(ReadEvent{15, 3, "fileUuid"}));
+    EXPECT_FALSE(buf->push(ReadEvent{15, 4, "fileUuid"}));
+    EXPECT_FALSE(buf->push(ReadEvent{15, 5, "fileUuid"}));
+    EXPECT_FALSE(buf->push(ReadEvent{20, 5, "fileUuid"}));
+    EXPECT_TRUE(buf->push(ReadEvent{22, 3, "fileUuid"}));
 
     EXPECT_EQ(1, evts.size());
-    EXPECT_EQ("fileId", evts[0].fileId());
+    EXPECT_EQ("fileUuid", evts[0].fileUuid());
     EXPECT_EQ(10, evts[0].counter());
     EXPECT_EQ(34, evts[0].size());
     EXPECT_TRUE(blocks({{0, 6}, {10, 14}, {15, 25}}) == evts[0].blocks());
 }
 
-TEST_F(WriteEventBufferTest, aggregatesEventsForFileId)
+TEST_F(WriteEventBufferTest, aggregatesEventsForFileUuid)
 {
-    EXPECT_FALSE(buf->push(WriteEvent{"fileId", 0, 2, 2}));
-    EXPECT_FALSE(buf->push(WriteEvent{"fileId", 3, 2, 5}));
-    EXPECT_FALSE(buf->push(WriteEvent{"fileId", 1, 5, 6}));
-    EXPECT_FALSE(buf->push(WriteEvent{"fileId", 10, 3, 13}));
-    EXPECT_FALSE(buf->push(WriteEvent{"fileId", 12, 2, 14}));
-    EXPECT_FALSE(buf->push(WriteEvent{"fileId", 15, 3, 18}));
-    EXPECT_FALSE(buf->push(WriteEvent{"fileId", 15, 4, 19}));
-    EXPECT_FALSE(buf->push(WriteEvent{"fileId", 15, 5, 20}));
-    EXPECT_FALSE(buf->push(WriteEvent{"fileId", 20, 5, 25}));
-    EXPECT_TRUE(buf->push(WriteEvent{"fileId", 22, 3, 25}));
+    EXPECT_FALSE(buf->push(WriteEvent{0, 2, "fileUuid"}));
+    EXPECT_FALSE(buf->push(WriteEvent{3, 2, "fileUuid"}));
+    EXPECT_FALSE(buf->push(WriteEvent{1, 5, "fileUuid"}));
+    EXPECT_FALSE(buf->push(WriteEvent{10, 3, "fileUuid"}));
+    EXPECT_FALSE(buf->push(WriteEvent{12, 2, "fileUuid"}));
+    EXPECT_FALSE(buf->push(WriteEvent{15, 3, "fileUuid"}));
+    EXPECT_FALSE(buf->push(WriteEvent{15, 4, "fileUuid"}));
+    EXPECT_FALSE(buf->push(WriteEvent{15, 5, "fileUuid"}));
+    EXPECT_FALSE(buf->push(WriteEvent{20, 5, "fileUuid"}));
+    EXPECT_TRUE(buf->push(WriteEvent{22, 3, "fileUuid"}));
 
     EXPECT_EQ(1, evts.size());
-    EXPECT_EQ("fileId", evts[0].fileId());
+    EXPECT_EQ("fileUuid", evts[0].fileUuid());
     EXPECT_EQ(10, evts[0].counter());
     EXPECT_EQ(34, evts[0].size());
-    EXPECT_EQ(25, evts[0].fileSize());
+    EXPECT_FALSE(evts[0].fileSize());
     EXPECT_TRUE(blocks({{0, 6}, {10, 14}, {15, 25}}) == evts[0].blocks());
 }
 
-TEST_F(TruncateEventBufferTest, aggregatesEventsForFileId)
+TEST_F(TruncateEventBufferTest, aggregatesEventsForFileUuid)
 {
-    EXPECT_FALSE(buf->push(TruncateEvent{"fileId", 5}));
-    EXPECT_FALSE(buf->push(TruncateEvent{"fileId", 10}));
+    EXPECT_FALSE(buf->push(TruncateEvent{5, "fileUuid"}));
+    EXPECT_FALSE(buf->push(TruncateEvent{10, "fileUuid"}));
     buf->clear();
     EXPECT_EQ(1, evts.size());
     EXPECT_EQ(2, evts[0].counter());
-    EXPECT_EQ(10, evts[0].fileSize());
+    EXPECT_EQ(10, evts[0].fileSize().get());
 
-    EXPECT_FALSE(buf->push(TruncateEvent{"fileId", 15}));
-    EXPECT_FALSE(buf->push(TruncateEvent{"fileId", 0}));
+    EXPECT_FALSE(buf->push(TruncateEvent{15, "fileUuid"}));
+    EXPECT_FALSE(buf->push(TruncateEvent{0, "fileUuid"}));
     buf->clear();
     EXPECT_EQ(2, evts.size());
     EXPECT_EQ(2, evts[0].counter());
-    EXPECT_EQ(0, evts[1].fileSize());
+    EXPECT_EQ(0, evts[1].fileSize().get());
 }

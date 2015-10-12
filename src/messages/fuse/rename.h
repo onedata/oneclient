@@ -6,8 +6,8 @@
  * 'LICENSE.txt'
  */
 
-#ifndef MESSAGES_FUSE_RENAME_H
-#define MESSAGES_FUSE_RENAME_H
+#ifndef ONECLIENT_MESSAGES_FUSE_RENAME_H
+#define ONECLIENT_MESSAGES_FUSE_RENAME_H
 
 #include "messages/clientMessage.h"
 
@@ -44,4 +44,4 @@ private:
 } // namespace messages
 } // namespace one
 
-#endif // MESSAGES_FUSE_RENAME_H
+#endif // ONECLIENT_MESSAGES_FUSE_RENAME_H

@@ -44,22 +44,21 @@ public:
 
     ~EventManagerProxy() { m_comm->stop(); }
 
-    uint64_t emitReadEvent(std::string fileId, off_t offset, size_t size)
+    uint64_t emitReadEvent(off_t offset, size_t size, std::string fileUuid)
     {
-        m_evtMan->emitReadEvent(std::move(fileId), offset, size);
+        m_evtMan->emitReadEvent(offset, size, std::move(fileUuid));
         return m_seqNum++;
     }
 
-    uint64_t emitWriteEvent(
-        std::string fileId, off_t offset, size_t size, off_t fileSize)
+    uint64_t emitWriteEvent(off_t offset, size_t size, std::string fileUuid)
     {
-        m_evtMan->emitWriteEvent(std::move(fileId), offset, size, fileSize);
+        m_evtMan->emitWriteEvent(offset, size, std::move(fileUuid), {}, {});
         return m_seqNum++;
     }
 
-    uint64_t emitTruncateEvent(std::string fileId, off_t fileSize)
+    uint64_t emitTruncateEvent(off_t fileSize, std::string fileUuid)
     {
-        m_evtMan->emitTruncateEvent(std::move(fileId), fileSize);
+        m_evtMan->emitTruncateEvent(fileSize, std::move(fileUuid));
         return m_seqNum++;
     }
 
@@ -79,13 +78,13 @@ one::clproto::ClientMessage createStreamMessage(uint64_t seqNum)
 }
 
 std::string createReadEventMsg(
-    std::size_t ctr, std::string fileId, list blocks, uint64_t seqNum)
+    std::size_t ctr, std::string fileUuid, list blocks, uint64_t seqNum)
 {
     auto cliMsg = createStreamMessage(seqNum);
     auto evtMsg = cliMsg.mutable_event();
     auto readEvtMsg = evtMsg->mutable_read_event();
     readEvtMsg->set_counter(ctr);
-    readEvtMsg->set_file_id(std::move(fileId));
+    readEvtMsg->set_file_id(std::move(fileUuid));
     std::size_t size = 0;
     for (int i = 0; i < len(blocks); ++i) {
         off_t blockOffset = extract<off_t>(blocks[i][0]);
@@ -93,21 +92,24 @@ std::string createReadEventMsg(
         auto blockMsg = readEvtMsg->add_blocks();
         blockMsg->set_offset(blockOffset);
         blockMsg->set_size(blockSize);
+        blockMsg->set_storage_id("");
+        blockMsg->set_file_id("");
         size += blockSize;
     }
     readEvtMsg->set_size(size);
     return cliMsg.SerializeAsString();
 }
 
-std::string createWriteEventMsg(std::size_t ctr, std::string fileId,
+std::string createWriteEventMsg(std::size_t ctr, std::string fileUuid,
     std::size_t fileSize, list blocks, uint64_t seqNum)
 {
     auto cliMsg = createStreamMessage(seqNum);
     auto evtMsg = cliMsg.mutable_event();
     auto writeEvtMsg = evtMsg->mutable_write_event();
     writeEvtMsg->set_counter(ctr);
-    writeEvtMsg->set_file_id(std::move(fileId));
-    writeEvtMsg->set_file_size(fileSize);
+    writeEvtMsg->set_file_id(std::move(fileUuid));
+    if (fileSize > 0)
+        writeEvtMsg->set_file_size(fileSize);
     std::size_t size = 0;
     for (int i = 0; i < len(blocks); ++i) {
         off_t blockOffset = extract<off_t>(blocks[i][0]);
@@ -115,6 +117,8 @@ std::string createWriteEventMsg(std::size_t ctr, std::string fileId,
         auto blockMsg = writeEvtMsg->add_blocks();
         blockMsg->set_offset(blockOffset);
         blockMsg->set_size(blockSize);
+        blockMsg->set_storage_id("");
+        blockMsg->set_file_id("");
         size += blockSize;
     }
     writeEvtMsg->set_size(size);
@@ -122,13 +126,13 @@ std::string createWriteEventMsg(std::size_t ctr, std::string fileId,
 }
 
 std::string createTruncateEventMsg(
-    std::size_t ctr, std::string fileId, size_t fileSize, uint64_t seqNum)
+    std::size_t ctr, std::string fileUuid, size_t fileSize, uint64_t seqNum)
 {
     auto cliMsg = createStreamMessage(seqNum);
     auto evtMsg = cliMsg.mutable_event();
     auto truncateEvtMsg = evtMsg->mutable_write_event();
     truncateEvtMsg->set_counter(ctr);
-    truncateEvtMsg->set_file_id(std::move(fileId));
+    truncateEvtMsg->set_file_id(std::move(fileUuid));
     truncateEvtMsg->set_size(0);
     truncateEvtMsg->set_file_size(fileSize);
     return cliMsg.SerializeAsString();

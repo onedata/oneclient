@@ -59,7 +59,7 @@ TEST_F(EventManagerTest, emitsReadEvent)
     auto readEvtStm = std::make_unique<MockReadEventStream>(ctx, *evtComm);
     EXPECT_CALL(*readEvtStm, push(_)).Times(1);
     evtMan->setReadEventStream(std::move(readEvtStm));
-    evtMan->emitReadEvent("fileId", 0, 10);
+    evtMan->emitReadEvent(0, 10, "fileUuid");
 }
 
 TEST_F(EventManagerTest, emitsWriteEvent)
@@ -67,7 +67,7 @@ TEST_F(EventManagerTest, emitsWriteEvent)
     auto writeEvtStm = std::make_unique<MockWriteEventStream>(ctx, *evtComm);
     EXPECT_CALL(*writeEvtStm, push(_)).Times(1);
     evtMan->setWriteEventStream(std::move(writeEvtStm));
-    evtMan->emitWriteEvent("fileId", 0, 10, 10);
+    evtMan->emitWriteEvent(0, 10, "fileUuid", "storageId", "fileUuid");
 }
 
 TEST_F(EventManagerTest, emitsTrucateEvent)
@@ -75,7 +75,7 @@ TEST_F(EventManagerTest, emitsTrucateEvent)
     auto writeEvtStm = std::make_unique<MockWriteEventStream>(ctx, *evtComm);
     EXPECT_CALL(*writeEvtStm, push(_)).Times(1);
     evtMan->setWriteEventStream(std::move(writeEvtStm));
-    evtMan->emitTruncateEvent("fileId", 10);
+    evtMan->emitTruncateEvent(10, "fileUuid");
 }
 
 TEST_F(EventManagerTest, handlesReadEventSubscriptionMessage)

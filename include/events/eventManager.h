@@ -48,30 +48,33 @@ public:
 
     /**
      * Emits a read event.
-     * @param fileId ID of file associated with a read operation.
      * @param offset Distance from the beginning of the file to the first byte
      * read.
      * @param size Number of bytes read.
+     * @param fileUuid UUID of file associated with a read operation.
      */
-    void emitReadEvent(std::string fileId, off_t offset, std::size_t size);
+    void emitReadEvent(
+        off_t offset, std::size_t size, std::string fileUuid) const;
 
     /**
      * Emits a write event.
-     * @param fileId ID of file associated with a write operation.
      * @param offset Distance from the beginning of the file to the first byte
      * written.
-     * @param size Number of bytes written.
-     * @param fileSize Size of file after a write operation.
+     * @param size Number of bytes read.
+     * @param fileUuid UUID of a file associated with a write operation.
+     * @param storageId ID of a storage where a write operation occurred.
+     * @param fileId ID of a file on the storage where a write operation
+     * occurred.
      */
-    void emitWriteEvent(
-        std::string fileId, off_t offset, std::size_t size, off_t fileSize);
+    void emitWriteEvent(off_t offset, std::size_t size, std::string fileUuid,
+        std::string storageId, std::string fileId) const;
 
     /**
      * Emits a truncate event.
-     * @param fileId ID of file associated with a truncate operation.
      * @param fileSize Size of file after a truncate operation.
+     * @param fileUuid UUID of file associated with a truncate operation.
      */
-    void emitTruncateEvent(std::string fileId, off_t fileSize);
+    void emitTruncateEvent(off_t fileSize, std::string fileUuid) const;
 
     /**
      * Handles server message.

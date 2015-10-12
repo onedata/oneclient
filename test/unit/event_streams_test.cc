@@ -67,9 +67,9 @@ class WriteEventStreamTest : public IOEventStreamTest<WriteEvent> {
 TEST_F(ReadEventStreamTest, forwardsEvents)
 {
     evtStm->subscribe(IOEventSubscription<ReadEvent>{1, 1, 10s, 100});
-    evtStm->push(ReadEvent{"fileId", 0, 10});
+    evtStm->push(ReadEvent{0, 10, "fileUuid"});
     EXPECT_EQ(1, evts.size());
-    EXPECT_EQ("fileId", evts[0].fileId());
+    EXPECT_EQ("fileUuid", evts[0].fileUuid());
     EXPECT_EQ(10, evts[0].size());
     EXPECT_TRUE(blocks({{0, 10}}) == evts[0].blocks());
 }
@@ -77,16 +77,16 @@ TEST_F(ReadEventStreamTest, forwardsEvents)
 TEST_F(ReadEventStreamTest, addsSubscriptions)
 {
     evtStm->subscribe(IOEventSubscription<ReadEvent>{1, 2, 10s, 100});
-    evtStm->push(ReadEvent{"fileId", 0, 10});
+    evtStm->push(ReadEvent{0, 10, "fileUuid"});
     EXPECT_EQ(0, evts.size());
-    evtStm->push(ReadEvent{"fileId", 10, 10});
+    evtStm->push(ReadEvent{10, 10, "fileUuid"});
     EXPECT_EQ(1, evts.size());
-    evtStm->push(ReadEvent{"fileId", 0, 100});
+    evtStm->push(ReadEvent{0, 100, "fileUuid"});
     EXPECT_EQ(2, evts.size());
     evtStm->subscribe(IOEventSubscription<ReadEvent>{1, 1, 10s, 100});
-    evtStm->push(ReadEvent{"fileId", 20, 10});
+    evtStm->push(ReadEvent{20, 10, "fileUuid"});
     EXPECT_EQ(3, evts.size());
-    evtStm->push(ReadEvent{"fileId", 10, 10});
+    evtStm->push(ReadEvent{10, 10, "fileUuid"});
     EXPECT_EQ(4, evts.size());
 }
 
@@ -96,48 +96,48 @@ TEST_F(ReadEventStreamTest, removesSubscriptions)
         evtStm->subscribe(IOEventSubscription<ReadEvent>{1, 1, 10s, 100});
     const auto &sub2 =
         evtStm->subscribe(IOEventSubscription<ReadEvent>{1, 2, 10s, 100});
-    evtStm->push(ReadEvent{"fileId", 0, 10});
+    evtStm->push(ReadEvent{0, 10, "fileUuid"});
     EXPECT_EQ(1, evts.size());
     sub1.second();
-    evtStm->push(ReadEvent{"fileId", 10, 10});
+    evtStm->push(ReadEvent{10, 10, "fileUuid"});
     EXPECT_EQ(1, evts.size());
-    evtStm->push(ReadEvent{"fileId", 20, 10});
+    evtStm->push(ReadEvent{20, 10, "fileUuid"});
     EXPECT_EQ(2, evts.size());
     sub2.second();
-    evtStm->push(ReadEvent{"fileId", 0, 100});
+    evtStm->push(ReadEvent{0, 100, "fileUuid"});
     EXPECT_EQ(2, evts.size());
 }
 
 TEST_F(WriteEventStreamTest, forwardsEvents)
 {
     evtStm->subscribe(IOEventSubscription<WriteEvent>{1, 1, 10s, 100});
-    evtStm->push(WriteEvent{"fileId1", 0, 10, 10});
+    evtStm->push(WriteEvent{0, 10, "fileUuid1"});
     EXPECT_EQ(1, evts.size());
-    EXPECT_EQ("fileId1", evts[0].fileId());
+    EXPECT_EQ("fileUuid1", evts[0].fileUuid());
     EXPECT_EQ(10, evts[0].size());
-    EXPECT_EQ(10, evts[0].fileSize());
+    EXPECT_FALSE(evts[0].fileSize());
     EXPECT_TRUE(blocks({{0, 10}}) == evts[0].blocks());
-    evtStm->push(TruncateEvent{"fileId2", 10});
+    evtStm->push(TruncateEvent{10, "fileUuid2"});
     EXPECT_EQ(2, evts.size());
-    EXPECT_EQ("fileId2", evts[1].fileId());
+    EXPECT_EQ("fileUuid2", evts[1].fileUuid());
     EXPECT_EQ(0, evts[1].size());
-    EXPECT_EQ(10, evts[1].fileSize());
+    EXPECT_EQ(10, evts[1].fileSize().get());
     EXPECT_TRUE(evts[1].blocks().empty());
 }
 
 TEST_F(WriteEventStreamTest, addsSubscriptions)
 {
     evtStm->subscribe(IOEventSubscription<WriteEvent>{1, 2, 10s, 100});
-    evtStm->push(WriteEvent{"fileId", 0, 10, 10});
+    evtStm->push(WriteEvent{0, 10, "fileUuid"});
     EXPECT_EQ(0, evts.size());
-    evtStm->push(TruncateEvent{"fileId", 0});
+    evtStm->push(TruncateEvent{0, "fileUuid"});
     EXPECT_EQ(1, evts.size());
-    evtStm->push(WriteEvent{"fileId", 0, 100, 100});
+    evtStm->push(WriteEvent{0, 100, "fileUuid"});
     EXPECT_EQ(2, evts.size());
     evtStm->subscribe(IOEventSubscription<WriteEvent>{1, 1, 10s, 100});
-    evtStm->push(WriteEvent{"fileId", 20, 10, 30});
+    evtStm->push(WriteEvent{20, 10, "fileUuid"});
     EXPECT_EQ(3, evts.size());
-    evtStm->push(TruncateEvent{"fileId", 10});
+    evtStm->push(TruncateEvent{10, "fileUuid"});
     EXPECT_EQ(4, evts.size());
 }
 
@@ -147,14 +147,14 @@ TEST_F(WriteEventStreamTest, removesSubscriptions)
         evtStm->subscribe(IOEventSubscription<WriteEvent>{1, 1, 10s, 100});
     const auto &sub2 =
         evtStm->subscribe(IOEventSubscription<WriteEvent>{1, 2, 10s, 100});
-    evtStm->push(TruncateEvent{"fileId", 0});
+    evtStm->push(TruncateEvent{0, "fileUuid"});
     EXPECT_EQ(1, evts.size());
     sub1.second();
-    evtStm->push(WriteEvent{"fileId", 0, 10, 10});
+    evtStm->push(WriteEvent{0, 10, "fileUuid"});
     EXPECT_EQ(1, evts.size());
-    evtStm->push(TruncateEvent{"fileId", 10});
+    evtStm->push(TruncateEvent{10, "fileUuid"});
     EXPECT_EQ(2, evts.size());
     sub2.second();
-    evtStm->push(WriteEvent{"fileId", 0, 100, 100});
+    evtStm->push(WriteEvent{0, 100, "fileUuid"});
     EXPECT_EQ(2, evts.size());
 }

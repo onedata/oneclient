@@ -98,6 +98,9 @@ set_target_properties(helpersShared PROPERTIES
     INSTALL_RPATH "${CUSTOM_RPATH}")
 
 install(TARGETS helpersShared LIBRARY DESTINATION lib)
+install(DIRECTORY src/helpers DESTINATION include)
+install(DIRECTORY ${ASIO_INCLUDE_DIRS} DESTINATION .)
+
 
 enable_testing()
 add_subdirectory(test)

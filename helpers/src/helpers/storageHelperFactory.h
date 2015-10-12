@@ -11,47 +11,21 @@
 
 #include "helpers/IStorageHelper.h"
 
-#include <memory>
-#include <string>
 #include <asio/io_service.hpp>
 
+#include <memory>
+#include <string>
+
 namespace one {
-
-namespace communication {
-class Communicator;
-}
-
 namespace helpers {
-namespace utils {
-std::string tolower(std::string input);
-}
-
-std::string srvArg(const int argno);
-
-struct BufferLimits {
-    BufferLimits(const size_t wgl = 0, const size_t rgl = 0,
-        const size_t wfl = 0, const size_t rfl = 0,
-        const size_t pbs = 4 * 1024);
-
-    const size_t writeBufferGlobalSizeLimit;
-    const size_t readBufferGlobalSizeLimit;
-
-    const size_t writeBufferPerFileSizeLimit;
-    const size_t readBufferPerFileSizeLimit;
-
-    const size_t preferedBlockSize;
-};
 
 /**
  * Factory providing objects of requested storage helpers.
  */
 class StorageHelperFactory {
 public:
-    StorageHelperFactory() = default;
-    StorageHelperFactory(
-        std::shared_ptr<communication::Communicator> communicator,
-        const BufferLimits &limits, asio::io_service &dio_service,
-        asio::io_service &cproxy_service);
+    StorageHelperFactory(asio::io_service &dio_service);
+
     virtual ~StorageHelperFactory() = default;
 
     /**
@@ -62,11 +36,10 @@ public:
      * @return Pointer to storage helper object along with its ownership.
      */
     virtual std::shared_ptr<IStorageHelper> getStorageHelper(
-        const std::string &sh, const IStorageHelper::ArgsMap &args);
+        const std::string &sh,
+        const std::unordered_map<std::string, std::string> &args);
 
 private:
-    const std::shared_ptr<communication::Communicator> m_communicator;
-    const BufferLimits m_limits;
     asio::io_service &m_dioService;
 };
 

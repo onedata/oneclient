@@ -18,6 +18,10 @@ namespace fuse {
 FuseResponse::FuseResponse(
     const std::unique_ptr<ProtocolServerMessage> &serverMessage)
 {
+    if (!serverMessage->has_fuse_response())
+        throw std::system_error{std::make_error_code(std::errc::protocol_error),
+            "fuse_response field missing"};
+
     auto &statusMsg = serverMessage->fuse_response().status();
 
     std::error_code code;

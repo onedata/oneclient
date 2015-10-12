@@ -37,30 +37,37 @@ EventManager::EventManager(std::shared_ptr<Context> ctx)
         std::move(predicate), std::move(callback)});
 }
 
-void EventManager::emitReadEvent(std::string fileId, off_t offset, size_t size)
+void EventManager::emitReadEvent(
+    off_t offset, size_t size, std::string fileUuid) const
 {
     m_ctx->scheduler()->post(
-        m_readEvtStm->strand(), [ =, fileId = std::move(fileId) ] {
-            ReadEvent evt{std::move(fileId), offset, size};
+        m_readEvtStm->strand(), [ =, fileUuid = std::move(fileUuid) ] {
+            ReadEvent evt{offset, size, std::move(fileUuid)};
             m_readEvtStm->push(std::move(evt));
         });
 }
 
-void EventManager::emitWriteEvent(
-    std::string fileId, off_t offset, size_t size, off_t fileSize)
+void EventManager::emitWriteEvent(off_t offset, std::size_t size,
+    std::string fileUuid, std::string storageId, std::string fileId) const
 {
-    m_ctx->scheduler()->post(
-        m_writeEvtStm->strand(), [ =, fileId = std::move(fileId) ] {
-            WriteEvent evt{std::move(fileId), offset, size, fileSize};
+    m_ctx->scheduler()->post(m_writeEvtStm->strand(),
+        [
+          =,
+          fileUuid = std::move(fileUuid),
+          storageId = std::move(storageId),
+          fileId = std::move(fileId)
+        ] {
+            WriteEvent evt{offset, size, std::move(fileUuid),
+                std::move(storageId), std::move(fileId)};
             m_writeEvtStm->push(std::move(evt));
         });
 }
 
-void EventManager::emitTruncateEvent(std::string fileId, off_t fileSize)
+void EventManager::emitTruncateEvent(off_t fileSize, std::string fileUuid) const
 {
     m_ctx->scheduler()->post(
-        m_writeEvtStm->strand(), [ =, fileId = std::move(fileId) ] {
-            TruncateEvent evt{std::move(fileId), fileSize};
+        m_writeEvtStm->strand(), [ =, fileUuid = std::move(fileUuid) ] {
+            TruncateEvent evt{fileSize, std::move(fileUuid)};
             m_writeEvtStm->push(std::move(evt));
         });
 }

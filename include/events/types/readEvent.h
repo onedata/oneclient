@@ -10,8 +10,9 @@
 #define ONECLIENT_EVENTS_TYPES_READ_EVENT_H
 
 #include "event.h"
+#include "messages/fuse/fileBlock.h"
 
-#include <boost/icl/interval_set.hpp>
+#include <boost/icl/interval_map.hpp>
 
 #include <sys/types.h>
 
@@ -32,9 +33,12 @@ namespace events {
  */
 class ReadEvent : public Event {
 public:
-    static const std::string name;
+    using Subscription = one::clproto::ReadEventSubscription;
+    using FileBlock = one::messages::fuse::FileBlock;
+    using FileBlocksMap = boost::icl::interval_map<off_t, FileBlock,
+        boost::icl::partial_enricher>;
 
-    typedef typename one::clproto::ReadEventSubscription Subscription;
+    static const std::string name;
 
     /**
      * Default constructor.
@@ -47,17 +51,21 @@ public:
 
     /**
      * Constructor.
-     * @param fileId ID of file associated with a read operation.
      * @param offset Distance from the beginning of the file to the first byte
      * read.
      * @param size Number of bytes read.
+     * @param fileUuid UUID of a file associated with a read operation.
+     * @param storageId ID of a storage where a read operation occurred.
+     * @param fileId ID of a file on the storage where a read operation
+     * occurred.
      */
-    ReadEvent(std::string fileId, off_t offset, std::size_t size);
+    ReadEvent(off_t offset, std::size_t size, std::string fileUuid,
+        std::string storageId = {}, std::string fileId = {});
 
     /**
      * @return ID of file associated with the read event.
      */
-    const std::string &fileId() const;
+    const std::string &fileUuid() const;
 
     /**
      * @return Total number of bytes read.
@@ -67,7 +75,7 @@ public:
     /**
      * @return Set of bytes blocks read.
      */
-    const boost::icl::interval_set<off_t> &blocks() const;
+    const FileBlocksMap &blocks() const;
 
     /**
      * Aggregates this read event with an other read event.
@@ -85,7 +93,7 @@ public:
      * @param evt Read event to be compared.
      * @return 'true' if ID of file associated with this event is
      * lexicographically less than the file ID associated with an other event,
-     * otherwise 'false'
+     * otherwise 'false'.
      */
     bool operator<(const ReadEvent &evt);
 
@@ -95,9 +103,9 @@ public:
     serialize() const override;
 
 private:
-    std::string m_fileId;
+    std::string m_fileUuid;
     std::size_t m_size = 0;
-    boost::icl::interval_set<off_t> m_blocks;
+    FileBlocksMap m_blocks;
 };
 
 } // namespace events

@@ -107,12 +107,12 @@ class TestEventManager:
 
         emit_time = Duration()
         for i in xrange(evt_num):
-            duration(emit_time, evt_man.emitReadEvent, 'fileId',
-                     i * evt_size, evt_size)
+            duration(emit_time, evt_man.emitReadEvent, i * evt_size, evt_size,
+                     'fileUuid')
 
         recv_time = Duration()
         for i in xrange(evt_num / ctr_thr):
-            msg = events.createReadEventMsg(ctr_thr, 'fileId', [
+            msg = events.createReadEventMsg(ctr_thr, 'fileUuid', [
                 (i * ctr_thr * evt_size, ctr_thr * evt_size)], i)
             duration(recv_time,
                      appmock_client.tcp_server_wait_for_specific_messages,
@@ -153,14 +153,13 @@ class TestEventManager:
 
         emit_time = Duration()
         for i in xrange(evt_num):
-            duration(emit_time, evt_man.emitReadEvent, 'fileId', i * evt_size,
-                     evt_size)
+            duration(emit_time, evt_man.emitReadEvent, i * evt_size,
+                     evt_size, 'fileUuid')
 
         recv_time = Duration()
         for i in xrange(evt_num * evt_size / size_thr):
-            msg = events.createReadEventMsg(ctr_thr, 'fileId',
-                                            [(i * ctr_thr * evt_size,
-                                              ctr_thr * evt_size)], i)
+            msg = events.createReadEventMsg(ctr_thr, 'fileUuid', [
+                (i * ctr_thr * evt_size, ctr_thr * evt_size)], i)
             duration(recv_time,
                      appmock_client.tcp_server_wait_for_specific_messages,
                      self.ip, 5555, msg)
@@ -179,8 +178,8 @@ class TestEventManager:
 
         msg = events.createReadEventSubscriptionMsg(1, 0, 100, 0)
         appmock_client.tcp_server_send(self.ip, 5555, msg)
-        evt_man.emitReadEvent('fileId', 0, 10)
-        msg = events.createReadEventMsg(1, 'fileId', [(0, 10)], 0)
+        evt_man.emitReadEvent(0, 10, 'fileUuid')
+        msg = events.createReadEventMsg(1, 'fileUuid', [(0, 10)], 0)
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
     @performance(skip=True)
@@ -196,26 +195,26 @@ class TestEventManager:
         msg = events.createReadEventSubscriptionMsg(3, 0, 0, 5)
         appmock_client.tcp_server_send(self.ip, 5555, msg)
 
-        seq_num = evt_man.emitReadEvent('fileId', 0, 5)
-        msg = events.createReadEventMsg(1, 'fileId', [(0, 5)], seq_num)
+        seq_num = evt_man.emitReadEvent(0, 5, 'fileUuid')
+        msg = events.createReadEventMsg(1, 'fileUuid', [(0, 5)], seq_num)
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
         msg = events.createEventSubscriptionCancellationMsg(3)
         appmock_client.tcp_server_send(self.ip, 5555, msg)
-        seq_num = evt_man.emitReadEvent('fileId', 0, 20)
-        msg = events.createReadEventMsg(1, 'fileId', [(0, 20)], seq_num)
+        seq_num = evt_man.emitReadEvent(0, 20, 'fileUuid')
+        msg = events.createReadEventMsg(1, 'fileUuid', [(0, 20)], seq_num)
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
         msg = events.createEventSubscriptionCancellationMsg(2)
         appmock_client.tcp_server_send(self.ip, 5555, msg)
-        seq_num = evt_man.emitReadEvent('fileId', 0, 50)
-        msg = events.createReadEventMsg(1, 'fileId', [(0, 50)], seq_num)
+        seq_num = evt_man.emitReadEvent(0, 50, 'fileUuid')
+        msg = events.createReadEventMsg(1, 'fileUuid', [(0, 50)], seq_num)
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
         msg = events.createEventSubscriptionCancellationMsg(1)
         appmock_client.tcp_server_send(self.ip, 5555, msg)
-        seq_num = evt_man.emitReadEvent('fileId', 0, 10)
-        msg = events.createReadEventMsg(1, 'fileId', [(0, 10)], seq_num)
+        seq_num = evt_man.emitReadEvent(0, 10, 'fileUuid')
+        msg = events.createReadEventMsg(1, 'fileUuid', [(0, 10)], seq_num)
         with pytest.raises(Exception):
             appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555,
                                                                  msg,
@@ -248,26 +247,27 @@ class TestEventManager:
 
         emit_time = Duration()
         for i in xrange(cycle_num - 1):
-            duration(emit_time, evt_man.emitWriteEvent, 'fileId', i * evt_size,
-                     evt_size, (i + 1) * evt_size)
-            duration(emit_time, evt_man.emitReadEvent, 'fileId', i * evt_size,
-                     evt_size)
-            duration(emit_time, evt_man.emitTruncateEvent, 'fileId',
-                     (i + 1) * evt_size)
+            duration(emit_time, evt_man.emitWriteEvent, i * evt_size, evt_size,
+                     'fileUuid')
+            duration(emit_time, evt_man.emitReadEvent, i * evt_size, evt_size,
+                     'fileUuid')
+            duration(emit_time, evt_man.emitTruncateEvent, (i + 1) * evt_size,
+                     'fileUuid')
 
-        duration(emit_time, evt_man.emitReadEvent, 'fileId',
-                 (cycle_num - 1) * evt_size, evt_size)
+        duration(emit_time, evt_man.emitReadEvent, (cycle_num - 1) * evt_size,
+                 evt_size, 'fileUuid')
 
-        msg = events.createReadEventMsg(cycle_num, 'fileId',
+        msg = events.createReadEventMsg(cycle_num, 'fileUuid',
                                         [(0, cycle_num * evt_size)], 0)
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
-        duration(emit_time, evt_man.emitWriteEvent, 'fileId',
-                 (cycle_num - 1) * evt_size, evt_size, cycle_num * evt_size)
+        duration(emit_time, evt_man.emitWriteEvent, (cycle_num - 1) * evt_size,
+                 evt_size, 'fileUuid')
 
-        msg = events.createWriteEventMsg(2 * cycle_num - 1, 'fileId',
+        msg = events.createWriteEventMsg(2 * cycle_num - 1, 'fileUuid',
                                          cycle_num * evt_size,
                                          [(0, cycle_num * evt_size)], 1)
+
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
         return emit_time_param(emit_time.ms())
@@ -284,25 +284,25 @@ class TestEventManager:
         msg = events.createWriteEventSubscriptionMsg(2, 1, 0, 0)
         appmock_client.tcp_server_send(self.ip, 5555, msg)
 
-        seq_num = evt_man.emitReadEvent('fileId', 0, 10)
-        msg = events.createReadEventMsg(1, 'fileId', [(0, 10)], seq_num)
+        seq_num = evt_man.emitReadEvent(0, 10, 'fileUuid')
+        msg = events.createReadEventMsg(1, 'fileUuid', [(0, 10)], seq_num)
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
         msg = events.createEventSubscriptionCancellationMsg(1)
         appmock_client.tcp_server_send(self.ip, 5555, msg)
 
-        seq_num = evt_man.emitWriteEvent('fileId', 0, 10, 10)
-        msg = events.createWriteEventMsg(1, 'fileId', 10, [(0, 10)], seq_num)
+        seq_num = evt_man.emitWriteEvent(0, 10, 'fileUuid')
+        msg = events.createWriteEventMsg(1, 'fileUuid', 0, [(0, 10)], seq_num)
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
-        seq_num = evt_man.emitTruncateEvent('fileId', 0)
-        msg = events.createTruncateEventMsg(1, 'fileId', 0, seq_num)
+        seq_num = evt_man.emitTruncateEvent(0, 'fileUuid')
+        msg = events.createTruncateEventMsg(1, 'fileUuid', 0, seq_num)
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
         msg = events.createEventSubscriptionCancellationMsg(2)
         appmock_client.tcp_server_send(self.ip, 5555, msg)
-        seq_num = evt_man.emitTruncateEvent('fileId', 0)
-        msg = events.createTruncateEventMsg(1, 'fileId', 0, seq_num)
+        seq_num = evt_man.emitTruncateEvent(0, 'fileUuid')
+        msg = events.createTruncateEventMsg(1, 'fileUuid', 0, seq_num)
         with pytest.raises(Exception):
             appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555,
                                                                  msg,

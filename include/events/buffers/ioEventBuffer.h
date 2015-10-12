@@ -75,11 +75,11 @@ template <class EventT> bool IOEventBuffer<EventT>::push(EventT evt)
     m_sumCtr += evt.counter();
     m_sumSize += evt.size();
 
-    auto found = m_evtByFileId.find(evt.fileId());
+    auto found = m_evtByFileId.find(evt.fileUuid());
     if (found != m_evtByFileId.end())
         found->second += evt;
     else
-        m_evtByFileId.emplace(evt.fileId(), std::move(evt));
+        m_evtByFileId.emplace(evt.fileUuid(), std::move(evt));
 
     return try_clear();
 }

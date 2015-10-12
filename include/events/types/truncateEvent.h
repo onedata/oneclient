@@ -28,10 +28,10 @@ public:
 
     /**
      * Constructor.
-     * @param fileId ID of file associated with a truncate operation.
      * @param fileSize Size of file after a truncate operation.
+     * @param fileUuid UUID of file associated with a truncate operation.
      */
-    TruncateEvent(std::string fileId, off_t fileSize);
+    TruncateEvent(off_t fileSize, std::string fileUuid);
 
     virtual std::string toString() const override;
 };

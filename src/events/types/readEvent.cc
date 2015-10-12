@@ -18,22 +18,21 @@ namespace events {
 
 const std::string ReadEvent::name = "ReadEvent";
 
-ReadEvent::ReadEvent(std::string fileId_, off_t offset_, size_t size_)
-    : m_fileId{std::move(fileId_)}
+ReadEvent::ReadEvent(off_t offset_, size_t size_, std::string fileUuid_,
+    std::string storageId_, std::string fileId_)
+    : m_fileUuid{std::move(fileUuid_)}
     , m_size{size_}
-    , m_blocks{boost::icl::discrete_interval<off_t>::right_open(
-          offset_, offset_ + size_)}
+    , m_blocks{{boost::icl::discrete_interval<off_t>::right_open(
+                    offset_, offset_ + size_),
+          FileBlock{std::move(storageId_), std::move(fileId_)}}}
 {
 }
 
-const std::string &ReadEvent::fileId() const { return m_fileId; }
+const std::string &ReadEvent::fileUuid() const { return m_fileUuid; }
 
 size_t ReadEvent::size() const { return m_size; }
 
-const boost::icl::interval_set<off_t> &ReadEvent::blocks() const
-{
-    return m_blocks;
-}
+const ReadEvent::FileBlocksMap &ReadEvent::blocks() const { return m_blocks; }
 
 ReadEvent &ReadEvent::operator+=(const ReadEvent &evt)
 {
@@ -45,14 +44,14 @@ ReadEvent &ReadEvent::operator+=(const ReadEvent &evt)
 
 bool ReadEvent::operator<(const ReadEvent &evt)
 {
-    return m_fileId < evt.m_fileId;
+    return m_fileUuid < evt.m_fileUuid;
 }
 
 std::string ReadEvent::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'ReadEvent', counter: " << m_ctr << ", file ID: '"
-           << m_fileId << "', size: " << m_size << ", blocks: " << m_blocks;
+    stream << "type: 'ReadEvent', counter: " << m_ctr << ", file UUID: '"
+           << m_fileUuid << "', size: " << m_size << ", blocks: " << m_blocks;
     return stream.str();
 }
 
@@ -63,12 +62,14 @@ ReadEvent::serialize() const
     auto evtMsg = cliMsg->mutable_event();
     auto readEvtMsg = evtMsg->mutable_read_event();
     readEvtMsg->set_counter(m_ctr);
-    readEvtMsg->set_file_id(m_fileId);
+    readEvtMsg->set_file_id(m_fileUuid);
     readEvtMsg->set_size(m_size);
     for (const auto &block : m_blocks) {
         auto blockMsg = readEvtMsg->add_blocks();
-        blockMsg->set_offset(block.lower());
-        blockMsg->set_size(block.upper() - block.lower());
+        blockMsg->set_offset(block.first.lower());
+        blockMsg->set_size(block.first.upper() - block.first.lower());
+        blockMsg->set_file_id(block.second.fileId());
+        blockMsg->set_storage_id(block.second.storageId());
     }
 
     return cliMsg;

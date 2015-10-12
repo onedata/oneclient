@@ -240,7 +240,7 @@ def exec_test_repeat(test_case, case_args, case_kwargs):
         return True, params
     except Exception as e:
         msg = '{0}\n{1}'.format(e.message, traceback.format_exc())
-        print('Exception: {0}'.format(msg))
+        sys.stderr.write('Exception: {0}\n'.format(msg))
         return False, msg
 
 
