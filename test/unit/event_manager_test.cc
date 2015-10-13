@@ -81,7 +81,8 @@ TEST_F(EventManagerTest, emitsTrucateEvent)
 TEST_F(EventManagerTest, handlesReadEventSubscriptionMessage)
 {
     one::clproto::ServerMessage msg{};
-    msg.mutable_event_subscription()->mutable_read_event_subscription();
+    auto evtSubMsg = msg.mutable_event_subscription();
+    evtSubMsg->mutable_read_event_subscription();
 
     auto readEvtStm = std::make_unique<MockReadEventStream>(ctx, *evtComm);
     EXPECT_CALL(*readEvtStm, subscribe(_)).Times(1);
@@ -91,13 +92,14 @@ TEST_F(EventManagerTest, handlesReadEventSubscriptionMessage)
     EXPECT_CALL(*subReg, add(_)).Times(1);
     evtMan->setSubscriptionRegistry(std::move(subReg));
 
-    evtMan->handleServerMessage(msg);
+    evtMan->handle(*evtSubMsg);
 }
 
 TEST_F(EventManagerTest, handlesWriteEventSubscriptionMessage)
 {
     one::clproto::ServerMessage msg{};
-    msg.mutable_event_subscription()->mutable_write_event_subscription();
+    auto evtSubMsg = msg.mutable_event_subscription();
+    evtSubMsg->mutable_write_event_subscription();
 
     auto writeEvtStm = std::make_unique<MockWriteEventStream>(ctx, *evtComm);
     EXPECT_CALL(*writeEvtStm, subscribe(_)).Times(1);
@@ -107,17 +109,17 @@ TEST_F(EventManagerTest, handlesWriteEventSubscriptionMessage)
     EXPECT_CALL(*subReg, add(_)).Times(1);
     evtMan->setSubscriptionRegistry(std::move(subReg));
 
-    evtMan->handleServerMessage(msg);
+    evtMan->handle(*evtSubMsg);
 }
 
 TEST_F(EventManagerTest, handlesEventSubscriptionCancellationMessage)
 {
     one::clproto::ServerMessage msg{};
-    msg.mutable_event_subscription()->mutable_event_subscription_cancellation();
+    auto evtSubCanMsg = msg.mutable_event_subscription_cancellation();
 
     auto subReg = std::make_unique<MockSubscriptionRegistry>(ctx);
     EXPECT_CALL(*subReg, remove(_)).Times(1);
     evtMan->setSubscriptionRegistry(std::move(subReg));
 
-    evtMan->handleServerMessage(msg);
+    evtMan->handle(*evtSubCanMsg);
 }

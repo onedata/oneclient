@@ -60,15 +60,15 @@ ReadEvent::serialize() const
 {
     auto cliMsg = std::make_unique<one::messages::ProtocolClientMessage>();
     auto evtMsg = cliMsg->mutable_event();
+    evtMsg->set_counter(m_ctr);
     auto readEvtMsg = evtMsg->mutable_read_event();
-    readEvtMsg->set_counter(m_ctr);
-    readEvtMsg->set_file_id(m_fileUuid);
+    readEvtMsg->set_file_uuid(m_fileUuid);
     readEvtMsg->set_size(m_size);
     for (const auto &block : m_blocks) {
         auto blockMsg = readEvtMsg->add_blocks();
         blockMsg->set_offset(block.first.lower());
         blockMsg->set_size(block.first.upper() - block.first.lower());
-        blockMsg->set_file_id(block.second.fileId());
+        blockMsg->set_file_uuid(block.second.fileId());
         blockMsg->set_storage_id(block.second.storageId());
     }
 

@@ -23,7 +23,8 @@
 namespace one {
 
 namespace clproto {
-class ServerMessage;
+class EventSubscription;
+class EventSubscriptionCancellation;
 }
 
 namespace client {
@@ -77,10 +78,16 @@ public:
     void emitTruncateEvent(off_t fileSize, std::string fileUuid) const;
 
     /**
-     * Handles server message.
+     * Handles event subscription message.
      * @param msg The server message.
      */
-    void handleServerMessage(const clproto::ServerMessage &msg);
+    void handle(const clproto::EventSubscription &msg);
+
+    /**
+     * Handles event subscription cancellation message.
+     * @param msg The server message.
+     */
+    void handle(const clproto::EventSubscriptionCancellation &msg);
 
 protected:
     std::shared_ptr<Context> m_ctx;

@@ -119,11 +119,10 @@ TYPED_TEST(IOEventSubscriptionTest, notSatisfied)
 TYPED_TEST(IOEventSubscriptionTest, deserializes)
 {
     typename TypeParam::Subscription subMsg{};
-    subMsg.set_id(1);
     subMsg.set_counter_threshold(10);
     subMsg.set_time_threshold(10);
     subMsg.set_size_threshold(10);
-    IOEventSubscription<TypeParam> s{subMsg};
+    IOEventSubscription<TypeParam> s{1, subMsg};
     EXPECT_EQ(1, s.id());
     EXPECT_EQ(10, *s.counterThresholds().begin());
     EXPECT_EQ(10, s.timeThresholds().begin()->count());

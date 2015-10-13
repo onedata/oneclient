@@ -29,10 +29,15 @@ EventManager::EventManager(std::shared_ptr<Context> ctx)
     , m_writeEvtStm{new IOEventStream<WriteEvent>{m_ctx, *m_evtComm}}
 {
     auto predicate = [](const clproto::ServerMessage &msg, const bool) {
-        return msg.has_event_subscription();
+        return msg.has_event_subscription() ||
+            msg.has_event_subscription_cancellation();
     };
-    auto callback = [this](
-        const clproto::ServerMessage &msg) { handleServerMessage(msg); };
+    auto callback = [this](const clproto::ServerMessage &msg) {
+        if (msg.has_event_subscription())
+            handle(msg.event_subscription());
+        else if (msg.has_event_subscription_cancellation())
+            handle(msg.event_subscription_cancellation());
+    };
     m_ctx->communicator()->subscribe(communication::SubscriptionData{
         std::move(predicate), std::move(callback)});
 }
@@ -72,30 +77,32 @@ void EventManager::emitTruncateEvent(off_t fileSize, std::string fileUuid) const
         });
 }
 
-void EventManager::handleServerMessage(const clproto::ServerMessage &msg)
+void EventManager::handle(const clproto::EventSubscription &msg)
 {
-    const auto &subMsg = msg.event_subscription();
-    if (subMsg.has_read_event_subscription()) {
-        IOEventSubscription<ReadEvent> sub{subMsg.read_event_subscription()};
+    if (msg.has_read_event_subscription()) {
+        IOEventSubscription<ReadEvent> evtSub{
+            msg.id(), msg.read_event_subscription()};
         m_ctx->scheduler()->post(
-            m_readEvtStm->strand(), [ this, sub = std::move(sub) ] {
-                auto record = m_readEvtStm->subscribe(std::move(sub));
+            m_readEvtStm->strand(), [ this, evtSub = std::move(evtSub) ] {
+                auto record = m_readEvtStm->subscribe(std::move(evtSub));
                 m_subReg->add(std::move(record));
             });
     }
-    else if (subMsg.has_write_event_subscription()) {
-        IOEventSubscription<WriteEvent> sub{subMsg.write_event_subscription()};
+    else if (msg.has_write_event_subscription()) {
+        IOEventSubscription<WriteEvent> evtSub{
+            msg.id(), msg.write_event_subscription()};
         m_ctx->scheduler()->post(
-            m_writeEvtStm->strand(), [ this, sub = std::move(sub) ] {
-                auto record = m_writeEvtStm->subscribe(std::move(sub));
+            m_writeEvtStm->strand(), [ this, evtSub = std::move(evtSub) ] {
+                auto record = m_writeEvtStm->subscribe(std::move(evtSub));
                 m_subReg->add(std::move(record));
             });
     }
-    else if (subMsg.has_event_subscription_cancellation()) {
-        EventSubscriptionCancellation subCan{
-            subMsg.event_subscription_cancellation()};
-        m_subReg->remove(std::move(subCan));
-    }
+}
+
+void EventManager::handle(const clproto::EventSubscriptionCancellation &msg)
+{
+    EventSubscriptionCancellation evtSubCan{msg};
+    m_subReg->remove(std::move(evtSubCan));
 }
 
 } // namespace events

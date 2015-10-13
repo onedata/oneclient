@@ -83,10 +83,10 @@ WriteEvent::serialize() const
 {
     auto cliMsg = std::make_unique<one::messages::ProtocolClientMessage>();
     auto evtMsg = cliMsg->mutable_event();
+    evtMsg->set_counter(m_ctr);
     auto writeEvtMsg = evtMsg->mutable_write_event();
 
-    writeEvtMsg->set_counter(m_ctr);
-    writeEvtMsg->set_file_id(m_fileUuid);
+    writeEvtMsg->set_file_uuid(m_fileUuid);
     writeEvtMsg->set_size(m_size);
 
     auto blocks_ = m_blocks;
@@ -101,7 +101,7 @@ WriteEvent::serialize() const
         blockMsg->set_offset(block.first.lower());
         blockMsg->set_size(boost::icl::size(block.first));
         blockMsg->set_storage_id(block.second.storageId());
-        blockMsg->set_file_id(block.second.fileId());
+        blockMsg->set_file_uuid(block.second.fileId());
     }
 
     return cliMsg;

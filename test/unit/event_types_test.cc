@@ -82,14 +82,14 @@ TEST_F(ReadEventTest, serializes)
 {
     one::clproto::ClientMessage cliMsg{};
     auto evtMsg = cliMsg.mutable_event();
+    evtMsg->set_counter(1);
     auto readEvtMsg = evtMsg->mutable_read_event();
-    readEvtMsg->set_counter(1);
-    readEvtMsg->set_file_id("fileUuid1");
+    readEvtMsg->set_file_uuid("fileUuid1");
     readEvtMsg->set_size(10);
     auto blockMsg = readEvtMsg->add_blocks();
     blockMsg->set_offset(0);
     blockMsg->set_size(10);
-    blockMsg->set_file_id("");
+    blockMsg->set_file_uuid("");
     blockMsg->set_storage_id("");
     EXPECT_EQ(cliMsg.SerializeAsString(), evt.serialize()->SerializeAsString());
 }
@@ -131,15 +131,15 @@ TEST_F(WriteEventTest, serializes)
 {
     one::clproto::ClientMessage cliMsg{};
     auto evtMsg = cliMsg.mutable_event();
+    evtMsg->set_counter(1);
     auto writeEvtMsg = evtMsg->mutable_write_event();
-    writeEvtMsg->set_counter(1);
-    writeEvtMsg->set_file_id("fileUuid1");
+    writeEvtMsg->set_file_uuid("fileUuid1");
     writeEvtMsg->set_size(10);
     auto blockMsg = writeEvtMsg->add_blocks();
     blockMsg->set_offset(0);
     blockMsg->set_size(10);
     blockMsg->set_storage_id("");
-    blockMsg->set_file_id("");
+    blockMsg->set_file_uuid("");
     EXPECT_EQ(cliMsg.SerializeAsString(), evt.serialize()->SerializeAsString());
 }
 
@@ -178,9 +178,9 @@ TEST_F(TruncateEventTest, serializes)
 {
     one::clproto::ClientMessage cliMsg{};
     auto evtMsg = cliMsg.mutable_event();
+    evtMsg->set_counter(1);
     auto writeEvtMsg = evtMsg->mutable_write_event();
-    writeEvtMsg->set_counter(1);
-    writeEvtMsg->set_file_id("fileUuid1");
+    writeEvtMsg->set_file_uuid("fileUuid1");
     writeEvtMsg->set_size(0);
     writeEvtMsg->set_file_size(10);
     EXPECT_EQ(cliMsg.SerializeAsString(), evt.serialize()->SerializeAsString());

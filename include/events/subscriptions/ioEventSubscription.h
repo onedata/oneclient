@@ -32,10 +32,12 @@ public:
 
     /**
      * Constructor.
+     * @param id ID of subscription.
      * @param subMsg Protocol Buffers message representing @c
      * IOEventSubscription counterpart.
      */
-    IOEventSubscription(const typename EventT::Subscription &subMsg);
+    IOEventSubscription(
+        uint64_t id, const typename EventT::Subscription &subMsg);
 
     /**
      * Constructor.
@@ -118,9 +120,9 @@ private:
 
 template <class EventT>
 IOEventSubscription<EventT>::IOEventSubscription(
-    const typename EventT::Subscription &subMsg)
+    uint64_t id_, const typename EventT::Subscription &subMsg)
+    : m_id{id_}
 {
-    m_id = subMsg.id();
     if (subMsg.has_counter_threshold())
         m_ctrThrs.emplace(subMsg.counter_threshold());
     if (subMsg.has_time_threshold())

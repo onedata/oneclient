@@ -82,9 +82,9 @@ std::string createReadEventMsg(
 {
     auto cliMsg = createStreamMessage(seqNum);
     auto evtMsg = cliMsg.mutable_event();
+    evtMsg->set_counter(ctr);
     auto readEvtMsg = evtMsg->mutable_read_event();
-    readEvtMsg->set_counter(ctr);
-    readEvtMsg->set_file_id(std::move(fileUuid));
+    readEvtMsg->set_file_uuid(std::move(fileUuid));
     std::size_t size = 0;
     for (int i = 0; i < len(blocks); ++i) {
         off_t blockOffset = extract<off_t>(blocks[i][0]);
@@ -93,7 +93,7 @@ std::string createReadEventMsg(
         blockMsg->set_offset(blockOffset);
         blockMsg->set_size(blockSize);
         blockMsg->set_storage_id("");
-        blockMsg->set_file_id("");
+        blockMsg->set_file_uuid("");
         size += blockSize;
     }
     readEvtMsg->set_size(size);
@@ -105,9 +105,9 @@ std::string createWriteEventMsg(std::size_t ctr, std::string fileUuid,
 {
     auto cliMsg = createStreamMessage(seqNum);
     auto evtMsg = cliMsg.mutable_event();
+    evtMsg->set_counter(ctr);
     auto writeEvtMsg = evtMsg->mutable_write_event();
-    writeEvtMsg->set_counter(ctr);
-    writeEvtMsg->set_file_id(std::move(fileUuid));
+    writeEvtMsg->set_file_uuid(std::move(fileUuid));
     if (fileSize > 0)
         writeEvtMsg->set_file_size(fileSize);
     std::size_t size = 0;
@@ -118,7 +118,7 @@ std::string createWriteEventMsg(std::size_t ctr, std::string fileUuid,
         blockMsg->set_offset(blockOffset);
         blockMsg->set_size(blockSize);
         blockMsg->set_storage_id("");
-        blockMsg->set_file_id("");
+        blockMsg->set_file_uuid("");
         size += blockSize;
     }
     writeEvtMsg->set_size(size);
@@ -130,9 +130,9 @@ std::string createTruncateEventMsg(
 {
     auto cliMsg = createStreamMessage(seqNum);
     auto evtMsg = cliMsg.mutable_event();
+    evtMsg->set_counter(ctr);
     auto truncateEvtMsg = evtMsg->mutable_write_event();
-    truncateEvtMsg->set_counter(ctr);
-    truncateEvtMsg->set_file_id(std::move(fileUuid));
+    truncateEvtMsg->set_file_uuid(std::move(fileUuid));
     truncateEvtMsg->set_size(0);
     truncateEvtMsg->set_file_size(fileSize);
     return cliMsg.SerializeAsString();
@@ -143,8 +143,8 @@ std::string createReadEventSubscriptionMsg(
 {
     auto srvMsg = std::make_unique<one::clproto::ServerMessage>();
     auto evtSubMsg = srvMsg->mutable_event_subscription();
+    evtSubMsg->set_id(id);
     auto readEvtSubMsg = evtSubMsg->mutable_read_event_subscription();
-    readEvtSubMsg->set_id(id);
     if (ctrThr > 0)
         readEvtSubMsg->set_counter_threshold(ctrThr);
     if (timeThr > 0)
@@ -159,8 +159,8 @@ std::string createWriteEventSubscriptionMsg(
 {
     auto srvMsg = std::make_unique<one::clproto::ServerMessage>();
     auto evtSubMsg = srvMsg->mutable_event_subscription();
+    evtSubMsg->set_id(id);
     auto writeEvtSubMsg = evtSubMsg->mutable_write_event_subscription();
-    writeEvtSubMsg->set_id(id);
     if (ctrThr > 0)
         writeEvtSubMsg->set_counter_threshold(ctrThr);
     if (timeThr > 0)
@@ -173,8 +173,7 @@ std::string createWriteEventSubscriptionMsg(
 std::string createEventSubscriptionCancellationMsg(uint64_t id)
 {
     auto srvMsg = std::make_unique<one::clproto::ServerMessage>();
-    auto evtSubMsg = srvMsg->mutable_event_subscription();
-    auto evtSubCanMsg = evtSubMsg->mutable_event_subscription_cancellation();
+    auto evtSubCanMsg = srvMsg->mutable_event_subscription_cancellation();
     evtSubCanMsg->set_id(id);
     return srvMsg->SerializeAsString();
 }

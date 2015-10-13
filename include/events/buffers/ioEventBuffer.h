@@ -57,7 +57,7 @@ private:
     const IOEventSubscription<EventT> &m_evtSub;
     std::size_t m_sumCtr = 0;
     std::size_t m_sumSize = 0;
-    std::unordered_map<std::string, EventT> m_evtByFileId;
+    std::unordered_map<std::string, EventT> m_evtByFileUuid;
 };
 
 template <class EventT>
@@ -75,23 +75,23 @@ template <class EventT> bool IOEventBuffer<EventT>::push(EventT evt)
     m_sumCtr += evt.counter();
     m_sumSize += evt.size();
 
-    auto found = m_evtByFileId.find(evt.fileUuid());
-    if (found != m_evtByFileId.end())
+    auto found = m_evtByFileUuid.find(evt.fileUuid());
+    if (found != m_evtByFileUuid.end())
         found->second += evt;
     else
-        m_evtByFileId.emplace(evt.fileUuid(), std::move(evt));
+        m_evtByFileUuid.emplace(evt.fileUuid(), std::move(evt));
 
     return try_clear();
 }
 
 template <class EventT> void IOEventBuffer<EventT>::clear()
 {
-    for (const auto &evtByFileId : m_evtByFileId)
-        m_evtComm.send(evtByFileId.second);
+    for (const auto &evtByFileUuid : m_evtByFileUuid)
+        m_evtComm.send(evtByFileUuid.second);
 
     m_sumCtr = 0;
     m_sumSize = 0;
-    m_evtByFileId.clear();
+    m_evtByFileUuid.clear();
 }
 
 template <class EventT> bool IOEventBuffer<EventT>::try_clear()
