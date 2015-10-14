@@ -20,6 +20,7 @@ namespace one {
 namespace communication {
 
 constexpr int DEFAULT_RETRY_NUMBER = 2;
+constexpr int STREAM_MSG_ACK_WINDOW = 100;
 
 using ServerMessagePtr = std::unique_ptr<clproto::ServerMessage>;
 using ClientMessagePtr = std::unique_ptr<clproto::ClientMessage>;
