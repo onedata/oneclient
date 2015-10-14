@@ -64,7 +64,7 @@ class ReadEventStreamTest : public IOEventStreamTest<ReadEvent> {
 class WriteEventStreamTest : public IOEventStreamTest<WriteEvent> {
 };
 
-TEST_F(ReadEventStreamTest, forwardsEvents)
+TEST_F(ReadEventStreamTest, streamShouldForwardEvents)
 {
     evtStm->subscribe(IOEventSubscription<ReadEvent>{1, 1, 10s, 100});
     evtStm->push(ReadEvent{0, 10, "fileUuid"});
@@ -74,7 +74,7 @@ TEST_F(ReadEventStreamTest, forwardsEvents)
     EXPECT_TRUE(blocks({{0, 10}}) == evts[0].blocks());
 }
 
-TEST_F(ReadEventStreamTest, addsSubscriptions)
+TEST_F(ReadEventStreamTest, streamShouldAddSubscriptions)
 {
     evtStm->subscribe(IOEventSubscription<ReadEvent>{1, 2, 10s, 100});
     evtStm->push(ReadEvent{0, 10, "fileUuid"});
@@ -90,7 +90,7 @@ TEST_F(ReadEventStreamTest, addsSubscriptions)
     EXPECT_EQ(4, evts.size());
 }
 
-TEST_F(ReadEventStreamTest, removesSubscriptions)
+TEST_F(ReadEventStreamTest, streamShouldRemoveSubscriptions)
 {
     const auto &sub1 =
         evtStm->subscribe(IOEventSubscription<ReadEvent>{1, 1, 10s, 100});
@@ -108,7 +108,7 @@ TEST_F(ReadEventStreamTest, removesSubscriptions)
     EXPECT_EQ(2, evts.size());
 }
 
-TEST_F(WriteEventStreamTest, forwardsEvents)
+TEST_F(WriteEventStreamTest, streamShouldForwardEvents)
 {
     evtStm->subscribe(IOEventSubscription<WriteEvent>{1, 1, 10s, 100});
     evtStm->push(WriteEvent{0, 10, "fileUuid1"});
@@ -125,7 +125,7 @@ TEST_F(WriteEventStreamTest, forwardsEvents)
     EXPECT_TRUE(evts[1].blocks().empty());
 }
 
-TEST_F(WriteEventStreamTest, addsSubscriptions)
+TEST_F(WriteEventStreamTest, streamShouldAddSubscriptions)
 {
     evtStm->subscribe(IOEventSubscription<WriteEvent>{1, 2, 10s, 100});
     evtStm->push(WriteEvent{0, 10, "fileUuid"});
@@ -141,7 +141,7 @@ TEST_F(WriteEventStreamTest, addsSubscriptions)
     EXPECT_EQ(4, evts.size());
 }
 
-TEST_F(WriteEventStreamTest, removesSubscriptions)
+TEST_F(WriteEventStreamTest, streamShouldRemoveSubscriptions)
 {
     const auto &sub1 =
         evtStm->subscribe(IOEventSubscription<WriteEvent>{1, 1, 10s, 100});

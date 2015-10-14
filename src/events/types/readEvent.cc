@@ -68,7 +68,7 @@ ReadEvent::serialize() const
         auto blockMsg = readEvtMsg->add_blocks();
         blockMsg->set_offset(block.first.lower());
         blockMsg->set_size(block.first.upper() - block.first.lower());
-        blockMsg->set_file_uuid(block.second.fileId());
+        blockMsg->set_file_id(block.second.fileId());
         blockMsg->set_storage_id(block.second.storageId());
     }
 

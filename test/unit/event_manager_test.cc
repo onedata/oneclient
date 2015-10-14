@@ -54,7 +54,7 @@ protected:
     std::unique_ptr<ProxyEventManager> evtMan;
 };
 
-TEST_F(EventManagerTest, emitsReadEvent)
+TEST_F(EventManagerTest, eventManagerShouldEmitsReadEvent)
 {
     auto readEvtStm = std::make_unique<MockReadEventStream>(ctx, *evtComm);
     EXPECT_CALL(*readEvtStm, push(_)).Times(1);
@@ -62,7 +62,7 @@ TEST_F(EventManagerTest, emitsReadEvent)
     evtMan->emitReadEvent(0, 10, "fileUuid");
 }
 
-TEST_F(EventManagerTest, emitsWriteEvent)
+TEST_F(EventManagerTest, eventManagerShouldEmitWriteEvent)
 {
     auto writeEvtStm = std::make_unique<MockWriteEventStream>(ctx, *evtComm);
     EXPECT_CALL(*writeEvtStm, push(_)).Times(1);
@@ -70,7 +70,7 @@ TEST_F(EventManagerTest, emitsWriteEvent)
     evtMan->emitWriteEvent(0, 10, "fileUuid", "storageId", "fileUuid");
 }
 
-TEST_F(EventManagerTest, emitsTrucateEvent)
+TEST_F(EventManagerTest, eventManagerShouldEmitsTrucateEvent)
 {
     auto writeEvtStm = std::make_unique<MockWriteEventStream>(ctx, *evtComm);
     EXPECT_CALL(*writeEvtStm, push(_)).Times(1);
@@ -78,7 +78,7 @@ TEST_F(EventManagerTest, emitsTrucateEvent)
     evtMan->emitTruncateEvent(10, "fileUuid");
 }
 
-TEST_F(EventManagerTest, handlesReadEventSubscriptionMessage)
+TEST_F(EventManagerTest, eventManagerShouldhandleReadEventSubscriptionMessage)
 {
     one::clproto::ServerMessage msg{};
     auto evtSubMsg = msg.mutable_event_subscription();
@@ -95,7 +95,7 @@ TEST_F(EventManagerTest, handlesReadEventSubscriptionMessage)
     evtMan->handle(*evtSubMsg);
 }
 
-TEST_F(EventManagerTest, handlesWriteEventSubscriptionMessage)
+TEST_F(EventManagerTest, eventManagerShouldHandleWriteEventSubscriptionMessage)
 {
     one::clproto::ServerMessage msg{};
     auto evtSubMsg = msg.mutable_event_subscription();
@@ -112,7 +112,8 @@ TEST_F(EventManagerTest, handlesWriteEventSubscriptionMessage)
     evtMan->handle(*evtSubMsg);
 }
 
-TEST_F(EventManagerTest, handlesEventSubscriptionCancellationMessage)
+TEST_F(EventManagerTest,
+    eventManagerShouldHandleEventSubscriptionCancellationMessage)
 {
     one::clproto::ServerMessage msg{};
     auto evtSubCanMsg = msg.mutable_event_subscription_cancellation();

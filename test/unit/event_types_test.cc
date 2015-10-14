@@ -39,7 +39,7 @@ public:
     TruncateEventTest() { evt = std::move(TruncateEvent{10, "fileUuid1"}); }
 };
 
-TYPED_TEST(EventTest, aggregationIdentityElement)
+TYPED_TEST(EventTest, eventShouldHaveAggregationIdentityElement)
 {
     EXPECT_EQ(0, this->evt.counter());
     EXPECT_EQ("", this->evt.fileUuid());
@@ -47,7 +47,7 @@ TYPED_TEST(EventTest, aggregationIdentityElement)
     EXPECT_TRUE(this->evt.blocks().empty());
 }
 
-TEST_F(ReadEventTest, aggregatesReadEventsAssociatedWithTheSameFile)
+TEST_F(ReadEventTest, eventShouldAggregateOtherEventsAssociatedWithTheSameFile)
 {
     this->evt += ReadEvent{20, 10, "fileUuid1"};
     EXPECT_EQ(2, this->evt.counter());
@@ -62,7 +62,7 @@ TEST_F(ReadEventTest, aggregatesReadEventsAssociatedWithTheSameFile)
     EXPECT_TRUE(blocks({{0, 30}}) == this->evt.blocks());
 }
 
-TEST_F(ReadEventTest, comparesWithOtherReadEvents)
+TEST_F(ReadEventTest, eventShouldCompareWithOtherEvents)
 {
     ReadEvent evt0{0, 10, "fileUuid0"};
     ReadEvent evt1{0, 10, "fileUuid1"};
@@ -78,7 +78,7 @@ TEST_F(ReadEventTest, comparesWithOtherReadEvents)
     EXPECT_FALSE(evt2 < this->evt);
 }
 
-TEST_F(ReadEventTest, serializes)
+TEST_F(ReadEventTest, eventShouldSerialize)
 {
     one::clproto::ClientMessage cliMsg{};
     auto evtMsg = cliMsg.mutable_event();
@@ -89,12 +89,12 @@ TEST_F(ReadEventTest, serializes)
     auto blockMsg = readEvtMsg->add_blocks();
     blockMsg->set_offset(0);
     blockMsg->set_size(10);
-    blockMsg->set_file_uuid("");
+    blockMsg->set_file_id("");
     blockMsg->set_storage_id("");
     EXPECT_EQ(cliMsg.SerializeAsString(), evt.serialize()->SerializeAsString());
 }
 
-TEST_F(WriteEventTest, aggregatesWriteEventsAssociatedWithTheSameFile)
+TEST_F(WriteEventTest, eventShouldAggregateOtherEventsAssociatedWithTheSameFile)
 {
     this->evt += WriteEvent{20, 10, "fileUuid1"};
     EXPECT_EQ(2, this->evt.counter());
@@ -111,7 +111,7 @@ TEST_F(WriteEventTest, aggregatesWriteEventsAssociatedWithTheSameFile)
     EXPECT_TRUE(blocks({{0, 30}}) == this->evt.blocks());
 }
 
-TEST_F(WriteEventTest, comparesWithOtherWriteEvents)
+TEST_F(WriteEventTest, eventShouldCompareWithOtherEvents)
 {
     WriteEvent evt0{0, 10, "fileUuid0"};
     WriteEvent evt1{0, 10, "fileUuid1"};
@@ -127,7 +127,7 @@ TEST_F(WriteEventTest, comparesWithOtherWriteEvents)
     EXPECT_FALSE(evt2 < this->evt);
 }
 
-TEST_F(WriteEventTest, serializes)
+TEST_F(WriteEventTest, eventShouldSerialize)
 {
     one::clproto::ClientMessage cliMsg{};
     auto evtMsg = cliMsg.mutable_event();
@@ -139,11 +139,12 @@ TEST_F(WriteEventTest, serializes)
     blockMsg->set_offset(0);
     blockMsg->set_size(10);
     blockMsg->set_storage_id("");
-    blockMsg->set_file_uuid("");
+    blockMsg->set_file_id("");
     EXPECT_EQ(cliMsg.SerializeAsString(), evt.serialize()->SerializeAsString());
 }
 
-TEST_F(TruncateEventTest, aggregatesTruncateEventsAssociatedWithTheSameFile)
+TEST_F(
+    TruncateEventTest, eventShouldAggregateOtherEventsAssociatedWithTheSameFile)
 {
     this->evt += TruncateEvent{30, "fileUuid1"};
     EXPECT_EQ(2, this->evt.counter());
@@ -158,7 +159,7 @@ TEST_F(TruncateEventTest, aggregatesTruncateEventsAssociatedWithTheSameFile)
     EXPECT_TRUE(this->evt.blocks().empty());
 }
 
-TEST_F(TruncateEventTest, comparesWithOtherTruncateEvents)
+TEST_F(TruncateEventTest, eventShouldCompareWithOtherEvents)
 {
     TruncateEvent evt0{10, "fileUuid0"};
     TruncateEvent evt1{10, "fileUuid1"};
@@ -174,7 +175,7 @@ TEST_F(TruncateEventTest, comparesWithOtherTruncateEvents)
     EXPECT_FALSE(evt2 < this->evt);
 }
 
-TEST_F(TruncateEventTest, serializes)
+TEST_F(TruncateEventTest, eventShouldSerialize)
 {
     one::clproto::ClientMessage cliMsg{};
     auto evtMsg = cliMsg.mutable_event();

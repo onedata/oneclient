@@ -39,7 +39,7 @@ protected:
     std::unique_ptr<SubscriptionRegistry> subReg;
 };
 
-TEST_F(SubscriptionRegistryTest, addsSubscriptionsWithDifferentId)
+TEST_F(SubscriptionRegistryTest, registryShouldAddSubscriptionsWithDifferentId)
 {
     std::pair<uint64_t, std::function<void()>> sub1{1, [] {}};
     EXPECT_TRUE(subReg->add(std::move(sub1)).get());
@@ -47,7 +47,7 @@ TEST_F(SubscriptionRegistryTest, addsSubscriptionsWithDifferentId)
     EXPECT_TRUE(subReg->add(std::move(sub2)).get());
 }
 
-TEST_F(SubscriptionRegistryTest, doesNotAddSubscriptionsWithTheSameId)
+TEST_F(SubscriptionRegistryTest, registryShouldNotAddSubscriptionsWithTheSameId)
 {
     bool cancelled = false;
     std::pair<uint64_t, std::function<void()>> sub1{1, [] {}};
@@ -58,7 +58,8 @@ TEST_F(SubscriptionRegistryTest, doesNotAddSubscriptionsWithTheSameId)
     EXPECT_TRUE(cancelled);
 }
 
-TEST_F(SubscriptionRegistryTest, addsSubscriptionAfterRemoval)
+TEST_F(
+    SubscriptionRegistryTest, registryShouldAddTheSameSubscriptionAfterRemoval)
 {
     std::pair<uint64_t, std::function<void()>> sub1{1, [] {}};
     std::pair<uint64_t, std::function<void()>> sub2{1, [] {}};
@@ -67,12 +68,12 @@ TEST_F(SubscriptionRegistryTest, addsSubscriptionAfterRemoval)
     EXPECT_TRUE(subReg->add(std::move(sub2)).get());
 }
 
-TEST_F(SubscriptionRegistryTest, doesNotCancelNotExistingSubscription)
+TEST_F(SubscriptionRegistryTest, registryShouldNotCancelNotExistingSubscription)
 {
     EXPECT_FALSE(subReg->remove(EventSubscriptionCancellation{1}).get());
 }
 
-TEST_F(SubscriptionRegistryTest, cancelsExistingSubscription)
+TEST_F(SubscriptionRegistryTest, registryShouldCancelExistingSubscription)
 {
     bool subCancelled = false;
     std::pair<uint64_t, std::function<void()>> sub{

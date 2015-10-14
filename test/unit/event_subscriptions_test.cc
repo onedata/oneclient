@@ -87,18 +87,18 @@ TYPED_TEST(IOEventSubscriptionTest, subtractsSubscriptions)
     EXPECT_EQ(10, *(this->sub.sizeThresholds().begin()));
 }
 
-TYPED_TEST(IOEventSubscriptionTest, empty)
+TYPED_TEST(IOEventSubscriptionTest, identitySubscriptionShouldBeEmpty)
 {
     IOEventSubscription<TypeParam> subIdent{};
     EXPECT_TRUE(subIdent.empty());
 }
 
-TYPED_TEST(IOEventSubscriptionTest, notEmpty)
+TYPED_TEST(IOEventSubscriptionTest, subscriptionShouldNotBeEmpty)
 {
     EXPECT_FALSE(this->sub.empty());
 }
 
-TYPED_TEST(IOEventSubscriptionTest, satisfied)
+TYPED_TEST(IOEventSubscriptionTest, subscriptionShouldBeSatisfied)
 {
     EXPECT_TRUE(this->sub.satisfied(11, 10));
     EXPECT_TRUE(this->sub.satisfied(10, 9));
@@ -108,7 +108,7 @@ TYPED_TEST(IOEventSubscriptionTest, satisfied)
     EXPECT_TRUE(this->sub.satisfied(11, 11));
 }
 
-TYPED_TEST(IOEventSubscriptionTest, notSatisfied)
+TYPED_TEST(IOEventSubscriptionTest, subscriptionShouldNotSatisfied)
 {
     IOEventSubscription<TypeParam> subIdent{};
     EXPECT_FALSE(subIdent.satisfied(0, 0));
@@ -116,7 +116,7 @@ TYPED_TEST(IOEventSubscriptionTest, notSatisfied)
     EXPECT_FALSE(this->sub.satisfied(9, 9));
 }
 
-TYPED_TEST(IOEventSubscriptionTest, deserializes)
+TYPED_TEST(IOEventSubscriptionTest, subscriptionShouldDeserialize)
 {
     typename TypeParam::Subscription subMsg{};
     subMsg.set_counter_threshold(10);
@@ -129,7 +129,7 @@ TYPED_TEST(IOEventSubscriptionTest, deserializes)
     EXPECT_EQ(10, *s.sizeThresholds().begin());
 }
 
-TEST_F(EventSubscriptionCancellationTest, deserializes)
+TEST_F(EventSubscriptionCancellationTest, subscriptionShouldDeserialize)
 {
     one::clproto::EventSubscriptionCancellation subCanMsg{};
     subCanMsg.set_id(1);

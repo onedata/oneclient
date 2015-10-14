@@ -101,7 +101,7 @@ WriteEvent::serialize() const
         blockMsg->set_offset(block.first.lower());
         blockMsg->set_size(boost::icl::size(block.first));
         blockMsg->set_storage_id(block.second.storageId());
-        blockMsg->set_file_uuid(block.second.fileId());
+        blockMsg->set_file_id(block.second.fileId());
     }
 
     return cliMsg;

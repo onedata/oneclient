@@ -76,18 +76,18 @@ class WriteEventBufferTest : public IOEventBufferTest<WriteEvent> {
 class TruncateEventBufferTest : public IOEventBufferTest<TruncateEvent> {
 };
 
-TYPED_TEST(VoidEventBufferTest, doesNotForwardEvents)
+TYPED_TEST(VoidEventBufferTest, bufferShouldNotForwardEvents)
 {
     for (int i = 0; i < 10; ++i)
         EXPECT_FALSE(this->buf->push(TypeParam{}));
 }
 
-TYPED_TEST(VoidEventBufferTest, doesNotForwardEventsOnTryClear)
+TYPED_TEST(VoidEventBufferTest, bufferShouldNotForwardEventsOnTryClear)
 {
     EXPECT_FALSE(this->buf->try_clear());
 }
 
-TYPED_TEST(IOEventBufferTest, forwardsEventsOnClear)
+TYPED_TEST(IOEventBufferTest, bufferShouldForwardEventsOnClear)
 {
     EXPECT_FALSE(this->buf->push(TypeParam{}));
     this->buf->clear();
@@ -95,33 +95,34 @@ TYPED_TEST(IOEventBufferTest, forwardsEventsOnClear)
 }
 
 TYPED_TEST(IOEventBufferTest,
-    doesNotforwardEventsOnTryClearWhenSubscriptionNotSatisfied)
+    bufferShouldNotForwardEventsOnTryClearWhenSubscriptionIsNotSatisfied)
 {
     EXPECT_FALSE(this->buf->push(TypeParam{}));
     EXPECT_FALSE(this->buf->try_clear());
     EXPECT_TRUE(this->evts.empty());
 }
 
-TEST_F(ReadEventBufferTest, doesNotForwardEventsWhenThresholdsAreNotExceeded)
+TEST_F(ReadEventBufferTest,
+    bufferShouldNotForwardEventsWhenThresholdsAreNotExceeded)
 {
     for (int i = 0; i < 5; ++i)
         EXPECT_FALSE(buf->push(ReadEvent{0, 10, "fileUuid"}));
     EXPECT_TRUE(evts.empty());
 }
 
-TEST_F(ReadEventBufferTest, forwardsEventsWhenSizeThresholdMet)
+TEST_F(ReadEventBufferTest, bufferShouldForwardEventsWhenSizeThresholdMet)
 {
     EXPECT_TRUE(buf->push(ReadEvent{0, 100, "fileUuid"}));
     EXPECT_EQ(1, evts.size());
 }
 
-TEST_F(ReadEventBufferTest, forwardsEventsWhenSizeThresholdExceeded)
+TEST_F(ReadEventBufferTest, bufferShouldForwardEventsWhenSizeThresholdExceeded)
 {
     EXPECT_TRUE(buf->push(ReadEvent{0, 101, "fileUuid"}));
     EXPECT_EQ(1, evts.size());
 }
 
-TEST_F(ReadEventBufferTest, forwardsEventsWhenCounterThresholdMet)
+TEST_F(ReadEventBufferTest, bufferShouldForwardEventsWhenCounterThresholdMet)
 {
     for (int i = 0; i < 9; ++i)
         EXPECT_FALSE(buf->push(ReadEvent{0, 10, "fileUuid"}));
@@ -129,7 +130,7 @@ TEST_F(ReadEventBufferTest, forwardsEventsWhenCounterThresholdMet)
     EXPECT_EQ(1, evts.size());
 }
 
-TEST_F(ReadEventBufferTest, forwardsMultipleEvents)
+TEST_F(ReadEventBufferTest, bufferShouldForwardMultipleEvents)
 {
     for (int i = 0; i < 10; ++i) {
         for (int j = 0; j < 9; ++j)
@@ -139,7 +140,7 @@ TEST_F(ReadEventBufferTest, forwardsMultipleEvents)
     }
 }
 
-TEST_F(ReadEventBufferTest, aggregatesEventsByFileUuid)
+TEST_F(ReadEventBufferTest, bufferShouldAggregateEventsByFileUuid)
 {
     std::vector<std::string> fileUuids{"1", "2", "3", "4", "5"};
     for (off_t i = 0; i < 2; ++i) {
@@ -156,7 +157,7 @@ TEST_F(ReadEventBufferTest, aggregatesEventsByFileUuid)
     }
 }
 
-TEST_F(ReadEventBufferTest, aggregatesEventsForFileUuid)
+TEST_F(ReadEventBufferTest, bufferShouldAggregateEventsForTheSameFileUuid)
 {
     EXPECT_FALSE(buf->push(ReadEvent{0, 2, "fileUuid"}));
     EXPECT_FALSE(buf->push(ReadEvent{3, 2, "fileUuid"}));
@@ -176,7 +177,7 @@ TEST_F(ReadEventBufferTest, aggregatesEventsForFileUuid)
     EXPECT_TRUE(blocks({{0, 6}, {10, 14}, {15, 25}}) == evts[0].blocks());
 }
 
-TEST_F(WriteEventBufferTest, aggregatesEventsForFileUuid)
+TEST_F(WriteEventBufferTest, bufferShouldAggregateEventsForTheSameFileUuid)
 {
     EXPECT_FALSE(buf->push(WriteEvent{0, 2, "fileUuid"}));
     EXPECT_FALSE(buf->push(WriteEvent{3, 2, "fileUuid"}));
@@ -197,7 +198,7 @@ TEST_F(WriteEventBufferTest, aggregatesEventsForFileUuid)
     EXPECT_TRUE(blocks({{0, 6}, {10, 14}, {15, 25}}) == evts[0].blocks());
 }
 
-TEST_F(TruncateEventBufferTest, aggregatesEventsForFileUuid)
+TEST_F(TruncateEventBufferTest, bufferShouldAggregateEventsForTheSameFileUuid)
 {
     EXPECT_FALSE(buf->push(TruncateEvent{5, "fileUuid"}));
     EXPECT_FALSE(buf->push(TruncateEvent{10, "fileUuid"}));

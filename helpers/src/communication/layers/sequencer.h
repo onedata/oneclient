@@ -11,17 +11,19 @@
 
 #include "communication/declarations.h"
 
+#include <tbb/concurrent_hash_map.h>
 #include <tbb/concurrent_priority_queue.h>
-#include <tbb/concurrent_unordered_map.h>
+
+#include <utility>
 
 namespace one {
 namespace communication {
 namespace layers {
 
-struct StreamLess {
+struct GreaterSeqNum {
     bool operator()(const ServerMessagePtr &a, const ServerMessagePtr &b) const
     {
-        return a->message_stream().sequence_number() <
+        return a->message_stream().sequence_number() >
             b->message_stream().sequence_number();
     }
 };
@@ -34,10 +36,77 @@ struct StreamLess {
  */
 template <class LowerLayer> class Sequencer : public LowerLayer {
 public:
+    /**
+     * @c Buffer is responsible for storing out of order streamed messages and
+     * forwarding them in proper order.
+     */
+    class Buffer {
+    public:
+        /**
+         * Addes server messages to the buffer.
+         * @param serverMsg The server message to be pushed to the buffer.
+         */
+        void push(ServerMessagePtr serverMsg)
+        {
+            if (serverMsg->message_stream().sequence_number() >= m_seqNum)
+                m_buffer.emplace(std::move(serverMsg));
+        }
+
+        /**
+         * Clears the buffer by forwarding messaged having consecutive sequence
+         * numbers starting from the expected sequence number.
+         * @param onMessageCallback Function to be called on messages ready to
+         * be forwarded.
+         * @return Pair of the lowest sequence number of message pending to be
+         * forwarded and flag indicating whether end of stream was reached.
+         */
+        std::pair<uint64_t, bool> clear(
+            const std::function<void(ServerMessagePtr)> &onMessageCallback)
+        {
+            for (ServerMessagePtr it; m_buffer.try_pop(it);) {
+                if (it->message_stream().sequence_number() == m_seqNum) {
+                    ++m_seqNum;
+                    if (it->has_end_of_stream()) {
+                        onMessageCallback(std::move(it));
+                        return {m_seqNum - 1, true};
+                    }
+                    else
+                        onMessageCallback(std::move(it));
+                }
+                else if (it->message_stream().sequence_number() > m_seqNum) {
+                    auto seqNum = it->message_stream().sequence_number();
+                    m_buffer.emplace(std::move(it));
+                    return {seqNum - 1, false};
+                }
+            }
+            return {m_seqNum - 1, false};
+        }
+
+        /**
+         * Sets sequence number of first message that has not been acknowledged
+         * to sequence number of message that is supposed to be forwarded.
+         */
+        void reset_sequence_number_ack() { m_seqNumAck = m_seqNum; }
+
+        /**
+         * @return Sequence number of message that is supposed to be forwarded.
+         */
+        const uint64_t sequence_number() const { return m_seqNum; }
+
+        /**
+         * @return Sequence number of first message that has not been
+         * acknowledged.
+         */
+        const uint64_t sequence_number_ack() const { return m_seqNumAck; }
+
+    private:
+        uint64_t m_seqNum;
+        uint64_t m_seqNumAck;
+        tbb::concurrent_priority_queue<ServerMessagePtr, GreaterSeqNum>
+            m_buffer;
+    };
+
     using Callback = typename LowerLayer::Callback;
-    using SeqNumMap = tbb::concurrent_hash_map<uint64_t, uint64_t>;
-    using StmBufMap = tbb::concurrent_hash_map<uint64_t,
-        tbb::concurrent_priority_queue<ServerMessagePtr, StreamLess>>;
     using LowerLayer::LowerLayer;
     virtual ~Sequencer() = default;
 
@@ -46,25 +115,23 @@ public:
      */
     Sequencer<LowerLayer> &sequencer = *this;
 
+    /**
+     * Wraps lower layer's @c setOnMessageCallback.
+     * The incoming stream messages will be forwarded in proper order within
+     * given stream.
+     * @see ConnectionPool::setOnMessageCallback()
+     */
     auto setOnMessageCallback(
         std::function<void(ServerMessagePtr)> onMessageCallback);
 
 private:
-    void sendMessageRequest(
-        uint64_t stmId, uint64_t lowerSeqNum, uint64_t upperSeqNum);
+    void sendMessageRequest(const uint64_t stmId, const uint64_t lowerSeqNum,
+        const uint64_t upperSeqNum);
 
-    void sendMessageAcknowledgement(uint64_t stmId, uint64_t seqNum);
+    void sendMessageAcknowledgement(
+        const uint64_t stmId, const uint64_t seqNum);
 
-    void forwardPendingMessages(uint64_t stmId,
-        const SeqNumMap::accessor &seqNumAcc,
-        const std::function<void(ServerMessagePtr)> &onMessageCallback);
-
-    void maybeSendMessageAcknowledgement(
-        uint64_t stmId, const SeqNumMap::accessor &seqNumAcc);
-
-    SeqNumMap m_seqNumByStmId;
-    SeqNumMap m_seqNumAckByStmId;
-    StmBufMap m_stmBufByStmId;
+    tbb::concurrent_hash_map<uint64_t, Buffer> m_buffers;
 };
 
 template <class LowerLayer>
@@ -75,26 +142,26 @@ auto Sequencer<LowerLayer>::setOnMessageCallback(
         [ this, onMessageCallback = std::move(onMessageCallback) ](
             ServerMessagePtr serverMsg) {
             if (serverMsg->has_message_stream()) {
-                const auto &msgStm = serverMsg->message_stream();
-                const auto stmId = msgStm.stream_id();
-                const auto seqNum = msgStm.sequence_number();
+                const auto stmId = serverMsg->message_stream().stream_id();
+                typename decltype(m_buffers)::accessor acc;
+                m_buffers.insert(acc, stmId);
 
-                typename decltype(m_seqNumByStmId)::accessor seqNumAcc;
-                m_seqNumByStmId.insert(seqNumAcc, stmId);
-
-                if (seqNum == seqNumAcc->second) {
-                    onMessageCallback(std::move(serverMsg));
-                    ++seqNumAcc->second;
-                    forwardPendingMessages(stmId, seqNumAcc, onMessageCallback);
+                acc->second.push(std::move(serverMsg));
+                auto cleared = acc->second.clear(onMessageCallback);
+                if (cleared.second) {
+                    sendMessageAcknowledgement(stmId, cleared.first);
+                    m_buffers.erase(acc);
                 }
-                else if (seqNum > seqNumAcc->second) {
-                    typename decltype(m_stmBufByStmId)::accessor stmBufAcc;
-                    m_stmBufByStmId.insert(stmBufAcc, stmId);
-                    stmBufAcc->second.emplace(std::move(serverMsg));
-                    sendMessageRequest(stmId, seqNumAcc->second, seqNum - 1);
+                else {
+                    const auto seqNum = acc->second.sequence_number();
+                    const auto seqNumAck = acc->second.sequence_number_ack();
+                    if (seqNum <= cleared.first)
+                        sendMessageRequest(stmId, seqNum, cleared.first);
+                    if (seqNum >= seqNumAck + STREAM_MSG_ACK_WINDOW) {
+                        sendMessageAcknowledgement(stmId, seqNum - 1);
+                        acc->second.reset_sequence_number_ack();
+                    }
                 }
-
-                maybeSendMessageAcknowledgement(stmId, seqNumAcc);
             }
             else
                 onMessageCallback(std::move(serverMsg));
@@ -102,10 +169,10 @@ auto Sequencer<LowerLayer>::setOnMessageCallback(
 }
 
 template <class LowerLayer>
-void Sequencer<LowerLayer>::sendMessageRequest(
-    uint64_t stmId, uint64_t lowerSeqNum, uint64_t upperSeqNum)
+void Sequencer<LowerLayer>::sendMessageRequest(const uint64_t stmId,
+    const uint64_t lowerSeqNum, const uint64_t upperSeqNum)
 {
-    ClientMessagePtr clientMsg{};
+    auto clientMsg = std::make_unique<clproto::ClientMessage>();
     auto msgReq = clientMsg->mutable_message_request();
     msgReq->set_stream_id(stmId);
     msgReq->set_lower_sequence_number(lowerSeqNum);
@@ -115,42 +182,13 @@ void Sequencer<LowerLayer>::sendMessageRequest(
 
 template <class LowerLayer>
 void Sequencer<LowerLayer>::sendMessageAcknowledgement(
-    uint64_t stmId, uint64_t seqNum)
+    const uint64_t stmId, const uint64_t seqNum)
 {
-    ClientMessagePtr clientMsg{};
+    auto clientMsg = std::make_unique<clproto::ClientMessage>();
     auto msgReq = clientMsg->mutable_message_acknowledgement();
     msgReq->set_stream_id(stmId);
     msgReq->set_sequence_number(seqNum);
     LowerLayer::send(std::move(clientMsg), [](auto) {});
-}
-
-template <class LowerLayer>
-void Sequencer<LowerLayer>::forwardPendingMessages(uint64_t stmId,
-    const SeqNumMap::accessor &seqNumAcc,
-    const std::function<void(ServerMessagePtr)> &onMessageCallback)
-{
-    typename decltype(m_stmBufByStmId)::accessor stmBufAcc;
-
-    if (m_stmBufByStmId.find(stmBufAcc, stmId)) {
-        for (ServerMessagePtr it; stmBufAcc->second.try_pop(it) &&
-             it->message_stream().sequence_number() <= seqNumAcc->second;) {
-            ++seqNumAcc->second;
-            onMessageCallback(std::move(it));
-        }
-    }
-}
-
-template <class LowerLayer>
-void Sequencer<LowerLayer>::maybeSendMessageAcknowledgement(
-    uint64_t stmId, const SeqNumMap::accessor &seqNumAcc)
-{
-    typename decltype(m_seqNumAckByStmId)::accessor seqNumAckAcc;
-    m_seqNumAckByStmId.insert(seqNumAckAcc, stmId);
-
-    while (seqNumAcc->second >= seqNumAckAcc->second + STREAM_MSG_ACK_WINDOW) {
-        sendMessageAcknowledgement(stmId, seqNumAckAcc->second);
-        seqNumAckAcc->second += STREAM_MSG_ACK_WINDOW;
-    }
 }
 
 } // namespace layers

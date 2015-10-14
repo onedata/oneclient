@@ -93,7 +93,7 @@ std::string createReadEventMsg(
         blockMsg->set_offset(blockOffset);
         blockMsg->set_size(blockSize);
         blockMsg->set_storage_id("");
-        blockMsg->set_file_uuid("");
+        blockMsg->set_file_id("");
         size += blockSize;
     }
     readEvtMsg->set_size(size);
@@ -118,7 +118,7 @@ std::string createWriteEventMsg(std::size_t ctr, std::string fileUuid,
         blockMsg->set_offset(blockOffset);
         blockMsg->set_size(blockSize);
         blockMsg->set_storage_id("");
-        blockMsg->set_file_uuid("");
+        blockMsg->set_file_id("");
         size += blockSize;
     }
     writeEvtMsg->set_size(size);
