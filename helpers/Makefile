@@ -1,5 +1,5 @@
 .PHONY: cmake release debug clean test cunit install coverage all
-all: release test
+all: test
 
 INSTALL_PREFIX ?= ${HOME}/.local/helpers
 
