@@ -28,10 +28,12 @@ Build-Depends:
 	libssl-dev,
 	libtbb-dev (>= 4.3~),
 	libpython-dev,
+        libsodium-dev,
 	python-dev,
 	git,
 	subversion,
-	pkg-config
+	pkg-config,
+	golang-go
 Standards-Version: 3.9.5
 Homepage: https://onedata.org
 

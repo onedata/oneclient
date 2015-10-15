@@ -23,6 +23,8 @@ BuildRequires:	subversion
 BuildRequires:	tbb-devel >= 4.3~
 BuildRequires:	python-devel
 BuildRequires:  glog-devel, gflags-devel
+BuildRequires:  golang
+BuildRequires:  libsodium-devel
 
 %description
 oneclient is a software based on FUSE (Filesystem in Userspace) that allows mounting onedata filesystem on Linux systems.
