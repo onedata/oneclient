@@ -30,21 +30,19 @@ using namespace ::testing;
 using namespace one;
 using namespace one::helpers;
 using namespace std::placeholders;
-using one::helpers::utils::tolower;
 
 template <typename T> bool identityEqual(const T &lhs, const T &rhs)
 {
     return &lhs == &rhs;
 }
 
-constexpr int BENCH_BLOCK_SIZE = 1024*100;
+constexpr int BENCH_BLOCK_SIZE = 1024 * 100;
 constexpr int BENCH_LOOP_COUNT = 10000;
 
 class DirectIOHelperTest : public ::testing::Test {
 protected:
     std::shared_ptr<DirectIOHelper> proxy;
 
-    struct fuse_file_info ffi = {0};
     StorageHelperCTX ctx;
     char buf[1024];
 
@@ -64,8 +62,7 @@ protected:
     std::shared_ptr<std::promise<int>> pi3;
 
     DirectIOHelperTest()
-        : ctx(ffi)
-        , io_work(io_service)
+        : io_work(io_service)
     {
     }
 
@@ -92,7 +89,8 @@ protected:
         th_handle3 = std::thread([&]() { io_service.run(); });
         th_handle4 = std::thread([&]() { io_service.run(); });
         proxy = std::make_shared<DirectIOHelper>(
-            IStorageHelper::ArgsMap{{srvArg(0), std::string(DIO_TEST_ROOT)}},
+            std::unordered_map<std::string, std::string>{
+                {"root_path", std::string(DIO_TEST_ROOT)}},
             io_service);
 
         // remove all files that are used in tests
@@ -118,25 +116,31 @@ protected:
     }
 
 public:
-    void set_void_promise(std::shared_ptr<std::promise<void>> p, one::helpers::error_t e) {
-        if(e) {
+    void set_void_promise(
+        std::shared_ptr<std::promise<void>> p, one::helpers::error_t e)
+    {
+        if (e) {
             p->set_exception(std::make_exception_ptr(std::system_error(e)));
-        } else {
+        }
+        else {
             p->set_value();
         }
     }
 
-    template<class T>
-    void set_promise(std::shared_ptr<std::promise<T>> p, T value, one::helpers::error_t e) {
-        if(e) {
+    template <class T>
+    void set_promise(
+        std::shared_ptr<std::promise<T>> p, T value, one::helpers::error_t e)
+    {
+        if (e) {
             p->set_exception(std::make_exception_ptr(std::system_error(e)));
-        } else {
+        }
+        else {
             p->set_value(value);
         }
     }
 
-    template<class T>
-    std::shared_ptr<std::promise<T>> make_promise() {
+    template <class T> std::shared_ptr<std::promise<T>> make_promise()
+    {
         return std::make_shared<std::promise<T>>();
     }
 };
@@ -148,7 +152,8 @@ TEST_F(DirectIOHelperTest, shouldWriteBytes)
     auto writeBuf = asio::buffer(stmp);
 
     auto p = make_promise<int>();
-    proxy->ash_write(ctx, testFileId, writeBuf, 5, std::bind(&DirectIOHelperTest::set_promise<int>, this, p, _1, _2));
+    proxy->ash_write(ctx, testFileId, writeBuf, 5,
+        std::bind(&DirectIOHelperTest::set_promise<int>, this, p, _1, _2));
     auto bytes_written = p->get_future().get();
     EXPECT_EQ(3, bytes_written);
 
@@ -165,67 +170,79 @@ TEST_F(DirectIOHelperTest, shouldReadBytes)
     auto buf1 = asio::mutable_buffer(stmp, 10);
 
     auto p = make_promise<asio::mutable_buffer>();
-    proxy->ash_read(ctx, testFileId, buf1, 5, std::bind(&DirectIOHelperTest::set_promise<asio::mutable_buffer>, this, p, _1, _2));
+    proxy->ash_read(ctx, testFileId, buf1, 5,
+        std::bind(&DirectIOHelperTest::set_promise<asio::mutable_buffer>, this,
+                        p, _1, _2));
     auto buf2 = p->get_future().get();
 
     EXPECT_EQ(10, asio::buffer_size(buf2));
-    EXPECT_EQ("123456789_", std::string(asio::buffer_cast<const char*>(buf2), asio::buffer_size(buf2)));
+    EXPECT_EQ("123456789_", std::string(asio::buffer_cast<const char *>(buf2),
+                                asio::buffer_size(buf2)));
 }
-
 
 TEST_F(DirectIOHelperTest, shouldOpen)
 {
-    proxy->ash_open(ctx, testFileId, std::bind(&DirectIOHelperTest::set_promise<int>, this, pi1, _1, _2));
+    proxy->ash_open(ctx, testFileId,
+        std::bind(&DirectIOHelperTest::set_promise<int>, this, pi1, _1, _2));
     EXPECT_GT(pi1->get_future().get(), 0);
-    EXPECT_GT(ctx.m_ffi.fh, 0);
+    EXPECT_GT(ctx.fh, 0);
 }
 
 TEST_F(DirectIOHelperTest, shouldRelease)
 {
-    auto fd = ::open(testFilePath.c_str(), ctx.m_ffi.flags);
-    ctx.m_ffi.fh = fd;
+    auto fd = ::open(testFilePath.c_str(), ctx.flags);
+    ctx.fh = fd;
 
-    proxy->ash_release(ctx, testFileId, std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
+    proxy->ash_release(ctx, testFileId,
+        std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     EXPECT_NO_THROW(pv1->get_future().get());
-    EXPECT_EQ(0, ctx.m_ffi.fh);
+    EXPECT_EQ(0, ctx.fh);
 }
 
 TEST_F(DirectIOHelperTest, shouldRunSync)
 {
-    proxy->ash_fsync(ctx, testFileId, 0, std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
+    proxy->ash_fsync(ctx, testFileId, 0,
+        std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     EXPECT_NO_THROW(pv1->get_future().get());
 }
 
 TEST_F(DirectIOHelperTest, shouldGetAttributes)
 {
     auto p = make_promise<struct stat>();
-    proxy->ash_getattr(ctx, testFileId, std::bind(&DirectIOHelperTest::set_promise<struct stat>, this, p, _1, _2));
+    proxy->ash_getattr(ctx, testFileId,
+        std::bind(&DirectIOHelperTest::set_promise<struct stat>, this, p, _1,
+                           _2));
     struct stat stbuf = p->get_future().get();
     EXPECT_EQ(20, stbuf.st_size);
 }
 
 TEST_F(DirectIOHelperTest, shouldCheckAccess)
 {
-    proxy->ash_access(ctx, testFileId, 0, std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
+    proxy->ash_access(ctx, testFileId, 0,
+        std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     EXPECT_NO_THROW(pv1->get_future().get());
 }
 
 TEST_F(DirectIOHelperTest, shouldNotReadDirectory)
 {
     auto p = make_promise<std::vector<std::string>>();
-    proxy->ash_readdir(ctx, testFileId, 0, 10, std::bind(&DirectIOHelperTest::set_promise<std::vector<std::string>>, this, p, _1, _2));
+    proxy->ash_readdir(ctx, testFileId, 0, 10,
+        std::bind(&DirectIOHelperTest::set_promise<std::vector<std::string>>,
+                           this, p, _1, _2));
     EXPECT_THROW_POSIX_CODE(p->get_future().get(), ENOTSUP);
 }
 
 TEST_F(DirectIOHelperTest, mknod)
 {
-    proxy->ash_mknod(ctx, testFileId, S_IFREG, 0, std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
+    proxy->ash_mknod(ctx, testFileId, S_IFREG, 0,
+        std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     EXPECT_THROW_POSIX_CODE(pv1->get_future().get(), EEXIST);
 }
 
 TEST_F(DirectIOHelperTest, shouldMakeDirectory)
 {
-    proxy->ash_mkdir(ctx, "dir", 0, std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
+    proxy->ash_mkdir(ctx, "dir", 0,
+        std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     EXPECT_NO_THROW(pv1->get_future().get());
 
     std::remove("dir");
@@ -233,41 +250,51 @@ TEST_F(DirectIOHelperTest, shouldMakeDirectory)
 
 TEST_F(DirectIOHelperTest, shouldDeleteFile)
 {
-    proxy->ash_unlink(ctx, testFileId, std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
+    proxy->ash_unlink(ctx, testFileId,
+        std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     EXPECT_NO_THROW(pv1->get_future().get());
 }
 
 TEST_F(DirectIOHelperTest, shouldDeleteDir)
 {
-    proxy->ash_rmdir(ctx, testFileId, std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
+    proxy->ash_rmdir(ctx, testFileId,
+        std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     EXPECT_THROW_POSIX_CODE(pv1->get_future().get(), ENOTDIR);
 }
 
 TEST_F(DirectIOHelperTest, shouldMakeSymlink)
 {
-    proxy->ash_symlink(ctx, "/from", "to", std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
+    proxy->ash_symlink(ctx, "/from", "to",
+        std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     EXPECT_NO_THROW(pv1->get_future().get());
 
-    EXPECT_TRUE(boost::filesystem::is_symlink(boost::filesystem::symlink_status((boost::filesystem::path(DIO_TEST_ROOT) / "to"))));
+    EXPECT_TRUE(boost::filesystem::is_symlink(boost::filesystem::symlink_status(
+        (boost::filesystem::path(DIO_TEST_ROOT) / "to"))));
 
     unlinkOnDIO("to");
 }
 
 TEST_F(DirectIOHelperTest, shouldReadSymlink)
 {
-    auto sres = ::symlink((boost::filesystem::path(DIO_TEST_ROOT) / "from").c_str(), (boost::filesystem::path(DIO_TEST_ROOT) / "to").c_str());
+    auto sres =
+        ::symlink((boost::filesystem::path(DIO_TEST_ROOT) / "from").c_str(),
+            (boost::filesystem::path(DIO_TEST_ROOT) / "to").c_str());
     ASSERT_TRUE(sres == 0);
 
     auto p = make_promise<std::string>();
-    proxy->ash_readlink(ctx, "to", std::bind(&DirectIOHelperTest::set_promise<std::string>, this, p, _1, _2));
-    EXPECT_EQ((boost::filesystem::path(DIO_TEST_ROOT) / "from").string(), p->get_future().get());
+    proxy->ash_readlink(
+        ctx, "to", std::bind(&DirectIOHelperTest::set_promise<std::string>,
+                       this, p, _1, _2));
+    EXPECT_EQ((boost::filesystem::path(DIO_TEST_ROOT) / "from").string(),
+        p->get_future().get());
 
     unlinkOnDIO("to");
 }
 
 TEST_F(DirectIOHelperTest, shouldRename)
 {
-    proxy->ash_rename(ctx, testFileId, "to", std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
+    proxy->ash_rename(ctx, testFileId, "to",
+        std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     EXPECT_NO_THROW(pv1->get_future().get());
 
     unlinkOnDIO("to");
@@ -275,7 +302,8 @@ TEST_F(DirectIOHelperTest, shouldRename)
 
 TEST_F(DirectIOHelperTest, shouldCreateLink)
 {
-    proxy->ash_link(ctx, testFileId, "to", std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
+    proxy->ash_link(ctx, testFileId, "to",
+        std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     EXPECT_NO_THROW(pv1->get_future().get());
 
     unlinkOnDIO("to");
@@ -283,60 +311,67 @@ TEST_F(DirectIOHelperTest, shouldCreateLink)
 
 TEST_F(DirectIOHelperTest, shouldChangeMode)
 {
-    proxy->ash_chmod(ctx, testFileId, 600, std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
+    proxy->ash_chmod(ctx, testFileId, 600,
+        std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     EXPECT_NO_THROW(pv1->get_future().get());
 }
 
 TEST_F(DirectIOHelperTest, shouldChangeOwner)
 {
-    proxy->ash_chown(ctx, testFileId, -1, -1, std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
+    proxy->ash_chown(ctx, testFileId, -1, -1,
+        std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     EXPECT_NO_THROW(pv1->get_future().get());
 }
 
 TEST_F(DirectIOHelperTest, shouldTruncate)
 {
-    proxy->ash_truncate(ctx, testFileId, 0, std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
+    proxy->ash_truncate(ctx, testFileId, 0,
+        std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     EXPECT_NO_THROW(pv1->get_future().get());
 }
 
 TEST_F(DirectIOHelperTest, AsyncBench)
 {
-    ctx.m_ffi.flags |= O_RDWR;
-    proxy->ash_open(ctx, testFileId, std::bind(&DirectIOHelperTest::set_promise<int>, this, pi1, _1, _2));
+    ctx.flags |= O_RDWR;
+    proxy->ash_open(ctx, testFileId,
+        std::bind(&DirectIOHelperTest::set_promise<int>, this, pi1, _1, _2));
     pi1->get_future().get();
 
     char stmp[BENCH_BLOCK_SIZE];
     future_t<int> res[BENCH_LOOP_COUNT];
     auto writeBuf = asio::buffer(stmp, BENCH_BLOCK_SIZE);
 
-    for(auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
+    for (auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
         auto p = make_promise<int>();
-        proxy->ash_write(ctx, testFileId, writeBuf, 0, std::bind(&DirectIOHelperTest::set_promise<int>, this, p, _1, _2));
+        proxy->ash_write(ctx, testFileId, writeBuf, 0,
+            std::bind(&DirectIOHelperTest::set_promise<int>, this, p, _1, _2));
         res[i] = p->get_future();
     }
 
-    for(auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
+    for (auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
         res[i].get();
     }
 
-    proxy->ash_release(ctx, testFileId, std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
+    proxy->ash_release(ctx, testFileId,
+        std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     pv1->get_future().get();
 }
 
 TEST_F(DirectIOHelperTest, SyncBench)
 {
-    ctx.m_ffi.flags |= O_RDWR;
+    ctx.flags |= O_RDWR;
 
     proxy->ash_open(ctx, testFileId, [=](int, one::helpers::error_t e) {
         char stmp[BENCH_BLOCK_SIZE];
         auto writeBuf = asio::buffer(stmp, BENCH_BLOCK_SIZE);
-        for(auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
+        for (auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
             proxy->sh_write(ctx, testFileId, writeBuf, 0);
         }
         pv1->set_value();
     });
     pv1->get_future().get();
 
-    proxy->ash_release(ctx, testFileId, std::bind(&DirectIOHelperTest::set_void_promise, this, pv2, _1));
+    proxy->ash_release(ctx, testFileId,
+        std::bind(&DirectIOHelperTest::set_void_promise, this, pv2, _1));
     pv2->get_future().get();
 }

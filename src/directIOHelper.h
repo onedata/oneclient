@@ -17,6 +17,9 @@
 #include <fuse.h>
 #include <sys/types.h>
 
+#include <string>
+#include <unordered_map>
+
 namespace one {
 namespace helpers {
 
@@ -31,7 +34,8 @@ public:
      * It shall be ablosute path to diretory used by this storage helper as
      * root mount point.
      */
-    DirectIOHelper(const ArgsMap &, asio::io_service &service);
+    DirectIOHelper(const std::unordered_map<std::string, std::string> &,
+        asio::io_service &service);
 
     void ash_getattr(CTXRef ctx, const boost::filesystem::path &p,
         GeneralCallback<struct stat>);
@@ -70,8 +74,8 @@ public:
     void ash_release(
         CTXRef ctx, const boost::filesystem::path &p, VoidCallback);
     void ash_flush(CTXRef ctx, const boost::filesystem::path &p, VoidCallback);
-    void ash_fsync(CTXRef ctx, const boost::filesystem::path &p, bool isDataSync,
-        VoidCallback);
+    void ash_fsync(CTXRef ctx, const boost::filesystem::path &p,
+        bool isDataSync, VoidCallback);
 
     asio::mutable_buffer sh_read(CTXRef ctx, const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset);

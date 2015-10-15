@@ -14,15 +14,9 @@
 -author("Tomasz Lichon").
 
 % oneprovider specific config
--define(ONEPROVIDER_APP_NAME, oneprovider_node).
+-define(ONEPROVIDER_CCM_APP_NAME, op_ccm).
 -define(DIST_APP_FAILOVER_TIMEOUT, timer:seconds(5)).
 -define(SYNC_NODES_TIMEOUT, timer:minutes(1)).
-
--define(SED_COMMAND,
-    case os:type() of
-        {unix, darwin}  -> "sed -i '' -e ";
-        _               -> "sed -i "
-    end).
 
 %% API
 -export([configure_release/4]).
@@ -36,30 +30,29 @@
 %% Configure release stored at ReleaseRootPath, according to given parameters
 %% @end
 %%--------------------------------------------------------------------
--spec configure_release(ApplicationName :: atom(), ReleaseRootPath :: string(),
+-spec configure_release(ApplicationName :: atom(), ReleaseRootPath :: string() | default,
     SysConfig :: list(), VmArgs :: list()) -> ok | no_return().
-configure_release(?ONEPROVIDER_APP_NAME, ReleaseRootPath, SysConfig, VmArgs) ->
-    {SysConfigPath, VmArgsPath} = find_config_location(?ONEPROVIDER_APP_NAME, ReleaseRootPath),
+configure_release(?ONEPROVIDER_CCM_APP_NAME, ReleaseRootPath, SysConfig, VmArgs) ->
+    {SysConfigPath, VmArgsPath} = find_config_location(?ONEPROVIDER_CCM_APP_NAME, ReleaseRootPath),
     lists:foreach(
         fun({Key, Value}) -> replace_vm_arg(VmArgsPath, "-" ++ atom_to_list(Key), Value) end,
         VmArgs
     ),
     lists:foreach(
-        fun({Key, Value}) -> replace_env(SysConfigPath, ?ONEPROVIDER_APP_NAME, Key, Value) end,
+        fun({Key, Value}) -> replace_env(SysConfigPath, ?ONEPROVIDER_CCM_APP_NAME, Key, Value) end,
         SysConfig
     ),
 
     % configure kernel distributed erlang app
     NodeName = proplists:get_value(name, VmArgs),
-    NodeType = proplists:get_value(type, SysConfig),
     CcmNodes = proplists:get_value(ccm_nodes, SysConfig),
-    case NodeType =:= ccm andalso length(CcmNodes) > 1 of
+    case length(CcmNodes) > 1 of
         true ->
             OptCcms = CcmNodes -- [list_to_atom(NodeName)],
             replace_application_config(SysConfigPath, kernel,
                 [
                     {distributed, [{
-                        ?ONEPROVIDER_APP_NAME,
+                        ?ONEPROVIDER_CCM_APP_NAME,
                         ?DIST_APP_FAILOVER_TIMEOUT,
                         [list_to_atom(NodeName), list_to_tuple(OptCcms)]
                     }]},
@@ -89,15 +82,25 @@ configure_release(ApplicationName, ReleaseRootPath, SysConfig, VmArgs) ->
 %% sys.config are located
 %% @end
 %%--------------------------------------------------------------------
--spec find_config_location(ApplicationName :: atom(), ReleaseRootPath :: atom()) ->
+-spec find_config_location(ApplicationName :: atom(), ReleaseRootPath :: string() | default) ->
     {SysConfigPath :: string(), VmArgsPath :: string()}.
+find_config_location(ApplicationName, default) ->
+    SysConfigPath = filename:join(["/etc", ApplicationName, "app.config"]),
+    VmArgsPath = filename:join(["/etc", ApplicationName, "vm.args"]),
+    {SysConfigPath, VmArgsPath};
 find_config_location(ApplicationName, ReleaseRootPath) ->
-    ApplicationNameString = atom_to_list(ApplicationName),
-    {ok, [[{release, ApplicationNameString, AppVsn, _, _, _}]]} =
-        file:consult(filename:join([ReleaseRootPath, "releases", "RELEASES"])),
-    SysConfigPath = filename:join([ReleaseRootPath, "releases", AppVsn, "sys.config"]),
-    VmArgsPath = filename:join([ReleaseRootPath, "releases", AppVsn, "vm.args"]),
-    {SysConfigPath, VmArgsPath}.
+    EtcDir = filename:join(ReleaseRootPath, "etc"),
+    case filelib:is_dir(EtcDir) of
+        true ->
+            {filename:join(EtcDir, "app.config"), filename:join(EtcDir, "vm.args")};
+        false ->
+            ApplicationNameString = atom_to_list(ApplicationName),
+            {ok, [[{release, ApplicationNameString, AppVsn, _, _, _}]]} =
+                file:consult(filename:join([ReleaseRootPath, "releases", "RELEASES"])),
+            SysConfigPath = filename:join([ReleaseRootPath, "releases", AppVsn, "sys.config"]),
+            VmArgsPath = filename:join([ReleaseRootPath, "releases", AppVsn, "vm.args"]),
+            {SysConfigPath, VmArgsPath}
+    end.
 
 %%--------------------------------------------------------------------
 %% @doc

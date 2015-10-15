@@ -87,6 +87,12 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/dummy.cc "")
 set(HELPERS_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/dummy.cc ${PROJECT_SOURCES})
 
 # Define targets
+add_library(helpersStatic STATIC ${HELPERS_SOURCES})
+target_include_directories(helpersStatic SYSTEM PUBLIC ${HELPERS_SYSTEM_INCLUDE_DIRS})
+target_include_directories(helpersStatic PUBLIC ${HELPERS_INCLUDE_DIRS})
+set_target_properties(helpersStatic PROPERTIES
+    OUTPUT_NAME helpers)
+
 add_library(helpersShared SHARED ${HELPERS_SOURCES})
 target_link_libraries(helpersShared PUBLIC ${HELPERS_LIBRARIES})
 target_include_directories(helpersShared SYSTEM PUBLIC ${HELPERS_SYSTEM_INCLUDE_DIRS})
@@ -98,9 +104,11 @@ set_target_properties(helpersShared PROPERTIES
     INSTALL_RPATH "${CUSTOM_RPATH}")
 
 install(TARGETS helpersShared LIBRARY DESTINATION lib)
+install(TARGETS helpersStatic ARCHIVE DESTINATION lib)
 install(DIRECTORY src/helpers DESTINATION include)
 install(DIRECTORY ${ASIO_INCLUDE_DIRS} DESTINATION .)
 
 
 enable_testing()
 add_subdirectory(test)
+

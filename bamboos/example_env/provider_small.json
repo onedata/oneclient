@@ -1,0 +1,44 @@
+{
+    "dirs_config": {
+        "op_ccm": {
+            "input_dir": "rel/op_ccm",
+            "target_dir": "rel/test_cluster"
+        },
+        "op_worker": {
+            "input_dir": "rel/op_worker",
+            "target_dir": "rel/test_cluster"
+        }
+    },
+    "provider_domains": {
+        "p1": {
+            "op_ccm": {
+                "ccm1": {
+                    "vm.args": {
+                        "setcookie": "cookie1"
+                    },
+                    "sys.config": {
+                        "ccm_nodes": [
+                            "ccm1"
+                        ],
+                        "worker_num": 1
+                    }
+                }
+            },
+            "op_worker": {
+                "worker1": {
+                    "vm.args": {
+                        "setcookie": "cookie1"
+                    },
+                    "sys.config": {
+                        "ccm_nodes": [
+                            "ccm1"
+                        ],
+                        "db_nodes": [
+                            "riaknode1"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
