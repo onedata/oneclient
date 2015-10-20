@@ -9,35 +9,39 @@
 #ifndef ONECLIENT_EVENTS_BUFFERS_EVENT_BUFFER_H
 #define ONECLIENT_EVENTS_BUFFERS_EVENT_BUFFER_H
 
+#include <memory>
+
 namespace one {
 namespace client {
 namespace events {
 
 /**
- * The EventBuffer abstract class provides an interface for all buffers.
+ * @c EventBuffer is an abstract class that provides an interface for all event
+ * buffers.
  */
 template <class EventT> class EventBuffer {
 public:
+    using EventPtr = typename EventT::EventPtr;
+    using EventHandler = std::function<void(EventPtr)>;
+
     virtual ~EventBuffer() = default;
 
     /**
      * Adds an event to the buffer.
-     * @param evt Event to be added to the buffer. It should be aggregable
-     * using @c += operator.
-     * @return 'true' if buffer was cleared after addition, otherwise 'false'.
+     * @param event Event to be added.
      */
-    virtual bool push(EventT evt) = 0;
+    virtual void push(EventPtr event) = 0;
 
     /**
-     * Clears the buffer.
+     * Removes all events from the buffer.
      */
     virtual void clear() = 0;
 
     /**
-     * Tries to clears the buffer.
-     * @return 'true' if buffer was cleared, otherwise 'false'.
+     * Set a handler which is called during @c clear method execution.
+     * @param handler Handler to be set.
      */
-    virtual bool try_clear() = 0;
+    virtual void setOnClearHandler(EventHandler handler) = 0;
 };
 
 } // namespace events

@@ -9,59 +9,57 @@
 #ifndef ONECLIENT_EVENTS_SUBSCRIPTION_REGISTRY_H
 #define ONECLIENT_EVENTS_SUBSCRIPTION_REGISTRY_H
 
-#include <asio/io_service_strand.hpp>
+#include "events/subscriptions/subscriptionCancellation.h"
 
-#include <future>
-#include <utility>
+#include <tbb/concurrent_hash_map.h>
+
+#include <atomic>
+#include <memory>
 #include <functional>
-#include <unordered_map>
 
 namespace one {
 namespace client {
-
-class Context;
-
 namespace events {
 
-class EventSubscriptionCancellation;
-
 /**
- * The SubscriptionRegistry class is responsible for storing events
- * subscriptions.
+ * @c SubscriptionRegistry is responsible for storing unsubscribe handlers
+ * for each subscription. Instance of @c SubscriptionRegistry should be
+ * shared between all event streams.
  */
 class SubscriptionRegistry {
 public:
-    /**
-     * Constructor.
-     * @param context A @c Context instance used to acquire @c Scheduler IO
-     * service.
-     */
-    SubscriptionRegistry(std::shared_ptr<Context> ctx);
+    using UnsubscribeHandler = std::function<void()>;
 
     virtual ~SubscriptionRegistry() = default;
 
     /**
-     * Adds subscription to the registry.
-     * @param sub ID of subscription and subscription cancellation function.
-     * @return Future set to 'true' if subscription was successfully added,
-     * otherwise future set to 'false'.
+     * Generates consecutive IDs for client subscriptions.
+     * Client subscriptions' IDs are negative.
+     * @return Subscription ID.
      */
-    virtual std::future<bool> add(
-        std::pair<uint64_t, std::function<void()>> sub);
+    std::int64_t nextSubscriptionId();
 
     /**
-     * Removes subscription from the registry.
-     * @param subCan Instance of @EventSubscriptionCancellation containing ID of
-     * subscription to be cancelled and removed from registry.
-     * @return Future set to 'true' if subscription was successfully removed
-     * from the registry, otherwise future set to 'false'.
+     * Adds unsubscribe handler.
+     * @param id ID of subscription associated with the handler.
+     * @param handler Unsubscribe handler.
+     * @return 'true' if handler was successfully added, otherwise 'false'.
      */
-    virtual std::future<bool> remove(EventSubscriptionCancellation subCan);
+    virtual bool addUnsubscribeHandler(
+        std::int64_t id, UnsubscribeHandler handler);
+
+    /**
+     * Removes subscription by retrieving, executing and removing unsubscribe
+     * handler.
+     * @param subscription @c Subscription to be removed.
+     * @return 'true' if subscription was successfully removed, otherwise
+     * 'false'.
+     */
+    virtual bool removeSubscription(SubscriptionCancellation cancellation);
 
 private:
-    std::weak_ptr<Context> m_ctx;
-    asio::io_service::strand m_strand;
-    std::unordered_map<uint64_t, std::function<void()>> m_subById;
+    std::atomic<std::int64_t> m_subscriptionId{1};
+    tbb::concurrent_hash_map<std::int64_t, UnsubscribeHandler> m_handlers;
 };
 
 } // namespace events

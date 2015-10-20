@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "fuseResponse.h"
+#include "messages/fuse/fuseResponse.h"
 
 #include "messages.pb.h"
 #include "messages/status.h"

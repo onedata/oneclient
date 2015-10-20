@@ -9,43 +9,41 @@
 #ifndef ONECLIENT_EVENTS_EVENT_MANAGER_H
 #define ONECLIENT_EVENTS_EVENT_MANAGER_H
 
-#include "events/eventCommunicator.h"
-#include "events/buffers/ioEventBuffer.h"
-#include "events/buffers/voidEventBuffer.h"
-#include "events/streams/ioEventStream.h"
-#include "events/subscriptionRegistry.h"
+#include "events/eventStream.h"
 
 #include <sys/types.h>
 
-#include <memory>
 #include <cstddef>
+#include <memory>
+#include <string>
 
 namespace one {
-
 namespace clproto {
-class EventSubscription;
-class EventSubscriptionCancellation;
-}
-
+class Event;
+class Subscription;
+class SubscriptionCancellation;
+} // namespace clproto
 namespace client {
-
 class Context;
-
 namespace events {
 
+class SubscriptionRegistry;
+
 /**
- * The EventManager class is responsible for events management. It handles
- * server push messages and provides interface for events emission.
+ * @c EventManager class is responsible for events management. It handles
+ * server push messages and provides interface for events emission and
+ * subscription.
  */
 class EventManager {
 public:
     /**
      * Constructor.
-     * @param context A @c Context instance used to instantiate event streams
-     * and
-     * acquire communicator instance to register for push messages.
+     * @param context @c Context instance used to instantiate event streams
+     * and acquire communicator instance to register for push messages.
      */
-    EventManager(std::shared_ptr<Context> ctx);
+    EventManager(std::shared_ptr<Context> context);
+
+    virtual ~EventManager() = default;
 
     /**
      * Emits a read event.
@@ -78,23 +76,72 @@ public:
     void emitTruncateEvent(off_t fileSize, std::string fileUuid) const;
 
     /**
-     * Handles event subscription message.
-     * @param msg The server message.
+     * Sets handler for file atr update events.
+     * @param handler Handler to be set.
      */
-    void handle(const clproto::EventSubscription &msg);
+    void setFileAttrHandler(typename FileAttrEventStream::Handler handler);
+
+    /**
+     * Adds subscription for file attr changes.
+     * @param clientSubscription Client side subscription parameters.
+     * @param serverSubscription Server side subscription parameters.
+     * @return Subscription ID.
+     */
+    std::int64_t subscribe(FileAttrSubscription clientSubscription,
+        FileAttrSubscription serverSubscription);
+
+    /**
+     * Sets handler for file location update events.
+     * @param handler Handler to be set.
+     */
+    void setFileLocationHandler(
+        typename FileLocationEventStream::Handler handler);
+
+    /**
+     * Adds subscription for file location changes.
+     * @param clientSubscription Client side subscription parameters.
+     * @param serverSubscription Server side subscription parameters.
+     * @return Subscription ID.
+     */
+    std::int64_t subscribe(FileLocationSubscription clientSubscription,
+        FileLocationSubscription serverSubscription);
+
+    /**
+     * Removes subscription.
+     * @param id ID of subscription to be removed.
+     * @return 'true' if subscription was successfully removed, otherwise
+     * 'false'.
+     */
+    bool unsubscribe(std::int64_t id);
+
+    /**
+     * Handles event message.
+     * @param message @c one::clproto::Event instance.
+     */
+    void handle(const clproto::Event &message);
+
+    /**
+     * Handles event subscription message.
+     * @param message @c one::clproto::Subscription instance.
+     */
+    void handle(const clproto::Subscription &message);
 
     /**
      * Handles event subscription cancellation message.
-     * @param msg The server message.
+     * @param message T@c one::clproto::SubscriptionCancellation instance.
      */
-    void handle(const clproto::EventSubscriptionCancellation &msg);
+    void handle(const clproto::SubscriptionCancellation &message);
 
 protected:
-    std::shared_ptr<Context> m_ctx;
-    std::unique_ptr<EventCommunicator> m_evtComm;
-    std::unique_ptr<SubscriptionRegistry> m_subReg;
-    std::unique_ptr<IOEventStream<ReadEvent>> m_readEvtStm;
-    std::unique_ptr<IOEventStream<WriteEvent>> m_writeEvtStm;
+    communication::StreamManager m_streamManager;
+    std::shared_ptr<SubscriptionRegistry> m_registry;
+    std::unique_ptr<ReadEventStream> m_readEventStream;
+    std::unique_ptr<WriteEventStream> m_writeEventStream;
+    std::unique_ptr<FileAttrEventStream> m_fileAttrEventStream;
+    std::unique_ptr<FileLocationEventStream> m_fileLocationEventStream;
+
+private:
+    void initializeStreams(std::shared_ptr<Context> context);
 };
 
 } // namespace events

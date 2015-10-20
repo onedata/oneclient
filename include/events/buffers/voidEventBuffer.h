@@ -6,8 +6,8 @@
  * 'LICENSE.txt'
  */
 
-#ifndef ONECLIENT_EVENTS_BUFFERS_VOID_BUFFER_H
-#define ONECLIENT_EVENTS_BUFFERS_VOID_BUFFER_H
+#ifndef ONECLIENT_EVENTS_BUFFER_VOID_EVENT_BUFFER_H
+#define ONECLIENT_EVENTS_BUFFER_VOID_EVENT_BUFFER_H
 
 #include "eventBuffer.h"
 
@@ -16,30 +16,42 @@ namespace client {
 namespace events {
 
 /**
- * The VoidEventBuffer class is an implementation of Null Object design pattern.
+ * @c VoidEventBuffer class is an implementation of Null Object design pattern.
  * The buffer ignores provided events.
  */
 template <class EventT> class VoidEventBuffer : public EventBuffer<EventT> {
 public:
+    using EventPtr = typename EventBuffer<EventT>::EventPtr;
+    using EventHandler = typename EventBuffer<EventT>::EventHandler;
+
     /**
-     * @copydoc EventBuffer::push(EventT evt)
+     * @copydoc EventBuffer::push(EventPtr)
      * @c VoidEventBuffer ignores provided @p event.
      */
-    bool push(EventT) override { return false; }
+    void push(EventPtr) override;
 
     /**
-     * @copydoc EventBuffer::clear()
-     */
-    void clear() override {}
+      * @copydoc EventBuffer::clear()
+      */
+    void clear() override;
 
     /**
-     * @copydoc EventBuffer::try_clear()
-     */
-    bool try_clear() override { return false; }
+      * @copydoc EventBuffer::setOnClearHandler(EventHandler)
+      */
+    void setOnClearHandler(EventHandler) override;
 };
+
+template <class EventT> void VoidEventBuffer<EventT>::push(EventPtr) {}
+
+template <class EventT> void VoidEventBuffer<EventT>::clear() {}
+
+template <class EventT>
+void VoidEventBuffer<EventT>::setOnClearHandler(EventHandler)
+{
+}
 
 } // namespace events
 } // namespace client
 } // namespace one
 
-#endif // ONECLIENT_EVENTS_BUFFERS_VOID_BUFFER_H
+#endif // ONECLIENT_EVENTS_BUFFER_VOID_EVENT_BUFFER_H

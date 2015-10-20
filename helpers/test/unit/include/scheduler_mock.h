@@ -9,19 +9,15 @@
 #ifndef HELPERS_SCHEDULER_MOCK_H
 #define HELPERS_SCHEDULER_MOCK_H
 
-#include "scheduler.h"
-
 #include <gmock/gmock.h>
 
-class MockScheduler : public one::Scheduler {
-public:
-    MockScheduler()
-        : one::Scheduler{0}
-    {
-    }
+#include <chrono>
+#include <functional>
 
-    MOCK_METHOD2(
-        post, void(const asio::io_service::strand &, std::function<void()>));
+class MockScheduler {
+public:
+    MOCK_METHOD2(schedule, std::function<void()>(const std::chrono::milliseconds,
+                               std::function<void()>));
 };
 
 #endif // HELPERS_SCHEDULER_MOCK_H

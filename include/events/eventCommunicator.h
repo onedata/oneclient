@@ -10,44 +10,95 @@
 #define ONECLIENT_EVENTS_EVENT_COMMUNICATOR_H
 
 #include "communication/communicator.h"
-#include "communication/streaming/streamManager.h"
+#include "events/buffers/voidEventBuffer.h"
+#include "events/subscriptions/subscriptionCancellation.h"
 
-#include <memory>
+#include <functional>
+#include <unordered_map>
 
 namespace one {
 namespace client {
-
-class Context;
-
 namespace events {
 
-class Event;
-
 /**
- * The EventCommunicator class is responsible for sending event messages to the
- * server using communication stream.
+ * @c EventCommunicator is responsible for sending events and subscriptions to
+ * the server. It is a wrapper on @c one::communication::StreamManager::Stream.
  */
-class EventCommunicator {
+template <class EventType> class EventCommunicator {
 public:
+    using EventT = EventType;
+    using EventPtr = typename EventT::EventPtr;
+    using Subscription = typename EventT::Subscription;
+    using SubscriptionPtr = std::unique_ptr<Subscription>;
+    using StreamPtr = std::shared_ptr<communication::StreamManager::Stream>;
+
+    /**
+     * A reference to @c *this typed as a @c Sequencer.
+     */
+    EventCommunicator<EventT> &communicator = *this;
+
     /**
      * Constructor.
-     * @param context A @c Context instance used to acquire communication
-     * stream.
+     * @param stream Communication stream.
      */
-    EventCommunicator(std::shared_ptr<Context> ctx);
+    EventCommunicator(StreamPtr stream);
 
+    /**
+     * Destructor.
+     * Closes the underlying communication stream.
+     */
     virtual ~EventCommunicator();
 
     /**
-     * Sends event to the server using communication stream.
-     * @param evt Event to be sent.
+     * Sends an event to the server.
+     * @param event Event to be sent.
      */
-    virtual void send(const Event &evt) const;
+    void send(EventPtr event);
+
+    /**
+     * Sends a subscription to the server.
+     * @param subscription Subscription to be sent.
+     */
+    void send(const Subscription &subscription);
+
+    /**
+     * Sends a subscription cancellaion to the server.
+     * @param cancellaion Subscription cancellaion to be sent.
+     */
+    void send(const SubscriptionCancellation &cancellation);
 
 private:
-    std::unique_ptr<communication::StreamManager> m_stmManager;
-    std::shared_ptr<communication::StreamManager::Stream> m_stm;
+    StreamPtr m_stream;
 };
+
+template <class EventT>
+EventCommunicator<EventT>::EventCommunicator(StreamPtr stream)
+    : m_stream{std::move(stream)}
+{
+}
+
+template <class EventT> EventCommunicator<EventT>::~EventCommunicator()
+{
+    m_stream->close();
+}
+
+template <class EventT> void EventCommunicator<EventT>::send(EventPtr event)
+{
+    m_stream->send(*event);
+}
+
+template <class EventT>
+void EventCommunicator<EventT>::send(const Subscription &subscription)
+{
+    m_stream->send(subscription);
+}
+
+template <class EventT>
+void EventCommunicator<EventT>::send(
+    const SubscriptionCancellation &cancellation)
+{
+    m_stream->send(cancellation);
+}
 
 } // namespace events
 } // namespace client

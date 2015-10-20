@@ -60,7 +60,7 @@ public:
      * Sends a next message in the stream.
      * @param msg The message to send through the stream.
      */
-    void send(const messages::ClientMessage &msg);
+    virtual void send(const messages::ClientMessage &msg);
 
     /**
      * Resends messages requested by the remote party.
@@ -78,7 +78,7 @@ public:
     /**
      * Closes the stream by sending an end-of-stream message.
      */
-    void close();
+    virtual void close();
 
     /**
      * Resets the stream's counters.
@@ -162,8 +162,7 @@ void TypedStream<Communicator>::handleMessageRequest(
 
     std::shared_lock<std::shared_timed_mutex> lock{m_bufferMutex};
     for (ClientMessagePtr it; m_buffer.try_pop(it) &&
-             it->message_stream().sequence_number() <=
-                 msg.lower_sequence_number();)
+         it->message_stream().sequence_number() <= msg.lower_sequence_number();)
         processed.emplace_back(std::move(it));
 
     for (auto &streamMsg : processed) {

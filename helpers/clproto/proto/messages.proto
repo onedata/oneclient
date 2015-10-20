@@ -24,30 +24,31 @@ message ClientMessage {
     optional MessageStream message_stream = 2; // identifies message as part of
                                                // a stream
     oneof message_body { // list of messages that can be sent from
-        // the client to the server
+                         // the client to the server
         // handshake_messages.proto
-        HandshakeRequest   handshake_request                          = 3;
-        Token              token                                      = 4;
+        HandshakeRequest         handshake_request         = 3;
+        Token                    token                     = 4;
 
         // common_messages.proto
-        Status             status                                     = 5;
+        Status                   status                    = 5;
 
         // stream_messages.proto
-        MessageStreamReset     message_stream_reset                   = 6;
-        MessageRequest         message_request                        = 7;
-        MessageAcknowledgement message_acknowledgement                = 8;
-        EndOfMessageStream     end_of_stream                          = 9;
+        MessageStreamReset       message_stream_reset      = 6;
+        MessageRequest           message_request           = 7;
+        MessageAcknowledgement   message_acknowledgement   = 8;
+        EndOfMessageStream       end_of_stream             = 9;
 
         // event_messages.proto
-        Event                         event                           = 10;
-        EventSubscriptionCancellation event_subscription_cancellation = 11;
+        Event                    event                     = 10;
+        Subscription             subscription              = 11;
+        SubscriptionCancellation subscription_cancellation = 12;
 
         // diagnostic_messages.proto
-        Ping               ping                                       = 12;
-        GetProtocolVersion get_protocol_version                       = 13;
+        Ping                     ping                      = 13;
+        GetProtocolVersion       get_protocol_version      = 14;
 
         // fuse_messages.proto
-        FuseRequest        fuse_request                               = 14;
+        FuseRequest              fuse_request              = 15;
     }
 }
 
@@ -58,28 +59,29 @@ message ServerMessage {
     optional MessageStream message_stream = 2; // identifies message as part of
                                                // a stream
     oneof message_body { // list of messages that can be sent from
-        // the server to the client
+                         // the server to the client
         // handshake_messages.proto
-        HandshakeResponse      handshake_response                     = 3;
+        HandshakeResponse        handshake_response        = 3;
 
         // common_messages.proto
-        Status                 status                                 = 4;
+        Status                   status                    = 4;
 
         // stream_messages.proto
-        MessageStreamReset     message_stream_reset                   = 5;
-        MessageRequest         message_request                        = 6;
-        MessageAcknowledgement message_acknowledgement                = 7;
-        EndOfMessageStream     end_of_stream                          = 8;
+        MessageStreamReset       message_stream_reset      = 5;
+        MessageRequest           message_request           = 6;
+        MessageAcknowledgement   message_acknowledgement   = 7;
+        EndOfMessageStream       end_of_stream             = 8;
 
         // event_messages.proto
-        EventSubscription             event_subscription              = 9;
-        EventSubscriptionCancellation event_subscription_cancellation = 10;
+        Event                    event                     = 9;
+        Subscription             subscription              = 10;
+        SubscriptionCancellation subscription_cancellation = 11;
 
         // diagnostic_messages.proto
-        Pong                   pong                                   = 11;
-        ProtocolVersion        protocol_version                       = 12;
+        Pong                     pong                      = 12;
+        ProtocolVersion          protocol_version          = 13;
 
         // fuse_messages.proto
-        FuseResponse           fuse_response                          = 13;
+        FuseResponse             fuse_response             = 14;
     }
 }

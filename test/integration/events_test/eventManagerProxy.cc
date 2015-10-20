@@ -16,9 +16,12 @@
 #include <boost/python.hpp>
 #include <boost/make_shared.hpp>
 
-#include <map>
 #include <atomic>
+#include <chrono>
+#include <map>
 #include <memory>
+
+#include <iostream>
 
 using namespace one;
 using namespace one::client;
@@ -26,165 +29,290 @@ using namespace one::client::events;
 using namespace one::communication;
 using namespace boost::python;
 
+inline std::chrono::milliseconds ms(std::uint64_t timeThr)
+{
+    return std::chrono::milliseconds{timeThr};
+}
+
 class EventManagerProxy {
 public:
-    EventManagerProxy(const unsigned int threadsNumber,
-        const unsigned int connectionsNumber, std::string host,
+    EventManagerProxy(const unsigned int connectionsNumber, std::string host,
         const unsigned short port)
     {
-        auto ctx = std::make_shared<Context>();
-        auto sched = std::make_shared<Scheduler>(threadsNumber);
-        m_comm = std::make_shared<Communicator>(connectionsNumber,
+        auto context = std::make_shared<Context>();
+        auto scheduler = std::make_shared<Scheduler>(1);
+        m_communicator = std::make_shared<Communicator>(connectionsNumber,
             std::move(host), port, false, communication::createConnection);
-        m_comm->connect();
-        ctx->setScheduler(std::move(sched));
-        ctx->setCommunicator(m_comm);
-        m_evtMan = std::make_unique<EventManager>(std::move(ctx));
+        m_communicator->connect();
+        context->setScheduler(std::move(scheduler));
+        context->setCommunicator(m_communicator);
+        m_manager = std::make_unique<EventManager>(std::move(context));
+        m_manager->setFileAttrHandler(
+            [this](auto) { m_fileAttrHandlerCallCounter++; });
+        m_manager->setFileLocationHandler(
+            ([this](auto) { m_fileLocationHandlerCallCounter++; }));
     }
 
-    ~EventManagerProxy() { m_comm->stop(); }
+    ~EventManagerProxy() { m_communicator->stop(); }
 
-    uint64_t emitReadEvent(off_t offset, size_t size, std::string fileUuid)
+    std::uint64_t emitReadEvent(off_t offset, size_t size, std::string fileUuid)
     {
-        m_evtMan->emitReadEvent(offset, size, std::move(fileUuid));
-        return m_seqNum++;
+        m_manager->emitReadEvent(offset, size, std::move(fileUuid));
+        return m_readEventStreamSequenceNumber++;
     }
 
-    uint64_t emitWriteEvent(off_t offset, size_t size, std::string fileUuid)
+    std::uint64_t emitWriteEvent(
+        off_t offset, size_t size, std::string fileUuid)
     {
-        m_evtMan->emitWriteEvent(offset, size, std::move(fileUuid), {}, {});
-        return m_seqNum++;
+        m_manager->emitWriteEvent(offset, size, std::move(fileUuid), {}, {});
+        return m_writeEventStreamSequenceNumber++;
     }
 
-    uint64_t emitTruncateEvent(off_t fileSize, std::string fileUuid)
+    std::uint64_t emitTruncateEvent(off_t fileSize, std::string fileUuid)
     {
-        m_evtMan->emitTruncateEvent(fileSize, std::move(fileUuid));
-        return m_seqNum++;
+        m_manager->emitTruncateEvent(fileSize, std::move(fileUuid));
+        return m_writeEventStreamSequenceNumber++;
+    }
+
+    void unsubscribe(int id) { m_manager->unsubscribe(id); }
+
+    int subscribeFileAttr(std::string fileUuid, size_t cliCtrThr,
+        std::uint64_t cliTimeThr, size_t svrCtrThr, std::uint64_t svrTimeThr)
+    {
+        return m_manager->subscribe(
+            FileAttrSubscription{fileUuid, cliCtrThr, ms(cliTimeThr)},
+            FileAttrSubscription{fileUuid, svrCtrThr, ms(svrTimeThr)});
+    }
+
+    int subscribeFileLocation(std::string fileUuid, size_t cliCtrThr,
+        std::uint64_t cliTimeThr, size_t svrCtrThr, std::uint64_t svrTimeThr)
+    {
+        return m_manager->subscribe(
+            FileLocationSubscription{fileUuid, cliCtrThr, ms(cliTimeThr)},
+            FileLocationSubscription{fileUuid, svrCtrThr, ms(svrTimeThr)});
+    }
+
+    int fileAttrHandlerCallCounter() { return m_fileAttrHandlerCallCounter; }
+
+    int fileLocationHandlerCallCounter()
+    {
+        return m_fileLocationHandlerCallCounter;
     }
 
 private:
-    std::atomic<uint64_t> m_seqNum{0};
-    std::shared_ptr<Communicator> m_comm;
-    std::unique_ptr<EventManager> m_evtMan;
+    std::atomic<int> m_fileAttrHandlerCallCounter{0};
+    std::atomic<int> m_fileLocationHandlerCallCounter{0};
+    std::atomic<std::uint64_t> m_readEventStreamSequenceNumber{0};
+    std::atomic<std::uint64_t> m_writeEventStreamSequenceNumber{0};
+    std::shared_ptr<Communicator> m_communicator;
+    std::unique_ptr<EventManager> m_manager;
 };
 
-one::clproto::ClientMessage createStreamMessage(uint64_t seqNum)
+template <class Message>
+Message createStreamMessage(std::uint64_t stmId, std::uint64_t seqNum)
 {
-    one::clproto::ClientMessage cliMsg{};
-    auto stmMsg = cliMsg.mutable_message_stream();
-    stmMsg->set_stream_id(0);
-    stmMsg->set_sequence_number(seqNum);
-    return std::move(cliMsg);
+    Message message{};
+    auto streamMsg = message.mutable_message_stream();
+    streamMsg->set_stream_id(stmId);
+    streamMsg->set_sequence_number(seqNum);
+    return std::move(message);
 }
 
 std::string createReadEventMsg(
-    std::size_t ctr, std::string fileUuid, list blocks, uint64_t seqNum)
+    std::size_t ctr, std::string fileUuid, list blocks, std::uint64_t seqNum)
 {
-    auto cliMsg = createStreamMessage(seqNum);
-    auto evtMsg = cliMsg.mutable_event();
-    evtMsg->set_counter(ctr);
-    auto readEvtMsg = evtMsg->mutable_read_event();
-    readEvtMsg->set_file_uuid(std::move(fileUuid));
+    auto clientMsg = createStreamMessage<clproto::ClientMessage>(0, seqNum);
+    auto eventMsg = clientMsg.mutable_event();
+    eventMsg->set_counter(ctr);
+    auto readEventMsg = eventMsg->mutable_read_event();
+    readEventMsg->set_file_uuid(std::move(fileUuid));
     std::size_t size = 0;
     for (int i = 0; i < len(blocks); ++i) {
         off_t blockOffset = extract<off_t>(blocks[i][0]);
         std::size_t blockSize = extract<std::size_t>(blocks[i][1]);
-        auto blockMsg = readEvtMsg->add_blocks();
+        auto blockMsg = readEventMsg->add_blocks();
         blockMsg->set_offset(blockOffset);
         blockMsg->set_size(blockSize);
         blockMsg->set_storage_id("");
         blockMsg->set_file_id("");
         size += blockSize;
     }
-    readEvtMsg->set_size(size);
-    return cliMsg.SerializeAsString();
+    readEventMsg->set_size(size);
+    return clientMsg.SerializeAsString();
 }
 
 std::string createWriteEventMsg(std::size_t ctr, std::string fileUuid,
-    std::size_t fileSize, list blocks, uint64_t seqNum)
+    std::size_t fileSize, list blocks, std::uint64_t seqNum)
 {
-    auto cliMsg = createStreamMessage(seqNum);
-    auto evtMsg = cliMsg.mutable_event();
-    evtMsg->set_counter(ctr);
-    auto writeEvtMsg = evtMsg->mutable_write_event();
-    writeEvtMsg->set_file_uuid(std::move(fileUuid));
+    auto clientMsg = createStreamMessage<clproto::ClientMessage>(1, seqNum);
+    auto eventMsg = clientMsg.mutable_event();
+    eventMsg->set_counter(ctr);
+    auto writeEventMsg = eventMsg->mutable_write_event();
+    writeEventMsg->set_file_uuid(std::move(fileUuid));
     if (fileSize > 0)
-        writeEvtMsg->set_file_size(fileSize);
+        writeEventMsg->set_file_size(fileSize);
     std::size_t size = 0;
     for (int i = 0; i < len(blocks); ++i) {
         off_t blockOffset = extract<off_t>(blocks[i][0]);
         std::size_t blockSize = extract<std::size_t>(blocks[i][1]);
-        auto blockMsg = writeEvtMsg->add_blocks();
+        auto blockMsg = writeEventMsg->add_blocks();
         blockMsg->set_offset(blockOffset);
         blockMsg->set_size(blockSize);
         blockMsg->set_storage_id("");
         blockMsg->set_file_id("");
         size += blockSize;
     }
-    writeEvtMsg->set_size(size);
-    return cliMsg.SerializeAsString();
+    writeEventMsg->set_size(size);
+    return clientMsg.SerializeAsString();
 }
 
-std::string createTruncateEventMsg(
-    std::size_t ctr, std::string fileUuid, size_t fileSize, uint64_t seqNum)
+std::string createTruncateEventMsg(std::size_t ctr, std::string fileUuid,
+    size_t fileSize, std::uint64_t seqNum)
 {
-    auto cliMsg = createStreamMessage(seqNum);
-    auto evtMsg = cliMsg.mutable_event();
-    evtMsg->set_counter(ctr);
-    auto truncateEvtMsg = evtMsg->mutable_write_event();
-    truncateEvtMsg->set_file_uuid(std::move(fileUuid));
-    truncateEvtMsg->set_size(0);
-    truncateEvtMsg->set_file_size(fileSize);
-    return cliMsg.SerializeAsString();
+    auto clientMsg = createStreamMessage<clproto::ClientMessage>(1, seqNum);
+    auto eventMsg = clientMsg.mutable_event();
+    eventMsg->set_counter(ctr);
+    auto truncateEventMsg = eventMsg->mutable_write_event();
+    truncateEventMsg->set_file_uuid(std::move(fileUuid));
+    truncateEventMsg->set_size(0);
+    truncateEventMsg->set_file_size(fileSize);
+    return clientMsg.SerializeAsString();
+}
+
+std::string createFileAttrEventMsg(
+    std::size_t ctr, std::string uuid, off_t size, std::uint64_t seqNum)
+{
+    std::cout << "createFileAttrEventMsg" << std::endl;
+
+    auto serverMsg = createStreamMessage<clproto::ServerMessage>(2, seqNum);
+    auto eventMsg = serverMsg.mutable_event();
+    eventMsg->set_counter(ctr);
+    auto updateEventMsg = eventMsg->mutable_update_event();
+    auto fileAttrEventMsg = updateEventMsg->mutable_file_attr();
+    fileAttrEventMsg->set_uuid(std::move(uuid));
+    fileAttrEventMsg->set_name("");
+    fileAttrEventMsg->set_mode(0);
+    fileAttrEventMsg->set_uid(0);
+    fileAttrEventMsg->set_gid(0);
+    fileAttrEventMsg->set_atime(0);
+    fileAttrEventMsg->set_mtime(0);
+    fileAttrEventMsg->set_ctime(0);
+    fileAttrEventMsg->set_type(one::clproto::FileType::REG);
+    fileAttrEventMsg->set_size(size);
+    return serverMsg.SerializeAsString();
+}
+
+std::string createFileLocationEventMsg(
+    std::size_t ctr, std::string uuid, std::string fileId, std::uint64_t seqNum)
+{
+    auto serverMsg = createStreamMessage<clproto::ServerMessage>(3, seqNum);
+    auto eventMsg = serverMsg.mutable_event();
+    eventMsg->set_counter(ctr);
+    auto updateEventMsg = eventMsg->mutable_update_event();
+    auto fileLocationEventMsg = updateEventMsg->mutable_file_location();
+    fileLocationEventMsg->set_uuid(std::move(uuid));
+    fileLocationEventMsg->set_file_id(std::move(fileId));
+    fileLocationEventMsg->set_provider_id("");
+    fileLocationEventMsg->set_storage_id("");
+    return serverMsg.SerializeAsString();
 }
 
 std::string createReadEventSubscriptionMsg(
-    uint64_t id, size_t ctrThr, uint64_t timeThr, size_t sizeThr)
+    std::int64_t id, size_t ctrThr, std::uint64_t timeThr, size_t sizeThr)
 {
-    auto srvMsg = std::make_unique<one::clproto::ServerMessage>();
-    auto evtSubMsg = srvMsg->mutable_event_subscription();
-    evtSubMsg->set_id(id);
-    auto readEvtSubMsg = evtSubMsg->mutable_read_event_subscription();
+    auto serverMsg = std::make_unique<one::clproto::ServerMessage>();
+    auto subscriptionMsg = serverMsg->mutable_subscription();
+    subscriptionMsg->set_id(id);
+    auto readSubscriptionMsg = subscriptionMsg->mutable_read_subscription();
     if (ctrThr > 0)
-        readEvtSubMsg->set_counter_threshold(ctrThr);
+        readSubscriptionMsg->set_counter_threshold(ctrThr);
     if (timeThr > 0)
-        readEvtSubMsg->set_time_threshold(timeThr);
+        readSubscriptionMsg->set_time_threshold(timeThr);
     if (sizeThr > 0)
-        readEvtSubMsg->set_size_threshold(sizeThr);
-    return srvMsg->SerializeAsString();
+        readSubscriptionMsg->set_size_threshold(sizeThr);
+    return serverMsg->SerializeAsString();
 }
 
 std::string createWriteEventSubscriptionMsg(
-    uint64_t id, size_t ctrThr, uint64_t timeThr, size_t sizeThr)
+    std::int64_t id, size_t ctrThr, std::uint64_t timeThr, size_t sizeThr)
 {
-    auto srvMsg = std::make_unique<one::clproto::ServerMessage>();
-    auto evtSubMsg = srvMsg->mutable_event_subscription();
-    evtSubMsg->set_id(id);
-    auto writeEvtSubMsg = evtSubMsg->mutable_write_event_subscription();
+    auto serverMsg = std::make_unique<one::clproto::ServerMessage>();
+    auto subscriptionMsg = serverMsg->mutable_subscription();
+    subscriptionMsg->set_id(id);
+    auto writeSubscriptionMsg = subscriptionMsg->mutable_write_subscription();
     if (ctrThr > 0)
-        writeEvtSubMsg->set_counter_threshold(ctrThr);
+        writeSubscriptionMsg->set_counter_threshold(ctrThr);
     if (timeThr > 0)
-        writeEvtSubMsg->set_time_threshold(timeThr);
+        writeSubscriptionMsg->set_time_threshold(timeThr);
     if (sizeThr > 0)
-        writeEvtSubMsg->set_size_threshold(sizeThr);
-    return srvMsg->SerializeAsString();
+        writeSubscriptionMsg->set_size_threshold(sizeThr);
+    return serverMsg->SerializeAsString();
 }
 
-std::string createEventSubscriptionCancellationMsg(uint64_t id)
+std::string createFileAttrSubscriptionMsg(std::int64_t id, std::string fileUuid,
+    size_t ctrThr, std::uint64_t timeThr, std::uint64_t seqNum)
 {
-    auto srvMsg = std::make_unique<one::clproto::ServerMessage>();
-    auto evtSubCanMsg = srvMsg->mutable_event_subscription_cancellation();
-    evtSubCanMsg->set_id(id);
-    return srvMsg->SerializeAsString();
+    auto clientMsg = createStreamMessage<clproto::ClientMessage>(2, seqNum);
+    auto subscriptionMsg = clientMsg.mutable_subscription();
+    subscriptionMsg->set_id(id);
+    auto fileAttrSubscriptionMsg =
+        subscriptionMsg->mutable_file_attr_subscription();
+    fileAttrSubscriptionMsg->set_file_uuid(std::move(fileUuid));
+    if (ctrThr > 0)
+        fileAttrSubscriptionMsg->set_counter_threshold(ctrThr);
+    if (timeThr > 0)
+        fileAttrSubscriptionMsg->set_time_threshold(timeThr);
+    return clientMsg.SerializeAsString();
+}
+
+std::string createFileLocationSubscriptionMsg(std::int64_t id,
+    std::string fileUuid, size_t ctrThr, std::uint64_t timeThr,
+    std::uint64_t seqNum)
+{
+    auto clientMsg = createStreamMessage<clproto::ClientMessage>(3, seqNum);
+    auto subscriptionMsg = clientMsg.mutable_subscription();
+    subscriptionMsg->set_id(id);
+    auto fileAttrSubscriptionMsg =
+        subscriptionMsg->mutable_file_location_subscription();
+    fileAttrSubscriptionMsg->set_file_uuid(std::move(fileUuid));
+    if (ctrThr > 0)
+        fileAttrSubscriptionMsg->set_counter_threshold(ctrThr);
+    if (timeThr > 0)
+        fileAttrSubscriptionMsg->set_time_threshold(timeThr);
+    return clientMsg.SerializeAsString();
+}
+
+template <class Message>
+std::string createSubscriptionCancellationMsg(
+    std::int64_t id, std::uint64_t stmId, std::uint64_t seqNum)
+{
+    auto message = createStreamMessage<Message>(stmId, seqNum);
+    auto cancellationMsg = message.mutable_subscription_cancellation();
+    cancellationMsg->set_id(id);
+    return message.SerializeAsString();
+}
+
+std::string createClientSubscriptionCancellationMsg(
+    std::int64_t id, std::uint64_t stmId = 1, std::uint64_t seqNum = 0)
+{
+    return createSubscriptionCancellationMsg<clproto::ClientMessage>(
+        id, stmId, seqNum);
+}
+
+std::string createServerSubscriptionCancellationMsg(
+    std::int64_t id, std::uint64_t stmId = 1, std::uint64_t seqNum = 0)
+{
+    return createSubscriptionCancellationMsg<clproto::ServerMessage>(
+        id, stmId, seqNum);
 }
 
 namespace {
-boost::shared_ptr<EventManagerProxy> create(const unsigned int threadsNumber,
+boost::shared_ptr<EventManagerProxy> create(
     const unsigned int connectionsNumber, std::string host,
     const unsigned short port)
 {
     return boost::make_shared<EventManagerProxy>(
-        threadsNumber, connectionsNumber, std::move(host), port);
+        connectionsNumber, std::move(host), port);
 }
 }
 
@@ -194,14 +322,28 @@ BOOST_PYTHON_MODULE(events)
         .def("__init__", make_constructor(create))
         .def("emitReadEvent", &EventManagerProxy::emitReadEvent)
         .def("emitWriteEvent", &EventManagerProxy::emitWriteEvent)
-        .def("emitTruncateEvent", &EventManagerProxy::emitTruncateEvent);
+        .def("emitTruncateEvent", &EventManagerProxy::emitTruncateEvent)
+        .def("unsubscribe", &EventManagerProxy::unsubscribe)
+        .def("subscribeFileAttr", &EventManagerProxy::subscribeFileAttr)
+        .def("subscribeFileLocation", &EventManagerProxy::subscribeFileLocation)
+        .def("fileAttrHandlerCallCounter",
+            &EventManagerProxy::fileAttrHandlerCallCounter)
+        .def("fileLocationHandlerCallCounter",
+            &EventManagerProxy::fileLocationHandlerCallCounter);
 
     def("createReadEventMsg", &createReadEventMsg);
     def("createWriteEventMsg", &createWriteEventMsg);
     def("createTruncateEventMsg", &createTruncateEventMsg);
+    def("createFileAttrEventMsg", &createFileAttrEventMsg);
+    def("createFileLocationEventMsg", &createFileLocationEventMsg);
 
     def("createReadEventSubscriptionMsg", &createReadEventSubscriptionMsg);
     def("createWriteEventSubscriptionMsg", &createWriteEventSubscriptionMsg);
-    def("createEventSubscriptionCancellationMsg",
-        &createEventSubscriptionCancellationMsg);
+    def("createClientSubscriptionCancellationMsg",
+        &createClientSubscriptionCancellationMsg);
+    def("createServerSubscriptionCancellationMsg",
+        &createServerSubscriptionCancellationMsg);
+    def("createFileAttrSubscriptionMsg", &createFileAttrSubscriptionMsg);
+    def("createFileLocationSubscriptionMsg",
+        &createFileLocationSubscriptionMsg);
 }

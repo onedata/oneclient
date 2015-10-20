@@ -10,99 +10,155 @@
 
 #include "context.h"
 #include "communication/subscriptionData.h"
-#include "events/subscriptions/ioEventSubscription.h"
-#include "events/subscriptions/eventSubscriptionCancellation.h"
+#include "events/subscriptionRegistry.h"
+#include "events/subscriptions/subscriptionCancellation.h"
+#include "scheduler.h"
 
 #include "messages.pb.h"
-
-#include <asio/io_service_strand.hpp>
 
 namespace one {
 namespace client {
 namespace events {
 
-EventManager::EventManager(std::shared_ptr<Context> ctx)
-    : m_ctx{std::move(ctx)}
-    , m_evtComm{new EventCommunicator{m_ctx}}
-    , m_subReg{new SubscriptionRegistry{m_ctx}}
-    , m_readEvtStm{new IOEventStream<ReadEvent>{m_ctx, *m_evtComm}}
-    , m_writeEvtStm{new IOEventStream<WriteEvent>{m_ctx, *m_evtComm}}
+EventManager::EventManager(std::shared_ptr<Context> context)
+    : m_streamManager{context->communicator()}
+    , m_registry{std::make_shared<SubscriptionRegistry>()}
+    , m_readEventStream{std::make_unique<ReadEventStream>(
+          m_streamManager.create())}
+    , m_writeEventStream{std::make_unique<WriteEventStream>(
+          m_streamManager.create())}
+    , m_fileAttrEventStream{std::make_unique<FileAttrEventStream>(
+          m_streamManager.create())}
+    , m_fileLocationEventStream{
+          std::make_unique<FileLocationEventStream>(m_streamManager.create())}
 {
-    auto predicate = [](const clproto::ServerMessage &msg, const bool) {
-        return msg.has_event_subscription() ||
-            msg.has_event_subscription_cancellation();
+    auto predicate = [](const clproto::ServerMessage &message, const bool) {
+        return message.has_event() || message.has_subscription() ||
+            message.has_subscription_cancellation();
     };
-    auto callback = [this](const clproto::ServerMessage &msg) {
-        if (msg.has_event_subscription())
-            handle(msg.event_subscription());
-        else if (msg.has_event_subscription_cancellation())
-            handle(msg.event_subscription_cancellation());
+    auto callback = [this](const clproto::ServerMessage &message) {
+        if (message.has_event())
+            handle(message.event());
+
+        else if (message.has_subscription())
+            handle(message.subscription());
+        else if (message.has_subscription_cancellation())
+            handle(message.subscription_cancellation());
     };
-    m_ctx->communicator()->subscribe(communication::SubscriptionData{
+    context->communicator()->subscribe(communication::SubscriptionData{
         std::move(predicate), std::move(callback)});
+
+    initializeStreams(std::move(context));
 }
 
 void EventManager::emitReadEvent(
     off_t offset, size_t size, std::string fileUuid) const
 {
-    m_ctx->scheduler()->post(
-        m_readEvtStm->strand(), [ =, fileUuid = std::move(fileUuid) ] {
-            ReadEvent evt{offset, size, std::move(fileUuid)};
-            m_readEvtStm->push(std::move(evt));
-        });
+    m_readEventStream->createAndEmitEvent(offset, size, std::move(fileUuid));
 }
 
 void EventManager::emitWriteEvent(off_t offset, std::size_t size,
     std::string fileUuid, std::string storageId, std::string fileId) const
 {
-    m_ctx->scheduler()->post(m_writeEvtStm->strand(),
-        [
-          =,
-          fileUuid = std::move(fileUuid),
-          storageId = std::move(storageId),
-          fileId = std::move(fileId)
-        ] {
-            WriteEvent evt{offset, size, std::move(fileUuid),
-                std::move(storageId), std::move(fileId)};
-            m_writeEvtStm->push(std::move(evt));
-        });
+    m_writeEventStream->createAndEmitEvent(offset, size, std::move(fileUuid),
+        std::move(storageId), std::move(fileId));
 }
 
 void EventManager::emitTruncateEvent(off_t fileSize, std::string fileUuid) const
 {
-    m_ctx->scheduler()->post(
-        m_writeEvtStm->strand(), [ =, fileUuid = std::move(fileUuid) ] {
-            TruncateEvent evt{fileSize, std::move(fileUuid)};
-            m_writeEvtStm->push(std::move(evt));
-        });
+    m_writeEventStream->createAndEmitEvent(0, 0, fileSize, std::move(fileUuid));
 }
 
-void EventManager::handle(const clproto::EventSubscription &msg)
+void EventManager::setFileAttrHandler(FileAttrEventStream::Handler handler)
 {
-    if (msg.has_read_event_subscription()) {
-        IOEventSubscription<ReadEvent> evtSub{
-            msg.id(), msg.read_event_subscription()};
-        m_ctx->scheduler()->post(
-            m_readEvtStm->strand(), [ this, evtSub = std::move(evtSub) ] {
-                auto record = m_readEvtStm->subscribe(std::move(evtSub));
-                m_subReg->add(std::move(record));
-            });
-    }
-    else if (msg.has_write_event_subscription()) {
-        IOEventSubscription<WriteEvent> evtSub{
-            msg.id(), msg.write_event_subscription()};
-        m_ctx->scheduler()->post(
-            m_writeEvtStm->strand(), [ this, evtSub = std::move(evtSub) ] {
-                auto record = m_writeEvtStm->subscribe(std::move(evtSub));
-                m_subReg->add(std::move(record));
-            });
+    m_fileAttrEventStream->setEventHandler(std::move(handler));
+}
+
+std::int64_t EventManager::subscribe(FileAttrSubscription clientSubscription,
+    FileAttrSubscription serverSubscription)
+{
+    return m_fileAttrEventStream->subscribe(
+        std::move(clientSubscription), std::move(serverSubscription));
+}
+
+void EventManager::setFileLocationHandler(
+    FileLocationEventStream::Handler handler)
+{
+    m_fileLocationEventStream->setEventHandler(std::move(handler));
+}
+
+std::int64_t EventManager::subscribe(
+    FileLocationSubscription clientSubscription,
+    FileLocationSubscription serverSubscription)
+{
+    return m_fileLocationEventStream->subscribe(
+        std::move(clientSubscription), std::move(serverSubscription));
+}
+
+bool EventManager::unsubscribe(std::int64_t id)
+{
+    return m_registry->removeSubscription(SubscriptionCancellation{id});
+}
+
+void EventManager::handle(const clproto::Event &message)
+{
+    using namespace messages::fuse;
+
+    if (message.has_update_event()) {
+        const auto &updateEvent = message.update_event();
+        if (updateEvent.has_file_attr()) {
+            UpdateEvent<FileAttr> event{updateEvent.file_attr()};
+            m_fileAttrEventStream->emitEvent(std::move(event));
+        }
+        else if (updateEvent.has_file_location()) {
+            UpdateEvent<FileLocation> event{updateEvent.file_location()};
+            m_fileLocationEventStream->emitEvent(std::move(event));
+        }
     }
 }
 
-void EventManager::handle(const clproto::EventSubscriptionCancellation &msg)
+void EventManager::handle(const clproto::Subscription &message)
 {
-    EventSubscriptionCancellation evtSubCan{msg};
-    m_subReg->remove(std::move(evtSubCan));
+    const auto id = message.id();
+    if (message.has_read_subscription()) {
+        ReadSubscription subscription{id, message.read_subscription()};
+        m_readEventStream->subscribe(std::move(subscription));
+    }
+    else if (message.has_write_subscription()) {
+        WriteSubscription subscription{id, message.write_subscription()};
+        m_writeEventStream->subscribe(std::move(subscription));
+    }
+}
+
+void EventManager::handle(const clproto::SubscriptionCancellation &message)
+{
+    SubscriptionCancellation cancellation{message};
+    m_registry->removeSubscription(cancellation);
+}
+
+void EventManager::initializeStreams(std::shared_ptr<Context> context)
+{
+    m_readEventStream->setScheduler(context->scheduler());
+    m_readEventStream->setSubscriptionRegistry(m_registry);
+    m_readEventStream->setEventHandler([this](auto event) {
+        m_readEventStream->communicator.send(std::move(event));
+    });
+    m_readEventStream->initializeAggregation();
+
+    m_writeEventStream->setScheduler(context->scheduler());
+    m_writeEventStream->setSubscriptionRegistry(m_registry);
+    m_writeEventStream->setEventHandler([this](auto event) {
+        m_writeEventStream->communicator.send(std::move(event));
+    });
+    m_writeEventStream->initializeAggregation();
+
+    m_fileAttrEventStream->setScheduler(context->scheduler());
+    m_fileAttrEventStream->setSubscriptionRegistry(m_registry);
+    m_fileAttrEventStream->initializeAggregation();
+
+    m_fileLocationEventStream->setScheduler(context->scheduler());
+    m_fileLocationEventStream->setSubscriptionRegistry(m_registry);
+    m_fileLocationEventStream->initializeAggregation();
 }
 
 } // namespace events

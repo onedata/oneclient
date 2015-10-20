@@ -7,6 +7,7 @@ This software is released under the MIT license cited in 'LICENSE.txt'."""
 import os
 import sys
 import math
+import time
 import pytest
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -59,8 +60,24 @@ def recv_time_param(value, unit='ms'):
 
 
 def evtps_param(evt_num, us):
+    """Returns parameter that describes number of events per second."""
     return Parameter('evtps', 'Number of events per second.',
                      1000000. * evt_num / us, 'event/s')
+
+
+def wait_for_result(expected, attempts, delay_ms, function, *args):
+    """Executes function periodically as long as it does not return expected
+    value or number of attemptes is exceeded."""
+    while True:
+        if attempts <= 0:
+            return False
+        else:
+            result = function(*args)
+            if result == expected:
+                return True
+            else:
+                attempts -= 1
+                time.sleep(delay_ms / 1000)
 
 
 class TestEventManager:
@@ -96,7 +113,7 @@ class TestEventManager:
     def test_events_emission_when_counter_threshold_exceeded(self, parameters):
         """Test event emission for subscription with counter threshold set."""
         appmock_client.reset_tcp_server_history(self.ip)
-        evt_man = events.EventManager(4, 1, self.ip, 5555)
+        evt_man = events.EventManager(1, self.ip, 5555)
 
         ctr_thr = parameters['ctr_thr'].value
         evt_num = parameters['evt_num'].value
@@ -141,7 +158,7 @@ class TestEventManager:
     def test_events_emission_when_size_threshold_exceeded(self, parameters):
         """Test event emission for subscription with size threshold set."""
         appmock_client.reset_tcp_server_history(self.ip)
-        evt_man = events.EventManager(4, 1, self.ip, 5555)
+        evt_man = events.EventManager(1, self.ip, 5555)
 
         size_thr = parameters['size_thr'].value
         evt_num = parameters['evt_num'].value
@@ -174,7 +191,7 @@ class TestEventManager:
     def test_subscription_time_threshold(self, parameters):
         """Test event emission for subscription with time threshold set."""
         appmock_client.reset_tcp_server_history(self.ip)
-        evt_man = events.EventManager(4, 1, self.ip, 5555)
+        evt_man = events.EventManager(1, self.ip, 5555)
 
         msg = events.createReadEventSubscriptionMsg(1, 0, 100, 0)
         appmock_client.tcp_server_send(self.ip, 5555, msg)
@@ -186,7 +203,7 @@ class TestEventManager:
     def test_multiple_subscriptions(self, parameters):
         """Test event emission for multiple subscriptions of the same type."""
         appmock_client.reset_tcp_server_history(self.ip)
-        evt_man = events.EventManager(4, 1, self.ip, 5555)
+        evt_man = events.EventManager(1, self.ip, 5555)
 
         msg = events.createReadEventSubscriptionMsg(1, 0, 0, 50)
         appmock_client.tcp_server_send(self.ip, 5555, msg)
@@ -199,19 +216,19 @@ class TestEventManager:
         msg = events.createReadEventMsg(1, 'fileUuid', [(0, 5)], seq_num)
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
-        msg = events.createEventSubscriptionCancellationMsg(3)
+        msg = events.createServerSubscriptionCancellationMsg(3, 0, 0)
         appmock_client.tcp_server_send(self.ip, 5555, msg)
         seq_num = evt_man.emitReadEvent(0, 20, 'fileUuid')
         msg = events.createReadEventMsg(1, 'fileUuid', [(0, 20)], seq_num)
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
-        msg = events.createEventSubscriptionCancellationMsg(2)
+        msg = events.createServerSubscriptionCancellationMsg(2, 0, 1)
         appmock_client.tcp_server_send(self.ip, 5555, msg)
         seq_num = evt_man.emitReadEvent(0, 50, 'fileUuid')
         msg = events.createReadEventMsg(1, 'fileUuid', [(0, 50)], seq_num)
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
-        msg = events.createEventSubscriptionCancellationMsg(1)
+        msg = events.createServerSubscriptionCancellationMsg(1, 0, 2)
         appmock_client.tcp_server_send(self.ip, 5555, msg)
         seq_num = evt_man.emitReadEvent(0, 10, 'fileUuid')
         msg = events.createReadEventMsg(1, 'fileUuid', [(0, 10)], seq_num)
@@ -222,7 +239,7 @@ class TestEventManager:
 
     @performance({
         'repeats': 10,
-        'parameters': [size_thr_param(100), cycle_num_param(10)],
+        'parameters': [size_thr_param(100), cycle_num_param(2)],
         'configs': {
             'multiple_events': {
                 'description': 'Aggregates multiple events.',
@@ -234,7 +251,7 @@ class TestEventManager:
     def test_write_read_truncate_event_aggregation(self, parameters):
         """Test aggregation of write, read and truncate events."""
         appmock_client.reset_tcp_server_history(self.ip)
-        evt_man = events.EventManager(4, 1, self.ip, 5555)
+        evt_man = events.EventManager(1, self.ip, 5555)
 
         size_thr = parameters['size_thr'].value
         cycle_num = parameters['cycle_num'].value
@@ -266,7 +283,7 @@ class TestEventManager:
 
         msg = events.createWriteEventMsg(2 * cycle_num - 1, 'fileUuid',
                                          cycle_num * evt_size,
-                                         [(0, cycle_num * evt_size)], 1)
+                                         [(0, cycle_num * evt_size)], 0)
 
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
@@ -277,7 +294,7 @@ class TestEventManager:
         """Test event emission for multiple subscriptions of a different
         type."""
         appmock_client.reset_tcp_server_history(self.ip)
-        evt_man = events.EventManager(4, 1, self.ip, 5555)
+        evt_man = events.EventManager(1, self.ip, 5555)
 
         msg = events.createReadEventSubscriptionMsg(1, 1, 0, 0)
         appmock_client.tcp_server_send(self.ip, 5555, msg)
@@ -288,7 +305,7 @@ class TestEventManager:
         msg = events.createReadEventMsg(1, 'fileUuid', [(0, 10)], seq_num)
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
-        msg = events.createEventSubscriptionCancellationMsg(1)
+        msg = events.createServerSubscriptionCancellationMsg(1, 0, 0)
         appmock_client.tcp_server_send(self.ip, 5555, msg)
 
         seq_num = evt_man.emitWriteEvent(0, 10, 'fileUuid')
@@ -299,7 +316,7 @@ class TestEventManager:
         msg = events.createTruncateEventMsg(1, 'fileUuid', 0, seq_num)
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
 
-        msg = events.createEventSubscriptionCancellationMsg(2)
+        msg = events.createServerSubscriptionCancellationMsg(2, 1, 0)
         appmock_client.tcp_server_send(self.ip, 5555, msg)
         seq_num = evt_man.emitTruncateEvent(0, 'fileUuid')
         msg = events.createTruncateEventMsg(1, 'fileUuid', 0, seq_num)
@@ -307,3 +324,95 @@ class TestEventManager:
             appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555,
                                                                  msg,
                                                                  timeout_sec=1)
+
+    @performance(skip=True)
+    def test_file_attr_subscription(self, parameters):
+        appmock_client.reset_tcp_server_history(self.ip)
+        evt_man = events.EventManager(1, self.ip, 5555)
+
+        id = evt_man.subscribeFileAttr('fileUuid', 1, 10, 2, 5)
+        assert id < 0
+
+        msg = events.createFileAttrSubscriptionMsg(id, 'fileUuid', 2, 5, 0)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
+
+    @performance(skip=True)
+    def test_file_attr_subscription_cancellation(self, parameters):
+        appmock_client.reset_tcp_server_history(self.ip)
+        evt_man = events.EventManager(1, self.ip, 5555)
+
+        id = evt_man.subscribeFileAttr('fileUuid', 1, 10, 2, 5)
+        evt_man.unsubscribe(id)
+
+        msg = events.createClientSubscriptionCancellationMsg(id, 2, 1)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
+
+    @performance(skip=True)
+    def test_file_attr_counter_emission(self, parameters):
+        appmock_client.reset_tcp_server_history(self.ip)
+        evt_man = events.EventManager(1, self.ip, 5555)
+
+        evt_man.subscribeFileAttr('fileUuid', 10, 5000, 1, 1000)
+
+        assert 0 == evt_man.fileAttrHandlerCallCounter()
+
+        for i in xrange(100):
+            msg = events.createFileAttrEventMsg(1, 'fileUuid', i, i)
+            appmock_client.tcp_server_send(self.ip, 5555, msg)
+
+        assert 10 == evt_man.fileAttrHandlerCallCounter()
+
+    @performance(skip=True)
+    def test_file_attr_time_emission(self, parameters):
+        appmock_client.reset_tcp_server_history(self.ip)
+        evt_man = events.EventManager(1, self.ip, 5555)
+
+        evt_man.subscribeFileAttr('fileUuid', 100, 1000, 1, 1000)
+
+        assert 0 == evt_man.fileAttrHandlerCallCounter()
+
+        for i in xrange(10):
+            msg = events.createFileAttrEventMsg(1, 'fileUuid', i, i)
+            appmock_client.tcp_server_send(self.ip, 5555, msg)
+
+        assert wait_for_result(1, 10, 1000, evt_man.fileAttrHandlerCallCounter)
+
+    @performance(skip=True)
+    def test_file_location_subscription(self, parameters):
+        appmock_client.reset_tcp_server_history(self.ip)
+        evt_man = events.EventManager(1, self.ip, 5555)
+
+        id = evt_man.subscribeFileLocation('fileUuid', 1, 10, 2, 5)
+        msg = events.createFileLocationSubscriptionMsg(id, 'fileUuid', 2, 5, 0)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
+
+    @performance(skip=True)
+    def test_file_location_counter_emission(self, parameters):
+        appmock_client.reset_tcp_server_history(self.ip)
+        evt_man = events.EventManager(1, self.ip, 5555)
+
+        evt_man.subscribeFileLocation('fileUuid', 20, 5000, 2, 5)
+
+        assert 0 == evt_man.fileLocationHandlerCallCounter()
+
+        for i in xrange(100):
+            msg = events.createFileLocationEventMsg(1, 'fileUuid', 'fileId', i)
+            appmock_client.tcp_server_send(self.ip, 5555, msg)
+
+        assert 5 == evt_man.fileLocationHandlerCallCounter()
+
+    @performance(skip=True)
+    def test_file_location_time_emission(self, parameters):
+        appmock_client.reset_tcp_server_history(self.ip)
+        evt_man = events.EventManager(1, self.ip, 5555)
+
+        evt_man.subscribeFileLocation('fileUuid', 100, 1000, 2, 5)
+
+        assert 0 == evt_man.fileLocationHandlerCallCounter()
+
+        for i in xrange(10):
+            msg = events.createFileLocationEventMsg(1, 'fileUuid', 'fileId', i)
+            appmock_client.tcp_server_send(self.ip, 5555, msg)
+
+        assert wait_for_result(1, 10, 1000,
+                               evt_man.fileLocationHandlerCallCounter)

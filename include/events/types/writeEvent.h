@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_EVENTS_TYPES_WRITE_EVENT_H
 #define ONECLIENT_EVENTS_TYPES_WRITE_EVENT_H
 
-#include "event.h"
+#include "clientEvent.h"
 #include "messages/fuse/fileBlock.h"
 
 #include <boost/icl/interval_map.hpp>
@@ -21,34 +21,22 @@
 #include <memory>
 
 namespace one {
-
-namespace clproto {
-class WriteEventSubscription;
-}
-
 namespace client {
 namespace events {
 
+class WriteSubscription;
+
 /**
- * The WriteEvent class represents a write operation in the file system.
+ * @c WriteEvent class represents a write operation in the file system.
  */
-class WriteEvent : public Event {
+class WriteEvent : public ClientEvent {
 public:
-    using Subscription = one::clproto::WriteEventSubscription;
+    using EventPtr = std::unique_ptr<WriteEvent>;
+    using Key = std::string;
     using FileBlock = one::messages::fuse::FileBlock;
     using FileBlocksMap = boost::icl::interval_map<off_t, FileBlock,
         boost::icl::partial_enricher>;
-
-    static const std::string name;
-
-    /**
-     * Default constructor.
-     * Creates identity element for write events aggregation operation.
-     */
-    WriteEvent()
-        : Event{0}
-    {
-    }
+    using Subscription = WriteSubscription;
 
     /**
      * Constructor.
@@ -56,12 +44,35 @@ public:
      * written.
      * @param size Number of bytes read.
      * @param fileUuid UUID of a file associated with a write operation.
+     * @param fileSize Size of a file after write operation.
      * @param storageId ID of a storage where a write operation occurred.
      * @param fileId ID of a file on the storage where a write operation
      * occurred.
      */
     WriteEvent(off_t offset, std::size_t size, std::string fileUuid,
         std::string storageId = {}, std::string fileId = {});
+
+    /**
+     * Constructor.
+     * @param offset Distance from the beginning of the file to the first byte
+     * written.
+     * @param size Number of bytes read.
+     * @param fileSize Size of a file after write operation.
+     * @param fileUuid UUID of a file associated with a write operation.
+     * @param storageId ID of a storage where a write operation occurred.
+     * @param fileId ID of a file on the storage where a write operation
+     * occurred.
+     */
+    WriteEvent(off_t offset, std::size_t size, off_t fileSize,
+        std::string fileUuid, std::string storageId = {},
+        std::string fileId = {});
+
+    /**
+     * @return Value that distinguish @c this write event from other write
+     * events, i.e. write events with the same key can be aggregated.
+     * @see @c WriteEvent::Key.
+     */
+    const Key &key() const;
 
     /**
      * @return UUID of file associated with the write event.
@@ -84,7 +95,6 @@ public:
     const FileBlocksMap &blocks() const;
 
     /**
-     * Aggregates this write event with an other write event.
      * Aggregates @c this event with an other write event.
      * Aggregation is done by:
      * - addition of events' counters
@@ -92,39 +102,19 @@ public:
      * - union of sets of write blocks
      * - substitution of file size with file size associated with other event
      * @param event Write event to be aggregated.
-     * @return @c *this
      */
-    WriteEvent &operator+=(const WriteEvent &event);
+    void aggregate(EventPtr event);
 
-    /**
-     * Compares this write event with an other write event.
-     * @param evt Write event to be compared.
-     * @return 'true' if ID of file associated with this event is
-     * lexicographically less than the file ID associated with an other event,
-     * otherwise 'false'.
-     */
-    bool operator<(const WriteEvent &evt);
+    std::string toString() const override;
 
-    virtual std::string toString() const override;
-
-    virtual std::unique_ptr<one::messages::ProtocolClientMessage>
+    std::unique_ptr<one::messages::ProtocolClientMessage>
     serialize() const override;
 
 protected:
-    /**
-     * @copydoc WriteEvent(off_t, std::size_t, std::string, std::string,
-     * std::string)
-     * @param fileSize Size of a file after a write operation.
-     */
-    WriteEvent(off_t offset, std::size_t size, off_t fileSize,
-        std::string fileUuid, std::string storageId = {},
-        std::string fileId = {});
-
     std::string m_fileUuid;
     std::size_t m_size = 0;
     boost::optional<off_t> m_fileSize;
-    boost::icl::interval_map<off_t, FileBlock, boost::icl::partial_enricher>
-        m_blocks;
+    FileBlocksMap m_blocks;
 };
 
 } // namespace events

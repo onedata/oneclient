@@ -7,61 +7,37 @@
  */
 
 #include "events/subscriptionRegistry.h"
-#include "events/subscriptions/eventSubscriptionCancellation.h"
-
-#include "context.h"
-#include "scheduler.h"
-
-#include <memory>
 
 namespace one {
 namespace client {
 namespace events {
 
-SubscriptionRegistry::SubscriptionRegistry(std::shared_ptr<Context> ctx)
-    : m_ctx{std::move(ctx)}
-    , m_strand{m_ctx.lock()->scheduler()->getIoService()}
+std::int64_t SubscriptionRegistry::nextSubscriptionId()
 {
+    return -m_subscriptionId++;
 }
 
-std::future<bool> SubscriptionRegistry::add(
-    std::pair<uint64_t, std::function<void()>> evtSub)
+bool SubscriptionRegistry::addUnsubscribeHandler(
+    std::int64_t id, UnsubscribeHandler handler)
 {
-    auto promise = std::make_shared<std::promise<bool>>();
-    auto future = promise->get_future();
-    m_ctx.lock()->scheduler()->post(m_strand,
-        [ this, promise = std::move(promise), evtSub = std::move(evtSub) ] {
-            const auto evtSubCan = evtSub.second;
-            const auto &inserted = m_subById.emplace(std::move(evtSub));
-            if (!inserted.second)
-                evtSubCan();
-            promise->set_value(inserted.second);
-        });
-    return std::move(future);
+    typename decltype(m_handlers)::accessor acc;
+    if (m_handlers.insert(acc, id)) {
+        acc->second = std::move(handler);
+        return true;
+    }
+    return false;
 }
 
-std::future<bool> SubscriptionRegistry::remove(
-    EventSubscriptionCancellation evtSubCan)
+bool SubscriptionRegistry::removeSubscription(
+    SubscriptionCancellation cancellation)
 {
-    auto promise = std::make_shared<std::promise<bool>>();
-    auto future = promise->get_future();
-    m_ctx.lock()->scheduler()->post(m_strand,
-        [
-          this,
-          promise = std::move(promise),
-          evtSubCan = std::move(evtSubCan)
-        ] {
-            const auto &found = m_subById.find(evtSubCan.id());
-            if (found != m_subById.end()) {
-                found->second();
-                m_subById.erase(found);
-                promise->set_value(true);
-            }
-            else
-                promise->set_value(false);
-
-        });
-    return std::move(future);
+    typename decltype(m_handlers)::accessor acc;
+    if (m_handlers.find(acc, cancellation.id())) {
+        acc->second();
+        m_handlers.erase(acc);
+        return true;
+    }
+    return false;
 }
 
 } // namespace events

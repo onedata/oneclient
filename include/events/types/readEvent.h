@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_EVENTS_TYPES_READ_EVENT_H
 #define ONECLIENT_EVENTS_TYPES_READ_EVENT_H
 
-#include "event.h"
+#include "clientEvent.h"
 #include "messages/fuse/fileBlock.h"
 
 #include <boost/icl/interval_map.hpp>
@@ -20,34 +20,22 @@
 #include <memory>
 
 namespace one {
-
-namespace clproto {
-class ReadEventSubscription;
-}
-
 namespace client {
 namespace events {
 
+class ReadSubscription;
+
 /**
- * The ReadEvent class represents a read operation in the file system.
+ * @c ReadEvent class represents a read operation in the file system.
  */
-class ReadEvent : public Event {
+class ReadEvent : public ClientEvent {
 public:
-    using Subscription = one::clproto::ReadEventSubscription;
+    using EventPtr = std::unique_ptr<ReadEvent>;
+    using Key = std::string;
     using FileBlock = one::messages::fuse::FileBlock;
     using FileBlocksMap = boost::icl::interval_map<off_t, FileBlock,
         boost::icl::partial_enricher>;
-
-    static const std::string name;
-
-    /**
-     * Default constructor.
-     * Creates identity element for read events aggregation operation.
-     */
-    ReadEvent()
-        : Event{0}
-    {
-    }
+    using Subscription = ReadSubscription;
 
     /**
      * Constructor.
@@ -61,6 +49,13 @@ public:
      */
     ReadEvent(off_t offset, std::size_t size, std::string fileUuid,
         std::string storageId = {}, std::string fileId = {});
+
+    /**
+     * @return Value that distinguish @c this read event from other read events,
+     * i.e. read events with the same key can be aggregated.
+     * @see @c ReadEvent::Key.
+     */
+    const Key &key() const;
 
     /**
      * @return ID of file associated with the read event.
@@ -78,31 +73,21 @@ public:
     const FileBlocksMap &blocks() const;
 
     /**
-     * Aggregates this read event with an other read event.
+     * Aggregates @c this event with an other read event.
      * Aggregation is done by:
      * - addition of events' counters
      * - addition of events' sizes
      * - union of sets of read blocks
      * @param event Read event to be aggregated.
-     * @return @c *this
      */
-    ReadEvent &operator+=(const ReadEvent &evt);
+    void aggregate(EventPtr event);
 
-    /**
-     * Compares this read event with an other read event.
-     * @param evt Read event to be compared.
-     * @return 'true' if ID of file associated with this event is
-     * lexicographically less than the file ID associated with an other event,
-     * otherwise 'false'.
-     */
-    bool operator<(const ReadEvent &evt);
+    std::string toString() const override;
 
-    virtual std::string toString() const override;
-
-    virtual std::unique_ptr<one::messages::ProtocolClientMessage>
+    std::unique_ptr<one::messages::ProtocolClientMessage>
     serialize() const override;
 
-private:
+protected:
     std::string m_fileUuid;
     std::size_t m_size = 0;
     FileBlocksMap m_blocks;

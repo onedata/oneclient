@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "rename.h"
+#include "messages/fuse/rename.h"
 
 #include "messages.pb.h"
 
