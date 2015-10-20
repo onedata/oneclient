@@ -77,7 +77,7 @@ def wait_for_result(expected, attempts, delay_ms, function, *args):
                 return True
             else:
                 attempts -= 1
-                time.sleep(delay_ms / 1000)
+                time.sleep(delay_ms / 1000.)
 
 
 class TestEventManager:
@@ -188,7 +188,7 @@ class TestEventManager:
         ]
 
     @performance(skip=True)
-    def test_subscription_time_threshold(self, parameters):
+    def test_events_emission_when_time_threshold_exceeded(self, parameters):
         """Test event emission for subscription with time threshold set."""
         appmock_client.reset_tcp_server_history(self.ip)
         evt_man = events.EventManager(1, self.ip, 5555)
@@ -276,7 +276,8 @@ class TestEventManager:
 
         msg = events.createReadEventMsg(cycle_num, 'fileUuid',
                                         [(0, cycle_num * evt_size)], 0)
-        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg,
+                                                             timeout_sec=30)
 
         duration(emit_time, evt_man.emitWriteEvent, (cycle_num - 1) * evt_size,
                  evt_size, 'fileUuid')
@@ -285,7 +286,8 @@ class TestEventManager:
                                          cycle_num * evt_size,
                                          [(0, cycle_num * evt_size)], 0)
 
-        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
+        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg,
+                                                             timeout_sec=30)
 
         return emit_time_param(emit_time.ms())
 
@@ -375,7 +377,7 @@ class TestEventManager:
             msg = events.createFileAttrEventMsg(1, 'fileUuid', i, i)
             appmock_client.tcp_server_send(self.ip, 5555, msg)
 
-        assert wait_for_result(1, 10, 1000, evt_man.fileAttrHandlerCallCounter)
+        assert wait_for_result(1, 20, 500, evt_man.fileAttrHandlerCallCounter)
 
     @performance(skip=True)
     def test_file_location_subscription(self, parameters):
@@ -414,5 +416,5 @@ class TestEventManager:
             msg = events.createFileLocationEventMsg(1, 'fileUuid', 'fileId', i)
             appmock_client.tcp_server_send(self.ip, 5555, msg)
 
-        assert wait_for_result(1, 10, 1000,
+        assert wait_for_result(1, 20, 500,
                                evt_man.fileLocationHandlerCallCounter)
