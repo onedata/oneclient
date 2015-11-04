@@ -10,24 +10,31 @@ to start.
 import copy
 import os
 
-from . import common, docker, dns as dns_mod
+from . import common, docker, dns, globalregistry, provider_worker
+
+
+def client_hostname(node_name, uid):
+    """Formats hostname for a docker hosting oneclient.
+    NOTE: Hostnames are also used as docker names!
+    """
+    return common.format_hostname(node_name, uid)
 
 
 def _tweak_config(config, name, uid):
     cfg = copy.deepcopy(config)
-    cfg['nodes'] = {'node': cfg['nodes'][name]}
-    node = cfg['nodes']['node']
-    node['name'] = common.format_nodename(node['name'], uid)
-    node['op_hostname'] = common.format_nodename(node['op_hostname'], uid)
-    node['gr_hostname'] = common.format_nodename(node['gr_hostname'], uid)
+    cfg = {'node': cfg[name]}
+    node = cfg['node']
+    node['name'] = client_hostname(name, uid)
+    node['op_domain'] = provider_worker.provider_domain(node['op_domain'],
+                                                        uid)
+    node['gr_domain'] = globalregistry.gr_domain(node['gr_domain'], uid)
 
     return cfg
 
 
-def _node_up(image, bindir, uid, config, config_path, dns_servers):
-    node = config['nodes']['node']
-    node_name = node['name']
-    (name, sep, hostname) = node_name.partition('@')
+def _node_up(image, bindir, config, config_path, dns_servers):
+    node = config['node']
+    hostname = node['name']
 
     cert_file_path = node['user_cert']
     key_file_path = node['user_key']
@@ -43,11 +50,16 @@ def _node_up(image, bindir, uid, config, config_path, dns_servers):
 
     envs = {'X509_USER_CERT': node['user_cert'],
             'X509_USER_KEY': node['user_key'],
-            'PROVIDER_HOSTNAME': node['op_hostname'],
-            'GLOBAL_REGISTRY_URL': node['gr_hostname']}
+            'PROVIDER_HOSTNAME': node['op_domain'],
+            'GLOBAL_REGISTRY_URL': node['gr_domain']}
 
+    # We want the binary from debug more than relwithdebinfo, and any of these
+    # more than from release (ifs are in reverse order so it works when
+    # there are multiple dirs).
     command = '''set -e
-cp /root/build/release/oneclient /root/bin/oneclient
+[ -d /root/build/release ] && cp /root/build/release/oneclient /root/bin/oneclient
+[ -d /root/build/relwithdebinfo ] && cp /root/build/relwithdebinfo/oneclient /root/bin/oneclient
+[ -d /root/build/debug ] && cp /root/build/debug/oneclient /root/bin/oneclient
 cat <<"EOF" > /tmp/cert
 {cert_file}
 EOF
@@ -61,28 +73,29 @@ bash'''
 
     container = docker.run(
         image=image,
+        name=hostname,
         hostname=hostname,
         detach=True,
         envs=envs,
         interactive=True,
         tty=True,
         workdir='/root/bin',
-        name=common.format_dockername(name, uid),
         volumes=[(bindir, '/root/build', 'ro')],
         dns_list=dns_servers,
+        run_params=["--privileged"],
         command=command)
 
     return {'docker_ids': [container], 'client_nodes': [hostname]}
 
 
-def up(image, bindir, dns, uid, config_path):
+def up(image, bindir, dns_server, uid, config_path):
     config = common.parse_json_file(config_path)['oneclient']
-    configs = [_tweak_config(config, node, uid) for node in config['nodes']]
+    configs = [_tweak_config(config, node, uid) for node in config]
 
-    dns_servers, output = dns_mod.set_up_dns(dns, uid)
+    dns_servers, output = dns.maybe_start(dns_server, uid)
 
     for cfg in configs:
-        node_out = _node_up(image, bindir, uid, cfg, config_path, dns_servers)
+        node_out = _node_up(image, bindir, cfg, config_path, dns_servers)
         common.merge(output, node_out)
 
     return output

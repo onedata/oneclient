@@ -81,7 +81,8 @@ public:
     virtual void close();
 
     /**
-     * Resets the stream's counters.
+     * Resets the stream's counters and resends all messages with recomputed
+     * sequence number.
      */
     void reset();
 
@@ -134,9 +135,15 @@ template <class Communicator> void TypedStream<Communicator>::close()
 
 template <class Communicator> void TypedStream<Communicator>::reset()
 {
-    std::lock_guard<std::shared_timed_mutex> guard{m_bufferMutex};
-    m_buffer.clear();
+    std::lock_guard<std::shared_timed_mutex> lock{m_bufferMutex};
     m_sequenceId = 0;
+    std::vector<ClientMessagePtr> processed;
+    for (ClientMessagePtr it; m_buffer.try_pop(it);) {
+        it->mutable_message_stream()->set_sequence_number(m_sequenceId++);
+        processed.emplace_back(std::move(it));
+    }
+    for (auto &msgStream : processed)
+        saveAndPass(std::move(msgStream));
 }
 
 template <class Communicator>
@@ -161,21 +168,19 @@ void TypedStream<Communicator>::handleMessageRequest(
         msg.upper_sequence_number() - msg.lower_sequence_number() + 1);
 
     std::shared_lock<std::shared_timed_mutex> lock{m_bufferMutex};
-    for (ClientMessagePtr it; m_buffer.try_pop(it) &&
-         it->message_stream().sequence_number() <= msg.lower_sequence_number();)
-        processed.emplace_back(std::move(it));
+    for (ClientMessagePtr it; m_buffer.try_pop(it);)
+        if (it->message_stream().sequence_number() <=
+            msg.upper_sequence_number())
+            processed.emplace_back(std::move(it));
+        else
+            m_buffer.emplace(std::move(it));
 
-    for (auto &streamMsg : processed) {
-        if (streamMsg->message_stream().sequence_number() >=
-            msg.lower_sequence_number()) {
-
-            saveAndPass(std::move(streamMsg));
-        }
-        else {
-            m_buffer.emplace(std::move(streamMsg));
-        }
-    }
-    lock.unlock();
+    for (auto &msgStream : processed)
+        if (msgStream->message_stream().sequence_number() >=
+            msg.lower_sequence_number())
+            saveAndPass(std::move(msgStream));
+        else
+            m_buffer.emplace(std::move(msgStream));
 }
 
 template <class Communicator>

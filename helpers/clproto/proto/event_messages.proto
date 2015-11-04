@@ -14,7 +14,7 @@ import "fuse_messages.proto";
 // Generic event message
 message Event {
     required uint32 counter = 1; // amount of aggregated events
-    oneof event { // list of all event messages
+    oneof type { // list of all event types
         ReadEvent   read_event   = 2;
         WriteEvent  write_event  = 3;
         UpdateEvent update_event = 4;
@@ -35,7 +35,7 @@ message WriteEvent {
 }
 
 message UpdateEvent {
-    oneof update_event {
+    oneof type { // list of all update event types
         FileAttr     file_attr     = 1;
         FileLocation file_location = 2;
     }
@@ -43,8 +43,8 @@ message UpdateEvent {
 
 // Generic subscription message
 message Subscription {
-    required int64 id = 1; // unique subscription ID
-    oneof event_subscription { // list of all subscription messages
+    required sint64 id = 1; // unique subscription ID
+    oneof type { // list of all subscription types
         ReadSubscription         read_subscription          = 2;
         WriteSubscription        write_subscription         = 3;
         FileAttrSubscription     file_attr_subscription     = 4;
@@ -87,5 +87,6 @@ message FileLocationSubscription {
 }
 
 message SubscriptionCancellation {
-    required int64 id = 1; // ID of subscription to be cancelled
+    required sint64 id = 1; // ID of subscription to be cancelled
 }
+

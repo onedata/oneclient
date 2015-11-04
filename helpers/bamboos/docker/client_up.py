@@ -20,7 +20,7 @@ parser = common.standard_arg_parser(
     'Set up dockers with oneclient preconfigured.')
 
 args = parser.parse_args()
-output = client.up(args.image, args.bindir, args.dns, args.uid,
+output = client.up(args.image, args.bin, args.dns, args.uid,
                    args.config_path)
 
 print(json.dumps(output))

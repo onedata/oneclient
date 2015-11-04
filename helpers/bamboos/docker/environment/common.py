@@ -16,11 +16,14 @@ import requests
 import time
 import sys
 
+from . import docker
 
 try:
     import xml.etree.cElementTree as eTree
 except ImportError:
     import xml.etree.ElementTree as eTree
+
+requests.packages.urllib3.disable_warnings()
 
 
 def nagios_up(ip, port=None):
@@ -32,7 +35,7 @@ def nagios_up(ip, port=None):
 
         healthdata = eTree.fromstring(r.text)
         return healthdata.attrib['status'] == 'ok'
-    except requests.ConnectionError:
+    except requests.exceptions.RequestException:
         return False
 
 
@@ -41,9 +44,10 @@ def wait_until(condition, containers, timeout):
     for container in containers:
         while not condition(container):
             if time.time() > deadline:
-                warning = 'WARNING: timeout while waiting for condition {0}'
-                print(warning.format(condition.__name__), file=sys.stderr)
-                break
+                message = 'Timeout while waiting for condition {0} ' \
+                'of container {1}'
+                message = message.format(condition.__name__, container)
+                raise ValueError(message)
 
             time.sleep(1)
 
@@ -95,7 +99,13 @@ def merge(d, merged):
     common keys
     """
     for key, value in iter(merged.items()):
-        d[key] = d[key] + value if key in d else value
+        if key in d:
+            if isinstance(value, dict):
+                merge(d[key], value)
+            else:
+                d[key] = d[key] + value
+        else:
+            d[key] = value
 
 
 def get_file_dir(file_path):
@@ -116,36 +126,45 @@ def parse_json_file(path):
         return json.load(f)
 
 
-def format_hostname(node_name, uid):
-    """Formats hostname for a docker based on node name and uid.
-    node_name can be in format 'somename@' or 'somename'.
+def get_docker_name(name_or_container):
+    config = docker.inspect(name_or_container)
+    return config['Name'].lstrip('/')
+
+
+def get_docker_ip(name_or_container):
+    config = docker.inspect(name_or_container)
+    return config['NetworkSettings']['IPAddress']
+
+
+def env_domain_name():
+    """Returns domain name used in the environment. It will be concatenated
+    to the dockernames (=hostnames) of all dockers.
     """
-    (name, _, hostname) = node_name.partition('@')
-    if hostname:
-        return '{0}.{1}.dev.docker'.format(hostname.replace('.', '-'), uid)
-    else:
-        return '{0}.{1}.dev.docker'.format(name, uid)
+    return 'dev'
 
 
-def format_nodename(node_name, uid):
-    """Formats full node name for a docker based on node name and uid
-    node_name can be in format 'somename@' or 'somename'.
-    This is needed so different components are resolvable through DNS.
+def format_hostname(domain_parts, uid):
+    """Formats hostname for a docker based on domain parts and uid.
+    NOTE: Hostnames are also used as docker names!
+    domain_parts - a single or a list of consecutive domain parts that constitute a unique name
+    within environment e.g.: ['worker1', 'prov1'], ['ccm1', 'prov1'], 'client1'
+    uid - timestamp
     """
-    (name, _, _) = node_name.partition('@')
-    return '{0}@{1}'.format(name, format_hostname(node_name, uid))
+    if isinstance(domain_parts, (str, unicode)):
+        domain_parts = [domain_parts]
+    domain_parts.extend([uid, env_domain_name()])
+    # Throw away any '@' signs - they were used some time ago in node names
+    # and might still occur by mistake.
+    return '.'.join(domain_parts).replace('@', '')
 
 
-def format_dockername(node_name, uid):
-    """Formats docker name based on node name and uid
-    node_name can be in format 'somename@' or 'somename'.
-    This is needed so different components are resolvable through DNS.
+def format_erl_node_name(app_name, hostname):
+    """Formats full node name for an erlang VM hosted on docker based on app_name and hostname.
+    NOTE: Hostnames are also used as docker names!
+    app_name - application name, e.g.: 'op_ccm', 'globalregistry'
+    hostname - hostname aquired by format_*_hostname
     """
-    (name, _, hostname) = node_name.partition('@')
-    if hostname:
-        return hostname.replace('.', '_')
-    else:
-        return '{0}_{1}'.format(name, uid)
+    return '{0}@{1}'.format(app_name, hostname)
 
 
 def generate_uid():

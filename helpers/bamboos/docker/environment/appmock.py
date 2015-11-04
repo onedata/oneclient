@@ -12,26 +12,65 @@ import os
 import random
 import string
 
-from . import common, docker, dns as dns_mod
+from . import common, docker, dns, provider_ccm, provider_worker, globalregistry
+
+APPMOCK_WAIT_FOR_NAGIOS_SECONDS = 60 * 2
 
 
-APPMOCK_WAIT_FOR_NAGIOS_SECONDS = 60 * 5
+def domain(appmock_instance, uid):
+    """Formats domain for an appmock instance.
+    It is intended to fake OP or GR domain.
+    """
+    return common.format_hostname(appmock_instance, uid)
 
 
-def _tweak_config(config, name, uid):
+def appmock_hostname(node_name, uid):
+    """Formats hostname for a docker hosting appmock.
+    NOTE: Hostnames are also used as docker names!
+    """
+    return common.format_hostname(node_name, uid)
+
+
+def appmock_erl_node_name(node_name, uid):
+    """Formats erlang node name for a vm on appmock docker.
+    """
+    hostname = appmock_hostname(node_name, uid)
+    return common.format_erl_node_name('appmock', hostname)
+
+
+def _tweak_config(config, appmock_node, appmock_instance, uid):
     cfg = copy.deepcopy(config)
-    cfg['nodes'] = {'node': cfg['nodes'][name]}
+    cfg['nodes'] = {'node': cfg['nodes'][appmock_node]}
+    mocked_app = 'none'
+    if 'mocked_app' in cfg['nodes']['node']:
+        mocked_app = cfg['nodes']['node']['mocked_app']
 
+    # Node name depends on mocked app, if none is specified,
+    # default appmock_erl_node_name will be used.
+    node_name = {
+        'op_ccm': provider_ccm.ccm_erl_node_name(appmock_node,
+                                                 appmock_instance, uid),
+        'op_worker': provider_worker.worker_erl_node_name(appmock_node,
+                                                          appmock_instance,
+                                                          uid),
+        'globalregistry': globalregistry.gr_erl_node_name(appmock_node,
+                                                          appmock_instance, uid)
+    }.get(mocked_app, appmock_erl_node_name(appmock_node, uid))
+
+    if 'vm.args' not in cfg['nodes']['node']:
+        cfg['nodes']['node']['vm.args'] = {}
     vm_args = cfg['nodes']['node']['vm.args']
-    vm_args['name'] = common.format_nodename(vm_args['name'], uid)
-    # Set random cookie so the node does not try to connect to others
-    vm_args['setcookie'] = ''.join(
-        random.sample(string.ascii_letters + string.digits, 16))
+    vm_args['name'] = node_name
+    # If cookie is not specified, set random cookie
+    # so the node does not try to connect to others
+    if 'setcookie' not in vm_args:
+        vm_args['setcookie'] = ''.join(
+            random.sample(string.ascii_letters + string.digits, 16))
 
     return cfg
 
 
-def _node_up(image, bindir, uid, config, config_path, dns_servers):
+def _node_up(image, bindir, config, config_path, dns_servers, logdir):
     node_name = config['nodes']['node']['vm.args']['name']
     (name, sep, hostname) = node_name.partition('@')
 
@@ -59,19 +98,28 @@ escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json
         app_desc_file=open(app_desc_file_path, 'r').read(),
         gen_dev_args=json.dumps({'appmock': config}))
 
+    volumes = [(bindir, '/root/build', 'ro')]
+
+    if logdir:
+        logdir = os.path.join(os.path.abspath(logdir), hostname)
+        volumes.extend([(logdir, '/root/bin/node/log', 'rw')])
+
     container = docker.run(
         image=image,
+        name=hostname,
         hostname=hostname,
         detach=True,
         interactive=True,
         tty=True,
         workdir='/root/build',
-        name=common.format_dockername(name, uid),
-        volumes=[(bindir, '/root/build', 'ro')],
+        volumes=volumes,
         dns_list=dns_servers,
         command=command)
 
-    return {'docker_ids': [container], 'appmock_nodes': [node_name]}
+    return container, {
+        'docker_ids': [container],
+        'appmock_nodes': [node_name]
+    }
 
 
 def _ready(node):
@@ -79,19 +127,51 @@ def _ready(node):
     return common.nagios_up(node_ip, '9999')
 
 
-def up(image, bindir, dns, uid, config_path):
-    config = common.parse_json_file(config_path)['appmock']
-    config['config']['target_dir'] = '/root/bin'
-    configs = [_tweak_config(config, node, uid) for node in config['nodes']]
+def up(image, bindir, dns_server, uid, config_path, logdir=None):
+    config = common.parse_json_file(config_path)
+    input_dir = config['dirs_config']['appmock']['input_dir']
+    dns_servers, output = dns.maybe_start(dns_server, uid)
 
-    dns_servers, output = dns_mod.set_up_dns(dns, uid)
-    appmock_node_ids = []
+    for appmock_instance in config['appmock_domains']:
+        gen_dev_cfg = {
+            'config': {
+                'input_dir': input_dir,
+                'target_dir': '/root/bin'
+            },
+            'nodes': config['appmock_domains'][appmock_instance]['appmock']
+        }
 
-    for cfg in configs:
-        node_out = _node_up(image, bindir, uid, cfg, config_path, dns_servers)
-        appmock_node_ids.extend(node_out['docker_ids'])
-        common.merge(output, node_out)
+        tweaked_configs = [_tweak_config(gen_dev_cfg, appmock_node,
+                                         appmock_instance, uid)
+                           for appmock_node in gen_dev_cfg['nodes']]
 
-    common.wait_until(_ready, appmock_node_ids, APPMOCK_WAIT_FOR_NAGIOS_SECONDS)
+        include_domain = False
+        appmock_ips = []
+        appmocks = []
+        for cfg in tweaked_configs:
+            appmock_id, node_out = _node_up(image, bindir, cfg,
+                                            config_path, dns_servers, logdir)
+            appmocks.append(appmock_id)
+            if 'mocked_app' in cfg['nodes']['node']:
+                mocked_app = cfg['nodes']['node']['mocked_app']
+                if mocked_app == 'op_worker' or mocked_app == 'globalregistry':
+                    include_domain = True
+                    appmock_ips.append(common.get_docker_ip(appmock_id))
+            common.merge(output, node_out)
 
+        common.wait_until(_ready, appmocks, APPMOCK_WAIT_FOR_NAGIOS_SECONDS)
+
+        if include_domain:
+            domains = {
+                'domains': {
+                    domain(appmock_instance, uid): {
+                        'ns': [],
+                        'a': appmock_ips
+                    }
+                }
+            }
+            common.merge(output, domains)
+
+    # Make sure domain are added to the dns server
+    dns.maybe_restart_with_configuration(dns_server, uid, output)
     return output

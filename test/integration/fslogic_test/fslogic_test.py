@@ -139,7 +139,7 @@ class TestFsLogic:
     @classmethod
     def setup_class(cls):
         cls.result = appmock.up(image='onedata/builder', bindir=appmock_dir,
-                                dns='none', uid=common.generate_uid(),
+                                dns_server='none', uid=common.generate_uid(),
                                 config_path=os.path.join(script_dir,
                                                          'env.json'))
 

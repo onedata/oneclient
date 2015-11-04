@@ -47,15 +47,11 @@ public:
      */
     std::shared_ptr<Stream> create();
 
-    /**
-     * Resets all streams.
-     */
-    void reset();
-
 private:
     void handleMessageRequest(const clproto::MessageRequest &msg);
     void handleMessageAcknowledgement(
         const clproto::MessageAcknowledgement &msg);
+    void handleMessageStreamReset(const clproto::MessageStreamReset &msg);
 
     std::function<void()> m_unsubscribe;
     std::shared_ptr<Communicator> m_communicator;
@@ -82,7 +78,7 @@ StreamManager<Communicator>::StreamManager(
         else if (msg.has_message_acknowledgement())
             handleMessageAcknowledgement(msg.message_acknowledgement());
         else if (msg.has_message_stream_reset()) {
-            reset();
+            handleMessageStreamReset(msg.message_stream_reset());
         }
     };
 
@@ -101,7 +97,6 @@ auto StreamManager<Communicator>::create() -> std::shared_ptr<Stream>
     auto stream = std::make_shared<Stream>(
         m_communicator, streamId, [this, streamId, it] {
             m_idMap.erase(streamId);
-            it->reset();
             m_streamsSlots.emplace(std::move(it));
         });
 
@@ -112,13 +107,6 @@ auto StreamManager<Communicator>::create() -> std::shared_ptr<Stream>
     acc->second = *it;
 
     return stream;
-}
-
-template <class Communicator> void StreamManager<Communicator>::reset()
-{
-    for (const auto &stream : m_streams)
-        if (auto s = stream.lock())
-            s->reset();
 }
 
 template <class Communicator>
@@ -139,6 +127,23 @@ void StreamManager<Communicator>::handleMessageAcknowledgement(
     if (m_idMap.find(acc, msg.stream_id()))
         if (auto stream = acc->second.lock())
             stream->handleMessageAcknowledgement(msg);
+}
+
+template <class Communicator>
+void StreamManager<Communicator>::handleMessageStreamReset(
+    const clproto::MessageStreamReset &msg)
+{
+    if (msg.has_stream_id()) {
+        typename decltype(m_idMap)::const_accessor acc;
+        if (m_idMap.find(acc, msg.stream_id()))
+            if (auto stream = acc->second.lock())
+                stream->reset();
+    }
+    else {
+        for (const auto &stream : m_streams)
+            if (auto s = stream.lock())
+                s->reset();
+    }
 }
 
 } // namespace streaming

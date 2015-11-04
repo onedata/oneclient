@@ -8,6 +8,7 @@
 
 #include "communication/declarations.h"
 #include "communication/layers/sequencer.h"
+#include "scheduler_mock.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -49,7 +50,15 @@ struct LowerLayer {
 };
 
 struct SequencerTest : public ::testing::Test {
-    layers::Sequencer<LowerLayer> sequencer;
+    SequencerTest()
+    {
+        scheduler = std::make_shared<MockScheduler>();
+        EXPECT_CALL(*scheduler, schedule(_, _)).Times(AnyNumber());
+        EXPECT_CALL(sequencer.mock, sendProxy(_)).Times(AnyNumber());
+    }
+
+    std::shared_ptr<MockScheduler> scheduler;
+    layers::Sequencer<LowerLayer, MockScheduler> sequencer;
 };
 
 TEST_F(SequencerTest, sequencerShouldPassNonStreamMessages)
@@ -149,6 +158,19 @@ TEST_F(SequencerTest, sequencerShouldRemoveBufferWhenEndOfStreamMessageReceived)
     EXPECT_EQ(2, called);
     sequenceOnMessageCallback(streamMessage(1, 0));
     EXPECT_EQ(3, called);
+}
+
+TEST_F(SequencerTest,
+    sequencerShouldSchedulePeriodicMessageRequestOnInitialization)
+{
+    EXPECT_CALL(*scheduler, schedule(_, _)).Times(1);
+    sequencer.initializeSequencer(scheduler);
+}
+
+TEST_F(SequencerTest, sequencerShouldSendMessageStreamResetOnInitialization)
+{
+    EXPECT_CALL(sequencer.mock, sendProxy(_)).Times(1);
+    sequencer.initializeSequencer(scheduler);
 }
 
 TEST_F(SequencerTest, sequencerShouldSendMessageRequestMessage)
