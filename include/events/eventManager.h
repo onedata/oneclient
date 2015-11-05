@@ -132,6 +132,11 @@ public:
      */
     void handle(const clproto::SubscriptionCancellation &message);
 
+    /**
+     * @return @c SubscriptionRegistry instance
+     */
+    std::shared_ptr<SubscriptionRegistry> subscriptionRegistry() const;
+
 protected:
     communication::StreamManager m_streamManager;
     std::shared_ptr<SubscriptionRegistry> m_registry;

@@ -57,6 +57,13 @@ public:
      */
     virtual bool removeSubscription(SubscriptionCancellation cancellation);
 
+    /**
+     * Checks whether subscription with provided ID exists.
+     * @param id ID of subscription to be checked.
+     * @return 'true' if subscription exists, otherwise 'false'
+     */
+    bool existSubscription(std::int64_t id) const;
+
 private:
     std::atomic<std::int64_t> m_subscriptionId{1};
     tbb::concurrent_hash_map<std::int64_t, UnsubscribeHandler> m_handlers;

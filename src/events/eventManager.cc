@@ -136,6 +136,11 @@ void EventManager::handle(const clproto::SubscriptionCancellation &message)
     m_registry->removeSubscription(cancellation);
 }
 
+std::shared_ptr<SubscriptionRegistry> EventManager::subscriptionRegistry() const
+{
+    return m_registry;
+}
+
 void EventManager::initializeStreams(std::shared_ptr<Context> context)
 {
     m_readEventStream->setScheduler(context->scheduler());

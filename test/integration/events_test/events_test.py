@@ -79,7 +79,6 @@ def wait_for_result(expected, attempts, delay_ms, function, *args):
                 attempts -= 1
                 time.sleep(delay_ms / 1000.)
 
-
 class TestEventManager:
     @classmethod
     def setup_class(cls):
@@ -95,6 +94,15 @@ class TestEventManager:
     @classmethod
     def teardown_class(cls):
         docker.remove(cls.result['docker_ids'], force=True, volumes=True)
+
+    def subscribe(self, evt_man, id, msg):
+        """Ensures that client receives subscription."""
+        wait_for_result(True, 10, 500, self.send_subscription, evt_man, id, msg)
+
+    def send_subscription(self, evt_man, id, msg):
+        """Sends subscription to the client and checks whether it has been received."""
+        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        return wait_for_result(True, 20, 500, evt_man.existSubscription, id)
 
     @performance({
         'repeats': 10,
@@ -120,7 +128,7 @@ class TestEventManager:
         evt_size = parameters['evt_size'].value
 
         msg = events.createReadEventSubscriptionMsg(1, ctr_thr, 0, 0)
-        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        self.subscribe(evt_man, 1, msg)
 
         emit_time = Duration()
         for i in xrange(evt_num):
@@ -166,7 +174,7 @@ class TestEventManager:
         ctr_thr = int(math.ceil(float(size_thr) / evt_size))
 
         msg = events.createReadEventSubscriptionMsg(1, 0, 0, size_thr)
-        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        self.subscribe(evt_man, 1, msg)
 
         emit_time = Duration()
         for i in xrange(evt_num):
@@ -194,7 +202,7 @@ class TestEventManager:
         evt_man = events.EventManager(1, self.ip, 5555)
 
         msg = events.createReadEventSubscriptionMsg(1, 0, 100, 0)
-        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        self.subscribe(evt_man, 1, msg)
         evt_man.emitReadEvent(0, 10, 'fileUuid')
         msg = events.createReadEventMsg(1, 'fileUuid', [(0, 10)], 0)
         appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555, msg)
@@ -206,11 +214,11 @@ class TestEventManager:
         evt_man = events.EventManager(1, self.ip, 5555)
 
         msg = events.createReadEventSubscriptionMsg(1, 0, 0, 50)
-        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        self.subscribe(evt_man, 1, msg)
         msg = events.createReadEventSubscriptionMsg(2, 0, 0, 20)
-        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        self.subscribe(evt_man, 2, msg)
         msg = events.createReadEventSubscriptionMsg(3, 0, 0, 5)
-        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        self.subscribe(evt_man, 3, msg)
 
         seq_num = evt_man.emitReadEvent(0, 5, 'fileUuid')
         msg = events.createReadEventMsg(1, 'fileUuid', [(0, 5)], seq_num)
@@ -258,9 +266,9 @@ class TestEventManager:
         evt_size = int(math.ceil(float(size_thr) / cycle_num))
 
         msg = events.createReadEventSubscriptionMsg(1, 0, 0, size_thr)
-        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        self.subscribe(evt_man, 1, msg)
         msg = events.createWriteEventSubscriptionMsg(2, 0, 0, size_thr)
-        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        self.subscribe(evt_man, 2, msg)
 
         emit_time = Duration()
         for i in xrange(cycle_num - 1):
@@ -299,9 +307,9 @@ class TestEventManager:
         evt_man = events.EventManager(1, self.ip, 5555)
 
         msg = events.createReadEventSubscriptionMsg(1, 1, 0, 0)
-        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        self.subscribe(evt_man, 1, msg)
         msg = events.createWriteEventSubscriptionMsg(2, 1, 0, 0)
-        appmock_client.tcp_server_send(self.ip, 5555, msg)
+        self.subscribe(evt_man, 2, msg)
 
         seq_num = evt_man.emitReadEvent(0, 10, 'fileUuid')
         msg = events.createReadEventMsg(1, 'fileUuid', [(0, 10)], seq_num)

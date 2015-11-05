@@ -40,6 +40,12 @@ bool SubscriptionRegistry::removeSubscription(
     return false;
 }
 
+bool SubscriptionRegistry::existSubscription(std::int64_t id) const
+{
+    typename decltype(m_handlers)::const_accessor acc;
+    return m_handlers.find(acc, id);
+}
+
 } // namespace events
 } // namespace client
 } // namespace one

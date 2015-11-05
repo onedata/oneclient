@@ -92,6 +92,11 @@ public:
             FileLocationSubscription{fileUuid, svrCtrThr, ms(svrTimeThr)});
     }
 
+    bool existSubscription(std::int64_t id)
+    {
+        return m_manager->subscriptionRegistry()->existSubscription(id);
+    }
+
     int fileAttrHandlerCallCounter() { return m_fileAttrHandlerCallCounter; }
 
     int fileLocationHandlerCallCounter()
@@ -326,6 +331,7 @@ BOOST_PYTHON_MODULE(events)
         .def("unsubscribe", &EventManagerProxy::unsubscribe)
         .def("subscribeFileAttr", &EventManagerProxy::subscribeFileAttr)
         .def("subscribeFileLocation", &EventManagerProxy::subscribeFileLocation)
+        .def("existSubscription", &EventManagerProxy::existSubscription)
         .def("fileAttrHandlerCallCounter",
             &EventManagerProxy::fileAttrHandlerCallCounter)
         .def("fileLocationHandlerCallCounter",
