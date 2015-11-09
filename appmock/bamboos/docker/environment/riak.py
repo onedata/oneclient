@@ -16,19 +16,30 @@ from . import common, docker, dns as dns_mod
 RIAK_READY_WAIT_SECONDS = 60 * 5
 
 
-def _riak(cluster_name, node_num):
-    return 'riak{0}_{1}'.format(node_num, cluster_name)
+def riak_hostname(node_num, op_instance, uid):
+    """Formats hostname for a docker hosting op_ccm.
+    NOTE: Hostnames are also used as docker names!
+    """
+    node_name = 'riak{0}'.format(node_num)
+    return common.format_hostname([node_name, op_instance], uid)
+
+
+def riak_erl_node_name(node_name, op_instance, uid):
+    """Formats erlang node name for a vm on op_ccm docker.
+    """
+    hostname = riak_hostname(node_name, op_instance, uid)
+    return common.format_erl_node_name('riak', hostname)
 
 
 def config_entry(cluster_name, node_num, uid):
-    return '{0}:8087'.format(common.format_hostname(_riak(cluster_name, node_num), uid))
+    return '{0}:8087'.format(riak_hostname(node_num, cluster_name, uid))
 
 
 def _node_up(command, cluster_name, node_num, maps, dns, image, uid):
-    hostname = common.format_hostname(_riak(cluster_name, node_num), uid)
+    hostname = riak_hostname(node_num, cluster_name, uid)
     node = docker.run(
         image=image,
-        name=common.format_dockername(_riak(cluster_name, node_num), uid),
+        name=hostname,
         hostname=hostname,
         detach=True,
         interactive=True,
@@ -79,7 +90,7 @@ def _cluster_nodes(cluster_name, containers, uid):
         docker.exec_(
             container,
             ['riak-admin', 'cluster', 'join',
-             'riak@{0}'.format(common.format_hostname(_riak(cluster_name, 0), uid))],
+             'riak@{0}'.format(riak_hostname(0, cluster_name, uid))],
             stdout=sys.stderr)
 
     _wait_until(_ring_ready, containers)
@@ -93,7 +104,7 @@ def up(image, dns, uid, maps, cluster_name, nodes):
     if not maps:
         maps = '{"props":{"n_val":2, "datatype":"map"}}'
 
-    dns_servers, dns_output = dns_mod.set_up_dns(dns, uid)
+    dns_servers, dns_output = dns_mod.maybe_start(dns, uid)
     riak_output = {}
 
     command = '''
@@ -102,7 +113,8 @@ sed -i 's/127.0.0.1:/0.0.0.0:/g' /etc/riak/riak.conf
 riak console'''
 
     for node_num in range(nodes):
-        node_out = _node_up(command, cluster_name, node_num, maps, dns_servers, image, uid)
+        node_out = _node_up(command, cluster_name, node_num, maps, dns_servers,
+                            image, uid)
         common.merge(riak_output, node_out)
 
     containers = riak_output['docker_ids']

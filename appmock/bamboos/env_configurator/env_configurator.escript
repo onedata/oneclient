@@ -16,7 +16,7 @@
 %%% {
 %%%     'gr_node': 'gr1@gr1.1436272392.dev.docker',
 %%%     'gr_cookie': 'cookie0',
-%%%     'providers': {
+%%%     'provider_domains': {
 %%%         'p1': {
 %%%             'nodes': [
 %%%                 'worker1_p1@worker1_p1.1436272392.dev.docker'
@@ -126,7 +126,7 @@ main([InputJson]) ->
         Input = mochijson2:decode(InputJson, [{format, proplist}]),
         GRNode = bin_to_atom(proplists:get_value(<<"gr_node">>, Input)),
         GRCookie = bin_to_atom(proplists:get_value(<<"gr_cookie">>, Input)),
-        Providers = proplists:get_value(<<"providers">>, Input),
+        Providers = proplists:get_value(<<"provider_domains">>, Input),
         Users = proplists:get_value(<<"users">>, Input),
         Groups = proplists:get_value(<<"groups">>, Input),
         Spaces = proplists:get_value(<<"spaces">>, Input),
@@ -135,10 +135,26 @@ main([InputJson]) ->
                 ProviderWorkersBin = proplists:get_value(<<"nodes">>, Props),
                 ProviderWorkers = [bin_to_atom(P) || P <- ProviderWorkersBin],
                 Cookie = bin_to_atom(proplists:get_value(<<"cookie">>, Props)),
-                {ok, Provider} = call_node(hd(ProviderWorkers), Cookie, oneprovider, register_in_gr_dev,
-                    [ProviderWorkers, ?DEFAULT_KEY_FILE_PASSWD, Provider])
+                case call_node(hd(ProviderWorkers), Cookie, oneprovider,
+                    register_in_gr_dev, [ProviderWorkers,
+                        ?DEFAULT_KEY_FILE_PASSWD, Provider]) of
+                    {ok, Provider} ->
+                        ok;
+                    Other ->
+                        io:format("oneprovider:register_in_gr_dev "
+                        "returned: ~p~n", [Other]),
+                        throw(error)
+                end
             end, Providers),
-        ok = call_node(GRNode, GRCookie, dev_utils, set_up_test_entities, [Users, Groups, Spaces]),
+        case call_node(GRNode, GRCookie, dev_utils, set_up_test_entities,
+            [Users, Groups, Spaces]) of
+            ok ->
+                ok;
+            Other ->
+                io:format("dev_utils:set_up_test_entities returned: ~p~n",
+                    [Other]),
+                throw(error)
+        end,
         io:format("Global configuration applied sucessfully!~n"),
         ok
     catch
@@ -174,6 +190,7 @@ start_distribution() ->
 -spec call_node(Node :: node(), Cookie :: atom(), Module :: atom(), Function :: function(), Args :: [term()]) -> term().
 call_node(Node, Cookie, Module, Function, Args) ->
     erlang:set_cookie(node(), Cookie),
+    true = net_kernel:hidden_connect_node(Node),
     rpc:call(Node, Module, Function, Args).
 
 
