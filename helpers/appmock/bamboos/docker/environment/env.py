@@ -12,7 +12,7 @@ import subprocess
 import json
 
 from . import appmock, client, common, globalregistry, provider_ccm, \
-    provider_worker, docker, dns as dns_mod
+    provider_worker, docker, dns
 
 
 def default(key):
@@ -43,58 +43,81 @@ def up(config_path, image=default('image'), bin_am=default('bin_am'),
     }
 
     # Start DNS
-    [dns], dns_output = dns_mod.set_up_dns('auto', uid)
+    [dns_server], dns_output = dns.maybe_start('auto', uid)
     common.merge(output, dns_output)
 
     # Start appmock instances
-    if 'appmock' in config:
-        am_output = appmock.up(image, bin_am, dns, uid, config_path)
+    if 'appmock_domains' in config:
+        am_output = appmock.up(image, bin_am, dns_server,
+                               uid, config_path, logdir)
         common.merge(output, am_output)
+        # Make sure appmock domains are added to the dns server.
+        # Setting first arg to 'auto' will force the restart and this is needed
+        # so that dockers that start after can immediately see the domains.
+        dns.maybe_restart_with_configuration('auto', uid, output)
 
     # Start globalregistry instances
-    if 'globalregistry' in config:
-        gr_output = globalregistry.up(image, bin_gr, logdir, dns,
-                                      uid, config_path)
+    if 'globalregistry_domains' in config:
+        gr_output = globalregistry.up(image, bin_gr, dns_server,
+                                      uid, config_path, logdir)
         common.merge(output, gr_output)
+        # Make sure GR domains are added to the dns server.
+        # Setting first arg to 'auto' will force the restart and this is needed
+        # so that dockers that start after can immediately see the domains.
+        dns.maybe_restart_with_configuration('auto', uid, output)
 
     # Start provider cluster instances
-    if 'providers' in config:
+    if 'provider_domains' in config:
         # Start op_ccm instances
-        op_ccm_output = provider_ccm.up(image, bin_op_ccm, logdir, dns, uid,
-                                        config_path)
+        op_ccm_output = provider_ccm.up(image, bin_op_ccm, dns_server,
+                                        uid, config_path, logdir)
         common.merge(output, op_ccm_output)
 
         # Start op_worker instances
-        op_worker_output = provider_worker.up(image, bin_op_worker, logdir, dns,
-                                              uid, config_path)
+        op_worker_output = provider_worker.up(image, bin_op_worker, dns_server,
+                                              uid, config_path, logdir)
         common.merge(output, op_worker_output)
+        # Make sure OP domains are added to the dns server.
+        # Setting first arg to 'auto' will force the restart and this is needed
+        # so that dockers that start after can immediately see the domains.
+        dns.maybe_restart_with_configuration('auto', uid, output)
 
     # Start oneclient instances
     if 'oneclient' in config:
-        oc_output = client.up(image, bin_oc, dns, uid, config_path)
+        oc_output = client.up(image, bin_oc, dns_server, uid, config_path)
         common.merge(output, oc_output)
 
     # Setup global environment - providers, users, groups, spaces etc.
-    if 'globalregistry' in config and 'providers' in config and 'global_setup' in config:
+    if 'globalregistry_domains' in config \
+            and 'provider_domains' in config \
+            and 'global_setup' in config:
         providers_map = {}
-        for provider_name in config['providers']:
-            nodes = config['providers'][provider_name]['op_worker']['nodes'].keys()
+        for provider_name in config['provider_domains']:
             providers_map[provider_name] = {
-                'nodes': []
+                'nodes': [],
+                'cookie': ''
             }
-            for node in nodes:
-                for worker_node in output['op_worker_nodes']:
-                    if worker_node.startswith(node):
-                        providers_map[provider_name]['nodes'].append(worker_node)
-                        providers_map[provider_name]['cookie'] = \
-                            config['providers'][provider_name]['op_worker']['nodes'][node]['vm.args']['setcookie']
+            for cfg_node in config['provider_domains'][provider_name][
+                'op_worker'].keys():
+                providers_map[provider_name]['nodes'].append(
+                    provider_worker.worker_erl_node_name(cfg_node,
+                                                         provider_name, uid))
+                providers_map[provider_name]['cookie'] = \
+                    config['provider_domains'][provider_name]['op_worker'][
+                        cfg_node]['vm.args']['setcookie']
 
         env_configurator_input = copy.deepcopy(config['global_setup'])
-        env_configurator_input['providers'] = providers_map
-        gr_node_name = config['globalregistry']['nodes'].keys()[0]
-        env_configurator_input['gr_cookie'] = config['globalregistry']['nodes'][gr_node_name]['vm.args']['setcookie']
+        env_configurator_input['provider_domains'] = providers_map
+
+        # For now, take only the first node of the first GR
+        # as multiple GRs are not supported yet.
+        env_configurator_input['gr_cookie'] = \
+            config['globalregistry_domains'].values()[0][
+                'globalregistry'].values()[0]['vm.args']['setcookie']
         env_configurator_input['gr_node'] = output['gr_nodes'][0]
-        env_configurator_dir = '{0}/../../env_configurator'.format(common.get_script_dir())
+
+        env_configurator_dir = '{0}/../../env_configurator'.format(
+            common.get_script_dir())
 
         # Newline for clearer output
         print('')
@@ -108,9 +131,9 @@ def up(config_path, image=default('image'), bin_am=default('bin_am'),
             tty=True,
             rm=True,
             workdir='/root/build',
-            name=common.format_dockername('env_configurator', uid),
+            name=common.format_hostname('env_configurator', uid),
             volumes=[(env_configurator_dir, '/root/build', 'ro')],
-            dns_list=[dns],
+            dns_list=[dns_server],
             command=command
         )
 
