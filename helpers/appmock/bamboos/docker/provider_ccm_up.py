@@ -24,7 +24,7 @@ parser.add_argument(
     dest='logdir')
 
 args = parser.parse_args()
-output = provider_ccm.up(args.image, args.bin, args.logdir, args.dns, args.uid,
-                     args.config_path)
+output = provider_ccm.up(args.image, args.bin, args.dns, args.uid,
+                     args.config_path, args.logdir)
 
 print(json.dumps(output))

@@ -13,9 +13,10 @@ from __future__ import print_function
 import json
 import os
 
-from environment import common, provider_worker, provider_ccm, dns as dns_mod
+from environment import common, provider_worker, provider_ccm, dns
 
-parser = common.standard_arg_parser('Bring up oneprovider nodes (workers and ccms).')
+parser = common.standard_arg_parser(
+    'Bring up oneprovider nodes (workers and ccms).')
 parser.add_argument(
     '-l', '--logdir',
     action='store',
@@ -45,16 +46,21 @@ output = {
 uid = common.generate_uid()
 
 # Start DNS
-[dns], dns_output = dns_mod.set_up_dns('auto', uid)
+[dns_server], dns_output = dns.maybe_start('auto', uid)
+common.merge(output, dns_output)
 
-# Start cluster
-ccm_output = provider_ccm.up(args.image, args.bin_op_ccm, args.logdir, dns, uid,
-                             args.config_path)
-worker_output = provider_worker.up(args.image, args.bin_op_worker, args.logdir,
-                                   dns, uid, args.config_path)
+# Start ccms
+ccm_output = provider_ccm.up(args.image, args.bin_op_ccm,
+                             dns_server, uid, args.config_path, args.logdir)
+common.merge(output, ccm_output)
+
+# Start workers
+worker_output = provider_worker.up(args.image, args.bin_op_worker, dns_server,
+                                   uid, args.config_path, args.logdir)
+common.merge(output, worker_output)
+
+# Make sure domain are added to the dns server
+dns.maybe_restart_with_configuration('auto', uid, output)
 
 # Print results
-common.merge(output, dns_output)
-common.merge(output, ccm_output)
-common.merge(output, worker_output)
 print(json.dumps(output))
