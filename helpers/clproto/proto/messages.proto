@@ -39,7 +39,7 @@ message ClientMessage {
         EndOfMessageStream       end_of_stream             = 9;
 
         // event_messages.proto
-        Event                    event                     = 10;
+        Events                   events                    = 10;
         Subscription             subscription              = 11;
         SubscriptionCancellation subscription_cancellation = 12;
 
@@ -73,7 +73,7 @@ message ServerMessage {
         EndOfMessageStream       end_of_stream             = 8;
 
         // event_messages.proto
-        Event                    event                     = 9;
+        Events                   events                    = 9;
         Subscription             subscription              = 10;
         SubscriptionCancellation subscription_cancellation = 11;
 

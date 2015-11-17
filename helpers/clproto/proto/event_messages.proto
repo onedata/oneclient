@@ -11,10 +11,14 @@ package one.clproto;
 import "common_messages.proto";
 import "fuse_messages.proto";
 
+message Events {
+    repeated Event events = 1;
+}
+
 // Generic event message
 message Event {
     required uint32 counter = 1; // amount of aggregated events
-    oneof type { // list of all event types
+    oneof object { // list of all event objects
         ReadEvent   read_event   = 2;
         WriteEvent  write_event  = 3;
         UpdateEvent update_event = 4;
@@ -35,7 +39,7 @@ message WriteEvent {
 }
 
 message UpdateEvent {
-    oneof type { // list of all update event types
+    oneof object { // list of all update event objects
         FileAttr     file_attr     = 1;
         FileLocation file_location = 2;
     }
@@ -44,7 +48,7 @@ message UpdateEvent {
 // Generic subscription message
 message Subscription {
     required sint64 id = 1; // unique subscription ID
-    oneof type { // list of all subscription types
+    oneof object { // list of all subscription objects
         ReadSubscription         read_subscription          = 2;
         WriteSubscription        write_subscription         = 3;
         FileAttrSubscription     file_attr_subscription     = 4;

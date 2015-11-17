@@ -84,7 +84,6 @@ parser.add_argument(
     help='time of stress test in sek',
     dest='stress_time')
 
-
 args = parser.parse_args()
 script_dir = os.path.dirname(os.path.abspath(__file__))
 uid = str(int(time.time()))
@@ -102,9 +101,9 @@ with open(cover_template, 'r') as template, open(new_cover, 'w') as cover:
         if 'incl_dirs_r' in line:
             dirs_string = re.search(r'\[(.*?)\]', line).group(1)
             incl_dirs = [os.path.join(script_dir, d[1:]) for d in
-                    dirs_string.split(', ')]
+                         dirs_string.split(', ')]
             docker_dirs = [os.path.join('/root/build', d[1:-1]) for d in
-                    dirs_string.split(', ')]
+                           dirs_string.split(', ')]
         elif 'excl_mods' in line:
             modules_string = re.search(r'\[(.*?)\]', line).group(1)
             excl_mods.extend([d.strip('"') for d in modules_string.split(', ')])
@@ -126,7 +125,8 @@ ct_command = ['ct_run',
 
 code_paths = ['-pa']
 if incl_dirs:
-    code_paths.extend([os.path.join(script_dir, item[:-1]) for item in incl_dirs])
+    code_paths.extend([os.path.join(script_dir, item[:-1])
+                       for item in incl_dirs])
 else:
     code_paths.extend([os.path.join(script_dir, 'ebin')])
 code_paths.extend(glob.glob(os.path.join(script_dir, 'deps', '*', 'ebin')))
@@ -159,14 +159,21 @@ elif args.cover:
             data = json.load(jsonFile)
 
             configs_to_change = []
-            if 'providers' in data:
-                for provider in data['providers']:
-                    if 'op_worker' in data['providers'][provider]:
-                        configs_to_change.extend(data['providers'][provider]['op_worker']['nodes'].values())
-                    if 'op_ccm' in data['providers'][provider]:
-                        configs_to_change.extend(data['providers'][provider]['op_ccm']['nodes'].values())
-            if 'globalregistry' in data:
-                configs_to_change.extend(data['globalregistry']['nodes'].values())
+            if 'provider_domains' in data:
+                for provider in data['provider_domains']:
+                    if 'op_worker' in data['provider_domains'][provider]:
+                        configs_to_change.extend(
+                            data['provider_domains'][provider][
+                                'op_worker'].values())
+                    if 'op_ccm' in data['provider_domains'][provider]:
+                        configs_to_change.extend(
+                            data['provider_domains'][provider][
+                                'op_ccm'].values())
+            if 'globalregistry_domains' in data:
+                for globalregistry in data['globalregistry_domains']:
+                    configs_to_change.extend(
+                        data['globalregistry_domains'][globalregistry][
+                            'globalregistry'].values())
 
             for config in configs_to_change:
                 config['sys.config']['covered_dirs'] = docker_dirs
@@ -174,7 +181,6 @@ elif args.cover:
 
             with open(file, 'w') as jsonFile:
                 jsonFile.write(json.dumps(data))
-
 
 command = '''
 import os, subprocess, sys, stat

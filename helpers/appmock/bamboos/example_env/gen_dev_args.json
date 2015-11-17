@@ -1,125 +1,121 @@
 {
-    "providers": {
+    "dirs_config": {
+        "op_ccm": {
+            "input_dir": "rel/op_ccm",
+            "target_dir": "rel/test_cluster"
+        },
+        "op_worker": {
+            "input_dir": "rel/op_worker",
+            "target_dir": "rel/test_cluster"
+        },
+        "globalregistry": {
+            "input_dir": "rel/globalregistry",
+            "target_dir": "rel/test_cluster"
+        },
+        "appmock": {
+            "input_dir": "rel/appmock",
+            "target_dir": "rel/test_cluster"
+        },
+        "onepanel": {
+            "input_dir": "rel_oneprovider/op_panel",
+            "target_dir": "rel/test_cluster"
+        }
+    },
+    "provider_domains": {
         "p1": {
             "op_ccm": {
-                "config": {
-                    "input_dir": "rel/op_ccm",
-                    "target_dir": "rel/test_cluster"
-                },
-                "nodes": {
-                    "ccm1_p1": {
-                        "vm.args": {
-                            "setcookie": "cookie1"
-                        },
-                        "sys.config": {
-                            "ccm_nodes": [
-                                "ccm1_p1@"
-                            ],
-                            "worker_num": 1
-                        }
+                "ccm1": {
+                    "vm.args": {
+                        "setcookie": "cookie1"
+                    },
+                    "sys.config": {
+                        "ccm_nodes": [
+                            "ccm1"
+                        ],
+                        "worker_num": 1
                     }
                 }
             },
             "op_worker": {
-                "config": {
-                    "input_dir": "rel/op_worker",
-                    "target_dir": "rel/test_cluster"
-                },
-                "nodes": {
-                    "worker1_p1": {
-                        "vm.args": {
-                            "setcookie": "cookie1"
-                        },
-                        "sys.config": {
-                            "ccm_nodes": [
-                                "ccm1_p1@"
-                            ],
-                            "db_nodes": [
-                                "riaknode1",
-                                "riaknode2"
-                            ],
-                            "global_registry_node": "gr1@"
-                        }
+                "worker1": {
+                    "vm.args": {
+                        "setcookie": "cookie1"
+                    },
+                    "sys.config": {
+                        "ccm_nodes": [
+                            "ccm1"
+                        ],
+                        "db_nodes": [
+                            "riaknode1",
+                            "riaknode2"
+                        ],
+                        "global_registry_domain": "gr"
                     }
                 }
             }
         },
-        "p2": {
+        "p2.gr": {
             "op_ccm": {
-                "config": {
-                    "input_dir": "rel/op_ccm",
-                    "target_dir": "rel/test_cluster"
-                },
-                "nodes": {
-                    "ccm1_p2": {
-                        "vm.args": {
-                            "setcookie": "cookie2"
-                        },
-                        "sys.config": {
-                            "ccm_nodes": [
-                                "ccm1_p2@"
-                            ],
-                            "worker_num": 1
-                        }
+                "ccm1": {
+                    "vm.args": {
+                        "setcookie": "cookie2"
+                    },
+                    "sys.config": {
+                        "ccm_nodes": [
+                            "ccm1"
+                        ],
+                        "worker_num": 2
                     }
                 }
             },
             "op_worker": {
-                "config": {
-                    "input_dir": "rel/op_worker",
-                    "target_dir": "rel/test_cluster"
-                },
-                "nodes": {
-                    "worker1_p2": {
-                        "vm.args": {
-                            "setcookie": "cookie2"
-                        },
-                        "sys.config": {
-                            "ccm_nodes": [
-                                "ccm1_p2@"
-                            ],
-                            "db_nodes": [
-                                "riaknode1"
-                            ],
-                            "global_registry_node": "gr1@"
-                        }
+                "worker1": {
+                    "vm.args": {
+                        "setcookie": "cookie2"
                     },
-                    "worker2_p2": {
-                        "vm.args": {
-                            "setcookie": "cookie2"
-                        },
-                        "sys.config": {
-                            "ccm_nodes": [
-                                "ccm1_p2@"
-                            ],
-                            "db_nodes": [
-                                "riaknode1"
-                            ],
-                            "global_registry_node": "gr1@"
-                        }
+                    "sys.config": {
+                        "ccm_nodes": [
+                            "ccm1"
+                        ],
+                        "db_nodes": [
+                            "riaknode1"
+                        ],
+                        "global_registry_domain": "gr"
+                    }
+                },
+                "worker2": {
+                    "vm.args": {
+                        "setcookie": "cookie2"
+                    },
+                    "sys.config": {
+                        "ccm_nodes": [
+                            "ccm1"
+                        ],
+                        "db_nodes": [
+                            "riaknode1"
+                        ],
+                        "global_registry_domain": "gr"
                     }
                 }
             }
         }
     },
-    "globalregistry": {
-        "config": {
-            "input_dir": "rel/globalregistry",
-            "target_dir": "rel/test_cluster"
-        },
-        "nodes": {
-            "gr1": {
-                "vm.args": {
-                    "setcookie": "cookie3"
-                },
-                "sys.config": {
-                    "db_nodes": [
-                        "gr1_db@"
-                    ],
-                    "grpcert_domain": {
-                        "string": "127.0.0.1"
+    "globalregistry_domains": {
+        "gr": {
+            "globalregistry": {
+                "node1": {
+                    "vm.args": {
+                        "setcookie": "cookie3"
                     },
-                    "dev_mode": true
+                    "sys.config": {
+                        "db_nodes": [
+                            "db"
+                        ],
+                        "grpcert_domain": {
+                            "string": "127.0.0.1"
+                        },
+                        "dev_mode": true
+                    }
                 }
             }
         }
@@ -153,6 +149,7 @@
             "s1": {
                 "users": [
                     "u1",
+                    "u2",
                     "u3"
                 ],
                 "groups": [
@@ -161,10 +158,6 @@
                 "providers": [
                     {
                         "provider": "p1",
-                        "supported_size": 1000000000
-                    },
-                    {
-                        "provider": "p2",
                         "supported_size": 1000000000
                     }
                 ]
@@ -178,69 +171,64 @@
                 ],
                 "providers": [
                     {
-                        "provider": "p1",
+                        "provider": "p2.gr",
                         "supported_size": 1000000000
                     }
                 ]
             }
         }
     },
-    "appmock": {
-        "config": {
-            "input_dir": "rel/appmock",
-            "target_dir": "rel/test_cluster"
-        },
-        "nodes": {
-            "appmock1": {
-                "vm.args": {
-                    "name": "appmock1@"
-                },
-                "sys.config": {
-                    "app_description_file": "./example_app_description.erl"
+    "appmock_domains": {
+        "p3": {
+            "appmock": {
+                "appmock1": {
+                    "mocked_app": "op_worker",
+                    "vm.args": {
+                        "setcookie": "cookie5"
+                    },
+                    "sys.config": {
+                        "app_description_file": "./example_app_description.erl"
+                    }
                 }
             }
         }
     },
     "oneclient": {
-        "nodes": {
-            "client1": {
-                "name": "client1@",
-                "op_hostname": "worker@",
-                "gr_hostname": "gr1@",
-                "user_cert": "./cert.pem",
-                "user_key": "./cert.pem"
-            },
-            "client2": {
-                "name": "client2@",
-                "op_hostname": "worker@",
-                "gr_hostname": "gr1@",
-                "user_cert": "./cert.pem",
-                "user_key": "./cert.pem"
-            }
+        "client1": {
+            "name": "client1",
+            "op_domain": "p1",
+            "gr_domain": "gr",
+            "user_cert": "./cert.pem",
+            "user_key": "./cert.pem"
+        },
+        "client2": {
+            "name": "client2",
+            "op_domain": "p1",
+            "gr_domain": "gr",
+            "user_cert": "./cert.pem",
+            "user_key": "./cert.pem"
         }
     },
     "onepanel": {
-        "config": {
-            "input_dir": "rel_oneprovider/onepanel",
-            "target_dir": "rel/test_cluster"
-        },
-        "nodes": {
-            "onepanel1": {
-                "vm.args": {
-                    "name": "onepanel@onepanel1",
-                    "setcookie": "cookie"
-                },
-                "sys.config": {
-                    "multicast_address": {"string": "239.255.0.1"}
-                }
+        "onepanel1": {
+            "vm.args": {
+                "name": "onepanel@onepanel1",
+                "setcookie": "cookie7"
             },
-            "onepanel2": {
-                "vm.args": {
-                    "name": "onepanel@onepanel2",
-                    "setcookie": "cookie"
-                },
-                "sys.config": {
-                    "multicast_address": {"string": "239.255.0.1"}
+            "sys.config": {
+                "multicast_address": {
+                    "string": "239.255.0.1"
+                }
+            }
+        },
+        "onepanel2": {
+            "vm.args": {
+                "name": "onepanel@onepanel2",
+                "setcookie": "cookie7"
+            },
+            "sys.config": {
+                "multicast_address": {
+                    "string": "239.255.0.1"
                 }
             }
         }
