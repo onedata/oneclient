@@ -89,6 +89,7 @@ TYPED_TEST(EventHandlerTest, setEventHandlerShouldOverwriteDefaultHandler)
     this->handler.setEventBuffer(std::make_unique<EventBufferMap<TypeParam>>());
     this->handler.setEventHandler([&](const auto &) { called = true; });
     this->handler.trigger(std::make_unique<TypeParam>("fileUuid"));
+    this->handler.setEventHandler([&](const auto &) {});
     EXPECT_TRUE(called);
 }
 
@@ -106,5 +107,6 @@ TYPED_TEST(EventHandlerTest, onClearHandlerShouldExecuteEventHandler)
     this->handler.setEventBuffer(std::make_unique<EventBufferMap<TypeParam>>());
     this->handler.setEventHandler([&](const auto &) { called = true; });
     this->handler.trigger(std::make_unique<TypeParam>("fileUuid"));
+    this->handler.setEventHandler([&](const auto &) {});
     EXPECT_TRUE(called);
 }

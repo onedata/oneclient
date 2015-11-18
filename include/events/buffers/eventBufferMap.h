@@ -13,6 +13,7 @@
 
 #include <functional>
 #include <unordered_map>
+#include <vector>
 
 namespace one {
 namespace client {
@@ -51,7 +52,7 @@ public:
     void setOnClearHandler(EventHandler handler) override;
 
 private:
-    EventHandler m_onClearHandler;
+    EventHandler m_onClearHandler = [](auto) {};
     std::unordered_map<typename EventT::Key, EventPtr> m_buffer;
 };
 
@@ -68,8 +69,10 @@ template <class EventT> void EventBufferMap<EventT>::push(EventPtr event)
 
 template <class EventT> void EventBufferMap<EventT>::clear()
 {
-    for (auto it = m_buffer.begin(); it != m_buffer.end(); ++it)
-        m_onClearHandler(std::move(it->second));
+    std::vector<EventPtr> events;
+    for (auto &entry : m_buffer)
+        events.emplace_back(std::move(entry.second));
+    m_onClearHandler(std::move(events));
     m_buffer.clear();
 }
 

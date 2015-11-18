@@ -10,6 +10,7 @@
 #define ONECLIENT_EVENTS_BUFFERS_EVENT_BUFFER_H
 
 #include <memory>
+#include <vector>
 
 namespace one {
 namespace client {
@@ -22,7 +23,7 @@ namespace events {
 template <class EventT> class EventBuffer {
 public:
     using EventPtr = typename EventT::EventPtr;
-    using EventHandler = std::function<void(EventPtr)>;
+    using EventHandler = std::function<void(std::vector<EventPtr>)>;
 
     virtual ~EventBuffer() = default;
 

@@ -19,7 +19,7 @@
 
 namespace one {
 namespace clproto {
-class Event;
+class Events;
 class Subscription;
 class SubscriptionCancellation;
 } // namespace clproto
@@ -115,10 +115,10 @@ public:
     bool unsubscribe(std::int64_t id);
 
     /**
-     * Handles event message.
-     * @param message @c one::clproto::Event instance.
+     * Handles events message.
+     * @param message @c one::clproto::Events instance.
      */
-    void handle(const clproto::Event &message);
+    void handle(const clproto::Events &message);
 
     /**
      * Handles event subscription message.

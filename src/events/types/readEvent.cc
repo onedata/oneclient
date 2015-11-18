@@ -49,10 +49,9 @@ std::string ReadEvent::toString() const
     return stream.str();
 }
 
-std::unique_ptr<messages::ProtocolClientMessage> ReadEvent::serialize() const
+std::unique_ptr<ProtocolEventMessage> ReadEvent::serialize() const
 {
-    auto clientMsg = std::make_unique<messages::ProtocolClientMessage>();
-    auto eventMsg = clientMsg->mutable_event();
+    auto eventMsg = std::make_unique<ProtocolEventMessage>();
     auto readEventMsg = eventMsg->mutable_read_event();
 
     eventMsg->set_counter(m_counter);
@@ -67,7 +66,7 @@ std::unique_ptr<messages::ProtocolClientMessage> ReadEvent::serialize() const
         blockMsg->set_storage_id(block.second.storageId());
     }
 
-    return clientMsg;
+    return eventMsg;
 }
 
 } // namespace events

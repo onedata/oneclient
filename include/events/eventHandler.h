@@ -13,6 +13,7 @@
 
 #include <functional>
 #include <unordered_map>
+#include <vector>
 
 namespace one {
 namespace client {
@@ -28,7 +29,7 @@ public:
     using EventT = typename LowerLayer::EventT;
     using EventPtr = typename LowerLayer::EventPtr;
     using BufferPtr = std::unique_ptr<EventBuffer<EventT>>;
-    using Handler = std::function<void(EventPtr)>;
+    using Handler = std::function<void(std::vector<EventPtr>)>;
     using OnTriggerCallback = std::function<void()>;
 
     using LowerLayer::LowerLayer;
@@ -74,9 +75,9 @@ public:
     void setOnTriggerCallback(OnTriggerCallback callback);
 
 private:
-    BufferPtr m_buffer{std::make_unique<VoidEventBuffer<EventT>>()};
+    OnTriggerCallback m_onTriggerCallback = [] {};
     Handler m_handler = [](auto) {};
-    OnTriggerCallback m_onTriggerCallback;
+    BufferPtr m_buffer{std::make_unique<VoidEventBuffer<EventT>>()};
 };
 
 template <class LowerLayer>
@@ -109,7 +110,7 @@ void EventHandler<LowerLayer>::setEventBuffer(BufferPtr buffer)
 {
     m_buffer = std::move(buffer);
     m_buffer->setOnClearHandler(
-        [this](EventPtr event) { m_handler(std::move(event)); });
+        [this](std::vector<EventPtr> events) { m_handler(std::move(events)); });
 }
 
 template <class LowerLayer>

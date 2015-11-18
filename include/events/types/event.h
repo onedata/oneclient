@@ -10,10 +10,16 @@
 #define ONECLIENT_EVENTS_TYPES_EVENT_H
 
 #include <cstddef>
+#include <memory>
 
 namespace one {
+namespace clproto {
+class Event;
+} // namespace clproto
 namespace client {
 namespace events {
+
+using ProtocolEventMessage = one::clproto::Event;
 
 /**
  * @c Event class represents an event that occured in the system.
@@ -26,6 +32,17 @@ public:
      * @return Number of aggregated events.
      */
     std::size_t counter() const { return m_counter; }
+
+    /**
+     * @return @c Event in string format.
+     */
+    virtual std::string toString() const = 0;
+
+    /**
+     * Creates Protocol Buffers message based on provided @c Event.
+     * @return Unique pointer to Protocol Buffers @c Event message instance.
+     */
+    virtual std::unique_ptr<ProtocolEventMessage> serialize() const = 0;
 
 protected:
     std::size_t m_counter = 1;

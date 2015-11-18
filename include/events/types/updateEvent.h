@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_EVENTS_TYPES_UPDATE_EVENT_H
 #define ONECLIENT_EVENTS_TYPES_UPDATE_EVENT_H
 
-#include "serverEvent.h"
+#include "event.h"
 #include "messages/fuse/fileAttr.h"
 
 #include <memory>
@@ -23,7 +23,7 @@ namespace events {
  * @c UpdateEvent class represents an update operation that occured in the
  * file system.
  */
-template <class Wrapped> class UpdateEvent : public ServerEvent {
+template <class Wrapped> class UpdateEvent : public Event {
 public:
     using EventPtr = std::unique_ptr<UpdateEvent<Wrapped>>;
     using Key = typename Wrapped::Key;
@@ -56,6 +56,8 @@ public:
 
     std::string toString() const override;
 
+    std::unique_ptr<ProtocolEventMessage> serialize() const override;
+
 private:
     std::unique_ptr<Wrapped> m_wrapped;
 };
@@ -78,6 +80,12 @@ template <class Wrapped> std::string UpdateEvent<Wrapped>::toString() const
     stream << "type: 'UpdateEvent', counter: " << m_counter
            << ", wrapped: " << m_wrapped->toString();
     return stream.str();
+}
+
+template <class Wrapped>
+std::unique_ptr<ProtocolEventMessage> UpdateEvent<Wrapped>::serialize() const
+{
+    return {};
 }
 
 } // namespace events

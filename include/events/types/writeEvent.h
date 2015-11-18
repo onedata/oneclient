@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_EVENTS_TYPES_WRITE_EVENT_H
 #define ONECLIENT_EVENTS_TYPES_WRITE_EVENT_H
 
-#include "clientEvent.h"
+#include "event.h"
 #include "messages/fuse/fileBlock.h"
 
 #include <boost/icl/interval_map.hpp>
@@ -29,7 +29,7 @@ class WriteSubscription;
 /**
  * @c WriteEvent class represents a write operation in the file system.
  */
-class WriteEvent : public ClientEvent {
+class WriteEvent : public Event {
 public:
     using EventPtr = std::unique_ptr<WriteEvent>;
     using Key = std::string;
@@ -107,7 +107,7 @@ public:
 
     std::string toString() const override;
 
-    std::unique_ptr<one::messages::ProtocolClientMessage>
+    std::unique_ptr<ProtocolEventMessage>
     serialize() const override;
 
 protected:

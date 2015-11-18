@@ -21,8 +21,6 @@
 #include <map>
 #include <memory>
 
-#include <iostream>
-
 using namespace one;
 using namespace one::client;
 using namespace one::client::events;
@@ -127,7 +125,8 @@ std::string createReadEventMsg(
     std::size_t ctr, std::string fileUuid, list blocks, std::uint64_t seqNum)
 {
     auto clientMsg = createStreamMessage<clproto::ClientMessage>(0, seqNum);
-    auto eventMsg = clientMsg.mutable_event();
+    auto eventsMsg = clientMsg.mutable_events();
+    auto eventMsg = eventsMsg->add_events();
     eventMsg->set_counter(ctr);
     auto readEventMsg = eventMsg->mutable_read_event();
     readEventMsg->set_file_uuid(std::move(fileUuid));
@@ -150,7 +149,8 @@ std::string createWriteEventMsg(std::size_t ctr, std::string fileUuid,
     std::size_t fileSize, list blocks, std::uint64_t seqNum)
 {
     auto clientMsg = createStreamMessage<clproto::ClientMessage>(1, seqNum);
-    auto eventMsg = clientMsg.mutable_event();
+    auto eventsMsg = clientMsg.mutable_events();
+    auto eventMsg = eventsMsg->add_events();
     eventMsg->set_counter(ctr);
     auto writeEventMsg = eventMsg->mutable_write_event();
     writeEventMsg->set_file_uuid(std::move(fileUuid));
@@ -175,7 +175,8 @@ std::string createTruncateEventMsg(std::size_t ctr, std::string fileUuid,
     size_t fileSize, std::uint64_t seqNum)
 {
     auto clientMsg = createStreamMessage<clproto::ClientMessage>(1, seqNum);
-    auto eventMsg = clientMsg.mutable_event();
+    auto eventsMsg = clientMsg.mutable_events();
+    auto eventMsg = eventsMsg->add_events();
     eventMsg->set_counter(ctr);
     auto truncateEventMsg = eventMsg->mutable_write_event();
     truncateEventMsg->set_file_uuid(std::move(fileUuid));
@@ -187,10 +188,9 @@ std::string createTruncateEventMsg(std::size_t ctr, std::string fileUuid,
 std::string createFileAttrEventMsg(
     std::size_t ctr, std::string uuid, off_t size, std::uint64_t seqNum)
 {
-    std::cout << "createFileAttrEventMsg" << std::endl;
-
     auto serverMsg = createStreamMessage<clproto::ServerMessage>(2, seqNum);
-    auto eventMsg = serverMsg.mutable_event();
+    auto eventsMsg = serverMsg.mutable_events();
+    auto eventMsg = eventsMsg->add_events();
     eventMsg->set_counter(ctr);
     auto updateEventMsg = eventMsg->mutable_update_event();
     auto fileAttrEventMsg = updateEventMsg->mutable_file_attr();
@@ -211,7 +211,8 @@ std::string createFileLocationEventMsg(
     std::size_t ctr, std::string uuid, std::string fileId, std::uint64_t seqNum)
 {
     auto serverMsg = createStreamMessage<clproto::ServerMessage>(3, seqNum);
-    auto eventMsg = serverMsg.mutable_event();
+    auto eventsMsg = serverMsg.mutable_events();
+    auto eventMsg = eventsMsg->add_events();
     eventMsg->set_counter(ctr);
     auto updateEventMsg = eventMsg->mutable_update_event();
     auto fileLocationEventMsg = updateEventMsg->mutable_file_location();

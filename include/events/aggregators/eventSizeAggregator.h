@@ -64,7 +64,8 @@ private:
     std::multiset<std::size_t> m_sizeThresholds;
 };
 
-template <class LowerLayer> void EventSizeAggregator<LowerLayer>::initializeAggregation()
+template <class LowerLayer>
+void EventSizeAggregator<LowerLayer>::initializeAggregation()
 {
     LowerLayer::setOnTriggerCallback([this] { m_size = 0; });
 }

@@ -44,10 +44,9 @@ TEST_F(ReadEventTest, aggregateShouldMergeEvents)
 
 TEST_F(ReadEventTest, serializeShouldCreateProtocolMessage)
 {
-    one::clproto::ClientMessage clientMsg{};
-    auto eventMsg = clientMsg.mutable_event();
-    eventMsg->set_counter(1);
-    auto readEventMsg = eventMsg->mutable_read_event();
+    one::clproto::Event eventMsg{};
+    eventMsg.set_counter(1);
+    auto readEventMsg = eventMsg.mutable_read_event();
     readEventMsg->set_file_uuid("fileUuid1");
     readEventMsg->set_size(10);
     auto blockMsg = readEventMsg->add_blocks();
@@ -56,7 +55,7 @@ TEST_F(ReadEventTest, serializeShouldCreateProtocolMessage)
     blockMsg->set_file_id("");
     blockMsg->set_storage_id("");
     EXPECT_EQ(
-        clientMsg.SerializeAsString(), event->serialize()->SerializeAsString());
+        eventMsg.SerializeAsString(), event->serialize()->SerializeAsString());
 }
 
 TEST_F(WriteEventTest, aggregateShouldMergeEvents)
@@ -78,10 +77,9 @@ TEST_F(WriteEventTest, aggregateShouldMergeEvents)
 
 TEST_F(WriteEventTest, serializeShouldCreateProtocolMessage)
 {
-    one::clproto::ClientMessage clientMsg{};
-    auto eventMsg = clientMsg.mutable_event();
-    eventMsg->set_counter(1);
-    auto writeEventMsg = eventMsg->mutable_write_event();
+    one::clproto::Event eventMsg{};
+    eventMsg.set_counter(1);
+    auto writeEventMsg = eventMsg.mutable_write_event();
     writeEventMsg->set_file_uuid("fileUuid1");
     writeEventMsg->set_size(10);
     auto blockMsg = writeEventMsg->add_blocks();
@@ -90,5 +88,5 @@ TEST_F(WriteEventTest, serializeShouldCreateProtocolMessage)
     blockMsg->set_storage_id("");
     blockMsg->set_file_id("");
     EXPECT_EQ(
-        clientMsg.SerializeAsString(), event->serialize()->SerializeAsString());
+        eventMsg.SerializeAsString(), event->serialize()->SerializeAsString());
 }

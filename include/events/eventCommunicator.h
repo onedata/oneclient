@@ -10,11 +10,13 @@
 #define ONECLIENT_EVENTS_EVENT_COMMUNICATOR_H
 
 #include "communication/communicator.h"
+#include "events/eventContainer.h"
 #include "events/buffers/voidEventBuffer.h"
 #include "events/subscriptions/subscriptionCancellation.h"
 
 #include <functional>
 #include <unordered_map>
+#include <vector>
 
 namespace one {
 namespace client {
@@ -50,10 +52,10 @@ public:
     virtual ~EventCommunicator();
 
     /**
-     * Sends an event to the server.
-     * @param event Event to be sent.
+     * Sends events to the server.
+     * @param events Events to be sent.
      */
-    void send(EventPtr event);
+    void send(std::vector<EventPtr> events);
 
     /**
      * Sends a subscription to the server.
@@ -82,9 +84,13 @@ template <class EventT> EventCommunicator<EventT>::~EventCommunicator()
     m_stream->close();
 }
 
-template <class EventT> void EventCommunicator<EventT>::send(EventPtr event)
+template <class EventT>
+void EventCommunicator<EventT>::send(std::vector<EventPtr> events)
 {
-    m_stream->send(*event);
+    if (!events.empty()) {
+        EventContainer<EventT> eventsMsg{std::move(events)};
+        m_stream->send(eventsMsg);
+    }
 }
 
 template <class EventT>

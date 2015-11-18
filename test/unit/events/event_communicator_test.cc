@@ -13,6 +13,7 @@
 #include "typedStream_mock.h"
 
 #include <memory>
+#include <vector>
 
 using namespace ::testing;
 using namespace one;
@@ -37,9 +38,19 @@ protected:
 
 TYPED_TEST_CASE(EventCommunicatorTest, TestEventTypes);
 
+TYPED_TEST(EventCommunicatorTest, processShouldNotSendEvent)
+{
+    EXPECT_CALL(*this->stream, send(_)).Times(0);
+    EXPECT_CALL(*this->stream, close()).Times(1);
+    std::vector<std::unique_ptr<TypeParam>> events;
+    this->communicator.send(std::move(events));
+}
+
 TYPED_TEST(EventCommunicatorTest, processShouldSendEvent)
 {
-    EXPECT_CALL(*this->stream, close()).Times(1);
     EXPECT_CALL(*this->stream, send(_)).Times(1);
-    this->communicator.send(std::make_unique<TypeParam>("fileUuid"));
+    EXPECT_CALL(*this->stream, close()).Times(1);
+    std::vector<std::unique_ptr<TypeParam>> events;
+    events.emplace_back(std::make_unique<TypeParam>("fileUuid"));
+    this->communicator.send(std::move(events));
 }

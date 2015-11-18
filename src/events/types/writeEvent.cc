@@ -72,10 +72,9 @@ std::string WriteEvent::toString() const
     return stream.str();
 }
 
-std::unique_ptr<messages::ProtocolClientMessage> WriteEvent::serialize() const
+std::unique_ptr<ProtocolEventMessage> WriteEvent::serialize() const
 {
-    auto clientMsg = std::make_unique<messages::ProtocolClientMessage>();
-    auto eventMsg = clientMsg->mutable_event();
+    auto eventMsg = std::make_unique<ProtocolEventMessage>();
     auto writeEventMsg = eventMsg->mutable_write_event();
 
     eventMsg->set_counter(m_counter);
@@ -97,7 +96,7 @@ std::unique_ptr<messages::ProtocolClientMessage> WriteEvent::serialize() const
         blockMsg->set_file_id(block.second.fileId());
     }
 
-    return clientMsg;
+    return eventMsg;
 }
 
 } // namespace events

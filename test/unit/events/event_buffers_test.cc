@@ -22,8 +22,10 @@ public:
     using EventHandler = typename EventBuffer<EventT>::EventHandler;
 
     EventBufferTest()
-        : onClearHandler{
-              [this](EventPtr event) { events.push_back(std::move(*event)); }}
+        : onClearHandler{[this](std::vector<EventPtr> evts) {
+            for (const auto &evt : evts)
+                events.emplace_back(*evt);
+        }}
     {
     }
 
@@ -85,7 +87,7 @@ TYPED_TEST(EventBufferMapTest, pushShouldAggregateEventsByFileUuid)
             this->buffer->push(std::make_unique<TypeParam>(fileUuid));
     this->buffer->clear();
 
-    sort(this->events.begin(), this->events.end());
+    std::sort(this->events.begin(), this->events.end());
     EXPECT_EQ(fileUuids.size(), this->events.size());
     for (unsigned int i = 0; i < this->events.size(); ++i) {
         EXPECT_EQ(fileUuids[i], this->events[i].fileUuid());
@@ -94,7 +96,7 @@ TYPED_TEST(EventBufferMapTest, pushShouldAggregateEventsByFileUuid)
 }
 
 TYPED_TEST(
-    EventBufferMapTest, clearShouldCallOnClearHandlerForEachAggregatedEvent)
+    EventBufferMapTest, clearShouldCallOnClearHandlerForAggregatedEvents)
 {
     std::vector<std::string> fileUuids{"1", "2", "3", "4", "5"};
     int counter = 0;
@@ -103,8 +105,9 @@ TYPED_TEST(
     for (const auto &fileUuid : fileUuids)
         this->buffer->push(std::make_unique<TypeParam>(fileUuid));
     this->buffer->clear();
+    this->buffer->setOnClearHandler([&](auto) {});
 
-    EXPECT_EQ(fileUuids.size(), counter);
+    EXPECT_EQ(1, counter);
 }
 
 TYPED_TEST(EventBufferMapTest, EventBufferMapShouldClearOnDestruction)
@@ -117,5 +120,5 @@ TYPED_TEST(EventBufferMapTest, EventBufferMapShouldClearOnDestruction)
             tempBuffer->push(std::make_unique<TypeParam>(fileUuid));
     }
 
-    EXPECT_EQ(fileUuids.size(), this->events.size());
+    EXPECT_EQ(5, this->events.size());
 }
