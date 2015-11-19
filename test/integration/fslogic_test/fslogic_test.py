@@ -215,7 +215,7 @@ class TestFsLogic:
         new_stat = fslogic.Stat()
         assert self.fl.getattr('/random/path', new_stat) == 0
         assert stat == new_stat
-        assert 0 == appmock_client.tcp_server_all_messages_count(self.ip, 5555)
+        assert 1 == appmock_client.tcp_server_all_messages_count(self.ip, 5555)
 
     @performance(skip=True)
     def test_mkdir_should_mkdir(self, parameters):
@@ -360,7 +360,8 @@ class TestFsLogic:
         self.fl.getattr('/random/path2', stat)
 
         assert stat.size == getattr_response.file_attr.size
-        0 == appmock_client.tcp_server_all_messages_count(self.ip, 5555)
+        assert 1 == appmock_client.tcp_server_all_messages_count(self.ip, 5555)
+        appmock_client.reset_tcp_server_history(self.ip)
 
         getattr_response = fuse_messages_pb2.FuseResponse()
         getattr_response.status.code = common_messages_pb2.Status.VENOENT
@@ -429,6 +430,8 @@ class TestFsLogic:
 
         assert stat.mode == getattr_response.file_attr.mode | \
                             fslogic.regularMode()
+        assert 1 == appmock_client.tcp_server_all_messages_count(self.ip, 5555)
+        appmock_client.reset_tcp_server_history(self.ip)
 
         chmod_response = fuse_messages_pb2.FuseResponse()
         chmod_response.status.code = common_messages_pb2.Status.VOK
@@ -499,6 +502,8 @@ class TestFsLogic:
 
         assert stat.atime == getattr_response.file_attr.atime
         assert stat.mtime == getattr_response.file_attr.mtime
+        assert 1 == appmock_client.tcp_server_all_messages_count(self.ip, 5555)
+        appmock_client.reset_tcp_server_history(self.ip)
 
         utime_response = fuse_messages_pb2.FuseResponse()
         utime_response.status.code = common_messages_pb2.Status.VOK

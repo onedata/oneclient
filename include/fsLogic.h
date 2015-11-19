@@ -13,6 +13,7 @@
 #include "cache/helpersCache.h"
 #include "cache/metadataCache.h"
 #include "events/eventManager.h"
+#include "fsSubscriptions.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
 #include "messages/fuse/helperParams.h"
@@ -235,6 +236,7 @@ private:
     FileContextCache m_fileContextCache;
     HelpersCache m_helpersCache;
     MetadataCache m_metadataCache;
+    FsSubscriptions m_fsSubscriptions;
 };
 
 struct FsLogicWrapper {

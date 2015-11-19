@@ -48,6 +48,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context)
     , m_eventManager{m_context}
     , m_helpersCache{*m_context->communicator()}
     , m_metadataCache{*m_context->communicator()}
+    , m_fsSubscriptions{*m_context->scheduler(), m_eventManager}
 {
     m_eventManager.setFileAttrHandler(fileAttrHandler());
     m_eventManager.setFileLocationHandler(fileLocationHandler());
@@ -86,6 +87,8 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
             statbuf->st_mode |= S_IFREG;
             break;
     }
+
+    m_fsSubscriptions.addTemporaryFileAttrSubscription(attr.uuid());
 
     return 0;
 }
@@ -280,6 +283,7 @@ int FsLogic::open(
 
     acc->second.uuid = attr.uuid();
     acc->second.helperCtx.flags = fileInfo->flags;
+    m_fsSubscriptions.addFileLocationSubscription(attr.uuid());
 
     return 0;
 }
@@ -486,6 +490,8 @@ int FsLogic::release(
     boost::filesystem::path path, struct fuse_file_info *const fileInfo)
 {
     DLOG(INFO) << "FUSE: release(path: " << path << ", ...)";
+    auto attr = m_metadataCache.getAttr(path);
+    m_fsSubscriptions.removeFileLocationSubscription(attr.uuid());
     return 0;
 }
 
