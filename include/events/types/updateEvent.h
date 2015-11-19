@@ -54,6 +54,11 @@ public:
      */
     void aggregate(EventPtr event);
 
+    /**
+     * @return Wrapped object.
+     */
+    const Wrapped &wrapped() const;
+
     std::string toString() const override;
 
     std::unique_ptr<ProtocolEventMessage> serialize() const override;
@@ -72,6 +77,11 @@ template <class Wrapped> void UpdateEvent<Wrapped>::aggregate(EventPtr event)
 {
     m_counter += event->m_counter;
     m_wrapped->aggregate(std::move(event->m_wrapped));
+}
+
+template <class Wrapped> const Wrapped &UpdateEvent<Wrapped>::wrapped() const
+{
+    return *m_wrapped;
 }
 
 template <class Wrapped> std::string UpdateEvent<Wrapped>::toString() const
