@@ -38,11 +38,11 @@ public:
      */
     HandshakeRequest(std::string sessionId, std::string token);
 
-    virtual std::string toString() const override;
-
-    virtual std::unique_ptr<ProtocolClientMessage> serialize() const override;
+    std::string toString() const override;
 
 private:
+    std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
+
     std::string m_sessionId;
     boost::optional<std::string> m_token;
 };

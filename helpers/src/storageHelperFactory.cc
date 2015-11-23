@@ -9,12 +9,15 @@
 #include "helpers/storageHelperFactory.h"
 
 #include "directIOHelper.h"
+#include "proxyIOHelper.h"
 
 namespace one {
 namespace helpers {
 
-StorageHelperFactory::StorageHelperFactory(asio::io_service &dio_service)
+StorageHelperFactory::StorageHelperFactory(
+    asio::io_service &dio_service, communication::Communicator &communicator)
     : m_dioService{dio_service}
+    , m_communicator{communicator}
 {
 }
 
@@ -24,6 +27,8 @@ std::shared_ptr<IStorageHelper> StorageHelperFactory::getStorageHelper(
 {
     if (sh_name == "DirectIO")
         return std::make_shared<DirectIOHelper>(args, m_dioService);
+    if (sh_name == "ProxyIO")
+        return std::make_shared<ProxyIOHelper>(args, m_communicator);
 
     return {};
 }

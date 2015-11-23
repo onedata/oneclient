@@ -1,7 +1,7 @@
 /**
  * @file directIOHelper.h
- * @author Beata Skiba
- * @copyright (C) 2013 ACK CYFRONET AGH
+ * @author Rafał Słota
+ * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
@@ -70,7 +70,7 @@ public:
         asio::mutable_buffer buf, off_t offset,
         GeneralCallback<asio::mutable_buffer>);
     void ash_write(CTXRef ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset, GeneralCallback<int>);
+        asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t>);
     void ash_release(
         CTXRef ctx, const boost::filesystem::path &p, VoidCallback);
     void ash_flush(CTXRef ctx, const boost::filesystem::path &p, VoidCallback);

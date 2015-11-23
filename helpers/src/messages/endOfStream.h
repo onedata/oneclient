@@ -23,9 +23,10 @@ namespace messages {
  */
 class EndOfStream : public ClientMessage {
 public:
-    virtual std::string toString() const override;
+    std::string toString() const override;
 
-    virtual std::unique_ptr<ProtocolClientMessage> serialize() const override;
+private:
+    std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 };
 
 } // namespace messages

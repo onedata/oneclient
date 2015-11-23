@@ -37,6 +37,11 @@ template <class LowerLayer> class Translator : public LowerLayer {
 public:
     using LowerLayer::LowerLayer;
     using LowerLayer::send;
+
+    template <typename SrvMsg>
+    using CommunicateCallback =
+        std::function<void(const std::error_code &ec, std::unique_ptr<SrvMsg>)>;
+
     virtual ~Translator() = default;
 
     /**
@@ -51,7 +56,7 @@ public:
      * @param retires The retries argument to pass to the lower layer.
      * @see ConnectionPool::send()
      */
-    auto send(const messages::ClientMessage &msg,
+    auto send(messages::ClientMessage &&msg,
         const int retries = DEFAULT_RETRY_NUMBER);
 
     /**
@@ -75,7 +80,7 @@ public:
 
         LowerLayer::setHandshake(
             [getHandshake = std::move(getHandshake)] {
-                return getHandshake().serialize();
+                return messages::serialize(getHandshake());
             },
             [onHandshakeResponse = std::move(onHandshakeResponse)](
                 ServerMessagePtr msg) {
@@ -112,8 +117,7 @@ public:
      */
     template <typename = void>
     auto reply(const clproto::ServerMessage &replyTo,
-        const messages::ClientMessage &msg,
-        const int retry = DEFAULT_RETRY_NUMBER)
+        messages::ClientMessage &&msg, const int retry = DEFAULT_RETRY_NUMBER)
     {
         auto promise = std::make_shared<std::promise<void>>();
         auto future = promise->get_future();
@@ -128,7 +132,9 @@ public:
                 promise->set_value();
         };
 
-        LowerLayer::reply(replyTo, msg.serialize(), std::move(callback), retry);
+        LowerLayer::reply(replyTo, messages::serialize(std::move(msg)),
+            std::move(callback), retry);
+
         return future;
     }
 
@@ -138,10 +144,11 @@ public:
      * @see Inbox::communicate()
      * @note This method is only instantiable if the lower layer has a
      * @c communicate method.
+     * @return A future representing peer's answer.
      */
     template <class SvrMsg>
-    auto communicate(const messages::ClientMessage &msg,
-        const int retries = DEFAULT_RETRY_NUMBER)
+    auto communicate(
+        messages::ClientMessage &&msg, const int retries = DEFAULT_RETRY_NUMBER)
     {
         auto promise = std::make_shared<std::promise<SvrMsg>>();
         auto future = promise->get_future();
@@ -162,14 +169,52 @@ public:
             }
         };
 
-        LowerLayer::communicate(msg.serialize(), std::move(callback), retries);
+        LowerLayer::communicate(
+            messages::serialize(std::move(msg)), std::move(callback), retries);
+
         return future;
+    }
+
+    /**
+     * Wraps lower layer's @c communicate.
+     * The ougoing message is serialized as in @c send().
+     * @see Inbox::communicate()
+     * @note This method is only instantiable if the lower layer has a
+     * @c communicate method.
+     */
+    template <class SvrMsg>
+    auto communicate(messages::ClientMessage &&msg,
+        CommunicateCallback<SvrMsg> callback,
+        const int retries = DEFAULT_RETRY_NUMBER)
+    {
+        auto wrappedCallback = [callback = std::move(callback)](
+            const std::error_code &ec, ServerMessagePtr protoMessage)
+        {
+            if (ec) {
+                callback(ec, {});
+            }
+            else {
+                try {
+                    callback(
+                        ec, std::make_unique<SvrMsg>(std::move(protoMessage)));
+                }
+                catch (const std::system_error &err) {
+                    callback(err.code(), {});
+                }
+                catch (const std::exception &e) {
+                    callback(std::make_error_code(std::errc::io_error), {});
+                }
+            }
+        };
+
+        return LowerLayer::communicate(messages::serialize(std::move(msg)),
+            std::move(wrappedCallback), retries);
     }
 };
 
 template <class LowerLayer>
 auto Translator<LowerLayer>::send(
-    const messages::ClientMessage &msg, const int retries)
+    messages::ClientMessage &&msg, const int retries)
 {
     auto promise = std::make_shared<std::promise<void>>();
     auto future = promise->get_future();
@@ -184,7 +229,9 @@ auto Translator<LowerLayer>::send(
             promise->set_value();
     };
 
-    LowerLayer::send(msg.serialize(), std::move(callback), retries);
+    LowerLayer::send(
+        messages::serialize(std::move(msg)), std::move(callback), retries);
+
     return future;
 }
 

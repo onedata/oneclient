@@ -60,7 +60,7 @@ public:
      * Sends a next message in the stream.
      * @param msg The message to send through the stream.
      */
-    void send(const messages::ClientMessage &msg);
+    void send(messages::ClientMessage &&msg);
 
     /**
      * Resends messages requested by the remote party.
@@ -118,9 +118,9 @@ template <class Communicator> TypedStream<Communicator>::~TypedStream()
 }
 
 template <class Communicator>
-void TypedStream<Communicator>::send(const messages::ClientMessage &msg)
+void TypedStream<Communicator>::send(messages::ClientMessage &&msg)
 {
-    auto protoMsg = msg.serialize();
+    auto protoMsg = messages::serialize(std::move(msg));
     auto msgStream = protoMsg->mutable_message_stream();
     msgStream->set_stream_id(m_streamId);
     msgStream->set_sequence_number(m_sequenceId++);
