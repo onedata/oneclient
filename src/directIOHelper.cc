@@ -227,7 +227,7 @@ void DirectIOHelper::ash_read(CTXRef ctx, const boost::filesystem::path &p,
 }
 
 void DirectIOHelper::ash_write(CTXRef ctx, const boost::filesystem::path &p,
-    asio::const_buffer buf, off_t offset, GeneralCallback<int> callback)
+    asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t> callback)
 {
     m_workerService.post([ =, &ctx, callback = std::move(callback) ]() {
         try {
@@ -281,12 +281,14 @@ std::size_t DirectIOHelper::sh_write(CTXRef ctx,
     auto res = pwrite(fd, asio::buffer_cast<const char *>(buf),
         asio::buffer_size(buf), offset);
 
+    auto potentialError = makePosixError(errno);
+
     if (ctx.fh <= 0) {
         close(fd);
     }
 
     if (res == -1) {
-        throw std::system_error(makePosixError(errno));
+        throw std::system_error(potentialError);
     }
 
     return res;
@@ -303,12 +305,14 @@ asio::mutable_buffer DirectIOHelper::sh_read(CTXRef ctx,
     auto res = pread(
         fd, asio::buffer_cast<char *>(buf), asio::buffer_size(buf), offset);
 
+    auto potentialError = makePosixError(errno);
+
     if (ctx.fh <= 0) {
         close(fd);
     }
 
     if (res == -1) {
-        throw std::system_error(makePosixError(errno));
+        throw std::system_error(potentialError);
     }
 
     return std::move(asio::buffer(buf, res));

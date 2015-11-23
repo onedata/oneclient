@@ -27,6 +27,9 @@ using ProtocolClientMessage = one::clproto::ClientMessage;
  * to the server.
  */
 class ClientMessage {
+    friend std::unique_ptr<ProtocolClientMessage> serialize(
+        ClientMessage &&msg);
+
 public:
     virtual ~ClientMessage() = default;
 
@@ -35,12 +38,19 @@ public:
      */
     virtual std::string toString() const = 0;
 
+private:
     /**
      * Creates Protocol Buffers message based on provided @c ClientMessage.
+     * The instance of ClientMessage is invalidated after its use.
      * @return Unique pointer to Protocol Buffers @c ClientMessage instance.
      */
-    virtual std::unique_ptr<ProtocolClientMessage> serialize() const = 0;
+    virtual std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() = 0;
 };
+
+inline std::unique_ptr<ProtocolClientMessage> serialize(ClientMessage &&msg)
+{
+    return msg.serializeAndDestroy();
+}
 
 } // namespace messages
 } // namespace one

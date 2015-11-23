@@ -15,7 +15,7 @@ namespace messages {
 
 std::string EndOfStream::toString() const { return "type: 'EndOfStream'"; }
 
-std::unique_ptr<ProtocolClientMessage> EndOfStream::serialize() const
+std::unique_ptr<ProtocolClientMessage> EndOfStream::serializeAndDestroy()
 {
     auto clientMsg = std::make_unique<ProtocolClientMessage>();
     clientMsg->mutable_end_of_stream();

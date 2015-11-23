@@ -7,10 +7,11 @@ This software is released under the MIT license cited in 'LICENSE.txt'
 Client library to contact appmock instances.
 """
 
-import json
-import requests
-import time
 import base64
+import json
+import time
+
+import requests
 
 # Appmock remote control port
 appmock_rc_port = 9999
@@ -22,6 +23,65 @@ WAIT_STARTING_CHECK_INTERVAL = 250
 WAIT_INTERVAL_INCREMENT_RATE = 1.3
 
 requests.packages.urllib3.disable_warnings()
+
+
+class AppmockClient(object):
+    def __init__(self, ip):
+        self.ip = ip
+
+    def tcp_endpoint(self, port):
+        return AppmockTCPEndpoint(self, port)
+
+    def reset_rest_history(self):
+        return reset_rest_history(self.ip)
+
+    def reset_tcp_history(self):
+        return reset_tcp_server_history(self.ip)
+
+
+class AppmockTCPEndpoint(object):
+    def __init__(self, client, port):
+        self.client = client
+        self.ip = client.ip
+        self.port = port
+
+    def specific_message_count(self, message_binary):
+        return tcp_server_specific_message_count(self.ip, self.port,
+                                                 message_binary)
+
+    def all_messages_count(self):
+        return tcp_server_all_messages_count(self.ip, self.port)
+
+    def connection_count(self):
+        return tcp_server_connection_count(self.ip, self.port)
+
+    def history(self):
+        return tcp_server_history(self.ip, self.port)
+
+    def send(self, message_binary, msg_count=1):
+        return tcp_server_send(self.ip, self.port, message_binary, msg_count)
+
+    def wait_for_any_messages(self, msg_count=1, accept_more=False,
+                              return_history=False, timeout_sec=10):
+        return tcp_server_wait_for_any_messages(self.ip, self.port, msg_count,
+                                                accept_more, return_history,
+                                                timeout_sec)
+
+    def wait_for_connections(self, number_of_connections=1, accept_more=False,
+                             timeout_sec=10):
+        return tcp_server_wait_for_connections(self.ip, self.port,
+                                               number_of_connections,
+                                               accept_more, timeout_sec)
+
+    def wait_for_specific_messages(self, message_binary, msg_count=1,
+                                   accept_more=False, return_history=False,
+                                   timeout_sec=10):
+        return tcp_server_wait_for_specific_messages(self.ip, self.port,
+                                                     message_binary, msg_count,
+                                                     accept_more,
+                                                     return_history,
+                                                     timeout_sec)
+
 
 def _http_post(ip, port, path, use_ssl, data):
     """

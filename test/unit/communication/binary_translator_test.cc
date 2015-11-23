@@ -48,7 +48,7 @@ TEST_F(BinaryTranslatorTest, sendShouldSerializeProtocolObjects)
     const auto data = randomString();
 
     messages::Ping ping{data};
-    auto protoMsg = ping.serialize();
+    auto protoMsg = messages::serialize(std::move(ping));
     auto msg = protoMsg->SerializeAsString();
 
     EXPECT_CALL(binaryTranslator.mock, sendProxy(msg, _));
@@ -61,7 +61,7 @@ TEST_F(BinaryTranslatorTest, sendShouldPassUninterestingArgumentsDown)
     const auto retries = randomInt();
     EXPECT_CALL(binaryTranslator.mock, sendProxy(_, retries));
     binaryTranslator.send(
-        messages::Ping{randomString()}.serialize(), {}, retries);
+        messages::serialize(messages::Ping{randomString()}), {}, retries);
 }
 
 TEST_F(BinaryTranslatorTest, setOnMessageCallbackShouldDeserializeBytes)
@@ -94,7 +94,7 @@ TEST_F(BinaryTranslatorTest, setHandshakeShouldSerializeDomainObjects)
         .WillOnce(SaveArg<0>(&byteGetHandshake));
 
     const auto data = randomString();
-    auto protoMsg = messages::Ping{data}.serialize();
+    auto protoMsg = messages::serialize(messages::Ping{data});
     auto msg = protoMsg->SerializeAsString();
 
     auto protoGetHandshake = [&] { return std::move(protoMsg); };

@@ -38,7 +38,7 @@ std::string HandshakeRequest::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> HandshakeRequest::serialize() const
+std::unique_ptr<ProtocolClientMessage> HandshakeRequest::serializeAndDestroy()
 {
     auto clientMsg = std::make_unique<ProtocolClientMessage>();
     auto handshakeRequestMsg = clientMsg->mutable_handshake_request();

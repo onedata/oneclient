@@ -11,6 +11,8 @@
 
 #include "helpers/IStorageHelper.h"
 
+#include "communication/communicator.h"
+
 #include <asio/io_service.hpp>
 
 #include <memory>
@@ -24,7 +26,8 @@ namespace helpers {
  */
 class StorageHelperFactory {
 public:
-    StorageHelperFactory(asio::io_service &dio_service);
+    StorageHelperFactory(asio::io_service &dio_service,
+        communication::Communicator &communicator);
 
     virtual ~StorageHelperFactory() = default;
 
@@ -41,6 +44,7 @@ public:
 
 private:
     asio::io_service &m_dioService;
+    communication::Communicator &m_communicator;
 };
 
 } // namespace helpers
