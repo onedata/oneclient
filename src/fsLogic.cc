@@ -13,6 +13,7 @@
 #include "events/eventManager.h"
 #include "logging.h"
 #include "helperWrapper.h"
+#include "options.h"
 
 #include "messages/fuse/changeMode.h"
 #include "messages/fuse/close.h"
@@ -485,9 +486,9 @@ int FsLogic::fsyncdir(boost::filesystem::path path, const int datasync,
     return 0;
 }
 
-HelpersCache::HelperPtr FsLogic::getHelper(
-    const std::string &storageId, const bool forceClusterProxy)
+HelpersCache::HelperPtr FsLogic::getHelper(const std::string &storageId)
 {
+    auto forceClusterProxy = !m_context->options()->get_directio();
     return m_helpersCache.get(storageId, forceClusterProxy);
 }
 
