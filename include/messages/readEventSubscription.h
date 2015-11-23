@@ -67,7 +67,7 @@ public:
      */
     const boost::optional<std::size_t> &sizeThreshold() const;
 
-    virtual std::string toString() const override;
+    std::string toString() const override;
 
 private:
     uint64_t m_id;

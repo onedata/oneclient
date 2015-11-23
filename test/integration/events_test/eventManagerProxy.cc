@@ -83,16 +83,16 @@ std::string prepareSerializedReadEvent(std::size_t counter, std::string fileId,
     off_t offset, size_t size, uint64_t sequenceNumber)
 {
     auto event = ReadEvent{offset, size, std::move(fileId), counter};
-    return setMessageStream(event.serialize(), sequenceNumber)
-        ->SerializeAsString();
+    return setMessageStream(one::messages::serialize(std::move(event)),
+               sequenceNumber)->SerializeAsString();
 }
 
 std::string prepareSerializedWriteEvent(std::size_t counter,
     std::string fileUuid, off_t offset, size_t size, uint64_t sequenceNumber)
 {
     auto event = WriteEvent{offset, size, std::move(fileUuid), counter};
-    return setMessageStream(event.serialize(), sequenceNumber)
-        ->SerializeAsString();
+    return setMessageStream(one::messages::serialize(std::move(event)),
+               sequenceNumber)->SerializeAsString();
 }
 
 std::string prepareSerializedWriteTruncatedEvent(std::size_t counter,
@@ -102,16 +102,16 @@ std::string prepareSerializedWriteTruncatedEvent(std::size_t counter,
     auto event = WriteEvent{offset, size, fileUuid, counter - 1};
     event += TruncateEvent{fileSize, std::move(fileUuid)};
 
-    return setMessageStream(event.serialize(), sequenceNumber)
-        ->SerializeAsString();
+    return setMessageStream(one::messages::serialize(std::move(event)),
+               sequenceNumber)->SerializeAsString();
 }
 
 std::string prepareSerializedTruncateEvent(std::size_t counter,
     std::string fileId, off_t fileSize, uint64_t sequenceNumber)
 {
     auto event = TruncateEvent{fileSize, std::move(fileId), counter};
-    return setMessageStream(event.serialize(), sequenceNumber)
-        ->SerializeAsString();
+    return setMessageStream(one::messages::serialize(std::move(event)),
+               sequenceNumber)->SerializeAsString();
 }
 
 std::string prepareSerializedReadEventSubscription(uint64_t id,

@@ -24,7 +24,6 @@ namespace fuse {
  */
 class FuseResponse : public ServerMessage {
 public:
-
     /**
      * Constructor.
      * @param serverMessage Protocol Buffers message representing

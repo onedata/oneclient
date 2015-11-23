@@ -25,9 +25,9 @@ EventCommunicator::EventCommunicator(std::shared_ptr<Context> context)
 
 EventCommunicator::~EventCommunicator() { m_stream->close(); }
 
-void EventCommunicator::send(const Event &event) const
+void EventCommunicator::send(Event &&event) const
 {
-    m_stream->send(event);
+    m_stream->send(std::move(event));
 }
 
 } // namespace events

@@ -18,7 +18,7 @@ std::string GetProtocolVersion::toString() const
     return "type: 'GetProtocolVersion'";
 }
 
-std::unique_ptr<ProtocolClientMessage> GetProtocolVersion::serialize() const
+std::unique_ptr<ProtocolClientMessage> GetProtocolVersion::serializeAndDestroy()
 {
     auto clientMsg = std::make_unique<ProtocolClientMessage>();
     clientMsg->mutable_get_protocol_version();

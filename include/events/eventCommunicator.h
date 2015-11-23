@@ -42,7 +42,7 @@ public:
      * Sends event to the server using communication stream.
      * @param event Event to be sent.
      */
-    virtual void send(const Event &event) const;
+    virtual void send(Event &&event) const;
 
 private:
     std::shared_ptr<Context> m_context;

@@ -80,12 +80,12 @@ public:
      */
     ReadEvent &operator+=(const ReadEvent &event);
 
-    virtual std::string toString() const override;
-
-    virtual std::unique_ptr<one::messages::ProtocolClientMessage>
-    serialize() const override;
+    std::string toString() const override;
 
 private:
+    std::unique_ptr<one::messages::ProtocolClientMessage>
+    serializeAndDestroy() override;
+
     std::string m_fileUuid;
     std::size_t m_size = 0;
     boost::icl::interval_map<off_t, FileBlock, boost::icl::partial_enricher>

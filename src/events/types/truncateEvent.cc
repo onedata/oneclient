@@ -8,6 +8,8 @@
 
 #include "events/types/truncateEvent.h"
 
+#include "messages.pb.h"
+
 #include <boost/optional/optional_io.hpp>
 
 #include <sstream>

@@ -29,12 +29,12 @@ std::string GetFileLocation::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> GetFileLocation::serialize() const
+std::unique_ptr<ProtocolClientMessage> GetFileLocation::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
     auto gfl = msg->mutable_fuse_request()->mutable_get_file_location();
 
-    gfl->set_uuid(m_uuid);
+    gfl->mutable_uuid()->swap(m_uuid);
 
     return msg;
 }

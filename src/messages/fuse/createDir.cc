@@ -31,13 +31,13 @@ std::string CreateDir::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> CreateDir::serialize() const
+std::unique_ptr<ProtocolClientMessage> CreateDir::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
     auto cd = msg->mutable_fuse_request()->mutable_create_dir();
 
-    cd->set_parent_uuid(m_parentUUID);
-    cd->set_name(m_name);
+    cd->mutable_parent_uuid()->swap(m_parentUUID);
+    cd->mutable_name()->swap(m_name);
     cd->set_mode(m_mode);
 
     return msg;

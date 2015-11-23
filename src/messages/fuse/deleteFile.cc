@@ -28,12 +28,12 @@ std::string DeleteFile::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> DeleteFile::serialize() const
+std::unique_ptr<ProtocolClientMessage> DeleteFile::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
     auto df = msg->mutable_fuse_request()->mutable_delete_file();
 
-    df->set_uuid(m_uuid);
+    df->mutable_uuid()->swap(m_uuid);
 
     return msg;
 }

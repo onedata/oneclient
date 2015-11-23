@@ -88,24 +88,24 @@ std::string WriteEvent::toString() const
 }
 
 std::unique_ptr<one::messages::ProtocolClientMessage>
-WriteEvent::serialize() const
+WriteEvent::serializeAndDestroy()
 {
     auto clientMsg = std::make_unique<one::messages::ProtocolClientMessage>();
     auto eventMsg = clientMsg->mutable_event();
     auto writeEventMsg = eventMsg->mutable_write_event();
     writeEventMsg->set_counter(m_counter);
-    writeEventMsg->set_file_id(m_fileUuid);
+    writeEventMsg->mutable_file_id()->swap(m_fileUuid);
 
     if (m_fileSize)
         writeEventMsg->set_file_size(m_fileSize.get());
 
     writeEventMsg->set_size(m_size);
-    for (const auto &block : m_blocks) {
+    for (auto &block : m_blocks) {
         auto blockMsg = writeEventMsg->add_blocks();
         blockMsg->set_offset(block.first.lower());
         blockMsg->set_size(boost::icl::size(block.first));
-        blockMsg->set_storage_id(block.second.storageId());
-        blockMsg->set_file_id(block.second.fileId());
+        blockMsg->mutable_storage_id()->swap(block.second.mutableStorageId());
+        blockMsg->mutable_file_id()->swap(block.second.mutableFileId());
     }
 
     return clientMsg;

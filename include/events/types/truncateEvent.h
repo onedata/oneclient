@@ -31,7 +31,7 @@ public:
     TruncateEvent(
         off_t fileSize, std::string fileUuid, std::size_t counter = 1);
 
-    virtual std::string toString() const override;
+    std::string toString() const override;
 };
 
 } // namespace events

@@ -22,7 +22,12 @@ public:
     {
     }
 
-    MOCK_CONST_METHOD1(send, void(const one::client::events::Event &));
+    MOCK_CONST_METHOD1(send_mock, void(const one::client::events::Event &));
+
+    void send(one::client::events::Event &&event) const override
+    {
+        send_mock(event);
+    }
 };
 
 #endif // ONECLIENT_TEST_UNIT_EVENT_COMMUNICATOR_MOCK_H

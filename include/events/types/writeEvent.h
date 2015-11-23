@@ -58,6 +58,8 @@ public:
         std::size_t counter = 1, std::string storageId = {},
         std::string fileId = {});
 
+    virtual ~WriteEvent() = default;
+
     /**
      * @return UUID of file associated with the write event.
      */
@@ -95,9 +97,6 @@ public:
 
     virtual std::string toString() const override;
 
-    virtual std::unique_ptr<one::messages::ProtocolClientMessage>
-    serialize() const override;
-
 protected:
     /**
      * @copydoc WriteEvent(off_t, std::size_t, std::string, std::string,
@@ -113,6 +112,10 @@ protected:
     boost::optional<off_t> m_fileSize;
     boost::icl::interval_map<off_t, FileBlock, boost::icl::partial_enricher>
         m_blocks;
+
+private:
+    std::unique_ptr<one::messages::ProtocolClientMessage>
+    serializeAndDestroy() override;
 };
 
 /**

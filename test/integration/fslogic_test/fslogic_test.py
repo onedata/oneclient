@@ -1,4 +1,5 @@
 from __future__ import print_function
+
 import random
 
 __author__ = "Konrad Zemek"
@@ -8,113 +9,78 @@ This software is released under the MIT license cited in 'LICENSE.txt'."""
 import os
 import sys
 import time
-from threading import Thread
-from Queue import Queue
-
 import pytest
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.dirname(script_dir))
 from test_common import *
-from performance import *
-
 # noinspection PyUnresolvedReferences
 from environment import appmock, common, docker
 # noinspection PyUnresolvedReferences
 import fslogic
-import appmock_client
 # noinspection PyUnresolvedReferences
 from proto import messages_pb2, fuse_messages_pb2, common_messages_pb2
 
 
-def with_reply_process(ip, fuse_responses, queue):
-    for i, fuse_response in enumerate(fuse_responses):
-        [received_msg] = \
-            appmock_client.tcp_server_wait_for_any_messages(ip, 5555,
-                                                            return_history=True)
-
-        appmock_client.reset_tcp_server_history(ip)
-
-        client_message = messages_pb2.ClientMessage()
-        client_message.ParseFromString(received_msg)
-
-        server_message = messages_pb2.ServerMessage()
-        server_message.fuse_response.CopyFrom(fuse_response)
-        server_message.message_id = client_message.message_id.encode('utf-8')
-
-        sent_msg = server_message.SerializeToString()
-        appmock_client.tcp_server_send(ip, 5555, sent_msg)
-
-        queue.put(received_msg)
+@pytest.fixture
+def endpoint(appmock_client):
+    return appmock_client.tcp_endpoint(5555)
 
 
-def with_reply(ip, fuse_responses, fun, *args):
-    if not isinstance(fuse_responses, list):
-        fuse_responses = [fuse_responses]
-
-    queue = Queue()
-    p = Thread(target=with_reply_process, args=(ip, fuse_responses, queue))
-    p.start()
-
-    try:
-        ret = fun(*args)
-        received = [queue.get() for _ in fuse_responses]
-        return ret, received
-    except:
-        raise
-    finally:
-        p.join()
+@pytest.fixture
+def fl(endpoint):
+    return fslogic.FsLogicProxy(endpoint.ip, endpoint.port)
 
 
 def prepare_getattr(filename, filetype, size=None):
-    reply = fuse_messages_pb2.FileAttr()
-    reply.uuid = str(random.randint(0, 1000000000))
-    reply.name = filename
-    reply.mode = random.randint(0, 1023)
-    reply.uid = random.randint(0, 20000)
-    reply.gid = random.randint(0, 20000)
-    reply.mtime = int(time.time()) - random.randint(0, 1000000)
-    reply.atime = reply.mtime - random.randint(0, 1000000)
-    reply.ctime = reply.atime - random.randint(0, 1000000)
-    reply.type = filetype
-    reply.size = size if size else random.randint(0, 1000000000)
+    repl = fuse_messages_pb2.FileAttr()
+    repl.uuid = str(random.randint(0, 1000000000))
+    repl.name = filename
+    repl.mode = random.randint(0, 1023)
+    repl.uid = random.randint(0, 20000)
+    repl.gid = random.randint(0, 20000)
+    repl.mtime = int(time.time()) - random.randint(0, 1000000)
+    repl.atime = repl.mtime - random.randint(0, 1000000)
+    repl.ctime = repl.atime - random.randint(0, 1000000)
+    repl.type = filetype
+    repl.size = size if size else random.randint(0, 1000000000)
 
-    fuse_response = fuse_messages_pb2.FuseResponse()
-    fuse_response.file_attr.CopyFrom(reply)
-    fuse_response.status.code = common_messages_pb2.Status.VOK
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.file_attr.CopyFrom(repl)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    return fuse_response
+    return server_response
 
 
 def prepare_helper():
-    reply = fuse_messages_pb2.HelperParams()
-    reply.helper_name = 'null'
+    repl = fuse_messages_pb2.HelperParams()
+    repl.helper_name = 'null'
 
-    fuse_response = fuse_messages_pb2.FuseResponse()
-    fuse_response.helper_params.CopyFrom(reply)
-    fuse_response.status.code = common_messages_pb2.Status.VOK
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.helper_params.CopyFrom(repl)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    return fuse_response
+    return server_response
 
 
 def prepare_location(file_blocks=None):
-    reply = fuse_messages_pb2.FileLocation()
-    reply.uuid = 'uuid1'
-    reply.storage_id = 'storage1'
-    reply.file_id = 'file1'
-    reply.provider_id = 'provider1'
+    repl = fuse_messages_pb2.FileLocation()
+    repl.uuid = 'uuid1'
+    repl.storage_id = 'storage1'
+    repl.file_id = 'file1'
+    repl.provider_id = 'provider1'
 
     if file_blocks:
-        reply.blocks.extend(file_blocks)
+        repl.blocks.extend(file_blocks)
 
-    fuse_response = fuse_messages_pb2.FuseResponse()
-    fuse_response.file_location.CopyFrom(reply)
-    fuse_response.status.code = common_messages_pb2.Status.VOK
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.file_location.CopyFrom(repl)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    return fuse_response
+    return server_response
 
 
-def do_open(self, file_blocks=None, size=None):
+def do_open(endpoint, fl, file_blocks=None, size=None):
     blocks = []
     if file_blocks:
         for offset, size in file_blocks:
@@ -128,741 +94,664 @@ def do_open(self, file_blocks=None, size=None):
 
     open_response = prepare_location(blocks)
 
-    (ret, _) = with_reply(self.ip, [getattr_response, open_response],
-                          self.fl.open, '/random/path', 0)
-
-    assert ret >= 0
+    with reply(endpoint, [getattr_response, open_response]):
+        assert fl.open('/random/path', 0) >= 0
 
 
-# noinspection PyClassHasNoInit
-class TestFsLogic:
-    @classmethod
-    def setup_class(cls):
-        cls.result = appmock.up(image='onedata/builder', bindir=appmock_dir,
-                                dns_server='none', uid=common.generate_uid(),
-                                config_path=os.path.join(script_dir,
-                                                         'env.json'))
+def test_getattrs_should_get_attrs(endpoint, fl):
+    response = prepare_getattr('path', fuse_messages_pb2.REG)
 
-        [container] = cls.result['docker_ids']
-        cls.ip = docker.inspect(container)['NetworkSettings']['IPAddress']. \
-            encode('ascii')
-
-    @classmethod
-    def teardown_class(cls):
-        docker.remove(cls.result['docker_ids'], force=True, volumes=True)
+    stat = fslogic.Stat()
+    with reply(endpoint, response) as queue:
+        assert 0 == fl.getattr('/random/path', stat)
+        client_message = queue.get()
 
-    def setup_method(self, _):
-        appmock_client.reset_tcp_server_history(self.ip)
-        self.fl = fslogic.FsLogicProxy(self.ip, 5555)
-
-    def teardown_method(self, _):
-        del self.fl
-
-    @performance(skip=True)
-    def test_getattrs_should_get_attrs(self, parameters):
-        fuse_response = prepare_getattr('path', fuse_messages_pb2.REG)
+    assert client_message.HasField('fuse_request')
 
-        stat = fslogic.Stat()
-        (ret, [received_msg]) = with_reply(self.ip, fuse_response,
-                                           self.fl.getattr, '/random/path',
-                                           stat)
-
-        assert ret == 0
+    fuse_request = client_message.fuse_request
+    assert fuse_request.HasField('get_file_attr')
 
-        client_message = messages_pb2.ClientMessage()
-        client_message.ParseFromString(received_msg)
+    get_file_attr = fuse_request.get_file_attr
+    assert get_file_attr.entry_type == fuse_messages_pb2.PATH
+    assert get_file_attr.entry == '/random/path'
 
-        assert client_message.HasField('fuse_request')
+    repl = response.fuse_response.file_attr
+    assert stat.atime == repl.atime
+    assert stat.mtime == repl.mtime
+    assert stat.ctime == repl.ctime
+    assert stat.gid == repl.gid
+    assert stat.uid == repl.uid
+    assert stat.mode == repl.mode | fslogic.regularMode()
+    assert stat.size == repl.size
 
-        fuse_request = client_message.fuse_request
-        assert fuse_request.HasField('get_file_attr')
 
-        get_file_attr = fuse_request.get_file_attr
-        assert get_file_attr.entry_type == fuse_messages_pb2.PATH
-        assert get_file_attr.entry == '/random/path'
+def test_getattrs_should_pass_errors(endpoint, fl):
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.enoent
 
-        reply = fuse_response.file_attr
-        assert stat.atime == reply.atime
-        assert stat.mtime == reply.mtime
-        assert stat.ctime == reply.ctime
-        assert stat.gid == reply.gid
-        assert stat.uid == reply.uid
-        assert stat.mode == reply.mode | fslogic.regularMode()
-        assert stat.size == reply.size
-
-    @performance(skip=True)
-    def test_getattrs_should_pass_errors(self, parameters):
-        fuse_response = fuse_messages_pb2.FuseResponse()
-        fuse_response.status.code = common_messages_pb2.Status.VENOENT
+    stat = fslogic.Stat()
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, response):
+            fl.getattr('/random/path', stat)
 
-        stat = fslogic.Stat()
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, fuse_response, self.fl.getattr,
-                       '/random/path', stat)
+    assert 'No such file or directory' in str(excinfo.value)
 
-        assert 'No such file or directory' in str(excinfo.value)
 
-    @performance(skip=True)
-    def test_getattrs_should_cache_attrs(self, parameters):
-        fuse_response = prepare_getattr('path', fuse_messages_pb2.REG)
+def test_getattrs_should_cache_attrs(endpoint, fl):
+    fuse_response = prepare_getattr('path', fuse_messages_pb2.REG)
 
-        stat = fslogic.Stat()
-        (ret, _) = with_reply(self.ip, fuse_response, self.fl.getattr,
-                              '/random/path', stat)
+    stat = fslogic.Stat()
+    with reply(endpoint, fuse_response):
+        assert 0 == fl.getattr('/random/path', stat)
 
-        assert ret == 0
+    new_stat = fslogic.Stat()
+    assert fl.getattr('/random/path', new_stat) == 0
+    assert stat == new_stat
+    assert 0 == endpoint.all_messages_count()
 
-        new_stat = fslogic.Stat()
-        assert self.fl.getattr('/random/path', new_stat) == 0
-        assert stat == new_stat
-        assert 0 == appmock_client.tcp_server_all_messages_count(self.ip, 5555)
 
-    @performance(skip=True)
-    def test_mkdir_should_mkdir(self, parameters):
-        getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
-        mkdir_response = fuse_messages_pb2.FuseResponse()
-        mkdir_response.status.code = common_messages_pb2.Status.VOK
+def test_mkdir_should_mkdir(endpoint, fl):
+    getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-        (_, [_, received_msg]) = with_reply(self.ip, [getattr_response,
-                                                      mkdir_response],
-                                            self.fl.mkdir, '/random/path',
-                                            0123)
+    with reply(endpoint, [getattr_response, response]) as queue:
+        fl.mkdir('/random/path', 0123)
+        queue.get()
+        client_message = queue.get()
 
-        client_message = messages_pb2.ClientMessage()
-        client_message.ParseFromString(received_msg)
+    assert client_message.HasField('fuse_request')
 
-        assert client_message.HasField('fuse_request')
+    fuse_request = client_message.fuse_request
+    assert fuse_request.HasField('create_dir')
 
-        fuse_request = client_message.fuse_request
-        assert fuse_request.HasField('create_dir')
+    create_dir = fuse_request.create_dir
+    assert create_dir.name == 'path'
+    assert create_dir.mode == 0123
+    assert create_dir.parent_uuid == \
+           getattr_response.fuse_response.file_attr.uuid
 
-        create_dir = fuse_request.create_dir
-        assert create_dir.parent_uuid == getattr_response.file_attr.uuid
-        assert create_dir.name == 'path'
-        assert create_dir.mode == 0123
 
-    @performance(skip=True)
-    def test_mkdir_should_error_on_parent_not_dir(self, parameters):
-        getattr_response = prepare_getattr('random', fuse_messages_pb2.REG)
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, getattr_response,
-                       self.fl.mkdir, '/random/path', 0123)
+def test_mkdir_should_error_on_parent_not_dir(endpoint, fl):
+    getattr_response = prepare_getattr('random', fuse_messages_pb2.REG)
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, getattr_response):
+            fl.mkdir('/random/path', 0123)
 
-        assert 'Not a directory' in str(excinfo.value)
+    assert 'Not a directory' in str(excinfo.value)
 
-    @performance(skip=True)
-    def test_mkdir_should_pass_getattr_errors(self, parameters):
-        fuse_response = fuse_messages_pb2.FuseResponse()
-        fuse_response.status.code = common_messages_pb2.Status.VENOENT
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, fuse_response, self.fl.mkdir,
-                       '/random/path', 0123)
+def test_mkdir_should_pass_getattr_errors(endpoint, fl):
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.enoent
 
-        assert 'No such file or directory' in str(excinfo.value)
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, response):
+            fl.mkdir('/random/path', 0123)
 
-    @performance(skip=True)
-    def test_mkdir_should_pass_mkdir_errors(self, parameters):
-        getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
-        mkdir_response = fuse_messages_pb2.FuseResponse()
-        mkdir_response.status.code = common_messages_pb2.Status.VEPERM
+    assert 'No such file or directory' in str(excinfo.value)
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, [getattr_response, mkdir_response],
-                       self.fl.mkdir, '/random/path', 0123)
 
-            assert 'Operation not permitted' in str(excinfo.value)
+def test_mkdir_should_pass_mkdir_errors(endpoint, fl):
+    getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
-    @performance(skip=True)
-    def test_rmdir_should_rmdir(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-        rmdir_response = fuse_messages_pb2.FuseResponse()
-        rmdir_response.status.code = common_messages_pb2.Status.VOK
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, [getattr_response, response]):
+            fl.mkdir('/random/path', 0123)
 
-        (ret, [_, received_msg]) = with_reply(self.ip,
-                                              [getattr_response,
-                                               rmdir_response],
-                                              self.fl.rmdir,
-                                              '/random/path')
+    assert 'Operation not permitted' in str(excinfo.value)
 
-        assert ret == 0
 
-        client_message = messages_pb2.ClientMessage()
-        client_message.ParseFromString(received_msg)
+def test_rmdir_should_rmdir(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-        assert client_message.HasField('fuse_request')
+    with reply(endpoint, [getattr_response, response]) as queue:
+        assert 0 == fl.rmdir('/random/path')
+        queue.get()
+        client_message = queue.get()
 
-        fuse_request = client_message.fuse_request
-        assert fuse_request.HasField('delete_file')
+    assert client_message.HasField('fuse_request')
 
-        delete_file = fuse_request.delete_file
-        assert delete_file.uuid == getattr_response.file_attr.uuid
+    fuse_request = client_message.fuse_request
+    assert fuse_request.HasField('delete_file')
 
-    @performance(skip=True)
-    def test_rmdir_should_pass_getattr_errors(self, parameters):
-        fuse_response = fuse_messages_pb2.FuseResponse()
-        fuse_response.status.code = common_messages_pb2.Status.VENOENT
+    delete_file = fuse_request.delete_file
+    assert delete_file.uuid == getattr_response.fuse_response.file_attr.uuid
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, fuse_response, self.fl.rmdir,
-                       '/random/path')
 
-        assert 'No such file or directory' in str(excinfo.value)
+def test_rmdir_should_pass_getattr_errors(endpoint, fl):
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.enoent
 
-    @performance(skip=True)
-    def test_rmdir_should_pass_rmdir_errors(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-        mkdir_response = fuse_messages_pb2.FuseResponse()
-        mkdir_response.status.code = common_messages_pb2.Status.VEPERM
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, response):
+            fl.rmdir('/random/path')
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, [getattr_response, mkdir_response],
-                       self.fl.rmdir, '/random/path')
+    assert 'No such file or directory' in str(excinfo.value)
 
-        assert 'Operation not permitted' in str(excinfo.value)
 
-    @performance(skip=True)
-    def test_rename_should_rename(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-        rename_response = fuse_messages_pb2.FuseResponse()
-        rename_response.status.code = common_messages_pb2.Status.VOK
+def test_rmdir_should_pass_rmdir_errors(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
-        (ret, [_, received_msg]) = with_reply(self.ip, [getattr_response,
-                                                        rename_response],
-                                              self.fl.rename,
-                                              '/random/path',
-                                              '/random/path2')
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, [getattr_response, response]):
+            fl.rmdir('/random/path')
 
-        assert ret == 0
+    assert 'Operation not permitted' in str(excinfo.value)
 
-        client_message = messages_pb2.ClientMessage()
-        client_message.ParseFromString(received_msg)
 
-        assert client_message.HasField('fuse_request')
+def test_rename_should_rename(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-        fuse_request = client_message.fuse_request
-        assert fuse_request.HasField('rename')
+    with reply(endpoint, [getattr_response, response]) as queue:
+        assert 0 == fl.rename('/random/path', '/random/path2')
+        queue.get()
+        client_message = queue.get()
 
-        rename = fuse_request.rename
-        assert rename.uuid == getattr_response.file_attr.uuid
-        assert rename.target_path == '/random/path2'
+    assert client_message.HasField('fuse_request')
 
-    @performance(skip=True)
-    def test_rename_should_change_caches(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-        rename_response = fuse_messages_pb2.FuseResponse()
-        rename_response.status.code = common_messages_pb2.Status.VOK
+    fuse_request = client_message.fuse_request
+    assert fuse_request.HasField('rename')
 
-        with_reply(self.ip, [getattr_response, rename_response],
-                   self.fl.rename, '/random/path', '/random/path2')
+    rename = fuse_request.rename
+    assert rename.uuid == getattr_response.fuse_response.file_attr.uuid
+    assert rename.target_path == '/random/path2'
 
-        stat = fslogic.Stat()
-        self.fl.getattr('/random/path2', stat)
 
-        assert stat.size == getattr_response.file_attr.size
-        0 == appmock_client.tcp_server_all_messages_count(self.ip, 5555)
+def test_rename_should_change_caches(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-        getattr_response = fuse_messages_pb2.FuseResponse()
-        getattr_response.status.code = common_messages_pb2.Status.VENOENT
+    with reply(endpoint, [getattr_response, response]):
+        fl.rename('/random/path', '/random/path2')
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, getattr_response, self.fl.getattr,
-                       '/random/path', stat)
+    stat = fslogic.Stat()
+    fl.getattr('/random/path2', stat)
 
-        assert 'No such file or directory' in str(excinfo.value)
+    assert stat.size == getattr_response.fuse_response.file_attr.size
+    0 == endpoint.all_messages_count()
 
-    @performance(skip=True)
-    def test_rename_should_pass_getattr_errors(self, parameters):
-        fuse_response = fuse_messages_pb2.FuseResponse()
-        fuse_response.status.code = common_messages_pb2.Status.VENOENT
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.enoent
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, fuse_response, self.fl.rename,
-                       '/random/path', 'dawaw')
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, response):
+            fl.getattr('/random/path', stat)
 
-        assert 'No such file or directory' in str(excinfo.value)
+    assert 'No such file or directory' in str(excinfo.value)
 
-    @performance(skip=True)
-    def test_rename_should_pass_rename_errors(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-        mkdir_response = fuse_messages_pb2.FuseResponse()
-        mkdir_response.status.code = common_messages_pb2.Status.VEPERM
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, [getattr_response, mkdir_response],
-                       self.fl.rename, '/random/path', 'dawaw2')
+def test_rename_should_pass_getattr_errors(endpoint, fl):
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.enoent
 
-        assert 'Operation not permitted' in str(excinfo.value)
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, response):
+            fl.rename('/random/path', 'dawaw')
 
-    @performance(skip=True)
-    def test_chmod_should_change_mode(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-        chmod_response = fuse_messages_pb2.FuseResponse()
-        chmod_response.status.code = common_messages_pb2.Status.VOK
+    assert 'No such file or directory' in str(excinfo.value)
 
-        (ret, [_, received_msg]) = with_reply(self.ip, [getattr_response,
-                                                        chmod_response],
-                                              self.fl.chmod, '/random/path',
-                                              0123)
 
-        assert ret == 0
+def test_rename_should_pass_rename_errors(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
-        client_message = messages_pb2.ClientMessage()
-        client_message.ParseFromString(received_msg)
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, [getattr_response, response]):
+            fl.rename('/random/path', 'dawaw2')
 
-        assert client_message.HasField('fuse_request')
+    assert 'Operation not permitted' in str(excinfo.value)
 
-        fuse_request = client_message.fuse_request
-        assert fuse_request.HasField('change_mode')
 
-        change_mode = fuse_request.change_mode
-        assert change_mode.uuid == getattr_response.file_attr.uuid
-        assert change_mode.mode == 0123
+def test_chmod_should_change_mode(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    @performance(skip=True)
-    def test_chmod_should_change_cached_mode(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+    with reply(endpoint, [getattr_response, response]) as queue:
+        assert 0 == fl.chmod('/random/path', 0123)
+        queue.get()
+        client_message = queue.get()
 
-        stat = fslogic.Stat()
-        with_reply(self.ip, getattr_response, self.fl.getattr,
-                   '/random/path', stat)
+    assert client_message.HasField('fuse_request')
 
-        assert stat.mode == getattr_response.file_attr.mode | \
-                            fslogic.regularMode()
+    fuse_request = client_message.fuse_request
+    assert fuse_request.HasField('change_mode')
 
-        chmod_response = fuse_messages_pb2.FuseResponse()
-        chmod_response.status.code = common_messages_pb2.Status.VOK
-        with_reply(self.ip, chmod_response, self.fl.chmod, '/random/path',
-                   0356)
+    change_mode = fuse_request.change_mode
+    assert change_mode.uuid == getattr_response.fuse_response.file_attr.uuid
+    assert change_mode.mode == 0123
 
-        stat = fslogic.Stat()
-        self.fl.getattr('/random/path', stat)
 
-        assert stat.mode == 0356 | fslogic.regularMode()
+def test_chmod_should_change_cached_mode(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
 
-    @performance(skip=True)
-    def test_chmod_should_pass_getattr_errors(self, parameters):
-        fuse_response = fuse_messages_pb2.FuseResponse()
-        fuse_response.status.code = common_messages_pb2.Status.VENOENT
+    stat = fslogic.Stat()
+    with reply(endpoint, getattr_response):
+        fl.getattr('/random/path', stat)
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, fuse_response, self.fl.chmod,
-                       '/random/path', 0312)
+    assert stat.mode == getattr_response.fuse_response.file_attr.mode | \
+                        fslogic.regularMode()
 
-        assert 'No such file or directory' in str(excinfo.value)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
+    with reply(endpoint, response):
+        fl.chmod('/random/path', 0356)
 
-    @performance(skip=True)
-    def test_chmod_should_pass_chmod_errors(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-        chmod_response = fuse_messages_pb2.FuseResponse()
-        chmod_response.status.code = common_messages_pb2.Status.VEPERM
+    stat = fslogic.Stat()
+    fl.getattr('/random/path', stat)
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, [getattr_response, chmod_response],
-                       self.fl.chmod, '/random/path', 0123)
+    assert stat.mode == 0356 | fslogic.regularMode()
 
-        assert 'Operation not permitted' in str(excinfo.value)
 
-    @performance(skip=True)
-    def test_utime_should_update_times(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-        utime_response = fuse_messages_pb2.FuseResponse()
-        utime_response.status.code = common_messages_pb2.Status.VOK
+def test_chmod_should_pass_getattr_errors(endpoint, fl):
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.enoent
 
-        (ret, [_, received_msg]) = with_reply(self.ip, [getattr_response,
-                                                        utime_response],
-                                              self.fl.utime, '/random/path')
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, response):
+            fl.chmod('/random/path', 0312)
 
-        assert ret == 0
+    assert 'No such file or directory' in str(excinfo.value)
 
-        client_message = messages_pb2.ClientMessage()
-        client_message.ParseFromString(received_msg)
 
-        assert client_message.HasField('fuse_request')
+def test_chmod_should_pass_chmod_errors(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
-        fuse_request = client_message.fuse_request
-        assert fuse_request.HasField('update_times')
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, [getattr_response, response]):
+            fl.chmod('/random/path', 0123)
 
-        update_times = fuse_request.update_times
-        assert update_times.uuid == getattr_response.file_attr.uuid
-        assert update_times.atime == update_times.mtime
-        assert update_times.atime <= time.time()
-        assert not update_times.HasField('ctime')
+    assert 'Operation not permitted' in str(excinfo.value)
 
-    @performance(skip=True)
-    def test_utime_should_change_cached_times(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
 
-        stat = fslogic.Stat()
-        with_reply(self.ip, getattr_response, self.fl.getattr,
-                   '/random/path', stat)
+def test_utime_should_update_times(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-        assert stat.atime == getattr_response.file_attr.atime
-        assert stat.mtime == getattr_response.file_attr.mtime
+    with reply(endpoint, [getattr_response, response]) as queue:
+        assert 0 == fl.utime('/random/path')
+        queue.get()
+        client_message = queue.get()
 
-        utime_response = fuse_messages_pb2.FuseResponse()
-        utime_response.status.code = common_messages_pb2.Status.VOK
-        with_reply(self.ip, utime_response, self.fl.utime, '/random/path')
+    assert client_message.HasField('fuse_request')
 
-        stat = fslogic.Stat()
-        self.fl.getattr('/random/path', stat)
+    fuse_request = client_message.fuse_request
+    assert fuse_request.HasField('update_times')
 
-        assert stat.atime != getattr_response.file_attr.atime
-        assert stat.mtime != getattr_response.file_attr.mtime
+    update_times = fuse_request.update_times
+    assert update_times.uuid == getattr_response.fuse_response.file_attr.uuid
+    assert update_times.atime == update_times.mtime
+    assert update_times.atime <= time.time()
+    assert not update_times.HasField('ctime')
 
-    @performance(skip=True)
-    def test_utime_should_update_times_with_buf(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
-        utime_response = fuse_messages_pb2.FuseResponse()
-        utime_response.status.code = common_messages_pb2.Status.VOK
 
-        ubuf = fslogic.Ubuf()
-        ubuf.actime = 54321
-        ubuf.modtime = 12345
+def test_utime_should_change_cached_times(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
 
-        (ret, [_, received_msg]) = with_reply(self.ip, [getattr_response,
-                                                        utime_response],
-                                              self.fl.utime_buf, '/random/path',
-                                              ubuf)
+    stat = fslogic.Stat()
+    with reply(endpoint, getattr_response):
+        fl.getattr('/random/path', stat)
 
-        assert ret == 0
+    assert stat.atime == getattr_response.fuse_response.file_attr.atime
+    assert stat.mtime == getattr_response.fuse_response.file_attr.mtime
 
-        client_message = messages_pb2.ClientMessage()
-        client_message.ParseFromString(received_msg)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
+    with reply(endpoint, response):
+        fl.utime('/random/path')
 
-        assert client_message.HasField('fuse_request')
+    stat = fslogic.Stat()
+    fl.getattr('/random/path', stat)
 
-        fuse_request = client_message.fuse_request
-        assert fuse_request.HasField('update_times')
+    assert stat.atime != getattr_response.fuse_response.file_attr.atime
+    assert stat.mtime != getattr_response.fuse_response.file_attr.mtime
 
-        update_times = fuse_request.update_times
-        assert update_times.uuid == getattr_response.file_attr.uuid
-        assert update_times.atime == ubuf.actime
-        assert update_times.mtime == ubuf.modtime
-        assert not update_times.HasField('ctime')
 
-    @performance(skip=True)
-    def test_utime_should_pass_getattr_errors(self, parameters):
-        getattr_response = fuse_messages_pb2.FuseResponse()
-        getattr_response.status.code = common_messages_pb2.Status.VEPERM
+def test_utime_should_update_times_with_buf(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, getattr_response,
-                       self.fl.utime, '/random/path')
+    ubuf = fslogic.Ubuf()
+    ubuf.actime = 54321
+    ubuf.modtime = 12345
 
-        assert 'Operation not permitted' in str(excinfo.value)
+    with reply(endpoint, [getattr_response, response]) as queue:
+        assert 0 == fl.utime_buf('/random/path', ubuf)
+        queue.get()
+        client_message = queue.get()
 
-        ubuf = fslogic.Ubuf()
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, getattr_response,
-                       self.fl.utime_buf, '/random/path', ubuf)
+    assert client_message.HasField('fuse_request')
 
-        assert 'Operation not permitted' in str(excinfo.value)
+    fuse_request = client_message.fuse_request
+    assert fuse_request.HasField('update_times')
 
-    @performance(skip=True)
-    def test_utime_should_pass_utime_errors(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-        utime_response = fuse_messages_pb2.FuseResponse()
-        utime_response.status.code = common_messages_pb2.Status.VEPERM
+    update_times = fuse_request.update_times
+    assert update_times.uuid == getattr_response.fuse_response.file_attr.uuid
+    assert update_times.atime == ubuf.actime
+    assert update_times.mtime == ubuf.modtime
+    assert not update_times.HasField('ctime')
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, [getattr_response, utime_response],
-                       self.fl.utime, '/random/path')
 
-        assert 'Operation not permitted' in str(excinfo.value)
+def test_utime_should_pass_getattr_errors(endpoint, fl):
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
-        ubuf = fslogic.Ubuf()
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, utime_response,
-                       self.fl.utime_buf, '/random/path', ubuf)
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, response):
+            fl.utime('/random/path')
 
-        assert 'Operation not permitted' in str(excinfo.value)
+    assert 'Operation not permitted' in str(excinfo.value)
 
-    @performance(skip=True)
-    def test_readdir_should_read_dir(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+    ubuf = fslogic.Ubuf()
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, response):
+            fl.utime_buf('/random/path', ubuf)
 
-        file1 = common_messages_pb2.ChildLink()
-        file1.uuid = "uuid1"
-        file1.name = "file1"
+    assert 'Operation not permitted' in str(excinfo.value)
 
-        file2 = common_messages_pb2.ChildLink()
-        file2.uuid = "uuid2"
-        file2.name = "file2"
 
-        reply = fuse_messages_pb2.FileChildren()
-        reply.child_links.extend([file1, file2])
+def test_utime_should_pass_utime_errors(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
-        readdir_response = fuse_messages_pb2.FuseResponse()
-        readdir_response.file_children.CopyFrom(reply)
-        readdir_response.status.code = common_messages_pb2.Status.VOK
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, [getattr_response, response]):
+            fl.utime('/random/path')
 
-        children = []
-        (ret, [_, received_msg]) = with_reply(self.ip, [getattr_response,
-                                                        readdir_response],
-                                              self.fl.readdir, '/random/path',
-                                              children)
+    assert 'Operation not permitted' in str(excinfo.value)
 
-        assert ret == 0
-        assert len(children) == 2
-        assert file1.name in children
-        assert file2.name in children
+    ubuf = fslogic.Ubuf()
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, response):
+            fl.utime_buf('/random/path', ubuf)
 
-        client_message = messages_pb2.ClientMessage()
-        client_message.ParseFromString(received_msg)
+    assert 'Operation not permitted' in str(excinfo.value)
 
-        assert client_message.HasField('fuse_request')
 
-        fuse_request = client_message.fuse_request
-        assert fuse_request.HasField('get_file_children')
+def test_readdir_should_read_dir(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
 
-        get_file_children = fuse_request.get_file_children
-        assert get_file_children.uuid == getattr_response.file_attr.uuid
-        assert get_file_children.offset == 0
+    file1 = common_messages_pb2.ChildLink()
+    file1.uuid = "uuid1"
+    file1.name = "file1"
 
-    @performance(skip=True)
-    def test_readdir_should_pass_getattr_errors(self, parameters):
-        getattr_response = fuse_messages_pb2.FuseResponse()
-        getattr_response.status.code = common_messages_pb2.Status.VEPERM
+    file2 = common_messages_pb2.ChildLink()
+    file2.uuid = "uuid2"
+    file2.name = "file2"
 
-        with pytest.raises(RuntimeError) as excinfo:
-            l = []
-            with_reply(self.ip, getattr_response,
-                       self.fl.readdir, '/random/path', l)
+    repl = fuse_messages_pb2.FileChildren()
+    repl.child_links.extend([file1, file2])
 
-        assert 'Operation not permitted' in str(excinfo.value)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.file_children.CopyFrom(repl)
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    @performance(skip=True)
-    def test_readdir_should_pass_readdir_errors(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-        readdir_response = fuse_messages_pb2.FuseResponse()
-        readdir_response.status.code = common_messages_pb2.Status.VEPERM
+    children = []
+    with reply(endpoint, [getattr_response, response]) as queue:
+        assert 0 == fl.readdir('/random/path', children)
+        queue.get()
+        client_message = queue.get()
 
-        with pytest.raises(RuntimeError) as excinfo:
-            l = []
-            with_reply(self.ip, [getattr_response, readdir_response],
-                       self.fl.readdir, '/random/path', l)
+    assert len(children) == 2
+    assert file1.name in children
+    assert file2.name in children
 
-        assert 'Operation not permitted' in str(excinfo.value)
+    assert client_message.HasField('fuse_request')
 
-    @performance(skip=True)
-    def test_mknod_should_make_new_location(self, parameters):
-        getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
-        mknod_response = prepare_location()
+    fuse_request = client_message.fuse_request
+    assert fuse_request.HasField('get_file_children')
 
-        (ret, [_, received_msg]) = with_reply(self.ip, [getattr_response,
-                                                        mknod_response],
-                                              self.fl.mknod, '/random/path',
-                                              0762, 0)
+    get_file_children = fuse_request.get_file_children
+    assert get_file_children.offset == 0
+    assert get_file_children.uuid == \
+           getattr_response.fuse_response.file_attr.uuid
 
-        assert ret == 0
 
-        client_message = messages_pb2.ClientMessage()
-        client_message.ParseFromString(received_msg)
+def test_readdir_should_pass_getattr_errors(endpoint, fl):
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
-        assert client_message.HasField('fuse_request')
+    with pytest.raises(RuntimeError) as excinfo:
+        l = []
+        with reply(endpoint, response):
+            fl.readdir('/random/path', l)
 
-        fuse_request = client_message.fuse_request
-        assert fuse_request.HasField('get_new_file_location')
+    assert 'Operation not permitted' in str(excinfo.value)
 
-        get_new_file_location = fuse_request.get_new_file_location
-        assert get_new_file_location.parent_uuid == \
-               getattr_response.file_attr.uuid
-        assert get_new_file_location.name == 'path'
-        assert get_new_file_location.mode == 0762
 
-    @performance(skip=True)
-    def test_mknod_should_pass_getattr_errors(self, parameters):
-        getattr_response = fuse_messages_pb2.FuseResponse()
-        getattr_response.status.code = common_messages_pb2.Status.VEPERM
+def test_readdir_should_pass_readdir_errors(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, getattr_response,
-                       self.fl.mknod, '/random/path', 0724, 0)
+    with pytest.raises(RuntimeError) as excinfo:
+        l = []
+        with reply(endpoint, [getattr_response, response]):
+            fl.readdir('/random/path', l)
 
-        assert 'Operation not permitted' in str(excinfo.value)
+    assert 'Operation not permitted' in str(excinfo.value)
 
-    @performance(skip=True)
-    def test_mknod_should_pass_location_errors(self, parameters):
-        getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
-        location_response = fuse_messages_pb2.FuseResponse()
-        location_response.status.code = common_messages_pb2.Status.VEPERM
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, [getattr_response, location_response],
-                       self.fl.mknod, '/random/path', 0123, 0)
+def test_mknod_should_make_new_location(endpoint, fl):
+    getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
+    mknod_response = prepare_location()
 
-        assert 'Operation not permitted' in str(excinfo.value)
+    with reply(endpoint, [getattr_response, mknod_response]) as queue:
+        assert 0 == fl.mknod('/random/path', 0762, 0)
+        queue.get()
+        client_message = queue.get()
 
-    @performance(skip=True)
-    def test_open_should_get_file_location(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
-        open_response = prepare_location()
+    assert client_message.HasField('fuse_request')
 
-        (ret, [_, received_msg]) = with_reply(self.ip,
-                                              [getattr_response, open_response],
-                                              self.fl.open, '/random/path', 0)
+    fuse_request = client_message.fuse_request
+    assert fuse_request.HasField('get_new_file_location')
 
-        assert ret >= 0
+    get_new_file_location = fuse_request.get_new_file_location
+    assert get_new_file_location.parent_uuid == \
+           getattr_response.fuse_response.file_attr.uuid
+    assert get_new_file_location.name == 'path'
+    assert get_new_file_location.mode == 0762
 
-        client_message = messages_pb2.ClientMessage()
-        client_message.ParseFromString(received_msg)
 
-        assert client_message.HasField('fuse_request')
+def test_mknod_should_pass_getattr_errors(endpoint, fl):
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
-        fuse_request = client_message.fuse_request
-        assert fuse_request.HasField('get_file_location')
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, response):
+            fl.mknod('/random/path', 0724, 0)
 
-        get_file_location = fuse_request.get_file_location
-        assert get_file_location.uuid == getattr_response.file_attr.uuid
+    assert 'Operation not permitted' in str(excinfo.value)
 
-    @performance(skip=True)
-    def test_open_should_pass_getattr_errors(self, parameters):
-        getattr_response = fuse_messages_pb2.FuseResponse()
-        getattr_response.status.code = common_messages_pb2.Status.VEPERM
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, getattr_response,
-                       self.fl.open, '/random/path', 0)
+def test_mknod_should_pass_location_errors(endpoint, fl):
+    getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
-        assert 'Operation not permitted' in str(excinfo.value)
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, [getattr_response, response]):
+            fl.mknod('/random/path', 0123, 0)
 
-    @performance(skip=True)
-    def test_open_should_pass_location_errors(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
-        location_response = fuse_messages_pb2.FuseResponse()
-        location_response.status.code = common_messages_pb2.Status.VEPERM
+    assert 'Operation not permitted' in str(excinfo.value)
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, [getattr_response, location_response],
-                       self.fl.open, '/random/path', 0)
 
-        assert 'Operation not permitted' in str(excinfo.value)
+def test_open_should_get_file_location(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+    open_response = prepare_location()
 
-    @performance(skip=True)
-    def test_read_should_read(self, parameters):
-        do_open(self, file_blocks=[(0, 10)])
-        assert 5 == self.fl.read('/random/path', 0, 5)
+    with reply(endpoint, [getattr_response, open_response]) as queue:
+        assert fl.open('/random/path', 0) >= 0
+        queue.get()
+        client_message = queue.get()
 
-    @performance(skip=True)
-    def test_read_should_read_zero_on_eof(self, parameters):
-        do_open(self, file_blocks=[(0, 10)], size=10)
-        assert 10 == self.fl.read('/random/path', 0, 12)
-        assert 0 == self.fl.read('/random/path', 10, 2)
+    assert client_message.HasField('fuse_request')
 
-    @performance(skip=True)
-    def test_read_should_pass_helper_errors(self, parameters):
-        do_open(self, file_blocks=[(0, 10)], size=10)
+    fuse_request = client_message.fuse_request
+    assert fuse_request.HasField('get_file_location')
 
-        with pytest.raises(RuntimeError) as excinfo:
-            self.fl.failHelper()
-            self.fl.read('/random/path', 0, 10)
+    get_file_location = fuse_request.get_file_location
+    assert get_file_location.uuid == \
+           getattr_response.fuse_response.file_attr.uuid
 
-        assert 'Owner died' in str(excinfo.value)
 
-    @performance(skip=True)
-    def test_write_should_write(self, parameters):
-        do_open(self, file_blocks=[(0, 10)], size=10)
-        assert 5 == self.fl.write('/random/path', 0, 5)
+def test_open_should_pass_getattr_errors(endpoint, fl):
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
-    @performance(skip=True)
-    def test_write_should_partition_writes(self, parameters):
-        do_open(self, file_blocks=[(0, 5)], size=5)
-        assert 5 == self.fl.write('/random/path', 0, 11)
-        assert 6 == self.fl.write('/random/path', 5, 6)
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, response):
+            fl.open('/random/path', 0)
 
-    @performance(skip=True)
-    def test_write_should_change_file_size(self, parameters):
-        do_open(self, file_blocks=[(0, 5)], size=5)
-        assert 20 == self.fl.write('/random/path', 10, 20)
+    assert 'Operation not permitted' in str(excinfo.value)
 
-        stat = fslogic.Stat()
-        self.fl.getattr('/random/path', stat)
-        assert 30 == stat.size
 
-    @performance(skip=True)
-    def test_write_should_pass_helper_errors(self, parameters):
-        do_open(self, file_blocks=[(0, 10)], size=10)
+def test_open_should_pass_location_errors(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
-        with pytest.raises(RuntimeError) as excinfo:
-            self.fl.failHelper()
-            self.fl.write('/random/path', 0, 10)
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, [getattr_response, response]):
+            fl.open('/random/path', 0)
 
-        assert 'Owner died' in str(excinfo.value)
+    assert 'Operation not permitted' in str(excinfo.value)
 
-    @performance(skip=True)
-    def test_truncate_should_truncate(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
-        truncate_response = fuse_messages_pb2.FuseResponse()
-        truncate_response.status.code = common_messages_pb2.Status.VOK
-        location_response = prepare_location()
 
-        (ret, [_, received_msg, _]) = with_reply(
-            self.ip, [getattr_response, truncate_response, location_response],
-            self.fl.truncate, '/random/path', 4)
+def test_read_should_read(endpoint, fl):
+    do_open(endpoint, fl, file_blocks=[(0, 10)])
+    assert 5 == fl.read('/random/path', 0, 5)
 
-        assert ret >= 0
 
-        client_message = messages_pb2.ClientMessage()
-        client_message.ParseFromString(received_msg)
+def test_read_should_read_zero_on_eof(endpoint, fl):
+    do_open(endpoint, fl, file_blocks=[(0, 10)], size=10)
+    assert 10 == fl.read('/random/path', 0, 12)
+    assert 0 == fl.read('/random/path', 10, 2)
 
-        assert client_message.HasField('fuse_request')
 
-        fuse_request = client_message.fuse_request
-        assert fuse_request.HasField('truncate')
+def test_read_should_pass_helper_errors(endpoint, fl):
+    do_open(endpoint, fl, file_blocks=[(0, 10)], size=10)
 
-        truncate = fuse_request.truncate
-        assert truncate.uuid == getattr_response.file_attr.uuid
-        assert truncate.size == 4
+    with pytest.raises(RuntimeError) as excinfo:
+        fl.failHelper()
+        fl.read('/random/path', 0, 10)
 
-    @performance(skip=True)
-    def test_truncate_should_pass_getattr_errors(self, parameters):
-        getattr_response = fuse_messages_pb2.FuseResponse()
-        getattr_response.status.code = common_messages_pb2.Status.VEPERM
+    assert 'Owner died' in str(excinfo.value)
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, getattr_response,
-                       self.fl.truncate, '/random/path', 2)
 
-        assert 'Operation not permitted' in str(excinfo.value)
+def test_write_should_write(endpoint, fl):
+    do_open(endpoint, fl, file_blocks=[(0, 10)], size=10)
+    assert 5 == fl.write('/random/path', 0, 5)
 
-    @performance(skip=True)
-    def test_truncate_should_pass_truncate_errors(self, parameters):
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
-        truncate_response = fuse_messages_pb2.FuseResponse()
-        truncate_response.status.code = common_messages_pb2.Status.VEPERM
 
-        with pytest.raises(RuntimeError) as excinfo:
-            with_reply(self.ip, [getattr_response, truncate_response],
-                       self.fl.truncate, '/random/path', 3)
+def test_write_should_partition_writes(endpoint, fl):
+    do_open(endpoint, fl, file_blocks=[(0, 5)], size=5)
+    assert 5 == fl.write('/random/path', 0, 11)
+    assert 6 == fl.write('/random/path', 5, 6)
 
-        assert 'Operation not permitted' in str(excinfo.value)
 
-    @performance(skip=True)
-    def test_readdir_big_directory(self, parameters):
-        children_num = 100000
+def test_write_should_change_file_size(endpoint, fl):
+    do_open(endpoint, fl, file_blocks=[(0, 5)], size=5)
+    assert 20 == fl.write('/random/path', 10, 20)
 
-        getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+    stat = fslogic.Stat()
+    fl.getattr('/random/path', stat)
+    assert 30 == stat.size
 
-        reply = fuse_messages_pb2.FileChildren()
-        for i in xrange(0, children_num):
-            link = reply.child_links.add()
-            link.uuid = "uuid{0}".format(i)
-            link.name = "file{0}".format(i)
 
-        readdir_response = fuse_messages_pb2.FuseResponse()
-        readdir_response.file_children.CopyFrom(reply)
-        readdir_response.status.code = common_messages_pb2.Status.VOK
+def test_write_should_pass_helper_errors(endpoint, fl):
+    do_open(endpoint, fl, file_blocks=[(0, 10)], size=10)
 
-        children = []
-        (ret, _) = with_reply(self.ip, [getattr_response, readdir_response],
-                              self.fl.readdir, '/random/path', children)
+    with pytest.raises(RuntimeError) as excinfo:
+        fl.failHelper()
+        fl.write('/random/path', 0, 10)
 
-        assert ret == 0
-        assert len(children) == children_num
+    assert 'Owner died' in str(excinfo.value)
 
-    @performance(skip=True)
-    def test_write_should_save_blocks(self, parameters):
-        do_open(self, size=0)
-        assert 5 == self.fl.write('/random/path', 0, 5)
-        assert 5 == self.fl.read('/random/path', 0, 10)
+
+def test_truncate_should_truncate(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
+    loc_response = prepare_location()
+
+    with reply(endpoint, [getattr_response, response, loc_response]) as queue:
+        assert fl.truncate('/random/path', 4) >= 0
+        queue.get()
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+
+    fuse_request = client_message.fuse_request
+    assert fuse_request.HasField('truncate')
+
+    truncate = fuse_request.truncate
+    assert truncate.uuid == getattr_response.fuse_response.file_attr.uuid
+    assert truncate.size == 4
+
+
+def test_truncate_should_pass_getattr_errors(endpoint, fl):
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.eperm
+
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, response):
+            fl.truncate('/random/path', 2)
+
+    assert 'Operation not permitted' in str(excinfo.value)
+
+
+def test_truncate_should_pass_truncate_errors(endpoint, fl):
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.eperm
+
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, [getattr_response, response]):
+            fl.truncate('/random/path', 3)
+
+    assert 'Operation not permitted' in str(excinfo.value)
+
+
+def test_readdir_big_directory(endpoint, fl):
+    children_num = 100000
+
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+
+    repl = fuse_messages_pb2.FileChildren()
+    for i in xrange(0, children_num):
+        link = repl.child_links.add()
+        link.uuid = "uuid{0}".format(i)
+        link.name = "file{0}".format(i)
+
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.file_children.CopyFrom(repl)
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    children = []
+    with reply(endpoint, [getattr_response, response]):
+        assert 0 == fl.readdir('/random/path', children)
+
+    assert len(children) == children_num
+
+
+def test_write_should_save_blocks(endpoint, fl):
+    do_open(endpoint, fl, size=0)
+    assert 5 == fl.write('/random/path', 0, 5)
+    assert 5 == fl.read('/random/path', 0, 10)

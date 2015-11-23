@@ -39,7 +39,7 @@ private:
 
     std::thread m_thread;
 
-    helpers::StorageHelperFactory m_helperFactory{m_ioService};
+    helpers::StorageHelperFactory m_helperFactory{m_ioService, m_communicator};
     tbb::concurrent_hash_map<std::pair<std::string, bool>, HelperPtr> m_cache;
 
 public:

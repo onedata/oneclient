@@ -33,12 +33,12 @@ std::string GetHelperParams::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> GetHelperParams::serialize() const
+std::unique_ptr<ProtocolClientMessage> GetHelperParams::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
     auto ghp = msg->mutable_fuse_request()->mutable_get_helper_params();
 
-    ghp->set_storage_id(m_storageId);
+    ghp->mutable_storage_id()->swap(m_storageId);
     ghp->set_force_cluster_proxy(m_forceClusterProxy);
 
     return msg;

@@ -1,7 +1,9 @@
 file(COPY ${PROJECT_SOURCE_DIR}/helpers/appmock DESTINATION ${PROJECT_BINARY_DIR})
 file(COPY ${PROJECT_SOURCE_DIR}/helpers/bamboos DESTINATION ${PROJECT_BINARY_DIR})
-file(COPY ${PROJECT_SOURCE_DIR}/helpers/test/annotations DESTINATION ${PROJECT_BINARY_DIR}/test)
-file(COPY test_common.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY
+    ${PROJECT_SOURCE_DIR}/helpers/test/integration/test_common.py
+    ${PROJECT_SOURCE_DIR}/helpers/test/integration/conftest.py
+    DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 set(APPMOCK_BINARY ${PROJECT_BINARY_DIR}/appmock/rel/appmock/bin/appmock)
 add_custom_command(OUTPUT ${APPMOCK_BINARY}

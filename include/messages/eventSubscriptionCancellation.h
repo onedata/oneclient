@@ -38,7 +38,7 @@ public:
      */
     uint64_t id() const;
 
-    virtual std::string toString() const override;
+    std::string toString() const override;
 
 private:
     uint64_t m_id;

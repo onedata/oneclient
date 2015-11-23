@@ -24,22 +24,26 @@ FileLocation::FileLocation(std::unique_ptr<ProtocolServerMessage> serverMessage)
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "file_location field missing"};
 
-    const auto &fileLocation = serverMessage->fuse_response().file_location();
-    m_uuid = fileLocation.uuid();
-    m_storageId = fileLocation.storage_id();
-    m_fileId = fileLocation.file_id();
+    auto fileLocation =
+        serverMessage->mutable_fuse_response()->mutable_file_location();
 
-    for (const auto block : fileLocation.blocks()) {
+    m_uuid.swap(*fileLocation->mutable_uuid());
+    m_storageId.swap(*fileLocation->mutable_storage_id());
+    m_fileId.swap(*fileLocation->mutable_file_id());
+
+    for (auto &block : *fileLocation->mutable_blocks()) {
         auto interval = boost::icl::discrete_interval<off_t>::right_open(
             block.offset(), block.offset() + block.size());
 
-        auto &fileId_ =
-            block.has_file_id() ? block.file_id() : fileLocation.file_id();
+        auto fileId_ = block.has_file_id() ? std::move(*block.mutable_file_id())
+                                           : m_fileId;
 
-        auto &storageId_ = block.has_storage_id() ? block.storage_id()
-                                                  : fileLocation.storage_id();
+        auto storageId_ = block.has_storage_id()
+            ? std::move(*block.mutable_storage_id())
+            : m_storageId;
 
-        m_blocks += std::make_pair(interval, FileBlock{storageId_, fileId_});
+        m_blocks += std::make_pair(
+            interval, FileBlock{std::move(storageId_), std::move(fileId_)});
     }
 }
 

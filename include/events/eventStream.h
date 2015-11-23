@@ -255,8 +255,8 @@ bool EventStream<EventType>::isEmissionRuleSatisfied(const EventType &event)
 template <class EventType> void EventStream<EventType>::emit()
 {
     std::vector<EventType> events = m_aggregator->reset();
-    for (const EventType &event : events)
-        m_communicator->send(event);
+    for (EventType &event : events)
+        m_communicator->send(std::move(event));
     resetPeriodicEmission();
 }
 

@@ -24,12 +24,13 @@ HelperParams::HelperParams(std::unique_ptr<ProtocolServerMessage> serverMessage)
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "helper_params field missing"};
 
-    const auto &helperParams = serverMessage->fuse_response().helper_params();
+    auto helperParams =
+        serverMessage->mutable_fuse_response()->mutable_helper_params();
 
-    m_name = helperParams.helper_name();
+    m_name.swap(*helperParams->mutable_helper_name());
 
-    for (const auto &entry : helperParams.helper_args())
-        m_args[entry.key()] = entry.value();
+    for (auto &entry : *helperParams->mutable_helper_args())
+        m_args[std::move(*entry.mutable_key())].swap(*entry.mutable_value());
 }
 
 std::string HelperParams::toString() const

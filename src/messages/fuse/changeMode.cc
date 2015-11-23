@@ -30,12 +30,12 @@ std::string ChangeMode::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> ChangeMode::serialize() const
+std::unique_ptr<ProtocolClientMessage> ChangeMode::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
     auto cm = msg->mutable_fuse_request()->mutable_change_mode();
 
-    cm->set_uuid(m_uuid);
+    cm->mutable_uuid()->swap(m_uuid);
     cm->set_mode(m_mode);
 
     return msg;

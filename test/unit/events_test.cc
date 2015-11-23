@@ -240,7 +240,7 @@ TEST_F(
 
 TEST_F(StreamTest, eventStreamShouldEmitEventsAfterCounterThresholdExcess)
 {
-    EXPECT_CALL(*eventCommunicator, send(_))
+    EXPECT_CALL(*eventCommunicator, send_mock(_))
         .WillOnce(Invoke([](const Event &event) {
             const ReadEvent &readEvent = static_cast<const ReadEvent &>(event);
             EXPECT_EQ("fileId", readEvent.fileUuid());
@@ -265,7 +265,7 @@ TEST_F(StreamTest, eventStreamShouldEmitEventsAfterCounterThresholdExcess)
 
 TEST_F(StreamTest, eventStreamShouldEmitEventsAfterTimeThresholdExcess)
 {
-    EXPECT_CALL(*eventCommunicator, send(_))
+    EXPECT_CALL(*eventCommunicator, send_mock(_))
         .WillOnce(Invoke([](const Event &event) {
             const ReadEvent &readEvent = static_cast<const ReadEvent &>(event);
             EXPECT_EQ("fileId", readEvent.fileUuid());
@@ -288,7 +288,7 @@ TEST_F(StreamTest, eventStreamShouldEmitEventsAfterTimeThresholdExcess)
 
 TEST_F(StreamTest, eventStreamShouldEmitEventsAfterSizeThresholdExcess)
 {
-    EXPECT_CALL(*eventCommunicator, send(_))
+    EXPECT_CALL(*eventCommunicator, send_mock(_))
         .WillOnce(Invoke([](const Event &event) {
             const ReadEvent &readEvent = static_cast<const ReadEvent &>(event);
             EXPECT_EQ("fileId", readEvent.fileUuid());
