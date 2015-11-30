@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "messages/fuse/getFileChildren.h"
+#include "getFileChildren.h"
 
 #include "messages.pb.h"
 

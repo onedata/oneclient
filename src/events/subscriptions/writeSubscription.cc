@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "events/subscriptions/writeSubscription.h"
+#include "writeSubscription.h"
 
 #include "messages.pb.h"
 

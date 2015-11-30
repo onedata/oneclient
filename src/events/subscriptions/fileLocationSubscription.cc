@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "events/subscriptions/fileLocationSubscription.h"
+#include "fileLocationSubscription.h"
 
 #include "messages.pb.h"
 

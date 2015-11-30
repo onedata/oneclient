@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "messages/fuse/createDir.h"
+#include "createDir.h"
 
 #include "messages.pb.h"
 

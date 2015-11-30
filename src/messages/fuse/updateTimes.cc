@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "messages/fuse/updateTimes.h"
+#include "updateTimes.h"
 
 #include "messages.pb.h"
 

@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "events/subscriptions/subscription.h"
+#include "subscription.h"
 
 #include <boost/optional/optional_io.hpp>
 

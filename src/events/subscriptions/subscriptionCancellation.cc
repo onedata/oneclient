@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "events/subscriptions/subscriptionCancellation.h"
+#include "subscriptionCancellation.h"
 
 #include "messages.pb.h"
 

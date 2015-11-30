@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "events/subscriptionRegistry.h"
+#include "subscriptionRegistry.h"
 
 namespace one {
 namespace client {
