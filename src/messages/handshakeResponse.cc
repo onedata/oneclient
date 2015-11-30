@@ -8,8 +8,6 @@
 
 #include "messages/handshakeResponse.h"
 
-#include "messages.pb.h"
-
 #include <sstream>
 
 namespace one {
@@ -20,9 +18,17 @@ HandshakeResponse::HandshakeResponse(
 {
     auto &handshakeResponseMsg = serverMessage->handshake_response();
     m_sessionId = handshakeResponseMsg.session_id();
+    for (const auto &subscription : handshakeResponseMsg.subscriptions())
+        m_subscriptions.emplace_back(subscription);
 }
 
 const std::string &HandshakeResponse::sessionId() const { return m_sessionId; }
+
+void HandshakeResponse::moveSubscriptions(
+    std::vector<clproto::Subscription> &subscriptions)
+{
+    subscriptions.swap(m_subscriptions);
+}
 
 std::string HandshakeResponse::toString() const
 {

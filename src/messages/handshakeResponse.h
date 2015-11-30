@@ -11,8 +11,11 @@
 
 #include "serverMessage.h"
 
+#include "messages.pb.h"
+
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace one {
 namespace messages {
@@ -36,10 +39,18 @@ public:
      */
     const std::string &sessionId() const;
 
+    /**
+     * Moves subscriptions to the vector passed by referece.
+     * @param subscriptions Reference to a vector where subscriptions should be
+     * moved.
+     */
+    void moveSubscriptions(std::vector<clproto::Subscription> &subscriptions);
+
     virtual std::string toString() const override;
 
 private:
     std::string m_sessionId;
+    std::vector<clproto::Subscription> m_subscriptions;
 };
 
 } // namespace messages
