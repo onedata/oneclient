@@ -32,7 +32,7 @@ public:
      * Destructor.
      * Removes all events from the buffer by calling @c clear method.
      */
-    virtual ~EventBufferMap();
+    ~EventBufferMap();
 
     /**
      * @copydoc EventBuffer::push(EventPtr)
@@ -63,8 +63,10 @@ template <class EventT> void EventBufferMap<EventT>::push(EventPtr event)
     auto it = m_buffer.find(event->key());
     if (it != m_buffer.end())
         it->second->aggregate(std::move(event));
-    else
-        m_buffer.emplace(event->key(), std::move(event));
+    else {
+        auto key = event->key();
+        m_buffer.emplace(key, std::move(event));
+    }
 }
 
 template <class EventT> void EventBufferMap<EventT>::clear()

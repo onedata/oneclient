@@ -53,25 +53,23 @@ template <class LowerLayer>
 typename SubscriptionHandler<LowerLayer>::UnsubscribeHandler
 SubscriptionHandler<LowerLayer>::subscribe(SubscriptionPtr subscription)
 {
-    if (!subscription->empty()) {
+    if (subscription->empty())
+        return [] {};
+
+    if (m_subscriptions.empty())
+        LowerLayer::setEventBuffer(std::make_unique<EventBufferMap<EventT>>());
+
+    auto id = subscription->id();
+    m_subscriptions.emplace(id, std::move(subscription));
+
+    return [=] {
+        m_subscriptions.erase(id);
         if (m_subscriptions.empty())
             LowerLayer::setEventBuffer(
-                std::make_unique<EventBufferMap<EventT>>());
-
-        auto id = subscription->id();
-        m_subscriptions.emplace(id, std::move(subscription));
-
-        return [=] {
-            m_subscriptions.erase(id);
-            if (m_subscriptions.empty())
-                LowerLayer::setEventBuffer(
-                    std::make_unique<VoidEventBuffer<EventT>>());
-            if (id < 0)
-                LowerLayer::send(SubscriptionCancellation{id});
-        };
-    }
-    else
-        return [] {};
+                std::make_unique<VoidEventBuffer<EventT>>());
+        if (id < 0)
+            LowerLayer::send(SubscriptionCancellation{id});
+    };
 }
 
 } // namespace events

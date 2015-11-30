@@ -9,6 +9,7 @@
 #ifndef ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_ATTR_SUBSCRIPTION_H
 #define ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_ATTR_SUBSCRIPTION_H
 
+#include "subscription.h"
 #include "messages/clientMessage.h"
 
 #include <boost/optional.hpp>
@@ -25,7 +26,8 @@ namespace events {
  * @c FileAttrSubscription is a client side subscription and represents a
  * request for file attributes updates.
  */
-class FileAttrSubscription : public messages::ClientMessage {
+class FileAttrSubscription : public Subscription,
+                             public messages::ClientMessage {
 public:
     /**
      * Constructor.
@@ -39,47 +41,13 @@ public:
         boost::optional<std::size_t> counterThreshold = {},
         boost::optional<std::chrono::milliseconds> timeThreshold = {});
 
-    /**
-     * @return ID of subscription.
-     */
-    const std::int64_t id() const;
-
-    /**
-     * Sets subscription's ID.
-     * @param id ID to be set.
-     */
-    void id(std::int64_t id);
-
-    /**
-     * @return UUID of file associated with update events.
-     */
-    const std::string fileUuid() const;
-
-    /**
-     * @return Counter threshold.
-     */
-    const boost::optional<std::size_t> &counterThreshold() const;
-
-    /**
-     * @return Time threshold.
-     */
-    const boost::optional<std::chrono::milliseconds> &timeThreshold() const;
-
-    /**
-     * @return 'true' if none of the thresholds is set, otherwise 'false'.
-     */
-    bool empty() const;
-
     virtual std::string toString() const override;
 
     std::unique_ptr<one::messages::ProtocolClientMessage>
     serialize() const override;
 
 private:
-    std::int64_t m_id;
     std::string m_fileUuid;
-    boost::optional<std::size_t> m_counterThreshold;
-    boost::optional<std::chrono::milliseconds> m_timeThreshold;
 };
 
 } // namespace events

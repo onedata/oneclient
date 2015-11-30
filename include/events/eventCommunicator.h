@@ -35,7 +35,7 @@ public:
     using StreamPtr = std::shared_ptr<communication::StreamManager::Stream>;
 
     /**
-     * A reference to @c *this typed as a @c Sequencer.
+     * A reference to @c *this typed as a @c EventCommunicator.
      */
     EventCommunicator<EventT> &communicator = *this;
 
