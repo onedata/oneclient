@@ -25,6 +25,7 @@ bool SubscriptionRegistry::addUnsubscribeHandler(
         acc->second = std::move(handler);
         return true;
     }
+    handler();
     return false;
 }
 
