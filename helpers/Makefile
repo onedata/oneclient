@@ -6,8 +6,10 @@ INSTALL_PREFIX ?= ${HOME}/.local/helpers
 cmake: BUILD_DIR = $$(echo $(BUILD_TYPE) | tr '[:upper:]' '[:lower:]')
 cmake:
 	mkdir -p ${BUILD_DIR}
-	cd ${BUILD_DIR} && cmake -GNinja -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DCODE_COVERAGE=${WITH_COVERAGE} \
-	                                 -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} ..
+	cd ${BUILD_DIR} && cmake -GNinja -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
+	                                 -DCODE_COVERAGE=${WITH_COVERAGE} \
+	                                 -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+	                                 -DBUILD_NIF_LIBS=${BUILD_NIF_LIBS} ..
 
 release: BUILD_TYPE = Release
 release: cmake

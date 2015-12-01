@@ -24,26 +24,31 @@ message ClientMessage {
     optional MessageStream message_stream = 2; // identifies message as part of
                                                // a stream
     oneof message_body { // list of messages that can be sent from
-        // the client to the server
+                         // the client to the server
         // handshake_messages.proto
-        HandshakeRequest   handshake_request    = 3;
-        Token              token                = 4;
+        HandshakeRequest         handshake_request         = 3;
+        Token                    token                     = 4;
 
         // common_messages.proto
-        Status             status               = 5;
-
-        // event_messages.proto
-        Event              event                = 6;
-
-        // diagnostic_messages.proto
-        Ping               ping                 = 7;
-        GetProtocolVersion get_protocol_version = 8;
-
-        // fuse_messages.proto
-        FuseRequest        fuse_request         = 9;
+        Status                   status                    = 5;
 
         // stream_messages.proto
-        EndOfMessageStream end_of_stream        = 10;
+        MessageStreamReset       message_stream_reset      = 6;
+        MessageRequest           message_request           = 7;
+        MessageAcknowledgement   message_acknowledgement   = 8;
+        EndOfMessageStream       end_of_stream             = 9;
+
+        // event_messages.proto
+        Events                   events                    = 10;
+        Subscription             subscription              = 11;
+        SubscriptionCancellation subscription_cancellation = 12;
+
+        // diagnostic_messages.proto
+        Ping                     ping                      = 13;
+        GetProtocolVersion       get_protocol_version      = 14;
+
+        // fuse_messages.proto
+        FuseRequest              fuse_request              = 15;
     }
 }
 
@@ -54,26 +59,29 @@ message ServerMessage {
     optional MessageStream message_stream = 2; // identifies message as part of
                                                // a stream
     oneof message_body { // list of messages that can be sent from
-        // the server to the client
+                         // the server to the client
         // handshake_messages.proto
-        HandshakeResponse      handshake_response      = 3;
+        HandshakeResponse        handshake_response        = 3;
 
         // common_messages.proto
-        Status                 status                  = 4;
+        Status                   status                    = 4;
 
         // stream_messages.proto
-        MessageStreamReset     message_stream_reset    = 5;
-        MessageRequest         message_request         = 6;
-        MessageAcknowledgement message_acknowledgement = 7;
+        MessageStreamReset       message_stream_reset      = 5;
+        MessageRequest           message_request           = 6;
+        MessageAcknowledgement   message_acknowledgement   = 7;
+        EndOfMessageStream       end_of_stream             = 8;
 
         // event_messages.proto
-        EventSubscription      event_subscription      = 8;
+        Events                   events                    = 9;
+        Subscription             subscription              = 10;
+        SubscriptionCancellation subscription_cancellation = 11;
 
         // diagnostic_messages.proto
-        Pong                   pong                    = 9;
-        ProtocolVersion        protocol_version        = 10;
+        Pong                     pong                      = 12;
+        ProtocolVersion          protocol_version          = 13;
 
         // fuse_messages.proto
-        FuseResponse           fuse_response           = 11;
+        FuseResponse             fuse_response             = 14;
     }
 }

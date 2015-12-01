@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "messages/getProtocolVersion.h"
+#include "getProtocolVersion.h"
 
 #include "messages.pb.h"
 
