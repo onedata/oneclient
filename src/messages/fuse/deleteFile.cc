@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "messages/fuse/deleteFile.h"
+#include "deleteFile.h"
 
 #include "messages.pb.h"
 

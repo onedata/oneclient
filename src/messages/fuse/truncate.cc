@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "messages/fuse/truncate.h"
+#include "truncate.h"
 
 #include "messages.pb.h"
 

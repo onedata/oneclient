@@ -44,10 +44,9 @@ public:
         , m_ioService{1}
         , m_idleWork{asio::make_work(m_ioService)}
         , m_worker{[=] { m_ioService.run(); }}
-        , m_strand{m_ioService}
     {
         LowerLayer::setPeriodicTriggerHandler([this] {
-            asio::post(m_strand, [this] { LowerLayer::trigger(); });
+            asio::post(m_ioService, [this] { LowerLayer::trigger(); });
         });
     }
 
@@ -63,7 +62,7 @@ public:
      */
     void emitEvent(EventT event)
     {
-        asio::post(m_strand, [ this, event = std::move(event) ]() mutable {
+        asio::post(m_ioService, [ this, event = std::move(event) ]() mutable {
             LowerLayer::process(std::make_unique<EventT>(std::move(event)));
         });
     }
@@ -74,7 +73,7 @@ public:
      */
     template <class... Args> void createAndEmitEvent(Args &&... args)
     {
-        asio::post(m_strand,
+        asio::post(m_ioService,
             [=] { LowerLayer::process(std::make_unique<EventT>(args...)); });
     }
 
@@ -99,7 +98,6 @@ private:
     asio::io_service m_ioService;
     asio::executor_work<asio::io_service::executor_type> m_idleWork;
     std::thread m_worker;
-    asio::io_service::strand m_strand;
     RegistryPtr m_registry;
 };
 
@@ -112,15 +110,16 @@ template <class LowerLayer> EventWorker<LowerLayer>::~EventWorker()
 template <class LowerLayer>
 void EventWorker<LowerLayer>::subscribe(Subscription subscription)
 {
-    asio::post(m_strand, [ this, subscription = std::move(subscription) ] {
-        auto id = subscription.id();
-        auto handler = LowerLayer::subscribe(
-            std::make_unique<Subscription>(std::move(subscription)));
-        m_registry->addUnsubscribeHandler(
-            id, [ this, handler = std::move(handler) ] {
-                asio::post(m_strand, std::move(handler));
-            });
-    });
+    asio::post(m_ioService,
+        [ this, subscription = std::move(subscription) ]() mutable {
+            auto id = subscription.id();
+            auto handler = LowerLayer::subscribe(
+                std::make_unique<Subscription>(std::move(subscription)));
+            m_registry->addUnsubscribeHandler(
+                id, [ this, handler = std::move(handler) ]() mutable {
+                    asio::post(m_ioService, std::move(handler));
+                });
+        });
 }
 
 template <class LowerLayer>

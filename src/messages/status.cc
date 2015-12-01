@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "messages/status.h"
+#include "status.h"
 
 #include "messages.pb.h"
 

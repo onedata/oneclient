@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "messages/fuse/getNewFileLocation.h"
+#include "getNewFileLocation.h"
 
 #include "messages.pb.h"
 

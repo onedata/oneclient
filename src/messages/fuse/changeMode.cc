@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "messages/fuse/changeMode.h"
+#include "changeMode.h"
 
 #include "messages.pb.h"
 

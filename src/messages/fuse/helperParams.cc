@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "messages/fuse/helperParams.h"
+#include "helperParams.h"
 
 #include "messages.pb.h"
 

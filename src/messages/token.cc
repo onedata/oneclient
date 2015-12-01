@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "messages/token.h"
+#include "token.h"
 
 #include "messages.pb.h"
 

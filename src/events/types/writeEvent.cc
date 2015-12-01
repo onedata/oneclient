@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "events/types/writeEvent.h"
+#include "writeEvent.h"
 
 #include "messages.pb.h"
 

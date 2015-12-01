@@ -6,12 +6,12 @@
  * 'LICENSE.txt'
  */
 
-#include "events/eventManager.h"
+#include "eventManager.h"
 
 #include "context.h"
 #include "communication/subscriptionData.h"
-#include "events/subscriptionRegistry.h"
-#include "events/subscriptions/subscriptionCancellation.h"
+#include "subscriptionRegistry.h"
+#include "subscriptions/subscriptionCancellation.h"
 #include "scheduler.h"
 
 #include "messages.pb.h"

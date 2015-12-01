@@ -1,15 +1,13 @@
 /**
- * @file fileLocationSubscription.h
+ * @file subscription.h
  * @author Krzysztof Trzepla
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#ifndef ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_LOCATION_SUBSCRIPTION_H
-#define ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_LOCATION_SUBSCRIPTION_H
-
-#include "messages/clientMessage.h"
+#ifndef ONECLIENT_EVENTS_SUBSCRIPTIONS_SUBSCRIPTION_H
+#define ONECLIENT_EVENTS_SUBSCRIPTIONS_SUBSCRIPTION_H
 
 #include <boost/optional.hpp>
 
@@ -22,22 +20,22 @@ namespace client {
 namespace events {
 
 /**
- * @c FileLocationSubscription is a client side subscription and represents a
- * request for file location updates.
+ * @c Subscription represents subscription for events. It defines minimal
+ * requirements that have to be met before events emission.
  */
-class FileLocationSubscription : public messages::ClientMessage {
+class Subscription {
 public:
     /**
      * Constructor.
-     * @param fileUuid UUID of file for which attributes updates are requested.
      * @param counterThreshold Maximal number of aggregated events before
      * emission.
      * @param timeThreshold Maximal delay in milliseconds between successive
      * events emissions.
+     * @param sizeThreshold Maximal number of read bytes before emission.
      */
-    FileLocationSubscription(std::string fileUuid,
-        boost::optional<std::size_t> counterThreshold = {},
-        boost::optional<std::chrono::milliseconds> timeThreshold = {});
+    Subscription(boost::optional<std::size_t> counterThreshold = {},
+        boost::optional<std::chrono::milliseconds> timeThreshold = {},
+        boost::optional<std::size_t> sizeThreshold = {});
 
     /**
      * @return ID of subscription.
@@ -51,11 +49,6 @@ public:
     void id(std::int64_t id);
 
     /**
-     * @return UUID of file associated with update events.
-     */
-    const std::string fileUuid() const;
-
-    /**
      * @return Counter threshold.
      */
     const boost::optional<std::size_t> &counterThreshold() const;
@@ -66,24 +59,27 @@ public:
     const boost::optional<std::chrono::milliseconds> &timeThreshold() const;
 
     /**
+     * @return Size threshold.
+     */
+    const boost::optional<std::size_t> &sizeThreshold() const;
+
+    /**
      * @return 'true' if none of the thresholds is set, otherwise 'false'.
      */
     bool empty() const;
 
-    virtual std::string toString() const override;
 
-    std::unique_ptr<one::messages::ProtocolClientMessage>
-    serialize() const override;
+    std::string toString(std::string type) const;
 
-private:
+protected:
     std::int64_t m_id;
-    std::string m_fileUuid;
     boost::optional<std::size_t> m_counterThreshold;
     boost::optional<std::chrono::milliseconds> m_timeThreshold;
+    boost::optional<std::size_t> m_sizeThreshold;
 };
 
 } // namespace events
 } // namespace client
 } // namespace one
 
-#endif // ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_LOCATION_SUBSCRIPTION_H
+#endif // ONECLIENT_EVENTS_SUBSCRIPTIONS_SUBSCRIPTION_H
