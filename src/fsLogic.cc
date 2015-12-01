@@ -41,7 +41,8 @@ using namespace std::literals;
 namespace one {
 namespace client {
 
-FsLogic::FsLogic(std::shared_ptr<Context> context)
+FsLogic::FsLogic(std::shared_ptr<Context> context,
+    std::vector<clproto::Subscription> subscriptions)
     : m_uid{geteuid()}
     , m_gid{getegid()}
     , m_context{std::move(context)}
@@ -52,6 +53,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context)
 {
     m_eventManager.setFileAttrHandler(fileAttrHandler());
     m_eventManager.setFileLocationHandler(fileLocationHandler());
+    for (const auto &subscription : subscriptions)
+        m_eventManager.handle(subscription);
 }
 
 int FsLogic::access(boost::filesystem::path path, const int mask)

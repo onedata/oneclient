@@ -40,7 +40,10 @@ public:
     std::int64_t nextSubscriptionId();
 
     /**
-     * Adds unsubscribe handler.
+     * Adds unsubscribe handler if there is no other handler associated with
+     * provided ID and returns true. If other handler is already associated with
+     * provided ID does not overwrite it, but executes provided handler and
+     * returns false.
      * @param id ID of subscription associated with the handler.
      * @param handler Unsubscribe handler.
      * @return 'true' if handler was successfully added, otherwise 'false'.

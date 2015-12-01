@@ -18,6 +18,8 @@
 #include "messages/fuse/fileLocation.h"
 #include "messages/fuse/helperParams.h"
 
+#include "messages.pb.h"
+
 #include <asio/buffer.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
@@ -27,6 +29,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 #include <tuple>
 
 namespace one {
@@ -57,7 +60,8 @@ public:
      * Constructor.
      * @param context Shared pointer to application context instance.
      */
-    FsLogic(std::shared_ptr<Context> context);
+    FsLogic(std::shared_ptr<Context> context,
+        std::vector<clproto::Subscription> subscriptions = {});
 
     /**
      * FUSE @c access callback.
