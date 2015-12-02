@@ -127,8 +127,9 @@ std::shared_ptr<auth::AuthManager> createAuthManager(
     }
 }
 
-std::vector<clproto::Subscription> handshake(
-    const std::string &fuseId, std::shared_ptr<auth::AuthManager> authManager)
+std::vector<clproto::Subscription> handshake(const std::string &fuseId,
+    std::shared_ptr<auth::AuthManager> authManager,
+    std::shared_ptr<Context> context)
 {
     std::vector<clproto::Subscription> subscriptions;
     auto handshakeHandler = [&](auto handshakeResponse) {
@@ -138,10 +139,11 @@ std::vector<clproto::Subscription> handshake(
 
     auto testCommunicatorTuple =
         authManager->createCommunicator(1, fuseId, handshakeHandler);
-
-    std::get<std::shared_ptr<communication::Communicator>>(
-        testCommunicatorTuple)
-        ->connect();
+    auto testCommunicator =
+        std::get<std::shared_ptr<communication::Communicator>>(
+            testCommunicatorTuple);
+    testCommunicator->setScheduler(context->scheduler());
+    testCommunicator->connect();
     communication::wait(std::get<std::future<void>>(testCommunicatorTuple));
 
     return std::move(subscriptions);
@@ -154,8 +156,11 @@ std::shared_ptr<communication::Communicator> createCommunicator(
     auto handshakeHandler = [](auto) { return std::error_code{}; };
     auto communicatorTuple =
         authManager->createCommunicator(3, fuseId, handshakeHandler);
-    context->setCommunicator(std::get<0>(communicatorTuple));
-    return std::get<0>(communicatorTuple);
+    auto communicator = std::get<std::shared_ptr<communication::Communicator>>(
+        communicatorTuple);
+    communicator->setScheduler(context->scheduler());
+    context->setCommunicator(communicator);
+    return communicator;
 }
 
 int main(int argc, char *argv[])
@@ -206,7 +211,7 @@ int main(int argc, char *argv[])
         /// @todo InvalidServerCertificate
         /// @todo More specific errors.
         /// @todo boost::system::system_error thrown on host not found
-        subscriptions = handshake(fuseId, authManager);
+        subscriptions = handshake(fuseId, authManager, context);
     }
     catch (OneException &exception) {
         std::cerr << "Handshake error. Aborting" << std::endl;

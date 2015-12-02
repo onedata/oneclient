@@ -41,6 +41,7 @@ public:
         auto scheduler = std::make_shared<Scheduler>(1);
         m_communicator = std::make_shared<Communicator>(connectionsNumber,
             std::move(host), port, false, communication::createConnection);
+        m_communicator->setScheduler(scheduler);
         m_communicator->connect();
         context->setScheduler(std::move(scheduler));
         context->setCommunicator(m_communicator);

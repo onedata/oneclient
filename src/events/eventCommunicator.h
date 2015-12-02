@@ -13,6 +13,7 @@
 #include "events/eventContainer.h"
 #include "events/buffers/voidEventBuffer.h"
 #include "events/subscriptions/subscriptionCancellation.h"
+#include "logging.h"
 
 #include <functional>
 #include <unordered_map>
@@ -89,6 +90,7 @@ void EventCommunicator<EventT>::send(std::vector<EventPtr> events)
 {
     if (!events.empty()) {
         EventContainer<EventT> eventsMsg{std::move(events)};
+        DLOG(INFO) << "Sending: " << eventsMsg.toString();
         m_stream->send(eventsMsg);
     }
 }
@@ -96,6 +98,7 @@ void EventCommunicator<EventT>::send(std::vector<EventPtr> events)
 template <class EventT>
 void EventCommunicator<EventT>::send(const Subscription &subscription)
 {
+    DLOG(INFO) << "Sending: " << subscription.toString();
     m_stream->send(subscription);
 }
 
@@ -103,6 +106,7 @@ template <class EventT>
 void EventCommunicator<EventT>::send(
     const SubscriptionCancellation &cancellation)
 {
+    DLOG(INFO) << "Sending: " << cancellation.toString();
     m_stream->send(cancellation);
 }
 
