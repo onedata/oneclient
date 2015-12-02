@@ -154,25 +154,26 @@ init([]) ->
     {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
     {stop, Reason :: term(), NewState :: #state{}}).
 handle_call(healthcheck, _From, #state{mock_states = MockStates} = State) ->
-    Reply =
-        try
-            MockStatesList = dict:to_list(MockStates),
-            % Check if all mocked endpoints are connective.
-            lists:foreach(
-                fun({{Port, Path}, MockState}) ->
-                    case MockState of
-                        #rest_mock_state{response = #rest_response{code = Code}} ->
-                            {Code, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, Port, Path, get, [], <<"">>);
-                        _ ->
-                            ok
-                    end
-                end, MockStatesList),
-            ok
-        catch T:M ->
-            ?error_stacktrace("Error during ~p healthcheck- ~p:~p", [?MODULE, T, M]),
-            error
-        end,
-    {reply, Reply, State};
+    try
+        MockStatesList = dict:to_list(MockStates),
+        % Check if all mocked endpoints are connective.
+        lists:foreach(
+            fun({{Port, Path}, MockState}) ->
+                case MockState of
+                    #rest_mock_state{response = #rest_response{code = Code}} ->
+                        URL = str_utils:format("https://127.0.0.1:~B~s",
+                            [Port, Path]),
+                        {ok, Code, _, _} = http_client:get(URL);
+                    _ ->
+                        ok
+                end
+            end, MockStatesList),
+
+        {reply, ok, State}
+    catch T:M ->
+        ?error_stacktrace("Error during ~p healthcheck- ~p:~p", [?MODULE, T, M]),
+        {reply, error, State}
+    end;
 
 handle_call({produce_response, Req, ETSKey}, _From, State) ->
     {{Code, Headers, Body}, NewState} = internal_produce_response(Req, ETSKey, State),

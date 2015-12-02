@@ -49,11 +49,10 @@
     true | {false, integer()} | {error, term()}.
 rest_endpoint_request_count(Hostname, Port, Path) ->
     try
-        JSON = appmock_utils:encode_to_json(?REST_ENDPOINT_REQUEST_COUNT_REQUEST(Port, Path)),
-        {ok, RemoteControlPort} = application:get_env(?APP_NAME, remote_control_port),
-        {200, _, RespBodyJSON} = appmock_utils:https_request(Hostname, RemoteControlPort,
-            <<?REST_ENDPOINT_REQUEST_COUNT_PATH>>, post, [], JSON),
-        RespBody = appmock_utils:decode_from_json(RespBodyJSON),
+        JSON = json_utils:encode(?REST_ENDPOINT_REQUEST_COUNT_REQUEST(Port, Path)),
+        {ok, 200, _, RespBodyJSON} = appmock_utils:rc_request(post, Hostname,
+            ?REST_ENDPOINT_REQUEST_COUNT_PATH, [], JSON),
+        RespBody = json_utils:decode(RespBodyJSON),
         ?REST_ENDPOINT_REQUEST_COUNT_UNPACK_RESPONSE(RespBody)
     catch T:M ->
         ?error("Error in verify_rest_endpoint - ~p:~p", [T, M]),
@@ -77,11 +76,10 @@ rest_endpoint_request_count(Hostname, Port, Path) ->
     true | {false, PortPathMap} | {error, term()} when PortPathMap :: [{Port :: integer(), Path :: binary()}].
 verify_rest_history(Hostname, ExpectedOrder) ->
     try
-        JSON = appmock_utils:encode_to_json(?VERIFY_REST_HISTORY_PACK_REQUEST(ExpectedOrder)),
-        {ok, RemoteControlPort} = application:get_env(?APP_NAME, remote_control_port),
-        {200, _, RespBodyJSON} = appmock_utils:https_request(Hostname, RemoteControlPort,
-            <<?VERIFY_REST_HISTORY_PATH>>, post, [], JSON),
-        RespBody = appmock_utils:decode_from_json(RespBodyJSON),
+        JSON = json_utils:encode(?VERIFY_REST_HISTORY_PACK_REQUEST(ExpectedOrder)),
+        {ok, 200, _, RespBodyJSON} = appmock_utils:rc_request(post, Hostname,
+            <<?VERIFY_REST_HISTORY_PATH>>, [], JSON),
+        RespBody = json_utils:decode(RespBodyJSON),
         case RespBody of
             ?TRUE_RESULT ->
                 true;
@@ -104,10 +102,9 @@ verify_rest_history(Hostname, ExpectedOrder) ->
 -spec reset_rest_history(Hostname :: binary()) -> true | {error, term()}.
 reset_rest_history(Hostname) ->
     try
-        {ok, RemoteControlPort} = application:get_env(?APP_NAME, remote_control_port),
-        {200, _, RespBodyJSON} = appmock_utils:https_request(Hostname, RemoteControlPort,
-            <<?RESET_REST_HISTORY_PATH>>, post, [], <<"">>),
-        RespBody = appmock_utils:decode_from_json(RespBodyJSON),
+        {ok, 200, _, RespBodyJSON} = appmock_utils:rc_request(post, Hostname,
+            ?RESET_REST_HISTORY_PATH),
+        RespBody = json_utils:decode(RespBodyJSON),
         case RespBody of
             ?TRUE_RESULT ->
                 true
@@ -130,12 +127,10 @@ reset_rest_history(Hostname) ->
     integer() | {error, term()}.
 tcp_server_specific_message_count(Hostname, Port, Data) ->
     try
-        Binary = ?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PACK_REQUEST(Data),
-        {ok, RemoteControlPort} = application:get_env(?APP_NAME, remote_control_port),
-        Path = list_to_binary(?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PATH(Port)),
-        {200, _, RespBodyJSON} = appmock_utils:https_request(Hostname, RemoteControlPort,
-            Path, post, [], Binary),
-        RespBody = appmock_utils:decode_from_json(RespBodyJSON),
+        {ok, 200, _, RespBodyJSON} = appmock_utils:rc_request(post, Hostname,
+            ?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PATH(Port), [],
+            ?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PACK_REQUEST(Data)),
+        RespBody = json_utils:decode(RespBodyJSON),
         ?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_UNPACK_RESPONSE(RespBody)
     catch T:M ->
         ?error("Error in tcp_server_specific_message_count - ~p:~p", [T, M]),
@@ -200,11 +195,9 @@ tcp_server_wait_for_specific_messages(Hostname, Port, Data, MessageCount, Accept
     integer() | {error, term()}.
 tcp_server_all_messages_count(Hostname, Port) ->
     try
-        {ok, RemoteControlPort} = application:get_env(?APP_NAME, remote_control_port),
-        Path = list_to_binary(?TCP_SERVER_ALL_MESSAGES_COUNT_PATH(Port)),
-        {200, _, RespBodyJSON} = appmock_utils:https_request(Hostname, RemoteControlPort,
-            Path, post, [], <<"">>),
-        RespBody = appmock_utils:decode_from_json(RespBodyJSON),
+        {ok, 200, _, RespBodyJSON} = appmock_utils:rc_request(post, Hostname,
+            ?TCP_SERVER_ALL_MESSAGES_COUNT_PATH(Port)),
+        RespBody = json_utils:decode(RespBodyJSON),
         ?TCP_SERVER_ALL_MESSAGES_COUNT_UNPACK_RESPONSE(RespBody)
     catch T:M ->
         ?error("Error in tcp_server_all_messages_count - ~p:~p", [T, M]),
@@ -271,12 +264,10 @@ tcp_server_wait_for_any_messages(Hostname, Port, MessageCount, AcceptMore, Retur
     true | {error, term()}.
 tcp_server_send(Hostname, Port, Data, MessageCount) ->
     try
-        Binary = ?TCP_SERVER_SEND_PACK_REQUEST(Data),
-        {ok, RemoteControlPort} = application:get_env(?APP_NAME, remote_control_port),
-        Path = list_to_binary(?TCP_SERVER_SEND_PATH(Port, MessageCount)),
-        {200, _, RespBodyJSON} = appmock_utils:https_request(Hostname, RemoteControlPort,
-            Path, post, [], Binary),
-        RespBody = appmock_utils:decode_from_json(RespBodyJSON),
+        {ok, 200, _, RespBodyJSON} = appmock_utils:rc_request(post, Hostname,
+            ?TCP_SERVER_SEND_PATH(Port, MessageCount), [],
+            ?TCP_SERVER_SEND_PACK_REQUEST(Data)),
+        RespBody = json_utils:decode(RespBodyJSON),
         case RespBody of
             ?TRUE_RESULT ->
                 true;
@@ -299,10 +290,9 @@ tcp_server_send(Hostname, Port, Data, MessageCount) ->
 -spec reset_tcp_server_history(Hostname :: binary()) -> true | {error, term()}.
 reset_tcp_server_history(Hostname) ->
     try
-        {ok, RemoteControlPort} = application:get_env(?APP_NAME, remote_control_port),
-        {200, _, RespBodyJSON} = appmock_utils:https_request(Hostname, RemoteControlPort,
-            <<?RESET_TCP_SERVER_HISTORY_PATH>>, post, [], <<"">>),
-        RespBody = appmock_utils:decode_from_json(RespBodyJSON),
+        {ok, 200, _, RespBodyJSON} = appmock_utils:rc_request(post, Hostname,
+            ?RESET_TCP_SERVER_HISTORY_PATH),
+        RespBody = json_utils:decode(RespBodyJSON),
         case RespBody of
             ?TRUE_RESULT ->
                 true
@@ -323,11 +313,9 @@ reset_tcp_server_history(Hostname) ->
     {ok, [binary()]} | {error, term()}.
 tcp_server_history(Hostname, Port) ->
     try
-        {ok, RemoteControlPort} = application:get_env(?APP_NAME, remote_control_port),
-        Path = list_to_binary(?TCP_SERVER_HISTORY_PATH(Port)),
-        {200, _, RespBodyJSON} = appmock_utils:https_request(Hostname, RemoteControlPort,
-            Path, post, [], <<"">>),
-        RespBody = appmock_utils:decode_from_json(RespBodyJSON),
+        {ok, 200, _, RespBodyJSON} = appmock_utils:rc_request(post, Hostname,
+            ?TCP_SERVER_HISTORY_PATH(Port)),
+        RespBody = json_utils:decode(RespBodyJSON),
         ?TCP_SERVER_HISTORY_UNPACK_RESPONSE(RespBody)
     catch T:M ->
         ?error("Error in tcp_server_history - ~p:~p", [T, M]),
@@ -343,12 +331,10 @@ tcp_server_history(Hostname, Port) ->
 -spec tcp_server_connection_count(Hostname :: binary(), Port :: integer()) -> {ok, integer()} | {error, term()}.
 tcp_server_connection_count(Hostname, Port) ->
     try
-        Binary = ?TCP_SERVER_CONNECTION_COUNT_PACK_REQUEST,
-        {ok, RemoteControlPort} = application:get_env(?APP_NAME, remote_control_port),
-        Path = list_to_binary(?TCP_SERVER_CONNECTION_COUNT_PATH(Port)),
-        {200, _, RespBodyJSON} = appmock_utils:https_request(Hostname, RemoteControlPort,
-            Path, post, [], Binary),
-        RespBody = appmock_utils:decode_from_json(RespBodyJSON),
+        {ok, 200, _, RespBodyJSON} = appmock_utils:rc_request(post, Hostname,
+            ?TCP_SERVER_CONNECTION_COUNT_PATH(Port), [],
+            ?TCP_SERVER_CONNECTION_COUNT_PACK_REQUEST),
+        RespBody = json_utils:decode(RespBodyJSON),
         ?TCP_SERVER_CONNECTION_COUNT_UNPACK_RESPONSE(RespBody)
     catch T:M ->
         ?error("Error in tcp_server_connections_count - ~p:~p", [T, M]),

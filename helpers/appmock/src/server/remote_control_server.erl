@@ -211,48 +211,43 @@ init([]) ->
     {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
     {stop, Reason :: term(), NewState :: #state{}}).
 handle_call(healthcheck, _From, State) ->
-    Reply =
-        try
-            {ok, RCPort} = application:get_env(?APP_NAME, remote_control_port),
+    try
+        % Check connectivity different rest enpoints using some random data
+        {ok, 200, _, _} = appmock_utils:rc_request(get, <<"127.0.0.1">>,
+            <<?REST_ENDPOINT_REQUEST_COUNT_PATH>>, [],
+            json_utils:encode(
+                ?REST_ENDPOINT_REQUEST_COUNT_REQUEST(8080, <<"/">>))),
 
-            % Check connectivity to rest endpoint verification path with some random data
-            {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, <<?REST_ENDPOINT_REQUEST_COUNT_PATH>>, get, [],
-                binary_to_list(appmock_utils:encode_to_json(?REST_ENDPOINT_REQUEST_COUNT_REQUEST(8080, <<"/">>)))),
+        {ok, 200, _, _} = appmock_utils:rc_request(get, <<"127.0.0.1">>,
+            <<?VERIFY_REST_HISTORY_PATH>>, [],
+            json_utils:encode(
+                ?VERIFY_REST_HISTORY_PACK_REQUEST([{8080, <<"/">>}]))),
 
-            % Check connectivity to rest history verification path with some random data
-            {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, <<?VERIFY_REST_HISTORY_PATH>>, get, [],
-                binary_to_list(appmock_utils:encode_to_json(?VERIFY_REST_HISTORY_PACK_REQUEST([{8080, <<"/">>}])))),
+        {ok, 200, _, _} = appmock_utils:rc_request(get, <<"127.0.0.1">>,
+            <<?RESET_REST_HISTORY_PATH>>),
 
-            % Check connectivity to rest history reset
-            {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, <<?RESET_REST_HISTORY_PATH>>, get, [], <<"">>),
+        {ok, 200, _, _} = appmock_utils:rc_request(get, <<"127.0.0.1">>,
+            ?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PATH(5555), [],
+            base64:encode(<<"random_data!%$$^&%^&*%^&*">>)),
 
-            % Check connectivity to tcp server mock verification path with some random data
-            PathMessCount = list_to_binary(?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PATH(5555)),
-            {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, PathMessCount, get, [],
-                base64:encode(<<"random_data!%$$^&%^&*%^&*">>)),
+        {ok, 200, _, _} = appmock_utils:rc_request(get, <<"127.0.0.1">>,
+            ?TCP_SERVER_ALL_MESSAGES_COUNT_PATH(5555)),
 
-            % Check connectivity to tcp server mock verification path with some random data
-            PathAllMessCount = list_to_binary(?TCP_SERVER_ALL_MESSAGES_COUNT_PATH(5555)),
-            {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, PathAllMessCount, get, [], <<"">>),
+        {ok, 200, _, _} = appmock_utils:rc_request(get, <<"127.0.0.1">>,
+            ?TCP_SERVER_HISTORY_PATH(5555)),
 
-            % Check connectivity to tcp server history reset
-            PathMessHistory = list_to_binary(?TCP_SERVER_HISTORY_PATH(5555)),
-            {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, PathMessHistory, get, [], <<"">>),
+        {ok, 200, _, _} = appmock_utils:rc_request(get, <<"127.0.0.1">>,
+            <<?RESET_TCP_SERVER_HISTORY_PATH>>),
 
-            % Check connectivity to tcp server history reset
-            {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, <<?RESET_TCP_SERVER_HISTORY_PATH>>, get, [], <<"">>),
+        {ok, 200, _, _} = appmock_utils:rc_request(get, <<"127.0.0.1">>,
+            ?TCP_SERVER_CONNECTION_COUNT_PATH(5555)),
 
-            % Check connectivity to tcp server mock verification path with some random data
-            PathConnCount = list_to_binary(?TCP_SERVER_CONNECTION_COUNT_PATH(5555)),
-            {200, _, _} = appmock_utils:https_request(<<"127.0.0.1">>, RCPort, PathConnCount, get, [],
-                <<"">>),
-
-            ok
-        catch T:M ->
-            ?error_stacktrace("Error during ~p healthcheck- ~p:~p", [?MODULE, T, M]),
-            error
-        end,
-    {reply, Reply, State};
+        {reply, ok, State}
+    catch T:M ->
+        ?error_stacktrace("Error during ~p healthcheck- ~p:~p",
+            [?MODULE, T, M]),
+        {reply, error, State}
+    end;
 
 handle_call(_Request, _From, State) ->
     {reply, ok, State}.
