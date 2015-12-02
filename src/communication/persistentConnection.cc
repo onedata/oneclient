@@ -107,15 +107,15 @@ void PersistentConnection::send(std::string message, Callback callback)
         message = std::move(message),
         callback = std::move(callback)
     ]() mutable {
-        if (!m_connected) {
+        auto socket = getSocket();
+        if (!m_connected || !socket) {
             callback(asio::error::not_connected);
             return;
         }
 
         m_callback = std::move(callback);
         auto buffer = prepareOutBuffer(std::move(message));
-        m_socket->sendAsync(
-            m_socket, buffer, createCallback([=] { onSent(); }));
+        socket->sendAsync(socket, buffer, createCallback([=] { onSent(); }));
     });
 }
 
@@ -143,8 +143,7 @@ void PersistentConnection::close()
     ++m_connectionId;
     m_connected = false;
 
-    auto socket = m_socket;
-    m_socket.reset();
+    auto socket = std::atomic_exchange(&m_socket, {});
     socket->closeAsync(socket, {[=] {}, [=](auto) {}});
 }
 
@@ -168,10 +167,15 @@ void PersistentConnection::start()
     m_onReady(*this);
 }
 
+etls::TLSSocket::Ptr PersistentConnection::getSocket()
+{
+    return std::atomic_load(&m_socket);
+}
+
 template <typename... Args, typename SF>
 etls::Callback<Args...> PersistentConnection::createCallback(SF &&onSuccess)
 {
-    const auto connectionId = m_connectionId;
+    const int connectionId = m_connectionId;
 
     auto wrappedSuccess = [ =, onSuccess = std::forward<SF>(onSuccess) ](
         Args && ... args) mutable
@@ -196,12 +200,14 @@ template <typename SF> void PersistentConnection::asyncRead(SF &&onSuccess)
         const std::size_t size = ntohl(m_inHeader);
         m_inData.resize(size);
 
-        m_socket->recvAsync(m_socket, asio::buffer(m_inData),
-            createCallback<asio::mutable_buffer>(std::move(onSuccess)));
+        if (auto socket = getSocket())
+            socket->recvAsync(socket, asio::buffer(m_inData),
+                createCallback<asio::mutable_buffer>(std::move(onSuccess)));
     };
 
-    m_socket->recvAsync(m_socket, headerToBuffer(m_inHeader),
-        createCallback<asio::mutable_buffer>(std::move(onHeaderSuccess)));
+    if (auto socket = getSocket())
+        socket->recvAsync(socket, headerToBuffer(m_inHeader),
+            createCallback<asio::mutable_buffer>(std::move(onHeaderSuccess)));
 }
 
 asio::mutable_buffers_1 PersistentConnection::headerToBuffer(

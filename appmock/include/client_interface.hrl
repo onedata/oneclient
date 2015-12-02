@@ -176,7 +176,7 @@
 % Endpoint used to send given data to all clients connected to specified server.
 % The port binding is used to identify the TCP server.
 -define(TCP_SERVER_SEND_PATH(_Port, _MessageCount),
-    gui_str:format("/tcp_server_send/~b/~b", [_Port, _MessageCount])
+    str_utils:format("/tcp_server_send/~b/~b", [_Port, _MessageCount])
 ).
 -define(TCP_SERVER_SEND_COWBOY_ROUTE, "/tcp_server_send/:port/:count").
 

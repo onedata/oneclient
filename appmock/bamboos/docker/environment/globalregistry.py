@@ -57,8 +57,12 @@ def _tweak_config(config, gr_node, gr_instance, uid):
     sys_config['db_nodes'] = [db_erl_node_name(n, gr_instance, uid)
                               for n in sys_config['db_nodes']]
 
+    if 'http_domain' in sys_config:
+        sys_config['http_domain'] = {'string': gr_domain(gr_instance, uid)}
+
     if 'vm.args' not in cfg['nodes']['node']:
         cfg['nodes']['node']['vm.args'] = {}
+
     vm_args = cfg['nodes']['node']['vm.args']
     vm_args['name'] = gr_erl_node_name(gr_node, gr_instance, uid)
 
@@ -127,8 +131,8 @@ def _node_up(gr_id, domain, gr_ips, dns_ips, dns_config, gen_dev_config):
 
     gr_command = '''set -e
 mkdir -p /root/bin/node/log/
-chown {uid}:{gid} /root/bin/node/log/
-chmod ug+s /root/bin/node/log/
+echo 'while ((1)); do chown -R {uid}:{gid} /root/bin/node/log; sleep 1; done' > /root/bin/chown_logs.sh
+bash /root/bin/chown_logs.sh &
 cat <<"EOF" > /tmp/gen_dev_args.json
 {gen_dev_args}
 EOF

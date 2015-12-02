@@ -12,56 +12,15 @@
 -module(appmock_utils).
 -author("Lukasz Opiola").
 
+-include("appmock_internal.hrl").
+
 %% API
--export([https_request/6, encode_to_json/1, decode_from_json/1, load_description_module/1]).
+-export([load_description_module/1]).
+-export([rc_request/3, rc_request/4, rc_request/5]).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Performs a single request using ibrowse.
-%% @end
-%%--------------------------------------------------------------------
--spec https_request(HostnameBin :: binary(), Port :: integer(), PathBin :: binary(), Method :: atom(), Headers :: [], Body :: term()) ->
-    {Code :: integer(), RespHeader :: [{binary(), binary()}], RespBody :: binary()}.
-https_request(HostnameBin, Port, PathBin, Method, HeadersBin, Body) ->
-    Hostname = gui_str:to_list(HostnameBin),
-    Path = gui_str:to_list(PathBin),
-    Headers = [{binary_to_list(K), binary_to_list(V)} || {K, V} <- HeadersBin],
-    {ok, Code, RespHeadersBin, RespBody} = ibrowse:send_req(
-        "https://" ++ Hostname ++ ":" ++ integer_to_list(Port) ++ Path,
-        Headers, Method, Body, [{response_format, binary}]),
-    RespHeaders = [{list_to_binary(K), list_to_binary(V)} || {K, V} <- RespHeadersBin],
-    {list_to_integer(Code), RespHeaders, RespBody}.
-
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Convenience function that convert an erlang term to JSON, producing
-%% binary result. The output is in UTF8 encoding.
-%% Possible terms, can be nested:
-%% {struct, Props} - Props is a structure as a proplist, e.g.: [{id, 13}, {message, "mess"}]
-%% {Props} - alias for above
-%% {array, Array} - Array is a list, e.g.: [13, "mess"]
-%% @end
-%%--------------------------------------------------------------------
--spec encode_to_json(term()) -> binary().
-encode_to_json(Term) ->
-    Encoder = mochijson2:encoder([{utf8, true}]),
-    iolist_to_binary(Encoder(Term)).
-
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Convenience function that convert JSON binary to an erlang term.
-%% @end
-%%--------------------------------------------------------------------
--spec decode_from_json(binary()) -> term().
-decode_from_json(JSON) ->
-    try mochijson2:decode(JSON, [{format, proplist}]) catch _:_ -> throw(invalid_json) end.
-
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -84,6 +43,52 @@ load_description_module(FilePath) ->
         cleanup_tmp_copy(FilePath, convert_from_cfg_to_erl_ext(FilePath)),
         throw({invalid_app_description_module, {type, T}, {message, M}, {stacktrace, erlang:get_stacktrace()}})
     end.
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Performs a request on a remote control endpoint running on given Hostname.
+%% @equiv remote_control_request(Method, Hostname, Path, [])
+%% @end
+%%--------------------------------------------------------------------
+-spec rc_request(Method :: http_client:method(), Hstnm :: string() | binary(),
+    Path :: string() | binary()) ->
+    {ok, http_client:code(), http_client:headers(), http_client:body()} |
+    {error, term()}.
+rc_request(Method, Hostname, Path) ->
+    rc_request(Method, Hostname, Path, []).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Performs a request on a remote control endpoint running on given Hostname.
+%% @equiv remote_control_request(Method, Hostname, Path, Headers, <<>>)
+%% @end
+%%--------------------------------------------------------------------
+-spec rc_request(Method :: http_client:method(), Hstnm :: string() | binary(),
+    Path :: string() | binary(), Headers :: http_client:headers()) ->
+    {ok, http_client:code(), http_client:headers(), http_client:body()} |
+    {error, term()}.
+rc_request(Method, Hostname, Path, Headers) ->
+    rc_request(Method, Hostname, Path, Headers, <<>>).
+
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Performs a request on a remote control endpoint running on given Hostname.
+%% @end
+%%--------------------------------------------------------------------
+-spec rc_request(Method :: http_client:method(), Hstnm :: string() | binary(),
+    Path :: string() | binary(), Headers :: http_client:headers(),
+    Body :: http_client:body()) ->
+    {ok, http_client:code(), http_client:headers(), http_client:body()} |
+    {error, term()}.
+rc_request(Method, Hostname, Path, Headers, Body) ->
+    {ok, RmteCntrlPort} = application:get_env(?APP_NAME, remote_control_port),
+    URL = str_utils:format("https://~s:~B~s", [Hostname, RmteCntrlPort, Path]),
+    % insecure option disables server cert verification
+    http_client:request(Method, URL, Headers, Body, [insecure]).
+
 
 %%%===================================================================
 %%% Internal functions

@@ -172,3 +172,33 @@ def generate_uid():
     that can be used to group dockers in DNS
     """
     return str(int(time.time()))
+
+
+def create_users(container, users):
+    """Creates system users on docker specified by 'container'.
+    """
+    for user in users:
+        uid = str(hash(user) % 50000 + 10000)
+        command = ["adduser", "--disabled-password", "--gecos", "''",
+                   "--uid", uid, user]
+        assert 0 is docker.exec_(container, command, interactive=True)
+
+
+def create_groups(container, groups):
+    """Creates system groups on docker specified by 'container'.
+    """
+    for group in groups:
+        gid = str(hash(group) % 50000 + 10000)
+        command = ["groupadd", "-g", gid, group]
+        assert 0 is docker.exec_(container, command, interactive=True)
+        for user in groups[group]:
+            command = ["usermod", "-a", "-G", group, user]
+            assert 0 is docker.exec_(container, command, interactive=True)
+
+
+def volume_for_storage(storage):
+    """Returns tuple (path_on_host, path_on_docker, read_wtire_mode)
+    for a given storage
+    """
+    return os.path.join('/tmp/onedata/storage/', storage), storage, 'rw'
+
