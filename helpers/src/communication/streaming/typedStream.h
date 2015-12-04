@@ -172,8 +172,10 @@ void TypedStream<Communicator>::handleMessageRequest(
         if (it->message_stream().sequence_number() <=
             msg.upper_sequence_number())
             processed.emplace_back(std::move(it));
-        else
+        else {
             m_buffer.emplace(std::move(it));
+            break;
+        }
 
     for (auto &msgStream : processed)
         if (msgStream->message_stream().sequence_number() >=

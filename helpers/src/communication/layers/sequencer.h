@@ -127,7 +127,7 @@ public:
     using Callback = typename LowerLayer::Callback;
     using SchedulerPtr = std::shared_ptr<Scheduler>;
     using LowerLayer::LowerLayer;
-    virtual ~Sequencer() = default;
+    virtual ~Sequencer();
 
     /**
      * A reference to @c *this typed as a @c Sequencer.
@@ -174,9 +174,16 @@ private:
     void schedulePeriodicMessageRequest();
 
     SchedulerPtr m_scheduler;
+    std::function<void()> m_cancelPeriodicMessageRequest = [] {};
     std::shared_timed_mutex m_buffersMutex;
     tbb::concurrent_hash_map<uint64_t, Buffer> m_buffers;
 };
+
+template <class LowerLayer, class Scheduler>
+Sequencer<LowerLayer, Scheduler>::~Sequencer()
+{
+    m_cancelPeriodicMessageRequest();
+}
 
 template <class LowerLayer, class Scheduler>
 auto Sequencer<LowerLayer, Scheduler>::setOnMessageCallback(
@@ -275,9 +282,10 @@ void Sequencer<LowerLayer, Scheduler>::periodicMessageRequest()
 template <class LowerLayer, class Scheduler>
 void Sequencer<LowerLayer, Scheduler>::schedulePeriodicMessageRequest()
 {
-    m_scheduler->schedule(STREAM_MSG_REQ_WINDOW,
-        std::bind(&Sequencer<LowerLayer, Scheduler>::periodicMessageRequest,
-                              this));
+    m_cancelPeriodicMessageRequest =
+        m_scheduler->schedule(STREAM_MSG_REQ_WINDOW,
+            std::bind(&Sequencer<LowerLayer, Scheduler>::periodicMessageRequest,
+                                  this));
 }
 
 } // namespace layers
