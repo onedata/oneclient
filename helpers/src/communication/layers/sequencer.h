@@ -15,8 +15,10 @@
 #include <tbb/concurrent_hash_map.h>
 #include <tbb/concurrent_priority_queue.h>
 
-#include <utility>
 #include <functional>
+#include <mutex>
+#include <shared_mutex>
+#include <utility>
 
 namespace one {
 namespace communication {
@@ -75,6 +77,8 @@ public:
                     ++m_seqNum;
                     if (it->has_end_of_stream()) {
                         onMessageCallback(std::move(it));
+                        // End of stream has been reached. Return sequence
+                        // number of last message in the stream.
                         return {m_seqNum - 1, true};
                     }
                     onMessageCallback(std::move(it));
@@ -82,20 +86,26 @@ public:
                 else if (it->message_stream().sequence_number() > m_seqNum) {
                     auto seqNum = it->message_stream().sequence_number();
                     m_buffer.emplace(std::move(it));
+                    // Sequence number of pending message is greater than
+                    // expected sequence number. Return sequence number that
+                    // proceeds sequence number of pending message.
                     return {seqNum - 1, false};
                 }
             }
+            // No messages to forward - buffer is empty, return sequence number
+            // of last forwarded message.
             return {m_seqNum - 1, false};
         }
 
         /**
          * Sets sequence number of first message that has not been acknowledged
-         * to sequence number of message that is supposed to be forwarded.
+         * to sequence number of expected message.
          */
         void resetSequenceNumberAck() { m_seqNumAck = m_seqNum; }
 
         /**
-         * @return Sequence number of message that is supposed to be forwarded.
+         * @return Sequence number of expected message, i.e. message that can be
+         * immediately forwarded by sequencer.
          */
         const uint64_t sequenceNumber() const { return m_seqNum; }
 
@@ -106,8 +116,10 @@ public:
         const uint64_t sequenceNumberAck() const { return m_seqNumAck; }
 
     private:
-        uint64_t m_seqNum;
-        uint64_t m_seqNumAck;
+        uint64_t m_seqNum;    // expected sequence number
+        uint64_t m_seqNumAck; // first unacknowledged sequence number
+        // buffer of messages with sequence number greater than expected
+        // sequnece number sorted in ascending sequence number order
         tbb::concurrent_priority_queue<ServerMessagePtr, GreaterSeqNum>
             m_buffer;
     };
@@ -115,7 +127,7 @@ public:
     using Callback = typename LowerLayer::Callback;
     using SchedulerPtr = std::shared_ptr<Scheduler>;
     using LowerLayer::LowerLayer;
-    virtual ~Sequencer() = default;
+    virtual ~Sequencer();
 
     /**
      * A reference to @c *this typed as a @c Sequencer.
@@ -132,12 +144,21 @@ public:
         std::function<void(ServerMessagePtr)> onMessageCallback);
 
     /**
-     * Uses provided scheduler instance to schedule periodic requests for
-     * messages that are expected by each stream. Moreover sends message stream
-     * reset request for all server side streams.
+     * Sets pointer to the scheduler instance. It will be used in connect
+     * method.
+     * @see Sequencer::connect()
      * @param scheduler @c Scheduler instance.
      */
-    void initializeSequencer(SchedulerPtr scheduler);
+    void setScheduler(SchedulerPtr scheduler);
+
+    /**
+     * Wraps lower layer's @c connect.
+     * Schedules periodic requests for messages that are expected by each
+     * stream. Moreover sends message stream reset request for all server side
+     * streams.
+     * @see ConnectionPool::connect()
+     */
+    auto connect();
 
 private:
     void sendMessageStreamReset();
@@ -153,8 +174,16 @@ private:
     void schedulePeriodicMessageRequest();
 
     SchedulerPtr m_scheduler;
+    std::function<void()> m_cancelPeriodicMessageRequest = [] {};
+    std::shared_timed_mutex m_buffersMutex;
     tbb::concurrent_hash_map<uint64_t, Buffer> m_buffers;
 };
+
+template <class LowerLayer, class Scheduler>
+Sequencer<LowerLayer, Scheduler>::~Sequencer()
+{
+    m_cancelPeriodicMessageRequest();
+}
 
 template <class LowerLayer, class Scheduler>
 auto Sequencer<LowerLayer, Scheduler>::setOnMessageCallback(
@@ -166,6 +195,7 @@ auto Sequencer<LowerLayer, Scheduler>::setOnMessageCallback(
             if (!serverMsg->has_message_stream())
                 onMessageCallback(std::move(serverMsg));
             else {
+                std::shared_lock<std::shared_timed_mutex> lock{m_buffersMutex};
                 const auto streamId = serverMsg->message_stream().stream_id();
                 typename decltype(m_buffers)::accessor acc;
                 m_buffers.insert(acc, streamId);
@@ -191,12 +221,18 @@ auto Sequencer<LowerLayer, Scheduler>::setOnMessageCallback(
 }
 
 template <class LowerLayer, class Scheduler>
-void Sequencer<LowerLayer, Scheduler>::initializeSequencer(
+void Sequencer<LowerLayer, Scheduler>::setScheduler(
     Sequencer::SchedulerPtr scheduler)
 {
     m_scheduler = std::move(scheduler);
+}
+
+template <class LowerLayer, class Scheduler>
+auto Sequencer<LowerLayer, Scheduler>::connect()
+{
     sendMessageStreamReset();
     schedulePeriodicMessageRequest();
+    return LowerLayer::connect();
 }
 
 template <class LowerLayer, class Scheduler>
@@ -234,6 +270,7 @@ void Sequencer<LowerLayer, Scheduler>::sendMessageAcknowledgement(
 template <class LowerLayer, class Scheduler>
 void Sequencer<LowerLayer, Scheduler>::periodicMessageRequest()
 {
+    std::lock_guard<std::shared_timed_mutex> lock{m_buffersMutex};
     for (auto it = m_buffers.begin(); it != m_buffers.end(); ++it) {
         auto streamId = it->first;
         auto seqNum = it->second.sequenceNumber();
@@ -245,9 +282,10 @@ void Sequencer<LowerLayer, Scheduler>::periodicMessageRequest()
 template <class LowerLayer, class Scheduler>
 void Sequencer<LowerLayer, Scheduler>::schedulePeriodicMessageRequest()
 {
-    m_scheduler->schedule(STREAM_MSG_REQ_WINDOW,
-        std::bind(&Sequencer<LowerLayer, Scheduler>::periodicMessageRequest,
-                              this));
+    m_cancelPeriodicMessageRequest =
+        m_scheduler->schedule(STREAM_MSG_REQ_WINDOW,
+            std::bind(&Sequencer<LowerLayer, Scheduler>::periodicMessageRequest,
+                                  this));
 }
 
 } // namespace layers

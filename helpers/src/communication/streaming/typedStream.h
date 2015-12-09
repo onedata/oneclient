@@ -168,19 +168,26 @@ void TypedStream<Communicator>::handleMessageRequest(
         msg.upper_sequence_number() - msg.lower_sequence_number() + 1);
 
     std::shared_lock<std::shared_timed_mutex> lock{m_bufferMutex};
-    for (ClientMessagePtr it; m_buffer.try_pop(it);)
+    for (ClientMessagePtr it; m_buffer.try_pop(it);) {
         if (it->message_stream().sequence_number() <=
-            msg.upper_sequence_number())
+            msg.upper_sequence_number()) {
             processed.emplace_back(std::move(it));
-        else
+        }
+        else {
             m_buffer.emplace(std::move(it));
+            break;
+        }
+    }
 
-    for (auto &msgStream : processed)
+    for (auto &msgStream : processed) {
         if (msgStream->message_stream().sequence_number() >=
-            msg.lower_sequence_number())
+            msg.lower_sequence_number()) {
             saveAndPass(std::move(msgStream));
-        else
+        }
+        else {
             m_buffer.emplace(std::move(msgStream));
+        }
+    }
 }
 
 template <class Communicator>

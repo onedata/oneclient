@@ -21,7 +21,6 @@
             public_key,
             crypto,
             ssl,
-            ssl2,
             xmerl,
             meck,
             % ctool already requires those apps below, but they are here
@@ -29,7 +28,9 @@
             % to make sure they are started before the application.
             gproc,
             lager,
-            ibrowse,
+            ssl2,
+            hackney,
+            web_client,
             cowboy
         ]},
         {mod, {appmock_app, []}},

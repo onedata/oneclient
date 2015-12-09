@@ -21,8 +21,25 @@
             "target_dir": "rel/test_cluster"
         }
     },
+    "os_configs": {
+        "cfg1": {
+            "storages": [
+                "/mnt/st1"
+            ],
+            "users": [
+                "user1"
+            ],
+            "groups": {
+                "group1": [
+                    "user1"
+                ]
+            }
+        }
+    },
     "provider_domains": {
         "p1": {
+            "db_driver": "couchbase",
+            "os_config": "cfg1",
             "op_ccm": {
                 "ccm1": {
                     "vm.args": {

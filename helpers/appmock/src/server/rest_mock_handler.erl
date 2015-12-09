@@ -56,7 +56,7 @@ handle(Req, [ETSKey]) ->
             Stacktrace = erlang:get_stacktrace(),
             ?error("Error in ~p. Path: ~p. Port: ~p. ~p:~p.~nStacktrace: ~p",
                 [?MODULE, Path, Port, T, M, Stacktrace]),
-            Error = gui_str:format_bin("500 Internal server error - make sure that your description file does not " ++
+            Error = str_utils:format_bin("500 Internal server error - make sure that your description file does not " ++
             "contain errors.~n-----------------~nType:       ~p~nMessage:    ~p~nStacktrace: ~p", [T, M, Stacktrace]),
             ErrorReq2 = cowboy_req:set_resp_body(Error, Req),
             ErrorReq3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"text/plain">>, ErrorReq2),

@@ -113,6 +113,8 @@ private:
     void notify(const std::error_code &ec = {});
     void start();
 
+    etls::TLSSocket::Ptr getSocket();
+
     template <typename... Args, typename SF>
     etls::Callback<Args...> createCallback(SF &&onSuccess);
     template <typename SF> void asyncRead(SF &&onSuccess);
@@ -133,8 +135,8 @@ private:
     etls::TLSSocket::Ptr m_socket;
     etls::TLSApplication m_app{1};
     asio::steady_timer m_recreateTimer{m_app.ioService()};
-    bool m_connected = false;
-    int m_connectionId = 0;
+    std::atomic<bool> m_connected{false};
+    std::atomic<int> m_connectionId{0};
 
     std::uint32_t m_inHeader;
     std::string m_inData;

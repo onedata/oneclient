@@ -37,6 +37,7 @@ public:
         , m_helper{{{"storage_id", storageId}, {"space_id", spaceId}},
               m_communicator}
     {
+        m_communicator.setScheduler(std::make_shared<one::Scheduler>(1));
         m_communicator.connect();
     }
 

@@ -16,6 +16,12 @@
 
 class MockScheduler {
 public:
+    MockScheduler()
+    {
+        using namespace ::testing;
+        ON_CALL(*this, schedule(_, _)).WillByDefault(Return([] {}));
+    }
+
     MOCK_METHOD2(
         schedule, std::function<void()>(
                       const std::chrono::milliseconds, std::function<void()>));

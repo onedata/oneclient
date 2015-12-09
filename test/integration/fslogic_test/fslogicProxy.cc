@@ -230,6 +230,7 @@ boost::shared_ptr<FsLogicProxy> create(std::string ip, int port)
     context->setCommunicator(communicator);
     context->setOptions(std::make_shared<Options>());
 
+    communicator->setScheduler(context->scheduler());
     communicator->connect();
 
     return boost::make_shared<FsLogicProxy>(context);

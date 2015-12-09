@@ -19,6 +19,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <functional>
 
 namespace one {
 namespace helpers {
@@ -30,12 +31,43 @@ namespace helpers {
 class DirectIOHelper : public IStorageHelper {
 public:
     /**
+     * The UserCTX abstract class
+     * Subclasses shall implement context setter based on CTXConstRef that
+     * persists as long as the object exists.
+     */
+    class UserCTX {
+    public:
+        /**
+         * Returns whether context setup was successful.
+         */
+        virtual bool valid() = 0;
+        virtual ~UserCTX() = default;
+    };
+
+    /**
+     * Type of factory function that returns user's context setter (UserCTX
+     * instance).
+     */
+    using UserCTXFactory =
+        std::function<std::unique_ptr<UserCTX>(CTXConstRef)>;
+
+#ifdef __linux__
+    /// Factory of user's context setter for linux systems
+    static UserCTXFactory linuxUserCTXFactory;
+#endif
+    /**
+     * Factory of user's context setter that doesn't set context and is always
+     * valid.
+     */
+    static UserCTXFactory noopUserCTXFactory;
+
+    /**
      * This storage helper uses only the first element of args map.
      * It shall be ablosute path to diretory used by this storage helper as
      * root mount point.
      */
     DirectIOHelper(const std::unordered_map<std::string, std::string> &,
-        asio::io_service &service);
+        asio::io_service &service, UserCTXFactory);
 
     void ash_getattr(CTXRef ctx, const boost::filesystem::path &p,
         GeneralCallback<struct stat>);
@@ -97,12 +129,50 @@ protected:
         }
     }
 
+#ifdef __linux__
+    /**
+     * The LinuxUserCTX class
+     * User's context setter for linux systems. Uses linux-specific setfsuid /
+     * setfsgid functions.
+     */
+    class LinuxUserCTX : public UserCTX {
+    public:
+        LinuxUserCTX(CTXConstRef helperCTX);
+        bool valid();
+
+        ~LinuxUserCTX();
+
+    private:
+        // Requested uid / gid
+        uid_t uid;
+        gid_t gid;
+
+        // Previous uid / gid to be restored
+        uid_t prev_uid;
+        gid_t prev_gid;
+
+        // Current uid / gid
+        uid_t current_uid;
+        gid_t current_gid;
+    };
+#endif
+
+    /**
+     * The NoopUserCTX class
+     * Empty user's context setter. Doesn't set context and is always valid.
+     */
+    class NoopUserCTX : public UserCTX {
+    public:
+        bool valid();
+    };
+
 private:
     boost::filesystem::path root(const boost::filesystem::path &path);
 
     const boost::filesystem::path m_rootPath;
     asio::io_service &m_workerService;
     static const error_t SuccessCode;
+    UserCTXFactory m_userCTXFactory;
 };
 
 } // namespace helpers

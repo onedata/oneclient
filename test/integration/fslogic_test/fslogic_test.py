@@ -66,6 +66,7 @@ def prepare_helper():
 def prepare_location(file_blocks=None):
     repl = fuse_messages_pb2.FileLocation()
     repl.uuid = 'uuid1'
+    repl.space_id = 'space1'
     repl.storage_id = 'storage1'
     repl.file_id = 'file1'
     repl.provider_id = 'provider1'
@@ -266,7 +267,7 @@ def test_rename_should_rename(endpoint, fl):
     assert rename.target_path == '/random/path2'
 
 
-def test_rename_should_change_caches(endpoint, fl):
+def test_rename_should_change_caches(appmock_client, endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
@@ -278,7 +279,8 @@ def test_rename_should_change_caches(endpoint, fl):
     fl.getattr('/random/path2', stat)
 
     assert stat.size == getattr_response.fuse_response.file_attr.size
-    0 == endpoint.all_messages_count()
+    1 == endpoint.all_messages_count()
+    appmock_client.reset_tcp_history()
 
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.enoent
