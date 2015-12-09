@@ -22,6 +22,14 @@
 #include <unordered_map>
 
 namespace one {
+namespace clproto {
+class FileLocation;
+}
+namespace client {
+namespace events {
+class FileLocationSubscription;
+} // namespace events
+} // namespace client
 namespace messages {
 namespace fuse {
 
@@ -31,60 +39,90 @@ namespace fuse {
  */
 class FileLocation : public FuseResponse {
 public:
+    using Key = std::string;
+    using FileBlocksMap = boost::icl::interval_map<off_t, FileBlock,
+        boost::icl::partial_enricher>;
+    using FileLocationPtr = std::unique_ptr<FileLocation>;
+    using ProtocolMessage = clproto::FileLocation;
+    using Subscription = client::events::FileLocationSubscription;
+
     FileLocation() = default;
 
     /**
      * Constructor.
-     * @param serverMessage Protocol Buffers message representing
-     * @c FileLocation counterpart.
+     * @param message Protocol Buffers message that wraps @c
+     * one::clproto::FileLocation message.
      */
     FileLocation(std::unique_ptr<ProtocolServerMessage> serverMessage);
 
     /**
+     * Constructor.
+     * @param message Protocol Buffers message representing @c FileLocation
+     * counterpart.
+     */
+    FileLocation(const ProtocolMessage &message);
+
+    /**
+     * @return Value that distinguish @c this file location from other file
+     * locations, i.e. file locations with the same key can be aggregated.
+     * @see @c FileLocation::Key.
+     */
+    const Key &key() const;
+
+    /**
      * @return File UUID.
      */
-    const std::string &uuid() const { return m_uuid; }
+    const std::string &uuid() const;
 
     /**
      * @return Default storage ID of the file.
      */
-    const std::string &storageId() const { return m_storageId; }
+    const std::string &storageId() const;
 
     /**
      * Set new storage id.
-     * @param newStorageId The storage id to set.
+     * @param storageId The storage id to set.
      */
-    void storageId(std::string newStorageId) { m_storageId.swap(newStorageId); }
+    void storageId(std::string storageId);
 
     /**
      * @return File ID on the default storage id.
      */
-    const std::string &fileId() const { return m_fileId; }
+    const std::string &fileId() const;
 
     /**
      * Set new file id.
-     * @param newFileId The file id to set.
+     * @param fileId The file id to set.
      */
-    void fileId(std::string newFileId) { m_fileId.swap(newFileId); }
+    void fileId(std::string fileId);
+
+    /**
+      * @return Blocks per storageId/fileId pair.
+      */
+    FileBlocksMap &blocks();
 
     /**
      * @return Blocks per storageId/fileId pair.
      */
-    auto &blocks() { return m_blocks; }
+    const FileBlocksMap &blocks() const;
 
     /**
-     * @return Blocks per storageId/fileId pair.
+     * Aggregates @c this file location with an other file location.
+     * Aggregation is done by substitution of all @c this file location fields
+     * with an other file location fields.
+     * @param fileLocation File location to be aggregated.
      */
-    auto &blocks() const { return m_blocks; }
+    void aggregate(FileLocationPtr fileLocation);
 
     std::string toString() const override;
 
 private:
+    void deserialize(const ProtocolMessage &message);
+
     std::string m_uuid;
     std::string m_storageId;
     std::string m_fileId;
-    boost::icl::interval_map<off_t, FileBlock, boost::icl::partial_enricher>
-        m_blocks;
+    FileBlocksMap m_blocks;
 };
 
 } // namespace fuse

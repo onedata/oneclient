@@ -6,9 +6,8 @@
  * 'LICENSE.txt'
  */
 
-#include "events/types/readEvent.h"
+#include "readEvent.h"
 
-#include "events/eventStream.h"
 #include "messages.pb.h"
 
 #include <sstream>
@@ -17,15 +16,9 @@ namespace one {
 namespace client {
 namespace events {
 
-ReadEvent::ReadEvent()
-    : Event{0}
-{
-}
-
 ReadEvent::ReadEvent(off_t offset_, size_t size_, std::string fileUuid_,
-    std::size_t counter_, std::string storageId_, std::string fileId_)
-    : Event{counter_}
-    , m_fileUuid{std::move(fileUuid_)}
+    std::string storageId_, std::string fileId_)
+    : m_fileUuid{std::move(fileUuid_)}
     , m_size{size_}
     , m_blocks{{boost::icl::discrete_interval<off_t>::right_open(
                     offset_, offset_ + size_),
@@ -33,43 +26,35 @@ ReadEvent::ReadEvent(off_t offset_, size_t size_, std::string fileUuid_,
 {
 }
 
+const ReadEvent::Key &ReadEvent::key() const { return m_fileUuid; }
+
 const std::string &ReadEvent::fileUuid() const { return m_fileUuid; }
 
 size_t ReadEvent::size() const { return m_size; }
 
-bool operator==(const ReadEvent &lhs, const ReadEvent &rhs)
-{
-    return lhs.fileUuid() == rhs.fileUuid() && lhs.size() == rhs.size() &&
-        lhs.blocks() == rhs.blocks();
-}
+const ReadEvent::FileBlocksMap &ReadEvent::blocks() const { return m_blocks; }
 
-ReadEvent &ReadEvent::operator+=(const ReadEvent &event)
+void ReadEvent::aggregate(EventPtr event)
 {
-    if (m_fileUuid.empty())
-        m_fileUuid = event.m_fileUuid;
-
-    m_counter += event.m_counter;
-    m_size += event.m_size;
-    m_blocks += event.m_blocks;
-    return *this;
+    m_counter += event->m_counter;
+    m_size += event->m_size;
+    m_blocks += event->m_blocks;
 }
 
 std::string ReadEvent::toString() const
 {
     std::stringstream stream;
     stream << "type: 'ReadEvent', counter: " << m_counter << ", file UUID: '"
-           << m_fileUuid << ", size: " << m_size << ", blocks: " << m_blocks;
+           << m_fileUuid << "', size: " << m_size << ", blocks: " << m_blocks;
     return stream.str();
 }
 
-std::unique_ptr<one::messages::ProtocolClientMessage>
-ReadEvent::serializeAndDestroy()
+std::unique_ptr<ProtocolEventMessage> ReadEvent::serializeAndDestroy()
 {
-    auto clientMsg = std::make_unique<one::messages::ProtocolClientMessage>();
-    auto eventMsg = clientMsg->mutable_event();
+    auto eventMsg = std::make_unique<ProtocolEventMessage>();
     auto readEventMsg = eventMsg->mutable_read_event();
-    readEventMsg->set_counter(m_counter);
-    readEventMsg->mutable_file_id()->swap(m_fileUuid);
+    eventMsg->set_counter(m_counter);
+    readEventMsg->mutable_file_uuid()->swap(m_fileUuid);
     readEventMsg->set_size(m_size);
     for (auto &block : m_blocks) {
         auto blockMsg = readEventMsg->add_blocks();
@@ -79,7 +64,7 @@ ReadEvent::serializeAndDestroy()
         blockMsg->mutable_storage_id()->swap(block.second.mutableStorageId());
     }
 
-    return clientMsg;
+    return eventMsg;
 }
 
 } // namespace events

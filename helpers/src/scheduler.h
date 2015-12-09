@@ -39,7 +39,7 @@ public:
      * Destructor.
      * Stops the scheduler and joins worker threads.
      */
-    ~Scheduler();
+    virtual ~Scheduler();
 
     void prepareForDaemonize();
     void restartAfterDaemonize();
@@ -142,11 +142,6 @@ public:
         return schedule(after, member, std::weak_ptr<T>{subject},
             std::forward<Args>(args)...);
     }
-
-    /**
-     * @return @c Scheduler's IO service.
-     */
-    asio::io_service &getIoService() { return m_ioService; }
 
 private:
     void start();
