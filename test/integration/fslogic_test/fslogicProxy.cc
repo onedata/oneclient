@@ -62,7 +62,8 @@ class HelpableFsLogic : public one::client::FsLogic {
 public:
     using one::client::FsLogic::FsLogic;
 
-    one::client::HelpersCache::HelperPtr getHelper(const std::string &) override
+    one::client::HelpersCache::HelperPtr getHelper(
+        const std::string &, const std::string &) override
     {
         auto helper = std::make_shared<NullHelper>();
         if (failHelper)

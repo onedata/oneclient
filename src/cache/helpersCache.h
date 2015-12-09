@@ -18,6 +18,7 @@
 #include <tbb/concurrent_hash_map.h>
 
 #include <thread>
+#include <tuple>
 #include <utility>
 
 namespace one {
@@ -40,7 +41,15 @@ private:
     std::thread m_thread;
 
     helpers::StorageHelperFactory m_helperFactory{m_ioService, m_communicator};
-    tbb::concurrent_hash_map<std::pair<std::string, bool>, HelperPtr> m_cache;
+
+    struct HashCompare {
+        bool equal(const std::tuple<std::string, std::string, bool> &j,
+            const std::tuple<std::string, std::string, bool> &k) const;
+        size_t hash(const std::tuple<std::string, std::string, bool> &k) const;
+    };
+
+    tbb::concurrent_hash_map<std::tuple<std::string, std::string, bool>,
+        HelperPtr, HashCompare> m_cache;
 
 public:
     using ConstAccessor = decltype(m_cache)::const_accessor;
@@ -63,13 +72,14 @@ public:
 
     /**
      * Retrieves a helper instance.
+     * @param spaceId Space id for which to retrieve a helper.
      * @param storageId Storage id for which to retrieve a helper.
      * @param forceClusterProxy Determines whether to return a ClusterProxy
      * helper.
      * @return Retrieved helper instance.
      */
-    HelperPtr get(
-        const std::string &storageId, const bool forceClusterProxy = false);
+    HelperPtr get(const std::string &spaceId, const std::string &storageId,
+        const bool forceClusterProxy = false);
 };
 
 } // namespace one

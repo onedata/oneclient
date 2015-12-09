@@ -60,7 +60,7 @@ public:
      * @param message Protocol Buffers message representing @c FileLocation
      * counterpart.
      */
-    FileLocation(const ProtocolMessage &message);
+    FileLocation(ProtocolMessage message);
 
     /**
      * @return Value that distinguish @c this file location from other file
@@ -73,6 +73,11 @@ public:
      * @return File UUID.
      */
     const std::string &uuid() const;
+
+    /**
+     * @return Default storage ID of the file.
+     */
+    const std::string &spaceId() const;
 
     /**
      * @return Default storage ID of the file.
@@ -117,9 +122,10 @@ public:
     std::string toString() const override;
 
 private:
-    void deserialize(const ProtocolMessage &message);
+    void deserialize(ProtocolMessage &message);
 
     std::string m_uuid;
+    std::string m_spaceId;
     std::string m_storageId;
     std::string m_fileId;
     FileBlocksMap m_blocks;
