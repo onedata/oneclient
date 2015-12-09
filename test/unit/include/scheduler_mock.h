@@ -9,18 +9,19 @@
 #ifndef HELPERS_SCHEDULER_MOCK_H
 #define HELPERS_SCHEDULER_MOCK_H
 
-#include "scheduler.h"
-
 #include <gmock/gmock.h>
 
-class MockScheduler : public one::Scheduler {
+#include <chrono>
+#include <functional>
+
+class MockScheduler {
 public:
     MockScheduler()
-        : one::Scheduler{0}
     {
+        using namespace ::testing;
+        ON_CALL(*this, schedule(_, _)).WillByDefault(Return([] {}));
     }
 
-    MOCK_METHOD1(post, void(const std::function<void()> &));
     MOCK_METHOD2(
         schedule, std::function<void()>(
                       const std::chrono::milliseconds, std::function<void()>));

@@ -14,8 +14,7 @@ namespace one {
 namespace messages {
 namespace proxyio {
 
-ProxyIORequest::ProxyIORequest(
-    std::string spaceId, std::string storageId, std::string fileId)
+ProxyIORequest::ProxyIORequest(std::string spaceId, std::string storageId, std::string fileId)
     : m_spaceId{std::move(spaceId)}
     , m_storageId{std::move(storageId)}
     , m_fileId{std::move(fileId)}

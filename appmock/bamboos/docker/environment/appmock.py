@@ -152,10 +152,11 @@ def up(image, bindir, dns_server, uid, config_path, logdir=None):
             appmock_id, node_out = _node_up(image, bindir, cfg,
                                             config_path, dns_servers, logdir)
             appmocks.append(appmock_id)
-            mocked_app = cfg['nodes']['node']['mocked_app']
-            if mocked_app == 'op_worker' or mocked_app == 'globalregistry':
-                include_domain = True
-                appmock_ips.append(common.get_docker_ip(appmock_id))
+            if 'mocked_app' in cfg['nodes']['node']:
+                mocked_app = cfg['nodes']['node']['mocked_app']
+                if mocked_app == 'op_worker' or mocked_app == 'globalregistry':
+                    include_domain = True
+                    appmock_ips.append(common.get_docker_ip(appmock_id))
             common.merge(output, node_out)
 
         common.wait_until(_ready, appmocks, APPMOCK_WAIT_FOR_NAGIOS_SECONDS)

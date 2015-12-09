@@ -23,8 +23,8 @@ ProxyIOHelper::ProxyIOHelper(
     const std::unordered_map<std::string, std::string> &args,
     communication::Communicator &communicator)
     : m_communicator{communicator}
-    , m_spaceId{args.at("space_id")}
     , m_storageId{args.at("storage_id")}
+    , m_spaceId{args.at("space_id")}
 {
 }
 

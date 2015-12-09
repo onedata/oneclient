@@ -112,6 +112,7 @@ public:
         : m_communicator{
               connectionsNumber, std::move(host), port, false, createConnection}
     {
+        m_communicator.setScheduler(std::make_shared<Scheduler>(1));
     }
 
     void connect() { m_communicator.connect(); }

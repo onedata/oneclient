@@ -89,7 +89,7 @@ handle_request(?NAGIOS_ENPOINT, Req) ->
                 end,
 
     {{YY, MM, DD}, {Hour, Min, Sec}} = calendar:now_to_local_time(now()),
-    DateString = gui_str:format("~4..0w/~2..0w/~2..0w ~2..0w:~2..0w:~2..0w", [YY, MM, DD, Hour, Min, Sec]),
+    DateString = str_utils:format("~4..0w/~2..0w/~2..0w ~2..0w:~2..0w:~2..0w", [YY, MM, DD, Hour, Min, Sec]),
     Healthdata = {healthdata, [{date, DateString}, {status, atom_to_list(AppStatus)}], []},
     Content = lists:flatten([Healthdata]),
     Export = xmerl:export_simple(Content, xmerl_xml),
@@ -101,7 +101,7 @@ handle_request(?NAGIOS_ENPOINT, Req) ->
 handle_request(?REST_ENDPOINT_REQUEST_COUNT_PATH, Req) ->
     % Unpack the request, getting port and path
     JSONBody = req:body(Req),
-    Body = appmock_utils:decode_from_json(JSONBody),
+    Body = json_utils:decode(JSONBody),
     {Port, Path} = ?REST_ENDPOINT_REQUEST_COUNT_UNPACK_REQUEST(Body),
     % Verify the endpoint and return the result encoded to JSON.
     ReplyTerm = case remote_control_server:rest_endpoint_request_count(Port, Path) of
@@ -110,13 +110,13 @@ handle_request(?REST_ENDPOINT_REQUEST_COUNT_PATH, Req) ->
                     {error, wrong_endpoint} ->
                         ?REST_ENDPOINT_REQUEST_COUNT_PACK_ERROR_WRONG_ENDPOINT
                 end,
-    Req2 = cowboy_req:set_resp_body(appmock_utils:encode_to_json(ReplyTerm), Req),
+    Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
     Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
 handle_request(?VERIFY_REST_HISTORY_PATH, Req) ->
     JSONBody = req:body(Req),
-    BodyStruct = appmock_utils:decode_from_json(JSONBody),
+    BodyStruct = json_utils:decode(JSONBody),
     History = ?VERIFY_REST_HISTORY_UNPACK_REQUEST(BodyStruct),
     % Verify the history and return the result encoded to JSON.
     ReplyTerm = case remote_control_server:verify_rest_mock_history(History) of
@@ -125,7 +125,7 @@ handle_request(?VERIFY_REST_HISTORY_PATH, Req) ->
                     {false, ActualHistory} ->
                         ?VERIFY_REST_HISTORY_PACK_ERROR(ActualHistory)
                 end,
-    Req2 = cowboy_req:set_resp_body(appmock_utils:encode_to_json(ReplyTerm), Req),
+    Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
     Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
@@ -134,7 +134,7 @@ handle_request(?RESET_REST_HISTORY_PATH, Req) ->
                     true ->
                         ?TRUE_RESULT
                 end,
-    Req2 = cowboy_req:set_resp_body(appmock_utils:encode_to_json(ReplyTerm), Req),
+    Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
     Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
@@ -150,7 +150,7 @@ handle_request(?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_COWBOY_ROUTE, Req) ->
                     {error, wrong_endpoint} ->
                         ?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PACK_ERROR_WRONG_ENDPOINT
                 end,
-    Req2 = cowboy_req:set_resp_body(appmock_utils:encode_to_json(ReplyTerm), Req),
+    Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
     Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
@@ -164,7 +164,7 @@ handle_request(?TCP_SERVER_ALL_MESSAGES_COUNT_COWBOY_ROUTE, Req) ->
                     {error, wrong_endpoint} ->
                         ?TCP_SERVER_ALL_MESSAGES_COUNT_PACK_ERROR_WRONG_ENDPOINT
                 end,
-    Req2 = cowboy_req:set_resp_body(appmock_utils:encode_to_json(ReplyTerm), Req),
+    Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
     Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
@@ -185,7 +185,7 @@ handle_request(?TCP_SERVER_SEND_COWBOY_ROUTE, Req) ->
                     {error, wrong_endpoint} ->
                         ?TCP_SERVER_SEND_PACK_WRONG_ENDPOINT_ERROR
                 end,
-    Req2 = cowboy_req:set_resp_body(appmock_utils:encode_to_json(ReplyTerm), Req),
+    Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
     Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
@@ -200,7 +200,7 @@ handle_request(?TCP_SERVER_HISTORY_COWBOY_ROUTE, Req) ->
                     {error, counter_mode} ->
                         ?TCP_SERVER_HISTORY_PACK_ERROR_COUNTER_MODE
                 end,
-    Req2 = cowboy_req:set_resp_body(appmock_utils:encode_to_json(ReplyTerm), Req),
+    Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
     Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
@@ -209,7 +209,7 @@ handle_request(?RESET_TCP_SERVER_HISTORY_PATH, Req) ->
                     true ->
                         ?TRUE_RESULT
                 end,
-    Req2 = cowboy_req:set_resp_body(appmock_utils:encode_to_json(ReplyTerm), Req),
+    Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
     Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
@@ -222,6 +222,6 @@ handle_request(?TCP_SERVER_CONNECTION_COUNT_COWBOY_ROUTE, Req) ->
                     {error, wrong_endpoint} ->
                         ?TCP_SERVER_CONNECTION_COUNT_PACK_ERROR_WRONG_ENDPOINT
                 end,
-    Req2 = cowboy_req:set_resp_body(appmock_utils:encode_to_json(ReplyTerm), Req),
+    Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
     Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3).

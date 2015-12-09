@@ -28,6 +28,8 @@
 namespace one {
 namespace helpers {
 
+constexpr std::chrono::seconds ASYNC_OPS_TIMEOUT{2};
+
 struct StorageHelperCTX {
     uid_t uid = 0;
     gid_t gid = 0;
@@ -36,6 +38,7 @@ struct StorageHelperCTX {
 };
 
 using CTXRef = StorageHelperCTX &;
+using CTXConstRef = const StorageHelperCTX &;
 using error_t = std::error_code;
 
 template <class... T>
@@ -230,7 +233,7 @@ private:
     template <typename T> static T waitFor(std::future<T> &f)
     {
         using namespace std::literals;
-        if (f.wait_for(2s) != std::future_status::ready)
+        if (f.wait_for(ASYNC_OPS_TIMEOUT) != std::future_status::ready)
             throw std::system_error{std::make_error_code(std::errc::timed_out)};
 
         return f.get();

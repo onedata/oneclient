@@ -127,7 +127,7 @@ std::function<void()> Inbox<LowerLayer>::subscribe(SubscriptionData data)
     if (m_unusedSubscriptions.try_pop(it))
         *it = std::move(data);
     else
-        m_subscriptions.emplace_back(std::move(data));
+        it = m_subscriptions.emplace_back(std::move(data));
 
     return [this, it] {
         *it = SubscriptionData{};

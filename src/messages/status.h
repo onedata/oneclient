@@ -31,8 +31,7 @@ namespace messages {
 
 /**
  * The Status class represents a message that is sent by the client or the
- * server
- * to inform about requested operation status.
+ * server to inform about requested operation status.
  */
 class Status : public ClientMessage, public ServerMessage {
 public:

@@ -25,7 +25,7 @@ class ProxyIORequest : public ClientMessage {
 public:
     /**
      * Constructor.
-     * @param spaceId The ID of space related to this request.
+     * @param spaceId The ID of the space the file belongs to.
      * @param storageId The ID of storage the file is stored on.
      * @param fileId The ID of file that will be manipulated.
      */
