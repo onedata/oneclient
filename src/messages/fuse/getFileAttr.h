@@ -39,9 +39,9 @@ public:
 
     std::string toString() const override;
 
-    std::unique_ptr<ProtocolClientMessage> serialize() const override;
-
 private:
+    std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
+
     boost::optional<std::string> m_uuid;
     boost::optional<boost::filesystem::path> m_path;
 };

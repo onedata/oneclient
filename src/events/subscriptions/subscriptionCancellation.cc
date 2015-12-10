@@ -37,7 +37,7 @@ std::string SubscriptionCancellation::toString() const
 }
 
 std::unique_ptr<messages::ProtocolClientMessage>
-SubscriptionCancellation::serialize() const
+SubscriptionCancellation::serializeAndDestroy()
 {
     auto clientMsg = std::make_unique<messages::ProtocolClientMessage>();
     auto subscriptionCancellationMsg =

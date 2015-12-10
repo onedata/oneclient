@@ -28,11 +28,11 @@ std::string Close::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> Close::serialize() const
+std::unique_ptr<ProtocolClientMessage> Close::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
     auto cm = msg->mutable_fuse_request()->mutable_close();
-    cm->set_uuid(m_uuid);
+    cm->mutable_uuid()->swap(m_uuid);
     return msg;
 }
 

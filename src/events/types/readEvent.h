@@ -84,8 +84,7 @@ public:
 
     std::string toString() const override;
 
-    std::unique_ptr<ProtocolEventMessage>
-    serialize() const override;
+    std::unique_ptr<ProtocolEventMessage> serializeAndDestroy() override;
 
 protected:
     std::string m_fileUuid;

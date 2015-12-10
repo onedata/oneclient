@@ -42,12 +42,12 @@ public:
         boost::optional<std::size_t> counterThreshold = {},
         boost::optional<std::chrono::milliseconds> timeThreshold = {});
 
-    virtual std::string toString() const override;
-
-    std::unique_ptr<one::messages::ProtocolClientMessage>
-    serialize() const override;
+    std::string toString() const override;
 
 private:
+    std::unique_ptr<one::messages::ProtocolClientMessage>
+    serializeAndDestroy() override;
+
     std::string m_fileUuid;
 };
 

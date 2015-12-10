@@ -7,156 +7,136 @@ This software is released under the MIT license cited in 'LICENSE.txt'."""
 import os
 import sys
 
+import pytest
+
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.dirname(script_dir))
 from test_common import *
-from performance import *
-
 # noinspection PyUnresolvedReferences
 from environment import appmock, common, docker
 import communication_stack
-import appmock_client
 
 
-# noinspection PyClassHasNoInit
-class TestCommunicator:
-    @classmethod
-    def setup_class(cls):
-        cls.result = appmock.up(image='onedata/builder', bindir=appmock_dir,
-                                dns_server='none', uid=common.generate_uid(),
-                                config_path=os.path.join(script_dir,
-                                                         'env.json'))
+@pytest.fixture
+def endpoint(appmock_client):
+    return appmock_client.tcp_endpoint(5555)
 
-        [container] = cls.result['docker_ids']
-        cls.ip = docker.inspect(container)['NetworkSettings']['IPAddress']. \
-            encode('ascii')
 
-    @classmethod
-    def teardown_class(cls):
-        docker.remove(cls.result['docker_ids'], force=True, volumes=True)
+@pytest.fixture
+def com3(endpoint):
+    return communication_stack.Communicator(3, endpoint.ip, endpoint.port)
 
-    def setup_method(self, _):
-        appmock_client.reset_tcp_server_history(self.ip)
 
-    @performance({
-        'parameters': [msg_num_param(1), msg_size_param(100, 'B')],
-        'configs': {
-            'multiple_small_messages': {
-                'description': 'Sends multiple small messages using '
-                               'communicator.',
-                'parameters': [msg_num_param(1000000)]
-            },
-            'multiple_large_messages': {
-                'description': 'Sends multiple large messages using '
-                               'communicator.',
-                'parameters': [msg_num_param(50), msg_size_param(1, 'MB')]
-            }
+@pytest.fixture
+def com1(endpoint):
+    return communication_stack.Communicator(1, endpoint.ip, endpoint.port)
+
+
+@pytest.mark.performance(
+    parameters=[Parameter.msg_num(1), Parameter.msg_size(100, 'B')],
+    configs={
+        'multiple_small_messages': {
+            'description': 'Sends multiple small messages using '
+                           'communicator.',
+            'parameters': [Parameter.msg_num(1000000)]
+        },
+        'multiple_large_messages': {
+            'description': 'Sends multiple large messages using '
+                           'communicator.',
+            'parameters': [Parameter.msg_num(50), Parameter.msg_size(1, 'MB')]
         }
     })
-    def test_send(self, parameters):
-        """Sends multiple messages using communicator."""
+def test_send(result, msg_num, msg_size, endpoint, com3):
+    """Sends multiple messages using communicator."""
+    com3.connect()
+    msg = random_str(msg_size)
 
-        com = communication_stack.Communicator(3, self.ip, 5555)
-        com.connect()
+    send_time = Duration()
+    sent_bytes = 0
 
-        msg_num = parameters['msg_num'].value
-        msg_size = parameters['msg_size'].value * translate_unit(
-            parameters['msg_size'].unit)
-        msg = random_str(msg_size)
+    for _ in xrange(msg_num):
+        with measure(send_time):
+            sent_bytes = com3.send(msg)
 
-        send_time = Duration()
-        for _ in xrange(msg_num):
-            sent_bytes = duration(send_time, com.send, msg)
+    with measure(send_time):
+        endpoint.wait_for_specific_messages(sent_bytes, msg_num,
+                                            timeout_sec=600)
 
-        duration(send_time,
-                 appmock_client.tcp_server_wait_for_specific_messages,
-                 self.ip, 5555, sent_bytes, msg_num, False, False, 600)
+    result.set([
+        Parameter.send_time(send_time),
+        Parameter.mbps(msg_num, msg_size, send_time),
+        Parameter.msgps(msg_num, send_time)
+    ])
 
-        return [
-            send_time_param(send_time.ms()),
-            mbps_param(msg_num, msg_size, send_time.us())
-        ]
 
-    @performance({
-        'repeats': 10,
-        'parameters': [msg_num_param(1), msg_size_param(100, 'B')],
-        'configs': {
-            'multiple_small_messages': {
-                'description': 'Receives multiple small messages using '
-                               'communicator.',
-                'parameters': [msg_num_param(1000)]
-            },
-            'multiple_large_messages': {
-                'description': 'Receives multiple large messages using '
-                               'communicator.',
-                'parameters': [msg_num_param(50), msg_size_param(1, 'MB')]
-            }
+@pytest.mark.performance(
+    repeats=10,
+    parameters=[Parameter.msg_num(1), Parameter.msg_size(100, 'B')],
+    configs={
+        'multiple_small_messages': {
+            'description': 'Receives multiple small messages using '
+                           'communicator.',
+            'parameters': [Parameter.msg_num(1000)]
+        },
+        'multiple_large_messages': {
+            'description': 'Receives multiple large messages using '
+                           'communicator.',
+            'parameters': [Parameter.msg_num(50), Parameter.msg_size(1, 'MB')]
         }
     })
-    def test_communicate(self, parameters):
-        """Sends multiple messages and receives replies using communicator."""
+def test_communicate(result, msg_num, msg_size, endpoint, com1):
+    """Sends multiple messages and receives replies using communicator."""
 
-        com = communication_stack.Communicator(1, self.ip, 5555)
-        com.connect()
+    com1.connect()
 
-        appmock_client.tcp_server_wait_for_connections(self.ip, 5555, 1)
+    endpoint.wait_for_connections()
+    msg = random_str(msg_size)
 
-        msg_num = parameters['msg_num'].value
-        msg_size = parameters['msg_size'].value * translate_unit(
-            parameters['msg_size'].unit)
-        msg = random_str(msg_size)
+    communicate_time = Duration()
+    for _ in xrange(msg_num):
+        with measure(communicate_time):
+            request = com1.communicate(msg)
 
-        communicate_time = Duration()
-        for _ in xrange(msg_num):
-            request = duration(communicate_time, com.communicate, msg)
-            reply = communication_stack.prepareReply(request, msg)
+        reply = communication_stack.prepareReply(request, msg)
 
-            duration(communicate_time,
-                     appmock_client.tcp_server_wait_for_specific_messages,
-                     self.ip, 5555, request, 1, False, False, 10)
+        with measure(communicate_time):
+            endpoint.wait_for_specific_messages(request)
+            endpoint.send(reply)
 
-            duration(communicate_time, appmock_client.tcp_server_send, self.ip,
-                     5555, reply, 1)
+        with measure(communicate_time):
+            assert reply == com1.communicateReceive()
 
-            assert reply == duration(communicate_time, com.communicateReceive)
+    result.set([
+        Parameter.communicate_time(communicate_time),
+        Parameter.mbps(msg_num, msg_size, communicate_time),
+        Parameter.msgps(msg_num, communicate_time)
+    ])
 
-        return [
-            communicate_time_param(communicate_time.ms()),
-            mbps_param(msg_num, msg_size, communicate_time.us())
-        ]
 
-    @performance(skip=True)
-    def test_successful_handshake(self, parameters):
-        com = communication_stack.Communicator(1, self.ip, 5555)
-        handshake = com.setHandshake("handshake", False)
-        com.connect()
+def test_successful_handshake(endpoint, com1):
+    handshake = com1.setHandshake("handshake", False)
+    com1.connect()
 
-        com.sendAsync("this is another request")
+    com1.sendAsync("this is another request")
 
-        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555,
-                                                             handshake)
-        assert 1 == appmock_client.tcp_server_all_messages_count(self.ip,
-                                                                 5555)
+    endpoint.wait_for_specific_messages(handshake)
+    assert 1 == endpoint.all_messages_count()
 
-        reply = communication_stack.prepareReply(handshake, "handshakeReply")
-        appmock_client.tcp_server_send(self.ip, 5555, reply)
+    reply = communication_stack.prepareReply(handshake, "handshakeReply")
+    endpoint.send(reply)
 
-        assert com.handshakeResponse() == reply
-        appmock_client.tcp_server_wait_for_any_messages(self.ip, 5555,
-                                                        msg_count=2)
+    assert com1.handshakeResponse() == reply
+    endpoint.wait_for_any_messages(msg_count=2)
 
-    @performance(skip=True)
-    def test_unsuccessful_handshake(self, parameters):
-        com = communication_stack.Communicator(3, self.ip, 5555)
-        handshake = com.setHandshake("anotherHanshake", True)
-        com.connect()
 
-        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555,
-                                                             handshake, 3)
+def test_unsuccessful_handshake(endpoint, com3):
+    handshake = com3.setHandshake("anotherHanshake", True)
+    com3.connect()
 
-        reply = communication_stack.prepareReply(handshake, "anotherHandshakeR")
-        appmock_client.tcp_server_send(self.ip, 5555, reply)
+    endpoint.wait_for_specific_messages(handshake, msg_count=3)
 
-        # The connections should now be recreated and another handshake sent
-        appmock_client.tcp_server_wait_for_specific_messages(self.ip, 5555,
-                                                             handshake, 6)
+    reply = communication_stack.prepareReply(handshake, "anotherHandshakeR")
+    endpoint.send(reply)
+
+    # The connections should now be recreated and another handshake sent
+    endpoint.wait_for_specific_messages(handshake, msg_count=6)

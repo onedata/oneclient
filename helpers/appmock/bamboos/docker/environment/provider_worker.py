@@ -8,11 +8,14 @@ Brings up a set of oneprovider worker nodes. They can create separate clusters.
 import copy
 import json
 import os
+import subprocess
+import sys
 
-from . import common, docker, riak, dns, globalregistry, provider_ccm
+from . import common, docker, riak, couchbase, dns, globalregistry, provider_ccm
 
 PROVIDER_WAIT_FOR_NAGIOS_SECONDS = 60 * 2
-
+# mounting point for op-worker-node docker
+DOCKER_BINDIR_PATH = '/root/build'
 
 def provider_domain(op_instance, uid):
     """Formats domain for a provider."""
@@ -44,6 +47,8 @@ def _tweak_config(config, name, op_instance, uid):
     # Set the provider domain (needed for nodes to start)
     sys_config['provider_domain'] = provider_domain(op_instance, uid)
 
+    sys_config['persistence_driver_module'] = _db_driver_module(cfg['db_driver'])
+
     if 'global_registry_domain' in sys_config:
         gr_hostname = globalregistry.gr_domain(
             sys_config['global_registry_domain'], uid)
@@ -65,8 +70,8 @@ def _node_up(image, bindir, config, dns_servers, db_node_mappings, logdir):
     (name, sep, hostname) = node_name.partition('@')
 
     command = '''mkdir -p /root/bin/node/log/
-chown {uid}:{gid} /root/bin/node/log/
-chmod ug+s /root/bin/node/log/
+echo 'while ((1)); do chown -R {uid}:{gid} /root/bin/node/log; sleep 1; done' > /root/bin/chown_logs.sh
+bash /root/bin/chown_logs.sh &
 cat <<"EOF" > /tmp/gen_dev_args.json
 {gen_dev_args}
 EOF
@@ -78,7 +83,8 @@ escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json
         uid=os.geteuid(),
         gid=os.getegid())
 
-    volumes = [(bindir, '/root/build', 'ro')]
+    volumes = [(bindir, DOCKER_BINDIR_PATH, 'ro')]
+    volumes += [common.volume_for_storage(s) for s in config['os_config']['storages']]
 
     if logdir:
         logdir = os.path.join(os.path.abspath(logdir), hostname)
@@ -91,10 +97,14 @@ escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json
         detach=True,
         interactive=True,
         tty=True,
-        workdir='/root/build',
+        workdir=DOCKER_BINDIR_PATH,
         volumes=volumes,
         dns_list=dns_servers,
         command=command)
+
+    # create system users and grous
+    common.create_users(container, config['os_config']['users'])
+    common.create_groups(container, config['os_config']['groups'])
 
     return container, {
         'docker_ids': [container],
@@ -107,9 +117,9 @@ def _ready(container):
     return common.nagios_up(ip)
 
 
-def _riak_up(cluster_name, riak_nodes, dns_servers, uid):
+def _riak_up(cluster_name, db_nodes, dns_servers, uid):
     db_node_mappings = {}
-    for node in riak_nodes:
+    for node in db_nodes:
         db_node_mappings[node] = ''
 
     i = 0
@@ -127,6 +137,31 @@ def _riak_up(cluster_name, riak_nodes, dns_servers, uid):
     return db_node_mappings, riak_output
 
 
+def _couchbase_up(cluster_name, db_nodes, dns_servers, uid):
+    db_node_mappings = {}
+    for node in db_nodes:
+        db_node_mappings[node] = ''
+
+    for i, node in enumerate(db_node_mappings):
+        db_node_mappings[node] = couchbase.config_entry(cluster_name, i, uid)
+
+    if not db_node_mappings:
+        return db_node_mappings, {}
+
+    [dns] = dns_servers
+    couchbase_output = couchbase.up('couchbase/server:community-4.0.0', dns, uid, cluster_name, len(db_node_mappings))
+
+    return db_node_mappings, couchbase_output
+
+
+def _db_driver(config):
+    return config['db_driver'] if 'db_driver' in config else 'couchbase'
+
+
+def _db_driver_module(db_driver):
+    return db_driver + "_datastore_driver"
+
+
 def up(image, bindir, dns_server, uid, config_path, logdir=None):
     config = common.parse_json_file(config_path)
     input_dir = config['dirs_config']['op_worker']['input_dir']
@@ -134,27 +169,39 @@ def up(image, bindir, dns_server, uid, config_path, logdir=None):
 
     # Workers of every provider are started together
     for op_instance in config['provider_domains']:
+        os_config = config['provider_domains'][op_instance]['os_config']
         gen_dev_cfg = {
             'config': {
                 'input_dir': input_dir,
                 'target_dir': '/root/bin'
             },
-            'nodes': config['provider_domains'][op_instance]['op_worker']
+            'nodes': config['provider_domains'][op_instance]['op_worker'],
+            'db_driver': _db_driver(config['provider_domains'][op_instance]),
+            'os_config': config['os_configs'][os_config]
         }
 
         # Tweak configs, retrieve lis of riak nodes to start
         configs = []
-        riak_nodes = []
+        all_db_nodes = []
         for worker_node in gen_dev_cfg['nodes']:
             tw_cfg, db_nodes = _tweak_config(gen_dev_cfg, worker_node,
                                              op_instance, uid)
             configs.append(tw_cfg)
-            riak_nodes.extend(db_nodes)
+            all_db_nodes.extend(db_nodes)
 
-        # Start riak nodes, obtain mappings
-        db_node_mappings, riak_out = _riak_up(op_instance, riak_nodes,
-                                              dns_servers, uid)
-        common.merge(output, riak_out)
+        db_node_mappings = None
+        db_out = None
+        db_driver = _db_driver(config['provider_domains'][op_instance])
+
+        # Start db nodes, obtain mappings
+        if db_driver == 'riak':
+            db_node_mappings, db_out = _riak_up(op_instance, all_db_nodes, dns_servers, uid)
+        elif db_driver == 'couchbase':
+            db_node_mappings, db_out = _couchbase_up(op_instance, all_db_nodes, dns_servers, uid)
+        else:
+            raise ValueError("Invalid db_driver: {0}".format(db_driver))
+
+        common.merge(output, db_out)
 
         # Start the workers
         workers = []
@@ -180,6 +227,32 @@ def up(image, bindir, dns_server, uid, config_path, logdir=None):
         }
         common.merge(output, domains)
 
+        # create storages
+        create_storages(config['os_configs'][os_config]['storages'],
+                        output['op_worker_nodes'],
+                        config['provider_domains'][op_instance]['op_worker'],
+                        bindir)
+
     # Make sure domains are added to the dns server.
     dns.maybe_restart_with_configuration(dns_server, uid, output)
     return output
+
+def create_storages(storages, op_nodes, op_config, bindir):
+    # copy escript to docker host
+    script_name = 'create_storage.escript'
+    pwd = common.get_script_dir()
+    command = ['cp', os.path.join(pwd, script_name), os.path.join(bindir, script_name)]
+    subprocess.check_call(command)
+    # execute escript
+    for node in op_nodes:
+        container = node.split("@")[1]
+        worker_name = container.split(".")[0]
+        cookie = op_config[worker_name]['vm.args']['setcookie']
+        script_path = os.path.join(DOCKER_BINDIR_PATH, script_name)
+        for st_path in storages:
+            st_name = st_path
+            command = ['escript', script_path, cookie, node, st_name, st_path]
+            assert 0 is docker.exec_(container, command, tty=True, stdout=sys.stdout, stderr=sys.stderr)
+    # clean-up
+    command = ['rm', os.path.join(bindir, script_name)]
+    subprocess.check_call(command)

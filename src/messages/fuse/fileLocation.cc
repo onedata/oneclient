@@ -24,17 +24,17 @@ FileLocation::FileLocation(std::unique_ptr<ProtocolServerMessage> serverMessage)
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "file_location field missing"};
 
-    deserialize(serverMessage->fuse_response().file_location());
+    deserialize(
+        *serverMessage->mutable_fuse_response()->mutable_file_location());
 }
 
-FileLocation::FileLocation(const ProtocolMessage &message)
-{
-    deserialize(message);
-}
+FileLocation::FileLocation(ProtocolMessage message) { deserialize(message); }
 
 const FileLocation::Key &FileLocation::key() const { return m_uuid; }
 
 const std::string &FileLocation::uuid() const { return m_uuid; }
+
+const std::string &FileLocation::spaceId() const { return m_spaceId; }
 
 const std::string &FileLocation::storageId() const { return m_storageId; }
 
@@ -75,23 +75,31 @@ std::string FileLocation::toString() const
     return stream.str();
 }
 
-void FileLocation::deserialize(const ProtocolMessage &message)
+void FileLocation::deserialize(ProtocolMessage &message)
 {
-    m_uuid = message.uuid();
-    m_storageId = message.storage_id();
-    m_fileId = message.file_id();
+    m_uuid.swap(*message.mutable_uuid());
+    m_spaceId.swap(*message.mutable_space_id());
+    m_storageId.swap(*message.mutable_storage_id());
+    m_fileId.swap(*message.mutable_file_id());
 
-    for (const auto block : message.blocks()) {
+    for (auto &block : *message.mutable_blocks()) {
         auto interval = boost::icl::discrete_interval<off_t>::right_open(
             block.offset(), block.offset() + block.size());
 
-        auto &fileId_ =
-            block.has_file_id() ? block.file_id() : message.file_id();
+        std::string fileId_;
+        if (block.has_file_id())
+            fileId_.swap(*block.mutable_file_id());
+        else
+            fileId_ = m_fileId;
 
-        auto &storageId_ =
-            block.has_storage_id() ? block.storage_id() : message.storage_id();
+        std::string storageId_;
+        if (block.has_storage_id())
+            storageId_.swap(*block.mutable_storage_id());
+        else
+            storageId_ = m_storageId;
 
-        m_blocks += std::make_pair(interval, FileBlock{storageId_, fileId_});
+        m_blocks += std::make_pair(
+            interval, FileBlock{std::move(storageId_), std::move(fileId_)});
     }
 }
 

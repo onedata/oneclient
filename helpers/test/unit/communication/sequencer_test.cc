@@ -42,6 +42,7 @@ struct LowerLayer {
     using Callback = std::function<void(const std::error_code &)>;
     LowerLayer &mock = static_cast<LowerLayer &>(*this);
 
+    MOCK_METHOD0(connect, void());
     MOCK_METHOD1(
         setOnMessageCallback, void(std::function<void(ServerMessagePtr)>));
     MOCK_METHOD1(sendProxy, void(const clproto::ClientMessage &));
@@ -164,13 +165,17 @@ TEST_F(SequencerTest,
     sequencerShouldSchedulePeriodicMessageRequestOnInitialization)
 {
     EXPECT_CALL(*scheduler, schedule(_, _)).Times(1);
-    sequencer.initializeSequencer(scheduler);
+    EXPECT_CALL(sequencer.mock, connect());
+    sequencer.setScheduler(scheduler);
+    sequencer.connect();
 }
 
 TEST_F(SequencerTest, sequencerShouldSendMessageStreamResetOnInitialization)
 {
     EXPECT_CALL(sequencer.mock, sendProxy(_)).Times(1);
-    sequencer.initializeSequencer(scheduler);
+    EXPECT_CALL(sequencer.mock, connect());
+    sequencer.setScheduler(scheduler);
+    sequencer.connect();
 }
 
 TEST_F(SequencerTest, sequencerShouldSendMessageRequestMessage)

@@ -9,6 +9,7 @@
 #include "communication/communicator.h"
 #include "messages/ping.h"
 #include "messages/pong.h"
+#include "scheduler_mock.h"
 
 #include <gtest/gtest.h>
 
@@ -34,12 +35,19 @@ public:
 
 using CustomCommunicator =
     layers::Translator<layers::Replier<layers::Inbox<layers::Sequencer<
-        layers::BinaryTranslator<layers::Retrier<LazyConnectionPool>>>>>>;
+        layers::BinaryTranslator<layers::Retrier<LazyConnectionPool>>,
+        MockScheduler>>>>;
 
 struct CommunicatorTest : public ::testing::Test {
     CustomCommunicator comm;
+    std::shared_ptr<MockScheduler> scheduler;
 
-    CommunicatorTest() { comm.connect(); }
+    CommunicatorTest()
+    {
+        scheduler = std::make_shared<MockScheduler>();
+        comm.setScheduler(scheduler);
+        comm.connect();
+    }
 };
 
 TEST_F(CommunicatorTest, communicateShouldReturnTimeoutableFuture)

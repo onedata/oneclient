@@ -54,8 +54,8 @@ TEST_F(ReadEventTest, serializeShouldCreateProtocolMessage)
     blockMsg->set_size(10);
     blockMsg->set_file_id("");
     blockMsg->set_storage_id("");
-    EXPECT_EQ(
-        eventMsg.SerializeAsString(), event->serialize()->SerializeAsString());
+    EXPECT_EQ(eventMsg.SerializeAsString(),
+        event->serializeAndDestroy()->SerializeAsString());
 }
 
 TEST_F(WriteEventTest, aggregateShouldMergeEvents)
@@ -87,6 +87,6 @@ TEST_F(WriteEventTest, serializeShouldCreateProtocolMessage)
     blockMsg->set_size(10);
     blockMsg->set_storage_id("");
     blockMsg->set_file_id("");
-    EXPECT_EQ(
-        eventMsg.SerializeAsString(), event->serialize()->SerializeAsString());
+    EXPECT_EQ(eventMsg.SerializeAsString(),
+        event->serializeAndDestroy()->SerializeAsString());
 }

@@ -83,10 +83,10 @@ public:
      * handler in the @c SubscriptionRegistry.
      * @param subscription A subscription to be added.
      */
-    virtual void subscribe(Subscription subscription);
+    virtual void subscribe(Subscription &&subscription);
 
     int64_t subscribe(
-        Subscription clientSubscription, Subscription serverSubscription);
+        Subscription &&clientSubscription, Subscription &&serverSubscription);
 
     /**
      * Sets the @c SubscriptionRegistry shared between all event streams.
@@ -108,7 +108,7 @@ template <class LowerLayer> EventWorker<LowerLayer>::~EventWorker()
 }
 
 template <class LowerLayer>
-void EventWorker<LowerLayer>::subscribe(Subscription subscription)
+void EventWorker<LowerLayer>::subscribe(Subscription &&subscription)
 {
     asio::post(m_ioService,
         [ this, subscription = std::move(subscription) ]() mutable {
@@ -124,13 +124,13 @@ void EventWorker<LowerLayer>::subscribe(Subscription subscription)
 
 template <class LowerLayer>
 int64_t EventWorker<LowerLayer>::subscribe(
-    Subscription clientSubscription, Subscription serverSubscription)
+    Subscription &&clientSubscription, Subscription &&serverSubscription)
 {
     auto id = m_registry->nextSubscriptionId();
     clientSubscription.id(id);
     subscribe(std::move(clientSubscription));
     serverSubscription.id(id);
-    LowerLayer::send(serverSubscription);
+    LowerLayer::send(std::move(serverSubscription));
     return id;
 }
 

@@ -33,7 +33,7 @@ std::string FileAttrSubscription::toString() const
 }
 
 std::unique_ptr<messages::ProtocolClientMessage>
-FileAttrSubscription::serialize() const
+FileAttrSubscription::serializeAndDestroy()
 {
     auto clientMsg = std::make_unique<messages::ProtocolClientMessage>();
     auto subscriptionMsg = clientMsg->mutable_subscription();
@@ -41,7 +41,7 @@ FileAttrSubscription::serialize() const
         subscriptionMsg->mutable_file_attr_subscription();
 
     subscriptionMsg->set_id(m_id);
-    fileAttrSubscriptionMsg->set_file_uuid(m_fileUuid);
+    fileAttrSubscriptionMsg->mutable_file_uuid()->swap(m_fileUuid);
 
     if (m_counterThreshold)
         fileAttrSubscriptionMsg->set_counter_threshold(

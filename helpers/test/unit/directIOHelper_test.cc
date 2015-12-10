@@ -1,7 +1,7 @@
 /**
- * @file clusterProxyHelper_test.cc
+ * @file directIOHelper_test.cc
  * @author Rafal Slota
- * @copyright (C) 2013 ACK CYFRONET AGH
+ * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
@@ -91,7 +91,7 @@ protected:
         proxy = std::make_shared<DirectIOHelper>(
             std::unordered_map<std::string, std::string>{
                 {"root_path", std::string(DIO_TEST_ROOT)}},
-            io_service);
+            io_service, DirectIOHelper::linuxUserCTXFactory);
 
         // remove all files that are used in tests
         unlinkOnDIO("to");
@@ -102,6 +102,9 @@ protected:
         std::ofstream f(testFilePath.string());
         f << "test_123456789_test" << std::endl;
         f.close();
+
+        ctx.uid = getuid();
+        ctx.gid = getgid();
     }
 
     void TearDown() override
@@ -144,6 +147,22 @@ public:
         return std::make_shared<std::promise<T>>();
     }
 };
+
+class InvalidUserCTX : public DirectIOHelper::UserCTX {
+public:
+    bool valid() { return false; }
+};
+
+TEST_F(DirectIOHelperTest, shouldFaileWithInvalidUserCTX)
+{
+    DirectIOHelper helper({{"root_path", DIO_TEST_ROOT}}, io_service,
+        [](CTXConstRef) { return std::make_unique<InvalidUserCTX>(); });
+
+    helper.ash_open(ctx, testFileId,
+        std::bind(&DirectIOHelperTest::set_promise<int>, this, pi1, _1, _2));
+
+    EXPECT_THROW_POSIX_CODE(pi1->get_future().get(), EDOM);
+}
 
 TEST_F(DirectIOHelperTest, shouldWriteBytes)
 {

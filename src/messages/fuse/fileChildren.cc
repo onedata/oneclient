@@ -25,12 +25,14 @@ FileChildren::FileChildren(std::unique_ptr<ProtocolServerMessage> serverMessage)
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "file_children field missing"};
 
-    const auto &fileChildren =
-        serverMessage->fuse_response().file_children().child_links();
+    auto fileChildren = serverMessage->mutable_fuse_response()
+                            ->mutable_file_children()
+                            ->mutable_child_links();
 
-    std::transform(fileChildren.begin(), fileChildren.end(),
-        std::back_inserter(m_uuidsAndNames), [](const auto &child) {
-            return std::make_tuple(child.uuid(), child.name());
+    std::transform(fileChildren->pointer_begin(), fileChildren->pointer_end(),
+        std::back_inserter(m_uuidsAndNames), [](auto child) {
+            return std::make_tuple(std::move(*child->mutable_uuid()),
+                std::move(*child->mutable_name()));
         });
 }
 

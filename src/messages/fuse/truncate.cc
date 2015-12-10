@@ -29,12 +29,12 @@ std::string Truncate::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> Truncate::serialize() const
+std::unique_ptr<ProtocolClientMessage> Truncate::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
     auto cm = msg->mutable_fuse_request()->mutable_truncate();
 
-    cm->set_uuid(m_uuid);
+    cm->mutable_uuid()->swap(m_uuid);
     cm->set_size(m_size);
 
     return msg;

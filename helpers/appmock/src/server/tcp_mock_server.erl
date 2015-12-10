@@ -56,7 +56,7 @@
     % integer value means number of such packets received.
     msg_count_per_msg = dict:new() :: dict:dict(),
     % Complete message history for given port (NOTE: in reverse order!)
-    msg_history = [] :: [binary()]
+    msg_history = [] :: [{Data :: binary(), Count :: integer()}]
 }).
 
 % Internal state of the gen server
@@ -242,7 +242,6 @@ handle_call({report_connection_state, Port, Pid, IsAlive}, _From, State) ->
                      end,
     {reply, ok, update_endpoint(Endpoint#endpoint{connections = NewConnections}, State)};
 
-
 handle_call({register_packet, Port, Data}, _From, State) ->
     Endpoint = get_endpoint(Port, State),
     MsgCountPerMsg = Endpoint#endpoint.msg_count_per_msg,
@@ -254,7 +253,8 @@ handle_call({register_packet, Port, Data}, _From, State) ->
                      false -> MsgHistory
                  end,
     NewEndpoint = Endpoint#endpoint{
-        msg_count_per_msg = dict:update(Data, fun(Old) -> Old + 1 end, 1, MsgCountPerMsg),
+        msg_count_per_msg = dict:update(Data, fun(Old) ->
+            Old + 1 end, 1, MsgCountPerMsg),
         msg_history = NewHistory,
         msg_count = MsgCount + 1
     },
@@ -501,7 +501,8 @@ update_endpoint(#endpoint{port = Port} = Endpoint, #state{endpoints = Endpoints}
 %% @private
 %% @doc
 %% Appends new message to history. Aggregates the same, consecutive messages.
-%% get_history/1 must be used to retirevethe full history.
+%% The history is stored in reverse order.
+%% get_history/1 must be used to retireve the full history.
 %% @end
 %%--------------------------------------------------------------------
 -spec append_to_history(Message :: binary(), History) -> History when
@@ -527,9 +528,11 @@ append_to_history(Message, History) ->
 %% Retrieves the full history of an endpoint.
 %% @end
 %%--------------------------------------------------------------------
--spec get_history(History :: [{Message :: binary(), Count :: integer()}]) -> [binary()].
+-spec get_history(History :: [{Message :: binary(), Count :: integer()}]) ->
+    [binary()].
 get_history(History) ->
     lists:foldl(
         fun({Message, Count}, Acc) ->
-            lists:concat([lists:duplicate(Count, Message), Acc])
+            %% The history is stored in reverse orded
+            lists:duplicate(Count, Message) ++ Acc
         end, [], History).

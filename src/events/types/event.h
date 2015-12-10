@@ -42,7 +42,7 @@ public:
      * Creates Protocol Buffers message based on provided @c Event.
      * @return Unique pointer to Protocol Buffers @c Event message instance.
      */
-    virtual std::unique_ptr<ProtocolEventMessage> serialize() const = 0;
+    virtual std::unique_ptr<ProtocolEventMessage> serializeAndDestroy() = 0;
 
 protected:
     std::size_t m_counter = 1;

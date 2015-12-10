@@ -17,6 +17,8 @@ public:
     using Subscription = typename LowerLayer::Subscription;
 
     MOCK_METHOD1_T(subscribe, void(Subscription));
+
+    void subscribe(Subscription &&sub) { subscribe(sub); }
 };
 
 #endif // ONECLIENT_TEST_UNIT_EVENT_STREAM_MOCK_H

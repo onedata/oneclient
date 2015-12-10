@@ -41,6 +41,7 @@ public:
         auto scheduler = std::make_shared<Scheduler>(1);
         m_communicator = std::make_shared<Communicator>(connectionsNumber,
             std::move(host), port, false, communication::createConnection);
+        m_communicator->setScheduler(scheduler);
         m_communicator->connect();
         context->setScheduler(std::move(scheduler));
         context->setCommunicator(m_communicator);
@@ -216,6 +217,7 @@ std::string createFileLocationEventMsg(
     eventMsg->set_counter(ctr);
     auto updateEventMsg = eventMsg->mutable_update_event();
     auto fileLocationEventMsg = updateEventMsg->mutable_file_location();
+    fileLocationEventMsg->set_space_id("");
     fileLocationEventMsg->set_uuid(std::move(uuid));
     fileLocationEventMsg->set_file_id(std::move(fileId));
     fileLocationEventMsg->set_provider_id("");
@@ -334,7 +336,7 @@ BOOST_PYTHON_MODULE(events)
         .def("subscribeFileLocation", &EventManagerProxy::subscribeFileLocation)
         .def("existSubscription", &EventManagerProxy::existSubscription)
         .def("fileAttrHandlerCallCounter",
-            &EventManagerProxy::fileAttrHandlerCallCounter)
+             &EventManagerProxy::fileAttrHandlerCallCounter)
         .def("fileLocationHandlerCallCounter",
             &EventManagerProxy::fileLocationHandlerCallCounter);
 

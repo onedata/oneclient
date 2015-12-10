@@ -75,13 +75,13 @@ public:
     {
     }
 
-    virtual std::string toString() const override { return ""; }
+    std::string toString() const override { return ""; }
 
-    virtual std::unique_ptr<ProtocolClientMessage> serialize() const override
+    std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override
     {
         auto msg = std::make_unique<ProtocolClientMessage>();
         auto status = msg->mutable_status();
-        status->set_code(one::clproto::Status_Code_VOK);
+        status->set_code(one::clproto::Status_Code_ok);
         status->set_description(m_description);
         return msg;
     }
@@ -112,6 +112,7 @@ public:
         : m_communicator{
               connectionsNumber, std::move(host), port, false, createConnection}
     {
+        m_communicator.setScheduler(std::make_shared<Scheduler>(1));
     }
 
     void connect() { m_communicator.connect(); }
@@ -182,7 +183,7 @@ std::string prepareReply(
     one::clproto::ServerMessage serverMsg;
     serverMsg.set_message_id(clientMsg.message_id());
     auto status = serverMsg.mutable_status();
-    status->set_code(one::clproto::Status_Code_VOK);
+    status->set_code(one::clproto::Status_Code_ok);
     status->set_description(description);
 
     return serverMsg.SerializeAsString();

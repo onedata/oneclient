@@ -40,7 +40,7 @@ std::string GetFileAttr::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> GetFileAttr::serialize() const
+std::unique_ptr<ProtocolClientMessage> GetFileAttr::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
     auto gfa = msg->mutable_fuse_request()->mutable_get_file_attr();
@@ -49,11 +49,11 @@ std::unique_ptr<ProtocolClientMessage> GetFileAttr::serialize() const
 
     if (m_uuid) {
         gfa->set_entry_type(clproto::EntryType::UUID);
-        gfa->set_entry(m_uuid.get());
+        gfa->mutable_entry()->swap(m_uuid.get());
     }
     else {
         gfa->set_entry_type(clproto::EntryType::PATH);
-        gfa->set_entry(m_path.get().string());
+        *gfa->mutable_entry() = m_path.get().string();
     }
 
     return msg;

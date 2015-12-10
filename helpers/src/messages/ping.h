@@ -28,11 +28,11 @@ public:
     Ping() = default;
     Ping(std::string data);
 
-    virtual std::string toString() const override;
-
-    virtual std::unique_ptr<ProtocolClientMessage> serialize() const override;
+    std::string toString() const override;
 
 private:
+    std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
+
     boost::optional<std::string> m_data;
 };
 

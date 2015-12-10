@@ -48,7 +48,17 @@ public:
     /**
      * @return Storage id associated with the block.
      */
+    std::string &mutableStorageId() { return m_storageId; }
+
+    /**
+     * @return Storage id associated with the block.
+     */
     const std::string &storageId() const { return m_storageId; }
+
+    /**
+     * @return File id associated with the block.
+     */
+    std::string &mutableFileId() { return m_fileId; }
 
     /**
      * @return File id associated with the block.

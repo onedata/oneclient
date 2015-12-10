@@ -22,21 +22,11 @@ FuseResponse::FuseResponse(
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "fuse_response field missing"};
 
-    auto &statusMsg = serverMessage->fuse_response().status();
-
-    std::error_code code;
-    boost::optional<std::string> description;
-    std::tie(code, description) = Status::translate(statusMsg);
-
-    if (code) {
-        if (description)
-            throw std::system_error{code, description.get()};
-
-        throw std::system_error{code};
-    }
+    Status{*serverMessage->mutable_fuse_response()->mutable_status()}
+        .throwOnError();
 }
 
-std::string FuseResponse::toString() const { return {}; }
+std::string FuseResponse::toString() const { return {"type: 'FuseResponse'"}; }
 
 } // namespace fuse
 } // namespace messages
