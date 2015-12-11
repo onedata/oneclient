@@ -60,7 +60,7 @@ public:
      * Sends a next message in the stream.
      * @param msg The message to send through the stream.
      */
-    virtual void send(const messages::ClientMessage &msg);
+    virtual void send(messages::ClientMessage &&msg);
 
     /**
      * Resends messages requested by the remote party.
@@ -119,9 +119,9 @@ template <class Communicator> TypedStream<Communicator>::~TypedStream()
 }
 
 template <class Communicator>
-void TypedStream<Communicator>::send(const messages::ClientMessage &msg)
+void TypedStream<Communicator>::send(messages::ClientMessage &&msg)
 {
-    auto protoMsg = msg.serialize();
+    auto protoMsg = messages::serialize(std::move(msg));
     auto msgStream = protoMsg->mutable_message_stream();
     msgStream->set_stream_id(m_streamId);
     msgStream->set_sequence_number(m_sequenceId++);
@@ -168,21 +168,26 @@ void TypedStream<Communicator>::handleMessageRequest(
         msg.upper_sequence_number() - msg.lower_sequence_number() + 1);
 
     std::shared_lock<std::shared_timed_mutex> lock{m_bufferMutex};
-    for (ClientMessagePtr it; m_buffer.try_pop(it);)
+    for (ClientMessagePtr it; m_buffer.try_pop(it);) {
         if (it->message_stream().sequence_number() <=
-            msg.upper_sequence_number())
+            msg.upper_sequence_number()) {
             processed.emplace_back(std::move(it));
+        }
         else {
             m_buffer.emplace(std::move(it));
             break;
         }
+    }
 
-    for (auto &msgStream : processed)
+    for (auto &msgStream : processed) {
         if (msgStream->message_stream().sequence_number() >=
-            msg.lower_sequence_number())
+            msg.lower_sequence_number()) {
             saveAndPass(std::move(msgStream));
-        else
+        }
+        else {
             m_buffer.emplace(std::move(msgStream));
+        }
+    }
 }
 
 template <class Communicator>

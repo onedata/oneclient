@@ -16,13 +16,14 @@ This software is released under the MIT license cited in 'LICENSE.txt'."""
 import os
 import sys
 
+import pytest
+
 # This is a boilerplate code to add integration tests' top directory to Python
 # path. The top directory contains test_common module, which among other things
 # sets variables containing useful paths (project_dir, appmock_dir...) and
 # extends the Python path with more directories.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
-from test_common import project_dir, appmock_dir, docker_dir
-from performance import *
+from test_common import *
 
 
 class TestExample:
@@ -47,11 +48,11 @@ class TestExample:
         """
         pass
 
-    @performance({
-        'repeats': 3,
+    @pytest.mark.performance(
+        repeats=3,
         # default parameters passed both into integration and performance tests
-        'parameters': [Parameter('name', 'description.', 'value', 'unit')],
-        'configs': {
+        parameters=[Parameter('param_name', 'description.', 'value', 'unit')],
+        configs={
             'sample_config': {
                 # there is a possibility to overwrite default number of repeats
                 # for each performance test config
@@ -60,12 +61,12 @@ class TestExample:
                 # there is a possibility to overwrite default parameters for
                 # each performance test config
                 'parameters': [
-                    Parameter('name', 'description', 'other value', 'unit')
+                    Parameter('param_name', 'description', 'other value',
+                              'unit')
                 ]
             }
-        }
-    })
-    def test_example(self, parameters):
+        })
+    def test_example(self, result, param_name):
         """Methods whose name begin with test_* are automatically run by pytest.
         The primary tool used in these methods is 'assert', which checks for
         a condition, and if not true fails the test and prints the code that
@@ -82,4 +83,4 @@ class TestExample:
         # Each test case may return single parameter or list of parameters which
         # will be included in performance test report.
         # IMPORTANT! Parameter value must implement '+' operator.
-        return Parameter('name', 'description', 0, 'unit')
+        result.set(Parameter('name', 'description', 0, 'unit'))

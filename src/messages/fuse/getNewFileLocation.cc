@@ -36,13 +36,13 @@ std::string GetNewFileLocation::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> GetNewFileLocation::serialize() const
+std::unique_ptr<ProtocolClientMessage> GetNewFileLocation::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
     auto gnfl = msg->mutable_fuse_request()->mutable_get_new_file_location();
 
-    gnfl->set_name(m_name);
-    gnfl->set_parent_uuid(m_parentUuid);
+    gnfl->mutable_name()->swap(m_name);
+    gnfl->mutable_parent_uuid()->swap(m_parentUuid);
     gnfl->set_mode(m_mode);
 
     return msg;

@@ -33,7 +33,7 @@ std::string FileLocationSubscription::toString() const
 }
 
 std::unique_ptr<messages::ProtocolClientMessage>
-FileLocationSubscription::serialize() const
+FileLocationSubscription::serializeAndDestroy()
 {
     auto clientMsg = std::make_unique<messages::ProtocolClientMessage>();
     auto subscriptionMsg = clientMsg->mutable_subscription();
@@ -41,7 +41,7 @@ FileLocationSubscription::serialize() const
         subscriptionMsg->mutable_file_location_subscription();
 
     subscriptionMsg->set_id(m_id);
-    fileLocationSubscriptionMsg->set_file_uuid(m_fileUuid);
+    fileLocationSubscriptionMsg->mutable_file_uuid()->swap(m_fileUuid);
 
     if (m_counterThreshold)
         fileLocationSubscriptionMsg->set_counter_threshold(

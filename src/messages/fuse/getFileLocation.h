@@ -35,9 +35,9 @@ public:
 
     std::string toString() const override;
 
-    std::unique_ptr<ProtocolClientMessage> serialize() const override;
-
 private:
+    std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
+
     std::string m_uuid;
 };
 

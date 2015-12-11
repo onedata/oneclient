@@ -222,7 +222,7 @@ public:
 
 protected:
     virtual HelpersCache::HelperPtr getHelper(
-        const std::string &storageId, const bool forceClusterProxy = false);
+        const std::string &spaceId, const std::string &storageId);
 
 private:
     void removeFile(boost::filesystem::path path);

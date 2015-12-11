@@ -12,6 +12,7 @@
 #include "context.h"
 #include "logging.h"
 #include "helperWrapper.h"
+#include "options.h"
 
 #include "messages/fuse/changeMode.h"
 #include "messages/fuse/close.h"
@@ -325,7 +326,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto availableRange = availableBlockIt->first & wantedRange;
     buf = asio::buffer(buf, boost::icl::size(availableRange));
 
-    auto helper = getHelper(fileBlock.storageId());
+    auto helper = getHelper(location.spaceId(), fileBlock.storageId());
     buf = HelperWrapper(*helper, context.helperCtx)
               .read({fileBlock.fileId()}, buf, offset);
 
@@ -352,7 +353,7 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     messages::fuse::FileBlock fileBlock;
     std::tie(fileBlock, buf) = findWriteLocation(location, offset, buf);
 
-    auto helper = getHelper(location.storageId());
+    auto helper = getHelper(location.spaceId(), location.storageId());
     auto bytesWritten = HelperWrapper(*helper, context.helperCtx)
                             .write(location.fileId(), buf, offset);
 
@@ -562,9 +563,10 @@ int FsLogic::fsyncdir(boost::filesystem::path path, const int datasync,
 }
 
 HelpersCache::HelperPtr FsLogic::getHelper(
-    const std::string &storageId, const bool forceClusterProxy)
+    const std::string &spaceId, const std::string &storageId)
 {
-    return m_helpersCache.get(storageId, forceClusterProxy);
+    auto forceClusterProxy = !m_context->options()->get_directio();
+    return m_helpersCache.get(spaceId, storageId, forceClusterProxy);
 }
 
 void FsLogic::removeFile(boost::filesystem::path path)

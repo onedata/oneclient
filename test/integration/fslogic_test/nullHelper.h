@@ -121,7 +121,7 @@ public:
 
     void ash_write(one::helpers::CTXRef, const boost::filesystem::path &,
         asio::const_buffer buf, off_t,
-        one::helpers::GeneralCallback<int> callback) override
+        one::helpers::GeneralCallback<std::size_t> callback) override
     {
         callback(asio::buffer_size(buf), ec);
     }

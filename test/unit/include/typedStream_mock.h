@@ -27,6 +27,8 @@ public:
 
     MOCK_METHOD0(close, void());
     MOCK_METHOD1(send, void(const one::messages::ClientMessage &));
+
+    void send(one::messages::ClientMessage &&msg) override { send(msg); }
 };
 
 #endif // ONECLIENT_TEST_UNIT_TYPED_STREAM_MOCK_H

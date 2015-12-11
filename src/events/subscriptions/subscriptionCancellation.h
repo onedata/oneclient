@@ -46,11 +46,12 @@ public:
      */
     std::int64_t id() const;
 
-    virtual std::string toString() const override;
-
-    std::unique_ptr<messages::ProtocolClientMessage> serialize() const override;
+    std::string toString() const override;
 
 private:
+    std::unique_ptr<messages::ProtocolClientMessage>
+    serializeAndDestroy() override;
+
     std::int64_t m_id;
 };
 

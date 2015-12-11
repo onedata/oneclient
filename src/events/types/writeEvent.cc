@@ -72,13 +72,13 @@ std::string WriteEvent::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolEventMessage> WriteEvent::serialize() const
+std::unique_ptr<ProtocolEventMessage> WriteEvent::serializeAndDestroy()
 {
     auto eventMsg = std::make_unique<ProtocolEventMessage>();
     auto writeEventMsg = eventMsg->mutable_write_event();
 
     eventMsg->set_counter(m_counter);
-    writeEventMsg->set_file_uuid(m_fileUuid);
+    writeEventMsg->mutable_file_uuid()->swap(m_fileUuid);
     writeEventMsg->set_size(m_size);
 
     auto blocks_ = m_blocks;
@@ -88,12 +88,12 @@ std::unique_ptr<ProtocolEventMessage> WriteEvent::serialize() const
             0, m_fileSize.get());
     }
 
-    for (const auto &block : blocks_) {
+    for (auto &block : blocks_) {
         auto blockMsg = writeEventMsg->add_blocks();
         blockMsg->set_offset(block.first.lower());
         blockMsg->set_size(boost::icl::size(block.first));
-        blockMsg->set_storage_id(block.second.storageId());
-        blockMsg->set_file_id(block.second.fileId());
+        blockMsg->mutable_storage_id()->swap(block.second.mutableStorageId());
+        blockMsg->mutable_file_id()->swap(block.second.mutableFileId());
     }
 
     return eventMsg;

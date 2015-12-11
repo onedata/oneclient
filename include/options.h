@@ -148,6 +148,7 @@ private:
     boost::program_options::options_description m_fuse;
     boost::program_options::options_description m_hidden;
 
+    /* clang-format off */
     DECL_CONFIG_DEF(provider_hostname, std::string, BASE_DOMAIN)
     DECL_CONFIG_DEF(provider_port, unsigned int, 5555)
     DECL_CONFIG_DEF(log_dir, std::string, "/tmp")
@@ -178,8 +179,10 @@ private:
     DECL_CMDLINE_SWITCH_DEF(debug_gsi, "", false, "enable GSI debug output")
     DECL_CMDLINE_SWITCH_DEF(help, ",h", false, "print help")
     DECL_CMDLINE_SWITCH_DEF(version, ",V", false, "print version")
+    DECL_CMDLINE_SWITCH_DEF(directio, "", false, "enable DirectIO")
     DECL_CONFIG_DESC(config, std::string, "path to user config file")
     DECL_CONFIG_DEF(enable_env_option_override, bool, true)
+    /* clang-format on */
 };
 
 } // namespace client

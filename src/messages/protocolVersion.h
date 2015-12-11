@@ -40,7 +40,7 @@ public:
      */
     uint32_t minor() const;
 
-    virtual std::string toString() const override;
+    std::string toString() const override;
 
 private:
     uint32_t m_major;

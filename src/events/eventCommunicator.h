@@ -56,19 +56,19 @@ public:
      * Sends events to the server.
      * @param events Events to be sent.
      */
-    void send(std::vector<EventPtr> events);
+    void send(std::vector<EventPtr> &&events);
 
     /**
      * Sends a subscription to the server.
      * @param subscription Subscription to be sent.
      */
-    void send(const Subscription &subscription);
+    void send(Subscription &&subscription);
 
     /**
      * Sends a subscription cancellaion to the server.
      * @param cancellaion Subscription cancellaion to be sent.
      */
-    void send(const SubscriptionCancellation &cancellation);
+    void send(SubscriptionCancellation &&cancellation);
 
 private:
     StreamPtr m_stream;
@@ -86,28 +86,27 @@ template <class EventT> EventCommunicator<EventT>::~EventCommunicator()
 }
 
 template <class EventT>
-void EventCommunicator<EventT>::send(std::vector<EventPtr> events)
+void EventCommunicator<EventT>::send(std::vector<EventPtr> &&events)
 {
     if (!events.empty()) {
         EventContainer<EventT> eventsMsg{std::move(events)};
         DLOG(INFO) << "Sending: " << eventsMsg.toString();
-        m_stream->send(eventsMsg);
+        m_stream->send(std::move(eventsMsg));
     }
 }
 
 template <class EventT>
-void EventCommunicator<EventT>::send(const Subscription &subscription)
+void EventCommunicator<EventT>::send(Subscription &&subscription)
 {
     DLOG(INFO) << "Sending: " << subscription.toString();
-    m_stream->send(subscription);
+    m_stream->send(std::move(subscription));
 }
 
 template <class EventT>
-void EventCommunicator<EventT>::send(
-    const SubscriptionCancellation &cancellation)
+void EventCommunicator<EventT>::send(SubscriptionCancellation &&cancellation)
 {
     DLOG(INFO) << "Sending: " << cancellation.toString();
-    m_stream->send(cancellation);
+    m_stream->send(std::move(cancellation));
 }
 
 } // namespace events

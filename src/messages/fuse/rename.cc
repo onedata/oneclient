@@ -30,13 +30,13 @@ std::string Rename::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> Rename::serialize() const
+std::unique_ptr<ProtocolClientMessage> Rename::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
     auto r = msg->mutable_fuse_request()->mutable_rename();
 
-    r->set_uuid(m_uuid);
-    r->set_target_path(m_targetPath.string());
+    r->mutable_uuid()->swap(m_uuid);
+    *r->mutable_target_path() = m_targetPath.string();
 
     return msg;
 }

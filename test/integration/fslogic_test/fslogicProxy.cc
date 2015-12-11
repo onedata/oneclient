@@ -63,7 +63,7 @@ public:
     using one::client::FsLogic::FsLogic;
 
     one::client::HelpersCache::HelperPtr getHelper(
-        const std::string &, const bool) override
+        const std::string &, const std::string &) override
     {
         auto helper = std::make_shared<NullHelper>();
         if (failHelper)

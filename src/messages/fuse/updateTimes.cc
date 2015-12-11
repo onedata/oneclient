@@ -39,12 +39,12 @@ std::string UpdateTimes::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> UpdateTimes::serialize() const
+std::unique_ptr<ProtocolClientMessage> UpdateTimes::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
     auto ut = msg->mutable_fuse_request()->mutable_update_times();
 
-    ut->set_uuid(m_uuid);
+    ut->mutable_uuid()->swap(m_uuid);
     if (m_atime)
         ut->set_atime(std::chrono::system_clock::to_time_t(m_atime.get()));
     if (m_ctime)

@@ -32,14 +32,7 @@ parser.add_argument(
     dest='release')
 
 parser.add_argument(
-    '--performance', '-p',
-    action='store_true',
-    default=False,
-    help='run performance tests',
-    dest='performance')
-
-parser.add_argument(
-    '--suite', '-s',
+    '--suite',
     action='append',
     default=[],
     help='name of the test suite',
@@ -82,7 +75,6 @@ ret = docker.run(tty=True,
                  reflect=[(script_dir, 'rw'),
                           ('/var/run/docker.sock', 'rw')],
                  image=args.image,
-                 envs={'PERFORMANCE': args.performance,
-                       'BASE_TEST_DIR': base_test_dir},
+                 envs={'BASE_TEST_DIR': base_test_dir},
                  command=['python', '-c', command])
 sys.exit(ret)

@@ -6,8 +6,8 @@
  * 'LICENSE.txt'
  */
 
-#ifndef ONECLIENT_MESSAGES_STATUS_H
-#define ONECLIENT_MESSAGES_STATUS_H
+#ifndef HELPERS_MESSAGES_STATUS_H
+#define HELPERS_MESSAGES_STATUS_H
 
 #include "messages/serverMessage.h"
 #include "messages/clientMessage.h"
@@ -31,8 +31,7 @@ namespace messages {
 
 /**
  * The Status class represents a message that is sent by the client or the
- * server
- * to inform about requested operation status.
+ * server to inform about requested operation status.
  */
 class Status : public ClientMessage, public ServerMessage {
 public:
@@ -52,9 +51,15 @@ public:
     /**
      * Constructor.
      * @param serverMessage Protocol Buffers message representing @c
-     * HandshakeResponse counterpart.
+     * Status counterpart.
      */
     Status(std::unique_ptr<ProtocolServerMessage> serverMessage);
+
+    /**
+     * Constructor.
+     * @param status Protocol Buffers message representing the status.
+     */
+    Status(clproto::Status &status);
 
     /**
      * @return Status code.
@@ -62,23 +67,21 @@ public:
     std::error_code code() const;
 
     /**
-     * Translates the incoming status code.
-     * @param status The status to translate.
-     * @return Translated status.
+     * Throws an appropriate instance of @c std::system_error if the status
+     * represents an error.
      */
-    static std::tuple<std::error_code, boost::optional<std::string>> translate(
-        const clproto::Status &status);
+    void throwOnError() const;
 
     /**
      * @return Status description.
      */
     const boost::optional<std::string> &description() const;
 
-    virtual std::string toString() const override;
-
-    virtual std::unique_ptr<ProtocolClientMessage> serialize() const override;
+    std::string toString() const override;
 
 private:
+    std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
+
     std::error_code m_code;
     boost::optional<std::string> m_description;
 };
@@ -86,4 +89,4 @@ private:
 } // namespace messages
 } // namespace one
 
-#endif // ONECLIENT_MESSAGES_STATUS_H
+#endif // HELPERS_MESSAGES_STATUS_H

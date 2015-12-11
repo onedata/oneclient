@@ -61,9 +61,9 @@ public:
 
     std::string toString() const override;
 
-    std::unique_ptr<ProtocolEventMessage> serialize() const override;
-
 private:
+    std::unique_ptr<ProtocolEventMessage> serializeAndDestroy() override;
+
     std::unique_ptr<Wrapped> m_wrapped;
 };
 
@@ -93,7 +93,8 @@ template <class Wrapped> std::string UpdateEvent<Wrapped>::toString() const
 }
 
 template <class Wrapped>
-std::unique_ptr<ProtocolEventMessage> UpdateEvent<Wrapped>::serialize() const
+std::unique_ptr<ProtocolEventMessage>
+UpdateEvent<Wrapped>::serializeAndDestroy()
 {
     return {};
 }

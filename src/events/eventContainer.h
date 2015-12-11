@@ -35,11 +35,12 @@ public:
      */
     EventContainer(std::vector<EventPtr> events);
 
-    std::unique_ptr<messages::ProtocolClientMessage> serialize() const override;
-
     std::string toString() const override;
 
 private:
+    std::unique_ptr<messages::ProtocolClientMessage>
+    serializeAndDestroy() override;
+
     std::vector<EventPtr> m_events;
 };
 
@@ -51,14 +52,14 @@ EventContainer<EventT>::EventContainer(std::vector<EventPtr> events)
 
 template <class EventT>
 std::unique_ptr<messages::ProtocolClientMessage>
-EventContainer<EventT>::serialize() const
+EventContainer<EventT>::serializeAndDestroy()
 {
     auto clientMsg = std::make_unique<messages::ProtocolClientMessage>();
     auto eventsMsg = clientMsg->mutable_events();
 
-    for (const auto &event : m_events) {
+    for (auto &event : m_events) {
         auto eventMsg = eventsMsg->add_events();
-        eventMsg->Swap(event->serialize().release());
+        eventMsg->Swap(event->serializeAndDestroy().release());
     }
 
     return clientMsg;

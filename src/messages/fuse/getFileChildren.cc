@@ -42,12 +42,12 @@ std::string GetFileChildren::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> GetFileChildren::serialize() const
+std::unique_ptr<ProtocolClientMessage> GetFileChildren::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
     auto gfc = msg->mutable_fuse_request()->mutable_get_file_children();
 
-    gfc->set_uuid(m_uuid);
+    gfc->mutable_uuid()->swap(m_uuid);
     if (m_offset)
         gfc->set_offset(m_offset.get());
     if (m_size)

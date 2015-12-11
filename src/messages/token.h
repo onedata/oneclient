@@ -25,11 +25,11 @@ public:
      */
     Token(std::string token);
 
-    std::unique_ptr<ProtocolClientMessage> serialize() const override;
-
     std::string toString() const override;
 
 private:
+    std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
+
     std::string m_token;
 };
 

@@ -20,10 +20,10 @@ Token::Token(std::string token)
 {
 }
 
-std::unique_ptr<ProtocolClientMessage> Token::serialize() const
+std::unique_ptr<ProtocolClientMessage> Token::serializeAndDestroy()
 {
     auto clientMsg = std::make_unique<ProtocolClientMessage>();
-    clientMsg->mutable_token()->set_value(m_token);
+    clientMsg->mutable_token()->mutable_value()->swap(m_token);
     return clientMsg;
 }
 
