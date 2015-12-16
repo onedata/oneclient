@@ -127,13 +127,13 @@ std::shared_ptr<auth::AuthManager> createAuthManager(
     }
 }
 
-std::vector<clproto::Subscription> handshake(const std::string &fuseId,
+void handshake(const std::string &fuseId,
     std::shared_ptr<auth::AuthManager> authManager,
-    std::shared_ptr<Context> context)
+    std::shared_ptr<Context> context, events::SubscriptionContainer &container)
 {
-    std::vector<clproto::Subscription> subscriptions;
     auto handshakeHandler = [&](auto handshakeResponse) {
-        handshakeResponse.moveSubscriptions(subscriptions);
+        for (const auto &subscription : handshakeResponse.subscriptions())
+            container.add(subscription);
         return std::error_code{};
     };
 
@@ -145,8 +145,6 @@ std::vector<clproto::Subscription> handshake(const std::string &fuseId,
     testCommunicator->setScheduler(context->scheduler());
     testCommunicator->connect();
     communication::wait(std::get<std::future<void>>(testCommunicatorTuple));
-
-    return std::move(subscriptions);
 }
 
 std::shared_ptr<communication::Communicator> createCommunicator(
@@ -206,12 +204,12 @@ int main(int argc, char *argv[])
     // Initialize cluster handshake in order to check if everything is ok before
     // becoming daemon
     const auto fuseId = generateFuseID();
-    std::vector<clproto::Subscription> subscriptions;
+    events::SubscriptionContainer container;
     try {
         /// @todo InvalidServerCertificate
         /// @todo More specific errors.
         /// @todo boost::system::system_error thrown on host not found
-        subscriptions = handshake(fuseId, authManager, context);
+        handshake(fuseId, authManager, context, container);
     }
     catch (OneException &exception) {
         std::cerr << "Handshake error. Aborting" << std::endl;
@@ -281,7 +279,7 @@ int main(int argc, char *argv[])
     communicator->connect();
 
     fsLogicWrapper.logic =
-        std::make_unique<FsLogic>(context, std::move(subscriptions));
+        std::make_unique<FsLogic>(context, std::move(container));
 
     // Enter FUSE loop
     res = multithreaded ? fuse_loop_mt(fuse) : fuse_loop(fuse);

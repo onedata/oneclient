@@ -24,16 +24,20 @@ HandshakeResponse::HandshakeResponse(
 
 const std::string &HandshakeResponse::sessionId() const { return m_sessionId; }
 
-void HandshakeResponse::moveSubscriptions(
-    std::vector<clproto::Subscription> &subscriptions)
+const std::vector<clproto::Subscription> &
+HandshakeResponse::subscriptions() const
 {
-    subscriptions.swap(m_subscriptions);
+    return m_subscriptions;
 }
 
 std::string HandshakeResponse::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'HandshakeResponse', session ID: '" << m_sessionId << "'";
+    stream << "type: 'HandshakeResponse', session ID: '" << m_sessionId
+           << "', subscriptions: [";
+    for (const auto &subscription : m_subscriptions)
+        stream << subscription.DebugString() << ", ";
+    stream << "]";
     return stream.str();
 }
 

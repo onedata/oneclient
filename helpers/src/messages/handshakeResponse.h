@@ -40,11 +40,9 @@ public:
     const std::string &sessionId() const;
 
     /**
-     * Moves subscriptions to the vector passed by referece.
-     * @param subscriptions Reference to a vector where subscriptions should be
-     * moved.
+     * @return Server subscriptions.
      */
-    void moveSubscriptions(std::vector<clproto::Subscription> &subscriptions);
+    const std::vector<clproto::Subscription> &subscriptions() const;
 
     virtual std::string toString() const override;
 

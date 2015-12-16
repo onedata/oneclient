@@ -61,7 +61,7 @@ public:
      * @param context Shared pointer to application context instance.
      */
     FsLogic(std::shared_ptr<Context> context,
-        std::vector<clproto::Subscription> subscriptions = {});
+        events::SubscriptionContainer container = {});
 
     /**
      * FUSE @c access callback.

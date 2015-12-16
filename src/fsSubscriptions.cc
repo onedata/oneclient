@@ -42,8 +42,8 @@ void FsSubscriptions::addFileLocationSubscription(const std::string &fileUuid)
     DLOG(INFO) << "Adding subscription for location of file: " << fileUuid;
     typename decltype(m_fileLocationSubscriptions)::accessor acc;
     if (m_fileLocationSubscriptions.insert(acc, fileUuid))
-        acc->second.id(sendFileLocationSubscription(fileUuid));
-    ++acc->second;
+        acc->second.id = sendFileLocationSubscription(fileUuid);
+    ++acc->second.counter;
     addFileAttrSubscription(fileUuid);
 }
 
@@ -54,9 +54,9 @@ void FsSubscriptions::removeFileLocationSubscription(
     removeFileAttrSubscription(fileUuid);
     typename decltype(m_fileLocationSubscriptions)::accessor acc;
     if (m_fileLocationSubscriptions.find(acc, fileUuid)) {
-        --acc->second;
-        if (acc->second.counter() == 0) {
-            sendSubscriptionCancellation(acc->second.id());
+        --acc->second.counter;
+        if (acc->second.counter == 0) {
+            sendSubscriptionCancellation(acc->second.id);
             m_fileLocationSubscriptions.erase(acc);
         }
     }
@@ -67,8 +67,8 @@ void FsSubscriptions::addFileAttrSubscription(const std::string &fileUuid)
     DLOG(INFO) << "Adding subscription for attributes of file: " << fileUuid;
     typename decltype(m_fileAttrSubscriptions)::accessor acc;
     if (m_fileAttrSubscriptions.insert(acc, fileUuid))
-        acc->second.id(sendFileAttrSubscription(fileUuid));
-    ++acc->second;
+        acc->second.id = sendFileAttrSubscription(fileUuid);
+    ++acc->second.counter;
 }
 
 void FsSubscriptions::removeFileAttrSubscription(const std::string &fileUuid)
@@ -76,9 +76,9 @@ void FsSubscriptions::removeFileAttrSubscription(const std::string &fileUuid)
     DLOG(INFO) << "Removing subscription for attributes of file: " << fileUuid;
     typename decltype(m_fileAttrSubscriptions)::accessor acc;
     if (m_fileAttrSubscriptions.find(acc, fileUuid)) {
-        --acc->second;
-        if (acc->second.counter() == 0) {
-            sendSubscriptionCancellation(acc->second.id());
+        --acc->second.counter;
+        if (acc->second.counter == 0) {
+            sendSubscriptionCancellation(acc->second.id);
             m_fileAttrSubscriptions.erase(acc);
         }
     }

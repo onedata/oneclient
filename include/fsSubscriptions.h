@@ -30,47 +30,9 @@ public:
      * The @c SubscriptionHandle class stores subscription ID along with a
      * subscription reference counter.
      */
-    class SubscriptionHandle {
-    public:
-        /**
-         * @return Subscription ID.
-         */
-        std::int64_t id() const { return m_id; }
-
-        /**
-         * Sets subscription ID.
-         * @param id Subscription ID to be set.
-         */
-        void id(std::int64_t _id) { m_id = _id; }
-
-        /**
-         * @return Subscription reference counter.
-         */
-        std::uint32_t counter() const { return m_counter; }
-
-        /**
-         * Increments subscription reference counter.
-         * @return @c *this
-         */
-        SubscriptionHandle &operator++()
-        {
-            ++m_counter;
-            return *this;
-        }
-
-        /**
-         * Decrements subscription reference counter.
-         * @return @c *this
-         */
-        SubscriptionHandle &operator--()
-        {
-            --m_counter;
-            return *this;
-        }
-
-    private:
-        std::int64_t m_id;
-        std::uint32_t m_counter;
+    struct SubscriptionHandle {
+        std::int64_t id;
+        std::uint32_t counter;
     };
 
     /**

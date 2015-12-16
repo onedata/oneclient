@@ -103,6 +103,17 @@ std::int64_t EventManager::subscribe(
         std::move(clientSubscription), std::move(serverSubscription));
 }
 
+void EventManager::subscribe(SubscriptionContainer container)
+{
+    auto readSubscriptions = container.moveReadSubscriptions();
+    for (auto &subscription : readSubscriptions)
+        m_readEventStream->subscribe(std::move(subscription));
+
+    auto writeSubscriptions = container.moveWriteSubscriptions();
+    for (auto &subscription : writeSubscriptions)
+        m_writeEventStream->subscribe(std::move(subscription));
+}
+
 bool EventManager::unsubscribe(std::int64_t id)
 {
     return m_registry->removeSubscription(SubscriptionCancellation{id});
