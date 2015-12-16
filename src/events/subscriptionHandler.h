@@ -60,7 +60,7 @@ SubscriptionHandler<LowerLayer>::subscribe(SubscriptionPtr subscription)
         m_subscriptions.find(id) != m_subscriptions.end())
         return [] {};
 
-    LOG(INFO) << "Adding subscription: " << subscription->toString();
+    DLOG(INFO) << "Adding subscription: " << subscription->toString();
 
     if (m_subscriptions.empty())
         LowerLayer::setEventBuffer(std::make_unique<EventBufferMap<EventT>>());
@@ -68,7 +68,7 @@ SubscriptionHandler<LowerLayer>::subscribe(SubscriptionPtr subscription)
     m_subscriptions.emplace(id, std::move(subscription));
 
     return [=] {
-        LOG(INFO) << "Removing subscription with ID: " << id;
+        DLOG(INFO) << "Removing subscription with ID: " << id;
         m_subscriptions.erase(id);
         if (m_subscriptions.empty())
             LowerLayer::setEventBuffer(
