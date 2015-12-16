@@ -11,8 +11,11 @@
 
 #include "serverMessage.h"
 
+#include "messages.pb.h"
+
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace one {
 namespace messages {
@@ -36,10 +39,16 @@ public:
      */
     const std::string &sessionId() const;
 
+    /**
+     * @return Server subscriptions.
+     */
+    const std::vector<clproto::Subscription> &subscriptions() const;
+
     virtual std::string toString() const override;
 
 private:
     std::string m_sessionId;
+    std::vector<clproto::Subscription> m_subscriptions;
 };
 
 } // namespace messages
