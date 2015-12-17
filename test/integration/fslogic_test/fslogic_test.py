@@ -148,7 +148,7 @@ def test_getattrs_should_cache_attrs(endpoint, fl):
     new_stat = fslogic.Stat()
     assert fl.getattr('/random/path', new_stat) == 0
     assert stat == new_stat
-    assert 0 == endpoint.all_messages_count()
+    assert 1 == endpoint.all_messages_count()
 
 
 def test_mkdir_should_mkdir(endpoint, fl):
@@ -335,7 +335,7 @@ def test_chmod_should_change_mode(endpoint, fl):
     assert change_mode.mode == 0123
 
 
-def test_chmod_should_change_cached_mode(endpoint, fl):
+def test_chmod_should_change_cached_mode(appmock_client, endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
 
     stat = fslogic.Stat()
@@ -344,6 +344,8 @@ def test_chmod_should_change_cached_mode(endpoint, fl):
 
     assert stat.mode == getattr_response.fuse_response.file_attr.mode | \
                         fslogic.regularMode()
+    assert 1 == endpoint.all_messages_count()
+    appmock_client.reset_tcp_history()
 
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
@@ -401,7 +403,7 @@ def test_utime_should_update_times(endpoint, fl):
     assert not update_times.HasField('ctime')
 
 
-def test_utime_should_change_cached_times(endpoint, fl):
+def test_utime_should_change_cached_times(appmock_client, endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
 
     stat = fslogic.Stat()
@@ -410,6 +412,8 @@ def test_utime_should_change_cached_times(endpoint, fl):
 
     assert stat.atime == getattr_response.fuse_response.file_attr.atime
     assert stat.mtime == getattr_response.fuse_response.file_attr.mtime
+    assert 1 == endpoint.all_messages_count()
+    appmock_client.reset_tcp_history()
 
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok

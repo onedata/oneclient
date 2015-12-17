@@ -33,6 +33,8 @@
 #include "shMock.h"
 #include "version.h"
 
+#include "messages.pb.h"
+
 #include <fuse/fuse_opt.h>
 #include <fuse/fuse_lowlevel.h>
 
@@ -40,6 +42,7 @@
 #include <random>
 #include <string>
 #include <memory>
+#include <vector>
 #include <sstream>
 #include <iostream>
 #include <exception>
@@ -124,18 +127,24 @@ std::shared_ptr<auth::AuthManager> createAuthManager(
     }
 }
 
-std::string handshake(std::shared_ptr<auth::AuthManager> authManager)
+void handshake(const std::string &fuseId,
+    std::shared_ptr<auth::AuthManager> authManager,
+    std::shared_ptr<Context> context, events::SubscriptionContainer &container)
 {
-    const auto fuseId = generateFuseID();
-    auto handshakeHandler = [](auto) { return std::error_code{}; };
+    auto handshakeHandler = [&](auto handshakeResponse) {
+        for (const auto &subscription : handshakeResponse.subscriptions())
+            container.add(subscription);
+        return std::error_code{};
+    };
 
     auto testCommunicatorTuple =
         authManager->createCommunicator(1, fuseId, handshakeHandler);
-
-    std::get<0>(testCommunicatorTuple)->connect();
-    communication::wait(std::get<1>(testCommunicatorTuple));
-
-    return fuseId;
+    auto testCommunicator =
+        std::get<std::shared_ptr<communication::Communicator>>(
+            testCommunicatorTuple);
+    testCommunicator->setScheduler(context->scheduler());
+    testCommunicator->connect();
+    communication::wait(std::get<std::future<void>>(testCommunicatorTuple));
 }
 
 std::shared_ptr<communication::Communicator> createCommunicator(
@@ -145,8 +154,11 @@ std::shared_ptr<communication::Communicator> createCommunicator(
     auto handshakeHandler = [](auto) { return std::error_code{}; };
     auto communicatorTuple =
         authManager->createCommunicator(3, fuseId, handshakeHandler);
-    context->setCommunicator(std::get<0>(communicatorTuple));
-    return std::get<0>(communicatorTuple);
+    auto communicator = std::get<std::shared_ptr<communication::Communicator>>(
+        communicatorTuple);
+    communicator->setScheduler(context->scheduler());
+    context->setCommunicator(communicator);
+    return communicator;
 }
 
 int main(int argc, char *argv[])
@@ -191,12 +203,13 @@ int main(int argc, char *argv[])
 
     // Initialize cluster handshake in order to check if everything is ok before
     // becoming daemon
-    std::string fuseId;
+    const auto fuseId = generateFuseID();
+    events::SubscriptionContainer container;
     try {
         /// @todo InvalidServerCertificate
         /// @todo More specific errors.
         /// @todo boost::system::system_error thrown on host not found
-        fuseId = handshake(authManager);
+        handshake(fuseId, authManager, context, container);
     }
     catch (OneException &exception) {
         std::cerr << "Handshake error. Aborting" << std::endl;
@@ -265,7 +278,8 @@ int main(int argc, char *argv[])
         createCommunicator(authManager, context, std::move(fuseId));
     communicator->connect();
 
-    fsLogicWrapper.logic = std::make_unique<FsLogic>(context);
+    fsLogicWrapper.logic =
+        std::make_unique<FsLogic>(context, std::move(container));
 
     // Enter FUSE loop
     res = multithreaded ? fuse_loop_mt(fuse) : fuse_loop(fuse);

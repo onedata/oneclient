@@ -12,6 +12,7 @@
 #include "events/buffers/eventBufferMap.h"
 #include "events/buffers/voidEventBuffer.h"
 #include "events/subscriptions/subscriptionCancellation.h"
+#include "logging.h"
 
 #include <memory>
 #include <unordered_map>
@@ -53,16 +54,21 @@ template <class LowerLayer>
 typename SubscriptionHandler<LowerLayer>::UnsubscribeHandler
 SubscriptionHandler<LowerLayer>::subscribe(SubscriptionPtr subscription)
 {
-    if (subscription->empty())
+    auto id = subscription->id();
+
+    if (subscription->empty() ||
+        m_subscriptions.find(id) != m_subscriptions.end())
         return [] {};
+
+    DLOG(INFO) << "Adding subscription: " << subscription->toString();
 
     if (m_subscriptions.empty())
         LowerLayer::setEventBuffer(std::make_unique<EventBufferMap<EventT>>());
 
-    auto id = subscription->id();
     m_subscriptions.emplace(id, std::move(subscription));
 
     return [=] {
+        DLOG(INFO) << "Removing subscription with ID: " << id;
         m_subscriptions.erase(id);
         if (m_subscriptions.empty())
             LowerLayer::setEventBuffer(

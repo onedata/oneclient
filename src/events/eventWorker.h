@@ -9,6 +9,7 @@
 #ifndef ONECLIENT_EVENTS_EVENT_WORKER_H
 #define ONECLIENT_EVENTS_EVENT_WORKER_H
 
+#include "logging.h"
 #include "subscriptionRegistry.h"
 
 #include <asio/executor_work.hpp>
@@ -60,12 +61,7 @@ public:
      * Wraps lower layer's @c process.
      * Processes an event on the worker thread.
      */
-    void emitEvent(EventT event)
-    {
-        asio::post(m_ioService, [ this, event = std::move(event) ]() mutable {
-            LowerLayer::process(std::make_unique<EventT>(std::move(event)));
-        });
-    }
+    void emitEvent(EventT event);
 
     /**
      * Wraps lower layer's @c process.
@@ -105,6 +101,15 @@ template <class LowerLayer> EventWorker<LowerLayer>::~EventWorker()
 {
     m_ioService.stop();
     m_worker.join();
+}
+
+template <class LowerLayer>
+void EventWorker<LowerLayer>::emitEvent(EventWorker::EventT event)
+{
+    DLOG(INFO) << "Emitting: " << event.toString();
+    asio::post(m_ioService, [ this, event = std::move(event) ]() mutable {
+        LowerLayer::process(std::make_unique<EventT>(std::move(event)));
+    });
 }
 
 template <class LowerLayer>

@@ -10,6 +10,7 @@
 #define ONECLIENT_EVENTS_EVENT_MANAGER_H
 
 #include "events/eventStream.h"
+#include "subscriptionContainer.h"
 
 #include <sys/types.h>
 
@@ -105,6 +106,12 @@ public:
      */
     std::int64_t subscribe(FileLocationSubscription clientSubscription,
         FileLocationSubscription serverSubscription);
+
+    /**
+     * Adds server subscriptions.
+     * @param container Container with server subscriptions.
+     */
+    void subscribe(SubscriptionContainer container);
 
     /**
      * Removes subscription.

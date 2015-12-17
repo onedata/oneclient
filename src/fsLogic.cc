@@ -10,7 +10,6 @@
 #include "fsLogic.h"
 
 #include "context.h"
-#include "events/eventManager.h"
 #include "logging.h"
 #include "helperWrapper.h"
 #include "options.h"
@@ -43,15 +42,19 @@ using namespace std::literals;
 namespace one {
 namespace client {
 
-FsLogic::FsLogic(std::shared_ptr<Context> context)
+FsLogic::FsLogic(
+    std::shared_ptr<Context> context, events::SubscriptionContainer container)
     : m_uid{geteuid()}
     , m_gid{getegid()}
     , m_context{std::move(context)}
-    , m_eventManager{std::make_unique<events::EventManager>(m_context)}
+    , m_eventManager{m_context}
     , m_helpersCache{*m_context->communicator()}
     , m_metadataCache{*m_context->communicator()}
-    , m_pushListener{*m_context->communicator(), m_metadataCache}
+    , m_fsSubscriptions{*m_context->scheduler(), m_eventManager}
 {
+    m_eventManager.setFileAttrHandler(fileAttrHandler());
+    m_eventManager.setFileLocationHandler(fileLocationHandler());
+    m_eventManager.subscribe(std::move(container));
 }
 
 int FsLogic::access(boost::filesystem::path path, const int mask)
@@ -87,6 +90,8 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
             statbuf->st_mode |= S_IFREG;
             break;
     }
+
+    m_fsSubscriptions.addTemporaryFileAttrSubscription(attr.uuid());
 
     return 0;
 }
@@ -227,7 +232,7 @@ int FsLogic::truncate(boost::filesystem::path path, const off_t newSize)
     acc->second.location.get().blocks() &=
         boost::icl::discrete_interval<off_t>::right_open(0, newSize);
 
-    m_eventManager->emitTruncateEvent(newSize, attr.uuid());
+    m_eventManager.emitTruncateEvent(newSize, attr.uuid());
 
     return 0;
 }
@@ -281,6 +286,7 @@ int FsLogic::open(
 
     acc->second.uuid = attr.uuid();
     acc->second.helperCtx.flags = fileInfo->flags;
+    m_fsSubscriptions.addFileLocationSubscription(attr.uuid());
 
     return 0;
 }
@@ -324,7 +330,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
               .read({fileBlock.fileId()}, buf, offset);
 
     const auto bytesRead = asio::buffer_size(buf);
-    m_eventManager->emitReadEvent(offset, bytesRead, context.uuid);
+    m_eventManager.emitReadEvent(offset, bytesRead, context.uuid);
 
     return bytesRead;
 }
@@ -350,7 +356,7 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     auto bytesWritten = HelperWrapper(*helper, context.helperCtx)
                             .write(location.fileId(), buf, offset);
 
-    m_eventManager->emitWriteEvent(offset, bytesWritten, context.uuid,
+    m_eventManager.emitWriteEvent(offset, bytesWritten, context.uuid,
         location.storageId(), location.fileId());
 
     MetadataCache::MetaAccessor acc;
@@ -402,6 +408,73 @@ FsLogic::findWriteLocation(const messages::fuse::FileLocation &fileLocation,
         asio::buffer(buf, boost::icl::size(blankRange & wantedRange)));
 }
 
+events::FileAttrEventStream::Handler FsLogic::fileAttrHandler()
+{
+    using namespace events;
+    return [this](std::vector<FileAttrEventStream::EventPtr> events) {
+        for (const auto &event : events) {
+            const auto &newAttr = event->wrapped();
+            MetadataCache::MetaAccessor acc;
+            if (!m_metadataCache.get(acc, newAttr.uuid()) ||
+                !acc->second.attr) {
+                LOG(INFO) << "No attributes to update for uuid: '"
+                          << newAttr.uuid() << "'";
+                continue;
+            }
+
+            LOG(INFO) << "Updating attributes for uuid: '" << newAttr.uuid()
+                      << "'";
+            auto &attr = acc->second.attr.get();
+
+            if (newAttr.size() < attr.size() && acc->second.location) {
+                LOG(INFO) << "Truncating blocks attributes for uuid: '"
+                          << newAttr.uuid() << "'";
+
+                acc->second.location.get().blocks() &=
+                    boost::icl::discrete_interval<off_t>::right_open(
+                        0, newAttr.size());
+            }
+
+            attr.atime(std::max(attr.atime(), newAttr.atime()));
+            attr.ctime(std::max(attr.ctime(), newAttr.ctime()));
+            attr.mtime(std::max(attr.mtime(), newAttr.mtime()));
+            attr.gid(newAttr.gid());
+            attr.mode(newAttr.mode());
+            attr.size(newAttr.size());
+            attr.uid(newAttr.uid());
+        }
+    };
+}
+
+events::FileLocationEventStream::Handler FsLogic::fileLocationHandler()
+{
+    using namespace events;
+    return [this](std::vector<FileLocationEventStream::EventPtr> events) {
+        for (const auto &event : events) {
+            const auto &newLocation = event->wrapped();
+            MetadataCache::MetaAccessor acc;
+            if (!m_metadataCache.get(acc, newLocation.uuid()) ||
+                !acc->second.attr) {
+                LOG(INFO) << "No location to update for uuid: '"
+                          << newLocation.uuid() << "'";
+                continue;
+            }
+
+            LOG(INFO) << "Updating location for uuid: '" << newLocation.uuid()
+                      << "'";
+            auto &location = acc->second.location.get();
+
+            location.storageId(newLocation.storageId());
+            location.fileId(newLocation.fileId());
+
+            // `newLocation.blocks()` is on LHS of the expression, because
+            // FileBlock keeps first value of {storageId, fileId} and ignores
+            // any new values
+            location.blocks() = newLocation.blocks() | location.blocks();
+        }
+    };
+}
+
 int FsLogic::statfs(
     boost::filesystem::path path, struct statvfs *const statInfo)
 {
@@ -420,6 +493,8 @@ int FsLogic::release(
     boost::filesystem::path path, struct fuse_file_info *const fileInfo)
 {
     DLOG(INFO) << "FUSE: release(path: " << path << ", ...)";
+    auto attr = m_metadataCache.getAttr(path);
+    m_fsSubscriptions.removeFileLocationSubscription(attr.uuid());
     return 0;
 }
 

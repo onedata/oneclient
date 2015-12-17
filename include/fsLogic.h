@@ -9,13 +9,16 @@
 #ifndef ONECLIENT_FS_LOGIC_H
 #define ONECLIENT_FS_LOGIC_H
 
-#include "pushListener.h"
 #include "cache/fileContextCache.h"
 #include "cache/helpersCache.h"
 #include "cache/metadataCache.h"
+#include "events/eventManager.h"
+#include "fsSubscriptions.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
 #include "messages/fuse/helperParams.h"
+
+#include "messages.pb.h"
 
 #include <asio/buffer.hpp>
 #include <boost/filesystem/path.hpp>
@@ -26,6 +29,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <vector>
 #include <tuple>
 
 namespace one {
@@ -56,7 +60,8 @@ public:
      * Constructor.
      * @param context Shared pointer to application context instance.
      */
-    FsLogic(std::shared_ptr<Context> context);
+    FsLogic(std::shared_ptr<Context> context,
+        events::SubscriptionContainer container = {});
 
     /**
      * FUSE @c access callback.
@@ -224,18 +229,18 @@ private:
     std::tuple<messages::fuse::FileBlock, asio::const_buffer> findWriteLocation(
         const messages::fuse::FileLocation &fileLocation, const off_t offset,
         const asio::const_buffer &buf);
+    events::FileAttrEventStream::Handler fileAttrHandler();
+    events::FileLocationEventStream::Handler fileLocationHandler();
 
     const uid_t m_uid;
     const gid_t m_gid;
 
     std::shared_ptr<Context> m_context;
-    std::unique_ptr<events::EventManager> m_eventManager;
-
+    events::EventManager m_eventManager;
     FileContextCache m_fileContextCache;
     HelpersCache m_helpersCache;
     MetadataCache m_metadataCache;
-
-    PushListener m_pushListener;
+    FsSubscriptions m_fsSubscriptions;
 };
 
 struct FsLogicWrapper {
