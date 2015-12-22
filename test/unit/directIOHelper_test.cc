@@ -43,7 +43,7 @@ class DirectIOHelperTest : public ::testing::Test {
 protected:
     std::shared_ptr<DirectIOHelper> proxy;
 
-    StorageHelperCTX ctx;
+    std::shared_ptr<PosixHelperCTX> ctx;
     char buf[1024];
 
     asio::io_service io_service;
@@ -93,6 +93,11 @@ protected:
                 {"root_path", std::string(DIO_TEST_ROOT)}},
             io_service, DirectIOHelper::linuxUserCTXFactory);
 
+        auto rawCTX = proxy->createCTX();
+        ctx = std::dynamic_pointer_cast<PosixHelperCTX>(rawCTX);
+        ctx->setUserCTX({{"uid", std::to_string(getuid())},
+            {"gid", std::to_string(getgid())}});
+
         // remove all files that are used in tests
         unlinkOnDIO("to");
         unlinkOnDIO("dir");
@@ -102,9 +107,6 @@ protected:
         std::ofstream f(testFilePath.string());
         f << "test_123456789_test" << std::endl;
         f.close();
-
-        ctx.uid = getuid();
-        ctx.gid = getgid();
     }
 
     void TearDown() override
@@ -135,6 +137,7 @@ public:
         std::shared_ptr<std::promise<T>> p, T value, one::helpers::error_t e)
     {
         if (e) {
+            std::cout << "Error: " << e.message() << std::endl;
             p->set_exception(std::make_exception_ptr(std::system_error(e)));
         }
         else {
@@ -156,7 +159,9 @@ public:
 TEST_F(DirectIOHelperTest, shouldFaileWithInvalidUserCTX)
 {
     DirectIOHelper helper({{"root_path", DIO_TEST_ROOT}}, io_service,
-        [](CTXConstRef) { return std::make_unique<InvalidUserCTX>(); });
+        [](std::shared_ptr<PosixHelperCTX>) {
+            return std::make_unique<InvalidUserCTX>();
+        });
 
     helper.ash_open(ctx, testFileId,
         std::bind(&DirectIOHelperTest::set_promise<int>, this, pi1, _1, _2));
@@ -204,18 +209,18 @@ TEST_F(DirectIOHelperTest, shouldOpen)
     proxy->ash_open(ctx, testFileId,
         std::bind(&DirectIOHelperTest::set_promise<int>, this, pi1, _1, _2));
     EXPECT_GT(pi1->get_future().get(), 0);
-    EXPECT_GT(ctx.fh, 0);
+    EXPECT_GT(ctx->fh, 0);
 }
 
 TEST_F(DirectIOHelperTest, shouldRelease)
 {
-    auto fd = ::open(testFilePath.c_str(), ctx.flags);
-    ctx.fh = fd;
+    auto fd = ::open(testFilePath.c_str(), ctx->flags);
+    ctx->fh = fd;
 
     proxy->ash_release(ctx, testFileId,
         std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     EXPECT_NO_THROW(pv1->get_future().get());
-    EXPECT_EQ(0, ctx.fh);
+    EXPECT_EQ(0, ctx->fh);
 }
 
 TEST_F(DirectIOHelperTest, shouldRunSync)
@@ -351,7 +356,7 @@ TEST_F(DirectIOHelperTest, shouldTruncate)
 
 TEST_F(DirectIOHelperTest, AsyncBench)
 {
-    ctx.flags |= O_RDWR;
+    ctx->flags |= O_RDWR;
     proxy->ash_open(ctx, testFileId,
         std::bind(&DirectIOHelperTest::set_promise<int>, this, pi1, _1, _2));
     pi1->get_future().get();
@@ -378,7 +383,7 @@ TEST_F(DirectIOHelperTest, AsyncBench)
 
 TEST_F(DirectIOHelperTest, SyncBench)
 {
-    ctx.flags |= O_RDWR;
+    ctx->flags |= O_RDWR;
 
     proxy->ash_open(ctx, testFileId, [=](int, one::helpers::error_t e) {
         char stmp[BENCH_BLOCK_SIZE];

@@ -18,11 +18,37 @@
 #include <sys/types.h>
 
 #include <string>
+#include <map>
 #include <unordered_map>
 #include <functional>
 
 namespace one {
 namespace helpers {
+
+class PosixHelperCTX : public IStorageHelperCTX {
+public:
+    void setUserCTX(std::unordered_map<std::string, std::string> args);
+
+    std::unordered_map<std::string, std::string> getUserCTX();
+
+    void setFlags(std::vector<IStorageHelperCTX::Flag> flags);
+
+    void setFlags(int flags);
+
+    std::vector<IStorageHelperCTX::Flag> getFlags();
+
+    int getFlagValue(Flag flag);
+
+    uid_t uid = 0;
+    gid_t gid = 0;
+    int flags = 0;
+    int fh = 0;
+
+private:
+    static const std::map<IStorageHelperCTX::Flag, int> openFlagTranslation;
+    static const std::map<IStorageHelperCTX::Flag, int> openModeTranslation;
+    static const std::map<IStorageHelperCTX::Flag, int> fileTypeTranslation;
+};
 
 /**
  * The DirectIOHelper class
@@ -32,7 +58,7 @@ class DirectIOHelper : public IStorageHelper {
 public:
     /**
      * The UserCTX abstract class
-     * Subclasses shall implement context setter based on CTXConstRef that
+     * Subclasses shall implement context setter based on CTXRef that
      * persists as long as the object exists.
      */
     class UserCTX {
@@ -44,12 +70,14 @@ public:
         virtual ~UserCTX() = default;
     };
 
+    using PosixHelperCTXPtr = std::shared_ptr<PosixHelperCTX>;
+
     /**
      * Type of factory function that returns user's context setter (UserCTX
      * instance).
      */
     using UserCTXFactory =
-        std::function<std::unique_ptr<UserCTX>(CTXConstRef)>;
+        std::function<std::unique_ptr<UserCTX>(PosixHelperCTXPtr)>;
 
 #ifdef __linux__
     /// Factory of user's context setter for linux systems
@@ -69,49 +97,50 @@ public:
     DirectIOHelper(const std::unordered_map<std::string, std::string> &,
         asio::io_service &service, UserCTXFactory);
 
-    void ash_getattr(CTXRef ctx, const boost::filesystem::path &p,
+    CTXPtr createCTX();
+    void ash_getattr(CTXPtr ctx, const boost::filesystem::path &p,
         GeneralCallback<struct stat>);
     void ash_access(
-        CTXRef ctx, const boost::filesystem::path &p, int mask, VoidCallback);
-    void ash_readlink(CTXRef ctx, const boost::filesystem::path &p,
+        CTXPtr ctx, const boost::filesystem::path &p, int mask, VoidCallback);
+    void ash_readlink(CTXPtr ctx, const boost::filesystem::path &p,
         GeneralCallback<std::string>);
-    void ash_readdir(CTXRef ctx, const boost::filesystem::path &p, off_t offset,
+    void ash_readdir(CTXPtr ctx, const boost::filesystem::path &p, off_t offset,
         size_t count, GeneralCallback<const std::vector<std::string> &>);
-    void ash_mknod(CTXRef ctx, const boost::filesystem::path &p, mode_t mode,
+    void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
         dev_t rdev, VoidCallback);
-    void ash_mkdir(CTXRef ctx, const boost::filesystem::path &p, mode_t mode,
+    void ash_mkdir(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
         VoidCallback);
-    void ash_unlink(CTXRef ctx, const boost::filesystem::path &p, VoidCallback);
-    void ash_rmdir(CTXRef ctx, const boost::filesystem::path &p, VoidCallback);
-    void ash_symlink(CTXRef ctx, const boost::filesystem::path &from,
+    void ash_unlink(CTXPtr ctx, const boost::filesystem::path &p, VoidCallback);
+    void ash_rmdir(CTXPtr ctx, const boost::filesystem::path &p, VoidCallback);
+    void ash_symlink(CTXPtr ctx, const boost::filesystem::path &from,
         const boost::filesystem::path &to, VoidCallback);
-    void ash_rename(CTXRef ctx, const boost::filesystem::path &from,
+    void ash_rename(CTXPtr ctx, const boost::filesystem::path &from,
         const boost::filesystem::path &to, VoidCallback);
-    void ash_link(CTXRef ctx, const boost::filesystem::path &from,
+    void ash_link(CTXPtr ctx, const boost::filesystem::path &from,
         const boost::filesystem::path &to, VoidCallback);
-    void ash_chmod(CTXRef ctx, const boost::filesystem::path &p, mode_t mode,
+    void ash_chmod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
         VoidCallback);
-    void ash_chown(CTXRef ctx, const boost::filesystem::path &p, uid_t uid,
+    void ash_chown(CTXPtr ctx, const boost::filesystem::path &p, uid_t uid,
         gid_t gid, VoidCallback);
     void ash_truncate(
-        CTXRef ctx, const boost::filesystem::path &p, off_t size, VoidCallback);
+        CTXPtr ctx, const boost::filesystem::path &p, off_t size, VoidCallback);
 
     void ash_open(
-        CTXRef ctx, const boost::filesystem::path &p, GeneralCallback<int>);
-    void ash_read(CTXRef ctx, const boost::filesystem::path &p,
+        CTXPtr ctx, const boost::filesystem::path &p, GeneralCallback<int>);
+    void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset,
         GeneralCallback<asio::mutable_buffer>);
-    void ash_write(CTXRef ctx, const boost::filesystem::path &p,
+    void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
         asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t>);
     void ash_release(
-        CTXRef ctx, const boost::filesystem::path &p, VoidCallback);
-    void ash_flush(CTXRef ctx, const boost::filesystem::path &p, VoidCallback);
-    void ash_fsync(CTXRef ctx, const boost::filesystem::path &p,
+        CTXPtr ctx, const boost::filesystem::path &p, VoidCallback);
+    void ash_flush(CTXPtr ctx, const boost::filesystem::path &p, VoidCallback);
+    void ash_fsync(CTXPtr ctx, const boost::filesystem::path &p,
         bool isDataSync, VoidCallback);
 
-    asio::mutable_buffer sh_read(CTXRef ctx, const boost::filesystem::path &p,
+    asio::mutable_buffer sh_read(CTXPtr ctx, const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset);
-    std::size_t sh_write(CTXRef ctx, const boost::filesystem::path &p,
+    std::size_t sh_write(CTXPtr ctx, const boost::filesystem::path &p,
         asio::const_buffer buf, off_t offset);
 
 protected:
@@ -137,7 +166,7 @@ protected:
      */
     class LinuxUserCTX : public UserCTX {
     public:
-        LinuxUserCTX(CTXConstRef helperCTX);
+        LinuxUserCTX(PosixHelperCTXPtr helperCTX);
         bool valid();
 
         ~LinuxUserCTX();
@@ -168,11 +197,12 @@ protected:
 
 private:
     boost::filesystem::path root(const boost::filesystem::path &path);
+    std::shared_ptr<PosixHelperCTX> getCTX(CTXPtr rawCtx) const;
 
     const boost::filesystem::path m_rootPath;
     asio::io_service &m_workerService;
-    static const error_t SuccessCode;
     UserCTXFactory m_userCTXFactory;
+    static const error_t SuccessCode;
 };
 
 } // namespace helpers
