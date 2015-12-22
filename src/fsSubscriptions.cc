@@ -7,7 +7,6 @@
  */
 
 #include "fsSubscriptions.h"
-#include "logging.h"
 #include "scheduler.h"
 #include "events/eventManager.h"
 #include "events/subscriptions/fileAttrSubscription.h"
@@ -28,8 +27,6 @@ FsSubscriptions::FsSubscriptions(
 void FsSubscriptions::addTemporaryFileAttrSubscription(
     const std::string &fileUuid)
 {
-    DLOG(INFO) << "Adding temporary subscription for attributes of file: "
-               << fileUuid;
     addFileAttrSubscription(fileUuid);
     m_scheduler.schedule(FILE_ATTR_SUBSCRIPTION_DURATION,
         [ this, fileUuid = std::move(fileUuid) ] {
@@ -39,7 +36,6 @@ void FsSubscriptions::addTemporaryFileAttrSubscription(
 
 void FsSubscriptions::addFileLocationSubscription(const std::string &fileUuid)
 {
-    DLOG(INFO) << "Adding subscription for location of file: " << fileUuid;
     typename decltype(m_fileLocationSubscriptions)::accessor acc;
     if (m_fileLocationSubscriptions.insert(acc, fileUuid))
         acc->second.id = sendFileLocationSubscription(fileUuid);
@@ -50,7 +46,6 @@ void FsSubscriptions::addFileLocationSubscription(const std::string &fileUuid)
 void FsSubscriptions::removeFileLocationSubscription(
     const std::string &fileUuid)
 {
-    DLOG(INFO) << "Removing subscription for location of file: " << fileUuid;
     removeFileAttrSubscription(fileUuid);
     typename decltype(m_fileLocationSubscriptions)::accessor acc;
     if (m_fileLocationSubscriptions.find(acc, fileUuid)) {
@@ -64,7 +59,6 @@ void FsSubscriptions::removeFileLocationSubscription(
 
 void FsSubscriptions::addFileAttrSubscription(const std::string &fileUuid)
 {
-    DLOG(INFO) << "Adding subscription for attributes of file: " << fileUuid;
     typename decltype(m_fileAttrSubscriptions)::accessor acc;
     if (m_fileAttrSubscriptions.insert(acc, fileUuid))
         acc->second.id = sendFileAttrSubscription(fileUuid);
@@ -73,7 +67,6 @@ void FsSubscriptions::addFileAttrSubscription(const std::string &fileUuid)
 
 void FsSubscriptions::removeFileAttrSubscription(const std::string &fileUuid)
 {
-    DLOG(INFO) << "Removing subscription for attributes of file: " << fileUuid;
     typename decltype(m_fileAttrSubscriptions)::accessor acc;
     if (m_fileAttrSubscriptions.find(acc, fileUuid)) {
         --acc->second.counter;
@@ -87,7 +80,6 @@ void FsSubscriptions::removeFileAttrSubscription(const std::string &fileUuid)
 std::int64_t FsSubscriptions::sendFileAttrSubscription(
     const std::string &fileUuid)
 {
-    DLOG(INFO) << "Sending subscription for attributes of file: " << fileUuid;
     events::FileAttrSubscription clientSubscription{fileUuid, 1};
     events::FileAttrSubscription serverSubscription{fileUuid, 1};
     return m_eventManager.subscribe(
@@ -97,17 +89,14 @@ std::int64_t FsSubscriptions::sendFileAttrSubscription(
 std::int64_t FsSubscriptions::sendFileLocationSubscription(
     const std::string &fileUuid)
 {
-    DLOG(INFO) << "Sending subscription for location of file: " << fileUuid;
     events::FileLocationSubscription clientSubscription{fileUuid, 1};
     events::FileLocationSubscription serverSubscription{fileUuid, 1};
     return m_eventManager.subscribe(
         std::move(clientSubscription), std::move(serverSubscription));
-    return 1;
 }
 
 void FsSubscriptions::sendSubscriptionCancellation(std::int64_t id)
 {
-    DLOG(INFO) << "Sending subscription cancellation for subscription: " << id;
     m_eventManager.unsubscribe(id);
 }
 

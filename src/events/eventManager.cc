@@ -10,7 +10,6 @@
 
 #include "context.h"
 #include "communication/subscriptionData.h"
-#include "logging.h"
 #include "subscriptionRegistry.h"
 #include "subscriptions/subscriptionCancellation.h"
 #include "scheduler.h"
@@ -54,26 +53,18 @@ EventManager::EventManager(std::shared_ptr<Context> context)
 void EventManager::emitReadEvent(
     off_t offset, size_t size, std::string fileUuid) const
 {
-    DLOG(INFO) << "Emitting event - type: 'ReadEvent', file UUID: '" << fileUuid
-               << "', offset: " << offset << ", size: " << size;
     m_readEventStream->createAndEmitEvent(offset, size, std::move(fileUuid));
 }
 
 void EventManager::emitWriteEvent(off_t offset, std::size_t size,
     std::string fileUuid, std::string storageId, std::string fileId) const
 {
-    DLOG(INFO) << "Emitting event - type: 'WriteEvent', file UUID: '"
-               << fileUuid << "', offset: " << offset << ", size: " << size
-               << ", storage ID: '" << storageId << "', file ID: '" << fileId
-               << "'";
     m_writeEventStream->createAndEmitEvent(offset, size, std::move(fileUuid),
         std::move(storageId), std::move(fileId));
 }
 
 void EventManager::emitTruncateEvent(off_t fileSize, std::string fileUuid) const
 {
-    DLOG(INFO) << "Emitting event - type: 'TruncateEvent', file UUID: '"
-               << fileUuid << "', file size: " << fileSize;
     m_writeEventStream->createAndEmitEvent(0, 0, fileSize, std::move(fileUuid));
 }
 
