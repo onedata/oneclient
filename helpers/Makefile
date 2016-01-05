@@ -14,16 +14,20 @@ cmake:
 
 release: BUILD_TYPE = Release
 release: cmake
-	cmake --build release
+	cmake --build release --target helpersStatic
+	cmake --build release --target helpersShared
 
 debug: BUILD_TYPE = Debug
 debug: cmake
-	cmake --build debug
+	cmake --build debug --target helpersStatic
+	cmake --build debug --target helpersShared
 
 test: debug
+	cmake --build debug
 	cmake --build debug --target test
 
 cunit: debug
+	cmake --build debug
 	cmake --build debug --target cunit
 
 install: release

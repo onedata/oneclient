@@ -12,7 +12,7 @@ import os
 import random
 import string
 
-from . import common, docker, dns, provider_ccm, provider_worker, globalregistry
+from . import common, docker, dns, provider_ccm, worker, globalregistry
 
 APPMOCK_WAIT_FOR_NAGIOS_SECONDS = 60 * 2
 
@@ -50,9 +50,9 @@ def _tweak_config(config, appmock_node, appmock_instance, uid):
     node_name = {
         'op_ccm': provider_ccm.ccm_erl_node_name(appmock_node,
                                                  appmock_instance, uid),
-        'op_worker': provider_worker.worker_erl_node_name(appmock_node,
-                                                          appmock_instance,
-                                                          uid),
+        'op_worker': worker.worker_erl_node_name(appmock_node,
+                                                 appmock_instance,
+                                                 uid),
         'globalregistry': globalregistry.gr_erl_node_name(appmock_node,
                                                           appmock_instance, uid)
     }.get(mocked_app, appmock_erl_node_name(appmock_node, uid))

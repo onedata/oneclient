@@ -21,9 +21,54 @@
             "target_dir": "rel/test_cluster"
         }
     },
+    "os_configs": {
+        "cfg1": {
+            "storages": [
+                "/mnt/st1"
+            ],
+            "users": [
+                "user1"
+            ],
+            "groups": {
+                "group1": [
+                    "user1"
+                ]
+            }
+        },
+        "cfg2": {
+            "storages": [
+                "/mnt/st1",
+                "/mnt/st2"
+            ],
+            "users": [
+                "user1",
+                "user2",
+                "user3"
+            ],
+            "groups": {
+                "group1": [
+                    "user1"
+                ],
+                "group2": [
+                    "user2",
+                    "user3"
+                ],
+                "group3": [
+                    "user1",
+                    "user3"
+                ],
+                "fuse": [
+                    "u1",
+                    "u2",
+                    "u3"
+                ]
+            }
+        }
+    },
     "provider_domains": {
         "p1": {
             "db_driver": "couchbase",
+            "os_config": "cfg1",
             "op_ccm": {
                 "ccm1": {
                     "vm.args": {
@@ -50,13 +95,15 @@
                             "dbnode1",
                             "dbnode2"
                         ],
-                        "global_registry_domain": "gr"
+                        "global_registry_domain": "gr",
+                        "verify_gr_cert": false
                     }
                 }
             }
         },
         "p2.gr": {
             "db_driver": "riak",
+            "os_config": "cfg2",
             "op_ccm": {
                 "ccm1": {
                     "vm.args": {
@@ -82,7 +129,8 @@
                         "db_nodes": [
                             "riaknode1"
                         ],
-                        "global_registry_domain": "gr"
+                        "global_registry_domain": "gr",
+                        "verify_gr_cert": false
                     }
                 },
                 "worker2": {
@@ -96,7 +144,43 @@
                         "db_nodes": [
                             "riaknode1"
                         ],
-                        "global_registry_domain": "gr"
+                        "global_registry_domain": "gr",
+                        "verify_gr_cert": false
+                    }
+                }
+            }
+        }
+    },
+    "cluster_domains": {
+        "p1": {
+            "db_driver": "couchbase",
+            "os_config": "cfg1",
+            "op_ccm": {
+                "ccm1": {
+                    "vm.args": {
+                        "setcookie": "cookie1"
+                    },
+                    "sys.config": {
+                        "ccm_nodes": [
+                            "ccm1"
+                        ],
+                        "worker_num": 1
+                    }
+                }
+            },
+            "cluster_worker": {
+                "worker1": {
+                    "vm.args": {
+                        "setcookie": "cookie1"
+                    },
+                    "sys.config": {
+                        "ccm_nodes": [
+                            "ccm1"
+                        ],
+                        "db_nodes": [
+                            "dbnode1",
+                            "dbnode2"
+                        ]
                     }
                 }
             }
@@ -149,6 +233,7 @@
         },
         "spaces": {
             "s1": {
+                "displayed_name": "s1",
                 "users": [
                     "u1",
                     "u2",
@@ -165,6 +250,7 @@
                 ]
             },
             "s2": {
+                "displayed_name": "s2",
                 "users": [
                     "u2"
                 ],
@@ -196,19 +282,51 @@
         }
     },
     "oneclient": {
-        "client1": {
-            "name": "client1",
-            "op_domain": "p1",
-            "gr_domain": "gr",
-            "user_cert": "./cert.pem",
-            "user_key": "./cert.pem"
+        "client_host_1": {
+            "os_config": "cfg1",
+            "clients": {
+                "client1": {
+                    "name": "client1",
+                    "op_domain": "p1",
+                    "gr_domain": "gr",
+                    "user_cert": "./cert.pem",
+                    "user_key": "./cert.pem",
+                    "mounting_path": "/home/u1/onedata",
+                    "token_for": "u1"
+                },
+                "client2": {
+                    "name": "client2",
+                    "op_domain": "p1",
+                    "gr_domain": "gr",
+                    "user_cert": "./cert.pem",
+                    "user_key": "./cert.pem",
+                    "mounting_path": "/home/u1/onedata",
+                    "token_for": "u1"
+                }
+            }
         },
-        "client2": {
-            "name": "client2",
-            "op_domain": "p1",
-            "gr_domain": "gr",
-            "user_cert": "./cert.pem",
-            "user_key": "./cert.pem"
+        "client_host_2": {
+            "os_config": "cfg1",
+            "clients": {
+                "client1": {
+                    "name": "client1",
+                    "op_domain": "p1",
+                    "gr_domain": "gr",
+                    "user_cert": "./cert.pem",
+                    "user_key": "./cert.pem",
+                    "mounting_path": "/home/u1/onedata",
+                    "token_for": "u1"
+                },
+                "client2": {
+                    "name": "client2",
+                    "op_domain": "p1",
+                    "gr_domain": "gr",
+                    "user_cert": "./cert.pem",
+                    "user_key": "./cert.pem",
+                    "mounting_path": "/home/u2/onedata",
+                    "token_for": "u2"
+                }
+            }
         }
     },
     "onepanel": {

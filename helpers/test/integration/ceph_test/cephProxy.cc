@@ -34,7 +34,8 @@ private:
 
 class CephProxy {
 public:
-    CephProxy(std::string monHost, std::string keyring, std::string poolName)
+    CephProxy(std::string monHost, std::string username, std::string key,
+        std::string poolName)
         : m_service{1}
         , m_idleWork{asio::make_work(m_service)}
         , m_worker{[=] { m_service.run(); }}
@@ -44,10 +45,9 @@ public:
         m_ctx = std::dynamic_pointer_cast<one::helpers::CephHelperCTX>(rawCTX);
         if (m_ctx == nullptr)
             throw std::make_error_code(std::errc::invalid_argument);
-        m_ctx->setUserCTX({{"user_name", "client.admin"},
+        m_ctx->setUserCTX({{"user_name", std::move(username)},
             {"cluster_name", "ceph"}, {"mon_host", std::move(monHost)},
-            {"keyring", std::move(keyring)},
-            {"pool_name", std::move(poolName)}});
+            {"key", std::move(key)}, {"pool_name", std::move(poolName)}});
     }
 
     ~CephProxy()
@@ -126,11 +126,11 @@ private:
 };
 
 namespace {
-boost::shared_ptr<CephProxy> create(
-    std::string monHost, std::string keyring, std::string poolName)
+boost::shared_ptr<CephProxy> create(std::string monHost, std::string username,
+    std::string key, std::string poolName)
 {
-    return boost::make_shared<CephProxy>(
-        std::move(monHost), std::move(keyring), std::move(poolName));
+    return boost::make_shared<CephProxy>(std::move(monHost),
+        std::move(username), std::move(key), std::move(poolName));
 }
 }
 

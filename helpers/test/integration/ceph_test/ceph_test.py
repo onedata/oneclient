@@ -20,8 +20,8 @@ import ceph
 
 @pytest.fixture
 def helper(ceph_client):
-    return ceph.CephProxy(ceph_client.mon_host, ceph_client.keyring,
-                          ceph_client.pool_name)
+    return ceph.CephProxy(ceph_client.mon_host, ceph_client.username,
+                          ceph_client.key, ceph_client.pool_name)
 
 
 def test_write_should_write_data(helper):
