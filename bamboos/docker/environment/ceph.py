@@ -31,13 +31,14 @@ def _node_up(image, pools):
 
     common.wait_until(_ceph_ready, [container], CEPH_READY_WAIT_SECONDS)
 
-    keyring = docker.exec_(container,
-                           ['cat', '/etc/ceph/ceph.client.admin.keyring'],
-                           output=True)
+    username = 'client.admin'
+    key = docker.exec_(container, ['ceph', 'auth', 'print-key', username],
+                       output=True)
 
     return {
         'docker_ids': [container],
-        'keyring': keyring
+        'username': username,
+        'key': key
     }
 
 

@@ -47,21 +47,20 @@ def appmock_client(request, _appmock_client):
 @pytest.fixture(scope='module')
 def ceph_client(request):
     class CephClient(object):
-        def __init__(self, mon_host, keyring, pool_name):
+        def __init__(self, mon_host, username, key, pool_name):
             self.mon_host = mon_host
-            self.keyring = keyring
+            self.username = username
+            self.key = key
             self.pool_name = pool_name
 
     pool_name = 'data'
     result = ceph.up(image='onedata/ceph', pools=[(pool_name, '8')])
 
     [container] = result['docker_ids']
+    username = result['username']
+    key = str(result['key'])
     mon_host = docker.inspect(container)['NetworkSettings']['IPAddress']. \
         encode('ascii')
-
-    keyring = '/tmp/ceph.client.admin.keyring'
-    with open(keyring, 'w') as f:
-        f.write(result['keyring'])
 
     def fin():
         docker.exec_(container, ['btrfs', 'subvolume', 'delete',
@@ -72,7 +71,7 @@ def ceph_client(request):
 
     request.addfinalizer(fin)
 
-    return CephClient(mon_host, keyring, pool_name)
+    return CephClient(mon_host, username, key, pool_name)
 
 
 @pytest.fixture

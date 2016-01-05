@@ -131,8 +131,8 @@ def _node_up(gr_id, domain, gr_ips, dns_ips, dns_config, gen_dev_config):
 
     gr_command = '''set -e
 mkdir -p /root/bin/node/log/
-chown {uid}:{gid} /root/bin/node/log/
-chmod ug+s /root/bin/node/log/
+echo 'while ((1)); do chown -R {uid}:{gid} /root/bin/node/log; sleep 1; done' > /root/bin/chown_logs.sh
+bash /root/bin/chown_logs.sh &
 cat <<"EOF" > /tmp/gen_dev_args.json
 {gen_dev_args}
 EOF

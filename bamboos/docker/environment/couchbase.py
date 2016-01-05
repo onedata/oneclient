@@ -60,10 +60,10 @@ def _wait_until(condition, containers):
 def _cluster_nodes(containers, cluster_name, master_hostname, uid):
     for num, container in enumerate(containers[1:]):
         hostname = common.format_hostname(_couchbase(cluster_name, num + 1), uid)
-        docker.exec_(container,
-                     command=["/opt/couchbase/bin/couchbase-cli", "rebalance", "-c", "{0}:8091".format(master_hostname),
+        assert 0 == docker.exec_(container,
+                     command=["/opt/couchbase/bin/couchbase-cli", "server-add", "-c", "{0}:8091".format(master_hostname),
                               "-u", "admin", "-p", "password", "--server-add={0}:8091".format(hostname),
-                              "--server-add-username=admin" "--server-add-password=password"],
+                              "--server-add-username=admin", "--server-add-password=password", "--services=data,index,query"],
                  stdout=sys.stderr)
 
 
@@ -86,19 +86,28 @@ bash'''
 
     master_hostname = common.format_hostname(_couchbase(cluster_name, 0), uid)
 
-    docker.exec_(containers[0],
+    # Initialize database cluster
+    assert 0 == docker.exec_(containers[0],
                  command=["/opt/couchbase/bin/couchbase-cli", "cluster-init", "-c", "{0}:8091".format(master_hostname),
                           "--cluster-init-username=admin", "--cluster-init-password=password",
-                          "--cluster-init-ramsize=512"],
+                          "--cluster-init-ramsize=512", "--services=data,index,query"],
                  stdout=sys.stderr)
 
-    docker.exec_(containers[0],
+    # Create default bucket
+    assert 0 == docker.exec_(containers[0],
                  command=["/opt/couchbase/bin/couchbase-cli", "bucket-create", "-c", "{0}:8091".format(master_hostname),
-                          "-u", "admin", "-p", "password", "--bucket=default", "--bucket-ramsize=512"],
+                          "-u", "admin", "-p", "password", "--bucket=default", "--bucket-ramsize=512", "--wait"],
                  stdout=sys.stderr)
 
+    # Create database cluster nodes
     if len(containers) > 1:
         _cluster_nodes(containers, cluster_name, master_hostname, uid)
+
+    # Rebalance all added nodes
+    assert 0 == docker.exec_(containers[0],
+                 command=["/opt/couchbase/bin/couchbase-cli", "rebalance", "-c", "{0}:8091".format(master_hostname),
+                          "-u", "admin", "-p", "password"],
+                 stdout=sys.stderr)
 
     common.merge(couchbase_output, dns_output)
 

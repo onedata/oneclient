@@ -13,14 +13,17 @@ namespace helpers {
 
 const error_t CephHelper::SuccessCode = error_t();
 
-CephHelper::CephHelper(
-    const std::unordered_map<std::string, std::string> & /*args*/,
+CephHelper::CephHelper(std::unordered_map<std::string, std::string> args,
     asio::io_service &service)
     : m_service{service}
+    , m_args{std::move(args)}
 {
 }
 
-CTXPtr CephHelper::createCTX() { return std::make_shared<CephHelperCTX>(); }
+CTXPtr CephHelper::createCTX()
+{
+    return std::make_shared<CephHelperCTX>(m_args);
+}
 
 void CephHelper::ash_unlink(
     CTXPtr rawCTX, const boost::filesystem::path &p, VoidCallback callback)
@@ -148,6 +151,11 @@ std::shared_ptr<CephHelperCTX> CephHelper::getCTX(CTXPtr rawCTX) const
     return ctx;
 }
 
+CephHelperCTX::CephHelperCTX(std::unordered_map<std::string, std::string> args)
+    : m_args{std::move(args)}
+{
+}
+
 CephHelperCTX::~CephHelperCTX()
 {
     ioCTX.close();
@@ -157,33 +165,34 @@ CephHelperCTX::~CephHelperCTX()
 void CephHelperCTX::setUserCTX(
     std::unordered_map<std::string, std::string> args)
 {
+    m_args.swap(args);
+    m_args.insert(args.begin(), args.end());
     int ret = 0;
     ret = cluster.init2(
-        args.at("user_name").c_str(), args.at("cluster_name").c_str(), 0);
+        m_args.at("user_name").c_str(), m_args.at("cluster_name").c_str(), 0);
     if (ret < 0)
         throw std::system_error(
             makePosixError(ret), "Couldn't initialize the cluster handle.");
-    ret = cluster.conf_set("mon host", args.at("mon_host").c_str());
+    ret = cluster.conf_set("mon host", m_args.at("mon_host").c_str());
     if (ret < 0)
         throw std::system_error(makePosixError(ret),
             "Couldn't set monitor host configuration variable.");
-    ret = cluster.conf_set("keyring", args.at("keyring").c_str());
+    ret = cluster.conf_set("key", m_args.at("key").c_str());
     if (ret < 0)
-        throw std::system_error(makePosixError(ret),
-            "Couldn't set keyring configuration variable.");
+        throw std::system_error(
+            makePosixError(ret), "Couldn't set key configuration variable.");
     ret = cluster.connect();
     if (ret < 0)
         throw std::system_error(
             makePosixError(ret), "Couldn't connect to cluster.");
-    ret = cluster.ioctx_create(args.at("pool_name").c_str(), ioCTX);
+    ret = cluster.ioctx_create(m_args.at("pool_name").c_str(), ioCTX);
     if (ret < 0)
         throw std::system_error(makePosixError(ret), "Couldn't set up ioCTX.");
-    m_username = args.at("user_name");
 }
 
 std::unordered_map<std::string, std::string> CephHelperCTX::getUserCTX()
 {
-    return {{"username", m_username}};
+    return {{"user_name", m_args.at("user_name")}, {"key", m_args.at("key")}};
 }
 
 } // namespace helpers

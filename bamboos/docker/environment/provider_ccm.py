@@ -51,8 +51,8 @@ def _node_up(image, bindir, config, dns_servers, logdir):
 
     command = \
         '''mkdir -p /root/bin/node/log/
-chown {uid}:{gid} /root/bin/node/log/
-chmod ug+s /root/bin/node/log/
+echo 'while ((1)); do chown -R {uid}:{gid} /root/bin/node/log; sleep 1; done' > /root/bin/chown_logs.sh
+bash /root/bin/chown_logs.sh &
 cat <<"EOF" > /tmp/gen_dev_args.json
 {gen_dev_args}
 EOF
@@ -92,19 +92,19 @@ def _ready(container):
     return True  # todo implement
 
 
-def up(image, bindir, dns_server, uid, config_path, logdir=None):
+def up(image, bindir, dns_server, uid, config_path, logdir=None, domains_name='provider_domains'):
     config = common.parse_json_file(config_path)
     input_dir = config['dirs_config']['op_ccm']['input_dir']
     dns_servers, output = dns.maybe_start(dns_server, uid)
 
     # CCMs of every provider are started together
-    for op_instance in config['provider_domains']:
+    for op_instance in config[domains_name]:
         gen_dev_cfg = {
             'config': {
                 'input_dir': input_dir,
                 'target_dir': '/root/bin'
             },
-            'nodes': config['provider_domains'][op_instance]['op_ccm']
+            'nodes': config[domains_name][op_instance]['op_ccm']
         }
 
         tweaked_configs = [
