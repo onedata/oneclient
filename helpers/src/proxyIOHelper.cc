@@ -28,6 +28,11 @@ ProxyIOHelper::ProxyIOHelper(
 {
 }
 
+CTXPtr ProxyIOHelper::createCTX()
+{
+    return std::make_shared<ProxyIOHelperCTX>();
+}
+
 void ProxyIOHelper::ash_read(CTXPtr /*ctx*/, const boost::filesystem::path &p,
     asio::mutable_buffer buf, off_t offset,
     GeneralCallback<asio::mutable_buffer> callback)
