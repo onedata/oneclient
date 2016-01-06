@@ -57,32 +57,32 @@ public:
 
     virtual void setUserCTX(std::unordered_map<std::string, std::string> args)
     {
-        throw std::make_error_code(std::errc::not_supported);
+        throw std::system_error(ENOTSUP, std::system_category());
     }
 
     virtual std::unordered_map<std::string, std::string> getUserCTX()
     {
-        throw std::make_error_code(std::errc::not_supported);
+        throw std::system_error(ENOTSUP, std::system_category());
     }
 
     virtual void setFlags(std::vector<Flag> flags)
     {
-        throw std::make_error_code(std::errc::not_supported);
+        throw std::system_error(ENOTSUP, std::system_category());
     }
 
     virtual void setFlags(int flags)
     {
-        throw std::make_error_code(std::errc::not_supported);
+        throw std::system_error(ENOTSUP, std::system_category());
     }
 
     virtual std::vector<Flag> getFlags()
     {
-        throw std::make_error_code(std::errc::not_supported);
+        throw std::system_error(ENOTSUP, std::system_category());
     }
 
     virtual int getFlagValue(Flag flag)
     {
-        throw std::make_error_code(std::errc::not_supported);
+        throw std::system_error(ENOTSUP, std::system_category());
     }
 
 protected:
