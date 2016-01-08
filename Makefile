@@ -42,7 +42,7 @@ docs:
 
 coverage:
 	lcov --directory debug --capture --output-file oneclient.info
-	lcov --remove oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' 'relwithdebinfo/*' 'debug/*' 'release/*' '**/helpers/*' --output-file oneclient.info.cleaned
+	lcov --remove oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' 'relwithdebinfo/*' 'debug/*' 'release/*' '**/helpers/*' 'deps/*' --output-file oneclient.info.cleaned
 	genhtml  -o coverage oneclient.info.cleaned
 	@echo "Coverage written to `pwd`/coverage/index.html"
 
