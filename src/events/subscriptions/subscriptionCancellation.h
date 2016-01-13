@@ -12,6 +12,8 @@
 #include "messages/clientMessage.h"
 #include "messages/serverMessage.h"
 
+#include "messages.pb.h"
+
 namespace one {
 namespace clproto {
 class SubscriptionCancellation;
