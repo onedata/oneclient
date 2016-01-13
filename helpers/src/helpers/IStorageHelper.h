@@ -57,32 +57,32 @@ public:
 
     virtual void setUserCTX(std::unordered_map<std::string, std::string> args)
     {
-        throw std::system_error(ENOTSUP, std::system_category());
+        throw std::system_error{std::make_error_code(std::errc::not_supported)};
     }
 
     virtual std::unordered_map<std::string, std::string> getUserCTX()
     {
-        throw std::system_error(ENOTSUP, std::system_category());
+        throw std::system_error{std::make_error_code(std::errc::not_supported)};
     }
 
     virtual void setFlags(std::vector<Flag> flags)
     {
-        throw std::system_error(ENOTSUP, std::system_category());
+        throw std::system_error{std::make_error_code(std::errc::not_supported)};
     }
 
     virtual void setFlags(int flags)
     {
-        throw std::system_error(ENOTSUP, std::system_category());
+        throw std::system_error{std::make_error_code(std::errc::not_supported)};
     }
 
     virtual std::vector<Flag> getFlags()
     {
-        throw std::system_error(ENOTSUP, std::system_category());
+        throw std::system_error{std::make_error_code(std::errc::not_supported)};
     }
 
     virtual int getFlagValue(Flag flag)
     {
-        throw std::system_error(ENOTSUP, std::system_category());
+        throw std::system_error{std::make_error_code(std::errc::not_supported)};
     }
 
 protected:
@@ -237,6 +237,26 @@ public:
         callback({});
     }
 
+    virtual int sh_open(CTXPtr ctx, const boost::filesystem::path &p, int flags)
+    {
+        auto promise = std::make_shared<std::promise<int>>();
+        auto future = promise->get_future();
+
+        auto callback = [promise = std::move(promise)](
+            int fd, const std::error_code &ec) mutable
+        {
+            if (ec)
+                promise->set_exception(
+                    std::make_exception_ptr(std::system_error{ec}));
+            else
+                promise->set_value(fd);
+        };
+
+        ctx->setFlags(flags);
+        ash_open(std::move(ctx), p, std::move(callback));
+        return waitFor(future);
+    }
+
     virtual asio::mutable_buffer sh_read(CTXPtr ctx,
         const boost::filesystem::path &p, asio::mutable_buffer buf,
         off_t offset)
@@ -254,7 +274,7 @@ public:
                 promise->set_value(input);
         };
 
-        ash_read(ctx, p, buf, offset, std::move(callback));
+        ash_read(std::move(ctx), p, buf, offset, std::move(callback));
         return waitFor(future);
     }
 
@@ -274,7 +294,7 @@ public:
                 promise->set_value(wrote);
         };
 
-        ash_write(ctx, p, buf, offset, std::move(callback));
+        ash_write(std::move(ctx), p, buf, offset, std::move(callback));
         return waitFor(future);
     }
 

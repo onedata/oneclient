@@ -27,6 +27,8 @@ namespace helpers {
 
 class PosixHelperCTX : public IStorageHelperCTX {
 public:
+    ~PosixHelperCTX();
+
     void setUserCTX(std::unordered_map<std::string, std::string> args);
 
     std::unordered_map<std::string, std::string> getUserCTX();
@@ -42,7 +44,7 @@ public:
     uid_t uid = 0;
     gid_t gid = 0;
     int flags = 0;
-    int fh = 0;
+    int fh = -1;
 
 private:
     static const std::map<IStorageHelperCTX::Flag, int> openFlagTranslation;

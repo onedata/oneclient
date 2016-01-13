@@ -44,7 +44,7 @@ public:
         auto rawCTX = m_helper.createCTX();
         m_ctx = std::dynamic_pointer_cast<one::helpers::CephHelperCTX>(rawCTX);
         if (m_ctx == nullptr)
-            throw std::make_error_code(std::errc::invalid_argument);
+            throw std::system_error{std::make_error_code(std::errc::invalid_argument)};
         m_ctx->setUserCTX({{"user_name", std::move(username)},
             {"cluster_name", "ceph"}, {"mon_host", std::move(monHost)},
             {"key", std::move(key)}, {"pool_name", std::move(poolName)}});
@@ -56,13 +56,20 @@ public:
         m_worker.join();
     }
 
-    bool unlink(std::string fileId)
+    int open(std::string fileId)
+    {
+        ReleaseGIL guard;
+        return m_helper.sh_open(m_ctx, fileId, 0);
+    }
+
+    void unlink(std::string fileId)
     {
         ReleaseGIL guard;
 
-        auto p = make_promise();
-        m_helper.ash_unlink(m_ctx, fileId,
-            std::bind(&CephProxy::set_promise, this, p, std::placeholders::_1));
+        auto p = make_promise<void>();
+        m_helper.ash_unlink(
+            m_ctx, fileId, std::bind(&CephProxy::set_void_promise, this, p,
+                               std::placeholders::_1));
 
         return get_future(std::move(p));
     }
@@ -81,35 +88,49 @@ public:
         return m_helper.sh_write(m_ctx, fileId, asio::buffer(data), offset);
     }
 
-    bool truncate(std::string fileId, int offset)
+    void truncate(std::string fileId, int offset)
     {
         ReleaseGIL guard;
 
-        auto p = make_promise();
-        m_helper.ash_truncate(m_ctx, fileId, offset,
-            std::bind(&CephProxy::set_promise, this, p, std::placeholders::_1));
+        auto p = make_promise<void>();
+        m_helper.ash_truncate(
+            m_ctx, fileId, offset, std::bind(&CephProxy::set_void_promise, this,
+                                       p, std::placeholders::_1));
 
         return get_future(std::move(p));
     }
 
 private:
-    void set_promise(
-        std::shared_ptr<std::promise<bool>> p, one::helpers::error_t e)
+    void set_void_promise(
+        std::shared_ptr<std::promise<void>> p, one::helpers::error_t e)
     {
         if (e) {
             p->set_exception(std::make_exception_ptr(std::system_error(e)));
         }
         else {
-            p->set_value(true);
+            p->set_value();
         }
     }
 
-    std::shared_ptr<std::promise<bool>> make_promise()
+    template <class T>
+    void set_promise(
+        std::shared_ptr<std::promise<T>> p, T value, one::helpers::error_t e)
     {
-        return std::make_shared<std::promise<bool>>();
+        if (e) {
+            std::cout << "Error: " << e.message() << std::endl;
+            p->set_exception(std::make_exception_ptr(std::system_error(e)));
+        }
+        else {
+            p->set_value(value);
+        }
     }
 
-    bool get_future(std::shared_ptr<std::promise<bool>> p)
+    template <class T> std::shared_ptr<std::promise<T>> make_promise()
+    {
+        return std::make_shared<std::promise<T>>();
+    }
+
+    template <class T> T get_future(std::shared_ptr<std::promise<T>> p)
     {
         using namespace std::literals;
         auto f = p->get_future();
@@ -138,7 +159,8 @@ BOOST_PYTHON_MODULE(ceph)
 {
     class_<CephProxy, boost::noncopyable>("CephProxy", no_init)
         .def("__init__", make_constructor(create))
-        .def("delete", &CephProxy::unlink)
+        .def("open", &CephProxy::open)
+        .def("unlink", &CephProxy::unlink)
         .def("read", &CephProxy::read)
         .def("write", &CephProxy::write)
         .def("truncate", &CephProxy::truncate);

@@ -8,13 +8,13 @@ Functions wrapping capabilities of docker binary.
 
 import json
 import os
-import sys
 import subprocess
+import sys
 
 
 # noinspection PyDefaultArgument
-def run(image, docker_host=None, detach=False, dns_list=[], envs={},
-        hostname=None, interactive=False, link={}, tty=False, rm=False,
+def run(image, docker_host=None, detach=False, dns_list=[], add_host={},
+        envs={}, hostname=None, interactive=False, link={}, tty=False, rm=False,
         reflect=[], volumes=[], name=None, workdir=None, user=None,
         run_params=[], command=None, stdin=None, stdout=None, stderr=None):
     cmd = ['docker']
@@ -29,6 +29,9 @@ def run(image, docker_host=None, detach=False, dns_list=[], envs={},
 
     for addr in dns_list:
         cmd.extend(['--dns', addr])
+
+    for key in add_host:
+        cmd.extend(['--add-host', '{0}:{1}'.format(key, add_host[key])])
 
     for key in envs:
         cmd.extend(['-e', '{0}={1}'.format(key, envs[key])])

@@ -31,10 +31,18 @@ public:
 
     void setFlags(int flags) {}
 
+    /**
+     * Establishes connection to the Ceph storage cluster.
+     * @param reconnect Flag that defines whether close current connection (if
+     * present) and establish new one.
+     */
+    int connect(bool reconnect = false);
+
     librados::Rados cluster;
     librados::IoCtx ioCTX;
 
 private:
+    bool m_connected = false;
     std::unordered_map<std::string, std::string> m_args;
 };
 
@@ -44,6 +52,9 @@ public:
         asio::io_service &service);
 
     CTXPtr createCTX();
+
+    void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
+        GeneralCallback<int> callback);
 
     void ash_unlink(
         CTXPtr ctx, const boost::filesystem::path &p, VoidCallback callback);
@@ -74,12 +85,6 @@ public:
         VoidCallback callback)
     {
         callback(SuccessCode);
-    }
-
-    void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
-        GeneralCallback<int> callback)
-    {
-        callback({}, SuccessCode);
     }
 
 private:

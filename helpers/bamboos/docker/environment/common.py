@@ -146,7 +146,7 @@ def format_hostname(domain_parts, uid):
     """Formats hostname for a docker based on domain parts and uid.
     NOTE: Hostnames are also used as docker names!
     domain_parts - a single or a list of consecutive domain parts that constitute a unique name
-    within environment e.g.: ['worker1', 'prov1'], ['ccm1', 'prov1'], 'client1'
+    within environment e.g.: ['worker1', 'prov1'], ['cm1', 'prov1'], 'client1'
     uid - timestamp
     """
     if isinstance(domain_parts, (str, unicode)):
@@ -160,7 +160,7 @@ def format_hostname(domain_parts, uid):
 def format_erl_node_name(app_name, hostname):
     """Formats full node name for an erlang VM hosted on docker based on app_name and hostname.
     NOTE: Hostnames are also used as docker names!
-    app_name - application name, e.g.: 'op_ccm', 'globalregistry'
+    app_name - application name, e.g.: 'cluster_manager', 'globalregistry'
     hostname - hostname aquired by format_*_hostname
     """
     return '{0}@{1}'.format(app_name, hostname)

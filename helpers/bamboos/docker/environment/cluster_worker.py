@@ -20,7 +20,7 @@ class ClusterWorkerConfigurator:
     def tweak_config(self, cfg, uid):
         return cfg
 
-    def configure_started_instance(self, bindir, instance, config, os_config, output):
+    def configure_started_instance(self, bindir, instance, config, output):
         pass
 
     def extra_volumes(self, config):

@@ -43,11 +43,11 @@ parser.add_argument(
     dest='bin_cluster_worker')
 
 parser.add_argument(
-    '-bccm', '--bin-ccm',
+    '-bcm', '--bin-cm',
     action='store',
-    default=env.default('bin_op_ccm'),
-    help='the path to op_ccm repository (precompiled)',
-    dest='bin_op_ccm')
+    default=env.default('bin_cluster_manager'),
+    help='the path to cluster_manager repository (precompiled)',
+    dest='bin_cluster_manager')
 
 parser.add_argument(
     '-bg', '--bin-gr',
@@ -85,7 +85,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 output = env.up(args.config_path, image=args.image, bin_am=args.bin_am,
-       bin_gr=args.bin_gr, bin_op_ccm=args.bin_op_ccm,
+       bin_gr=args.bin_gr, bin_cluster_manager=args.bin_cluster_manager,
        bin_op_worker=args.bin_op_worker, bin_cluster_worker=args.bin_cluster_worker,
        bin_oc=args.bin_oc, logdir=args.logdir)
 
