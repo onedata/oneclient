@@ -34,7 +34,7 @@ parser.add_argument(
         dest='pools')
 
 args = parser.parse_args()
-pools = map(lambda pool: tuple(pool.split(',')), args.pools)
+pools = map(lambda pool: tuple(pool.split(':')), args.pools)
 
 config = ceph.up(args.image, pools)
 

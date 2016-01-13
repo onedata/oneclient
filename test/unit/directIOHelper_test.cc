@@ -220,7 +220,7 @@ TEST_F(DirectIOHelperTest, shouldRelease)
     proxy->ash_release(ctx, testFileId,
         std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     EXPECT_NO_THROW(pv1->get_future().get());
-    EXPECT_EQ(0, ctx->fh);
+    EXPECT_EQ(-1, ctx->fh);
 }
 
 TEST_F(DirectIOHelperTest, shouldRunSync)

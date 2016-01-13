@@ -17,7 +17,7 @@ RIAK_READY_WAIT_SECONDS = 60 * 5
 
 
 def riak_hostname(node_num, op_instance, uid):
-    """Formats hostname for a docker hosting op_ccm.
+    """Formats hostname for a docker hosting riak.
     NOTE: Hostnames are also used as docker names!
     """
     node_name = 'riak{0}'.format(node_num)
@@ -25,7 +25,7 @@ def riak_hostname(node_num, op_instance, uid):
 
 
 def riak_erl_node_name(node_name, op_instance, uid):
-    """Formats erlang node name for a vm on op_ccm docker.
+    """Formats erlang node name for a vm on cluster_manager docker.
     """
     hostname = riak_hostname(node_name, op_instance, uid)
     return common.format_erl_node_name('riak', hostname)

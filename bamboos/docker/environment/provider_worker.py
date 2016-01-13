@@ -25,13 +25,15 @@ class ProviderWorkerConfigurator:
             sys_config['global_registry_domain'] = gr_hostname
         return cfg
 
-    def configure_started_instance(self, bindir, instance, config, os_config, output):
-        create_storages(config['os_configs'][os_config]['storages'],
-                        output[self.nodes_list_attribute()],
-                        config[self.domains_attribute()][instance][self.app_name()], bindir)
+    def configure_started_instance(self, bindir, instance, config, output):
+        if 'os_config' in config[self.domains_attribute()][instance]:
+            os_config = config[self.domains_attribute()][instance]['os_config']
+            create_storages(config['os_configs'][os_config]['storages'],
+                            output[self.nodes_list_attribute()],
+                            config[self.domains_attribute()][instance][self.app_name()], bindir)
 
     def extra_volumes(self, config):
-        return [common.volume_for_storage(s) for s in config['os_config']['storages']]
+        return [common.volume_for_storage(s) for s in config['os_config']['storages']] if 'os_config' in config else []
 
     def app_name(self):
         return "op_worker"

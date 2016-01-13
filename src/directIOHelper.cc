@@ -365,6 +365,7 @@ void DirectIOHelper::ash_open(CTXPtr rawCTX, const boost::filesystem::path &p,
             }
 
             int res = open(root(p).c_str(), ctx->flags);
+
             if (res == -1) {
                 callback(-1, makePosixError(errno));
             }
@@ -432,11 +433,11 @@ void DirectIOHelper::ash_release(
                 return;
             }
 
-            if (ctx->fh && close(ctx->fh) == -1) {
+            if ((ctx->fh != -1) && close(ctx->fh) == -1) {
                 callback(makePosixError(errno));
             }
             else {
-                ctx->fh = 0;
+                ctx->fh = -1;
                 callback(SuccessCode);
             }
         });
@@ -483,7 +484,7 @@ std::size_t DirectIOHelper::sh_write(CTXPtr rawCTX,
         throw std::system_error(makePosixError(EDOM));
     }
 
-    int fd = ctx->fh > 0 ? ctx->fh : open(root(p).c_str(), O_WRONLY);
+    int fd = ctx->fh != -1 ? ctx->fh : open(root(p).c_str(), O_WRONLY);
     if (fd == -1) {
         throw std::system_error(makePosixError(errno));
     }
@@ -493,7 +494,7 @@ std::size_t DirectIOHelper::sh_write(CTXPtr rawCTX,
 
     auto potentialError = makePosixError(errno);
 
-    if (ctx->fh <= 0) {
+    if (ctx->fh == -1) {
         close(fd);
     }
 
@@ -513,7 +514,7 @@ asio::mutable_buffer DirectIOHelper::sh_read(CTXPtr rawCTX,
         throw std::system_error(makePosixError(EDOM));
     }
 
-    int fd = ctx->fh > 0 ? ctx->fh : open(root(p).c_str(), O_RDONLY);
+    int fd = ctx->fh != -1 ? ctx->fh : open(root(p).c_str(), O_RDONLY);
     if (fd == -1) {
         throw std::system_error(makePosixError(errno));
     }
@@ -523,7 +524,7 @@ asio::mutable_buffer DirectIOHelper::sh_read(CTXPtr rawCTX,
 
     auto potentialError = makePosixError(errno);
 
-    if (ctx->fh <= 0) {
+    if (ctx->fh == -1) {
         close(fd);
     }
 
@@ -549,6 +550,12 @@ std::shared_ptr<PosixHelperCTX> DirectIOHelper::getCTX(CTXPtr rawCTX) const
     if (ctx == nullptr)
         throw std::make_error_code(std::errc::invalid_argument);
     return ctx;
+}
+
+PosixHelperCTX::~PosixHelperCTX()
+{
+    if (fh != -1)
+        close(fh);
 }
 
 void PosixHelperCTX::setUserCTX(
