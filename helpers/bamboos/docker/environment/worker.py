@@ -9,8 +9,6 @@ Script is parametrised by worker type related configurator.
 import copy
 import json
 import os
-import subprocess
-import sys
 from . import common, docker, riak, couchbase, dns, cluster_manager
 
 CLUSTER_WAIT_FOR_NAGIOS_SECONDS = 60 * 2
@@ -169,6 +167,8 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None):
 
     # Workers of every cluster are started together
     for instance in config[configurator.domains_attribute()]:
+        current_output = {}
+
         gen_dev_cfg = {
             'config': {
                 'input_dir': input_dir,
@@ -204,7 +204,7 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None):
         else:
             raise ValueError("Invalid db_driver: {0}".format(db_driver))
 
-        common.merge(output, db_out)
+        common.merge(current_output, db_out)
 
         # Start the workers
         workers = []
@@ -213,7 +213,7 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None):
             worker, node_out = _node_up(image, bindir, cfg, dns_servers, db_node_mappings, logdir, configurator)
             workers.append(worker)
             worker_ips.append(common.get_docker_ip(worker))
-            common.merge(output, node_out)
+            common.merge(current_output, node_out)
 
         # Wait for all workers to start
         common.wait_until(_ready, workers, CLUSTER_WAIT_FOR_NAGIOS_SECONDS)
@@ -227,8 +227,9 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None):
                 }
             }
         }
-        common.merge(output, domains)
-        configurator.configure_started_instance(bindir, instance, config, output)
+        common.merge(current_output, domains)
+        configurator.configure_started_instance(bindir, instance, config, current_output)
+        common.merge(output, current_output)
 
     # Make sure domains are added to the dns server.
     dns.maybe_restart_with_configuration(dns_server, uid, output)
