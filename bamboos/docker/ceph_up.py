@@ -30,7 +30,7 @@ parser.add_argument(
         '-p', '--pool',
         action='append',
         default=[],
-        help='pool name and number of placement groups in format name,pg_num',
+        help='pool name and number of placement groups in format name:pg_num',
         dest='pools')
 
 args = parser.parse_args()

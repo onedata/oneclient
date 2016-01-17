@@ -28,9 +28,10 @@
 namespace one {
 namespace helpers {
 
-constexpr std::chrono::seconds ASYNC_OPS_TIMEOUT{2};
-
 using error_t = std::error_code;
+
+constexpr std::chrono::seconds ASYNC_OPS_TIMEOUT{2};
+static const error_t SUCCESS_CODE = error_t();
 
 class IStorageHelperCTX {
 public:
@@ -235,26 +236,6 @@ public:
         bool isDataSync, VoidCallback callback)
     {
         callback({});
-    }
-
-    virtual int sh_open(CTXPtr ctx, const boost::filesystem::path &p, int flags)
-    {
-        auto promise = std::make_shared<std::promise<int>>();
-        auto future = promise->get_future();
-
-        auto callback = [promise = std::move(promise)](
-            int fd, const std::error_code &ec) mutable
-        {
-            if (ec)
-                promise->set_exception(
-                    std::make_exception_ptr(std::system_error{ec}));
-            else
-                promise->set_value(fd);
-        };
-
-        ctx->setFlags(flags);
-        ash_open(std::move(ctx), p, std::move(callback));
-        return waitFor(future);
     }
 
     virtual asio::mutable_buffer sh_read(CTXPtr ctx,

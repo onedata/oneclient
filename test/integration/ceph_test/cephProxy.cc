@@ -39,27 +39,23 @@ public:
         : m_service{1}
         , m_idleWork{asio::make_work(m_service)}
         , m_worker{[=] { m_service.run(); }}
-        , m_helper{{}, m_service}
+        , m_helper{
+              {{"user_name", std::move(username)}, {"cluster_name", "ceph"},
+                  {"mon_host", std::move(monHost)}, {"key", std::move(key)},
+                  {"pool_name", std::move(poolName)}},
+              m_service}
     {
         auto rawCTX = m_helper.createCTX();
         m_ctx = std::dynamic_pointer_cast<one::helpers::CephHelperCTX>(rawCTX);
         if (m_ctx == nullptr)
-            throw std::system_error{std::make_error_code(std::errc::invalid_argument)};
-        m_ctx->setUserCTX({{"user_name", std::move(username)},
-            {"cluster_name", "ceph"}, {"mon_host", std::move(monHost)},
-            {"key", std::move(key)}, {"pool_name", std::move(poolName)}});
+            throw std::system_error{
+                std::make_error_code(std::errc::invalid_argument)};
     }
 
     ~CephProxy()
     {
         m_service.stop();
         m_worker.join();
-    }
-
-    int open(std::string fileId)
-    {
-        ReleaseGIL guard;
-        return m_helper.sh_open(m_ctx, fileId, 0);
     }
 
     void unlink(std::string fileId)
@@ -159,7 +155,6 @@ BOOST_PYTHON_MODULE(ceph)
 {
     class_<CephProxy, boost::noncopyable>("CephProxy", no_init)
         .def("__init__", make_constructor(create))
-        .def("open", &CephProxy::open)
         .def("unlink", &CephProxy::unlink)
         .def("read", &CephProxy::read)
         .def("write", &CephProxy::write)

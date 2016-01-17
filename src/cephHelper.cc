@@ -12,8 +12,6 @@
 namespace one {
 namespace helpers {
 
-const error_t CephHelper::SuccessCode = error_t();
-
 CephHelper::CephHelper(std::unordered_map<std::string, std::string> args,
     asio::io_service &service)
     : m_service{service}
@@ -24,18 +22,6 @@ CephHelper::CephHelper(std::unordered_map<std::string, std::string> args,
 CTXPtr CephHelper::createCTX()
 {
     return std::make_shared<CephHelperCTX>(m_args);
-}
-
-void CephHelper::ash_open(CTXPtr rawCTX, const boost::filesystem::path &p,
-    GeneralCallback<int> callback)
-{
-    auto ctx = getCTX(std::move(rawCTX));
-    auto ret = ctx->connect();
-
-    if (ret < 0)
-        return callback(-1, makePosixError(ret));
-
-    callback(-1, SuccessCode);
 }
 
 void CephHelper::ash_unlink(
@@ -67,7 +53,7 @@ void CephHelper::ash_unlink(
             callback(makePosixError(result));
         }
         else {
-            callback(SuccessCode);
+            callback(SUCCESS_CODE);
         }
     });
 }
@@ -107,7 +93,7 @@ void CephHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
         }
         else {
             asio::buffer_copy(buf, asio::mutable_buffer(bl->c_str(), result));
-            callback(asio::buffer(buf, result), SuccessCode);
+            callback(asio::buffer(buf, result), SUCCESS_CODE);
         }
     });
 }
@@ -145,7 +131,7 @@ void CephHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
             callback(0, makePosixError(result));
         }
         else {
-            callback(size, SuccessCode);
+            callback(size, SUCCESS_CODE);
         }
     });
 }
@@ -172,7 +158,7 @@ void CephHelper::ash_truncate(CTXPtr rawCTX, const boost::filesystem::path &p,
             callback(makePosixError(result));
         }
         else {
-            callback(SuccessCode);
+            callback(SUCCESS_CODE);
         }
     });
 }

@@ -24,11 +24,6 @@ def helper(ceph_client):
                           ceph_client.key, ceph_client.pool_name)
 
 
-def test_open_should_establish_connection(helper):
-    file_id = random_str()
-
-    helper.open(file_id)
-
 def test_write_should_write_data(helper):
     file_id = random_str()
     data = random_str()

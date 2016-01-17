@@ -22,8 +22,6 @@ namespace helpers {
 
 class ProxyIOHelperCTX : public IStorageHelperCTX {
 public:
-    void setUserCTX(std::unordered_map<std::string, std::string> args) {}
-
     void setFlags(int flags) {}
 };
 
