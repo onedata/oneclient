@@ -11,7 +11,7 @@ import copy
 import subprocess
 import json
 from . import appmock, client, common, globalregistry, cluster_manager, \
-    provider_worker, cluster_worker, docker, dns
+    worker, provider_worker, cluster_worker, docker, dns
 
 
 def default(key):
@@ -93,7 +93,7 @@ def up(config_path, image=default('image'), bin_am=default('bin_am'),
             for cfg_node in config['provider_domains'][provider_name][
                 'op_worker'].keys():
                 providers_map[provider_name]['nodes'].append(
-                    provider_worker.worker_erl_node_name(cfg_node,
+                    worker.worker_erl_node_name(cfg_node,
                                                          provider_name, uid))
                 providers_map[provider_name]['cookie'] = \
                     config['provider_domains'][provider_name]['op_worker'][

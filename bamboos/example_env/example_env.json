@@ -58,9 +58,9 @@
                     "user3"
                 ],
                 "fuse": [
-                    "u1",
-                    "u2",
-                    "u3"
+                    "user1",
+                    "user2",
+                    "user3"
                 ]
             }
         }
@@ -208,39 +208,39 @@
     },
     "global_setup": {
         "users": {
-            "u1": {
-                "default_space": "s1"
+            "user1": {
+                "default_space": "space1"
             },
-            "u2": {
-                "default_space": "s2"
+            "user2": {
+                "default_space": "space2"
             },
-            "u3": {
-                "default_space": "s1"
+            "user3": {
+                "default_space": "space1"
             }
         },
         "groups": {
-            "g1": {
+            "group1": {
                 "users": [
-                    "u1",
-                    "u3"
+                    "user1",
+                    "user3"
                 ]
             },
-            "g2": {
+            "group2": {
                 "users": [
-                    "u2"
+                    "user2"
                 ]
             }
         },
         "spaces": {
-            "s1": {
-                "displayed_name": "s1",
+            "space1": {
+                "displayed_name": "space1",
                 "users": [
-                    "u1",
-                    "u2",
-                    "u3"
+                    "user1",
+                    "user2",
+                    "user3"
                 ],
                 "groups": [
-                    "g1"
+                    "group1"
                 ],
                 "providers": [
                     {
@@ -249,13 +249,13 @@
                     }
                 ]
             },
-            "s2": {
-                "displayed_name": "s2",
+            "space2": {
+                "displayed_name": "space2",
                 "users": [
-                    "u2"
+                    "user2"
                 ],
                 "groups": [
-                    "g2"
+                    "group2"
                 ],
                 "providers": [
                     {
@@ -291,8 +291,8 @@
                     "gr_domain": "gr",
                     "user_cert": "./cert.pem",
                     "user_key": "./cert.pem",
-                    "mounting_path": "/home/u1/onedata",
-                    "token_for": "u1"
+                    "mounting_path": "/home/user1/onedata_cl1",
+                    "token_for": "user1"
                 },
                 "client2": {
                     "name": "client2",
@@ -300,13 +300,13 @@
                     "gr_domain": "gr",
                     "user_cert": "./cert.pem",
                     "user_key": "./cert.pem",
-                    "mounting_path": "/home/u1/onedata",
-                    "token_for": "u1"
+                    "mounting_path": "/home/user1/onedata_cl2",
+                    "token_for": "user1"
                 }
             }
         },
         "client_host_2": {
-            "os_config": "cfg1",
+            "os_config": "cfg2",
             "clients": {
                 "client1": {
                     "name": "client1",
@@ -314,8 +314,8 @@
                     "gr_domain": "gr",
                     "user_cert": "./cert.pem",
                     "user_key": "./cert.pem",
-                    "mounting_path": "/home/u1/onedata",
-                    "token_for": "u1"
+                    "mounting_path": "/home/user1/onedata",
+                    "token_for": "user1"
                 },
                 "client2": {
                     "name": "client2",
@@ -323,8 +323,8 @@
                     "gr_domain": "gr",
                     "user_cert": "./cert.pem",
                     "user_key": "./cert.pem",
-                    "mounting_path": "/home/u2/onedata",
-                    "token_for": "u2"
+                    "mounting_path": "/home/user2/onedata",
+                    "token_for": "user2"
                 }
             }
         }
