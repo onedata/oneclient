@@ -10,7 +10,6 @@
 #define ONECLIENT_FILE_CONTEXT_CACHE_H
 
 #include "helpers/IStorageHelper.h"
-#include "directIOHelper.h"
 
 #include <fuse/fuse_common.h>
 #include <tbb/concurrent_hash_map.h>

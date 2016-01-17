@@ -8,6 +8,8 @@
 
 #include "subscriptionCancellation.h"
 
+#include "messages.pb.h"
+
 #include <sstream>
 
 namespace one {

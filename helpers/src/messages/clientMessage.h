@@ -9,8 +9,6 @@
 #ifndef HELPERS_MESSAGES_CLIENT_MESSAGE_H
 #define HELPERS_MESSAGES_CLIENT_MESSAGE_H
 
-#include "messages.pb.h"
-
 #include <memory>
 #include <string>
 

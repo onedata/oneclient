@@ -8,6 +8,9 @@
 
 #include "eventTestUtils.h"
 #include "events/subscriptionRegistry.h"
+#include "events/subscriptions/subscriptionCancellation.h"
+
+#include "messages.pb.h"
 
 #include <functional>
 
@@ -34,19 +37,19 @@ TEST_F(SubscriptionRegistryTest,
     removeSubscriptionShouldRemoveExistingSubscription)
 {
     registry.addUnsubscribeHandler(1, [] {});
-    EXPECT_TRUE(registry.removeSubscription(1));
+    EXPECT_TRUE(registry.removeSubscription(SubscriptionCancellation{1}));
 }
 
 TEST_F(SubscriptionRegistryTest,
     removeSubscriptionShouldNotRemoveNonExistingSubscription)
 {
-    EXPECT_FALSE(registry.removeSubscription(1));
+    EXPECT_FALSE(registry.removeSubscription(SubscriptionCancellation{1}));
 }
 
 TEST_F(SubscriptionRegistryTest, removeSubscriptionShouldCallUnsubscribeHandler)
 {
     bool called = false;
     registry.addUnsubscribeHandler(1, [&] { called = true; });
-    registry.removeSubscription(1);
+    registry.removeSubscription(SubscriptionCancellation{1});
     EXPECT_TRUE(called);
 }
