@@ -32,20 +32,6 @@
 namespace one {
 namespace helpers {
 
-namespace {
-inline boost::filesystem::path extractPath(
-    const std::unordered_map<std::string, std::string> &args)
-{
-    auto it = args.find("root_path");
-    if (it == args.end())
-        return {};
-
-    return {it->second};
-}
-}
-
-const error_t DirectIOHelper::SuccessCode = error_t();
-
 inline boost::filesystem::path DirectIOHelper::root(
     const boost::filesystem::path &path)
 {
@@ -112,7 +98,7 @@ void DirectIOHelper::ash_getattr(CTXPtr rawCTX,
                 callback(std::move(stbuf), makePosixError(errno));
             }
             else {
-                callback(std::move(stbuf), SuccessCode);
+                callback(std::move(stbuf), SUCCESS_CODE);
             }
         });
 }
@@ -154,7 +140,7 @@ void DirectIOHelper::ash_readlink(CTXPtr rawCTX,
             }
             else {
                 buf[res] = '\0';
-                callback(buf.data(), SuccessCode);
+                callback(buf.data(), SUCCESS_CODE);
             }
         });
 }
@@ -200,7 +186,7 @@ void DirectIOHelper::ash_mknod(CTXPtr rawCTX, const boost::filesystem::path &p,
                 callback(makePosixError(errno));
             }
             else {
-                callback(SuccessCode);
+                callback(SUCCESS_CODE);
             }
         });
 }
@@ -371,7 +357,7 @@ void DirectIOHelper::ash_open(CTXPtr rawCTX, const boost::filesystem::path &p,
             }
             else {
                 ctx->fh = res;
-                callback(res, SuccessCode);
+                callback(res, SUCCESS_CODE);
             }
         });
 }
@@ -391,7 +377,7 @@ void DirectIOHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
 
             try {
                 auto res = sh_read(std::move(ctx), p, buf, offset);
-                callback(res, SuccessCode);
+                callback(res, SUCCESS_CODE);
             }
             catch (std::system_error &e) {
                 callback(asio::mutable_buffer(), e.code());
@@ -413,7 +399,7 @@ void DirectIOHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
 
             try {
                 auto res = sh_write(std::move(ctx), p, buf, offset);
-                callback(res, SuccessCode);
+                callback(res, SUCCESS_CODE);
             }
             catch (std::system_error &e) {
                 callback(0, e.code());
@@ -438,7 +424,7 @@ void DirectIOHelper::ash_release(
             }
             else {
                 ctx->fh = -1;
-                callback(SuccessCode);
+                callback(SUCCESS_CODE);
             }
         });
 }
@@ -455,7 +441,7 @@ void DirectIOHelper::ash_flush(
                 return;
             }
 
-            callback(SuccessCode);
+            callback(SUCCESS_CODE);
         });
 }
 
@@ -471,7 +457,7 @@ void DirectIOHelper::ash_fsync(CTXPtr rawCTX, const boost::filesystem::path &p,
                 return;
             }
 
-            callback(SuccessCode);
+            callback(SUCCESS_CODE);
         });
 }
 
@@ -538,7 +524,7 @@ asio::mutable_buffer DirectIOHelper::sh_read(CTXPtr rawCTX,
 DirectIOHelper::DirectIOHelper(
     const std::unordered_map<std::string, std::string> &args,
     asio::io_service &service, UserCTXFactory userCTXFactory)
-    : m_rootPath{extractPath(args)}
+    : m_rootPath{args.at("root_path")}
     , m_workerService{service}
     , m_userCTXFactory{userCTXFactory}
 {
@@ -548,7 +534,7 @@ std::shared_ptr<PosixHelperCTX> DirectIOHelper::getCTX(CTXPtr rawCTX) const
 {
     auto ctx = std::dynamic_pointer_cast<PosixHelperCTX>(rawCTX);
     if (ctx == nullptr)
-        throw std::make_error_code(std::errc::invalid_argument);
+        throw std::system_error{std::make_error_code(std::errc::invalid_argument)};
     return ctx;
 }
 

@@ -156,7 +156,7 @@ protected:
             callback(makePosixError(errno));
         }
         else {
-            callback(SuccessCode);
+            callback(SUCCESS_CODE);
         }
     }
 
@@ -204,7 +204,6 @@ private:
     const boost::filesystem::path m_rootPath;
     asio::io_service &m_workerService;
     UserCTXFactory m_userCTXFactory;
-    static const error_t SuccessCode;
 };
 
 } // namespace helpers
