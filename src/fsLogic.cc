@@ -327,7 +327,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
 
     auto helper = getHelper(context.uuid, fileBlock.storageId());
     buf = HelperWrapper(*helper, context.helperCtx)
-              .read({fileBlock.fileId()}, buf, offset);
+              .read({fileBlock.fileId()}, buf, offset, context.uuid);
 
     const auto bytesRead = asio::buffer_size(buf);
     m_eventManager.emitReadEvent(offset, bytesRead, context.uuid);
@@ -354,7 +354,7 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
 
     auto helper = getHelper(context.uuid, location.storageId());
     auto bytesWritten = HelperWrapper(*helper, context.helperCtx)
-                            .write(location.fileId(), buf, offset);
+                            .write(location.fileId(), buf, offset, context.uuid);
 
     m_eventManager.emitWriteEvent(offset, bytesWritten, context.uuid,
         location.storageId(), location.fileId());
@@ -561,7 +561,7 @@ int FsLogic::fsyncdir(boost::filesystem::path path, const int datasync,
     return 0;
 }
 
-HelpersCache::HelperPtr FsLogic::getHelper(const std::string &storageId)
+HelpersCache::HelperPtr FsLogic::getHelper(const std::string &fileUuid, const std::string &storageId)
 {
     auto forceClusterProxy = !m_context->options()->get_directio();
     return m_helpersCache.get(storageId, forceClusterProxy);

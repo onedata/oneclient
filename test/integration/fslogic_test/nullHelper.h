@@ -113,14 +113,14 @@ public:
     }
 
     void ash_read(one::helpers::CTXRef, const boost::filesystem::path &,
-        asio::mutable_buffer buf, off_t,
+        asio::mutable_buffer buf, off_t, const std::string &fileUuid,
         one::helpers::GeneralCallback<asio::mutable_buffer> callback) override
     {
         callback(buf, ec);
     }
 
     void ash_write(one::helpers::CTXRef, const boost::filesystem::path &,
-        asio::const_buffer buf, off_t,
+        asio::const_buffer buf, off_t, const std::string &fileUuid,
         one::helpers::GeneralCallback<std::size_t> callback) override
     {
         callback(asio::buffer_size(buf), ec);
@@ -146,7 +146,7 @@ public:
 
     asio::mutable_buffer sh_read(one::helpers::CTXRef,
         const boost::filesystem::path &, asio::mutable_buffer buf,
-        off_t, std::string &) override
+        off_t, const std::string &) override
     {
         if (ec)
             throw std::system_error{ec};
@@ -155,7 +155,7 @@ public:
     }
 
     std::size_t sh_write(one::helpers::CTXRef, const boost::filesystem::path &,
-        asio::const_buffer buf, off_t, std::string &) override
+        asio::const_buffer buf, off_t, const std::string &) override
     {
         if (ec)
             throw std::system_error{ec};

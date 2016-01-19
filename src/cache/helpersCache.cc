@@ -58,14 +58,14 @@ HelpersCache::HelperPtr HelpersCache::get(const std::string &storageId, const bo
 }
 
 bool HelpersCache::HashCompare::equal(
-    const std::tuple<std::string, std::string, bool> &j,
-    const std::tuple<std::string, std::string, bool> &k) const
+    const std::tuple<std::string, bool> &j,
+    const std::tuple<std::string, bool> &k) const
 {
     return j == k;
 }
 
 size_t HelpersCache::HashCompare::hash(
-    const std::tuple<std::string, std::string, bool> &k) const
+    const std::tuple<std::string, bool> &k) const
 {
     auto hashCombine = [](auto &seed, const auto &val) {
         std::hash<typename std::remove_const<
@@ -77,7 +77,6 @@ size_t HelpersCache::HashCompare::hash(
     std::size_t hash = 0;
     hashCombine(hash, std::get<0>(k));
     hashCombine(hash, std::get<1>(k));
-    hashCombine(hash, std::get<2>(k));
     return hash;
 }
 

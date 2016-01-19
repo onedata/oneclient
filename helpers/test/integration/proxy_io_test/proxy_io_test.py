@@ -51,7 +51,7 @@ def test_write_should_write_data(file_uuid, storage_id, endpoint, helper):
     server_message.proxyio_response.remote_write_result.wrote = wrote
 
     with reply(endpoint, server_message) as queue:
-        assert wrote == helper.write(file_id, data, offset)
+        assert wrote == helper.write(file_id, data, offset, file_uuid)
         received = queue.get()
 
     assert received.HasField('proxyio_request')
@@ -73,7 +73,7 @@ def test_write_should_pass_errors(endpoint, helper):
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, server_message):
-            helper.write(random_str(), random_str(), random_int())
+            helper.write(random_str(), random_str(), random_int(), random_str())
 
     assert 'Permission denied' in str(excinfo.value)
 
@@ -88,7 +88,7 @@ def test_read_should_read_data(file_uuid, storage_id, endpoint, helper):
     server_message.proxyio_response.remote_data.data = data
 
     with reply(endpoint, server_message) as queue:
-        assert data == helper.read(file_id, offset, len(data))
+        assert data == helper.read(file_id, offset, len(data), file_uuid)
         received = queue.get()
 
     assert received.HasField('proxyio_request')
@@ -110,6 +110,6 @@ def test_read_should_pass_errors(endpoint, helper):
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, server_message):
-            helper.read(random_str(), random_int(), random_int())
+            helper.read(random_str(), random_int(), random_int(), random_str())
 
     assert 'Operation not permitted' in str(excinfo.value)

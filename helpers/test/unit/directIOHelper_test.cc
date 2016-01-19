@@ -52,7 +52,7 @@ protected:
 
     boost::filesystem::path testFilePath;
     boost::filesystem::path testFileId;
-    boost::filesystem::path testFileUuid;
+    std::string testFileUuid;
 
     std::shared_ptr<std::promise<void>> pv1;
     std::shared_ptr<std::promise<void>> pv2;
@@ -364,7 +364,7 @@ TEST_F(DirectIOHelperTest, AsyncBench)
 
     for (auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
         auto p = make_promise<int>();
-        proxy->ash_write(ctx, testFileId, writeBuf, 0, testFileUuid
+        proxy->ash_write(ctx, testFileId, writeBuf, 0, testFileUuid,
             std::bind(&DirectIOHelperTest::set_promise<int>, this, p, _1, _2));
         res[i] = p->get_future();
     }
