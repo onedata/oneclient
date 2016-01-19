@@ -13,8 +13,6 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.dirname(script_dir))
 # noinspection PyUnresolvedReferences
 from test_common import *
-# noinspection PyUnresolvedReferences
-from environment import common, docker
 import ceph
 
 
@@ -59,7 +57,7 @@ def test_unlink_should_pass_errors(helper):
     assert 'No such file or directory' in str(excinfo.value)
 
 
-def test_unlink_should_unlink_data(helper):
+def test_unlink_should_delete_data(helper):
     file_id = random_str()
     data = random_str()
     offset = random_int()
@@ -71,7 +69,7 @@ def test_unlink_should_unlink_data(helper):
 def test_truncate_should_truncate_data(helper):
     file_id = random_str()
     data = random_str()
-    size = random_int(len(data))
+    size = random_int(upper_bound=len(data))
 
     assert helper.write(file_id, data, 0) == len(data)
     helper.truncate(file_id, size)

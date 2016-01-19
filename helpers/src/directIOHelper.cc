@@ -569,13 +569,13 @@ std::vector<IStorageHelperCTX::Flag> PosixHelperCTX::getFlags()
 {
     std::vector<IStorageHelperCTX::Flag> _flags;
 
-    for (auto &flag : openFlagTranslation) {
+    for (auto &flag : s_openFlagTranslation) {
         if (flags & flag.second) {
             _flags.push_back(flag.first);
         }
     }
 
-    for (auto &flag : openModeTranslation) {
+    for (auto &flag : s_openModeTranslation) {
         // Mask only open mode (ACCMODE) and compare by value
         if ((flags & O_ACCMODE) == flag.second) {
             _flags.push_back(flag.first);
@@ -587,23 +587,23 @@ std::vector<IStorageHelperCTX::Flag> PosixHelperCTX::getFlags()
 
 int PosixHelperCTX::getFlagValue(Flag flag)
 {
-    auto searchResult = openFlagTranslation.find(flag);
-    if (searchResult != openFlagTranslation.end())
+    auto searchResult = s_openFlagTranslation.find(flag);
+    if (searchResult != s_openFlagTranslation.end())
         return searchResult->second;
 
-    searchResult = openModeTranslation.find(flag);
-    if (searchResult != openModeTranslation.end())
+    searchResult = s_openModeTranslation.find(flag);
+    if (searchResult != s_openModeTranslation.end())
         return searchResult->second;
 
-    searchResult = fileTypeTranslation.find(flag);
-    if (searchResult != fileTypeTranslation.end())
+    searchResult = s_fileTypeTranslation.find(flag);
+    if (searchResult != s_fileTypeTranslation.end())
         return searchResult->second;
 
     throw std::system_error{std::make_error_code(std::errc::invalid_argument)};
 }
 
 const std::map<IStorageHelperCTX::Flag, int>
-    PosixHelperCTX::openFlagTranslation = {
+    PosixHelperCTX::s_openFlagTranslation = {
         {IStorageHelperCTX::Flag::NONBLOCK, O_NONBLOCK},
         {IStorageHelperCTX::Flag::APPEND, O_APPEND},
         {IStorageHelperCTX::Flag::ASYNC, O_ASYNC},
@@ -614,13 +614,13 @@ const std::map<IStorageHelperCTX::Flag, int>
         {IStorageHelperCTX::Flag::EXCL, O_EXCL}};
 
 const std::map<IStorageHelperCTX::Flag, int>
-    PosixHelperCTX::openModeTranslation = {
+    PosixHelperCTX::s_openModeTranslation = {
         {IStorageHelperCTX::Flag::RDONLY, O_RDONLY},
         {IStorageHelperCTX::Flag::WRONLY, O_WRONLY},
         {IStorageHelperCTX::Flag::RDWR, O_RDWR}};
 
 const std::map<IStorageHelperCTX::Flag, int>
-    PosixHelperCTX::fileTypeTranslation = {
+    PosixHelperCTX::s_fileTypeTranslation = {
         {IStorageHelperCTX::Flag::IFREG, S_IFREG},
         {IStorageHelperCTX::Flag::IFCHR, S_IFCHR},
         {IStorageHelperCTX::Flag::IFBLK, S_IFBLK},

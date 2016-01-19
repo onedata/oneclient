@@ -11,8 +11,9 @@
 
 #include "helpers/IStorageHelper.h"
 
-#include <asio.hpp>
 #include <rados/librados.hpp>
+
+#include <asio.hpp>
 
 namespace one {
 namespace helpers {
@@ -91,7 +92,55 @@ public:
     }
 
 private:
-    std::shared_ptr<CephHelperCTX> getCTX(CTXPtr rawCtx) const;
+    struct UnlinkCallbackData {
+        UnlinkCallbackData(std::string _fileId, VoidCallback _callback)
+            : fileId{std::move(_fileId)}
+            , callback{std::move(_callback)}
+        {
+        }
+
+        std::string fileId;
+        VoidCallback callback;
+        librados::AioCompletion *completion;
+    };
+
+    struct ReadCallbackData {
+        ReadCallbackData(std::string _fileId, std::size_t _size,
+            asio::mutable_buffer _buffer,
+            GeneralCallback<asio::mutable_buffer> _callback)
+            : fileId{std::move(_fileId)}
+            , buffer{std::move(_buffer)}
+            , callback{std::move(_callback)}
+        {
+            bufferlist.append(ceph::buffer::create_static(
+                _size, asio::buffer_cast<char *>(buffer)));
+        }
+
+        std::string fileId;
+        librados::bufferlist bufferlist;
+        asio::mutable_buffer buffer;
+        GeneralCallback<asio::mutable_buffer> callback;
+        librados::AioCompletion *completion;
+    };
+
+    struct WriteCallbackData {
+        WriteCallbackData(std::string _fileId, std::size_t _size,
+            asio::const_buffer _buffer, GeneralCallback<std::size_t> _callback)
+            : fileId{std::move(_fileId)}
+            , size{_size}
+            , callback{std::move(_callback)}
+        {
+            bufferlist.append(asio::buffer_cast<const char *>(_buffer));
+        }
+
+        std::string fileId;
+        std::size_t size;
+        librados::bufferlist bufferlist;
+        GeneralCallback<std::size_t> callback;
+        librados::AioCompletion *completion;
+    };
+
+    std::shared_ptr<CephHelperCTX> getCTX(CTXPtr rawCTX) const;
 
     asio::io_service &m_service;
     std::unordered_map<std::string, std::string> m_args;

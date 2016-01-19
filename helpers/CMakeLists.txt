@@ -48,13 +48,17 @@ find_library(DL_LIBRARY dl)
 # Rados library
 find_library(RADOS_LIBRARY rados)
 
+# Amazon S3 library
+find_library(S3_LIBRARY s3)
+
 # Setup compile flags
 set(PLATFORM_EXTRA_LIBS
     ${CMAKE_THREAD_LIBS_INIT}
     ${LTDL_LIBRARY}
     ${ZLIB_LIBRARY}
     ${DL_LIBRARY}
-    ${RADOS_LIBRARY})
+    ${RADOS_LIBRARY}
+    ${S3_LIBRARY})
 
 # Code coverage
 option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)

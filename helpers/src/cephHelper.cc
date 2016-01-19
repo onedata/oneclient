@@ -33,29 +33,30 @@ void CephHelper::ash_unlink(
     if (ret < 0)
         return callback(makePosixError(ret));
 
-    auto fileId = p.string();
-    auto completion = librados::Rados::aio_create_completion();
+    auto callbackDataPtr = new UnlinkCallbackData{p.string(), callback};
+    auto completion = librados::Rados::aio_create_completion(
+        static_cast<void *>(callbackDataPtr), nullptr,
+        [](librados::completion_t, void *callbackData) {
+            auto data = static_cast<UnlinkCallbackData *>(callbackData);
+            auto result = data->completion->get_return_value();
+            if (result < 0) {
+                data->callback(makePosixError(result));
+            }
+            else {
+                data->callback(SUCCESS_CODE);
+            }
+            data->completion->release();
+            delete data;
+        });
 
-    ret = ctx->ioCTX.aio_remove(fileId, completion);
+    callbackDataPtr->completion = completion;
+
+    ret = ctx->ioCTX.aio_remove(callbackDataPtr->fileId, completion);
     if (ret < 0) {
         completion->release();
+        delete callbackDataPtr;
         return callback(makePosixError(ret));
     }
-
-    m_service.post([
-        callback = std::move(callback),
-        completion = std::move(completion)
-    ]() {
-        completion->wait_for_complete();
-        auto result = completion->get_return_value();
-        completion->release();
-        if (result < 0) {
-            callback(makePosixError(result));
-        }
-        else {
-            callback(SUCCESS_CODE);
-        }
-    });
 }
 
 void CephHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
@@ -68,34 +69,34 @@ void CephHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
     if (ret < 0)
         return callback(asio::mutable_buffer(), makePosixError(ret));
 
-    auto fileId = p.string();
     auto size = asio::buffer_size(buf);
-    auto bl = std::make_shared<librados::bufferlist>(size);
-    auto completion = librados::Rados::aio_create_completion();
+    auto callbackDataPtr =
+        new ReadCallbackData{p.string(), size, std::move(buf), callback};
+    auto completion = librados::Rados::aio_create_completion(
+        static_cast<void *>(callbackDataPtr), nullptr,
+        [](librados::completion_t, void *callbackData) {
+            auto data = static_cast<ReadCallbackData *>(callbackData);
+            auto result = data->completion->get_return_value();
+            if (result < 0) {
+                data->callback(asio::mutable_buffer(), makePosixError(result));
+            }
+            else {
+                data->callback(
+                    asio::buffer(data->buffer, result), SUCCESS_CODE);
+            }
+            data->completion->release();
+            delete data;
+        });
 
-    ret = ctx->ioCTX.aio_read(fileId, completion, bl.get(), size, offset);
+    callbackDataPtr->completion = completion;
+
+    ret = ctx->ioCTX.aio_read(callbackDataPtr->fileId, completion,
+        &callbackDataPtr->bufferlist, size, offset);
     if (ret < 0) {
         completion->release();
+        delete callbackDataPtr;
         return callback(asio::mutable_buffer(), makePosixError(ret));
     }
-
-    m_service.post([
-        buf,
-        bl = std::move(bl),
-        callback = std::move(callback),
-        completion = std::move(completion)
-    ]() {
-        completion->wait_for_complete();
-        auto result = completion->get_return_value();
-        completion->release();
-        if (result < 0) {
-            callback(asio::mutable_buffer(), makePosixError(result));
-        }
-        else {
-            asio::buffer_copy(buf, asio::mutable_buffer(bl->c_str(), result));
-            callback(asio::buffer(buf, result), SUCCESS_CODE);
-        }
-    });
 }
 
 void CephHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
@@ -107,33 +108,33 @@ void CephHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
     if (ret < 0)
         return callback(0, makePosixError(ret));
 
-    auto fileId = p.string();
     auto size = asio::buffer_size(buf);
-    librados::bufferlist bl;
-    bl.append(asio::buffer_cast<const char *>(buf));
-    auto completion = librados::Rados::aio_create_completion();
+    auto callbackDataPtr =
+        new WriteCallbackData{p.string(), size, std::move(buf), callback};
+    auto completion = librados::Rados::aio_create_completion(
+        static_cast<void *>(callbackDataPtr), nullptr,
+        [](librados::completion_t, void *callbackData) {
+            auto data = static_cast<WriteCallbackData *>(callbackData);
+            auto result = data->completion->get_return_value();
+            if (result < 0) {
+                data->callback(0, makePosixError(result));
+            }
+            else {
+                data->callback(data->size, SUCCESS_CODE);
+            }
+            data->completion->release();
+            delete data;
+        });
 
-    ret = ctx->ioCTX.aio_write(fileId, completion, bl, size, offset);
+    callbackDataPtr->completion = completion;
+
+    ret = ctx->ioCTX.aio_write(callbackDataPtr->fileId, completion,
+        callbackDataPtr->bufferlist, size, offset);
     if (ret < 0) {
         completion->release();
+        delete callbackDataPtr;
         return callback(0, makePosixError(ret));
     }
-
-    m_service.post([
-        size,
-        callback = std::move(callback),
-        completion = std::move(completion)
-    ]() {
-        completion->wait_for_complete();
-        auto result = completion->get_return_value();
-        completion->release();
-        if (result < 0) {
-            callback(0, makePosixError(result));
-        }
-        else {
-            callback(size, SUCCESS_CODE);
-        }
-    });
 }
 
 void CephHelper::ash_truncate(CTXPtr rawCTX, const boost::filesystem::path &p,

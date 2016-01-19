@@ -113,7 +113,6 @@ private:
         std::shared_ptr<std::promise<T>> p, T value, one::helpers::error_t e)
     {
         if (e) {
-            std::cout << "Error: " << e.message() << std::endl;
             p->set_exception(std::make_exception_ptr(std::system_error(e)));
         }
         else {

@@ -23,13 +23,13 @@ sys.path = [appmock_dir, docker_dir, annotations_dir] + sys.path
 from proto import messages_pb2
 
 
-def random_int(upper_bound=100):
-    return random.randint(1, upper_bound)
+def random_int(lower_bound=1, upper_bound=100):
+    return random.randint(lower_bound, upper_bound)
 
 
-def random_str(size=random_int()):
-    return ''.join(random.choice(string.ascii_uppercase + string.digits) for
-                   _ in xrange(size))
+def random_str(size=random_int(),
+               characters=string.ascii_uppercase + string.digits):
+    return ''.join(random.choice(characters) for _ in xrange(size))
 
 
 def _with_reply_process(endpoint, responses, queue):
