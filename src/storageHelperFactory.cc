@@ -10,6 +10,7 @@
 
 #include "cephHelper.h"
 #include "directIOHelper.h"
+#include "s3Helper.h"
 
 #ifdef BUILD_PROXY_IO
 #include "proxyIOHelper.h"
@@ -19,10 +20,12 @@ namespace one {
 namespace helpers {
 
 #ifdef BUILD_PROXY_IO
-StorageHelperFactory::StorageHelperFactory(asio::io_service &ceph_service,
-    asio::io_service &dio_service, communication::Communicator &communicator)
-    : m_cephService{ceph_service}
-    , m_dioService{dio_service}
+StorageHelperFactory::StorageHelperFactory(asio::io_service &cephService,
+    asio::io_service &dioService, asio::io_service &s3Service,
+    communication::Communicator &communicator)
+    : m_cephService{cephService}
+    , m_dioService{dioService}
+    , m_s3Service{s3Service}
     , m_communicator{communicator}
 {
 }
@@ -56,6 +59,9 @@ std::shared_ptr<IStorageHelper> StorageHelperFactory::getStorageHelper(
         return std::make_shared<DirectIOHelper>(
             args, m_dioService, userCTXFactory);
     }
+
+    if (sh_name == "AmazonS3")
+        return std::make_shared<S3Helper>(args, m_s3Service);
 
     return {};
 }
