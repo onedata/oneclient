@@ -24,8 +24,8 @@ namespace proxyio {
 
 class RemoteWrite : public ProxyIORequest {
 public:
-    RemoteWrite(std::string spaceId, std::string storageId, std::string fileId,
-        const off_t offset, asio::const_buffer data);
+    RemoteWrite(std::string fileUuid, std::string storageId, std::string fileId,
+                const off_t offset, asio::const_buffer data);
 
     std::string toString() const override;
 

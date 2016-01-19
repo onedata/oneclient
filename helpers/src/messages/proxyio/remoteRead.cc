@@ -16,10 +16,10 @@ namespace one {
 namespace messages {
 namespace proxyio {
 
-RemoteRead::RemoteRead(std::string spaceId, std::string storageId,
-    std::string fileId, const off_t offset, const std::size_t size)
-    : ProxyIORequest{std::move(spaceId), std::move(storageId),
-          std::move(fileId)}
+RemoteRead::RemoteRead(std::string fileUuid, std::string storageId,
+                       std::string fileId, const off_t offset, const std::size_t size)
+    : ProxyIORequest{std::move(fileUuid), std::move(storageId),
+                     std::move(fileId)}
     , m_offset{offset}
     , m_size{size}
 {
@@ -28,9 +28,9 @@ RemoteRead::RemoteRead(std::string spaceId, std::string storageId,
 std::string RemoteRead::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'RemoteRead', spaceId: '" << m_spaceId << "', storageId: '"
-           << m_storageId << "', fileId: '" << m_fileId
-           << "', offset: " << m_offset << ", size: " << m_size;
+    stream << "type: 'RemoteRead', fileUuid: '" << m_fileUuid << "', storageId: '"
+    << m_storageId << "', fileId: '" << m_fileId
+    << "', offset: " << m_offset << ", size: " << m_size;
     return stream.str();
 }
 

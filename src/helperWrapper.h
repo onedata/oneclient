@@ -41,10 +41,10 @@ public:
      * Refer to @c helpers::IStorageHelper documentation for more information.
      */
     asio::mutable_buffer read(const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset);
+        asio::mutable_buffer buf, off_t offset, const std::string &fileUuid);
 
     std::size_t write(
-        const boost::filesystem::path &p, asio::const_buffer buf, off_t offset);
+        const boost::filesystem::path &p, asio::const_buffer buf, off_t offset, const std::string &fileUuid);
     /**@}*/
 
 private:

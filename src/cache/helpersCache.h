@@ -78,8 +78,7 @@ public:
      * helper.
      * @return Retrieved helper instance.
      */
-    HelperPtr get(const std::string &spaceId, const std::string &storageId,
-        const bool forceClusterProxy = false);
+    HelperPtr get(const std::string &storageId, const bool forceClusterProxy = false);
 };
 
 } // namespace one

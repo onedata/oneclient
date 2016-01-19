@@ -28,23 +28,21 @@ HelpersCache::~HelpersCache()
     m_thread.join();
 }
 
-HelpersCache::HelperPtr HelpersCache::get(const std::string &spaceId,
-    const std::string &storageId, const bool forceClusterProxy)
+HelpersCache::HelperPtr HelpersCache::get(const std::string &storageId, const bool forceClusterProxy)
 {
     ConstAccessor constAcc;
     if (m_cache.find(
-            constAcc, std::make_tuple(spaceId, storageId, forceClusterProxy)))
+            constAcc, std::make_tuple(storageId, forceClusterProxy)))
         return constAcc->second;
 
     Accessor acc;
     if (!m_cache.insert(
-            acc, std::make_tuple(spaceId, storageId, forceClusterProxy)))
+            acc, std::make_tuple(storageId, forceClusterProxy)))
         return acc->second;
 
     try {
         auto future = m_communicator.communicate<messages::fuse::HelperParams>(
-            messages::fuse::GetHelperParams(
-                spaceId, storageId, forceClusterProxy));
+            messages::fuse::GetHelperParams(storageId, forceClusterProxy));
 
         auto params = communication::wait(future);
         auto helper =

@@ -221,8 +221,7 @@ public:
         struct fuse_file_info *const fileInfo);
 
 protected:
-    virtual HelpersCache::HelperPtr getHelper(
-        const std::string &spaceId, const std::string &storageId);
+    virtual HelpersCache::HelperPtr getHelper(const std::string &storageId);
 
 private:
     void removeFile(boost::filesystem::path path);

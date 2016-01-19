@@ -46,15 +46,15 @@ HelperWrapper::HelperWrapper(
 }
 
 asio::mutable_buffer HelperWrapper::read(
-    const boost::filesystem::path &p, asio::mutable_buffer buf, off_t offset)
+    const boost::filesystem::path &p, asio::mutable_buffer buf, off_t offset, const std::string &fileUuid)
 {
-    return m_helper.sh_read(m_context, p, buf, offset);
+    return m_helper.sh_read(m_context, p, buf, offset, fileUuid);
 }
 
 std::size_t HelperWrapper::write(
-    const boost::filesystem::path &p, asio::const_buffer buf, off_t offset)
+    const boost::filesystem::path &p, asio::const_buffer buf, off_t offset, const std::string &fileUuid)
 {
-    return m_helper.sh_write(m_context, p, buf, offset);
+    return m_helper.sh_write(m_context, p, buf, offset, fileUuid);
 }
 
 } // namespace one

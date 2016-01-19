@@ -22,8 +22,8 @@ namespace proxyio {
 
 class RemoteRead : public ProxyIORequest {
 public:
-    RemoteRead(std::string spaceId, std::string storageId, std::string fileId,
-        const off_t offset, const std::size_t size);
+    RemoteRead(std::string fileUuid, std::string storageId, std::string fileId,
+               const off_t offset, const std::size_t size);
 
     std::string toString() const override;
 

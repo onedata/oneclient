@@ -146,7 +146,7 @@ public:
 
     asio::mutable_buffer sh_read(one::helpers::CTXRef,
         const boost::filesystem::path &, asio::mutable_buffer buf,
-        off_t) override
+        off_t, std::string &) override
     {
         if (ec)
             throw std::system_error{ec};
@@ -155,7 +155,7 @@ public:
     }
 
     std::size_t sh_write(one::helpers::CTXRef, const boost::filesystem::path &,
-        asio::const_buffer buf, off_t) override
+        asio::const_buffer buf, off_t, std::string &) override
     {
         if (ec)
             throw std::system_error{ec};

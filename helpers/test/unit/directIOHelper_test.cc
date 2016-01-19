@@ -52,6 +52,7 @@ protected:
 
     boost::filesystem::path testFilePath;
     boost::filesystem::path testFileId;
+    boost::filesystem::path testFileUuid;
 
     std::shared_ptr<std::promise<void>> pv1;
     std::shared_ptr<std::promise<void>> pv2;
@@ -83,6 +84,7 @@ protected:
 
         testFileId = "test.txt";
         testFilePath = boost::filesystem::path(DIO_TEST_ROOT) / testFileId;
+        testFileUuid = "test_uuid";
 
         th_handle1 = std::thread([&]() { io_service.run(); });
         th_handle2 = std::thread([&]() { io_service.run(); });
@@ -171,7 +173,7 @@ TEST_F(DirectIOHelperTest, shouldWriteBytes)
     auto writeBuf = asio::buffer(stmp);
 
     auto p = make_promise<int>();
-    proxy->ash_write(ctx, testFileId, writeBuf, 5,
+    proxy->ash_write(ctx, testFileId, writeBuf, 5, testFileUuid,
         std::bind(&DirectIOHelperTest::set_promise<int>, this, p, _1, _2));
     auto bytes_written = p->get_future().get();
     EXPECT_EQ(3, bytes_written);
@@ -189,7 +191,7 @@ TEST_F(DirectIOHelperTest, shouldReadBytes)
     auto buf1 = asio::mutable_buffer(stmp, 10);
 
     auto p = make_promise<asio::mutable_buffer>();
-    proxy->ash_read(ctx, testFileId, buf1, 5,
+    proxy->ash_read(ctx, testFileId, buf1, 5, testFileUuid,
         std::bind(&DirectIOHelperTest::set_promise<asio::mutable_buffer>, this,
                         p, _1, _2));
     auto buf2 = p->get_future().get();
@@ -362,7 +364,7 @@ TEST_F(DirectIOHelperTest, AsyncBench)
 
     for (auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
         auto p = make_promise<int>();
-        proxy->ash_write(ctx, testFileId, writeBuf, 0,
+        proxy->ash_write(ctx, testFileId, writeBuf, 0, testFileUuid
             std::bind(&DirectIOHelperTest::set_promise<int>, this, p, _1, _2));
         res[i] = p->get_future();
     }
@@ -384,7 +386,7 @@ TEST_F(DirectIOHelperTest, SyncBench)
         char stmp[BENCH_BLOCK_SIZE];
         auto writeBuf = asio::buffer(stmp, BENCH_BLOCK_SIZE);
         for (auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
-            proxy->sh_write(ctx, testFileId, writeBuf, 0);
+            proxy->sh_write(ctx, testFileId, writeBuf, 0, testFileUuid);
         }
         pv1->set_value();
     });
