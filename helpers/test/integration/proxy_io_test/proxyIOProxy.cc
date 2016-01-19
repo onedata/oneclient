@@ -30,25 +30,27 @@ private:
 
 class ProxyIOProxy {
 public:
-    ProxyIOProxy(std::string storageId, std::string host,
-        const unsigned short port)
+    ProxyIOProxy(
+        std::string storageId, std::string host, const unsigned short port)
         : m_communicator{1, host, port, false,
               one::communication::createConnection}
-        , m_helper{{{"storage_id", storageId}},
-              m_communicator}
+        , m_helper{{{"storage_id", storageId}}, m_communicator}
     {
         m_communicator.setScheduler(std::make_shared<one::Scheduler>(1));
         m_communicator.connect();
     }
 
-    int write(std::string fileId, std::string data, int offset, std::string fileUuid)
+    int write(
+        std::string fileId, std::string data, int offset, std::string fileUuid)
     {
         ReleaseGIL guard;
         one::helpers::StorageHelperCTX ctx;
-        return m_helper.sh_write(ctx, fileId, asio::buffer(data), offset, fileUuid);
+        return m_helper.sh_write(
+            ctx, fileId, asio::buffer(data), offset, fileUuid);
     }
 
-    std::string read(std::string fileId, int offset, int size, std::string fileUuid)
+    std::string read(
+        std::string fileId, int offset, int size, std::string fileUuid)
     {
         ReleaseGIL guard;
         one::helpers::StorageHelperCTX ctx;
@@ -63,7 +65,8 @@ private:
 };
 
 namespace {
-boost::shared_ptr<ProxyIOProxy> create(std::string storageId, std::string host, int port)
+boost::shared_ptr<ProxyIOProxy> create(
+    std::string storageId, std::string host, int port)
 {
     return boost::make_shared<ProxyIOProxy>(storageId, host, port);
 }
