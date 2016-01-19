@@ -33,8 +33,8 @@ public:
         asio::io_service &dioService, asio::io_service &s3Service,
         communication::Communicator &communicator);
 #else
-    StorageHelperFactory(
-        asio::io_service &ceph_service, asio::io_service &dio_service);
+    StorageHelperFactory(asio::io_service &ceph_service,
+        asio::io_service &dio_service, asio::io_service &s3Service);
 #endif
 
     virtual ~StorageHelperFactory() = default;
