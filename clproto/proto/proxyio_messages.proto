@@ -13,7 +13,7 @@ import "common_messages.proto";
 message ProxyIORequest {
     required bytes storage_id = 1;
     required bytes file_id    = 2;
-    required bytes space_id   = 3;
+    required bytes file_uuid   = 3;
 
     oneof proxyio_request {
         RemoteRead  remote_read  = 4;
