@@ -30,10 +30,11 @@ StorageHelperFactory::StorageHelperFactory(asio::io_service &cephService,
 {
 }
 #else
-StorageHelperFactory::StorageHelperFactory(
-    asio::io_service &ceph_service, asio::io_service &dio_service)
+StorageHelperFactory::StorageHelperFactory(asio::io_service &ceph_service,
+    asio::io_service &dio_service, asio::io_service &s3Service)
     : m_cephService{ceph_service}
     , m_dioService{dio_service}
+    , m_s3Service{s3Service}
 {
 }
 #endif
