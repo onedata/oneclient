@@ -8,8 +8,6 @@
 
 package one.clproto;
 
-import "event_messages.proto";
-
 message HandshakeRequest {
     optional bytes session_id = 1;
     optional Token token      = 2;
@@ -17,7 +15,6 @@ message HandshakeRequest {
 
 message HandshakeResponse {
     required bytes        session_id    = 1;
-    repeated Subscription subscriptions = 2;
 }
 
 message Token {
