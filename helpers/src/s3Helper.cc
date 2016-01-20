@@ -410,6 +410,8 @@ void S3HelperCTX::setUserCTX(std::unordered_map<std::string, std::string> args)
 {
     m_args.swap(args);
     m_args.insert(args.begin(), args.end());
+    bucketCTX.hostName = m_args.at("host_name").c_str();
+    bucketCTX.bucketName = m_args.at("bucket_name").c_str();
     bucketCTX.accessKeyId = m_args.at("access_key").c_str();
     bucketCTX.secretAccessKey = m_args.at("secret_key").c_str();
 }
