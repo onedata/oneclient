@@ -13,7 +13,40 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.dirname(script_dir))
 # noinspection PyUnresolvedReferences
 from test_common import *
+# noinspection PyUnresolvedReferences
+from environment import common, docker
+from environment import ceph as ceph_server
 import ceph
+
+
+@pytest.fixture(scope='module')
+def ceph_client(request):
+    class CephClient(object):
+        def __init__(self, mon_host, username, key, pool_name):
+            self.mon_host = mon_host
+            self.username = username
+            self.key = key
+            self.pool_name = pool_name
+
+    pool_name = 'data'
+    result = ceph_server.up(image='onedata/ceph', pools=[(pool_name, '8')])
+
+    [container] = result['docker_ids']
+    username = result['username']
+    key = str(result['key'])
+    mon_host = docker.inspect(container)['NetworkSettings']['IPAddress']. \
+        encode('ascii')
+
+    def fin():
+        docker.exec_(container, ['btrfs', 'subvolume', 'delete',
+                                 '/var/lib/ceph/osd/ceph-0/current'])
+        docker.exec_(container, ['btrfs', 'subvolume', 'delete',
+                                 '/var/lib/ceph/osd/ceph-0/snap_1'])
+        docker.remove([container], force=True, volumes=True)
+
+    request.addfinalizer(fin)
+
+    return CephClient(mon_host, username, key, pool_name)
 
 
 @pytest.fixture

@@ -194,7 +194,7 @@ void CephHelperCTX::setUserCTX(
 
 std::unordered_map<std::string, std::string> CephHelperCTX::getUserCTX()
 {
-    return {{"user_name", m_args.at("user_name")}, {"key", m_args.at("key")}};
+    return m_args;
 }
 
 int CephHelperCTX::connect(bool reconnect)

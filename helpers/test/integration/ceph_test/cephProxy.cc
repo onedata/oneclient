@@ -62,12 +62,11 @@ public:
     {
         ReleaseGIL guard;
 
-        auto p = make_promise<void>();
-        m_helper.ash_unlink(
-            m_ctx, fileId, std::bind(&CephProxy::set_void_promise, this, p,
-                               std::placeholders::_1));
+        auto p = makePromise<void>();
+        m_helper.ash_unlink(m_ctx, fileId, std::bind(&CephProxy::setVoidPromise,
+                                               this, p, std::placeholders::_1));
 
-        return get_future(std::move(p));
+        return getFuture(std::move(p));
     }
 
     std::string read(std::string fileId, int offset, int size)
@@ -88,16 +87,16 @@ public:
     {
         ReleaseGIL guard;
 
-        auto p = make_promise<void>();
+        auto p = makePromise<void>();
         m_helper.ash_truncate(
-            m_ctx, fileId, offset, std::bind(&CephProxy::set_void_promise, this,
+            m_ctx, fileId, offset, std::bind(&CephProxy::setVoidPromise, this,
                                        p, std::placeholders::_1));
 
-        return get_future(std::move(p));
+        return getFuture(std::move(p));
     }
 
 private:
-    void set_void_promise(
+    void setVoidPromise(
         std::shared_ptr<std::promise<void>> p, one::helpers::error_t e)
     {
         if (e) {
@@ -108,24 +107,12 @@ private:
         }
     }
 
-    template <class T>
-    void set_promise(
-        std::shared_ptr<std::promise<T>> p, T value, one::helpers::error_t e)
-    {
-        if (e) {
-            p->set_exception(std::make_exception_ptr(std::system_error(e)));
-        }
-        else {
-            p->set_value(value);
-        }
-    }
-
-    template <class T> std::shared_ptr<std::promise<T>> make_promise()
+    template <class T> std::shared_ptr<std::promise<T>> makePromise()
     {
         return std::make_shared<std::promise<T>>();
     }
 
-    template <class T> T get_future(std::shared_ptr<std::promise<T>> p)
+    template <class T> T getFuture(std::shared_ptr<std::promise<T>> p)
     {
         using namespace std::literals;
         auto f = p->get_future();
