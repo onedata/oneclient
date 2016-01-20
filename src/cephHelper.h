@@ -28,10 +28,6 @@ public:
 
     std::unordered_map<std::string, std::string> getUserCTX();
 
-    int getFlagValue(Flag flag) { return 0; }
-
-    void setFlags(int flags) {}
-
     /**
      * Establishes connection to the Ceph storage cluster.
      * @param reconnect Flag that defines whether close current connection (if
@@ -57,7 +53,7 @@ public:
     void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
         GeneralCallback<int> callback)
     {
-        callback(-1, SUCCESS_CODE);
+        callback(0, SUCCESS_CODE);
     }
 
     void ash_unlink(
