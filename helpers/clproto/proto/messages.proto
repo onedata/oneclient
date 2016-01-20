@@ -47,12 +47,13 @@ message ClientMessage {
         // diagnostic_messages.proto
         Ping                     ping                      = 13;
         GetProtocolVersion       get_protocol_version      = 14;
+        GetConfiguration         get_configuration         = 15;
 
         // fuse_messages.proto
-        FuseRequest              fuse_request              = 15;
+        FuseRequest              fuse_request              = 16;
 
         // proxyio_messages.proto
-        ProxyIORequest           proxyio_request           = 16;
+        ProxyIORequest           proxyio_request           = 17;
     }
 }
 
@@ -84,11 +85,12 @@ message ServerMessage {
         // diagnostic_messages.proto
         Pong                     pong                      = 12;
         ProtocolVersion          protocol_version          = 13;
+        Configuration            configuration             = 14;
 
         // fuse_messages.proto
-        FuseResponse             fuse_response             = 14;
+        FuseResponse             fuse_response             = 15;
 
         // proxyio_messages.proto
-        ProxyIOResponse          proxyio_response          = 15;
+        ProxyIOResponse          proxyio_response          = 16;
     }
 }
