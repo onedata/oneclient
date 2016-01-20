@@ -12,6 +12,7 @@
 #include "cache/fileContextCache.h"
 #include "cache/helpersCache.h"
 #include "cache/metadataCache.h"
+#include "cache/forceClusterProxyCache.h"
 #include "events/eventManager.h"
 #include "fsSubscriptions.h"
 #include "messages/fuse/fileAttr.h"
@@ -239,6 +240,7 @@ private:
     FileContextCache m_fileContextCache;
     HelpersCache m_helpersCache;
     MetadataCache m_metadataCache;
+    ForceClusterProxyCache m_forceClusterProxyCache;
     FsSubscriptions m_fsSubscriptions;
 };
 
