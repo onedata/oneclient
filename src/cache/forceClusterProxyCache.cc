@@ -14,6 +14,10 @@
 namespace one {
 namespace client {
 
+ForceClusterProxyCache::ForceClusterProxyCache(FsSubscriptions &fsSubscriptions)
+    : m_fsSubscriptions{fsSubscriptions}
+{
+}
 
 bool ForceClusterProxyCache::contains(const std::string &fileUuid)
 {
@@ -23,11 +27,13 @@ bool ForceClusterProxyCache::contains(const std::string &fileUuid)
 void ForceClusterProxyCache::insert(const std::string &fileUuid)
 {
     m_cache.insert(fileUuid);
+    m_fsSubscriptions.addPermissionChangedSubscription(fileUuid);
 }
 
 void ForceClusterProxyCache::unsafe_erase(const std::string &fileUuid)
 {
     m_cache.unsafe_erase(fileUuid);
+    m_fsSubscriptions.removePermissionChangedSubscription(fileUuid);
 }
 
 } // namespace one

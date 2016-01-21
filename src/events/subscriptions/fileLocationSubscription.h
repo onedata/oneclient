@@ -31,7 +31,7 @@ class FileLocationSubscription : public Subscription,
 public:
     /**
      * Constructor.
-     * @param fileUuid UUID of file for which Locationibutes updates are
+     * @param fileUuid UUID of file for which Location updates are
      * requested.
      * @param counterThreshold Maximal number of aggregated events before
      * emission.

@@ -9,8 +9,8 @@
 #ifndef ONECLIENT_FORCE_CLUSTER_PROXY_CACHE_H
 #define ONECLIENT_FORCE_CLUSTER_PROXY_CACHE_H
 
-
 #include <tbb/concurrent_unordered_set.h>
+#include <fsSubscriptions.h>
 
 namespace one {
 namespace client {
@@ -23,8 +23,15 @@ class ForceClusterProxyCache {
 
 private:
     tbb::concurrent_unordered_set<std::string> m_cache;
+    FsSubscriptions m_fsSubscriptions;
 
 public:
+    /**
+     * Constructor
+     * @param communicator Communicator instance used to fetch helper
+     * parameters.
+     */
+    ForceClusterProxyCache(FsSubscriptions &fsSubscriptions);
 
     /**
      * Checks if fileUuid is present in cache

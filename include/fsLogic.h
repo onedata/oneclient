@@ -231,6 +231,7 @@ private:
         const asio::const_buffer &buf);
     events::FileAttrEventStream::Handler fileAttrHandler();
     events::FileLocationEventStream::Handler fileLocationHandler();
+    events::PermissionChangedEventStream::Handler permissionChangedHandler();
 
     const uid_t m_uid;
     const gid_t m_gid;
@@ -240,8 +241,8 @@ private:
     FileContextCache m_fileContextCache;
     HelpersCache m_helpersCache;
     MetadataCache m_metadataCache;
-    ForceClusterProxyCache m_forceClusterProxyCache;
     FsSubscriptions m_fsSubscriptions;
+    ForceClusterProxyCache m_forceClusterProxyCache;
 };
 
 struct FsLogicWrapper {

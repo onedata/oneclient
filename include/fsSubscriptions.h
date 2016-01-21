@@ -67,11 +67,27 @@ public:
      */
     void removeFileLocationSubscription(const std::string &fileUuid);
 
+    /**
+     * Adds subscription for permission updates. If it is the first
+     * subscription of the file it will be forwarded to the server.
+     * @param fileUuid UUID of file for which subscription is added.
+     */
+    void addPermissionChangedSubscription(const std::string &fileUuid);
+
+    /**
+     * Removes subscription for permission updates.  If it is the last
+     * subscription of the file a subscription cancellation message will be sent
+     * to the server.
+     * @param fileUuid UUID of file for which subscription is removed.
+     */
+    void removePermissionChangedSubscription(const std::string &fileUuid);
+
 private:
     void addFileAttrSubscription(const std::string &fileUuid);
     void removeFileAttrSubscription(const std::string &fileUuid);
     std::int64_t sendFileAttrSubscription(const std::string &fileUuid);
     std::int64_t sendFileLocationSubscription(const std::string &fileUuid);
+    std::int64_t sendPermissionChangedSubscription(const std::string &fileUuid);
     void sendSubscriptionCancellation(std::int64_t id);
 
     Scheduler &m_scheduler;
@@ -80,6 +96,8 @@ private:
         m_fileAttrSubscriptions;
     tbb::concurrent_hash_map<std::string, SubscriptionHandle>
         m_fileLocationSubscriptions;
+    tbb::concurrent_hash_map<std::string, SubscriptionHandle>
+        m_permissionChangedSubscriptions;
 };
 
 } // namespace client
