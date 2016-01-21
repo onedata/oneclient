@@ -9,7 +9,6 @@
 #ifndef ONECLIENT_EVENTS_EVENT_WORKER_H
 #define ONECLIENT_EVENTS_EVENT_WORKER_H
 
-#include "logging.h"
 #include "subscriptionRegistry.h"
 
 #include <asio/executor_work.hpp>
@@ -106,7 +105,6 @@ template <class LowerLayer> EventWorker<LowerLayer>::~EventWorker()
 template <class LowerLayer>
 void EventWorker<LowerLayer>::emitEvent(EventWorker::EventT event)
 {
-    DLOG(INFO) << "Emitting: " << event.toString();
     asio::post(m_ioService, [ this, event = std::move(event) ]() mutable {
         LowerLayer::process(std::make_unique<EventT>(std::move(event)));
     });

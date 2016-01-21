@@ -7,6 +7,9 @@
  */
 
 #include "subscriptionRegistry.h"
+#include "events/subscriptions/subscriptionCancellation.h"
+
+#include "messages.pb.h"
 
 namespace one {
 namespace client {
@@ -30,7 +33,7 @@ bool SubscriptionRegistry::addUnsubscribeHandler(
 }
 
 bool SubscriptionRegistry::removeSubscription(
-    SubscriptionCancellation cancellation)
+    const SubscriptionCancellation &cancellation)
 {
     typename decltype(m_handlers)::accessor acc;
     if (m_handlers.find(acc, cancellation.id())) {

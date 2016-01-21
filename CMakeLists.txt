@@ -87,6 +87,9 @@ find_library(ZLIB_LIBRARY NAMES z)
 find_library(RT_LIBRARY rt)
 find_library(DL_LIBRARY dl)
 
+# Rados library
+find_library(RADOS_LIBRARY rados)
+
 # gpertools lib
 find_library(PROFILER_LIBRARY NAMES profiler)
 
@@ -100,7 +103,8 @@ set(PLATFORM_EXTRA_LIBS
     ${CMAKE_THREAD_LIBS_INIT}
     ${LTDL_LIBRARY}
     ${ZLIB_LIBRARY}
-    ${DL_LIBRARY})
+    ${DL_LIBRARY}
+    ${RADOS_LIBRARY})
 
 # Code coverage
 option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
@@ -128,7 +132,8 @@ add_definitions(
     -DBOOST_BIND_NO_PLACEHOLDERS
     -DBOOST_FILESYSTEM_NO_DEPRECATED
     -DBOOST_ALL_DYN_LINK
-    -DASIO_STANDALONE)
+    -DASIO_STANDALONE
+    -DBUILD_PROXY_IO)
 
 # Add helpers after setting compilation flags but before setting include
 # directories; helpers specify their own includes, pulling from package-set

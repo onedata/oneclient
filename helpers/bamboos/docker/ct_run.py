@@ -84,6 +84,13 @@ parser.add_argument(
     help='time of stress test in sek',
     dest='stress_time')
 
+parser.add_argument(
+    '--auto-compile',
+    action='store_true',
+    default=False,
+    help='compile test suites before run',
+    dest='auto_compile')
+
 args = parser.parse_args()
 script_dir = os.path.dirname(os.path.abspath(__file__))
 uid = str(int(time.time()))
@@ -115,7 +122,8 @@ with open(cover_template, 'r') as template, open(new_cover, 'w') as cover:
         ', '.join(excl_mods)), file=cover)
 
 ct_command = ['ct_run',
-              '-no_auto_compile',
+              '-no_auto_compile' if not args.auto_compile else '',
+              '-abort_if_missing_suites',
               '-dir', '.',
               '-logdir', './logs/',
               '-ct_hooks', 'cth_surefire', '[{path, "surefire.xml"}]',
@@ -165,10 +173,10 @@ elif args.cover:
                         configs_to_change.extend(
                             data['provider_domains'][provider][
                                 'op_worker'].values())
-                    if 'op_ccm' in data['provider_domains'][provider]:
+                    if 'cluster_manager' in data['provider_domains'][provider]:
                         configs_to_change.extend(
                             data['provider_domains'][provider][
-                                'op_ccm'].values())
+                                'cluster_manager'].values())
             if 'globalregistry_domains' in data:
                 for globalregistry in data['globalregistry_domains']:
                     configs_to_change.extend(

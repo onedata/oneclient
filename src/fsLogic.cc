@@ -11,7 +11,6 @@
 
 #include "context.h"
 #include "logging.h"
-#include "helperWrapper.h"
 #include "options.h"
 
 #include "messages/fuse/changeMode.h"
@@ -276,7 +275,8 @@ int FsLogic::open(
     DLOG(INFO) << "FUSE: open(path: " << path << ", ...)";
 
     auto attr = m_metadataCache.getAttr(path);
-    m_metadataCache.getLocation(attr.uuid());
+    auto location = m_metadataCache.getLocation(attr.uuid());
+    auto helper = getHelper(location.spaceId(), location.storageId());
 
     FileContextCache::Accessor acc;
     m_fileContextCache.create(acc);
@@ -285,7 +285,9 @@ int FsLogic::open(
     fileInfo->fh = acc->first;
 
     acc->second.uuid = attr.uuid();
-    acc->second.helperCtx.flags = fileInfo->flags;
+    acc->second.helperCtx = helper->createCTX();
+    acc->second.helperCtx->setFlags(fileInfo->flags);
+
     m_fsSubscriptions.addFileLocationSubscription(attr.uuid());
 
     return 0;
@@ -326,8 +328,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     buf = asio::buffer(buf, boost::icl::size(availableRange));
 
     auto helper = getHelper(location.spaceId(), fileBlock.storageId());
-    buf = HelperWrapper(*helper, context.helperCtx)
-              .read({fileBlock.fileId()}, buf, offset);
+    buf = helper->sh_read(context.helperCtx, fileBlock.fileId(), buf, offset);
 
     const auto bytesRead = asio::buffer_size(buf);
     m_eventManager.emitReadEvent(offset, bytesRead, context.uuid);
@@ -353,8 +354,8 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     std::tie(fileBlock, buf) = findWriteLocation(location, offset, buf);
 
     auto helper = getHelper(location.spaceId(), location.storageId());
-    auto bytesWritten = HelperWrapper(*helper, context.helperCtx)
-                            .write(location.fileId(), buf, offset);
+    auto bytesWritten =
+        helper->sh_write(context.helperCtx, location.fileId(), buf, offset);
 
     m_eventManager.emitWriteEvent(offset, bytesWritten, context.uuid,
         location.storageId(), location.fileId());

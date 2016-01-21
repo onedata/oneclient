@@ -34,7 +34,7 @@ public:
      */
     struct FileContext {
         std::string uuid;
-        helpers::StorageHelperCTX helperCtx;
+        std::shared_ptr<helpers::IStorageHelperCTX> helperCtx;
     };
 
 private:

@@ -2,7 +2,7 @@
 Copyright (C) 2015 ACK CYFRONET AGH
 This software is released under the MIT license cited in 'LICENSE.txt'
 
-Brings up a set of oneprovider ccm nodes. They can create separate clusters.
+Brings up a set of oneprovider cm nodes. They can create separate clusters.
 """
 
 from __future__ import print_function
@@ -14,32 +14,32 @@ import os
 from . import common, docker, dns
 
 
-def ccm_hostname(node_name, op_instance, uid):
-    """Formats hostname for a docker hosting op_ccm.
+def cm_hostname(node_name, op_instance, uid):
+    """Formats hostname for a docker hosting cluster_manager.
     NOTE: Hostnames are also used as docker names!
     """
     return common.format_hostname([node_name, op_instance], uid)
 
 
-def ccm_erl_node_name(node_name, op_instance, uid):
-    """Formats erlang node name for a vm on op_ccm docker.
+def cm_erl_node_name(node_name, op_instance, uid):
+    """Formats erlang node name for a vm on cluster_manager docker.
     """
-    hostname = ccm_hostname(node_name, op_instance, uid)
-    return common.format_erl_node_name('ccm', hostname)
+    hostname = cm_hostname(node_name, op_instance, uid)
+    return common.format_erl_node_name('cm', hostname)
 
 
-def _tweak_config(config, ccm_node, op_instance, uid):
+def _tweak_config(config, cm_node, op_instance, uid):
     cfg = copy.deepcopy(config)
-    cfg['nodes'] = {'node': cfg['nodes'][ccm_node]}
+    cfg['nodes'] = {'node': cfg['nodes'][cm_node]}
 
     sys_config = cfg['nodes']['node']['sys.config']
-    sys_config['ccm_nodes'] = [ccm_erl_node_name(n, op_instance, uid)
-                               for n in sys_config['ccm_nodes']]
+    sys_config['cm_nodes'] = [cm_erl_node_name(n, op_instance, uid)
+                               for n in sys_config['cm_nodes']]
 
     if 'vm.args' not in cfg['nodes']['node']:
         cfg['nodes']['node']['vm.args'] = {}
     vm_args = cfg['nodes']['node']['vm.args']
-    vm_args['name'] = ccm_erl_node_name(ccm_node, op_instance, uid)
+    vm_args['name'] = cm_erl_node_name(cm_node, op_instance, uid)
 
     return cfg
 
@@ -51,16 +51,16 @@ def _node_up(image, bindir, config, dns_servers, logdir):
 
     command = \
         '''mkdir -p /root/bin/node/log/
-chown {uid}:{gid} /root/bin/node/log/
-chmod ug+s /root/bin/node/log/
+echo 'while ((1)); do chown -R {uid}:{gid} /root/bin/node/log; sleep 1; done' > /root/bin/chown_logs.sh
+bash /root/bin/chown_logs.sh &
 cat <<"EOF" > /tmp/gen_dev_args.json
 {gen_dev_args}
 EOF
 set -e
 escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json
-/root/bin/node/bin/op_ccm console'''
+/root/bin/node/bin/cluster_manager console'''
     command = command.format(
-        gen_dev_args=json.dumps({'op_ccm': config}),
+        gen_dev_args=json.dumps({'cluster_manager': config}),
         uid=os.geteuid(),
         gid=os.getegid())
 
@@ -84,7 +84,7 @@ escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json
 
     return {
         'docker_ids': [container],
-        'op_ccm_nodes': [node_name]
+        'cluster_manager_nodes': [node_name]
     }
 
 
@@ -92,31 +92,31 @@ def _ready(container):
     return True  # todo implement
 
 
-def up(image, bindir, dns_server, uid, config_path, logdir=None):
+def up(image, bindir, dns_server, uid, config_path, logdir=None, domains_name='provider_domains'):
     config = common.parse_json_file(config_path)
-    input_dir = config['dirs_config']['op_ccm']['input_dir']
+    input_dir = config['dirs_config']['cluster_manager']['input_dir']
     dns_servers, output = dns.maybe_start(dns_server, uid)
 
-    # CCMs of every provider are started together
-    for op_instance in config['provider_domains']:
+    # CMs of every provider are started together
+    for op_instance in config[domains_name]:
         gen_dev_cfg = {
             'config': {
                 'input_dir': input_dir,
                 'target_dir': '/root/bin'
             },
-            'nodes': config['provider_domains'][op_instance]['op_ccm']
+            'nodes': config[domains_name][op_instance]['cluster_manager']
         }
 
         tweaked_configs = [
-            _tweak_config(gen_dev_cfg, ccm_node, op_instance, uid)
-            for ccm_node in gen_dev_cfg['nodes']]
+            _tweak_config(gen_dev_cfg, cm_node, op_instance, uid)
+            for cm_node in gen_dev_cfg['nodes']]
 
-        ccms = []
+        cms = []
         for cfg in tweaked_configs:
             node_out = _node_up(image, bindir, cfg, dns_servers, logdir)
-            ccms.extend(node_out['docker_ids'])
+            cms.extend(node_out['docker_ids'])
             common.merge(output, node_out)
 
-        common.wait_until(_ready, ccms, 0)
+        common.wait_until(_ready, cms, 0)
 
     return output
