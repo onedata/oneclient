@@ -166,7 +166,9 @@ int main(int argc, char *argv[])
     initializeLogging(argv[0], false);
 
     auto context = std::make_shared<Context>();
-    auto options = std::make_shared<Options>();
+    const path globalConfigPath = path(oneclient_INSTALL_PATH) /
+        oneclient_CONFIG_DIR / GLOBAL_CONFIG_FILE;
+    auto options = std::make_shared<Options>(globalConfigPath);
     context->setOptions(options);
     try {
         options->parseConfigs(argc, argv);
