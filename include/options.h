@@ -10,6 +10,7 @@
 #define ONECLIENT_OPTIONS_H
 
 #include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
 #include <fuse/fuse_opt.h>
 
 #include <ctime>
@@ -104,7 +105,7 @@ public:
     /**
     * Constructor.
     */
-    Options();
+    Options(boost::filesystem::path globalConfigPath);
 
     /**
     * Parses all available configuration sources.
@@ -147,6 +148,7 @@ private:
     boost::program_options::options_description m_commandline;
     boost::program_options::options_description m_fuse;
     boost::program_options::options_description m_hidden;
+    boost::filesystem::path m_globalConfigPath;
 
     /* clang-format off */
     DECL_CONFIG_DEF(provider_hostname, std::string, BASE_DOMAIN)

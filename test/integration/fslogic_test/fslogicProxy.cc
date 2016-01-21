@@ -18,6 +18,7 @@
 
 #include <boost/python.hpp>
 #include <boost/make_shared.hpp>
+#include <boost/filesystem.hpp>
 #include <fuse.h>
 
 #include <memory>
@@ -230,7 +231,8 @@ boost::shared_ptr<FsLogicProxy> create(std::string ip, int port)
     auto context = std::make_shared<Context>();
     context->setScheduler(std::make_shared<Scheduler>(1));
     context->setCommunicator(communicator);
-    context->setOptions(std::make_shared<Options>());
+    const auto globalConfigPath = boost::filesystem::unique_path();
+    context->setOptions(std::make_shared<Options>(globalConfigPath));
 
     communicator->setScheduler(context->scheduler());
     communicator->connect();
