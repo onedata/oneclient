@@ -14,7 +14,6 @@
 
 #include <boost/optional.hpp>
 
-#include <chrono>
 #include <cstddef>
 #include <sstream>
 
@@ -23,18 +22,19 @@ namespace client {
 namespace events {
 
 /**
- * @c PermissionChangedSubscription is a client side subscription and represents a
- * request for permission_changed events.
+ * @c PermissionChangedSubscription is a client side subscription and represents
+ * a request for permission_changed events.
  */
 class PermissionChangedSubscription : public Subscription,
-                                 public messages::ClientMessage {
+                                      public messages::ClientMessage {
 public:
     /**
      * Constructor.
      * @param fileUuid UUID of file for which permission change events are
      * requested.
      */
-    PermissionChangedSubscription(std::string fileUuid);
+    PermissionChangedSubscription(std::string fileUuid,
+        std::size_t counterThreshold = 1);
 
     std::string toString() const override;
 

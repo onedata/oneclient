@@ -373,3 +373,14 @@ def test_file_location_time_emission(endpoint, evt_man):
 
     assert wait_for_result(1, 20, 500,
                            evt_man.fileLocationHandlerCallCounter)
+
+def test_permission_changed_counter_emission(endpoint, evt_man):
+    evt_man.subscribePermissionChanged('fileUuid')
+
+    assert 0 == evt_man.permissionChangedHandlerCallCounter()
+
+    for i in xrange(100):
+        msg = events.createPermissionChangedEventMsg(1, 'fileUuid', i)
+        endpoint.send(msg)
+
+    assert 100 == evt_man.permissionChangedHandlerCallCounter()

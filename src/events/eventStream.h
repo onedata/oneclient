@@ -49,8 +49,8 @@ using FileLocationEventStream = EventWorker<
         EventCommunicator<UpdateEvent<messages::fuse::FileLocation>>>>>>>;
 
 using PermissionChangedEventStream =
-    EventWorker<EventTimeAggregator<SubscriptionHandler<
-        EventHandler<EventCommunicator<PermissionChangedEvent>>>>>;
+    EventWorker<EventCounterAggregator<EventTimeAggregator<SubscriptionHandler<
+        EventHandler<EventCommunicator<PermissionChangedEvent>>>>>>;
 
 } // namespace events
 } // namespace client

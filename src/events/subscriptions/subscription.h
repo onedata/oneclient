@@ -13,7 +13,6 @@
 
 #include <chrono>
 #include <cstddef>
-#include <sstream>
 
 namespace one {
 namespace client {

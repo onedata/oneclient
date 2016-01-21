@@ -16,8 +16,9 @@ namespace one {
 namespace client {
 namespace events {
 
-PermissionChangedSubscription::PermissionChangedSubscription(std::string fileUuid_)
-    : Subscription{}
+PermissionChangedSubscription::PermissionChangedSubscription(
+    std::string fileUuid_, std::size_t counterThreshold_)
+    : Subscription{counterThreshold_}
     , m_fileUuid{std::move(fileUuid_)}
 {
 }

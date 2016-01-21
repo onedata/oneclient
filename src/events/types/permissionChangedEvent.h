@@ -10,6 +10,7 @@
 #define ONECLIENT_EVENTS_TYPES_PERMISSION_CHANGED_EVENT_H
 
 #include "event.h"
+#include "messages/serverMessage.h"
 
 #include <boost/icl/interval_map.hpp>
 

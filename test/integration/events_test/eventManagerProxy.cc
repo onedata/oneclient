@@ -50,6 +50,8 @@ public:
             [this](auto) { m_fileAttrHandlerCallCounter++; });
         m_manager->setFileLocationHandler(
             ([this](auto) { m_fileLocationHandlerCallCounter++; }));
+        m_manager->setPermissionChangedHandler(
+            ([this](auto) { m_permissionChangedCallCounter++; }));
     }
 
     ~EventManagerProxy() { m_communicator->stop(); }
@@ -91,6 +93,12 @@ public:
             FileLocationSubscription{fileUuid, svrCtrThr, ms(svrTimeThr)});
     }
 
+    int subscribePermissionChanged(std::string fileUuid)
+    {
+        return m_manager->subscribe(PermissionChangedSubscription{fileUuid},
+            PermissionChangedSubscription{fileUuid});
+    }
+
     bool existSubscription(std::int64_t id)
     {
         return m_manager->subscriptionRegistry()->existSubscription(id);
@@ -103,9 +111,15 @@ public:
         return m_fileLocationHandlerCallCounter;
     }
 
+    int permissionChangedHandlerCallCounter()
+    {
+        return m_permissionChangedCallCounter;
+    }
+
 private:
     std::atomic<int> m_fileAttrHandlerCallCounter{0};
     std::atomic<int> m_fileLocationHandlerCallCounter{0};
+    std::atomic<int> m_permissionChangedCallCounter{0};
     std::atomic<std::uint64_t> m_readEventStreamSequenceNumber{0};
     std::atomic<std::uint64_t> m_writeEventStreamSequenceNumber{0};
     std::shared_ptr<Communicator> m_communicator;
@@ -225,6 +239,19 @@ std::string createFileLocationEventMsg(
     return serverMsg.SerializeAsString();
 }
 
+std::string createPermissionChangedEventMsg(
+    std::size_t ctr, std::string uuid, std::uint64_t seqNum)
+{
+    auto serverMsg = createStreamMessage<clproto::ServerMessage>(4, seqNum);
+    auto eventsMsg = serverMsg.mutable_events();
+    auto eventMsg = eventsMsg->add_events();
+    eventMsg->set_counter(ctr);
+    auto permissionChangedEventMsg =
+        eventMsg->mutable_permission_changed_event();
+    permissionChangedEventMsg->set_file_uuid(std::move(uuid));
+    return serverMsg.SerializeAsString();
+}
+
 std::string createReadEventSubscriptionMsg(
     std::int64_t id, size_t ctrThr, std::uint64_t timeThr, size_t sizeThr)
 {
@@ -334,11 +361,15 @@ BOOST_PYTHON_MODULE(events)
         .def("unsubscribe", &EventManagerProxy::unsubscribe)
         .def("subscribeFileAttr", &EventManagerProxy::subscribeFileAttr)
         .def("subscribeFileLocation", &EventManagerProxy::subscribeFileLocation)
+        .def("subscribePermissionChanged",
+            &EventManagerProxy::subscribePermissionChanged)
         .def("existSubscription", &EventManagerProxy::existSubscription)
         .def("fileAttrHandlerCallCounter",
-             &EventManagerProxy::fileAttrHandlerCallCounter)
+            &EventManagerProxy::fileAttrHandlerCallCounter)
         .def("fileLocationHandlerCallCounter",
-            &EventManagerProxy::fileLocationHandlerCallCounter);
+            &EventManagerProxy::fileLocationHandlerCallCounter)
+        .def("permissionChangedHandlerCallCounter",
+            &EventManagerProxy::permissionChangedHandlerCallCounter);
 
     def("createReadEventMsg", &createReadEventMsg);
     def("createWriteEventMsg", &createWriteEventMsg);
@@ -355,4 +386,5 @@ BOOST_PYTHON_MODULE(events)
     def("createFileAttrSubscriptionMsg", &createFileAttrSubscriptionMsg);
     def("createFileLocationSubscriptionMsg",
         &createFileLocationSubscriptionMsg);
+    def("createPermissionChangedEventMsg", &createPermissionChangedEventMsg);
 }
