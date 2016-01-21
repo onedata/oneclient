@@ -14,6 +14,7 @@
 #include "scheduler.h"
 #include "communication/communicator.h"
 #include "events/eventManager.h"
+#include "messages/configuration.h"
 
 #include <boost/python.hpp>
 #include <boost/make_shared.hpp>
@@ -77,7 +78,7 @@ public:
 class FsLogicProxy {
 public:
     FsLogicProxy(std::shared_ptr<Context> context)
-        : m_fsLogic{context}
+        : m_fsLogic{context, std::make_shared<messages::Configuration>()}
         , m_context{context}
     {
     }

@@ -13,6 +13,7 @@
 #include "logging.h"
 #include "options.h"
 
+#include "messages/configuration.h"
 #include "messages/fuse/changeMode.h"
 #include "messages/fuse/close.h"
 #include "messages/fuse/createDir.h"
@@ -41,8 +42,8 @@ using namespace std::literals;
 namespace one {
 namespace client {
 
-FsLogic::FsLogic(
-    std::shared_ptr<Context> context, events::SubscriptionContainer container)
+FsLogic::FsLogic(std::shared_ptr<Context> context,
+    std::shared_ptr<messages::Configuration> configuration)
     : m_uid{geteuid()}
     , m_gid{getegid()}
     , m_context{std::move(context)}
@@ -53,7 +54,7 @@ FsLogic::FsLogic(
 {
     m_eventManager.setFileAttrHandler(fileAttrHandler());
     m_eventManager.setFileLocationHandler(fileLocationHandler());
-    m_eventManager.subscribe(std::move(container));
+    m_eventManager.subscribe(configuration->subscriptionContainer());
 }
 
 int FsLogic::access(boost::filesystem::path path, const int mask)
