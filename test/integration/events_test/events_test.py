@@ -97,6 +97,19 @@ def send_subscription(endpoint, evt_man, id, msg):
     return wait_for_result(True, 20, 500, evt_man.existSubscription, id)
 
 
+def unsubscribe(endpoint, evt_man, id, msg):
+    """Ensures that client receives subscription cancellation."""
+    wait_for_result(True, 10, 500, send_subscription_cancellation, endpoint,
+                    evt_man, id, msg)
+
+
+def send_subscription_cancellation(endpoint, evt_man, id, msg):
+    """Sends subscription cancellation to the client and checks whether it has
+    been received."""
+    endpoint.send(msg)
+    return wait_for_result(False, 20, 500, evt_man.existSubscription, id)
+
+
 @pytest.mark.performance(
     repeats=10,
     parameters=[ctr_thr_param(1), evt_num_param(10), evt_size_param(1)],
@@ -206,19 +219,19 @@ def test_multiple_subscriptions(endpoint, evt_man):
     endpoint.wait_for_specific_messages(msg)
 
     msg = events.createServerSubscriptionCancellationMsg(3, 0, 0)
-    endpoint.send(msg)
+    unsubscribe(endpoint, evt_man, 3, msg)
     seq_num = evt_man.emitReadEvent(0, 20, 'fileUuid')
     msg = events.createReadEventMsg(1, 'fileUuid', [(0, 20)], seq_num)
     endpoint.wait_for_specific_messages(msg)
 
     msg = events.createServerSubscriptionCancellationMsg(2, 0, 1)
-    endpoint.send(msg)
+    unsubscribe(endpoint, evt_man, 2, msg)
     seq_num = evt_man.emitReadEvent(0, 50, 'fileUuid')
     msg = events.createReadEventMsg(1, 'fileUuid', [(0, 50)], seq_num)
     endpoint.wait_for_specific_messages(msg)
 
     msg = events.createServerSubscriptionCancellationMsg(1, 0, 2)
-    endpoint.send(msg)
+    unsubscribe(endpoint, evt_man, 1, msg)
     seq_num = evt_man.emitReadEvent(0, 10, 'fileUuid')
     msg = events.createReadEventMsg(1, 'fileUuid', [(0, 10)], seq_num)
     with pytest.raises(Exception):
@@ -286,7 +299,7 @@ def test_different_subscriptions(endpoint, evt_man):
     endpoint.wait_for_specific_messages(msg)
 
     msg = events.createServerSubscriptionCancellationMsg(1, 0, 0)
-    endpoint.send(msg)
+    unsubscribe(endpoint, evt_man, 1, msg)
 
     seq_num = evt_man.emitWriteEvent(0, 10, 'fileUuid')
     msg = events.createWriteEventMsg(1, 'fileUuid', 0, [(0, 10)], seq_num)
@@ -297,7 +310,7 @@ def test_different_subscriptions(endpoint, evt_man):
     endpoint.wait_for_specific_messages(msg)
 
     msg = events.createServerSubscriptionCancellationMsg(2, 1, 0)
-    endpoint.send(msg)
+    unsubscribe(endpoint, evt_man, 2, msg)
     seq_num = evt_man.emitTruncateEvent(0, 'fileUuid')
     msg = events.createTruncateEventMsg(1, 'fileUuid', 0, seq_num)
     with pytest.raises(Exception):

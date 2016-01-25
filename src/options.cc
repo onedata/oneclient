@@ -8,7 +8,6 @@
 
 #include "options.h"
 
-#include "version.h"
 #include "logging.h"
 #include "oneException.h"
 
@@ -28,12 +27,13 @@ using namespace boost::program_options;
 namespace one {
 namespace client {
 
-Options::Options()
+Options::Options(boost::filesystem::path globalConfigPath)
     : m_common("Common config file and environment options")
     , m_restricted("Global config file restricted options")
     , m_commandline("General options")
     , m_fuse("FUSE options")
     , m_hidden("Hidden commandline options")
+    , m_globalConfigPath(std::move(globalConfigPath))
 {
     setDescriptions();
 }
@@ -211,21 +211,17 @@ void Options::parseUserConfig(variables_map &fileConfigMap)
 
 void Options::parseGlobalConfig(variables_map &fileConfigMap)
 {
-    using namespace boost::filesystem;
-
     options_description global("Global configuration");
     global.add(m_restricted).add(m_common);
 
-    const path globalConfigPath = path(oneclient_INSTALL_PATH) /
-        oneclient_CONFIG_DIR / GLOBAL_CONFIG_FILE;
-    std::ifstream globalConfig(globalConfigPath.c_str());
+    std::ifstream globalConfig(m_globalConfigPath.c_str());
 
     if (globalConfig)
-        LOG(INFO) << "Parsing global configuration file: '" << globalConfigPath
-                  << "'";
+        LOG(INFO) << "Parsing global configuration file: '"
+                  << m_globalConfigPath << "'";
     else
         LOG(WARNING) << "Couldn't open global configuration file: '"
-                     << globalConfigPath << "'";
+                     << m_globalConfigPath << "'";
 
     store(parse_config_file(globalConfig, global), fileConfigMap);
 }

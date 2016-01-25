@@ -10,6 +10,8 @@
 #include "events/subscriptionHandler.h"
 #include "events/subscriptions/subscriptionCancellation.h"
 
+#include "messages.pb.h"
+
 #include <gmock/gmock.h>
 
 #include <functional>

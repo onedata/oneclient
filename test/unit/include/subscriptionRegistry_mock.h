@@ -19,7 +19,7 @@ class MockSubscriptionRegistry
 public:
     using Subscription = one::client::events::SubscriptionCancellation;
 
-    MOCK_METHOD1(removeSubscription, bool(Subscription));
+    MOCK_METHOD1(removeSubscription, bool(const Subscription &));
 };
 
 #endif // ONECLIENT_TEST_UNIT_SUBSCRIPTION_REGISTRY_MOCK_H

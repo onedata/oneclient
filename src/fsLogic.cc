@@ -11,7 +11,6 @@
 
 #include "context.h"
 #include "logging.h"
-#include "helperWrapper.h"
 #include "options.h"
 
 #include "messages/fuse/changeMode.h"
@@ -278,7 +277,8 @@ int FsLogic::open(
     DLOG(INFO) << "FUSE: open(path: " << path << ", ...)";
 
     auto attr = m_metadataCache.getAttr(path);
-    m_metadataCache.getLocation(attr.uuid());
+    auto location = m_metadataCache.getLocation(attr.uuid());
+    auto helper = getHelper(attr.uuid(), location.storageId());
 
     FileContextCache::Accessor acc;
     m_fileContextCache.create(acc);
@@ -287,7 +287,9 @@ int FsLogic::open(
     fileInfo->fh = acc->first;
 
     acc->second.uuid = attr.uuid();
-    acc->second.helperCtx.flags = fileInfo->flags;
+    acc->second.helperCtx = helper->createCTX();
+    acc->second.helperCtx->setFlags(fileInfo->flags);
+
     m_fsSubscriptions.addFileLocationSubscription(attr.uuid());
 
     return 0;
@@ -329,8 +331,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
 
     auto helper = getHelper(context.uuid, fileBlock.storageId());
     try {
-        buf = HelperWrapper(*helper, context.helperCtx)
-                  .read({fileBlock.fileId()}, buf, offset, context.uuid);
+        buf = helper->sh_read(context.helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
     }
     catch (const std::system_error &e) {
         if (e.code().value() == EPERM || e.code().value() == EACCES)
@@ -338,8 +339,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         else
             throw e;
         helper = getHelper(context.uuid, fileBlock.storageId());
-        buf = HelperWrapper(*helper, context.helperCtx)
-                  .read({fileBlock.fileId()}, buf, offset, context.uuid);
+        buf = helper->sh_read(context.helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
     }
 
     const auto bytesRead = asio::buffer_size(buf);
@@ -368,8 +368,7 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     auto helper = getHelper(context.uuid, location.storageId());
     size_t bytesWritten = 0;
     try {
-        bytesWritten = HelperWrapper(*helper, context.helperCtx)
-                           .write(location.fileId(), buf, offset, context.uuid);
+        bytesWritten = helper->sh_write(context.helperCtx, location.fileId(), buf, offset, context.uuid);
     }
     catch (const std::system_error &e) {
         if (e.code().value() == EPERM || e.code().value() == EACCES)
@@ -377,8 +376,7 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
         else
             throw e;
         helper = getHelper(context.uuid, location.storageId());
-        bytesWritten = HelperWrapper(*helper, context.helperCtx)
-                           .write(location.fileId(), buf, offset, context.uuid);
+        bytesWritten = helper->sh_write(context.helperCtx, location.fileId(), buf, offset, context.uuid);
     }
 
     m_eventManager.emitWriteEvent(offset, bytesWritten, context.uuid,
@@ -389,11 +387,9 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     acc->second.attr.get().size(std::max(acc->second.attr.get().size(),
         static_cast<off_t>(offset + bytesWritten)));
 
-    DLOG(INFO) << "8";
     auto writtenRange = boost::icl::discrete_interval<off_t>::right_open(
         offset, offset + bytesWritten);
 
-    DLOG(INFO) << "9";
     // Call `getLocation` instead of using existing acc for a corner case
     // where location has been removed since initial `getLocation` call.
     m_metadataCache.getLocation(acc, context.uuid);

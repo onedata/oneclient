@@ -40,7 +40,8 @@ private:
 
     std::thread m_thread;
 
-    helpers::StorageHelperFactory m_helperFactory{m_ioService, m_communicator};
+    helpers::StorageHelperFactory m_helperFactory{
+        m_ioService, m_ioService, m_communicator};
 
     struct HashCompare {
         bool equal(const std::tuple<std::string, bool> &j,

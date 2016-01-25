@@ -9,8 +9,6 @@
 #ifndef ONECLIENT_EVENTS_SUBSCRIPTION_REGISTRY_H
 #define ONECLIENT_EVENTS_SUBSCRIPTION_REGISTRY_H
 
-#include "events/subscriptions/subscriptionCancellation.h"
-
 #include <tbb/concurrent_hash_map.h>
 
 #include <atomic>
@@ -20,6 +18,8 @@
 namespace one {
 namespace client {
 namespace events {
+
+class SubscriptionCancellation;
 
 /**
  * @c SubscriptionRegistry is responsible for storing unsubscribe handlers
@@ -58,7 +58,8 @@ public:
      * @return 'true' if subscription was successfully removed, otherwise
      * 'false'.
      */
-    virtual bool removeSubscription(SubscriptionCancellation cancellation);
+    virtual bool removeSubscription(
+        const SubscriptionCancellation &cancellation);
 
     /**
      * Checks whether subscription with provided ID exists.
