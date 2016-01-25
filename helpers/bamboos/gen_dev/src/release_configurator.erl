@@ -14,7 +14,7 @@
 -author("Tomasz Lichon").
 
 % oneprovider specific config
--define(ONEPROVIDER_CCM_APP_NAME, op_ccm).
+-define(ONEPROVIDER_CCM_APP_NAME, cluster_manager).
 -define(DIST_APP_FAILOVER_TIMEOUT, timer:seconds(5)).
 -define(SYNC_NODES_TIMEOUT, timer:minutes(1)).
 
@@ -45,18 +45,18 @@ configure_release(?ONEPROVIDER_CCM_APP_NAME, ReleaseRootPath, SysConfig, VmArgs)
 
     % configure kernel distributed erlang app
     NodeName = proplists:get_value(name, VmArgs),
-    CcmNodes = proplists:get_value(ccm_nodes, SysConfig),
-    case length(CcmNodes) > 1 of
+    CmNodes = proplists:get_value(cm_nodes, SysConfig),
+    case length(CmNodes) > 1 of
         true ->
-            OptCcms = CcmNodes -- [list_to_atom(NodeName)],
+            OptCms = CmNodes -- [list_to_atom(NodeName)],
             replace_application_config(SysConfigPath, kernel,
                 [
                     {distributed, [{
                         ?ONEPROVIDER_CCM_APP_NAME,
                         ?DIST_APP_FAILOVER_TIMEOUT,
-                        [list_to_atom(NodeName), list_to_tuple(OptCcms)]
+                        [list_to_atom(NodeName), list_to_tuple(OptCms)]
                     }]},
-                    {sync_nodes_mandatory, OptCcms},
+                    {sync_nodes_mandatory, OptCms},
                     {sync_nodes_timeout, ?SYNC_NODES_TIMEOUT}
                 ]);
         false -> ok

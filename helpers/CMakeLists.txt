@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.0.0)
 project(helpers C CXX)
 
 # CMake config
+set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY True)
 set(CMAKE_FIND_FRAMEWORK LAST)
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
@@ -44,12 +45,16 @@ find_library(ZLIB_LIBRARY z)
 find_library(RT_LIBRARY rt)
 find_library(DL_LIBRARY dl)
 
+# Rados library
+find_library(RADOS_LIBRARY rados)
+
 # Setup compile flags
 set(PLATFORM_EXTRA_LIBS
     ${CMAKE_THREAD_LIBS_INIT}
     ${LTDL_LIBRARY}
     ${ZLIB_LIBRARY}
-    ${DL_LIBRARY})
+    ${DL_LIBRARY}
+    ${RADOS_LIBRARY})
 
 # Code coverage
 option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
@@ -78,6 +83,11 @@ add_definitions(
     -DBOOST_FILESYSTEM_NO_DEPRECATED
     -DBOOST_ALL_DYN_LINK
     -DASIO_STANDALONE)
+
+option(BUILD_PROXY_IO "Build Proxy IO helper." ON)
+if(BUILD_PROXY_IO)
+    add_definitions("-DBUILD_PROXY_IO")
+endif(BUILD_PROXY_IO)
 
 add_subdirectory(clproto)
 add_subdirectory(${ERLANG_TLS_DIR}/src)

@@ -44,18 +44,18 @@ public:
         std::string fileId, std::string data, int offset, std::string fileUuid)
     {
         ReleaseGIL guard;
-        one::helpers::StorageHelperCTX ctx;
+        auto ctx = std::make_shared<one::helpers::IStorageHelperCTX>();
         return m_helper.sh_write(
-            ctx, fileId, asio::buffer(data), offset, fileUuid);
+            std::move(ctx), fileId, asio::buffer(data), offset, fileUuid);
     }
 
     std::string read(
         std::string fileId, int offset, int size, std::string fileUuid)
     {
         ReleaseGIL guard;
-        one::helpers::StorageHelperCTX ctx;
+        auto ctx = std::make_shared<one::helpers::IStorageHelperCTX>();
         std::string buffer(size, '\0');
-        m_helper.sh_read(ctx, fileId, asio::buffer(buffer), offset, fileUuid);
+        m_helper.sh_read(std::move(ctx), fileId, asio::buffer(buffer), offset, fileUuid);
         return buffer;
     }
 

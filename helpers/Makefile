@@ -2,6 +2,7 @@
 all: test
 
 INSTALL_PREFIX ?= ${HOME}/.local/helpers
+BUILD_PROXY_IO ?= ON
 
 cmake: BUILD_DIR = $$(echo $(BUILD_TYPE) | tr '[:upper:]' '[:lower:]')
 cmake:
@@ -9,20 +10,24 @@ cmake:
 	cd ${BUILD_DIR} && cmake -GNinja -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
 	                                 -DCODE_COVERAGE=${WITH_COVERAGE} \
 	                                 -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
-	                                 -DBUILD_NIF_LIBS=${BUILD_NIF_LIBS} ..
+	                                 -DBUILD_PROXY_IO=${BUILD_PROXY_IO} ..
 
 release: BUILD_TYPE = Release
 release: cmake
-	cmake --build release
+	cmake --build release --target helpersStatic
+	cmake --build release --target helpersShared
 
 debug: BUILD_TYPE = Debug
 debug: cmake
-	cmake --build debug
+	cmake --build debug --target helpersStatic
+	cmake --build debug --target helpersShared
 
 test: debug
+	cmake --build debug
 	cmake --build debug --target test
 
 cunit: debug
+	cmake --build debug
 	cmake --build debug --target cunit
 
 install: release

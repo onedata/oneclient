@@ -28,18 +28,69 @@
 namespace one {
 namespace helpers {
 
-constexpr std::chrono::seconds ASYNC_OPS_TIMEOUT{2};
+using error_t = std::error_code;
 
-struct StorageHelperCTX {
-    uid_t uid = 0;
-    gid_t gid = 0;
-    int flags = 0;
-    int fh = 0;
+namespace {
+constexpr std::chrono::seconds ASYNC_OPS_TIMEOUT{2};
+const error_t SUCCESS_CODE;
+}
+
+class IStorageHelperCTX {
+public:
+    enum class Flag {
+        NONBLOCK,
+        APPEND,
+        ASYNC,
+        FSYNC,
+        NOFOLLOW,
+        CREAT,
+        TRUNC,
+        EXCL,
+        RDONLY,
+        WRONLY,
+        RDWR,
+        IFREG,
+        IFCHR,
+        IFBLK,
+        IFIFO,
+        IFSOCK
+    };
+
+    virtual ~IStorageHelperCTX() = default;
+
+    virtual void setUserCTX(std::unordered_map<std::string, std::string> args)
+    {
+        throw std::system_error{std::make_error_code(std::errc::not_supported)};
+    }
+
+    virtual std::unordered_map<std::string, std::string> getUserCTX()
+    {
+        throw std::system_error{std::make_error_code(std::errc::not_supported)};
+    }
+
+    virtual void setFlags(std::vector<Flag> flags)
+    {
+        throw std::system_error{std::make_error_code(std::errc::not_supported)};
+    }
+
+    virtual void setFlags(int flags) {}
+
+    virtual std::vector<Flag> getFlags()
+    {
+        throw std::system_error{std::make_error_code(std::errc::not_supported)};
+    }
+
+    virtual int getFlagValue(Flag flag) { return 0; }
+
+protected:
+    static error_t makePosixError(int posixCode)
+    {
+        posixCode = posixCode > 0 ? posixCode : -posixCode;
+        return error_t(posixCode, std::system_category());
+    }
 };
 
-using CTXRef = StorageHelperCTX &;
-using CTXConstRef = const StorageHelperCTX &;
-using error_t = std::error_code;
+using CTXPtr = std::shared_ptr<IStorageHelperCTX>;
 
 template <class... T>
 using GeneralCallback = std::function<void(T..., error_t)>;
@@ -58,105 +109,107 @@ class IStorageHelper {
 public:
     virtual ~IStorageHelper() = default;
 
-    virtual void ash_getattr(CTXRef ctx, const boost::filesystem::path &p,
+    virtual CTXPtr createCTX() { return nullptr; }
+
+    virtual void ash_getattr(CTXPtr ctx, const boost::filesystem::path &p,
         GeneralCallback<struct stat> callback)
     {
         callback({}, std::make_error_code(std::errc::not_supported));
     }
 
-    virtual void ash_access(CTXRef ctx, const boost::filesystem::path &p,
+    virtual void ash_access(CTXPtr ctx, const boost::filesystem::path &p,
         int mask, VoidCallback callback)
     {
         callback({});
     }
 
-    virtual void ash_readlink(CTXRef ctx, const boost::filesystem::path &p,
+    virtual void ash_readlink(CTXPtr ctx, const boost::filesystem::path &p,
         GeneralCallback<std::string> callback)
     {
         callback({}, std::make_error_code(std::errc::not_supported));
     }
 
-    virtual void ash_readdir(CTXRef ctx, const boost::filesystem::path &p,
+    virtual void ash_readdir(CTXPtr ctx, const boost::filesystem::path &p,
         off_t offset, size_t count,
         GeneralCallback<const std::vector<std::string> &> callback)
     {
         callback({}, std::make_error_code(std::errc::not_supported));
     }
 
-    virtual void ash_mknod(CTXRef ctx, const boost::filesystem::path &p,
+    virtual void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p,
         mode_t mode, dev_t rdev, VoidCallback callback)
     {
         callback(std::make_error_code(std::errc::not_supported));
     }
 
-    virtual void ash_mkdir(CTXRef ctx, const boost::filesystem::path &p,
+    virtual void ash_mkdir(CTXPtr ctx, const boost::filesystem::path &p,
         mode_t mode, VoidCallback callback)
     {
         callback(std::make_error_code(std::errc::not_supported));
     }
 
     virtual void ash_unlink(
-        CTXRef ctx, const boost::filesystem::path &p, VoidCallback callback)
+        CTXPtr ctx, const boost::filesystem::path &p, VoidCallback callback)
     {
         callback(std::make_error_code(std::errc::not_supported));
     }
 
     virtual void ash_rmdir(
-        CTXRef ctx, const boost::filesystem::path &p, VoidCallback callback)
+        CTXPtr ctx, const boost::filesystem::path &p, VoidCallback callback)
     {
         callback(std::make_error_code(std::errc::not_supported));
     }
 
-    virtual void ash_symlink(CTXRef ctx, const boost::filesystem::path &from,
+    virtual void ash_symlink(CTXPtr ctx, const boost::filesystem::path &from,
         const boost::filesystem::path &to, VoidCallback callback)
     {
         callback(std::make_error_code(std::errc::not_supported));
     }
 
-    virtual void ash_rename(CTXRef ctx, const boost::filesystem::path &from,
+    virtual void ash_rename(CTXPtr ctx, const boost::filesystem::path &from,
         const boost::filesystem::path &to, VoidCallback callback)
     {
         callback(std::make_error_code(std::errc::not_supported));
     }
 
-    virtual void ash_link(CTXRef ctx, const boost::filesystem::path &from,
+    virtual void ash_link(CTXPtr ctx, const boost::filesystem::path &from,
         const boost::filesystem::path &to, VoidCallback callback)
     {
         callback(std::make_error_code(std::errc::not_supported));
     }
 
-    virtual void ash_chmod(CTXRef ctx, const boost::filesystem::path &p,
+    virtual void ash_chmod(CTXPtr ctx, const boost::filesystem::path &p,
         mode_t mode, VoidCallback callback)
     {
         callback(std::make_error_code(std::errc::not_supported));
     }
 
-    virtual void ash_chown(CTXRef ctx, const boost::filesystem::path &p,
+    virtual void ash_chown(CTXPtr ctx, const boost::filesystem::path &p,
         uid_t uid, gid_t gid, VoidCallback callback)
     {
         callback(std::make_error_code(std::errc::not_supported));
     }
 
-    virtual void ash_truncate(CTXRef ctx, const boost::filesystem::path &p,
+    virtual void ash_truncate(CTXPtr ctx, const boost::filesystem::path &p,
         off_t size, VoidCallback callback)
     {
         callback(std::make_error_code(std::errc::not_supported));
     }
 
-    virtual void ash_open(CTXRef ctx, const boost::filesystem::path &p,
+    virtual void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
         GeneralCallback<int> callback)
     {
         callback({}, std::make_error_code(std::errc::not_supported));
     }
 
-    virtual void ash_read(CTXRef ctx, const boost::filesystem::path &p,
+    virtual void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
         GeneralCallback<asio::mutable_buffer> callback)
     {
         callback({}, std::make_error_code(std::errc::not_supported));
     }
 
-    virtual void ash_write(CTXRef ctx, const boost::filesystem::path &p,
+    virtual void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
         asio::const_buffer buf, off_t offset, const std::string &fileUuid,
         GeneralCallback<std::size_t> callback)
     {
@@ -164,24 +217,24 @@ public:
     }
 
     virtual void ash_release(
-        CTXRef ctx, const boost::filesystem::path &p, VoidCallback callback)
+        CTXPtr ctx, const boost::filesystem::path &p, VoidCallback callback)
     {
         callback({});
     }
 
     virtual void ash_flush(
-        CTXRef ctx, const boost::filesystem::path &p, VoidCallback callback)
+        CTXPtr ctx, const boost::filesystem::path &p, VoidCallback callback)
     {
         callback({});
     }
 
-    virtual void ash_fsync(CTXRef ctx, const boost::filesystem::path &p,
+    virtual void ash_fsync(CTXPtr ctx, const boost::filesystem::path &p,
         bool isDataSync, VoidCallback callback)
     {
         callback({});
     }
 
-    virtual asio::mutable_buffer sh_read(CTXRef ctx,
+    virtual asio::mutable_buffer sh_read(CTXPtr ctx,
         const boost::filesystem::path &p, asio::mutable_buffer buf,
         off_t offset, const std::string &fileUuid)
     {
@@ -198,11 +251,11 @@ public:
                 promise->set_value(input);
         };
 
-        ash_read(ctx, p, buf, offset, fileUuid, std::move(callback));
+        ash_read(std::move(ctx), p, buf, offset, fileUuid, std::move(callback));
         return waitFor(future);
     }
 
-    virtual std::size_t sh_write(CTXRef ctx, const boost::filesystem::path &p,
+    virtual std::size_t sh_write(CTXPtr ctx, const boost::filesystem::path &p,
         asio::const_buffer buf, off_t offset, const std::string &fileUuid)
     {
         auto promise = std::make_shared<std::promise<std::size_t>>();
@@ -218,7 +271,7 @@ public:
                 promise->set_value(wrote);
         };
 
-        ash_write(ctx, p, buf, offset, fileUuid, std::move(callback));
+        ash_write(std::move(ctx), p, buf, offset, fileUuid, std::move(callback));
         return waitFor(future);
     }
 

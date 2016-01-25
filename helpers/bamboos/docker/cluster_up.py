@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
-"""Author: Konrad Zemek
+"""Author: Michal Zmuda
 Copyright (C) 2015 ACK CYFRONET AGH
 This software is released under the MIT license cited in 'LICENSE.txt'
 
-A script to brings up a set of oneprovider nodes. They can create separate
+A script to brings up a set of cluster nodes. They can form separate
 clusters.
 Run the script with -h flag to learn about script's running options.
 """
@@ -12,11 +12,10 @@ Run the script with -h flag to learn about script's running options.
 from __future__ import print_function
 import json
 import os
-
-from environment import common, provider_worker, cluster_manager, dns
+from environment import common, cluster_worker, cluster_manager, dns
 
 parser = common.standard_arg_parser(
-    'Bring up oneprovider nodes (workers and cms).')
+    'Bring up bare cluster nodes (workers and cms).')
 parser.add_argument(
     '-l', '--logdir',
     action='store',
@@ -27,7 +26,7 @@ parser.add_argument(
     '-bw', '--bin-worker',
     action='store',
     default=os.getcwd(),
-    help='the path to oneprovider repository (precompiled)',
+    help='the path to cluster-worker repository (precompiled)',
     dest='bin_op_worker')
 parser.add_argument(
     '-bcm', '--bin-cm',
@@ -41,7 +40,7 @@ args = parser.parse_args()
 config = common.parse_json_file(args.config_path)
 output = {
     'cluster_manager_nodes': [],
-    'op_worker_nodes': [],
+    'cluster_worker_nodes': [],
 }
 uid = common.generate_uid()
 
@@ -50,13 +49,11 @@ uid = common.generate_uid()
 common.merge(output, dns_output)
 
 # Start cms
-cm_output = cluster_manager.up(args.image, args.bin_cluster_manager,
-                             dns_server, uid, args.config_path, args.logdir)
+cm_output = cluster_manager.up(args.image, args.bin_cluster_manager, dns_server, uid, args.config_path, args.logdir)
 common.merge(output, cm_output)
 
 # Start workers
-worker_output = provider_worker.up(args.image, args.bin_op_worker, dns_server,
-                                   uid, args.config_path, args.logdir)
+worker_output = cluster_worker.up(args.image, args.bin_op_worker, dns_server, uid, args.config_path, args.logdir)
 common.merge(output, worker_output)
 
 # Make sure domain are added to the dns server
