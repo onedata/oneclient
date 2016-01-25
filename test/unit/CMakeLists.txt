@@ -6,9 +6,9 @@ include_directories(SYSTEM
     ${ERLANG_TLS_DIR}/deps/gmock/include
     ${ERLANG_TLS_DIR}/deps/gtest/include)
 
-include_directories(include ${PROJECT_SOURCE_DIR}/helpers/test/unit/include)
+include_directories(include)
 
-file(GLOB_RECURSE TEST_HEADERS include/*.h)
+file(GLOB_RECURSE HELPER_TEST_HEADERS include/*.h)
 add_library(testRunner OBJECT testRunner.cc)
 add_dependencies(testRunner gmock gtest)
 
@@ -22,17 +22,17 @@ macro(run_test test_target)
   add_dependencies(cunit ${test_target}_runtest)
 endmacro()
 
-file(GLOB_RECURSE TEST_SOURCES *_test.cc)
-foreach(TEST_SRC ${TEST_SOURCES})
-    get_filename_component(TEST_NAME ${TEST_SRC} NAME_WE)
+file(GLOB_RECURSE HELPER_TEST_SOURCES *_test.cc)
+foreach(TEST_FILE ${HELPER_TEST_SOURCES})
+    get_filename_component(TEST_NAME ${TEST_FILE} NAME_WE)
     add_executable(${TEST_NAME}
-	${TEST_SRC}
-	${TEST_HEADERS}
-	$<TARGET_OBJECTS:testRunner>)
-    target_link_libraries(${TEST_NAME} PRIVATE
-	clientShared
-	gmock_main
-	gtest)
+        ${TEST_FILE}
+        ${HELPER_TEST_HEADERS}
+        $<TARGET_OBJECTS:testRunner>)
+    target_link_libraries(${TEST_NAME}
+        helpersShared
+        gmock_main
+        gtest)
     add_test(${TEST_NAME} ${TEST_NAME})
     run_test(${TEST_NAME})
 endforeach()

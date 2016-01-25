@@ -1,5 +1,0 @@
-oneclient ({{version}}-{{build}}) {{distribution}}; urgency=low
-
-  * Build from {{version}}
-
- -- onedata Package Maintainer <support@onedata.org>  Thu, 11 Jun 2015 13:28:13 +0000

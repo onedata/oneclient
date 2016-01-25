@@ -1,7 +1,6 @@
+src/proto
 /release
 /debug
-/relwithdebinfo
-/package
 
 # Compiled Object files
 *.slo
@@ -24,6 +23,9 @@
 *.exe
 *.out
 *.app
+
+# Compiled Python files
+*.pyc
 
 # CMake
 CMakeCache.txt
