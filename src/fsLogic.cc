@@ -331,7 +331,8 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
 
     auto helper = getHelper(context.uuid, fileBlock.storageId());
     try {
-        buf = helper->sh_read(context.helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
+        buf = helper->sh_read(
+            context.helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
     }
     catch (const std::system_error &e) {
         if (e.code().value() == EPERM || e.code().value() == EACCES)
@@ -339,7 +340,8 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         else
             throw e;
         helper = getHelper(context.uuid, fileBlock.storageId());
-        buf = helper->sh_read(context.helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
+        buf = helper->sh_read(
+            context.helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
     }
 
     const auto bytesRead = asio::buffer_size(buf);
@@ -368,7 +370,8 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     auto helper = getHelper(context.uuid, location.storageId());
     size_t bytesWritten = 0;
     try {
-        bytesWritten = helper->sh_write(context.helperCtx, location.fileId(), buf, offset, context.uuid);
+        bytesWritten = helper->sh_write(
+            context.helperCtx, location.fileId(), buf, offset, context.uuid);
     }
     catch (const std::system_error &e) {
         if (e.code().value() == EPERM || e.code().value() == EACCES)
@@ -376,7 +379,8 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
         else
             throw e;
         helper = getHelper(context.uuid, location.storageId());
-        bytesWritten = helper->sh_write(context.helperCtx, location.fileId(), buf, offset, context.uuid);
+        bytesWritten = helper->sh_write(
+            context.helperCtx, location.fileId(), buf, offset, context.uuid);
     }
 
     m_eventManager.emitWriteEvent(offset, bytesWritten, context.uuid,

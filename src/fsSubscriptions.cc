@@ -58,7 +58,8 @@ void FsSubscriptions::removeFileLocationSubscription(
     }
 }
 
-void FsSubscriptions::addPermissionChangedSubscription(const std::string &fileUuid)
+void FsSubscriptions::addPermissionChangedSubscription(
+    const std::string &fileUuid)
 {
     typename decltype(m_permissionChangedSubscriptions)::accessor acc;
     if (m_permissionChangedSubscriptions.insert(acc, fileUuid))
@@ -120,7 +121,8 @@ std::int64_t FsSubscriptions::sendFileLocationSubscription(
 std::int64_t FsSubscriptions::sendPermissionChangedSubscription(
     const std::string &fileUuid)
 {
-    DLOG(INFO) << "Sending subscription for change of permissions of file: " << fileUuid;
+    DLOG(INFO) << "Sending subscription for change of permissions of file: "
+               << fileUuid;
     events::PermissionChangedSubscription clientSubscription{fileUuid};
     events::PermissionChangedSubscription serverSubscription{fileUuid};
     return m_eventManager.subscribe(

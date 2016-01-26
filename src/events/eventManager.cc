@@ -29,10 +29,11 @@ EventManager::EventManager(std::shared_ptr<Context> context)
           m_streamManager.create())}
     , m_fileAttrEventStream{std::make_unique<FileAttrEventStream>(
           m_streamManager.create())}
-    , m_fileLocationEventStream{
-          std::make_unique<FileLocationEventStream>(m_streamManager.create())}
+    , m_fileLocationEventStream{std::make_unique<FileLocationEventStream>(
+          m_streamManager.create())}
     , m_permissionChangedEventStream{
-          std::make_unique<PermissionChangedEventStream>(m_streamManager.create())}
+          std::make_unique<PermissionChangedEventStream>(
+              m_streamManager.create())}
 {
     auto predicate = [](const clproto::ServerMessage &message, const bool) {
         return message.has_events() || message.has_subscription() ||
@@ -143,7 +144,8 @@ void EventManager::handle(const clproto::Events &message)
             }
         }
         if (eventMsg.has_permission_changed_event()) {
-            const auto &permissionChangedEvent = eventMsg.permission_changed_event();
+            const auto &permissionChangedEvent =
+                eventMsg.permission_changed_event();
             PermissionChangedEvent event{permissionChangedEvent.file_uuid()};
             m_permissionChangedEventStream->emitEvent(std::move(event));
         }

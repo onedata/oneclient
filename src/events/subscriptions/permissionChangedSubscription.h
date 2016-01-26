@@ -33,8 +33,8 @@ public:
      * @param fileUuid UUID of file for which permission change events are
      * requested.
      */
-    PermissionChangedSubscription(std::string fileUuid,
-        std::size_t counterThreshold = 1);
+    PermissionChangedSubscription(
+        std::string fileUuid, std::size_t counterThreshold = 1);
 
     std::string toString() const override;
 

@@ -103,7 +103,7 @@ public:
      * @param handler Handler to be set.
      */
     void setPermissionChangedHandler(
-            PermissionChangedEventStream::Handler handler);
+        PermissionChangedEventStream::Handler handler);
 
     /**
      * Adds subscription for permission changeg events.
@@ -120,7 +120,7 @@ public:
      * @return Subscription ID.
      */
     std::int64_t subscribe(PermissionChangedSubscription clientSubscription,
-                           PermissionChangedSubscription serverSubscription);
+        PermissionChangedSubscription serverSubscription);
 
     /**
      * Adds server subscriptions.
@@ -166,7 +166,8 @@ protected:
     std::unique_ptr<WriteEventStream> m_writeEventStream;
     std::unique_ptr<FileAttrEventStream> m_fileAttrEventStream;
     std::unique_ptr<FileLocationEventStream> m_fileLocationEventStream;
-    std::unique_ptr<PermissionChangedEventStream> m_permissionChangedEventStream;
+    std::unique_ptr<PermissionChangedEventStream>
+        m_permissionChangedEventStream;
 
 private:
     void initializeStreams(std::shared_ptr<Context> context);
