@@ -20,6 +20,9 @@
 #include <memory>
 
 namespace one {
+namespace clproto {
+    class PermissionChangedEvent;
+}
 namespace client {
 namespace events {
 
@@ -32,13 +35,14 @@ class PermissionChangedEvent : public Event {
 public:
     using EventPtr = std::unique_ptr<PermissionChangedEvent>;
     using Key = std::string;
+    using ProtocolMessage = clproto::PermissionChangedEvent;
     using Subscription = PermissionChangedSubscription;
 
     /**
      * Constructor.
-     * @param fileUuid UUID of a file associated with an event.
+     * @param message permisionChangedEvent protocol message.
      */
-    PermissionChangedEvent(std::string fileUuid);
+    PermissionChangedEvent(const ProtocolMessage &message);
 
     /**
      * @return Value that distinguish @c this read event from other read events,

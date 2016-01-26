@@ -144,9 +144,7 @@ void EventManager::handle(const clproto::Events &message)
             }
         }
         if (eventMsg.has_permission_changed_event()) {
-            const auto &permissionChangedEvent =
-                eventMsg.permission_changed_event();
-            PermissionChangedEvent event{permissionChangedEvent.file_uuid()};
+            PermissionChangedEvent event{eventMsg.permission_changed_event()};
             m_permissionChangedEventStream->emitEvent(std::move(event));
         }
     }

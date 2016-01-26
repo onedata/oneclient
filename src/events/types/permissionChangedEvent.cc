@@ -10,15 +10,13 @@
 
 #include "messages.pb.h"
 
-#include <sstream>
-
 namespace one {
 namespace client {
 namespace events {
 
-PermissionChangedEvent::PermissionChangedEvent(std::string fileUuid_)
-    : m_fileUuid{std::move(fileUuid_)}
+PermissionChangedEvent::PermissionChangedEvent(const ProtocolMessage &message)
 {
+    m_fileUuid = message.file_uuid();
 }
 
 const PermissionChangedEvent::Key &PermissionChangedEvent::key() const { return m_fileUuid; }
