@@ -30,8 +30,8 @@ def run(image, docker_host=None, detach=False, dns_list=[], add_host={},
     for addr in dns_list:
         cmd.extend(['--dns', addr])
 
-    for key in add_host:
-        cmd.extend(['--add-host', '{0}:{1}'.format(key, add_host[key])])
+    for key, value in add_host.iteritems():
+        cmd.extend(['--add-host', '{0}:{1}'.format(key, value)])
 
     for key in envs:
         cmd.extend(['-e', '{0}={1}'.format(key, envs[key])])

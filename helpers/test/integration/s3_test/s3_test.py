@@ -7,13 +7,14 @@ This software is released under the MIT license cited in 'LICENSE.txt'."""
 import os
 import sys
 
-from boto.s3.connection import S3Connection
 import pytest
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.dirname(script_dir))
 # noinspection PyUnresolvedReferences
 from test_common import *
+from environment import docker
+from environment import s3 as s3_server
 import s3
 
 ACCESS_KEY = "AKIAJQNCYDS4EAAGR73A"
@@ -21,30 +22,31 @@ SECRET_KEY = "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"
 
 
 @pytest.fixture(scope='module')
-def bucket(request):
-    class Bucket(object):
-        def __init__(self, name):
-            self.name = name
+def s3_client(request):
+    class S3Client(object):
+        def __init__(self, host_name, access_key, secret_key, bucket):
+            self.host_name = host_name
+            self.access_key = access_key
+            self.secret_key = secret_key
+            self.bucket = bucket
 
-    connection = S3Connection(ACCESS_KEY, SECRET_KEY)
-    name = random_str(size=20, characters=string.ascii_lowercase)
-    connection.create_bucket(name)
+    bucket = 'data'
+    result = s3_server.up(image='lphoward/fake-s3', buckets=[bucket])
+    [container] = result['docker_ids']
 
     def fin():
-        keys = connection.get_bucket(name)
-        for key in keys.list():
-            key.delete()
-        connection.delete_bucket(name)
+        docker.remove([container], force=True, volumes=True)
 
     request.addfinalizer(fin)
 
-    return Bucket(name)
+    return S3Client(result['host_name'], result['access_key'], result[
+        'secret_key'], bucket)
 
 
 @pytest.fixture
-def helper(bucket):
-    return s3.S3Proxy("s3.amazonaws.com", bucket.name,
-                      ACCESS_KEY, SECRET_KEY)
+def helper(s3_client):
+    return s3.S3Proxy(s3_client.host_name, s3_client.bucket,
+                      s3_client.access_key, s3_client.secret_key)
 
 
 def test_write_should_write_data(helper):
