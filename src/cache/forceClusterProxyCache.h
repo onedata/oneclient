@@ -11,6 +11,7 @@
 
 #include <tbb/concurrent_unordered_set.h>
 #include <fsSubscriptions.h>
+#include <shared_mutex>
 
 namespace one {
 namespace client {
@@ -23,7 +24,8 @@ class ForceClusterProxyCache {
 
 private:
     tbb::concurrent_unordered_set<std::string> m_cache;
-    FsSubscriptions m_fsSubscriptions;
+    FsSubscriptions& m_fsSubscriptions;
+    std::shared_timed_mutex m_cacheMutex;
 
 public:
     /**
@@ -46,10 +48,10 @@ public:
     void insert(const std::string &fileUuid);
 
     /**
-     * Erases fileUuid, this function is not thread_safe
+     * Erases fileUuid from cache
      * @param fileUuid to be deleted
      */
-    void unsafe_erase(const std::string &fileUuid);
+    void erase(const std::string &fileUuid);
 };
 
 } // namespace one

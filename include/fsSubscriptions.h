@@ -72,7 +72,7 @@ public:
      * subscription of the file it will be forwarded to the server.
      * @param fileUuid UUID of file for which subscription is added.
      */
-    void addPermissionChangedSubscription(const std::string &fileUuid);
+    virtual void addPermissionChangedSubscription(const std::string &fileUuid);
 
     /**
      * Removes subscription for permission updates.  If it is the last
@@ -80,7 +80,7 @@ public:
      * to the server.
      * @param fileUuid UUID of file for which subscription is removed.
      */
-    void removePermissionChangedSubscription(const std::string &fileUuid);
+    virtual void removePermissionChangedSubscription(const std::string &fileUuid);
 
 private:
     void addFileAttrSubscription(const std::string &fileUuid);

@@ -510,8 +510,7 @@ FsLogic::permissionChangedHandler()
         for (const auto &event : events) {
             LOG(INFO) << "Invalidating forceClusterProxyCache for uuid: '"
                       << event->fileUuid() << "'";
-            m_forceClusterProxyCache.unsafe_erase(
-                event->fileUuid()); // todo make it safe
+            m_forceClusterProxyCache.erase(event->fileUuid());
         }
     };
 }
