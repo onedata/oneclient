@@ -11,7 +11,7 @@ import pytest
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, script_dir)
 from test_common import *
-from environment import appmock, ceph, common, docker
+from environment import appmock, common, docker
 from appmock_client import AppmockClient
 
 PERFORMANCE_RESULT_FILE = \
@@ -42,36 +42,6 @@ def appmock_client(request, _appmock_client):
     _appmock_client.reset_rest_history()
     _appmock_client.reset_tcp_history()
     return _appmock_client
-
-
-@pytest.fixture(scope='module')
-def ceph_client(request):
-    class CephClient(object):
-        def __init__(self, mon_host, username, key, pool_name):
-            self.mon_host = mon_host
-            self.username = username
-            self.key = key
-            self.pool_name = pool_name
-
-    pool_name = 'data'
-    result = ceph.up(image='onedata/ceph', pools=[(pool_name, '8')])
-
-    [container] = result['docker_ids']
-    username = result['username']
-    key = str(result['key'])
-    mon_host = docker.inspect(container)['NetworkSettings']['IPAddress']. \
-        encode('ascii')
-
-    def fin():
-        docker.exec_(container, ['btrfs', 'subvolume', 'delete',
-                                 '/var/lib/ceph/osd/ceph-0/current'])
-        docker.exec_(container, ['btrfs', 'subvolume', 'delete',
-                                 '/var/lib/ceph/osd/ceph-0/snap_1'])
-        docker.remove([container], force=True, volumes=True)
-
-    request.addfinalizer(fin)
-
-    return CephClient(mon_host, username, key, pool_name)
 
 
 @pytest.fixture
