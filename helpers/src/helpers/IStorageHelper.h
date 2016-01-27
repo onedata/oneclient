@@ -30,8 +30,10 @@ namespace helpers {
 
 using error_t = std::error_code;
 
+namespace {
 constexpr std::chrono::seconds ASYNC_OPS_TIMEOUT{2};
-static const error_t SUCCESS_CODE = error_t();
+const error_t SUCCESS_CODE;
+}
 
 class IStorageHelperCTX {
 public:
@@ -71,20 +73,14 @@ public:
         throw std::system_error{std::make_error_code(std::errc::not_supported)};
     }
 
-    virtual void setFlags(int flags)
-    {
-        throw std::system_error{std::make_error_code(std::errc::not_supported)};
-    }
+    virtual void setFlags(int flags) {}
 
     virtual std::vector<Flag> getFlags()
     {
         throw std::system_error{std::make_error_code(std::errc::not_supported)};
     }
 
-    virtual int getFlagValue(Flag flag)
-    {
-        throw std::system_error{std::make_error_code(std::errc::not_supported)};
-    }
+    virtual int getFlagValue(Flag flag) { return 0; }
 
 protected:
     static error_t makePosixError(int posixCode)
