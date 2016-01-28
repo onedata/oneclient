@@ -21,8 +21,6 @@ namespace one {
 namespace helpers {
 
 class ProxyIOHelperCTX : public IStorageHelperCTX {
-public:
-    void setFlags(int flags) {}
 };
 
 class ProxyIOHelper : public IStorageHelper {
