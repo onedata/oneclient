@@ -287,7 +287,6 @@ int FsLogic::open(
 
     acc->second.uuid = attr.uuid();
     acc->second.helperCtx = helper->createCTX();
-    acc->second.helperCtx->setFlags(fileInfo->flags);
 
     m_fsSubscriptions.addFileLocationSubscription(attr.uuid());
 

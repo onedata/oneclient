@@ -29,10 +29,6 @@ public:
 
     std::unordered_map<std::string, std::string> getUserCTX();
 
-    int getFlagValue(Flag flag) { return 0; }
-
-    void setFlags(int flags) {}
-
     S3BucketContext bucketCTX;
 
 private:
@@ -49,7 +45,7 @@ public:
     CTXPtr createCTX();
 
     void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
-        GeneralCallback<int> callback)
+        std::vector<Flag> flags, GeneralCallback<int> callback)
     {
         callback(-1, SUCCESS_CODE);
     }
@@ -68,7 +64,7 @@ public:
         VoidCallback callback);
 
     void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        dev_t rdev, VoidCallback callback)
+        std::vector<Flag> flags, dev_t rdev, VoidCallback callback)
     {
         callback(SUCCESS_CODE);
     }
@@ -94,9 +90,10 @@ public:
         asio::const_buffer buf, off_t offset);
 
     std::size_t sh_write(const S3HelperCTX &ctx, const std::string &fileId,
-                         asio::const_buffer buf, off_t offset, std::size_t fileSize);
+        asio::const_buffer buf, off_t offset, std::size_t fileSize);
 
-    void sh_truncate(const S3HelperCTX &ctx, const std::string &fileId, off_t size);
+    void sh_truncate(
+        const S3HelperCTX &ctx, const std::string &fileId, off_t size);
 
     std::size_t sh_getFileSize(
         const S3HelperCTX &ctx, const std::string &fileId);

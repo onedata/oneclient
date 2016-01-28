@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(script_dir))
 # noinspection PyUnresolvedReferences
 from test_common import *
 # noinspection PyUnresolvedReferences
-from environment import common, docker
+from environment import docker
 from environment import ceph as ceph_server
 import ceph
 

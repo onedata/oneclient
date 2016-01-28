@@ -53,7 +53,8 @@ public:
     }
 
     void ash_mknod(one::helpers::CTXPtr, const boost::filesystem::path &,
-        mode_t, dev_t, one::helpers::VoidCallback callback) override
+        mode_t, std::vector<one::helpers::Flag>, dev_t,
+        one::helpers::VoidCallback callback) override
     {
         callback(ec);
     }
@@ -116,6 +117,7 @@ public:
     }
 
     void ash_open(one::helpers::CTXPtr, const boost::filesystem::path &,
+        std::vector<one::helpers::Flag>,
         one::helpers::GeneralCallback<int> callback) override
     {
         callback(0, ec);

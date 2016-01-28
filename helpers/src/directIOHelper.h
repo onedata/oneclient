@@ -33,23 +33,9 @@ public:
 
     std::unordered_map<std::string, std::string> getUserCTX();
 
-    void setFlags(std::vector<IStorageHelperCTX::Flag> flags);
-
-    void setFlags(int flags);
-
-    std::vector<IStorageHelperCTX::Flag> getFlags();
-
-    int getFlagValue(Flag flag);
-
     uid_t uid = 0;
     gid_t gid = 0;
-    int flags = 0;
     int fh = -1;
-
-private:
-    static const std::map<IStorageHelperCTX::Flag, int> s_openFlagTranslation;
-    static const std::map<IStorageHelperCTX::Flag, int> s_openModeTranslation;
-    static const std::map<IStorageHelperCTX::Flag, int> s_fileTypeTranslation;
 };
 
 /**
@@ -109,7 +95,7 @@ public:
     void ash_readdir(CTXPtr ctx, const boost::filesystem::path &p, off_t offset,
         size_t count, GeneralCallback<const std::vector<std::string> &>);
     void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        dev_t rdev, VoidCallback);
+        std::vector<Flag> flags, dev_t rdev, VoidCallback);
     void ash_mkdir(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
         VoidCallback);
     void ash_unlink(CTXPtr ctx, const boost::filesystem::path &p, VoidCallback);
@@ -127,8 +113,8 @@ public:
     void ash_truncate(
         CTXPtr ctx, const boost::filesystem::path &p, off_t size, VoidCallback);
 
-    void ash_open(
-        CTXPtr ctx, const boost::filesystem::path &p, GeneralCallback<int>);
+    void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
+        std::vector<Flag> flags, GeneralCallback<int>);
     void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset,
         GeneralCallback<asio::mutable_buffer>);
@@ -200,10 +186,13 @@ protected:
 private:
     boost::filesystem::path root(const boost::filesystem::path &path);
     std::shared_ptr<PosixHelperCTX> getCTX(CTXPtr rawCTX) const;
+    static int getFlagsValue(std::vector<Flag> flags);
 
     const boost::filesystem::path m_rootPath;
     asio::io_service &m_workerService;
     UserCTXFactory m_userCTXFactory;
+
+    static const std::map<Flag, int> s_flagTranslation;
 };
 
 } // namespace helpers
