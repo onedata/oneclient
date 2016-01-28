@@ -18,12 +18,34 @@
 namespace one {
 namespace helpers {
 
+/**
+* The CephHelperCTX class represents context for Ceph helpers and its object is
+* passed
+* to all helper functions.
+*/
 class CephHelperCTX : public IStorageHelperCTX {
 public:
+    /**
+     * Constructor.
+     * @param args Map with parameters required to create context. It should
+     * contain at least 'cluster_name' , 'mon_host' and 'pool_name' values.
+     * Additionally default 'user_name' and 'key' can be passed, which will be
+     * used if user context has not been set.
+     */
     CephHelperCTX(std::unordered_map<std::string, std::string> args);
 
+    /**
+     * Destructor.
+     * Closes connection to Ceph storage cluster and destroys internal context
+     * object.
+     */
     ~CephHelperCTX();
 
+    /**
+     * Sets user context.
+     * @param args Map with parameters required to set user context. Is should
+     * contain 'user_name' and 'key' values.
+     */
     void setUserCTX(std::unordered_map<std::string, std::string> args);
 
     std::unordered_map<std::string, std::string> getUserCTX();
@@ -43,6 +65,9 @@ private:
     std::unordered_map<std::string, std::string> m_args;
 };
 
+/**
+* The CephHelper class provides access to Ceph storage via librados library.
+*/
 class CephHelper : public IStorageHelper {
 public:
     CephHelper(std::unordered_map<std::string, std::string> args,

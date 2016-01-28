@@ -25,6 +25,10 @@
 namespace one {
 namespace helpers {
 
+/**
+* The PosixHelperCTX class represents context for all POSIX compliant helpers and
+* its object is passed to all helper functions.
+*/
 class PosixHelperCTX : public IStorageHelperCTX {
 public:
     ~PosixHelperCTX();
@@ -39,8 +43,8 @@ public:
 };
 
 /**
- * The DirectIOHelper class
- * Storage helper used to access files on mounted as local filesystem.
+ * The DirectIOHelper class provides access to files on mounted as local
+ * filesystem.
  */
 class DirectIOHelper : public IStorageHelper {
 public:

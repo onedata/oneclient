@@ -3,7 +3,7 @@
 Copyright (C) 2015 ACK CYFRONET AGH
 This software is released under the MIT license cited in 'LICENSE.txt'
 
-Brings up a Ceph storage cluster.
+Brings up a S3 storage.
 """
 
 from boto.s3.connection import S3Connection, OrdinaryCallingFormat

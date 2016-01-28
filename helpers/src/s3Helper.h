@@ -11,8 +11,7 @@
 
 #include "helpers/IStorageHelper.h"
 
-#include "libs3.h"
-
+#include <libs3.h>
 #include <asio.hpp>
 
 #include <map>
@@ -21,10 +20,26 @@
 namespace one {
 namespace helpers {
 
+/**
+* The S3HelperCTX class represents context for S3 helpers and its object is
+* passed to all helper functions.
+*/
 class S3HelperCTX : public IStorageHelperCTX {
 public:
+    /**
+     * Constructor.
+     * @param args Map with parameters required to create context. It should
+     * contain at least 'host_name' and 'bucket_name' values. Additionally
+     * default 'access_key' and 'secret_key' can be passed, which will be used
+     * if user context has not been set.
+     */
     S3HelperCTX(std::unordered_map<std::string, std::string> args);
 
+    /**
+     * Sets user context.
+     * @param args Map with parameters required to set user context. Is should
+     * contain 'access_key' and 'secret_key' values.
+     */
     void setUserCTX(std::unordered_map<std::string, std::string> args);
 
     std::unordered_map<std::string, std::string> getUserCTX();
@@ -35,6 +50,10 @@ private:
     std::unordered_map<std::string, std::string> m_args;
 };
 
+/**
+* The S3Helper class provides access to Simple Storage Service (S3) via libs3
+* library.
+*/
 class S3Helper : public IStorageHelper {
 public:
     S3Helper(std::unordered_map<std::string, std::string> args,
@@ -47,7 +66,7 @@ public:
     void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
         std::vector<Flag> flags, GeneralCallback<int> callback)
     {
-        callback(-1, SUCCESS_CODE);
+        callback(0, SUCCESS_CODE);
     }
 
     void ash_unlink(
