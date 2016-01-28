@@ -35,6 +35,7 @@
 #include <sys/stat.h>
 
 #include <algorithm>
+#include <memory>
 
 using namespace std::literals;
 
@@ -285,12 +286,33 @@ int FsLogic::open(
     fileInfo->fh = acc->first;
 
     acc->second.uuid = attr.uuid();
-    acc->second.helperCtx = helper->createCTX();
-    acc->second.helperCtx->setFlags(fileInfo->flags);
+    acc->second.flags = fileInfo->flags;
+    acc->second.helperCtxMap =
+        std::make_shared<FileContextCache::HelperCtxMap>();
 
     m_fsSubscriptions.addFileLocationSubscription(attr.uuid());
 
     return 0;
+}
+
+/**
+ * Opens file with new context for given {storageId, fileId}
+ * @param ctxMapKey {storageId, fileId}
+ * @param fileCtx
+ * @param helper
+ */
+static void openFile(const FileContextCache::HelperCtxMapKey &ctxMapKey,
+    FileContextCache::FileContext &fileCtx,
+    const HelpersCache::HelperPtr &helper)
+{
+    auto helperCtx = helper->createCTX();
+    helperCtx->setFlags(fileCtx.flags);
+
+    helper->sh_open(helperCtx, ctxMapKey.second);
+
+    FileContextCache::HelperCtxMapAccessor acc;
+    fileCtx.helperCtxMap->insert(acc, ctxMapKey);
+    acc->second = helperCtx;
 }
 
 int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
@@ -328,7 +350,15 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     buf = asio::buffer(buf, boost::icl::size(availableRange));
 
     auto helper = getHelper(location.spaceId(), fileBlock.storageId());
-    buf = helper->sh_read(context.helperCtx, fileBlock.fileId(), buf, offset);
+
+    FileContextCache::HelperCtxMapKey ctxMapKey = {
+        fileBlock.storageId(), fileBlock.fileId()};
+    if (context.helperCtxMap->count(ctxMapKey) == 0)
+        openFile(ctxMapKey, context, helper);
+    FileContextCache::HelperCtxMapAccessor ctxAcc;
+    context.helperCtxMap->find(ctxAcc, ctxMapKey);
+
+    buf = helper->sh_read(ctxAcc->second, fileBlock.fileId(), buf, offset);
 
     const auto bytesRead = asio::buffer_size(buf);
     m_eventManager.emitReadEvent(offset, bytesRead, context.uuid);
@@ -354,11 +384,19 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     std::tie(fileBlock, buf) = findWriteLocation(location, offset, buf);
 
     auto helper = getHelper(location.spaceId(), location.storageId());
+
+    FileContextCache::HelperCtxMapKey ctxMapKey = {
+        location.storageId(), fileBlock.fileId()};
+    if (context.helperCtxMap->count(ctxMapKey) == 0)
+        openFile(ctxMapKey, context, helper);
+    FileContextCache::HelperCtxMapAccessor ctxAcc;
+    context.helperCtxMap->find(ctxAcc, ctxMapKey);
+
     auto bytesWritten =
-        helper->sh_write(context.helperCtx, location.fileId(), buf, offset);
+        helper->sh_write(ctxAcc->second, fileBlock.fileId(), buf, offset);
 
     m_eventManager.emitWriteEvent(offset, bytesWritten, context.uuid,
-        location.storageId(), location.fileId());
+        location.storageId(), fileBlock.fileId());
 
     MetadataCache::MetaAccessor acc;
     m_metadataCache.getAttr(acc, context.uuid);
@@ -496,6 +534,27 @@ int FsLogic::release(
     DLOG(INFO) << "FUSE: release(path: " << path << ", ...)";
     auto attr = m_metadataCache.getAttr(path);
     m_fsSubscriptions.removeFileLocationSubscription(attr.uuid());
+
+    auto context = m_fileContextCache.get(fileInfo->fh);
+    std::exception_ptr systemErrorPtr;
+    for (auto &it : *context.helperCtxMap) {
+        auto &storageId = it.first.first;
+        auto &fileId = it.first.second;
+        auto helper = getHelper(storageId, fileId);
+        try {
+            helper->sh_release(it.second, fileId);
+        }
+        catch (std::system_error &e) {
+            DLOG(WARNING) << "FUSE: release(storageId: " << storageId
+                          << ", fileId: " << fileId << ") failed" << e.what();
+            if (!systemErrorPtr) {
+                systemErrorPtr = std::current_exception();
+            }
+        }
+    }
+    context.helperCtxMap->clear();
+    if (systemErrorPtr)
+        std::rethrow_exception(systemErrorPtr);
     return 0;
 }
 

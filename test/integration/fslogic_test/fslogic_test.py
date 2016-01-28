@@ -84,10 +84,16 @@ def prepare_location(file_blocks=None):
 def do_open(endpoint, fl, file_blocks=None, size=None):
     blocks = []
     if file_blocks:
-        for offset, size in file_blocks:
+        for file_block in file_blocks:
             block = common_messages_pb2.FileBlock()
+            if len(file_block) == 2:
+                offset, block_size = file_block
+            else:
+                offset, block_size, storage_id, file_id = file_block
+                block.storage_id = storage_id
+                block.file_id = file_id
             block.offset = offset
-            block.size = size
+            block.size = block_size
             blocks.append(block)
 
     getattr_response = prepare_getattr('path', fuse_messages_pb2.REG,
@@ -761,3 +767,68 @@ def test_write_should_save_blocks(endpoint, fl):
     do_open(endpoint, fl, size=0)
     assert 5 == fl.write('/random/path', 0, 5)
     assert 5 == fl.read('/random/path', 0, 10)
+
+
+def test_read_should_should_open_file_block_once(endpoint, fl):
+    do_open(endpoint, fl, file_blocks=[(0, 5, 'storage1', 'file1'),
+                                       (5, 5, 'storage2', 'file2')], size=10)
+
+    fl.expect_call_sh_open("file1", 1)
+    fl.expect_call_sh_open("file2", 1)
+
+    assert 5 == fl.read('/random/path', 0, 5)
+    assert 5 == fl.read('/random/path', 5, 5)
+
+    assert 5 == fl.read('/random/path', 0, 5)
+    assert 5 == fl.read('/random/path', 0, 5)
+
+    assert 5 == fl.read('/random/path', 5, 5)
+    assert 5 == fl.read('/random/path', 5, 5)
+
+    assert fl.verify_and_clear_expectations()
+
+
+def test_write_should_should_open_file_block_once(endpoint, fl):
+    do_open(endpoint, fl, file_blocks=[(0, 5, 'storage1', 'file1'),
+                                       (5, 5, 'storage2', 'file2')], size=10)
+
+    fl.expect_call_sh_open("file1", 1)
+    fl.expect_call_sh_open("file2", 1)
+
+    assert 5 == fl.write('/random/path', 0, 5)
+    assert 5 == fl.write('/random/path', 5, 5)
+
+    assert 5 == fl.write('/random/path', 0, 5)
+    assert 5 == fl.write('/random/path', 0, 5)
+
+    assert 5 == fl.write('/random/path', 5, 5)
+    assert 5 == fl.write('/random/path', 5, 5)
+
+    assert fl.verify_and_clear_expectations()
+
+
+def test_release_should_release_open_file_blocks(endpoint, fl):
+    do_open(endpoint, fl, file_blocks=[(0, 5, 'storage1', 'file1'),
+                                       (5, 5, 'storage2', 'file2')], size=10)
+    assert 5 == fl.read('/random/path', 0, 5)
+    assert 5 == fl.read('/random/path', 5, 5)
+
+    fl.expect_call_sh_release("file1", 1)
+    fl.expect_call_sh_release("file2", 1)
+
+    assert 0 == fl.release('/random/path')
+
+    assert fl.verify_and_clear_expectations()
+
+
+def test_release_should_pass_helper_errors(endpoint, fl):
+    do_open(endpoint, fl, file_blocks=[(0, 5, 'storage1', 'file1'),
+                                       (5, 5, 'storage2', 'file2')], size=10)
+    assert 5 == fl.read('/random/path', 0, 5)
+    assert 5 == fl.read('/random/path', 5, 5)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        fl.failHelper()
+        fl.release('/random/path')
+
+    assert 'Owner died' in str(excinfo.value)
