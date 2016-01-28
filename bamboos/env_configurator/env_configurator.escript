@@ -135,16 +135,8 @@ main([InputJson]) ->
                 ProviderWorkersBin = proplists:get_value(<<"nodes">>, Props),
                 ProviderWorkers = [bin_to_atom(P) || P <- ProviderWorkersBin],
                 Cookie = bin_to_atom(proplists:get_value(<<"cookie">>, Props)),
-                case call_node(hd(ProviderWorkers), Cookie, oneprovider,
-                    register_in_gr_dev, [ProviderWorkers,
-                        ?DEFAULT_KEY_FILE_PASSWD, Provider]) of
-                    {ok, Provider} ->
-                        ok;
-                    Other ->
-                        io:format("oneprovider:register_in_gr_dev "
-                        "returned: ~p~n", [Other]),
-                        throw(error)
-                end
+                register_in_global_registry(ProviderWorkers, Cookie, Provider),
+                create_space_storage_mapping(hd(ProviderWorkers), Cookie, Spaces)
             end, Providers),
         case call_node(GRNode, GRCookie, dev_utils, set_up_test_entities,
             [Users, Groups, Spaces]) of
@@ -223,4 +215,36 @@ get_escript_dir() ->
 bin_to_atom(Bin) ->
     list_to_atom(binary_to_list(Bin)).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Registers provider in Global Registry.
+%% @end
+%%--------------------------------------------------------------------
+-spec register_in_global_registry(Workers :: [node()], Cookie :: atom(),
+    Provider :: binary()) -> ok | no_return.
+register_in_global_registry(Workers, Cookie, Provider) ->
+    case call_node(hd(Workers), Cookie, oneprovider,
+        register_in_gr_dev, [Workers,
+            ?DEFAULT_KEY_FILE_PASSWD, Provider]) of
+        {ok, Provider} ->
+            ok;
+        Other ->
+            io:format("oneprovider:register_in_gr_dev "
+            "returned: ~p~n", [Other]),
+            throw(error)
+    end.
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Creates space storage mapping is provider database.
+%% @end
+%%--------------------------------------------------------------------
+-spec create_space_storage_mapping(Worker :: node(), Cookie :: atom(),
+    Spaces :: proplists:proplist()) -> ok.
+create_space_storage_mapping(Worker, Cookie, Spaces) ->
+    lists:foreach(fun({SpaceId, Props}) ->
+        Name = proplists:get_value(<<"storage">>, Props),
+        {ok, Storage} = call_node(Worker, Cookie, storage, get_by_name, [Name]),
+        StorageId = call_node(Worker, Cookie, storage, id, [Storage]),
+        {ok, _} = call_node(Worker, Cookie, space_storage, add, [SpaceId, StorageId])
+    end, Spaces).
