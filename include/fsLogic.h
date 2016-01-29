@@ -12,6 +12,7 @@
 #include "cache/fileContextCache.h"
 #include "cache/helpersCache.h"
 #include "cache/metadataCache.h"
+#include "cache/forceClusterProxyCache.h"
 #include "events/eventManager.h"
 #include "fsSubscriptions.h"
 #include "messages/fuse/fileAttr.h"
@@ -222,7 +223,7 @@ public:
 
 protected:
     virtual HelpersCache::HelperPtr getHelper(
-        const std::string &spaceId, const std::string &storageId);
+        const std::string &fileUuid, const std::string &storageId);
 
 private:
     void removeFile(boost::filesystem::path path);
@@ -231,6 +232,7 @@ private:
         const asio::const_buffer &buf);
     events::FileAttrEventStream::Handler fileAttrHandler();
     events::FileLocationEventStream::Handler fileLocationHandler();
+    events::PermissionChangedEventStream::Handler permissionChangedHandler();
 
     const uid_t m_uid;
     const gid_t m_gid;
@@ -241,6 +243,7 @@ private:
     HelpersCache m_helpersCache;
     MetadataCache m_metadataCache;
     FsSubscriptions m_fsSubscriptions;
+    ForceClusterProxyCache m_forceClusterProxyCache;
 };
 
 struct FsLogicWrapper {

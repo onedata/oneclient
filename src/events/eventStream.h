@@ -18,11 +18,13 @@
 #include "events/subscriptionHandler.h"
 #include "events/subscriptions/fileAttrSubscription.h"
 #include "events/subscriptions/fileLocationSubscription.h"
+#include "events/subscriptions/permissionChangedSubscription.h"
 #include "events/subscriptions/readSubscription.h"
 #include "events/subscriptions/writeSubscription.h"
 #include "events/types/readEvent.h"
 #include "events/types/updateEvent.h"
 #include "events/types/writeEvent.h"
+#include "events/types/permissionChangedEvent.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
 
@@ -45,6 +47,10 @@ using FileAttrEventStream = EventWorker<
 using FileLocationEventStream = EventWorker<
     EventCounterAggregator<EventTimeAggregator<SubscriptionHandler<EventHandler<
         EventCommunicator<UpdateEvent<messages::fuse::FileLocation>>>>>>>;
+
+using PermissionChangedEventStream =
+    EventWorker<EventCounterAggregator<EventTimeAggregator<SubscriptionHandler<
+        EventHandler<EventCommunicator<PermissionChangedEvent>>>>>>;
 
 } // namespace events
 } // namespace client

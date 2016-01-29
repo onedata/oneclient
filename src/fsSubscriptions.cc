@@ -11,6 +11,7 @@
 #include "events/eventManager.h"
 #include "events/subscriptions/fileAttrSubscription.h"
 #include "events/subscriptions/fileLocationSubscription.h"
+#include "events/subscriptions/permissionChangedSubscription.h"
 
 #include <functional>
 
@@ -57,6 +58,28 @@ void FsSubscriptions::removeFileLocationSubscription(
     }
 }
 
+void FsSubscriptions::addPermissionChangedSubscription(
+    const std::string &fileUuid)
+{
+    typename decltype(m_permissionChangedSubscriptions)::accessor acc;
+    if (m_permissionChangedSubscriptions.insert(acc, fileUuid))
+        acc->second.id = sendPermissionChangedSubscription(fileUuid);
+    ++acc->second.counter;
+}
+
+void FsSubscriptions::removePermissionChangedSubscription(
+    const std::string &fileUuid)
+{
+    typename decltype(m_permissionChangedSubscriptions)::accessor acc;
+    if (m_permissionChangedSubscriptions.find(acc, fileUuid)) {
+        --acc->second.counter;
+        if (acc->second.counter == 0) {
+            sendSubscriptionCancellation(acc->second.id);
+            m_permissionChangedSubscriptions.erase(acc);
+        }
+    }
+}
+
 void FsSubscriptions::addFileAttrSubscription(const std::string &fileUuid)
 {
     typename decltype(m_fileAttrSubscriptions)::accessor acc;
@@ -91,6 +114,17 @@ std::int64_t FsSubscriptions::sendFileLocationSubscription(
 {
     events::FileLocationSubscription clientSubscription{fileUuid, 1};
     events::FileLocationSubscription serverSubscription{fileUuid, 1};
+    return m_eventManager.subscribe(
+        std::move(clientSubscription), std::move(serverSubscription));
+}
+
+std::int64_t FsSubscriptions::sendPermissionChangedSubscription(
+    const std::string &fileUuid)
+{
+    DLOG(INFO) << "Sending subscription for change of permissions of file: "
+               << fileUuid;
+    events::PermissionChangedSubscription clientSubscription{fileUuid};
+    events::PermissionChangedSubscription serverSubscription{fileUuid};
     return m_eventManager.subscribe(
         std::move(clientSubscription), std::move(serverSubscription));
 }

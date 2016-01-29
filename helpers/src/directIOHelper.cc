@@ -363,7 +363,7 @@ void DirectIOHelper::ash_open(CTXPtr rawCTX, const boost::filesystem::path &p,
 }
 
 void DirectIOHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
-    asio::mutable_buffer buf, off_t offset,
+    asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
     GeneralCallback<asio::mutable_buffer> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
@@ -376,7 +376,7 @@ void DirectIOHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
             }
 
             try {
-                auto res = sh_read(std::move(ctx), p, buf, offset);
+                auto res = sh_read(std::move(ctx), p, buf, offset, fileUuid);
                 callback(res, SUCCESS_CODE);
             }
             catch (std::system_error &e) {
@@ -386,7 +386,8 @@ void DirectIOHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
 }
 
 void DirectIOHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
-    asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t> callback)
+    asio::const_buffer buf, off_t offset, const std::string &fileUuid,
+    GeneralCallback<std::size_t> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
     m_workerService.post(
@@ -398,7 +399,7 @@ void DirectIOHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
             }
 
             try {
-                auto res = sh_write(std::move(ctx), p, buf, offset);
+                auto res = sh_write(std::move(ctx), p, buf, offset, fileUuid);
                 callback(res, SUCCESS_CODE);
             }
             catch (std::system_error &e) {
@@ -462,7 +463,8 @@ void DirectIOHelper::ash_fsync(CTXPtr rawCTX, const boost::filesystem::path &p,
 }
 
 std::size_t DirectIOHelper::sh_write(CTXPtr rawCTX,
-    const boost::filesystem::path &p, asio::const_buffer buf, off_t offset)
+    const boost::filesystem::path &p, asio::const_buffer buf, off_t offset,
+    const std::string &fileUuid)
 {
     auto ctx = getCTX(std::move(rawCTX));
     auto userCTX = m_userCTXFactory(ctx);
@@ -492,7 +494,8 @@ std::size_t DirectIOHelper::sh_write(CTXPtr rawCTX,
 }
 
 asio::mutable_buffer DirectIOHelper::sh_read(CTXPtr rawCTX,
-    const boost::filesystem::path &p, asio::mutable_buffer buf, off_t offset)
+    const boost::filesystem::path &p, asio::mutable_buffer buf, off_t offset,
+    const std::string &fileUuid)
 {
     auto ctx = getCTX(std::move(rawCTX));
     auto userCTX = m_userCTXFactory(ctx);

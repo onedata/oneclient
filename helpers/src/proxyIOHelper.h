@@ -31,16 +31,16 @@ public:
     CTXPtr createCTX();
 
     void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset,
+        asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
         GeneralCallback<asio::mutable_buffer>);
 
     void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t>);
+        asio::const_buffer buf, off_t offset, const std::string &fileUuid,
+        GeneralCallback<std::size_t>);
 
 private:
     communication::Communicator &m_communicator;
     std::string m_storageId;
-    std::string m_spaceId;
 };
 
 } // namespace helpers

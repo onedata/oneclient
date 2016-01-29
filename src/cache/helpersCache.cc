@@ -28,23 +28,21 @@ HelpersCache::~HelpersCache()
     m_thread.join();
 }
 
-HelpersCache::HelperPtr HelpersCache::get(const std::string &spaceId,
-    const std::string &storageId, const bool forceClusterProxy)
+HelpersCache::HelperPtr HelpersCache::get(const std::string &storageId, const bool forceClusterProxy)
 {
     ConstAccessor constAcc;
     if (m_cache.find(
-            constAcc, std::make_tuple(spaceId, storageId, forceClusterProxy)))
+            constAcc, std::make_tuple(storageId, forceClusterProxy)))
         return constAcc->second;
 
     Accessor acc;
     if (!m_cache.insert(
-            acc, std::make_tuple(spaceId, storageId, forceClusterProxy)))
+            acc, std::make_tuple(storageId, forceClusterProxy)))
         return acc->second;
 
     try {
         auto future = m_communicator.communicate<messages::fuse::HelperParams>(
-            messages::fuse::GetHelperParams(
-                spaceId, storageId, forceClusterProxy));
+            messages::fuse::GetHelperParams(storageId, forceClusterProxy));
 
         auto params = communication::wait(future);
         auto helper =
@@ -60,14 +58,14 @@ HelpersCache::HelperPtr HelpersCache::get(const std::string &spaceId,
 }
 
 bool HelpersCache::HashCompare::equal(
-    const std::tuple<std::string, std::string, bool> &j,
-    const std::tuple<std::string, std::string, bool> &k) const
+    const std::tuple<std::string, bool> &j,
+    const std::tuple<std::string, bool> &k) const
 {
     return j == k;
 }
 
 size_t HelpersCache::HashCompare::hash(
-    const std::tuple<std::string, std::string, bool> &k) const
+    const std::tuple<std::string, bool> &k) const
 {
     auto hashCombine = [](auto &seed, const auto &val) {
         std::hash<typename std::remove_const<
@@ -79,7 +77,6 @@ size_t HelpersCache::HashCompare::hash(
     std::size_t hash = 0;
     hashCombine(hash, std::get<0>(k));
     hashCombine(hash, std::get<1>(k));
-    hashCombine(hash, std::get<2>(k));
     return hash;
 }
 

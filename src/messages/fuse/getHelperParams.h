@@ -24,19 +24,16 @@ class GetHelperParams : public ClientMessage {
 public:
     /**
      * Constructor.
-     * @param spaceId ID of the space to request helper params for.
      * @param storageId ID of the storage to request helper params for.
      * @param forceClusterProxy Whether to force proxying through cluster.
      */
-    GetHelperParams(std::string spaceId, std::string storageId,
-        bool forceClusterProxy = false);
+    GetHelperParams(std::string storageId, bool forceClusterProxy = false);
 
     std::string toString() const override;
 
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    std::string m_spaceId;
     std::string m_storageId;
     bool m_forceClusterProxy;
 };
