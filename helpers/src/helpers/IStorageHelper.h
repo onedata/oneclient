@@ -19,6 +19,7 @@
 
 #include <chrono>
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
 #include <vector>
 #include <memory>
@@ -53,6 +54,15 @@ enum class Flag {
     IFIFO,
     IFSOCK
 };
+
+struct FlagHash {
+    template <typename T> std::size_t operator()(T t) const
+    {
+        return static_cast<std::size_t>(t);
+    }
+};
+
+using FlagsSet = std::unordered_set<Flag, FlagHash>;
 
 class IStorageHelperCTX {
 public:
@@ -123,7 +133,7 @@ public:
     }
 
     virtual void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p,
-        mode_t mode, std::vector<Flag> flags, dev_t rdev, VoidCallback callback)
+        mode_t mode, FlagsSet flags, dev_t rdev, VoidCallback callback)
     {
         callback(std::make_error_code(std::errc::not_supported));
     }
@@ -183,7 +193,7 @@ public:
     }
 
     virtual void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
-        std::vector<Flag> flags, GeneralCallback<int> callback)
+        FlagsSet flags, GeneralCallback<int> callback)
     {
         callback({}, std::make_error_code(std::errc::not_supported));
     }

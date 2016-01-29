@@ -221,18 +221,11 @@ bin_to_atom(Bin) ->
 %% @end
 %%--------------------------------------------------------------------
 -spec register_in_global_registry(Workers :: [node()], Cookie :: atom(),
-    Provider :: binary()) -> ok | no_return.
+    Provider :: binary()) -> ok.
 register_in_global_registry(Workers, Cookie, Provider) ->
-    case call_node(hd(Workers), Cookie, oneprovider,
-        register_in_gr_dev, [Workers,
-            ?DEFAULT_KEY_FILE_PASSWD, Provider]) of
-        {ok, Provider} ->
-            ok;
-        Other ->
-            io:format("oneprovider:register_in_gr_dev "
-            "returned: ~p~n", [Other]),
-            throw(error)
-    end.
+    {ok, Provider} = call_node(hd(Workers), Cookie, oneprovider,
+        register_in_gr_dev, [Workers, ?DEFAULT_KEY_FILE_PASSWD, Provider]),
+    ok.
 
 %%--------------------------------------------------------------------
 %% @doc

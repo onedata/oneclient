@@ -154,7 +154,7 @@ void DirectIOHelper::ash_readdir(CTXPtr ctx, const boost::filesystem::path &p,
 }
 
 void DirectIOHelper::ash_mknod(CTXPtr rawCTX, const boost::filesystem::path &p,
-    mode_t mode, std::vector<Flag> flags, dev_t rdev, VoidCallback callback)
+    mode_t mode, FlagsSet flags, dev_t rdev, VoidCallback callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
     mode |= getFlagsValue(std::move(flags));
@@ -340,7 +340,7 @@ void DirectIOHelper::ash_truncate(CTXPtr rawCTX,
 }
 
 void DirectIOHelper::ash_open(CTXPtr rawCTX, const boost::filesystem::path &p,
-    std::vector<Flag> flags, GeneralCallback<int> callback)
+    FlagsSet flags, GeneralCallback<int> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
     m_workerService.post(
@@ -543,7 +543,7 @@ std::shared_ptr<PosixHelperCTX> DirectIOHelper::getCTX(CTXPtr rawCTX) const
     return ctx;
 }
 
-int DirectIOHelper::getFlagsValue(std::vector<Flag> flags)
+int DirectIOHelper::getFlagsValue(FlagsSet flags)
 {
     int value = 0;
 

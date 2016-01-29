@@ -26,8 +26,8 @@ namespace one {
 namespace helpers {
 
 /**
-* The PosixHelperCTX class represents context for all POSIX compliant helpers and
-* its object is passed to all helper functions.
+* The PosixHelperCTX class represents context for all POSIX compliant helpers
+* and its object is passed to all helper functions.
 */
 class PosixHelperCTX : public IStorageHelperCTX {
 public:
@@ -83,7 +83,7 @@ public:
 
     /**
      * This storage helper uses only the first element of args map.
-     * It shall be ablosute path to diretory used by this storage helper as
+     * It shall be absolute path to directory used by this storage helper as
      * root mount point.
      */
     DirectIOHelper(const std::unordered_map<std::string, std::string> &,
@@ -99,7 +99,7 @@ public:
     void ash_readdir(CTXPtr ctx, const boost::filesystem::path &p, off_t offset,
         size_t count, GeneralCallback<const std::vector<std::string> &>);
     void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        std::vector<Flag> flags, dev_t rdev, VoidCallback);
+        FlagsSet flags, dev_t rdev, VoidCallback);
     void ash_mkdir(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
         VoidCallback);
     void ash_unlink(CTXPtr ctx, const boost::filesystem::path &p, VoidCallback);
@@ -117,8 +117,8 @@ public:
     void ash_truncate(
         CTXPtr ctx, const boost::filesystem::path &p, off_t size, VoidCallback);
 
-    void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
-        std::vector<Flag> flags, GeneralCallback<int>);
+    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, FlagsSet flags,
+        GeneralCallback<int>);
     void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
         GeneralCallback<asio::mutable_buffer>);
@@ -191,7 +191,7 @@ protected:
 private:
     boost::filesystem::path root(const boost::filesystem::path &path);
     std::shared_ptr<PosixHelperCTX> getCTX(CTXPtr rawCTX) const;
-    static int getFlagsValue(std::vector<Flag> flags);
+    static int getFlagsValue(FlagsSet flags);
 
     const boost::filesystem::path m_rootPath;
     asio::io_service &m_workerService;

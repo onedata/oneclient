@@ -56,15 +56,26 @@ private:
 */
 class S3Helper : public IStorageHelper {
 public:
+    /**
+     * Constructor.
+     * Initializes S3 library. This is done on a static shared mutex, because
+     * initialization function is not thread-safe.
+     * @param args Map with parameters required to create helper.
+     * @param service Reference to IO service used by the helper.
+     */
     S3Helper(std::unordered_map<std::string, std::string> args,
         asio::io_service &service);
 
+    /**
+     * Destructor.
+     * Deinitializes S3 library.
+     */
     ~S3Helper();
 
     CTXPtr createCTX();
 
-    void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
-        std::vector<Flag> flags, GeneralCallback<int> callback)
+    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, FlagsSet flags,
+        GeneralCallback<int> callback)
     {
         callback(0, SUCCESS_CODE);
     }
@@ -73,17 +84,18 @@ public:
         CTXPtr ctx, const boost::filesystem::path &p, VoidCallback callback);
 
     void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset,
+        asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
         GeneralCallback<asio::mutable_buffer>);
 
     void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t>);
+        asio::const_buffer buf, off_t offset, const std::string &fileUuid,
+        GeneralCallback<std::size_t>);
 
     void ash_truncate(CTXPtr ctx, const boost::filesystem::path &p, off_t size,
         VoidCallback callback);
 
     void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        std::vector<Flag> flags, dev_t rdev, VoidCallback callback)
+        FlagsSet flags, dev_t rdev, VoidCallback callback)
     {
         callback(SUCCESS_CODE);
     }
