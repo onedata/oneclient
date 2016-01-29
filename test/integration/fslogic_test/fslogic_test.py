@@ -827,8 +827,13 @@ def test_release_should_pass_helper_errors(endpoint, fl):
     assert 5 == fl.read('/random/path', 0, 5)
     assert 5 == fl.read('/random/path', 5, 5)
 
+    fl.expect_call_sh_release("file1", 1)
+    fl.expect_call_sh_release("file2", 1)
+
     with pytest.raises(RuntimeError) as excinfo:
         fl.failHelper()
         fl.release('/random/path')
 
     assert 'Owner died' in str(excinfo.value)
+    assert fl.verify_and_clear_expectations()
+
