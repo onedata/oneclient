@@ -29,8 +29,11 @@ EventManager::EventManager(std::shared_ptr<Context> context)
           m_streamManager.create())}
     , m_fileAttrEventStream{std::make_unique<FileAttrEventStream>(
           m_streamManager.create())}
-    , m_fileLocationEventStream{
-          std::make_unique<FileLocationEventStream>(m_streamManager.create())}
+    , m_fileLocationEventStream{std::make_unique<FileLocationEventStream>(
+          m_streamManager.create())}
+    , m_permissionChangedEventStream{
+          std::make_unique<PermissionChangedEventStream>(
+              m_streamManager.create())}
 {
     auto predicate = [](const clproto::ServerMessage &message, const bool) {
         return message.has_events() || message.has_subscription() ||
@@ -94,6 +97,20 @@ std::int64_t EventManager::subscribe(
         std::move(clientSubscription), std::move(serverSubscription));
 }
 
+void EventManager::setPermissionChangedHandler(
+    PermissionChangedEventStream::Handler handler)
+{
+    m_permissionChangedEventStream->setEventHandler(std::move(handler));
+}
+
+std::int64_t EventManager::subscribe(
+    PermissionChangedSubscription clientSubscription,
+    PermissionChangedSubscription serverSubscription)
+{
+    return m_permissionChangedEventStream->subscribe(
+        std::move(clientSubscription), std::move(serverSubscription));
+}
+
 void EventManager::subscribe(SubscriptionContainer container)
 {
     auto readSubscriptions = container.moveReadSubscriptions();
@@ -125,6 +142,10 @@ void EventManager::handle(const clproto::Events &message)
                 UpdateEvent<FileLocation> event{updateEvent.file_location()};
                 m_fileLocationEventStream->emitEvent(std::move(event));
             }
+        }
+        if (eventMsg.has_permission_changed_event()) {
+            PermissionChangedEvent event{eventMsg.permission_changed_event()};
+            m_permissionChangedEventStream->emitEvent(std::move(event));
         }
     }
 }
@@ -176,6 +197,10 @@ void EventManager::initializeStreams(std::shared_ptr<Context> context)
     m_fileLocationEventStream->setScheduler(context->scheduler());
     m_fileLocationEventStream->setSubscriptionRegistry(m_registry);
     m_fileLocationEventStream->initializeAggregation();
+
+    m_permissionChangedEventStream->setScheduler(context->scheduler());
+    m_permissionChangedEventStream->setSubscriptionRegistry(m_registry);
+    m_permissionChangedEventStream->initializeAggregation();
 }
 
 } // namespace events
