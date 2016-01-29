@@ -338,7 +338,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         if (e.code().value() == EPERM || e.code().value() == EACCES)
             m_forceClusterProxyCache.insert(context.uuid);
         else
-            throw e;
+            throw;
         helper = getHelper(context.uuid, fileBlock.storageId());
         buf = helper->sh_read(
             context.helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
@@ -377,7 +377,7 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
         if (e.code().value() == EPERM || e.code().value() == EACCES)
             m_forceClusterProxyCache.insert(context.uuid);
         else
-            throw e;
+            throw;
         helper = getHelper(context.uuid, location.storageId());
         bytesWritten = helper->sh_write(
             context.helperCtx, location.fileId(), buf, offset, context.uuid);
