@@ -73,7 +73,7 @@ void S3Helper::ash_unlink(
 }
 
 void S3Helper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
-    asio::mutable_buffer buf, off_t offset,
+    asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
     GeneralCallback<asio::mutable_buffer> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
@@ -98,7 +98,8 @@ void S3Helper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
 }
 
 void S3Helper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
-    asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t> callback)
+    asio::const_buffer buf, off_t offset, const std::string &fileUuid,
+    GeneralCallback<std::size_t> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
     auto fileId = p.string();
@@ -184,8 +185,8 @@ asio::mutable_buffer S3Helper::sh_read(const S3HelperCTX &ctx,
     getObjectHandler.getObjectDataCallback = [](
         int bufferSize, const char *buffer, void *callbackData) {
         auto dataPtr = static_cast<CallbackData *>(callbackData);
-        std::memcpy(asio::buffer_cast<char *>(dataPtr->buffer) + dataPtr->size,
-            buffer, bufferSize);
+        asio::buffer_copy(dataPtr->buffer + dataPtr->size,
+            asio::const_buffer(buffer, bufferSize), bufferSize);
         dataPtr->size += bufferSize;
         return S3StatusOK;
     };
@@ -277,9 +278,9 @@ std::size_t S3Helper::sh_write(const S3HelperCTX &ctx,
             auto srcBufShift = commonBegin - srcBufBegin;
             auto dstBufShift = commonBegin - dstBufBegin;
 
-            std::memcpy(buffer + dstBufShift,
-                asio::buffer_cast<const char *>(dataPtr->buffer) + srcBufShift,
-                commonEnd - commonBegin);
+            asio::buffer_copy(
+                asio::mutable_buffer(buffer, bufferSize) + dstBufShift,
+                dataPtr->buffer + srcBufShift, commonEnd - commonBegin);
         }
 
         return bufferSize;

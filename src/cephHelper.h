@@ -20,8 +20,7 @@ namespace helpers {
 
 /**
 * The CephHelperCTX class represents context for Ceph helpers and its object is
-* passed
-* to all helper functions.
+* passed to all helper functions.
 */
 class CephHelperCTX : public IStorageHelperCTX {
 public:
@@ -43,7 +42,7 @@ public:
 
     /**
      * Sets user context.
-     * @param args Map with parameters required to set user context. Is should
+     * @param args Map with parameters required to set user context. It should
      * contain 'user_name' and 'key' values.
      */
     void setUserCTX(std::unordered_map<std::string, std::string> args);
@@ -70,13 +69,18 @@ private:
 */
 class CephHelper : public IStorageHelper {
 public:
+    /**
+     * Constructor.
+     * @param args Map with parameters required to create helper.
+     * @param service Reference to IO service used by the helper.
+     */
     CephHelper(std::unordered_map<std::string, std::string> args,
         asio::io_service &service);
 
     CTXPtr createCTX();
 
-    void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
-        std::vector<Flag> flags, GeneralCallback<int> callback)
+    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, FlagsSet flags,
+        GeneralCallback<int> callback)
     {
         callback(0, SUCCESS_CODE);
     }
@@ -85,17 +89,18 @@ public:
         CTXPtr ctx, const boost::filesystem::path &p, VoidCallback callback);
 
     void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset,
+        asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
         GeneralCallback<asio::mutable_buffer>);
 
     void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t>);
+        asio::const_buffer buf, off_t offset, const std::string &fileUuid,
+        GeneralCallback<std::size_t>);
 
     void ash_truncate(CTXPtr ctx, const boost::filesystem::path &p, off_t size,
         VoidCallback callback);
 
     void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        std::vector<Flag> flags, dev_t rdev, VoidCallback callback)
+        FlagsSet flags, dev_t rdev, VoidCallback callback)
     {
         callback(SUCCESS_CODE);
     }

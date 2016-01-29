@@ -19,6 +19,7 @@
 
 #include <chrono>
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
 #include <vector>
 #include <memory>
@@ -53,6 +54,15 @@ enum class Flag {
     IFIFO,
     IFSOCK
 };
+
+struct FlagHash {
+    template <typename T> std::size_t operator()(T t) const
+    {
+        return static_cast<std::size_t>(t);
+    }
+};
+
+using FlagsSet = std::unordered_set<Flag, FlagHash>;
 
 class IStorageHelperCTX {
 public:
@@ -123,7 +133,7 @@ public:
     }
 
     virtual void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p,
-        mode_t mode, std::vector<Flag> flags, dev_t rdev, VoidCallback callback)
+        mode_t mode, FlagsSet flags, dev_t rdev, VoidCallback callback)
     {
         callback(std::make_error_code(std::errc::not_supported));
     }
@@ -183,20 +193,20 @@ public:
     }
 
     virtual void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
-        std::vector<Flag> flags, GeneralCallback<int> callback)
+        FlagsSet flags, GeneralCallback<int> callback)
     {
         callback({}, std::make_error_code(std::errc::not_supported));
     }
 
     virtual void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset,
+        asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
         GeneralCallback<asio::mutable_buffer> callback)
     {
         callback({}, std::make_error_code(std::errc::not_supported));
     }
 
     virtual void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset,
+        asio::const_buffer buf, off_t offset, const std::string &fileUuid,
         GeneralCallback<std::size_t> callback)
     {
         callback({}, std::make_error_code(std::errc::not_supported));
@@ -222,7 +232,7 @@ public:
 
     virtual asio::mutable_buffer sh_read(CTXPtr ctx,
         const boost::filesystem::path &p, asio::mutable_buffer buf,
-        off_t offset)
+        off_t offset, const std::string &fileUuid)
     {
         auto promise = std::make_shared<std::promise<asio::mutable_buffer>>();
         auto future = promise->get_future();
@@ -237,12 +247,12 @@ public:
                 promise->set_value(input);
         };
 
-        ash_read(std::move(ctx), p, buf, offset, std::move(callback));
+        ash_read(std::move(ctx), p, buf, offset, fileUuid, std::move(callback));
         return waitFor(future);
     }
 
     virtual std::size_t sh_write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset)
+        asio::const_buffer buf, off_t offset, const std::string &fileUuid)
     {
         auto promise = std::make_shared<std::promise<std::size_t>>();
         auto future = promise->get_future();
@@ -257,7 +267,7 @@ public:
                 promise->set_value(wrote);
         };
 
-        ash_write(std::move(ctx), p, buf, offset, std::move(callback));
+        ash_write(std::move(ctx), p, buf, offset, fileUuid, std::move(callback));
         return waitFor(future);
     }
 

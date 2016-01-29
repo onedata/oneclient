@@ -69,18 +69,21 @@ public:
         return getFuture(std::move(p));
     }
 
-    std::string read(std::string fileId, int offset, int size)
+    std::string read(
+        std::string fileId, int offset, int size, std::string fileUuid)
     {
         ReleaseGIL guard;
         std::string buffer(size, '\0');
-        m_helper.sh_read(m_ctx, fileId, asio::buffer(buffer), offset);
+        m_helper.sh_read(m_ctx, fileId, asio::buffer(buffer), offset, fileUuid);
         return buffer;
     }
 
-    int write(std::string fileId, std::string data, int offset)
+    int write(
+        std::string fileId, std::string data, int offset, std::string fileUuid)
     {
         ReleaseGIL guard;
-        return m_helper.sh_write(m_ctx, fileId, asio::buffer(data), offset);
+        return m_helper.sh_write(
+            m_ctx, fileId, asio::buffer(data), offset, fileUuid);
     }
 
     void truncate(std::string fileId, int offset)
