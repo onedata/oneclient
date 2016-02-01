@@ -17,6 +17,7 @@ import "stream_messages.proto";
 import "handshake_messages.proto";
 import "diagnostic_messages.proto";
 import "proxyio_messages.proto";
+import "dbsync_messages.proto";
 
 // Messages that can be sent by the client to the server.
 message ClientMessage {
@@ -53,6 +54,9 @@ message ClientMessage {
 
         // proxyio_messages.proto
         ProxyIORequest           proxyio_request           = 16;
+
+        // dbsync_messages.proto
+        DBSyncRequest            dbsync_request            = 17;
     }
 }
 

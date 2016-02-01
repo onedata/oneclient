@@ -153,7 +153,7 @@ def _couchbase_up(cluster_name, db_nodes, dns_servers, uid):
 
 
 def _db_driver(config):
-    return config['db_driver'] if 'db_driver' in config else 'couchbase'
+    return config['db_driver'] if 'db_driver' in config else 'couchdb'
 
 
 def _db_driver_module(db_driver):
@@ -186,7 +186,7 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None):
         # Tweak configs, retrieve lis of riak nodes to start
         configs = []
         all_db_nodes = []
-
+        
         for worker_node in gen_dev_cfg['nodes']:
             tw_cfg, db_nodes = _tweak_config(gen_dev_cfg, worker_node, instance, uid, configurator)
             configs.append(tw_cfg)
@@ -199,7 +199,7 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None):
         # Start db nodes, obtain mappings
         if db_driver == 'riak':
             db_node_mappings, db_out = _riak_up(instance, all_db_nodes, dns_servers, uid)
-        elif db_driver == 'couchbase':
+        elif db_driver in ['couchbase', 'couchdb']:
             db_node_mappings, db_out = _couchbase_up(instance, all_db_nodes, dns_servers, uid)
         else:
             raise ValueError("Invalid db_driver: {0}".format(db_driver))

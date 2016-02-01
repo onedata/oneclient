@@ -46,6 +46,7 @@ message FuseRequest {
         SetXattr set_xattr = 14;
         RemoveXattr remove_xattr = 15;
         ListXattr list_xattr = 16;
+        SynchronizeBlock synchronize_block = 17;
     }
 }
 
@@ -189,4 +190,9 @@ message Xattr {
 
 message XattrList {
     repeated bytes names = 1;
+}
+
+message SynchronizeBlock {
+    required bytes uuid = 1;
+    required FileBlock block = 2;
 }
