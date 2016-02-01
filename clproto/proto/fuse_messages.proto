@@ -46,6 +46,7 @@ message FuseRequest {
         SetXattr set_xattr = 14;
         RemoveXattr remove_xattr = 15;
         ListXattr list_xattr = 16;
+        SynchronizeBlock synchronize_block = 17;
     }
 }
 
@@ -100,9 +101,8 @@ message GetFileLocation {
 }
 
 message GetHelperParams {
-    required bytes space_id = 1;
-    required bytes storage_id = 2;
-    optional bool force_cluster_proxy = 3 [default = false];
+    required bytes storage_id = 1;
+    optional bool force_cluster_proxy = 2 [default = false];
 }
 
 message Truncate {
@@ -190,4 +190,9 @@ message Xattr {
 
 message XattrList {
     repeated bytes names = 1;
+}
+
+message SynchronizeBlock {
+    required bytes uuid = 1;
+    required FileBlock block = 2;
 }

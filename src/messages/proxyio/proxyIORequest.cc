@@ -14,8 +14,9 @@ namespace one {
 namespace messages {
 namespace proxyio {
 
-ProxyIORequest::ProxyIORequest(std::string spaceId, std::string storageId, std::string fileId)
-    : m_spaceId{std::move(spaceId)}
+ProxyIORequest::ProxyIORequest(
+    std::string fileUuid, std::string storageId, std::string fileId)
+    : m_fileUuid{std::move(fileUuid)}
     , m_storageId{std::move(storageId)}
     , m_fileId{std::move(fileId)}
 {
@@ -26,7 +27,7 @@ std::unique_ptr<ProtocolClientMessage> ProxyIORequest::serializeAndDestroy()
     auto msg = std::make_unique<ProtocolClientMessage>();
     auto proxyio = msg->mutable_proxyio_request();
 
-    proxyio->mutable_space_id()->swap(m_spaceId);
+    proxyio->mutable_file_uuid()->swap(m_fileUuid);
     proxyio->mutable_storage_id()->swap(m_storageId);
     proxyio->mutable_file_id()->swap(m_fileId);
 
