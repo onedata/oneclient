@@ -13,6 +13,7 @@
 #include "logging.h"
 #include "options.h"
 
+#include "messages/configuration.h"
 #include "messages/fuse/changeMode.h"
 #include "messages/fuse/close.h"
 #include "messages/fuse/createDir.h"
@@ -41,8 +42,8 @@ using namespace std::literals;
 namespace one {
 namespace client {
 
-FsLogic::FsLogic(
-    std::shared_ptr<Context> context, events::SubscriptionContainer container)
+FsLogic::FsLogic(std::shared_ptr<Context> context,
+    std::shared_ptr<messages::Configuration> configuration)
     : m_uid{geteuid()}
     , m_gid{getegid()}
     , m_context{std::move(context)}
@@ -55,7 +56,7 @@ FsLogic::FsLogic(
     m_eventManager.setFileAttrHandler(fileAttrHandler());
     m_eventManager.setFileLocationHandler(fileLocationHandler());
     m_eventManager.setPermissionChangedHandler(permissionChangedHandler());
-    m_eventManager.subscribe(std::move(container));
+    m_eventManager.subscribe(configuration->subscriptionContainer());
 }
 
 int FsLogic::access(boost::filesystem::path path, const int mask)
@@ -288,7 +289,6 @@ int FsLogic::open(
 
     acc->second.uuid = attr.uuid();
     acc->second.helperCtx = helper->createCTX();
-    acc->second.helperCtx->setFlags(fileInfo->flags);
 
     m_fsSubscriptions.addFileLocationSubscription(attr.uuid());
 
@@ -341,8 +341,8 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
             throw;
         m_forceClusterProxyCache.insert(context.uuid);
         helper = getHelper(context.uuid, fileBlock.storageId());
-        buf = helper->sh_read(context.helperCtx, fileBlock.fileId(), buf,
-            offset, context.uuid);
+        buf = helper->sh_read(
+            context.helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
     }
 
     const auto bytesRead = asio::buffer_size(buf);
@@ -381,8 +381,8 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
             throw;
         m_forceClusterProxyCache.insert(context.uuid);
         helper = getHelper(context.uuid, location.storageId());
-        bytesWritten = helper->sh_write(context.helperCtx,
-            location.fileId(), buf, offset, context.uuid);
+        bytesWritten = helper->sh_write(
+            context.helperCtx, location.fileId(), buf, offset, context.uuid);
     }
 
     m_eventManager.emitWriteEvent(offset, bytesWritten, context.uuid,

@@ -342,7 +342,7 @@ def test_file_attr_counter_emission(endpoint, evt_man):
         msg = events.createFileAttrEventMsg(1, 'fileUuid', i, i)
         endpoint.send(msg)
 
-    assert 10 == evt_man.fileAttrHandlerCallCounter()
+    assert wait_for_result(10, 20, 500, evt_man.fileAttrHandlerCallCounter)
 
 
 def test_file_attr_time_emission(endpoint, evt_man):
@@ -372,7 +372,7 @@ def test_file_location_counter_emission(endpoint, evt_man):
         msg = events.createFileLocationEventMsg(1, 'fileUuid', 'fileId', i)
         endpoint.send(msg)
 
-    assert 5 == evt_man.fileLocationHandlerCallCounter()
+    assert wait_for_result(5, 20, 500, evt_man.fileLocationHandlerCallCounter)
 
 
 def test_file_location_time_emission(endpoint, evt_man):
@@ -384,8 +384,8 @@ def test_file_location_time_emission(endpoint, evt_man):
         msg = events.createFileLocationEventMsg(1, 'fileUuid', 'fileId', i)
         endpoint.send(msg)
 
-    assert wait_for_result(1, 20, 500,
-                           evt_man.fileLocationHandlerCallCounter)
+    assert wait_for_result(1, 20, 500, evt_man.fileLocationHandlerCallCounter)
+
 
 def test_permission_changed_counter_emission(endpoint, evt_man):
     evt_man.subscribePermissionChanged('fileUuid')
@@ -396,4 +396,5 @@ def test_permission_changed_counter_emission(endpoint, evt_man):
         msg = events.createPermissionChangedEventMsg(1, 'fileUuid', i)
         endpoint.send(msg)
 
-    assert 100 == evt_man.permissionChangedHandlerCallCounter()
+    assert wait_for_result(100, 20, 500,
+                           evt_man.permissionChangedHandlerCallCounter)

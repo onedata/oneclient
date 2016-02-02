@@ -15,8 +15,9 @@ import sys
 # noinspection PyDefaultArgument
 def run(image, docker_host=None, detach=False, dns_list=[], add_host={},
         envs={}, hostname=None, interactive=False, link={}, tty=False, rm=False,
-        reflect=[], volumes=[], name=None, workdir=None, user=None,
-        run_params=[], command=None, stdin=None, stdout=None, stderr=None):
+        reflect=[], volumes=[], name=None, workdir=None, user=None, group=None,
+        group_add=[], privileged=False, run_params=[], command=None,
+        stdin=None, stdout=None, stderr=None):
     cmd = ['docker']
 
     if docker_host:
@@ -30,8 +31,8 @@ def run(image, docker_host=None, detach=False, dns_list=[], add_host={},
     for addr in dns_list:
         cmd.extend(['--dns', addr])
 
-    for key in add_host:
-        cmd.extend(['--add-host', '{0}:{1}'.format(key, add_host[key])])
+    for key, value in add_host.iteritems():
+        cmd.extend(['--add-host', '{0}:{1}'.format(key, value)])
 
     for key in envs:
         cmd.extend(['-e', '{0}={1}'.format(key, envs[key])])
@@ -70,15 +71,24 @@ def run(image, docker_host=None, detach=False, dns_list=[], add_host={},
         cmd.extend(['-w', os.path.abspath(workdir)])
 
     if user:
-        cmd.extend(['-u', user])
+        user_group = '{0}:{1}'.format(user, group) if group else user
+        cmd.extend(['-u', user_group])
+
+    for g in group_add:
+        cmd.extend(['--group-add', g])
+
+    if privileged:
+        cmd.append('--privileged')
 
     cmd.extend(run_params)
     cmd.append(image)
 
-    if isinstance(command, str):
+    if isinstance(command, basestring):
         cmd.extend(['sh', '-c', command])
     elif isinstance(command, list):
         cmd.extend(command)
+    elif command is not None:
+        raise ValueError('{0} is not a string nor list'.format(command))
 
     if detach:
         return subprocess.check_output(cmd, stdin=stdin, stderr=stderr).decode(
@@ -87,14 +97,19 @@ def run(image, docker_host=None, detach=False, dns_list=[], add_host={},
     return subprocess.call(cmd, stdin=stdin, stderr=stderr, stdout=stdout)
 
 
-def exec_(container, command, docker_host=None, detach=False, interactive=False,
-          tty=False, output=False, stdin=None, stdout=None, stderr=None):
+def exec_(container, command, docker_host=None, user=None, group=None,
+          detach=False, interactive=False, tty=False, privileged=False,
+          output=False, stdin=None, stdout=None, stderr=None):
     cmd = ['docker']
 
     if docker_host:
         cmd.extend(['-H', docker_host])
 
     cmd.append('exec')
+
+    if user:
+        user_group = '{0}:{1}'.format(user, group) if group else user
+        cmd.extend(['-u', user_group])
 
     if detach:
         cmd.append('-d')
@@ -105,12 +120,17 @@ def exec_(container, command, docker_host=None, detach=False, interactive=False,
         if tty:
             cmd.append('-t')
 
+    if privileged:
+        cmd.append('--privileged')
+
     cmd.append(container)
 
-    if isinstance(command, str):
+    if isinstance(command, basestring):
         cmd.extend(['sh', '-c', command])
     elif isinstance(command, list):
         cmd.extend(command)
+    else:
+        raise ValueError('{0} is not a string nor list'.format(command))
 
     if detach or output:
         return subprocess.check_output(cmd, stdin=stdin, stderr=stderr).decode(
