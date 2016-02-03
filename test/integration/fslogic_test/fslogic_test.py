@@ -32,9 +32,24 @@ def fl(endpoint):
     return fslogic.FsLogicProxy(endpoint.ip, endpoint.port)
 
 
-def prepare_getattr(filename, filetype, size=None):
+def prepare_synchronize_block(uuid, offset, size):
+    block = common_messages_pb2.FileBlock()
+    block.offset = offset
+    block.size = size
+
+    req = fuse_messages_pb2.SynchronizeBlock()
+    req.uuid = uuid
+    req.block.CopyFrom(block)
+
+    client_request = messages_pb2.ClientMessage()
+    client_request.fuse_request.synchronize_block.CopyFrom(req)
+
+    return client_request
+
+
+def prepare_getattr(filename, filetype, size=None, uuid=None):
     repl = fuse_messages_pb2.FileAttr()
-    repl.uuid = str(random.randint(0, 1000000000))
+    repl.uuid = uuid if uuid else str(random.randint(0, 1000000000))
     repl.name = filename
     repl.mode = random.randint(0, 1023)
     repl.uid = random.randint(0, 20000)
@@ -63,9 +78,9 @@ def prepare_helper():
     return server_response
 
 
-def prepare_location(file_blocks=None):
+def prepare_location(file_blocks=None, uuid=None):
     repl = fuse_messages_pb2.FileLocation()
-    repl.uuid = 'uuid1'
+    repl.uuid = uuid if uuid else 'uuid1'
     repl.space_id = 'space1'
     repl.storage_id = 'storage1'
     repl.file_id = 'file1'
@@ -81,23 +96,25 @@ def prepare_location(file_blocks=None):
     return server_response
 
 
-def do_open(endpoint, fl, file_blocks=None, size=None):
+def do_open(endpoint, fl, file_blocks=None, size=None, uuid=None):
     blocks = []
     if file_blocks:
-        for offset, size in file_blocks:
+        for block_offset, block_size in file_blocks:
             block = common_messages_pb2.FileBlock()
-            block.offset = offset
-            block.size = size
+            block.offset = block_offset
+            block.size = block_size
             blocks.append(block)
 
     getattr_response = prepare_getattr('path', fuse_messages_pb2.REG,
-                                       size=size)
+                                       size=size, uuid=uuid)
 
-    open_response = prepare_location(blocks)
+    open_response = prepare_location(blocks, uuid=uuid)
 
     with reply(endpoint, [getattr_response, open_response]):
         assert fl.open('/random/path', 0) >= 0
 
+def do_read(fl, path, offset, size):
+    fl.read(path, offset, size)
 
 def test_getattrs_should_get_attrs(endpoint, fl):
     response = prepare_getattr('path', fuse_messages_pb2.REG)
@@ -761,3 +778,19 @@ def test_write_should_save_blocks(endpoint, fl):
     do_open(endpoint, fl, size=0)
     assert 5 == fl.write('/random/path', 0, 5)
     assert 5 == fl.read('/random/path', 0, 10)
+
+
+def test_read_should_read_partial_content(endpoint, fl):
+    do_open(endpoint, fl, file_blocks=[(4, 6)], size=10, uuid='fileUuid')
+
+    assert 4 == fl.read('/random/path', 6, 4)
+
+
+def test_read_should_request_synchronization(endpoint, fl):
+    do_open(endpoint, fl, file_blocks=[(4, 6)], size=10, uuid='fileUuid')
+    sync_req = prepare_synchronize_block('fileUuid', 2, 5)
+
+    with pytest.raises(RuntimeError) as excinfo: #todo make it async
+        fl.read('/random/path', 2, 5)
+
+    endpoint.wait_for_specific_messages(sync_req.SerializeToString())
