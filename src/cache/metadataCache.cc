@@ -62,13 +62,14 @@ MetadataCache::FileLocation MetadataCache::getLocation(const std::string &uuid)
     return acc->second.location.get();
 }
 
-std::mutex &MetadataCache::getMutex(const std::string &uuid)
+std::pair<std::mutex &, std::condition_variable_any &>
+MetadataCache::getMutexConditionPair(const std::string &uuid)
 {
     MutexAccessor acc;
-    if (m_mutexMap.insert(acc, uuid))
-        ;
-    acc->second = std::make_unique<std::mutex>();
-    return *acc->second;
+    if (m_mutexConditionPairMap.insert(acc, uuid))
+        acc->second = std::make_pair(std::make_unique<std::mutex>(),
+            std::make_unique<std::condition_variable_any>());
+    return {*acc->second.first, *acc->second.second};
 }
 
 void MetadataCache::getAttr(MetaAccessor &metaAcc, const Path &path)
@@ -216,9 +217,9 @@ bool MetadataCache::PathHash::equal(const Path &a, const Path &b)
     return a == b;
 }
 
-bool MetadataCache::syncAndWaitForNewLocation(const std::string &uuid,
+bool MetadataCache::waitForNewLocation(const std::string &uuid,
     const boost::icl::discrete_interval<off_t> &range,
-    std::unique_lock<std::mutex> &lock,
+    std::unique_lock<std::mutex> &lock, std::condition_variable_any &condition,
     const std::chrono::milliseconds &timeout)
 {
     LOG(INFO) << "Waiting for file_location of '" << uuid << "' at range "
@@ -230,12 +231,16 @@ bool MetadataCache::syncAndWaitForNewLocation(const std::string &uuid,
             location.blocks().end();
     };
 
-    return m_newLocationCondition.wait_for(lock, timeout, pred);
+    return condition.wait_for(lock, timeout, pred);
 }
 
-void MetadataCache::notifyNewLocationArrived()
+void MetadataCache::notifyNewLocationArrived(const std::string &uuid)
 {
-    m_newLocationCondition.notify_all();
+    MutexAccessor acc;
+    if (m_mutexConditionPairMap.find(acc, uuid)) {
+        std::condition_variable_any &condition = *acc->second.second;
+        condition.notify_all();
+    }
 }
 
 } // namespace one

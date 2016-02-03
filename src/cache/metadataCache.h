@@ -48,17 +48,19 @@ private:
     communication::Communicator &m_communicator;
     tbb::concurrent_hash_map<Path, std::string, PathHash> m_pathToUuid;
     tbb::concurrent_hash_map<std::string, Metadata> m_metaCache;
-    tbb::concurrent_hash_map<std::string, std::unique_ptr<std::mutex>>
-        m_mutexMap;
-    std::condition_variable_any m_newLocationCondition;
+    tbb::concurrent_hash_map<std::string,
+        std::pair<std::unique_ptr<std::mutex>,
+                                 std::unique_ptr<std::condition_variable_any>>>
+        m_mutexConditionPairMap;
 
 public:
     using ConstUuidAccessor = decltype(m_pathToUuid)::const_accessor;
     using ConstMetaAccessor = decltype(m_metaCache)::const_accessor;
-    using ConstMutexAccessor = decltype(m_mutexMap)::const_accessor;
+    using ConstMutexAccessor =
+        decltype(m_mutexConditionPairMap)::const_accessor;
     using UuidAccessor = decltype(m_pathToUuid)::accessor;
     using MetaAccessor = decltype(m_metaCache)::accessor;
-    using MutexAccessor = decltype(m_mutexMap)::accessor;
+    using MutexAccessor = decltype(m_mutexConditionPairMap)::accessor;
 
     /**
      * Constructor.
@@ -98,11 +100,13 @@ public:
     FileLocation getLocation(const std::string &uuid);
 
     /**
-     * Retrieves mutex of file with given uuid. Creates it, if it is not found.
-     * @param uuid The uuid of a file to get mutex.
-     * @return Pointer to mutex.
+     * Retrieves mutex and condition assigned to file with given uuid. Creates
+     * them, if they are not found.
+     * @param uuid The uuid of a file to get mutex and condition.
+     * @return Pair: mutex, condition.
      */
-    std::mutex &getMutex(const std::string &uuid);
+    std::pair<std::mutex &, std::condition_variable_any &>
+    getMutexConditionPair(const std::string &uuid);
 
     /**
      * Sets metadata accessor for a given path, first ensuring that path<->UUID
@@ -168,19 +172,19 @@ public:
     void remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
 
     /**
-     * Sends synchronization request for given range and waits for new file
-     * location.
-     * @param uuid fo file to synchronize
+     * Waits for file location update on given condition.
+     * @param uuid of file
      */
-    bool syncAndWaitForNewLocation(const std::string &uuid,
+    bool waitForNewLocation(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range,
         std::unique_lock<std::mutex> &lock,
+        std::condition_variable_any &condition,
         const std::chrono::milliseconds &timeout);
 
     /**
      * Notifies waiting processes that the new file location has arrived
      */
-    void notifyNewLocationArrived();
+    void notifyNewLocationArrived(const std::string &uuid);
 };
 
 } // namespace one

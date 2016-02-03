@@ -323,9 +323,13 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto availableBlockIt =
         location.blocks().find(boost::icl::discrete_interval<off_t>(offset));
 
-    if (availableBlockIt == location.blocks().end())
+    while (availableBlockIt == location.blocks().end()) {
         if (!waitForBlockSynchronization(context.uuid, wantedRange))
             throw std::errc::resource_unavailable_try_again;
+        location = m_metadataCache.getLocation(context.uuid);
+        availableBlockIt = location.blocks().find(
+            boost::icl::discrete_interval<off_t>(offset));
+    }
 
     const messages::fuse::FileBlock &fileBlock = availableBlockIt->second;
     auto availableRange = availableBlockIt->first & wantedRange;
@@ -356,12 +360,13 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
 bool FsLogic::waitForBlockSynchronization(
     const std::string &uuid, const boost::icl::discrete_interval<off_t> &range)
 {
-    std::mutex &mutex = m_metadataCache.getMutex(uuid);
-    std::unique_lock<std::mutex> lock{mutex};
+    auto pair = m_metadataCache.getMutexConditionPair(uuid);
+    std::unique_lock<std::mutex> lock{pair.first};
 
     messages::fuse::SynchronizeBlock msg{uuid, range};
     m_context->communicator()->send(std::move(msg));
-    return m_metadataCache.syncAndWaitForNewLocation(uuid, range, lock, 30s);
+    return m_metadataCache.waitForNewLocation(
+        uuid, range, lock, pair.second, 3s);
 }
 
 int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
@@ -513,8 +518,9 @@ events::FileLocationEventStream::Handler FsLogic::fileLocationHandler()
             // FileBlock keeps first value of {storageId, fileId} and ignores
             // any new values
             location.blocks() = newLocation.blocks() | location.blocks();
+
+            m_metadataCache.notifyNewLocationArrived(newLocation.uuid());
         }
-        m_metadataCache.notifyNewLocationArrived();
     };
 }
 

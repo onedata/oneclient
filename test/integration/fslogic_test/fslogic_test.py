@@ -19,7 +19,8 @@ from environment import appmock, common, docker
 # noinspection PyUnresolvedReferences
 import fslogic
 # noinspection PyUnresolvedReferences
-from proto import messages_pb2, fuse_messages_pb2, common_messages_pb2
+from proto import messages_pb2, fuse_messages_pb2, event_messages_pb2, \
+    common_messages_pb2, stream_messages_pb2
 
 
 @pytest.fixture
@@ -30,6 +31,48 @@ def endpoint(appmock_client):
 @pytest.fixture
 def fl(endpoint):
     return fslogic.FsLogicProxy(endpoint.ip, endpoint.port)
+
+
+def prepare_file_blocks(blocks=[]):
+    file_blocks = []
+    for block_offset, block_size in blocks:
+        block = common_messages_pb2.FileBlock()
+        block.offset = block_offset
+        block.size = block_size
+        file_blocks.append(block)
+    return file_blocks
+
+
+def prepare_location_update_event(blocks, stream_id, sequence_number, uuid='uuid1'):
+    file_blocks = prepare_file_blocks(blocks)
+
+    file_location = fuse_messages_pb2.FileLocation()
+    file_location.uuid = uuid
+    file_location.space_id = 'space1'
+    file_location.storage_id = 'storage1'
+    file_location.file_id = 'file1'
+    file_location.provider_id = 'provider1'
+    file_location.blocks.extend(file_blocks)
+
+    update_event = event_messages_pb2.UpdateEvent()
+    update_event.file_location.CopyFrom(file_location)
+
+    event = event_messages_pb2.Event()
+    event.counter = 1
+    event.update_event.CopyFrom(update_event)
+
+    events = event_messages_pb2.Events()
+    events.events.extend([event])
+
+    message_stream = stream_messages_pb2.MessageStream()
+    message_stream.stream_id = stream_id
+    message_stream.sequence_number = sequence_number
+
+    server_msg = messages_pb2.ServerMessage()
+    server_msg.message_stream.CopyFrom(message_stream)
+    server_msg.events.CopyFrom(events)
+
+    return server_msg
 
 
 def prepare_synchronize_block(uuid, offset, size):
@@ -78,16 +121,16 @@ def prepare_helper():
     return server_response
 
 
-def prepare_location(file_blocks=None, uuid=None):
+def prepare_location(blocks=[], uuid=None):
+    file_blocks = prepare_file_blocks(blocks)
+
     repl = fuse_messages_pb2.FileLocation()
     repl.uuid = uuid if uuid else 'uuid1'
     repl.space_id = 'space1'
     repl.storage_id = 'storage1'
     repl.file_id = 'file1'
     repl.provider_id = 'provider1'
-
-    if file_blocks:
-        repl.blocks.extend(file_blocks)
+    repl.blocks.extend(file_blocks)
 
     server_response = messages_pb2.ServerMessage()
     server_response.fuse_response.file_location.CopyFrom(repl)
@@ -96,15 +139,7 @@ def prepare_location(file_blocks=None, uuid=None):
     return server_response
 
 
-def do_open(endpoint, fl, file_blocks=None, size=None, uuid=None):
-    blocks = []
-    if file_blocks:
-        for block_offset, block_size in file_blocks:
-            block = common_messages_pb2.FileBlock()
-            block.offset = block_offset
-            block.size = block_size
-            blocks.append(block)
-
+def do_open(endpoint, fl, blocks=[], size=None, uuid=None):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.REG,
                                        size=size, uuid=uuid)
 
@@ -658,18 +693,18 @@ def test_open_should_pass_location_errors(endpoint, fl):
 
 
 def test_read_should_read(endpoint, fl):
-    do_open(endpoint, fl, file_blocks=[(0, 10)])
+    do_open(endpoint, fl, blocks=[(0, 10)])
     assert 5 == fl.read('/random/path', 0, 5)
 
 
 def test_read_should_read_zero_on_eof(endpoint, fl):
-    do_open(endpoint, fl, file_blocks=[(0, 10)], size=10)
+    do_open(endpoint, fl, blocks=[(0, 10)], size=10)
     assert 10 == fl.read('/random/path', 0, 12)
     assert 0 == fl.read('/random/path', 10, 2)
 
 
 def test_read_should_pass_helper_errors(endpoint, fl):
-    do_open(endpoint, fl, file_blocks=[(0, 10)], size=10)
+    do_open(endpoint, fl, blocks=[(0, 10)], size=10)
 
     with pytest.raises(RuntimeError) as excinfo:
         fl.failHelper()
@@ -679,18 +714,18 @@ def test_read_should_pass_helper_errors(endpoint, fl):
 
 
 def test_write_should_write(endpoint, fl):
-    do_open(endpoint, fl, file_blocks=[(0, 10)], size=10)
+    do_open(endpoint, fl, blocks=[(0, 10)], size=10)
     assert 5 == fl.write('/random/path', 0, 5)
 
 
 def test_write_should_partition_writes(endpoint, fl):
-    do_open(endpoint, fl, file_blocks=[(0, 5)], size=5)
+    do_open(endpoint, fl, blocks=[(0, 5)], size=5)
     assert 5 == fl.write('/random/path', 0, 11)
     assert 6 == fl.write('/random/path', 5, 6)
 
 
 def test_write_should_change_file_size(endpoint, fl):
-    do_open(endpoint, fl, file_blocks=[(0, 5)], size=5)
+    do_open(endpoint, fl, blocks=[(0, 5)], size=5)
     assert 20 == fl.write('/random/path', 10, 20)
 
     stat = fslogic.Stat()
@@ -699,7 +734,7 @@ def test_write_should_change_file_size(endpoint, fl):
 
 
 def test_write_should_pass_helper_errors(endpoint, fl):
-    do_open(endpoint, fl, file_blocks=[(0, 10)], size=10)
+    do_open(endpoint, fl, blocks=[(0, 10)], size=10)
 
     with pytest.raises(RuntimeError) as excinfo:
         fl.failHelper()
@@ -781,16 +816,29 @@ def test_write_should_save_blocks(endpoint, fl):
 
 
 def test_read_should_read_partial_content(endpoint, fl):
-    do_open(endpoint, fl, file_blocks=[(4, 6)], size=10, uuid='fileUuid')
+    do_open(endpoint, fl, blocks=[(4, 6)], size=10, uuid='fileUuid')
 
     assert 4 == fl.read('/random/path', 6, 4)
 
 
 def test_read_should_request_synchronization(endpoint, fl):
-    do_open(endpoint, fl, file_blocks=[(4, 6)], size=10, uuid='fileUuid')
-    sync_req = prepare_synchronize_block('fileUuid', 2, 5)
+    do_open(endpoint, fl, blocks=[(4, 6)], size=10, uuid='fileUuid')
+    sync_req = prepare_synchronize_block('fileUuid', 2, 5).SerializeToString()
 
     with pytest.raises(RuntimeError) as excinfo: #todo make it async
         fl.read('/random/path', 2, 5)
 
-    endpoint.wait_for_specific_messages(sync_req.SerializeToString())
+    endpoint.wait_for_specific_messages(sync_req)
+
+
+def test_read_should_continue_reading_after_synchronization(appmock_client, endpoint, fl):
+    do_open(endpoint, fl, blocks=[(4, 6)], size=10, uuid='fileUuid')
+    location_subsc_data = endpoint.history()[0]
+    location_subsc = messages_pb2.ClientMessage()
+    location_subsc.ParseFromString(location_subsc_data)
+    stream_id = location_subsc.message_stream.stream_id
+    location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0, uuid='fileUuid')
+
+    appmock_client.reset_tcp_history()
+    with reply(endpoint, location_update_event):
+        assert 5 == fl.read('/random/path', 2, 5)
