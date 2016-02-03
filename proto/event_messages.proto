@@ -19,9 +19,10 @@ message Events {
 message Event {
     required uint32 counter = 1; // amount of aggregated events
     oneof object { // list of all event objects
-        ReadEvent   read_event   = 2;
-        WriteEvent  write_event  = 3;
-        UpdateEvent update_event = 4;
+        ReadEvent              read_event               = 2;
+        WriteEvent             write_event              = 3;
+        UpdateEvent            update_event             = 4;
+        PermissionChangedEvent permission_changed_event = 5;
     }
 }
 
@@ -45,14 +46,19 @@ message UpdateEvent {
     }
 }
 
+message PermissionChangedEvent {
+    required bytes file_uuid = 1; // UUID of file associated with an event
+}
+
 // Generic subscription message
 message Subscription {
     required sint64 id = 1; // unique subscription ID
     oneof object { // list of all subscription objects
-        ReadSubscription         read_subscription          = 2;
-        WriteSubscription        write_subscription         = 3;
-        FileAttrSubscription     file_attr_subscription     = 4;
-        FileLocationSubscription file_location_subscription = 5;
+        ReadSubscription              read_subscription               = 2;
+        WriteSubscription             write_subscription              = 3;
+        FileAttrSubscription          file_attr_subscription          = 4;
+        FileLocationSubscription      file_location_subscription      = 5;
+        PermissionChangedSubscription permission_changed_subscription = 6;
     }
 }
 
@@ -88,6 +94,11 @@ message FileLocationSubscription {
                                            // events before emission
     optional uint32 time_threshold    = 3; // maximal delay in milliseconds
                                            // between successive events emission
+}
+
+
+message PermissionChangedSubscription {
+    required bytes  file_uuid         = 1; // file UUID
 }
 
 message SubscriptionCancellation {
