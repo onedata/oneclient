@@ -43,11 +43,11 @@ def prepare_file_blocks(blocks=[]):
     return file_blocks
 
 
-def prepare_location_update_event(blocks, stream_id, sequence_number, uuid='uuid1'):
+def prepare_location_update_event(blocks, stream_id, sequence_number):
     file_blocks = prepare_file_blocks(blocks)
 
     file_location = fuse_messages_pb2.FileLocation()
-    file_location.uuid = uuid
+    file_location.uuid = 'uuid1'
     file_location.space_id = 'space1'
     file_location.storage_id = 'storage1'
     file_location.file_id = 'file1'
@@ -75,13 +75,13 @@ def prepare_location_update_event(blocks, stream_id, sequence_number, uuid='uuid
     return server_msg
 
 
-def prepare_synchronize_block(uuid, offset, size):
+def prepare_synchronize_block(offset, size):
     block = common_messages_pb2.FileBlock()
     block.offset = offset
     block.size = size
 
     req = fuse_messages_pb2.SynchronizeBlock()
-    req.uuid = uuid
+    req.uuid = 'uuid1'
     req.block.CopyFrom(block)
 
     client_request = messages_pb2.ClientMessage()
@@ -90,9 +90,9 @@ def prepare_synchronize_block(uuid, offset, size):
     return client_request
 
 
-def prepare_getattr(filename, filetype, size=None, uuid=None):
+def prepare_getattr(filename, filetype, size=None):
     repl = fuse_messages_pb2.FileAttr()
-    repl.uuid = uuid if uuid else str(random.randint(0, 1000000000))
+    repl.uuid = 'uuid1'
     repl.name = filename
     repl.mode = random.randint(0, 1023)
     repl.uid = random.randint(0, 20000)
@@ -121,11 +121,11 @@ def prepare_helper():
     return server_response
 
 
-def prepare_location(blocks=[], uuid=None):
+def prepare_location(blocks=[]):
     file_blocks = prepare_file_blocks(blocks)
 
     repl = fuse_messages_pb2.FileLocation()
-    repl.uuid = uuid if uuid else 'uuid1'
+    repl.uuid = 'uuid1'
     repl.space_id = 'space1'
     repl.storage_id = 'storage1'
     repl.file_id = 'file1'
@@ -139,11 +139,11 @@ def prepare_location(blocks=[], uuid=None):
     return server_response
 
 
-def do_open(endpoint, fl, blocks=[], size=None, uuid=None):
+def do_open(endpoint, fl, blocks=[], size=None):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.REG,
-                                       size=size, uuid=uuid)
+                                       size=size)
 
-    open_response = prepare_location(blocks, uuid=uuid)
+    open_response = prepare_location(blocks)
 
     with reply(endpoint, [getattr_response, open_response]):
         assert fl.open('/random/path', 0) >= 0
@@ -816,14 +816,14 @@ def test_write_should_save_blocks(endpoint, fl):
 
 
 def test_read_should_read_partial_content(endpoint, fl):
-    do_open(endpoint, fl, blocks=[(4, 6)], size=10, uuid='fileUuid')
+    do_open(endpoint, fl, blocks=[(4, 6)], size=10)
 
     assert 4 == fl.read('/random/path', 6, 4)
 
 
 def test_read_should_request_synchronization(endpoint, fl):
-    do_open(endpoint, fl, blocks=[(4, 6)], size=10, uuid='fileUuid')
-    sync_req = prepare_synchronize_block('fileUuid', 2, 5).SerializeToString()
+    do_open(endpoint, fl, blocks=[(4, 6)], size=10)
+    sync_req = prepare_synchronize_block(2, 5).SerializeToString()
 
     with pytest.raises(RuntimeError) as excinfo: #todo make it async
         fl.read('/random/path', 2, 5)
@@ -832,12 +832,12 @@ def test_read_should_request_synchronization(endpoint, fl):
 
 
 def test_read_should_continue_reading_after_synchronization(appmock_client, endpoint, fl):
-    do_open(endpoint, fl, blocks=[(4, 6)], size=10, uuid='fileUuid')
+    do_open(endpoint, fl, blocks=[(4, 6)], size=10)
     location_subsc_data = endpoint.history()[0]
     location_subsc = messages_pb2.ClientMessage()
     location_subsc.ParseFromString(location_subsc_data)
     stream_id = location_subsc.message_stream.stream_id
-    location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0, uuid='fileUuid')
+    location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0)
 
     appmock_client.reset_tcp_history()
     with reply(endpoint, location_update_event):
