@@ -14,6 +14,7 @@
 #include "messages/fuse/fileLocation.h"
 
 #include <boost/filesystem/path.hpp>
+#include <condition_variable>
 #include <tbb/concurrent_hash_map.h>
 
 namespace one {
@@ -47,12 +48,17 @@ private:
     communication::Communicator &m_communicator;
     tbb::concurrent_hash_map<Path, std::string, PathHash> m_pathToUuid;
     tbb::concurrent_hash_map<std::string, Metadata> m_metaCache;
+    tbb::concurrent_hash_map<std::string, std::unique_ptr<std::mutex>>
+        m_mutexMap;
+    std::condition_variable_any m_newLocationCondition;
 
 public:
     using ConstUuidAccessor = decltype(m_pathToUuid)::const_accessor;
     using ConstMetaAccessor = decltype(m_metaCache)::const_accessor;
+    using ConstMutexAccessor = decltype(m_mutexMap)::const_accessor;
     using UuidAccessor = decltype(m_pathToUuid)::accessor;
     using MetaAccessor = decltype(m_metaCache)::accessor;
+    using MutexAccessor = decltype(m_mutexMap)::accessor;
 
     /**
      * Constructor.
@@ -90,6 +96,13 @@ public:
      * @return Location data about the file.
      */
     FileLocation getLocation(const std::string &uuid);
+
+    /**
+     * Retrieves mutex of file with given uuid. Creates it, if it is not found.
+     * @param uuid The uuid of a file to get mutex.
+     * @return Pointer to mutex.
+     */
+    std::mutex &getMutex(const std::string &uuid);
 
     /**
      * Sets metadata accessor for a given path, first ensuring that path<->UUID
@@ -153,6 +166,21 @@ public:
      * @param metaAcc Accessor to metadata mapping to remove.
      */
     void remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
+
+    /**
+     * Sends synchronization request for given range and waits for new file
+     * location.
+     * @param uuid fo file to synchronize
+     */
+    bool syncAndWaitForNewLocation(const std::string &uuid,
+        const boost::icl::discrete_interval<off_t> &range,
+        std::unique_lock<std::mutex> &lock,
+        const std::chrono::milliseconds &timeout);
+
+    /**
+     * Notifies waiting processes that the new file location has arrived
+     */
+    void notifyNewLocationArrived();
 };
 
 } // namespace one

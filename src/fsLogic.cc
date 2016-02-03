@@ -27,6 +27,7 @@
 #include "messages/fuse/getNewFileLocation.h"
 #include "messages/fuse/helperParams.h"
 #include "messages/fuse/rename.h"
+#include "messages/fuse/synchronizeBlock.h"
 #include "messages/fuse/truncate.h"
 #include "messages/fuse/updateTimes.h"
 
@@ -323,7 +324,8 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         location.blocks().find(boost::icl::discrete_interval<off_t>(offset));
 
     if (availableBlockIt == location.blocks().end())
-        throw std::errc::bad_address; ///< @todo Waiting for blocks.
+        if (!waitForBlockSynchronization(context.uuid, wantedRange))
+            throw std::errc::resource_unavailable_try_again;
 
     const messages::fuse::FileBlock &fileBlock = availableBlockIt->second;
     auto availableRange = availableBlockIt->first & wantedRange;
@@ -341,14 +343,25 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
             throw;
         m_forceClusterProxyCache.insert(context.uuid);
         helper = getHelper(context.uuid, fileBlock.storageId());
-        buf = helper->sh_read(context.helperCtx, fileBlock.fileId(), buf,
-            offset, context.uuid);
+        buf = helper->sh_read(
+            context.helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
     }
 
     const auto bytesRead = asio::buffer_size(buf);
     m_eventManager.emitReadEvent(offset, bytesRead, context.uuid);
 
     return bytesRead;
+}
+
+bool FsLogic::waitForBlockSynchronization(
+    const std::string &uuid, const boost::icl::discrete_interval<off_t> &range)
+{
+    std::mutex &mutex = m_metadataCache.getMutex(uuid);
+    std::unique_lock<std::mutex> lock{mutex};
+
+    messages::fuse::SynchronizeBlock msg{uuid, range};
+    m_context->communicator()->send(std::move(msg));
+    return m_metadataCache.syncAndWaitForNewLocation(uuid, range, lock, 30s);
 }
 
 int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
@@ -381,8 +394,8 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
             throw;
         m_forceClusterProxyCache.insert(context.uuid);
         helper = getHelper(context.uuid, location.storageId());
-        bytesWritten = helper->sh_write(context.helperCtx,
-            location.fileId(), buf, offset, context.uuid);
+        bytesWritten = helper->sh_write(
+            context.helperCtx, location.fileId(), buf, offset, context.uuid);
     }
 
     m_eventManager.emitWriteEvent(offset, bytesWritten, context.uuid,
@@ -501,6 +514,7 @@ events::FileLocationEventStream::Handler FsLogic::fileLocationHandler()
             // any new values
             location.blocks() = newLocation.blocks() | location.blocks();
         }
+        m_metadataCache.notifyNewLocationArrived();
     };
 }
 

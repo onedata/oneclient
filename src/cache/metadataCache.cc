@@ -62,6 +62,15 @@ MetadataCache::FileLocation MetadataCache::getLocation(const std::string &uuid)
     return acc->second.location.get();
 }
 
+std::mutex &MetadataCache::getMutex(const std::string &uuid)
+{
+    MutexAccessor acc;
+    if (m_mutexMap.insert(acc, uuid))
+        ;
+    acc->second = std::make_unique<std::mutex>();
+    return *acc->second;
+}
+
 void MetadataCache::getAttr(MetaAccessor &metaAcc, const Path &path)
 {
     UuidAccessor uuidAcc;
@@ -205,6 +214,28 @@ std::size_t MetadataCache::PathHash::hash(const Path &path)
 bool MetadataCache::PathHash::equal(const Path &a, const Path &b)
 {
     return a == b;
+}
+
+bool MetadataCache::syncAndWaitForNewLocation(const std::string &uuid,
+    const boost::icl::discrete_interval<off_t> &range,
+    std::unique_lock<std::mutex> &lock,
+    const std::chrono::milliseconds &timeout)
+{
+    LOG(INFO) << "Waiting for file_location of '" << uuid << "' at range "
+              << range;
+
+    const auto pred = [&] {
+        FileLocation location = getLocation(uuid);
+        return location.blocks().find(boost::icl::first(range)) !=
+            location.blocks().end();
+    };
+
+    return m_newLocationCondition.wait_for(lock, timeout, pred);
+}
+
+void MetadataCache::notifyNewLocationArrived()
+{
+    m_newLocationCondition.notify_all();
 }
 
 } // namespace one
