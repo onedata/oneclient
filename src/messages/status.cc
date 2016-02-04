@@ -132,7 +132,7 @@ Status::Status(std::unique_ptr<ProtocolServerMessage> serverMessage)
 {
 }
 
-Status::Status(clproto::Status &status)
+Status::Status(const clproto::Status &status)
 {
     auto searchResult = translation.left.find(status.code());
     auto errc = searchResult == translation.left.end()
@@ -141,7 +141,7 @@ Status::Status(clproto::Status &status)
 
     m_code = std::make_error_code(errc);
     if (status.has_description())
-        m_description = std::move(*status.mutable_description());
+        m_description = status.description();
 }
 
 std::error_code Status::code() const { return m_code; }
