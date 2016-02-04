@@ -29,12 +29,12 @@ namespace helpers {
 class StorageHelperFactory {
 public:
 #ifdef BUILD_PROXY_IO
-    StorageHelperFactory(asio::io_service &ceph_service,
-        asio::io_service &dio_service,
+    StorageHelperFactory(asio::io_service &cephService,
+        asio::io_service &dioService, asio::io_service &s3Service,
         communication::Communicator &communicator);
 #else
-    StorageHelperFactory(
-        asio::io_service &ceph_service, asio::io_service &dio_service);
+    StorageHelperFactory(asio::io_service &ceph_service,
+        asio::io_service &dio_service, asio::io_service &s3Service);
 #endif
 
     virtual ~StorageHelperFactory() = default;
@@ -53,6 +53,7 @@ public:
 private:
     asio::io_service &m_cephService;
     asio::io_service &m_dioService;
+    asio::io_service &m_s3Service;
 #ifdef BUILD_PROXY_IO
     communication::Communicator &m_communicator;
 #endif

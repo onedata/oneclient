@@ -25,6 +25,10 @@
 namespace one {
 namespace helpers {
 
+/**
+* The PosixHelperCTX class represents context for all POSIX compliant helpers
+* and its object is passed to all helper functions.
+*/
 class PosixHelperCTX : public IStorageHelperCTX {
 public:
     ~PosixHelperCTX();
@@ -33,28 +37,14 @@ public:
 
     std::unordered_map<std::string, std::string> getUserCTX();
 
-    void setFlags(std::vector<IStorageHelperCTX::Flag> flags);
-
-    void setFlags(int flags);
-
-    std::vector<IStorageHelperCTX::Flag> getFlags();
-
-    int getFlagValue(Flag flag);
-
     uid_t uid = 0;
     gid_t gid = 0;
-    int flags = 0;
     int fh = -1;
-
-private:
-    static const std::map<IStorageHelperCTX::Flag, int> openFlagTranslation;
-    static const std::map<IStorageHelperCTX::Flag, int> openModeTranslation;
-    static const std::map<IStorageHelperCTX::Flag, int> fileTypeTranslation;
 };
 
 /**
- * The DirectIOHelper class
- * Storage helper used to access files on mounted as local filesystem.
+ * The DirectIOHelper class provides access to files on mounted as local
+ * filesystem.
  */
 class DirectIOHelper : public IStorageHelper {
 public:
@@ -93,7 +83,7 @@ public:
 
     /**
      * This storage helper uses only the first element of args map.
-     * It shall be ablosute path to diretory used by this storage helper as
+     * It shall be absolute path to directory used by this storage helper as
      * root mount point.
      */
     DirectIOHelper(const std::unordered_map<std::string, std::string> &,
@@ -109,7 +99,7 @@ public:
     void ash_readdir(CTXPtr ctx, const boost::filesystem::path &p, off_t offset,
         size_t count, GeneralCallback<const std::vector<std::string> &>);
     void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        dev_t rdev, VoidCallback);
+        FlagsSet flags, dev_t rdev, VoidCallback);
     void ash_mkdir(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
         VoidCallback);
     void ash_unlink(CTXPtr ctx, const boost::filesystem::path &p, VoidCallback);
@@ -127,8 +117,8 @@ public:
     void ash_truncate(
         CTXPtr ctx, const boost::filesystem::path &p, off_t size, VoidCallback);
 
-    void ash_open(
-        CTXPtr ctx, const boost::filesystem::path &p, GeneralCallback<int>);
+    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, FlagsSet flags,
+        GeneralCallback<int>);
     void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
         GeneralCallback<asio::mutable_buffer>);
@@ -200,11 +190,14 @@ protected:
 
 private:
     boost::filesystem::path root(const boost::filesystem::path &path);
-    std::shared_ptr<PosixHelperCTX> getCTX(CTXPtr rawCtx) const;
+    std::shared_ptr<PosixHelperCTX> getCTX(CTXPtr rawCTX) const;
+    static int getFlagsValue(FlagsSet flags);
 
     const boost::filesystem::path m_rootPath;
     asio::io_service &m_workerService;
     UserCTXFactory m_userCTXFactory;
+
+    static const std::map<Flag, int> s_flagTranslation;
 };
 
 } // namespace helpers

@@ -165,7 +165,7 @@ TEST_F(DirectIOHelperTest, shouldFaileWithInvalidUserCTX)
             return std::make_unique<InvalidUserCTX>();
         });
 
-    helper.ash_open(ctx, testFileId,
+    helper.ash_open(ctx, testFileId, {Flag::RDONLY},
         std::bind(&DirectIOHelperTest::set_promise<int>, this, pi1, _1, _2));
 
     EXPECT_THROW_POSIX_CODE(pi1->get_future().get(), EDOM);
@@ -208,7 +208,7 @@ TEST_F(DirectIOHelperTest, shouldReadBytes)
 
 TEST_F(DirectIOHelperTest, shouldOpen)
 {
-    proxy->ash_open(ctx, testFileId,
+    proxy->ash_open(ctx, testFileId, {Flag::RDONLY},
         std::bind(&DirectIOHelperTest::set_promise<int>, this, pi1, _1, _2));
     EXPECT_GT(pi1->get_future().get(), 0);
     EXPECT_GT(ctx->fh, 0);
@@ -216,7 +216,7 @@ TEST_F(DirectIOHelperTest, shouldOpen)
 
 TEST_F(DirectIOHelperTest, shouldRelease)
 {
-    auto fd = ::open(testFilePath.c_str(), ctx->flags);
+    auto fd = ::open(testFilePath.c_str(), O_RDONLY);
     ctx->fh = fd;
 
     proxy->ash_release(ctx, testFileId,
@@ -260,7 +260,7 @@ TEST_F(DirectIOHelperTest, shouldNotReadDirectory)
 
 TEST_F(DirectIOHelperTest, mknod)
 {
-    proxy->ash_mknod(ctx, testFileId, S_IFREG, 0,
+    proxy->ash_mknod(ctx, testFileId, S_IFREG, {}, 0,
         std::bind(&DirectIOHelperTest::set_void_promise, this, pv1, _1));
     EXPECT_THROW_POSIX_CODE(pv1->get_future().get(), EEXIST);
 }
@@ -358,8 +358,7 @@ TEST_F(DirectIOHelperTest, shouldTruncate)
 
 TEST_F(DirectIOHelperTest, AsyncBench)
 {
-    ctx->flags |= O_RDWR;
-    proxy->ash_open(ctx, testFileId,
+    proxy->ash_open(ctx, testFileId, {Flag::RDWR},
         std::bind(&DirectIOHelperTest::set_promise<int>, this, pi1, _1, _2));
     pi1->get_future().get();
 
@@ -385,16 +384,15 @@ TEST_F(DirectIOHelperTest, AsyncBench)
 
 TEST_F(DirectIOHelperTest, SyncBench)
 {
-    ctx->flags |= O_RDWR;
-
-    proxy->ash_open(ctx, testFileId, [=](int, one::helpers::error_t e) {
-        char stmp[BENCH_BLOCK_SIZE];
-        auto writeBuf = asio::buffer(stmp, BENCH_BLOCK_SIZE);
-        for (auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
-            proxy->sh_write(ctx, testFileId, writeBuf, 0, testFileUuid);
-        }
-        pv1->set_value();
-    });
+    proxy->ash_open(
+        ctx, testFileId, {Flag::RDWR}, [=](int, one::helpers::error_t e) {
+            char stmp[BENCH_BLOCK_SIZE];
+            auto writeBuf = asio::buffer(stmp, BENCH_BLOCK_SIZE);
+            for (auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
+                proxy->sh_write(ctx, testFileId, writeBuf, 0, testFileUuid);
+            }
+            pv1->set_value();
+        });
     pv1->get_future().get();
 
     proxy->ash_release(ctx, testFileId,
