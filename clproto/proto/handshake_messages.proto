@@ -14,7 +14,7 @@ message HandshakeRequest {
 }
 
 message HandshakeResponse {
-    required bytes        session_id    = 1;
+    required bytes session_id = 1;
 }
 
 message Token {

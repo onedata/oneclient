@@ -156,7 +156,7 @@ private:
             , size{_size}
             , callback{std::move(_callback)}
         {
-            bufferlist.append(asio::buffer_cast<const char *>(_buffer));
+            bufferlist.append(asio::buffer_cast<const char *>(_buffer), size);
         }
 
         std::string fileId;
