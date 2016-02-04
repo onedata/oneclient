@@ -59,7 +59,7 @@ public:
      * Constructor.
      * @param status Protocol Buffers message representing the status.
      */
-    Status(clproto::Status &status);
+    Status(const clproto::Status &status);
 
     /**
      * @return Status code.
