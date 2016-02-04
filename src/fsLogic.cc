@@ -51,7 +51,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_helpersCache{*m_context->communicator()}
     , m_metadataCache{*m_context->communicator()}
     , m_fsSubscriptions{*m_context->scheduler(), m_eventManager}
-    , m_forceClusterProxyCache{m_fsSubscriptions}
+    , m_forceProxyIOCache{m_fsSubscriptions}
 {
     m_eventManager.setFileAttrHandler(fileAttrHandler());
     m_eventManager.setFileLocationHandler(fileLocationHandler());
@@ -337,9 +337,9 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)
             throw;
-        if (m_forceClusterProxyCache.contains(context.uuid))
+        if (m_forceProxyIOCache.contains(context.uuid))
             throw;
-        m_forceClusterProxyCache.insert(context.uuid);
+        m_forceProxyIOCache.insert(context.uuid);
         helper = getHelper(context.uuid, fileBlock.storageId());
         buf = helper->sh_read(
             context.helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
@@ -377,9 +377,9 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)
             throw;
-        if (m_forceClusterProxyCache.contains(context.uuid))
+        if (m_forceProxyIOCache.contains(context.uuid))
             throw;
-        m_forceClusterProxyCache.insert(context.uuid);
+        m_forceProxyIOCache.insert(context.uuid);
         helper = getHelper(context.uuid, location.storageId());
         bytesWritten = helper->sh_write(
             context.helperCtx, location.fileId(), buf, offset, context.uuid);
@@ -510,9 +510,9 @@ FsLogic::permissionChangedHandler()
     using namespace events;
     return [this](std::vector<PermissionChangedEventStream::EventPtr> events) {
         for (const auto &event : events) {
-            LOG(INFO) << "Invalidating forceClusterProxyCache for uuid: '"
+            LOG(INFO) << "Invalidating forceProxyIOCache for uuid: '"
                       << event->fileUuid() << "'";
-            m_forceClusterProxyCache.erase(event->fileUuid());
+            m_forceProxyIOCache.erase(event->fileUuid());
         }
     };
 }
@@ -606,9 +606,9 @@ int FsLogic::fsyncdir(boost::filesystem::path path, const int datasync,
 HelpersCache::HelperPtr FsLogic::getHelper(
     const std::string &fileUuid, const std::string &storageId)
 {
-    auto forceClusterProxy = !m_context->options()->get_directio() ||
-        m_forceClusterProxyCache.contains(fileUuid);
-    return m_helpersCache.get(storageId, forceClusterProxy);
+    auto forceProxyIO = m_context->options()->get_proxyio() ||
+        m_forceProxyIOCache.contains(fileUuid);
+    return m_helpersCache.get(fileUuid, storageId, forceProxyIO);
 }
 
 void FsLogic::removeFile(boost::filesystem::path path)

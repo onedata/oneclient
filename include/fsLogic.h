@@ -12,7 +12,7 @@
 #include "cache/fileContextCache.h"
 #include "cache/helpersCache.h"
 #include "cache/metadataCache.h"
-#include "cache/forceClusterProxyCache.h"
+#include "cache/forceProxyIOCache.h"
 #include "events/eventManager.h"
 #include "fsSubscriptions.h"
 #include "messages/fuse/fileAttr.h"
@@ -242,7 +242,7 @@ private:
     HelpersCache m_helpersCache;
     MetadataCache m_metadataCache;
     FsSubscriptions m_fsSubscriptions;
-    ForceClusterProxyCache m_forceClusterProxyCache;
+    ForceProxyIOCache m_forceProxyIOCache;
 };
 
 struct FsLogicWrapper {

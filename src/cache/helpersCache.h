@@ -12,6 +12,7 @@
 #include "communication/communicator.h"
 #include "helpers/IStorageHelper.h"
 #include "helpers/storageHelperFactory.h"
+#include "storageAccessManager.h"
 
 #include <asio/io_service.hpp>
 #include <asio/executor_work.hpp>
@@ -22,6 +23,13 @@
 #include <utility>
 
 namespace one {
+namespace messages {
+class Status;
+namespace fuse {
+class StorageTestFile;
+class StorageTestFileVerification;
+}
+}
 namespace client {
 
 /**
@@ -33,15 +41,13 @@ public:
     using HelperPtr = std::shared_ptr<helpers::IStorageHelper>;
 
 private:
-    communication::Communicator &m_communicator;
-    asio::io_service m_ioService{1};
-    asio::executor_work<asio::io_service::executor_type> m_work =
-        asio::make_work(m_ioService);
+    void handle(const messages::Status &status,
+        const messages::fuse::StorageTestFile &message);
 
-    std::thread m_thread;
+    void handle(const messages::Status &status,
+        const messages::fuse::StorageTestFileVerification &message);
 
-    helpers::StorageHelperFactory m_helperFactory{
-        m_ioService, m_ioService, m_ioService, m_communicator};
+    enum class AccessType { DIRECT, PROXY };
 
     struct HashCompare {
         bool equal(const std::tuple<std::string, bool> &j,
@@ -49,12 +55,24 @@ private:
         size_t hash(const std::tuple<std::string, bool> &k) const;
     };
 
-    tbb::concurrent_hash_map<std::tuple<std::string, bool>,
-        HelperPtr, HashCompare> m_cache;
+    communication::Communicator &m_communicator;
+    asio::io_service m_ioService{1};
+    asio::executor_work<asio::io_service::executor_type> m_work =
+        asio::make_work(m_ioService);
+    std::thread m_thread;
+    helpers::StorageHelperFactory m_helperFactory{
+        m_ioService, m_ioService, m_ioService, m_communicator};
+    StorageAccessManager m_storageAccessManager;
+
+    tbb::concurrent_hash_map<std::tuple<std::string, bool>, HelperPtr,
+        HashCompare> m_cache;
+    tbb::concurrent_hash_map<std::string, AccessType> m_accessType;
 
 public:
-    using ConstAccessor = decltype(m_cache)::const_accessor;
-    using Accessor = decltype(m_cache)::accessor;
+    using ConstAccessTypeAccessor = decltype(m_accessType)::const_accessor;
+    using AccessTypeAccessor = decltype(m_accessType)::accessor;
+    using ConstCacheAccessor = decltype(m_cache)::const_accessor;
+    using CacheAccessor = decltype(m_cache)::accessor;
 
     /**
      * Constructor.
@@ -73,13 +91,13 @@ public:
 
     /**
      * Retrieves a helper instance.
-     * @param spaceId Space id for which to retrieve a helper.
+     * @param fileUuid UUID of a file for which helper will be used.
      * @param storageId Storage id for which to retrieve a helper.
-     * @param forceClusterProxy Determines whether to return a ClusterProxy
-     * helper.
+     * @param forceProxyIO Determines whether to return a ProxyIO helper.
      * @return Retrieved helper instance.
      */
-    HelperPtr get(const std::string &storageId, const bool forceClusterProxy = false);
+    HelperPtr get(const std::string &fileUuid, const std::string &storageId,
+        bool forceProxyIO = false);
 };
 
 } // namespace one

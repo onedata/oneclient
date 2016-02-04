@@ -1,5 +1,5 @@
 /**
- * @file forceClusterProxyCache.h
+ * @file forceProxyIOCache.h
  * @author Tomasz Lichon
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
@@ -17,10 +17,10 @@ namespace one {
 namespace client {
 
 /**
- * @c ForceClusterProxyCache is responsible for holding uuids of files that
+ * @c ForceProxyIOCache is responsible for holding uuids of files that
  * require forcing cluster proxy during read and write operations
  */
-class ForceClusterProxyCache {
+class ForceProxyIOCache {
 
 private:
     tbb::concurrent_unordered_set<std::string> m_cache;
@@ -33,7 +33,7 @@ public:
      * @param communicator Communicator instance used to fetch helper
      * parameters.
      */
-    ForceClusterProxyCache(FsSubscriptions &fsSubscriptions);
+    ForceProxyIOCache(FsSubscriptions &fsSubscriptions);
 
     /**
      * Checks if fileUuid is present in cache

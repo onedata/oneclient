@@ -16,6 +16,9 @@
 #include <unordered_map>
 
 namespace one {
+namespace clproto {
+class HelperParams;
+}
 namespace messages {
 namespace fuse {
 
@@ -25,14 +28,31 @@ namespace fuse {
  */
 class HelperParams : public FuseResponse {
 public:
+    using ProtocolMessage = one::clproto::HelperParams;
+
     HelperParams() = default;
 
     /**
      * Constructor.
      * @param serverMessage Protocol Buffers message representing
-     * @c HelperParams counterpart.
+     * @c ServerMessage.
      */
     HelperParams(std::unique_ptr<ProtocolServerMessage> serverMessage);
+
+    /**
+     * Constructor.
+     * @param message Protocol Buffers message representing @c HelperParams
+     * counterpart.
+     */
+    HelperParams(const ProtocolMessage &message);
+
+    /**
+     * Constructor.
+     * @param name Storage helper name.
+     * @param args Storage helper arguments.
+     */
+    HelperParams(
+        std::string name, std::unordered_map<std::string, std::string> args);
 
     /**
      * @return Helper's name.
