@@ -23,6 +23,8 @@
 #include "fsLogic.h"
 #include "fsOperations.h"
 #include "logging.h"
+#include "messages/configuration.h"
+#include "messages/getConfiguration.h"
 #include "messages/handshakeResponse.h"
 #include "messages/ping.h"
 #include "messages/pong.h"
@@ -32,8 +34,6 @@
 #include "scheduler.h"
 #include "shMock.h"
 #include "version.h"
-
-#include "messages.pb.h"
 
 #include <fuse/fuse_opt.h>
 #include <fuse/fuse_lowlevel.h>
@@ -127,24 +127,32 @@ std::shared_ptr<auth::AuthManager> createAuthManager(
     }
 }
 
-void handshake(const std::string &fuseId,
-    std::shared_ptr<auth::AuthManager> authManager,
-    std::shared_ptr<Context> context, events::SubscriptionContainer &container)
+std::shared_ptr<communication::Communicator> handshake(
+    const std::string &fuseId, std::shared_ptr<auth::AuthManager> authManager,
+    std::shared_ptr<Context> context)
 {
-    auto handshakeHandler = [&](auto handshakeResponse) {
-        for (const auto &subscription : handshakeResponse.subscriptions())
-            container.add(subscription);
-        return std::error_code{};
-    };
+    auto handshakeHandler = [&](auto) { return std::error_code{}; };
 
     auto testCommunicatorTuple =
         authManager->createCommunicator(1, fuseId, handshakeHandler);
     auto testCommunicator =
         std::get<std::shared_ptr<communication::Communicator>>(
             testCommunicatorTuple);
+
     testCommunicator->setScheduler(context->scheduler());
     testCommunicator->connect();
     communication::wait(std::get<std::future<void>>(testCommunicatorTuple));
+
+    return testCommunicator;
+}
+
+std::shared_ptr<messages::Configuration> getConfiguration(
+    std::shared_ptr<communication::Communicator> communicator)
+{
+    auto future = communicator->communicate<messages::Configuration>(
+        messages::GetConfiguration{});
+    auto configuration = communication::wait(future);
+    return std::make_shared<messages::Configuration>(std::move(configuration));
 }
 
 std::shared_ptr<communication::Communicator> createCommunicator(
@@ -152,12 +160,15 @@ std::shared_ptr<communication::Communicator> createCommunicator(
     std::shared_ptr<Context> context, std::string fuseId)
 {
     auto handshakeHandler = [](auto) { return std::error_code{}; };
+
     auto communicatorTuple =
         authManager->createCommunicator(3, fuseId, handshakeHandler);
     auto communicator = std::get<std::shared_ptr<communication::Communicator>>(
         communicatorTuple);
+
     communicator->setScheduler(context->scheduler());
     context->setCommunicator(communicator);
+
     return communicator;
 }
 
@@ -206,12 +217,14 @@ int main(int argc, char *argv[])
     // Initialize cluster handshake in order to check if everything is ok before
     // becoming daemon
     const auto fuseId = generateFuseID();
-    events::SubscriptionContainer container;
+    std::shared_ptr<messages::Configuration> configuration;
     try {
         /// @todo InvalidServerCertificate
         /// @todo More specific errors.
         /// @todo boost::system::system_error thrown on host not found
-        handshake(fuseId, authManager, context, container);
+        auto communicator = handshake(fuseId, authManager, context);
+        std::cout << "Getting configuration..." << std::endl;
+        configuration = getConfiguration(std::move(communicator));
     }
     catch (OneException &exception) {
         std::cerr << "Handshake error. Aborting" << std::endl;
@@ -281,7 +294,7 @@ int main(int argc, char *argv[])
     communicator->connect();
 
     fsLogicWrapper.logic =
-        std::make_unique<FsLogic>(context, std::move(container));
+        std::make_unique<FsLogic>(std::move(context), std::move(configuration));
 
     // Enter FUSE loop
     res = multithreaded ? fuse_loop_mt(fuse) : fuse_loop(fuse);

@@ -53,7 +53,8 @@ public:
     }
 
     void ash_mknod(one::helpers::CTXPtr, const boost::filesystem::path &,
-        mode_t, dev_t, one::helpers::VoidCallback callback) override
+        mode_t, one::helpers::FlagsSet flags, dev_t,
+        one::helpers::VoidCallback callback) override
     {
         callback(ec);
     }
@@ -116,6 +117,7 @@ public:
     }
 
     void ash_open(one::helpers::CTXPtr, const boost::filesystem::path &,
+        one::helpers::FlagsSet,
         one::helpers::GeneralCallback<int> callback) override
     {
         callback(0, ec);
@@ -154,8 +156,8 @@ public:
     }
 
     asio::mutable_buffer sh_read(one::helpers::CTXPtr,
-        const boost::filesystem::path &, asio::mutable_buffer buf,
-        off_t, const std::string &) override
+        const boost::filesystem::path &, asio::mutable_buffer buf, off_t,
+        const std::string &) override
     {
         if (ec)
             throw std::system_error{ec};

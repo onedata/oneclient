@@ -18,12 +18,33 @@
 namespace one {
 namespace helpers {
 
+/**
+* The CephHelperCTX class represents context for Ceph helpers and its object is
+* passed to all helper functions.
+*/
 class CephHelperCTX : public IStorageHelperCTX {
 public:
+    /**
+     * Constructor.
+     * @param args Map with parameters required to create context. It should
+     * contain at least 'cluster_name' , 'mon_host' and 'pool_name' values.
+     * Additionally default 'user_name' and 'key' can be passed, which will be
+     * used if user context has not been set.
+     */
     CephHelperCTX(std::unordered_map<std::string, std::string> args);
 
+    /**
+     * Destructor.
+     * Closes connection to Ceph storage cluster and destroys internal context
+     * object.
+     */
     ~CephHelperCTX();
 
+    /**
+     * Sets user context.
+     * @param args Map with parameters required to set user context. It should
+     * contain 'user_name' and 'key' values.
+     */
     void setUserCTX(std::unordered_map<std::string, std::string> args);
 
     std::unordered_map<std::string, std::string> getUserCTX();
@@ -43,14 +64,22 @@ private:
     std::unordered_map<std::string, std::string> m_args;
 };
 
+/**
+* The CephHelper class provides access to Ceph storage via librados library.
+*/
 class CephHelper : public IStorageHelper {
 public:
+    /**
+     * Constructor.
+     * @param args Map with parameters required to create helper.
+     * @param service Reference to IO service used by the helper.
+     */
     CephHelper(std::unordered_map<std::string, std::string> args,
         asio::io_service &service);
 
     CTXPtr createCTX();
 
-    void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
+    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, FlagsSet flags,
         GeneralCallback<int> callback)
     {
         callback(0, SUCCESS_CODE);
@@ -71,7 +100,7 @@ public:
         VoidCallback callback);
 
     void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        dev_t rdev, VoidCallback callback)
+        FlagsSet flags, dev_t rdev, VoidCallback callback)
     {
         callback(SUCCESS_CODE);
     }

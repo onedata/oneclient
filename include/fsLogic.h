@@ -19,8 +19,6 @@
 #include "messages/fuse/fileLocation.h"
 #include "messages/fuse/helperParams.h"
 
-#include "messages.pb.h"
-
 #include <asio/buffer.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
@@ -36,6 +34,7 @@
 namespace one {
 
 namespace messages {
+class Configuration;
 namespace fuse {
 class GetFileAttr;
 }
@@ -62,7 +61,7 @@ public:
      * @param context Shared pointer to application context instance.
      */
     FsLogic(std::shared_ptr<Context> context,
-        events::SubscriptionContainer container = {});
+        std::shared_ptr<messages::Configuration> configuration);
 
     /**
      * FUSE @c access callback.

@@ -154,9 +154,10 @@ void DirectIOHelper::ash_readdir(CTXPtr ctx, const boost::filesystem::path &p,
 }
 
 void DirectIOHelper::ash_mknod(CTXPtr rawCTX, const boost::filesystem::path &p,
-    mode_t mode, dev_t rdev, VoidCallback callback)
+    mode_t mode, FlagsSet flags, dev_t rdev, VoidCallback callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
+    mode |= getFlagsValue(std::move(flags));
     m_workerService.post(
         [ =, ctx = std::move(ctx), callback = std::move(callback) ]() mutable {
             auto userCTX = m_userCTXFactory(std::move(ctx));
@@ -339,18 +340,18 @@ void DirectIOHelper::ash_truncate(CTXPtr rawCTX,
 }
 
 void DirectIOHelper::ash_open(CTXPtr rawCTX, const boost::filesystem::path &p,
-    GeneralCallback<int> callback)
+    FlagsSet flags, GeneralCallback<int> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
     m_workerService.post(
-        [ =, ctx = std::move(ctx), callback = std::move(callback) ]() {
+        [ =, ctx = std::move(ctx), callback = std::move(callback) ]() mutable {
             auto userCTX = m_userCTXFactory(ctx);
             if (!userCTX->valid()) {
                 callback(-1, makePosixError(EDOM));
                 return;
             }
 
-            int res = open(root(p).c_str(), ctx->flags);
+            int res = open(root(p).c_str(), getFlagsValue(std::move(flags)));
 
             if (res == -1) {
                 callback(-1, makePosixError(errno));
@@ -537,8 +538,27 @@ std::shared_ptr<PosixHelperCTX> DirectIOHelper::getCTX(CTXPtr rawCTX) const
 {
     auto ctx = std::dynamic_pointer_cast<PosixHelperCTX>(rawCTX);
     if (ctx == nullptr)
-        throw std::system_error{std::make_error_code(std::errc::invalid_argument)};
+        throw std::system_error{
+            std::make_error_code(std::errc::invalid_argument)};
     return ctx;
+}
+
+int DirectIOHelper::getFlagsValue(FlagsSet flags)
+{
+    int value = 0;
+
+    for (auto flag : flags) {
+        auto searchResult = s_flagTranslation.find(flag);
+        if (searchResult != s_flagTranslation.end()) {
+            value |= searchResult->second;
+        }
+        else {
+            throw std::system_error{
+                std::make_error_code(std::errc::invalid_argument)};
+        }
+    }
+
+    return value;
 }
 
 PosixHelperCTX::~PosixHelperCTX()
@@ -559,76 +579,14 @@ std::unordered_map<std::string, std::string> PosixHelperCTX::getUserCTX()
     return {{"uid", std::to_string(uid)}, {"gid", std::to_string(gid)}};
 }
 
-void PosixHelperCTX::setFlags(std::vector<IStorageHelperCTX::Flag> _flags)
-{
-    flags = 0;
-    for (const auto &flag : _flags)
-        flags |= getFlagValue(flag);
-}
-
-void PosixHelperCTX::setFlags(int _flags) { flags = _flags; }
-
-std::vector<IStorageHelperCTX::Flag> PosixHelperCTX::getFlags()
-{
-    std::vector<IStorageHelperCTX::Flag> _flags;
-
-    for (auto &flag : openFlagTranslation) {
-        if (flags & flag.second) {
-            _flags.push_back(flag.first);
-        }
-    }
-
-    for (auto &flag : openModeTranslation) {
-        // Mask only open mode (ACCMODE) and compare by value
-        if ((flags & O_ACCMODE) == flag.second) {
-            _flags.push_back(flag.first);
-        }
-    }
-
-    return std::move(_flags);
-}
-
-int PosixHelperCTX::getFlagValue(Flag flag)
-{
-    auto searchResult = openFlagTranslation.find(flag);
-    if (searchResult != openFlagTranslation.end())
-        return searchResult->second;
-
-    searchResult = openModeTranslation.find(flag);
-    if (searchResult != openModeTranslation.end())
-        return searchResult->second;
-
-    searchResult = fileTypeTranslation.find(flag);
-    if (searchResult != fileTypeTranslation.end())
-        return searchResult->second;
-
-    throw std::system_error{std::make_error_code(std::errc::invalid_argument)};
-}
-
-const std::map<IStorageHelperCTX::Flag, int>
-    PosixHelperCTX::openFlagTranslation = {
-        {IStorageHelperCTX::Flag::NONBLOCK, O_NONBLOCK},
-        {IStorageHelperCTX::Flag::APPEND, O_APPEND},
-        {IStorageHelperCTX::Flag::ASYNC, O_ASYNC},
-        {IStorageHelperCTX::Flag::FSYNC, O_FSYNC},
-        {IStorageHelperCTX::Flag::NOFOLLOW, O_NOFOLLOW},
-        {IStorageHelperCTX::Flag::CREAT, O_CREAT},
-        {IStorageHelperCTX::Flag::TRUNC, O_TRUNC},
-        {IStorageHelperCTX::Flag::EXCL, O_EXCL}};
-
-const std::map<IStorageHelperCTX::Flag, int>
-    PosixHelperCTX::openModeTranslation = {
-        {IStorageHelperCTX::Flag::RDONLY, O_RDONLY},
-        {IStorageHelperCTX::Flag::WRONLY, O_WRONLY},
-        {IStorageHelperCTX::Flag::RDWR, O_RDWR}};
-
-const std::map<IStorageHelperCTX::Flag, int>
-    PosixHelperCTX::fileTypeTranslation = {
-        {IStorageHelperCTX::Flag::IFREG, S_IFREG},
-        {IStorageHelperCTX::Flag::IFCHR, S_IFCHR},
-        {IStorageHelperCTX::Flag::IFBLK, S_IFBLK},
-        {IStorageHelperCTX::Flag::IFIFO, S_IFIFO},
-        {IStorageHelperCTX::Flag::IFSOCK, S_IFSOCK}};
+const std::map<Flag, int> DirectIOHelper::s_flagTranslation = {
+    {Flag::NONBLOCK, O_NONBLOCK}, {Flag::APPEND, O_APPEND},
+    {Flag::ASYNC, O_ASYNC}, {Flag::FSYNC, O_FSYNC},
+    {Flag::NOFOLLOW, O_NOFOLLOW}, {Flag::CREAT, O_CREAT},
+    {Flag::TRUNC, O_TRUNC}, {Flag::EXCL, O_EXCL}, {Flag::RDONLY, O_RDONLY},
+    {Flag::WRONLY, O_WRONLY}, {Flag::RDWR, O_RDWR}, {Flag::IFREG, S_IFREG},
+    {Flag::IFCHR, S_IFCHR}, {Flag::IFBLK, S_IFBLK}, {Flag::IFIFO, S_IFIFO},
+    {Flag::IFSOCK, S_IFSOCK}};
 
 } // namespace helpers
 } // namespace one
