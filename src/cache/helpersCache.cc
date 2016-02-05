@@ -8,12 +8,11 @@
 
 #include "helpersCache.h"
 
-#include "communication/subscriptionData.h"
 #include "messages/fuse/helperParams.h"
 #include "messages/fuse/getHelperParams.h"
+#include "messages/fuse/createStorageTestFile.h"
 #include "messages/fuse/storageTestFile.h"
-#include "messages/fuse/storageTestFileVerification.h"
-#include "messages/status.h"
+#include "messages/fuse/verifyStorageTestFile.h"
 
 #include "messages.pb.h"
 
@@ -29,27 +28,6 @@ HelpersCache::HelpersCache(communication::Communicator &communicator)
     , m_storageAccessManager{communicator, m_helperFactory}
 {
     m_thread = std::thread{[this] { m_ioService.run(); }};
-
-    auto predicate = [](const clproto::ServerMessage &message, const bool) {
-        if (message.has_fuse_response()) {
-            const auto &response = message.fuse_response();
-            return response.has_storage_test_file() ||
-                response.has_storage_test_file_verification();
-        }
-        return false;
-    };
-    auto callback = [this](const clproto::ServerMessage &message) {
-        const auto &response = message.fuse_response();
-        if (response.has_storage_test_file())
-            handle(messages::Status{response.status()},
-                messages::fuse::StorageTestFile{response.storage_test_file()});
-        if (response.has_storage_test_file_verification())
-            handle(messages::Status{response.status()},
-                messages::fuse::StorageTestFileVerification{
-                    response.storage_test_file_verification()});
-    };
-    m_communicator.subscribe(communication::SubscriptionData{
-        std::move(predicate), std::move(callback)});
 }
 
 HelpersCache::~HelpersCache()
@@ -67,7 +45,7 @@ HelpersCache::HelperPtr HelpersCache::get(const std::string &fileUuid,
             forceProxyIO = (constAcc->second == AccessType::PROXY);
         }
         else {
-            m_storageAccessManager.createStorageTestFile(fileUuid, storageId);
+            requestStorageTestFileCreation(fileUuid, storageId);
             forceProxyIO = true;
         }
     }
@@ -119,54 +97,89 @@ size_t HelpersCache::HashCompare::hash(
     return hash;
 }
 
-void HelpersCache::handle(const messages::Status &status,
-    const messages::fuse::StorageTestFile &testFile)
+void HelpersCache::requestStorageTestFileCreation(
+    const std::string &fileUuid, const std::string &storageId)
 {
-    if (!status.code()) {
-        auto helper = m_storageAccessManager.verifyStorageTestFile(testFile);
+    messages::fuse::CreateStorageTestFile request{fileUuid, storageId};
 
-        if (helper) {
-            CacheAccessor acc;
-            if (m_cache.insert(
-                    acc, std::make_tuple(testFile.storageId(), false)))
-                acc->second = helper;
-        }
-        else {
+    m_communicator.communicate<messages::fuse::StorageTestFile>(
+        std::move(request),
+        [=](const std::error_code &ec,
+            std::unique_ptr<messages::fuse::StorageTestFile> testFile) {
+            if (!ec) {
+                handleStorageTestFile(std::move(testFile), storageId);
+            }
+            else {
+                LOG(ERROR)
+                    << "Unknown storage test file creation error, code: '"
+                    << ec.value() << "', message: '" << ec.message() << "'";
+            }
+        });
+}
+
+void HelpersCache::handleStorageTestFile(
+    std::unique_ptr<messages::fuse::StorageTestFile> testFile,
+    const std::string &storageId)
+{
+    try {
+        auto helper = m_storageAccessManager.verifyStorageTestFile(*testFile);
+        auto fileContent =
+            m_storageAccessManager.modifyStorageTestFile(helper, *testFile);
+        requestStorageTestFileVerification(
+            *testFile, storageId, std::move(fileContent));
+
+        CacheAccessor acc;
+        if (m_cache.insert(acc, std::make_tuple(storageId, false)))
+            acc->second = helper;
+    }
+    catch (const std::system_error &e) {
+        auto code = e.code().value();
+        if (code == ENOENT || code == ENOTDIR || code == EPERM) {
             AccessTypeAccessor acc;
-            if (m_accessType.insert(acc, testFile.storageId()))
+            if (m_accessType.insert(acc, storageId))
                 acc->second = AccessType::PROXY;
         }
-    }
-    else {
-        LOG(ERROR) << "Unknown storage test file creation error, code: '"
-                   << status.code() << "', description: '"
-                   << status.description() << "'";
+        else {
+            LOG(ERROR) << "Unexpected error occurred, code: " << e.code()
+                       << ", message: '" << e.what() << "'.";
+        }
     }
 }
 
-void HelpersCache::handle(const messages::Status &status,
-    const messages::fuse::StorageTestFileVerification &testFileVerification)
+void HelpersCache::requestStorageTestFileVerification(
+    const messages::fuse::StorageTestFile &testFile,
+    const std::string &storageId, std::string fileContent)
+{
+    messages::fuse::VerifyStorageTestFile request{storageId,
+        testFile.spaceUuid(), testFile.fileId(), std::move(fileContent)};
+
+    m_communicator.communicate<messages::fuse::FuseResponse>(
+        std::move(request),
+        [=](const std::error_code &ec,
+            std::unique_ptr<messages::fuse::FuseResponse> response) {
+            handleStorageTestFileVerification(ec, storageId);
+        });
+}
+
+void HelpersCache::handleStorageTestFileVerification(
+    const std::error_code &ec, const std::string &storageId)
 {
     AccessTypeAccessor acc;
-    if (!status.code()) {
-        if (m_accessType.insert(acc, testFileVerification.storageId())) {
-            LOG(INFO) << "Storage '" << testFileVerification.storageId()
+    if (!ec) {
+        if (m_accessType.insert(acc, storageId)) {
+            LOG(INFO) << "Storage '" << storageId
                       << "' is directly accessible to the client.";
             acc->second = AccessType::DIRECT;
         }
     }
-    else if (status.code().value() == ENOENT ||
-        status.code().value() == EINVAL) {
-        if (m_accessType.insert(acc, testFileVerification.storageId())) {
-            LOG(INFO) << "Storage '" << testFileVerification.storageId()
-                      << "' is not directly accessible to the client.";
-            acc->second = AccessType::PROXY;
-        }
+    else if (ec.value() == ENOENT || ec.value() == EINVAL) {
+        LOG(INFO) << "Storage '" << storageId
+                  << "' is not directly accessible to the client.";
+        acc->second = AccessType::PROXY;
     }
     else {
         LOG(ERROR) << "Unknown storage test file verification error, code: '"
-                   << status.code() << "', description: '"
-                   << status.description() << "'";
+                   << ec.value() << "', message: '" << ec.message() << "'";
     }
 }
 

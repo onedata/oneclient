@@ -16,21 +16,26 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-StorageTestFile::StorageTestFile(const ProtocolMessage &message)
+StorageTestFile::StorageTestFile(
+    std::unique_ptr<ProtocolServerMessage> serverMessage)
 {
-    m_helperParams = HelperParams{message.helper_params()};
-    m_storageId = message.storage_id();
-    m_spaceUuid = message.space_uuid();
-    m_fileId = message.file_id();
-    m_fileContent = message.file_content();
+    if (!serverMessage->fuse_response().has_storage_test_file())
+        throw std::system_error{std::make_error_code(std::errc::protocol_error),
+            "storage_test_file field missing"};
+
+    auto &message =
+        *serverMessage->mutable_fuse_response()->mutable_storage_test_file();
+
+    m_helperParams = HelperParams{*message.mutable_helper_params()};
+    m_spaceUuid.swap(*message.mutable_space_uuid());
+    m_fileId.swap(*message.mutable_file_id());
+    m_fileContent.swap(*message.mutable_file_content());
 }
 
 const HelperParams &StorageTestFile::helperParams() const
 {
     return m_helperParams;
 }
-
-const std::string &StorageTestFile::storageId() const { return m_storageId; }
 
 const std::string &StorageTestFile::spaceUuid() const { return m_spaceUuid; }
 
@@ -44,9 +49,8 @@ const std::string &StorageTestFile::fileContent() const
 std::string StorageTestFile::toString() const
 {
     std::stringstream ss;
-    ss << "type: 'StorageTestFile', storage ID: '" << m_storageId
-       << "', space UUID: '" << m_spaceUuid << "', file ID: '" << m_fileId
-       << "', file content: '" << m_fileContent
+    ss << "type: 'StorageTestFile', space UUID: '" << m_spaceUuid
+       << "', file ID: '" << m_fileId << "', file content: '" << m_fileContent
        << "', helper parameters: " << m_helperParams.toString();
     return ss.str();
 }

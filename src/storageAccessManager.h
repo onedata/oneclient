@@ -10,15 +10,21 @@
 #define ONECLIENT_STORAGE_ACCESS_MANAGER_H
 
 #include "communication/communicator.h"
-#include "helpers/IStorageHelper.h"
-#include "helpers/storageHelperFactory.h"
-#include "messages/fuse/storageTestFile.h"
 
 #include <boost/filesystem.hpp>
 
 #include <vector>
 
 namespace one {
+namespace helpers {
+class IStorageHelper;
+class StorageHelperFactory;
+}
+namespace messages {
+namespace fuse {
+class StorageTestFile;
+}
+}
 namespace client {
 
 /**
@@ -38,25 +44,25 @@ public:
         helpers::StorageHelperFactory &helperFactory);
 
     /**
-     * Sends storage test file creation request to the server.
-     * @param fileUuid UUID of a file for which storage helper has been
-     * retrieved, in the directory of this file an actual storage test file will
-     * be created.
-     * @param storageId ID of a storage on which the test file will be created.
-     */
-    void createStorageTestFile(
-        const std::string &fileUuid, const std::string &storageId);
-
-    /**
      * Verifies the test file by reading it from the storage and checking its
-     * content with the one sent by the server. Next modifies the test file and
-     * request modification verification by the server.
+     * content with the one sent by the server.
      * @param testFile Reference to the @c messages::fuse::StorageTestFile
      * instance.
-     * @return In case of a successful verification a pointer to storage helper
-     * object used to access the test file, otherwise @c nullptr.
+     * @return Pointer to storage helper object used to access the test file.
      */
     std::shared_ptr<helpers::IStorageHelper> verifyStorageTestFile(
+        const messages::fuse::StorageTestFile &testFile);
+
+    /**
+     * Modifies the test file by writing random sequence of characters.
+     * @param helper Pointer to storage helper object used to access the test
+     * file.
+     * @param testFile Reference to the @c messages::fuse::StorageTestFile
+     * instance.
+     * @return Modified content of the test file.
+     */
+    std::string modifyStorageTestFile(
+        std::shared_ptr<helpers::IStorageHelper> helper,
         const messages::fuse::StorageTestFile &testFile);
 
 private:

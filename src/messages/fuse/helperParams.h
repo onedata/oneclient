@@ -44,7 +44,7 @@ public:
      * @param message Protocol Buffers message representing @c HelperParams
      * counterpart.
      */
-    HelperParams(const ProtocolMessage &message);
+    HelperParams(ProtocolMessage &message);
 
     /**
      * Constructor.
@@ -70,6 +70,8 @@ public:
     std::string toString() const override;
 
 private:
+    void deserialize(ProtocolMessage &message);
+
     std::string m_name;
     std::unordered_map<std::string, std::string> m_args;
 };

@@ -33,20 +33,15 @@ public:
 
     /**
      * Constructor.
-     * @param serverMessage Protocol Buffers message representing @c
-     * StorageTestFile counterpart.
+     * @param serverMessage Protocol Buffers message representing
+     * @c ServerMessage.
      */
-    StorageTestFile(const ProtocolMessage &message);
+    StorageTestFile(std::unique_ptr<ProtocolServerMessage> serverMessage);
 
     /**
      * @return Storage helper parameters used to access test file.
      */
     const HelperParams &helperParams() const;
-
-    /**
-     * @return ID of a storage on which test file is located.
-     */
-    const std::string &storageId() const;
 
     /**
      * @return UUID of a space in which test file is located.
@@ -67,7 +62,6 @@ public:
 
 private:
     HelperParams m_helperParams;
-    std::string m_storageId;
     std::string m_spaceUuid;
     std::string m_fileId;
     std::string m_fileContent;

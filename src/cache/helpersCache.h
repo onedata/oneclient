@@ -24,10 +24,8 @@
 
 namespace one {
 namespace messages {
-class Status;
 namespace fuse {
 class StorageTestFile;
-class StorageTestFileVerification;
 }
 }
 namespace client {
@@ -41,11 +39,19 @@ public:
     using HelperPtr = std::shared_ptr<helpers::IStorageHelper>;
 
 private:
-    void handle(const messages::Status &status,
-        const messages::fuse::StorageTestFile &message);
+    void requestStorageTestFileCreation(
+        const std::string &fileUuid, const std::string &storageId);
 
-    void handle(const messages::Status &status,
-        const messages::fuse::StorageTestFileVerification &message);
+    void handleStorageTestFile(
+        std::unique_ptr<messages::fuse::StorageTestFile> testFile,
+        const std::string &storageId);
+
+    void requestStorageTestFileVerification(
+        const messages::fuse::StorageTestFile &testFile,
+        const std::string &storageId, std::string fileContent);
+
+    void handleStorageTestFileVerification(
+        const std::error_code &ec, const std::string &storageId);
 
     enum class AccessType { DIRECT, PROXY };
 

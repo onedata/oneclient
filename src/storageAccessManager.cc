@@ -7,8 +7,11 @@
  */
 
 #include "logging.h"
+#include "helpers/IStorageHelper.h"
+#include "helpers/storageHelperFactory.h"
 #include "messages/fuse/createStorageTestFile.h"
 #include "messages/fuse/verifyStorageTestFile.h"
+#include "messages/fuse/storageTestFile.h"
 #include "storageAccessManager.h"
 
 #include <errno.h>
@@ -26,13 +29,6 @@ StorageAccessManager::StorageAccessManager(
     , m_helperFactory{helperFactory}
     , m_mountPoints{getMountPoints()}
 {
-}
-
-void StorageAccessManager::createStorageTestFile(
-    const std::string &fileUuid, const std::string &storageId)
-{
-    m_communicator.send(
-        messages::fuse::CreateStorageTestFile{fileUuid, storageId});
 }
 
 std::shared_ptr<helpers::IStorageHelper>
@@ -54,7 +50,9 @@ StorageAccessManager::verifyStorageTestFile(
         if (verifyStorageTestFile(helper, testFile))
             return helper;
     }
-    return nullptr;
+
+    throw std::system_error{
+        std::make_error_code(std::errc::no_such_file_or_directory)};
 }
 
 bool StorageAccessManager::verifyStorageTestFile(
@@ -85,32 +83,33 @@ bool StorageAccessManager::verifyStorageTestFile(
             return false;
         }
 
-        std::srand(std::time(0));
-        std::generate_n(buffer.data(), size,
-            []() { return static_cast<char>(65 + std::rand() % 26); });
-
-        helper->sh_write(ctx, testFile.fileId(),
-            asio::const_buffer(buffer.data(), size), 0, "");
-
-        m_communicator.send(messages::fuse::VerifyStorageTestFile{
-            testFile.storageId(), testFile.spaceUuid(), testFile.fileId(),
-            std::string{buffer.data(), size}});
-
         return true;
     }
-    catch (const communication::Exception &e) {
-        LOG(ERROR) << "Communication error: " << e.what() << ". Aborting.";
-    }
     catch (const std::system_error &e) {
-        if (e.code().value() != ENOENT && e.code().value() != ENOTDIR)
-            LOG(ERROR) << "Unexpected error occurred, code: " << e.code()
-                       << ", message: '" << e.what() << "'. Aborting.";
+        auto code = e.code().value();
+        if (code != ENOENT && code != ENOTDIR && code != EPERM)
+            throw;
     }
-    catch (const std::exception &e) {
-        LOG(ERROR) << "Unexpected error occurred: '" << e.what()
-                   << "'. Aborting.";
-    }
+
     return false;
+}
+
+std::string StorageAccessManager::modifyStorageTestFile(
+    std::shared_ptr<helpers::IStorageHelper> helper,
+    const messages::fuse::StorageTestFile &testFile)
+{
+    auto size = testFile.fileContent().size();
+    std::vector<char> buffer(size);
+    auto ctx = helper->createCTX();
+
+    std::srand(std::time(0));
+    std::generate_n(buffer.data(), size,
+        []() { return static_cast<char>(65 + std::rand() % 26); });
+
+    helper->sh_write(
+        ctx, testFile.fileId(), asio::const_buffer(buffer.data(), size), 0, "");
+
+    return std::string{buffer.data(), size};
 }
 
 std::vector<boost::filesystem::path>
