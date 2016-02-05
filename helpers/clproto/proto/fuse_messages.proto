@@ -127,7 +127,6 @@ message FuseResponse {
         Xattr xattr = 6;
         XattrList xattr_list = 7;
         StorageTestFile storage_test_file = 8;
-        StorageTestFileVerification storage_test_file_verification = 9;
     }
 }
 
@@ -201,11 +200,10 @@ message CreateStorageTestFile {
 }
 
 message StorageTestFile {
-    required bytes        storage_id    = 1;
-    optional HelperParams helper_params = 2;
-    optional bytes        space_uuid    = 3;
-    optional bytes        file_id       = 4;
-    optional bytes        file_content  = 5;
+    required HelperParams helper_params = 1;
+    required bytes        space_uuid    = 2;
+    required bytes        file_id       = 3;
+    required bytes        file_content  = 4;
 }
 
 message VerifyStorageTestFile {
@@ -213,8 +211,4 @@ message VerifyStorageTestFile {
     required bytes space_uuid   = 2;
     required bytes file_id      = 3;
     required bytes file_content = 4;
-}
-
-message StorageTestFileVerification {
-    required bytes storage_id = 1;
 }

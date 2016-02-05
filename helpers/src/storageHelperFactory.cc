@@ -64,7 +64,7 @@ std::shared_ptr<IStorageHelper> StorageHelperFactory::getStorageHelper(
     if (sh_name == "AmazonS3")
         return std::make_shared<S3Helper>(args, m_s3Service);
 
-    return {};
+    throw std::system_error{std::make_error_code(std::errc::invalid_argument)};
 }
 
 } // namespace helpers
