@@ -147,44 +147,23 @@ void S3Helper::ash_truncate(CTXPtr rawCTX, const boost::filesystem::path &p,
 
 void S3Helper::sh_unlink(const S3HelperCTX &ctx, const std::string &fileId)
 {
-    S3ResponseHandler responseHandler;
-    responseHandler.propertiesCallback = [](
-        const S3ResponseProperties *properties, void *callbackData) {
-        return S3StatusOK;
-    };
-    responseHandler.completeCallback = [](S3Status status,
-        const S3ErrorDetails *errorDetails, void *callbackData) {
-        if (status != S3StatusOK)
-            throwPosixError("sh_unlink", status, errorDetails);
-    };
-
-    S3_delete_object(
-        &ctx.bucketCTX, fileId.c_str(), nullptr, &responseHandler, nullptr);
+    Operation data{"sh_unlink"};
+    ResponseHandler<Operation> responseHandler;
+    S3_delete_object(&ctx.bucketCTX, fileId.c_str(), nullptr, &responseHandler,
+        static_cast<void *>(&data));
 }
 
 asio::mutable_buffer S3Helper::sh_read(const S3HelperCTX &ctx,
     const std::string &fileId, asio::mutable_buffer buf, off_t offset)
 {
-    struct CallbackData {
-        std::size_t size = 0;
-        asio::mutable_buffer buffer;
-    } data;
+    ReadCallbackData data;
     data.buffer = std::move(buf);
 
     S3GetObjectHandler getObjectHandler;
-    getObjectHandler.responseHandler = S3ResponseHandler{};
-    getObjectHandler.responseHandler.propertiesCallback = [](
-        const S3ResponseProperties *properties, void *callbackData) {
-        return S3StatusOK;
-    };
-    getObjectHandler.responseHandler.completeCallback = [](S3Status status,
-        const S3ErrorDetails *errorDetails, void *callbackData) {
-        if (status != S3StatusOK)
-            throwPosixError("sh_read", status, errorDetails);
-    };
+    getObjectHandler.responseHandler = ResponseHandler<ReadCallbackData>{};
     getObjectHandler.getObjectDataCallback = [](
         int bufferSize, const char *buffer, void *callbackData) {
-        auto dataPtr = static_cast<CallbackData *>(callbackData);
+        auto dataPtr = static_cast<ReadCallbackData *>(callbackData);
         asio::buffer_copy(dataPtr->buffer + dataPtr->size,
             asio::const_buffer(buffer, bufferSize), bufferSize);
         dataPtr->size += bufferSize;
@@ -216,26 +195,7 @@ std::size_t S3Helper::sh_write(const S3HelperCTX &ctx,
     const std::string &fileId, asio::const_buffer buf, off_t offset,
     std::size_t fileSize)
 {
-    struct CallbackData {
-        CallbackData(const std::string &_fileId, const S3HelperCTX &_helperCTX,
-            S3Helper &_helper)
-            : fileId{_fileId}
-            , helperCTX{_helperCTX}
-            , helper{_helper}
-        {
-        }
-
-        off_t offset = 0;
-        std::size_t fileSize;
-        off_t bufferOffset;
-        std::size_t bufferSize;
-        asio::const_buffer buffer;
-        const std::string &fileId;
-        const S3HelperCTX &helperCTX;
-        S3Helper &helper;
-    };
-
-    CallbackData data{fileId, ctx, *this};
+    WriteCallbackData data{fileId, ctx, *this};
     data.fileSize = fileSize;
     data.bufferOffset = offset;
     data.bufferSize = asio::buffer_size(buf);
@@ -245,19 +205,10 @@ std::size_t S3Helper::sh_write(const S3HelperCTX &ctx,
     auto newFileSize =
         std::max(data.fileSize, data.bufferOffset + data.bufferSize);
     S3PutObjectHandler putObjectHandler;
-    putObjectHandler.responseHandler = S3ResponseHandler{};
-    putObjectHandler.responseHandler.propertiesCallback = [](
-        const S3ResponseProperties *properties, void *callbackData) {
-        return S3StatusOK;
-    };
-    putObjectHandler.responseHandler.completeCallback = [](S3Status status,
-        const S3ErrorDetails *errorDetails, void *callbackData) {
-        if (status != S3StatusOK)
-            throwPosixError("sh_write", status, errorDetails);
-    };
+    putObjectHandler.responseHandler = ResponseHandler<WriteCallbackData>{};
     putObjectHandler.putObjectDataCallback = [](
         int bufferSize, char *buffer, void *callbackData) {
-        auto dataPtr = static_cast<CallbackData *>(callbackData);
+        auto dataPtr = static_cast<WriteCallbackData *>(callbackData);
 
         auto srcBufBegin = static_cast<std::size_t>(dataPtr->bufferOffset);
         auto srcBufEnd = srcBufBegin + dataPtr->bufferSize;
@@ -304,39 +255,29 @@ void S3Helper::sh_truncate(
 std::size_t S3Helper::sh_getFileSize(
     const S3HelperCTX &ctx, const std::string &fileId)
 {
-    std::size_t fileSize;
-    S3ResponseHandler responseHandler;
+    GetFileSizeCallbackData data;
+    ResponseHandler<GetFileSizeCallbackData> responseHandler;
     responseHandler.propertiesCallback = [](
         const S3ResponseProperties *properties, void *callbackData) {
-        auto fileSizePtr = static_cast<off_t *>(callbackData);
-        *fileSizePtr = properties->contentLength;
+        auto dataPtr = static_cast<GetFileSizeCallbackData *>(callbackData);
+        dataPtr->fileSize = properties->contentLength;
         return S3StatusOK;
-    };
-    responseHandler.completeCallback = [](S3Status status,
-        const S3ErrorDetails *errorDetails, void *callbackData) {
-        if (status != S3StatusOK)
-            throwPosixError("sh_getFileSize", status, errorDetails);
     };
 
     S3_head_object(&ctx.bucketCTX, fileId.c_str(), nullptr, &responseHandler,
-        static_cast<void *>(&fileSize));
+        static_cast<void *>(&data));
 
-    return fileSize;
+    return data.fileSize;
 }
 
 void S3Helper::sh_copy(const S3HelperCTX &ctx, const std::string &srcFileId,
     const std::string &dstFileId)
 {
-    S3ResponseHandler responseHandler;
-    responseHandler.completeCallback = [](S3Status status,
-        const S3ErrorDetails *errorDetails, void *callbackData) {
-        if (status != S3StatusOK)
-            throwPosixError("sh_copy", status, errorDetails);
-    };
-
+    Operation data{"sh_copy"};
+    ResponseHandler<Operation> responseHandler;
     S3_copy_object(&ctx.bucketCTX, srcFileId.c_str(), nullptr,
         dstFileId.c_str(), nullptr, nullptr, 0, nullptr, nullptr,
-        &responseHandler, nullptr);
+        &responseHandler, static_cast<void *>(&data));
 }
 
 std::shared_ptr<S3HelperCTX> S3Helper::getCTX(CTXPtr rawCTX) const
