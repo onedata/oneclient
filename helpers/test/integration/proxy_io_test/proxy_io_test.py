@@ -25,7 +25,7 @@ def storage_id():
 
 
 @pytest.fixture
-def space_id():
+def file_uuid():
     return random_str()
 
 
@@ -35,12 +35,12 @@ def endpoint(appmock_client):
 
 
 @pytest.fixture
-def helper(space_id, storage_id, endpoint):
-    return proxy_io.ProxyIOProxy(space_id, storage_id, endpoint.ip,
+def helper(storage_id, endpoint):
+    return proxy_io.ProxyIOProxy(storage_id, endpoint.ip,
                                  endpoint.port)
 
 
-def test_write_should_write_data(space_id, storage_id, endpoint, helper):
+def test_write_should_write_data(file_uuid, storage_id, endpoint, helper):
     wrote = random_int()
     file_id = random_str()
     data = random_str()
@@ -51,13 +51,13 @@ def test_write_should_write_data(space_id, storage_id, endpoint, helper):
     server_message.proxyio_response.remote_write_result.wrote = wrote
 
     with reply(endpoint, server_message) as queue:
-        assert wrote == helper.write(file_id, data, offset)
+        assert wrote == helper.write(file_id, data, offset, file_uuid)
         received = queue.get()
 
     assert received.HasField('proxyio_request')
 
     request = received.proxyio_request
-    assert request.space_id == space_id
+    assert request.file_uuid == file_uuid
     assert request.storage_id == storage_id
     assert request.file_id == file_id
 
@@ -73,12 +73,12 @@ def test_write_should_pass_errors(endpoint, helper):
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, server_message):
-            helper.write(random_str(), random_str(), random_int())
+            helper.write(random_str(), random_str(), random_int(), random_str())
 
     assert 'Permission denied' in str(excinfo.value)
 
 
-def test_read_should_read_data(space_id, storage_id, endpoint, helper):
+def test_read_should_read_data(file_uuid, storage_id, endpoint, helper):
     data = random_str()
     file_id = random_str()
     offset = random_int()
@@ -88,13 +88,13 @@ def test_read_should_read_data(space_id, storage_id, endpoint, helper):
     server_message.proxyio_response.remote_data.data = data
 
     with reply(endpoint, server_message) as queue:
-        assert data == helper.read(file_id, offset, len(data))
+        assert data == helper.read(file_id, offset, len(data), file_uuid)
         received = queue.get()
 
     assert received.HasField('proxyio_request')
 
     request = received.proxyio_request
-    assert request.space_id == space_id
+    assert request.file_uuid == file_uuid
     assert request.storage_id == storage_id
     assert request.file_id == file_id
 
@@ -110,6 +110,6 @@ def test_read_should_pass_errors(endpoint, helper):
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, server_message):
-            helper.read(random_str(), random_int(), random_int())
+            helper.read(random_str(), random_int(), random_int(), random_str())
 
     assert 'Operation not permitted' in str(excinfo.value)

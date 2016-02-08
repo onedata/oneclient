@@ -8,6 +8,8 @@
 
 package one.clproto;
 
+import "event_messages.proto";
+
 message Ping {
     optional bytes data = 1;
 }
@@ -22,4 +24,11 @@ message GetProtocolVersion {
 message ProtocolVersion {
     required uint32 major = 1;
     required uint32 minor = 2;
+}
+
+message GetConfiguration {
+}
+
+message Configuration {
+    repeated Subscription subscriptions = 1;
 }
