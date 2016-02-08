@@ -365,8 +365,8 @@ bool FsLogic::waitForBlockSynchronization(
 
     messages::fuse::SynchronizeBlock msg{uuid, range};
     m_context->communicator()->send(std::move(msg));
-    return m_metadataCache.waitForNewLocation(
-        uuid, range, lock, pair.second, 3s);
+    return m_metadataCache.waitForNewLocation(uuid, range, lock, pair.second,
+        std::chrono::seconds{m_context->options()->get_file_sync_timeout()});
 }
 
 int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
