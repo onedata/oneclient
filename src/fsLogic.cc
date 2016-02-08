@@ -360,12 +360,9 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
 bool FsLogic::waitForBlockSynchronization(
     const std::string &uuid, const boost::icl::discrete_interval<off_t> &range)
 {
-    auto pair = m_metadataCache.getMutexConditionPair(uuid);
-    std::unique_lock<std::mutex> lock{pair.first};
-
     messages::fuse::SynchronizeBlock msg{uuid, range};
     m_context->communicator()->send(std::move(msg));
-    return m_metadataCache.waitForNewLocation(uuid, range, lock, pair.second,
+    return m_metadataCache.waitForNewLocation(uuid, range,
         std::chrono::seconds{m_context->options()->get_file_sync_timeout()});
 }
 

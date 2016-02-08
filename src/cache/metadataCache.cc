@@ -62,16 +62,6 @@ MetadataCache::FileLocation MetadataCache::getLocation(const std::string &uuid)
     return acc->second.location.get();
 }
 
-std::pair<std::mutex &, std::condition_variable &>
-MetadataCache::getMutexConditionPair(const std::string &uuid)
-{
-    MutexAccessor acc;
-    if (m_mutexConditionPairMap.insert(acc, uuid))
-        acc->second = std::make_pair(std::make_unique<std::mutex>(),
-            std::make_unique<std::condition_variable>());
-    return {*acc->second.first, *acc->second.second};
-}
-
 void MetadataCache::getAttr(MetaAccessor &metaAcc, const Path &path)
 {
     UuidAccessor uuidAcc;
@@ -219,11 +209,12 @@ bool MetadataCache::PathHash::equal(const Path &a, const Path &b)
 
 bool MetadataCache::waitForNewLocation(const std::string &uuid,
     const boost::icl::discrete_interval<off_t> &range,
-    std::unique_lock<std::mutex> &lock, std::condition_variable &condition,
     const std::chrono::milliseconds &timeout)
 {
     LOG(INFO) << "Waiting for file_location of '" << uuid << "' at range "
               << range;
+    auto pair = getMutexConditionPair(uuid);
+    std::unique_lock<std::mutex> lock{pair.first};
 
     const auto pred = [&] {
         FileLocation location = getLocation(uuid);
@@ -231,7 +222,7 @@ bool MetadataCache::waitForNewLocation(const std::string &uuid,
             location.blocks().end();
     };
 
-    return condition.wait_for(lock, timeout, pred);
+    return pair.second.wait_for(lock, timeout, pred);
 }
 
 void MetadataCache::notifyNewLocationArrived(const std::string &uuid)
@@ -241,6 +232,16 @@ void MetadataCache::notifyNewLocationArrived(const std::string &uuid)
         std::condition_variable &condition = *acc->second.second;
         condition.notify_all();
     }
+}
+
+std::pair<std::mutex &, std::condition_variable &>
+MetadataCache::getMutexConditionPair(const std::string &uuid)
+{
+    MutexAccessor acc;
+    if (m_mutexConditionPairMap.insert(acc, uuid))
+        acc->second = std::make_pair(std::make_unique<std::mutex>(),
+            std::make_unique<std::condition_variable>());
+    return {*acc->second.first, *acc->second.second};
 }
 
 } // namespace one

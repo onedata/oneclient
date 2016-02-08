@@ -100,15 +100,6 @@ public:
     FileLocation getLocation(const std::string &uuid);
 
     /**
-     * Retrieves mutex and condition assigned to file with given uuid. Creates
-     * them, if they are not found.
-     * @param uuid The uuid of a file to get mutex and condition.
-     * @return Pair: mutex, condition.
-     */
-    std::pair<std::mutex &, std::condition_variable &>
-    getMutexConditionPair(const std::string &uuid);
-
-    /**
      * Sets metadata accessor for a given path, first ensuring that path<->UUID
      * mapping is present in the cache and attributes are set.
      * @param metaAcc Metadata accessor.
@@ -175,21 +166,28 @@ public:
      * Waits for file location update on given condition.
      * @param uuid The UUID of file
      * @param range Range of data to wait for
-     * @param lock Locked lock which is used for condition wait
-     * @param condition Condition variable associated with file, it is
-     *        notified when new fileLocation arrives
      * @param timeout Timeout to wait for condition
+     * @return true if file has benn successfully synchronized
      */
     bool waitForNewLocation(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range,
-        std::unique_lock<std::mutex> &lock,
-        std::condition_variable &condition,
         const std::chrono::milliseconds &timeout);
 
     /**
      * Notifies waiting processes that the new file location has arrived
+     * @param The UUID of file
      */
     void notifyNewLocationArrived(const std::string &uuid);
+
+private:
+    /**
+     * Retrieves mutex and condition assigned to file with given uuid. Creates
+     * them, if they are not found.
+     * @param uuid The uuid of a file to get mutex and condition.
+     * @return Pair: mutex, condition.
+     */
+    std::pair<std::mutex &, std::condition_variable &> getMutexConditionPair(
+        const std::string &uuid);
 };
 
 } // namespace one
