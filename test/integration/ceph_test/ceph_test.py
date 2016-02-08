@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(script_dir))
 # noinspection PyUnresolvedReferences
 from test_common import *
 # noinspection PyUnresolvedReferences
-from environment import common, docker
+from environment import docker
 from environment import ceph as ceph_server
 import ceph
 
@@ -59,17 +59,19 @@ def test_write_should_write_data(helper):
     file_id = random_str()
     data = random_str()
     offset = random_int()
+    file_uuid = random_str()
 
-    assert helper.write(file_id, data, offset) == len(data)
+    assert helper.write(file_id, data, offset, file_uuid) == len(data)
 
 
 def test_read_should_pass_errors(helper):
     file_id = random_str()
     offset = random_int()
     size = random_int()
+    file_uuid = random_str()
 
     with pytest.raises(RuntimeError) as excinfo:
-        helper.read(file_id, offset, size)
+        helper.read(file_id, offset, size, file_uuid)
     assert 'No such file or directory' in str(excinfo.value)
 
 
@@ -77,9 +79,10 @@ def test_read_should_read_data(helper):
     file_id = random_str()
     data = random_str()
     offset = random_int()
+    file_uuid = random_str()
 
-    assert helper.write(file_id, data, offset) == len(data)
-    assert helper.read(file_id, offset, len(data)) == data
+    assert helper.write(file_id, data, offset, file_uuid) == len(data)
+    assert helper.read(file_id, offset, len(data), file_uuid) == data
 
 
 def test_unlink_should_pass_errors(helper):
@@ -90,20 +93,22 @@ def test_unlink_should_pass_errors(helper):
     assert 'No such file or directory' in str(excinfo.value)
 
 
-def test_unlink_should_unlink_data(helper):
+def test_unlink_should_delete_data(helper):
     file_id = random_str()
     data = random_str()
     offset = random_int()
+    file_uuid = random_str()
 
-    assert helper.write(file_id, data, offset) == len(data)
+    assert helper.write(file_id, data, offset, file_uuid) == len(data)
     helper.unlink(file_id)
 
 
 def test_truncate_should_truncate_data(helper):
     file_id = random_str()
     data = random_str()
-    size = random_int(len(data))
+    size = random_int(upper_bound=len(data))
+    file_uuid = random_str()
 
-    assert helper.write(file_id, data, 0) == len(data)
+    assert helper.write(file_id, data, 0, file_uuid) == len(data)
     helper.truncate(file_id, size)
-    assert helper.read(file_id, 0, size) == data[0:size]
+    assert helper.read(file_id, 0, size, file_uuid) == data[0:size]

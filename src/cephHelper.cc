@@ -60,7 +60,7 @@ void CephHelper::ash_unlink(
 }
 
 void CephHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
-    asio::mutable_buffer buf, off_t offset,
+    asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
     GeneralCallback<asio::mutable_buffer> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
@@ -100,7 +100,8 @@ void CephHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
 }
 
 void CephHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
-    asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t> callback)
+    asio::const_buffer buf, off_t offset, const std::string &fileUuid,
+    GeneralCallback<std::size_t> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
     auto ret = ctx->connect();
