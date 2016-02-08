@@ -12,6 +12,7 @@
 #include "context.h"
 #include "logging.h"
 #include "options.h"
+#include "helpers/IStorageHelper.h"
 
 #include "messages/configuration.h"
 #include "messages/fuse/changeMode.h"
@@ -309,9 +310,13 @@ static void openFile(const FileContextCache::HelperCtxMapKey &ctxMapKey,
     const HelpersCache::HelperPtr &helper)
 {
     auto helperCtx = helper->createCTX();
-    helperCtx->setFlags(fileCtx.flags);
+    using namespace one::helpers;
+    FlagsSet flagsSet{};
+    for (int i = 0; i < static_cast<int>(Flag::COUNT); ++i)
+        if (i & fileCtx.flags)
+            flagsSet.insert(static_cast<Flag>(i));
 
-    helper->sh_open(helperCtx, ctxMapKey.second);
+    helper->sh_open(helperCtx, ctxMapKey.second, flagsSet);
 
     FileContextCache::HelperCtxMapAccessor acc;
     fileCtx.helperCtxMap->insert(acc, ctxMapKey);

@@ -189,8 +189,8 @@ public:
         return asio::buffer_size(buf);
     }
 
-    virtual int sh_open(
-        one::helpers::CTXPtr ctx, const boost::filesystem::path &p)
+    virtual int sh_open(one::helpers::CTXPtr ctx,
+        const boost::filesystem::path &p, one::helpers::FlagsSet) override
     {
         if (m_ec)
             throw std::system_error{m_ec};
@@ -198,7 +198,7 @@ public:
     }
 
     virtual std::error_code sh_release(
-        one::helpers::CTXPtr ctx, const boost::filesystem::path &p)
+        one::helpers::CTXPtr ctx, const boost::filesystem::path &p) override
     {
         if (m_ec)
             throw std::system_error{m_ec};
@@ -208,14 +208,15 @@ public:
 
 class NullHelperMock : public NullHelper {
 public:
-    MOCK_METHOD2(
-        sh_open, int(one::helpers::CTXPtr, const boost::filesystem::path &));
+    MOCK_METHOD3(
+        sh_open, int(one::helpers::CTXPtr, const boost::filesystem::path &,
+                     one::helpers::FlagsSet));
     MOCK_METHOD2(sh_release,
         std::error_code(one::helpers::CTXPtr, const boost::filesystem::path &));
 
     NullHelperMock()
     {
-        ON_CALL(*this, sh_open(_, _))
+        ON_CALL(*this, sh_open(_, _, _))
             .WillByDefault(Invoke(&m_real, &NullHelper::sh_open));
         ON_CALL(*this, sh_release(_, _))
             .WillByDefault(Invoke(&m_real, &NullHelper::sh_release));
@@ -223,7 +224,7 @@ public:
 
     void expect_call_sh_open(std::string filename, int times)
     {
-        EXPECT_CALL(*this, sh_open(_, boost::filesystem::path(filename)))
+        EXPECT_CALL(*this, sh_open(_, boost::filesystem::path(filename), _))
             .Times(times)
             .WillRepeatedly(Invoke(&m_real, &NullHelper::sh_open));
     }
