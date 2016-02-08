@@ -151,6 +151,11 @@ def do_open(endpoint, fl, blocks=[], size=None):
 def do_read(fl, path, offset, size):
     fl.read(path, offset, size)
 
+def get_stream_id_from_location_subscription(subscription_message_data):
+    location_subsc = messages_pb2.ClientMessage()
+    location_subsc.ParseFromString(subscription_message_data)
+    return location_subsc.message_stream.stream_id
+
 def test_getattrs_should_get_attrs(endpoint, fl):
     response = prepare_getattr('path', fuse_messages_pb2.REG)
 
@@ -821,22 +826,23 @@ def test_read_should_read_partial_content(endpoint, fl):
     assert 4 == fl.read('/random/path', 6, 4)
 
 
-def test_read_should_request_synchronization(endpoint, fl):
+def test_read_should_request_synchronization(appmock_client, endpoint, fl):
     do_open(endpoint, fl, blocks=[(4, 6)], size=10)
+    stream_id = get_stream_id_from_location_subscription(endpoint.history()[0])
+    location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0)
     sync_req = prepare_synchronize_block(2, 5).SerializeToString()
 
-    with pytest.raises(RuntimeError) as excinfo: #todo make it async
+    appmock_client.reset_tcp_history()
+    with reply(endpoint, location_update_event) as queue:
         fl.read('/random/path', 2, 5)
+        client_message = queue.get()
 
-    endpoint.wait_for_specific_messages(sync_req)
+    assert client_message.SerializeToString() == sync_req
 
 
 def test_read_should_continue_reading_after_synchronization(appmock_client, endpoint, fl):
     do_open(endpoint, fl, blocks=[(4, 6)], size=10)
-    location_subsc_data = endpoint.history()[0]
-    location_subsc = messages_pb2.ClientMessage()
-    location_subsc.ParseFromString(location_subsc_data)
-    stream_id = location_subsc.message_stream.stream_id
+    stream_id = get_stream_id_from_location_subscription(endpoint.history()[0])
     location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0)
 
     appmock_client.reset_tcp_history()
