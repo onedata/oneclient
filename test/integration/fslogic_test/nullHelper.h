@@ -68,7 +68,8 @@ public:
     }
 
     void ash_mknod(one::helpers::CTXPtr, const boost::filesystem::path &,
-        mode_t, dev_t, one::helpers::VoidCallback callback) override
+        mode_t, one::helpers::FlagsSet flags, dev_t,
+        one::helpers::VoidCallback callback) override
     {
         callback(m_ec);
     }
@@ -131,20 +132,21 @@ public:
     }
 
     void ash_open(one::helpers::CTXPtr, const boost::filesystem::path &,
+        one::helpers::FlagsSet,
         one::helpers::GeneralCallback<int> callback) override
     {
         callback(0, m_ec);
     }
 
     void ash_read(one::helpers::CTXPtr, const boost::filesystem::path &,
-        asio::mutable_buffer buf, off_t,
+        asio::mutable_buffer buf, off_t, const std::string &fileUuid,
         one::helpers::GeneralCallback<asio::mutable_buffer> callback) override
     {
         callback(buf, m_ec);
     }
 
     void ash_write(one::helpers::CTXPtr, const boost::filesystem::path &,
-        asio::const_buffer buf, off_t,
+        asio::const_buffer buf, off_t, const std::string &fileUuid,
         one::helpers::GeneralCallback<std::size_t> callback) override
     {
         callback(asio::buffer_size(buf), m_ec);
@@ -169,8 +171,8 @@ public:
     }
 
     asio::mutable_buffer sh_read(one::helpers::CTXPtr,
-        const boost::filesystem::path &, asio::mutable_buffer buf,
-        off_t) override
+        const boost::filesystem::path &, asio::mutable_buffer buf, off_t,
+        const std::string &) override
     {
         if (m_ec)
             throw std::system_error{m_ec};
@@ -179,7 +181,7 @@ public:
     }
 
     std::size_t sh_write(one::helpers::CTXPtr, const boost::filesystem::path &,
-        asio::const_buffer buf, off_t) override
+        asio::const_buffer buf, off_t, const std::string &) override
     {
         if (m_ec)
             throw std::system_error{m_ec};

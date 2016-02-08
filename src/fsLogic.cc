@@ -13,6 +13,7 @@
 #include "logging.h"
 #include "options.h"
 
+#include "messages/configuration.h"
 #include "messages/fuse/changeMode.h"
 #include "messages/fuse/close.h"
 #include "messages/fuse/createDir.h"
@@ -42,8 +43,8 @@ using namespace std::literals;
 namespace one {
 namespace client {
 
-FsLogic::FsLogic(
-    std::shared_ptr<Context> context, events::SubscriptionContainer container)
+FsLogic::FsLogic(std::shared_ptr<Context> context,
+    std::shared_ptr<messages::Configuration> configuration)
     : m_uid{geteuid()}
     , m_gid{getegid()}
     , m_context{std::move(context)}
@@ -51,10 +52,12 @@ FsLogic::FsLogic(
     , m_helpersCache{*m_context->communicator()}
     , m_metadataCache{*m_context->communicator()}
     , m_fsSubscriptions{*m_context->scheduler(), m_eventManager}
+    , m_forceClusterProxyCache{m_fsSubscriptions}
 {
     m_eventManager.setFileAttrHandler(fileAttrHandler());
     m_eventManager.setFileLocationHandler(fileLocationHandler());
-    m_eventManager.subscribe(std::move(container));
+    m_eventManager.setPermissionChangedHandler(permissionChangedHandler());
+    m_eventManager.subscribe(configuration->subscriptionContainer());
 }
 
 int FsLogic::access(boost::filesystem::path path, const int mask)
@@ -277,7 +280,7 @@ int FsLogic::open(
 
     auto attr = m_metadataCache.getAttr(path);
     auto location = m_metadataCache.getLocation(attr.uuid());
-    auto helper = getHelper(location.spaceId(), location.storageId());
+    auto helper = getHelper(attr.uuid(), location.storageId());
 
     FileContextCache::Accessor acc;
     m_fileContextCache.create(acc);
@@ -349,7 +352,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto availableRange = availableBlockIt->first & wantedRange;
     buf = asio::buffer(buf, boost::icl::size(availableRange));
 
-    auto helper = getHelper(location.spaceId(), fileBlock.storageId());
+    auto helper = getHelper(context.uuid, fileBlock.storageId());
 
     FileContextCache::HelperCtxMapKey ctxMapKey = {
         fileBlock.storageId(), fileBlock.fileId()};
@@ -358,7 +361,20 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     FileContextCache::HelperCtxMapAccessor ctxAcc;
     context.helperCtxMap->find(ctxAcc, ctxMapKey);
 
-    buf = helper->sh_read(ctxAcc->second, fileBlock.fileId(), buf, offset);
+    try {
+        buf = helper->sh_read(
+            ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
+    }
+    catch (const std::system_error &e) {
+        if (e.code().value() != EPERM && e.code().value() != EACCES)
+            throw;
+        if (m_forceClusterProxyCache.contains(context.uuid))
+            throw;
+        m_forceClusterProxyCache.insert(context.uuid);
+        helper = getHelper(context.uuid, fileBlock.storageId());
+        buf = helper->sh_read(
+            ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
+    }
 
     const auto bytesRead = asio::buffer_size(buf);
     m_eventManager.emitReadEvent(offset, bytesRead, context.uuid);
@@ -383,7 +399,7 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     messages::fuse::FileBlock fileBlock;
     std::tie(fileBlock, buf) = findWriteLocation(location, offset, buf);
 
-    auto helper = getHelper(location.spaceId(), location.storageId());
+    auto helper = getHelper(context.uuid, location.storageId());
 
     FileContextCache::HelperCtxMapKey ctxMapKey = {
         location.storageId(), fileBlock.fileId()};
@@ -392,8 +408,21 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     FileContextCache::HelperCtxMapAccessor ctxAcc;
     context.helperCtxMap->find(ctxAcc, ctxMapKey);
 
-    auto bytesWritten =
-        helper->sh_write(ctxAcc->second, fileBlock.fileId(), buf, offset);
+    size_t bytesWritten = 0;
+    try {
+        bytesWritten = helper->sh_write(
+            ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
+    }
+    catch (const std::system_error &e) {
+        if (e.code().value() != EPERM && e.code().value() != EACCES)
+            throw;
+        if (m_forceClusterProxyCache.contains(context.uuid))
+            throw;
+        m_forceClusterProxyCache.insert(context.uuid);
+        helper = getHelper(context.uuid, location.storageId());
+        bytesWritten = helper->sh_write(
+            ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
+    }
 
     m_eventManager.emitWriteEvent(offset, bytesWritten, context.uuid,
         location.storageId(), fileBlock.fileId());
@@ -514,6 +543,19 @@ events::FileLocationEventStream::Handler FsLogic::fileLocationHandler()
     };
 }
 
+events::PermissionChangedEventStream::Handler
+FsLogic::permissionChangedHandler()
+{
+    using namespace events;
+    return [this](std::vector<PermissionChangedEventStream::EventPtr> events) {
+        for (const auto &event : events) {
+            LOG(INFO) << "Invalidating forceClusterProxyCache for uuid: '"
+                      << event->fileUuid() << "'";
+            m_forceClusterProxyCache.erase(event->fileUuid());
+        }
+    };
+}
+
 int FsLogic::statfs(
     boost::filesystem::path path, struct statvfs *const statInfo)
 {
@@ -622,10 +664,11 @@ int FsLogic::fsyncdir(boost::filesystem::path path, const int datasync,
 }
 
 HelpersCache::HelperPtr FsLogic::getHelper(
-    const std::string &spaceId, const std::string &storageId)
+    const std::string &fileUuid, const std::string &storageId)
 {
-    auto forceClusterProxy = !m_context->options()->get_directio();
-    return m_helpersCache.get(spaceId, storageId, forceClusterProxy);
+    auto forceClusterProxy = !m_context->options()->get_directio() ||
+        m_forceClusterProxyCache.contains(fileUuid);
+    return m_helpersCache.get(storageId, forceClusterProxy);
 }
 
 void FsLogic::removeFile(boost::filesystem::path path)

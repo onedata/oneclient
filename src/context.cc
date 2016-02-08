@@ -44,8 +44,7 @@ std::shared_ptr<communication::Communicator> Context::communicator() const
     return m_communicator;
 }
 
-void Context::setCommunicator(
-    std::shared_ptr<communication::Communicator> comm)
+void Context::setCommunicator(std::shared_ptr<communication::Communicator> comm)
 {
     std::lock_guard<std::shared_timed_mutex> guard{m_communicatorMutex};
     m_communicator = std::move(comm);

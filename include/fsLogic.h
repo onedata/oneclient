@@ -12,13 +12,12 @@
 #include "cache/fileContextCache.h"
 #include "cache/helpersCache.h"
 #include "cache/metadataCache.h"
+#include "cache/forceClusterProxyCache.h"
 #include "events/eventManager.h"
 #include "fsSubscriptions.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
 #include "messages/fuse/helperParams.h"
-
-#include "messages.pb.h"
 
 #include <asio/buffer.hpp>
 #include <boost/filesystem/path.hpp>
@@ -35,6 +34,7 @@
 namespace one {
 
 namespace messages {
+class Configuration;
 namespace fuse {
 class GetFileAttr;
 }
@@ -61,7 +61,7 @@ public:
      * @param context Shared pointer to application context instance.
      */
     FsLogic(std::shared_ptr<Context> context,
-        events::SubscriptionContainer container = {});
+        std::shared_ptr<messages::Configuration> configuration);
 
     /**
      * FUSE @c access callback.
@@ -222,7 +222,7 @@ public:
 
 protected:
     virtual HelpersCache::HelperPtr getHelper(
-        const std::string &spaceId, const std::string &storageId);
+        const std::string &fileUuid, const std::string &storageId);
 
 private:
     void removeFile(boost::filesystem::path path);
@@ -231,6 +231,7 @@ private:
         const asio::const_buffer &buf);
     events::FileAttrEventStream::Handler fileAttrHandler();
     events::FileLocationEventStream::Handler fileLocationHandler();
+    events::PermissionChangedEventStream::Handler permissionChangedHandler();
 
     const uid_t m_uid;
     const gid_t m_gid;
@@ -241,6 +242,7 @@ private:
     HelpersCache m_helpersCache;
     MetadataCache m_metadataCache;
     FsSubscriptions m_fsSubscriptions;
+    ForceClusterProxyCache m_forceClusterProxyCache;
 };
 
 struct FsLogicWrapper {

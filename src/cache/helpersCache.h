@@ -41,15 +41,15 @@ private:
     std::thread m_thread;
 
     helpers::StorageHelperFactory m_helperFactory{
-        m_ioService, m_ioService, m_communicator};
+        m_ioService, m_ioService, m_ioService, m_communicator};
 
     struct HashCompare {
-        bool equal(const std::tuple<std::string, std::string, bool> &j,
-            const std::tuple<std::string, std::string, bool> &k) const;
-        size_t hash(const std::tuple<std::string, std::string, bool> &k) const;
+        bool equal(const std::tuple<std::string, bool> &j,
+            const std::tuple<std::string, bool> &k) const;
+        size_t hash(const std::tuple<std::string, bool> &k) const;
     };
 
-    tbb::concurrent_hash_map<std::tuple<std::string, std::string, bool>,
+    tbb::concurrent_hash_map<std::tuple<std::string, bool>,
         HelperPtr, HashCompare> m_cache;
 
 public:
@@ -79,8 +79,7 @@ public:
      * helper.
      * @return Retrieved helper instance.
      */
-    HelperPtr get(const std::string &spaceId, const std::string &storageId,
-        const bool forceClusterProxy = false);
+    HelperPtr get(const std::string &storageId, const bool forceClusterProxy = false);
 };
 
 } // namespace one
