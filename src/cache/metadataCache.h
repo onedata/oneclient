@@ -50,7 +50,7 @@ private:
     tbb::concurrent_hash_map<std::string, Metadata> m_metaCache;
     tbb::concurrent_hash_map<std::string,
         std::pair<std::unique_ptr<std::mutex>,
-                                 std::unique_ptr<std::condition_variable_any>>>
+                                 std::unique_ptr<std::condition_variable>>>
         m_mutexConditionPairMap;
 
 public:
@@ -105,7 +105,7 @@ public:
      * @param uuid The uuid of a file to get mutex and condition.
      * @return Pair: mutex, condition.
      */
-    std::pair<std::mutex &, std::condition_variable_any &>
+    std::pair<std::mutex &, std::condition_variable &>
     getMutexConditionPair(const std::string &uuid);
 
     /**
@@ -173,12 +173,17 @@ public:
 
     /**
      * Waits for file location update on given condition.
-     * @param uuid of file
+     * @param uuid The UUID of file
+     * @param range Range of data to wait for
+     * @param lock Locked lock which is used for condition wait
+     * @param condition Condition variable associated with file, it is
+     *        notified when new fileLocation arrives
+     * @param timeout Timeout to wait for condition
      */
     bool waitForNewLocation(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range,
         std::unique_lock<std::mutex> &lock,
-        std::condition_variable_any &condition,
+        std::condition_variable &condition,
         const std::chrono::milliseconds &timeout);
 
     /**

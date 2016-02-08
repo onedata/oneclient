@@ -323,7 +323,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto availableBlockIt =
         location.blocks().find(boost::icl::discrete_interval<off_t>(offset));
 
-    while (availableBlockIt == location.blocks().end()) {
+    if (availableBlockIt == location.blocks().end()) {
         if (!waitForBlockSynchronization(context.uuid, wantedRange))
             throw std::errc::resource_unavailable_try_again;
         location = m_metadataCache.getLocation(context.uuid);
