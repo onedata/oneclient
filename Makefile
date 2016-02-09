@@ -1,4 +1,4 @@
-# distro for package building (oneof: sid, fedora-21-x86_64)
+# distro for package building (oneof: wily, fedora-23-x86_64)
 DISTRIBUTION    ?= none
 
 PKG_REVISION    ?= $(shell git describe --tags --always)
@@ -76,8 +76,7 @@ rpm: package/$(PKG_ID).tar.gz
 
 	mock --root $(DISTRIBUTION) --buildsrpm --spec package/oneclient.spec --resultdir=package/packages \
 		--sources package/$(PKG_ID).orig.tar.gz
-	mock --root $(DISTRIBUTION)  --resultdir=package/packages --rebuild package/packages/$(PKG_ID)*.src.rpm
-
+	mock --root $(DISTRIBUTION) --resultdir=package/packages --rebuild package/packages/$(PKG_ID)*.src.rpm
 
 clean:
 	rm -rf debug release relwithdebinfo doc package
