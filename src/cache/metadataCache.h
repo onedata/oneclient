@@ -14,8 +14,9 @@
 #include "messages/fuse/fileLocation.h"
 
 #include <boost/filesystem/path.hpp>
-#include <condition_variable>
 #include <tbb/concurrent_hash_map.h>
+
+#include <condition_variable>
 
 namespace one {
 namespace client {
