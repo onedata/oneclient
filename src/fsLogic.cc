@@ -28,6 +28,7 @@
 #include "messages/fuse/getNewFileLocation.h"
 #include "messages/fuse/helperParams.h"
 #include "messages/fuse/rename.h"
+#include "messages/fuse/synchronizeBlock.h"
 #include "messages/fuse/truncate.h"
 #include "messages/fuse/updateTimes.h"
 
@@ -322,8 +323,13 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto availableBlockIt =
         location.blocks().find(boost::icl::discrete_interval<off_t>(offset));
 
-    if (availableBlockIt == location.blocks().end())
-        throw std::errc::bad_address; ///< @todo Waiting for blocks.
+    if (availableBlockIt == location.blocks().end()) {
+        if (!waitForBlockSynchronization(context.uuid, wantedRange))
+            throw std::errc::resource_unavailable_try_again;
+        location = m_metadataCache.getLocation(context.uuid);
+        availableBlockIt = location.blocks().find(
+            boost::icl::discrete_interval<off_t>(offset));
+    }
 
     const messages::fuse::FileBlock &fileBlock = availableBlockIt->second;
     auto availableRange = availableBlockIt->first & wantedRange;
@@ -349,6 +355,15 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     m_eventManager.emitReadEvent(offset, bytesRead, context.uuid);
 
     return bytesRead;
+}
+
+bool FsLogic::waitForBlockSynchronization(
+    const std::string &uuid, const boost::icl::discrete_interval<off_t> &range)
+{
+    messages::fuse::SynchronizeBlock msg{uuid, range};
+    m_context->communicator()->send(std::move(msg));
+    return m_metadataCache.waitForNewLocation(uuid, range,
+        std::chrono::seconds{m_context->options()->get_file_sync_timeout()});
 }
 
 int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
@@ -500,6 +515,8 @@ events::FileLocationEventStream::Handler FsLogic::fileLocationHandler()
             // FileBlock keeps first value of {storageId, fileId} and ignores
             // any new values
             location.blocks() = newLocation.blocks() | location.blocks();
+
+            m_metadataCache.notifyNewLocationArrived(newLocation.uuid());
         }
     };
 }
