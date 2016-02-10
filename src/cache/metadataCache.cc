@@ -82,6 +82,9 @@ void MetadataCache::getAttr(
             messages::fuse::GetFileAttr{path});
 
         auto attr = communication::wait(future);
+        if (!attr.size().is_initialized())
+            throw std::errc::protocol_error;
+
         m_metaCache.insert(metaAcc, attr.uuid());
         metaAcc->second.attr = attr;
         metaAcc->second.path = path;
@@ -112,6 +115,8 @@ void MetadataCache::getAttr(MetaAccessor &metaAcc, const std::string &uuid)
             messages::fuse::GetFileAttr{uuid});
 
         metaAcc->second.attr = communication::wait(future);
+        if (!metaAcc->second.attr.get().size().is_initialized())
+            throw std::errc::protocol_error;
     }
     catch (...) {
         m_metaCache.erase(metaAcc);
