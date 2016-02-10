@@ -46,6 +46,14 @@ coverage:
 	genhtml  -o coverage oneclient.info.cleaned
 	@echo "Coverage written to `pwd`/coverage/index.html"
 
+check_distribution:
+ifeq ($(DISTRIBUTION), none)
+	@echo "Please provide package distribution. Oneof: 'wily', 'fedora-23-x86_64'"
+	@exit 1
+else
+	@echo "Building package for distribution $(DISTRIBUTION)"
+endif
+
 package/$(PKG_ID).tar.gz:
 	mkdir -p package
 	rm -rf package/$(PKG_ID)
@@ -53,7 +61,7 @@ package/$(PKG_ID).tar.gz:
 	find package/$(PKG_ID) -depth -name ".git" -exec rm -rf {} \;
 	tar -C package -czf package/$(PKG_ID).tar.gz $(PKG_ID)
 
-deb: package/$(PKG_ID).tar.gz
+deb: check_distribution package/$(PKG_ID).tar.gz
 	rm -rf package/packages && mkdir -p package/packages
 	mv -f package/$(PKG_ID).tar.gz package/oneclient_$(PKG_VERSION).orig.tar.gz
 	cp -R pkg_config/debian package/$(PKG_ID)/
@@ -67,7 +75,7 @@ deb: package/$(PKG_ID).tar.gz
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD).debian.tar.xz package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.deb package/packages/
 
-rpm: package/$(PKG_ID).tar.gz
+rpm: check_distribution package/$(PKG_ID).tar.gz
 	rm -rf package/packages && mkdir -p package/packages
 	mv -f package/$(PKG_ID).tar.gz package/$(PKG_ID).orig.tar.gz
 	cp pkg_config/oneclient.spec package/oneclient.spec
