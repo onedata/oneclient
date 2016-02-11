@@ -30,6 +30,7 @@
 #include "messages/fuse/getNewFileLocation.h"
 #include "messages/fuse/helperParams.h"
 #include "messages/fuse/rename.h"
+#include "messages/fuse/synchronizeBlock.h"
 #include "messages/fuse/truncate.h"
 #include "messages/fuse/updateTimes.h"
 
@@ -80,7 +81,7 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
     statbuf->st_gid = attr.gid();
     statbuf->st_uid = attr.uid();
     statbuf->st_mode = attr.mode();
-    statbuf->st_size = attr.size();
+    statbuf->st_size = attr.size().get();
     statbuf->st_nlink = 1;
     statbuf->st_blocks = 0;
 
@@ -340,7 +341,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto location = m_metadataCache.getLocation(context.uuid);
 
     const auto possibleRange =
-        boost::icl::discrete_interval<off_t>::right_open(0, attr.size());
+        boost::icl::discrete_interval<off_t>::right_open(0, attr.size().get());
 
     const auto wantedRange = boost::icl::discrete_interval<off_t>::right_open(
                                  offset, offset + asio::buffer_size(buf)) &
@@ -355,8 +356,13 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto availableBlockIt =
         location.blocks().find(boost::icl::discrete_interval<off_t>(offset));
 
-    if (availableBlockIt == location.blocks().end())
-        throw std::errc::bad_address; ///< @todo Waiting for blocks.
+    if (availableBlockIt == location.blocks().end()) {
+        if (!waitForBlockSynchronization(context.uuid, wantedRange))
+            throw std::errc::resource_unavailable_try_again;
+        location = m_metadataCache.getLocation(context.uuid);
+        availableBlockIt = location.blocks().find(
+            boost::icl::discrete_interval<off_t>(offset));
+    }
 
     const messages::fuse::FileBlock &fileBlock = availableBlockIt->second;
     auto availableRange = availableBlockIt->first & wantedRange;
@@ -390,6 +396,15 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     m_eventManager.emitReadEvent(offset, bytesRead, context.uuid);
 
     return bytesRead;
+}
+
+bool FsLogic::waitForBlockSynchronization(
+    const std::string &uuid, const boost::icl::discrete_interval<off_t> &range)
+{
+    messages::fuse::SynchronizeBlock msg{uuid, range};
+    m_context->communicator()->send(std::move(msg));
+    return m_metadataCache.waitForNewLocation(uuid, range,
+        std::chrono::seconds{m_context->options()->get_file_sync_timeout()});
 }
 
 int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
@@ -439,7 +454,7 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
 
     MetadataCache::MetaAccessor acc;
     m_metadataCache.getAttr(acc, context.uuid);
-    acc->second.attr.get().size(std::max(acc->second.attr.get().size(),
+    acc->second.attr.get().size(std::max(acc->second.attr.get().size().get(),
         static_cast<off_t>(offset + bytesWritten)));
 
     auto writtenRange = boost::icl::discrete_interval<off_t>::right_open(
@@ -504,13 +519,15 @@ events::FileAttrEventStream::Handler FsLogic::fileAttrHandler()
                       << "'";
             auto &attr = acc->second.attr.get();
 
-            if (newAttr.size() < attr.size() && acc->second.location) {
+            if (newAttr.size().is_initialized() \
+                    && newAttr.size().get() < attr.size() \
+                    && acc->second.location) {
                 LOG(INFO) << "Truncating blocks attributes for uuid: '"
                           << newAttr.uuid() << "'";
 
                 acc->second.location.get().blocks() &=
                     boost::icl::discrete_interval<off_t>::right_open(
-                        0, newAttr.size());
+                        0, newAttr.size().get());
             }
 
             attr.atime(std::max(attr.atime(), newAttr.atime()));
@@ -518,7 +535,8 @@ events::FileAttrEventStream::Handler FsLogic::fileAttrHandler()
             attr.mtime(std::max(attr.mtime(), newAttr.mtime()));
             attr.gid(newAttr.gid());
             attr.mode(newAttr.mode());
-            attr.size(newAttr.size());
+            if (newAttr.size().is_initialized())
+                attr.size(newAttr.size().get());
             attr.uid(newAttr.uid());
         }
     };
@@ -549,6 +567,8 @@ events::FileLocationEventStream::Handler FsLogic::fileLocationHandler()
             // FileBlock keeps first value of {storageId, fileId} and ignores
             // any new values
             location.blocks() = newLocation.blocks() | location.blocks();
+
+            m_metadataCache.notifyNewLocationArrived(newLocation.uuid());
         }
     };
 }

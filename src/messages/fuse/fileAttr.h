@@ -14,6 +14,7 @@
 #include "messages.pb.h"
 
 #include <sys/types.h>
+#include <boost/optional.hpp>
 
 #include <chrono>
 #include <cstdint>
@@ -141,7 +142,7 @@ public:
     /**
      * @return Size of the file.
      */
-    off_t size() const;
+    boost::optional<off_t> size() const;
 
     /**
      * Set file size.
@@ -170,7 +171,7 @@ private:
     std::chrono::system_clock::time_point m_mtime;
     std::chrono::system_clock::time_point m_ctime;
     FileType m_type;
-    off_t m_size;
+    boost::optional<off_t> m_size;
 };
 
 } // namespace fuse
