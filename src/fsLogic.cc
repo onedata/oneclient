@@ -12,6 +12,7 @@
 #include "context.h"
 #include "logging.h"
 #include "options.h"
+#include "directIOHelper.h"
 #include "helpers/IStorageHelper.h"
 
 #include "messages/configuration.h"
@@ -313,8 +314,12 @@ static void openFile(const FileContextCache::HelperCtxMapKey &ctxMapKey,
     using namespace one::helpers;
     FlagsSet flagsSet{};
     for (int i = 0; i < static_cast<int>(Flag::COUNT); ++i)
-        if (i & fileCtx.flags)
-            flagsSet.insert(static_cast<Flag>(i));
+    {
+        auto flag = static_cast<Flag>(i);
+        auto flag_value = DirectIOHelper::s_flagTranslation.find(flag);
+        if (flag_value->second & fileCtx.flags)
+            flagsSet.insert(flag);
+    }
 
     helper->sh_open(helperCtx, ctxMapKey.second, flagsSet);
 
