@@ -141,7 +141,8 @@ void FileAttr::deserialize(const ProtocolMessage &message)
     m_atime = std::chrono::system_clock::from_time_t(message.atime());
     m_mtime = std::chrono::system_clock::from_time_t(message.mtime());
     m_ctime = std::chrono::system_clock::from_time_t(message.ctime());
-    m_size = message.size();
+    if(message.has_size())
+        m_size = message.size();
 
     if (message.type() == clproto::FileType::DIR)
         m_type = FileType::directory;
