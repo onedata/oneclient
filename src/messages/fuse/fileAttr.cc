@@ -83,7 +83,7 @@ void FileAttr::ctime(std::chrono::system_clock::time_point time)
 
 FileAttr::FileType FileAttr::type() const { return m_type; }
 
-off_t FileAttr::size() const { return m_size; }
+boost::optional<off_t> FileAttr::size() const { return m_size; }
 
 void FileAttr::size(const off_t size_) { m_size = size_; }
 
@@ -107,7 +107,14 @@ std::string FileAttr::toString() const
            << ", atime: " << std::chrono::system_clock::to_time_t(m_atime)
            << ", mtime: " << std::chrono::system_clock::to_time_t(m_mtime)
            << ", ctime: " << std::chrono::system_clock::to_time_t(m_ctime)
-           << ", size: " << m_size << ", type: ";
+           << ", size: ";
+
+    if (m_size.is_initialized())
+        stream << m_size.get();
+    else
+        stream << "unset";
+
+    stream << ", type: ";
 
     switch (m_type) {
         case FileType::directory:
@@ -134,7 +141,8 @@ void FileAttr::deserialize(const ProtocolMessage &message)
     m_atime = std::chrono::system_clock::from_time_t(message.atime());
     m_mtime = std::chrono::system_clock::from_time_t(message.mtime());
     m_ctime = std::chrono::system_clock::from_time_t(message.ctime());
-    m_size = message.size();
+    if(message.has_size())
+        m_size = message.size();
 
     if (message.type() == clproto::FileType::DIR)
         m_type = FileType::directory;

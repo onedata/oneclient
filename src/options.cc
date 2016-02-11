@@ -71,6 +71,7 @@ void Options::setDescriptions()
     add_write_buffer_max_file_size(m_restricted);
     add_read_buffer_max_file_size(m_restricted);
     add_file_buffer_prefered_block_size(m_restricted);
+    add_file_sync_timeout(m_restricted);
 
     // General commandline options
     add_switch_help(m_commandline);
