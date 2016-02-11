@@ -197,6 +197,7 @@ private:
     asio::io_service &m_workerService;
     UserCTXFactory m_userCTXFactory;
 
+public:
     static const std::map<Flag, int> s_flagTranslation;
 };
 
