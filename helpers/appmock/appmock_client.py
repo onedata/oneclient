@@ -62,20 +62,20 @@ class AppmockTCPEndpoint(object):
         return tcp_server_send(self.ip, self.port, message_binary, msg_count)
 
     def wait_for_any_messages(self, msg_count=1, accept_more=False,
-                              return_history=False, timeout_sec=10):
+                              return_history=False, timeout_sec=20):
         return tcp_server_wait_for_any_messages(self.ip, self.port, msg_count,
                                                 accept_more, return_history,
                                                 timeout_sec)
 
     def wait_for_connections(self, number_of_connections=1, accept_more=False,
-                             timeout_sec=10):
+                             timeout_sec=20):
         return tcp_server_wait_for_connections(self.ip, self.port,
                                                number_of_connections,
                                                accept_more, timeout_sec)
 
     def wait_for_specific_messages(self, message_binary, msg_count=1,
                                    accept_more=False, return_history=False,
-                                   timeout_sec=10):
+                                   timeout_sec=20):
         return tcp_server_wait_for_specific_messages(self.ip, self.port,
                                                      message_binary, msg_count,
                                                      accept_more,
@@ -179,7 +179,7 @@ def tcp_server_specific_message_count(appmock_ip, tcp_port, message_binary):
 
 def tcp_server_wait_for_specific_messages(appmock_ip, tcp_port, message_binary,
                                           msg_count=1, accept_more=False,
-                                          return_history=False, timeout_sec=10):
+                                          return_history=False, timeout_sec=20):
     """
     Returns when given number of specific messages
     has been received on given port, or after it timeouts.
@@ -224,7 +224,7 @@ def tcp_server_all_messages_count(appmock_ip, tcp_port):
 
 def tcp_server_wait_for_any_messages(appmock_ip, tcp_port, msg_count=1,
                                      accept_more=False, return_history=False,
-                                     timeout_sec=10):
+                                     timeout_sec=20):
     """
     Returns when given number of any messages has been received on given port,
     or after it timeouts.
@@ -317,7 +317,7 @@ def tcp_server_connection_count(appmock_ip, tcp_port):
 
 def tcp_server_wait_for_connections(appmock_ip, tcp_port,
                                     number_of_connections=1, accept_more=False,
-                                    timeout_sec=10):
+                                    timeout_sec=20):
     """
     Returns when given number of connections
     are established on given port, or after it timeouts.
