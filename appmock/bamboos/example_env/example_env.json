@@ -1,7 +1,7 @@
 {
     "dirs_config": {
-        "op_ccm": {
-            "input_dir": "rel/op_ccm",
+        "cluster_manager": {
+            "input_dir": "rel/cluster_manager",
             "target_dir": "rel/test_cluster"
         },
         "op_worker": {
@@ -17,7 +17,7 @@
             "target_dir": "rel/test_cluster"
         },
         "onepanel": {
-            "input_dir": "rel_oneprovider/op_panel",
+            "input_dir": "rel/op_panel",
             "target_dir": "rel/test_cluster"
         }
     },
@@ -58,9 +58,9 @@
                     "user3"
                 ],
                 "fuse": [
-                    "u1",
-                    "u2",
-                    "u3"
+                    "user1",
+                    "user2",
+                    "user3"
                 ]
             }
         }
@@ -69,14 +69,14 @@
         "p1": {
             "db_driver": "couchbase",
             "os_config": "cfg1",
-            "op_ccm": {
-                "ccm1": {
+            "cluster_manager": {
+                "cm1": {
                     "vm.args": {
                         "setcookie": "cookie1"
                     },
                     "sys.config": {
-                        "ccm_nodes": [
-                            "ccm1"
+                        "cm_nodes": [
+                            "cm1"
                         ],
                         "worker_num": 1
                     }
@@ -88,8 +88,8 @@
                         "setcookie": "cookie1"
                     },
                     "sys.config": {
-                        "ccm_nodes": [
-                            "ccm1"
+                        "cm_nodes": [
+                            "cm1"
                         ],
                         "db_nodes": [
                             "dbnode1",
@@ -104,14 +104,14 @@
         "p2.gr": {
             "db_driver": "riak",
             "os_config": "cfg2",
-            "op_ccm": {
-                "ccm1": {
+            "cluster_manager": {
+                "cm1": {
                     "vm.args": {
                         "setcookie": "cookie2"
                     },
                     "sys.config": {
-                        "ccm_nodes": [
-                            "ccm1"
+                        "cm_nodes": [
+                            "cm1"
                         ],
                         "worker_num": 2
                     }
@@ -123,8 +123,8 @@
                         "setcookie": "cookie2"
                     },
                     "sys.config": {
-                        "ccm_nodes": [
-                            "ccm1"
+                        "cm_nodes": [
+                            "cm1"
                         ],
                         "db_nodes": [
                             "riaknode1"
@@ -138,14 +138,49 @@
                         "setcookie": "cookie2"
                     },
                     "sys.config": {
-                        "ccm_nodes": [
-                            "ccm1"
+                        "cm_nodes": [
+                            "cm1"
                         ],
                         "db_nodes": [
                             "riaknode1"
                         ],
                         "global_registry_domain": "gr",
                         "verify_gr_cert": false
+                    }
+                }
+            }
+        }
+    },
+    "cluster_domains": {
+        "p1": {
+            "db_driver": "couchbase",
+            "os_config": "cfg1",
+            "cluster_manager": {
+                "cm1": {
+                    "vm.args": {
+                        "setcookie": "cookie1"
+                    },
+                    "sys.config": {
+                        "cm_nodes": [
+                            "cm1"
+                        ],
+                        "worker_num": 1
+                    }
+                }
+            },
+            "cluster_worker": {
+                "worker1": {
+                    "vm.args": {
+                        "setcookie": "cookie1"
+                    },
+                    "sys.config": {
+                        "cm_nodes": [
+                            "cm1"
+                        ],
+                        "db_nodes": [
+                            "dbnode1",
+                            "dbnode2"
+                        ]
                     }
                 }
             }
@@ -173,39 +208,39 @@
     },
     "global_setup": {
         "users": {
-            "u1": {
-                "default_space": "s1"
+            "user1": {
+                "default_space": "space1"
             },
-            "u2": {
-                "default_space": "s2"
+            "user2": {
+                "default_space": "space2"
             },
-            "u3": {
-                "default_space": "s1"
+            "user3": {
+                "default_space": "space1"
             }
         },
         "groups": {
-            "g1": {
+            "group1": {
                 "users": [
-                    "u1",
-                    "u3"
+                    "user1",
+                    "user3"
                 ]
             },
-            "g2": {
+            "group2": {
                 "users": [
-                    "u2"
+                    "user2"
                 ]
             }
         },
         "spaces": {
-            "s1": {
-                "displayed_name": "s1",
+            "space1": {
+                "displayed_name": "space1",
                 "users": [
-                    "u1",
-                    "u2",
-                    "u3"
+                    "user1",
+                    "user2",
+                    "user3"
                 ],
                 "groups": [
-                    "g1"
+                    "group1"
                 ],
                 "providers": [
                     {
@@ -214,13 +249,13 @@
                     }
                 ]
             },
-            "s2": {
-                "displayed_name": "s2",
+            "space2": {
+                "displayed_name": "space2",
                 "users": [
-                    "u2"
+                    "user2"
                 ],
                 "groups": [
-                    "g2"
+                    "group2"
                 ],
                 "providers": [
                     {
@@ -256,8 +291,8 @@
                     "gr_domain": "gr",
                     "user_cert": "./cert.pem",
                     "user_key": "./cert.pem",
-                    "mounting_path": "/home/u1/onedata",
-                    "token_for": "u1"
+                    "mounting_path": "/home/user1/onedata_cl1",
+                    "token_for": "user1"
                 },
                 "client2": {
                     "name": "client2",
@@ -265,13 +300,13 @@
                     "gr_domain": "gr",
                     "user_cert": "./cert.pem",
                     "user_key": "./cert.pem",
-                    "mounting_path": "/home/u1/onedata",
-                    "token_for": "u1"
+                    "mounting_path": "/home/user1/onedata_cl2",
+                    "token_for": "user1"
                 }
             }
         },
         "client_host_2": {
-            "os_config": "cfg1",
+            "os_config": "cfg2",
             "clients": {
                 "client1": {
                     "name": "client1",
@@ -279,8 +314,8 @@
                     "gr_domain": "gr",
                     "user_cert": "./cert.pem",
                     "user_key": "./cert.pem",
-                    "mounting_path": "/home/u1/onedata",
-                    "token_for": "u1"
+                    "mounting_path": "/home/user1/onedata",
+                    "token_for": "user1"
                 },
                 "client2": {
                     "name": "client2",
@@ -288,33 +323,61 @@
                     "gr_domain": "gr",
                     "user_cert": "./cert.pem",
                     "user_key": "./cert.pem",
-                    "mounting_path": "/home/u2/onedata",
-                    "token_for": "u2"
+                    "mounting_path": "/home/user2/onedata",
+                    "token_for": "user2"
                 }
             }
         }
     },
     "onepanel": {
-        "onepanel1": {
-            "vm.args": {
-                "name": "onepanel@onepanel1",
-                "setcookie": "cookie7"
-            },
-            "sys.config": {
-                "multicast_address": {
-                    "string": "239.255.0.1"
-                }
+        "packages": {
+            "cluster_manager": "packages/cluster-manager.deb",
+            "op_worker": "packages/op-worker.deb"
+        },
+        "storages": {
+            "storage1": {
+                "host": "/mnt/vfs",
+                "container": "/mnt/vfs"
             }
         },
-        "onepanel2": {
-            "vm.args": {
-                "name": "onepanel@onepanel2",
-                "setcookie": "cookie7"
+        "nodes": {
+            "node1": {
+                "vm.args": {
+                    "name": "onepanel@onepanel1",
+                    "setcookie": "cookie7"
+                },
+                "sys.config": {
+                    "multicast_address": {
+                        "string": "239.255.0.1"
+                    },
+                    "verify_gr_cert": false
+                },
+                "packages": [
+                    "cluster_manager",
+                    "op_worker"
+                ],
+                "storages": [
+                    "storage1"
+                ]
             },
-            "sys.config": {
-                "multicast_address": {
-                    "string": "239.255.0.1"
-                }
+            "node2": {
+                "vm.args": {
+                    "name": "onepanel@onepanel2",
+                    "setcookie": "cookie7"
+                },
+                "sys.config": {
+                    "multicast_address": {
+                        "string": "239.255.0.1"
+                    },
+                    "verify_gr_cert": false
+                },
+                "packages": [
+                    "cluster_manager",
+                    "op_worker"
+                ],
+                "storages": [
+                    "storage1"
+                ]
             }
         }
     }

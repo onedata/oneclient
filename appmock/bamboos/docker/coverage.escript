@@ -41,11 +41,15 @@ main([BaseDir]) ->
 
   % getting directory name in which coverage reports from CT are
   {ok, LS} = file:list_dir(filename:join([BaseDir, "test_distributed", "logs"])),
-  CT_dir = hd(lists:filter(
-    fun(X) -> lists:prefix("ct_run", X) end,
-    LS)),
-  % loading coverage reports
-  ok = cover:import(filename:join([BaseDir, "test_distributed", "logs", CT_dir, "all.coverdata"])),
+
+  % loading CT coverage reports (if any)
+  CT_dirs = lists:filter(fun(X) -> lists:prefix("ct_run", X) end, LS),
+  case CT_dirs of
+    [CT_dir | _] -> ok = cover:import(filename:join([BaseDir, "test_distributed", "logs", CT_dir, "all.coverdata"]));
+    [] -> ok
+  end,
+
+  % loading eunit coverage reports
   ok = cover:import(filename:join([BaseDir, ".eunit", "eunit.coverdata"])),
 
   % output directory; if exists, we re-create it
