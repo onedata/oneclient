@@ -215,6 +215,6 @@ message VerifyStorageTestFile {
 }
 
 message SynchronizeBlock {
-    required bytes uuid = 1;
+    required bytes     uuid  = 1;
     required FileBlock block = 2;
 }
