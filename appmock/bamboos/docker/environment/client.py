@@ -12,7 +12,7 @@ import os
 import sys
 import subprocess
 
-from . import common, docker, dns, globalregistry, provider_worker
+from . import common, docker, dns, globalregistry, worker
 
 
 def client_hostname(node_name, uid):
@@ -34,7 +34,7 @@ def _tweak_config(config, os_config, name, uid):
     for cl in clients:
         client = clients[cl]
         client_config = {'name': client['name'],
-                         'op_domain': provider_worker.provider_domain(client['op_domain'], uid),
+                         'op_domain': worker.cluster_domain(client['op_domain'], uid),
                          'gr_domain': globalregistry.gr_domain(client['gr_domain'], uid),
                          'user_key': client['user_key'],
                          'user_cert': client['user_cert'],
