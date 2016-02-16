@@ -24,6 +24,14 @@ import sys
 from environment import docker
 
 
+def default_keys_location():
+    ssh_dir = expanduser("~/.ssh")
+    ssh_slash_docker = os.path.join(ssh_dir, 'docker')
+    if os.path.isdir(ssh_slash_docker):
+        ssh_dir = ssh_slash_docker
+    return ssh_dir
+
+
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     description='Run a command inside a dockerized development environment.')
@@ -52,7 +60,7 @@ parser.add_argument(
 parser.add_argument(
     '-k', '--keys',
     action='store',
-    default=expanduser("~/.ssh"),
+    default=default_keys_location(),
     help='directory of ssh keys used for dependency fetching',
     dest='keys')
 

@@ -73,7 +73,7 @@ loop(Socket, Transport, Port, TimeoutIn, _OK) when TimeoutIn < 0 ->
     ok = Transport:close(Socket);
 
 loop(Socket, Transport, Port, TimeoutIn, OK) ->
-    Now = now(),
+    Now = erlang:monotonic_time(milli_seconds),
     Transport:setopts(Socket, [{active, once}]),
     receive
         {OK, Socket, Data} ->
@@ -87,7 +87,7 @@ loop(Socket, Transport, Port, TimeoutIn, OK) ->
             % inform the requesting process that it succeeded.
             ok = send_messages(Transport, Socket, DataToSend, MessageCount),
             ReplyToPid ! {self(), ok},
-            loop(Socket, Transport, Port, TimeoutIn - (timer:now_diff(now(), Now) div 1000), OK);
+            loop(Socket, Transport, Port, TimeoutIn - (erlang:monotonic_time(milli_seconds) - Now), OK);
 
         _ ->
             % Close the connection
