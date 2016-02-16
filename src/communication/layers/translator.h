@@ -177,7 +177,7 @@ public:
 
     /**
      * Wraps lower layer's @c communicate.
-     * The ougoing message is serialized as in @c send().
+     * The outgoing message is serialized as in @c send().
      * @see Inbox::communicate()
      * @note This method is only instantiable if the lower layer has a
      * @c communicate method.

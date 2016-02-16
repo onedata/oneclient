@@ -47,6 +47,8 @@ message FuseRequest {
         RemoveXattr remove_xattr = 15;
         ListXattr list_xattr = 16;
         SynchronizeBlock synchronize_block = 17;
+        CreateStorageTestFile create_storage_test_file = 18;
+        VerifyStorageTestFile verify_storage_test_file = 19;
     }
 }
 
@@ -102,7 +104,7 @@ message GetFileLocation {
 
 message GetHelperParams {
     required bytes storage_id = 1;
-    optional bool force_cluster_proxy = 2 [default = false];
+    optional bool force_proxy_io = 2 [default = false];
 }
 
 message Truncate {
@@ -125,6 +127,7 @@ message FuseResponse {
         HelperParams helper_params = 5;
         Xattr xattr = 6;
         XattrList xattr_list = 7;
+        StorageTestFile storage_test_file = 8;
     }
 }
 
@@ -190,6 +193,25 @@ message Xattr {
 
 message XattrList {
     repeated bytes names = 1;
+}
+
+message CreateStorageTestFile {
+    required bytes storage_id = 1;
+    required bytes file_uuid  = 2;
+}
+
+message StorageTestFile {
+    required HelperParams helper_params = 1;
+    required bytes        space_uuid    = 2;
+    required bytes        file_id       = 3;
+    required bytes        file_content  = 4;
+}
+
+message VerifyStorageTestFile {
+    required bytes storage_id   = 1;
+    required bytes space_uuid   = 2;
+    required bytes file_id      = 3;
+    required bytes file_content = 4;
 }
 
 message SynchronizeBlock {
