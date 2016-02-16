@@ -46,8 +46,9 @@ message FuseRequest {
         SetXattr set_xattr = 14;
         RemoveXattr remove_xattr = 15;
         ListXattr list_xattr = 16;
-        CreateStorageTestFile create_storage_test_file = 17;
-        VerifyStorageTestFile verify_storage_test_file = 18;
+        SynchronizeBlock synchronize_block = 17;
+        CreateStorageTestFile create_storage_test_file = 18;
+        VerifyStorageTestFile verify_storage_test_file = 19;
     }
 }
 
@@ -194,6 +195,7 @@ message XattrList {
     repeated bytes names = 1;
 }
 
+<<<<<<< HEAD
 message CreateStorageTestFile {
     required bytes storage_id = 1;
     required bytes file_uuid  = 2;
@@ -211,4 +213,9 @@ message VerifyStorageTestFile {
     required bytes space_uuid   = 2;
     required bytes file_id      = 3;
     required bytes file_content = 4;
+=======
+message SynchronizeBlock {
+    required bytes uuid = 1;
+    required FileBlock block = 2;
+>>>>>>> e4e0c7fff090d0640bd13140440100df93d1de79
 }
