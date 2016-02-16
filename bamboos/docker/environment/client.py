@@ -123,7 +123,7 @@ EOF
 
 
 def up(image, bindir, dns_server, uid, config_path):
-    json_config = common.parse_json_file(config_path)
+    json_config = common.parse_json_config_file(config_path)
     config = json_config['oneclient']
     os_config = json_config['os_configs']
     configs = [_tweak_config(config, os_config, node, uid) for node in config]

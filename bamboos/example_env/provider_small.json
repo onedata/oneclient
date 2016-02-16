@@ -28,16 +28,19 @@
         "p1": {
             "db_driver": "couchbase",
             "os_config": "cfg1",
+            "gui_livereload": true,
             "cluster_manager": {
                 "cm1": {
                     "vm.args": {
                         "setcookie": "cookie1"
                     },
                     "sys.config": {
-                        "cm_nodes": [
-                            "cm1"
-                        ],
-                        "worker_num": 1
+                        "cluster_manager": {
+                            "cm_nodes": [
+                                "cm1"
+                            ],
+                            "worker_num": 1
+                        }
                     }
                 }
             },
@@ -47,13 +50,15 @@
                         "setcookie": "cookie1"
                     },
                     "sys.config": {
-                        "cm_nodes": [
-                            "cm1"
-                        ],
-                        "db_nodes": [
-                            "riaknode1"
-                        ],
-                        "verify_gr_cert": false
+                        "op_worker": {
+                            "cm_nodes": [
+                                "cm1"
+                            ],
+                            "db_nodes": [
+                                "riaknode1"
+                            ],
+                            "verify_gr_cert": false
+                        }
                     }
                 }
             }

@@ -39,7 +39,7 @@ def _tweak_config(config, name, uid):
     vm_args = cfg['nodes']['node']['vm.args']
     vm_args['name'] = panel_erl_node_name(name, uid)
 
-    sys_config = cfg['nodes']['node']['sys.config']
+    sys_config = cfg['nodes']['node']['sys.config']['onepanel']
     sys_config['provider_domain'] = {"string": panel_provider_domain(uid)}
 
     return cfg
@@ -97,7 +97,7 @@ escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json
 
 
 def up(image, bindir, dns_server, uid, config_path, gr_ip):
-    config = common.parse_json_file(config_path)
+    config = common.parse_json_config_file(config_path)
     input_dir = config['dirs_config']['onepanel']['input_dir']
     packages = config['onepanel']['packages']
     storages = config['onepanel']['storages']
