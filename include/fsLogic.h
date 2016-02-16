@@ -226,6 +226,8 @@ protected:
 
 private:
     void removeFile(boost::filesystem::path path);
+    bool waitForBlockSynchronization(const std::string &uuid,
+        const boost::icl::discrete_interval<off_t> &range);
     std::tuple<messages::fuse::FileBlock, asio::const_buffer> findWriteLocation(
         const messages::fuse::FileLocation &fileLocation, const off_t offset,
         const asio::const_buffer &buf);

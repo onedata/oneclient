@@ -16,6 +16,8 @@
 #include <boost/filesystem/path.hpp>
 #include <tbb/concurrent_hash_map.h>
 
+#include <condition_variable>
+
 namespace one {
 namespace client {
 
@@ -47,12 +49,19 @@ private:
     communication::Communicator &m_communicator;
     tbb::concurrent_hash_map<Path, std::string, PathHash> m_pathToUuid;
     tbb::concurrent_hash_map<std::string, Metadata> m_metaCache;
+    tbb::concurrent_hash_map<std::string,
+        std::pair<std::unique_ptr<std::mutex>,
+                                 std::unique_ptr<std::condition_variable>>>
+        m_mutexConditionPairMap;
 
 public:
     using ConstUuidAccessor = decltype(m_pathToUuid)::const_accessor;
     using ConstMetaAccessor = decltype(m_metaCache)::const_accessor;
+    using ConstMutexAccessor =
+        decltype(m_mutexConditionPairMap)::const_accessor;
     using UuidAccessor = decltype(m_pathToUuid)::accessor;
     using MetaAccessor = decltype(m_metaCache)::accessor;
+    using MutexAccessor = decltype(m_mutexConditionPairMap)::accessor;
 
     /**
      * Constructor.
@@ -153,6 +162,33 @@ public:
      * @param metaAcc Accessor to metadata mapping to remove.
      */
     void remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
+
+    /**
+     * Waits for file location update on given condition.
+     * @param uuid The UUID of file
+     * @param range Range of data to wait for
+     * @param timeout Timeout to wait for condition
+     * @return true if file has benn successfully synchronized
+     */
+    bool waitForNewLocation(const std::string &uuid,
+        const boost::icl::discrete_interval<off_t> &range,
+        const std::chrono::milliseconds &timeout);
+
+    /**
+     * Notifies waiting processes that the new file location has arrived
+     * @param The UUID of file
+     */
+    void notifyNewLocationArrived(const std::string &uuid);
+
+private:
+    /**
+     * Retrieves mutex and condition assigned to file with given uuid. Creates
+     * them, if they are not found.
+     * @param uuid The uuid of a file to get mutex and condition.
+     * @return Pair: mutex, condition.
+     */
+    std::pair<std::mutex &, std::condition_variable &> getMutexConditionPair(
+        const std::string &uuid);
 };
 
 } // namespace one

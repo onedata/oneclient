@@ -100,3 +100,8 @@
   # Prefered block size for read/write operations (in bytes)
   # [Restricted] [default = 100kB]
     # file_buffer_prefered_block_size = 102400
+
+  # Time to wait in seconds for file data to become synchronized with remote
+  # during read operation
+  # [Restricted] [default = 30]
+    # file_sync_timeout = 30

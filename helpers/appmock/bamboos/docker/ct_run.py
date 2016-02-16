@@ -173,10 +173,10 @@ elif args.cover:
                         configs_to_change.extend(
                             data['provider_domains'][provider][
                                 'op_worker'].values())
-                    if 'op_ccm' in data['provider_domains'][provider]:
+                    if 'cluster_manager' in data['provider_domains'][provider]:
                         configs_to_change.extend(
                             data['provider_domains'][provider][
-                                'op_ccm'].values())
+                                'cluster_manager'].values())
             if 'globalregistry_domains' in data:
                 for globalregistry in data['globalregistry_domains']:
                     configs_to_change.extend(
