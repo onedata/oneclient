@@ -12,7 +12,7 @@
 
 {application, clproto, [
     {description, "Communication protocol between clients and providers."},
-    {vsn, git},
+    {vsn, "2.0.0"},
     {registered, []},
     {applications, [
         kernel,
