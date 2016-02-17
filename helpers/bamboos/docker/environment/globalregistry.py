@@ -53,7 +53,7 @@ def _tweak_config(config, gr_node, gr_instance, uid):
     cfg = copy.deepcopy(config)
     cfg['nodes'] = {'node': cfg['nodes'][gr_node]}
 
-    sys_config = cfg['nodes']['node']['sys.config']
+    sys_config = cfg['nodes']['node']['sys.config']['globalregistry']
     sys_config['db_nodes'] = [db_erl_node_name(n, gr_instance, uid)
                               for n in sys_config['db_nodes']]
 
@@ -215,7 +215,7 @@ sed -i 's/-setcookie monster/-setcookie {cookie}/g' /opt/bigcouch/etc/vm.args
 
 
 def up(image, bindir, dns_server, uid, config_path, logdir=None):
-    config = common.parse_json_file(config_path)
+    config = common.parse_json_config_file(config_path)
     input_dir = config['dirs_config']['globalregistry']['input_dir']
     dns_servers, output = dns.maybe_start(dns_server, uid)
 

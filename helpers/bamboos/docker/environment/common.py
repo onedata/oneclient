@@ -7,14 +7,13 @@ A custom utils library used across docker scripts.
 """
 
 from __future__ import print_function
-
 import argparse
 import inspect
 import json
 import os
 import requests
 import time
-
+import sys
 from . import docker
 
 try:
@@ -44,7 +43,7 @@ def wait_until(condition, containers, timeout):
         while not condition(container):
             if time.time() > deadline:
                 message = 'Timeout while waiting for condition {0} ' \
-                'of container {1}'
+                          'of container {1}'
                 message = message.format(condition.__name__, container)
                 raise ValueError(message)
 
@@ -119,10 +118,42 @@ def get_script_dir():
     return get_file_dir(caller_mod.__file__)
 
 
-def parse_json_file(path):
+def parse_json_config_file(path):
     """Parses a JSON file and returns a dict."""
     with open(path, 'r') as f:
-        return json.load(f)
+        config = json.load(f)
+        fix_sys_config_walk(config, None, [], path)
+        return config
+
+
+def fix_sys_config_walk(element, current_app_name, parents, file_path):
+    app_names = apps_with_sysconfig()
+
+    if isinstance(element, dict):
+        for key, next_element in element.items():
+            parents_of_next = list(parents)
+            parents_of_next.append(key)
+
+            if key in app_names:
+                fix_sys_config_walk(next_element, key, parents_of_next, file_path)
+            elif key == "sys.config":
+                if current_app_name not in next_element:
+                    element["sys.config"] = {current_app_name: next_element}
+                    sys.stderr.write('''WARNING:
+    Detected deprecated sys.config syntax
+    Update entry to: 'sys.config': {'%s': {\*your config*\}}
+    See entry at path: %s
+    In file %s
+''' % (current_app_name, ": ".join(parents), file_path))
+            else:
+                fix_sys_config_walk(next_element, current_app_name, parents_of_next, file_path)
+    elif isinstance(element, list):
+        for next_element in element:
+            fix_sys_config_walk(next_element, current_app_name, parents, file_path)
+
+
+def apps_with_sysconfig():
+    return ["cluster_manager", "appmock", "cluster_worker", "op_worker", "globalregistry", "onepanel", "oneclient"]
 
 
 def get_docker_name(name_or_container):
@@ -200,4 +231,3 @@ def volume_for_storage(storage):
     for a given storage
     """
     return os.path.join('/tmp/onedata/storage/', storage), storage, 'rw'
-
