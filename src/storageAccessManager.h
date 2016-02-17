@@ -35,10 +35,8 @@ class StorageAccessManager {
 public:
     /**
      * Constructor.
-     * @param communicator Reference to the @c communication::Communicator
-     * instance.
-     * @param helperFactory Reference to the @c helpers::StorageHelperFactory
-     * instance.
+     * @param communicator Instance of @c communication::Communicator.
+     * @param helperFactory Instance of @c helpers::StorageHelperFactory.
      */
     StorageAccessManager(communication::Communicator &communicator,
         helpers::StorageHelperFactory &helperFactory);
@@ -46,19 +44,17 @@ public:
     /**
      * Verifies the test file by reading it from the storage and checking its
      * content with the one sent by the server.
-     * @param testFile Reference to the @c messages::fuse::StorageTestFile
-     * instance.
-     * @return Pointer to storage helper object used to access the test file.
+     * @param testFile Instance of @c messages::fuse::StorageTestFile.
+     * @return Storage helper object used to access the test file or nullptr if
+     * verification fails.
      */
     std::shared_ptr<helpers::IStorageHelper> verifyStorageTestFile(
         const messages::fuse::StorageTestFile &testFile);
 
     /**
      * Modifies the test file by writing random sequence of characters.
-     * @param helper Pointer to storage helper object used to access the test
-     * file.
-     * @param testFile Reference to the @c messages::fuse::StorageTestFile
-     * instance.
+     * @param helper Storage helper object used to access the test file.
+     * @param testFile Instance of @c messages::fuse::StorageTestFile.
      * @return Modified content of the test file.
      */
     std::string modifyStorageTestFile(
@@ -69,7 +65,7 @@ private:
     bool verifyStorageTestFile(std::shared_ptr<helpers::IStorageHelper> helper,
         const messages::fuse::StorageTestFile &testFile);
 
-    std::vector<boost::filesystem::path> getMountPoints() const;
+    static std::vector<boost::filesystem::path> getMountPoints();
 
     communication::Communicator &m_communicator;
     helpers::StorageHelperFactory &m_helperFactory;

@@ -15,12 +15,20 @@
 #include "storageAccessManager.h"
 
 #include <errno.h>
+#ifdef __APPLE__
+#include <sys/mount.h>
+#else
 #include <mntent.h>
+#endif
 
 #include <vector>
+#include <random>
 
 namespace one {
 namespace client {
+
+constexpr char DIRECT_IO_HELPER_NAME[] = "DirectIO";
+constexpr char DIRECT_IO_HELPER_PATH_ARG[] = "root_path";
 
 StorageAccessManager::StorageAccessManager(
     communication::Communicator &communicator,
@@ -36,10 +44,11 @@ StorageAccessManager::verifyStorageTestFile(
     const messages::fuse::StorageTestFile &testFile)
 {
     const auto &helperParams = testFile.helperParams();
-    if (helperParams.name() == "DirectIO") {
+    if (helperParams.name() == DIRECT_IO_HELPER_NAME) {
         for (const auto &mountPoint : m_mountPoints) {
-            auto helper = m_helperFactory.getStorageHelper(
-                "DirectIO", {{"root_path", mountPoint.string()}});
+            auto helper =
+                m_helperFactory.getStorageHelper(DIRECT_IO_HELPER_NAME,
+                    {{DIRECT_IO_HELPER_PATH_ARG, mountPoint.string()}});
             if (verifyStorageTestFile(helper, testFile))
                 return helper;
         }
@@ -51,8 +60,7 @@ StorageAccessManager::verifyStorageTestFile(
             return helper;
     }
 
-    throw std::system_error{
-        std::make_error_code(std::errc::resource_unavailable_try_again)};
+    return {};
 }
 
 bool StorageAccessManager::verifyStorageTestFile(
@@ -64,8 +72,8 @@ bool StorageAccessManager::verifyStorageTestFile(
         std::vector<char> buffer(size);
         auto ctx = helper->createCTX();
 
-        auto content = helper->sh_read(ctx, testFile.fileId(),
-            asio::mutable_buffer(buffer.data(), size), 0, "");
+        auto content = helper->sh_read(
+            ctx, testFile.fileId(), asio::buffer(buffer), 0, "");
 
         if (asio::buffer_size(content) != size) {
             LOG(WARNING) << "Storage test file size mismatch, expected: "
@@ -102,9 +110,11 @@ std::string StorageAccessManager::modifyStorageTestFile(
     std::vector<char> buffer(size);
     auto ctx = helper->createCTX();
 
-    std::srand(std::time(0));
-    std::generate_n(buffer.data(), size,
-        []() { return static_cast<char>(65 + std::rand() % 26); });
+    std::random_device device;
+    std::default_random_engine engine(device());
+    std::uniform_int_distribution<char> distribution('a', 'z');
+    std::generate_n(
+        buffer.data(), size, [&]() { return distribution(engine); });
 
     helper->sh_write(
         ctx, testFile.fileId(), asio::const_buffer(buffer.data(), size), 0, "");
@@ -112,14 +122,45 @@ std::string StorageAccessManager::modifyStorageTestFile(
     return std::string{buffer.data(), size};
 }
 
-std::vector<boost::filesystem::path>
-StorageAccessManager::getMountPoints() const
+#ifdef __APPLE__
+
+std::vector<boost::filesystem::path> StorageAccessManager::getMountPoints()
+{
+    std::vector<boost::filesystem::path> mountPoints;
+
+    auto res = getfsstat(NULL, 0, MNT_NOWAIT);
+    if (res < 0) {
+        LOG(ERROR) << "Cannot count mounted filesystems.";
+        return mountPoints;
+    }
+
+    std::vector<struct statfs> stats(fs_num);
+
+    res = getfsstat(stats.data(), sizeof(struct statfs) * res, MNT_NOWAIT);
+    if (res < 0) {
+        LOG(ERROR) << "Cannot get fsstat.";
+        return mountPoints;
+    }
+
+    for (const auto &stat : stats) {
+        std::string type(stat.f_fstypename);
+        if (type.compare(0, 4, "fuse") != 0) {
+            mountPoints.push_back(stat.f_mntonname);
+        }
+    }
+
+    return mountPoints;
+}
+
+#else
+
+std::vector<boost::filesystem::path> StorageAccessManager::getMountPoints()
 {
     std::vector<boost::filesystem::path> mountPoints;
 
     FILE *file = setmntent("/proc/mounts", "r");
     if (file == nullptr) {
-        LOG(ERROR) << "Can not parse /proc/mounts file.";
+        LOG(ERROR) << "Cannot parse /proc/mounts file.";
         return mountPoints;
     }
 
@@ -135,6 +176,8 @@ StorageAccessManager::getMountPoints() const
 
     return mountPoints;
 }
+
+#endif
 
 } // namespace client
 } // namespace one

@@ -54,10 +54,10 @@ std::string HelperParams::toString() const
 
 void HelperParams::deserialize(ProtocolMessage &message)
 {
-    m_name.swap(*message.mutable_helper_name());
+    message.mutable_helper_name()->swap(m_name);
 
     for (auto &entry : *message.mutable_helper_args())
-        m_args[std::move(*entry.mutable_key())].swap(*entry.mutable_value());
+        entry.mutable_value()->swap(m_args[std::move(*entry.mutable_key())]);
 }
 
 } // namespace fuse

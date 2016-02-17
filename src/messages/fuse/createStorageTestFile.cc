@@ -37,8 +37,8 @@ CreateStorageTestFile::serializeAndDestroy()
     auto clientMsg = std::make_unique<ProtocolClientMessage>();
     auto fuseRequest = clientMsg->mutable_fuse_request();
     auto msg = fuseRequest->mutable_create_storage_test_file();
-    msg->set_file_uuid(m_fileUuid);
-    msg->set_storage_id(m_storageId);
+    msg->set_file_uuid(std::move(m_fileUuid));
+    msg->set_storage_id(std::move(m_storageId));
 
     return clientMsg;
 }

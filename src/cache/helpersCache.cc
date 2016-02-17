@@ -139,6 +139,15 @@ void HelpersCache::handleStorageTestFile(
 
     try {
         auto helper = m_storageAccessManager.verifyStorageTestFile(*testFile);
+
+        if (helper == nullptr) {
+            m_scheduler.schedule(
+                VERIFY_TEST_FILE_DELAY, [ =, testFile = std::move(testFile) ] {
+                    handleStorageTestFile(testFile, storageId, attempts - 1);
+                });
+            return;
+        }
+
         auto fileContent =
             m_storageAccessManager.modifyStorageTestFile(helper, *testFile);
         requestStorageTestFileVerification(
@@ -150,15 +159,7 @@ void HelpersCache::handleStorageTestFile(
     }
     catch (const std::system_error &e) {
         auto code = e.code().value();
-        if (code == EAGAIN) {
-            m_scheduler.schedule(VERIFY_TEST_FILE_DELAY, [
-                this,
-                attempts,
-                testFile = std::move(testFile),
-                storageId = std::move(storageId)
-            ] { handleStorageTestFile(testFile, storageId, attempts - 1); });
-        }
-        else if (code == ENOENT || code == ENOTDIR || code == EPERM) {
+        if (code == ENOENT || code == ENOTDIR || code == EPERM) {
             AccessTypeAccessor acc;
             if (m_accessType.insert(acc, storageId))
                 acc->second = AccessType::PROXY;
@@ -189,21 +190,22 @@ void HelpersCache::handleStorageTestFileVerification(
     const std::error_code &ec, const std::string &storageId)
 {
     AccessTypeAccessor acc;
-    if (!ec) {
-        if (m_accessType.insert(acc, storageId)) {
+    if (m_accessType.insert(acc, storageId)) {
+        if (!ec) {
             LOG(INFO) << "Storage '" << storageId
                       << "' is directly accessible to the client.";
             acc->second = AccessType::DIRECT;
         }
-    }
-    else if (ec.value() == ENOENT || ec.value() == EINVAL) {
-        LOG(INFO) << "Storage '" << storageId
-                  << "' is not directly accessible to the client.";
-        acc->second = AccessType::PROXY;
-    }
-    else {
-        LOG(ERROR) << "Unknown storage test file verification error, code: '"
-                   << ec.value() << "', message: '" << ec.message() << "'";
+        else if (ec.value() == ENOENT || ec.value() == EINVAL) {
+            LOG(INFO) << "Storage '" << storageId
+                      << "' is not directly accessible to the client.";
+            acc->second = AccessType::PROXY;
+        }
+        else {
+            LOG(ERROR)
+                << "Unknown storage test file verification error, code: '"
+                << ec.value() << "', message: '" << ec.message() << "'";
+        }
     }
 }
 

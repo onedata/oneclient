@@ -40,10 +40,10 @@ VerifyStorageTestFile::serializeAndDestroy()
     auto clientMsg = std::make_unique<ProtocolClientMessage>();
     auto fuseRequest = clientMsg->mutable_fuse_request();
     auto msg = fuseRequest->mutable_verify_storage_test_file();
-    msg->set_storage_id(m_storageId);
-    msg->set_space_uuid(m_spaceUuid);
-    msg->set_file_id(m_fileId);
-    msg->set_file_content(m_fileContent);
+    msg->set_storage_id(std::move(m_storageId));
+    msg->set_space_uuid(std::move(m_spaceUuid));
+    msg->set_file_id(std::move(m_fileId));
+    msg->set_file_content(std::move(m_fileContent));
 
     return clientMsg;
 }

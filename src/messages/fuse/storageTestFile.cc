@@ -27,9 +27,9 @@ StorageTestFile::StorageTestFile(
         *serverMessage->mutable_fuse_response()->mutable_storage_test_file();
 
     m_helperParams = HelperParams{*message.mutable_helper_params()};
-    m_spaceUuid.swap(*message.mutable_space_uuid());
-    m_fileId.swap(*message.mutable_file_id());
-    m_fileContent.swap(*message.mutable_file_content());
+    message.mutable_space_uuid()->swap(m_spaceUuid);
+    message.mutable_file_id()->swap(m_fileId);
+    message.mutable_file_content()->swap(m_fileContent);
 }
 
 const HelperParams &StorageTestFile::helperParams() const
