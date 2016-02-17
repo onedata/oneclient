@@ -283,8 +283,16 @@ void S3Helper::sh_copy(const S3HelperCTX &ctx, const std::string &srcFileId,
 std::shared_ptr<S3HelperCTX> S3Helper::getCTX(CTXPtr rawCTX) const
 {
     auto ctx = std::dynamic_pointer_cast<S3HelperCTX>(rawCTX);
-    if (ctx == nullptr)
+    if (ctx == nullptr) {
+        std::stringstream ss;
+        ss << "Raw storage helper context cast failed. Creating new "
+              "context with arguments: {";
+        for (const auto &arg : m_args)
+            ss << "'" << arg.first << "', '" << arg.second << "', ";
+        ss << "}";
+        DLOG(WARNING) << ss.str();
         return std::make_shared<S3HelperCTX>(m_args);
+    }
     return ctx;
 }
 

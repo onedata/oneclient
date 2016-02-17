@@ -537,8 +537,11 @@ DirectIOHelper::DirectIOHelper(
 std::shared_ptr<PosixHelperCTX> DirectIOHelper::getCTX(CTXPtr rawCTX) const
 {
     auto ctx = std::dynamic_pointer_cast<PosixHelperCTX>(rawCTX);
-    if (ctx == nullptr)
+    if (ctx == nullptr) {
+        DLOG(WARNING)
+            << "Raw storage helper context cast failed. Creating new context.";
         return std::make_shared<PosixHelperCTX>();
+    }
     return ctx;
 }
 

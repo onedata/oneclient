@@ -168,8 +168,16 @@ void CephHelper::ash_truncate(CTXPtr rawCTX, const boost::filesystem::path &p,
 std::shared_ptr<CephHelperCTX> CephHelper::getCTX(CTXPtr rawCTX) const
 {
     auto ctx = std::dynamic_pointer_cast<CephHelperCTX>(rawCTX);
-    if (ctx == nullptr)
+    if (ctx == nullptr) {
+        std::stringstream ss;
+        ss << "Raw storage helper context cast failed. Creating new "
+              "context with arguments: {";
+        for (const auto &arg : m_args)
+            ss << "'" << arg.first << "', '" << arg.second << "', ";
+        ss << "}";
+        DLOG(WARNING) << ss.str();
         return std::make_shared<CephHelperCTX>(m_args);
+    }
     return ctx;
 }
 
