@@ -149,7 +149,7 @@ tcp_server_specific_message_count(Hostname, Port, Data) ->
     ok | {error, term()}.
 tcp_server_wait_for_specific_messages(Hostname, Port, Data, MessageCount, AcceptMore, ReturnHistory, Timeout) ->
     try
-        StartingTime = now(),
+        StartingTime = erlang:monotonic_time(milli_seconds),
         CheckMessNum = fun(ThisFun, WaitFor) ->
             case tcp_server_specific_message_count(Hostname, Port, Data) of
                 {ok, Result} when AcceptMore andalso Result >= MessageCount ->
@@ -157,7 +157,7 @@ tcp_server_wait_for_specific_messages(Hostname, Port, Data, MessageCount, Accept
                 {ok, Result} when Result =:= MessageCount ->
                     ok;
                 {ok, _} ->
-                    case utils:milliseconds_diff(now(), StartingTime) > Timeout of
+                    case (erlang:monotonic_time(milli_seconds) - StartingTime) > Timeout of
                         true ->
                             {error, timeout};
                         false ->
@@ -215,7 +215,7 @@ tcp_server_all_messages_count(Hostname, Port) ->
     AcceptMore :: boolean(), ReturnHistory :: boolean(), Timeout :: integer()) -> ok | {ok, [binary()]} | {error, term()}.
 tcp_server_wait_for_any_messages(Hostname, Port, MessageCount, AcceptMore, ReturnHistory, Timeout) ->
     try
-        StartingTime = now(),
+        StartingTime = erlang:monotonic_time(milli_seconds),
         CheckMessNum = fun(ThisFun) ->
             case tcp_server_all_messages_count(Hostname, Port) of
                 {ok, Result} when AcceptMore andalso Result >= MessageCount ->
@@ -223,7 +223,7 @@ tcp_server_wait_for_any_messages(Hostname, Port, MessageCount, AcceptMore, Retur
                 {ok, Result} when Result =:= MessageCount ->
                     ok;
                 {ok, _} ->
-                    case utils:milliseconds_diff(now(), StartingTime) > Timeout of
+                    case (erlang:monotonic_time(milli_seconds) - StartingTime) > Timeout of
                         true ->
                             {error, timeout};
                         false ->
@@ -352,7 +352,7 @@ tcp_server_connection_count(Hostname, Port) ->
     ConnNumber :: integer(), AcceptMore :: boolean(), Timeout :: integer()) -> ok | {error, term()}.
 tcp_server_wait_for_connections(Hostname, Port, ConnNumber, AcceptMore, Timeout) ->
     try
-        StartingTime = now(),
+        StartingTime = erlang:monotonic_time(milli_seconds),
         CheckConnNum = fun(ThisFun, WaitFor) ->
             case tcp_server_connection_count(Hostname, Port) of
                 {ok, Result} when AcceptMore andalso Result >= ConnNumber ->
@@ -362,7 +362,7 @@ tcp_server_wait_for_connections(Hostname, Port, ConnNumber, AcceptMore, Timeout)
                 {error, wrong_endpoint} ->
                     {error, wrong_endpoint};
                 _ ->
-                    case utils:milliseconds_diff(now(), StartingTime) > Timeout of
+                    case (erlang:monotonic_time(milli_seconds) - StartingTime) > Timeout of
                         true ->
                             {error, timeout};
                         false ->
