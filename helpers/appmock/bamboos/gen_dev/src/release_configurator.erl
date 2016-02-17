@@ -38,14 +38,17 @@ configure_release(?ONEPROVIDER_CCM_APP_NAME, ReleaseRootPath, SysConfig, VmArgs)
         fun({Key, Value}) -> replace_vm_arg(VmArgsPath, "-" ++ atom_to_list(Key), Value) end,
         VmArgs
     ),
-    lists:foreach(
-        fun({Key, Value}) -> replace_env(SysConfigPath, ?ONEPROVIDER_CCM_APP_NAME, Key, Value) end,
-        SysConfig
-    ),
+
+    lists:foreach(fun({AppName, AppConfig}) ->
+        lists:foreach(fun({Key, Value}) ->
+            replace_env(SysConfigPath, AppName, Key, Value)
+        end, AppConfig)
+    end, SysConfig),
 
     % configure kernel distributed erlang app
     NodeName = proplists:get_value(name, VmArgs),
-    CmNodes = proplists:get_value(cm_nodes, SysConfig),
+    CmConfig = proplists:get_value(?ONEPROVIDER_CCM_APP_NAME, SysConfig),
+    CmNodes = proplists:get_value(cm_nodes, CmConfig),
     case length(CmNodes) > 1 of
         true ->
             OptCms = CmNodes -- [list_to_atom(NodeName)],
@@ -67,10 +70,11 @@ configure_release(ApplicationName, ReleaseRootPath, SysConfig, VmArgs) ->
         fun({Key, Value}) -> replace_vm_arg(VmArgsPath, "-" ++ atom_to_list(Key), Value) end,
         VmArgs
     ),
-    lists:foreach(
-        fun({Key, Value}) -> replace_env(SysConfigPath, ApplicationName, Key, Value) end,
-        SysConfig
-    ).
+    lists:foreach(fun({AppName, AppConfig}) ->
+        lists:foreach(fun({Key, Value}) ->
+            replace_env(SysConfigPath, AppName, Key, Value)
+        end, AppConfig)
+    end, SysConfig).
 
 %%%===================================================================
 %%% Internal functions
