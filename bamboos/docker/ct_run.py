@@ -171,21 +171,33 @@ elif args.cover:
                 for provider in data['provider_domains']:
                     if 'op_worker' in data['provider_domains'][provider]:
                         configs_to_change.extend(
-                            data['provider_domains'][provider][
-                                'op_worker'].values())
+                            ('op_worker', data['provider_domains'][provider]['op_worker'].values())
+                        )
                     if 'cluster_manager' in data['provider_domains'][provider]:
                         configs_to_change.extend(
-                            data['provider_domains'][provider][
-                                'cluster_manager'].values())
+                            ('cluster_manager', data['provider_domains'][provider]['cluster_manager'].values())
+                        )
+
+            if 'cluster_domains' in data:
+                for cluster in data['cluster_domains']:
+                    if 'cluster_worker' in data['cluster_domains'][cluster]:
+                        configs_to_change.extend(
+                            ('cluster_worker', data['cluster_domains'][cluster]['cluster_worker'].values())
+                        )
+                    if 'cluster_manager' in data['cluster_domains'][cluster]:
+                        configs_to_change.extend(
+                            ('cluster_manager', data['cluster_domains'][cluster]['cluster_manager'].values())
+                        )
+
             if 'globalregistry_domains' in data:
                 for globalregistry in data['globalregistry_domains']:
                     configs_to_change.extend(
-                        data['globalregistry_domains'][globalregistry][
-                            'globalregistry'].values())
+                        ('globalregistry', data['globalregistry_domains'][globalregistry]['globalregistry'].values())
+                    )
 
-            for config in configs_to_change:
-                config['sys.config']['covered_dirs'] = docker_dirs
-                config['sys.config']['covered_excluded_modules'] = excl_mods
+            for (app_name, config) in configs_to_change:
+                config['sys.config'][app_name]['covered_dirs'] = docker_dirs
+                config['sys.config'][app_name]['covered_excluded_modules'] = excl_mods
 
             with open(file, 'w') as jsonFile:
                 jsonFile.write(json.dumps(data))

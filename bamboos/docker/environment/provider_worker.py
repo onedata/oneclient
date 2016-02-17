@@ -19,7 +19,7 @@ def up(image, bindir, dns_server, uid, config_path, logdir=None):
 
 class ProviderWorkerConfigurator:
     def tweak_config(self, cfg, uid):
-        sys_config = cfg['nodes']['node']['sys.config']
+        sys_config = cfg['nodes']['node']['sys.config'][self.app_name()]
         if 'global_registry_domain' in sys_config:
             gr_hostname = globalregistry.gr_domain(sys_config['global_registry_domain'], uid)
             sys_config['global_registry_domain'] = gr_hostname
