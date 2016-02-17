@@ -18,13 +18,19 @@
 
 #include <boost/optional/optional_io.hpp>
 
+#include <chrono>
 #include <functional>
 
 namespace one {
 namespace client {
 
-HelpersCache::HelpersCache(communication::Communicator &communicator)
+constexpr unsigned int VERIFY_TEST_FILE_ATTEMPTS = 10;
+constexpr std::chrono::seconds VERIFY_TEST_FILE_DELAY{30};
+
+HelpersCache::HelpersCache(
+    communication::Communicator &communicator, Scheduler &scheduler)
     : m_communicator{communicator}
+    , m_scheduler{scheduler}
     , m_storageAccessManager{communicator, m_helperFactory}
 {
     m_thread = std::thread{[this] { m_ioService.run(); }};
@@ -107,7 +113,10 @@ void HelpersCache::requestStorageTestFileCreation(
         [=](const std::error_code &ec,
             std::unique_ptr<messages::fuse::StorageTestFile> testFile) {
             if (!ec) {
-                handleStorageTestFile(std::move(testFile), storageId);
+                handleStorageTestFile(
+                    std::make_shared<messages::fuse::StorageTestFile>(
+                        std::move(*testFile)),
+                    storageId, VERIFY_TEST_FILE_ATTEMPTS);
             }
             else {
                 LOG(ERROR)
@@ -118,9 +127,16 @@ void HelpersCache::requestStorageTestFileCreation(
 }
 
 void HelpersCache::handleStorageTestFile(
-    std::unique_ptr<messages::fuse::StorageTestFile> testFile,
-    const std::string &storageId)
+    std::shared_ptr<messages::fuse::StorageTestFile> testFile,
+    const std::string &storageId, unsigned int attempts)
 {
+    if (attempts == 0) {
+        AccessTypeAccessor acc;
+        if (m_accessType.insert(acc, storageId))
+            acc->second = AccessType::PROXY;
+        return;
+    }
+
     try {
         auto helper = m_storageAccessManager.verifyStorageTestFile(*testFile);
         auto fileContent =
@@ -134,7 +150,15 @@ void HelpersCache::handleStorageTestFile(
     }
     catch (const std::system_error &e) {
         auto code = e.code().value();
-        if (code == ENOENT || code == ENOTDIR || code == EPERM) {
+        if (code == EAGAIN) {
+            m_scheduler.schedule(VERIFY_TEST_FILE_DELAY, [
+                this,
+                attempts,
+                testFile = std::move(testFile),
+                storageId = std::move(storageId)
+            ] { handleStorageTestFile(testFile, storageId, attempts - 1); });
+        }
+        else if (code == ENOENT || code == ENOTDIR || code == EPERM) {
             AccessTypeAccessor acc;
             if (m_accessType.insert(acc, storageId))
                 acc->second = AccessType::PROXY;

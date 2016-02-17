@@ -12,6 +12,7 @@
 #include "communication/communicator.h"
 #include "helpers/IStorageHelper.h"
 #include "helpers/storageHelperFactory.h"
+#include "scheduler.h"
 #include "storageAccessManager.h"
 
 #include <asio/io_service.hpp>
@@ -43,8 +44,8 @@ private:
         const std::string &fileUuid, const std::string &storageId);
 
     void handleStorageTestFile(
-        std::unique_ptr<messages::fuse::StorageTestFile> testFile,
-        const std::string &storageId);
+        std::shared_ptr<messages::fuse::StorageTestFile> testFile,
+        const std::string &storageId, unsigned int attempts);
 
     void requestStorageTestFileVerification(
         const messages::fuse::StorageTestFile &testFile,
@@ -62,6 +63,7 @@ private:
     };
 
     communication::Communicator &m_communicator;
+    Scheduler &m_scheduler;
     asio::io_service m_ioService{1};
     asio::executor_work<asio::io_service::executor_type> m_work =
         asio::make_work(m_ioService);
@@ -87,7 +89,8 @@ public:
      * @param communicator Communicator instance used to fetch helper
      * parameters.
      */
-    HelpersCache(communication::Communicator &communicator);
+    HelpersCache(
+        communication::Communicator &communicator, Scheduler &scheduler);
 
     /**
      * Destructor.

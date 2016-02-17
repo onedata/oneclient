@@ -49,7 +49,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_gid{getegid()}
     , m_context{std::move(context)}
     , m_eventManager{m_context}
-    , m_helpersCache{*m_context->communicator()}
+    , m_helpersCache{*m_context->communicator(), *m_context->scheduler()}
     , m_metadataCache{*m_context->communicator()}
     , m_fsSubscriptions{*m_context->scheduler(), m_eventManager}
     , m_forceProxyIOCache{m_fsSubscriptions}
@@ -470,9 +470,8 @@ events::FileAttrEventStream::Handler FsLogic::fileAttrHandler()
                       << "'";
             auto &attr = acc->second.attr.get();
 
-            if (newAttr.size().is_initialized() \
-                    && newAttr.size().get() < attr.size() \
-                    && acc->second.location) {
+            if (newAttr.size().is_initialized() &&
+                newAttr.size().get() < attr.size() && acc->second.location) {
                 LOG(INFO) << "Truncating blocks attributes for uuid: '"
                           << newAttr.uuid() << "'";
 

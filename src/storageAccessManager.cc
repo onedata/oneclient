@@ -52,7 +52,7 @@ StorageAccessManager::verifyStorageTestFile(
     }
 
     throw std::system_error{
-        std::make_error_code(std::errc::no_such_file_or_directory)};
+        std::make_error_code(std::errc::resource_unavailable_try_again)};
 }
 
 bool StorageAccessManager::verifyStorageTestFile(
