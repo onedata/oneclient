@@ -284,8 +284,7 @@ std::shared_ptr<S3HelperCTX> S3Helper::getCTX(CTXPtr rawCTX) const
 {
     auto ctx = std::dynamic_pointer_cast<S3HelperCTX>(rawCTX);
     if (ctx == nullptr)
-        throw std::system_error{
-            std::make_error_code(std::errc::invalid_argument)};
+        return std::make_shared<S3HelperCTX>(m_args);
     return ctx;
 }
 

@@ -538,8 +538,7 @@ std::shared_ptr<PosixHelperCTX> DirectIOHelper::getCTX(CTXPtr rawCTX) const
 {
     auto ctx = std::dynamic_pointer_cast<PosixHelperCTX>(rawCTX);
     if (ctx == nullptr)
-        throw std::system_error{
-            std::make_error_code(std::errc::invalid_argument)};
+        return std::make_shared<PosixHelperCTX>();
     return ctx;
 }
 
