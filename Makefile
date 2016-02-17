@@ -1,8 +1,12 @@
 # distro for package building (oneof: wily, fedora-23-x86_64)
-DISTRIBUTION    ?= none
+DISTRIBUTION        ?= none
+DOCKER_RELEASE      ?= development
+DOCKER_REG_USER     ?= ""
+DOCKER_REG_PASSWORD ?= ""
+DOCKER_REG_EMAIL    ?= ""
 
 PKG_REVISION    ?= $(shell git describe --tags --always)
-PKG_VERSION	    ?= $(shell git describe --tags --always| tr - .)
+PKG_VERSION	?= $(shell git describe --tags --always | tr - .)
 PKG_BUILD       ?= 1
 PKG_ID           = oneclient-$(PKG_VERSION)
 
@@ -85,6 +89,11 @@ rpm: check_distribution package/$(PKG_ID).tar.gz
 	mock --root $(DISTRIBUTION) --buildsrpm --spec package/oneclient.spec --resultdir=package/packages \
 		--sources package/$(PKG_ID).orig.tar.gz
 	mock --root $(DISTRIBUTION) --resultdir=package/packages --rebuild package/packages/$(PKG_ID)*.src.rpm
+
+docker:
+	./dockerbuild.py --user $(DOCKER_REG_USER) --password $(DOCKER_REG_PASSWORD) \
+                         --email $(DOCKER_REG_EMAIL) --build-arg RELEASE=$(DOCKER_RELEASE) \
+                         --publish --remove packaging
 
 clean:
 	rm -rf debug release relwithdebinfo doc package
