@@ -2,6 +2,8 @@
 /debug
 /relwithdebinfo
 /package
+dockerbuild-report.txt
+dockerbuild-sha.txt
 
 # Compiled Object files
 *.slo
