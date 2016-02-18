@@ -9,10 +9,6 @@ CHANGELOG
 * VFS-1525 Move open file to fsLogic.
 * VFS-1525 Move open file to helpers.
 * VFS-1525 Flag values translation.
-
-
-### 3.0.0
-
 * VFS-1505 Disable setting FileAttr size to default when not present
 * VFS-1505 Handling unset size in FileAttr
 * VFS-1522 Move condition_variable include to separate block.
