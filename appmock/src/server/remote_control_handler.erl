@@ -88,7 +88,7 @@ handle_request(?NAGIOS_ENPOINT, Req) ->
                     _ -> error
                 end,
 
-    {{YY, MM, DD}, {Hour, Min, Sec}} = calendar:now_to_local_time(now()),
+    {{YY, MM, DD}, {Hour, Min, Sec}} = calendar:now_to_local_time(erlang:timestamp()),
     DateString = str_utils:format("~4..0w/~2..0w/~2..0w ~2..0w:~2..0w:~2..0w", [YY, MM, DD, Hour, Min, Sec]),
     Healthdata = {healthdata, [{date, DateString}, {status, atom_to_list(AppStatus)}], []},
     Content = lists:flatten([Healthdata]),

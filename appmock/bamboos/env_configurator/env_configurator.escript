@@ -148,16 +148,16 @@ main([InputJson]) ->
                 throw(error)
         end,
         io:format("Global configuration applied sucessfully!~n"),
-        ok
+        halt(0)
     catch
         T:M ->
             io:format("Error in ~s - ~p:~p~n", [escript:script_name(), T, M]),
-            ok
+            halt(1)
     end;
 
 main(_) ->
     io:format("Usage: ~s <input_json>~n", [escript:script_name()]),
-    ok.
+    halt(0).
 
 
 %%%===================================================================
