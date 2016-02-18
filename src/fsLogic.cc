@@ -12,7 +12,6 @@
 #include "context.h"
 #include "logging.h"
 #include "options.h"
-#include "directIOHelper.h"
 #include "helpers/IStorageHelper.h"
 
 #include "messages/configuration.h"
