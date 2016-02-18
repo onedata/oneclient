@@ -1,0 +1,10 @@
+.idea
+*.iml
+
+deps
+ebin
+src/*.erl
+include/*.hrl
+
+/priv
+/build

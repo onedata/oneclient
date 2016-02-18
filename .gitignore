@@ -1,5 +1,7 @@
-src/proto
-build
+/release
+/debug
+/relwithdebinfo
+/package
 
 # Compiled Object files
 *.slo
@@ -39,3 +41,6 @@ install_manifest.txt
 
 # XCode project files
 *.xcodeproj
+
+# Clion project files
+.idea

@@ -1,3 +1,0 @@
-[submodule "clproto"]
-	path = clproto
-	url = ssh://git@git.plgrid.pl:7999/VFS/clproto.git

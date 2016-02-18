@@ -1,21 +1,22 @@
 /**
- * @file version.h.in
- * @author Rafal Slota
- * @copyright (C) 2013 ACK CYFRONET AGH
- * @copyright This software is released under the MIT license cited in 'LICENSE.txt'
- */
+* @file version.h.in
+* @author Rafal Slota
+* @copyright (C) 2013 ACK CYFRONET AGH
+* @copyright This software is released under the MIT license cited in
+* 'LICENSE.txt'
+*/
 
 #ifndef ONECLIENT_VERSION_H
 #define ONECLIENT_VERSION_H
 
+namespace {
 
-#define oneclient_VERSION_MAJOR 	@oneclient_VERSION_MAJOR@
-#define oneclient_VERSION_MINOR 	@oneclient_VERSION_MINOR@
-#define oneclient_VERSION_PATCH 	@oneclient_VERSION_PATCH@
+constexpr auto oneclient_VERSION_MAJOR = "@oneclient_VERSION_MAJOR@";
+constexpr auto oneclient_VERSION_MINOR = "@oneclient_VERSION_MINOR@";
+constexpr auto oneclient_VERSION_PATCH = "@oneclient_VERSION_PATCH@";
 
-static constexpr const char
-    *oneclient_INSTALL_PATH    = "@CMAKE_INSTALL_PREFIX@",
-    *oneclient_CONFIG_DIR      = "@CONFIG_DIR@";
-
+constexpr auto oneclient_INSTALL_PATH = "@CMAKE_INSTALL_PREFIX@",
+               oneclient_CONFIG_DIR   = "@CONFIG_DIR@";
+}
 
 #endif // ONECLIENT_VERSION_H

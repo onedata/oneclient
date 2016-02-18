@@ -1,64 +1,91 @@
-RELEASE_DIR = release
-DEBUG_DIR = debug
+# distro for package building (oneof: wily, fedora-23-x86_64)
+DISTRIBUTION    ?= none
 
-CMAKE = $(shell which cmake || which cmake28)
-CPACK = $(shell which cpack || which cpack28)
+PKG_REVISION    ?= $(shell git describe --tags --always)
+PKG_VERSION	    ?= $(shell git describe --tags --always| tr - .)
+PKG_BUILD       ?= 1
+PKG_ID           = oneclient-$(PKG_VERSION)
 
-.PHONY: rpm build release debug docs clean all
-all: rpm test
+.PHONY: rpm cmake release debug deb-info test cunit install docs clean all deb coverage
+all: debug test
 
-rpm: deb-info
-	@cd ${RELEASE_DIR} && ${CPACK} -C CPackConfig.cmake -G RPM
-	@cd ${RELEASE_DIR} && ${CPACK} -C CPackConfig.cmake -G DEB
+cmake: BUILD_DIR = $$(echo $(BUILD_TYPE) | tr '[:upper:]' '[:lower:]')
+cmake:
+	mkdir -p ${BUILD_DIR}
+	cd ${BUILD_DIR} && cmake -GNinja -DCMAKE_BUILD_TYPE=${BUILD_TYPE} .. -DCODE_COVERAGE=${WITH_COVERAGE}
 
-	@echo
-	@echo
-	@echo "Following packages are now available in PROJECT_DIR directory: "
-	@echo
-	@for pkg in `ls ${RELEASE_DIR}/*.rpm 2>/dev/null`; do echo $$pkg; done
-	@for pkg in `ls ${RELEASE_DIR}/*.deb 2>/dev/null`; do echo $$pkg; done
+deb-info: BUILD_TYPE = RelWithDebInfo
+deb-info: cmake
+	cmake --build relwithdebinfo --target oneclient
 
-## Obsolete target, use 'make release' instead
-build: release
-	@echo "*****************************************************"
-	@echo "'build' target is obsolete, use 'release' instead !"
-	@echo "*****************************************************"
-	@ln -sf ${RELEASE_DIR} build
+release: BUILD_TYPE = Release
+release: cmake
+	cmake --build release --target oneclient
 
-deb-info:
-	@mkdir -p ${RELEASE_DIR}
-	-@find ${RELEASE_DIR} -name "helpers-update" -exec rm -rf {} \;
-	@cd ${RELEASE_DIR} && ${CMAKE} -GNinja -DCMAKE_BUILD_TYPE=RelWithDebInfo ..
-	@cd ${RELEASE_DIR} && ninja oneclient
+debug: BUILD_TYPE = Debug
+debug: cmake
+	cmake --build debug --target oneclient
 
-release:
-	@mkdir -p ${RELEASE_DIR}
-	-@find ${RELEASE_DIR} -name "helpers-update" -exec rm -rf {} \;
-	@cd ${RELEASE_DIR} && ${CMAKE} -GNinja -DCMAKE_BUILD_TYPE=Release ..
-	@cd ${RELEASE_DIR} && ninja oneclient
+test: debug
+	cmake --build debug
+	cmake --build debug --target test
 
-debug:
-	@mkdir -p ${DEBUG_DIR}
-	-@find ${DEBUG_DIR} -name "helpers-update" -exec rm -rf {} \;
-	@cd ${DEBUG_DIR} && ${CMAKE} -GNinja -DCMAKE_BUILD_TYPE=Debug ..
-	@cd ${DEBUG_DIR} && ninja oneclient
-
-test: deb-info
-	@cd ${RELEASE_DIR} && ninja
-	@cd ${RELEASE_DIR} && ninja test
-
-cunit: deb-info
-	@cd ${RELEASE_DIR} && ninja
-	@cd ${RELEASE_DIR} && ninja cunit
-
-integration_tests: debug
-	@cd ${DEBUG_DIR} && ninja integration_tests
+cunit: debug
+	cmake --build debug
+	cmake --build debug --target cunit
 
 install: release
-	@cd ${RELEASE_DIR} && ninja install
+	ninja -C release install
 
 docs:
 	@doxygen Doxyfile
 
+coverage:
+	lcov --directory debug --capture --output-file oneclient.info
+	lcov --remove oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' 'relwithdebinfo/*' 'debug/*' 'release/*' '**/helpers/*' 'deps/*' --output-file oneclient.info.cleaned
+	genhtml  -o coverage oneclient.info.cleaned
+	@echo "Coverage written to `pwd`/coverage/index.html"
+
+check_distribution:
+ifeq ($(DISTRIBUTION), none)
+	@echo "Please provide package distribution. Oneof: 'wily', 'fedora-23-x86_64'"
+	@exit 1
+else
+	@echo "Building package for distribution $(DISTRIBUTION)"
+endif
+
+package/$(PKG_ID).tar.gz:
+	mkdir -p package
+	rm -rf package/$(PKG_ID)
+	git archive --format=tar --prefix=$(PKG_ID)/ $(PKG_REVISION)| (cd package && tar -xf -)
+	find package/$(PKG_ID) -depth -name ".git" -exec rm -rf {} \;
+	tar -C package -czf package/$(PKG_ID).tar.gz $(PKG_ID)
+
+deb: check_distribution package/$(PKG_ID).tar.gz
+	rm -rf package/packages && mkdir -p package/packages
+	mv -f package/$(PKG_ID).tar.gz package/oneclient_$(PKG_VERSION).orig.tar.gz
+	cp -R pkg_config/debian package/$(PKG_ID)/
+	sed -i "s/oneclient (.*) .*;/oneclient ($(PKG_VERSION)-$(PKG_BUILD)) sid;/g" package/$(PKG_ID)/debian/changelog
+	sed -i "s/Build from .*/Build from $(PKG_VERSION)/g" package/$(PKG_ID)/debian/changelog
+
+	cd package/$(PKG_ID) && sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j4"
+	mv package/*$(PKG_VERSION).orig.tar.gz package/packages/
+	mv package/*$(PKG_VERSION)-$(PKG_BUILD).dsc package/packages/
+	mv package/*$(PKG_VERSION)-$(PKG_BUILD)_amd64.changes package/packages/
+	mv package/*$(PKG_VERSION)-$(PKG_BUILD).debian.tar.xz package/packages/
+	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.deb package/packages/
+
+rpm: check_distribution package/$(PKG_ID).tar.gz
+	rm -rf package/packages && mkdir -p package/packages
+	mv -f package/$(PKG_ID).tar.gz package/$(PKG_ID).orig.tar.gz
+	cp pkg_config/oneclient.spec package/oneclient.spec
+	sed -i "s/{{version}}/$(PKG_VERSION)/g" package/oneclient.spec
+	sed -i "s/{{build}}/$(PKG_BUILD)/g" package/oneclient.spec
+
+	mock --root $(DISTRIBUTION) --buildsrpm --spec package/oneclient.spec --resultdir=package/packages \
+		--sources package/$(PKG_ID).orig.tar.gz
+	mock --root $(DISTRIBUTION) --resultdir=package/packages --rebuild package/packages/$(PKG_ID)*.src.rpm
+
 clean:
-	@rm -rf ${DEBUG_DIR} ${RELEASE_DIR} build doc
+	rm -rf debug release relwithdebinfo doc package
+
