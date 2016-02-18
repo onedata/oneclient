@@ -144,7 +144,7 @@ private:
             , callback{std::move(_callback)}
         {
             bufferlist.append(ceph::buffer::create_static(
-                asio::buffer_size(_buffer), asio::buffer_cast<char *>(buffer)));
+                asio::buffer_size(buffer), asio::buffer_cast<char *>(buffer)));
         }
 
         std::string fileId;

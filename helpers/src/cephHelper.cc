@@ -112,7 +112,7 @@ void CephHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
     auto callbackDataPtr = new WriteCallbackData{p.string(), buf, callback};
     auto completion = librados::Rados::aio_create_completion(
         static_cast<void *>(callbackDataPtr), nullptr,
-        [=](librados::completion_t, void *callbackData) {
+        [](librados::completion_t, void *callbackData) {
             auto data = static_cast<WriteCallbackData *>(callbackData);
             auto result = data->completion->get_return_value();
             if (result < 0) {
