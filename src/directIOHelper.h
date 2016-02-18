@@ -25,6 +25,10 @@
 namespace one {
 namespace helpers {
 
+constexpr auto DIRECT_IO_HELPER_UID_ARG = "uid";
+constexpr auto DIRECT_IO_HELPER_GID_ARG = "gid";
+constexpr auto DIRECT_IO_HELPER_PATH_ARG = "root_path";
+
 /**
 * The PosixHelperCTX class represents context for all POSIX compliant helpers
 * and its object is passed to all helper functions.
