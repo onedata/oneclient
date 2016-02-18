@@ -9,6 +9,8 @@
 #include "s3Helper.h"
 #include "logging.h"
 
+#include <glog/stl_logging.h>
+
 #include <algorithm>
 #include <ctime>
 #include <functional>
@@ -283,8 +285,11 @@ void S3Helper::sh_copy(const S3HelperCTX &ctx, const std::string &srcFileId,
 std::shared_ptr<S3HelperCTX> S3Helper::getCTX(CTXPtr rawCTX) const
 {
     auto ctx = std::dynamic_pointer_cast<S3HelperCTX>(rawCTX);
-    if (ctx == nullptr)
+    if (ctx == nullptr) {
+        LOG(INFO) << "Helper changed. Creating new context with arguments: "
+                  << m_args;
         return std::make_shared<S3HelperCTX>(m_args);
+    }
     return ctx;
 }
 
@@ -333,16 +338,16 @@ void S3Helper::throwPosixError(const std::string &operation, S3Status status,
 S3HelperCTX::S3HelperCTX(std::unordered_map<std::string, std::string> args)
     : m_args{std::move(args)}
 {
-    bucketCTX.hostName = m_args.at("host_name").c_str();
-    bucketCTX.bucketName = m_args.at("bucket_name").c_str();
+    bucketCTX.hostName = m_args.at(S3_HELPER_HOST_NAME_ARG).c_str();
+    bucketCTX.bucketName = m_args.at(S3_HELPER_BUCKET_NAME_ARG).c_str();
     bucketCTX.protocol = S3ProtocolHTTP;
     bucketCTX.uriStyle = S3UriStylePath;
 
-    auto result = m_args.find("access_key");
+    auto result = m_args.find(S3_HELPER_ACCESS_KEY_ARG);
     if (result != m_args.end())
         bucketCTX.accessKeyId = result->second.c_str();
 
-    result = m_args.find("secret_key");
+    result = m_args.find(S3_HELPER_SECRET_KEY_ARG);
     if (result != m_args.end())
         bucketCTX.secretAccessKey = result->second.c_str();
 }
@@ -351,16 +356,16 @@ void S3HelperCTX::setUserCTX(std::unordered_map<std::string, std::string> args)
 {
     m_args.swap(args);
     m_args.insert(args.begin(), args.end());
-    bucketCTX.hostName = m_args.at("host_name").c_str();
-    bucketCTX.bucketName = m_args.at("bucket_name").c_str();
-    bucketCTX.accessKeyId = m_args.at("access_key").c_str();
-    bucketCTX.secretAccessKey = m_args.at("secret_key").c_str();
+    bucketCTX.hostName = m_args.at(S3_HELPER_HOST_NAME_ARG).c_str();
+    bucketCTX.bucketName = m_args.at(S3_HELPER_BUCKET_NAME_ARG).c_str();
+    bucketCTX.accessKeyId = m_args.at(S3_HELPER_ACCESS_KEY_ARG).c_str();
+    bucketCTX.secretAccessKey = m_args.at(S3_HELPER_SECRET_KEY_ARG).c_str();
 }
 
 std::unordered_map<std::string, std::string> S3HelperCTX::getUserCTX()
 {
-    return {{"access_key", m_args.at("access_key")},
-        {"secret_key", m_args.at("secret_key")}};
+    return {{S3_HELPER_ACCESS_KEY_ARG, m_args.at(S3_HELPER_ACCESS_KEY_ARG)},
+        {S3_HELPER_SECRET_KEY_ARG, m_args.at(S3_HELPER_SECRET_KEY_ARG)}};
 }
 
 } // namespace helpers
