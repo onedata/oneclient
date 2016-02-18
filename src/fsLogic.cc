@@ -301,6 +301,19 @@ int FsLogic::open(
     return 0;
 }
 
+namespace {
+int openFile(const FileContextCache::HelperCtxMapAccessor &ctxAcc,
+    FileContextCache::FileContext &fileCtx,
+    const HelpersCache::HelperPtr &helper, const std::string &fileId)
+{
+    auto helperCtx = helper->createCTX();
+    int fh = helper->sh_open(
+        helperCtx, fileId, helpers::IStorageHelper::parseFlags(fileCtx.flags));
+    ctxAcc->second = helperCtx;
+    return fh;
+}
+}
+
 int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     const off_t offset, struct fuse_file_info *const fileInfo)
 {
@@ -346,7 +359,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         fileBlock.storageId(), fileBlock.fileId()};
     FileContextCache::HelperCtxMapAccessor ctxAcc;
     if (context.helperCtxMap->insert(ctxAcc, ctxMapKey))
-        helper->openFile(ctxAcc, fileBlock.fileId(), context.flags);
+        openFile(ctxAcc, context, helper, fileBlock.fileId());
 
     try {
         buf = helper->sh_read(
@@ -401,7 +414,7 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
         location.storageId(), fileBlock.fileId()};
     FileContextCache::HelperCtxMapAccessor ctxAcc;
     if (context.helperCtxMap->insert(ctxAcc, ctxMapKey))
-        helper->openFile(ctxAcc, fileBlock.fileId(), context.flags);
+        openFile(ctxAcc, context, helper, fileBlock.fileId());
 
     size_t bytesWritten = 0;
     try {
@@ -586,8 +599,8 @@ int FsLogic::release(
             helper->sh_release(it.second, fileId);
         }
         catch (std::system_error &e) {
-            LOG(INFO) << "release(storageId: " << storageId
-                      << ", fileId: " << fileId << ") failed" << e.what();
+            LOG(ERROR) << "release(storageId: " << storageId
+                       << ", fileId: " << fileId << ") failed" << e.what();
             lastReleaseException = std::current_exception();
         }
     }

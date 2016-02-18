@@ -40,9 +40,7 @@ public:
     struct FileContext {
         std::string uuid;
         int flags;
-        /**
-         * {storageId, fileId} => IStorageHelperCTX
-         */
+        /// {storageId, fileId} => IStorageHelperCTX
         std::shared_ptr<HelperCtxMap> helperCtxMap;
     };
 
