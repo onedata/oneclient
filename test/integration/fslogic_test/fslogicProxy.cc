@@ -64,13 +64,15 @@ class HelpableFsLogic : public one::client::FsLogic {
 public:
     using one::client::FsLogic::FsLogic;
 
+    std::shared_ptr<NullHelperMock> m_helper =
+        std::make_shared<NullHelperMock>();
+
     one::client::HelpersCache::HelperPtr getHelper(
         const std::string &, const std::string &) override
     {
-        auto helper = std::make_shared<NullHelper>();
         if (failHelper)
-            helper->ec = std::make_error_code(std::errc::owner_dead);
-        return helper;
+            m_helper->set_ec(std::make_error_code(std::errc::owner_dead));
+        return m_helper;
     }
 
     bool failHelper = false;
@@ -203,10 +205,32 @@ public:
             path, asio::buffer(buf.data(), buf.size()), offset, &ffi);
     }
 
+    int release(std::string path)
+    {
+        ReleaseGIL guard;
+        struct fuse_file_info ffi = {};
+        return m_fsLogic.release(path, &ffi);
+    }
+
     int truncate(std::string path, int size)
     {
         ReleaseGIL guard;
         return m_fsLogic.truncate(path, size);
+    }
+
+    void expect_call_sh_open(std::string filename, int times)
+    {
+        m_fsLogic.m_helper->expect_call_sh_open(filename, times);
+    }
+
+    void expect_call_sh_release(std::string filename, int times)
+    {
+        m_fsLogic.m_helper->expect_call_sh_release(filename, times);
+    }
+
+    bool verify_and_clear_expectations()
+    {
+        return m_fsLogic.m_helper->verify_and_clear_expectations();
     }
 
 private:
@@ -284,7 +308,12 @@ BOOST_PYTHON_MODULE(fslogic)
         .def("open", &FsLogicProxy::open)
         .def("read", &FsLogicProxy::read)
         .def("write", &FsLogicProxy::write)
-        .def("truncate", &FsLogicProxy::truncate);
+        .def("release", &FsLogicProxy::release)
+        .def("truncate", &FsLogicProxy::truncate)
+        .def("expect_call_sh_open", &FsLogicProxy::expect_call_sh_open)
+        .def("expect_call_sh_release", &FsLogicProxy::expect_call_sh_release)
+        .def("verify_and_clear_expectations",
+            &FsLogicProxy::verify_and_clear_expectations);
 
     def("regularMode", &regularMode);
 }

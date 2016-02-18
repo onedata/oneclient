@@ -543,24 +543,6 @@ std::shared_ptr<PosixHelperCTX> DirectIOHelper::getCTX(CTXPtr rawCTX) const
     return ctx;
 }
 
-int DirectIOHelper::getFlagsValue(FlagsSet flags)
-{
-    int value = 0;
-
-    for (auto flag : flags) {
-        auto searchResult = s_flagTranslation.find(flag);
-        if (searchResult != s_flagTranslation.end()) {
-            value |= searchResult->second;
-        }
-        else {
-            throw std::system_error{
-                std::make_error_code(std::errc::invalid_argument)};
-        }
-    }
-
-    return value;
-}
-
 PosixHelperCTX::~PosixHelperCTX()
 {
     if (fh != -1)
@@ -578,15 +560,6 @@ std::unordered_map<std::string, std::string> PosixHelperCTX::getUserCTX()
 {
     return {{"uid", std::to_string(uid)}, {"gid", std::to_string(gid)}};
 }
-
-const std::map<Flag, int> DirectIOHelper::s_flagTranslation = {
-    {Flag::NONBLOCK, O_NONBLOCK}, {Flag::APPEND, O_APPEND},
-    {Flag::ASYNC, O_ASYNC}, {Flag::FSYNC, O_FSYNC},
-    {Flag::NOFOLLOW, O_NOFOLLOW}, {Flag::CREAT, O_CREAT},
-    {Flag::TRUNC, O_TRUNC}, {Flag::EXCL, O_EXCL}, {Flag::RDONLY, O_RDONLY},
-    {Flag::WRONLY, O_WRONLY}, {Flag::RDWR, O_RDWR}, {Flag::IFREG, S_IFREG},
-    {Flag::IFCHR, S_IFCHR}, {Flag::IFBLK, S_IFBLK}, {Flag::IFIFO, S_IFIFO},
-    {Flag::IFSOCK, S_IFSOCK}};
 
 } // namespace helpers
 } // namespace one
