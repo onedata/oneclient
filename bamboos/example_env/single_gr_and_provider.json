@@ -38,16 +38,19 @@
         "p1": {
             "db_driver": "couchbase",
             "os_config": "cfg1",
+            "gui_livereload": true,
             "cluster_manager": {
                 "cm1": {
                     "vm.args": {
                         "setcookie": "cookie1"
                     },
                     "sys.config": {
-                        "cm_nodes": [
-                            "cm1"
-                        ],
-                        "worker_num": 1
+                        "cluster_manager": {
+                            "cm_nodes": [
+                                "cm1"
+                            ],
+                            "worker_num": 1
+                        }
                     }
                 }
             },
@@ -57,14 +60,16 @@
                         "setcookie": "cookie1"
                     },
                     "sys.config": {
-                        "cm_nodes": [
-                            "cm1"
-                        ],
-                        "db_nodes": [
-                            "dbnode1"
-                        ],
-                        "verify_gr_cert": false,
-                        "global_registry_domain": "gr"
+                        "op_worker": {
+                            "cm_nodes": [
+                                "cm1"
+                            ],
+                            "db_nodes": [
+                                "dbnode1"
+                            ],
+                            "verify_gr_cert": false,
+                            "global_registry_domain": "gr"
+                        }
                     }
                 }
             }
@@ -78,13 +83,15 @@
                         "setcookie": "cookie3"
                     },
                     "sys.config": {
-                        "db_nodes": [
-                            "db"
-                        ],
-                        "http_domain": {
-                            "string": "127.0.0.1"
-                        },
-                        "dev_mode": true
+                        "globalregistry": {
+                            "db_nodes": [
+                                "db"
+                            ],
+                            "http_domain": {
+                                "string": "127.0.0.1"
+                            },
+                            "dev_mode": true
+                        }
                     }
                 }
             }
@@ -118,6 +125,7 @@
         "spaces": {
             "space1": {
                 "displayed_name": "space1",
+                "storage": "/mnt/st1",
                 "users": [
                     "user1",
                     "user2",
@@ -135,6 +143,7 @@
             },
             "space2": {
                 "displayed_name": "space2",
+                "storage": "/mnt/st1",
                 "users": [
                     "user2"
                 ],

@@ -32,7 +32,7 @@ def _tweak_config(config, cm_node, op_instance, uid):
     cfg = copy.deepcopy(config)
     cfg['nodes'] = {'node': cfg['nodes'][cm_node]}
 
-    sys_config = cfg['nodes']['node']['sys.config']
+    sys_config = cfg['nodes']['node']['sys.config']['cluster_manager']
     sys_config['cm_nodes'] = [cm_erl_node_name(n, op_instance, uid)
                                for n in sys_config['cm_nodes']]
 
@@ -93,7 +93,7 @@ def _ready(container):
 
 
 def up(image, bindir, dns_server, uid, config_path, logdir=None, domains_name='provider_domains'):
-    config = common.parse_json_file(config_path)
+    config = common.parse_json_config_file(config_path)
     input_dir = config['dirs_config']['cluster_manager']['input_dir']
     dns_servers, output = dns.maybe_start(dns_server, uid)
 

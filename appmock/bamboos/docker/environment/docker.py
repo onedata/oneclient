@@ -17,7 +17,7 @@ def run(image, docker_host=None, detach=False, dns_list=[], add_host={},
         envs={}, hostname=None, interactive=False, link={}, tty=False, rm=False,
         reflect=[], volumes=[], name=None, workdir=None, user=None, group=None,
         group_add=[], privileged=False, run_params=[], command=None,
-        stdin=None, stdout=None, stderr=None):
+        output=False, stdin=None, stdout=None, stderr=None):
     cmd = ['docker']
 
     if docker_host:
@@ -90,7 +90,7 @@ def run(image, docker_host=None, detach=False, dns_list=[], add_host={},
     elif command is not None:
         raise ValueError('{0} is not a string nor list'.format(command))
 
-    if detach:
+    if detach or output:
         return subprocess.check_output(cmd, stdin=stdin, stderr=stderr).decode(
             'utf-8').strip()
 
