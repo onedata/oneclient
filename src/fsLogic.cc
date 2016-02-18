@@ -301,34 +301,6 @@ int FsLogic::open(
     return 0;
 }
 
-/**
- * Opens file with new context for given {storageId, fileId}
- * @param ctxMapKey {storageId, fileId}
- * @param fileCtx
- * @param helper
- */
-static void openFile(const FileContextCache::HelperCtxMapKey &ctxMapKey,
-    FileContextCache::FileContext &fileCtx,
-    const HelpersCache::HelperPtr &helper)
-{
-    auto helperCtx = helper->createCTX();
-    using namespace one::helpers;
-    FlagsSet flagsSet{};
-    for (int i = 0; i < static_cast<int>(Flag::COUNT); ++i)
-    {
-        auto flag = static_cast<Flag>(i);
-        auto flag_value = DirectIOHelper::s_flagTranslation.find(flag);
-        if (flag_value->second & fileCtx.flags)
-            flagsSet.insert(flag);
-    }
-
-    helper->sh_open(helperCtx, ctxMapKey.second, flagsSet);
-
-    FileContextCache::HelperCtxMapAccessor acc;
-    fileCtx.helperCtxMap->insert(acc, ctxMapKey);
-    acc->second = helperCtx;
-}
-
 int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     const off_t offset, struct fuse_file_info *const fileInfo)
 {
@@ -372,10 +344,9 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
 
     FileContextCache::HelperCtxMapKey ctxMapKey = {
         fileBlock.storageId(), fileBlock.fileId()};
-    if (context.helperCtxMap->count(ctxMapKey) == 0)
-        openFile(ctxMapKey, context, helper);
     FileContextCache::HelperCtxMapAccessor ctxAcc;
-    context.helperCtxMap->find(ctxAcc, ctxMapKey);
+    if (context.helperCtxMap->insert(ctxAcc, ctxMapKey))
+        helper->openFile(ctxAcc, fileBlock.fileId(), context.flags);
 
     try {
         buf = helper->sh_read(
@@ -428,10 +399,9 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
 
     FileContextCache::HelperCtxMapKey ctxMapKey = {
         location.storageId(), fileBlock.fileId()};
-    if (context.helperCtxMap->count(ctxMapKey) == 0)
-        openFile(ctxMapKey, context, helper);
     FileContextCache::HelperCtxMapAccessor ctxAcc;
-    context.helperCtxMap->find(ctxAcc, ctxMapKey);
+    if (context.helperCtxMap->insert(ctxAcc, ctxMapKey))
+        helper->openFile(ctxAcc, fileBlock.fileId(), context.flags);
 
     size_t bytesWritten = 0;
     try {
@@ -519,9 +489,8 @@ events::FileAttrEventStream::Handler FsLogic::fileAttrHandler()
                       << "'";
             auto &attr = acc->second.attr.get();
 
-            if (newAttr.size().is_initialized() \
-                    && newAttr.size().get() < attr.size() \
-                    && acc->second.location) {
+            if (newAttr.size().is_initialized() &&
+                newAttr.size().get() < attr.size() && acc->second.location) {
                 LOG(INFO) << "Truncating blocks attributes for uuid: '"
                           << newAttr.uuid() << "'";
 
@@ -608,7 +577,7 @@ int FsLogic::release(
     m_fsSubscriptions.removeFileLocationSubscription(attr.uuid());
 
     auto context = m_fileContextCache.get(fileInfo->fh);
-    std::exception_ptr systemErrorPtr;
+    std::exception_ptr lastReleaseException;
     for (auto &it : *context.helperCtxMap) {
         auto &storageId = it.first.first;
         auto &fileId = it.first.second;
@@ -617,16 +586,14 @@ int FsLogic::release(
             helper->sh_release(it.second, fileId);
         }
         catch (std::system_error &e) {
-            DLOG(WARNING) << "FUSE: release(storageId: " << storageId
-                          << ", fileId: " << fileId << ") failed" << e.what();
-            if (!systemErrorPtr) {
-                systemErrorPtr = std::current_exception();
-            }
+            LOG(INFO) << "release(storageId: " << storageId
+                      << ", fileId: " << fileId << ") failed" << e.what();
+            lastReleaseException = std::current_exception();
         }
     }
     context.helperCtxMap->clear();
-    if (systemErrorPtr)
-        std::rethrow_exception(systemErrorPtr);
+    if (lastReleaseException)
+        std::rethrow_exception(lastReleaseException);
     return 0;
 }
 
