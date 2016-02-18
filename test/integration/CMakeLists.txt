@@ -1,3 +1,7 @@
+include_directories(SYSTEM
+    ${ERLANG_TLS_DIR}/deps/gmock/include
+    ${ERLANG_TLS_DIR}/deps/gtest/include)
+
 file(COPY ${PROJECT_SOURCE_DIR}/helpers/appmock DESTINATION ${PROJECT_BINARY_DIR})
 file(COPY ${PROJECT_SOURCE_DIR}/helpers/bamboos DESTINATION ${PROJECT_BINARY_DIR})
 file(COPY
@@ -42,6 +46,8 @@ foreach(TEST_DIR ${TEST_DIRS})
 
     target_link_libraries(${TEST_NAME}
         clientShared
+        gmock_main
+	    gtest
         ${Boost_LIBRARIES}
         ${PYTHON_LIBRARIES})
 

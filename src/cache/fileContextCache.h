@@ -29,12 +29,19 @@ public:
     using FuseFileHandle = decltype(std::declval<struct fuse_file_info>().fh);
     using NativeFileHandle = decltype(open("", 0));
 
+    using HelperCtxMapKey = std::pair<std::string, std::string>;
+    using HelperCtxMap = tbb::concurrent_hash_map<HelperCtxMapKey,
+        std::shared_ptr<helpers::IStorageHelperCTX>>;
+    using HelperCtxMapAccessor = HelperCtxMap::accessor;
+
     /**
      * @c FileContext holds context information about an open file.
      */
     struct FileContext {
         std::string uuid;
-        std::shared_ptr<helpers::IStorageHelperCTX> helperCtx;
+        int flags;
+        /// {storageId, fileId} => IStorageHelperCTX
+        std::shared_ptr<HelperCtxMap> helperCtxMap;
     };
 
 private:
