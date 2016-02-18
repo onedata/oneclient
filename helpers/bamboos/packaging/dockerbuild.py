@@ -11,6 +11,7 @@ Execute the script with -h flag to learn about script's running options.
 """
 
 import argparse
+import re
 import subprocess
 
 parser = argparse.ArgumentParser(
@@ -103,8 +104,40 @@ if __name__ == '__main__':
     subprocess.check_call(['docker', 'build', '--force-rm', '-t', image] +
                           pass_args)
 
+    images = [image]
+
+    commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'])
+    tag = '{0}/{1}:{2}'.format(args.repository, args.name,
+                               'ID-{0}'.format(commit[:10]))
+    subprocess.check_output(['docker', 'tag', image, tag])
+    images.append(tag)
+
+    branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref',
+                                      'HEAD'])
+    ticket = re.search(r'VFS-\d+', branch)
+    if ticket:
+        tag = '{0}/{1}:{2}'.format(args.repository, args.name, ticket.group(0))
+        subprocess.check_output(['docker', 'tag', image, tag])
+        images.append(tag)
+
     if args.publish:
-        subprocess.check_call(['docker', 'push', image])
+        for image in images:
+            subprocess.check_call(['docker', 'push', image])
 
     if args.remove:
-        subprocess.check_call(['docker', 'rmi', '-f', image])
+        for image in images:
+            subprocess.check_call(['docker', 'rmi', '-f', image])
+
+    with open('dockerbuild-sha.txt', 'w') as sha:
+        for image in images:
+            sha.write('{0}\n'.format(image))
+
+    with open('dockerbuild-report.txt', 'w') as report:
+        report.write('Build report for {0}\n\n'.format(args.name))
+        report.write('Artifacts:\n\n')
+        for image in images:
+            report.write('Artifact {0}\n'.format(image))
+            if args.publish:
+                report.write('\tTo get image run:\n')
+                report.write('\t\tdocker pull {0}\n\n'.format(image))
+
