@@ -16,6 +16,7 @@
 
 #include "messages.pb.h"
 
+#include <boost/functional/hash.hpp>
 #include <boost/optional/optional_io.hpp>
 
 #include <chrono>
@@ -90,17 +91,7 @@ bool HelpersCache::HashCompare::equal(const std::tuple<std::string, bool> &j,
 size_t HelpersCache::HashCompare::hash(
     const std::tuple<std::string, bool> &k) const
 {
-    auto hashCombine = [](auto &seed, const auto &val) {
-        std::hash<typename std::remove_const<
-            typename std::remove_reference<decltype(val)>::type>::type> hasher;
-
-        seed ^= hasher(val) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-    };
-
-    std::size_t hash = 0;
-    hashCombine(hash, std::get<0>(k));
-    hashCombine(hash, std::get<1>(k));
-    return hash;
+    return boost::hash<std::tuple<std::string, bool>>{}(k);
 }
 
 void HelpersCache::requestStorageTestFileCreation(

@@ -7,6 +7,7 @@
  */
 
 #include "logging.h"
+#include "directIOHelper.h"
 #include "helpers/IStorageHelper.h"
 #include "helpers/storageHelperFactory.h"
 #include "messages/fuse/createStorageTestFile.h"
@@ -27,8 +28,64 @@
 namespace one {
 namespace client {
 
-constexpr char DIRECT_IO_HELPER_NAME[] = "DirectIO";
-constexpr char DIRECT_IO_HELPER_PATH_ARG[] = "root_path";
+namespace {
+#ifdef __APPLE__
+
+std::vector<boost::filesystem::path> getMountPoints()
+{
+    std::vector<boost::filesystem::path> mountPoints;
+
+    auto res = getfsstat(NULL, 0, MNT_NOWAIT);
+    if (res < 0) {
+        LOG(ERROR) << "Cannot count mounted filesystems.";
+        return mountPoints;
+    }
+
+    std::vector<struct statfs> stats(fs_num);
+
+    res = getfsstat(stats.data(), sizeof(struct statfs) * res, MNT_NOWAIT);
+    if (res < 0) {
+        LOG(ERROR) << "Cannot get fsstat.";
+        return mountPoints;
+    }
+
+    for (const auto &stat : stats) {
+        std::string type(stat.f_fstypename);
+        if (type.compare(0, 4, "fuse") != 0) {
+            mountPoints.push_back(stat.f_mntonname);
+        }
+    }
+
+    return mountPoints;
+}
+
+#else
+
+std::vector<boost::filesystem::path> getMountPoints()
+{
+    std::vector<boost::filesystem::path> mountPoints;
+
+    FILE *file = setmntent("/proc/mounts", "r");
+    if (file == nullptr) {
+        LOG(ERROR) << "Cannot parse /proc/mounts file.";
+        return mountPoints;
+    }
+
+    struct mntent *ent;
+    while ((ent = getmntent(file)) != nullptr) {
+        std::string type(ent->mnt_type);
+        if (type.compare(0, 4, "fuse") != 0) {
+            mountPoints.emplace_back(ent->mnt_dir);
+        }
+    }
+
+    endmntent(file);
+
+    return mountPoints;
+}
+
+#endif
+}
 
 StorageAccessManager::StorageAccessManager(
     communication::Communicator &communicator,
@@ -44,11 +101,11 @@ StorageAccessManager::verifyStorageTestFile(
     const messages::fuse::StorageTestFile &testFile)
 {
     const auto &helperParams = testFile.helperParams();
-    if (helperParams.name() == DIRECT_IO_HELPER_NAME) {
+    if (helperParams.name() == helpers::DIRECT_IO_HELPER_NAME) {
         for (const auto &mountPoint : m_mountPoints) {
-            auto helper =
-                m_helperFactory.getStorageHelper(DIRECT_IO_HELPER_NAME,
-                    {{DIRECT_IO_HELPER_PATH_ARG, mountPoint.string()}});
+            auto helper = m_helperFactory.getStorageHelper(
+                helpers::DIRECT_IO_HELPER_NAME,
+                {{helpers::DIRECT_IO_HELPER_PATH_ARG, mountPoint.string()}});
             if (verifyStorageTestFile(helper, testFile))
                 return helper;
         }
@@ -121,63 +178,6 @@ std::string StorageAccessManager::modifyStorageTestFile(
 
     return std::string{buffer.data(), size};
 }
-
-#ifdef __APPLE__
-
-std::vector<boost::filesystem::path> StorageAccessManager::getMountPoints()
-{
-    std::vector<boost::filesystem::path> mountPoints;
-
-    auto res = getfsstat(NULL, 0, MNT_NOWAIT);
-    if (res < 0) {
-        LOG(ERROR) << "Cannot count mounted filesystems.";
-        return mountPoints;
-    }
-
-    std::vector<struct statfs> stats(fs_num);
-
-    res = getfsstat(stats.data(), sizeof(struct statfs) * res, MNT_NOWAIT);
-    if (res < 0) {
-        LOG(ERROR) << "Cannot get fsstat.";
-        return mountPoints;
-    }
-
-    for (const auto &stat : stats) {
-        std::string type(stat.f_fstypename);
-        if (type.compare(0, 4, "fuse") != 0) {
-            mountPoints.push_back(stat.f_mntonname);
-        }
-    }
-
-    return mountPoints;
-}
-
-#else
-
-std::vector<boost::filesystem::path> StorageAccessManager::getMountPoints()
-{
-    std::vector<boost::filesystem::path> mountPoints;
-
-    FILE *file = setmntent("/proc/mounts", "r");
-    if (file == nullptr) {
-        LOG(ERROR) << "Cannot parse /proc/mounts file.";
-        return mountPoints;
-    }
-
-    struct mntent *ent;
-    while ((ent = getmntent(file)) != nullptr) {
-        std::string type(ent->mnt_type);
-        if (type.compare(0, 4, "fuse") != 0) {
-            mountPoints.emplace_back(ent->mnt_dir);
-        }
-    }
-
-    endmntent(file);
-
-    return mountPoints;
-}
-
-#endif
 
 } // namespace client
 } // namespace one

@@ -137,7 +137,8 @@ add_definitions(
     -DBOOST_FILESYSTEM_NO_DEPRECATED
     -DBOOST_ALL_DYN_LINK
     -DASIO_STANDALONE
-    -DBUILD_PROXY_IO)
+    -DBUILD_PROXY_IO
+    -DGLOG_STL_LOGGING_FOR_UNORDERED)
 
 # Add helpers after setting compilation flags but before setting include
 # directories; helpers specify their own includes, pulling from package-set

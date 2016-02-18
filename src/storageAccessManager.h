@@ -65,8 +65,6 @@ private:
     bool verifyStorageTestFile(std::shared_ptr<helpers::IStorageHelper> helper,
         const messages::fuse::StorageTestFile &testFile);
 
-    static std::vector<boost::filesystem::path> getMountPoints();
-
     communication::Communicator &m_communicator;
     helpers::StorageHelperFactory &m_helperFactory;
     std::vector<boost::filesystem::path> m_mountPoints;
