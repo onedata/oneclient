@@ -528,7 +528,7 @@ asio::mutable_buffer DirectIOHelper::sh_read(CTXPtr rawCTX,
 DirectIOHelper::DirectIOHelper(
     const std::unordered_map<std::string, std::string> &args,
     asio::io_service &service, UserCTXFactory userCTXFactory)
-    : m_rootPath{args.at("root_path")}
+    : m_rootPath{args.at(DIRECT_IO_HELPER_PATH_ARG)}
     , m_workerService{service}
     , m_userCTXFactory{userCTXFactory}
 {
@@ -538,8 +538,7 @@ std::shared_ptr<PosixHelperCTX> DirectIOHelper::getCTX(CTXPtr rawCTX) const
 {
     auto ctx = std::dynamic_pointer_cast<PosixHelperCTX>(rawCTX);
     if (ctx == nullptr) {
-        DLOG(WARNING)
-            << "Raw storage helper context cast failed. Creating new context.";
+        LOG(INFO) << "Helper changed. Creating new context.";
         return std::make_shared<PosixHelperCTX>();
     }
     return ctx;
@@ -572,13 +571,14 @@ PosixHelperCTX::~PosixHelperCTX()
 void PosixHelperCTX::setUserCTX(
     std::unordered_map<std::string, std::string> args)
 {
-    uid = std::stoi(args.at("uid"));
-    gid = std::stoi(args.at("gid"));
+    uid = std::stoi(args.at(DIRECT_IO_HELPER_UID_ARG));
+    gid = std::stoi(args.at(DIRECT_IO_HELPER_GID_ARG));
 }
 
 std::unordered_map<std::string, std::string> PosixHelperCTX::getUserCTX()
 {
-    return {{"uid", std::to_string(uid)}, {"gid", std::to_string(gid)}};
+    return {{DIRECT_IO_HELPER_UID_ARG, std::to_string(uid)},
+        {DIRECT_IO_HELPER_GID_ARG, std::to_string(gid)}};
 }
 
 const std::map<Flag, int> DirectIOHelper::s_flagTranslation = {

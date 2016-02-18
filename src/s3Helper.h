@@ -20,6 +20,11 @@
 namespace one {
 namespace helpers {
 
+constexpr auto S3_HELPER_HOST_NAME_ARG = "host_name";
+constexpr auto S3_HELPER_BUCKET_NAME_ARG = "bucket_name";
+constexpr auto S3_HELPER_ACCESS_KEY_ARG = "access_key";
+constexpr auto S3_HELPER_SECRET_KEY_ARG = "secret_key";
+
 /**
 * The S3HelperCTX class represents context for S3 helpers and its object is
 * passed to all helper functions.

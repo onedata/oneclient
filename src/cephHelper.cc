@@ -9,6 +9,8 @@
 #include "cephHelper.h"
 #include "logging.h"
 
+#include <glog/stl_logging.h>
+
 namespace one {
 namespace helpers {
 
@@ -69,9 +71,7 @@ void CephHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
     if (ret < 0)
         return callback(asio::mutable_buffer(), makePosixError(ret));
 
-    auto size = asio::buffer_size(buf);
-    auto callbackDataPtr =
-        new ReadCallbackData{p.string(), size, std::move(buf), callback};
+    auto callbackDataPtr = new ReadCallbackData{p.string(), buf, callback};
     auto completion = librados::Rados::aio_create_completion(
         static_cast<void *>(callbackDataPtr), nullptr,
         [](librados::completion_t, void *callbackData) {
@@ -91,7 +91,7 @@ void CephHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
     callbackDataPtr->completion = completion;
 
     ret = ctx->ioCTX.aio_read(callbackDataPtr->fileId, completion,
-        &callbackDataPtr->bufferlist, size, offset);
+        &callbackDataPtr->bufferlist, asio::buffer_size(buf), offset);
     if (ret < 0) {
         completion->release();
         delete callbackDataPtr;
@@ -109,19 +109,17 @@ void CephHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
     if (ret < 0)
         return callback(0, makePosixError(ret));
 
-    auto size = asio::buffer_size(buf);
-    auto callbackDataPtr =
-        new WriteCallbackData{p.string(), size, std::move(buf), callback};
+    auto callbackDataPtr = new WriteCallbackData{p.string(), buf, callback};
     auto completion = librados::Rados::aio_create_completion(
         static_cast<void *>(callbackDataPtr), nullptr,
-        [](librados::completion_t, void *callbackData) {
+        [=](librados::completion_t, void *callbackData) {
             auto data = static_cast<WriteCallbackData *>(callbackData);
             auto result = data->completion->get_return_value();
             if (result < 0) {
                 data->callback(0, makePosixError(result));
             }
             else {
-                data->callback(data->size, SUCCESS_CODE);
+                data->callback(data->bufferlist.length(), SUCCESS_CODE);
             }
             data->completion->release();
             delete data;
@@ -130,7 +128,7 @@ void CephHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
     callbackDataPtr->completion = completion;
 
     ret = ctx->ioCTX.aio_write(callbackDataPtr->fileId, completion,
-        callbackDataPtr->bufferlist, size, offset);
+        callbackDataPtr->bufferlist, asio::buffer_size(buf), offset);
     if (ret < 0) {
         completion->release();
         delete callbackDataPtr;
@@ -169,13 +167,8 @@ std::shared_ptr<CephHelperCTX> CephHelper::getCTX(CTXPtr rawCTX) const
 {
     auto ctx = std::dynamic_pointer_cast<CephHelperCTX>(rawCTX);
     if (ctx == nullptr) {
-        std::stringstream ss;
-        ss << "Raw storage helper context cast failed. Creating new "
-              "context with arguments: {";
-        for (const auto &arg : m_args)
-            ss << "'" << arg.first << "', '" << arg.second << "', ";
-        ss << "}";
-        DLOG(WARNING) << ss.str();
+        LOG(INFO) << "Helper changed. Creating new context with arguments: "
+                  << m_args;
         return std::make_shared<CephHelperCTX>(m_args);
     }
     return ctx;
@@ -215,20 +208,21 @@ int CephHelperCTX::connect(bool reconnect)
         cluster.shutdown();
     }
 
-    int ret = cluster.init2(
-        m_args.at("user_name").c_str(), m_args.at("cluster_name").c_str(), 0);
+    int ret = cluster.init2(m_args.at(CEPH_HELPER_USER_NAME_ARG).c_str(),
+        m_args.at(CEPH_HELPER_CLUSTER_NAME_ARG).c_str(), 0);
     if (ret < 0) {
         LOG(ERROR) << "Couldn't initialize the cluster handle.";
         return ret;
     }
 
-    ret = cluster.conf_set("mon host", m_args.at("mon_host").c_str());
+    ret = cluster.conf_set(
+        "mon host", m_args.at(CEPH_HELPER_MON_HOST_ARG).c_str());
     if (ret < 0) {
         LOG(ERROR) << "Couldn't set monitor host configuration variable.";
         return ret;
     }
 
-    ret = cluster.conf_set("key", m_args.at("key").c_str());
+    ret = cluster.conf_set("key", m_args.at(CEPH_HELPER_KEY_ARG).c_str());
     if (ret < 0) {
         LOG(ERROR) << "Couldn't set key configuration variable.";
         return ret;
@@ -240,7 +234,8 @@ int CephHelperCTX::connect(bool reconnect)
         return ret;
     }
 
-    ret = cluster.ioctx_create(m_args.at("pool_name").c_str(), ioCTX);
+    ret = cluster.ioctx_create(
+        m_args.at(CEPH_HELPER_POOL_NAME_ARG).c_str(), ioCTX);
     if (ret < 0) {
         LOG(ERROR) << "Couldn't set up ioCTX.";
         return ret;
