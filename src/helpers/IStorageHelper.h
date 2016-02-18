@@ -15,7 +15,9 @@
 
 #include <asio/buffer.hpp>
 #include <boost/any.hpp>
+#include <boost/bimap.hpp>
 #include <boost/filesystem/path.hpp>
+#include <tbb/concurrent_hash_map.h>
 
 #include <chrono>
 #include <unordered_map>
@@ -92,6 +94,7 @@ using CTXPtr = std::shared_ptr<IStorageHelperCTX>;
 template <class... T>
 using GeneralCallback = std::function<void(T..., error_t)>;
 using VoidCallback = GeneralCallback<>;
+using flagTranslationMap = boost::bimap<Flag, int>;
 
 template <class T> using future_t = std::future<T>;
 template <class T> using promise_t = std::promise<T>;
@@ -268,11 +271,13 @@ public:
                 promise->set_value(wrote);
         };
 
-        ash_write(std::move(ctx), p, buf, offset, fileUuid, std::move(callback));
+        ash_write(
+            std::move(ctx), p, buf, offset, fileUuid, std::move(callback));
         return waitFor(future);
     }
 
-    virtual int sh_open(CTXPtr ctx, const boost::filesystem::path &p, FlagsSet flags)
+    virtual int sh_open(
+        CTXPtr ctx, const boost::filesystem::path &p, FlagsSet flags)
     {
         auto promise = std::make_shared<std::promise<int>>();
         auto future = promise->get_future();
@@ -310,6 +315,45 @@ public:
         return waitFor(future);
     }
 
+    int openFile(
+        tbb::concurrent_hash_map<std::pair<std::string, std::string>,
+            std::shared_ptr<helpers::IStorageHelperCTX>>::accessor &ctxAcc,
+        const std::string &fileId, int flags)
+    {
+        auto helperCtx = createCTX();
+        int fh = sh_open(helperCtx, fileId, parseFlags(flags));
+        ctxAcc->second = helperCtx;
+        return fh;
+    }
+
+    static FlagsSet parseFlags(int flags)
+    {
+        FlagsSet flagsSet{};
+        for (auto it = s_flagTranslation.right.begin();
+             it != s_flagTranslation.right.end(); ++it)
+            if (it->first & flags)
+                flagsSet.insert(it->second);
+
+        return std::move(flagsSet);
+    }
+
+    static int getFlagsValue(FlagsSet flags)
+    {
+        int value = 0;
+
+        for (auto flag : flags) {
+            auto searchResult = s_flagTranslation.left.find(flag);
+            if (searchResult != s_flagTranslation.left.end()) {
+                value |= searchResult->second;
+            }
+            else {
+                throw std::system_error{
+                    std::make_error_code(std::errc::invalid_argument)};
+            }
+        }
+        return value;
+    }
+
 protected:
     static error_t makePosixError(int posixCode)
     {
@@ -326,8 +370,8 @@ private:
 
         return f.get();
     }
+    static const flagTranslationMap s_flagTranslation;
 };
-
 } // namespace helpers
 } // namespace one
 
