@@ -191,14 +191,10 @@ protected:
 private:
     boost::filesystem::path root(const boost::filesystem::path &path);
     std::shared_ptr<PosixHelperCTX> getCTX(CTXPtr rawCTX) const;
-    static int getFlagsValue(FlagsSet flags);
 
     const boost::filesystem::path m_rootPath;
     asio::io_service &m_workerService;
     UserCTXFactory m_userCTXFactory;
-
-public:
-    static const std::map<Flag, int> s_flagTranslation;
 };
 
 } // namespace helpers
