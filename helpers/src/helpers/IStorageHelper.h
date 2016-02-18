@@ -54,8 +54,7 @@ enum class Flag {
     IFCHR,
     IFBLK,
     IFIFO,
-    IFSOCK,
-    COUNT
+    IFSOCK
 };
 
 struct FlagHash {
@@ -94,7 +93,6 @@ using CTXPtr = std::shared_ptr<IStorageHelperCTX>;
 template <class... T>
 using GeneralCallback = std::function<void(T..., error_t)>;
 using VoidCallback = GeneralCallback<>;
-using flagTranslationMap = boost::bimap<Flag, int>;
 
 template <class T> using future_t = std::future<T>;
 template <class T> using promise_t = std::promise<T>;
@@ -315,17 +313,6 @@ public:
         return waitFor(future);
     }
 
-    int openFile(
-        tbb::concurrent_hash_map<std::pair<std::string, std::string>,
-            std::shared_ptr<helpers::IStorageHelperCTX>>::accessor &ctxAcc,
-        const std::string &fileId, int flags)
-    {
-        auto helperCtx = createCTX();
-        int fh = sh_open(helperCtx, fileId, parseFlags(flags));
-        ctxAcc->second = helperCtx;
-        return fh;
-    }
-
     static FlagsSet parseFlags(int flags)
     {
         FlagsSet flagsSet{};
@@ -334,7 +321,7 @@ public:
             if (it->first & flags)
                 flagsSet.insert(it->second);
 
-        return std::move(flagsSet);
+        return flagsSet;
     }
 
     static int getFlagsValue(FlagsSet flags)
@@ -343,13 +330,8 @@ public:
 
         for (auto flag : flags) {
             auto searchResult = s_flagTranslation.left.find(flag);
-            if (searchResult != s_flagTranslation.left.end()) {
-                value |= searchResult->second;
-            }
-            else {
-                throw std::system_error{
-                    std::make_error_code(std::errc::invalid_argument)};
-            }
+            assert(searchResult != s_flagTranslation.left.end());
+            value |= searchResult->second;
         }
         return value;
     }
@@ -370,8 +352,10 @@ private:
 
         return f.get();
     }
-    static const flagTranslationMap s_flagTranslation;
+
+    static const boost::bimap<Flag, int> s_flagTranslation;
 };
+
 } // namespace helpers
 } // namespace one
 
