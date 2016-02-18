@@ -162,7 +162,7 @@ def _docker_up(image, bindir, config, dns_servers, logdir):
     """
     node_name = config['nodes']['node']['vm.args']['name']
     cookie = config['nodes']['node']['vm.args']['setcookie']
-    db_nodes = config['nodes']['node']['sys.config']['db_nodes']
+    db_nodes = config['nodes']['node']['sys.config']['globalregistry']['db_nodes']
 
     (gr_name, sep, gr_hostname) = node_name.partition('@')
 

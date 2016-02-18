@@ -38,6 +38,7 @@
         "p1": {
             "db_driver": "couchbase",
             "os_config": "cfg1",
+            "gui_livereload": true,
             "cluster_manager": {
                 "cm1": {
                     "vm.args": {
@@ -124,6 +125,7 @@
         "spaces": {
             "space1": {
                 "displayed_name": "space1",
+                "storage": "/mnt/st1",
                 "users": [
                     "user1",
                     "user2",
@@ -141,6 +143,7 @@
             },
             "space2": {
                 "displayed_name": "space2",
+                "storage": "/mnt/st1",
                 "users": [
                     "user2"
                 ],

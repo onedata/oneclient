@@ -227,7 +227,7 @@ def create_groups(container, groups):
 
 
 def volume_for_storage(storage):
-    """Returns tuple (path_on_host, path_on_docker, read_wtire_mode)
+    """Returns tuple (path_on_host, path_on_docker, read_write_mode)
     for a given storage
     """
     return os.path.join('/tmp/onedata/storage/', storage), storage, 'rw'

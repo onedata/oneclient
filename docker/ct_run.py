@@ -122,7 +122,6 @@ with open(cover_template, 'r') as template, open(new_cover, 'w') as cover:
         ', '.join(excl_mods)), file=cover)
 
 ct_command = ['ct_run',
-              '-no_auto_compile' if not args.auto_compile else '',
               '-abort_if_missing_suites',
               '-dir', '.',
               '-logdir', './logs/',
