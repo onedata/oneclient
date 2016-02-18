@@ -12,6 +12,7 @@
 #include "context.h"
 #include "logging.h"
 #include "options.h"
+#include "helpers/IStorageHelper.h"
 
 #include "messages/configuration.h"
 #include "messages/fuse/changeMode.h"
@@ -37,6 +38,7 @@
 #include <sys/stat.h>
 
 #include <algorithm>
+#include <memory>
 
 using namespace std::literals;
 
@@ -289,11 +291,26 @@ int FsLogic::open(
     fileInfo->fh = acc->first;
 
     acc->second.uuid = attr.uuid();
-    acc->second.helperCtx = helper->createCTX();
+    acc->second.flags = fileInfo->flags;
+    acc->second.helperCtxMap =
+        std::make_shared<FileContextCache::HelperCtxMap>();
 
     m_fsSubscriptions.addFileLocationSubscription(attr.uuid());
 
     return 0;
+}
+
+namespace {
+int openFile(const FileContextCache::HelperCtxMapAccessor &ctxAcc,
+    FileContextCache::FileContext &fileCtx,
+    const HelpersCache::HelperPtr &helper, const std::string &fileId)
+{
+    auto helperCtx = helper->createCTX();
+    int fh = helper->sh_open(
+        helperCtx, fileId, helpers::IStorageHelper::parseFlags(fileCtx.flags));
+    ctxAcc->second = helperCtx;
+    return fh;
+}
 }
 
 int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
@@ -336,9 +353,16 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     buf = asio::buffer(buf, boost::icl::size(availableRange));
 
     auto helper = getHelper(context.uuid, fileBlock.storageId());
+
+    FileContextCache::HelperCtxMapKey ctxMapKey = {
+        fileBlock.storageId(), fileBlock.fileId()};
+    FileContextCache::HelperCtxMapAccessor ctxAcc;
+    if (context.helperCtxMap->insert(ctxAcc, ctxMapKey))
+        openFile(ctxAcc, context, helper, fileBlock.fileId());
+
     try {
         buf = helper->sh_read(
-            context.helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
+            ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)
@@ -348,7 +372,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         m_forceClusterProxyCache.insert(context.uuid);
         helper = getHelper(context.uuid, fileBlock.storageId());
         buf = helper->sh_read(
-            context.helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
+            ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
     }
 
     const auto bytesRead = asio::buffer_size(buf);
@@ -384,10 +408,17 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     std::tie(fileBlock, buf) = findWriteLocation(location, offset, buf);
 
     auto helper = getHelper(context.uuid, location.storageId());
+
+    FileContextCache::HelperCtxMapKey ctxMapKey = {
+        location.storageId(), fileBlock.fileId()};
+    FileContextCache::HelperCtxMapAccessor ctxAcc;
+    if (context.helperCtxMap->insert(ctxAcc, ctxMapKey))
+        openFile(ctxAcc, context, helper, fileBlock.fileId());
+
     size_t bytesWritten = 0;
     try {
         bytesWritten = helper->sh_write(
-            context.helperCtx, location.fileId(), buf, offset, context.uuid);
+            ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)
@@ -397,11 +428,11 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
         m_forceClusterProxyCache.insert(context.uuid);
         helper = getHelper(context.uuid, location.storageId());
         bytesWritten = helper->sh_write(
-            context.helperCtx, location.fileId(), buf, offset, context.uuid);
+            ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
     }
 
     m_eventManager.emitWriteEvent(offset, bytesWritten, context.uuid,
-        location.storageId(), location.fileId());
+        location.storageId(), fileBlock.fileId());
 
     MetadataCache::MetaAccessor acc;
     m_metadataCache.getAttr(acc, context.uuid);
@@ -470,9 +501,8 @@ events::FileAttrEventStream::Handler FsLogic::fileAttrHandler()
                       << "'";
             auto &attr = acc->second.attr.get();
 
-            if (newAttr.size().is_initialized() \
-                    && newAttr.size().get() < attr.size() \
-                    && acc->second.location) {
+            if (newAttr.size().is_initialized() &&
+                newAttr.size().get() < attr.size() && acc->second.location) {
                 LOG(INFO) << "Truncating blocks attributes for uuid: '"
                           << newAttr.uuid() << "'";
 
@@ -557,6 +587,25 @@ int FsLogic::release(
     DLOG(INFO) << "FUSE: release(path: " << path << ", ...)";
     auto attr = m_metadataCache.getAttr(path);
     m_fsSubscriptions.removeFileLocationSubscription(attr.uuid());
+
+    auto context = m_fileContextCache.get(fileInfo->fh);
+    std::exception_ptr lastReleaseException;
+    for (auto &it : *context.helperCtxMap) {
+        auto &storageId = it.first.first;
+        auto &fileId = it.first.second;
+        auto helper = getHelper(storageId, fileId);
+        try {
+            helper->sh_release(it.second, fileId);
+        }
+        catch (std::system_error &e) {
+            LOG(ERROR) << "release(storageId: " << storageId
+                       << ", fileId: " << fileId << ") failed" << e.what();
+            lastReleaseException = std::current_exception();
+        }
+    }
+    context.helperCtxMap->clear();
+    if (lastReleaseException)
+        std::rethrow_exception(lastReleaseException);
     return 0;
 }
 

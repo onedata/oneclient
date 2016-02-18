@@ -15,7 +15,9 @@
 
 #include <asio/buffer.hpp>
 #include <boost/any.hpp>
+#include <boost/bimap.hpp>
 #include <boost/filesystem/path.hpp>
+#include <tbb/concurrent_hash_map.h>
 
 #include <chrono>
 #include <unordered_map>
@@ -195,7 +197,7 @@ public:
     virtual void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
         FlagsSet flags, GeneralCallback<int> callback)
     {
-        callback({}, std::make_error_code(std::errc::not_supported));
+        callback({}, SUCCESS_CODE);
     }
 
     virtual void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
@@ -215,7 +217,7 @@ public:
     virtual void ash_release(
         CTXPtr ctx, const boost::filesystem::path &p, VoidCallback callback)
     {
-        callback({});
+        callback(SUCCESS_CODE);
     }
 
     virtual void ash_flush(
@@ -267,8 +269,70 @@ public:
                 promise->set_value(wrote);
         };
 
-        ash_write(std::move(ctx), p, buf, offset, fileUuid, std::move(callback));
+        ash_write(
+            std::move(ctx), p, buf, offset, fileUuid, std::move(callback));
         return waitFor(future);
+    }
+
+    virtual int sh_open(
+        CTXPtr ctx, const boost::filesystem::path &p, FlagsSet flags)
+    {
+        auto promise = std::make_shared<std::promise<int>>();
+        auto future = promise->get_future();
+
+        auto callback = [promise = std::move(promise)](
+            const int fh, const std::error_code &ec) mutable
+        {
+            if (ec)
+                promise->set_exception(
+                    std::make_exception_ptr(std::system_error{ec}));
+            else
+                promise->set_value(fh);
+        };
+
+        ash_open(std::move(ctx), p, flags, std::move(callback));
+        return waitFor(future);
+    }
+
+    virtual error_t sh_release(CTXPtr ctx, const boost::filesystem::path &p)
+    {
+        auto promise = std::make_shared<std::promise<error_t>>();
+        auto future = promise->get_future();
+
+        auto callback = [promise = std::move(promise)](
+            const std::error_code &ec) mutable
+        {
+            if (ec)
+                promise->set_exception(
+                    std::make_exception_ptr(std::system_error{ec}));
+            else
+                promise->set_value(SUCCESS_CODE);
+        };
+
+        ash_release(std::move(ctx), p, std::move(callback));
+        return waitFor(future);
+    }
+
+    static FlagsSet parseFlags(int flags)
+    {
+        FlagsSet flagsSet{};
+        for (auto flag: s_flagTranslation.right)
+            if (flag.first & flags)
+                flagsSet.insert(flag.second);
+
+        return flagsSet;
+    }
+
+    static int getFlagsValue(FlagsSet flags)
+    {
+        int value = 0;
+
+        for (auto flag : flags) {
+            auto searchResult = s_flagTranslation.left.find(flag);
+            assert(searchResult != s_flagTranslation.left.end());
+            value |= searchResult->second;
+        }
+        return value;
     }
 
 protected:
@@ -287,6 +351,8 @@ private:
 
         return f.get();
     }
+
+    static const boost::bimap<Flag, int> s_flagTranslation;
 };
 
 } // namespace helpers
