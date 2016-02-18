@@ -34,10 +34,12 @@
                         "setcookie": "cookie1"
                     },
                     "sys.config": {
-                        "cm_nodes": [
-                            "cm1"
-                        ],
-                        "worker_num": 1
+                        "cluster_manager": {
+                            "cm_nodes": [
+                                "cm1"
+                            ],
+                            "worker_num": 1
+                        }
                     }
                 }
             },
@@ -47,13 +49,15 @@
                         "setcookie": "cookie1"
                     },
                     "sys.config": {
-                        "cm_nodes": [
-                            "cm1"
-                        ],
-                        "db_nodes": [
-                            "riaknode1"
-                        ],
-                        "verify_gr_cert": false
+                        "cluster_worker": {
+                            "cm_nodes": [
+                                "cm1"
+                            ],
+                            "db_nodes": [
+                                "riaknode1"
+                            ],
+                            "verify_gr_cert": false
+                        }
                     }
                 }
             }
