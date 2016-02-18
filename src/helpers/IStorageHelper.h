@@ -316,10 +316,9 @@ public:
     static FlagsSet parseFlags(int flags)
     {
         FlagsSet flagsSet{};
-        for (auto it = s_flagTranslation.right.begin();
-             it != s_flagTranslation.right.end(); ++it)
-            if (it->first & flags)
-                flagsSet.insert(it->second);
+        for (auto flag: s_flagTranslation.right)
+            if (flag.first & flags)
+                flagsSet.insert(flag.second);
 
         return flagsSet;
     }
