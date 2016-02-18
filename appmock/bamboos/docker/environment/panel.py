@@ -27,6 +27,11 @@ def panel_erl_node_name(node_name, uid):
     return common.format_erl_node_name('onepanel', hostname)
 
 
+def panel_provider_domain(uid):
+    """Formats provider domain for a docker hosting onepanel."""
+    return common.format_hostname([], uid)
+
+
 def _tweak_config(config, name, uid):
     cfg = copy.deepcopy(config)
     cfg['nodes'] = {'node': cfg['nodes'][name]}
@@ -34,21 +39,20 @@ def _tweak_config(config, name, uid):
     vm_args = cfg['nodes']['node']['vm.args']
     vm_args['name'] = panel_erl_node_name(name, uid)
 
-    sys_config = cfg['nodes']['node']['sys.config']
-    sys_config['application_release_path'] = '/tmp/release'
+    sys_config = cfg['nodes']['node']['sys.config']['onepanel']
+    sys_config['provider_domain'] = {"string": panel_provider_domain(uid)}
 
     return cfg
 
 
-def _node_up(image, bindir, config, dns_servers, release_path,
-             storage_paths):
+def _node_up(image, bindir, config, gr_ip, dns_servers, packages,
+             storages):
     node_name = config['nodes']['node']['vm.args']['name']
 
     (name, sep, hostname) = node_name.partition('@')
 
     command = \
         '''set -e
-cp -R /root/release /tmp/release
 cat <<"EOF" > /tmp/gen_dev_args.json
 {gen_dev_args}
 EOF
@@ -59,23 +63,30 @@ escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json
         uid=os.geteuid(),
         gid=os.getegid())
 
-    volumes = [(bindir, '/root/build', 'ro'),
-               (release_path, '/root/release', 'ro')]
+    volumes = [(bindir, '/root/build', 'ro')]
 
-    for storage_path in storage_paths:
-        volumes.append((storage_path, storage_path, 'rw'))
+    for name in config['nodes']['node']['storages']:
+        volumes.append((storages[name]['host'], storages[name]['container'],
+                        'rw'))
 
     container = docker.run(
         image=image,
         name=hostname,
         hostname=hostname,
+        add_host={'onedata.org': gr_ip},
         detach=True,
         interactive=True,
         tty=True,
         workdir='/root/build',
         volumes=volumes,
         dns_list=dns_servers,
+        run_params=["--privileged"],
         command=command)
+
+    for name in config['nodes']['node']['packages']:
+        package = os.path.join('/root/build', packages[name])
+        docker.exec_(container, ['dpkg', '-i', package])
+        docker.exec_(container, ['apt-get', '-f', '-y', 'install'])
 
     return (
         {
@@ -85,10 +96,11 @@ escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json
     )
 
 
-def up(image, bindir, dns_server, uid, config_path, release_path,
-       storage_paths):
-    config = common.parse_json_file(config_path)
+def up(image, bindir, dns_server, uid, config_path, gr_ip):
+    config = common.parse_json_config_file(config_path)
     input_dir = config['dirs_config']['onepanel']['input_dir']
+    packages = config['onepanel']['packages']
+    storages = config['onepanel']['storages']
     dns_servers, output = dns.maybe_start(dns_server, uid)
 
     gen_dev_cfg = {
@@ -96,15 +108,15 @@ def up(image, bindir, dns_server, uid, config_path, release_path,
             'input_dir': input_dir,
             'target_dir': '/root/bin'
         },
-        'nodes': config['onepanel']
+        'nodes': config['onepanel']['nodes']
     }
 
     configs = [_tweak_config(gen_dev_cfg, node, uid)
                for node in gen_dev_cfg['nodes']]
 
     for cfg in configs:
-        node_out = _node_up(image, bindir, cfg, dns_servers,
-                            release_path, storage_paths)
+        node_out = _node_up(image, bindir, cfg, gr_ip, dns_servers, packages,
+                            storages)
         common.merge(output, node_out)
 
     return output

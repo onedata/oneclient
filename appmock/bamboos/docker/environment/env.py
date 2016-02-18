@@ -8,11 +8,10 @@ Brings up dockers with full onedata environment.
 
 import os
 import copy
-import subprocess
 import json
-
-from . import appmock, client, common, globalregistry, provider_ccm, \
-    provider_worker, docker, dns
+import collections
+from . import appmock, client, common, globalregistry, cluster_manager, \
+    worker, provider_worker, cluster_worker, docker, dns
 
 
 def default(key):
@@ -20,24 +19,26 @@ def default(key):
             'bin_am': '{0}/appmock'.format(os.getcwd()),
             'bin_gr': '{0}/globalregistry'.format(os.getcwd()),
             'bin_op_worker': '{0}/op_worker'.format(os.getcwd()),
-            'bin_op_ccm': '{0}/op_ccm'.format(os.getcwd()),
+            'bin_cluster_worker': '{0}/cluster_worker'.format(os.getcwd()),
+            'bin_cluster_manager': '{0}/cluster_manager'.format(os.getcwd()),
             'bin_oc': '{0}/oneclient'.format(os.getcwd()),
             'logdir': None}[key]
 
 
 def up(config_path, image=default('image'), bin_am=default('bin_am'),
-       bin_gr=default('bin_gr'), bin_op_ccm=default('bin_op_ccm'),
-       bin_op_worker=default('bin_op_worker'), bin_oc=default('bin_oc'),
-       logdir=default('logdir')):
-    config = common.parse_json_file(config_path)
+       bin_gr=default('bin_gr'), bin_cluster_manager=default('bin_cluster_manager'),
+       bin_op_worker=default('bin_op_worker'), bin_cluster_worker=default('bin_cluster_worker'),
+       bin_oc=default('bin_oc'), logdir=default('logdir')):
+    config = common.parse_json_config_file(config_path)
     uid = common.generate_uid()
 
     output = {
         'docker_ids': [],
         'gr_nodes': [],
         'gr_db_nodes': [],
-        'op_ccm_nodes': [],
+        'cluster_manager_nodes': [],
         'op_worker_nodes': [],
+        'cluster_worker_nodes': [],
         'appmock_nodes': [],
         'client_nodes': []
     }
@@ -48,8 +49,7 @@ def up(config_path, image=default('image'), bin_am=default('bin_am'),
 
     # Start appmock instances
     if 'appmock_domains' in config:
-        am_output = appmock.up(image, bin_am, dns_server,
-                               uid, config_path, logdir)
+        am_output = appmock.up(image, bin_am, dns_server, uid, config_path, logdir)
         common.merge(output, am_output)
         # Make sure appmock domains are added to the dns server.
         # Setting first arg to 'auto' will force the restart and this is needed
@@ -58,8 +58,7 @@ def up(config_path, image=default('image'), bin_am=default('bin_am'),
 
     # Start globalregistry instances
     if 'globalregistry_domains' in config:
-        gr_output = globalregistry.up(image, bin_gr, dns_server,
-                                      uid, config_path, logdir)
+        gr_output = globalregistry.up(image, bin_gr, dns_server, uid, config_path, logdir)
         common.merge(output, gr_output)
         # Make sure GR domains are added to the dns server.
         # Setting first arg to 'auto' will force the restart and this is needed
@@ -67,20 +66,12 @@ def up(config_path, image=default('image'), bin_am=default('bin_am'),
         dns.maybe_restart_with_configuration('auto', uid, output)
 
     # Start provider cluster instances
-    if 'provider_domains' in config:
-        # Start op_ccm instances
-        op_ccm_output = provider_ccm.up(image, bin_op_ccm, dns_server,
-                                        uid, config_path, logdir)
-        common.merge(output, op_ccm_output)
+    setup_worker(provider_worker, bin_op_worker, 'provider_domains',
+                 bin_cluster_manager, config, config_path, dns_server, image, logdir, output, uid)
 
-        # Start op_worker instances
-        op_worker_output = provider_worker.up(image, bin_op_worker, dns_server,
-                                              uid, config_path, logdir)
-        common.merge(output, op_worker_output)
-        # Make sure OP domains are added to the dns server.
-        # Setting first arg to 'auto' will force the restart and this is needed
-        # so that dockers that start after can immediately see the domains.
-        dns.maybe_restart_with_configuration('auto', uid, output)
+    # Start stock cluster worker instances
+    setup_worker(cluster_worker, bin_cluster_worker, 'cluster_domains',
+                 bin_cluster_manager, config, config_path, dns_server, image, logdir, output, uid)
 
     # Start oneclient instances
     if 'oneclient' in config:
@@ -100,8 +91,7 @@ def up(config_path, image=default('image'), bin_am=default('bin_am'),
             for cfg_node in config['provider_domains'][provider_name][
                 'op_worker'].keys():
                 providers_map[provider_name]['nodes'].append(
-                    provider_worker.worker_erl_node_name(cfg_node,
-                                                         provider_name, uid))
+                    worker.worker_erl_node_name(cfg_node, provider_name, uid))
                 providers_map[provider_name]['cookie'] = \
                     config['provider_domains'][provider_name]['op_worker'][
                         cfg_node]['vm.args']['setcookie']
@@ -123,9 +113,10 @@ def up(config_path, image=default('image'), bin_am=default('bin_am'),
         print('')
         # Run env configurator with gathered args
         command = '''epmd -daemon
-        ./env_configurator.escript \'{0}\''''
+./env_configurator.escript \'{0}\'
+echo $?'''
         command = command.format(json.dumps(env_configurator_input))
-        docker.run(
+        docker_output = docker.run(
             image='onedata/builder',
             interactive=True,
             tty=True,
@@ -134,7 +125,35 @@ def up(config_path, image=default('image'), bin_am=default('bin_am'),
             name=common.format_hostname('env_configurator', uid),
             volumes=[(env_configurator_dir, '/root/build', 'ro')],
             dns_list=[dns_server],
-            command=command
+            command=command,
+            output=True
         )
+        # Result will contain output from env_configurator and result code in
+        # the last line
+        lines = docker_output.split('\n')
+        command_res_code = lines[-1]
+        command_output = '\n'.join(lines[:-1])
+        # print the output
+        print(command_output)
+        # check of env configuration succeeded
+        if command_res_code != '0':
+            sys.exit(1)
+
 
     return output
+
+
+def setup_worker(worker, bin_worker, domains_name, bin_cm, config, config_path, dns_server, image, logdir, output, uid):
+    if domains_name in config:
+        # Start cluster_manager instances
+        cluster_manager_output = cluster_manager.up(image, bin_cm, dns_server, uid, config_path, logdir,
+                                                    domains_name=domains_name)
+        common.merge(output, cluster_manager_output)
+
+        # Start op_worker instances
+        cluster_worker_output = worker.up(image, bin_worker, dns_server, uid, config_path, logdir)
+        common.merge(output, cluster_worker_output)
+        # Make sure OP domains are added to the dns server.
+        # Setting first arg to 'auto' will force the restart and this is needed
+        # so that dockers that start after can immediately see the domains.
+        dns.maybe_restart_with_configuration('auto', uid, output)

@@ -24,6 +24,14 @@ import sys
 from environment import docker
 
 
+def default_keys_location():
+    ssh_dir = expanduser("~/.ssh")
+    ssh_slash_docker = os.path.join(ssh_dir, 'docker')
+    if os.path.isdir(ssh_slash_docker):
+        ssh_dir = ssh_slash_docker
+    return ssh_dir
+
+
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     description='Run a command inside a dockerized development environment.')
@@ -43,17 +51,16 @@ parser.add_argument(
     dest='src')
 
 parser.add_argument(
-    '-d', '--dst',
-    action='store',
-    default=None,
-    help='destination directory where the build will be stored; defaults '
-         'to source dir if unset',
-    dest='dst')
+    '--no-cache',
+    action='store_false',
+    default=True,
+    help='disable mounting /var/cache/ccache and /var/cache/beamcache',
+    dest='mount_cache')
 
 parser.add_argument(
     '-k', '--keys',
     action='store',
-    default=expanduser("~/.ssh"),
+    default=default_keys_location(),
     help='directory of ssh keys used for dependency fetching',
     dest='keys')
 
@@ -75,7 +82,7 @@ parser.add_argument(
     '-w', '--workdir',
     action='store',
     default=None,
-    help='path to the working directory; defaults to destination dir if unset',
+    help='path to the working directory; defaults to src dir if unset',
     dest='workdir')
 
 parser.add_argument(
@@ -101,9 +108,6 @@ parser.add_argument(
 
 [args, pass_args] = parser.parse_known_args()
 
-destination = args.dst if args.dst else args.src
-workdir = args.workdir if args.workdir else destination
-
 command = '''
 import os, shutil, subprocess, sys
 
@@ -123,11 +127,6 @@ if {shed_privileges}:
     os.setregid({gid}, {gid})
     os.setreuid({uid}, {uid})
 
-if '{src}' != '{dst}':
-    ret = subprocess.call(['rsync', '--archive', '/tmp/src/', '{dst}'])
-    if ret != 0:
-        sys.exit(ret)
-
 shutil.copytree('/tmp/keys', ssh_home)
 for root, dirs, files in os.walk(ssh_home):
     for dir in dirs:
@@ -145,12 +144,13 @@ command = command.format(
     uid=os.geteuid(),
     gid=os.getegid(),
     src=args.src,
-    dst=destination,
     shed_privileges=(platform.system() == 'Linux' and os.geteuid() != 0),
     groups=args.groups)
 
-reflect = [(destination, 'rw')]
+reflect = [(args.src, 'rw')]
 reflect.extend(zip(args.reflect, ['rw'] * len(args.reflect)))
+if args.mount_cache:
+    reflect.extend([('/var/cache/ccache', 'rw'), ('/var/cache/beamcache', 'rw')])
 
 split_envs = [e.split('=') for e in args.envs]
 envs = {kv[0]: kv[1] for kv in split_envs}
@@ -159,11 +159,10 @@ ret = docker.run(tty=True,
                  interactive=True,
                  rm=True,
                  reflect=reflect,
-                 volumes=[(args.keys, '/tmp/keys', 'ro'),
-                          (args.src, '/tmp/src', 'ro')],
+                 volumes=[(args.keys, '/tmp/keys', 'ro')],
                  envs=envs,
-                 workdir=workdir,
+                 workdir=args.workdir if args.workdir else args.src,
                  image=args.image,
-                 run_params=(['--privileged=true'] if args.privileged else []),
+                 privileged=args.privileged,
                  command=['python', '-c', command])
 sys.exit(ret)
