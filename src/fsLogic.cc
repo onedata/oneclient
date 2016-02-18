@@ -511,10 +511,7 @@ events::FileLocationEventStream::Handler FsLogic::fileLocationHandler()
             location.storageId(newLocation.storageId());
             location.fileId(newLocation.fileId());
 
-            // `newLocation.blocks()` is on LHS of the expression, because
-            // FileBlock keeps first value of {storageId, fileId} and ignores
-            // any new values
-            location.blocks() = newLocation.blocks() | location.blocks();
+            location.blocks() = newLocation.blocks();
 
             m_metadataCache.notifyNewLocationArrived(newLocation.uuid());
         }
