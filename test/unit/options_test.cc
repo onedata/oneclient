@@ -49,17 +49,17 @@ protected:
 
 TEST_F(OptionsTest, optionsShouldParseCommandLineArguments)
 {
-    const char *const argv[] = {ARG0, "-d", "--debug_gsi", "--directio",
+    const char *const argv[] = {ARG0, "-d", "--debug_gsi", "--proxyio",
         "--authentication", AUTHENTICATION_VAL};
     EXPECT_EQ(false, options.get_debug());
     EXPECT_EQ(false, options.get_debug_gsi());
-    EXPECT_EQ(false, options.get_directio());
+    EXPECT_EQ(false, options.get_proxyio());
     EXPECT_NE(AUTHENTICATION_VAL, options.get_authentication());
 
     options.parseConfigs(6, argv);
     EXPECT_EQ(true, options.get_debug());
     EXPECT_EQ(true, options.get_debug_gsi());
-    EXPECT_EQ(true, options.get_directio());
+    EXPECT_EQ(true, options.get_proxyio());
     EXPECT_EQ(AUTHENTICATION_VAL, options.get_authentication());
 }
 

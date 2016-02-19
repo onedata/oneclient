@@ -17,10 +17,9 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-GetHelperParams::GetHelperParams(
-    std::string storageId, bool forceClusterProxy)
+GetHelperParams::GetHelperParams(std::string storageId, bool forceProxyIO)
     : m_storageId{std::move(storageId)}
-    , m_forceClusterProxy{forceClusterProxy}
+    , m_forceProxyIO{forceProxyIO}
 {
 }
 
@@ -29,7 +28,7 @@ std::string GetHelperParams::toString() const
     std::stringstream stream;
 
     stream << "type: 'GetHelperParams', storageId: '" << m_storageId
-           << "'', forceClusterProxy: " << m_forceClusterProxy;
+           << "'', forceProxyIO: " << m_forceProxyIO;
 
     return stream.str();
 }
@@ -40,7 +39,7 @@ std::unique_ptr<ProtocolClientMessage> GetHelperParams::serializeAndDestroy()
     auto ghp = msg->mutable_fuse_request()->mutable_get_helper_params();
 
     ghp->mutable_storage_id()->swap(m_storageId);
-    ghp->set_force_cluster_proxy(m_forceClusterProxy);
+    ghp->set_force_proxy_io(m_forceProxyIO);
 
     return msg;
 }
