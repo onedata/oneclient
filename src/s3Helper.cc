@@ -9,6 +9,8 @@
 #include "s3Helper.h"
 #include "logging.h"
 
+#include <glog/stl_logging.h>
+
 #include <algorithm>
 #include <ctime>
 #include <functional>
@@ -147,44 +149,23 @@ void S3Helper::ash_truncate(CTXPtr rawCTX, const boost::filesystem::path &p,
 
 void S3Helper::sh_unlink(const S3HelperCTX &ctx, const std::string &fileId)
 {
-    S3ResponseHandler responseHandler;
-    responseHandler.propertiesCallback = [](
-        const S3ResponseProperties *properties, void *callbackData) {
-        return S3StatusOK;
-    };
-    responseHandler.completeCallback = [](S3Status status,
-        const S3ErrorDetails *errorDetails, void *callbackData) {
-        if (status != S3StatusOK)
-            throwPosixError("sh_unlink", status, errorDetails);
-    };
-
-    S3_delete_object(
-        &ctx.bucketCTX, fileId.c_str(), nullptr, &responseHandler, nullptr);
+    Operation data{"sh_unlink"};
+    ResponseHandler<Operation> responseHandler;
+    S3_delete_object(&ctx.bucketCTX, fileId.c_str(), nullptr, &responseHandler,
+        static_cast<void *>(&data));
 }
 
 asio::mutable_buffer S3Helper::sh_read(const S3HelperCTX &ctx,
     const std::string &fileId, asio::mutable_buffer buf, off_t offset)
 {
-    struct CallbackData {
-        std::size_t size = 0;
-        asio::mutable_buffer buffer;
-    } data;
+    ReadCallbackData data;
     data.buffer = std::move(buf);
 
     S3GetObjectHandler getObjectHandler;
-    getObjectHandler.responseHandler = S3ResponseHandler{};
-    getObjectHandler.responseHandler.propertiesCallback = [](
-        const S3ResponseProperties *properties, void *callbackData) {
-        return S3StatusOK;
-    };
-    getObjectHandler.responseHandler.completeCallback = [](S3Status status,
-        const S3ErrorDetails *errorDetails, void *callbackData) {
-        if (status != S3StatusOK)
-            throwPosixError("sh_read", status, errorDetails);
-    };
+    getObjectHandler.responseHandler = ResponseHandler<ReadCallbackData>{};
     getObjectHandler.getObjectDataCallback = [](
         int bufferSize, const char *buffer, void *callbackData) {
-        auto dataPtr = static_cast<CallbackData *>(callbackData);
+        auto dataPtr = static_cast<ReadCallbackData *>(callbackData);
         asio::buffer_copy(dataPtr->buffer + dataPtr->size,
             asio::const_buffer(buffer, bufferSize), bufferSize);
         dataPtr->size += bufferSize;
@@ -216,26 +197,7 @@ std::size_t S3Helper::sh_write(const S3HelperCTX &ctx,
     const std::string &fileId, asio::const_buffer buf, off_t offset,
     std::size_t fileSize)
 {
-    struct CallbackData {
-        CallbackData(const std::string &_fileId, const S3HelperCTX &_helperCTX,
-            S3Helper &_helper)
-            : fileId{_fileId}
-            , helperCTX{_helperCTX}
-            , helper{_helper}
-        {
-        }
-
-        off_t offset = 0;
-        std::size_t fileSize;
-        off_t bufferOffset;
-        std::size_t bufferSize;
-        asio::const_buffer buffer;
-        const std::string &fileId;
-        const S3HelperCTX &helperCTX;
-        S3Helper &helper;
-    };
-
-    CallbackData data{fileId, ctx, *this};
+    WriteCallbackData data{fileId, ctx, *this};
     data.fileSize = fileSize;
     data.bufferOffset = offset;
     data.bufferSize = asio::buffer_size(buf);
@@ -245,19 +207,10 @@ std::size_t S3Helper::sh_write(const S3HelperCTX &ctx,
     auto newFileSize =
         std::max(data.fileSize, data.bufferOffset + data.bufferSize);
     S3PutObjectHandler putObjectHandler;
-    putObjectHandler.responseHandler = S3ResponseHandler{};
-    putObjectHandler.responseHandler.propertiesCallback = [](
-        const S3ResponseProperties *properties, void *callbackData) {
-        return S3StatusOK;
-    };
-    putObjectHandler.responseHandler.completeCallback = [](S3Status status,
-        const S3ErrorDetails *errorDetails, void *callbackData) {
-        if (status != S3StatusOK)
-            throwPosixError("sh_write", status, errorDetails);
-    };
+    putObjectHandler.responseHandler = ResponseHandler<WriteCallbackData>{};
     putObjectHandler.putObjectDataCallback = [](
         int bufferSize, char *buffer, void *callbackData) {
-        auto dataPtr = static_cast<CallbackData *>(callbackData);
+        auto dataPtr = static_cast<WriteCallbackData *>(callbackData);
 
         auto srcBufBegin = static_cast<std::size_t>(dataPtr->bufferOffset);
         auto srcBufEnd = srcBufBegin + dataPtr->bufferSize;
@@ -304,47 +257,39 @@ void S3Helper::sh_truncate(
 std::size_t S3Helper::sh_getFileSize(
     const S3HelperCTX &ctx, const std::string &fileId)
 {
-    std::size_t fileSize;
-    S3ResponseHandler responseHandler;
+    GetFileSizeCallbackData data;
+    ResponseHandler<GetFileSizeCallbackData> responseHandler;
     responseHandler.propertiesCallback = [](
         const S3ResponseProperties *properties, void *callbackData) {
-        auto fileSizePtr = static_cast<off_t *>(callbackData);
-        *fileSizePtr = properties->contentLength;
+        auto dataPtr = static_cast<GetFileSizeCallbackData *>(callbackData);
+        dataPtr->fileSize = properties->contentLength;
         return S3StatusOK;
-    };
-    responseHandler.completeCallback = [](S3Status status,
-        const S3ErrorDetails *errorDetails, void *callbackData) {
-        if (status != S3StatusOK)
-            throwPosixError("sh_getFileSize", status, errorDetails);
     };
 
     S3_head_object(&ctx.bucketCTX, fileId.c_str(), nullptr, &responseHandler,
-        static_cast<void *>(&fileSize));
+        static_cast<void *>(&data));
 
-    return fileSize;
+    return data.fileSize;
 }
 
 void S3Helper::sh_copy(const S3HelperCTX &ctx, const std::string &srcFileId,
     const std::string &dstFileId)
 {
-    S3ResponseHandler responseHandler;
-    responseHandler.completeCallback = [](S3Status status,
-        const S3ErrorDetails *errorDetails, void *callbackData) {
-        if (status != S3StatusOK)
-            throwPosixError("sh_copy", status, errorDetails);
-    };
-
+    Operation data{"sh_copy"};
+    ResponseHandler<Operation> responseHandler;
     S3_copy_object(&ctx.bucketCTX, srcFileId.c_str(), nullptr,
         dstFileId.c_str(), nullptr, nullptr, 0, nullptr, nullptr,
-        &responseHandler, nullptr);
+        &responseHandler, static_cast<void *>(&data));
 }
 
 std::shared_ptr<S3HelperCTX> S3Helper::getCTX(CTXPtr rawCTX) const
 {
     auto ctx = std::dynamic_pointer_cast<S3HelperCTX>(rawCTX);
-    if (ctx == nullptr)
-        throw std::system_error{
-            std::make_error_code(std::errc::invalid_argument)};
+    if (ctx == nullptr) {
+        LOG(INFO) << "Helper changed. Creating new context with arguments: "
+                  << m_args;
+        return std::make_shared<S3HelperCTX>(m_args);
+    }
     return ctx;
 }
 
@@ -393,16 +338,16 @@ void S3Helper::throwPosixError(const std::string &operation, S3Status status,
 S3HelperCTX::S3HelperCTX(std::unordered_map<std::string, std::string> args)
     : m_args{std::move(args)}
 {
-    bucketCTX.hostName = m_args.at("host_name").c_str();
-    bucketCTX.bucketName = m_args.at("bucket_name").c_str();
+    bucketCTX.hostName = m_args.at(S3_HELPER_HOST_NAME_ARG).c_str();
+    bucketCTX.bucketName = m_args.at(S3_HELPER_BUCKET_NAME_ARG).c_str();
     bucketCTX.protocol = S3ProtocolHTTP;
     bucketCTX.uriStyle = S3UriStylePath;
 
-    auto result = m_args.find("access_key");
+    auto result = m_args.find(S3_HELPER_ACCESS_KEY_ARG);
     if (result != m_args.end())
         bucketCTX.accessKeyId = result->second.c_str();
 
-    result = m_args.find("secret_key");
+    result = m_args.find(S3_HELPER_SECRET_KEY_ARG);
     if (result != m_args.end())
         bucketCTX.secretAccessKey = result->second.c_str();
 }
@@ -411,16 +356,16 @@ void S3HelperCTX::setUserCTX(std::unordered_map<std::string, std::string> args)
 {
     m_args.swap(args);
     m_args.insert(args.begin(), args.end());
-    bucketCTX.hostName = m_args.at("host_name").c_str();
-    bucketCTX.bucketName = m_args.at("bucket_name").c_str();
-    bucketCTX.accessKeyId = m_args.at("access_key").c_str();
-    bucketCTX.secretAccessKey = m_args.at("secret_key").c_str();
+    bucketCTX.hostName = m_args.at(S3_HELPER_HOST_NAME_ARG).c_str();
+    bucketCTX.bucketName = m_args.at(S3_HELPER_BUCKET_NAME_ARG).c_str();
+    bucketCTX.accessKeyId = m_args.at(S3_HELPER_ACCESS_KEY_ARG).c_str();
+    bucketCTX.secretAccessKey = m_args.at(S3_HELPER_SECRET_KEY_ARG).c_str();
 }
 
 std::unordered_map<std::string, std::string> S3HelperCTX::getUserCTX()
 {
-    return {{"access_key", m_args.at("access_key")},
-        {"secret_key", m_args.at("secret_key")}};
+    return {{S3_HELPER_ACCESS_KEY_ARG, m_args.at(S3_HELPER_ACCESS_KEY_ARG)},
+        {S3_HELPER_SECRET_KEY_ARG, m_args.at(S3_HELPER_SECRET_KEY_ARG)}};
 }
 
 } // namespace helpers
