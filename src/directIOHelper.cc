@@ -12,6 +12,7 @@
 #endif // linux
 
 #include "directIOHelper.h"
+#include "logging.h"
 
 #include "helpers/storageHelperFactory.h"
 
