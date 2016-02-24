@@ -140,4 +140,3 @@ if __name__ == '__main__':
             if args.publish:
                 report.write('\tTo get image run:\n')
                 report.write('\t\tdocker pull {0}\n\n'.format(image))
-

@@ -23,6 +23,10 @@ find_package(TBB REQUIRED)
 message(STATUS "Checking for glog...")
 find_package(Glog REQUIRED)
 
+# Setup gflags
+message(STATUS "Checking for gflags...")
+find_package(GFlags REQUIRED)
+
 # Setup Boost
 set(Boost_USE_STATIC_LIBS       OFF)
 set(Boost_USE_MULTITHREADED      ON)
