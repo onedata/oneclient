@@ -22,7 +22,7 @@ Build-Depends:
     libboost-thread1.58.0,
     libfuse-dev (>= 2.7),
     libgflags-dev,
-    libgoogle-glog-dev,
+    libgoogle-glog-dev (>= 0.3.4),
     libltdl-dev,
     libprotobuf-dev (>= 2.6.0),
     libpython-dev,
