@@ -306,8 +306,7 @@ int openFile(const FileContextCache::HelperCtxMapAccessor &ctxAcc,
     const HelpersCache::HelperPtr &helper, const std::string &fileId)
 {
     auto helperCtx = helper->createCTX();
-    int fh = helper->sh_open(
-        helperCtx, fileId, helpers::IStorageHelper::parseFlags(fileCtx.flags));
+    int fh = helper->sh_open(helperCtx, fileId, fileCtx.flags);
     ctxAcc->second = helperCtx;
     return fh;
 }
