@@ -341,7 +341,7 @@ void DirectIOHelper::ash_truncate(CTXPtr rawCTX,
 }
 
 void DirectIOHelper::ash_open(CTXPtr rawCTX, const boost::filesystem::path &p,
-    FlagsSet flags, GeneralCallback<int> callback)
+    int flags, GeneralCallback<int> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
     m_workerService.post(
@@ -352,7 +352,7 @@ void DirectIOHelper::ash_open(CTXPtr rawCTX, const boost::filesystem::path &p,
                 return;
             }
 
-            int res = open(root(p).c_str(), getFlagsValue(std::move(flags)));
+            int res = open(root(p).c_str(), flags);
 
             if (res == -1) {
                 callback(-1, makePosixError(errno));
