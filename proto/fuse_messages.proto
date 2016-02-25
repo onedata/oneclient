@@ -155,6 +155,7 @@ message FileLocation {
     required bytes storage_id = 4;
     required bytes file_id = 5;
     repeated FileBlock blocks = 6;
+    optional bytes handle_id = 7;
 }
 
 message HelperArg {
