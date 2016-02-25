@@ -85,7 +85,7 @@ public:
 
     CTXPtr createCTX();
 
-    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, FlagsSet flags,
+    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, int flags,
         GeneralCallback<int> callback)
     {
         callback(0, SUCCESS_CODE);
