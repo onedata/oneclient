@@ -5,6 +5,10 @@ MAINTAINER Krzysztof Trzepla <krzysztof.trzepla@gmail.com>
 ARG RELEASE
 ARG VERSION=""
 
+# Get the image up to date
+RUN dnf -y upgrade && \
+    dnf clean all
+
 # Install oneclient package
 RUN case ${RELEASE} in \
 		production) \
