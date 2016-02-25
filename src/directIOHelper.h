@@ -121,7 +121,7 @@ public:
     void ash_truncate(
         CTXPtr ctx, const boost::filesystem::path &p, off_t size, VoidCallback);
 
-    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, FlagsSet flags,
+    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, int flags,
         GeneralCallback<int>);
     void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
