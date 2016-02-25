@@ -220,6 +220,13 @@ public:
     int fsyncdir(boost::filesystem::path path, const int datasync,
         struct fuse_file_info *const fileInfo);
 
+    /**
+     * FUSE @c create callback.
+     * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
+     */
+    int create(boost::filesystem::path path, const mode_t mode,
+               struct fuse_file_info *const fileInfo);
+
 protected:
     virtual HelpersCache::HelperPtr getHelper(
         const std::string &fileUuid, const std::string &storageId);

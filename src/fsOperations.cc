@@ -166,6 +166,10 @@ int wrap_fsyncdir(
 {
     return wrap(&FsLogic::fsyncdir, path, datasync, fileInfo);
 }
+int wrap_create(const char *path, mode_t mode, struct fuse_file_info *fi)
+{
+    return wrap(&FsLogic::create, path, mode, fi);
+}
 
 void *init(struct fuse_conn_info * /*conn*/)
 {
@@ -204,6 +208,7 @@ struct fuse_operations fuseOperations()
     operations.opendir = wrap_opendir;
     operations.releasedir = wrap_releasedir;
     operations.fsyncdir = wrap_fsyncdir;
+    operations.create = wrap_create;
 
     return operations;
 }

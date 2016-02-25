@@ -672,6 +672,42 @@ int FsLogic::fsyncdir(boost::filesystem::path path, const int datasync,
     return 0;
 }
 
+int FsLogic::create(boost::filesystem::path path, const mode_t mode,
+    struct fuse_file_info *const fileInfo)
+{
+    DLOG(INFO) << "FUSE: create(path: " << path
+               << ", mode: " << std::oct << mode << ")";
+
+    auto parentAttr = m_metadataCache.getAttr(path.parent_path());
+    if (parentAttr.type() != messages::fuse::FileAttr::FileType::directory)
+        throw std::errc::not_a_directory;
+
+    messages::fuse::GetNewFileLocation msg{
+        path.filename().string(), parentAttr.uuid(), mode};
+
+    auto future =
+        m_context->communicator()->communicate<messages::fuse::FileLocation>(
+            std::move(msg));
+
+    auto location = communication::wait(future);
+    m_metadataCache.map(path, location);
+
+    FileContextCache::Accessor acc;
+    m_fileContextCache.create(acc);
+
+    fileInfo->direct_io = 1;
+    fileInfo->fh = acc->first;
+
+    acc->second.uuid = location.uuid();
+    acc->second.flags = fileInfo->flags;
+    acc->second.helperCtxMap =
+        std::make_shared<FileContextCache::HelperCtxMap>();
+
+    m_fsSubscriptions.addFileLocationSubscription(location.uuid());
+
+    return 0;
+}
+
 HelpersCache::HelperPtr FsLogic::getHelper(
     const std::string &fileUuid, const std::string &storageId)
 {
