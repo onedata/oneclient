@@ -63,6 +63,7 @@ package/$(PKG_ID).tar.gz:
 	rm -rf package/$(PKG_ID)
 	git archive --format=tar --prefix=$(PKG_ID)/ $(PKG_REVISION)| (cd package && tar -xf -)
 	find package/$(PKG_ID) -depth -name ".git" -exec rm -rf {} \;
+	./save_version_for_package.sh package/$(PKG_ID)
 	tar -C package -czf package/$(PKG_ID).tar.gz $(PKG_ID)
 
 deb: check_distribution package/$(PKG_ID).tar.gz

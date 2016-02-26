@@ -21,6 +21,22 @@ set(oneclient_VERSION_MAJOR 0)
 set(oneclient_VERSION_MINOR 0)
 set(oneclient_VERSION_PATCH 0)
 
+# for packages load saved version from file
+if(EXISTS "${PROJECT_SOURCE_DIR}/version.txt")
+    include( "version.txt" )
+    if(${VERSION_MAJOR} STREQUAL HEAD-HASH-NOTFOUND)
+        set(VERSION_MAJOR ${SAVED_VERSION_MAJOR})
+    endif(${VERSION_MAJOR} STREQUAL HEAD-HASH-NOTFOUND)
+
+    if(${VERSION_MINOR} STREQUAL HEAD-HASH-NOTFOUND)
+        set(VERSION_MINOR ${SAVED_VERSION_MINOR})
+    endif(${VERSION_MINOR} STREQUAL HEAD-HASH-NOTFOUND)
+
+    if(${VERSION_PATCH} STREQUAL HEAD-HASH-NOTFOUND)
+        set(VERSION_PATCH ${SAVED_VERSION_PATCH})
+    endif(${VERSION_PATCH} STREQUAL HEAD-HASH-NOTFOUND)
+endif(EXISTS "${PROJECT_SOURCE_DIR}/version.txt")
+
 # set version (if no tag is specified, the version stays at 0.0.0)
 if(NOT ${VERSION_MAJOR} MATCHES -128-NOTFOUND)
     set(oneclient_VERSION_MAJOR ${VERSION_MAJOR})
