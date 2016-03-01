@@ -21,5 +21,10 @@ RUN case ${RELEASE} in \
 			;; \
 	esac
 
+RUN dnf -y install samba
+ADD start_samba.sh  /root/start_samba.sh
+RUN chmod +x /root/start_samba.sh
+RUN echo "/root/start_samba.sh" >> /root/.bashrc
+
 ENTRYPOINT ["oneclient"]
 CMD ["--help"]
