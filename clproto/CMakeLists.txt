@@ -29,14 +29,8 @@ add_library(messages.nif SHARED EXCLUDE_FROM_ALL build/messages.nif.cc $<TARGET_
 target_link_libraries(messages.nif protobuf)
 set_target_properties(messages.nif PROPERTIES PREFIX "" SUFFIX .so)
 
-add_library(gwproto.nif SHARED EXCLUDE_FROM_ALL build/gwproto.nif.cc $<TARGET_OBJECTS:clproto>)
-target_link_libraries(gwproto.nif protobuf)
-set_target_properties(gwproto.nif PROPERTIES PREFIX "" SUFFIX .so)
-
 if(APPLE)
 set_target_properties(messages.nif PROPERTIES
-    LINK_FLAGS "-flat_namespace -undefined dynamic_lookup")
-set_target_properties(gwproto.nif PROPERTIES
     LINK_FLAGS "-flat_namespace -undefined dynamic_lookup")
 endif(APPLE)
 
