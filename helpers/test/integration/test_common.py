@@ -32,6 +32,17 @@ def random_str(size=random_int(),
     return ''.join(random.choice(characters) for _ in xrange(size))
 
 
+def random_params():
+    return {"file_uuid": random_str(), "handle_id": random_str()}
+
+
+def decode_params(params):
+    decoded_params = {}
+    for param in params:
+        decoded_params[param.key] = param.value
+    return decoded_params
+
+
 def _with_reply_process(endpoint, responses, queue):
     while responses:
         [received_msg] = endpoint.wait_for_any_messages(return_history=True)

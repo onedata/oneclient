@@ -11,9 +11,9 @@ package one.clproto;
 import "common_messages.proto";
 
 message ProxyIORequest {
-    required bytes storage_id = 1;
-    required bytes file_id    = 2;
-    required bytes file_uuid   = 3;
+    required bytes storage_id     = 1;
+    required bytes file_id        = 2;
+    repeated Parameter parameters = 3;
 
     oneof proxyio_request {
         RemoteRead  remote_read  = 4;
@@ -46,4 +46,9 @@ message RemoteData {
 
 message RemoteWriteResult {
     required uint64 wrote = 1;
+}
+
+message Parameter {
+    required bytes key   = 1;
+    required bytes value = 2;
 }
