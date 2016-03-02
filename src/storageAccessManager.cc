@@ -128,9 +128,10 @@ bool StorageAccessManager::verifyStorageTestFile(
         auto size = testFile.fileContent().size();
         std::vector<char> buffer(size);
         auto ctx = helper->createCTX();
+        std::map<std::string, std::string> parameters{};
 
         auto content = helper->sh_read(
-            ctx, testFile.fileId(), asio::buffer(buffer), 0, "");
+            ctx, testFile.fileId(), asio::buffer(buffer), 0, parameters);
 
         if (asio::buffer_size(content) != size) {
             LOG(WARNING) << "Storage test file size mismatch, expected: "
@@ -166,6 +167,7 @@ std::string StorageAccessManager::modifyStorageTestFile(
     auto size = testFile.fileContent().size();
     std::vector<char> buffer(size);
     auto ctx = helper->createCTX();
+    std::map<std::string, std::string> parameters{};
 
     std::random_device device;
     std::default_random_engine engine(device());
@@ -174,7 +176,8 @@ std::string StorageAccessManager::modifyStorageTestFile(
         buffer.data(), size, [&]() { return distribution(engine); });
 
     helper->sh_write(
-        ctx, testFile.fileId(), asio::const_buffer(buffer.data(), size), 0, "");
+        ctx, testFile.fileId(), asio::const_buffer(buffer.data(), size), 0,
+        parameters);
 
     return std::string{buffer.data(), size};
 }

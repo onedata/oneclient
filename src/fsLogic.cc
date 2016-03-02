@@ -292,6 +292,7 @@ int FsLogic::open(
 
     acc->second.uuid = attr.uuid();
     acc->second.flags = fileInfo->flags;
+    acc->second.handleId = location.handleId();
     acc->second.helperCtxMap =
         std::make_shared<FileContextCache::HelperCtxMap>();
 
@@ -359,10 +360,13 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     FileContextCache::HelperCtxMapAccessor ctxAcc;
     if (context.helperCtxMap->insert(ctxAcc, ctxMapKey))
         openFile(ctxAcc, context, helper, fileBlock.fileId());
+    std::map<std::string, std::string> parameters{{"file_uuid", context.uuid}};
+    if (context.handleId.is_initialized())
+        parameters.insert({"handle_id", context.handleId.get()});
 
     try {
         buf = helper->sh_read(
-            ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
+            ctxAcc->second, fileBlock.fileId(), buf, offset, parameters);
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)
@@ -372,7 +376,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         m_forceProxyIOCache.insert(context.uuid);
         helper = getHelper(context.uuid, fileBlock.storageId());
         buf = helper->sh_read(
-            ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
+            ctxAcc->second, fileBlock.fileId(), buf, offset, parameters);
     }
 
     const auto bytesRead = asio::buffer_size(buf);
@@ -414,11 +418,14 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     FileContextCache::HelperCtxMapAccessor ctxAcc;
     if (context.helperCtxMap->insert(ctxAcc, ctxMapKey))
         openFile(ctxAcc, context, helper, fileBlock.fileId());
+    std::map<std::string, std::string> parameters{{"file_uuid", context.uuid}};
+    if (context.handleId.is_initialized())
+        parameters.insert({"handle_id", context.handleId.get()});
 
     size_t bytesWritten = 0;
     try {
         bytesWritten = helper->sh_write(
-            ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
+            ctxAcc->second, fileBlock.fileId(), buf, offset, parameters);
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)
@@ -428,7 +435,7 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
         m_forceProxyIOCache.insert(context.uuid);
         helper = getHelper(context.uuid, location.storageId());
         bytesWritten = helper->sh_write(
-            ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
+            ctxAcc->second, fileBlock.fileId(), buf, offset, parameters);
     }
 
     m_eventManager.emitWriteEvent(offset, bytesWritten, context.uuid,
@@ -700,6 +707,7 @@ int FsLogic::create(boost::filesystem::path path, const mode_t mode,
 
     acc->second.uuid = location.uuid();
     acc->second.flags = fileInfo->flags;
+    acc->second.handleId = location.handleId();
     acc->second.helperCtxMap =
         std::make_shared<FileContextCache::HelperCtxMap>();
 

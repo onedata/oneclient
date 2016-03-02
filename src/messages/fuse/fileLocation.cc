@@ -54,6 +54,16 @@ const FileLocation::FileBlocksMap &FileLocation::blocks() const
     return m_blocks;
 }
 
+const boost::optional<std::string> &FileLocation::handleId() const
+{
+    return m_handleId;
+}
+
+void FileLocation::handleId(std::string handleId_)
+{
+    m_handleId.get().swap(handleId_);
+}
+
 void FileLocation::aggregate(FileLocationPtr fileLocation)
 {
     m_storageId.swap(fileLocation->m_storageId);
@@ -71,7 +81,13 @@ std::string FileLocation::toString() const
         stream << block.first << " -> (" << block.second.storageId() << ", "
                << block.second.fileId() << "), ";
 
-    stream << "]";
+    stream << "], handleId: ";
+
+    if (m_handleId.is_initialized())
+        stream << m_handleId.get();
+    else
+        stream << "unset";
+
     return stream.str();
 }
 
@@ -100,6 +116,12 @@ void FileLocation::deserialize(ProtocolMessage &message)
 
         m_blocks += std::make_pair(
             interval, FileBlock{std::move(storageId_), std::move(fileId_)});
+    }
+
+    if(message.has_handle_id()) {
+        std::string handleId_;
+        handleId_.swap(*message.mutable_handle_id());
+        m_handleId = handleId_;
     }
 }
 

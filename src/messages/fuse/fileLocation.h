@@ -13,6 +13,7 @@
 #include "fuseResponse.h"
 
 #include <boost/icl/interval_map.hpp>
+#include <boost/optional.hpp>
 
 #include <sys/types.h>
 
@@ -112,6 +113,17 @@ public:
     const FileBlocksMap &blocks() const;
 
     /**
+     * @return ID of file handle.
+     */
+    const boost::optional<std::string> &handleId() const;
+
+    /**
+     * Set new handle id.
+     * @param handleId The handle id to set.
+     */
+    void handleId(std::string handleId);
+
+    /**
      * Aggregates @c this file location with an other file location.
      * Aggregation is done by substitution of all @c this file location fields
      * with an other file location fields.
@@ -129,6 +141,7 @@ private:
     std::string m_storageId;
     std::string m_fileId;
     FileBlocksMap m_blocks;
+    boost::optional<std::string> m_handleId;
 };
 
 } // namespace fuse
