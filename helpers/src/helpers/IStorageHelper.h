@@ -15,7 +15,6 @@
 
 #include <asio/buffer.hpp>
 #include <boost/any.hpp>
-#include <boost/bimap.hpp>
 #include <boost/filesystem/path.hpp>
 #include <tbb/concurrent_hash_map.h>
 
@@ -197,6 +196,13 @@ public:
     virtual void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
         FlagsSet flags, GeneralCallback<int> callback)
     {
+        ash_open(std::move(ctx), p, getFlagsValue(std::move(flags)),
+            std::move(callback));
+    }
+
+    virtual void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
+        int flags, GeneralCallback<int> callback)
+    {
         callback({}, SUCCESS_CODE);
     }
 
@@ -277,8 +283,7 @@ public:
         return waitFor(future);
     }
 
-    virtual int sh_open(
-        CTXPtr ctx, const boost::filesystem::path &p, FlagsSet flags)
+    virtual int sh_open(CTXPtr ctx, const boost::filesystem::path &p, int flags)
     {
         auto promise = std::make_shared<std::promise<int>>();
         auto future = promise->get_future();
@@ -316,23 +321,13 @@ public:
         return waitFor(future);
     }
 
-    static FlagsSet parseFlags(int flags)
-    {
-        FlagsSet flagsSet{};
-        for (auto flag: s_flagTranslation.right)
-            if (flag.first & flags)
-                flagsSet.insert(flag.second);
-
-        return flagsSet;
-    }
-
     static int getFlagsValue(FlagsSet flags)
     {
         int value = 0;
 
         for (auto flag : flags) {
-            auto searchResult = s_flagTranslation.left.find(flag);
-            assert(searchResult != s_flagTranslation.left.end());
+            auto searchResult = s_flagTranslation.find(flag);
+            assert(searchResult != s_flagTranslation.end());
             value |= searchResult->second;
         }
         return value;
@@ -355,7 +350,7 @@ private:
         return f.get();
     }
 
-    static const boost::bimap<Flag, int> s_flagTranslation;
+    static const std::unordered_map<Flag, int, FlagHash> s_flagTranslation;
 };
 
 } // namespace helpers

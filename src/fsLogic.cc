@@ -307,8 +307,7 @@ int openFile(const FileContextCache::HelperCtxMapAccessor &ctxAcc,
     const HelpersCache::HelperPtr &helper, const std::string &fileId)
 {
     auto helperCtx = helper->createCTX();
-    int fh = helper->sh_open(
-        helperCtx, fileId, helpers::IStorageHelper::parseFlags(fileCtx.flags));
+    int fh = helper->sh_open(helperCtx, fileId, fileCtx.flags);
     ctxAcc->second = helperCtx;
     return fh;
 }
@@ -551,10 +550,7 @@ events::FileLocationEventStream::Handler FsLogic::fileLocationHandler()
             location.storageId(newLocation.storageId());
             location.fileId(newLocation.fileId());
 
-            // `newLocation.blocks()` is on LHS of the expression, because
-            // FileBlock keeps first value of {storageId, fileId} and ignores
-            // any new values
-            location.blocks() = newLocation.blocks() | location.blocks();
+            location.blocks() = newLocation.blocks();
 
             m_metadataCache.notifyNewLocationArrived(newLocation.uuid());
         }

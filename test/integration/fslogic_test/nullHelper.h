@@ -131,8 +131,7 @@ public:
         callback(m_ec);
     }
 
-    void ash_open(one::helpers::CTXPtr, const boost::filesystem::path &,
-        one::helpers::FlagsSet,
+    void ash_open(one::helpers::CTXPtr, const boost::filesystem::path &, int,
         one::helpers::GeneralCallback<int> callback) override
     {
         callback(0, m_ec);
@@ -193,7 +192,7 @@ public:
     }
 
     virtual int sh_open(one::helpers::CTXPtr ctx,
-        const boost::filesystem::path &p, one::helpers::FlagsSet) override
+        const boost::filesystem::path &p, int) override
     {
         if (m_ec)
             throw std::system_error{m_ec};
@@ -211,9 +210,8 @@ public:
 
 class NullHelperMock : public NullHelper {
 public:
-    MOCK_METHOD3(
-        sh_open, int(one::helpers::CTXPtr, const boost::filesystem::path &,
-                     one::helpers::FlagsSet));
+    MOCK_METHOD3(sh_open,
+        int(one::helpers::CTXPtr, const boost::filesystem::path &, int));
     MOCK_METHOD2(sh_release,
         std::error_code(one::helpers::CTXPtr, const boost::filesystem::path &));
 
