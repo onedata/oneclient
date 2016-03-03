@@ -4,6 +4,14 @@
 CHANGELOG
 ---------
 
+### 3.0.0-alpha2
+
+* VFS-1657 Add system update to release dockers.
+* Remove gflags from package build requirements.
+* Adjustments for open function that takes flags as integer.
+* VFS-1522 Override block map on file_location update.
+
+
 ### 3.0.0-alpha
 
 * VFS-1525 Move open file to fsLogic.
