@@ -73,8 +73,16 @@ std::string generateFuseID()
 std::string clientVersion()
 {
     std::stringstream stream;
-    stream << oneclient_VERSION_MAJOR << "." << oneclient_VERSION_MINOR << "."
+    if (oneclient_VERSION_FALLBACK.empty()) {
+        stream << oneclient_VERSION_MAJOR << "." << oneclient_VERSION_MINOR << "."
            << oneclient_VERSION_PATCH;
+        if (!oneclient_VERSION_TWEAK.empty()) {
+            stream << "-" << oneclient_VERSION_TWEAK;
+        }
+    } else {
+        stream << oneclient_VERSION_FALLBACK;
+    }
+
     return stream.str();
 }
 

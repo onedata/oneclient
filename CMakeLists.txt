@@ -6,53 +6,21 @@ set(CMAKE_FIND_FRAMEWORK LAST)
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${PROJECT_SOURCE_DIR}/helpers/cmake)
 
-#================================================================================================
-# Automatic git versioning: http://ipenguin.ws/2012/11/cmake-automatically-use-git-tags-as.html
-# Make a version file containing the current version from git.
-include(GetGitRevisionDescription)
-git_describe(VERSION --tags)
-
-#parse the version information into pieces.
-string(REGEX REPLACE "^([0-9]+)\\..*" "\\1" VERSION_MAJOR "${VERSION}")
-string(REGEX REPLACE "^[0-9]+\\.([0-9]+).*" "\\1" VERSION_MINOR "${VERSION}")
-string(REGEX REPLACE "^[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" VERSION_PATCH "${VERSION}")
-
+# Version
 set(oneclient_VERSION_MAJOR 0)
 set(oneclient_VERSION_MINOR 0)
 set(oneclient_VERSION_PATCH 0)
+set(oneclient_VERSION_TWEAK "")
+set(oneclient_VERSION_FALLBACK "unknown version")
 
-# for packages load saved version from file
 if(EXISTS "${PROJECT_SOURCE_DIR}/version.txt")
     include( "version.txt" )
-    if(${VERSION_MAJOR} STREQUAL HEAD-HASH-NOTFOUND)
-        set(VERSION_MAJOR ${SAVED_VERSION_MAJOR})
-    endif(${VERSION_MAJOR} STREQUAL HEAD-HASH-NOTFOUND)
-
-    if(${VERSION_MINOR} STREQUAL HEAD-HASH-NOTFOUND)
-        set(VERSION_MINOR ${SAVED_VERSION_MINOR})
-    endif(${VERSION_MINOR} STREQUAL HEAD-HASH-NOTFOUND)
-
-    if(${VERSION_PATCH} STREQUAL HEAD-HASH-NOTFOUND)
-        set(VERSION_PATCH ${SAVED_VERSION_PATCH})
-    endif(${VERSION_PATCH} STREQUAL HEAD-HASH-NOTFOUND)
+    set(oneclient_VERSION_MAJOR ${SAVED_VERSION_MAJOR})
+    set(oneclient_VERSION_MINOR ${SAVED_VERSION_MINOR})
+    set(oneclient_VERSION_PATCH ${SAVED_VERSION_PATCH})
+    set(oneclient_VERSION_TWEAK ${SAVED_VERSION_TWEAK})
+    set(oneclient_VERSION_FALLBACK ${SAVED_VERSION_FALLBACK})
 endif(EXISTS "${PROJECT_SOURCE_DIR}/version.txt")
-
-# set version (if no tag is specified, the version stays at 0.0.0)
-if(NOT ${VERSION_MAJOR} MATCHES -128-NOTFOUND)
-    set(oneclient_VERSION_MAJOR ${VERSION_MAJOR})
-endif(NOT ${VERSION_MAJOR} MATCHES -128-NOTFOUND)
-
-if(NOT ${VERSION_MINOR} MATCHES -128-NOTFOUND)
-    set(oneclient_VERSION_MINOR ${VERSION_MINOR})
-endif(NOT ${VERSION_MINOR} MATCHES -128-NOTFOUND)
-
-if(NOT ${VERSION_PATCH} MATCHES -128-NOTFOUND)
-    set(oneclient_VERSION_PATCH ${VERSION_PATCH})
-endif(NOT ${VERSION_PATCH} MATCHES -128-NOTFOUND)
-
-# The version number.
-set(oneclient_VERSION $(oneclient_VERSION_MAJOR).$(oneclient_VERSION_MINOR).$(oneclient_VERSION_PATCH))
-#================================================================================================
 
 file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/version)
 configure_file(include/version.h.in ${PROJECT_BINARY_DIR}/version/version.h)
