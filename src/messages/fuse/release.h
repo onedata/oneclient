@@ -1,13 +1,13 @@
 /**
- * @file close.h
+ * @file release.h
  * @author Konrad Zemek
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#ifndef ONECLIENT_MESSAGES_FUSE_CLOSE_H
-#define ONECLIENT_MESSAGES_FUSE_CLOSE_H
+#ifndef ONECLIENT_MESSAGES_FUSE_RELEASE_H
+#define ONECLIENT_MESSAGES_FUSE_RELEASE_H
 
 #include "messages/clientMessage.h"
 
@@ -18,26 +18,26 @@ namespace messages {
 namespace fuse {
 
 /**
- * The @c Close class represents a FUSE request for file closure.
+ * The @c Release class represents a FUSE request for file closure.
  */
-class Close : public ClientMessage {
+class Release : public ClientMessage {
 public:
     /**
      * Constructor.
      * @param uuid UUID of the file to close.
      */
-    Close(std::string uuid);
+    Release(std::string handleId);
 
     std::string toString() const override;
 
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    std::string m_uuid;
+    std::string m_handleId;
 };
 
 } // namespace fuse
 } // namespace messages
 } // namespace one
 
-#endif // ONECLIENT_MESSAGES_FUSE_CLOSE_H
+#endif // ONECLIENT_MESSAGES_FUSE_RELEASE_H

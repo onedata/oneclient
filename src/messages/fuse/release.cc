@@ -1,12 +1,12 @@
 /**
- * @file close.cc
+ * @file release.cc
  * @author Konrad Zemek
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "close.h"
+#include "release.h"
 
 #include "messages.pb.h"
 
@@ -16,23 +16,23 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-Close::Close(std::string uuid)
-    : m_uuid{std::move(uuid)}
+Release::Release(std::string handleId)
+    : m_handleId{std::move(handleId)}
 {
 }
 
-std::string Close::toString() const
+std::string Release::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'Close', uuid: " << m_uuid;
+    stream << "type: 'Release', handleId: " << m_handleId;
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> Close::serializeAndDestroy()
+std::unique_ptr<ProtocolClientMessage> Release::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
-    auto cm = msg->mutable_fuse_request()->mutable_close();
-    cm->mutable_uuid()->swap(m_uuid);
+    auto rm = msg->mutable_fuse_request()->mutable_release();
+    rm->mutable_handle_id()->swap(m_handleId);
     return msg;
 }
 

@@ -16,7 +16,7 @@
 
 #include "messages/configuration.h"
 #include "messages/fuse/changeMode.h"
-#include "messages/fuse/close.h"
+#include "messages/fuse/release.h"
 #include "messages/fuse/createDir.h"
 #include "messages/fuse/deleteFile.h"
 #include "messages/fuse/fileAttr.h"
@@ -607,6 +607,16 @@ int FsLogic::release(
         }
     }
     context.helperCtxMap->clear();
+
+    if (context.handleId.is_initialized()) {
+        auto future = m_context->communicator()->
+                communicate<messages::fuse::FuseResponse>(
+                        messages::fuse::Release{context.handleId.get()});
+        context.handleId = boost::none;
+
+        communication::wait(future);
+    }
+
     if (lastReleaseException)
         std::rethrow_exception(lastReleaseException);
     return 0;
