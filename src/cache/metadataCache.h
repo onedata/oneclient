@@ -195,9 +195,9 @@ public:
 
     /**
      * Removes a metadata entry and UUID mapping (if exists) from the cache.
-     * @param metaAcc Accessor to metadata mapping to remove.
+     * @param uuid UUID of the entry to remove.
      */
-    void remove(MetaAccessor &metaAcc);
+    void remove(const std::string &uuid);
 
     /**
      * Waits for file location update on given condition.

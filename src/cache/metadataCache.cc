@@ -39,11 +39,8 @@ void MetadataCache::schedulePurge()
 {
     std::lock_guard<std::mutex> guard{m_scheduleMutex};
     m_cancelPurge = m_scheduler.schedule(1s, [this] {
-        m_expirationHelper.tick([this](const std::string &uuid) {
-            MetaAccessor metaAcc;
-            if (get(metaAcc, uuid))
-                remove(metaAcc);
-        });
+        m_expirationHelper.tick(
+            [this](const std::string &uuid) { remove(uuid); });
 
         schedulePurge();
     });
@@ -247,8 +244,12 @@ void MetadataCache::remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc)
     m_pathToUuid.erase(uuidAcc);
 }
 
-void MetadataCache::remove(MetaAccessor &metaAcc)
+void MetadataCache::remove(const std::string &uuid)
 {
+    MetaAccessor metaAcc;
+    if (!m_metaCache.find(metaAcc, uuid))
+        return;
+
     if (metaAcc->second.path) {
         UuidAccessor uuidAcc;
         if (m_pathToUuid.find(uuidAcc, metaAcc->second.path.get())) {
