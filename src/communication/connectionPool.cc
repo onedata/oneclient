@@ -99,7 +99,7 @@ void ConnectionPool::send(std::string message, Callback callback, const int)
     if (!m_connected)
         return;
 
-    PersistentConnection *conn;
+    Connection *conn;
     try {
         m_idleConnections.pop(conn);
     }
@@ -114,7 +114,7 @@ void ConnectionPool::send(std::string message, Callback callback, const int)
     conn->send(std::move(message), std::move(callback));
 }
 
-void ConnectionPool::onConnectionReady(PersistentConnection &conn)
+void ConnectionPool::onConnectionReady(Connection &conn)
 {
     m_idleConnections.emplace(&conn);
 }

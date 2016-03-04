@@ -71,8 +71,8 @@ TEST_F(SequencerTest, sequencerShouldPassNonStreamMessages)
 
     bool called = false;
 
-    auto handleOnMessageCallback = [&](
-        ServerMessagePtr) mutable { called = true; };
+    auto handleOnMessageCallback =
+        [&](ServerMessagePtr) mutable { called = true; };
     sequencer.setOnMessageCallback(handleOnMessageCallback);
 
     sequenceOnMessageCallback(std::make_unique<clproto::ServerMessage>());
@@ -194,8 +194,8 @@ TEST_F(SequencerTest, sequencerShouldSendMessageRequestMessage)
 
     bool called = false;
 
-    auto handleOnMessageCallback = [&](
-        ServerMessagePtr) mutable { called = true; };
+    auto handleOnMessageCallback =
+        [&](ServerMessagePtr) mutable { called = true; };
     sequencer.setOnMessageCallback(handleOnMessageCallback);
 
     sequenceOnMessageCallback(streamMessage(1, 10));
