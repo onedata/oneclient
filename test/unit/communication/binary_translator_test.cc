@@ -20,6 +20,7 @@
 
 using namespace one;
 using namespace one::communication;
+using namespace one::testing;
 using namespace std::literals;
 using namespace ::testing;
 

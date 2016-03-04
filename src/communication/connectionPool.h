@@ -9,7 +9,7 @@
 #ifndef HELPERS_COMMUNICATION_CONNECTION_POOL_H
 #define HELPERS_COMMUNICATION_CONNECTION_POOL_H
 
-#include "persistentConnection.h"
+#include "connection.h"
 
 #include <asio/ssl/context.hpp>
 #include <tbb/concurrent_queue.h>
@@ -32,22 +32,19 @@ class CertificateData;
 }
 
 /**
- * A @c ConnectionPool is responsible for managing instances of
- * @c PersistentConnection.
+ * A @c ConnectionPool is responsible for managing instances of @c Connection.
  * It provides a facade for the connections, ensuring that outside entities
  * do not interact with connections directly.
  */
 class ConnectionPool {
 public:
-    using Callback = PersistentConnection::Callback;
-    using ConnectionFactory =
-        std::function<std::unique_ptr<PersistentConnection>(std::string,
-            const unsigned short, asio::ssl::context &,
-            std::function<void(std::string)>,
-            std::function<void(PersistentConnection &)>,
-            std::function<std::string()>,
-            std::function<std::error_code(std::string)>,
-            std::function<void(std::error_code)>)>;
+    using Callback = Connection::Callback;
+    using ConnectionFactory = std::function<std::unique_ptr<Connection>(
+        std::string, const unsigned short, asio::ssl::context &,
+        std::function<void(std::string)>, std::function<void(Connection &)>,
+        std::function<std::string()>,
+        std::function<std::error_code(std::string)>,
+        std::function<void(std::error_code)>)>;
 
     /**
      * A reference to @c *this typed as a @c ConnectionPool.
@@ -130,7 +127,7 @@ public:
     void stop();
 
 private:
-    void onConnectionReady(PersistentConnection &conn);
+    void onConnectionReady(Connection &conn);
 
     std::atomic<bool> m_connected{false};
     const std::size_t m_connectionsNumber;
@@ -152,8 +149,8 @@ private:
     std::thread m_thread;
     asio::ssl::context m_context{asio::ssl::context::tlsv12_client};
 
-    std::vector<std::unique_ptr<PersistentConnection>> m_connections;
-    tbb::concurrent_bounded_queue<PersistentConnection *> m_idleConnections;
+    std::vector<std::unique_ptr<Connection>> m_connections;
+    tbb::concurrent_bounded_queue<Connection *> m_idleConnections;
 };
 
 } // namespace communication

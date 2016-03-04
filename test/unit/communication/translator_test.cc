@@ -24,6 +24,7 @@
 
 using namespace one;
 using namespace one::communication;
+using namespace one::testing;
 using namespace ::testing;
 using namespace std::literals;
 
