@@ -608,15 +608,6 @@ int FsLogic::release(
     }
     context.helperCtxMap->clear();
 
-    if (context.handleId.is_initialized()) {
-        auto future = m_context->communicator()->
-                communicate<messages::fuse::FuseResponse>(
-                        messages::fuse::Release{context.handleId.get()});
-        context.handleId = boost::none;
-
-        communication::wait(future);
-    }
-
     if (lastReleaseException)
         std::rethrow_exception(lastReleaseException);
     return 0;
