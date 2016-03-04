@@ -6,8 +6,10 @@
  * 'LICENSE.txt'
  */
 
-#ifndef HELPERS_COMMUNICATION_CONNECTION_H
-#define HELPERS_COMMUNICATION_CONNECTION_H
+#ifndef HELPERS_COMMUNICATION_PERSISTENT_CONNECTION_H
+#define HELPERS_COMMUNICATION_PERSISTENT_CONNECTION_H
+
+#include "connection.h"
 
 #include "tlsApplication.hpp"
 #include "tlsSocket.hpp"
@@ -52,9 +54,9 @@ static constexpr std::chrono::seconds RECREATE_DELAY{2};
  * No callback shall perform a blocking or computationally-heavy operation, as
  * those would take up resources dedicated to managing connections.
  */
-class PersistentConnection {
+class PersistentConnection : public Connection {
 public:
-    using Callback = std::function<void(const std::error_code &)>;
+    using Connection::Callback;
 
     /**
      * Constructor.
@@ -81,7 +83,7 @@ public:
      * Destructor.
      * Attempts to gracefully close the managed connection.
      */
-    virtual ~PersistentConnection();
+    ~PersistentConnection();
 
     /**
      * Sends a message through the managed connection.
@@ -89,12 +91,12 @@ public:
      * @param callback Callback called when the message is successfuly sent or
      * failed with error.
      */
-    virtual void send(std::string message, Callback callback);
+    void send(std::string message, Callback callback) override;
 
     /**
      * Starts the managed connection.
      */
-    virtual void connect();
+    void connect() override;
 
     PersistentConnection(const PersistentConnection &) = delete;
     PersistentConnection(PersistentConnection &&) = delete;
@@ -144,10 +146,10 @@ private:
     std::string m_outData;
 };
 
-std::unique_ptr<PersistentConnection> createConnection(std::string host,
+std::unique_ptr<Connection> createConnection(std::string host,
     const unsigned short port, asio::ssl::context &context,
     std::function<void(std::string)> onMessage,
-    std::function<void(PersistentConnection &)> onReady,
+    std::function<void(Connection &)> onReady,
     std::function<std::string()> getHandshake = {},
     std::function<std::error_code(std::string)> onHandshakeResponse = {},
     std::function<void(std::error_code)> onHandshakeDone = {});
@@ -155,4 +157,4 @@ std::unique_ptr<PersistentConnection> createConnection(std::string host,
 } // namespace communication
 } // namespace one
 
-#endif // HELPERS_COMMUNICATION_CONNECTION_H
+#endif // HELPERS_COMMUNICATION_PERSISTENT_CONNECTION_H

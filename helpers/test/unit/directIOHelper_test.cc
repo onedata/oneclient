@@ -29,6 +29,7 @@
 using namespace ::testing;
 using namespace one;
 using namespace one::helpers;
+using namespace one::testing;
 using namespace std::placeholders;
 
 template <typename T> bool identityEqual(const T &lhs, const T &rhs)
