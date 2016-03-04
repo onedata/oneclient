@@ -9,16 +9,24 @@
 #ifndef ONECLIENT_METADATA_CACHE_H
 #define ONECLIENT_METADATA_CACHE_H
 
+#include "cacheExpirationHelper.h"
+
 #include "communication/communicator.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
+#include "messages/fuse/getFileAttr.h"
 
 #include <boost/filesystem/path.hpp>
 #include <tbb/concurrent_hash_map.h>
 
 #include <condition_variable>
+#include <functional>
+#include <mutex>
 
 namespace one {
+
+class Scheduler;
+
 namespace client {
 
 /**
@@ -46,7 +54,6 @@ private:
         static bool equal(const Path &, const Path &);
     };
 
-    communication::Communicator &m_communicator;
     tbb::concurrent_hash_map<Path, std::string, PathHash> m_pathToUuid;
     tbb::concurrent_hash_map<std::string, Metadata> m_metaCache;
     tbb::concurrent_hash_map<std::string,
@@ -67,8 +74,31 @@ public:
      * Constructor.
      * @param communicator Communicator instance used for fetching missing
      * data.
+     * @param scheduler Scheduler instance used for scheduling cache clears.
      */
-    MetadataCache(communication::Communicator &communicator);
+    MetadataCache(
+        communication::Communicator &communicator, Scheduler &scheduler);
+
+    /**
+     * Destructor.
+     * Cancels scheduling on @c this .
+     */
+    ~MetadataCache();
+
+    MetadataCache(MetadataCache &&) = delete;
+
+    /**
+     * Fetches attributes for a path and marks it as open.
+     * Open has to be matched with @c release() .
+     * @param path The path of a file to retrieve attributes of.
+     */
+    FileAttr open(const Path &path);
+
+    /**
+     * Marks a file as closed.
+     * @param uuid UUID of the file to mark as closed.
+     */
+    void release(const std::string &uuid);
 
     /**
      * Sets metadata accessor for a given uuid, without consulting the remote
@@ -164,6 +194,12 @@ public:
     void remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
 
     /**
+     * Removes a metadata entry and UUID mapping (if exists) from the cache.
+     * @param metaAcc Accessor to metadata mapping to remove.
+     */
+    void remove(MetaAccessor &metaAcc);
+
+    /**
      * Waits for file location update on given condition.
      * @param uuid The UUID of file
      * @param range Range of data to wait for
@@ -189,6 +225,16 @@ private:
      */
     std::pair<std::mutex &, std::condition_variable &> getMutexConditionPair(
         const std::string &uuid);
+
+    void schedulePurge();
+
+    FileAttr fetchAttr(messages::fuse::GetFileAttr request);
+
+    communication::Communicator &m_communicator;
+    Scheduler &m_scheduler;
+    CacheExpirationHelper<std::string> m_expirationHelper;
+    std::mutex m_scheduleMutex;
+    std::function<void()> m_cancelPurge;
 };
 
 } // namespace one

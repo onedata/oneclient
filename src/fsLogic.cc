@@ -52,7 +52,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_context{std::move(context)}
     , m_eventManager{m_context}
     , m_helpersCache{*m_context->communicator(), *m_context->scheduler()}
-    , m_metadataCache{*m_context->communicator()}
+    , m_metadataCache{*m_context->communicator(), *m_context->scheduler()}
     , m_fsSubscriptions{*m_context->scheduler(), m_eventManager}
     , m_forceProxyIOCache{m_fsSubscriptions}
 {
@@ -280,7 +280,7 @@ int FsLogic::open(
 {
     DLOG(INFO) << "FUSE: open(path: " << path << ", ...)";
 
-    auto attr = m_metadataCache.getAttr(path);
+    auto attr = m_metadataCache.open(path);
     auto location = m_metadataCache.getLocation(attr.uuid());
     auto helper = getHelper(attr.uuid(), location.storageId());
 
@@ -582,6 +582,7 @@ int FsLogic::release(
 {
     DLOG(INFO) << "FUSE: release(path: " << path << ", ...)";
     auto attr = m_metadataCache.getAttr(path);
+    m_metadataCache.release(attr.uuid());
     m_fsSubscriptions.removeFileLocationSubscription(attr.uuid());
 
     auto context = m_fileContextCache.get(fileInfo->fh);
