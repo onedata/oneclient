@@ -21,29 +21,9 @@ using namespace std::literals;
 namespace one {
 namespace client {
 
-MetadataCache::MetadataCache(
-    communication::Communicator &communicator, Scheduler &scheduler)
+MetadataCache::MetadataCache(communication::Communicator &communicator)
     : m_communicator{communicator}
-    , m_scheduler{scheduler}
 {
-    schedulePurge();
-}
-
-MetadataCache::~MetadataCache()
-{
-    std::lock_guard<std::mutex> guard{m_scheduleMutex};
-    m_cancelPurge();
-}
-
-void MetadataCache::schedulePurge()
-{
-    std::lock_guard<std::mutex> guard{m_scheduleMutex};
-    m_cancelPurge = m_scheduler.schedule(1s, [this] {
-        m_expirationHelper.tick(
-            [this](const std::string &uuid) { remove(uuid); });
-
-        schedulePurge();
-    });
 }
 
 MetadataCache::FileAttr MetadataCache::getAttr(const Path &path)
@@ -62,10 +42,8 @@ MetadataCache::FileAttr MetadataCache::getAttr(const std::string &uuid)
 {
     ConstMetaAccessor constAcc;
     if (m_metaCache.find(constAcc, uuid)) {
-        if (constAcc->second.attr) {
-            m_expirationHelper.markInteresting(uuid);
+        if (constAcc->second.attr)
             return constAcc->second.attr.get();
-        }
 
         constAcc.release();
     }
@@ -79,10 +57,8 @@ MetadataCache::FileLocation MetadataCache::getLocation(const std::string &uuid)
 {
     ConstMetaAccessor constAcc;
     if (m_metaCache.find(constAcc, uuid)) {
-        if (constAcc->second.location) {
-            m_expirationHelper.markInteresting(uuid);
+        if (constAcc->second.location)
             return constAcc->second.location.get();
-        }
 
         constAcc.release();
     }
@@ -111,7 +87,6 @@ void MetadataCache::getAttr(
         DLOG(INFO) << "Fetching attributes for " << path;
         auto attr = fetchAttr(messages::fuse::GetFileAttr{path});
         m_metaCache.insert(metaAcc, attr.uuid());
-        m_expirationHelper.markInteresting(attr.uuid());
         uuidAcc->second = attr.uuid();
         metaAcc->second.attr = std::move(attr);
         metaAcc->second.path = path;
@@ -127,27 +102,19 @@ void MetadataCache::getAttr(
 
 bool MetadataCache::get(MetaAccessor &metaAcc, const std::string &uuid)
 {
-    if (m_metaCache.find(metaAcc, uuid)) {
-        m_expirationHelper.markInteresting(uuid);
-        return true;
-    }
-
-    return false;
+    return m_metaCache.find(metaAcc, uuid);
 }
 
 void MetadataCache::getAttr(MetaAccessor &metaAcc, const std::string &uuid)
 {
     if (!m_metaCache.insert(metaAcc, uuid)) {
-        if (metaAcc->second.attr) {
-            m_expirationHelper.markInteresting(uuid);
+        if (metaAcc->second.attr)
             return;
-        }
     }
 
     try {
         DLOG(INFO) << "Fetching attributes for " << uuid;
         metaAcc->second.attr = fetchAttr(messages::fuse::GetFileAttr{uuid});
-        m_expirationHelper.markInteresting(uuid);
     }
     catch (...) {
         m_metaCache.erase(metaAcc);
@@ -159,10 +126,8 @@ void MetadataCache::getLocation(
     MetadataCache::MetaAccessor &metaAcc, const std::string &uuid)
 {
     if (!m_metaCache.insert(metaAcc, uuid)) {
-        if (metaAcc->second.location) {
-            m_expirationHelper.markInteresting(uuid);
+        if (metaAcc->second.location)
             return;
-        }
     }
 
     try {
@@ -171,7 +136,6 @@ void MetadataCache::getLocation(
             messages::fuse::GetFileLocation{uuid});
 
         metaAcc->second.location = communication::wait(future);
-        m_expirationHelper.markInteresting(uuid);
     }
     catch (...) {
         m_metaCache.erase(metaAcc);
@@ -191,7 +155,6 @@ void MetadataCache::rename(
         MetaAccessor metaAcc;
         getAttr(oldUuidAcc, metaAcc, oldPath);
         auto &uuid = metaAcc->second.attr.get().uuid();
-        m_expirationHelper.markInteresting(uuid);
 
         DLOG(INFO) << "Renaming file " << uuid << " to " << newPath;
         auto future = m_communicator.communicate<messages::fuse::FuseResponse>(
@@ -217,8 +180,6 @@ void MetadataCache::map(Path path, std::string uuid)
     MetaAccessor metaAcc;
     m_metaCache.insert(metaAcc, uuid);
 
-    m_expirationHelper.markInteresting(uuid);
-
     uuidAcc->second = std::move(uuid);
     metaAcc->second.path = std::move(path);
 }
@@ -231,8 +192,6 @@ void MetadataCache::map(Path path, FileLocation location)
     MetaAccessor metaAcc;
     m_metaCache.insert(metaAcc, location.uuid());
 
-    m_expirationHelper.markInteresting(location.uuid());
-
     uuidAcc->second = location.uuid();
     metaAcc->second.path = std::move(path);
     metaAcc->second.location = std::move(location);
@@ -241,6 +200,13 @@ void MetadataCache::map(Path path, FileLocation location)
 void MetadataCache::remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc)
 {
     m_metaCache.erase(metaAcc);
+    m_pathToUuid.erase(uuidAcc);
+}
+
+void MetadataCache::removePathMapping(
+    UuidAccessor &uuidAcc, MetaAccessor &metaAcc)
+{
+    metaAcc->second.path = boost::none;
     m_pathToUuid.erase(uuidAcc);
 }
 
@@ -318,19 +284,6 @@ MetadataCache::FileAttr MetadataCache::fetchAttr(
         throw std::errc::protocol_error;
 
     return attr;
-}
-
-MetadataCache::FileAttr MetadataCache::open(const Path &path)
-{
-    MetaAccessor metaAcc;
-    getAttr(metaAcc, path);
-    m_expirationHelper.pin(metaAcc->second.attr.get().uuid());
-    return metaAcc->second.attr.get();
-}
-
-void MetadataCache::release(const std::string &uuid)
-{
-    m_expirationHelper.unpin(uuid);
 }
 
 } // namespace one

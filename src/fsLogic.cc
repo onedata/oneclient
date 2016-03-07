@@ -52,7 +52,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_context{std::move(context)}
     , m_eventManager{m_context}
     , m_helpersCache{*m_context->communicator(), *m_context->scheduler()}
-    , m_metadataCache{*m_context->communicator(), *m_context->scheduler()}
+    , m_metadataCache{*m_context->communicator()}
     , m_fsSubscriptions{*m_context->scheduler(), m_eventManager}
     , m_forceProxyIOCache{m_fsSubscriptions}
 {
@@ -60,6 +60,27 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     m_eventManager.setFileLocationHandler(fileLocationHandler());
     m_eventManager.setPermissionChangedHandler(permissionChangedHandler());
     m_eventManager.subscribe(configuration->subscriptionContainer());
+
+    scheduleCacheTick();
+}
+
+FsLogic::~FsLogic()
+{
+    std::lock_guard<std::mutex> guard{m_cancelCacheTickMutex};
+    m_cancelCacheTick();
+}
+
+void FsLogic::scheduleCacheTick()
+{
+    std::lock_guard<std::mutex> guard{m_cancelCacheTickMutex};
+    m_cancelCacheTick = m_context->scheduler()->schedule(1s, [this] {
+        m_expirationHelper.tick([this](const std::string &uuid) {
+            m_metadataCache.remove(uuid);
+            m_fsSubscriptions.removeFileLocationSubscription(uuid);
+        });
+
+        scheduleCacheTick();
+    });
 }
 
 int FsLogic::access(boost::filesystem::path path, const int mask)
@@ -96,7 +117,10 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
             break;
     }
 
-    m_fsSubscriptions.addTemporaryFileAttrSubscription(attr.uuid());
+    m_expirationHelper.markInteresting(attr.uuid(), [&] {
+        m_metadataCache.getAttr(attr.uuid());
+        m_fsSubscriptions.addTemporaryFileAttrSubscription(attr.uuid());
+    });
 
     return 0;
 }
@@ -280,7 +304,7 @@ int FsLogic::open(
 {
     DLOG(INFO) << "FUSE: open(path: " << path << ", ...)";
 
-    auto attr = m_metadataCache.open(path);
+    auto attr = m_metadataCache.getAttr(path);
     auto location = m_metadataCache.getLocation(attr.uuid());
     auto helper = getHelper(attr.uuid(), location.storageId());
 
@@ -295,7 +319,10 @@ int FsLogic::open(
     acc->second.helperCtxMap =
         std::make_shared<FileContextCache::HelperCtxMap>();
 
-    m_fsSubscriptions.addFileLocationSubscription(attr.uuid());
+    m_expirationHelper.pin(attr.uuid(), [&] {
+        m_metadataCache.getAttr(attr.uuid());
+        m_fsSubscriptions.addFileLocationSubscription(attr.uuid());
+    });
 
     return 0;
 }
@@ -582,8 +609,7 @@ int FsLogic::release(
 {
     DLOG(INFO) << "FUSE: release(path: " << path << ", ...)";
     auto attr = m_metadataCache.getAttr(path);
-    m_metadataCache.release(attr.uuid());
-    m_fsSubscriptions.removeFileLocationSubscription(attr.uuid());
+    m_expirationHelper.unpin(attr.uuid());
 
     auto context = m_fileContextCache.get(fileInfo->fh);
     std::exception_ptr lastReleaseException;
@@ -689,7 +715,8 @@ void FsLogic::removeFile(boost::filesystem::path path)
 
     communication::wait(future);
 
-    m_metadataCache.remove(uuidAcc, metaAcc);
+    m_metadataCache.removePathMapping(uuidAcc, metaAcc);
+    m_expirationHelper.expire(metaAcc->first);
 }
 
 } // namespace client

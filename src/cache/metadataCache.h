@@ -9,8 +9,6 @@
 #ifndef ONECLIENT_METADATA_CACHE_H
 #define ONECLIENT_METADATA_CACHE_H
 
-#include "cacheExpirationHelper.h"
-
 #include "communication/communicator.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
@@ -20,13 +18,8 @@
 #include <tbb/concurrent_hash_map.h>
 
 #include <condition_variable>
-#include <functional>
-#include <mutex>
 
 namespace one {
-
-class Scheduler;
-
 namespace client {
 
 /**
@@ -74,31 +67,10 @@ public:
      * Constructor.
      * @param communicator Communicator instance used for fetching missing
      * data.
-     * @param scheduler Scheduler instance used for scheduling cache clears.
      */
-    MetadataCache(
-        communication::Communicator &communicator, Scheduler &scheduler);
-
-    /**
-     * Destructor.
-     * Cancels scheduling on @c this .
-     */
-    ~MetadataCache();
+    MetadataCache(communication::Communicator &communicator);
 
     MetadataCache(MetadataCache &&) = delete;
-
-    /**
-     * Fetches attributes for a path and marks it as open.
-     * Open has to be matched with @c release() .
-     * @param path The path of a file to retrieve attributes of.
-     */
-    FileAttr open(const Path &path);
-
-    /**
-     * Marks a file as closed.
-     * @param uuid UUID of the file to mark as closed.
-     */
-    void release(const std::string &uuid);
 
     /**
      * Sets metadata accessor for a given uuid, without consulting the remote
@@ -194,6 +166,13 @@ public:
     void remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
 
     /**
+     * Removes a UUID entry (path mapping) from the cache.
+     * @param uuidAcc Accessor to UUID mapping to remove.
+     * @param metaAcc Accessor to metadata mapping..
+     */
+    void removePathMapping(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
+
+    /**
      * Removes a metadata entry and UUID mapping (if exists) from the cache.
      * @param uuid UUID of the entry to remove.
      */
@@ -226,15 +205,9 @@ private:
     std::pair<std::mutex &, std::condition_variable &> getMutexConditionPair(
         const std::string &uuid);
 
-    void schedulePurge();
-
     FileAttr fetchAttr(messages::fuse::GetFileAttr request);
 
     communication::Communicator &m_communicator;
-    Scheduler &m_scheduler;
-    CacheExpirationHelper<std::string> m_expirationHelper;
-    std::mutex m_scheduleMutex;
-    std::function<void()> m_cancelPurge;
 };
 
 } // namespace one

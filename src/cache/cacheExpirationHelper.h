@@ -56,22 +56,19 @@ public:
      * @param purge Callable that ensures an element is removed from a cache.
      * It takes one argument of type @c Key . @c purge will be called for every
      * entry that is considered to be expired.
-     * @note Caller should ensure that @c purge(key) blocks while any operation
-     * that will call @c markInteresting(key) or @c pin(key) is in progress,
-     * i.e. guarantee that the record won't be deleted while in
-     * @c markInteresting(key) and @c pin(key) .
      */
     template <typename PurgeFun> void tick(PurgeFun &&purge)
     {
-        std::lock_guard<decltype(m_mutex)> guard{m_mutex};
+        auto expiredBucket = shift();
+        for (auto &elem : *expiredBucket) {
+            typename decltype(m_expDetails)::accessor acc;
 
-        for (auto &elem : *m_buckets.front()) {
-            m_expDetails.erase(elem.first);
-            purge(elem.first);
+            if (m_expDetails.find(acc, elem.first) &&
+                acc->second.bucket == expiredBucket.get()) {
+                purge(elem.first);
+                m_expDetails.erase(acc);
+            }
         }
-
-        std::move(m_buckets.begin() + 1, m_buckets.end(), m_buckets.begin());
-        m_buckets.back() = std::make_unique<Set>();
     }
 
     /**
@@ -79,13 +76,18 @@ public:
      * An interesting, unpinned record will be put into the first bucket
      * (furthest from expiration).
      * @param key The key of the interesting record.
+     * @param cache Callable taking no arguments, that ensures the element is in
+     * the cache. It will only be called if the element was not already tracked
+     * by @c *this .
      */
-    void markInteresting(const Key &key)
+    template <typename CacheFun>
+    void markInteresting(const Key &key, CacheFun &&cache)
     {
         std::shared_lock<decltype(m_mutex)> lock{m_mutex};
 
         typename decltype(m_expDetails)::accessor acc;
-        m_expDetails.insert(acc, key);
+        if (m_expDetails.insert(acc, key))
+            cache();
 
         if (acc->second.pinnedCount == 0 &&
             acc->second.bucket != m_buckets.back().get()) {
@@ -105,13 +107,17 @@ public:
      * A pinned record will not be put into any bucket. Every call to @c pin()
      * should be matched by a later call to @c unpin().
      * @param key The key of the pinned record.
+     * @param cache Callable taking no arguments, that ensures the element is in
+     * the cache. It will only be called if the element was not already tracked
+     * by @c *this .
      */
-    void pin(const Key &key)
+    template <typename CacheFun> void pin(const Key &key, CacheFun &&cache)
     {
         std::shared_lock<decltype(m_mutex)> lock{m_mutex};
 
         typename decltype(m_expDetails)::accessor acc;
-        m_expDetails.insert(acc, key);
+        if (m_expDetails.insert(acc, key))
+            cache();
 
         if (acc->second.bucket) {
             acc->second.bucket->erase(key);
@@ -140,11 +146,47 @@ public:
         if (--acc->second.pinnedCount == 0) {
             acc->second.bucket = m_buckets.back().get();
             typename Set::const_accessor sacc;
-            acc->second.bucket->insert(sacc, key);
+            if (!acc->second.bucket->insert(sacc, key))
+                assert(false);
+        }
+    }
+
+    /**
+    * Schedules an unpinned record to be removed on next call to @c tick() .
+    */
+    void expire(const Key &key)
+    {
+        std::shared_lock<decltype(m_mutex)> lock{m_mutex};
+
+        typename decltype(m_expDetails)::accessor acc;
+        if (!m_expDetails.find(acc, key) || acc->second.pinnedCount > 0)
+            return;
+
+        assert(acc->second.bucket);
+
+        if (acc->second.bucket != m_buckets.front().get()) {
+            acc->second.bucket->erase(key);
+            acc->second.bucket = m_buckets.front().get();
+
+            typename Set::const_accessor sacc;
+            if (!m_buckets.front()->insert(sacc, key))
+                assert(false);
         }
     }
 
 private:
+    auto shift()
+    {
+        std::lock_guard<decltype(m_mutex)> guard{m_mutex};
+
+        auto expiredBucket = std::move(m_buckets.front());
+
+        std::move(m_buckets.begin() + 1, m_buckets.end(), m_buckets.begin());
+        m_buckets.back() = std::make_unique<Set>();
+
+        return expiredBucket;
+    }
+
     // concurrent_hash_map, as opposed to concurrent_unordered_set, permits
     // concurrent erasure
     using Set = tbb::concurrent_hash_map<Key, char, HashCompare>;
