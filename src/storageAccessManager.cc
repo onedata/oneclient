@@ -175,9 +175,8 @@ std::string StorageAccessManager::modifyStorageTestFile(
     std::generate_n(
         buffer.data(), size, [&]() { return distribution(engine); });
 
-    helper->sh_write(
-        ctx, testFile.fileId(), asio::const_buffer(buffer.data(), size), 0,
-        parameters);
+    helper->sh_write(ctx, testFile.fileId(),
+        asio::const_buffer(buffer.data(), size), 0, parameters);
 
     return std::string{buffer.data(), size};
 }

@@ -679,8 +679,8 @@ int FsLogic::fsyncdir(boost::filesystem::path path, const int datasync,
 int FsLogic::create(boost::filesystem::path path, const mode_t mode,
     struct fuse_file_info *const fileInfo)
 {
-    DLOG(INFO) << "FUSE: create(path: " << path
-               << ", mode: " << std::oct << mode << ")";
+    DLOG(INFO) << "FUSE: create(path: " << path << ", mode: " << std::oct
+               << mode << ")";
 
     auto parentAttr = m_metadataCache.getAttr(path.parent_path());
     if (parentAttr.type() != messages::fuse::FileAttr::FileType::directory)
