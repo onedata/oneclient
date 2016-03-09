@@ -18,6 +18,7 @@ import "handshake_messages.proto";
 import "diagnostic_messages.proto";
 import "proxyio_messages.proto";
 import "dbsync_messages.proto";
+import "gwproto.proto";
 
 // Messages that can be sent by the client to the server.
 message ClientMessage {
