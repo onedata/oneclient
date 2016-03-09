@@ -106,7 +106,7 @@ int FsLogic::readlink(boost::filesystem::path path, asio::mutable_buffer buf)
     DLOG(INFO) << "FUSE: readlink(path: " << path
                << ", bufferSize: " << asio::buffer_size(buf) << ")";
 
-    throw std::errc::operation_not_supported;
+    throw std::errc::function_not_supported;
 }
 
 int FsLogic::mknod(
@@ -173,7 +173,7 @@ int FsLogic::symlink(
     DLOG(INFO) << "FUSE: symlink(target: " << target
                << ", linkPath: " << linkPath << ")";
 
-    throw std::errc::operation_not_supported;
+    throw std::errc::function_not_supported;
 }
 
 int FsLogic::rename(
@@ -214,7 +214,7 @@ int FsLogic::chown(
     DLOG(INFO) << "FUSE: chown(path: " << path << ", uid: " << uid
                << ", gid: " << gid << ")";
 
-    throw std::errc::operation_not_supported;
+    throw std::errc::function_not_supported;
 }
 
 int FsLogic::truncate(boost::filesystem::path path, const off_t newSize)
@@ -567,7 +567,7 @@ int FsLogic::statfs(
     boost::filesystem::path path, struct statvfs *const statInfo)
 {
     DLOG(INFO) << "FUSE: statfs(path: " << path << ", ...)";
-    throw std::errc::operation_not_supported;
+    throw std::errc::function_not_supported;
 }
 
 int FsLogic::flush(
@@ -611,7 +611,7 @@ int FsLogic::fsync(boost::filesystem::path path, const int datasync,
     DLOG(INFO) << "FUSE: fsync(path: " << path << ", datasync: " << datasync
                << ", ...)";
 
-    throw std::errc::operation_not_supported;
+    throw std::errc::function_not_supported;
 }
 
 int FsLogic::opendir(
