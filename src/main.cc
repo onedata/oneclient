@@ -74,12 +74,13 @@ std::string clientVersion()
 {
     std::stringstream stream;
     if (oneclient_VERSION_FALLBACK.empty()) {
-        stream << oneclient_VERSION_MAJOR << "." << oneclient_VERSION_MINOR << "."
-           << oneclient_VERSION_PATCH;
+        stream << oneclient_VERSION_MAJOR << "." << oneclient_VERSION_MINOR
+               << "." << oneclient_VERSION_PATCH;
         if (!oneclient_VERSION_TWEAK.empty()) {
             stream << "-" << oneclient_VERSION_TWEAK;
         }
-    } else {
+    }
+    else {
         stream << oneclient_VERSION_FALLBACK;
     }
 
