@@ -38,8 +38,8 @@ void ProxyIOHelper::ash_read(CTXPtr /*ctx*/, const boost::filesystem::path &p,
     GeneralCallback<asio::mutable_buffer> callback)
 {
     auto fileId = p.string();
-    messages::proxyio::RemoteRead msg{parameters, m_storageId, std::move(fileId),
-        offset, asio::buffer_size(buf)};
+    messages::proxyio::RemoteRead msg{parameters, m_storageId,
+        std::move(fileId), offset, asio::buffer_size(buf)};
 
     auto wrappedCallback =
         [ callback = std::move(callback), buf ](const std::error_code &ec,
