@@ -64,6 +64,8 @@ void FileLocation::handleId(std::string handleId_)
     m_handleId.get().swap(handleId_);
 }
 
+void FileLocation::unsetHandleId() { m_handleId = boost::none; }
+
 void FileLocation::aggregate(FileLocationPtr fileLocation)
 {
     m_storageId.swap(fileLocation->m_storageId);
@@ -118,7 +120,7 @@ void FileLocation::deserialize(ProtocolMessage &message)
             interval, FileBlock{std::move(storageId_), std::move(fileId_)});
     }
 
-    if(message.has_handle_id()) {
+    if (message.has_handle_id()) {
         std::string handleId_;
         handleId_.swap(*message.mutable_handle_id());
         m_handleId = handleId_;

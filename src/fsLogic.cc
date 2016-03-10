@@ -292,7 +292,8 @@ int FsLogic::open(
 
     acc->second.uuid = attr.uuid();
     acc->second.flags = fileInfo->flags;
-    acc->second.handleId = location.handleId();
+    acc->second.handleId =
+        std::make_shared<boost::optional<std::string>>(location.handleId());
     acc->second.helperCtxMap =
         std::make_shared<FileContextCache::HelperCtxMap>();
 
@@ -360,8 +361,8 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     if (context.helperCtxMap->insert(ctxAcc, ctxMapKey))
         openFile(ctxAcc, context, helper, fileBlock.fileId());
     std::map<std::string, std::string> parameters{{"file_uuid", context.uuid}};
-    if (context.handleId.is_initialized())
-        parameters.insert({"handle_id", context.handleId.get()});
+    if (context.handleId->is_initialized())
+        parameters.insert({"handle_id", context.handleId->get()});
 
     try {
         buf = helper->sh_read(
@@ -418,8 +419,8 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     if (context.helperCtxMap->insert(ctxAcc, ctxMapKey))
         openFile(ctxAcc, context, helper, fileBlock.fileId());
     std::map<std::string, std::string> parameters{{"file_uuid", context.uuid}};
-    if (context.handleId.is_initialized())
-        parameters.insert({"handle_id", context.handleId.get()});
+    if (context.handleId->is_initialized())
+        parameters.insert({"handle_id", context.handleId->get()});
 
     size_t bytesWritten = 0;
     try {
@@ -606,6 +607,18 @@ int FsLogic::release(
             lastReleaseException = std::current_exception();
         }
     }
+
+    if (context.handleId->is_initialized()) {
+        auto location = m_metadataCache.getLocation(attr.uuid());
+        location.unsetHandleId();
+        m_metadataCache.map(path, location);
+        *context.handleId = boost::none;
+        auto future = m_context->communicator()
+                          ->communicate<messages::fuse::FuseResponse>(
+                              messages::fuse::Release{context.handleId->get()});
+
+        communication::wait(future);
+    }
     context.helperCtxMap->clear();
 
     if (lastReleaseException)
@@ -704,7 +717,8 @@ int FsLogic::create(boost::filesystem::path path, const mode_t mode,
 
     acc->second.uuid = location.uuid();
     acc->second.flags = fileInfo->flags;
-    acc->second.handleId = location.handleId();
+    acc->second.handleId =
+        std::make_shared<boost::optional<std::string>>(location.handleId());
     acc->second.helperCtxMap =
         std::make_shared<FileContextCache::HelperCtxMap>();
 

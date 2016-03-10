@@ -124,6 +124,11 @@ public:
     void handleId(std::string handleId);
 
     /**
+     * Unset handle id.
+     */
+    void unsetHandleId();
+
+    /**
      * Aggregates @c this file location with an other file location.
      * Aggregation is done by substitution of all @c this file location fields
      * with an other file location fields.

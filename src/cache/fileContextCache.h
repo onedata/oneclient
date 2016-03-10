@@ -41,7 +41,7 @@ public:
     struct FileContext {
         std::string uuid;
         int flags;
-        boost::optional<std::string> handleId;
+        std::shared_ptr<boost::optional<std::string>> handleId;
         /// {storageId, fileId} => IStorageHelperCTX
         std::shared_ptr<HelperCtxMap> helperCtxMap;
     };
