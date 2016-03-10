@@ -609,15 +609,15 @@ int FsLogic::release(
     }
 
     if (context.handleId->is_initialized()) {
-        auto location = m_metadataCache.getLocation(attr.uuid());
-        location.unsetHandleId();
-        m_metadataCache.map(path, location);
-        *context.handleId = boost::none;
         auto future = m_context->communicator()
                           ->communicate<messages::fuse::FuseResponse>(
                               messages::fuse::Release{context.handleId->get()});
 
         communication::wait(future);
+        auto location = m_metadataCache.getLocation(attr.uuid());
+        location.unsetHandleId();
+        m_metadataCache.map(path, location);
+        *context.handleId = boost::none;
     }
     context.helperCtxMap->clear();
 
