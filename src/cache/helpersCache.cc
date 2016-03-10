@@ -55,6 +55,7 @@ HelpersCache::HelperPtr HelpersCache::get(const std::string &fileUuid,
             AccessTypeAccessor acc;
             if (m_accessType.insert(acc, storageId))
                 acc->second = AccessType::PROXY;
+            acc.release();
             requestStorageTestFileCreation(fileUuid, storageId);
             forceProxyIO = true;
         }
