@@ -25,8 +25,8 @@
 namespace one {
 namespace client {
 
-constexpr unsigned int VERIFY_TEST_FILE_ATTEMPTS = 10;
-constexpr std::chrono::seconds VERIFY_TEST_FILE_DELAY{30};
+constexpr unsigned int VERIFY_TEST_FILE_ATTEMPTS = 5;
+constexpr std::chrono::seconds VERIFY_TEST_FILE_DELAY{15};
 
 HelpersCache::HelpersCache(
     communication::Communicator &communicator, Scheduler &scheduler)
@@ -52,6 +52,10 @@ HelpersCache::HelperPtr HelpersCache::get(const std::string &fileUuid,
             forceProxyIO = (constAcc->second == AccessType::PROXY);
         }
         else {
+            AccessTypeAccessor acc;
+            if (m_accessType.insert(acc, storageId))
+                acc->second = AccessType::PROXY;
+            acc.release();
             requestStorageTestFileCreation(fileUuid, storageId);
             forceProxyIO = true;
         }
@@ -181,22 +185,20 @@ void HelpersCache::handleStorageTestFileVerification(
     const std::error_code &ec, const std::string &storageId)
 {
     AccessTypeAccessor acc;
-    if (m_accessType.insert(acc, storageId)) {
-        if (!ec) {
-            LOG(INFO) << "Storage '" << storageId
-                      << "' is directly accessible to the client.";
-            acc->second = AccessType::DIRECT;
-        }
-        else if (ec.value() == ENOENT || ec.value() == EINVAL) {
-            LOG(INFO) << "Storage '" << storageId
-                      << "' is not directly accessible to the client.";
-            acc->second = AccessType::PROXY;
-        }
-        else {
-            LOG(ERROR)
-                << "Unknown storage test file verification error, code: '"
-                << ec.value() << "', message: '" << ec.message() << "'";
-        }
+    m_accessType.insert(acc, storageId);
+    if (!ec) {
+        LOG(INFO) << "Storage '" << storageId
+                  << "' is directly accessible to the client.";
+        acc->second = AccessType::DIRECT;
+    }
+    else if (ec.value() == ENOENT || ec.value() == EINVAL) {
+        LOG(INFO) << "Storage '" << storageId
+                  << "' is not directly accessible to the client.";
+        acc->second = AccessType::PROXY;
+    }
+    else {
+        LOG(ERROR) << "Unknown storage test file verification error, code: '"
+                   << ec.value() << "', message: '" << ec.message() << "'";
     }
 }
 
