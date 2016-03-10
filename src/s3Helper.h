@@ -90,12 +90,12 @@ public:
 
     void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset,
-        std::map<std::string, std::string> &parameters,
+        const std::map<std::string, std::string> &parameters,
         GeneralCallback<asio::mutable_buffer>);
 
     void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
         asio::const_buffer buf, off_t offset,
-        std::map<std::string, std::string> &parameters,
+        const std::map<std::string, std::string> &parameters,
         GeneralCallback<std::size_t>);
 
     void ash_truncate(CTXPtr ctx, const boost::filesystem::path &p, off_t size,

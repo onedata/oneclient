@@ -31,7 +31,7 @@ std::unique_ptr<ProtocolClientMessage> ProxyIORequest::serializeAndDestroy()
     for (auto &parameter : m_parameters) {
         auto parameterMsg = proxyio->add_parameters();
         parameterMsg->set_key(parameter.first);
-        parameterMsg->set_value(parameter.second);
+        parameterMsg->mutable_value()->swap(parameter.second);
     }
     proxyio->mutable_storage_id()->swap(m_storageId);
     proxyio->mutable_file_id()->swap(m_fileId);

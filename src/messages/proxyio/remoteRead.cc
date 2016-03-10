@@ -10,6 +10,7 @@
 
 #include "messages.pb.h"
 
+#include "glog/stl_logging.h"
 #include <sstream>
 
 namespace one {
@@ -29,14 +30,9 @@ RemoteRead::RemoteRead(std::map<std::string, std::string> parameters,
 std::string RemoteRead::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'RemoteRead', parameters: '{";
-    for (auto &parameter: m_parameters) {
-        stream << parameter.first << " => " << parameter.second << ", ";
-    }
-
-    stream << "}', storageId: '"
-    << m_storageId << "', fileId: '" << m_fileId
-    << "', offset: " << m_offset << ", size: " << m_size;
+    stream << "type: 'RemoteRead', parameters: " << m_parameters
+           << ", storageId: '" << m_storageId << "', fileId: '" << m_fileId
+           << "', offset: " << m_offset << ", size: " << m_size;
     return stream.str();
 }
 

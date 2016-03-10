@@ -10,6 +10,7 @@
 
 #include "messages.pb.h"
 
+#include "glog/stl_logging.h"
 #include <sstream>
 
 namespace one {
@@ -29,14 +30,10 @@ RemoteWrite::RemoteWrite(std::map<std::string, std::string> parameters,
 std::string RemoteWrite::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'RemoteWrite', parameters: '{";
-    for (auto &parameter: m_parameters) {
-        stream << "{" << parameter.first << ", " << parameter.second << "}, ";
-    }
-
-    stream << "}', storageId: '" << m_storageId << "', fileId: '" << m_fileId
-    << "', offset: " << m_offset
-    << ", data size: " << asio::buffer_size(m_data);
+    stream << "type: 'RemoteWrite', parameters: " << m_parameters
+           << ", storageId: '" << m_storageId << "', fileId: '" << m_fileId
+           << "', offset: " << m_offset
+           << ", data size: " << asio::buffer_size(m_data);
     return stream.str();
 }
 
