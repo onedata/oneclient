@@ -268,9 +268,15 @@ int main(int argc, char *argv[])
     }
     catch (OneException &exception) {
         std::cerr << "Handshake error. Aborting" << std::endl;
+        return EXIT_FAILURE;
     }
     catch (const communication::Exception &e) {
         std::cerr << "Error: " << e.what() << ". Aborting." << std::endl;
+        return EXIT_FAILURE;
+    }
+    catch (const std::system_error &e) {
+        std::cerr << "Handshake connection error: " << e.what() << ". Aborting"
+                  << std::endl;
         return EXIT_FAILURE;
     }
 
