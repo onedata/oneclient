@@ -52,13 +52,14 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_context{std::move(context)}
     , m_eventManager{m_context}
     , m_helpersCache{*m_context->communicator(), *m_context->scheduler()}
-    , m_metadataCache{*m_context->communicator()}
     , m_fsSubscriptions{*m_context->scheduler(), m_eventManager}
+    , m_metadataCache{*m_context->communicator(), m_fsSubscriptions}
     , m_forceProxyIOCache{m_fsSubscriptions}
 {
     m_eventManager.setFileAttrHandler(fileAttrHandler());
     m_eventManager.setFileLocationHandler(fileLocationHandler());
     m_eventManager.setPermissionChangedHandler(permissionChangedHandler());
+    m_eventManager.setRemoveFileHandler(removeFileHandler());
     m_eventManager.subscribe(configuration->subscriptionContainer());
 }
 
@@ -681,14 +682,34 @@ void FsLogic::removeFile(boost::filesystem::path path)
     MetadataCache::UuidAccessor uuidAcc;
     MetadataCache::MetaAccessor metaAcc;
     m_metadataCache.getAttr(uuidAcc, metaAcc, path);
+    auto uuid = uuidAcc->second;
+    uuidAcc.release();
+    metaAcc.release();
 
     auto future =
         m_context->communicator()->communicate<messages::fuse::FuseResponse>(
-            messages::fuse::DeleteFile{uuidAcc->second});
+            messages::fuse::DeleteFile{uuid});
 
     communication::wait(future);
+}
 
-    m_metadataCache.remove(uuidAcc, metaAcc);
+events::RemoveFileEventStream::Handler FsLogic::removeFileHandler()
+{
+    using namespace events;
+    return [this](std::vector<RemoveFileEventStream::EventPtr> events) {
+        for (const auto &event : events) {
+            MetadataCache::MetaAccessor metaAcc;
+            MetadataCache::UuidAccessor uuidAcc;
+            m_metadataCache.get(metaAcc, event->fileUuid());
+            if (metaAcc->second.path) {
+                m_metadataCache.getAttr(
+                    uuidAcc, metaAcc, metaAcc->second.path.get());
+            }
+            m_metadataCache.remove(uuidAcc, metaAcc);
+            LOG(INFO) << "Metadata cache entry removed for uuid: "
+                      << event->fileUuid();
+        }
+    };
 }
 
 } // namespace client

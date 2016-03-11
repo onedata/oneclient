@@ -234,6 +234,7 @@ private:
     events::FileAttrEventStream::Handler fileAttrHandler();
     events::FileLocationEventStream::Handler fileLocationHandler();
     events::PermissionChangedEventStream::Handler permissionChangedHandler();
+    events::RemoveFileEventStream::Handler removeFileHandler();
 
     const uid_t m_uid;
     const gid_t m_gid;
@@ -242,8 +243,8 @@ private:
     events::EventManager m_eventManager;
     FileContextCache m_fileContextCache;
     HelpersCache m_helpersCache;
-    MetadataCache m_metadataCache;
     FsSubscriptions m_fsSubscriptions;
+    MetadataCache m_metadataCache;
     ForceProxyIOCache m_forceProxyIOCache;
 };
 

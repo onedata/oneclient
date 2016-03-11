@@ -15,8 +15,10 @@
 namespace one {
 namespace client {
 
-MetadataCache::MetadataCache(communication::Communicator &communicator)
+MetadataCache::MetadataCache(
+    communication::Communicator &communicator, FsSubscriptions &fsSubscriptions)
     : m_communicator{communicator}
+    , m_fsSubscriptions{fsSubscriptions}
 {
 }
 
@@ -89,10 +91,13 @@ void MetadataCache::getAttr(
         metaAcc->second.attr = attr;
         metaAcc->second.path = path;
         uuidAcc->second = attr.uuid();
+        m_fsSubscriptions.addRemoveFileSubscription(attr.uuid());
     }
     catch (...) {
-        if (!metaAcc.empty())
+        if (!metaAcc.empty()) {
             m_metaCache.erase(metaAcc);
+            m_fsSubscriptions.removeRemoveFileSubscription(uuidAcc->second);
+        }
 
         m_pathToUuid.erase(uuidAcc);
         throw;
@@ -106,9 +111,12 @@ bool MetadataCache::get(MetaAccessor &metaAcc, const std::string &uuid)
 
 void MetadataCache::getAttr(MetaAccessor &metaAcc, const std::string &uuid)
 {
-    if (!m_metaCache.insert(metaAcc, uuid))
+    if (!m_metaCache.insert(metaAcc, uuid)) {
         if (metaAcc->second.attr)
             return;
+    }
+    else
+        m_fsSubscriptions.addRemoveFileSubscription(uuid);
 
     try {
         auto future = m_communicator.communicate<FileAttr>(
@@ -120,6 +128,7 @@ void MetadataCache::getAttr(MetaAccessor &metaAcc, const std::string &uuid)
     }
     catch (...) {
         m_metaCache.erase(metaAcc);
+        m_fsSubscriptions.removeRemoveFileSubscription(uuid);
         throw;
     }
 }
@@ -127,9 +136,12 @@ void MetadataCache::getAttr(MetaAccessor &metaAcc, const std::string &uuid)
 void MetadataCache::getLocation(
     MetadataCache::MetaAccessor &metaAcc, const std::string &uuid)
 {
-    if (!m_metaCache.insert(metaAcc, uuid))
+    if (!m_metaCache.insert(metaAcc, uuid)) {
         if (metaAcc->second.location)
             return;
+    }
+    else
+        m_fsSubscriptions.addRemoveFileSubscription(uuid);
 
     try {
         auto future = m_communicator.communicate<FileLocation>(
@@ -139,6 +151,7 @@ void MetadataCache::getLocation(
     }
     catch (...) {
         m_metaCache.erase(metaAcc);
+        m_fsSubscriptions.removeRemoveFileSubscription(uuid);
         throw;
     }
 }
@@ -178,6 +191,7 @@ void MetadataCache::map(Path path, std::string uuid)
 
     MetaAccessor metaAcc;
     m_metaCache.insert(metaAcc, uuid);
+    m_fsSubscriptions.addRemoveFileSubscription(uuid);
 
     uuidAcc->second = std::move(uuid);
     metaAcc->second.path = std::move(path);
@@ -190,6 +204,7 @@ void MetadataCache::map(Path path, FileLocation location)
 
     MetaAccessor metaAcc;
     m_metaCache.insert(metaAcc, location.uuid());
+    m_fsSubscriptions.addRemoveFileSubscription(location.uuid());
 
     uuidAcc->second = location.uuid();
     metaAcc->second.path = std::move(path);
@@ -198,6 +213,7 @@ void MetadataCache::map(Path path, FileLocation location)
 
 void MetadataCache::remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc)
 {
+    m_fsSubscriptions.removeRemoveFileSubscription(uuidAcc->second);
     m_metaCache.erase(metaAcc);
     m_pathToUuid.erase(uuidAcc);
 }

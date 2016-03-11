@@ -16,11 +16,13 @@
 #include "events/eventHandler.h"
 #include "events/eventWorker.h"
 #include "events/subscriptionHandler.h"
+#include "events/subscriptions/removeFileSubscription.h"
 #include "events/subscriptions/fileAttrSubscription.h"
 #include "events/subscriptions/fileLocationSubscription.h"
 #include "events/subscriptions/permissionChangedSubscription.h"
 #include "events/subscriptions/readSubscription.h"
 #include "events/subscriptions/writeSubscription.h"
+#include "events/types/removeFileEvent.h"
 #include "events/types/readEvent.h"
 #include "events/types/updateEvent.h"
 #include "events/types/writeEvent.h"
@@ -51,6 +53,10 @@ using FileLocationEventStream = EventWorker<
 using PermissionChangedEventStream =
     EventWorker<EventCounterAggregator<EventTimeAggregator<SubscriptionHandler<
         EventHandler<EventCommunicator<PermissionChangedEvent>>>>>>;
+
+using RemoveFileEventStream =
+    EventWorker<EventCounterAggregator<EventTimeAggregator<SubscriptionHandler<
+        EventHandler<EventCommunicator<RemoveFileEvent>>>>>>;
 
 } // namespace events
 } // namespace client

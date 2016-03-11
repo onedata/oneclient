@@ -9,6 +9,8 @@
 #ifndef ONECLIENT_METADATA_CACHE_H
 #define ONECLIENT_METADATA_CACHE_H
 
+#include "fsSubscriptions.h"
+
 #include "communication/communicator.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
@@ -47,6 +49,7 @@ private:
     };
 
     communication::Communicator &m_communicator;
+    FsSubscriptions &m_fsSubscriptions;
     tbb::concurrent_hash_map<Path, std::string, PathHash> m_pathToUuid;
     tbb::concurrent_hash_map<std::string, Metadata> m_metaCache;
     tbb::concurrent_hash_map<std::string,
@@ -67,8 +70,10 @@ public:
      * Constructor.
      * @param communicator Communicator instance used for fetching missing
      * data.
+     * @parem fsSubscriptions fsSubscriptions used for event subscriptions
      */
-    MetadataCache(communication::Communicator &communicator);
+    MetadataCache(communication::Communicator &communicator,
+        FsSubscriptions &fsSubscriptions);
 
     /**
      * Sets metadata accessor for a given uuid, without consulting the remote
