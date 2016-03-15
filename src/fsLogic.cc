@@ -310,6 +310,18 @@ int openFile(const FileContextCache::HelperCtxMapAccessor &ctxAcc,
     ctxAcc->second = helperCtx;
     return fh;
 }
+
+helpers::CTXPtr getHelperCtx(FileContextCache::FileContext &fileCtx,
+    const HelpersCache::HelperPtr &helper, const std::string &storageId,
+    const std::string &fileId)
+{
+    FileContextCache::HelperCtxMapKey ctxMapKey{storageId, fileId};
+    FileContextCache::HelperCtxMapAccessor ctxAcc;
+    if (fileCtx.helperCtxMap->insert(ctxAcc, std::move(ctxMapKey)))
+        openFile(ctxAcc, fileCtx, helper, fileId);
+
+    return ctxAcc->second;
+}
 }
 
 int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
@@ -326,9 +338,11 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     const auto possibleRange =
         boost::icl::discrete_interval<off_t>::right_open(0, attr.size().get());
 
-    const auto wantedRange = boost::icl::discrete_interval<off_t>::right_open(
-                                 offset, offset + asio::buffer_size(buf)) &
-        possibleRange;
+    const auto requestedRange =
+        boost::icl::discrete_interval<off_t>::right_open(
+            offset, offset + asio::buffer_size(buf));
+
+    const auto wantedRange = requestedRange & possibleRange;
 
     if (boost::icl::size(wantedRange) == 0)
         return 0;
@@ -352,26 +366,21 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     buf = asio::buffer(buf, boost::icl::size(availableRange));
 
     auto helper = getHelper(context.uuid, fileBlock.storageId());
-
-    FileContextCache::HelperCtxMapKey ctxMapKey = {
-        fileBlock.storageId(), fileBlock.fileId()};
-    FileContextCache::HelperCtxMapAccessor ctxAcc;
-    if (context.helperCtxMap->insert(ctxAcc, ctxMapKey))
-        openFile(ctxAcc, context, helper, fileBlock.fileId());
+    auto helperCtx = getHelperCtx(
+        context, helper, fileBlock.storageId(), fileBlock.fileId());
 
     try {
         buf = helper->sh_read(
-            ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
+            helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)
             throw;
         if (m_forceProxyIOCache.contains(context.uuid))
             throw;
+
         m_forceProxyIOCache.insert(context.uuid);
-        helper = getHelper(context.uuid, fileBlock.storageId());
-        buf = helper->sh_read(
-            ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
+        return read(path, buf, offset, fileInfo);
     }
 
     const auto bytesRead = asio::buffer_size(buf);
@@ -407,27 +416,22 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     std::tie(fileBlock, buf) = findWriteLocation(location, offset, buf);
 
     auto helper = getHelper(context.uuid, location.storageId());
-
-    FileContextCache::HelperCtxMapKey ctxMapKey = {
-        location.storageId(), fileBlock.fileId()};
-    FileContextCache::HelperCtxMapAccessor ctxAcc;
-    if (context.helperCtxMap->insert(ctxAcc, ctxMapKey))
-        openFile(ctxAcc, context, helper, fileBlock.fileId());
+    auto helperCtx = getHelperCtx(
+        context, helper, fileBlock.storageId(), fileBlock.fileId());
 
     size_t bytesWritten = 0;
     try {
         bytesWritten = helper->sh_write(
-            ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
+            helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)
             throw;
         if (m_forceProxyIOCache.contains(context.uuid))
             throw;
+
         m_forceProxyIOCache.insert(context.uuid);
-        helper = getHelper(context.uuid, location.storageId());
-        bytesWritten = helper->sh_write(
-            ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
+        return write(path, buf, offset, fileInfo);
     }
 
     m_eventManager.emitWriteEvent(offset, bytesWritten, context.uuid,
