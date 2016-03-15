@@ -7,6 +7,7 @@
  */
 
 #include "communication/connectionPool.h"
+#include "communication/persistentConnection.h"
 
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
