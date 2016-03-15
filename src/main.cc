@@ -38,6 +38,10 @@
 #include <fuse/fuse_opt.h>
 #include <fuse/fuse_lowlevel.h>
 
+#include <pwd.h>
+#include <unistd.h>
+#include <sys/types.h>
+
 #include <future>
 #include <random>
 #include <string>
@@ -54,14 +58,6 @@ using namespace std::placeholders;
 using namespace std::literals;
 using boost::filesystem::path;
 
-void initializeLogging(const char *name, bool debug)
-{
-    google::InitGoogleLogging(name);
-    FLAGS_alsologtostderr = debug;
-    FLAGS_logtostderr = debug;
-    FLAGS_stderrthreshold = debug ? 2 : 3;
-}
-
 std::string generateFuseID()
 {
     std::random_device rd;
@@ -73,8 +69,17 @@ std::string generateFuseID()
 std::string clientVersion()
 {
     std::stringstream stream;
-    stream << oneclient_VERSION_MAJOR << "." << oneclient_VERSION_MINOR << "."
-           << oneclient_VERSION_PATCH;
+    if (oneclient_VERSION_FALLBACK.empty()) {
+        stream << oneclient_VERSION_MAJOR << "." << oneclient_VERSION_MINOR
+               << "." << oneclient_VERSION_PATCH;
+        if (!oneclient_VERSION_TWEAK.empty()) {
+            stream << "-" << oneclient_VERSION_TWEAK;
+        }
+    }
+    else {
+        stream << oneclient_VERSION_FALLBACK;
+    }
+
     return stream.str();
 }
 
@@ -172,9 +177,31 @@ std::shared_ptr<communication::Communicator> createCommunicator(
     return communicator;
 }
 
+boost::filesystem::path getLogDir(std::string name, const Options &options)
+{
+    if (options.is_default_log_dir()) {
+        uid_t uid = geteuid();
+        auto userIdent = std::to_string(uid);
+        if (auto pw = getpwuid(uid))
+            userIdent = pw->pw_name;
+
+        auto log_subdir_name = name + "_" + userIdent + "_logs";
+        auto log_path = boost::filesystem::path(options.get_log_dir()) /
+            boost::filesystem::path(log_subdir_name).filename();
+
+        boost::filesystem::create_directories(log_path);
+        return log_path;
+    }
+
+    return {options.get_log_dir()};
+}
+
 int main(int argc, char *argv[])
 {
-    initializeLogging(argv[0], false);
+    FLAGS_minloglevel = 1;
+    FLAGS_logtostderr = true;
+    FLAGS_colorlogtostderr = true;
+    google::InitGoogleLogging(argv[0]);
 
     auto context = std::make_shared<Context>();
     const path globalConfigPath = path(oneclient_INSTALL_PATH) /
@@ -200,7 +227,20 @@ int main(int argc, char *argv[])
     }
 
     google::ShutdownGoogleLogging();
-    initializeLogging(argv[0], options->get_debug());
+
+    try {
+        FLAGS_log_dir = getLogDir(argv[0], *options).string();
+    }
+    catch (const boost::filesystem::filesystem_error &e) {
+        std::cerr << "Failed to create logdir: " << e.what() << std::endl;
+        std::cerr << "Cannot continue. Aborting" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    FLAGS_minloglevel = 0;
+    FLAGS_logtostderr = false;
+    FLAGS_stderrthreshold = options->get_debug() ? 0 : 2;
+    google::InitGoogleLogging(argv[0]);
 
     createScheduler(context);
 
@@ -228,9 +268,15 @@ int main(int argc, char *argv[])
     }
     catch (OneException &exception) {
         std::cerr << "Handshake error. Aborting" << std::endl;
+        return EXIT_FAILURE;
     }
     catch (const communication::Exception &e) {
         std::cerr << "Error: " << e.what() << ". Aborting." << std::endl;
+        return EXIT_FAILURE;
+    }
+    catch (const std::system_error &e) {
+        std::cerr << "Handshake connection error: " << e.what() << ". Aborting"
+                  << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -287,6 +333,10 @@ int main(int argc, char *argv[])
             return EXIT_FAILURE;
 
         context->scheduler()->restartAfterDaemonize();
+    }
+    else {
+        // in foreground, log at least warning messages
+        FLAGS_stderrthreshold = options->get_debug() ? 0 : 1;
     }
 
     auto communicator =

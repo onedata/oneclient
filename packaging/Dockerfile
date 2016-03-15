@@ -9,6 +9,8 @@ ARG VERSION=""
 RUN dnf -y upgrade && \
     dnf clean all
 
+WORKDIR /tmp
+
 # Install oneclient package
 RUN case ${RELEASE} in \
 		production) \
@@ -26,5 +28,7 @@ ADD start_samba.sh  /root/start_samba.sh
 RUN chmod +x /root/start_samba.sh
 RUN echo "/root/start_samba.sh" >> /root/.bashrc
 
-ENTRYPOINT ["oneclient"]
-CMD ["--help"]
+VOLUME /root/.local/share/oneclient /mnt/oneclient
+ENV AUTHENTICATION=token
+ENTRYPOINT ["oneclient", "-f"]
+CMD ["/mnt/oneclient"]

@@ -216,10 +216,10 @@ asio::mutable_buffers_1 PersistentConnection::headerToBuffer(
     return {static_cast<void *>(&header), sizeof(header)};
 }
 
-std::unique_ptr<PersistentConnection> createConnection(std::string host,
+std::unique_ptr<Connection> createConnection(std::string host,
     const unsigned short port, asio::ssl::context &context,
     std::function<void(std::string)> onMessage,
-    std::function<void(PersistentConnection &)> onReady,
+    std::function<void(Connection &)> onReady,
     std::function<std::string()> getHandshake,
     std::function<std::error_code(std::string)> onHandshakeResponse,
     std::function<void(std::error_code)> onHandshakeDone)

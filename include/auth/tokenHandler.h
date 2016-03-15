@@ -22,6 +22,7 @@ namespace auth {
 
 constexpr std::chrono::minutes RESTRICTED_MACAROON_EXPIRATION{15};
 constexpr std::chrono::minutes RESTRICTED_MACAROON_REFRESH{5};
+constexpr auto AUTHORIZATION_TOKEN_ENV = "ONECLIENT_AUTHORIZATION_TOKEN";
 
 /**
  * The @c TokenHandler class is responsible for retrieving and manipulating an

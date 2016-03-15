@@ -15,6 +15,7 @@ all: debug test
 
 cmake: BUILD_DIR = $$(echo $(BUILD_TYPE) | tr '[:upper:]' '[:lower:]')
 cmake:
+	python cmake_version.py > version.txt
 	mkdir -p ${BUILD_DIR}
 	cd ${BUILD_DIR} && cmake -GNinja -DCMAKE_BUILD_TYPE=${BUILD_TYPE} .. -DCODE_COVERAGE=${WITH_COVERAGE}
 
@@ -63,6 +64,7 @@ package/$(PKG_ID).tar.gz:
 	rm -rf package/$(PKG_ID)
 	git archive --format=tar --prefix=$(PKG_ID)/ $(PKG_REVISION)| (cd package && tar -xf -)
 	find package/$(PKG_ID) -depth -name ".git" -exec rm -rf {} \;
+	python cmake_version.py > package/$(PKG_ID)/version.txt
 	tar -C package -czf package/$(PKG_ID).tar.gz $(PKG_ID)
 
 deb: check_distribution package/$(PKG_ID).tar.gz
