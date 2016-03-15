@@ -15,8 +15,8 @@
 #include "auth/gsiHandler.h"
 #include "auth/tokenHandler.h"
 #include "communication/cert/certificateData.h"
-#include "communication/persistentConnection.h"
 #include "communication/communicator.h"
+#include "communication/persistentConnection.h"
 
 #include "messages/token.h"
 
