@@ -23,10 +23,12 @@ RUN case ${RELEASE} in \
 			;; \
 	esac
 
-RUN dnf -y install samba
-ADD start_samba.sh  /root/start_samba.sh
-RUN chmod +x /root/start_samba.sh
-RUN echo "/root/start_samba.sh" >> /root/.bashrc
+RUN dnf -y install samba rpcbind nfs-utils nfs-utils-lib
+ADD start_exports.sh  /root/start_exports.sh
+RUN chmod +x /root/start_exports.sh
+RUN echo "/root/start_exports.sh" >> /root/.bashrc
+ADD nfs_exports /etc/exports
+ADD smb.conf /etc/samba/
 
 VOLUME /root/.local/share/oneclient /mnt/oneclient
 ENV AUTHENTICATION=token
