@@ -284,5 +284,10 @@ std::string Options::describeCommandlineOptions() const
     return ss.str();
 }
 
+boost::filesystem::path Options::get_mountpoint() const
+{
+    return boost::filesystem::path{m_vm.at("mountpoint").as<std::string>()};
+}
+
 } // namespace client
 } // namespace one

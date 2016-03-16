@@ -41,6 +41,7 @@ public:
         boost::optional<Path> path;
         boost::optional<FileAttr> attr;
         boost::optional<FileLocation> location;
+        bool already_removed = false;
     };
 
 private:
@@ -49,7 +50,6 @@ private:
         static bool equal(const Path &, const Path &);
     };
 
-    FsSubscriptions &m_fsSubscriptions;
     tbb::concurrent_hash_map<Path, std::string, PathHash> m_pathToUuid;
     tbb::concurrent_hash_map<std::string, Metadata> m_metaCache;
     tbb::concurrent_hash_map<std::string,
@@ -213,6 +213,7 @@ private:
     FileAttr fetchAttr(messages::fuse::GetFileAttr request);
 
     communication::Communicator &m_communicator;
+    FsSubscriptions &m_fsSubscriptions;
 };
 
 } // namespace one

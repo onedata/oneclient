@@ -95,7 +95,7 @@ void MetadataCache::getAttr(
         m_fsSubscriptions.addRemoveFileSubscription(attr.uuid());
     }
     catch (...) {
-        if (!metaAcc.empty())
+        if (!metaAcc.empty()) {
             m_metaCache.erase(metaAcc);
             m_fsSubscriptions.removeRemoveFileSubscription(uuidAcc->second);
         }
@@ -168,11 +168,13 @@ void MetadataCache::rename(
         auto &uuid = metaAcc->second.attr.get().uuid();
 
         DLOG(INFO) << "Renaming file " << uuid << " to " << newPath;
-        auto future = m_communicator.communicate<messages::fuse::FuseResponse>(
-            messages::fuse::Rename{uuid, newPath});
+        if (!metaAcc->second.already_removed) {
+            auto future =
+                m_communicator.communicate<messages::fuse::FuseResponse>(
+                    messages::fuse::Rename{uuid, newPath});
 
-        communication::wait(future);
-
+            communication::wait(future);
+        }
         metaAcc->second.path = newPath;
         newUuidAcc->second = uuid;
         m_pathToUuid.erase(oldUuidAcc);
@@ -226,6 +228,7 @@ void MetadataCache::removePathMapping(
 
 void MetadataCache::remove(const std::string &uuid)
 {
+    m_fsSubscriptions.removeRemoveFileSubscription(uuid);
     MetaAccessor metaAcc;
     if (!m_metaCache.find(metaAcc, uuid))
         return;

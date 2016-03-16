@@ -132,6 +132,8 @@ public:
     */
     std::string describeCommandlineOptions() const;
 
+    boost::filesystem::path get_mountpoint() const;
+
 private:
     std::string mapEnvNames(std::string env) const;
     void setDescriptions();

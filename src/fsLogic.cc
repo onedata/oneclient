@@ -710,14 +710,17 @@ void FsLogic::removeFile(boost::filesystem::path path)
     MetadataCache::MetaAccessor metaAcc;
     m_metadataCache.getAttr(uuidAcc, metaAcc, path);
     auto uuid = uuidAcc->second;
+    auto already_removed = metaAcc->second.already_removed;
     uuidAcc.release();
     metaAcc.release();
 
-    auto future =
-        m_context->communicator()->communicate<messages::fuse::FuseResponse>(
-            messages::fuse::DeleteFile{uuid});
+    if (!already_removed) {
+        auto future = m_context->communicator()
+                          ->communicate<messages::fuse::FuseResponse>(
+                              messages::fuse::DeleteFile{uuid});
 
-    communication::wait(future);
+        communication::wait(future);
+    }
 }
 
 events::RemoveFileEventStream::Handler FsLogic::removeFileHandler()
@@ -725,8 +728,24 @@ events::RemoveFileEventStream::Handler FsLogic::removeFileHandler()
     using namespace events;
     return [this](std::vector<RemoveFileEventStream::EventPtr> events) {
         for (const auto &event : events) {
-            m_expirationHelper.expire(events->first);
-            LOG(INFO) << "File remove event received: " << event->fileUuid()
+
+            MetadataCache::MetaAccessor metaAcc;
+            m_metadataCache.get(metaAcc, event->fileUuid());
+            metaAcc->second.already_removed = true;
+            if (metaAcc->second.path) {
+                auto fileName = metaAcc->second.path.get();
+                metaAcc.release();
+                try {
+                    auto dir = m_context->options()->get_mountpoint();
+                    remove(dir / fileName);
+                }
+                catch (std::system_error &e) {
+                    LOG(WARNING) << "Unable to remove file: " << e.what();
+                }
+            }
+
+            m_expirationHelper.expire(event->fileUuid());
+            LOG(INFO) << "File remove event received: " << event->fileUuid();
         }
     };
 }
