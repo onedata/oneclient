@@ -32,7 +32,7 @@ public:
             1, "localhost", 80, false, communication::createConnection));
         event_manager = std::make_shared<MockEventManager>(context);
         fsSubscriptions =
-            std::make_shared<MockFsSubscriptions>(*scheduler, *event_manager);
+            std::make_shared<MockFsSubscriptions>(*event_manager);
         forceProxyIOCache =
             std::make_shared<ForceProxyIOCache>(*fsSubscriptions);
     }
