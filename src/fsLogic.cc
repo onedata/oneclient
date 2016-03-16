@@ -61,6 +61,27 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     m_eventManager.setPermissionChangedHandler(permissionChangedHandler());
     m_eventManager.setRemoveFileHandler(removeFileHandler());
     m_eventManager.subscribe(configuration->subscriptionContainer());
+
+    scheduleCacheTick();
+}
+
+FsLogic::~FsLogic()
+{
+    std::lock_guard<std::mutex> guard{m_cancelCacheTickMutex};
+    m_cancelCacheTick();
+}
+
+void FsLogic::scheduleCacheTick()
+{
+    std::lock_guard<std::mutex> guard{m_cancelCacheTickMutex};
+    m_cancelCacheTick = m_context->scheduler()->schedule(1s, [this] {
+        m_expirationHelper.tick([this](const std::string &uuid) {
+            m_metadataCache.remove(uuid);
+            m_fsSubscriptions.removeFileLocationSubscription(uuid);
+        });
+
+        scheduleCacheTick();
+    });
 }
 
 int FsLogic::access(boost::filesystem::path path, const int mask)
@@ -97,7 +118,10 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
             break;
     }
 
-    m_fsSubscriptions.addTemporaryFileAttrSubscription(attr.uuid());
+    m_expirationHelper.markInteresting(attr.uuid(), [&] {
+        m_metadataCache.getAttr(attr.uuid());
+        m_fsSubscriptions.addTemporaryFileAttrSubscription(attr.uuid());
+    });
 
     return 0;
 }
@@ -296,7 +320,10 @@ int FsLogic::open(
     acc->second.helperCtxMap =
         std::make_shared<FileContextCache::HelperCtxMap>();
 
-    m_fsSubscriptions.addFileLocationSubscription(attr.uuid());
+    m_expirationHelper.pin(attr.uuid(), [&] {
+        m_metadataCache.getAttr(attr.uuid());
+        m_fsSubscriptions.addFileLocationSubscription(attr.uuid());
+    });
 
     return 0;
 }
@@ -583,7 +610,7 @@ int FsLogic::release(
 {
     DLOG(INFO) << "FUSE: release(path: " << path << ", ...)";
     auto attr = m_metadataCache.getAttr(path);
-    m_fsSubscriptions.removeFileLocationSubscription(attr.uuid());
+    m_expirationHelper.unpin(attr.uuid());
 
     auto context = m_fileContextCache.get(fileInfo->fh);
     std::exception_ptr lastReleaseException;
@@ -698,16 +725,8 @@ events::RemoveFileEventStream::Handler FsLogic::removeFileHandler()
     using namespace events;
     return [this](std::vector<RemoveFileEventStream::EventPtr> events) {
         for (const auto &event : events) {
-            MetadataCache::MetaAccessor metaAcc;
-            MetadataCache::UuidAccessor uuidAcc;
-            m_metadataCache.get(metaAcc, event->fileUuid());
-            if (metaAcc->second.path) {
-                m_metadataCache.getAttr(
-                    uuidAcc, metaAcc, metaAcc->second.path.get());
-            }
-            m_metadataCache.remove(uuidAcc, metaAcc);
-            LOG(INFO) << "Metadata cache entry removed for uuid: "
-                      << event->fileUuid();
+            m_expirationHelper.expire(events->first);
+            LOG(INFO) << "File remove event received: " << event->fileUuid()
         }
     };
 }

@@ -8,9 +8,15 @@
 
 #include "metadataCache.h"
 
+#include "logging.h"
+#include "scheduler.h"
 #include "messages/fuse/getFileAttr.h"
 #include "messages/fuse/getFileLocation.h"
 #include "messages/fuse/rename.h"
+
+#include <chrono>
+
+using namespace std::literals;
 
 namespace one {
 namespace client {
@@ -80,21 +86,16 @@ void MetadataCache::getAttr(
     }
 
     try {
-        auto future = m_communicator.communicate<FileAttr>(
-            messages::fuse::GetFileAttr{path});
-
-        auto attr = communication::wait(future);
-        if (!attr.size().is_initialized())
-            throw std::errc::protocol_error;
-
+        DLOG(INFO) << "Fetching attributes for " << path;
+        auto attr = fetchAttr(messages::fuse::GetFileAttr{path});
         m_metaCache.insert(metaAcc, attr.uuid());
-        metaAcc->second.attr = attr;
-        metaAcc->second.path = path;
         uuidAcc->second = attr.uuid();
+        metaAcc->second.attr = std::move(attr);
+        metaAcc->second.path = path;
         m_fsSubscriptions.addRemoveFileSubscription(attr.uuid());
     }
     catch (...) {
-        if (!metaAcc.empty()) {
+        if (!metaAcc.empty())
             m_metaCache.erase(metaAcc);
             m_fsSubscriptions.removeRemoveFileSubscription(uuidAcc->second);
         }
@@ -119,12 +120,8 @@ void MetadataCache::getAttr(MetaAccessor &metaAcc, const std::string &uuid)
         m_fsSubscriptions.addRemoveFileSubscription(uuid);
 
     try {
-        auto future = m_communicator.communicate<FileAttr>(
-            messages::fuse::GetFileAttr{uuid});
-
-        metaAcc->second.attr = communication::wait(future);
-        if (!metaAcc->second.attr.get().size().is_initialized())
-            throw std::errc::protocol_error;
+        DLOG(INFO) << "Fetching attributes for " << uuid;
+        metaAcc->second.attr = fetchAttr(messages::fuse::GetFileAttr{uuid});
     }
     catch (...) {
         m_metaCache.erase(metaAcc);
@@ -144,6 +141,7 @@ void MetadataCache::getLocation(
         m_fsSubscriptions.addRemoveFileSubscription(uuid);
 
     try {
+        DLOG(INFO) << "Fetching file location for " << uuid;
         auto future = m_communicator.communicate<FileLocation>(
             messages::fuse::GetFileLocation{uuid});
 
@@ -169,6 +167,7 @@ void MetadataCache::rename(
         getAttr(oldUuidAcc, metaAcc, oldPath);
         auto &uuid = metaAcc->second.attr.get().uuid();
 
+        DLOG(INFO) << "Renaming file " << uuid << " to " << newPath;
         auto future = m_communicator.communicate<messages::fuse::FuseResponse>(
             messages::fuse::Rename{uuid, newPath});
 
@@ -218,6 +217,30 @@ void MetadataCache::remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc)
     m_pathToUuid.erase(uuidAcc);
 }
 
+void MetadataCache::removePathMapping(
+    UuidAccessor &uuidAcc, MetaAccessor &metaAcc)
+{
+    metaAcc->second.path = boost::none;
+    m_pathToUuid.erase(uuidAcc);
+}
+
+void MetadataCache::remove(const std::string &uuid)
+{
+    MetaAccessor metaAcc;
+    if (!m_metaCache.find(metaAcc, uuid))
+        return;
+
+    if (metaAcc->second.path) {
+        UuidAccessor uuidAcc;
+        if (m_pathToUuid.find(uuidAcc, metaAcc->second.path.get())) {
+            remove(uuidAcc, metaAcc);
+            return;
+        }
+    }
+
+    m_metaCache.erase(metaAcc);
+}
+
 std::size_t MetadataCache::PathHash::hash(const Path &path)
 {
     return std::hash<std::string>{}(path.string());
@@ -263,6 +286,18 @@ MetadataCache::getMutexConditionPair(const std::string &uuid)
         acc->second = std::make_pair(std::make_unique<std::mutex>(),
             std::make_unique<std::condition_variable>());
     return {*acc->second.first, *acc->second.second};
+}
+
+MetadataCache::FileAttr MetadataCache::fetchAttr(
+    messages::fuse::GetFileAttr request)
+{
+    auto future = m_communicator.communicate<FileAttr>(std::move(request));
+
+    auto attr = communication::wait(future);
+    if (!attr.size().is_initialized())
+        throw std::errc::protocol_error;
+
+    return attr;
 }
 
 } // namespace one

@@ -14,6 +14,7 @@
 #include "communication/communicator.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
+#include "messages/fuse/getFileAttr.h"
 
 #include <boost/filesystem/path.hpp>
 #include <tbb/concurrent_hash_map.h>
@@ -48,7 +49,6 @@ private:
         static bool equal(const Path &, const Path &);
     };
 
-    communication::Communicator &m_communicator;
     FsSubscriptions &m_fsSubscriptions;
     tbb::concurrent_hash_map<Path, std::string, PathHash> m_pathToUuid;
     tbb::concurrent_hash_map<std::string, Metadata> m_metaCache;
@@ -74,6 +74,8 @@ public:
      */
     MetadataCache(communication::Communicator &communicator,
         FsSubscriptions &fsSubscriptions);
+
+    MetadataCache(MetadataCache &&) = delete;
 
     /**
      * Sets metadata accessor for a given uuid, without consulting the remote
@@ -169,6 +171,19 @@ public:
     void remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
 
     /**
+     * Removes a UUID entry (path mapping) from the cache.
+     * @param uuidAcc Accessor to UUID mapping to remove.
+     * @param metaAcc Accessor to metadata mapping..
+     */
+    void removePathMapping(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
+
+    /**
+     * Removes a metadata entry and UUID mapping (if exists) from the cache.
+     * @param uuid UUID of the entry to remove.
+     */
+    void remove(const std::string &uuid);
+
+    /**
      * Waits for file location update on given condition.
      * @param uuid The UUID of file
      * @param range Range of data to wait for
@@ -194,6 +209,10 @@ private:
      */
     std::pair<std::mutex &, std::condition_variable &> getMutexConditionPair(
         const std::string &uuid);
+
+    FileAttr fetchAttr(messages::fuse::GetFileAttr request);
+
+    communication::Communicator &m_communicator;
 };
 
 } // namespace one

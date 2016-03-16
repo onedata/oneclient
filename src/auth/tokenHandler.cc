@@ -20,6 +20,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <cstdlib>
 #include <ios>
 #include <fstream>
 #include <iostream>
@@ -94,7 +95,8 @@ boost::optional<macaroons::Macaroon> TokenHandler::readTokenFromFile() const
     boost::filesystem::ifstream stream{tokenFilePath()};
     stream >> token;
     if (stream.fail() || stream.bad() || stream.eof()) {
-        LOG(WARNING) << "Failed to retrieve token from file " << tokenFilePath();
+        LOG(WARNING) << "Failed to retrieve token from file "
+                     << tokenFilePath();
         return {};
     }
 
@@ -103,15 +105,20 @@ boost::optional<macaroons::Macaroon> TokenHandler::readTokenFromFile() const
 
 macaroons::Macaroon TokenHandler::getTokenFromUser() const
 {
-    std::cout << "Authorization token: ";
-
     std::string token;
 
-    auto prevExceptions = std::cin.exceptions();
-    std::cin.exceptions(
-        std::ios::failbit | std::ios::badbit | std::ios::eofbit);
-    std::cin >> token;
-    std::cin.exceptions(prevExceptions);
+    if (auto tokenChr = std::getenv(AUTHORIZATION_TOKEN_ENV)) {
+        token = tokenChr;
+    }
+    else {
+        std::cout << "Authorization token: ";
+
+        auto prevExceptions = std::cin.exceptions();
+        std::cin.exceptions(
+            std::ios::failbit | std::ios::badbit | std::ios::eofbit);
+        std::cin >> token;
+        std::cin.exceptions(prevExceptions);
+    }
 
     auto macaroon = macaroons::Macaroon::deserialize(token);
 

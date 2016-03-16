@@ -9,6 +9,7 @@
 #ifndef ONECLIENT_FS_LOGIC_H
 #define ONECLIENT_FS_LOGIC_H
 
+#include "cache/cacheExpirationHelper.h"
 #include "cache/fileContextCache.h"
 #include "cache/helpersCache.h"
 #include "cache/metadataCache.h"
@@ -26,7 +27,9 @@
 #include <tbb/concurrent_hash_map.h>
 
 #include <cstdint>
+#include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 #include <tuple>
@@ -62,6 +65,12 @@ public:
      */
     FsLogic(std::shared_ptr<Context> context,
         std::shared_ptr<messages::Configuration> configuration);
+
+    /**
+    * Destructor.
+    * Cancels scheduling operations.
+    */
+    ~FsLogic();
 
     /**
      * FUSE @c access callback.
@@ -225,6 +234,7 @@ protected:
         const std::string &fileUuid, const std::string &storageId);
 
 private:
+    void scheduleCacheTick();
     void removeFile(boost::filesystem::path path);
     bool waitForBlockSynchronization(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range);
@@ -246,6 +256,10 @@ private:
     FsSubscriptions m_fsSubscriptions;
     MetadataCache m_metadataCache;
     ForceProxyIOCache m_forceProxyIOCache;
+    CacheExpirationHelper<std::string> m_expirationHelper;
+
+    std::mutex m_cancelCacheTickMutex;
+    std::function<void()> m_cancelCacheTick;
 };
 
 struct FsLogicWrapper {

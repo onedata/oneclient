@@ -9,6 +9,8 @@ ARG VERSION=""
 RUN dnf -y upgrade && \
     dnf clean all
 
+WORKDIR /tmp
+
 # Install oneclient package
 RUN case ${RELEASE} in \
 		production) \
@@ -21,5 +23,7 @@ RUN case ${RELEASE} in \
 			;; \
 	esac
 
-ENTRYPOINT ["oneclient"]
-CMD ["--help"]
+VOLUME /root/.local/share/oneclient /mnt/oneclient
+ENV AUTHENTICATION=token
+ENTRYPOINT ["oneclient", "-f"]
+CMD ["/mnt/oneclient"]
