@@ -389,6 +389,13 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     try {
         buf = helper->sh_read(
             ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
+
+        if(boost::icl::size(availableRange) > 0 && asio::buffer_size(buf) == 0) {
+            helper->sh_release(ctxAcc->second, fileBlock.fileId());
+            openFile(ctxAcc, context, helper, fileBlock.fileId());
+            buf = helper->sh_read(
+                    ctxAcc->second, fileBlock.fileId(), buf, offset, context.uuid);
+        }
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)
