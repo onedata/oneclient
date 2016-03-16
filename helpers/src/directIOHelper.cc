@@ -459,7 +459,21 @@ void DirectIOHelper::ash_fsync(CTXPtr rawCTX, const boost::filesystem::path &p,
                 callback(makePosixError(EDOM));
                 return;
             }
+            int fd = ctx->fh != -1 ? ctx->fh : open(root(p).c_str(), O_WRONLY);
+            if (fd == -1) {
+                callback(makePosixError(errno));
+                return;
+            }
 
+            auto res = fsync(fd);
+            auto potentialError = makePosixError(errno);
+
+            if (ctx->fh == -1) {
+                close(fd);
+            }
+            if (res == -1) {
+                callback(potentialError);
+            }
             callback(SUCCESS_CODE);
         });
 }
