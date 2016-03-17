@@ -84,19 +84,15 @@ void FsSubscriptions::addRemoveFileSubscription(const std::string &fileUuid)
 {
     typename decltype(m_removeFileSubscriptions)::accessor acc;
     if (m_removeFileSubscriptions.insert(acc, fileUuid))
-        acc->second.id = sendRemoveFileSubscription(fileUuid);
-    ++acc->second.counter;
+        acc->second = sendRemoveFileSubscription(fileUuid);
 }
 
 void FsSubscriptions::removeRemoveFileSubscription(const std::string &fileUuid)
 {
     typename decltype(m_removeFileSubscriptions)::accessor acc;
     if (m_removeFileSubscriptions.find(acc, fileUuid)) {
-        --acc->second.counter;
-        if (acc->second.counter == 0) {
-            sendSubscriptionCancellation(acc->second.id);
-            m_removeFileSubscriptions.erase(acc);
-        }
+        sendSubscriptionCancellation(acc->second);
+        m_removeFileSubscriptions.erase(acc);
     }
 }
 

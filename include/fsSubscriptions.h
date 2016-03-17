@@ -84,16 +84,13 @@ public:
         const std::string &fileUuid);
 
     /**
-     * Adds subscription for removing file. If it is the first
-     * subscription of the file it will be forwarded to the server.
+     * Adds subscription for removing file.
      * @param fileUuid UUID of file for which subscription is added.
      */
     virtual void addRemoveFileSubscription(const std::string &fileUuid);
 
     /**
-     * Removes subscription for removing file. If it is the last
-     * subscription of the file a subscription cancellation message will be sent
-     * to the server.
+     * Removes subscription for removing file.
      * @param fileUuid UUID of file for which subscription is removed.
      */
     virtual void removeRemoveFileSubscription(const std::string &fileUuid);
@@ -115,7 +112,7 @@ private:
         m_fileLocationSubscriptions;
     tbb::concurrent_hash_map<std::string, SubscriptionHandle>
         m_permissionChangedSubscriptions;
-    tbb::concurrent_hash_map<std::string, SubscriptionHandle>
+    tbb::concurrent_hash_map<std::string, std::int64_t>
         m_removeFileSubscriptions;
 };
 
