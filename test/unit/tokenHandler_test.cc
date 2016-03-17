@@ -17,6 +17,7 @@
 #include <cstdlib>
 
 using namespace one::client::auth;
+using namespace one::testing;
 
 TEST(TokenHandlerTest, shouldReadTokenFromEnvironment)
 {
