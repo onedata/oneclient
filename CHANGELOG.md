@@ -4,6 +4,16 @@
 CHANGELOG
 ---------
 
+### 3.0.0-alpha3
+
+* VFS-1531 Use CacheExpirationHelper in MetadataCache.
+* VFS-1659 Run oneclient release directly from Dockerfile.
+* VFS-1701 Read token from environment variable.
+* VFS-1706 Set default access type to PROXY
+* VFS-1706 Filter mount points
+* VFS-1531 Add CacheExpirationHelper class.
+
+
 ### 3.0.0-alpha2
 
 * VFS-1657 Add system update to release dockers.
