@@ -15,7 +15,6 @@
 
 #include <asio/buffer.hpp>
 #include <boost/any.hpp>
-#include <boost/bimap.hpp>
 #include <boost/filesystem/path.hpp>
 #include <tbb/concurrent_hash_map.h>
 
@@ -72,12 +71,12 @@ public:
 
     virtual void setUserCTX(std::unordered_map<std::string, std::string> args)
     {
-        throw std::system_error{std::make_error_code(std::errc::not_supported)};
+        throw std::system_error{std::make_error_code(std::errc::function_not_supported)};
     }
 
     virtual std::unordered_map<std::string, std::string> getUserCTX()
     {
-        throw std::system_error{std::make_error_code(std::errc::not_supported)};
+        throw std::system_error{std::make_error_code(std::errc::function_not_supported)};
     }
 
 protected:
@@ -112,7 +111,7 @@ public:
     virtual void ash_getattr(CTXPtr ctx, const boost::filesystem::path &p,
         GeneralCallback<struct stat> callback)
     {
-        callback({}, std::make_error_code(std::errc::not_supported));
+        callback({}, std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_access(CTXPtr ctx, const boost::filesystem::path &p,
@@ -124,78 +123,85 @@ public:
     virtual void ash_readlink(CTXPtr ctx, const boost::filesystem::path &p,
         GeneralCallback<std::string> callback)
     {
-        callback({}, std::make_error_code(std::errc::not_supported));
+        callback({}, std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_readdir(CTXPtr ctx, const boost::filesystem::path &p,
         off_t offset, size_t count,
         GeneralCallback<const std::vector<std::string> &> callback)
     {
-        callback({}, std::make_error_code(std::errc::not_supported));
+        callback({}, std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p,
         mode_t mode, FlagsSet flags, dev_t rdev, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_mkdir(CTXPtr ctx, const boost::filesystem::path &p,
         mode_t mode, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_unlink(
         CTXPtr ctx, const boost::filesystem::path &p, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_rmdir(
         CTXPtr ctx, const boost::filesystem::path &p, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_symlink(CTXPtr ctx, const boost::filesystem::path &from,
         const boost::filesystem::path &to, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_rename(CTXPtr ctx, const boost::filesystem::path &from,
         const boost::filesystem::path &to, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_link(CTXPtr ctx, const boost::filesystem::path &from,
         const boost::filesystem::path &to, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_chmod(CTXPtr ctx, const boost::filesystem::path &p,
         mode_t mode, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_chown(CTXPtr ctx, const boost::filesystem::path &p,
         uid_t uid, gid_t gid, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_truncate(CTXPtr ctx, const boost::filesystem::path &p,
         off_t size, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
         FlagsSet flags, GeneralCallback<int> callback)
+    {
+        ash_open(std::move(ctx), p, getFlagsValue(std::move(flags)),
+            std::move(callback));
+    }
+
+    virtual void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
+        int flags, GeneralCallback<int> callback)
     {
         callback({}, SUCCESS_CODE);
     }
@@ -204,14 +210,14 @@ public:
         asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
         GeneralCallback<asio::mutable_buffer> callback)
     {
-        callback({}, std::make_error_code(std::errc::not_supported));
+        callback({}, std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
         asio::const_buffer buf, off_t offset, const std::string &fileUuid,
         GeneralCallback<std::size_t> callback)
     {
-        callback({}, std::make_error_code(std::errc::not_supported));
+        callback({}, std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_release(
@@ -274,8 +280,7 @@ public:
         return waitFor(future);
     }
 
-    virtual int sh_open(
-        CTXPtr ctx, const boost::filesystem::path &p, FlagsSet flags)
+    virtual int sh_open(CTXPtr ctx, const boost::filesystem::path &p, int flags)
     {
         auto promise = std::make_shared<std::promise<int>>();
         auto future = promise->get_future();
@@ -313,23 +318,13 @@ public:
         return waitFor(future);
     }
 
-    static FlagsSet parseFlags(int flags)
-    {
-        FlagsSet flagsSet{};
-        for (auto flag: s_flagTranslation.right)
-            if (flag.first & flags)
-                flagsSet.insert(flag.second);
-
-        return flagsSet;
-    }
-
     static int getFlagsValue(FlagsSet flags)
     {
         int value = 0;
 
         for (auto flag : flags) {
-            auto searchResult = s_flagTranslation.left.find(flag);
-            assert(searchResult != s_flagTranslation.left.end());
+            auto searchResult = s_flagTranslation.find(flag);
+            assert(searchResult != s_flagTranslation.end());
             value |= searchResult->second;
         }
         return value;
@@ -352,7 +347,7 @@ private:
         return f.get();
     }
 
-    static const boost::bimap<Flag, int> s_flagTranslation;
+    static const std::unordered_map<Flag, int, FlagHash> s_flagTranslation;
 };
 
 } // namespace helpers

@@ -23,6 +23,11 @@
 namespace one {
 namespace helpers {
 
+constexpr auto CEPH_HELPER_NAME = "Ceph";
+constexpr auto DIRECT_IO_HELPER_NAME = "DirectIO";
+constexpr auto PROXY_IO_HELPER_NAME = "ProxyIO";
+constexpr auto S3_HELPER_NAME = "AmazonS3";
+
 /**
  * Factory providing objects of requested storage helpers.
  */

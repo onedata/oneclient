@@ -62,9 +62,10 @@ Environment::Environment()
     , m_userDataDir{calcUserDataDir(m_userHome) / "oneclient"}
     , m_clientName{calcClientName()}
 {
-    if (!boost::filesystem::create_directories(m_userDataDir))
-        LOG(WARNING) << "Unable to create user data directory "
-                     << m_userDataDir.string();
+    boost::system::error_code ec;
+    boost::filesystem::create_directories(m_userDataDir, ec);
+    LOG_IF(WARNING, ec) << "Unable to create user data directory "
+                        << m_userDataDir << ": " << ec.message();
 }
 
 const boost::filesystem::path &Environment::userDataDir() const

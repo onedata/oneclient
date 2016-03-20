@@ -4,6 +4,15 @@
 CHANGELOG
 ---------
 
+### 2.0.1
+
+* VFS-1525 Refactor for loop
+* VFS-1525 Remove openFile method from helpers
+* VFS-1525 Make flag translation public for use in open.
+* VFS-1525 Update sh_open with FlagsSet
+* VFS-1525 Synchronous version of open and release methods
+
+
 ### 2.0.0
 
 

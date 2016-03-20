@@ -1,14 +1,12 @@
 /**
  * Common messages used in other protocol files.
  * @author Rafał Słota
- * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
 package one.clproto;
-
-import "common_messages.proto";
 
 message DBSyncRequest {
     oneof message_body {

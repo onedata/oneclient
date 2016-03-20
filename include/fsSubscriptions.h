@@ -80,7 +80,8 @@ public:
      * to the server.
      * @param fileUuid UUID of file for which subscription is removed.
      */
-    virtual void removePermissionChangedSubscription(const std::string &fileUuid);
+    virtual void removePermissionChangedSubscription(
+        const std::string &fileUuid);
 
 private:
     void addFileAttrSubscription(const std::string &fileUuid);

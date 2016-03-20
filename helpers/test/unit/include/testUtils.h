@@ -10,9 +10,14 @@
 #define HELPERS_TEST_UTILS_H
 
 #include <algorithm>
+#include <chrono>
 #include <functional>
 #include <random>
 #include <string>
+#include <thread>
+
+#include <gtest/gtest.h>
+#include <gmock/gmock.h>
 
 #define EXPECT_THROW_POSIX_CODE(WHAT, CODE)                                    \
     try {                                                                      \
@@ -29,8 +34,19 @@
         FAIL() << "Unknown exception";                                         \
     }
 
+#define ASSERT_WAIT(Pred) ASSERT_TRUE(one::testing::waitFor(Pred))
+#define ASSERT_WAIT_F(Pred, WhileWaiting)                                      \
+    ASSERT_TRUE(one::testing::waitFor(Pred, [&] { WhileWaiting; }))
+
+ACTION_P(SetBool, p) { *p = true; }
+
+namespace one {
+namespace testing {
+
+namespace {
 thread_local std::random_device rd;
 thread_local std::mt19937 gen{rd()};
+}
 
 int randomInt(const int lower = 1, const int upper = 100)
 {
@@ -47,5 +63,25 @@ std::string randomString(const unsigned int length)
 }
 
 std::string randomString() { return randomString(randomInt()); }
+
+template <typename Bool, typename Fun>
+::testing::AssertionResult waitFor(Bool &predicate, Fun &&whileWaiting,
+    const std::chrono::nanoseconds &timeout = std::chrono::seconds{10},
+    const std::chrono::nanoseconds &interval = std::chrono::milliseconds{1})
+{
+    auto until = std::chrono::steady_clock::now() + timeout;
+    while (!predicate && std::chrono::steady_clock::now() < until) {
+        whileWaiting();
+        std::this_thread::sleep_for(interval);
+    }
+
+    if (predicate)
+        return ::testing::AssertionSuccess();
+
+    return ::testing::AssertionFailure() << "timeout";
+}
+
+} // namespace testing
+} // namespace one
 
 #endif // HELPERS_TEST_UTILS_H

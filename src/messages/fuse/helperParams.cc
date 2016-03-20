@@ -24,13 +24,20 @@ HelperParams::HelperParams(std::unique_ptr<ProtocolServerMessage> serverMessage)
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "helper_params field missing"};
 
-    auto helperParams =
-        serverMessage->mutable_fuse_response()->mutable_helper_params();
+    deserialize(
+        *serverMessage->mutable_fuse_response()->mutable_helper_params());
+}
 
-    m_name.swap(*helperParams->mutable_helper_name());
+HelperParams::HelperParams(HelperParams::ProtocolMessage &message)
+{
+    deserialize(message);
+}
 
-    for (auto &entry : *helperParams->mutable_helper_args())
-        m_args[std::move(*entry.mutable_key())].swap(*entry.mutable_value());
+HelperParams::HelperParams(
+    std::string name, std::unordered_map<std::string, std::string> args)
+    : m_name{std::move(name)}
+    , m_args{std::move(args)}
+{
 }
 
 std::string HelperParams::toString() const
@@ -43,6 +50,14 @@ std::string HelperParams::toString() const
 
     stream << "]";
     return stream.str();
+}
+
+void HelperParams::deserialize(ProtocolMessage &message)
+{
+    message.mutable_helper_name()->swap(m_name);
+
+    for (auto &entry : *message.mutable_helper_args())
+        entry.mutable_value()->swap(m_args[std::move(*entry.mutable_key())]);
 }
 
 } // namespace fuse

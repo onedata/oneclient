@@ -11,6 +11,7 @@
 #define HELPERS_COMMUNICATION_COMMUNICATOR_H
 
 #include "communication/connectionPool.h"
+#include "communication/persistentConnection.h"
 #include "communication/layers/binaryTranslator.h"
 #include "communication/layers/inbox.h"
 #include "communication/layers/replier.h"

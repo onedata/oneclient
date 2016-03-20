@@ -20,6 +20,11 @@
 namespace one {
 namespace helpers {
 
+constexpr auto S3_HELPER_HOST_NAME_ARG = "host_name";
+constexpr auto S3_HELPER_BUCKET_NAME_ARG = "bucket_name";
+constexpr auto S3_HELPER_ACCESS_KEY_ARG = "access_key";
+constexpr auto S3_HELPER_SECRET_KEY_ARG = "secret_key";
+
 /**
 * The S3HelperCTX class represents context for S3 helpers and its object is
 * passed to all helper functions.
@@ -74,7 +79,7 @@ public:
 
     CTXPtr createCTX();
 
-    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, FlagsSet flags,
+    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, int flags,
         GeneralCallback<int> callback)
     {
         callback(0, SUCCESS_CODE);
@@ -141,6 +146,62 @@ private:
 
     static void throwPosixError(const std::string &operation, S3Status status,
         const S3ErrorDetails *error);
+
+    struct Operation {
+        Operation(std::string _operation)
+            : operation{std::move(_operation)}
+        {
+        }
+
+        std::string operation;
+    };
+
+    template <typename T> struct ResponseHandler : S3ResponseHandler {
+        ResponseHandler()
+            : S3ResponseHandler{[](const S3ResponseProperties *properties,
+                                    void *callbackData) { return S3StatusOK; },
+                  [](S3Status status, const S3ErrorDetails *errorDetails,
+                                    void *callbackData) {
+                      if (status != S3StatusOK) {
+                          auto dataPtr = static_cast<T *>(callbackData);
+                          throwPosixError(
+                              dataPtr->operation, status, errorDetails);
+                      }
+                  }}
+        {
+        }
+    };
+
+    struct GetFileSizeCallbackData {
+        std::string operation{"sh_getFileSize"};
+        std::size_t fileSize;
+    };
+
+    struct ReadCallbackData {
+        std::string operation{"sh_read"};
+        std::size_t size = 0;
+        asio::mutable_buffer buffer;
+    };
+
+    struct WriteCallbackData {
+        WriteCallbackData(const std::string &_fileId,
+            const S3HelperCTX &_helperCTX, S3Helper &_helper)
+            : fileId{_fileId}
+            , helperCTX{_helperCTX}
+            , helper{_helper}
+        {
+        }
+
+        std::string operation{"sh_write"};
+        off_t offset = 0;
+        std::size_t fileSize;
+        off_t bufferOffset;
+        std::size_t bufferSize;
+        asio::const_buffer buffer;
+        const std::string &fileId;
+        const S3HelperCTX &helperCTX;
+        S3Helper &helper;
+    };
 
     asio::io_service &m_service;
     std::unordered_map<std::string, std::string> m_args;

@@ -1,28 +1,28 @@
 /**
- * @file forceClusterProxyCache.cc
+ * @file forceProxyIOCache.cc
  * @author Tomasz Lichon
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "forceClusterProxyCache.h"
+#include "forceProxyIOCache.h"
 
 namespace one {
 namespace client {
 
-ForceClusterProxyCache::ForceClusterProxyCache(FsSubscriptions &fsSubscriptions)
+ForceProxyIOCache::ForceProxyIOCache(FsSubscriptions &fsSubscriptions)
     : m_fsSubscriptions{fsSubscriptions}
 {
 }
 
-bool ForceClusterProxyCache::contains(const std::string &fileUuid)
+bool ForceProxyIOCache::contains(const std::string &fileUuid)
 {
     std::shared_lock<std::shared_timed_mutex> lock{m_cacheMutex};
     return m_cache.find(fileUuid) != m_cache.end();
 }
 
-void ForceClusterProxyCache::insert(const std::string &fileUuid)
+void ForceProxyIOCache::insert(const std::string &fileUuid)
 {
     {
         std::shared_lock<std::shared_timed_mutex> lock{m_cacheMutex};
@@ -31,7 +31,7 @@ void ForceClusterProxyCache::insert(const std::string &fileUuid)
     m_fsSubscriptions.addPermissionChangedSubscription(fileUuid);
 }
 
-void ForceClusterProxyCache::erase(const std::string &fileUuid)
+void ForceProxyIOCache::erase(const std::string &fileUuid)
 {
     {
         std::lock_guard<std::shared_timed_mutex> guard{m_cacheMutex};

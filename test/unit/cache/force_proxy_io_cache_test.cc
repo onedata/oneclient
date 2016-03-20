@@ -1,12 +1,12 @@
 /**
- * @file force_cluster_proxy_cache_test.cc
+ * @file force_proxy_io_cache_test.cc
  * @author Tomasz Lichon
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "cache/forceClusterProxyCache.h"
+#include "cache/forceProxyIOCache.h"
 #include "context.h"
 #include "communication/communicator.h"
 #include "eventManager_mock.h"
@@ -21,9 +21,9 @@ using namespace one::client;
 using namespace one::client::events;
 using namespace one::communication;
 
-class ForceClusterProxyCacheTest : public ::testing::Test {
+class ForceProxyIOCacheTest : public ::testing::Test {
 public:
-    ForceClusterProxyCacheTest()
+    ForceProxyIOCacheTest()
         : context{std::make_shared<Context>()}
     {
         scheduler = std::make_shared<Scheduler>(0);
@@ -33,8 +33,8 @@ public:
         event_manager = std::make_shared<MockEventManager>(context);
         fsSubscriptions =
             std::make_shared<MockFsSubscriptions>(*scheduler, *event_manager);
-        forceClusterProxyCache =
-            std::make_shared<ForceClusterProxyCache>(*fsSubscriptions);
+        forceProxyIOCache =
+            std::make_shared<ForceProxyIOCache>(*fsSubscriptions);
     }
 
 protected:
@@ -42,49 +42,49 @@ protected:
     std::shared_ptr<Context> context;
     std::shared_ptr<EventManager> event_manager;
     std::shared_ptr<MockFsSubscriptions> fsSubscriptions;
-    std::shared_ptr<ForceClusterProxyCache> forceClusterProxyCache;
+    std::shared_ptr<ForceProxyIOCache> forceProxyIOCache;
 };
 
-TEST_F(ForceClusterProxyCacheTest, containsShouldReturnFalseIfUuidIsNotInCache)
+TEST_F(ForceProxyIOCacheTest, containsShouldReturnFalseIfUuidIsNotInCache)
 {
     std::string uuid = "uuid";
 
-    EXPECT_FALSE(forceClusterProxyCache->contains(uuid));
+    EXPECT_FALSE(forceProxyIOCache->contains(uuid));
 }
 
-TEST_F(ForceClusterProxyCacheTest, insertShouldInsertUuid)
+TEST_F(ForceProxyIOCacheTest, insertShouldInsertUuid)
 {
     std::string uuid = "uuid";
 
-    forceClusterProxyCache->insert(uuid);
+    forceProxyIOCache->insert(uuid);
 
-    EXPECT_TRUE(forceClusterProxyCache->contains(uuid));
+    EXPECT_TRUE(forceProxyIOCache->contains(uuid));
 }
 
-TEST_F(ForceClusterProxyCacheTest, insertShouldSubscribeForPermissionChanges)
+TEST_F(ForceProxyIOCacheTest, insertShouldSubscribeForPermissionChanges)
 {
     std::string uuid = "uuid";
     EXPECT_CALL(*fsSubscriptions, addPermissionChangedSubscription(uuid))
         .Times(1);
 
-    forceClusterProxyCache->insert(uuid);
+    forceProxyIOCache->insert(uuid);
 }
 
-TEST_F(ForceClusterProxyCacheTest, eraseShouldEraseUuid)
+TEST_F(ForceProxyIOCacheTest, eraseShouldEraseUuid)
 {
     std::string uuid = "uuid";
-    forceClusterProxyCache->insert(uuid);
+    forceProxyIOCache->insert(uuid);
 
-    forceClusterProxyCache->erase(uuid);
+    forceProxyIOCache->erase(uuid);
 
-    EXPECT_FALSE(forceClusterProxyCache->contains(uuid));
+    EXPECT_FALSE(forceProxyIOCache->contains(uuid));
 }
 
-TEST_F(ForceClusterProxyCacheTest, eraseShouldUnsubscribeFromPermissionChanges)
+TEST_F(ForceProxyIOCacheTest, eraseShouldUnsubscribeFromPermissionChanges)
 {
     std::string uuid = "uuid";
     EXPECT_CALL(*fsSubscriptions, removePermissionChangedSubscription(uuid))
         .Times(1);
 
-    forceClusterProxyCache->erase(uuid);
+    forceProxyIOCache->erase(uuid);
 }

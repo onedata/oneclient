@@ -6,37 +6,14 @@ set(CMAKE_FIND_FRAMEWORK LAST)
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${PROJECT_SOURCE_DIR}/helpers/cmake)
 
-#================================================================================================
-# Automatic git versioning: http://ipenguin.ws/2012/11/cmake-automatically-use-git-tags-as.html
-# Make a version file containing the current version from git.
-include(GetGitRevisionDescription)
-git_describe(VERSION --tags)
-
-#parse the version information into pieces.
-string(REGEX REPLACE "^([0-9]+)\\..*" "\\1" VERSION_MAJOR "${VERSION}")
-string(REGEX REPLACE "^[0-9]+\\.([0-9]+).*" "\\1" VERSION_MINOR "${VERSION}")
-string(REGEX REPLACE "^[0-9]+\\.[0-9]+\\.([0-9]+).*" "\\1" VERSION_PATCH "${VERSION}")
-
+# Version
 set(oneclient_VERSION_MAJOR 0)
 set(oneclient_VERSION_MINOR 0)
 set(oneclient_VERSION_PATCH 0)
+set(oneclient_VERSION_TWEAK "")
+set(oneclient_VERSION_FALLBACK "unknown version")
 
-# set version (if no tag is specified, the version stays at 0.0.0)
-if(NOT ${VERSION_MAJOR} MATCHES -128-NOTFOUND)
-    set(oneclient_VERSION_MAJOR ${VERSION_MAJOR})
-endif(NOT ${VERSION_MAJOR} MATCHES -128-NOTFOUND)
-
-if(NOT ${VERSION_MINOR} MATCHES -128-NOTFOUND)
-    set(oneclient_VERSION_MINOR ${VERSION_MINOR})
-endif(NOT ${VERSION_MINOR} MATCHES -128-NOTFOUND)
-
-if(NOT ${VERSION_PATCH} MATCHES -128-NOTFOUND)
-    set(oneclient_VERSION_PATCH ${VERSION_PATCH})
-endif(NOT ${VERSION_PATCH} MATCHES -128-NOTFOUND)
-
-# The version number.
-set(oneclient_VERSION $(oneclient_VERSION_MAJOR).$(oneclient_VERSION_MINOR).$(oneclient_VERSION_PATCH))
-#================================================================================================
+include(version.txt OPTIONAL)
 
 file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/version)
 configure_file(include/version.h.in ${PROJECT_BINARY_DIR}/version/version.h)
@@ -137,7 +114,8 @@ add_definitions(
     -DBOOST_FILESYSTEM_NO_DEPRECATED
     -DBOOST_ALL_DYN_LINK
     -DASIO_STANDALONE
-    -DBUILD_PROXY_IO)
+    -DBUILD_PROXY_IO
+    -DGLOG_STL_LOGGING_FOR_UNORDERED)
 
 # Add helpers after setting compilation flags but before setting include
 # directories; helpers specify their own includes, pulling from package-set

@@ -13,13 +13,16 @@
 #include "s3Helper.h"
 
 #ifdef BUILD_PROXY_IO
+
 #include "proxyIOHelper.h"
+
 #endif
 
 namespace one {
 namespace helpers {
 
 #ifdef BUILD_PROXY_IO
+
 StorageHelperFactory::StorageHelperFactory(asio::io_service &cephService,
     asio::io_service &dioService, asio::io_service &s3Service,
     communication::Communicator &communicator)
@@ -29,6 +32,7 @@ StorageHelperFactory::StorageHelperFactory(asio::io_service &cephService,
     , m_communicator{communicator}
 {
 }
+
 #else
 StorageHelperFactory::StorageHelperFactory(asio::io_service &ceph_service,
     asio::io_service &dio_service, asio::io_service &s3Service)
@@ -43,15 +47,10 @@ std::shared_ptr<IStorageHelper> StorageHelperFactory::getStorageHelper(
     const std::string &sh_name,
     const std::unordered_map<std::string, std::string> &args)
 {
-    if (sh_name == "Ceph")
+    if (sh_name == CEPH_HELPER_NAME)
         return std::make_shared<CephHelper>(args, m_cephService);
 
-#ifdef BUILD_PROXY_IO
-    if (sh_name == "ProxyIO")
-        return std::make_shared<ProxyIOHelper>(args, m_communicator);
-#endif
-
-    if (sh_name == "DirectIO") {
+    if (sh_name == DIRECT_IO_HELPER_NAME) {
 #ifdef __linux__
         auto userCTXFactory = DirectIOHelper::linuxUserCTXFactory;
 #else
@@ -61,10 +60,16 @@ std::shared_ptr<IStorageHelper> StorageHelperFactory::getStorageHelper(
             args, m_dioService, userCTXFactory);
     }
 
-    if (sh_name == "AmazonS3")
+#ifdef BUILD_PROXY_IO
+    if (sh_name == PROXY_IO_HELPER_NAME)
+        return std::make_shared<ProxyIOHelper>(args, m_communicator);
+#endif
+
+    if (sh_name == S3_HELPER_NAME)
         return std::make_shared<S3Helper>(args, m_s3Service);
 
-    return {};
+    throw std::system_error{std::make_error_code(std::errc::invalid_argument),
+        "Invalid storage helper name: '" + sh_name + "'"};
 }
 
 } // namespace helpers

@@ -10,6 +10,7 @@
 #define ONECLIENT_TOKEN_HANDLER_H
 
 #include <boost/filesystem/path.hpp>
+#include <boost/optional.hpp>
 #include <macaroons.hpp>
 
 #include <chrono>
@@ -21,6 +22,7 @@ namespace auth {
 
 constexpr std::chrono::minutes RESTRICTED_MACAROON_EXPIRATION{15};
 constexpr std::chrono::minutes RESTRICTED_MACAROON_REFRESH{5};
+constexpr auto AUTHORIZATION_TOKEN_ENV = "ONECLIENT_AUTHORIZATION_TOKEN";
 
 /**
  * The @c TokenHandler class is responsible for retrieving and manipulating an
@@ -49,7 +51,7 @@ public:
 
 private:
     macaroons::Macaroon retrieveToken() const;
-    macaroons::Macaroon readTokenFromFile() const;
+    boost::optional<macaroons::Macaroon> readTokenFromFile() const;
     macaroons::Macaroon getTokenFromUser() const;
     boost::filesystem::path tokenFilePath() const;
 

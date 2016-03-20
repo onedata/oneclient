@@ -18,6 +18,12 @@
 namespace one {
 namespace helpers {
 
+constexpr auto CEPH_HELPER_USER_NAME_ARG = "user_name";
+constexpr auto CEPH_HELPER_CLUSTER_NAME_ARG = "cluster_name";
+constexpr auto CEPH_HELPER_MON_HOST_ARG = "mon_host";
+constexpr auto CEPH_HELPER_KEY_ARG = "key";
+constexpr auto CEPH_HELPER_POOL_NAME_ARG = "pool_name";
+
 /**
 * The CephHelperCTX class represents context for Ceph helpers and its object is
 * passed to all helper functions.
@@ -79,7 +85,7 @@ public:
 
     CTXPtr createCTX();
 
-    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, FlagsSet flags,
+    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, int flags,
         GeneralCallback<int> callback)
     {
         callback(0, SUCCESS_CODE);
@@ -131,15 +137,14 @@ private:
     };
 
     struct ReadCallbackData {
-        ReadCallbackData(std::string _fileId, std::size_t _size,
-            asio::mutable_buffer _buffer,
+        ReadCallbackData(std::string _fileId, asio::mutable_buffer _buffer,
             GeneralCallback<asio::mutable_buffer> _callback)
             : fileId{std::move(_fileId)}
             , buffer{std::move(_buffer)}
             , callback{std::move(_callback)}
         {
             bufferlist.append(ceph::buffer::create_static(
-                _size, asio::buffer_cast<char *>(buffer)));
+                asio::buffer_size(buffer), asio::buffer_cast<char *>(buffer)));
         }
 
         std::string fileId;
@@ -150,17 +155,16 @@ private:
     };
 
     struct WriteCallbackData {
-        WriteCallbackData(std::string _fileId, std::size_t _size,
-            asio::const_buffer _buffer, GeneralCallback<std::size_t> _callback)
+        WriteCallbackData(std::string _fileId, asio::const_buffer _buffer,
+            GeneralCallback<std::size_t> _callback)
             : fileId{std::move(_fileId)}
-            , size{_size}
             , callback{std::move(_callback)}
         {
-            bufferlist.append(asio::buffer_cast<const char *>(_buffer));
+            bufferlist.append(asio::buffer_cast<const char *>(_buffer),
+                asio::buffer_size(_buffer));
         }
 
         std::string fileId;
-        std::size_t size;
         librados::bufferlist bufferlist;
         GeneralCallback<std::size_t> callback;
         librados::AioCompletion *completion;

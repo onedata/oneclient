@@ -11,9 +11,11 @@
 
 namespace {
 
-constexpr auto oneclient_VERSION_MAJOR = "@oneclient_VERSION_MAJOR@";
-constexpr auto oneclient_VERSION_MINOR = "@oneclient_VERSION_MINOR@";
-constexpr auto oneclient_VERSION_PATCH = "@oneclient_VERSION_PATCH@";
+constexpr auto oneclient_VERSION_MAJOR = @oneclient_VERSION_MAJOR@;
+constexpr auto oneclient_VERSION_MINOR = @oneclient_VERSION_MINOR@;
+constexpr auto oneclient_VERSION_PATCH = @oneclient_VERSION_PATCH@;
+const std::string oneclient_VERSION_TWEAK = "@oneclient_VERSION_TWEAK@";
+const std::string oneclient_VERSION_FALLBACK = "@oneclient_VERSION_FALLBACK@";
 
 constexpr auto oneclient_INSTALL_PATH = "@CMAKE_INSTALL_PREFIX@",
                oneclient_CONFIG_DIR   = "@CONFIG_DIR@";
