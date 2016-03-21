@@ -23,14 +23,16 @@ RUN case ${RELEASE} in \
 			;; \
 	esac
 
+# Install Samba and nfs servers
 RUN dnf -y install samba rpcbind nfs-utils nfs-utils-lib
-ADD start_exports.sh  /root/start_exports.sh
-RUN chmod +x /root/start_exports.sh
-RUN echo "/root/start_exports.sh" >> /root/.bashrc
+# Add Samba and nfs configs
 ADD nfs_exports /etc/exports
 ADD smb.conf /etc/samba/
+# Add scritp to start Samba and nfs
+ADD start_exports.sh  /root/start_exports.sh
+ADD run.sh /root/run.sh
 
 VOLUME /root/.local/share/oneclient /mnt/oneclient
 ENV AUTHENTICATION=token
-ENTRYPOINT ["oneclient", "-f"]
+ENTRYPOINT ["/root/run.sh"]
 CMD ["/mnt/oneclient"]
