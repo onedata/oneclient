@@ -33,31 +33,37 @@ public:
     FsSubscriptions(events::EventManager &eventManager);
 
     /**
-     * Adds subscription for file location updates.
+     * Adds subscription for file location updates. Subscription of the
+     * file will be forwarded to the server.
+     * @param fileUuid UUID of file for which subscription is added.
      */
     void addFileLocationSubscription(const std::string &fileUuid);
 
     /**
-     * Removes subscription for file location updates.
+     * Removes subscription for file location updates. Subscription cancellation
+     * message will be sent to the server.
      * @param fileUuid UUID of file for which subscription is removed.
      */
     void removeFileLocationSubscription(const std::string &fileUuid);
 
     /**
-     * Adds subscription for permission updates.
+     * Adds subscription for permission updates. Subscription of the
+     * file will be forwarded to the server.
      * @param fileUuid UUID of file for which subscription is added.
      */
     virtual void addPermissionChangedSubscription(const std::string &fileUuid);
 
     /**
-     * Removes subscription for permission updates.
+     * Removes subscription for permission updates. Subscription cancellation
+     * message will be sent to the server.
      * @param fileUuid UUID of file for which subscription is removed.
      */
     virtual void removePermissionChangedSubscription(
         const std::string &fileUuid);
 
     /**
-     * Adds subscription for file attributes updates.
+     * Adds subscription for file attributes updates. Subscription of the
+     * file will be forwarded to the server.
      * @param fileUuid UUID of file for which subscription is added.
      */
     void addFileAttrSubscription(const std::string &fileUuid);
