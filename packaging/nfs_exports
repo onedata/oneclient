@@ -1,1 +1,1 @@
-/mnt/oneclient *(rw,sync,insecure,fsid=0,no_subtree_check,no_root_squash,all_squash,anonuid=0,anongid=0)
+/mnt/oneclient *(rw,sync,insecure,fsid=0,no_subtree_check,all_squash,anonuid=0,anongid=0)

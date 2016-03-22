@@ -28,8 +28,7 @@ RUN dnf -y install samba rpcbind nfs-utils nfs-utils-lib
 # Add Samba and nfs configs
 ADD nfs_exports /etc/exports
 ADD smb.conf /etc/samba/
-# Add scritp to start Samba and nfs
-ADD start_exports.sh  /root/start_exports.sh
+# Add scritp to start Samba, nfs and oneclient
 ADD run.sh /root/run.sh
 
 VOLUME /root/.local/share/oneclient /mnt/oneclient
