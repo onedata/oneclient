@@ -402,7 +402,8 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
 
         if(boost::icl::size(availableRange) > 0 && asio::buffer_size(buf) == 0) {
             helper->sh_release(helperCtx, fileBlock.fileId());
-            openFile(ctxAcc, context, helper, fileBlock.fileId());
+            helperCtx = getHelperCtx(
+                    context, helper, fileBlock.storageId(), fileBlock.fileId());
             buf = helper->sh_read(
                     helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
         }
