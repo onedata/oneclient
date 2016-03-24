@@ -53,7 +53,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_eventManager{m_context}
     , m_helpersCache{*m_context->communicator(), *m_context->scheduler()}
     , m_metadataCache{*m_context->communicator()}
-    , m_fsSubscriptions{*m_context->scheduler(), m_eventManager}
+    , m_fsSubscriptions{m_eventManager}
     , m_forceProxyIOCache{m_fsSubscriptions}
 {
     m_eventManager.setFileAttrHandler(fileAttrHandler());
@@ -119,7 +119,7 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
 
     m_expirationHelper.markInteresting(attr.uuid(), [&] {
         m_metadataCache.getAttr(attr.uuid());
-        m_fsSubscriptions.addTemporaryFileAttrSubscription(attr.uuid());
+        m_fsSubscriptions.addFileAttrSubscription(attr.uuid());
     });
 
     return 0;
