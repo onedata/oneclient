@@ -10,12 +10,11 @@ Run the script with -h flag to learn about script's running options.
 """
 
 from __future__ import print_function
+
 import argparse
 import json
-import os
 
 from environment import env
-
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -50,11 +49,11 @@ parser.add_argument(
     dest='bin_cluster_manager')
 
 parser.add_argument(
-    '-bg', '--bin-gr',
+    '-boz', '--bin-oz',
     action='store',
-    default=env.default('bin_gr'),
-    help='the path to globalregistry repository (precompiled)',
-    dest='bin_gr')
+    default=env.default('bin_oz'),
+    help='the path to zone repository (precompiled)',
+    dest='bin_oz')
 
 parser.add_argument(
     '-ba', '--bin-appmock',
@@ -85,8 +84,10 @@ parser.add_argument(
 args = parser.parse_args()
 
 output = env.up(args.config_path, image=args.image, bin_am=args.bin_am,
-       bin_gr=args.bin_gr, bin_cluster_manager=args.bin_cluster_manager,
-       bin_op_worker=args.bin_op_worker, bin_cluster_worker=args.bin_cluster_worker,
-       bin_oc=args.bin_oc, logdir=args.logdir)
+                bin_oz=args.bin_oz,
+                bin_cluster_manager=args.bin_cluster_manager,
+                bin_op_worker=args.bin_op_worker,
+                bin_cluster_worker=args.bin_cluster_worker,
+                bin_oc=args.bin_oc, logdir=args.logdir)
 
 print(json.dumps(output))
