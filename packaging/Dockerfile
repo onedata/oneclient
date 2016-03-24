@@ -24,7 +24,7 @@ RUN case ${RELEASE} in \
 	esac
 
 # Install Samba and nfs servers
-RUN dnf -y install samba rpcbind nfs-utils nfs-utils-lib
+RUN dnf -y install samba rpcbind nfs-utils nfs-utils-lib && dnf clean all
 # Add Samba and nfs configs
 ADD nfs_exports /etc/exports
 ADD smb.conf /etc/samba/

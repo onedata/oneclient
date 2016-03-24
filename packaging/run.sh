@@ -13,4 +13,4 @@ rpc.mountd
 rpc.nfsd
 rpc.statd
 
-oneclient -f $@
+oneclient -f "$@"
