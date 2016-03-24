@@ -49,7 +49,14 @@ parser.add_argument(
     help='number of couchbase nodes to bring up',
     dest='nodes')
 
+parser.add_argument(
+        '-cn', '--cluster_name',
+        action='store',
+        default="cluster",
+        help='name of couchbase cluster',
+        dest='cluster_name')
+
 args = parser.parse_args()
 
-output = couchbase.up(args.image, args.dns, args.uid, args.nodes)
+output = couchbase.up(args.image, args.dns, args.uid, args.cluster_name, args.nodes)
 print(json.dumps(output))
