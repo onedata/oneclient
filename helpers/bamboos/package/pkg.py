@@ -22,7 +22,7 @@ package/
             cluster-manager_1.0.0.1.ge1a52f4-1_amd64.changes
             cluster-manager_1.0.0.1.ge1a52f4.orig.tar.gz
 
-Available distributions sid, vivid, wily, fedora-21-x86_64, fedora-23-x86_64, centos-7-x86_64, sl6x-x86_64
+Available distributions vivid, wily, fedora-21-x86_64, fedora-23-x86_64, centos-7-x86_64, sl6x-x86_64
 """
 import argparse
 from subprocess import Popen, PIPE, check_call, check_output, CalledProcessError
@@ -34,35 +34,39 @@ Host docker_packages_devel
  HostName 172.17.0.2
  User root
  ProxyCommand ssh packages_devel nc %h %p
+ StrictHostKeyChecking no
+ UserKnownHostsFile=/dev/null
 
 Host docker_packages
  HostName 172.17.0.2
  User root
  ProxyCommand ssh packages nc %h %p
+ StrictHostKeyChecking no
+ UserKnownHostsFile=/dev/null
 
 Host packages_devel
  HostName 149.156.11.4
  Port 10107
  User ubuntu
+ StrictHostKeyChecking no
+ UserKnownHostsFile=/dev/null
 
 Host packages
  HostName 149.156.11.4
  Port 10039
  User ubuntu
+ StrictHostKeyChecking no
+ UserKnownHostsFile=/dev/null
  '''
 
 APACHE_PREFIX = '/var/www/onedata'
-REPO_LOCATION = {
-    'sid': '/apt/debian',
-    'vivid': '/apt/ubuntu',
-    'wily': '/apt/ubuntu',
+YUM_REPO_LOCATION = {
     'fedora-21-x86_64': '/yum/fedora/21',
     'fedora-23-x86_64': '/yum/fedora/23',
     'centos-7-x86_64': '/yum/centos/7x',
     'sl6x-x86_64': '/yum/scientific/6x'
 }
 REPO_TYPE = {
-    'sid': 'deb',
     'vivid': 'deb',
     'wily': 'deb',
     'fedora-21-x86_64': 'rpm',
@@ -152,30 +156,26 @@ try:
         # for each distribution inside
         for distro in call(['ls', '/tmp/package']).split():
             if REPO_TYPE[distro] == 'deb':
-                # prepare command
-                repo_dir = APACHE_PREFIX + REPO_LOCATION[distro]
-                command = ['reprepro', '-b', repo_dir]
+                # push debs
+                try:
+                    distro_binary_packages = '/tmp/package/' + distro + '/binary-amd64/'
+                    execute(['aptly', 'repo', 'add', distro, distro_binary_packages])
 
-                # add deb packages to reprepro
-                distro_binary_prefix = '/tmp/package/' + distro + '/binary-amd64/'
-                for package in call(['ls', distro_binary_prefix]).split():
-                    if package.endswith('.deb'):
-                        try:
-                            push_package_command = command + ['includedeb', distro, distro_binary_prefix + package]
-                            execute(push_package_command)
+                    # push sources
+                    distro_source_packages = '/tmp/package/' + distro + '/source/'
+                    execute(['aptly', 'repo', 'add', distro, distro_source_packages])
+                except Exception:
+                    pass  # the repo should be updated anyway
 
-                            # add dsc sources to reprepro
-                            distro_source_prefix = '/tmp/package/' + distro + '/source/'
-                            push_source_command = command + ['includedsc', distro, '{}']
-                            call(['find', distro_source_prefix, '-name', '*.dsc', '-exec'] + push_source_command + ['\;'])
-                        except CalledProcessError:
-                            pass
+                # update repo
+                execute(['aptly', 'publish', 'update', distro])
+                execute(['rsync', '-a', '--delete', '/root/.aptly/public/pool', APACHE_PREFIX + '/apt/ubuntu'])
+                execute(['rsync', '-a', '--delete', '/root/.aptly/public/dists', APACHE_PREFIX + '/apt/ubuntu'])
             elif REPO_TYPE[distro] == 'rpm':
                 # copy packages
-                repo_dir = APACHE_PREFIX + REPO_LOCATION[distro]
+                repo_dir = APACHE_PREFIX + YUM_REPO_LOCATION[distro]
                 distro_contents = '/tmp/package/' + distro + '/.'
-
-                call(['cp','-a', distro_contents, repo_dir])
+                call(['cp', '-a', distro_contents, repo_dir])
 
                 # update createrepo
                 call(['find', repo_dir, '-name', '*.rpm', '-exec', 'rpmresign', '{}', '\';\''])
