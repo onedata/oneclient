@@ -15,9 +15,8 @@
 
 class MockFsSubscriptions : public one::client::FsSubscriptions {
 public:
-    MockFsSubscriptions(one::Scheduler &scheduler,
-        one::client::events::EventManager &eventManager)
-        : one::client::FsSubscriptions{scheduler, eventManager}
+    MockFsSubscriptions(one::client::events::EventManager &eventManager)
+        : one::client::FsSubscriptions{eventManager}
     {
     }
 
