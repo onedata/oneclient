@@ -59,7 +59,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     m_eventManager.setFileAttrHandler(fileAttrHandler());
     m_eventManager.setFileLocationHandler(fileLocationHandler());
     m_eventManager.setPermissionChangedHandler(permissionChangedHandler());
-    m_eventManager.setRemoveFileHandler(removeFileHandler());
+    m_eventManager.setFileRemovalHandler(fileRemovalHandler());
     m_eventManager.subscribe(configuration->subscriptionContainer());
 
     scheduleCacheTick();
@@ -714,11 +714,11 @@ void FsLogic::removeFile(boost::filesystem::path path)
     MetadataCache::MetaAccessor metaAcc;
     m_metadataCache.getAttr(uuidAcc, metaAcc, path);
     auto uuid = uuidAcc->second;
-    auto already_removed = metaAcc->second.already_removed;
+    auto alreadyRemoved = metaAcc->second.alreadyRemoved;
     uuidAcc.release();
     metaAcc.release();
 
-    if (!already_removed) {
+    if (!alreadyRemoved) {
         auto future = m_context->communicator()
                           ->communicate<messages::fuse::FuseResponse>(
                               messages::fuse::DeleteFile{uuid});
@@ -727,15 +727,15 @@ void FsLogic::removeFile(boost::filesystem::path path)
     }
 }
 
-events::RemoveFileEventStream::Handler FsLogic::removeFileHandler()
+events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
 {
     using namespace events;
-    return [this](std::vector<RemoveFileEventStream::EventPtr> events) {
+    return [this](std::vector<FileRemovalEventStream::EventPtr> events) {
         for (const auto &event : events) {
 
             MetadataCache::MetaAccessor metaAcc;
             m_metadataCache.get(metaAcc, event->fileUuid());
-            metaAcc->second.already_removed = true;
+            metaAcc->second.alreadyRemoved = true;
             if (metaAcc->second.path) {
                 auto fileName = metaAcc->second.path.get();
                 metaAcc.release();

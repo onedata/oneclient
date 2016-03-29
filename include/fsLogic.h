@@ -244,7 +244,7 @@ private:
     events::FileAttrEventStream::Handler fileAttrHandler();
     events::FileLocationEventStream::Handler fileLocationHandler();
     events::PermissionChangedEventStream::Handler permissionChangedHandler();
-    events::RemoveFileEventStream::Handler removeFileHandler();
+    events::FileRemovalEventStream::Handler fileRemovalHandler();
 
     const uid_t m_uid;
     const gid_t m_gid;

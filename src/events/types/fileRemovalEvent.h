@@ -1,5 +1,5 @@
 /**
- * @file removeFileEvent.h
+ * @file fileRemovalEvent.h
  * @author Michal Wrona
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
@@ -21,35 +21,35 @@
 
 namespace one {
 namespace clproto {
-class RemoveFileEvent;
+class FileRemovalEvent;
 }
 namespace client {
 namespace events {
 
-class RemoveFileSubscription;
+class FileRemovalSubscription;
 
 /**
- * @c RemoveFileEvent class represents an event of removing file
+ * @c FileRemovalEvent class represents an event of removing file.
  */
-class RemoveFileEvent : public Event {
+class FileRemovalEvent : public Event {
 public:
-    using EventPtr = std::unique_ptr<RemoveFileEvent>;
+    using EventPtr = std::unique_ptr<FileRemovalEvent>;
     using Key = std::string;
-    using ProtocolMessage = clproto::RemoveFileEvent;
-    using Subscription = RemoveFileSubscription;
+    using ProtocolMessage = clproto::FileRemovalEvent;
+    using Subscription = FileRemovalSubscription;
 
     /**
      * Constructor.
-     * @param message removeFileEvent protocol message.
+     * @param message fileRemovalEvent protocol message.
      */
-    RemoveFileEvent(const ProtocolMessage &message);
-    RemoveFileEvent(std::string fileUuid);
+    FileRemovalEvent(const ProtocolMessage &message);
+    FileRemovalEvent(std::string fileUuid);
 
     /**
      * @return Value that distinguish @c this remove event from other remove
      * events,
      * i.e. remove events with the same key can be aggregated.
-     * @see @c RemoveFileEvent::Key.
+     * @see @c FileRemovalEvent::Key.
      */
     const Key &key() const;
 
@@ -61,7 +61,7 @@ public:
     /**
      * Aggregates @c this event with an other event.
      * Aggregation is done by addition of events' counters
-     * @param event RemoveFileEvent to be aggregated.
+     * @param event FileRemovalEvent to be aggregated.
      */
     void aggregate(EventPtr event);
 

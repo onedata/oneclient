@@ -41,7 +41,7 @@ public:
         boost::optional<Path> path;
         boost::optional<FileAttr> attr;
         boost::optional<FileLocation> location;
-        bool already_removed = false;
+        bool alreadyRemoved = false;
     };
 
 private:

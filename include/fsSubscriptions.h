@@ -65,13 +65,13 @@ public:
      * Adds subscription for removing file.
      * @param fileUuid UUID of file for which subscription is added.
      */
-    virtual void addRemoveFileSubscription(const std::string &fileUuid);
+    void addFileRemovalSubscription(const std::string &fileUuid);
 
     /**
-     * Removes subscription for removing file.
+     * Removes subscription for file removal.
      * @param fileUuid UUID of file for which subscription is removed.
      */
-    virtual void removeRemoveFileSubscription(const std::string &fileUuid);
+    void removeFileRemovalSubscription(const std::string &fileUuid);
 
     /**
      * Adds subscription for file attributes updates. Subscription of the
@@ -85,7 +85,7 @@ private:
     std::int64_t sendFileAttrSubscription(const std::string &fileUuid);
     std::int64_t sendFileLocationSubscription(const std::string &fileUuid);
     std::int64_t sendPermissionChangedSubscription(const std::string &fileUuid);
-    std::int64_t sendRemoveFileSubscription(const std::string &fileUuid);
+    std::int64_t sendFileRemovalSubscription(const std::string &fileUuid);
     void sendSubscriptionCancellation(std::int64_t id);
 
     events::EventManager &m_eventManager;
@@ -96,7 +96,7 @@ private:
     tbb::concurrent_hash_map<std::string, std::int64_t>
         m_permissionChangedSubscriptions;
     tbb::concurrent_hash_map<std::string, std::int64_t>
-        m_removeFileSubscriptions;
+        m_fileRemovalSubscriptions;
 };
 
 } // namespace client

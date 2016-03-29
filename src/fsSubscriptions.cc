@@ -60,19 +60,19 @@ void FsSubscriptions::removePermissionChangedSubscription(
     }
 }
 
-void FsSubscriptions::addRemoveFileSubscription(const std::string &fileUuid)
+void FsSubscriptions::addFileRemovalSubscription(const std::string &fileUuid)
 {
-    typename decltype(m_removeFileSubscriptions)::accessor acc;
-    if (m_removeFileSubscriptions.insert(acc, fileUuid))
-        acc->second = sendRemoveFileSubscription(fileUuid);
+    typename decltype(m_fileRemovalSubscriptions)::accessor acc;
+    if (m_fileRemovalSubscriptions.insert(acc, fileUuid))
+        acc->second = sendFileRemovalSubscription(fileUuid);
 }
 
-void FsSubscriptions::removeRemoveFileSubscription(const std::string &fileUuid)
+void FsSubscriptions::removeFileRemovalSubscription(const std::string &fileUuid)
 {
-    typename decltype(m_removeFileSubscriptions)::accessor acc;
-    if (m_removeFileSubscriptions.find(acc, fileUuid)) {
+    typename decltype(m_fileRemovalSubscriptions)::accessor acc;
+    if (m_fileRemovalSubscriptions.find(acc, fileUuid)) {
         sendSubscriptionCancellation(acc->second);
-        m_removeFileSubscriptions.erase(acc);
+        m_fileRemovalSubscriptions.erase(acc);
     }
 }
 
@@ -121,12 +121,12 @@ std::int64_t FsSubscriptions::sendPermissionChangedSubscription(
         std::move(clientSubscription), std::move(serverSubscription));
 }
 
-std::int64_t FsSubscriptions::sendRemoveFileSubscription(
+std::int64_t FsSubscriptions::sendFileRemovalSubscription(
     const std::string &fileUuid)
 {
     DLOG(INFO) << "Sending subscription for removing file: " << fileUuid;
-    events::RemoveFileSubscription clientSubscription{fileUuid};
-    events::RemoveFileSubscription serverSubscription{fileUuid};
+    events::FileRemovalSubscription clientSubscription{fileUuid};
+    events::FileRemovalSubscription serverSubscription{fileUuid};
     return m_eventManager.subscribe(
         std::move(clientSubscription), std::move(serverSubscription));
 }

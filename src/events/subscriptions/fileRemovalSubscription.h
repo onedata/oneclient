@@ -1,5 +1,5 @@
 /**
- * @file removeFileSubscription.h
+ * @file fileRemovalSubscription.h
  * @author Michal Wrona
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
@@ -22,10 +22,10 @@ namespace client {
 namespace events {
 
 /**
- * @c RemoveFileSubscription is a client side subscription and represents
- * a request for remove_file events.
+ * @c FileRemovalSubscription is a client side subscription and represents
+ * a request for @c FileRemovalEvent.
  */
-class RemoveFileSubscription : public Subscription,
+class FileRemovalSubscription : public Subscription,
                                public messages::ClientMessage {
 public:
     /**
@@ -33,7 +33,7 @@ public:
      * @param fileUuid UUID of file for which remove change events are
      * requested.
      */
-    RemoveFileSubscription(
+    FileRemovalSubscription(
         std::string fileUuid, std::size_t counterThreshold = 1);
 
     std::string toString() const override;

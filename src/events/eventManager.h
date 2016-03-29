@@ -109,13 +109,13 @@ public:
      * Sets handler for removing file events.
      * @param handler Handler to be set.
      */
-    void setRemoveFileHandler(RemoveFileEventStream::Handler handler);
+    void setFileRemovalHandler(FileRemovalEventStream::Handler handler);
 
     /**
      * Emits a remove file event.
      * @param fileUuid UUID of removed file.
      */
-    void emitRemoveFileEvent(std::string fileUuid) const;
+    void emitFileRemovalEvent(std::string fileUuid) const;
 
     /**
      * Adds subscription for removing file events.
@@ -123,8 +123,8 @@ public:
      * @param serverSubscription Server side subscription parameters.
      * @return Subscription ID.
      */
-    std::int64_t subscribe(RemoveFileSubscription clientSubscription,
-        RemoveFileSubscription serverSubscription);
+    std::int64_t subscribe(FileRemovalSubscription clientSubscription,
+        FileRemovalSubscription serverSubscription);
 
     /**
      * Adds subscription for permission changeg events.
@@ -189,7 +189,7 @@ protected:
     std::unique_ptr<FileLocationEventStream> m_fileLocationEventStream;
     std::unique_ptr<PermissionChangedEventStream>
         m_permissionChangedEventStream;
-    std::unique_ptr<RemoveFileEventStream> m_removeFileEventStream;
+    std::unique_ptr<FileRemovalEventStream> m_fileRemovalEventStream;
 
 private:
     void initializeStreams(std::shared_ptr<Context> context);

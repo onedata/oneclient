@@ -132,8 +132,6 @@ public:
     */
     std::string describeCommandlineOptions() const;
 
-    boost::filesystem::path get_mountpoint() const;
-
 private:
     std::string mapEnvNames(std::string env) const;
     void setDescriptions();
@@ -187,6 +185,7 @@ private:
     DECL_CMDLINE_SWITCH_DEF(proxyio, "", false, "force ProxyIO")
     DECL_CONFIG_DESC(config, std::string, "path to user config file")
     DECL_CONFIG_DEF(enable_env_option_override, bool, true)
+    DECL_CONFIG(mountpoint, std::string)
     /* clang-format on */
 };
 

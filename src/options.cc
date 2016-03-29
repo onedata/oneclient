@@ -90,7 +90,7 @@ void Options::setDescriptions()
         ",s", "disable multi-threaded operation");
 
     // Hidden commandline options (positional)
-    m_hidden.add_options()("mountpoint", value<std::string>(), "mount point");
+    add_mountpoint(m_hidden);;
 }
 
 void Options::parseConfigs(const int argc, const char *const argv[])
@@ -282,11 +282,6 @@ std::string Options::describeCommandlineOptions() const
     ss << visible;
 
     return ss.str();
-}
-
-boost::filesystem::path Options::get_mountpoint() const
-{
-    return boost::filesystem::path{m_vm.at("mountpoint").as<std::string>()};
 }
 
 } // namespace client
