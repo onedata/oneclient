@@ -23,7 +23,7 @@ message Event {
         WriteEvent             write_event              = 3;
         UpdateEvent            update_event             = 4;
         PermissionChangedEvent permission_changed_event = 5;
-        RemoveFileEvent        remove_file_event        = 6;
+        FileRemovalEvent       file_removal_event       = 6;
     }
 }
 
@@ -51,7 +51,7 @@ message PermissionChangedEvent {
     required bytes file_uuid = 1; // UUID of file associated with an event
 }
 
-message RemoveFileEvent {
+message FileRemovalEvent {
     required bytes file_uuid = 1; // UUID of file associated with an event
 }
 
@@ -64,7 +64,7 @@ message Subscription {
         FileAttrSubscription          file_attr_subscription          = 4;
         FileLocationSubscription      file_location_subscription      = 5;
         PermissionChangedSubscription permission_changed_subscription = 6;
-        RemoveFileSubscription        remove_file_subscription        = 7;
+        FileRemovalSubscription       file_removal_subscription       = 7;
     }
 }
 
@@ -107,7 +107,7 @@ message PermissionChangedSubscription {
     required bytes  file_uuid         = 1; // file UUID
 }
 
-message RemoveFileSubscription {
+message FileRemovalSubscription {
     required bytes  file_uuid         = 1; // file UUID
 }
 
