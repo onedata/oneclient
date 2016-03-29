@@ -10,16 +10,15 @@ import os
 import sys
 import copy
 import json
-import sys
 import time
-from . import appmock, client, common, globalregistry, cluster_manager, \
+from . import appmock, client, common, zone_worker, cluster_manager, \
     worker, provider_worker, cluster_worker, docker, dns
 
 
 def default(key):
     return {'image': 'onedata/worker',
             'bin_am': '{0}/appmock'.format(os.getcwd()),
-            'bin_gr': '{0}/globalregistry'.format(os.getcwd()),
+            'bin_oz': '{0}/oz_worker'.format(os.getcwd()),
             'bin_op_worker': '{0}/op_worker'.format(os.getcwd()),
             'bin_cluster_worker': '{0}/cluster_worker'.format(os.getcwd()),
             'bin_cluster_manager': '{0}/cluster_manager'.format(os.getcwd()),
@@ -28,16 +27,18 @@ def default(key):
 
 
 def up(config_path, image=default('image'), bin_am=default('bin_am'),
-       bin_gr=default('bin_gr'), bin_cluster_manager=default('bin_cluster_manager'),
-       bin_op_worker=default('bin_op_worker'), bin_cluster_worker=default('bin_cluster_worker'),
+       bin_oz=default('bin_oz'),
+       bin_cluster_manager=default('bin_cluster_manager'),
+       bin_op_worker=default('bin_op_worker'),
+       bin_cluster_worker=default('bin_cluster_worker'),
        bin_oc=default('bin_oc'), logdir=default('logdir')):
     config = common.parse_json_config_file(config_path)
     uid = common.generate_uid()
 
     output = {
         'docker_ids': [],
-        'gr_nodes': [],
-        'gr_db_nodes': [],
+        'oz_worker_nodes': [],
+        'oz_db_nodes': [],
         'cluster_manager_nodes': [],
         'op_worker_nodes': [],
         'cluster_worker_nodes': [],
@@ -58,32 +59,30 @@ def up(config_path, image=default('image'), bin_am=default('bin_am'),
         # so that dockers that start after can immediately see the domains.
         dns.maybe_restart_with_configuration('auto', uid, output)
 
-    # Start globalregistry instances
-    if 'globalregistry_domains' in config:
-        gr_output = globalregistry.up(image, bin_gr, dns_server, uid, config_path, logdir)
-        common.merge(output, gr_output)
-        # Make sure GR domains are added to the dns server.
-        # Setting first arg to 'auto' will force the restart and this is needed
-        # so that dockers that start after can immediately see the domains.
-        dns.maybe_restart_with_configuration('auto', uid, output)
+    # Start provider cluster instances
+    setup_worker(zone_worker, bin_oz, 'zone_domains',
+                 bin_cluster_manager, config, config_path, dns_server, image,
+                 logdir, output, uid)
 
     # Start provider cluster instances
     setup_worker(provider_worker, bin_op_worker, 'provider_domains',
-                 bin_cluster_manager, config, config_path, dns_server, image, logdir, output, uid)
+                 bin_cluster_manager, config, config_path, dns_server, image,
+                 logdir, output, uid)
 
     # Start stock cluster worker instances
     setup_worker(cluster_worker, bin_cluster_worker, 'cluster_domains',
-                 bin_cluster_manager, config, config_path, dns_server, image, logdir, output, uid)
+                 bin_cluster_manager, config, config_path, dns_server, image,
+                 logdir, output, uid)
 
     # Start oneclient instances
     if 'oneclient' in config:
-        oc_output = client.up(image, bin_oc, dns_server, uid, config_path)
+        oc_output = client.up(image, bin_oc, dns_server, uid, config_path, logdir)
         common.merge(output, oc_output)
 
     # Setup global environment - providers, users, groups, spaces etc.
-    if 'globalregistry_domains' in config \
-            and 'provider_domains' in config \
-            and 'global_setup' in config:
+    if 'zone_domains' in config and \
+            'provider_domains' in config and \
+            'global_setup' in config:
         providers_map = {}
         for provider_name in config['provider_domains']:
             providers_map[provider_name] = {
@@ -101,12 +100,12 @@ def up(config_path, image=default('image'), bin_am=default('bin_am'),
         env_configurator_input = copy.deepcopy(config['global_setup'])
         env_configurator_input['provider_domains'] = providers_map
 
-        # For now, take only the first node of the first GR
-        # as multiple GRs are not supported yet.
-        env_configurator_input['gr_cookie'] = \
-            config['globalregistry_domains'].values()[0][
-                'globalregistry'].values()[0]['vm.args']['setcookie']
-        env_configurator_input['gr_node'] = output['gr_nodes'][0]
+        # For now, take only the first node of the first OZ
+        # as multiple OZs are not supported yet.
+        env_configurator_input['oz_cookie'] = \
+            config['zone_domains'].values()[0][
+                'oz_worker'].values()[0]['vm.args']['setcookie']
+        env_configurator_input['oz_node'] = output['oz_worker_nodes'][0]
 
         env_configurator_dir = '{0}/../../env_configurator'.format(
             common.get_script_dir())
@@ -140,22 +139,25 @@ echo $?'''
         # check of env configuration succeeded
         if command_res_code != '0':
             # Let the command_output be flushed to console
-            time.sleep(2)
+            time.sleep(5)
             sys.exit(1)
 
 
     return output
 
 
-def setup_worker(worker, bin_worker, domains_name, bin_cm, config, config_path, dns_server, image, logdir, output, uid):
+def setup_worker(worker, bin_worker, domains_name, bin_cm, config, config_path,
+                 dns_server, image, logdir, output, uid):
     if domains_name in config:
         # Start cluster_manager instances
-        cluster_manager_output = cluster_manager.up(image, bin_cm, dns_server, uid, config_path, logdir,
+        cluster_manager_output = cluster_manager.up(image, bin_cm, dns_server,
+                                                    uid, config_path, logdir,
                                                     domains_name=domains_name)
         common.merge(output, cluster_manager_output)
 
         # Start op_worker instances
-        cluster_worker_output = worker.up(image, bin_worker, dns_server, uid, config_path, logdir)
+        cluster_worker_output = worker.up(image, bin_worker, dns_server, uid,
+                                          config_path, logdir)
         common.merge(output, cluster_worker_output)
         # Make sure OP domains are added to the dns server.
         # Setting first arg to 'auto' will force the restart and this is needed
