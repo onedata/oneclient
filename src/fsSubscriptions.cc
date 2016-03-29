@@ -18,29 +18,16 @@
 namespace one {
 namespace client {
 
-FsSubscriptions::FsSubscriptions(
-    Scheduler &scheduler, events::EventManager &eventManager)
-    : m_scheduler{scheduler}
-    , m_eventManager{eventManager}
+FsSubscriptions::FsSubscriptions(events::EventManager &eventManager)
+    : m_eventManager{eventManager}
 {
-}
-
-void FsSubscriptions::addTemporaryFileAttrSubscription(
-    const std::string &fileUuid)
-{
-    addFileAttrSubscription(fileUuid);
-    m_scheduler.schedule(FILE_ATTR_SUBSCRIPTION_DURATION,
-        [ this, fileUuid = std::move(fileUuid) ] {
-            removeFileAttrSubscription(fileUuid);
-        });
 }
 
 void FsSubscriptions::addFileLocationSubscription(const std::string &fileUuid)
 {
     typename decltype(m_fileLocationSubscriptions)::accessor acc;
     if (m_fileLocationSubscriptions.insert(acc, fileUuid))
-        acc->second.id = sendFileLocationSubscription(fileUuid);
-    ++acc->second.counter;
+        acc->second = sendFileLocationSubscription(fileUuid);
     addFileAttrSubscription(fileUuid);
 }
 
@@ -50,11 +37,8 @@ void FsSubscriptions::removeFileLocationSubscription(
     removeFileAttrSubscription(fileUuid);
     typename decltype(m_fileLocationSubscriptions)::accessor acc;
     if (m_fileLocationSubscriptions.find(acc, fileUuid)) {
-        --acc->second.counter;
-        if (acc->second.counter == 0) {
-            sendSubscriptionCancellation(acc->second.id);
-            m_fileLocationSubscriptions.erase(acc);
-        }
+        sendSubscriptionCancellation(acc->second);
+        m_fileLocationSubscriptions.erase(acc);
     }
 }
 
@@ -63,8 +47,7 @@ void FsSubscriptions::addPermissionChangedSubscription(
 {
     typename decltype(m_permissionChangedSubscriptions)::accessor acc;
     if (m_permissionChangedSubscriptions.insert(acc, fileUuid))
-        acc->second.id = sendPermissionChangedSubscription(fileUuid);
-    ++acc->second.counter;
+        acc->second = sendPermissionChangedSubscription(fileUuid);
 }
 
 void FsSubscriptions::removePermissionChangedSubscription(
@@ -72,11 +55,8 @@ void FsSubscriptions::removePermissionChangedSubscription(
 {
     typename decltype(m_permissionChangedSubscriptions)::accessor acc;
     if (m_permissionChangedSubscriptions.find(acc, fileUuid)) {
-        --acc->second.counter;
-        if (acc->second.counter == 0) {
-            sendSubscriptionCancellation(acc->second.id);
-            m_permissionChangedSubscriptions.erase(acc);
-        }
+        sendSubscriptionCancellation(acc->second);
+        m_permissionChangedSubscriptions.erase(acc);
     }
 }
 
@@ -100,19 +80,15 @@ void FsSubscriptions::addFileAttrSubscription(const std::string &fileUuid)
 {
     typename decltype(m_fileAttrSubscriptions)::accessor acc;
     if (m_fileAttrSubscriptions.insert(acc, fileUuid))
-        acc->second.id = sendFileAttrSubscription(fileUuid);
-    ++acc->second.counter;
+        acc->second = sendFileAttrSubscription(fileUuid);
 }
 
 void FsSubscriptions::removeFileAttrSubscription(const std::string &fileUuid)
 {
     typename decltype(m_fileAttrSubscriptions)::accessor acc;
     if (m_fileAttrSubscriptions.find(acc, fileUuid)) {
-        --acc->second.counter;
-        if (acc->second.counter == 0) {
-            sendSubscriptionCancellation(acc->second.id);
-            m_fileAttrSubscriptions.erase(acc);
-        }
+        sendSubscriptionCancellation(acc->second);
+        m_fileAttrSubscriptions.erase(acc);
     }
 }
 

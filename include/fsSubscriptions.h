@@ -27,57 +27,35 @@ constexpr std::chrono::seconds FILE_ATTR_SUBSCRIPTION_DURATION{30};
 class FsSubscriptions {
 public:
     /**
-     * The @c SubscriptionHandle class stores subscription ID along with a
-     * subscription reference counter.
-     */
-    struct SubscriptionHandle {
-        std::int64_t id;
-        std::uint32_t counter;
-    };
-
-    /**
      * Constructor.
-     * @param scheduler @c Scheduler instance.
      * @param eventManager @c EventManager instance.
      */
-    FsSubscriptions(Scheduler &scheduler, events::EventManager &eventManager);
+    FsSubscriptions(events::EventManager &eventManager);
 
     /**
-     * Adds temporary subscription for file attributes updates. If it is the
-     * first subscription of the file it will be forwarded to the server.
-     * Subscription will be removed after @c FILE_ATTR_SUBSCRIPTION_DURATION
-     * seconds and if it was the last subscription for attributes of the file
-     * a subscription cancellation message will be sent to the server.
-     * @param fileUuid UUID of file for which subscription is added.
-     */
-    void addTemporaryFileAttrSubscription(const std::string &fileUuid);
-
-    /**
-     * Adds subscription for file location updates. If it is the first
-     * subscription of the file it will be forwarded to the server.
+     * Adds subscription for file location updates. Subscription of the
+     * file will be forwarded to the server.
      * @param fileUuid UUID of file for which subscription is added.
      */
     void addFileLocationSubscription(const std::string &fileUuid);
 
     /**
-     * Removes subscription for file location updates.  If it is the last
-     * subscription of the file a subscription cancellation message will be sent
-     * to the server.
+     * Removes subscription for file location updates. Subscription cancellation
+     * message will be sent to the server.
      * @param fileUuid UUID of file for which subscription is removed.
      */
     void removeFileLocationSubscription(const std::string &fileUuid);
 
     /**
-     * Adds subscription for permission updates. If it is the first
-     * subscription of the file it will be forwarded to the server.
+     * Adds subscription for permission updates. Subscription of the
+     * file will be forwarded to the server.
      * @param fileUuid UUID of file for which subscription is added.
      */
     virtual void addPermissionChangedSubscription(const std::string &fileUuid);
 
     /**
-     * Removes subscription for permission updates.  If it is the last
-     * subscription of the file a subscription cancellation message will be sent
-     * to the server.
+     * Removes subscription for permission updates. Subscription cancellation
+     * message will be sent to the server.
      * @param fileUuid UUID of file for which subscription is removed.
      */
     virtual void removePermissionChangedSubscription(
@@ -95,8 +73,14 @@ public:
      */
     virtual void removeRemoveFileSubscription(const std::string &fileUuid);
 
-private:
+    /**
+     * Adds subscription for file attributes updates. Subscription of the
+     * file will be forwarded to the server.
+     * @param fileUuid UUID of file for which subscription is added.
+     */
     void addFileAttrSubscription(const std::string &fileUuid);
+
+private:
     void removeFileAttrSubscription(const std::string &fileUuid);
     std::int64_t sendFileAttrSubscription(const std::string &fileUuid);
     std::int64_t sendFileLocationSubscription(const std::string &fileUuid);
@@ -104,13 +88,12 @@ private:
     std::int64_t sendRemoveFileSubscription(const std::string &fileUuid);
     void sendSubscriptionCancellation(std::int64_t id);
 
-    Scheduler &m_scheduler;
     events::EventManager &m_eventManager;
-    tbb::concurrent_hash_map<std::string, SubscriptionHandle>
+    tbb::concurrent_hash_map<std::string, std::int64_t>
         m_fileAttrSubscriptions;
-    tbb::concurrent_hash_map<std::string, SubscriptionHandle>
+    tbb::concurrent_hash_map<std::string, std::int64_t>
         m_fileLocationSubscriptions;
-    tbb::concurrent_hash_map<std::string, SubscriptionHandle>
+    tbb::concurrent_hash_map<std::string, std::int64_t>
         m_permissionChangedSubscriptions;
     tbb::concurrent_hash_map<std::string, std::int64_t>
         m_removeFileSubscriptions;
