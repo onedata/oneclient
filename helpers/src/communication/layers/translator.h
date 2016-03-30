@@ -25,7 +25,7 @@
 namespace one {
 namespace communication {
 
-constexpr std::chrono::seconds DEFAULT_TIMEOUT{10};
+constexpr std::chrono::seconds DEFAULT_TIMEOUT{60};
 
 namespace layers {
 
