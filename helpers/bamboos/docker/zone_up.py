@@ -1,22 +1,23 @@
 #!/usr/bin/env python
+# coding=utf-8
 
-"""Author: Konrad Zemek
+"""Authors: Michal Zmuda
 Copyright (C) 2015 ACK CYFRONET AGH
 This software is released under the MIT license cited in 'LICENSE.txt'
 
-A script to brings up a set of oneprovider nodes. They can create separate
-clusters.
+A script to bring up a set of onezone nodes along with databases.
+They can create separate clusters.
 Run the script with -h flag to learn about script's running options.
 """
 
 from __future__ import print_function
+
 import json
 import os
 
-from environment import common, provider_worker, cluster_manager, dns
+from environment import common, dns, env, cluster_manager, zone_worker
 
-parser = common.standard_arg_parser(
-    'Bring up oneprovider nodes (workers and cms).')
+parser = common.standard_arg_parser('Bring up zone nodes (workers and cms).')
 parser.add_argument(
     '-l', '--logdir',
     action='store',
@@ -24,11 +25,11 @@ parser.add_argument(
     help='path to a directory where the logs will be stored',
     dest='logdir')
 parser.add_argument(
-    '-bw', '--bin-worker',
+    '-boz', '--bin-oz',
     action='store',
     default=os.getcwd(),
-    help='the path to oneprovider repository (precompiled)',
-    dest='bin_op_worker')
+    help='the path to oz_worker repository (precompiled)',
+    dest='bin_oz')
 parser.add_argument(
     '-bcm', '--bin-cm',
     action='store',
@@ -41,7 +42,7 @@ args = parser.parse_args()
 config = common.parse_json_config_file(args.config_path)
 output = {
     'cluster_manager_nodes': [],
-    'op_worker_nodes': [],
+    'oz_worker_nodes': [],
 }
 uid = args.uid
 
@@ -54,12 +55,13 @@ else:
 
 # Start cms
 cm_output = cluster_manager.up(args.image, args.bin_cluster_manager,
-                               dns_server, uid, args.config_path, args.logdir)
+                               dns_server, uid, args.config_path, args.logdir,
+                               domains_name='zone_domains')
 common.merge(output, cm_output)
 
 # Start workers
-worker_output = provider_worker.up(args.image, args.bin_op_worker, dns_server,
-                                   uid, args.config_path, args.logdir)
+worker_output = zone_worker.up(args.image, args.bin_oz, dns_server, uid,
+                               args.config_path, args.logdir)
 common.merge(output, worker_output)
 
 if dns_server != 'none':
