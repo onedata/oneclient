@@ -631,7 +631,7 @@ int FsLogic::release(
     for (auto &it : *context.helperCtxMap) {
         auto &storageId = it.first.first;
         auto &fileId = it.first.second;
-        auto helper = getHelper(storageId, fileId);
+        auto helper = getHelper(attr.uuid(), storageId);
         try {
             helper->sh_release(it.second, fileId);
         }
