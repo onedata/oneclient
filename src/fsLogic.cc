@@ -61,45 +61,30 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     m_eventManager.setPermissionChangedHandler(permissionChangedHandler());
     m_eventManager.subscribe(configuration->subscriptionContainer());
 
-    scheduleLocCacheTick();
-    scheduleAttrCacheTick();
+    scheduleCacheExpirationTick();
 }
 
 FsLogic::~FsLogic()
 {
-    {
-        std::lock_guard<std::mutex> guard{m_cancelLocCacheTickMutex};
-        m_cancelLocCacheTick();
-    }
-    {
-        std::lock_guard<std::mutex> guard{m_cancelAttrCacheTickMutex};
-        m_cancelAttrCacheTick();
-    }
+    std::lock_guard<std::mutex> guard{m_cancelCacheExpirationTickMutex};
+    m_cancelCacheExpirationTick();
 }
 
-void FsLogic::scheduleLocCacheTick()
+void FsLogic::scheduleCacheExpirationTick()
 {
-    std::lock_guard<std::mutex> guard{m_cancelLocCacheTickMutex};
-    m_cancelLocCacheTick = m_context->scheduler()->schedule(1s, [this] {
+    std::lock_guard<std::mutex> guard{m_cancelCacheExpirationTickMutex};
+    m_cancelCacheExpirationTick = m_context->scheduler()->schedule(1s, [this] {
         m_locExpirationHelper.tick([this](const std::string &uuid) {
             m_metadataCache.remove(uuid);
             m_fsSubscriptions.removeFileLocationSubscription(uuid);
         });
 
-        scheduleLocCacheTick();
-    });
-}
-
-void FsLogic::scheduleAttrCacheTick()
-{
-    std::lock_guard<std::mutex> guard{m_cancelAttrCacheTickMutex};
-    m_cancelAttrCacheTick = m_context->scheduler()->schedule(1s, [this] {
         m_attrExpirationHelper.tick([this](const std::string &uuid) {
             m_metadataCache.remove(uuid);
             m_fsSubscriptions.removeFileAttrSubscription(uuid);
         });
 
-        scheduleAttrCacheTick();
+        scheduleCacheExpirationTick();
     });
 }
 
@@ -300,7 +285,8 @@ int FsLogic::utime(boost::filesystem::path path, struct utimbuf *const ubuf)
         const auto now = std::chrono::system_clock::now();
         msg.atime(now);
         msg.mtime(now);
-    } else {
+    }
+    else {
         msg.atime(std::chrono::system_clock::from_time_t(ubuf->actime));
         msg.mtime(std::chrono::system_clock::from_time_t(ubuf->modtime));
     }
@@ -423,7 +409,8 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     try {
         buf = helper->sh_read(
             helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
-    } catch (const std::system_error &e) {
+    }
+    catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)
             throw;
         if (m_forceProxyIOCache.contains(context.uuid))
@@ -473,7 +460,8 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     try {
         bytesWritten = helper->sh_write(
             helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
-    } catch (const std::system_error &e) {
+    }
+    catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)
             throw;
         if (m_forceProxyIOCache.contains(context.uuid))
@@ -646,7 +634,8 @@ int FsLogic::release(
         auto helper = getHelper(storageId, fileId);
         try {
             helper->sh_release(it.second, fileId);
-        } catch (std::system_error &e) {
+        }
+        catch (std::system_error &e) {
             LOG(ERROR) << "release(storageId: " << storageId
                        << ", fileId: " << fileId << ") failed" << e.what();
             lastReleaseException = std::current_exception();
