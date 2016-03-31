@@ -343,7 +343,7 @@ int openFile(const FileContextCache::HelperCtxMapAccessor &ctxAcc,
     const HelpersCache::HelperPtr &helper, const std::string &fileId)
 {
     auto helperCtx = helper->createCTX();
-    int fh = helper->sh_open(helperCtx, fileId, fileCtx.flags);
+    int fh = helper->sh_open(helperCtx, fileId, fileCtx.flags, fileCtx.uuid);
     ctxAcc->second = helperCtx;
     return fh;
 }
@@ -407,8 +407,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         context, helper, fileBlock.storageId(), fileBlock.fileId());
 
     try {
-        buf = helper->sh_read(
-            helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
+        buf = helper->sh_read(helperCtx, fileBlock.fileId(), buf, offset);
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)
@@ -458,8 +457,8 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
 
     size_t bytesWritten = 0;
     try {
-        bytesWritten = helper->sh_write(
-            helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
+        bytesWritten =
+            helper->sh_write(helperCtx, fileBlock.fileId(), buf, offset);
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)

@@ -132,20 +132,21 @@ public:
     }
 
     void ash_open(one::helpers::CTXPtr, const boost::filesystem::path &, int,
+        const std::string &,
         one::helpers::GeneralCallback<int> callback) override
     {
         callback(0, m_ec);
     }
 
     void ash_read(one::helpers::CTXPtr, const boost::filesystem::path &,
-        asio::mutable_buffer buf, off_t, const std::string &fileUuid,
+        asio::mutable_buffer buf, off_t,
         one::helpers::GeneralCallback<asio::mutable_buffer> callback) override
     {
         callback(buf, m_ec);
     }
 
     void ash_write(one::helpers::CTXPtr, const boost::filesystem::path &,
-        asio::const_buffer buf, off_t, const std::string &fileUuid,
+        asio::const_buffer buf, off_t,
         one::helpers::GeneralCallback<std::size_t> callback) override
     {
         callback(asio::buffer_size(buf), m_ec);
@@ -170,8 +171,8 @@ public:
     }
 
     asio::mutable_buffer sh_read(one::helpers::CTXPtr,
-        const boost::filesystem::path &, asio::mutable_buffer buf, off_t,
-        const std::string &) override
+        const boost::filesystem::path &, asio::mutable_buffer buf,
+        off_t) override
     {
         if (m_ec)
             throw std::system_error{m_ec};
@@ -180,7 +181,7 @@ public:
     }
 
     std::size_t sh_write(one::helpers::CTXPtr, const boost::filesystem::path &,
-        asio::const_buffer buf, off_t, const std::string &) override
+        asio::const_buffer buf, off_t) override
     {
         if (m_ec)
             throw std::system_error{m_ec};
@@ -189,7 +190,7 @@ public:
     }
 
     virtual int sh_open(one::helpers::CTXPtr ctx,
-        const boost::filesystem::path &p, int) override
+        const boost::filesystem::path &p, int, const std::string &) override
     {
         if (m_ec)
             throw std::system_error{m_ec};
@@ -207,22 +208,25 @@ public:
 
 class NullHelperMock : public NullHelper {
 public:
-    MOCK_METHOD3(sh_open,
-        int(one::helpers::CTXPtr, const boost::filesystem::path &, int));
+    MOCK_METHOD4(
+        sh_open, int(one::helpers::CTXPtr, const boost::filesystem::path &, int,
+                     const std::string &));
+
     MOCK_METHOD2(sh_release,
         std::error_code(one::helpers::CTXPtr, const boost::filesystem::path &));
 
     NullHelperMock()
     {
-        ON_CALL(*this, sh_open(_, _, _))
+        ON_CALL(*this, sh_open(_, _, _, _))
             .WillByDefault(Invoke(&m_real, &NullHelper::sh_open));
+
         ON_CALL(*this, sh_release(_, _))
             .WillByDefault(Invoke(&m_real, &NullHelper::sh_release));
     }
 
     void expect_call_sh_open(std::string filename, int times)
     {
-        EXPECT_CALL(*this, sh_open(_, boost::filesystem::path(filename), _))
+        EXPECT_CALL(*this, sh_open(_, boost::filesystem::path(filename), _, _))
             .Times(times)
             .WillRepeatedly(Invoke(&m_real, &NullHelper::sh_open));
     }

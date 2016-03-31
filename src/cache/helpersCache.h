@@ -12,11 +12,12 @@
 #include "communication/communicator.h"
 #include "helpers/IStorageHelper.h"
 #include "helpers/storageHelperFactory.h"
+#include "proxyio/bufferAgent.h"
 #include "scheduler.h"
 #include "storageAccessManager.h"
 
-#include <asio/io_service.hpp>
 #include <asio/executor_work.hpp>
+#include <asio/io_service.hpp>
 #include <tbb/concurrent_hash_map.h>
 
 #include <thread>
@@ -68,12 +69,18 @@ private:
     asio::executor_work<asio::io_service::executor_type> m_work =
         asio::make_work(m_ioService);
     std::thread m_thread;
+
+    helpers::proxyio::BufferAgent m_bufferAgent{
+        {}, m_communicator, m_scheduler};
+
     helpers::StorageHelperFactory m_helperFactory{
-        m_ioService, m_ioService, m_ioService, m_communicator};
+        m_ioService, m_ioService, m_ioService, m_bufferAgent};
+
     StorageAccessManager m_storageAccessManager;
 
     tbb::concurrent_hash_map<std::tuple<std::string, bool>, HelperPtr,
-        HashCompare> m_cache;
+        HashCompare>
+        m_cache;
     tbb::concurrent_hash_map<std::string, AccessType> m_accessType;
 
 public:
