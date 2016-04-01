@@ -197,12 +197,11 @@ public:
         return 0;
     }
 
-    virtual std::error_code sh_release(
+    virtual void sh_release(
         one::helpers::CTXPtr ctx, const boost::filesystem::path &p) override
     {
         if (m_ec)
             throw std::system_error{m_ec};
-        return std::error_code();
     }
 };
 
@@ -213,7 +212,7 @@ public:
                      const std::string &));
 
     MOCK_METHOD2(sh_release,
-        std::error_code(one::helpers::CTXPtr, const boost::filesystem::path &));
+        void(one::helpers::CTXPtr, const boost::filesystem::path &));
 
     NullHelperMock()
     {

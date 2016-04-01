@@ -9,6 +9,8 @@
 #ifndef HELPERS_PROXYIO_WRITE_BUFFER_H
 #define HELPERS_PROXYIO_WRITE_BUFFER_H
 
+#include "readCache.h"
+
 #include "communication/communicator.h"
 #include "helpers/IStorageHelper.h"
 #include "messages/proxyio/remoteWrite.h"
@@ -56,7 +58,8 @@ public:
         const std::size_t minWriteChunkSize,
         const std::size_t maxWriteChunkSize,
         const std::chrono::seconds flushWriteAfter,
-        communication::Communicator &communicator, Scheduler &scheduler)
+        communication::Communicator &communicator, Scheduler &scheduler,
+        std::shared_ptr<ReadCache> readCache)
         : m_storageId{std::move(storageId)}
         , m_fileId{std::move(fileId)}
         , m_fileUuid{std::move(fileUuid)}
@@ -65,6 +68,7 @@ public:
         , m_flushWriteAfter{flushWriteAfter}
         , m_scheduler{scheduler}
         , m_communicator{communicator}
+        , m_readCache{readCache}
     {
         scheduleFlush();
     }
@@ -113,10 +117,12 @@ public:
         throwLastError();
         pushBuffer(lock);
 
-        while (m_pendingConfirmation > 0) {
-            m_confirmationCondition.wait(lock);
-            throwLastError();
-        }
+        while (!m_lastError && m_pendingConfirmation > 0)
+            if (m_confirmationCondition.wait_for(
+                    lock, std::chrono::minutes{2}) == std::cv_status::timeout)
+                m_lastError = std::make_error_code(std::errc::timed_out);
+
+        throwLastError();
     }
 
     void release(VoidCallback callback) { fsync(); }
@@ -133,20 +139,8 @@ private:
 
     void pushBuffer(std::unique_lock<std::mutex> &lock)
     {
-        pushBuffer(lock, [this](const std::error_code &ec) {
-            if (ec) {
-                std::lock_guard<std::mutex> guard{m_mutex};
-                m_lastError = ec;
-            }
-        });
-    }
-
-    void pushBuffer(std::unique_lock<std::mutex> &lock, VoidCallback callback)
-    {
-        if (m_bufferedSize == 0) {
-            callback({});
+        if (m_bufferedSize == 0)
             return;
-        }
 
         // Possible todo: minimizing data sent
         messages::proxyio::RemoteWrite msg{
@@ -160,8 +154,7 @@ private:
         auto startPoint = std::chrono::steady_clock::now();
 
         m_communicator.communicate<messages::proxyio::RemoteWriteResult>(
-            std::move(msg),
-            [ =, callback = std::move(callback) ](auto &ec, auto rd) {
+            std::move(msg), [=](auto &ec, auto rd) {
 
                 if (!ec) {
                     auto bandwidth = rd->wrote() * 1000 /
@@ -171,16 +164,21 @@ private:
 
                     std::lock_guard<std::mutex> guard{this->m_mutex};
                     this->m_bps = (m_bps * 1 + bandwidth * 2) / 3;
+                    this->m_readCache->clear();
                 }
 
-                callback(ec);
+                std::lock_guard<std::mutex> guard{this->m_mutex};
+                if (ec)
+                    this->m_lastError = ec;
 
                 this->m_pendingConfirmation -= sentSize;
                 this->m_confirmationCondition.notify_all();
             });
 
         while (!m_lastError && m_pendingConfirmation > confirmThreshold())
-            m_confirmationCondition.wait(lock);
+            if (m_confirmationCondition.wait_for(
+                    lock, std::chrono::minutes{2}) == std::cv_status::timeout)
+                m_lastError = std::make_error_code(std::errc::timed_out);
     }
 
     std::size_t flushThreshold()
@@ -189,7 +187,7 @@ private:
             m_maxWriteChunkSize, std::max(m_minWriteChunkSize, 2 * m_bps));
     }
 
-    std::size_t confirmThreshold() { return 3 * flushThreshold(); }
+    std::size_t confirmThreshold() { return 6 * flushThreshold(); }
 
     void emplace(const off_t offset, asio::const_buffer buf)
     {
@@ -231,6 +229,7 @@ private:
 
     Scheduler &m_scheduler;
     communication::Communicator &m_communicator;
+    std::shared_ptr<ReadCache> m_readCache;
 
     std::function<void()> m_cancelFlushSchedule;
 

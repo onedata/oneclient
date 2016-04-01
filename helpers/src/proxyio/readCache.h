@@ -15,6 +15,7 @@
 #include "messages/proxyio/remoteRead.h"
 #include "scheduler.h"
 
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 
@@ -40,6 +41,12 @@ public:
 
     asio::mutable_buffer read(asio::mutable_buffer buf, const off_t offset)
     {
+        if (m_clear) {
+            m_lastRead.clear();
+            m_pendingRead = {};
+            m_clear = false;
+        }
+
         if (m_lastReadOffset <= offset &&
             offset < static_cast<off_t>(m_lastReadOffset + m_lastRead.size())) {
             auto cacheOffset = offset - m_lastReadOffset;
@@ -72,6 +79,8 @@ public:
         auto copied = asio::buffer_copy(buf, asio::buffer(data));
         return asio::buffer(buf, copied);
     }
+
+    void clear() { m_clear = true; }
 
 private:
     std::future<std::string> download(
@@ -110,7 +119,6 @@ private:
 
     std::size_t blockSize()
     {
-        std::lock_guard<std::mutex> guard{m_mutex};
         return std::min(
                    m_maxReadChunkSize, std::max(m_minReadChunkSize, m_bps)) *
             m_readAheadFor.count();
@@ -138,6 +146,7 @@ private:
     std::string m_lastRead;
     off_t m_pendingReadOffset = 0;
     std::future<std::string> m_pendingRead;
+    std::atomic<bool> m_clear{false};
 };
 
 } // namespace proxyio

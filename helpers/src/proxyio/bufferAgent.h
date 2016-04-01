@@ -61,13 +61,13 @@ public:
         if (m_bufferCounters.insert(acc, fileKey)) {
             const auto &bl = m_bufferLimits;
 
-            auto readCache = std::make_unique<ReadCache>(storageId, fileId,
+            auto readCache = std::make_shared<ReadCache>(storageId, fileId,
                 fileUuid, bl.minReadChunkSize, bl.maxReadChunkSize,
                 bl.readAheadFor, m_communicator, m_scheduler);
 
             auto writeBuffer = std::make_unique<WriteBuffer>(storageId, fileId,
                 fileUuid, bl.minWriteChunkSize, bl.maxWriteChunkSize,
-                bl.flushWriteAfter, m_communicator, m_scheduler);
+                bl.flushWriteAfter, m_communicator, m_scheduler, readCache);
 
             acc->second = 1;
             m_readCaches.insert({fileKey, std::move(readCache)});
@@ -79,7 +79,6 @@ public:
         return 0;
     }
 
-    // TODO drop read cache when any write goes through
     asio::mutable_buffer read(const std::string &storageId,
         const std::string &fileId, asio::mutable_buffer buf, off_t offset)
     {
@@ -119,13 +118,22 @@ public:
         if (--acc->second == 0) {
             typename decltype(m_writeBuffers)::accessor writeAcc;
             m_writeBuffers.find(writeAcc, fileKey);
-            auto writeBuffer = std::move(writeAcc->second);
 
-            m_readCaches.erase(fileKey);
-            m_writeBuffers.erase(writeAcc);
-            m_bufferCounters.erase(acc);
+            auto finally = [&] {
+                m_writeBuffers.erase(writeAcc);
+                m_readCaches.erase(fileKey);
+                m_bufferCounters.erase(acc);
+            };
 
-            writeBuffer->fsync();
+            try {
+                writeAcc->second->fsync();
+            }
+            catch (...) {
+                finally();
+                throw;
+            }
+
+            finally();
         }
     }
 
@@ -140,7 +148,7 @@ private:
     Scheduler &m_scheduler;
 
     tbb::concurrent_hash_map<FileKey, std::size_t> m_bufferCounters;
-    tbb::concurrent_hash_map<FileKey, std::unique_ptr<ReadCache>> m_readCaches;
+    tbb::concurrent_hash_map<FileKey, std::shared_ptr<ReadCache>> m_readCaches;
     tbb::concurrent_hash_map<FileKey, std::unique_ptr<WriteBuffer>>
         m_writeBuffers;
 };
