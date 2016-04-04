@@ -196,6 +196,17 @@ boost::filesystem::path getLogDir(std::string name, const Options &options)
     return {options.get_log_dir()};
 }
 
+const path getGlobalConfigPath()
+{
+    path configDir{oneclient_CONFIG_DIR};
+    if (configDir.is_absolute()) {
+        return configDir / GLOBAL_CONFIG_FILE;
+    }
+    else {
+        return path(oneclient_INSTALL_PATH) / configDir / GLOBAL_CONFIG_FILE;
+    }
+}
+
 int main(int argc, char *argv[])
 {
     FLAGS_minloglevel = 1;
@@ -204,8 +215,7 @@ int main(int argc, char *argv[])
     google::InitGoogleLogging(argv[0]);
 
     auto context = std::make_shared<Context>();
-    const path globalConfigPath = path(oneclient_INSTALL_PATH) /
-        oneclient_CONFIG_DIR / GLOBAL_CONFIG_FILE;
+    const auto globalConfigPath = getGlobalConfigPath();
     auto options = std::make_shared<Options>(globalConfigPath);
     context->setOptions(options);
     try {

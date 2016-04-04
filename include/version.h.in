@@ -18,7 +18,7 @@ const std::string oneclient_VERSION_TWEAK = "@oneclient_VERSION_TWEAK@";
 const std::string oneclient_VERSION_FALLBACK = "@oneclient_VERSION_FALLBACK@";
 
 constexpr auto oneclient_INSTALL_PATH = "@CMAKE_INSTALL_PREFIX@",
-               oneclient_CONFIG_DIR   = "@CONFIG_DIR@";
+               oneclient_CONFIG_DIR   = "@SYSCONF_INSTALL_DIR@";
 }
 
 #endif // ONECLIENT_VERSION_H
