@@ -37,6 +37,11 @@ public:
      */
     asio::const_buffer data() const { return asio::buffer(m_data); }
 
+    /**
+     * @return The data, mutable.
+     */
+    std::string &mutableData() { return m_data; }
+
     std::string toString() const override;
 
 private:

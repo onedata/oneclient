@@ -10,8 +10,8 @@
 #define HELPERS_I_STORAGE_HELPER_H
 
 #include <fuse.h>
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
 #include <asio/buffer.hpp>
 #include <boost/any.hpp>
@@ -19,13 +19,13 @@
 #include <tbb/concurrent_hash_map.h>
 
 #include <chrono>
+#include <future>
+#include <memory>
+#include <string>
+#include <system_error>
 #include <unordered_map>
 #include <unordered_set>
-#include <string>
 #include <vector>
-#include <memory>
-#include <system_error>
-#include <future>
 
 namespace one {
 namespace helpers {
@@ -71,12 +71,14 @@ public:
 
     virtual void setUserCTX(std::unordered_map<std::string, std::string> args)
     {
-        throw std::system_error{std::make_error_code(std::errc::function_not_supported)};
+        throw std::system_error{
+            std::make_error_code(std::errc::function_not_supported)};
     }
 
     virtual std::unordered_map<std::string, std::string> getUserCTX()
     {
-        throw std::system_error{std::make_error_code(std::errc::function_not_supported)};
+        throw std::system_error{
+            std::make_error_code(std::errc::function_not_supported)};
     }
 
 protected:
@@ -106,7 +108,7 @@ class IStorageHelper {
 public:
     virtual ~IStorageHelper() = default;
 
-    virtual CTXPtr createCTX() { return nullptr; }
+    virtual CTXPtr createCTX() = 0;
 
     virtual void ash_getattr(CTXPtr ctx, const boost::filesystem::path &p,
         GeneralCallback<struct stat> callback)
@@ -194,27 +196,28 @@ public:
     }
 
     virtual void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
-        FlagsSet flags, GeneralCallback<int> callback)
+        FlagsSet flags, const std::string &fileUuid,
+        GeneralCallback<int> callback)
     {
-        ash_open(std::move(ctx), p, getFlagsValue(std::move(flags)),
+        ash_open(std::move(ctx), p, getFlagsValue(std::move(flags)), fileUuid,
             std::move(callback));
     }
 
     virtual void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
-        int flags, GeneralCallback<int> callback)
+        int flags, const std::string &fileUuid, GeneralCallback<int> callback)
     {
-        callback({}, SUCCESS_CODE);
+        callback(0, SUCCESS_CODE);
     }
 
     virtual void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
+        asio::mutable_buffer buf, off_t offset,
         GeneralCallback<asio::mutable_buffer> callback)
     {
         callback({}, std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset, const std::string &fileUuid,
+        asio::const_buffer buf, off_t offset,
         GeneralCallback<std::size_t> callback)
     {
         callback({}, std::make_error_code(std::errc::function_not_supported));
@@ -240,82 +243,40 @@ public:
 
     virtual asio::mutable_buffer sh_read(CTXPtr ctx,
         const boost::filesystem::path &p, asio::mutable_buffer buf,
-        off_t offset, const std::string &fileUuid)
+        off_t offset)
     {
-        auto promise = std::make_shared<std::promise<asio::mutable_buffer>>();
-        auto future = promise->get_future();
-
-        auto callback = [promise = std::move(promise)](
-            asio::mutable_buffer input, const std::error_code &ec) mutable
-        {
-            if (ec)
-                promise->set_exception(
-                    std::make_exception_ptr(std::system_error{ec}));
-            else
-                promise->set_value(input);
-        };
-
-        ash_read(std::move(ctx), p, buf, offset, fileUuid, std::move(callback));
-        return waitFor(future);
+        return sync<asio::mutable_buffer>(&IStorageHelper::ash_read,
+            std::move(ctx), p, std::move(buf), offset);
     }
 
     virtual std::size_t sh_write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset, const std::string &fileUuid)
+        asio::const_buffer buf, off_t offset)
     {
-        auto promise = std::make_shared<std::promise<std::size_t>>();
-        auto future = promise->get_future();
-
-        auto callback = [promise = std::move(promise)](
-            const std::size_t wrote, const std::error_code &ec) mutable
-        {
-            if (ec)
-                promise->set_exception(
-                    std::make_exception_ptr(std::system_error{ec}));
-            else
-                promise->set_value(wrote);
-        };
-
-        ash_write(
-            std::move(ctx), p, buf, offset, fileUuid, std::move(callback));
-        return waitFor(future);
+        return sync<std::size_t>(&IStorageHelper::ash_write, std::move(ctx), p,
+            std::move(buf), offset);
     }
 
-    virtual int sh_open(CTXPtr ctx, const boost::filesystem::path &p, int flags)
+    virtual int sh_open(CTXPtr ctx, const boost::filesystem::path &p, int flags,
+        const std::string &fileUuid)
     {
-        auto promise = std::make_shared<std::promise<int>>();
-        auto future = promise->get_future();
-
-        auto callback = [promise = std::move(promise)](
-            const int fh, const std::error_code &ec) mutable
-        {
-            if (ec)
-                promise->set_exception(
-                    std::make_exception_ptr(std::system_error{ec}));
-            else
-                promise->set_value(fh);
-        };
-
-        ash_open(std::move(ctx), p, flags, std::move(callback));
-        return waitFor(future);
+        return sync<int>(
+            &IStorageHelper::ash_open1, std::move(ctx), p, flags, fileUuid);
     }
 
-    virtual error_t sh_release(CTXPtr ctx, const boost::filesystem::path &p)
+    virtual void sh_release(CTXPtr ctx, const boost::filesystem::path &p)
     {
-        auto promise = std::make_shared<std::promise<error_t>>();
-        auto future = promise->get_future();
+        sync(&IStorageHelper::ash_release, std::move(ctx), p);
+    }
 
-        auto callback = [promise = std::move(promise)](
-            const std::error_code &ec) mutable
-        {
-            if (ec)
-                promise->set_exception(
-                    std::make_exception_ptr(std::system_error{ec}));
-            else
-                promise->set_value(SUCCESS_CODE);
-        };
+    virtual void sh_flush(CTXPtr ctx, const boost::filesystem::path &p)
+    {
+        sync(&IStorageHelper::ash_flush, std::move(ctx), p);
+    }
 
-        ash_release(std::move(ctx), p, std::move(callback));
-        return waitFor(future);
+    virtual void sh_fsync(
+        CTXPtr ctx, const boost::filesystem::path &p, bool isDataSync)
+    {
+        sync(&IStorageHelper::ash_fsync, std::move(ctx), p, isDataSync);
     }
 
     static int getFlagsValue(FlagsSet flags)
@@ -338,9 +299,54 @@ protected:
     }
 
 private:
+    void ash_open1(CTXPtr ctx, const boost::filesystem::path &p, int flags,
+        const std::string &fileUuid, GeneralCallback<int> callback)
+    {
+        ash_open(std::move(ctx), p, flags, fileUuid, std::move(callback));
+    }
+
+    template <typename Ret, typename... Arg1, typename... Arg2>
+    Ret sync(void (IStorageHelper::*ash_fun)(Arg1...), Arg2 &&... args)
+    {
+        auto promise = std::make_shared<std::promise<Ret>>();
+        auto future = promise->get_future();
+
+        auto callback = [promise = std::move(promise)](
+            Ret ret, const std::error_code &ec) mutable
+        {
+            if (ec)
+                promise->set_exception(
+                    std::make_exception_ptr(std::system_error{ec}));
+            else
+                promise->set_value(std::move(ret));
+        };
+
+        (this->*ash_fun)(std::forward<Arg2>(args)..., std::move(callback));
+        return waitFor(future);
+    }
+
+    template <typename... Arg1, typename... Arg2>
+    void sync(void (IStorageHelper::*ash_fun)(Arg1...), Arg2 &&... args)
+    {
+        auto promise = std::make_shared<std::promise<void>>();
+        auto future = promise->get_future();
+
+        auto callback = [promise = std::move(promise)](
+            const std::error_code &ec) mutable
+        {
+            if (ec)
+                promise->set_exception(
+                    std::make_exception_ptr(std::system_error{ec}));
+            else
+                promise->set_value();
+        };
+
+        (this->*ash_fun)(std::forward<Arg2>(args)..., std::move(callback));
+        waitFor(future);
+    }
+
     template <typename T> static T waitFor(std::future<T> &f)
     {
-        using namespace std::literals;
         if (f.wait_for(ASYNC_OPS_TIMEOUT) != std::future_status::ready)
             throw std::system_error{std::make_error_code(std::errc::timed_out)};
 
