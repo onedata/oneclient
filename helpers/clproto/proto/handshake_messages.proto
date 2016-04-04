@@ -18,6 +18,7 @@ message HandshakeResponse {
 }
 
 message Token {
-    required bytes value = 1;
+    required bytes value              = 1;
+    repeated bytes secondary_values   = 2;
 }
 

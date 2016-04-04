@@ -8,18 +8,18 @@
 
 #include "fsOperations.h"
 
+#include "communication/exception.h"
 #include "fsLogic.h"
 #include "logging.h"
 #include "oneException.h"
-#include "communication/exception.h"
 
 #include <boost/asio/buffer.hpp>
 
 #include <execinfo.h>
 
 #include <array>
-#include <memory>
 #include <exception>
+#include <memory>
 #include <system_error>
 
 using namespace one::client;
@@ -30,8 +30,9 @@ template <typename... Args1, typename... Args2>
 int wrap(int (FsLogic::*operation)(Args2...), Args1 &&... args)
 {
     try {
-        auto &fsLogic = static_cast<FsLogicWrapper *>(
-                            fuse_get_context()->private_data)->logic;
+        auto &fsLogic =
+            static_cast<FsLogicWrapper *>(fuse_get_context()->private_data)
+                ->logic;
 
         return ((*fsLogic).*operation)(std::forward<Args1>(args)...);
     }
@@ -39,8 +40,6 @@ int wrap(int (FsLogic::*operation)(Args2...), Args1 &&... args)
         return -1 * static_cast<int>(errc);
     }
     catch (const std::system_error &e) {
-        if(e.code().value() != ENOENT)
-            LOG(ERROR) << e.what() << std::endl;
         return -1 * e.code().value();
     }
     catch (const one::communication::TimeoutExceeded &t) {
