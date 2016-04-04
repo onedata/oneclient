@@ -13,26 +13,22 @@
 #include "s3Helper.h"
 
 #ifdef BUILD_PROXY_IO
-
 #include "proxyIOHelper.h"
-
 #endif
 
 namespace one {
 namespace helpers {
 
 #ifdef BUILD_PROXY_IO
-
 StorageHelperFactory::StorageHelperFactory(asio::io_service &cephService,
     asio::io_service &dioService, asio::io_service &s3Service,
-    communication::Communicator &communicator)
+    proxyio::BufferAgent &bufferAgent)
     : m_cephService{cephService}
     , m_dioService{dioService}
     , m_s3Service{s3Service}
-    , m_communicator{communicator}
+    , m_bufferAgent{bufferAgent}
 {
 }
-
 #else
 StorageHelperFactory::StorageHelperFactory(asio::io_service &ceph_service,
     asio::io_service &dio_service, asio::io_service &s3Service)
@@ -62,7 +58,7 @@ std::shared_ptr<IStorageHelper> StorageHelperFactory::getStorageHelper(
 
 #ifdef BUILD_PROXY_IO
     if (sh_name == PROXY_IO_HELPER_NAME)
-        return std::make_shared<ProxyIOHelper>(args, m_communicator);
+        return std::make_shared<ProxyIOHelper>(args, m_bufferAgent);
 #endif
 
     if (sh_name == S3_HELPER_NAME)

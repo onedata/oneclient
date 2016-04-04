@@ -17,10 +17,10 @@
 #include <fuse.h>
 #include <sys/types.h>
 
-#include <string>
-#include <map>
-#include <unordered_map>
 #include <functional>
+#include <map>
+#include <string>
+#include <unordered_map>
 
 namespace one {
 namespace helpers {
@@ -37,9 +37,9 @@ class PosixHelperCTX : public IStorageHelperCTX {
 public:
     ~PosixHelperCTX();
 
-    void setUserCTX(std::unordered_map<std::string, std::string> args);
+    void setUserCTX(std::unordered_map<std::string, std::string> args) override;
 
-    std::unordered_map<std::string, std::string> getUserCTX();
+    std::unordered_map<std::string, std::string> getUserCTX() override;
 
     uid_t uid = 0;
     gid_t gid = 0;
@@ -93,52 +93,56 @@ public:
     DirectIOHelper(const std::unordered_map<std::string, std::string> &,
         asio::io_service &service, UserCTXFactory);
 
-    CTXPtr createCTX();
+    CTXPtr createCTX() override;
     void ash_getattr(CTXPtr ctx, const boost::filesystem::path &p,
-        GeneralCallback<struct stat>);
+        GeneralCallback<struct stat>) override;
     void ash_access(
         CTXPtr ctx, const boost::filesystem::path &p, int mask, VoidCallback);
     void ash_readlink(CTXPtr ctx, const boost::filesystem::path &p,
-        GeneralCallback<std::string>);
+        GeneralCallback<std::string>) override;
     void ash_readdir(CTXPtr ctx, const boost::filesystem::path &p, off_t offset,
-        size_t count, GeneralCallback<const std::vector<std::string> &>);
+        size_t count,
+        GeneralCallback<const std::vector<std::string> &>) override;
     void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        FlagsSet flags, dev_t rdev, VoidCallback);
+        FlagsSet flags, dev_t rdev, VoidCallback) override;
     void ash_mkdir(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        VoidCallback);
-    void ash_unlink(CTXPtr ctx, const boost::filesystem::path &p, VoidCallback);
-    void ash_rmdir(CTXPtr ctx, const boost::filesystem::path &p, VoidCallback);
+        VoidCallback) override;
+    void ash_unlink(
+        CTXPtr ctx, const boost::filesystem::path &p, VoidCallback) override;
+    void ash_rmdir(
+        CTXPtr ctx, const boost::filesystem::path &p, VoidCallback) override;
     void ash_symlink(CTXPtr ctx, const boost::filesystem::path &from,
-        const boost::filesystem::path &to, VoidCallback);
+        const boost::filesystem::path &to, VoidCallback) override;
     void ash_rename(CTXPtr ctx, const boost::filesystem::path &from,
-        const boost::filesystem::path &to, VoidCallback);
+        const boost::filesystem::path &to, VoidCallback) override;
     void ash_link(CTXPtr ctx, const boost::filesystem::path &from,
-        const boost::filesystem::path &to, VoidCallback);
+        const boost::filesystem::path &to, VoidCallback) override;
     void ash_chmod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        VoidCallback);
+        VoidCallback) override;
     void ash_chown(CTXPtr ctx, const boost::filesystem::path &p, uid_t uid,
-        gid_t gid, VoidCallback);
-    void ash_truncate(
-        CTXPtr ctx, const boost::filesystem::path &p, off_t size, VoidCallback);
+        gid_t gid, VoidCallback) override;
+    void ash_truncate(CTXPtr ctx, const boost::filesystem::path &p, off_t size,
+        VoidCallback) override;
 
     void ash_open(CTXPtr ctx, const boost::filesystem::path &p, int flags,
-        GeneralCallback<int>);
+        const std::string &fileUuid, GeneralCallback<int>) override;
     void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
-        GeneralCallback<asio::mutable_buffer>);
+        asio::mutable_buffer buf, off_t offset,
+        GeneralCallback<asio::mutable_buffer>) override;
     void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset, const std::string &fileUuid,
-        GeneralCallback<std::size_t>);
+        asio::const_buffer buf, off_t offset,
+        GeneralCallback<std::size_t>) override;
     void ash_release(
-        CTXPtr ctx, const boost::filesystem::path &p, VoidCallback);
-    void ash_flush(CTXPtr ctx, const boost::filesystem::path &p, VoidCallback);
+        CTXPtr ctx, const boost::filesystem::path &p, VoidCallback) override;
+    void ash_flush(
+        CTXPtr ctx, const boost::filesystem::path &p, VoidCallback) override;
     void ash_fsync(CTXPtr ctx, const boost::filesystem::path &p,
-        bool isDataSync, VoidCallback);
+        bool isDataSync, VoidCallback) override;
 
     asio::mutable_buffer sh_read(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset, const std::string &fileUuid);
+        asio::mutable_buffer buf, off_t offset) override;
     std::size_t sh_write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset, const std::string &fileUuid);
+        asio::const_buffer buf, off_t offset) override;
 
 protected:
     template <class Result, typename... Args1, typename... Args2>
