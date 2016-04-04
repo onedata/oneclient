@@ -41,7 +41,9 @@ public:
 
     asio::mutable_buffer read(asio::mutable_buffer buf, const off_t offset)
     {
-        if (m_clear) {
+        if (m_clear ||
+            m_lastCacheRefresh + std::chrono::seconds{5} <
+                std::chrono::steady_clock::now()) {
             m_lastRead.clear();
             m_pendingRead = {};
             m_clear = false;
@@ -58,6 +60,7 @@ public:
         if (m_pendingRead.valid() && m_pendingReadOffset <= offset) {
             m_lastReadOffset = m_pendingReadOffset;
             m_lastRead = readFuture(m_pendingRead);
+            m_lastCacheRefresh = std::chrono::steady_clock::now();
 
             m_pendingReadOffset = m_lastReadOffset + m_lastRead.size();
             m_pendingRead = download(m_pendingReadOffset, blockSize());
@@ -76,6 +79,7 @@ public:
         m_pendingReadOffset = offset + size;
         m_pendingRead = download(m_pendingReadOffset, blockSize());
         auto data = readFuture(future);
+        m_lastCacheRefresh = std::chrono::steady_clock::now();
         auto copied = asio::buffer_copy(buf, asio::buffer(data));
         return asio::buffer(buf, copied);
     }
@@ -147,6 +151,7 @@ private:
     off_t m_pendingReadOffset = 0;
     std::future<std::string> m_pendingRead;
     std::atomic<bool> m_clear{false};
+    std::chrono::steady_clock::time_point m_lastCacheRefresh{};
 };
 
 } // namespace proxyio
