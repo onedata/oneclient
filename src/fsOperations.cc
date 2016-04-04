@@ -39,7 +39,8 @@ int wrap(int (FsLogic::*operation)(Args2...), Args1 &&... args)
         return -1 * static_cast<int>(errc);
     }
     catch (const std::system_error &e) {
-        LOG(ERROR) << e.what() << std::endl;
+        if(e.code().value() != ENOENT)
+            LOG(ERROR) << e.what() << std::endl;
         return -1 * e.code().value();
     }
     catch (const one::communication::TimeoutExceeded &t) {
