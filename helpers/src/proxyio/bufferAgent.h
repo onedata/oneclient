@@ -65,7 +65,7 @@ public:
                 fileUuid, bl.minReadChunkSize, bl.maxReadChunkSize,
                 bl.readAheadFor, m_communicator, m_scheduler);
 
-            auto writeBuffer = std::make_unique<WriteBuffer>(storageId, fileId,
+            auto writeBuffer = std::make_shared<WriteBuffer>(storageId, fileId,
                 fileUuid, bl.minWriteChunkSize, bl.maxWriteChunkSize,
                 bl.flushWriteAfter, m_communicator, m_scheduler, readCache);
 
@@ -149,7 +149,7 @@ private:
 
     tbb::concurrent_hash_map<FileKey, std::size_t> m_bufferCounters;
     tbb::concurrent_hash_map<FileKey, std::shared_ptr<ReadCache>> m_readCaches;
-    tbb::concurrent_hash_map<FileKey, std::unique_ptr<WriteBuffer>>
+    tbb::concurrent_hash_map<FileKey, std::shared_ptr<WriteBuffer>>
         m_writeBuffers;
 };
 
