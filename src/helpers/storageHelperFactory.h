@@ -12,7 +12,7 @@
 #include "helpers/IStorageHelper.h"
 
 #ifdef BUILD_PROXY_IO
-#include "communication/communicator.h"
+#include "proxyio/bufferAgent.h"
 #endif
 
 #include <asio/io_service.hpp>
@@ -36,7 +36,7 @@ public:
 #ifdef BUILD_PROXY_IO
     StorageHelperFactory(asio::io_service &cephService,
         asio::io_service &dioService, asio::io_service &s3Service,
-        communication::Communicator &communicator);
+        proxyio::BufferAgent &bufferAgent);
 #else
     StorageHelperFactory(asio::io_service &ceph_service,
         asio::io_service &dio_service, asio::io_service &s3Service);
@@ -60,7 +60,7 @@ private:
     asio::io_service &m_dioService;
     asio::io_service &m_s3Service;
 #ifdef BUILD_PROXY_IO
-    communication::Communicator &m_communicator;
+    proxyio::BufferAgent &m_bufferAgent;
 #endif
 };
 

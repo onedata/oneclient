@@ -35,9 +35,13 @@ message RemoteRead {
     required uint64 size   = 2;
 }
 
-message RemoteWrite {
+message ByteSequence {
     required uint64 offset = 1;
     required bytes  data   = 2;
+}
+
+message RemoteWrite {
+    repeated ByteSequence byte_sequence = 1;
 }
 
 message RemoteData {

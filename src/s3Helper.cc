@@ -32,7 +32,8 @@ const std::map<int, error_t> S3Helper::s_errorsTranslation = {
         makePosixError(std::errc::no_such_file_or_directory)},
     {S3StatusHttpErrorNotFound,
         makePosixError(std::errc::no_such_file_or_directory)},
-    {S3StatusErrorNotImplemented, makePosixError(std::errc::function_not_supported)},
+    {S3StatusErrorNotImplemented,
+        makePosixError(std::errc::function_not_supported)},
     {S3StatusErrorOperationAborted,
         makePosixError(std::errc::connection_aborted)},
     {S3StatusErrorRequestTimeout, makePosixError(std::errc::timed_out)},
@@ -57,71 +58,59 @@ void S3Helper::ash_unlink(
     auto ctx = getCTX(std::move(rawCTX));
     auto fileId = p.string();
 
-    asio::post(m_service,
-        [
-          this,
-          ctx = std::move(ctx),
-          fileId = std::move(fileId),
-          callback = std::move(callback)
-        ]() {
-            try {
-                sh_unlink(*ctx, fileId);
-                callback(SUCCESS_CODE);
-            }
-            catch (const std::system_error &e) {
-                callback(e.code());
-            }
-        });
+    asio::post(m_service, [
+        this, ctx = std::move(ctx), fileId = std::move(fileId),
+        callback = std::move(callback)
+    ]() {
+        try {
+            sh_unlink(*ctx, fileId);
+            callback(SUCCESS_CODE);
+        }
+        catch (const std::system_error &e) {
+            callback(e.code());
+        }
+    });
 }
 
 void S3Helper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
-    asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
+    asio::mutable_buffer buf, off_t offset,
     GeneralCallback<asio::mutable_buffer> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
     auto fileId = p.string();
 
-    asio::post(m_service,
-        [
-          =,
-          ctx = std::move(ctx),
-          buf = std::move(buf),
-          fileId = std::move(fileId),
-          callback = std::move(callback)
-        ]() mutable {
-            try {
-                callback(sh_read(*ctx, fileId, std::move(buf), offset),
-                    SUCCESS_CODE);
-            }
-            catch (const std::system_error &e) {
-                callback(asio::mutable_buffer{}, e.code());
-            }
-        });
+    asio::post(m_service, [
+        =, ctx = std::move(ctx), buf = std::move(buf),
+        fileId = std::move(fileId), callback = std::move(callback)
+    ]() mutable {
+        try {
+            callback(
+                sh_read(*ctx, fileId, std::move(buf), offset), SUCCESS_CODE);
+        }
+        catch (const std::system_error &e) {
+            callback(asio::mutable_buffer{}, e.code());
+        }
+    });
 }
 
 void S3Helper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
-    asio::const_buffer buf, off_t offset, const std::string &fileUuid,
-    GeneralCallback<std::size_t> callback)
+    asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
     auto fileId = p.string();
 
-    asio::post(m_service,
-        [
-          =,
-          ctx = std::move(ctx),
-          buf = std::move(buf),
-          fileId = std::move(fileId),
-          callback = std::move(callback)
-        ]() mutable {
-            try {
-                callback(sh_write(*ctx, fileId, std::move(buf), offset),
-                    SUCCESS_CODE);
-            }
-            catch (const std::system_error &e) {
-                callback(0, e.code());
-            }
-        });
+    asio::post(m_service, [
+        =, ctx = std::move(ctx), buf = std::move(buf),
+        fileId = std::move(fileId), callback = std::move(callback)
+    ]() mutable {
+        try {
+            callback(
+                sh_write(*ctx, fileId, std::move(buf), offset), SUCCESS_CODE);
+        }
+        catch (const std::system_error &e) {
+            callback(0, e.code());
+        }
+    });
 }
 
 void S3Helper::ash_truncate(CTXPtr rawCTX, const boost::filesystem::path &p,
@@ -130,21 +119,18 @@ void S3Helper::ash_truncate(CTXPtr rawCTX, const boost::filesystem::path &p,
     auto ctx = getCTX(std::move(rawCTX));
     auto fileId = p.string();
 
-    asio::post(m_service,
-        [
-          =,
-          ctx = std::move(ctx),
-          fileId = std::move(fileId),
-          callback = std::move(callback)
-        ]() {
-            try {
-                sh_truncate(*ctx, fileId, size);
-                callback(SUCCESS_CODE);
-            }
-            catch (const std::system_error &e) {
-                callback(e.code());
-            }
-        });
+    asio::post(m_service, [
+        =, ctx = std::move(ctx), fileId = std::move(fileId),
+        callback = std::move(callback)
+    ]() {
+        try {
+            sh_truncate(*ctx, fileId, size);
+            callback(SUCCESS_CODE);
+        }
+        catch (const std::system_error &e) {
+            callback(e.code());
+        }
+    });
 }
 
 void S3Helper::sh_unlink(const S3HelperCTX &ctx, const std::string &fileId)
