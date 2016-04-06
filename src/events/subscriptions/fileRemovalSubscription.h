@@ -12,10 +12,7 @@
 #include "subscription.h"
 #include "messages/clientMessage.h"
 
-#include <boost/optional.hpp>
-
 #include <cstddef>
-#include <sstream>
 
 namespace one {
 namespace client {
@@ -26,7 +23,7 @@ namespace events {
  * a request for @c FileRemovalEvent.
  */
 class FileRemovalSubscription : public Subscription,
-                               public messages::ClientMessage {
+                                public messages::ClientMessage {
 public:
     /**
      * Constructor.

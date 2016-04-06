@@ -52,8 +52,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_context{std::move(context)}
     , m_eventManager{m_context}
     , m_helpersCache{*m_context->communicator(), *m_context->scheduler()}
+    , m_metadataCache{*m_context->communicator()}
     , m_fsSubscriptions{m_eventManager}
-    , m_metadataCache{*m_context->communicator(), m_fsSubscriptions}
     , m_forceProxyIOCache{m_fsSubscriptions}
 {
     m_eventManager.setFileAttrHandler(fileAttrHandler());
@@ -78,6 +78,7 @@ void FsLogic::scheduleCacheTick()
         m_expirationHelper.tick([this](const std::string &uuid) {
             m_metadataCache.remove(uuid);
             m_fsSubscriptions.removeFileLocationSubscription(uuid);
+            m_fsSubscriptions.removeFileRemovalSubscription(uuid);
         });
 
         scheduleCacheTick();
@@ -121,6 +122,7 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
     m_expirationHelper.markInteresting(attr.uuid(), [&] {
         m_metadataCache.getAttr(attr.uuid());
         m_fsSubscriptions.addFileAttrSubscription(attr.uuid());
+        m_fsSubscriptions.addFileRemovalSubscription(attr.uuid());
     });
 
     return 0;
@@ -323,6 +325,7 @@ int FsLogic::open(
     m_expirationHelper.pin(attr.uuid(), [&] {
         m_metadataCache.getAttr(attr.uuid());
         m_fsSubscriptions.addFileLocationSubscription(attr.uuid());
+        m_fsSubscriptions.addFileRemovalSubscription(attr.uuid());
     });
 
     return 0;
@@ -714,11 +717,11 @@ void FsLogic::removeFile(boost::filesystem::path path)
     MetadataCache::MetaAccessor metaAcc;
     m_metadataCache.getAttr(uuidAcc, metaAcc, path);
     auto uuid = uuidAcc->second;
-    auto alreadyRemoved = metaAcc->second.alreadyRemoved;
+    auto removedUpstream = metaAcc->second.removedUpstream;
     uuidAcc.release();
     metaAcc.release();
 
-    if (!alreadyRemoved) {
+    if (!removedUpstream) {
         auto future = m_context->communicator()
                           ->communicate<messages::fuse::FuseResponse>(
                               messages::fuse::DeleteFile{uuid});
@@ -735,13 +738,13 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
 
             MetadataCache::MetaAccessor metaAcc;
             m_metadataCache.get(metaAcc, event->fileUuid());
-            metaAcc->second.alreadyRemoved = true;
+            metaAcc->second.removedUpstream = true;
             if (metaAcc->second.path) {
                 auto fileName = metaAcc->second.path.get();
                 metaAcc.release();
                 try {
                     auto dir = m_context->options()->get_mountpoint();
-                    remove(dir / fileName);
+                    std::remove((dir / fileName).c_str());
                 }
                 catch (std::system_error &e) {
                     LOG(WARNING) << "Unable to remove file: " << e.what();

@@ -9,8 +9,6 @@
 #ifndef ONECLIENT_METADATA_CACHE_H
 #define ONECLIENT_METADATA_CACHE_H
 
-#include "fsSubscriptions.h"
-
 #include "communication/communicator.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
@@ -41,7 +39,7 @@ public:
         boost::optional<Path> path;
         boost::optional<FileAttr> attr;
         boost::optional<FileLocation> location;
-        bool alreadyRemoved = false;
+        bool removedUpstream = false;
     };
 
 private:
@@ -70,10 +68,8 @@ public:
      * Constructor.
      * @param communicator Communicator instance used for fetching missing
      * data.
-     * @parem fsSubscriptions fsSubscriptions used for event subscriptions
      */
-    MetadataCache(communication::Communicator &communicator,
-        FsSubscriptions &fsSubscriptions);
+    MetadataCache(communication::Communicator &communicator);
 
     MetadataCache(MetadataCache &&) = delete;
 
@@ -213,7 +209,6 @@ private:
     FileAttr fetchAttr(messages::fuse::GetFileAttr request);
 
     communication::Communicator &m_communicator;
-    FsSubscriptions &m_fsSubscriptions;
 };
 
 } // namespace one

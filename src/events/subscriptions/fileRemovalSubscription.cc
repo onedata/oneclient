@@ -17,9 +17,9 @@ namespace client {
 namespace events {
 
 FileRemovalSubscription::FileRemovalSubscription(
-    std::string fileUuid_, std::size_t counterThreshold_)
+    std::string fileUuid, std::size_t counterThreshold_)
     : Subscription{counterThreshold_}
-    , m_fileUuid{std::move(fileUuid_)}
+    , m_fileUuid{std::move(fileUuid)}
 {
 }
 

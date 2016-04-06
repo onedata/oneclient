@@ -12,10 +12,6 @@
 #include "event.h"
 #include "messages/serverMessage.h"
 
-#include <boost/icl/interval_map.hpp>
-
-#include <sys/types.h>
-
 #include <string>
 #include <memory>
 

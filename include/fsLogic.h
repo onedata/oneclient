@@ -253,8 +253,8 @@ private:
     events::EventManager m_eventManager;
     FileContextCache m_fileContextCache;
     HelpersCache m_helpersCache;
-    FsSubscriptions m_fsSubscriptions;
     MetadataCache m_metadataCache;
+    FsSubscriptions m_fsSubscriptions;
     ForceProxyIOCache m_forceProxyIOCache;
     CacheExpirationHelper<std::string> m_expirationHelper;
 

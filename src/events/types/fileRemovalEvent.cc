@@ -10,13 +10,15 @@
 
 #include "messages.pb.h"
 
+#include <sstream>
+
 namespace one {
 namespace client {
 namespace events {
 
 FileRemovalEvent::FileRemovalEvent(const ProtocolMessage &message)
+    : FileRemovalEvent::FileRemovalEvent(message.file_uuid())
 {
-    m_fileUuid = message.file_uuid();
 }
 
 FileRemovalEvent::FileRemovalEvent(std::string fileUuid)
@@ -24,7 +26,10 @@ FileRemovalEvent::FileRemovalEvent(std::string fileUuid)
 {
 }
 
-const FileRemovalEvent::Key &FileRemovalEvent::key() const { return m_fileUuid; }
+const FileRemovalEvent::Key &FileRemovalEvent::key() const
+{
+    return m_fileUuid;
+}
 
 const std::string &FileRemovalEvent::fileUuid() const { return m_fileUuid; }
 
