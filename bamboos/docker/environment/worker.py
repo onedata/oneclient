@@ -192,7 +192,7 @@ def _db_driver_module(db_driver):
     return db_driver + "_datastore_driver"
 
 
-def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None):
+def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None, storages_dockers=None):
     config = common.parse_json_config_file(config_path)
     input_dir = config['dirs_config'][configurator.app_name()]['input_dir']
     dns_servers, output = dns.maybe_start(dns_server, uid)
@@ -293,7 +293,7 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None):
         }
         common.merge(current_output, domains)
         configurator.configure_started_instance(bindir, instance, config,
-                                                workers, current_output)
+                                                workers, current_output, storages_dockers)
         common.merge(output, current_output)
 
     # Make sure domains are added to the dns server.
