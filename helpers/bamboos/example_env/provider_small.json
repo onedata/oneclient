@@ -26,9 +26,9 @@
     },
     "provider_domains": {
         "p1": {
-            "db_driver": "couchbase",
+            "db_driver": "couchdb",
             "os_config": "cfg1",
-            "gui_livereload": true,
+            "gui_livereload": "none",
             "cluster_manager": {
                 "cm1": {
                     "vm.args": {
@@ -55,9 +55,9 @@
                                 "cm1"
                             ],
                             "db_nodes": [
-                                "riaknode1"
+                                "dbnode1"
                             ],
-                            "verify_gr_cert": false
+                            "verify_oz_cert": false
                         }
                     }
                 }
