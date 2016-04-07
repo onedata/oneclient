@@ -439,6 +439,11 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     if (asio::buffer_size(buf) == 0)
         return 0;
 
+    auto removedUpstream = m_metadataCache.getRemovedUpstream(path);
+    if (removedUpstream) {
+        return asio::buffer_size(buf);
+    }
+
     auto context = m_fileContextCache.get(fileInfo->fh);
     auto attr = m_metadataCache.getAttr(context.uuid);
     auto location = m_metadataCache.getLocation(context.uuid);
