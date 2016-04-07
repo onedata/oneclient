@@ -255,9 +255,13 @@ register_in_onezone(Workers, Cookie, Provider) ->
 create_space_storage_mapping(Worker, Cookie, Spaces, ProviderDomain) ->
     lists:foreach(fun({SpaceId, Props}) ->
         SpaceProviders = proplists:get_value(<<"providers">>, Props),
-        ProviderSupportInfo = proplists:get_value(ProviderDomain, SpaceProviders),
-        StorageName = proplists:get_value(<<"storage">>, ProviderSupportInfo),
-        {ok, Storage} = call_node(Worker, Cookie, storage, get_by_name, [StorageName]),
-        StorageId = call_node(Worker, Cookie, storage, id, [Storage]),
-        {ok, _} = call_node(Worker, Cookie, space_storage, add, [SpaceId, StorageId])
+        case proplists:get_value(ProviderDomain, SpaceProviders) of
+            undefined ->
+                ok;
+            ProviderSupportInfo ->
+                StorageName = proplists:get_value(<<"storage">>, ProviderSupportInfo),
+                {ok, Storage} = call_node(Worker, Cookie, storage, get_by_name, [StorageName]),
+                StorageId = call_node(Worker, Cookie, storage, id, [Storage]),
+                {ok, _} = call_node(Worker, Cookie, space_storage, add, [SpaceId, StorageId])
+        end
     end, Spaces).
