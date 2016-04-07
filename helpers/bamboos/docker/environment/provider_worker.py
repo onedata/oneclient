@@ -13,9 +13,9 @@ from . import common, docker, worker, gui_livereload
 DOCKER_BINDIR_PATH = '/root/build'
 
 
-def up(image, bindir, dns_server, uid, config_path, logdir=None):
+def up(image, bindir, dns_server, uid, config_path, logdir=None, storages_dockers=None):
     return worker.up(image, bindir, dns_server, uid, config_path,
-                     ProviderWorkerConfigurator(), logdir)
+                     ProviderWorkerConfigurator(), logdir, storages_dockers)
 
 
 class ProviderWorkerConfigurator:
@@ -36,7 +36,7 @@ class ProviderWorkerConfigurator:
         return ''
 
     def configure_started_instance(self, bindir, instance, config,
-                                   container_ids, output):
+                                   container_ids, output, storages_dockers=None):
         this_config = config[self.domains_attribute()][instance]
         # Check if gui_livereload is enabled in env and turn it on
         if 'gui_livereload' in this_config:
@@ -58,12 +58,20 @@ Starting GUI livereload
             os_config = this_config['os_config']
             create_storages(config['os_configs'][os_config]['storages'],
                             output[self.nodes_list_attribute()],
-                            this_config[self.app_name()], bindir)
+                            this_config[self.app_name()], bindir, storages_dockers)
 
     def extra_volumes(self, config, bindir):
-        extra_volumes = [common.volume_for_storage(s) for s in config[
-            'os_config']['storages']] if 'os_config' in config else []
-        # Check if gui_livereload is enabled in env and add required volumes
+        if 'os_config' in config and config['os_config']['storages']:
+            if isinstance(config['os_config']['storages'][0], basestring):
+                posix_storages = config['os_config']['storages']
+            else:
+                posix_storages = [s['name'] for s in config['os_config']['storages']
+                                  if s['type'] == 'posix']
+        else:
+            posix_storages = []
+
+        extra_volumes = [common.volume_for_storage(s) for s in posix_storages]
+        # Check if gui_livereload is enabled in env and add required storages
         if 'gui_livereload' in config:
             extra_volumes += gui_livereload.required_volumes(
                 os.path.join(bindir, 'rel/gui.config'),
@@ -86,25 +94,52 @@ Starting GUI livereload
         return "op_worker_nodes"
 
 
-def create_storages(storages, op_nodes, op_config, bindir):
+def create_storages(storages, op_nodes, op_config, bindir, storages_dockers):
     # copy escript to docker host
-    script_name = 'create_storage.escript'
+    script_names = {'posix': 'create_posix_storage.escript',
+                    's3': 'create_s3_storage.escript',
+                    'ceph': 'create_ceph_storage.escript'}
     pwd = common.get_script_dir()
-    command = ['cp', os.path.join(pwd, script_name),
-               os.path.join(bindir, script_name)]
-    subprocess.check_call(command)
+    for _, script_name in script_names.iteritems():
+        command = ['cp', os.path.join(pwd, script_name),
+                   os.path.join(bindir, script_name)]
+        subprocess.check_call(command)
     # execute escript on one of the nodes
     # (storage is common fo the whole provider)
     first_node = op_nodes[0]
     container = first_node.split("@")[1]
     worker_name = container.split(".")[0]
     cookie = op_config[worker_name]['vm.args']['setcookie']
-    script_path = os.path.join(DOCKER_BINDIR_PATH, script_name)
-    for st_path in storages:
-        st_name = st_path
-        command = ['escript', script_path, cookie, first_node, st_name, st_path]
-        assert 0 is docker.exec_(container, command, tty=True,
-                                 stdout=sys.stdout, stderr=sys.stderr)
+    script_paths = dict(map(lambda (k, v): (k, os.path.join(DOCKER_BINDIR_PATH, v)),
+                              script_names.iteritems()))
+    for storage in storages:
+        if isinstance(storage, basestring):
+            storage = {'type': 'posix', 'name': storage}
+        if storage['type'] == 'posix':
+            st_path = storage['name']
+            command = ['escript', script_paths['posix'], cookie,
+                       first_node, storage['name'], st_path]
+            assert 0 is docker.exec_(container, command, tty=True,
+                                     stdout=sys.stdout, stderr=sys.stderr)
+        elif storage['type'] == 'ceph':
+            config = storages_dockers['ceph'][storage['name']]
+            pool = storage['pool'].split(':')[0]
+            command = ['escript', script_paths['ceph'], cookie,
+                       first_node, storage['name'], "ceph",
+                       config['host_name'], pool, config['username'], config['key']]
+            assert 0 is docker.exec_(container, command, tty=True,
+                                     stdout=sys.stdout, stderr=sys.stderr)
+        elif storage['type'] == 's3':
+            config = storages_dockers['s3'][storage['name']]
+            command = ['escript', script_paths['s3'], cookie,
+                       first_node, storage['name'], config['host_name'],
+                       storage['bucket'], config['access_key'], config['secret_key'],
+                       "iam.amazonaws.com"]
+            assert 0 is docker.exec_(container, command, tty=True,
+                                     stdout=sys.stdout, stderr=sys.stderr)
+        else:
+            raise RuntimeError('Unknown storage type: {}'.format(storage['type']))
     # clean-up
-    command = ['rm', os.path.join(bindir, script_name)]
-    subprocess.check_call(command)
+    for _, script_name in script_names.iteritems():
+        command = ['rm', os.path.join(bindir, script_name)]
+        subprocess.check_call(command)
