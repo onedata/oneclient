@@ -10,9 +10,9 @@
 #include "fsLogic.h"
 
 #include "context.h"
+#include "helpers/IStorageHelper.h"
 #include "logging.h"
 #include "options.h"
-#include "helpers/IStorageHelper.h"
 
 #include "messages/configuration.h"
 #include "messages/fuse/changeMode.h"
@@ -62,26 +62,31 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     m_eventManager.setFileRemovalHandler(fileRemovalHandler());
     m_eventManager.subscribe(configuration->subscriptionContainer());
 
-    scheduleCacheTick();
+    scheduleCacheExpirationTick();
 }
 
 FsLogic::~FsLogic()
 {
-    std::lock_guard<std::mutex> guard{m_cancelCacheTickMutex};
-    m_cancelCacheTick();
+    std::lock_guard<std::mutex> guard{m_cancelCacheExpirationTickMutex};
+    m_cancelCacheExpirationTick();
 }
 
-void FsLogic::scheduleCacheTick()
+void FsLogic::scheduleCacheExpirationTick()
 {
-    std::lock_guard<std::mutex> guard{m_cancelCacheTickMutex};
-    m_cancelCacheTick = m_context->scheduler()->schedule(1s, [this] {
-        m_expirationHelper.tick([this](const std::string &uuid) {
+    std::lock_guard<std::mutex> guard{m_cancelCacheExpirationTickMutex};
+    m_cancelCacheExpirationTick = m_context->scheduler()->schedule(1s, [this] {
+        m_locExpirationHelper.tick([this](const std::string &uuid) {
             m_metadataCache.remove(uuid);
             m_fsSubscriptions.removeFileLocationSubscription(uuid);
+        });
+
+        m_attrExpirationHelper.tick([this](const std::string &uuid) {
+            m_metadataCache.remove(uuid);
+            m_fsSubscriptions.removeFileAttrSubscription(uuid);
             m_fsSubscriptions.removeFileRemovalSubscription(uuid);
         });
 
-        scheduleCacheTick();
+        scheduleCacheExpirationTick();
     });
 }
 
@@ -119,7 +124,7 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
             break;
     }
 
-    m_expirationHelper.markInteresting(attr.uuid(), [&] {
+    m_attrExpirationHelper.markInteresting(attr.uuid(), [&] {
         m_metadataCache.getAttr(attr.uuid());
         m_fsSubscriptions.addFileAttrSubscription(attr.uuid());
         m_fsSubscriptions.addFileRemovalSubscription(attr.uuid());
@@ -322,9 +327,14 @@ int FsLogic::open(
     acc->second.helperCtxMap =
         std::make_shared<FileContextCache::HelperCtxMap>();
 
-    m_expirationHelper.pin(attr.uuid(), [&] {
-        m_metadataCache.getAttr(attr.uuid());
+    m_locExpirationHelper.pin(attr.uuid(), [&] {
+        m_metadataCache.getLocation(attr.uuid());
         m_fsSubscriptions.addFileLocationSubscription(attr.uuid());
+    });
+
+    m_attrExpirationHelper.pin(attr.uuid(), [&] {
+        m_metadataCache.getAttr(attr.uuid());
+        m_fsSubscriptions.addFileAttrSubscription(attr.uuid());
         m_fsSubscriptions.addFileRemovalSubscription(attr.uuid());
     });
 
@@ -622,14 +632,15 @@ int FsLogic::release(
 {
     DLOG(INFO) << "FUSE: release(path: " << path << ", ...)";
     auto attr = m_metadataCache.getAttr(path);
-    m_expirationHelper.unpin(attr.uuid());
+    m_locExpirationHelper.unpin(attr.uuid());
+    m_attrExpirationHelper.unpin(attr.uuid());
 
     auto context = m_fileContextCache.get(fileInfo->fh);
     std::exception_ptr lastReleaseException;
     for (auto &it : *context.helperCtxMap) {
         auto &storageId = it.first.first;
         auto &fileId = it.first.second;
-        auto helper = getHelper(storageId, fileId);
+        auto helper = getHelper(attr.uuid(), storageId);
         try {
             helper->sh_release(it.second, fileId);
         }
@@ -723,10 +734,15 @@ void FsLogic::removeFile(boost::filesystem::path path)
     m_metadataCache.getAttr(uuidAcc, metaAcc, path);
     auto uuid = uuidAcc->second;
     auto removedUpstream = metaAcc->second.removedUpstream;
-    uuidAcc.release();
-    metaAcc.release();
 
-    if (!removedUpstream) {
+    if (removedUpstream) {
+        m_metadataCache.removePathMapping(uuidAcc, metaAcc);
+        m_locExpirationHelper.expire(metaAcc->first);
+        m_attrExpirationHelper.expire(metaAcc->first);
+    }
+    else {
+        uuidAcc.release();
+        metaAcc.release();
         auto future = m_context->communicator()
                           ->communicate<messages::fuse::FuseResponse>(
                               messages::fuse::DeleteFile{uuid});
@@ -756,7 +772,8 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
                 }
             }
 
-            m_expirationHelper.expire(event->fileUuid());
+            m_locExpirationHelper.expire(event->fileUuid());
+            m_attrExpirationHelper.expire(event->fileUuid());
             LOG(INFO) << "File remove event received: " << event->fileUuid();
         }
     };

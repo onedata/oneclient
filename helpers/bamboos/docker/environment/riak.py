@@ -10,10 +10,8 @@ from __future__ import print_function
 import re
 import requests
 import sys
-
+from timeouts import *
 from . import common, docker, dns as dns_mod
-
-RIAK_READY_WAIT_SECONDS = 60 * 5
 
 
 def riak_hostname(node_num, op_instance, uid):
@@ -57,7 +55,7 @@ def _ready(container):
     ip = docker.inspect(container)['NetworkSettings']['IPAddress']
     url = 'http://{0}:8098/stats'.format(ip)
     try:
-        r = requests.head(url, timeout=5)
+        r = requests.head(url, timeout=REQUEST_TIMEOUT)
         return r.status_code == requests.codes.ok
     except requests.ConnectionError:
         return False

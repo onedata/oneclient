@@ -171,7 +171,7 @@ private:
     DECL_CONFIG_DEF(write_buffer_max_file_size, std::size_t, 64 * 1024 * 1024) // 64 MB
     DECL_CONFIG_DEF(read_buffer_max_file_size, std::size_t, 10 * 1024 * 1024) // 10 MB
     DECL_CONFIG_DEF(file_buffer_prefered_block_size, std::size_t, 100 * 1024) // 100 kB
-    DECL_CONFIG_DEF(file_sync_timeout, std::time_t, 30)
+    DECL_CONFIG_DEF(file_sync_timeout, std::time_t, 300)
     DECL_CONFIG_DEF(write_bytes_before_stat, std::size_t, 5 * 1024 * 1024) // 5 MB
     DECL_CONFIG(fuse_group_id, std::string)
     DECL_CONFIG_DEF(global_registry_url, std::string, "onedata.org")

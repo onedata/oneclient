@@ -7,11 +7,11 @@
  */
 
 #include "fsSubscriptions.h"
-#include "scheduler.h"
 #include "events/eventManager.h"
 #include "events/subscriptions/fileAttrSubscription.h"
 #include "events/subscriptions/fileLocationSubscription.h"
 #include "events/subscriptions/permissionChangedSubscription.h"
+#include "scheduler.h"
 
 #include <functional>
 
@@ -28,13 +28,11 @@ void FsSubscriptions::addFileLocationSubscription(const std::string &fileUuid)
     typename decltype(m_fileLocationSubscriptions)::accessor acc;
     if (m_fileLocationSubscriptions.insert(acc, fileUuid))
         acc->second = sendFileLocationSubscription(fileUuid);
-    addFileAttrSubscription(fileUuid);
 }
 
 void FsSubscriptions::removeFileLocationSubscription(
     const std::string &fileUuid)
 {
-    removeFileAttrSubscription(fileUuid);
     typename decltype(m_fileLocationSubscriptions)::accessor acc;
     if (m_fileLocationSubscriptions.find(acc, fileUuid)) {
         sendSubscriptionCancellation(acc->second);
@@ -95,6 +93,8 @@ void FsSubscriptions::removeFileAttrSubscription(const std::string &fileUuid)
 std::int64_t FsSubscriptions::sendFileAttrSubscription(
     const std::string &fileUuid)
 {
+    DLOG(INFO) << "Sending subscription for change of attributes of file: "
+               << fileUuid;
     events::FileAttrSubscription clientSubscription{fileUuid, 1};
     events::FileAttrSubscription serverSubscription{fileUuid, 1};
     return m_eventManager.subscribe(
@@ -104,6 +104,8 @@ std::int64_t FsSubscriptions::sendFileAttrSubscription(
 std::int64_t FsSubscriptions::sendFileLocationSubscription(
     const std::string &fileUuid)
 {
+    DLOG(INFO) << "Sending subscription for change of location of file: "
+               << fileUuid;
     events::FileLocationSubscription clientSubscription{fileUuid, 1};
     events::FileLocationSubscription serverSubscription{fileUuid, 1};
     return m_eventManager.subscribe(

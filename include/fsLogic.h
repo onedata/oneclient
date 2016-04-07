@@ -234,7 +234,7 @@ protected:
         const std::string &fileUuid, const std::string &storageId);
 
 private:
-    void scheduleCacheTick();
+    void scheduleCacheExpirationTick();
     void removeFile(boost::filesystem::path path);
     bool waitForBlockSynchronization(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range);
@@ -256,10 +256,11 @@ private:
     MetadataCache m_metadataCache;
     FsSubscriptions m_fsSubscriptions;
     ForceProxyIOCache m_forceProxyIOCache;
-    CacheExpirationHelper<std::string> m_expirationHelper;
+    CacheExpirationHelper<std::string> m_locExpirationHelper;
+    CacheExpirationHelper<std::string> m_attrExpirationHelper;
 
-    std::mutex m_cancelCacheTickMutex;
-    std::function<void()> m_cancelCacheTick;
+    std::mutex m_cancelCacheExpirationTickMutex;
+    std::function<void()> m_cancelCacheExpirationTick;
 };
 
 struct FsLogicWrapper {

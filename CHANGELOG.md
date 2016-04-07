@@ -4,6 +4,22 @@
 CHANGELOG
 ---------
 
+### 3.0.0-beta1
+
+* Initialize S3 bucket context.
+* Samba auto refresh
+* VFS-1802 Expire read cache.
+* VFS-1802 Implement read/write proxyio caches.
+* VFS-1850 Configuration to enable special characters in filenames
+* VFS-1762 Add file location expiration helper.
+* VFS-1728 - increase file_sync_timeout
+* VFS-1660 Oneclient command wrapper
+* VFS-1702 Remove subscriptions counters and scheduler
+* VFS-1669 Allow concurrent read/write operations on a storage/file pair.
+* VFS-1660 Export oneclient mount folder though nfs
+* VFS-1660 Export mounted files through SMB
+
+
 ### 3.0.0-alpha3
 
 * VFS-1531 Use CacheExpirationHelper in MetadataCache.
