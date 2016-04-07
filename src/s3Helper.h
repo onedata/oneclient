@@ -49,7 +49,7 @@ public:
 
     std::unordered_map<std::string, std::string> getUserCTX();
 
-    S3BucketContext bucketCTX;
+    S3BucketContext bucketCTX = {};
 
 private:
     std::unordered_map<std::string, std::string> m_args;
