@@ -730,9 +730,10 @@ void FsLogic::removeFile(boost::filesystem::path path)
 
     communication::wait(future);
 
-    m_metadataCache.removePathMapping(uuidAcc, metaAcc);
-    m_locExpirationHelper.expire(metaAcc->first);
-    m_attrExpirationHelper.expire(metaAcc->first);
+    auto uuid = metaAcc->first;
+    m_metadataCache.removePathMappings(uuidAcc, metaAcc);
+    m_locExpirationHelper.expire(uuid);
+    m_attrExpirationHelper.expire(uuid);
 }
 
 } // namespace client
