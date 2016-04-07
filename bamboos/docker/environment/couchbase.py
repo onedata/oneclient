@@ -11,10 +11,9 @@ import re
 import requests
 import sys
 import time
+from timeouts import *
 
 from . import common, docker, dns as dns_mod
-
-COUCHBASE_READY_WAIT_SECONDS = 60
 
 
 def _couchbase(cluster_name, num):
@@ -47,7 +46,7 @@ def _ready(container):
     ip = docker.inspect(container)['NetworkSettings']['IPAddress']
     url = 'http://{0}:8091/pools'.format(ip)
     try:
-        r = requests.head(url, timeout=5)
+        r = requests.head(url, timeout=REQUEST_TIMEOUT)
         return r.status_code == requests.codes.ok
     except requests.ConnectionError:
         return False
