@@ -474,7 +474,9 @@ void DirectIOHelper::ash_fsync(CTXPtr rawCTX, const boost::filesystem::path &p,
             if (res == -1) {
                 callback(potentialError);
             }
-            callback(SUCCESS_CODE);
+            else {
+                callback(SUCCESS_CODE);
+            }
         });
 }
 
