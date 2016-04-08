@@ -9,8 +9,6 @@
 #ifndef HELPERS_I_STORAGE_HELPER_H
 #define HELPERS_I_STORAGE_HELPER_H
 
-#include "fuseOperations.h"
-
 #include <fuse.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -350,14 +348,14 @@ protected:
     }
 
 private:
+    static void throwOnInterrupted();
+
     template <typename T> static T waitFor(std::future<T> &f)
     {
         using namespace std::literals;
 
         for (auto t = 0ms; t < ASYNC_OPS_TIMEOUT; ++t) {
-            if (fuseInterrupted())
-                throw std::system_error{
-                    std::make_error_code(std::errc::operation_canceled)};
+            throwOnInterrupted();
 
             if (f.wait_for(1ms) == std::future_status::ready)
                 return f.get();
