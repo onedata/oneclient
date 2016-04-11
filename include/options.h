@@ -74,6 +74,27 @@ private:                                                                       \
             DESC);                                                             \
     }
 
+/// Declare a new required configuration option with a description
+#define DECL_REQ_CONFIG_DESC(NAME, TYPE, DESC)                                 \
+public:                                                                        \
+    virtual bool has_##NAME() const                                            \
+    {                                                                          \
+        return m_vm.count(#NAME) && !m_vm[#NAME].defaulted();                  \
+    }                                                                          \
+                                                                               \
+public:                                                                        \
+    virtual TYPE get_##NAME() const { return m_vm.at(#NAME).as<TYPE>(); }      \
+                                                                               \
+private:                                                                       \
+    void add_##NAME(boost::program_options::options_description &desc) const   \
+    {                                                                          \
+        desc.add_options()(                                                    \
+            #NAME, boost::program_options::value<TYPE>()->required(), DESC);   \
+    }
+
+/// Declare a new required configuration option
+#define DECL_REQ_CONFIG(NAME, TYPE) DECL_REQ_CONFIG_DESC(NAME, TYPE, "")
+
 namespace one {
 
 static constexpr const char *FUSE_OPT_PREFIX = "fuse_opt_";
@@ -185,7 +206,7 @@ private:
     DECL_CMDLINE_SWITCH_DEF(proxyio, "", false, "force ProxyIO")
     DECL_CONFIG_DESC(config, std::string, "path to user config file")
     DECL_CONFIG_DEF(enable_env_option_override, bool, true)
-    DECL_CONFIG(mountpoint, std::string)
+    DECL_REQ_CONFIG(mountpoint, std::string)
     /* clang-format on */
 };
 
