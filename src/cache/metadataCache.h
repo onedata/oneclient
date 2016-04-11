@@ -104,13 +104,6 @@ public:
     FileLocation getLocation(const std::string &uuid);
 
     /**
-     * Retrieves getRemovedUpstream flag value about file with given path.
-     * @param path The path of a file to retrieve attributes of.
-     * @return RemovedUpstream flag value.
-     */
-    bool getRemovedUpstream(const Path &path);
-
-    /**
      * Sets metadata accessor for a given path, first ensuring that path<->UUID
      * mapping is present in the cache and attributes are set.
      * @param metaAcc Metadata accessor.

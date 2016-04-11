@@ -68,13 +68,6 @@ MetadataCache::FileLocation MetadataCache::getLocation(const std::string &uuid)
     return acc->second.location.get();
 }
 
-bool MetadataCache::getRemovedUpstream(const Path &path)
-{
-    MetaAccessor metaAcc;
-    getAttr(metaAcc, path);
-    return metaAcc->second.removedUpstream;
-}
-
 void MetadataCache::getAttr(MetaAccessor &metaAcc, const Path &path)
 {
     UuidAccessor uuidAcc;
