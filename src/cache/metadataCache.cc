@@ -7,12 +7,13 @@
  */
 
 #include "metadataCache.h"
+#include "fuseOperations.h"
 
 #include "logging.h"
-#include "scheduler.h"
 #include "messages/fuse/getFileAttr.h"
 #include "messages/fuse/getFileLocation.h"
 #include "messages/fuse/rename.h"
+#include "scheduler.h"
 
 #include <chrono>
 
@@ -252,7 +253,16 @@ bool MetadataCache::waitForNewLocation(const std::string &uuid,
             location.blocks().end();
     };
 
-    return pair.second.wait_for(lock, timeout, pred);
+    for (auto t = 0ms; t < timeout; ++t) {
+        if (helpers::fuseInterrupted())
+            throw std::system_error{
+                std::make_error_code(std::errc::operation_canceled)};
+
+        if (pair.second.wait_for(lock, 1ms, pred))
+            return true;
+    }
+
+    return false;
 }
 
 void MetadataCache::notifyNewLocationArrived(const std::string &uuid)

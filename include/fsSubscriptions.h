@@ -68,16 +68,21 @@ public:
      */
     void addFileAttrSubscription(const std::string &fileUuid);
 
-private:
+    /**
+     * Removes subscription for file attributes updates. Subscription
+     * cancellation message will be sent to the server.
+     * @param fileUuid UUID of file for which subscription is removed.
+     */
     void removeFileAttrSubscription(const std::string &fileUuid);
+
+private:
     std::int64_t sendFileAttrSubscription(const std::string &fileUuid);
     std::int64_t sendFileLocationSubscription(const std::string &fileUuid);
     std::int64_t sendPermissionChangedSubscription(const std::string &fileUuid);
     void sendSubscriptionCancellation(std::int64_t id);
 
     events::EventManager &m_eventManager;
-    tbb::concurrent_hash_map<std::string, std::int64_t>
-        m_fileAttrSubscriptions;
+    tbb::concurrent_hash_map<std::string, std::int64_t> m_fileAttrSubscriptions;
     tbb::concurrent_hash_map<std::string, std::int64_t>
         m_fileLocationSubscriptions;
     tbb::concurrent_hash_map<std::string, std::int64_t>

@@ -15,42 +15,43 @@
 #define _XOPEN_SOURCE 700
 #endif
 
-#include "auth/authManager.h"
 #include "auth/authException.h"
-#include "context.h"
+#include "auth/authManager.h"
 #include "communication/exception.h"
+#include "context.h"
 #include "events/eventManager.h"
 #include "fsLogic.h"
 #include "fsOperations.h"
+#include "fuseOperations.h"
 #include "logging.h"
 #include "messages/configuration.h"
 #include "messages/getConfiguration.h"
 #include "messages/handshakeResponse.h"
 #include "messages/ping.h"
 #include "messages/pong.h"
-#include "options.h"
 #include "oneException.h"
-#include "scopeExit.h"
+#include "options.h"
 #include "scheduler.h"
+#include "scopeExit.h"
 #include "shMock.h"
 #include "version.h"
 
-#include <fuse/fuse_opt.h>
 #include <fuse/fuse_lowlevel.h>
+#include <fuse/fuse_opt.h>
 
 #include <pwd.h>
-#include <unistd.h>
 #include <sys/types.h>
+#include <unistd.h>
 
-#include <future>
-#include <random>
-#include <string>
-#include <memory>
-#include <vector>
-#include <sstream>
-#include <iostream>
 #include <exception>
 #include <functional>
+#include <future>
+#include <iostream>
+#include <memory>
+#include <random>
+#include <sstream>
+#include <string>
+#include <vector>
 
 using namespace one;
 using namespace one::client;
@@ -211,7 +212,11 @@ int main(int argc, char *argv[])
     try {
         options->parseConfigs(argc, argv);
     }
-    catch (OneException &e) {
+    catch (const boost::program_options::error &e) {
+        printHelp(argv[0], std::move(options));
+        return EXIT_FAILURE;
+    }
+    catch (const OneException &e) {
         std::cerr << "Cannot parse configuration: " << e.what()
                   << ". Check logs for more details. Aborting" << std::endl;
         return EXIT_FAILURE;
@@ -307,7 +312,8 @@ int main(int argc, char *argv[])
         perror("WARNING: failed to set FD_CLOEXEC on fuse device");
 
     FsLogicWrapper fsLogicWrapper;
-    fuse = fuse_new(ch, &args, &fuse_oper, sizeof(fuse_oper), &fsLogicWrapper);
+    fuse = helpers::fuseNew(
+        ch, &args, &fuse_oper, sizeof(fuse_oper), &fsLogicWrapper);
     if (fuse == nullptr)
         return EXIT_FAILURE;
 
