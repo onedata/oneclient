@@ -146,24 +146,21 @@ def prepare_location(blocks=[]):
 
 
 def do_open(endpoint, fl, blocks=[], size=None):
-    rm_sub_response = messages_pb2.ServerMessage()
     getattr_response = prepare_getattr('path', fuse_messages_pb2.REG,
                                        size=size)
 
     open_response = prepare_location(blocks)
 
-    with reply(endpoint, [getattr_response, rm_sub_response, open_response]):
+    with reply(endpoint, [getattr_response, open_response]):
         assert fl.open('/random/path', 0) >= 0
 
 def do_read(fl, path, offset, size):
     fl.read(path, offset, size)
 
-
 def get_stream_id_from_location_subscription(subscription_message_data):
     location_subsc = messages_pb2.ClientMessage()
     location_subsc.ParseFromString(subscription_message_data)
     return location_subsc.message_stream.stream_id
-
 
 def test_getattrs_should_get_attrs(endpoint, fl):
     response = prepare_getattr('path', fuse_messages_pb2.REG)
@@ -219,13 +216,11 @@ def test_getattrs_should_cache_attrs(endpoint, fl):
 
 def test_mkdir_should_mkdir(endpoint, fl):
     getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [getattr_response, rm_sub_response, response]) as queue:
+    with reply(endpoint, [getattr_response, response]) as queue:
         fl.mkdir('/random/path', 0123)
-        queue.get()
         queue.get()
         client_message = queue.get()
 
@@ -263,12 +258,11 @@ def test_mkdir_should_pass_getattr_errors(endpoint, fl):
 
 def test_mkdir_should_pass_mkdir_errors(endpoint, fl):
     getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response, rm_sub_response, response]):
+        with reply(endpoint, [getattr_response, response]):
             fl.mkdir('/random/path', 0123)
 
     assert 'Operation not permitted' in str(excinfo.value)
@@ -276,13 +270,11 @@ def test_mkdir_should_pass_mkdir_errors(endpoint, fl):
 
 def test_rmdir_should_rmdir(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [getattr_response, rm_sub_response, response]) as queue:
+    with reply(endpoint, [getattr_response, response]) as queue:
         assert 0 == fl.rmdir('/random/path')
-        queue.get()
         queue.get()
         client_message = queue.get()
 
@@ -308,12 +300,11 @@ def test_rmdir_should_pass_getattr_errors(endpoint, fl):
 
 def test_rmdir_should_pass_rmdir_errors(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response, rm_sub_response, response]):
+        with reply(endpoint, [getattr_response, response]):
             fl.rmdir('/random/path')
 
     assert 'Operation not permitted' in str(excinfo.value)
@@ -321,13 +312,11 @@ def test_rmdir_should_pass_rmdir_errors(endpoint, fl):
 
 def test_rename_should_rename(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [getattr_response, rm_sub_response, response]) as queue:
+    with reply(endpoint, [getattr_response, response]) as queue:
         assert 0 == fl.rename('/random/path', '/random/path2')
-        queue.get()
         queue.get()
         client_message = queue.get()
 
@@ -343,11 +332,10 @@ def test_rename_should_rename(endpoint, fl):
 
 def test_rename_should_change_caches(appmock_client, endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [getattr_response, rm_sub_response, response]):
+    with reply(endpoint, [getattr_response, response]):
         fl.rename('/random/path', '/random/path2')
 
     stat = fslogic.Stat()
@@ -380,12 +368,11 @@ def test_rename_should_pass_getattr_errors(endpoint, fl):
 
 def test_rename_should_pass_rename_errors(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response, rm_sub_response, response]):
+        with reply(endpoint, [getattr_response, response]):
             fl.rename('/random/path', 'dawaw2')
 
     assert 'Operation not permitted' in str(excinfo.value)
@@ -393,13 +380,11 @@ def test_rename_should_pass_rename_errors(endpoint, fl):
 
 def test_chmod_should_change_mode(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [getattr_response, rm_sub_response, response]) as queue:
+    with reply(endpoint, [getattr_response, response]) as queue:
         assert 0 == fl.chmod('/random/path', 0123)
-        queue.get()
         queue.get()
         client_message = queue.get()
 
@@ -449,12 +434,11 @@ def test_chmod_should_pass_getattr_errors(endpoint, fl):
 
 def test_chmod_should_pass_chmod_errors(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response, rm_sub_response, response]):
+        with reply(endpoint, [getattr_response, response]):
             fl.chmod('/random/path', 0123)
 
     assert 'Operation not permitted' in str(excinfo.value)
@@ -462,13 +446,11 @@ def test_chmod_should_pass_chmod_errors(endpoint, fl):
 
 def test_utime_should_update_times(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [getattr_response, rm_sub_response, response]) as queue:
+    with reply(endpoint, [getattr_response, response]) as queue:
         assert 0 == fl.utime('/random/path')
-        queue.get()
         queue.get()
         client_message = queue.get()
 
@@ -510,7 +492,6 @@ def test_utime_should_change_cached_times(appmock_client, endpoint, fl):
 
 def test_utime_should_update_times_with_buf(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
@@ -518,9 +499,8 @@ def test_utime_should_update_times_with_buf(endpoint, fl):
     ubuf.actime = 54321
     ubuf.modtime = 12345
 
-    with reply(endpoint, [getattr_response, rm_sub_response, response]) as queue:
+    with reply(endpoint, [getattr_response, response]) as queue:
         assert 0 == fl.utime_buf('/random/path', ubuf)
-        queue.get()
         queue.get()
         client_message = queue.get()
 
@@ -556,12 +536,11 @@ def test_utime_should_pass_getattr_errors(endpoint, fl):
 
 def test_utime_should_pass_utime_errors(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response, rm_sub_response, response]):
+        with reply(endpoint, [getattr_response, response]):
             fl.utime('/random/path')
 
     assert 'Operation not permitted' in str(excinfo.value)
@@ -576,7 +555,6 @@ def test_utime_should_pass_utime_errors(endpoint, fl):
 
 def test_readdir_should_read_dir(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    rm_sub_response = messages_pb2.ServerMessage()
 
     file1 = common_messages_pb2.ChildLink()
     file1.uuid = "uuid1"
@@ -594,9 +572,8 @@ def test_readdir_should_read_dir(endpoint, fl):
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
     children = []
-    with reply(endpoint, [getattr_response, rm_sub_response, response]) as queue:
+    with reply(endpoint, [getattr_response, response]) as queue:
         assert 0 == fl.readdir('/random/path', children)
-        queue.get()
         queue.get()
         client_message = queue.get()
 
@@ -629,13 +606,12 @@ def test_readdir_should_pass_getattr_errors(endpoint, fl):
 
 def test_readdir_should_pass_readdir_errors(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
         l = []
-        with reply(endpoint, [getattr_response, rm_sub_response, response]):
+        with reply(endpoint, [getattr_response, response]):
             fl.readdir('/random/path', l)
 
     assert 'Operation not permitted' in str(excinfo.value)
@@ -643,12 +619,10 @@ def test_readdir_should_pass_readdir_errors(endpoint, fl):
 
 def test_mknod_should_make_new_location(endpoint, fl):
     getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
-    rm_sub_response = messages_pb2.ServerMessage()
     mknod_response = prepare_location()
 
-    with reply(endpoint, [getattr_response, rm_sub_response, mknod_response]) as queue:
+    with reply(endpoint, [getattr_response, mknod_response]) as queue:
         assert 0 == fl.mknod('/random/path', 0762, 0)
-        queue.get()
         queue.get()
         client_message = queue.get()
 
@@ -677,12 +651,11 @@ def test_mknod_should_pass_getattr_errors(endpoint, fl):
 
 def test_mknod_should_pass_location_errors(endpoint, fl):
     getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response, rm_sub_response, response]):
+        with reply(endpoint, [getattr_response, response]):
             fl.mknod('/random/path', 0123, 0)
 
     assert 'Operation not permitted' in str(excinfo.value)
@@ -690,12 +663,10 @@ def test_mknod_should_pass_location_errors(endpoint, fl):
 
 def test_open_should_get_file_location(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
-    rm_sub_response = messages_pb2.ServerMessage()
     open_response = prepare_location()
 
-    with reply(endpoint, [getattr_response, rm_sub_response, open_response]) as queue:
+    with reply(endpoint, [getattr_response, open_response]) as queue:
         assert fl.open('/random/path', 0) >= 0
-        queue.get()
         queue.get()
         client_message = queue.get()
 
@@ -722,12 +693,11 @@ def test_open_should_pass_getattr_errors(endpoint, fl):
 
 def test_open_should_pass_location_errors(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response, rm_sub_response, response]):
+        with reply(endpoint, [getattr_response, response]):
             fl.open('/random/path', 0)
 
     assert 'Operation not permitted' in str(excinfo.value)
@@ -786,14 +756,12 @@ def test_write_should_pass_helper_errors(endpoint, fl):
 
 def test_truncate_should_truncate(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
     loc_response = prepare_location()
 
-    with reply(endpoint, [getattr_response, rm_sub_response, response, loc_response]) as queue:
+    with reply(endpoint, [getattr_response, response, loc_response]) as queue:
         assert fl.truncate('/random/path', 4) >= 0
-        queue.get()
         queue.get()
         client_message = queue.get()
 
@@ -820,12 +788,11 @@ def test_truncate_should_pass_getattr_errors(endpoint, fl):
 
 def test_truncate_should_pass_truncate_errors(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
-    rm_sub_response = messages_pb2.ServerMessage()
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response, rm_sub_response, response]):
+        with reply(endpoint, [getattr_response, response]):
             fl.truncate('/random/path', 3)
 
     assert 'Operation not permitted' in str(excinfo.value)
@@ -835,12 +802,11 @@ def test_readdir_big_directory(endpoint, fl):
     children_num = 100000
 
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    rm_sub_response = messages_pb2.ServerMessage()
 
     repl = fuse_messages_pb2.FileChildren()
     for i in xrange(0, children_num):
         link = repl.child_links.add()
-        link.uuid = "child_uuid{0}".format(i)
+        link.uuid = "uuid{0}".format(i)
         link.name = "file{0}".format(i)
 
     response = messages_pb2.ServerMessage()
@@ -848,12 +814,10 @@ def test_readdir_big_directory(endpoint, fl):
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
     children = []
-    with reply(endpoint, [getattr_response, rm_sub_response, response]):
+    with reply(endpoint, [getattr_response, response]):
         assert 0 == fl.readdir('/random/path', children)
 
     assert len(children) == children_num
-    # wait for remove file subscriptions
-    endpoint.wait_for_any_messages(msg_count=children_num, accept_more=True)
 
 
 def test_write_should_save_blocks(endpoint, fl):
@@ -891,10 +855,9 @@ def test_read_should_continue_reading_after_synchronization(appmock_client, endp
     with reply(endpoint, location_update_event):
         assert 5 == fl.read('/random/path', 2, 5)
 
-
 def test_read_should_should_open_file_block_once(endpoint, fl):
     do_open(endpoint, fl, blocks=[(0, 5, 'storage1', 'file1'),
-                                  (5, 5, 'storage2', 'file2')], size=10)
+                                       (5, 5, 'storage2', 'file2')], size=10)
 
     fl.expect_call_sh_open("file1", 1)
     fl.expect_call_sh_open("file2", 1)
@@ -913,7 +876,7 @@ def test_read_should_should_open_file_block_once(endpoint, fl):
 
 def test_write_should_should_open_file_block_once(endpoint, fl):
     do_open(endpoint, fl, blocks=[(0, 5, 'storage1', 'file1'),
-                                  (5, 5, 'storage2', 'file2')], size=10)
+                                       (5, 5, 'storage2', 'file2')], size=10)
 
     fl.expect_call_sh_open("file1", 1)
     fl.expect_call_sh_open("file2", 1)
@@ -932,7 +895,7 @@ def test_write_should_should_open_file_block_once(endpoint, fl):
 
 def test_release_should_release_open_file_blocks(endpoint, fl):
     do_open(endpoint, fl, blocks=[(0, 5, 'storage1', 'file1'),
-                                  (5, 5, 'storage2', 'file2')], size=10)
+                                       (5, 5, 'storage2', 'file2')], size=10)
     assert 5 == fl.read('/random/path', 0, 5)
     assert 5 == fl.read('/random/path', 5, 5)
 
@@ -946,7 +909,7 @@ def test_release_should_release_open_file_blocks(endpoint, fl):
 
 def test_release_should_pass_helper_errors(endpoint, fl):
     do_open(endpoint, fl, blocks=[(0, 5, 'storage1', 'file1'),
-                                  (5, 5, 'storage2', 'file2')], size=10)
+                                       (5, 5, 'storage2', 'file2')], size=10)
     assert 5 == fl.read('/random/path', 0, 5)
     assert 5 == fl.read('/random/path', 5, 5)
 
