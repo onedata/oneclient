@@ -74,7 +74,12 @@ std::vector<boost::filesystem::path> getMountPoints()
     struct mntent *ent;
     while ((ent = getmntent(file)) != nullptr) {
         std::string type(ent->mnt_type);
-        if (type.compare(0, 4, "fuse") != 0) {
+        std::string path(ent->mnt_dir);
+        if (type.compare(0, 4, "fuse") != 0 &&
+            path.compare(0, 5, "/proc") != 0 &&
+            path.compare(0, 4, "/dev") != 0 &&
+            path.compare(0, 4, "/sys") != 0 &&
+            path.compare(0, 4, "/etc") != 0 && path != "/") {
             mountPoints.emplace_back(ent->mnt_dir);
         }
     }

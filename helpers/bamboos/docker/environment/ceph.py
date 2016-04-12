@@ -8,10 +8,9 @@ Brings up a Ceph storage cluster.
 
 import re
 import sys
+from timeouts import *
 
 from . import common, docker
-
-CEPH_READY_WAIT_SECONDS = 60 * 5
 
 
 def _ceph_ready(container):

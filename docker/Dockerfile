@@ -9,6 +9,8 @@ ARG VERSION=""
 RUN dnf -y upgrade && \
     dnf clean all
 
+WORKDIR /tmp
+
 # Install oneclient package
 RUN case ${RELEASE} in \
 		production) \
@@ -21,5 +23,15 @@ RUN case ${RELEASE} in \
 			;; \
 	esac
 
-ENTRYPOINT ["oneclient"]
-CMD ["--help"]
+# Install Samba and nfs servers
+RUN dnf -y install samba rpcbind nfs-utils nfs-utils-lib && dnf clean all
+# Add Samba and nfs configs
+ADD nfs_exports /etc/exports
+ADD smb.conf /etc/samba/
+# Add scritp to start Samba, nfs and oneclient
+ADD run.sh /root/run.sh
+
+VOLUME /root/.local/share/oneclient /mnt/oneclient
+ENV AUTHENTICATION=token
+ENTRYPOINT ["/root/run.sh"]
+CMD ["/mnt/oneclient"]

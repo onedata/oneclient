@@ -14,11 +14,13 @@
 
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <boost/optional.hpp>
 
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <cstdlib>
 #include <ios>
 #include <fstream>
 #include <iostream>
@@ -68,11 +70,9 @@ std::string TokenHandler::restrictedToken() const
 macaroons::Macaroon TokenHandler::retrieveToken() const
 {
     try {
-        return readTokenFromFile();
-    }
-    catch (const std::ios_base::failure &e) {
-        LOG(WARNING) << "Failed to retrieve token from file " << tokenFilePath()
-                     << ": " << e.what();
+        auto token = readTokenFromFile();
+        if (token)
+            return token.get();
     }
     catch (const macaroons::exception::Exception &e) {
         LOG(WARNING) << "Failed to parse macaroon retrieved from file "
@@ -88,28 +88,37 @@ macaroons::Macaroon TokenHandler::retrieveToken() const
     }
 }
 
-macaroons::Macaroon TokenHandler::readTokenFromFile() const
+boost::optional<macaroons::Macaroon> TokenHandler::readTokenFromFile() const
 {
     std::string token;
 
     boost::filesystem::ifstream stream{tokenFilePath()};
-    stream.exceptions(std::ios::failbit | std::ios::badbit | std::ios::eofbit);
     stream >> token;
+    if (stream.fail() || stream.bad() || stream.eof()) {
+        LOG(WARNING) << "Failed to retrieve token from file "
+                     << tokenFilePath();
+        return {};
+    }
 
     return macaroons::Macaroon::deserialize(token);
 }
 
 macaroons::Macaroon TokenHandler::getTokenFromUser() const
 {
-    std::cout << "Authorization token: ";
-
     std::string token;
 
-    auto prevExceptions = std::cin.exceptions();
-    std::cin.exceptions(
-        std::ios::failbit | std::ios::badbit | std::ios::eofbit);
-    std::cin >> token;
-    std::cin.exceptions(prevExceptions);
+    if (auto tokenChr = std::getenv(AUTHORIZATION_TOKEN_ENV)) {
+        token = tokenChr;
+    }
+    else {
+        std::cout << "Authorization token: ";
+
+        auto prevExceptions = std::cin.exceptions();
+        std::cin.exceptions(
+            std::ios::failbit | std::ios::badbit | std::ios::eofbit);
+        std::cin >> token;
+        std::cin.exceptions(prevExceptions);
+    }
 
     auto macaroon = macaroons::Macaroon::deserialize(token);
 

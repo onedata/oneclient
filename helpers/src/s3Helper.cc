@@ -32,7 +32,7 @@ const std::map<int, error_t> S3Helper::s_errorsTranslation = {
         makePosixError(std::errc::no_such_file_or_directory)},
     {S3StatusHttpErrorNotFound,
         makePosixError(std::errc::no_such_file_or_directory)},
-    {S3StatusErrorNotImplemented, makePosixError(std::errc::not_supported)},
+    {S3StatusErrorNotImplemented, makePosixError(std::errc::function_not_supported)},
     {S3StatusErrorOperationAborted,
         makePosixError(std::errc::connection_aborted)},
     {S3StatusErrorRequestTimeout, makePosixError(std::errc::timed_out)},

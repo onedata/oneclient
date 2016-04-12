@@ -72,12 +72,12 @@ public:
 
     virtual void setUserCTX(std::unordered_map<std::string, std::string> args)
     {
-        throw std::system_error{std::make_error_code(std::errc::not_supported)};
+        throw std::system_error{std::make_error_code(std::errc::function_not_supported)};
     }
 
     virtual std::unordered_map<std::string, std::string> getUserCTX()
     {
-        throw std::system_error{std::make_error_code(std::errc::not_supported)};
+        throw std::system_error{std::make_error_code(std::errc::function_not_supported)};
     }
 
 protected:
@@ -112,7 +112,7 @@ public:
     virtual void ash_getattr(CTXPtr ctx, const boost::filesystem::path &p,
         GeneralCallback<struct stat> callback)
     {
-        callback({}, std::make_error_code(std::errc::not_supported));
+        callback({}, std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_access(CTXPtr ctx, const boost::filesystem::path &p,
@@ -124,74 +124,74 @@ public:
     virtual void ash_readlink(CTXPtr ctx, const boost::filesystem::path &p,
         GeneralCallback<std::string> callback)
     {
-        callback({}, std::make_error_code(std::errc::not_supported));
+        callback({}, std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_readdir(CTXPtr ctx, const boost::filesystem::path &p,
         off_t offset, size_t count,
         GeneralCallback<const std::vector<std::string> &> callback)
     {
-        callback({}, std::make_error_code(std::errc::not_supported));
+        callback({}, std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p,
         mode_t mode, FlagsSet flags, dev_t rdev, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_mkdir(CTXPtr ctx, const boost::filesystem::path &p,
         mode_t mode, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_unlink(
         CTXPtr ctx, const boost::filesystem::path &p, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_rmdir(
         CTXPtr ctx, const boost::filesystem::path &p, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_symlink(CTXPtr ctx, const boost::filesystem::path &from,
         const boost::filesystem::path &to, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_rename(CTXPtr ctx, const boost::filesystem::path &from,
         const boost::filesystem::path &to, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_link(CTXPtr ctx, const boost::filesystem::path &from,
         const boost::filesystem::path &to, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_chmod(CTXPtr ctx, const boost::filesystem::path &p,
         mode_t mode, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_chown(CTXPtr ctx, const boost::filesystem::path &p,
         uid_t uid, gid_t gid, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_truncate(CTXPtr ctx, const boost::filesystem::path &p,
         off_t size, VoidCallback callback)
     {
-        callback(std::make_error_code(std::errc::not_supported));
+        callback(std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
@@ -212,7 +212,7 @@ public:
         std::map<std::string, std::string> &parameters,
         GeneralCallback<asio::mutable_buffer> callback)
     {
-        callback({}, std::make_error_code(std::errc::not_supported));
+        callback({}, std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
@@ -220,7 +220,7 @@ public:
         std::map<std::string, std::string> &parameters,
         GeneralCallback<std::size_t> callback)
     {
-        callback({}, std::make_error_code(std::errc::not_supported));
+        callback({}, std::make_error_code(std::errc::function_not_supported));
     }
 
     virtual void ash_release(

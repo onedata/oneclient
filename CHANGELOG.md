@@ -4,6 +4,40 @@
 CHANGELOG
 ---------
 
+### 3.0.0-beta1
+
+* Initialize S3 bucket context.
+* Samba auto refresh
+* VFS-1802 Expire read cache.
+* VFS-1802 Implement read/write proxyio caches.
+* VFS-1850 Configuration to enable special characters in filenames
+* VFS-1762 Add file location expiration helper.
+* VFS-1728 - increase file_sync_timeout
+* VFS-1660 Oneclient command wrapper
+* VFS-1702 Remove subscriptions counters and scheduler
+* VFS-1669 Allow concurrent read/write operations on a storage/file pair.
+* VFS-1660 Export oneclient mount folder though nfs
+* VFS-1660 Export mounted files through SMB
+
+
+### 3.0.0-alpha3
+
+* VFS-1531 Use CacheExpirationHelper in MetadataCache.
+* VFS-1659 Run oneclient release directly from Dockerfile.
+* VFS-1701 Read token from environment variable.
+* VFS-1706 Set default access type to PROXY
+* VFS-1706 Filter mount points
+* VFS-1531 Add CacheExpirationHelper class.
+
+
+### 3.0.0-alpha2
+
+* VFS-1657 Add system update to release dockers.
+* Remove gflags from package build requirements.
+* Adjustments for open function that takes flags as integer.
+* VFS-1522 Override block map on file_location update.
+
+
 ### 3.0.0-alpha
 
 * VFS-1525 Move open file to fsLogic.

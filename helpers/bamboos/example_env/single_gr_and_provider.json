@@ -8,8 +8,8 @@
             "input_dir": "rel/op_worker",
             "target_dir": "rel/test_cluster"
         },
-        "globalregistry": {
-            "input_dir": "rel/globalregistry",
+        "oz_worker": {
+            "input_dir": "rel/oz_worker",
             "target_dir": "rel/test_cluster"
         }
     },
@@ -36,9 +36,9 @@
     },
     "provider_domains": {
         "p1": {
-            "db_driver": "couchbase",
+            "db_driver": "couchdb",
             "os_config": "cfg1",
-            "gui_livereload": true,
+            "gui_livereload": "none",
             "cluster_manager": {
                 "cm1": {
                     "vm.args": {
@@ -67,25 +67,45 @@
                             "db_nodes": [
                                 "dbnode1"
                             ],
-                            "verify_gr_cert": false,
-                            "global_registry_domain": "gr"
+                            "verify_oz_cert": false,
+                            "oz_domain": "oz"
                         }
                     }
                 }
             }
         }
     },
-    "globalregistry_domains": {
-        "gr": {
-            "globalregistry": {
+    "zone_domains": {
+        "oz": {
+            "gui_livereload": "none",
+            "db_driver": "couchbase",
+            "cluster_manager": {
+                "cm": {
+                    "vm.args": {
+                        "setcookie": "cookie3"
+                    },
+                    "sys.config": {
+                        "cluster_manager": {
+                            "cm_nodes": [
+                                "cm"
+                            ],
+                            "worker_num": 1
+                        }
+                    }
+                }
+            },
+            "oz_worker": {
                 "node1": {
                     "vm.args": {
                         "setcookie": "cookie3"
                     },
                     "sys.config": {
-                        "globalregistry": {
+                        "oz_worker": {
+                            "cm_nodes": [
+                                "cm"
+                            ],
                             "db_nodes": [
-                                "db"
+                                "127.0.0.1:49161"
                             ],
                             "http_domain": {
                                 "string": "127.0.0.1"
@@ -125,7 +145,6 @@
         "spaces": {
             "space1": {
                 "displayed_name": "space1",
-                "storage": "/mnt/st1",
                 "users": [
                     "user1",
                     "user2",
@@ -134,28 +153,27 @@
                 "groups": [
                     "group1"
                 ],
-                "providers": [
-                    {
-                        "provider": "p1",
+                "providers": {
+                    "p1": {
+                        "storage": "/mnt/st1",
                         "supported_size": 1000000000
                     }
-                ]
+                }
             },
             "space2": {
                 "displayed_name": "space2",
-                "storage": "/mnt/st1",
                 "users": [
                     "user2"
                 ],
                 "groups": [
                     "group2"
                 ],
-                "providers": [
-                    {
-                        "provider": "p1",
+                "providers": {
+                    "p1": {
+                        "storage": "/mnt/st1",
                         "supported_size": 1000000000
                     }
-                ]
+                }
             }
         }
     }

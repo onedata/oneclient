@@ -11,15 +11,14 @@ import json
 import os
 import random
 import string
+from timeouts import *
 
-from . import common, docker, dns, cluster_manager, worker, globalregistry
-
-APPMOCK_WAIT_FOR_NAGIOS_SECONDS = 60 * 2
+from . import common, docker, dns, cluster_manager, worker
 
 
 def domain(appmock_instance, uid):
     """Formats domain for an appmock instance.
-    It is intended to fake OP or GR domain.
+    It is intended to fake OP or OZ domain.
     """
     return common.format_hostname(appmock_instance, uid)
 
@@ -49,12 +48,12 @@ def _tweak_config(config, appmock_node, appmock_instance, uid):
     # default appmock_erl_node_name will be used.
     node_name = {
         'cluster_manager': cluster_manager.cm_erl_node_name(appmock_node,
-                                                 appmock_instance, uid),
+                                                            appmock_instance,
+                                                            uid),
         'op_worker': worker.worker_erl_node_name(appmock_node,
                                                  appmock_instance,
                                                  uid),
-        'globalregistry': globalregistry.gr_erl_node_name(appmock_node,
-                                                          appmock_instance, uid)
+        'oz_worker': worker.worker_erl_node_name(appmock_node, appmock_instance, uid)
     }.get(mocked_app, appmock_erl_node_name(appmock_node, uid))
 
     if 'vm.args' not in cfg['nodes']['node']:
@@ -84,7 +83,10 @@ def _node_up(image, bindir, config, config_path, dns_servers, logdir):
     # file_name must be preserved as it must match the Erlang module name
     sys_config['app_description_file'] = '/tmp/' + app_desc_file_name
 
-    command = '''set -e
+    command = '''mkdir -p /root/bin/node/log/
+echo 'while ((1)); do chown -R {uid}:{gid} /root/bin/node/log; sleep 1; done' > /root/bin/chown_logs.sh
+bash /root/bin/chown_logs.sh &
+set -e
 cat <<"EOF" > /tmp/{app_desc_file_name}
 {app_desc_file}
 EOF
@@ -94,6 +96,8 @@ EOF
 escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json
 /root/bin/node/bin/appmock console'''
     command = command.format(
+        uid=os.geteuid(),
+        gid=os.getegid(),
         app_desc_file_name=app_desc_file_name,
         app_desc_file=open(app_desc_file_path, 'r').read(),
         gen_dev_args=json.dumps({'appmock': config}))
@@ -154,7 +158,7 @@ def up(image, bindir, dns_server, uid, config_path, logdir=None):
             appmocks.append(appmock_id)
             if 'mocked_app' in cfg['nodes']['node']:
                 mocked_app = cfg['nodes']['node']['mocked_app']
-                if mocked_app == 'op_worker' or mocked_app == 'globalregistry':
+                if mocked_app == 'op_worker' or mocked_app == 'oz_worker':
                     include_domain = True
                     appmock_ips.append(common.get_docker_ip(appmock_id))
             common.merge(output, node_out)
