@@ -158,11 +158,13 @@ void MetadataCache::rename(
         auto &uuid = metaAcc->second.attr.get().uuid();
 
         DLOG(INFO) << "Renaming file " << uuid << " to " << newPath;
-        auto future = m_communicator.communicate<messages::fuse::FuseResponse>(
-            messages::fuse::Rename{uuid, newPath});
+        if (!metaAcc->second.removedUpstream) {
+            auto future =
+                m_communicator.communicate<messages::fuse::FuseResponse>(
+                    messages::fuse::Rename{uuid, newPath});
 
-        communication::wait(future);
-
+            communication::wait(future);
+        }
         metaAcc->second.path = newPath;
         newUuidAcc->second = uuid;
         m_pathToUuid.erase(oldUuidAcc);
