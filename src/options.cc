@@ -19,8 +19,8 @@
 #include <fstream>
 #include <functional>
 #include <sstream>
-#include <vector>
 #include <utility>
+#include <vector>
 
 using namespace boost::program_options;
 
@@ -90,7 +90,7 @@ void Options::setDescriptions()
         ",s", "disable multi-threaded operation");
 
     // Hidden commandline options (positional)
-    add_mountpoint(m_hidden);;
+    add_mountpoint(m_hidden);
 }
 
 void Options::parseConfigs(const int argc, const char *const argv[])
