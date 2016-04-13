@@ -20,7 +20,6 @@
 
 #include <chrono>
 #include <unordered_map>
-#include <map>
 #include <unordered_set>
 #include <string>
 #include <vector>
@@ -209,7 +208,7 @@ public:
 
     virtual void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset,
-        const std::map<std::string, std::string> &parameters,
+        const std::unordered_map<std::string, std::string> &parameters,
         GeneralCallback<asio::mutable_buffer> callback)
     {
         callback({}, std::make_error_code(std::errc::not_supported));
@@ -217,7 +216,7 @@ public:
 
     virtual void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
         asio::const_buffer buf, off_t offset,
-        const std::map<std::string, std::string> &parameters,
+        const std::unordered_map<std::string, std::string> &parameters,
         GeneralCallback<std::size_t> callback)
     {
         callback({}, std::make_error_code(std::errc::not_supported));
@@ -243,7 +242,7 @@ public:
 
     virtual asio::mutable_buffer sh_read(CTXPtr ctx,
         const boost::filesystem::path &p, asio::mutable_buffer buf,
-        off_t offset, const std::map<std::string, std::string> &parameters)
+        off_t offset, const std::unordered_map<std::string, std::string> &parameters)
     {
         auto promise = std::make_shared<std::promise<asio::mutable_buffer>>();
         auto future = promise->get_future();
@@ -264,7 +263,7 @@ public:
 
     virtual std::size_t sh_write(CTXPtr ctx, const boost::filesystem::path &p,
         asio::const_buffer buf, off_t offset,
-        const std::map<std::string, std::string> &parameters)
+        const std::unordered_map<std::string, std::string> &parameters)
     {
         auto promise = std::make_shared<std::promise<std::size_t>>();
         auto future = promise->get_future();

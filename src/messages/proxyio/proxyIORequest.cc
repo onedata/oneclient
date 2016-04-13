@@ -15,7 +15,7 @@ namespace messages {
 namespace proxyio {
 
 ProxyIORequest::ProxyIORequest(
-    std::map<std::string, std::string> parameters,
+    std::unordered_map<std::string, std::string> parameters,
     std::string storageId, std::string fileId)
     : m_parameters{std::move(parameters)}
     , m_storageId{std::move(storageId)}

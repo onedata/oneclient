@@ -52,7 +52,7 @@ protected:
 
     boost::filesystem::path testFilePath;
     boost::filesystem::path testFileId;
-    std::map<std::string, std::string> testParameters;
+    std::unordered_map<std::string, std::string> testParameters;
 
     std::shared_ptr<std::promise<void>> pv1;
     std::shared_ptr<std::promise<void>> pv2;

@@ -22,7 +22,7 @@ namespace proxyio {
 
 class RemoteRead : public ProxyIORequest {
 public:
-    RemoteRead(std::map<std::string, std::string> parameters,
+    RemoteRead(std::unordered_map<std::string, std::string> parameters,
                std::string storageId, std::string fileId, const off_t offset,
                const std::size_t size);
 

@@ -24,7 +24,7 @@ namespace proxyio {
 
 class RemoteWrite : public ProxyIORequest {
 public:
-    RemoteWrite(std::map<std::string, std::string> parameters,
+    RemoteWrite(std::unordered_map<std::string, std::string> parameters,
                 std::string storageId, std::string fileId, const off_t offset,
                 asio::const_buffer data);
 

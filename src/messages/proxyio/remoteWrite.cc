@@ -17,7 +17,7 @@ namespace one {
 namespace messages {
 namespace proxyio {
 
-RemoteWrite::RemoteWrite(std::map<std::string, std::string> parameters,
+RemoteWrite::RemoteWrite(std::unordered_map<std::string, std::string> parameters,
                          std::string storageId, std::string fileId,
                          const off_t offset, asio::const_buffer data)
     : ProxyIORequest{std::move(parameters), std::move(storageId),
