@@ -73,7 +73,7 @@ public:
 
     std::string read(
         std::string fileId, int offset, int size,
-        std::map<std::string, std::string> parameters)
+        std::unordered_map<std::string, std::string> parameters)
     {
         ReleaseGIL guard;
         std::string buffer(size, '\0');
@@ -84,7 +84,7 @@ public:
 
     int write(
         std::string fileId, std::string data, int offset,
-        std::map<std::string, std::string> parameters)
+        std::unordered_map<std::string, std::string> parameters)
     {
         ReleaseGIL guard;
         return m_helper.sh_write(
@@ -152,7 +152,7 @@ std::string raw_read(tuple args, dict kwargs)
     int size = extract<int>(args[3]);
     dict parametersDict = extract<dict>(args[4]);
 
-    std::map<std::string, std::string> parametersMap;
+    std::unordered_map<std::string, std::string> parametersMap;
     list keys = parametersDict.keys();
     for (int i = 0; i < len(keys); ++i) {
         std::string key = extract<std::string>(keys[i]);
@@ -171,7 +171,7 @@ int raw_write(tuple args, dict kwargs)
     int offset = extract<int>(args[3]);
     dict parametersDict = extract<dict>(args[4]);
 
-    std::map<std::string, std::string> parametersMap;
+    std::unordered_map<std::string, std::string> parametersMap;
     list keys = parametersDict.keys();
     for (int i = 0; i < len(keys); ++i) {
         std::string key = extract<std::string>(keys[i]);

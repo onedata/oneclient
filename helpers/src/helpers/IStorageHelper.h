@@ -10,8 +10,8 @@
 #define HELPERS_I_STORAGE_HELPER_H
 
 #include <fuse.h>
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 
 #include <asio/buffer.hpp>
 #include <boost/any.hpp>
@@ -19,14 +19,13 @@
 #include <tbb/concurrent_hash_map.h>
 
 #include <chrono>
-#include <unordered_map>
-#include <map>
-#include <unordered_set>
-#include <string>
-#include <vector>
-#include <memory>
-#include <system_error>
 #include <future>
+#include <memory>
+#include <string>
+#include <system_error>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 namespace one {
 namespace helpers {
@@ -70,14 +69,24 @@ class IStorageHelperCTX {
 public:
     virtual ~IStorageHelperCTX() = default;
 
+    /**
+     * Sets user context parameters.
+     * @param args Map with parameters required to set user context.
+     */
     virtual void setUserCTX(std::unordered_map<std::string, std::string> args)
     {
-        throw std::system_error{std::make_error_code(std::errc::function_not_supported)};
+        throw std::system_error{
+            std::make_error_code(std::errc::function_not_supported)};
     }
 
+    /**
+     * Returns user context parameters.
+     * @return map used to create user context.
+     */
     virtual std::unordered_map<std::string, std::string> getUserCTX()
     {
-        throw std::system_error{std::make_error_code(std::errc::function_not_supported)};
+        throw std::system_error{
+            std::make_error_code(std::errc::function_not_supported)};
     }
 
 protected:
@@ -209,7 +218,7 @@ public:
 
     virtual void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset,
-        std::map<std::string, std::string> &parameters,
+        const std::unordered_map<std::string, std::string> &parameters,
         GeneralCallback<asio::mutable_buffer> callback)
     {
         callback({}, std::make_error_code(std::errc::function_not_supported));
@@ -217,7 +226,7 @@ public:
 
     virtual void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
         asio::const_buffer buf, off_t offset,
-        std::map<std::string, std::string> &parameters,
+        const std::unordered_map<std::string, std::string> &parameters,
         GeneralCallback<std::size_t> callback)
     {
         callback({}, std::make_error_code(std::errc::function_not_supported));
@@ -243,7 +252,7 @@ public:
 
     virtual asio::mutable_buffer sh_read(CTXPtr ctx,
         const boost::filesystem::path &p, asio::mutable_buffer buf,
-        off_t offset, std::map<std::string, std::string> &parameters)
+        off_t offset, const std::unordered_map<std::string, std::string> &parameters)
     {
         auto promise = std::make_shared<std::promise<asio::mutable_buffer>>();
         auto future = promise->get_future();
@@ -264,7 +273,7 @@ public:
 
     virtual std::size_t sh_write(CTXPtr ctx, const boost::filesystem::path &p,
         asio::const_buffer buf, off_t offset,
-        std::map<std::string, std::string> &parameters)
+        const std::unordered_map<std::string, std::string> &parameters)
     {
         auto promise = std::make_shared<std::promise<std::size_t>>();
         auto future = promise->get_future();
@@ -342,13 +351,20 @@ protected:
     }
 
 private:
+    static void throwOnInterrupted();
+
     template <typename T> static T waitFor(std::future<T> &f)
     {
         using namespace std::literals;
-        if (f.wait_for(ASYNC_OPS_TIMEOUT) != std::future_status::ready)
-            throw std::system_error{std::make_error_code(std::errc::timed_out)};
 
-        return f.get();
+        for (auto t = 0ms; t < ASYNC_OPS_TIMEOUT; ++t) {
+            throwOnInterrupted();
+
+            if (f.wait_for(1ms) == std::future_status::ready)
+                return f.get();
+        }
+
+        throw std::system_error{std::make_error_code(std::errc::timed_out)};
     }
 
     static const std::unordered_map<Flag, int, FlagHash> s_flagTranslation;
