@@ -139,7 +139,7 @@ public:
 
     void ash_read(one::helpers::CTXPtr, const boost::filesystem::path &,
         asio::mutable_buffer buf, off_t,
-        std::map<std::string, std::string> &,
+        const std::unordered_map<std::string, std::string> &,
         one::helpers::GeneralCallback<asio::mutable_buffer> callback) override
     {
         callback(buf, m_ec);
@@ -147,7 +147,7 @@ public:
 
     void ash_write(one::helpers::CTXPtr, const boost::filesystem::path &,
         asio::const_buffer buf, off_t,
-        std::map<std::string, std::string> &,
+        const std::unordered_map<std::string, std::string> &,
         one::helpers::GeneralCallback<std::size_t> callback) override
     {
         callback(asio::buffer_size(buf), m_ec);
@@ -173,7 +173,7 @@ public:
 
     asio::mutable_buffer sh_read(one::helpers::CTXPtr,
         const boost::filesystem::path &, asio::mutable_buffer buf, off_t,
-        std::map<std::string, std::string> &) override
+        const std::unordered_map<std::string, std::string> &) override
     {
         if (m_ec)
             throw std::system_error{m_ec};
@@ -183,7 +183,7 @@ public:
 
     std::size_t sh_write(one::helpers::CTXPtr, const boost::filesystem::path &,
         asio::const_buffer buf, off_t,
-        std::map<std::string, std::string> &) override
+        const std::unordered_map<std::string, std::string> &) override
     {
         if (m_ec)
             throw std::system_error{m_ec};

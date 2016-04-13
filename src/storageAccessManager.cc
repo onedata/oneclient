@@ -133,7 +133,7 @@ bool StorageAccessManager::verifyStorageTestFile(
         auto size = testFile.fileContent().size();
         std::vector<char> buffer(size);
         auto ctx = helper->createCTX();
-        std::map<std::string, std::string> parameters{};
+        std::unordered_map<std::string, std::string> parameters{};
 
         auto content = helper->sh_read(
             ctx, testFile.fileId(), asio::buffer(buffer), 0, parameters);
@@ -172,7 +172,7 @@ std::string StorageAccessManager::modifyStorageTestFile(
     auto size = testFile.fileContent().size();
     std::vector<char> buffer(size);
     auto ctx = helper->createCTX();
-    std::map<std::string, std::string> parameters{};
+    std::unordered_map<std::string, std::string> parameters{};
 
     std::random_device device;
     std::default_random_engine engine(device());

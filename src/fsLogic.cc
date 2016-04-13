@@ -408,7 +408,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto helperCtx = getHelperCtx(
         context, helper, fileBlock.storageId(), fileBlock.fileId());
 
-    std::map<std::string, std::string> parameters{{"file_uuid", context.uuid}};
+    std::unordered_map<std::string, std::string> parameters{{"file_uuid", context.uuid}};
     if (context.handleId->is_initialized())
         parameters.insert({"handle_id", context.handleId->get()});
 
@@ -462,7 +462,7 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     auto helperCtx = getHelperCtx(
         context, helper, fileBlock.storageId(), fileBlock.fileId());
 
-    std::map<std::string, std::string> parameters{{"file_uuid", context.uuid}};
+    std::unordered_map<std::string, std::string> parameters{{"file_uuid", context.uuid}};
     if (context.handleId->is_initialized())
         parameters.insert({"handle_id", context.handleId->get()});
 
