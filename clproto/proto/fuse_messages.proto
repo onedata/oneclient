@@ -40,7 +40,7 @@ message FuseRequest {
         GetNewFileLocation get_new_file_location = 8;
         GetFileLocation get_file_location = 9;
         GetHelperParams get_helper_params = 10;
-        Close close = 11;
+        Release release = 11;
         Truncate truncate = 12;
         GetXattr get_xattr = 13;
         SetXattr set_xattr = 14;
@@ -112,8 +112,8 @@ message Truncate {
     required int64 size = 2;
 }
 
-message Close {
-    required bytes uuid = 1;
+message Release {
+    required bytes handle_id = 1;
 }
 
 // Generic FUSE client response
@@ -155,6 +155,7 @@ message FileLocation {
     required bytes storage_id = 4;
     required bytes file_id = 5;
     repeated FileBlock blocks = 6;
+    optional bytes handle_id = 7;
 }
 
 message HelperArg {
