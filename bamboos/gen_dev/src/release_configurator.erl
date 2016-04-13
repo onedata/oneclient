@@ -14,9 +14,9 @@
 -author("Tomasz Lichon").
 
 % oneprovider specific config
--define(ONEPROVIDER_CCM_APP_NAME, cluster_manager).
+-define(ONEPROVIDER_CM_APP_NAME, cluster_manager).
 -define(DIST_APP_FAILOVER_TIMEOUT, timer:seconds(5)).
--define(SYNC_NODES_TIMEOUT, timer:minutes(1)).
+-define(SYNC_NODES_TIMEOUT, timer:minutes(2)).
 
 %% API
 -export([configure_release/4]).
@@ -32,8 +32,8 @@
 %%--------------------------------------------------------------------
 -spec configure_release(ApplicationName :: atom(), ReleaseRootPath :: string() | default,
     SysConfig :: list(), VmArgs :: list()) -> ok | no_return().
-configure_release(?ONEPROVIDER_CCM_APP_NAME, ReleaseRootPath, SysConfig, VmArgs) ->
-    {SysConfigPath, VmArgsPath} = find_config_location(?ONEPROVIDER_CCM_APP_NAME, ReleaseRootPath),
+configure_release(?ONEPROVIDER_CM_APP_NAME, ReleaseRootPath, SysConfig, VmArgs) ->
+    {SysConfigPath, VmArgsPath} = find_config_location(?ONEPROVIDER_CM_APP_NAME, ReleaseRootPath),
     lists:foreach(
         fun({Key, Value}) -> replace_vm_arg(VmArgsPath, "-" ++ atom_to_list(Key), Value) end,
         VmArgs
@@ -47,7 +47,7 @@ configure_release(?ONEPROVIDER_CCM_APP_NAME, ReleaseRootPath, SysConfig, VmArgs)
 
     % configure kernel distributed erlang app
     NodeName = proplists:get_value(name, VmArgs),
-    CmConfig = proplists:get_value(?ONEPROVIDER_CCM_APP_NAME, SysConfig),
+    CmConfig = proplists:get_value(?ONEPROVIDER_CM_APP_NAME, SysConfig),
     CmNodes = proplists:get_value(cm_nodes, CmConfig),
     case length(CmNodes) > 1 of
         true ->
@@ -55,7 +55,7 @@ configure_release(?ONEPROVIDER_CCM_APP_NAME, ReleaseRootPath, SysConfig, VmArgs)
             replace_application_config(SysConfigPath, kernel,
                 [
                     {distributed, [{
-                        ?ONEPROVIDER_CCM_APP_NAME,
+                        ?ONEPROVIDER_CM_APP_NAME,
                         ?DIST_APP_FAILOVER_TIMEOUT,
                         [list_to_atom(NodeName), list_to_tuple(OptCms)]
                     }]},

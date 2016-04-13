@@ -47,13 +47,12 @@ public:
     ~CephHelperCTX();
 
     /**
-     * Sets user context.
-     * @param args Map with parameters required to set user context. It should
-     * contain 'user_name' and 'key' values.
+     * @copydoc IStorageHelper::setUserCtx
+     * It should contain 'user_name' and 'key' values.
      */
-    void setUserCTX(std::unordered_map<std::string, std::string> args);
+    void setUserCTX(std::unordered_map<std::string, std::string> args) override;
 
-    std::unordered_map<std::string, std::string> getUserCTX();
+    std::unordered_map<std::string, std::string> getUserCTX() override;
 
     /**
      * Establishes connection to the Ceph storage cluster.

@@ -9,10 +9,8 @@ to start.
 
 import copy
 import os
-import sys
-import subprocess
 
-from . import common, docker, dns, globalregistry, worker
+from . import common, docker, dns, worker
 
 
 def client_hostname(node_name, uid):
@@ -34,8 +32,9 @@ def _tweak_config(config, os_config, name, uid):
     for cl in clients:
         client = clients[cl]
         client_config = {'name': client['name'],
-                         'op_domain': worker.cluster_domain(client['op_domain'], uid),
-                         'gr_domain': globalregistry.gr_domain(client['gr_domain'], uid),
+                         'op_domain': worker.cluster_domain(client['op_domain'],
+                                                            uid),
+                         'zone_domain': worker.cluster_domain(client['zone_domain'], uid),
                          'user_key': client['user_key'],
                          'user_cert': client['user_cert'],
                          'mounting_path': client['mounting_path'],
@@ -46,7 +45,7 @@ def _tweak_config(config, os_config, name, uid):
     return cfg
 
 
-def _node_up(image, bindir, config, config_path, dns_servers):
+def _node_up(image, bindir, config, config_path, dns_servers, logdir):
     node = config['node']
     hostname = node['name']
     shortname = hostname.split(".")[0]
@@ -61,8 +60,11 @@ def _node_up(image, bindir, config, config_path, dns_servers):
 [ -d /root/build/release ] && cp /root/build/release/oneclient /root/bin/oneclient
 [ -d /root/build/relwithdebinfo ] && cp /root/build/relwithdebinfo/oneclient /root/bin/oneclient
 [ -d /root/build/debug ] && cp /root/build/debug/oneclient /root/bin/oneclient
+chmod 777 /tmp
 mkdir /tmp/certs
 mkdir /tmp/keys
+echo 'while ((1)); do chown -R {uid}:{gid} /tmp; sleep 1; done' > /root/bin/chown_logs.sh
+bash /root/bin/chown_logs.sh &
 '''
 
     for client in node['clients']:
@@ -70,7 +72,7 @@ mkdir /tmp/keys
         client_name = client["name"]
         client_data[client_name] = {'client_name': client_name,
                                     'op_domain': client['op_domain'],
-                                    'gr_domain': client['gr_domain'],
+                                    'zone_domain': client['zone_domain'],
                                     'mounting_path': client['mounting_path'],
                                     'token_for': client['token_for']}
         # cert_file_path and key_file_path can both be an absolute path
@@ -92,15 +94,31 @@ EOF
         command = command.format(
             client_name=client_name,
             cert_file=open(cert_file_path, 'r').read(),
-            key_file=open(key_file_path, 'r').read())
+            key_file=open(key_file_path, 'r').read(),
+            uid=os.geteuid(),
+            gid=os.getegid())
 
-        client_data[client_name]['user_cert'] = os.path.join('/tmp', 'certs', client_name, 'cert')
-        client_data[client_name]['user_key'] = os.path.join('/tmp', 'keys', client_name, 'key')
+        client_data[client_name]['user_cert'] = os.path.join('/tmp', 'certs',
+                                                             client_name,
+                                                             'cert')
+        client_data[client_name]['user_key'] = os.path.join('/tmp', 'keys',
+                                                            client_name, 'key')
 
     command += '''bash'''
 
     volumes = [(bindir, '/root/build', 'ro')]
-    volumes += [common.volume_for_storage(s) for s in os_config['storages']]
+    posix_storages = []
+    if os_config['storages']:
+        if isinstance(os_config['storages'][0], basestring):
+            posix_storages = config['os_config']['storages']
+        else:
+            posix_storages = [s['name'] for s in os_config['storages']
+                              if s['type'] == 'posix']
+    volumes += [common.volume_for_storage(s) for s in posix_storages]
+
+    if logdir:
+        logdir = os.path.join(os.path.abspath(logdir), hostname)
+        volumes.extend([(logdir, '/tmp', 'rw')])
 
     container = docker.run(
         image=image,
@@ -119,10 +137,11 @@ EOF
     common.create_users(container, os_config['users'])
     common.create_groups(container, os_config['groups'])
 
-    return {'docker_ids': [container], 'client_nodes': [hostname], 'client_data': {shortname: client_data}}
+    return {'docker_ids': [container], 'client_nodes': [hostname],
+            'client_data': {shortname: client_data}}
 
 
-def up(image, bindir, dns_server, uid, config_path):
+def up(image, bindir, dns_server, uid, config_path, logdir=None):
     json_config = common.parse_json_config_file(config_path)
     config = json_config['oneclient']
     os_config = json_config['os_configs']
@@ -131,7 +150,7 @@ def up(image, bindir, dns_server, uid, config_path):
     dns_servers, output = dns.maybe_start(dns_server, uid)
 
     for cfg in configs:
-        node_out = _node_up(image, bindir, cfg, config_path, dns_servers)
+        node_out = _node_up(image, bindir, cfg, config_path, dns_servers, logdir)
         common.merge(output, node_out)
 
     return output

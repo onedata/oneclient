@@ -5,23 +5,25 @@ This software is released under the MIT license cited in 'LICENSE.txt'
 Brings up a set of cluster-worker nodes. They can create separate clusters.
 """
 
-import os
-import subprocess
-import sys
-from . import common, docker, worker, globalregistry
+from . import worker
 
 DOCKER_BINDIR_PATH = '/root/build'
 
-def up(image, bindir, dns_server, uid, config_path, logdir=None):
-    return worker.up(image, bindir, dns_server, uid, config_path, ClusterWorkerConfigurator(), logdir)
+
+def up(image, bindir, dns_server, uid, config_path, logdir=None, storages_dockers=None):
+    return worker.up(image, bindir, dns_server, uid, config_path,
+                     ClusterWorkerConfigurator(), logdir, storages_dockers)
 
 
 class ClusterWorkerConfigurator:
-    def tweak_config(self, cfg, uid):
+    def tweak_config(self, cfg, uid, instance):
         return cfg
 
-    def configure_started_instance(self, bindir, instance, config,
-                                   container_ids, output):
+    def pre_start_commands(self, bindir, config, domain, worker_ips):
+        return ''
+
+    def configure_started_instance(self, bindir, instance, config, container_ids, output,
+                                   storages_dockers):
         pass
 
     def extra_volumes(self, config, bindir):

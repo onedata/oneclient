@@ -18,6 +18,7 @@
 
 using namespace one;
 using namespace one::communication;
+using namespace one::testing;
 using namespace ::testing;
 
 struct LowerLayer {
