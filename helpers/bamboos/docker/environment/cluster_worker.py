@@ -10,9 +10,9 @@ from . import worker
 DOCKER_BINDIR_PATH = '/root/build'
 
 
-def up(image, bindir, dns_server, uid, config_path, logdir=None, storages_dockers=None):
+def up(image, bindir, dns_server, uid, config_path, logdir=None):
     return worker.up(image, bindir, dns_server, uid, config_path,
-                     ClusterWorkerConfigurator(), logdir, storages_dockers)
+                     ClusterWorkerConfigurator(), logdir)
 
 
 class ClusterWorkerConfigurator:
@@ -22,8 +22,7 @@ class ClusterWorkerConfigurator:
     def pre_start_commands(self, bindir, config, domain, worker_ips):
         return ''
 
-    def configure_started_instance(self, bindir, instance, config, container_ids, output,
-                                   storages_dockers):
+    def configure_started_instance(self, bindir, instance, config, container_ids, output):
         pass
 
     def extra_volumes(self, config, bindir):

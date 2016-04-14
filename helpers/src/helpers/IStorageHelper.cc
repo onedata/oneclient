@@ -6,8 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "helpers/IStorageHelper.h"
-#include "fuseOperations.h"
+#include "IStorageHelper.h"
 
 #include <sys/stat.h>
 
@@ -22,13 +21,6 @@ const std::unordered_map<Flag, int, FlagHash> IStorageHelper::s_flagTranslation{
     {Flag::WRONLY, O_WRONLY}, {Flag::RDWR, O_RDWR}, {Flag::IFREG, S_IFREG},
     {Flag::IFCHR, S_IFCHR}, {Flag::IFBLK, S_IFBLK}, {Flag::IFIFO, S_IFIFO},
     {Flag::IFSOCK, S_IFSOCK}};
-
-void IStorageHelper::throwOnInterrupted()
-{
-    if (fuseInterrupted())
-        throw std::system_error{
-            std::make_error_code(std::errc::operation_canceled)};
-}
 
 } // namespace helpers
 } // namespace one

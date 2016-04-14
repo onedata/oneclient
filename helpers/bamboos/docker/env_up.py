@@ -28,20 +28,6 @@ parser.add_argument(
     dest='image')
 
 parser.add_argument(
-    '-ci', '--ceph-image',
-    action='store',
-    default=env.default('ceph_image'),
-    help='the image to use for the ceph storages',
-    dest='ceph_image')
-
-parser.add_argument(
-    '-si', '--s3-image',
-    action='store',
-    default=env.default('s3_image'),
-    help='the image to use for the s3 storages',
-    dest='s3_image')
-
-parser.add_argument(
     '-bw', '--bin-worker',
     action='store',
     default=env.default('bin_op_worker'),
@@ -97,8 +83,7 @@ parser.add_argument(
 
 args = parser.parse_args()
 
-output = env.up(args.config_path, image=args.image, ceph_image=args.ceph_image,
-                s3_image=args.s3_image, bin_am=args.bin_am,
+output = env.up(args.config_path, image=args.image, bin_am=args.bin_am,
                 bin_oz=args.bin_oz,
                 bin_cluster_manager=args.bin_cluster_manager,
                 bin_op_worker=args.bin_op_worker,
