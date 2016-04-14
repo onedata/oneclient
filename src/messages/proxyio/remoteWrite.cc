@@ -10,18 +10,20 @@
 
 #include "messages.pb.h"
 
-#include "glog/stl_logging.h"
+#include <glog/stl_logging.h>
+
 #include <sstream>
 
 namespace one {
 namespace messages {
 namespace proxyio {
 
-RemoteWrite::RemoteWrite(std::unordered_map<std::string, std::string> parameters,
-                         std::string storageId, std::string fileId,
-                         const off_t offset, asio::const_buffer data)
+RemoteWrite::RemoteWrite(
+    std::unordered_map<std::string, std::string> parameters,
+    std::string storageId, std::string fileId, const off_t offset,
+    asio::const_buffer data)
     : ProxyIORequest{std::move(parameters), std::move(storageId),
-                     std::move(fileId)}
+          std::move(fileId)}
     , m_offset{offset}
     , m_data{data}
 {

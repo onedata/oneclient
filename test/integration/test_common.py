@@ -37,10 +37,7 @@ def random_params():
 
 
 def decode_params(params):
-    decoded_params = {}
-    for param in params:
-        decoded_params[param.key] = param.value
-    return decoded_params
+    return {p.key: p.value for p in params}
 
 
 def _with_reply_process(endpoint, responses, queue):

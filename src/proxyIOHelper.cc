@@ -8,11 +8,11 @@
 
 #include "proxyIOHelper.h"
 
-#include "messages/status.h"
 #include "messages/proxyio/remoteData.h"
 #include "messages/proxyio/remoteRead.h"
 #include "messages/proxyio/remoteWrite.h"
 #include "messages/proxyio/remoteWriteResult.h"
+#include "messages/status.h"
 
 #include <asio.hpp>
 
@@ -67,9 +67,9 @@ void ProxyIOHelper::ash_write(CTXPtr /*ctx*/, const boost::filesystem::path &p,
     messages::proxyio::RemoteWrite msg{
         parameters, m_storageId, std::move(fileId), offset, buf};
 
-    auto wrappedCallback = [ callback = std::move(callback), buf ](
-        const std::error_code &ec,
-        std::unique_ptr<messages::proxyio::RemoteWriteResult> result)
+    auto wrappedCallback =
+        [ callback = std::move(callback), buf ](const std::error_code &ec,
+            std::unique_ptr<messages::proxyio::RemoteWriteResult> result)
     {
         if (ec) {
             callback(-1, ec);
