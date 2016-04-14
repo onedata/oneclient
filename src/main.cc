@@ -312,8 +312,7 @@ int main(int argc, char *argv[])
         perror("WARNING: failed to set FD_CLOEXEC on fuse device");
 
     FsLogicWrapper fsLogicWrapper;
-    fuse = helpers::fuseNew(
-        ch, &args, &fuse_oper, sizeof(fuse_oper), &fsLogicWrapper);
+    fuse = fuse_new(ch, &args, &fuse_oper, sizeof(fuse_oper), &fsLogicWrapper);
     if (fuse == nullptr)
         return EXIT_FAILURE;
 

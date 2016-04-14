@@ -9,20 +9,15 @@
 #include "fuseOperations.h"
 
 namespace {
-bool fuseEnabled = false;
+thread_local bool fuseSessionActive = false;
 } // namespace
 
 namespace one {
 namespace helpers {
 
-struct fuse *fuseNew(struct fuse_chan *ch, struct fuse_args *args,
-    const struct fuse_operations *op, size_t op_size, void *user_data)
-{
-    fuseEnabled = true;
-    return fuse_new(ch, args, op, op_size, user_data);
-}
+void activateFuseSession() { fuseSessionActive = true; }
 
-bool fuseInterrupted() { return fuseEnabled && fuse_interrupted(); }
+bool fuseInterrupted() { return fuseSessionActive && fuse_interrupted(); }
 
 } // namespace helpers
 } // namespace one
