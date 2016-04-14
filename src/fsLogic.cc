@@ -744,7 +744,7 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
         for (const auto &event : events) {
 
             MetadataCache::MetaAccessor metaAcc;
-            m_metadataCache.get(metaAcc, event->fileUuid());
+            m_metadataCache.getAttr(metaAcc, event->fileUuid());
 
             metaAcc->second.removedUpstream = true;
             auto paths = metaAcc->second.paths;

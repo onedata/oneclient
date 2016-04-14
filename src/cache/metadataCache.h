@@ -19,6 +19,7 @@
 #include <boost/functional/hash.hpp>
 
 #include <condition_variable>
+#include <unordered_set>
 
 namespace std {
 template <> struct hash<boost::filesystem::path> {
@@ -46,7 +47,7 @@ public:
      * @c Metadata holds metadata of a file.
      */
     struct Metadata {
-        std::set<Path> paths;
+        std::unordered_set<Path> paths;
         boost::optional<FileAttr> attr;
         boost::optional<FileLocation> location;
         bool removedUpstream = false;

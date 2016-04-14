@@ -176,9 +176,11 @@ void MetadataCache::rename(
         m_pathToUuid.erase(oldUuidAcc);
         newUuidAcc->second = uuid;
 
-        metaAcc.release();
-        for (auto &path : paths)
-            m_pathToUuid.erase(path);
+        if (!metaAcc->second.removedUpstream) {
+            metaAcc.release();
+            for (auto &path : paths)
+                m_pathToUuid.erase(path);
+        }
     }
     catch (...) {
         m_pathToUuid.erase(newUuidAcc);
