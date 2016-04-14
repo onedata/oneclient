@@ -454,7 +454,7 @@ void DirectIOHelper::ash_fsync(CTXPtr rawCTX, const boost::filesystem::path &p,
     auto ctx = getCTX(std::move(rawCTX));
     m_workerService.post(
         [ =, ctx = std::move(ctx), callback = std::move(callback) ]() mutable {
-            auto userCTX = m_userCTXFactory(std::move(ctx));
+            auto userCTX = m_userCTXFactory(ctx);
             if (!userCTX->valid()) {
                 callback(makePosixError(EDOM));
                 return;
