@@ -6,14 +6,14 @@
  * 'LICENSE.txt'
  */
 
-#include "logging.h"
+#include "storageAccessManager.h"
 #include "directIOHelper.h"
 #include "helpers/IStorageHelper.h"
 #include "helpers/storageHelperFactory.h"
+#include "logging.h"
 #include "messages/fuse/createStorageTestFile.h"
-#include "messages/fuse/verifyStorageTestFile.h"
 #include "messages/fuse/storageTestFile.h"
-#include "storageAccessManager.h"
+#include "messages/fuse/verifyStorageTestFile.h"
 
 #include <errno.h>
 #ifdef __APPLE__
@@ -22,8 +22,8 @@
 #include <mntent.h>
 #endif
 
-#include <vector>
 #include <random>
+#include <vector>
 
 namespace one {
 namespace client {
@@ -133,10 +133,9 @@ bool StorageAccessManager::verifyStorageTestFile(
         auto size = testFile.fileContent().size();
         std::vector<char> buffer(size);
         auto ctx = helper->createCTX();
-        std::unordered_map<std::string, std::string> parameters{};
 
         auto content = helper->sh_read(
-            ctx, testFile.fileId(), asio::buffer(buffer), 0, parameters);
+            ctx, testFile.fileId(), asio::buffer(buffer), 0, {});
 
         if (asio::buffer_size(content) != size) {
             LOG(WARNING) << "Storage test file size mismatch, expected: "
@@ -172,7 +171,6 @@ std::string StorageAccessManager::modifyStorageTestFile(
     auto size = testFile.fileContent().size();
     std::vector<char> buffer(size);
     auto ctx = helper->createCTX();
-    std::unordered_map<std::string, std::string> parameters{};
 
     std::random_device device;
     std::default_random_engine engine(device());
@@ -180,8 +178,8 @@ std::string StorageAccessManager::modifyStorageTestFile(
     std::generate_n(
         buffer.data(), size, [&]() { return distribution(engine); });
 
-    helper->sh_write(ctx, testFile.fileId(),
-        asio::const_buffer(buffer.data(), size), 0, parameters);
+    helper->sh_write(
+        ctx, testFile.fileId(), asio::const_buffer(buffer.data(), size), 0, {});
 
     return std::string{buffer.data(), size};
 }

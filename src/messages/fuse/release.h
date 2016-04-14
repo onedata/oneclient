@@ -24,7 +24,7 @@ class Release : public ClientMessage {
 public:
     /**
      * Constructor.
-     * @param uuid UUID of the file to close.
+     * @param handleId Id of the handle to release.
      */
     Release(std::string handleId);
 

@@ -59,9 +59,9 @@ const boost::optional<std::string> &FileLocation::handleId() const
     return m_handleId;
 }
 
-void FileLocation::handleId(std::string handleId_)
+void FileLocation::handleId(std::string handleId)
 {
-    m_handleId.get().swap(handleId_);
+    m_handleId = std::move(handleId);
 }
 
 void FileLocation::unsetHandleId() { m_handleId = boost::none; }
