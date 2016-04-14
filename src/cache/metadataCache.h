@@ -49,6 +49,7 @@ public:
         std::set<Path> paths;
         boost::optional<FileAttr> attr;
         boost::optional<FileLocation> location;
+        bool removedUpstream = false;
     };
 
 private:

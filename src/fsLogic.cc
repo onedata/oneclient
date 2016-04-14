@@ -59,6 +59,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     m_eventManager.setFileAttrHandler(fileAttrHandler());
     m_eventManager.setFileLocationHandler(fileLocationHandler());
     m_eventManager.setPermissionChangedHandler(permissionChangedHandler());
+    m_eventManager.setFileRemovalHandler(fileRemovalHandler());
     m_eventManager.subscribe(configuration->subscriptionContainer());
 
     scheduleCacheExpirationTick();
@@ -82,6 +83,7 @@ void FsLogic::scheduleCacheExpirationTick()
         m_attrExpirationHelper.tick([this](const std::string &uuid) {
             m_metadataCache.remove(uuid);
             m_fsSubscriptions.removeFileAttrSubscription(uuid);
+            m_fsSubscriptions.removeFileRemovalSubscription(uuid);
         });
 
         scheduleCacheExpirationTick();
@@ -125,6 +127,7 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
     m_attrExpirationHelper.markInteresting(attr.uuid(), [&] {
         m_metadataCache.getAttr(attr.uuid());
         m_fsSubscriptions.addFileAttrSubscription(attr.uuid());
+        m_fsSubscriptions.addFileRemovalSubscription(attr.uuid());
     });
 
     return 0;
@@ -332,6 +335,7 @@ int FsLogic::open(
     m_attrExpirationHelper.pin(attr.uuid(), [&] {
         m_metadataCache.getAttr(attr.uuid());
         m_fsSubscriptions.addFileAttrSubscription(attr.uuid());
+        m_fsSubscriptions.addFileRemovalSubscription(attr.uuid());
     });
 
     return 0;
@@ -724,16 +728,44 @@ void FsLogic::removeFile(boost::filesystem::path path)
     MetadataCache::MetaAccessor metaAcc;
     m_metadataCache.getAttr(uuidAcc, metaAcc, path);
 
-    auto future =
-        m_context->communicator()->communicate<messages::fuse::FuseResponse>(
-            messages::fuse::DeleteFile{uuidAcc->second});
+    if (!metaAcc->second.removedUpstream) {
+        auto future = m_context->communicator()
+                          ->communicate<messages::fuse::FuseResponse>(
+                              messages::fuse::DeleteFile{uuidAcc->second});
 
-    communication::wait(future);
+        communication::wait(future);
+    }
+}
 
-    auto uuid = metaAcc->first;
-    m_metadataCache.removePathMappings(uuidAcc, metaAcc);
-    m_locExpirationHelper.expire(uuid);
-    m_attrExpirationHelper.expire(uuid);
+events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
+{
+    using namespace events;
+    return [this](std::vector<FileRemovalEventStream::EventPtr> events) {
+        for (const auto &event : events) {
+
+            MetadataCache::MetaAccessor metaAcc;
+            m_metadataCache.get(metaAcc, event->fileUuid());
+
+            metaAcc->second.removedUpstream = true;
+            auto paths = metaAcc->second.paths;
+            metaAcc.release();
+
+            auto dir = m_context->options()->get_mountpoint();
+            for (auto &path : paths) {
+                try {
+                    std::remove((dir / path).c_str());
+                }
+                catch (std::system_error &e) {
+                    LOG(WARNING) << "Unable to remove file (path: " << path
+                                 << "): " << e.what();
+                }
+            }
+
+            m_locExpirationHelper.expire(event->fileUuid());
+            m_attrExpirationHelper.expire(event->fileUuid());
+            LOG(INFO) << "File remove event received: " << event->fileUuid();
+        }
+    };
 }
 
 } // namespace client

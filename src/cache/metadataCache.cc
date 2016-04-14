@@ -7,12 +7,13 @@
  */
 
 #include "metadataCache.h"
+#include "fuseOperations.h"
 
 #include "logging.h"
-#include "scheduler.h"
 #include "messages/fuse/getFileAttr.h"
 #include "messages/fuse/getFileLocation.h"
 #include "messages/fuse/rename.h"
+#include "scheduler.h"
 
 #include <chrono>
 
@@ -157,15 +158,21 @@ void MetadataCache::rename(
         auto &uuid = metaAcc->second.attr.get().uuid();
 
         DLOG(INFO) << "Renaming file " << uuid << " to " << newPath;
-        auto future = m_communicator.communicate<messages::fuse::FuseResponse>(
-            messages::fuse::Rename{uuid, newPath});
-
-        communication::wait(future);
-
         auto paths = metaAcc->second.paths;
-        metaAcc->second.paths.clear();
-        metaAcc->second.paths.emplace(newPath);
 
+        if (metaAcc->second.removedUpstream) {
+            metaAcc->second.paths.erase(oldPath);
+        }
+        else {
+            auto future =
+                m_communicator.communicate<messages::fuse::FuseResponse>(
+                    messages::fuse::Rename{uuid, newPath});
+
+            communication::wait(future);
+            metaAcc->second.paths.clear();
+        }
+
+        metaAcc->second.paths.emplace(newPath);
         m_pathToUuid.erase(oldUuidAcc);
         newUuidAcc->second = uuid;
 
@@ -266,7 +273,16 @@ bool MetadataCache::waitForNewLocation(const std::string &uuid,
             location.blocks().end();
     };
 
-    return pair.second.wait_for(lock, timeout, pred);
+    for (auto t = 0ms; t < timeout; ++t) {
+        if (helpers::fuseInterrupted())
+            throw std::system_error{
+                std::make_error_code(std::errc::operation_canceled)};
+
+        if (pair.second.wait_for(lock, 1ms, pred))
+            return true;
+    }
+
+    return false;
 }
 
 void MetadataCache::notifyNewLocationArrived(const std::string &uuid)
