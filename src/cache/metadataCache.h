@@ -16,8 +16,19 @@
 
 #include <boost/filesystem/path.hpp>
 #include <tbb/concurrent_hash_map.h>
+#include <boost/functional/hash.hpp>
 
 #include <condition_variable>
+#include <unordered_set>
+
+namespace std {
+template <> struct hash<boost::filesystem::path> {
+    size_t operator()(const boost::filesystem::path &p) const
+    {
+        return boost::filesystem::hash_value(p);
+    }
+};
+}
 
 namespace one {
 namespace client {
@@ -36,7 +47,7 @@ public:
      * @c Metadata holds metadata of a file.
      */
     struct Metadata {
-        boost::optional<Path> path;
+        std::unordered_set<Path> paths;
         boost::optional<FileAttr> attr;
         boost::optional<FileLocation> location;
         bool removedUpstream = false;
@@ -167,11 +178,12 @@ public:
     void remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
 
     /**
-     * Removes a UUID entry (path mapping) from the cache.
+     * Removes a UUID entries (path mappings) from the cache.
+     * This action will release metaAcc.
      * @param uuidAcc Accessor to UUID mapping to remove.
      * @param metaAcc Accessor to metadata mapping..
      */
-    void removePathMapping(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
+    void removePathMappings(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
 
     /**
      * Removes a metadata entry and UUID mapping (if exists) from the cache.

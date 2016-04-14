@@ -727,18 +727,11 @@ void FsLogic::removeFile(boost::filesystem::path path)
     MetadataCache::UuidAccessor uuidAcc;
     MetadataCache::MetaAccessor metaAcc;
     m_metadataCache.getAttr(uuidAcc, metaAcc, path);
-    auto uuid = uuidAcc->second;
-    auto removedUpstream = metaAcc->second.removedUpstream;
 
-    if (removedUpstream) {
-        m_metadataCache.removePathMapping(uuidAcc, metaAcc);
-        m_locExpirationHelper.expire(metaAcc->first);
-        m_attrExpirationHelper.expire(metaAcc->first);
-    }
-    else {
+    if (!metaAcc->second.removedUpstream) {
         auto future = m_context->communicator()
                           ->communicate<messages::fuse::FuseResponse>(
-                              messages::fuse::DeleteFile{uuid});
+                              messages::fuse::DeleteFile{uuidAcc->second});
 
         communication::wait(future);
     }
@@ -751,17 +744,20 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
         for (const auto &event : events) {
 
             MetadataCache::MetaAccessor metaAcc;
-            m_metadataCache.get(metaAcc, event->fileUuid());
+            m_metadataCache.getAttr(metaAcc, event->fileUuid());
+
             metaAcc->second.removedUpstream = true;
-            if (metaAcc->second.path) {
-                auto fileName = metaAcc->second.path.get();
-                metaAcc.release();
+            auto paths = metaAcc->second.paths;
+            metaAcc.release();
+
+            auto dir = m_context->options()->get_mountpoint();
+            for (auto &path : paths) {
                 try {
-                    auto dir = m_context->options()->get_mountpoint();
-                    std::remove((dir / fileName).c_str());
+                    std::remove((dir / path).c_str());
                 }
                 catch (std::system_error &e) {
-                    LOG(WARNING) << "Unable to remove file: " << e.what();
+                    LOG(WARNING) << "Unable to remove file (path: " << path
+                                 << "): " << e.what();
                 }
             }
 
