@@ -605,6 +605,10 @@ int FsLogic::release(
 {
     DLOG(INFO) << "FUSE: release(path: " << path << ", ...)";
     auto attr = m_metadataCache.getAttr(path);
+    MetadataCache::MetaAccessor acc;
+    m_metadataCache.getLocation(acc, attr.uuid());
+    auto location = acc->second.location.get();
+
     m_locExpirationHelper.unpin(attr.uuid());
     m_attrExpirationHelper.unpin(attr.uuid());
 
@@ -630,9 +634,8 @@ int FsLogic::release(
                               messages::fuse::Release{context.handleId->get()});
 
         communication::wait(future);
-        auto location = m_metadataCache.getLocation(attr.uuid());
         location.unsetHandleId();
-        m_metadataCache.map(path, location);
+
         *context.handleId = boost::none;
     }
     context.helperCtxMap->clear();
@@ -711,6 +714,7 @@ int FsLogic::create(boost::filesystem::path path, const mode_t mode,
     DLOG(INFO) << "FUSE: create(path: " << path << ", mode: " << std::oct
                << mode << ")";
 
+    // Potential race condition, file might be modified between create and open
     auto location = createFile(std::move(path), mode);
     openFile(location, fileInfo);
 

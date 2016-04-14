@@ -13,6 +13,8 @@
 #include <sstream>
 #include <system_error>
 
+using namespace std::literals;
+
 namespace one {
 namespace messages {
 namespace fuse {
@@ -83,12 +85,7 @@ std::string FileLocation::toString() const
         stream << block.first << " -> (" << block.second.storageId() << ", "
                << block.second.fileId() << "), ";
 
-    stream << "], handleId: ";
-
-    if (m_handleId.is_initialized())
-        stream << m_handleId.get();
-    else
-        stream << "unset";
+    stream << "], handleId: " << (m_handleId ? m_handleId.get() : "unset"s);
 
     return stream.str();
 }
@@ -121,9 +118,7 @@ void FileLocation::deserialize(ProtocolMessage &message)
     }
 
     if (message.has_handle_id()) {
-        std::string handleId_;
-        handleId_.swap(*message.mutable_handle_id());
-        m_handleId = handleId_;
+        m_handleId = std::move(*message.mutable_handle_id());
     }
 }
 
