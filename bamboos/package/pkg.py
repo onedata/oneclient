@@ -169,6 +169,8 @@ try:
 
                 # update repo
                 execute(['aptly', 'publish', 'update', distro])
+                execute(['rsync', '-a', '--delete', '/root/.aptly/public/pool', APACHE_PREFIX + '/apt/ubuntu'])
+                execute(['rsync', '-a', '--delete', '/root/.aptly/public/dists', APACHE_PREFIX + '/apt/ubuntu'])
             elif REPO_TYPE[distro] == 'rpm':
                 # copy packages
                 repo_dir = APACHE_PREFIX + YUM_REPO_LOCATION[distro]

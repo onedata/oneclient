@@ -11,8 +11,8 @@
 
 #include "helpers/IStorageHelper.h"
 
-#include <asio.hpp>
 #include <libs3.h>
+#include <asio.hpp>
 
 #include <map>
 #include <mutex>
@@ -41,12 +41,13 @@ public:
     S3HelperCTX(std::unordered_map<std::string, std::string> args);
 
     /**
-     * @copydoc IStorageHelper::setUserCtx
-     * Args should contain 'access_key' and 'secret_key' values.
+     * Sets user context.
+     * @param args Map with parameters required to set user context. Is should
+     * contain 'access_key' and 'secret_key' values.
      */
-    void setUserCTX(std::unordered_map<std::string, std::string> args) override;
+    void setUserCTX(std::unordered_map<std::string, std::string> args);
 
-    std::unordered_map<std::string, std::string> getUserCTX() override;
+    std::unordered_map<std::string, std::string> getUserCTX();
 
     S3BucketContext bucketCTX = {};
 
@@ -160,7 +161,7 @@ private:
             : S3ResponseHandler{[](const S3ResponseProperties *properties,
                                     void *callbackData) { return S3StatusOK; },
                   [](S3Status status, const S3ErrorDetails *errorDetails,
-                      void *callbackData) {
+                                    void *callbackData) {
                       if (status != S3StatusOK) {
                           auto dataPtr = static_cast<T *>(callbackData);
                           throwPosixError(

@@ -148,7 +148,7 @@
     "zone_domains": {
         "oz": {
             "gui_livereload": "none",
-            "db_driver": "couchdb",
+            "db_driver": "couchbase",
             "cluster_manager": {
                 "cm": {
                     "vm.args": {
