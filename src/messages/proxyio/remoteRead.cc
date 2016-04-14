@@ -10,7 +10,8 @@
 
 #include "messages.pb.h"
 
-#include "glog/stl_logging.h"
+#include <glog/stl_logging.h>
+
 #include <sstream>
 
 namespace one {
@@ -18,10 +19,10 @@ namespace messages {
 namespace proxyio {
 
 RemoteRead::RemoteRead(std::unordered_map<std::string, std::string> parameters,
-                       std::string storageId, std::string fileId,
-                       const off_t offset, const std::size_t size)
+    std::string storageId, std::string fileId, const off_t offset,
+    const std::size_t size)
     : ProxyIORequest{std::move(parameters), std::move(storageId),
-                     std::move(fileId)}
+          std::move(fileId)}
     , m_offset{offset}
     , m_size{size}
 {
