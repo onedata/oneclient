@@ -62,6 +62,18 @@ public:
         const std::string &fileUuid);
 
     /**
+     * Adds subscription for removing file.
+     * @param fileUuid UUID of file for which subscription is added.
+     */
+    void addFileRemovalSubscription(const std::string &fileUuid);
+
+    /**
+     * Removes subscription for file removal.
+     * @param fileUuid UUID of file for which subscription is removed.
+     */
+    void removeFileRemovalSubscription(const std::string &fileUuid);
+
+    /**
      * Adds subscription for file attributes updates. Subscription of the
      * file will be forwarded to the server.
      * @param fileUuid UUID of file for which subscription is added.
@@ -79,6 +91,7 @@ private:
     std::int64_t sendFileAttrSubscription(const std::string &fileUuid);
     std::int64_t sendFileLocationSubscription(const std::string &fileUuid);
     std::int64_t sendPermissionChangedSubscription(const std::string &fileUuid);
+    std::int64_t sendFileRemovalSubscription(const std::string &fileUuid);
     void sendSubscriptionCancellation(std::int64_t id);
 
     events::EventManager &m_eventManager;
@@ -87,6 +100,8 @@ private:
         m_fileLocationSubscriptions;
     tbb::concurrent_hash_map<std::string, std::int64_t>
         m_permissionChangedSubscriptions;
+    tbb::concurrent_hash_map<std::string, std::int64_t>
+        m_fileRemovalSubscriptions;
 };
 
 } // namespace client

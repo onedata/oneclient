@@ -39,6 +39,7 @@ public:
         boost::optional<Path> path;
         boost::optional<FileAttr> attr;
         boost::optional<FileLocation> location;
+        bool removedUpstream = false;
     };
 
 private:

@@ -31,9 +31,10 @@ EventManager::EventManager(std::shared_ptr<Context> context)
           m_streamManager.create())}
     , m_fileLocationEventStream{std::make_unique<FileLocationEventStream>(
           m_streamManager.create())}
-    , m_permissionChangedEventStream{
-          std::make_unique<PermissionChangedEventStream>(
-              m_streamManager.create())}
+    , m_permissionChangedEventStream{std::make_unique<
+          PermissionChangedEventStream>(m_streamManager.create())}
+    , m_fileRemovalEventStream{
+          std::make_unique<FileRemovalEventStream>(m_streamManager.create())}
 {
     auto predicate = [](const clproto::ServerMessage &message, const bool) {
         return message.has_events() || message.has_subscription() ||
@@ -87,6 +88,23 @@ void EventManager::setFileLocationHandler(
     FileLocationEventStream::Handler handler)
 {
     m_fileLocationEventStream->setEventHandler(std::move(handler));
+}
+
+void EventManager::setFileRemovalHandler(FileRemovalEventStream::Handler handler)
+{
+    m_fileRemovalEventStream->setEventHandler(std::move(handler));
+}
+
+void EventManager::emitFileRemovalEvent(std::string fileUuid) const
+{
+    m_fileRemovalEventStream->createAndEmitEvent(std::move(fileUuid));
+}
+
+std::int64_t EventManager::subscribe(FileRemovalSubscription clientSubscription,
+    FileRemovalSubscription serverSubscription)
+{
+    return m_fileRemovalEventStream->subscribe(
+        std::move(clientSubscription), std::move(serverSubscription));
 }
 
 std::int64_t EventManager::subscribe(
@@ -147,6 +165,10 @@ void EventManager::handle(const clproto::Events &message)
             PermissionChangedEvent event{eventMsg.permission_changed_event()};
             m_permissionChangedEventStream->emitEvent(std::move(event));
         }
+        if (eventMsg.has_file_removal_event()) {
+            FileRemovalEvent event{eventMsg.file_removal_event()};
+            m_fileRemovalEventStream->emitEvent(std::move(event));
+        }
     }
 }
 
@@ -201,6 +223,10 @@ void EventManager::initializeStreams(std::shared_ptr<Context> context)
     m_permissionChangedEventStream->setScheduler(context->scheduler());
     m_permissionChangedEventStream->setSubscriptionRegistry(m_registry);
     m_permissionChangedEventStream->initializeAggregation();
+
+    m_fileRemovalEventStream->setScheduler(context->scheduler());
+    m_fileRemovalEventStream->setSubscriptionRegistry(m_registry);
+    m_fileRemovalEventStream->initializeAggregation();
 }
 
 } // namespace events

@@ -211,7 +211,7 @@ def test_getattrs_should_cache_attrs(endpoint, fl):
     new_stat = fslogic.Stat()
     assert fl.getattr('/random/path', new_stat) == 0
     assert stat == new_stat
-    assert 1 == endpoint.all_messages_count()
+    assert 2 == endpoint.all_messages_count()
 
 
 def test_mkdir_should_mkdir(endpoint, fl):
@@ -407,7 +407,7 @@ def test_chmod_should_change_cached_mode(appmock_client, endpoint, fl):
 
     assert stat.mode == getattr_response.fuse_response.file_attr.mode | \
                         fslogic.regularMode()
-    assert 1 == endpoint.all_messages_count()
+    assert 2 == endpoint.all_messages_count()
     appmock_client.reset_tcp_history()
 
     response = messages_pb2.ServerMessage()
@@ -475,7 +475,7 @@ def test_utime_should_change_cached_times(appmock_client, endpoint, fl):
 
     assert stat.atime == getattr_response.fuse_response.file_attr.atime
     assert stat.mtime == getattr_response.fuse_response.file_attr.mtime
-    assert 1 == endpoint.all_messages_count()
+    assert 2 == endpoint.all_messages_count()
     appmock_client.reset_tcp_history()
 
     response = messages_pb2.ServerMessage()
