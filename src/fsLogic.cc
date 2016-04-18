@@ -607,7 +607,7 @@ int FsLogic::release(
     auto attr = m_metadataCache.getAttr(path);
     MetadataCache::MetaAccessor acc;
     m_metadataCache.getLocation(acc, attr.uuid());
-    auto location = acc->second.location.get();
+    auto &location = acc->second.location.get();
 
     m_locExpirationHelper.unpin(attr.uuid());
     m_attrExpirationHelper.unpin(attr.uuid());
