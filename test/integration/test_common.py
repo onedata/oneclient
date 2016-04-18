@@ -40,7 +40,7 @@ def decode_params(params):
     return {p.key: p.value for p in params}
 
 
-def _with_reply_process(endpoint, responses, queue):
+def _with_reply_process(endpoint, responses, queue, reply_to_async=False):
     while responses:
         received_msgs = endpoint.wait_for_any_messages(return_history=True, accept_more=True)
         endpoint.client.reset_tcp_history()
@@ -48,22 +48,25 @@ def _with_reply_process(endpoint, responses, queue):
         for received_msg in received_msgs:
             client_message = messages_pb2.ClientMessage()
             client_message.ParseFromString(received_msg)
+            message_has_id = client_message.HasField('message_id')
 
-            if hasattr(client_message, 'message_id'):
+            if message_has_id or reply_to_async:
                 response = responses.pop(0)
-                response.message_id = client_message.message_id.encode('utf-8')
+                if message_has_id:
+                    response.message_id = client_message.message_id.encode('utf-8')
                 endpoint.send(response.SerializeToString())
 
-            queue.put(client_message)
+                queue.put(client_message)
 
 
 @contextmanager
-def reply(endpoint, responses):
+def reply(endpoint, responses, reply_to_async=False):
     if not isinstance(responses, list):
         responses = [responses]
 
     queue = Queue()
-    p = Thread(target=_with_reply_process, args=(endpoint, responses, queue))
+    p = Thread(target=_with_reply_process, args=(endpoint, responses, queue),
+               kwargs={'reply_to_async': reply_to_async})
     p.start()
 
     try:
