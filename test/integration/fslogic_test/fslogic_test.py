@@ -841,7 +841,7 @@ def test_read_should_request_synchronization(appmock_client, endpoint, fl):
     sync_req = prepare_synchronize_block(2, 5).SerializeToString()
 
     appmock_client.reset_tcp_history()
-    with reply(endpoint, location_update_event, handle_subscriptions=True) as queue:
+    with reply(endpoint, location_update_event, reply_to_async=True) as queue:
         fl.read('/random/path', 2, 5)
         client_message = queue.get()
 
@@ -854,7 +854,7 @@ def test_read_should_continue_reading_after_synchronization(appmock_client, endp
     location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0)
 
     appmock_client.reset_tcp_history()
-    with reply(endpoint, location_update_event, handle_subscriptions=True):
+    with reply(endpoint, location_update_event, reply_to_async=True):
         assert 5 == fl.read('/random/path', 2, 5)
 
 
