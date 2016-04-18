@@ -12,11 +12,9 @@ namespace one {
 namespace helpers {
 
 /**
- * Wraps the fuse_new function and sets @c fuseEnabled to true.
- * @return the created FUSE handle
+ * Defines FUSE session as active for calling thread.
  */
-struct fuse *fuseNew(struct fuse_chan *ch, struct fuse_args *args,
-    const struct fuse_operations *op, size_t op_size, void *user_data);
+void activateFuseSession();
 
 /**
  * Wraps the fuse_interrupted function.
