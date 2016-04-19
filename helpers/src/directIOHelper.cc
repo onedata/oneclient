@@ -454,13 +454,29 @@ void DirectIOHelper::ash_fsync(CTXPtr rawCTX, const boost::filesystem::path &p,
     auto ctx = getCTX(std::move(rawCTX));
     m_workerService.post(
         [ =, ctx = std::move(ctx), callback = std::move(callback) ]() mutable {
-            auto userCTX = m_userCTXFactory(std::move(ctx));
+            auto userCTX = m_userCTXFactory(ctx);
             if (!userCTX->valid()) {
                 callback(makePosixError(EDOM));
                 return;
             }
+            int fd = ctx->fh != -1 ? ctx->fh : open(root(p).c_str(), O_WRONLY);
+            if (fd == -1) {
+                callback(makePosixError(errno));
+                return;
+            }
 
-            callback(SUCCESS_CODE);
+            auto res = fsync(fd);
+            auto potentialError = makePosixError(errno);
+
+            if (ctx->fh == -1) {
+                close(fd);
+            }
+            if (res == -1) {
+                callback(potentialError);
+            }
+            else {
+                callback(SUCCESS_CODE);
+            }
         });
 }
 
