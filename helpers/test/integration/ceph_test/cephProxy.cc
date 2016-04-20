@@ -13,6 +13,8 @@
 #include <asio/io_service.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
+#include <boost/python/extract.hpp>
+#include <boost/python/raw_function.hpp>
 
 #include <chrono>
 #include <future>
@@ -70,20 +72,23 @@ public:
     }
 
     std::string read(
-        std::string fileId, int offset, int size, std::string fileUuid)
+        std::string fileId, int offset, int size,
+        std::unordered_map<std::string, std::string> parameters)
     {
         ReleaseGIL guard;
         std::string buffer(size, '\0');
-        m_helper.sh_read(m_ctx, fileId, asio::buffer(buffer), offset, fileUuid);
+        m_helper.sh_read(
+                m_ctx, fileId, asio::buffer(buffer), offset, parameters);
         return buffer;
     }
 
     int write(
-        std::string fileId, std::string data, int offset, std::string fileUuid)
+        std::string fileId, std::string data, int offset,
+        std::unordered_map<std::string, std::string> parameters)
     {
         ReleaseGIL guard;
         return m_helper.sh_write(
-            m_ctx, fileId, asio::buffer(data), offset, fileUuid);
+            m_ctx, fileId, asio::buffer(data), offset, parameters);
     }
 
     void truncate(std::string fileId, int offset)
@@ -140,12 +145,51 @@ boost::shared_ptr<CephProxy> create(std::string monHost, std::string username,
 }
 }
 
+std::string raw_read(tuple args, dict kwargs)
+{
+    std::string fileId = extract<std::string>(args[1]);
+    int offset = extract<int>(args[2]);
+    int size = extract<int>(args[3]);
+    dict parametersDict = extract<dict>(args[4]);
+
+    std::unordered_map<std::string, std::string> parametersMap;
+    list keys = parametersDict.keys();
+    for (int i = 0; i < len(keys); ++i) {
+        std::string key = extract<std::string>(keys[i]);
+        std::string val = extract<std::string>(parametersDict[key]);
+        parametersMap[key] = val;
+    }
+
+    return extract<CephProxy&>(args[0])()
+            .read(fileId, offset, size, parametersMap);
+}
+
+int raw_write(tuple args, dict kwargs)
+{
+    std::string fileId = extract<std::string>(args[1]);
+    std::string data = extract<std::string>(args[2]);
+    int offset = extract<int>(args[3]);
+    dict parametersDict = extract<dict>(args[4]);
+
+    std::unordered_map<std::string, std::string> parametersMap;
+    list keys = parametersDict.keys();
+    for (int i = 0; i < len(keys); ++i) {
+        std::string key = extract<std::string>(keys[i]);
+        std::string val = extract<std::string>(parametersDict[key]);
+        parametersMap[key] = val;
+    }
+
+    return extract<CephProxy&>(args[0])()
+            .write(fileId, data, offset, parametersMap);
+}
+
+
 BOOST_PYTHON_MODULE(ceph)
 {
     class_<CephProxy, boost::noncopyable>("CephProxy", no_init)
         .def("__init__", make_constructor(create))
         .def("unlink", &CephProxy::unlink)
-        .def("read", &CephProxy::read)
-        .def("write", &CephProxy::write)
+        .def("read", raw_function(raw_read))
+        .def("write", raw_function(raw_write))
         .def("truncate", &CephProxy::truncate);
 }

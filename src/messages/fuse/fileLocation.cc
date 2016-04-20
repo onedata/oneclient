@@ -13,6 +13,8 @@
 #include <sstream>
 #include <system_error>
 
+using namespace std::literals;
+
 namespace one {
 namespace messages {
 namespace fuse {
@@ -54,6 +56,18 @@ const FileLocation::FileBlocksMap &FileLocation::blocks() const
     return m_blocks;
 }
 
+const boost::optional<std::string> &FileLocation::handleId() const
+{
+    return m_handleId;
+}
+
+void FileLocation::handleId(std::string handleId)
+{
+    m_handleId = std::move(handleId);
+}
+
+void FileLocation::unsetHandleId() { m_handleId = boost::none; }
+
 void FileLocation::aggregate(FileLocationPtr fileLocation)
 {
     m_storageId.swap(fileLocation->m_storageId);
@@ -71,7 +85,8 @@ std::string FileLocation::toString() const
         stream << block.first << " -> (" << block.second.storageId() << ", "
                << block.second.fileId() << "), ";
 
-    stream << "]";
+    stream << "], handleId: " << (m_handleId ? m_handleId.get() : "unset"s);
+
     return stream.str();
 }
 
@@ -100,6 +115,10 @@ void FileLocation::deserialize(ProtocolMessage &message)
 
         m_blocks += std::make_pair(
             interval, FileBlock{std::move(storageId_), std::move(fileId_)});
+    }
+
+    if (message.has_handle_id()) {
+        m_handleId = std::move(*message.mutable_handle_id());
     }
 }
 

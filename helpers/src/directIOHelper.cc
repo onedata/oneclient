@@ -365,7 +365,8 @@ void DirectIOHelper::ash_open(CTXPtr rawCTX, const boost::filesystem::path &p,
 }
 
 void DirectIOHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
-    asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
+    asio::mutable_buffer buf, off_t offset,
+    const std::unordered_map<std::string, std::string> &parameters,
     GeneralCallback<asio::mutable_buffer> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
@@ -378,7 +379,7 @@ void DirectIOHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
             }
 
             try {
-                auto res = sh_read(std::move(ctx), p, buf, offset, fileUuid);
+                auto res = sh_read(std::move(ctx), p, buf, offset, parameters);
                 callback(res, SUCCESS_CODE);
             }
             catch (std::system_error &e) {
@@ -388,7 +389,8 @@ void DirectIOHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
 }
 
 void DirectIOHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
-    asio::const_buffer buf, off_t offset, const std::string &fileUuid,
+    asio::const_buffer buf, off_t offset,
+    const std::unordered_map<std::string, std::string> &parameters,
     GeneralCallback<std::size_t> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
@@ -401,7 +403,7 @@ void DirectIOHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
             }
 
             try {
-                auto res = sh_write(std::move(ctx), p, buf, offset, fileUuid);
+                auto res = sh_write(std::move(ctx), p, buf, offset, parameters);
                 callback(res, SUCCESS_CODE);
             }
             catch (std::system_error &e) {
@@ -454,19 +456,35 @@ void DirectIOHelper::ash_fsync(CTXPtr rawCTX, const boost::filesystem::path &p,
     auto ctx = getCTX(std::move(rawCTX));
     m_workerService.post(
         [ =, ctx = std::move(ctx), callback = std::move(callback) ]() mutable {
-            auto userCTX = m_userCTXFactory(std::move(ctx));
+            auto userCTX = m_userCTXFactory(ctx);
             if (!userCTX->valid()) {
                 callback(makePosixError(EDOM));
                 return;
             }
+            int fd = ctx->fh != -1 ? ctx->fh : open(root(p).c_str(), O_WRONLY);
+            if (fd == -1) {
+                callback(makePosixError(errno));
+                return;
+            }
 
-            callback(SUCCESS_CODE);
+            auto res = fsync(fd);
+            auto potentialError = makePosixError(errno);
+
+            if (ctx->fh == -1) {
+                close(fd);
+            }
+            if (res == -1) {
+                callback(potentialError);
+            }
+            else {
+                callback(SUCCESS_CODE);
+            }
         });
 }
 
 std::size_t DirectIOHelper::sh_write(CTXPtr rawCTX,
     const boost::filesystem::path &p, asio::const_buffer buf, off_t offset,
-    const std::string &fileUuid)
+    const std::unordered_map<std::string, std::string> & /*parameters*/)
 {
     auto ctx = getCTX(std::move(rawCTX));
     auto userCTX = m_userCTXFactory(ctx);
@@ -497,7 +515,7 @@ std::size_t DirectIOHelper::sh_write(CTXPtr rawCTX,
 
 asio::mutable_buffer DirectIOHelper::sh_read(CTXPtr rawCTX,
     const boost::filesystem::path &p, asio::mutable_buffer buf, off_t offset,
-    const std::string &fileUuid)
+    const std::unordered_map<std::string, std::string> & /*parameters*/)
 {
     auto ctx = getCTX(std::move(rawCTX));
     auto userCTX = m_userCTXFactory(ctx);
