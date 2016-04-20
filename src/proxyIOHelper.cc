@@ -8,11 +8,11 @@
 
 #include "proxyIOHelper.h"
 
-#include "messages/status.h"
 #include "messages/proxyio/remoteData.h"
 #include "messages/proxyio/remoteRead.h"
 #include "messages/proxyio/remoteWrite.h"
 #include "messages/proxyio/remoteWriteResult.h"
+#include "messages/status.h"
 
 #include <asio.hpp>
 
@@ -33,12 +33,13 @@ CTXPtr ProxyIOHelper::createCTX()
 }
 
 void ProxyIOHelper::ash_read(CTXPtr /*ctx*/, const boost::filesystem::path &p,
-    asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
+    asio::mutable_buffer buf, off_t offset,
+    const std::unordered_map<std::string, std::string> &parameters,
     GeneralCallback<asio::mutable_buffer> callback)
 {
     auto fileId = p.string();
-    messages::proxyio::RemoteRead msg{fileUuid, m_storageId, std::move(fileId),
-        offset, asio::buffer_size(buf)};
+    messages::proxyio::RemoteRead msg{parameters, m_storageId,
+        std::move(fileId), offset, asio::buffer_size(buf)};
 
     auto wrappedCallback =
         [ callback = std::move(callback), buf ](const std::error_code &ec,
@@ -58,15 +59,17 @@ void ProxyIOHelper::ash_read(CTXPtr /*ctx*/, const boost::filesystem::path &p,
 }
 
 void ProxyIOHelper::ash_write(CTXPtr /*ctx*/, const boost::filesystem::path &p,
-    asio::const_buffer buf, off_t offset, const std::string &fileUuid, GeneralCallback<std::size_t> callback)
+    asio::const_buffer buf, off_t offset,
+    const std::unordered_map<std::string, std::string> &parameters,
+    GeneralCallback<std::size_t> callback)
 {
     auto fileId = p.string();
     messages::proxyio::RemoteWrite msg{
-        fileUuid, m_storageId, std::move(fileId), offset, buf};
+        parameters, m_storageId, std::move(fileId), offset, buf};
 
-    auto wrappedCallback = [ callback = std::move(callback), buf ](
-        const std::error_code &ec,
-        std::unique_ptr<messages::proxyio::RemoteWriteResult> result)
+    auto wrappedCallback =
+        [ callback = std::move(callback), buf ](const std::error_code &ec,
+            std::unique_ptr<messages::proxyio::RemoteWriteResult> result)
     {
         if (ec) {
             callback(-1, ec);

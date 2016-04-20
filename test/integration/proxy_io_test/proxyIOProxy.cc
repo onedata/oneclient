@@ -12,6 +12,8 @@
 #include <asio/buffer.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
+#include <boost/python/extract.hpp>
+#include <boost/python/raw_function.hpp>
 
 #include <string>
 
@@ -41,21 +43,24 @@ public:
     }
 
     int write(
-        std::string fileId, std::string data, int offset, std::string fileUuid)
+        std::string fileId, std::string data, int offset,
+        std::unordered_map<std::string, std::string> parameters)
     {
         ReleaseGIL guard;
         auto ctx = std::make_shared<one::helpers::IStorageHelperCTX>();
         return m_helper.sh_write(
-            std::move(ctx), fileId, asio::buffer(data), offset, fileUuid);
+            std::move(ctx), fileId, asio::buffer(data), offset, parameters);
     }
 
     std::string read(
-        std::string fileId, int offset, int size, std::string fileUuid)
+        std::string fileId, int offset, int size,
+        std::unordered_map<std::string, std::string> parameters)
     {
         ReleaseGIL guard;
         auto ctx = std::make_shared<one::helpers::IStorageHelperCTX>();
         std::string buffer(size, '\0');
-        m_helper.sh_read(std::move(ctx), fileId, asio::buffer(buffer), offset, fileUuid);
+        m_helper.sh_read(std::move(ctx), fileId, asio::buffer(buffer), offset,
+                         parameters);
         return buffer;
     }
 
@@ -72,10 +77,48 @@ boost::shared_ptr<ProxyIOProxy> create(
 }
 }
 
+std::string raw_read(tuple args, dict kwargs)
+{
+    std::string fileId = extract<std::string>(args[1]);
+    int offset = extract<int>(args[2]);
+    int size = extract<int>(args[3]);
+    dict parametersDict = extract<dict>(args[4]);
+
+    std::unordered_map<std::string, std::string> parametersMap;
+    list keys = parametersDict.keys();
+    for (int i = 0; i < len(keys); ++i) {
+        std::string key = extract<std::string>(keys[i]);
+        std::string val = extract<std::string>(parametersDict[key]);
+        parametersMap[key] = val;
+    }
+
+    return extract<ProxyIOProxy&>(args[0])()
+            .read(fileId, offset, size, parametersMap);
+}
+
+int raw_write(tuple args, dict kwargs)
+{
+    std::string fileId = extract<std::string>(args[1]);
+    std::string data = extract<std::string>(args[2]);
+    int offset = extract<int>(args[3]);
+    dict parametersDict = extract<dict>(args[4]);
+
+    std::unordered_map<std::string, std::string> parametersMap;
+    list keys = parametersDict.keys();
+    for (int i = 0; i < len(keys); ++i) {
+        std::string key = extract<std::string>(keys[i]);
+        std::string val = extract<std::string>(parametersDict[key]);
+        parametersMap[key] = val;
+    }
+
+    return extract<ProxyIOProxy&>(args[0])()
+            .write(fileId, data, offset, parametersMap);
+}
+
 BOOST_PYTHON_MODULE(proxy_io)
 {
     class_<ProxyIOProxy, boost::noncopyable>("ProxyIOProxy", no_init)
         .def("__init__", make_constructor(create))
-        .def("write", &ProxyIOProxy::write)
-        .def("read", &ProxyIOProxy::read);
+        .def("read", raw_function(raw_read))
+        .def("write", raw_function(raw_write));
 }
