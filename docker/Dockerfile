@@ -24,7 +24,11 @@ RUN case ${RELEASE} in \
 	esac
 
 # Install Samba and nfs servers
-RUN dnf -y install samba rpcbind nfs-utils nfs-utils-lib && dnf clean all
+# Install older Samba due to mounting error using OSX Finder
+# in 3.4.8 version from repository
+RUN dnf -y install samba-2:4.3.0-0.1.rc4.fc23.x86_64 rpcbind nfs-utils \
+                   nfs-utils-lib && \
+    dnf clean all
 # Add Samba and nfs configs
 ADD nfs_exports /etc/exports
 ADD smb.conf /etc/samba/
