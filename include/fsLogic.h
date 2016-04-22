@@ -273,6 +273,8 @@ private:
 
     std::mutex m_cancelCacheExpirationTickMutex;
     std::function<void()> m_cancelCacheExpirationTick;
+
+    std::string compute_hash(const std::string& data);
 };
 
 struct FsLogicWrapper {

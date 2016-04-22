@@ -34,7 +34,7 @@
 #include "messages/fuse/updateTimes.h"
 
 #include <boost/algorithm/string.hpp>
-#include <openssl/md5.h>
+#include <openssl/sha.h>
 
 #include <sys/stat.h>
 
@@ -399,12 +399,10 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
             helperCtx, fileBlock.fileId(), buf, offset, parameters);
 
         if (dataNeedsSynchronization) {
-            auto data = asio::buffer_cast<const unsigned char *>(buf);
-            unsigned char checksum[MD5_DIGEST_LENGTH];
-            MD5(data, sizeof(data) - 1, checksum);
+            std::string data = asio::buffer_cast<char *>(buf); //todo deal with partial read
+            auto checksum = compute_hash(data);
 
-            if (serverChecksum.get().value() !=
-                std::string(reinterpret_cast<char *>(checksum))) {
+            if (serverChecksum.get().value() != checksum) {
                 helper->sh_release(helperCtx, fileBlock.fileId());
                 helperCtx = getHelperCtx(
                     context, helper, fileBlock.storageId(), fileBlock.fileId());
@@ -850,6 +848,16 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
             LOG(INFO) << "File remove event received: " << event->fileUuid();
         }
     };
+}
+
+std::string FsLogic::compute_hash(const std::string& data)
+{
+    unsigned char hash[SHA256_DIGEST_LENGTH];
+    SHA256_CTX sha256;
+    SHA256_Init(&sha256);
+    SHA256_Update(&sha256, data.c_str(), data.size());
+    SHA256_Final(hash, &sha256);
+    return {reinterpret_cast<const char *>(hash)};
 }
 
 } // namespace client
