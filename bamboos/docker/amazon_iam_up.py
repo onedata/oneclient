@@ -1,38 +1,30 @@
 #!/usr/bin/env python
 # coding=utf-8
 
-"""Authors: Krzysztof Trzepla
-Copyright (C) 2015 ACK CYFRONET AGH
+"""Authors: Michal Wrona
+Copyright (C) 2016 ACK CYFRONET AGH
 This software is released under the MIT license cited in 'LICENSE.txt'
 
-A script that brings up a S3 storage.
+Brings up a Amazon IAM mock.
 Run the script with -h flag to learn about script's running options.
 """
 
 from __future__ import print_function
-
 import argparse
 import json
 
-from environment import s3, common
+from environment import amazon_iam, common
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    description='Bring up S3 storage.')
+    description='Bring up Amazon IAM mock.')
 
 parser.add_argument(
     '-i', '--image',
     action='store',
-    default='lphoward/fake-s3',
+    default='onedata/worker',
     help='docker image to use for the container',
     dest='image')
-
-parser.add_argument(
-    '-b', '--bucket',
-    action='append',
-    default=[],
-    help='bucket name',
-    dest='buckets')
 
 parser.add_argument(
     '-u', '--uid',
@@ -42,6 +34,7 @@ parser.add_argument(
     dest='uid')
 
 args = parser.parse_args()
-config = s3.up(args.image, args.buckets, 'storage', args.uid)
+
+config = amazon_iam.up(args.image, args.uid)
 
 print(json.dumps(config))
