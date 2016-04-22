@@ -53,7 +53,7 @@ protected:
 
     boost::filesystem::path testFilePath;
     boost::filesystem::path testFileId;
-    std::string testFileUuid;
+    std::unordered_map<std::string, std::string> testParameters;
 
     std::shared_ptr<std::promise<void>> pv1;
     std::shared_ptr<std::promise<void>> pv2;
@@ -85,7 +85,7 @@ protected:
 
         testFileId = "test.txt";
         testFilePath = boost::filesystem::path(DIO_TEST_ROOT) / testFileId;
-        testFileUuid = "test_uuid";
+        testParameters = {{"file_uuid", "test_uuid"}};
 
         th_handle1 = std::thread([&]() { io_service.run(); });
         th_handle2 = std::thread([&]() { io_service.run(); });
@@ -179,7 +179,7 @@ TEST_F(DirectIOHelperTest, shouldWriteBytes)
     auto writeBuf = asio::buffer(stmp);
 
     auto p = make_promise<int>();
-    proxy->ash_write(ctx, testFileId, writeBuf, 5, testFileUuid,
+    proxy->ash_write(ctx, testFileId, writeBuf, 5, testParameters,
         std::bind(&DirectIOHelperTest::set_promise<int>, this, p, _1, _2));
     auto bytes_written = p->get_future().get();
     EXPECT_EQ(3, bytes_written);
@@ -197,7 +197,7 @@ TEST_F(DirectIOHelperTest, shouldReadBytes)
     auto buf1 = asio::mutable_buffer(stmp, 10);
 
     auto p = make_promise<asio::mutable_buffer>();
-    proxy->ash_read(ctx, testFileId, buf1, 5, testFileUuid,
+    proxy->ash_read(ctx, testFileId, buf1, 5, testParameters,
         std::bind(&DirectIOHelperTest::set_promise<asio::mutable_buffer>, this,
                         p, _1, _2));
     auto buf2 = p->get_future().get();
@@ -369,7 +369,7 @@ TEST_F(DirectIOHelperTest, AsyncBench)
 
     for (auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
         auto p = make_promise<int>();
-        proxy->ash_write(ctx, testFileId, writeBuf, 0, testFileUuid,
+        proxy->ash_write(ctx, testFileId, writeBuf, 0, testParameters,
             std::bind(&DirectIOHelperTest::set_promise<int>, this, p, _1, _2));
         res[i] = p->get_future();
     }
@@ -389,7 +389,7 @@ TEST_F(DirectIOHelperTest, SyncBench)
         char stmp[BENCH_BLOCK_SIZE];
         auto writeBuf = asio::buffer(stmp, BENCH_BLOCK_SIZE);
         for (auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
-            proxy->sh_write(ctx, testFileId, writeBuf, 0, testFileUuid);
+            proxy->sh_write(ctx, testFileId, writeBuf, 0, testParameters);
         }
         pv1->set_value();
     });

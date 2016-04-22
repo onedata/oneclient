@@ -10,16 +10,20 @@
 
 #include "messages.pb.h"
 
+#include <glog/stl_logging.h>
+
 #include <sstream>
 
 namespace one {
 namespace messages {
 namespace proxyio {
 
-RemoteWrite::RemoteWrite(std::string fileUuid, std::string storageId,
-                         std::string fileId, const off_t offset, asio::const_buffer data)
-    : ProxyIORequest{std::move(fileUuid), std::move(storageId),
-                     std::move(fileId)}
+RemoteWrite::RemoteWrite(
+    std::unordered_map<std::string, std::string> parameters,
+    std::string storageId, std::string fileId, const off_t offset,
+    asio::const_buffer data)
+    : ProxyIORequest{std::move(parameters), std::move(storageId),
+          std::move(fileId)}
     , m_offset{offset}
     , m_data{data}
 {
@@ -28,10 +32,10 @@ RemoteWrite::RemoteWrite(std::string fileUuid, std::string storageId,
 std::string RemoteWrite::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'RemoteWrite', fileUuid: '" << m_fileUuid
-    << "', storageId: '" << m_storageId << "', fileId: '" << m_fileId
-    << "', offset: " << m_offset
-    << ", data size: " << asio::buffer_size(m_data);
+    stream << "type: 'RemoteWrite', parameters: " << m_parameters
+           << ", storageId: '" << m_storageId << "', fileId: '" << m_fileId
+           << "', offset: " << m_offset
+           << ", data size: " << asio::buffer_size(m_data);
     return stream.str();
 }
 

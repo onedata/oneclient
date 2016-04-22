@@ -40,7 +40,7 @@ message FuseRequest {
         GetNewFileLocation get_new_file_location = 8;
         GetFileLocation get_file_location = 9;
         GetHelperParams get_helper_params = 10;
-        Close close = 11;
+        Release release = 11;
         Truncate truncate = 12;
         GetXattr get_xattr = 13;
         SetXattr set_xattr = 14;
@@ -49,6 +49,8 @@ message FuseRequest {
         SynchronizeBlock synchronize_block = 17;
         CreateStorageTestFile create_storage_test_file = 18;
         VerifyStorageTestFile verify_storage_test_file = 19;
+        GetParent get_parent = 20;
+        SynchronizeBlockAndComputeChecksum synchronize_block_and_compute_checksum = 21;
     }
 }
 
@@ -112,7 +114,11 @@ message Truncate {
     required int64 size = 2;
 }
 
-message Close {
+message Release {
+    required bytes handle_id = 1;
+}
+
+message GetParent {
     required bytes uuid = 1;
 }
 
@@ -128,6 +134,8 @@ message FuseResponse {
         Xattr xattr = 6;
         XattrList xattr_list = 7;
         StorageTestFile storage_test_file = 8;
+        Dir dir = 9;
+        Checksum checksum = 10;
     }
 }
 
@@ -155,6 +163,7 @@ message FileLocation {
     required bytes storage_id = 4;
     required bytes file_id = 5;
     repeated FileBlock blocks = 6;
+    optional bytes handle_id = 7;
 }
 
 message HelperArg {
@@ -217,4 +226,17 @@ message VerifyStorageTestFile {
 message SynchronizeBlock {
     required bytes     uuid  = 1;
     required FileBlock block = 2;
+}
+
+message Dir {
+    required bytes uuid = 1;
+}
+
+message SynchronizeBlockAndComputeChecksum {
+    required bytes     uuid  = 1;
+    required FileBlock block = 2;
+}
+
+message Checksum {
+    required bytes value = 1;
 }
