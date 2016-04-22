@@ -11,9 +11,9 @@
 
 #include "cache/cacheExpirationHelper.h"
 #include "cache/fileContextCache.h"
+#include "cache/forceProxyIOCache.h"
 #include "cache/helpersCache.h"
 #include "cache/metadataCache.h"
-#include "cache/forceProxyIOCache.h"
 #include "events/eventManager.h"
 #include "fsSubscriptions.h"
 #include "messages/fuse/fileAttr.h"
@@ -31,8 +31,8 @@
 #include <memory>
 #include <mutex>
 #include <string>
-#include <vector>
 #include <tuple>
+#include <vector>
 
 namespace one {
 
@@ -229,6 +229,13 @@ public:
     int fsyncdir(boost::filesystem::path path, const int datasync,
         struct fuse_file_info *const fileInfo);
 
+    /**
+     * FUSE @c create callback.
+     * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
+     */
+    int create(boost::filesystem::path path, const mode_t mode,
+        struct fuse_file_info *const fileInfo);
+
 protected:
     virtual HelpersCache::HelperPtr getHelper(
         const std::string &fileUuid, const std::string &storageId);
@@ -236,6 +243,10 @@ protected:
 private:
     void scheduleCacheExpirationTick();
     void removeFile(boost::filesystem::path path);
+    messages::fuse::FileLocation createFile(
+        boost::filesystem::path path, mode_t);
+    void openFile(messages::fuse::FileLocation &location,
+        struct fuse_file_info *const fileInfo);
     bool waitForBlockSynchronization(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range);
     std::tuple<messages::fuse::FileBlock, asio::const_buffer> findWriteLocation(

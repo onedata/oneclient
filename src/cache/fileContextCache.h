@@ -13,6 +13,7 @@
 
 #include <fuse/fuse_common.h>
 #include <tbb/concurrent_hash_map.h>
+#include <boost/optional.hpp>
 
 #include <fcntl.h>
 
@@ -40,6 +41,7 @@ public:
     struct FileContext {
         std::string uuid;
         int flags;
+        std::shared_ptr<boost::optional<std::string>> handleId;
         /// {storageId, fileId} => IStorageHelperCTX
         std::shared_ptr<HelperCtxMap> helperCtxMap;
     };

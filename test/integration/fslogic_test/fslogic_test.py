@@ -127,7 +127,7 @@ def prepare_helper():
     return server_response
 
 
-def prepare_location(blocks=[]):
+def prepare_location(blocks=[], handle_id=None):
     file_blocks = prepare_file_blocks(blocks)
 
     repl = fuse_messages_pb2.FileLocation()
@@ -137,6 +137,8 @@ def prepare_location(blocks=[]):
     repl.file_id = 'file1'
     repl.provider_id = 'provider1'
     repl.blocks.extend(file_blocks)
+    if handle_id is not None:
+        repl.handle_id = handle_id
 
     server_response = messages_pb2.ServerMessage()
     server_response.fuse_response.file_location.CopyFrom(repl)
@@ -145,11 +147,11 @@ def prepare_location(blocks=[]):
     return server_response
 
 
-def do_open(endpoint, fl, blocks=[], size=None):
+def do_open(endpoint, fl, blocks=[], size=None, handle_id=None):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.REG,
                                        size=size)
 
-    open_response = prepare_location(blocks)
+    open_response = prepare_location(blocks, handle_id)
 
     with reply(endpoint, [getattr_response, open_response]):
         assert fl.open('/random/path', 0) >= 0
@@ -839,7 +841,7 @@ def test_read_should_request_synchronization(appmock_client, endpoint, fl):
     sync_req = prepare_synchronize_block(2, 5).SerializeToString()
 
     appmock_client.reset_tcp_history()
-    with reply(endpoint, location_update_event) as queue:
+    with reply(endpoint, location_update_event, reply_to_async=True) as queue:
         fl.read('/random/path', 2, 5)
         client_message = queue.get()
 
@@ -852,8 +854,9 @@ def test_read_should_continue_reading_after_synchronization(appmock_client, endp
     location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0)
 
     appmock_client.reset_tcp_history()
-    with reply(endpoint, location_update_event):
+    with reply(endpoint, location_update_event, reply_to_async=True):
         assert 5 == fl.read('/random/path', 2, 5)
+
 
 def test_read_should_should_open_file_block_once(endpoint, fl):
     do_open(endpoint, fl, blocks=[(0, 5, 'storage1', 'file1'),
@@ -922,3 +925,42 @@ def test_release_should_pass_helper_errors(endpoint, fl):
 
     assert 'Owner died' in str(excinfo.value)
     assert fl.verify_and_clear_expectations()
+
+
+def test_release_should_send_release_message_if_handle_id_is_set(endpoint, fl):
+    do_open(endpoint, fl, size=0, handle_id='handle_id')
+    release_response = messages_pb2.ServerMessage()
+    release_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    with reply(endpoint, [release_response]) as queue:
+        assert 0 == fl.release('/random/path')
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+
+    fuse_request = client_message.fuse_request
+    assert fuse_request.HasField('release')
+
+
+def test_release_should_not_send_release_message_if_handle_id_is_not_set(endpoint, fl):
+    do_open(endpoint, fl, size=0)
+    release_response = messages_pb2.ServerMessage()
+    release_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    with reply(endpoint, []) as queue:
+        assert 0 == fl.release('/random/path')
+        assert queue.empty()
+
+
+def test_release_should_clear_handle_id_if_set(endpoint, fl):
+    do_open(endpoint, fl, size=0, handle_id='handle_id')
+    release_response = messages_pb2.ServerMessage()
+    release_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    with reply(endpoint, [release_response]):
+        assert 0 == fl.release('/random/path')
+
+    assert fl.open('/random/path', 0) >= 0
+    with reply(endpoint, []) as queue:
+        assert 0 == fl.release('/random/path')
+        assert queue.empty()
