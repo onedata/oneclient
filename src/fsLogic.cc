@@ -410,16 +410,18 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto helperCtx = getHelperCtx(
         context, helper, fileBlock.storageId(), fileBlock.fileId());
 
+    auto original_buf=buf;
     try {
         buf = helper->sh_read(
             helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
 
-        if(boost::icl::size(availableRange) > 0 && asio::buffer_size(buf) == 0) {
+        if (boost::icl::size(availableRange) > 0 &&
+            asio::buffer_size(buf) == 0) {
             helper->sh_release(helperCtx, fileBlock.fileId());
             helperCtx = getHelperCtx(
-                    context, helper, fileBlock.storageId(), fileBlock.fileId());
+                context, helper, fileBlock.storageId(), fileBlock.fileId());
             buf = helper->sh_read(
-                    helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
+                helperCtx, fileBlock.fileId(), original_buf, offset, context.uuid);
         }
     }
     catch (const std::system_error &e) {
