@@ -31,11 +31,13 @@ public:
     CTXPtr createCTX();
 
     void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
+        asio::mutable_buffer buf, off_t offset,
+        const std::unordered_map<std::string, std::string> &parameters,
         GeneralCallback<asio::mutable_buffer>);
 
     void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset, const std::string &fileUuid,
+        asio::const_buffer buf, off_t offset,
+        const std::unordered_map<std::string, std::string> &parameters,
         GeneralCallback<std::size_t>);
 
 private:
