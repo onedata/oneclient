@@ -16,6 +16,7 @@
 #include "cache/metadataCache.h"
 #include "events/eventManager.h"
 #include "fsSubscriptions.h"
+#include "messages/fuse/checksum.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
 #include "messages/fuse/helperParams.h"
@@ -247,7 +248,7 @@ private:
         boost::filesystem::path path, mode_t);
     void openFile(messages::fuse::FileLocation &location,
         struct fuse_file_info *const fileInfo);
-    bool waitForBlockSynchronization(const std::string &uuid,
+    boost::optional<one::messages::fuse::Checksum> waitForBlockSynchronization(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range);
     std::tuple<messages::fuse::FileBlock, asio::const_buffer> findWriteLocation(
         const messages::fuse::FileLocation &fileLocation, const off_t offset,

@@ -29,11 +29,12 @@
 #include "messages/fuse/helperParams.h"
 #include "messages/fuse/release.h"
 #include "messages/fuse/rename.h"
-#include "messages/fuse/synchronizeBlock.h"
+#include "messages/fuse/synchronizeBlockAndComputeChecksum.h"
 #include "messages/fuse/truncate.h"
 #include "messages/fuse/updateTimes.h"
 
 #include <boost/algorithm/string.hpp>
+#include <openssl/md5.h>
 
 #include <sys/stat.h>
 
@@ -370,12 +371,17 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto availableBlockIt =
         location.blocks().find(boost::icl::discrete_interval<off_t>(offset));
 
-    if (availableBlockIt == location.blocks().end()) {
-        if (!waitForBlockSynchronization(context.uuid, wantedRange))
+    boost::optional<messages::fuse::Checksum> serverChecksum;
+    bool dataNeedsSynchronization = availableBlockIt == location.blocks().end();
+    if (dataNeedsSynchronization) {
+        if (serverChecksum =
+                waitForBlockSynchronization(context.uuid, wantedRange)) {
+            location = m_metadataCache.getLocation(context.uuid);
+            availableBlockIt = location.blocks().find(
+                boost::icl::discrete_interval<off_t>(offset));
+        }
+        else
             throw std::errc::resource_unavailable_try_again;
-        location = m_metadataCache.getLocation(context.uuid);
-        availableBlockIt = location.blocks().find(
-            boost::icl::discrete_interval<off_t>(offset));
     }
 
     const messages::fuse::FileBlock &fileBlock = availableBlockIt->second;
@@ -386,19 +392,25 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto helperCtx = getHelperCtx(
         context, helper, fileBlock.storageId(), fileBlock.fileId());
     auto parameters = makeParameters(context);
-    auto original_buf=buf;
+    auto original_buf = buf;
 
     try {
         buf = helper->sh_read(
             helperCtx, fileBlock.fileId(), buf, offset, parameters);
 
-        if (boost::icl::size(availableRange) > 0 &&
-            asio::buffer_size(buf) == 0) {
-            helper->sh_release(helperCtx, fileBlock.fileId());
-            helperCtx = getHelperCtx(
-                context, helper, fileBlock.storageId(), fileBlock.fileId());
-            buf = helper->sh_read(
-                helperCtx, fileBlock.fileId(), original_buf, offset, parameters);
+        if (dataNeedsSynchronization) {
+            auto data = asio::buffer_cast<const unsigned char *>(buf);
+            unsigned char checksum[MD5_DIGEST_LENGTH];
+            MD5(data, sizeof(data) - 1, checksum);
+
+            if (serverChecksum.get().value() !=
+                std::string(reinterpret_cast<char *>(checksum))) {
+                helper->sh_release(helperCtx, fileBlock.fileId());
+                helperCtx = getHelperCtx(
+                    context, helper, fileBlock.storageId(), fileBlock.fileId());
+                buf = helper->sh_read(helperCtx, fileBlock.fileId(),
+                    original_buf, offset, parameters);
+            }
         }
     }
     catch (const std::system_error &e) {
@@ -417,13 +429,20 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     return bytesRead;
 }
 
-bool FsLogic::waitForBlockSynchronization(
+boost::optional<messages::fuse::Checksum> FsLogic::waitForBlockSynchronization(
     const std::string &uuid, const boost::icl::discrete_interval<off_t> &range)
 {
-    messages::fuse::SynchronizeBlock msg{uuid, range};
-    m_context->communicator()->send(std::move(msg));
-    return m_metadataCache.waitForNewLocation(uuid, range,
-        std::chrono::seconds{m_context->options()->get_file_sync_timeout()});
+    messages::fuse::SynchronizeBlockAndComputeChecksum request{uuid, range};
+    auto future =
+        m_context->communicator()->communicate<messages::fuse::Checksum>(
+            std::move(request));
+    auto checksum = communication::wait(future);
+
+    if (m_metadataCache.waitForNewLocation(
+            uuid, range, std::chrono::seconds{
+                             m_context->options()->get_file_sync_timeout()}))
+        return {std::move(checksum)};
+    return {};
 }
 
 int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,

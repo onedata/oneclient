@@ -6,8 +6,10 @@ __author__ = "Konrad Zemek"
 __copyright__ = """(C) 2015 ACK CYFRONET AGH,
 This software is released under the MIT license cited in 'LICENSE.txt'."""
 
+import hashlib
 import os
 import sys
+from threading import Thread
 import time
 import pytest
 
@@ -31,6 +33,16 @@ def endpoint(appmock_client):
 @pytest.fixture
 def fl(endpoint):
     return fslogic.FsLogicProxy(endpoint.ip, endpoint.port)
+
+
+def send_event_with_delay(endpoint, event, delay=1):
+    time.sleep(delay)
+    endpoint.send(event)
+
+
+def schedule_sending_event(endpoint, event):
+    thread = Thread(target=send_event_with_delay, args=(endpoint, event))
+    thread.start()
 
 
 def prepare_file_blocks(blocks=[]):
@@ -81,17 +93,32 @@ def prepare_location_update_event(blocks, stream_id, sequence_number):
     return server_msg
 
 
+def prepare_checksum(data):
+    md = hashlib.md5()
+    md.update(data)
+    hash = md.digest()
+
+    repl = fuse_messages_pb2.Checksum()
+    repl.value = hash
+
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.checksum.CopyFrom(repl)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    return server_response
+
+
 def prepare_synchronize_block(offset, size):
     block = common_messages_pb2.FileBlock()
     block.offset = offset
     block.size = size
 
-    req = fuse_messages_pb2.SynchronizeBlock()
+    req = fuse_messages_pb2.SynchronizeBlockAndComputeChecksum()
     req.uuid = 'uuid1'
     req.block.CopyFrom(block)
 
     client_request = messages_pb2.ClientMessage()
-    client_request.fuse_request.synchronize_block.CopyFrom(req)
+    client_request.fuse_request.synchronize_block_and_compute_checksum.CopyFrom(req)
 
     return client_request
 
@@ -837,24 +864,35 @@ def test_read_should_read_partial_content(endpoint, fl):
 def test_read_should_request_synchronization(appmock_client, endpoint, fl):
     do_open(endpoint, fl, blocks=[(4, 6)], size=10)
     stream_id = get_stream_id_from_location_subscription(endpoint.history()[0])
-    location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0)
-    sync_req = prepare_synchronize_block(2, 5).SerializeToString()
+    location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0).SerializeToString()
+    checksum = prepare_checksum('')
 
+    schedule_sending_event(endpoint, location_update_event)
     appmock_client.reset_tcp_history()
-    with reply(endpoint, location_update_event, reply_to_async=True) as queue:
+    with reply(endpoint, checksum) as queue:
         fl.read('/random/path', 2, 5)
         client_message = queue.get()
 
-    assert client_message.SerializeToString() == sync_req
+    assert client_message.HasField('fuse_request')
+    fuse_request = client_message.fuse_request
+    assert fuse_request.HasField('synchronize_block_and_compute_checksum')
+    block = common_messages_pb2.FileBlock()
+    block.offset = 2
+    block.size = 5
+    sync = fuse_request.synchronize_block_and_compute_checksum
+    assert sync.uuid == 'uuid1'
+    assert sync.block == block
 
 
 def test_read_should_continue_reading_after_synchronization(appmock_client, endpoint, fl):
     do_open(endpoint, fl, blocks=[(4, 6)], size=10)
     stream_id = get_stream_id_from_location_subscription(endpoint.history()[0])
-    location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0)
+    checksum = prepare_checksum('')
+    location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0).SerializeToString()
 
+    schedule_sending_event(endpoint, location_update_event)
     appmock_client.reset_tcp_history()
-    with reply(endpoint, location_update_event, reply_to_async=True):
+    with reply(endpoint, checksum):
         assert 5 == fl.read('/random/path', 2, 5)
 
 
