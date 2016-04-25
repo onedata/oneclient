@@ -17,12 +17,12 @@
 
 #include <errno.h>
 
+#include <cstdio>
 #include <cstring>
-#include <future>
-#include <iostream>
 #include <fstream>
 #include <functional>
-#include <cstdio>
+#include <future>
+#include <iostream>
 
 #define DIO_TEST_ROOT "/tmp"
 
@@ -166,7 +166,7 @@ TEST_F(DirectIOHelperTest, shouldFaileWithInvalidUserCTX)
             return std::make_unique<InvalidUserCTX>();
         });
 
-    helper.ash_open(ctx, testFileId, O_RDONLY,
+    helper.ash_open(ctx, testFileId, O_RDONLY, testParameters,
         std::bind(&DirectIOHelperTest::set_promise<int>, this, pi1, _1, _2));
 
     EXPECT_THROW_POSIX_CODE(pi1->get_future().get(), EDOM);
@@ -179,7 +179,7 @@ TEST_F(DirectIOHelperTest, shouldWriteBytes)
     auto writeBuf = asio::buffer(stmp);
 
     auto p = make_promise<int>();
-    proxy->ash_write(ctx, testFileId, writeBuf, 5, testParameters,
+    proxy->ash_write(ctx, testFileId, writeBuf, 5,
         std::bind(&DirectIOHelperTest::set_promise<int>, this, p, _1, _2));
     auto bytes_written = p->get_future().get();
     EXPECT_EQ(3, bytes_written);
@@ -197,7 +197,7 @@ TEST_F(DirectIOHelperTest, shouldReadBytes)
     auto buf1 = asio::mutable_buffer(stmp, 10);
 
     auto p = make_promise<asio::mutable_buffer>();
-    proxy->ash_read(ctx, testFileId, buf1, 5, testParameters,
+    proxy->ash_read(ctx, testFileId, buf1, 5,
         std::bind(&DirectIOHelperTest::set_promise<asio::mutable_buffer>, this,
                         p, _1, _2));
     auto buf2 = p->get_future().get();
@@ -209,7 +209,7 @@ TEST_F(DirectIOHelperTest, shouldReadBytes)
 
 TEST_F(DirectIOHelperTest, shouldOpen)
 {
-    proxy->ash_open(ctx, testFileId, O_RDONLY,
+    proxy->ash_open(ctx, testFileId, O_RDONLY, testParameters,
         std::bind(&DirectIOHelperTest::set_promise<int>, this, pi1, _1, _2));
     EXPECT_GT(pi1->get_future().get(), 0);
     EXPECT_GT(ctx->fh, 0);
@@ -359,7 +359,7 @@ TEST_F(DirectIOHelperTest, shouldTruncate)
 
 TEST_F(DirectIOHelperTest, AsyncBench)
 {
-    proxy->ash_open(ctx, testFileId, O_RDWR,
+    proxy->ash_open(ctx, testFileId, O_RDWR, testParameters,
         std::bind(&DirectIOHelperTest::set_promise<int>, this, pi1, _1, _2));
     pi1->get_future().get();
 
@@ -369,7 +369,7 @@ TEST_F(DirectIOHelperTest, AsyncBench)
 
     for (auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
         auto p = make_promise<int>();
-        proxy->ash_write(ctx, testFileId, writeBuf, 0, testParameters,
+        proxy->ash_write(ctx, testFileId, writeBuf, 0,
             std::bind(&DirectIOHelperTest::set_promise<int>, this, p, _1, _2));
         res[i] = p->get_future();
     }
@@ -385,14 +385,15 @@ TEST_F(DirectIOHelperTest, AsyncBench)
 
 TEST_F(DirectIOHelperTest, SyncBench)
 {
-    proxy->ash_open(ctx, testFileId, O_RDWR, [=](int, one::helpers::error_t e) {
-        char stmp[BENCH_BLOCK_SIZE];
-        auto writeBuf = asio::buffer(stmp, BENCH_BLOCK_SIZE);
-        for (auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
-            proxy->sh_write(ctx, testFileId, writeBuf, 0, testParameters);
-        }
-        pv1->set_value();
-    });
+    proxy->ash_open(ctx, testFileId, O_RDWR, testParameters,
+        [=](int, one::helpers::error_t e) {
+            char stmp[BENCH_BLOCK_SIZE];
+            auto writeBuf = asio::buffer(stmp, BENCH_BLOCK_SIZE);
+            for (auto i = 0; i < BENCH_LOOP_COUNT; ++i) {
+                proxy->sh_write(ctx, testFileId, writeBuf, 0);
+            }
+            pv1->set_value();
+        });
     pv1->get_future().get();
 
     proxy->ash_release(ctx, testFileId,

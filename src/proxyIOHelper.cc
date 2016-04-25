@@ -16,6 +16,18 @@
 
 #include <asio.hpp>
 
+namespace {
+std::shared_ptr<one::helpers::ProxyIOHelperCTX> getCTX(
+    one::helpers::CTXPtr rawCTX)
+{
+    auto ctx =
+        std::dynamic_pointer_cast<one::helpers::ProxyIOHelperCTX>(rawCTX);
+
+    assert(ctx != nullptr);
+    return ctx;
+}
+}
+
 namespace one {
 namespace helpers {
 
@@ -32,12 +44,20 @@ CTXPtr ProxyIOHelper::createCTX()
     return std::make_shared<ProxyIOHelperCTX>();
 }
 
-void ProxyIOHelper::ash_read(CTXPtr /*ctx*/, const boost::filesystem::path &p,
+void ProxyIOHelper::ash_open(CTXPtr ctx, const boost::filesystem::path &p,
+    int flags, const std::unordered_map<std::string, std::string> &parameters,
+    GeneralCallback<int> callback)
+{
+    getCTX(ctx)->parameters = parameters;
+    callback({}, SUCCESS_CODE);
+}
+
+void ProxyIOHelper::ash_read(CTXPtr ctx, const boost::filesystem::path &p,
     asio::mutable_buffer buf, off_t offset,
-    const std::unordered_map<std::string, std::string> &parameters,
     GeneralCallback<asio::mutable_buffer> callback)
 {
     auto fileId = p.string();
+    auto &parameters = getCTX(ctx)->parameters;
     messages::proxyio::RemoteRead msg{parameters, m_storageId,
         std::move(fileId), offset, asio::buffer_size(buf)};
 
@@ -58,12 +78,11 @@ void ProxyIOHelper::ash_read(CTXPtr /*ctx*/, const boost::filesystem::path &p,
         std::move(msg), std::move(wrappedCallback));
 }
 
-void ProxyIOHelper::ash_write(CTXPtr /*ctx*/, const boost::filesystem::path &p,
-    asio::const_buffer buf, off_t offset,
-    const std::unordered_map<std::string, std::string> &parameters,
-    GeneralCallback<std::size_t> callback)
+void ProxyIOHelper::ash_write(CTXPtr ctx, const boost::filesystem::path &p,
+    asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t> callback)
 {
     auto fileId = p.string();
+    auto &parameters = getCTX(ctx)->parameters;
     messages::proxyio::RemoteWrite msg{
         parameters, m_storageId, std::move(fileId), offset, buf};
 
