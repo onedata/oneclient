@@ -554,6 +554,11 @@ DirectIOHelper::DirectIOHelper(
 {
 }
 
+bool DirectIOHelper::needsDataConsistencyCheck()
+{
+    return true;
+}
+
 std::shared_ptr<PosixHelperCTX> DirectIOHelper::getCTX(CTXPtr rawCTX) const
 {
     auto ctx = std::dynamic_pointer_cast<PosixHelperCTX>(rawCTX);

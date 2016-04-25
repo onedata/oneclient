@@ -148,6 +148,8 @@ public:
         asio::const_buffer buf, off_t offset,
         const std::unordered_map<std::string, std::string> &parameters);
 
+    bool needsDataConsistencyCheck();
+
 protected:
     template <class Result, typename... Args1, typename... Args2>
     static void setResult(
