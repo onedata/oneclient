@@ -10,6 +10,7 @@
 #include "fsLogic.h"
 
 #include "context.h"
+#include "directIOHelper.h"
 #include "helpers/IStorageHelper.h"
 #include "logging.h"
 #include "options.h"
@@ -314,6 +315,9 @@ int openFile(const FileContextCache::HelperCtxMapAccessor &ctxAcc,
     const HelpersCache::HelperPtr &helper, const std::string &fileId)
 {
     auto helperCtx = helper->createCTX();
+    helperCtx->setUserCTX({{one::helpers::DIRECT_IO_HELPER_UID_ARG,
+                               std::to_string(geteuid())},
+        {one::helpers::DIRECT_IO_HELPER_GID_ARG, std::to_string(getegid())}});
     int fh = helper->sh_open(helperCtx, fileId, fileCtx.flags);
     ctxAcc->second = helperCtx;
     return fh;
@@ -398,9 +402,13 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         buf = helper->sh_read(
             helperCtx, fileBlock.fileId(), buf, offset, parameters);
 
-        if (dataNeedsSynchronization) {
-            std::string data = asio::buffer_cast<char *>(buf); //todo deal with partial read
-            auto checksum = compute_hash(data);
+        if (helper->needsDataConsistencyCheck() && dataNeedsSynchronization) {
+            std::string data = std::string(
+                asio::buffer_cast<char *>(buf), asio::buffer_size(buf));
+            auto checksum = availableRange == wantedRange
+                ? compute_hash(data)
+                : syncAndFetchActualChecksum(context.uuid, availableRange)
+                      .value();
 
             if (serverChecksum.get().value() != checksum) {
                 helper->sh_release(helperCtx, fileBlock.fileId());
@@ -430,17 +438,23 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
 boost::optional<messages::fuse::Checksum> FsLogic::waitForBlockSynchronization(
     const std::string &uuid, const boost::icl::discrete_interval<off_t> &range)
 {
-    messages::fuse::SynchronizeBlockAndComputeChecksum request{uuid, range};
-    auto future =
-        m_context->communicator()->communicate<messages::fuse::Checksum>(
-            std::move(request));
-    auto checksum = communication::wait(future);
+    auto checksum = syncAndFetchActualChecksum(uuid, range);
 
     if (m_metadataCache.waitForNewLocation(
             uuid, range, std::chrono::seconds{
                              m_context->options()->get_file_sync_timeout()}))
         return {std::move(checksum)};
     return {};
+}
+
+messages::fuse::Checksum FsLogic::syncAndFetchActualChecksum(
+    const std::string &uuid, const boost::icl::discrete_interval<off_t> &range)
+{
+    messages::fuse::SynchronizeBlockAndComputeChecksum request{uuid, range};
+    auto future =
+        m_context->communicator()->communicate<messages::fuse::Checksum>(
+            std::move(request));
+    return communication::wait(future);
 }
 
 int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
@@ -850,14 +864,14 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
     };
 }
 
-std::string FsLogic::compute_hash(const std::string& data)
+std::string FsLogic::compute_hash(const std::string &data)
 {
     unsigned char hash[SHA256_DIGEST_LENGTH];
     SHA256_CTX sha256;
     SHA256_Init(&sha256);
     SHA256_Update(&sha256, data.c_str(), data.size());
     SHA256_Final(hash, &sha256);
-    return {reinterpret_cast<const char *>(hash)};
+    return {reinterpret_cast<const char *>(hash), SHA256_DIGEST_LENGTH};
 }
 
 } // namespace client

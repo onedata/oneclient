@@ -133,6 +133,10 @@ bool StorageAccessManager::verifyStorageTestFile(
         auto size = testFile.fileContent().size();
         std::vector<char> buffer(size);
         auto ctx = helper->createCTX();
+        ctx->setUserCTX({{one::helpers::DIRECT_IO_HELPER_UID_ARG,
+                             std::to_string(geteuid())},
+            {one::helpers::DIRECT_IO_HELPER_GID_ARG,
+                std::to_string(getegid())}});
 
         auto content = helper->sh_read(
             ctx, testFile.fileId(), asio::buffer(buffer), 0, {});
@@ -171,6 +175,9 @@ std::string StorageAccessManager::modifyStorageTestFile(
     auto size = testFile.fileContent().size();
     std::vector<char> buffer(size);
     auto ctx = helper->createCTX();
+    ctx->setUserCTX({{one::helpers::DIRECT_IO_HELPER_UID_ARG,
+                         std::to_string(geteuid())},
+        {one::helpers::DIRECT_IO_HELPER_GID_ARG, std::to_string(getegid())}});
 
     std::random_device device;
     std::default_random_engine engine(device());

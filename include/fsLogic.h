@@ -248,7 +248,11 @@ private:
         boost::filesystem::path path, mode_t);
     void openFile(messages::fuse::FileLocation &location,
         struct fuse_file_info *const fileInfo);
-    boost::optional<one::messages::fuse::Checksum> waitForBlockSynchronization(const std::string &uuid,
+    boost::optional<one::messages::fuse::Checksum> waitForBlockSynchronization(
+        const std::string &uuid,
+        const boost::icl::discrete_interval<off_t> &range);
+    one::messages::fuse::Checksum syncAndFetchActualChecksum(
+        const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range);
     std::tuple<messages::fuse::FileBlock, asio::const_buffer> findWriteLocation(
         const messages::fuse::FileLocation &fileLocation, const off_t offset,
@@ -274,7 +278,7 @@ private:
     std::mutex m_cancelCacheExpirationTickMutex;
     std::function<void()> m_cancelCacheExpirationTick;
 
-    std::string compute_hash(const std::string& data);
+    std::string compute_hash(const std::string &data);
 };
 
 struct FsLogicWrapper {
