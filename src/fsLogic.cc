@@ -316,7 +316,7 @@ std::unordered_map<std::string, std::string> makeParameters(
         {"file_uuid", fileCtx.uuid}};
 
     if (fileCtx.handleId->is_initialized())
-        parameters.emplace({"handle_id", fileCtx.handleId->get()});
+        parameters.emplace("handle_id", fileCtx.handleId->get());
 
     return parameters;
 };
