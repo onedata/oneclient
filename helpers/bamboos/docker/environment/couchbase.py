@@ -17,7 +17,7 @@ from . import common, docker, dns as dns_mod
 
 
 def _couchbase(cluster_name, num):
-    return 'couchbase{0}_{1}'.format(num, cluster_name)
+    return 'couchbase{0}-{1}'.format(num, cluster_name)
 
 
 def config_entry(cluster_name, num, uid):

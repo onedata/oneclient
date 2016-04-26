@@ -39,6 +39,13 @@
     },
     "provider_domains": {
         "p1": {
+            "gui_override": {
+                "mount_path": "/var/www/html",
+                "mount_from": {
+                    "docker": "docker.onedata.org/op-gui-default:VFS-1825"
+                },
+                "livereload": true
+            },
             "db_driver": "couchdb",
             "os_config": "cfg1",
             "cluster_manager": {
@@ -79,6 +86,13 @@
     },
     "zone_domains": {
         "oz": {
+            "gui_override": {
+                "mount_path": "/var/www/html",
+                "mount_from": {
+                    "host": "/Users/lopiola/git/oz-gui-homepage/rel"
+                },
+                "livereload": true
+            },
             "db_driver": "couchdb",
             "cluster_manager": {
                 "cm": {

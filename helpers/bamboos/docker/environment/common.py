@@ -24,6 +24,8 @@ except ImportError:
 
 requests.packages.urllib3.disable_warnings()
 
+HOST_STORAGE_PATH = "/tmp/onedata/storage"
+
 
 def nagios_up(ip, port=None, protocol='https'):
     url = '{0}://{1}{2}/nagios'.format(protocol, ip, (':' + port) if port else '')
@@ -154,7 +156,8 @@ def fix_sys_config_walk(element, current_app_name, parents, file_path):
 
 
 def apps_with_sysconfig():
-    return ["cluster_manager", "appmock", "cluster_worker", "op_worker", "globalregistry", "onepanel", "oneclient", "oz_worker"]
+    return ["cluster_manager", "appmock", "cluster_worker", "op_worker",
+            "globalregistry", "onepanel", "oneclient", "oz_worker"]
 
 
 def get_docker_name(name_or_container):
@@ -231,4 +234,37 @@ def volume_for_storage(storage):
     """Returns tuple (path_on_host, path_on_docker, read_write_mode)
     for a given storage
     """
-    return os.path.join('/tmp/onedata/storage/', storage), storage, 'rw'
+    return storage_host_path(storage), storage, 'rw'
+
+
+def storage_host_path(storage):
+    """Returns path to storage on host
+    """
+    return os.path.join(HOST_STORAGE_PATH, ensure_relative_path(storage))
+
+
+def ensure_relative_path(path):
+    """Ensures that given path is relative (doesn't start with '/')
+    """
+    if path[0] == "/":
+        return path[1:]
+    return path
+
+
+def mount_nfs_command(config, storages_dockers):
+    """Prepares nfs mount commands for specified os_config and storage dockers
+    :param config: config that may contain os_config inside
+    :param storages_dockers: storage dockers map
+    :return: string with commands
+    """
+    mount_command = ''
+    if not storages_dockers:
+        return mount_command
+    if 'os_config' in config:
+        for storage in config['os_config']['storages']:
+            if storage['type'] == 'nfs':
+                mount_command += '''
+mkdir -p {mount_point}
+mount -t nfs -o proto=tcp,port=2049,nolock {host}:/exports {mount_point}
+'''.format(host=storages_dockers['nfs'][storage['name']]['ip'], mount_point=storage['name'])
+    return mount_command
