@@ -31,7 +31,7 @@ def s3_client(request):
             self.bucket = bucket
 
     bucket = 'data'
-    result = s3_server.up(image='lphoward/fake-s3', buckets=[bucket])
+    result = s3_server.up('lphoward/fake-s3', [bucket], 'storage', '1')
     [container] = result['docker_ids']
 
     def fin():

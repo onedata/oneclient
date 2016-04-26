@@ -19,10 +19,14 @@ def _ceph_ready(container):
     return bool(re.search('HEALTH_OK', output))
 
 
-def _node_up(image, pools):
+def _node_up(image, pools, name, uid):
+    hostname = common.format_hostname([name, 'ceph'], uid)
+    
     container = docker.run(
             image=image,
-            run_params=["--privileged"],
+            hostname=hostname,
+            name=hostname,
+            privileged=True,
             detach=True)
 
     for (name, pg_num) in pools:
@@ -44,5 +48,5 @@ def _node_up(image, pools):
     }
 
 
-def up(image, pools):
-    return _node_up(image, pools)
+def up(image, pools, name, uid):
+    return _node_up(image, pools, name, uid)
