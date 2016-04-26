@@ -132,14 +132,24 @@ bool StorageAccessManager::verifyStorageTestFile(
     try {
         auto size = testFile.fileContent().size();
         std::vector<char> buffer(size);
-        auto ctx = helper->createCTX();
-        ctx->setUserCTX({{one::helpers::DIRECT_IO_HELPER_UID_ARG,
-                             std::to_string(geteuid())},
-            {one::helpers::DIRECT_IO_HELPER_GID_ARG,
-                std::to_string(getegid())}});
 
-        auto content = helper->sh_read(
-            ctx, testFile.fileId(), asio::buffer(buffer), 0, {});
+        auto ctx = helper->createCTX({});
+        ctx->setUserCTX({{one::helpers::DIRECT_IO_HELPER_UID_ARG,
+                                 std::to_string(geteuid())},
+                         {one::helpers::DIRECT_IO_HELPER_GID_ARG,
+                                 std::to_string(getegid())}});
+        helper->sh_open(ctx, testFile.fileId(), 0);
+
+        asio::mutable_buffer content;
+        try {
+            content = helper->sh_read(
+                ctx, testFile.fileId(), asio::buffer(buffer), 0);
+        }
+        catch (...) {
+            helper->sh_release(ctx, testFile.fileId());
+            throw;
+        }
+        helper->sh_release(ctx, testFile.fileId());
 
         if (asio::buffer_size(content) != size) {
             LOG(WARNING) << "Storage test file size mismatch, expected: "
@@ -174,10 +184,6 @@ std::string StorageAccessManager::modifyStorageTestFile(
 {
     auto size = testFile.fileContent().size();
     std::vector<char> buffer(size);
-    auto ctx = helper->createCTX();
-    ctx->setUserCTX({{one::helpers::DIRECT_IO_HELPER_UID_ARG,
-                         std::to_string(geteuid())},
-        {one::helpers::DIRECT_IO_HELPER_GID_ARG, std::to_string(getegid())}});
 
     std::random_device device;
     std::default_random_engine engine(device());
@@ -185,8 +191,20 @@ std::string StorageAccessManager::modifyStorageTestFile(
     std::generate_n(
         buffer.data(), size, [&]() { return distribution(engine); });
 
-    helper->sh_write(
-        ctx, testFile.fileId(), asio::const_buffer(buffer.data(), size), 0, {});
+    auto ctx = helper->createCTX({});
+    ctx->setUserCTX({{one::helpers::DIRECT_IO_HELPER_UID_ARG,
+                                                              std::to_string(geteuid())},
+                     {one::helpers::DIRECT_IO_HELPER_GID_ARG, std::to_string(getegid())}});
+    helper->sh_open(ctx, testFile.fileId(), 0);
+    try {
+        helper->sh_write(
+            ctx, testFile.fileId(), asio::const_buffer(buffer.data(), size), 0);
+    }
+    catch (...) {
+        helper->sh_release(ctx, testFile.fileId());
+        throw;
+    }
+    helper->sh_release(ctx, testFile.fileId());
 
     return std::string{buffer.data(), size};
 }

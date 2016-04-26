@@ -310,11 +310,25 @@ int FsLogic::open(
 }
 
 namespace {
+
+std::unordered_map<std::string, std::string> makeParameters(
+    FileContextCache::FileContext &fileCtx)
+{
+    std::unordered_map<std::string, std::string> parameters{
+        {"file_uuid", fileCtx.uuid}};
+
+    if (fileCtx.handleId->is_initialized())
+        parameters.emplace("handle_id", fileCtx.handleId->get());
+
+    return parameters;
+};
+
 int openFile(const FileContextCache::HelperCtxMapAccessor &ctxAcc,
     FileContextCache::FileContext &fileCtx,
-    const HelpersCache::HelperPtr &helper, const std::string &fileId)
+    const HelpersCache::HelperPtr &helper, const std::string &fileId,
+    std::unordered_map<std::string, std::string> parameters)
 {
-    auto helperCtx = helper->createCTX();
+    auto helperCtx = helper->createCTX(std::move(parameters));
     helperCtx->setUserCTX({{one::helpers::DIRECT_IO_HELPER_UID_ARG,
                                std::to_string(geteuid())},
         {one::helpers::DIRECT_IO_HELPER_GID_ARG, std::to_string(getegid())}});
@@ -330,21 +344,12 @@ helpers::CTXPtr getHelperCtx(FileContextCache::FileContext &fileCtx,
     FileContextCache::HelperCtxMapKey ctxMapKey{storageId, fileId};
     FileContextCache::HelperCtxMapAccessor ctxAcc;
     if (fileCtx.helperCtxMap->insert(ctxAcc, std::move(ctxMapKey)))
-        openFile(ctxAcc, fileCtx, helper, fileId);
+        openFile(ctxAcc, fileCtx, helper, fileId, makeParameters(fileCtx));
 
     return ctxAcc->second;
 }
 
-std::unordered_map<std::string, std::string> makeParameters(
-    FileContextCache::FileContext &fileCtx)
-{
-    std::unordered_map<std::string, std::string> parameters{
-        {"file_uuid", fileCtx.uuid}};
-    if (fileCtx.handleId->is_initialized())
-        parameters.insert({"handle_id", fileCtx.handleId->get()});
-    return parameters;
-};
-}
+} // namespace
 
 int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     const off_t offset, struct fuse_file_info *const fileInfo)
@@ -395,12 +400,11 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto helper = getHelper(context.uuid, fileBlock.storageId());
     auto helperCtx = getHelperCtx(
         context, helper, fileBlock.storageId(), fileBlock.fileId());
-    auto parameters = makeParameters(context);
     auto original_buf = buf;
 
     try {
         buf = helper->sh_read(
-            helperCtx, fileBlock.fileId(), buf, offset, parameters);
+            helperCtx, fileBlock.fileId(), buf, offset);
 
         if (helper->needsDataConsistencyCheck() && dataNeedsSynchronization) {
             std::string data = std::string(
@@ -415,7 +419,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
                 helperCtx = getHelperCtx(
                     context, helper, fileBlock.storageId(), fileBlock.fileId());
                 buf = helper->sh_read(helperCtx, fileBlock.fileId(),
-                    original_buf, offset, parameters);
+                    original_buf, offset);
             }
         }
     }
@@ -477,12 +481,11 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     auto helper = getHelper(context.uuid, location.storageId());
     auto helperCtx = getHelperCtx(
         context, helper, fileBlock.storageId(), fileBlock.fileId());
-    auto parameters = makeParameters(context);
 
     size_t bytesWritten = 0;
     try {
-        bytesWritten = helper->sh_write(
-            helperCtx, fileBlock.fileId(), buf, offset, parameters);
+        bytesWritten =
+            helper->sh_write(helperCtx, fileBlock.fileId(), buf, offset);
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)
