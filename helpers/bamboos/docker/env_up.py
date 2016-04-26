@@ -84,6 +84,13 @@ parser.add_argument(
     dest='bin_oc')
 
 parser.add_argument(
+    '-bl', '--bin-luma',
+    action='store',
+    default=env.default('bin_luma'),
+    help='the path to luma repository',
+    dest='bin_luma')
+
+parser.add_argument(
     '-l', '--logdir',
     action='store',
     default=env.default('logdir'),
@@ -103,6 +110,7 @@ output = env.up(args.config_path, image=args.image, ceph_image=args.ceph_image,
                 bin_cluster_manager=args.bin_cluster_manager,
                 bin_op_worker=args.bin_op_worker,
                 bin_cluster_worker=args.bin_cluster_worker,
+                bin_luma=args.bin_luma,
                 bin_oc=args.bin_oc, logdir=args.logdir)
 
 print(json.dumps(output))
