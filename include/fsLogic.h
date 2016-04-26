@@ -248,11 +248,10 @@ private:
         boost::filesystem::path path, mode_t);
     void openFile(messages::fuse::FileLocation &location,
         struct fuse_file_info *const fileInfo);
-    boost::optional<one::messages::fuse::Checksum> waitForBlockSynchronization(
+    one::messages::fuse::Checksum waitForBlockSynchronization(
         const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range);
-    one::messages::fuse::Checksum syncAndFetchActualChecksum(
-        const std::string &uuid,
+    one::messages::fuse::Checksum syncAndFetchChecksum(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range);
     std::tuple<messages::fuse::FileBlock, asio::const_buffer> findWriteLocation(
         const messages::fuse::FileLocation &fileLocation, const off_t offset,
@@ -261,7 +260,11 @@ private:
     events::FileLocationEventStream::Handler fileLocationHandler();
     events::PermissionChangedEventStream::Handler permissionChangedHandler();
     events::FileRemovalEventStream::Handler fileRemovalHandler();
-    std::string computeHash(const std::string &data);
+    bool dataIsCorrupted(const std::string uuid, asio::const_buffer buf,
+        const std::unique_ptr<messages::fuse::Checksum> serverChecksum,
+        const boost::icl::discrete_interval<off_t> &availableRange,
+        const boost::icl::discrete_interval<off_t> &wantedRange);
+    std::string computeHash(asio::const_buffer buf);
 
     const uid_t m_uid;
     const gid_t m_gid;
@@ -278,7 +281,6 @@ private:
 
     std::mutex m_cancelCacheExpirationTickMutex;
     std::function<void()> m_cancelCacheExpirationTick;
-
 };
 
 struct FsLogicWrapper {

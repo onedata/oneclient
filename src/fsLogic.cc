@@ -380,17 +380,13 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto availableBlockIt =
         location.blocks().find(boost::icl::discrete_interval<off_t>(offset));
 
-    boost::optional<messages::fuse::Checksum> serverChecksum;
+    std::unique_ptr<messages::fuse::Checksum> serverChecksum;
     bool dataNeedsSynchronization = availableBlockIt == location.blocks().end();
     if (dataNeedsSynchronization) {
-        if (serverChecksum =
-                waitForBlockSynchronization(context.uuid, wantedRange)) {
-            location = m_metadataCache.getLocation(context.uuid);
-            availableBlockIt = location.blocks().find(
-                boost::icl::discrete_interval<off_t>(offset));
-        }
-        else
-            throw std::errc::resource_unavailable_try_again;
+        serverChecksum= std::make_unique<messages::fuse::Checksum>(waitForBlockSynchronization(context.uuid, wantedRange));
+        location = m_metadataCache.getLocation(context.uuid);
+        availableBlockIt = location.blocks().find(
+            boost::icl::discrete_interval<off_t>(offset));
     }
 
     const messages::fuse::FileBlock &fileBlock = availableBlockIt->second;
@@ -400,27 +396,16 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto helper = getHelper(context.uuid, fileBlock.storageId());
     auto helperCtx = getHelperCtx(
         context, helper, fileBlock.storageId(), fileBlock.fileId());
-    auto original_buf = buf;
+    auto originalBuf = buf;
 
     try {
-        buf = helper->sh_read(
-            helperCtx, fileBlock.fileId(), buf, offset);
+        buf = helper->sh_read(helperCtx, fileBlock.fileId(), buf, offset);
 
-        if (helper->needsDataConsistencyCheck() && dataNeedsSynchronization) {
-            std::string data = std::string(
-                asio::buffer_cast<char *>(buf), asio::buffer_size(buf));
-            auto checksum = availableRange == wantedRange
-                ? computeHash(data)
-                : syncAndFetchActualChecksum(context.uuid, availableRange)
-                      .value();
-
-            if (serverChecksum.get().value() != checksum) {
-                helper->sh_release(helperCtx, fileBlock.fileId());
-                helperCtx = getHelperCtx(
-                    context, helper, fileBlock.storageId(), fileBlock.fileId());
-                buf = helper->sh_read(helperCtx, fileBlock.fileId(),
-                    original_buf, offset);
-            }
+        if (helper->needsDataConsistencyCheck() && dataNeedsSynchronization &&
+            dataIsCorrupted(context.uuid, buf, std::move(serverChecksum), availableRange,
+                wantedRange)) {
+            helper->sh_release(helperCtx, fileBlock.fileId());
+            return read(path, originalBuf, offset, fileInfo);
         }
     }
     catch (const std::system_error &e) {
@@ -439,19 +424,20 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     return bytesRead;
 }
 
-boost::optional<messages::fuse::Checksum> FsLogic::waitForBlockSynchronization(
+messages::fuse::Checksum FsLogic::waitForBlockSynchronization(
     const std::string &uuid, const boost::icl::discrete_interval<off_t> &range)
 {
-    auto checksum = syncAndFetchActualChecksum(uuid, range);
+    auto checksum = syncAndFetchChecksum(uuid, range);
 
-    if (m_metadataCache.waitForNewLocation(
+    if (!m_metadataCache.waitForNewLocation(
             uuid, range, std::chrono::seconds{
                              m_context->options()->get_file_sync_timeout()}))
-        return {std::move(checksum)};
-    return {};
+        throw std::errc::resource_unavailable_try_again;
+
+    return checksum;
 }
 
-messages::fuse::Checksum FsLogic::syncAndFetchActualChecksum(
+messages::fuse::Checksum FsLogic::syncAndFetchChecksum(
     const std::string &uuid, const boost::icl::discrete_interval<off_t> &range)
 {
     messages::fuse::SynchronizeBlockAndComputeChecksum request{uuid, range};
@@ -867,14 +853,30 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
     };
 }
 
-std::string FsLogic::computeHash(const std::string &data)
+bool FsLogic::dataIsCorrupted(const std::string uuid, asio::const_buffer buf,
+    const std::unique_ptr<messages::fuse::Checksum> serverChecksum,
+    const boost::icl::discrete_interval<off_t> &availableRange,
+    const boost::icl::discrete_interval<off_t> &wantedRange)
 {
-    unsigned char hash[MD4_DIGEST_LENGTH];
+    std::string data =
+        std::string(asio::buffer_cast<const char *>(buf), asio::buffer_size(buf));
+    auto checksum = availableRange == wantedRange
+        ? computeHash(buf)
+        : syncAndFetchChecksum(uuid, availableRange).value();
+    if (serverChecksum->value() != checksum)
+        return true;
+
+    return false;
+}
+
+std::string FsLogic::computeHash(asio::const_buffer buf)
+{
+    std::string hash(MD4_DIGEST_LENGTH, '\0');
     MD4_CTX ctx;
     MD4_Init(&ctx);
-    MD4_Update(&ctx, data.c_str(), data.size());
-    MD4_Final(hash, &ctx);
-    return {reinterpret_cast<const char *>(hash), MD4_DIGEST_LENGTH};
+    MD4_Update(&ctx, asio::buffer_cast<const char *>(buf), asio::buffer_size(buf));
+    MD4_Final(reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
+    return hash;
 }
 
 } // namespace client

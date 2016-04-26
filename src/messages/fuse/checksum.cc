@@ -12,8 +12,6 @@
 
 #include <sstream>
 
-#include "logging.h"
-
 namespace one {
 namespace messages {
 namespace fuse {
