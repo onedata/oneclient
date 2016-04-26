@@ -77,9 +77,10 @@ DirectIOHelper::UserCTXFactory DirectIOHelper::noopUserCTXFactory = [](
     return std::make_unique<DirectIOHelper::NoopUserCTX>();
 };
 
-CTXPtr DirectIOHelper::createCTX()
+CTXPtr DirectIOHelper::createCTX(
+    std::unordered_map<std::string, std::string> params)
 {
-    return std::make_shared<PosixHelperCTX>();
+    return std::make_shared<PosixHelperCTX>(std::move(params));
 }
 
 void DirectIOHelper::ash_getattr(CTXPtr rawCTX,
@@ -367,7 +368,6 @@ void DirectIOHelper::ash_open(CTXPtr rawCTX, const boost::filesystem::path &p,
 
 void DirectIOHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
     asio::mutable_buffer buf, off_t offset,
-    const std::unordered_map<std::string, std::string> &parameters,
     GeneralCallback<asio::mutable_buffer> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
@@ -380,7 +380,7 @@ void DirectIOHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
             }
 
             try {
-                auto res = sh_read(std::move(ctx), p, buf, offset, parameters);
+                auto res = sh_read(std::move(ctx), p, buf, offset);
                 callback(res, SUCCESS_CODE);
             }
             catch (std::system_error &e) {
@@ -390,9 +390,7 @@ void DirectIOHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
 }
 
 void DirectIOHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
-    asio::const_buffer buf, off_t offset,
-    const std::unordered_map<std::string, std::string> &parameters,
-    GeneralCallback<std::size_t> callback)
+    asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
     m_workerService.post(
@@ -404,7 +402,7 @@ void DirectIOHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
             }
 
             try {
-                auto res = sh_write(std::move(ctx), p, buf, offset, parameters);
+                auto res = sh_write(std::move(ctx), p, buf, offset);
                 callback(res, SUCCESS_CODE);
             }
             catch (std::system_error &e) {
@@ -484,8 +482,7 @@ void DirectIOHelper::ash_fsync(CTXPtr rawCTX, const boost::filesystem::path &p,
 }
 
 std::size_t DirectIOHelper::sh_write(CTXPtr rawCTX,
-    const boost::filesystem::path &p, asio::const_buffer buf, off_t offset,
-    const std::unordered_map<std::string, std::string> & /*parameters*/)
+    const boost::filesystem::path &p, asio::const_buffer buf, off_t offset)
 {
     auto ctx = getCTX(std::move(rawCTX));
     auto userCTX = m_userCTXFactory(ctx);
@@ -515,8 +512,7 @@ std::size_t DirectIOHelper::sh_write(CTXPtr rawCTX,
 }
 
 asio::mutable_buffer DirectIOHelper::sh_read(CTXPtr rawCTX,
-    const boost::filesystem::path &p, asio::mutable_buffer buf, off_t offset,
-    const std::unordered_map<std::string, std::string> & /*parameters*/)
+    const boost::filesystem::path &p, asio::mutable_buffer buf, off_t offset)
 {
     auto ctx = getCTX(std::move(rawCTX));
     auto userCTX = m_userCTXFactory(ctx);
@@ -564,9 +560,15 @@ std::shared_ptr<PosixHelperCTX> DirectIOHelper::getCTX(CTXPtr rawCTX) const
     auto ctx = std::dynamic_pointer_cast<PosixHelperCTX>(rawCTX);
     if (ctx == nullptr) {
         LOG(INFO) << "Helper changed. Creating new context.";
-        return std::make_shared<PosixHelperCTX>();
+        return std::make_shared<PosixHelperCTX>(rawCTX->parameters());
     }
     return ctx;
+}
+
+PosixHelperCTX::PosixHelperCTX(
+    std::unordered_map<std::string, std::string> params)
+    : IStorageHelperCTX{std::move(params)}
+{
 }
 
 PosixHelperCTX::~PosixHelperCTX()
