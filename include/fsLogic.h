@@ -261,6 +261,7 @@ private:
     events::FileLocationEventStream::Handler fileLocationHandler();
     events::PermissionChangedEventStream::Handler permissionChangedHandler();
     events::FileRemovalEventStream::Handler fileRemovalHandler();
+    std::string computeHash(const std::string &data);
 
     const uid_t m_uid;
     const gid_t m_gid;
@@ -278,7 +279,6 @@ private:
     std::mutex m_cancelCacheExpirationTickMutex;
     std::function<void()> m_cancelCacheExpirationTick;
 
-    std::string compute_hash(const std::string &data);
 };
 
 struct FsLogicWrapper {

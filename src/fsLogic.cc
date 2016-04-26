@@ -410,7 +410,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
             std::string data = std::string(
                 asio::buffer_cast<char *>(buf), asio::buffer_size(buf));
             auto checksum = availableRange == wantedRange
-                ? compute_hash(data)
+                ? computeHash(data)
                 : syncAndFetchActualChecksum(context.uuid, availableRange)
                       .value();
 
@@ -867,7 +867,7 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
     };
 }
 
-std::string FsLogic::compute_hash(const std::string &data)
+std::string FsLogic::computeHash(const std::string &data)
 {
     unsigned char hash[MD4_DIGEST_LENGTH];
     MD4_CTX ctx;
