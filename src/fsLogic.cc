@@ -35,7 +35,7 @@
 #include "messages/fuse/updateTimes.h"
 
 #include <boost/algorithm/string.hpp>
-#include <openssl/sha.h>
+#include <openssl/md4.h>
 
 #include <sys/stat.h>
 
@@ -866,12 +866,12 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
 
 std::string FsLogic::compute_hash(const std::string &data)
 {
-    unsigned char hash[SHA256_DIGEST_LENGTH];
-    SHA256_CTX sha256;
-    SHA256_Init(&sha256);
-    SHA256_Update(&sha256, data.c_str(), data.size());
-    SHA256_Final(hash, &sha256);
-    return {reinterpret_cast<const char *>(hash), SHA256_DIGEST_LENGTH};
+    unsigned char hash[MD4_DIGEST_LENGTH];
+    MD4_CTX ctx;
+    MD4_Init(&ctx);
+    MD4_Update(&ctx, data.c_str(), data.size());
+    MD4_Final(hash, &ctx);
+    return {reinterpret_cast<const char *>(hash), MD4_DIGEST_LENGTH};
 }
 
 } // namespace client
