@@ -127,6 +127,8 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
     switch (attr.type()) {
         case messages::fuse::FileAttr::FileType::directory:
             statbuf->st_mode |= S_IFDIR;
+            // Remove sticky bit for nfs compatibility
+            statbuf->st_mode &= ~S_ISVTX;
             break;
         case messages::fuse::FileAttr::FileType::link:
             statbuf->st_mode |= S_IFLNK;
