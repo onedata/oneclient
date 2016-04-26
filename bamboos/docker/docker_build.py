@@ -5,7 +5,7 @@
 Copyright (C) 2016 ACK CYFRONET AGH
 This software is released under the MIT license cited in 'LICENSE.txt'
 
-Runs docker build process and publish results to a docker registry.
+Runs docker build process and publish image to a private docker repository.
 
 Execute the script with -h flag to learn about script's running options.
 """
@@ -17,68 +17,6 @@ import subprocess
 
 from environment import docker
 
-parser = argparse.ArgumentParser(
-    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    description='Run docker build process and publish results to registry.')
-
-parser.add_argument(
-    '--user',
-    action='store',
-    help='username used to login to the docker repository',
-    dest='user')
-
-parser.add_argument(
-    '--password',
-    action='store',
-    help='password used to login to the docker repository',
-    dest='password')
-
-parser.add_argument(
-    '--repository',
-    action='store',
-    default='docker.onedata.org',
-    help='repository used to publish docker',
-    dest='repository')
-
-try:
-    remote = subprocess.check_output(['git', 'remote', '-v'])
-    remote = filter(lambda r: r.startswith('origin'), remote.split('\n'))
-    name = remote[0].split('/')[-1].split('.')[0]
-    parser.add_argument(
-        '--name',
-        action='store',
-        default=name,
-        help='name for docker image',
-        dest='name')
-except subprocess.CalledProcessError:
-    parser.add_argument(
-        '--name',
-        action='store',
-        required=True,
-        help='name for docker image',
-        dest='name')
-
-parser.add_argument(
-    '--tag',
-    action='append',
-    default=[],
-    help='custom tag for docker image',
-    dest='tags')
-
-parser.add_argument(
-    '--publish',
-    action='store_true',
-    default=False,
-    help='publish docker to the repository',
-    dest='publish')
-
-parser.add_argument(
-    '--remove',
-    action='store_true',
-    default=False,
-    help='remove local docker image after build',
-    dest='remove')
-
 
 def cmd(args):
     """Executes shell command and returns result without trailing newline.
@@ -87,6 +25,14 @@ def cmd(args):
     with open('/dev/null', 'w') as dev_null:
         result = subprocess.check_output(args, stderr=dev_null)
     return result.rstrip('\n')
+
+
+def get_repository_name():
+    """Returns repository name."""
+
+    remote = subprocess.check_output(['git', 'remote', '-v'])
+    remote = filter(lambda r: r.startswith('origin'), remote.split('\n'))
+    return remote[0].split('/')[-1].split('.')[0]
 
 
 def get_tags():
@@ -142,6 +88,65 @@ def write_report(name, images, publish):
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description='Run docker build process and publish results to registry.')
+
+    parser.add_argument(
+        '--user',
+        action='store',
+        help='username used to login to the docker repository',
+        dest='user')
+
+    parser.add_argument(
+        '--password',
+        action='store',
+        help='password used to login to the docker repository',
+        dest='password')
+
+    parser.add_argument(
+        '--repository',
+        action='store',
+        default='docker.onedata.org',
+        help='repository used to publish docker',
+        dest='repository')
+
+    try:
+        parser.add_argument(
+            '--name',
+            action='store',
+            default=get_repository_name(),
+            help='name for docker image',
+            dest='name')
+    except subprocess.CalledProcessError:
+        parser.add_argument(
+            '--name',
+            action='store',
+            required=True,
+            help='name for docker image',
+            dest='name')
+
+    parser.add_argument(
+        '--tag',
+        action='append',
+        default=[],
+        help='custom tag for docker image',
+        dest='tags')
+
+    parser.add_argument(
+        '--publish',
+        action='store_true',
+        default=False,
+        help='publish docker to the repository',
+        dest='publish')
+
+    parser.add_argument(
+        '--remove',
+        action='store_true',
+        default=False,
+        help='remove local docker image after build',
+        dest='remove')
+
     [args, pass_args] = parser.parse_known_args()
     tags = get_tags()
     tags.extend([('custom-{0}'.format(i), tag) for i, tag in enumerate(
