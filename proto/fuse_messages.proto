@@ -49,6 +49,7 @@ message FuseRequest {
         SynchronizeBlock synchronize_block = 17;
         CreateStorageTestFile create_storage_test_file = 18;
         VerifyStorageTestFile verify_storage_test_file = 19;
+        GetParent get_parent = 20;
     }
 }
 
@@ -116,6 +117,10 @@ message Release {
     required bytes handle_id = 1;
 }
 
+message GetParent {
+    required bytes uuid = 1;
+}
+
 // Generic FUSE client response
 message FuseResponse {
     required Status status = 1;
@@ -128,6 +133,7 @@ message FuseResponse {
         Xattr xattr = 6;
         XattrList xattr_list = 7;
         StorageTestFile storage_test_file = 8;
+        Dir dir = 9;
     }
 }
 
@@ -218,4 +224,8 @@ message VerifyStorageTestFile {
 message SynchronizeBlock {
     required bytes     uuid  = 1;
     required FileBlock block = 2;
+}
+
+message Dir {
+    required bytes uuid = 1;
 }
