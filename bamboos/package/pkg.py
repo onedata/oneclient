@@ -256,11 +256,12 @@ def push(package_artifact):
                 call(['createrepo', repo_dir])
 
         write_report(packages)
-        execute(['rm', '-rf', tmp_dir])
+        return 0
 
     except CalledProcessError as err:
+        return err.returncode
+    finally:
         execute(['rm', '-rf', tmp_dir])
-        exit(err.returncode)
 
 
 def pull(report_artifact):
@@ -278,20 +279,24 @@ def pull(report_artifact):
                 copy(source, dest, False)
 
         archive = tar(tmp_dir)
-        shutil.rmtree(tmp_dir)
-        return archive
+        return 0, archive
 
     except CalledProcessError as err:
+        return err.returncode, None
+    finally:
         shutil.rmtree(tmp_dir)
-        exit(err.returncode)
 
 
 if __name__ == '__main__':
+    exit_code = 0
 
     if args.action == 'config':
         print(CONFIG)
     elif args.action == 'push':
-        push(args.package_artifact)
+        exit_code = push(args.package_artifact)
     elif args.action == 'pull':
-        archive = pull(args.report_artifact)
-        print(archive)
+        exit_code, archive = pull(args.report_artifact)
+        if exit_code == 0:
+            print(archive)
+
+    sys.exit(exit_code)
