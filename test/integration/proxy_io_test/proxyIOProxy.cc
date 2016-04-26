@@ -46,8 +46,10 @@ public:
         const std::unordered_map<std::string, std::string> &parameters)
     {
         ReleaseGIL guard;
-        auto ctx = std::make_shared<one::helpers::ProxyIOHelperCTX>();
-        m_helper.sh_open(ctx, fileId, 0, parameters);
+        auto ctx =
+            std::make_shared<one::helpers::IStorageHelperCTX>(parameters);
+
+        m_helper.sh_open(ctx, fileId, 0);
         return ctx;
     }
 
@@ -99,7 +101,9 @@ one::helpers::CTXPtr raw_open(tuple args, dict kwargs)
 
 BOOST_PYTHON_MODULE(proxy_io)
 {
-    class_<one::helpers::IStorageHelperCTX, one::helpers::CTXPtr>("CTX");
+    class_<one::helpers::IStorageHelperCTX, one::helpers::CTXPtr>(
+        "CTX", no_init);
+
     class_<ProxyIOProxy, boost::noncopyable>("ProxyIOProxy", no_init)
         .def("__init__", make_constructor(create))
         .def("open", raw_function(raw_open))

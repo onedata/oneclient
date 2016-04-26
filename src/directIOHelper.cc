@@ -76,9 +76,10 @@ DirectIOHelper::UserCTXFactory DirectIOHelper::noopUserCTXFactory = [](
     return std::make_unique<DirectIOHelper::NoopUserCTX>();
 };
 
-CTXPtr DirectIOHelper::createCTX()
+CTXPtr DirectIOHelper::createCTX(
+    std::unordered_map<std::string, std::string> params)
 {
-    return std::make_shared<PosixHelperCTX>();
+    return std::make_shared<PosixHelperCTX>(std::move(params));
 }
 
 void DirectIOHelper::ash_getattr(CTXPtr rawCTX,
@@ -341,9 +342,7 @@ void DirectIOHelper::ash_truncate(CTXPtr rawCTX,
 }
 
 void DirectIOHelper::ash_open(CTXPtr rawCTX, const boost::filesystem::path &p,
-    int flags,
-    const std::unordered_map<std::string, std::string> & /*parameters*/,
-    GeneralCallback<int> callback)
+    int flags, GeneralCallback<int> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
     m_workerService.post(
@@ -555,9 +554,15 @@ std::shared_ptr<PosixHelperCTX> DirectIOHelper::getCTX(CTXPtr rawCTX) const
     auto ctx = std::dynamic_pointer_cast<PosixHelperCTX>(rawCTX);
     if (ctx == nullptr) {
         LOG(INFO) << "Helper changed. Creating new context.";
-        return std::make_shared<PosixHelperCTX>();
+        return std::make_shared<PosixHelperCTX>(rawCTX->parameters());
     }
     return ctx;
+}
+
+PosixHelperCTX::PosixHelperCTX(
+    std::unordered_map<std::string, std::string> params)
+    : IStorageHelperCTX{std::move(params)}
+{
 }
 
 PosixHelperCTX::~PosixHelperCTX()

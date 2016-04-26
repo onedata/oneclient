@@ -37,7 +37,8 @@ public:
      * Additionally default 'user_name' and 'key' can be passed, which will be
      * used if user context has not been set.
      */
-    CephHelperCTX(std::unordered_map<std::string, std::string> args);
+    CephHelperCTX(std::unordered_map<std::string, std::string> params,
+        std::unordered_map<std::string, std::string> args);
 
     /**
      * Destructor.
@@ -82,7 +83,7 @@ public:
     CephHelper(std::unordered_map<std::string, std::string> args,
         asio::io_service &service);
 
-    CTXPtr createCTX() override;
+    CTXPtr createCTX(std::unordered_map<std::string, std::string>) override;
 
     void ash_unlink(CTXPtr ctx, const boost::filesystem::path &p,
         VoidCallback callback) override;

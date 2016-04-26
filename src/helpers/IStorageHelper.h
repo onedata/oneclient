@@ -67,6 +67,15 @@ using FlagsSet = std::unordered_set<Flag, FlagHash>;
 
 class IStorageHelperCTX {
 public:
+    /**
+     * Creates a context with given parameters.
+     * @param params The parameters of file context.
+     */
+    IStorageHelperCTX(std::unordered_map<std::string, std::string> params)
+        : m_params{std::move(params)}
+    {
+    }
+
     virtual ~IStorageHelperCTX() = default;
 
     /**
@@ -89,12 +98,23 @@ public:
             std::make_error_code(std::errc::function_not_supported)};
     }
 
+    /**
+     * Returns parameters set in constructor.
+     */
+    const std::unordered_map<std::string, std::string> &parameters() const
+    {
+        return m_params;
+    }
+
 protected:
     static error_t makePosixError(int posixCode)
     {
         posixCode = posixCode > 0 ? posixCode : -posixCode;
         return error_t(posixCode, std::system_category());
     }
+
+private:
+    std::unordered_map<std::string, std::string> m_params;
 };
 
 using CTXPtr = std::shared_ptr<IStorageHelperCTX>;
@@ -116,7 +136,11 @@ class IStorageHelper {
 public:
     virtual ~IStorageHelper() = default;
 
-    virtual CTXPtr createCTX() { return nullptr; }
+    virtual CTXPtr createCTX(
+        std::unordered_map<std::string, std::string> params)
+    {
+        return std::make_shared<IStorageHelperCTX>(std::move(params));
+    }
 
     virtual void ash_getattr(CTXPtr ctx, const boost::filesystem::path &p,
         GeneralCallback<struct stat> callback)
@@ -204,18 +228,14 @@ public:
     }
 
     virtual void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
-        FlagsSet flags,
-        const std::unordered_map<std::string, std::string> &parameters,
-        GeneralCallback<int> callback)
+        FlagsSet flags, GeneralCallback<int> callback)
     {
-        ash_open(std::move(ctx), p, getFlagsValue(std::move(flags)), parameters,
+        ash_open(std::move(ctx), p, getFlagsValue(std::move(flags)),
             std::move(callback));
     }
 
     virtual void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
-        int flags,
-        const std::unordered_map<std::string, std::string> &parameters,
-        GeneralCallback<int> callback)
+        int flags, GeneralCallback<int> callback)
     {
         callback({}, SUCCESS_CODE);
     }
@@ -278,15 +298,13 @@ public:
             &IStorageHelper::ash_write, std::move(ctx), p, buf, offset);
     }
 
-    virtual int sh_open(CTXPtr ctx, const boost::filesystem::path &p, int flags,
-        const std::unordered_map<std::string, std::string> &parameters)
+    virtual int sh_open(CTXPtr ctx, const boost::filesystem::path &p, int flags)
     {
         return sync<int>(
             static_cast<void (IStorageHelper::*)(CTXPtr,
-                const boost::filesystem::path &, int,
-                const std::unordered_map<std::string, std::string> &,
-                GeneralCallback<int>)>(&IStorageHelper::ash_open),
-            std::move(ctx), p, flags, parameters);
+                const boost::filesystem::path &, int, GeneralCallback<int>)>(
+                &IStorageHelper::ash_open),
+            std::move(ctx), p, flags);
     }
 
     virtual void sh_release(CTXPtr ctx, const boost::filesystem::path &p)

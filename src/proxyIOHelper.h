@@ -20,20 +20,10 @@
 namespace one {
 namespace helpers {
 
-struct ProxyIOHelperCTX : public IStorageHelperCTX {
-    std::unordered_map<std::string, std::string> parameters;
-};
-
 class ProxyIOHelper : public IStorageHelper {
 public:
     ProxyIOHelper(const std::unordered_map<std::string, std::string> &args,
         communication::Communicator &communicator);
-
-    CTXPtr createCTX() override;
-
-    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, int flags,
-        const std::unordered_map<std::string, std::string> &parameters,
-        GeneralCallback<int> callback) override;
 
     void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset,

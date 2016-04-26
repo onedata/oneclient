@@ -35,6 +35,8 @@ constexpr auto DIRECT_IO_HELPER_PATH_ARG = "root_path";
 */
 class PosixHelperCTX : public IStorageHelperCTX {
 public:
+    PosixHelperCTX(std::unordered_map<std::string, std::string> params);
+
     ~PosixHelperCTX();
 
     /**
@@ -97,7 +99,9 @@ public:
     DirectIOHelper(const std::unordered_map<std::string, std::string> &,
         asio::io_service &service, UserCTXFactory);
 
-    CTXPtr createCTX() override;
+    CTXPtr createCTX(
+        std::unordered_map<std::string, std::string> params) override;
+
     void ash_getattr(CTXPtr ctx, const boost::filesystem::path &p,
         GeneralCallback<struct stat>) override;
     void ash_access(CTXPtr ctx, const boost::filesystem::path &p, int mask,
@@ -129,7 +133,6 @@ public:
         VoidCallback) override;
 
     void ash_open(CTXPtr ctx, const boost::filesystem::path &p, int flags,
-        const std::unordered_map<std::string, std::string> &parameters,
         GeneralCallback<int>) override;
     void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset,

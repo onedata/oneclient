@@ -38,7 +38,8 @@ public:
      * default 'access_key' and 'secret_key' can be passed, which will be used
      * if user context has not been set.
      */
-    S3HelperCTX(std::unordered_map<std::string, std::string> args);
+    S3HelperCTX(std::unordered_map<std::string, std::string> params,
+        std::unordered_map<std::string, std::string> args);
 
     /**
      * @copydoc IStorageHelper::setUserCtx
@@ -76,7 +77,8 @@ public:
      */
     ~S3Helper();
 
-    CTXPtr createCTX() override;
+    CTXPtr createCTX(
+        std::unordered_map<std::string, std::string> params) override;
 
     void ash_unlink(CTXPtr ctx, const boost::filesystem::path &p,
         VoidCallback callback) override;

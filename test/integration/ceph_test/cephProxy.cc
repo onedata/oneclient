@@ -47,7 +47,7 @@ public:
                   {"pool_name", std::move(poolName)}},
               m_service}
     {
-        auto rawCTX = m_helper.createCTX();
+        auto rawCTX = m_helper.createCTX({});
         m_ctx = std::dynamic_pointer_cast<one::helpers::CephHelperCTX>(rawCTX);
         if (m_ctx == nullptr)
             throw std::system_error{
