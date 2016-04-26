@@ -37,7 +37,8 @@ public:
      * Additionally default 'user_name' and 'key' can be passed, which will be
      * used if user context has not been set.
      */
-    CephHelperCTX(std::unordered_map<std::string, std::string> args);
+    CephHelperCTX(std::unordered_map<std::string, std::string> params,
+        std::unordered_map<std::string, std::string> args);
 
     /**
      * Destructor.
@@ -82,44 +83,36 @@ public:
     CephHelper(std::unordered_map<std::string, std::string> args,
         asio::io_service &service);
 
-    CTXPtr createCTX();
+    CTXPtr createCTX(std::unordered_map<std::string, std::string>) override;
 
-    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, int flags,
-        GeneralCallback<int> callback)
-    {
-        callback(0, SUCCESS_CODE);
-    }
-
-    void ash_unlink(
-        CTXPtr ctx, const boost::filesystem::path &p, VoidCallback callback);
+    void ash_unlink(CTXPtr ctx, const boost::filesystem::path &p,
+        VoidCallback callback) override;
 
     void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset,
-        const std::unordered_map<std::string, std::string> &parameters,
-        GeneralCallback<asio::mutable_buffer>);
+        GeneralCallback<asio::mutable_buffer>) override;
 
     void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
         asio::const_buffer buf, off_t offset,
-        const std::unordered_map<std::string, std::string> &parameters,
-        GeneralCallback<std::size_t>);
+        GeneralCallback<std::size_t>) override;
 
     void ash_truncate(CTXPtr ctx, const boost::filesystem::path &p, off_t size,
-        VoidCallback callback);
+        VoidCallback callback) override;
 
     void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        FlagsSet flags, dev_t rdev, VoidCallback callback)
+        FlagsSet flags, dev_t rdev, VoidCallback callback) override
     {
         callback(SUCCESS_CODE);
     }
 
     void ash_mkdir(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        VoidCallback callback)
+        VoidCallback callback) override
     {
         callback(SUCCESS_CODE);
     }
 
     void ash_chmod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        VoidCallback callback)
+        VoidCallback callback) override
     {
         callback(SUCCESS_CODE);
     }

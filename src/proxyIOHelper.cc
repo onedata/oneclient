@@ -27,18 +27,12 @@ ProxyIOHelper::ProxyIOHelper(
 {
 }
 
-CTXPtr ProxyIOHelper::createCTX()
-{
-    return std::make_shared<ProxyIOHelperCTX>();
-}
-
-void ProxyIOHelper::ash_read(CTXPtr /*ctx*/, const boost::filesystem::path &p,
+void ProxyIOHelper::ash_read(CTXPtr ctx, const boost::filesystem::path &p,
     asio::mutable_buffer buf, off_t offset,
-    const std::unordered_map<std::string, std::string> &parameters,
     GeneralCallback<asio::mutable_buffer> callback)
 {
     auto fileId = p.string();
-    messages::proxyio::RemoteRead msg{parameters, m_storageId,
+    messages::proxyio::RemoteRead msg{ctx->parameters(), m_storageId,
         std::move(fileId), offset, asio::buffer_size(buf)};
 
     auto wrappedCallback =
@@ -58,14 +52,12 @@ void ProxyIOHelper::ash_read(CTXPtr /*ctx*/, const boost::filesystem::path &p,
         std::move(msg), std::move(wrappedCallback));
 }
 
-void ProxyIOHelper::ash_write(CTXPtr /*ctx*/, const boost::filesystem::path &p,
-    asio::const_buffer buf, off_t offset,
-    const std::unordered_map<std::string, std::string> &parameters,
-    GeneralCallback<std::size_t> callback)
+void ProxyIOHelper::ash_write(CTXPtr ctx, const boost::filesystem::path &p,
+    asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t> callback)
 {
     auto fileId = p.string();
     messages::proxyio::RemoteWrite msg{
-        parameters, m_storageId, std::move(fileId), offset, buf};
+        ctx->parameters(), m_storageId, std::move(fileId), offset, buf};
 
     auto wrappedCallback =
         [ callback = std::move(callback), buf ](const std::error_code &ec,
