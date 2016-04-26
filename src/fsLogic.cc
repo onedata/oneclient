@@ -302,7 +302,7 @@ int FsLogic::open(
     auto attr = m_metadataCache.getAttr(path);
     auto location = m_metadataCache.getLocation(attr.uuid());
     auto helper = getHelper(attr.uuid(), location.storageId());
-    openFile(location, fileInfo);
+    openFile(location.uuid(), fileInfo);
 
     return 0;
 }
@@ -607,9 +607,6 @@ int FsLogic::release(
 {
     DLOG(INFO) << "FUSE: release(path: " << path << ", ...)";
     auto attr = m_metadataCache.getAttr(path);
-    MetadataCache::MetaAccessor acc;
-    m_metadataCache.getLocation(acc, attr.uuid());
-    auto &location = acc->second.location.get();
 
     m_locExpirationHelper.unpin(attr.uuid());
     m_attrExpirationHelper.unpin(attr.uuid());
@@ -636,7 +633,6 @@ int FsLogic::release(
                               messages::fuse::Release{context.handleId->get()});
 
         communication::wait(future);
-        location.unsetHandleId();
 
         *context.handleId = boost::none;
     }
@@ -717,8 +713,8 @@ int FsLogic::create(boost::filesystem::path path, const mode_t mode,
                << mode << ")";
 
     // Potential race condition, file might be modified between create and open
-    auto location = createFile(std::move(path), mode);
-    openFile(location, fileInfo);
+    auto fileUuid = createFile(std::move(path), mode);
+    openFile(fileUuid, fileInfo);
 
     return 0;
 }
@@ -746,7 +742,7 @@ void FsLogic::removeFile(boost::filesystem::path path)
     }
 }
 
-messages::fuse::FileLocation FsLogic::createFile(
+const std::string FsLogic::createFile(
     boost::filesystem::path path, const mode_t mode)
 {
     auto parentAttr = m_metadataCache.getAttr(path.parent_path());
@@ -763,34 +759,42 @@ messages::fuse::FileLocation FsLogic::createFile(
     auto location = communication::wait(future);
     m_metadataCache.map(path, location);
 
-    return location;
+    return location.uuid();
 }
 
-void FsLogic::openFile(messages::fuse::FileLocation &location,
-    struct fuse_file_info *const fileInfo)
+void FsLogic::openFile(
+    const std::string &fileUuid, struct fuse_file_info *const fileInfo)
 {
     FileContextCache::Accessor acc;
     m_fileContextCache.create(acc);
 
+    MetadataCache::MetaAccessor metaAcc;
+    m_metadataCache.getLocation(metaAcc, fileUuid);
+    auto &location = metaAcc->second.location.get();
+
     fileInfo->direct_io = 1;
     fileInfo->fh = acc->first;
 
-    acc->second.uuid = location.uuid();
+    acc->second.uuid = fileUuid;
     acc->second.flags = fileInfo->flags;
     acc->second.handleId =
         std::make_shared<boost::optional<std::string>>(location.handleId());
+    // TODO: VFS-1959
+    location.unsetHandleId();
     acc->second.helperCtxMap =
         std::make_shared<FileContextCache::HelperCtxMap>();
 
-    m_locExpirationHelper.pin(location.uuid(), [&] {
-        m_metadataCache.getLocation(location.uuid());
-        m_fsSubscriptions.addFileLocationSubscription(location.uuid());
+    metaAcc.release();
+
+    m_locExpirationHelper.pin(fileUuid, [&] {
+        m_metadataCache.getLocation(fileUuid);
+        m_fsSubscriptions.addFileLocationSubscription(fileUuid);
     });
 
-    m_attrExpirationHelper.pin(location.uuid(), [&] {
-        m_metadataCache.getAttr(location.uuid());
-        m_fsSubscriptions.addFileAttrSubscription(location.uuid());
-        m_fsSubscriptions.addFileRemovalSubscription(location.uuid());
+    m_attrExpirationHelper.pin(fileUuid, [&] {
+        m_metadataCache.getAttr(fileUuid);
+        m_fsSubscriptions.addFileAttrSubscription(fileUuid);
+        m_fsSubscriptions.addFileRemovalSubscription(fileUuid);
     });
 }
 
