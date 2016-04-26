@@ -21,9 +21,10 @@ CephHelper::CephHelper(std::unordered_map<std::string, std::string> args,
 {
 }
 
-CTXPtr CephHelper::createCTX()
+CTXPtr CephHelper::createCTX(
+    std::unordered_map<std::string, std::string> params)
 {
-    return std::make_shared<CephHelperCTX>(m_args);
+    return std::make_shared<CephHelperCTX>(std::move(params), m_args);
 }
 
 void CephHelper::ash_unlink(
@@ -63,7 +64,6 @@ void CephHelper::ash_unlink(
 
 void CephHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
     asio::mutable_buffer buf, off_t offset,
-    const std::unordered_map<std::string, std::string> & /*parameters*/,
     GeneralCallback<asio::mutable_buffer> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
@@ -101,9 +101,7 @@ void CephHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
 }
 
 void CephHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
-    asio::const_buffer buf, off_t offset,
-    const std::unordered_map<std::string, std::string> & /*parameters*/,
-    GeneralCallback<std::size_t> callback)
+    asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t> callback)
 {
     auto ctx = getCTX(std::move(rawCTX));
     auto ret = ctx->connect();
@@ -150,9 +148,7 @@ void CephHelper::ash_truncate(CTXPtr rawCTX, const boost::filesystem::path &p,
     auto fileId = p.string();
 
     m_service.post([
-        size,
-        ctx = std::move(ctx),
-        fileId = std::move(fileId),
+        size, ctx = std::move(ctx), fileId = std::move(fileId),
         callback = std::move(callback)
     ]() {
         auto result = ctx->ioCTX.trunc(fileId, size);
@@ -171,13 +167,16 @@ std::shared_ptr<CephHelperCTX> CephHelper::getCTX(CTXPtr rawCTX) const
     if (ctx == nullptr) {
         LOG(INFO) << "Helper changed. Creating new context with arguments: "
                   << m_args;
-        return std::make_shared<CephHelperCTX>(m_args);
+        return std::make_shared<CephHelperCTX>(rawCTX->parameters(), m_args);
     }
     return ctx;
 }
 
-CephHelperCTX::CephHelperCTX(std::unordered_map<std::string, std::string> args)
-    : m_args{std::move(args)}
+CephHelperCTX::CephHelperCTX(
+    std::unordered_map<std::string, std::string> params,
+    std::unordered_map<std::string, std::string> args)
+    : IStorageHelperCTX{std::move(params)}
+    , m_args{std::move(args)}
 {
 }
 

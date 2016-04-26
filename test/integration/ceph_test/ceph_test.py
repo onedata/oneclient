@@ -59,19 +59,17 @@ def test_write_should_write_data(helper):
     file_id = random_str()
     data = random_str()
     offset = random_int()
-    parameters = random_params()
 
-    assert helper.write(file_id, data, offset, parameters) == len(data)
+    assert helper.write(file_id, data, offset) == len(data)
 
 
 def test_read_should_pass_errors(helper):
     file_id = random_str()
     offset = random_int()
     size = random_int()
-    parameters = random_params()
 
     with pytest.raises(RuntimeError) as excinfo:
-        helper.read(file_id, offset, size, parameters)
+        helper.read(file_id, offset, size)
     assert 'No such file or directory' in str(excinfo.value)
 
 
@@ -79,10 +77,9 @@ def test_read_should_read_data(helper):
     file_id = random_str()
     data = random_str()
     offset = random_int()
-    parameters = random_params()
 
-    assert helper.write(file_id, data, offset, parameters) == len(data)
-    assert helper.read(file_id, offset, len(data), parameters) == data
+    assert helper.write(file_id, data, offset) == len(data)
+    assert helper.read(file_id, offset, len(data)) == data
 
 
 def test_unlink_should_pass_errors(helper):
@@ -97,9 +94,8 @@ def test_unlink_should_delete_data(helper):
     file_id = random_str()
     data = random_str()
     offset = random_int()
-    parameters = random_params()
 
-    assert helper.write(file_id, data, offset, parameters) == len(data)
+    assert helper.write(file_id, data, offset) == len(data)
     helper.unlink(file_id)
 
 
@@ -107,8 +103,7 @@ def test_truncate_should_truncate_data(helper):
     file_id = random_str()
     data = random_str()
     size = random_int(upper_bound=len(data))
-    parameters = random_params()
 
-    assert helper.write(file_id, data, 0, parameters) == len(data)
+    assert helper.write(file_id, data, 0) == len(data)
     helper.truncate(file_id, size)
-    assert helper.read(file_id, 0, size, parameters) == data[0:size]
+    assert helper.read(file_id, 0, size) == data[0:size]
