@@ -140,12 +140,12 @@ bool StorageAccessManager::verifyStorageTestFile(
         try {
             content = helper->sh_read(
                 ctx, testFile.fileId(), asio::buffer(buffer), 0);
-            helper->sh_release(ctx, testFile.fileId());
         }
         catch (...) {
             helper->sh_release(ctx, testFile.fileId());
             throw;
         }
+        helper->sh_release(ctx, testFile.fileId());
 
         if (asio::buffer_size(content) != size) {
             LOG(WARNING) << "Storage test file size mismatch, expected: "
