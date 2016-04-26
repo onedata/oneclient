@@ -243,9 +243,9 @@ protected:
 private:
     void scheduleCacheExpirationTick();
     void removeFile(boost::filesystem::path path);
-    const std::string createFile( boost::filesystem::path path, mode_t);
-    void openFile(const std::string &fileUuid,
-        struct fuse_file_info *const fileInfo);
+    const std::string createFile(boost::filesystem::path path, mode_t);
+    void openFile(
+        const std::string &fileUuid, struct fuse_file_info *const fileInfo);
     bool waitForBlockSynchronization(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range);
     std::tuple<messages::fuse::FileBlock, asio::const_buffer> findWriteLocation(

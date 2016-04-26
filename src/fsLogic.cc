@@ -762,8 +762,8 @@ const std::string FsLogic::createFile(
     return location.uuid();
 }
 
-void FsLogic::openFile(const std::string &fileUuid,
-    struct fuse_file_info *const fileInfo)
+void FsLogic::openFile(
+    const std::string &fileUuid, struct fuse_file_info *const fileInfo)
 {
     FileContextCache::Accessor acc;
     m_fileContextCache.create(acc);
@@ -779,6 +779,7 @@ void FsLogic::openFile(const std::string &fileUuid,
     acc->second.flags = fileInfo->flags;
     acc->second.handleId =
         std::make_shared<boost::optional<std::string>>(location.handleId());
+    // TODO: VFS-1959
     location.unsetHandleId();
     acc->second.helperCtxMap =
         std::make_shared<FileContextCache::HelperCtxMap>();
