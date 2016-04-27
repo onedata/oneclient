@@ -8,16 +8,12 @@ Brings up a S3 storage.
 
 from boto.s3.connection import S3Connection, OrdinaryCallingFormat
 
-from . import common, docker
+from . import docker
 
 
-def _node_up(image, buckets, name, uid):
-    hostname = common.format_hostname([name, 's3'], uid)
-
+def _node_up(image, buckets):
     container = docker.run(
         image=image,
-        hostname=hostname,
-        name=hostname,
         detach=True)
 
     settings = docker.inspect(container)
@@ -41,5 +37,5 @@ def _node_up(image, buckets, name, uid):
     }
 
 
-def up(image, buckets, name, uid):
-    return _node_up(image, buckets, name, uid)
+def up(image, buckets):
+    return _node_up(image, buckets)
