@@ -401,7 +401,9 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         if (helper->needsDataConsistencyCheck() && dataNeedsSynchronization &&
             dataCorrupted(context.uuid, readBuffer, serverChecksum.get(),
                 availableRange, wantedRange)) {
-            helper->sh_release(helperCtx, fileBlock.fileId());
+            helper->sh_release(helperCtx,
+                fileBlock.fileId()); // close the file to get data up to date,
+                                     // it will be opened again by read function
             return read(path, buf, offset, fileInfo);
         }
 
