@@ -377,11 +377,10 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto availableBlockIt =
         location.blocks().find(boost::icl::discrete_interval<off_t>(offset));
 
-    std::unique_ptr<messages::fuse::Checksum> serverChecksum;
+    boost::optional<messages::fuse::Checksum> serverChecksum;
     bool dataNeedsSynchronization = availableBlockIt == location.blocks().end();
     if (dataNeedsSynchronization) {
-        serverChecksum = std::make_unique<messages::fuse::Checksum>(
-            waitForBlockSynchronization(context.uuid, wantedRange));
+        serverChecksum = waitForBlockSynchronization(context.uuid, wantedRange);
         location = m_metadataCache.getLocation(context.uuid);
         availableBlockIt = location.blocks().find(
             boost::icl::discrete_interval<off_t>(offset));
@@ -400,7 +399,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
             helper->sh_read(helperCtx, fileBlock.fileId(), buf, offset);
 
         if (helper->needsDataConsistencyCheck() && dataNeedsSynchronization &&
-            dataIsCorrupted(context.uuid, readBuffer, std::move(serverChecksum),
+            dataCorrupted(context.uuid, readBuffer, serverChecksum.get(),
                 availableRange, wantedRange)) {
             helper->sh_release(helperCtx, fileBlock.fileId());
             return read(path, buf, offset, fileInfo);
@@ -855,15 +854,15 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
     };
 }
 
-bool FsLogic::dataIsCorrupted(const std::string uuid, asio::const_buffer buf,
-    const std::unique_ptr<messages::fuse::Checksum> serverChecksum,
+bool FsLogic::dataCorrupted(const std::string &uuid, asio::const_buffer buf,
+    const messages::fuse::Checksum &serverChecksum,
     const boost::icl::discrete_interval<off_t> &availableRange,
     const boost::icl::discrete_interval<off_t> &wantedRange)
 {
     auto checksum = availableRange == wantedRange
         ? computeHash(buf)
         : syncAndFetchChecksum(uuid, availableRange).value();
-    if (serverChecksum->value() != checksum)
+    if (serverChecksum.value() != checksum)
         return true;
 
     return false;
