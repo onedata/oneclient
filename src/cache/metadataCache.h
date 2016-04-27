@@ -15,8 +15,8 @@
 #include "messages/fuse/getFileAttr.h"
 
 #include <boost/filesystem/path.hpp>
-#include <tbb/concurrent_hash_map.h>
 #include <boost/functional/hash.hpp>
+#include <tbb/concurrent_hash_map.h>
 
 #include <condition_variable>
 #include <unordered_set>

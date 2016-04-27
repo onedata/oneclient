@@ -16,15 +16,13 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-Checksum::Checksum(
-    std::unique_ptr<ProtocolServerMessage> serverMessage)
+Checksum::Checksum(std::unique_ptr<ProtocolServerMessage> serverMessage)
 {
     if (!serverMessage->fuse_response().has_checksum())
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "checksum field missing"};
 
-    auto &message =
-        *serverMessage->mutable_fuse_response()->mutable_checksum();
+    auto &message = *serverMessage->mutable_fuse_response()->mutable_checksum();
 
     message.mutable_value()->swap(m_value);
 }

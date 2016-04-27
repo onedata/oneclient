@@ -6,8 +6,8 @@
  * 'LICENSE.txt'
  */
 
-#include "messages.pb.h"
 #include "synchronizeBlockAndComputeChecksum.h"
+#include "messages.pb.h"
 
 #include <sstream>
 
@@ -30,11 +30,13 @@ std::string SynchronizeBlockAndComputeChecksum::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> SynchronizeBlockAndComputeChecksum::serializeAndDestroy()
+std::unique_ptr<ProtocolClientMessage>
+SynchronizeBlockAndComputeChecksum::serializeAndDestroy()
 {
     auto msg = std::make_unique<ProtocolClientMessage>();
 
-    auto sb = msg->mutable_fuse_request()->mutable_synchronize_block_and_compute_checksum();
+    auto sb = msg->mutable_fuse_request()
+                  ->mutable_synchronize_block_and_compute_checksum();
     sb->mutable_uuid()->swap(m_uuid);
     sb->mutable_block()->set_offset(boost::icl::first(m_block));
     sb->mutable_block()->set_size(boost::icl::size(m_block));
