@@ -329,9 +329,6 @@ int openFile(const FileContextCache::HelperCtxMapAccessor &ctxAcc,
     std::unordered_map<std::string, std::string> parameters)
 {
     auto helperCtx = helper->createCTX(std::move(parameters));
-    helperCtx->setUserCTX({{one::helpers::DIRECT_IO_HELPER_UID_ARG,
-                               std::to_string(geteuid())},
-        {one::helpers::DIRECT_IO_HELPER_GID_ARG, std::to_string(getegid())}});
     int fh = helper->sh_open(helperCtx, fileId, fileCtx.flags);
     ctxAcc->second = helperCtx;
     return fh;
