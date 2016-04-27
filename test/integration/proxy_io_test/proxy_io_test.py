@@ -166,3 +166,17 @@ def test_should_invalidate_read_cache_on_write(file_ctx, file_id, parameters, st
     server_message = remote_data_msg(new_data)
     with reply(endpoint, server_message):
         assert new_data == helper.read(file_ctx, file_id, offset, len(new_data))
+
+
+def test_should_flush_writes_on_close(file_id, parameters, storage_id, endpoint, helper):
+    data = random_str()
+    offset = random_int()
+    server_message = remote_write_result_msg(len(data))
+
+    ctx = helper.open(file_id, parameters)
+
+    helper.write(ctx, file_id, data, offset)
+    assert 0 == endpoint.all_messages_count()
+
+    with reply(endpoint, server_message) as queue:
+        helper.release(ctx, file_id)

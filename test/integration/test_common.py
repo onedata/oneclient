@@ -54,7 +54,6 @@ def _with_reply_process(endpoint, responses, queue, reply_to_async=False):
             message_has_id = client_message.HasField('message_id')
 
             if message_has_id or reply_to_async:
-                print client_message
                 response = responses.pop(0)
                 if message_has_id:
                     response.message_id = client_message.message_id.encode('utf-8')
