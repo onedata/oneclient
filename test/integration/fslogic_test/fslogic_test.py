@@ -579,7 +579,7 @@ def test_readdir_should_read_dir(endpoint, fl):
         queue.get()
         client_message = queue.get()
 
-    assert len(children) == 2
+    assert len(children) == 4
     assert file1.name in children
     assert file2.name in children
 
@@ -819,7 +819,7 @@ def test_readdir_big_directory(endpoint, fl):
     with reply(endpoint, [getattr_response, response]):
         assert 0 == fl.readdir('/random/path', children)
 
-    assert len(children) == children_num
+    assert len(children) == children_num + 2
 
 
 def test_write_should_save_blocks(endpoint, fl):
