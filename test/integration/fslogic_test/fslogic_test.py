@@ -94,7 +94,7 @@ def prepare_location_update_event(blocks, stream_id, sequence_number):
 
 
 def prepare_checksum(data):
-    md = hashlib.md4()
+    md = hashlib.new('MD4')
     md.update(data)
     hash = md.digest()
 
