@@ -237,6 +237,13 @@ void MetadataCache::removePathMappings(
         m_pathToUuid.erase(path);
 }
 
+void MetadataCache::removePathMapping(
+    UuidAccessor &uuidAcc, MetaAccessor &metaAcc)
+{
+    metaAcc->second.paths.erase(uuidAcc->first);
+    m_pathToUuid.erase(uuidAcc);
+}
+
 void MetadataCache::remove(const std::string &uuid)
 {
     MetaAccessor metaAcc;

@@ -258,6 +258,7 @@ private:
 
     const uid_t m_uid;
     const gid_t m_gid;
+    const unsigned long m_fsid;
 
     std::shared_ptr<Context> m_context;
     events::EventManager m_eventManager;

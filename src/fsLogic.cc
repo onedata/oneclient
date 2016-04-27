@@ -38,6 +38,7 @@
 #include <sys/stat.h>
 
 #include <algorithm>
+#include <random>
 #include <memory>
 
 using namespace std::literals;
@@ -45,10 +46,21 @@ using namespace std::literals;
 namespace one {
 namespace client {
 
+namespace {
+unsigned long getfsid()
+{
+    std::random_device device;
+    std::default_random_engine engine{device()};
+    std::uniform_int_distribution<unsigned long> distribution{1};
+    return distribution(engine);
+}
+}
+
 FsLogic::FsLogic(std::shared_ptr<Context> context,
     std::shared_ptr<messages::Configuration> configuration)
     : m_uid{geteuid()}
     , m_gid{getegid()}
+    , m_fsid{getfsid()}
     , m_context{std::move(context)}
     , m_eventManager{m_context}
     , m_helpersCache{*m_context->communicator(), *m_context->scheduler()}
@@ -115,6 +127,8 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
     switch (attr.type()) {
         case messages::fuse::FileAttr::FileType::directory:
             statbuf->st_mode |= S_IFDIR;
+            // Remove sticky bit for nfs compatibility
+            statbuf->st_mode &= ~S_ISVTX;
             break;
         case messages::fuse::FileAttr::FileType::link:
             statbuf->st_mode |= S_IFLNK;
@@ -592,7 +606,10 @@ int FsLogic::statfs(
     boost::filesystem::path path, struct statvfs *const statInfo)
 {
     DLOG(INFO) << "FUSE: statfs(path: " << path << ", ...)";
-    throw std::errc::function_not_supported;
+
+    *statInfo = {};
+    statInfo->f_fsid = m_fsid;
+    return 0;
 }
 
 int FsLogic::flush(
@@ -740,6 +757,7 @@ void FsLogic::removeFile(boost::filesystem::path path)
 
         communication::wait(future);
     }
+    m_metadataCache.removePathMapping(uuidAcc, metaAcc);
 }
 
 const std::string FsLogic::createFile(

@@ -181,9 +181,16 @@ public:
      * Removes a UUID entries (path mappings) from the cache.
      * This action will release metaAcc.
      * @param uuidAcc Accessor to UUID mapping to remove.
-     * @param metaAcc Accessor to metadata mapping..
+     * @param metaAcc Accessor to metadata mapping.
      */
     void removePathMappings(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
+
+    /**
+     * Removes a UUID entry (path mapping) from the cache.
+     * @param uuidAcc Accessor to UUID mapping to remove.
+     * @param metaAcc Accessor to metadata mapping.
+     */
+    void removePathMapping(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
 
     /**
      * Removes a metadata entry and UUID mapping (if exists) from the cache.
