@@ -66,7 +66,8 @@ def remote_write_result_msg(wrote):
     return server_message
 
 
-def test_write_should_write_data(file_ctx, file_id, parameters, storage_id, endpoint, helper):
+def test_write_should_write_data(file_ctx, file_id, parameters, storage_id,
+                                 endpoint, helper):
     data = random_str()
     offset = random_int()
     server_message = remote_write_result_msg(len(data))
@@ -103,7 +104,8 @@ def test_close_should_pass_write_errors(file_id, endpoint, helper, parameters):
     assert 'Permission denied' in str(excinfo.value)
 
 
-def test_read_should_read_data(file_ctx, file_id, parameters, storage_id, endpoint, helper):
+def test_read_should_read_data(file_ctx, file_id, parameters, storage_id,
+                               endpoint, helper):
     data = random_str()
     offset = random_int()
     server_message = remote_data_msg(data)
@@ -124,7 +126,8 @@ def test_read_should_read_data(file_ctx, file_id, parameters, storage_id, endpoi
     assert request.remote_read.size == len(data)
 
 
-def test_read_should_pass_errors(file_ctx, file_id, endpoint, helper, parameters):
+def test_read_should_pass_errors(file_ctx, file_id, endpoint, helper,
+                                 parameters):
     server_message = messages_pb2.ServerMessage()
     server_message.proxyio_response.status.code = \
         common_messages_pb2.Status.eperm
@@ -136,7 +139,8 @@ def test_read_should_pass_errors(file_ctx, file_id, endpoint, helper, parameters
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_should_cache_read(file_ctx, file_id, parameters, storage_id, endpoint, helper):
+def test_should_cache_read(file_ctx, file_id, parameters, storage_id, endpoint,
+                           helper):
     data = random_str()
     offset = random_int()
     server_message = remote_data_msg(data)
@@ -148,7 +152,8 @@ def test_should_cache_read(file_ctx, file_id, parameters, storage_id, endpoint, 
     assert data == helper.read(file_ctx, file_id, offset, len(data))
 
 
-def test_should_invalidate_read_cache_on_write(file_ctx, file_id, parameters, storage_id, endpoint, helper):
+def test_should_invalidate_read_cache_on_write(file_ctx, file_id, parameters,
+                                               storage_id, endpoint, helper):
     data = random_str()
     offset = random_int()
     server_message = remote_data_msg(data)
@@ -168,7 +173,8 @@ def test_should_invalidate_read_cache_on_write(file_ctx, file_id, parameters, st
         assert new_data == helper.read(file_ctx, file_id, offset, len(new_data))
 
 
-def test_should_flush_writes_on_close(file_id, parameters, storage_id, endpoint, helper):
+def test_should_flush_writes_on_close(file_id, parameters, storage_id, endpoint,
+                                      helper):
     data = random_str()
     offset = random_int()
     server_message = remote_write_result_msg(len(data))
