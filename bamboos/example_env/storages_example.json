@@ -37,10 +37,6 @@
                   "type": "s3",
                   "name": "s3",
                   "bucket": "onedata"
-                },
-                {
-                  "type": "nfs",
-                  "name": "/mnt/nfs",
                 }
             ],
             "users": [
@@ -155,7 +151,7 @@
         }
     },
     "oneclient": {
-        "client-host1": {
+        "client_host_1": {
             "os_config": "cfg1",
             "clients": {
                 "client1": {
@@ -178,7 +174,7 @@
                 }
             }
         },
-        "client-host2": {
+        "client_host_2": {
             "os_config": "cfg1",
             "clients": {
                 "client1": {
@@ -264,22 +260,6 @@
                 "providers": {
                     "p1": {
                         "storage": "/mnt/st1",
-                        "supported_size": 1000000000
-                    }
-                }
-            },
-            "s4": {
-                "displayed_name": "s3",
-                "users": [
-                    "u1",
-                    "u2"
-                ],
-                "groups": [
-                    "g1"
-                ],
-                "providers": {
-                    "p1": {
-                        "storage": "/mnt/nfs",
                         "supported_size": 1000000000
                     }
                 }

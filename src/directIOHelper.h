@@ -152,6 +152,8 @@ public:
     std::size_t sh_write(CTXPtr ctx, const boost::filesystem::path &p,
         asio::const_buffer buf, off_t offset) override;
 
+    bool needsDataConsistencyCheck() override;
+
 protected:
     template <class Result, typename... Args1, typename... Args2>
     static void setResult(

@@ -14,7 +14,7 @@ from __future__ import print_function
 import argparse
 import json
 
-from environment import s3, common
+from environment import s3
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -34,14 +34,7 @@ parser.add_argument(
     help='bucket name',
     dest='buckets')
 
-parser.add_argument(
-    '-u', '--uid',
-    action='store',
-    default=common.generate_uid(),
-    help='uid that will be concatenated to docker names',
-    dest='uid')
-
 args = parser.parse_args()
-config = s3.up(args.image, args.buckets, 'storage', args.uid)
+config = s3.up(args.image, args.buckets)
 
 print(json.dumps(config))

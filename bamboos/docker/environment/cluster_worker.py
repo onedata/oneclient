@@ -10,33 +10,23 @@ from . import worker
 DOCKER_BINDIR_PATH = '/root/build'
 
 
-def up(image, bindir, dns_server, uid, config_path, logdir=None,
-       storages_dockers=None, luma_config=None):
+def up(image, bindir, dns_server, uid, config_path, logdir=None, storages_dockers=None):
     return worker.up(image, bindir, dns_server, uid, config_path,
-                     ClusterWorkerConfigurator(), logdir,
-                     storages_dockers=storages_dockers,
-                     luma_config=luma_config)
+                     ClusterWorkerConfigurator(), logdir, storages_dockers)
 
 
 class ClusterWorkerConfigurator:
     def tweak_config(self, cfg, uid, instance):
         return cfg
 
-    def pre_start_commands(self, domain):
-        return 'escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json'
+    def pre_start_commands(self, bindir, config, domain, worker_ips):
+        return ''
 
-    # Called BEFORE the instance (cluster of workers) is started,
-    # once for every instance
-    def pre_configure_instance(self, instance, instance_domain, config):
+    def configure_started_instance(self, bindir, instance, config, container_ids, output,
+                                   storages_dockers):
         pass
 
-    # Called AFTER the instance (cluster of workers) has been started
-    def post_configure_instance(self, bindir, instance, config, container_ids,
-                                output, storages_dockers=None,
-                                luma_config=None):
-        pass
-
-    def extra_volumes(self, config, bindir, instance_domain):
+    def extra_volumes(self, config, bindir):
         return []
 
     def app_name(self):

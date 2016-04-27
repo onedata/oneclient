@@ -79,6 +79,7 @@
         "p1": {
             "db_driver": "couchdb",
             "os_config": "cfg1",
+            "gui_livereload": "none",
             "cluster_manager": {
                 "cm1": {
                     "vm.args": {
@@ -118,6 +119,7 @@
         "p2.oz": {
             "db_driver": "couchdb",
             "os_config": "cfg2",
+            "gui_livereload": "none",
             "cluster_manager": {
                 "cm1": {
                     "vm.args": {
@@ -213,6 +215,7 @@
     "zone_domains": {
         "oz": {
             "db_driver": "couchdb",
+            "gui_livereload": "none",
             "cluster_manager": {
                 "cm": {
                     "vm.args": {
@@ -329,7 +332,7 @@
         }
     },
     "oneclient": {
-        "client-host1": {
+        "client_host_1": {
             "os_config": "cfg1",
             "clients": {
                 "client1": {
@@ -352,7 +355,7 @@
                 }
             }
         },
-        "client-host2": {
+        "client_host_2": {
             "os_config": "cfg2",
             "clients": {
                 "client1": {

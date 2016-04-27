@@ -50,7 +50,7 @@ main([BaseDir]) ->
   end,
 
   % loading eunit coverage reports
-  ok = cover:import(filename:join([BaseDir, ".eunit", "cover.coverdata"])),
+  ok = cover:import(filename:join([BaseDir, ".eunit", "eunit.coverdata"])),
 
   % output directory; if exists, we re-create it
   CoverDirPath = filename:join([BaseDir, "test_coverage"]),
