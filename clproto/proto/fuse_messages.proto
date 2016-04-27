@@ -50,6 +50,7 @@ message FuseRequest {
         CreateStorageTestFile create_storage_test_file = 18;
         VerifyStorageTestFile verify_storage_test_file = 19;
         GetParent get_parent = 20;
+        SynchronizeBlockAndComputeChecksum synchronize_block_and_compute_checksum = 21;
     }
 }
 
@@ -134,6 +135,7 @@ message FuseResponse {
         XattrList xattr_list = 7;
         StorageTestFile storage_test_file = 8;
         Dir dir = 9;
+        Checksum checksum = 10;
     }
 }
 
@@ -228,4 +230,13 @@ message SynchronizeBlock {
 
 message Dir {
     required bytes uuid = 1;
+}
+
+message SynchronizeBlockAndComputeChecksum {
+    required bytes     uuid  = 1;
+    required FileBlock block = 2;
+}
+
+message Checksum {
+    required bytes value = 1;
 }

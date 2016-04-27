@@ -13,7 +13,7 @@ from __future__ import print_function
 import argparse
 import json
 
-from environment import ceph
+from environment import ceph, common
 
 parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
         '-i', '--image',
         action='store',
-        default='onedata/ceph',
+        default='docker.onedata.org/ceph-base',
         help='docker image to use for the container',
         dest='image')
 
@@ -33,9 +33,16 @@ parser.add_argument(
         help='pool name and number of placement groups in format name:pg_num',
         dest='pools')
 
+parser.add_argument(
+        '-u', '--uid',
+        action='store',
+        default=common.generate_uid(),
+        help='uid that will be concatenated to docker names',
+        dest='uid')
+
 args = parser.parse_args()
 pools = map(lambda pool: tuple(pool.split(':')), args.pools)
 
-config = ceph.up(args.image, pools)
+config = ceph.up(args.image, pools, 'storage', args.uid)
 
 print(json.dumps(config))
