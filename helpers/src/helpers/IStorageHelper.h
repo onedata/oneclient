@@ -84,8 +84,6 @@ public:
      */
     virtual void setUserCTX(std::unordered_map<std::string, std::string> args)
     {
-        throw std::system_error{
-            std::make_error_code(std::errc::function_not_supported)};
     }
 
     /**
@@ -311,6 +309,8 @@ public:
     {
         sync(&IStorageHelper::ash_release, std::move(ctx), p);
     }
+
+    virtual bool needsDataConsistencyCheck() { return false; }
 
     static int getFlagsValue(FlagsSet flags)
     {

@@ -130,6 +130,7 @@ bool StorageAccessManager::verifyStorageTestFile(
     const messages::fuse::StorageTestFile &testFile)
 {
     try {
+
         auto size = testFile.fileContent().size();
         std::vector<char> buffer(size);
 
@@ -139,7 +140,7 @@ bool StorageAccessManager::verifyStorageTestFile(
         asio::mutable_buffer content;
         try {
             content = helper->sh_read(
-                ctx, testFile.fileId(), asio::buffer(buffer), 0);
+                ctx, testFile.fileId(), asio::buffer(buffer), O_RDONLY);
         }
         catch (...) {
             helper->sh_release(ctx, testFile.fileId());
@@ -167,8 +168,10 @@ bool StorageAccessManager::verifyStorageTestFile(
     }
     catch (const std::system_error &e) {
         auto code = e.code().value();
-        if (code != ENOENT && code != ENOTDIR && code != EPERM)
+        if (code != ENOENT && code != ENOTDIR && code != EPERM) {
+            LOG(WARNING) << "Storage test file validation failed!";
             throw;
+        }
     }
 
     return false;
@@ -188,7 +191,7 @@ std::string StorageAccessManager::modifyStorageTestFile(
         buffer.data(), size, [&]() { return distribution(engine); });
 
     auto ctx = helper->createCTX({});
-    helper->sh_open(ctx, testFile.fileId(), 0);
+    helper->sh_open(ctx, testFile.fileId(), O_WRONLY);
     try {
         helper->sh_write(
             ctx, testFile.fileId(), asio::const_buffer(buffer.data(), size), 0);
@@ -197,6 +200,7 @@ std::string StorageAccessManager::modifyStorageTestFile(
         helper->sh_release(ctx, testFile.fileId());
         throw;
     }
+    helper->sh_fsync(ctx, testFile.fileId(), true);
     helper->sh_release(ctx, testFile.fileId());
 
     return std::string{buffer.data(), size};

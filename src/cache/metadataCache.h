@@ -15,8 +15,8 @@
 #include "messages/fuse/getFileAttr.h"
 
 #include <boost/filesystem/path.hpp>
-#include <tbb/concurrent_hash_map.h>
 #include <boost/functional/hash.hpp>
+#include <tbb/concurrent_hash_map.h>
 
 #include <condition_variable>
 #include <unordered_set>
@@ -203,7 +203,7 @@ public:
      * @param uuid The UUID of file
      * @param range Range of data to wait for
      * @param timeout Timeout to wait for condition
-     * @return true if file has benn successfully synchronized
+     * @return true if file has been successfully synchronized
      */
     bool waitForNewLocation(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range,

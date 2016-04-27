@@ -16,6 +16,7 @@
 #include "cache/metadataCache.h"
 #include "events/eventManager.h"
 #include "fsSubscriptions.h"
+#include "messages/fuse/checksum.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
 #include "messages/fuse/helperParams.h"
@@ -246,7 +247,10 @@ private:
     const std::string createFile(boost::filesystem::path path, mode_t);
     void openFile(
         const std::string &fileUuid, struct fuse_file_info *const fileInfo);
-    bool waitForBlockSynchronization(const std::string &uuid,
+    one::messages::fuse::Checksum waitForBlockSynchronization(
+        const std::string &uuid,
+        const boost::icl::discrete_interval<off_t> &range);
+    one::messages::fuse::Checksum syncAndFetchChecksum(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range);
     std::tuple<messages::fuse::FileBlock, asio::const_buffer> findWriteLocation(
         const messages::fuse::FileLocation &fileLocation, const off_t offset,
@@ -255,6 +259,11 @@ private:
     events::FileLocationEventStream::Handler fileLocationHandler();
     events::PermissionChangedEventStream::Handler permissionChangedHandler();
     events::FileRemovalEventStream::Handler fileRemovalHandler();
+    bool dataCorrupted(const std::string &uuid, asio::const_buffer buf,
+        const messages::fuse::Checksum &serverChecksum,
+        const boost::icl::discrete_interval<off_t> &availableRange,
+        const boost::icl::discrete_interval<off_t> &wantedRange);
+    std::string computeHash(asio::const_buffer buf);
 
     const uid_t m_uid;
     const gid_t m_gid;

@@ -10,6 +10,7 @@
 #include "fsLogic.h"
 
 #include "context.h"
+#include "directIOHelper.h"
 #include "helpers/IStorageHelper.h"
 #include "logging.h"
 #include "options.h"
@@ -29,11 +30,12 @@
 #include "messages/fuse/helperParams.h"
 #include "messages/fuse/release.h"
 #include "messages/fuse/rename.h"
-#include "messages/fuse/synchronizeBlock.h"
+#include "messages/fuse/synchronizeBlockAndComputeChecksum.h"
 #include "messages/fuse/truncate.h"
 #include "messages/fuse/updateTimes.h"
 
 #include <boost/algorithm/string.hpp>
+#include <openssl/md4.h>
 
 #include <sys/stat.h>
 
@@ -389,9 +391,10 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto availableBlockIt =
         location.blocks().find(boost::icl::discrete_interval<off_t>(offset));
 
-    if (availableBlockIt == location.blocks().end()) {
-        if (!waitForBlockSynchronization(context.uuid, wantedRange))
-            throw std::errc::resource_unavailable_try_again;
+    boost::optional<messages::fuse::Checksum> serverChecksum;
+    bool dataNeedsSynchronization = availableBlockIt == location.blocks().end();
+    if (dataNeedsSynchronization) {
+        serverChecksum = waitForBlockSynchronization(context.uuid, wantedRange);
         location = m_metadataCache.getLocation(context.uuid);
         availableBlockIt = location.blocks().find(
             boost::icl::discrete_interval<off_t>(offset));
@@ -406,7 +409,22 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         context, helper, fileBlock.storageId(), fileBlock.fileId());
 
     try {
-        buf = helper->sh_read(helperCtx, fileBlock.fileId(), buf, offset);
+        auto readBuffer =
+            helper->sh_read(helperCtx, fileBlock.fileId(), buf, offset);
+
+        if (helper->needsDataConsistencyCheck() && dataNeedsSynchronization &&
+            dataCorrupted(context.uuid, readBuffer, serverChecksum.get(),
+                availableRange, wantedRange)) {
+            helper->sh_release(helperCtx,
+                fileBlock.fileId()); // close the file to get data up to date,
+                                     // it will be opened again by read function
+            return read(path, buf, offset, fileInfo);
+        }
+
+        const auto bytesRead = asio::buffer_size(readBuffer);
+        m_eventManager.emitReadEvent(offset, bytesRead, context.uuid);
+
+        return bytesRead;
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)
@@ -417,20 +435,29 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         m_forceProxyIOCache.insert(context.uuid);
         return read(path, buf, offset, fileInfo);
     }
-
-    const auto bytesRead = asio::buffer_size(buf);
-    m_eventManager.emitReadEvent(offset, bytesRead, context.uuid);
-
-    return bytesRead;
 }
 
-bool FsLogic::waitForBlockSynchronization(
+messages::fuse::Checksum FsLogic::waitForBlockSynchronization(
     const std::string &uuid, const boost::icl::discrete_interval<off_t> &range)
 {
-    messages::fuse::SynchronizeBlock msg{uuid, range};
-    m_context->communicator()->send(std::move(msg));
-    return m_metadataCache.waitForNewLocation(uuid, range,
-        std::chrono::seconds{m_context->options()->get_file_sync_timeout()});
+    auto checksum = syncAndFetchChecksum(uuid, range);
+
+    if (!m_metadataCache.waitForNewLocation(
+            uuid, range, std::chrono::seconds{
+                             m_context->options()->get_file_sync_timeout()}))
+        throw std::errc::resource_unavailable_try_again;
+
+    return checksum;
+}
+
+messages::fuse::Checksum FsLogic::syncAndFetchChecksum(
+    const std::string &uuid, const boost::icl::discrete_interval<off_t> &range)
+{
+    messages::fuse::SynchronizeBlockAndComputeChecksum request{uuid, range};
+    auto future =
+        m_context->communicator()->communicate<messages::fuse::Checksum>(
+            std::move(request));
+    return communication::wait(future);
 }
 
 int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
@@ -853,6 +880,31 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
             LOG(INFO) << "File remove event received: " << event->fileUuid();
         }
     };
+}
+
+bool FsLogic::dataCorrupted(const std::string &uuid, asio::const_buffer buf,
+    const messages::fuse::Checksum &serverChecksum,
+    const boost::icl::discrete_interval<off_t> &availableRange,
+    const boost::icl::discrete_interval<off_t> &wantedRange)
+{
+    auto checksum = availableRange == wantedRange
+        ? computeHash(buf)
+        : syncAndFetchChecksum(uuid, availableRange).value();
+    if (serverChecksum.value() != checksum)
+        return true;
+
+    return false;
+}
+
+std::string FsLogic::computeHash(asio::const_buffer buf)
+{
+    std::string hash(MD4_DIGEST_LENGTH, '\0');
+    MD4_CTX ctx;
+    MD4_Init(&ctx);
+    MD4_Update(
+        &ctx, asio::buffer_cast<const char *>(buf), asio::buffer_size(buf));
+    MD4_Final(reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
+    return hash;
 }
 
 } // namespace client
