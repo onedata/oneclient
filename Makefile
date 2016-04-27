@@ -35,7 +35,7 @@ coverage:
 	lcov --directory debug --capture --output-file helpers.info
 	lcov --remove helpers.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
 	                           'relwithdebinfo/*' 'debug/*' 'release/*' \
-														 'erlang-tls/*' --output-file helpers.info.cleaned
+	                           'erlang-tls/*' --output-file helpers.info.cleaned
 	genhtml -o coverage helpers.info.cleaned
 	echo "Coverage written to `pwd`/coverage/index.html"
 
