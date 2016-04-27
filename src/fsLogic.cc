@@ -687,13 +687,21 @@ int FsLogic::readdir(boost::filesystem::path path, void *const buf,
     if (attr.type() != messages::fuse::FileAttr::FileType::directory)
         throw std::errc::not_a_directory;
 
-    messages::fuse::GetFileChildren msg{attr.uuid(), offset, 1000};
+    auto currentOffset = offset;
+
+    std::size_t chunkSize = 1000;
+    if (offset == 0) {
+        chunkSize -= 2;
+        (filler(buf, ".", nullptr, ++currentOffset));
+        (filler(buf, "..", nullptr, ++currentOffset));
+    }
+
+    messages::fuse::GetFileChildren msg{attr.uuid(), offset, chunkSize};
     auto future =
         m_context->communicator()->communicate<messages::fuse::FileChildren>(
             std::move(msg));
 
     auto fileChildren = communication::wait(future);
-    auto currentOffset = offset;
 
     for (const auto &uuidAndName : fileChildren.uuidsAndNames()) {
         auto name = std::get<1>(uuidAndName);
