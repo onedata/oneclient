@@ -20,22 +20,20 @@ namespace proxyio {
 
 RemoteWrite::RemoteWrite(
     std::unordered_map<std::string, std::string> parameters,
-    std::string storageId, std::string fileId, const off_t offset,
-    asio::const_buffer data)
+    std::string storageId, std::string fileId,
+    std::vector<std::pair<off_t, std::string>> data)
     : ProxyIORequest{std::move(parameters), std::move(storageId),
           std::move(fileId)}
-    , m_offset{offset}
-    , m_data{data}
+    , m_data{std::move(data)}
 {
 }
 
 std::string RemoteWrite::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'RemoteWrite', parameters: " << m_parameters
-           << ", storageId: '" << m_storageId << "', fileId: '" << m_fileId
-           << "', offset: " << m_offset
-           << ", data size: " << asio::buffer_size(m_data);
+    stream << "type: 'RemoteWrite', parameters: '" << m_parameters
+           << "', storageId: '" << m_storageId << "', fileId: '" << m_fileId
+           << "', byte sequences: " << m_data.size();
     return stream.str();
 }
 
@@ -45,9 +43,11 @@ std::unique_ptr<ProtocolClientMessage> RemoteWrite::serializeAndDestroy()
     auto writeMsg =
         clientMsg->mutable_proxyio_request()->mutable_remote_write();
 
-    writeMsg->set_offset(m_offset);
-    writeMsg->mutable_data()->assign(
-        asio::buffer_cast<const char *>(m_data), asio::buffer_size(m_data));
+    for (auto &e : m_data) {
+        auto byteSequence = writeMsg->add_byte_sequence();
+        byteSequence->set_offset(e.first);
+        byteSequence->mutable_data()->swap(e.second);
+    }
 
     return clientMsg;
 }
