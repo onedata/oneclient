@@ -3,11 +3,10 @@ import os
 import random
 import string
 import sys
+import time
 from Queue import Queue
 from contextlib import contextmanager
 from threading import Thread
-
-import time
 
 _script_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -42,10 +41,14 @@ def decode_params(params):
 
 def _with_reply_process(endpoint, responses, queue, reply_to_async=False):
     while responses:
-        received_msgs = endpoint.wait_for_any_messages(return_history=True, accept_more=True)
+        received_msgs = endpoint.wait_for_any_messages(return_history=True,
+                                                       accept_more=True)
         endpoint.client.reset_tcp_history()
 
         for received_msg in received_msgs:
+            if not responses:
+                break
+
             client_message = messages_pb2.ClientMessage()
             client_message.ParseFromString(received_msg)
             message_has_id = client_message.HasField('message_id')
@@ -53,7 +56,8 @@ def _with_reply_process(endpoint, responses, queue, reply_to_async=False):
             if message_has_id or reply_to_async:
                 response = responses.pop(0)
                 if message_has_id:
-                    response.message_id = client_message.message_id.encode('utf-8')
+                    response.message_id = client_message.message_id.encode(
+                        'utf-8')
                 endpoint.send(response.SerializeToString())
 
                 queue.put(client_message)
