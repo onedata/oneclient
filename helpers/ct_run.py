@@ -63,9 +63,9 @@ if {shed_privileges}:
     os.setreuid({uid}, {uid})
 
 if {gdb}:
-    command = ['gdb', 'python', '-silent', '-statistics', '-ex', """run -c '
+    command = ['gdb', 'python', '-silent', '-statistics', '-ex', """run -c "
 import pytest
-pytest.main({args} + ["{test_dirs}"])'"""]
+pytest.main({args} + ['{test_dirs}'])" """]
 else:
     command = ['py.test'] + {args} + ['{test_dirs}']
 

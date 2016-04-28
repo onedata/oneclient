@@ -87,11 +87,6 @@ add_definitions(
     -DASIO_STANDALONE
     -DGLOG_STL_LOGGING_FOR_UNORDERED)
 
-option(BUILD_PROXY_IO "Build Proxy IO helper." ON)
-if(BUILD_PROXY_IO)
-    add_definitions("-DBUILD_PROXY_IO")
-endif(BUILD_PROXY_IO)
-
 add_subdirectory(clproto)
 add_subdirectory(${ERLANG_TLS_DIR}/src)
 add_subdirectory(src)
@@ -124,4 +119,3 @@ install(DIRECTORY ${ASIO_INCLUDE_DIRS} DESTINATION .)
 
 enable_testing()
 add_subdirectory(test)
-

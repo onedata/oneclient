@@ -29,7 +29,7 @@ def ceph_client(request):
             self.pool_name = pool_name
 
     pool_name = 'data'
-    result = ceph_server.up(image='onedata/ceph', pools=[(pool_name, '8')])
+    result = ceph_server.up('onedata/ceph', [(pool_name, '8')], 'storage', '1')
 
     [container] = result['docker_ids']
     username = result['username']
