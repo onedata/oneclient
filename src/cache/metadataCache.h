@@ -110,9 +110,10 @@ public:
     /**
      * Retrieves location data about a file with given uuid.
      * @param uuid The uuid of a file to retrieve location data about.
+     * @param flags The open flags.
      * @return Location data about the file.
      */
-    FileLocation getLocation(const std::string &uuid);
+    FileLocation getLocation(const std::string &uuid, const int flags);
 
     /**
      * Sets metadata accessor for a given path, first ensuring that path<->UUID
@@ -146,8 +147,10 @@ public:
      * data is set.
      * @param metaAcc Metadata accessor.
      * @param uuid The UUID of a file to retrieve location data about.
+     * @param flags Open flags.
      */
-    void getLocation(MetaAccessor &metaAcc, const std::string &uuid);
+    void getLocation(
+        MetaAccessor &metaAcc, const std::string &uuid, const int flags);
 
     /**
      * Adds an arbitrary path<->UUID mapping to the cache.
@@ -203,11 +206,12 @@ public:
      * @param uuid The UUID of file
      * @param range Range of data to wait for
      * @param timeout Timeout to wait for condition
+     * @param flags Flags for opening the file if its closed
      * @return true if file has been successfully synchronized
      */
     bool waitForNewLocation(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range,
-        const std::chrono::milliseconds &timeout);
+        const std::chrono::milliseconds &timeout, const int flags);
 
     /**
      * Notifies waiting processes that the new file location has arrived

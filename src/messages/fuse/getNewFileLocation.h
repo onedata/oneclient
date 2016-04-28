@@ -9,8 +9,10 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_GET_NEW_FILE_LOCATION_H
 #define ONECLIENT_MESSAGES_FUSE_GET_NEW_FILE_LOCATION_H
 
+#include "fileLocation.h"
 #include "messages/clientMessage.h"
 
+#include <fcntl.h>
 #include <sys/types.h>
 
 #include <string>
@@ -25,13 +27,18 @@ namespace fuse {
  */
 class GetNewFileLocation : public ClientMessage {
 public:
+    using FileLocationFlags =
+        one::messages::fuse::FileLocation::FileLocationFlags;
+
     /**
      * Constructor.
      * @param name Name of the file to create.
      * @param parentUuid UUID of the directory in which to create the file.
      * @param mode Mode of the newly created file.
+     * @param flags Open flags.
      */
-    GetNewFileLocation(std::string name, std::string parentUuid, mode_t mode);
+    GetNewFileLocation(
+        std::string name, std::string parentUuid, mode_t mode, const int flags);
 
     std::string toString() const override;
 
@@ -41,6 +48,7 @@ private:
     std::string m_name;
     std::string m_parentUuid;
     mode_t m_mode;
+    FileLocationFlags m_flags;
 };
 
 } // namespace fuse
