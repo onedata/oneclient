@@ -25,9 +25,12 @@ package/
 Available distributions vivid, wily, fedora-21-x86_64, fedora-23-x86_64, centos-7-x86_64, sl6x-x86_64
 """
 import argparse
-from subprocess import Popen, PIPE, check_call, check_output, CalledProcessError
-import sys
+import json
 import os
+import shutil
+import sys
+import tempfile
+from subprocess import Popen, PIPE, check_call, check_output, CalledProcessError
 
 CONFIG = '''
 Host docker_packages_devel
@@ -61,10 +64,14 @@ Host packages
 
 APACHE_PREFIX = '/var/www/onedata'
 YUM_REPO_LOCATION = {
-    'fedora-21-x86_64': '/yum/fedora/21',
-    'fedora-23-x86_64': '/yum/fedora/23',
-    'centos-7-x86_64': '/yum/centos/7x',
-    'sl6x-x86_64': '/yum/scientific/6x'
+    'fedora-21-x86_64': 'yum/fedora/21',
+    'fedora-23-x86_64': 'yum/fedora/23',
+    'centos-7-x86_64': 'yum/centos/7x',
+    'sl6x-x86_64': 'yum/scientific/6x'
+}
+DEB_PKG_LOCATION = {
+    'vivid': 'apt/ubuntu/pool/main',
+    'wily': 'apt/ubuntu/pool/main'
 }
 REPO_TYPE = {
     'vivid': 'deb',
@@ -100,8 +107,8 @@ parser.add_argument(
 
 # create the parser for the "config" command
 parser_config = subparsers.add_parser(
-        'config',
-        help='Print ssh config for onedata package repositories'
+    'config',
+    help='Print ssh config for onedata package repositories'
 )
 
 # create the parser for the "push" command
@@ -114,69 +121,182 @@ parser_push.add_argument(
     help='Package artifact in tar.gz format'
 )
 
+# create the parser for the "pull" command
+parser_pull = subparsers.add_parser(
+    'pull',
+    help='Pull packages and create .tar.gz archive.'
+)
+parser_pull.add_argument(
+    'report_artifact',
+    help='Report artifact from push command.'
+)
+
 args = parser.parse_args()
+identity_opt = ['-i', args.identity] if args.identity else []
 
 
-def cp_or_scp(hostname, identity_opt, source, dest_dir):
-    scp_command = ['scp'] + identity_opt + [source] + [hostname + ':' + dest_dir] \
-        if hostname else ['cp', source, dest_dir]
+def cp_or_scp(hostname, identity_opt, source, dest_dir, from_local=True):
+    scp_command = ['cp', source, dest_dir]
+    if hostname:
+        if from_local:
+            scp_command = ['scp'] + identity_opt + \
+                          [source, hostname + ':' + dest_dir]
+        else:
+            scp_command = ['scp'] + identity_opt + \
+                          [hostname + ':' + source, dest_dir]
     check_call(scp_command, stdout=sys.stdout, stderr=sys.stderr)
 
 
-def ssh_or_sh(hostname, identity_opt, command, return_output = False):
+def ssh_or_sh(hostname, identity_opt, command, return_output=False):
     ssh_command = ['ssh'] + identity_opt + [hostname] if hostname else []
     if return_output:
         return check_output(ssh_command + command)
     else:
-        return check_call(ssh_command + command, stdout=sys.stdout, stderr=sys.stderr)
+        return check_call(ssh_command + command, stdout=sys.stdout,
+                          stderr=sys.stderr)
 
 
 def untar_remote_or_local(hostname, identity_opt, package_artifact, dest_dir):
     ssh_command = ['ssh'] + identity_opt + [hostname] if hostname else []
     tar_stream = Popen(['cat', package_artifact], stdout=PIPE)
-    check_call(ssh_command + ['tar', 'xzf', '-', '-C', dest_dir], stdin=tar_stream.stdout)
+    check_call(ssh_command + ['tar', 'xzf', '-', '-C', dest_dir],
+               stdin=tar_stream.stdout)
     tar_stream.wait()
 
 
-identity_opt = ['-i', args.identity] if args.identity else []
+def copy(source, dest_dir, from_local=True):
+    cp_or_scp(args.host, identity_opt, source, dest_dir, from_local)
 
-copy = lambda source, dest_dir: cp_or_scp(args.host, identity_opt, source, dest_dir)
-call = lambda command: ssh_or_sh(args.host, identity_opt, command, True)
-execute = lambda command: ssh_or_sh(args.host, identity_opt, command)
-untar = lambda package_artifact, dest_dir: untar_remote_or_local(args.host, identity_opt, package_artifact, dest_dir)
 
-try:
+def call(command):
+    return ssh_or_sh(args.host, identity_opt, command, True)
+
+
+def execute(command):
+    return ssh_or_sh(args.host, identity_opt, command)
+
+
+def untar(package_artifact, dest_dir):
+    untar_remote_or_local(args.host, identity_opt, package_artifact, dest_dir)
+
+
+def tar(dir, archive=tempfile.mktemp('.tar.gz')):
+    check_call(['tar', 'czf', archive, '-C', dir, '.'])
+    return archive
+
+
+def deb_package_path(distro, type, package):
+    name = package.split('_')[0]
+    return (os.path.join(DEB_PKG_LOCATION[distro], name[0], name, package),
+            os.path.join(distro, type))
+
+
+def yum_package_path(distro, type, package):
+    return (os.path.join(YUM_REPO_LOCATION[distro], type, package),
+            os.path.join(distro, type))
+
+
+def write_report(packages):
+    packages = filter(lambda package: not package[0].endswith('.changes'),
+                      packages)
+
+    with open('pkg-list.json', 'w') as f:
+        json.dump(dict(packages), f, indent=2)
+
+
+def push(package_artifact):
+    tmp_dir = tempfile.mktemp()
+    pkg_dir = os.path.join(tmp_dir, 'package')
+
+    try:
+        # extract package_artifact
+        execute(['rm', '-rf', tmp_dir])
+        execute(['mkdir', '-p', tmp_dir])
+        untar(package_artifact, tmp_dir)
+        packages = []
+
+        # for each distribution inside
+        for distro in call(['ls', pkg_dir]).split():
+            if REPO_TYPE[distro] == 'deb':
+                # push debs
+                binary_dir = os.path.join(pkg_dir, distro, 'binary-amd64')
+                for package in call(['ls', binary_dir]).split():
+                    path = deb_package_path(distro, 'binary-amd64', package)
+                    packages.append(path)
+                execute(['aptly', 'repo', 'add', '-force-replace', distro,
+                         binary_dir])
+
+                # push sources
+                source_dir = os.path.join(pkg_dir, distro, 'source')
+                for package in call(['ls', source_dir]).split():
+                    path = deb_package_path(distro, 'source', package)
+                    packages.append(path)
+                execute(['aptly', 'repo', 'add', '-force-replace', distro,
+                         source_dir])
+
+                # update repo
+                execute(['aptly', 'publish', 'update', '-force-overwrite',
+                         distro])
+            elif REPO_TYPE[distro] == 'rpm':
+                # copy packages
+                repo_dir = os.path.join(APACHE_PREFIX,
+                                        YUM_REPO_LOCATION[distro])
+                distro_contents = os.path.join(pkg_dir, distro)
+                call(['cp', '-a', os.path.join(distro_contents, '.'), repo_dir])
+
+                for type in ['x86_64', 'SRPMS']:
+                    dir = os.path.join(distro_contents, type)
+                    for package in call(['ls', dir]).split():
+                        path = yum_package_path(distro, type, package)
+                        packages.append(path)
+
+                # update createrepo
+                call(['find', repo_dir, '-name', '*.rpm', '-exec', 'rpmresign',
+                      '{}', '\';\''])
+                call(['createrepo', repo_dir])
+
+        write_report(packages)
+        return 0
+
+    except CalledProcessError as err:
+        return err.returncode
+    finally:
+        execute(['rm', '-rf', tmp_dir])
+
+
+def pull(report_artifact):
+    tmp_dir = tempfile.mkdtemp()
+    pkg_dir = os.path.join(tmp_dir, 'package')
+
+    try:
+        with open(report_artifact, 'r') as f:
+            report = json.load(f)
+            for package_path, distro_dir in report.items():
+                source = os.path.join(APACHE_PREFIX, package_path)
+                dest = os.path.join(pkg_dir, distro_dir)
+                if not os.path.exists(dest):
+                    os.makedirs(dest)
+                copy(source, dest, False)
+
+        archive = tar(tmp_dir)
+        return 0, archive
+
+    except CalledProcessError as err:
+        return err.returncode, None
+    finally:
+        shutil.rmtree(tmp_dir)
+
+
+if __name__ == '__main__':
+    exit_code = 0
+
     if args.action == 'config':
         print(CONFIG)
     elif args.action == 'push':
-        # extract package_artifact
-        execute(['rm', '-rf', '/tmp/package'])
-        untar(args.package_artifact, '/tmp/')
+        exit_code = push(args.package_artifact)
+    elif args.action == 'pull':
+        exit_code, archive = pull(args.report_artifact)
+        if exit_code == 0:
+            print(archive)
 
-        # for each distribution inside
-        for distro in call(['ls', '/tmp/package']).split():
-            if REPO_TYPE[distro] == 'deb':
-                # push debs
-                try:
-                    distro_binary_packages = '/tmp/package/' + distro + '/binary-amd64/'
-                    execute(['aptly', 'repo', 'add', distro, distro_binary_packages])
-
-                    # push sources
-                    distro_source_packages = '/tmp/package/' + distro + '/source/'
-                    execute(['aptly', 'repo', 'add', distro, distro_source_packages])
-                except Exception:
-                    pass  # the repo should be updated anyway
-
-                # update repo
-                execute(['aptly', 'publish', 'update', distro])
-            elif REPO_TYPE[distro] == 'rpm':
-                # copy packages
-                repo_dir = APACHE_PREFIX + YUM_REPO_LOCATION[distro]
-                distro_contents = '/tmp/package/' + distro + '/.'
-                call(['cp', '-a', distro_contents, repo_dir])
-
-                # update createrepo
-                call(['find', repo_dir, '-name', '*.rpm', '-exec', 'rpmresign', '{}', '\';\''])
-                call(['createrepo', repo_dir])
-except CalledProcessError as err:
-    exit(err.returncode)
+    sys.exit(exit_code)
