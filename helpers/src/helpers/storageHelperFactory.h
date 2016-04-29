@@ -11,17 +11,18 @@
 
 #include "helpers/IStorageHelper.h"
 
-#ifdef BUILD_PROXY_IO
-#include "communication/communicator.h"
-#endif
-
 #include <asio/io_service.hpp>
+#include <boost/optional.hpp>
 
 #include <memory>
 #include <string>
 
 namespace one {
 namespace helpers {
+
+namespace proxyio {
+class BufferAgent;
+} // namespace proxyio
 
 constexpr auto CEPH_HELPER_NAME = "Ceph";
 constexpr auto DIRECT_IO_HELPER_NAME = "DirectIO";
@@ -33,14 +34,9 @@ constexpr auto S3_HELPER_NAME = "AmazonS3";
  */
 class StorageHelperFactory {
 public:
-#ifdef BUILD_PROXY_IO
-    StorageHelperFactory(asio::io_service &cephService,
-        asio::io_service &dioService, asio::io_service &s3Service,
-        communication::Communicator &communicator);
-#else
     StorageHelperFactory(asio::io_service &ceph_service,
-        asio::io_service &dio_service, asio::io_service &s3Service);
-#endif
+        asio::io_service &dio_service, asio::io_service &s3Service,
+        std::shared_ptr<proxyio::BufferAgent> bufferAgent);
 
     virtual ~StorageHelperFactory() = default;
 
@@ -59,9 +55,7 @@ private:
     asio::io_service &m_cephService;
     asio::io_service &m_dioService;
     asio::io_service &m_s3Service;
-#ifdef BUILD_PROXY_IO
-    communication::Communicator &m_communicator;
-#endif
+    std::shared_ptr<proxyio::BufferAgent> m_bufferAgent;
 };
 
 } // namespace helpers

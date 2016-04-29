@@ -6,8 +6,10 @@ __author__ = "Konrad Zemek"
 __copyright__ = """(C) 2015 ACK CYFRONET AGH,
 This software is released under the MIT license cited in 'LICENSE.txt'."""
 
+import hashlib
 import os
 import sys
+from threading import Thread
 import time
 import pytest
 
@@ -31,6 +33,16 @@ def endpoint(appmock_client):
 @pytest.fixture
 def fl(endpoint):
     return fslogic.FsLogicProxy(endpoint.ip, endpoint.port)
+
+
+def send_event_with_delay(endpoint, event, delay=1):
+    time.sleep(delay)
+    endpoint.send(event)
+
+
+def schedule_sending_event(endpoint, event):
+    thread = Thread(target=send_event_with_delay, args=(endpoint, event))
+    thread.start()
 
 
 def prepare_file_blocks(blocks=[]):
@@ -81,17 +93,32 @@ def prepare_location_update_event(blocks, stream_id, sequence_number):
     return server_msg
 
 
+def prepare_checksum(data):
+    md = hashlib.new('MD4')
+    md.update(data)
+    hash = md.digest()
+
+    repl = fuse_messages_pb2.Checksum()
+    repl.value = hash
+
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.checksum.CopyFrom(repl)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    return server_response
+
+
 def prepare_synchronize_block(offset, size):
     block = common_messages_pb2.FileBlock()
     block.offset = offset
     block.size = size
 
-    req = fuse_messages_pb2.SynchronizeBlock()
+    req = fuse_messages_pb2.SynchronizeBlockAndComputeChecksum()
     req.uuid = 'uuid1'
     req.block.CopyFrom(block)
 
     client_request = messages_pb2.ClientMessage()
-    client_request.fuse_request.synchronize_block.CopyFrom(req)
+    client_request.fuse_request.synchronize_block_and_compute_checksum.CopyFrom(req)
 
     return client_request
 
@@ -127,7 +154,7 @@ def prepare_helper():
     return server_response
 
 
-def prepare_location(blocks=[]):
+def prepare_location(blocks=[], handle_id=None):
     file_blocks = prepare_file_blocks(blocks)
 
     repl = fuse_messages_pb2.FileLocation()
@@ -137,6 +164,8 @@ def prepare_location(blocks=[]):
     repl.file_id = 'file1'
     repl.provider_id = 'provider1'
     repl.blocks.extend(file_blocks)
+    if handle_id is not None:
+        repl.handle_id = handle_id
 
     server_response = messages_pb2.ServerMessage()
     server_response.fuse_response.file_location.CopyFrom(repl)
@@ -145,11 +174,11 @@ def prepare_location(blocks=[]):
     return server_response
 
 
-def do_open(endpoint, fl, blocks=[], size=None):
+def do_open(endpoint, fl, blocks=[], size=None, handle_id=None):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.REG,
                                        size=size)
 
-    open_response = prepare_location(blocks)
+    open_response = prepare_location(blocks, handle_id)
 
     with reply(endpoint, [getattr_response, open_response]):
         assert fl.open('/random/path', 0) >= 0
@@ -211,7 +240,7 @@ def test_getattrs_should_cache_attrs(endpoint, fl):
     new_stat = fslogic.Stat()
     assert fl.getattr('/random/path', new_stat) == 0
     assert stat == new_stat
-    assert 1 == endpoint.all_messages_count()
+    assert 2 == endpoint.all_messages_count()
 
 
 def test_mkdir_should_mkdir(endpoint, fl):
@@ -407,7 +436,7 @@ def test_chmod_should_change_cached_mode(appmock_client, endpoint, fl):
 
     assert stat.mode == getattr_response.fuse_response.file_attr.mode | \
                         fslogic.regularMode()
-    assert 1 == endpoint.all_messages_count()
+    assert 2 == endpoint.all_messages_count()
     appmock_client.reset_tcp_history()
 
     response = messages_pb2.ServerMessage()
@@ -475,7 +504,7 @@ def test_utime_should_change_cached_times(appmock_client, endpoint, fl):
 
     assert stat.atime == getattr_response.fuse_response.file_attr.atime
     assert stat.mtime == getattr_response.fuse_response.file_attr.mtime
-    assert 1 == endpoint.all_messages_count()
+    assert 2 == endpoint.all_messages_count()
     appmock_client.reset_tcp_history()
 
     response = messages_pb2.ServerMessage()
@@ -577,7 +606,7 @@ def test_readdir_should_read_dir(endpoint, fl):
         queue.get()
         client_message = queue.get()
 
-    assert len(children) == 2
+    assert len(children) == 4
     assert file1.name in children
     assert file2.name in children
 
@@ -817,7 +846,7 @@ def test_readdir_big_directory(endpoint, fl):
     with reply(endpoint, [getattr_response, response]):
         assert 0 == fl.readdir('/random/path', children)
 
-    assert len(children) == children_num
+    assert len(children) == children_num + 2
 
 
 def test_write_should_save_blocks(endpoint, fl):
@@ -835,25 +864,37 @@ def test_read_should_read_partial_content(endpoint, fl):
 def test_read_should_request_synchronization(appmock_client, endpoint, fl):
     do_open(endpoint, fl, blocks=[(4, 6)], size=10)
     stream_id = get_stream_id_from_location_subscription(endpoint.history()[0])
-    location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0)
-    sync_req = prepare_synchronize_block(2, 5).SerializeToString()
+    location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0).SerializeToString()
+    checksum = prepare_checksum('')
 
+    schedule_sending_event(endpoint, location_update_event)
     appmock_client.reset_tcp_history()
-    with reply(endpoint, location_update_event) as queue:
+    with reply(endpoint, checksum) as queue:
         fl.read('/random/path', 2, 5)
         client_message = queue.get()
 
-    assert client_message.SerializeToString() == sync_req
+    assert client_message.HasField('fuse_request')
+    fuse_request = client_message.fuse_request
+    assert fuse_request.HasField('synchronize_block_and_compute_checksum')
+    block = common_messages_pb2.FileBlock()
+    block.offset = 2
+    block.size = 5
+    sync = fuse_request.synchronize_block_and_compute_checksum
+    assert sync.uuid == 'uuid1'
+    assert sync.block == block
 
 
 def test_read_should_continue_reading_after_synchronization(appmock_client, endpoint, fl):
     do_open(endpoint, fl, blocks=[(4, 6)], size=10)
     stream_id = get_stream_id_from_location_subscription(endpoint.history()[0])
-    location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0)
+    checksum = prepare_checksum('')
+    location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0).SerializeToString()
 
+    schedule_sending_event(endpoint, location_update_event)
     appmock_client.reset_tcp_history()
-    with reply(endpoint, location_update_event):
+    with reply(endpoint, checksum):
         assert 5 == fl.read('/random/path', 2, 5)
+
 
 def test_read_should_should_open_file_block_once(endpoint, fl):
     do_open(endpoint, fl, blocks=[(0, 5, 'storage1', 'file1'),
@@ -922,3 +963,42 @@ def test_release_should_pass_helper_errors(endpoint, fl):
 
     assert 'Owner died' in str(excinfo.value)
     assert fl.verify_and_clear_expectations()
+
+
+def test_release_should_send_release_message_if_handle_id_is_set(endpoint, fl):
+    do_open(endpoint, fl, size=0, handle_id='handle_id')
+    release_response = messages_pb2.ServerMessage()
+    release_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    with reply(endpoint, [release_response]) as queue:
+        assert 0 == fl.release('/random/path')
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+
+    fuse_request = client_message.fuse_request
+    assert fuse_request.HasField('release')
+
+
+def test_release_should_not_send_release_message_if_handle_id_is_not_set(endpoint, fl):
+    do_open(endpoint, fl, size=0)
+    release_response = messages_pb2.ServerMessage()
+    release_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    with reply(endpoint, []) as queue:
+        assert 0 == fl.release('/random/path')
+        assert queue.empty()
+
+
+def test_release_should_clear_handle_id_if_set(endpoint, fl):
+    do_open(endpoint, fl, size=0, handle_id='handle_id')
+    release_response = messages_pb2.ServerMessage()
+    release_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    with reply(endpoint, [release_response]):
+        assert 0 == fl.release('/random/path')
+
+    assert fl.open('/random/path', 0) >= 0
+    with reply(endpoint, []) as queue:
+        assert 0 == fl.release('/random/path')
+        assert queue.empty()

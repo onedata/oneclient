@@ -45,7 +45,7 @@ public:
                        {"secret_key", std::move(secretKey)}},
               m_service}
     {
-        auto rawCTX = m_helper.createCTX();
+        auto rawCTX = m_helper.createCTX({});
         m_ctx = std::dynamic_pointer_cast<one::helpers::S3HelperCTX>(rawCTX);
         if (m_ctx == nullptr)
             throw std::system_error{

@@ -6,14 +6,14 @@
  * 'LICENSE.txt'
  */
 
-#include "logging.h"
+#include "storageAccessManager.h"
 #include "directIOHelper.h"
 #include "helpers/IStorageHelper.h"
 #include "helpers/storageHelperFactory.h"
+#include "logging.h"
 #include "messages/fuse/createStorageTestFile.h"
-#include "messages/fuse/verifyStorageTestFile.h"
 #include "messages/fuse/storageTestFile.h"
-#include "storageAccessManager.h"
+#include "messages/fuse/verifyStorageTestFile.h"
 
 #include <errno.h>
 #ifdef __APPLE__
@@ -22,8 +22,8 @@
 #include <mntent.h>
 #endif
 
-#include <vector>
 #include <random>
+#include <vector>
 
 namespace one {
 namespace client {
@@ -130,12 +130,23 @@ bool StorageAccessManager::verifyStorageTestFile(
     const messages::fuse::StorageTestFile &testFile)
 {
     try {
+
         auto size = testFile.fileContent().size();
         std::vector<char> buffer(size);
-        auto ctx = helper->createCTX();
 
-        auto content = helper->sh_read(
-            ctx, testFile.fileId(), asio::buffer(buffer), 0, "");
+        auto ctx = helper->createCTX({});
+        helper->sh_open(ctx, testFile.fileId(), 0);
+
+        asio::mutable_buffer content;
+        try {
+            content = helper->sh_read(
+                ctx, testFile.fileId(), asio::buffer(buffer), O_RDONLY);
+        }
+        catch (...) {
+            helper->sh_release(ctx, testFile.fileId());
+            throw;
+        }
+        helper->sh_release(ctx, testFile.fileId());
 
         if (asio::buffer_size(content) != size) {
             LOG(WARNING) << "Storage test file size mismatch, expected: "
@@ -157,8 +168,10 @@ bool StorageAccessManager::verifyStorageTestFile(
     }
     catch (const std::system_error &e) {
         auto code = e.code().value();
-        if (code != ENOENT && code != ENOTDIR && code != EPERM)
+        if (code != ENOENT && code != ENOTDIR && code != EPERM) {
+            LOG(WARNING) << "Storage test file validation failed!";
             throw;
+        }
     }
 
     return false;
@@ -170,7 +183,6 @@ std::string StorageAccessManager::modifyStorageTestFile(
 {
     auto size = testFile.fileContent().size();
     std::vector<char> buffer(size);
-    auto ctx = helper->createCTX();
 
     std::random_device device;
     std::default_random_engine engine(device());
@@ -178,8 +190,18 @@ std::string StorageAccessManager::modifyStorageTestFile(
     std::generate_n(
         buffer.data(), size, [&]() { return distribution(engine); });
 
-    helper->sh_write(
-        ctx, testFile.fileId(), asio::const_buffer(buffer.data(), size), 0, "");
+    auto ctx = helper->createCTX({});
+    helper->sh_open(ctx, testFile.fileId(), O_WRONLY);
+    try {
+        helper->sh_write(
+            ctx, testFile.fileId(), asio::const_buffer(buffer.data(), size), 0);
+    }
+    catch (...) {
+        helper->sh_release(ctx, testFile.fileId());
+        throw;
+    }
+    helper->sh_fsync(ctx, testFile.fileId(), true);
+    helper->sh_release(ctx, testFile.fileId());
 
     return std::string{buffer.data(), size};
 }

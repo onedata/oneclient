@@ -10,13 +10,13 @@
 #include "fsLogic.h"
 
 #include "context.h"
+#include "directIOHelper.h"
 #include "helpers/IStorageHelper.h"
 #include "logging.h"
 #include "options.h"
 
 #include "messages/configuration.h"
 #include "messages/fuse/changeMode.h"
-#include "messages/fuse/close.h"
 #include "messages/fuse/createDir.h"
 #include "messages/fuse/deleteFile.h"
 #include "messages/fuse/fileAttr.h"
@@ -28,16 +28,19 @@
 #include "messages/fuse/getHelperParams.h"
 #include "messages/fuse/getNewFileLocation.h"
 #include "messages/fuse/helperParams.h"
+#include "messages/fuse/release.h"
 #include "messages/fuse/rename.h"
-#include "messages/fuse/synchronizeBlock.h"
+#include "messages/fuse/synchronizeBlockAndComputeChecksum.h"
 #include "messages/fuse/truncate.h"
 #include "messages/fuse/updateTimes.h"
 
 #include <boost/algorithm/string.hpp>
+#include <openssl/md4.h>
 
 #include <sys/stat.h>
 
 #include <algorithm>
+#include <random>
 #include <memory>
 
 using namespace std::literals;
@@ -45,10 +48,21 @@ using namespace std::literals;
 namespace one {
 namespace client {
 
+namespace {
+unsigned long getfsid()
+{
+    std::random_device device;
+    std::default_random_engine engine{device()};
+    std::uniform_int_distribution<unsigned long> distribution{1};
+    return distribution(engine);
+}
+}
+
 FsLogic::FsLogic(std::shared_ptr<Context> context,
     std::shared_ptr<messages::Configuration> configuration)
     : m_uid{geteuid()}
     , m_gid{getegid()}
+    , m_fsid{getfsid()}
     , m_context{std::move(context)}
     , m_eventManager{m_context}
     , m_helpersCache{*m_context->communicator(), *m_context->scheduler()}
@@ -59,6 +73,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     m_eventManager.setFileAttrHandler(fileAttrHandler());
     m_eventManager.setFileLocationHandler(fileLocationHandler());
     m_eventManager.setPermissionChangedHandler(permissionChangedHandler());
+    m_eventManager.setFileRemovalHandler(fileRemovalHandler());
     m_eventManager.subscribe(configuration->subscriptionContainer());
 
     scheduleCacheExpirationTick();
@@ -82,6 +97,7 @@ void FsLogic::scheduleCacheExpirationTick()
         m_attrExpirationHelper.tick([this](const std::string &uuid) {
             m_metadataCache.remove(uuid);
             m_fsSubscriptions.removeFileAttrSubscription(uuid);
+            m_fsSubscriptions.removeFileRemovalSubscription(uuid);
         });
 
         scheduleCacheExpirationTick();
@@ -113,6 +129,8 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
     switch (attr.type()) {
         case messages::fuse::FileAttr::FileType::directory:
             statbuf->st_mode |= S_IFDIR;
+            // Remove sticky bit for nfs compatibility
+            statbuf->st_mode &= ~S_ISVTX;
             break;
         case messages::fuse::FileAttr::FileType::link:
             statbuf->st_mode |= S_IFLNK;
@@ -125,6 +143,7 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
     m_attrExpirationHelper.markInteresting(attr.uuid(), [&] {
         m_metadataCache.getAttr(attr.uuid());
         m_fsSubscriptions.addFileAttrSubscription(attr.uuid());
+        m_fsSubscriptions.addFileRemovalSubscription(attr.uuid());
     });
 
     return 0;
@@ -144,20 +163,7 @@ int FsLogic::mknod(
     DLOG(INFO) << "FUSE: mknod(path: " << path << ", mode: " << std::oct << mode
                << ", dev: " << dev << ")";
 
-    auto parentAttr = m_metadataCache.getAttr(path.parent_path());
-    if (parentAttr.type() != messages::fuse::FileAttr::FileType::directory)
-        throw std::errc::not_a_directory;
-
-    messages::fuse::GetNewFileLocation msg{
-        path.filename().string(), parentAttr.uuid(), mode};
-
-    auto future =
-        m_context->communicator()->communicate<messages::fuse::FileLocation>(
-            std::move(msg));
-
-    auto location = communication::wait(future);
-    m_metadataCache.map(path, location);
-
+    createFile(std::move(path), mode);
     return 0;
 }
 
@@ -312,37 +318,31 @@ int FsLogic::open(
     auto attr = m_metadataCache.getAttr(path);
     auto location = m_metadataCache.getLocation(attr.uuid());
     auto helper = getHelper(attr.uuid(), location.storageId());
-
-    FileContextCache::Accessor acc;
-    m_fileContextCache.create(acc);
-
-    fileInfo->direct_io = 1;
-    fileInfo->fh = acc->first;
-
-    acc->second.uuid = attr.uuid();
-    acc->second.flags = fileInfo->flags;
-    acc->second.helperCtxMap =
-        std::make_shared<FileContextCache::HelperCtxMap>();
-
-    m_locExpirationHelper.pin(attr.uuid(), [&] {
-        m_metadataCache.getLocation(attr.uuid());
-        m_fsSubscriptions.addFileLocationSubscription(attr.uuid());
-    });
-
-    m_attrExpirationHelper.pin(attr.uuid(), [&] {
-        m_metadataCache.getAttr(attr.uuid());
-        m_fsSubscriptions.addFileAttrSubscription(attr.uuid());
-    });
+    openFile(location.uuid(), fileInfo);
 
     return 0;
 }
 
 namespace {
+
+std::unordered_map<std::string, std::string> makeParameters(
+    FileContextCache::FileContext &fileCtx)
+{
+    std::unordered_map<std::string, std::string> parameters{
+        {"file_uuid", fileCtx.uuid}};
+
+    if (fileCtx.handleId->is_initialized())
+        parameters.emplace("handle_id", fileCtx.handleId->get());
+
+    return parameters;
+};
+
 int openFile(const FileContextCache::HelperCtxMapAccessor &ctxAcc,
     FileContextCache::FileContext &fileCtx,
-    const HelpersCache::HelperPtr &helper, const std::string &fileId)
+    const HelpersCache::HelperPtr &helper, const std::string &fileId,
+    std::unordered_map<std::string, std::string> parameters)
 {
-    auto helperCtx = helper->createCTX();
+    auto helperCtx = helper->createCTX(std::move(parameters));
     int fh = helper->sh_open(helperCtx, fileId, fileCtx.flags);
     ctxAcc->second = helperCtx;
     return fh;
@@ -355,11 +355,12 @@ helpers::CTXPtr getHelperCtx(FileContextCache::FileContext &fileCtx,
     FileContextCache::HelperCtxMapKey ctxMapKey{storageId, fileId};
     FileContextCache::HelperCtxMapAccessor ctxAcc;
     if (fileCtx.helperCtxMap->insert(ctxAcc, std::move(ctxMapKey)))
-        openFile(ctxAcc, fileCtx, helper, fileId);
+        openFile(ctxAcc, fileCtx, helper, fileId, makeParameters(fileCtx));
 
     return ctxAcc->second;
 }
-}
+
+} // namespace
 
 int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     const off_t offset, struct fuse_file_info *const fileInfo)
@@ -390,9 +391,10 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
     auto availableBlockIt =
         location.blocks().find(boost::icl::discrete_interval<off_t>(offset));
 
-    if (availableBlockIt == location.blocks().end()) {
-        if (!waitForBlockSynchronization(context.uuid, wantedRange))
-            throw std::errc::resource_unavailable_try_again;
+    boost::optional<messages::fuse::Checksum> serverChecksum;
+    bool dataNeedsSynchronization = availableBlockIt == location.blocks().end();
+    if (dataNeedsSynchronization) {
+        serverChecksum = waitForBlockSynchronization(context.uuid, wantedRange);
         location = m_metadataCache.getLocation(context.uuid);
         availableBlockIt = location.blocks().find(
             boost::icl::discrete_interval<off_t>(offset));
@@ -407,8 +409,22 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         context, helper, fileBlock.storageId(), fileBlock.fileId());
 
     try {
-        buf = helper->sh_read(
-            helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
+        auto readBuffer =
+            helper->sh_read(helperCtx, fileBlock.fileId(), buf, offset);
+
+        if (helper->needsDataConsistencyCheck() && dataNeedsSynchronization &&
+            dataCorrupted(context.uuid, readBuffer, serverChecksum.get(),
+                availableRange, wantedRange)) {
+            helper->sh_release(helperCtx,
+                fileBlock.fileId()); // close the file to get data up to date,
+                                     // it will be opened again by read function
+            return read(path, buf, offset, fileInfo);
+        }
+
+        const auto bytesRead = asio::buffer_size(readBuffer);
+        m_eventManager.emitReadEvent(offset, bytesRead, context.uuid);
+
+        return bytesRead;
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)
@@ -419,20 +435,29 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         m_forceProxyIOCache.insert(context.uuid);
         return read(path, buf, offset, fileInfo);
     }
-
-    const auto bytesRead = asio::buffer_size(buf);
-    m_eventManager.emitReadEvent(offset, bytesRead, context.uuid);
-
-    return bytesRead;
 }
 
-bool FsLogic::waitForBlockSynchronization(
+messages::fuse::Checksum FsLogic::waitForBlockSynchronization(
     const std::string &uuid, const boost::icl::discrete_interval<off_t> &range)
 {
-    messages::fuse::SynchronizeBlock msg{uuid, range};
-    m_context->communicator()->send(std::move(msg));
-    return m_metadataCache.waitForNewLocation(uuid, range,
-        std::chrono::seconds{m_context->options()->get_file_sync_timeout()});
+    auto checksum = syncAndFetchChecksum(uuid, range);
+
+    if (!m_metadataCache.waitForNewLocation(
+            uuid, range, std::chrono::seconds{
+                             m_context->options()->get_file_sync_timeout()}))
+        throw std::errc::resource_unavailable_try_again;
+
+    return checksum;
+}
+
+messages::fuse::Checksum FsLogic::syncAndFetchChecksum(
+    const std::string &uuid, const boost::icl::discrete_interval<off_t> &range)
+{
+    messages::fuse::SynchronizeBlockAndComputeChecksum request{uuid, range};
+    auto future =
+        m_context->communicator()->communicate<messages::fuse::Checksum>(
+            std::move(request));
+    return communication::wait(future);
 }
 
 int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
@@ -458,8 +483,8 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
 
     size_t bytesWritten = 0;
     try {
-        bytesWritten = helper->sh_write(
-            helperCtx, fileBlock.fileId(), buf, offset, context.uuid);
+        bytesWritten =
+            helper->sh_write(helperCtx, fileBlock.fileId(), buf, offset);
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)
@@ -608,7 +633,10 @@ int FsLogic::statfs(
     boost::filesystem::path path, struct statvfs *const statInfo)
 {
     DLOG(INFO) << "FUSE: statfs(path: " << path << ", ...)";
-    throw std::errc::function_not_supported;
+
+    *statInfo = {};
+    statInfo->f_fsid = m_fsid;
+    return 0;
 }
 
 int FsLogic::flush(
@@ -623,6 +651,7 @@ int FsLogic::release(
 {
     DLOG(INFO) << "FUSE: release(path: " << path << ", ...)";
     auto attr = m_metadataCache.getAttr(path);
+
     m_locExpirationHelper.unpin(attr.uuid());
     m_attrExpirationHelper.unpin(attr.uuid());
 
@@ -641,7 +670,18 @@ int FsLogic::release(
             lastReleaseException = std::current_exception();
         }
     }
+
+    if (context.handleId->is_initialized()) {
+        auto future = m_context->communicator()
+                          ->communicate<messages::fuse::FuseResponse>(
+                              messages::fuse::Release{context.handleId->get()});
+
+        communication::wait(future);
+
+        *context.handleId = boost::none;
+    }
     context.helperCtxMap->clear();
+
     if (lastReleaseException)
         std::rethrow_exception(lastReleaseException);
     return 0;
@@ -674,13 +714,21 @@ int FsLogic::readdir(boost::filesystem::path path, void *const buf,
     if (attr.type() != messages::fuse::FileAttr::FileType::directory)
         throw std::errc::not_a_directory;
 
-    messages::fuse::GetFileChildren msg{attr.uuid(), offset, 1000};
+    auto currentOffset = offset;
+
+    std::size_t chunkSize = 1000;
+    if (offset == 0) {
+        chunkSize -= 2;
+        (filler(buf, ".", nullptr, ++currentOffset));
+        (filler(buf, "..", nullptr, ++currentOffset));
+    }
+
+    messages::fuse::GetFileChildren msg{attr.uuid(), offset, chunkSize};
     auto future =
         m_context->communicator()->communicate<messages::fuse::FileChildren>(
             std::move(msg));
 
     auto fileChildren = communication::wait(future);
-    auto currentOffset = offset;
 
     for (const auto &uuidAndName : fileChildren.uuidsAndNames()) {
         auto name = std::get<1>(uuidAndName);
@@ -710,6 +758,19 @@ int FsLogic::fsyncdir(boost::filesystem::path path, const int datasync,
     return 0;
 }
 
+int FsLogic::create(boost::filesystem::path path, const mode_t mode,
+    struct fuse_file_info *const fileInfo)
+{
+    DLOG(INFO) << "FUSE: create(path: " << path << ", mode: " << std::oct
+               << mode << ")";
+
+    // Potential race condition, file might be modified between create and open
+    auto fileUuid = createFile(std::move(path), mode);
+    openFile(fileUuid, fileInfo);
+
+    return 0;
+}
+
 HelpersCache::HelperPtr FsLogic::getHelper(
     const std::string &fileUuid, const std::string &storageId)
 {
@@ -724,15 +785,126 @@ void FsLogic::removeFile(boost::filesystem::path path)
     MetadataCache::MetaAccessor metaAcc;
     m_metadataCache.getAttr(uuidAcc, metaAcc, path);
 
-    auto future =
-        m_context->communicator()->communicate<messages::fuse::FuseResponse>(
-            messages::fuse::DeleteFile{uuidAcc->second});
+    if (!metaAcc->second.removedUpstream) {
+        auto future = m_context->communicator()
+                          ->communicate<messages::fuse::FuseResponse>(
+                              messages::fuse::DeleteFile{uuidAcc->second});
 
-    communication::wait(future);
-
+        communication::wait(future);
+    }
     m_metadataCache.removePathMapping(uuidAcc, metaAcc);
-    m_locExpirationHelper.expire(metaAcc->first);
-    m_attrExpirationHelper.expire(metaAcc->first);
+}
+
+const std::string FsLogic::createFile(
+    boost::filesystem::path path, const mode_t mode)
+{
+    auto parentAttr = m_metadataCache.getAttr(path.parent_path());
+    if (parentAttr.type() != messages::fuse::FileAttr::FileType::directory)
+        throw std::errc::not_a_directory;
+
+    messages::fuse::GetNewFileLocation msg{
+        path.filename().string(), parentAttr.uuid(), mode};
+
+    auto future =
+        m_context->communicator()->communicate<messages::fuse::FileLocation>(
+            std::move(msg));
+
+    auto location = communication::wait(future);
+    m_metadataCache.map(path, location);
+
+    return location.uuid();
+}
+
+void FsLogic::openFile(
+    const std::string &fileUuid, struct fuse_file_info *const fileInfo)
+{
+    FileContextCache::Accessor acc;
+    m_fileContextCache.create(acc);
+
+    MetadataCache::MetaAccessor metaAcc;
+    m_metadataCache.getLocation(metaAcc, fileUuid);
+    auto &location = metaAcc->second.location.get();
+
+    fileInfo->direct_io = 1;
+    fileInfo->fh = acc->first;
+
+    acc->second.uuid = fileUuid;
+    acc->second.flags = fileInfo->flags;
+    acc->second.handleId =
+        std::make_shared<boost::optional<std::string>>(location.handleId());
+    // TODO: VFS-1959
+    location.unsetHandleId();
+    acc->second.helperCtxMap =
+        std::make_shared<FileContextCache::HelperCtxMap>();
+
+    metaAcc.release();
+
+    m_locExpirationHelper.pin(fileUuid, [&] {
+        m_metadataCache.getLocation(fileUuid);
+        m_fsSubscriptions.addFileLocationSubscription(fileUuid);
+    });
+
+    m_attrExpirationHelper.pin(fileUuid, [&] {
+        m_metadataCache.getAttr(fileUuid);
+        m_fsSubscriptions.addFileAttrSubscription(fileUuid);
+        m_fsSubscriptions.addFileRemovalSubscription(fileUuid);
+    });
+}
+
+events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
+{
+    using namespace events;
+    return [this](std::vector<FileRemovalEventStream::EventPtr> events) {
+        for (const auto &event : events) {
+
+            MetadataCache::MetaAccessor metaAcc;
+            m_metadataCache.getAttr(metaAcc, event->fileUuid());
+
+            metaAcc->second.removedUpstream = true;
+            auto paths = metaAcc->second.paths;
+            metaAcc.release();
+
+            auto dir = m_context->options()->get_mountpoint();
+            for (auto &path : paths) {
+                try {
+                    std::remove((dir / path).c_str());
+                }
+                catch (std::system_error &e) {
+                    LOG(WARNING) << "Unable to remove file (path: " << path
+                                 << "): " << e.what();
+                }
+            }
+
+            m_locExpirationHelper.expire(event->fileUuid());
+            m_attrExpirationHelper.expire(event->fileUuid());
+            LOG(INFO) << "File remove event received: " << event->fileUuid();
+        }
+    };
+}
+
+bool FsLogic::dataCorrupted(const std::string &uuid, asio::const_buffer buf,
+    const messages::fuse::Checksum &serverChecksum,
+    const boost::icl::discrete_interval<off_t> &availableRange,
+    const boost::icl::discrete_interval<off_t> &wantedRange)
+{
+    auto checksum = availableRange == wantedRange
+        ? computeHash(buf)
+        : syncAndFetchChecksum(uuid, availableRange).value();
+    if (serverChecksum.value() != checksum)
+        return true;
+
+    return false;
+}
+
+std::string FsLogic::computeHash(asio::const_buffer buf)
+{
+    std::string hash(MD4_DIGEST_LENGTH, '\0');
+    MD4_CTX ctx;
+    MD4_Init(&ctx);
+    MD4_Update(
+        &ctx, asio::buffer_cast<const char *>(buf), asio::buffer_size(buf));
+    MD4_Final(reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
+    return hash;
 }
 
 } // namespace client

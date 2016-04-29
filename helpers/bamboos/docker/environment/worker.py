@@ -14,7 +14,6 @@ from timeouts import *
 
 # mounting point for op-worker-node docker
 DOCKER_BINDIR_PATH = '/root/build'
-LOGFILE = '/tmp/run.log'
 
 
 def cluster_domain(instance, uid):
@@ -41,7 +40,6 @@ def _tweak_config(config, name, instance, uid, configurator):
     cfg['nodes'] = {'node': cfg['nodes'][name]}
     app_name = configurator.app_name()
     sys_config = cfg['nodes']['node']['sys.config']
-
     sys_config[app_name]['cm_nodes'] = [
         cluster_manager.cm_erl_node_name(n, instance, uid) for n in
         sys_config[app_name]['cm_nodes']]
@@ -63,8 +61,18 @@ def _tweak_config(config, name, instance, uid, configurator):
     return cfg, sys_config[app_name]['db_nodes']
 
 
-def _node_up(worker_id, bindir, config, domain, worker_ips, gen_dev_args,
-             configurator):
+def _node_up(image, bindir, dns_servers, config, db_node_mappings, logdir,
+             configurator, storages_dockers):
+    app_name = configurator.app_name()
+    node_name = config['nodes']['node']['vm.args']['name']
+    db_nodes = config['nodes']['node']['sys.config'][app_name]['db_nodes']
+
+    for i in range(len(db_nodes)):
+        db_nodes[i] = db_node_mappings[db_nodes[i]]
+
+    (name, sep, hostname) = node_name.partition('@')
+    (_, _, domain) = hostname.partition('.')
+
     command = '''set -e
 mkdir -p /root/bin/node/log/
 echo 'while ((1)); do chown -R {uid}:{gid} /root/bin/node/log; sleep 1; done' > /root/bin/chown_logs.sh
@@ -72,47 +80,23 @@ bash /root/bin/chown_logs.sh &
 cat <<"EOF" > /tmp/gen_dev_args.json
 {gen_dev_args}
 EOF
-escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json
-mkdir -p /root/bin/node/data/
-cat <<"EOF" > /root/bin/node/data/dns.config
+{mount_commands}
 {pre_start_commands}
-EOF
-/root/bin/node/bin/{executable} console >> {logfile}'''
-    pre_start_commands = configurator.pre_start_commands(bindir, config,
-                                                           domain, worker_ips)
+/root/bin/node/bin/{executable} console'''
 
+    mount_commands = common.mount_nfs_command(config, storages_dockers)
+    pre_start_commands = configurator.pre_start_commands(domain)
     command = command.format(
-        gen_dev_args=json.dumps({configurator.app_name(): gen_dev_args}),
+        gen_dev_args=json.dumps({configurator.app_name(): config}),
+        mount_commands=mount_commands,
         pre_start_commands=pre_start_commands,
         uid=os.geteuid(),
         gid=os.getegid(),
-        executable=configurator.app_name(),
-        logfile=LOGFILE
+        executable=configurator.app_name()
     )
 
-    docker.exec_(
-        container=worker_id,
-        detach=True,
-        interactive=True,
-        tty=True,
-        command=command)
-
-
-def _docker_up(image, bindir, config, dns_servers, db_node_mappings, logdir,
-               configurator):
-    """Starts the docker but does not start OZ
-    as dns.config update is needed first
-    """
-    app_name = configurator.app_name()
-    node_name = config['nodes']['node']['vm.args']['name']
-    db_nodes = config['nodes']['node']['sys.config'][app_name]['db_nodes']
-    for i in range(len(db_nodes)):
-        db_nodes[i] = db_node_mappings[db_nodes[i]]
-
-    (name, sep, hostname) = node_name.partition('@')
-
     volumes = [(bindir, DOCKER_BINDIR_PATH, 'ro')]
-    volumes += configurator.extra_volumes(config, bindir)
+    volumes += configurator.extra_volumes(config, bindir, domain)
 
     if logdir:
         logdir = os.path.join(os.path.abspath(logdir), hostname)
@@ -128,7 +112,8 @@ def _docker_up(image, bindir, config, dns_servers, db_node_mappings, logdir,
         workdir=DOCKER_BINDIR_PATH,
         volumes=volumes,
         dns_list=dns_servers,
-        command=['bash'])
+        privileged=True if mount_commands else False,
+        command=command)
 
     # create system users and groups (if specified)
     if 'os_config' in config:
@@ -192,13 +177,19 @@ def _db_driver_module(db_driver):
     return db_driver + "_datastore_driver"
 
 
-def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None):
+def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None,
+       storages_dockers=None, luma_config=None):
     config = common.parse_json_config_file(config_path)
+    if luma_config:
+        _add_luma_config(config, luma_config)
+
     input_dir = config['dirs_config'][configurator.app_name()]['input_dir']
     dns_servers, output = dns.maybe_start(dns_server, uid)
 
     # Workers of every cluster are started together
+    # here we call that an instance
     for instance in config[configurator.domains_attribute()]:
+        instance_config = config[configurator.domains_attribute()][instance]
         current_output = {}
 
         gen_dev_cfg = {
@@ -206,24 +197,18 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None):
                 'input_dir': input_dir,
                 'target_dir': '/root/bin'
             },
-            'nodes': config[configurator.domains_attribute()][instance][
-                configurator.app_name()],
-            'db_driver': _db_driver(
-                config[configurator.domains_attribute()][instance])
+            'nodes': instance_config[configurator.app_name()],
+            'db_driver': _db_driver(instance_config)
         }
 
         # If present, include os_config
-        if 'os_config' in config[configurator.domains_attribute()][instance]:
-            os_config = config[configurator.domains_attribute()][instance][
-                'os_config']
+        if 'os_config' in instance_config:
+            os_config = instance_config['os_config']
             gen_dev_cfg['os_config'] = config['os_configs'][os_config]
 
-        # If present, include gui_livereload
-        if 'gui_livereload' in config[configurator.domains_attribute()][
-            instance]:
-            gui_livereload = config[configurator.domains_attribute()][instance][
-                'gui_livereload']
-            gen_dev_cfg['gui_livereload'] = gui_livereload
+        # If present, include gui config
+        if 'gui_override' in instance_config:
+            gen_dev_cfg['gui_override'] = instance_config['gui_override']
 
         # Tweak configs, retrieve list of db nodes to start
         configs = []
@@ -237,8 +222,7 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None):
 
         db_node_mappings = None
         db_out = None
-        db_driver = _db_driver(
-            config[configurator.domains_attribute()][instance])
+        db_driver = _db_driver(instance_config)
 
         # Start db nodes, obtain mappings
         if db_driver == 'riak':
@@ -252,32 +236,21 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None):
 
         common.merge(current_output, db_out)
 
+        instance_domain = cluster_domain(instance, uid)
+
+        # Call pre-start configuration for instance (cluster)
+        configurator.pre_configure_instance(instance, instance_domain, config)
+
         # Start the workers
         workers = []
         worker_ips = []
-        worker_configs = {}
         for cfg in configs:
-            worker, node_out = _docker_up(image, bindir, cfg, dns_servers,
-                                          db_node_mappings, logdir,
-                                          configurator)
+            worker, node_out = _node_up(image, bindir, dns_servers, cfg,
+                                        db_node_mappings, logdir, configurator,
+                                        storages_dockers)
             workers.append(worker)
-            worker_configs[worker] = cfg
+            worker_ips.append(common.get_docker_ip(worker))
             common.merge(current_output, node_out)
-            ip = common.get_docker_ip(worker)
-            worker_ips.append(ip)
-
-            sys_config = cfg['nodes']['node']['sys.config']
-            if 'cluster_worker' not in sys_config:
-                sys_config['cluster_worker'] = dict()
-
-            # todo: external_ip in cluster_worker should be obtained via plugin
-            sys_config['cluster_worker']['external_ip'] = {'string': ip}
-            sys_config[configurator.app_name()]['external_ip'] = {'string': ip}
-
-        domain = cluster_domain(instance, uid)
-        for id in worker_configs:
-            _node_up(id, bindir, config, domain, worker_ips, worker_configs[id],
-                     configurator)
 
         # Wait for all workers to start
         common.wait_until(_ready, workers, CLUSTER_WAIT_FOR_NAGIOS_SECONDS)
@@ -285,17 +258,37 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None):
         # Add the domain of current clusters
         domains = {
             'domains': {
-                cluster_domain(instance, uid): {
+                instance_domain: {
                     'ns': worker_ips,
                     'a': []
                 }
             }
         }
         common.merge(current_output, domains)
-        configurator.configure_started_instance(bindir, instance, config,
-                                                workers, current_output)
         common.merge(output, current_output)
+
+        # Call post-start configuration for instance (cluster)
+        configurator.post_configure_instance(bindir, instance, config,
+                                             workers, current_output,
+                                             storages_dockers)
 
     # Make sure domains are added to the dns server.
     dns.maybe_restart_with_configuration(dns_server, uid, output)
     return output
+
+
+def _add_luma_config(config, luma_config):
+    for key in config['provider_domains']:
+        if config['provider_domains'][key].get('enable_luma_proxy'):
+            op_workers = config['provider_domains'][key]['op_worker']
+
+            for wrk_key in op_workers:
+                if not op_workers[wrk_key]['sys.config']:
+                    op_workers[wrk_key]['sys.config'] = {}
+                if not op_workers[wrk_key]['sys.config']['op_worker']:
+                    op_workers[wrk_key]['sys.config']['op_worker'] = {}
+
+                op_workers[wrk_key]['sys.config']['op_worker'][
+                    'enable_luma_proxy'] = True
+                op_workers[wrk_key]['sys.config']['op_worker'][
+                    'luma_hostname'] = luma_config['host_name']

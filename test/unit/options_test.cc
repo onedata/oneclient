@@ -6,13 +6,13 @@
  * 'LICENSE.txt'
  */
 
-#include "options.h"
 #include "oneException.h"
+#include "options.h"
 
-#include <gtest/gtest.h>
-#include <gmock/gmock.h>
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 #include <fstream>
 
@@ -28,6 +28,7 @@ constexpr auto PROVIDER_PORT_CONF_VAL = "1234";
 constexpr auto PROVIDER_PORT_ENV_VAL = "4321";
 constexpr auto AUTHENTICATION_VAL = "token";
 constexpr auto CLUSTER_PING_INTERVAL_VAL = "30";
+constexpr auto MOUNTPOINT = "/mnt/data";
 } // namespace
 
 class OptionsTest : public Test {
@@ -47,16 +48,22 @@ protected:
     Options options{GLOBAL_CONFIG_PATH};
 };
 
+TEST_F(OptionsTest, shouldThrowExceptionOnMissingMountpoint)
+{
+    const char *const argv[] = {ARG0};
+    ASSERT_THROW(options.parseConfigs(1, argv), boost::program_options::error);
+}
+
 TEST_F(OptionsTest, optionsShouldParseCommandLineArguments)
 {
     const char *const argv[] = {ARG0, "-d", "--debug_gsi", "--proxyio",
-        "--authentication", AUTHENTICATION_VAL};
+        "--authentication", AUTHENTICATION_VAL, MOUNTPOINT};
     EXPECT_EQ(false, options.get_debug());
     EXPECT_EQ(false, options.get_debug_gsi());
     EXPECT_EQ(false, options.get_proxyio());
     EXPECT_NE(AUTHENTICATION_VAL, options.get_authentication());
 
-    options.parseConfigs(6, argv);
+    options.parseConfigs(7, argv);
     EXPECT_EQ(true, options.get_debug());
     EXPECT_EQ(true, options.get_debug_gsi());
     EXPECT_EQ(true, options.get_proxyio());
@@ -81,7 +88,7 @@ TEST_F(OptionsTest, optionsShouldParseVersionCommandLineArgument)
 
 TEST_F(OptionsTest, shouldThrowOneExceptionOnUnknownCommandLineArgument)
 {
-    const char *const argv[] = {ARG0, "--unknown"};
+    const char *const argv[] = {ARG0, "--unknown", MOUNTPOINT};
     ASSERT_THROW(options.parseConfigs(2, argv), OneException);
 }
 
@@ -107,7 +114,7 @@ TEST_F(OptionsTest,
 
 TEST_F(OptionsTest, optionsShouldParseEnvironmentOptions)
 {
-    const char *const argv[] = {ARG0};
+    const char *const argv[] = {ARG0, MOUNTPOINT};
     setenv("NO_CHECK_CERTIFICATE", "true", 1);
     setenv("PROVIDER_PORT", PROVIDER_PORT_ENV_VAL, 1);
     setenv("PROVIDER_HOSTNAME", PROVIDER_HOSTNAME_VAL, 1);
@@ -116,7 +123,7 @@ TEST_F(OptionsTest, optionsShouldParseEnvironmentOptions)
     EXPECT_NE(std::stoi(PROVIDER_PORT_ENV_VAL), options.get_provider_port());
     EXPECT_NE(PROVIDER_HOSTNAME_VAL, options.get_provider_hostname());
 
-    options.parseConfigs(1, argv);
+    options.parseConfigs(2, argv);
     EXPECT_EQ(true, options.get_no_check_certificate());
     EXPECT_EQ(std::stoi(PROVIDER_PORT_ENV_VAL), options.get_provider_port());
     EXPECT_EQ(PROVIDER_HOSTNAME_VAL, options.get_provider_hostname());
@@ -124,7 +131,8 @@ TEST_F(OptionsTest, optionsShouldParseEnvironmentOptions)
 
 TEST_F(OptionsTest, optionsShouldParseUserConfigurationFile)
 {
-    const char *const argv[] = {ARG0, "--config", USER_CONFIG_PATH.c_str()};
+    const char *const argv[] = {
+        ARG0, "--config", USER_CONFIG_PATH.c_str(), MOUNTPOINT};
     boost::filesystem::ofstream userConfig(USER_CONFIG_PATH);
     userConfig << "no_check_certificate = " << true
                << "\nprovider_port = " << PROVIDER_PORT_ENV_VAL
@@ -136,7 +144,7 @@ TEST_F(OptionsTest, optionsShouldParseUserConfigurationFile)
     EXPECT_NE(std::stoi(PROVIDER_PORT_ENV_VAL), options.get_provider_port());
     EXPECT_NE(PROVIDER_HOSTNAME_VAL, options.get_provider_hostname());
 
-    options.parseConfigs(3, argv);
+    options.parseConfigs(4, argv);
     EXPECT_EQ(true, options.get_no_check_certificate());
     EXPECT_EQ(std::stoi(PROVIDER_PORT_ENV_VAL), options.get_provider_port());
     EXPECT_EQ(PROVIDER_HOSTNAME_VAL, options.get_provider_hostname());
@@ -183,7 +191,7 @@ TEST_F(OptionsTest,
 
 TEST_F(OptionsTest, optionsShouldParseGlobalConfigurationFile)
 {
-    const char *const argv[] = {ARG0};
+    const char *const argv[] = {ARG0, MOUNTPOINT};
     boost::filesystem::ofstream globalConfig(GLOBAL_CONFIG_PATH);
     globalConfig << "no_check_certificate = " << true
                  << "\nprovider_port = " << PROVIDER_PORT_ENV_VAL
@@ -198,7 +206,7 @@ TEST_F(OptionsTest, optionsShouldParseGlobalConfigurationFile)
     EXPECT_NE(std::stoi(CLUSTER_PING_INTERVAL_VAL),
         options.get_cluster_ping_interval());
 
-    options.parseConfigs(1, argv);
+    options.parseConfigs(2, argv);
     EXPECT_EQ(true, options.get_no_check_certificate());
     EXPECT_EQ(std::stoi(PROVIDER_PORT_ENV_VAL), options.get_provider_port());
     EXPECT_EQ(PROVIDER_HOSTNAME_VAL, options.get_provider_hostname());
@@ -242,7 +250,7 @@ TEST_F(OptionsTest,
 TEST_F(
     OptionsTest, environmentOptionsShouldNotOverrideWhenOverridingIsNotAllowed)
 {
-    const char *const argv[] = {ARG0};
+    const char *const argv[] = {ARG0, MOUNTPOINT};
     setenv("PROVIDER_PORT", PROVIDER_PORT_ENV_VAL, 1);
     boost::filesystem::ofstream globalConfig(GLOBAL_CONFIG_PATH);
     globalConfig << "provider_port = " << PROVIDER_PORT_CONF_VAL
@@ -250,16 +258,16 @@ TEST_F(
     globalConfig.close();
 
     EXPECT_NE(std::stoi(PROVIDER_PORT_CONF_VAL), options.get_provider_port());
-    options.parseConfigs(1, argv);
+    options.parseConfigs(2, argv);
     EXPECT_EQ(std::stoi(PROVIDER_PORT_CONF_VAL), options.get_provider_port());
 }
 
 TEST_F(OptionsTest, environmentOptionsShouldOverrideWhenOverridingIsAllowed)
 {
-    const char *const argv[] = {ARG0};
+    const char *const argv[] = {ARG0, MOUNTPOINT};
     setenv("PROVIDER_PORT", PROVIDER_PORT_ENV_VAL, 1);
     EXPECT_NE(std::stoi(PROVIDER_PORT_ENV_VAL), options.get_provider_port());
-    options.parseConfigs(1, argv);
+    options.parseConfigs(2, argv);
     EXPECT_EQ(std::stoi(PROVIDER_PORT_ENV_VAL), options.get_provider_port());
 }
 

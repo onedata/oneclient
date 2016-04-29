@@ -4,6 +4,41 @@
 CHANGELOG
 ---------
 
+### 3.0.0-beta3
+
+* VFS-1932 Use BufferAgent with StorageHelperFactory.
+* VFS-1747 Change unique_ptr to boost::optional, rename dataIsCorrupted function.
+* VFS-1853 Add "." nad ".." to readdir output
+* VFS-1853 Remove sticky bit for nfs compatibility
+* VFS-1853 Update shares configs
+* VFS-1952 Remove handle_id from location immediately after open
+* VFS-1747 Change checksum algorithm to md4.
+* VFS-1932 Move parameters to IStorageHelperCTX.
+* VFS-1747 Change hash function to sha2.
+* VFS-1747 Add checksum computation.
+* VFS-1747 Fix empty buffer during reread of synced data.
+* VFS-1857 Multi path file removal event handling
+* VFS-1763 Activate FUSE session in fsOperations' wrap.
+* VFS-1507 Replacing map by unordered_map
+* VFS-1857 Redefine metadate field path to set
+* VFS-1763 Check FUSE interrupted while waiting on condition.
+* VFS-1703 Move subscription to cache helper invocations
+* VFS-1703 Remove counter from remove file subscription
+* VFS-1703 fuse_hidden support for remote file deletion
+* VFS-1747 Reopen file if storage is out of sync.
+* VFS-1507 Disabling clearing handle id on release
+* VFS-1507 Change Close message to Release, send Release on file release
+* VFS-1507 Receiving file handle in open and create, using handles in read and write
+* VFS-1507 Add create callback
+* Initialize S3 bucket context.
+* Samba auto refresh
+* VFS-1802 Expire read cache.
+* VFS-1802 Implement read/write proxyio caches.
+* VFS-1802 Introduce BufferAgent for ProxyIOHelper.
+* VFS-1850 Configuration to enable special characters in filenames
+* VFS-1850 Map SMB bad user to guest
+
+
 ### 3.0.0-beta1
 
 * Initialize S3 bucket context.

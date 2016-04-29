@@ -41,8 +41,14 @@
         },
         "cfg2": {
             "storages": [
-                "/mnt/st1",
-                "/mnt/st2"
+                {
+                    "type": "posix",
+                    "name": "/mnt/st1"
+                },
+                {
+                    "type": "posix",
+                    "name": "/mnt/st2"
+                }
             ],
             "users": [
                 "user1",
@@ -73,7 +79,6 @@
         "p1": {
             "db_driver": "couchdb",
             "os_config": "cfg1",
-            "gui_livereload": "none",
             "cluster_manager": {
                 "cm1": {
                     "vm.args": {
@@ -113,7 +118,6 @@
         "p2.oz": {
             "db_driver": "couchdb",
             "os_config": "cfg2",
-            "gui_livereload": "none",
             "cluster_manager": {
                 "cm1": {
                     "vm.args": {
@@ -209,7 +213,6 @@
     "zone_domains": {
         "oz": {
             "db_driver": "couchdb",
-            "gui_livereload": "none",
             "cluster_manager": {
                 "cm": {
                     "vm.args": {
@@ -286,7 +289,7 @@
                 ],
                 "providers": {
                     "p1": {
-                        "storage": "/mnt/s1",
+                        "storage": "/mnt/st1",
                         "supported_size": 1000000000
                     }
                 }
@@ -301,7 +304,7 @@
                 ],
                 "providers": {
                     "p2.oz": {
-                        "storage": "/mnt/s2",
+                        "storage": "/mnt/st2",
                         "supported_size": 1000000000
                     }
                 }
@@ -326,7 +329,7 @@
         }
     },
     "oneclient": {
-        "client_host_1": {
+        "client-host1": {
             "os_config": "cfg1",
             "clients": {
                 "client1": {
@@ -349,7 +352,7 @@
                 }
             }
         },
-        "client_host_2": {
+        "client-host2": {
             "os_config": "cfg2",
             "clients": {
                 "client1": {
