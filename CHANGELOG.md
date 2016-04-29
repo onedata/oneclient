@@ -30,21 +30,11 @@ CHANGELOG
 * VFS-1507 Change Close message to Release, send Release on file release
 * VFS-1507 Receiving file handle in open and create, using handles in read and write
 * VFS-1507 Add create callback
-
-
-### 3.0.0-beta2
-
 * Initialize S3 bucket context.
 * Samba auto refresh
-* Fix BufferAgent compilation under old compilers.
 * VFS-1802 Expire read cache.
-* VFS-1876 Remove redundant operationsons log.
 * VFS-1802 Implement read/write proxyio caches.
-* VFS-1762 Disable top level logging of enoent error.
-* VFS-1762 Fix global config file location.
 * VFS-1802 Introduce BufferAgent for ProxyIOHelper.
-* Squashed 'helpers/' changes from 7f928c4..3dbece4
-* VFS-1850 Export whole mnt
 * VFS-1850 Configuration to enable special characters in filenames
 * VFS-1850 Map SMB bad user to guest
 
