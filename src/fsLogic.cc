@@ -343,8 +343,8 @@ int openFile(const FileContextCache::HelperCtxMapAccessor &ctxAcc,
     std::unordered_map<std::string, std::string> parameters)
 {
     auto helperCtx = helper->createCTX(std::move(parameters));
-    int fh = helper->sh_open(helperCtx, fileId, fileCtx.flags);
     ctxAcc->second = helperCtx;
+    int fh = helper->sh_open(helperCtx, fileId, fileCtx.flags);
     return fh;
 }
 
