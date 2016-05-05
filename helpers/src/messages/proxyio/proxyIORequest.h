@@ -11,6 +11,7 @@
 
 #include "messages/clientMessage.h"
 
+#include <unordered_map>
 #include <memory>
 #include <string>
 
@@ -25,12 +26,13 @@ class ProxyIORequest : public ClientMessage {
 public:
     /**
      * Constructor.
-     * @param fileUuid The UUID of the file.
+     * @param parameters Map of additional parameters.
      * @param storageId The ID of storage the file is stored on.
      * @param fileId The ID of file that will be manipulated.
      */
     ProxyIORequest(
-            std::string fileUuid, std::string storageId, std::string fileId);
+            std::unordered_map<std::string, std::string> parameters,
+            std::string storageId, std::string fileId);
 
     virtual ~ProxyIORequest() = default;
 
@@ -38,7 +40,7 @@ protected:
     virtual std::unique_ptr<ProtocolClientMessage>
     serializeAndDestroy() override;
 
-    std::string m_fileUuid;
+    std::unordered_map<std::string, std::string> m_parameters;
     std::string m_storageId;
     std::string m_fileId;
 };

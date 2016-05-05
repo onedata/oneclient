@@ -11,11 +11,12 @@
 
 #include "cache/cacheExpirationHelper.h"
 #include "cache/fileContextCache.h"
+#include "cache/forceProxyIOCache.h"
 #include "cache/helpersCache.h"
 #include "cache/metadataCache.h"
-#include "cache/forceProxyIOCache.h"
 #include "events/eventManager.h"
 #include "fsSubscriptions.h"
+#include "messages/fuse/checksum.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
 #include "messages/fuse/helperParams.h"
@@ -31,8 +32,8 @@
 #include <memory>
 #include <mutex>
 #include <string>
-#include <vector>
 #include <tuple>
+#include <vector>
 
 namespace one {
 
@@ -229,14 +230,27 @@ public:
     int fsyncdir(boost::filesystem::path path, const int datasync,
         struct fuse_file_info *const fileInfo);
 
+    /**
+     * FUSE @c create callback.
+     * @see http://fuse.sourceforge.net/doxygen/structfuse__operations.html
+     */
+    int create(boost::filesystem::path path, const mode_t mode,
+        struct fuse_file_info *const fileInfo);
+
 protected:
     virtual HelpersCache::HelperPtr getHelper(
         const std::string &fileUuid, const std::string &storageId);
 
 private:
-    void scheduleCacheTick();
+    void scheduleCacheExpirationTick();
     void removeFile(boost::filesystem::path path);
-    bool waitForBlockSynchronization(const std::string &uuid,
+    const std::string createFile(boost::filesystem::path path, mode_t);
+    void openFile(
+        const std::string &fileUuid, struct fuse_file_info *const fileInfo);
+    one::messages::fuse::Checksum waitForBlockSynchronization(
+        const std::string &uuid,
+        const boost::icl::discrete_interval<off_t> &range);
+    one::messages::fuse::Checksum syncAndFetchChecksum(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range);
     std::tuple<messages::fuse::FileBlock, asio::const_buffer> findWriteLocation(
         const messages::fuse::FileLocation &fileLocation, const off_t offset,
@@ -244,9 +258,16 @@ private:
     events::FileAttrEventStream::Handler fileAttrHandler();
     events::FileLocationEventStream::Handler fileLocationHandler();
     events::PermissionChangedEventStream::Handler permissionChangedHandler();
+    events::FileRemovalEventStream::Handler fileRemovalHandler();
+    bool dataCorrupted(const std::string &uuid, asio::const_buffer buf,
+        const messages::fuse::Checksum &serverChecksum,
+        const boost::icl::discrete_interval<off_t> &availableRange,
+        const boost::icl::discrete_interval<off_t> &wantedRange);
+    std::string computeHash(asio::const_buffer buf);
 
     const uid_t m_uid;
     const gid_t m_gid;
+    const unsigned long m_fsid;
 
     std::shared_ptr<Context> m_context;
     events::EventManager m_eventManager;
@@ -255,10 +276,11 @@ private:
     MetadataCache m_metadataCache;
     FsSubscriptions m_fsSubscriptions;
     ForceProxyIOCache m_forceProxyIOCache;
-    CacheExpirationHelper<std::string> m_expirationHelper;
+    CacheExpirationHelper<std::string> m_locExpirationHelper;
+    CacheExpirationHelper<std::string> m_attrExpirationHelper;
 
-    std::mutex m_cancelCacheTickMutex;
-    std::function<void()> m_cancelCacheTick;
+    std::mutex m_cancelCacheExpirationTickMutex;
+    std::function<void()> m_cancelCacheExpirationTick;
 };
 
 struct FsLogicWrapper {

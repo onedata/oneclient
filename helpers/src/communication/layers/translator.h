@@ -10,10 +10,11 @@
 #define HELPERS_COMMUNICATION_LAYERS_TRANSLATOR_H
 
 #include "communication/declarations.h"
+#include "fuseOperations.h"
 #include "messages/clientMessage.h"
-#include "messages/serverMessage.h"
 #include "messages/handshakeRequest.h"
 #include "messages/handshakeResponse.h"
+#include "messages/serverMessage.h"
 
 #include <atomic>
 #include <cassert>
@@ -25,7 +26,7 @@
 namespace one {
 namespace communication {
 
-constexpr std::chrono::seconds DEFAULT_TIMEOUT{10};
+constexpr std::chrono::seconds DEFAULT_TIMEOUT{60};
 
 namespace layers {
 
@@ -246,15 +247,24 @@ auto Translator<LowerLayer>::send(
  */
 template <class SvrMsg, typename Rep, typename Period>
 SvrMsg wait(
-    std::future<SvrMsg> &msg, std::chrono::duration<Rep, Period> timeout)
+    std::future<SvrMsg> &msg, const std::chrono::duration<Rep, Period> timeout)
 {
-    const auto status = msg.wait_for(timeout);
-    assert(status != std::future_status::deferred);
+    using namespace std::literals;
+    assert(timeout > 0ms);
 
-    if (status == std::future_status::timeout)
-        throw std::system_error{std::make_error_code(std::errc::timed_out)};
+    for (auto t = 0ms; t < timeout; ++t) {
+        if (helpers::fuseInterrupted())
+            throw std::system_error{
+                std::make_error_code(std::errc::operation_canceled)};
 
-    return msg.get();
+        const auto status = msg.wait_for(1ms);
+        assert(status != std::future_status::deferred);
+
+        if (status == std::future_status::ready)
+            return msg.get();
+    }
+
+    throw std::system_error{std::make_error_code(std::errc::timed_out)};
 }
 
 /**

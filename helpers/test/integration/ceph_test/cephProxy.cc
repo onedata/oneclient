@@ -13,6 +13,8 @@
 #include <asio/io_service.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
+#include <boost/python/extract.hpp>
+#include <boost/python/raw_function.hpp>
 
 #include <chrono>
 #include <future>
@@ -45,7 +47,7 @@ public:
                   {"pool_name", std::move(poolName)}},
               m_service}
     {
-        auto rawCTX = m_helper.createCTX();
+        auto rawCTX = m_helper.createCTX({});
         m_ctx = std::dynamic_pointer_cast<one::helpers::CephHelperCTX>(rawCTX);
         if (m_ctx == nullptr)
             throw std::system_error{
@@ -69,21 +71,18 @@ public:
         return getFuture(std::move(p));
     }
 
-    std::string read(
-        std::string fileId, int offset, int size, std::string fileUuid)
+    std::string read(std::string fileId, int offset, int size)
     {
         ReleaseGIL guard;
         std::string buffer(size, '\0');
-        m_helper.sh_read(m_ctx, fileId, asio::buffer(buffer), offset, fileUuid);
+        m_helper.sh_read(m_ctx, fileId, asio::buffer(buffer), offset);
         return buffer;
     }
 
-    int write(
-        std::string fileId, std::string data, int offset, std::string fileUuid)
+    int write(std::string fileId, std::string data, int offset)
     {
         ReleaseGIL guard;
-        return m_helper.sh_write(
-            m_ctx, fileId, asio::buffer(data), offset, fileUuid);
+        return m_helper.sh_write(m_ctx, fileId, asio::buffer(data), offset);
     }
 
     void truncate(std::string fileId, int offset)

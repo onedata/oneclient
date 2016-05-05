@@ -60,6 +60,9 @@ message ClientMessage {
         // dbsync_messages.proto
         DBSyncRequest            dbsync_request            = 18;
     }
+    
+    optional bytes proxy_session_id = 19;
+    optional Token proxy_session_token = 20;
 }
 
 // Messages that can be sent by the server to the client.
@@ -98,4 +101,6 @@ message ServerMessage {
         // proxyio_messages.proto
         ProxyIOResponse          proxyio_response          = 16;
     }
+    
+    optional bytes proxy_session_id = 17;
 }

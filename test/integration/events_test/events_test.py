@@ -87,19 +87,19 @@ def wait_for_result(expected, attempts, delay_ms, function, *args):
 
 def subscribe(endpoint, evt_man, id, msg):
     """Ensures that client receives subscription."""
-    wait_for_result(True, 10, 500, send_subscription, endpoint, evt_man, id,
+    wait_for_result(True, 60, 500, send_subscription, endpoint, evt_man, id,
                     msg)
 
 
 def send_subscription(endpoint, evt_man, id, msg):
     """Sends subscription to the client and checks whether it has been received."""
     endpoint.send(msg)
-    return wait_for_result(True, 20, 500, evt_man.existSubscription, id)
+    return wait_for_result(True, 60, 500, evt_man.existSubscription, id)
 
 
 def unsubscribe(endpoint, evt_man, id, msg):
     """Ensures that client receives subscription cancellation."""
-    wait_for_result(True, 10, 500, send_subscription_cancellation, endpoint,
+    wait_for_result(True, 60, 500, send_subscription_cancellation, endpoint,
                     evt_man, id, msg)
 
 
@@ -107,7 +107,7 @@ def send_subscription_cancellation(endpoint, evt_man, id, msg):
     """Sends subscription cancellation to the client and checks whether it has
     been received."""
     endpoint.send(msg)
-    return wait_for_result(False, 20, 500, evt_man.existSubscription, id)
+    return wait_for_result(False, 60, 500, evt_man.existSubscription, id)
 
 
 @pytest.mark.performance(
@@ -330,7 +330,7 @@ def test_file_attr_subscription_cancellation(endpoint, evt_man):
     evt_man.unsubscribe(id)
 
     msg = events.createClientSubscriptionCancellationMsg(id, 2, 1)
-    endpoint.wait_for_specific_messages(msg)
+    endpoint.wait_for_specific_messages(msg, timeout_sec=30)
 
 
 def test_file_attr_counter_emission(endpoint, evt_man):
@@ -342,7 +342,7 @@ def test_file_attr_counter_emission(endpoint, evt_man):
         msg = events.createFileAttrEventMsg(1, 'fileUuid', i, i)
         endpoint.send(msg)
 
-    assert wait_for_result(10, 20, 500, evt_man.fileAttrHandlerCallCounter)
+    assert wait_for_result(10, 60, 500, evt_man.fileAttrHandlerCallCounter)
 
 
 def test_file_attr_time_emission(endpoint, evt_man):
@@ -354,7 +354,7 @@ def test_file_attr_time_emission(endpoint, evt_man):
         msg = events.createFileAttrEventMsg(1, 'fileUuid', i, i)
         endpoint.send(msg)
 
-    assert wait_for_result(1, 20, 500, evt_man.fileAttrHandlerCallCounter)
+    assert wait_for_result(1, 60, 500, evt_man.fileAttrHandlerCallCounter)
 
 
 def test_file_location_subscription(endpoint, evt_man):
@@ -372,7 +372,7 @@ def test_file_location_counter_emission(endpoint, evt_man):
         msg = events.createFileLocationEventMsg(1, 'fileUuid', 'fileId', i)
         endpoint.send(msg)
 
-    assert wait_for_result(5, 20, 500, evt_man.fileLocationHandlerCallCounter)
+    assert wait_for_result(5, 60, 500, evt_man.fileLocationHandlerCallCounter)
 
 
 def test_file_location_time_emission(endpoint, evt_man):
@@ -384,7 +384,7 @@ def test_file_location_time_emission(endpoint, evt_man):
         msg = events.createFileLocationEventMsg(1, 'fileUuid', 'fileId', i)
         endpoint.send(msg)
 
-    assert wait_for_result(1, 20, 500, evt_man.fileLocationHandlerCallCounter)
+    assert wait_for_result(1, 60, 500, evt_man.fileLocationHandlerCallCounter)
 
 
 def test_permission_changed_counter_emission(endpoint, evt_man):
@@ -396,5 +396,5 @@ def test_permission_changed_counter_emission(endpoint, evt_man):
         msg = events.createPermissionChangedEventMsg(1, 'fileUuid', i)
         endpoint.send(msg)
 
-    assert wait_for_result(100, 20, 500,
+    assert wait_for_result(100, 60, 500,
                            evt_man.permissionChangedHandlerCallCounter)

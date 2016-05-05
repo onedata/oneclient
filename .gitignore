@@ -2,8 +2,8 @@
 /debug
 /relwithdebinfo
 /package
-dockerbuild-report.txt
-dockerbuild-sha.txt
+docker-build-list.json
+docker-build-report.txt
 version.txt
 
 # Compiled Object files

@@ -12,11 +12,12 @@
 #include "communication/communicator.h"
 #include "helpers/IStorageHelper.h"
 #include "helpers/storageHelperFactory.h"
+#include "proxyio/bufferAgent.h"
 #include "scheduler.h"
 #include "storageAccessManager.h"
 
-#include <asio/io_service.hpp>
 #include <asio/executor_work.hpp>
+#include <asio/io_service.hpp>
 #include <tbb/concurrent_hash_map.h>
 
 #include <thread>
@@ -40,41 +41,18 @@ public:
     using HelperPtr = std::shared_ptr<helpers::IStorageHelper>;
 
 private:
-    void requestStorageTestFileCreation(
-        const std::string &fileUuid, const std::string &storageId);
-
-    void handleStorageTestFile(
-        std::shared_ptr<messages::fuse::StorageTestFile> testFile,
-        const std::string &storageId, unsigned int attempts);
-
-    void requestStorageTestFileVerification(
-        const messages::fuse::StorageTestFile &testFile,
-        const std::string &storageId, std::string fileContent);
-
-    void handleStorageTestFileVerification(
-        const std::error_code &ec, const std::string &storageId);
-
-    enum class AccessType { DIRECT, PROXY };
-
     struct HashCompare {
         bool equal(const std::tuple<std::string, bool> &j,
             const std::tuple<std::string, bool> &k) const;
         size_t hash(const std::tuple<std::string, bool> &k) const;
     };
 
-    communication::Communicator &m_communicator;
-    Scheduler &m_scheduler;
-    asio::io_service m_ioService{1};
-    asio::executor_work<asio::io_service::executor_type> m_work =
-        asio::make_work(m_ioService);
-    std::thread m_thread;
-    helpers::StorageHelperFactory m_helperFactory{
-        m_ioService, m_ioService, m_ioService, m_communicator};
-    StorageAccessManager m_storageAccessManager;
+    enum class AccessType { DIRECT, PROXY };
 
-    tbb::concurrent_hash_map<std::tuple<std::string, bool>, HelperPtr,
-        HashCompare> m_cache;
     tbb::concurrent_hash_map<std::string, AccessType> m_accessType;
+    tbb::concurrent_hash_map<std::tuple<std::string, bool>, HelperPtr,
+        HashCompare>
+        m_cache;
 
 public:
     using ConstAccessTypeAccessor = decltype(m_accessType)::const_accessor;
@@ -107,6 +85,39 @@ public:
      */
     HelperPtr get(const std::string &fileUuid, const std::string &storageId,
         bool forceProxyIO = false);
+
+private:
+    void requestStorageTestFileCreation(
+        const std::string &fileUuid, const std::string &storageId);
+
+    void handleStorageTestFile(
+        std::shared_ptr<messages::fuse::StorageTestFile> testFile,
+        const std::string &storageId, unsigned int attempts);
+
+    void requestStorageTestFileVerification(
+        const messages::fuse::StorageTestFile &testFile,
+        const std::string &storageId, std::string fileContent);
+
+    void handleStorageTestFileVerification(
+        const std::error_code &ec, const std::string &storageId);
+
+    communication::Communicator &m_communicator;
+    Scheduler &m_scheduler;
+    asio::io_service m_ioService{1};
+
+    asio::executor_work<asio::io_service::executor_type> m_work =
+        asio::make_work(m_ioService);
+
+    std::thread m_thread;
+
+    std::shared_ptr<helpers::proxyio::BufferAgent> m_bufferAgent =
+        std::make_shared<helpers::proxyio::BufferAgent>(
+            helpers::proxyio::BufferLimits{}, m_communicator, m_scheduler);
+
+    helpers::StorageHelperFactory m_helperFactory{
+        m_ioService, m_ioService, m_ioService, m_bufferAgent};
+
+    StorageAccessManager m_storageAccessManager;
 };
 
 } // namespace one

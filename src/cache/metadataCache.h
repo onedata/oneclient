@@ -15,9 +15,20 @@
 #include "messages/fuse/getFileAttr.h"
 
 #include <boost/filesystem/path.hpp>
+#include <boost/functional/hash.hpp>
 #include <tbb/concurrent_hash_map.h>
 
 #include <condition_variable>
+#include <unordered_set>
+
+namespace std {
+template <> struct hash<boost::filesystem::path> {
+    size_t operator()(const boost::filesystem::path &p) const
+    {
+        return boost::filesystem::hash_value(p);
+    }
+};
+}
 
 namespace one {
 namespace client {
@@ -36,9 +47,10 @@ public:
      * @c Metadata holds metadata of a file.
      */
     struct Metadata {
-        boost::optional<Path> path;
+        std::unordered_set<Path> paths;
         boost::optional<FileAttr> attr;
         boost::optional<FileLocation> location;
+        bool removedUpstream = false;
     };
 
 private:
@@ -166,9 +178,17 @@ public:
     void remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
 
     /**
+     * Removes a UUID entries (path mappings) from the cache.
+     * This action will release metaAcc.
+     * @param uuidAcc Accessor to UUID mapping to remove.
+     * @param metaAcc Accessor to metadata mapping.
+     */
+    void removePathMappings(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
+
+    /**
      * Removes a UUID entry (path mapping) from the cache.
      * @param uuidAcc Accessor to UUID mapping to remove.
-     * @param metaAcc Accessor to metadata mapping..
+     * @param metaAcc Accessor to metadata mapping.
      */
     void removePathMapping(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
 
@@ -183,7 +203,7 @@ public:
      * @param uuid The UUID of file
      * @param range Range of data to wait for
      * @param timeout Timeout to wait for condition
-     * @return true if file has benn successfully synchronized
+     * @return true if file has been successfully synchronized
      */
     bool waitForNewLocation(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range,

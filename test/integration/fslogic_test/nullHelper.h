@@ -27,14 +27,18 @@ void PrintTo(const boost::filesystem::path &path, std::ostream *os)
 }
 
 class NullHelperCTX : public one::helpers::IStorageHelperCTX {
-    void setFlags(int flags) {}
+public:
+    NullHelperCTX()
+        : one::helpers::IStorageHelperCTX{{}}
+    {
+    }
 };
 
 class NullHelper : public one::helpers::IStorageHelper {
 public:
     std::error_code m_ec;
 
-    one::helpers::CTXPtr createCTX()
+    one::helpers::CTXPtr createCTX(std::unordered_map<std::string, std::string>)
     {
         return std::make_shared<NullHelperCTX>();
     }
@@ -138,14 +142,14 @@ public:
     }
 
     void ash_read(one::helpers::CTXPtr, const boost::filesystem::path &,
-        asio::mutable_buffer buf, off_t, const std::string &fileUuid,
+        asio::mutable_buffer buf, off_t,
         one::helpers::GeneralCallback<asio::mutable_buffer> callback) override
     {
         callback(buf, m_ec);
     }
 
     void ash_write(one::helpers::CTXPtr, const boost::filesystem::path &,
-        asio::const_buffer buf, off_t, const std::string &fileUuid,
+        asio::const_buffer buf, off_t,
         one::helpers::GeneralCallback<std::size_t> callback) override
     {
         callback(asio::buffer_size(buf), m_ec);
@@ -170,8 +174,8 @@ public:
     }
 
     asio::mutable_buffer sh_read(one::helpers::CTXPtr,
-        const boost::filesystem::path &, asio::mutable_buffer buf, off_t,
-        const std::string &) override
+        const boost::filesystem::path &, asio::mutable_buffer buf,
+        off_t) override
     {
         if (m_ec)
             throw std::system_error{m_ec};
@@ -180,7 +184,7 @@ public:
     }
 
     std::size_t sh_write(one::helpers::CTXPtr, const boost::filesystem::path &,
-        asio::const_buffer buf, off_t, const std::string &) override
+        asio::const_buffer buf, off_t) override
     {
         if (m_ec)
             throw std::system_error{m_ec};
@@ -196,12 +200,12 @@ public:
         return 0;
     }
 
-    virtual std::error_code sh_release(
+    virtual void sh_release(
         one::helpers::CTXPtr ctx, const boost::filesystem::path &p) override
     {
         if (m_ec)
             throw std::system_error{m_ec};
-        return std::error_code();
+        return;
     }
 };
 
@@ -210,7 +214,7 @@ public:
     MOCK_METHOD3(sh_open,
         int(one::helpers::CTXPtr, const boost::filesystem::path &, int));
     MOCK_METHOD2(sh_release,
-        std::error_code(one::helpers::CTXPtr, const boost::filesystem::path &));
+        void(one::helpers::CTXPtr, const boost::filesystem::path &));
 
     NullHelperMock()
     {

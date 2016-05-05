@@ -11,8 +11,8 @@
 
 #include "helpers/IStorageHelper.h"
 
-#include <libs3.h>
 #include <asio.hpp>
+#include <libs3.h>
 
 #include <map>
 #include <mutex>
@@ -38,18 +38,18 @@ public:
      * default 'access_key' and 'secret_key' can be passed, which will be used
      * if user context has not been set.
      */
-    S3HelperCTX(std::unordered_map<std::string, std::string> args);
+    S3HelperCTX(std::unordered_map<std::string, std::string> params,
+        std::unordered_map<std::string, std::string> args);
 
     /**
-     * Sets user context.
-     * @param args Map with parameters required to set user context. Is should
-     * contain 'access_key' and 'secret_key' values.
+     * @copydoc IStorageHelper::setUserCtx
+     * Args should contain 'access_key' and 'secret_key' values.
      */
-    void setUserCTX(std::unordered_map<std::string, std::string> args);
+    void setUserCTX(std::unordered_map<std::string, std::string> args) override;
 
-    std::unordered_map<std::string, std::string> getUserCTX();
+    std::unordered_map<std::string, std::string> getUserCTX() override;
 
-    S3BucketContext bucketCTX;
+    S3BucketContext bucketCTX = {};
 
 private:
     std::unordered_map<std::string, std::string> m_args;
@@ -77,42 +77,37 @@ public:
      */
     ~S3Helper();
 
-    CTXPtr createCTX();
+    CTXPtr createCTX(
+        std::unordered_map<std::string, std::string> params) override;
 
-    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, int flags,
-        GeneralCallback<int> callback)
-    {
-        callback(0, SUCCESS_CODE);
-    }
-
-    void ash_unlink(
-        CTXPtr ctx, const boost::filesystem::path &p, VoidCallback callback);
+    void ash_unlink(CTXPtr ctx, const boost::filesystem::path &p,
+        VoidCallback callback) override;
 
     void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset, const std::string &fileUuid,
-        GeneralCallback<asio::mutable_buffer>);
+        asio::mutable_buffer buf, off_t offset,
+        GeneralCallback<asio::mutable_buffer>) override;
 
     void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset, const std::string &fileUuid,
-        GeneralCallback<std::size_t>);
+        asio::const_buffer buf, off_t offset,
+        GeneralCallback<std::size_t>) override;
 
     void ash_truncate(CTXPtr ctx, const boost::filesystem::path &p, off_t size,
-        VoidCallback callback);
+        VoidCallback callback) override;
 
     void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        FlagsSet flags, dev_t rdev, VoidCallback callback)
+        FlagsSet flags, dev_t rdev, VoidCallback callback) override
     {
         callback(SUCCESS_CODE);
     }
 
     void ash_mkdir(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        VoidCallback callback)
+        VoidCallback callback) override
     {
         callback(SUCCESS_CODE);
     }
 
     void ash_chmod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        VoidCallback callback)
+        VoidCallback callback) override
     {
         callback(SUCCESS_CODE);
     }

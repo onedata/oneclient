@@ -1,0 +1,1 @@
+/mnt/oneclient *(rw,nohide,sync,insecure,fsid=0,no_subtree_check,all_squash,anonuid=0,anongid=0)

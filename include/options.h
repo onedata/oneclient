@@ -74,6 +74,27 @@ private:                                                                       \
             DESC);                                                             \
     }
 
+/// Declare a new required configuration option with a description
+#define DECL_REQ_CONFIG_DESC(NAME, TYPE, DESC)                                 \
+public:                                                                        \
+    virtual bool has_##NAME() const                                            \
+    {                                                                          \
+        return m_vm.count(#NAME) && !m_vm[#NAME].defaulted();                  \
+    }                                                                          \
+                                                                               \
+public:                                                                        \
+    virtual TYPE get_##NAME() const { return m_vm.at(#NAME).as<TYPE>(); }      \
+                                                                               \
+private:                                                                       \
+    void add_##NAME(boost::program_options::options_description &desc) const   \
+    {                                                                          \
+        desc.add_options()(                                                    \
+            #NAME, boost::program_options::value<TYPE>()->required(), DESC);   \
+    }
+
+/// Declare a new required configuration option
+#define DECL_REQ_CONFIG(NAME, TYPE) DECL_REQ_CONFIG_DESC(NAME, TYPE, "")
+
 namespace one {
 
 static constexpr const char *FUSE_OPT_PREFIX = "fuse_opt_";
@@ -171,7 +192,7 @@ private:
     DECL_CONFIG_DEF(write_buffer_max_file_size, std::size_t, 64 * 1024 * 1024) // 64 MB
     DECL_CONFIG_DEF(read_buffer_max_file_size, std::size_t, 10 * 1024 * 1024) // 10 MB
     DECL_CONFIG_DEF(file_buffer_prefered_block_size, std::size_t, 100 * 1024) // 100 kB
-    DECL_CONFIG_DEF(file_sync_timeout, std::time_t, 30)
+    DECL_CONFIG_DEF(file_sync_timeout, std::time_t, 300)
     DECL_CONFIG_DEF(write_bytes_before_stat, std::size_t, 5 * 1024 * 1024) // 5 MB
     DECL_CONFIG(fuse_group_id, std::string)
     DECL_CONFIG_DEF(global_registry_url, std::string, "onedata.org")
@@ -185,6 +206,7 @@ private:
     DECL_CMDLINE_SWITCH_DEF(proxyio, "", false, "force ProxyIO")
     DECL_CONFIG_DESC(config, std::string, "path to user config file")
     DECL_CONFIG_DEF(enable_env_option_override, bool, true)
+    DECL_REQ_CONFIG(mountpoint, std::string)
     /* clang-format on */
 };
 
@@ -196,5 +218,7 @@ private:
 #undef DECL_CONFIG_DESC
 #undef DECL_CONFIG_DEF_DESC
 #undef DECL_CMDLINE_SWITCH_DEF
+#undef DECL_REQ_CONFIG
+#undef DECL_REQ_CONFIG_DESC
 
 #endif // ONECLIENT_OPTIONS_H

@@ -1,155 +1,138 @@
-oneclient
-=========
+# oneclient
 
-*oneclient* is a part of a meta file system, called *onedata*, which unifies access to different storage systems and 
-provides a POSIX compatible interface.
+*oneclient* is a command line [Onedata](onedata.org) client. It provides a POSIX
+interface to user's files in *onedata* system.
 
-Goals
------
+# User Guide
 
-The main goal of *oneclient* is to provide a file system to different, heterogeneous storage systems, which will work
-in the user space, e.g. *Lustre*, *GPFS*, *DPM*, *iRODS*. *oneclient* intends to reduce the complexity of accessing
-various storage systems by providing a standard, POSIX compatible interface. Furthermore, storage systems connected to 
-*oneclient* can be geographically distributed, and operated by different organizations. The end user may operate on data
-from the storage systems as if they were stored at a local file system.
+## Building
 
+### Dependencies
 
-Getting Started
----------------
-*oneclient* is built with *CMake*. More informations about compiling the project in [Compilation](#compilation) section.
-Sources are put in *src*.
+To build *oneclient* you need the following packages installed on your system:
 
-Prerequisites
--------------
+* boost-devel >= 1.58.0
+* cmake >= 3.0.0
+* fuse >= 2.7
+* g++ >= 4.9.0 (or a recent version of Clang)
+* go
+* librados2
+* libs3
+* libsodium
+* libtool-ltdl
+* ninja
+* openssl
+* protobuf >= 2.6.0
+* python
+* tbb >= 4.3
 
-In order to compile the project, you need to have fallowing additional libraries, its headers and all its prerequisites
-in include/ld path:
+An up-to-date list of packages for Ubuntu and Fedora is listed in
+[control](pkg_config/debian/control) and
+[oneclient.spec](pkg_config/oneclient.spec) files respectively.
 
-* fuse
-* protobuf
-* ssl
-* crypto
-* boost ( >= 1.49)
-* ltdl
+## Compilation
 
-Also you need cmake 2.8+.
+```bash
+git clone https://github.com/onedata/oneclient.git
+cd oneclient
+make release # or debug
+```
 
-Use this command to install the required dependency packages:
+The compiled binary `oneclient` will be created on path `release/oneclient` (or
+`debug/oneclient`).
 
-* Debian/Ubuntu Dependencies (.deb packages):
+## Usage
 
-        apt-get install libprotobuf-dev libfuse-dev fuse libboost-dev libtool
+```
+release/oneclient [options] mountpoint
 
-* RHEL/CentOS/Fedora Dependencies (.rpm packages):
+General options:
+  -h [ --help ]            print help
+  -V [ --version ]         print version
+  --config arg             path to user config file
+  --authentication arg     authentication type to use for connection with a
+                           Provider. Accepted values are 'token' and
+                           'certificate'.
+  -d [ --debug ]           enable debug output (implies -f)
+  --debug_gsi              enable GSI debug output
+  --no_check_certificate   disable remote certificate validation
+  --proxyio                force ProxyIO
 
-        yum install fuse fuse-libs fuse-devel protobuf-devel openssl-devel cmake28 boost-devel boost-static rpm-build subversion zlib-devel libtool libtool-ltdl-devel
-
-
-Compilation
------------
-
-### "The fast way"
-
-If you just need an RPM package, you can just type:
-
-	make -s rpm
-
-If there was no errors, you will get list of generated packages (rpm or dep).
-
-### "The standard way"
-
-*oneclient* uses *cmake* as a build tool thus building process is same as for most cmake-based projects. However you can 
-use Makefile-proxy with following interface: 
-(Note that -s flag is optional - it's a silent mode which makes output much prettier, because it leaves only cmake's stdout/stderr)
-
-#### Build Release binaries
-
-    make -s release
-
-#### Build Debug binaries
-
-    make -s debug
-
-#### Install
-
-    make -s install
-
-#### RPM/DEB packages (note that this will build always Release binaries)
-
-    make -s rpm
-
-#### Testing
-
-There are two testing targets:
-
-    make -s test
-
-which has summarized output (per test case) and:
-
-    make -s cunit
-
-which shows detailed test results.
-
-Using oneclient
----------------
+FUSE options:
+  -o opt,...               mount options
+  -f                       foreground operation
+  -s                       disable multi-threaded operation
+```
 
 ### Configuration
 
-First of all you should tune up some config settings. Default configuration file can be found in 
-{INSTALL_PREFIX}/etc/oneclient.conf.default. If it is your first install you should rename this file to 
-{INSTALL_PREFIX}/etc/oneclient.conf (strip .default suffix). In most linux distributions default {INSTALL_PREFIX} is 
-/usr/local. Configuration options are described in configuration file itself. In most cases you want to stick with
-default values although there are 2 options that requires special care:
+Besides commandline configuration options, oneclient reads options from a global
+configuration file located at `/usr/local/oneclient.conf` (`/etc/oneclient.conf`
+when installed from the package). Refer to the
+[example configuration file](config/oneclient.conf.default) for details on the
+options.
 
-* provider_hostname - hostname of *oneprovider* used by client.
-* peer_certificate_file - path to proxy certificate (.pem file) used in SSL session. Paths are relative to HOME env 
-unless absolute path is specified.
+#### Restricted and overridable options
 
-You don't edit this global config file if you don't want to. You can also create new file, type options that shall be 
-overridden and pass '--config=/path/to/your/config/file' option while starting *oneclient*.
-Also its possible to override options by setting env variable with the same name (only uppercase):
+Some options - marked as `[Restricted]` in the example configuration - can only
+be set in the global configuration file. All other options can be overriden in
+user config file (passed through the `--config` commandline options) or through
+environment variable. For example, `PROVIDER_HOSTNAME` environment variable
+overrides `provider_hostname` configuration option. Overriding with environment
+variables can be disabled with `enable_env_option_override=false`.
 
-    PROVIDER_HOSTNAME="some.hostname.com" oneclient /mount/point
+#### Passing user token
 
-### Mounting the filesystem
+When `--authentication` is set to `token`, *oneclient* reads user token from
+standard input on first run. The token can also be passed to oneclient in
+`ONECLIENT_AUTHORIZATION_TOKEN` environment variable.
 
-#### Prerequisites
+## Running oneclient docker image
 
-In order to use *oneclient*, you need to have fallowing additional libraries in ld path:
+Running dockerized *oneclient* is easy:
 
-* libfuse
-* libprotobuf
-* libssl
+```
+docker run -ti --privileged onedata/oneclient:VFS-1951
+```
 
-Use this command to install the required dependency packages:
+### Persisting the token
 
-* Debian/Ubuntu Dependencies (.deb packages):
+The application will ask for a token and run in the foreground. In order for
+*oneclient* to remember your token, mount volume `/root/.local/share/oneclient`:
 
-        apt-get install libprotobuf libfuse fuse
+```
+docker run -ti --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:VFS-1951
+```
 
-* RHEL/CentOS/Fedora Dependencies (.rpm packages):
+You can also pass your token in `ONECLIENT_AUTHORIZATION_TOKEN` environment
+variable:
 
-        yum install fuse fuse-libs protobuf openssl
+```
+docker run -ti --privileged -e ONECLIENT_AUTHORIZATION_TOKEN=$TOKEN onedata/oneclient:VFS-1951
+```
 
-#### Starting
+If *oneclient* knows the token (either by reading its config file or by reading
+the environment variable), it can be run as a daemon container:
 
-In order to mount onedata just enter:
+```
+docker run -d --privileged -e ONECLIENT_AUTHORIZATION_TOKEN=$TOKEN onedata/oneclient:VFS-1951
+```
 
-    oneclient /mount/point
+### Accessing your data
 
-Additionally you can add '-d' option which enables debug mode. In debug mode application will remain running, displaying
-all logs and debug information, also in this mode ctrl+c unmount filesystem. If not in debug mode, application will go
-background as daemon.
+*oneclient* exposes NFS and SMB services for easy outside access to your mounted
+spaces.
 
-If you want to use self-signed or otherwise unverifiable certificate on the server size, you need to pass
-'--no-check-certificate' command line flag or set the 'no_check_certificate' option in the configuration file.
+```
+docker run -d --privileged -e ONECLIENT_AUTHORIZATION_TOKEN=$TOKEN onedata/oneclient:VFS-1951
 
-### Unmounting the filesystem
+# Display container's IP address
+docker inspect --format "{{ .NetworkSettings.IPAddress }}" $(docker ps -ql)
+```
 
-If *oneclient* was started with '-d' option, just hit ctrl+c. If not:
+Now you can mount using *NFS* or *Samba* with:
 
-    fusermount -u /mount/point
-
-Support
--------
-For more information visit project *Confluence* or write to <wrzeszcz@agh.edu.pl>.
+```
+nfs://<CONTAINER_IP_ADDR>/mnt/oneclient
+smb://<CONTAINER_IP_ADDR>/onedata
+```
