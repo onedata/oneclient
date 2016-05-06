@@ -23,6 +23,15 @@ const std::unordered_map<Flag, int, FlagHash> IStorageHelper::s_flagTranslation{
     {Flag::IFCHR, S_IFCHR}, {Flag::IFBLK, S_IFBLK}, {Flag::IFIFO, S_IFIFO},
     {Flag::IFSOCK, S_IFSOCK}};
 
+const std::unordered_map<int, Flag> IStorageHelper::s_maskTranslation{
+    {O_NONBLOCK, Flag::NONBLOCK}, {O_APPEND, Flag::APPEND},
+    {O_ASYNC, Flag::ASYNC}, {O_FSYNC, Flag::FSYNC},
+    {O_NOFOLLOW, Flag::NOFOLLOW}, {O_CREAT, Flag::CREAT},
+    {O_TRUNC, Flag::TRUNC}, {O_EXCL, Flag::EXCL}, {O_RDONLY, Flag::RDONLY},
+    {O_WRONLY, Flag::WRONLY}, {O_RDWR, Flag::RDWR}, {S_IFREG, Flag::IFREG},
+    {S_IFCHR, Flag::IFCHR}, {S_IFBLK, Flag::IFBLK}, {S_IFIFO, Flag::IFIFO},
+    {S_IFSOCK, Flag::IFSOCK}};
+
 void IStorageHelper::throwOnInterrupted()
 {
     if (fuseInterrupted())
