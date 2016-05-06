@@ -163,7 +163,7 @@ int FsLogic::mknod(
     DLOG(INFO) << "FUSE: mknod(path: " << path << ", mode: " << std::oct << mode
                << ", dev: " << dev << ")";
 
-    createFile(std::move(path), mode, O_RDWR);
+    createFile(std::move(path), mode, {one::helpers::Flag::RDWR});
     return 0;
 }
 
@@ -268,7 +268,7 @@ int FsLogic::truncate(boost::filesystem::path path, const off_t newSize)
     communication::wait(future);
     attr.size(newSize);
 
-    m_metadataCache.getLocation(acc, attr.uuid(), O_WRONLY);
+    m_metadataCache.getLocation(acc, attr.uuid(), {one::helpers::Flag::WRONLY});
     acc->second.location.get().blocks() &=
         boost::icl::discrete_interval<off_t>::right_open(0, newSize);
 
@@ -316,7 +316,8 @@ int FsLogic::open(
     DLOG(INFO) << "FUSE: open(path: " << path << ", ...)";
 
     auto attr = m_metadataCache.getAttr(path);
-    auto location = m_metadataCache.getLocation(attr.uuid(), fileInfo->flags);
+    auto location = m_metadataCache.getLocation(attr.uuid(),
+        one::helpers::IStorageHelper::maskToFlags(fileInfo->flags));
     auto helper = getHelper(attr.uuid(), location.storageId());
     openFile(location.uuid(), fileInfo);
 
@@ -371,7 +372,8 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
 
     auto context = m_fileContextCache.get(fileInfo->fh);
     auto attr = m_metadataCache.getAttr(context.uuid);
-    auto location = m_metadataCache.getLocation(context.uuid, fileInfo->flags);
+    auto location = m_metadataCache.getLocation(context.uuid,
+        one::helpers::IStorageHelper::maskToFlags(fileInfo->flags));
 
     const auto possibleRange =
         boost::icl::discrete_interval<off_t>::right_open(0, attr.size().get());
@@ -392,11 +394,12 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         location.blocks().find(boost::icl::discrete_interval<off_t>(offset));
 
     boost::optional<messages::fuse::Checksum> serverChecksum;
+    auto flagSet = one::helpers::IStorageHelper::maskToFlags(fileInfo->flags);
     bool dataNeedsSynchronization = availableBlockIt == location.blocks().end();
     if (dataNeedsSynchronization) {
-        serverChecksum = waitForBlockSynchronization(
-            context.uuid, wantedRange, fileInfo->flags);
-        location = m_metadataCache.getLocation(context.uuid, fileInfo->flags);
+        serverChecksum =
+            waitForBlockSynchronization(context.uuid, wantedRange, flagSet);
+        location = m_metadataCache.getLocation(context.uuid, flagSet);
         availableBlockIt = location.blocks().find(
             boost::icl::discrete_interval<off_t>(offset));
     }
@@ -440,7 +443,7 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
 
 messages::fuse::Checksum FsLogic::waitForBlockSynchronization(
     const std::string &uuid, const boost::icl::discrete_interval<off_t> &range,
-    const int flags)
+    const one::helpers::FlagsSet flags)
 {
     auto checksum = syncAndFetchChecksum(uuid, range);
 
@@ -474,7 +477,8 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
 
     auto context = m_fileContextCache.get(fileInfo->fh);
     auto attr = m_metadataCache.getAttr(context.uuid);
-    auto location = m_metadataCache.getLocation(context.uuid, fileInfo->flags);
+    auto location = m_metadataCache.getLocation(context.uuid,
+        one::helpers::IStorageHelper::maskToFlags(fileInfo->flags));
 
     messages::fuse::FileBlock fileBlock;
     std::tie(fileBlock, buf) = findWriteLocation(location, offset, buf);
@@ -511,7 +515,8 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
 
     // Call `getLocation` instead of using existing acc for a corner case
     // where location has been removed since initial `getLocation` call.
-    m_metadataCache.getLocation(acc, context.uuid, fileInfo->flags);
+    m_metadataCache.getLocation(acc, context.uuid,
+        one::helpers::IStorageHelper::maskToFlags(fileInfo->flags));
     acc->second.location.get().blocks() +=
         std::make_pair(writtenRange, std::move(fileBlock));
 
@@ -767,7 +772,8 @@ int FsLogic::create(boost::filesystem::path path, const mode_t mode,
                << mode << ")";
 
     // Potential race condition, file might be modified between create and open
-    auto fileUuid = createFile(std::move(path), mode, fileInfo->flags);
+    auto fileUuid = createFile(std::move(path), mode,
+        one::helpers::IStorageHelper::maskToFlags(fileInfo->flags));
     openFile(fileUuid, fileInfo);
 
     return 0;
@@ -797,8 +803,8 @@ void FsLogic::removeFile(boost::filesystem::path path)
     m_metadataCache.removePathMapping(uuidAcc, metaAcc);
 }
 
-const std::string FsLogic::createFile(
-    boost::filesystem::path path, const mode_t mode, const int flags)
+const std::string FsLogic::createFile(boost::filesystem::path path,
+    const mode_t mode, const one::helpers::FlagsSet flags)
 {
     auto parentAttr = m_metadataCache.getAttr(path.parent_path());
     if (parentAttr.type() != messages::fuse::FileAttr::FileType::directory)
@@ -824,7 +830,8 @@ void FsLogic::openFile(
     m_fileContextCache.create(acc);
 
     MetadataCache::MetaAccessor metaAcc;
-    m_metadataCache.getLocation(metaAcc, fileUuid, fileInfo->flags);
+    m_metadataCache.getLocation(metaAcc, fileUuid,
+        one::helpers::IStorageHelper::maskToFlags(fileInfo->flags));
     auto &location = metaAcc->second.location.get();
 
     fileInfo->direct_io = 1;
@@ -842,7 +849,8 @@ void FsLogic::openFile(
     metaAcc.release();
 
     m_locExpirationHelper.pin(fileUuid, [&] {
-        m_metadataCache.getLocation(fileUuid, fileInfo->flags);
+        m_metadataCache.getLocation(fileUuid,
+            one::helpers::IStorageHelper::maskToFlags(fileInfo->flags));
         m_fsSubscriptions.addFileLocationSubscription(fileUuid);
     });
 

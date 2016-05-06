@@ -47,8 +47,6 @@ public:
     using ProtocolMessage = clproto::FileLocation;
     using Subscription = client::events::FileLocationSubscription;
 
-    enum class FileLocationFlags { read, write, rdwr };
-
     FileLocation() = default;
 
     /**

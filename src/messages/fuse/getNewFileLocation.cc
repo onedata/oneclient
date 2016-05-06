@@ -17,21 +17,13 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-GetNewFileLocation::GetNewFileLocation(
-    std::string name, std::string parentUuid, mode_t mode, int flags)
+GetNewFileLocation::GetNewFileLocation(std::string name, std::string parentUuid,
+    mode_t mode, const one::helpers::FlagsSet flags)
     : m_name{std::move(name)}
     , m_parentUuid{std::move(parentUuid)}
     , m_mode{mode}
+    , m_flags{flags}
 {
-    if ((flags & O_ACCMODE) == O_RDONLY)
-        m_flags = FileLocationFlags::read;
-    else if ((flags & O_ACCMODE) == O_WRONLY)
-        m_flags = FileLocationFlags::write;
-    else if ((flags & O_ACCMODE) == O_RDWR)
-        m_flags = FileLocationFlags::rdwr;
-    else
-        throw std::system_error{
-            std::make_error_code(std::errc::protocol_error), "bad open flags"};
 }
 
 std::string GetNewFileLocation::toString() const
@@ -41,17 +33,13 @@ std::string GetNewFileLocation::toString() const
     stream << "type: 'GetNewFileLocation', name: " << m_name
            << ", parentUUID: " << m_parentUuid << ", mode: " << std::oct
            << m_mode << ", flags: ";
-    switch (m_flags) {
-        case FileLocationFlags::read:
-            stream << "read";
-            break;
-        case FileLocationFlags::write:
-            stream << "write";
-            break;
-        case FileLocationFlags::rdwr:
-            stream << "rdwr";
-            break;
-    };
+
+    if (m_flags.find(one::helpers::Flag::RDWR) != m_flags.end())
+        stream << "rdwr";
+    else if (m_flags.find(one::helpers::Flag::RDONLY) != m_flags.end())
+        stream << "read";
+    else if (m_flags.find(one::helpers::Flag::WRONLY) != m_flags.end())
+        stream << "write";
 
     return stream.str();
 }
@@ -64,17 +52,13 @@ std::unique_ptr<ProtocolClientMessage> GetNewFileLocation::serializeAndDestroy()
     gnfl->mutable_name()->swap(m_name);
     gnfl->mutable_parent_uuid()->swap(m_parentUuid);
     gnfl->set_mode(m_mode);
-    switch (m_flags) {
-        case FileLocationFlags::read:
-            gnfl->set_flags(clproto::FileLocationFlags::READ);
-            break;
-        case FileLocationFlags::write:
-            gnfl->set_flags(clproto::FileLocationFlags::WRITE);
-            break;
-        case FileLocationFlags::rdwr:
-            gnfl->set_flags(clproto::FileLocationFlags::READ_WRITE);
-            break;
-    }
+
+    if (m_flags.find(one::helpers::Flag::RDWR) != m_flags.end())
+        gnfl->set_flags(clproto::FileLocationFlags::READ_WRITE);
+    else if (m_flags.find(one::helpers::Flag::RDONLY) != m_flags.end())
+        gnfl->set_flags(clproto::FileLocationFlags::READ);
+    else if (m_flags.find(one::helpers::Flag::WRONLY) != m_flags.end())
+        gnfl->set_flags(clproto::FileLocationFlags::WRITE);
 
     return msg;
 }

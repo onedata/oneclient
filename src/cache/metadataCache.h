@@ -19,6 +19,7 @@
 #include <tbb/concurrent_hash_map.h>
 
 #include <condition_variable>
+#include <helpers/IStorageHelper.h>
 #include <unordered_set>
 
 namespace std {
@@ -113,7 +114,8 @@ public:
      * @param flags The open flags.
      * @return Location data about the file.
      */
-    FileLocation getLocation(const std::string &uuid, const int flags);
+    FileLocation getLocation(
+        const std::string &uuid, const one::helpers::FlagsSet flags);
 
     /**
      * Sets metadata accessor for a given path, first ensuring that path<->UUID
@@ -149,8 +151,8 @@ public:
      * @param uuid The UUID of a file to retrieve location data about.
      * @param flags Open flags.
      */
-    void getLocation(
-        MetaAccessor &metaAcc, const std::string &uuid, const int flags);
+    void getLocation(MetaAccessor &metaAcc, const std::string &uuid,
+        const one::helpers::FlagsSet flags);
 
     /**
      * Adds an arbitrary path<->UUID mapping to the cache.
@@ -211,7 +213,8 @@ public:
      */
     bool waitForNewLocation(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range,
-        const std::chrono::milliseconds &timeout, const int flags);
+        const std::chrono::milliseconds &timeout,
+        const one::helpers::FlagsSet flags);
 
     /**
      * Notifies waiting processes that the new file location has arrived

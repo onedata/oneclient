@@ -18,6 +18,7 @@
 #include <sys/types.h>
 
 #include <cstdint>
+#include <helpers/IStorageHelper.h>
 #include <string>
 
 namespace one {
@@ -29,15 +30,12 @@ namespace fuse {
  */
 class GetFileLocation : public ClientMessage {
 public:
-    using FileLocationFlags =
-        one::messages::fuse::FileLocation::FileLocationFlags;
-
     /**
      * Constructor.
      * @param uuid UUID of the directory of which children are requested.
      * @param flags Open flags
      */
-    GetFileLocation(std::string uuid, const int flags);
+    GetFileLocation(std::string uuid, const one::helpers::FlagsSet flags);
 
     std::string toString() const override;
 
@@ -46,7 +44,7 @@ private:
 
     std::string m_uuid;
 
-    FileLocationFlags m_flags;
+    one::helpers::FlagsSet m_flags;
 };
 
 } // namespace fuse

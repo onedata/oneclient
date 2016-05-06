@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 
+#include <helpers/IStorageHelper.h>
 #include <string>
 
 namespace one {
@@ -27,9 +28,6 @@ namespace fuse {
  */
 class GetNewFileLocation : public ClientMessage {
 public:
-    using FileLocationFlags =
-        one::messages::fuse::FileLocation::FileLocationFlags;
-
     /**
      * Constructor.
      * @param name Name of the file to create.
@@ -37,8 +35,8 @@ public:
      * @param mode Mode of the newly created file.
      * @param flags Open flags.
      */
-    GetNewFileLocation(
-        std::string name, std::string parentUuid, mode_t mode, const int flags);
+    GetNewFileLocation(std::string name, std::string parentUuid, mode_t mode,
+        const one::helpers::FlagsSet flags);
 
     std::string toString() const override;
 
@@ -48,7 +46,7 @@ private:
     std::string m_name;
     std::string m_parentUuid;
     mode_t m_mode;
-    FileLocationFlags m_flags;
+    one::helpers::FlagsSet m_flags;
 };
 
 } // namespace fuse
