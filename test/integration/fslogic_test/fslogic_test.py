@@ -359,7 +359,7 @@ def test_rename_should_rename(endpoint, fl):
     assert rename.target_path == '/random/path2'
 
 
-def test_rename_should_change_caches(appmock_client, endpoint, fl):
+def test_rename_should_clear_caches(appmock_client, endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
@@ -368,7 +368,14 @@ def test_rename_should_change_caches(appmock_client, endpoint, fl):
         fl.rename('/random/path', '/random/path2')
 
     stat = fslogic.Stat()
-    fl.getattr('/random/path2', stat)
+    with reply(endpoint, [getattr_response]) as queue:
+        fl.getattr('/random/path2', stat)
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+
+    fuse_request = client_message.fuse_request
+    assert fuse_request.HasField('get_file_attr')
 
     assert stat.size == getattr_response.fuse_response.file_attr.size
     1 == endpoint.all_messages_count()
