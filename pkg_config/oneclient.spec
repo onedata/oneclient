@@ -47,7 +47,7 @@ find %{buildroot}
 
 %files
 %{_bindir}/oneclient
-%{_sysconfdir}/oneclient.conf.default
+%{_sysconfdir}/oneclient.conf
 
 %doc
 
