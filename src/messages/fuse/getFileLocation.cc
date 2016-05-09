@@ -18,7 +18,7 @@ namespace messages {
 namespace fuse {
 
 GetFileLocation::GetFileLocation(
-    std::string uuid, const one::helpers::FlagsSet flags)
+    std::string uuid, const helpers::FlagsSet flags)
     : m_uuid{std::move(uuid)}
     , m_flags{flags}
 {
@@ -29,11 +29,11 @@ std::string GetFileLocation::toString() const
     std::stringstream stream;
     stream << "type: 'GetFileLocation', uuid: " << m_uuid << ", flags: ";
 
-    if (m_flags.find(one::helpers::Flag::RDWR) != m_flags.end())
+    if (m_flags.find(helpers::Flag::RDWR) != m_flags.end())
         stream << "rdwr";
-    else if (m_flags.find(one::helpers::Flag::RDONLY) != m_flags.end())
+    else if (m_flags.find(helpers::Flag::RDONLY) != m_flags.end())
         stream << "read";
-    else if (m_flags.find(one::helpers::Flag::WRONLY) != m_flags.end())
+    else if (m_flags.find(helpers::Flag::WRONLY) != m_flags.end())
         stream << "write";
 
     return stream.str();
@@ -46,11 +46,11 @@ std::unique_ptr<ProtocolClientMessage> GetFileLocation::serializeAndDestroy()
 
     gfl->mutable_uuid()->swap(m_uuid);
 
-    if (m_flags.find(one::helpers::Flag::RDWR) != m_flags.end())
+    if (m_flags.find(helpers::Flag::RDWR) != m_flags.end())
         gfl->set_flags(clproto::FileLocationFlags::READ_WRITE);
-    else if (m_flags.find(one::helpers::Flag::RDONLY) != m_flags.end())
+    else if (m_flags.find(helpers::Flag::RDONLY) != m_flags.end())
         gfl->set_flags(clproto::FileLocationFlags::READ);
-    else if (m_flags.find(one::helpers::Flag::WRONLY) != m_flags.end())
+    else if (m_flags.find(helpers::Flag::WRONLY) != m_flags.end())
         gfl->set_flags(clproto::FileLocationFlags::WRITE);
 
     return msg;
