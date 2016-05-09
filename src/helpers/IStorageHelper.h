@@ -329,9 +329,7 @@ public:
         FlagsSet flags;
 
         // get permission flags
-        auto searchResult = s_maskTranslation.find(mask & O_ACCMODE);
-        assert(searchResult != s_maskTranslation.end());
-        flags.insert(searchResult->second);
+        flags.insert(s_maskTranslation.at(mask & O_ACCMODE));
 
         // get other flags
         for (auto entry : s_maskTranslation) {
@@ -339,11 +337,8 @@ public:
             auto entry_flag = entry.second;
 
             if (entry_flag != Flag::RDONLY && entry_flag != Flag::WRONLY &&
-                entry_flag != Flag::RDWR && (entry_mask & mask) == entry_mask) {
-                searchResult = s_maskTranslation.find(entry_mask);
-                assert(searchResult != s_maskTranslation.end());
-                flags.insert(searchResult->second);
-            }
+                entry_flag != Flag::RDWR && (entry_mask & mask) == entry_mask)
+                flags.insert(s_maskTranslation.at(entry_mask));
         }
 
         return flags;
