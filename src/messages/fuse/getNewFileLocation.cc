@@ -34,11 +34,11 @@ std::string GetNewFileLocation::toString() const
            << ", parentUUID: " << m_parentUuid << ", mode: " << std::oct
            << m_mode << ", flags: ";
 
-    if (m_flags.find(one::helpers::Flag::RDWR) != m_flags.end())
+    if (m_flags.count(one::helpers::Flag::RDWR))
         stream << "rdwr";
-    else if (m_flags.find(one::helpers::Flag::RDONLY) != m_flags.end())
+    else if (m_flags.count(one::helpers::Flag::RDONLY))
         stream << "read";
-    else if (m_flags.find(one::helpers::Flag::WRONLY) != m_flags.end())
+    else if (m_flags.count(one::helpers::Flag::WRONLY))
         stream << "write";
 
     return stream.str();
@@ -53,11 +53,11 @@ std::unique_ptr<ProtocolClientMessage> GetNewFileLocation::serializeAndDestroy()
     gnfl->mutable_parent_uuid()->swap(m_parentUuid);
     gnfl->set_mode(m_mode);
 
-    if (m_flags.find(one::helpers::Flag::RDWR) != m_flags.end())
+    if (m_flags.count(one::helpers::Flag::RDWR))
         gnfl->set_flags(clproto::FileLocationFlags::READ_WRITE);
-    else if (m_flags.find(one::helpers::Flag::RDONLY) != m_flags.end())
+    else if (m_flags.count(one::helpers::Flag::RDONLY))
         gnfl->set_flags(clproto::FileLocationFlags::READ);
-    else if (m_flags.find(one::helpers::Flag::WRONLY) != m_flags.end())
+    else if (m_flags.count(one::helpers::Flag::WRONLY))
         gnfl->set_flags(clproto::FileLocationFlags::WRITE);
 
     return msg;
