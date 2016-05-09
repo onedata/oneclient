@@ -113,7 +113,7 @@ set_target_properties(helpersShared PROPERTIES
 
 install(TARGETS helpersShared LIBRARY DESTINATION lib)
 install(TARGETS helpersStatic ARCHIVE DESTINATION lib)
-install(DIRECTORY src/helpers DESTINATION include)
+install(DIRECTORY include DESTINATION .)
 install(DIRECTORY ${ASIO_INCLUDE_DIRS} DESTINATION .)
 
 
