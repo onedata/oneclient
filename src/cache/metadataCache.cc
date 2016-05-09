@@ -54,7 +54,8 @@ MetadataCache::FileAttr MetadataCache::getAttr(const std::string &uuid)
     return acc->second.attr.get();
 }
 
-MetadataCache::FileLocation MetadataCache::getLocation(const std::string &uuid)
+MetadataCache::FileLocation MetadataCache::getLocation(
+    const std::string &uuid, const one::helpers::FlagsSet flags)
 {
     ConstMetaAccessor constAcc;
     if (m_metaCache.find(constAcc, uuid)) {
@@ -65,7 +66,7 @@ MetadataCache::FileLocation MetadataCache::getLocation(const std::string &uuid)
     }
 
     MetaAccessor acc;
-    getLocation(acc, uuid);
+    getLocation(acc, uuid, flags);
     return acc->second.location.get();
 }
 
@@ -123,8 +124,8 @@ void MetadataCache::getAttr(MetaAccessor &metaAcc, const std::string &uuid)
     }
 }
 
-void MetadataCache::getLocation(
-    MetadataCache::MetaAccessor &metaAcc, const std::string &uuid)
+void MetadataCache::getLocation(MetadataCache::MetaAccessor &metaAcc,
+    const std::string &uuid, const one::helpers::FlagsSet flags)
 {
     if (!m_metaCache.insert(metaAcc, uuid)) {
         if (metaAcc->second.location)
@@ -134,7 +135,7 @@ void MetadataCache::getLocation(
     try {
         DLOG(INFO) << "Fetching file location for " << uuid;
         auto future = m_communicator.communicate<FileLocation>(
-            messages::fuse::GetFileLocation{uuid});
+            messages::fuse::GetFileLocation{uuid, flags});
 
         metaAcc->second.location = communication::wait(future);
     }
@@ -269,7 +270,8 @@ bool MetadataCache::PathHash::equal(const Path &a, const Path &b)
 
 bool MetadataCache::waitForNewLocation(const std::string &uuid,
     const boost::icl::discrete_interval<off_t> &range,
-    const std::chrono::milliseconds &timeout)
+    const std::chrono::milliseconds &timeout,
+    const one::helpers::FlagsSet flags)
 {
     LOG(INFO) << "Waiting for file_location of '" << uuid << "' at range "
               << range;
@@ -277,7 +279,7 @@ bool MetadataCache::waitForNewLocation(const std::string &uuid,
     std::unique_lock<std::mutex> lock{pair.first};
 
     const auto pred = [&] {
-        FileLocation location = getLocation(uuid);
+        FileLocation location = getLocation(uuid, flags);
         return location.blocks().find(boost::icl::first(range)) !=
             location.blocks().end();
     };

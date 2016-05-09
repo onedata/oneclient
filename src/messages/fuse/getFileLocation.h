@@ -9,13 +9,16 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_GET_FILE_LOCATION_H
 #define ONECLIENT_MESSAGES_FUSE_GET_FILE_LOCATION_H
 
+#include "fileLocation.h"
 #include "messages/clientMessage.h"
 
 #include <boost/optional.hpp>
 
+#include <fcntl.h>
 #include <sys/types.h>
 
 #include <cstdint>
+#include <helpers/IStorageHelper.h>
 #include <string>
 
 namespace one {
@@ -30,8 +33,9 @@ public:
     /**
      * Constructor.
      * @param uuid UUID of the directory of which children are requested.
+     * @param flags Open flags
      */
-    GetFileLocation(std::string uuid);
+    GetFileLocation(std::string uuid, const one::helpers::FlagsSet flags);
 
     std::string toString() const override;
 
@@ -39,6 +43,8 @@ private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
     std::string m_uuid;
+
+    one::helpers::FlagsSet m_flags;
 };
 
 } // namespace fuse

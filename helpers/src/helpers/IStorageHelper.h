@@ -228,7 +228,7 @@ public:
     virtual void ash_open(CTXPtr ctx, const boost::filesystem::path &p,
         FlagsSet flags, GeneralCallback<int> callback)
     {
-        ash_open(std::move(ctx), p, getFlagsValue(std::move(flags)),
+        ash_open(std::move(ctx), p, flagsToMask(std::move(flags)),
             std::move(callback));
     }
 
@@ -312,7 +312,7 @@ public:
 
     virtual bool needsDataConsistencyCheck() { return false; }
 
-    static int getFlagsValue(FlagsSet flags)
+    static int flagsToMask(FlagsSet flags)
     {
         int value = 0;
 
@@ -322,6 +322,26 @@ public:
             value |= searchResult->second;
         }
         return value;
+    }
+
+    static FlagsSet maskToFlags(int mask)
+    {
+        FlagsSet flags;
+
+        // get permission flags
+        flags.insert(s_maskTranslation.at(mask & O_ACCMODE));
+
+        // get other flags
+        for (auto entry : s_maskTranslation) {
+            auto entry_mask = entry.first;
+            auto entry_flag = entry.second;
+
+            if (entry_flag != Flag::RDONLY && entry_flag != Flag::WRONLY &&
+                entry_flag != Flag::RDWR && (entry_mask & mask) == entry_mask)
+                flags.insert(s_maskTranslation.at(entry_mask));
+        }
+
+        return flags;
     }
 
 protected:
@@ -340,6 +360,7 @@ private:
     template <typename T> static T waitFor(std::future<T> &f);
 
     static const std::unordered_map<Flag, int, FlagHash> s_flagTranslation;
+    static const std::unordered_map<int, Flag> s_maskTranslation;
 };
 
 template <typename Ret>
