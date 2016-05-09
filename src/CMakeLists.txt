@@ -10,16 +10,20 @@ set(HELPERS_SYSTEM_INCLUDE_DIRS
     ${ERLANG_TLS_SYSTEM_INCLUDE_DIRS}
     ${ERLANG_TLS_INCLUDE_DIRS})
 
+set(HELPERS_INCLUDE_DIRS
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include)
+
 file(GLOB_RECURSE HELPER_SOURCES *.cc *.h)
 add_library(helpers OBJECT ${HELPER_SOURCES})
 add_dependencies(helpers clproto)
-target_include_directories(helpers PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR})
 target_include_directories(helpers SYSTEM PRIVATE
     ${HELPERS_SYSTEM_INCLUDE_DIRS})
+target_include_directories(helpers PUBLIC
+    ${HELPERS_INCLUDE_DIRS})
 
 set(HELPERS_INCLUDE_DIRS
-    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${HELPERS_INCLUDE_DIRS}
     PARENT_SCOPE)
 
 set(HELPERS_SYSTEM_INCLUDE_DIRS
