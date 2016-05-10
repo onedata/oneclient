@@ -6,8 +6,8 @@
  * 'LICENSE.txt'
  */
 
-#ifndef ONECLIENT_EVENTS_TYPES_REMOVE_FILE_EVENT_H
-#define ONECLIENT_EVENTS_TYPES_REMOVE_FILE_EVENT_H
+#ifndef ONECLIENT_EVENTS_TYPES_FILE_REMOVAL_EVENT_H
+#define ONECLIENT_EVENTS_TYPES_FILE_REMOVAL_EVENT_H
 
 #include "event.h"
 #include "messages/serverMessage.h"
@@ -42,15 +42,14 @@ public:
     FileRemovalEvent(std::string fileUuid);
 
     /**
-     * @return Value that distinguish @c this remove event from other remove
-     * events,
-     * i.e. remove events with the same key can be aggregated.
+     * @return Value that distinguish @c this file removal event from other
+     * events, i.e. events with the same key can be aggregated.
      * @see @c FileRemovalEvent::Key.
      */
     const Key &key() const;
 
     /**
-     * @return ID of file associated with the remove event.
+     * @return ID of file associated with the file removal event.
      */
     const std::string &fileUuid() const;
 
@@ -73,4 +72,4 @@ protected:
 } // namespace client
 } // namespace one
 
-#endif // ONECLIENT_EVENTS_TYPES_REMOVE_FILE_EVENT_H
+#endif // ONECLIENT_EVENTS_TYPES_FILE_REMOVAL_EVENT_H

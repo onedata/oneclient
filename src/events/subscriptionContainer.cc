@@ -21,6 +21,9 @@ void SubscriptionContainer::add(const ProtocolMessage &message)
         m_readSubscriptions.emplace_back(id, message.read_subscription());
     else if (message.has_write_subscription())
         m_writeSubscriptions.emplace_back(id, message.write_subscription());
+    else if (message.has_file_accessed_subscription())
+        m_fileAccessedSubscription.emplace_back(
+            id, message.file_accessed_subscription());
 }
 
 std::vector<ReadSubscription> SubscriptionContainer::moveReadSubscriptions()
@@ -33,6 +36,12 @@ std::vector<WriteSubscription> SubscriptionContainer::moveWriteSubscriptions()
     return std::move(m_writeSubscriptions);
 }
 
+std::vector<FileAccessedSubscription>
+SubscriptionContainer::moveFileAccessedSubscription()
+{
+    return std::move(m_fileAccessedSubscription);
+}
+
 std::string SubscriptionContainer::toString() const
 {
     std::stringstream stream;
@@ -42,6 +51,9 @@ std::string SubscriptionContainer::toString() const
         stream << subscription.toString() << ", ";
     stream << "], write subscriptions: [";
     for (const auto &subscription : m_writeSubscriptions)
+        stream << subscription.toString() << ", ";
+    stream << "], file accessed subscriptions: [";
+    for (const auto &subscription : m_fileAccessedSubscription)
         stream << subscription.toString() << ", ";
     stream << "]";
 

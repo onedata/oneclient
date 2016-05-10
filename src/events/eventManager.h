@@ -148,6 +148,18 @@ public:
         FileRenamedSubscription serverSubscription);
 
     /**
+     * Emits a file accessed event with open counter set to one.
+     * @param fileUuid UUID of accessed file.
+     */
+    void emitFileOpenedEvent(std::string fileUuid) const;
+
+    /**
+     * Emits a file accessed event with release counter set to one.
+     * @param fileUuid UUID of accessed file.
+     */
+    void emitFileReleasedEvent(std::string fileUuid) const;
+
+    /**
      * Adds subscription for permission changeg events.
      * @param clientSubscription Client side subscription parameters.
      * @param serverSubscription Server side subscription parameters.
@@ -222,6 +234,7 @@ protected:
     std::unique_ptr<FileRemovalEventStream> m_fileRemovalEventStream;
     std::unique_ptr<QuotaExeededEventStream> m_quotaExeededEventStream;
     std::unique_ptr<FileRenamedEventStream> m_fileRenamedEventStream;
+    std::unique_ptr<FileAccessedEventStream> m_fileAccessedEventStream;
 
 private:
     void initializeStreams(std::shared_ptr<Context> context);

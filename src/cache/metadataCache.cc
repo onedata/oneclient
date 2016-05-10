@@ -177,6 +177,7 @@ std::vector<std::pair<std::string, std::string>> MetadataCache::rename(
         if (oldMetaAcc->second.state == FileState::removedUpstream) {
             // This rename operation was executed by fileRemovalHandler
             // Only oldPath is changed to newPath
+            oldMetaAcc->second.locations.clear();
             oldMetaAcc->second.path = newPath;
             newUuidAcc->second = oldUuid;
         }
@@ -300,7 +301,6 @@ void MetadataCache::remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc)
 void MetadataCache::removePathMapping(
     UuidAccessor &uuidAcc, MetaAccessor &metaAcc)
 {
-    metaAcc->second.path = boost::none;
     m_pathToUuid.erase(uuidAcc);
 }
 
