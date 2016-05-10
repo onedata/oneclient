@@ -138,14 +138,18 @@ for root, dirs, files in os.walk(ssh_home):
     for file in files:
         os.chmod(os.path.join(root, file), 0o600)
 
+# Try to copy config.json, continue if it fails (might not exist on host).
 try:
     os.makedirs(docker_home)
 except:
     pass
-shutil.copyfile(
-    '/tmp/docker_config/config.json',
-    os.path.join(docker_home, 'config.json'
-))
+try:
+    shutil.copyfile(
+        '/tmp/docker_config/config.json',
+        os.path.join(docker_home, 'config.json'
+    ))
+except:
+    pass
 
 sh_command = 'eval $(ssh-agent) > /dev/null; ssh-add 2>&1; {command} {params}'
 ret = subprocess.call(['sh', '-c', sh_command])
@@ -170,12 +174,17 @@ if args.mount_cache:
 
 # Mount keys required for git and docker config that holds auth to
 # docker.onedata.org, so the docker can pull images from there.
-# It cannot be mounted under ~/.docker/config.json because docker uses
-# it during start. Mount it in /root/docker_config and then cp the json.
+# Mount it in /tmp/docker_config and then cp the json.
+# If .docker is not existent on host, just skip the volume and config copying.
 volumes = [
-    (args.keys, '/tmp/keys', 'ro'),
-    (expanduser('~/.docker'), '/tmp/docker_config', 'ro')
+    (args.keys, '/tmp/keys', 'ro')
 ]
+if os.path.isdir(expanduser('~/.docker')):
+    volumes += [(expanduser('~/.docker'), '/tmp/docker_config', 'ro')]
+
+# @TODO MUSIMY WPYCHAC DOCKERY Z GUI DO OFICJALNEGO REPO ZEBY LUDZIE MOGLI BUDOWAC,
+# JAK NIE TO FALLBACK DO DOCKER.ONEDATA.ORG
+# NIE WOLNO PRZEPUSCIC BEZ TEGO PRZEZ REVIEW!!!!
 
 split_envs = [e.split('=') for e in args.envs]
 envs = {kv[0]: kv[1] for kv in split_envs}
