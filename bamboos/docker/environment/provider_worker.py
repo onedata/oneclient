@@ -63,7 +63,7 @@ class ProviderWorkerConfigurator:
                             this_config[self.app_name()], bindir,
                             storages_dockers)
 
-    def extra_volumes(self, config, bindir, instance):
+    def extra_volumes(self, config, bindir, instance, storages_dockers):
         if 'os_config' in config and config['os_config']['storages']:
             if isinstance(config['os_config']['storages'][0], basestring):
                 posix_storages = config['os_config']['storages']
@@ -74,7 +74,20 @@ class ProviderWorkerConfigurator:
         else:
             posix_storages = []
 
-        extra_volumes = [common.volume_for_storage(s) for s in posix_storages]
+        extra_volumes = []
+        for s in posix_storages:
+            if not (storages_dockers and s in storages_dockers['posix'].keys()):
+                v = common.volume_for_storage(s)
+                (host_path, docker_path, mode) = v
+                if not storages_dockers:
+                    storages_dockers = {'posix': {}}
+                storages_dockers['posix'][s] = {"host_path": host_path, "docker_path": docker_path}
+            else:
+                d = storages_dockers['posix'][s]
+                v = (d['host_path'], d['docker_path'], 'rw')
+
+            extra_volumes.append(v)
+
         # Check if gui override is enabled in env and add required volumes
         if 'gui_override' in config and isinstance(config['gui_override'],
                                                    dict):
