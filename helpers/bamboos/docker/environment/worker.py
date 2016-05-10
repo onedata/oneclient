@@ -75,14 +75,14 @@ def _node_up(image, bindir, dns_servers, config, db_node_mappings, logdir,
 
     command = '''set -e
 mkdir -p /root/bin/node/log/
-echo 'while ((1)); do chown -R {uid}:{gid} /root/bin/node/log; sleep 1; done' > /root/bin/chown_logs.sh
-bash /root/bin/chown_logs.sh &
+bindfs --create-for-user={uid} --create-for-group={gid} /root/bin/node/log /root/bin/node/log
 cat <<"EOF" > /tmp/gen_dev_args.json
 {gen_dev_args}
 EOF
 {mount_commands}
 {pre_start_commands}
-/root/bin/node/bin/{executable} console'''
+/root/bin/node/bin/{executable} console
+sleep 5'''  # Add sleep so logs can be chowned
 
     mount_commands = common.mount_nfs_command(config, storages_dockers)
     pre_start_commands = configurator.pre_start_commands(domain)
@@ -95,8 +95,9 @@ EOF
         executable=configurator.app_name()
     )
 
-    volumes = [(bindir, DOCKER_BINDIR_PATH, 'ro')]
-    volumes += configurator.extra_volumes(config, bindir, domain)
+    volumes = ['/root/bin', (bindir, DOCKER_BINDIR_PATH, 'ro')]
+    volumes += configurator.extra_volumes(config, bindir, domain,
+                                          storages_dockers)
 
     if logdir:
         logdir = os.path.join(os.path.abspath(logdir), hostname)
@@ -112,7 +113,7 @@ EOF
         workdir=DOCKER_BINDIR_PATH,
         volumes=volumes,
         dns_list=dns_servers,
-        privileged=True if mount_commands else False,
+        privileged=True,
         command=command)
 
     # create system users and groups (if specified)
@@ -262,6 +263,9 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None,
                     'ns': worker_ips,
                     'a': []
                 }
+            },
+            'domain_mappings': {
+                instance: instance_domain
             }
         }
         common.merge(current_output, domains)
