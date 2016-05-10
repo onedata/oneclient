@@ -162,6 +162,7 @@ void MetadataCache::rename(
 
         m_pathToUuid.erase(oldUuidAcc);
         if (metaAcc->second.removedUpstream) {
+            // Only oldPath is changed to newPath
             metaAcc->second.paths.erase(oldPath);
             metaAcc->second.paths.emplace(newPath);
             newUuidAcc->second = uuid;
@@ -172,8 +173,9 @@ void MetadataCache::rename(
                     messages::fuse::Rename{uuid, newPath});
 
             communication::wait(future);
-            metaAcc->second.paths.clear();
 
+            // File is renamed, uuid may have changed - remove all mappings
+            metaAcc->second.paths.clear();
             metaAcc.release();
             for (auto &path : paths)
                 m_pathToUuid.erase(path);
