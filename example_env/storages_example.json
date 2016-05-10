@@ -40,7 +40,7 @@
                 },
                 {
                   "type": "nfs",
-                  "name": "/mnt/nfs",
+                  "name": "/mnt/nfs"
                 }
             ],
             "users": [

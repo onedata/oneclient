@@ -16,6 +16,8 @@ import time
 import sys
 from . import docker
 from timeouts import *
+import tempfile
+import stat
 
 try:
     import xml.etree.cElementTree as eTree
@@ -24,7 +26,7 @@ except ImportError:
 
 requests.packages.urllib3.disable_warnings()
 
-HOST_STORAGE_PATH = "/tmp/onedata/storage"
+HOST_STORAGE_PATH = "/tmp/onedata"
 
 
 def nagios_up(ip, port=None, protocol='https'):
@@ -238,17 +240,32 @@ def volume_for_storage(storage):
 
 
 def storage_host_path(storage):
-    """Returns path to storage on host
+    """Returns path to temporary directory for storage on host
     """
-    return os.path.join(HOST_STORAGE_PATH, ensure_relative_path(storage))
+    if not os.path.exists(HOST_STORAGE_PATH):
+        os.makedirs(HOST_STORAGE_PATH)
+    tmpdir = tempfile.mkdtemp(dir=HOST_STORAGE_PATH)
+    os.chmod(tmpdir,  stat.S_IRWXU or stat.S_IRWXG or stat.S_IRWXO)
+    return tmpdir
 
 
-def ensure_relative_path(path):
-    """Ensures that given path is relative (doesn't start with '/')
+def mount_nfs_command(config, storages_dockers):
+    """Prepares nfs mount commands for specified os_config and storage dockers
+    :param config: config that may contain os_config inside
+    :param storages_dockers: storage dockers map
+    :return: string with commands
     """
-    if path[0] == "/":
-        return path[1:]
-    return path
+    mount_command = ''
+    if not storages_dockers:
+        return mount_command
+    if 'os_config' in config:
+        for storage in config['os_config']['storages']:
+            if storage['type'] == 'nfs':
+                mount_command += '''
+mkdir -p {mount_point}
+mount -t nfs -o proto=tcp,port=2049,nolock {host}:/exports {mount_point}
+'''.format(host=storages_dockers['nfs'][storage['name']]['ip'], mount_point=storage['name'])
+    return mount_command
 
 
 def mount_nfs_command(config, storages_dockers):
