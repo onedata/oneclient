@@ -2,3 +2,5 @@
 bamboos.iml
 *.beam
 *.pyc
+/build/
+/release/
