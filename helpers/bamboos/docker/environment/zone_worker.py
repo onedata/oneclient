@@ -72,7 +72,7 @@ touch /root/bin/node/data/dns.config
 sed -i.bak s/onedata.org/{domain}/g /root/bin/node/data/dns.config
         '''.format(domain=domain)
 
-    def extra_volumes(self, config, bindir, instance_domain):
+    def extra_volumes(self, config, bindir, instance_domain, storages_dockers):
         extra_volumes = []
         # Check if gui override is enabled in env and add required volumes
         if 'gui_override' in config and isinstance(config['gui_override'],

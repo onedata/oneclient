@@ -36,7 +36,7 @@ class ClusterWorkerConfigurator:
                                 luma_config=None):
         pass
 
-    def extra_volumes(self, config, bindir, instance_domain):
+    def extra_volumes(self, config, bindir, instance_domain, storages_dockers):
         return []
 
     def app_name(self):

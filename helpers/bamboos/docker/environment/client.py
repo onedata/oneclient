@@ -65,8 +65,7 @@ chmod 777 /tmp
 mkdir /tmp/certs
 mkdir /tmp/keys
 {mount_commands}
-echo 'while ((1)); do chown -R {uid}:{gid} /tmp; sleep 1; done' > /root/bin/chown_logs.sh
-bash /root/bin/chown_logs.sh &
+bindfs --create-for-user={uid} --create-for-group={gid} /tmp /tmp
 '''
 
     for client in node['clients']:
@@ -117,7 +116,18 @@ EOF
         else:
             posix_storages = [s['name'] for s in os_config['storages']
                               if s['type'] == 'posix']
-    volumes += [common.volume_for_storage(s) for s in posix_storages]
+
+        for s in posix_storages:
+            if not (storages_dockers and s in storages_dockers['posix'].keys()):
+                v = common.volume_for_storage(s)
+                (host_path, docker_path, mode) = v
+                if not storages_dockers:
+                    storages_dockers = {'posix': {}}
+                storages_dockers['posix'][s] = {"host_path": host_path, "docker_path": docker_path}
+            else:
+                d = storages_dockers['posix'][s]
+                v = (d['host_path'], d['docker_path'], 'rw')
+            volumes.append(v)
 
     if logdir:
         logdir = os.path.join(os.path.abspath(logdir), hostname)
@@ -133,7 +143,7 @@ EOF
         workdir='/root/bin',
         volumes=volumes,
         dns_list=dns_servers,
-        run_params=["--privileged"],
+        privileged=True,
         command=command)
 
     # create system users and groups
