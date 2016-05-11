@@ -169,7 +169,7 @@ public:
     void map(Path path, FileLocation location);
 
     /**
-     * Renames a file in the cache through changing mappings.
+     * Renames a file in the cache through changing or removing mappings.
      * @param oldPath Path to rename from.
      * @param newPath Path to rename to.
      */
