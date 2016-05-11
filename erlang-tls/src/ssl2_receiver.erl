@@ -415,7 +415,8 @@ handle_info({ok, Data}, receiving, State) ->
             recv_body(ReallyNeeded, State#state{buffer = AData})
     end;
 
-handle_info({error, 'End of file'}, _StateName, State) ->
+handle_info({error, Closed}, _StateName, State)
+  when Closed =:= 'End of file'; Closed =:= 'UNEXPECTED_RECORD' ->
     reply(State#state.caller, {error, closed}),
     {stop, {shutdown, closed}, State};
 
@@ -549,7 +550,8 @@ create_timer(Timeout) ->
 %% A 'raw' value is converted to 0.
 %% @end
 %%--------------------------------------------------------------------
--spec get_packet(Opts :: ssl2:listen_opts(), State :: #state{}) ->
+-spec get_packet(Opts :: [ssl2:option() | ssl2:ssl_option()],
+    State :: #state{}) ->
     0 | 1 | 2 | 4.
 get_packet(Opts, #state{packet = OldPacket}) ->
     case proplists:get_value(packet, Opts, OldPacket) of
