@@ -8,13 +8,13 @@
 
 #include "helpersCache.h"
 
-#include "messages/fuse/helperParams.h"
-#include "messages/fuse/getHelperParams.h"
+#include "messages.pb.h"
 #include "messages/fuse/createStorageTestFile.h"
+#include "messages/fuse/getHelperParams.h"
+#include "messages/fuse/helperParams.h"
 #include "messages/fuse/storageTestFile.h"
 #include "messages/fuse/verifyStorageTestFile.h"
-
-#include "messages.pb.h"
+#include "utils.hpp"
 
 #include <boost/functional/hash.hpp>
 #include <boost/optional/optional_io.hpp>
@@ -35,6 +35,7 @@ HelpersCache::HelpersCache(
     , m_storageAccessManager{communicator, m_helperFactory}
 {
     m_thread = std::thread{[this] { m_ioService.run(); }};
+    etls::utils::nameThread(m_thread, "HelpersCache");
 }
 
 HelpersCache::~HelpersCache()
