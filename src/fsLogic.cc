@@ -681,7 +681,8 @@ int FsLogic::release(
     if (context.handleId->is_initialized()) {
         auto future = m_context->communicator()
                           ->communicate<messages::fuse::FuseResponse>(
-                              messages::fuse::Release{context.handleId->get()});
+                              messages::fuse::Release{
+                                  attr.uuid(), context.handleId->get()});
 
         communication::wait(future);
 
