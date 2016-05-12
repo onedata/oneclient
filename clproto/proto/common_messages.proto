@@ -89,6 +89,7 @@ message Status {
         eloop           = 77;
         eoverflow       = 78;
         eprototype      = 79;
+        enoattr         = 80;
     }
 
     required Code  code        = 1; // exit code
