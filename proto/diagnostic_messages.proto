@@ -31,4 +31,5 @@ message GetConfiguration {
 
 message Configuration {
     repeated Subscription subscriptions = 1;
+    repeated bytes disabled_spaces = 2;
 }

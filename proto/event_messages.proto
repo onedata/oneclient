@@ -24,6 +24,7 @@ message Event {
         UpdateEvent            update_event             = 4;
         PermissionChangedEvent permission_changed_event = 5;
         FileRemovalEvent       file_removal_event       = 6;
+        QuotaExeededEvent      quota_exeeded_event      = 7;
     }
 }
 
@@ -55,6 +56,10 @@ message FileRemovalEvent {
     required bytes file_uuid = 1; // UUID of file associated with an event
 }
 
+message QuotaExeededEvent {
+    repeated bytes spaces = 1; // Blocked spaces
+}
+
 // Generic subscription message
 message Subscription {
     required sint64 id = 1; // unique subscription ID
@@ -65,7 +70,12 @@ message Subscription {
         FileLocationSubscription      file_location_subscription      = 5;
         PermissionChangedSubscription permission_changed_subscription = 6;
         FileRemovalSubscription       file_removal_subscription       = 7;
+        QuotaSubscription             quota_subscription              = 8;
     }
+}
+
+message QuotaSubscription {
+
 }
 
 message ReadSubscription {
