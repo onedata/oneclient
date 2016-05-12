@@ -185,6 +185,10 @@ void EventManager::handle(const clproto::Events &message)
             FileRemovalEvent event{eventMsg.file_removal_event()};
             m_fileRemovalEventStream->emitEvent(std::move(event));
         }
+        if (eventMsg.has_file_renamed_event()) {
+            FileRenamedEvent event{eventMsg.file_renamed_event()};
+            m_fileRenamedEventStream->emitEvent(std::move(event));
+        }
     }
 }
 
