@@ -88,9 +88,13 @@ void MetadataCache::getAttr(
     try {
         DLOG(INFO) << "Fetching attributes for " << path;
         auto attr = fetchAttr(messages::fuse::GetFileAttr{path});
-        m_metaCache.insert(metaAcc, attr.uuid());
         uuidAcc->second = attr.uuid();
-        metaAcc->second.attr = std::move(attr);
+        if (m_metaCache.insert(metaAcc, attr.uuid())) {
+            // In this case we're fetching attributes because we didn't know
+            // the path mapped to an already cached uuid. Do not update attrs
+            // to avoid race conditions with our own write events.
+            metaAcc->second.attr = std::move(attr);
+        }
         metaAcc->second.paths.emplace(path);
     }
     catch (...) {
