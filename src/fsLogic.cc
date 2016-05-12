@@ -490,11 +490,9 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     auto location = m_metadataCache.getLocation(context.uuid,
         one::helpers::IStorageHelper::maskToFlags(fileInfo->flags));
 
-    LOG(INFO) << "Write DISABLED? " << location.spaceId() << " " << m_disabledSpaces.count(location.spaceId());
-
-    if(m_disabledSpaces.count(location.spaceId()) > 0) {
+    // Check if this space is marked as disabled due to exeeded quota 
+    if(m_disabledSpaces.count(location.spaceId()) > 0)
         return -ENOSPC;
-    } 
 
     messages::fuse::FileBlock fileBlock;
     std::tie(fileBlock, buf) = findWriteLocation(location, offset, buf);
