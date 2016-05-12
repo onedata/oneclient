@@ -22,11 +22,13 @@
 #include "events/subscriptions/permissionChangedSubscription.h"
 #include "events/subscriptions/readSubscription.h"
 #include "events/subscriptions/writeSubscription.h"
+#include "events/subscriptions/quotaSubscription.h"
 #include "events/types/fileRemovalEvent.h"
 #include "events/types/readEvent.h"
 #include "events/types/updateEvent.h"
 #include "events/types/writeEvent.h"
 #include "events/types/permissionChangedEvent.h"
+#include "events/types/quotaExeededEvent.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
 
@@ -57,6 +59,10 @@ using PermissionChangedEventStream =
 using FileRemovalEventStream =
     EventWorker<EventCounterAggregator<EventTimeAggregator<SubscriptionHandler<
         EventHandler<EventCommunicator<FileRemovalEvent>>>>>>;
+
+using QuotaExeededEventStream =
+    EventWorker<EventCounterAggregator<EventTimeAggregator<SubscriptionHandler<
+        EventHandler<EventCommunicator<QuotaExeededEvent>>>>>>;
 
 } // namespace events
 } // namespace client

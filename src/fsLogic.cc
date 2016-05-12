@@ -74,7 +74,12 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     m_eventManager.setFileLocationHandler(fileLocationHandler());
     m_eventManager.setPermissionChangedHandler(permissionChangedHandler());
     m_eventManager.setFileRemovalHandler(fileRemovalHandler());
+    m_eventManager.setQuotaExeededHandler(quotaExeededHandler());
     m_eventManager.subscribe(configuration->subscriptionContainer());
+
+    // Quota initial configuration
+    m_fsSubscriptions.addQuotaSubscription();
+    disableSpaces(configuration->disabledSpacesContainer());
 
     scheduleCacheExpirationTick();
 }
@@ -484,6 +489,12 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
     auto attr = m_metadataCache.getAttr(context.uuid);
     auto location = m_metadataCache.getLocation(context.uuid,
         one::helpers::IStorageHelper::maskToFlags(fileInfo->flags));
+
+    LOG(INFO) << "Write DISABLED? " << location.spaceId() << " " << m_disabledSpaces.count(location.spaceId());
+
+    if(m_disabledSpaces.count(location.spaceId()) > 0) {
+        return -ENOSPC;
+    } 
 
     messages::fuse::FileBlock fileBlock;
     std::tie(fileBlock, buf) = findWriteLocation(location, offset, buf);
@@ -900,6 +911,16 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
     };
 }
 
+events::QuotaExeededEventStream::Handler FsLogic::quotaExeededHandler()
+{
+    using namespace events;
+    return [this](std::vector<QuotaExeededEventStream::EventPtr> events) {
+        for (const auto &event : events) {
+            disableSpaces(event->spaces());
+        }
+    };
+}
+
 bool FsLogic::dataCorrupted(const std::string &uuid, asio::const_buffer buf,
     const messages::fuse::Checksum &serverChecksum,
     const boost::icl::discrete_interval<off_t> &availableRange,
@@ -924,6 +945,12 @@ std::string FsLogic::computeHash(asio::const_buffer buf)
     MD4_Final(reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
     return hash;
 }
+
+void FsLogic::disableSpaces(const std::vector<std::string> &spaces) 
+{
+    m_disabledSpaces = std::set<std::string>(spaces.begin(), spaces.end());
+}
+
 
 } // namespace client
 } // namespace one

@@ -41,10 +41,16 @@ public:
      */
     client::events::SubscriptionContainer subscriptionContainer();
 
+    /**
+     * @return disabled spaces' container.
+     */
+    std::vector<std::string> disabledSpacesContainer();
+
     std::string toString() const override;
 
 private:
     client::events::SubscriptionContainer m_subscriptionContainer;
+    std::vector<std::string> m_disabledSpacesContainer;
 };
 
 } // namespace messages

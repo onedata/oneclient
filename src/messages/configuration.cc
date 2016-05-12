@@ -21,11 +21,18 @@ Configuration::Configuration(
     auto &configurationMsg = serverMessage->configuration();
     for (const auto &subscription : configurationMsg.subscriptions())
         m_subscriptionContainer.add(subscription);
+    for (const auto &disabled_space : configurationMsg.disabled_spaces())
+        m_disabledSpacesContainer.push_back(disabled_space);
 }
 
 client::events::SubscriptionContainer Configuration::subscriptionContainer()
 {
     return m_subscriptionContainer;
+}
+
+std::vector<std::string> Configuration::disabledSpacesContainer()
+{
+    return m_disabledSpacesContainer;
 }
 
 std::string Configuration::toString() const

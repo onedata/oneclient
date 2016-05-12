@@ -11,6 +11,7 @@
 #include "events/subscriptions/fileAttrSubscription.h"
 #include "events/subscriptions/fileLocationSubscription.h"
 #include "events/subscriptions/permissionChangedSubscription.h"
+#include "events/subscriptions/quotaSubscription.h"
 #include "scheduler.h"
 
 #include <functional>
@@ -90,6 +91,20 @@ void FsSubscriptions::removeFileAttrSubscription(const std::string &fileUuid)
     }
 }
 
+void FsSubscriptions::addQuotaSubscription()
+{
+    m_quotaSubscription = sendQuotaSubscription();
+}
+
+void FsSubscriptions::removeQuotaSubscription()
+{
+    if (m_quotaSubscription) {
+        sendSubscriptionCancellation(m_quotaSubscription);
+        m_quotaSubscription = 0;
+    }
+}
+
+
 std::int64_t FsSubscriptions::sendFileAttrSubscription(
     const std::string &fileUuid)
 {
@@ -131,6 +146,14 @@ std::int64_t FsSubscriptions::sendFileRemovalSubscription(
     events::FileRemovalSubscription serverSubscription{fileUuid};
     return m_eventManager.subscribe(
         std::move(clientSubscription), std::move(serverSubscription));
+}
+
+std::int64_t FsSubscriptions::sendQuotaSubscription()
+{
+    DLOG(INFO) << "Sending subscription for quota";
+    events::QuotaSubscription clientSubscription{};
+    events::QuotaSubscription serverSubscription{};
+    return m_eventManager.subscribe(std::move(clientSubscription), std::move(serverSubscription));
 }
 
 void FsSubscriptions::sendSubscriptionCancellation(std::int64_t id)

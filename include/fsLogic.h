@@ -261,11 +261,13 @@ private:
     events::FileLocationEventStream::Handler fileLocationHandler();
     events::PermissionChangedEventStream::Handler permissionChangedHandler();
     events::FileRemovalEventStream::Handler fileRemovalHandler();
+    events::QuotaExeededEventStream::Handler quotaExeededHandler();
     bool dataCorrupted(const std::string &uuid, asio::const_buffer buf,
         const messages::fuse::Checksum &serverChecksum,
         const boost::icl::discrete_interval<off_t> &availableRange,
         const boost::icl::discrete_interval<off_t> &wantedRange);
     std::string computeHash(asio::const_buffer buf);
+    void disableSpaces(const std::vector<std::string> &spaces);
 
     const uid_t m_uid;
     const gid_t m_gid;
@@ -283,6 +285,7 @@ private:
 
     std::mutex m_cancelCacheExpirationTickMutex;
     std::function<void()> m_cancelCacheExpirationTick;
+    std::set<std::string> m_disabledSpaces;
 };
 
 struct FsLogicWrapper {
