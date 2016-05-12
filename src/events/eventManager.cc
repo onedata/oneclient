@@ -8,11 +8,11 @@
 
 #include "eventManager.h"
 
-#include "context.h"
 #include "communication/subscriptionData.h"
+#include "context.h"
+#include "scheduler.h"
 #include "subscriptionRegistry.h"
 #include "subscriptions/subscriptionCancellation.h"
-#include "scheduler.h"
 
 #include "messages.pb.h"
 
@@ -33,8 +33,10 @@ EventManager::EventManager(std::shared_ptr<Context> context)
           m_streamManager.create())}
     , m_permissionChangedEventStream{std::make_unique<
           PermissionChangedEventStream>(m_streamManager.create())}
-    , m_fileRemovalEventStream{
-          std::make_unique<FileRemovalEventStream>(m_streamManager.create())}
+    , m_fileRemovalEventStream{std::make_unique<FileRemovalEventStream>(
+          m_streamManager.create())}
+    , m_fileRenamedEventStream{
+          std::make_unique<FileRenamedEventStream>(m_streamManager.create())}
 {
     auto predicate = [](const clproto::ServerMessage &message, const bool) {
         return message.has_events() || message.has_subscription() ||
@@ -90,9 +92,16 @@ void EventManager::setFileLocationHandler(
     m_fileLocationEventStream->setEventHandler(std::move(handler));
 }
 
-void EventManager::setFileRemovalHandler(FileRemovalEventStream::Handler handler)
+void EventManager::setFileRemovalHandler(
+    FileRemovalEventStream::Handler handler)
 {
     m_fileRemovalEventStream->setEventHandler(std::move(handler));
+}
+
+void EventManager::setFileRenamedHandler(
+    FileRenamedEventStream::Handler handler)
+{
+    m_fileRenamedEventStream->setEventHandler(std::move(handler));
 }
 
 void EventManager::emitFileRemovalEvent(std::string fileUuid) const
@@ -104,6 +113,13 @@ std::int64_t EventManager::subscribe(FileRemovalSubscription clientSubscription,
     FileRemovalSubscription serverSubscription)
 {
     return m_fileRemovalEventStream->subscribe(
+        std::move(clientSubscription), std::move(serverSubscription));
+}
+
+std::int64_t EventManager::subscribe(FileRenamedSubscription clientSubscription,
+    FileRenamedSubscription serverSubscription)
+{
+    return m_fileRenamedEventStream->subscribe(
         std::move(clientSubscription), std::move(serverSubscription));
 }
 
@@ -227,6 +243,10 @@ void EventManager::initializeStreams(std::shared_ptr<Context> context)
     m_fileRemovalEventStream->setScheduler(context->scheduler());
     m_fileRemovalEventStream->setSubscriptionRegistry(m_registry);
     m_fileRemovalEventStream->initializeAggregation();
+
+    m_fileRenamedEventStream->setScheduler(context->scheduler());
+    m_fileRenamedEventStream->setSubscriptionRegistry(m_registry);
+    m_fileRenamedEventStream->initializeAggregation();
 }
 
 } // namespace events

@@ -74,6 +74,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     m_eventManager.setFileLocationHandler(fileLocationHandler());
     m_eventManager.setPermissionChangedHandler(permissionChangedHandler());
     m_eventManager.setFileRemovalHandler(fileRemovalHandler());
+    m_eventManager.setFileRenamedHandler(fileRenamedHandler());
     m_eventManager.subscribe(configuration->subscriptionContainer());
 
     scheduleCacheExpirationTick();
@@ -98,6 +99,7 @@ void FsLogic::scheduleCacheExpirationTick()
             m_metadataCache.remove(uuid);
             m_fsSubscriptions.removeFileAttrSubscription(uuid);
             m_fsSubscriptions.removeFileRemovalSubscription(uuid);
+            m_fsSubscriptions.removeFileRenamedSubscription(uuid);
         });
 
         scheduleCacheExpirationTick();
@@ -144,6 +146,7 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
         m_metadataCache.getAttr(attr.uuid());
         m_fsSubscriptions.addFileAttrSubscription(attr.uuid());
         m_fsSubscriptions.addFileRemovalSubscription(attr.uuid());
+        m_fsSubscriptions.addFileRenamedSubscription(attr.uuid());
     });
 
     return 0;
@@ -859,6 +862,7 @@ void FsLogic::openFile(
         m_metadataCache.getAttr(fileUuid);
         m_fsSubscriptions.addFileAttrSubscription(fileUuid);
         m_fsSubscriptions.addFileRemovalSubscription(fileUuid);
+        m_fsSubscriptions.addFileRenamedSubscription(fileUuid);
     });
 }
 
@@ -889,6 +893,17 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
             m_locExpirationHelper.expire(event->fileUuid());
             m_attrExpirationHelper.expire(event->fileUuid());
             LOG(INFO) << "File remove event received: " << event->fileUuid();
+        }
+    };
+}
+
+events::FileRenamedEventStream::Handler FsLogic::fileRenamedHandler()
+{
+    using namespace events;
+    return [this](std::vector<FileRenamedEventStream::EventPtr> events) {
+        for (const auto &event : events) {
+
+            LOG(INFO) << "File renamed event received: " << event->toString();
         }
     };
 }

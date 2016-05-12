@@ -74,6 +74,22 @@ void FsSubscriptions::removeFileRemovalSubscription(const std::string &fileUuid)
     }
 }
 
+void FsSubscriptions::addFileRenamedSubscription(const std::string &fileUuid)
+{
+    typename decltype(m_fileRenamedSubscriptions)::accessor acc;
+    if (m_fileRenamedSubscriptions.insert(acc, fileUuid))
+        acc->second = sendFileRenamedSubscription(fileUuid);
+}
+
+void FsSubscriptions::removeFileRenamedSubscription(const std::string &fileUuid)
+{
+    typename decltype(m_fileRenamedSubscriptions)::accessor acc;
+    if (m_fileRenamedSubscriptions.find(acc, fileUuid)) {
+        sendSubscriptionCancellation(acc->second);
+        m_fileRenamedSubscriptions.erase(acc);
+    }
+}
+
 void FsSubscriptions::addFileAttrSubscription(const std::string &fileUuid)
 {
     typename decltype(m_fileAttrSubscriptions)::accessor acc;
@@ -129,6 +145,16 @@ std::int64_t FsSubscriptions::sendFileRemovalSubscription(
     DLOG(INFO) << "Sending subscription for removing file: " << fileUuid;
     events::FileRemovalSubscription clientSubscription{fileUuid};
     events::FileRemovalSubscription serverSubscription{fileUuid};
+    return m_eventManager.subscribe(
+        std::move(clientSubscription), std::move(serverSubscription));
+}
+
+std::int64_t FsSubscriptions::sendFileRenamedSubscription(
+    const std::string &fileUuid)
+{
+    DLOG(INFO) << "Sending subscription for renaming file: " << fileUuid;
+    events::FileRenamedSubscription clientSubscription{fileUuid};
+    events::FileRenamedSubscription serverSubscription{fileUuid};
     return m_eventManager.subscribe(
         std::move(clientSubscription), std::move(serverSubscription));
 }
