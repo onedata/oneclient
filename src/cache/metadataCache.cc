@@ -173,11 +173,24 @@ void MetadataCache::rename(
             newUuidAcc->second = uuid;
         }
         else {
+            auto targetExists = false;
+
+            MetaAccessor targetMetaAcc;
+            if (newUuidAcc->second != "") {
+                if(get(targetMetaAcc, newUuidAcc->second))
+                    targetExists = true;
+            }
+
             auto future =
                 m_communicator.communicate<messages::fuse::FuseResponse>(
                     messages::fuse::Rename{uuid, newPath});
 
             communication::wait(future);
+
+            if (targetExists) {
+                targetMetaAcc->second.paths.erase(newPath);
+                targetMetaAcc.release();
+            }
 
             // File is renamed, uuid may have changed - remove all mappings
             metaAcc->second.paths.clear();
