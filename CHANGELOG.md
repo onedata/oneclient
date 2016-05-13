@@ -4,6 +4,19 @@
 CHANGELOG
 ---------
 
+### 3.0.0-beta4
+
+* Removing path from target file attrs after overwrite in rename
+* Fix getattr on alternative file path returning bad attrs.
+* VFS-1973 Name client's threads.
+* VFS-1991 Update auto install script names.
+* VFS-1975 Adding uuid to release message
+* VFS-1841 Clearing caches after rename
+* VFS-1887 Fix segmentation fault during release when file open has failed.
+* VFS-1887 Open file with correct mode.
+* VFS-1901 Improve README.
+
+
 ### 3.0.0-beta3
 
 * VFS-1932 Use BufferAgent with StorageHelperFactory.
