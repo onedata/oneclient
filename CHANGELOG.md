@@ -6,6 +6,8 @@ CHANGELOG
 
 ### 3.0.0-beta4
 
+* Filter out O_CREAT flag when opening file.
+* VFS-2057 Enable --no-check-certificate in docker.
 * Removing path from target file attrs after overwrite in rename
 * Fix getattr on alternative file path returning bad attrs.
 * VFS-1973 Name client's threads.
