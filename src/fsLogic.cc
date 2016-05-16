@@ -839,7 +839,7 @@ void FsLogic::openFile(
     fileInfo->fh = acc->first;
 
     acc->second.uuid = fileUuid;
-    acc->second.flags = fileInfo->flags;
+    acc->second.flags = fileInfo->flags & (~O_CREAT);
     acc->second.handleId =
         std::make_shared<boost::optional<std::string>>(location.handleId());
     // TODO: VFS-1959
