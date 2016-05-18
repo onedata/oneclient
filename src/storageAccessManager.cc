@@ -195,12 +195,14 @@ std::string StorageAccessManager::modifyStorageTestFile(
     try {
         helper->sh_write(
             ctx, testFile.fileId(), asio::const_buffer(buffer.data(), size), 0);
+        helper->sh_fsync(ctx, testFile.fileId(), true);
+
+        DLOG(INFO) << "Storage test file modified.";
     }
     catch (...) {
         helper->sh_release(ctx, testFile.fileId());
         throw;
     }
-    helper->sh_fsync(ctx, testFile.fileId(), true);
     helper->sh_release(ctx, testFile.fileId());
 
     return std::string{buffer.data(), size};
