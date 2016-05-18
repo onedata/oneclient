@@ -10,6 +10,7 @@
 #define HELPERS_STORAGE_HELPER_FACTORY_H
 
 #include "helpers/IStorageHelper.h"
+#include "keyValueAdapter.h"
 
 #include <asio/io_service.hpp>
 #include <boost/optional.hpp>
@@ -27,7 +28,7 @@ class BufferAgent;
 constexpr auto CEPH_HELPER_NAME = "Ceph";
 constexpr auto DIRECT_IO_HELPER_NAME = "DirectIO";
 constexpr auto PROXY_IO_HELPER_NAME = "ProxyIO";
-constexpr auto S3_HELPER_NAME = "AmazonS3";
+constexpr auto S3_HELPER_NAME = "S3";
 
 /**
  * Factory providing objects of requested storage helpers.
@@ -54,8 +55,9 @@ public:
 private:
     asio::io_service &m_cephService;
     asio::io_service &m_dioService;
-    asio::io_service &m_s3Service;
+    asio::io_service &m_kvService;
     std::shared_ptr<proxyio::BufferAgent> m_bufferAgent;
+    KeyValueAdapter::Locks m_kvLocks;
 };
 
 } // namespace helpers
