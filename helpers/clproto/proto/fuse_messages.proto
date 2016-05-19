@@ -205,6 +205,7 @@ message FuseResponse {
         Mimetype mimetype = 13;
         Acl acl = 14;
         FilePath file_path = 15;
+        FileGuid file_guid = 16;
     }
 }
 
@@ -323,5 +324,9 @@ message CdmiCompletionStatus {
 }
 
 message Mimetype {
+    required bytes value = 1;
+}
+
+message FileGuid {
     required bytes value = 1;
 }
