@@ -23,6 +23,11 @@ constexpr std::size_t DEFAULT_BLOCK_SIZE = 5 * 1024 * 1024;
 
 class KeyValueHelper;
 
+/*
+ * The @c KeyValueAdapter class translates POSIX operations to operations
+ * available on key-value storage by splitting consistent range of bytes into
+ * blocks.
+ **/
 class KeyValueAdapter : public IStorageHelper {
 public:
     using Locks = tbb::concurrent_hash_map<std::string, bool>;

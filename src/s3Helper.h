@@ -13,7 +13,6 @@
 #include "logging.h"
 
 #include <aws/s3/S3Errors.h>
-#include <aws/s3/model/CompletedMultipartUpload.h>
 
 #include <map>
 
@@ -43,7 +42,8 @@ public:
      * @param args Map with parameters required to create context. It should
      * contain at least 'host_name' and 'bucket_name' values. Additionally
      * default 'access_key' and 'secret_key' can be passed, which will be used
-     * if user context has not been set.
+     * if user context has not been set. It is also possible to overwrite http
+     * client 'scheme', default is 'https'.
      */
     S3HelperCTX(std::unordered_map<std::string, std::string> params,
         std::unordered_map<std::string, std::string> args);
@@ -67,6 +67,9 @@ private:
     std::unique_ptr<Aws::S3::S3Client> m_client;
 };
 
+/**
+* The S3Helper class provides access to Simple Storage Service (S3) via AWS SDK.
+*/
 class S3Helper : public KeyValueHelper {
 public:
     S3Helper(std::unordered_map<std::string, std::string> args);

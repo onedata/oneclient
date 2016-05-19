@@ -16,6 +16,10 @@
 namespace one {
 namespace helpers {
 
+/**
+ * The @c KeyValueHelper class provides an interface for all helpers that
+ * operates on key-value storage.
+ */
 class KeyValueHelper {
 public:
     virtual CTXPtr createCTX(
