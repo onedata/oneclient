@@ -349,12 +349,8 @@ message FileDistribution {
     repeated ProviderFileDistribution provider_file_distributions = 1;
 }
 
-message FileRenamedEntry {
+message FileRenamed {
     required bytes old_path = 1;
     required bytes new_path = 2;
     required bytes new_uuid = 3;
-}
-
-message FileRenamed {
-    repeated FileRenamedEntry entries = 1;
 }
