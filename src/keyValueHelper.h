@@ -26,10 +26,23 @@ public:
 
     virtual ~KeyValueHelper() = default;
 
+    virtual std::string getKey(std::string prefix, uint64_t objectId)
+    {
+        return {};
+    }
+
+    virtual uint64_t getObjectId(std::string key) { return 0; }
+
     virtual asio::mutable_buffer getObject(
         CTXPtr ctx, std::string key, asio::mutable_buffer buf, off_t offset)
     {
         return {};
+    }
+
+    virtual off_t getObjectsSize(
+        CTXPtr ctx, std::string prefix, std::size_t objectSize)
+    {
+        return 0;
     }
 
     virtual std::size_t putObject(

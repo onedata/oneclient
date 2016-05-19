@@ -13,6 +13,7 @@
 #include "logging.h"
 
 #include <aws/s3/S3Errors.h>
+#include <aws/s3/model/CompletedMultipartUpload.h>
 
 #include <map>
 
@@ -73,8 +74,15 @@ public:
     CTXPtr createCTX(
         std::unordered_map<std::string, std::string> params) override;
 
+    std::string getKey(std::string prefix, uint64_t objectId) override;
+
+    uint64_t getObjectId(std::string key) override;
+
     asio::mutable_buffer getObject(CTXPtr ctx, std::string key,
         asio::mutable_buffer buf, off_t offset) override;
+
+    off_t getObjectsSize(
+        CTXPtr ctx, std::string prefix, std::size_t objectSize) override;
 
     std::size_t putObject(
         CTXPtr ctx, std::string key, asio::const_buffer buf) override;
@@ -85,25 +93,36 @@ public:
         CTXPtr ctx, std::string prefix) override;
 
 private:
-    std::shared_ptr<S3HelperCTX> getCTX(CTXPtr rawCTX) const;
+    std::shared_ptr<S3HelperCTX> getCTX(CTXPtr ctx) const;
     std::string rangeToString(off_t lower, off_t upper) const;
 
-    template <typename Outcome>
-    void throwOnError(std::string operation, const Outcome &outcome)
+    template <typename Outcome> error_t getReturnCode(const Outcome &outcome)
     {
         if (outcome.IsSuccess())
-            return;
-
-        LOG(ERROR) << "Operation '" << operation << "' failed due to: '"
-                   << outcome.GetError().GetMessage() << "'";
+            return SUCCESS_CODE;
 
         auto error = std::errc::io_error;
         auto search = s_errors.find(outcome.GetError().GetErrorType());
         if (search != s_errors.end())
             error = search->second;
 
-        throw std::system_error{
-            std::error_code(static_cast<int>(error), std::system_category())};
+        return std::error_code(static_cast<int>(error), std::system_category());
+    }
+
+    template <typename Outcome>
+    void throwOnError(std::string operation, const Outcome &outcome)
+    {
+        auto code = getReturnCode(outcome);
+
+        if (code == SUCCESS_CODE)
+            return;
+
+        LOG(ERROR) << "Operation '" << operation << "' failed due to: '"
+                   << outcome.GetError().GetMessage() << "' (code: "
+                   << static_cast<int>(outcome.GetError().GetErrorType())
+                   << ")";
+
+        throw std::system_error{code};
     }
 
     std::unordered_map<std::string, std::string> m_args;

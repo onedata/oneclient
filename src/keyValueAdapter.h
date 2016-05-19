@@ -68,9 +68,9 @@ public:
 
 private:
     uint64_t getBlockId(off_t offset);
-    uint64_t getBlockId(std::string key);
     off_t getBlockOffset(off_t offset);
-    std::string getKey(const boost::filesystem::path &path, uint64_t blockId);
+    asio::mutable_buffer getBlock(
+        CTXPtr ctx, std::string key, asio::mutable_buffer buf, off_t offset);
 
     std::unique_ptr<KeyValueHelper> m_helper;
     asio::io_service &m_service;
