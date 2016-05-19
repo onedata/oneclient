@@ -350,7 +350,5 @@ message FileDistribution {
 }
 
 message FileRenamed {
-    required bytes old_path = 1;
-    required bytes new_path = 2;
-    required bytes new_uuid = 3;
+    required bytes new_uuid = 1;
 }
