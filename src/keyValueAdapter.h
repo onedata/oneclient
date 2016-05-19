@@ -76,6 +76,7 @@ private:
     off_t getBlockOffset(off_t offset);
     asio::mutable_buffer getBlock(
         CTXPtr ctx, std::string key, asio::mutable_buffer buf, off_t offset);
+    void logError(std::string operation, const std::system_error& error);
 
     std::unique_ptr<KeyValueHelper> m_helper;
     asio::io_service &m_service;

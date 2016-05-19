@@ -8,6 +8,7 @@
 
 #include "keyValueAdapter.h"
 #include "keyValueHelper.h"
+#include "logging.h"
 
 namespace one {
 namespace helpers {
@@ -37,6 +38,7 @@ void KeyValueAdapter::ash_unlink(
             callback(SUCCESS_CODE);
         }
         catch (const std::system_error &e) {
+            logError("unlink", e);
             callback(e.code());
         }
     });
@@ -84,6 +86,7 @@ void KeyValueAdapter::ash_read(CTXPtr ctx, const boost::filesystem::path &p,
             callback(asio::buffer(buf, size), SUCCESS_CODE);
         }
         catch (const std::system_error &e) {
+            logError("read", e);
             callback(asio::mutable_buffer{}, e.code());
         }
     });
@@ -145,6 +148,7 @@ void KeyValueAdapter::ash_write(CTXPtr ctx, const boost::filesystem::path &p,
             callback(size, SUCCESS_CODE);
         }
         catch (const std::system_error &e) {
+            logError("write", e);
             callback(0, e.code());
         }
     });
@@ -196,6 +200,7 @@ void KeyValueAdapter::ash_truncate(CTXPtr ctx, const boost::filesystem::path &p,
             callback(SUCCESS_CODE);
         }
         catch (const std::system_error &e) {
+            logError("truncate", e);
             callback(e.code());
         }
     });
@@ -226,6 +231,14 @@ asio::mutable_buffer KeyValueAdapter::getBlock(
             throw;
         }
     }
+}
+
+void KeyValueAdapter::logError(
+    std::string operation, const std::system_error &error)
+{
+    LOG(ERROR) << "Operation '" << operation
+               << "' failed due to: " << error.what()
+               << " (code: " << error.code().value() << ")";
 }
 
 } // namespace helpers

@@ -7,6 +7,7 @@
  */
 
 #include "s3Helper.h"
+#include "logging.h"
 
 #include <aws/core/auth/AWSCredentialsProvider.h>
 #include <aws/core/client/ClientConfiguration.h>
@@ -46,7 +47,7 @@ CTXPtr S3Helper::createCTX(std::unordered_map<std::string, std::string> params)
 std::string S3Helper::getKey(std::string prefix, uint64_t objectId)
 {
     std::stringstream ss;
-    ss << std::move(prefix) << OBJECT_DELIMITER << std::setfill('0')
+    ss << adjustPrefix(std::move(prefix)) << std::setfill('0')
        << std::setw(MAX_OBJECT_ID_DIGITS) << MAX_OBJECT_ID - objectId;
     return ss.str();
 }
@@ -93,7 +94,8 @@ off_t S3Helper::getObjectsSize(
 
     Aws::S3::Model::ListObjectsRequest request{};
     request.SetBucket(ctx->getBucket());
-    request.SetPrefix(prefix + OBJECT_DELIMITER);
+    request.SetPrefix(adjustPrefix(std::move(prefix)));
+    request.SetDelimiter(OBJECT_DELIMITER);
     request.SetMaxKeys(1);
 
     auto outcome = ctx->getClient()->ListObjects(request);
@@ -162,7 +164,8 @@ std::vector<std::string> S3Helper::listObjects(
 
     Aws::S3::Model::ListObjectsRequest request{};
     request.SetBucket(ctx->getBucket());
-    request.SetPrefix(prefix);
+    request.SetPrefix(adjustPrefix(std::move(prefix)));
+    request.SetDelimiter(OBJECT_DELIMITER);
 
     bool isTruncated;
     std::vector<std::string> keys{};
@@ -198,6 +201,12 @@ std::string S3Helper::rangeToString(off_t lower, off_t upper) const
     std::stringstream ss;
     ss << "bytes=" << lower << RANGE_DELIMITER << upper;
     return ss.str();
+}
+
+std::string S3Helper::adjustPrefix(std::string prefix) const
+{
+    return prefix.substr(prefix.find_first_not_of(OBJECT_DELIMITER)) +
+        OBJECT_DELIMITER;
 }
 
 S3HelperCTX::S3HelperCTX(std::unordered_map<std::string, std::string> params,

@@ -230,7 +230,6 @@ def test_read_should_read_all_possible_ranges(helper):
     assert helper.write(file_id, data, offset) == len(data)
     for offset in range(len(data)):
         for size in range(len(data) - offset):
-            print(offset, size)
             assert helper.read(file_id, offset, size) == \
                    data[offset:offset + size]
 

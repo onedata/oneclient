@@ -10,11 +10,11 @@
 #define HELPERS_S3_HELPER_H
 
 #include "keyValueHelper.h"
-#include "logging.h"
 
 #include <aws/s3/S3Errors.h>
 
 #include <map>
+#include <sstream>
 
 namespace Aws {
 namespace S3 {
@@ -98,6 +98,7 @@ public:
 private:
     std::shared_ptr<S3HelperCTX> getCTX(CTXPtr ctx) const;
     std::string rangeToString(off_t lower, off_t upper) const;
+    std::string adjustPrefix(std::string prefix) const;
 
     template <typename Outcome> error_t getReturnCode(const Outcome &outcome)
     {
@@ -120,12 +121,10 @@ private:
         if (code == SUCCESS_CODE)
             return;
 
-        LOG(ERROR) << "Operation '" << operation << "' failed due to: '"
-                   << outcome.GetError().GetMessage() << "' (code: "
-                   << static_cast<int>(outcome.GetError().GetErrorType())
-                   << ")";
+        std::stringstream ss;
+        ss << "'" << operation << "': " << outcome.GetError().GetMessage();
 
-        throw std::system_error{code};
+        throw std::system_error{code, ss.str()};
     }
 
     std::unordered_map<std::string, std::string> m_args;
