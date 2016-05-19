@@ -10,10 +10,22 @@
 #define HELPERS_S3_HELPER_H
 
 #include "keyValueHelper.h"
+#include "logging.h"
+
+#include <aws/s3/S3Errors.h>
+
+#include <map>
+
+namespace Aws {
+namespace S3 {
+class S3Client;
+}
+}
 
 namespace one {
 namespace helpers {
 
+constexpr auto S3_HELPER_SCHEME_ARG = "scheme";
 constexpr auto S3_HELPER_HOST_NAME_ARG = "host_name";
 constexpr auto S3_HELPER_BUCKET_NAME_ARG = "bucket_name";
 constexpr auto S3_HELPER_ACCESS_KEY_ARG = "access_key";
@@ -43,8 +55,15 @@ public:
 
     std::unordered_map<std::string, std::string> getUserCTX() override;
 
+    const std::string &getBucket() const;
+
+    const std::unique_ptr<Aws::S3::S3Client> &getClient() const;
+
 private:
+    void init();
+
     std::unordered_map<std::string, std::string> m_args;
+    std::unique_ptr<Aws::S3::S3Client> m_client;
 };
 
 class S3Helper : public KeyValueHelper {
@@ -67,8 +86,28 @@ public:
 
 private:
     std::shared_ptr<S3HelperCTX> getCTX(CTXPtr rawCTX) const;
+    std::string rangeToString(off_t lower, off_t upper) const;
+
+    template <typename Outcome>
+    void throwOnError(std::string operation, const Outcome &outcome)
+    {
+        if (outcome.IsSuccess())
+            return;
+
+        LOG(ERROR) << "Operation '" << operation << "' failed due to: '"
+                   << outcome.GetError().GetMessage() << "'";
+
+        auto error = std::errc::io_error;
+        auto search = s_errors.find(outcome.GetError().GetErrorType());
+        if (search != s_errors.end())
+            error = search->second;
+
+        throw std::system_error{
+            std::error_code(static_cast<int>(error), std::system_category())};
+    }
 
     std::unordered_map<std::string, std::string> m_args;
+    static std::map<Aws::S3::S3Errors, std::errc> s_errors;
 };
 
 } // namespace helpers

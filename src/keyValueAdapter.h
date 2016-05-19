@@ -74,7 +74,7 @@ private:
 
     std::unique_ptr<KeyValueHelper> m_helper;
     asio::io_service &m_service;
-    Locks& m_locks;
+    Locks &m_locks;
     std::size_t m_blockSize;
 };
 

@@ -36,15 +36,16 @@ private:
 
 class S3Proxy {
 public:
-    S3Proxy(std::string hostName, std::string bucketName, std::string accessKey,
-        std::string secretKey)
+    S3Proxy(std::string scheme, std::string hostName, std::string bucketName,
+        std::string accessKey, std::string secretKey)
         : m_service{1}
         , m_idleWork{asio::make_work(m_service)}
         , m_worker{[=] { m_service.run(); }}
         , m_helper{std::make_shared<one::helpers::KeyValueAdapter>(
               std::make_unique<one::helpers::S3Helper>(
                   std::unordered_map<std::string, std::string>(
-                      {{"host_name", std::move(hostName)},
+                      {{"scheme", std::move(scheme)},
+                          {"host_name", std::move(hostName)},
                           {"bucket_name", std::move(bucketName)}})),
               m_service, m_locks)}
         , m_ctx{m_helper->createCTX({{"access_key", std::move(accessKey)},
@@ -89,10 +90,10 @@ private:
 };
 
 namespace {
-boost::shared_ptr<S3Proxy> create(std::string hostName, std::string bucketName,
-    std::string accessKey, std::string secretKey)
+boost::shared_ptr<S3Proxy> create(std::string scheme, std::string hostName,
+    std::string bucketName, std::string accessKey, std::string secretKey)
 {
-    return boost::make_shared<S3Proxy>(std::move(hostName),
+    return boost::make_shared<S3Proxy>(std::move(scheme), std::move(hostName),
         std::move(bucketName), std::move(accessKey), std::move(secretKey));
 }
 }
