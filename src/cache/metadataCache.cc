@@ -88,9 +88,13 @@ void MetadataCache::getAttr(
     try {
         DLOG(INFO) << "Fetching attributes for " << path;
         auto attr = fetchAttr(messages::fuse::GetFileAttr{path});
-        m_metaCache.insert(metaAcc, attr.uuid());
         uuidAcc->second = attr.uuid();
-        metaAcc->second.attr = std::move(attr);
+        if (m_metaCache.insert(metaAcc, attr.uuid())) {
+            // In this case we're fetching attributes because we didn't know
+            // the path mapped to an already cached uuid. Do not update attrs
+            // to avoid race conditions with our own write events.
+            metaAcc->second.attr = std::move(attr);
+        }
         metaAcc->second.paths.emplace(path);
     }
     catch (...) {
@@ -169,11 +173,24 @@ void MetadataCache::rename(
             newUuidAcc->second = uuid;
         }
         else {
+            auto targetExists = false;
+
+            MetaAccessor targetMetaAcc;
+            if (newUuidAcc->second != "") {
+                if(get(targetMetaAcc, newUuidAcc->second))
+                    targetExists = true;
+            }
+
             auto future =
                 m_communicator.communicate<messages::fuse::FuseResponse>(
                     messages::fuse::Rename{uuid, newPath});
 
             communication::wait(future);
+
+            if (targetExists) {
+                targetMetaAcc->second.paths.erase(newPath);
+                targetMetaAcc.release();
+            }
 
             // File is renamed, uuid may have changed - remove all mappings
             metaAcc->second.paths.clear();
