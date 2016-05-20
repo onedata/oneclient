@@ -107,3 +107,9 @@ message ChildLink {
     required bytes uuid = 1;
     required bytes name = 2;
 }
+
+message FileRenamedEntry {
+    required bytes old_uuid = 1; // old UUID of renamed file
+    required bytes new_uuid = 2; // new UUID of renamed file
+    required bytes new_path = 3; // new path of renamed file
+}
