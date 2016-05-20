@@ -37,5 +37,6 @@ ADD run.sh /root/run.sh
 
 VOLUME /root/.local/share/oneclient /mnt/oneclient
 ENV AUTHENTICATION=token
+ENV NO_CHECK_CERTIFICATE=true
 ENTRYPOINT ["/root/run.sh"]
 CMD ["/mnt/oneclient"]
