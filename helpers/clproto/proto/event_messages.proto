@@ -57,9 +57,9 @@ message FileRemovalEvent {
 }
 
 message FileRenamedEvent {
-    required bytes old_uuid = 1; // old UUID of renamed file
-    required bytes new_uuid = 2; // new UUID of renamed file
-    required bytes new_path = 3; // new path of renamed file
+    required FileRenamedEntry top_entry = 1;     // entry for renamed file
+    repeated FileRenamedEntry child_entries = 2; // entries for children of
+                                                 // renamed file
 }
 
 // Generic subscription message
