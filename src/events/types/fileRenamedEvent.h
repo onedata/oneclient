@@ -10,10 +10,12 @@
 #define ONECLIENT_EVENTS_TYPES_FILE_RENAMED_EVENT_H
 
 #include "event.h"
+#include "messages/fuse/fileRenamedEntry.h"
 #include "messages/serverMessage.h"
 
-#include <string>
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace one {
 namespace clproto {
@@ -33,13 +35,13 @@ public:
     using Key = std::string;
     using ProtocolMessage = clproto::FileRenamedEvent;
     using Subscription = FileRenamedSubscription;
+    using FileRenamedEntry = messages::fuse::FileRenamedEntry;
 
     /**
      * Constructor.
-     * @param message fileRenamedEvent protocol message.
+     * @param message FileRenamedEvent protocol message.
      */
     FileRenamedEvent(const ProtocolMessage &message);
-    FileRenamedEvent(std::string fileUuid);
 
     /**
      * @return Value that distinguish @c this rename event from other rename
@@ -50,14 +52,14 @@ public:
     const Key &key() const;
 
     /**
-     * @return Old ID of file associated with the rename event.
+     * @return Entry describing changes in renamed file.
      */
-    const std::string &oldUuid() const;
+    const FileRenamedEntry &topEntry() const;
 
     /**
-     * @return New ID of file associated with the rename event.
+     * @return List of entries describing changes in children of renamed file.
      */
-    const std::string &newUuid() const;
+    const std::vector<FileRenamedEntry> &childEntries() const;
 
     /**
      * Aggregates @c this event with an other event.
@@ -71,8 +73,8 @@ public:
     std::unique_ptr<ProtocolEventMessage> serializeAndDestroy() override;
 
 protected:
-    std::string m_oldUuid;
-    std::string m_newUuid;
+    FileRenamedEntry m_topEntry;
+    std::vector<FileRenamedEntry> m_childEntries;
 };
 
 } // namespace events

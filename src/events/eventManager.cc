@@ -248,7 +248,6 @@ void EventManager::initializeStreams(std::shared_ptr<Context> context)
     m_fileRemovalEventStream->setSubscriptionRegistry(m_registry);
     m_fileRemovalEventStream->initializeAggregation();
 
-    m_fileRenamedEventStream->setScheduler(context->scheduler());
     m_fileRenamedEventStream->setSubscriptionRegistry(m_registry);
     m_fileRenamedEventStream->initializeAggregation();
 }

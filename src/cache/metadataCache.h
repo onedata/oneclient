@@ -43,6 +43,7 @@ public:
     using Path = boost::filesystem::path;
     using FileAttr = messages::fuse::FileAttr;
     using FileLocation = messages::fuse::FileLocation;
+    enum FileState { normal, removedUpstream, renamedUpstream };
 
     /**
      * @c Metadata holds metadata of a file.
@@ -51,7 +52,7 @@ public:
         std::unordered_set<Path> paths;
         boost::optional<FileAttr> attr;
         boost::optional<FileLocation> location;
-        bool removedUpstream = false;
+        FileState state = normal;
     };
 
 private:

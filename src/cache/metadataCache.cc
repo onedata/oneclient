@@ -10,6 +10,7 @@
 #include "fuseOperations.h"
 
 #include "logging.h"
+#include "messages/fuse/fileRenamed.h"
 #include "messages/fuse/getFileAttr.h"
 #include "messages/fuse/getFileLocation.h"
 #include "messages/fuse/rename.h"
@@ -166,39 +167,57 @@ void MetadataCache::rename(
         auto paths = metaAcc->second.paths;
 
         m_pathToUuid.erase(oldUuidAcc);
-        if (metaAcc->second.removedUpstream) {
+
+        if (metaAcc->second.state == FileState::renamedUpstream) {
+            // This rename operation was executed by fileRenamedHandler
+            // Further modifications of cache will be done in handler
+            metaAcc->second.paths.erase(oldPath);
+            metaAcc->second.paths.emplace(newPath);
+        }
+        else if (metaAcc->second.state == FileState::removedUpstream) {
+            // This rename operation was executed by fileRemovalHandler
             // Only oldPath is changed to newPath
             metaAcc->second.paths.erase(oldPath);
             metaAcc->second.paths.emplace(newPath);
             newUuidAcc->second = uuid;
         }
         else {
-            auto targetExists = false;
-
-            MetaAccessor targetMetaAcc;
-            if (newUuidAcc->second != "") {
-                if(get(targetMetaAcc, newUuidAcc->second))
-                    targetExists = true;
-            }
-
             auto future =
-                m_communicator.communicate<messages::fuse::FuseResponse>(
+                m_communicator.communicate<messages::fuse::FileRenamed>(
                     messages::fuse::Rename{uuid, newPath});
+            auto fileRenamed = communication::wait(future);
 
-            communication::wait(future);
-
-            if (targetExists) {
-                targetMetaAcc->second.paths.erase(newPath);
-                targetMetaAcc.release();
+            // Rename successful; if target exists, it's metadata
+            // should be removed from cache, since it has been owerwritten.
+            // If it was open, it was renamed to fuse hidden file
+            // before this rename operation.
+            MetaAccessor targetMetaAcc;
+            if (newUuidAcc->second != "" && newUuidAcc->second != uuid) {
+                if (get(targetMetaAcc, newUuidAcc->second)) {
+                    auto targetPaths = targetMetaAcc->second.paths;
+                    for (auto &targetPath : targetPaths)
+                        m_pathToUuid.erase(targetPath);
+                    targetMetaAcc->second.paths.erase(newPath);
+                    m_metaCache.erase(targetMetaAcc);
+                }
             }
 
-            // File is renamed, uuid may have changed - remove all mappings
-            metaAcc->second.paths.clear();
-            metaAcc.release();
+            // Update pathToUuid and metaCache mappings for renamed file
+            // and its children if any exist
+            newUuidAcc->second = fileRenamed.newUuid();
+            m_metaCache.insert(metaAcc, fileRenamed.newUuid());
+            metaAcc->second.paths.erase(oldPath);
+            metaAcc->second.paths.emplace(newPath);
+            metaAcc->second.location = boost::none;
+            metaAcc->second.attr->uuid(fileRenamed.newUuid());
             for (auto &path : paths)
                 m_pathToUuid.erase(path);
-            m_pathToUuid.erase(newUuidAcc);
+            metaAcc.release();
             m_metaCache.erase(uuid);
+
+            for (auto &fileRenamedEntry : fileRenamed.childEntries()) {
+                LOG(INFO) << fileRenamedEntry.toString();
+            }
         }
     }
     catch (...) {

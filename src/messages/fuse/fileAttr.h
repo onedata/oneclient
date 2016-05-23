@@ -13,8 +13,8 @@
 
 #include "messages.pb.h"
 
-#include <sys/types.h>
 #include <boost/optional.hpp>
+#include <sys/types.h>
 
 #include <chrono>
 #include <cstdint>
@@ -67,6 +67,12 @@ public:
      * @return UUID of the file.
      */
     const std::string &uuid() const;
+
+    /**
+     * Sets new UUID of the file
+     * @param uuid The UUID to set.
+     */
+    void uuid(const std::string uuid);
 
     /**
      * @return File access mode.
