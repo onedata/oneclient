@@ -29,6 +29,7 @@ constexpr auto CEPH_HELPER_NAME = "Ceph";
 constexpr auto DIRECT_IO_HELPER_NAME = "DirectIO";
 constexpr auto PROXY_IO_HELPER_NAME = "ProxyIO";
 constexpr auto S3_HELPER_NAME = "AmazonS3";
+constexpr auto SWIFT_HELPER_NAME = "Swift";
 
 /**
  * Factory providing objects of requested storage helpers.
@@ -36,7 +37,8 @@ constexpr auto S3_HELPER_NAME = "AmazonS3";
 class StorageHelperFactory {
 public:
     StorageHelperFactory(asio::io_service &ceph_service,
-        asio::io_service &dio_service, asio::io_service &s3Service,
+        asio::io_service &dio_service, asio::io_service &kvS3Service,
+        asio::io_service &kvSwiftService,
         std::shared_ptr<proxyio::BufferAgent> bufferAgent);
 
     virtual ~StorageHelperFactory() = default;
@@ -55,9 +57,11 @@ public:
 private:
     asio::io_service &m_cephService;
     asio::io_service &m_dioService;
-    asio::io_service &m_kvService;
+    asio::io_service &m_kvS3Service;
+    asio::io_service &m_kvSwiftService;
     std::shared_ptr<proxyio::BufferAgent> m_bufferAgent;
-    tbb::concurrent_hash_map<std::string, bool> m_kvLocks;
+    tbb::concurrent_hash_map<std::string, bool> m_kvS3Locks;
+    tbb::concurrent_hash_map<std::string, bool> m_kvSwiftLocks;
 };
 
 } // namespace helpers

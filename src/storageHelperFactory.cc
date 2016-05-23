@@ -13,16 +13,19 @@
 #include "keyValueAdapter.h"
 #include "proxyIOHelper.h"
 #include "s3Helper.h"
+#include "swiftHelper.h"
 
 namespace one {
 namespace helpers {
 
 StorageHelperFactory::StorageHelperFactory(asio::io_service &cephService,
-    asio::io_service &dioService, asio::io_service &kvService,
+    asio::io_service &dioService, asio::io_service &kvS3Service,
+    asio::io_service &kvSwiftService,
     std::shared_ptr<proxyio::BufferAgent> bufferAgent)
     : m_cephService{cephService}
     , m_dioService{dioService}
-    , m_kvService{kvService}
+    , m_kvS3Service{kvS3Service}
+    , m_kvSwiftService{kvSwiftService}
     , m_bufferAgent{std::move(bufferAgent)}
 {
 }
@@ -49,7 +52,12 @@ std::shared_ptr<IStorageHelper> StorageHelperFactory::getStorageHelper(
 
     if (sh_name == S3_HELPER_NAME)
         return std::make_shared<KeyValueAdapter>(
-            std::make_unique<S3Helper>(args), m_kvService, m_kvLocks);
+            std::make_unique<S3Helper>(args), m_kvS3Service, m_kvS3Locks);
+
+    if (sh_name == SWIFT_HELPER_NAME)
+        return std::make_shared<KeyValueAdapter>(
+            std::make_unique<SwiftHelper>(args), m_kvSwiftService,
+            m_kvSwiftLocks);
 
     throw std::system_error{std::make_error_code(std::errc::invalid_argument),
         "Invalid storage helper name: '" + sh_name + "'"};
