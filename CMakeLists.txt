@@ -71,8 +71,14 @@ find_library(DL_LIBRARY dl)
 # Rados library
 find_library(RADOS_LIBRARY rados)
 
-# Amazon S3 library
-find_library(S3_LIBRARY s3)
+# AWS SDK library
+find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core)
+find_library(AWS_SKD_S3_LIBRARY aws-cpp-sdk-s3)
+find_library(CURL_LIBRARY curl)
+set(AWS_SDK_LIBRARIES
+        ${AWS_SKD_S3_LIBRARY}
+        ${AWS_SKD_CORE_LIBRARY}
+        ${CURL_LIBRARY})
 
 # gpertools lib
 find_library(PROFILER_LIBRARY NAMES profiler)
@@ -87,9 +93,7 @@ set(PLATFORM_EXTRA_LIBS
     ${CMAKE_THREAD_LIBS_INIT}
     ${LTDL_LIBRARY}
     ${ZLIB_LIBRARY}
-    ${DL_LIBRARY}
-    ${RADOS_LIBRARY}
-    ${S3_LIBRARY})
+    ${DL_LIBRARY})
 
 # Code coverage
 option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
@@ -157,6 +161,8 @@ set(CLIENT_LIBRARIES
     ${SODIUM_LIBRARIES}
     ${PROTOBUF_LIBRARIES}
     ${BORINGSSL_LIBRARIES}
+    ${RADOS_LIBRARY}
+    ${AWS_SDK_LIBRARIES}
     ${HELPERS_LIBRARIES})
 
 # Define targets
