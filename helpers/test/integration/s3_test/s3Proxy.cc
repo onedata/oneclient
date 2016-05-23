@@ -6,6 +6,7 @@
  * 'LICENSE.txt'
  */
 
+#include "keyValueAdapter.h"
 #include "s3Helper.h"
 
 #include <asio/buffer.hpp>
@@ -18,6 +19,7 @@
 #include <future>
 #include <string>
 #include <thread>
+#include <unordered_map>
 
 using namespace boost::python;
 
@@ -34,22 +36,21 @@ private:
 
 class S3Proxy {
 public:
-    S3Proxy(std::string hostName, std::string bucketName, std::string accessKey,
-        std::string secretKey)
+    S3Proxy(std::string scheme, std::string hostName, std::string bucketName,
+        std::string accessKey, std::string secretKey, std::size_t blockSize)
         : m_service{1}
         , m_idleWork{asio::make_work(m_service)}
         , m_worker{[=] { m_service.run(); }}
-        , m_helper{{{"host_name", std::move(hostName)},
-                       {"bucket_name", std::move(bucketName)},
-                       {"access_key", std::move(accessKey)},
-                       {"secret_key", std::move(secretKey)}},
-              m_service}
+        , m_helper{std::make_shared<one::helpers::KeyValueAdapter>(
+              std::make_unique<one::helpers::S3Helper>(
+                  std::unordered_map<std::string, std::string>(
+                      {{"scheme", std::move(scheme)},
+                          {"host_name", std::move(hostName)},
+                          {"bucket_name", std::move(bucketName)}})),
+              m_service, m_locks, blockSize)}
+        , m_ctx{m_helper->createCTX({{"access_key", std::move(accessKey)},
+              {"secret_key", std::move(secretKey)}})}
     {
-        auto rawCTX = m_helper.createCTX({});
-        m_ctx = std::dynamic_pointer_cast<one::helpers::S3HelperCTX>(rawCTX);
-        if (m_ctx == nullptr)
-            throw std::system_error{
-                std::make_error_code(std::errc::invalid_argument)};
     }
 
     ~S3Proxy()
@@ -58,39 +59,44 @@ public:
         m_worker.join();
     }
 
-    void unlink(std::string fileId) { m_helper.sh_unlink(*m_ctx, fileId); }
+    void unlink(std::string fileId) { m_helper->sh_unlink(m_ctx, fileId); }
 
     std::string read(std::string fileId, int offset, int size)
     {
         std::string buffer(size, '\0');
-        m_helper.sh_read(*m_ctx, fileId, asio::buffer(buffer), offset);
-        return buffer;
+        auto read =
+            m_helper->sh_read(m_ctx, fileId, asio::buffer(buffer), offset);
+        return std::string{
+            asio::buffer_cast<char *>(read), asio::buffer_size(read)};
     }
 
-    int write(std::string fileId, std::string data, int offset)
+    std::size_t write(std::string fileId, std::string data, int offset)
     {
-        return m_helper.sh_write(*m_ctx, fileId, asio::buffer(data), offset);
+        return m_helper->sh_write(m_ctx, fileId, asio::buffer(data), offset);
     }
 
     void truncate(std::string fileId, int offset)
     {
-        m_helper.sh_truncate(*m_ctx, fileId, offset);
+        m_helper->sh_truncate(m_ctx, fileId, offset);
     }
 
 private:
     asio::io_service m_service;
     asio::executor_work<asio::io_service::executor_type> m_idleWork;
     std::thread m_worker;
-    one::helpers::S3Helper m_helper;
-    std::shared_ptr<one::helpers::S3HelperCTX> m_ctx;
+    one::helpers::KeyValueAdapter::Locks m_locks;
+    std::shared_ptr<one::helpers::IStorageHelper> m_helper;
+    std::shared_ptr<one::helpers::IStorageHelperCTX> m_ctx;
 };
 
 namespace {
-boost::shared_ptr<S3Proxy> create(std::string hostName, std::string bucketName,
-    std::string accessKey, std::string secretKey)
+boost::shared_ptr<S3Proxy> create(std::string scheme, std::string hostName,
+    std::string bucketName, std::string accessKey, std::string secretKey,
+    std::size_t blockSize)
 {
-    return boost::make_shared<S3Proxy>(std::move(hostName),
-        std::move(bucketName), std::move(accessKey), std::move(secretKey));
+    return boost::make_shared<S3Proxy>(std::move(scheme), std::move(hostName),
+        std::move(bucketName), std::move(accessKey), std::move(secretKey),
+        blockSize);
 }
 }
 

@@ -48,8 +48,14 @@ find_library(DL_LIBRARY dl)
 # Rados library
 find_library(RADOS_LIBRARY rados)
 
-# Amazon S3 library
-find_library(S3_LIBRARY s3)
+# AWS SDK library
+find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core)
+find_library(AWS_SKD_S3_LIBRARY aws-cpp-sdk-s3)
+find_library(CURL_LIBRARY curl)
+set(AWS_SDK_LIBRARIES
+        ${AWS_SKD_S3_LIBRARY}
+        ${AWS_SKD_CORE_LIBRARY}
+        ${CURL_LIBRARY})
 
 # Setup compile flags
 set(PLATFORM_EXTRA_LIBS
