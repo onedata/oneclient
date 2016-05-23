@@ -316,7 +316,8 @@ int FsLogic::utime(boost::filesystem::path path, struct utimbuf *const ubuf)
 int FsLogic::open(
     boost::filesystem::path path, struct fuse_file_info *const fileInfo)
 {
-    DLOG(INFO) << "FUSE: open(path: " << path << ", ...)";
+    DLOG(INFO) << "FUSE: open(path: " << path << ", flags: " << fileInfo->flags
+               << " ...)";
 
     auto attr = m_metadataCache.getAttr(path);
     auto location = m_metadataCache.getLocation(attr.uuid(),
@@ -573,7 +574,9 @@ events::FileAttrEventStream::Handler FsLogic::fileAttrHandler()
             }
 
             LOG(INFO) << "Updating attributes for uuid: '" << newAttr.uuid()
-                      << "'";
+                      << "', size: " << (newAttr.size().is_initialized()
+                                                ? newAttr.size().get()
+                                                : -1);
             auto &attr = acc->second.attr.get();
 
             if (newAttr.size().is_initialized() &&
@@ -842,7 +845,7 @@ void FsLogic::openFile(
     fileInfo->fh = acc->first;
 
     acc->second.uuid = fileUuid;
-    acc->second.flags = fileInfo->flags;
+    acc->second.flags = fileInfo->flags & (~O_CREAT) & (~O_APPEND);
     acc->second.handleId =
         std::make_shared<boost::optional<std::string>>(location.handleId());
     // TODO: VFS-1959

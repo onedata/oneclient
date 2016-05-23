@@ -135,12 +135,12 @@ bool StorageAccessManager::verifyStorageTestFile(
         std::vector<char> buffer(size);
 
         auto ctx = helper->createCTX({});
-        helper->sh_open(ctx, testFile.fileId(), 0);
+        helper->sh_open(ctx, testFile.fileId(), O_RDONLY);
 
         asio::mutable_buffer content;
         try {
             content = helper->sh_read(
-                ctx, testFile.fileId(), asio::buffer(buffer), O_RDONLY);
+                ctx, testFile.fileId(), asio::buffer(buffer), 0);
         }
         catch (...) {
             helper->sh_release(ctx, testFile.fileId());
@@ -195,12 +195,14 @@ std::string StorageAccessManager::modifyStorageTestFile(
     try {
         helper->sh_write(
             ctx, testFile.fileId(), asio::const_buffer(buffer.data(), size), 0);
+        helper->sh_fsync(ctx, testFile.fileId(), true);
+
+        DLOG(INFO) << "Storage test file modified.";
     }
     catch (...) {
         helper->sh_release(ctx, testFile.fileId());
         throw;
     }
-    helper->sh_fsync(ctx, testFile.fileId(), true);
     helper->sh_release(ctx, testFile.fileId());
 
     return std::string{buffer.data(), size};
