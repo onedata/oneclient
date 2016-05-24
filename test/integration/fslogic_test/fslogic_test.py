@@ -174,6 +174,17 @@ def prepare_location(blocks=[], handle_id=None):
     return server_response
 
 
+def prepare_rename():
+    repl = fuse_messages_pb2.FileRenamed()
+    repl.new_uuid = 'uuid2'
+
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.file_renamed.CopyFrom(repl)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    return server_response
+
+
 def do_open(endpoint, fl, blocks=[], size=None, handle_id=None):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.REG,
                                        size=size)
@@ -240,7 +251,7 @@ def test_getattrs_should_cache_attrs(endpoint, fl):
     new_stat = fslogic.Stat()
     assert fl.getattr('/random/path', new_stat) == 0
     assert stat == new_stat
-    assert 2 == endpoint.all_messages_count()
+    assert 3 == endpoint.all_messages_count()
 
 
 def test_mkdir_should_mkdir(endpoint, fl):
@@ -341,10 +352,9 @@ def test_rmdir_should_pass_rmdir_errors(endpoint, fl):
 
 def test_rename_should_rename(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.ok
+    rename_response = prepare_rename()
 
-    with reply(endpoint, [getattr_response, response]) as queue:
+    with reply(endpoint, [getattr_response, rename_response]) as queue:
         assert 0 == fl.rename('/random/path', '/random/path2')
         queue.get()
         client_message = queue.get()
@@ -359,23 +369,15 @@ def test_rename_should_rename(endpoint, fl):
     assert rename.target_path == '/random/path2'
 
 
-def test_rename_should_clear_caches(appmock_client, endpoint, fl):
+def test_rename_should_change_caches(appmock_client, endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.ok
+    rename_response = prepare_rename()
 
-    with reply(endpoint, [getattr_response, response]):
+    with reply(endpoint, [getattr_response, rename_response]):
         fl.rename('/random/path', '/random/path2')
 
     stat = fslogic.Stat()
-    with reply(endpoint, [getattr_response]) as queue:
-        fl.getattr('/random/path2', stat)
-        client_message = queue.get()
-
-    assert client_message.HasField('fuse_request')
-
-    fuse_request = client_message.fuse_request
-    assert fuse_request.HasField('get_file_attr')
+    fl.getattr('/random/path2', stat)
 
     assert stat.size == getattr_response.fuse_response.file_attr.size
     1 == endpoint.all_messages_count()
@@ -443,7 +445,7 @@ def test_chmod_should_change_cached_mode(appmock_client, endpoint, fl):
 
     assert stat.mode == getattr_response.fuse_response.file_attr.mode | \
                         fslogic.regularMode()
-    assert 2 == endpoint.all_messages_count()
+    assert 3 == endpoint.all_messages_count()
     appmock_client.reset_tcp_history()
 
     response = messages_pb2.ServerMessage()
@@ -511,7 +513,7 @@ def test_utime_should_change_cached_times(appmock_client, endpoint, fl):
 
     assert stat.atime == getattr_response.fuse_response.file_attr.atime
     assert stat.mtime == getattr_response.fuse_response.file_attr.mtime
-    assert 2 == endpoint.all_messages_count()
+    assert 3 == endpoint.all_messages_count()
     appmock_client.reset_tcp_history()
 
     response = messages_pb2.ServerMessage()
