@@ -267,9 +267,10 @@ int FsLogic::truncate(boost::filesystem::path path, const off_t newSize)
 
     communication::wait(future);
     attr.size(newSize);
-
-    m_metadataCache.getLocation(acc, attr.uuid(), {one::helpers::Flag::WRONLY});
-    acc->second.location.get().blocks() &=
+    auto flagsSet = one::helpers::FlagsSet{one::helpers::Flag::WRONLY};
+    m_metadataCache.getLocation(acc, attr.uuid(), flagsSet);
+    acc->second.locations.at(MetadataCache::filterFlagsForLocation(flagsSet))
+        .blocks() &=
         boost::icl::discrete_interval<off_t>::right_open(0, newSize);
 
     m_eventManager.emitTruncateEvent(newSize, attr.uuid());
@@ -520,10 +521,10 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
 
     // Call `getLocation` instead of using existing acc for a corner case
     // where location has been removed since initial `getLocation` call.
-    m_metadataCache.getLocation(acc, context.uuid,
-        one::helpers::IStorageHelper::maskToFlags(fileInfo->flags));
-    acc->second.location.get().blocks() +=
-        std::make_pair(writtenRange, std::move(fileBlock));
+    auto flagsSet = one::helpers::IStorageHelper::maskToFlags(fileInfo->flags);
+    m_metadataCache.getLocation(acc, context.uuid, flagsSet);
+    acc->second.locations.at(MetadataCache::filterFlagsForLocation(flagsSet))
+        .blocks() += std::make_pair(writtenRange, std::move(fileBlock));
 
     return bytesWritten;
 }
@@ -550,8 +551,8 @@ FsLogic::findWriteLocation(const messages::fuse::FileLocation &fileLocation,
 
     if (boost::icl::contains(availableBlockIt->first, offsetInterval))
         return std::make_tuple(availableBlockIt->second,
-            asio::buffer(
-                buf, boost::icl::size(availableBlockIt->first & wantedRange)));
+            asio::buffer(buf, boost::icl::size(
+                                  availableBlockIt->first & wantedRange)));
 
     auto blankRange = boost::icl::discrete_interval<off_t>::right_open(
         offset, boost::icl::first(availableBlockIt->first));
@@ -581,13 +582,16 @@ events::FileAttrEventStream::Handler FsLogic::fileAttrHandler()
             auto &attr = acc->second.attr.get();
 
             if (newAttr.size().is_initialized() &&
-                newAttr.size().get() < attr.size() && acc->second.location) {
+                newAttr.size().get() < attr.size() &&
+                !acc->second.locations.empty()) {
                 LOG(INFO) << "Truncating blocks attributes for uuid: '"
                           << newAttr.uuid() << "'";
 
-                acc->second.location.get().blocks() &=
-                    boost::icl::discrete_interval<off_t>::right_open(
-                        0, newAttr.size().get());
+                for (auto &it : acc->second.locations) {
+                    it.second.blocks() &=
+                        boost::icl::discrete_interval<off_t>::right_open(
+                            0, newAttr.size().get());
+                }
             }
 
             attr.atime(std::max(attr.atime(), newAttr.atime()));
@@ -618,12 +622,12 @@ events::FileLocationEventStream::Handler FsLogic::fileLocationHandler()
 
             LOG(INFO) << "Updating location for uuid: '" << newLocation.uuid()
                       << "'";
-            auto &location = acc->second.location.get();
+            for (auto &it : acc->second.locations) {
+                it.second.storageId(newLocation.storageId());
+                it.second.fileId(newLocation.fileId());
 
-            location.storageId(newLocation.storageId());
-            location.fileId(newLocation.fileId());
-
-            location.blocks() = newLocation.blocks();
+                it.second.blocks() = newLocation.blocks();
+            }
 
             m_metadataCache.notifyNewLocationArrived(newLocation.uuid());
         }
@@ -826,7 +830,7 @@ const std::string FsLogic::createFile(boost::filesystem::path path,
             std::move(msg));
 
     auto location = communication::wait(future);
-    m_metadataCache.map(path, location);
+    m_metadataCache.map(path, location, flags);
 
     return location.uuid();
 }
@@ -838,9 +842,10 @@ void FsLogic::openFile(
     m_fileContextCache.create(acc);
 
     MetadataCache::MetaAccessor metaAcc;
-    m_metadataCache.getLocation(metaAcc, fileUuid,
-        one::helpers::IStorageHelper::maskToFlags(fileInfo->flags));
-    auto &location = metaAcc->second.location.get();
+    auto flagsSet = one::helpers::IStorageHelper::maskToFlags(fileInfo->flags);
+    m_metadataCache.getLocation(metaAcc, fileUuid, flagsSet);
+    auto &location = metaAcc->second.locations.at(
+        MetadataCache::filterFlagsForLocation(flagsSet));
 
     fileInfo->direct_io = 1;
     fileInfo->fh = acc->first;

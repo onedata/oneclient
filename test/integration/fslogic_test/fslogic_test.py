@@ -1008,3 +1008,48 @@ def test_release_should_clear_handle_id_if_set(endpoint, fl):
     with reply(endpoint, []) as queue:
         assert 0 == fl.release('/random/path')
         assert queue.empty()
+
+
+def test_location_with_different_flags(endpoint, fl):
+    O_RDONLY = 00
+    O_WRONLY = 01
+    O_RDWR = 02
+
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG, size=0)
+
+    location_response = prepare_location([], 'id')
+
+    with reply(endpoint, [getattr_response, location_response]):
+        assert fl.open('/location', O_RDONLY) >= 0
+
+    # should not ask for location and will fail on try due to wrong response
+    with reply(endpoint, [getattr_response]):
+        assert fl.open('/location', O_RDONLY) >= 0
+
+    # should try to get location for different flags and
+    # fail due to wrong response
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, [getattr_response]):
+            assert fl.open('/location', O_WRONLY) >= 0
+    assert 'file_location field missing: Protocol error' in str(excinfo.value)
+
+    with reply(endpoint, [getattr_response, location_response]):
+        assert fl.open('/location', O_WRONLY) >= 0
+
+    # should not ask for location and will fail on try due to wrong response
+    with reply(endpoint, [getattr_response, getattr_response]):
+        assert fl.open('/location', O_WRONLY) >= 0
+
+    # should try to get location for different flags and
+    # fail due to wrong response
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, [getattr_response]):
+            assert fl.open('/location', O_RDWR) >= 0
+    assert 'file_location field missing: Protocol error' in str(excinfo.value)
+
+    with reply(endpoint, [getattr_response, location_response]):
+        assert fl.open('/location', O_RDWR) >= 0
+
+    # should not ask for location and will fail on try due to wrong response
+    with reply(endpoint, [getattr_response, getattr_response]):
+        assert fl.open('/location', O_RDWR) >= 0

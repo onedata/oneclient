@@ -20,6 +20,7 @@
 
 #include <condition_variable>
 #include <helpers/IStorageHelper.h>
+#include <unordered_map>
 #include <unordered_set>
 
 namespace std {
@@ -27,6 +28,13 @@ template <> struct hash<boost::filesystem::path> {
     size_t operator()(const boost::filesystem::path &p) const
     {
         return boost::filesystem::hash_value(p);
+    }
+};
+
+template <> struct hash<one::helpers::Flag> {
+    size_t operator()(const one::helpers::Flag &p) const
+    {
+        return std::hash<int>()(static_cast<int>(p));
     }
 };
 }
@@ -50,7 +58,7 @@ public:
     struct Metadata {
         std::unordered_set<Path> paths;
         boost::optional<FileAttr> attr;
-        boost::optional<FileLocation> location;
+        std::unordered_map<one::helpers::Flag, FileLocation> locations;
         bool removedUpstream = false;
     };
 
@@ -165,8 +173,10 @@ public:
      * Adds an arbitrary path<->UUID and UUID<->fileLocation to the cache.
      * @param path The path of the mapping.
      * @param location The location data to put in the metadata.
+     * @param flags Open flags.
      */
-    void map(Path path, FileLocation location);
+    void map(
+        Path path, FileLocation location, const one::helpers::FlagsSet flags);
 
     /**
      * Renames a file in the cache through changing or removing mappings.
@@ -221,6 +231,24 @@ public:
      * @param The UUID of file
      */
     void notifyNewLocationArrived(const std::string &uuid);
+
+    /**
+     * Filters given flags set to one of RDONLY, WRONLY or RDWR.
+     * Returns RDONLY if flag value is zero.
+     * @param Flags value
+     */
+    one::helpers::Flag static filterFlagsForLocation(
+        one::helpers::FlagsSet flagsSet)
+    {
+        if (flagsSet.count(one::helpers::Flag::RDONLY))
+            return one::helpers::Flag::RDONLY;
+        else if (flagsSet.count(one::helpers::Flag::WRONLY))
+            return one::helpers::Flag::WRONLY;
+        else if (flagsSet.count(one::helpers::Flag::RDWR))
+            return one::helpers::Flag::RDWR;
+        else
+            return one::helpers::Flag::RDONLY;
+    }
 
 private:
     /**
