@@ -60,6 +60,14 @@ public:
     }
 
     /**
+     * @return File's change time set.
+     */
+    boost::optional<std::chrono::system_clock::time_point> ctime() const
+    {
+        return m_ctime;
+    }
+
+    /**
      * Requests setting the file's modification time.
      * @param t The modification time to set.
      */
