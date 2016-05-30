@@ -498,8 +498,8 @@ def test_utime_should_update_times(endpoint, fl):
     update_times = fuse_request.update_times
     assert update_times.uuid == getattr_response.fuse_response.file_attr.uuid
     assert update_times.atime == update_times.mtime
+    assert update_times.atime == update_times.ctime
     assert update_times.atime <= time.time()
-    assert not update_times.HasField('ctime')
 
 
 def test_utime_should_change_cached_times(appmock_client, endpoint, fl):
@@ -549,7 +549,6 @@ def test_utime_should_update_times_with_buf(endpoint, fl):
     assert update_times.uuid == getattr_response.fuse_response.file_attr.uuid
     assert update_times.atime == ubuf.actime
     assert update_times.mtime == ubuf.modtime
-    assert not update_times.HasField('ctime')
 
 
 def test_utime_should_pass_getattr_errors(endpoint, fl):
