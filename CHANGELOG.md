@@ -4,6 +4,12 @@
 CHANGELOG
 ---------
 
+### 3.0.0-beta5
+
+* Fix adding message size twice to the tpc message in connection layer during retry.
+* Filter out O_APPEND flag when opening file, add some logging.
+
+
 ### 3.0.0-beta4
 
 * Filter out O_CREAT flag when opening file.
