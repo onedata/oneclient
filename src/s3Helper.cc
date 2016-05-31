@@ -30,7 +30,7 @@ namespace helpers {
 
 constexpr auto RANGE_DELIMITER = "-";
 constexpr auto OBJECT_DELIMITER = "/";
-constexpr auto MAX_DELETE_OBJECTS = 1000;
+constexpr std::size_t MAX_DELETE_OBJECTS = 1000;
 constexpr auto MAX_OBJECT_ID = 999999;
 constexpr auto MAX_OBJECT_ID_DIGITS = 6;
 
@@ -138,22 +138,18 @@ void S3Helper::deleteObjects(CTXPtr rawCTX, std::vector<std::string> keys)
     Aws::S3::Model::DeleteObjectsRequest request{};
     request.SetBucket(ctx->getBucket());
 
-    Aws::S3::Model::Delete container;
-    int counter = 0;
-
     while (!keys.empty()) {
-        container.AddObjects(
-            Aws::S3::Model::ObjectIdentifier{}.WithKey(keys.back()));
-        ++counter;
-        keys.pop_back();
+        Aws::S3::Model::Delete container;
 
-        if (keys.empty() || counter == MAX_DELETE_OBJECTS) {
-            request.SetDelete(std::move(container));
-            auto outcome = ctx->getClient()->DeleteObjects(request);
-            throwOnError("DeleteObjects", outcome);
-            container = Aws::S3::Model::Delete{};
-            counter = 0;
+        for (auto s = std::min(keys.size(), MAX_DELETE_OBJECTS); s > 0; --s) {
+            container.AddObjects(Aws::S3::Model::ObjectIdentifier{}.WithKey(
+                std::move(keys.back())));
+            keys.pop_back();
         }
+
+        request.SetDelete(std::move(container));
+        auto outcome = ctx->getClient()->DeleteObjects(request);
+        throwOnError("DeleteObjects", outcome);
     }
 }
 
@@ -167,22 +163,20 @@ std::vector<std::string> S3Helper::listObjects(
     request.SetPrefix(adjustPrefix(std::move(prefix)));
     request.SetDelimiter(OBJECT_DELIMITER);
 
-    bool isTruncated;
-    std::vector<std::string> keys{};
+    std::vector<std::string> keys;
 
-    do {
+    while (true) {
         auto outcome = ctx->getClient()->ListObjects(request);
         throwOnError("ListObjects", outcome);
 
         for (const auto &object : outcome.GetResult().GetContents())
             keys.emplace_back(object.GetKey());
 
-        isTruncated = outcome.GetResult().GetIsTruncated();
-        if (isTruncated)
-            request.SetMarker(outcome.GetResult().GetNextMarker());
-    } while (isTruncated);
+        if (!outcome.GetResult().GetIsTruncated())
+            return keys;
 
-    return keys;
+        request.SetMarker(outcome.GetResult().GetNextMarker());
+    }
 }
 
 std::shared_ptr<S3HelperCTX> S3Helper::getCTX(CTXPtr rawCTX) const
