@@ -42,7 +42,12 @@ find_package(TBB REQUIRED)
 message(STATUS "Checking for glog...")
 find_package(Glog REQUIRED)
 
+# Setup CURL
+message(STATUS "Checking for CURL...")
+find_package(CURL REQUIRED)
+
 # Setup Boost
+message(STATUS "Checking for Boost.Filesystem, Boost.System and Boost.Program_options...")
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
 set(Boost_USE_STATIC_LIBS       OFF)
@@ -74,11 +79,10 @@ find_library(RADOS_LIBRARY rados)
 # AWS SDK library
 find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core)
 find_library(AWS_SKD_S3_LIBRARY aws-cpp-sdk-s3)
-find_library(CURL_LIBRARY curl)
 set(AWS_SDK_LIBRARIES
-        ${AWS_SKD_S3_LIBRARY}
-        ${AWS_SKD_CORE_LIBRARY}
-        ${CURL_LIBRARY})
+    ${AWS_SKD_S3_LIBRARY}
+    ${AWS_SKD_CORE_LIBRARY}
+    ${CURL_LIBRARIES})
 
 # gpertools lib
 find_library(PROFILER_LIBRARY NAMES profiler)
