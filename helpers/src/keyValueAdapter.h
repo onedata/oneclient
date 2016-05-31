@@ -23,18 +23,27 @@ constexpr std::size_t DEFAULT_BLOCK_SIZE = 5 * 1024 * 1024;
 
 class KeyValueHelper;
 
-/*
+/**
  * The @c KeyValueAdapter class translates POSIX operations to operations
  * available on key-value storage by splitting consistent range of bytes into
  * blocks.
- **/
+ */
 class KeyValueAdapter : public IStorageHelper {
 public:
     using Locks = tbb::concurrent_hash_map<std::string, bool>;
 
+    /**
+     * Constructor.
+     * @param helper @c KeyValueHelper instance that provides low level storage
+     * access.
+     * @param service IO service used for asynchronous operations.
+     * @param locks Map of locks used to exclude concurrent operations on the
+     * same storage block.
+     * @param blockSize Size of storage block.
+     */
     KeyValueAdapter(std::unique_ptr<KeyValueHelper> helper,
         asio::io_service &service, Locks &locks,
-        std::size_t valueSize = DEFAULT_BLOCK_SIZE);
+        std::size_t blockSize = DEFAULT_BLOCK_SIZE);
 
     CTXPtr createCTX(
         std::unordered_map<std::string, std::string> params) override;
@@ -76,7 +85,7 @@ private:
     off_t getBlockOffset(off_t offset);
     asio::mutable_buffer getBlock(
         CTXPtr ctx, std::string key, asio::mutable_buffer buf, off_t offset);
-    void logError(std::string operation, const std::system_error& error);
+    void logError(std::string operation, const std::system_error &error);
 
     std::unique_ptr<KeyValueHelper> m_helper;
     asio::io_service &m_service;
