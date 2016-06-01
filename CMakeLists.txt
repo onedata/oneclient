@@ -23,7 +23,12 @@ find_package(TBB REQUIRED)
 message(STATUS "Checking for glog...")
 find_package(Glog REQUIRED)
 
+# Setup CURL
+message(STATUS "Checking for CURL...")
+find_package(CURL REQUIRED)
+
 # Setup Boost
+message(STATUS "Checking for Boost.Filesystem and Boost.System...")
 set(Boost_USE_STATIC_LIBS       OFF)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
@@ -48,8 +53,13 @@ find_library(DL_LIBRARY dl)
 # Rados library
 find_library(RADOS_LIBRARY rados)
 
-# Amazon S3 library
-find_library(S3_LIBRARY s3)
+# AWS SDK library
+find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core)
+find_library(AWS_SKD_S3_LIBRARY aws-cpp-sdk-s3)
+set(AWS_SDK_LIBRARIES
+    ${AWS_SKD_S3_LIBRARY}
+    ${AWS_SKD_CORE_LIBRARY}
+    ${CURL_LIBRARIES})
 
 # Setup compile flags
 set(PLATFORM_EXTRA_LIBS
