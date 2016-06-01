@@ -164,77 +164,93 @@ void MetadataCache::rename(
         auto &oldUuid = oldMetaAcc->second.attr.get().uuid();
 
         DLOG(INFO) << "Renaming file " << oldUuid << " to " << newPath;
-        auto oldPaths = oldMetaAcc->second.paths;
 
         m_pathToUuid.erase(oldUuidAcc);
 
-        if (oldMetaAcc->second.state == FileState::renamedUpstream) {
-            // This rename operation was executed by fileRenamedHandler
-            // Further modifications of cache will be done in handler
-            oldMetaAcc->second.paths.erase(oldPath);
-            oldMetaAcc->second.paths.emplace(newPath);
-        }
-        else if (oldMetaAcc->second.state == FileState::removedUpstream) {
+        if (oldMetaAcc->second.state == FileState::removedUpstream) {
             // This rename operation was executed by fileRemovalHandler
             // Only oldPath is changed to newPath
             oldMetaAcc->second.paths.erase(oldPath);
             oldMetaAcc->second.paths.emplace(newPath);
             newUuidAcc->second = oldUuid;
         }
-        else {
+        else if (oldMetaAcc->second.state == FileState::renamedUpstream) {
+            // This rename operation was executed by fileRenamedHandler
+            // To inform fuse about file renaming, further modifications
+            // of cache will be done in handler and file should be treated
+            // normally afterwards
+            oldMetaAcc->second.state = FileState::normal;
+        }
+        else if (oldMetaAcc->second.state == FileState::normal) {
             auto future =
                 m_communicator.communicate<messages::fuse::FileRenamed>(
                     messages::fuse::Rename{oldUuid, newPath});
             auto fileRenamed = communication::wait(future);
 
-            // Rename successful; if target exists, it's metadata
+            // Rename successful; if target exists, its metadata
             // should be removed from cache, since it has been overwritten.
             // If it was open, it has been renamed to fuse hidden file
             // before this rename operation.
             MetaAccessor targetMetaAcc;
             if (newUuidAcc->second != "" && newUuidAcc->second != oldUuid) {
+                LOG(ERROR) << newUuidAcc->first << " " << newUuidAcc->second;
                 if (get(targetMetaAcc, newUuidAcc->second)) {
-                    auto targetPaths = targetMetaAcc->second.paths;
-                    for (auto &targetPath : targetPaths)
-                        m_pathToUuid.erase(targetPath);
-                    targetMetaAcc->second.paths.erase(newPath);
-                    m_metaCache.erase(targetMetaAcc);
+                    targetMetaAcc->second.paths.clear();
+                    remove(newUuidAcc->second);
                 }
             }
 
-            // Update pathToUuid and metaCache mappings for renamed file
-            // and its children if any exist
             auto newUuid = fileRenamed.newUuid();
-            newUuidAcc->second = newUuid;
-            for (auto &path : oldPaths)
-                m_pathToUuid.erase(path);
+            remapFile(oldMetaAcc, newUuidAcc, oldUuid, newUuid, newPath);
 
-            if (newUuid != oldUuid) {
-                // Copy and modify old metadata if uuid has changed
-                MetaAccessor newMetaAcc;
-                m_metaCache.insert(newMetaAcc, newUuid);
-                newMetaAcc->second.attr = oldMetaAcc->second.attr;
-                newMetaAcc->second.attr->uuid(newUuid);
-                newMetaAcc->second.paths.emplace(newPath);
-                m_metaCache.erase(oldMetaAcc);
-            } else {
-                // Update metadata if uuid has not changed
-                oldMetaAcc->second.paths.clear();
-                oldMetaAcc->second.paths.emplace(newPath);
-                oldMetaAcc->second.location = boost::none;
-                oldMetaAcc.release();
+            for (auto &childEntry : fileRenamed.childEntries()) {
+                remapFile(childEntry.oldUuid(), childEntry.newUuid(),
+                    childEntry.newPath());
             }
-
-            for (auto &fileRenamedEntry : fileRenamed.childEntries()) {
-                LOG(INFO) << fileRenamedEntry.toString();
-            }
-
         }
     }
     catch (...) {
         m_pathToUuid.erase(newUuidAcc);
         throw;
     }
+}
+
+void MetadataCache::remapFile(MetaAccessor &oldMetaAcc,
+    UuidAccessor &newUuidAcc, const std::string &oldUuid,
+    const std::string &newUuid, const Path &newPath)
+{
+    newUuidAcc->second = newUuid;
+    newUuidAcc.release();
+
+    for (auto &path : oldMetaAcc->second.paths)
+        m_pathToUuid.erase(path);
+
+    oldMetaAcc->second.paths.clear();
+    if (newUuid != oldUuid) {
+        // Copy and modify old metadata if uuid has changed
+        MetaAccessor newMetaAcc;
+        m_metaCache.insert(newMetaAcc, newUuid);
+        newMetaAcc->second.attr = oldMetaAcc->second.attr;
+        newMetaAcc->second.attr->uuid(newUuid);
+        newMetaAcc->second.paths.emplace(newPath);
+        m_metaCache.erase(oldMetaAcc);
+    }
+    else {
+        // Update metadata if uuid has not changed
+        oldMetaAcc->second.paths.emplace(newPath);
+        oldMetaAcc->second.location = boost::none;
+        oldMetaAcc.release();
+    }
+}
+
+void MetadataCache::remapFile(
+    const std::string &oldUuid, const std::string &newUuid, const Path &newPath)
+{
+    UuidAccessor newUuidAcc;
+    m_pathToUuid.insert(newUuidAcc, newPath);
+    MetaAccessor oldMetaAcc;
+    if (get(oldMetaAcc, oldUuid))
+        remapFile(oldMetaAcc, newUuidAcc, oldUuid, newUuid, newPath);
 }
 
 void MetadataCache::map(Path path, std::string uuid)

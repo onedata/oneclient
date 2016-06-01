@@ -177,6 +177,27 @@ public:
     void rename(const Path &oldPath, const Path &newPath);
 
     /**
+     * Changes path and uuid of single file and deletes its location.
+     * @param oldMetaAcc Accessor to metadata mapping to update.
+     * @param newUuidAcc Accessor to new UUID mapping.
+     * @param oldUuid Old UUID of updated file.
+     * @param newUuid New UUID of updated file.
+     * @param newPath New path of updated file.
+     */
+    void remapFile(MetaAccessor &oldMetaAcc, UuidAccessor &newUuidAcc,
+        const std::string &oldsUuid, const std::string &newUuid,
+        const Path &newPath);
+
+    /**
+     * Changes path and uuid of single file and deletes its location.
+     * @param oldUuid Old UUID of updated file.
+     * @param newUuid New UUID of updated file.
+     * @param newPath New path of updated file.
+     */
+    void remapFile(const std::string &oldUuid, const std::string &newUuid,
+        const Path &newPath);
+
+    /**
      * Removes a UUID and metadata entries from the cache.
      * @param uuidAcc Accessor to UUID mapping to remove.
      * @param metaAcc Accessor to metadata mapping to remove.

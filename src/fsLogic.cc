@@ -609,7 +609,7 @@ events::FileLocationEventStream::Handler FsLogic::fileLocationHandler()
             const auto &newLocation = event->wrapped();
             MetadataCache::MetaAccessor acc;
             if (!m_metadataCache.get(acc, newLocation.uuid()) ||
-                !acc->second.attr) {
+                !acc->second.location) {
                 LOG(INFO) << "No location to update for uuid: '"
                           << newLocation.uuid() << "'";
                 continue;
@@ -902,47 +902,38 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
 
 events::FileRenamedEventStream::Handler FsLogic::fileRenamedHandler()
 {
-        using namespace events;
-        return [this](std::vector<FileRenamedEventStream::EventPtr> events) {
-            for (const auto &event : events) {
+    using namespace events;
+    return [this](std::vector<FileRenamedEventStream::EventPtr> events) {
+        for (const auto &event : events) {
+            auto topEntry = event->topEntry();
+            MetadataCache::MetaAccessor metaAcc;
+            m_metadataCache.getAttr(metaAcc, topEntry.oldUuid());
+            metaAcc->second.state = MetadataCache::FileState::renamedUpstream;
+            auto fromPath = *metaAcc->second.paths.begin();
+            metaAcc.release();
 
-    //            LOG(INFO) << "0";
-    //            MetadataCache::MetaAccessor metaAcc;
-    //            m_metadataCache.getAttr(metaAcc, event->oldUuid());
-    //            LOG(INFO) << "1";
-    //            metaAcc->second.state =
-    //            MetadataCache::FileState::removedUpstream;
-    //            auto fromPath = *metaAcc->second.paths.begin();
-    //            metaAcc.release();
+            auto dir = m_context->options()->get_mountpoint();
+            auto toPath = boost::filesystem::path(topEntry.newPath());
 
-    //            LOG(INFO) << "2";
-
-    //            auto dir = m_context->options()->get_mountpoint();
-    //            auto toPath = boost::filesystem::path(event->newPath());
-    //            LOG(INFO) << "3";
-    //            try {
-    //                LOG(INFO) << "4";
-    //                std::rename((dir / fromPath).c_str(), (dir /
-    //                toPath).c_str());
-    //            }
-    //            catch (std::system_error &e) {
-    //                LOG(INFO) << "5";
-    //                LOG(WARNING) << "Unable to rename file (from: " <<
-    //                fromPath
-    //                             << " to: " << toPath << "): " << e.what();
-    //            }
-    //            LOG(INFO) << "6";
-
-    //            if (event->oldUuid() != event->newUuid()) {
-    //                LOG(INFO) << "7";
-    //                m_locExpirationHelper.expire(event->oldUuid());
-    //                LOG(INFO) << "8";
-    //                m_attrExpirationHelper.expire(event->oldUuid());
-    //            }
-                LOG(INFO) << "File renamed event received: " <<
-                event->toString();
+            try {
+                std::rename((dir / fromPath).c_str(), (dir / toPath).c_str());
             }
-        };
+            catch (std::system_error &e) {
+                LOG(WARNING) << "Unable to rename file (from: " << fromPath
+                             << " to: " << toPath << "): " << e.what();
+            }
+
+            m_metadataCache.remapFile(
+                topEntry.oldUuid(), topEntry.newUuid(), topEntry.newPath());
+
+            for (auto &childEntry : event->childEntries()) {
+                m_metadataCache.remapFile(childEntry.oldUuid(),
+                    childEntry.newUuid(), childEntry.newPath());
+            }
+
+            LOG(INFO) << "File renamed event received: " << topEntry.oldUuid();
+        }
+    };
 }
 
 bool FsLogic::dataCorrupted(const std::string &uuid, asio::const_buffer buf,
