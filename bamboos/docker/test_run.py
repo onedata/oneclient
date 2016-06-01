@@ -21,11 +21,12 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 def skipped_test_exists(junit_report_path):
     reports = glob.glob(junit_report_path)
     # if there are many reports, check only the last one
-    reports.sort()
-    tree = ElementTree.parse(reports[-1])
-    testsuite = tree.getroot()
-    if testsuite.attrib['skips'] != '0':
-        return True
+    if reports:
+        reports.sort()
+        tree = ElementTree.parse(reports[-1])
+        testsuite = tree.getroot()
+        if testsuite.attrib['skips'] != '0':
+            return True
     return False
 
 
@@ -54,6 +55,18 @@ parser.add_argument(
     help='Path to JUnit tests report',
     dest='report_path')
 
+parser.add_argument(
+    '--test-type', '-tt',
+    action='store',
+    default="acceptance",
+    help="Type of test (cucumber, acceptance, performance, packaging). Default is: acceptance",
+    dest='test_type')
+
+parser.add_argument(
+    '--runxfail',
+    help="Causes test cases marked with xfail to be started normally"
+)
+
 [args, pass_args] = parser.parse_known_args()
 
 command = '''
@@ -67,7 +80,7 @@ if {shed_privileges}:
     os.setregid({gid}, {gid})
     os.setreuid({uid}, {uid})
 
-command = ['py.test'] + {args} + ['{test_dir}'] + ['--junitxml={report_path}']
+command = ['py.test'] + {args} + ['--test-type={test_type}'] + ['{test_dir}'] + ['--junitxml={report_path}']
 ret = subprocess.call(command)
 sys.exit(ret)
 '''
@@ -77,7 +90,8 @@ command = command.format(
     gid=os.getegid(),
     test_dir=args.test_dir,
     shed_privileges=(platform.system() == 'Linux'),
-    report_path=args.report_path)
+    report_path=args.report_path,
+    test_type=args.test_type)
 
 ret = docker.run(tty=True,
                  rm=True,
