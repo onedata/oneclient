@@ -96,9 +96,13 @@ public:
 
     void flush(const std::string &storageId, const std::string &fileId)
     {
-        typename decltype(m_writeBuffers)::accessor acc;
-        m_writeBuffers.find(acc, makeKey(storageId, fileId));
-        acc->second->flush();
+        typename decltype(m_writeBuffers)::accessor writeAcc;
+        m_writeBuffers.find(writeAcc, makeKey(storageId, fileId));
+        writeAcc->second->flush();
+
+        typename decltype(m_readCaches)::accessor readAcc;
+        m_readCaches.find(readAcc, makeKey(storageId, fileId));
+        readAcc->second->clear();
     }
 
     void fsync(const std::string &storageId, const std::string &fileId)
