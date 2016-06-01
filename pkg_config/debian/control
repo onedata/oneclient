@@ -3,7 +3,8 @@ Section: net
 Priority: optional
 Maintainer: onedata Package Maintainer <support@onedata.org>
 Build-Depends:
-	cmake (>= 3.0.0),
+    aws-sdk-cpp,
+    cmake (>= 3.0.0),
     debhelper (>= 9),
     g++ (>= 4.9.0),
     git,
@@ -20,13 +21,13 @@ Build-Depends:
     libboost-system1.58.0,
     libboost-thread1.58-dev,
     libboost-thread1.58.0,
+    libcurl4-openssl-dev,
     libfuse-dev (>= 2.7),
     libgoogle-glog-dev (>= 0.3.4),
     libltdl-dev,
     libprotobuf-dev (>= 2.6.0),
     libpython-dev,
     librados-dev,
-    libs3-dev,
     libsodium-dev,
     libssl-dev,
     libstdc++-4.9-dev,
