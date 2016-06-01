@@ -147,7 +147,11 @@ public:
     int utime(std::string path)
     {
         ReleaseGIL guard;
-        return m_fsLogic.utime(path, nullptr);
+        struct utimbuf utimbuf;
+        utimbuf.actime = 0;
+        utimbuf.modtime = 0;
+
+        return m_fsLogic.utime(path, &utimbuf);
     }
 
     int utime_buf(std::string path, Ubuf ubuf)

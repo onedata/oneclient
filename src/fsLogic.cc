@@ -290,15 +290,14 @@ int FsLogic::utime(boost::filesystem::path path, struct utimbuf *const ubuf)
 
     messages::fuse::UpdateTimes msg{uuidAcc->second};
 
-    if (!ubuf) {
-        const auto now = std::chrono::system_clock::now();
-        msg.atime(now);
-        msg.mtime(now);
-    }
-    else {
-        msg.atime(std::chrono::system_clock::from_time_t(ubuf->actime));
-        msg.mtime(std::chrono::system_clock::from_time_t(ubuf->modtime));
-    }
+    const auto now = std::chrono::system_clock::now();
+    msg.atime(ubuf->actime
+            ? std::chrono::system_clock::from_time_t(ubuf->actime)
+            : now);
+    msg.mtime(ubuf->modtime
+            ? std::chrono::system_clock::from_time_t(ubuf->modtime)
+            : now);
+    msg.ctime(now);
 
     auto future =
         m_context->communicator()->communicate<messages::fuse::FuseResponse>(
@@ -309,6 +308,7 @@ int FsLogic::utime(boost::filesystem::path path, struct utimbuf *const ubuf)
     auto &attr = metaAcc->second.attr.get();
     attr.atime(msg.atime().get());
     attr.mtime(msg.mtime().get());
+    attr.mtime(msg.ctime().get());
 
     return 0;
 }

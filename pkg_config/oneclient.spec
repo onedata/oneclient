@@ -9,6 +9,7 @@ License:	MIT
 URL:		https://onedata.org
 Source0:	oneclient-%{version}.orig.tar.gz
 
+BuildRequires: aws-sdk-cpp
 BuildRequires: boost-devel >= 1.58.0,
 BuildRequires: cmake >= 3.0.0,
 BuildRequires: fuse-devel >= 2.7,
@@ -16,8 +17,8 @@ BuildRequires: gcc-c++ >= 4.9.0,
 BuildRequires: git,
 BuildRequires: glog-devel >= 0.3.4,
 BuildRequires: golang,
+BuildRequires: libcurl-devel,
 BuildRequires: librados2-devel,
-BuildRequires: libs3-devel,
 BuildRequires: libsodium-devel,
 BuildRequires: libtool-ltdl,
 BuildRequires: libtool-ltdl-devel,
