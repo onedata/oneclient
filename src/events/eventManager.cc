@@ -8,11 +8,11 @@
 
 #include "eventManager.h"
 
-#include "context.h"
 #include "communication/subscriptionData.h"
+#include "context.h"
+#include "scheduler.h"
 #include "subscriptionRegistry.h"
 #include "subscriptions/subscriptionCancellation.h"
-#include "scheduler.h"
 
 #include "messages.pb.h"
 
@@ -33,10 +33,10 @@ EventManager::EventManager(std::shared_ptr<Context> context)
           m_streamManager.create())}
     , m_permissionChangedEventStream{std::make_unique<
           PermissionChangedEventStream>(m_streamManager.create())}
-    , m_fileRemovalEventStream{
-          std::make_unique<FileRemovalEventStream>(m_streamManager.create())}
+    , m_fileRemovalEventStream{std::make_unique<FileRemovalEventStream>(
+          m_streamManager.create())}
     , m_quotaExeededEventStream{
-        std::make_unique<QuotaExeededEventStream>(m_streamManager.create())}
+          std::make_unique<QuotaExeededEventStream>(m_streamManager.create())}
 {
     auto predicate = [](const clproto::ServerMessage &message, const bool) {
         return message.has_events() || message.has_subscription() ||
@@ -92,12 +92,14 @@ void EventManager::setFileLocationHandler(
     m_fileLocationEventStream->setEventHandler(std::move(handler));
 }
 
-void EventManager::setFileRemovalHandler(FileRemovalEventStream::Handler handler)
+void EventManager::setFileRemovalHandler(
+    FileRemovalEventStream::Handler handler)
 {
     m_fileRemovalEventStream->setEventHandler(std::move(handler));
 }
 
-void EventManager::setQuotaExeededHandler(QuotaExeededEventStream::Handler handler) 
+void EventManager::setQuotaExeededHandler(
+    QuotaExeededEventStream::Handler handler)
 {
     m_quotaExeededEventStream->setEventHandler(std::move(handler));
 }
@@ -123,8 +125,7 @@ std::int64_t EventManager::subscribe(
 }
 
 std::int64_t EventManager::subscribe(
-    QuotaSubscription clientSubscription,
-    QuotaSubscription serverSubscription)
+    QuotaSubscription clientSubscription, QuotaSubscription serverSubscription)
 {
     return m_quotaExeededEventStream->subscribe(
         std::move(clientSubscription), std::move(serverSubscription));

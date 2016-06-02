@@ -491,7 +491,7 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
         one::helpers::IStorageHelper::maskToFlags(fileInfo->flags));
 
     // Check if this space is marked as disabled due to exeeded quota 
-    if(m_disabledSpaces.count(location.spaceId()) > 0)
+    if(m_disabledSpaces.count(location.spaceId()))
         return -ENOSPC;
 
     messages::fuse::FileBlock fileBlock;
@@ -913,9 +913,8 @@ events::QuotaExeededEventStream::Handler FsLogic::quotaExeededHandler()
 {
     using namespace events;
     return [this](std::vector<QuotaExeededEventStream::EventPtr> events) {
-        for (const auto &event : events) {
-            disableSpaces(event->spaces());
-        }
+        if(!events.empty())
+            disableSpaces(events.back()->spaces());
     };
 }
 
@@ -946,7 +945,7 @@ std::string FsLogic::computeHash(asio::const_buffer buf)
 
 void FsLogic::disableSpaces(const std::vector<std::string> &spaces) 
 {
-    m_disabledSpaces = std::set<std::string>(spaces.begin(), spaces.end());
+    m_disabledSpaces = {spaces.begin(), spaces.end()};
 }
 
 

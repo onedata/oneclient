@@ -10,14 +10,8 @@
 #define ONECLIENT_EVENTS_TYPES_QUOTA_EXEEDED_EVENT_H
 
 #include "event.h"
-#include "messages/serverMessage.h"
-
-#include <boost/icl/interval_map.hpp>
-
-#include <sys/types.h>
 
 #include <string>
-#include <memory>
 #include <vector>
 
 namespace one {
@@ -30,7 +24,8 @@ namespace events {
 class QuotaSubscription;
 
 /**
- * @c PermissionChangedEvent class represents an event of changing file mode
+ * @c QuotaExeededEvent class represents an event containing 
+ * spaces in which quota has been exeeded. 
  */
 class QuotaExeededEvent : public Event {
 public:
@@ -70,7 +65,7 @@ public:
 
 protected:
     std::vector<std::string> m_spaces;
-    const std::string m_key = "QuotaExeededEventVeryNonUniqueKeyThatDoesntReallyMatterAtAllButIsRequired";
+    const std::string m_key = "";
 };
 
 } // namespace events

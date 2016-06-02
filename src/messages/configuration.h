@@ -9,8 +9,8 @@
 #ifndef ONECLIENT_MESSAGES_CONFIGURATION_H
 #define ONECLIENT_MESSAGES_CONFIGURATION_H
 
-#include "messages/serverMessage.h"
 #include "events/subscriptionContainer.h"
+#include "messages/serverMessage.h"
 
 #include <memory>
 #include <string>

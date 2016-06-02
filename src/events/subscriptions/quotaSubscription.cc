@@ -7,7 +7,6 @@
  */
 
 #include "quotaSubscription.h"
-
 #include "messages.pb.h"
 
 #include <sstream>

@@ -285,7 +285,7 @@ private:
 
     std::mutex m_cancelCacheExpirationTickMutex;
     std::function<void()> m_cancelCacheExpirationTick;
-    std::set<std::string> m_disabledSpaces;
+    std::unordered_set<std::string> m_disabledSpaces;
 };
 
 struct FsLogicWrapper {

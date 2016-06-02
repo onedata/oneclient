@@ -7,8 +7,9 @@
  */
 
 #include "quotaExeededEvent.h"
-
 #include "messages.pb.h"
+
+#include <sstream>
 
 namespace one {
 namespace client {

@@ -8,9 +8,9 @@
 
 #include "auth/tokenHandler.h"
 
+#include "auth/authException.h"
 #include "context.h"
 #include "logging.h"
-#include "auth/authException.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
@@ -21,8 +21,8 @@
 #include <sys/types.h>
 
 #include <cstdlib>
-#include <ios>
 #include <fstream>
+#include <ios>
 #include <iostream>
 #include <system_error>
 

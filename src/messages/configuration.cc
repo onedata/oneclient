@@ -18,11 +18,15 @@ namespace messages {
 Configuration::Configuration(
     std::unique_ptr<ProtocolServerMessage> serverMessage)
 {
-    auto &configurationMsg = serverMessage->configuration();
-    for (const auto &subscription : configurationMsg.subscriptions())
+    auto configurationMsg = serverMessage->mutable_configuration();
+    for (const auto &subscription : configurationMsg->subscriptions())
         m_subscriptionContainer.add(subscription);
-    for (const auto &disabled_space : configurationMsg.disabled_spaces())
-        m_disabledSpacesContainer.push_back(disabled_space);
+
+    auto disabledSpaces = configurationMsg->mutable_disabled_spaces();
+    std::transform(disabledSpaces->pointer_begin(),
+        disabledSpaces->pointer_end(),
+        std::back_inserter(m_disabledSpacesContainer),
+        [](auto disabled_space) { return std::move(*disabled_space); });
 }
 
 client::events::SubscriptionContainer Configuration::subscriptionContainer()

@@ -1,6 +1,6 @@
 /**
- * @file permissionChangedSubscription.h
- * @author Tomasz Lichon
+ * @file quotaSubscription.h
+ * @author Rafal Slota
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
@@ -11,11 +11,6 @@
 
 #include "subscription.h"
 #include "messages/clientMessage.h"
-
-#include <boost/optional.hpp>
-
-#include <cstddef>
-#include <sstream>
 
 namespace one {
 namespace client {

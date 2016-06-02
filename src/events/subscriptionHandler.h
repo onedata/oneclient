@@ -14,9 +14,9 @@
 #include "events/subscriptions/subscriptionCancellation.h"
 #include "logging.h"
 
+#include <functional>
 #include <memory>
 #include <unordered_map>
-#include <functional>
 
 namespace one {
 namespace client {
