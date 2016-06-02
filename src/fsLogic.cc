@@ -414,6 +414,10 @@ int FsLogic::read(boost::filesystem::path path, asio::mutable_buffer buf,
         context, helper, fileBlock.storageId(), fileBlock.fileId());
 
     try {
+        if (dataNeedsSynchronization) {
+            helper->sh_flush(helperCtx, fileBlock.fileId());
+        }
+
         auto readBuffer =
             helper->sh_read(helperCtx, fileBlock.fileId(), buf, offset);
 
@@ -546,8 +550,8 @@ FsLogic::findWriteLocation(const messages::fuse::FileLocation &fileLocation,
 
     if (boost::icl::contains(availableBlockIt->first, offsetInterval))
         return std::make_tuple(availableBlockIt->second,
-            asio::buffer(buf, boost::icl::size(
-                                  availableBlockIt->first & wantedRange)));
+            asio::buffer(
+                buf, boost::icl::size(availableBlockIt->first & wantedRange)));
 
     auto blankRange = boost::icl::discrete_interval<off_t>::right_open(
         offset, boost::icl::first(availableBlockIt->first));
