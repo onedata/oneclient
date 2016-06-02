@@ -296,6 +296,17 @@ public:
             &IStorageHelper::ash_write, std::move(ctx), p, buf, offset);
     }
 
+    virtual void sh_truncate(
+            CTXPtr ctx, const boost::filesystem::path &p, off_t size)
+    {
+        sync(&IStorageHelper::ash_truncate, std::move(ctx), p, size);
+    }
+
+    virtual void sh_unlink(CTXPtr ctx, const boost::filesystem::path &p)
+    {
+        sync(&IStorageHelper::ash_unlink, std::move(ctx), p);
+    }
+
     virtual int sh_open(CTXPtr ctx, const boost::filesystem::path &p, int flags)
     {
         return sync<int>(

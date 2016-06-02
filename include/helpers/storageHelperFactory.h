@@ -13,6 +13,7 @@
 
 #include <asio/io_service.hpp>
 #include <boost/optional.hpp>
+#include <tbb/concurrent_hash_map.h>
 
 #include <memory>
 #include <string>
@@ -54,8 +55,9 @@ public:
 private:
     asio::io_service &m_cephService;
     asio::io_service &m_dioService;
-    asio::io_service &m_s3Service;
+    asio::io_service &m_kvService;
     std::shared_ptr<proxyio::BufferAgent> m_bufferAgent;
+    tbb::concurrent_hash_map<std::string, bool> m_kvLocks;
 };
 
 } // namespace helpers
