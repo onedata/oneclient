@@ -45,6 +45,7 @@ message ClientMessage {
         Events                   events                    = 10;
         Subscription             subscription              = 11;
         SubscriptionCancellation subscription_cancellation = 12;
+        FlushEvents              flush_events              = 19;
 
         // diagnostic_messages.proto
         Ping                     ping                      = 13;
@@ -61,8 +62,8 @@ message ClientMessage {
         DBSyncRequest            dbsync_request            = 18;
     }
     
-    optional bytes proxy_session_id = 19;
-    optional Token proxy_session_token = 20;
+    optional bytes proxy_session_id = 20;
+    optional Token proxy_session_token = 21;
 }
 
 // Messages that can be sent by the server to the client.
