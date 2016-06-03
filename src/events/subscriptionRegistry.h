@@ -12,8 +12,8 @@
 #include <tbb/concurrent_hash_map.h>
 
 #include <atomic>
-#include <memory>
 #include <functional>
+#include <memory>
 
 namespace one {
 namespace client {

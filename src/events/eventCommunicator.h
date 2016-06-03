@@ -10,8 +10,8 @@
 #define ONECLIENT_EVENTS_EVENT_COMMUNICATOR_H
 
 #include "communication/communicator.h"
-#include "events/eventContainer.h"
 #include "events/buffers/voidEventBuffer.h"
+#include "events/eventContainer.h"
 #include "events/subscriptions/subscriptionCancellation.h"
 
 #include <functional>

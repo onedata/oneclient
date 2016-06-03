@@ -27,14 +27,14 @@ std::string UpdateTimes::toString() const
 
     stream << "type: 'UpdateTimes', uuid: " << m_uuid;
     if (m_atime)
-        stream << ", atime: " << std::chrono::system_clock::to_time_t(
-                                     m_atime.get());
+        stream << ", atime: "
+               << std::chrono::system_clock::to_time_t(m_atime.get());
     if (m_ctime)
-        stream << ", ctime: " << std::chrono::system_clock::to_time_t(
-                                     m_ctime.get());
+        stream << ", ctime: "
+               << std::chrono::system_clock::to_time_t(m_ctime.get());
     if (m_mtime)
-        stream << ", mtime: " << std::chrono::system_clock::to_time_t(
-                                     m_mtime.get());
+        stream << ", mtime: "
+               << std::chrono::system_clock::to_time_t(m_mtime.get());
 
     return stream.str();
 }

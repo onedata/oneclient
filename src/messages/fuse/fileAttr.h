@@ -13,8 +13,8 @@
 
 #include "messages.pb.h"
 
-#include <sys/types.h>
 #include <boost/optional.hpp>
+#include <sys/types.h>
 
 #include <chrono>
 #include <cstdint>

@@ -177,7 +177,7 @@ void MetadataCache::rename(
 
             MetaAccessor targetMetaAcc;
             if (newUuidAcc->second != "") {
-                if(get(targetMetaAcc, newUuidAcc->second))
+                if (get(targetMetaAcc, newUuidAcc->second))
                     targetExists = true;
             }
 

@@ -9,8 +9,8 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_STORAGE_TEST_FILE_H
 #define ONECLIENT_MESSAGES_FUSE_STORAGE_TEST_FILE_H
 
-#include "messages/serverMessage.h"
 #include "helperParams.h"
+#include "messages/serverMessage.h"
 
 #include <memory>
 #include <string>

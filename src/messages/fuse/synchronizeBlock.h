@@ -13,8 +13,8 @@
 #include "messages/fuse/fileBlock.h"
 #include <boost/icl/interval_map.hpp>
 
-#include <sys/types.h>
 #include <string>
+#include <sys/types.h>
 
 namespace one {
 namespace messages {
