@@ -15,6 +15,12 @@ message Events {
     repeated Event events = 1;
 }
 
+message FlushEvents {
+    required bytes  provider_id          = 1;
+    required bytes  context              = 2;
+    required sint64 subscription_id      = 3;
+}
+
 // Generic event message
 message Event {
     required uint32 counter = 1; // amount of aggregated events
