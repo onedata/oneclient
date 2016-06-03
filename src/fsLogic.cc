@@ -491,8 +491,11 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
         one::helpers::IStorageHelper::maskToFlags(fileInfo->flags));
 
     // Check if this space is marked as disabled due to exeeded quota
-    if (m_disabledSpaces.count(location.spaceId()))
-        return -ENOSPC;
+    {
+        std::shared_lock<std::shared_timed_mutex> lock{m_disabledSpacesMutex};
+        if (m_disabledSpaces.count(location.spaceId()))
+            return -ENOSPC;
+    }
 
     messages::fuse::FileBlock fileBlock;
     std::tie(fileBlock, buf) = findWriteLocation(location, offset, buf);
@@ -945,6 +948,7 @@ std::string FsLogic::computeHash(asio::const_buffer buf)
 
 void FsLogic::disableSpaces(const std::vector<std::string> &spaces)
 {
+    std::lock_guard<std::shared_timed_mutex> lock{m_disabledSpacesMutex};
     m_disabledSpaces = {spaces.begin(), spaces.end()};
 }
 

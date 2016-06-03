@@ -32,6 +32,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -286,6 +287,7 @@ private:
 
     std::mutex m_cancelCacheExpirationTickMutex;
     std::function<void()> m_cancelCacheExpirationTick;
+    std::shared_timed_mutex m_disabledSpacesMutex;
     tbb::concurrent_unordered_set<std::string> m_disabledSpaces;
 };
 
