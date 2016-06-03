@@ -12,8 +12,8 @@
 #include "event.h"
 #include "messages/serverMessage.h"
 
-#include <string>
 #include <memory>
+#include <string>
 
 namespace one {
 namespace clproto {

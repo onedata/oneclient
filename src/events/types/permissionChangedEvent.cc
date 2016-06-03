@@ -19,9 +19,15 @@ PermissionChangedEvent::PermissionChangedEvent(const ProtocolMessage &message)
     m_fileUuid = message.file_uuid();
 }
 
-const PermissionChangedEvent::Key &PermissionChangedEvent::key() const { return m_fileUuid; }
+const PermissionChangedEvent::Key &PermissionChangedEvent::key() const
+{
+    return m_fileUuid;
+}
 
-const std::string &PermissionChangedEvent::fileUuid() const { return m_fileUuid; }
+const std::string &PermissionChangedEvent::fileUuid() const
+{
+    return m_fileUuid;
+}
 
 void PermissionChangedEvent::aggregate(EventPtr event)
 {
@@ -31,15 +37,17 @@ void PermissionChangedEvent::aggregate(EventPtr event)
 std::string PermissionChangedEvent::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'PermissionChangedEvent', counter: " << m_counter << ", file UUID: '"
-           << m_fileUuid;
+    stream << "type: 'PermissionChangedEvent', counter: " << m_counter
+           << ", file UUID: '" << m_fileUuid;
     return stream.str();
 }
 
-std::unique_ptr<ProtocolEventMessage> PermissionChangedEvent::serializeAndDestroy()
+std::unique_ptr<ProtocolEventMessage>
+PermissionChangedEvent::serializeAndDestroy()
 {
     auto eventMsg = std::make_unique<ProtocolEventMessage>();
-    auto permissionChangedEventMsg = eventMsg->mutable_permission_changed_event();
+    auto permissionChangedEventMsg =
+        eventMsg->mutable_permission_changed_event();
     eventMsg->set_counter(m_counter);
     permissionChangedEventMsg->mutable_file_uuid()->swap(m_fileUuid);
 

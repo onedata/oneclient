@@ -16,7 +16,7 @@
 
 namespace one {
 namespace clproto {
-    class QuotaExeededEvent;
+class QuotaExeededEvent;
 }
 namespace client {
 namespace events {
@@ -24,8 +24,8 @@ namespace events {
 class QuotaSubscription;
 
 /**
- * @c QuotaExeededEvent class represents an event containing 
- * spaces in which quota has been exeeded. 
+ * @c QuotaExeededEvent class represents an event containing
+ * spaces in which quota has been exeeded.
  */
 class QuotaExeededEvent : public Event {
 public:
@@ -36,19 +36,19 @@ public:
 
     /**
      * Constructor.
-     * @param message permisionChangedEvent protocol message.
+     * @param message quotaExeededEvent protocol message.
      */
     QuotaExeededEvent(const ProtocolMessage &message);
 
     /**
-     * @return Value that distinguish @c this read event from other read events,
-     * i.e. read events with the same key can be aggregated.
+     * @return Value that distinguish @c this quota event from other quota events,
+     * i.e. quota events with the same key can be aggregated.
      * @see @c QuotaExeededEvent::Key.
      */
     const Key &key() const;
 
     /**
-     * @return ID of file associated with the read event.
+     * @return ID of file associated with the quota event.
      */
     const std::vector<std::string> &spaces() const;
 

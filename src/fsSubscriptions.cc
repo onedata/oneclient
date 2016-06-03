@@ -104,7 +104,6 @@ void FsSubscriptions::removeQuotaSubscription()
     }
 }
 
-
 std::int64_t FsSubscriptions::sendFileAttrSubscription(
     const std::string &fileUuid)
 {
@@ -153,7 +152,8 @@ std::int64_t FsSubscriptions::sendQuotaSubscription()
     DLOG(INFO) << "Sending subscription for quota";
     events::QuotaSubscription clientSubscription{};
     events::QuotaSubscription serverSubscription{};
-    return m_eventManager.subscribe(std::move(clientSubscription), std::move(serverSubscription));
+    return m_eventManager.subscribe(
+        std::move(clientSubscription), std::move(serverSubscription));
 }
 
 void FsSubscriptions::sendSubscriptionCancellation(std::int64_t id)

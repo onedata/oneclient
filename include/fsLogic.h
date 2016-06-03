@@ -26,6 +26,7 @@
 #include <boost/optional.hpp>
 #include <fuse.h>
 #include <tbb/concurrent_hash_map.h>
+#include <tbb/concurrent_unordered_set.h>
 
 #include <cstdint>
 #include <functional>
@@ -285,7 +286,7 @@ private:
 
     std::mutex m_cancelCacheExpirationTickMutex;
     std::function<void()> m_cancelCacheExpirationTick;
-    std::unordered_set<std::string> m_disabledSpaces;
+    tbb::concurrent_unordered_set<std::string> m_disabledSpaces;
 };
 
 struct FsLogicWrapper {

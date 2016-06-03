@@ -15,9 +15,8 @@ namespace one {
 namespace client {
 namespace events {
 
-
-QuotaSubscription::QuotaSubscription() 
-  : Subscription{1}
+QuotaSubscription::QuotaSubscription()
+    : Subscription{1}
 {
 }
 

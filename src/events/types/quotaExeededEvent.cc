@@ -17,14 +17,17 @@ namespace events {
 
 QuotaExeededEvent::QuotaExeededEvent(const ProtocolMessage &message)
 {
-    for(const auto& spaceId: message.spaces()) {
+    for (const auto &spaceId : message.spaces()) {
         m_spaces.push_back(spaceId);
     }
 }
 
 const QuotaExeededEvent::Key &QuotaExeededEvent::key() const { return m_key; }
 
-const std::vector<std::string> &QuotaExeededEvent::spaces() const { return m_spaces; }
+const std::vector<std::string> &QuotaExeededEvent::spaces() const
+{
+    return m_spaces;
+}
 
 void QuotaExeededEvent::aggregate(EventPtr event)
 {

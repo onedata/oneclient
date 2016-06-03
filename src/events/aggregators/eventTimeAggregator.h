@@ -107,8 +107,7 @@ EventTimeAggregator<LowerLayer, Scheduler>::subscribe(
         auto handler = LowerLayer::subscribe(std::move(subscription));
 
         return [
-            this,
-            handler = std::move(handler),
+            this, handler = std::move(handler),
             timeThreshold = std::move(timeThreshold)
         ]
         {

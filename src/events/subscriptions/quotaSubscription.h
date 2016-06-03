@@ -9,8 +9,8 @@
 #ifndef ONECLIENT_EVENTS_SUBSCRIPTIONS_QUOTA_SUBSCRIPTION_H
 #define ONECLIENT_EVENTS_SUBSCRIPTIONS_QUOTA_SUBSCRIPTION_H
 
-#include "subscription.h"
 #include "messages/clientMessage.h"
+#include "subscription.h"
 
 namespace one {
 namespace client {
@@ -20,8 +20,7 @@ namespace events {
  * @c QuotaSubscription is a client side subscription and represents
  * a request for quota_exeeded events.
  */
-class QuotaSubscription : public Subscription,
-                                      public messages::ClientMessage {
+class QuotaSubscription : public Subscription, public messages::ClientMessage {
 public:
     /**
      * Constructor.
