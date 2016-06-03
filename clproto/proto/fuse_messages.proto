@@ -62,15 +62,9 @@ message FuseRequest {
         SetMimetype set_mimetype = 30;
         GetFilePath get_file_path = 31;
         FSync fsync = 32;
+        GetFileDistribution get_file_distribution = 33;
+        ReplicateFile replicate_file = 34;
     }
-}
-
-message FSync {
-    required bytes uuid = 1;
-}
-
-message GetFilePath {
-    required bytes uuid = 1;
 }
 
 message GetFileAttr {
@@ -186,6 +180,24 @@ message SetMimetype {
     required bytes value = 2;
 }
 
+message GetFilePath {
+    required bytes uuid = 1;
+}
+
+message FSync {
+    required bytes uuid = 1;
+}
+
+message GetFileDistribution {
+    required bytes uuid = 1;
+}
+
+message ReplicateFile {
+    required bytes uuid = 1;
+    required bytes provider_id = 2;
+    optional FileBlock block = 3;
+}
+
 // Generic FUSE client response
 message FuseResponse {
     required Status status = 1;
@@ -205,11 +217,8 @@ message FuseResponse {
         Mimetype mimetype = 13;
         Acl acl = 14;
         FilePath file_path = 15;
+        FileDistribution file_distribution = 16;
     }
-}
-
-message FilePath {
-    required bytes value = 1;
 }
 
 message FileAttr {
@@ -324,4 +333,17 @@ message CdmiCompletionStatus {
 
 message Mimetype {
     required bytes value = 1;
+}
+
+message FilePath {
+    required bytes value = 1;
+}
+
+message ProviderFileDistribution {
+    required bytes provider_id = 1;
+    repeated FileBlock blocks = 2;
+}
+
+message FileDistribution {
+    repeated ProviderFileDistribution provider_file_distributions = 1;
 }
