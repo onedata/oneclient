@@ -16,12 +16,12 @@
 
 #include <sys/types.h>
 
-#include <string>
 #include <memory>
+#include <string>
 
 namespace one {
 namespace clproto {
-    class PermissionChangedEvent;
+class PermissionChangedEvent;
 }
 namespace client {
 namespace events {

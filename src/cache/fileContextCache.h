@@ -11,9 +11,9 @@
 
 #include "helpers/IStorageHelper.h"
 
+#include <boost/optional.hpp>
 #include <fuse/fuse_common.h>
 #include <tbb/concurrent_hash_map.h>
-#include <boost/optional.hpp>
 
 #include <fcntl.h>
 

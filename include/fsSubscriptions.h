@@ -99,11 +99,24 @@ public:
      */
     void removeFileAttrSubscription(const std::string &fileUuid);
 
+    /**
+     * Adds subscription for quota updates. Subscription of the
+     * file will be forwarded to the server.
+     */
+    void addQuotaSubscription();
+
+    /**
+     * Removes subscription for quota updates. Subscription
+     * cancellation message will be sent to the server.
+     */
+    void removeQuotaSubscription();
+
 private:
     std::int64_t sendFileAttrSubscription(const std::string &fileUuid);
     std::int64_t sendFileLocationSubscription(const std::string &fileUuid);
     std::int64_t sendPermissionChangedSubscription(const std::string &fileUuid);
     std::int64_t sendFileRemovalSubscription(const std::string &fileUuid);
+    std::int64_t sendQuotaSubscription();
     std::int64_t sendFileRenamedSubscription(const std::string &fileUuid);
     void sendSubscriptionCancellation(std::int64_t id);
 
@@ -117,6 +130,8 @@ private:
         m_fileRemovalSubscriptions;
     tbb::concurrent_hash_map<std::string, std::int64_t>
         m_fileRenamedSubscriptions;
+
+    std::int64_t m_quotaSubscription = 0;
 };
 
 } // namespace client

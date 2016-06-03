@@ -9,8 +9,8 @@
 #ifndef ONECLIENT_EVENTS_SUBSCRIPTIONS_REMOVE_FILE_SUBSCRIPTION_H
 #define ONECLIENT_EVENTS_SUBSCRIPTIONS_REMOVE_FILE_SUBSCRIPTION_H
 
-#include "subscription.h"
 #include "messages/clientMessage.h"
+#include "subscription.h"
 
 #include <cstddef>
 

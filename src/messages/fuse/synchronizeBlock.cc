@@ -6,8 +6,8 @@
  * 'LICENSE.txt'
  */
 
-#include "messages.pb.h"
 #include "synchronizeBlock.h"
+#include "messages.pb.h"
 
 #include <sstream>
 

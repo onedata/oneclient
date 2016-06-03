@@ -67,7 +67,6 @@ public:
      */
     bool empty() const;
 
-
     std::string toString(std::string type) const;
 
 protected:

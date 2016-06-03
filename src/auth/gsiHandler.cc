@@ -9,13 +9,13 @@
 
 #include "auth/gsiHandler.h"
 
-#include "context.h"
-#include "logging.h"
-#include "options.h"
 #include "auth/authException.h"
 #include "auth/authManager.h"
 #include "communication/cert/filesystemCertificate.h"
 #include "communication/cert/inMemoryCertificate.h"
+#include "context.h"
+#include "logging.h"
+#include "options.h"
 
 #include <asio/buffer.hpp>
 #include <boost/algorithm/string.hpp>
@@ -33,9 +33,9 @@
 #include <termios.h>
 #include <unistd.h>
 
-#include <cstring>
-#include <cstdlib>
 #include <cstdio>
+#include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <utility>
 
@@ -383,7 +383,8 @@ void GSIHandler::validateProxyCert()
         }
         else { // Try to read .p12
             LOG(INFO) << "GSI Handler: parsing userKey as PEM failed, trying "
-                         "as PKCS12: " << userKey;
+                         "as PKCS12: "
+                      << userKey;
             if (BIO_read_filename(file, userKey.c_str()) <= 0) {
                 BIO_free(file);
                 throw AuthException{
@@ -396,8 +397,9 @@ void GSIHandler::validateProxyCert()
             if (p12 == nullptr) {
                 unsigned long e2 = ERR_get_error();
                 LOG(ERROR) << "GSI Handler: parsing userKey PEM / PKCS12 "
-                              "failed due to: " << ERR_error_string(e, nullptr)
-                           << " / " << ERR_error_string(e2, nullptr);
+                              "failed due to: "
+                           << ERR_error_string(e, nullptr) << " / "
+                           << ERR_error_string(e2, nullptr);
 
                 CRYPTO_FREE(BIO, file);
                 throw AuthException{"Invalid .pem or .p12 certificate file: " +
@@ -422,7 +424,8 @@ void GSIHandler::validateProxyCert()
                     else {
                         LOG(ERROR)
                             << "GSI Handler: parsing userKey as PKCS12 failed "
-                               "due to: " << ERR_error_string(e1, nullptr);
+                               "due to: "
+                            << ERR_error_string(e1, nullptr);
 
                         CRYPTO_FREE(BIO, file);
                         throw AuthException{

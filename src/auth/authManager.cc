@@ -6,17 +6,17 @@
  * 'LICENSE.txt'
  */
 
-#include "context.h"
-#include "environment.h"
-#include "options.h"
-#include "scheduler.h"
-#include "auth/authException.h"
 #include "auth/authManager.h"
+#include "auth/authException.h"
 #include "auth/gsiHandler.h"
 #include "auth/tokenHandler.h"
 #include "communication/cert/certificateData.h"
 #include "communication/communicator.h"
 #include "communication/persistentConnection.h"
+#include "context.h"
+#include "environment.h"
+#include "options.h"
+#include "scheduler.h"
 
 #include "messages/token.h"
 
@@ -94,12 +94,14 @@ TokenAuthManager::createCommunicator(const unsigned int poolSize,
         std::make_shared<communication::Communicator>(poolSize, m_hostname,
             m_port, m_checkCertificate, communication::createConnection);
 
-    auto future = communicator->setHandshake([=] {
-        one::messages::HandshakeRequest handshake{
-            sessionId, m_tokenHandler.restrictedToken()};
+    auto future = communicator->setHandshake(
+        [=] {
+            one::messages::HandshakeRequest handshake{
+                sessionId, m_tokenHandler.restrictedToken()};
 
-        return handshake;
-    }, std::move(onHandshakeResponse));
+            return handshake;
+        },
+        std::move(onHandshakeResponse));
 
     scheduleRefresh(RESTRICTED_MACAROON_REFRESH);
 

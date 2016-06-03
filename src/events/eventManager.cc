@@ -35,6 +35,8 @@ EventManager::EventManager(std::shared_ptr<Context> context)
           PermissionChangedEventStream>(m_streamManager.create())}
     , m_fileRemovalEventStream{std::make_unique<FileRemovalEventStream>(
           m_streamManager.create())}
+    , m_quotaExeededEventStream{
+          std::make_unique<QuotaExeededEventStream>(m_streamManager.create())}
     , m_fileRenamedEventStream{
           std::make_unique<FileRenamedEventStream>(m_streamManager.create())}
 {
@@ -98,6 +100,12 @@ void EventManager::setFileRemovalHandler(
     m_fileRemovalEventStream->setEventHandler(std::move(handler));
 }
 
+void EventManager::setQuotaExeededHandler(
+    QuotaExeededEventStream::Handler handler)
+{
+    m_quotaExeededEventStream->setEventHandler(std::move(handler));
+}
+
 void EventManager::setFileRenamedHandler(
     FileRenamedEventStream::Handler handler)
 {
@@ -128,6 +136,13 @@ std::int64_t EventManager::subscribe(
     FileLocationSubscription serverSubscription)
 {
     return m_fileLocationEventStream->subscribe(
+        std::move(clientSubscription), std::move(serverSubscription));
+}
+
+std::int64_t EventManager::subscribe(
+    QuotaSubscription clientSubscription, QuotaSubscription serverSubscription)
+{
+    return m_quotaExeededEventStream->subscribe(
         std::move(clientSubscription), std::move(serverSubscription));
 }
 
@@ -184,6 +199,10 @@ void EventManager::handle(const clproto::Events &message)
         if (eventMsg.has_file_removal_event()) {
             FileRemovalEvent event{eventMsg.file_removal_event()};
             m_fileRemovalEventStream->emitEvent(std::move(event));
+        }
+        if (eventMsg.has_quota_exeeded_event()) {
+            QuotaExeededEvent event{eventMsg.quota_exeeded_event()};
+            m_quotaExeededEventStream->emitEvent(std::move(event));
         }
         if (eventMsg.has_file_renamed_event()) {
             FileRenamedEvent event{eventMsg.file_renamed_event()};
@@ -247,6 +266,10 @@ void EventManager::initializeStreams(std::shared_ptr<Context> context)
     m_fileRemovalEventStream->setScheduler(context->scheduler());
     m_fileRemovalEventStream->setSubscriptionRegistry(m_registry);
     m_fileRemovalEventStream->initializeAggregation();
+
+    m_quotaExeededEventStream->setScheduler(context->scheduler());
+    m_quotaExeededEventStream->setSubscriptionRegistry(m_registry);
+    m_quotaExeededEventStream->initializeAggregation();
 
     m_fileRenamedEventStream->setSubscriptionRegistry(m_registry);
     m_fileRenamedEventStream->initializeAggregation();

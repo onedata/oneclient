@@ -34,7 +34,7 @@ int wrap(int (FsLogic::*operation)(Args2...), Args1 &&... args)
         auto &fsLogic =
             static_cast<FsLogicWrapper *>(fuse_get_context()->private_data)
                 ->logic;
-        
+
         one::helpers::activateFuseSession();
 
         return ((*fsLogic).*operation)(std::forward<Args1>(args)...);

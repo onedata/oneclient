@@ -17,8 +17,8 @@
 
 #include <sys/types.h>
 
-#include <string>
 #include <memory>
+#include <string>
 
 namespace one {
 namespace client {
