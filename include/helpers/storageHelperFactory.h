@@ -11,8 +11,6 @@
 
 #include "IStorageHelper.h"
 
-#include "scheduler.h"
-
 #ifdef BUILD_PROXY_IO
 #include "communication/communicator.h"
 #endif
@@ -25,6 +23,9 @@
 #include <string>
 
 namespace one {
+
+class Scheduler;
+
 namespace helpers {
 
 constexpr auto CEPH_HELPER_NAME = "Ceph";
@@ -40,14 +41,15 @@ public:
 #ifdef BUILD_PROXY_IO
     StorageHelperFactory(asio::io_service &ceph_service,
         asio::io_service &dio_service, asio::io_service &s3Service,
-        Scheduler &scheduler, communication::Communicator &m_communicator);
+        communication::Communicator &m_communicator,
+        std::size_t bufferSchedulerWorkers = 1);
 #else
     StorageHelperFactory(asio::io_service &ceph_service,
         asio::io_service &dio_service, asio::io_service &s3Service,
-        Scheduler &scheduler);
+        std::size_t bufferSchedulerWorkers = 1);
 #endif
 
-    virtual ~StorageHelperFactory() = default;
+    virtual ~StorageHelperFactory();
 
     /**
      * Produces storage helper object.
@@ -65,7 +67,7 @@ private:
     asio::io_service &m_dioService;
     asio::io_service &m_kvService;
     tbb::concurrent_hash_map<std::string, bool> m_kvLocks;
-    Scheduler &m_scheduler;
+    std::unique_ptr<Scheduler> m_scheduler;
 
 #ifdef BUILD_PROXY_IO
     communication::Communicator &m_communicator;
