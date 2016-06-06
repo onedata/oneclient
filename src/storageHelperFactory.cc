@@ -8,31 +8,52 @@
 
 #include "helpers/storageHelperFactory.h"
 
+#include "buffering/bufferAgent.h"
 #include "cephHelper.h"
 #include "directIOHelper.h"
 #include "keyValueAdapter.h"
 #include "proxyIOHelper.h"
 #include "s3Helper.h"
+#include "scheduler.h"
+
+#ifdef BUILD_PROXY_IO
+#include "proxyIOHelper.h"
+#endif
 
 namespace one {
 namespace helpers {
 
+#ifdef BUILD_PROXY_IO
 StorageHelperFactory::StorageHelperFactory(asio::io_service &cephService,
     asio::io_service &dioService, asio::io_service &kvService,
-    std::shared_ptr<proxyio::BufferAgent> bufferAgent)
+    Scheduler &scheduler, communication::Communicator &communicator)
     : m_cephService{cephService}
     , m_dioService{dioService}
     , m_kvService{kvService}
-    , m_bufferAgent{std::move(bufferAgent)}
+    , m_scheduler{scheduler}
+    , m_communicator{communicator}
 {
 }
+#else
+StorageHelperFactory::StorageHelperFactory(asio::io_service &cephService,
+    asio::io_service &dioService, asio::io_service &kvService,
+    Scheduler &scheduler)
+    : m_cephService{cephService}
+    , m_dioService{dioService}
+    , m_kvService{kvService}
+    , m_scheduler{scheduler}
+{
+}
+#endif
 
 std::shared_ptr<IStorageHelper> StorageHelperFactory::getStorageHelper(
     const std::string &sh_name,
     const std::unordered_map<std::string, std::string> &args)
 {
     if (sh_name == CEPH_HELPER_NAME)
-        return std::make_shared<CephHelper>(args, m_cephService);
+        return std::make_shared<buffering::BufferAgent>(
+            buffering::BufferLimits{},
+            std::make_unique<CephHelper>(args, m_cephService), m_scheduler);
 
     if (sh_name == DIRECT_IO_HELPER_NAME) {
 #ifdef __linux__
@@ -44,12 +65,19 @@ std::shared_ptr<IStorageHelper> StorageHelperFactory::getStorageHelper(
             args, m_dioService, userCTXFactory);
     }
 
+#ifdef BUILD_PROXY_IO
     if (sh_name == PROXY_IO_HELPER_NAME)
-        return std::make_shared<ProxyIOHelper>(args, *m_bufferAgent);
+        return std::make_shared<buffering::BufferAgent>(
+            buffering::BufferLimits{},
+            std::make_unique<ProxyIOHelper>(args, m_communicator), m_scheduler);
+#endif
 
     if (sh_name == S3_HELPER_NAME)
-        return std::make_shared<KeyValueAdapter>(
-            std::make_unique<S3Helper>(args), m_kvService, m_kvLocks);
+        return std::make_shared<buffering::BufferAgent>(
+            buffering::BufferLimits{},
+            std::make_unique<KeyValueAdapter>(
+                std::make_unique<S3Helper>(args), m_kvService, m_kvLocks),
+            m_scheduler);
 
     throw std::system_error{std::make_error_code(std::errc::invalid_argument),
         "Invalid storage helper name: '" + sh_name + "'"};

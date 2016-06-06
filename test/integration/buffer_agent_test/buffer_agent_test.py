@@ -1,4 +1,4 @@
-"""This module tests ProxyIO helper."""
+"""This module tests BufferAgent on top of ProxyIO."""
 
 __author__ = "Konrad Zemek"
 __copyright__ = """(C) 2015 ACK CYFRONET AGH,
@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(script_dir))
 from test_common import *
 # noinspection PyUnresolvedReferences
 from environment import appmock, common, docker
-import proxy_io
+import buffer_agent
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def endpoint(appmock_client):
 
 @pytest.fixture
 def helper(storage_id, endpoint):
-    return proxy_io.ProxyIOProxy(storage_id, endpoint.ip,
+    return buffer_agent.BufferAgentProxy(storage_id, endpoint.ip,
                                  endpoint.port)
 
 
@@ -88,16 +88,18 @@ def test_write_should_write_data(file_ctx, file_id, parameters, storage_id,
     assert request.remote_write.byte_sequence[0].data == data
 
 
-def test_write_should_pass_write_errors(file_id, endpoint, helper, parameters):
+def test_close_should_pass_write_errors(file_id, endpoint, helper, parameters):
     server_message = messages_pb2.ServerMessage()
     server_message.proxyio_response.status.code = \
         common_messages_pb2.Status.eacces
 
     ctx = helper.open(file_id, parameters)
 
+    with reply(endpoint, server_message):
+        helper.write(ctx, file_id, random_str(), random_int())
+
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, server_message):
-            helper.write(ctx, file_id, random_str(), random_int())
+        helper.release(ctx, file_id)
 
     assert 'Permission denied' in str(excinfo.value)
 
@@ -135,3 +137,52 @@ def test_read_should_pass_errors(file_ctx, file_id, endpoint, helper,
             helper.read(file_ctx, file_id, random_int(), random_int())
 
     assert 'Operation not permitted' in str(excinfo.value)
+
+
+def test_should_cache_read(file_ctx, file_id, parameters, storage_id, endpoint,
+                           helper):
+    data = random_str()
+    offset = random_int()
+    server_message = remote_data_msg(data)
+
+    with reply(endpoint, server_message):
+        assert data == helper.read(file_ctx, file_id, offset, len(data))
+
+    # Doesn't need a second reply from the provider
+    assert data == helper.read(file_ctx, file_id, offset, len(data))
+
+
+def test_should_invalidate_read_cache_on_write(file_ctx, file_id, parameters,
+                                               storage_id, endpoint, helper):
+    data = random_str()
+    offset = random_int()
+    server_message = remote_data_msg(data)
+
+    with reply(endpoint, server_message):
+        assert data == helper.read(file_ctx, file_id, offset, len(data))
+        # At this point the data will be cached
+
+    new_data = random_str()
+    server_message = remote_write_result_msg(len(new_data))
+
+    with reply(endpoint, server_message):
+        helper.write(file_ctx, file_id, new_data, offset)
+
+    server_message = remote_data_msg(new_data)
+    with reply(endpoint, server_message):
+        assert new_data == helper.read(file_ctx, file_id, offset, len(new_data))
+
+
+def test_should_flush_writes_on_close(file_id, parameters, storage_id, endpoint,
+                                      helper):
+    data = random_str()
+    offset = random_int()
+    server_message = remote_write_result_msg(len(data))
+
+    ctx = helper.open(file_id, parameters)
+
+    helper.write(ctx, file_id, data, offset)
+    assert 0 == endpoint.all_messages_count()
+
+    with reply(endpoint, server_message) as queue:
+        helper.release(ctx, file_id)
