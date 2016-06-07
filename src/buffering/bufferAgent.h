@@ -32,6 +32,16 @@ public:
     {
     }
 
+    void setUserCTX(std::unordered_map<std::string, std::string> args) override
+    {
+        helperCtx->setUserCTX(std::move(args));
+    }
+
+    std::unordered_map<std::string, std::string> getUserCTX() override
+    {
+        return helperCtx->getUserCTX();
+    }
+
     CTXPtr helperCtx;
     std::shared_ptr<ReadCache> readCache;
     std::shared_ptr<WriteBuffer> writeBuffer;
@@ -154,6 +164,182 @@ public:
             ctx->writeBuffer->fsync(ctx->helperCtx, p);
 
         m_helper->sh_release(ctx->helperCtx, p);
+    }
+
+    void ash_getattr(CTXPtr rawCtx, const boost::filesystem::path &p,
+        GeneralCallback<struct stat> callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_getattr(ctx->helperCtx, p, std::move(callback));
+    }
+
+    void ash_access(CTXPtr rawCtx, const boost::filesystem::path &p, int mask,
+        VoidCallback callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_access(ctx->helperCtx, p, mask, std::move(callback));
+    }
+
+    void ash_readlink(CTXPtr rawCtx, const boost::filesystem::path &p,
+        GeneralCallback<std::string> callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_readlink(ctx->helperCtx, p, std::move(callback));
+    }
+
+    void ash_readdir(CTXPtr rawCtx, const boost::filesystem::path &p,
+        off_t offset, size_t count,
+        GeneralCallback<const std::vector<std::string> &> callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_readdir(
+            ctx->helperCtx, p, offset, count, std::move(callback));
+    }
+
+    void ash_mknod(CTXPtr rawCtx, const boost::filesystem::path &p, mode_t mode,
+        FlagsSet flags, dev_t rdev, VoidCallback callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_mknod(ctx->helperCtx, p, mode, std::move(flags), rdev,
+            std::move(callback));
+    }
+
+    void ash_mkdir(CTXPtr rawCtx, const boost::filesystem::path &p, mode_t mode,
+        VoidCallback callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_mkdir(ctx->helperCtx, p, mode, std::move(callback));
+    }
+
+    void ash_unlink(CTXPtr rawCtx, const boost::filesystem::path &p,
+        VoidCallback callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_unlink(ctx->helperCtx, p, std::move(callback));
+    }
+
+    void ash_rmdir(CTXPtr rawCtx, const boost::filesystem::path &p,
+        VoidCallback callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_rmdir(ctx->helperCtx, p, std::move(callback));
+    }
+
+    void ash_symlink(CTXPtr rawCtx, const boost::filesystem::path &from,
+        const boost::filesystem::path &to, VoidCallback callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_symlink(ctx->helperCtx, from, to, std::move(callback));
+    }
+
+    void ash_rename(CTXPtr rawCtx, const boost::filesystem::path &from,
+        const boost::filesystem::path &to, VoidCallback callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_rename(ctx->helperCtx, from, to, std::move(callback));
+    }
+
+    void ash_link(CTXPtr rawCtx, const boost::filesystem::path &from,
+        const boost::filesystem::path &to, VoidCallback callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_link(ctx->helperCtx, from, to, std::move(callback));
+    }
+
+    void ash_chmod(CTXPtr rawCtx, const boost::filesystem::path &p, mode_t mode,
+        VoidCallback callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_chmod(ctx->helperCtx, p, mode, std::move(callback));
+    }
+
+    void ash_chown(CTXPtr rawCtx, const boost::filesystem::path &p, uid_t uid,
+        gid_t gid, VoidCallback callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_chown(ctx->helperCtx, p, uid, gid, std::move(callback));
+    }
+
+    void ash_truncate(CTXPtr rawCtx, const boost::filesystem::path &p,
+        off_t size, VoidCallback callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_truncate(ctx->helperCtx, p, size, std::move(callback));
+    }
+
+    void ash_open(CTXPtr rawCtx, const boost::filesystem::path &p,
+        FlagsSet flags, GeneralCallback<int> callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_open(
+            ctx->helperCtx, p, std::move(flags), std::move(callback));
+    }
+
+    void ash_open(CTXPtr rawCtx, const boost::filesystem::path &p, int flags,
+        GeneralCallback<int> callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_open(ctx->helperCtx, p, flags, std::move(callback));
+    }
+
+    void ash_read(CTXPtr rawCtx, const boost::filesystem::path &p,
+        asio::mutable_buffer buf, off_t offset,
+        GeneralCallback<asio::mutable_buffer> callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_read(ctx->helperCtx, p, buf, offset, std::move(callback));
+    }
+
+    void ash_write(CTXPtr rawCtx, const boost::filesystem::path &p,
+        asio::const_buffer buf, off_t offset,
+        GeneralCallback<std::size_t> callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_write(
+            ctx->helperCtx, p, buf, offset, std::move(callback));
+    }
+
+    void ash_multiwrite(CTXPtr rawCtx, const boost::filesystem::path &p,
+        std::vector<std::pair<off_t, asio::const_buffer>> buffs,
+        GeneralCallback<std::size_t> callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_multiwrite(
+            ctx->helperCtx, p, std::move(buffs), std::move(callback));
+    }
+
+    void ash_release(CTXPtr rawCtx, const boost::filesystem::path &p,
+        VoidCallback callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_release(ctx->helperCtx, p, std::move(callback));
+    }
+
+    void ash_flush(CTXPtr rawCtx, const boost::filesystem::path &p,
+        VoidCallback callback) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_flush(ctx->helperCtx, p, std::move(callback));
+    }
+
+    void ash_fsync(CTXPtr rawCtx, const boost::filesystem::path &p,
+        bool isDataSync, VoidCallback callback)
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->ash_fsync(ctx->helperCtx, p, isDataSync, std::move(callback));
+    }
+
+    void sh_truncate(
+        CTXPtr rawCtx, const boost::filesystem::path &p, off_t size) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->sh_truncate(ctx->helperCtx, p, size);
+    }
+
+    void sh_unlink(CTXPtr rawCtx, const boost::filesystem::path &p) override
+    {
+        auto ctx = getCTX(rawCtx);
+        m_helper->sh_unlink(ctx->helperCtx, p);
     }
 
     bool needsDataConsistencyCheck() override
