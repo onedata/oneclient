@@ -6,51 +6,58 @@ DOCKER_REG_USER     ?= ""
 DOCKER_REG_PASSWORD ?= ""
 
 PKG_REVISION    ?= $(shell git describe --tags --always)
-PKG_VERSION	?= $(shell git describe --tags --always | tr - .)
+PKG_VERSION     ?= $(shell git describe --tags --always | tr - .)
 PKG_BUILD       ?= 1
 PKG_ID           = oneclient-$(PKG_VERSION)
 
-.PHONY: rpm cmake release debug deb-info test cunit install docs clean all deb coverage docker
+.PHONY: all
 all: debug test
 
-cmake: BUILD_DIR = $$(echo $(BUILD_TYPE) | tr '[:upper:]' '[:lower:]')
-cmake:
-	python cmake_version.py > version.txt
-	mkdir -p ${BUILD_DIR}
-	cd ${BUILD_DIR} && cmake -GNinja -DCMAKE_BUILD_TYPE=${BUILD_TYPE} .. -DCODE_COVERAGE=${WITH_COVERAGE}
+.PRECIOUS: %/CMakeCache.txt
+%/CMakeCache.txt: **/CMakeLists.txt test/integration/* test/integration/**/* \
+                  helpers/test/integration/* helpers/test/integration/**
+	mkdir -p $*
+	cd $* && cmake -GNinja -DCMAKE_BUILD_TYPE=$* -DCODE_COVERAGE=${WITH_COVERAGE} ..
+	touch $@
 
-deb-info: BUILD_TYPE = RelWithDebInfo
-deb-info: cmake
-	cmake --build relwithdebinfo --target oneclient
+%/oneclient: %/CMakeCache.txt
+	cmake --build $* --target oneclient
 
-release: BUILD_TYPE = Release
-release: cmake
-	cmake --build release --target oneclient
+.PHONY: deb-info
+deb-info: relwithdebinfo/oneclient
 
-debug: BUILD_TYPE = Debug
-debug: cmake
-	cmake --build debug --target oneclient
+.PHONY: release
+release: release/oneclient
 
+.PHONY: debug
+debug: debug/oneclient
+
+.PHONY: test
 test: debug
 	cmake --build debug
 	cmake --build debug --target test
 
+.PHONY: cunit
 cunit: debug
 	cmake --build debug
 	cmake --build debug --target cunit
 
+.PHONY: install
 install: release
 	ninja -C release install
 
+.PHONY: docs
 docs:
 	@doxygen Doxyfile
 
+.PHONY: coverage
 coverage:
 	lcov --directory debug --capture --output-file oneclient.info
 	lcov --remove oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' 'relwithdebinfo/*' 'debug/*' 'release/*' '**/helpers/*' 'deps/*' --output-file oneclient.info.cleaned
 	genhtml  -o coverage oneclient.info.cleaned
 	@echo "Coverage written to `pwd`/coverage/index.html"
 
+.PHONY: check_distribution
 check_distribution:
 ifeq ($(DISTRIBUTION), none)
 	@echo "Please provide package distribution. Oneof: 'wily', 'fedora-23-x86_64'"
@@ -67,6 +74,7 @@ package/$(PKG_ID).tar.gz:
 	python cmake_version.py > package/$(PKG_ID)/version.txt
 	tar -C package -czf package/$(PKG_ID).tar.gz $(PKG_ID)
 
+.PHONY: deb
 deb: check_distribution package/$(PKG_ID).tar.gz
 	rm -rf package/packages && mkdir -p package/packages
 	mv -f package/$(PKG_ID).tar.gz package/oneclient_$(PKG_VERSION).orig.tar.gz
@@ -81,6 +89,7 @@ deb: check_distribution package/$(PKG_ID).tar.gz
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD).debian.tar.xz package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.deb package/packages/
 
+.PHONY: rpm
 rpm: check_distribution package/$(PKG_ID).tar.gz
 	rm -rf package/packages && mkdir -p package/packages
 	mv -f package/$(PKG_ID).tar.gz package/$(PKG_ID).orig.tar.gz
@@ -92,12 +101,13 @@ rpm: check_distribution package/$(PKG_ID).tar.gz
 		--sources package/$(PKG_ID).orig.tar.gz
 	mock --root $(DISTRIBUTION) --resultdir=package/packages --rebuild package/packages/$(PKG_ID)*.src.rpm
 
+.PHONY: docker
 docker:
 	./docker_build.py --repository $(DOCKER_REG_NAME) --user $(DOCKER_REG_USER) \
                           --password $(DOCKER_REG_PASSWORD) --build-arg RELEASE=$(DOCKER_RELEASE) \
                           --build-arg VERSION=$(PKG_VERSION) --name oneclient \
                           --publish --remove docker
 
+.PHONY: clean
 clean:
 	rm -rf debug release relwithdebinfo doc package
-
