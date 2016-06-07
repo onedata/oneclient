@@ -6,8 +6,8 @@
  * 'LICENSE.txt'
  */
 
-#ifndef HELPERS_PROXYIO_WRITE_BUFFER_H
-#define HELPERS_PROXYIO_WRITE_BUFFER_H
+#ifndef HELPERS_BUFFERING_WRITE_BUFFER_H
+#define HELPERS_BUFFERING_WRITE_BUFFER_H
 
 #include "readCache.h"
 
@@ -30,7 +30,7 @@
 
 namespace one {
 namespace helpers {
-namespace proxyio {
+namespace buffering {
 
 /**
  * Writes to a single file are serialized by the kernel, so this class doesn't
@@ -54,21 +54,15 @@ class WriteBuffer {
     };
 
 public:
-    WriteBuffer(std::string storageId, std::string fileId,
-        std::unordered_map<std::string, std::string> params,
-        const std::size_t minWriteChunkSize,
+    WriteBuffer(const std::size_t minWriteChunkSize,
         const std::size_t maxWriteChunkSize,
-        const std::chrono::seconds flushWriteAfter,
-        communication::Communicator &communicator, Scheduler &scheduler,
-        std::shared_ptr<ReadCache> readCache)
-        : m_storageId{std::move(storageId)}
-        , m_fileId{std::move(fileId)}
-        , m_params{std::move(params)}
-        , m_minWriteChunkSize{minWriteChunkSize}
+        const std::chrono::seconds flushWriteAfter, IStorageHelper &helper,
+        Scheduler &scheduler, std::shared_ptr<ReadCache> readCache)
+        : m_minWriteChunkSize{minWriteChunkSize}
         , m_maxWriteChunkSize{maxWriteChunkSize}
         , m_flushWriteAfter{flushWriteAfter}
+        , m_helper{helper}
         , m_scheduler{scheduler}
-        , m_communicator{communicator}
         , m_readCache{readCache}
     {
         scheduleFlush();
@@ -80,9 +74,13 @@ public:
         m_cancelFlushSchedule();
     }
 
-    std::size_t write(asio::const_buffer buf, const off_t offset)
+    std::size_t write(CTXPtr ctx, const boost::filesystem::path &p,
+        asio::const_buffer buf, const off_t offset)
     {
         std::unique_lock<std::mutex> lock{m_mutex};
+        m_lastCtx = ctx;
+        m_lastPath = p;
+
         throwLastError();
 
         m_cancelFlushSchedule();
@@ -98,25 +96,32 @@ public:
         if (m_bufferedSize > flushThreshold()) {
             // We're always returning "everything" on success, so provider has
             // to try to save everything and return an error if not successful.
-            pushBuffer(lock);
+            pushBuffer(ctx, p, lock);
         }
 
         return asio::buffer_size(buf);
     }
 
-    void flush()
+    void flush(CTXPtr ctx, const boost::filesystem::path &p)
     {
         std::unique_lock<std::mutex> lock{m_mutex};
+        m_lastCtx = ctx;
+        m_lastPath = p;
+
         throwLastError();
 
-        pushBuffer(lock);
+        pushBuffer(ctx, p, lock);
     }
 
-    void fsync()
+    void fsync(CTXPtr ctx, const boost::filesystem::path &p)
     {
         std::unique_lock<std::mutex> lock{m_mutex};
+        m_lastCtx = ctx;
+        m_lastPath = p;
+
         throwLastError();
-        pushBuffer(lock);
+
+        pushBuffer(ctx, p, lock);
 
         while (!m_lastError && m_pendingConfirmation > 0)
             if (m_confirmationCondition.wait_for(
@@ -126,55 +131,61 @@ public:
         throwLastError();
     }
 
-    void release(VoidCallback callback) { fsync(); }
-
 private:
     void scheduleFlush()
     {
         m_cancelFlushSchedule = m_scheduler.schedule(m_flushWriteAfter, [this] {
             std::unique_lock<std::mutex> lock_{m_mutex};
-            pushBuffer(lock_);
+            pushBuffer(m_lastCtx, m_lastPath, lock_);
             scheduleFlush();
         });
     }
 
-    void pushBuffer(std::unique_lock<std::mutex> &lock)
+    void pushBuffer(CTXPtr ctx, const boost::filesystem::path &p,
+        std::unique_lock<std::mutex> &lock)
     {
         if (m_bufferedSize == 0)
             return;
 
-        // Possible todo: minimizing data sent
-        messages::proxyio::RemoteWrite msg{
-            m_params, m_storageId, m_fileId, std::move(m_buffers)};
+        auto startPoint = std::chrono::steady_clock::now();
+        auto buffers =
+            std::make_shared<decltype(m_buffers)>(std::move(m_buffers));
 
         auto sentSize = m_bufferedSize;
         m_pendingConfirmation += sentSize;
         m_bufferedSize = 0;
         m_buffers = {};
 
-        auto startPoint = std::chrono::steady_clock::now();
+        auto callback = [ =, b = buffers ](
+            std::size_t wrote, const std::error_code &ec) mutable
+        {
+            if (!ec) {
+                auto bandwidth = wrote * 1000 /
+                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                        std::chrono::steady_clock::now() - startPoint)
+                        .count();
 
-        m_communicator.communicate<messages::proxyio::RemoteWriteResult>(
-            std::move(msg), [=](auto &ec, auto rd) {
+                std::lock_guard<std::mutex> guard{m_mutex};
+                m_bps = (m_bps * 1 + bandwidth * 2) / 3;
+                m_readCache->clear();
+            }
 
-                if (!ec) {
-                    auto bandwidth = rd->wrote() * 1000 /
-                        std::chrono::duration_cast<std::chrono::milliseconds>(
-                            std::chrono::steady_clock::now() - startPoint)
-                            .count();
+            std::lock_guard<std::mutex> guard{m_mutex};
+            if (ec)
+                m_lastError = ec;
 
-                    std::lock_guard<std::mutex> guard{this->m_mutex};
-                    this->m_bps = (m_bps * 1 + bandwidth * 2) / 3;
-                    this->m_readCache->clear();
-                }
+            m_pendingConfirmation -= sentSize;
+            m_confirmationCondition.notify_all();
+        };
 
-                std::lock_guard<std::mutex> guard{this->m_mutex};
-                if (ec)
-                    this->m_lastError = ec;
-
-                this->m_pendingConfirmation -= sentSize;
-                this->m_confirmationCondition.notify_all();
+        std::vector<std::pair<off_t, asio::const_buffer>> bufBuffers;
+        std::transform(buffers->begin(), buffers->end(),
+            std::back_inserter(bufBuffers), [](const auto &e) {
+                return std::make_pair(e.first, asio::buffer(e.second));
             });
+
+        m_helper.ash_multiwrite(
+            std::move(ctx), p, std::move(bufBuffers), std::move(callback));
 
         while (!m_lastError && m_pendingConfirmation > confirmThreshold())
             if (m_confirmationCondition.wait_for(
@@ -221,18 +232,17 @@ private:
         }
     }
 
-    std::string m_storageId;
-    std::string m_fileId;
-    std::unordered_map<std::string, std::string> m_params;
     std::size_t m_minWriteChunkSize;
     std::size_t m_maxWriteChunkSize;
     std::chrono::seconds m_flushWriteAfter;
 
+    IStorageHelper &m_helper;
     Scheduler &m_scheduler;
-    communication::Communicator &m_communicator;
     std::shared_ptr<ReadCache> m_readCache;
 
     std::function<void()> m_cancelFlushSchedule;
+    CTXPtr m_lastCtx;
+    boost::filesystem::path m_lastPath;
 
     std::size_t m_bufferedSize = 0;
     std::vector<std::pair<off_t, std::string>> m_buffers;
@@ -248,4 +258,4 @@ private:
 } // namespace helpers
 } // namespace one
 
-#endif // HELPERS_PROXYIO_WRITE_BUFFER_H
+#endif // HELPERS_BUFFERING_WRITE_BUFFER_H

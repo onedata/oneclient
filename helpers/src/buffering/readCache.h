@@ -6,8 +6,8 @@
  * 'LICENSE.txt'
  */
 
-#ifndef HELPERS_PROXYIO_READ_CACHE_H
-#define HELPERS_PROXYIO_READ_CACHE_H
+#ifndef HELPERS_BUFFERING_READ_CACHE_H
+#define HELPERS_BUFFERING_READ_CACHE_H
 
 #include "communication/communicator.h"
 #include "helpers/IStorageHelper.h"
@@ -21,26 +21,21 @@
 
 namespace one {
 namespace helpers {
-namespace proxyio {
+namespace buffering {
 
 class ReadCache {
 public:
-    ReadCache(std::string storageId, std::string fileId,
-        std::unordered_map<std::string, std::string> params,
-        std::size_t minReadChunkSize, std::size_t maxReadChunkSize,
-        std::chrono::seconds readAheadFor,
-        communication::Communicator &communicator, Scheduler &scheduler)
-        : m_storageId{std::move(storageId)}
-        , m_fileId{std::move(fileId)}
-        , m_params{std::move(params)}
-        , m_minReadChunkSize{minReadChunkSize}
+    ReadCache(std::size_t minReadChunkSize, std::size_t maxReadChunkSize,
+        std::chrono::seconds readAheadFor, IStorageHelper &helper)
+        : m_minReadChunkSize{minReadChunkSize}
         , m_maxReadChunkSize{maxReadChunkSize}
         , m_readAheadFor{readAheadFor}
-        , m_communicator{communicator}
+        , m_helper{helper}
     {
     }
 
-    asio::mutable_buffer read(asio::mutable_buffer buf, const off_t offset)
+    asio::mutable_buffer read(CTXPtr ctx, const boost::filesystem::path &p,
+        asio::mutable_buffer buf, const off_t offset)
     {
         if (m_clear ||
             m_lastCacheRefresh + std::chrono::seconds{5} <
@@ -64,7 +59,7 @@ public:
             m_lastCacheRefresh = std::chrono::steady_clock::now();
 
             m_pendingReadOffset = m_lastReadOffset + m_lastRead.size();
-            m_pendingRead = download(m_pendingReadOffset, blockSize());
+            m_pendingRead = download(ctx, p, m_pendingReadOffset, blockSize());
 
             if (offset <
                 static_cast<off_t>(m_lastReadOffset + m_lastRead.size())) {
@@ -76,9 +71,9 @@ public:
         }
 
         auto size = asio::buffer_size(buf);
-        auto future = download(offset, size);
+        auto future = download(ctx, p, offset, size);
         m_pendingReadOffset = offset + size;
-        m_pendingRead = download(m_pendingReadOffset, blockSize());
+        m_pendingRead = download(ctx, p, m_pendingReadOffset, blockSize());
 
         m_lastReadOffset = offset;
         m_lastRead = readFuture(future);
@@ -91,36 +86,37 @@ public:
     void clear() { m_clear = true; }
 
 private:
-    std::future<std::string> download(
-        const off_t offset, const std::size_t block)
+    std::future<std::string> download(CTXPtr ctx,
+        const boost::filesystem::path &p, const off_t offset,
+        const std::size_t block)
     {
-        messages::proxyio::RemoteRead msg{
-            m_params, m_storageId, m_fileId, offset, block};
-
         auto promise = std::make_shared<std::promise<std::string>>();
         auto future = promise->get_future();
         auto startPoint = std::chrono::steady_clock::now();
+        auto stringBuffer = std::make_shared<std::string>(block, '\0');
 
-        auto callback = [=](const std::error_code &ec,
-            std::unique_ptr<messages::proxyio::RemoteData> rd) mutable {
+        auto callback = [=](
+            asio::mutable_buffer buf, const std::error_code &ec) mutable {
             if (ec) {
                 promise->set_exception(
                     std::make_exception_ptr(std::system_error{ec}));
             }
             else {
-                auto bandwidth = rd->mutableData().size() * 1000 /
+                auto bandwidth = asio::buffer_size(buf) * 1000 /
                     std::chrono::duration_cast<std::chrono::milliseconds>(
                         std::chrono::steady_clock::now() - startPoint)
                         .count();
 
                 std::lock_guard<std::mutex> guard{m_mutex};
                 m_bps = (m_bps * 1 + bandwidth * 2) / 3;
-                promise->set_value(std::move(rd->mutableData()));
-            }
+
+                stringBuffer->resize(asio::buffer_size(buf));
+                promise->set_value(std::move(*stringBuffer));
+            };
         };
 
-        m_communicator.communicate<messages::proxyio::RemoteData>(
-            std::move(msg), std::move(callback));
+        auto buf = asio::buffer(&(*stringBuffer)[0], stringBuffer->size());
+        m_helper.ash_read(std::move(ctx), p, buf, offset, std::move(callback));
 
         return future;
     }
@@ -139,13 +135,10 @@ private:
         return communication::wait(future, timeout);
     }
 
-    std::string m_storageId;
-    std::string m_fileId;
-    std::unordered_map<std::string, std::string> m_params;
     const std::size_t m_minReadChunkSize;
     const std::size_t m_maxReadChunkSize;
     const std::chrono::seconds m_readAheadFor;
-    communication::Communicator &m_communicator;
+    IStorageHelper &m_helper;
 
     std::mutex m_mutex;
     std::size_t m_bps = 0;
@@ -162,4 +155,4 @@ private:
 } // namespace helpers
 } // namespace one
 
-#endif // HELPERS_PROXYIO_READ_CACHE_H
+#endif // HELPERS_BUFFERING_READ_CACHE_H
