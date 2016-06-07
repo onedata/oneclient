@@ -12,7 +12,6 @@
 #include "communication/communicator.h"
 #include "helpers/IStorageHelper.h"
 #include "helpers/storageHelperFactory.h"
-#include "proxyio/bufferAgent.h"
 #include "scheduler.h"
 #include "storageAccessManager.h"
 
@@ -110,12 +109,8 @@ private:
 
     std::thread m_thread;
 
-    std::shared_ptr<helpers::proxyio::BufferAgent> m_bufferAgent =
-        std::make_shared<helpers::proxyio::BufferAgent>(
-            helpers::proxyio::BufferLimits{}, m_communicator, m_scheduler);
-
     helpers::StorageHelperFactory m_helperFactory{
-        m_ioService, m_ioService, m_ioService, m_bufferAgent};
+        m_ioService, m_ioService, m_ioService, m_communicator};
 
     StorageAccessManager m_storageAccessManager;
 };
