@@ -107,3 +107,7 @@ message ChildLink {
     required bytes uuid = 1;
     required bytes name = 2;
 }
+
+message Dir {
+    required bytes uuid = 1;
+}
