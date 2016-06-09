@@ -39,6 +39,8 @@ def _tweak_config(config, os_config, name, uid):
                          'user_cert': client['user_cert'],
                          'mounting_path': client['mounting_path'],
                          'token_for': client['token_for']}
+        if 'default_timeout' in client.keys():
+            client_config['default_timeout'] = client['default_timeout']
 
         node['clients'].append(client_config)
 
@@ -76,6 +78,9 @@ bindfs --create-for-user={uid} --create-for-group={gid} /tmp /tmp
                                     'zone_domain': client['zone_domain'],
                                     'mounting_path': client['mounting_path'],
                                     'token_for': client['token_for']}
+        if 'default_timeout' in client.keys():
+            client_data[client_name]['default_timeout'] = client['default_timeout']
+
         # cert_file_path and key_file_path can both be an absolute path
         # or relative to gen_dev_args.json
         cert_file_path = os.path.join(common.get_file_dir(config_path),

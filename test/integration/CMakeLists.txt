@@ -1,6 +1,7 @@
 file(COPY ${PROJECT_SOURCE_DIR}/appmock DESTINATION ${PROJECT_BINARY_DIR})
 file(COPY ${PROJECT_SOURCE_DIR}/bamboos DESTINATION ${PROJECT_BINARY_DIR})
-file(COPY conftest.py test_common.py DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+file(COPY conftest.py test_common.py key_value_test_base.py
+     DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 set(APPMOCK_BINARY ${PROJECT_BINARY_DIR}/appmock/rel/appmock/bin/appmock)
 add_custom_command(OUTPUT ${APPMOCK_BINARY}

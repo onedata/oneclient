@@ -61,6 +61,19 @@ set(AWS_SDK_LIBRARIES
     ${AWS_SKD_CORE_LIBRARY}
     ${CURL_LIBRARIES})
 
+# Swift SDK library
+find_library(SWIFT_SDK_LIBRARY Swift)
+find_library(POCO_FOUNDATION PocoFoundation)
+find_library(POCO_NET PocoNet)
+find_library(POCO_XML PocoXML)
+find_library(POCO_UTIL PocoUtil)
+set(SWIFT_SDK_LIBRARIES
+    ${SWIFT_SDK_LIBRARY}
+    ${POCO_FOUNDATION}
+    ${POCO_NET}
+    ${POCO_XML}
+    ${POCO_UTIL})
+
 # Setup compile flags
 set(PLATFORM_EXTRA_LIBS
     ${CMAKE_THREAD_LIBS_INIT}
