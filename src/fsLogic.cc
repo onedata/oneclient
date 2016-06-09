@@ -228,6 +228,9 @@ int FsLogic::rename(
     auto uuidChanges = m_metadataCache.rename(oldPath, newPath);
     for (auto &uuidChange : uuidChanges) {
         m_attrExpirationHelper.rename(uuidChange.first, uuidChange.second, [&] {
+            m_fsSubscriptions.removeFileAttrSubscription(uuidChange.first);
+            m_fsSubscriptions.removeFileRemovalSubscription(uuidChange.first);
+            m_fsSubscriptions.removeFileRenamedSubscription(uuidChange.first);
             m_metadataCache.getAttr(uuidChange.second);
             m_fsSubscriptions.addFileAttrSubscription(uuidChange.second);
             m_fsSubscriptions.addFileRemovalSubscription(uuidChange.second);
@@ -960,6 +963,12 @@ events::FileRenamedEventStream::Handler FsLogic::fileRenamedHandler()
 
             m_attrExpirationHelper.rename(
                 topEntry.oldUuid(), topEntry.newUuid(), [&] {
+                    m_fsSubscriptions.removeFileAttrSubscription(
+                        topEntry.oldUuid());
+                    m_fsSubscriptions.removeFileRemovalSubscription(
+                        topEntry.oldUuid());
+                    m_fsSubscriptions.removeFileRenamedSubscription(
+                        topEntry.oldUuid());
                     m_metadataCache.getAttr(topEntry.newUuid());
                     m_fsSubscriptions.addFileAttrSubscription(
                         topEntry.newUuid());
@@ -975,6 +984,12 @@ events::FileRenamedEventStream::Handler FsLogic::fileRenamedHandler()
 
                 m_attrExpirationHelper.rename(
                     childEntry.oldUuid(), childEntry.newUuid(), [&] {
+                        m_fsSubscriptions.removeFileAttrSubscription(
+                            childEntry.oldUuid());
+                        m_fsSubscriptions.removeFileRemovalSubscription(
+                            childEntry.oldUuid());
+                        m_fsSubscriptions.removeFileRenamedSubscription(
+                            childEntry.oldUuid());
                         m_metadataCache.getAttr(childEntry.newUuid());
                         m_fsSubscriptions.addFileAttrSubscription(
                             childEntry.newUuid());

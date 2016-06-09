@@ -163,23 +163,26 @@ public:
     template <typename CacheFun>
     void rename(const Key &oldKey, const Key &newKey, CacheFun &&cache)
     {
-        std::shared_lock<decltype(m_mutex)> lock{m_mutex};
         if (oldKey == newKey)
             return;
+        std::shared_lock<decltype(m_mutex)> lock{m_mutex};
 
         typename decltype(m_expDetails)::accessor oldAcc;
         typename decltype(m_expDetails)::accessor newAcc;
 
+        // Always take locks in fixed order, to avoid deadlock
         if (oldKey < newKey) {
-            if (!m_expDetails.find(oldAcc, oldKey))
-                return;
-            if (m_expDetails.insert(newAcc, newKey))
+            if (m_expDetails.find(oldAcc, oldKey) &&
+                m_expDetails.insert(newAcc, newKey))
                 cache();
+            else
+                return;
         }
         else {
-            if (m_expDetails.insert(newAcc, newKey))
+            if (m_expDetails.insert(newAcc, newKey) &&
+                m_expDetails.find(oldAcc, oldKey))
                 cache();
-            if (!m_expDetails.find(oldAcc, oldKey))
+            else
                 return;
         }
 
