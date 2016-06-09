@@ -191,12 +191,10 @@ std::vector<std::pair<std::string, std::string>> MetadataCache::rename(
             // should be removed from cache, since it has been overwritten.
             // If it was open, it has been renamed to fuse hidden file
             // before this rename operation.
-            MetaAccessor targetMetaAcc;
             if (newUuidAcc->second != "") {
+                MetaAccessor targetMetaAcc;
                 if (get(targetMetaAcc, newUuidAcc->second)) {
-                    // Remove path to preserve path inserted with newUuidAcc
-                    targetMetaAcc->second.path = boost::none;
-                    remove(newUuidAcc->second);
+                    m_metaCache.erase(targetMetaAcc);
                 }
             }
 
