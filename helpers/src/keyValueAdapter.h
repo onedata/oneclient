@@ -45,37 +45,37 @@ public:
         asio::io_service &service, Locks &locks,
         std::size_t blockSize = DEFAULT_BLOCK_SIZE);
 
-    CTXPtr createCTX(
+    virtual CTXPtr createCTX(
         std::unordered_map<std::string, std::string> params) override;
 
-    void ash_unlink(CTXPtr ctx, const boost::filesystem::path &p,
+    virtual void ash_unlink(CTXPtr ctx, const boost::filesystem::path &p,
         VoidCallback callback) override;
 
-    void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
+    virtual void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
         asio::mutable_buffer buf, off_t offset,
         GeneralCallback<asio::mutable_buffer> callback) override;
 
-    void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
+    virtual void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
         asio::const_buffer buf, off_t offset,
         GeneralCallback<std::size_t> callback) override;
 
-    void ash_truncate(CTXPtr ctx, const boost::filesystem::path &p, off_t size,
-        VoidCallback callback) override;
+    virtual void ash_truncate(CTXPtr ctx, const boost::filesystem::path &p,
+        off_t size, VoidCallback callback) override;
 
-    void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        FlagsSet flags, dev_t rdev, VoidCallback callback) override
+    virtual void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p,
+        mode_t mode, FlagsSet flags, dev_t rdev, VoidCallback callback) override
     {
         callback(SUCCESS_CODE);
     }
 
-    void ash_mkdir(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        VoidCallback callback) override
+    virtual void ash_mkdir(CTXPtr ctx, const boost::filesystem::path &p,
+        mode_t mode, VoidCallback callback) override
     {
         callback(SUCCESS_CODE);
     }
 
-    void ash_chmod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        VoidCallback callback) override
+    virtual void ash_chmod(CTXPtr ctx, const boost::filesystem::path &p,
+        mode_t mode, VoidCallback callback) override
     {
         callback(SUCCESS_CODE);
     }
