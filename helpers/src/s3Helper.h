@@ -77,10 +77,6 @@ public:
     CTXPtr createCTX(
         std::unordered_map<std::string, std::string> params) override;
 
-    std::string getKey(std::string prefix, uint64_t objectId) override;
-
-    uint64_t getObjectId(std::string key) override;
-
     asio::mutable_buffer getObject(CTXPtr ctx, std::string key,
         asio::mutable_buffer buf, off_t offset) override;
 
@@ -97,8 +93,6 @@ public:
 
 private:
     std::shared_ptr<S3HelperCTX> getCTX(CTXPtr ctx) const;
-    std::string rangeToString(off_t lower, off_t upper) const;
-    std::string adjustPrefix(std::string prefix) const;
 
     template <typename Outcome> error_t getReturnCode(const Outcome &outcome)
     {
