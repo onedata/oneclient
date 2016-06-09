@@ -150,12 +150,13 @@ void MetadataCache::getLocation(MetadataCache::MetaAccessor &metaAcc,
     }
 }
 
-void MetadataCache::rename(
+std::vector<std::string> MetadataCache::rename(
     const MetadataCache::Path &oldPath, const MetadataCache::Path &newPath)
 {
     // By convention, to avoid deadlocks, always lock on path before metadata
     UuidAccessor newUuidAcc;
     m_pathToUuid.insert(newUuidAcc, newPath);
+    std::vector<std::string> newUuids;
 
     try {
         UuidAccessor oldUuidAcc;
@@ -191,8 +192,9 @@ void MetadataCache::rename(
             // If it was open, it has been renamed to fuse hidden file
             // before this rename operation.
             MetaAccessor targetMetaAcc;
-            if (newUuidAcc->second != "" && newUuidAcc->second != oldUuid) {
+            if (newUuidAcc->second != "") {
                 if (get(targetMetaAcc, newUuidAcc->second)) {
+                    // Remove path to preserve path inserted with newUuidAcc
                     targetMetaAcc->second.path = boost::none;
                     remove(newUuidAcc->second);
                 }
@@ -200,10 +202,12 @@ void MetadataCache::rename(
 
             auto newUuid = fileRenamed.newUuid();
             remapFile(oldMetaAcc, newUuidAcc, oldUuid, newUuid, newPath);
+            newUuids.emplace_back(newUuid);
 
             for (auto &childEntry : fileRenamed.childEntries()) {
                 remapFile(childEntry.oldUuid(), childEntry.newUuid(),
                     childEntry.newPath());
+                newUuids.emplace_back(childEntry.newUuid());
             }
         }
     }
@@ -211,6 +215,8 @@ void MetadataCache::rename(
         m_pathToUuid.erase(newUuidAcc);
         throw;
     }
+
+    return newUuids;
 }
 
 void MetadataCache::remapFile(MetaAccessor &oldMetaAcc,

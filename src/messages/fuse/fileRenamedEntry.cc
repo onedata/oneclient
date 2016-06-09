@@ -23,6 +23,13 @@ FileRenamedEntry::FileRenamedEntry(const ProtocolMessage &message)
 {
 }
 
+FileRenamedEntry::FileRenamedEntry(ProtocolMessage &message)
+{
+    message.mutable_old_uuid()->swap(m_oldUuid);
+    message.mutable_new_uuid()->swap(m_newUuid);
+    message.mutable_new_path()->swap(m_newPath);
+}
+
 const std::string &FileRenamedEntry::oldUuid() const { return m_oldUuid; }
 
 const std::string &FileRenamedEntry::newUuid() const { return m_newUuid; }

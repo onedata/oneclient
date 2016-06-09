@@ -27,10 +27,10 @@ FileRenamed::FileRenamed(std::unique_ptr<ProtocolServerMessage> serverMessage)
     auto fileRenamed =
         serverMessage->mutable_fuse_response()->mutable_file_renamed();
 
-    m_newUuid.swap(*fileRenamed->mutable_new_uuid());
+    fileRenamed->mutable_new_uuid()->swap(m_newUuid);
 
-    for (auto &childEntry : fileRenamed->child_entries()) {
-        m_childEntries.push_back(FileRenamedEntry{childEntry});
+    for (auto &childEntry : *fileRenamed->mutable_child_entries()) {
+        m_childEntries.emplace_back(FileRenamedEntry{childEntry});
     }
 }
 

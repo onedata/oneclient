@@ -225,7 +225,15 @@ int FsLogic::rename(
     DLOG(INFO) << "FUSE: rename(oldpath: " << oldPath
                << ", newpath: " << newPath << "')";
 
-    m_metadataCache.rename(oldPath, newPath);
+    auto newUuids = m_metadataCache.rename(oldPath, newPath);
+    for (auto &newUuid : newUuids) {
+        m_attrExpirationHelper.markInteresting(newUuid, [&] {
+            m_metadataCache.getAttr(newUuid);
+            m_fsSubscriptions.addFileAttrSubscription(newUuid);
+            m_fsSubscriptions.addFileRemovalSubscription(newUuid);
+            m_fsSubscriptions.addFileRenamedSubscription(newUuid);
+        });
+    }
 
     return 0;
 }
@@ -950,9 +958,29 @@ events::FileRenamedEventStream::Handler FsLogic::fileRenamedHandler()
             m_metadataCache.remapFile(
                 topEntry.oldUuid(), topEntry.newUuid(), topEntry.newPath());
 
+            m_attrExpirationHelper.markInteresting(topEntry.newUuid(), [&] {
+                m_metadataCache.getAttr(topEntry.newUuid());
+                m_fsSubscriptions.addFileAttrSubscription(topEntry.newUuid());
+                m_fsSubscriptions.addFileRemovalSubscription(
+                    topEntry.newUuid());
+                m_fsSubscriptions.addFileRenamedSubscription(
+                    topEntry.newUuid());
+            });
+
             for (auto &childEntry : event->childEntries()) {
                 m_metadataCache.remapFile(childEntry.oldUuid(),
                     childEntry.newUuid(), childEntry.newPath());
+
+                m_attrExpirationHelper.markInteresting(
+                    childEntry.newUuid(), [&] {
+                        m_metadataCache.getAttr(childEntry.newUuid());
+                        m_fsSubscriptions.addFileAttrSubscription(
+                            childEntry.newUuid());
+                        m_fsSubscriptions.addFileRemovalSubscription(
+                            childEntry.newUuid());
+                        m_fsSubscriptions.addFileRenamedSubscription(
+                            childEntry.newUuid());
+                    });
             }
 
             LOG(INFO) << "File renamed event received: " << topEntry.oldUuid();

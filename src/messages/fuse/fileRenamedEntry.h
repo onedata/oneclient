@@ -36,6 +36,14 @@ public:
     FileRenamedEntry(const ProtocolMessage &message);
 
     /**
+     * Constructor.
+     * @param message Protocol Buffers message representing @c FileRenamedEntry
+     * counterpart.
+     */
+    FileRenamedEntry(ProtocolMessage &message);
+
+
+    /**
      * @return Old Uuid of renamed file.
      */
     const std::string &oldUuid() const;
