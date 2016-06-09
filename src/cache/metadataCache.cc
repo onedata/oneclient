@@ -150,13 +150,13 @@ void MetadataCache::getLocation(MetadataCache::MetaAccessor &metaAcc,
     }
 }
 
-std::vector<std::string> MetadataCache::rename(
+std::vector<std::pair<std::string, std::string>> MetadataCache::rename(
     const MetadataCache::Path &oldPath, const MetadataCache::Path &newPath)
 {
     // By convention, to avoid deadlocks, always lock on path before metadata
     UuidAccessor newUuidAcc;
     m_pathToUuid.insert(newUuidAcc, newPath);
-    std::vector<std::string> newUuids;
+    std::vector<std::pair<std::string, std::string>> uuidChanges;
 
     try {
         UuidAccessor oldUuidAcc;
@@ -203,14 +203,14 @@ std::vector<std::string> MetadataCache::rename(
             auto newUuid = fileRenamed.newUuid();
             remapFile(oldMetaAcc, newUuidAcc, oldUuid, newUuid, newPath);
             if (oldUuid != newUuid)
-                newUuids.emplace_back(newUuid);
+                uuidChanges.emplace_back(std::make_pair(oldUuid, newUuid));
 
             for (auto &childEntry : fileRenamed.childEntries()) {
                 remapFile(childEntry.oldUuid(), childEntry.newUuid(),
                     childEntry.newPath());
 
-                if (childEntry.oldUuid() != childEntry.newUuid())
-                    newUuids.emplace_back(childEntry.newUuid());
+                uuidChanges.emplace_back(
+                    std::make_pair(childEntry.oldUuid(), childEntry.newUuid()));
             }
         }
     }
@@ -219,7 +219,7 @@ std::vector<std::string> MetadataCache::rename(
         throw;
     }
 
-    return newUuids;
+    return uuidChanges;
 }
 
 void MetadataCache::remapFile(MetaAccessor &oldMetaAcc,
@@ -231,13 +231,15 @@ void MetadataCache::remapFile(MetaAccessor &oldMetaAcc,
 
     m_pathToUuid.erase(oldMetaAcc->second.path.get());
     if (newUuid != oldUuid) {
-        // Copy and modify old metadata if uuid has changed
+        // Copy and update old metadata if uuid has changed
+        auto attr = oldMetaAcc->second.attr;
+        m_metaCache.erase(oldMetaAcc);
+
         MetaAccessor newMetaAcc;
         m_metaCache.insert(newMetaAcc, newUuid);
-        newMetaAcc->second.attr = oldMetaAcc->second.attr;
+        newMetaAcc->second.attr = attr;
         newMetaAcc->second.attr->uuid(newUuid);
         newMetaAcc->second.path = newPath;
-        m_metaCache.erase(oldMetaAcc);
     }
     else {
         // Update metadata if uuid has not changed

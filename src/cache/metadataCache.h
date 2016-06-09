@@ -161,12 +161,13 @@ public:
 
     /**
      * Renames a file in the cache through changing or removing mappings
-     * and returns vector of new UUIDs.
+     * and returns vector of pairs representing UUIDs changes.
      * @param oldPath Path to rename from.
      * @param newPath Path to rename to.
-     * @return Vector of new UUIDs.
+     * @return Vector of pairs representing UUIDs changes.
      */
-    std::vector<std::string> rename(const Path &oldPath, const Path &newPath);
+    std::vector<std::pair<std::string, std::string>> rename(
+        const Path &oldPath, const Path &newPath);
 
     /**
      * Changes path and uuid of single file and deletes its location.

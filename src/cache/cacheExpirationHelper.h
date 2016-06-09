@@ -152,6 +152,49 @@ public:
     }
 
     /**
+     * Renames a record.
+     * Renamed record will retain bucket and pins count.
+     * @param key The old key of the renamed record.
+     * @param key The new key of the renamed record.
+     * @param cache Callable taking no arguments, that ensures the element is in
+     * the cache. It will only be called if oldKey and newKey differ and the
+     * element was not already tracked by @c *this .
+     */
+    template <typename CacheFun>
+    void rename(const Key &oldKey, const Key &newKey, CacheFun &&cache)
+    {
+        std::shared_lock<decltype(m_mutex)> lock{m_mutex};
+        if (oldKey == newKey)
+            return;
+
+        typename decltype(m_expDetails)::accessor oldAcc;
+        typename decltype(m_expDetails)::accessor newAcc;
+
+        if (oldKey < newKey) {
+            if (!m_expDetails.find(oldAcc, oldKey))
+                return;
+            if (m_expDetails.insert(newAcc, newKey))
+                cache();
+        }
+        else {
+            if (m_expDetails.insert(newAcc, newKey))
+                cache();
+            if (!m_expDetails.find(oldAcc, oldKey))
+                return;
+        }
+
+        if (oldAcc->second.bucket) {
+            oldAcc->second.bucket->erase(oldKey);
+            typename Set::const_accessor sacc;
+            if (!oldAcc->second.bucket->insert(sacc, newKey))
+                assert(false);
+            newAcc->second.bucket = oldAcc->second.bucket;
+        }
+        newAcc->second.pinnedCount = oldAcc->second.pinnedCount;
+        m_expDetails.erase(oldAcc);
+    }
+
+    /**
     * Schedules an unpinned record to be removed on next call to @c tick() .
     */
     void expire(const Key &key)
