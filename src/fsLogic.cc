@@ -893,14 +893,13 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
 
             MetadataCache::MetaAccessor metaAcc;
             m_metadataCache.getAttr(metaAcc, event->fileUuid());
-
             metaAcc->second.state = MetadataCache::FileState::removedUpstream;
-            auto paths = metaAcc->second.paths;
-            metaAcc.release();
 
-            auto dir = m_context->options()->get_mountpoint();
-            for (auto &path : paths) {
+            if (metaAcc->second.path) {
+                auto path = metaAcc->second.path.get();
+                metaAcc.release();
                 try {
+                    auto dir = m_context->options()->get_mountpoint();
                     std::remove((dir / path).c_str());
                 }
                 catch (std::system_error &e) {
@@ -934,7 +933,7 @@ events::FileRenamedEventStream::Handler FsLogic::fileRenamedHandler()
             MetadataCache::MetaAccessor metaAcc;
             m_metadataCache.getAttr(metaAcc, topEntry.oldUuid());
             metaAcc->second.state = MetadataCache::FileState::renamedUpstream;
-            auto fromPath = *metaAcc->second.paths.begin();
+            auto fromPath = metaAcc->second.path.get();
             metaAcc.release();
 
             auto dir = m_context->options()->get_mountpoint();

@@ -82,7 +82,7 @@ void MetadataCache::getAttr(
 {
     if (!m_pathToUuid.insert(uuidAcc, path)) {
         getAttr(metaAcc, uuidAcc->second);
-        metaAcc->second.paths.emplace(path);
+        metaAcc->second.path = path;
         return;
     }
 
@@ -96,7 +96,7 @@ void MetadataCache::getAttr(
             // to avoid race conditions with our own write events.
             metaAcc->second.attr = std::move(attr);
         }
-        metaAcc->second.paths.emplace(path);
+        metaAcc->second.path = path;
     }
     catch (...) {
         if (!metaAcc.empty())
@@ -170,8 +170,7 @@ void MetadataCache::rename(
         if (oldMetaAcc->second.state == FileState::removedUpstream) {
             // This rename operation was executed by fileRemovalHandler
             // Only oldPath is changed to newPath
-            oldMetaAcc->second.paths.erase(oldPath);
-            oldMetaAcc->second.paths.emplace(newPath);
+            oldMetaAcc->second.path = newPath;
             newUuidAcc->second = oldUuid;
         }
         else if (oldMetaAcc->second.state == FileState::renamedUpstream) {
@@ -193,9 +192,8 @@ void MetadataCache::rename(
             // before this rename operation.
             MetaAccessor targetMetaAcc;
             if (newUuidAcc->second != "" && newUuidAcc->second != oldUuid) {
-                LOG(ERROR) << newUuidAcc->first << " " << newUuidAcc->second;
                 if (get(targetMetaAcc, newUuidAcc->second)) {
-                    targetMetaAcc->second.paths.clear();
+                    targetMetaAcc->second.path = boost::none;
                     remove(newUuidAcc->second);
                 }
             }
@@ -222,22 +220,19 @@ void MetadataCache::remapFile(MetaAccessor &oldMetaAcc,
     newUuidAcc->second = newUuid;
     newUuidAcc.release();
 
-    for (auto &path : oldMetaAcc->second.paths)
-        m_pathToUuid.erase(path);
-
-    oldMetaAcc->second.paths.clear();
+    m_pathToUuid.erase(oldMetaAcc->second.path.get());
     if (newUuid != oldUuid) {
         // Copy and modify old metadata if uuid has changed
         MetaAccessor newMetaAcc;
         m_metaCache.insert(newMetaAcc, newUuid);
         newMetaAcc->second.attr = oldMetaAcc->second.attr;
         newMetaAcc->second.attr->uuid(newUuid);
-        newMetaAcc->second.paths.emplace(newPath);
+        newMetaAcc->second.path = newPath;
         m_metaCache.erase(oldMetaAcc);
     }
     else {
         // Update metadata if uuid has not changed
-        oldMetaAcc->second.paths.emplace(newPath);
+        oldMetaAcc->second.path = newPath;
         oldMetaAcc->second.location = boost::none;
         oldMetaAcc.release();
     }
@@ -262,7 +257,7 @@ void MetadataCache::map(Path path, std::string uuid)
     m_metaCache.insert(metaAcc, uuid);
 
     uuidAcc->second = std::move(uuid);
-    metaAcc->second.paths.emplace(std::move(path));
+    metaAcc->second.path = std::move(path);
 }
 
 void MetadataCache::map(Path path, FileLocation location)
@@ -274,38 +269,20 @@ void MetadataCache::map(Path path, FileLocation location)
     m_metaCache.insert(metaAcc, location.uuid());
 
     uuidAcc->second = location.uuid();
-    metaAcc->second.paths.emplace(std::move(path));
+    metaAcc->second.path = std::move(path);
     metaAcc->second.location = std::move(location);
 }
 
 void MetadataCache::remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc)
 {
-    auto paths = metaAcc->second.paths;
     m_metaCache.erase(metaAcc);
     m_pathToUuid.erase(uuidAcc);
-
-    for (auto &path : paths)
-        m_pathToUuid.erase(path);
-}
-
-void MetadataCache::removePathMappings(
-    UuidAccessor &uuidAcc, MetaAccessor &metaAcc)
-{
-    metaAcc->second.paths.erase(uuidAcc->first);
-    m_pathToUuid.erase(uuidAcc);
-
-    auto paths = metaAcc->second.paths;
-    metaAcc->second.paths.clear();
-    metaAcc.release();
-
-    for (auto &path : paths)
-        m_pathToUuid.erase(path);
 }
 
 void MetadataCache::removePathMapping(
     UuidAccessor &uuidAcc, MetaAccessor &metaAcc)
 {
-    metaAcc->second.paths.erase(uuidAcc->first);
+    metaAcc->second.path = boost::none;
     m_pathToUuid.erase(uuidAcc);
 }
 
@@ -315,11 +292,15 @@ void MetadataCache::remove(const std::string &uuid)
     if (!m_metaCache.find(metaAcc, uuid))
         return;
 
-    auto paths = metaAcc->second.paths;
-    m_metaCache.erase(metaAcc);
+    if (metaAcc->second.path) {
+        UuidAccessor uuidAcc;
+        if (m_pathToUuid.find(uuidAcc, metaAcc->second.path.get())) {
+            remove(uuidAcc, metaAcc);
+            return;
+        }
+    }
 
-    for (auto &path : paths)
-        m_pathToUuid.erase(path);
+    m_metaCache.erase(metaAcc);
 }
 
 std::size_t MetadataCache::PathHash::hash(const Path &path)

@@ -20,16 +20,6 @@
 
 #include <condition_variable>
 #include <helpers/IStorageHelper.h>
-#include <unordered_set>
-
-namespace std {
-template <> struct hash<boost::filesystem::path> {
-    size_t operator()(const boost::filesystem::path &p) const
-    {
-        return boost::filesystem::hash_value(p);
-    }
-};
-}
 
 namespace one {
 namespace client {
@@ -49,7 +39,7 @@ public:
      * @c Metadata holds metadata of a file.
      */
     struct Metadata {
-        std::unordered_set<Path> paths;
+        boost::optional<Path> path;
         boost::optional<FileAttr> attr;
         boost::optional<FileLocation> location;
         FileState state = normal;
@@ -203,14 +193,6 @@ public:
      * @param metaAcc Accessor to metadata mapping to remove.
      */
     void remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
-
-    /**
-     * Removes a UUID entries (path mappings) from the cache.
-     * This action will release metaAcc.
-     * @param uuidAcc Accessor to UUID mapping to remove.
-     * @param metaAcc Accessor to metadata mapping.
-     */
-    void removePathMappings(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
 
     /**
      * Removes a UUID entry (path mapping) from the cache.
