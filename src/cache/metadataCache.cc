@@ -202,12 +202,15 @@ std::vector<std::string> MetadataCache::rename(
 
             auto newUuid = fileRenamed.newUuid();
             remapFile(oldMetaAcc, newUuidAcc, oldUuid, newUuid, newPath);
-            newUuids.emplace_back(newUuid);
+            if (oldUuid != newUuid)
+                newUuids.emplace_back(newUuid);
 
             for (auto &childEntry : fileRenamed.childEntries()) {
                 remapFile(childEntry.oldUuid(), childEntry.newUuid(),
                     childEntry.newPath());
-                newUuids.emplace_back(childEntry.newUuid());
+
+                if (childEntry.oldUuid() != childEntry.newUuid())
+                    newUuids.emplace_back(childEntry.newUuid());
             }
         }
     }

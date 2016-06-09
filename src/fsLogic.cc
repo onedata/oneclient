@@ -958,29 +958,32 @@ events::FileRenamedEventStream::Handler FsLogic::fileRenamedHandler()
             m_metadataCache.remapFile(
                 topEntry.oldUuid(), topEntry.newUuid(), topEntry.newPath());
 
-            m_attrExpirationHelper.markInteresting(topEntry.newUuid(), [&] {
-                m_metadataCache.getAttr(topEntry.newUuid());
-                m_fsSubscriptions.addFileAttrSubscription(topEntry.newUuid());
-                m_fsSubscriptions.addFileRemovalSubscription(
-                    topEntry.newUuid());
-                m_fsSubscriptions.addFileRenamedSubscription(
-                    topEntry.newUuid());
-            });
+            if (topEntry.oldUuid() != topEntry.newUuid())
+                m_attrExpirationHelper.markInteresting(topEntry.newUuid(), [&] {
+                    m_metadataCache.getAttr(topEntry.newUuid());
+                    m_fsSubscriptions.addFileAttrSubscription(
+                        topEntry.newUuid());
+                    m_fsSubscriptions.addFileRemovalSubscription(
+                        topEntry.newUuid());
+                    m_fsSubscriptions.addFileRenamedSubscription(
+                        topEntry.newUuid());
+                });
 
             for (auto &childEntry : event->childEntries()) {
                 m_metadataCache.remapFile(childEntry.oldUuid(),
                     childEntry.newUuid(), childEntry.newPath());
 
-                m_attrExpirationHelper.markInteresting(
-                    childEntry.newUuid(), [&] {
-                        m_metadataCache.getAttr(childEntry.newUuid());
-                        m_fsSubscriptions.addFileAttrSubscription(
-                            childEntry.newUuid());
-                        m_fsSubscriptions.addFileRemovalSubscription(
-                            childEntry.newUuid());
-                        m_fsSubscriptions.addFileRenamedSubscription(
-                            childEntry.newUuid());
-                    });
+                if (childEntry.oldUuid() != childEntry.newUuid())
+                    m_attrExpirationHelper.markInteresting(
+                        childEntry.newUuid(), [&] {
+                            m_metadataCache.getAttr(childEntry.newUuid());
+                            m_fsSubscriptions.addFileAttrSubscription(
+                                childEntry.newUuid());
+                            m_fsSubscriptions.addFileRemovalSubscription(
+                                childEntry.newUuid());
+                            m_fsSubscriptions.addFileRenamedSubscription(
+                                childEntry.newUuid());
+                        });
             }
 
             LOG(INFO) << "File renamed event received: " << topEntry.oldUuid();
