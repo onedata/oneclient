@@ -112,7 +112,8 @@ def create_storages(storages, op_nodes, op_config, bindir, storages_dockers):
     # copy escript to docker host
     script_names = {'posix': 'create_posix_storage.escript',
                     's3': 'create_s3_storage.escript',
-                    'ceph': 'create_ceph_storage.escript'}
+                    'ceph': 'create_ceph_storage.escript',
+                    'swift': 'create_swift_storage.escript'}
     pwd = common.get_script_dir()
     for script_name in script_names.values():
         command = ['cp', os.path.join(pwd, script_name),
@@ -149,12 +150,24 @@ def create_storages(storages, op_nodes, op_config, bindir, storages_dockers):
             config = storages_dockers['s3'][storage['name']]
             command = ['escript', script_paths['s3'], cookie,
                        first_node, storage['name'], config['host_name'],
-                       storage['bucket'], config['access_key'],
-                       config['secret_key'],
+                       config.get('scheme', 'http'), storage['bucket'],
+                       config['access_key'], config['secret_key'],
                        config.get('iam_request_scheme', 'https'),
                        config.get('iam_host', 'iam.amazonaws.com')]
             assert 0 is docker.exec_(container, command, tty=True,
                                      stdout=sys.stdout, stderr=sys.stderr)
+
+        elif storage['type'] == 'swift':
+            config = storages_dockers['swift'][storage['name']]
+            command = ['escript', script_paths['swift'], cookie,
+                       first_node, storage['name'],
+                       'http://{0}:{1}/v2.0/tokens'.format(config['host_name'],
+                                                    config['keystone_port']),
+                       storage['container'], config['tenant_name'],
+                       config['user_name'], config['password']]
+            assert 0 is docker.exec_(container, command, tty=True,
+                                     stdout=sys.stdout, stderr=sys.stderr)
+
         else:
             raise RuntimeError(
                 'Unknown storage type: {}'.format(storage['type']))

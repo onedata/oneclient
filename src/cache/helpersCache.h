@@ -110,7 +110,7 @@ private:
     std::thread m_thread;
 
     helpers::StorageHelperFactory m_helperFactory{
-        m_ioService, m_ioService, m_ioService, m_communicator};
+        m_ioService, m_ioService, m_ioService, m_ioService, m_communicator};
 
     StorageAccessManager m_storageAccessManager;
 };
