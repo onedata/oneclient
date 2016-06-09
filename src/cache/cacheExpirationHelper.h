@@ -170,26 +170,25 @@ public:
         typename decltype(m_expDetails)::accessor oldAcc;
         typename decltype(m_expDetails)::accessor newAcc;
 
+        auto newKeyTracked = false;
         // Always take locks in fixed order, to avoid deadlock
-        auto alreadyTracked = false;
         if (oldKey < newKey) {
-            if (!m_expDetails.find(oldAcc, oldKey))
-                // oldKey is not tracked, nothing to do
+            auto oldKeyTracked = m_expDetails.find(oldAcc, oldKey);
+            if (!oldKeyTracked)
                 return;
-            alreadyTracked = !m_expDetails.insert(newAcc, newKey);
+            newKeyTracked = !m_expDetails.insert(newAcc, newKey);
         }
         else {
-            alreadyTracked = !m_expDetails.insert(newAcc, newKey);
-            if (!m_expDetails.find(oldAcc, oldKey)) {
-                // oldKey is not tracked, revert inserting newKey
-                if (!alreadyTracked)
+            newKeyTracked = !m_expDetails.insert(newAcc, newKey);
+            auto oldKeyTracked = m_expDetails.find(oldAcc, oldKey);
+            if (!oldKeyTracked) {
+                if (!newKeyTracked)
                     m_expDetails.erase(newAcc);
                 return;
             }
         }
 
-        if (alreadyTracked) {
-            // both oldKey and newKey tracked, update
+        if (newKeyTracked) {
             newAcc->second.pinnedCount += oldAcc->second.pinnedCount;
             if (newAcc->second.pinnedCount > 0 && newAcc->second.bucket) {
                 newAcc->second.bucket->erase(newKey);
@@ -197,12 +196,9 @@ public:
             }
         }
         else {
-            // oldKey tracked and newKey not tracked, execute CacheFun
-            // and copy pins count from old to new
             cache();
             newAcc->second.pinnedCount = oldAcc->second.pinnedCount;
             if (newAcc->second.pinnedCount == 0) {
-                // if newKey should be in bucket, copy the one from oldKey
                 typename Set::const_accessor sacc;
                 if (!oldAcc->second.bucket->insert(sacc, newKey))
                     assert(false);
