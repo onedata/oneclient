@@ -39,6 +39,8 @@ const FileAttr::Key &FileAttr::key() const { return m_uuid; }
 
 const std::string &FileAttr::uuid() const { return m_uuid; }
 
+void FileAttr::uuid(const std::string uuid_) { m_uuid = uuid_; }
+
 mode_t FileAttr::mode() const { return m_mode; }
 
 void FileAttr::mode(const mode_t mode_) { m_mode = mode_; }

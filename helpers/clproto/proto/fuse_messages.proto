@@ -218,6 +218,7 @@ message FuseResponse {
         Acl acl = 14;
         FilePath file_path = 15;
         FileDistribution file_distribution = 16;
+        FileRenamed file_renamed = 17;
     }
 }
 
@@ -346,4 +347,10 @@ message ProviderFileDistribution {
 
 message FileDistribution {
     repeated ProviderFileDistribution provider_file_distributions = 1;
+}
+
+message FileRenamed {
+    required bytes new_uuid = 1;                 // new UUID of renamed file
+    repeated FileRenamedEntry child_entries = 2; // entries for children of
+                                                 // renamed file
 }

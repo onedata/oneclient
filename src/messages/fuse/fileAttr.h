@@ -69,6 +69,12 @@ public:
     const std::string &uuid() const;
 
     /**
+     * Sets new UUID of the file
+     * @param uuid The UUID to set.
+     */
+    void uuid(const std::string uuid);
+
+    /**
      * @return File access mode.
      */
     mode_t mode() const;

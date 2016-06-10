@@ -21,16 +21,8 @@
 #include <condition_variable>
 #include <helpers/IStorageHelper.h>
 #include <unordered_map>
-#include <unordered_set>
 
 namespace std {
-template <> struct hash<boost::filesystem::path> {
-    size_t operator()(const boost::filesystem::path &p) const
-    {
-        return boost::filesystem::hash_value(p);
-    }
-};
-
 template <> struct hash<one::helpers::Flag> {
     size_t operator()(const one::helpers::Flag &p) const
     {
@@ -51,15 +43,16 @@ public:
     using Path = boost::filesystem::path;
     using FileAttr = messages::fuse::FileAttr;
     using FileLocation = messages::fuse::FileLocation;
+    enum FileState { normal, removedUpstream, renamedUpstream };
 
     /**
      * @c Metadata holds metadata of a file.
      */
     struct Metadata {
-        std::unordered_set<Path> paths;
+        boost::optional<Path> path;
         boost::optional<FileAttr> attr;
         std::unordered_map<one::helpers::Flag, FileLocation> locations;
-        bool removedUpstream = false;
+        FileState state = normal;
     };
 
 private:
@@ -179,11 +172,35 @@ public:
         Path path, FileLocation location, const one::helpers::FlagsSet flags);
 
     /**
-     * Renames a file in the cache through changing or removing mappings.
+     * Renames a file in the cache through changing or removing mappings
+     * and returns vector of pairs representing UUIDs changes.
      * @param oldPath Path to rename from.
      * @param newPath Path to rename to.
+     * @return Vector of pairs representing UUIDs changes.
      */
-    void rename(const Path &oldPath, const Path &newPath);
+    std::vector<std::pair<std::string, std::string>> rename(
+        const Path &oldPath, const Path &newPath);
+
+    /**
+     * Changes path and uuid of single file and deletes its location.
+     * @param oldMetaAcc Accessor to metadata mapping to update.
+     * @param newUuidAcc Accessor to new UUID mapping.
+     * @param oldUuid Old UUID of updated file.
+     * @param newUuid New UUID of updated file.
+     * @param newPath New path of updated file.
+     */
+    void remapFile(MetaAccessor &oldMetaAcc, UuidAccessor &newUuidAcc,
+        const std::string &oldsUuid, const std::string &newUuid,
+        const Path &newPath);
+
+    /**
+     * Changes path and uuid of single file and deletes its location.
+     * @param oldUuid Old UUID of updated file.
+     * @param newUuid New UUID of updated file.
+     * @param newPath New path of updated file.
+     */
+    void remapFile(const std::string &oldUuid, const std::string &newUuid,
+        const Path &newPath);
 
     /**
      * Removes a UUID and metadata entries from the cache.
@@ -191,14 +208,6 @@ public:
      * @param metaAcc Accessor to metadata mapping to remove.
      */
     void remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
-
-    /**
-     * Removes a UUID entries (path mappings) from the cache.
-     * This action will release metaAcc.
-     * @param uuidAcc Accessor to UUID mapping to remove.
-     * @param metaAcc Accessor to metadata mapping.
-     */
-    void removePathMappings(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
 
     /**
      * Removes a UUID entry (path mapping) from the cache.
