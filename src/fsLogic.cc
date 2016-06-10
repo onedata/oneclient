@@ -640,7 +640,7 @@ events::FileLocationEventStream::Handler FsLogic::fileLocationHandler()
             const auto &newLocation = event->wrapped();
             MetadataCache::MetaAccessor acc;
             if (!m_metadataCache.get(acc, newLocation.uuid()) ||
-                !acc->second.location) {
+                !acc->second.attr) {
                 LOG(INFO) << "No location to update for uuid: '"
                           << newLocation.uuid() << "'";
                 continue;

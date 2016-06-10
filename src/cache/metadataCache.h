@@ -22,6 +22,7 @@
 #include <helpers/IStorageHelper.h>
 #include <unordered_map>
 
+namespace std {
 template <> struct hash<one::helpers::Flag> {
     size_t operator()(const one::helpers::Flag &p) const
     {
