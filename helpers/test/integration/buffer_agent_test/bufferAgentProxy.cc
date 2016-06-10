@@ -8,6 +8,7 @@
 
 #include "proxyIOHelper.h"
 
+#include "buffering/bufferAgent.h"
 #include "communication/communicator.h"
 
 #include <asio/buffer.hpp>
@@ -31,14 +32,19 @@ private:
     std::unique_ptr<PyThreadState, decltype(&PyEval_RestoreThread)> threadState;
 };
 
-class ProxyIOProxy {
+class BufferAgentProxy {
 public:
-    ProxyIOProxy(
+    BufferAgentProxy(
         std::string storageId, std::string host, const unsigned short port)
         : m_communicator{1, host, port, false,
               one::communication::createConnection}
         , m_scheduler{std::make_shared<one::Scheduler>(1)}
-        , m_helper{{{"storage_id", storageId}}, m_communicator}
+        , m_helper{one::helpers::buffering::BufferLimits{},
+              std::make_unique<one::helpers::ProxyIOHelper>(
+                       std::unordered_map<std::string, std::string>{
+                           {"storage_id", storageId}},
+                       m_communicator),
+              *m_scheduler}
     {
         m_communicator.setScheduler(m_scheduler);
         m_communicator.connect();
@@ -48,9 +54,7 @@ public:
         const std::unordered_map<std::string, std::string> &parameters)
     {
         ReleaseGIL guard;
-        auto ctx =
-            std::make_shared<one::helpers::IStorageHelperCTX>(parameters);
-
+        auto ctx = m_helper.createCTX(parameters);
         m_helper.sh_open(ctx, fileId, 0);
         return ctx;
     }
@@ -81,14 +85,14 @@ public:
 private:
     one::communication::Communicator m_communicator;
     std::shared_ptr<one::Scheduler> m_scheduler;
-    one::helpers::ProxyIOHelper m_helper;
+    one::helpers::buffering::BufferAgent m_helper;
 };
 
 namespace {
-boost::shared_ptr<ProxyIOProxy> create(
+boost::shared_ptr<BufferAgentProxy> create(
     std::string storageId, std::string host, int port)
 {
-    return boost::make_shared<ProxyIOProxy>(storageId, host, port);
+    return boost::make_shared<BufferAgentProxy>(storageId, host, port);
 }
 }
 
@@ -105,18 +109,18 @@ one::helpers::CTXPtr raw_open(tuple args, dict kwargs)
         parametersMap[key] = val;
     }
 
-    return extract<ProxyIOProxy &>(args[0])().open(fileId, parametersMap);
+    return extract<BufferAgentProxy &>(args[0])().open(fileId, parametersMap);
 }
 
-BOOST_PYTHON_MODULE(proxy_io)
+BOOST_PYTHON_MODULE(buffer_agent)
 {
     class_<one::helpers::IStorageHelperCTX, one::helpers::CTXPtr>(
         "CTX", no_init);
 
-    class_<ProxyIOProxy, boost::noncopyable>("ProxyIOProxy", no_init)
+    class_<BufferAgentProxy, boost::noncopyable>("BufferAgentProxy", no_init)
         .def("__init__", make_constructor(create))
         .def("open", raw_function(raw_open))
-        .def("read", &ProxyIOProxy::read)
-        .def("write", &ProxyIOProxy::write)
-        .def("release", &ProxyIOProxy::release);
+        .def("read", &BufferAgentProxy::read)
+        .def("write", &BufferAgentProxy::write)
+        .def("release", &BufferAgentProxy::release);
 }

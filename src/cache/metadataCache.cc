@@ -58,17 +58,20 @@ MetadataCache::FileAttr MetadataCache::getAttr(const std::string &uuid)
 MetadataCache::FileLocation MetadataCache::getLocation(
     const std::string &uuid, const one::helpers::FlagsSet flags)
 {
+    auto filteredFlags = filterFlagsForLocation(flags);
+
     ConstMetaAccessor constAcc;
     if (m_metaCache.find(constAcc, uuid)) {
-        if (constAcc->second.location)
-            return constAcc->second.location.get();
+        if (constAcc->second.locations.find(filteredFlags) !=
+            constAcc->second.locations.end())
+            return constAcc->second.locations.at(filteredFlags);
 
         constAcc.release();
     }
 
     MetaAccessor acc;
     getLocation(acc, uuid, flags);
-    return acc->second.location.get();
+    return acc->second.locations.at(filteredFlags);
 }
 
 void MetadataCache::getAttr(MetaAccessor &metaAcc, const Path &path)
@@ -132,8 +135,11 @@ void MetadataCache::getAttr(MetaAccessor &metaAcc, const std::string &uuid)
 void MetadataCache::getLocation(MetadataCache::MetaAccessor &metaAcc,
     const std::string &uuid, const one::helpers::FlagsSet flags)
 {
+    auto filteredFlags = filterFlagsForLocation(flags);
+
     if (!m_metaCache.insert(metaAcc, uuid)) {
-        if (metaAcc->second.location)
+        if (metaAcc->second.locations.find(filteredFlags) !=
+            metaAcc->second.locations.end())
             return;
     }
 
@@ -142,7 +148,7 @@ void MetadataCache::getLocation(MetadataCache::MetaAccessor &metaAcc,
         auto future = m_communicator.communicate<FileLocation>(
             messages::fuse::GetFileLocation{uuid, flags});
 
-        metaAcc->second.location = communication::wait(future);
+        metaAcc->second.locations[filteredFlags] = communication::wait(future);
     }
     catch (...) {
         m_metaCache.erase(metaAcc);
@@ -242,7 +248,7 @@ void MetadataCache::remapFile(MetaAccessor &oldMetaAcc,
     else {
         // Update metadata if uuid has not changed
         oldMetaAcc->second.path = newPath;
-        oldMetaAcc->second.location = boost::none;
+        oldMetaAcc->second.locations.clear();
         oldMetaAcc.release();
     }
 }
@@ -269,8 +275,11 @@ void MetadataCache::map(Path path, std::string uuid)
     metaAcc->second.path = std::move(path);
 }
 
-void MetadataCache::map(Path path, FileLocation location)
+void MetadataCache::map(
+    Path path, FileLocation location, const one::helpers::FlagsSet flags)
 {
+    auto filteredFlags = filterFlagsForLocation(flags);
+
     UuidAccessor uuidAcc;
     m_pathToUuid.insert(uuidAcc, path);
 
@@ -279,7 +288,7 @@ void MetadataCache::map(Path path, FileLocation location)
 
     uuidAcc->second = location.uuid();
     metaAcc->second.path = std::move(path);
-    metaAcc->second.location = std::move(location);
+    metaAcc->second.locations[filteredFlags] = std::move(location);
 }
 
 void MetadataCache::remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc)
