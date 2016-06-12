@@ -86,16 +86,16 @@ set(AWS_SDK_LIBRARIES
 
 # Swift SDK library
 find_library(SWIFT_SDK_LIBRARY Swift)
-find_library(POCO_FOUNDATION PocoFoundation)
+find_library(POCO_UTIL PocoUtil)
 find_library(POCO_NET PocoNet)
 find_library(POCO_XML PocoXML)
-find_library(POCO_UTIL PocoUtil)
+find_library(POCO_FOUNDATION PocoFoundation)
 set(SWIFT_SDK_LIBRARIES
     ${SWIFT_SDK_LIBRARY}
-    ${POCO_FOUNDATION}
+    ${POCO_UTIL}
     ${POCO_NET}
     ${POCO_XML}
-    ${POCO_UTIL})
+    ${POCO_FOUNDATION})
 
 # gpertools lib
 find_library(PROFILER_LIBRARY NAMES profiler)
