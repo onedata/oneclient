@@ -44,9 +44,11 @@ public:
         : LowerLayer{std::forward<Args>(args)...}
         , m_ioService{1}
         , m_idleWork{asio::make_work(m_ioService)}
-        , m_worker{[=] { m_ioService.run(); }}
+        , m_worker{[=] {
+            etls::utils::nameThread("EventWorker");
+            m_ioService.run();
+        }}
     {
-        etls::utils::nameThread(m_worker, "EventWorker");
         LowerLayer::setPeriodicTriggerHandler([this] {
             asio::post(m_ioService, [this] { LowerLayer::trigger(); });
         });
