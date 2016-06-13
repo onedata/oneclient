@@ -34,8 +34,10 @@ HelpersCache::HelpersCache(
     , m_scheduler{scheduler}
     , m_storageAccessManager{communicator, m_helperFactory}
 {
-    m_thread = std::thread{[this] { m_ioService.run(); }};
-    etls::utils::nameThread(m_thread, "HelpersCache");
+    m_thread = std::thread{[this] {
+        etls::utils::nameThread("HelpersCache");
+        m_ioService.run();
+    }};
 }
 
 HelpersCache::~HelpersCache()
