@@ -12,7 +12,21 @@ magnitude higher bandwidth when encoding/decoding data.
 
 Currently only `TLSv1.2` is supported, and default [BoringSSL] cipher is used.
 
-# Build
+## Performance
+
+Benchmark ran on OS X 10.11.5, 2,2 GHz Intel Core i7 (4 cores with HT). The
+benchmark consisted of **10 concurrent connections**, each sending **10
+messages**, each of **size 100 MB** for a total of **1 GB per connection**. The
+bandwidth has been calculated using time measured between the first message sent
+and the last message received.
+
+| OTP version | transport | bandwidth |
+|:------------|:----------|:----------|
+| 18.3        | ssl       | 70 MB/s   |
+| 19.0-rc1    | ssl       | 111 MB/s  |
+| 19.0-rc1    | ssl2      | 833 MB/s  |
+
+## Build
 
 Dependencies:
 
@@ -32,7 +46,7 @@ Add TLS as a `rebar` dependency to your project:
 
 ```erlang
 {deps, [
-  {ssl2, "1.0.1", {git, "https://github.com/kzemek/erlang_tls.git", {tag, "1.0.1"}}}
+  {ssl2, "1.0.3", {git, "https://github.com/kzemek/erlang_tls.git", {tag, "1.0.3"}}}
 }.
 ```
 
@@ -62,9 +76,21 @@ application:start(ssl2),
 ssl2:send(Socket, "foo").
 ```
 
-# APIs
+## Using with Ranch
 
-## Implemented `ssl` functions
+`ssl2` can be easily used with [Ranch] by [starting a
+listener](http://ninenines.eu/docs/en/ranch/1.2/guide/listeners/) with
+`ranch_ssl2` as the transport module:
+
+```erlang
+{ok, _} = ranch:start_listener(tcp_echo, 100,
+                               ranch_ssl2, [{port, 5555}, {certfile, CertPath}],
+                               echo_protocol, []).
+```
+
+## APIs
+
+### Implemented `ssl` functions
 
 The following `ssl`/[`inet`] functions are currently implemented:
 
@@ -87,7 +113,7 @@ The following `ssl`/[`inet`] functions are currently implemented:
 * `certificate_chain/1` (not present in `ssl`)
 * `shutdown/2`
 
-## Implemented `ssl` options
+### Implemented `ssl` options
 
 The following `ssl`/`inet` options are currently supported:
 
@@ -106,5 +132,6 @@ The following `ssl`/`inet` options are currently supported:
 
 [Asio]: http://think-async.com/
 [BoringSSL]: https://boringssl.googlesource.com/boringssl/
+[Ranch]: https://github.com/ninenines/ranch
 [`ssl`]: http://erlang.org/doc/man/ssl.html
 [`inet`]: http://erlang.org/doc/man/inet.html
