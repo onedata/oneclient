@@ -40,8 +40,11 @@ void Scheduler::start()
         m_ioService.reset();
 
     std::generate_n(std::back_inserter(m_workers), m_threadNumber, [=] {
-        std::thread t{[=] { m_ioService.run(); }};
-        etls::utils::nameThread(t, "Scheduler");
+        std::thread t{[=] {
+            etls::utils::nameThread("Scheduler");
+            m_ioService.run();
+        }};
+
         return t;
     });
 }
