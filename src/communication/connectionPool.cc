@@ -37,8 +37,10 @@ ConnectionPool::ConnectionPool(const std::size_t connectionsNumber,
     , m_verifyServerCertificate{verifyServerCertificate}
     , m_connectionFactory{std::move(connectionFactory)}
 {
-    m_thread = std::thread{[=] { m_ioService.run(); }};
-    etls::utils::nameThread(m_thread, "ConnectionPool");
+    m_thread = std::thread{[=] {
+        etls::utils::nameThread("ConnectionPool");
+        m_ioService.run();
+    }};
 }
 
 void ConnectionPool::connect()

@@ -12,9 +12,17 @@
 #include "helpers/IStorageHelper.h"
 
 #include <vector>
+#include <iomanip>
 
 namespace one {
 namespace helpers {
+
+constexpr auto RANGE_DELIMITER = "-";
+constexpr auto OBJECT_DELIMITER = "/";
+constexpr std::size_t MAX_DELETE_OBJECTS = 1000;
+constexpr auto MAX_LIST_OBJECTS = 1000;
+constexpr auto MAX_OBJECT_ID = 999999;
+constexpr auto MAX_OBJECT_ID_DIGITS = 6;
 
 /**
  * The @c KeyValueHelper class provides an interface for all helpers that
@@ -42,14 +50,20 @@ public:
      */
     virtual std::string getKey(std::string prefix, uint64_t objectId)
     {
-        return {};
+        std::stringstream ss;
+        ss << adjustPrefix(std::move(prefix)) << std::setfill('0')
+            << std::setw(MAX_OBJECT_ID_DIGITS) << MAX_OBJECT_ID - objectId;
+        return ss.str();
     }
 
     /**
      * @param key Sequence of characters identifying value on the storage.
      * @return ObjectId ID associated with the value.
      */
-    virtual uint64_t getObjectId(std::string key) { return 0; }
+    virtual uint64_t getObjectId(std::string key) {
+        auto pos = key.find_last_of(OBJECT_DELIMITER);
+        return MAX_OBJECT_ID - std::stoull(key.substr(pos + 1));
+    }
 
     /**
      * @param ctx @c IStorageHelperCTX context.
@@ -103,6 +117,20 @@ public:
     virtual std::vector<std::string> listObjects(CTXPtr ctx, std::string prefix)
     {
         return {};
+    }
+
+protected:
+    std::string adjustPrefix(std::string prefix) const
+    {
+        return prefix.substr(prefix.find_first_not_of(OBJECT_DELIMITER)) +
+            OBJECT_DELIMITER;
+    }
+
+    std::string rangeToString(off_t lower, off_t upper) const
+    {
+        std::stringstream ss;
+        ss << "bytes=" << lower << RANGE_DELIMITER << upper;
+        return ss.str();
     }
 };
 

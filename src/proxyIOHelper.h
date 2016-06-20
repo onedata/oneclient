@@ -11,6 +11,8 @@
 
 #include "helpers/IStorageHelper.h"
 
+#include "communication/communicator.h"
+
 #include <asio/io_service.hpp>
 
 #include <cstdint>
@@ -18,33 +20,25 @@
 namespace one {
 namespace helpers {
 
-namespace proxyio {
-class BufferAgent;
-} // namespace proxyio
-
 class ProxyIOHelper : public IStorageHelper {
 public:
     ProxyIOHelper(const std::unordered_map<std::string, std::string> &args,
-        proxyio::BufferAgent &bufferAgent);
+        communication::Communicator &communicator);
 
-    int sh_open(
-        CTXPtr ctx, const boost::filesystem::path &p, int flags) override;
+    void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
+        asio::mutable_buffer buf, off_t offset,
+        GeneralCallback<asio::mutable_buffer>) override;
 
-    asio::mutable_buffer sh_read(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset) override;
+    void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
+        asio::const_buffer buf, off_t offset,
+        GeneralCallback<std::size_t>) override;
 
-    std::size_t sh_write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset) override;
-
-    void sh_flush(CTXPtr ctx, const boost::filesystem::path &p) override;
-
-    void sh_fsync(
-        CTXPtr ctx, const boost::filesystem::path &p, bool isDataSync) override;
-
-    void sh_release(CTXPtr ctx, const boost::filesystem::path &p) override;
+    void ash_multiwrite(CTXPtr ctx, const boost::filesystem::path &p,
+        std::vector<std::pair<off_t, asio::const_buffer>> buffs,
+        GeneralCallback<std::size_t> callback) override;
 
 private:
-    proxyio::BufferAgent &m_bufferAgent;
+    communication::Communicator &m_communicator;
     std::string m_storageId;
 };
 

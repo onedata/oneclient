@@ -9,7 +9,6 @@
 #include "proxyIOHelper.h"
 
 #include "communication/communicator.h"
-#include "proxyio/bufferAgent.h"
 
 #include <asio/buffer.hpp>
 #include <boost/make_shared.hpp>
@@ -39,8 +38,7 @@ public:
         : m_communicator{1, host, port, false,
               one::communication::createConnection}
         , m_scheduler{std::make_shared<one::Scheduler>(1)}
-        , m_bufferAgent{{}, m_communicator, *m_scheduler}
-        , m_helper{{{"storage_id", storageId}}, m_bufferAgent}
+        , m_helper{{{"storage_id", storageId}}, m_communicator}
     {
         m_communicator.setScheduler(m_scheduler);
         m_communicator.connect();
@@ -83,7 +81,6 @@ public:
 private:
     one::communication::Communicator m_communicator;
     std::shared_ptr<one::Scheduler> m_scheduler;
-    one::helpers::proxyio::BufferAgent m_bufferAgent;
     one::helpers::ProxyIOHelper m_helper;
 };
 
