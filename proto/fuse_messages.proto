@@ -126,6 +126,7 @@ message FuseResponse {
         StorageTestFile storage_test_file = 8;
         Dir dir = 9;
         Checksum checksum = 10;
+        FileRenamed file_renamed = 17;
     }
 }
 
@@ -186,8 +187,9 @@ message VerifyStorageTestFile {
 }
 
 message SynchronizeBlock {
-    required bytes     uuid  = 1;
-    required FileBlock block = 2;
+    required bytes     uuid     = 1;
+    required FileBlock block    = 2;
+    optional bool      prefetch = 3 [default = true];
 }
 
 message SynchronizeBlockAndComputeChecksum {
@@ -197,4 +199,10 @@ message SynchronizeBlockAndComputeChecksum {
 
 message Checksum {
     required bytes value = 1;
+}
+
+message FileRenamed {
+    required bytes new_uuid = 1;                 // new UUID of renamed file
+    repeated FileRenamedEntry child_entries = 2; // entries for children of
+    // renamed file
 }
