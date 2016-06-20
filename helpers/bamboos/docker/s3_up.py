@@ -23,7 +23,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '-i', '--image',
     action='store',
-    default='lphoward/fake-s3',
+    default='onedata/s3proxy',
     help='docker image to use for the container',
     dest='image')
 

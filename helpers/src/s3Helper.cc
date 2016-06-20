@@ -22,17 +22,9 @@
 #include <glog/stl_logging.h>
 
 #include <cstring>
-#include <iomanip>
-#include <sstream>
 
 namespace one {
 namespace helpers {
-
-constexpr auto RANGE_DELIMITER = "-";
-constexpr auto OBJECT_DELIMITER = "/";
-constexpr std::size_t MAX_DELETE_OBJECTS = 1000;
-constexpr auto MAX_OBJECT_ID = 999999;
-constexpr auto MAX_OBJECT_ID_DIGITS = 6;
 
 S3Helper::S3Helper(std::unordered_map<std::string, std::string> args)
     : m_args{std::move(args)}
@@ -42,20 +34,6 @@ S3Helper::S3Helper(std::unordered_map<std::string, std::string> args)
 CTXPtr S3Helper::createCTX(std::unordered_map<std::string, std::string> params)
 {
     return std::make_shared<S3HelperCTX>(std::move(params), m_args);
-}
-
-std::string S3Helper::getKey(std::string prefix, uint64_t objectId)
-{
-    std::stringstream ss;
-    ss << adjustPrefix(std::move(prefix)) << std::setfill('0')
-       << std::setw(MAX_OBJECT_ID_DIGITS) << MAX_OBJECT_ID - objectId;
-    return ss.str();
-}
-
-uint64_t S3Helper::getObjectId(std::string key)
-{
-    auto pos = key.find_last_of(OBJECT_DELIMITER);
-    return MAX_OBJECT_ID - std::stoull(key.substr(pos + 1));
 }
 
 asio::mutable_buffer S3Helper::getObject(
@@ -188,19 +166,6 @@ std::shared_ptr<S3HelperCTX> S3Helper::getCTX(CTXPtr rawCTX) const
         return std::make_shared<S3HelperCTX>(rawCTX->parameters(), m_args);
     }
     return ctx;
-}
-
-std::string S3Helper::rangeToString(off_t lower, off_t upper) const
-{
-    std::stringstream ss;
-    ss << "bytes=" << lower << RANGE_DELIMITER << upper;
-    return ss.str();
-}
-
-std::string S3Helper::adjustPrefix(std::string prefix) const
-{
-    return prefix.substr(prefix.find_first_not_of(OBJECT_DELIMITER)) +
-        OBJECT_DELIMITER;
 }
 
 S3HelperCTX::S3HelperCTX(std::unordered_map<std::string, std::string> params,
