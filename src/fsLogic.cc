@@ -75,6 +75,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     m_eventManager.setPermissionChangedHandler(permissionChangedHandler());
     m_eventManager.setFileRemovalHandler(fileRemovalHandler());
     m_eventManager.setQuotaExeededHandler(quotaExeededHandler());
+    m_eventManager.setFileRenamedHandler(fileRenamedHandler());
     m_eventManager.subscribe(configuration->subscriptionContainer());
 
     // Quota initial configuration
@@ -103,6 +104,7 @@ void FsLogic::scheduleCacheExpirationTick()
             m_metadataCache.remove(uuid);
             m_fsSubscriptions.removeFileAttrSubscription(uuid);
             m_fsSubscriptions.removeFileRemovalSubscription(uuid);
+            m_fsSubscriptions.removeFileRenamedSubscription(uuid);
         });
 
         scheduleCacheExpirationTick();
@@ -149,6 +151,7 @@ int FsLogic::getattr(boost::filesystem::path path, struct stat *const statbuf)
         m_metadataCache.getAttr(attr.uuid());
         m_fsSubscriptions.addFileAttrSubscription(attr.uuid());
         m_fsSubscriptions.addFileRemovalSubscription(attr.uuid());
+        m_fsSubscriptions.addFileRenamedSubscription(attr.uuid());
     });
 
     return 0;
@@ -222,7 +225,18 @@ int FsLogic::rename(
     DLOG(INFO) << "FUSE: rename(oldpath: " << oldPath
                << ", newpath: " << newPath << "')";
 
-    m_metadataCache.rename(oldPath, newPath);
+    auto uuidChanges = m_metadataCache.rename(oldPath, newPath);
+    for (auto &uuidChange : uuidChanges) {
+        m_attrExpirationHelper.rename(uuidChange.first, uuidChange.second, [&] {
+            m_fsSubscriptions.removeFileAttrSubscription(uuidChange.first);
+            m_fsSubscriptions.removeFileRemovalSubscription(uuidChange.first);
+            m_fsSubscriptions.removeFileRenamedSubscription(uuidChange.first);
+            m_metadataCache.getAttr(uuidChange.second);
+            m_fsSubscriptions.addFileAttrSubscription(uuidChange.second);
+            m_fsSubscriptions.addFileRemovalSubscription(uuidChange.second);
+            m_fsSubscriptions.addFileRenamedSubscription(uuidChange.second);
+        });
+    }
 
     return 0;
 }
@@ -272,9 +286,10 @@ int FsLogic::truncate(boost::filesystem::path path, const off_t newSize)
 
     communication::wait(future);
     attr.size(newSize);
-
-    m_metadataCache.getLocation(acc, attr.uuid(), {one::helpers::Flag::WRONLY});
-    acc->second.location.get().blocks() &=
+    auto flagsSet = one::helpers::FlagsSet{one::helpers::Flag::WRONLY};
+    m_metadataCache.getLocation(acc, attr.uuid(), flagsSet);
+    acc->second.locations.at(MetadataCache::filterFlagsForLocation(flagsSet))
+        .blocks() &=
         boost::icl::discrete_interval<off_t>::right_open(0, newSize);
 
     m_eventManager.emitTruncateEvent(newSize, attr.uuid());
@@ -532,10 +547,10 @@ int FsLogic::write(boost::filesystem::path path, asio::const_buffer buf,
 
     // Call `getLocation` instead of using existing acc for a corner case
     // where location has been removed since initial `getLocation` call.
-    m_metadataCache.getLocation(acc, context.uuid,
-        one::helpers::IStorageHelper::maskToFlags(fileInfo->flags));
-    acc->second.location.get().blocks() +=
-        std::make_pair(writtenRange, std::move(fileBlock));
+    auto flagsSet = one::helpers::IStorageHelper::maskToFlags(fileInfo->flags);
+    m_metadataCache.getLocation(acc, context.uuid, flagsSet);
+    acc->second.locations.at(MetadataCache::filterFlagsForLocation(flagsSet))
+        .blocks() += std::make_pair(writtenRange, std::move(fileBlock));
 
     return bytesWritten;
 }
@@ -593,13 +608,16 @@ events::FileAttrEventStream::Handler FsLogic::fileAttrHandler()
             auto &attr = acc->second.attr.get();
 
             if (newAttr.size().is_initialized() &&
-                newAttr.size().get() < attr.size() && acc->second.location) {
+                newAttr.size().get() < attr.size() &&
+                !acc->second.locations.empty()) {
                 LOG(INFO) << "Truncating blocks attributes for uuid: '"
                           << newAttr.uuid() << "'";
 
-                acc->second.location.get().blocks() &=
-                    boost::icl::discrete_interval<off_t>::right_open(
-                        0, newAttr.size().get());
+                for (auto &it : acc->second.locations) {
+                    it.second.blocks() &=
+                        boost::icl::discrete_interval<off_t>::right_open(
+                            0, newAttr.size().get());
+                }
             }
 
             attr.atime(std::max(attr.atime(), newAttr.atime()));
@@ -630,12 +648,12 @@ events::FileLocationEventStream::Handler FsLogic::fileLocationHandler()
 
             LOG(INFO) << "Updating location for uuid: '" << newLocation.uuid()
                       << "'";
-            auto &location = acc->second.location.get();
+            for (auto &it : acc->second.locations) {
+                it.second.storageId(newLocation.storageId());
+                it.second.fileId(newLocation.fileId());
 
-            location.storageId(newLocation.storageId());
-            location.fileId(newLocation.fileId());
-
-            location.blocks() = newLocation.blocks();
+                it.second.blocks() = newLocation.blocks();
+            }
 
             m_metadataCache.notifyNewLocationArrived(newLocation.uuid());
         }
@@ -813,7 +831,7 @@ void FsLogic::removeFile(boost::filesystem::path path)
     MetadataCache::MetaAccessor metaAcc;
     m_metadataCache.getAttr(uuidAcc, metaAcc, path);
 
-    if (!metaAcc->second.removedUpstream) {
+    if (metaAcc->second.state != MetadataCache::FileState::removedUpstream) {
         auto future = m_context->communicator()
                           ->communicate<messages::fuse::FuseResponse>(
                               messages::fuse::DeleteFile{uuidAcc->second});
@@ -838,7 +856,7 @@ const std::string FsLogic::createFile(boost::filesystem::path path,
             std::move(msg));
 
     auto location = communication::wait(future);
-    m_metadataCache.map(path, location);
+    m_metadataCache.map(path, location, flags);
 
     return location.uuid();
 }
@@ -850,9 +868,10 @@ void FsLogic::openFile(
     m_fileContextCache.create(acc);
 
     MetadataCache::MetaAccessor metaAcc;
-    m_metadataCache.getLocation(metaAcc, fileUuid,
-        one::helpers::IStorageHelper::maskToFlags(fileInfo->flags));
-    auto &location = metaAcc->second.location.get();
+    auto flagsSet = one::helpers::IStorageHelper::maskToFlags(fileInfo->flags);
+    m_metadataCache.getLocation(metaAcc, fileUuid, flagsSet);
+    auto &location = metaAcc->second.locations.at(
+        MetadataCache::filterFlagsForLocation(flagsSet));
 
     fileInfo->direct_io = 1;
     fileInfo->fh = acc->first;
@@ -878,6 +897,7 @@ void FsLogic::openFile(
         m_metadataCache.getAttr(fileUuid);
         m_fsSubscriptions.addFileAttrSubscription(fileUuid);
         m_fsSubscriptions.addFileRemovalSubscription(fileUuid);
+        m_fsSubscriptions.addFileRenamedSubscription(fileUuid);
     });
 }
 
@@ -889,14 +909,13 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
 
             MetadataCache::MetaAccessor metaAcc;
             m_metadataCache.getAttr(metaAcc, event->fileUuid());
+            metaAcc->second.state = MetadataCache::FileState::removedUpstream;
 
-            metaAcc->second.removedUpstream = true;
-            auto paths = metaAcc->second.paths;
-            metaAcc.release();
-
-            auto dir = m_context->options()->get_mountpoint();
-            for (auto &path : paths) {
+            if (metaAcc->second.path) {
+                auto path = metaAcc->second.path.get();
+                metaAcc.release();
                 try {
+                    auto dir = m_context->options()->get_mountpoint();
                     std::remove((dir / path).c_str());
                 }
                 catch (std::system_error &e) {
@@ -918,6 +937,76 @@ events::QuotaExeededEventStream::Handler FsLogic::quotaExeededHandler()
     return [this](std::vector<QuotaExeededEventStream::EventPtr> events) {
         if (!events.empty())
             disableSpaces(events.back()->spaces());
+    };
+}
+
+events::FileRenamedEventStream::Handler FsLogic::fileRenamedHandler()
+{
+    using namespace events;
+    return [this](std::vector<FileRenamedEventStream::EventPtr> events) {
+        for (const auto &event : events) {
+            auto topEntry = event->topEntry();
+            MetadataCache::MetaAccessor metaAcc;
+            m_metadataCache.getAttr(metaAcc, topEntry.oldUuid());
+            metaAcc->second.state = MetadataCache::FileState::renamedUpstream;
+            auto fromPath = metaAcc->second.path.get();
+            metaAcc.release();
+
+            auto dir = m_context->options()->get_mountpoint();
+            auto toPath = boost::filesystem::path(topEntry.newPath());
+
+            try {
+                std::rename((dir / fromPath).c_str(), (dir / toPath).c_str());
+            }
+            catch (std::system_error &e) {
+                LOG(WARNING) << "Unable to rename file (from: " << fromPath
+                             << " to: " << toPath << "): " << e.what();
+            }
+
+            m_metadataCache.remapFile(
+                topEntry.oldUuid(), topEntry.newUuid(), topEntry.newPath());
+
+            m_attrExpirationHelper.rename(
+                topEntry.oldUuid(), topEntry.newUuid(), [&] {
+                    m_fsSubscriptions.removeFileAttrSubscription(
+                        topEntry.oldUuid());
+                    m_fsSubscriptions.removeFileRemovalSubscription(
+                        topEntry.oldUuid());
+                    m_fsSubscriptions.removeFileRenamedSubscription(
+                        topEntry.oldUuid());
+                    m_metadataCache.getAttr(topEntry.newUuid());
+                    m_fsSubscriptions.addFileAttrSubscription(
+                        topEntry.newUuid());
+                    m_fsSubscriptions.addFileRemovalSubscription(
+                        topEntry.newUuid());
+                    m_fsSubscriptions.addFileRenamedSubscription(
+                        topEntry.newUuid());
+                });
+
+            for (auto &childEntry : event->childEntries()) {
+                m_metadataCache.remapFile(childEntry.oldUuid(),
+                    childEntry.newUuid(), childEntry.newPath());
+
+                m_attrExpirationHelper.rename(
+                    childEntry.oldUuid(), childEntry.newUuid(), [&] {
+                        m_fsSubscriptions.removeFileAttrSubscription(
+                            childEntry.oldUuid());
+                        m_fsSubscriptions.removeFileRemovalSubscription(
+                            childEntry.oldUuid());
+                        m_fsSubscriptions.removeFileRenamedSubscription(
+                            childEntry.oldUuid());
+                        m_metadataCache.getAttr(childEntry.newUuid());
+                        m_fsSubscriptions.addFileAttrSubscription(
+                            childEntry.newUuid());
+                        m_fsSubscriptions.addFileRemovalSubscription(
+                            childEntry.newUuid());
+                        m_fsSubscriptions.addFileRenamedSubscription(
+                            childEntry.newUuid());
+                    });
+            }
+
+            LOG(INFO) << "File renamed event received: " << topEntry.oldUuid();
+        }
     };
 }
 

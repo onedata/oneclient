@@ -264,6 +264,7 @@ private:
     events::PermissionChangedEventStream::Handler permissionChangedHandler();
     events::FileRemovalEventStream::Handler fileRemovalHandler();
     events::QuotaExeededEventStream::Handler quotaExeededHandler();
+    events::FileRenamedEventStream::Handler fileRenamedHandler();
     bool dataCorrupted(const std::string &uuid, asio::const_buffer buf,
         const messages::fuse::Checksum &serverChecksum,
         const boost::icl::discrete_interval<off_t> &availableRange,

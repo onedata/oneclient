@@ -124,6 +124,12 @@ public:
     void emitFileRemovalEvent(std::string fileUuid) const;
 
     /**
+     * Sets handler for renaming file events.
+     * @param handler Handler to be set.
+     */
+    void setFileRenamedHandler(FileRenamedEventStream::Handler handler);
+
+    /**
      * Adds subscription for removing file events.
      * @param clientSubscription Client side subscription parameters.
      * @param serverSubscription Server side subscription parameters.
@@ -131,6 +137,15 @@ public:
      */
     std::int64_t subscribe(FileRemovalSubscription clientSubscription,
         FileRemovalSubscription serverSubscription);
+
+    /**
+     * Adds subscription for renaming file events.
+     * @param clientSubscription Client side subscription parameters.
+     * @param serverSubscription Server side subscription parameters.
+     * @return Subscription ID.
+     */
+    std::int64_t subscribe(FileRenamedSubscription clientSubscription,
+        FileRenamedSubscription serverSubscription);
 
     /**
      * Adds subscription for permission changeg events.
@@ -206,6 +221,7 @@ protected:
         m_permissionChangedEventStream;
     std::unique_ptr<FileRemovalEventStream> m_fileRemovalEventStream;
     std::unique_ptr<QuotaExeededEventStream> m_quotaExeededEventStream;
+    std::unique_ptr<FileRenamedEventStream> m_fileRenamedEventStream;
 
 private:
     void initializeStreams(std::shared_ptr<Context> context);

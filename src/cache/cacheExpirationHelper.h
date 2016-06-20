@@ -152,6 +152,66 @@ public:
     }
 
     /**
+     * Renames a record.
+     * Renamed record will retain bucket and pins count.
+     * @param key The old key of the renamed record.
+     * @param key The new key of the renamed record.
+     * @param cache Callable taking no arguments, that ensures the element is in
+     * the cache. It will only be called if oldKey and newKey differ and the
+     * element was not already tracked by @c *this .
+     */
+    template <typename CacheFun>
+    void rename(const Key &oldKey, const Key &newKey, CacheFun &&cache)
+    {
+        if (oldKey == newKey)
+            return;
+        std::shared_lock<decltype(m_mutex)> lock{m_mutex};
+
+        typename decltype(m_expDetails)::accessor oldAcc;
+        typename decltype(m_expDetails)::accessor newAcc;
+
+        auto newKeyTracked = false;
+        // Always take locks in fixed order, to avoid deadlock
+        if (oldKey < newKey) {
+            auto oldKeyTracked = m_expDetails.find(oldAcc, oldKey);
+            if (!oldKeyTracked)
+                return;
+            newKeyTracked = !m_expDetails.insert(newAcc, newKey);
+        }
+        else {
+            newKeyTracked = !m_expDetails.insert(newAcc, newKey);
+            auto oldKeyTracked = m_expDetails.find(oldAcc, oldKey);
+            if (!oldKeyTracked) {
+                if (!newKeyTracked)
+                    m_expDetails.erase(newAcc);
+                return;
+            }
+        }
+
+        if (newKeyTracked) {
+            newAcc->second.pinnedCount += oldAcc->second.pinnedCount;
+            if (newAcc->second.pinnedCount > 0 && newAcc->second.bucket) {
+                newAcc->second.bucket->erase(newKey);
+                newAcc->second.bucket = nullptr;
+            }
+        }
+        else {
+            cache();
+            newAcc->second.pinnedCount = oldAcc->second.pinnedCount;
+            if (newAcc->second.pinnedCount == 0) {
+                typename Set::const_accessor sacc;
+                if (!oldAcc->second.bucket->insert(sacc, newKey))
+                    assert(false);
+                newAcc->second.bucket = oldAcc->second.bucket;
+            }
+        }
+
+        if (oldAcc->second.bucket)
+            oldAcc->second.bucket->erase(oldKey);
+        m_expDetails.erase(oldAcc);
+    }
+
+    /**
     * Schedules an unpinned record to be removed on next call to @c tick() .
     */
     void expire(const Key &key)

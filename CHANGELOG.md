@@ -4,6 +4,24 @@
 CHANGELOG
 ---------
 
+### 3.0.0-beta6
+
+* Update erlang tls
+* VFS-2038 Map file locations by flags
+* VFS-2018 Improve readability of keys rename in expiration handler
+* VFS-2018 Remove subscriptions for old UUID after rename
+* VFS-2018 Remove deadlock on overwriting file with mv
+* VFS-2018 Add entry renaming in expiration helper
+* VFS-2018 Do not pin entry if UUID does not change
+* VFS-1999 Make disabled spaces update thread-safe
+* VFS-1999 Quota implementation
+* VFS-2018 Remap files after rename response and event
+* VFS-2017 Flush on read when synchronization needed
+* VFS-1821 Enable flag_utime_omit_ok in fuse_operations.
+* VFS-2018 Add FileRenamed fuse response, modify FileRenamedEvent
+* VFS-2071 Adjust code to the new S3 helper
+
+
 ### 3.0.0-beta5
 
 * Fix adding message size twice to the tpc message in connection layer during retry.

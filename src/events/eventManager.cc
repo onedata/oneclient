@@ -37,6 +37,8 @@ EventManager::EventManager(std::shared_ptr<Context> context)
           m_streamManager.create())}
     , m_quotaExeededEventStream{
           std::make_unique<QuotaExeededEventStream>(m_streamManager.create())}
+    , m_fileRenamedEventStream{
+          std::make_unique<FileRenamedEventStream>(m_streamManager.create())}
 {
     auto predicate = [](const clproto::ServerMessage &message, const bool) {
         return message.has_events() || message.has_subscription() ||
@@ -104,6 +106,12 @@ void EventManager::setQuotaExeededHandler(
     m_quotaExeededEventStream->setEventHandler(std::move(handler));
 }
 
+void EventManager::setFileRenamedHandler(
+    FileRenamedEventStream::Handler handler)
+{
+    m_fileRenamedEventStream->setEventHandler(std::move(handler));
+}
+
 void EventManager::emitFileRemovalEvent(std::string fileUuid) const
 {
     m_fileRemovalEventStream->createAndEmitEvent(std::move(fileUuid));
@@ -113,6 +121,13 @@ std::int64_t EventManager::subscribe(FileRemovalSubscription clientSubscription,
     FileRemovalSubscription serverSubscription)
 {
     return m_fileRemovalEventStream->subscribe(
+        std::move(clientSubscription), std::move(serverSubscription));
+}
+
+std::int64_t EventManager::subscribe(FileRenamedSubscription clientSubscription,
+    FileRenamedSubscription serverSubscription)
+{
+    return m_fileRenamedEventStream->subscribe(
         std::move(clientSubscription), std::move(serverSubscription));
 }
 
@@ -189,6 +204,10 @@ void EventManager::handle(const clproto::Events &message)
             QuotaExeededEvent event{eventMsg.quota_exeeded_event()};
             m_quotaExeededEventStream->emitEvent(std::move(event));
         }
+        if (eventMsg.has_file_renamed_event()) {
+            FileRenamedEvent event{eventMsg.file_renamed_event()};
+            m_fileRenamedEventStream->emitEvent(std::move(event));
+        }
     }
 }
 
@@ -251,6 +270,9 @@ void EventManager::initializeStreams(std::shared_ptr<Context> context)
     m_quotaExeededEventStream->setScheduler(context->scheduler());
     m_quotaExeededEventStream->setSubscriptionRegistry(m_registry);
     m_quotaExeededEventStream->initializeAggregation();
+
+    m_fileRenamedEventStream->setSubscriptionRegistry(m_registry);
+    m_fileRenamedEventStream->initializeAggregation();
 }
 
 } // namespace events

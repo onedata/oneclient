@@ -32,10 +32,16 @@ Build-Depends:
     libssl-dev,
     libstdc++-4.9-dev,
     libtbb-dev (>= 4.3~),
+    libpoco-dev,
+    libpocofoundation9v5,
+    libpoconetssl9v5,
+    libpocoutil9v5,
+    libpocoxml9v5,
     pkg-config,
     protobuf-compiler (>= 2.6.0),
     python-dev,
-    subversion
+    subversion,
+    swift-sdk-cpp
 Standards-Version: 3.9.5
 Homepage: https://onedata.org
 

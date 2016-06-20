@@ -22,11 +22,17 @@ BuildRequires: librados2-devel,
 BuildRequires: libsodium-devel,
 BuildRequires: libtool-ltdl,
 BuildRequires: libtool-ltdl-devel,
+BuildRequires: poco-devel,
+BuildRequires: poco-foundation,
+BuildRequires: poco-netssl,
+BuildRequires: poco-util,
+BuildRequires: poco-xml,
 BuildRequires: openssl-devel,
 BuildRequires: protobuf-compiler >= 2.6.0,
 BuildRequires: protobuf-devel >= 2.6.0,
 BuildRequires: python-devel,
 BuildRequires: subversion,
+BuildRequires: swift-sdk-cpp,
 BuildRequires: tbb-devel >= 4.3~
 
 %description
