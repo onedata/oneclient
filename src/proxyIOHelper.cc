@@ -13,7 +13,6 @@
 #include "messages/proxyio/remoteWrite.h"
 #include "messages/proxyio/remoteWriteResult.h"
 #include "messages/status.h"
-#include "proxyio/bufferAgent.h"
 
 #include <asio/buffer.hpp>
 
@@ -22,44 +21,70 @@ namespace helpers {
 
 ProxyIOHelper::ProxyIOHelper(
     const std::unordered_map<std::string, std::string> &args,
-    proxyio::BufferAgent &bufferAgent)
-    : m_bufferAgent{bufferAgent}
+    communication::Communicator &communicator)
+    : m_communicator{communicator}
     , m_storageId{args.at("storage_id")}
 {
 }
 
-int ProxyIOHelper::sh_open(
-    CTXPtr ctx, const boost::filesystem::path &p, int /*flags*/)
+void ProxyIOHelper::ash_read(CTXPtr ctx, const boost::filesystem::path &p,
+    asio::mutable_buffer buf, off_t offset,
+    GeneralCallback<asio::mutable_buffer> callback)
 {
-    return m_bufferAgent.open(m_storageId, p.string(), ctx->parameters());
+    auto fileId = p.string();
+    messages::proxyio::RemoteRead msg{ctx->parameters(), m_storageId,
+        std::move(fileId), offset, asio::buffer_size(buf)};
+
+    auto wrappedCallback =
+        [ callback = std::move(callback), buf ](const std::error_code &ec,
+            std::unique_ptr<messages::proxyio::RemoteData> rd)
+    {
+        if (ec) {
+            callback({}, ec);
+        }
+        else {
+            auto read = asio::buffer_copy(buf, rd->data());
+            callback(asio::buffer(buf, read), ec);
+        }
+    };
+
+    m_communicator.communicate<messages::proxyio::RemoteData>(
+        std::move(msg), std::move(wrappedCallback));
 }
 
-asio::mutable_buffer ProxyIOHelper::sh_read(CTXPtr /*ctx*/,
-    const boost::filesystem::path &p, asio::mutable_buffer buf, off_t offset)
+void ProxyIOHelper::ash_write(CTXPtr ctx, const boost::filesystem::path &p,
+    asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t> callback)
 {
-    return m_bufferAgent.read(m_storageId, p.string(), buf, offset);
+    ash_multiwrite(std::move(ctx), p, {{offset, buf}}, std::move(callback));
 }
 
-std::size_t ProxyIOHelper::sh_write(CTXPtr /*ctx*/,
-    const boost::filesystem::path &p, asio::const_buffer buf, off_t offset)
+void ProxyIOHelper::ash_multiwrite(CTXPtr ctx, const boost::filesystem::path &p,
+    std::vector<std::pair<off_t, asio::const_buffer>> buffs,
+    GeneralCallback<std::size_t> callback)
 {
-    return m_bufferAgent.write(m_storageId, p.string(), buf, offset);
-}
+    auto fileId = p.string();
 
-void ProxyIOHelper::sh_flush(CTXPtr /*ctx*/, const boost::filesystem::path &p)
-{
-    m_bufferAgent.flush(m_storageId, p.string());
-}
+    std::vector<std::pair<off_t, std::string>> stringBuffs;
+    stringBuffs.reserve(buffs.size());
+    std::transform(buffs.begin(), buffs.end(), std::back_inserter(stringBuffs),
+        [](const std::pair<off_t, asio::const_buffer> &elem) {
+            return make_pair(elem.first,
+                std::string(asio::buffer_cast<const char *>(elem.second),
+                                 asio::buffer_size(elem.second)));
+        });
 
-void ProxyIOHelper::sh_fsync(
-    CTXPtr /*ctx*/, const boost::filesystem::path &p, bool /*isDataSync*/)
-{
-    m_bufferAgent.fsync(m_storageId, p.string());
-}
+    messages::proxyio::RemoteWrite msg{ctx->parameters(), m_storageId,
+        std::move(fileId), std::move(stringBuffs)};
 
-void ProxyIOHelper::sh_release(CTXPtr /*ctx*/, const boost::filesystem::path &p)
-{
-    m_bufferAgent.release(m_storageId, p.string());
+    auto wrappedCallback = [callback = std::move(callback)](
+        const std::error_code &ec,
+        std::unique_ptr<messages::proxyio::RemoteWriteResult> result)
+    {
+        ec ? callback(-1, ec) : callback(result->wrote(), ec);
+    };
+
+    m_communicator.communicate<messages::proxyio::RemoteWriteResult>(
+        std::move(msg), std::move(wrappedCallback));
 }
 
 } // namespace helpers

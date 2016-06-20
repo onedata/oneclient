@@ -252,6 +252,42 @@ public:
         callback({}, std::make_error_code(std::errc::function_not_supported));
     }
 
+    GeneralCallback<std::size_t> wrapCallback(CTXPtr ctx,
+        const boost::filesystem::path &p,
+        std::vector<std::pair<off_t, asio::const_buffer>> buffs,
+        GeneralCallback<std::size_t> callback, std::size_t i = 1,
+        std::size_t wroteSoFar = 0)
+    {
+        if (i >= buffs.size())
+            return std::move(callback);
+
+        return [
+            =, ctx = std::move(ctx), buffs = std::move(buffs),
+            callback = std::move(callback)
+        ](const std::size_t wrote, const std::error_code &ec) mutable
+        {
+            auto wantedToWrite = asio::buffer_size(buffs[i - 1].second);
+            auto wroteTotal = wroteSoFar + wrote;
+
+            if (ec || wrote < wantedToWrite) {
+                callback(wroteTotal, ec);
+            }
+            else {
+                ash_write(ctx, p, buffs[i].second, buffs[i].first,
+                    wrapCallback(ctx, p, buffs, std::move(callback), ++i,
+                              wroteTotal));
+            }
+        };
+    }
+
+    virtual void ash_multiwrite(CTXPtr ctx, const boost::filesystem::path &p,
+        std::vector<std::pair<off_t, asio::const_buffer>> buffs,
+        GeneralCallback<std::size_t> callback)
+    {
+        ash_write(ctx, p, buffs[0].second, buffs[0].first,
+            wrapCallback(ctx, p, buffs, std::move(callback)));
+    }
+
     virtual void ash_release(
         CTXPtr ctx, const boost::filesystem::path &p, VoidCallback callback)
     {
@@ -297,7 +333,7 @@ public:
     }
 
     virtual void sh_truncate(
-            CTXPtr ctx, const boost::filesystem::path &p, off_t size)
+        CTXPtr ctx, const boost::filesystem::path &p, off_t size)
     {
         sync(&IStorageHelper::ash_truncate, std::move(ctx), p, size);
     }

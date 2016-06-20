@@ -100,9 +100,10 @@ def pytest_collection_modifyitems(config, items):
         items[:] = [i for i in items if 'performance' in i.keywords]
 
 
-@pytest.mark.tryfirst
-def pytest_runtest_makereport(item, call, __multicall__):
-    report = __multicall__.execute()
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    report = outcome.get_result()
     perfmarker = item.get_marker('performance')
 
     if call.when == 'call' and item.config.getoption('-P') and perfmarker:
@@ -160,8 +161,6 @@ def pytest_runtest_makereport(item, call, __multicall__):
         }})
 
         performance['suites'] = suites
-
-    return report
 
 
 def pytest_unconfigure(config):
