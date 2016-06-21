@@ -1,0 +1,172 @@
+/**
+ * Messages used in communication between servers and within server.
+ * @author Mateusz Paciorek
+ * @copyright (C) 2016 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
+
+package one.clproto;
+
+import "common_messages.proto";
+
+// Generic provider request
+message ProviderRequest {
+    oneof provider_request { // list of all provider requests
+        GetXattr get_xattr = 1;
+        SetXattr set_xattr = 2;
+        RemoveXattr remove_xattr = 3;
+        ListXattr list_xattr = 4;
+        GetParent get_parent = 5;
+        GetAcl get_acl = 6;
+        SetAcl set_acl = 7;
+        RemoveAcl remove_acl = 8;
+        GetTransferEncoding get_transfer_encoding = 9;
+        SetTransferEncoding set_transfer_encoding = 10;
+        GetCdmiCompletionStatus get_cdmi_completion_status = 11;
+        SetCdmiCompletionStatus set_cdmi_completion_status = 12;
+        GetMimetype get_mimetype = 13;
+        SetMimetype set_mimetype = 14;
+        GetFilePath get_file_path = 15;
+        FSync fsync = 16;
+        GetFileDistribution get_file_distribution = 17;
+        ReplicateFile replicate_file = 18;
+    }
+}
+
+message GetParent {
+    required bytes uuid = 1;
+}
+
+message Acl {
+    required bytes value = 1;
+}
+
+message GetAcl {
+    required bytes uuid = 1;
+}
+
+message SetAcl {
+    required bytes uuid = 1;
+    required Acl acl = 2;
+}
+
+message RemoveAcl {
+    required bytes uuid = 1;
+}
+
+message GetTransferEncoding {
+    required bytes uuid = 1;
+}
+
+message SetTransferEncoding {
+    required bytes uuid = 1;
+    required bytes value = 2;
+}
+
+message GetCdmiCompletionStatus {
+    required bytes uuid = 1;
+}
+
+message SetCdmiCompletionStatus {
+    required bytes uuid = 1;
+    required bytes value = 2;
+}
+
+message GetMimetype {
+    required bytes uuid = 1;
+}
+
+message SetMimetype {
+    required bytes uuid = 1;
+    required bytes value = 2;
+}
+
+message GetFilePath {
+    required bytes uuid = 1;
+}
+
+message FSync {
+    required bytes uuid = 1;
+}
+
+message GetFileDistribution {
+    required bytes uuid = 1;
+}
+
+message ReplicateFile {
+    required bytes uuid = 1;
+    required bytes provider_id = 2;
+    optional FileBlock block = 3;
+}
+
+// Generic provider response
+message ProviderResponse {
+    required Status status = 1;
+
+    oneof provider_response { // list of all provider responses
+        Xattr xattr = 2;
+        XattrList xattr_list = 3;
+        TransferEncoding transfer_encoding = 4;
+        CdmiCompletionStatus cdmi_completion_status = 5;
+        Mimetype mimetype = 6;
+        Acl acl = 7;
+        Dir dir = 8;
+        FilePath file_path = 9;
+        FileDistribution file_distribution = 10;
+    }
+}
+
+
+message GetXattr {
+    required bytes uuid = 1;
+    required bytes name = 2;
+}
+
+message SetXattr {
+    required bytes uuid = 1;
+    required Xattr xattr = 2;
+}
+
+message RemoveXattr {
+    required bytes uuid = 1;
+    required bytes name = 2;
+}
+
+message ListXattr {
+    required bytes uuid = 1;
+}
+
+message Xattr {
+    required bytes name = 1;
+    required bytes value = 2;
+}
+
+message XattrList {
+    repeated bytes names = 1;
+}
+
+message TransferEncoding {
+    required bytes value = 1;
+}
+
+message CdmiCompletionStatus {
+    required bytes value = 1;
+}
+
+message Mimetype {
+    required bytes value = 1;
+}
+
+message FilePath {
+    required bytes value = 1;
+}
+
+message ProviderFileDistribution {
+    required bytes provider_id = 1;
+    repeated FileBlock blocks = 2;
+}
+
+message FileDistribution {
+    repeated ProviderFileDistribution provider_file_distributions = 1;
+}
