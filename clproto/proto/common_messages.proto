@@ -113,3 +113,7 @@ message FileRenamedEntry {
     required bytes new_uuid = 2; // new UUID of renamed file
     required bytes new_path = 3; // new path of renamed file
 }
+
+message Dir {
+    required bytes uuid = 1;
+}
