@@ -60,7 +60,7 @@ coverage:
 .PHONY: check_distribution
 check_distribution:
 ifeq ($(DISTRIBUTION), none)
-	@echo "Please provide package distribution. Oneof: 'wily', 'fedora-23-x86_64'"
+	@echo "Please provide package distribution. Oneof: 'trusty', 'wily', 'xenial', 'centos-7-x86_64', 'fedora-23-x86_64'"
 	@exit 1
 else
 	@echo "Building package for distribution $(DISTRIBUTION)"
@@ -81,6 +81,7 @@ deb: check_distribution package/$(PKG_ID).tar.gz
 	cp -R pkg_config/debian package/$(PKG_ID)/
 	sed -i "s/oneclient (.*) .*;/oneclient ($(PKG_VERSION)-$(PKG_BUILD)) sid;/g" package/$(PKG_ID)/debian/changelog
 	sed -i "s/Build from .*/Build from $(PKG_VERSION)/g" package/$(PKG_ID)/debian/changelog
+	patch -d package/$(PKG_ID)/ -p1 -i pkg_config/$(DISTRIBUTION).patch
 
 	cd package/$(PKG_ID) && sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j4"
 	mv package/*$(PKG_VERSION).orig.tar.gz package/packages/
