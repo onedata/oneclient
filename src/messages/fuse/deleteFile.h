@@ -35,6 +35,7 @@ private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
     std::string m_uuid;
+    bool m_silent;
 };
 
 } // namespace fuse
