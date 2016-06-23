@@ -727,6 +727,8 @@ int FsLogic::release(
     }
     context.helperCtxMap->clear();
 
+    m_eventManager.emitFileReleasedEvent(attr.uuid());
+
     if (lastReleaseException)
         std::rethrow_exception(lastReleaseException);
     return 0;
@@ -886,6 +888,8 @@ void FsLogic::openFile(
         std::make_shared<FileContextCache::HelperCtxMap>();
 
     metaAcc.release();
+
+    m_eventManager.emitFileOpenedEvent(fileUuid);
 
     m_locExpirationHelper.pin(fileUuid, [&] {
         m_metadataCache.getLocation(fileUuid,

@@ -16,6 +16,17 @@ namespace one {
 namespace client {
 namespace events {
 
+Subscription::Subscription(std::int64_t id,
+    boost::optional<std::size_t> counterThreshold_,
+    boost::optional<std::chrono::milliseconds> timeThreshold_,
+    boost::optional<std::size_t> sizeThreshold_)
+    : m_id(id)
+    , m_counterThreshold{std::move(counterThreshold_)}
+    , m_timeThreshold{std::move(timeThreshold_)}
+    , m_sizeThreshold{sizeThreshold_}
+{
+}
+
 Subscription::Subscription(boost::optional<std::size_t> counterThreshold_,
     boost::optional<std::chrono::milliseconds> timeThreshold_,
     boost::optional<std::size_t> sizeThreshold_)

@@ -32,6 +32,7 @@ message Event {
         FileRemovalEvent       file_removal_event       = 6;
         QuotaExeededEvent      quota_exeeded_event      = 7;
         FileRenamedEvent       file_renamed_event       = 8;
+        FileAccessedEvent      file_accessed_event      = 9;
     }
 }
 
@@ -73,6 +74,12 @@ message FileRenamedEvent {
                                                  // renamed file
 }
 
+message FileAccessedEvent {
+    required bytes  file_uuid     = 1; // UUID of file associated with an event
+    required uint64 open_count    = 2; // Number of open actions on file
+    required uint64 release_count = 3; // Number of release actions on file
+}
+
 // Generic subscription message
 message Subscription {
     required sint64 id = 1; // unique subscription ID
@@ -85,6 +92,7 @@ message Subscription {
         FileRemovalSubscription       file_removal_subscription       = 7;
         QuotaSubscription             quota_subscription              = 8;
         FileRenamedSubscription       file_renamed_subscription       = 9;
+        FileAccessedSubscription      file_accessed_subscription      = 10;
     }
 }
 
@@ -137,6 +145,13 @@ message FileRemovalSubscription {
 
 message FileRenamedSubscription {
     required bytes  file_uuid         = 1; // file UUID
+}
+
+message FileAccessedSubscription {
+    optional uint32 counter_threshold = 1; // maximal amount of aggregated
+                                           // events before emission
+    optional uint32 time_threshold    = 2; // maximal delay in milliseconds
+                                           // between successive events emission
 }
 
 message SubscriptionCancellation {

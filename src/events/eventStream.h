@@ -16,6 +16,7 @@
 #include "events/eventHandler.h"
 #include "events/eventWorker.h"
 #include "events/subscriptionHandler.h"
+#include "events/subscriptions/fileAccessedSubscription.h"
 #include "events/subscriptions/fileAttrSubscription.h"
 #include "events/subscriptions/fileLocationSubscription.h"
 #include "events/subscriptions/fileRemovalSubscription.h"
@@ -24,6 +25,7 @@
 #include "events/subscriptions/quotaSubscription.h"
 #include "events/subscriptions/readSubscription.h"
 #include "events/subscriptions/writeSubscription.h"
+#include "events/types/fileAccessedEvent.h"
 #include "events/types/fileRemovalEvent.h"
 #include "events/types/fileRenamedEvent.h"
 #include "events/types/permissionChangedEvent.h"
@@ -31,6 +33,7 @@
 #include "events/types/readEvent.h"
 #include "events/types/updateEvent.h"
 #include "events/types/writeEvent.h"
+#include "events/types/permissionChangedEvent.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
 
@@ -69,6 +72,10 @@ using QuotaExeededEventStream =
 using FileRenamedEventStream =
     EventWorker<EventCounterAggregator<EventTimeAggregator<SubscriptionHandler<
         EventHandler<EventCommunicator<FileRenamedEvent>>>>>>;
+
+using FileAccessedEventStream =
+    EventWorker<EventCounterAggregator<EventTimeAggregator<SubscriptionHandler<
+        EventHandler<EventCommunicator<FileAccessedEvent>>>>>>;
 
 } // namespace events
 } // namespace client
