@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(oneclient C CXX)
 
+option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
+option(STATIC_BOOST "Link Boost statically" Off)
+option(STATIC_LIBSTDCPP "Link libstdc++ statically" Off)
+
 # CMake config
+set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY True)
 set(CMAKE_FIND_FRAMEWORK LAST)
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${PROJECT_SOURCE_DIR}/helpers/cmake)
@@ -49,8 +54,8 @@ find_package(CURL REQUIRED)
 # Setup Boost
 message(STATUS "Checking for Boost.Filesystem, Boost.System and Boost.Program_options...")
 set(Boost_USE_MULTITHREADED      ON)
-set(Boost_USE_STATIC_RUNTIME    OFF)
-set(Boost_USE_STATIC_LIBS       OFF)
+set(Boost_USE_STATIC_RUNTIME     ${STATIC_LIBSTDCPP})
+set(Boost_USE_STATIC_LIBS        ${STATIC_BOOST})
 find_package(Boost COMPONENTS filesystem program_options system REQUIRED)
 
 # Setup libsodium
@@ -112,8 +117,11 @@ set(PLATFORM_EXTRA_LIBS
     ${ZLIB_LIBRARY}
     ${DL_LIBRARY})
 
+if(STATIC_LIBSTDCPP)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++")
+endif(STATIC_LIBSTDCPP)
+
 # Code coverage
-option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
 if(CODE_COVERAGE)
   message("Code coverage enabled.")
   add_compile_options(--coverage)
@@ -130,7 +138,7 @@ else(NOT APPLE)
 endif(APPLE)
 
 # Define build settings
-add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wshadow -Wall)
+add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wshadow -Wall -Wno-unused-result)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 add_definitions(
     ${FUSE_DEFINITIONS}
