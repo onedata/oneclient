@@ -68,6 +68,7 @@ message CreateDir {
 
 message DeleteFile {
     required bytes uuid = 1;
+    optional bool  silent = 2 [default = false];
 }
 
 message UpdateTimes {
