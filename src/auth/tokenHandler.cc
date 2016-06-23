@@ -135,7 +135,7 @@ macaroons::Macaroon TokenHandler::getTokenFromUser() const
                        << tokenFilePath() << ": " << strerror(err);
         }
     }
-    catch (const std::system_error &e) {
+    catch (const std::exception &e) {
         LOG(WARNING) << "Failed to save authorization details to "
                      << tokenFilePath() << " - " << e.what();
     }

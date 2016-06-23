@@ -60,7 +60,7 @@ coverage:
 .PHONY: check_distribution
 check_distribution:
 ifeq ($(DISTRIBUTION), none)
-	@echo "Please provide package distribution. Oneof: 'wily', 'fedora-23-x86_64'"
+	@echo "Please provide package distribution. Oneof: 'trusty', 'wily', 'xenial', 'centos-7-x86_64', 'fedora-23-x86_64'"
 	@exit 1
 else
 	@echo "Building package for distribution $(DISTRIBUTION)"
@@ -78,7 +78,9 @@ package/$(PKG_ID).tar.gz:
 deb: check_distribution package/$(PKG_ID).tar.gz
 	rm -rf package/packages && mkdir -p package/packages
 	mv -f package/$(PKG_ID).tar.gz package/oneclient_$(PKG_VERSION).orig.tar.gz
+
 	cp -R pkg_config/debian package/$(PKG_ID)/
+	patch -d package/$(PKG_ID)/ -p1 -i pkg_config/$(DISTRIBUTION).patch
 	sed -i "s/oneclient (.*) .*;/oneclient ($(PKG_VERSION)-$(PKG_BUILD)) sid;/g" package/$(PKG_ID)/debian/changelog
 	sed -i "s/Build from .*/Build from $(PKG_VERSION)/g" package/$(PKG_ID)/debian/changelog
 
@@ -93,7 +95,9 @@ deb: check_distribution package/$(PKG_ID).tar.gz
 rpm: check_distribution package/$(PKG_ID).tar.gz
 	rm -rf package/packages && mkdir -p package/packages
 	mv -f package/$(PKG_ID).tar.gz package/$(PKG_ID).orig.tar.gz
+
 	cp pkg_config/oneclient.spec package/oneclient.spec
+	patch -d package/ -p1 -i $(PKG_ID)/pkg_config/$(DISTRIBUTION).patch
 	sed -i "s/{{version}}/$(PKG_VERSION)/g" package/oneclient.spec
 	sed -i "s/{{build}}/$(PKG_BUILD)/g" package/oneclient.spec
 

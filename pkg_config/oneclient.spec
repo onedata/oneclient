@@ -13,7 +13,7 @@ BuildRequires: aws-sdk-cpp
 BuildRequires: boost-devel >= 1.58.0,
 BuildRequires: cmake >= 3.0.0,
 BuildRequires: fuse-devel >= 2.7,
-BuildRequires: gcc-c++ >= 4.9.0,
+BuildRequires: gcc-c++ >= 5.0.0,
 BuildRequires: git,
 BuildRequires: glog-devel >= 0.3.4,
 BuildRequires: golang,
@@ -33,7 +33,7 @@ BuildRequires: protobuf-devel >= 2.6.0,
 BuildRequires: python-devel,
 BuildRequires: subversion,
 BuildRequires: swift-sdk-cpp,
-BuildRequires: tbb-devel >= 4.3~
+BuildRequires: tbb-devel >= 4.3~,
 
 %description
 oneclient is a software based on FUSE (Filesystem in Userspace) that allows mounting onedata filesystem on Linux systems.
@@ -44,7 +44,7 @@ oneclient is a software based on FUSE (Filesystem in Userspace) that allows moun
 
 %build
 %cmake . -DBUILD_INTEGRATION_TESTS=Off -DBUILD_SHARED_LIBS=Off
-make %{?_smp_mflags}
+make %{?_smp_mflags} oneclient
 
 
 %install
@@ -61,4 +61,3 @@ find %{buildroot}
 
 
 %changelog
-

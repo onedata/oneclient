@@ -1,0 +1,35 @@
+diff -ru a/debian/control b/debian/control
+--- a/debian/control	2016-06-22 00:24:57.000000000 +0200
++++ b/debian/control	2016-06-22 00:24:52.000000000 +0200
+@@ -6,7 +6,7 @@
+     aws-sdk-cpp,
+     cmake (>= 3.0.0),
+     debhelper (>= 9),
+-    g++-5 (>= 5.0.0),
++    g++-4.9 (>= 4.9.0),
+     git,
+     golang-go,
+     libboost-filesystem1.58-dev,
+@@ -30,7 +30,7 @@
+     librados-dev,
+     libsodium-dev,
+     libssl-dev,
+-    libstdc++-5-dev,
++    libstdc++-4.9-dev,
+     libtbb-dev (>= 4.3~),
+     libpoco-dev,
+     libpocofoundation9v5,
+diff -ru a/debian/rules b/debian/rules
+--- a/debian/rules	2016-06-22 00:24:57.000000000 +0200
++++ b/debian/rules	2016-06-22 00:24:52.000000000 +0200
+@@ -16,8 +16,8 @@
+ # package maintainers to append LDFLAGS
+ #export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
+ 
+-export CC=gcc-5
+-export CXX=g++-5
++export CC=gcc-4.9
++export CXX=g++-4.9
+ 
+ # main packaging script based on dh7 syntax
+ %:
