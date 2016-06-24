@@ -86,10 +86,12 @@ deb: check_distribution package/$(PKG_ID).tar.gz
 
 	cd package/$(PKG_ID) && sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j4"
 	mv package/*$(PKG_VERSION).orig.tar.gz package/packages/
+	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.deb package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD).dsc package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)_amd64.changes package/packages/
-	mv package/*$(PKG_VERSION)-$(PKG_BUILD).debian.tar.xz package/packages/
-	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.deb package/packages/
+	-mv package/*$(PKG_VERSION)-$(PKG_BUILD).debian.tar.xz package/packages/
+	-mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.ddeb package/packages/
+	-mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.diff.gz package/packages/
 
 .PHONY: rpm
 rpm: check_distribution package/$(PKG_ID).tar.gz
