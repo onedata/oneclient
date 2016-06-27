@@ -4,6 +4,16 @@
 CHANGELOG
 ---------
 
+### 3.0.0-beta7
+
+* VFS-2166 Generate 'Format 1.0' packages for trusty.
+* Fix wily package compilation to use GCC 5.
+* VFS-2173 Add flag to deleteFile message whether event should be emitted
+* VFS-2166 Change dependencies for centos 7 package.
+* VFS-1882 Postpone deletion of open files
+* VFS-2166 Change dependencies and fix tests for Trusty package.
+
+
 ### 3.0.0-beta6
 
 * Update erlang tls
