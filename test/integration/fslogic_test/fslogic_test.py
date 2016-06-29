@@ -850,8 +850,13 @@ def test_readdir_big_directory(endpoint, fl):
     response.fuse_response.file_children.CopyFrom(repl)
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
+    empty_response = messages_pb2.ServerMessage()
+    empty_response.fuse_response.file_children.CopyFrom(
+        fuse_messages_pb2.FileChildren())
+    empty_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
     children = []
-    with reply(endpoint, [getattr_response, response]):
+    with reply(endpoint, [getattr_response, response, empty_response]):
         assert 0 == fl.readdir('/random/path', children)
 
     assert len(children) == children_num + 2

@@ -240,8 +240,13 @@ public:
 private:
     static int filler(void *buf, const char *name, const struct stat *, off_t)
     {
+        PyGILState_STATE gstate;
+        gstate = PyGILState_Ensure();
+
         auto &children = *static_cast<boost::python::list *>(buf);
         children.append(name);
+
+        PyGILState_Release(gstate);
         return 0;
     }
 
