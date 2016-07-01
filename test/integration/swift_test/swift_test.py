@@ -53,7 +53,7 @@ def client(request):
                                       output=True, stdout=sys.stderr)
 
     container_name = 'onedata'
-    result = swift_server.up('predicsis/dockswift', [container_name],
+    result = swift_server.up('onedata/dockswift', [container_name],
                              'storage', '1')
     [container] = result['docker_ids']
 
