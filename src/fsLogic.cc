@@ -761,32 +761,35 @@ int FsLogic::readdir(boost::filesystem::path path, void *const buf,
     if (attr.type() != messages::fuse::FileAttr::FileType::directory)
         throw std::errc::not_a_directory;
 
-    auto currentOffset = offset;
+    auto putEntry = [=](const std::string &name) {
+        if (filler(buf, name.c_str(), nullptr, 0))
+            throw std::errc::not_enough_memory;
+    };
 
     std::size_t chunkSize = 1000;
-    if (offset == 0) {
-        chunkSize -= 2;
-        (filler(buf, ".", nullptr, ++currentOffset));
-        (filler(buf, "..", nullptr, ++currentOffset));
+    putEntry(".");
+    putEntry("..");
+
+    for (off_t currentOffset = 0;; currentOffset += chunkSize) {
+        messages::fuse::GetFileChildren msg{
+            attr.uuid(), currentOffset, chunkSize};
+        auto future =
+            m_context->communicator()
+                ->communicate<messages::fuse::FileChildren>(std::move(msg));
+
+        auto fileChildren = communication::wait(future);
+
+        for (const auto &uuidAndName : fileChildren.uuidsAndNames()) {
+            auto name = std::get<1>(uuidAndName);
+            auto childPath = path / name;
+            m_metadataCache.map(std::move(childPath), std::get<0>(uuidAndName));
+
+            putEntry(name);
+        }
+
+        if (fileChildren.uuidsAndNames().size() < chunkSize)
+            return 0;
     }
-
-    messages::fuse::GetFileChildren msg{attr.uuid(), offset, chunkSize};
-    auto future =
-        m_context->communicator()->communicate<messages::fuse::FileChildren>(
-            std::move(msg));
-
-    auto fileChildren = communication::wait(future);
-
-    for (const auto &uuidAndName : fileChildren.uuidsAndNames()) {
-        auto name = std::get<1>(uuidAndName);
-        auto childPath = path / name;
-        m_metadataCache.map(std::move(childPath), std::get<0>(uuidAndName));
-
-        if (filler(buf, name.c_str(), nullptr, ++currentOffset))
-            break;
-    }
-
-    return 0;
 }
 
 int FsLogic::releasedir(
