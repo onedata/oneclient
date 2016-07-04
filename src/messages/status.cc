@@ -11,16 +11,19 @@
 #include "messages.pb.h"
 
 #include <boost/bimap.hpp>
+#include <boost/bimap/multiset_of.hpp>
 #include <boost/optional/optional_io.hpp>
 
 #include <cassert>
+#include <logging.h>
 #include <sstream>
 #include <system_error>
 #include <vector>
 
 namespace {
 
-using Translation = boost::bimap<one::clproto::Status::Code, std::errc>;
+using Translation = boost::bimap<one::clproto::Status::Code,
+    boost::bimaps::multiset_of<std::errc>>;
 
 Translation createTranslation()
 {
@@ -135,13 +138,20 @@ Status::Status(std::unique_ptr<ProtocolServerMessage> serverMessage)
 Status::Status(clproto::Status &status)
 {
     auto searchResult = translation.left.find(status.code());
-    auto errc = searchResult == translation.left.end()
-        ? std::errc::protocol_error
-        : searchResult->second;
+    std::errc errc = std::errc::protocol_error;
+    if (searchResult == translation.left.end()) {
+        LOG(ERROR) << "Unknown error code received: " << status.code();
+    }
+    else {
+        errc = searchResult->second;
+    }
 
     m_code = std::make_error_code(errc);
-    if (status.has_description())
+    if (status.has_description()) {
         m_description = std::move(*status.mutable_description());
+        LOG(INFO) << "Received status with description: "
+                  << m_code.message() << ": " << m_description.get();
+    }
 }
 
 std::error_code Status::code() const { return m_code; }
