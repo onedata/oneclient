@@ -49,6 +49,28 @@ public:
      */
     std::string refreshRestrictedToken();
 
+    /**
+     * Tries to deserialize token assuming it is in base62 format.
+     * If it fails, tries again assuming base64 format.
+     * @param token Token to deserialize.
+     * @return Deserialized macaroon.
+     */
+    macaroons::Macaroon deserialize(std::string token) const;
+
+    /**
+     * Decodes token in base62 format to base64 format.
+     * @param token62 Token to decode.
+     * @return Decoded token in base64 format.
+     */
+    std::string decode62(std::string token62) const;
+
+    /**
+     * Encodes token in base64 format to base62 format.
+     * @param token64 Token to encode.
+     * @return Encoded token in base62 format.
+     */
+    std::string encode62(std::string token64) const;
+
 private:
     macaroons::Macaroon retrieveToken() const;
     boost::optional<macaroons::Macaroon> readTokenFromFile() const;
