@@ -9,8 +9,8 @@
 #ifndef ONECLIENT_MESSAGES_CONFIGURATION_H
 #define ONECLIENT_MESSAGES_CONFIGURATION_H
 
-#include "messages/serverMessage.h"
 #include "events/subscriptionContainer.h"
+#include "messages/serverMessage.h"
 
 #include <memory>
 #include <string>
@@ -41,10 +41,16 @@ public:
      */
     client::events::SubscriptionContainer subscriptionContainer();
 
+    /**
+     * @return disabled spaces' container.
+     */
+    std::vector<std::string> disabledSpacesContainer();
+
     std::string toString() const override;
 
 private:
     client::events::SubscriptionContainer m_subscriptionContainer;
+    std::vector<std::string> m_disabledSpacesContainer;
 };
 
 } // namespace messages

@@ -9,6 +9,7 @@
 #include "checksum.h"
 
 #include "messages.pb.h"
+#include "messages/status.h"
 
 #include <sstream>
 
@@ -18,6 +19,9 @@ namespace fuse {
 
 Checksum::Checksum(std::unique_ptr<ProtocolServerMessage> serverMessage)
 {
+    Status{*serverMessage->mutable_fuse_response()->mutable_status()}
+        .throwOnError();
+
     if (!serverMessage->fuse_response().has_checksum())
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "checksum field missing"};

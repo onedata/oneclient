@@ -34,7 +34,7 @@ int wrap(int (FsLogic::*operation)(Args2...), Args1 &&... args)
         auto &fsLogic =
             static_cast<FsLogicWrapper *>(fuse_get_context()->private_data)
                 ->logic;
-        
+
         one::helpers::activateFuseSession();
 
         return ((*fsLogic).*operation)(std::forward<Args1>(args)...);
@@ -43,7 +43,6 @@ int wrap(int (FsLogic::*operation)(Args2...), Args1 &&... args)
         return -1 * static_cast<int>(errc);
     }
     catch (const std::system_error &e) {
-        LOG(ERROR) << e.what() << std::endl;
         return -1 * e.code().value();
     }
     catch (const one::communication::TimeoutExceeded &t) {
@@ -213,6 +212,7 @@ struct fuse_operations fuseOperations()
     operations.releasedir = wrap_releasedir;
     operations.fsyncdir = wrap_fsyncdir;
     operations.create = wrap_create;
+    operations.flag_utime_omit_ok = 1;
 
     return operations;
 }

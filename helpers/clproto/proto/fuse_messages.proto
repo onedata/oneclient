@@ -42,14 +42,9 @@ message FuseRequest {
         GetHelperParams get_helper_params = 10;
         Release release = 11;
         Truncate truncate = 12;
-        GetXattr get_xattr = 13;
-        SetXattr set_xattr = 14;
-        RemoveXattr remove_xattr = 15;
-        ListXattr list_xattr = 16;
         SynchronizeBlock synchronize_block = 17;
         CreateStorageTestFile create_storage_test_file = 18;
         VerifyStorageTestFile verify_storage_test_file = 19;
-        GetParent get_parent = 20;
         SynchronizeBlockAndComputeChecksum synchronize_block_and_compute_checksum = 21;
     }
 }
@@ -73,6 +68,7 @@ message CreateDir {
 
 message DeleteFile {
     required bytes uuid = 1;
+    optional bool  silent = 2 [default = false];
 }
 
 message UpdateTimes {
@@ -115,11 +111,8 @@ message Truncate {
 }
 
 message Release {
-    required bytes handle_id = 1;
-}
-
-message GetParent {
     required bytes uuid = 1;
+    required bytes handle_id = 2;
 }
 
 // Generic FUSE client response
@@ -131,11 +124,10 @@ message FuseResponse {
         FileChildren file_children = 3;
         FileLocation file_location = 4;
         HelperParams helper_params = 5;
-        Xattr xattr = 6;
-        XattrList xattr_list = 7;
         StorageTestFile storage_test_file = 8;
         Dir dir = 9;
         Checksum checksum = 10;
+        FileRenamed file_renamed = 17;
     }
 }
 
@@ -176,34 +168,6 @@ message HelperParams {
     repeated HelperArg helper_args = 2;
 }
 
-message GetXattr {
-    required bytes uuid = 1;
-    required bytes name = 2;
-}
-
-message SetXattr {
-    required bytes uuid = 1;
-    required Xattr xattr = 2;
-}
-
-message RemoveXattr {
-    required bytes uuid = 1;
-    required bytes name = 2;
-}
-
-message ListXattr {
-    required bytes uuid = 1;
-}
-
-message Xattr {
-    required bytes name = 1;
-    required bytes value = 2;
-}
-
-message XattrList {
-    repeated bytes names = 1;
-}
-
 message CreateStorageTestFile {
     required bytes storage_id = 1;
     required bytes file_uuid  = 2;
@@ -224,12 +188,9 @@ message VerifyStorageTestFile {
 }
 
 message SynchronizeBlock {
-    required bytes     uuid  = 1;
-    required FileBlock block = 2;
-}
-
-message Dir {
-    required bytes uuid = 1;
+    required bytes     uuid     = 1;
+    required FileBlock block    = 2;
+    optional bool      prefetch = 3 [default = true];
 }
 
 message SynchronizeBlockAndComputeChecksum {
@@ -239,4 +200,10 @@ message SynchronizeBlockAndComputeChecksum {
 
 message Checksum {
     required bytes value = 1;
+}
+
+message FileRenamed {
+    required bytes new_uuid = 1;                 // new UUID of renamed file
+    repeated FileRenamedEntry child_entries = 2; // entries for children of
+                                                 // renamed file
 }

@@ -14,8 +14,8 @@
 #include "messages/clientMessage.h"
 
 #include <memory>
-#include <vector>
 #include <sstream>
+#include <vector>
 
 namespace one {
 namespace client {

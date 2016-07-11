@@ -147,7 +147,11 @@ public:
     int utime(std::string path)
     {
         ReleaseGIL guard;
-        return m_fsLogic.utime(path, nullptr);
+        struct utimbuf utimbuf;
+        utimbuf.actime = 0;
+        utimbuf.modtime = 0;
+
+        return m_fsLogic.utime(path, &utimbuf);
     }
 
     int utime_buf(std::string path, Ubuf ubuf)
@@ -236,8 +240,13 @@ public:
 private:
     static int filler(void *buf, const char *name, const struct stat *, off_t)
     {
+        PyGILState_STATE gstate;
+        gstate = PyGILState_Ensure();
+
         auto &children = *static_cast<boost::python::list *>(buf);
         children.append(name);
+
+        PyGILState_Release(gstate);
         return 0;
     }
 

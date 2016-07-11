@@ -174,6 +174,17 @@ def prepare_location(blocks=[], handle_id=None):
     return server_response
 
 
+def prepare_rename():
+    repl = fuse_messages_pb2.FileRenamed()
+    repl.new_uuid = 'uuid2'
+
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.file_renamed.CopyFrom(repl)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    return server_response
+
+
 def do_open(endpoint, fl, blocks=[], size=None, handle_id=None):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.REG,
                                        size=size)
@@ -240,7 +251,7 @@ def test_getattrs_should_cache_attrs(endpoint, fl):
     new_stat = fslogic.Stat()
     assert fl.getattr('/random/path', new_stat) == 0
     assert stat == new_stat
-    assert 2 == endpoint.all_messages_count()
+    assert 3 == endpoint.all_messages_count()
 
 
 def test_mkdir_should_mkdir(endpoint, fl):
@@ -341,10 +352,9 @@ def test_rmdir_should_pass_rmdir_errors(endpoint, fl):
 
 def test_rename_should_rename(endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.ok
+    rename_response = prepare_rename()
 
-    with reply(endpoint, [getattr_response, response]) as queue:
+    with reply(endpoint, [getattr_response, rename_response]) as queue:
         assert 0 == fl.rename('/random/path', '/random/path2')
         queue.get()
         client_message = queue.get()
@@ -361,10 +371,9 @@ def test_rename_should_rename(endpoint, fl):
 
 def test_rename_should_change_caches(appmock_client, endpoint, fl):
     getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.ok
+    rename_response = prepare_rename()
 
-    with reply(endpoint, [getattr_response, response]):
+    with reply(endpoint, [getattr_response, rename_response]):
         fl.rename('/random/path', '/random/path2')
 
     stat = fslogic.Stat()
@@ -436,7 +445,7 @@ def test_chmod_should_change_cached_mode(appmock_client, endpoint, fl):
 
     assert stat.mode == getattr_response.fuse_response.file_attr.mode | \
                         fslogic.regularMode()
-    assert 2 == endpoint.all_messages_count()
+    assert 3 == endpoint.all_messages_count()
     appmock_client.reset_tcp_history()
 
     response = messages_pb2.ServerMessage()
@@ -491,8 +500,8 @@ def test_utime_should_update_times(endpoint, fl):
     update_times = fuse_request.update_times
     assert update_times.uuid == getattr_response.fuse_response.file_attr.uuid
     assert update_times.atime == update_times.mtime
+    assert update_times.atime == update_times.ctime
     assert update_times.atime <= time.time()
-    assert not update_times.HasField('ctime')
 
 
 def test_utime_should_change_cached_times(appmock_client, endpoint, fl):
@@ -504,7 +513,7 @@ def test_utime_should_change_cached_times(appmock_client, endpoint, fl):
 
     assert stat.atime == getattr_response.fuse_response.file_attr.atime
     assert stat.mtime == getattr_response.fuse_response.file_attr.mtime
-    assert 2 == endpoint.all_messages_count()
+    assert 3 == endpoint.all_messages_count()
     appmock_client.reset_tcp_history()
 
     response = messages_pb2.ServerMessage()
@@ -542,7 +551,6 @@ def test_utime_should_update_times_with_buf(endpoint, fl):
     assert update_times.uuid == getattr_response.fuse_response.file_attr.uuid
     assert update_times.atime == ubuf.actime
     assert update_times.mtime == ubuf.modtime
-    assert not update_times.HasField('ctime')
 
 
 def test_utime_should_pass_getattr_errors(endpoint, fl):
@@ -842,8 +850,13 @@ def test_readdir_big_directory(endpoint, fl):
     response.fuse_response.file_children.CopyFrom(repl)
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
+    empty_response = messages_pb2.ServerMessage()
+    empty_response.fuse_response.file_children.CopyFrom(
+        fuse_messages_pb2.FileChildren())
+    empty_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
     children = []
-    with reply(endpoint, [getattr_response, response]):
+    with reply(endpoint, [getattr_response, response, empty_response]):
         assert 0 == fl.readdir('/random/path', children)
 
     assert len(children) == children_num + 2
@@ -1002,3 +1015,48 @@ def test_release_should_clear_handle_id_if_set(endpoint, fl):
     with reply(endpoint, []) as queue:
         assert 0 == fl.release('/random/path')
         assert queue.empty()
+
+
+def test_location_with_different_flags(endpoint, fl):
+    O_RDONLY = 00
+    O_WRONLY = 01
+    O_RDWR = 02
+
+    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG, size=0)
+
+    location_response = prepare_location([], 'id')
+
+    with reply(endpoint, [getattr_response, location_response]):
+        assert fl.open('/location', O_RDONLY) >= 0
+
+    # should not ask for location and will fail on try due to wrong response
+    with reply(endpoint, [getattr_response]):
+        assert fl.open('/location', O_RDONLY) >= 0
+
+    # should try to get location for different flags and
+    # fail due to wrong response
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, [getattr_response]):
+            assert fl.open('/location', O_WRONLY) >= 0
+    assert 'file_location field missing: Protocol error' in str(excinfo.value)
+
+    with reply(endpoint, [getattr_response, location_response]):
+        assert fl.open('/location', O_WRONLY) >= 0
+
+    # should not ask for location and will fail on try due to wrong response
+    with reply(endpoint, [getattr_response, getattr_response]):
+        assert fl.open('/location', O_WRONLY) >= 0
+
+    # should try to get location for different flags and
+    # fail due to wrong response
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, [getattr_response]):
+            assert fl.open('/location', O_RDWR) >= 0
+    assert 'file_location field missing: Protocol error' in str(excinfo.value)
+
+    with reply(endpoint, [getattr_response, location_response]):
+        assert fl.open('/location', O_RDWR) >= 0
+
+    # should not ask for location and will fail on try due to wrong response
+    with reply(endpoint, [getattr_response, getattr_response]):
+        assert fl.open('/location', O_RDWR) >= 0

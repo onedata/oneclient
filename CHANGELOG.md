@@ -4,6 +4,60 @@
 CHANGELOG
 ---------
 
+### 3.0.0-beta8
+
+* VFS-2197 Fail with proper error when sync has failed.
+
+
+### 3.0.0-beta7
+
+* VFS-2166 Generate 'Format 1.0' packages for trusty.
+* Fix wily package compilation to use GCC 5.
+* VFS-2173 Add flag to deleteFile message whether event should be emitted
+* VFS-2166 Change dependencies for centos 7 package.
+* VFS-1882 Postpone deletion of open files
+* VFS-2166 Change dependencies and fix tests for Trusty package.
+
+
+### 3.0.0-beta6
+
+* Update erlang tls
+* VFS-2038 Map file locations by flags
+* VFS-2018 Improve readability of keys rename in expiration handler
+* VFS-2018 Remove subscriptions for old UUID after rename
+* VFS-2018 Remove deadlock on overwriting file with mv
+* VFS-2018 Add entry renaming in expiration helper
+* VFS-2018 Do not pin entry if UUID does not change
+* VFS-1999 Make disabled spaces update thread-safe
+* VFS-1999 Quota implementation
+* VFS-2018 Remap files after rename response and event
+* VFS-2017 Flush on read when synchronization needed
+* VFS-1821 Enable flag_utime_omit_ok in fuse_operations.
+* VFS-2018 Add FileRenamed fuse response, modify FileRenamedEvent
+* VFS-2071 Adjust code to the new S3 helper
+
+
+### 3.0.0-beta5
+
+* Fix adding message size twice to the tpc message in connection layer during retry.
+* Filter out O_APPEND flag when opening file, add some logging.
+
+
+### 3.0.0-beta4
+
+* Filter out O_CREAT flag when opening file.
+* VFS-2057 Enable --no-check-certificate in docker.
+* Removing path from target file attrs after overwrite in rename
+* Fix getattr on alternative file path returning bad attrs.
+* VFS-1973 Name client's threads.
+* VFS-1991 Update auto install script names.
+* VFS-1975 Adding uuid to release message
+* VFS-1841 Clearing caches after rename
+* VFS-1887 Fix segmentation fault during release when file open has failed.
+* VFS-1887 Open file with correct mode.
+* VFS-1901 Improve README.
+
+
 ### 3.0.0-beta3
 
 * VFS-1932 Use BufferAgent with StorageHelperFactory.

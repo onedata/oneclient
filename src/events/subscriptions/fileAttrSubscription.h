@@ -9,8 +9,8 @@
 #ifndef ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_ATTR_SUBSCRIPTION_H
 #define ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_ATTR_SUBSCRIPTION_H
 
-#include "subscription.h"
 #include "messages/clientMessage.h"
+#include "subscription.h"
 
 #include <boost/optional.hpp>
 

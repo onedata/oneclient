@@ -112,10 +112,22 @@ public:
     void setFileRemovalHandler(FileRemovalEventStream::Handler handler);
 
     /**
+     * Sets handler for quota.
+     * @param handler Handler to be set.
+     */
+    void setQuotaExeededHandler(QuotaExeededEventStream::Handler handler);
+
+    /**
      * Emits a remove file event.
      * @param fileUuid UUID of removed file.
      */
     void emitFileRemovalEvent(std::string fileUuid) const;
+
+    /**
+     * Sets handler for renaming file events.
+     * @param handler Handler to be set.
+     */
+    void setFileRenamedHandler(FileRenamedEventStream::Handler handler);
 
     /**
      * Adds subscription for removing file events.
@@ -125,6 +137,27 @@ public:
      */
     std::int64_t subscribe(FileRemovalSubscription clientSubscription,
         FileRemovalSubscription serverSubscription);
+
+    /**
+     * Adds subscription for renaming file events.
+     * @param clientSubscription Client side subscription parameters.
+     * @param serverSubscription Server side subscription parameters.
+     * @return Subscription ID.
+     */
+    std::int64_t subscribe(FileRenamedSubscription clientSubscription,
+        FileRenamedSubscription serverSubscription);
+
+    /**
+     * Emits a file accessed event with open counter set to one.
+     * @param fileUuid UUID of accessed file.
+     */
+    void emitFileOpenedEvent(std::string fileUuid) const;
+
+    /**
+     * Emits a file accessed event with release counter set to one.
+     * @param fileUuid UUID of accessed file.
+     */
+    void emitFileReleasedEvent(std::string fileUuid) const;
 
     /**
      * Adds subscription for permission changeg events.
@@ -142,6 +175,15 @@ public:
      */
     std::int64_t subscribe(PermissionChangedSubscription clientSubscription,
         PermissionChangedSubscription serverSubscription);
+
+    /**
+     * Adds subscription for quota.
+     * @param clientSubscription Client side subscription parameters.
+     * @param serverSubscription Server side subscription parameters.
+     * @return Subscription ID.
+     */
+    std::int64_t subscribe(QuotaSubscription clientSubscription,
+        QuotaSubscription serverSubscription);
 
     /**
      * Adds server subscriptions.
@@ -190,6 +232,9 @@ protected:
     std::unique_ptr<PermissionChangedEventStream>
         m_permissionChangedEventStream;
     std::unique_ptr<FileRemovalEventStream> m_fileRemovalEventStream;
+    std::unique_ptr<QuotaExeededEventStream> m_quotaExeededEventStream;
+    std::unique_ptr<FileRenamedEventStream> m_fileRenamedEventStream;
+    std::unique_ptr<FileAccessedEventStream> m_fileAccessedEventStream;
 
 private:
     void initializeStreams(std::shared_ptr<Context> context);

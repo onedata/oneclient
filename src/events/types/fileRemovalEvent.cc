@@ -42,7 +42,7 @@ std::string FileRemovalEvent::toString() const
 {
     std::stringstream stream;
     stream << "type: 'FileRemovalEvent', counter: " << m_counter
-           << ", file UUID: '" << m_fileUuid;
+           << ", file UUID: '" << m_fileUuid << "'";
     return stream.str();
 }
 

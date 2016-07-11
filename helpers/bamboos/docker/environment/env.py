@@ -12,14 +12,14 @@ import copy
 import json
 import time
 from . import appmock, client, common, zone_worker, cluster_manager, \
-    worker, provider_worker, cluster_worker, docker, dns, s3, ceph, nfs, \
-    amazon_iam, luma
+    worker, provider_worker, cluster_worker, docker, dns, storages
 
 
 def default(key):
     return {'image': 'onedata/worker',
             'ceph_image': 'onedata/ceph',
-            's3_image': 'lphoward/fake-s3',
+            's3_image': 'onedata/s3proxy',
+            'swift_image': 'predicsis/dockswift',
             'nfs_image': 'erezhorev/dockerized_nfs_server',
             'bin_am': '{0}/appmock'.format(os.getcwd()),
             'bin_oz': '{0}/oz_worker'.format(os.getcwd()),
@@ -33,6 +33,7 @@ def default(key):
 
 def up(config_path, image=default('image'), ceph_image=default('ceph_image'),
        s3_image=default('s3_image'), nfs_image=default('nfs_image'),
+       swift_image=default('swift_image'),
        bin_am=default('bin_am'), bin_oz=default('bin_oz'),
        bin_cluster_manager=default('bin_cluster_manager'),
        bin_op_worker=default('bin_op_worker'),
@@ -59,7 +60,8 @@ def up(config_path, image=default('image'), ceph_image=default('ceph_image'),
 
     # Start appmock instances
     if 'appmock_domains' in config:
-        am_output = appmock.up(image, bin_am, dns_server, uid, config_path, logdir)
+        am_output = appmock.up(image, bin_am, dns_server, uid, config_path,
+                               logdir)
         common.merge(output, am_output)
         # Make sure appmock domains are added to the dns server.
         # Setting first arg to 'auto' will force the restart and this is needed
@@ -73,16 +75,15 @@ def up(config_path, image=default('image'), ceph_image=default('ceph_image'),
 
     # Start storages
     storages_dockers, storages_dockers_ids = \
-        _start_storages(config, config_path, ceph_image, s3_image, nfs_image,
-                        image, uid)
+        storages.start_storages(config, config_path, ceph_image, s3_image,
+                                nfs_image, swift_image, image, uid)
     output['storages'] = storages_dockers
-    output['docker_ids'].extend(storages_dockers_ids)
 
     # Start python LUMA service
     luma_config = None
     if 'provider_domains' in config:
-        luma_config = _start_luma(config, storages_dockers, image, bin_luma,
-                                  output, uid)
+        luma_config = storages.start_luma(config, storages_dockers, image,
+                                          bin_luma,output, uid)
 
     # Start provider cluster instances
     setup_worker(provider_worker, bin_op_worker, 'provider_domains',
@@ -99,6 +100,9 @@ def up(config_path, image=default('image'), ceph_image=default('ceph_image'),
         oc_output = client.up(image, bin_oc, dns_server, uid, config_path,
                               logdir, storages_dockers)
         common.merge(output, oc_output)
+
+    # Add storages at the end so they will be deleted after other dockers
+    output['docker_ids'].extend(storages_dockers_ids)
 
     # Setup global environment - providers, users, groups, spaces etc.
     if 'zone_domains' in config and \
@@ -186,100 +190,3 @@ def setup_worker(worker, bin_worker, domains_name, bin_cm, config, config_path,
         # Setting first arg to 'auto' will force the restart and this is needed
         # so that dockers that start after can immediately see the domains.
         dns.maybe_restart_with_configuration('auto', uid, output)
-
-
-def _start_storages(config, config_path, ceph_image, s3_image, nfs_image, image,
-                    uid):
-    storages_dockers = {'ceph': {}, 's3': {}, 'nfs': {}}
-    docker_ids = []
-    if 'os_configs' in config:
-        start_iam_mock = False
-        for key, cfg in config['os_configs'].iteritems():
-            for storage in cfg['storages']:
-                if isinstance(storage, basestring):
-                    sys.stderr.write('''WARNING:
-        Detected deprecated syntax at os_configs.{0}.storages
-        Change entry "{1}" to: {{ "type": "posix", "name": "{1}" }}
-        In file {2}'''.format(key, storage, config_path))
-                    break
-                if storage['type'] == 'ceph' and storage['name'] not in \
-                        storages_dockers['ceph']:
-                    pool = tuple(storage['pool'].split(':'))
-                    result = ceph.up(ceph_image, [pool], storage['name'], uid)
-                    docker_ids.extend(result['docker_ids'])
-                    del result['docker_ids']
-                    storages_dockers['ceph'][storage['name']] = result
-                elif storage['type'] == 's3' and storage['name'] not in \
-                        storages_dockers['s3']:
-                    result = s3.up(s3_image, [storage['bucket']],
-                                   storage['name'], uid)
-                    docker_ids.extend(result['docker_ids'])
-                    del result['docker_ids']
-
-                    start_iam_mock = _want_start_iam_mock(storage)
-                    if 'iam_host' in storage and 'iam_request_scheme' in storage:
-                        result['iam_host'] = storage['iam_host']
-                        result['iam_request_scheme'] = storage['iam_request_scheme']
-
-                    storages_dockers['s3'][storage['name']] = result
-                elif storage['type'] == 'nfs' and storage['name'] not in \
-                        storages_dockers['nfs']:
-                    result = nfs.up(nfs_image, uid, storage['name'])
-                    docker_ids.extend(result['docker_ids'])
-
-                    # create system users and groups on nfs docker
-                    container = result['docker_ids'][0]
-                    common.create_users(container, cfg['users'])
-                    common.create_groups(container, cfg['groups'])
-
-                    del result['docker_ids']
-                    storages_dockers['nfs'][storage['name']] = result
-
-        if start_iam_mock:
-            docker_ids.extend(_start_iam_mock(image, uid, storages_dockers))
-
-    return storages_dockers, docker_ids
-
-
-def _want_start_iam_mock(storage):
-    return 'iam_host' not in storage and 'request_scheme' not in storage and \
-           not storage.get('disable_iam_mock', False)
-
-
-def _start_iam_mock(image, uid, storages_dockers):
-    iam_mock_config = amazon_iam.up(image, uid)
-
-    iam_request_scheme = 'http'
-    iam_host = iam_mock_config['host_name']
-    for key in storages_dockers['s3'].keys():
-        if 'iam_host' not in storages_dockers['s3'][key] and \
-                        'request_scheme' not in storages_dockers['s3'][key]:
-            storages_dockers['s3'][key]['iam_host'] = iam_host
-            storages_dockers['s3'][key][
-                'iam_request_scheme'] = iam_request_scheme
-
-    return iam_mock_config['docker_ids']
-
-
-def _start_luma(config, storages_dockers, image, bin_luma, output, uid):
-    enable_luma_proxy = False
-    for key in config['provider_domains']:
-        if config['provider_domains'][key].get('enable_luma_proxy'):
-            enable_luma_proxy = True
-            break
-    luma_config = None
-    if enable_luma_proxy:
-        if 'luma_setup' not in config:
-            luma_config = luma.get_default_config()
-            if storages_dockers['ceph']:
-                ceph_config = storages_dockers['ceph'].values()[0]
-                luma_config['generators_config']['ceph']['key'] = \
-                    ceph_config['key']
-                luma_config['generators_config']['ceph']['mon_host'] = \
-                    ceph_config['host_name']
-            config['luma_setup'] = luma_config
-
-        luma_config = luma.up(image, bin_luma, config, uid)
-        output['docker_ids'].extend(luma_config['docker_ids'])
-        output['luma'] = {'host_name': luma_config['host_name']}
-    return luma_config

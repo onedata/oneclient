@@ -19,13 +19,14 @@
 #include <tbb/concurrent_hash_map.h>
 
 #include <condition_variable>
-#include <unordered_set>
+#include <helpers/IStorageHelper.h>
+#include <unordered_map>
 
 namespace std {
-template <> struct hash<boost::filesystem::path> {
-    size_t operator()(const boost::filesystem::path &p) const
+template <> struct hash<one::helpers::Flag> {
+    size_t operator()(const one::helpers::Flag &p) const
     {
-        return boost::filesystem::hash_value(p);
+        return std::hash<int>()(static_cast<int>(p));
     }
 };
 }
@@ -42,15 +43,16 @@ public:
     using Path = boost::filesystem::path;
     using FileAttr = messages::fuse::FileAttr;
     using FileLocation = messages::fuse::FileLocation;
+    enum FileState { normal, removedUpstream, renamedUpstream };
 
     /**
      * @c Metadata holds metadata of a file.
      */
     struct Metadata {
-        std::unordered_set<Path> paths;
+        boost::optional<Path> path;
         boost::optional<FileAttr> attr;
-        boost::optional<FileLocation> location;
-        bool removedUpstream = false;
+        std::unordered_map<one::helpers::Flag, FileLocation> locations;
+        FileState state = normal;
     };
 
 private:
@@ -110,9 +112,11 @@ public:
     /**
      * Retrieves location data about a file with given uuid.
      * @param uuid The uuid of a file to retrieve location data about.
+     * @param flags The open flags.
      * @return Location data about the file.
      */
-    FileLocation getLocation(const std::string &uuid);
+    FileLocation getLocation(
+        const std::string &uuid, const one::helpers::FlagsSet flags);
 
     /**
      * Sets metadata accessor for a given path, first ensuring that path<->UUID
@@ -146,8 +150,10 @@ public:
      * data is set.
      * @param metaAcc Metadata accessor.
      * @param uuid The UUID of a file to retrieve location data about.
+     * @param flags Open flags.
      */
-    void getLocation(MetaAccessor &metaAcc, const std::string &uuid);
+    void getLocation(MetaAccessor &metaAcc, const std::string &uuid,
+        const one::helpers::FlagsSet flags);
 
     /**
      * Adds an arbitrary path<->UUID mapping to the cache.
@@ -160,15 +166,41 @@ public:
      * Adds an arbitrary path<->UUID and UUID<->fileLocation to the cache.
      * @param path The path of the mapping.
      * @param location The location data to put in the metadata.
+     * @param flags Open flags.
      */
-    void map(Path path, FileLocation location);
+    void map(
+        Path path, FileLocation location, const one::helpers::FlagsSet flags);
 
     /**
-     * Renames a file in the cache through changing mappings.
+     * Renames a file in the cache through changing or removing mappings
+     * and returns vector of pairs representing UUIDs changes.
      * @param oldPath Path to rename from.
      * @param newPath Path to rename to.
+     * @return Vector of pairs representing UUIDs changes.
      */
-    void rename(const Path &oldPath, const Path &newPath);
+    std::vector<std::pair<std::string, std::string>> rename(
+        const Path &oldPath, const Path &newPath);
+
+    /**
+     * Changes path and uuid of single file and deletes its location.
+     * @param oldMetaAcc Accessor to metadata mapping to update.
+     * @param newUuidAcc Accessor to new UUID mapping.
+     * @param oldUuid Old UUID of updated file.
+     * @param newUuid New UUID of updated file.
+     * @param newPath New path of updated file.
+     */
+    void remapFile(MetaAccessor &oldMetaAcc, UuidAccessor &newUuidAcc,
+        const std::string &oldsUuid, const std::string &newUuid,
+        const Path &newPath);
+
+    /**
+     * Changes path and uuid of single file and deletes its location.
+     * @param oldUuid Old UUID of updated file.
+     * @param newUuid New UUID of updated file.
+     * @param newPath New path of updated file.
+     */
+    void remapFile(const std::string &oldUuid, const std::string &newUuid,
+        const Path &newPath);
 
     /**
      * Removes a UUID and metadata entries from the cache.
@@ -176,14 +208,6 @@ public:
      * @param metaAcc Accessor to metadata mapping to remove.
      */
     void remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
-
-    /**
-     * Removes a UUID entries (path mappings) from the cache.
-     * This action will release metaAcc.
-     * @param uuidAcc Accessor to UUID mapping to remove.
-     * @param metaAcc Accessor to metadata mapping.
-     */
-    void removePathMappings(UuidAccessor &uuidAcc, MetaAccessor &metaAcc);
 
     /**
      * Removes a UUID entry (path mapping) from the cache.
@@ -203,17 +227,37 @@ public:
      * @param uuid The UUID of file
      * @param range Range of data to wait for
      * @param timeout Timeout to wait for condition
+     * @param flags Flags for opening the file if its closed
      * @return true if file has been successfully synchronized
      */
     bool waitForNewLocation(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range,
-        const std::chrono::milliseconds &timeout);
+        const std::chrono::milliseconds &timeout,
+        const one::helpers::FlagsSet flags);
 
     /**
      * Notifies waiting processes that the new file location has arrived
      * @param The UUID of file
      */
     void notifyNewLocationArrived(const std::string &uuid);
+
+    /**
+     * Filters given flags set to one of RDONLY, WRONLY or RDWR.
+     * Returns RDONLY if flag value is zero.
+     * @param Flags value
+     */
+    one::helpers::Flag static filterFlagsForLocation(
+        one::helpers::FlagsSet flagsSet)
+    {
+        if (flagsSet.count(one::helpers::Flag::RDONLY))
+            return one::helpers::Flag::RDONLY;
+        else if (flagsSet.count(one::helpers::Flag::WRONLY))
+            return one::helpers::Flag::WRONLY;
+        else if (flagsSet.count(one::helpers::Flag::RDWR))
+            return one::helpers::Flag::RDWR;
+        else
+            return one::helpers::Flag::RDONLY;
+    }
 
 private:
     /**

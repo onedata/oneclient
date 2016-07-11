@@ -10,14 +10,15 @@
 #define ONECLIENT_EVENTS_EVENT_WORKER_H
 
 #include "subscriptionRegistry.h"
+#include "utils.hpp"
 
 #include <asio/executor_work.hpp>
 #include <asio/io_service.hpp>
 #include <asio/io_service_strand.hpp>
 #include <asio/post.hpp>
 
-#include <thread>
 #include <functional>
+#include <thread>
 
 namespace one {
 namespace client {
@@ -43,7 +44,10 @@ public:
         : LowerLayer{std::forward<Args>(args)...}
         , m_ioService{1}
         , m_idleWork{asio::make_work(m_ioService)}
-        , m_worker{[=] { m_ioService.run(); }}
+        , m_worker{[=] {
+            etls::utils::nameThread("EventWorker");
+            m_ioService.run();
+        }}
     {
         LowerLayer::setPeriodicTriggerHandler([this] {
             asio::post(m_ioService, [this] { LowerLayer::trigger(); });

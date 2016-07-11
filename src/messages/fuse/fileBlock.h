@@ -9,8 +9,8 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_FILE_BLOCK_H
 #define ONECLIENT_MESSAGES_FUSE_FILE_BLOCK_H
 
-#include <string>
 #include <ostream>
+#include <string>
 
 namespace one {
 namespace messages {

@@ -23,7 +23,12 @@ find_package(TBB REQUIRED)
 message(STATUS "Checking for glog...")
 find_package(Glog REQUIRED)
 
+# Setup CURL
+message(STATUS "Checking for CURL...")
+find_package(CURL REQUIRED)
+
 # Setup Boost
+message(STATUS "Checking for Boost.Filesystem and Boost.System...")
 set(Boost_USE_STATIC_LIBS       OFF)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
@@ -48,8 +53,26 @@ find_library(DL_LIBRARY dl)
 # Rados library
 find_library(RADOS_LIBRARY rados)
 
-# Amazon S3 library
-find_library(S3_LIBRARY s3)
+# AWS SDK library
+find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core)
+find_library(AWS_SKD_S3_LIBRARY aws-cpp-sdk-s3)
+set(AWS_SDK_LIBRARIES
+    ${AWS_SKD_S3_LIBRARY}
+    ${AWS_SKD_CORE_LIBRARY}
+    ${CURL_LIBRARIES})
+
+# Swift SDK library
+find_library(SWIFT_SDK_LIBRARY Swift)
+find_library(POCO_FOUNDATION PocoFoundation)
+find_library(POCO_NET PocoNet)
+find_library(POCO_XML PocoXML)
+find_library(POCO_UTIL PocoUtil)
+set(SWIFT_SDK_LIBRARIES
+    ${SWIFT_SDK_LIBRARY}
+    ${POCO_FOUNDATION}
+    ${POCO_NET}
+    ${POCO_XML}
+    ${POCO_UTIL})
 
 # Setup compile flags
 set(PLATFORM_EXTRA_LIBS
@@ -87,6 +110,11 @@ add_definitions(
     -DASIO_STANDALONE
     -DGLOG_STL_LOGGING_FOR_UNORDERED)
 
+    option(BUILD_PROXY_IO "Build Proxy IO helper." ON)
+    if(BUILD_PROXY_IO)
+        add_definitions("-DBUILD_PROXY_IO")
+    endif(BUILD_PROXY_IO)
+    
 add_subdirectory(clproto)
 add_subdirectory(${ERLANG_TLS_DIR}/src)
 add_subdirectory(src)
@@ -113,7 +141,7 @@ set_target_properties(helpersShared PROPERTIES
 
 install(TARGETS helpersShared LIBRARY DESTINATION lib)
 install(TARGETS helpersStatic ARCHIVE DESTINATION lib)
-install(DIRECTORY src/helpers DESTINATION include)
+install(DIRECTORY include DESTINATION .)
 install(DIRECTORY ${ASIO_INCLUDE_DIRS} DESTINATION .)
 
 

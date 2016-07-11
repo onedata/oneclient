@@ -40,7 +40,12 @@
                 },
                 {
                   "type": "nfs",
-                  "name": "/mnt/nfs",
+                  "name": "/mnt/nfs"
+                },
+                {
+                  "type": "swift",
+                  "name": "swift",
+                  "container": "swift"
                 }
             ],
             "users": [
@@ -269,7 +274,7 @@
                 }
             },
             "s4": {
-                "displayed_name": "s3",
+                "displayed_name": "s4",
                 "users": [
                     "u1",
                     "u2"
@@ -280,6 +285,22 @@
                 "providers": {
                     "p1": {
                         "storage": "/mnt/nfs",
+                        "supported_size": 1000000000
+                    }
+                }
+            },
+            "s5": {
+                "displayed_name": "s5",
+                "users": [
+                    "u1",
+                    "u2"
+                ],
+                "groups": [
+                    "g1"
+                ],
+                "providers": {
+                    "p1": {
+                        "storage": "swift",
                         "supported_size": 1000000000
                     }
                 }

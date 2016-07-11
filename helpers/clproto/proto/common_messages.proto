@@ -89,6 +89,7 @@ message Status {
         eloop           = 77;
         eoverflow       = 78;
         eprototype      = 79;
+        enoattr         = 80;
     }
 
     required Code  code        = 1; // exit code
@@ -105,4 +106,14 @@ message FileBlock {
 message ChildLink {
     required bytes uuid = 1;
     required bytes name = 2;
+}
+
+message FileRenamedEntry {
+    required bytes old_uuid = 1; // old UUID of renamed file
+    required bytes new_uuid = 2; // new UUID of renamed file
+    required bytes new_path = 3; // new path of renamed file
+}
+
+message Dir {
+    required bytes uuid = 1;
 }

@@ -1,10 +1,19 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(oneclient C CXX)
 
+option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
+option(STATIC_BOOST "Link Boost statically" Off)
+option(STATIC_LIBSTDCPP "Link libstdc++ statically" Off)
+
 # CMake config
+set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY True)
 set(CMAKE_FIND_FRAMEWORK LAST)
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${PROJECT_SOURCE_DIR}/helpers/cmake)
+
+if(NOT SYSCONF_INSTALL_DIR)
+    set(SYSCONF_INSTALL_DIR etc CACHE PATH "")
+endif()
 
 # Version
 set(oneclient_VERSION_MAJOR 0)
@@ -38,10 +47,15 @@ find_package(TBB REQUIRED)
 message(STATUS "Checking for glog...")
 find_package(Glog REQUIRED)
 
+# Setup CURL
+message(STATUS "Checking for CURL...")
+find_package(CURL REQUIRED)
+
 # Setup Boost
+message(STATUS "Checking for Boost.Filesystem, Boost.System and Boost.Program_options...")
 set(Boost_USE_MULTITHREADED      ON)
-set(Boost_USE_STATIC_RUNTIME    OFF)
-set(Boost_USE_STATIC_LIBS       OFF)
+set(Boost_USE_STATIC_RUNTIME     ${STATIC_LIBSTDCPP})
+set(Boost_USE_STATIC_LIBS        ${STATIC_BOOST})
 find_package(Boost COMPONENTS filesystem program_options system REQUIRED)
 
 # Setup libsodium
@@ -67,8 +81,26 @@ find_library(DL_LIBRARY dl)
 # Rados library
 find_library(RADOS_LIBRARY rados)
 
-# Amazon S3 library
-find_library(S3_LIBRARY s3)
+# AWS SDK library
+find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core)
+find_library(AWS_SKD_S3_LIBRARY aws-cpp-sdk-s3)
+set(AWS_SDK_LIBRARIES
+    ${AWS_SKD_S3_LIBRARY}
+    ${AWS_SKD_CORE_LIBRARY}
+    ${CURL_LIBRARIES})
+
+# Swift SDK library
+find_library(SWIFT_SDK_LIBRARY Swift)
+find_library(POCO_UTIL PocoUtil)
+find_library(POCO_NET PocoNet)
+find_library(POCO_XML PocoXML)
+find_library(POCO_FOUNDATION PocoFoundation)
+set(SWIFT_SDK_LIBRARIES
+    ${SWIFT_SDK_LIBRARY}
+    ${POCO_UTIL}
+    ${POCO_NET}
+    ${POCO_XML}
+    ${POCO_FOUNDATION})
 
 # gpertools lib
 find_library(PROFILER_LIBRARY NAMES profiler)
@@ -83,12 +115,13 @@ set(PLATFORM_EXTRA_LIBS
     ${CMAKE_THREAD_LIBS_INIT}
     ${LTDL_LIBRARY}
     ${ZLIB_LIBRARY}
-    ${DL_LIBRARY}
-    ${RADOS_LIBRARY}
-    ${S3_LIBRARY})
+    ${DL_LIBRARY})
+
+if(STATIC_LIBSTDCPP)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libstdc++")
+endif(STATIC_LIBSTDCPP)
 
 # Code coverage
-option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
 if(CODE_COVERAGE)
   message("Code coverage enabled.")
   add_compile_options(--coverage)
@@ -105,7 +138,7 @@ else(NOT APPLE)
 endif(APPLE)
 
 # Define build settings
-add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wshadow -Wall)
+add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wshadow -Wall -Wno-unused-result)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 add_definitions(
     ${FUSE_DEFINITIONS}
@@ -153,6 +186,9 @@ set(CLIENT_LIBRARIES
     ${SODIUM_LIBRARIES}
     ${PROTOBUF_LIBRARIES}
     ${BORINGSSL_LIBRARIES}
+    ${RADOS_LIBRARY}
+    ${AWS_SDK_LIBRARIES}
+    ${SWIFT_SDK_LIBRARIES}
     ${HELPERS_LIBRARIES})
 
 # Define targets
@@ -174,10 +210,6 @@ set_target_properties(oneclient PROPERTIES
 if(NOT ${PROFILER_LIBRARY} MATCHES PROFILER_LIBRARY-NOTFOUND)
     target_link_libraries(oneclient PRIVATE ${PROFILER_LIBRARY})
 endif(NOT ${PROFILER_LIBRARY} MATCHES PROFILER_LIBRARY-NOTFOUND)
-
-if(NOT SYSCONF_INSTALL_DIR)
-    set(SYSCONF_INSTALL_DIR etc CACHE PATH "")
-endif()
 
 # Install config
 install(TARGETS oneclient DESTINATION bin)

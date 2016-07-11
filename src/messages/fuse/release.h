@@ -26,13 +26,14 @@ public:
      * Constructor.
      * @param handleId Id of the handle to release.
      */
-    Release(std::string handleId);
+    Release(std::string uuid, std::string handleId);
 
     std::string toString() const override;
 
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
+    std::string m_uuid;
     std::string m_handleId;
 };
 

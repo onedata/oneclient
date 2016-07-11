@@ -37,6 +37,19 @@ public:
         boost::optional<std::size_t> sizeThreshold = {});
 
     /**
+     * Constructor.
+     * @param id ID to be set.
+     * @param counterThreshold Maximal number of aggregated events before
+     * emission.
+     * @param timeThreshold Maximal delay in milliseconds between successive
+     * events emissions.
+     * @param sizeThreshold Maximal number of read bytes before emission.
+     */
+    Subscription(std::int64_t id, boost::optional<std::size_t> counterThreshold,
+        boost::optional<std::chrono::milliseconds> timeThreshold,
+        boost::optional<std::size_t> sizeThreshold);
+
+    /**
      * @return ID of subscription.
      */
     const std::int64_t id() const;
@@ -66,7 +79,6 @@ public:
      * @return 'true' if none of the thresholds is set, otherwise 'false'.
      */
     bool empty() const;
-
 
     std::string toString(std::string type) const;
 

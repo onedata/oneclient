@@ -26,11 +26,13 @@
 #include <boost/optional.hpp>
 #include <fuse.h>
 #include <tbb/concurrent_hash_map.h>
+#include <tbb/concurrent_unordered_set.h>
 
 #include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <tuple>
 #include <vector>
@@ -244,12 +246,14 @@ protected:
 private:
     void scheduleCacheExpirationTick();
     void removeFile(boost::filesystem::path path);
-    const std::string createFile(boost::filesystem::path path, mode_t);
+    const std::string createFile(
+        boost::filesystem::path path, mode_t, const one::helpers::FlagsSet);
     void openFile(
         const std::string &fileUuid, struct fuse_file_info *const fileInfo);
     one::messages::fuse::Checksum waitForBlockSynchronization(
         const std::string &uuid,
-        const boost::icl::discrete_interval<off_t> &range);
+        const boost::icl::discrete_interval<off_t> &range,
+        const one::helpers::FlagsSet flags);
     one::messages::fuse::Checksum syncAndFetchChecksum(const std::string &uuid,
         const boost::icl::discrete_interval<off_t> &range);
     std::tuple<messages::fuse::FileBlock, asio::const_buffer> findWriteLocation(
@@ -259,11 +263,14 @@ private:
     events::FileLocationEventStream::Handler fileLocationHandler();
     events::PermissionChangedEventStream::Handler permissionChangedHandler();
     events::FileRemovalEventStream::Handler fileRemovalHandler();
+    events::QuotaExeededEventStream::Handler quotaExeededHandler();
+    events::FileRenamedEventStream::Handler fileRenamedHandler();
     bool dataCorrupted(const std::string &uuid, asio::const_buffer buf,
         const messages::fuse::Checksum &serverChecksum,
         const boost::icl::discrete_interval<off_t> &availableRange,
         const boost::icl::discrete_interval<off_t> &wantedRange);
     std::string computeHash(asio::const_buffer buf);
+    void disableSpaces(const std::vector<std::string> &spaces);
 
     const uid_t m_uid;
     const gid_t m_gid;
@@ -281,6 +288,8 @@ private:
 
     std::mutex m_cancelCacheExpirationTickMutex;
     std::function<void()> m_cancelCacheExpirationTick;
+    std::shared_timed_mutex m_disabledSpacesMutex;
+    tbb::concurrent_unordered_set<std::string> m_disabledSpaces;
 };
 
 struct FsLogicWrapper {

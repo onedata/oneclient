@@ -8,6 +8,8 @@
 
 #include "scheduler.h"
 
+#include "utils.hpp"
+
 #include <algorithm>
 
 namespace one {
@@ -37,8 +39,14 @@ void Scheduler::start()
     if (m_ioService.stopped())
         m_ioService.reset();
 
-    std::generate_n(std::back_inserter(m_workers), m_threadNumber,
-        [=] { return std::thread{[=] { m_ioService.run(); }}; });
+    std::generate_n(std::back_inserter(m_workers), m_threadNumber, [=] {
+        std::thread t{[=] {
+            etls::utils::nameThread("Scheduler");
+            m_ioService.run();
+        }};
+
+        return t;
+    });
 }
 
 void Scheduler::stop()

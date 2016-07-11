@@ -9,9 +9,9 @@
 #ifndef ONECLIENT_FORCE_CLUSTER_PROXY_CACHE_H
 #define ONECLIENT_FORCE_CLUSTER_PROXY_CACHE_H
 
-#include <tbb/concurrent_unordered_set.h>
 #include <fsSubscriptions.h>
 #include <shared_mutex>
+#include <tbb/concurrent_unordered_set.h>
 
 namespace one {
 namespace client {
@@ -24,7 +24,7 @@ class ForceProxyIOCache {
 
 private:
     tbb::concurrent_unordered_set<std::string> m_cache;
-    FsSubscriptions& m_fsSubscriptions;
+    FsSubscriptions &m_fsSubscriptions;
     std::shared_timed_mutex m_cacheMutex;
 
 public:

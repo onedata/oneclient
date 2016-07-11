@@ -7,6 +7,7 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(erlang_tls C CXX)
 
+set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY True)
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
@@ -29,7 +30,7 @@ if(APPLE)
         "${CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS} -flat_namespace -undefined dynamic_lookup")
 endif(APPLE)
 
-add_compile_options(-Werror -Wall -Wshadow -Wpedantic)
+add_compile_options(-Wall -Wshadow -Wpedantic)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 add_definitions(-DASIO_STANDALONE)
 

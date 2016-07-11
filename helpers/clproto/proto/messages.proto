@@ -18,6 +18,7 @@ import "handshake_messages.proto";
 import "diagnostic_messages.proto";
 import "proxyio_messages.proto";
 import "dbsync_messages.proto";
+import "provider_messages.proto";
 import "gwproto.proto";
 
 // Messages that can be sent by the client to the server.
@@ -45,6 +46,7 @@ message ClientMessage {
         Events                   events                    = 10;
         Subscription             subscription              = 11;
         SubscriptionCancellation subscription_cancellation = 12;
+        FlushEvents              flush_events              = 19;
 
         // diagnostic_messages.proto
         Ping                     ping                      = 13;
@@ -59,15 +61,18 @@ message ClientMessage {
 
         // dbsync_messages.proto
         DBSyncRequest            dbsync_request            = 18;
+
+        // provider_messages.proto
+        ProviderRequest          provider_request          = 22;
     }
     
-    optional bytes proxy_session_id = 19;
-    optional Token proxy_session_token = 20;
+    optional bytes proxy_session_id = 20;
+    optional Token proxy_session_token = 21;
 }
 
 // Messages that can be sent by the server to the client.
 message ServerMessage {
-    optional bytes         message_id     = 1; // should be set when respons is
+    optional bytes         message_id     = 1; // should be set when response is
                                                // expected
     optional MessageStream message_stream = 2; // identifies message as part of
                                                // a stream
@@ -100,6 +105,9 @@ message ServerMessage {
 
         // proxyio_messages.proto
         ProxyIOResponse          proxyio_response          = 16;
+
+        // provider_messages.proto
+        ProviderResponse         provider_response         = 18;
     }
     
     optional bytes proxy_session_id = 17;

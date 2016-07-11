@@ -39,6 +39,8 @@ const FileAttr::Key &FileAttr::key() const { return m_uuid; }
 
 const std::string &FileAttr::uuid() const { return m_uuid; }
 
+void FileAttr::uuid(const std::string uuid_) { m_uuid = uuid_; }
+
 mode_t FileAttr::mode() const { return m_mode; }
 
 void FileAttr::mode(const mode_t mode_) { m_mode = mode_; }
@@ -141,7 +143,7 @@ void FileAttr::deserialize(const ProtocolMessage &message)
     m_atime = std::chrono::system_clock::from_time_t(message.atime());
     m_mtime = std::chrono::system_clock::from_time_t(message.mtime());
     m_ctime = std::chrono::system_clock::from_time_t(message.ctime());
-    if(message.has_size())
+    if (message.has_size())
         m_size = message.size();
 
     if (message.type() == clproto::FileType::DIR)

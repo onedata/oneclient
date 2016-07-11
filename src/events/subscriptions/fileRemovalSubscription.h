@@ -6,11 +6,11 @@
  * 'LICENSE.txt'
  */
 
-#ifndef ONECLIENT_EVENTS_SUBSCRIPTIONS_REMOVE_FILE_SUBSCRIPTION_H
-#define ONECLIENT_EVENTS_SUBSCRIPTIONS_REMOVE_FILE_SUBSCRIPTION_H
+#ifndef ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_REMOVAL_SUBSCRIPTION_H
+#define ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_REMOVAL_SUBSCRIPTION_H
 
-#include "subscription.h"
 #include "messages/clientMessage.h"
+#include "subscription.h"
 
 #include <cstddef>
 
@@ -27,8 +27,7 @@ class FileRemovalSubscription : public Subscription,
 public:
     /**
      * Constructor.
-     * @param fileUuid UUID of file for which remove change events are
-     * requested.
+     * @param fileUuid UUID of file for which file removal events are requested.
      */
     FileRemovalSubscription(
         std::string fileUuid, std::size_t counterThreshold = 1);
@@ -46,4 +45,4 @@ private:
 } // namespace client
 } // namespace one
 
-#endif // ONECLIENT_EVENTS_SUBSCRIPTIONS_REMOVE_FILE_SUBSCRIPTION_H
+#endif // ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_REMOVAL_SUBSCRIPTION_H
