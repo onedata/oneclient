@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 3.0.0-beta8
+
+* VFS-2197 Fail with proper error when sync has failed.
+
+
 ### 3.0.0-beta7
 
 * VFS-2166 Generate 'Format 1.0' packages for trusty.
