@@ -922,7 +922,13 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
         for (const auto &event : events) {
 
             MetadataCache::MetaAccessor metaAcc;
-            m_metadataCache.getAttr(metaAcc, event->fileUuid());
+            if (!m_metadataCache.get(metaAcc, event->fileUuid())) {
+                LOG(INFO) << "Received a file remove event for '"
+                          << event->fileUuid()
+                          << "', but the file is no longer cached.";
+                continue;
+            }
+
             metaAcc->second.state = MetadataCache::FileState::removedUpstream;
 
             if (metaAcc->second.path) {
@@ -960,8 +966,15 @@ events::FileRenamedEventStream::Handler FsLogic::fileRenamedHandler()
     return [this](std::vector<FileRenamedEventStream::EventPtr> events) {
         for (const auto &event : events) {
             auto topEntry = event->topEntry();
+
             MetadataCache::MetaAccessor metaAcc;
-            m_metadataCache.getAttr(metaAcc, topEntry.oldUuid());
+            if (!m_metadataCache.get(metaAcc, topEntry.oldUuid())) {
+                LOG(INFO) << "Received a file renamed event for '"
+                          << topEntry.oldUuid()
+                          << "', but the file is no longer cached.";
+                continue;
+            }
+
             metaAcc->second.state = MetadataCache::FileState::renamedUpstream;
             auto fromPath = metaAcc->second.path.get();
             metaAcc.release();
