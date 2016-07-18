@@ -843,7 +843,14 @@ void FsLogic::removeFile(boost::filesystem::path path)
 
         communication::wait(future);
     }
+
+    auto uuid = uuidAcc->second;
+
     m_metadataCache.removePathMapping(uuidAcc, metaAcc);
+    metaAcc->second.path = boost::none;
+
+    m_locExpirationHelper.expire(uuid);
+    m_attrExpirationHelper.expire(uuid);
 }
 
 const std::string FsLogic::createFile(boost::filesystem::path path,
