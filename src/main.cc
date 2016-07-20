@@ -269,6 +269,9 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    std::cout << "Connecting to provider '" << authManager->hostname()
+              << "' ..." << std::endl;
+
     // Initialize cluster handshake in order to check if everything is ok before
     // becoming daemon
     const auto fuseId = generateFuseID();

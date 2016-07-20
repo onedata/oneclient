@@ -9,9 +9,9 @@
 #ifndef ONECLIENT_AUTH_MANAGER_H
 #define ONECLIENT_AUTH_MANAGER_H
 
-#include "environment.h"
 #include "auth/tokenHandler.h"
 #include "communication/communicator.h"
+#include "environment.h"
 #include "messages/handshakeRequest.h"
 #include "messages/handshakeResponse.h"
 
@@ -76,6 +76,11 @@ public:
     createCommunicator(const unsigned int poolSize, std::string sessionId,
         std::function<std::error_code(messages::HandshakeResponse)>
             onHandshakeResponse) = 0;
+
+    /**
+     * @return The actual hostname the manager connects to.
+     */
+    std::string hostname() const { return m_hostname; }
 
 protected:
     std::weak_ptr<Context> m_context;
