@@ -18,11 +18,11 @@
 #include <functional>
 #include <memory>
 #include <string>
-#include <vector>
 #include <system_error>
 #include <thread>
 #include <tuple>
 #include <unordered_map>
+#include <vector>
 
 namespace one {
 namespace communication {
@@ -40,7 +40,7 @@ class ConnectionPool {
 public:
     using Callback = Connection::Callback;
     using ConnectionFactory = std::function<std::unique_ptr<Connection>(
-        std::string, const unsigned short, asio::ssl::context &,
+        std::string, const unsigned short, std::shared_ptr<asio::ssl::context>,
         std::function<void(std::string)>, std::function<void(Connection &)>,
         std::function<std::string()>,
         std::function<std::error_code(std::string)>,
@@ -147,7 +147,9 @@ private:
     asio::executor_work<asio::io_service::executor_type> m_work{
         asio::make_work(m_ioService)};
     std::thread m_thread;
-    asio::ssl::context m_context{asio::ssl::context::tlsv12_client};
+    std::shared_ptr<asio::ssl::context> m_context{
+        std::make_shared<asio::ssl::context>(
+            asio::ssl::context::tlsv12_client)};
 
     std::vector<std::unique_ptr<Connection>> m_connections;
     tbb::concurrent_bounded_queue<Connection *> m_idleConnections;
