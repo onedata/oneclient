@@ -76,7 +76,8 @@ TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
     std::string defaultHostname, const unsigned int port,
     const bool checkCertificate)
     : AuthManager{context, defaultHostname, port, checkCertificate}
-    , m_tokenHandler{m_environment.userDataDir(), "TODO:ProviderId"}
+    , m_tokenHandler{*context.lock()->options(), m_environment.userDataDir(),
+          "TODO:ProviderId"}
 {
 }
 
