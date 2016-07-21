@@ -102,13 +102,16 @@ private:
                     std::make_exception_ptr(std::system_error{ec}));
             }
             else {
-                auto bandwidth = asio::buffer_size(buf) * 1000 /
-                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                auto duration =
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(
                         std::chrono::steady_clock::now() - startPoint)
                         .count();
-
-                std::lock_guard<std::mutex> guard{m_mutex};
-                m_bps = (m_bps * 1 + bandwidth * 2) / 3;
+                if (duration > 0) {
+                    auto bandwidth =
+                        asio::buffer_size(buf) * 1000000000 / duration;
+                    std::lock_guard<std::mutex> guard{m_mutex};
+                    m_bps = (m_bps * 1 + bandwidth * 2) / 3;
+                }
 
                 stringBuffer->resize(asio::buffer_size(buf));
                 promise->set_value(std::move(*stringBuffer));
