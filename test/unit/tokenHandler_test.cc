@@ -51,7 +51,9 @@ public:
 
     bool verifyToken(TokenHandler &tokenHandler)
     {
-        auto serialized = tokenHandler.restrictedToken();
+        auto serialized =
+            TokenHandler::decode62(tokenHandler.restrictedToken());
+
         auto restrictedM = macaroons::Macaroon::deserialize(serialized);
         return verifier.verifyUnsafe(restrictedM, key);
     }
