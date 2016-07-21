@@ -23,6 +23,15 @@
 #include <string>
 #include <system_error>
 
+namespace {
+inline std::uint64_t initializeMsgIdSeed()
+{
+    auto time = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::system_clock::now().time_since_epoch());
+    return time.count();
+}
+}
+
 namespace one {
 namespace communication {
 namespace layers {
@@ -82,7 +91,7 @@ private:
     tbb::concurrent_hash_map<std::string, std::shared_ptr<CommunicateCallback>>
         m_callbacks;
 
-    std::uint64_t m_seed;
+    std::uint64_t m_seed = initializeMsgIdSeed();
     /// The counter will loop after sending ~65000 messages, providing us with
     /// a natural size bound for m_callbacks.
     std::atomic<std::uint16_t> m_nextMsgId{0};
@@ -139,10 +148,6 @@ std::function<void()> Inbox<LowerLayer>::subscribe(SubscriptionData data)
 
 template <class LowerLayer> auto Inbox<LowerLayer>::connect()
 {
-    auto time = std::chrono::duration_cast<std::chrono::nanoseconds>(
-        std::chrono::system_clock::now().time_since_epoch());
-    m_seed = time.count();
-
     LowerLayer::setOnMessageCallback([this](ServerMessagePtr message) {
         typename decltype(m_callbacks)::accessor acc;
         const bool handled = m_callbacks.find(acc, message->message_id());
