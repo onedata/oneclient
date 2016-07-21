@@ -9,12 +9,24 @@
 #ifndef ONECLIENT_OPTIONS_H
 #define ONECLIENT_OPTIONS_H
 
-#include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/program_options.hpp>
 #include <fuse/fuse_opt.h>
 
 #include <ctime>
 #include <string>
+
+/// Declare a new environment configuration option
+#define DECL_ENV_CONFIG(NAME, TYPE)                                            \
+public:                                                                        \
+    virtual bool has_##NAME() const { return m_vm.count(#NAME); }              \
+    virtual TYPE get_##NAME() const { return m_vm.at(#NAME).as<TYPE>(); }      \
+                                                                               \
+private:                                                                       \
+    void add_##NAME(boost::program_options::options_description &desc) const   \
+    {                                                                          \
+        desc.add_options()(#NAME, boost::program_options::value<TYPE>(), "");  \
+    }
 
 /// Declare a new configuration option with a description
 #define DECL_CONFIG_DESC(NAME, TYPE, DESC)                                     \
@@ -102,6 +114,7 @@ static constexpr int ATTR_DEFAULT_EXPIRATION_TIME = 60;
 static constexpr const char *GLOBAL_CONFIG_FILE = "oneclient.conf";
 static constexpr const char *BASE_DOMAIN = "onedata.org";
 static constexpr const char *PROVIDER_CLIENT_ENDPOINT = "/oneclient";
+static constexpr const char *ENVIRONMENT_PREFIX = "oneclient_";
 
 namespace client {
 
@@ -154,7 +167,9 @@ public:
     std::string describeCommandlineOptions() const;
 
 private:
-    std::string mapEnvNames(std::string env) const;
+    std::string mapEnvNames(boost::program_options::options_description &desc,
+        std::string env) const;
+
     void setDescriptions();
     bool parseCommandLine(const int argc, const char *const argv[]);
     void parseUserConfig(boost::program_options::variables_map &fileConfigMap);
@@ -164,6 +179,7 @@ private:
 
     std::string argv0;
     boost::program_options::variables_map m_vm;
+    boost::program_options::options_description m_env;
     boost::program_options::options_description m_common;
     boost::program_options::options_description m_restricted;
     boost::program_options::options_description m_commandline;
@@ -172,6 +188,7 @@ private:
     boost::filesystem::path m_globalConfigPath;
 
     /* clang-format off */
+    DECL_ENV_CONFIG(authorization_token, std::string)
     DECL_CONFIG_DEF(provider_hostname, std::string, BASE_DOMAIN)
     DECL_CONFIG_DEF(provider_port, unsigned int, 5555)
     DECL_CONFIG_DEF(log_dir, std::string, "/tmp")
@@ -220,5 +237,6 @@ private:
 #undef DECL_CMDLINE_SWITCH_DEF
 #undef DECL_REQ_CONFIG
 #undef DECL_REQ_CONFIG_DESC
+#undef DECL_ENV_CONFIG
 
 #endif // ONECLIENT_OPTIONS_H

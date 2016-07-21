@@ -20,7 +20,10 @@ all: debug test
 	cd $* && cmake -GNinja -DCMAKE_BUILD_TYPE=$* -DCODE_COVERAGE=${WITH_COVERAGE} ..
 	touch $@
 
-%/oneclient: %/CMakeCache.txt
+.PHONY: phony
+phony:
+
+%/oneclient: %/CMakeCache.txt phony
 	cmake --build $* --target oneclient
 
 .PHONY: deb-info

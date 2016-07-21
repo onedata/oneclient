@@ -6,8 +6,8 @@
  * 'LICENSE.txt'
  */
 
-#include "oneException.h"
 #include "options.h"
+#include "oneException.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
@@ -39,6 +39,7 @@ public:
     {
         unsetenv("NO_CHECK_CERTIFICATE");
         unsetenv("PROVIDER_PORT");
+        unsetenv("ONECLIENT_PROVIDER_PORT");
         unsetenv("PROVIDER_HOSTNAME");
         boost::filesystem::remove(USER_CONFIG_PATH);
         boost::filesystem::remove(GLOBAL_CONFIG_PATH);
@@ -116,7 +117,7 @@ TEST_F(OptionsTest, optionsShouldParseEnvironmentOptions)
 {
     const char *const argv[] = {ARG0, MOUNTPOINT};
     setenv("NO_CHECK_CERTIFICATE", "true", 1);
-    setenv("PROVIDER_PORT", PROVIDER_PORT_ENV_VAL, 1);
+    setenv("ONECLIENT_PROVIDER_PORT", PROVIDER_PORT_ENV_VAL, 1);
     setenv("PROVIDER_HOSTNAME", PROVIDER_HOSTNAME_VAL, 1);
 
     EXPECT_EQ(false, options.get_no_check_certificate());
