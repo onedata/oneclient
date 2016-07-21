@@ -44,7 +44,8 @@ def _node_up(image, containers, name, uid):
     ip = settings['NetworkSettings']['IPAddress']
 
     docker.exec_(container,
-                 ['bash', '-c', 'IPADDRESS={0} /sbin/my_init'.format(ip)],
+                 ['bash', '-c',
+                  'IPADDRESS={0} /sbin/my_init > /tmp/run.log'.format(ip)],
                  detach=True)
 
     common.wait_until(_get_swift_ready(ip), [container],
