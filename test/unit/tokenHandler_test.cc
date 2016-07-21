@@ -34,7 +34,8 @@ TEST(TokenHandlerTest, shouldReadTokenFromEnvironment)
     TokenHandler tokenHandler{dataDir, "providerId"};
 
     auto serialized = tokenHandler.restrictedToken();
-    auto restrictedM = macaroons::Macaroon::deserialize(serialized);
+    auto restrictedM =
+        macaroons::Macaroon::deserialize(tokenHandler.decode62(serialized));
 
     ASSERT_TRUE(verifier.verifyUnsafe(restrictedM, key));
 }
