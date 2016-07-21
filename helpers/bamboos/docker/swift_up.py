@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '-i', '--image',
     action='store',
-    default='predicsis/dockswift',
+    default='onedata/dockswift',
     help='docker image to use for the container',
     dest='image')
 
