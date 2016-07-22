@@ -19,7 +19,7 @@ def default(key):
     return {'image': 'onedata/worker',
             'ceph_image': 'onedata/ceph',
             's3_image': 'onedata/s3proxy',
-            'swift_image': 'predicsis/dockswift',
+            'swift_image': 'onedata/dockswift',
             'nfs_image': 'erezhorev/dockerized_nfs_server',
             'bin_am': '{0}/appmock'.format(os.getcwd()),
             'bin_oz': '{0}/oz_worker'.format(os.getcwd()),

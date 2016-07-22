@@ -17,10 +17,20 @@
 #include <tbb/concurrent_vector.h>
 
 #include <atomic>
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <string>
 #include <system_error>
+
+namespace {
+inline std::uint64_t initializeMsgIdSeed()
+{
+    auto time = std::chrono::duration_cast<std::chrono::nanoseconds>(
+        std::chrono::system_clock::now().time_since_epoch());
+    return time.count();
+}
+}
 
 namespace one {
 namespace communication {
@@ -81,6 +91,7 @@ private:
     tbb::concurrent_hash_map<std::string, std::shared_ptr<CommunicateCallback>>
         m_callbacks;
 
+    std::uint64_t m_seed = initializeMsgIdSeed();
     /// The counter will loop after sending ~65000 messages, providing us with
     /// a natural size bound for m_callbacks.
     std::atomic<std::uint16_t> m_nextMsgId{0};
@@ -94,7 +105,7 @@ template <class LowerLayer>
 void Inbox<LowerLayer>::communicate(
     ClientMessagePtr message, CommunicateCallback callback, const int retries)
 {
-    const auto messageId = std::to_string(m_nextMsgId++);
+    const auto messageId = std::to_string(m_seed + m_nextMsgId++);
     message->set_message_id(messageId);
 
     {
@@ -104,8 +115,8 @@ void Inbox<LowerLayer>::communicate(
             std::make_shared<CommunicateCallback>(std::move(callback));
     }
 
-    auto sendCallback = [ this, messageId = std::move(messageId) ](
-        const std::error_code &ec)
+    auto sendCallback =
+        [ this, messageId = std::move(messageId) ](const std::error_code &ec)
     {
         if (ec) {
             typename decltype(m_callbacks)::accessor acc;
