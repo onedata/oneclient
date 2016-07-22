@@ -160,13 +160,16 @@ private:
             std::size_t wrote, const std::error_code &ec) mutable
         {
             if (!ec) {
-                auto bandwidth = wrote * 1000 /
-                    std::chrono::duration_cast<std::chrono::milliseconds>(
+                auto duration =
+                    std::chrono::duration_cast<std::chrono::nanoseconds>(
                         std::chrono::steady_clock::now() - startPoint)
                         .count();
+                if (duration > 0) {
+                    auto bandwidth = wrote * 1000000000 / duration;
+                    std::lock_guard<std::mutex> guard{m_mutex};
+                    m_bps = (m_bps * 1 + bandwidth * 2) / 3;
+                }
 
-                std::lock_guard<std::mutex> guard{m_mutex};
-                m_bps = (m_bps * 1 + bandwidth * 2) / 3;
                 m_readCache->clear();
             }
 
