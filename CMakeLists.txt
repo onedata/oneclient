@@ -61,16 +61,16 @@ find_package(Boost COMPONENTS filesystem program_options system REQUIRED)
 # Setup libsodium
 find_package(Sodium)
 
-# Setup Erlang-TLS
-set(ERLANG_TLS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/helpers/erlang-tls/c_src)
+# Setup etls
+set(ETLS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/helpers/etls/c_src)
 
 # Setup BoringSSL
-add_subdirectory(${ERLANG_TLS_DIR}/deps/boringssl)
+add_subdirectory(${ETLS_DIR}/deps/boringssl)
 set(BORINGSSL_LIBRARIES ssl crypto)
-set(BORINGSSL_INCLUDE_DIRS ${ERLANG_TLS_DIR}/deps/boringssl/include)
+set(BORINGSSL_INCLUDE_DIRS ${ETLS_DIR}/deps/boringssl/include)
 
 # Setup Asio
-set(ASIO_INCLUDE_DIRS ${ERLANG_TLS_DIR}/deps/asio/asio/include)
+set(ASIO_INCLUDE_DIRS ${ETLS_DIR}/deps/asio/asio/include)
 
 # Utility libs
 find_library(LTDL_LIBRARY NAMES ltdl)
@@ -154,7 +154,7 @@ add_definitions(
 # directories; helpers specify their own includes, pulling from package-set
 # variables when needed.
 add_subdirectory(helpers/clproto)
-add_subdirectory(${ERLANG_TLS_DIR}/src)
+add_subdirectory(${ETLS_DIR}/src)
 add_subdirectory(helpers/src)
 
 include_directories(
