@@ -4,6 +4,17 @@
 CHANGELOG
 ---------
 
+### 3.0.0-RC1
+
+* VFS-1963 Improve automatic storage discovery
+* VFS-2316 Integrate new etls version.
+* VFS-2250 Add base62 encoding and decoding to tokenHandler
+* VFS-2272 Give precendence to env AUTHORIZATION_TOKEN.
+* VFS-2270 Print out the hostname of client's provider.
+* VFS-2085 Do not communicate with server in event handlers.
+* VFS-2215 Remove the file immediately on unlink.
+
+
 ### 3.0.0-beta8
 
 * VFS-2197 Fail with proper error when sync has failed.
