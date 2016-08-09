@@ -70,6 +70,13 @@ parser.add_argument(
     dest='bin_oz')
 
 parser.add_argument(
+    '-bop', '--bin-onepanel',
+    action='store',
+    default=env.default('bin_onepanel'),
+    help='the path to onepanel repository (precompiled)',
+    dest='bin_onepanel')
+
+parser.add_argument(
     '-ba', '--bin-appmock',
     action='store',
     default=env.default('bin_am'),
@@ -110,7 +117,7 @@ output = env.up(args.config_path, image=args.image, ceph_image=args.ceph_image,
                 bin_cluster_manager=args.bin_cluster_manager,
                 bin_op_worker=args.bin_op_worker,
                 bin_cluster_worker=args.bin_cluster_worker,
-                bin_luma=args.bin_luma,
+                bin_luma=args.bin_luma, bin_onepanel=args.bin_onepanel,
                 bin_oc=args.bin_oc, logdir=args.logdir)
 
 print(json.dumps(output))
