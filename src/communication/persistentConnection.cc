@@ -25,7 +25,7 @@ namespace one {
 namespace communication {
 
 PersistentConnection::PersistentConnection(std::string host,
-    const unsigned short port, asio::ssl::context &context,
+    const unsigned short port, std::shared_ptr<asio::ssl::context> context,
     std::function<void(std::string)> onMessage,
     std::function<void(PersistentConnection &)> onReady,
     std::function<std::string()> getHandshake,
@@ -33,7 +33,7 @@ PersistentConnection::PersistentConnection(std::string host,
     std::function<void(std::error_code)> onHandshakeDone)
     : m_host{std::move(host)}
     , m_port{port}
-    , m_context{context}
+    , m_context{std::move(context)}
     , m_onMessage{std::move(onMessage)}
     , m_onReady{std::move(onReady)}
     , m_getHandshake{std::move(getHandshake)}
@@ -103,9 +103,7 @@ void PersistentConnection::onError(const std::error_code &ec1)
 void PersistentConnection::send(std::string message, Callback callback)
 {
     asio::post(m_app.ioService(), [
-        =,
-        message = std::move(message),
-        callback = std::move(callback)
+        =, message = std::move(message), callback = std::move(callback)
     ]() mutable {
         auto socket = getSocket();
         if (!m_connected || !socket) {
@@ -177,8 +175,8 @@ etls::Callback<Args...> PersistentConnection::createCallback(SF &&onSuccess)
 {
     const int connectionId = m_connectionId;
 
-    auto wrappedSuccess = [ =, onSuccess = std::forward<SF>(onSuccess) ](
-        Args && ... args) mutable
+    auto wrappedSuccess =
+        [ =, onSuccess = std::forward<SF>(onSuccess) ](Args && ... args) mutable
     {
         if (m_connectionId == connectionId)
             onSuccess(std::forward<Args>(args)...);
@@ -217,7 +215,7 @@ asio::mutable_buffers_1 PersistentConnection::headerToBuffer(
 }
 
 std::unique_ptr<Connection> createConnection(std::string host,
-    const unsigned short port, asio::ssl::context &context,
+    const unsigned short port, std::shared_ptr<asio::ssl::context> context,
     std::function<void(std::string)> onMessage,
     std::function<void(Connection &)> onReady,
     std::function<std::string()> getHandshake,
@@ -225,7 +223,7 @@ std::unique_ptr<Connection> createConnection(std::string host,
     std::function<void(std::error_code)> onHandshakeDone)
 {
     return std::make_unique<PersistentConnection>(std::move(host), port,
-        context, std::move(onMessage), std::move(onReady),
+        std::move(context), std::move(onMessage), std::move(onReady),
         std::move(getHandshake), std::move(onHandshakeResponse),
         std::move(onHandshakeDone));
 }

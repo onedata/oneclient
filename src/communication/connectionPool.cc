@@ -45,23 +45,23 @@ ConnectionPool::ConnectionPool(const std::size_t connectionsNumber,
 
 void ConnectionPool::connect()
 {
-    m_context.set_options(asio::ssl::context::default_workarounds |
+    m_context->set_options(asio::ssl::context::default_workarounds |
         asio::ssl::context::no_sslv2 | asio::ssl::context::no_sslv3 |
         asio::ssl::context::no_tlsv1 | asio::ssl::context::no_tlsv1_1 |
         asio::ssl::context::single_dh_use);
 
-    m_context.set_default_verify_paths();
-    m_context.set_verify_mode(m_verifyServerCertificate
+    m_context->set_default_verify_paths();
+    m_context->set_verify_mode(m_verifyServerCertificate
             ? asio::ssl::verify_peer
             : asio::ssl::verify_none);
 
-    SSL_CTX *ssl_ctx = m_context.native_handle();
+    SSL_CTX *ssl_ctx = m_context->native_handle();
     auto mode = SSL_CTX_get_session_cache_mode(ssl_ctx) | SSL_SESS_CACHE_CLIENT;
 
     SSL_CTX_set_session_cache_mode(ssl_ctx, mode);
 
     if (m_certificateData)
-        m_certificateData->initContext(m_context);
+        m_certificateData->initContext(*m_context);
 
     std::generate_n(
         std::back_inserter(m_connections), m_connectionsNumber, [&] {
