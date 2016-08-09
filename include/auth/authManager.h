@@ -78,6 +78,11 @@ public:
             onHandshakeResponse) = 0;
 
     /**
+     * Performs neccesary cleanup in case of authentication error.
+     */
+    virtual void cleanup();
+
+    /**
      * @return The actual hostname the manager connects to.
      */
     std::string hostname() const { return m_hostname; }
@@ -130,6 +135,8 @@ public:
     createCommunicator(const unsigned int poolSize, std::string sessionId,
         std::function<std::error_code(messages::HandshakeResponse)>
             onHandshakeResponse) override;
+
+    void cleanup() override;
 
 private:
     void refreshToken();
