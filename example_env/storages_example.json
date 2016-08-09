@@ -15,10 +15,6 @@
         "oz_worker": {
             "input_dir": "rel/oz_worker",
             "target_dir": "rel/test_cluster"
-        },
-        "onepanel": {
-            "input_dir": "rel_oneprovider/onepanel",
-            "target_dir": "rel/test_cluster"
         }
     },
     "os_configs": {
