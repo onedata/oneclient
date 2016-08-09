@@ -15,8 +15,8 @@
 #include "tlsSocket.hpp"
 
 #include <asio/buffer.hpp>
-#include <asio/steady_timer.hpp>
 #include <asio/ssl/context.hpp>
+#include <asio/steady_timer.hpp>
 
 #include <array>
 #include <chrono>
@@ -73,7 +73,8 @@ public:
      * success or error.
      */
     PersistentConnection(std::string host, const unsigned short port,
-        asio::ssl::context &context, std::function<void(std::string)> onMessage,
+        std::shared_ptr<asio::ssl::context> context,
+        std::function<void(std::string)> onMessage,
         std::function<void(PersistentConnection &)> onReady,
         std::function<std::string()> getHandshake = {},
         std::function<std::error_code(std::string)> onHandshakeResponse = {},
@@ -125,7 +126,7 @@ private:
 
     std::string m_host;
     const unsigned short m_port;
-    asio::ssl::context &m_context;
+    std::shared_ptr<asio::ssl::context> m_context;
     std::function<void(std::string)> m_onMessage;
     std::function<void(PersistentConnection &)> m_onReady;
     std::function<std::string()> m_getHandshake;
@@ -147,7 +148,7 @@ private:
 };
 
 std::unique_ptr<Connection> createConnection(std::string host,
-    const unsigned short port, asio::ssl::context &context,
+    const unsigned short port, std::shared_ptr<asio::ssl::context> context,
     std::function<void(std::string)> onMessage,
     std::function<void(Connection &)> onReady,
     std::function<std::string()> getHandshake = {},
