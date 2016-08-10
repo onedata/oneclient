@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_CREATE_DIR_H
 #define ONECLIENT_MESSAGES_FUSE_CREATE_DIR_H
 
-#include "messages/clientMessage.h"
+#include "fileRequest.h"
 
 #include <sys/types.h>
 
@@ -22,7 +22,7 @@ namespace fuse {
 /**
  * The CreateDir class represents a FUSE request for dir creation.
  */
-class CreateDir : public ClientMessage {
+class CreateDir : public FileRequest {
 public:
     /**
      * Constructor.
@@ -37,7 +37,6 @@ public:
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    std::string m_parentUUID;
     std::string m_name;
     mode_t m_mode;
 };

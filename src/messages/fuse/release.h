@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_RELEASE_H
 #define ONECLIENT_MESSAGES_FUSE_RELEASE_H
 
-#include "messages/clientMessage.h"
+#include "fileRequest.h"
 
 #include <string>
 
@@ -20,7 +20,7 @@ namespace fuse {
 /**
  * The @c Release class represents a FUSE request for file closure.
  */
-class Release : public ClientMessage {
+class Release : public FileRequest {
 public:
     /**
      * Constructor.
@@ -33,7 +33,6 @@ public:
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    std::string m_uuid;
     std::string m_handleId;
 };
 

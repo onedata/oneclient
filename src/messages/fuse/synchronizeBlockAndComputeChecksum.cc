@@ -17,7 +17,7 @@ namespace fuse {
 
 SynchronizeBlockAndComputeChecksum::SynchronizeBlockAndComputeChecksum(
     std::string uuid, boost::icl::discrete_interval<off_t> block)
-    : m_uuid{std::move(uuid)}
+    : FileRequest{std::move(uuid)}
     , m_block{block}
 {
 }
@@ -25,19 +25,19 @@ SynchronizeBlockAndComputeChecksum::SynchronizeBlockAndComputeChecksum(
 std::string SynchronizeBlockAndComputeChecksum::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'SynchronizeBlockAndComputeChecksum', uuid: " << m_uuid
-           << ", block: " << m_block;
+    stream << "type: 'SynchronizeBlockAndComputeChecksum', uuid: "
+           << m_contextGuid << ", block: " << m_block;
     return stream.str();
 }
 
 std::unique_ptr<ProtocolClientMessage>
 SynchronizeBlockAndComputeChecksum::serializeAndDestroy()
 {
-    auto msg = std::make_unique<ProtocolClientMessage>();
-
+    auto msg = FileRequest::serializeAndDestroy();
     auto sb = msg->mutable_fuse_request()
+                  ->mutable_file_request()
                   ->mutable_synchronize_block_and_compute_checksum();
-    sb->mutable_uuid()->swap(m_uuid);
+
     sb->mutable_block()->set_offset(boost::icl::first(m_block));
     sb->mutable_block()->set_size(boost::icl::size(m_block));
 

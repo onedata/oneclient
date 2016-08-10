@@ -12,7 +12,9 @@
 #include "communication/communicator.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
+#include "messages/clientMessage.h"
 #include "messages/fuse/getFileAttr.h"
+#include "messages/fuse/resolveGuid.h"
 
 #include <boost/filesystem/path.hpp>
 #include <boost/functional/hash.hpp>
@@ -269,7 +271,7 @@ private:
     std::pair<std::mutex &, std::condition_variable &> getMutexConditionPair(
         const std::string &uuid);
 
-    FileAttr fetchAttr(messages::fuse::GetFileAttr request);
+    FileAttr fetchAttr(messages::ClientMessage &&request);
 
     communication::Communicator &m_communicator;
 };

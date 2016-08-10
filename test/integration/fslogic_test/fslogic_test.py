@@ -202,6 +202,7 @@ def get_stream_id_from_location_subscription(subscription_message_data):
     location_subsc.ParseFromString(subscription_message_data)
     return location_subsc.message_stream.stream_id
 
+
 def test_getattrs_should_get_attrs(endpoint, fl):
     response = prepare_getattr('path', fuse_messages_pb2.REG)
 
@@ -213,11 +214,8 @@ def test_getattrs_should_get_attrs(endpoint, fl):
     assert client_message.HasField('fuse_request')
 
     fuse_request = client_message.fuse_request
-    assert fuse_request.HasField('get_file_attr')
-
-    get_file_attr = fuse_request.get_file_attr
-    assert get_file_attr.entry_type == fuse_messages_pb2.PATH
-    assert get_file_attr.entry == '/random/path'
+    assert fuse_request.HasField('resolve_guid')
+    assert fuse_request.resolve_guid.path == '/random/path'
 
     repl = response.fuse_response.file_attr
     assert stat.atime == repl.atime
@@ -265,14 +263,15 @@ def test_mkdir_should_mkdir(endpoint, fl):
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
 
-    fuse_request = client_message.fuse_request
-    assert fuse_request.HasField('create_dir')
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('create_dir')
 
-    create_dir = fuse_request.create_dir
+    create_dir = file_request.create_dir
     assert create_dir.name == 'path'
     assert create_dir.mode == 0123
-    assert create_dir.parent_uuid == \
+    assert file_request.context_guid == \
            getattr_response.fuse_response.file_attr.uuid
 
 
@@ -319,12 +318,12 @@ def test_rmdir_should_rmdir(endpoint, fl):
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
 
-    fuse_request = client_message.fuse_request
-    assert fuse_request.HasField('delete_file')
-
-    delete_file = fuse_request.delete_file
-    assert delete_file.uuid == getattr_response.fuse_response.file_attr.uuid
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('delete_file')
+    assert file_request.context_guid == \
+           getattr_response.fuse_response.file_attr.uuid
 
 
 def test_rmdir_should_pass_getattr_errors(endpoint, fl):
@@ -360,13 +359,15 @@ def test_rename_should_rename(endpoint, fl):
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
 
-    fuse_request = client_message.fuse_request
-    assert fuse_request.HasField('rename')
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('rename')
 
-    rename = fuse_request.rename
-    assert rename.uuid == getattr_response.fuse_response.file_attr.uuid
+    rename = file_request.rename
     assert rename.target_path == '/random/path2'
+    assert file_request.context_guid == \
+           getattr_response.fuse_response.file_attr.uuid
 
 
 def test_rename_should_change_caches(appmock_client, endpoint, fl):
@@ -427,13 +428,15 @@ def test_chmod_should_change_mode(endpoint, fl):
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
 
-    fuse_request = client_message.fuse_request
-    assert fuse_request.HasField('change_mode')
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('change_mode')
 
-    change_mode = fuse_request.change_mode
-    assert change_mode.uuid == getattr_response.fuse_response.file_attr.uuid
+    change_mode = file_request.change_mode
     assert change_mode.mode == 0123
+    assert file_request.context_guid == \
+           getattr_response.fuse_response.file_attr.uuid
 
 
 def test_chmod_should_change_cached_mode(appmock_client, endpoint, fl):
@@ -493,15 +496,17 @@ def test_utime_should_update_times(endpoint, fl):
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
 
-    fuse_request = client_message.fuse_request
-    assert fuse_request.HasField('update_times')
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('update_times')
 
-    update_times = fuse_request.update_times
-    assert update_times.uuid == getattr_response.fuse_response.file_attr.uuid
+    update_times = file_request.update_times
     assert update_times.atime == update_times.mtime
     assert update_times.atime == update_times.ctime
     assert update_times.atime <= time.time()
+    assert file_request.context_guid == \
+           getattr_response.fuse_response.file_attr.uuid
 
 
 def test_utime_should_change_cached_times(appmock_client, endpoint, fl):
@@ -543,14 +548,16 @@ def test_utime_should_update_times_with_buf(endpoint, fl):
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
 
-    fuse_request = client_message.fuse_request
-    assert fuse_request.HasField('update_times')
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('update_times')
 
-    update_times = fuse_request.update_times
-    assert update_times.uuid == getattr_response.fuse_response.file_attr.uuid
+    update_times = file_request.update_times
     assert update_times.atime == ubuf.actime
     assert update_times.mtime == ubuf.modtime
+    assert file_request.context_guid == \
+           getattr_response.fuse_response.file_attr.uuid
 
 
 def test_utime_should_pass_getattr_errors(endpoint, fl):
@@ -619,13 +626,14 @@ def test_readdir_should_read_dir(endpoint, fl):
     assert file2.name in children
 
     assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
 
-    fuse_request = client_message.fuse_request
-    assert fuse_request.HasField('get_file_children')
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('get_file_children')
 
-    get_file_children = fuse_request.get_file_children
+    get_file_children = file_request.get_file_children
     assert get_file_children.offset == 0
-    assert get_file_children.uuid == \
+    assert file_request.context_guid == \
            getattr_response.fuse_response.file_attr.uuid
 
 
@@ -664,15 +672,16 @@ def test_mknod_should_make_new_location(endpoint, fl):
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
 
-    fuse_request = client_message.fuse_request
-    assert fuse_request.HasField('get_new_file_location')
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('get_new_file_location')
 
-    get_new_file_location = fuse_request.get_new_file_location
-    assert get_new_file_location.parent_uuid == \
-           getattr_response.fuse_response.file_attr.uuid
+    get_new_file_location = file_request.get_new_file_location
     assert get_new_file_location.name == 'path'
     assert get_new_file_location.mode == 0762
+    assert file_request.context_guid == \
+           getattr_response.fuse_response.file_attr.uuid
 
 
 def test_mknod_should_pass_getattr_errors(endpoint, fl):
@@ -708,12 +717,11 @@ def test_open_should_get_file_location(endpoint, fl):
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
 
-    fuse_request = client_message.fuse_request
-    assert fuse_request.HasField('get_file_location')
-
-    get_file_location = fuse_request.get_file_location
-    assert get_file_location.uuid == \
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('get_file_location')
+    assert file_request.context_guid == \
            getattr_response.fuse_response.file_attr.uuid
 
 
@@ -803,13 +811,15 @@ def test_truncate_should_truncate(endpoint, fl):
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
 
-    fuse_request = client_message.fuse_request
-    assert fuse_request.HasField('truncate')
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('truncate')
 
-    truncate = fuse_request.truncate
-    assert truncate.uuid == getattr_response.fuse_response.file_attr.uuid
+    truncate = file_request.truncate
     assert truncate.size == 4
+    assert file_request.context_guid == \
+           getattr_response.fuse_response.file_attr.uuid
 
 
 def test_truncate_should_pass_getattr_errors(endpoint, fl):
@@ -887,14 +897,15 @@ def test_read_should_request_synchronization(appmock_client, endpoint, fl):
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
-    fuse_request = client_message.fuse_request
-    assert fuse_request.HasField('synchronize_block_and_compute_checksum')
+    assert client_message.fuse_request.HasField('file_request')
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('synchronize_block_and_compute_checksum')
     block = common_messages_pb2.FileBlock()
     block.offset = 2
     block.size = 5
-    sync = fuse_request.synchronize_block_and_compute_checksum
-    assert sync.uuid == 'uuid1'
+    sync = file_request.synchronize_block_and_compute_checksum
     assert sync.block == block
+    assert file_request.context_guid == 'uuid1'
 
 
 def test_read_should_continue_reading_after_synchronization(appmock_client, endpoint, fl):
@@ -988,9 +999,8 @@ def test_release_should_send_release_message_if_handle_id_is_set(endpoint, fl):
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
-
-    fuse_request = client_message.fuse_request
-    assert fuse_request.HasField('release')
+    assert client_message.fuse_request.HasField('file_request')
+    assert client_message.fuse_request.file_request.HasField('release')
 
 
 def test_release_should_not_send_release_message_if_handle_id_is_not_set(endpoint, fl):

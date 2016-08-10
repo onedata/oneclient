@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_UPDATE_TIMES_H
 #define ONECLIENT_MESSAGES_FUSE_UPDATE_TIMES_H
 
-#include "messages/clientMessage.h"
+#include "fileRequest.h"
 
 #include <boost/optional.hpp>
 
@@ -23,7 +23,7 @@ namespace fuse {
 /**
  * The UpdateTimes class represents a FUSE request for updating file times.
  */
-class UpdateTimes : public ClientMessage {
+class UpdateTimes : public FileRequest {
 public:
     /**
      * Constructor.
@@ -78,7 +78,6 @@ public:
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    std::string m_uuid;
     boost::optional<std::chrono::system_clock::time_point> m_atime;
     boost::optional<std::chrono::system_clock::time_point> m_ctime;
     boost::optional<std::chrono::system_clock::time_point> m_mtime;

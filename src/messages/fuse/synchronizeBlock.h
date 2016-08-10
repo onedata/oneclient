@@ -9,8 +9,9 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_SYNCHRONIZE_BLOCK_H
 #define ONECLIENT_MESSAGES_FUSE_SYNCHRONIZE_BLOCK_H
 
-#include "messages/clientMessage.h"
+#include "fileRequest.h"
 #include "messages/fuse/fileBlock.h"
+
 #include <boost/icl/interval_map.hpp>
 
 #include <string>
@@ -24,7 +25,7 @@ namespace fuse {
  * The SynchronizeBlock class represents a request for remote synchronization of
  * given range of file data.
  */
-class SynchronizeBlock : public ClientMessage {
+class SynchronizeBlock : public FileRequest {
 public:
     /**
      * Constructor.
@@ -39,7 +40,6 @@ public:
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    std::string m_uuid;
     boost::icl::discrete_interval<off_t> m_block;
 };
 
