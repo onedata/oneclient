@@ -6,7 +6,7 @@ Brings up a set of cluster-worker nodes. They can create separate clusters.
 """
 
 import os
-from . import docker, common, worker, gui
+from . import docker, common, worker, gui, panel
 
 DOCKER_BINDIR_PATH = '/root/build'
 
@@ -35,6 +35,16 @@ class OZWorkerConfigurator:
         if 'http_domain' in sys_config:
             domain = worker.cluster_domain(instance, uid)
             sys_config['http_domain'] = {'string': domain}
+
+        if 'onepanel_rest_url' in sys_config:
+            rest_url = sys_config['onepanel_rest_url']
+            port = rest_url['port']
+            protocol = rest_url['protocol']
+            node_name, _sep, instance = rest_url['domain'].partition('.')
+            panel_hostname = panel.panel_hostname(node_name, instance, uid)
+            sys_config["onepanel_rest_url"] = {
+                'string': "{0}://{1}:{2}".format(protocol, panel_hostname, port)
+            }
 
         return cfg
 

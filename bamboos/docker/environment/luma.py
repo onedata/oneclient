@@ -31,6 +31,10 @@ default_config = {
         "posix": {
             "lowest_uid": 1000,
             "highest_uid": 65536
+        },
+        "swift": {
+            "user_name": "swift",
+            "password": "swift"
         }
     },
     "generators_mapping": [
@@ -45,6 +49,10 @@ default_config = {
         {
             "storage_type": "AmazonS3",
             "generator_id": "s3"
+        },
+        {
+            "storage_type": "Swift",
+            "generator_id": "swift"
         }
     ],
     "storages_mapping": [],
