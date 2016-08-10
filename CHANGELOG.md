@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 3.0.0-RC2
+
+* minor changes and improvements
+
+
 ### 3.0.0-RC1
 
 * VFS-1963 Improve automatic storage discovery
