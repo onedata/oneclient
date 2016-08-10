@@ -8,10 +8,11 @@
 
 #include "communication/declarations.h"
 #include "communication/layers/translator.h"
-#include "messages/ping.h"
-#include "messages/pong.h"
+#include "errors/handshakeErrors.h"
 #include "messages/handshakeRequest.h"
 #include "messages/handshakeResponse.h"
+#include "messages/ping.h"
+#include "messages/pong.h"
 #include "testUtils.h"
 
 #include <gmock/gmock.h>
@@ -25,6 +26,7 @@
 using namespace one;
 using namespace one::communication;
 using namespace one::testing;
+using namespace one::errors::handshake;
 using namespace ::testing;
 using namespace std::literals;
 
@@ -186,22 +188,24 @@ TEST_F(TranslatorTest, onHandshakeResponseShouldDeserializeProtocolObjects)
     EXPECT_CALL(translator.mock, setHandshake(_, _, _))
         .WillOnce(SaveArg<1>(&protoHandshakeResponseF));
 
-    const auto data = randomString();
+    const auto sessionId = randomString();
     bool called = false;
 
-    auto domainHandshakeF = [&]() { return messages::HandshakeRequest{data}; };
-    auto domainHandshakeResponseF =
-        [&](one::messages::HandshakeResponse msg) mutable {
-            called = true;
-            EXPECT_EQ(data, msg.sessionId());
-            return std::error_code{};
-        };
+    auto domainHandshakeF = [&]() {
+        return messages::HandshakeRequest{sessionId};
+    };
+    auto domainHandshakeResponseF = [&](
+        one::messages::HandshakeResponse msg) mutable {
+        called = true;
+        EXPECT_EQ(makeErrorCode(ErrorCode::ok), msg.status());
+        return msg.status();
+    };
 
     translator.setHandshake(domainHandshakeF, domainHandshakeResponseF);
 
     auto msg = std::make_unique<clproto::ServerMessage>();
     auto response = msg->mutable_handshake_response();
-    response->set_session_id(data);
+    response->set_status(clproto::HandshakeStatus::OK);
 
     protoHandshakeResponseF(std::move(msg));
     ASSERT_TRUE(called);

@@ -243,6 +243,14 @@ std::string TokenHandler::encode62(std::string token64)
     return token62;
 }
 
+void TokenHandler::removeTokenFile() const
+{
+    if (!boost::filesystem::remove(tokenFilePath())) {
+        LOG(WARNING) << "Failed to remove token file '" << tokenFilePath()
+                     << "'";
+    }
+}
+
 } // namespace auth
 } // namespace client
 } // namespace one

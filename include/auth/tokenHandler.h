@@ -74,6 +74,11 @@ public:
      */
     static std::string encode62(std::string token64);
 
+    /**
+     * Removes file where token is cached.
+     */
+    void removeTokenFile() const;
+
 private:
     macaroons::Macaroon retrieveToken() const;
     boost::optional<macaroons::Macaroon> readTokenFromFile() const;

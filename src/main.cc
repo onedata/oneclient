@@ -19,6 +19,7 @@
 #include "auth/authManager.h"
 #include "communication/exception.h"
 #include "context.h"
+#include "errors/handshakeErrors.h"
 #include "events/eventManager.h"
 #include "fsLogic.h"
 #include "fsOperations.h"
@@ -137,7 +138,12 @@ std::shared_ptr<communication::Communicator> handshake(
     const std::string &fuseId, std::shared_ptr<auth::AuthManager> authManager,
     std::shared_ptr<Context> context)
 {
-    auto handshakeHandler = [&](auto) { return std::error_code{}; };
+    auto handshakeHandler = [&](messages::HandshakeResponse msg) {
+        if (msg.isTokenError()) {
+            authManager->cleanup();
+        }
+        return msg.status();
+    };
 
     auto testCommunicatorTuple =
         authManager->createCommunicator(1, fuseId, handshakeHandler);
@@ -281,11 +287,12 @@ int main(int argc, char *argv[])
         /// @todo More specific errors.
         /// @todo boost::system::system_error thrown on host not found
         auto communicator = handshake(fuseId, authManager, context);
-        std::cout << "Getting configuration..." << std::endl;
+        std::cout << "Getting configuration ..." << std::endl;
         configuration = getConfiguration(std::move(communicator));
     }
-    catch (OneException &exception) {
-        std::cerr << "Handshake error. Aborting" << std::endl;
+    catch (const OneException &e) {
+        std::cerr << "Handshake error: " << e.code() << " (" << e.what()
+                  << "). Aborting." << std::endl;
         return EXIT_FAILURE;
     }
     catch (const communication::Exception &e) {
@@ -293,7 +300,7 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
     catch (const std::system_error &e) {
-        std::cerr << "Handshake connection error: " << e.what() << ". Aborting"
+        std::cerr << "Handshake connection error: " << e.what() << ". Aborting."
                   << std::endl;
         return EXIT_FAILURE;
     }
