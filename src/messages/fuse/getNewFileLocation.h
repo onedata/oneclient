@@ -10,7 +10,7 @@
 #define ONECLIENT_MESSAGES_FUSE_GET_NEW_FILE_LOCATION_H
 
 #include "fileLocation.h"
-#include "messages/clientMessage.h"
+#include "fileRequest.h"
 
 #include <fcntl.h>
 #include <sys/types.h>
@@ -26,7 +26,7 @@ namespace fuse {
  * The GetNewFileLocation class represents a FUSE request for creation of a new
  * file.
  */
-class GetNewFileLocation : public ClientMessage {
+class GetNewFileLocation : public FileRequest {
 public:
     /**
      * Constructor.
@@ -44,7 +44,6 @@ private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
     std::string m_name;
-    std::string m_parentUuid;
     mode_t m_mode;
     one::helpers::FlagsSet m_flags;
 };

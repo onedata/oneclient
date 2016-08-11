@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_GET_FILE_CHILDREN_H
 #define ONECLIENT_MESSAGES_FUSE_GET_FILE_CHILDREN_H
 
-#include "messages/clientMessage.h"
+#include "fileRequest.h"
 
 #include <boost/optional.hpp>
 
@@ -25,7 +25,7 @@ namespace fuse {
 /**
  * The GetFileChildren class represents a FUSE request for file children.
  */
-class GetFileChildren : public ClientMessage {
+class GetFileChildren : public FileRequest {
 public:
     /**
      * Constructor.
@@ -46,7 +46,6 @@ public:
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    std::string m_uuid;
     boost::optional<off_t> m_offset;
     boost::optional<std::size_t> m_size;
 };

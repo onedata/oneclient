@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_TRUNCATE_H
 #define ONECLIENT_MESSAGES_FUSE_TRUNCATE_H
 
-#include "messages/clientMessage.h"
+#include "fileRequest.h"
 
 #include <sys/types.h>
 
@@ -22,7 +22,7 @@ namespace fuse {
 /**
  * The @c Truncate class represents a FUSE request for file truncation.
  */
-class Truncate : public ClientMessage {
+class Truncate : public FileRequest {
 public:
     /**
      * Constructor.
@@ -36,7 +36,6 @@ public:
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    std::string m_uuid;
     off_t m_size;
 };
 

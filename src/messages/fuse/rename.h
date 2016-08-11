@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_RENAME_H
 #define ONECLIENT_MESSAGES_FUSE_RENAME_H
 
-#include "messages/clientMessage.h"
+#include "fileRequest.h"
 
 #include <boost/filesystem/path.hpp>
 
@@ -22,7 +22,7 @@ namespace fuse {
 /**
  * The Rename class represents a FUSE request for rename.
  */
-class Rename : public ClientMessage {
+class Rename : public FileRequest {
 public:
     /**
      * Constructor.
@@ -36,7 +36,6 @@ public:
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    std::string m_uuid;
     boost::filesystem::path m_targetPath;
 };
 

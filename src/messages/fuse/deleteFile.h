@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_DELETE_FILE_H
 #define ONECLIENT_MESSAGES_FUSE_DELETE_FILE_H
 
-#include "messages/clientMessage.h"
+#include "fileRequest.h"
 
 #include <cstdint>
 #include <string>
@@ -21,7 +21,7 @@ namespace fuse {
 /**
  * The DeleteFile class represents a FUSE request for file deletion.
  */
-class DeleteFile : public ClientMessage {
+class DeleteFile : public FileRequest {
 public:
     /**
      * Constructor.
@@ -34,7 +34,6 @@ public:
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    std::string m_uuid;
     bool m_silent;
 };
 

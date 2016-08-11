@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_CHANGE_MODE_H
 #define ONECLIENT_MESSAGES_FUSE_CHANGE_MODE_H
 
-#include "messages/clientMessage.h"
+#include "fileRequest.h"
 
 #include <sys/types.h>
 
@@ -22,7 +22,7 @@ namespace fuse {
 /**
  * The ChangeMode class represents a FUSE request for chmod.
  */
-class ChangeMode : public ClientMessage {
+class ChangeMode : public FileRequest {
 public:
     /**
      * Constructor.
@@ -36,7 +36,6 @@ public:
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    std::string m_uuid;
     mode_t m_mode;
 };
 

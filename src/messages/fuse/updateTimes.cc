@@ -17,7 +17,7 @@ namespace messages {
 namespace fuse {
 
 UpdateTimes::UpdateTimes(std::string uuid)
-    : m_uuid{std::move(uuid)}
+    : FileRequest{std::move(uuid)}
 {
 }
 
@@ -25,7 +25,7 @@ std::string UpdateTimes::toString() const
 {
     std::stringstream stream;
 
-    stream << "type: 'UpdateTimes', uuid: " << m_uuid;
+    stream << "type: 'UpdateTimes', uuid: " << m_contextGuid;
     if (m_atime)
         stream << ", atime: "
                << std::chrono::system_clock::to_time_t(m_atime.get());
@@ -41,10 +41,11 @@ std::string UpdateTimes::toString() const
 
 std::unique_ptr<ProtocolClientMessage> UpdateTimes::serializeAndDestroy()
 {
-    auto msg = std::make_unique<ProtocolClientMessage>();
-    auto ut = msg->mutable_fuse_request()->mutable_update_times();
+    auto msg = FileRequest::serializeAndDestroy();
+    auto ut = msg->mutable_fuse_request()
+                  ->mutable_file_request()
+                  ->mutable_update_times();
 
-    ut->mutable_uuid()->swap(m_uuid);
     if (m_atime)
         ut->set_atime(std::chrono::system_clock::to_time_t(m_atime.get()));
     if (m_ctime)
