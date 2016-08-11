@@ -213,6 +213,12 @@ elif args.cover:
                         ('oz_worker', data['zone_domains'][zone]['cluster_manager'].values())
                     )
 
+            if 'onepanel_domains' in data:
+                for onepanel in data['onepanel_domains']:
+                    configs_to_change.append(
+                        ('onepanel', data['onepanel_domains'][onepanel]['onepanel'].values())
+                    )
+
             for (app_name, configs) in configs_to_change:
                 for config in configs:
                     if app_name in config['sys.config']:
