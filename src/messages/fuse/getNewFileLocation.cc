@@ -53,6 +53,7 @@ std::unique_ptr<ProtocolClientMessage> GetNewFileLocation::serializeAndDestroy()
 
     gnfl->mutable_name()->swap(m_name);
     gnfl->set_mode(m_mode);
+    gnfl->set_create_handle(true);
 
     if (m_flags.count(one::helpers::Flag::RDWR))
         gnfl->set_flags(clproto::FileLocationFlags::READ_WRITE);
