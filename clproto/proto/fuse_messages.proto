@@ -110,10 +110,12 @@ message GetNewFileLocation {
     required bytes name = 1;
     required uint32 mode = 2;
     optional FileLocationFlags flags = 3 [default = READ_WRITE];
+    optional bool create_handle = 4 [default = true];
 }
 
 message GetFileLocation {
     optional FileLocationFlags flags = 1 [default = READ_WRITE];
+    optional bool create_handle = 2 [default = true];
 }
 
 message Release {
