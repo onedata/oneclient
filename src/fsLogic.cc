@@ -976,6 +976,15 @@ events::FileRenamedEventStream::Handler FsLogic::fileRenamedHandler()
             }
 
             metaAcc->second.state = MetadataCache::FileState::renamedUpstream;
+
+            if (!metaAcc->second.path) {
+                LOG(INFO) << "Received a file renamed event for '"
+                          << topEntry.oldUuid()
+                          << "', but the file does not have a cached path.";
+
+                continue;
+            }
+
             auto fromPath = metaAcc->second.path.get();
             metaAcc.release();
 
