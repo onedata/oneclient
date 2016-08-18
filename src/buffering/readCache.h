@@ -23,7 +23,7 @@ namespace one {
 namespace helpers {
 namespace buffering {
 
-class ReadCache {
+class ReadCache : public std::enable_shared_from_this<ReadCache> {
 public:
     ReadCache(std::size_t minReadChunkSize, std::size_t maxReadChunkSize,
         std::chrono::seconds readAheadFor, IStorageHelper &helper)
@@ -50,6 +50,7 @@ public:
             auto cacheOffset = offset - m_lastReadOffset;
             auto copied =
                 asio::buffer_copy(buf, asio::buffer(m_lastRead) + cacheOffset);
+
             return asio::buffer(buf, copied);
         }
 
@@ -66,6 +67,7 @@ public:
                 auto cacheOffset = offset - m_lastReadOffset;
                 auto copied = asio::buffer_copy(
                     buf, asio::buffer(m_lastRead) + cacheOffset);
+
                 return asio::buffer(buf, copied);
             }
         }
@@ -80,6 +82,7 @@ public:
         m_lastCacheRefresh = std::chrono::steady_clock::now();
 
         auto copied = asio::buffer_copy(buf, asio::buffer(m_lastRead));
+
         return asio::buffer(buf, copied);
     }
 
@@ -95,8 +98,9 @@ private:
         auto startPoint = std::chrono::steady_clock::now();
         auto stringBuffer = std::make_shared<std::string>(block, '\0');
 
-        auto callback = [=](
-            asio::mutable_buffer buf, const std::error_code &ec) mutable {
+        auto callback = [ =, s = std::weak_ptr<ReadCache>(shared_from_this()) ](
+            asio::mutable_buffer buf, const std::error_code &ec) mutable
+        {
             if (ec) {
                 promise->set_exception(
                     std::make_exception_ptr(std::system_error{ec}));
@@ -106,11 +110,15 @@ private:
                     std::chrono::duration_cast<std::chrono::nanoseconds>(
                         std::chrono::steady_clock::now() - startPoint)
                         .count();
+
                 if (duration > 0) {
                     auto bandwidth =
                         asio::buffer_size(buf) * 1000000000 / duration;
-                    std::lock_guard<std::mutex> guard{m_mutex};
-                    m_bps = (m_bps * 1 + bandwidth * 2) / 3;
+
+                    if (auto self = s.lock()) {
+                        std::lock_guard<std::mutex> guard{m_mutex};
+                        m_bps = (m_bps * 1 + bandwidth * 2) / 3;
+                    }
                 }
 
                 stringBuffer->resize(asio::buffer_size(buf));
