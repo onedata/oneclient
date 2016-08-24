@@ -849,6 +849,7 @@ void FsLogic::removeFile(boost::filesystem::path path)
     m_metadataCache.removePathMapping(uuidAcc, metaAcc);
     metaAcc->second.path = boost::none;
 
+    metaAcc.release();
     m_locExpirationHelper.expire(uuid);
     m_attrExpirationHelper.expire(uuid);
 }
@@ -944,6 +945,7 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
                 }
             }
 
+            metaAcc.release();
             m_locExpirationHelper.expire(event->fileUuid());
             m_attrExpirationHelper.expire(event->fileUuid());
             LOG(INFO) << "File remove event received: " << event->fileUuid();
