@@ -4,6 +4,21 @@
 CHANGELOG
 ---------
 
+### 3.0.0-RC3
+
+* Fix deadlock in CacheExpirationHelper::tick().
+* VFS-2347 Fix a race condition on renaming a deleted file.
+* Releasing new version 3.0.0-RC2
+* VFS-2273 Handle handshake errors
+* Releasing new version 3.0.0-RC1
+* VFS-1963 Improve automatic storage discovery
+* VFS-2316 Integrate new etls version.
+* VFS-2250 Add base62 encoding and decoding to tokenHandler
+* VFS-2272 Give precendence to env AUTHORIZATION_TOKEN.
+* VFS-2270 Print out the hostname of client's provider.
+* VFS-2215 Remove the file immediately on unlink.
+
+
 ### 3.0.0-RC2
 
 * minor changes and improvements
