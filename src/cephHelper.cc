@@ -11,6 +11,14 @@
 
 #include <glog/stl_logging.h>
 
+namespace {
+std::shared_ptr<librados::AioCompletion> wrapCompletion(
+    librados::AioCompletion *const comp)
+{
+    return {comp, [](librados::AioCompletion *p) { p->release(); }};
+}
+}
+
 namespace one {
 namespace helpers {
 
@@ -36,30 +44,26 @@ void CephHelper::ash_unlink(
     if (ret < 0)
         return callback(makePosixError(ret));
 
-    auto callbackDataPtr = new UnlinkCallbackData{p.string(), callback};
-    auto completion = librados::Rados::aio_create_completion(
-        static_cast<void *>(callbackDataPtr), nullptr,
+    auto callbackDataPtr =
+        std::make_unique<UnlinkCallbackData>(p.string(), std::move(callback));
+
+    auto completion = wrapCompletion(librados::Rados::aio_create_completion(
+        static_cast<void *>(callbackDataPtr.get()), nullptr,
         [](librados::completion_t, void *callbackData) {
-            auto data = static_cast<UnlinkCallbackData *>(callbackData);
+            auto data = std::unique_ptr<UnlinkCallbackData>{
+                static_cast<UnlinkCallbackData *>(callbackData)};
+
             auto result = data->completion->get_return_value();
-            if (result < 0) {
-                data->callback(makePosixError(result));
-            }
-            else {
-                data->callback(SUCCESS_CODE);
-            }
-            data->completion->release();
-            delete data;
-        });
+            data->callback(result < 0 ? makePosixError(result) : SUCCESS_CODE);
+        }));
 
     callbackDataPtr->completion = completion;
 
-    ret = ctx->ioCTX.aio_remove(callbackDataPtr->fileId, completion);
-    if (ret < 0) {
-        completion->release();
-        delete callbackDataPtr;
-        return callback(makePosixError(ret));
-    }
+    ret = ctx->ioCTX.aio_remove(callbackDataPtr->fileId, completion.get());
+    if (ret < 0)
+        callback(makePosixError(ret));
+    else
+        callbackDataPtr.release();
 }
 
 void CephHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
@@ -72,32 +76,32 @@ void CephHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
     if (ret < 0)
         return callback(asio::mutable_buffer(), makePosixError(ret));
 
-    auto callbackDataPtr = new ReadCallbackData{p.string(), buf, callback};
-    auto completion = librados::Rados::aio_create_completion(
-        static_cast<void *>(callbackDataPtr), nullptr,
+    auto callbackDataPtr = std::make_unique<ReadCallbackData>(
+        p.string(), buf, std::move(callback));
+
+    auto completion = wrapCompletion(librados::Rados::aio_create_completion(
+        static_cast<void *>(callbackDataPtr.get()), nullptr,
         [](librados::completion_t, void *callbackData) {
-            auto data = static_cast<ReadCallbackData *>(callbackData);
+            auto data = std::unique_ptr<ReadCallbackData>(
+                static_cast<ReadCallbackData *>(callbackData));
+
             auto result = data->completion->get_return_value();
-            if (result < 0) {
-                data->callback(asio::mutable_buffer(), makePosixError(result));
-            }
-            else {
+            if (result < 0)
+                data->callback({}, makePosixError(result));
+            else
                 data->callback(
                     asio::buffer(data->buffer, result), SUCCESS_CODE);
-            }
-            data->completion->release();
-            delete data;
-        });
+        }));
 
     callbackDataPtr->completion = completion;
 
-    ret = ctx->ioCTX.aio_read(callbackDataPtr->fileId, completion,
+    ret = ctx->ioCTX.aio_read(callbackDataPtr->fileId, completion.get(),
         &callbackDataPtr->bufferlist, asio::buffer_size(buf), offset);
-    if (ret < 0) {
-        completion->release();
-        delete callbackDataPtr;
-        return callback(asio::mutable_buffer(), makePosixError(ret));
-    }
+
+    if (ret < 0)
+        callback({}, makePosixError(ret));
+    else
+        callbackDataPtr.release();
 }
 
 void CephHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
@@ -109,31 +113,31 @@ void CephHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
     if (ret < 0)
         return callback(0, makePosixError(ret));
 
-    auto callbackDataPtr = new WriteCallbackData{p.string(), buf, callback};
-    auto completion = librados::Rados::aio_create_completion(
-        static_cast<void *>(callbackDataPtr), nullptr,
+    auto callbackDataPtr = std::make_unique<WriteCallbackData>(
+        p.string(), buf, std::move(callback));
+
+    auto completion = wrapCompletion(librados::Rados::aio_create_completion(
+        static_cast<void *>(callbackDataPtr.get()), nullptr,
         [](librados::completion_t, void *callbackData) {
-            auto data = static_cast<WriteCallbackData *>(callbackData);
+            auto data = std::unique_ptr<WriteCallbackData>{
+                static_cast<WriteCallbackData *>(callbackData)};
+
             auto result = data->completion->get_return_value();
-            if (result < 0) {
+            if (result < 0)
                 data->callback(0, makePosixError(result));
-            }
-            else {
+            else
                 data->callback(data->bufferlist.length(), SUCCESS_CODE);
-            }
-            data->completion->release();
-            delete data;
-        });
+        }));
 
     callbackDataPtr->completion = completion;
 
-    ret = ctx->ioCTX.aio_write(callbackDataPtr->fileId, completion,
+    ret = ctx->ioCTX.aio_write(callbackDataPtr->fileId, completion.get(),
         callbackDataPtr->bufferlist, asio::buffer_size(buf), offset);
-    if (ret < 0) {
-        completion->release();
-        delete callbackDataPtr;
-        return callback(0, makePosixError(ret));
-    }
+
+    if (ret < 0)
+        callback(0, makePosixError(ret));
+    else
+        callbackDataPtr.release();
 }
 
 void CephHelper::ash_truncate(CTXPtr rawCTX, const boost::filesystem::path &p,
@@ -152,12 +156,10 @@ void CephHelper::ash_truncate(CTXPtr rawCTX, const boost::filesystem::path &p,
         callback = std::move(callback)
     ]() {
         auto result = ctx->ioCTX.trunc(fileId, size);
-        if (result < 0) {
+        if (result < 0)
             callback(makePosixError(result));
-        }
-        else {
+        else
             callback(SUCCESS_CODE);
-        }
     });
 }
 
@@ -201,6 +203,8 @@ std::unordered_map<std::string, std::string> CephHelperCTX::getUserCTX()
 
 int CephHelperCTX::connect(bool reconnect)
 {
+    std::lock_guard<std::mutex> guard{m_connectionMutex};
+
     if (m_connected && !reconnect)
         return 0;
 
