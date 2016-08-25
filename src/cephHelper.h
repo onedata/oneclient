@@ -66,6 +66,7 @@ public:
     librados::IoCtx ioCTX;
 
 private:
+    std::mutex m_connectionMutex;
     bool m_connected = false;
     std::unordered_map<std::string, std::string> m_args;
 };

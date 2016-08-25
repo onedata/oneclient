@@ -201,6 +201,8 @@ std::unordered_map<std::string, std::string> CephHelperCTX::getUserCTX()
 
 int CephHelperCTX::connect(bool reconnect)
 {
+    std::lock_guard<std::mutex> guard{m_connectionMutex};
+
     if (m_connected && !reconnect)
         return 0;
 
