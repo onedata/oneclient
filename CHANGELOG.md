@@ -4,6 +4,12 @@
 CHANGELOG
 ---------
 
+### 3.0.0-rc4
+
+* VFS-1956 Improve CephHelper's raw pointer handling.
+* VFS-1956 Protect connecting to Ceph with mutex.
+
+
 ### 3.0.0-RC3
 
 * Fix deadlock in CacheExpirationHelper::tick().
