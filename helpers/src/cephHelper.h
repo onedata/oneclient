@@ -66,6 +66,7 @@ public:
     librados::IoCtx ioCTX;
 
 private:
+    std::mutex m_connectionMutex;
     bool m_connected = false;
     std::unordered_map<std::string, std::string> m_args;
 };
@@ -127,7 +128,7 @@ private:
 
         std::string fileId;
         VoidCallback callback;
-        librados::AioCompletion *completion;
+        std::shared_ptr<librados::AioCompletion> completion;
     };
 
     struct ReadCallbackData {
@@ -145,7 +146,7 @@ private:
         librados::bufferlist bufferlist;
         asio::mutable_buffer buffer;
         GeneralCallback<asio::mutable_buffer> callback;
-        librados::AioCompletion *completion;
+        std::shared_ptr<librados::AioCompletion> completion;
     };
 
     struct WriteCallbackData {
@@ -161,7 +162,7 @@ private:
         std::string fileId;
         librados::bufferlist bufferlist;
         GeneralCallback<std::size_t> callback;
-        librados::AioCompletion *completion;
+        std::shared_ptr<librados::AioCompletion> completion;
     };
 
     std::shared_ptr<CephHelperCTX> getCTX(CTXPtr rawCTX) const;
