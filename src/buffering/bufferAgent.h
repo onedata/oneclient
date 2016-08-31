@@ -93,6 +93,7 @@ public:
         ctx->writeBuffer = std::make_shared<WriteBuffer>(bl.minWriteChunkSize,
             bl.maxWriteChunkSize, bl.flushWriteAfter, *m_helper, m_scheduler,
             ctx->readCache);
+        ctx->writeBuffer->scheduleFlush();
 
         return m_helper->sh_open(ctx->helperCtx, p, flags);
     }

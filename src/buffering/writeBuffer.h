@@ -22,6 +22,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <set>
 #include <string>
@@ -37,7 +38,7 @@ namespace buffering {
  * have to be thread-safe. A mutex is introduced to synchronize between writes
  * and scheduled flush.
  */
-class WriteBuffer {
+class WriteBuffer : public std::enable_shared_from_this<WriteBuffer> {
     struct ByteSequence {
         ByteSequence(const off_t offset_, asio::const_buffer buf)
             : offset{offset_}
@@ -65,7 +66,6 @@ public:
         , m_scheduler{scheduler}
         , m_readCache{readCache}
     {
-        scheduleFlush();
     }
 
     ~WriteBuffer()
@@ -131,16 +131,19 @@ public:
         throwLastError();
     }
 
-private:
     void scheduleFlush()
     {
-        m_cancelFlushSchedule = m_scheduler.schedule(m_flushWriteAfter, [this] {
-            std::unique_lock<std::mutex> lock_{m_mutex};
-            pushBuffer(m_lastCtx, m_lastPath, lock_);
-            scheduleFlush();
-        });
+        m_cancelFlushSchedule = m_scheduler.schedule(m_flushWriteAfter,
+            [s = std::weak_ptr<WriteBuffer>(shared_from_this())] {
+                if (auto self = s.lock()) {
+                    std::unique_lock<std::mutex> lock{self->m_mutex};
+                    self->pushBuffer(self->m_lastCtx, self->m_lastPath, lock);
+                    self->scheduleFlush();
+                }
+            });
     }
 
+private:
     void pushBuffer(CTXPtr ctx, const boost::filesystem::path &p,
         std::unique_lock<std::mutex> &lock)
     {
