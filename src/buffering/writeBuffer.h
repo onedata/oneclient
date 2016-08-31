@@ -159,9 +159,14 @@ private:
         m_bufferedSize = 0;
         m_buffers = {};
 
-        auto callback = [ =, b = buffers ](
-            std::size_t wrote, const std::error_code &ec) mutable
+        auto callback = [
+            =, b = buffers, s = std::weak_ptr<WriteBuffer>(shared_from_this())
+        ](std::size_t wrote, const std::error_code &ec) mutable
         {
+            auto self = s.lock();
+            if (!self)
+                return;
+
             if (!ec) {
                 auto duration =
                     std::chrono::duration_cast<std::chrono::nanoseconds>(
