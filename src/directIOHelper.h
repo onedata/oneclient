@@ -56,7 +56,8 @@ public:
  * The DirectIOHelper class provides access to files on mounted as local
  * filesystem.
  */
-class DirectIOHelper : public IStorageHelper {
+class DirectIOHelper : public IStorageHelper,
+                       public std::enable_shared_from_this<DirectIOHelper> {
 public:
     /**
      * The UserCTX abstract class
