@@ -159,14 +159,17 @@ public:
     bool valid() { return false; }
 };
 
-TEST_F(DirectIOHelperTest, shouldFaileWithInvalidUserCTX)
+TEST_F(DirectIOHelperTest, shouldFailWithInvalidUserCTX)
 {
-    DirectIOHelper helper({{"root_path", DIO_TEST_ROOT}}, io_service,
+    auto helper = std::make_shared<DirectIOHelper>(
+        std::unordered_map<std::string, std::string>{
+            {"root_path", DIO_TEST_ROOT}},
+        io_service,
         [](std::shared_ptr<PosixHelperCTX>) {
             return std::make_unique<InvalidUserCTX>();
         });
 
-    helper.ash_open(ctx, testFileId, O_RDONLY,
+    helper->ash_open(ctx, testFileId, O_RDONLY,
         std::bind(&DirectIOHelperTest::set_promise<int>, this, pi1, _1, _2));
 
     EXPECT_THROW_POSIX_CODE(pi1->get_future().get(), EDOM);
