@@ -651,7 +651,6 @@ events::FileLocationEventStream::Handler FsLogic::fileLocationHandler()
             for (auto &it : acc->second.locations) {
                 it.second.storageId(newLocation.storageId());
                 it.second.fileId(newLocation.fileId());
-
                 it.second.blocks() = newLocation.blocks();
             }
 
