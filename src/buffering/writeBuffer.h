@@ -68,11 +68,7 @@ public:
     {
     }
 
-    ~WriteBuffer()
-    {
-        std::lock_guard<std::mutex> guard{m_mutex};
-        m_cancelFlushSchedule();
-    }
+    ~WriteBuffer() { m_cancelFlushSchedule(); }
 
     std::size_t write(CTXPtr ctx, const boost::filesystem::path &p,
         asio::const_buffer buf, const off_t offset)
