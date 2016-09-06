@@ -65,7 +65,8 @@ private:
 template <class LowerLayer> AsyncResponder<LowerLayer>::~AsyncResponder()
 {
     m_ioService.stop();
-    m_thread.join();
+    if (m_thread.joinable())
+        m_thread.join();
 }
 
 template <class LowerLayer> auto AsyncResponder<LowerLayer>::connect()
