@@ -10,8 +10,6 @@ import subprocess
 import sys
 from . import common, docker, worker, gui
 
-DOCKER_BINDIR_PATH = '/root/build'
-
 
 def up(image, bindir, dns_server, uid, config_path, logdir=None,
        storages_dockers=None, luma_config=None):
@@ -95,6 +93,12 @@ class ProviderWorkerConfigurator:
             extra_volumes.extend(gui.extra_volumes(gui_config, instance))
         return extra_volumes
 
+    def couchbase_ramsize(self):
+        return 1024
+
+    def couchbase_buckets(self):
+        return {"default": 512}
+
     def app_name(self):
         return "op_worker"
 
@@ -125,8 +129,9 @@ def create_storages(storages, op_nodes, op_config, bindir, storages_dockers):
     container = first_node.split("@")[1]
     worker_name = container.split(".")[0]
     cookie = op_config[worker_name]['vm.args']['setcookie']
+    bindir = os.path.abspath(bindir)
     script_paths = dict(
-        map(lambda (k, v): (k, os.path.join(DOCKER_BINDIR_PATH, v)),
+        map(lambda (k, v): (k, os.path.join(bindir, v)),
             script_names.iteritems()))
     for storage in storages:
         if isinstance(storage, basestring):

@@ -52,5 +52,5 @@ if args.restart is not 'none':
 
 if args.root_servers:
     args.root_servers = args.root_servers.split(',')
-output = dns.up(args.uid, args.root_servers, args.restart)
+output = dns.up(args.uid, args.root_servers, [], args.restart)
 print(json.dumps(output))

@@ -15,6 +15,9 @@ import requests
 import time
 import sys
 from . import docker
+from timeouts import *
+import tempfile
+import stat
 
 try:
     import xml.etree.cElementTree as eTree
@@ -23,11 +26,13 @@ except ImportError:
 
 requests.packages.urllib3.disable_warnings()
 
+HOST_STORAGE_PATH = "/tmp/onedata"
+
 
 def nagios_up(ip, port=None, protocol='https'):
     url = '{0}://{1}{2}/nagios'.format(protocol, ip, (':' + port) if port else '')
     try:
-        r = requests.get(url, verify=False, timeout=5)
+        r = requests.get(url, verify=False, timeout=REQUEST_TIMEOUT)
         if r.status_code != requests.codes.ok:
             return False
 
@@ -153,7 +158,8 @@ def fix_sys_config_walk(element, current_app_name, parents, file_path):
 
 
 def apps_with_sysconfig():
-    return ["cluster_manager", "appmock", "cluster_worker", "op_worker", "globalregistry", "onepanel", "oneclient"]
+    return ["cluster_manager", "appmock", "cluster_worker", "op_worker",
+            "globalregistry", "onepanel", "oneclient", "oz_worker"]
 
 
 def get_docker_name(name_or_container):
@@ -191,7 +197,7 @@ def format_hostname(domain_parts, uid):
 def format_erl_node_name(app_name, hostname):
     """Formats full node name for an erlang VM hosted on docker based on app_name and hostname.
     NOTE: Hostnames are also used as docker names!
-    app_name - application name, e.g.: 'cluster_manager', 'globalregistry'
+    app_name - application name, e.g.: 'cluster_manager', 'oz_worker'
     hostname - hostname aquired by format_*_hostname
     """
     return '{0}@{1}'.format(app_name, hostname)
@@ -230,4 +236,34 @@ def volume_for_storage(storage):
     """Returns tuple (path_on_host, path_on_docker, read_write_mode)
     for a given storage
     """
-    return os.path.join('/tmp/onedata/storage/', storage), storage, 'rw'
+    return storage_host_path(storage), storage, 'rw'
+
+
+def storage_host_path(storage):
+    """Returns path to temporary directory for storage on host
+    """
+    if not os.path.exists(HOST_STORAGE_PATH):
+        os.makedirs(HOST_STORAGE_PATH)
+    tmpdir = tempfile.mkdtemp(dir=HOST_STORAGE_PATH)
+    os.chmod(tmpdir,  stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
+    return tmpdir
+
+
+def mount_nfs_command(config, storages_dockers):
+    """Prepares nfs mount commands for specified os_config and storage dockers
+    :param config: config that may contain os_config inside
+    :param storages_dockers: storage dockers map
+    :return: string with commands
+    """
+    mount_command = ''
+    if not storages_dockers:
+        return mount_command
+    if 'os_config' in config:
+        for storage in config['os_config']['storages']:
+            if storage['type'] == 'nfs':
+                mount_command += '''
+mkdir -p {mount_point}
+mount -t nfs -o proto=tcp,port=2049,nolock {host}:/exports {mount_point}
+'''.format(host=storages_dockers['nfs'][storage['name']]['ip'], mount_point=storage['name'])
+    return mount_command
+

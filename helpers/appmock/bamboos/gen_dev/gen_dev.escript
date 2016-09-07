@@ -10,14 +10,13 @@
 %%% @doc
 %%% gen_dev script uses configurator.erl to configure release according to
 %%% given gen_dev_args configuration. For each entry in gen_dev_args, the
-%%% fresh release is copied from rel/?APP_NAME to 'target_dir', and
+%%% fresh release is copied from _build/default/rel/?APP_NAME to 'target_dir', and
 %%% vm.args/sys.config are configured properly.
 %%% @end
 %%%-------------------------------------------------------------------
 -module(gen_dev).
 
 -define(ARGS_FILE, "gen_dev_args.json").
--define(HELPER_MODULES, [args_parser, filesystem_operations, logger, mochijson2, release_configurator]).
 -define(EXIT_FAILURE_CODE, 1).
 
 %% API
@@ -151,12 +150,27 @@ prepare_fresh_release(InputDir, TargetDir, Name) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Compiles helper modules
+%% Loads helper modules.
 %% @end
 %%--------------------------------------------------------------------
 -spec helpers_init() -> ok.
 helpers_init() ->
-    true = code:add_path(filename:join(get_escript_dir(), "ebin")).
+    SrcDir = filename:join(get_escript_dir(), "src"),
+    {ok, Modules} = file:list_dir(SrcDir),
+    lists:foreach(fun(Module) ->
+        compile_and_load_module(filename:join(SrcDir, Module))
+    end, Modules).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Compiles and loads module into erlang VM.
+%% @end
+%%--------------------------------------------------------------------
+-spec compile_and_load_module(File :: string()) -> ok.
+compile_and_load_module(File) ->
+    {ok, ModuleName, Binary} = compile:file(File, [report, binary]),
+    {module, _} = code:load_binary(ModuleName, File, Binary),
+    ok.
 
 %%--------------------------------------------------------------------
 %% @doc

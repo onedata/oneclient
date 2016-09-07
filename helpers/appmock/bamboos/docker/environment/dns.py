@@ -6,14 +6,12 @@ This software is released under the MIT license cited in 'LICENSE.txt'
 Brings up a DNS server based on dnsmasq that allow sdifferent dockers
 to see each other by hostnames. In addition, it allows for specifying
 root servers for given domains, which is indispensable in distributed
-providers <-> gr environment.
+providers <-> oz environment.
 """
 
 import subprocess
-
+from timeouts import *
 from . import common, docker
-
-DNS_WAIT_FOR_SECONDS = 60
 
 
 def _dns_ready(dns):
@@ -85,7 +83,7 @@ def up(uid, hosts, dnses, dns_to_restart):
 
     ip = common.get_docker_ip(dns)
 
-    common.wait_until(_dns_ready, [dns], DNS_WAIT_FOR_SECONDS)
+    common.wait_until(_dns_ready, [dns], DNS_WAIT_SECONDS)
 
     return {'dns': ip, 'docker_ids': [dns]}
 

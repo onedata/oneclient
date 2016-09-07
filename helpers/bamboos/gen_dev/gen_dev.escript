@@ -10,7 +10,7 @@
 %%% @doc
 %%% gen_dev script uses configurator.erl to configure release according to
 %%% given gen_dev_args configuration. For each entry in gen_dev_args, the
-%%% fresh release is copied from rel/?APP_NAME to 'target_dir', and
+%%% fresh release is copied from _build/default/rel/?APP_NAME to 'target_dir', and
 %%% vm.args/sys.config are configured properly.
 %%% @end
 %%%-------------------------------------------------------------------

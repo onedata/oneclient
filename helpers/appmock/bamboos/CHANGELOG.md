@@ -4,6 +4,18 @@
 CHANGELOG
 ---------
 
+### 1.0.1
+
+* VFS-1571 Mount compilation caches by default in make.py .
+* VFS-1571 Add rebar 2.6.1 built with rebar_beam_cache.
+* VFS-1447 sys.config per app
+* VFS-1508 direct output from ember live build to log file in dev environment
+ to toggle gui livereload
+* VFS-1508 change owner of GUI tmp dir periodically rather than run ember build as user
+* VFS-1508 run livereload as user
+* VFS-1508 change build process of GUI to use ember-cli, add livereload
+
+
 ### 1.0.0
 
 
@@ -30,7 +42,7 @@ CHANGELOG
 * VFS-1010 Don't shed root privileges on non-Linux platforms.
 * VFS-1010 Run scripts in make.py as a running user.
 * VFS-1010 Cleanup scripts associated with running distributed tests.
-* VFS-1000 Add a first version of globalregistry_up.
+* VFS-1000 Add a first version of zone_up.
 * VFS-1000 Add a makefile, fetch required images automatically.
 * VFS-1000 Configure the cluster through gen_dev_args.json
 * VFS-1000 Implement a make.py script and improve cluster_up.

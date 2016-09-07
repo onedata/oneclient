@@ -7,9 +7,6 @@ Brings up a set of cluster-worker nodes. They can create separate clusters.
 
 from . import worker
 
-DOCKER_BINDIR_PATH = '/root/build'
-
-
 def up(image, bindir, dns_server, uid, config_path, logdir=None,
        storages_dockers=None, luma_config=None):
     return worker.up(image, bindir, dns_server, uid, config_path,
@@ -38,6 +35,12 @@ class ClusterWorkerConfigurator:
 
     def extra_volumes(self, config, bindir, instance_domain, storages_dockers):
         return []
+
+    def couchbase_ramsize(self):
+        return 1024
+
+    def couchbase_buckets(self):
+        return {"default": 512}
 
     def app_name(self):
         return "cluster_worker"

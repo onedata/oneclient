@@ -48,7 +48,7 @@ handle(Req, [ETSKey]) ->
             Req2 = cowboy_req:set_resp_body(Body, Req),
             Req3 = lists:foldl(
                 fun({HKey, HValue}, CurrReq) ->
-                    gui_utils:cowboy_ensure_header(HKey, HValue, CurrReq)
+                    cowboy_req:set_resp_header(HKey, HValue, CurrReq)
                 end, Req2, Headers),
             {ok, _NewReq} = cowboy_req:reply(Code, Req3)
         catch T:M ->
@@ -59,7 +59,7 @@ handle(Req, [ETSKey]) ->
             Error = str_utils:format_bin("500 Internal server error - make sure that your description file does not " ++
             "contain errors.~n-----------------~nType:       ~p~nMessage:    ~p~nStacktrace: ~p", [T, M, Stacktrace]),
             ErrorReq2 = cowboy_req:set_resp_body(Error, Req),
-            ErrorReq3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"text/plain">>, ErrorReq2),
+            ErrorReq3 = cowboy_req:set_resp_header(<<"content-type">>, <<"text/plain">>, ErrorReq2),
             {ok, _ErrorReq} = cowboy_req:reply(500, ErrorReq3)
         end,
     {ok, NewReq, [ETSKey]}.
