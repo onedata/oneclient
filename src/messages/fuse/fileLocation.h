@@ -76,7 +76,7 @@ public:
     const std::string &uuid() const;
 
     /**
-     * @return Default storage ID of the file.
+     * @return ID of a space the file belongs to.
      */
     const std::string &spaceId() const;
 
