@@ -11,14 +11,13 @@ import re
 import requests
 import sys
 import time
+from timeouts import *
 
 from . import common, docker, dns as dns_mod
 
-COUCHBASE_READY_WAIT_SECONDS = 60
-
 
 def _couchbase(cluster_name, num):
-    return 'couchbase{0}_{1}'.format(num, cluster_name)
+    return 'couchbase{0}-{1}'.format(num, cluster_name)
 
 
 def config_entry(cluster_name, num, uid):
@@ -47,7 +46,7 @@ def _ready(container):
     ip = docker.inspect(container)['NetworkSettings']['IPAddress']
     url = 'http://{0}:8091/pools'.format(ip)
     try:
-        r = requests.head(url, timeout=5)
+        r = requests.head(url, timeout=REQUEST_TIMEOUT)
         return r.status_code == requests.codes.ok
     except requests.ConnectionError:
         return False
@@ -67,7 +66,7 @@ def _cluster_nodes(containers, cluster_name, master_hostname, uid):
                  stdout=sys.stderr)
 
 
-def up(image, dns, uid, cluster_name, nodes):
+def up(image, dns, uid, cluster_name, nodes, buckets={'default':512}, cluster_ramsize=1024):
 
     dns_servers, dns_output = dns_mod.maybe_start(dns, uid)
     couchbase_output = {}
@@ -90,13 +89,15 @@ bash'''
     assert 0 == docker.exec_(containers[0],
                  command=["/opt/couchbase/bin/couchbase-cli", "cluster-init", "-c", "{0}:8091".format(master_hostname),
                           "--cluster-init-username=admin", "--cluster-init-password=password",
-                          "--cluster-init-ramsize=512", "--services=data,index,query"],
+                          "--cluster-init-ramsize=" + str(cluster_ramsize), "--services=data,index,query"],
                  stdout=sys.stderr)
 
-    # Create default bucket
-    assert 0 == docker.exec_(containers[0],
+    # Create buckets
+    for bucket_name, bucket_size in buckets.items():
+        assert 0 == docker.exec_(containers[0],
                  command=["/opt/couchbase/bin/couchbase-cli", "bucket-create", "-c", "{0}:8091".format(master_hostname),
-                          "-u", "admin", "-p", "password", "--bucket=default", "--bucket-ramsize=512", "--wait"],
+                          "-u", "admin", "-p", "password", "--bucket=" + bucket_name,
+                          "--bucket-ramsize=" + str(bucket_size), "--wait"],
                  stdout=sys.stderr)
 
     # Create database cluster nodes

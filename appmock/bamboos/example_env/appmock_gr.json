@@ -1,30 +1,29 @@
 {
     "dirs_config": {
         "cluster_manager": {
-            "input_dir": "rel/cluster_manager",
-            "target_dir": "rel/test_cluster"
+            "input_dir": "_build/default/rel/cluster_manager",
+            "target_dir": "_build/default/rel/test_cluster"
         },
         "op_worker": {
-            "input_dir": "rel/op_worker",
-            "target_dir": "rel/test_cluster"
+            "input_dir": "_build/default/rel/op_worker",
+            "target_dir": "_build/default/rel/test_cluster"
         },
-        "globalregistry": {
-            "input_dir": "rel/globalregistry",
-            "target_dir": "rel/test_cluster"
+        "oz_worker": {
+            "input_dir": "_build/default/rel/oz_worker",
+            "target_dir": "_build/default/rel/test_cluster"
         },
         "appmock": {
-            "input_dir": "rel/appmock",
-            "target_dir": "rel/test_cluster"
-        },
-        "onepanel": {
-            "input_dir": "rel_oneprovider/op_panel",
-            "target_dir": "rel/test_cluster"
+            "input_dir": "_build/default/rel/appmock",
+            "target_dir": "_build/default/rel/test_cluster"
         }
     },
     "os_configs": {
         "cfg1": {
             "storages": [
-                "/mnt/st1"
+                {
+                    "type": "posix",
+                    "name": "/mnt/st1"
+                }
             ],
             "users": [
                 "user1"
@@ -38,7 +37,7 @@
     },
     "provider_domains": {
         "p1": {
-            "db_driver": "couchbase",
+            "db_driver": "couchdb",
             "os_config": "cfg1",
             "cluster_manager": {
                 "cm1": {
@@ -66,10 +65,10 @@
                                 "cm1"
                             ],
                             "db_nodes": [
-                                "riaknode1"
+                                "dbnode1"
                             ],
-                            "global_registry_domain": "gr",
-                            "verify_gr_cert": false
+                            "oz_domain": "oz",
+                            "verify_oz_cert": false
                         }
                     }
                 }
@@ -77,10 +76,10 @@
         }
     },
     "appmock_domains": {
-        "gr": {
+        "oz": {
             "appmock": {
                 "appmock1": {
-                    "mocked_app": "globalregistry",
+                    "mocked_app": "oz_worker",
                     "vm.args": {
                         "setcookie": "cookie2"
                     },

@@ -22,6 +22,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <set>
 #include <string>
@@ -37,7 +38,7 @@ namespace buffering {
  * have to be thread-safe. A mutex is introduced to synchronize between writes
  * and scheduled flush.
  */
-class WriteBuffer {
+class WriteBuffer : public std::enable_shared_from_this<WriteBuffer> {
     struct ByteSequence {
         ByteSequence(const off_t offset_, asio::const_buffer buf)
             : offset{offset_}
@@ -65,14 +66,9 @@ public:
         , m_scheduler{scheduler}
         , m_readCache{readCache}
     {
-        scheduleFlush();
     }
 
-    ~WriteBuffer()
-    {
-        std::lock_guard<std::mutex> guard{m_mutex};
-        m_cancelFlushSchedule();
-    }
+    ~WriteBuffer() { m_cancelFlushSchedule(); }
 
     std::size_t write(CTXPtr ctx, const boost::filesystem::path &p,
         asio::const_buffer buf, const off_t offset)
@@ -131,16 +127,19 @@ public:
         throwLastError();
     }
 
-private:
     void scheduleFlush()
     {
-        m_cancelFlushSchedule = m_scheduler.schedule(m_flushWriteAfter, [this] {
-            std::unique_lock<std::mutex> lock_{m_mutex};
-            pushBuffer(m_lastCtx, m_lastPath, lock_);
-            scheduleFlush();
-        });
+        m_cancelFlushSchedule = m_scheduler.schedule(m_flushWriteAfter,
+            [s = std::weak_ptr<WriteBuffer>(shared_from_this())] {
+                if (auto self = s.lock()) {
+                    std::unique_lock<std::mutex> lock{self->m_mutex};
+                    self->pushBuffer(self->m_lastCtx, self->m_lastPath, lock);
+                    self->scheduleFlush();
+                }
+            });
     }
 
+private:
     void pushBuffer(CTXPtr ctx, const boost::filesystem::path &p,
         std::unique_lock<std::mutex> &lock)
     {
@@ -156,9 +155,14 @@ private:
         m_bufferedSize = 0;
         m_buffers = {};
 
-        auto callback = [ =, b = buffers ](
-            std::size_t wrote, const std::error_code &ec) mutable
+        auto callback = [
+            =, b = buffers, s = std::weak_ptr<WriteBuffer>(shared_from_this())
+        ](std::size_t wrote, const std::error_code &ec) mutable
         {
+            auto self = s.lock();
+            if (!self)
+                return;
+
             if (!ec) {
                 auto duration =
                     std::chrono::duration_cast<std::chrono::nanoseconds>(

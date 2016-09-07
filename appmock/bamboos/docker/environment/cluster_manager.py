@@ -51,20 +51,21 @@ def _node_up(image, bindir, config, dns_servers, logdir):
 
     command = \
         '''mkdir -p /root/bin/node/log/
-echo 'while ((1)); do chown -R {uid}:{gid} /root/bin/node/log; sleep 1; done' > /root/bin/chown_logs.sh
-bash /root/bin/chown_logs.sh &
+bindfs --create-for-user={uid} --create-for-group={gid} /root/bin/node/log /root/bin/node/log
 cat <<"EOF" > /tmp/gen_dev_args.json
 {gen_dev_args}
 EOF
 set -e
 escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json
-/root/bin/node/bin/cluster_manager console'''
+/root/bin/node/bin/cluster_manager console
+sleep 5'''  # Add sleep so logs can be chowned
     command = command.format(
         gen_dev_args=json.dumps({'cluster_manager': config}),
         uid=os.geteuid(),
         gid=os.getegid())
 
-    volumes = [(bindir, '/root/build', 'ro')]
+    bindir = os.path.abspath(bindir)
+    volumes = ['/root/bin', (bindir, bindir, 'ro')]
 
     if logdir:
         logdir = os.path.join(os.path.abspath(logdir), hostname)
@@ -77,9 +78,10 @@ escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json
         detach=True,
         interactive=True,
         tty=True,
-        workdir='/root/build',
+        workdir=bindir,
         volumes=volumes,
         dns_list=dns_servers,
+        privileged=True,
         command=command)
 
     return {

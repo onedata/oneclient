@@ -111,7 +111,7 @@ handle_request(?REST_ENDPOINT_REQUEST_COUNT_PATH, Req) ->
                         ?REST_ENDPOINT_REQUEST_COUNT_PACK_ERROR_WRONG_ENDPOINT
                 end,
     Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
-    Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
+    Req3 = cowboy_req:set_resp_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
 handle_request(?VERIFY_REST_HISTORY_PATH, Req) ->
@@ -126,7 +126,7 @@ handle_request(?VERIFY_REST_HISTORY_PATH, Req) ->
                         ?VERIFY_REST_HISTORY_PACK_ERROR(ActualHistory)
                 end,
     Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
-    Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
+    Req3 = cowboy_req:set_resp_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
 handle_request(?RESET_REST_HISTORY_PATH, Req) ->
@@ -135,7 +135,7 @@ handle_request(?RESET_REST_HISTORY_PATH, Req) ->
                         ?TRUE_RESULT
                 end,
     Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
-    Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
+    Req3 = cowboy_req:set_resp_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
 handle_request(?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_COWBOY_ROUTE, Req) ->
@@ -151,7 +151,7 @@ handle_request(?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_COWBOY_ROUTE, Req) ->
                         ?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PACK_ERROR_WRONG_ENDPOINT
                 end,
     Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
-    Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
+    Req3 = cowboy_req:set_resp_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
 
@@ -165,7 +165,7 @@ handle_request(?TCP_SERVER_ALL_MESSAGES_COUNT_COWBOY_ROUTE, Req) ->
                         ?TCP_SERVER_ALL_MESSAGES_COUNT_PACK_ERROR_WRONG_ENDPOINT
                 end,
     Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
-    Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
+    Req3 = cowboy_req:set_resp_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
 
@@ -186,7 +186,7 @@ handle_request(?TCP_SERVER_SEND_COWBOY_ROUTE, Req) ->
                         ?TCP_SERVER_SEND_PACK_WRONG_ENDPOINT_ERROR
                 end,
     Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
-    Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
+    Req3 = cowboy_req:set_resp_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
 handle_request(?TCP_SERVER_HISTORY_COWBOY_ROUTE, Req) ->
@@ -201,7 +201,7 @@ handle_request(?TCP_SERVER_HISTORY_COWBOY_ROUTE, Req) ->
                         ?TCP_SERVER_HISTORY_PACK_ERROR_COUNTER_MODE
                 end,
     Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
-    Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
+    Req3 = cowboy_req:set_resp_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
 handle_request(?RESET_TCP_SERVER_HISTORY_PATH, Req) ->
@@ -210,7 +210,7 @@ handle_request(?RESET_TCP_SERVER_HISTORY_PATH, Req) ->
                         ?TRUE_RESULT
                 end,
     Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
-    Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
+    Req3 = cowboy_req:set_resp_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3);
 
 handle_request(?TCP_SERVER_CONNECTION_COUNT_COWBOY_ROUTE, Req) ->
@@ -223,5 +223,5 @@ handle_request(?TCP_SERVER_CONNECTION_COUNT_COWBOY_ROUTE, Req) ->
                         ?TCP_SERVER_CONNECTION_COUNT_PACK_ERROR_WRONG_ENDPOINT
                 end,
     Req2 = cowboy_req:set_resp_body(json_utils:encode(ReplyTerm), Req),
-    Req3 = gui_utils:cowboy_ensure_header(<<"content-type">>, <<"application/json">>, Req2),
+    Req3 = cowboy_req:set_resp_header(<<"content-type">>, <<"application/json">>, Req2),
     {ok, _NewReq} = cowboy_req:reply(200, Req3).

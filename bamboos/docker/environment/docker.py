@@ -16,7 +16,7 @@ import sys
 def run(image, docker_host=None, detach=False, dns_list=[], add_host={},
         envs={}, hostname=None, interactive=False, link={}, tty=False, rm=False,
         reflect=[], volumes=[], name=None, workdir=None, user=None, group=None,
-        group_add=[], privileged=False, run_params=[], command=None,
+        group_add=[], cpuset_cpus=None, privileged=False, run_params=[], command=None,
         output=False, stdin=None, stdout=None, stderr=None):
     cmd = ['docker']
 
@@ -86,6 +86,9 @@ def run(image, docker_host=None, detach=False, dns_list=[], add_host={},
 
     if privileged:
         cmd.append('--privileged')
+
+    if cpuset_cpus:
+        cmd.extend(['--cpuset-cpus', cpuset_cpus])
 
     cmd.extend(run_params)
     cmd.append(image)

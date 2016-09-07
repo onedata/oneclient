@@ -1,0 +1,51 @@
+%%%-------------------------------------------------------------------
+%%% @author Michal Wrona
+%%% @copyright (C) 2016 ACK CYFRONET AGH
+%%% This software is released under the MIT license
+%%% cited in 'LICENSE.txt'.
+%%% @end
+%%%-------------------------------------------------------------------
+%%% @doc
+%%% Dynamic configuration script for rebar.config. Replaces all
+%%% occurrences of "ssh://git@git.plgrid.pl:7999/vfs" with
+%%% ONEDATA_GIT_URL value.
+%%% @end
+%%%-------------------------------------------------------------------
+
+case os:getenv("ONEDATA_GIT_URL") of
+    false -> CONFIG;
+    OnedataGitUrl ->
+
+        Replace = fun(Entry) ->
+            re:replace(Entry, "ssh://git@git.plgrid.pl:7999/vfs",
+                OnedataGitUrl, [{return,list}])
+        end,
+
+        ParseVCS = fun ParseVCS(Entry) ->
+            case Entry of
+                {git, Url} ->
+                    {git, Replace(Url)};
+                {git, Url, Ref} ->
+                    {git, Replace(Url), Ref};
+                {raw, RawEntry} ->
+                    {raw, ParseVCS(RawEntry)};
+                E -> E
+            end
+        end,
+
+        {deps, DepsList} = lists:keyfind(deps, 1, CONFIG),
+
+        ParsedDeps = lists:map(fun(Dep) ->
+            case Dep of
+                {E1, VCS} ->
+                    {E1, ParseVCS(VCS)};
+                {E1, VCS1, VCS2} ->
+                    {E1, ParseVCS(VCS1), ParseVCS(VCS2)};
+                {E1, E2, VCS, E3} ->
+                    {E1, E2, ParseVCS(VCS), E3};
+                E -> E
+            end
+        end, DepsList),
+
+        lists:keystore(deps, 1, CONFIG, {deps, ParsedDeps})
+end.

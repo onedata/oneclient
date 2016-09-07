@@ -54,7 +54,7 @@ parser.add_argument(
     '--no-cache',
     action='store_false',
     default=True,
-    help='disable mounting /var/cache/ccache and /var/cache/beamcache',
+    help='disable mounting /var/cache/ccache and /var/cache/rebar3',
     dest='mount_cache')
 
 parser.add_argument(
@@ -105,6 +105,13 @@ parser.add_argument(
     default=False,
     help='run the container with --privileged=true',
     dest='privileged')
+
+parser.add_argument(
+    '--cpuset-cpus',
+    action='store',
+    default=None,
+    help='CPUs in which to allow execution (0-3, 0,1)',
+    dest='cpuset_cpus')
 
 [args, pass_args] = parser.parse_known_args()
 
@@ -169,7 +176,7 @@ reflect = [(args.src, 'rw'), ('/var/run/docker.sock', 'rw')]
 reflect.extend(zip(args.reflect, ['rw'] * len(args.reflect)))
 if args.mount_cache:
     reflect.extend([
-        ('/var/cache/ccache', 'rw'), ('/var/cache/beamcache', 'rw')
+        ('/var/cache/ccache', 'rw'), ('/var/cache/rebar3', 'rw')
     ])
 
 # Mount keys required for git and docker config that holds auth to
@@ -198,5 +205,6 @@ ret = docker.run(tty=True,
                  workdir=args.workdir if args.workdir else args.src,
                  image=args.image,
                  privileged=args.privileged,
+                 cpuset_cpus=args.cpuset_cpus,
                  command=['python', '-c', command])
 sys.exit(ret)

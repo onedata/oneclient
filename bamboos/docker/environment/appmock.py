@@ -102,7 +102,8 @@ sleep 5'''  # Add sleep so logs can be chowned
         app_desc_file=open(app_desc_file_path, 'r').read(),
         gen_dev_args=json.dumps({'appmock': config}))
 
-    volumes = ['/root/bin', (bindir, '/root/build', 'ro')]
+    bindir = os.path.abspath(bindir)
+    volumes = ['/root/bin', (bindir, bindir, 'ro')]
 
     if logdir:
         logdir = os.path.join(os.path.abspath(logdir), hostname)
@@ -115,7 +116,7 @@ sleep 5'''  # Add sleep so logs can be chowned
         detach=True,
         interactive=True,
         tty=True,
-        workdir='/root/build',
+        workdir=bindir,
         volumes=volumes,
         dns_list=dns_servers,
         privileged=True,

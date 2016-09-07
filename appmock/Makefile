@@ -8,42 +8,28 @@ export ONEDATA_GIT_URL
 
 all: rel
 
-deps:
-	./rebar get-deps
+upgrade:
+	./rebar3 upgrade
 
 compile:
-	./rebar compile
+	./rebar3 compile
 
-rel: deps compile
-	./rebar generate
+rel: compile
+	./rebar3 release
 
 start:
-	rel/appmock/bin/appmock console
+	_build/default/rel/appmock/bin/appmock console
 
 clean:
-	./rebar clean
-	rm -rf rel/appmock
+	./rebar3 clean
 
 distclean: clean
-	./rebar delete-deps
+	./rebar3 clean --all
 
 ##
 ## Dialyzer targets local
 ##
 
-PLT ?= .dialyzer.plt
-
-# Builds dialyzer's Persistent Lookup Table file.
-.PHONY: plt
-plt:
-	dialyzer --check_plt --plt ${PLT}; \
-	if [ $$? != 0 ]; then \
-	    dialyzer --build_plt --output_plt ${PLT} --apps kernel stdlib sasl erts \
-	        ssl tools runtime_tools crypto inets xmerl snmp public_key eunit \
-	        syntax_tools compiler ./deps/*/ebin; \
-	fi; exit 0
-
-
 # Dialyzes the project.
-dialyzer: plt
-	dialyzer ./ebin --plt ${PLT} -Werror_handling -Wrace_conditions --fullpath
+dialyzer:
+	./rebar3 dialyzer

@@ -13,7 +13,7 @@
 {application, appmock,
     [
         {description, ""},
-        {vsn, "1.0.0"},
+        {vsn, "1.0.1"},
         {registered, []},
         {applications, [
             kernel,
@@ -26,9 +26,8 @@
             % ctool already requires those apps below, but they are here
             % for awareness of them being used in the project and
             % to make sure they are started before the application.
-            gproc,
             lager,
-            ssl2,
+            etls,
             hackney,
             web_client,
             cowboy
