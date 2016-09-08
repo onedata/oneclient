@@ -4,6 +4,17 @@
 CHANGELOG
 ---------
 
+### 3.0.0-rc5
+
+* VFS-2534 Use only time aggregation for update events
+* VFS-2497 Enable destruction of not-connected AsyncResponder.
+* VFS-2497 Do not lock mutex in WriteBuffer's destructor.
+* VFS-2497 Fix undefined behaviour after timeout in WriteBuffer.
+* VFS-2497 Ensure DIOHandler exists in async ops.
+* VFS-2497 Add AsyncResponder communication layer.
+* VFS-2497 Fix crash on WriteBuffer flush schedule.
+
+
 ### 3.0.0-rc4
 
 * VFS-1956 Improve CephHelper's raw pointer handling.
