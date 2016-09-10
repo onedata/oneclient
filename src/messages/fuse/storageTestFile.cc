@@ -18,6 +18,7 @@ namespace fuse {
 
 StorageTestFile::StorageTestFile(
     std::unique_ptr<ProtocolServerMessage> serverMessage)
+    : FuseResponse(serverMessage)
 {
     if (!serverMessage->fuse_response().has_storage_test_file())
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
