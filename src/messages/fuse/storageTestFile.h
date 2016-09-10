@@ -10,7 +10,7 @@
 #define ONECLIENT_MESSAGES_FUSE_STORAGE_TEST_FILE_H
 
 #include "helperParams.h"
-#include "messages/serverMessage.h"
+#include "messages/fuse/fuseResponse.h"
 
 #include <memory>
 #include <string>
@@ -27,7 +27,7 @@ namespace fuse {
 * provide location of a created storage test file along with helper arguments
 * used to access the file.
 */
-class StorageTestFile : public ServerMessage {
+class StorageTestFile : public FuseResponse {
 public:
     using ProtocolMessage = clproto::StorageTestFile;
 

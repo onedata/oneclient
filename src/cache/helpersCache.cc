@@ -117,10 +117,17 @@ void HelpersCache::requestStorageTestFileCreation(
                     storageId, VERIFY_TEST_FILE_ATTEMPTS);
             }
             else {
-                LOG(ERROR)
-                    << "Unknown storage test file creation error, code: '"
-                    << ec.value() << "', message: '" << ec.message() << "'";
-                m_accessType.erase(storageId);
+                LOG(WARNING) << "Storage test file creation error, code: '"
+                             << ec.value() << "', message: '" << ec.message()
+                             << "'";
+
+                if (ec.value() == EAGAIN) {
+                    m_accessType.erase(storageId);
+                }
+                else {
+                    LOG(INFO) << "Storage '" << storageId
+                              << "' is not directly accessible to the client.";
+                }
             }
         });
 }
@@ -163,20 +170,18 @@ void HelpersCache::handleStorageTestFile(
         acc->second = helper;
     }
     catch (const std::system_error &e) {
-        auto code = e.code().value();
+        const auto &ec = e.code();
         AccessTypeAccessor acc;
         m_accessType.insert(acc, storageId);
-        if (code == ENOENT || code == ENOTDIR || code == EACCES) {
-            LOG(INFO) << "Storage '" << storageId
-                      << "' is not directly accessible to the client. "
-                         "Return code: "
-                      << code << ".";
-            acc->second = AccessType::PROXY;
+        LOG(ERROR) << "Storage test file handling error, code: '" << ec.value()
+                   << "', message: '" << ec.message() << "'";
+        if (ec.value() == EAGAIN) {
+            m_accessType.erase(acc);
         }
         else {
-            LOG(ERROR) << "Unexpected error occurred, code: " << e.code()
-                       << ", message: '" << e.what() << "'.";
-            m_accessType.erase(acc);
+            LOG(INFO) << "Storage '" << storageId
+                      << "' is not directly accessible to the client.";
+            acc->second = AccessType::PROXY;
         }
     }
 }
@@ -192,8 +197,7 @@ void HelpersCache::requestStorageTestFileVerification(
     messages::fuse::VerifyStorageTestFile request{storageId,
         testFile.spaceUuid(), testFile.fileId(), std::move(fileContent)};
 
-    m_communicator.communicate<messages::fuse::FuseResponse>(
-        std::move(request),
+    m_communicator.communicate<messages::fuse::FuseResponse>(std::move(request),
         [=](const std::error_code &ec,
             std::unique_ptr<messages::fuse::FuseResponse> response) {
             handleStorageTestFileVerification(ec, storageId);
@@ -203,7 +207,7 @@ void HelpersCache::requestStorageTestFileVerification(
 void HelpersCache::handleStorageTestFileVerification(
     const std::error_code &ec, const std::string &storageId)
 {
-    DLOG(INFO) << "Requesting verification of storage: '" << storageId << "'.";
+    DLOG(INFO) << "Handling verification of storage: '" << storageId << "'.";
 
     AccessTypeAccessor acc;
     m_accessType.insert(acc, storageId);
@@ -212,15 +216,17 @@ void HelpersCache::handleStorageTestFileVerification(
                   << "' is directly accessible to the client.";
         acc->second = AccessType::DIRECT;
     }
-    else if (ec.value() == ENOENT || ec.value() == EINVAL) {
-        LOG(INFO) << "Storage '" << storageId
-                  << "' is not directly accessible to the client.";
-        acc->second = AccessType::PROXY;
-    }
     else {
-        LOG(ERROR) << "Unknown storage test file verification error, code: '"
+        LOG(ERROR) << "Storage test file verification error, code: '"
                    << ec.value() << "', message: '" << ec.message() << "'";
-        m_accessType.erase(acc);
+        if (ec.value() == EAGAIN) {
+            m_accessType.erase(acc);
+        }
+        else {
+            LOG(INFO) << "Storage '" << storageId
+                      << "' is not directly accessible to the client.";
+            acc->second = AccessType::PROXY;
+        }
     }
 }
 
