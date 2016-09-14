@@ -21,6 +21,7 @@ appmock_rc_port = 9999
 # Increment rate causes each next interval to be longer.
 WAIT_STARTING_CHECK_INTERVAL = 250
 WAIT_INTERVAL_INCREMENT_RATE = 1.3
+DEFAULT_TIMEOUT = 60
 
 requests.packages.urllib3.disable_warnings()
 
@@ -62,20 +63,20 @@ class AppmockTCPEndpoint(object):
         return tcp_server_send(self.ip, self.port, message_binary, msg_count)
 
     def wait_for_any_messages(self, msg_count=1, accept_more=False,
-                              return_history=False, timeout_sec=20):
+                              return_history=False, timeout_sec=DEFAULT_TIMEOUT):
         return tcp_server_wait_for_any_messages(self.ip, self.port, msg_count,
                                                 accept_more, return_history,
                                                 timeout_sec)
 
     def wait_for_connections(self, number_of_connections=1, accept_more=False,
-                             timeout_sec=20):
+                             timeout_sec=DEFAULT_TIMEOUT):
         return tcp_server_wait_for_connections(self.ip, self.port,
                                                number_of_connections,
                                                accept_more, timeout_sec)
 
     def wait_for_specific_messages(self, message_binary, msg_count=1,
                                    accept_more=False, return_history=False,
-                                   timeout_sec=20):
+                                   timeout_sec=DEFAULT_TIMEOUT):
         return tcp_server_wait_for_specific_messages(self.ip, self.port,
                                                      message_binary, msg_count,
                                                      accept_more,
@@ -91,7 +92,7 @@ def _http_post(ip, port, path, use_ssl, data):
     protocol = 'https' if use_ssl else 'http'
     response = requests.post(
         '{0}://{1}:{2}{3}'.format(protocol, ip, port, path),
-        data, verify=False, timeout=10)
+        data, verify=False, timeout=DEFAULT_TIMEOUT)
     return response.status_code, response.headers, response.text
 
 
@@ -179,7 +180,7 @@ def tcp_server_specific_message_count(appmock_ip, tcp_port, message_binary):
 
 def tcp_server_wait_for_specific_messages(appmock_ip, tcp_port, message_binary,
                                           msg_count=1, accept_more=False,
-                                          return_history=False, timeout_sec=20):
+                                          return_history=False, timeout_sec=DEFAULT_TIMEOUT):
     """
     Returns when given number of specific messages
     has been received on given port, or after it timeouts.
@@ -224,7 +225,7 @@ def tcp_server_all_messages_count(appmock_ip, tcp_port):
 
 def tcp_server_wait_for_any_messages(appmock_ip, tcp_port, msg_count=1,
                                      accept_more=False, return_history=False,
-                                     timeout_sec=20):
+                                     timeout_sec=DEFAULT_TIMEOUT):
     """
     Returns when given number of any messages has been received on given port,
     or after it timeouts.
@@ -317,7 +318,7 @@ def tcp_server_connection_count(appmock_ip, tcp_port):
 
 def tcp_server_wait_for_connections(appmock_ip, tcp_port,
                                     number_of_connections=1, accept_more=False,
-                                    timeout_sec=20):
+                                    timeout_sec=DEFAULT_TIMEOUT):
     """
     Returns when given number of connections
     are established on given port, or after it timeouts.

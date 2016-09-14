@@ -17,71 +17,80 @@
 %%% Main function
 %%%===================================================================
 
+main([BaseDir | RestArgs]) ->
+    % getting lists of excluded modules and ebin directories
+    % from cover.spec file
+    {ok, Terms} = file:consult(
+        filename:join([BaseDir, "test_distributed/cover.spec"])),
+    ExcludedModules = lists:map(fun(X) -> atom_to_list(X) end,
+        get_excluded_modules(Terms)),
+    EbinDirs = get_ebin_directories(Terms),
+    % lists of module names
+    AllModules = [get_modules_list(filename:join([BaseDir, X]),
+        ".beam") || X <- EbinDirs],
+    {_, CtModules} = get_modules_list(
+        filename:join([BaseDir, "test_distributed"]), ".erl"),
+    OmittedModules = CtModules ++ ExcludedModules,
 
-%%%===================================================================
-%%% Main function
-%%%===================================================================
+    % loading .beam files for cover server
+    cover:start(),
+    [[cover:compile_beam(filename:join([Ebin, M]))
+        || M <- Modules, not lists:member(M, OmittedModules)]
+        || {Ebin, Modules} <- AllModules],
 
-main([BaseDir]) ->
-  % gettint lists of excluded modules and ebin directories
-  % from cover.spec file
-  {ok, Terms} = file:consult(filename:join([BaseDir, "test_distributed/cover.spec"])),
-  ExcludedModules = lists:map(fun(X) -> atom_to_list(X) end, get_excluded_modules(Terms)),
-  EbinDirs = get_ebin_directories(Terms),
-  % lists of module names
-  AllModules = [get_modules_list(filename:join([BaseDir, X]), ".beam") || X <- EbinDirs],
-  {_, CtModules} = get_modules_list(filename:join([BaseDir, "test_distributed"]), ".erl"),
-  OmittedModules = CtModules ++ ExcludedModules,
+    % getting directory name in which coverage reports from CT are
+    {ok, LS} = file:list_dir(
+        filename:join([BaseDir, "test_distributed", "logs"])),
 
-  % loading .beam files for cover server
-  cover:start(),
-  [[cover:compile_beam(filename:join([Ebin, M]))
-      || M <- Modules, not lists:member(M, OmittedModules)]
-    || {Ebin, Modules} <- AllModules],
+    % loading CT coverage reports (if any)
+    CT_dirs = lists:filter(fun(X) -> lists:prefix("ct_run", X) end, LS),
 
-  % getting directory name in which coverage reports from CT are
-  {ok, LS} = file:list_dir(filename:join([BaseDir, "test_distributed", "logs"])),
-
-  % loading CT coverage reports (if any)
-  CT_dirs = lists:filter(fun(X) -> lists:prefix("ct_run", X) end, LS),
-  case CT_dirs of
-    [CT_dir | _] -> ok = cover:import(filename:join([BaseDir, "test_distributed", "logs", CT_dir, "all.coverdata"]));
-    [] -> ok
-  end,
+    case RestArgs of
+        ["true" | _] ->
+            % if script is run on bamboo, all.coverdata files are in separate CT_dirs
+            import_coverdata_from_all_dirs(
+                filename:join([BaseDir, "test_distributed", "logs"]),
+                CT_dirs,
+                "all.coverdata");
+        _ ->
+            % by default all.coverdata file is imported from newest CT_dir
+            import_coverdata_from_newest_dir(
+                filename:join([BaseDir, "test_distributed", "logs"]),
+                CT_dirs,
+                "all.coverdata")
+    end,
 
   % loading eunit coverage reports
-  ok = cover:import(filename:join([BaseDir, ".eunit", "cover.coverdata"])),
+  ok = cover:import(filename:join([BaseDir, "_build", "test", "cover", "eunit.coverdata"])),
 
-  % output directory; if exists, we re-create it
-  CoverDirPath = filename:join([BaseDir, "test_coverage"]),
-  case file:make_dir(CoverDirPath) of
-    ok -> ok;
-    {error, eexist} -> file:del_dir(CoverDirPath),
-      file:make_dir(CoverDirPath)
-  end,
-
-  % generating reports for single modules
-  [cover:analyze_to_file(
-      Mod,
-      filename:join([BaseDir, "test_coverage", atom_to_list(Mod) ++ ".COVER.html"]),
-      [html])
-    || Mod <- cover:modules()],
-  % generating .coverdata, just in case
-  cover:export(filename:join([BaseDir, "test_coverage", "merged.coverdata"])),
-
-  % generating coverage stats for each module
-  % [{module, {covered, noncovered}}]
-  RawCoverage = [cover:analyse(Mod, module) || Mod <- cover:modules()],
-  ModulesCoverage = lists:map(fun({ok, X}) -> X end, RawCoverage),
-  ModulesCoverage_Sorted = lists:sort(
-    fun({ModuleA, _CoverA}, {ModuleB, _CoverB}) ->
-      ModuleA < ModuleB
+    % output directory; if exists, we re-create it
+    CoverDirPath = filename:join([BaseDir, "test_coverage"]),
+    case file:make_dir(CoverDirPath) of
+        ok -> ok;
+        {error, eexist} -> file:del_dir(CoverDirPath),
+            file:make_dir(CoverDirPath)
     end,
-    ModulesCoverage),
-  % generating index.html
-  generate_html_report(ModulesCoverage_Sorted, BaseDir),
 
-  cover:stop().
+    % generating reports for single modules
+    [cover:analyze_to_file(
+        Mod,
+        filename:join([BaseDir, "test_coverage", atom_to_list(Mod) ++ ".COVER.html"]),
+        [html])
+        || Mod <- cover:modules()],
+    % generating .coverdata, just in case
+    cover:export(filename:join([BaseDir, "test_coverage", "merged.coverdata"])),
+
+    % generating coverage stats for each module
+    % [{module, {covered, noncovered}}]
+    RawCoverage = [cover:analyse(Mod, module) || Mod <- cover:modules()],
+    ModulesCoverage = lists:map(fun({ok, X}) -> X end, RawCoverage),
+    ModulesCoverage_Sorted = lists:sort(fun({ModuleA, _CoverA}, {ModuleB, _CoverB}) ->
+        ModuleA < ModuleB
+    end, ModulesCoverage),
+    % generating index.html
+    generate_html_report(ModulesCoverage_Sorted, BaseDir),
+
+    cover:stop().
 
 %%%===================================================================
 %%% Internal functions
@@ -94,12 +103,13 @@ main([BaseDir]) ->
 %%% @end
 %%%-------------------------------------------------------------------
 get_modules_list(Path, Extension) ->
-  {ok, AllFiles} = file:list_dir(Path),
-  AllBeams = lists:filter(
-    fun(X) -> filename:extension(X) =:= Extension end,
-    AllFiles),
-  AllModules = lists:map(fun(X) -> filename:basename(X, Extension) end, AllBeams),
-  {Path, AllModules}.
+    {ok, AllFiles} = file:list_dir(Path),
+    AllBeams = lists:filter(
+        fun(X) -> filename:extension(X) =:= Extension end,
+        AllFiles),
+    AllModules = lists:map(fun(X) -> filename:basename(X, Extension) end,
+        AllBeams),
+    {Path, AllModules}.
 
 %%%-------------------------------------------------------------------
 %%% @doc
@@ -108,16 +118,17 @@ get_modules_list(Path, Extension) ->
 %%% @end
 %%%-------------------------------------------------------------------
 generate_html_line({Module, {Covered, Uncovered}}) ->
-  Percentage = case (Covered + Uncovered) of
-    0 -> 0.0;
-    _ -> 100.0 * Covered / (Covered + Uncovered)
-  end,
-  ModuleHtml = "<td><a href=\"" ++ atom_to_list(Module) ++ ".COVER.html\">" ++
-    atom_to_list(Module) ++ "</a></td>",
-  PercentHtml = "<td>" ++ float_to_list(Percentage, [{decimals, 0}]) ++ " %</td>",
-  CoveredHtml = "<td>" ++ integer_to_list(Covered) ++ "</td>",
-  UncoveredHtml = "<td>" ++ integer_to_list(Uncovered) ++ "</td>",
-  "<tr>" ++ ModuleHtml ++ PercentHtml ++ CoveredHtml ++ UncoveredHtml ++ "</tr>\n".
+    Percentage = case (Covered + Uncovered) of
+        0 -> 0.0;
+        _ -> 100.0 * Covered / (Covered + Uncovered)
+    end,
+    ModuleHtml = "<td><a href=\"" ++ atom_to_list(Module) ++ ".COVER.html\">" ++
+        atom_to_list(Module) ++ "</a></td>",
+    PercentHtml = "<td>" ++ float_to_list(Percentage,
+        [{decimals, 0}]) ++ " %</td>",
+    CoveredHtml = "<td>" ++ integer_to_list(Covered) ++ "</td>",
+    UncoveredHtml = "<td>" ++ integer_to_list(Uncovered) ++ "</td>",
+    "<tr>" ++ ModuleHtml ++ PercentHtml ++ CoveredHtml ++ UncoveredHtml ++ "</tr>\n".
 
 %%%-------------------------------------------------------------------
 %%% @doc
@@ -125,15 +136,16 @@ generate_html_line({Module, {Covered, Uncovered}}) ->
 %%% @end
 %%%-------------------------------------------------------------------
 generate_summary_line(ModulesCoverage) ->
-  {Covered, Uncovered} = total_coverage(ModulesCoverage),
-  Percentage = case (Covered + Uncovered) of
-    0 -> 0.0;
-    _ -> 100.0 * Covered / (Covered + Uncovered)
-  end,
-  PercentHtml = "<th>" ++ float_to_list(Percentage, [{decimals, 0}]) ++ " %</th>",
-  CoveredHtml = "<th>" ++ integer_to_list(Covered) ++ "</th>",
-  UncoveredHtml = "<th>" ++ integer_to_list(Uncovered) ++ "</th>",
-  "<tr>" ++ "<th>TOTAL</th>" ++ PercentHtml ++ CoveredHtml ++ UncoveredHtml ++ "</tr>\n".
+    {Covered, Uncovered} = total_coverage(ModulesCoverage),
+    Percentage = case (Covered + Uncovered) of
+        0 -> 0.0;
+        _ -> 100.0 * Covered / (Covered + Uncovered)
+    end,
+    PercentHtml = "<th>" ++ float_to_list(Percentage,
+        [{decimals, 0}]) ++ " %</th>",
+    CoveredHtml = "<th>" ++ integer_to_list(Covered) ++ "</th>",
+    UncoveredHtml = "<th>" ++ integer_to_list(Uncovered) ++ "</th>",
+    "<tr>" ++ "<th>TOTAL</th>" ++ PercentHtml ++ CoveredHtml ++ UncoveredHtml ++ "</tr>\n".
 
 %%%-------------------------------------------------------------------
 %%% @doc
@@ -142,20 +154,20 @@ generate_summary_line(ModulesCoverage) ->
 %%% @end
 %%%-------------------------------------------------------------------
 generate_html_report(ModulesCoverage, BaseDir) ->
-  {ok, Report} = file:open(
-    filename:join([BaseDir, "test_coverage", "index.html"]),
-    [write]),
-  file:write(Report, "<html>\n<body>\n"),
-  file:write(Report, "<table border=3 cellpadding=5>\n"),
-  file:write(Report, "<tr><th>Module</th><th>Covered (%)</th>
+    {ok, Report} = file:open(
+        filename:join([BaseDir, "test_coverage", "index.html"]),
+        [write]),
+    file:write(Report, "<html>\n<body>\n"),
+    file:write(Report, "<table border=3 cellpadding=5>\n"),
+    file:write(Report, "<tr><th>Module</th><th>Covered (%)</th>
     <th>Covered (Lines)</th><th>Not covered (Lines)</th></tr>\n"),
 
-  lists:map(fun(X) -> file:write(Report, generate_html_line(X)) end, ModulesCoverage),
+    lists:map(fun(X) -> file:write(Report, generate_html_line(X)) end, ModulesCoverage),
 
-  file:write(Report, generate_summary_line(ModulesCoverage)),
+    file:write(Report, generate_summary_line(ModulesCoverage)),
 
-  file:write(Report, "</table>\n</body>\n</html>"),
-  file:close(Report).
+    file:write(Report, "</table>\n</body>\n</html>"),
+    file:close(Report).
 
 %%%-------------------------------------------------------------------
 %%% @doc
@@ -164,16 +176,16 @@ generate_html_report(ModulesCoverage, BaseDir) ->
 %%% @end
 %%%-------------------------------------------------------------------
 total_coverage(ModulesCovarage) ->
-  RawCoverage = lists:map(
-    fun({_Mod, {Covered, Uncovered}}) -> {Covered, Uncovered} end,
-    ModulesCovarage),
-  TotalCoverage = lists:foldl(
-    fun({Covered, Uncovered}, {TotalCovered, TotalUncovered}) ->
-      {Covered + TotalCovered, Uncovered + TotalUncovered}
-    end,
-    {0,0},
-    RawCoverage),
-  TotalCoverage.
+    RawCoverage = lists:map(
+        fun({_Mod, {Covered, Uncovered}}) -> {Covered, Uncovered} end,
+        ModulesCovarage),
+    TotalCoverage = lists:foldl(
+        fun({Covered, Uncovered}, {TotalCovered, TotalUncovered}) ->
+            {Covered + TotalCovered, Uncovered + TotalUncovered}
+        end,
+        {0, 0},
+        RawCoverage),
+    TotalCoverage.
 
 %%%-------------------------------------------------------------------
 %%% @doc
@@ -181,14 +193,38 @@ total_coverage(ModulesCovarage) ->
 %%% @end
 %%%-------------------------------------------------------------------
 get_ebin_directories([]) -> [];
-get_ebin_directories([{incl_dirs_r, Mods}|_T]) -> Mods;
-get_ebin_directories([_H|T]) -> get_ebin_directories(T).
+get_ebin_directories([{incl_dirs_r, Mods} | _T]) -> Mods;
+get_ebin_directories([_H | T]) -> get_ebin_directories(T).
 
 %%%-------------------------------------------------------------------
 %%% @doc
-%%% Returns list of excuded modules (specified in cover.spec file).
+%%% Returns list of excluded modules (specified in cover.spec file).
 %%% @end
 %%%-------------------------------------------------------------------
 get_excluded_modules([]) -> [];
-get_excluded_modules([{excl_mods, Mods}|_T]) -> Mods;
-get_excluded_modules([_H|T]) -> get_excluded_modules(T).
+get_excluded_modules([{excl_mods, Mods} | _T]) -> Mods;
+get_excluded_modules([_H | T]) -> get_excluded_modules(T).
+
+%%%-------------------------------------------------------------------
+%%% @doc
+%%% Imports given Coverdata file from all Dirs in BaseDir.
+%%% @end
+%%%-------------------------------------------------------------------
+import_coverdata_from_all_dirs(BaseDir, Dirs, Coverdata) ->
+    lists:foreach(fun(Dir) ->
+        ok = cover:import(filename:join([BaseDir, Dir, Coverdata]))
+    end, Dirs).
+
+%%%-------------------------------------------------------------------
+%%% @doc
+%%% Imports given Coverdata file from newest directory in Dirs
+%%% @end
+%%%-------------------------------------------------------------------
+import_coverdata_from_newest_dir(BaseDir, Dirs, Coverdata) ->
+
+    case lists:reverse(lists:sort(Dirs)) of
+        [Dir | _] ->
+            ok = cover:import(filename:join([BaseDir, Dir, Coverdata]));
+        [] ->
+            ok
+    end.

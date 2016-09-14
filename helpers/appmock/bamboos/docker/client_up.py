@@ -18,9 +18,15 @@ from environment import client, common
 
 parser = common.standard_arg_parser(
     'Set up dockers with oneclient preconfigured.')
+parser.add_argument(
+    '-l', '--logdir',
+    action='store',
+    default=None,
+    help='path to a directory where the logs will be stored',
+    dest='logdir')
 
 args = parser.parse_args()
 output = client.up(args.image, args.bin, args.dns, args.uid,
-                   args.config_path)
+                   args.config_path, args.logdir)
 
 print(json.dumps(output))

@@ -125,7 +125,7 @@ with open(cover_template, 'r') as template, open(new_cover, 'w') as cover:
             dirs_string = re.search(r'\[(.*?)\]', line).group(1)
             incl_dirs = [os.path.join(script_dir, d[1:]) for d in
                          dirs_string.split(', ')]
-            docker_dirs = [os.path.join('/root/build', d[1:-1]) for d in
+            docker_dirs = [os.path.join(script_dir, d[1:-1]) for d in
                            dirs_string.split(', ')]
         elif 'excl_mods' in line:
             modules_string = re.search(r'\[(.*?)\]', line).group(1)
@@ -144,15 +144,13 @@ ct_command = ['ct_run',
               '-ct_hooks', 'cth_surefire', '[{path, "surefire.xml"}]',
               '-noshell',
               '-name', 'testmaster@testmaster.{0}.dev.docker'.format(uid),
-              '-include', '../include', '../deps']
+              '-include', '../include', '../_build/default/lib']
 
 code_paths = ['-pa']
 if incl_dirs:
     code_paths.extend([os.path.join(script_dir, item[:-1])
                        for item in incl_dirs])
-else:
-    code_paths.extend([os.path.join(script_dir, 'ebin')])
-code_paths.extend(glob.glob(os.path.join(script_dir, 'deps', '*', 'ebin')))
+code_paths.extend(glob.glob(os.path.join(script_dir, '_build/default/lib', '*', 'ebin')))
 ct_command.extend(code_paths)
 
 if args.suites:
