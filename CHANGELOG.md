@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 3.0.0-rc6
+
+* Fix storage detection in case of unsupported space
+
+
 ### 3.0.0-rc5
 
 * VFS-2534 Use only time aggregation for update events
