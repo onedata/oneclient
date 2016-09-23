@@ -81,7 +81,7 @@ public:
         asio::mutable_buffer buf, off_t offset) override;
 
     off_t getObjectsSize(
-        CTXPtr ctx, std::string prefix, std::size_t objectSize) override;
+        CTXPtr ctx, const std::string &prefix, std::size_t objectSize) override;
 
     std::size_t putObject(
         CTXPtr ctx, std::string key, asio::const_buffer buf) override;

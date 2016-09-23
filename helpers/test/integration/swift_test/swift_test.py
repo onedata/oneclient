@@ -62,5 +62,4 @@ def client(request):
 def helper(request, client):
     return swift.SwiftProxy(client.auth_url, client.container_name,
                             client.tenant_name, client.user_name,
-                            client.password, BLOCK_SIZE)
-
+                            client.password, THREAD_NUMBER, BLOCK_SIZE)

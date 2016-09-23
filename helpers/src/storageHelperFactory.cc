@@ -26,27 +26,25 @@ namespace helpers {
 
 #ifdef BUILD_PROXY_IO
 StorageHelperFactory::StorageHelperFactory(asio::io_service &cephService,
-    asio::io_service &dioService, asio::io_service &kvS3Service,
-    asio::io_service &kvSwiftService,
-    communication::Communicator &communicator,
+    asio::io_service &dioService, asio::io_service &s3Service,
+    asio::io_service &swiftService, communication::Communicator &communicator,
     std::size_t bufferSchedulerWorkers)
     : m_cephService{cephService}
     , m_dioService{dioService}
-    , m_kvS3Service{kvS3Service}
-    , m_kvSwiftService{kvSwiftService}
+    , m_s3Service{s3Service}
+    , m_swiftService{swiftService}
     , m_scheduler{std::make_unique<Scheduler>(bufferSchedulerWorkers)}
     , m_communicator{communicator}
 {
 }
 #else
 StorageHelperFactory::StorageHelperFactory(asio::io_service &cephService,
-    asio::io_service &dioService, asio::io_service &kvS3Service,
-    asio::io_service &kvSwiftService,
-    std::size_t bufferSchedulerWorkers)
+    asio::io_service &dioService, asio::io_service &s3Service,
+    asio::io_service &swiftService, std::size_t bufferSchedulerWorkers)
     : m_cephService{cephService}
     , m_dioService{dioService}
-    , m_kvS3Service{kvS3Service}
-    , m_kvSwiftService{kvSwiftService}
+    , m_s3Service{s3Service}
+    , m_swiftService{swiftService}
     , m_scheduler{std::make_unique<Scheduler>(bufferSchedulerWorkers)}
 {
 }
@@ -85,14 +83,14 @@ std::shared_ptr<IStorageHelper> StorageHelperFactory::getStorageHelper(
         return std::make_shared<buffering::BufferAgent>(
             buffering::BufferLimits{},
             std::make_unique<KeyValueAdapter>(
-                std::make_unique<S3Helper>(args), m_kvS3Service, m_kvS3Locks),
+                std::make_unique<S3Helper>(args), m_s3Service, m_s3Locks),
             *m_scheduler);
 
     if (sh_name == SWIFT_HELPER_NAME)
         return std::make_shared<buffering::BufferAgent>(
-            buffering::BufferLimits{},
-            std::make_unique<KeyValueAdapter>(
-                std::make_unique<SwiftHelper>(args), m_kvSwiftService, m_kvSwiftLocks),
+            buffering::BufferLimits{}, std::make_unique<KeyValueAdapter>(
+                                           std::make_unique<SwiftHelper>(args),
+                                           m_swiftService, m_swiftLocks),
             *m_scheduler);
 
     throw std::system_error{std::make_error_code(std::errc::invalid_argument),

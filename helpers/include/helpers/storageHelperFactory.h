@@ -68,10 +68,10 @@ public:
 private:
     asio::io_service &m_cephService;
     asio::io_service &m_dioService;
-    asio::io_service &m_kvS3Service;
-    asio::io_service &m_kvSwiftService;
-    tbb::concurrent_hash_map<std::string, bool> m_kvS3Locks;
-    tbb::concurrent_hash_map<std::string, bool> m_kvSwiftLocks;
+    asio::io_service &m_s3Service;
+    asio::io_service &m_swiftService;
+    tbb::concurrent_hash_map<std::string, bool> m_s3Locks;
+    tbb::concurrent_hash_map<std::string, bool> m_swiftLocks;
     std::unique_ptr<Scheduler> m_scheduler;
 
 #ifdef BUILD_PROXY_IO
