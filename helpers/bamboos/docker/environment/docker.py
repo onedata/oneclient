@@ -264,3 +264,12 @@ def create_volume(path, name, image, command):
 
     return subprocess.check_output(cmd, universal_newlines=True,
                                    stderr=subprocess.STDOUT)
+
+
+def connect_docker_to_network(network, container):
+    """
+    Connect docker to the network
+    Useful when dockers are in different subnetworks and they need to see each other using IP address
+    """
+
+    subprocess.check_call(['docker', 'network', 'connect', network, container])
