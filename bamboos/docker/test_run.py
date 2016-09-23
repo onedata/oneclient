@@ -91,6 +91,8 @@ parser.add_argument(
 command = '''
 import os, subprocess, sys, stat
 
+{additional_code}
+
 if {shed_privileges}:
     os.environ['HOME'] = '/tmp'
     docker_gid = os.stat('/var/run/docker.sock').st_gid
@@ -98,8 +100,6 @@ if {shed_privileges}:
     os.setgroups([docker_gid])
     os.setregid({gid}, {gid})
     os.setreuid({uid}, {uid})
-
-{additional_code}
 
 command = ['py.test'] + {args} + ['--test-type={test_type}'] + ['{test_dir}'] + ['--junitxml={report_path}']
 ret = subprocess.call(command)

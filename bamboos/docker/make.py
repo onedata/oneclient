@@ -189,10 +189,6 @@ volumes = [
 if os.path.isdir(expanduser('~/.docker')):
     volumes += [(expanduser('~/.docker'), '/tmp/docker_config', 'ro')]
 
-# @TODO MUSIMY WPYCHAC DOCKERY Z GUI DO OFICJALNEGO REPO ZEBY LUDZIE MOGLI BUDOWAC,
-# JAK NIE TO FALLBACK DO DOCKER.ONEDATA.ORG
-# NIE WOLNO PRZEPUSCIC BEZ TEGO PRZEZ REVIEW!!!!
-
 split_envs = [e.split('=') for e in args.envs]
 envs = {kv[0]: kv[1] for kv in split_envs}
 

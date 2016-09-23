@@ -6,6 +6,7 @@ This software is released under the MIT license cited in 'LICENSE.txt'."""
 
 from test_common import *
 
+THREAD_NUMBER = 8
 BLOCK_SIZE = 100
 
 

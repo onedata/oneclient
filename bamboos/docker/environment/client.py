@@ -138,6 +138,7 @@ EOF
 
     if logdir:
         logdir = os.path.join(os.path.abspath(logdir), hostname)
+        os.makedirs(logdir)
         volumes.extend([(logdir, '/tmp', 'rw')])
 
     container = docker.run(

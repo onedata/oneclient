@@ -6,6 +6,7 @@ __author__ = "Jakub Kudzia"
 __copyright__ = "Copyright (C) 2016 ACK CYFRONET AGH"
 __license__ = "This software is released under the MIT license cited in " \
               "LICENSE.txt"
+
 import os
 import time
 
@@ -41,7 +42,7 @@ def unlock_file(ssh, file_name):
     :type file_name: str
     :return None
     """
-    ssh.exec_command("rm -rf {}.lock".format(file_name))
+    delete_file(ssh, "{}.lock".format(file_name))
 
 
 def artifact_path(plan, branch):
@@ -54,3 +55,17 @@ def artifact_path(plan, branch):
     :type branch: str
     """
     return os.path.join(ARTIFACTS_DIR, plan, branch + ARTIFACTS_EXT)
+
+
+def delete_file(ssh, file_name):
+    """
+    Delete file named file_name via ssh.
+    :param ssh: sshclient with opened connection
+    :type ssh: paramiko.SSHClient
+    :param file_name: name of file to be unlocked
+    :type file_name: str
+    :return None
+    """
+
+    ssh.exec_command("rm -rf {}".format(file_name))
+

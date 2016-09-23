@@ -63,6 +63,7 @@ escript bamboos/gen_dev/gen_dev.escript /tmp/gen_dev_args.json
 
     if logdir:
         logdir = os.path.join(os.path.abspath(logdir), hostname)
+        os.makedirs(logdir)
         volumes.append((logdir, '/root/bin/node/log', 'rw'))
 
     container = docker.run(

@@ -66,7 +66,7 @@ asio::mutable_buffer S3Helper::getObject(
 }
 
 off_t S3Helper::getObjectsSize(
-    CTXPtr rawCTX, std::string prefix, std::size_t objectSize)
+    CTXPtr rawCTX, const std::string &prefix, std::size_t objectSize)
 {
     auto ctx = getCTX(std::move(rawCTX));
 
