@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 3.0.0-rc7
+
+* minor changes and improvements
+
+
 ### 3.0.0-rc6
 
 * Fix storage detection in case of unsupported space

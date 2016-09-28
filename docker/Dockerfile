@@ -1,42 +1,44 @@
-FROM onedata/fedora-systemd:23
+FROM ubuntu:16.04
 MAINTAINER Krzysztof Trzepla <krzysztof.trzepla@gmail.com>
 
 # Build arguments
 ARG RELEASE
 ARG VERSION=""
 
-# Get the image up to date
-RUN dnf -y upgrade && \
-    dnf clean all
+# Get the image up to date and install utility tools
+RUN apt-get -y update && \
+    apt-get -y upgrade && \
+    apt-get -y install ca-certificates curl net-tools traceroute vim && \
+    apt-get clean
 
 WORKDIR /tmp
 
 # Install oneclient package
 RUN case ${RELEASE} in \
-		production) \
-			curl -o install.sh http://get.onedata.org/oneclient.sh; \
-                        sh install.sh ${VERSION}; \
-			;; \
-		*) \
-			curl -o install.sh http://onedata-dev-packages.cloud.plgrid.pl/oneclient.sh; \
-                        sh install.sh ${VERSION}; \
-			;; \
-	esac
+        production) \
+            curl -O http://get.onedata.org/oneclient.sh; \
+            ;; \
+        *) \
+            curl -O http://onedata-dev-packages.cloud.plgrid.pl/oneclient.sh; \
+            ;; \
+        esac && \
+        sh oneclient.sh oneclient=${VERSION}-1
 
-# Install Samba and nfs servers
-# Install older Samba due to mounting error using OSX Finder
-# in 3.4.8 version from repository
-RUN dnf -y install samba-2:4.3.0-0.1.rc4.fc23.x86_64 rpcbind nfs-utils \
-                   nfs-utils-lib && \
-    dnf clean all
-# Add Samba and nfs configs
+# Install Samba and NFS servers
+RUN apt-get -y install samba rpcbind nfs-kernel-server && \
+    apt-get clean
+
+# Add Samba and NFS configs
 ADD nfs_exports /etc/exports
 ADD smb.conf /etc/samba/
-# Add scritp to start Samba, nfs and oneclient
+
+# Add entrypoint script
 ADD run.sh /root/run.sh
 
 VOLUME /root/.local/share/oneclient /mnt/oneclient
+
 ENV AUTHENTICATION=token
 ENV NO_CHECK_CERTIFICATE=true
+
 ENTRYPOINT ["/root/run.sh"]
 CMD ["/mnt/oneclient"]
