@@ -203,6 +203,8 @@ const std::unique_ptr<Aws::S3::S3Client> &S3HelperCTX::getClient() const
 
 void S3HelperCTX::init()
 {
+    static S3HelperApiInit init;
+
     Aws::Auth::AWSCredentials credentials{m_args.at(S3_HELPER_ACCESS_KEY_ARG),
         m_args.at(S3_HELPER_SECRET_KEY_ARG)};
     Aws::Client::ClientConfiguration configuration;

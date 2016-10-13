@@ -5,10 +5,19 @@
 Copyright (C) 2016 ACK CYFRONET AGH
 This software is released under the MIT license cited in 'LICENSE.txt'
 
+This file is mainly used in onedata tests.
+
 Starts scenario 2.0 from onedata's getting started.
 Runs isolated Onedata deployment consisting of:
 - a single node preconfigured Onezone instance
 - a single node preconfigured Oneprovider instance
+
+To run this script manually:
+- run script from onedata repo root dir
+- make sure there is tests/gui directory in onedata repo root dir
+- make sure you have python libraries: urllib3, certifi
+- make sure you have getting_started, onezone_swagger and onepanel_swagger submodules
+- build swagger clients running command: "make build_swaggers" from onedata repo root dir
 
 Run the script with -h flag to learn about script's running options.
 """
@@ -126,7 +135,7 @@ def start_service(start_service_path, start_service_args, service_name, timeout)
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--admin-credentials', action='store', default='admin1:Password1',
+parser.add_argument('--admin-credentials', action='store', default='admin:password',
                     help='Username and password for admin user', required=False)
 parser.add_argument('--docker-name', action='store', default='',
                     help='Name of docker that will be added to network', required=False)
