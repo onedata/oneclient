@@ -244,6 +244,12 @@ def push(package_artifact):
                 repo_dir = os.path.join(APACHE_PREFIX,
                                         YUM_REPO_LOCATION[distro])
                 distro_contents = os.path.join(pkg_dir, distro)
+
+                print("Signing packages ...")
+                call(['find', distro_contents, '-name', '*.rpm', '-exec', 'rpmresign',
+                      '{}', '\';\''])
+
+                print("Copying packages ...")
                 call(['cp', '-a', os.path.join(distro_contents, '.'), repo_dir])
 
                 for type in ['x86_64', 'SRPMS']:
@@ -253,8 +259,7 @@ def push(package_artifact):
                         packages.append(path)
 
                 # update createrepo
-                call(['find', repo_dir, '-name', '*.rpm', '-exec', 'rpmresign',
-                      '{}', '\';\''])
+                print("Updating repository ...")
                 call(['createrepo', repo_dir])
 
         write_report(packages)
