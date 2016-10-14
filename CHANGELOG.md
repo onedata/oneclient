@@ -4,9 +4,15 @@
 CHANGELOG
 ---------
 
+### 3.0.0-rc9
+
+* Releasing new version 3.0.0-rc9
+
+
 ### 3.0.0-rc8
 
 * Releasing new version 3.0.0-rc8
+
 
 ### 3.0.0-rc7
 
