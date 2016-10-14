@@ -2,12 +2,12 @@ diff -u a/oneclient.spec b/oneclient.spec
 --- a/oneclient.spec	2016-06-23 03:26:28.160070594 +0200
 +++ b/oneclient.spec	2016-06-23 03:26:34.263403929 +0200
 @@ -35,6 +35,10 @@
- BuildRequires: swift-sdk-cpp,
- BuildRequires: tbb-devel >= 4.3~,
+ BuildRequires: swift-sdk-cpp
+ BuildRequires: tbb-devel >= 4.3~
  
 +BuildRequires: libstdc++-static >= 5.0.0
-+BuildRequires: boost-static >= 1.58.0,
-+BuildRequires: protobuf-static >= 2.6.0,
++BuildRequires: boost-static >= 1.58.0
++BuildRequires: protobuf-static >= 2.6.0
 +
  %description
  oneclient is a software based on FUSE (Filesystem in Userspace) that allows mounting onedata filesystem on Linux systems.

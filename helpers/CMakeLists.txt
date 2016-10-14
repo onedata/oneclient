@@ -7,6 +7,8 @@ set(CMAKE_FIND_FRAMEWORK LAST)
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
+include(FindLibraryUtils)
+
 # Setup pthreads
 message(STATUS "Checking for pthreads...")
 find_package(Threads REQUIRED)
@@ -27,12 +29,18 @@ find_package(Glog REQUIRED)
 message(STATUS "Checking for CURL...")
 find_package(CURL REQUIRED)
 
+# Setup NSS
+message(STATUS "Checking for NSS...")
+find_package(NSS REQUIRED)
+
 # Setup Boost
-message(STATUS "Checking for Boost.Filesystem and Boost.System...")
+message(STATUS "Checking for Boost components...")
 set(Boost_USE_STATIC_LIBS       OFF)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
-find_package(Boost COMPONENTS filesystem system REQUIRED)
+find_package(Boost COMPONENTS atomic chrono date_time filesystem iostreams log
+                              log_setup program_options regex system thread
+                              REQUIRED)
 
 set(ETLS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/etls/c_src)
 
@@ -51,7 +59,7 @@ find_library(RT_LIBRARY rt)
 find_library(DL_LIBRARY dl)
 
 # Rados library
-find_library(RADOS_LIBRARY rados)
+find_library_prefer_static(RADOS_LIBRARY rados)
 
 # AWS SDK library
 find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core)
