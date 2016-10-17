@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 3.0.0-rc10
+
+* VFS-2400 Update to new ceph and aws libraries
+
+
 ### 3.0.0-rc9
 
 * Releasing new version 3.0.0-rc9
