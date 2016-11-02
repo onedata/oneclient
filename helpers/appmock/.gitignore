@@ -1,11 +1,9 @@
 .idea/
 .rebar/
 
-rel/appmock/
-ebin/
-deps/*/
-
 *.plt
 *.pyc
 *.beam
 *.iml
+_build
+compile_commands.json

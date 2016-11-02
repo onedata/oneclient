@@ -56,13 +56,14 @@ def _node_up(image, bindir, config, config_path, dns_servers, logdir, storages_d
 
     client_data = {}
 
+    bindir = os.path.abspath(bindir)
     # We want the binary from debug more than relwithdebinfo, and any of these
     # more than from release (ifs are in reverse order so it works when
     # there are multiple dirs).
     command = '''set -e
-[ -d /root/build/release ] && cp /root/build/release/oneclient /root/bin/oneclient
-[ -d /root/build/relwithdebinfo ] && cp /root/build/relwithdebinfo/oneclient /root/bin/oneclient
-[ -d /root/build/debug ] && cp /root/build/debug/oneclient /root/bin/oneclient
+[ -d {bindir}/release ] && cp {bindir}/release/oneclient /root/bin/oneclient
+[ -d {bindir}/relwithdebinfo ] && cp {bindir}/relwithdebinfo/oneclient /root/bin/oneclient
+[ -d {bindir}/debug ] && cp {bindir}/debug/oneclient /root/bin/oneclient
 chmod 777 /tmp
 mkdir /tmp/certs
 mkdir /tmp/keys
@@ -98,6 +99,7 @@ EOF
 '''
 
         command = command.format(
+            bindir=bindir,
             client_name=client_name,
             cert_file=open(cert_file_path, 'r').read(),
             key_file=open(key_file_path, 'r').read(),
@@ -113,7 +115,7 @@ EOF
 
     command += '''bash'''
 
-    volumes = [(bindir, '/root/build', 'ro')]
+    volumes = [(bindir, bindir, 'ro')]
     posix_storages = []
     if os_config['storages']:
         if isinstance(os_config['storages'][0], basestring):
@@ -136,6 +138,7 @@ EOF
 
     if logdir:
         logdir = os.path.join(os.path.abspath(logdir), hostname)
+        os.makedirs(logdir)
         volumes.extend([(logdir, '/tmp', 'rw')])
 
     container = docker.run(

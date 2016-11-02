@@ -4,6 +4,79 @@
 CHANGELOG
 ---------
 
+### 3.0.0-rc10
+
+* VFS-2400 Update to new ceph and aws libraries
+
+
+### 3.0.0-rc9
+
+* Releasing new version 3.0.0-rc9
+
+
+### 3.0.0-rc8
+
+* Releasing new version 3.0.0-rc8
+
+
+### 3.0.0-rc7
+
+* Releasing new version 3.0.0-rc7
+
+
+### 3.0.0-rc6
+
+* Fix storage detection in case of unsupported space
+
+
+### 3.0.0-rc5
+
+* VFS-2534 Use only time aggregation for update events
+* VFS-2497 Enable destruction of not-connected AsyncResponder.
+* VFS-2497 Do not lock mutex in WriteBuffer's destructor.
+* VFS-2497 Fix undefined behaviour after timeout in WriteBuffer.
+* VFS-2497 Ensure DIOHandler exists in async ops.
+* VFS-2497 Add AsyncResponder communication layer.
+* VFS-2497 Fix crash on WriteBuffer flush schedule.
+
+
+### 3.0.0-rc4
+
+* VFS-1956 Improve CephHelper's raw pointer handling.
+* VFS-1956 Protect connecting to Ceph with mutex.
+
+
+### 3.0.0-RC3
+
+* Fix deadlock in CacheExpirationHelper::tick().
+* VFS-2347 Fix a race condition on renaming a deleted file.
+* Releasing new version 3.0.0-RC2
+* VFS-2273 Handle handshake errors
+* Releasing new version 3.0.0-RC1
+* VFS-1963 Improve automatic storage discovery
+* VFS-2316 Integrate new etls version.
+* VFS-2250 Add base62 encoding and decoding to tokenHandler
+* VFS-2272 Give precendence to env AUTHORIZATION_TOKEN.
+* VFS-2270 Print out the hostname of client's provider.
+* VFS-2215 Remove the file immediately on unlink.
+
+
+### 3.0.0-RC2
+
+* minor changes and improvements
+
+
+### 3.0.0-RC1
+
+* VFS-1963 Improve automatic storage discovery
+* VFS-2316 Integrate new etls version.
+* VFS-2250 Add base62 encoding and decoding to tokenHandler
+* VFS-2272 Give precendence to env AUTHORIZATION_TOKEN.
+* VFS-2270 Print out the hostname of client's provider.
+* VFS-2085 Do not communicate with server in event handlers.
+* VFS-2215 Remove the file immediately on unlink.
+
+
 ### 3.0.0-beta8
 
 * VFS-2197 Fail with proper error when sync has failed.

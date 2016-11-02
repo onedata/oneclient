@@ -41,6 +41,8 @@ AuthManager::AuthManager(std::weak_ptr<Context> context,
 {
 }
 
+void AuthManager::cleanup() {}
+
 CertificateAuthManager::CertificateAuthManager(std::weak_ptr<Context> context,
     std::string defaultHostname, const unsigned int port,
     const bool checkCertificate, const bool debugGsi)
@@ -76,7 +78,8 @@ TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
     std::string defaultHostname, const unsigned int port,
     const bool checkCertificate)
     : AuthManager{context, defaultHostname, port, checkCertificate}
-    , m_tokenHandler{m_environment.userDataDir(), "TODO:ProviderId"}
+    , m_tokenHandler{*context.lock()->options(), m_environment.userDataDir(),
+          "TODO:ProviderId"}
 {
 }
 
@@ -135,6 +138,8 @@ void TokenAuthManager::scheduleRefresh(const std::chrono::seconds after)
     m_cancelRefresh = m_context.lock()->scheduler()->schedule(
         after, std::bind(&TokenAuthManager::refreshToken, this));
 }
+
+void TokenAuthManager::cleanup() { m_tokenHandler.removeTokenFile(); }
 
 } // namespace auth
 } // namespace client

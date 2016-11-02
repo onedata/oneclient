@@ -11,6 +11,7 @@
 
 #include "keyValueHelper.h"
 
+#include <aws/core/Aws.h>
 #include <aws/s3/S3Errors.h>
 
 #include <map>
@@ -30,6 +31,16 @@ constexpr auto S3_HELPER_HOST_NAME_ARG = "host_name";
 constexpr auto S3_HELPER_BUCKET_NAME_ARG = "bucket_name";
 constexpr auto S3_HELPER_ACCESS_KEY_ARG = "access_key";
 constexpr auto S3_HELPER_SECRET_KEY_ARG = "secret_key";
+
+class S3HelperApiInit {
+public:
+    S3HelperApiInit() { Aws::InitAPI(m_options); }
+
+    ~S3HelperApiInit() { Aws::ShutdownAPI(m_options); }
+
+private:
+    Aws::SDKOptions m_options;
+};
 
 /**
 * The S3HelperCTX class represents context for S3 helpers and its object is
@@ -81,7 +92,7 @@ public:
         asio::mutable_buffer buf, off_t offset) override;
 
     off_t getObjectsSize(
-        CTXPtr ctx, std::string prefix, std::size_t objectSize) override;
+        CTXPtr ctx, const std::string &prefix, std::size_t objectSize) override;
 
     std::size_t putObject(
         CTXPtr ctx, std::string key, asio::const_buffer buf) override;

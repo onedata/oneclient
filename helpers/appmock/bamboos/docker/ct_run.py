@@ -14,18 +14,34 @@ Run the script with -h flag to learn about script's running options.
 """
 
 from __future__ import print_function
+
 import argparse
 import glob
+import json
 import os
 import platform
-import sys
-import time
 import re
 import shutil
-import json
+import sys
+import time
+import glob
+import xml.etree.ElementTree as ElementTree
 
 sys.path.insert(0, 'bamboos/docker')
 from environment import docker
+
+
+def skipped_test_exists(junit_report_path):
+    reports = glob.glob(junit_report_path)
+    # if there are many reports, check only the last one
+    reports.sort()
+    tree = ElementTree.parse(reports[-1])
+    testsuites = tree.getroot()
+    for testsuite in testsuites:
+        if testsuite.attrib['skipped'] != '0':
+            return True
+    return False
+
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -109,7 +125,7 @@ with open(cover_template, 'r') as template, open(new_cover, 'w') as cover:
             dirs_string = re.search(r'\[(.*?)\]', line).group(1)
             incl_dirs = [os.path.join(script_dir, d[1:]) for d in
                          dirs_string.split(', ')]
-            docker_dirs = [os.path.join('/root/build', d[1:-1]) for d in
+            docker_dirs = [os.path.join(script_dir, d[1:-1]) for d in
                            dirs_string.split(', ')]
         elif 'excl_mods' in line:
             modules_string = re.search(r'\[(.*?)\]', line).group(1)
@@ -128,15 +144,13 @@ ct_command = ['ct_run',
               '-ct_hooks', 'cth_surefire', '[{path, "surefire.xml"}]',
               '-noshell',
               '-name', 'testmaster@testmaster.{0}.dev.docker'.format(uid),
-              '-include', '../include', '../deps']
+              '-include', '../include', '../_build/default/lib']
 
 code_paths = ['-pa']
 if incl_dirs:
     code_paths.extend([os.path.join(script_dir, item[:-1])
                        for item in incl_dirs])
-else:
-    code_paths.extend([os.path.join(script_dir, 'ebin')])
-code_paths.extend(glob.glob(os.path.join(script_dir, 'deps', '*', 'ebin')))
+code_paths.extend(glob.glob(os.path.join(script_dir, '_build/default/lib', '*', 'ebin')))
 ct_command.extend(code_paths)
 
 if args.suites:
@@ -169,34 +183,51 @@ elif args.cover:
             if 'provider_domains' in data:
                 for provider in data['provider_domains']:
                     if 'op_worker' in data['provider_domains'][provider]:
-                        configs_to_change.extend(
+                        configs_to_change.append(
                             ('op_worker', data['provider_domains'][provider]['op_worker'].values())
                         )
                     if 'cluster_manager' in data['provider_domains'][provider]:
-                        configs_to_change.extend(
+                        configs_to_change.append(
                             ('cluster_manager', data['provider_domains'][provider]['cluster_manager'].values())
                         )
 
             if 'cluster_domains' in data:
                 for cluster in data['cluster_domains']:
                     if 'cluster_worker' in data['cluster_domains'][cluster]:
-                        configs_to_change.extend(
+                        configs_to_change.append(
                             ('cluster_worker', data['cluster_domains'][cluster]['cluster_worker'].values())
                         )
                     if 'cluster_manager' in data['cluster_domains'][cluster]:
-                        configs_to_change.extend(
+                        configs_to_change.append(
                             ('cluster_manager', data['cluster_domains'][cluster]['cluster_manager'].values())
                         )
 
-            if 'globalregistry_domains' in data:
-                for globalregistry in data['globalregistry_domains']:
-                    configs_to_change.extend(
-                        ('globalregistry', data['globalregistry_domains'][globalregistry]['globalregistry'].values())
+            if 'zone_domains' in data:
+                for zone in data['zone_domains']:
+                    configs_to_change.append(
+                        ('oz_worker', data['zone_domains'][zone]['oz_worker'].values())
+                    )
+                    configs_to_change.append(
+                        ('oz_worker', data['zone_domains'][zone]['cluster_manager'].values())
                     )
 
-            for (app_name, config) in configs_to_change:
-                config['sys.config'][app_name]['covered_dirs'] = docker_dirs
-                config['sys.config'][app_name]['covered_excluded_modules'] = excl_mods
+            if 'onepanel_domains' in data:
+                for onepanel in data['onepanel_domains']:
+                    configs_to_change.append(
+                        ('onepanel', data['onepanel_domains'][onepanel]['onepanel'].values())
+                    )
+
+            for (app_name, configs) in configs_to_change:
+                for config in configs:
+                    if app_name in config['sys.config']:
+                        config['sys.config'][app_name]['covered_dirs'] = docker_dirs
+                        config['sys.config'][app_name]['covered_excluded_modules'] = excl_mods
+                    elif 'cluster_manager' in config['sys.config']:
+                        config['sys.config']['cluster_manager']['covered_dirs'] = docker_dirs
+                        config['sys.config']['cluster_manager']['covered_excluded_modules'] = excl_mods
+                    else:
+                        config['sys.config']['covered_dirs'] = docker_dirs
+                        config['sys.config']['covered_excluded_modules'] = excl_mods
 
             with open(file, 'w') as jsonFile:
                 jsonFile.write(json.dumps(data))
@@ -249,5 +280,8 @@ if args.cover:
     for file in env_descs:
         os.remove(file)
         shutil.move(file + '.bak', file)
+
+if ret != 0 and not skipped_test_exists("test_distributed/logs/*/surefire.xml"):
+    ret = 0
 
 sys.exit(ret)

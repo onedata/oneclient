@@ -1,0 +1,17 @@
+{application, etls,
+    [
+        {pkg_name, etls},
+        {description, "An alternative NIF-based implementation of Erlang ssl module."},
+        {vsn, "1.1.2"},
+        {maintainers, ["Konrad Zemek"]},
+        {registered, [etls_sup]},
+        {applications, [
+            kernel,
+            stdlib
+        ]},
+        {mod, {etls_app, []}},
+        {env, []},
+        {licenses, ["MIT", "OpenSSL", "SSLeay", "ISC", "Intel", "Boost", "Google"]},
+        {links, [{"GitHub", "https://github.com/kzemek/etls"}]},
+        {build_tools, [<<"make">>, <<"rebar">>, <<"rebar3">>]}
+    ]}.

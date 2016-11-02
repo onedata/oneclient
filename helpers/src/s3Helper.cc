@@ -66,7 +66,7 @@ asio::mutable_buffer S3Helper::getObject(
 }
 
 off_t S3Helper::getObjectsSize(
-    CTXPtr rawCTX, std::string prefix, std::size_t objectSize)
+    CTXPtr rawCTX, const std::string &prefix, std::size_t objectSize)
 {
     auto ctx = getCTX(std::move(rawCTX));
 
@@ -203,6 +203,8 @@ const std::unique_ptr<Aws::S3::S3Client> &S3HelperCTX::getClient() const
 
 void S3HelperCTX::init()
 {
+    static S3HelperApiInit init;
+
     Aws::Auth::AWSCredentials credentials{m_args.at(S3_HELPER_ACCESS_KEY_ARG),
         m_args.at(S3_HELPER_SECRET_KEY_ARG)};
     Aws::Client::ClientConfiguration configuration;

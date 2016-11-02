@@ -19,8 +19,8 @@ namespace fuse {
 
 GetNewFileLocation::GetNewFileLocation(std::string name, std::string parentUuid,
     mode_t mode, const one::helpers::FlagsSet flags)
-    : m_name{std::move(name)}
-    , m_parentUuid{std::move(parentUuid)}
+    : FileRequest{std::move(parentUuid)}
+    , m_name{std::move(name)}
     , m_mode{mode}
     , m_flags{flags}
 {
@@ -31,7 +31,7 @@ std::string GetNewFileLocation::toString() const
     std::stringstream stream;
 
     stream << "type: 'GetNewFileLocation', name: " << m_name
-           << ", parentUUID: " << m_parentUuid << ", mode: " << std::oct
+           << ", parentUUID: " << m_contextGuid << ", mode: " << std::oct
            << m_mode << ", flags: ";
 
     if (m_flags.count(one::helpers::Flag::RDWR))
@@ -46,12 +46,14 @@ std::string GetNewFileLocation::toString() const
 
 std::unique_ptr<ProtocolClientMessage> GetNewFileLocation::serializeAndDestroy()
 {
-    auto msg = std::make_unique<ProtocolClientMessage>();
-    auto gnfl = msg->mutable_fuse_request()->mutable_get_new_file_location();
+    auto msg = FileRequest::serializeAndDestroy();
+    auto gnfl = msg->mutable_fuse_request()
+                    ->mutable_file_request()
+                    ->mutable_get_new_file_location();
 
     gnfl->mutable_name()->swap(m_name);
-    gnfl->mutable_parent_uuid()->swap(m_parentUuid);
     gnfl->set_mode(m_mode);
+    gnfl->set_create_handle(true);
 
     if (m_flags.count(one::helpers::Flag::RDWR))
         gnfl->set_flags(clproto::FileLocationFlags::READ_WRITE);

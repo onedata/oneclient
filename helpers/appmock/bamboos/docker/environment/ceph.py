@@ -8,10 +8,9 @@ Brings up a Ceph storage cluster.
 
 import re
 import sys
+from timeouts import *
 
 from . import common, docker
-
-CEPH_READY_WAIT_SECONDS = 60 * 5
 
 
 def _ceph_ready(container):
@@ -20,10 +19,14 @@ def _ceph_ready(container):
     return bool(re.search('HEALTH_OK', output))
 
 
-def _node_up(image, pools):
+def _node_up(image, pools, name, uid):
+    hostname = common.format_hostname([name, 'ceph'], uid)
+    
     container = docker.run(
             image=image,
-            run_params=["--privileged"],
+            hostname=hostname,
+            name=hostname,
+            privileged=True,
             detach=True)
 
     for (name, pg_num) in pools:
@@ -34,13 +37,16 @@ def _node_up(image, pools):
     username = 'client.admin'
     key = docker.exec_(container, ['ceph', 'auth', 'print-key', username],
                        output=True)
+    settings = docker.inspect(container)
+    ip = settings['NetworkSettings']['IPAddress']
 
     return {
         'docker_ids': [container],
         'username': username,
-        'key': key
+        'key': key,
+        'host_name': ip
     }
 
 
-def up(image, pools):
-    return _node_up(image, pools)
+def up(image, pools, name, uid):
+    return _node_up(image, pools, name, uid)

@@ -1,28 +1,28 @@
 {
     "dirs_config": {
         "cluster_manager": {
-            "input_dir": "rel/cluster_manager",
-            "target_dir": "rel/test_cluster"
+            "input_dir": "_build/default/rel/cluster_manager",
+            "target_dir": "_build/default/rel/test_cluster"
         },
         "op_worker": {
-            "input_dir": "rel/op_worker",
-            "target_dir": "rel/test_cluster"
+            "input_dir": "_build/default/rel/op_worker",
+            "target_dir": "_build/default/rel/test_cluster"
         },
         "cluster_worker": {
-            "input_dir": "rel/cluster_worker",
-            "target_dir": "rel/test_cluster"
+            "input_dir": "_build/default/rel/cluster_worker",
+            "target_dir": "_build/default/rel/test_cluster"
         },
         "oz_worker": {
-            "input_dir": "rel/oz_worker",
-            "target_dir": "rel/test_cluster"
+            "input_dir": "_build/default/rel/oz_worker",
+            "target_dir": "_build/default/rel/test_cluster"
         },
         "appmock": {
-            "input_dir": "rel/appmock",
-            "target_dir": "rel/test_cluster"
+            "input_dir": "_build/default/rel/appmock",
+            "target_dir": "_build/default/rel/test_cluster"
         },
         "onepanel": {
-            "input_dir": "rel/op_panel",
-            "target_dir": "rel/test_cluster"
+            "input_dir": "_build/default/rel/onepanel",
+            "target_dir": "_build/default/rel/test_cluster"
         }
     },
     "os_configs": {
@@ -379,59 +379,26 @@
             }
         }
     },
-    "onepanel": {
-        "packages": {
-            "cluster_manager": "packages/cluster-manager.deb",
-            "op_worker": "packages/op-worker.deb"
-        },
-        "storages": {
-            "storage1": {
-                "host": "/mnt/vfs",
-                "container": "/mnt/vfs"
-            }
-        },
-        "nodes": {
-            "node1": {
-                "vm.args": {
-                    "name": "onepanel@onepanel1",
-                    "setcookie": "cookie7"
-                },
-                "sys.config": {
-                    "onepanel": {
-                        "multicast_address": {
-                            "string": "239.255.0.1"
-                        },
-                        "verify_oz_cert": false
+    "onepanel_domains": {
+        "p5": {
+            "release": "onepanel",
+            "onepanel": {
+                "node1": {
+                    "vm.args": {
+                        "setcookie": "cookie7"
+                    },
+                    "sys.config": {
+                        "onepanel": {}
                     }
                 },
-                "packages": [
-                    "cluster_manager",
-                    "op_worker"
-                ],
-                "storages": [
-                    "storage1"
-                ]
-            },
-            "node2": {
-                "vm.args": {
-                    "name": "onepanel@onepanel2",
-                    "setcookie": "cookie7"
-                },
-                "sys.config": {
-                    "onepanel": {
-                        "multicast_address": {
-                            "string": "239.255.0.1"
-                        },
-                        "verify_oz_cert": false
+                "node2": {
+                    "vm.args": {
+                        "setcookie": "cookie7"
+                    },
+                    "sys.config": {
+                        "onepanel": {}
                     }
-                },
-                "packages": [
-                    "cluster_manager",
-                    "op_worker"
-                ],
-                "storages": [
-                    "storage1"
-                ]
+                }
             }
         }
     }

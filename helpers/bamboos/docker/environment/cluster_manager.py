@@ -64,10 +64,12 @@ sleep 5'''  # Add sleep so logs can be chowned
         uid=os.geteuid(),
         gid=os.getegid())
 
-    volumes = ['/root/bin', (bindir, '/root/build', 'ro')]
+    bindir = os.path.abspath(bindir)
+    volumes = ['/root/bin', (bindir, bindir, 'ro')]
 
     if logdir:
         logdir = os.path.join(os.path.abspath(logdir), hostname)
+        os.makedirs(logdir)
         volumes.extend([(logdir, '/root/bin/node/log', 'rw')])
 
     container = docker.run(
@@ -77,7 +79,7 @@ sleep 5'''  # Add sleep so logs can be chowned
         detach=True,
         interactive=True,
         tty=True,
-        workdir='/root/build',
+        workdir=bindir,
         volumes=volumes,
         dns_list=dns_servers,
         privileged=True,

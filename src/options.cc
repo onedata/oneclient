@@ -28,7 +28,8 @@ namespace one {
 namespace client {
 
 Options::Options(boost::filesystem::path globalConfigPath)
-    : m_common("Common config file and environment options")
+    : m_env("Environment-only options")
+    , m_common("Common config file and environment options")
     , m_restricted("Global config file restricted options")
     , m_commandline("General options")
     , m_fuse("FUSE options")
@@ -42,6 +43,9 @@ Options::~Options() {}
 
 void Options::setDescriptions()
 {
+    // Environment-only options
+    add_authorization_token(m_env);
+
     // Common options found in environment, global and user config files
     add_provider_hostname(m_common);
     add_provider_port(m_common);
@@ -227,12 +231,19 @@ void Options::parseGlobalConfig(variables_map &fileConfigMap)
     store(parse_config_file(globalConfig, global), fileConfigMap);
 }
 
-std::string Options::mapEnvNames(std::string env) const
+std::string Options::mapEnvNames(
+    boost::program_options::options_description &desc, std::string env) const
 {
+    static const std::string prefix(ENVIRONMENT_PREFIX);
+
+    const auto originalEnv = env;
     boost::algorithm::to_lower(env);
-    if (m_common.find_nothrow(env, false) && m_vm.count(env) == 0) {
-        LOG(INFO) << "Using environment configuration variable: '" << env
-                  << "'";
+    if (env.find(prefix) == 0)
+        env = env.substr(prefix.size());
+
+    if (desc.find_nothrow(env, false) && m_vm.count(env) == 0) {
+        LOG(INFO) << "Using environment configuration variable: '"
+                  << originalEnv << "'";
         return env;
     }
 
@@ -242,8 +253,12 @@ std::string Options::mapEnvNames(std::string env) const
 void Options::parseEnv()
 {
     LOG(INFO) << "Parsing environment variables";
-    store(parse_environment(m_common,
-              std::bind(&Options::mapEnvNames, this, std::placeholders::_1)),
+
+    options_description edesc("Environment options");
+    edesc.add(m_env).add(m_common);
+
+    store(parse_environment(
+              edesc, [&](std::string env) { return mapEnvNames(edesc, env); }),
         m_vm);
 }
 

@@ -18,43 +18,24 @@ namespace messages {
 namespace fuse {
 
 GetFileAttr::GetFileAttr(std::string uuid)
-    : m_uuid{std::move(uuid)}
-{
-}
-
-GetFileAttr::GetFileAttr(boost::filesystem::path path)
-    : m_path{std::move(path)}
+    : FileRequest{std::move(uuid)}
 {
 }
 
 std::string GetFileAttr::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'GetFileAttr', ";
-
-    if (m_uuid)
-        stream << "uuid: " << m_uuid.get();
-    else
-        stream << "path: " << m_path.get();
+    stream << "type: 'GetFileAttr', uuid: " << m_contextGuid;
 
     return stream.str();
 }
 
 std::unique_ptr<ProtocolClientMessage> GetFileAttr::serializeAndDestroy()
 {
-    auto msg = std::make_unique<ProtocolClientMessage>();
-    auto gfa = msg->mutable_fuse_request()->mutable_get_file_attr();
-
-    assert(m_uuid || m_path);
-
-    if (m_uuid) {
-        gfa->set_entry_type(clproto::EntryType::UUID);
-        gfa->mutable_entry()->swap(m_uuid.get());
-    }
-    else {
-        gfa->set_entry_type(clproto::EntryType::PATH);
-        *gfa->mutable_entry() = m_path.get().string();
-    }
+    auto msg = FileRequest::serializeAndDestroy();
+    msg->mutable_fuse_request()
+        ->mutable_file_request()
+        ->mutable_get_file_attr();
 
     return msg;
 }

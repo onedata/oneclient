@@ -19,7 +19,7 @@ namespace fuse {
 
 GetFileLocation::GetFileLocation(
     std::string uuid, const helpers::FlagsSet flags)
-    : m_uuid{std::move(uuid)}
+    : FileRequest{std::move(uuid)}
     , m_flags{flags}
 {
 }
@@ -27,7 +27,7 @@ GetFileLocation::GetFileLocation(
 std::string GetFileLocation::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'GetFileLocation', uuid: " << m_uuid << ", flags: ";
+    stream << "type: 'GetFileLocation', uuid: " << m_contextGuid << ", flags: ";
 
     if (m_flags.count(helpers::Flag::RDWR))
         stream << "rdwr";
@@ -41,10 +41,12 @@ std::string GetFileLocation::toString() const
 
 std::unique_ptr<ProtocolClientMessage> GetFileLocation::serializeAndDestroy()
 {
-    auto msg = std::make_unique<ProtocolClientMessage>();
-    auto gfl = msg->mutable_fuse_request()->mutable_get_file_location();
+    auto msg = FileRequest::serializeAndDestroy();
+    auto gfl = msg->mutable_fuse_request()
+                   ->mutable_file_request()
+                   ->mutable_get_file_location();
 
-    gfl->mutable_uuid()->swap(m_uuid);
+    gfl->set_create_handle(true);
 
     if (m_flags.count(helpers::Flag::RDWR))
         gfl->set_flags(clproto::FileLocationFlags::READ_WRITE);

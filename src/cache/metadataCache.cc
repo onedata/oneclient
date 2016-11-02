@@ -11,7 +11,6 @@
 
 #include "logging.h"
 #include "messages/fuse/fileRenamed.h"
-#include "messages/fuse/getFileAttr.h"
 #include "messages/fuse/getFileLocation.h"
 #include "messages/fuse/rename.h"
 #include "scheduler.h"
@@ -91,7 +90,7 @@ void MetadataCache::getAttr(
 
     try {
         DLOG(INFO) << "Fetching attributes for " << path;
-        auto attr = fetchAttr(messages::fuse::GetFileAttr{path});
+        auto attr = fetchAttr(messages::fuse::ResolveGuid{path});
         uuidAcc->second = attr.uuid();
         if (m_metaCache.insert(metaAcc, attr.uuid())) {
             // In this case we're fetching attributes because we didn't know
@@ -379,7 +378,7 @@ MetadataCache::getMutexConditionPair(const std::string &uuid)
 }
 
 MetadataCache::FileAttr MetadataCache::fetchAttr(
-    messages::fuse::GetFileAttr request)
+    messages::ClientMessage &&request)
 {
     auto future = m_communicator.communicate<FileAttr>(std::move(request));
 

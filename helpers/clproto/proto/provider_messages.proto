@@ -12,30 +12,53 @@ import "common_messages.proto";
 
 // Generic provider request
 message ProviderRequest {
+    required bytes context_guid = 1;
+
     oneof provider_request { // list of all provider requests
-        GetXattr get_xattr = 1;
-        SetXattr set_xattr = 2;
-        RemoveXattr remove_xattr = 3;
-        ListXattr list_xattr = 4;
-        GetParent get_parent = 5;
-        GetAcl get_acl = 6;
-        SetAcl set_acl = 7;
-        RemoveAcl remove_acl = 8;
-        GetTransferEncoding get_transfer_encoding = 9;
-        SetTransferEncoding set_transfer_encoding = 10;
-        GetCdmiCompletionStatus get_cdmi_completion_status = 11;
-        SetCdmiCompletionStatus set_cdmi_completion_status = 12;
-        GetMimetype get_mimetype = 13;
-        SetMimetype set_mimetype = 14;
-        GetFilePath get_file_path = 15;
-        FSync fsync = 16;
-        GetFileDistribution get_file_distribution = 17;
-        ReplicateFile replicate_file = 18;
+        GetXattr get_xattr = 2;
+        SetXattr set_xattr = 3;
+        RemoveXattr remove_xattr = 4;
+        ListXattr list_xattr = 5;
+        GetParent get_parent = 6;
+        GetAcl get_acl = 7;
+        SetAcl set_acl = 8;
+        RemoveAcl remove_acl = 9;
+        GetTransferEncoding get_transfer_encoding = 10;
+        SetTransferEncoding set_transfer_encoding = 11;
+        GetCdmiCompletionStatus get_cdmi_completion_status = 12;
+        SetCdmiCompletionStatus set_cdmi_completion_status = 13;
+        GetMimetype get_mimetype = 14;
+        SetMimetype set_mimetype = 15;
+        GetFilePath get_file_path = 16;
+        FSync fsync = 17;
+        GetFileDistribution get_file_distribution = 18;
+        ReplicateFile replicate_file = 19;
+        ReadMetadata read_metadata = 20;
+        WriteMetadata write_metadata = 21;
     }
 }
 
+message Xattr {
+    required bytes name = 1;
+    required bytes value = 2;
+}
+
+message GetXattr {
+    required bytes name = 1;
+}
+
+message SetXattr {
+    required Xattr xattr = 1;
+}
+
+message RemoveXattr {
+    required bytes name = 1;
+}
+
+message ListXattr {
+}
+
 message GetParent {
-    required bytes uuid = 1;
 }
 
 message Acl {
@@ -43,61 +66,63 @@ message Acl {
 }
 
 message GetAcl {
-    required bytes uuid = 1;
 }
 
 message SetAcl {
-    required bytes uuid = 1;
-    required Acl acl = 2;
+    required Acl acl = 1;
 }
 
 message RemoveAcl {
-    required bytes uuid = 1;
 }
 
 message GetTransferEncoding {
-    required bytes uuid = 1;
 }
 
 message SetTransferEncoding {
-    required bytes uuid = 1;
-    required bytes value = 2;
+    required bytes value = 1;
 }
 
 message GetCdmiCompletionStatus {
-    required bytes uuid = 1;
 }
 
 message SetCdmiCompletionStatus {
-    required bytes uuid = 1;
-    required bytes value = 2;
+    required bytes value = 1;
 }
 
 message GetMimetype {
-    required bytes uuid = 1;
 }
 
 message SetMimetype {
-    required bytes uuid = 1;
     required bytes value = 2;
 }
 
 message GetFilePath {
-    required bytes uuid = 1;
 }
 
 message FSync {
-    required bytes uuid = 1;
 }
 
 message GetFileDistribution {
-    required bytes uuid = 1;
 }
 
 message ReplicateFile {
-    required bytes uuid = 1;
-    required bytes provider_id = 2;
-    optional FileBlock block = 3;
+    required bytes provider_id = 1;
+    optional FileBlock block = 2;
+}
+
+message Metadata {
+    required bytes type = 1;
+    required bytes value = 2;
+}
+
+message ReadMetadata {
+    required bytes type = 1;
+    repeated bytes names = 2;
+}
+
+message WriteMetadata {
+    required Metadata metadata = 1;
+    repeated bytes names = 2;
 }
 
 // Generic provider response
@@ -114,32 +139,8 @@ message ProviderResponse {
         Dir dir = 8;
         FilePath file_path = 9;
         FileDistribution file_distribution = 10;
+        Metadata metadata = 11;
     }
-}
-
-
-message GetXattr {
-    required bytes uuid = 1;
-    required bytes name = 2;
-}
-
-message SetXattr {
-    required bytes uuid = 1;
-    required Xattr xattr = 2;
-}
-
-message RemoveXattr {
-    required bytes uuid = 1;
-    required bytes name = 2;
-}
-
-message ListXattr {
-    required bytes uuid = 1;
-}
-
-message Xattr {
-    required bytes name = 1;
-    required bytes value = 2;
 }
 
 message XattrList {

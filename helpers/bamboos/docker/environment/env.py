@@ -12,14 +12,15 @@ import copy
 import json
 import time
 from . import appmock, client, common, zone_worker, cluster_manager, \
-    worker, provider_worker, cluster_worker, docker, dns, storages
+    worker, provider_worker, cluster_worker, docker, dns, storages, panel, \
+    location_service_bootstrap
 
 
 def default(key):
     return {'image': 'onedata/worker',
             'ceph_image': 'onedata/ceph',
             's3_image': 'onedata/s3proxy',
-            'swift_image': 'predicsis/dockswift',
+            'swift_image': 'onedata/dockswift',
             'nfs_image': 'erezhorev/dockerized_nfs_server',
             'bin_am': '{0}/appmock'.format(os.getcwd()),
             'bin_oz': '{0}/oz_worker'.format(os.getcwd()),
@@ -28,6 +29,7 @@ def default(key):
             'bin_cluster_manager': '{0}/cluster_manager'.format(os.getcwd()),
             'bin_oc': '{0}/oneclient'.format(os.getcwd()),
             'bin_luma': '{0}/luma'.format(os.getcwd()),
+            'bin_onepanel': '{0}/onepanel'.format(os.getcwd()),
             'logdir': None}[key]
 
 
@@ -39,7 +41,7 @@ def up(config_path, image=default('image'), ceph_image=default('ceph_image'),
        bin_op_worker=default('bin_op_worker'),
        bin_cluster_worker=default('bin_cluster_worker'),
        bin_oc=default('bin_oc'), bin_luma=default('bin_luma'),
-       logdir=default('logdir')):
+       bin_onepanel=default('bin_onepanel'), logdir=default('logdir')):
     config = common.parse_json_config_file(config_path)
     uid = common.generate_uid()
 
@@ -51,7 +53,8 @@ def up(config_path, image=default('image'), ceph_image=default('ceph_image'),
         'op_worker_nodes': [],
         'cluster_worker_nodes': [],
         'appmock_nodes': [],
-        'client_nodes': []
+        'client_nodes': [],
+        'onepanel_nodes': []
     }
 
     # Start DNS
@@ -60,13 +63,15 @@ def up(config_path, image=default('image'), ceph_image=default('ceph_image'),
 
     # Start appmock instances
     if 'appmock_domains' in config:
-        am_output = appmock.up(image, bin_am, dns_server, uid, config_path,
-                               logdir)
+        am_output = appmock.up(image, bin_am, dns_server, uid, config_path, logdir)
         common.merge(output, am_output)
         # Make sure appmock domains are added to the dns server.
         # Setting first arg to 'auto' will force the restart and this is needed
         # so that dockers that start after can immediately see the domains.
         dns.maybe_restart_with_configuration('auto', uid, output)
+
+    ls_nodes = location_service_bootstrap.up_nodes(image, bin_oz, config, uid, logdir)
+    output['docker_ids'].extend(ls_nodes)
 
     # Start provider cluster instances
     setup_worker(zone_worker, bin_oz, 'zone_domains',
@@ -78,6 +83,12 @@ def up(config_path, image=default('image'), ceph_image=default('ceph_image'),
         storages.start_storages(config, config_path, ceph_image, s3_image,
                                 nfs_image, swift_image, image, uid)
     output['storages'] = storages_dockers
+
+    # Start onepanel instances
+    if 'onepanel_domains' in config:
+        op_output = panel.up(image, bin_onepanel, dns_server, uid, config_path,
+                             storages_dockers, logdir)
+        common.merge(output, op_output)
 
     # Start python LUMA service
     luma_config = None
@@ -106,8 +117,8 @@ def up(config_path, image=default('image'), ceph_image=default('ceph_image'),
 
     # Setup global environment - providers, users, groups, spaces etc.
     if 'zone_domains' in config and \
-            'provider_domains' in config and \
-            'global_setup' in config:
+                    'provider_domains' in config and \
+                    'global_setup' in config:
         providers_map = {}
         for provider_name in config['provider_domains']:
             providers_map[provider_name] = {
@@ -139,17 +150,18 @@ def up(config_path, image=default('image'), ceph_image=default('ceph_image'),
         print('')
         # Run env configurator with gathered args
         command = '''epmd -daemon
-./env_configurator.escript \'{0}\'
+./env_configurator.escript \'{0}\' {1} {2}
 echo $?'''
-        command = command.format(json.dumps(env_configurator_input))
+        command = command.format(json.dumps(env_configurator_input), True, True)
+        env_configurator_dir = os.path.abspath(env_configurator_dir)
         docker_output = docker.run(
             image='onedata/builder',
             interactive=True,
             tty=True,
             rm=True,
-            workdir='/root/build',
+            workdir=env_configurator_dir,
             name=common.format_hostname('env_configurator', uid),
-            volumes=[(env_configurator_dir, '/root/build', 'ro')],
+            volumes=[(env_configurator_dir, env_configurator_dir, 'ro')],
             dns_list=[dns_server],
             command=command,
             output=True

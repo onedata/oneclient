@@ -115,39 +115,47 @@
 
 %%--------------------------------------------------------------------
 %% @doc
-%% MAin script function.
+%% Main script function.
 %% @end
 %%--------------------------------------------------------------------
--spec main([InputJSON :: binary()]) -> ok.
-main([InputJson]) ->
+-spec main([list()]) -> ok.
+main([InputJson, RegisterInOz, SetUpEntities]) ->
     try
         helpers_init(),
         {ok, _} = start_distribution(),
         Input = mochijson2:decode(InputJson, [{format, proplist}]),
-        OZNode = bin_to_atom(proplists:get_value(<<"oz_node">>, Input)),
-        OZCookie = bin_to_atom(proplists:get_value(<<"oz_cookie">>, Input)),
-        Providers = proplists:get_value(<<"provider_domains">>, Input),
-        Users = proplists:get_value(<<"users">>, Input),
-        Groups = proplists:get_value(<<"groups">>, Input),
-        Spaces = proplists:get_value(<<"spaces">>, Input),
+        OZNode = bin_to_atom(proplists:get_value(<<"oz_node">>, Input, <<"">>)),
+        OZCookie = bin_to_atom(proplists:get_value(<<"oz_cookie">>, Input, <<"">>)),
+        Providers = proplists:get_value(<<"provider_domains">>, Input, <<"">>),
+        Users = proplists:get_value(<<"users">>, Input, <<"">>),
+        Groups = proplists:get_value(<<"groups">>, Input, <<"">>),
+        Spaces = proplists:get_value(<<"spaces">>, Input, <<"">>),
         lists:foreach(
             fun({Provider, Props}) ->
                 ProviderWorkersBin = proplists:get_value(<<"nodes">>, Props),
                 ProviderWorkers = [bin_to_atom(P) || P <- ProviderWorkersBin],
                 Cookie = bin_to_atom(proplists:get_value(<<"cookie">>, Props)),
-                register_in_onezone(ProviderWorkers, Cookie, Provider),
+                case list_to_atom(string:to_lower(RegisterInOz)) of
+                    true ->
+                        register_in_onezone(ProviderWorkers, Cookie, Provider);
+                    _ -> ok
+                end,
                 create_space_storage_mapping(hd(ProviderWorkers), Cookie, Spaces, Provider)
             end, Providers),
-        case call_node(OZNode, OZCookie, dev_utils, set_up_test_entities,
-            [Users, Groups, Spaces]) of
-            ok ->
-                ok;
-            Other ->
-                io:format("dev_utils:set_up_test_entities returned: ~p~n",
-                    [Other]),
-                throw(error)
+        case list_to_atom(string:to_lower(SetUpEntities)) of
+            true ->
+                case call_node(OZNode, OZCookie, dev_utils, set_up_test_entities,
+                    [Users, Groups, Spaces]) of
+                    ok ->
+                        ok;
+                    Other ->
+                        io:format("dev_utils:set_up_test_entities returned: ~p~n",
+                            [Other]),
+                        throw(error)
+                end,
+                io:format("Global configuration applied sucessfully!~n");
+            _ -> ok
         end,
-        io:format("Global configuration applied sucessfully!~n"),
         halt(0)
     catch
         T:M ->
@@ -156,7 +164,8 @@ main([InputJson]) ->
     end;
 
 main(_) ->
-    io:format("Usage: ~s <input_json>~n", [escript:script_name()]),
+    io:format("Usage: ~s <input_json> <register_in_oz> <set_up_test_entities>~n",
+        [escript:script_name()]),
     halt(0).
 
 

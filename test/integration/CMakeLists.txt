@@ -1,6 +1,6 @@
 include_directories(SYSTEM
-    ${ERLANG_TLS_DIR}/deps/gmock/include
-    ${ERLANG_TLS_DIR}/deps/gtest/include)
+    ${ETLS_DIR}/deps/gmock/include
+    ${ETLS_DIR}/deps/gtest/include)
 
 file(COPY ${PROJECT_SOURCE_DIR}/helpers/appmock DESTINATION ${PROJECT_BINARY_DIR})
 file(COPY ${PROJECT_SOURCE_DIR}/helpers/bamboos DESTINATION ${PROJECT_BINARY_DIR})

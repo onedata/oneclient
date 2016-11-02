@@ -651,7 +651,6 @@ events::FileLocationEventStream::Handler FsLogic::fileLocationHandler()
             for (auto &it : acc->second.locations) {
                 it.second.storageId(newLocation.storageId());
                 it.second.fileId(newLocation.fileId());
-
                 it.second.blocks() = newLocation.blocks();
             }
 
@@ -843,7 +842,15 @@ void FsLogic::removeFile(boost::filesystem::path path)
 
         communication::wait(future);
     }
+
+    auto uuid = uuidAcc->second;
+
     m_metadataCache.removePathMapping(uuidAcc, metaAcc);
+    metaAcc->second.path = boost::none;
+
+    metaAcc.release();
+    m_locExpirationHelper.expire(uuid);
+    m_attrExpirationHelper.expire(uuid);
 }
 
 const std::string FsLogic::createFile(boost::filesystem::path path,
@@ -915,7 +922,13 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
         for (const auto &event : events) {
 
             MetadataCache::MetaAccessor metaAcc;
-            m_metadataCache.getAttr(metaAcc, event->fileUuid());
+            if (!m_metadataCache.get(metaAcc, event->fileUuid())) {
+                LOG(INFO) << "Received a file remove event for '"
+                          << event->fileUuid()
+                          << "', but the file is no longer cached.";
+                continue;
+            }
+
             metaAcc->second.state = MetadataCache::FileState::removedUpstream;
 
             if (metaAcc->second.path) {
@@ -931,6 +944,7 @@ events::FileRemovalEventStream::Handler FsLogic::fileRemovalHandler()
                 }
             }
 
+            metaAcc.release();
             m_locExpirationHelper.expire(event->fileUuid());
             m_attrExpirationHelper.expire(event->fileUuid());
             LOG(INFO) << "File remove event received: " << event->fileUuid();
@@ -953,9 +967,25 @@ events::FileRenamedEventStream::Handler FsLogic::fileRenamedHandler()
     return [this](std::vector<FileRenamedEventStream::EventPtr> events) {
         for (const auto &event : events) {
             auto topEntry = event->topEntry();
+
             MetadataCache::MetaAccessor metaAcc;
-            m_metadataCache.getAttr(metaAcc, topEntry.oldUuid());
+            if (!m_metadataCache.get(metaAcc, topEntry.oldUuid())) {
+                LOG(INFO) << "Received a file renamed event for '"
+                          << topEntry.oldUuid()
+                          << "', but the file is no longer cached.";
+                continue;
+            }
+
             metaAcc->second.state = MetadataCache::FileState::renamedUpstream;
+
+            if (!metaAcc->second.path) {
+                LOG(INFO) << "Received a file renamed event for '"
+                          << topEntry.oldUuid()
+                          << "', but the file does not have a cached path.";
+
+                continue;
+            }
+
             auto fromPath = metaAcc->second.path.get();
             metaAcc.release();
 

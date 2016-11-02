@@ -11,6 +11,8 @@ set(CMAKE_FIND_FRAMEWORK LAST)
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${PROJECT_SOURCE_DIR}/helpers/cmake)
 
+include(FindLibraryUtils)
+
 if(NOT SYSCONF_INSTALL_DIR)
     set(SYSCONF_INSTALL_DIR etc CACHE PATH "")
 endif()
@@ -51,26 +53,36 @@ find_package(Glog REQUIRED)
 message(STATUS "Checking for CURL...")
 find_package(CURL REQUIRED)
 
+# Setup OpenSSL
+message(STATUS "Checking for OpenSSL...")
+find_package(OpenSSL REQUIRED)
+
+# Setup NSS
+message(STATUS "Checking for NSS...")
+find_package(NSS REQUIRED)
+
 # Setup Boost
-message(STATUS "Checking for Boost.Filesystem, Boost.System and Boost.Program_options...")
+message(STATUS "Checking for Boost components......")
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME     ${STATIC_LIBSTDCPP})
 set(Boost_USE_STATIC_LIBS        ${STATIC_BOOST})
-find_package(Boost COMPONENTS filesystem program_options system REQUIRED)
+find_package(Boost COMPONENTS atomic chrono date_time filesystem iostreams log
+                              log_setup program_options regex system thread
+                              REQUIRED)
 
 # Setup libsodium
 find_package(Sodium)
 
-# Setup Erlang-TLS
-set(ERLANG_TLS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/helpers/erlang-tls/c_src)
+# Setup etls
+set(ETLS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/helpers/etls/c_src)
 
 # Setup BoringSSL
-add_subdirectory(${ERLANG_TLS_DIR}/deps/boringssl)
+add_subdirectory(${ETLS_DIR}/deps/boringssl)
 set(BORINGSSL_LIBRARIES ssl crypto)
-set(BORINGSSL_INCLUDE_DIRS ${ERLANG_TLS_DIR}/deps/boringssl/include)
+set(BORINGSSL_INCLUDE_DIRS ${ETLS_DIR}/deps/boringssl/include)
 
 # Setup Asio
-set(ASIO_INCLUDE_DIRS ${ERLANG_TLS_DIR}/deps/asio/asio/include)
+set(ASIO_INCLUDE_DIRS ${ETLS_DIR}/deps/asio/asio/include)
 
 # Utility libs
 find_library(LTDL_LIBRARY NAMES ltdl)
@@ -79,7 +91,7 @@ find_library(RT_LIBRARY rt)
 find_library(DL_LIBRARY dl)
 
 # Rados library
-find_library(RADOS_LIBRARY rados)
+find_library_prefer_static(RADOS_LIBRARY rados)
 
 # AWS SDK library
 find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core)
@@ -87,7 +99,8 @@ find_library(AWS_SKD_S3_LIBRARY aws-cpp-sdk-s3)
 set(AWS_SDK_LIBRARIES
     ${AWS_SKD_S3_LIBRARY}
     ${AWS_SKD_CORE_LIBRARY}
-    ${CURL_LIBRARIES})
+    ${CURL_LIBRARIES}
+    ${OPENSSL_LIBRARIES})
 
 # Swift SDK library
 find_library(SWIFT_SDK_LIBRARY Swift)
@@ -154,7 +167,7 @@ add_definitions(
 # directories; helpers specify their own includes, pulling from package-set
 # variables when needed.
 add_subdirectory(helpers/clproto)
-add_subdirectory(${ERLANG_TLS_DIR}/src)
+add_subdirectory(${ETLS_DIR}/src)
 add_subdirectory(helpers/src)
 
 include_directories(
@@ -187,6 +200,7 @@ set(CLIENT_LIBRARIES
     ${PROTOBUF_LIBRARIES}
     ${BORINGSSL_LIBRARIES}
     ${RADOS_LIBRARY}
+    ${NSS_LIBRARIES}
     ${AWS_SDK_LIBRARIES}
     ${SWIFT_SDK_LIBRARIES}
     ${HELPERS_LIBRARIES})

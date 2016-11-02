@@ -11,8 +11,8 @@
 
 #include <glog/stl_logging.h>
 
-#include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
 
 namespace std {
 template <> struct hash<Poco::Net::HTTPResponse::HTTPStatus> {
@@ -101,7 +101,7 @@ asio::mutable_buffer SwiftHelper::getObject(
 }
 
 off_t SwiftHelper::getObjectsSize(
-    CTXPtr rawCTX, std::string prefix, std::size_t objectSize)
+    CTXPtr rawCTX, const std::string &prefix, std::size_t objectSize)
 {
     auto ctx = getCTX(std::move(rawCTX));
     auto &account = ctx->authenticate();
@@ -130,7 +130,6 @@ off_t SwiftHelper::getObjectsSize(
 std::size_t SwiftHelper::putObject(
     CTXPtr rawCTX, std::string key, asio::const_buffer buf)
 {
-
     auto ctx = getCTX(std::move(rawCTX));
     auto &account = ctx->authenticate();
     auto size = asio::buffer_size(buf);
@@ -235,6 +234,8 @@ std::unordered_map<std::string, std::string> SwiftHelperCTX::getUserCTX()
 
 const std::unique_ptr<Swift::Account> &SwiftHelperCTX::authenticate()
 {
+    std::lock_guard<std::mutex> guard{m_mutex};
+
     if (m_account)
         return m_account;
 

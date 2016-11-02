@@ -40,20 +40,8 @@ def client(request):
                                output=True, stdout=sys.stderr)
             return res.split()
 
-        def cleanup(self):
-            assert '' == docker.exec_(self.container,
-                                      swift_server.SWIFT_COMMAND.format(
-                                          self.ip, 'delete {0} -q'.format(
-                                              self.container_name)).split(),
-                                      output=True, stdout=sys.stderr)
-            assert '' == docker.exec_(self.container,
-                                      swift_server.SWIFT_COMMAND.format(
-                                          self.ip, 'post ' +
-                                                   self.container_name).split(),
-                                      output=True, stdout=sys.stderr)
-
     container_name = 'onedata'
-    result = swift_server.up('predicsis/dockswift', [container_name],
+    result = swift_server.up('onedata/dockswift', [container_name],
                              'storage', '1')
     [container] = result['docker_ids']
 
@@ -72,12 +60,6 @@ def client(request):
 
 @pytest.fixture
 def helper(request, client):
-    def fin():
-        client.cleanup()
-
-    request.addfinalizer(fin)
-
     return swift.SwiftProxy(client.auth_url, client.container_name,
                             client.tenant_name, client.user_name,
-                            client.password, BLOCK_SIZE)
-
+                            client.password, THREAD_NUMBER, BLOCK_SIZE)

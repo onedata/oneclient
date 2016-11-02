@@ -56,7 +56,15 @@ parser.add_argument(
     help='number of riak nodes to bring up',
     dest='nodes')
 
+parser.add_argument(
+    '-cn', '--cluster_name',
+    action='store',
+    default="cluster",
+    help='name of riak cluster',
+    dest='cluster_name')
+
+
 args = parser.parse_args()
 
-output = riak.up(args.image, args.dns, args.uid, args.maps, args.nodes)
+output = riak.up(args.image, args.dns, args.uid, args.maps, args.cluster_name, args.nodes)
 print(json.dumps(output))

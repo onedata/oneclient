@@ -3,7 +3,7 @@ Section: net
 Priority: optional
 Maintainer: onedata Package Maintainer <support@onedata.org>
 Build-Depends:
-    aws-sdk-cpp,
+    aws-sdk-cpp-s3 (>= 1.0.11),
     cmake (>= 3.0.0),
     debhelper (>= 9),
     g++-5 (>= 5.0.0),
@@ -11,6 +11,10 @@ Build-Depends:
     golang-go,
     libboost-filesystem1.58-dev,
     libboost-filesystem1.58.0,
+    libboost-iostreams1.58-dev,
+    libboost-iostreams1.58.0,
+    libboost-log1.58-dev,
+    libboost-log1.58.0,
     libboost-program-options1.58-dev,
     libboost-program-options1.58.0,
     libboost-python1.58-dev,
@@ -25,9 +29,11 @@ Build-Depends:
     libfuse-dev (>= 2.7),
     libgoogle-glog-dev (>= 0.3.4),
     libltdl-dev,
+    libnspr4-dev,
+    libnss3-dev,
     libprotobuf-dev (>= 2.6.0),
     libpython-dev,
-    librados-dev,
+    librados-dev (>= 10.2.3),
     libsodium-dev,
     libssl-dev,
     libstdc++-5-dev,
@@ -37,11 +43,12 @@ Build-Depends:
     libpoconetssl9v5,
     libpocoutil9v5,
     libpocoxml9v5,
+    openssl,
     pkg-config,
     protobuf-compiler (>= 2.6.0),
     python-dev,
     subversion,
-    swift-sdk-cpp
+    swift-sdk-cpp (>= 1.0.0)
 Standards-Version: 3.9.5
 Homepage: https://onedata.org
 

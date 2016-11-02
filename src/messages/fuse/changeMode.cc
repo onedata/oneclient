@@ -17,7 +17,7 @@ namespace messages {
 namespace fuse {
 
 ChangeMode::ChangeMode(std::string uuid, mode_t mode)
-    : m_uuid{std::move(uuid)}
+    : FileRequest{std::move(uuid)}
     , m_mode{mode}
 {
 }
@@ -25,17 +25,19 @@ ChangeMode::ChangeMode(std::string uuid, mode_t mode)
 std::string ChangeMode::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'ChangeMode', uuid: " << m_uuid << ", mode: " << std::oct
+    stream << "type: 'ChangeMode', "
+           << "uuid: " << m_contextGuid << ", mode: " << std::oct
            << m_mode;
     return stream.str();
 }
 
 std::unique_ptr<ProtocolClientMessage> ChangeMode::serializeAndDestroy()
 {
-    auto msg = std::make_unique<ProtocolClientMessage>();
-    auto cm = msg->mutable_fuse_request()->mutable_change_mode();
+    auto msg = FileRequest::serializeAndDestroy();
+    auto cm = msg->mutable_fuse_request()
+                  ->mutable_file_request()
+                  ->mutable_change_mode();
 
-    cm->mutable_uuid()->swap(m_uuid);
     cm->set_mode(m_mode);
 
     return msg;

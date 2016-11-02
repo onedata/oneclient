@@ -10,7 +10,7 @@
 #define ONECLIENT_MESSAGES_FUSE_GET_FILE_LOCATION_H
 
 #include "fileLocation.h"
-#include "messages/clientMessage.h"
+#include "fileRequest.h"
 
 #include <boost/optional.hpp>
 
@@ -28,7 +28,7 @@ namespace fuse {
 /**
  * The GetFileLocation class represents a FUSE request for file location.
  */
-class GetFileLocation : public ClientMessage {
+class GetFileLocation : public FileRequest {
 public:
     /**
      * Constructor.
@@ -41,8 +41,6 @@ public:
 
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
-
-    std::string m_uuid;
 
     one::helpers::FlagsSet m_flags;
 };

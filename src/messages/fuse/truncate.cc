@@ -17,7 +17,7 @@ namespace messages {
 namespace fuse {
 
 Truncate::Truncate(std::string uuid, const off_t size)
-    : m_uuid{std::move(uuid)}
+    : FileRequest{std::move(uuid)}
     , m_size{size}
 {
 }
@@ -25,16 +25,17 @@ Truncate::Truncate(std::string uuid, const off_t size)
 std::string Truncate::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'Truncate', uuid: '" << m_uuid << "', size: " << m_size;
+    stream << "type: 'Truncate', uuid: " << m_contextGuid
+           << "', size: " << m_size;
     return stream.str();
 }
 
 std::unique_ptr<ProtocolClientMessage> Truncate::serializeAndDestroy()
 {
-    auto msg = std::make_unique<ProtocolClientMessage>();
-    auto cm = msg->mutable_fuse_request()->mutable_truncate();
+    auto msg = FileRequest::serializeAndDestroy();
+    auto cm =
+        msg->mutable_fuse_request()->mutable_file_request()->mutable_truncate();
 
-    cm->mutable_uuid()->swap(m_uuid);
     cm->set_size(m_size);
 
     return msg;

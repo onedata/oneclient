@@ -22,7 +22,7 @@ package/
             cluster-manager_1.0.0.1.ge1a52f4-1_amd64.changes
             cluster-manager_1.0.0.1.ge1a52f4.orig.tar.gz
 
-Available distributions vivid, wily, fedora-21-x86_64, fedora-23-x86_64, centos-7-x86_64, sl6x-x86_64
+Available distributions wily, xenial, fedora-21-x86_64, fedora-23-x86_64, centos-7-x86_64, sl6x-x86_64
 """
 import argparse
 import json
@@ -70,12 +70,14 @@ YUM_REPO_LOCATION = {
     'sl6x-x86_64': 'yum/scientific/6x'
 }
 DEB_PKG_LOCATION = {
-    'vivid': 'apt/ubuntu/pool/main',
-    'wily': 'apt/ubuntu/pool/main'
+    'trusty': 'apt/ubuntu/trusty/pool/main',
+    'wily': 'apt/ubuntu/wily/pool/main',
+    'xenial': 'apt/ubuntu/xenial/pool/main'
 }
 REPO_TYPE = {
-    'vivid': 'deb',
+    'trusty': 'deb',
     'wily': 'deb',
+    'xenial': 'deb',
     'fedora-21-x86_64': 'rpm',
     'fedora-23-x86_64': 'rpm',
     'centos-7-x86_64': 'rpm',
@@ -236,12 +238,18 @@ def push(package_artifact):
 
                 # update repo
                 execute(['aptly', 'publish', 'update', '-force-overwrite',
-                         distro])
+                         distro, distro])
             elif REPO_TYPE[distro] == 'rpm':
                 # copy packages
                 repo_dir = os.path.join(APACHE_PREFIX,
                                         YUM_REPO_LOCATION[distro])
                 distro_contents = os.path.join(pkg_dir, distro)
+
+                print("Signing packages ...")
+                call(['find', distro_contents, '-name', '*.rpm', '-exec', 'rpmresign',
+                      '{}', '\';\''])
+
+                print("Copying packages ...")
                 call(['cp', '-a', os.path.join(distro_contents, '.'), repo_dir])
 
                 for type in ['x86_64', 'SRPMS']:
@@ -251,8 +259,7 @@ def push(package_artifact):
                         packages.append(path)
 
                 # update createrepo
-                call(['find', repo_dir, '-name', '*.rpm', '-exec', 'rpmresign',
-                      '{}', '\';\''])
+                print("Updating repository ...")
                 call(['createrepo', repo_dir])
 
         write_report(packages)

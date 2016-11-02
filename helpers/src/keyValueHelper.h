@@ -11,8 +11,8 @@
 
 #include "helpers/IStorageHelper.h"
 
-#include <vector>
 #include <iomanip>
+#include <vector>
 
 namespace one {
 namespace helpers {
@@ -48,11 +48,11 @@ public:
      * @param objectId ID associated with the value.
      * @return Key identifying value on the storage.
      */
-    virtual std::string getKey(std::string prefix, uint64_t objectId)
+    virtual std::string getKey(const std::string &prefix, uint64_t objectId)
     {
         std::stringstream ss;
-        ss << adjustPrefix(std::move(prefix)) << std::setfill('0')
-            << std::setw(MAX_OBJECT_ID_DIGITS) << MAX_OBJECT_ID - objectId;
+        ss << adjustPrefix(prefix) << std::setfill('0')
+           << std::setw(MAX_OBJECT_ID_DIGITS) << MAX_OBJECT_ID - objectId;
         return ss.str();
     }
 
@@ -60,7 +60,8 @@ public:
      * @param key Sequence of characters identifying value on the storage.
      * @return ObjectId ID associated with the value.
      */
-    virtual uint64_t getObjectId(std::string key) {
+    virtual uint64_t getObjectId(std::string key)
+    {
         auto pos = key.find_last_of(OBJECT_DELIMITER);
         return MAX_OBJECT_ID - std::stoull(key.substr(pos + 1));
     }
@@ -86,7 +87,7 @@ public:
      * @return Size of all object in given namespace.
      */
     virtual off_t getObjectsSize(
-        CTXPtr ctx, std::string prefix, std::size_t objectSize)
+        CTXPtr ctx, const std::string &prefix, std::size_t objectSize)
     {
         return 0;
     }
@@ -120,7 +121,7 @@ public:
     }
 
 protected:
-    std::string adjustPrefix(std::string prefix) const
+    std::string adjustPrefix(const std::string &prefix) const
     {
         return prefix.substr(prefix.find_first_not_of(OBJECT_DELIMITER)) +
             OBJECT_DELIMITER;

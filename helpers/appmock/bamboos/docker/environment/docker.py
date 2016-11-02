@@ -16,7 +16,7 @@ import sys
 def run(image, docker_host=None, detach=False, dns_list=[], add_host={},
         envs={}, hostname=None, interactive=False, link={}, tty=False, rm=False,
         reflect=[], volumes=[], name=None, workdir=None, user=None, group=None,
-        group_add=[], privileged=False, run_params=[], command=None,
+        group_add=[], cpuset_cpus=None, privileged=False, run_params=[], command=None,
         output=False, stdin=None, stdout=None, stderr=None):
     cmd = ['docker']
 
@@ -59,11 +59,18 @@ def run(image, docker_host=None, detach=False, dns_list=[], add_host={},
         vol = '{0}:{0}:{1}'.format(os.path.abspath(path), read)
         cmd.extend(['-v', vol])
 
+    # Volume can be in one of three forms
+    # 1. 'path_on_docker'
+    # 2. ('path_on_host', 'path_on_docker', 'ro'/'rw')
+    # 3. {'volumes_from': 'volume name'}
     for entry in volumes:
         if isinstance(entry, tuple):
             path, bind, readable = entry
             vol = '{0}:{1}:{2}'.format(os.path.abspath(path), bind, readable)
             cmd.extend(['-v', vol])
+        elif isinstance(entry, dict):
+            volume_name = entry['volumes_from']
+            cmd.extend(['--volumes-from', volume_name])
         else:
             cmd.extend(['-v', entry])
 
@@ -79,6 +86,9 @@ def run(image, docker_host=None, detach=False, dns_list=[], add_host={},
 
     if privileged:
         cmd.append('--privileged')
+
+    if cpuset_cpus:
+        cmd.extend(['--cpuset-cpus', cpuset_cpus])
 
     cmd.extend(run_params)
     cmd.append(image)
@@ -181,3 +191,76 @@ def remove(containers, docker_host=None, force=False,
 
     cmd.extend(containers)
     subprocess.check_call(cmd)
+
+
+def cp(container, src_path, dest_path, to_container=False):
+    """Copying file between docker container and host
+    :param container: str, docker id or name
+    :param src_path: str
+    :param dest_path: str
+    :param to_container: bool, if True file will be copied from host to
+    container, otherwise from docker container to host
+    """
+    cmd = ["docker", "cp"]
+    if to_container:
+        cmd.extend([src_path, "{0}:{1}".format(container, dest_path)])
+    else:
+        cmd.extend(["{0}:{1}".format(container, src_path), dest_path])
+
+    subprocess.check_call(cmd)
+
+
+def login(user, password, repository='hub.docker.com'):
+    """Logs into docker repository."""
+
+    subprocess.check_call(['docker', 'login', '-u', user, '-p', password,
+                           repository])
+
+
+def build_image(image, build_args):
+    """Builds and tags docker image."""
+
+    subprocess.check_call(['docker', 'build', '--no-cache', '--force-rm', '-t',
+                           image] + build_args)
+
+
+def tag_image(image, tag):
+    """Tags docker image."""
+
+    subprocess.check_call(['docker', 'tag', image, tag])
+
+
+def push_image(image):
+    """Pushes docker image to the repository."""
+
+    subprocess.check_call(['docker', 'push', image])
+
+
+def pull_image(image):
+    """Pulls docker image from the repository."""
+
+    subprocess.check_call(['docker', 'pull', image])
+
+
+def remove_image(image):
+    """Removes docker image."""
+
+    subprocess.check_call(['docker', 'rmi', '-f', image])
+
+
+def create_volume(path, name, image, command):
+    cmd = ['docker']
+
+    cmd.append('create')
+    cmd.append('-v')
+    cmd.append(path)
+
+    cmd.append('--name')
+    cmd.append(name)
+
+    cmd.append(image)
+
+    cmd.append(command)
+
+    return subprocess.check_output(cmd, universal_newlines=True,
+                                   stderr=subprocess.STDOUT)

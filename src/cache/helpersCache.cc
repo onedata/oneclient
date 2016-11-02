@@ -50,17 +50,15 @@ HelpersCache::HelperPtr HelpersCache::get(const std::string &fileUuid,
     const std::string &storageId, bool forceProxyIO)
 {
     if (!forceProxyIO) {
-        ConstAccessTypeAccessor constAcc;
-        if (m_accessType.find(constAcc, storageId)) {
-            forceProxyIO = (constAcc->second == AccessType::PROXY);
-        }
-        else {
-            AccessTypeAccessor acc;
-            if (m_accessType.insert(acc, storageId))
-                acc->second = AccessType::PROXY;
+        AccessTypeAccessor acc;
+        if (m_accessType.insert(acc, storageId)) {
+            acc->second = AccessType::PROXY;
             acc.release();
             requestStorageTestFileCreation(fileUuid, storageId);
             forceProxyIO = true;
+        }
+        else {
+            forceProxyIO = (acc->second == AccessType::PROXY);
         }
     }
 
@@ -104,6 +102,8 @@ size_t HelpersCache::HashCompare::hash(
 void HelpersCache::requestStorageTestFileCreation(
     const std::string &fileUuid, const std::string &storageId)
 {
+    DLOG(INFO) << "Requesting storage test file creation for file: '"
+               << fileUuid << "' and storage: '" << storageId << "'";
     messages::fuse::CreateStorageTestFile request{fileUuid, storageId};
 
     m_communicator.communicate<messages::fuse::StorageTestFile>(
@@ -117,9 +117,17 @@ void HelpersCache::requestStorageTestFileCreation(
                     storageId, VERIFY_TEST_FILE_ATTEMPTS);
             }
             else {
-                LOG(ERROR)
-                    << "Unknown storage test file creation error, code: '"
-                    << ec.value() << "', message: '" << ec.message() << "'";
+                LOG(WARNING) << "Storage test file creation error, code: '"
+                             << ec.value() << "', message: '" << ec.message()
+                             << "'";
+
+                if (ec.value() == EAGAIN) {
+                    m_accessType.erase(storageId);
+                }
+                else {
+                    LOG(INFO) << "Storage '" << storageId
+                              << "' is not directly accessible to the client.";
+                }
             }
         });
 }
@@ -128,10 +136,16 @@ void HelpersCache::handleStorageTestFile(
     std::shared_ptr<messages::fuse::StorageTestFile> testFile,
     const std::string &storageId, unsigned int attempts)
 {
+    DLOG(INFO) << "Handling storage test file: " << testFile->toString()
+               << " for storage: '" << storageId
+               << "' with left attempts: " << attempts << ".";
     if (attempts == 0) {
+        LOG(INFO) << "Storage '" << storageId
+                  << "' is not directly accessible to the client. Test "
+                     "file verification attempts limit exceeded.";
         AccessTypeAccessor acc;
-        if (m_accessType.insert(acc, storageId))
-            acc->second = AccessType::PROXY;
+        m_accessType.insert(acc, storageId);
+        acc->second = AccessType::PROXY;
         return;
     }
 
@@ -152,19 +166,22 @@ void HelpersCache::handleStorageTestFile(
             *testFile, storageId, std::move(fileContent));
 
         CacheAccessor acc;
-        if (m_cache.insert(acc, std::make_tuple(storageId, false)))
-            acc->second = helper;
+        m_cache.insert(acc, std::make_tuple(storageId, false));
+        acc->second = helper;
     }
     catch (const std::system_error &e) {
-        auto code = e.code().value();
-        if (code == ENOENT || code == ENOTDIR || code == EPERM) {
-            AccessTypeAccessor acc;
-            if (m_accessType.insert(acc, storageId))
-                acc->second = AccessType::PROXY;
+        const auto &ec = e.code();
+        AccessTypeAccessor acc;
+        m_accessType.insert(acc, storageId);
+        LOG(ERROR) << "Storage test file handling error, code: '" << ec.value()
+                   << "', message: '" << ec.message() << "'";
+        if (ec.value() == EAGAIN) {
+            m_accessType.erase(acc);
         }
         else {
-            LOG(ERROR) << "Unexpected error occurred, code: " << e.code()
-                       << ", message: '" << e.what() << "'.";
+            LOG(INFO) << "Storage '" << storageId
+                      << "' is not directly accessible to the client.";
+            acc->second = AccessType::PROXY;
         }
     }
 }
@@ -173,11 +190,14 @@ void HelpersCache::requestStorageTestFileVerification(
     const messages::fuse::StorageTestFile &testFile,
     const std::string &storageId, std::string fileContent)
 {
+    DLOG(INFO) << "Requesting verification of storage: '" << storageId
+               << "' with file: " << testFile.toString()
+               << "and modified content << '" << fileContent << ".";
+
     messages::fuse::VerifyStorageTestFile request{storageId,
         testFile.spaceUuid(), testFile.fileId(), std::move(fileContent)};
 
-    m_communicator.communicate<messages::fuse::FuseResponse>(
-        std::move(request),
+    m_communicator.communicate<messages::fuse::FuseResponse>(std::move(request),
         [=](const std::error_code &ec,
             std::unique_ptr<messages::fuse::FuseResponse> response) {
             handleStorageTestFileVerification(ec, storageId);
@@ -187,6 +207,8 @@ void HelpersCache::requestStorageTestFileVerification(
 void HelpersCache::handleStorageTestFileVerification(
     const std::error_code &ec, const std::string &storageId)
 {
+    DLOG(INFO) << "Handling verification of storage: '" << storageId << "'.";
+
     AccessTypeAccessor acc;
     m_accessType.insert(acc, storageId);
     if (!ec) {
@@ -194,14 +216,17 @@ void HelpersCache::handleStorageTestFileVerification(
                   << "' is directly accessible to the client.";
         acc->second = AccessType::DIRECT;
     }
-    else if (ec.value() == ENOENT || ec.value() == EINVAL) {
-        LOG(INFO) << "Storage '" << storageId
-                  << "' is not directly accessible to the client.";
-        acc->second = AccessType::PROXY;
-    }
     else {
-        LOG(ERROR) << "Unknown storage test file verification error, code: '"
+        LOG(ERROR) << "Storage test file verification error, code: '"
                    << ec.value() << "', message: '" << ec.message() << "'";
+        if (ec.value() == EAGAIN) {
+            m_accessType.erase(acc);
+        }
+        else {
+            LOG(INFO) << "Storage '" << storageId
+                      << "' is not directly accessible to the client.";
+            acc->second = AccessType::PROXY;
+        }
     }
 }
 

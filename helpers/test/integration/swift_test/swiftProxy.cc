@@ -8,6 +8,7 @@
 
 #include "keyValueAdapter.h"
 #include "swiftHelper.h"
+#include "utils.hpp"
 
 #include <asio/buffer.hpp>
 #include <asio/executor_work.hpp>
@@ -16,11 +17,10 @@
 #include <boost/python.hpp>
 #include <iostream>
 
-#include <chrono>
-#include <future>
-#include <string>
+#include <algorithm>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 using namespace boost::python;
 
@@ -35,37 +35,42 @@ private:
     std::unique_ptr<PyThreadState, decltype(&PyEval_RestoreThread)> threadState;
 };
 
-constexpr auto SWIFT_HELPER_AUTH_URL_ARG = "auth_url";
-constexpr auto SWIFT_HELPER_CONTAINER_NAME_ARG = "container_name";
-constexpr auto SWIFT_HELPER_TENANT_NAME_ARG = "tenant_name";
-constexpr auto SWIFT_HELPER_USER_NAME_ARG = "user_name";
-constexpr auto SWIFT_HELPER_PASSWORD_ARG = "password";
-
 class SwiftProxy {
 public:
-    SwiftProxy(std::string authUrl, std::string containerName, std::string tenantName,
-        std::string userName, std::string password, std::size_t blockSize)
-        : m_service{1}
+    SwiftProxy(std::string authUrl, std::string containerName,
+        std::string tenantName, std::string userName, std::string password,
+        std::size_t threadNumber, std::size_t blockSize)
+        : m_service{threadNumber}
         , m_idleWork{asio::make_work(m_service)}
-        , m_worker{[=] { m_service.run(); }}
         , m_helper{std::make_shared<one::helpers::KeyValueAdapter>(
               std::make_unique<one::helpers::SwiftHelper>(
                   std::unordered_map<std::string, std::string>(
                       {{"auth_url", std::move(authUrl)},
                           {"container_name", std::move(containerName)},
-                            {"tenant_name", std::move(tenantName)}})),
+                          {"tenant_name", std::move(tenantName)}})),
               m_service, m_locks, blockSize)}
         , m_ctx{m_helper->createCTX({})}
     {
-        auto ctx = std::dynamic_pointer_cast<one::helpers::SwiftHelperCTX>(m_ctx);
+        auto ctx =
+            std::dynamic_pointer_cast<one::helpers::SwiftHelperCTX>(m_ctx);
         ctx->setUserCTX({{"user_name", std::move(userName)},
-              {"password", std::move(password)}});
+            {"password", std::move(password)}});
+
+        std::generate_n(std::back_inserter(m_workers), threadNumber, [=] {
+            std::thread t{[=] {
+                one::etls::utils::nameThread("SwiftProxy");
+                m_service.run();
+            }};
+
+            return t;
+        });
     }
 
     ~SwiftProxy()
     {
         m_service.stop();
-        m_worker.join();
+        for (auto &t : m_workers)
+            t.join();
     }
 
     void unlink(std::string fileId) { m_helper->sh_unlink(m_ctx, fileId); }
@@ -92,20 +97,20 @@ public:
 private:
     asio::io_service m_service;
     asio::executor_work<asio::io_service::executor_type> m_idleWork;
-    std::thread m_worker;
+    std::vector<std::thread> m_workers;
     one::helpers::KeyValueAdapter::Locks m_locks;
     std::shared_ptr<one::helpers::IStorageHelper> m_helper;
     std::shared_ptr<one::helpers::IStorageHelperCTX> m_ctx;
 };
 
 namespace {
-boost::shared_ptr<SwiftProxy> create(std::string authUrl, std::string containerName,
-    std::string tenantName, std::string userName, std::string password,
-    std::size_t blockSize)
+boost::shared_ptr<SwiftProxy> create(std::string authUrl,
+    std::string containerName, std::string tenantName, std::string userName,
+    std::string password, std::size_t threadNumber, std::size_t blockSize)
 {
     return boost::make_shared<SwiftProxy>(std::move(authUrl),
         std::move(containerName), std::move(tenantName), std::move(userName),
-        std::move(password), std::move(blockSize));
+        std::move(password), threadNumber, blockSize);
 }
 }
 

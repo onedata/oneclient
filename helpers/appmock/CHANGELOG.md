@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 1.0.1
+
+* VFS-1528 Remove deprecated use of erlang:now/0
+
+
 ### 1.0.0
 
 

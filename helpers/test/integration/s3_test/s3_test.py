@@ -19,8 +19,6 @@ from boto.s3.connection import S3Connection, OrdinaryCallingFormat
 from key_value_test_base import *
 import s3
 
-BLOCK_SIZE = 100
-
 
 @pytest.fixture(scope='module')
 def client(request):
@@ -56,4 +54,4 @@ def client(request):
 @pytest.fixture
 def helper(client):
     return s3.S3Proxy(client.scheme, client.host_name, client.bucket,
-                      client.access_key, client.secret_key, BLOCK_SIZE)
+                      client.access_key, client.secret_key, THREAD_NUMBER, BLOCK_SIZE)

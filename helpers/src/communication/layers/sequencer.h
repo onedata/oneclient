@@ -9,8 +9,8 @@
 #ifndef HELPERS_COMMUNICATION_LAYERS_SEQUENCER_H
 #define HELPERS_COMMUNICATION_LAYERS_SEQUENCER_H
 
-#include "scheduler.h"
 #include "communication/declarations.h"
+#include "scheduler.h"
 
 #include <tbb/concurrent_hash_map.h>
 #include <tbb/concurrent_priority_queue.h>
@@ -19,6 +19,7 @@
 #include <mutex>
 #include <shared_mutex>
 #include <utility>
+#include <vector>
 
 namespace one {
 namespace communication {
@@ -173,6 +174,8 @@ private:
 
     void schedulePeriodicMessageRequest();
 
+    std::vector<std::pair<uint64_t, uint64_t>> getStreamSequenceNumbers();
+
     SchedulerPtr m_scheduler;
     std::function<void()> m_cancelPeriodicMessageRequest = [] {};
     std::shared_timed_mutex m_buffersMutex;
@@ -270,10 +273,9 @@ void Sequencer<LowerLayer, Scheduler>::sendMessageAcknowledgement(
 template <class LowerLayer, class Scheduler>
 void Sequencer<LowerLayer, Scheduler>::periodicMessageRequest()
 {
-    std::lock_guard<std::shared_timed_mutex> lock{m_buffersMutex};
-    for (auto it = m_buffers.begin(); it != m_buffers.end(); ++it) {
-        auto streamId = it->first;
-        auto seqNum = it->second.sequenceNumber();
+    for (const auto &elem : getStreamSequenceNumbers()) {
+        auto streamId = elem.first;
+        auto seqNum = elem.second;
         sendMessageRequest(streamId, seqNum, seqNum);
     }
     schedulePeriodicMessageRequest();
@@ -286,6 +288,22 @@ void Sequencer<LowerLayer, Scheduler>::schedulePeriodicMessageRequest()
         m_scheduler->schedule(STREAM_MSG_REQ_WINDOW,
             std::bind(&Sequencer<LowerLayer, Scheduler>::periodicMessageRequest,
                                   this));
+}
+
+template <class LowerLayer, class Scheduler>
+std::vector<std::pair<uint64_t, uint64_t>>
+Sequencer<LowerLayer, Scheduler>::getStreamSequenceNumbers()
+{
+    std::lock_guard<std::shared_timed_mutex> guard{m_buffersMutex};
+
+    std::vector<std::pair<uint64_t, uint64_t>> nums;
+    nums.reserve(m_buffers.size());
+
+    for (auto it = m_buffers.begin(); it != m_buffers.end(); ++it)
+        nums.emplace_back(
+            std::make_pair(it->first, it->second.sequenceNumber()));
+
+    return nums;
 }
 
 } // namespace layers

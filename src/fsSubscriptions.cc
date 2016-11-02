@@ -125,8 +125,8 @@ std::int64_t FsSubscriptions::sendFileAttrSubscription(
 {
     DLOG(INFO) << "Sending subscription for change of attributes of file: "
                << fileUuid;
-    events::FileAttrSubscription clientSubscription{fileUuid, 1};
-    events::FileAttrSubscription serverSubscription{fileUuid, 1};
+    events::FileAttrSubscription clientSubscription{fileUuid, {}, std::chrono::milliseconds{500}};
+    events::FileAttrSubscription serverSubscription{fileUuid, {}, std::chrono::milliseconds{500}};
     return m_eventManager.subscribe(
         std::move(clientSubscription), std::move(serverSubscription));
 }
@@ -136,8 +136,8 @@ std::int64_t FsSubscriptions::sendFileLocationSubscription(
 {
     DLOG(INFO) << "Sending subscription for change of location of file: "
                << fileUuid;
-    events::FileLocationSubscription clientSubscription{fileUuid, 1};
-    events::FileLocationSubscription serverSubscription{fileUuid, 1};
+    events::FileLocationSubscription clientSubscription{fileUuid, {}, std::chrono::milliseconds{500}};
+    events::FileLocationSubscription serverSubscription{fileUuid, {}, std::chrono::milliseconds{500}};
     return m_eventManager.subscribe(
         std::move(clientSubscription), std::move(serverSubscription));
 }

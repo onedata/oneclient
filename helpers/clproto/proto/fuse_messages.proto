@@ -16,11 +16,6 @@ enum FileType {
     LNK = 3; // symbolic link
 }
 
-enum EntryType {
-    PATH = 1; // Path to the file
-    UUID = 2; // UUID of the file
-}
-
 enum FileLocationFlags {
     READ = 1;
     WRITE = 2;
@@ -30,74 +25,16 @@ enum FileLocationFlags {
 // Generic FUSE client request
 message FuseRequest {
     oneof fuse_request { // list of all FUSE client requests
-        GetFileAttr get_file_attr = 1;
-        GetFileChildren get_file_children = 2;
-        CreateDir create_dir = 3;
-        DeleteFile delete_file = 4;
-        UpdateTimes update_times = 5;
-        ChangeMode change_mode = 6;
-        Rename rename = 7;
-        GetNewFileLocation get_new_file_location = 8;
-        GetFileLocation get_file_location = 9;
-        GetHelperParams get_helper_params = 10;
-        Release release = 11;
-        Truncate truncate = 12;
-        SynchronizeBlock synchronize_block = 17;
-        CreateStorageTestFile create_storage_test_file = 18;
-        VerifyStorageTestFile verify_storage_test_file = 19;
-        SynchronizeBlockAndComputeChecksum synchronize_block_and_compute_checksum = 21;
+        ResolveGuid resolve_guid = 1;
+        GetHelperParams get_helper_params = 2;
+        CreateStorageTestFile create_storage_test_file = 3;
+        VerifyStorageTestFile verify_storage_test_file = 4;
+        FileRequest file_request = 5;
     }
 }
 
-message GetFileAttr {
-    required EntryType entry_type = 1;
-    required bytes entry = 2;
-}
-
-message GetFileChildren {
-    required bytes uuid = 1;
-    required int32 offset = 2 [default = 0];
-    optional int32 size = 3;
-}
-
-message CreateDir {
-    required bytes parent_uuid = 1;
-    required bytes name = 2;
-    required uint32 mode = 3;
-}
-
-message DeleteFile {
-    required bytes uuid = 1;
-    optional bool  silent = 2 [default = false];
-}
-
-message UpdateTimes {
-    required bytes uuid = 1;
-    optional int64 atime = 2 [default = -1];
-    optional int64 mtime = 3 [default = -1];
-    optional int64 ctime = 4 [default = -1];
-}
-
-message ChangeMode {
-    required bytes uuid = 1;
-    required int32 mode = 2;
-}
-
-message Rename {
-    required bytes uuid = 1;
-    required bytes target_path = 2;
-}
-
-message GetNewFileLocation {
-    required bytes name = 1;
-    required bytes parent_uuid = 2;
-    required uint32 mode = 3;
-    optional FileLocationFlags flags = 4 [default = READ_WRITE];
-}
-
-message GetFileLocation {
-    required bytes uuid = 1;
-    optional FileLocationFlags flags = 2 [default = READ_WRITE];
+message ResolveGuid {
+    required bytes path = 1;
 }
 
 message GetHelperParams {
@@ -105,14 +42,97 @@ message GetHelperParams {
     optional bool force_proxy_io = 2 [default = false];
 }
 
-message Truncate {
-    required bytes uuid = 1;
-    required int64 size = 2;
+message CreateStorageTestFile {
+    required bytes storage_id = 1;
+    required bytes file_uuid  = 2;
+}
+
+message VerifyStorageTestFile {
+    required bytes storage_id   = 1;
+    required bytes space_uuid   = 2;
+    required bytes file_id      = 3;
+    required bytes file_content = 4;
+}
+
+// Generic FUSE client file request
+message FileRequest {
+    required bytes context_guid = 1;
+
+    oneof file_request { // list of all FUSE client file requests
+        GetFileAttr get_file_attr = 2;
+        GetFileChildren get_file_children = 3;
+        CreateDir create_dir = 4;
+        DeleteFile delete_file = 5;
+        UpdateTimes update_times = 6;
+        ChangeMode change_mode = 7;
+        Rename rename = 8;
+        GetNewFileLocation get_new_file_location = 9;
+        GetFileLocation get_file_location = 10;
+        Release release = 11;
+        Truncate truncate = 12;
+        SynchronizeBlock synchronize_block = 13;
+        SynchronizeBlockAndComputeChecksum synchronize_block_and_compute_checksum = 14;
+    }
+}
+
+message GetFileAttr {
+}
+
+message GetFileChildren {
+    required int32 offset = 1 [default = 0];
+    optional int32 size = 2;
+}
+
+message CreateDir {
+    required bytes name = 1;
+    required uint32 mode = 2;
+}
+
+message DeleteFile {
+    optional bool  silent = 1 [default = false];
+}
+
+message UpdateTimes {
+    optional int64 atime = 1 [default = -1];
+    optional int64 mtime = 2 [default = -1];
+    optional int64 ctime = 3 [default = -1];
+}
+
+message ChangeMode {
+    required int32 mode = 1;
+}
+
+message Rename {
+    required bytes target_path = 1;
+}
+
+message GetNewFileLocation {
+    required bytes name = 1;
+    required uint32 mode = 2;
+    optional FileLocationFlags flags = 3 [default = READ_WRITE];
+    optional bool create_handle = 4 [default = true];
+}
+
+message GetFileLocation {
+    optional FileLocationFlags flags = 1 [default = READ_WRITE];
+    optional bool create_handle = 2 [default = true];
 }
 
 message Release {
-    required bytes uuid = 1;
-    required bytes handle_id = 2;
+    required bytes handle_id = 1;
+}
+
+message Truncate {
+    required int64 size = 1;
+}
+
+message SynchronizeBlock {
+    required FileBlock block    = 1;
+    optional bool      prefetch = 2 [default = true];
+}
+
+message SynchronizeBlockAndComputeChecksum {
+    required FileBlock block = 1;
 }
 
 // Generic FUSE client response
@@ -124,10 +144,10 @@ message FuseResponse {
         FileChildren file_children = 3;
         FileLocation file_location = 4;
         HelperParams helper_params = 5;
-        StorageTestFile storage_test_file = 8;
-        Dir dir = 9;
-        Checksum checksum = 10;
-        FileRenamed file_renamed = 17;
+        StorageTestFile storage_test_file = 6;
+        Dir dir = 7;
+        Checksum checksum = 8;
+        FileRenamed file_renamed = 9;
     }
 }
 
@@ -168,34 +188,11 @@ message HelperParams {
     repeated HelperArg helper_args = 2;
 }
 
-message CreateStorageTestFile {
-    required bytes storage_id = 1;
-    required bytes file_uuid  = 2;
-}
-
 message StorageTestFile {
     required HelperParams helper_params = 1;
     required bytes        space_uuid    = 2;
     required bytes        file_id       = 3;
     required bytes        file_content  = 4;
-}
-
-message VerifyStorageTestFile {
-    required bytes storage_id   = 1;
-    required bytes space_uuid   = 2;
-    required bytes file_id      = 3;
-    required bytes file_content = 4;
-}
-
-message SynchronizeBlock {
-    required bytes     uuid     = 1;
-    required FileBlock block    = 2;
-    optional bool      prefetch = 3 [default = true];
-}
-
-message SynchronizeBlockAndComputeChecksum {
-    required bytes     uuid  = 1;
-    required FileBlock block = 2;
 }
 
 message Checksum {
