@@ -1,0 +1,24 @@
+{
+    "dirs_config": {
+        "appmock": {
+            "input_dir": "_build/default/rel/appmock",
+            "target_dir": "_build/default/rel/test_cluster"
+        }
+    },
+    "appmock_domains": {
+        "oz": {
+            "appmock": {
+                "appmock1": {
+                    "vm.args": {
+                        "setcookie": "cookie"
+                    },
+                    "sys.config": {
+                        "appmock": {
+                            "app_description_file": "./example_app_description.erl"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
