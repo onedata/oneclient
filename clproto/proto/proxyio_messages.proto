@@ -1,0 +1,58 @@
+/**
+ * Communication protocol for ProxyIO helper.
+ * @author Konrad Zemek
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
+
+package one.clproto;
+
+import "common_messages.proto";
+
+message ProxyIORequest {
+    required bytes storage_id     = 1;
+    required bytes file_id        = 2;
+    repeated Parameter parameters = 3;
+
+    oneof proxyio_request {
+        RemoteRead  remote_read  = 4;
+        RemoteWrite remote_write = 5;
+    }
+}
+
+message ProxyIOResponse {
+    required Status status = 1;
+
+    oneof proxyio_response {
+        RemoteData        remote_data         = 2;
+        RemoteWriteResult remote_write_result = 3;
+    }
+}
+
+message RemoteRead {
+    required uint64 offset = 1;
+    required uint64 size   = 2;
+}
+
+message ByteSequence {
+    required uint64 offset = 1;
+    required bytes  data   = 2;
+}
+
+message RemoteWrite {
+    repeated ByteSequence byte_sequence = 1;
+}
+
+message RemoteData {
+    required bytes data = 1;
+}
+
+message RemoteWriteResult {
+    required uint64 wrote = 1;
+}
+
+message Parameter {
+    required bytes key   = 1;
+    required bytes value = 2;
+}

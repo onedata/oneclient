@@ -1,0 +1,160 @@
+/**
+ * Communication protocol between Event Managers.
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
+
+package one.clproto;
+
+import "common_messages.proto";
+import "fuse_messages.proto";
+
+message Events {
+    repeated Event events = 1;
+}
+
+message FlushEvents {
+    required bytes  provider_id          = 1;
+    required bytes  context              = 2;
+    required sint64 subscription_id      = 3;
+}
+
+// Generic event message
+message Event {
+    required uint32 counter = 1; // amount of aggregated events
+    oneof object { // list of all event objects
+        ReadEvent              read_event               = 2;
+        WriteEvent             write_event              = 3;
+        UpdateEvent            update_event             = 4;
+        PermissionChangedEvent permission_changed_event = 5;
+        FileRemovalEvent       file_removal_event       = 6;
+        QuotaExeededEvent      quota_exeeded_event      = 7;
+        FileRenamedEvent       file_renamed_event       = 8;
+        FileAccessedEvent      file_accessed_event      = 9;
+    }
+}
+
+message ReadEvent {
+    required bytes     file_uuid = 1; // UUID of file associated with an event
+    required uint64    size      = 2; // amount of read bytes
+    repeated FileBlock blocks    = 3; // list of read blocks
+}
+
+message WriteEvent {
+    required bytes     file_uuid = 1; // UUID of file associated with an event
+    optional uint64    file_size = 2; // size of file associated with an event
+    required uint64    size      = 3; // amount of written bytes
+    repeated FileBlock blocks    = 4; // list of written blocks
+}
+
+message UpdateEvent {
+    oneof object { // list of all update event objects
+        FileAttr     file_attr     = 1;
+        FileLocation file_location = 2;
+    }
+}
+
+message PermissionChangedEvent {
+    required bytes file_uuid = 1; // UUID of file associated with an event
+}
+
+message FileRemovalEvent {
+    required bytes file_uuid = 1; // UUID of file associated with an event
+}
+
+message QuotaExeededEvent {
+    repeated bytes spaces = 1; // Blocked spaces
+}
+
+message FileRenamedEvent {
+    required FileRenamedEntry top_entry = 1;     // entry for renamed file
+    repeated FileRenamedEntry child_entries = 2; // entries for children of
+                                                 // renamed file
+}
+
+message FileAccessedEvent {
+    required bytes  file_uuid     = 1; // UUID of file associated with an event
+    required uint64 open_count    = 2; // Number of open actions on file
+    required uint64 release_count = 3; // Number of release actions on file
+}
+
+// Generic subscription message
+message Subscription {
+    required sint64 id = 1; // unique subscription ID
+    oneof object { // list of all subscription objects
+        ReadSubscription              read_subscription               = 2;
+        WriteSubscription             write_subscription              = 3;
+        FileAttrSubscription          file_attr_subscription          = 4;
+        FileLocationSubscription      file_location_subscription      = 5;
+        PermissionChangedSubscription permission_changed_subscription = 6;
+        FileRemovalSubscription       file_removal_subscription       = 7;
+        QuotaSubscription             quota_subscription              = 8;
+        FileRenamedSubscription       file_renamed_subscription       = 9;
+        FileAccessedSubscription      file_accessed_subscription      = 10;
+    }
+}
+
+message QuotaSubscription {
+
+}
+
+message ReadSubscription {
+    optional uint32 counter_threshold = 1; // maximal amount of aggregated
+                                           // events before emission
+    optional uint32 time_threshold    = 2; // maximal delay in milliseconds
+                                           // between successive events emission
+    optional uint32 size_threshold    = 3; // maximal amount of read bytes
+                                           // before emission
+}
+
+message WriteSubscription {
+    optional uint32 counter_threshold = 1; // maximal amount of aggregated
+                                           // events before emission
+    optional uint32 time_threshold    = 2; // maximal delay in milliseconds
+                                           // between successive events emission
+    optional uint32 size_threshold    = 3; // maximal amount of written bytes
+                                           // before emission
+}
+
+message FileAttrSubscription {
+    required bytes  file_uuid         = 1; // file UUID
+    optional uint32 counter_threshold = 2; // maximal amount of aggregated
+                                           // events before emission
+    optional uint32 time_threshold    = 3; // maximal delay in milliseconds
+                                           // between successive events emission
+}
+
+message FileLocationSubscription {
+    required bytes  file_uuid         = 1; // file UUID
+    optional uint32 counter_threshold = 2; // maximal amount of aggregated
+                                           // events before emission
+    optional uint32 time_threshold    = 3; // maximal delay in milliseconds
+                                           // between successive events emission
+}
+
+
+message PermissionChangedSubscription {
+    required bytes  file_uuid         = 1; // file UUID
+}
+
+message FileRemovalSubscription {
+    required bytes  file_uuid         = 1; // file UUID
+}
+
+message FileRenamedSubscription {
+    required bytes  file_uuid         = 1; // file UUID
+}
+
+message FileAccessedSubscription {
+    optional uint32 counter_threshold = 1; // maximal amount of aggregated
+                                           // events before emission
+    optional uint32 time_threshold    = 2; // maximal delay in milliseconds
+                                           // between successive events emission
+}
+
+message SubscriptionCancellation {
+    required sint64 id = 1; // ID of subscription to be cancelled
+}
+
