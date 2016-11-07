@@ -1,9 +1,0 @@
-.idea/
-.rebar/
-
-*.plt
-*.pyc
-*.beam
-*.iml
-_build
-compile_commands.json
