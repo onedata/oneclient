@@ -26,7 +26,7 @@ bool ForceProxyIOCache::contains(const folly::fbstring &fileUuid)
 
 void ForceProxyIOCache::insert(folly::fbstring fileUuid)
 {
-    m_cache.emplace(std::move(fileUuid));
+    m_cache.emplace(fileUuid);
     m_fsSubscriptions.addPermissionChangedSubscription(fileUuid.toStdString());
 }
 

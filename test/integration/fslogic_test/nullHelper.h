@@ -9,247 +9,276 @@
 #ifndef HELPERS_NULL_HELPER_H
 #define HELPERS_NULL_HELPER_H
 
-#include "helpers/IStorageHelper.h"
+#include "helpers/storageHelper.h"
 
 #include <gmock/gmock.h>
 
 using ::testing::_;
 using ::testing::Invoke;
 using ::testing::Mock;
+using ::testing::Return;
 
-namespace boost {
-namespace filesystem {
-void PrintTo(const boost::filesystem::path &path, std::ostream *os)
-{
-    *os << path;
-}
-}
-}
-
-class NullHelperCTX : public one::helpers::IStorageHelperCTX {
+class NullHelperHandle : public one::helpers::FileHandle {
 public:
-    NullHelperCTX()
-        : one::helpers::IStorageHelperCTX{{}}
+    NullHelperHandle(std::error_code ec)
+        : one::helpers::FileHandle{{}}
+        , m_ec{ec}
     {
     }
-};
 
-class NullHelper : public one::helpers::IStorageHelper {
-public:
+    folly::Future<folly::IOBufQueue> read(
+        const off_t, const std::size_t) override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::IOBufQueue>(
+                std::system_error{m_ec});
+
+        return folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()};
+    }
+
+    folly::Future<std::size_t> write(
+        const off_t, folly::IOBufQueue buf) override
+    {
+        if (m_ec)
+            return folly::makeFuture<std::size_t>(std::system_error{m_ec});
+
+        return buf.chainLength();
+    }
+
+    folly::Future<folly::Unit> release() override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
+
+        return folly::makeFuture();
+    }
+
+    folly::Future<folly::Unit> flush() override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
+
+        return folly::makeFuture();
+    }
+
+    folly::Future<folly::Unit> fsync(bool) override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
+
+        return folly::makeFuture();
+    }
+
     std::error_code m_ec;
-
-    one::helpers::CTXPtr createCTX(std::unordered_map<std::string, std::string>)
-    {
-        return std::make_shared<NullHelperCTX>();
-    }
-
-    void ash_getattr(one::helpers::CTXPtr, const boost::filesystem::path &,
-        one::helpers::GeneralCallback<struct stat> callback) override
-    {
-        struct stat st = {};
-        callback(st, m_ec);
-    }
-
-    void ash_access(one::helpers::CTXPtr, const boost::filesystem::path &, int,
-        one::helpers::VoidCallback callback) override
-    {
-        callback(m_ec);
-    }
-
-    void ash_readlink(one::helpers::CTXPtr, const boost::filesystem::path &,
-        one::helpers::GeneralCallback<std::string> callback) override
-    {
-        callback("", m_ec);
-    }
-
-    void ash_readdir(one::helpers::CTXPtr, const boost::filesystem::path &,
-        off_t, size_t,
-        one::helpers::GeneralCallback<const std::vector<std::string> &>
-            callback) override
-    {
-        std::vector<std::string> v;
-        callback(v, m_ec);
-    }
-
-    void ash_mknod(one::helpers::CTXPtr, const boost::filesystem::path &,
-        mode_t, one::helpers::FlagsSet flags, dev_t,
-        one::helpers::VoidCallback callback) override
-    {
-        callback(m_ec);
-    }
-
-    void ash_mkdir(one::helpers::CTXPtr, const boost::filesystem::path &,
-        mode_t, one::helpers::VoidCallback callback) override
-    {
-        callback(m_ec);
-    }
-
-    void ash_unlink(one::helpers::CTXPtr, const boost::filesystem::path &,
-        one::helpers::VoidCallback callback) override
-    {
-        callback(m_ec);
-    }
-
-    void ash_rmdir(one::helpers::CTXPtr, const boost::filesystem::path &,
-        one::helpers::VoidCallback callback) override
-    {
-        callback(m_ec);
-    }
-
-    void ash_symlink(one::helpers::CTXPtr, const boost::filesystem::path &,
-        const boost::filesystem::path &,
-        one::helpers::VoidCallback callback) override
-    {
-        callback(m_ec);
-    }
-
-    void ash_rename(one::helpers::CTXPtr, const boost::filesystem::path &,
-        const boost::filesystem::path &,
-        one::helpers::VoidCallback callback) override
-    {
-        callback(m_ec);
-    }
-
-    void ash_link(one::helpers::CTXPtr, const boost::filesystem::path &,
-        const boost::filesystem::path &,
-        one::helpers::VoidCallback callback) override
-    {
-        callback(m_ec);
-    }
-
-    void ash_chmod(one::helpers::CTXPtr, const boost::filesystem::path &,
-        mode_t, one::helpers::VoidCallback callback) override
-    {
-        callback(m_ec);
-    }
-
-    void ash_chown(one::helpers::CTXPtr, const boost::filesystem::path &, uid_t,
-        gid_t, one::helpers::VoidCallback callback) override
-    {
-        callback(m_ec);
-    }
-
-    void ash_truncate(one::helpers::CTXPtr, const boost::filesystem::path &,
-        off_t, one::helpers::VoidCallback callback) override
-    {
-        callback(m_ec);
-    }
-
-    void ash_open(one::helpers::CTXPtr, const boost::filesystem::path &, int,
-        one::helpers::GeneralCallback<int> callback) override
-    {
-        callback(0, m_ec);
-    }
-
-    void ash_read(one::helpers::CTXPtr, const boost::filesystem::path &,
-        asio::mutable_buffer buf, off_t,
-        one::helpers::GeneralCallback<asio::mutable_buffer> callback) override
-    {
-        callback(buf, m_ec);
-    }
-
-    void ash_write(one::helpers::CTXPtr, const boost::filesystem::path &,
-        asio::const_buffer buf, off_t,
-        one::helpers::GeneralCallback<std::size_t> callback) override
-    {
-        callback(asio::buffer_size(buf), m_ec);
-    }
-
-    void ash_release(one::helpers::CTXPtr, const boost::filesystem::path &,
-        one::helpers::VoidCallback callback) override
-    {
-        callback(m_ec);
-    }
-
-    void ash_flush(one::helpers::CTXPtr, const boost::filesystem::path &,
-        one::helpers::VoidCallback callback) override
-    {
-        callback(m_ec);
-    }
-
-    void ash_fsync(one::helpers::CTXPtr, const boost::filesystem::path &, bool,
-        one::helpers::VoidCallback callback) override
-    {
-        callback(m_ec);
-    }
-
-    asio::mutable_buffer sh_read(one::helpers::CTXPtr,
-        const boost::filesystem::path &, asio::mutable_buffer buf,
-        off_t) override
-    {
-        if (m_ec)
-            throw std::system_error{m_ec};
-
-        return buf;
-    }
-
-    std::size_t sh_write(one::helpers::CTXPtr, const boost::filesystem::path &,
-        asio::const_buffer buf, off_t) override
-    {
-        if (m_ec)
-            throw std::system_error{m_ec};
-
-        return asio::buffer_size(buf);
-    }
-
-    virtual int sh_open(one::helpers::CTXPtr ctx,
-        const boost::filesystem::path &p, int) override
-    {
-        if (m_ec)
-            throw std::system_error{m_ec};
-        return 0;
-    }
-
-    virtual void sh_release(
-        one::helpers::CTXPtr ctx, const boost::filesystem::path &p) override
-    {
-        if (m_ec)
-            throw std::system_error{m_ec};
-        return;
-    }
 };
 
-class NullHelperMock : public NullHelper {
-public:
-    MOCK_METHOD3(sh_open,
-        int(one::helpers::CTXPtr, const boost::filesystem::path &, int));
-    MOCK_METHOD2(sh_release,
-        void(one::helpers::CTXPtr, const boost::filesystem::path &));
+struct NullHelperHandleMock : public NullHelperHandle {
+    NullHelperHandleMock(std::error_code ec)
+        : NullHelperHandle{ec}
+        , m_real{ec}
+    {
+        ON_CALL(*this, release())
+            .WillByDefault(Invoke(&m_real, &one::helpers::FileHandle::release));
+    }
 
+    MOCK_METHOD0(release, folly::Future<folly::Unit>());
+    NullHelperHandle m_real;
+};
+
+class NullHelper : public one::helpers::StorageHelper {
+public:
+    folly::Future<struct stat> getattr(const folly::fbstring &) override
+    {
+        if (m_ec)
+            return folly::makeFuture<struct stat>(std::system_error{m_ec});
+
+        struct stat st = {};
+        return st;
+    }
+
+    folly::Future<folly::Unit> access(
+        const folly::fbstring &fileId, const int mask) override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
+
+        return folly::makeFuture();
+    }
+
+    folly::Future<folly::fbstring> readlink(
+        const folly::fbstring &fileId) override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::fbstring>(std::system_error{m_ec});
+
+        return folly::fbstring{};
+    }
+
+    folly::Future<folly::fbvector<folly::fbstring>> readdir(
+        const folly::fbstring &fileId, const off_t offset,
+        const std::size_t count) override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::fbvector<folly::fbstring>>(
+                std::system_error{m_ec});
+
+        return folly::fbvector<folly::fbstring>{};
+    }
+
+    folly::Future<folly::Unit> mknod(const folly::fbstring &fileId,
+        const mode_t mode, const one::helpers::FlagsSet &flags,
+        const dev_t rdev) override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
+
+        return folly::makeFuture();
+    }
+
+    folly::Future<folly::Unit> mkdir(
+        const folly::fbstring &fileId, const mode_t mode) override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
+
+        return folly::makeFuture();
+    }
+
+    folly::Future<folly::Unit> unlink(const folly::fbstring &fileId) override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
+
+        return folly::makeFuture();
+    }
+
+    folly::Future<folly::Unit> rmdir(const folly::fbstring &fileId) override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
+
+        return folly::makeFuture();
+    }
+
+    folly::Future<folly::Unit> symlink(
+        const folly::fbstring &from, const folly::fbstring &to) override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
+
+        return folly::makeFuture();
+    }
+
+    folly::Future<folly::Unit> rename(
+        const folly::fbstring &from, const folly::fbstring &to) override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
+
+        return folly::makeFuture();
+    }
+
+    folly::Future<folly::Unit> link(
+        const folly::fbstring &from, const folly::fbstring &to) override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
+
+        return folly::makeFuture();
+    }
+
+    folly::Future<folly::Unit> chmod(
+        const folly::fbstring &fileId, const mode_t mode) override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
+
+        return folly::makeFuture();
+    }
+
+    folly::Future<folly::Unit> chown(const folly::fbstring &fileId,
+        const uid_t uid, const gid_t gid) override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
+
+        return folly::makeFuture();
+    }
+
+    folly::Future<folly::Unit> truncate(
+        const folly::fbstring &fileId, const off_t size) override
+    {
+        if (m_ec)
+            return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
+
+        return folly::makeFuture();
+    }
+
+    folly::Future<one::helpers::FileHandlePtr> open(
+        const folly::fbstring &fileId, const int flags,
+        const one::helpers::Params &openParams) override
+    {
+        if (m_ec)
+            return folly::makeFuture<one::helpers::FileHandlePtr>(
+                std::system_error{m_ec});
+
+        m_handles.insert(std::make_pair(
+            fileId, std::make_shared<NullHelperHandleMock>(m_ec)));
+
+        return folly::makeFuture(m_handles[fileId]);
+    }
+
+    std::error_code m_ec;
+    std::unordered_map<folly::fbstring, std::shared_ptr<NullHelperHandleMock>>
+        m_handles;
+};
+
+struct NullHelperMock : public NullHelper {
     NullHelperMock()
     {
-        ON_CALL(*this, sh_open(_, _, _))
-            .WillByDefault(Invoke(&m_real, &NullHelper::sh_open));
-        ON_CALL(*this, sh_release(_, _))
-            .WillByDefault(Invoke(&m_real, &NullHelper::sh_release));
+        ON_CALL(*this, open(_, _, _))
+            .WillByDefault(Invoke(this, &NullHelperMock::openReal));
     }
 
-    void expect_call_sh_open(std::string filename, int times)
+    folly::Future<one::helpers::FileHandlePtr> openReal(
+        const folly::fbstring &id, const int flag,
+        const one::helpers::Params &param)
     {
-        EXPECT_CALL(*this, sh_open(_, boost::filesystem::path(filename), _))
-            .Times(times)
-            .WillRepeatedly(Invoke(&m_real, &NullHelper::sh_open));
+        return m_real.open(id, flag, param);
     }
 
-    void expect_call_sh_release(std::string filename, int times)
+    void expect_call_sh_open(folly::fbstring filename, int times)
     {
-        EXPECT_CALL(*this, sh_release(_, boost::filesystem::path(filename)))
-            .Times(times)
-            .WillRepeatedly(Invoke(&m_real, &NullHelper::sh_release));
+        EXPECT_CALL(*this, open(filename, _, _)).Times(times);
+    }
+
+    void expect_call_sh_release(folly::fbstring filename, int times)
+    {
+        m_real.m_handles.insert(std::make_pair(
+            filename, std::make_shared<NullHelperHandleMock>(m_ec)));
+        EXPECT_CALL(*m_real.m_handles[filename], release()).Times(times);
     }
 
     bool verify_and_clear_expectations()
     {
-        return Mock::VerifyAndClearExpectations(this);
+        return Mock::VerifyAndClearExpectations(this) &&
+            std::all_of(m_real.m_handles.begin(), m_real.m_handles.end(),
+                   [](auto ha) {
+                       return Mock::VerifyAndClearExpectations(ha.second.get());
+                   });
     }
 
     void set_ec(std::error_code ec)
     {
-        m_ec = ec;
         m_real.m_ec = ec;
+        for (auto ha : m_real.m_handles)
+            ha.second->m_real.m_ec = ec;
     }
 
-private:
+    MOCK_METHOD3(open,
+        folly::Future<one::helpers::FileHandlePtr>(const folly::fbstring &,
+                     const int, const one::helpers::Params &));
+
     NullHelper m_real;
 };
 

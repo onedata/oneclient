@@ -7,8 +7,8 @@
  */
 
 #include "cache/forceProxyIOCache.h"
-#include "context.h"
 #include "communication/communicator.h"
+#include "context.h"
 #include "eventManager_mock.h"
 #include "fsSubscriptions_mock.h"
 #include "scheduler.h"
@@ -31,10 +31,9 @@ public:
         context->setCommunicator(std::make_shared<Communicator>(
             1, "localhost", 80, false, communication::createConnection));
         event_manager = std::make_shared<MockEventManager>(context);
-        fsSubscriptions =
-            std::make_shared<MockFsSubscriptions>(*event_manager);
+        fsSubscriptions = std::make_shared<MockFsSubscriptions>(*event_manager);
         forceProxyIOCache =
-            std::make_shared<ForceProxyIOCache>(*fsSubscriptions);
+            std::make_shared<cache::ForceProxyIOCache>(*fsSubscriptions);
     }
 
 protected:
@@ -42,19 +41,19 @@ protected:
     std::shared_ptr<Context> context;
     std::shared_ptr<EventManager> event_manager;
     std::shared_ptr<MockFsSubscriptions> fsSubscriptions;
-    std::shared_ptr<ForceProxyIOCache> forceProxyIOCache;
+    std::shared_ptr<cache::ForceProxyIOCache> forceProxyIOCache;
 };
 
 TEST_F(ForceProxyIOCacheTest, containsShouldReturnFalseIfUuidIsNotInCache)
 {
-    std::string uuid = "uuid";
+    folly::fbstring uuid = "uuid";
 
     EXPECT_FALSE(forceProxyIOCache->contains(uuid));
 }
 
 TEST_F(ForceProxyIOCacheTest, insertShouldInsertUuid)
 {
-    std::string uuid = "uuid";
+    folly::fbstring uuid = "uuid";
 
     forceProxyIOCache->insert(uuid);
 
@@ -63,7 +62,7 @@ TEST_F(ForceProxyIOCacheTest, insertShouldInsertUuid)
 
 TEST_F(ForceProxyIOCacheTest, insertShouldSubscribeForPermissionChanges)
 {
-    std::string uuid = "uuid";
+    folly::fbstring uuid = "uuid";
     EXPECT_CALL(*fsSubscriptions, addPermissionChangedSubscription(uuid))
         .Times(1);
 
@@ -72,7 +71,7 @@ TEST_F(ForceProxyIOCacheTest, insertShouldSubscribeForPermissionChanges)
 
 TEST_F(ForceProxyIOCacheTest, eraseShouldEraseUuid)
 {
-    std::string uuid = "uuid";
+    folly::fbstring uuid = "uuid";
     forceProxyIOCache->insert(uuid);
 
     forceProxyIOCache->erase(uuid);
@@ -82,7 +81,7 @@ TEST_F(ForceProxyIOCacheTest, eraseShouldEraseUuid)
 
 TEST_F(ForceProxyIOCacheTest, eraseShouldUnsubscribeFromPermissionChanges)
 {
-    std::string uuid = "uuid";
+    folly::fbstring uuid = "uuid";
     EXPECT_CALL(*fsSubscriptions, removePermissionChangedSubscription(uuid))
         .Times(1);
 

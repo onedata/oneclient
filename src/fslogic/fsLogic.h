@@ -58,10 +58,13 @@ public:
     /**
      * Constructor.
      * @param context Shared pointer to application context instance.
+     * @param configuration Starting configuration from server.
+     * @param helpersCache Cache from which helpers will be fetched.
      * @param runInFiber A function that runs callback inside a main fiber.
      */
     FsLogic(std::shared_ptr<Context> context,
         std::shared_ptr<messages::Configuration> configuration,
+        std::unique_ptr<cache::HelpersCache> helpersCache,
         std::function<void(folly::Function<void()>)> runInFiber);
 
     /**
@@ -212,7 +215,7 @@ private:
     events::EventManager m_eventManager{m_context};
     cache::LRUMetadataCache m_metadataCache;
     MetadataEventHandler m_metadataEventHandler;
-    cache::HelpersCache m_helpersCache;
+    std::unique_ptr<cache::HelpersCache> m_helpersCache;
     FsSubscriptions m_fsSubscriptions{m_eventManager};
     cache::ForceProxyIOCache m_forceProxyIOCache{m_fsSubscriptions};
     std::unordered_set<folly::fbstring> m_disabledSpaces;

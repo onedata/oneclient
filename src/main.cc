@@ -373,9 +373,12 @@ int main(int argc, char *argv[])
         createCommunicator(authManager, context, std::move(fuseId));
     communicator->connect();
 
+    auto helpersCache = std::make_unique<cache::HelpersCache>(
+        *communicator, *context->scheduler());
+
     const auto &rootUuid = configuration->rootUuid();
-    fsLogic = std::make_unique<fslogic::Composite>(
-        rootUuid, std::move(context), std::move(configuration));
+    fsLogic = std::make_unique<fslogic::Composite>(rootUuid, std::move(context),
+        std::move(configuration), std::move(helpersCache));
 
     // Enter FUSE loop
     res = multithreaded ? fuse_session_loop_mt(fuse) : fuse_session_loop(fuse);

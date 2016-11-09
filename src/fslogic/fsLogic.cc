@@ -42,11 +42,12 @@ namespace fslogic {
 
 FsLogic::FsLogic(std::shared_ptr<Context> context,
     std::shared_ptr<messages::Configuration> configuration,
+    std::unique_ptr<cache::HelpersCache> helpersCache,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_context{std::move(context)}
     , m_metadataCache{*m_context->communicator()}
     , m_metadataEventHandler{m_eventManager, m_metadataCache, runInFiber}
-    , m_helpersCache{*m_context->communicator(), *m_context->scheduler()}
+    , m_helpersCache{std::move(helpersCache)}
 {
     using namespace std::placeholders;
 
@@ -147,7 +148,7 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
     const auto fuseFileHandleId = m_nextFuseHandleId++;
     m_fuseFileHandles.emplace(fuseFileHandleId,
         std::make_shared<FuseFileHandle>(filteredFlags, openFileToken,
-                                  m_helpersCache, m_forceProxyIOCache));
+                                  *m_helpersCache, m_forceProxyIOCache));
 
     m_eventManager.emitFileOpenedEvent(uuid.toStdString());
 

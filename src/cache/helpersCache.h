@@ -58,7 +58,7 @@ public:
      * Destructor.
      * Stops the @c asio::io_service instance and a worker thread.
      */
-    ~HelpersCache();
+    virtual ~HelpersCache();
 
     /**
      * Retrieves a helper instance.
@@ -67,7 +67,7 @@ public:
      * @param forceProxyIO Determines whether to return a ProxyIO helper.
      * @return Retrieved helper instance.
      */
-    HelperPtr get(const folly::fbstring &fileUuid,
+    virtual HelperPtr get(const folly::fbstring &fileUuid,
         const folly::fbstring &storageId, const bool forceProxyIO);
 
 private:
