@@ -10,14 +10,16 @@
 #define ONECLIENT_HELPERS_CACHE_H
 
 #include "communication/communicator.h"
-#include "helpers/IStorageHelper.h"
-#include "helpers/storageHelperFactory.h"
+#include "helpers/storageHelper.h"
+#include "helpers/storageHelperCreator.h"
 #include "scheduler.h"
 #include "storageAccessManager.h"
 
 #include <asio/executor_work.hpp>
 #include <asio/io_service.hpp>
-#include <tbb/concurrent_hash_map.h>
+#include <folly/FBString.h>
+#include <folly/FBVector.h>
+#include <folly/Hash.h>
 
 #include <thread>
 #include <tuple>
@@ -30,44 +32,27 @@ class StorageTestFile;
 }
 }
 namespace client {
+namespace cache {
 
 /**
  * @c HelpersCache is responsible for creating and caching
- * @c helpers::IStorageHelper instances.
+ * @c helpers::StorageHelper instances.
  */
 class HelpersCache {
 public:
-    using HelperPtr = std::shared_ptr<helpers::IStorageHelper>;
-
-private:
-    struct HashCompare {
-        bool equal(const std::tuple<std::string, bool> &j,
-            const std::tuple<std::string, bool> &k) const;
-        size_t hash(const std::tuple<std::string, bool> &k) const;
-    };
-
-    enum class AccessType { DIRECT, PROXY };
-
-    tbb::concurrent_hash_map<std::string, AccessType> m_accessType;
-    tbb::concurrent_hash_map<std::tuple<std::string, bool>, HelperPtr,
-        HashCompare>
-        m_cache;
-
-public:
-    using ConstAccessTypeAccessor = decltype(m_accessType)::const_accessor;
-    using AccessTypeAccessor = decltype(m_accessType)::accessor;
-    using ConstCacheAccessor = decltype(m_cache)::const_accessor;
-    using CacheAccessor = decltype(m_cache)::accessor;
+    using HelperPtr = std::shared_ptr<helpers::StorageHelper>;
 
     /**
      * Constructor.
      * Starts an @c asio::io_service instance with one worker thread for
-     * @c helpers::StorageHelperFactory .
+     * @c helpers::StorageHelperCreator .
      * @param communicator Communicator instance used to fetch helper
      * parameters.
+     * @param workersNumber Number of worker threads that will drive some async
+     * helpers operations.
      */
-    HelpersCache(
-        communication::Communicator &communicator, Scheduler &scheduler);
+    HelpersCache(communication::Communicator &communicator,
+        Scheduler &scheduler, const std::size_t workersNumber = 10);
 
     /**
      * Destructor.
@@ -82,40 +67,47 @@ public:
      * @param forceProxyIO Determines whether to return a ProxyIO helper.
      * @return Retrieved helper instance.
      */
-    HelperPtr get(const std::string &fileUuid, const std::string &storageId,
-        bool forceProxyIO = false);
+    HelperPtr get(const folly::fbstring &fileUuid,
+        const folly::fbstring &storageId, const bool forceProxyIO);
 
 private:
+    enum class AccessType { DIRECT, PROXY };
+
     void requestStorageTestFileCreation(
-        const std::string &fileUuid, const std::string &storageId);
+        const folly::fbstring &fileUuid, const folly::fbstring &storageId);
 
     void handleStorageTestFile(
         std::shared_ptr<messages::fuse::StorageTestFile> testFile,
-        const std::string &storageId, unsigned int attempts);
+        const folly::fbstring &storageId, const std::size_t attempts);
 
     void requestStorageTestFileVerification(
         const messages::fuse::StorageTestFile &testFile,
-        const std::string &storageId, std::string fileContent);
+        const folly::fbstring &storageId, const folly::fbstring &fileContent);
 
     void handleStorageTestFileVerification(
-        const std::error_code &ec, const std::string &storageId);
+        const std::error_code &ec, const folly::fbstring &storageId);
 
     communication::Communicator &m_communicator;
     Scheduler &m_scheduler;
-    asio::io_service m_ioService{1};
 
-    asio::executor_work<asio::io_service::executor_type> m_work =
-        asio::make_work(m_ioService);
+    asio::io_service m_helpersIoService;
+    asio::executor_work<asio::io_service::executor_type> m_idleWork{
+        asio::make_work(m_helpersIoService)};
+    folly::fbvector<std::thread> m_helpersWorkers;
 
-    std::thread m_thread;
+    helpers::StorageHelperCreator m_helperFactory{m_helpersIoService,
+        m_helpersIoService, m_helpersIoService, m_helpersIoService,
+        m_communicator};
 
-    helpers::StorageHelperFactory m_helperFactory{
-        m_ioService, m_ioService, m_ioService, m_ioService, m_communicator};
+    StorageAccessManager m_storageAccessManager{
+        m_communicator, m_helperFactory};
 
-    StorageAccessManager m_storageAccessManager;
+    std::unordered_map<folly::fbstring, AccessType> m_accessType;
+    std::unordered_map<std::tuple<folly::fbstring, bool>, HelperPtr> m_cache;
 };
 
-} // namespace one
+} // namespace cache
 } // namespace client
+} // namespace one
 
 #endif // ONECLIENT_HELPERS_CACHE_H

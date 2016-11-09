@@ -1,16 +1,16 @@
 /**
- * @file getFileAttr.h
+ * @file getChildAttr.h
  * @author Konrad Zemek
- * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#ifndef ONECLIENT_MESSAGES_FUSE_GET_FILE_ATTR_H
-#define ONECLIENT_MESSAGES_FUSE_GET_FILE_ATTR_H
+#pragma once
 
 #include "fileRequest.h"
 
+#include <boost/filesystem/path.hpp>
 #include <folly/FBString.h>
 
 #include <string>
@@ -20,24 +20,27 @@ namespace messages {
 namespace fuse {
 
 /**
- * The GetFileAttr class represents a FUSE request for file attributes.
+ * @c GetChildAttr represents a FUSE request for file attributes of a
+ * directory's child.
  */
-class GetFileAttr : public FileRequest {
+class GetChildAttr : public FileRequest {
 public:
     /**
      * Constructor.
-     * @param uuid UUID of the file for which attributes are requested.
+     * @param uuid Uuid of a parent directory.
+     * @param name Name of parent's child to look up.
      */
-    GetFileAttr(folly::fbstring uuid);
+    GetChildAttr(folly::fbstring uuid, folly::fbstring name);
 
     std::string toString() const override;
 
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
+
+    folly::fbstring n_uuid;
+    folly::fbstring m_name;
 };
 
 } // namespace fuse
 } // namespace messages
 } // namespace one
-
-#endif // ONECLIENT_MESSAGES_FUSE_GET_FILE_ATTR_H

@@ -6,6 +6,7 @@ Build-Depends:
     aws-sdk-cpp-s3 (>= 1.0.11),
     cmake (>= 3.0.0),
     debhelper (>= 9),
+    folly-dev,
     g++-5 (>= 5.0.0),
     git,
     golang-go,

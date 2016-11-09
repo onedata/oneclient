@@ -11,7 +11,7 @@
 
 #include "fileRequest.h"
 
-#include <boost/optional.hpp>
+#include <folly/FBString.h>
 
 #include <sys/types.h>
 
@@ -28,26 +28,21 @@ namespace fuse {
 class GetFileChildren : public FileRequest {
 public:
     /**
-     * Constructor.
-     * @param uuid UUID of the directory of which children are requested.
-     */
-    GetFileChildren(std::string uuid);
-
-    /**
      * @copydoc GetFileChildren(std::string)
      * @param offset A number of skipped entries at the beginning of directory's
      * children list.
      * @param size A number of returned entries of directory's children list.
      */
-    GetFileChildren(std::string uuid, off_t offset, std::size_t size);
+    GetFileChildren(const folly::fbstring &uuid, const off_t offset,
+        const std::size_t size);
 
     std::string toString() const override;
 
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    boost::optional<off_t> m_offset;
-    boost::optional<std::size_t> m_size;
+    const off_t m_offset;
+    const std::size_t m_size;
 };
 
 } // namespace fuse

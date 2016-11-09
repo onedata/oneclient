@@ -12,6 +12,8 @@
 #include "events/subscriptionContainer.h"
 #include "messages/serverMessage.h"
 
+#include <folly/FBString.h>
+
 #include <memory>
 #include <string>
 
@@ -37,6 +39,11 @@ public:
     Configuration(std::unique_ptr<ProtocolServerMessage> serverMessage);
 
     /**
+     * @return UUID of user's root directory.
+     */
+    const folly::fbstring &rootUuid() const { return m_rootUuid; }
+
+    /**
      * @return subscription container.
      */
     client::events::SubscriptionContainer subscriptionContainer();
@@ -49,6 +56,7 @@ public:
     std::string toString() const override;
 
 private:
+    folly::fbstring m_rootUuid;
     client::events::SubscriptionContainer m_subscriptionContainer;
     std::vector<std::string> m_disabledSpacesContainer;
 };

@@ -17,8 +17,8 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-GetFileAttr::GetFileAttr(std::string uuid)
-    : FileRequest{std::move(uuid)}
+GetFileAttr::GetFileAttr(folly::fbstring uuid)
+    : FileRequest{uuid.toStdString()}
 {
 }
 

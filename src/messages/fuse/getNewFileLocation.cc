@@ -17,9 +17,9 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-GetNewFileLocation::GetNewFileLocation(std::string name, std::string parentUuid,
-    mode_t mode, const one::helpers::FlagsSet flags)
-    : FileRequest{std::move(parentUuid)}
+GetNewFileLocation::GetNewFileLocation(folly::fbstring parentUuid,
+    folly::fbstring name, const mode_t mode, const one::helpers::FlagsSet flags)
+    : FileRequest{parentUuid.toStdString()}
     , m_name{std::move(name)}
     , m_mode{mode}
     , m_flags{flags}
@@ -51,7 +51,7 @@ std::unique_ptr<ProtocolClientMessage> GetNewFileLocation::serializeAndDestroy()
                     ->mutable_file_request()
                     ->mutable_get_new_file_location();
 
-    gnfl->mutable_name()->swap(m_name);
+    gnfl->set_name(m_name.toStdString());
     gnfl->set_mode(m_mode);
     gnfl->set_create_handle(true);
 

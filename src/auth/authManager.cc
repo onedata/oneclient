@@ -55,7 +55,8 @@ CertificateAuthManager::CertificateAuthManager(std::weak_ptr<Context> context,
     m_hostname = gsiHandler.getClusterHostname(m_hostname);
 }
 
-std::tuple<std::shared_ptr<communication::Communicator>, std::future<void>>
+std::tuple<std::shared_ptr<communication::Communicator>,
+    folly::Future<folly::Unit>>
 CertificateAuthManager::createCommunicator(const unsigned int poolSize,
     std::string sessionId,
     std::function<std::error_code(messages::HandshakeResponse)>
@@ -85,7 +86,8 @@ TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
 
 TokenAuthManager::~TokenAuthManager() { m_cancelRefresh(); }
 
-std::tuple<std::shared_ptr<communication::Communicator>, std::future<void>>
+std::tuple<std::shared_ptr<communication::Communicator>,
+    folly::Future<folly::Unit>>
 TokenAuthManager::createCommunicator(const unsigned int poolSize,
     std::string sessionId,
     std::function<std::error_code(messages::HandshakeResponse)>

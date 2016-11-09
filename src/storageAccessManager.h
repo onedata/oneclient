@@ -12,13 +12,14 @@
 #include "communication/communicator.h"
 
 #include <boost/filesystem.hpp>
+#include <folly/FBString.h>
 
 #include <vector>
 
 namespace one {
 namespace helpers {
-class IStorageHelper;
-class StorageHelperFactory;
+class StorageHelper;
+class StorageHelperCreator;
 }
 namespace messages {
 namespace fuse {
@@ -36,10 +37,10 @@ public:
     /**
      * Constructor.
      * @param communicator Instance of @c communication::Communicator.
-     * @param helperFactory Instance of @c helpers::StorageHelperFactory.
+     * @param helperFactory Instance of @c helpers::StorageHelperCreator.
      */
     StorageAccessManager(communication::Communicator &communicator,
-        helpers::StorageHelperFactory &helperFactory);
+        helpers::StorageHelperCreator &helperFactory);
 
     /**
      * Verifies the test file by reading it from the storage and checking its
@@ -48,7 +49,7 @@ public:
      * @return Storage helper object used to access the test file or nullptr if
      * verification fails.
      */
-    std::shared_ptr<helpers::IStorageHelper> verifyStorageTestFile(
+    std::shared_ptr<helpers::StorageHelper> verifyStorageTestFile(
         const messages::fuse::StorageTestFile &testFile);
 
     /**
@@ -57,16 +58,16 @@ public:
      * @param testFile Instance of @c messages::fuse::StorageTestFile.
      * @return Modified content of the test file.
      */
-    std::string modifyStorageTestFile(
-        std::shared_ptr<helpers::IStorageHelper> helper,
+    folly::fbstring modifyStorageTestFile(
+        std::shared_ptr<helpers::StorageHelper> helper,
         const messages::fuse::StorageTestFile &testFile);
 
 private:
-    bool verifyStorageTestFile(std::shared_ptr<helpers::IStorageHelper> helper,
+    bool verifyStorageTestFile(std::shared_ptr<helpers::StorageHelper> helper,
         const messages::fuse::StorageTestFile &testFile);
 
     communication::Communicator &m_communicator;
-    helpers::StorageHelperFactory &m_helperFactory;
+    helpers::StorageHelperCreator &m_helperFactory;
     std::vector<boost::filesystem::path> m_mountPoints;
 };
 

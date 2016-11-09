@@ -27,16 +27,19 @@ public:
     /**
      * Constructor.
      * @param uuid UUID of the file to rename.
-     * @param targetPath The new file path.
+     * @param targetParentUuid Uuid of the new parent.
+     * @param targetName New name of the file.
      */
-    Rename(std::string uuid, boost::filesystem::path targetPath);
+    Rename(
+        std::string uuid, std::string targetParentUuid, std::string targetName);
 
     std::string toString() const override;
 
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    boost::filesystem::path m_targetPath;
+    std::string m_targetParentUuid;
+    std::string m_targetName;
 };
 
 } // namespace fuse

@@ -21,8 +21,8 @@
 #include "context.h"
 #include "errors/handshakeErrors.h"
 #include "events/eventManager.h"
-#include "fsLogic.h"
 #include "fsOperations.h"
+#include "fslogic/composite.h"
 #include "fuseOperations.h"
 #include "logging.h"
 #include "messages/configuration.h"
@@ -37,6 +37,7 @@
 #include "shMock.h"
 #include "version.h"
 
+#include <folly/Singleton.h>
 #include <fuse/fuse_lowlevel.h>
 #include <fuse/fuse_opt.h>
 
@@ -153,7 +154,8 @@ std::shared_ptr<communication::Communicator> handshake(
 
     testCommunicator->setScheduler(context->scheduler());
     testCommunicator->connect();
-    communication::wait(std::get<std::future<void>>(testCommunicatorTuple));
+    communication::wait(
+        std::get<folly::Future<folly::Unit>>(testCommunicatorTuple));
 
     return testCommunicator;
 }
@@ -306,9 +308,7 @@ int main(int argc, char *argv[])
     }
 
     // FUSE main:
-    struct fuse *fuse;
-    struct fuse_chan *ch;
-    struct fuse_operations fuse_oper = fuseOperations();
+    auto fuse_oper = fuseOperations();
     char *mountpoint;
     int multithreaded;
     int foreground;
@@ -321,7 +321,7 @@ int main(int argc, char *argv[])
 
     ScopeExit freeMountpoint{[&] { free(mountpoint); }};
 
-    ch = fuse_mount(mountpoint, &args);
+    auto ch = fuse_mount(mountpoint, &args);
     if (!ch)
         return EXIT_FAILURE;
 
@@ -331,32 +331,37 @@ int main(int argc, char *argv[])
     if (res == -1)
         perror("WARNING: failed to set FD_CLOEXEC on fuse device");
 
-    FsLogicWrapper fsLogicWrapper;
-    fuse = fuse_new(ch, &args, &fuse_oper, sizeof(fuse_oper), &fsLogicWrapper);
+    std::unique_ptr<fslogic::Composite> fsLogic;
+    auto fuse =
+        fuse_lowlevel_new(&args, &fuse_oper, sizeof(fuse_oper), &fsLogic);
     if (fuse == nullptr)
         return EXIT_FAILURE;
 
-    ScopeExit destroyFuse{[&] { fuse_destroy(fuse); }, unmountFuse};
+    ScopeExit destroyFuse{[&] { fuse_session_destroy(fuse); }, unmountFuse};
 
-    fuse_set_signal_handlers(fuse_get_session(fuse));
-    ScopeExit removeHandlers{
-        [&] { fuse_remove_signal_handlers(fuse_get_session(fuse)); }};
+    fuse_set_signal_handlers(fuse);
+    ScopeExit removeHandlers{[&] { fuse_remove_signal_handlers(fuse); }};
+
+    fuse_session_add_chan(fuse, ch);
+    ScopeExit removeChannel{[&] { fuse_session_remove_chan(ch); }};
 
     std::cout << "oneclient has been successfully mounted in " << mountpoint
               << std::endl;
 
     if (!foreground) {
         context->scheduler()->prepareForDaemonize();
+        folly::SingletonVault::singleton()->destroyInstances();
 
-        fuse_remove_signal_handlers(fuse_get_session(fuse));
+        fuse_remove_signal_handlers(fuse);
         res = fuse_daemonize(foreground);
 
         if (res != -1)
-            res = fuse_set_signal_handlers(fuse_get_session(fuse));
+            res = fuse_set_signal_handlers(fuse);
 
         if (res == -1)
             return EXIT_FAILURE;
 
+        folly::SingletonVault::singleton()->reenableInstances();
         context->scheduler()->restartAfterDaemonize();
     }
     else {
@@ -368,11 +373,12 @@ int main(int argc, char *argv[])
         createCommunicator(authManager, context, std::move(fuseId));
     communicator->connect();
 
-    fsLogicWrapper.logic =
-        std::make_unique<FsLogic>(std::move(context), std::move(configuration));
+    const auto &rootUuid = configuration->rootUuid();
+    fsLogic = std::make_unique<fslogic::Composite>(
+        rootUuid, std::move(context), std::move(configuration));
 
     // Enter FUSE loop
-    res = multithreaded ? fuse_loop_mt(fuse) : fuse_loop(fuse);
+    res = multithreaded ? fuse_session_loop_mt(fuse) : fuse_session_loop(fuse);
 
     communicator->stop();
     return res == -1 ? EXIT_FAILURE : EXIT_SUCCESS;

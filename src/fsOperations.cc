@@ -9,12 +9,17 @@
 #include "fsOperations.h"
 
 #include "communication/exception.h"
-#include "fsLogic.h"
+#include "fslogic/composite.h"
 #include "fuseOperations.h"
 #include "logging.h"
 #include "oneException.h"
 
 #include <boost/asio/buffer.hpp>
+#include <folly/Enumerate.h>
+#include <folly/FBString.h>
+#include <folly/Range.h>
+#include <folly/futures/FutureException.h>
+#include <folly/io/IOBufQueue.h>
 
 #include <execinfo.h>
 
@@ -27,192 +32,291 @@ using namespace one::client;
 
 namespace {
 
-template <typename... Args1, typename... Args2>
-int wrap(int (FsLogic::*operation)(Args2...), Args1 &&... args)
+template <typename Fun, typename... Args>
+auto callFslogic(Fun &&fun, void *userData, Args &&... args)
 {
-    try {
-        auto &fsLogic =
-            static_cast<FsLogicWrapper *>(fuse_get_context()->private_data)
-                ->logic;
+    auto &fsLogic =
+        *static_cast<std::unique_ptr<fslogic::Composite> *>(userData);
 
-        one::helpers::activateFuseSession();
+    return ((*fsLogic).*std::forward<Fun>(fun))(std::forward<Args>(args)...);
+}
 
-        return ((*fsLogic).*operation)(std::forward<Args1>(args)...);
-    }
-    catch (const std::errc errc) {
-        return -1 * static_cast<int>(errc);
-    }
-    catch (const std::system_error &e) {
-        return -1 * e.code().value();
-    }
-    catch (const one::communication::TimeoutExceeded &t) {
-        return -1 * std::make_error_code(std::errc::timed_out).value();
-    }
-    catch (const one::communication::Exception &t) {
-        return -1 * std::make_error_code(std::errc::io_error).value();
-    }
-    catch (const OneException &e) {
-        LOG(ERROR) << "OneException: " << e.what();
-        return -1 * std::make_error_code(std::errc::io_error).value();
-    }
-    catch (...) {
-        std::array<void *, 64> trace;
+template <typename Fun, typename... Args, typename Cb>
+void wrap(Fun &&fun, Cb &&callback, fuse_req_t req, Args &&... args)
+{
+    one::helpers::activateFuseSession();
 
-        const auto size = backtrace(trace.data(), trace.size());
-        std::unique_ptr<char *[]> strings {
-            backtrace_symbols(trace.data(), size)
-        };
+    callFslogic(std::forward<Fun>(fun), fuse_req_userdata(req),
+        std::forward<Args>(args)...)
+        .then(std::forward<Cb>(callback))
+        .onError([req](const std::errc errc) {
+            fuse_reply_err(req, std::make_error_code(errc).value());
+        })
+        .onError([req](const std::system_error &e) {
+            fuse_reply_err(req, e.code().value());
+        })
+        .onError([req](const one::communication::TimeoutExceeded &t) {
+            fuse_reply_err(
+                req, std::make_error_code(std::errc::timed_out).value());
+        })
+        .onError([req](const one::communication::Exception &t) {
+            LOG(ERROR) << "Communication exception: " << t.what();
+            fuse_reply_err(
+                req, std::make_error_code(std::errc::io_error).value());
+        })
+        .onError([req](const OneException &e) {
+            LOG(ERROR) << "OneException: " << e.what();
+            fuse_reply_err(
+                req, std::make_error_code(std::errc::io_error).value());
+        })
+        .onError([req](const folly::TimedOut &e) {
+            fuse_reply_err(
+                req, std::make_error_code(std::errc::timed_out).value());
+        })
+        .onError([req](folly::exception_wrapper ew) {
+            try {
+                try {
+                    ew.throwException();
+                }
+                catch (const std::exception &e) {
+                    LOG(ERROR) << "Exception: " << e.what();
+                    throw;
+                }
+            }
+            catch (...) {
+                std::array<void *, 64> trace;
 
-        LOG(ERROR) << "Unknown exception caught at the top level. Stacktrace: ";
-        for (auto i = 0; i < size; ++i)
-            LOG(ERROR) << strings[i];
+                const auto size = backtrace(trace.data(), trace.size());
+                std::unique_ptr<char *[]> strings {
+                    backtrace_symbols(trace.data(), size)
+                };
 
-        return -EIO;
-    }
+                LOG(ERROR) << "Unknown exception caught at the top level. "
+                              "Stacktrace : ";
+                for (auto i = 0; i < size; ++i)
+                    LOG(ERROR) << strings[i];
+            }
+
+            fuse_reply_err(req, EIO);
+        });
 }
 
 extern "C" {
 
-int wrap_access(const char *path, int mode)
+void wrap_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
 {
-    return wrap(&FsLogic::access, path, mode);
-}
-int wrap_getattr(const char *path, struct stat *statbuf)
-{
-    return wrap(&FsLogic::getattr, path, statbuf);
-}
-int wrap_readlink(const char *path, char *buf, size_t size)
-{
-    return wrap(&FsLogic::readlink, path, asio::buffer(buf, size));
-}
-int wrap_mknod(const char *path, mode_t mode, dev_t dev)
-{
-    return wrap(&FsLogic::mknod, path, mode, dev);
-}
-int wrap_mkdir(const char *path, mode_t mode)
-{
-    return wrap(&FsLogic::mkdir, path, mode);
-}
-int wrap_unlink(const char *path) { return wrap(&FsLogic::unlink, path); }
-int wrap_rmdir(const char *path) { return wrap(&FsLogic::rmdir, path); }
-int wrap_symlink(const char *target, const char *linkpath)
-{
-    return wrap(&FsLogic::symlink, target, linkpath);
-}
-int wrap_rename(const char *oldpath, const char *newpath)
-{
-    return wrap(&FsLogic::rename, oldpath, newpath);
-}
-int wrap_chmod(const char *path, mode_t mode)
-{
-    return wrap(&FsLogic::chmod, path, mode);
-}
-int wrap_chown(const char *path, uid_t uid, gid_t gid)
-{
-    return wrap(&FsLogic::chown, path, uid, gid);
-}
-int wrap_truncate(const char *path, off_t newSize)
-{
-    return wrap(&FsLogic::truncate, path, newSize);
-}
-int wrap_utime(const char *path, struct utimbuf *ubuf)
-{
-    return wrap(&FsLogic::utime, path, ubuf);
-}
-int wrap_open(const char *path, struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::open, path, fileInfo);
-}
-int wrap_read(const char *path, char *buf, size_t size, off_t offset,
-    struct fuse_file_info *fileInfo)
-{
-    return wrap(
-        &FsLogic::read, path, asio::buffer(buf, size), offset, fileInfo);
-}
-int wrap_write(const char *path, const char *buf, size_t size, off_t offset,
-    struct fuse_file_info *fileInfo)
-{
-    return wrap(
-        &FsLogic::write, path, asio::buffer(buf, size), offset, fileInfo);
-}
-int wrap_statfs(const char *path, struct statvfs *statInfo)
-{
-    return wrap(&FsLogic::statfs, path, statInfo);
-}
-int wrap_flush(const char *path, struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::flush, path, fileInfo);
-}
-int wrap_release(const char *path, struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::release, path, fileInfo);
-}
-int wrap_fsync(const char *path, int datasync, struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::fsync, path, datasync, fileInfo);
-}
-int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-    off_t offset, struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::readdir, path, buf, filler, offset, fileInfo);
-}
-int wrap_opendir(const char *path, struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::opendir, path, fileInfo);
-}
-int wrap_releasedir(const char *path, struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::releasedir, path, fileInfo);
-}
-int wrap_fsyncdir(
-    const char *path, int datasync, struct fuse_file_info *fileInfo)
-{
-    return wrap(&FsLogic::fsyncdir, path, datasync, fileInfo);
-}
-int wrap_create(const char *path, mode_t mode, struct fuse_file_info *fi)
-{
-    return wrap(&FsLogic::create, path, mode, fi);
+    wrap(&fslogic::Composite::lookup,
+        [req](const struct fuse_entry_param &entry) {
+            const auto userdata = fuse_req_userdata(req);
+            if (fuse_reply_entry(req, &entry))
+                callFslogic(
+                    &fslogic::Composite::forget, userdata, entry.ino, 1);
+        },
+        req, parent, name);
 }
 
-void *init(struct fuse_conn_info * /*conn*/)
+void wrap_getattr(
+    fuse_req_t req, fuse_ino_t ino, struct fuse_file_info * /*fi*/)
 {
-    return fuse_get_context()->private_data;
+    wrap(&fslogic::Composite::getattr,
+        [req](const struct stat &attrs) { fuse_reply_attr(req, &attrs, 0); },
+        req, ino);
+}
+
+void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
+    struct fuse_file_info * /*fi*/)
+{
+    wrap(&fslogic::Composite::readdir,
+        [req, maxSize, off](const folly::fbvector<folly::fbstring> &names) {
+
+            std::size_t bufSize = 0;
+            auto begin = names.begin() + off;
+            auto end = begin;
+            for (; end != names.end(); ++end) {
+                const auto nextSize = fuse_add_direntry(
+                    req, nullptr, 0, end->c_str(), nullptr, 0);
+
+                if (bufSize + nextSize > maxSize)
+                    break;
+
+                bufSize += nextSize;
+            }
+
+            if (begin == end) {
+                fuse_reply_buf(req, nullptr, 0);
+                return;
+            }
+
+            folly::fbvector<char> buf(bufSize);
+            struct stat stbuf = {0};
+            stbuf.st_ino = static_cast<fuse_ino_t>(-1);
+
+            auto bufPoint = buf.data();
+
+            for (const auto it : folly::enumerate(folly::range(begin, end))) {
+                const auto remaining = buf.size() - (bufPoint - buf.data());
+                const auto nextSize = fuse_add_direntry(req, bufPoint,
+                    remaining, it->c_str(), &stbuf, off + it.index + 1);
+
+                bufPoint += nextSize;
+            }
+
+            fuse_reply_buf(req, buf.data(), buf.size());
+        },
+        req, ino);
+}
+
+void wrap_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
+{
+    wrap(&fslogic::Composite::open,
+        [ req, ino, fi = *fi ](const std::uint64_t fh) mutable {
+            const auto userdata = fuse_req_userdata(req);
+            fi.fh = fh;
+            if (fuse_reply_open(req, &fi))
+                callFslogic(&fslogic::Composite::release, userdata, ino, fh);
+        },
+        req, ino, fi->flags);
+}
+
+void wrap_release(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
+{
+    wrap(&fslogic::Composite::release, [&, req]() { fuse_reply_err(req, 0); },
+        req, ino, fi->fh);
+}
+
+void wrap_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
+    struct fuse_file_info *fi)
+{
+    wrap(&fslogic::Composite::read,
+        [req](folly::IOBufQueue &&buf) {
+            if (!buf.empty()) {
+                auto iov = buf.front()->getIov();
+                fuse_reply_iov(req, iov.data(), iov.size());
+            }
+            else {
+                fuse_reply_buf(req, nullptr, 0);
+            }
+        },
+        req, ino, fi->fh, off, size);
+}
+
+void wrap_write(fuse_req_t req, fuse_ino_t ino, const char *buf, size_t size,
+    off_t off, struct fuse_file_info *fi)
+{
+    folly::IOBufQueue bufq{folly::IOBufQueue::cacheChainLength()};
+    bufq.append(buf, size);
+
+    wrap(&fslogic::Composite::write,
+        [req](const std::size_t wrote) { fuse_reply_write(req, wrote); }, req,
+        ino, fi->fh, off, std::move(bufq));
+}
+
+void wrap_mkdir(
+    fuse_req_t req, fuse_ino_t parent, const char *name, mode_t mode)
+{
+    wrap(&fslogic::Composite::mkdir,
+        [req](const struct fuse_entry_param &entry) {
+            fuse_reply_entry(req, &entry);
+        },
+        req, parent, name, mode);
+}
+
+void wrap_mknod(fuse_req_t req, fuse_ino_t parent, const char *name,
+    mode_t mode, dev_t /*rdev*/)
+{
+    wrap(&fslogic::Composite::mknod,
+        [req](const struct fuse_entry_param &entry) {
+            fuse_reply_entry(req, &entry);
+        },
+        req, parent, name, mode);
+}
+
+void wrap_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
+{
+    wrap(&fslogic::Composite::unlink, [req] { fuse_reply_err(req, 0); }, req,
+        parent, name);
+}
+
+void wrap_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
+    fuse_ino_t newparent, const char *newname)
+{
+    wrap(&fslogic::Composite::rename, [req] { fuse_reply_err(req, 0); }, req,
+        parent, name, newparent, newname);
+}
+
+void wrap_forget(fuse_req_t req, fuse_ino_t ino, unsigned long nlookup)
+{
+    wrap(&fslogic::Composite::forget, [req] { fuse_reply_none(req); }, req, ino,
+        nlookup);
+}
+
+void wrap_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set,
+    struct fuse_file_info * /*fi*/)
+{
+    wrap(&fslogic::Composite::setattr,
+        [req](const struct stat &attrs) { fuse_reply_attr(req, &attrs, 0); },
+        req, ino, *attr, to_set);
+}
+
+void wrap_create(fuse_req_t req, fuse_ino_t parent, const char *name,
+    mode_t mode, struct fuse_file_info *fi)
+{
+    wrap(&fslogic::Composite::create,
+        [ req, fi = *fi ](const std::pair<const struct fuse_entry_param,
+            std::uint64_t> &res) mutable {
+            fi.fh = res.second;
+            fuse_reply_create(req, &res.first, &fi);
+        },
+        req, parent, name, mode, fi->flags);
+}
+
+void wrap_statfs(fuse_req_t req, fuse_ino_t ino)
+{
+    wrap(&fslogic::Composite::statfs,
+        [req](const struct statvfs &statinfo) {
+            fuse_reply_statfs(req, &statinfo);
+        },
+        req, ino);
+}
+
+void wrap_flush(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
+{
+    wrap(&fslogic::Composite::flush, [req] { fuse_reply_err(req, 0); }, req,
+        ino, fi->fh);
+}
+
+void wrap_fsync(
+    fuse_req_t req, fuse_ino_t ino, int dataSync, struct fuse_file_info *fi)
+{
+    wrap(&fslogic::Composite::fsync, [req] { fuse_reply_err(req, 0); }, req,
+        ino, fi->fh, dataSync);
 }
 
 } // extern "C"
 } // namespace
 
-struct fuse_operations fuseOperations()
+struct fuse_lowlevel_ops fuseOperations()
 {
-    struct fuse_operations operations = {nullptr};
+    struct fuse_lowlevel_ops operations = {nullptr};
 
-    operations.init = init;
+    operations.create = wrap_create;
+    operations.flush = wrap_flush;
+    operations.forget = wrap_forget;
+    operations.fsync = wrap_fsync;
     operations.getattr = wrap_getattr;
-    operations.access = wrap_access;
-    operations.readlink = wrap_readlink;
-    operations.readdir = wrap_readdir;
-    operations.mknod = wrap_mknod;
+    operations.lookup = wrap_lookup;
     operations.mkdir = wrap_mkdir;
-    operations.symlink = wrap_symlink;
-    operations.unlink = wrap_unlink;
-    operations.rmdir = wrap_rmdir;
-    operations.rename = wrap_rename;
-    operations.chmod = wrap_chmod;
-    operations.chown = wrap_chown;
-    operations.truncate = wrap_truncate;
+    operations.mknod = wrap_mknod;
     operations.open = wrap_open;
     operations.read = wrap_read;
-    operations.write = wrap_write;
-    operations.statfs = wrap_statfs;
+    operations.readdir = wrap_readdir;
     operations.release = wrap_release;
-    operations.fsync = wrap_fsync;
-    operations.utime = wrap_utime;
-    operations.flush = wrap_flush;
-    operations.opendir = wrap_opendir;
-    operations.releasedir = wrap_releasedir;
-    operations.fsyncdir = wrap_fsyncdir;
-    operations.create = wrap_create;
-    operations.flag_utime_omit_ok = 1;
+    operations.rename = wrap_rename;
+    operations.rmdir = wrap_unlink;
+    operations.setattr = wrap_setattr;
+    operations.statfs = wrap_statfs;
+    operations.unlink = wrap_unlink;
+    operations.write = wrap_write;
 
     return operations;
 }

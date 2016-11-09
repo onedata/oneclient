@@ -1,5 +1,5 @@
 /**
- * @file checksum.h
+ * @file syncResponse.h
  * @author Tomasz Lichon
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
@@ -9,42 +9,49 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_CHECKSUM_H
 #define ONECLIENT_MESSAGES_FUSE_CHECKSUM_H
 
-#include "messages/serverMessage.h"
+#include "fileLocation.h"
+#include "fuseResponse.h"
 
 #include <memory>
 #include <string>
 
 namespace one {
 namespace clproto {
-class Checksum;
+class SyncResponse;
 }
 namespace messages {
 namespace fuse {
 
 /**
- * The Checksum class represents a message with md5 sum of synced data that is
- * sent by the server.
+ * The SyncResponse class represents a message with md5 sum of synced data that
+ * is sent by the server.
  */
-class Checksum : public ServerMessage {
+class SyncResponse : public FuseResponse {
 public:
-    using ProtocolMessage = clproto::Checksum;
+    using ProtocolMessage = clproto::SyncResponse;
 
     /**
      * Constructor.
      * @param serverMessage Protocol Buffers message representing
      * @c ServerMessage.
      */
-    Checksum(std::unique_ptr<ProtocolServerMessage> serverMessage);
+    SyncResponse(std::unique_ptr<ProtocolServerMessage> serverMessage);
 
     /**
      * @return Checksum value.
      */
-    const std::string &value() const;
+    const std::string &checksum() const { return m_checksum; }
+
+    /**
+     * @return File location info.
+     */
+    const FileLocation &fileLocation() const { return m_fileLocation; }
 
     std::string toString() const override;
 
 private:
-    std::string m_value;
+    std::string m_checksum;
+    FileLocation m_fileLocation;
 };
 
 } // namespace fuse

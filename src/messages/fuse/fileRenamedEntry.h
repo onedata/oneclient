@@ -42,21 +42,25 @@ public:
      */
     FileRenamedEntry(ProtocolMessage &message);
 
-
     /**
      * @return Old Uuid of renamed file.
      */
-    const std::string &oldUuid() const;
+    const std::string &oldUuid() const { return m_oldUuid; }
 
     /**
      * @return New Uuid of renamed file.
      */
-    const std::string &newUuid() const;
+    const std::string &newUuid() const { return m_newUuid; }
 
     /**
-     * @return New path of renamed file.
+     * @return New uuid of renamed file's parent.
      */
-    const std::string &newPath() const;
+    const std::string &newParentUuid() const { return m_newParentUuid; }
+
+    /**
+     * @return New name of renamed file.
+     */
+    const std::string &newName() const { return m_newName; }
 
     std::string toString() const;
 
@@ -65,7 +69,8 @@ public:
 private:
     std::string m_oldUuid;
     std::string m_newUuid;
-    std::string m_newPath;
+    std::string m_newParentUuid;
+    std::string m_newName;
 };
 
 } // namespace fuse

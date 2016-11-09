@@ -18,7 +18,7 @@
 #include <sys/types.h>
 
 #include <cstdint>
-#include <helpers/IStorageHelper.h>
+#include <helpers/storageHelper.h>
 #include <string>
 
 namespace one {

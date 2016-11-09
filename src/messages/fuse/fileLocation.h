@@ -14,6 +14,8 @@
 
 #include <boost/icl/interval_map.hpp>
 #include <boost/optional.hpp>
+#include <folly/FBString.h>
+#include <folly/Optional.h>
 
 #include <sys/types.h>
 
@@ -115,18 +117,15 @@ public:
     /**
      * @return ID of file handle.
      */
-    const boost::optional<std::string> &handleId() const;
-
-    /**
-     * Set new handle id.
-     * @param handleId The handle id to set.
-     */
-    void handleId(std::string handleId);
+    const folly::Optional<folly::fbstring> &handleId() const
+    {
+        return m_handleId;
+    }
 
     /**
      * Unset handle id.
      */
-    void unsetHandleId();
+    void unsetHandleId() { m_handleId.clear(); }
 
     /**
      * Aggregates @c this file location with an other file location.
@@ -146,7 +145,7 @@ private:
     std::string m_storageId;
     std::string m_fileId;
     FileBlocksMap m_blocks;
-    boost::optional<std::string> m_handleId;
+    folly::Optional<folly::fbstring> m_handleId;
 };
 
 } // namespace fuse

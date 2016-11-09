@@ -13,7 +13,9 @@
 
 #include "messages.pb.h"
 
-#include <boost/optional.hpp>
+#include <folly/FBString.h>
+#include <folly/Optional.h>
+
 #include <sys/types.h>
 
 #include <chrono>
@@ -35,7 +37,7 @@ namespace fuse {
  */
 class FileAttr : public FuseResponse {
 public:
-    using Key = std::string;
+    using Key = folly::fbstring;
     using FileAttrPtr = std::unique_ptr<FileAttr>;
     using ProtocolMessage = clproto::FileAttr;
     using Subscription = client::events::FileAttrSubscription;
@@ -66,13 +68,41 @@ public:
     /**
      * @return UUID of the file.
      */
-    const std::string &uuid() const;
+    const folly::fbstring &uuid() const;
 
     /**
      * Sets new UUID of the file
      * @param uuid The UUID to set.
      */
-    void uuid(const std::string uuid);
+    void setUuid(folly::fbstring uuid);
+
+    /**
+     * @returns Name of the file.
+     */
+    const folly::fbstring &name() const { return m_name; };
+
+    /**
+     * Sets new name of the file.
+     * @param name Name to set.
+     */
+    void setName(folly::fbstring name) { m_name.swap(name); }
+
+    /**
+     * @returns UUID of the file's parent.
+     */
+    const folly::Optional<folly::fbstring> &parentUuid() const
+    {
+        return m_parentUuid;
+    };
+
+    /**
+     * Sets new UUID of the file's parent.
+     * @param parentUuid Uuid to set.
+     */
+    void setParentUuid(folly::fbstring parentUuid)
+    {
+        m_parentUuid = std::move(parentUuid);
+    }
 
     /**
      * @return File access mode.
@@ -148,7 +178,7 @@ public:
     /**
      * @return Size of the file.
      */
-    boost::optional<off_t> size() const;
+    folly::Optional<off_t> size() const;
 
     /**
      * Set file size.
@@ -168,8 +198,9 @@ public:
 private:
     void deserialize(const ProtocolMessage &message);
 
-    std::string m_uuid;
-    std::string m_name;
+    folly::fbstring m_uuid;
+    folly::fbstring m_name;
+    folly::Optional<folly::fbstring> m_parentUuid;
     mode_t m_mode;
     uid_t m_uid;
     gid_t m_gid;
@@ -177,7 +208,7 @@ private:
     std::chrono::system_clock::time_point m_mtime;
     std::chrono::system_clock::time_point m_ctime;
     FileType m_type;
-    boost::optional<off_t> m_size;
+    folly::Optional<off_t> m_size;
 };
 
 } // namespace fuse

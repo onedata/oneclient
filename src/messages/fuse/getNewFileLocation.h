@@ -15,7 +15,7 @@
 #include <fcntl.h>
 #include <sys/types.h>
 
-#include <helpers/IStorageHelper.h>
+#include <helpers/storageHelper.h>
 #include <string>
 
 namespace one {
@@ -35,15 +35,15 @@ public:
      * @param mode Mode of the newly created file.
      * @param flags Open flags.
      */
-    GetNewFileLocation(std::string name, std::string parentUuid, mode_t mode,
-        const one::helpers::FlagsSet flags);
+    GetNewFileLocation(folly::fbstring parentUuid, folly::fbstring name,
+        const mode_t mode, const one::helpers::FlagsSet flags);
 
     std::string toString() const override;
 
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    std::string m_name;
+    folly::fbstring m_name;
     mode_t m_mode;
     one::helpers::FlagsSet m_flags;
 };

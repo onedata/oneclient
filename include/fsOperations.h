@@ -9,8 +9,8 @@
 #ifndef ONECLIENT_FS_OPERATIONS_H
 #define ONECLIENT_FS_OPERATIONS_H
 
-#include <fuse.h>
+#include <fuse/fuse_lowlevel.h>
 
-struct fuse_operations fuseOperations();
+struct fuse_lowlevel_ops fuseOperations();
 
 #endif // ONECLIENT_FS_OPERATIONS_H

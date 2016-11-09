@@ -16,14 +16,9 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-GetFileChildren::GetFileChildren(std::string uuid)
-    : FileRequest(std::move(uuid))
-{
-}
-
 GetFileChildren::GetFileChildren(
-    std::string uuid, off_t offset, std::size_t size)
-    : FileRequest{std::move(uuid)}
+    const folly::fbstring &uuid, const off_t offset, const std::size_t size)
+    : FileRequest{uuid.toStdString()}
     , m_offset{offset}
     , m_size{size}
 {
@@ -33,11 +28,8 @@ std::string GetFileChildren::toString() const
 {
     std::stringstream stream;
 
-    stream << "type: 'GetFileChildren', uuid: " << m_contextGuid;
-    if (m_offset)
-        stream << ", offset: " << m_offset.get();
-    if (m_size)
-        stream << ", size: " << m_size.get();
+    stream << "type: 'GetFileChildren', uuid: " << m_contextGuid
+           << ", offset: " << m_offset << ", size: " << m_size;
 
     return stream.str();
 }
@@ -49,10 +41,8 @@ std::unique_ptr<ProtocolClientMessage> GetFileChildren::serializeAndDestroy()
                    ->mutable_file_request()
                    ->mutable_get_file_children();
 
-    if (m_offset)
-        gfc->set_offset(m_offset.get());
-    if (m_size)
-        gfc->set_size(m_size.get());
+    gfc->set_offset(m_offset);
+    gfc->set_size(m_size);
 
     return msg;
 }
