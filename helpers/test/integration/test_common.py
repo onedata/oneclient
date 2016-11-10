@@ -53,11 +53,14 @@ def _with_reply_process(endpoint, responses, queue, reply_to_async=False):
             client_message.ParseFromString(received_msg)
             message_has_id = client_message.HasField('message_id')
 
+            print "client_message", client_message
+
             if message_has_id or reply_to_async:
                 response = responses.pop(0)
                 if message_has_id:
                     response.message_id = client_message.message_id.encode(
                         'utf-8')
+                print "response", response
                 endpoint.send(response.SerializeToString())
 
                 queue.put(client_message)

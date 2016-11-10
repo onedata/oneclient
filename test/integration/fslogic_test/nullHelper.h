@@ -27,13 +27,16 @@ public:
     }
 
     folly::Future<folly::IOBufQueue> read(
-        const off_t, const std::size_t) override
+        const off_t, const std::size_t size) override
     {
         if (m_ec)
             return folly::makeFuture<folly::IOBufQueue>(
                 std::system_error{m_ec});
 
-        return folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()};
+        folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
+        buf.allocate(size);
+
+        return folly::makeFuture(std::move(buf));
     }
 
     folly::Future<std::size_t> write(

@@ -6,15 +6,15 @@
  * 'LICENSE.txt'
  */
 
-#include "context.h"
-#include "communication/communicator.h"
 #include "events/eventManager.h"
+#include "communication/communicator.h"
+#include "context.h"
 #include "scheduler.h"
 
 #include "messages.pb.h"
 
-#include <boost/python.hpp>
 #include <boost/make_shared.hpp>
+#include <boost/python.hpp>
 
 #include <atomic>
 #include <chrono>
@@ -219,6 +219,8 @@ std::string createFileAttrEventMsg(
     fileAttrEventMsg->set_ctime(0);
     fileAttrEventMsg->set_type(one::clproto::FileType::REG);
     fileAttrEventMsg->set_size(size);
+    fileAttrEventMsg->set_owner_id("");
+    fileAttrEventMsg->set_provider_id("");
     return serverMsg.SerializeAsString();
 }
 

@@ -121,7 +121,7 @@ std::shared_ptr<FileLocation> MetadataCache::fetchFileLocation(
     auto sharedLocation = std::make_shared<FileLocation>(std::move(location));
 
     auto &index = boost::multi_index::get<ByUuid>(m_cache);
-    auto it = index.find(sharedLocation->uuid());
+    auto it = index.find(uuid);
     assert(it != index.end());
 
     const auto flag = getFlagForLocation(flagsSet);
