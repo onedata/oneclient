@@ -11,7 +11,7 @@
 
 #include "fileRequest.h"
 
-#include <boost/optional.hpp>
+#include <folly/Optional.h>
 
 #include <chrono>
 #include <string>
@@ -34,7 +34,7 @@ public:
     /**
      * @return File's access time set.
      */
-    boost::optional<std::chrono::system_clock::time_point> atime() const
+    folly::Optional<std::chrono::system_clock::time_point> atime() const
     {
         return m_atime;
     }
@@ -54,7 +54,7 @@ public:
     /**
      * @return File's modification time set.
      */
-    boost::optional<std::chrono::system_clock::time_point> mtime() const
+    folly::Optional<std::chrono::system_clock::time_point> mtime() const
     {
         return m_mtime;
     }
@@ -62,7 +62,7 @@ public:
     /**
      * @return File's change time set.
      */
-    boost::optional<std::chrono::system_clock::time_point> ctime() const
+    folly::Optional<std::chrono::system_clock::time_point> ctime() const
     {
         return m_ctime;
     }
@@ -78,9 +78,9 @@ public:
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    boost::optional<std::chrono::system_clock::time_point> m_atime;
-    boost::optional<std::chrono::system_clock::time_point> m_ctime;
-    boost::optional<std::chrono::system_clock::time_point> m_mtime;
+    folly::Optional<std::chrono::system_clock::time_point> m_atime;
+    folly::Optional<std::chrono::system_clock::time_point> m_ctime;
+    folly::Optional<std::chrono::system_clock::time_point> m_mtime;
 };
 
 } // namespace fuse

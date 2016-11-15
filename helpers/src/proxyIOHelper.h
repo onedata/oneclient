@@ -9,7 +9,7 @@
 #ifndef HELPERS_PROXY_IO_HELPER_H
 #define HELPERS_PROXY_IO_HELPER_H
 
-#include "helpers/IStorageHelper.h"
+#include "helpers/storageHelper.h"
 
 #include "communication/communicator.h"
 
@@ -20,26 +20,84 @@
 namespace one {
 namespace helpers {
 
-class ProxyIOHelper : public IStorageHelper {
+/**
+ * The @c FileHandle implementation for ProxyIO storage helper.
+ */
+class ProxyIOFileHandle : public FileHandle {
 public:
-    ProxyIOHelper(const std::unordered_map<std::string, std::string> &args,
-        communication::Communicator &communicator);
+    /**
+     * Constructor.
+     * @param fileId Helper-specific ID of the open file.
+     * @param storageId Id of the storage the file is stored on.
+     * @param openParams Parameters associated with the handle.
+     * @param communicator Communicator that will be used for communication
+     * with a provider.
+     */
+    ProxyIOFileHandle(folly::fbstring fileId, folly::fbstring storageId,
+        Params openParams, communication::Communicator &communicator);
 
-    void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset,
-        GeneralCallback<asio::mutable_buffer>) override;
+    folly::Future<folly::IOBufQueue> read(
+        const off_t offset, const std::size_t size) override;
 
-    void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset,
-        GeneralCallback<std::size_t>) override;
+    folly::Future<std::size_t> write(
+        const off_t offset, folly::IOBufQueue buf) override;
 
-    void ash_multiwrite(CTXPtr ctx, const boost::filesystem::path &p,
-        std::vector<std::pair<off_t, asio::const_buffer>> buffs,
-        GeneralCallback<std::size_t> callback) override;
+    folly::Future<std::size_t> multiwrite(
+        folly::fbvector<std::pair<off_t, folly::IOBufQueue>> buffs) override;
+
+private:
+    folly::fbstring m_storageId;
+    communication::Communicator &m_communicator;
+};
+
+/**
+ * @c ProxyIOHelper is responsible for providing a POSIX-like API for operations
+ * on files proxied through a onedata provider.
+ */
+class ProxyIOHelper : public StorageHelper {
+public:
+    /**
+     * Constructor.
+     * @param storageId Id of the storage the file is stored on.
+     * @param communicator Communicator that will be used for communication
+     * with a provider.
+     */
+    ProxyIOHelper(
+        folly::fbstring storageId, communication::Communicator &communicator);
+
+    folly::Future<FileHandlePtr> open(const folly::fbstring &fileId,
+        const int flags, const Params &openParams) override;
+
+private:
+    folly::fbstring m_storageId;
+    communication::Communicator &m_communicator;
+};
+
+/**
+ * An implementation of @c StorageHelperFactory for ProxyIO storage helper.
+ */
+class ProxyIOHelperFactory : public StorageHelperFactory {
+public:
+    /**
+     * Constructor.
+     * @param communicator Communicator that will be used for communication
+     * with a provider.
+     */
+    ProxyIOHelperFactory(communication::Communicator &communicator)
+        : m_communicator{communicator}
+    {
+    }
+
+    std::shared_ptr<StorageHelper> createStorageHelper(
+        const Params &parameters) override
+    {
+        auto storageId = getParam(parameters, "storage_id");
+        return std::make_shared<ProxyIOHelper>(
+            std::move(storageId), m_communicator);
+    }
 
 private:
     communication::Communicator &m_communicator;
-    std::string m_storageId;
 };
 
 } // namespace helpers

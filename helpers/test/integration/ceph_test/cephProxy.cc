@@ -41,17 +41,10 @@ public:
         : m_service{1}
         , m_idleWork{asio::make_work(m_service)}
         , m_worker{[=] { m_service.run(); }}
-        , m_helper{
-              {{"user_name", std::move(username)}, {"cluster_name", "ceph"},
-                  {"mon_host", std::move(monHost)}, {"key", std::move(key)},
-                  {"pool_name", std::move(poolName)}},
-              m_service}
+        , m_helper{std::make_shared<one::helpers::CephHelper>("ceph", monHost,
+              poolName, username, key,
+              std::make_unique<one::AsioExecutor>(m_service))}
     {
-        auto rawCTX = m_helper.createCTX({});
-        m_ctx = std::dynamic_pointer_cast<one::helpers::CephHelperCTX>(rawCTX);
-        if (m_ctx == nullptr)
-            throw std::system_error{
-                std::make_error_code(std::errc::invalid_argument)};
     }
 
     ~CephProxy()
@@ -63,71 +56,45 @@ public:
     void unlink(std::string fileId)
     {
         ReleaseGIL guard;
-
-        auto p = makePromise<void>();
-        m_helper.ash_unlink(m_ctx, fileId, std::bind(&CephProxy::setVoidPromise,
-                                               this, p, std::placeholders::_1));
-
-        return getFuture(std::move(p));
+        m_helper->unlink(fileId).get();
     }
 
     std::string read(std::string fileId, int offset, int size)
     {
         ReleaseGIL guard;
-        std::string buffer(size, '\0');
-        m_helper.sh_read(m_ctx, fileId, asio::buffer(buffer), offset);
-        return buffer;
+        return m_helper->open(fileId, 0, {})
+            .then([&](one::helpers::FileHandlePtr handle) {
+                auto buf = handle->read(offset, size).get();
+                std::string data;
+                buf.appendToString(data);
+                return data;
+            })
+            .get();
     }
 
     int write(std::string fileId, std::string data, int offset)
     {
         ReleaseGIL guard;
-        return m_helper.sh_write(m_ctx, fileId, asio::buffer(data), offset);
+        return m_helper->open(fileId, 0, {})
+            .then([&](one::helpers::FileHandlePtr handle) {
+                folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
+                buf.append(data);
+                return handle->write(offset, std::move(buf)).get();
+            })
+            .get();
     }
 
     void truncate(std::string fileId, int offset)
     {
         ReleaseGIL guard;
-
-        auto p = makePromise<void>();
-        m_helper.ash_truncate(
-            m_ctx, fileId, offset, std::bind(&CephProxy::setVoidPromise, this,
-                                       p, std::placeholders::_1));
-
-        return getFuture(std::move(p));
+        m_helper->truncate(fileId, offset).get();
     }
 
 private:
-    void setVoidPromise(
-        std::shared_ptr<std::promise<void>> p, one::helpers::error_t e)
-    {
-        if (e) {
-            p->set_exception(std::make_exception_ptr(std::system_error(e)));
-        }
-        else {
-            p->set_value();
-        }
-    }
-
-    template <class T> std::shared_ptr<std::promise<T>> makePromise()
-    {
-        return std::make_shared<std::promise<T>>();
-    }
-
-    template <class T> T getFuture(std::shared_ptr<std::promise<T>> p)
-    {
-        using namespace std::literals;
-        auto f = p->get_future();
-        if (f.wait_for(2s) != std::future_status::ready)
-            throw std::system_error{std::make_error_code(std::errc::timed_out)};
-        return f.get();
-    }
-
     asio::io_service m_service;
     asio::executor_work<asio::io_service::executor_type> m_idleWork;
     std::thread m_worker;
-    one::helpers::CephHelper m_helper;
-    std::shared_ptr<one::helpers::CephHelperCTX> m_ctx;
+    std::shared_ptr<one::helpers::CephHelper> m_helper;
 };
 
 namespace {
@@ -137,7 +104,7 @@ boost::shared_ptr<CephProxy> create(std::string monHost, std::string username,
     return boost::make_shared<CephProxy>(std::move(monHost),
         std::move(username), std::move(key), std::move(poolName));
 }
-}
+} // namespace
 
 BOOST_PYTHON_MODULE(ceph)
 {

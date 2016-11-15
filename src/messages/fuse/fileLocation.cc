@@ -56,18 +56,6 @@ const FileLocation::FileBlocksMap &FileLocation::blocks() const
     return m_blocks;
 }
 
-const boost::optional<std::string> &FileLocation::handleId() const
-{
-    return m_handleId;
-}
-
-void FileLocation::handleId(std::string handleId)
-{
-    m_handleId = std::move(handleId);
-}
-
-void FileLocation::unsetHandleId() { m_handleId = boost::none; }
-
 void FileLocation::aggregate(FileLocationPtr fileLocation)
 {
     m_storageId.swap(fileLocation->m_storageId);
@@ -85,7 +73,7 @@ std::string FileLocation::toString() const
         stream << block.first << " -> (" << block.second.storageId() << ", "
                << block.second.fileId() << "), ";
 
-    stream << "], handleId: " << (m_handleId ? m_handleId.get() : "unset"s);
+    stream << "], handleId: " << (m_handleId ? *m_handleId : "unset");
 
     return stream.str();
 }

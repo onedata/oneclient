@@ -19,28 +19,22 @@ namespace fuse {
 FileRenamedEntry::FileRenamedEntry(const ProtocolMessage &message)
     : m_oldUuid{message.old_uuid()}
     , m_newUuid{message.new_uuid()}
-    , m_newPath{message.new_path()}
+    , m_newParentUuid{message.new_parent_uuid()}
+    , m_newName{message.new_name()}
 {
 }
 
 FileRenamedEntry::FileRenamedEntry(ProtocolMessage &message)
 {
-    message.mutable_old_uuid()->swap(m_oldUuid);
-    message.mutable_new_uuid()->swap(m_newUuid);
-    message.mutable_new_path()->swap(m_newPath);
+    fillProtocolMessage(message);
 }
-
-const std::string &FileRenamedEntry::oldUuid() const { return m_oldUuid; }
-
-const std::string &FileRenamedEntry::newUuid() const { return m_newUuid; }
-
-const std::string &FileRenamedEntry::newPath() const { return m_newPath; }
 
 std::string FileRenamedEntry::toString() const
 {
     std::stringstream stream;
     stream << "type: 'FileChildren', oldUuid: '" << m_oldUuid << "', newUuid: '"
-           << m_newUuid << "', newPath: '" << m_newPath << "'";
+           << m_newUuid << "', newParentUuid: '" << m_newParentUuid
+           << "', newName: '" << m_newName << "'";
 
     return stream.str();
 }
@@ -49,7 +43,8 @@ void FileRenamedEntry::fillProtocolMessage(ProtocolMessage &message)
 {
     message.mutable_old_uuid()->swap(m_oldUuid);
     message.mutable_new_uuid()->swap(m_newUuid);
-    message.mutable_new_path()->swap(m_newPath);
+    message.mutable_new_parent_uuid()->swap(m_newParentUuid);
+    message.mutable_new_name()->swap(m_newName);
 }
 
 } // namespace fuse

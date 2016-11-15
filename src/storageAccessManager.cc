@@ -8,12 +8,14 @@
 
 #include "storageAccessManager.h"
 #include "directIOHelper.h"
-#include "helpers/IStorageHelper.h"
-#include "helpers/storageHelperFactory.h"
+#include "helpers/storageHelper.h"
+#include "helpers/storageHelperCreator.h"
 #include "logging.h"
 #include "messages/fuse/createStorageTestFile.h"
 #include "messages/fuse/storageTestFile.h"
 #include "messages/fuse/verifyStorageTestFile.h"
+
+#include <folly/io/IOBuf.h>
 
 #include <errno.h>
 #ifdef __APPLE__
@@ -94,14 +96,14 @@ std::vector<boost::filesystem::path> getMountPoints()
 
 StorageAccessManager::StorageAccessManager(
     communication::Communicator &communicator,
-    helpers::StorageHelperFactory &helperFactory)
+    helpers::StorageHelperCreator &helperFactory)
     : m_communicator{communicator}
     , m_helperFactory{helperFactory}
     , m_mountPoints{getMountPoints()}
 {
 }
 
-std::shared_ptr<helpers::IStorageHelper>
+std::shared_ptr<helpers::StorageHelper>
 StorageAccessManager::verifyStorageTestFile(
     const messages::fuse::StorageTestFile &testFile)
 {
@@ -126,40 +128,29 @@ StorageAccessManager::verifyStorageTestFile(
 }
 
 bool StorageAccessManager::verifyStorageTestFile(
-    std::shared_ptr<helpers::IStorageHelper> helper,
+    std::shared_ptr<helpers::StorageHelper> helper,
     const messages::fuse::StorageTestFile &testFile)
 {
     try {
 
         auto size = testFile.fileContent().size();
-        std::vector<char> buffer(size);
 
-        auto ctx = helper->createCTX({});
-        helper->sh_open(ctx, testFile.fileId(), O_RDONLY);
+        auto handle =
+            communication::wait(helper->open(testFile.fileId(), O_RDONLY, {}));
 
-        asio::mutable_buffer content;
-        try {
-            content = helper->sh_read(
-                ctx, testFile.fileId(), asio::buffer(buffer), 0);
-        }
-        catch (...) {
-            helper->sh_release(ctx, testFile.fileId());
-            throw;
-        }
-        helper->sh_release(ctx, testFile.fileId());
+        auto buf = communication::wait(handle->read(0, size));
+        std::string content;
+        buf.appendToString(content);
 
-        if (asio::buffer_size(content) != size) {
+        if (content.size() != size) {
             LOG(WARNING) << "Storage test file size mismatch, expected: "
-                         << size << ", actual: " << asio::buffer_size(content);
+                         << size << ", actual: " << content.size();
             return false;
         }
 
-        if (testFile.fileContent().compare(
-                0, size, asio::buffer_cast<char *>(content), size) != 0) {
+        if (testFile.fileContent() != content) {
             LOG(WARNING) << "Storage test file content mismatch, expected: '"
-                         << testFile.fileContent() << "', actual: '"
-                         << std::string{asio::buffer_cast<char *>(content),
-                                asio::buffer_size(content)}
+                         << testFile.fileContent() << "', actual: '" << content
                          << "'";
             return false;
         }
@@ -177,35 +168,32 @@ bool StorageAccessManager::verifyStorageTestFile(
     return false;
 }
 
-std::string StorageAccessManager::modifyStorageTestFile(
-    std::shared_ptr<helpers::IStorageHelper> helper,
+folly::fbstring StorageAccessManager::modifyStorageTestFile(
+    std::shared_ptr<helpers::StorageHelper> helper,
     const messages::fuse::StorageTestFile &testFile)
 {
     auto size = testFile.fileContent().size();
-    std::vector<char> buffer(size);
+    folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
+
+    auto data = static_cast<char *>(buf.allocate(size));
 
     std::random_device device;
     std::default_random_engine engine(device());
     std::uniform_int_distribution<char> distribution('a', 'z');
-    std::generate_n(
-        buffer.data(), size, [&]() { return distribution(engine); });
+    std::generate_n(data, size, [&]() { return distribution(engine); });
 
-    auto ctx = helper->createCTX({});
-    helper->sh_open(ctx, testFile.fileId(), O_WRONLY);
-    try {
-        helper->sh_write(
-            ctx, testFile.fileId(), asio::const_buffer(buffer.data(), size), 0);
-        helper->sh_fsync(ctx, testFile.fileId(), true);
+    auto handle =
+        communication::wait(helper->open(testFile.fileId(), O_WRONLY, {}));
 
-        DLOG(INFO) << "Storage test file modified.";
-    }
-    catch (...) {
-        helper->sh_release(ctx, testFile.fileId());
-        throw;
-    }
-    helper->sh_release(ctx, testFile.fileId());
+    std::string content;
+    buf.appendToString(content);
 
-    return std::string{buffer.data(), size};
+    communication::wait(handle->write(0, std::move(buf)));
+    communication::wait(handle->fsync(true));
+
+    DLOG(INFO) << "Storage test file modified.";
+
+    return content;
 }
 
 } // namespace client

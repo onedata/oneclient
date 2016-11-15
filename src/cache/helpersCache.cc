@@ -14,145 +14,131 @@
 #include "messages/fuse/helperParams.h"
 #include "messages/fuse/storageTestFile.h"
 #include "messages/fuse/verifyStorageTestFile.h"
-#include "utils.hpp"
 
-#include <boost/functional/hash.hpp>
-#include <boost/optional/optional_io.hpp>
+#include <folly/ThreadName.h>
 
+#include <algorithm>
 #include <chrono>
 #include <functional>
 
 namespace one {
 namespace client {
+namespace cache {
 
 constexpr unsigned int VERIFY_TEST_FILE_ATTEMPTS = 5;
 constexpr std::chrono::seconds VERIFY_TEST_FILE_DELAY{15};
 
-HelpersCache::HelpersCache(
-    communication::Communicator &communicator, Scheduler &scheduler)
+HelpersCache::HelpersCache(communication::Communicator &communicator,
+    Scheduler &scheduler, const std::size_t workersNumber)
     : m_communicator{communicator}
     , m_scheduler{scheduler}
-    , m_storageAccessManager{communicator, m_helperFactory}
+    , m_helpersIoService{workersNumber}
 {
-    m_thread = std::thread{[this] {
-        etls::utils::nameThread("HelpersCache");
-        m_ioService.run();
-    }};
+    std::generate_n(
+        std::back_inserter(m_helpersWorkers), workersNumber, [this] {
+            return std::thread{[this] {
+                folly::setThreadName("HelpersWorker");
+                m_helpersIoService.run();
+            }};
+        });
 }
 
 HelpersCache::~HelpersCache()
 {
-    m_ioService.stop();
-    m_thread.join();
+    m_helpersIoService.stop();
+    for (auto &worker : m_helpersWorkers)
+        worker.join();
 }
 
-HelpersCache::HelperPtr HelpersCache::get(const std::string &fileUuid,
-    const std::string &storageId, bool forceProxyIO)
+HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
+    const folly::fbstring &storageId, const bool forceProxyIO)
 {
     if (!forceProxyIO) {
-        AccessTypeAccessor acc;
-        if (m_accessType.insert(acc, storageId)) {
-            acc->second = AccessType::PROXY;
-            acc.release();
+        decltype(m_accessType)::iterator accessTypeIt;
+        bool accessUnset;
+        std::tie(accessTypeIt, accessUnset) =
+            m_accessType.emplace(std::make_pair(storageId, AccessType::PROXY));
+
+        if (accessUnset) {
+            accessTypeIt->second = AccessType::PROXY;
             requestStorageTestFileCreation(fileUuid, storageId);
-            forceProxyIO = true;
+            return get(fileUuid, storageId, true);
         }
-        else {
-            forceProxyIO = (acc->second == AccessType::PROXY);
-        }
+
+        if (accessTypeIt->second == AccessType::PROXY)
+            return get(fileUuid, storageId, true);
     }
 
-    ConstCacheAccessor constAcc;
-    if (m_cache.find(constAcc, std::make_tuple(storageId, forceProxyIO)))
-        return constAcc->second;
+    auto key = std::make_pair(storageId, forceProxyIO);
 
-    CacheAccessor acc;
-    if (!m_cache.insert(acc, std::make_tuple(storageId, forceProxyIO)))
-        return acc->second;
+    auto helperIt = m_cache.find(key);
+    if (helperIt != m_cache.end())
+        return helperIt->second;
 
-    try {
-        auto future = m_communicator.communicate<messages::fuse::HelperParams>(
-            messages::fuse::GetHelperParams(storageId, forceProxyIO));
+    // TODO: multiple requests may go out before helper is resolved
+    auto params = communication::wait(
+        m_communicator.communicate<messages::fuse::HelperParams>(
+            messages::fuse::GetHelperParams{
+                storageId.toStdString(), forceProxyIO}));
 
-        auto params = communication::wait(future);
-        auto helper =
-            m_helperFactory.getStorageHelper(params.name(), params.args());
+    auto helper = m_helperFactory.getStorageHelper(
+        params.name(), params.args(), /*buffered*/ true);
 
-        acc->second = helper;
-        return helper;
-    }
-    catch (...) {
-        m_cache.erase(acc);
-        throw;
-    }
-}
-
-bool HelpersCache::HashCompare::equal(const std::tuple<std::string, bool> &j,
-    const std::tuple<std::string, bool> &k) const
-{
-    return j == k;
-}
-
-size_t HelpersCache::HashCompare::hash(
-    const std::tuple<std::string, bool> &k) const
-{
-    return boost::hash<std::tuple<std::string, bool>>{}(k);
+    m_cache[key] = helper;
+    return helper;
 }
 
 void HelpersCache::requestStorageTestFileCreation(
-    const std::string &fileUuid, const std::string &storageId)
+    const folly::fbstring &fileUuid, const folly::fbstring &storageId)
 {
     DLOG(INFO) << "Requesting storage test file creation for file: '"
                << fileUuid << "' and storage: '" << storageId << "'";
-    messages::fuse::CreateStorageTestFile request{fileUuid, storageId};
 
-    m_communicator.communicate<messages::fuse::StorageTestFile>(
-        std::move(request),
-        [=](const std::error_code &ec,
-            std::unique_ptr<messages::fuse::StorageTestFile> testFile) {
-            if (!ec) {
-                handleStorageTestFile(
-                    std::make_shared<messages::fuse::StorageTestFile>(
-                        std::move(*testFile)),
-                    storageId, VERIFY_TEST_FILE_ATTEMPTS);
-            }
-            else {
-                LOG(WARNING) << "Storage test file creation error, code: '"
-                             << ec.value() << "', message: '" << ec.message()
-                             << "'";
+    try {
+        auto testFile = communication::wait(
+            m_communicator.communicate<messages::fuse::StorageTestFile>(
+                messages::fuse::CreateStorageTestFile{
+                    fileUuid.toStdString(), storageId.toStdString()}));
 
-                if (ec.value() == EAGAIN) {
-                    m_accessType.erase(storageId);
-                }
-                else {
-                    LOG(INFO) << "Storage '" << storageId
-                              << "' is not directly accessible to the client.";
-                }
-            }
-        });
+        auto sharedTestFileMsg =
+            std::make_shared<messages::fuse::StorageTestFile>(
+                std::move(testFile));
+
+        handleStorageTestFile(
+            sharedTestFileMsg, storageId, VERIFY_TEST_FILE_ATTEMPTS);
+    }
+    catch (const std::system_error &e) {
+        LOG(WARNING) << "Storage test file creation error, code: '" << e.code()
+                     << "', message: '" << e.what() << "'";
+
+        if (e.code().value() == EAGAIN)
+            m_accessType.erase(storageId);
+        else
+            LOG(INFO) << "Storage '" << storageId
+                      << "' is not directly accessible to the client.";
+    }
 }
 
 void HelpersCache::handleStorageTestFile(
     std::shared_ptr<messages::fuse::StorageTestFile> testFile,
-    const std::string &storageId, unsigned int attempts)
+    const folly::fbstring &storageId, const std::size_t attempts)
 {
     DLOG(INFO) << "Handling storage test file: " << testFile->toString()
                << " for storage: '" << storageId
                << "' with left attempts: " << attempts << ".";
+
     if (attempts == 0) {
         LOG(INFO) << "Storage '" << storageId
                   << "' is not directly accessible to the client. Test "
                      "file verification attempts limit exceeded.";
-        AccessTypeAccessor acc;
-        m_accessType.insert(acc, storageId);
-        acc->second = AccessType::PROXY;
+
+        m_accessType[storageId] = AccessType::PROXY;
         return;
     }
 
     try {
         auto helper = m_storageAccessManager.verifyStorageTestFile(*testFile);
-
-        if (helper == nullptr) {
+        if (!helper) {
             m_scheduler.schedule(
                 VERIFY_TEST_FILE_DELAY, [ =, testFile = std::move(testFile) ] {
                     handleStorageTestFile(testFile, storageId, attempts - 1);
@@ -162,73 +148,76 @@ void HelpersCache::handleStorageTestFile(
 
         auto fileContent =
             m_storageAccessManager.modifyStorageTestFile(helper, *testFile);
-        requestStorageTestFileVerification(
-            *testFile, storageId, std::move(fileContent));
+        requestStorageTestFileVerification(*testFile, storageId, fileContent);
 
-        CacheAccessor acc;
-        m_cache.insert(acc, std::make_tuple(storageId, false));
-        acc->second = helper;
+        m_cache[std::make_pair(storageId, false)] = helper;
     }
     catch (const std::system_error &e) {
-        const auto &ec = e.code();
-        AccessTypeAccessor acc;
-        m_accessType.insert(acc, storageId);
-        LOG(ERROR) << "Storage test file handling error, code: '" << ec.value()
-                   << "', message: '" << ec.message() << "'";
-        if (ec.value() == EAGAIN) {
-            m_accessType.erase(acc);
+        LOG(ERROR) << "Storage test file handling error, code: '" << e.code()
+                   << "', message: '" << e.what() << "'";
+
+        if (e.code().value() == EAGAIN) {
+            m_accessType.erase(storageId);
         }
         else {
             LOG(INFO) << "Storage '" << storageId
                       << "' is not directly accessible to the client.";
-            acc->second = AccessType::PROXY;
+
+            m_accessType[storageId] = AccessType::PROXY;
         }
     }
 }
 
 void HelpersCache::requestStorageTestFileVerification(
     const messages::fuse::StorageTestFile &testFile,
-    const std::string &storageId, std::string fileContent)
+    const folly::fbstring &storageId, const folly::fbstring &fileContent)
 {
     DLOG(INFO) << "Requesting verification of storage: '" << storageId
                << "' with file: " << testFile.toString()
                << "and modified content << '" << fileContent << ".";
 
-    messages::fuse::VerifyStorageTestFile request{storageId,
-        testFile.spaceUuid(), testFile.fileId(), std::move(fileContent)};
+    messages::fuse::VerifyStorageTestFile request{storageId.toStdString(),
+        testFile.spaceUuid(), testFile.fileId(), fileContent.toStdString()};
 
-    m_communicator.communicate<messages::fuse::FuseResponse>(std::move(request),
-        [=](const std::error_code &ec,
-            std::unique_ptr<messages::fuse::FuseResponse> response) {
-            handleStorageTestFileVerification(ec, storageId);
-        });
+    try {
+        communication::wait(
+            m_communicator.communicate<messages::fuse::FuseResponse>(
+                std::move(request)));
+
+        handleStorageTestFileVerification({}, storageId);
+    }
+    catch (const std::system_error &e) {
+        handleStorageTestFileVerification(e.code(), {});
+    }
 }
 
 void HelpersCache::handleStorageTestFileVerification(
-    const std::error_code &ec, const std::string &storageId)
+    const std::error_code &ec, const folly::fbstring &storageId)
 {
     DLOG(INFO) << "Handling verification of storage: '" << storageId << "'.";
 
-    AccessTypeAccessor acc;
-    m_accessType.insert(acc, storageId);
     if (!ec) {
         LOG(INFO) << "Storage '" << storageId
                   << "' is directly accessible to the client.";
-        acc->second = AccessType::DIRECT;
+
+        m_accessType[storageId] = AccessType::DIRECT;
     }
     else {
         LOG(ERROR) << "Storage test file verification error, code: '"
                    << ec.value() << "', message: '" << ec.message() << "'";
+
         if (ec.value() == EAGAIN) {
-            m_accessType.erase(acc);
+            m_accessType.erase(storageId);
         }
         else {
             LOG(INFO) << "Storage '" << storageId
                       << "' is not directly accessible to the client.";
-            acc->second = AccessType::PROXY;
+
+            m_accessType[storageId] = AccessType::PROXY;
         }
     }
 }
 
-} // namespace one
+} // namespace cache
 } // namespace client
+} // namespace one

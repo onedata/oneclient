@@ -61,14 +61,25 @@ find_package(OpenSSL REQUIRED)
 message(STATUS "Checking for NSS...")
 find_package(NSS REQUIRED)
 
+# Setup Folly
+message(STATUS "Checking for Folly...")
+find_package_prefer_static(Folly REQUIRED)
+find_library(LIBEVENT_LIBRARY event)
+find_library(IBERTY_LIBRARY iberty)
+find_library(DOUBLE_CONVERSION_LIBRARY double-conversion)
+set(FOLLY_LIBRARIES
+    ${FOLLY_LIBRARIES}
+    ${LIBEVENT_LIBRARY}
+    ${IBERTY_LIBRARY}
+    ${DOUBLE_CONVERSION_LIBRARY})
 # Setup Boost
 message(STATUS "Checking for Boost components......")
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME     ${STATIC_LIBSTDCPP})
 set(Boost_USE_STATIC_LIBS        ${STATIC_BOOST})
-find_package(Boost COMPONENTS atomic chrono date_time filesystem iostreams log
-                              log_setup program_options regex system thread
-                              REQUIRED)
+find_package(Boost COMPONENTS atomic chrono context date_time filesystem
+                              iostreams log log_setup program_options regex
+                              system thread REQUIRED)
 
 # Setup libsodium
 find_package(Sodium)
@@ -155,13 +166,14 @@ add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wshadow -Wall -Wno-u
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 add_definitions(
     ${FUSE_DEFINITIONS}
-    -DFUSE_USE_VERSION=29
+    -DFUSE_USE_VERSION=30
     -DBOOST_BIND_NO_PLACEHOLDERS
     -DBOOST_FILESYSTEM_NO_DEPRECATED
     -DBOOST_ALL_DYN_LINK
     -DASIO_STANDALONE
     -DBUILD_PROXY_IO
-    -DGLOG_STL_LOGGING_FOR_UNORDERED)
+    -DGLOG_STL_LOGGING_FOR_UNORDERED
+    -DFIBER_STACK_SIZE=1048576)
 
 # Add helpers after setting compilation flags but before setting include
 # directories; helpers specify their own includes, pulling from package-set
@@ -187,6 +199,7 @@ include_directories(SYSTEM
     ${Boost_INCLUDE_DIRS}
     ${GLOG_INCLUDE_DIRS}
     ${SODIUM_INCLUDE_DIRS}
+    ${FOLLY_INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/libmacaroons
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/libmacaroons-cpp)
 
@@ -203,6 +216,7 @@ set(CLIENT_LIBRARIES
     ${NSS_LIBRARIES}
     ${AWS_SDK_LIBRARIES}
     ${SWIFT_SDK_LIBRARIES}
+    ${FOLLY_LIBRARIES}
     ${HELPERS_LIBRARIES})
 
 # Define targets

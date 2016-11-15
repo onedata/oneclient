@@ -112,7 +112,7 @@ void PersistentConnection::send(std::string message, Callback callback)
         }
 
         m_callback = std::move(callback);
-        auto buffer = prepareOutBuffer(message);
+        auto buffer = prepareOutBuffer(std::move(message));
         socket->sendAsync(socket, buffer, createCallback([=] { onSent(); }));
     });
 }

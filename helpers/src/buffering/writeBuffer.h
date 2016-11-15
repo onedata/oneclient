@@ -12,18 +12,25 @@
 #include "readCache.h"
 
 #include "communication/communicator.h"
-#include "helpers/IStorageHelper.h"
+#include "helpers/storageHelper.h"
 #include "messages/proxyio/remoteWrite.h"
 #include "messages/proxyio/remoteWriteResult.h"
 #include "scheduler.h"
 
 #include <asio/buffer.hpp>
+#include <folly/FBString.h>
+#include <folly/FBVector.h>
+#include <folly/fibers/Baton.h>
+#include <folly/fibers/TimedMutex.h>
+#include <folly/futures/Future.h>
 
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <queue>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -33,36 +40,18 @@ namespace one {
 namespace helpers {
 namespace buffering {
 
-/**
- * Writes to a single file are serialized by the kernel, so this class doesn't
- * have to be thread-safe. A mutex is introduced to synchronize between writes
- * and scheduled flush.
- */
 class WriteBuffer : public std::enable_shared_from_this<WriteBuffer> {
-    struct ByteSequence {
-        ByteSequence(const off_t offset_, asio::const_buffer buf)
-            : offset{offset_}
-            , data{asio::buffer_cast<const char *>(buf), asio::buffer_size(buf)}
-        {
-        }
-
-        off_t nextOffset() const { return offset + data.size(); }
-
-        void append(asio::const_buffer buf) {}
-
-        off_t offset;
-        std::string data;
-    };
+    using FiberMutex = folly::fibers::TimedMutex<folly::fibers::Baton>;
 
 public:
     WriteBuffer(const std::size_t minWriteChunkSize,
         const std::size_t maxWriteChunkSize,
-        const std::chrono::seconds flushWriteAfter, IStorageHelper &helper,
+        const std::chrono::seconds flushWriteAfter, FileHandle &handle,
         Scheduler &scheduler, std::shared_ptr<ReadCache> readCache)
         : m_minWriteChunkSize{minWriteChunkSize}
         , m_maxWriteChunkSize{maxWriteChunkSize}
         , m_flushWriteAfter{flushWriteAfter}
-        , m_helper{helper}
+        , m_handle{handle}
         , m_scheduler{scheduler}
         , m_readCache{readCache}
     {
@@ -70,61 +59,38 @@ public:
 
     ~WriteBuffer() { m_cancelFlushSchedule(); }
 
-    std::size_t write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, const off_t offset)
+    folly::Future<std::size_t> write(const off_t offset, folly::IOBufQueue buf)
     {
-        std::unique_lock<std::mutex> lock{m_mutex};
-        m_lastCtx = ctx;
-        m_lastPath = p;
-
-        throwLastError();
+        std::unique_lock<FiberMutex> lock{m_mutex};
 
         m_cancelFlushSchedule();
         scheduleFlush();
 
-        if (m_buffers.empty() || nextOffset() != offset)
-            emplace(offset, buf);
+        const std::size_t size = buf.chainLength();
+
+        if (m_buffers.empty() || m_nextOffset != offset)
+            m_buffers.emplace_back(offset, std::move(buf));
         else
-            append(buf);
+            m_buffers.back().second.append(std::move(buf));
 
-        m_bufferedSize += asio::buffer_size(buf);
+        m_bufferedSize += size;
+        m_nextOffset = offset + size;
 
-        if (m_bufferedSize > flushThreshold()) {
+        if (m_bufferedSize > calculateFlushThreshold()) {
             // We're always returning "everything" on success, so provider has
             // to try to save everything and return an error if not successful.
-            pushBuffer(ctx, p, lock);
+            pushBuffer();
+            return confirmOverThreshold().then([size] { return size; });
         }
 
-        return asio::buffer_size(buf);
+        return folly::makeFuture(size);
     }
 
-    void flush(CTXPtr ctx, const boost::filesystem::path &p)
+    folly::Future<folly::Unit> fsync()
     {
-        std::unique_lock<std::mutex> lock{m_mutex};
-        m_lastCtx = ctx;
-        m_lastPath = p;
-
-        throwLastError();
-
-        pushBuffer(ctx, p, lock);
-    }
-
-    void fsync(CTXPtr ctx, const boost::filesystem::path &p)
-    {
-        std::unique_lock<std::mutex> lock{m_mutex};
-        m_lastCtx = ctx;
-        m_lastPath = p;
-
-        throwLastError();
-
-        pushBuffer(ctx, p, lock);
-
-        while (!m_lastError && m_pendingConfirmation > 0)
-            if (m_confirmationCondition.wait_for(
-                    lock, std::chrono::minutes{2}) == std::cv_status::timeout)
-                m_lastError = std::make_error_code(std::errc::timed_out);
-
-        throwLastError();
+        std::unique_lock<FiberMutex> lock{m_mutex};
+        pushBuffer();
+        return confirmAll();
     }
 
     void scheduleFlush()
@@ -132,133 +98,112 @@ public:
         m_cancelFlushSchedule = m_scheduler.schedule(m_flushWriteAfter,
             [s = std::weak_ptr<WriteBuffer>(shared_from_this())] {
                 if (auto self = s.lock()) {
-                    std::unique_lock<std::mutex> lock{self->m_mutex};
-                    self->pushBuffer(self->m_lastCtx, self->m_lastPath, lock);
+                    std::unique_lock<FiberMutex> lock{self->m_mutex};
+                    self->pushBuffer();
                     self->scheduleFlush();
                 }
             });
     }
 
 private:
-    void pushBuffer(CTXPtr ctx, const boost::filesystem::path &p,
-        std::unique_lock<std::mutex> &lock)
+    void pushBuffer()
     {
         if (m_bufferedSize == 0)
             return;
 
-        auto startPoint = std::chrono::steady_clock::now();
-        auto buffers =
-            std::make_shared<decltype(m_buffers)>(std::move(m_buffers));
+        decltype(m_buffers) buffers;
+        buffers.swap(m_buffers);
 
         auto sentSize = m_bufferedSize;
         m_pendingConfirmation += sentSize;
         m_bufferedSize = 0;
-        m_buffers = {};
 
-        auto callback = [
-            =, b = buffers, s = std::weak_ptr<WriteBuffer>(shared_from_this())
-        ](std::size_t wrote, const std::error_code &ec) mutable
-        {
+        const auto startPoint = std::chrono::steady_clock::now();
+
+        auto writeFuture = m_handle.multiwrite(std::move(buffers)).then([
+            startPoint, sentSize,
+            s = std::weak_ptr<WriteBuffer>(shared_from_this())
+        ](std::size_t) {
             auto self = s.lock();
             if (!self)
                 return;
 
-            if (!ec) {
-                auto duration =
-                    std::chrono::duration_cast<std::chrono::nanoseconds>(
-                        std::chrono::steady_clock::now() - startPoint)
-                        .count();
-                if (duration > 0) {
-                    auto bandwidth = wrote * 1000000000 / duration;
-                    std::lock_guard<std::mutex> guard{m_mutex};
-                    m_bps = (m_bps * 1 + bandwidth * 2) / 3;
-                }
+            auto duration =
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    std::chrono::steady_clock::now() - startPoint)
+                    .count();
 
-                m_readCache->clear();
+            if (duration > 0) {
+                auto bandwidth = sentSize * 1000000000 / duration;
+                self->m_bps = (self->m_bps * 1 + bandwidth * 2) / 3;
             }
 
-            std::lock_guard<std::mutex> guard{m_mutex};
-            if (ec)
-                m_lastError = ec;
+            self->m_readCache->clear();
+        });
 
-            m_pendingConfirmation -= sentSize;
-            m_confirmationCondition.notify_all();
-        };
-
-        std::vector<std::pair<off_t, asio::const_buffer>> bufBuffers;
-        std::transform(buffers->begin(), buffers->end(),
-            std::back_inserter(bufBuffers), [](const auto &e) {
-                return std::make_pair(e.first, asio::buffer(e.second));
-            });
-
-        m_helper.ash_multiwrite(
-            std::move(ctx), p, std::move(bufBuffers), std::move(callback));
-
-        while (!m_lastError && m_pendingConfirmation > confirmThreshold())
-            if (m_confirmationCondition.wait_for(
-                    lock, std::chrono::minutes{2}) == std::cv_status::timeout)
-                m_lastError = std::make_error_code(std::errc::timed_out);
+        m_writeFutures.emplace(
+            std::make_pair(sentSize, std::move(writeFuture)));
     }
 
-    std::size_t flushThreshold()
+    folly::Future<folly::Unit> confirmOverThreshold()
+    {
+        return confirm(calculateConfirmThreshold());
+    }
+
+    folly::Future<folly::Unit> confirmAll() { return confirm(0); }
+
+    folly::Future<folly::Unit> confirm(const std::size_t threshold)
+    {
+        folly::fbvector<folly::Future<folly::Unit>> confirmFutures;
+
+        while (m_pendingConfirmation > threshold) {
+            confirmFutures.emplace_back(
+                std::move(m_writeFutures.front().second));
+
+            m_pendingConfirmation -= m_writeFutures.front().first;
+            m_writeFutures.pop();
+        }
+
+        return folly::collectAll(confirmFutures)
+            .then([](const std::vector<folly::Try<folly::Unit>> &tries) {
+                for (const auto &t : tries) {
+                    if (t.hasException())
+                        return folly::makeFuture<folly::Unit>(t.exception());
+                }
+
+                return folly::makeFuture();
+            });
+    }
+
+    std::size_t calculateFlushThreshold()
     {
         return std::min(
             m_maxWriteChunkSize, std::max(m_minWriteChunkSize, 2 * m_bps));
     }
 
-    std::size_t confirmThreshold() { return 6 * flushThreshold(); }
-
-    void emplace(const off_t offset, asio::const_buffer buf)
+    std::size_t calculateConfirmThreshold()
     {
-        std::string data{
-            asio::buffer_cast<const char *>(buf), asio::buffer_size(buf)};
-        m_buffers.emplace_back(offset, std::move(data));
-    };
-
-    void append(asio::const_buffer buf)
-    {
-        auto &data = m_buffers.back().second;
-
-        const auto oldSize = data.size();
-        data.resize(oldSize + asio::buffer_size(buf));
-        auto dataBuffer = asio::buffer(&data[0], data.size());
-        asio::buffer_copy(dataBuffer + oldSize, buf);
-    }
-
-    off_t nextOffset() const
-    {
-        return m_buffers.back().first + m_buffers.back().second.size();
-    }
-
-    void throwLastError()
-    {
-        if (m_lastError) {
-            auto err = m_lastError;
-            m_lastError = {};
-            throw std::system_error{err};
-        }
+        return 6 * calculateFlushThreshold();
     }
 
     std::size_t m_minWriteChunkSize;
     std::size_t m_maxWriteChunkSize;
     std::chrono::seconds m_flushWriteAfter;
 
-    IStorageHelper &m_helper;
+    FileHandle &m_handle;
     Scheduler &m_scheduler;
     std::shared_ptr<ReadCache> m_readCache;
 
     std::function<void()> m_cancelFlushSchedule;
-    CTXPtr m_lastCtx;
-    boost::filesystem::path m_lastPath;
 
     std::size_t m_bufferedSize = 0;
-    std::vector<std::pair<off_t, std::string>> m_buffers;
-    std::error_code m_lastError;
-    std::size_t m_bps = 0;
+    off_t m_nextOffset = 0;
+    folly::fbvector<std::pair<off_t, folly::IOBufQueue>> m_buffers;
+    std::atomic<std::size_t> m_bps{0};
 
-    std::mutex m_mutex;
+    FiberMutex m_mutex;
     std::size_t m_pendingConfirmation = 0;
-    std::condition_variable m_confirmationCondition;
+    std::queue<std::pair<off_t, folly::Future<folly::Unit>>> m_writeFutures;
 };
 
 } // namespace proxyio

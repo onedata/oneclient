@@ -1,10 +1,9 @@
 .idea
 *.iml
 
-deps
-ebin
-src/*.erl
-include/*.hrl
-
-/priv
+/src/messages.erl
+/include/
+/priv/
 /build
+/_build
+

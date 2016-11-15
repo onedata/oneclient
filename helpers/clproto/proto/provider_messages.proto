@@ -35,6 +35,11 @@ message ProviderRequest {
         ReplicateFile replicate_file = 19;
         ReadMetadata read_metadata = 20;
         WriteMetadata write_metadata = 21;
+        CheckPerms check_perms = 22;
+        CreateShare create_share = 23;
+        RemoveShare remove_share = 24;
+        RemoveMetadata remove_metadata = 25;
+        Copy copy = 26;
     }
 }
 
@@ -45,6 +50,8 @@ message Xattr {
 
 message GetXattr {
     required bytes name = 1;
+    optional bool inherited = 2 [default = false];
+
 }
 
 message SetXattr {
@@ -56,6 +63,8 @@ message RemoveXattr {
 }
 
 message ListXattr {
+    optional bool inherited = 1 [default = false];
+    optional bool show_internal = 2 [default = true];
 }
 
 message GetParent {
@@ -118,11 +127,31 @@ message Metadata {
 message ReadMetadata {
     required bytes type = 1;
     repeated bytes names = 2;
+    optional bool inherited = 3 [default = false];
 }
 
 message WriteMetadata {
     required Metadata metadata = 1;
     repeated bytes names = 2;
+}
+
+message CheckPerms {
+    required FileLocationFlags flags = 1;
+}
+
+message CreateShare {
+    required bytes name = 1;
+}
+
+message RemoveShare {
+}
+
+message RemoveMetadata {
+    required bytes type = 1;
+}
+
+message Copy {
+    required bytes target_path = 1;
 }
 
 // Generic provider response
@@ -140,6 +169,8 @@ message ProviderResponse {
         FilePath file_path = 9;
         FileDistribution file_distribution = 10;
         Metadata metadata = 11;
+        Share share = 12;
+        FileCopied file_copied = 13;
     }
 }
 
@@ -170,4 +201,13 @@ message ProviderFileDistribution {
 
 message FileDistribution {
     repeated ProviderFileDistribution provider_file_distributions = 1;
+}
+
+message Share {
+    required bytes share_id = 1;
+    required bytes share_file_uuid = 2;
+}
+
+message FileCopied {
+    required bytes new_uuid = 1;
 }

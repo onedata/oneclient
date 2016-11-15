@@ -15,8 +15,8 @@ namespace messages {
 namespace proxyio {
 
 ProxyIORequest::ProxyIORequest(
-    std::unordered_map<std::string, std::string> parameters,
-    std::string storageId, std::string fileId)
+    std::unordered_map<folly::fbstring, folly::fbstring> parameters,
+    folly::fbstring storageId, folly::fbstring fileId)
     : m_parameters{std::move(parameters)}
     , m_storageId{std::move(storageId)}
     , m_fileId{std::move(fileId)}
@@ -30,11 +30,11 @@ std::unique_ptr<ProtocolClientMessage> ProxyIORequest::serializeAndDestroy()
 
     for (auto &parameter : m_parameters) {
         auto parameterMsg = proxyio->add_parameters();
-        parameterMsg->set_key(parameter.first);
-        parameterMsg->mutable_value()->swap(parameter.second);
+        parameterMsg->set_key(parameter.first.toStdString());
+        parameterMsg->set_value(parameter.second.toStdString());
     }
-    proxyio->mutable_storage_id()->swap(m_storageId);
-    proxyio->mutable_file_id()->swap(m_fileId);
+    proxyio->set_storage_id(m_storageId.toStdString());
+    proxyio->set_file_id(m_fileId.toStdString());
 
     return msg;
 }

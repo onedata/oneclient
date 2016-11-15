@@ -13,6 +13,7 @@ BuildRequires: aws-sdk-cpp-s3 >= 1.0.11
 BuildRequires: boost-devel >= 1.58.0
 BuildRequires: cmake >= 3.0.0
 BuildRequires: fuse-devel >= 2.7
+BuildRequires: folly-devel = 2016.09.19.00, folly-static = 2016.09.19.00
 BuildRequires: gcc-c++ >= 5.0.0
 BuildRequires: git
 BuildRequires: glog-devel >= 0.3.4

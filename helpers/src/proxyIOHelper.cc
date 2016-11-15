@@ -15,76 +15,76 @@
 #include "messages/status.h"
 
 #include <asio/buffer.hpp>
+#include <folly/futures/Future.h>
 
 namespace one {
 namespace helpers {
 
-ProxyIOHelper::ProxyIOHelper(
-    const std::unordered_map<std::string, std::string> &args,
+ProxyIOFileHandle::ProxyIOFileHandle(folly::fbstring fileId,
+    folly::fbstring storageId, Params openParams,
     communication::Communicator &communicator)
-    : m_communicator{communicator}
-    , m_storageId{args.at("storage_id")}
+    : FileHandle{std::move(fileId), std::move(openParams)}
+    , m_storageId{std::move(storageId)}
+    , m_communicator{communicator}
 {
 }
 
-void ProxyIOHelper::ash_read(CTXPtr ctx, const boost::filesystem::path &p,
-    asio::mutable_buffer buf, off_t offset,
-    GeneralCallback<asio::mutable_buffer> callback)
+folly::Future<folly::IOBufQueue> ProxyIOFileHandle::read(
+    const off_t offset, const std::size_t size)
 {
-    auto fileId = p.string();
-    messages::proxyio::RemoteRead msg{ctx->parameters(), m_storageId,
-        std::move(fileId), offset, asio::buffer_size(buf)};
+    messages::proxyio::RemoteRead msg{
+        m_openParams, m_storageId, m_fileId, offset, size};
 
-    auto wrappedCallback =
-        [ callback = std::move(callback), buf ](const std::error_code &ec,
-            std::unique_ptr<messages::proxyio::RemoteData> rd)
-    {
-        if (ec) {
-            callback({}, ec);
-        }
-        else {
-            auto read = asio::buffer_copy(buf, rd->data());
-            callback(asio::buffer(buf, read), ec);
-        }
-    };
-
-    m_communicator.communicate<messages::proxyio::RemoteData>(
-        std::move(msg), std::move(wrappedCallback));
-}
-
-void ProxyIOHelper::ash_write(CTXPtr ctx, const boost::filesystem::path &p,
-    asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t> callback)
-{
-    ash_multiwrite(std::move(ctx), p, {{offset, buf}}, std::move(callback));
-}
-
-void ProxyIOHelper::ash_multiwrite(CTXPtr ctx, const boost::filesystem::path &p,
-    std::vector<std::pair<off_t, asio::const_buffer>> buffs,
-    GeneralCallback<std::size_t> callback)
-{
-    auto fileId = p.string();
-
-    std::vector<std::pair<off_t, std::string>> stringBuffs;
-    stringBuffs.reserve(buffs.size());
-    std::transform(buffs.begin(), buffs.end(), std::back_inserter(stringBuffs),
-        [](const std::pair<off_t, asio::const_buffer> &elem) {
-            return make_pair(elem.first,
-                std::string(asio::buffer_cast<const char *>(elem.second),
-                                 asio::buffer_size(elem.second)));
+    return m_communicator
+        .communicate<messages::proxyio::RemoteData>(std::move(msg))
+        .then([](const messages::proxyio::RemoteData &rd) {
+            folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
+            buf.append(rd.data());
+            return buf;
         });
+}
 
-    messages::proxyio::RemoteWrite msg{ctx->parameters(), m_storageId,
-        std::move(fileId), std::move(stringBuffs)};
+folly::Future<std::size_t> ProxyIOFileHandle::write(
+    const off_t offset, folly::IOBufQueue buf)
+{
+    folly::fbvector<std::pair<off_t, folly::IOBufQueue>> buffs;
+    buffs.emplace_back(std::make_pair(offset, std::move(buf)));
+    return multiwrite(std::move(buffs));
+}
 
-    auto wrappedCallback = [callback = std::move(callback)](
-        const std::error_code &ec,
-        std::unique_ptr<messages::proxyio::RemoteWriteResult> result)
-    {
-        ec ? callback(-1, ec) : callback(result->wrote(), ec);
-    };
+folly::Future<std::size_t> ProxyIOFileHandle::multiwrite(
+    folly::fbvector<std::pair<off_t, folly::IOBufQueue>> buffs)
+{
+    folly::fbvector<std::pair<off_t, folly::fbstring>> stringBuffs;
+    stringBuffs.reserve(buffs.size());
+    for (auto &elem : buffs) {
+        if (!elem.second.empty())
+            stringBuffs.emplace_back(
+                elem.first, elem.second.move()->moveToFbString());
+    }
 
-    m_communicator.communicate<messages::proxyio::RemoteWriteResult>(
-        std::move(msg), std::move(wrappedCallback));
+    messages::proxyio::RemoteWrite msg{
+        m_openParams, m_storageId, m_fileId, std::move(stringBuffs)};
+
+    return m_communicator
+        .communicate<messages::proxyio::RemoteWriteResult>(std::move(msg))
+        .then([](const messages::proxyio::RemoteWriteResult &result) {
+            return result.wrote();
+        });
+}
+
+ProxyIOHelper::ProxyIOHelper(
+    folly::fbstring storageId, communication::Communicator &communicator)
+    : m_storageId{std::move(storageId)}
+    , m_communicator{communicator}
+{
+}
+
+folly::Future<FileHandlePtr> ProxyIOHelper::open(
+    const folly::fbstring &fileId, const int flags, const Params &openParams)
+{
+    return folly::makeFuture(std::make_shared<ProxyIOFileHandle>(
+        fileId, m_storageId, openParams, m_communicator));
 }
 
 } // namespace helpers

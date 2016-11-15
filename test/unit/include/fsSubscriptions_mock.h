@@ -20,9 +20,10 @@ public:
     {
     }
 
-    MOCK_METHOD1(addPermissionChangedSubscription, void(const std::string &));
     MOCK_METHOD1(
-        removePermissionChangedSubscription, void(const std::string &));
+        addPermissionChangedSubscription, void(const folly::fbstring &));
+    MOCK_METHOD1(
+        removePermissionChangedSubscription, void(const folly::fbstring &));
 };
 
 #endif // ONECLIENT_TEST_UNIT_FSSUBSCRIPTIONS_MOCK_H

@@ -30,6 +30,7 @@ message GetConfiguration {
 }
 
 message Configuration {
-    repeated Subscription subscriptions = 1;
-    repeated bytes disabled_spaces = 2;
+    required bytes root_uuid = 1;
+    repeated Subscription subscriptions = 2;
+    repeated bytes disabled_spaces = 3;
 }

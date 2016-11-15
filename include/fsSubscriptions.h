@@ -9,11 +9,12 @@
 #ifndef ONECLIENT_FS_SUBSCRIPTIONS_H
 #define ONECLIENT_FS_SUBSCRIPTIONS_H
 
-#include <tbb/concurrent_hash_map.h>
+#include <folly/FBString.h>
 
 #include <chrono>
 #include <cstddef>
 #include <string>
+#include <unordered_map>
 
 namespace one {
 class Scheduler;
@@ -37,21 +38,23 @@ public:
      * file will be forwarded to the server.
      * @param fileUuid UUID of file for which subscription is added.
      */
-    void addFileLocationSubscription(const std::string &fileUuid);
+    void addFileLocationSubscription(const folly::fbstring &fileUuid);
 
     /**
      * Removes subscription for file location updates. Subscription cancellation
      * message will be sent to the server.
      * @param fileUuid UUID of file for which subscription is removed.
+     * @return True if subscription has been removed, false if it didn't exist
      */
-    void removeFileLocationSubscription(const std::string &fileUuid);
+    bool removeFileLocationSubscription(const folly::fbstring &fileUuid);
 
     /**
      * Adds subscription for permission updates. Subscription of the
      * file will be forwarded to the server.
      * @param fileUuid UUID of file for which subscription is added.
      */
-    virtual void addPermissionChangedSubscription(const std::string &fileUuid);
+    virtual void addPermissionChangedSubscription(
+        const folly::fbstring &fileUuid);
 
     /**
      * Removes subscription for permission updates. Subscription cancellation
@@ -59,45 +62,45 @@ public:
      * @param fileUuid UUID of file for which subscription is removed.
      */
     virtual void removePermissionChangedSubscription(
-        const std::string &fileUuid);
+        const folly::fbstring &fileUuid);
 
     /**
      * Adds subscription for removing file.
      * @param fileUuid UUID of file for which subscription is added.
      */
-    void addFileRemovalSubscription(const std::string &fileUuid);
+    void addFileRemovalSubscription(const folly::fbstring &fileUuid);
 
     /**
      * Removes subscription for file removal.
      * @param fileUuid UUID of file for which subscription is removed.
      */
-    void removeFileRemovalSubscription(const std::string &fileUuid);
+    void removeFileRemovalSubscription(const folly::fbstring &fileUuid);
 
     /**
      * Adds subscription for renaming file.
      * @param fileUuid UUID of file for which subscription is added.
      */
-    void addFileRenamedSubscription(const std::string &fileUuid);
+    void addFileRenamedSubscription(const folly::fbstring &fileUuid);
 
     /**
      * Removes subscription for renaming file.
      * @param fileUuid UUID of file for which subscription is removed.
      */
-    void removeFileRenamedSubscription(const std::string &fileUuid);
+    void removeFileRenamedSubscription(const folly::fbstring &fileUuid);
 
     /**
      * Adds subscription for file attributes updates. Subscription of the
      * file will be forwarded to the server.
      * @param fileUuid UUID of file for which subscription is added.
      */
-    void addFileAttrSubscription(const std::string &fileUuid);
+    void addFileAttrSubscription(const folly::fbstring &fileUuid);
 
     /**
      * Removes subscription for file attributes updates. Subscription
      * cancellation message will be sent to the server.
      * @param fileUuid UUID of file for which subscription is removed.
      */
-    void removeFileAttrSubscription(const std::string &fileUuid);
+    void removeFileAttrSubscription(const folly::fbstring &fileUuid);
 
     /**
      * Adds subscription for quota updates. Subscription of the
@@ -112,23 +115,24 @@ public:
     void removeQuotaSubscription();
 
 private:
-    std::int64_t sendFileAttrSubscription(const std::string &fileUuid);
-    std::int64_t sendFileLocationSubscription(const std::string &fileUuid);
-    std::int64_t sendPermissionChangedSubscription(const std::string &fileUuid);
-    std::int64_t sendFileRemovalSubscription(const std::string &fileUuid);
+    std::int64_t sendFileAttrSubscription(const folly::fbstring &fileUuid);
+    std::int64_t sendFileLocationSubscription(const folly::fbstring &fileUuid);
+    std::int64_t sendPermissionChangedSubscription(
+        const folly::fbstring &fileUuid);
+    std::int64_t sendFileRemovalSubscription(const folly::fbstring &fileUuid);
     std::int64_t sendQuotaSubscription();
-    std::int64_t sendFileRenamedSubscription(const std::string &fileUuid);
+    std::int64_t sendFileRenamedSubscription(const folly::fbstring &fileUuid);
     void sendSubscriptionCancellation(std::int64_t id);
 
     events::EventManager &m_eventManager;
-    tbb::concurrent_hash_map<std::string, std::int64_t> m_fileAttrSubscriptions;
-    tbb::concurrent_hash_map<std::string, std::int64_t>
+    std::unordered_map<folly::fbstring, std::int64_t> m_fileAttrSubscriptions;
+    std::unordered_map<folly::fbstring, std::int64_t>
         m_fileLocationSubscriptions;
-    tbb::concurrent_hash_map<std::string, std::int64_t>
+    std::unordered_map<folly::fbstring, std::int64_t>
         m_permissionChangedSubscriptions;
-    tbb::concurrent_hash_map<std::string, std::int64_t>
+    std::unordered_map<folly::fbstring, std::int64_t>
         m_fileRemovalSubscriptions;
-    tbb::concurrent_hash_map<std::string, std::int64_t>
+    std::unordered_map<folly::fbstring, std::int64_t>
         m_fileRenamedSubscriptions;
 
     std::int64_t m_quotaSubscription = 0;

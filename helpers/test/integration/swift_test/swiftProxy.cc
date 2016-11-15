@@ -15,9 +15,10 @@
 #include <asio/io_service.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
-#include <iostream>
+#include <folly/ThreadName.h>
 
 #include <algorithm>
+#include <iostream>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -43,22 +44,14 @@ public:
         : m_service{threadNumber}
         , m_idleWork{asio::make_work(m_service)}
         , m_helper{std::make_shared<one::helpers::KeyValueAdapter>(
-              std::make_unique<one::helpers::SwiftHelper>(
-                  std::unordered_map<std::string, std::string>(
-                      {{"auth_url", std::move(authUrl)},
-                          {"container_name", std::move(containerName)},
-                          {"tenant_name", std::move(tenantName)}})),
-              m_service, m_locks, blockSize)}
-        , m_ctx{m_helper->createCTX({})}
+              std::make_shared<one::helpers::SwiftHelper>(
+                  std::move(containerName), authUrl, tenantName, userName,
+                  password),
+              std::make_shared<one::AsioExecutor>(m_service), blockSize)}
     {
-        auto ctx =
-            std::dynamic_pointer_cast<one::helpers::SwiftHelperCTX>(m_ctx);
-        ctx->setUserCTX({{"user_name", std::move(userName)},
-            {"password", std::move(password)}});
-
         std::generate_n(std::back_inserter(m_workers), threadNumber, [=] {
             std::thread t{[=] {
-                one::etls::utils::nameThread("SwiftProxy");
+                folly::setThreadName("SwiftProxy");
                 m_service.run();
             }};
 
@@ -73,34 +66,43 @@ public:
             t.join();
     }
 
-    void unlink(std::string fileId) { m_helper->sh_unlink(m_ctx, fileId); }
+    void unlink(std::string fileId) { m_helper->unlink(fileId).get(); }
 
     std::string read(std::string fileId, int offset, int size)
     {
-        std::string buffer(size, '\0');
-        auto read =
-            m_helper->sh_read(m_ctx, fileId, asio::buffer(buffer), offset);
-        return std::string{
-            asio::buffer_cast<char *>(read), asio::buffer_size(read)};
+        return m_helper->open(fileId, 0, {})
+            .then([&](one::helpers::FileHandlePtr handle) {
+                return handle->read(offset, size);
+            })
+            .then([&](const folly::IOBufQueue &buf) {
+                std::string data;
+                buf.appendToString(data);
+                return data;
+            })
+            .get();
     }
 
     std::size_t write(std::string fileId, std::string data, int offset)
     {
-        return m_helper->sh_write(m_ctx, fileId, asio::buffer(data), offset);
+        return m_helper->open(fileId, 0, {})
+            .then([&](one::helpers::FileHandlePtr handle) {
+                folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
+                buf.append(data);
+                return handle->write(offset, std::move(buf));
+            })
+            .get();
     }
 
     void truncate(std::string fileId, int offset)
     {
-        m_helper->sh_truncate(m_ctx, fileId, offset);
+        m_helper->truncate(fileId, offset).get();
     }
 
 private:
     asio::io_service m_service;
     asio::executor_work<asio::io_service::executor_type> m_idleWork;
     std::vector<std::thread> m_workers;
-    one::helpers::KeyValueAdapter::Locks m_locks;
-    std::shared_ptr<one::helpers::IStorageHelper> m_helper;
-    std::shared_ptr<one::helpers::IStorageHelperCTX> m_ctx;
+    std::shared_ptr<one::helpers::StorageHelper> m_helper;
 };
 
 namespace {

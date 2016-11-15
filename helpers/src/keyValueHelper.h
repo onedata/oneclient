@@ -9,7 +9,7 @@
 #ifndef HELPERS_KEY_VALUE_HELPER_H
 #define HELPERS_KEY_VALUE_HELPER_H
 
-#include "helpers/IStorageHelper.h"
+#include "helpers/storageHelper.h"
 
 #include <iomanip>
 #include <vector>
@@ -30,16 +30,6 @@ constexpr auto MAX_OBJECT_ID_DIGITS = 6;
  */
 class KeyValueHelper {
 public:
-    /**
-     * Creates a @c IStorageHelperCTX context with given parameters.
-     * @param params The parameters used to create context.
-     */
-    virtual CTXPtr createCTX(
-        std::unordered_map<std::string, std::string> params)
-    {
-        return std::make_shared<IStorageHelperCTX>(std::move(params));
-    }
-
     virtual ~KeyValueHelper() = default;
 
     /**
@@ -48,7 +38,8 @@ public:
      * @param objectId ID associated with the value.
      * @return Key identifying value on the storage.
      */
-    virtual std::string getKey(const std::string &prefix, uint64_t objectId)
+    virtual folly::fbstring getKey(
+        const folly::fbstring &prefix, const uint64_t objectId)
     {
         std::stringstream ss;
         ss << adjustPrefix(prefix) << std::setfill('0')
@@ -60,78 +51,63 @@ public:
      * @param key Sequence of characters identifying value on the storage.
      * @return ObjectId ID associated with the value.
      */
-    virtual uint64_t getObjectId(std::string key)
+    virtual uint64_t getObjectId(const folly::fbstring &key)
     {
-        auto pos = key.find_last_of(OBJECT_DELIMITER);
-        return MAX_OBJECT_ID - std::stoull(key.substr(pos + 1));
+        const auto pos = key.find_last_of(OBJECT_DELIMITER);
+        return MAX_OBJECT_ID - std::stoull(key.substr(pos + 1).toStdString());
     }
 
     /**
-     * @param ctx @c IStorageHelperCTX context.
      * @param key Sequence of characters identifying value on the storage.
      * @param buf Buffer used to store returned value.
      * @param offset Distance from the beginning of the value to the first byte
      * returned.
      * @return Value associated with the key.
      */
-    virtual asio::mutable_buffer getObject(
-        CTXPtr ctx, std::string key, asio::mutable_buffer buf, off_t offset)
-    {
-        return {};
-    }
+    virtual folly::IOBufQueue getObject(const folly::fbstring &key,
+        const off_t offset, const std::size_t size) = 0;
 
     /**
-     * @param ctx @c IStorageHelperCTX context.
      * @param prefix Arbitrary sequence of characters that provides namespace.
      * @param objectSize Maximal size of a single object.
      * @return Size of all object in given namespace.
      */
     virtual off_t getObjectsSize(
-        CTXPtr ctx, const std::string &prefix, std::size_t objectSize)
-    {
-        return 0;
-    }
+        const folly::fbstring &prefix, const std::size_t objectSize) = 0;
 
     /**
-     * @param ctx @c IStorageHelperCTX context.
      * @param key Sequence of characters identifying value on the storage.
      * @param buf Buffer containing bytes of an object to be stored.
      * @return Number of bytes that has been successfully saved on the storage.
      */
     virtual std::size_t putObject(
-        CTXPtr ctx, std::string key, asio::const_buffer buf)
-    {
-        return 0;
-    }
+        const folly::fbstring &key, folly::IOBufQueue buf) = 0;
 
     /**
-     * @param ctx @c IStorageHelperCTX context.
      * @param keys Vector of keys of objects to be deleted.
      */
-    virtual void deleteObjects(CTXPtr ctx, std::vector<std::string> keys) {}
+    virtual void deleteObjects(
+        const folly::fbvector<folly::fbstring> &keys) = 0;
 
     /**
-     * @param ctx @c IStorageHelperCTX context.
      * @param prefix Arbitrary sequence of characters that provides namespace.
      * @return Vector of keys of objects in given namespace.
      */
-    virtual std::vector<std::string> listObjects(CTXPtr ctx, std::string prefix)
-    {
-        return {};
-    }
+    virtual folly::fbvector<folly::fbstring> listObjects(
+        const folly::fbstring &prefix) = 0;
 
 protected:
-    std::string adjustPrefix(const std::string &prefix) const
+    std::string adjustPrefix(const folly::fbstring &prefix) const
     {
-        return prefix.substr(prefix.find_first_not_of(OBJECT_DELIMITER)) +
+        return prefix.substr(prefix.find_first_not_of(OBJECT_DELIMITER))
+                   .toStdString() +
             OBJECT_DELIMITER;
     }
 
-    std::string rangeToString(off_t lower, off_t upper) const
+    std::string rangeToString(const off_t lower, const off_t upper) const
     {
-        std::stringstream ss;
-        ss << "bytes=" << lower << RANGE_DELIMITER << upper;
-        return ss.str();
+        return "bytes=" + std::to_string(lower) + RANGE_DELIMITER +
+            std::to_string(upper);
     }
 };
 

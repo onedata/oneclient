@@ -50,8 +50,8 @@ struct CommunicatorTest : public ::testing::Test {
     }
 };
 
-TEST_F(CommunicatorTest, communicateShouldReturnTimeoutableFuture)
+TEST_F(CommunicatorTest, communicateShouldReturnFuture)
 {
-    auto future = comm.communicate<messages::Pong>(messages::Ping{}, 0);
-    ASSERT_EQ(std::future_status::timeout, future.wait_for(10ms));
+    folly::Future<messages::Pong> future =
+        comm.communicate<messages::Pong>(messages::Ping{});
 }

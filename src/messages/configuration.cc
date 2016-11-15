@@ -19,6 +19,9 @@ Configuration::Configuration(
     std::unique_ptr<ProtocolServerMessage> serverMessage)
 {
     auto configurationMsg = serverMessage->mutable_configuration();
+
+    m_rootUuid = configurationMsg->root_uuid();
+
     for (const auto &subscription : configurationMsg->subscriptions())
         m_subscriptionContainer.add(subscription);
 
@@ -42,8 +45,8 @@ std::vector<std::string> Configuration::disabledSpacesContainer()
 std::string Configuration::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'Configuration', subscriptions: "
-           << m_subscriptionContainer.toString();
+    stream << "type: 'Configuration', root UUID: '" << m_rootUuid
+           << "' subscriptions: " << m_subscriptionContainer.toString();
     return stream.str();
 }
 

@@ -38,50 +38,50 @@ public:
         : m_communicator{1, host, port, false,
               one::communication::createConnection}
         , m_scheduler{std::make_shared<one::Scheduler>(1)}
-        , m_helper{{{"storage_id", storageId}}, m_communicator}
+        , m_helper{std::make_shared<one::helpers::ProxyIOHelper>(
+              storageId, m_communicator)}
     {
         m_communicator.setScheduler(m_scheduler);
         m_communicator.connect();
     }
 
-    one::helpers::CTXPtr open(std::string fileId,
-        const std::unordered_map<std::string, std::string> &parameters)
+    one::helpers::FileHandlePtr open(std::string fileId,
+        const std::unordered_map<folly::fbstring, folly::fbstring> &parameters)
     {
         ReleaseGIL guard;
-        auto ctx =
-            std::make_shared<one::helpers::IStorageHelperCTX>(parameters);
-
-        m_helper.sh_open(ctx, fileId, 0);
-        return ctx;
+        return m_helper->open(fileId, 0, parameters).get();
     }
 
-    int write(one::helpers::CTXPtr ctx, std::string fileId, std::string data,
-        int offset)
+    int write(one::helpers::FileHandlePtr handle, std::string data, int offset)
     {
         ReleaseGIL guard;
-        return m_helper.sh_write(
-            std::move(ctx), fileId, asio::buffer(data), offset);
+        folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
+        buf.append(data);
+        return handle->write(offset, std::move(buf)).get();
     }
 
-    std::string read(
-        one::helpers::CTXPtr ctx, std::string fileId, int offset, int size)
+    std::string read(one::helpers::FileHandlePtr handle, int offset, int size)
     {
         ReleaseGIL guard;
-        std::string buffer(size, '\0');
-        m_helper.sh_read(std::move(ctx), fileId, asio::buffer(buffer), offset);
-        return buffer;
+        return handle->read(offset, size)
+            .then([&](const folly::IOBufQueue &buf) {
+                std::string data;
+                buf.appendToString(data);
+                return data;
+            })
+            .get();
     }
 
-    void release(one::helpers::CTXPtr ctx, std::string fileId)
+    void release(one::helpers::FileHandlePtr handle)
     {
         ReleaseGIL guard;
-        m_helper.sh_release(std::move(ctx), fileId);
+        handle->release().get();
     }
 
 private:
     one::communication::Communicator m_communicator;
     std::shared_ptr<one::Scheduler> m_scheduler;
-    one::helpers::ProxyIOHelper m_helper;
+    std::shared_ptr<one::helpers::ProxyIOHelper> m_helper;
 };
 
 namespace {
@@ -92,12 +92,12 @@ boost::shared_ptr<ProxyIOProxy> create(
 }
 }
 
-one::helpers::CTXPtr raw_open(tuple args, dict kwargs)
+one::helpers::FileHandlePtr raw_open(tuple args, dict kwargs)
 {
     std::string fileId = extract<std::string>(args[1]);
     dict parametersDict = extract<dict>(args[2]);
 
-    std::unordered_map<std::string, std::string> parametersMap;
+    std::unordered_map<folly::fbstring, folly::fbstring> parametersMap;
     list keys = parametersDict.keys();
     for (int i = 0; i < len(keys); ++i) {
         std::string key = extract<std::string>(keys[i]);
@@ -110,8 +110,7 @@ one::helpers::CTXPtr raw_open(tuple args, dict kwargs)
 
 BOOST_PYTHON_MODULE(proxy_io)
 {
-    class_<one::helpers::IStorageHelperCTX, one::helpers::CTXPtr>(
-        "CTX", no_init);
+    class_<one::helpers::FileHandlePtr>("FileHandle", no_init);
 
     class_<ProxyIOProxy, boost::noncopyable>("ProxyIOProxy", no_init)
         .def("__init__", make_constructor(create))

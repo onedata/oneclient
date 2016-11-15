@@ -9,206 +9,169 @@
 #ifndef HELPERS_DIRECT_IO_HELPER_H
 #define HELPERS_DIRECT_IO_HELPER_H
 
-#include "helpers/IStorageHelper.h"
+#include "helpers/storageHelper.h"
+
+#include "asioExecutor.h"
 
 #include <asio.hpp>
 #include <boost/filesystem/path.hpp>
+#include <folly/Executor.h>
 
 #include <fuse.h>
 #include <sys/types.h>
 
+#include <atomic>
 #include <functional>
 #include <map>
+#include <memory>
 #include <string>
 #include <unordered_map>
 
 namespace one {
 namespace helpers {
 
-constexpr auto DIRECT_IO_HELPER_UID_ARG = "uid";
-constexpr auto DIRECT_IO_HELPER_GID_ARG = "gid";
 constexpr auto DIRECT_IO_HELPER_PATH_ARG = "root_path";
 
 /**
-* The PosixHelperCTX class represents context for all POSIX compliant helpers
-* and its object is passed to all helper functions.
-*/
-class PosixHelperCTX : public IStorageHelperCTX {
+ * The @c FileHandle implementation for POSIX storage helper.
+ */
+class DirectIOFileHandle : public FileHandle {
 public:
-    PosixHelperCTX(std::unordered_map<std::string, std::string> params);
-
-    ~PosixHelperCTX();
+    /**
+     * Constructor.
+     * @param fileId Path to the file under the root path.
+     * @param uid UserID under which the helper will work.
+     * @param gid GroupID under which the helper will work.
+     * @param fileHandle POSIX file descriptor for the open file.
+     * @param executor Executor for driving async file operations.
+     */
+    DirectIOFileHandle(folly::fbstring fileId, const uid_t uid, const gid_t gid,
+        const int fileHandle, std::shared_ptr<folly::Executor> executor);
 
     /**
-     * @copydoc IStorageHelper::setUserCtx
-     * It should contain 'uid' and 'gid' values.
+     * Destructor.
+     * Synchronously releases the file if @c sh_release or @c ash_release have
+     * not been yet called.
      */
-    void setUserCTX(std::unordered_map<std::string, std::string> args) override;
+    ~DirectIOFileHandle();
 
-    std::unordered_map<std::string, std::string> getUserCTX() override;
+    folly::Future<folly::IOBufQueue> read(
+        const off_t offset, const std::size_t size) override;
 
-    uid_t uid = -1;
-    gid_t gid = -1;
-    int fh = -1;
+    folly::Future<std::size_t> write(
+        const off_t offset, folly::IOBufQueue buf) override;
+
+    folly::Future<folly::Unit> release() override;
+
+    folly::Future<folly::Unit> flush() override;
+
+    folly::Future<folly::Unit> fsync(bool isDataSync) override;
+
+    bool needsDataConsistencyCheck() override { return true; }
+
+private:
+    uid_t m_uid;
+    gid_t m_gid;
+    int m_fh;
+    std::shared_ptr<folly::Executor> m_executor;
+    std::atomic_bool m_needsRelease{true};
 };
 
 /**
  * The DirectIOHelper class provides access to files on mounted as local
  * filesystem.
  */
-class DirectIOHelper : public IStorageHelper,
-                       public std::enable_shared_from_this<DirectIOHelper> {
+class DirectIOHelper : public StorageHelper {
 public:
     /**
-     * The UserCTX abstract class
-     * Subclasses shall implement context setter based on CTXRef that
-     * persists as long as the object exists.
-     */
-    class UserCTX {
-    public:
-        /**
-         * Returns whether context setup was successful.
-         */
-        virtual bool valid() = 0;
-        virtual ~UserCTX() = default;
-    };
-
-    using PosixHelperCTXPtr = std::shared_ptr<PosixHelperCTX>;
-
-    /**
-     * Type of factory function that returns user's context setter (UserCTX
-     * instance).
-     */
-    using UserCTXFactory =
-        std::function<std::unique_ptr<UserCTX>(PosixHelperCTXPtr)>;
-
-#ifdef __linux__
-    /// Factory of user's context setter for linux systems
-    static UserCTXFactory linuxUserCTXFactory;
-#endif
-    /**
-     * Factory of user's context setter that doesn't set context and is always
-     * valid.
-     */
-    static UserCTXFactory noopUserCTXFactory;
-
-    /**
-     * This storage helper uses only the first element of args map.
-     * It shall be absolute path to directory used by this storage helper as
+     * Constructor.
+     * @param rootPath Absolute path to directory used by this storage helper as
      * root mount point.
+     * @param uid UserID under which the helper will work.
+     * @param gid GroupID under which the helper will work.
+     * @param executor Executor for driving async file operations.
      */
-    DirectIOHelper(const std::unordered_map<std::string, std::string> &,
-        asio::io_service &service, UserCTXFactory);
+    DirectIOHelper(boost::filesystem::path rootPath, const uid_t uid,
+        const gid_t gid, std::shared_ptr<folly::Executor> executor);
 
-    CTXPtr createCTX(
-        std::unordered_map<std::string, std::string> params) override;
+    folly::Future<struct stat> getattr(const folly::fbstring &fileId) override;
 
-    void ash_getattr(CTXPtr ctx, const boost::filesystem::path &p,
-        GeneralCallback<struct stat>) override;
-    void ash_access(CTXPtr ctx, const boost::filesystem::path &p, int mask,
-        VoidCallback) override;
-    void ash_readlink(CTXPtr ctx, const boost::filesystem::path &p,
-        GeneralCallback<std::string>) override;
-    void ash_readdir(CTXPtr ctx, const boost::filesystem::path &p, off_t offset,
-        size_t count,
-        GeneralCallback<const std::vector<std::string> &>) override;
-    void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        FlagsSet flags, dev_t rdev, VoidCallback) override;
-    void ash_mkdir(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        VoidCallback) override;
-    void ash_unlink(
-        CTXPtr ctx, const boost::filesystem::path &p, VoidCallback) override;
-    void ash_rmdir(
-        CTXPtr ctx, const boost::filesystem::path &p, VoidCallback) override;
-    void ash_symlink(CTXPtr ctx, const boost::filesystem::path &from,
-        const boost::filesystem::path &to, VoidCallback) override;
-    void ash_rename(CTXPtr ctx, const boost::filesystem::path &from,
-        const boost::filesystem::path &to, VoidCallback) override;
-    void ash_link(CTXPtr ctx, const boost::filesystem::path &from,
-        const boost::filesystem::path &to, VoidCallback) override;
-    void ash_chmod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        VoidCallback) override;
-    void ash_chown(CTXPtr ctx, const boost::filesystem::path &p, uid_t uid,
-        gid_t gid, VoidCallback) override;
-    void ash_truncate(CTXPtr ctx, const boost::filesystem::path &p, off_t size,
-        VoidCallback) override;
+    folly::Future<folly::Unit> access(
+        const folly::fbstring &fileId, const int mask) override;
 
-    void ash_open(CTXPtr ctx, const boost::filesystem::path &p, int flags,
-        GeneralCallback<int>) override;
-    void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset,
-        GeneralCallback<asio::mutable_buffer>) override;
-    void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset,
-        GeneralCallback<std::size_t>) override;
-    void ash_release(
-        CTXPtr ctx, const boost::filesystem::path &p, VoidCallback) override;
-    void ash_flush(
-        CTXPtr ctx, const boost::filesystem::path &p, VoidCallback) override;
-    void ash_fsync(CTXPtr ctx, const boost::filesystem::path &p,
-        bool isDataSync, VoidCallback) override;
+    folly::Future<folly::fbstring> readlink(
+        const folly::fbstring &fileId) override;
 
-    asio::mutable_buffer sh_read(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset) override;
-    std::size_t sh_write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset) override;
+    folly::Future<folly::Unit> mknod(const folly::fbstring &fileId,
+        const mode_t mode, const FlagsSet &flags, const dev_t rdev) override;
 
-    bool needsDataConsistencyCheck() override;
+    folly::Future<folly::Unit> mkdir(
+        const folly::fbstring &fileId, const mode_t mode) override;
 
-protected:
-    template <class Result, typename... Args1, typename... Args2>
-    static void setResult(
-        const VoidCallback &callback, Result (*fun)(Args2...), Args1 &&... args)
-    {
-        auto posixStatus = fun(std::forward<Args1>(args)...);
-        posixStatus < 0 ? callback(makePosixError(errno))
-                        : callback(SUCCESS_CODE);
-    }
+    folly::Future<folly::Unit> unlink(const folly::fbstring &fileId) override;
 
-#ifdef __linux__
-    /**
-     * The LinuxUserCTX class
-     * User's context setter for linux systems. Uses linux-specific setfsuid /
-     * setfsgid functions.
-     */
-    class LinuxUserCTX : public UserCTX {
-    public:
-        LinuxUserCTX(PosixHelperCTXPtr helperCTX);
-        bool valid();
+    folly::Future<folly::Unit> rmdir(const folly::fbstring &fileId) override;
 
-        ~LinuxUserCTX();
+    folly::Future<folly::Unit> symlink(
+        const folly::fbstring &from, const folly::fbstring &to) override;
 
-    private:
-        // Requested uid / gid
-        uid_t uid;
-        gid_t gid;
+    folly::Future<folly::Unit> rename(
+        const folly::fbstring &from, const folly::fbstring &to) override;
 
-        // Previous uid / gid to be restored
-        uid_t prev_uid;
-        gid_t prev_gid;
+    folly::Future<folly::Unit> link(
+        const folly::fbstring &from, const folly::fbstring &to) override;
 
-        // Current uid / gid
-        uid_t current_uid;
-        gid_t current_gid;
-    };
-#endif
+    folly::Future<folly::Unit> chmod(
+        const folly::fbstring &fileId, const mode_t mode) override;
 
-    /**
-     * The NoopUserCTX class
-     * Empty user's context setter. Doesn't set context and is always valid.
-     */
-    class NoopUserCTX : public UserCTX {
-    public:
-        bool valid();
-    };
+    folly::Future<folly::Unit> chown(const folly::fbstring &fileId,
+        const uid_t uid, const gid_t gid) override;
+
+    folly::Future<folly::Unit> truncate(
+        const folly::fbstring &fileId, const off_t size) override;
+
+    folly::Future<FileHandlePtr> open(const folly::fbstring &fileId,
+        const int flags, const Params &openParams) override;
 
 private:
-    boost::filesystem::path root(const boost::filesystem::path &path);
-    std::shared_ptr<PosixHelperCTX> getCTX(CTXPtr rawCTX) const;
+    boost::filesystem::path root(const folly::fbstring &fileId) const
+    {
+        return m_rootPath / fileId.toStdString();
+    }
 
-    const boost::filesystem::path m_rootPath;
-    asio::io_service &m_workerService;
-    UserCTXFactory m_userCTXFactory;
+    boost::filesystem::path m_rootPath;
+    const uid_t m_uid;
+    const gid_t m_gid;
+    std::shared_ptr<folly::Executor> m_executor;
+};
+
+/**
+ * An implementation of @c StorageHelperFactory for POSIX storage helper.
+ */
+class DirectIOHelperFactory : public StorageHelperFactory {
+public:
+    /**
+     * Constructor.
+     * @param service @c io_service that will be used for some async operations.
+     */
+    DirectIOHelperFactory(asio::io_service &service)
+        : m_service{service}
+    {
+    }
+
+    std::shared_ptr<StorageHelper> createStorageHelper(
+        const Params &parameters) override
+    {
+        const auto &rootPath = getParam(parameters, DIRECT_IO_HELPER_PATH_ARG);
+        const auto &uid = getParam<int>(parameters, "uid", -1);
+        const auto &gid = getParam<int>(parameters, "gid", -1);
+
+        return std::make_shared<DirectIOHelper>(rootPath.toStdString(), uid,
+            gid, std::make_shared<AsioExecutor>(m_service));
+    }
+
+private:
+    asio::io_service &m_service;
 };
 
 } // namespace helpers

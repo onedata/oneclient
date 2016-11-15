@@ -9,8 +9,11 @@
 #ifndef HELPERS_CEPH_HELPER_H
 #define HELPERS_CEPH_HELPER_H
 
-#include "helpers/IStorageHelper.h"
+#include "helpers/storageHelper.h"
 
+#include "asioExecutor.h"
+
+#include <folly/Executor.h>
 #include <rados/librados.hpp>
 
 #include <asio.hpp>
@@ -18,157 +21,135 @@
 namespace one {
 namespace helpers {
 
-constexpr auto CEPH_HELPER_USER_NAME_ARG = "user_name";
-constexpr auto CEPH_HELPER_CLUSTER_NAME_ARG = "cluster_name";
-constexpr auto CEPH_HELPER_MON_HOST_ARG = "mon_host";
-constexpr auto CEPH_HELPER_KEY_ARG = "key";
-constexpr auto CEPH_HELPER_POOL_NAME_ARG = "pool_name";
+class CephHelper;
 
 /**
-* The CephHelperCTX class represents context for Ceph helpers and its object is
-* passed to all helper functions.
-*/
-class CephHelperCTX : public IStorageHelperCTX {
+ * The @c FileHandle implementation for Ceph storage helper.
+ */
+class CephFileHandle : public FileHandle,
+                       public std::enable_shared_from_this<CephFileHandle> {
 public:
     /**
      * Constructor.
-     * @param args Map with parameters required to create context. It should
-     * contain at least 'cluster_name' , 'mon_host' and 'pool_name' values.
-     * Additionally default 'user_name' and 'key' can be passed, which will be
-     * used if user context has not been set.
+     * @param fileId Ceph-specific ID associated with the file.
+     * @param helper A pointer to the helper that created the handle.
+     * @param ioCTX A reference to @c librados::IoCtx for async operations.
      */
-    CephHelperCTX(std::unordered_map<std::string, std::string> params,
-        std::unordered_map<std::string, std::string> args);
+    CephFileHandle(folly::fbstring fileId, std::shared_ptr<CephHelper> helper,
+        librados::IoCtx &ioCTX);
+
+    folly::Future<folly::IOBufQueue> read(
+        const off_t offset, const std::size_t size) override;
+
+    folly::Future<std::size_t> write(
+        const off_t offset, folly::IOBufQueue buf) override;
+
+private:
+    std::shared_ptr<CephHelper> m_helper;
+    librados::IoCtx &m_ioCTX;
+};
+
+/**
+* The CephHelper class provides access to Ceph storage via librados library.
+*/
+class CephHelper : public StorageHelper,
+                   public std::enable_shared_from_this<CephHelper> {
+public:
+    /**
+     * Constructor.
+     * @param clusterName Name of the Ceph cluster to connect to.
+     * @param monHost Name of the Ceph monitor host.
+     * @param poolName Name of the Ceph pool to use.
+     * @param userName Name of the Ceph user.
+     * @param key Secret key of the Ceph user.
+     * @param executor Executor that will drive the helper's async operations.
+     */
+    CephHelper(folly::fbstring clusterName, folly::fbstring monHost,
+        folly::fbstring poolName, folly::fbstring userName, folly::fbstring key,
+        std::unique_ptr<folly::Executor> executor);
 
     /**
      * Destructor.
      * Closes connection to Ceph storage cluster and destroys internal context
      * object.
      */
-    ~CephHelperCTX();
+    ~CephHelper();
 
-    /**
-     * @copydoc IStorageHelper::setUserCtx
-     * It should contain 'user_name' and 'key' values.
-     */
-    void setUserCTX(std::unordered_map<std::string, std::string> args) override;
+    folly::Future<FileHandlePtr> open(
+        const folly::fbstring &fileId, const int, const Params &) override;
 
-    std::unordered_map<std::string, std::string> getUserCTX() override;
+    folly::Future<folly::Unit> unlink(const folly::fbstring &fileId) override;
+
+    folly::Future<folly::Unit> truncate(
+        const folly::fbstring &fileId, const off_t size) override;
+
+    folly::Future<folly::Unit> mknod(const folly::fbstring &fileId,
+        const mode_t mode, const FlagsSet &flags, const dev_t rdev) override
+    {
+        return folly::makeFuture();
+    }
+
+    folly::Future<folly::Unit> mkdir(
+        const folly::fbstring &fileId, const mode_t mode) override
+    {
+        return folly::makeFuture();
+    }
+
+    folly::Future<folly::Unit> chmod(
+        const folly::fbstring &fileId, const mode_t mode) override
+    {
+        return folly::makeFuture();
+    }
 
     /**
      * Establishes connection to the Ceph storage cluster.
-     * @param reconnect Flag that defines whether close current connection (if
-     * present) and establish new one.
      */
-    int connect(bool reconnect = false);
-
-    librados::Rados cluster;
-    librados::IoCtx ioCTX;
+    folly::Future<folly::Unit> connect();
 
 private:
+    folly::fbstring m_clusterName;
+    folly::fbstring m_monHost;
+    folly::fbstring m_poolName;
+    folly::fbstring m_userName;
+    folly::fbstring m_key;
+
+    std::unique_ptr<folly::Executor> m_executor;
+
+    librados::Rados m_cluster;
+    librados::IoCtx m_ioCTX;
     std::mutex m_connectionMutex;
     bool m_connected = false;
-    std::unordered_map<std::string, std::string> m_args;
 };
 
 /**
-* The CephHelper class provides access to Ceph storage via librados library.
-*/
-class CephHelper : public IStorageHelper {
+ * An implementation of @c StorageHelperFactory for Ceph storage helper.
+ */
+class CephHelperFactory : public StorageHelperFactory {
 public:
     /**
      * Constructor.
-     * @param args Map with parameters required to create helper.
-     * @param service Reference to IO service used by the helper.
+     * @param service @c io_service that will be used for some async operations.
      */
-    CephHelper(std::unordered_map<std::string, std::string> args,
-        asio::io_service &service);
-
-    CTXPtr createCTX(std::unordered_map<std::string, std::string>) override;
-
-    void ash_unlink(CTXPtr ctx, const boost::filesystem::path &p,
-        VoidCallback callback) override;
-
-    void ash_read(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::mutable_buffer buf, off_t offset,
-        GeneralCallback<asio::mutable_buffer>) override;
-
-    void ash_write(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::const_buffer buf, off_t offset,
-        GeneralCallback<std::size_t>) override;
-
-    void ash_truncate(CTXPtr ctx, const boost::filesystem::path &p, off_t size,
-        VoidCallback callback) override;
-
-    void ash_mknod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        FlagsSet flags, dev_t rdev, VoidCallback callback) override
+    CephHelperFactory(asio::io_service &service)
+        : m_service{service}
     {
-        callback(SUCCESS_CODE);
     }
 
-    void ash_mkdir(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        VoidCallback callback) override
+    std::shared_ptr<StorageHelper> createStorageHelper(
+        const Params &parameters) override
     {
-        callback(SUCCESS_CODE);
-    }
+        const auto &clusterName = getParam(parameters, "cluster_name");
+        const auto &monHost = getParam(parameters, "mon_host");
+        const auto &poolName = getParam(parameters, "pool_name");
+        const auto &userName = getParam(parameters, "user_name");
+        const auto &key = getParam(parameters, "key");
 
-    void ash_chmod(CTXPtr ctx, const boost::filesystem::path &p, mode_t mode,
-        VoidCallback callback) override
-    {
-        callback(SUCCESS_CODE);
+        return std::make_shared<CephHelper>(clusterName, monHost, poolName,
+            userName, key, std::make_unique<AsioExecutor>(m_service));
     }
 
 private:
-    struct UnlinkCallbackData {
-        UnlinkCallbackData(std::string _fileId, VoidCallback _callback)
-            : fileId{std::move(_fileId)}
-            , callback{std::move(_callback)}
-        {
-        }
-
-        std::string fileId;
-        VoidCallback callback;
-        std::shared_ptr<librados::AioCompletion> completion;
-    };
-
-    struct ReadCallbackData {
-        ReadCallbackData(std::string _fileId, asio::mutable_buffer _buffer,
-            GeneralCallback<asio::mutable_buffer> _callback)
-            : fileId{std::move(_fileId)}
-            , buffer{std::move(_buffer)}
-            , callback{std::move(_callback)}
-        {
-            bufferlist.append(ceph::buffer::create_static(
-                asio::buffer_size(buffer), asio::buffer_cast<char *>(buffer)));
-        }
-
-        std::string fileId;
-        librados::bufferlist bufferlist;
-        asio::mutable_buffer buffer;
-        GeneralCallback<asio::mutable_buffer> callback;
-        std::shared_ptr<librados::AioCompletion> completion;
-    };
-
-    struct WriteCallbackData {
-        WriteCallbackData(std::string _fileId, asio::const_buffer _buffer,
-            GeneralCallback<std::size_t> _callback)
-            : fileId{std::move(_fileId)}
-            , callback{std::move(_callback)}
-        {
-            bufferlist.append(asio::buffer_cast<const char *>(_buffer),
-                asio::buffer_size(_buffer));
-        }
-
-        std::string fileId;
-        librados::bufferlist bufferlist;
-        GeneralCallback<std::size_t> callback;
-        std::shared_ptr<librados::AioCompletion> completion;
-    };
-
-    std::shared_ptr<CephHelperCTX> getCTX(CTXPtr rawCTX) const;
-
     asio::io_service &m_service;
-    std::unordered_map<std::string, std::string> m_args;
 };
 
 } // namespace helpers

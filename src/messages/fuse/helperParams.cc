@@ -33,8 +33,8 @@ HelperParams::HelperParams(HelperParams::ProtocolMessage &message)
     deserialize(message);
 }
 
-HelperParams::HelperParams(
-    std::string name, std::unordered_map<std::string, std::string> args)
+HelperParams::HelperParams(folly::fbstring name,
+    std::unordered_map<folly::fbstring, folly::fbstring> args)
     : m_name{std::move(name)}
     , m_args{std::move(args)}
 {
@@ -54,10 +54,10 @@ std::string HelperParams::toString() const
 
 void HelperParams::deserialize(ProtocolMessage &message)
 {
-    message.mutable_helper_name()->swap(m_name);
+    m_name = message.helper_name();
 
     for (auto &entry : *message.mutable_helper_args())
-        entry.mutable_value()->swap(m_args[std::move(*entry.mutable_key())]);
+        m_args[entry.key()] = entry.value();
 }
 
 } // namespace fuse

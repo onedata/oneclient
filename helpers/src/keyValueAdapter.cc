@@ -10,285 +10,341 @@
 #include "keyValueHelper.h"
 #include "logging.h"
 
-namespace one {
-namespace helpers {
-
 namespace {
-template <typename CbValue> struct TaskCtx {
-    TaskCtx(std::string fileId_, GeneralCallback<CbValue> _callback)
-        : prefix{std::move(fileId_)}
-        , parts{0}
-        , callback{std::move(_callback)} {};
 
-    std::string prefix;
-    std::atomic<std::size_t> parts;
-    std::error_code code = SUCCESS_CODE;
-    std::mutex mutex;
-    GeneralCallback<CbValue> callback;
-};
-}
-
-KeyValueAdapter::KeyValueAdapter(std::unique_ptr<KeyValueHelper> helper,
-    asio::io_service &service, Locks &locks, std::size_t blockSize)
-    : m_helper{std::move(helper)}
-    , m_service{service}
-    , m_locks{locks}
-    , m_blockSize{blockSize}
+uint64_t getBlockId(off_t offset, std::size_t blockSize)
 {
+    return offset / blockSize;
 }
 
-CTXPtr KeyValueAdapter::createCTX(
-    std::unordered_map<std::string, std::string> params)
+off_t getBlockOffset(off_t offset, std::size_t blockSize)
 {
-    return m_helper->createCTX(std::move(params));
+    return offset - getBlockId(offset, blockSize) * blockSize;
 }
 
-void KeyValueAdapter::ash_unlink(
-    CTXPtr ctx, const boost::filesystem::path &p, VoidCallback callback)
-{
-    asio::post(
-        m_service, [ =, ctx = std::move(ctx), callback = std::move(callback) ] {
-            try {
-                auto keys = m_helper->listObjects(ctx, p.string());
-                m_helper->deleteObjects(ctx, std::move(keys));
-                callback(SUCCESS_CODE);
-            }
-            catch (const std::system_error &e) {
-                logError("unlink", e);
-                callback(e.code());
-            }
-        });
-}
-
-void KeyValueAdapter::ash_read(CTXPtr ctx, const boost::filesystem::path &p,
-    asio::mutable_buffer buf, off_t offset,
-    GeneralCallback<asio::mutable_buffer> callback)
-{
-    auto prefix = p.string();
-
-    asio::post(m_service, [
-        =, ctx = std::move(ctx), prefix = std::move(prefix),
-        buf = std::move(buf), callback = std::move(callback)
-    ]() mutable {
-        auto fileSize = m_helper->getObjectsSize(ctx, prefix, m_blockSize);
-        if (offset >= fileSize) {
-            callback(asio::buffer(buf, 0), SUCCESS_CODE);
-        }
-        else {
-            readBlocks(std::move(ctx), std::move(prefix), std::move(buf),
-                offset, fileSize, std::move(callback));
-        }
-    });
-}
-
-void KeyValueAdapter::ash_write(CTXPtr ctx, const boost::filesystem::path &p,
-    asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t> callback)
-{
-    auto size = asio::buffer_size(buf);
-
-    if (size == 0)
-        return callback(0, SUCCESS_CODE);
-
-    auto prefix = p.string();
-    auto blockId = getBlockId(offset);
-    auto blockOffset = getBlockOffset(offset);
-    auto blocksToWrite = (size + blockOffset + m_blockSize - 1) / m_blockSize;
-    auto writeCtx = std::make_shared<TaskCtx<std::size_t>>(
-        std::move(prefix), std::move(callback));
-
-    for (std::size_t bufOffset = 0; bufOffset < size;
-         blockOffset = 0, ++blockId) {
-        auto blockSize =
-            std::min<std::size_t>(m_blockSize - blockOffset, size - bufOffset);
-
-        asio::post(m_service, [=]() mutable {
-            try {
-                writeBlock(std::move(ctx), writeCtx->prefix, buf, bufOffset,
-                    blockId, blockOffset, blockSize);
-            }
-            catch (const std::system_error &e) {
-                std::lock_guard<std::mutex> guard{writeCtx->mutex};
-                if (!writeCtx->code) {
-                    logError("write", e);
-                    writeCtx->code = e.code();
-                }
-            }
-            if (++writeCtx->parts == blocksToWrite) {
-                writeCtx->callback(size, writeCtx->code);
-            }
-        });
-
-        bufOffset += blockSize;
-    }
-}
-
-void KeyValueAdapter::ash_truncate(CTXPtr ctx, const boost::filesystem::path &p,
-    off_t size, VoidCallback callback)
-{
-    asio::post(
-        m_service, [ =, ctx = std::move(ctx), callback = std::move(callback) ] {
-            try {
-                auto prefix = p.string();
-                auto blockId = getBlockId(size);
-                auto blockOffset = getBlockOffset(size);
-
-                auto keys = m_helper->listObjects(ctx, p.string());
-                std::vector<std::string> keysToDelete{};
-
-                for (auto &key : keys) {
-                    auto objectId = m_helper->getObjectId(key);
-
-                    if (objectId > blockId ||
-                        (objectId == blockId && blockOffset == 0)) {
-                        keysToDelete.emplace_back(std::move(key));
-                    }
-                }
-
-                auto key = m_helper->getKey(prefix, blockId);
-                auto blockSize = static_cast<std::size_t>(blockOffset);
-
-                if (blockSize == 0 && blockId > 0) {
-                    key = m_helper->getKey(prefix, blockId - 1);
-                    blockSize = m_blockSize;
-                }
-
-                if (blockSize > 0 || blockId > 0) {
-                    std::vector<char> data(blockSize, '\0');
-                    auto blockBuf = asio::buffer(data);
-
-                    Locks::accessor acc;
-                    m_locks.insert(acc, key);
-                    readBlock(ctx, key, blockBuf, 0);
-                    m_helper->putObject(ctx, std::move(key), blockBuf);
-                    m_locks.erase(acc);
-                }
-
-                if (!keysToDelete.empty())
-                    m_helper->deleteObjects(ctx, std::move(keysToDelete));
-
-                callback(SUCCESS_CODE);
-            }
-            catch (const std::system_error &e) {
-                logError("truncate", e);
-                callback(e.code());
-            }
-        });
-}
-
-uint64_t KeyValueAdapter::getBlockId(off_t offset)
-{
-    return offset / m_blockSize;
-}
-
-off_t KeyValueAdapter::getBlockOffset(off_t offset)
-{
-    return offset - getBlockId(offset) * m_blockSize;
-}
-
-void KeyValueAdapter::readBlocks(CTXPtr ctx, std::string prefix,
-    asio::mutable_buffer buf, off_t offset, std::size_t fileSize,
-    GeneralCallback<asio::mutable_buffer> callback)
-{
-    buf = asio::buffer(buf, fileSize - offset);
-    auto size = asio::buffer_size(buf);
-
-    if (size == 0)
-        return callback(asio::buffer(buf, 0), SUCCESS_CODE);
-
-    auto blockId = getBlockId(offset);
-    auto blockOffset = getBlockOffset(offset);
-    auto blocksToRead = (size + blockOffset + m_blockSize - 1) / m_blockSize;
-    auto readCtx = std::make_shared<TaskCtx<asio::mutable_buffer>>(
-        std::move(prefix), std::move(callback));
-
-    for (std::size_t bufOffset = 0; bufOffset < size;
-         blockOffset = 0, ++blockId) {
-
-        asio::post(m_service, [=]() mutable {
-            try {
-                readBlock(std::move(ctx), readCtx->prefix, buf, bufOffset,
-                    blockId, blockOffset);
-            }
-            catch (const std::system_error &e) {
-                std::lock_guard<std::mutex> guard{readCtx->mutex};
-                if (!readCtx->code) {
-                    logError("read", e);
-                    readCtx->code = e.code();
-                }
-            }
-            if (++readCtx->parts == blocksToRead) {
-                readCtx->callback(buf, readCtx->code);
-            }
-        });
-
-        bufOffset += m_blockSize - blockOffset;
-    }
-}
-
-std::size_t KeyValueAdapter::readBlock(CTXPtr ctx, const std::string &prefix,
-    asio::mutable_buffer buf, std::size_t bufOffset, uint64_t blockId,
-    off_t blockOffset)
-{
-    auto blockBuf = asio::buffer(buf + bufOffset, m_blockSize);
-    auto key = m_helper->getKey(prefix, blockId);
-    Locks::accessor acc;
-    m_locks.insert(acc, key);
-    readBlock(ctx, std::move(key), blockBuf, blockOffset);
-    m_locks.erase(key);
-    return asio::buffer_size(blockBuf);
-}
-
-asio::mutable_buffer KeyValueAdapter::readBlock(
-    CTXPtr ctx, std::string key, asio::mutable_buffer buf, off_t offset)
-{
-    try {
-        return m_helper->getObject(ctx, std::move(key), buf, offset);
-    }
-    catch (const std::system_error &e) {
-        if (e.code().value() == ENOENT) {
-            return asio::mutable_buffer{};
-        }
-        else {
-            throw;
-        }
-    }
-}
-
-void KeyValueAdapter::writeBlock(CTXPtr ctx, const std::string &prefix,
-    asio::const_buffer buf, std::size_t bufOffset, uint64_t blockId,
-    off_t blockOffset, std::size_t blockSize)
-{
-    auto key = m_helper->getKey(prefix, blockId);
-    Locks::accessor acc;
-    m_locks.insert(acc, key);
-
-    if (blockSize != m_blockSize) {
-        std::vector<char> data(m_blockSize, '\0');
-        auto blockBuf = asio::buffer(data);
-        auto fetchedBuf = readBlock(ctx, key, blockBuf, 0);
-
-        auto targetBlockSize =
-            std::max(asio::buffer_size(fetchedBuf), blockOffset + blockSize);
-
-        blockBuf = asio::buffer(blockBuf, targetBlockSize);
-        asio::buffer_copy(blockBuf + blockOffset, buf + bufOffset);
-
-        m_helper->putObject(ctx, std::move(key), blockBuf);
-    }
-    else {
-        auto blockBuf = asio::buffer(buf + bufOffset, blockSize);
-        m_helper->putObject(ctx, std::move(key), blockBuf);
-    }
-
-    m_locks.erase(acc);
-}
-
-void KeyValueAdapter::logError(
-    std::string operation, const std::system_error &error)
+void logError(const folly::fbstring &operation, const std::system_error &error)
 {
     LOG(ERROR) << "Operation '" << operation
                << "' failed due to: " << error.what()
                << " (code: " << error.code().value() << ")";
+}
+
+folly::IOBufQueue readBlock(
+    const std::shared_ptr<one::helpers::KeyValueHelper> &helper,
+    const folly::fbstring &key, const off_t offset, const std::size_t size)
+{
+    try {
+        return helper->getObject(key, offset, size);
+    }
+    catch (const std::system_error &e) {
+        if (e.code().value() == ENOENT)
+            return folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()};
+
+        throw;
+    }
+}
+
+folly::IOBufQueue fillToSize(folly::IOBufQueue buf, const std::size_t size)
+{
+    if (buf.chainLength() < size) {
+        const std::size_t fillLength = size - buf.chainLength();
+        char *data = static_cast<char *>(buf.allocate(fillLength));
+        std::fill(data, data + fillLength, 0);
+    }
+    return std::move(buf);
+}
+
+} // namespace
+
+namespace one {
+namespace helpers {
+
+KeyValueFileHandle::KeyValueFileHandle(folly::fbstring fileId,
+    std::shared_ptr<KeyValueHelper> helper, const std::size_t blockSize,
+    std::shared_ptr<Locks> locks, std::shared_ptr<folly::Executor> executor)
+    : FileHandle{std::move(fileId)}
+    , m_helper{std::move(helper)}
+    , m_blockSize{blockSize}
+    , m_locks{std::move(locks)}
+    , m_executor{std::move(executor)}
+{
+}
+
+folly::Future<folly::IOBufQueue> KeyValueFileHandle::read(
+    const off_t offset, const std::size_t size)
+{
+    return folly::via(
+        m_executor.get(), [ this, offset, size, self = shared_from_this() ] {
+            const off_t fileSize =
+                m_helper->getObjectsSize(m_fileId, m_blockSize);
+
+            if (offset >= fileSize)
+                return folly::makeFuture(
+                    folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()});
+
+            return readBlocks(offset, size, fileSize);
+        });
+}
+
+folly::Future<std::size_t> KeyValueFileHandle::write(
+    const off_t offset, folly::IOBufQueue buf)
+{
+    if (buf.empty())
+        return folly::makeFuture<std::size_t>(0);
+
+    return folly::via(m_executor.get(),
+        [ this, offset, buf = std::move(buf), self = shared_from_this() ] {
+            const auto size = buf.chainLength();
+            if (size == 0)
+                return folly::makeFuture<std::size_t>(0);
+
+            auto blockId = getBlockId(offset, m_blockSize);
+            auto blockOffset = getBlockOffset(offset, m_blockSize);
+
+            folly::fbvector<folly::Future<folly::Unit>> writeFutures;
+
+            for (std::size_t bufOffset = 0; bufOffset < size;
+                 blockOffset = 0, ++blockId) {
+
+                const auto blockSize = std::min<std::size_t>(
+                    m_blockSize - blockOffset, size - bufOffset);
+
+                auto writeFuture = via(m_executor.get(), [
+                    this, iobuf = buf.front()->clone(), blockId, blockOffset,
+                    bufOffset, blockSize, self = shared_from_this()
+                ]() mutable {
+                    folly::IOBufQueue bufq{
+                        folly::IOBufQueue::cacheChainLength()};
+
+                    bufq.append(std::move(iobuf));
+                    bufq.trimStart(bufOffset);
+                    bufq.trimEnd(bufq.chainLength() - blockSize);
+
+                    return writeBlock(std::move(bufq), blockId, blockOffset);
+                });
+
+                writeFutures.emplace_back(std::move(writeFuture));
+
+                bufOffset += blockSize;
+            }
+
+            return folly::collect(writeFutures)
+                .then([size](const std::vector<folly::Unit> &) { return size; })
+                .then([](folly::Try<std::size_t> t) {
+                    try {
+                        return t.value();
+                    }
+                    catch (const std::system_error &e) {
+                        logError("write", e);
+                        throw;
+                    }
+                });
+        });
+}
+
+KeyValueAdapter::KeyValueAdapter(std::shared_ptr<KeyValueHelper> helper,
+    std::shared_ptr<folly::Executor> executor, std::size_t blockSize)
+    : m_helper{std::move(helper)}
+    , m_executor{std::move(executor)}
+    , m_locks{std::make_shared<Locks>()}
+    , m_blockSize{blockSize}
+{
+}
+
+folly::Future<folly::Unit> KeyValueAdapter::unlink(
+    const folly::fbstring &fileId)
+{
+    return folly::via(m_executor.get(), [ fileId, helper = m_helper ] {
+        try {
+            auto keys = helper->listObjects(fileId);
+            helper->deleteObjects(keys);
+        }
+        catch (const std::system_error &e) {
+            logError("unlink", e);
+            throw;
+        }
+    });
+}
+
+folly::Future<folly::Unit> KeyValueAdapter::truncate(
+    const folly::fbstring &fileId, const off_t size)
+{
+    return folly::via(m_executor.get(), [
+        fileId, size, helper = m_helper, locks = m_locks,
+        defBlockSize = m_blockSize
+    ] {
+        try {
+            auto blockId = getBlockId(size, defBlockSize);
+            auto blockOffset = getBlockOffset(size, defBlockSize);
+
+            auto keys = helper->listObjects(fileId);
+
+            folly::fbvector<folly::fbstring> keysToDelete;
+            for (auto &key : keys) {
+                auto objectId = helper->getObjectId(key);
+                if (objectId > blockId ||
+                    (objectId == blockId && blockOffset == 0)) {
+                    keysToDelete.emplace_back(std::move(key));
+                }
+            }
+
+            auto key = helper->getKey(fileId, blockId);
+            auto blockSize = static_cast<std::size_t>(blockOffset);
+
+            if (blockSize == 0 && blockId > 0) {
+                key = helper->getKey(fileId, blockId - 1);
+                blockSize = defBlockSize;
+            }
+
+            if (blockSize > 0 || blockId > 0) {
+                Locks::accessor acc;
+                locks->insert(acc, key);
+
+                try {
+                    auto buf = fillToSize(
+                        readBlock(helper, key, 0, blockSize), blockSize);
+                    helper->putObject(key, std::move(buf));
+                    locks->erase(acc);
+                }
+                catch (...) {
+                    locks->erase(acc);
+                    throw;
+                }
+            }
+
+            if (!keysToDelete.empty())
+                helper->deleteObjects(keysToDelete);
+        }
+        catch (const std::system_error &e) {
+            logError("truncate", e);
+            throw;
+        }
+    });
+}
+
+folly::Future<folly::IOBufQueue> KeyValueFileHandle::readBlocks(
+    const off_t offset, const std::size_t requestedSize, const off_t fileSize)
+{
+    const auto size =
+        std::min(requestedSize, static_cast<std::size_t>(fileSize - offset));
+
+    if (size == 0)
+        return folly::makeFuture(
+            folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()});
+
+    folly::fbvector<folly::Future<folly::IOBufQueue>> readFutures;
+
+    auto blockId = getBlockId(offset, m_blockSize);
+    auto blockOffset = getBlockOffset(offset, m_blockSize);
+    for (std::size_t bufOffset = 0; bufOffset < size;
+         blockOffset = 0, ++blockId) {
+
+        const auto blockSize =
+            std::min(m_blockSize - blockOffset, size - bufOffset);
+
+        auto readFuture = via(m_executor.get(), [
+            this, blockId, blockOffset, blockSize, self = shared_from_this()
+        ] {
+            return fillToSize(
+                readBlock(blockId, blockOffset, blockSize), blockSize);
+        });
+
+        readFutures.emplace_back(std::move(readFuture));
+        bufOffset += blockSize;
+    }
+
+    return folly::collect(readFutures)
+        .then([](std::vector<folly::IOBufQueue> &&results) {
+            folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
+            for (auto &subBuf : results)
+                buf.append(std::move(subBuf));
+
+            return buf;
+        })
+        .then([](folly::Try<folly::IOBufQueue> &&t) {
+            try {
+                return std::move(t.value());
+            }
+            catch (const std::system_error &e) {
+                logError("read", e);
+                throw;
+            }
+        });
+}
+
+folly::IOBufQueue KeyValueFileHandle::readBlock(
+    const uint64_t blockId, const off_t blockOffset, const std::size_t size)
+{
+    auto key = m_helper->getKey(m_fileId, blockId);
+
+    Locks::accessor acc;
+    m_locks->insert(acc, key);
+
+    try {
+        auto ret = ::readBlock(m_helper, key, blockOffset, size);
+        m_locks->erase(acc);
+        return ret;
+    }
+    catch (...) {
+        m_locks->erase(acc);
+        throw;
+    }
+}
+
+void KeyValueFileHandle::writeBlock(
+    folly::IOBufQueue buf, const uint64_t blockId, const off_t blockOffset)
+{
+    auto key = m_helper->getKey(m_fileId, blockId);
+    Locks::accessor acc;
+    m_locks->insert(acc, key);
+
+    try {
+        if (buf.chainLength() != m_blockSize) {
+            auto fetchedBuf = ::readBlock(m_helper, key, 0, m_blockSize);
+
+            folly::IOBufQueue filledBuf{folly::IOBufQueue::cacheChainLength()};
+
+            if (blockOffset > 0) {
+                if (!fetchedBuf.empty())
+                    filledBuf.append(fetchedBuf.front()->clone());
+
+                if (filledBuf.chainLength() >=
+                    static_cast<std::size_t>(blockOffset))
+                    filledBuf.trimEnd(filledBuf.chainLength() - blockOffset);
+
+                filledBuf = fillToSize(std::move(filledBuf),
+                    static_cast<std::size_t>(blockOffset));
+            }
+
+            filledBuf.append(std::move(buf));
+
+            if (filledBuf.chainLength() < fetchedBuf.chainLength()) {
+                fetchedBuf.trimStart(filledBuf.chainLength());
+                filledBuf.append(std::move(fetchedBuf));
+            }
+
+            m_helper->putObject(key, std::move(filledBuf));
+        }
+        else {
+            m_helper->putObject(key, std::move(buf));
+        }
+
+        m_locks->erase(acc);
+    }
+    catch (...) {
+        m_locks->erase(acc);
+        throw;
+    }
+}
+
+folly::Future<FileHandlePtr> KeyValueAdapter::open(
+    const folly::fbstring &fileId, const int /*flags*/,
+    const Params &openParams)
+{
+    auto handle = std::make_shared<KeyValueFileHandle>(
+        fileId, m_helper, m_blockSize, m_locks, m_executor);
+
+    return folly::makeFuture(std::move(handle));
 }
 
 } // namespace helpers

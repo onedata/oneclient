@@ -11,7 +11,7 @@
 
 #include "fileRequest.h"
 
-#include <boost/filesystem/path.hpp>
+#include <folly/FBString.h>
 
 #include <string>
 
@@ -28,7 +28,7 @@ public:
      * Constructor.
      * @param uuid UUID of the file for which attributes are requested.
      */
-    GetFileAttr(std::string uuid);
+    GetFileAttr(folly::fbstring uuid);
 
     std::string toString() const override;
 

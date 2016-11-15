@@ -1,8 +1,8 @@
 #include "communication/communicator.h"
 #include "communication/declarations.h"
 #include "messages/clientMessage.h"
-#include "messages/serverMessage.h"
 #include "messages/handshakeRequest.h"
+#include "messages/serverMessage.h"
 
 #include "messages.pb.h"
 
@@ -138,10 +138,12 @@ public:
 
     std::string communicateReceive()
     {
-        if (m_future.wait_for(10s) == std::future_status::ready)
-            return m_future.get().protocolMsg().SerializeAsString();
-        else
-            throw std::system_error(std::make_error_code(std::errc::timed_out));
+        return m_future
+            ->within(10s,
+                std::system_error{std::make_error_code(std::errc::timed_out)})
+            .get()
+            .protocolMsg()
+            .SerializeAsString();
     }
 
     std::string setHandshake(const std::string &description, bool fail)
@@ -163,7 +165,7 @@ public:
 
 private:
     CustomCommunicator m_communicator;
-    std::future<ExampleServerMessage> m_future;
+    folly::Optional<folly::Future<ExampleServerMessage>> m_future;
 };
 
 boost::shared_ptr<CommunicatorProxy> create(

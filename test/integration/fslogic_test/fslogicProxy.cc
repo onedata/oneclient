@@ -8,17 +8,19 @@
 
 #include "nullHelper.h"
 
+#include "communication/communicator.h"
 #include "context.h"
-#include "fsLogic.h"
+#include "events/eventManager.h"
+#include "fslogic/fsLogic.h"
+#include "fslogic/withUuids.h"
+#include "messages/configuration.h"
 #include "options.h"
 #include "scheduler.h"
-#include "communication/communicator.h"
-#include "events/eventManager.h"
-#include "messages/configuration.h"
 
-#include <boost/python.hpp>
-#include <boost/make_shared.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/make_shared.hpp>
+#include <boost/python.hpp>
+#include <boost/python/suite/indexing/vector_indexing_suite.hpp>
 #include <fuse.h>
 
 #include <memory>
@@ -60,28 +62,28 @@ private:
     std::unique_ptr<PyThreadState, decltype(&PyEval_RestoreThread)> threadState;
 };
 
-class HelpableFsLogic : public one::client::FsLogic {
+class HelpersCacheProxy : public one::client::cache::HelpersCache {
 public:
-    using one::client::FsLogic::FsLogic;
+    using HelpersCache::HelpersCache;
 
     std::shared_ptr<NullHelperMock> m_helper =
         std::make_shared<NullHelperMock>();
 
-    one::client::HelpersCache::HelperPtr getHelper(
-        const std::string &, const std::string &) override
+    HelperPtr get(
+        const folly::fbstring &, const folly::fbstring &, const bool) override
     {
-        if (failHelper)
-            m_helper->set_ec(std::make_error_code(std::errc::owner_dead));
         return m_helper;
     }
-
-    bool failHelper = false;
 };
 
 class FsLogicProxy {
 public:
     FsLogicProxy(std::shared_ptr<Context> context)
-        : m_fsLogic{context, std::make_shared<messages::Configuration>()}
+        : m_helpersCache{new HelpersCacheProxy(
+              *context->communicator(), *context->scheduler())}
+        , m_fsLogic{context, std::make_shared<messages::Configuration>(),
+              std::unique_ptr<HelpersCacheProxy>{m_helpersCache},
+              [](auto f) { f(); }}
         , m_context{context}
     {
     }
@@ -92,165 +94,163 @@ public:
         m_context->communicator()->stop();
     }
 
-    void failHelper() { m_fsLogic.failHelper = true; }
+    void failHelper()
+    {
+        m_helpersCache->m_helper->set_ec(
+            std::make_error_code(std::errc::owner_dead));
+    }
 
-    int getattr(std::string path, Stat &stat)
+    Stat getattr(std::string uuid)
     {
         ReleaseGIL guard;
 
-        struct stat statbuf;
-        auto ret = m_fsLogic.getattr(path, &statbuf);
+        auto attr = m_fsLogic.getattr(uuid);
 
-        if (ret == 0) {
-            stat.atime = statbuf.st_atime;
-            stat.mtime = statbuf.st_mtime;
-            stat.ctime = statbuf.st_ctime;
-            stat.gid = statbuf.st_gid;
-            stat.uid = statbuf.st_uid;
-            stat.mode = statbuf.st_mode;
-            stat.size = statbuf.st_size;
-        }
+        auto statbuf = one::client::fslogic::detail::toStatbuf(attr, 123);
+        Stat stat;
 
-        return ret;
+        stat.atime = statbuf.st_atime;
+        stat.mtime = statbuf.st_mtime;
+        stat.ctime = statbuf.st_ctime;
+        stat.gid = statbuf.st_gid;
+        stat.uid = statbuf.st_uid;
+        stat.mode = statbuf.st_mode;
+        stat.size = statbuf.st_size;
+
+        return stat;
     }
 
-    int mkdir(std::string path, int mode)
+    void mkdir(std::string parentUuid, std::string name, int mode)
     {
         ReleaseGIL guard;
-        return m_fsLogic.mkdir(path, mode);
+        m_fsLogic.mkdir(parentUuid, name, mode);
     }
 
-    int unlink(std::string path)
+    void unlink(std::string parentUuid, std::string name)
     {
         ReleaseGIL guard;
-        return m_fsLogic.unlink(path);
+        m_fsLogic.unlink(parentUuid, name);
     }
 
-    int rmdir(std::string path)
+    void rmdir(std::string parentUuid, std::string name)
+    {
+        unlink(parentUuid, name);
+    }
+
+    void rename(std::string parentUuid, std::string name,
+        std::string newParentUuid, std::string newName)
     {
         ReleaseGIL guard;
-        return m_fsLogic.rmdir(path);
+        return m_fsLogic.rename(parentUuid, name, newParentUuid, newName);
     }
 
-    int rename(std::string path, std::string to)
+    void chmod(std::string uuid, int mode)
     {
         ReleaseGIL guard;
-        return m_fsLogic.rename(path, to);
+
+        struct stat statbuf = {};
+        statbuf.st_mode = mode;
+        m_fsLogic.setattr(uuid, statbuf, FUSE_SET_ATTR_MODE);
     }
 
-    int chmod(std::string path, int mode)
+    void utime(std::string uuid)
     {
         ReleaseGIL guard;
-        return m_fsLogic.chmod(path, mode);
+
+        struct stat statbuf = {};
+        m_fsLogic.setattr(
+            uuid, statbuf, FUSE_SET_ATTR_ATIME_NOW | FUSE_SET_ATTR_MTIME_NOW);
     }
 
-    int utime(std::string path)
+    void utime_buf(std::string uuid, Ubuf ubuf)
     {
         ReleaseGIL guard;
-        struct utimbuf utimbuf;
-        utimbuf.actime = 0;
-        utimbuf.modtime = 0;
 
-        return m_fsLogic.utime(path, &utimbuf);
+        struct stat statbuf = {};
+        statbuf.st_atime = ubuf.actime;
+        statbuf.st_mtime = ubuf.modtime;
+
+        m_fsLogic.setattr(
+            uuid, statbuf, FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME);
     }
 
-    int utime_buf(std::string path, Ubuf ubuf)
+    std::vector<std::string> readdir(std::string uuid)
     {
         ReleaseGIL guard;
-        struct utimbuf utimbuf;
-        utimbuf.actime = ubuf.actime;
-        utimbuf.modtime = ubuf.modtime;
 
-        return m_fsLogic.utime(path, &utimbuf);
+        std::vector<std::string> children;
+        for (auto &name : m_fsLogic.readdir(uuid))
+            children.emplace_back(name.toStdString());
+
+        return children;
     }
 
-    int readdir(std::string path, boost::python::list &children)
+    void mknod(std::string parentUuid, std::string name, int mode)
     {
         ReleaseGIL guard;
-        return m_fsLogic.readdir(path, static_cast<void *>(&children), filler,
-            /*offset*/ 0, /*fileinfo*/ nullptr);
+        m_fsLogic.mknod(parentUuid, name, mode);
     }
 
-    int mknod(std::string path, int mode, int dev)
+    int open(std::string uuid, int flags)
     {
         ReleaseGIL guard;
-        return m_fsLogic.mknod(path, mode, dev);
+        return m_fsLogic.open(uuid, flags);
     }
 
-    int open(std::string path, int flags)
+    std::string read(std::string uuid, int fileHandleId, int offset, int size)
     {
         ReleaseGIL guard;
-        struct fuse_file_info ffi = {};
-        ffi.flags = flags;
+        auto buf = m_fsLogic.read(uuid, fileHandleId, offset, size, {});
 
-        if (const auto res = m_fsLogic.open(path, &ffi))
-            return -res;
+        std::string data;
+        buf.appendToString(data);
 
-        return ffi.fh;
+        return data;
     }
 
-    int read(std::string path, int offset, int size)
+    int write(std::string uuid, int fuseHandleId, int offset, int size)
     {
         ReleaseGIL guard;
-        struct fuse_file_info ffi = {};
-        std::vector<char> buf(size);
 
-        return m_fsLogic.read(
-            path, asio::buffer(buf.data(), buf.size()), offset, &ffi);
+        folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
+        buf.allocate(size);
+
+        return m_fsLogic.write(uuid, fuseHandleId, offset, std::move(buf));
     }
 
-    int write(std::string path, int offset, int size)
+    void release(std::string uuid, int fuseHandleId)
     {
         ReleaseGIL guard;
-        struct fuse_file_info ffi = {};
-        std::vector<char> buf(size);
-
-        return m_fsLogic.write(
-            path, asio::buffer(buf.data(), buf.size()), offset, &ffi);
+        m_fsLogic.release(uuid, fuseHandleId);
     }
 
-    int release(std::string path)
+    void truncate(std::string uuid, int size)
     {
         ReleaseGIL guard;
-        struct fuse_file_info ffi = {};
-        return m_fsLogic.release(path, &ffi);
+
+        struct stat statbuf = {};
+        statbuf.st_size = size;
+        m_fsLogic.setattr(uuid, statbuf, FUSE_SET_ATTR_SIZE);
     }
 
-    int truncate(std::string path, int size)
+    void expect_call_sh_open(std::string uuid, int times)
     {
-        ReleaseGIL guard;
-        return m_fsLogic.truncate(path, size);
+        m_helpersCache->m_helper->expect_call_sh_open(uuid, times);
     }
 
-    void expect_call_sh_open(std::string filename, int times)
+    void expect_call_sh_release(std::string uuid, int times)
     {
-        m_fsLogic.m_helper->expect_call_sh_open(filename, times);
-    }
-
-    void expect_call_sh_release(std::string filename, int times)
-    {
-        m_fsLogic.m_helper->expect_call_sh_release(filename, times);
+        m_helpersCache->m_helper->expect_call_sh_release(uuid, times);
     }
 
     bool verify_and_clear_expectations()
     {
-        return m_fsLogic.m_helper->verify_and_clear_expectations();
+        return m_helpersCache->m_helper->verify_and_clear_expectations();
     }
 
 private:
-    static int filler(void *buf, const char *name, const struct stat *, off_t)
-    {
-        PyGILState_STATE gstate;
-        gstate = PyGILState_Ensure();
-
-        auto &children = *static_cast<boost::python::list *>(buf);
-        children.append(name);
-
-        PyGILState_Release(gstate);
-        return 0;
-    }
-
-    HelpableFsLogic m_fsLogic;
+    HelpersCacheProxy *m_helpersCache;
+    fslogic::FsLogic m_fsLogic;
     std::shared_ptr<Context> m_context;
 };
 
@@ -300,6 +300,9 @@ BOOST_PYTHON_MODULE(fslogic)
     class_<Ubuf>("Ubuf")
         .def_readwrite("actime", &Ubuf::actime)
         .def_readwrite("modtime", &Ubuf::modtime);
+
+    class_<std::vector<std::string>>("vector").def(
+        vector_indexing_suite<std::vector<std::string>>());
 
     class_<FsLogicProxy, boost::noncopyable>("FsLogicProxy", no_init)
         .def("__init__", make_constructor(create))

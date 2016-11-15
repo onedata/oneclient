@@ -33,14 +33,26 @@ find_package(CURL REQUIRED)
 message(STATUS "Checking for NSS...")
 find_package(NSS REQUIRED)
 
+# Setup Folly
+message(STATUS "Checking for Folly...")
+find_package_prefer_static(Folly REQUIRED)
+find_library(LIBEVENT_LIBRARY event)
+find_library(IBERTY_LIBRARY iberty)
+find_library(DOUBLE_CONVERSION_LIBRARY double-conversion)
+set(FOLLY_LIBRARIES
+    ${FOLLY_LIBRARIES}
+    ${LIBEVENT_LIBRARY}
+    ${IBERTY_LIBRARY}
+    ${DOUBLE_CONVERSION_LIBRARY})
+
 # Setup Boost
 message(STATUS "Checking for Boost components...")
 set(Boost_USE_STATIC_LIBS       OFF)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME    OFF)
-find_package(Boost COMPONENTS atomic chrono date_time filesystem iostreams log
-                              log_setup program_options regex system thread
-                              REQUIRED)
+find_package(Boost COMPONENTS atomic chrono context date_time filesystem
+                              iostreams log log_setup program_options regex
+                              system thread REQUIRED)
 
 set(ETLS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/etls/c_src)
 

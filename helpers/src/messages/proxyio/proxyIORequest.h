@@ -11,9 +11,11 @@
 
 #include "messages/clientMessage.h"
 
-#include <unordered_map>
+#include <folly/FBString.h>
+
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 namespace one {
 namespace messages {
@@ -31,8 +33,8 @@ public:
      * @param fileId The ID of file that will be manipulated.
      */
     ProxyIORequest(
-            std::unordered_map<std::string, std::string> parameters,
-            std::string storageId, std::string fileId);
+        std::unordered_map<folly::fbstring, folly::fbstring> parameters,
+        folly::fbstring storageId, folly::fbstring fileId);
 
     virtual ~ProxyIORequest() = default;
 
@@ -40,9 +42,9 @@ protected:
     virtual std::unique_ptr<ProtocolClientMessage>
     serializeAndDestroy() override;
 
-    std::unordered_map<std::string, std::string> m_parameters;
-    std::string m_storageId;
-    std::string m_fileId;
+    std::unordered_map<folly::fbstring, folly::fbstring> m_parameters;
+    folly::fbstring m_storageId;
+    folly::fbstring m_fileId;
 };
 
 } // namespace proxyio

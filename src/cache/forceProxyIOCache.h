@@ -9,24 +9,21 @@
 #ifndef ONECLIENT_FORCE_CLUSTER_PROXY_CACHE_H
 #define ONECLIENT_FORCE_CLUSTER_PROXY_CACHE_H
 
-#include <fsSubscriptions.h>
-#include <shared_mutex>
-#include <tbb/concurrent_unordered_set.h>
+#include "fsSubscriptions.h"
+
+#include <folly/FBString.h>
+
+#include <unordered_set>
 
 namespace one {
 namespace client {
+namespace cache {
 
 /**
  * @c ForceProxyIOCache is responsible for holding uuids of files that
  * require forcing cluster proxy during read and write operations
  */
 class ForceProxyIOCache {
-
-private:
-    tbb::concurrent_unordered_set<std::string> m_cache;
-    FsSubscriptions &m_fsSubscriptions;
-    std::shared_timed_mutex m_cacheMutex;
-
 public:
     /**
      * Constructor
@@ -39,22 +36,33 @@ public:
      * Checks if fileUuid is present in cache
      * @param fileUuid Uuid of file to be checked.
      */
-    bool contains(const std::string &fileUuid);
+    bool contains(const folly::fbstring &fileUuid);
 
     /**
      * Inserts fileUuid to cache
      * @param fileUuid to be inserted
      */
-    void insert(const std::string &fileUuid);
+    void insert(folly::fbstring fileUuid);
 
     /**
      * Erases fileUuid from cache
      * @param fileUuid to be deleted
      */
-    void erase(const std::string &fileUuid);
+    void erase(const folly::fbstring &fileUuid);
+
+    /**
+     * Handle an event where permissions to file changed externally.
+     * @param fileUuid Uuid of the file.
+     */
+    void handlePermissionChanged(const folly::fbstring &fileUuid);
+
+private:
+    std::unordered_set<folly::fbstring> m_cache;
+    FsSubscriptions &m_fsSubscriptions;
 };
 
-} // namespace one
+} // namespace cache
 } // namespace client
+} // namespace one
 
 #endif // ONECLIENT_FORCE_CLUSTER_PROXY_CACHE_H
