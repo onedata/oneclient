@@ -11,10 +11,9 @@ namespace one {
 namespace client {
 namespace cache {
 
-LRUMetadataCache::OpenFileToken::OpenFileToken(FileAttrPtr attr,
-    folly::Optional<folly::fbstring> handleId_, LRUMetadataCache &cache)
+LRUMetadataCache::OpenFileToken::OpenFileToken(
+    FileAttrPtr attr, LRUMetadataCache &cache)
     : m_attr{std::move(attr)}
-    , m_handleId{std::move(handleId_)}
     , m_cache{cache}
 {
 }
@@ -39,7 +38,7 @@ LRUMetadataCache::LRUMetadataCache(
 }
 
 std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
-    const folly::fbstring &uuid, const helpers::FlagsSet &flagsSet)
+    const folly::fbstring &uuid)
 {
     auto res = m_lruData.emplace(uuid, LRUData{});
     auto &lruData = res.first->second;
@@ -55,10 +54,8 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
 
     try {
         auto attr = MetadataCache::getAttr(uuid);
-        auto handleId = MetadataCache::getHandleId(uuid, flagsSet);
         prune();
-        return std::make_shared<OpenFileToken>(
-            std::move(attr), std::move(handleId), *this);
+        return std::make_shared<OpenFileToken>(std::move(attr), *this);
     }
     catch (...) {
         release(uuid);
@@ -155,11 +152,10 @@ void LRUMetadataCache::changeMode(
     MetadataCache::changeMode(uuid, newMode);
 }
 
-void LRUMetadataCache::putLocation(
-    const helpers::Flag &flag, std::unique_ptr<FileLocation> location)
+void LRUMetadataCache::putLocation(std::unique_ptr<FileLocation> location)
 {
     noteActivity(location->uuid());
-    MetadataCache::putLocation(flag, std::move(location));
+    MetadataCache::putLocation(std::move(location));
 }
 
 void LRUMetadataCache::handleMarkDeleted(const folly::fbstring &uuid)

@@ -1,12 +1,12 @@
 /**
- * @file getNewFileLocation.cc
+ * @file createFile.cc
  * @author Konrad Zemek
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "getNewFileLocation.h"
+#include "createFile.h"
 
 #include "messages.pb.h"
 
@@ -17,8 +17,8 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-GetNewFileLocation::GetNewFileLocation(folly::fbstring parentUuid,
-    folly::fbstring name, const mode_t mode, const one::helpers::FlagsSet flags)
+CreateFile::CreateFile(folly::fbstring parentUuid, folly::fbstring name,
+    const mode_t mode, const one::helpers::FlagsSet flags)
     : FileRequest{parentUuid.toStdString()}
     , m_name{std::move(name)}
     , m_mode{mode}
@@ -26,13 +26,12 @@ GetNewFileLocation::GetNewFileLocation(folly::fbstring parentUuid,
 {
 }
 
-std::string GetNewFileLocation::toString() const
+std::string CreateFile::toString() const
 {
     std::stringstream stream;
 
-    stream << "type: 'GetNewFileLocation', name: " << m_name
-           << ", parentUUID: " << m_contextGuid << ", mode: " << std::oct
-           << m_mode << ", flags: ";
+    stream << "type: 'CreateFile', name: '" << m_name << "', parentUUID: '"
+           << m_contextGuid << "', mode: " << std::oct << m_mode << ", flag: ";
 
     if (m_flags.count(one::helpers::Flag::RDWR))
         stream << "rdwr";
@@ -44,23 +43,22 @@ std::string GetNewFileLocation::toString() const
     return stream.str();
 }
 
-std::unique_ptr<ProtocolClientMessage> GetNewFileLocation::serializeAndDestroy()
+std::unique_ptr<ProtocolClientMessage> CreateFile::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto gnfl = msg->mutable_fuse_request()
-                    ->mutable_file_request()
-                    ->mutable_get_new_file_location();
+    auto cf = msg->mutable_fuse_request()
+                  ->mutable_file_request()
+                  ->mutable_create_file();
 
-    gnfl->set_name(m_name.toStdString());
-    gnfl->set_mode(m_mode);
-    gnfl->set_create_handle(true);
+    cf->set_name(m_name.toStdString());
+    cf->set_mode(m_mode);
 
     if (m_flags.count(one::helpers::Flag::RDWR))
-        gnfl->set_flags(clproto::FileLocationFlags::READ_WRITE);
+        cf->set_flag(clproto::OpenFlag::READ_WRITE);
     else if (m_flags.count(one::helpers::Flag::RDONLY))
-        gnfl->set_flags(clproto::FileLocationFlags::READ);
+        cf->set_flag(clproto::OpenFlag::READ);
     else if (m_flags.count(one::helpers::Flag::WRONLY))
-        gnfl->set_flags(clproto::FileLocationFlags::WRITE);
+        cf->set_flag(clproto::OpenFlag::WRITE);
 
     return msg;
 }

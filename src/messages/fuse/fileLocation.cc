@@ -73,7 +73,7 @@ std::string FileLocation::toString() const
         stream << block.first << " -> (" << block.second.storageId() << ", "
                << block.second.fileId() << "), ";
 
-    stream << "], handleId: " << (m_handleId ? *m_handleId : "unset");
+    stream << "]";
 
     return stream.str();
 }
@@ -103,10 +103,6 @@ void FileLocation::deserialize(ProtocolMessage &message)
 
         m_blocks += std::make_pair(
             interval, FileBlock{std::move(storageId_), std::move(fileId_)});
-    }
-
-    if (message.has_handle_id()) {
-        m_handleId = std::move(*message.mutable_handle_id());
     }
 }
 

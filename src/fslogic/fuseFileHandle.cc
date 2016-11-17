@@ -15,11 +15,12 @@ namespace one {
 namespace client {
 namespace fslogic {
 
-FuseFileHandle::FuseFileHandle(const int flags_,
+FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
     std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,
     cache::HelpersCache &helpersCache,
     cache::ForceProxyIOCache &forceProxyIOCache)
     : m_flags{flags_}
+    , m_handleId{std::move(handleId)}
     , m_openFileToken{std::move(openFileToken)}
     , m_helpersCache{helpersCache}
     , m_forceProxyIOCache{forceProxyIOCache}
@@ -68,17 +69,14 @@ folly::fbvector<helpers::FileHandlePtr> FuseFileHandle::helperHandles() const
 
 folly::Optional<folly::fbstring> FuseFileHandle::providerHandleId() const
 {
-    return m_openFileToken->handleId();
+    return m_handleId;
 }
 
 std::unordered_map<folly::fbstring, folly::fbstring>
 FuseFileHandle::makeParameters(const folly::fbstring &uuid)
 {
     std::unordered_map<folly::fbstring, folly::fbstring> parameters{
-        {"file_uuid", uuid}};
-
-    if (m_openFileToken->handleId())
-        parameters.emplace("handle_id", *m_openFileToken->handleId());
+        {"file_uuid", uuid}, {"handle_id", m_handleId}};
 
     return parameters;
 };

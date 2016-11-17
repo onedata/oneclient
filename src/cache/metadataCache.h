@@ -43,7 +43,7 @@ namespace cache {
  * Returns RDONLY if flag value is zero.
  * @param Flags value
  */
-inline helpers::Flag getFlagForLocation(const helpers::FlagsSet &flagsSet)
+inline helpers::Flag getOpenFlag(const helpers::FlagsSet &flagsSet)
 {
     if (flagsSet.count(one::helpers::Flag::RDONLY))
         return one::helpers::Flag::RDONLY;
@@ -82,58 +82,40 @@ public:
     /**
      * Adds a specific block to a cached file locations.
      * @param uuid Uuid of the file.
-     * @param flagsSet Open flags for the location.
      * @param range The range of the added block.
      * @param fileBlock The block.
      */
     void addBlock(const folly::fbstring &uuid,
-        const helpers::FlagsSet &flagsSet,
         const boost::icl::discrete_interval<off_t> range,
         messages::fuse::FileBlock fileBlock);
-
-    /**
-     * Returns a cached file location HandleID, if exists, and clears the
-     * handleId field.
-     * @param uuid Uuid of the file.
-     * @param flagsSet Open flags for the location.
-     * @returns The cached HandleID.
-     */
-    folly::Optional<folly::fbstring> getHandleId(
-        const folly::fbstring &uuid, const helpers::FlagsSet &flagsSet);
 
     /**
      * Retrieves file location by uuid.
      * If the file has no cached attributes, they are first fetched from the
      * server.
      * @param uuid Uuid of the file.
-     * @param flagsSet Open flags for the location.
      * @returns Location of the file.
      */
-    FileLocationPtr getFileLocation(
-        const folly::fbstring &uuid, const helpers::FlagsSet &flagsSet);
+    FileLocationPtr getFileLocation(const folly::fbstring &uuid);
 
     /**
      * Retrieves a block from file locations that contains a specific
      * offset.
      * @param uuid Uuid of the file.
-     * @param flagsSet Open flags for the location.
      * @param offset Offset to search for.
      * @returns Pair of range and block denoting the found block.
      */
     folly::Optional<std::pair<boost::icl::discrete_interval<off_t>,
         messages::fuse::FileBlock>>
-    getBlock(const folly::fbstring &uuid, const helpers::FlagsSet &flagsSet,
-        const off_t offset);
+    getBlock(const folly::fbstring &uuid, const off_t offset);
 
     /**
      * Inserts an externally fetched location into the cache.
      * If the file has no cached attributes, they are first fetched from the
      * server.
-     * @param flag Open flag for the location.
      * @param location The location to put in the cache.
      */
-    void putLocation(
-        const helpers::Flag &flag, std::unique_ptr<FileLocation> location);
+    void putLocation(std::unique_ptr<FileLocation> location);
 
     /**
      * Removes all of file's metadata from the cache.
@@ -223,7 +205,7 @@ private:
     struct Metadata {
         Metadata(std::shared_ptr<FileAttr>);
         std::shared_ptr<FileAttr> attr;
-        std::map<helpers::Flag, std::shared_ptr<FileLocation>> locations;
+        std::shared_ptr<FileLocation> location;
         bool deleted = false;
     };
 
@@ -247,13 +229,11 @@ private:
         result_type operator()(const Metadata &m) const;
     };
 
-    using Map = boost::multi_index::multi_index_container<
-        Metadata,
+    using Map = boost::multi_index::multi_index_container<Metadata,
         boost::multi_index::indexed_by<
             boost::multi_index::hashed_unique<boost::multi_index::tag<ByUuid>,
                 UuidExtractor, std::hash<folly::fbstring>>,
-            boost::multi_index::hashed_unique<
-                boost::multi_index::tag<ByParent>,
+            boost::multi_index::hashed_unique<boost::multi_index::tag<ByParent>,
                 boost::multi_index::composite_key<Metadata, ParentUuidExtractor,
                     NameExtractor>,
                 boost::multi_index::composite_key_hash<
@@ -263,17 +243,10 @@ private:
 
     template <typename ReqMsg> Map::iterator fetchAttr(ReqMsg &&msg);
 
-    std::shared_ptr<FileLocation> getLocationPtr(
-        const Map::iterator &it, const helpers::FlagsSet &flagsSet);
-
     std::shared_ptr<FileLocation> fetchFileLocation(
-        const folly::fbstring &uuid, const helpers::FlagsSet &flagsSet);
+        const folly::fbstring &uuid);
 
     communication::Communicator &m_communicator;
-
-    std::unordered_multimap<folly::fbstring,
-        std::shared_ptr<folly::Promise<FileLocationPtr>>>
-        m_updatePromises;
 
     Map m_cache;
 

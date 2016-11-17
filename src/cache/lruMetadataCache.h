@@ -38,13 +38,10 @@ public:
         /**
          * Construtor.
          * @param attr File attributes, used to fetch current uuid on release.
-         * @param handleId_ Id of a handle open on server-side.
          * @param cache An instance of cache on which the release will be
          * called.
          */
-        OpenFileToken(FileAttrPtr attr,
-            folly::Optional<folly::fbstring> handleId_,
-            LRUMetadataCache &cache);
+        OpenFileToken(FileAttrPtr attr, LRUMetadataCache &cache);
 
         /**
          * Destructor.
@@ -52,19 +49,11 @@ public:
          */
         ~OpenFileToken();
 
-        /**
-         * @returns HandleId set in the constructor.
-         */
-        folly::Optional<folly::fbstring> handleId() const { return m_handleId; }
-
         OpenFileToken(const OpenFileToken &) = delete;
         OpenFileToken(OpenFileToken &&) = delete;
 
     private:
         FileAttrPtr m_attr;
-        // OpenFileToken stores handleId to justify fetching attributes +
-        // location
-        folly::Optional<folly::fbstring> m_handleId;
         LRUMetadataCache &m_cache;
     };
 
@@ -81,11 +70,9 @@ public:
     /**
      * Opens a file in the cache.
      * @param uuid Uuid of the file.
-     * @param flagsSet Flags for the opening.
      * @returns A token representing the open file.
      */
-    std::shared_ptr<OpenFileToken> open(
-        const folly::fbstring &uuid, const helpers::FlagsSet &flagsSet);
+    std::shared_ptr<OpenFileToken> open(const folly::fbstring &uuid);
 
     /**
      * @copydoc MetadataCache::getattr(const folly::fbstring &)
@@ -174,11 +161,9 @@ public:
     void changeMode(const folly::fbstring &uuid, const mode_t newMode);
 
     /**
-     * @copydoc MetadataCache::putLocation(const helpers::Flag &,
-     * std::unique_ptr<FileLocation>);
+     * @copydoc MetadataCache::putLocation(std::unique_ptr<FileLocation>);
      */
-    void putLocation(
-        const helpers::Flag &flag, std::unique_ptr<FileLocation> location);
+    void putLocation(std::unique_ptr<FileLocation> location);
 
     // Operations used only on open files
     using MetadataCache::addBlock;
