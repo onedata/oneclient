@@ -39,6 +39,9 @@ template <typename T> bool identityEqual(const T &lhs, const T &rhs)
 constexpr int BENCH_BLOCK_SIZE = 1024 * 100;
 constexpr int BENCH_LOOP_COUNT = 10000;
 
+const auto TEST_ROOT =
+    boost::filesystem::temp_directory_path() / "directIOHelper_test";
+
 struct DirectIOHelperTest : public ::testing::Test {
     DirectIOHelperTest()
     {
@@ -63,6 +66,12 @@ struct DirectIOHelperTest : public ::testing::Test {
             proxy->open(testFileId, O_RDWR, {}).getVia(executor.get()));
     }
 
+    ~DirectIOHelperTest()
+    {
+        boost::system::error_code ec;
+        boost::filesystem::remove_all(root, ec);
+    }
+
     void unlinkOnDIO(boost::filesystem::path p)
     {
         std::remove((root / p).c_str());
@@ -74,7 +83,8 @@ struct DirectIOHelperTest : public ::testing::Test {
 
     std::shared_ptr<folly::ManualExecutor> executor;
 
-    boost::filesystem::path root = boost::filesystem::unique_path();
+    boost::filesystem::path root = TEST_ROOT / boost::filesystem::unique_path();
+
     std::string testFileId = "test.txt"s;
     boost::filesystem::path testFilePath = root / testFileId;
 
@@ -145,7 +155,7 @@ TEST_F(DirectIOHelperTest, mknod)
 TEST_F(DirectIOHelperTest, shouldMakeDirectory)
 {
     EXPECT_NO_THROW(proxy->mkdir("dir", 0).getVia(executor.get()));
-    std::remove("dir");
+    std::remove((root / "dir").c_str());
 }
 
 TEST_F(DirectIOHelperTest, shouldDeleteFile)

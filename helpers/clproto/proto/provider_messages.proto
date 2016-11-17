@@ -136,7 +136,7 @@ message WriteMetadata {
 }
 
 message CheckPerms {
-    required FileLocationFlags flags = 1;
+    required OpenFlag flag = 1;
 }
 
 message CreateShare {
