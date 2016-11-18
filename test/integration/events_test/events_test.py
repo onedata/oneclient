@@ -327,6 +327,9 @@ def test_file_attr_subscription(endpoint, evt_man):
 
 def test_file_attr_subscription_cancellation(endpoint, evt_man):
     id = evt_man.subscribeFileAttr('fileUuid', 1, 10, 2, 5)
+    msg = events.createFileAttrSubscriptionMsg(id, 'fileUuid', 2, 5, 0)
+    endpoint.wait_for_specific_messages(msg)
+
     evt_man.unsubscribe(id)
 
     msg = events.createClientSubscriptionCancellationMsg(id, 2, 1)
