@@ -172,6 +172,7 @@ void wrap_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
         [ req, ino, fi = *fi ](const std::uint64_t fh) mutable {
             const auto userdata = fuse_req_userdata(req);
             fi.fh = fh;
+            fi.direct_io = 1;
             if (fuse_reply_open(req, &fi))
                 callFslogic(&fslogic::Composite::release, userdata, ino, fh);
         },
