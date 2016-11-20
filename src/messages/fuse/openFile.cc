@@ -17,9 +17,9 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-OpenFile::OpenFile(std::string uuid, const one::helpers::FlagsSet flags)
+OpenFile::OpenFile(std::string uuid, const one::helpers::Flag flag)
     : FileRequest{std::move(uuid)}
-    , m_flags{flags}
+    , m_flag{flag}
 {
 }
 
@@ -29,12 +29,12 @@ std::string OpenFile::toString() const
 
     stream << "type: 'OpenFile', uuid: '" << m_contextGuid << "', flag: ";
 
-    if (m_flags.count(one::helpers::Flag::RDWR))
-        stream << "rdwr";
-    else if (m_flags.count(one::helpers::Flag::RDONLY))
+    if (m_flag == one::helpers::Flag::RDONLY)
         stream << "read";
-    else if (m_flags.count(one::helpers::Flag::WRONLY))
+    else if (m_flag == one::helpers::Flag::WRONLY)
         stream << "write";
+    else
+        stream << "rdwr";
 
     return stream.str();
 }
@@ -46,12 +46,12 @@ std::unique_ptr<ProtocolClientMessage> OpenFile::serializeAndDestroy()
                   ->mutable_file_request()
                   ->mutable_open_file();
 
-    if (m_flags.count(one::helpers::Flag::RDWR))
-        of->set_flag(clproto::OpenFlag::READ_WRITE);
-    else if (m_flags.count(one::helpers::Flag::RDONLY))
+    if (m_flag == one::helpers::Flag::RDONLY)
         of->set_flag(clproto::OpenFlag::READ);
-    else if (m_flags.count(one::helpers::Flag::WRONLY))
+    else if (m_flag == one::helpers::Flag::WRONLY)
         of->set_flag(clproto::OpenFlag::WRITE);
+    else
+        of->set_flag(clproto::OpenFlag::READ_WRITE);
 
     return msg;
 }

@@ -39,23 +39,6 @@ namespace client {
 namespace cache {
 
 /**
- * Filters given flags set to one of RDONLY, WRONLY or RDWR.
- * Returns RDONLY if flag value is zero.
- * @param Flags value
- */
-inline helpers::Flag getOpenFlag(const helpers::FlagsSet &flagsSet)
-{
-    if (flagsSet.count(one::helpers::Flag::RDONLY))
-        return one::helpers::Flag::RDONLY;
-    if (flagsSet.count(one::helpers::Flag::WRONLY))
-        return one::helpers::Flag::WRONLY;
-    if (flagsSet.count(one::helpers::Flag::RDWR))
-        return one::helpers::Flag::RDWR;
-
-    return one::helpers::Flag::RDONLY;
-}
-
-/**
  * @c MetadataCache is responsible for retrieving and caching file attributes
  * and locations.
  */
@@ -80,7 +63,14 @@ public:
         const folly::fbstring &parentUuid, const folly::fbstring &name);
 
     /**
-     * Adds a specific block to a cached file locations.
+     * Inserts an externally fetched file attributes into the cache.
+     * @param attr The file attributes to put in the cache.
+     */
+    void putAttr(std::shared_ptr<FileAttr> attr);
+
+    /**
+     * Adds a specific block to a cached file locations. File location must be
+     * present in the cache.
      * @param uuid Uuid of the file.
      * @param range The range of the added block.
      * @param fileBlock The block.

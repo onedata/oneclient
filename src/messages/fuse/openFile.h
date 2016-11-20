@@ -29,16 +29,16 @@ public:
     /**
      * Constructor.
      * @param uuid UUID of the file to be opened.
-     * @param flags Open flags.
+     * @param flag Open flag.
      */
-    OpenFile(std::string uuid, const one::helpers::FlagsSet flags);
+    OpenFile(std::string uuid, const one::helpers::Flag flag);
 
     std::string toString() const override;
 
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    one::helpers::FlagsSet m_flags;
+    one::helpers::Flag m_flag;
 };
 
 } // namespace fuse

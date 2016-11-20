@@ -63,6 +63,26 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
     }
 }
 
+std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
+    const folly::fbstring &uuid, std::shared_ptr<FileAttr> attr)
+{
+    auto res = m_lruData.emplace(uuid, LRUData{});
+    auto &lruData = res.first->second;
+
+    ++lruData.openCount;
+
+    if (lruData.lruIt) {
+        m_lruList.erase(*lruData.lruIt);
+        lruData.lruIt.clear();
+
+        m_onOpen(uuid);
+    }
+
+    MetadataCache::putAttr(attr);
+    prune();
+    return std::make_shared<OpenFileToken>(std::move(attr), *this);
+}
+
 void LRUMetadataCache::release(const folly::fbstring &uuid)
 {
     auto it = m_lruData.find(uuid);

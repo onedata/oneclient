@@ -44,6 +44,23 @@ namespace one {
 namespace client {
 namespace fslogic {
 
+/**
+ * Filters given flags set to one of RDONLY, WRONLY or RDWR.
+ * Returns RDONLY if flag value is zero.
+ * @param Flags value
+ */
+inline helpers::Flag getOpenFlag(const helpers::FlagsSet &flagsSet)
+{
+    if (flagsSet.count(one::helpers::Flag::RDONLY))
+        return one::helpers::Flag::RDONLY;
+    if (flagsSet.count(one::helpers::Flag::WRONLY))
+        return one::helpers::Flag::WRONLY;
+    if (flagsSet.count(one::helpers::Flag::RDWR))
+        return one::helpers::Flag::RDWR;
+
+    return one::helpers::Flag::RDONLY;
+}
+
 FsLogic::FsLogic(std::shared_ptr<Context> context,
     std::shared_ptr<messages::Configuration> configuration,
     std::unique_ptr<cache::HelpersCache> helpersCache,
@@ -148,8 +165,8 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
 
     const auto filteredFlags = flags & (~O_CREAT) & (~O_APPEND);
 
-    const auto flag = cache::getOpenFlag(helpers::maskToFlags(filteredFlags));
-    messages::fuse::OpenFile msg{uuid.toStdString(), {flag}};
+    const auto flag = getOpenFlag(helpers::maskToFlags(filteredFlags));
+    messages::fuse::OpenFile msg{uuid.toStdString(), flag};
 
     auto opened = communicate<messages::fuse::FileOpened>(std::move(msg));
 
@@ -351,26 +368,27 @@ FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
 {
     messages::fuse::MakeFile msg{parentUuid, name, mode};
     auto attr = communicate<FileAttr>(std::move(msg));
-    m_metadataCache.updateFileAttr(attr);
+    auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
+    m_metadataCache.putAttr(sharedAttr);
 
-    return std::make_shared<FileAttr>(std::move(attr));
+    return sharedAttr;
 }
 
 std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
     const folly::fbstring &parentUuid, const folly::fbstring &name,
     const mode_t mode, const int flags)
 {
-    const auto flag = cache::getOpenFlag(helpers::maskToFlags(flags));
-    messages::fuse::CreateFile msg{parentUuid, name, mode, {flag}};
+    const auto flag = getOpenFlag(helpers::maskToFlags(flags));
+    messages::fuse::CreateFile msg{parentUuid, name, mode, flag};
 
     auto created = communicate<messages::fuse::FileCreated>(std::move(msg));
 
-    m_metadataCache.updateFileAttr(created.attr());
+    const auto &uuid = created.attr().uuid();
+    auto sharedAttr = std::make_shared<FileAttr>(std::move(created.attr()));
+    auto openFileToken = m_metadataCache.open(uuid, sharedAttr);
     m_metadataCache.putLocation(
         std::make_unique<FileLocation>(created.location()));
 
-    const auto &uuid = created.attr().uuid();
-    auto openFileToken = m_metadataCache.open(uuid);
     const auto fuseFileHandleId = m_nextFuseHandleId++;
     m_fuseFileHandles.emplace(fuseFileHandleId,
         std::make_shared<FuseFileHandle>(flags, created.handleId(),
@@ -378,7 +396,7 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
 
     m_eventManager.emitFileOpenedEvent(uuid.toStdString());
 
-    return {std::make_shared<FileAttr>(created.attr()), fuseFileHandleId};
+    return {sharedAttr, fuseFileHandleId};
 }
 
 void FsLogic::unlink(

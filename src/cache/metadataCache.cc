@@ -64,6 +64,13 @@ FileAttrPtr MetadataCache::getAttr(
     return fetchedIt->attr;
 }
 
+void MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
+{
+    auto result = m_cache.emplace(attr);
+    if (!result.second)
+        m_cache.modify(result.first, [&](Metadata &m) { m.attr = attr; });
+}
+
 MetadataCache::Map::iterator MetadataCache::getAttrIt(
     const folly::fbstring &uuid)
 {
@@ -83,8 +90,8 @@ void MetadataCache::addBlock(const folly::fbstring &uuid,
     auto it = getAttrIt(uuid);
     auto newBlock = std::make_pair(range, std::move(fileBlock));
 
-    if (it->location)
-        it->location->blocks() += newBlock;
+    assert(it->location);
+    it->location->blocks() += newBlock;
 
     m_cache.modify(it, [&](Metadata &m) {
         m.attr->size(
@@ -133,7 +140,7 @@ FileLocationPtr MetadataCache::getFileLocation(const folly::fbstring &uuid)
     if (it->location)
         return it->location;
 
-    return fetchFileLocation(it->attr->uuid());
+    return fetchFileLocation(uuid);
 }
 
 folly::Optional<

@@ -173,9 +173,9 @@ def prepare_rename_response(new_uuid):
     return server_response
 
 
-def prepare_open_response(handle_id):
+def prepare_open_response(handle_id='handle_id'):
     repl = fuse_messages_pb2.FileOpened()
-    repl.handle_id = handle_id if handle_id else 'handle_id'
+    repl.handle_id = handle_id
 
     server_response = messages_pb2.ServerMessage()
     server_response.fuse_response.file_opened.CopyFrom(repl)
@@ -184,7 +184,7 @@ def prepare_open_response(handle_id):
     return server_response
 
 
-def do_open(endpoint, fl, uuid, size=None, handle_id=None):
+def do_open(endpoint, fl, uuid, size=None, handle_id='handle_id'):
     attr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG,
                                           size=size)
     open_response = prepare_open_response(handle_id)

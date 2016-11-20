@@ -13,9 +13,7 @@
 #include "fuseResponse.h"
 
 #include <boost/icl/interval_map.hpp>
-#include <boost/optional.hpp>
 #include <folly/FBString.h>
-#include <folly/Optional.h>
 
 #include <sys/types.h>
 

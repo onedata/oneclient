@@ -31,10 +31,10 @@ public:
      * @param parentUuid UUID of the directory in which to create the file.
      * @param name Name of the file to create.
      * @param mode Mode of the newly created file.
-     * @param flags Open flags.
+     * @param flag Open flag.
      */
     CreateFile(folly::fbstring parentUuid, folly::fbstring name,
-        const mode_t mode, const one::helpers::FlagsSet flags);
+        const mode_t mode, const one::helpers::Flag flag);
 
     std::string toString() const override;
 
@@ -43,7 +43,7 @@ private:
 
     folly::fbstring m_name;
     mode_t m_mode;
-    one::helpers::FlagsSet m_flags;
+    one::helpers::Flag m_flag;
 };
 
 } // namespace fuse
