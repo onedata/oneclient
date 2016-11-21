@@ -94,7 +94,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
 
     m_metadataCache.onAdd([this](const folly::fbstring &uuid) {
         m_fsSubscriptions.addFileAttrSubscription(uuid.toStdString());
-        m_fsSubscriptions.addFileRemovalSubscription(uuid.toStdString());
+        m_fsSubscriptions.addFileRemovedSubscription(uuid.toStdString());
         m_fsSubscriptions.addFileRenamedSubscription(uuid.toStdString());
     });
 
@@ -105,17 +105,17 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     m_metadataCache.onPrune([this](const folly::fbstring &uuid) {
         m_fsSubscriptions.removeFileLocationSubscription(uuid.toStdString());
         m_fsSubscriptions.removeFileAttrSubscription(uuid.toStdString());
-        m_fsSubscriptions.removeFileRemovalSubscription(uuid.toStdString());
+        m_fsSubscriptions.removeFileRemovedSubscription(uuid.toStdString());
         m_fsSubscriptions.removeFileRenamedSubscription(uuid.toStdString());
     });
 
     m_metadataCache.onRename([this](
         const folly::fbstring &oldUuid, const folly::fbstring &newUuid) {
         m_fsSubscriptions.removeFileAttrSubscription(oldUuid.toStdString());
-        m_fsSubscriptions.removeFileRemovalSubscription(oldUuid.toStdString());
+        m_fsSubscriptions.removeFileRemovedSubscription(oldUuid.toStdString());
         m_fsSubscriptions.removeFileRenamedSubscription(oldUuid.toStdString());
         m_fsSubscriptions.addFileAttrSubscription(newUuid.toStdString());
-        m_fsSubscriptions.addFileRemovalSubscription(newUuid.toStdString());
+        m_fsSubscriptions.addFileRemovedSubscription(newUuid.toStdString());
         m_fsSubscriptions.addFileRenamedSubscription(newUuid.toStdString());
 
         if (m_fsSubscriptions.removeFileLocationSubscription(
@@ -175,8 +175,6 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
         std::make_shared<FuseFileHandle>(filteredFlags, opened.handleId(),
             openFileToken, *m_helpersCache, m_forceProxyIOCache));
 
-    m_eventManager.emitFileOpenedEvent(uuid.toStdString());
-
     return fuseFileHandleId;
 }
 
@@ -208,8 +206,6 @@ void FsLogic::release(
         uuid.toStdString(), fuseFileHandle->providerHandleId()->toStdString()});
 
     m_fuseFileHandles.erase(fileHandleId);
-
-    m_eventManager.emitFileReleasedEvent(uuid.toStdString());
 
     if (releaseException)
         std::rethrow_exception(releaseException);
@@ -393,8 +389,6 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
     m_fuseFileHandles.emplace(fuseFileHandleId,
         std::make_shared<FuseFileHandle>(flags, created.handleId(),
             openFileToken, *m_helpersCache, m_forceProxyIOCache));
-
-    m_eventManager.emitFileOpenedEvent(uuid.toStdString());
 
     return {sharedAttr, fuseFileHandleId};
 }

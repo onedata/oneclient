@@ -109,7 +109,7 @@ public:
      * Sets handler for removing file events.
      * @param handler Handler to be set.
      */
-    void setFileRemovalHandler(FileRemovalEventStream::Handler handler);
+    void setFileRemovedHandler(FileRemovedEventStream::Handler handler);
 
     /**
      * Sets handler for quota.
@@ -121,7 +121,7 @@ public:
      * Emits a remove file event.
      * @param fileUuid UUID of removed file.
      */
-    void emitFileRemovalEvent(std::string fileUuid) const;
+    void emitFileRemovedEvent(std::string fileUuid) const;
 
     /**
      * Sets handler for renaming file events.
@@ -135,8 +135,8 @@ public:
      * @param serverSubscription Server side subscription parameters.
      * @return Subscription ID.
      */
-    std::int64_t subscribe(FileRemovalSubscription clientSubscription,
-        FileRemovalSubscription serverSubscription);
+    std::int64_t subscribe(FileRemovedSubscription clientSubscription,
+        FileRemovedSubscription serverSubscription);
 
     /**
      * Adds subscription for renaming file events.
@@ -146,18 +146,6 @@ public:
      */
     std::int64_t subscribe(FileRenamedSubscription clientSubscription,
         FileRenamedSubscription serverSubscription);
-
-    /**
-     * Emits a file accessed event with open counter set to one.
-     * @param fileUuid UUID of accessed file.
-     */
-    void emitFileOpenedEvent(std::string fileUuid) const;
-
-    /**
-     * Emits a file accessed event with release counter set to one.
-     * @param fileUuid UUID of accessed file.
-     */
-    void emitFileReleasedEvent(std::string fileUuid) const;
 
     /**
      * Adds subscription for permission changeg events.
@@ -231,10 +219,9 @@ protected:
     std::unique_ptr<FileLocationEventStream> m_fileLocationEventStream;
     std::unique_ptr<PermissionChangedEventStream>
         m_permissionChangedEventStream;
-    std::unique_ptr<FileRemovalEventStream> m_fileRemovalEventStream;
+    std::unique_ptr<FileRemovedEventStream> m_fileRemovedEventStream;
     std::unique_ptr<QuotaExeededEventStream> m_quotaExeededEventStream;
     std::unique_ptr<FileRenamedEventStream> m_fileRenamedEventStream;
-    std::unique_ptr<FileAccessedEventStream> m_fileAccessedEventStream;
 
 private:
     void initializeStreams(std::shared_ptr<Context> context);

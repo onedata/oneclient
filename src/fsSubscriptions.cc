@@ -62,21 +62,21 @@ void FsSubscriptions::removePermissionChangedSubscription(
     }
 }
 
-void FsSubscriptions::addFileRemovalSubscription(
+void FsSubscriptions::addFileRemovedSubscription(
     const folly::fbstring &fileUuid)
 {
-    if (!m_fileRemovalSubscriptions.count(fileUuid))
-        m_fileRemovalSubscriptions[fileUuid] =
-            sendFileRemovalSubscription(fileUuid);
+    if (!m_fileRemovedSubscriptions.count(fileUuid))
+        m_fileRemovedSubscriptions[fileUuid] =
+            sendFileRemovedSubscription(fileUuid);
 }
 
-void FsSubscriptions::removeFileRemovalSubscription(
+void FsSubscriptions::removeFileRemovedSubscription(
     const folly::fbstring &fileUuid)
 {
-    auto it = m_fileRemovalSubscriptions.find(fileUuid);
-    if (it != m_fileRemovalSubscriptions.end()) {
+    auto it = m_fileRemovedSubscriptions.find(fileUuid);
+    if (it != m_fileRemovedSubscriptions.end()) {
         sendSubscriptionCancellation(it->second);
-        m_fileRemovalSubscriptions.erase(it);
+        m_fileRemovedSubscriptions.erase(it);
     }
 }
 
@@ -166,12 +166,12 @@ std::int64_t FsSubscriptions::sendPermissionChangedSubscription(
         std::move(clientSubscription), std::move(serverSubscription));
 }
 
-std::int64_t FsSubscriptions::sendFileRemovalSubscription(
+std::int64_t FsSubscriptions::sendFileRemovedSubscription(
     const folly::fbstring &fileUuid)
 {
     DLOG(INFO) << "Sending subscription for removing file: " << fileUuid;
-    events::FileRemovalSubscription clientSubscription{fileUuid.toStdString()};
-    events::FileRemovalSubscription serverSubscription{fileUuid.toStdString()};
+    events::FileRemovedSubscription clientSubscription{fileUuid.toStdString()};
+    events::FileRemovedSubscription serverSubscription{fileUuid.toStdString()};
     return m_eventManager.subscribe(
         std::move(clientSubscription), std::move(serverSubscription));
 }

@@ -1,13 +1,13 @@
 /**
- * @file fileRemovalSubscription.h
+ * @file fileRemovedSubscription.h
  * @author Michal Wrona
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#ifndef ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_REMOVAL_SUBSCRIPTION_H
-#define ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_REMOVAL_SUBSCRIPTION_H
+#ifndef ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_REMOVED_SUBSCRIPTION_H
+#define ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_REMOVED_SUBSCRIPTION_H
 
 #include "messages/clientMessage.h"
 #include "subscription.h"
@@ -19,17 +19,17 @@ namespace client {
 namespace events {
 
 /**
- * @c FileRemovalSubscription is a client side subscription and represents
- * a request for @c FileRemovalEvent.
+ * @c FileRemovedSubscription is a client side subscription and represents
+ * a request for @c FileRemovedEvent.
  */
-class FileRemovalSubscription : public Subscription,
+class FileRemovedSubscription : public Subscription,
                                 public messages::ClientMessage {
 public:
     /**
      * Constructor.
      * @param fileUuid UUID of file for which file removal events are requested.
      */
-    FileRemovalSubscription(
+    FileRemovedSubscription(
         std::string fileUuid, std::size_t counterThreshold = 1);
 
     std::string toString() const override;
@@ -45,4 +45,4 @@ private:
 } // namespace client
 } // namespace one
 
-#endif // ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_REMOVAL_SUBSCRIPTION_H
+#endif // ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_REMOVED_SUBSCRIPTION_H
