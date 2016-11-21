@@ -314,14 +314,12 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
 
     auto fuseFileHandle = m_fuseFileHandles.at(fuseFileHandleId);
     auto attr = m_metadataCache.getAttr(uuid);
-    auto location = m_metadataCache.getFileLocation(uuid);
 
     // Check if this space is marked as disabled due to exeeded quota
-    if (isSpaceDisabled(location->spaceId()))
+    if (isSpaceDisabled(m_metadataCache.getSpaceId(uuid)))
         return -ENOSPC;
 
-    messages::fuse::FileBlock fileBlock{
-        location->storageId(), location->fileId()};
+    auto fileBlock = m_metadataCache.getDefaultBlock(uuid);
 
     size_t bytesWritten = 0;
     try {

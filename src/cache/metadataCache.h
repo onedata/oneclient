@@ -80,15 +80,6 @@ public:
         messages::fuse::FileBlock fileBlock);
 
     /**
-     * Retrieves file location by uuid.
-     * If the file has no cached attributes, they are first fetched from the
-     * server.
-     * @param uuid Uuid of the file.
-     * @returns Location of the file.
-     */
-    FileLocationPtr getFileLocation(const folly::fbstring &uuid);
-
-    /**
      * Retrieves a block from file locations that contains a specific
      * offset.
      * @param uuid Uuid of the file.
@@ -100,12 +91,28 @@ public:
     getBlock(const folly::fbstring &uuid, const off_t offset);
 
     /**
+     * Retrieves a default block from file locations.
+     * If the file has no cached attributes, they are first fetched from the
+     * server.
+     * @param uuid Uuid of the file.
+     * @returns File block.
+     */
+    messages::fuse::FileBlock getDefaultBlock(const folly::fbstring &uuid);
+
+    /**
      * Inserts an externally fetched location into the cache.
      * If the file has no cached attributes, they are first fetched from the
      * server.
      * @param location The location to put in the cache.
      */
     void putLocation(std::unique_ptr<FileLocation> location);
+
+    /**
+     * Retrieves space Id by uuid.
+     * @param uuid Uuid of the file.
+     * @returns Id of space this file belongs to.
+     */
+    const std::string &getSpaceId(const folly::fbstring &uuid);
 
     /**
      * Removes all of file's metadata from the cache.
@@ -223,7 +230,8 @@ private:
         boost::multi_index::indexed_by<
             boost::multi_index::hashed_unique<boost::multi_index::tag<ByUuid>,
                 UuidExtractor, std::hash<folly::fbstring>>,
-            boost::multi_index::hashed_unique<boost::multi_index::tag<ByParent>,
+            boost::multi_index::hashed_unique<
+                boost::multi_index::tag<ByParent>,
                 boost::multi_index::composite_key<Metadata, ParentUuidExtractor,
                     NameExtractor>,
                 boost::multi_index::composite_key_hash<
@@ -232,6 +240,8 @@ private:
     Map::iterator getAttrIt(const folly::fbstring &uuid);
 
     template <typename ReqMsg> Map::iterator fetchAttr(ReqMsg &&msg);
+
+    std::shared_ptr<FileLocation> getLocationPtr(const Map::iterator &it);
 
     std::shared_ptr<FileLocation> fetchFileLocation(
         const folly::fbstring &uuid);

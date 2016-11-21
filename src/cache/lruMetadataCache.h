@@ -176,8 +176,9 @@ public:
 
     // Operations used only on open files
     using MetadataCache::addBlock;
-    using MetadataCache::getFileLocation;
     using MetadataCache::getBlock;
+    using MetadataCache::getDefaultBlock;
+    using MetadataCache::getSpaceId;
 
     using MetadataCache::updateFileAttr;
     using MetadataCache::putAttr;

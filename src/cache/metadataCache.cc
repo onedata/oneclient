@@ -116,6 +116,15 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
     return result.first;
 }
 
+std::shared_ptr<FileLocation> MetadataCache::getLocationPtr(
+    const Map::iterator &it)
+{
+    if (it->location)
+        return it->location;
+
+    return fetchFileLocation(it->attr->uuid());
+}
+
 std::shared_ptr<FileLocation> MetadataCache::fetchFileLocation(
     const folly::fbstring &uuid)
 {
@@ -134,20 +143,12 @@ std::shared_ptr<FileLocation> MetadataCache::fetchFileLocation(
     return sharedLocation;
 }
 
-FileLocationPtr MetadataCache::getFileLocation(const folly::fbstring &uuid)
-{
-    auto it = getAttrIt(uuid);
-    if (it->location)
-        return it->location;
-
-    return fetchFileLocation(uuid);
-}
-
 folly::Optional<
     std::pair<boost::icl::discrete_interval<off_t>, messages::fuse::FileBlock>>
 MetadataCache::getBlock(const folly::fbstring &uuid, const off_t offset)
 {
-    auto location = getFileLocation(uuid);
+    auto it = getAttrIt(uuid);
+    auto location = getLocationPtr(it);
     auto availableBlockIt =
         location->blocks().find(boost::icl::discrete_interval<off_t>(offset));
 
@@ -156,6 +157,21 @@ MetadataCache::getBlock(const folly::fbstring &uuid, const off_t offset)
             availableBlockIt->first, availableBlockIt->second);
 
     return {};
+}
+
+messages::fuse::FileBlock MetadataCache::getDefaultBlock(
+    const folly::fbstring &uuid)
+{
+    auto it = getAttrIt(uuid);
+    auto location = getLocationPtr(it);
+    return messages::fuse::FileBlock{location->storageId(), location->fileId()};
+}
+
+const std::string &MetadataCache::getSpaceId(const folly::fbstring &uuid)
+{
+    auto it = getAttrIt(uuid);
+    auto location = getLocationPtr(it);
+    return location->spaceId();
 }
 
 void MetadataCache::erase(const folly::fbstring &uuid)
