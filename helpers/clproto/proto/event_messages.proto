@@ -29,10 +29,9 @@ message Event {
         WriteEvent             write_event              = 3;
         UpdateEvent            update_event             = 4;
         PermissionChangedEvent permission_changed_event = 5;
-        FileRemovalEvent       file_removal_event       = 6;
-        QuotaExeededEvent      quota_exeeded_event      = 7;
+        QuotaExeededEvent      quota_exeeded_event      = 6;
+        FileRemovedEvent       file_removed_event       = 7;
         FileRenamedEvent       file_renamed_event       = 8;
-        FileAccessedEvent      file_accessed_event      = 9;
     }
 }
 
@@ -60,7 +59,7 @@ message PermissionChangedEvent {
     required bytes file_uuid = 1; // UUID of file associated with an event
 }
 
-message FileRemovalEvent {
+message FileRemovedEvent {
     required bytes file_uuid = 1; // UUID of file associated with an event
 }
 
@@ -74,12 +73,6 @@ message FileRenamedEvent {
                                                  // renamed file
 }
 
-message FileAccessedEvent {
-    required bytes  file_uuid     = 1; // UUID of file associated with an event
-    required uint64 open_count    = 2; // Number of open actions on file
-    required uint64 release_count = 3; // Number of release actions on file
-}
-
 // Generic subscription message
 message Subscription {
     required sint64 id = 1; // unique subscription ID
@@ -89,10 +82,9 @@ message Subscription {
         FileAttrSubscription          file_attr_subscription          = 4;
         FileLocationSubscription      file_location_subscription      = 5;
         PermissionChangedSubscription permission_changed_subscription = 6;
-        FileRemovalSubscription       file_removal_subscription       = 7;
-        QuotaSubscription             quota_subscription              = 8;
+        QuotaSubscription             quota_subscription              = 7;
+        FileRemovedSubscription       file_removed_subscription       = 8;
         FileRenamedSubscription       file_renamed_subscription       = 9;
-        FileAccessedSubscription      file_accessed_subscription      = 10;
     }
 }
 
@@ -139,7 +131,7 @@ message PermissionChangedSubscription {
     required bytes  file_uuid         = 1; // file UUID
 }
 
-message FileRemovalSubscription {
+message FileRemovedSubscription {
     required bytes  file_uuid         = 1; // file UUID
 }
 
@@ -147,14 +139,6 @@ message FileRenamedSubscription {
     required bytes  file_uuid         = 1; // file UUID
 }
 
-message FileAccessedSubscription {
-    optional uint32 counter_threshold = 1; // maximal amount of aggregated
-                                           // events before emission
-    optional uint32 time_threshold    = 2; // maximal delay in milliseconds
-                                           // between successive events emission
-}
-
 message SubscriptionCancellation {
     required sint64 id = 1; // ID of subscription to be cancelled
 }
-
