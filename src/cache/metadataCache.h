@@ -269,6 +269,8 @@ private:
     std::shared_ptr<FileLocation> fetchFileLocation(
         const folly::fbstring &uuid, const helpers::FlagsSet &flagsSet);
 
+    void markDeletedIt(const Map::iterator &it);
+
     communication::Communicator &m_communicator;
 
     std::unordered_multimap<folly::fbstring,

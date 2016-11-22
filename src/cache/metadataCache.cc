@@ -246,19 +246,29 @@ bool MetadataCache::markDeleted(const folly::fbstring &uuid)
     if (it == index.end())
         return false;
 
+    markDeletedIt(it);
+    return true;
+}
+
+void MetadataCache::markDeletedIt(const Map::iterator &it)
+{
     m_cache.modify(it, [&](Metadata &m) {
         m.attr->setParentUuid("");
         m.deleted = true;
     });
 
-    m_onMarkDeleted(uuid);
-    return true;
+    m_onMarkDeleted(it->attr->uuid());
 }
 
 bool MetadataCache::rename(const folly::fbstring &uuid,
     const folly::fbstring &newParentUuid, const folly::fbstring &newName,
     const folly::fbstring &newUuid)
 {
+    auto &targetIndex = boost::multi_index::get<ByParent>(m_cache);
+    auto targetIt = targetIndex.find(std::make_tuple(newParentUuid, newName));
+    if (targetIt != targetIndex.end())
+        markDeletedIt(m_cache.project<ByUuid>(targetIt));
+
     auto &index = boost::multi_index::get<ByUuid>(m_cache);
     auto it = index.find(uuid);
     if (it == index.end())
