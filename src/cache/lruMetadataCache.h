@@ -78,10 +78,11 @@ public:
      * Opens a file in the cache and puts its attributes.
      * @param uuid Uuid of the file.
      * @param attr The file attributes to put in the cache.
+     * @param attr The file location to put in the cache.
      * @returns A token representing the open file.
      */
-    std::shared_ptr<OpenFileToken> open(
-        const folly::fbstring &uuid, std::shared_ptr<FileAttr> attr);
+    std::shared_ptr<OpenFileToken> open(const folly::fbstring &uuid,
+        std::shared_ptr<FileAttr> attr, std::unique_ptr<FileLocation> location);
 
     /**
      * @copydoc MetadataCache::getattr(const folly::fbstring &)
@@ -180,9 +181,9 @@ public:
     using MetadataCache::getDefaultBlock;
     using MetadataCache::getSpaceId;
 
-    using MetadataCache::updateFileAttr;
+    using MetadataCache::updateAttr;
     using MetadataCache::putAttr;
-    using MetadataCache::updateFileLocation;
+    using MetadataCache::updateLocation;
     using MetadataCache::markDeleted;
 
 private:
@@ -191,6 +192,8 @@ private:
         bool deleted = false;
         folly::Optional<std::list<folly::fbstring>::iterator> lruIt;
     };
+
+    void pinEntry(const folly::fbstring &uuid);
 
     void noteActivity(const folly::fbstring &uuid);
 

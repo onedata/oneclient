@@ -174,6 +174,12 @@ const std::string &MetadataCache::getSpaceId(const folly::fbstring &uuid)
     return location->spaceId();
 }
 
+void MetadataCache::ensureAttrAndLocationCached(const folly::fbstring &uuid)
+{
+    auto it = getAttrIt(uuid);
+    getLocationPtr(it);
+}
+
 void MetadataCache::erase(const folly::fbstring &uuid)
 {
     auto &index = boost::multi_index::get<ByUuid>(m_cache);
@@ -277,7 +283,7 @@ bool MetadataCache::rename(const folly::fbstring &uuid,
     return true;
 }
 
-bool MetadataCache::updateFileAttr(const FileAttr &newAttr)
+bool MetadataCache::updateAttr(const FileAttr &newAttr)
 {
     auto &index = boost::multi_index::get<ByUuid>(m_cache);
     auto it = index.find(newAttr.uuid());
@@ -307,7 +313,7 @@ bool MetadataCache::updateFileAttr(const FileAttr &newAttr)
     return true;
 }
 
-bool MetadataCache::updateFileLocation(const FileLocation &newLocation)
+bool MetadataCache::updateLocation(const FileLocation &newLocation)
 {
     auto &index = boost::multi_index::get<ByUuid>(m_cache);
     auto it = index.find(newLocation.uuid());

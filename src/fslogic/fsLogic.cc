@@ -383,9 +383,9 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
 
     const auto &uuid = created.attr().uuid();
     auto sharedAttr = std::make_shared<FileAttr>(std::move(created.attr()));
-    auto openFileToken = m_metadataCache.open(uuid, sharedAttr);
-    m_metadataCache.putLocation(
-        std::make_unique<FileLocation>(created.location()));
+    auto location = std::make_unique<FileLocation>(created.location());
+    auto openFileToken =
+        m_metadataCache.open(uuid, sharedAttr, std::move(location));
 
     const auto fuseFileHandleId = m_nextFuseHandleId++;
     m_fuseFileHandles.emplace(fuseFileHandleId,
@@ -487,7 +487,7 @@ folly::fbstring FsLogic::syncAndFetchChecksum(const folly::fbstring &uuid,
     auto syncResponse =
         communicate<messages::fuse::SyncResponse>(std::move(request));
 
-    m_metadataCache.updateFileLocation(syncResponse.fileLocation());
+    m_metadataCache.updateLocation(syncResponse.fileLocation());
 
     return syncResponse.checksum();
 }

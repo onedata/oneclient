@@ -100,7 +100,7 @@ public:
     messages::fuse::FileBlock getDefaultBlock(const folly::fbstring &uuid);
 
     /**
-     * Inserts an externally fetched location into the cache.
+     * Inserts an externally fetched file location into the cache.
      * If the file has no cached attributes, they are first fetched from the
      * server.
      * @param location The location to put in the cache.
@@ -113,6 +113,13 @@ public:
      * @returns Id of space this file belongs to.
      */
     const std::string &getSpaceId(const folly::fbstring &uuid);
+
+    /**
+     * Ensures that file attributes and location is present in the cache by
+     * fetching them from the server if missing.
+     * @param uuid Uuid of the file.
+     */
+    void ensureAttrAndLocationCached(const folly::fbstring &uuid);
 
     /**
      * Removes all of file's metadata from the cache.
@@ -149,14 +156,14 @@ public:
      * @returns true if attributes have been updated, false if they were not
      * cached.
      */
-    bool updateFileAttr(const FileAttr &newAttr);
+    bool updateAttr(const FileAttr &newAttr);
 
     /**
      * Updates file location, if cached.
      * @param newLocation Updated location.
      * @returns true if location has been updated, false if it was not cached.
      */
-    bool updateFileLocation(const FileLocation &newLocation);
+    bool updateLocation(const FileLocation &newLocation);
 
     /**
      * Marks file as deleted, preventing it from being looked up by parent.

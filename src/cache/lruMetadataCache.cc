@@ -37,8 +37,7 @@ LRUMetadataCache::LRUMetadataCache(
         std::bind(&LRUMetadataCache::handleMarkDeleted, this, _1));
 }
 
-std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
-    const folly::fbstring &uuid)
+void LRUMetadataCache::pinEntry(const folly::fbstring &uuid)
 {
     auto res = m_lruData.emplace(uuid, LRUData{});
     auto &lruData = res.first->second;
@@ -51,9 +50,16 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
 
         m_onOpen(uuid);
     }
+}
+
+std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
+    const folly::fbstring &uuid)
+{
+    pinEntry(uuid);
 
     try {
         auto attr = MetadataCache::getAttr(uuid);
+        MetadataCache::ensureAttrAndLocationCached(uuid);
         prune();
         return std::make_shared<OpenFileToken>(std::move(attr), *this);
     }
@@ -64,21 +70,13 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
 }
 
 std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
-    const folly::fbstring &uuid, std::shared_ptr<FileAttr> attr)
+    const folly::fbstring &uuid, std::shared_ptr<FileAttr> attr,
+    std::unique_ptr<FileLocation> location)
 {
-    auto res = m_lruData.emplace(uuid, LRUData{});
-    auto &lruData = res.first->second;
-
-    ++lruData.openCount;
-
-    if (lruData.lruIt) {
-        m_lruList.erase(*lruData.lruIt);
-        lruData.lruIt.clear();
-
-        m_onOpen(uuid);
-    }
+    pinEntry(uuid);
 
     MetadataCache::putAttr(attr);
+    MetadataCache::putLocation(std::move(location));
     prune();
     return std::make_shared<OpenFileToken>(std::move(attr), *this);
 }
