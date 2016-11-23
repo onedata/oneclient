@@ -50,7 +50,7 @@ void MetadataEventHandler::handleFileAttrs(
 {
     for (auto &event : events) {
         auto &attr = event->wrapped();
-        if (m_metadataCache.updateFileAttr(attr))
+        if (m_metadataCache.updateAttr(attr))
             LOG(INFO) << "Updated attributes for uuid: '" << attr.uuid()
                       << "', size: " << (attr.size() ? *attr.size() : -1);
         else
@@ -64,7 +64,7 @@ void MetadataEventHandler::handleFileLocations(
 {
     for (auto &event : events) {
         auto &loc = event->wrapped();
-        if (m_metadataCache.updateFileLocation(loc))
+        if (m_metadataCache.updateLocation(loc))
             LOG(INFO) << "Updated locations for uuid: '" << loc.uuid() << "'";
         else
             LOG(INFO) << "No location to update for uuid: '" << loc.uuid()

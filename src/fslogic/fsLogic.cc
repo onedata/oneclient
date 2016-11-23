@@ -310,14 +310,12 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
 
     auto fuseFileHandle = m_fuseFileHandles.at(fuseFileHandleId);
     auto attr = m_metadataCache.getAttr(uuid);
-    auto location = m_metadataCache.getFileLocation(uuid);
 
     // Check if this space is marked as disabled due to exeeded quota
-    if (isSpaceDisabled(location->spaceId()))
+    if (isSpaceDisabled(m_metadataCache.getSpaceId(uuid)))
         return -ENOSPC;
 
-    messages::fuse::FileBlock fileBlock{
-        location->storageId(), location->fileId()};
+    auto fileBlock = m_metadataCache.getDefaultBlock(uuid);
 
     size_t bytesWritten = 0;
     try {
@@ -381,9 +379,9 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
 
     const auto &uuid = created.attr().uuid();
     auto sharedAttr = std::make_shared<FileAttr>(std::move(created.attr()));
-    auto openFileToken = m_metadataCache.open(uuid, sharedAttr);
-    m_metadataCache.putLocation(
-        std::make_unique<FileLocation>(created.location()));
+    auto location = std::make_unique<FileLocation>(created.location());
+    auto openFileToken =
+        m_metadataCache.open(uuid, sharedAttr, std::move(location));
 
     const auto fuseFileHandleId = m_nextFuseHandleId++;
     m_fuseFileHandles.emplace(fuseFileHandleId,
@@ -483,7 +481,7 @@ folly::fbstring FsLogic::syncAndFetchChecksum(const folly::fbstring &uuid,
     auto syncResponse =
         communicate<messages::fuse::SyncResponse>(std::move(request));
 
-    m_metadataCache.updateFileLocation(syncResponse.fileLocation());
+    m_metadataCache.updateLocation(syncResponse.fileLocation());
 
     return syncResponse.checksum();
 }

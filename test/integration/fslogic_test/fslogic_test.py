@@ -184,12 +184,13 @@ def prepare_open_response(handle_id='handle_id'):
     return server_response
 
 
-def do_open(endpoint, fl, uuid, size=None, handle_id='handle_id'):
+def do_open(endpoint, fl, uuid, size=None, blocks=[], handle_id='handle_id'):
     attr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG,
                                           size=size)
+    location_response = prepare_location_response(uuid, blocks)
     open_response = prepare_open_response(handle_id)
 
-    with reply(endpoint, [attr_response, open_response]):
+    with reply(endpoint, [attr_response, location_response, open_response]):
         handle = fl.open(uuid, 0)
         assert handle >= 0
         return handle
@@ -201,22 +202,6 @@ def do_release(endpoint, fl, uuid, fh):
 
     with reply(endpoint, release_response):
         fl.release(uuid, fh)
-
-
-def do_read(endpoint, fl, uuid, fh, offset, size, location_response=None):
-    responses = []
-    if location_response:
-        responses.append(location_response)
-    with reply(endpoint, responses):
-        return fl.read(uuid, fh, offset, size)
-
-
-def do_write(endpoint, fl, uuid, fh, offset, size, location_response=None):
-    responses = []
-    if location_response:
-        responses.append(location_response)
-    with reply(endpoint, responses):
-        return fl.write(uuid, fh, offset, size)
 
 
 def get_stream_id_from_location_subscription(subscription_message_data):
@@ -609,54 +594,48 @@ def test_mknod_should_pass_location_errors(endpoint, fl, parentUuid, parentStat)
 
 
 def test_read_should_read(endpoint, fl, uuid):
-    fh = do_open(endpoint, fl, uuid)
-    location_response = prepare_location_response(uuid, blocks=[(0, 10)])
+    fh = do_open(endpoint, fl, uuid, blocks=[(0, 10)])
 
-    assert 5 == len(do_read(endpoint, fl, uuid, fh, 0, 5, location_response))
+    assert 5 == len(fl.read(uuid, fh, 0, 5))
 
 
 def test_read_should_read_zero_on_eof(endpoint, fl, uuid):
-    fh = do_open(endpoint, fl, uuid, size=10)
-    location_response = prepare_location_response(uuid, blocks=[(0, 10)])
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(0, 10)])
 
-    assert 10 == len(do_read(endpoint, fl, uuid, fh, 0, 12, location_response))
-    assert 0 == len(do_read(endpoint, fl, uuid, fh, 10, 2))
+    assert 10 == len(fl.read(uuid, fh, 0, 12))
+    assert 0 == len(fl.read(uuid, fh, 10, 2))
 
 
 def test_read_should_pass_helper_errors(endpoint, fl, uuid):
-    fh = do_open(endpoint, fl, uuid, size=10)
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(0, 10)])
 
     with pytest.raises(RuntimeError) as excinfo:
         fl.failHelper()
-        location_response = prepare_location_response(uuid, [(0, 10)])
-        do_read(endpoint, fl, uuid, fh, 0, 10, location_response)
+        fl.read(uuid, fh, 0, 10)
 
     assert 'Owner died' in str(excinfo.value)
 
 
 def test_write_should_write(endpoint, fl, uuid):
-    fh = do_open(endpoint, fl, uuid, size=10)
-    location_response = prepare_location_response(uuid, blocks=[(0, 10)])
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(0, 10)])
 
-    assert 5 == do_write(endpoint, fl, uuid, fh, 0, 5, location_response)
+    assert 5 == fl.write(uuid, fh, 0, 5)
 
 
 def test_write_should_change_file_size(endpoint, fl, uuid):
-    fh = do_open(endpoint, fl, uuid, size=5)
-    location_response = prepare_location_response(uuid, blocks=[(0, 5)])
-    assert 20 == do_write(endpoint, fl, uuid, fh, 10, 20, location_response)
+    fh = do_open(endpoint, fl, uuid, size=5, blocks=[(0, 5)])
+    assert 20 == fl.write(uuid, fh, 10, 20)
 
     stat = fl.getattr(uuid)
     assert 30 == stat.size
 
 
 def test_write_should_pass_helper_errors(endpoint, fl, uuid):
-    fh = do_open(endpoint, fl, uuid, size=10)
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(0, 10)])
 
     with pytest.raises(RuntimeError) as excinfo:
         fl.failHelper()
-        location_response = prepare_location_response(uuid, [(0, 10)])
-        do_write(endpoint, fl, uuid, fh, 0, 10, location_response)
+        fl.write(uuid, fh, 0, 10)
 
     assert 'Owner died' in str(excinfo.value)
 
@@ -719,28 +698,24 @@ def test_readdir_big_directory(endpoint, fl, uuid, stat):
 
 def test_write_should_save_blocks(endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=0)
-    location_response = prepare_location_response(uuid)
-    assert 5 == do_write(endpoint, fl, uuid, fh, 0, 5, location_response)
+    assert 5 == fl.write(uuid, fh, 0, 5)
     assert 5 == len(fl.read(uuid, fh, 0, 10))
 
 
 def test_read_should_read_partial_content(endpoint, fl, uuid):
-    fh = do_open(endpoint, fl, uuid, size=10)
-    location_response = prepare_location_response(uuid, blocks=[(4, 6)])
-    data = do_read(endpoint, fl, uuid, fh, 6, 4, location_response)
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
+    data = fl.read(uuid, fh, 6, 4)
 
     assert len(data) == 4
 
 
 def test_read_should_request_synchronization(appmock_client, endpoint, fl, uuid):
-    fh = do_open(endpoint, fl, uuid, size=10)
-    location_response = prepare_location_response(uuid, blocks=[(4, 6)])
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
     sync_response = prepare_sync_response(uuid, '', [(0, 10)])
 
     appmock_client.reset_tcp_history()
-    with reply(endpoint, [location_response, sync_response]) as queue:
+    with reply(endpoint, sync_response) as queue:
         fl.read(uuid, fh, 2, 5)
-        queue.get()
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
@@ -757,45 +732,39 @@ def test_read_should_request_synchronization(appmock_client, endpoint, fl, uuid)
 
 def test_read_should_continue_reading_after_synchronization(appmock_client,
                                                             endpoint, fl, uuid):
-    fh = do_open(endpoint, fl, uuid, size=10)
-    location_response = prepare_location_response(uuid, blocks=[(4, 6)])
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
     sync_response = prepare_sync_response(uuid, '', [(0, 10)])
 
     appmock_client.reset_tcp_history()
-    with reply(endpoint, [location_response, sync_response]):
+    with reply(endpoint, sync_response):
         assert 5 == len(fl.read(uuid, fh, 2, 5))
 
 
 def test_read_should_should_open_file_block_once(endpoint, fl, uuid):
-    fh = do_open(endpoint, fl, uuid, size=10)
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[
+        (0, 5, 'storage1', 'file1'), (5, 5, 'storage2', 'file2')])
 
     fl.expect_call_sh_open("file1", 1)
     fl.expect_call_sh_open("file2", 1)
 
-    location_response = prepare_location_response(uuid, blocks=[
-        (0, 5, 'storage1', 'file1'), (5, 5, 'storage2', 'file2')])
+    assert 5 == len(fl.read(uuid, fh, 0, 5))
+    assert 5 == len(fl.read(uuid, fh, 5, 5))
 
-    with reply(endpoint, location_response):
-        assert 5 == len(fl.read(uuid, fh, 0, 5))
-        assert 5 == len(fl.read(uuid, fh, 5, 5))
+    assert 5 == len(fl.read(uuid, fh, 0, 5))
+    assert 5 == len(fl.read(uuid, fh, 0, 5))
 
-        assert 5 == len(fl.read(uuid, fh, 0, 5))
-        assert 5 == len(fl.read(uuid, fh, 0, 5))
-
-        assert 5 == len(fl.read(uuid, fh, 5, 5))
-        assert 5 == len(fl.read(uuid, fh, 5, 5))
+    assert 5 == len(fl.read(uuid, fh, 5, 5))
+    assert 5 == len(fl.read(uuid, fh, 5, 5))
 
     assert fl.verify_and_clear_expectations()
 
 
 def test_release_should_release_open_file_blocks(endpoint, fl, uuid):
-    fh = do_open(endpoint, fl, uuid, size=10)
-    location_response = prepare_location_response(uuid, blocks=[
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[
         (0, 5, 'storage1', 'file1'), (5, 5, 'storage2', 'file2')])
 
-    with reply(endpoint, location_response):
-        assert 5 == len(fl.read(uuid, fh, 0, 5))
-        assert 5 == len(fl.read(uuid, fh, 5, 5))
+    assert 5 == len(fl.read(uuid, fh, 0, 5))
+    assert 5 == len(fl.read(uuid, fh, 5, 5))
 
     fl.expect_call_sh_release('file1', 1)
     fl.expect_call_sh_release('file2', 1)
@@ -806,13 +775,11 @@ def test_release_should_release_open_file_blocks(endpoint, fl, uuid):
 
 
 def test_release_should_pass_helper_errors(endpoint, fl, uuid):
-    fh = do_open(endpoint, fl, uuid, size=10)
-    location_response = prepare_location_response(uuid, blocks=[
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[
         (0, 5, 'storage1', 'file1'), (5, 5, 'storage2', 'file2')])
 
-    with reply(endpoint, location_response):
-        assert 5 == len(fl.read(uuid, fh, 0, 5))
-        assert 5 == len(fl.read(uuid, fh, 5, 5))
+    assert 5 == len(fl.read(uuid, fh, 0, 5))
+    assert 5 == len(fl.read(uuid, fh, 5, 5))
 
     fl.expect_call_sh_release('file1', 1)
     fl.expect_call_sh_release('file2', 1)

@@ -116,6 +116,15 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
     return result.first;
 }
 
+std::shared_ptr<FileLocation> MetadataCache::getLocationPtr(
+    const Map::iterator &it)
+{
+    if (it->location)
+        return it->location;
+
+    return fetchFileLocation(it->attr->uuid());
+}
+
 std::shared_ptr<FileLocation> MetadataCache::fetchFileLocation(
     const folly::fbstring &uuid)
 {
@@ -134,20 +143,12 @@ std::shared_ptr<FileLocation> MetadataCache::fetchFileLocation(
     return sharedLocation;
 }
 
-FileLocationPtr MetadataCache::getFileLocation(const folly::fbstring &uuid)
-{
-    auto it = getAttrIt(uuid);
-    if (it->location)
-        return it->location;
-
-    return fetchFileLocation(uuid);
-}
-
 folly::Optional<
     std::pair<boost::icl::discrete_interval<off_t>, messages::fuse::FileBlock>>
 MetadataCache::getBlock(const folly::fbstring &uuid, const off_t offset)
 {
-    auto location = getFileLocation(uuid);
+    auto it = getAttrIt(uuid);
+    auto location = getLocationPtr(it);
     auto availableBlockIt =
         location->blocks().find(boost::icl::discrete_interval<off_t>(offset));
 
@@ -156,6 +157,27 @@ MetadataCache::getBlock(const folly::fbstring &uuid, const off_t offset)
             availableBlockIt->first, availableBlockIt->second);
 
     return {};
+}
+
+messages::fuse::FileBlock MetadataCache::getDefaultBlock(
+    const folly::fbstring &uuid)
+{
+    auto it = getAttrIt(uuid);
+    auto location = getLocationPtr(it);
+    return messages::fuse::FileBlock{location->storageId(), location->fileId()};
+}
+
+const std::string &MetadataCache::getSpaceId(const folly::fbstring &uuid)
+{
+    auto it = getAttrIt(uuid);
+    auto location = getLocationPtr(it);
+    return location->spaceId();
+}
+
+void MetadataCache::ensureAttrAndLocationCached(const folly::fbstring &uuid)
+{
+    auto it = getAttrIt(uuid);
+    getLocationPtr(it);
 }
 
 void MetadataCache::erase(const folly::fbstring &uuid)
@@ -223,19 +245,29 @@ bool MetadataCache::markDeleted(const folly::fbstring &uuid)
     if (it == index.end())
         return false;
 
+    markDeletedIt(it);
+    return true;
+}
+
+void MetadataCache::markDeletedIt(const Map::iterator &it)
+{
     m_cache.modify(it, [&](Metadata &m) {
         m.attr->setParentUuid("");
         m.deleted = true;
     });
 
-    m_onMarkDeleted(uuid);
-    return true;
+    m_onMarkDeleted(it->attr->uuid());
 }
 
 bool MetadataCache::rename(const folly::fbstring &uuid,
     const folly::fbstring &newParentUuid, const folly::fbstring &newName,
     const folly::fbstring &newUuid)
 {
+    auto &targetIndex = boost::multi_index::get<ByParent>(m_cache);
+    auto targetIt = targetIndex.find(std::make_tuple(newParentUuid, newName));
+    if (targetIt != targetIndex.end())
+        markDeletedIt(m_cache.project<ByUuid>(targetIt));
+
     auto &index = boost::multi_index::get<ByUuid>(m_cache);
     auto it = index.find(uuid);
     if (it == index.end())
@@ -261,7 +293,7 @@ bool MetadataCache::rename(const folly::fbstring &uuid,
     return true;
 }
 
-bool MetadataCache::updateFileAttr(const FileAttr &newAttr)
+bool MetadataCache::updateAttr(const FileAttr &newAttr)
 {
     auto &index = boost::multi_index::get<ByUuid>(m_cache);
     auto it = index.find(newAttr.uuid());
@@ -291,7 +323,7 @@ bool MetadataCache::updateFileAttr(const FileAttr &newAttr)
     return true;
 }
 
-bool MetadataCache::updateFileLocation(const FileLocation &newLocation)
+bool MetadataCache::updateLocation(const FileLocation &newLocation)
 {
     auto &index = boost::multi_index::get<ByUuid>(m_cache);
     auto it = index.find(newLocation.uuid());
