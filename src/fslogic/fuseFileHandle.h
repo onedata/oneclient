@@ -38,12 +38,13 @@ public:
     /**
      * Constructor.
      * @param flags Open flags mask.
+     * @param handleId A handleID representing the handle on the server.
      * @param openFileToken A token that holds the file's metadata in cache.
      * @param helpersCache Cache from which helper objects can be fetched.
      * @param forceProxyIOCache Cache for determining whether ProxyIO is forced
      * for a file.
      */
-    FuseFileHandle(const int flags,
+    FuseFileHandle(const int flags, folly::fbstring handleId,
         std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,
         cache::HelpersCache &helpersCache,
         cache::ForceProxyIOCache &forceProxyIOCache);
@@ -89,6 +90,7 @@ private:
         const folly::fbstring &uuid);
 
     const int m_flags;
+    folly::fbstring m_handleId;
     std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> m_openFileToken;
     cache::HelpersCache &m_helpersCache;
     cache::ForceProxyIOCache &m_forceProxyIOCache;

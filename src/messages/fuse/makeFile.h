@@ -1,15 +1,14 @@
 /**
- * @file getNewFileLocation.h
- * @author Konrad Zemek
- * @copyright (C) 2015 ACK CYFRONET AGH
+ * @file makeFile.h
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#ifndef ONECLIENT_MESSAGES_FUSE_GET_NEW_FILE_LOCATION_H
-#define ONECLIENT_MESSAGES_FUSE_GET_NEW_FILE_LOCATION_H
+#ifndef ONECLIENT_MESSAGES_FUSE_MAKE_FILE_H
+#define ONECLIENT_MESSAGES_FUSE_MAKE_FILE_H
 
-#include "fileLocation.h"
 #include "fileRequest.h"
 
 #include <fcntl.h>
@@ -23,20 +22,18 @@ namespace messages {
 namespace fuse {
 
 /**
- * The GetNewFileLocation class represents a FUSE request for creation of a new
- * file.
+ * The MakeFile class represents a FUSE request for creation of a new node.
  */
-class GetNewFileLocation : public FileRequest {
+class MakeFile : public FileRequest {
 public:
     /**
      * Constructor.
-     * @param name Name of the file to create.
      * @param parentUuid UUID of the directory in which to create the file.
+     * @param name Name of the file to create.
      * @param mode Mode of the newly created file.
-     * @param flags Open flags.
      */
-    GetNewFileLocation(folly::fbstring parentUuid, folly::fbstring name,
-        const mode_t mode, const one::helpers::FlagsSet flags);
+    MakeFile(
+        folly::fbstring parentUuid, folly::fbstring name, const mode_t mode);
 
     std::string toString() const override;
 
@@ -45,11 +42,10 @@ private:
 
     folly::fbstring m_name;
     mode_t m_mode;
-    one::helpers::FlagsSet m_flags;
 };
 
 } // namespace fuse
 } // namespace messages
 } // namespace one
 
-#endif // ONECLIENT_MESSAGES_FUSE_GET_NEW_FILE_LOCATION_H
+#endif // ONECLIENT_MESSAGES_FUSE_MAKE_FILE_H

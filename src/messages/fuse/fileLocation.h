@@ -13,9 +13,7 @@
 #include "fuseResponse.h"
 
 #include <boost/icl/interval_map.hpp>
-#include <boost/optional.hpp>
 #include <folly/FBString.h>
-#include <folly/Optional.h>
 
 #include <sys/types.h>
 
@@ -115,19 +113,6 @@ public:
     const FileBlocksMap &blocks() const;
 
     /**
-     * @return ID of file handle.
-     */
-    const folly::Optional<folly::fbstring> &handleId() const
-    {
-        return m_handleId;
-    }
-
-    /**
-     * Unset handle id.
-     */
-    void unsetHandleId() { m_handleId.clear(); }
-
-    /**
      * Aggregates @c this file location with an other file location.
      * Aggregation is done by substitution of all @c this file location fields
      * with an other file location fields.
@@ -145,7 +130,6 @@ private:
     std::string m_storageId;
     std::string m_fileId;
     FileBlocksMap m_blocks;
-    folly::Optional<folly::fbstring> m_handleId;
 };
 
 } // namespace fuse

@@ -13,15 +13,19 @@
 #include "messages/configuration.h"
 #include "messages/fuse/changeMode.h"
 #include "messages/fuse/createDir.h"
+#include "messages/fuse/createFile.h"
 #include "messages/fuse/deleteFile.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileBlock.h"
 #include "messages/fuse/fileChildren.h"
+#include "messages/fuse/fileCreated.h"
 #include "messages/fuse/fileLocation.h"
+#include "messages/fuse/fileOpened.h"
 #include "messages/fuse/fileRenamed.h"
 #include "messages/fuse/fileRenamedEntry.h"
 #include "messages/fuse/getFileChildren.h"
-#include "messages/fuse/getNewFileLocation.h"
+#include "messages/fuse/makeFile.h"
+#include "messages/fuse/openFile.h"
 #include "messages/fuse/release.h"
 #include "messages/fuse/rename.h"
 #include "messages/fuse/syncResponse.h"
@@ -39,6 +43,23 @@
 namespace one {
 namespace client {
 namespace fslogic {
+
+/**
+ * Filters given flags set to one of RDONLY, WRONLY or RDWR.
+ * Returns RDONLY if flag value is zero.
+ * @param Flags value
+ */
+inline helpers::Flag getOpenFlag(const helpers::FlagsSet &flagsSet)
+{
+    if (flagsSet.count(one::helpers::Flag::RDONLY))
+        return one::helpers::Flag::RDONLY;
+    if (flagsSet.count(one::helpers::Flag::WRONLY))
+        return one::helpers::Flag::WRONLY;
+    if (flagsSet.count(one::helpers::Flag::RDWR))
+        return one::helpers::Flag::RDWR;
+
+    return one::helpers::Flag::RDONLY;
+}
 
 FsLogic::FsLogic(std::shared_ptr<Context> context,
     std::shared_ptr<messages::Configuration> configuration,
@@ -140,15 +161,19 @@ folly::fbvector<folly::fbstring> FsLogic::readdir(const folly::fbstring &uuid)
 
 std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
 {
-    auto flagsSet = helpers::maskToFlags(flags);
-    auto openFileToken = m_metadataCache.open(uuid, flagsSet);
+    auto openFileToken = m_metadataCache.open(uuid);
 
     const auto filteredFlags = flags & (~O_CREAT) & (~O_APPEND);
 
+    const auto flag = getOpenFlag(helpers::maskToFlags(filteredFlags));
+    messages::fuse::OpenFile msg{uuid.toStdString(), flag};
+
+    auto opened = communicate<messages::fuse::FileOpened>(std::move(msg));
+
     const auto fuseFileHandleId = m_nextFuseHandleId++;
     m_fuseFileHandles.emplace(fuseFileHandleId,
-        std::make_shared<FuseFileHandle>(filteredFlags, openFileToken,
-                                  *m_helpersCache, m_forceProxyIOCache));
+        std::make_shared<FuseFileHandle>(filteredFlags, opened.handleId(),
+            openFileToken, *m_helpersCache, m_forceProxyIOCache));
 
     m_eventManager.emitFileOpenedEvent(uuid.toStdString());
 
@@ -179,9 +204,8 @@ void FsLogic::release(
         releaseException = std::current_exception();
     }
 
-    if (fuseFileHandle->providerHandleId())
-        communicate(messages::fuse::Release{uuid.toStdString(),
-            fuseFileHandle->providerHandleId()->toStdString()});
+    communicate(messages::fuse::Release{
+        uuid.toStdString(), fuseFileHandle->providerHandleId()->toStdString()});
 
     m_fuseFileHandles.erase(fileHandleId);
 
@@ -229,9 +253,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     // read right now, for simplicity we'll only read a single block per a read
     // operation.
 
-    auto flagSet = helpers::maskToFlags(fuseFileHandle->flags());
-
-    auto locationData = m_metadataCache.getBlock(uuid, flagSet, offset);
+    auto locationData = m_metadataCache.getBlock(uuid, offset);
     if (!locationData.hasValue()) {
         auto csum = syncAndFetchChecksum(uuid, wantedRange);
         return read(uuid, fileHandleId, offset, size, std::move(csum));
@@ -291,16 +313,13 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
         return 0;
 
     auto fuseFileHandle = m_fuseFileHandles.at(fuseFileHandleId);
-    auto flagsSet = helpers::maskToFlags(fuseFileHandle->flags());
     auto attr = m_metadataCache.getAttr(uuid);
-    auto location = m_metadataCache.getFileLocation(uuid, flagsSet);
 
     // Check if this space is marked as disabled due to exeeded quota
-    if (isSpaceDisabled(location->spaceId()))
+    if (isSpaceDisabled(m_metadataCache.getSpaceId(uuid)))
         return -ENOSPC;
 
-    messages::fuse::FileBlock fileBlock{
-        location->storageId(), location->fileId()};
+    auto fileBlock = m_metadataCache.getDefaultBlock(uuid);
 
     size_t bytesWritten = 0;
     try {
@@ -326,8 +345,7 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
     auto writtenRange = boost::icl::discrete_interval<off_t>::right_open(
         offset, offset + bytesWritten);
 
-    m_metadataCache.addBlock(
-        uuid, flagsSet, writtenRange, std::move(fileBlock));
+    m_metadataCache.addBlock(uuid, writtenRange, std::move(fileBlock));
 
     return bytesWritten;
 }
@@ -346,34 +364,37 @@ FileAttrPtr FsLogic::mkdir(const folly::fbstring &parentUuid,
 FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
     const folly::fbstring &name, const mode_t mode)
 {
-    return makeFile(parentUuid, name, mode, helpers::Flag::RDWR);
-}
+    messages::fuse::MakeFile msg{parentUuid, name, mode};
+    auto attr = communicate<FileAttr>(std::move(msg));
+    auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
+    m_metadataCache.putAttr(sharedAttr);
 
-FileAttrPtr FsLogic::makeFile(const folly::fbstring &parentUuid,
-    const folly::fbstring &name, const mode_t mode, const helpers::Flag flag)
-{
-    messages::fuse::GetNewFileLocation msg{parentUuid, name, mode, {flag}};
-
-    auto location = communicate<messages::fuse::FileLocation>(std::move(msg));
-    auto uuid = location.uuid();
-
-    m_metadataCache.putLocation(
-        flag, std::make_unique<FileLocation>(std::move(location)));
-
-    // TODO: GetNewFileLocation should probably also return attrs
-    return m_metadataCache.getAttr(uuid);
+    return sharedAttr;
 }
 
 std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
     const folly::fbstring &parentUuid, const folly::fbstring &name,
     const mode_t mode, const int flags)
 {
-    // TODO: create should have its own message instead of combining
-    // operations
-    const auto flag = cache::getFlagForLocation(helpers::maskToFlags(flags));
-    auto attr = makeFile(parentUuid, name, mode, flag);
-    auto fh = open(attr->uuid(), flags);
-    return {attr, fh};
+    const auto flag = getOpenFlag(helpers::maskToFlags(flags));
+    messages::fuse::CreateFile msg{parentUuid, name, mode, flag};
+
+    auto created = communicate<messages::fuse::FileCreated>(std::move(msg));
+
+    const auto &uuid = created.attr().uuid();
+    auto sharedAttr = std::make_shared<FileAttr>(std::move(created.attr()));
+    auto location = std::make_unique<FileLocation>(created.location());
+    auto openFileToken =
+        m_metadataCache.open(uuid, sharedAttr, std::move(location));
+
+    const auto fuseFileHandleId = m_nextFuseHandleId++;
+    m_fuseFileHandles.emplace(fuseFileHandleId,
+        std::make_shared<FuseFileHandle>(flags, created.handleId(),
+            openFileToken, *m_helpersCache, m_forceProxyIOCache));
+
+    m_eventManager.emitFileOpenedEvent(uuid.toStdString());
+
+    return {sharedAttr, fuseFileHandleId};
 }
 
 void FsLogic::unlink(
@@ -466,7 +487,7 @@ folly::fbstring FsLogic::syncAndFetchChecksum(const folly::fbstring &uuid,
     auto syncResponse =
         communicate<messages::fuse::SyncResponse>(std::move(request));
 
-    m_metadataCache.updateFileLocation(syncResponse.fileLocation());
+    m_metadataCache.updateLocation(syncResponse.fileLocation());
 
     return syncResponse.checksum();
 }

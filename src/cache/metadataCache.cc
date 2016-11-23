@@ -64,6 +64,13 @@ FileAttrPtr MetadataCache::getAttr(
     return fetchedIt->attr;
 }
 
+void MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
+{
+    auto result = m_cache.emplace(attr);
+    if (!result.second)
+        m_cache.modify(result.first, [&](Metadata &m) { m.attr = attr; });
+}
+
 MetadataCache::Map::iterator MetadataCache::getAttrIt(
     const folly::fbstring &uuid)
 {
@@ -77,16 +84,14 @@ MetadataCache::Map::iterator MetadataCache::getAttrIt(
 }
 
 void MetadataCache::addBlock(const folly::fbstring &uuid,
-    const helpers::FlagsSet & /*flagsSet*/,
     const boost::icl::discrete_interval<off_t> range,
     messages::fuse::FileBlock fileBlock)
 {
     auto it = getAttrIt(uuid);
     auto newBlock = std::make_pair(range, std::move(fileBlock));
 
-    // TODO: VFS-2679 Differing blocks on different locations doesn't work now
-    for (auto locElem : it->locations)
-        locElem.second->blocks() += newBlock;
+    assert(it->location);
+    it->location->blocks() += newBlock;
 
     m_cache.modify(it, [&](Metadata &m) {
         m.attr->size(
@@ -111,12 +116,21 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
     return result.first;
 }
 
+std::shared_ptr<FileLocation> MetadataCache::getLocationPtr(
+    const Map::iterator &it)
+{
+    if (it->location)
+        return it->location;
+
+    return fetchFileLocation(it->attr->uuid());
+}
+
 std::shared_ptr<FileLocation> MetadataCache::fetchFileLocation(
-    const folly::fbstring &uuid, const helpers::FlagsSet &flagsSet)
+    const folly::fbstring &uuid)
 {
     auto location =
         communication::wait(m_communicator.communicate<FileLocation>(
-            messages::fuse::GetFileLocation{uuid.toStdString(), flagsSet}));
+            messages::fuse::GetFileLocation{uuid.toStdString()}));
 
     auto sharedLocation = std::make_shared<FileLocation>(std::move(location));
 
@@ -124,50 +138,17 @@ std::shared_ptr<FileLocation> MetadataCache::fetchFileLocation(
     auto it = index.find(uuid);
     assert(it != index.end());
 
-    const auto flag = getFlagForLocation(flagsSet);
-    m_cache.modify(it, [&](Metadata &m) {
-        auto res = m.locations.emplace(flag, sharedLocation);
-        if (!res.second)
-            res.first->second = sharedLocation;
-    });
+    m_cache.modify(it, [&](Metadata &m) { m.location = sharedLocation; });
 
     return sharedLocation;
 }
 
-FileLocationPtr MetadataCache::getFileLocation(
-    const folly::fbstring &uuid, const helpers::FlagsSet &flagsSet)
-{
-    auto it = getAttrIt(uuid);
-    return getLocationPtr(it, flagsSet);
-}
-
-std::shared_ptr<FileLocation> MetadataCache::getLocationPtr(
-    const Map::iterator &it, const helpers::FlagsSet &flagsSet)
-{
-    const auto flag = getFlagForLocation(flagsSet);
-    auto locIt = it->locations.find(flag);
-    if (locIt != it->locations.end())
-        return locIt->second;
-
-    return fetchFileLocation(it->attr->uuid(), flagsSet);
-}
-
-folly::Optional<folly::fbstring> MetadataCache::getHandleId(
-    const folly::fbstring &uuid, const helpers::FlagsSet &flagsSet)
-{
-    auto it = getAttrIt(uuid);
-    auto location = getLocationPtr(it, flagsSet);
-    auto handleId = location->handleId();
-    location->unsetHandleId();
-    return handleId;
-}
-
 folly::Optional<
     std::pair<boost::icl::discrete_interval<off_t>, messages::fuse::FileBlock>>
-MetadataCache::getBlock(const folly::fbstring &uuid,
-    const helpers::FlagsSet &flagsSet, const off_t offset)
+MetadataCache::getBlock(const folly::fbstring &uuid, const off_t offset)
 {
-    auto location = getFileLocation(uuid, flagsSet);
+    auto it = getAttrIt(uuid);
+    auto location = getLocationPtr(it);
     auto availableBlockIt =
         location->blocks().find(boost::icl::discrete_interval<off_t>(offset));
 
@@ -176,6 +157,27 @@ MetadataCache::getBlock(const folly::fbstring &uuid,
             availableBlockIt->first, availableBlockIt->second);
 
     return {};
+}
+
+messages::fuse::FileBlock MetadataCache::getDefaultBlock(
+    const folly::fbstring &uuid)
+{
+    auto it = getAttrIt(uuid);
+    auto location = getLocationPtr(it);
+    return messages::fuse::FileBlock{location->storageId(), location->fileId()};
+}
+
+const std::string &MetadataCache::getSpaceId(const folly::fbstring &uuid)
+{
+    auto it = getAttrIt(uuid);
+    auto location = getLocationPtr(it);
+    return location->spaceId();
+}
+
+void MetadataCache::ensureAttrAndLocationCached(const folly::fbstring &uuid)
+{
+    auto it = getAttrIt(uuid);
+    getLocationPtr(it);
 }
 
 void MetadataCache::erase(const folly::fbstring &uuid)
@@ -194,10 +196,9 @@ void MetadataCache::truncate(
 
     index.modify(it, [&](Metadata &m) {
         m.attr->size(newSize);
-        for (auto &locElem : m.locations) {
-            locElem.second->blocks() &=
+        if (m.location)
+            m.location->blocks() &=
                 boost::icl::discrete_interval<off_t>::right_open(0, newSize);
-        }
     });
 }
 
@@ -230,13 +231,11 @@ void MetadataCache::changeMode(
     index.modify(it, [&](Metadata &m) { m.attr->mode(newMode); });
 }
 
-void MetadataCache::putLocation(
-    const helpers::Flag &flag, std::unique_ptr<FileLocation> location)
+void MetadataCache::putLocation(std::unique_ptr<FileLocation> location)
 {
     auto it = getAttrIt(location->uuid());
-    m_cache.modify(it, [&](Metadata &m) mutable {
-        m.locations[flag] = {std::move(location)};
-    });
+    m_cache.modify(
+        it, [&](Metadata &m) mutable { m.location = {std::move(location)}; });
 }
 
 bool MetadataCache::markDeleted(const folly::fbstring &uuid)
@@ -285,7 +284,7 @@ bool MetadataCache::rename(const folly::fbstring &uuid,
             m.attr->setName(newName);
             m.attr->setUuid(newUuid);
             m.attr->setParentUuid(newParentUuid);
-            m.locations.clear();
+            m.location = nullptr;
         });
     }
 
@@ -294,7 +293,7 @@ bool MetadataCache::rename(const folly::fbstring &uuid,
     return true;
 }
 
-bool MetadataCache::updateFileAttr(const FileAttr &newAttr)
+bool MetadataCache::updateAttr(const FileAttr &newAttr)
 {
     auto &index = boost::multi_index::get<ByUuid>(m_cache);
     auto it = index.find(newAttr.uuid());
@@ -302,16 +301,13 @@ bool MetadataCache::updateFileAttr(const FileAttr &newAttr)
         return false;
 
     index.modify(it, [&](Metadata &m) {
-        if (newAttr.size() && *newAttr.size() < *m.attr->size() &&
-            !m.locations.empty()) {
+        if (newAttr.size() && *newAttr.size() < *m.attr->size() && m.location) {
             LOG(INFO) << "Truncating blocks attributes for uuid: '"
                       << newAttr.uuid() << "'";
 
-            for (auto &locElem : m.locations) {
-                locElem.second->blocks() &=
-                    boost::icl::discrete_interval<off_t>::right_open(
-                        0, *newAttr.size());
-            }
+            m.location->blocks() &=
+                boost::icl::discrete_interval<off_t>::right_open(
+                    0, *newAttr.size());
         }
 
         m.attr->atime(std::max(m.attr->atime(), newAttr.atime()));
@@ -327,34 +323,16 @@ bool MetadataCache::updateFileAttr(const FileAttr &newAttr)
     return true;
 }
 
-bool MetadataCache::updateFileLocation(const FileLocation &newLocation)
+bool MetadataCache::updateLocation(const FileLocation &newLocation)
 {
     auto &index = boost::multi_index::get<ByUuid>(m_cache);
     auto it = index.find(newLocation.uuid());
-    if (it == index.end() || it->locations.empty())
+    if (it == index.end() || !it->location)
         return false;
 
-    // TODO: VFS-2679 Which location to update?
-
-    for (auto &locElem : it->locations) {
-        locElem.second->storageId(newLocation.storageId());
-        locElem.second->fileId(newLocation.fileId());
-        locElem.second->blocks() = newLocation.blocks();
-    }
-
-    auto loc = it->locations.begin()->second;
-    auto prIts = m_updatePromises.equal_range(newLocation.uuid());
-
-    folly::fbvector<std::shared_ptr<folly::Promise<FileLocationPtr>>>
-        promisesToFulfill;
-
-    for (auto prIt = prIts.first; prIt != prIts.second; ++prIt)
-        promisesToFulfill.emplace_back(prIt->second);
-
-    m_updatePromises.erase(prIts.first, prIts.second);
-
-    for (auto &p : promisesToFulfill)
-        p->setValue(loc);
+    it->location->storageId(newLocation.storageId());
+    it->location->fileId(newLocation.fileId());
+    it->location->blocks() = newLocation.blocks();
 
     return true;
 }
