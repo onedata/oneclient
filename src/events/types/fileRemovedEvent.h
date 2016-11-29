@@ -1,13 +1,13 @@
 /**
- * @file fileRemovalEvent.h
+ * @file fileRemovedEvent.h
  * @author Michal Wrona
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#ifndef ONECLIENT_EVENTS_TYPES_FILE_REMOVAL_EVENT_H
-#define ONECLIENT_EVENTS_TYPES_FILE_REMOVAL_EVENT_H
+#ifndef ONECLIENT_EVENTS_TYPES_FILE_REMOVED_EVENT_H
+#define ONECLIENT_EVENTS_TYPES_FILE_REMOVED_EVENT_H
 
 #include "event.h"
 #include "messages/serverMessage.h"
@@ -17,34 +17,34 @@
 
 namespace one {
 namespace clproto {
-class FileRemovalEvent;
+class FileRemovedEvent;
 }
 namespace client {
 namespace events {
 
-class FileRemovalSubscription;
+class FileRemovedSubscription;
 
 /**
- * @c FileRemovalEvent class represents an event of removing file.
+ * @c FileRemovedEvent class represents an event of removing file.
  */
-class FileRemovalEvent : public Event {
+class FileRemovedEvent : public Event {
 public:
-    using EventPtr = std::unique_ptr<FileRemovalEvent>;
+    using EventPtr = std::unique_ptr<FileRemovedEvent>;
     using Key = std::string;
-    using ProtocolMessage = clproto::FileRemovalEvent;
-    using Subscription = FileRemovalSubscription;
+    using ProtocolMessage = clproto::FileRemovedEvent;
+    using Subscription = FileRemovedSubscription;
 
     /**
      * Constructor.
-     * @param message fileRemovalEvent protocol message.
+     * @param message fileRemovedEvent protocol message.
      */
-    FileRemovalEvent(const ProtocolMessage &message);
-    FileRemovalEvent(std::string fileUuid);
+    FileRemovedEvent(const ProtocolMessage &message);
+    FileRemovedEvent(std::string fileUuid);
 
     /**
      * @return Value that distinguish @c this file removal event from other
      * events, i.e. events with the same key can be aggregated.
-     * @see @c FileRemovalEvent::Key.
+     * @see @c FileRemovedEvent::Key.
      */
     const Key &key() const;
 
@@ -56,7 +56,7 @@ public:
     /**
      * Aggregates @c this event with an other event.
      * Aggregation is done by addition of events' counters
-     * @param event FileRemovalEvent to be aggregated.
+     * @param event FileRemovedEvent to be aggregated.
      */
     void aggregate(EventPtr event);
 
@@ -72,4 +72,4 @@ protected:
 } // namespace client
 } // namespace one
 
-#endif // ONECLIENT_EVENTS_TYPES_FILE_REMOVAL_EVENT_H
+#endif // ONECLIENT_EVENTS_TYPES_FILE_REMOVED_EVENT_H

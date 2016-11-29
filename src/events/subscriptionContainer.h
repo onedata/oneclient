@@ -12,7 +12,6 @@
 #include "messages/serverMessage.h"
 #include "subscriptions/readSubscription.h"
 #include "subscriptions/writeSubscription.h"
-#include "subscriptions/fileAccessedSubscription.h"
 
 #include "messages.pb.h"
 
@@ -50,19 +49,11 @@ public:
      */
     std::vector<WriteSubscription> moveWriteSubscriptions();
 
-    /**
-     * Moves file accessed event subscriptions from container
-     * by effectively emptying its content.
-     * @return subscriptions for file accessed events.
-     */
-    std::vector<FileAccessedSubscription> moveFileAccessedSubscription();
-
     virtual std::string toString() const override;
 
 private:
     std::vector<ReadSubscription> m_readSubscriptions;
     std::vector<WriteSubscription> m_writeSubscriptions;
-    std::vector<FileAccessedSubscription> m_fileAccessedSubscription;
 };
 
 } // namespace events

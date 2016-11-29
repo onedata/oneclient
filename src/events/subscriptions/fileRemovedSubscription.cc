@@ -1,12 +1,12 @@
 /**
- * @file fileRemovalSubscription.cc
+ * @file fileRemovedSubscription.cc
  * @author Michal Wrona
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "fileRemovalSubscription.h"
+#include "fileRemovedSubscription.h"
 
 #include "messages.pb.h"
 
@@ -16,31 +16,31 @@ namespace one {
 namespace client {
 namespace events {
 
-FileRemovalSubscription::FileRemovalSubscription(
+FileRemovedSubscription::FileRemovedSubscription(
     std::string fileUuid, std::size_t counterThreshold)
     : Subscription{counterThreshold}
     , m_fileUuid{std::move(fileUuid)}
 {
 }
 
-std::string FileRemovalSubscription::toString() const
+std::string FileRemovedSubscription::toString() const
 {
     std::stringstream stream;
-    stream << Subscription::toString("FileRemovalSubscription")
+    stream << Subscription::toString("FileRemovedSubscription")
            << ", file UUID: '" << m_fileUuid;
     return stream.str();
 }
 
 std::unique_ptr<messages::ProtocolClientMessage>
-FileRemovalSubscription::serializeAndDestroy()
+FileRemovedSubscription::serializeAndDestroy()
 {
     auto clientMsg = std::make_unique<messages::ProtocolClientMessage>();
     auto subscriptionMsg = clientMsg->mutable_subscription();
-    auto fileRemovalSubscriptionMsg =
-        subscriptionMsg->mutable_file_removal_subscription();
+    auto fileRemovedSubscriptionMsg =
+        subscriptionMsg->mutable_file_removed_subscription();
 
     subscriptionMsg->set_id(m_id);
-    fileRemovalSubscriptionMsg->mutable_file_uuid()->swap(m_fileUuid);
+    fileRemovedSubscriptionMsg->mutable_file_uuid()->swap(m_fileUuid);
 
     return clientMsg;
 }

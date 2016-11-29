@@ -48,8 +48,8 @@ private:
     void handleFileAttrs(std::vector<events::FileAttrEventStream::EventPtr>);
     void handleFileLocations(
         std::vector<events::FileLocationEventStream::EventPtr>);
-    void handleFileRemovals(
-        std::vector<events::FileRemovalEventStream::EventPtr>);
+    void handleFileRemoveds(
+        std::vector<events::FileRemovedEventStream::EventPtr>);
     void handleFileRenames(
         std::vector<events::FileRenamedEventStream::EventPtr>);
 

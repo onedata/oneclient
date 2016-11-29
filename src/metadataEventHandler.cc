@@ -24,9 +24,9 @@ MetadataEventHandler::MetadataEventHandler(events::EventManager &eventManager,
         });
     });
 
-    m_eventManager.setFileRemovalHandler([=](auto events) {
+    m_eventManager.setFileRemovedHandler([=](auto events) {
         runInFiber([ this, events = std::move(events) ]() mutable {
-            this->handleFileRemovals(std::move(events));
+            this->handleFileRemoveds(std::move(events));
         });
     });
 
@@ -41,7 +41,7 @@ MetadataEventHandler::~MetadataEventHandler()
 {
     m_eventManager.setFileAttrHandler([](auto) {});
     m_eventManager.setFileLocationHandler([](auto) {});
-    m_eventManager.setFileRemovalHandler([](auto) {});
+    m_eventManager.setFileRemovedHandler([](auto) {});
     m_eventManager.setFileRenamedHandler([](auto) {});
 }
 
@@ -72,8 +72,8 @@ void MetadataEventHandler::handleFileLocations(
     }
 }
 
-void MetadataEventHandler::handleFileRemovals(
-    std::vector<events::FileRemovalEventStream::EventPtr> events)
+void MetadataEventHandler::handleFileRemoveds(
+    std::vector<events::FileRemovedEventStream::EventPtr> events)
 {
     for (auto &event : events) {
         auto &uuid = event->fileUuid();
