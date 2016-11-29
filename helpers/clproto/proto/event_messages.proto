@@ -23,29 +23,30 @@ message FlushEvents {
 
 // Generic event message
 message Event {
-    required uint32 counter = 1; // amount of aggregated events
     oneof object { // list of all event objects
-        ReadEvent              read_event               = 2;
-        WriteEvent             write_event              = 3;
-        UpdateEvent            update_event             = 4;
-        PermissionChangedEvent permission_changed_event = 5;
-        QuotaExeededEvent      quota_exeeded_event      = 6;
-        FileRemovedEvent       file_removed_event       = 7;
-        FileRenamedEvent       file_renamed_event       = 8;
+        ReadEvent              read_event               = 1;
+        WriteEvent             write_event              = 2;
+        UpdateEvent            update_event             = 3;
+        PermissionChangedEvent permission_changed_event = 4;
+        QuotaExceededEvent     quota_exceeded_event     = 5;
+        FileRemovedEvent       file_removed_event       = 6;
+        FileRenamedEvent       file_renamed_event       = 7;
     }
 }
 
 message ReadEvent {
-    required bytes     file_uuid = 1; // UUID of file associated with an event
-    required uint64    size      = 2; // amount of read bytes
-    repeated FileBlock blocks    = 3; // list of read blocks
+    required uint32    counter   = 1; // amount of aggregated events
+    required bytes     file_uuid = 2; // UUID of file associated with an event
+    required uint64    size      = 3; // amount of read bytes
+    repeated FileBlock blocks    = 4; // list of read blocks
 }
 
 message WriteEvent {
-    required bytes     file_uuid = 1; // UUID of file associated with an event
-    optional uint64    file_size = 2; // size of file associated with an event
-    required uint64    size      = 3; // amount of written bytes
-    repeated FileBlock blocks    = 4; // list of written blocks
+    required uint32    counter   = 1; // amount of aggregated events
+    required bytes     file_uuid = 2; // UUID of file associated with an event
+    optional uint64    file_size = 3; // size of file associated with an event
+    required uint64    size      = 4; // amount of written bytes
+    repeated FileBlock blocks    = 5; // list of written blocks
 }
 
 message UpdateEvent {
@@ -63,7 +64,7 @@ message FileRemovedEvent {
     required bytes file_uuid = 1; // UUID of file associated with an event
 }
 
-message QuotaExeededEvent {
+message QuotaExceededEvent {
     repeated bytes spaces = 1; // Blocked spaces
 }
 
@@ -89,7 +90,6 @@ message Subscription {
 }
 
 message QuotaSubscription {
-
 }
 
 message ReadSubscription {
@@ -97,8 +97,6 @@ message ReadSubscription {
                                            // events before emission
     optional uint32 time_threshold    = 2; // maximal delay in milliseconds
                                            // between successive events emission
-    optional uint32 size_threshold    = 3; // maximal amount of read bytes
-                                           // before emission
 }
 
 message WriteSubscription {
@@ -106,23 +104,17 @@ message WriteSubscription {
                                            // events before emission
     optional uint32 time_threshold    = 2; // maximal delay in milliseconds
                                            // between successive events emission
-    optional uint32 size_threshold    = 3; // maximal amount of written bytes
-                                           // before emission
 }
 
 message FileAttrSubscription {
     required bytes  file_uuid         = 1; // file UUID
-    optional uint32 counter_threshold = 2; // maximal amount of aggregated
-                                           // events before emission
-    optional uint32 time_threshold    = 3; // maximal delay in milliseconds
+    optional uint32 time_threshold    = 2; // maximal delay in milliseconds
                                            // between successive events emission
 }
 
 message FileLocationSubscription {
     required bytes  file_uuid         = 1; // file UUID
-    optional uint32 counter_threshold = 2; // maximal amount of aggregated
-                                           // events before emission
-    optional uint32 time_threshold    = 3; // maximal delay in milliseconds
+    optional uint32 time_threshold    = 2; // maximal delay in milliseconds
                                            // between successive events emission
 }
 

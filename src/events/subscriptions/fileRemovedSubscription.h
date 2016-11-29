@@ -1,6 +1,6 @@
 /**
  * @file fileRemovedSubscription.h
- * @author Michal Wrona
+ * @author Krzysztof Trzepla
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
@@ -9,36 +9,30 @@
 #ifndef ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_REMOVED_SUBSCRIPTION_H
 #define ONECLIENT_EVENTS_SUBSCRIPTIONS_FILE_REMOVED_SUBSCRIPTION_H
 
-#include "messages/clientMessage.h"
-#include "subscription.h"
-
-#include <cstddef>
+#include "event.h"
+#include "remoteSubscription.h"
 
 namespace one {
 namespace client {
 namespace events {
 
-/**
- * @c FileRemovedSubscription is a client side subscription and represents
- * a request for @c FileRemovedEvent.
- */
-class FileRemovedSubscription : public Subscription,
-                                public messages::ClientMessage {
+class FileRemovedSubscription : public RemoteSubscription {
 public:
-    /**
-     * Constructor.
-     * @param fileUuid UUID of file for which file removal events are requested.
-     */
-    FileRemovedSubscription(
-        std::string fileUuid, std::size_t counterThreshold = 1);
+    FileRemovedSubscription(std::string fileUuid, EventHandler handler);
+
+    const std::string &routingKey() const override;
+
+    StreamPtr createStream(std::int64_t streamId, Manager &manager,
+        SequencerManager &seqManager, Scheduler &scheduler) const override;
 
     std::string toString() const override;
 
-private:
-    std::unique_ptr<one::messages::ProtocolClientMessage>
-    serializeAndDestroy() override;
+    ProtoSubscriptionPtr serialize() const override;
 
+private:
     std::string m_fileUuid;
+    std::string m_routingKey;
+    EventHandler m_handler;
 };
 
 } // namespace events

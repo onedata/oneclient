@@ -1,6 +1,6 @@
 /**
  * @file permissionChangedSubscription.h
- * @author Tomasz Lichon
+ * @author Krzysztof Trzepla
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
@@ -9,40 +9,30 @@
 #ifndef ONECLIENT_EVENTS_SUBSCRIPTIONS_PERMISSION_CHANGED_SUBSCRIPTION_H
 #define ONECLIENT_EVENTS_SUBSCRIPTIONS_PERMISSION_CHANGED_SUBSCRIPTION_H
 
-#include "messages/clientMessage.h"
-#include "subscription.h"
-
-#include <boost/optional.hpp>
-
-#include <cstddef>
-#include <sstream>
+#include "event.h"
+#include "remoteSubscription.h"
 
 namespace one {
 namespace client {
 namespace events {
 
-/**
- * @c PermissionChangedSubscription is a client side subscription and represents
- * a request for permission_changed events.
- */
-class PermissionChangedSubscription : public Subscription,
-                                      public messages::ClientMessage {
+class PermissionChangedSubscription : public RemoteSubscription {
 public:
-    /**
-     * Constructor.
-     * @param fileUuid UUID of file for which permission change events are
-     * requested.
-     */
-    PermissionChangedSubscription(
-        std::string fileUuid, std::size_t counterThreshold = 1);
+    PermissionChangedSubscription(std::string fileUuid, EventHandler handler);
+
+    const std::string &routingKey() const override;
+
+    StreamPtr createStream(std::int64_t streamId, Manager &manager,
+        SequencerManager &seqManager, Scheduler &scheduler) const override;
 
     std::string toString() const override;
 
-private:
-    std::unique_ptr<one::messages::ProtocolClientMessage>
-    serializeAndDestroy() override;
+    ProtoSubscriptionPtr serialize() const override;
 
+private:
     std::string m_fileUuid;
+    std::string m_routingKey;
+    EventHandler m_handler;
 };
 
 } // namespace events

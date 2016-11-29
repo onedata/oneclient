@@ -1,56 +1,63 @@
 /**
  * @file fileAttrSubscription.cc
  * @author Krzysztof Trzepla
- * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "fileAttrSubscription.h"
+#include "events/events.h"
 
 #include "messages.pb.h"
-
-#include <sstream>
 
 namespace one {
 namespace client {
 namespace events {
 
-FileAttrSubscription::FileAttrSubscription(std::string fileUuid_,
-    boost::optional<std::size_t> counterThreshold_,
-    boost::optional<std::chrono::milliseconds> timeThreshold_)
-    : Subscription{std::move(counterThreshold_), std::move(timeThreshold_)}
-    , m_fileUuid{std::move(fileUuid_)}
+FileAttrSubscription::FileAttrSubscription(std::string fileUuid,
+    std::chrono::milliseconds remoteThreshold, EventHandler handler)
+    : m_fileUuid{std::move(fileUuid)}
+    , m_remoteThreshold{std::move(remoteThreshold)}
+    , m_routingKey{"FileAttrEventStream." + m_fileUuid}
+    , m_handler{std::move(handler)}
 {
+}
+
+const std::string &FileAttrSubscription::routingKey() const
+{
+    return m_routingKey;
+}
+
+StreamPtr FileAttrSubscription::createStream(std::int64_t streamId,
+    Manager &manager, SequencerManager &seqManager, Scheduler &scheduler) const
+{
+    using namespace std::literals::chrono_literals;
+
+    auto aggregator = std::make_unique<KeyAggregator>();
+    auto emitter =
+        std::make_unique<TimedEmitter>(streamId, 500ms, manager, scheduler);
+    auto handler = std::make_unique<LocalHandler>(std::move(m_handler));
+
+    return std::make_unique<AsyncStream>(std::make_unique<LocalStream>(
+        std::move(aggregator), std::move(emitter), std::move(handler)));
 }
 
 std::string FileAttrSubscription::toString() const
 {
     std::stringstream stream;
-    stream << Subscription::toString("FileAttrSubscription") << ", file UUID: '"
-           << m_fileUuid;
+    stream << "type: 'FileAttr', file UUID: '" << m_fileUuid
+           << "', time threshold: " << m_remoteThreshold.count() << "ms";
     return stream.str();
 }
 
-std::unique_ptr<messages::ProtocolClientMessage>
-FileAttrSubscription::serializeAndDestroy()
+ProtoSubscriptionPtr FileAttrSubscription::serialize() const
 {
-    auto clientMsg = std::make_unique<messages::ProtocolClientMessage>();
-    auto subscriptionMsg = clientMsg->mutable_subscription();
-    auto fileAttrSubscriptionMsg =
-        subscriptionMsg->mutable_file_attr_subscription();
+    auto subscriptionMsg = std::make_unique<clproto::Subscription>();
+    auto msg = subscriptionMsg->mutable_file_attr_subscription();
+    msg->set_file_uuid(m_fileUuid);
+    msg->set_time_threshold(m_remoteThreshold.count());
 
-    subscriptionMsg->set_id(m_id);
-    fileAttrSubscriptionMsg->mutable_file_uuid()->swap(m_fileUuid);
-
-    if (m_counterThreshold)
-        fileAttrSubscriptionMsg->set_counter_threshold(
-            m_counterThreshold.get());
-    if (m_timeThreshold)
-        fileAttrSubscriptionMsg->set_time_threshold(
-            m_timeThreshold.get().count());
-
-    return clientMsg;
+    return subscriptionMsg;
 }
 
 } // namespace events

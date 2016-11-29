@@ -1,42 +1,53 @@
 /**
  * @file quotaSubscription.cc
- * @author Rafal Slota
+ * @author Krzysztof Trzepla
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "quotaSubscription.h"
-#include "messages.pb.h"
+#include "events/events.h"
 
-#include <sstream>
+#include "messages.pb.h"
 
 namespace one {
 namespace client {
 namespace events {
 
-QuotaSubscription::QuotaSubscription()
-    : Subscription{1}
+QuotaSubscription::QuotaSubscription(EventHandler handler)
+    : m_handler{std::move(handler)}
 {
+}
+
+const std::string &QuotaSubscription::routingKey() const
+{
+    return m_routingKey;
+}
+
+StreamPtr QuotaSubscription::createStream(std::int64_t streamId,
+    Manager &manager, SequencerManager &seqManager, Scheduler &scheduler) const
+{
+    auto aggregator = std::make_unique<KeyAggregator>();
+    auto emitter = std::make_unique<CounterEmitter>(1);
+    auto handler = std::make_unique<LocalHandler>(std::move(m_handler));
+
+    return std::make_unique<AsyncStream>(std::make_unique<LocalStream>(
+        std::move(aggregator), std::move(emitter), std::move(handler)));
 }
 
 std::string QuotaSubscription::toString() const
 {
     std::stringstream stream;
-    stream << Subscription::toString("QuotaSubscription");
+    stream << "type: 'Quota'";
     return stream.str();
 }
 
-std::unique_ptr<messages::ProtocolClientMessage>
-QuotaSubscription::serializeAndDestroy()
+ProtoSubscriptionPtr QuotaSubscription::serialize() const
 {
-    auto clientMsg = std::make_unique<messages::ProtocolClientMessage>();
-    auto subscriptionMsg = clientMsg->mutable_subscription();
+    auto subscriptionMsg = std::make_unique<clproto::Subscription>();
     subscriptionMsg->mutable_quota_subscription();
 
-    subscriptionMsg->set_id(m_id);
-
-    return clientMsg;
+    return subscriptionMsg;
 }
 
 } // namespace events

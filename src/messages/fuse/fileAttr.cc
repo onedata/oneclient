@@ -35,8 +35,6 @@ FileAttr::FileAttr(const one::clproto::FileAttr &message)
     deserialize(message);
 }
 
-const FileAttr::Key &FileAttr::key() const { return m_uuid; }
-
 const folly::fbstring &FileAttr::uuid() const { return m_uuid; }
 
 void FileAttr::setUuid(folly::fbstring uuid_) { m_uuid.swap(uuid_); }
@@ -89,17 +87,9 @@ folly::Optional<off_t> FileAttr::size() const { return m_size; }
 
 void FileAttr::size(const off_t size_) { m_size = size_; }
 
-void FileAttr::aggregate(FileAttrPtr fileAttr)
-{
-    m_mode = fileAttr->m_mode;
-    m_uid = fileAttr->m_uid;
-    m_gid = fileAttr->m_gid;
-    m_atime = fileAttr->m_atime;
-    m_mtime = fileAttr->m_mtime;
-    m_ctime = fileAttr->m_ctime;
-    m_size = fileAttr->m_size;
-    m_type = fileAttr->m_type;
-}
+const std::string &FileAttr::routingKey() const { return m_key; }
+
+const std::string &FileAttr::aggregationKey() const { return m_key; }
 
 std::string FileAttr::toString() const
 {
@@ -133,6 +123,24 @@ std::string FileAttr::toString() const
     return stream.str();
 }
 
+void FileAttr::aggregate(client::events::ConstEventPtr event)
+{
+    auto fileAttrEvent = client::events::get<FileAttr>(event);
+    m_mode = fileAttrEvent->m_mode;
+    m_uid = fileAttrEvent->m_uid;
+    m_gid = fileAttrEvent->m_gid;
+    m_atime = fileAttrEvent->m_atime;
+    m_mtime = fileAttrEvent->m_mtime;
+    m_ctime = fileAttrEvent->m_ctime;
+    m_size = fileAttrEvent->m_size;
+    m_type = fileAttrEvent->m_type;
+}
+
+client::events::EventPtr FileAttr::clone() const
+{
+    return std::make_shared<FileAttr>(*this);
+}
+
 void FileAttr::deserialize(const ProtocolMessage &message)
 {
     m_uuid = message.uuid();
@@ -156,6 +164,8 @@ void FileAttr::deserialize(const ProtocolMessage &message)
     else
         throw std::system_error{
             std::make_error_code(std::errc::protocol_error), "bad filetype"};
+
+    m_key = m_uuid.toStdString();
 }
 
 } // namespace fuse

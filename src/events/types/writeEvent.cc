@@ -1,7 +1,7 @@
 /**
  * @file writeEvent.cc
  * @author Krzysztof Trzepla
- * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
@@ -18,85 +18,75 @@ namespace one {
 namespace client {
 namespace events {
 
-WriteEvent::WriteEvent(off_t offset_, std::size_t size_, std::string fileUuid_,
-    std::string storageId_, std::string fileId_)
-    : m_fileUuid{std::move(fileUuid_)}
-    , m_size{size_}
+WriteEvent::WriteEvent(std::string fileUuid, off_t offset, size_t size,
+    std::string storageId, std::string fileId, boost::optional<off_t> fileSize)
+    : m_fileUuid{std::move(fileUuid)}
+    , m_size{size}
     , m_blocks{{boost::icl::discrete_interval<off_t>::right_open(
-                    offset_, offset_ + size_),
-          FileBlock{std::move(storageId_), std::move(fileId_)}}}
+                    offset, offset + size),
+          FileBlock{std::move(storageId), std::move(fileId)}}}
+    , m_fileSize{std::move(fileSize)}
 {
 }
 
-WriteEvent::WriteEvent(off_t offset_, std::size_t size_, off_t fileSize_,
-    std::string fileUuid_, std::string storageId_, std::string fileId_)
-    : m_fileUuid{std::move(fileUuid_)}
-    , m_size{size_}
-    , m_fileSize{fileSize_}
-    , m_blocks{{boost::icl::discrete_interval<off_t>::right_open(
-                    offset_, offset_ + size_),
-          FileBlock{std::move(storageId_), std::move(fileId_)}}}
-{
-}
+const std::string &WriteEvent::routingKey() const { return m_routingKey; }
 
-const WriteEvent::Key &WriteEvent::key() const { return m_fileUuid; }
-
-const std::string &WriteEvent::fileUuid() const { return m_fileUuid; }
-
-size_t WriteEvent::size() const { return m_size; }
-
-boost::optional<off_t> WriteEvent::fileSize() const { return m_fileSize; }
-
-const WriteEvent::FileBlocksMap &WriteEvent::blocks() const { return m_blocks; }
-
-void WriteEvent::aggregate(EventPtr event)
-{
-    m_counter += event->m_counter;
-    m_size += event->m_size;
-
-    if (event->m_fileSize)
-        m_fileSize = std::move(event->m_fileSize);
-    else if (m_fileSize &&
-        m_fileSize.get() < boost::icl::last(event->m_blocks) + 1)
-        m_fileSize = boost::icl::last(event->m_blocks) + 1;
-
-    m_blocks += event->m_blocks;
-}
+const std::string &WriteEvent::aggregationKey() const { return m_fileUuid; }
 
 std::string WriteEvent::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'WriteEvent', counter: " << m_counter << ", file UUID: '"
+    stream << "type: 'Write', counter: " << m_counter << ", file UUID: '"
            << m_fileUuid << "', file size: " << m_fileSize
            << ", size: " << m_size << ", blocks: " << m_blocks;
     return stream.str();
 }
 
-std::unique_ptr<ProtocolEventMessage> WriteEvent::serializeAndDestroy()
+void WriteEvent::aggregate(ConstEventPtr event)
 {
-    auto eventMsg = std::make_unique<ProtocolEventMessage>();
-    auto writeEventMsg = eventMsg->mutable_write_event();
+    auto writeEvent = events::get<WriteEvent>(event);
+    m_counter += writeEvent->m_counter;
+    m_size += writeEvent->m_size;
 
-    eventMsg->set_counter(m_counter);
-    writeEventMsg->mutable_file_uuid()->swap(m_fileUuid);
-    writeEventMsg->set_size(m_size);
+    if (writeEvent->m_fileSize)
+        m_fileSize = std::move(writeEvent->m_fileSize);
+    else if (m_fileSize &&
+        m_fileSize.get() < boost::icl::last(writeEvent->m_blocks) + 1)
+        m_fileSize = boost::icl::last(writeEvent->m_blocks) + 1;
 
-    auto blocks_ = m_blocks;
+    m_blocks += writeEvent->m_blocks;
+}
+
+EventPtr WriteEvent::clone() const
+{
+    return std::make_shared<WriteEvent>(*this);
+}
+
+ProtoEventPtr WriteEvent::serializeAndDestroy()
+{
+    auto msg = std::make_unique<ProtoEvent>();
+    auto writeMsg = msg->mutable_write_event();
+
+    writeMsg->set_counter(m_counter);
+    writeMsg->mutable_file_uuid()->swap(m_fileUuid);
+    writeMsg->set_size(m_size);
+
+    auto blocks = m_blocks;
     if (m_fileSize) {
-        writeEventMsg->set_file_size(m_fileSize.get());
-        blocks_ &= boost::icl::discrete_interval<off_t>::right_open(
+        writeMsg->set_file_size(m_fileSize.get());
+        blocks &= boost::icl::discrete_interval<off_t>::right_open(
             0, m_fileSize.get());
     }
 
-    for (auto &block : blocks_) {
-        auto blockMsg = writeEventMsg->add_blocks();
+    for (auto &block : blocks) {
+        auto blockMsg = writeMsg->add_blocks();
         blockMsg->set_offset(block.first.lower());
         blockMsg->set_size(boost::icl::size(block.first));
         blockMsg->mutable_storage_id()->swap(block.second.mutableStorageId());
         blockMsg->mutable_file_id()->swap(block.second.mutableFileId());
     }
 
-    return eventMsg;
+    return msg;
 }
 
 } // namespace events

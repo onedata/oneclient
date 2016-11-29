@@ -1,48 +1,57 @@
 /**
  * @file fileRemovedSubscription.cc
- * @author Michal Wrona
+ * @author Krzysztof Trzepla
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "fileRemovedSubscription.h"
+#include "events/events.h"
 
 #include "messages.pb.h"
-
-#include <sstream>
 
 namespace one {
 namespace client {
 namespace events {
 
 FileRemovedSubscription::FileRemovedSubscription(
-    std::string fileUuid, std::size_t counterThreshold)
-    : Subscription{counterThreshold}
-    , m_fileUuid{std::move(fileUuid)}
+    std::string fileUuid, EventHandler handler)
+    : m_fileUuid{std::move(fileUuid)}
+    , m_routingKey{"FileRemovedEventStream." + m_fileUuid}
+    , m_handler{std::move(handler)}
 {
+}
+
+const std::string &FileRemovedSubscription::routingKey() const
+{
+    return m_routingKey;
+}
+
+StreamPtr FileRemovedSubscription::createStream(std::int64_t streamId,
+    Manager &manager, SequencerManager &seqManager, Scheduler &scheduler) const
+{
+    auto aggregator = std::make_unique<KeyAggregator>();
+    auto emitter = std::make_unique<CounterEmitter>(1);
+    auto handler = std::make_unique<LocalHandler>(std::move(m_handler));
+
+    return std::make_unique<AsyncStream>(std::make_unique<LocalStream>(
+        std::move(aggregator), std::move(emitter), std::move(handler)));
 }
 
 std::string FileRemovedSubscription::toString() const
 {
     std::stringstream stream;
-    stream << Subscription::toString("FileRemovedSubscription")
-           << ", file UUID: '" << m_fileUuid;
+    stream << "type: 'FileRemoved', file UUID: '" << m_fileUuid << "'";
     return stream.str();
 }
 
-std::unique_ptr<messages::ProtocolClientMessage>
-FileRemovedSubscription::serializeAndDestroy()
+ProtoSubscriptionPtr FileRemovedSubscription::serialize() const
 {
-    auto clientMsg = std::make_unique<messages::ProtocolClientMessage>();
-    auto subscriptionMsg = clientMsg->mutable_subscription();
-    auto fileRemovedSubscriptionMsg =
-        subscriptionMsg->mutable_file_removed_subscription();
+    auto subscriptionMsg = std::make_unique<clproto::Subscription>();
+    auto msg = subscriptionMsg->mutable_file_removed_subscription();
+    msg->set_file_uuid(m_fileUuid);
 
-    subscriptionMsg->set_id(m_id);
-    fileRemovedSubscriptionMsg->mutable_file_uuid()->swap(m_fileUuid);
-
-    return clientMsg;
+    return subscriptionMsg;
 }
 
 } // namespace events

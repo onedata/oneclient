@@ -1,7 +1,7 @@
 /**
  * @file updateEvent.h
  * @author Krzysztof Trzepla
- * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
@@ -10,94 +10,59 @@
 #define ONECLIENT_EVENTS_TYPES_UPDATE_EVENT_H
 
 #include "event.h"
-#include "messages/fuse/fileAttr.h"
-
-#include <memory>
-#include <sstream>
 
 namespace one {
 namespace client {
 namespace events {
 
-/**
- * @c UpdateEvent class represents an update operation that occured in the
- * file system.
- */
 template <class Wrapped> class UpdateEvent : public Event {
-public:
-    using EventPtr = std::unique_ptr<UpdateEvent<Wrapped>>;
-    using Key = typename Wrapped::Key;
     using ProtocolMessage = typename Wrapped::ProtocolMessage;
-    using Subscription = typename Wrapped::Subscription;
 
-    /**
-     * Constructor.
-     * @param message Protocol Buffers message representing @c Wrapped
-     * counterpart.
-     */
-    UpdateEvent(const ProtocolMessage &message)
-        : m_wrapped{std::make_unique<Wrapped>(message)}
+public:
+    UpdateEvent(const ProtocolMessage &msg)
+        : m_wrapped{std::make_shared<Wrapped>(msg)}
     {
     }
 
-    /**
-     * @return Value that distinguish @c this update event from other update
-     * events, i.e. update events with the same key can be aggregated.
-     * @see @c UpdateEvent::Key.
-     */
-    const Key &key() const;
+    UpdateEvent(std::shared_ptr<Wrapped> wrapped)
+        : m_wrapped{std::move(wrapped)}
+    {
+    }
 
-    /**
-     * Aggregates @c this event with an other update event.
-     * Aggregation is done by addition of events' counters.
-     * @param event Update event to be aggregated.
-     */
-    void aggregate(EventPtr event);
+    const std::string &routingKey() const override
+    {
+        return m_wrapped->routingKey();
+    }
 
-    /**
-     * @return Wrapped object.
-     */
-    const Wrapped &wrapped() const;
+    const std::string &aggregationKey() const override
+    {
+        return m_wrapped->aggregationKey();
+    }
 
-    std::string toString() const override;
+    const Wrapped &wrapped() const { return *m_wrapped; }
+
+    std::string toString() const override
+    {
+        std::stringstream stream;
+        stream << "type: 'Update', wrapped: " << m_wrapped->toString();
+        return stream.str();
+    }
+
+    void aggregate(ConstEventPtr event) override
+    {
+        auto updateEvent = events::get<UpdateEvent>(event);
+        m_wrapped->aggregate(updateEvent->m_wrapped);
+    }
+
+    EventPtr clone() const override
+    {
+        return std::make_shared<UpdateEvent>(
+            std::static_pointer_cast<Wrapped>(m_wrapped->clone()));
+    }
 
 private:
-    std::unique_ptr<ProtocolEventMessage> serializeAndDestroy() override;
-
-    std::unique_ptr<Wrapped> m_wrapped;
+    std::shared_ptr<Wrapped> m_wrapped;
 };
-
-template <class Wrapped>
-const typename UpdateEvent<Wrapped>::Key &UpdateEvent<Wrapped>::key() const
-{
-    return m_wrapped->key();
-}
-
-template <class Wrapped> void UpdateEvent<Wrapped>::aggregate(EventPtr event)
-{
-    m_counter += event->m_counter;
-    m_wrapped->aggregate(std::move(event->m_wrapped));
-}
-
-template <class Wrapped> const Wrapped &UpdateEvent<Wrapped>::wrapped() const
-{
-    return *m_wrapped;
-}
-
-template <class Wrapped> std::string UpdateEvent<Wrapped>::toString() const
-{
-    std::stringstream stream;
-    stream << "type: 'UpdateEvent', counter: " << m_counter
-           << ", wrapped: " << m_wrapped->toString();
-    return stream.str();
-}
-
-template <class Wrapped>
-std::unique_ptr<ProtocolEventMessage>
-UpdateEvent<Wrapped>::serializeAndDestroy()
-{
-    return {};
-}
 
 } // namespace events
 } // namespace client

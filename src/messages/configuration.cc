@@ -8,8 +8,6 @@
 
 #include "configuration.h"
 
-#include "messages.pb.h"
-
 #include <sstream>
 
 namespace one {
@@ -22,31 +20,33 @@ Configuration::Configuration(
 
     m_rootUuid = configurationMsg->root_uuid();
 
-    for (const auto &subscription : configurationMsg->subscriptions())
-        m_subscriptionContainer.add(subscription);
+    auto subscriptions = configurationMsg->mutable_subscriptions();
+    std::transform(subscriptions->pointer_begin(), subscriptions->pointer_end(),
+        std::back_inserter(m_subscriptions),
+        [](auto subscription) { return std::move(*subscription); });
 
     auto disabledSpaces = configurationMsg->mutable_disabled_spaces();
     std::transform(disabledSpaces->pointer_begin(),
-        disabledSpaces->pointer_end(),
-        std::back_inserter(m_disabledSpacesContainer),
+        disabledSpaces->pointer_end(), std::back_inserter(m_disabledSpaces),
         [](auto disabled_space) { return std::move(*disabled_space); });
 }
 
-client::events::SubscriptionContainer Configuration::subscriptionContainer()
+const folly::fbstring &Configuration::rootUuid() const { return m_rootUuid; }
+
+const std::vector<clproto::Subscription> &Configuration::subscriptions() const
 {
-    return m_subscriptionContainer;
+    return m_subscriptions;
 }
 
-std::vector<std::string> Configuration::disabledSpacesContainer()
+const std::vector<std::string> &Configuration::disabledSpaces() const
 {
-    return m_disabledSpacesContainer;
+    return m_disabledSpaces;
 }
 
 std::string Configuration::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'Configuration', root UUID: '" << m_rootUuid
-           << "' subscriptions: " << m_subscriptionContainer.toString();
+    stream << "type: 'Configuration', root UUID: '" << m_rootUuid << "'";
     return stream.str();
 }
 

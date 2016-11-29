@@ -1,7 +1,7 @@
 /**
  * @file event.h
  * @author Krzysztof Trzepla
- * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
@@ -9,43 +9,28 @@
 #ifndef ONECLIENT_EVENTS_TYPES_EVENT_H
 #define ONECLIENT_EVENTS_TYPES_EVENT_H
 
-#include <cstddef>
+#include "events/declarations.h"
+
+#include <functional>
 #include <memory>
+#include <string>
+#include <vector>
 
 namespace one {
-namespace clproto {
-class Event;
-} // namespace clproto
 namespace client {
 namespace events {
 
-using ProtocolEventMessage = one::clproto::Event;
-
-/**
- * @c Event class represents an event that occured in the system.
- */
 class Event {
 public:
-    virtual ~Event() = default;
+    virtual const std::string &routingKey() const = 0;
 
-    /**
-     * @return Number of aggregated events.
-     */
-    std::size_t counter() const { return m_counter; }
+    virtual const std::string &aggregationKey() const = 0;
 
-    /**
-     * @return @c Event in string format.
-     */
     virtual std::string toString() const = 0;
 
-    /**
-     * Creates Protocol Buffers message based on provided @c Event.
-     * @return Unique pointer to Protocol Buffers @c Event message instance.
-     */
-    virtual std::unique_ptr<ProtocolEventMessage> serializeAndDestroy() = 0;
+    virtual void aggregate(ConstEventPtr event) = 0;
 
-protected:
-    std::size_t m_counter = 1;
+    virtual EventPtr clone() const = 0;
 };
 
 } // namespace events

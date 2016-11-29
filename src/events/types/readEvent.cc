@@ -1,7 +1,7 @@
 /**
  * @file readEvent.cc
  * @author Krzysztof Trzepla
- * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
@@ -16,55 +16,54 @@ namespace one {
 namespace client {
 namespace events {
 
-ReadEvent::ReadEvent(off_t offset_, size_t size_, std::string fileUuid_,
-    std::string storageId_, std::string fileId_)
-    : m_fileUuid{std::move(fileUuid_)}
-    , m_size{size_}
+ReadEvent::ReadEvent(std::string fileUuid, off_t offset, size_t size,
+    std::string storageId, std::string fileId)
+    : m_fileUuid{std::move(fileUuid)}
+    , m_size{size}
     , m_blocks{{boost::icl::discrete_interval<off_t>::right_open(
-                    offset_, offset_ + size_),
-          FileBlock{std::move(storageId_), std::move(fileId_)}}}
+                    offset, offset + size),
+          FileBlock{std::move(storageId), std::move(fileId)}}}
 {
 }
 
-const ReadEvent::Key &ReadEvent::key() const { return m_fileUuid; }
+const std::string &ReadEvent::routingKey() const { return m_routingKey; }
 
-const std::string &ReadEvent::fileUuid() const { return m_fileUuid; }
-
-size_t ReadEvent::size() const { return m_size; }
-
-const ReadEvent::FileBlocksMap &ReadEvent::blocks() const { return m_blocks; }
-
-void ReadEvent::aggregate(EventPtr event)
-{
-    m_counter += event->m_counter;
-    m_size += event->m_size;
-    m_blocks += event->m_blocks;
-}
+const std::string &ReadEvent::aggregationKey() const { return m_fileUuid; }
 
 std::string ReadEvent::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'ReadEvent', counter: " << m_counter << ", file UUID: '"
+    stream << "type: 'Read', counter: " << m_counter << ", file UUID: '"
            << m_fileUuid << "', size: " << m_size << ", blocks: " << m_blocks;
     return stream.str();
 }
 
-std::unique_ptr<ProtocolEventMessage> ReadEvent::serializeAndDestroy()
+void ReadEvent::aggregate(ConstEventPtr event)
 {
-    auto eventMsg = std::make_unique<ProtocolEventMessage>();
-    auto readEventMsg = eventMsg->mutable_read_event();
-    eventMsg->set_counter(m_counter);
-    readEventMsg->mutable_file_uuid()->swap(m_fileUuid);
-    readEventMsg->set_size(m_size);
+    auto readEvent = events::get<ReadEvent>(event);
+    m_counter += readEvent->m_counter;
+    m_size += readEvent->m_size;
+    m_blocks += readEvent->m_blocks;
+}
+
+EventPtr ReadEvent::clone() const { return std::make_shared<ReadEvent>(*this); }
+
+ProtoEventPtr ReadEvent::serializeAndDestroy()
+{
+    auto msg = std::make_unique<ProtoEvent>();
+    auto readMsg = msg->mutable_read_event();
+    readMsg->set_counter(m_counter);
+    readMsg->mutable_file_uuid()->swap(m_fileUuid);
+    readMsg->set_size(m_size);
     for (auto &block : m_blocks) {
-        auto blockMsg = readEventMsg->add_blocks();
+        auto blockMsg = readMsg->add_blocks();
         blockMsg->set_offset(block.first.lower());
         blockMsg->set_size(block.first.upper() - block.first.lower());
         blockMsg->mutable_file_id()->swap(block.second.mutableFileId());
         blockMsg->mutable_storage_id()->swap(block.second.mutableStorageId());
     }
 
-    return eventMsg;
+    return msg;
 }
 
 } // namespace events

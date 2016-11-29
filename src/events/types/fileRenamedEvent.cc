@@ -1,6 +1,6 @@
 /**
  * @file fileRenamedEvent.cc
- * @author Mateusz Paciorek
+ * @author Krzysztof Trzepla
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
@@ -16,16 +16,18 @@ namespace one {
 namespace client {
 namespace events {
 
-FileRenamedEvent::FileRenamedEvent(const ProtocolMessage &message)
+FileRenamedEvent::FileRenamedEvent(const ProtocolMessage &msg)
+    : m_topEntry{msg.top_entry()}
+    , m_routingKey{"FileRenamedEventStream." + m_topEntry.oldUuid()}
 {
-    m_topEntry = FileRenamedEntry{message.top_entry()};
-
-    for (auto &childEntry : message.child_entries()) {
-        m_childEntries.push_back(FileRenamedEntry{childEntry});
+    for (auto &childEntry : msg.child_entries()) {
+        m_childEntries.emplace_back(childEntry);
     }
 }
 
-const FileRenamedEvent::Key &FileRenamedEvent::key() const
+const std::string &FileRenamedEvent::routingKey() const { return m_routingKey; }
+
+const std::string &FileRenamedEvent::aggregationKey() const
 {
     return m_topEntry.oldUuid();
 }
@@ -41,38 +43,23 @@ FileRenamedEvent::childEntries() const
     return m_childEntries;
 }
 
-void FileRenamedEvent::aggregate(EventPtr event)
-{
-    m_counter += event->m_counter;
-}
-
 std::string FileRenamedEvent::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'FileRenamedEvent', counter: " << m_counter
-           << ", top entry: " << m_topEntry.toString() << ", child entries: [";
-
+    stream << "type: 'FileRenamed', top entry: " << m_topEntry.toString()
+           << ", child entries: [";
     for (const auto &childEntry : m_childEntries)
         stream << childEntry.toString() << ", ";
-
     stream << "]";
 
     return stream.str();
 }
 
-std::unique_ptr<ProtocolEventMessage> FileRenamedEvent::serializeAndDestroy()
+void FileRenamedEvent::aggregate(ConstEventPtr event) {}
+
+EventPtr FileRenamedEvent::clone() const
 {
-    auto eventMsg = std::make_unique<ProtocolEventMessage>();
-    auto fileRenamedEventMsg = eventMsg->mutable_file_renamed_event();
-    eventMsg->set_counter(m_counter);
-
-    m_topEntry.fillProtocolMessage(*fileRenamedEventMsg->mutable_top_entry());
-
-    for (auto &childEntry : m_childEntries)
-        childEntry.fillProtocolMessage(
-            *fileRenamedEventMsg->add_child_entries());
-
-    return eventMsg;
+    return std::make_shared<FileRenamedEvent>(*this);
 }
 
 } // namespace events

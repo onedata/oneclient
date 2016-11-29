@@ -1,7 +1,7 @@
 /**
  * @file subscription.h
  * @author Krzysztof Trzepla
- * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
@@ -9,84 +9,30 @@
 #ifndef ONECLIENT_EVENTS_SUBSCRIPTIONS_SUBSCRIPTION_H
 #define ONECLIENT_EVENTS_SUBSCRIPTIONS_SUBSCRIPTION_H
 
-#include <boost/optional.hpp>
+#include "events/declarations.h"
 
-#include <chrono>
-#include <cstddef>
+#include <string>
 
 namespace one {
+class Scheduler;
 namespace client {
 namespace events {
 
-/**
- * @c Subscription represents subscription for events. It defines minimal
- * requirements that have to be met before events emission.
- */
+class Manager;
+
 class Subscription {
 public:
-    /**
-     * Constructor.
-     * @param counterThreshold Maximal number of aggregated events before
-     * emission.
-     * @param timeThreshold Maximal delay in milliseconds between successive
-     * events emissions.
-     * @param sizeThreshold Maximal number of read bytes before emission.
-     */
-    Subscription(boost::optional<std::size_t> counterThreshold = {},
-        boost::optional<std::chrono::milliseconds> timeThreshold = {},
-        boost::optional<std::size_t> sizeThreshold = {});
+    virtual ~Subscription() = default;
 
-    /**
-     * Constructor.
-     * @param id ID to be set.
-     * @param counterThreshold Maximal number of aggregated events before
-     * emission.
-     * @param timeThreshold Maximal delay in milliseconds between successive
-     * events emissions.
-     * @param sizeThreshold Maximal number of read bytes before emission.
-     */
-    Subscription(std::int64_t id, boost::optional<std::size_t> counterThreshold,
-        boost::optional<std::chrono::milliseconds> timeThreshold,
-        boost::optional<std::size_t> sizeThreshold);
+    virtual const std::string &routingKey() const = 0;
 
-    /**
-     * @return ID of subscription.
-     */
-    const std::int64_t id() const;
+    virtual StreamPtr createStream(std::int64_t streamId, Manager &manager,
+        SequencerManager &seqManager, Scheduler &scheduler) const = 0;
 
-    /**
-     * Sets subscription's ID.
-     * @param id ID to be set.
-     */
-    void id(std::int64_t id);
+    virtual SubscriptionHandlePtr createHandle(std::int64_t subscriptionId,
+        std::int64_t streamId, Router &router, SequencerStream &stream) const;
 
-    /**
-     * @return Counter threshold.
-     */
-    const boost::optional<std::size_t> &counterThreshold() const;
-
-    /**
-     * @return Time threshold.
-     */
-    const boost::optional<std::chrono::milliseconds> &timeThreshold() const;
-
-    /**
-     * @return Size threshold.
-     */
-    const boost::optional<std::size_t> &sizeThreshold() const;
-
-    /**
-     * @return 'true' if none of the thresholds is set, otherwise 'false'.
-     */
-    bool empty() const;
-
-    std::string toString(std::string type) const;
-
-protected:
-    std::int64_t m_id;
-    boost::optional<std::size_t> m_counterThreshold;
-    boost::optional<std::chrono::milliseconds> m_timeThreshold;
-    boost::optional<std::size_t> m_sizeThreshold;
+    virtual std::string toString() const = 0;
 };
 
 } // namespace events

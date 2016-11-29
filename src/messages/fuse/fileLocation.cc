@@ -26,13 +26,13 @@ FileLocation::FileLocation(std::unique_ptr<ProtocolServerMessage> serverMessage)
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "file_location field missing"};
 
-    deserialize(
-        *serverMessage->mutable_fuse_response()->mutable_file_location());
+    deserialize(serverMessage->fuse_response().file_location());
 }
 
-FileLocation::FileLocation(ProtocolMessage message) { deserialize(message); }
-
-const FileLocation::Key &FileLocation::key() const { return m_uuid; }
+FileLocation::FileLocation(const ProtocolMessage &message)
+{
+    deserialize(message);
+}
 
 const std::string &FileLocation::uuid() const { return m_uuid; }
 
@@ -56,12 +56,9 @@ const FileLocation::FileBlocksMap &FileLocation::blocks() const
     return m_blocks;
 }
 
-void FileLocation::aggregate(FileLocationPtr fileLocation)
-{
-    m_storageId.swap(fileLocation->m_storageId);
-    m_fileId.swap(fileLocation->m_fileId);
-    m_blocks.swap(fileLocation->m_blocks);
-}
+const std::string &FileLocation::routingKey() const { return m_uuid; }
+
+const std::string &FileLocation::aggregationKey() const { return m_uuid; }
 
 std::string FileLocation::toString() const
 {
@@ -78,26 +75,39 @@ std::string FileLocation::toString() const
     return stream.str();
 }
 
-void FileLocation::deserialize(ProtocolMessage &message)
+void FileLocation::aggregate(client::events::ConstEventPtr event)
 {
-    m_uuid.swap(*message.mutable_uuid());
-    m_spaceId.swap(*message.mutable_space_id());
-    m_storageId.swap(*message.mutable_storage_id());
-    m_fileId.swap(*message.mutable_file_id());
+    auto fileLocationEvent = client::events::get<FileLocation>(event);
+    m_storageId = fileLocationEvent->m_storageId;
+    m_fileId = fileLocationEvent->m_fileId;
+    m_blocks = fileLocationEvent->m_blocks;
+}
 
-    for (auto &block : *message.mutable_blocks()) {
+client::events::EventPtr FileLocation::clone() const
+{
+    return std::make_shared<FileLocation>(*this);
+}
+
+void FileLocation::deserialize(const ProtocolMessage &message)
+{
+    m_uuid = message.uuid();
+    m_spaceId = message.space_id();
+    m_storageId = message.storage_id();
+    m_fileId = message.file_id();
+    std::string fileId_;
+    std::string storageId_;
+
+    for (const auto &block : message.blocks()) {
         auto interval = boost::icl::discrete_interval<off_t>::right_open(
             block.offset(), block.offset() + block.size());
 
-        std::string fileId_;
         if (block.has_file_id())
-            fileId_.swap(*block.mutable_file_id());
+            fileId_ = block.file_id();
         else
             fileId_ = m_fileId;
 
-        std::string storageId_;
         if (block.has_storage_id())
-            storageId_.swap(*block.mutable_storage_id());
+            storageId_ = block.storage_id();
         else
             storageId_ = m_storageId;
 

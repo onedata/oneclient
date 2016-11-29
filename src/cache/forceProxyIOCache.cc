@@ -14,35 +14,44 @@ namespace one {
 namespace client {
 namespace cache {
 
-ForceProxyIOCache::ForceProxyIOCache(FsSubscriptions &fsSubscriptions)
-    : m_fsSubscriptions{fsSubscriptions}
-{
-}
-
 bool ForceProxyIOCache::contains(const folly::fbstring &fileUuid)
 {
-    return m_cache.count(fileUuid);
+    ConstCacheAcc acc;
+    if (m_cache.find(acc, fileUuid)) {
+        return true;
+    }
+    return false;
 }
 
-void ForceProxyIOCache::insert(folly::fbstring fileUuid)
+void ForceProxyIOCache::add(const folly::fbstring &fileUuid)
 {
-    m_cache.emplace(fileUuid);
-    m_fsSubscriptions.addPermissionChangedSubscription(fileUuid.toStdString());
+    CacheAcc acc;
+    if (m_cache.insert(acc, fileUuid)) {
+        acc->second = true;
+        m_onAdd(fileUuid);
+    }
 }
 
-void ForceProxyIOCache::erase(const folly::fbstring &fileUuid)
+void ForceProxyIOCache::remove(const folly::fbstring &fileUuid)
 {
-    m_cache.erase(fileUuid);
-    m_fsSubscriptions.removePermissionChangedSubscription(
-        fileUuid.toStdString());
+    CacheAcc acc;
+    if (m_cache.find(acc, fileUuid)) {
+        LOG(INFO) << "Invalidating ForceProxyIOCache for uuid: '" << fileUuid
+                  << "'";
+        m_onRemove(fileUuid);
+        m_cache.erase(acc);
+    }
 }
 
-void ForceProxyIOCache::handlePermissionChanged(const folly::fbstring &fileUuid)
+void ForceProxyIOCache::onAdd(std::function<void(const folly::fbstring &)> cb)
 {
-    LOG(INFO) << "Invalidating ForceProxyIOCache for uuid: '" << fileUuid
-              << "'";
+    m_onAdd = std::move(cb);
+}
 
-    erase(fileUuid);
+void ForceProxyIOCache::onRemove(
+    std::function<void(const folly::fbstring &)> cb)
+{
+    m_onRemove = std::move(cb);
 }
 
 } // namespace cache
