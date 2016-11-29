@@ -132,7 +132,7 @@ void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
             std::size_t bufSize = 0;
             auto begin = names.begin() + off;
             auto end = begin;
-            for (; end != names.end(); ++end) {
+            for (; end < names.end(); ++end) {
                 const auto nextSize = fuse_add_direntry(
                     req, nullptr, 0, end->c_str(), nullptr, 0);
 
