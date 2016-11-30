@@ -93,9 +93,14 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     });
 
     m_metadataCache.onAdd([this](const folly::fbstring &uuid) {
+        DLOG(INFO) << "metadataCache.onAdd";
+        DLOG(INFO) << "1 subscribeFileAttrChanged";
         m_fsSubscriptions.subscribeFileAttrChanged(uuid);
+        DLOG(INFO) << "2 subscribeFileRemoved";
         m_fsSubscriptions.subscribeFileRemoved(uuid);
+        DLOG(INFO) << "3 subscribeFileRenamed";
         m_fsSubscriptions.subscribeFileRenamed(uuid);
+        DLOG(INFO) << "metadataCache.onAdd DONE";
     });
 
     m_metadataCache.onOpen([this](const folly::fbstring &uuid) {

@@ -27,9 +27,9 @@ class Manager;
 
 constexpr auto FILE_ATTR_PREFIX = "FileAttr";
 constexpr auto FILE_LOCATION_PREFIX = "FileLocation";
-constexpr auto PERMISSION_CHANGED_PREFIX = "FileLocation";
-constexpr auto FILE_REMOVED_PREFIX = "FileLocation";
-constexpr auto FILE_RENAMED_PREFIX = "FileLocation";
+constexpr auto PERMISSION_CHANGED_PREFIX = "PermissionChanged";
+constexpr auto FILE_REMOVED_PREFIX = "FileRemoved";
+constexpr auto FILE_RENAMED_PREFIX = "FileRenamed";
 constexpr auto QUOTA_EXCEEDED_PREFIX = "QuotaExceeded";
 constexpr std::chrono::seconds SUBSCRIPTION_DURATION{30};
 

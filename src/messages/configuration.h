@@ -27,6 +27,8 @@ namespace messages {
  */
 class Configuration : public ServerMessage {
 public:
+    Configuration() = default;
+
     /**
      * Constructor.
      * @param serverMessage Protocol Buffers message representing @c
