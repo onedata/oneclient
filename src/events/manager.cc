@@ -43,62 +43,42 @@ Manager::Manager(std::shared_ptr<Context> context)
         std::move(predicate), std::move(callback)});
 }
 
-void Manager::emit(ConstEventPtr event)
+void Manager::emit(EventPtr<> event)
 {
-    RouterAcc routerAcc;
-    if (m_router.find(routerAcc, event->routingKey())) {
-        for (auto streamId : routerAcc->second) {
-            StreamConstAcc streamAcc;
-            if (m_streams.find(streamAcc, streamId)) {
-                streamAcc->second->process(event);
-            }
-        }
+    StreamConstAcc streamAcc;
+    if (m_streams.find(streamAcc, event->streamKey())) {
+        streamAcc->second->process(std::move(event));
     }
 }
 
-std::int64_t Manager::createStream(ConstSubscriptionPtr subscription)
+std::int64_t Manager::subscribe(const Subscription &subscription)
 {
-    auto streamId = nextStreamId();
-
-    DLOG(INFO) << "Creating stream '" << streamId << "' for subscription "
-               << subscription->toString();
-
-    StreamAcc streamAcc;
-    m_streams.insert(streamAcc, streamId);
-    streamAcc->second = subscription->createStream(
-        streamId, *this, m_sequencerManager, m_scheduler);
-
-    return streamId;
-}
-
-bool Manager::removeStream(std::int64_t streamId)
-{
-    DLOG(INFO) << "Removing stream '" << streamId << "'";
-
-    StreamAcc streamAcc;
-    if (m_streams.find(streamAcc, streamId)) {
-        m_streams.erase(streamAcc);
-        return true;
-    }
-    return false;
+    return subscribe(--m_nextSubscriptionId, subscription);
 }
 
 std::int64_t Manager::subscribe(
-    std::int64_t streamId, ConstSubscriptionPtr subscription)
+    std::int64_t subscriptionId, const Subscription &subscription)
 {
-    return subscribe(streamId, nextSubscriptionId(), std::move(subscription));
-}
+    StreamAcc streamAcc;
+    if (m_streams.insert(streamAcc, subscription.streamKey())) {
+        DLOG(INFO) << "Creating stream '" << subscription.streamKey()
+                   << "' for subscription " << subscription.toString();
 
-std::int64_t Manager::subscribe(std::int64_t streamId,
-    std::int64_t subscriptionId, ConstSubscriptionPtr subscription)
-{
-    DLOG(INFO) << "Adding subscription " << subscription->toString()
+        streamAcc->second = std::make_unique<SharedStream>(
+            subscription.createStream(*this, m_sequencerManager, m_scheduler));
+    }
+    else {
+        streamAcc->second->share();
+    }
+    streamAcc.release();
+
+    DLOG(INFO) << "Adding subscription " << subscription.toString()
                << " with ID: '" << subscriptionId << "'";
 
     HandleAcc handleAcc;
     m_handles.insert(handleAcc, subscriptionId);
-    handleAcc->second = subscription->createHandle(
-        subscriptionId, streamId, m_router, *m_sequencerStream);
+    handleAcc->second = subscription.createHandle(
+        subscriptionId, m_streams, *m_sequencerStream);
 
     return subscriptionId;
 }
@@ -122,10 +102,16 @@ bool Manager::unsubscribe(std::int64_t subscriptionId)
     return false;
 }
 
-void Manager::flush(std::int64_t streamId)
+bool Manager::existsSubscription(std::int64_t subscriptionId)
+{
+    HandleConstAcc handleAcc;
+    return m_handles.find(handleAcc, subscriptionId);
+}
+
+void Manager::flush(StreamKey streamKey)
 {
     StreamConstAcc streamAcc;
-    if (m_streams.find(streamAcc, streamId)) {
+    if (m_streams.find(streamAcc, streamKey)) {
         streamAcc->second->flush();
     }
 }
@@ -135,59 +121,41 @@ void Manager::handle(const ProtoEvents &msg)
     using namespace messages::fuse;
 
     for (const auto &eventMsg : msg.events()) {
-        if (eventMsg.has_update_event()) {
-            const auto &updateMsg = eventMsg.update_event();
-            if (updateMsg.has_file_attr()) {
-                emit(std::make_shared<const UpdateEvent<FileAttr>>(
-                    updateMsg.file_attr()));
-            }
-            else if (updateMsg.has_file_location()) {
-                emit(std::make_shared<const UpdateEvent<FileLocation>>(
-                    updateMsg.file_location()));
-            }
+        if (eventMsg.has_file_attr_changed()) {
+            emit(std::make_unique<FileAttrChanged>(
+                eventMsg.file_attr_changed()));
         }
-        else if (eventMsg.has_permission_changed_event()) {
-            emit(std::make_shared<const PermissionChangedEvent>(
-                eventMsg.permission_changed_event()));
+        if (eventMsg.has_file_location_changed()) {
+            emit(std::make_unique<FileLocationChanged>(
+                eventMsg.file_location_changed()));
         }
-        else if (eventMsg.has_file_removed_event()) {
-            emit(std::make_shared<const FileRemovedEvent>(
-                eventMsg.file_removed_event()));
+        else if (eventMsg.has_file_perm_changed()) {
+            emit(std::make_unique<FilePermChanged>(
+                eventMsg.file_perm_changed()));
         }
-        else if (eventMsg.has_file_renamed_event()) {
-            emit(std::make_shared<const FileRenamedEvent>(
-                eventMsg.file_renamed_event()));
+        else if (eventMsg.has_file_removed()) {
+            emit(std::make_unique<FileRemoved>(eventMsg.file_removed()));
         }
-        else if (eventMsg.has_quota_exceeded_event()) {
-            emit(std::make_shared<const QuotaExceededEvent>(
-                eventMsg.quota_exceeded_event()));
+        else if (eventMsg.has_file_renamed()) {
+            emit(std::make_unique<FileRenamed>(eventMsg.file_renamed()));
+        }
+        else if (eventMsg.has_quota_exceeded()) {
+            emit(std::make_unique<QuotaExceeded>(eventMsg.quota_exceeded()));
         }
     }
 }
 
 void Manager::handle(const ProtoSubscription &msg)
 {
-    ConstSubscriptionPtr subscription;
-
-    if (msg.has_read_subscription()) {
-        subscription =
-            std::make_shared<const ReadSubscription>(msg.read_subscription());
+    if (msg.has_file_read()) {
+        subscribe(msg.id(), FileReadSubscription{msg.file_read()});
     }
-    else if (msg.has_write_subscription()) {
-        subscription =
-            std::make_shared<const WriteSubscription>(msg.write_subscription());
+    else if (msg.has_file_written()) {
+        subscribe(msg.id(), FileWrittenSubscription{msg.file_written()});
     }
-
-    assert(subscription);
-    auto streamId = createStream(subscription);
-    subscribe(streamId, msg.id(), std::move(subscription));
 }
 
 void Manager::handle(const ProtoCancellation &msg) { unsubscribe(msg.id()); }
-
-std::int64_t Manager::nextStreamId() { return m_nextStreamId++; }
-
-std::int64_t Manager::nextSubscriptionId() { return -m_nextSubscriptionId++; }
 
 } // namespace events
 } // namespace client

@@ -17,15 +17,13 @@ namespace events {
 
 class SubscriptionHandle {
 public:
-    SubscriptionHandle(
-        std::int64_t streamId, std::string routingKey, Router &router);
+    SubscriptionHandle(StreamKey streamKey, Streams &streams);
 
     virtual ~SubscriptionHandle();
 
 private:
-    std::int64_t m_streamId;
-    std::string m_routingKey;
-    Router &m_router;
+    StreamKey m_streamKey;
+    Streams &m_streams;
 };
 
 } // namespace events

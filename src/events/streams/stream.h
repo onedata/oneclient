@@ -19,7 +19,7 @@ class Stream {
 public:
     virtual ~Stream() = default;
 
-    virtual void process(ConstEventPtr event) = 0;
+    virtual void process(EventPtr<> event) = 0;
 
     virtual void flush() = 0;
 };

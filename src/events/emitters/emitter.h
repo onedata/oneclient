@@ -15,11 +15,11 @@ namespace one {
 namespace client {
 namespace events {
 
-class Emitter {
+template <class T> class Emitter {
 public:
     virtual ~Emitter() = default;
 
-    virtual void process(ConstEventPtr event) = 0;
+    virtual EventPtr<T> process(EventPtr<T> event) = 0;
 
     virtual bool ready() = 0;
 

@@ -14,23 +14,20 @@
 #include <string>
 
 namespace one {
-class Scheduler;
 namespace client {
 namespace events {
-
-class Manager;
 
 class Subscription {
 public:
     virtual ~Subscription() = default;
 
-    virtual const std::string &routingKey() const = 0;
+    virtual StreamKey streamKey() const = 0;
 
-    virtual StreamPtr createStream(std::int64_t streamId, Manager &manager,
+    virtual StreamPtr createStream(Manager &manager,
         SequencerManager &seqManager, Scheduler &scheduler) const = 0;
 
     virtual SubscriptionHandlePtr createHandle(std::int64_t subscriptionId,
-        std::int64_t streamId, Router &router, SequencerStream &stream) const;
+        Streams &streams, SequencerStream &stream) const;
 
     virtual std::string toString() const = 0;
 };

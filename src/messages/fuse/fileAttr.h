@@ -31,7 +31,7 @@ namespace fuse {
 /**
  * The FileAttr class represents server-sent attributes of a file.
  */
-class FileAttr : public client::events::Event, public FuseResponse {
+class FileAttr : public FuseResponse {
 public:
     using ProtocolMessage = clproto::FileAttr;
 
@@ -171,15 +171,7 @@ public:
      */
     void size(const off_t size);
 
-    const std::string &routingKey() const override;
-
-    const std::string &aggregationKey() const override;
-
     std::string toString() const override;
-
-    void aggregate(client::events::ConstEventPtr event) override;
-
-    client::events::EventPtr clone() const override;
 
 private:
     void deserialize(const ProtocolMessage &message);
@@ -195,7 +187,6 @@ private:
     std::chrono::system_clock::time_point m_ctime;
     FileType m_type;
     folly::Optional<off_t> m_size;
-    std::string m_key;
 };
 
 } // namespace fuse

@@ -7,6 +7,7 @@
  */
 
 #include "asyncStream.h"
+#include "events/types/event.h"
 #include "utils.hpp"
 
 namespace one {
@@ -30,7 +31,7 @@ AsyncStream::~AsyncStream()
     m_worker.join();
 }
 
-void AsyncStream::process(ConstEventPtr event)
+void AsyncStream::process(EventPtr<> event)
 {
     asio::post(m_ioService, [ this, event = std::move(event) ]() mutable {
         m_stream->process(std::move(event));

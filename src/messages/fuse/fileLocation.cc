@@ -56,10 +56,6 @@ const FileLocation::FileBlocksMap &FileLocation::blocks() const
     return m_blocks;
 }
 
-const std::string &FileLocation::routingKey() const { return m_uuid; }
-
-const std::string &FileLocation::aggregationKey() const { return m_uuid; }
-
 std::string FileLocation::toString() const
 {
     std::stringstream stream;
@@ -73,19 +69,6 @@ std::string FileLocation::toString() const
     stream << "]";
 
     return stream.str();
-}
-
-void FileLocation::aggregate(client::events::ConstEventPtr event)
-{
-    auto fileLocationEvent = client::events::get<FileLocation>(event);
-    m_storageId = fileLocationEvent->m_storageId;
-    m_fileId = fileLocationEvent->m_fileId;
-    m_blocks = fileLocationEvent->m_blocks;
-}
-
-client::events::EventPtr FileLocation::clone() const
-{
-    return std::make_shared<FileLocation>(*this);
 }
 
 void FileLocation::deserialize(const ProtocolMessage &message)

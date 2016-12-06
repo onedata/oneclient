@@ -10,6 +10,7 @@
 #define ONECLIENT_FS_SUBSCRIPTIONS_H
 
 #include "events/declarations.h"
+#include "events/streams.h"
 
 #include <folly/FBString.h>
 
@@ -23,17 +24,28 @@ class LRUMetadataCache;
 } // namespace cache
 namespace events {
 class Manager;
+class FileAttrChanged;
+class FileLocationChanged;
+class FilePermChanged;
+class FileRemoved;
+class FileRenamed;
 } // namespace events
 
-constexpr auto FILE_ATTR_PREFIX = "FileAttr";
-constexpr auto FILE_LOCATION_PREFIX = "FileLocation";
-constexpr auto PERMISSION_CHANGED_PREFIX = "PermissionChanged";
-constexpr auto FILE_REMOVED_PREFIX = "FileRemoved";
-constexpr auto FILE_RENAMED_PREFIX = "FileRenamed";
-constexpr auto QUOTA_EXCEEDED_PREFIX = "QuotaExceeded";
 constexpr std::chrono::seconds SUBSCRIPTION_DURATION{30};
 
+template <typename T> struct StdHashCompare {
+    bool equal(const T &a, const T &b) const { return a == b; }
+    std::size_t hash(const T &a) const
+    {
+        return std::hash<std::pair<std::size_t, std::size_t>>()(
+            {static_cast<std::size_t>(a.first),
+                std::hash<folly::fbstring>()(a.second)});
+    }
+};
+
 class FsSubscriptions {
+    using Key = std::pair<events::StreamKey, folly::fbstring>;
+
 public:
     /**
      * Constructor.
@@ -109,32 +121,27 @@ public:
      */
     bool unsubscribeFileRenamed(const folly::fbstring &fileUuid);
 
-    /**
-     * Adds subscription for quota updates.
-     */
-    void subscribeQuotaExceeded(events::EventHandler handler);
-
 private:
-    std::string getKey(
-        const folly::fbstring &prefix, const folly::fbstring &fileUuid);
-    void subscribe(
-        const std::string &key, events::ConstSubscriptionPtr subscription);
-    bool unsubscribe(const std::string &key);
+    void subscribe(const folly::fbstring &fileUuid,
+        const events::Subscription &subscription);
+    bool unsubscribe(
+        events::StreamKey streamKey, const folly::fbstring &fileUuid);
 
-    void handleFileAttrChanged(std::vector<events::EventPtr> events);
-    void handleFileLocationChanged(std::vector<events::EventPtr> events);
-    void handlePermissionChanged(std::vector<events::EventPtr> events);
-    void handleFileRemoved(std::vector<events::EventPtr> events);
-    void handleFileRenamed(std::vector<events::EventPtr> events);
+    void handleFileAttrChanged(events::Events<events::FileAttrChanged> events);
+    void handleFileLocationChanged(
+        events::Events<events::FileLocationChanged> events);
+    void handlePermissionChanged(
+        events::Events<events::FilePermChanged> events);
+    void handleFileRemoved(events::Events<events::FileRemoved> events);
+    void handleFileRenamed(events::Events<events::FileRenamed> events);
 
     events::Manager &m_eventManager;
     cache::LRUMetadataCache &m_metadataCache;
     cache::ForceProxyIOCache &m_forceProxyIOCache;
     std::function<void(folly::Function<void()>)> m_runInFiber;
-    tbb::concurrent_hash_map<std::string, std::int64_t> m_streams;
-    tbb::concurrent_hash_map<std::string, std::int64_t> m_subscriptions;
+    tbb::concurrent_hash_map<Key, std::int64_t, StdHashCompare<Key>>
+        m_subscriptions;
 
-    using StreamAcc = typename decltype(m_streams)::accessor;
     using SubscriptionAcc = typename decltype(m_subscriptions)::accessor;
 };
 

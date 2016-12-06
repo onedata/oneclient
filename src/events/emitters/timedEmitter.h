@@ -10,41 +10,77 @@
 #define ONECLIENT_EVENTS_EMITTERS_TIMED_EMITTER_H
 
 #include "emitter.h"
+#include "events/manager.h"
+#include "events/streams/stream.h"
 #include "falseEmitter.h"
 
 #include <chrono>
 #include <functional>
+#include <string>
 
 namespace one {
-class Scheduler;
 namespace client {
 namespace events {
 
-class Manager;
-
-class TimedEmitter : public Emitter {
+template <class T> class TimedEmitter : public Emitter<T> {
 public:
-    TimedEmitter(std::int64_t streamId, std::chrono::milliseconds threshold,
+    TimedEmitter(StreamKey streamKey, std::chrono::milliseconds threshold,
         Manager &manager, Scheduler &scheduler,
-        std::unique_ptr<Emitter> emitter = std::make_unique<FalseEmitter>());
+        EmitterPtr<T> emitter = std::make_unique<FalseEmitter<T>>());
 
     ~TimedEmitter();
 
-    void process(ConstEventPtr event) override;
+    EventPtr<T> process(EventPtr<T> event) override;
 
     bool ready() override;
 
     void reset() override;
 
 private:
-    std::int64_t m_streamId;
+    StreamKey m_streamKey;
     std::chrono::milliseconds m_threshold;
     Manager &m_manager;
     Scheduler &m_scheduler;
-    std::unique_ptr<Emitter> m_emitter;
-    bool periodicTriggerScheduled = false;
+    EmitterPtr<T> m_emitter;
+    bool m_periodicTriggerScheduled = false;
     std::function<void()> m_cancelPeriodicTrigger = [] {};
 };
+
+template <class T>
+TimedEmitter<T>::TimedEmitter(StreamKey streamKey,
+    std::chrono::milliseconds threshold, Manager &manager, Scheduler &scheduler,
+    EmitterPtr<T> emitter)
+    : m_streamKey{streamKey}
+    , m_threshold{threshold}
+    , m_manager{manager}
+    , m_scheduler{scheduler}
+    , m_emitter{std::move(emitter)}
+{
+}
+
+template <class T> TimedEmitter<T>::~TimedEmitter()
+{
+    m_cancelPeriodicTrigger();
+}
+
+template <class T> EventPtr<T> TimedEmitter<T>::process(EventPtr<T> event)
+{
+    if (!m_periodicTriggerScheduled) {
+        m_cancelPeriodicTrigger = m_scheduler.schedule(
+            m_threshold, [this] { m_manager.flush(m_streamKey); });
+        m_periodicTriggerScheduled = true;
+    }
+    return m_emitter->process(std::move(event));
+}
+
+template <class T> bool TimedEmitter<T>::ready() { return m_emitter->ready(); }
+
+template <class T> void TimedEmitter<T>::reset()
+{
+    m_cancelPeriodicTrigger();
+    m_periodicTriggerScheduled = false;
+    m_emitter->reset();
+}
 
 } // namespace events
 } // namespace client

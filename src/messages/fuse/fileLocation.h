@@ -34,7 +34,7 @@ namespace fuse {
  * The @c FileLocation class represents server-sent information about file
  * location.
  */
-class FileLocation : public client::events::Event, public FuseResponse {
+class FileLocation : public FuseResponse {
 public:
     using FileBlocksMap = boost::icl::interval_map<off_t, FileBlock,
         boost::icl::partial_enricher>;
@@ -98,15 +98,7 @@ public:
      */
     const FileBlocksMap &blocks() const;
 
-    const std::string &routingKey() const override;
-
-    const std::string &aggregationKey() const override;
-
     std::string toString() const override;
-
-    void aggregate(client::events::ConstEventPtr event) override;
-
-    client::events::EventPtr clone() const override;
 
 private:
     void deserialize(const ProtocolMessage &message);

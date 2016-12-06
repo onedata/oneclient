@@ -18,11 +18,11 @@ namespace one {
 namespace client {
 namespace events {
 
-class Handler {
+template <class T> class Handler {
 public:
     virtual ~Handler() = default;
 
-    virtual void process(std::vector<EventPtr> events) = 0;
+    virtual void process(Events<T> events) = 0;
 };
 
 } // namespace events

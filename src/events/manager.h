@@ -28,48 +28,44 @@ class Manager {
 public:
     Manager(std::shared_ptr<Context> context);
 
-    void emit(ConstEventPtr event);
+    void emit(EventPtr<> event);
 
-    std::int64_t createStream(ConstSubscriptionPtr subscription);
+    template <class T, class... Args> void emit(Args &&... args);
 
-    bool removeStream(std::int64_t streamId);
-
-    std::int64_t subscribe(
-        std::int64_t streamId, ConstSubscriptionPtr subscription);
+    std::int64_t subscribe(const Subscription &subscription);
 
     void subscribe(const messages::Configuration &configuration);
 
     bool unsubscribe(std::int64_t subscriptionId);
 
-    void flush(std::int64_t streamId);
+    bool existsSubscription(std::int64_t subscriptionId);
+
+    void flush(StreamKey streamKey);
 
 private:
     void handle(const ProtoEvents &msg);
     void handle(const ProtoSubscription &msg);
     void handle(const ProtoCancellation &msg);
 
-    std::int64_t nextStreamId();
-    std::int64_t nextSubscriptionId();
+    std::int64_t subscribe(
+        std::int64_t subscriptionId, const Subscription &subscription);
 
-    std::int64_t subscribe(std::int64_t streamId, std::int64_t subscriptionId,
-        ConstSubscriptionPtr subscription);
+    std::atomic<std::int64_t> m_nextSubscriptionId{0};
 
-    std::atomic<std::int64_t> m_nextStreamId{1};
-    std::atomic<std::int64_t> m_nextSubscriptionId{1};
-
-    Router m_router;
+    Streams m_streams;
     Scheduler &m_scheduler;
     SequencerManager m_sequencerManager;
     SequencerStreamPtr m_sequencerStream;
-
-    tbb::concurrent_hash_map<std::int64_t, StreamPtr> m_streams;
     tbb::concurrent_hash_map<std::int64_t, SubscriptionHandlePtr> m_handles;
 
-    using StreamAcc = typename decltype(m_streams)::accessor;
-    using StreamConstAcc = typename decltype(m_streams)::const_accessor;
     using HandleAcc = typename decltype(m_handles)::accessor;
     using HandleConstAcc = typename decltype(m_handles)::const_accessor;
 };
+
+template <class T, class... Args> void Manager::emit(Args &&... args)
+{
+    emit(std::make_unique<T>(std::forward<Args>(args)...));
+}
 
 } // namespace events
 } // namespace client

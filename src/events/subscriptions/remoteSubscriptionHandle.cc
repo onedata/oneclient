@@ -15,10 +15,10 @@ namespace one {
 namespace client {
 namespace events {
 
-RemoteSubscriptionHandle::RemoteSubscriptionHandle(std::int64_t streamId,
-    std::string routingKey, Router &router, std::int64_t subscriptionId,
-    ProtoSubscriptionPtr msg, SequencerStream &stream)
-    : SubscriptionHandle(streamId, std::move(routingKey), router)
+RemoteSubscriptionHandle::RemoteSubscriptionHandle(StreamKey streamKey,
+    Streams &streams, std::int64_t subscriptionId, ProtoSubscriptionPtr msg,
+    SequencerStream &stream)
+    : SubscriptionHandle(streamKey, streams)
     , m_subscriptionId{subscriptionId}
     , m_stream{stream}
 {

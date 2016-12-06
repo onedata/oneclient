@@ -20,8 +20,7 @@ public:
     virtual ~RemoteSubscription() = default;
 
     SubscriptionHandlePtr createHandle(std::int64_t subscriptionId,
-        std::int64_t streamId, Router &router,
-        SequencerStream &stream) const override;
+        Streams &streams, SequencerStream &stream) const override;
 
     virtual ProtoSubscriptionPtr serialize() const = 0;
 };

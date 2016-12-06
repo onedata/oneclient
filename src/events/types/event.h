@@ -22,15 +22,11 @@ namespace events {
 
 class Event {
 public:
-    virtual const std::string &routingKey() const = 0;
+    virtual StreamKey streamKey() const = 0;
 
     virtual const std::string &aggregationKey() const = 0;
 
     virtual std::string toString() const = 0;
-
-    virtual void aggregate(ConstEventPtr event) = 0;
-
-    virtual EventPtr clone() const = 0;
 };
 
 } // namespace events

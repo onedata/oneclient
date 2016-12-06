@@ -17,8 +17,8 @@ namespace events {
 
 class RemoteSubscriptionHandle : public SubscriptionHandle {
 public:
-    RemoteSubscriptionHandle(std::int64_t streamId, std::string routingKey,
-        Router &router, std::int64_t subscriptionId, ProtoSubscriptionPtr msg,
+    RemoteSubscriptionHandle(StreamKey streamKey, Streams &streams,
+        std::int64_t subscriptionId, ProtoSubscriptionPtr msg,
         SequencerStream &stream);
 
     virtual ~RemoteSubscriptionHandle();

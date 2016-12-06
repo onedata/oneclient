@@ -28,7 +28,7 @@ public:
 
     ~AsyncStream();
 
-    void process(ConstEventPtr event) override;
+    void process(EventPtr<> event) override;
 
     void flush() override;
 

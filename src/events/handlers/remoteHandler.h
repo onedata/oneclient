@@ -15,15 +15,36 @@ namespace one {
 namespace client {
 namespace events {
 
-class RemoteHandler : public Handler {
+template <class T> class RemoteHandler : public Handler<T> {
 public:
     RemoteHandler(SequencerStreamPtr sequencerStream);
 
-    void process(std::vector<EventPtr> events) override;
+    void process(Events<T> events) override;
 
 private:
     SequencerStreamPtr m_sequencerStream;
 };
+
+template <class T>
+RemoteHandler<T>::RemoteHandler(SequencerStreamPtr sequencerStream)
+    : m_sequencerStream{std::move(sequencerStream)}
+{
+}
+
+template <class T> void RemoteHandler<T>::process(Events<T> events)
+{
+    if (!events.empty()) {
+        auto clientMsg = std::make_unique<one::clproto::ClientMessage>();
+        auto eventsMsg = clientMsg->mutable_events();
+
+        for (auto &event : events) {
+            auto eventMsg = eventsMsg->add_events();
+            eventMsg->Swap(event->serializeAndDestroy().release());
+        }
+
+        m_sequencerStream->send(std::move(clientMsg));
+    }
+}
 
 } // namespace events
 } // namespace client

@@ -15,15 +15,28 @@ namespace one {
 namespace client {
 namespace events {
 
-class LocalHandler : public Handler {
+template <class T> class LocalHandler : public Handler<T> {
 public:
-    LocalHandler(EventHandler handler);
+    LocalHandler(EventHandler<T> handler);
 
-    void process(std::vector<EventPtr> events) override;
+    void process(Events<T> events) override;
 
 private:
-    EventHandler m_handler;
+    EventHandler<T> m_handler;
 };
+
+template <class T>
+LocalHandler<T>::LocalHandler(EventHandler<T> handler)
+    : m_handler{std::move(handler)}
+{
+}
+
+template <class T> void LocalHandler<T>::process(Events<T> events)
+{
+    if (!events.empty()) {
+        m_handler(std::move(events));
+    }
+}
 
 } // namespace events
 } // namespace client

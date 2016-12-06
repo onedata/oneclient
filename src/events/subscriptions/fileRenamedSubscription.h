@@ -16,14 +16,17 @@ namespace one {
 namespace client {
 namespace events {
 
+class FileRenamed;
+
 class FileRenamedSubscription : public RemoteSubscription {
 public:
-    FileRenamedSubscription(std::string fileUuid, EventHandler handler);
+    FileRenamedSubscription(
+        std::string fileUuid, EventHandler<FileRenamed> handler);
 
-    const std::string &routingKey() const override;
+    StreamKey streamKey() const override;
 
-    StreamPtr createStream(std::int64_t streamId, Manager &manager,
-        SequencerManager &seqManager, Scheduler &scheduler) const override;
+    StreamPtr createStream(Manager &manager, SequencerManager &seqManager,
+        Scheduler &scheduler) const override;
 
     std::string toString() const override;
 
@@ -31,8 +34,7 @@ public:
 
 private:
     std::string m_fileUuid;
-    std::string m_routingKey;
-    EventHandler m_handler;
+    EventHandler<FileRenamed> m_handler;
 };
 
 } // namespace events

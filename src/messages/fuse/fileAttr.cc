@@ -87,10 +87,6 @@ folly::Optional<off_t> FileAttr::size() const { return m_size; }
 
 void FileAttr::size(const off_t size_) { m_size = size_; }
 
-const std::string &FileAttr::routingKey() const { return m_key; }
-
-const std::string &FileAttr::aggregationKey() const { return m_key; }
-
 std::string FileAttr::toString() const
 {
     std::stringstream stream;
@@ -123,24 +119,6 @@ std::string FileAttr::toString() const
     return stream.str();
 }
 
-void FileAttr::aggregate(client::events::ConstEventPtr event)
-{
-    auto fileAttrEvent = client::events::get<FileAttr>(event);
-    m_mode = fileAttrEvent->m_mode;
-    m_uid = fileAttrEvent->m_uid;
-    m_gid = fileAttrEvent->m_gid;
-    m_atime = fileAttrEvent->m_atime;
-    m_mtime = fileAttrEvent->m_mtime;
-    m_ctime = fileAttrEvent->m_ctime;
-    m_size = fileAttrEvent->m_size;
-    m_type = fileAttrEvent->m_type;
-}
-
-client::events::EventPtr FileAttr::clone() const
-{
-    return std::make_shared<FileAttr>(*this);
-}
-
 void FileAttr::deserialize(const ProtocolMessage &message)
 {
     m_uuid = message.uuid();
@@ -164,8 +142,6 @@ void FileAttr::deserialize(const ProtocolMessage &message)
     else
         throw std::system_error{
             std::make_error_code(std::errc::protocol_error), "bad filetype"};
-
-    m_key = m_uuid.toStdString();
 }
 
 } // namespace fuse

@@ -14,11 +14,11 @@ namespace client {
 namespace events {
 
 SubscriptionHandlePtr RemoteSubscription::createHandle(
-    std::int64_t subscriptionId, std::int64_t streamId, Router &router,
+    std::int64_t subscriptionId, Streams &streams,
     SequencerStream &stream) const
 {
     return std::make_unique<RemoteSubscriptionHandle>(
-        streamId, routingKey(), router, subscriptionId, serialize(), stream);
+        streamKey(), streams, subscriptionId, serialize(), stream);
 }
 
 } // namespace events

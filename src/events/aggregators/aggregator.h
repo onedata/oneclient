@@ -15,13 +15,13 @@ namespace one {
 namespace client {
 namespace events {
 
-class Aggregator {
+template <class T> class Aggregator {
 public:
     virtual ~Aggregator() = default;
 
-    virtual void process(ConstEventPtr event) = 0;
+    virtual void process(EventPtr<T> event) = 0;
 
-    virtual std::vector<EventPtr> flush() = 0;
+    virtual Events<T> flush() = 0;
 };
 
 } // namespace events

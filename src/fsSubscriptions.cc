@@ -33,23 +33,21 @@ FsSubscriptions::FsSubscriptions(events::Manager &eventManager,
 
 void FsSubscriptions::subscribeFileAttrChanged(const folly::fbstring &fileUuid)
 {
-    subscribe(getKey(FILE_ATTR_PREFIX, fileUuid),
-        std::make_shared<const events::FileAttrSubscription>(
-            fileUuid.toStdString(), SUBSCRIPTION_DURATION,
-            [this](auto events) mutable {
-                this->handleFileAttrChanged(std::move(events));
-            }));
+    subscribe(
+        fileUuid, events::FileAttrChangedSubscription{fileUuid.toStdString(),
+                      SUBSCRIPTION_DURATION, [this](auto events) mutable {
+                          this->handleFileAttrChanged(std::move(events));
+                      }});
 }
 
 void FsSubscriptions::handleFileAttrChanged(
-    std::vector<events::EventPtr> events)
+    events::Events<events::FileAttrChanged> events)
 {
     using namespace messages::fuse;
 
     m_runInFiber([ this, events = std::move(events) ] {
         for (auto &event : events) {
-            auto e = events::get<events::UpdateEvent<FileAttr>>(event);
-            auto &attr = e->wrapped();
+            auto &attr = event->fileAttr();
             if (m_metadataCache.updateAttr(attr))
                 LOG(INFO) << "Updated attributes for uuid: '" << attr.uuid()
                           << "', size: " << (attr.size() ? *attr.size() : -1);
@@ -63,29 +61,27 @@ void FsSubscriptions::handleFileAttrChanged(
 bool FsSubscriptions::unsubscribeFileAttrChanged(
     const folly::fbstring &fileUuid)
 {
-    return unsubscribe(getKey(FILE_ATTR_PREFIX, fileUuid));
+    return unsubscribe(events::StreamKey::FILE_ATTR_CHANGED, fileUuid);
 }
 
 void FsSubscriptions::subscribeFileLocationChanged(
     const folly::fbstring &fileUuid)
 {
-    subscribe(getKey(FILE_LOCATION_PREFIX, fileUuid),
-        std::make_shared<const events::FileLocationSubscription>(
-            fileUuid.toStdString(), SUBSCRIPTION_DURATION,
-            [this](auto events) mutable {
+    subscribe(fileUuid,
+        events::FileLocationChangedSubscription{fileUuid.toStdString(),
+            SUBSCRIPTION_DURATION, [this](auto events) mutable {
                 this->handleFileLocationChanged(std::move(events));
-            }));
+            }});
 }
 
 void FsSubscriptions::handleFileLocationChanged(
-    std::vector<events::EventPtr> events)
+    events::Events<events::FileLocationChanged> events)
 {
     using namespace messages::fuse;
 
     m_runInFiber([ this, events = std::move(events) ] {
         for (auto &event : events) {
-            auto e = events::get<events::UpdateEvent<FileLocation>>(event);
-            auto &loc = e->wrapped();
+            auto &loc = event->fileLocation();
             if (m_metadataCache.updateLocation(loc))
                 LOG(INFO) << "Updated locations for uuid: '" << loc.uuid()
                           << "'";
@@ -99,26 +95,25 @@ void FsSubscriptions::handleFileLocationChanged(
 bool FsSubscriptions::unsubscribeFileLocationChanged(
     const folly::fbstring &fileUuid)
 {
-    return unsubscribe(getKey(FILE_LOCATION_PREFIX, fileUuid));
+    return unsubscribe(events::StreamKey::FILE_LOCATION_CHANGED, fileUuid);
 }
 
 void FsSubscriptions::subscribePermissionChanged(
     const folly::fbstring &fileUuid)
 {
-    subscribe(getKey(PERMISSION_CHANGED_PREFIX, fileUuid),
-        std::make_shared<const events::PermissionChangedSubscription>(
-            fileUuid.toStdString(), [this](auto events) mutable {
-                this->handlePermissionChanged(std::move(events));
-            }));
+    subscribe(
+        fileUuid, events::FilePermChangedSubscription{
+                      fileUuid.toStdString(), [this](auto events) mutable {
+                          this->handlePermissionChanged(std::move(events));
+                      }});
 }
 
 void FsSubscriptions::handlePermissionChanged(
-    std::vector<events::EventPtr> events)
+    events::Events<events::FilePermChanged> events)
 {
     m_runInFiber([ this, events = std::move(events) ] {
-        for (auto event : events) {
-            auto e = events::get<events::PermissionChangedEvent>(event);
-            m_forceProxyIOCache.remove(e->fileUuid());
+        for (auto &event : events) {
+            m_forceProxyIOCache.remove(event->fileUuid());
         }
     });
 }
@@ -126,24 +121,23 @@ void FsSubscriptions::handlePermissionChanged(
 bool FsSubscriptions::unsubscribePermissionChanged(
     const folly::fbstring &fileUuid)
 {
-    return unsubscribe(getKey(PERMISSION_CHANGED_PREFIX, fileUuid));
+    return unsubscribe(events::StreamKey::FILE_PERM_CHANGED, fileUuid);
 }
 
 void FsSubscriptions::subscribeFileRemoved(const folly::fbstring &fileUuid)
 {
-    subscribe(getKey(FILE_REMOVED_PREFIX, fileUuid),
-        std::make_shared<const events::FileRemovedSubscription>(
-            fileUuid.toStdString(), [this](auto events) mutable {
-                this->handleFileRemoved(std::move(events));
-            }));
+    subscribe(fileUuid, events::FileRemovedSubscription{fileUuid.toStdString(),
+                            [this](auto events) mutable {
+                                this->handleFileRemoved(std::move(events));
+                            }});
 }
 
-void FsSubscriptions::handleFileRemoved(std::vector<events::EventPtr> events)
+void FsSubscriptions::handleFileRemoved(
+    events::Events<events::FileRemoved> events)
 {
     m_runInFiber([ this, events = std::move(events) ] {
-        for (auto event : events) {
-            auto e = events::get<events::FileRemovedEvent>(event);
-            auto &uuid = e->fileUuid();
+        for (auto &event : events) {
+            auto &uuid = event->fileUuid();
             if (m_metadataCache.markDeleted(uuid))
                 LOG(INFO) << "File remove event received: " << uuid;
             else
@@ -155,24 +149,23 @@ void FsSubscriptions::handleFileRemoved(std::vector<events::EventPtr> events)
 
 bool FsSubscriptions::unsubscribeFileRemoved(const folly::fbstring &fileUuid)
 {
-    return unsubscribe(getKey(FILE_REMOVED_PREFIX, fileUuid));
+    return unsubscribe(events::StreamKey::FILE_REMOVED, fileUuid);
 }
 
 void FsSubscriptions::subscribeFileRenamed(const folly::fbstring &fileUuid)
 {
-    subscribe(getKey(FILE_RENAMED_PREFIX, fileUuid),
-        std::make_shared<const events::FileRemovedSubscription>(
-            fileUuid.toStdString(), [this](auto events) mutable {
-                this->handleFileRenamed(std::move(events));
-            }));
+    subscribe(fileUuid, events::FileRenamedSubscription{fileUuid.toStdString(),
+                            [this](auto events) mutable {
+                                this->handleFileRenamed(std::move(events));
+                            }});
 }
 
-void FsSubscriptions::handleFileRenamed(std::vector<events::EventPtr> events)
+void FsSubscriptions::handleFileRenamed(
+    events::Events<events::FileRenamed> events)
 {
     m_runInFiber([ this, events = std::move(events) ] {
-        for (auto event : events) {
-            auto e = events::get<events::FileRenamedEvent>(event);
-            auto &entry = e->topEntry();
+        for (auto &event : events) {
+            auto &entry = event->topEntry();
             if (m_metadataCache.rename(entry.oldUuid(), entry.newParentUuid(),
                     entry.newName(), entry.newUuid()))
                 LOG(INFO) << "File renamed event handled: '" << entry.oldUuid()
@@ -187,41 +180,24 @@ void FsSubscriptions::handleFileRenamed(std::vector<events::EventPtr> events)
 
 bool FsSubscriptions::unsubscribeFileRenamed(const folly::fbstring &fileUuid)
 {
-    return unsubscribe(getKey(FILE_RENAMED_PREFIX, fileUuid));
-}
-
-void FsSubscriptions::subscribeQuotaExceeded(events::EventHandler handler)
-{
-    subscribe(QUOTA_EXCEEDED_PREFIX,
-        std::make_shared<const events::QuotaSubscription>(std::move(handler)));
-}
-
-std::string FsSubscriptions::getKey(
-    const folly::fbstring &prefix, const folly::fbstring &fileUuid)
-{
-    std::stringstream ss;
-    ss << prefix << "." << fileUuid;
-    return ss.str();
+    return unsubscribe(events::StreamKey::FILE_RENAMED, fileUuid);
 }
 
 void FsSubscriptions::subscribe(
-    const std::string &key, events::ConstSubscriptionPtr subscription)
+    const folly::fbstring &fileUuid, const events::Subscription &subscription)
 {
     SubscriptionAcc subscriptionAcc;
-    if (m_subscriptions.insert(subscriptionAcc, key)) {
-        StreamAcc streamAcc;
-        if (m_streams.insert(streamAcc, subscription->routingKey())) {
-            streamAcc->second = m_eventManager.createStream(subscription);
-        }
-        subscriptionAcc->second =
-            m_eventManager.subscribe(streamAcc->second, subscription);
+    if (m_subscriptions.insert(
+            subscriptionAcc, {subscription.streamKey(), fileUuid})) {
+        subscriptionAcc->second = m_eventManager.subscribe(subscription);
     }
 }
 
-bool FsSubscriptions::unsubscribe(const std::string &key)
+bool FsSubscriptions::unsubscribe(
+    events::StreamKey streamKey, const folly::fbstring &fileUuid)
 {
     SubscriptionAcc subscriptionAcc;
-    if (m_subscriptions.find(subscriptionAcc, key)) {
+    if (m_subscriptions.find(subscriptionAcc, {streamKey, fileUuid})) {
         m_eventManager.unsubscribe(subscriptionAcc->second);
         m_subscriptions.erase(subscriptionAcc);
         return true;

@@ -15,27 +15,28 @@ namespace client {
 namespace events {
 
 FileRemovedSubscription::FileRemovedSubscription(
-    std::string fileUuid, EventHandler handler)
+    std::string fileUuid, EventHandler<FileRemoved> handler)
     : m_fileUuid{std::move(fileUuid)}
-    , m_routingKey{"FileRemovedEventStream." + m_fileUuid}
     , m_handler{std::move(handler)}
 {
 }
 
-const std::string &FileRemovedSubscription::routingKey() const
+StreamKey FileRemovedSubscription::streamKey() const
 {
-    return m_routingKey;
+    return StreamKey::FILE_REMOVED;
 }
 
-StreamPtr FileRemovedSubscription::createStream(std::int64_t streamId,
+StreamPtr FileRemovedSubscription::createStream(
     Manager &manager, SequencerManager &seqManager, Scheduler &scheduler) const
 {
-    auto aggregator = std::make_unique<KeyAggregator>();
-    auto emitter = std::make_unique<CounterEmitter>(1);
-    auto handler = std::make_unique<LocalHandler>(std::move(m_handler));
+    auto aggregator = std::make_unique<KeyAggregator<FileRemoved>>();
+    auto emitter = std::make_unique<CounterEmitter<FileRemoved>>(1);
+    auto handler =
+        std::make_unique<LocalHandler<FileRemoved>>(std::move(m_handler));
 
-    return std::make_unique<AsyncStream>(std::make_unique<LocalStream>(
-        std::move(aggregator), std::move(emitter), std::move(handler)));
+    return std::make_unique<AsyncStream>(
+        std::make_unique<TypedStream<FileRemoved>>(
+            std::move(aggregator), std::move(emitter), std::move(handler)));
 }
 
 std::string FileRemovedSubscription::toString() const
@@ -48,7 +49,7 @@ std::string FileRemovedSubscription::toString() const
 ProtoSubscriptionPtr FileRemovedSubscription::serialize() const
 {
     auto subscriptionMsg = std::make_unique<clproto::Subscription>();
-    auto msg = subscriptionMsg->mutable_file_removed_subscription();
+    auto msg = subscriptionMsg->mutable_file_removed();
     msg->set_file_uuid(m_fileUuid);
 
     return subscriptionMsg;

@@ -15,13 +15,23 @@ namespace one {
 namespace client {
 namespace events {
 
-class FalseEmitter : public Emitter {
-    void process(ConstEventPtr event) override;
+template <class T> class FalseEmitter : public Emitter<T> {
+public:
+    EventPtr<T> process(EventPtr<T> event) override;
 
     bool ready() override;
 
     void reset() override;
 };
+
+template <class T> EventPtr<T> FalseEmitter<T>::process(EventPtr<T> event)
+{
+    return std::move(event);
+}
+
+template <class T> bool FalseEmitter<T>::ready() { return false; }
+
+template <class T> void FalseEmitter<T>::reset() {}
 
 } // namespace events
 } // namespace client

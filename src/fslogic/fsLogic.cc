@@ -76,12 +76,12 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     m_eventManager.subscribe(*configuration);
 
     // Quota initial configuration
-    m_fsSubscriptions.subscribeQuotaExceeded([=](auto events) {
-        runInFiber([ this, events = std::move(events) ] {
-            auto e = events::get<events::QuotaExceededEvent>(events.back());
-            this->disableSpaces(e->spaces());
-        });
-    });
+    m_eventManager.subscribe(
+        events::QuotaExceededSubscription{[=](auto events) {
+            runInFiber([ this, events = std::move(events) ] {
+                this->disableSpaces(events.back()->spaces());
+            });
+        }});
     disableSpaces(configuration->disabledSpaces());
 
     m_forceProxyIOCache.onAdd([this](const folly::fbstring &uuid) {
@@ -93,14 +93,9 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     });
 
     m_metadataCache.onAdd([this](const folly::fbstring &uuid) {
-        DLOG(INFO) << "metadataCache.onAdd";
-        DLOG(INFO) << "1 subscribeFileAttrChanged";
         m_fsSubscriptions.subscribeFileAttrChanged(uuid);
-        DLOG(INFO) << "2 subscribeFileRemoved";
         m_fsSubscriptions.subscribeFileRemoved(uuid);
-        DLOG(INFO) << "3 subscribeFileRenamed";
         m_fsSubscriptions.subscribeFileRenamed(uuid);
-        DLOG(INFO) << "metadataCache.onAdd DONE";
     });
 
     m_metadataCache.onOpen([this](const folly::fbstring &uuid) {
@@ -288,8 +283,8 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         }
 
         const auto bytesRead = readBuffer.chainLength();
-        m_eventManager.emit(std::make_shared<const events::ReadEvent>(
-            uuid.toStdString(), offset, bytesRead));
+        m_eventManager.emit<events::FileRead>(
+            uuid.toStdString(), offset, bytesRead);
 
         return readBuffer;
     }
@@ -339,9 +334,8 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
         return write(uuid, fuseFileHandleId, offset, std::move(buf));
     }
 
-    m_eventManager.emit(
-        std::make_shared<const events::WriteEvent>(uuid.toStdString(), offset,
-            bytesWritten, fileBlock.storageId(), fileBlock.fileId()));
+    m_eventManager.emit<events::FileWritten>(uuid.toStdString(), offset,
+        bytesWritten, fileBlock.storageId(), fileBlock.fileId());
 
     auto writtenRange = boost::icl::discrete_interval<off_t>::right_open(
         offset, offset + bytesWritten);
@@ -446,8 +440,8 @@ FileAttrPtr FsLogic::setattr(
     if (toSet & FUSE_SET_ATTR_SIZE) {
         communicate(messages::fuse::Truncate{uuid.toStdString(), attr.st_size});
         m_metadataCache.truncate(uuid, attr.st_size);
-        m_eventManager.emit(std::make_shared<const events::TruncateEvent>(
-            uuid.toStdString(), attr.st_size));
+        m_eventManager.emit<events::FileTruncated>(
+            uuid.toStdString(), attr.st_size);
     }
 
     messages::fuse::UpdateTimes updateTimes{uuid.toStdString()};
