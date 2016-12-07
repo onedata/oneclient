@@ -23,10 +23,9 @@ public:
      * @param fileSize Size of a file after write operation.
      * occurred.
      */
-    FileTruncated(std::string fileUuid, off_t fileSize)
-        : FileWritten(std::move(fileUuid), 0, 0, "", "", fileSize)
-    {
-    }
+    FileTruncated(std::string fileUuid, off_t fileSize);
+
+    std::string toString() const override;
 };
 
 } // namespace events

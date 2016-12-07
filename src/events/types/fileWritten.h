@@ -50,7 +50,7 @@ public:
 
     ProtoEventPtr serializeAndDestroy() override;
 
-private:
+protected:
     std::size_t m_counter = 1;
     std::string m_fileUuid;
     std::size_t m_size = 0;

@@ -22,7 +22,8 @@ namespace one {
 namespace client {
 namespace events {
 
-template <class T> class TimedEmitter : public Emitter<T> {
+template <class T, class Scheduler = Scheduler>
+class TimedEmitter : public Emitter<T> {
 public:
     TimedEmitter(StreamKey streamKey, std::chrono::milliseconds threshold,
         Manager &manager, Scheduler &scheduler,
@@ -46,8 +47,8 @@ private:
     std::function<void()> m_cancelPeriodicTrigger = [] {};
 };
 
-template <class T>
-TimedEmitter<T>::TimedEmitter(StreamKey streamKey,
+template <class T, class Scheduler>
+TimedEmitter<T, Scheduler>::TimedEmitter(StreamKey streamKey,
     std::chrono::milliseconds threshold, Manager &manager, Scheduler &scheduler,
     EmitterPtr<T> emitter)
     : m_streamKey{streamKey}
@@ -58,12 +59,13 @@ TimedEmitter<T>::TimedEmitter(StreamKey streamKey,
 {
 }
 
-template <class T> TimedEmitter<T>::~TimedEmitter()
+template <class T, class Scheduler> TimedEmitter<T, Scheduler>::~TimedEmitter()
 {
     m_cancelPeriodicTrigger();
 }
 
-template <class T> EventPtr<T> TimedEmitter<T>::process(EventPtr<T> event)
+template <class T, class Scheduler>
+EventPtr<T> TimedEmitter<T, Scheduler>::process(EventPtr<T> event)
 {
     if (!m_periodicTriggerScheduled) {
         m_cancelPeriodicTrigger = m_scheduler.schedule(
@@ -73,9 +75,12 @@ template <class T> EventPtr<T> TimedEmitter<T>::process(EventPtr<T> event)
     return m_emitter->process(std::move(event));
 }
 
-template <class T> bool TimedEmitter<T>::ready() { return m_emitter->ready(); }
+template <class T, class Scheduler> bool TimedEmitter<T, Scheduler>::ready()
+{
+    return m_emitter->ready();
+}
 
-template <class T> void TimedEmitter<T>::reset()
+template <class T, class Scheduler> void TimedEmitter<T, Scheduler>::reset()
 {
     m_cancelPeriodicTrigger();
     m_periodicTriggerScheduled = false;

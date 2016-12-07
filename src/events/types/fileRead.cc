@@ -33,7 +33,7 @@ const std::string &FileRead::aggregationKey() const { return m_fileUuid; }
 std::string FileRead::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'Read', counter: " << m_counter << ", file UUID: '"
+    stream << "type: 'FileRead', counter: " << m_counter << ", file UUID: '"
            << m_fileUuid << "', size: " << m_size << ", blocks: " << m_blocks;
     return stream.str();
 }

@@ -85,11 +85,11 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     disableSpaces(configuration->disabledSpaces());
 
     m_forceProxyIOCache.onAdd([this](const folly::fbstring &uuid) {
-        m_fsSubscriptions.subscribePermissionChanged(uuid);
+        m_fsSubscriptions.subscribeFilePermChanged(uuid);
     });
 
     m_forceProxyIOCache.onRemove([this](const folly::fbstring &uuid) {
-        m_fsSubscriptions.unsubscribePermissionChanged(uuid);
+        m_fsSubscriptions.unsubscribeFilePermChanged(uuid);
     });
 
     m_metadataCache.onAdd([this](const folly::fbstring &uuid) {

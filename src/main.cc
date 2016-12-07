@@ -33,7 +33,6 @@
 #include "options.h"
 #include "scheduler.h"
 #include "scopeExit.h"
-#include "shMock.h"
 #include "version.h"
 
 #include <folly/Singleton.h>

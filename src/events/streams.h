@@ -23,7 +23,8 @@ enum class StreamKey {
     FILE_PERM_CHANGED,
     FILE_REMOVED,
     FILE_RENAMED,
-    QUOTA_EXCEEDED
+    QUOTA_EXCEEDED,
+    TEST
 };
 
 inline std::ostream &operator<<(std::ostream &os, const StreamKey &key)

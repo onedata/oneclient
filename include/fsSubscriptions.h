@@ -89,13 +89,13 @@ public:
      * Adds subscription for file permission changed event.
      * @param fileUuid UUID of file for which subscription is added.
      */
-    void subscribePermissionChanged(const folly::fbstring &fileUuid);
+    void subscribeFilePermChanged(const folly::fbstring &fileUuid);
 
     /**
      * Removes subscription for file permission changed event.
      * @param fileUuid UUID of file for which subscription is removed.
      */
-    bool unsubscribePermissionChanged(const folly::fbstring &fileUuid);
+    bool unsubscribeFilePermChanged(const folly::fbstring &fileUuid);
 
     /**
      * Adds subscription for file removed event.

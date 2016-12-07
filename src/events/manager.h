@@ -28,19 +28,21 @@ class Manager {
 public:
     Manager(std::shared_ptr<Context> context);
 
+    virtual ~Manager() = default;
+
     void emit(EventPtr<> event);
 
     template <class T, class... Args> void emit(Args &&... args);
 
-    std::int64_t subscribe(const Subscription &subscription);
+    virtual std::int64_t subscribe(const Subscription &subscription);
 
     void subscribe(const messages::Configuration &configuration);
 
-    bool unsubscribe(std::int64_t subscriptionId);
+    virtual bool unsubscribe(std::int64_t subscriptionId);
 
     bool existsSubscription(std::int64_t subscriptionId);
 
-    void flush(StreamKey streamKey);
+    virtual void flush(StreamKey streamKey);
 
 private:
     void handle(const ProtoEvents &msg);

@@ -36,7 +36,7 @@ const std::string &FileWritten::aggregationKey() const { return m_fileUuid; }
 std::string FileWritten::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'Write', counter: " << m_counter << ", file UUID: '"
+    stream << "type: 'FileWritten', counter: " << m_counter << ", file UUID: '"
            << m_fileUuid << "', file size: " << m_fileSize
            << ", size: " << m_size << ", blocks: " << m_blocks;
     return stream.str();

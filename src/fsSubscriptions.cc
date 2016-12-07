@@ -98,8 +98,7 @@ bool FsSubscriptions::unsubscribeFileLocationChanged(
     return unsubscribe(events::StreamKey::FILE_LOCATION_CHANGED, fileUuid);
 }
 
-void FsSubscriptions::subscribePermissionChanged(
-    const folly::fbstring &fileUuid)
+void FsSubscriptions::subscribeFilePermChanged(const folly::fbstring &fileUuid)
 {
     subscribe(
         fileUuid, events::FilePermChangedSubscription{
@@ -118,7 +117,7 @@ void FsSubscriptions::handlePermissionChanged(
     });
 }
 
-bool FsSubscriptions::unsubscribePermissionChanged(
+bool FsSubscriptions::unsubscribeFilePermChanged(
     const folly::fbstring &fileUuid)
 {
     return unsubscribe(events::StreamKey::FILE_PERM_CHANGED, fileUuid);

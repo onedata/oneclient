@@ -41,7 +41,7 @@ StreamPtr QuotaExceededSubscription::createStream(
 std::string QuotaExceededSubscription::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'Quota'";
+    stream << "type: 'QuotaExceeded'";
     return stream.str();
 }
 

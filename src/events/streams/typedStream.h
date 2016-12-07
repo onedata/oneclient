@@ -11,43 +11,54 @@
 
 #include "stream.h"
 
+#include <typeinfo>
+
 namespace one {
 namespace client {
 namespace events {
 
 template <class T> class TypedStream : public Stream {
 public:
-    TypedStream(std::unique_ptr<Aggregator<T>> aggregator,
-        EmitterPtr<T> emitter, std::unique_ptr<Handler<T>> handler);
+    TypedStream(AggregatorPtr<T> aggregator, EmitterPtr<T> emitter,
+        HandlerPtr<T> handler);
+
+    ~TypedStream();
 
     void process(EventPtr<> event) override;
 
     void flush() override;
 
 private:
-    std::unique_ptr<Aggregator<T>> m_aggregator;
+    AggregatorPtr<T> m_aggregator;
     EmitterPtr<T> m_emitter;
-    std::unique_ptr<Handler<T>> m_handler;
+    HandlerPtr<T> m_handler;
 };
 
 template <class T>
-TypedStream<T>::TypedStream(std::unique_ptr<Aggregator<T>> aggregator,
-    EmitterPtr<T> emitter, std::unique_ptr<Handler<T>> handler)
+TypedStream<T>::TypedStream(
+    AggregatorPtr<T> aggregator, EmitterPtr<T> emitter, HandlerPtr<T> handler)
     : m_aggregator{std::move(aggregator)}
     , m_emitter{std::move(emitter)}
     , m_handler{std::move(handler)}
 {
 }
 
+template <class T> TypedStream<T>::~TypedStream() { flush(); }
+
 template <class T> void TypedStream<T>::process(EventPtr<> event)
 {
-    std::unique_ptr<T> typedEvent{dynamic_cast<T *>(event.release())};
+    auto rawEvent = event.release();
+    std::unique_ptr<T> typedEvent{dynamic_cast<T *>(rawEvent)};
     if (typedEvent) {
         m_aggregator->process(m_emitter->process(std::move(typedEvent)));
         if (m_emitter->ready()) {
             m_handler->process(m_aggregator->flush());
             m_emitter->reset();
         }
+    }
+    else {
+        DLOG(ERROR) << "Cannot process event " << rawEvent->toString()
+                    << " in typed stream '" << typeid(T).name() << "'";
     }
 }
 
