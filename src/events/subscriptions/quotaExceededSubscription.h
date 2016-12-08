@@ -18,12 +18,26 @@ namespace events {
 
 class QuotaExceeded;
 
+/**
+ * @c QuotaExceededSubscription represents a subscription for a quota exceeded
+ * events that occure in the system.
+ */
 class QuotaExceededSubscription : public RemoteSubscription {
 public:
+    /**
+     * Constructor.
+     * @param handler A callback function that should be executed when quota
+     * exceeded events occure.
+     */
     QuotaExceededSubscription(EventHandler<QuotaExceeded> handler);
 
     StreamKey streamKey() const override;
 
+    /**
+     * Creates a stream that handles each event separately without aggregation.
+     * @see Subscription::createHandle(std::int64_t subscriptionId, Streams
+     * &streams, SequencerStream &stream)
+     */
     StreamPtr createStream(Manager &manager, SequencerManager &seqManager,
         Scheduler &scheduler) const override;
 

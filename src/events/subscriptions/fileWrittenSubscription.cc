@@ -57,7 +57,7 @@ StreamPtr FileWrittenSubscription::createStream(
 std::string FileWrittenSubscription::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'Write', counter threshold: " << m_counterThreshold
+    stream << "type: 'FileWritten', counter threshold: " << m_counterThreshold
            << ", time threshold: ";
     if (m_timeThreshold)
         stream << m_timeThreshold.get().count();

@@ -42,7 +42,7 @@ StreamPtr FilePermChangedSubscription::createStream(
 std::string FilePermChangedSubscription::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'PermissionChanged', file UUID: '" << m_fileUuid << "'";
+    stream << "type: 'FilePermChanged', file UUID: '" << m_fileUuid << "'";
     return stream.str();
 }
 

@@ -18,13 +18,29 @@ namespace events {
 
 class FileRenamed;
 
+/**
+ * @c FileRenamedSubscription represents a subscription for a rename file
+ * operation events that occure in the system.
+ */
 class FileRenamedSubscription : public RemoteSubscription {
 public:
+    /**
+     * Constructor.
+     * @param fileUuid An UUID of a file for which rename operation events
+     * should be handled.
+     * @param handler A callback function that should be executed when file
+     * rename operation events occure.
+     */
     FileRenamedSubscription(
         std::string fileUuid, EventHandler<FileRenamed> handler);
 
     StreamKey streamKey() const override;
 
+    /**
+     * Creates a stream that handles each event separately without aggregation.
+     * @see Subscription::createHandle(std::int64_t subscriptionId, Streams
+     * &streams, SequencerStream &stream)
+     */
     StreamPtr createStream(Manager &manager, SequencerManager &seqManager,
         Scheduler &scheduler) const override;
 

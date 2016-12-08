@@ -40,11 +40,11 @@ def decode_params(params):
 
 
 def wait_until(condition, step=0.5, timeout=30):
-    while not condition() and timeout:
+    while not condition() and timeout > 0:
         timeout -= step
         time.sleep(step)
 
-    if not timeout:
+    if timeout <= 0:
         raise Exception('timeout')
 
 

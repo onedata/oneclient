@@ -15,6 +15,9 @@ namespace one {
 namespace client {
 namespace events {
 
+/**
+ * @c StreamKey provides a list of available event streams.
+ */
 enum class StreamKey {
     FILE_READ,
     FILE_WRITTEN,
@@ -27,6 +30,9 @@ enum class StreamKey {
     TEST
 };
 
+/**
+ * Overloaded operator for printing @c StreamKey name.
+ */
 inline std::ostream &operator<<(std::ostream &os, const StreamKey &key)
 {
     switch (key) {

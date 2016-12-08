@@ -22,14 +22,29 @@ class FileReadSubscription;
 namespace client {
 namespace events {
 
+/**
+ * @c FileReadSubscription represents a subscription for a read file operation
+ * events that occure in the system.
+ */
 class FileReadSubscription : public Subscription {
     using ProtocolMessage = clproto::FileReadSubscription;
 
 public:
+    /**
+     * Constructor.
+     * @param msg A Protocol Buffers message representing
+     * @c FileReadSubscription counterpart.
+     */
     FileReadSubscription(const ProtocolMessage &msg);
 
     StreamKey streamKey() const override;
 
+    /**
+     * Creates a stream that aggregates event as long as counter or time
+     * thresholds are not exceeded.
+     * @see Subscription::createHandle(std::int64_t subscriptionId, Streams
+     * &streams, SequencerStream &stream)
+     */
     StreamPtr createStream(Manager &manager, SequencerManager &seqManager,
         Scheduler &scheduler) const override;
 

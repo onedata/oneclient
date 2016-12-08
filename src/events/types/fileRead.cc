@@ -28,7 +28,7 @@ FileRead::FileRead(std::string fileUuid, off_t offset, size_t size,
 
 StreamKey FileRead::streamKey() const { return StreamKey::FILE_READ; }
 
-const std::string &FileRead::aggregationKey() const { return m_fileUuid; }
+const AggregationKey &FileRead::aggregationKey() const { return m_fileUuid; }
 
 std::string FileRead::toString() const
 {

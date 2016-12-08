@@ -19,14 +19,30 @@ namespace one {
 namespace client {
 namespace events {
 
+/**
+ * @c KeyAggregator is responsible for aggregation of events by aggregation key.
+ * Whenever an event is processed by the @c KeyAggregator it is either merged
+ * with an event, having the same aggregation key, already stored in the
+ * aggregator or saved under its aggregation key in the aggregator.
+ */
 template <class T> class KeyAggregator : public Aggregator<T> {
 public:
+    /**
+     * Processes an event by merging it with an event, having the same
+     * aggregation key, already stored in the aggregator or saves  it under its
+     * aggregation key.
+     * @see Aggregator::process(EventPtr<T> event)
+     */
     void process(EventPtr<T> event) override;
 
+    /**
+     * Returns a container of aggregated events in an unspecified order.
+     * @see Aggregator::flush()
+     */
     Events<T> flush() override;
 
 private:
-    std::unordered_map<std::string, EventPtr<T>> m_events;
+    std::unordered_map<AggregationKey, EventPtr<T>> m_events;
 };
 
 template <class T> void KeyAggregator<T>::process(EventPtr<T> event)

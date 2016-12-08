@@ -15,10 +15,23 @@ namespace one {
 namespace client {
 namespace events {
 
+/**
+ * @c LocalHandler is responsible for serialization and forwarding of aggregated
+ * events to the remote subscriber.
+ */
 template <class T> class RemoteHandler : public Handler<T> {
 public:
+    /**
+     * Constructor.
+     * @param sequencerStream An @c communication::StreamManager::Stream
+     * instance used to send serialized events.
+     */
     RemoteHandler(SequencerStreamPtr sequencerStream);
 
+    /**
+     * Serializes and sends aggregated events. Skips empty events collection.
+     * @see Handler::process(Events<T> events)
+     */
     void process(Events<T> events) override;
 
 private:

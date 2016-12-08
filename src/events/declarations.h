@@ -15,6 +15,7 @@
 #include <tbb/concurrent_hash_map.h>
 
 #include <cassert>
+#include <chrono>
 #include <memory>
 #include <string>
 #include <unordered_set>
@@ -47,6 +48,9 @@ class SharedStream;
 class Subscription;
 class SubscriptionHandle;
 
+constexpr std::chrono::milliseconds DEFAULT_TIMED_EMITTER_THRESHOLD{500};
+
+using AggregationKey = std::string;
 using SequencerManager = communication::StreamManager;
 using SequencerStream = SequencerManager::Stream;
 using FileAttr = messages::fuse::FileAttr;

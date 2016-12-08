@@ -11,21 +11,34 @@
 
 #include "events/declarations.h"
 
-#include <functional>
-#include <memory>
-#include <string>
-#include <vector>
-
 namespace one {
 namespace client {
 namespace events {
 
+/**
+ * @c Event class represents an abstract event that occured in the system.
+ * It provides an interface for concrete events.
+ */
 class Event {
 public:
+    /**
+     * Defines which stream should process this event.
+     * @return A @c StreamKey that identifies stream responsible for handling
+     * this event.
+     */
     virtual StreamKey streamKey() const = 0;
 
-    virtual const std::string &aggregationKey() const = 0;
+    /**
+     * Defines a value that distinguish two events in terms of aggregation, i.e.
+     * events with that same aggregation key can be aggregated.
+     * @return A value that distinguish two events in terms of aggregation.
+     */
+    virtual const AggregationKey &aggregationKey() const = 0;
 
+    /**
+     * Provides a human-readable event description.
+     * @return An event description.
+     */
     virtual std::string toString() const = 0;
 };
 

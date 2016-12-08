@@ -15,17 +15,17 @@ namespace one {
 namespace client {
 namespace events {
 
+/**
+ * @c FileTruncated class represents a truncate file operation in the system.
+ */
 class FileTruncated : public FileWritten {
 public:
     /**
      * Constructor.
-     * @param fileUuid UUID of a file associated with a write operation.
-     * @param fileSize Size of a file after write operation.
-     * occurred.
+     * @param fileUuid UUID of a file associated with the truncate operation.
+     * @param fileSize Size of a file after the truncate operation.
      */
     FileTruncated(std::string fileUuid, off_t fileSize);
-
-    std::string toString() const override;
 };
 
 } // namespace events

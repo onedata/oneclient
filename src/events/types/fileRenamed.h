@@ -21,17 +21,32 @@ class FileRenamedEvent;
 namespace client {
 namespace events {
 
+/**
+ * @c FileRenamed class represents a rename file operation in the system.
+ */
 class FileRenamed : public SingleEvent {
     using ProtocolMessage = clproto::FileRenamedEvent;
     using FileRenamedEntry = messages::fuse::FileRenamedEntry;
 
 public:
+    /**
+     * Constructor.
+     * @param msg A Protocol Buffers message representing @c FileRenamed
+     * counterpart.
+     */
     FileRenamed(const ProtocolMessage &msg);
 
     StreamKey streamKey() const override;
 
+    /**
+     * @return An entry describing changes in the renamed file.
+     */
     const FileRenamedEntry &topEntry() const;
 
+    /**
+     * @return List of entries describing changes in children of the renamed
+     * file.
+     */
     const std::vector<FileRenamedEntry> &childEntries() const;
 
     std::string toString() const override;

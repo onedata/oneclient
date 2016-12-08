@@ -27,7 +27,7 @@ StreamKey FileLocationChanged::streamKey() const
     return StreamKey::FILE_LOCATION_CHANGED;
 }
 
-const std::string &FileLocationChanged::aggregationKey() const
+const AggregationKey &FileLocationChanged::aggregationKey() const
 {
     return m_fileLocation->uuid();
 }

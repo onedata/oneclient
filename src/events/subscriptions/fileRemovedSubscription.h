@@ -18,13 +18,29 @@ namespace events {
 
 class FileRemoved;
 
+/**
+ * @c FileRemovedSubscription represents a subscription for a remove file
+ * operation events that occure in the system.
+ */
 class FileRemovedSubscription : public RemoteSubscription {
 public:
+    /**
+     * Constructor.
+     * @param fileUuid An UUID of a file for which remove operation events
+     * should be handled.
+     * @param handler A callback function that should be executed when file
+     * remove operation events occure.
+     */
     FileRemovedSubscription(
         std::string fileUuid, EventHandler<FileRemoved> handler);
 
     StreamKey streamKey() const override;
 
+    /**
+     * Creates a stream that handles each event separately without aggregation.
+     * @see Subscription::createHandle(std::int64_t subscriptionId, Streams
+     * &streams, SequencerStream &stream)
+     */
     StreamPtr createStream(Manager &manager, SequencerManager &seqManager,
         Scheduler &scheduler) const override;
 

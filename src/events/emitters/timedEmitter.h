@@ -22,19 +22,48 @@ namespace one {
 namespace client {
 namespace events {
 
+/**
+ * @c TimedEmitter is responsible for periodic event stream flush.
+ */
 template <class T, class Scheduler = Scheduler>
 class TimedEmitter : public Emitter<T> {
 public:
+    /**
+     * Constructor.
+     * @param streamKey A key used to flush an event stream.
+     * @param threshold A period, measured since a first processed event after a
+     * reset, after which emitter request a stream flush.
+     * @param manager A @c Manager instance used to flush a stream.
+     * @param scheduler A @c Scheduler instance used to schedule a stream flush.
+     * @param emitter A wrapped @c Emitter instance.
+     */
     TimedEmitter(StreamKey streamKey, std::chrono::milliseconds threshold,
         Manager &manager, Scheduler &scheduler,
         EmitterPtr<T> emitter = std::make_unique<FalseEmitter<T>>());
 
+    /**
+     * Destructor. Cancels a scheduled stream flush.
+     */
     ~TimedEmitter();
 
+    /**
+     * Schedules a stream flush for the first event processed after a reset.
+     * Forwards call to the chained emitter.
+     * @see Emitter:process(EventPtr<T> event)
+     */
     EventPtr<T> process(EventPtr<T> event) override;
 
+    /**
+     * Forwards call to the chained emitter.
+     * @see Emitter::ready()
+     */
     bool ready() override;
 
+    /**
+     * Cancels a scheduled stream flush and forwards call to the chained
+     * emitter.
+     * @see Emitter::reset()
+     */
     void reset() override;
 
 private:

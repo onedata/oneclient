@@ -16,6 +16,7 @@
 #include "handlers/localHandler.h"
 #include "handlers/remoteHandler.h"
 #include "manager.h"
+#include "router.h"
 #include "streams/asyncStream.h"
 #include "streams/sharedStream.h"
 #include "streams/typedStream.h"

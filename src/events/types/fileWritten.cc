@@ -31,7 +31,7 @@ FileWritten::FileWritten(std::string fileUuid, off_t offset, size_t size,
 
 StreamKey FileWritten::streamKey() const { return StreamKey::FILE_WRITTEN; }
 
-const std::string &FileWritten::aggregationKey() const { return m_fileUuid; }
+const AggregationKey &FileWritten::aggregationKey() const { return m_fileUuid; }
 
 std::string FileWritten::toString() const
 {

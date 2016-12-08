@@ -13,8 +13,8 @@ namespace one {
 namespace client {
 namespace events {
 
-SubscriptionHandlePtr Subscription::createHandle(
-    std::int64_t subscriptionId, Streams &streams, SequencerStream &stream) const
+SubscriptionHandlePtr Subscription::createHandle(std::int64_t subscriptionId,
+    Streams &streams, SequencerStream &stream) const
 {
     return std::make_unique<SubscriptionHandle>(streamKey(), streams);
 }

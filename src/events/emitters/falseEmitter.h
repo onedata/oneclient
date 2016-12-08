@@ -15,12 +15,28 @@ namespace one {
 namespace client {
 namespace events {
 
+/**
+ * @c FalseEmitter ignores processed events and never declares emission ready
+ * status. It is intended to be the last element of the emitters chain.
+ */
 template <class T> class FalseEmitter : public Emitter<T> {
 public:
+    /**
+     * Ignores processed events.
+     * @see Emitter:process(EventPtr<T> event)
+     */
     EventPtr<T> process(EventPtr<T> event) override;
 
+    /**
+     * Always returns false.
+     * @see Emitter::ready()
+     */
     bool ready() override;
 
+    /**
+     * Ignores this call.
+     * @see Emitter::reset()
+     */
     void reset() override;
 };
 

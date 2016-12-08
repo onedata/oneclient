@@ -15,10 +15,21 @@ namespace one {
 namespace client {
 namespace events {
 
+/**
+ * @c LocalHandler is a wrapper for a custom events handling callback.
+ */
 template <class T> class LocalHandler : public Handler<T> {
 public:
+    /**
+     * Constructor.
+     * @param handler A custom events handling callback.
+     */
     LocalHandler(EventHandler<T> handler);
 
+    /**
+     * Executes events handling callback. Skips empty events collection.
+     * @see Handler::process(Events<T> events)
+     */
     void process(Events<T> events) override;
 
 private:

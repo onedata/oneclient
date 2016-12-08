@@ -13,7 +13,7 @@ namespace one {
 namespace client {
 namespace events {
 
-const std::string &SingleEvent::aggregationKey() const
+const AggregationKey &SingleEvent::aggregationKey() const
 {
     return m_aggregationKey;
 }

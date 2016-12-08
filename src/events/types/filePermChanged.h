@@ -18,14 +18,26 @@ class FilePermChangedEvent;
 namespace client {
 namespace events {
 
+/**
+ * @c FilePermChanged class represents a change of file permission in the
+ * system.
+ */
 class FilePermChanged : public SingleEvent {
     using ProtocolMessage = clproto::FilePermChangedEvent;
 
 public:
+    /**
+     * Constructor.
+     * @param msg A Protocol Buffers message representing @c FilePermChanged
+     * counterpart.
+     */
     FilePermChanged(const ProtocolMessage &msg);
 
     StreamKey streamKey() const override;
 
+    /**
+     * @return An UUID of a file which permission has been changed.
+     */
     const std::string &fileUuid() const;
 
     std::string toString() const override;

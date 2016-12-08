@@ -28,7 +28,7 @@ StreamKey FileAttrChanged::streamKey() const
     return StreamKey::FILE_ATTR_CHANGED;
 }
 
-const std::string &FileAttrChanged::aggregationKey() const
+const AggregationKey &FileAttrChanged::aggregationKey() const
 {
     return m_aggregationKey;
 }

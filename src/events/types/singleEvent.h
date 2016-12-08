@@ -15,14 +15,27 @@ namespace one {
 namespace client {
 namespace events {
 
+/**
+ * @c SingleEvent class represents an abstract event that ignores aggregation.
+ * It should be processed by streams that does not rely on events aggregation
+ * and handles each event separately.
+ */
 class SingleEvent : public Event {
 public:
-    const std::string &aggregationKey() const override;
+    /**
+     * Returns a default, empty aggregation key.
+     * @see Event::aggregationKey()
+     */
+    const AggregationKey &aggregationKey() const override;
 
+    /**
+     * Skip aggregation of the provided event.
+     * @param event An event to be aggregated.
+     */
     void aggregate(EventPtr<> event);
 
 private:
-    std::string m_aggregationKey;
+    AggregationKey m_aggregationKey;
 };
 
 } // namespace events

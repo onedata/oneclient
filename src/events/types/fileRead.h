@@ -18,6 +18,9 @@ namespace one {
 namespace client {
 namespace events {
 
+/**
+ * @c FileRead class represents a read file operation in the system.
+ */
 class FileRead : public RemoteEvent {
     using FileBlock = one::messages::fuse::FileBlock;
     using FileBlocksMap = boost::icl::interval_map<off_t, FileBlock,
@@ -26,12 +29,12 @@ class FileRead : public RemoteEvent {
 public:
     /**
      * Constructor.
-     * @param fileUuid UUID of a file associated with a read operation.
+     * @param fileUuid UUID of a file associated with the read operation.
      * @param offset Distance from the beginning of the file to the first byte
      * read.
      * @param size Number of bytes read.
-     * @param storageId ID of a storage where a read operation occurred.
-     * @param fileId ID of a file on the storage where a read operation
+     * @param storageId ID of a storage where the read operation occurred.
+     * @param fileId ID of a file on the storage where the read operation
      * occurred.
      */
     FileRead(std::string fileUuid, off_t offset, std::size_t size,
@@ -39,10 +42,20 @@ public:
 
     StreamKey streamKey() const override;
 
-    const std::string &aggregationKey() const override;
+    /**
+     * Aggregation key value is equal to the UUID of a file associated with the
+     * event.
+     * @see Event::aggregationKey()
+     */
+    const AggregationKey &aggregationKey() const override;
 
     std::string toString() const override;
 
+    /**
+     * Aggregates @c *this event with the other event. Aggregation is done by
+     * addition of events' counters and sizes and union of read blocks.
+     * @param event An event to be aggregated.
+     */
     void aggregate(EventPtr<FileRead> event);
 
     ProtoEventPtr serializeAndDestroy() override;

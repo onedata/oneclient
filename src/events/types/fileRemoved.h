@@ -18,14 +18,25 @@ class FileRemovedEvent;
 namespace client {
 namespace events {
 
+/**
+ * @c FileRemoved class represents a remove file operation in the system.
+ */
 class FileRemoved : public SingleEvent {
     using ProtocolMessage = clproto::FileRemovedEvent;
 
 public:
+    /**
+     * Constructor.
+     * @param msg A Protocol Buffers message representing @c FileRemoved
+     * counterpart.
+     */
     FileRemoved(const ProtocolMessage &msg);
 
     StreamKey streamKey() const override;
 
+    /**
+     * @return An UUID of a removed file.
+     */
     const std::string &fileUuid() const;
 
     std::string toString() const override;

@@ -23,7 +23,7 @@ message FlushEvents {
 
 // Generic event message
 message Event {
-    oneof object { // list of all event objects
+    oneof type { // list of all event types
         FileReadEvent            file_read             = 1;
         FileWrittenEvent         file_written          = 2;
         FileAttrChangedEvent     file_attr_changed     = 3;
@@ -79,7 +79,7 @@ message QuotaExceededEvent {
 // Generic subscription message
 message Subscription {
     required sint64 id = 1; // unique subscription ID
-    oneof object { // list of all subscription objects
+    oneof type { // list of all subscription types
         FileReadSubscription            file_read             = 2;
         FileWrittenSubscription         file_written          = 3;
         FileAttrChangedSubscription     file_attr_changed     = 4;

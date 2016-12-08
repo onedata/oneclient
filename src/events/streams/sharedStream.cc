@@ -8,6 +8,8 @@
 
 #include "events/events.h"
 
+#include <cassert>
+
 namespace one {
 namespace client {
 namespace events {
@@ -26,7 +28,11 @@ void SharedStream::flush() { m_stream->flush(); }
 
 void SharedStream::share() { ++m_counter; }
 
-bool SharedStream::release() { return --m_counter == 0; }
+bool SharedStream::release()
+{
+    assert(m_counter > 0);
+    return --m_counter == 0;
+}
 
 } // namespace events
 } // namespace client

@@ -56,7 +56,7 @@ StreamPtr FileReadSubscription::createStream(
 std::string FileReadSubscription::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'Read', counter threshold: " << m_counterThreshold
+    stream << "type: 'FileRead', counter threshold: " << m_counterThreshold
            << ", time threshold: ";
     if (m_timeThreshold)
         stream << m_timeThreshold.get().count();

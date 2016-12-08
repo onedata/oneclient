@@ -15,10 +15,25 @@ namespace one {
 namespace client {
 namespace events {
 
+/**
+ * @c SubscriptionHandle class manages the lifetime of a subscription and is
+ * responsible for an associated event stream removal when the last subscription
+ * is cancelled.
+ */
 class SubscriptionHandle {
 public:
+    /**
+     * Constructor.
+     * @param streamKey A key of a stream associated with the handle by a
+     * subscription.
+     * @param streams A collection of existing event streams.
+     */
     SubscriptionHandle(StreamKey streamKey, Streams &streams);
 
+    /**
+     * Removes an associated event stream when the last subscription is
+     * cancelled.
+     */
     virtual ~SubscriptionHandle();
 
 private:

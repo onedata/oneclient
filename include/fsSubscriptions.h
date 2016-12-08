@@ -66,7 +66,7 @@ public:
     void subscribeFileAttrChanged(const folly::fbstring &fileUuid);
 
     /**
-     * Removes subscription for file attributes updates.
+     * Cancels subscription for file attributes updates.
      * @param fileUuid UUID of file for which subscription is removed.
      * @return true if subscription has been removed, false if it didn't exist.
      */
@@ -79,7 +79,7 @@ public:
     void subscribeFileLocationChanged(const folly::fbstring &fileUuid);
 
     /**
-     * Removes subscription for file location updates.
+     * Cancels subscription for file location updates.
      * @param fileUuid UUID of file for which subscription is removed.
      * @return true if subscription has been removed, false if it didn't exist.
      */
@@ -92,7 +92,7 @@ public:
     void subscribeFilePermChanged(const folly::fbstring &fileUuid);
 
     /**
-     * Removes subscription for file permission changed event.
+     * Cancels subscription for file permission changed event.
      * @param fileUuid UUID of file for which subscription is removed.
      */
     bool unsubscribeFilePermChanged(const folly::fbstring &fileUuid);
@@ -104,7 +104,7 @@ public:
     void subscribeFileRemoved(const folly::fbstring &fileUuid);
 
     /**
-     * Removes subscription for file removed event.
+     * Cancels subscription for file removed event.
      * @param fileUuid UUID of file for which subscription is removed.
      */
     bool unsubscribeFileRemoved(const folly::fbstring &fileUuid);
@@ -116,7 +116,7 @@ public:
     void subscribeFileRenamed(const folly::fbstring &fileUuid);
 
     /**
-     * Removes subscription for file renamed event.
+     * Cancels subscription for file renamed event.
      * @param fileUuid UUID of file for which subscription is removed.
      */
     bool unsubscribeFileRenamed(const folly::fbstring &fileUuid);

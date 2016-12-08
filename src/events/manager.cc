@@ -10,13 +10,7 @@
 #include "events.h"
 #include "logging.h"
 #include "messages/configuration.h"
-#include "messages/fuse/fileAttr.h"
-#include "messages/fuse/fileLocation.h"
 #include "scheduler.h"
-
-#include "messages.pb.h"
-
-#include <cassert>
 
 namespace one {
 namespace client {
@@ -26,21 +20,8 @@ Manager::Manager(std::shared_ptr<Context> context)
     : m_scheduler{*context->scheduler()}
     , m_sequencerManager{context->communicator()}
     , m_sequencerStream{m_sequencerManager.create()}
+    , m_router{*this, *context->communicator()}
 {
-    auto predicate = [](const clproto::ServerMessage &msg, const bool) {
-        return msg.has_events() || msg.has_subscription() ||
-            msg.has_subscription_cancellation();
-    };
-    auto callback = [this](const clproto::ServerMessage &msg) {
-        if (msg.has_events())
-            handle(msg.events());
-        else if (msg.has_subscription())
-            handle(msg.subscription());
-        else if (msg.has_subscription_cancellation())
-            handle(msg.subscription_cancellation());
-    };
-    context->communicator()->subscribe(communication::SubscriptionData{
-        std::move(predicate), std::move(callback)});
 }
 
 void Manager::emit(EventPtr<> event)
@@ -86,16 +67,17 @@ std::int64_t Manager::subscribe(
 void Manager::subscribe(const messages::Configuration &configuration)
 {
     for (const auto &subscription : configuration.subscriptions()) {
-        handle(subscription);
+        m_router.handle(subscription);
     }
 }
 
 bool Manager::unsubscribe(std::int64_t subscriptionId)
 {
-    DLOG(INFO) << "Removing subscription with ID: '" << subscriptionId << "'";
-
     HandleAcc handleAcc;
     if (m_handles.find(handleAcc, subscriptionId)) {
+        DLOG(INFO) << "Removing subscription with ID: '" << subscriptionId
+                   << "'";
+
         m_handles.erase(handleAcc);
         return true;
     }
@@ -115,47 +97,6 @@ void Manager::flush(StreamKey streamKey)
         streamAcc->second->flush();
     }
 }
-
-void Manager::handle(const ProtoEvents &msg)
-{
-    using namespace messages::fuse;
-
-    for (const auto &eventMsg : msg.events()) {
-        if (eventMsg.has_file_attr_changed()) {
-            emit(std::make_unique<FileAttrChanged>(
-                eventMsg.file_attr_changed()));
-        }
-        if (eventMsg.has_file_location_changed()) {
-            emit(std::make_unique<FileLocationChanged>(
-                eventMsg.file_location_changed()));
-        }
-        else if (eventMsg.has_file_perm_changed()) {
-            emit(std::make_unique<FilePermChanged>(
-                eventMsg.file_perm_changed()));
-        }
-        else if (eventMsg.has_file_removed()) {
-            emit(std::make_unique<FileRemoved>(eventMsg.file_removed()));
-        }
-        else if (eventMsg.has_file_renamed()) {
-            emit(std::make_unique<FileRenamed>(eventMsg.file_renamed()));
-        }
-        else if (eventMsg.has_quota_exceeded()) {
-            emit(std::make_unique<QuotaExceeded>(eventMsg.quota_exceeded()));
-        }
-    }
-}
-
-void Manager::handle(const ProtoSubscription &msg)
-{
-    if (msg.has_file_read()) {
-        subscribe(msg.id(), FileReadSubscription{msg.file_read()});
-    }
-    else if (msg.has_file_written()) {
-        subscribe(msg.id(), FileWrittenSubscription{msg.file_written()});
-    }
-}
-
-void Manager::handle(const ProtoCancellation &msg) { unsubscribe(msg.id()); }
 
 } // namespace events
 } // namespace client

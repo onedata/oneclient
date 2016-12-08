@@ -22,14 +22,29 @@ class FileWrittenSubscription;
 namespace client {
 namespace events {
 
+/**
+ * @c FileWrittenSubscription represents a subscription for a write file
+ * operation events that occure in the system.
+ */
 class FileWrittenSubscription : public Subscription {
     using ProtocolMessage = clproto::FileWrittenSubscription;
 
 public:
+    /**
+     * Constructor.
+     * @param msg A Protocol Buffers message representing
+     * @c FileWrittenSubscription counterpart.
+     */
     FileWrittenSubscription(const ProtocolMessage &msg);
 
     StreamKey streamKey() const override;
 
+    /**
+     * Creates a stream that aggregates event as long as counter or time
+     * thresholds are not exceeded.
+     * @see Subscription::createHandle(std::int64_t subscriptionId, Streams
+     * &streams, SequencerStream &stream)
+     */
     StreamPtr createStream(Manager &manager, SequencerManager &seqManager,
         Scheduler &scheduler) const override;
 
