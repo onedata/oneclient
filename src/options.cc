@@ -86,6 +86,7 @@ void Options::setDescriptions()
     add_switch_debug_gsi(m_commandline);
     add_switch_no_check_certificate(m_commandline);
     add_switch_proxyio(m_commandline);
+    add_log_dir(m_commandline);
 
     // FUSE-specific commandline options
     m_fuse.add_options()(",o",
