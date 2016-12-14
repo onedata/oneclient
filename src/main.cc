@@ -20,7 +20,6 @@
 #include "communication/exception.h"
 #include "context.h"
 #include "errors/handshakeErrors.h"
-#include "events/eventManager.h"
 #include "fsOperations.h"
 #include "fslogic/composite.h"
 #include "fuseOperations.h"
@@ -34,7 +33,6 @@
 #include "options.h"
 #include "scheduler.h"
 #include "scopeExit.h"
-#include "shMock.h"
 #include "version.h"
 
 #include <folly/Singleton.h>

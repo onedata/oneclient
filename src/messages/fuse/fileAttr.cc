@@ -35,8 +35,6 @@ FileAttr::FileAttr(const one::clproto::FileAttr &message)
     deserialize(message);
 }
 
-const FileAttr::Key &FileAttr::key() const { return m_uuid; }
-
 const folly::fbstring &FileAttr::uuid() const { return m_uuid; }
 
 void FileAttr::setUuid(folly::fbstring uuid_) { m_uuid.swap(uuid_); }
@@ -88,18 +86,6 @@ FileAttr::FileType FileAttr::type() const { return m_type; }
 folly::Optional<off_t> FileAttr::size() const { return m_size; }
 
 void FileAttr::size(const off_t size_) { m_size = size_; }
-
-void FileAttr::aggregate(FileAttrPtr fileAttr)
-{
-    m_mode = fileAttr->m_mode;
-    m_uid = fileAttr->m_uid;
-    m_gid = fileAttr->m_gid;
-    m_atime = fileAttr->m_atime;
-    m_mtime = fileAttr->m_mtime;
-    m_ctime = fileAttr->m_ctime;
-    m_size = fileAttr->m_size;
-    m_type = fileAttr->m_type;
-}
 
 std::string FileAttr::toString() const
 {

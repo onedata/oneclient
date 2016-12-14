@@ -10,7 +10,7 @@
 
 #include "communication/communicator.h"
 #include "context.h"
-#include "events/eventManager.h"
+#include "events/manager.h"
 #include "fslogic/fsLogic.h"
 #include "fslogic/withUuids.h"
 #include "messages/configuration.h"
@@ -257,6 +257,8 @@ private:
 namespace {
 boost::shared_ptr<FsLogicProxy> create(std::string ip, int port)
 {
+    FLAGS_minloglevel = 1;
+
     auto communicator =
         std::make_shared<Communicator>(/*connections*/ 1, ip, port,
             /*verifyServerCertificate*/ false, createConnection);

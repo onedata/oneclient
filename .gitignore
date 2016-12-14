@@ -5,6 +5,10 @@
 docker-build-list.json
 docker-build-report.txt
 version.txt
+/coverage
+integration-tests-results.xml
+oneclient.info
+oneclient.info.cleaned
 
 # Compiled Object files
 *.slo

@@ -1,7 +1,7 @@
 /**
  * @file event.h
  * @author Krzysztof Trzepla
- * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
@@ -9,43 +9,37 @@
 #ifndef ONECLIENT_EVENTS_TYPES_EVENT_H
 #define ONECLIENT_EVENTS_TYPES_EVENT_H
 
-#include <cstddef>
-#include <memory>
+#include "events/declarations.h"
 
 namespace one {
-namespace clproto {
-class Event;
-} // namespace clproto
 namespace client {
 namespace events {
 
-using ProtocolEventMessage = one::clproto::Event;
-
 /**
- * @c Event class represents an event that occured in the system.
+ * @c Event class represents an abstract event that occured in the system.
+ * It provides an interface for concrete events.
  */
 class Event {
 public:
-    virtual ~Event() = default;
-
     /**
-     * @return Number of aggregated events.
+     * Defines which stream should process this event.
+     * @return A @c StreamKey that identifies stream responsible for handling
+     * this event.
      */
-    std::size_t counter() const { return m_counter; }
+    virtual StreamKey streamKey() const = 0;
 
     /**
-     * @return @c Event in string format.
+     * Defines a value that distinguish two events in terms of aggregation, i.e.
+     * events with that same aggregation key can be aggregated.
+     * @return A value that distinguish two events in terms of aggregation.
+     */
+    virtual const AggregationKey &aggregationKey() const = 0;
+
+    /**
+     * Provides a human-readable event description.
+     * @return An event description.
      */
     virtual std::string toString() const = 0;
-
-    /**
-     * Creates Protocol Buffers message based on provided @c Event.
-     * @return Unique pointer to Protocol Buffers @c Event message instance.
-     */
-    virtual std::unique_ptr<ProtocolEventMessage> serializeAndDestroy() = 0;
-
-protected:
-    std::size_t m_counter = 1;
 };
 
 } // namespace events

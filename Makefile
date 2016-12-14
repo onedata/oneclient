@@ -55,9 +55,12 @@ docs:
 
 .PHONY: coverage
 coverage:
-	lcov --directory debug --capture --output-file oneclient.info
-	lcov --remove oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' 'relwithdebinfo/*' 'debug/*' 'release/*' '**/helpers/*' 'deps/*' --output-file oneclient.info.cleaned
-	genhtml  -o coverage oneclient.info.cleaned
+	lcov --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
+	lcov --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
+	                                   'relwithdebinfo/*' 'debug/*' 'release/*' \
+																		 '**/helpers/*' 'deps/*' \
+																		 --output-file `pwd`/oneclient.info.cleaned
+	genhtml -o `pwd`/coverage `pwd`/oneclient.info.cleaned
 	@echo "Coverage written to `pwd`/coverage/index.html"
 
 .PHONY: check_distribution

@@ -44,7 +44,7 @@ const std::vector<FileRenamedEntry> &FileRenamed::childEntries() const
 std::string FileRenamed::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'FileRenamedEvent', new uuid: " << m_newUuid
+    stream << "type: 'FileRenamed', new uuid: " << m_newUuid
            << ", child entries: [";
 
     for (const auto &childEntry : m_childEntries)

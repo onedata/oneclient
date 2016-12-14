@@ -9,133 +9,140 @@
 #ifndef ONECLIENT_FS_SUBSCRIPTIONS_H
 #define ONECLIENT_FS_SUBSCRIPTIONS_H
 
+#include "events/declarations.h"
+#include "events/streams.h"
+
 #include <folly/FBString.h>
 
-#include <chrono>
-#include <cstddef>
-#include <string>
-#include <unordered_map>
+#include <tbb/concurrent_hash_map.h>
 
 namespace one {
-class Scheduler;
 namespace client {
+namespace cache {
+class ForceProxyIOCache;
+class LRUMetadataCache;
+} // namespace cache
 namespace events {
-class EventManager;
+class Manager;
+class FileAttrChanged;
+class FileLocationChanged;
+class FilePermChanged;
+class FileRemoved;
+class FileRenamed;
 } // namespace events
 
-constexpr std::chrono::seconds FILE_ATTR_SUBSCRIPTION_DURATION{30};
+constexpr std::chrono::seconds SUBSCRIPTION_DURATION{30};
+
+template <typename T> struct StdHashCompare {
+    bool equal(const T &a, const T &b) const { return a == b; }
+    std::size_t hash(const T &a) const
+    {
+        return std::hash<std::pair<std::size_t, std::size_t>>()(
+            {static_cast<std::size_t>(a.first),
+                std::hash<folly::fbstring>()(a.second)});
+    }
+};
 
 class FsSubscriptions {
+    using Key = std::pair<events::StreamKey, folly::fbstring>;
+
 public:
     /**
      * Constructor.
-     * @param eventManager @c EventManager instance.
+     * @param eventManager @c events::Manager instance.
+     * @param metadataCache @c cache::LRUMetadataCache instance.
+     * @param forceProxyIOCache @c cache::ForceProxyIOCache instance.
+     * @param runInFiber A function that runs callback inside a main fiber.
      */
-    FsSubscriptions(events::EventManager &eventManager);
+    FsSubscriptions(events::Manager &eventManager,
+        cache::LRUMetadataCache &metadataCache,
+        cache::ForceProxyIOCache &forceProxyIOCache,
+        std::function<void(folly::Function<void()>)> runInFiber);
 
     /**
-     * Adds subscription for file location updates. Subscription of the
-     * file will be forwarded to the server.
+     * Adds subscription for file attributes updates.
      * @param fileUuid UUID of file for which subscription is added.
      */
-    void addFileLocationSubscription(const folly::fbstring &fileUuid);
+    void subscribeFileAttrChanged(const folly::fbstring &fileUuid);
 
     /**
-     * Removes subscription for file location updates. Subscription cancellation
-     * message will be sent to the server.
+     * Cancels subscription for file attributes updates.
      * @param fileUuid UUID of file for which subscription is removed.
-     * @return True if subscription has been removed, false if it didn't exist
+     * @return true if subscription has been removed, false if it didn't exist.
      */
-    bool removeFileLocationSubscription(const folly::fbstring &fileUuid);
+    bool unsubscribeFileAttrChanged(const folly::fbstring &fileUuid);
 
     /**
-     * Adds subscription for permission updates. Subscription of the
-     * file will be forwarded to the server.
+     * Adds subscription for file location updates.
      * @param fileUuid UUID of file for which subscription is added.
      */
-    virtual void addPermissionChangedSubscription(
-        const folly::fbstring &fileUuid);
+    void subscribeFileLocationChanged(const folly::fbstring &fileUuid);
 
     /**
-     * Removes subscription for permission updates. Subscription cancellation
-     * message will be sent to the server.
+     * Cancels subscription for file location updates.
      * @param fileUuid UUID of file for which subscription is removed.
+     * @return true if subscription has been removed, false if it didn't exist.
      */
-    virtual void removePermissionChangedSubscription(
-        const folly::fbstring &fileUuid);
+    bool unsubscribeFileLocationChanged(const folly::fbstring &fileUuid);
 
     /**
-     * Adds subscription for removing file.
+     * Adds subscription for file permission changed event.
      * @param fileUuid UUID of file for which subscription is added.
      */
-    void addFileRemovedSubscription(const folly::fbstring &fileUuid);
+    void subscribeFilePermChanged(const folly::fbstring &fileUuid);
 
     /**
-     * Removes subscription for file removal.
+     * Cancels subscription for file permission changed event.
      * @param fileUuid UUID of file for which subscription is removed.
      */
-    void removeFileRemovedSubscription(const folly::fbstring &fileUuid);
+    bool unsubscribeFilePermChanged(const folly::fbstring &fileUuid);
 
     /**
-     * Adds subscription for renaming file.
+     * Adds subscription for file removed event.
      * @param fileUuid UUID of file for which subscription is added.
      */
-    void addFileRenamedSubscription(const folly::fbstring &fileUuid);
+    void subscribeFileRemoved(const folly::fbstring &fileUuid);
 
     /**
-     * Removes subscription for renaming file.
+     * Cancels subscription for file removed event.
      * @param fileUuid UUID of file for which subscription is removed.
      */
-    void removeFileRenamedSubscription(const folly::fbstring &fileUuid);
+    bool unsubscribeFileRemoved(const folly::fbstring &fileUuid);
 
     /**
-     * Adds subscription for file attributes updates. Subscription of the
-     * file will be forwarded to the server.
+     * Adds subscription for file renamed event.
      * @param fileUuid UUID of file for which subscription is added.
      */
-    void addFileAttrSubscription(const folly::fbstring &fileUuid);
+    void subscribeFileRenamed(const folly::fbstring &fileUuid);
 
     /**
-     * Removes subscription for file attributes updates. Subscription
-     * cancellation message will be sent to the server.
+     * Cancels subscription for file renamed event.
      * @param fileUuid UUID of file for which subscription is removed.
      */
-    void removeFileAttrSubscription(const folly::fbstring &fileUuid);
-
-    /**
-     * Adds subscription for quota updates. Subscription of the
-     * file will be forwarded to the server.
-     */
-    void addQuotaSubscription();
-
-    /**
-     * Removes subscription for quota updates. Subscription
-     * cancellation message will be sent to the server.
-     */
-    void removeQuotaSubscription();
+    bool unsubscribeFileRenamed(const folly::fbstring &fileUuid);
 
 private:
-    std::int64_t sendFileAttrSubscription(const folly::fbstring &fileUuid);
-    std::int64_t sendFileLocationSubscription(const folly::fbstring &fileUuid);
-    std::int64_t sendPermissionChangedSubscription(
-        const folly::fbstring &fileUuid);
-    std::int64_t sendFileRemovedSubscription(const folly::fbstring &fileUuid);
-    std::int64_t sendQuotaSubscription();
-    std::int64_t sendFileRenamedSubscription(const folly::fbstring &fileUuid);
-    void sendSubscriptionCancellation(std::int64_t id);
+    void subscribe(const folly::fbstring &fileUuid,
+        const events::Subscription &subscription);
+    bool unsubscribe(
+        events::StreamKey streamKey, const folly::fbstring &fileUuid);
 
-    events::EventManager &m_eventManager;
-    std::unordered_map<folly::fbstring, std::int64_t> m_fileAttrSubscriptions;
-    std::unordered_map<folly::fbstring, std::int64_t>
-        m_fileLocationSubscriptions;
-    std::unordered_map<folly::fbstring, std::int64_t>
-        m_permissionChangedSubscriptions;
-    std::unordered_map<folly::fbstring, std::int64_t>
-        m_fileRemovedSubscriptions;
-    std::unordered_map<folly::fbstring, std::int64_t>
-        m_fileRenamedSubscriptions;
+    void handleFileAttrChanged(events::Events<events::FileAttrChanged> events);
+    void handleFileLocationChanged(
+        events::Events<events::FileLocationChanged> events);
+    void handlePermissionChanged(
+        events::Events<events::FilePermChanged> events);
+    void handleFileRemoved(events::Events<events::FileRemoved> events);
+    void handleFileRenamed(events::Events<events::FileRenamed> events);
 
-    std::int64_t m_quotaSubscription = 0;
+    events::Manager &m_eventManager;
+    cache::LRUMetadataCache &m_metadataCache;
+    cache::ForceProxyIOCache &m_forceProxyIOCache;
+    std::function<void(folly::Function<void()>)> m_runInFiber;
+    tbb::concurrent_hash_map<Key, std::int64_t, StdHashCompare<Key>>
+        m_subscriptions;
+
+    using SubscriptionAcc = typename decltype(m_subscriptions)::accessor;
 };
 
 } // namespace client

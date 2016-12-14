@@ -1,203 +1,207 @@
 /**
  * @file fsSubscriptions.cc
  * @author Krzysztof Trzepla
- * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
 #include "fsSubscriptions.h"
-#include "events/eventManager.h"
-#include "events/subscriptions/fileAttrSubscription.h"
-#include "events/subscriptions/fileLocationSubscription.h"
-#include "events/subscriptions/permissionChangedSubscription.h"
-#include "events/subscriptions/quotaSubscription.h"
+#include "cache/forceProxyIOCache.h"
+#include "cache/lruMetadataCache.h"
+#include "events/events.h"
+#include "messages/fuse/fileAttr.h"
+#include "messages/fuse/fileLocation.h"
 #include "scheduler.h"
 
-#include <functional>
+#include <cassert>
+#include <sstream>
 
 namespace one {
 namespace client {
 
-FsSubscriptions::FsSubscriptions(events::EventManager &eventManager)
+FsSubscriptions::FsSubscriptions(events::Manager &eventManager,
+    cache::LRUMetadataCache &metadataCache,
+    cache::ForceProxyIOCache &forceProxyIOCache,
+    std::function<void(folly::Function<void()>)> runInFiber)
     : m_eventManager{eventManager}
+    , m_metadataCache{metadataCache}
+    , m_forceProxyIOCache{forceProxyIOCache}
+    , m_runInFiber{std::move(runInFiber)}
 {
 }
 
-void FsSubscriptions::addFileLocationSubscription(
-    const folly::fbstring &fileUuid)
+void FsSubscriptions::subscribeFileAttrChanged(const folly::fbstring &fileUuid)
 {
-    if (!m_fileLocationSubscriptions.count(fileUuid))
-        m_fileLocationSubscriptions[fileUuid] =
-            sendFileLocationSubscription(fileUuid);
+    subscribe(
+        fileUuid, events::FileAttrChangedSubscription{fileUuid.toStdString(),
+                      SUBSCRIPTION_DURATION, [this](auto events) mutable {
+                          this->handleFileAttrChanged(std::move(events));
+                      }});
 }
 
-bool FsSubscriptions::removeFileLocationSubscription(
-    const folly::fbstring &fileUuid)
+void FsSubscriptions::handleFileAttrChanged(
+    events::Events<events::FileAttrChanged> events)
 {
-    auto it = m_fileLocationSubscriptions.find(fileUuid);
-    if (it == m_fileLocationSubscriptions.end())
-        return false;
+    using namespace messages::fuse;
 
-    sendSubscriptionCancellation(it->second);
-    m_fileLocationSubscriptions.erase(it);
-    return true;
+    m_runInFiber([ this, events = std::move(events) ] {
+        for (auto &event : events) {
+            auto &attr = event->fileAttr();
+            if (m_metadataCache.updateAttr(attr))
+                LOG(INFO) << "Updated attributes for uuid: '" << attr.uuid()
+                          << "', size: " << (attr.size() ? *attr.size() : -1);
+            else
+                LOG(INFO) << "No attributes to update for uuid: '"
+                          << attr.uuid() << "'";
+        }
+    });
 }
 
-void FsSubscriptions::addPermissionChangedSubscription(
+bool FsSubscriptions::unsubscribeFileAttrChanged(
     const folly::fbstring &fileUuid)
 {
-    if (!m_permissionChangedSubscriptions.count(fileUuid))
-        m_permissionChangedSubscriptions[fileUuid] =
-            sendPermissionChangedSubscription(fileUuid);
+    return unsubscribe(events::StreamKey::FILE_ATTR_CHANGED, fileUuid);
 }
 
-void FsSubscriptions::removePermissionChangedSubscription(
+void FsSubscriptions::subscribeFileLocationChanged(
     const folly::fbstring &fileUuid)
 {
-    auto it = m_permissionChangedSubscriptions.find(fileUuid);
-    if (it != m_permissionChangedSubscriptions.end()) {
-        sendSubscriptionCancellation(it->second);
-        m_permissionChangedSubscriptions.erase(it);
+    subscribe(fileUuid,
+        events::FileLocationChangedSubscription{fileUuid.toStdString(),
+            SUBSCRIPTION_DURATION, [this](auto events) mutable {
+                this->handleFileLocationChanged(std::move(events));
+            }});
+}
+
+void FsSubscriptions::handleFileLocationChanged(
+    events::Events<events::FileLocationChanged> events)
+{
+    using namespace messages::fuse;
+
+    m_runInFiber([ this, events = std::move(events) ] {
+        for (auto &event : events) {
+            auto &loc = event->fileLocation();
+            if (m_metadataCache.updateLocation(loc))
+                LOG(INFO) << "Updated locations for uuid: '" << loc.uuid()
+                          << "'";
+            else
+                LOG(INFO) << "No location to update for uuid: '" << loc.uuid()
+                          << "'";
+        }
+    });
+}
+
+bool FsSubscriptions::unsubscribeFileLocationChanged(
+    const folly::fbstring &fileUuid)
+{
+    return unsubscribe(events::StreamKey::FILE_LOCATION_CHANGED, fileUuid);
+}
+
+void FsSubscriptions::subscribeFilePermChanged(const folly::fbstring &fileUuid)
+{
+    subscribe(
+        fileUuid, events::FilePermChangedSubscription{
+                      fileUuid.toStdString(), [this](auto events) mutable {
+                          this->handlePermissionChanged(std::move(events));
+                      }});
+}
+
+void FsSubscriptions::handlePermissionChanged(
+    events::Events<events::FilePermChanged> events)
+{
+    m_runInFiber([ this, events = std::move(events) ] {
+        for (auto &event : events) {
+            m_forceProxyIOCache.remove(event->fileUuid());
+        }
+    });
+}
+
+bool FsSubscriptions::unsubscribeFilePermChanged(
+    const folly::fbstring &fileUuid)
+{
+    return unsubscribe(events::StreamKey::FILE_PERM_CHANGED, fileUuid);
+}
+
+void FsSubscriptions::subscribeFileRemoved(const folly::fbstring &fileUuid)
+{
+    subscribe(fileUuid, events::FileRemovedSubscription{fileUuid.toStdString(),
+                            [this](auto events) mutable {
+                                this->handleFileRemoved(std::move(events));
+                            }});
+}
+
+void FsSubscriptions::handleFileRemoved(
+    events::Events<events::FileRemoved> events)
+{
+    m_runInFiber([ this, events = std::move(events) ] {
+        for (auto &event : events) {
+            auto &uuid = event->fileUuid();
+            if (m_metadataCache.markDeleted(uuid))
+                LOG(INFO) << "File remove event received: " << uuid;
+            else
+                LOG(INFO) << "Received a file remove event for '" << uuid
+                          << "', but the file metadata is no longer cached.";
+        }
+    });
+}
+
+bool FsSubscriptions::unsubscribeFileRemoved(const folly::fbstring &fileUuid)
+{
+    return unsubscribe(events::StreamKey::FILE_REMOVED, fileUuid);
+}
+
+void FsSubscriptions::subscribeFileRenamed(const folly::fbstring &fileUuid)
+{
+    subscribe(fileUuid, events::FileRenamedSubscription{fileUuid.toStdString(),
+                            [this](auto events) mutable {
+                                this->handleFileRenamed(std::move(events));
+                            }});
+}
+
+void FsSubscriptions::handleFileRenamed(
+    events::Events<events::FileRenamed> events)
+{
+    m_runInFiber([ this, events = std::move(events) ] {
+        for (auto &event : events) {
+            auto &entry = event->topEntry();
+            if (m_metadataCache.rename(entry.oldUuid(), entry.newParentUuid(),
+                    entry.newName(), entry.newUuid()))
+                LOG(INFO) << "File renamed event handled: '" << entry.oldUuid()
+                          << "' -> '" << entry.newUuid() << "'";
+            else
+                LOG(INFO) << "Received a file renamed event for '"
+                          << entry.oldUuid()
+                          << "', but the file metadata is no longer cached.";
+        }
+    });
+}
+
+bool FsSubscriptions::unsubscribeFileRenamed(const folly::fbstring &fileUuid)
+{
+    return unsubscribe(events::StreamKey::FILE_RENAMED, fileUuid);
+}
+
+void FsSubscriptions::subscribe(
+    const folly::fbstring &fileUuid, const events::Subscription &subscription)
+{
+    SubscriptionAcc subscriptionAcc;
+    if (m_subscriptions.insert(
+            subscriptionAcc, {subscription.streamKey(), fileUuid})) {
+        subscriptionAcc->second = m_eventManager.subscribe(subscription);
     }
 }
 
-void FsSubscriptions::addFileRemovedSubscription(
-    const folly::fbstring &fileUuid)
+bool FsSubscriptions::unsubscribe(
+    events::StreamKey streamKey, const folly::fbstring &fileUuid)
 {
-    if (!m_fileRemovedSubscriptions.count(fileUuid))
-        m_fileRemovedSubscriptions[fileUuid] =
-            sendFileRemovedSubscription(fileUuid);
-}
-
-void FsSubscriptions::removeFileRemovedSubscription(
-    const folly::fbstring &fileUuid)
-{
-    auto it = m_fileRemovedSubscriptions.find(fileUuid);
-    if (it != m_fileRemovedSubscriptions.end()) {
-        sendSubscriptionCancellation(it->second);
-        m_fileRemovedSubscriptions.erase(it);
+    SubscriptionAcc subscriptionAcc;
+    if (m_subscriptions.find(subscriptionAcc, {streamKey, fileUuid})) {
+        m_eventManager.unsubscribe(subscriptionAcc->second);
+        m_subscriptions.erase(subscriptionAcc);
+        return true;
     }
-}
-
-void FsSubscriptions::addFileRenamedSubscription(
-    const folly::fbstring &fileUuid)
-{
-    if (!m_fileRenamedSubscriptions.count(fileUuid))
-        m_fileRenamedSubscriptions[fileUuid] =
-            sendFileRenamedSubscription(fileUuid);
-}
-
-void FsSubscriptions::removeFileRenamedSubscription(
-    const folly::fbstring &fileUuid)
-{
-    auto it = m_fileRenamedSubscriptions.find(fileUuid);
-    if (it != m_fileRenamedSubscriptions.end()) {
-        sendSubscriptionCancellation(it->second);
-        m_fileRenamedSubscriptions.erase(it);
-    }
-}
-
-void FsSubscriptions::addFileAttrSubscription(const folly::fbstring &fileUuid)
-{
-    if (!m_fileAttrSubscriptions.count(fileUuid))
-        m_fileAttrSubscriptions[fileUuid] = sendFileAttrSubscription(fileUuid);
-}
-
-void FsSubscriptions::removeFileAttrSubscription(
-    const folly::fbstring &fileUuid)
-{
-    auto it = m_fileAttrSubscriptions.find(fileUuid);
-    if (it != m_fileAttrSubscriptions.end()) {
-        sendSubscriptionCancellation(it->second);
-        m_fileAttrSubscriptions.erase(it);
-    }
-}
-
-void FsSubscriptions::addQuotaSubscription()
-{
-    m_quotaSubscription = sendQuotaSubscription();
-}
-
-void FsSubscriptions::removeQuotaSubscription()
-{
-    if (m_quotaSubscription) {
-        sendSubscriptionCancellation(m_quotaSubscription);
-        m_quotaSubscription = 0;
-    }
-}
-
-std::int64_t FsSubscriptions::sendFileAttrSubscription(
-    const folly::fbstring &fileUuid)
-{
-    DLOG(INFO) << "Sending subscription for change of attributes of file: "
-               << fileUuid;
-    events::FileAttrSubscription clientSubscription{
-        fileUuid.toStdString(), {}, std::chrono::milliseconds{500}};
-    events::FileAttrSubscription serverSubscription{
-        fileUuid.toStdString(), {}, std::chrono::milliseconds{500}};
-    return m_eventManager.subscribe(
-        std::move(clientSubscription), std::move(serverSubscription));
-}
-
-std::int64_t FsSubscriptions::sendFileLocationSubscription(
-    const folly::fbstring &fileUuid)
-{
-    DLOG(INFO) << "Sending subscription for change of location of file: "
-               << fileUuid;
-    events::FileLocationSubscription clientSubscription{
-        fileUuid.toStdString(), {}, std::chrono::milliseconds{500}};
-    events::FileLocationSubscription serverSubscription{
-        fileUuid.toStdString(), {}, std::chrono::milliseconds{500}};
-    return m_eventManager.subscribe(
-        std::move(clientSubscription), std::move(serverSubscription));
-}
-
-std::int64_t FsSubscriptions::sendPermissionChangedSubscription(
-    const folly::fbstring &fileUuid)
-{
-    DLOG(INFO) << "Sending subscription for change of permissions of file: "
-               << fileUuid;
-    events::PermissionChangedSubscription clientSubscription{
-        fileUuid.toStdString()};
-    events::PermissionChangedSubscription serverSubscription{
-        fileUuid.toStdString()};
-    return m_eventManager.subscribe(
-        std::move(clientSubscription), std::move(serverSubscription));
-}
-
-std::int64_t FsSubscriptions::sendFileRemovedSubscription(
-    const folly::fbstring &fileUuid)
-{
-    DLOG(INFO) << "Sending subscription for removing file: " << fileUuid;
-    events::FileRemovedSubscription clientSubscription{fileUuid.toStdString()};
-    events::FileRemovedSubscription serverSubscription{fileUuid.toStdString()};
-    return m_eventManager.subscribe(
-        std::move(clientSubscription), std::move(serverSubscription));
-}
-
-std::int64_t FsSubscriptions::sendQuotaSubscription()
-{
-    DLOG(INFO) << "Sending subscription for quota";
-    events::QuotaSubscription clientSubscription{};
-    events::QuotaSubscription serverSubscription{};
-    return m_eventManager.subscribe(
-        std::move(clientSubscription), std::move(serverSubscription));
-}
-
-std::int64_t FsSubscriptions::sendFileRenamedSubscription(
-    const folly::fbstring &fileUuid)
-{
-    DLOG(INFO) << "Sending subscription for renaming file: " << fileUuid;
-    events::FileRenamedSubscription clientSubscription{fileUuid.toStdString()};
-    events::FileRenamedSubscription serverSubscription{fileUuid.toStdString()};
-    return m_eventManager.subscribe(
-        std::move(clientSubscription), std::move(serverSubscription));
-}
-
-void FsSubscriptions::sendSubscriptionCancellation(std::int64_t id)
-{
-    m_eventManager.unsubscribe(id);
+    return false;
 }
 
 } // namespace client

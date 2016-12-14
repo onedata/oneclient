@@ -67,64 +67,62 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_context{std::move(context)}
     , m_metadataCache{*m_context->communicator()}
-    , m_metadataEventHandler{m_eventManager, m_metadataCache, runInFiber}
     , m_helpersCache{std::move(helpersCache)}
+    , m_fsSubscriptions{
+          m_eventManager, m_metadataCache, m_forceProxyIOCache, runInFiber}
 {
     using namespace std::placeholders;
 
-    m_eventManager.setPermissionChangedHandler([=](auto events) {
-        runInFiber([ this, events = std::move(events) ] {
-            for (auto &event : events)
-                m_forceProxyIOCache.handlePermissionChanged(event->fileUuid());
-        });
-    });
-
-    m_eventManager.setQuotaExeededHandler([=](auto events) {
-        runInFiber([ this, events = std::move(events) ] {
-            if (!events.empty())
-                this->disableSpaces(events.back()->spaces());
-        });
-    });
-
-    m_eventManager.subscribe(configuration->subscriptionContainer());
+    m_eventManager.subscribe(*configuration);
 
     // Quota initial configuration
-    m_fsSubscriptions.addQuotaSubscription();
-    disableSpaces(configuration->disabledSpacesContainer());
+    m_eventManager.subscribe(
+        events::QuotaExceededSubscription{[=](auto events) {
+            runInFiber([ this, events = std::move(events) ] {
+                this->disableSpaces(events.back()->spaces());
+            });
+        }});
+    disableSpaces(configuration->disabledSpaces());
+
+    m_forceProxyIOCache.onAdd([this](const folly::fbstring &uuid) {
+        m_fsSubscriptions.subscribeFilePermChanged(uuid);
+    });
+
+    m_forceProxyIOCache.onRemove([this](const folly::fbstring &uuid) {
+        m_fsSubscriptions.unsubscribeFilePermChanged(uuid);
+    });
 
     m_metadataCache.onAdd([this](const folly::fbstring &uuid) {
-        m_fsSubscriptions.addFileAttrSubscription(uuid.toStdString());
-        m_fsSubscriptions.addFileRemovedSubscription(uuid.toStdString());
-        m_fsSubscriptions.addFileRenamedSubscription(uuid.toStdString());
+        m_fsSubscriptions.subscribeFileAttrChanged(uuid);
+        m_fsSubscriptions.subscribeFileRemoved(uuid);
+        m_fsSubscriptions.subscribeFileRenamed(uuid);
     });
 
     m_metadataCache.onOpen([this](const folly::fbstring &uuid) {
-        m_fsSubscriptions.addFileLocationSubscription(uuid.toStdString());
+        m_fsSubscriptions.subscribeFileLocationChanged(uuid);
     });
 
     m_metadataCache.onPrune([this](const folly::fbstring &uuid) {
-        m_fsSubscriptions.removeFileLocationSubscription(uuid.toStdString());
-        m_fsSubscriptions.removeFileAttrSubscription(uuid.toStdString());
-        m_fsSubscriptions.removeFileRemovedSubscription(uuid.toStdString());
-        m_fsSubscriptions.removeFileRenamedSubscription(uuid.toStdString());
+        m_fsSubscriptions.unsubscribeFileAttrChanged(uuid);
+        m_fsSubscriptions.unsubscribeFileLocationChanged(uuid);
+        m_fsSubscriptions.unsubscribeFileRemoved(uuid);
+        m_fsSubscriptions.unsubscribeFileRenamed(uuid);
     });
 
-    m_metadataCache.onRename([this](
-        const folly::fbstring &oldUuid, const folly::fbstring &newUuid) {
-        m_fsSubscriptions.removeFileAttrSubscription(oldUuid.toStdString());
-        m_fsSubscriptions.removeFileRemovedSubscription(oldUuid.toStdString());
-        m_fsSubscriptions.removeFileRenamedSubscription(oldUuid.toStdString());
-        m_fsSubscriptions.addFileAttrSubscription(newUuid.toStdString());
-        m_fsSubscriptions.addFileRemovedSubscription(newUuid.toStdString());
-        m_fsSubscriptions.addFileRenamedSubscription(newUuid.toStdString());
+    m_metadataCache.onRename(
+        [this](const folly::fbstring &oldUuid, const folly::fbstring &newUuid) {
+            m_fsSubscriptions.unsubscribeFileAttrChanged(oldUuid);
+            m_fsSubscriptions.unsubscribeFileRemoved(oldUuid);
+            m_fsSubscriptions.unsubscribeFileRenamed(oldUuid);
+            m_fsSubscriptions.subscribeFileAttrChanged(newUuid);
+            m_fsSubscriptions.subscribeFileRemoved(newUuid);
+            m_fsSubscriptions.subscribeFileRenamed(newUuid);
 
-        if (m_fsSubscriptions.removeFileLocationSubscription(
-                oldUuid.toStdString()))
-            m_fsSubscriptions.addFileLocationSubscription(
-                newUuid.toStdString());
+            if (m_fsSubscriptions.unsubscribeFileLocationChanged(oldUuid))
+                m_fsSubscriptions.subscribeFileLocationChanged(newUuid);
 
-        m_onRename(oldUuid, newUuid);
-    });
+            m_onRename(oldUuid, newUuid);
+        });
 
     m_metadataCache.onMarkDeleted(
         [this](const folly::fbstring &uuid) { m_onMarkDeleted(uuid); });
@@ -285,7 +283,8 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         }
 
         const auto bytesRead = readBuffer.chainLength();
-        m_eventManager.emitReadEvent(offset, bytesRead, uuid.toStdString());
+        m_eventManager.emit<events::FileRead>(
+            uuid.toStdString(), offset, bytesRead);
 
         return readBuffer;
     }
@@ -295,7 +294,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         if (m_forceProxyIOCache.contains(uuid))
             throw;
 
-        m_forceProxyIOCache.insert(uuid);
+        m_forceProxyIOCache.add(uuid);
 
         return read(uuid, fileHandleId, offset, size, checksum);
     }
@@ -331,12 +330,12 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
         if (m_forceProxyIOCache.contains(uuid))
             throw;
 
-        m_forceProxyIOCache.insert(uuid);
+        m_forceProxyIOCache.add(uuid);
         return write(uuid, fuseFileHandleId, offset, std::move(buf));
     }
 
-    m_eventManager.emitWriteEvent(offset, bytesWritten, uuid.toStdString(),
-        fileBlock.storageId(), fileBlock.fileId());
+    m_eventManager.emit<events::FileWritten>(uuid.toStdString(), offset,
+        bytesWritten, fileBlock.storageId(), fileBlock.fileId());
 
     auto writtenRange = boost::icl::discrete_interval<off_t>::right_open(
         offset, offset + bytesWritten);
@@ -441,7 +440,8 @@ FileAttrPtr FsLogic::setattr(
     if (toSet & FUSE_SET_ATTR_SIZE) {
         communicate(messages::fuse::Truncate{uuid.toStdString(), attr.st_size});
         m_metadataCache.truncate(uuid, attr.st_size);
-        m_eventManager.emitTruncateEvent(attr.st_size, uuid.toStdString());
+        m_eventManager.emit<events::FileTruncated>(
+            uuid.toStdString(), attr.st_size);
     }
 
     messages::fuse::UpdateTimes updateTimes{uuid.toStdString()};

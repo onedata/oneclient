@@ -9,6 +9,7 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_FILE_LOCATION_H
 #define ONECLIENT_MESSAGES_FUSE_FILE_LOCATION_H
 
+#include "events/types/event.h"
 #include "fileBlock.h"
 #include "fuseResponse.h"
 
@@ -26,11 +27,6 @@ namespace one {
 namespace clproto {
 class FileLocation;
 }
-namespace client {
-namespace events {
-class FileLocationSubscription;
-} // namespace events
-} // namespace client
 namespace messages {
 namespace fuse {
 
@@ -40,12 +36,9 @@ namespace fuse {
  */
 class FileLocation : public FuseResponse {
 public:
-    using Key = std::string;
     using FileBlocksMap = boost::icl::interval_map<off_t, FileBlock,
         boost::icl::partial_enricher>;
-    using FileLocationPtr = std::unique_ptr<FileLocation>;
     using ProtocolMessage = clproto::FileLocation;
-    using Subscription = client::events::FileLocationSubscription;
 
     FileLocation() = default;
 
@@ -61,14 +54,7 @@ public:
      * @param message Protocol Buffers message representing @c FileLocation
      * counterpart.
      */
-    FileLocation(ProtocolMessage message);
-
-    /**
-     * @return Value that distinguish @c this file location from other file
-     * locations, i.e. file locations with the same key can be aggregated.
-     * @see @c FileLocation::Key.
-     */
-    const Key &key() const;
+    FileLocation(const ProtocolMessage &message);
 
     /**
      * @return File UUID.
@@ -112,18 +98,10 @@ public:
      */
     const FileBlocksMap &blocks() const;
 
-    /**
-     * Aggregates @c this file location with an other file location.
-     * Aggregation is done by substitution of all @c this file location fields
-     * with an other file location fields.
-     * @param fileLocation File location to be aggregated.
-     */
-    void aggregate(FileLocationPtr fileLocation);
-
     std::string toString() const override;
 
 private:
-    void deserialize(ProtocolMessage &message);
+    void deserialize(const ProtocolMessage &message);
 
     std::string m_uuid;
     std::string m_spaceId;

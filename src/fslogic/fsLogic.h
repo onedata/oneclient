@@ -14,9 +14,8 @@
 #include "cache/forceProxyIOCache.h"
 #include "cache/helpersCache.h"
 #include "cache/lruMetadataCache.h"
-#include "events/eventManager.h"
+#include "events/events.h"
 #include "fsSubscriptions.h"
-#include "metadataEventHandler.h"
 
 #include <asio/buffer.hpp>
 #include <boost/icl/discrete_interval.hpp>
@@ -212,12 +211,11 @@ private:
     void disableSpaces(const std::vector<std::string> &spaces);
 
     std::shared_ptr<Context> m_context;
-    events::EventManager m_eventManager{m_context};
+    events::Manager m_eventManager{m_context};
     cache::LRUMetadataCache m_metadataCache;
-    MetadataEventHandler m_metadataEventHandler;
+    cache::ForceProxyIOCache m_forceProxyIOCache;
     std::unique_ptr<cache::HelpersCache> m_helpersCache;
-    FsSubscriptions m_fsSubscriptions{m_eventManager};
-    cache::ForceProxyIOCache m_forceProxyIOCache{m_fsSubscriptions};
+    FsSubscriptions m_fsSubscriptions;
     std::unordered_set<folly::fbstring> m_disabledSpaces;
 
     std::unordered_map<std::uint64_t, std::shared_ptr<FuseFileHandle>>

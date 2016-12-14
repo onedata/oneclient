@@ -13,11 +13,22 @@
 
 #include <folly/FBString.h>
 
-#include <unordered_set>
+#include <tbb/concurrent_hash_map.h>
 
 namespace one {
 namespace client {
 namespace cache {
+
+struct StdHashCompare {
+    bool equal(const folly::fbstring &a, const folly::fbstring &b) const
+    {
+        return a == b;
+    }
+    std::size_t hash(const folly::fbstring &a) const
+    {
+        return std::hash<folly::fbstring>()(a);
+    }
+};
 
 /**
  * @c ForceProxyIOCache is responsible for holding uuids of files that
@@ -26,39 +37,43 @@ namespace cache {
 class ForceProxyIOCache {
 public:
     /**
-     * Constructor
-     * @param communicator Communicator instance used to fetch helper
-     * parameters.
-     */
-    ForceProxyIOCache(FsSubscriptions &fsSubscriptions);
-
-    /**
-     * Checks if fileUuid is present in cache
+     * Checks if file is cached.
      * @param fileUuid Uuid of file to be checked.
      */
     bool contains(const folly::fbstring &fileUuid);
 
     /**
-     * Inserts fileUuid to cache
-     * @param fileUuid to be inserted
+     * Adds file to the cache.
+     * @param fileUuid of a file to be added to the cache.
      */
-    void insert(folly::fbstring fileUuid);
+    void add(const folly::fbstring &fileUuid);
 
     /**
-     * Erases fileUuid from cache
-     * @param fileUuid to be deleted
+     * Removes file from the cache.
+     * @param fileUuid of a file to be removed from the cache.
      */
-    void erase(const folly::fbstring &fileUuid);
+    void remove(const folly::fbstring &fileUuid);
 
     /**
-     * Handle an event where permissions to file changed externally.
-     * @param fileUuid Uuid of the file.
+     * Sets a callback that will be called before a file is added to the cache.
+     * @param cb The callback which takes uuid as parameter.
      */
-    void handlePermissionChanged(const folly::fbstring &fileUuid);
+    void onAdd(std::function<void(const folly::fbstring &)> cb);
+
+    /**
+     * Sets a callback that will be called after a file is removed from the
+     * cache.
+     * @param cb The callback which takes uuid as parameter.
+     */
+    void onRemove(std::function<void(const folly::fbstring &)> cb);
 
 private:
-    std::unordered_set<folly::fbstring> m_cache;
-    FsSubscriptions &m_fsSubscriptions;
+    std::function<void(const folly::fbstring &)> m_onAdd = [](auto &) {};
+    std::function<void(const folly::fbstring &)> m_onRemove = [](auto &) {};
+    tbb::concurrent_hash_map<folly::fbstring, bool, StdHashCompare> m_cache;
+
+    using CacheAcc = typename decltype(m_cache)::accessor;
+    using ConstCacheAcc = typename decltype(m_cache)::const_accessor;
 };
 
 } // namespace cache

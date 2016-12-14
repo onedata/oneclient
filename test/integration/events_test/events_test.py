@@ -1,10 +1,9 @@
-"""This module tests events emission and subscription using event self.manager."""
+"""This module tests events emission and subscription using event manager."""
 
 __author__ = "Krzysztof Trzepla"
-__copyright__ = """(C) 2015 ACK CYFRONET AGH,
+__copyright__ = """(C) 2016 ACK CYFRONET AGH,
 This software is released under the MIT license cited in 'LICENSE.txt'."""
 
-import math
 import os
 import sys
 import time
@@ -16,50 +15,54 @@ sys.path.insert(0, os.path.dirname(script_dir))
 
 from test_common import *
 import events
+from proto import messages_pb2, common_messages_pb2, fuse_messages_pb2, \
+                  event_messages_pb2
+
+class EvtParam(Parameter):
+    @staticmethod
+    def evt_num(num):
+        return Parameter('evt_num', 'Number of emitted events.', num)
+
+    @staticmethod
+    def key_num(num):
+        return Parameter('key_num', 'Number of different event keys.', num)
+
+    @staticmethod
+    def emit_time(duration, unit='ms'):
+        value = getattr(Duration, unit)(duration)
+        return Parameter('emit_time',
+                         'Summary time between the first and the last emitted '
+                         'event.', value, unit)
+
+    @staticmethod
+    def evtps(evt_num, duration):
+        return Parameter('evtps', 'Events emission speed.',
+                         evt_num * 1. / duration.s(), 'evt/s')
 
 
-def ctr_thr_param(value):
-    """Returns counter threshold parameter."""
-    return Parameter('ctr_thr', 'Counter threshold.', value)
+@pytest.fixture
+def uuid():
+    return random_str()
 
 
-def size_thr_param(value):
-    """Returns size threshold parameter."""
-    return Parameter('size_thr', 'Size threshold.', value)
+@pytest.fixture
+def sid():
+    return random_int()
 
 
-def evt_num_param(value):
-    """Returns event number parameter."""
-    return Parameter('evt_num', 'Number of emitted events.', value)
+@pytest.fixture
+def offset():
+    return random_int()
 
 
-def evt_size_param(value):
-    """Returns event size parameter."""
-    return Parameter('evt_size', 'Size of each event.', value, 'B')
+@pytest.fixture
+def size():
+    return random_int()
 
 
-def cycle_num_param(value):
-    """Returns parameter that describes number of write-read-truncate event
-    cycles."""
-    return Parameter('cycle_num', 'Number of write-read-truncate event cycles.',
-                     value)
-
-
-def emit_time_param(value, unit='ms'):
-    """Returns parameter that describes summary events emission time."""
-    return Parameter('emit_time', 'Summary events emission time.', value, unit)
-
-
-def recv_time_param(value, unit='ms'):
-    """Returns parameter that describes summary events emission time."""
-    return Parameter('recv_time', 'Summary time to receive all aggregated event'
-                                  ' messages.', value, unit)
-
-
-def evtps_param(evt_num, us):
-    """Returns parameter that describes number of events per second."""
-    return Parameter('evtps', 'Number of events per second.',
-                     1000000. * evt_num / us, 'event/s')
+@pytest.fixture
+def time_thr():
+    return random_int()
 
 
 @pytest.fixture
@@ -68,336 +71,493 @@ def endpoint(appmock_client):
 
 
 @pytest.fixture
-def evt_man(endpoint):
-    return events.EventManager(1, endpoint.ip, endpoint.port)
+def manager(endpoint):
+    return events.Manager(endpoint.ip, endpoint.port)
 
 
-def wait_for_result(expected, attempts, delay_ms, function, *args):
-    """Executes function periodically as long as it does not return expected
-    value or number of attemptes is exceeded."""
-    for _ in xrange(attempts):
-        result = function(*args)
-        if result == expected:
-            return True
+def prepare_file_read_subscription(sid, counter_thr=None, time_thr=None):
+    read_sub = event_messages_pb2.FileReadSubscription()
+    if counter_thr:
+        read_sub.counter_threshold = counter_thr
+    if time_thr:
+        read_sub.time_threshold = time_thr
 
-        time.sleep(delay_ms / 1000.)
+    sub = event_messages_pb2.Subscription()
+    sub.file_read.CopyFrom(read_sub)
 
-    return False
-
-
-def subscribe(endpoint, evt_man, id, msg):
-    """Ensures that client receives subscription."""
-    wait_for_result(True, 60, 500, send_subscription, endpoint, evt_man, id,
-                    msg)
+    return prepare_subscription(sid, sub)
 
 
-def send_subscription(endpoint, evt_man, id, msg):
-    """Sends subscription to the client and checks whether it has been received."""
-    endpoint.send(msg)
-    return wait_for_result(True, 60, 500, evt_man.existSubscription, id)
+def prepare_file_written_subscription(sid, counter_thr=None, time_thr=None):
+    write_sub = event_messages_pb2.FileWrittenSubscription()
+    if counter_thr:
+        write_sub.counter_threshold = counter_thr
+    if time_thr:
+        write_sub.time_threshold = time_thr
+
+    sub = event_messages_pb2.Subscription()
+    sub.file_written.CopyFrom(write_sub)
+
+    return prepare_subscription(sid, sub)
 
 
-def unsubscribe(endpoint, evt_man, id, msg):
-    """Ensures that client receives subscription cancellation."""
-    wait_for_result(True, 60, 500, send_subscription_cancellation, endpoint,
-                    evt_man, id, msg)
+def prepare_subscription(sid, sub):
+    sub.id = sid
+    msg = messages_pb2.ServerMessage()
+    msg.subscription.CopyFrom(sub)
+
+    return msg
 
 
-def send_subscription_cancellation(endpoint, evt_man, id, msg):
-    """Sends subscription cancellation to the client and checks whether it has
-    been received."""
-    endpoint.send(msg)
-    return wait_for_result(False, 60, 500, evt_man.existSubscription, id)
+def prepare_cancellation(sid):
+    can = event_messages_pb2.SubscriptionCancellation()
+    can.id = sid
+
+    msg = messages_pb2.ServerMessage()
+    msg.subscription_cancellation.CopyFrom(can)
+
+    return msg
+
+
+def prepare_file_attr_changed_event(uuid):
+    attr = fuse_messages_pb2.FileAttr()
+    attr.uuid = uuid
+    attr.name = 'filename'
+    attr.mode = random_int(upper_bound=1023)
+    attr.uid = random_int(upper_bound=20000)
+    attr.gid = random_int(upper_bound=20000)
+    attr.mtime = int(time.time()) - random_int(upper_bound=1000000)
+    attr.atime = attr.mtime - random_int(upper_bound=1000000)
+    attr.ctime = attr.atime - random_int(upper_bound=1000000)
+    attr.type = fuse_messages_pb2.REG
+    attr.size = random_int(upper_bound=1000000000)
+    attr.owner_id = ''
+    attr.provider_id = ''
+
+    attr_evt = event_messages_pb2.FileAttrChangedEvent()
+    attr_evt.file_attr.CopyFrom(attr)
+
+    evt = event_messages_pb2.Event()
+    evt.file_attr_changed.CopyFrom(attr_evt)
+
+    return prepare_events([evt])
+
+
+def prepare_file_location_changed_event(uuid):
+    loc = fuse_messages_pb2.FileLocation()
+    loc.uuid = uuid
+    loc.space_id = 'space1'
+    loc.storage_id = 'storage1'
+    loc.file_id = 'file1'
+    loc.provider_id = 'provider1'
+
+    loc_evt = event_messages_pb2.FileLocationChangedEvent()
+    loc_evt.file_location.CopyFrom(loc)
+
+    evt = event_messages_pb2.Event()
+    evt.file_location_changed.CopyFrom(loc_evt)
+
+    return prepare_events([evt])
+
+
+def prepare_quota_exceeded_event():
+    quota_evt = event_messages_pb2.QuotaExceededEvent()
+
+    evt = event_messages_pb2.Event()
+    evt.quota_exceeded.CopyFrom(quota_evt)
+
+    return prepare_events([evt])
+
+
+def prepare_file_perm_changed_event(uuid):
+    perm_evt = event_messages_pb2.FilePermChangedEvent()
+    perm_evt.file_uuid = uuid
+
+    evt = event_messages_pb2.Event()
+    evt.file_perm_changed.CopyFrom(perm_evt)
+
+    return prepare_events([evt])
+
+
+def prepare_file_renamed_event(uuid):
+    top_entry = common_messages_pb2.FileRenamedEntry()
+    top_entry.old_uuid = uuid
+    top_entry.new_uuid = random_str()
+    top_entry.new_parent_uuid = random_str()
+    top_entry.new_name = random_str()
+
+    rename_evt = event_messages_pb2.FileRenamedEvent()
+    rename_evt.top_entry.CopyFrom(top_entry)
+
+    evt = event_messages_pb2.Event()
+    evt.file_renamed.CopyFrom(rename_evt)
+
+    return prepare_events([evt])
+
+
+def prepare_file_removed_event(uuid):
+    remove_evt = event_messages_pb2.FileRemovedEvent()
+    remove_evt.file_uuid = uuid
+
+    evt = event_messages_pb2.Event()
+    evt.file_removed.CopyFrom(remove_evt)
+
+    return prepare_events([evt])
+
+
+def prepare_events(evt_list):
+    evts = event_messages_pb2.Events()
+    evts.events.extend(evt_list)
+
+    msg = messages_pb2.ServerMessage()
+    msg.events.CopyFrom(evts)
+
+    return msg
+
+# -----------------------------------------------------------------------------
+
+def test_subscribe_file_read(endpoint, manager, sid):
+    sub = prepare_file_read_subscription(sid)
+    with send(endpoint, sub):
+        wait_until(lambda: manager.existsSubscription(sid, True))
+
+
+def test_cancel_file_read_subscription(endpoint, manager):
+    sid = manager.subscribeFileRead(1, -1)
+    wait_until(lambda: manager.existsSubscription(sid, True))
+
+    can = prepare_cancellation(sid)
+    with send(endpoint, can):
+        wait_until(lambda: manager.existsSubscription(sid, False))
+
+
+def test_counter_emit_file_read(endpoint, manager, uuid, offset, size):
+    manager.subscribeFileRead(1, -1)
+    _test_emit_file_read(endpoint, manager, uuid, offset, size)
+
+
+def test_timed_emit_file_read(endpoint, manager, uuid, offset, size):
+    manager.subscribeFileRead(-1, 500)
+    _test_emit_file_read(endpoint, manager, uuid, offset, size)
+
+
+def test_subscribe_file_written(endpoint, manager, sid):
+    sub = prepare_file_written_subscription(sid)
+    with send(endpoint, sub):
+        wait_until(lambda: manager.existsSubscription(sid, True))
+
+
+def test_cancel_file_written_subscription(endpoint, manager):
+    sid = manager.subscribeFileWritten(1, -1)
+    wait_until(lambda: manager.existsSubscription(sid, True))
+
+    can = prepare_cancellation(sid)
+    with send(endpoint, can):
+        wait_until(lambda: manager.existsSubscription(sid, False))
+
+
+def test_counter_emit_file_written(endpoint, manager, uuid, offset, size):
+    manager.subscribeFileWritten(1, -1)
+    _test_emit_file_written(endpoint, manager, uuid, offset, size)
+
+
+def test_timed_emit_file_written(endpoint, manager, uuid, offset, size):
+    manager.subscribeFileWritten(-1, 500)
+    _test_emit_file_written(endpoint, manager, uuid, offset, size)
+
+
+def test_counter_emit_file_truncated(endpoint, manager, uuid, size):
+    manager.subscribeFileWritten(1, -1)
+    _test_emit_file_truncated(endpoint, manager, uuid, size)
+
+
+def test_timed_emit_file_truncated(endpoint, manager, uuid, size):
+    manager.subscribeFileWritten(-1, 500)
+    _test_emit_file_truncated(endpoint, manager, uuid, size)
+
+
+def test_subscribe_file_attr_changed(endpoint, manager, uuid, time_thr):
+    with receive(endpoint) as queue:
+        manager.subscribeFileAttrChanged(uuid, time_thr)
+        client_message = queue.get()
+
+    assert client_message.HasField('subscription')
+    assert client_message.subscription.HasField('file_attr_changed')
+
+    sub = client_message.subscription.file_attr_changed
+    assert sub.file_uuid == uuid
+    assert sub.time_threshold == time_thr
+
+
+def test_timed_emit_file_attr_changed(endpoint, manager, uuid):
+    evt = prepare_file_attr_changed_event(uuid)
+    with reply(endpoint, evt, reply_to_async=True):
+        manager.subscribeFileAttrChanged(uuid, 500)
+
+    wait_until(lambda: manager.getHandlerCallsNumber("file_attr_changed") == 1)
+
+
+def test_cancel_file_attr_changed_subscription(endpoint, manager, uuid):
+    with receive(endpoint):
+        sid = manager.subscribeFileAttrChanged(uuid, 500)
+
+    with receive(endpoint) as queue:
+        assert manager.unsubscribe(sid)
+        client_message = queue.get()
+
+    assert client_message.HasField('subscription_cancellation')
+    can = client_message.subscription_cancellation
+    assert can.id == sid
+
+
+def test_subscribe_file_location_changed(endpoint, manager, uuid, time_thr):
+    with receive(endpoint) as queue:
+        manager.subscribeFileLocationChanged(uuid, time_thr)
+        client_message = queue.get()
+
+    assert client_message.HasField('subscription')
+    assert client_message.subscription.HasField('file_location_changed')
+
+    sub = client_message.subscription.file_location_changed
+    assert sub.file_uuid == uuid
+    assert sub.time_threshold == time_thr
+
+
+def test_timed_emit_file_location_changed(endpoint, manager, uuid):
+    evt = prepare_file_location_changed_event(uuid)
+    with reply(endpoint, evt, reply_to_async=True):
+        manager.subscribeFileLocationChanged(uuid, 500)
+
+    wait_until(lambda: manager.getHandlerCallsNumber("file_location_changed") == 1)
+
+
+def test_cancel_file_location_changed_subscription(endpoint, manager, uuid):
+    with receive(endpoint):
+        sid = manager.subscribeFileLocationChanged(uuid, 500)
+
+    with receive(endpoint) as queue:
+        assert manager.unsubscribe(sid)
+        client_message = queue.get()
+
+    assert client_message.HasField('subscription_cancellation')
+    can = client_message.subscription_cancellation
+    assert can.id == sid
+
+
+def test_subscribe_file_perm_changed(endpoint, manager, uuid):
+    with receive(endpoint) as queue:
+        manager.subscribeFilePermChanged(uuid)
+        client_message = queue.get()
+
+    assert client_message.HasField('subscription')
+    assert client_message.subscription.HasField('file_perm_changed')
+
+    sub = client_message.subscription.file_perm_changed
+    assert sub.file_uuid == uuid
+
+
+def test_timed_emit_file_perm_changed(endpoint, manager, uuid):
+    evt = prepare_file_perm_changed_event(uuid)
+    with reply(endpoint, evt, reply_to_async=True):
+        manager.subscribeFilePermChanged(uuid)
+
+    wait_until(lambda: manager.getHandlerCallsNumber("file_perm_changed") == 1)
+
+
+def test_cancel_file_perm_changed_subscription(endpoint, manager, uuid):
+    with receive(endpoint):
+        sid = manager.subscribeFilePermChanged(uuid)
+
+    with receive(endpoint) as queue:
+        assert manager.unsubscribe(sid)
+        client_message = queue.get()
+
+    assert client_message.HasField('subscription_cancellation')
+    can = client_message.subscription_cancellation
+    assert can.id == sid
+
+
+def test_subscribe_file_renamed(endpoint, manager, uuid):
+    with receive(endpoint) as queue:
+        manager.subscribeFileRenamed(uuid)
+        client_message = queue.get()
+
+    assert client_message.HasField('subscription')
+    assert client_message.subscription.HasField('file_renamed')
+
+    sub = client_message.subscription.file_renamed
+    assert sub.file_uuid == uuid
+
+
+def test_timed_emit_file_renamed(endpoint, manager, uuid):
+    evt = prepare_file_renamed_event(uuid)
+    with reply(endpoint, evt, reply_to_async=True):
+        manager.subscribeFileRenamed(uuid)
+
+    wait_until(lambda: manager.getHandlerCallsNumber("file_renamed") == 1)
+
+
+def test_cancel_file_renamed_subscription(endpoint, manager, uuid):
+    with receive(endpoint):
+        sid = manager.subscribeFileRenamed(uuid)
+
+    with receive(endpoint) as queue:
+        assert manager.unsubscribe(sid)
+        client_message = queue.get()
+
+    assert client_message.HasField('subscription_cancellation')
+    can = client_message.subscription_cancellation
+    assert can.id == sid
+
+
+def test_subscribe_file_removed(endpoint, manager, uuid):
+    with receive(endpoint) as queue:
+        manager.subscribeFileRemoved(uuid)
+        client_message = queue.get()
+
+    assert client_message.HasField('subscription')
+    assert client_message.subscription.HasField('file_removed')
+
+    sub = client_message.subscription.file_removed
+    assert sub.file_uuid == uuid
+
+
+def test_timed_emit_file_removed(endpoint, manager, uuid):
+    evt = prepare_file_removed_event(uuid)
+    with reply(endpoint, evt, reply_to_async=True):
+        manager.subscribeFileRemoved(uuid)
+
+    wait_until(lambda: manager.getHandlerCallsNumber("file_removed") == 1)
+
+
+def test_cancel_file_removed_subscription(endpoint, manager, uuid):
+    with receive(endpoint):
+        sid = manager.subscribeFileRemoved(uuid)
+
+    with receive(endpoint) as queue:
+        assert manager.unsubscribe(sid)
+        client_message = queue.get()
+
+    assert client_message.HasField('subscription_cancellation')
+    can = client_message.subscription_cancellation
+    assert can.id == sid
+
+
+def test_subscribe_quota_exceeded(endpoint, manager):
+    with receive(endpoint) as queue:
+        manager.subscribeQuotaExceeded()
+        client_message = queue.get()
+
+    assert client_message.HasField('subscription')
+    assert client_message.subscription.HasField('quota_exceeded')
+
+
+def test_timed_emit_quota_exceeded(endpoint, manager):
+    evt = prepare_quota_exceeded_event()
+    with reply(endpoint, evt, reply_to_async=True):
+        manager.subscribeQuotaExceeded()
+
+    wait_until(lambda: manager.getHandlerCallsNumber("quota_exceeded") == 1)
+
+
+def test_cancel_quota_exceeded_subscription(endpoint, manager):
+    with receive(endpoint):
+        sid = manager.subscribeQuotaExceeded()
+
+    with receive(endpoint) as queue:
+        assert manager.unsubscribe(sid)
+        client_message = queue.get()
+
+    assert client_message.HasField('subscription_cancellation')
+    can = client_message.subscription_cancellation
+    assert can.id == sid
 
 
 @pytest.mark.performance(
     repeats=10,
-    parameters=[ctr_thr_param(1), evt_num_param(10), evt_size_param(1)],
+    parameters=[EvtParam.evt_num(10), EvtParam.key_num(5)],
     configs={
-        'large_counter_threshold': {
-            'description': 'Large counter threshold.',
-            'parameters': [ctr_thr_param(100000), evt_num_param(100000)]
+        'all': {
+            'description': 'All events with the same uuid.',
+            'parameters': [EvtParam.evt_num(1000000), EvtParam.key_num(1)]
         },
-        'small_counter_threshold': {
-            'description': 'Small counter threshold.',
-            'parameters': [ctr_thr_param(10000), evt_num_param(100000)]
+        'half': {
+            'description': 'Every second event with the same key.',
+            'parameters': [EvtParam.evt_num(1000000), EvtParam.key_num(2)]
+        },
+        'one_tenth': {
+            'description': 'Every tenth event with the same key.',
+            'parameters': [EvtParam.evt_num(1000000), EvtParam.key_num(10)]
         }
     })
-def test_events_emission_when_counter_threshold_exceeded(result, ctr_thr,
-                                                         evt_num, evt_size,
-                                                         endpoint, evt_man):
-    """Test event emission for subscription with counter threshold set."""
-
-    msg = events.createReadEventSubscriptionMsg(1, ctr_thr, 0, 0)
-    subscribe(endpoint, evt_man, 1, msg)
+def test_aggregate_events(result, endpoint, manager, evt_num, key_num):
+    manager.subscribeFileRead(evt_num, -1)
+    uuids = [random_str() for _ in range(key_num)]
+    evts_per_uuid = evt_num / key_num
+    evt_size = 10
 
     emit_time = Duration()
-    for i in xrange(evt_num):
+    with receive(endpoint) as queue:
         with measure(emit_time):
-            evt_man.emitReadEvent(i * evt_size, evt_size, 'fileUuid')
+            for offset in range(evts_per_uuid):
+                for uuid in uuids:
+                    manager.emitFileRead(uuid, evt_size * offset, evt_size)
+        client_message = queue.get()
 
-    recv_time = Duration()
-    for i in xrange(evt_num / ctr_thr):
-        msg = events.createReadEventMsg(ctr_thr, 'fileUuid', [
-            (i * ctr_thr * evt_size, ctr_thr * evt_size)], i)
+    assert client_message.HasField('events')
+    assert len(client_message.events.events) == key_num
 
-        with measure(recv_time):
-            endpoint.wait_for_specific_messages(msg)
+    for evt in client_message.events.events:
+        assert evt.HasField('file_read')
+        assert evt.file_read.counter == evts_per_uuid
+        assert evt.file_read.size == evts_per_uuid * evt_size
+        assert evt.file_read.file_uuid in uuids
+        uuids.remove(evt.file_read.file_uuid)
 
     result.set([
-        emit_time_param(emit_time.ms()),
-        recv_time_param(recv_time.ms()),
-        evtps_param(evt_num, emit_time.us() + recv_time.us())
+        EvtParam.emit_time(emit_time),
+        EvtParam.evtps(evt_num, emit_time),
     ])
 
+# -----------------------------------------------------------------------------
 
-@pytest.mark.performance(
-    repeats=10,
-    parameters=[size_thr_param(1), evt_num_param(10), evt_size_param(1)],
-    configs={
-        'large_size_threshold': {
-            'description': 'Large size threshold.',
-            'parameters': [size_thr_param(100000), evt_num_param(100000)]
-        },
-        'small_size_threshold': {
-            'description': 'Small size threshold.',
-            'parameters': [size_thr_param(10000), evt_num_param(100000)]
-        }
-    })
-def test_events_emission_when_size_threshold_exceeded(result, size_thr, evt_num,
-                                                      evt_size, endpoint,
-                                                      evt_man):
-    """Test event emission for subscription with size threshold set."""
+def _test_emit_file_read(endpoint, manager, uuid, offset, size):
+    with receive(endpoint) as queue:
+        manager.emitFileRead(uuid, offset, size)
+        client_message = queue.get()
 
-    ctr_thr = int(math.ceil(float(size_thr) / evt_size))
+    assert client_message.HasField('events')
+    assert client_message.events.events[0].HasField('file_read')
 
-    msg = events.createReadEventSubscriptionMsg(1, 0, 0, size_thr)
-    subscribe(endpoint, evt_man, 1, msg)
+    evt = client_message.events.events[0].file_read
+    assert evt.counter == 1
+    assert evt.file_uuid == uuid
+    assert evt.size == size
 
-    emit_time = Duration()
-    for i in xrange(evt_num):
-        with measure(emit_time):
-            evt_man.emitReadEvent(i * evt_size, evt_size, 'fileUuid')
 
-    recv_time = Duration()
-    for i in xrange(evt_num * evt_size / size_thr):
-        msg = events.createReadEventMsg(ctr_thr, 'fileUuid', [
-            (i * ctr_thr * evt_size, ctr_thr * evt_size)], i)
+def _test_emit_file_written(endpoint, manager, uuid, offset, size):
+    with receive(endpoint) as queue:
+        manager.emitFileWritten(uuid, offset, size)
+        client_message = queue.get()
 
-        with measure(recv_time):
-            endpoint.wait_for_specific_messages(msg)
+    assert client_message.HasField('events')
+    assert client_message.events.events[0].HasField('file_written')
 
-    result.set([
-        emit_time_param(emit_time.ms()),
-        recv_time_param(recv_time.ms()),
-        evtps_param(evt_num, emit_time.us() + recv_time.us())
-    ])
+    evt = client_message.events.events[0].file_written
+    assert evt.counter == 1
+    assert evt.file_uuid == uuid
+    assert evt.size == size
 
 
-def test_events_emission_when_time_threshold_exceeded(endpoint, evt_man):
-    """Test event emission for subscription with time threshold set."""
+def _test_emit_file_truncated(endpoint, manager, uuid, file_size):
+    with receive(endpoint) as queue:
+        manager.emitFileTruncated(uuid, file_size)
+        client_message = queue.get()
 
-    msg = events.createReadEventSubscriptionMsg(1, 0, 100, 0)
-    subscribe(endpoint, evt_man, 1, msg)
-    evt_man.emitReadEvent(0, 10, 'fileUuid')
-    msg = events.createReadEventMsg(1, 'fileUuid', [(0, 10)], 0)
-    endpoint.wait_for_specific_messages(msg)
+    assert client_message.HasField('events')
+    assert client_message.events.events[0].HasField('file_written')
 
-
-def test_multiple_subscriptions(endpoint, evt_man):
-    """Test event emission for multiple subscriptions of the same type."""
-
-    msg = events.createReadEventSubscriptionMsg(1, 0, 0, 50)
-    subscribe(endpoint, evt_man, 1, msg)
-    msg = events.createReadEventSubscriptionMsg(2, 0, 0, 20)
-    subscribe(endpoint, evt_man, 2, msg)
-    msg = events.createReadEventSubscriptionMsg(3, 0, 0, 5)
-    subscribe(endpoint, evt_man, 3, msg)
-
-    seq_num = evt_man.emitReadEvent(0, 5, 'fileUuid')
-    msg = events.createReadEventMsg(1, 'fileUuid', [(0, 5)], seq_num)
-    endpoint.wait_for_specific_messages(msg)
-
-    msg = events.createServerSubscriptionCancellationMsg(3, 0, 0)
-    unsubscribe(endpoint, evt_man, 3, msg)
-    seq_num = evt_man.emitReadEvent(0, 20, 'fileUuid')
-    msg = events.createReadEventMsg(1, 'fileUuid', [(0, 20)], seq_num)
-    endpoint.wait_for_specific_messages(msg)
-
-    msg = events.createServerSubscriptionCancellationMsg(2, 0, 1)
-    unsubscribe(endpoint, evt_man, 2, msg)
-    seq_num = evt_man.emitReadEvent(0, 50, 'fileUuid')
-    msg = events.createReadEventMsg(1, 'fileUuid', [(0, 50)], seq_num)
-    endpoint.wait_for_specific_messages(msg)
-
-    msg = events.createServerSubscriptionCancellationMsg(1, 0, 2)
-    unsubscribe(endpoint, evt_man, 1, msg)
-    seq_num = evt_man.emitReadEvent(0, 10, 'fileUuid')
-    msg = events.createReadEventMsg(1, 'fileUuid', [(0, 10)], seq_num)
-    with pytest.raises(Exception):
-        endpoint.wait_for_specific_messages(msg, timeout_sec=1)
-
-
-@pytest.mark.performance(
-    repeats=10,
-    parameters=[size_thr_param(100), cycle_num_param(2)],
-    configs={
-        'multiple_events': {
-            'description': 'Aggregates multiple events.',
-            'parameters': [size_thr_param(1000000),
-                           cycle_num_param(1000000)]
-        }
-    })
-def test_write_read_truncate_event_aggregation(result, size_thr, cycle_num,
-                                               endpoint, evt_man):
-    """Test aggregation of write, read and truncate events."""
-
-    evt_size = int(math.ceil(float(size_thr) / cycle_num))
-
-    msg = events.createReadEventSubscriptionMsg(1, 0, 0, size_thr)
-    subscribe(endpoint, evt_man, 1, msg)
-    msg = events.createWriteEventSubscriptionMsg(2, 0, 0, size_thr)
-    subscribe(endpoint, evt_man, 2, msg)
-
-    emit_time = Duration()
-    for i in xrange(cycle_num - 1):
-        with measure(emit_time):
-            evt_man.emitWriteEvent(i * evt_size, evt_size, 'fileUuid')
-            evt_man.emitReadEvent(i * evt_size, evt_size, 'fileUuid')
-            evt_man.emitTruncateEvent((i + 1) * evt_size, 'fileUuid')
-
-    with measure(emit_time):
-        evt_man.emitReadEvent((cycle_num - 1) * evt_size, evt_size, 'fileUuid')
-
-    msg = events.createReadEventMsg(cycle_num, 'fileUuid',
-                                    [(0, cycle_num * evt_size)], 0)
-    endpoint.wait_for_specific_messages(msg, timeout_sec=30)
-
-    with measure(emit_time):
-        evt_man.emitWriteEvent((cycle_num - 1) * evt_size, evt_size, 'fileUuid')
-
-    msg = events.createWriteEventMsg(2 * cycle_num - 1, 'fileUuid',
-                                     cycle_num * evt_size,
-                                     [(0, cycle_num * evt_size)], 0)
-
-    endpoint.wait_for_specific_messages(msg, timeout_sec=30)
-
-    result.set([emit_time_param(emit_time.ms())])
-
-
-def test_different_subscriptions(endpoint, evt_man):
-    """Test event emission for multiple subscriptions of a different
-    type."""
-
-    msg = events.createReadEventSubscriptionMsg(1, 1, 0, 0)
-    subscribe(endpoint, evt_man, 1, msg)
-    msg = events.createWriteEventSubscriptionMsg(2, 1, 0, 0)
-    subscribe(endpoint, evt_man, 2, msg)
-
-    seq_num = evt_man.emitReadEvent(0, 10, 'fileUuid')
-    msg = events.createReadEventMsg(1, 'fileUuid', [(0, 10)], seq_num)
-    endpoint.wait_for_specific_messages(msg)
-
-    msg = events.createServerSubscriptionCancellationMsg(1, 0, 0)
-    unsubscribe(endpoint, evt_man, 1, msg)
-
-    seq_num = evt_man.emitWriteEvent(0, 10, 'fileUuid')
-    msg = events.createWriteEventMsg(1, 'fileUuid', 0, [(0, 10)], seq_num)
-    endpoint.wait_for_specific_messages(msg)
-
-    seq_num = evt_man.emitTruncateEvent(0, 'fileUuid')
-    msg = events.createTruncateEventMsg(1, 'fileUuid', 0, seq_num)
-    endpoint.wait_for_specific_messages(msg)
-
-    msg = events.createServerSubscriptionCancellationMsg(2, 1, 0)
-    unsubscribe(endpoint, evt_man, 2, msg)
-    seq_num = evt_man.emitTruncateEvent(0, 'fileUuid')
-    msg = events.createTruncateEventMsg(1, 'fileUuid', 0, seq_num)
-    with pytest.raises(Exception):
-        endpoint.wait_for_specific_messages(msg, timeout_sec=1)
-
-
-def test_file_attr_subscription(endpoint, evt_man):
-    id = evt_man.subscribeFileAttr('fileUuid', 1, 10, 2, 5)
-    assert id < 0
-
-    msg = events.createFileAttrSubscriptionMsg(id, 'fileUuid', 2, 5, 0)
-    endpoint.wait_for_specific_messages(msg)
-
-
-def test_file_attr_subscription_cancellation(endpoint, evt_man):
-    id = evt_man.subscribeFileAttr('fileUuid', 1, 10, 2, 5)
-    msg = events.createFileAttrSubscriptionMsg(id, 'fileUuid', 2, 5, 0)
-    endpoint.wait_for_specific_messages(msg)
-
-    evt_man.unsubscribe(id)
-
-    msg = events.createClientSubscriptionCancellationMsg(id, 2, 1)
-    endpoint.wait_for_specific_messages(msg, timeout_sec=30)
-
-
-def test_file_attr_counter_emission(endpoint, evt_man):
-    evt_man.subscribeFileAttr('fileUuid', 10, 5000, 1, 1000)
-
-    assert 0 == evt_man.fileAttrHandlerCallCounter()
-
-    for i in xrange(100):
-        msg = events.createFileAttrEventMsg(1, 'fileUuid', i, i)
-        endpoint.send(msg)
-
-    assert wait_for_result(10, 60, 500, evt_man.fileAttrHandlerCallCounter)
-
-
-def test_file_attr_time_emission(endpoint, evt_man):
-    evt_man.subscribeFileAttr('fileUuid', 100, 1000, 1, 1000)
-
-    assert 0 == evt_man.fileAttrHandlerCallCounter()
-
-    for i in xrange(10):
-        msg = events.createFileAttrEventMsg(1, 'fileUuid', i, i)
-        endpoint.send(msg)
-
-    assert wait_for_result(1, 60, 500, evt_man.fileAttrHandlerCallCounter)
-
-
-def test_file_location_subscription(endpoint, evt_man):
-    id = evt_man.subscribeFileLocation('fileUuid', 1, 10, 2, 5)
-    msg = events.createFileLocationSubscriptionMsg(id, 'fileUuid', 2, 5, 0)
-    endpoint.wait_for_specific_messages(msg)
-
-
-def test_file_location_counter_emission(endpoint, evt_man):
-    evt_man.subscribeFileLocation('fileUuid', 20, 5000, 2, 5)
-
-    assert 0 == evt_man.fileLocationHandlerCallCounter()
-
-    for i in xrange(100):
-        msg = events.createFileLocationEventMsg(1, 'fileUuid', 'fileId', i)
-        endpoint.send(msg)
-
-    assert wait_for_result(5, 60, 500, evt_man.fileLocationHandlerCallCounter)
-
-
-def test_file_location_time_emission(endpoint, evt_man):
-    evt_man.subscribeFileLocation('fileUuid', 100, 1000, 2, 5)
-
-    assert 0 == evt_man.fileLocationHandlerCallCounter()
-
-    for i in xrange(10):
-        msg = events.createFileLocationEventMsg(1, 'fileUuid', 'fileId', i)
-        endpoint.send(msg)
-
-    assert wait_for_result(1, 60, 500, evt_man.fileLocationHandlerCallCounter)
-
-
-def test_permission_changed_counter_emission(endpoint, evt_man):
-    evt_man.subscribePermissionChanged('fileUuid')
-
-    assert 0 == evt_man.permissionChangedHandlerCallCounter()
-
-    for i in xrange(100):
-        msg = events.createPermissionChangedEventMsg(1, 'fileUuid', i)
-        endpoint.send(msg)
-
-    assert wait_for_result(100, 60, 500,
-                           evt_man.permissionChangedHandlerCallCounter)
+    evt = client_message.events.events[0].file_written
+    assert evt.counter == 1
+    assert evt.file_uuid == uuid
+    assert evt.file_size == file_size

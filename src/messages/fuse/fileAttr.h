@@ -9,6 +9,7 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_FILE_ATTR_H
 #define ONECLIENT_MESSAGES_FUSE_FILE_ATTR_H
 
+#include "events/types/event.h"
 #include "fuseResponse.h"
 
 #include "messages.pb.h"
@@ -24,11 +25,6 @@
 #include <string>
 
 namespace one {
-namespace client {
-namespace events {
-class FileAttrSubscription;
-} // namespace events
-} // namespace client
 namespace messages {
 namespace fuse {
 
@@ -37,10 +33,7 @@ namespace fuse {
  */
 class FileAttr : public FuseResponse {
 public:
-    using Key = folly::fbstring;
-    using FileAttrPtr = std::unique_ptr<FileAttr>;
     using ProtocolMessage = clproto::FileAttr;
-    using Subscription = client::events::FileAttrSubscription;
 
     enum class FileType { regular, directory, link };
 
@@ -57,13 +50,6 @@ public:
      * counterpart.
      */
     FileAttr(const ProtocolMessage &message);
-
-    /**
-     * @return Value that distinguish @c this file attr from other file attrs,
-     * i.e. file attrs with the same key can be aggregated.
-     * @see @c FileAttr::Key.
-     */
-    const Key &key() const;
 
     /**
      * @return UUID of the file.
@@ -184,14 +170,6 @@ public:
      * Set file size.
      */
     void size(const off_t size);
-
-    /**
-     * Aggregates @c this file attr with an other file attr.
-     * Aggregation is done by substitution of all @c this file attr fields with
-     * an other file attr fields.
-     * @param fileAttr File attr to be aggregated.
-     */
-    void aggregate(FileAttrPtr fileAttr);
 
     std::string toString() const override;
 
