@@ -39,8 +39,10 @@ helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
         return it->second;
 
     auto helper = m_helpersCache.get(uuid, storageId, forceProxyIO);
+    const auto filteredFlags = m_flags & (~O_CREAT) & (~O_APPEND);
+
     auto handle = communication::wait(
-        helper->open(fileId, m_flags, makeParameters(uuid)));
+        helper->open(fileId, filteredFlags, makeParameters(uuid)));
 
     m_handles[key] = handle;
     return handle;
