@@ -23,48 +23,47 @@ message FlushEvents {
 
 // Generic event message
 message Event {
-    required uint32 counter = 1; // amount of aggregated events
-    oneof object { // list of all event objects
-        ReadEvent              read_event               = 2;
-        WriteEvent             write_event              = 3;
-        UpdateEvent            update_event             = 4;
-        PermissionChangedEvent permission_changed_event = 5;
-        QuotaExeededEvent      quota_exeeded_event      = 6;
-        FileRemovedEvent       file_removed_event       = 7;
-        FileRenamedEvent       file_renamed_event       = 8;
+    oneof type { // list of all event types
+        FileReadEvent            file_read             = 1;
+        FileWrittenEvent         file_written          = 2;
+        FileAttrChangedEvent     file_attr_changed     = 3;
+        FileLocationChangedEvent file_location_changed = 4;
+        FilePermChangedEvent     file_perm_changed     = 5;
+        FileRemovedEvent         file_removed          = 6;
+        FileRenamedEvent         file_renamed          = 7;
+        QuotaExceededEvent       quota_exceeded        = 8;
     }
 }
 
-message ReadEvent {
-    required bytes     file_uuid = 1; // UUID of file associated with an event
-    required uint64    size      = 2; // amount of read bytes
-    repeated FileBlock blocks    = 3; // list of read blocks
+message FileReadEvent {
+    required uint32    counter   = 1; // amount of aggregated events
+    required bytes     file_uuid = 2; // UUID of file associated with an event
+    required uint64    size      = 3; // amount of read bytes
+    repeated FileBlock blocks    = 4; // list of read blocks
 }
 
-message WriteEvent {
-    required bytes     file_uuid = 1; // UUID of file associated with an event
-    optional uint64    file_size = 2; // size of file associated with an event
-    required uint64    size      = 3; // amount of written bytes
-    repeated FileBlock blocks    = 4; // list of written blocks
+message FileWrittenEvent {
+    required uint32    counter   = 1; // amount of aggregated events
+    required bytes     file_uuid = 2; // UUID of file associated with an event
+    optional uint64    file_size = 3; // size of file associated with an event
+    required uint64    size      = 4; // amount of written bytes
+    repeated FileBlock blocks    = 5; // list of written blocks
 }
 
-message UpdateEvent {
-    oneof object { // list of all update event objects
-        FileAttr     file_attr     = 1;
-        FileLocation file_location = 2;
-    }
+message FileAttrChangedEvent {
+    required FileAttr file_attr = 1;
 }
 
-message PermissionChangedEvent {
+message FileLocationChangedEvent {
+    required FileLocation file_location = 1;
+}
+
+message FilePermChangedEvent {
     required bytes file_uuid = 1; // UUID of file associated with an event
 }
 
 message FileRemovedEvent {
     required bytes file_uuid = 1; // UUID of file associated with an event
-}
-
-message QuotaExeededEvent {
-    repeated bytes spaces = 1; // Blocked spaces
 }
 
 message FileRenamedEvent {
@@ -73,61 +72,53 @@ message FileRenamedEvent {
                                                  // renamed file
 }
 
+message QuotaExceededEvent {
+    repeated bytes spaces = 1; // Blocked spaces
+}
+
 // Generic subscription message
 message Subscription {
     required sint64 id = 1; // unique subscription ID
-    oneof object { // list of all subscription objects
-        ReadSubscription              read_subscription               = 2;
-        WriteSubscription             write_subscription              = 3;
-        FileAttrSubscription          file_attr_subscription          = 4;
-        FileLocationSubscription      file_location_subscription      = 5;
-        PermissionChangedSubscription permission_changed_subscription = 6;
-        QuotaSubscription             quota_subscription              = 7;
-        FileRemovedSubscription       file_removed_subscription       = 8;
-        FileRenamedSubscription       file_renamed_subscription       = 9;
+    oneof type { // list of all subscription types
+        FileReadSubscription            file_read             = 2;
+        FileWrittenSubscription         file_written          = 3;
+        FileAttrChangedSubscription     file_attr_changed     = 4;
+        FileLocationChangedSubscription file_location_changed = 5;
+        FilePermChangedSubscription     file_perm_changed     = 6;
+        FileRemovedSubscription         file_removed          = 7;
+        FileRenamedSubscription         file_renamed          = 8;
+        QuotaExceededSubscription       quota_exceeded        = 9;
     }
 }
 
-message QuotaSubscription {
-
-}
-
-message ReadSubscription {
+message FileReadSubscription {
     optional uint32 counter_threshold = 1; // maximal amount of aggregated
                                            // events before emission
     optional uint32 time_threshold    = 2; // maximal delay in milliseconds
                                            // between successive events emission
-    optional uint32 size_threshold    = 3; // maximal amount of read bytes
-                                           // before emission
 }
 
-message WriteSubscription {
+message FileWrittenSubscription {
     optional uint32 counter_threshold = 1; // maximal amount of aggregated
                                            // events before emission
     optional uint32 time_threshold    = 2; // maximal delay in milliseconds
                                            // between successive events emission
-    optional uint32 size_threshold    = 3; // maximal amount of written bytes
-                                           // before emission
 }
 
-message FileAttrSubscription {
+message FileAttrChangedSubscription {
     required bytes  file_uuid         = 1; // file UUID
-    optional uint32 counter_threshold = 2; // maximal amount of aggregated
-                                           // events before emission
-    optional uint32 time_threshold    = 3; // maximal delay in milliseconds
+    optional uint32 time_threshold    = 2; // maximal delay in milliseconds
                                            // between successive events emission
 }
 
-message FileLocationSubscription {
+message FileLocationChangedSubscription {
     required bytes  file_uuid         = 1; // file UUID
-    optional uint32 counter_threshold = 2; // maximal amount of aggregated
-                                           // events before emission
-    optional uint32 time_threshold    = 3; // maximal delay in milliseconds
+    optional uint32 time_threshold    = 2; // maximal delay in milliseconds
                                            // between successive events emission
 }
 
 
-message PermissionChangedSubscription {
+message FilePermChangedSubscription {
     required bytes  file_uuid         = 1; // file UUID
 }
 
@@ -137,6 +128,9 @@ message FileRemovedSubscription {
 
 message FileRenamedSubscription {
     required bytes  file_uuid         = 1; // file UUID
+}
+
+message QuotaExceededSubscription {
 }
 
 message SubscriptionCancellation {

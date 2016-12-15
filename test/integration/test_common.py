@@ -39,6 +39,15 @@ def decode_params(params):
     return {p.key: p.value for p in params}
 
 
+def wait_until(condition, step=0.5, timeout=30):
+    while not condition() and timeout > 0:
+        timeout -= step
+        time.sleep(step)
+
+    if timeout <= 0:
+        raise Exception('timeout')
+
+
 def _with_reply_process(endpoint, responses, queue, reply_to_async=False):
     while responses:
         received_msgs = endpoint.wait_for_any_messages(return_history=True,
@@ -53,11 +62,14 @@ def _with_reply_process(endpoint, responses, queue, reply_to_async=False):
             client_message.ParseFromString(received_msg)
             message_has_id = client_message.HasField('message_id')
 
+            print "client_message", client_message
+
             if message_has_id or reply_to_async:
                 response = responses.pop(0)
                 if message_has_id:
                     response.message_id = client_message.message_id.encode(
                         'utf-8')
+                print "response", response
                 endpoint.send(response.SerializeToString())
 
                 queue.put(client_message)
@@ -71,6 +83,59 @@ def reply(endpoint, responses, reply_to_async=False):
     queue = Queue()
     p = Thread(target=_with_reply_process, args=(endpoint, responses, queue),
                kwargs={'reply_to_async': reply_to_async})
+    p.start()
+
+    try:
+        yield queue
+    finally:
+        p.join()
+
+
+def _with_receive_process(endpoint, msgs_num, queue):
+    while msgs_num > 0:
+        received_msgs = endpoint.wait_for_any_messages(return_history=True,
+                                                       accept_more=True)
+        endpoint.client.reset_tcp_history()
+
+        while msgs_num > 0 and received_msgs:
+            client_message = messages_pb2.ClientMessage()
+            client_message.ParseFromString(received_msgs.pop(0))
+
+            print "client_message", client_message
+
+            queue.put(client_message)
+
+            msgs_num -= 1
+
+
+@contextmanager
+def receive(endpoint, msgs_num=1):
+    queue = Queue()
+    p = Thread(target=_with_receive_process, args=(endpoint, msgs_num, queue))
+    p.start()
+
+    try:
+        yield queue
+    finally:
+        p.join()
+
+
+def _with_send_process(endpoint, msgs, queue):
+    if not isinstance(msgs, list):
+        msgs = [msgs]
+
+    while msgs:
+        msg = msgs.pop(0)
+        print "server_message", msg
+        endpoint.send(msg.SerializeToString())
+
+        queue.put
+
+
+@contextmanager
+def send(endpoint, msgs=[]):
+    queue = Queue()
+    p = Thread(target=_with_send_process, args=(endpoint, msgs, queue))
     p.start()
 
     try:

@@ -63,6 +63,12 @@ public:
     virtual void send(messages::ClientMessage &&msg);
 
     /**
+     * Sends a next message in the stream.
+     * @param msg The message to send through the stream.
+     */
+    virtual void send(ClientMessagePtr msg);
+
+    /**
      * Resends messages requested by the remote party.
      * @param msg Details of the request.
      */
@@ -121,11 +127,16 @@ template <class Communicator> TypedStream<Communicator>::~TypedStream()
 template <class Communicator>
 void TypedStream<Communicator>::send(messages::ClientMessage &&msg)
 {
-    auto protoMsg = messages::serialize(std::move(msg));
-    auto msgStream = protoMsg->mutable_message_stream();
+    send(messages::serialize(std::move(msg)));
+}
+
+template <class Communicator>
+void TypedStream<Communicator>::send(ClientMessagePtr msg)
+{
+    auto msgStream = msg->mutable_message_stream();
     msgStream->set_stream_id(m_streamId);
     msgStream->set_sequence_number(m_sequenceId++);
-    saveAndPass(std::move(protoMsg));
+    saveAndPass(std::move(msg));
 }
 
 template <class Communicator> void TypedStream<Communicator>::close()
