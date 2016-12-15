@@ -99,6 +99,9 @@ public:
     folly::Future<folly::Unit> access(
         const folly::fbstring &fileId, const int mask) override;
 
+    folly::Future<folly::fbvector<folly::fbstring>> readdir(
+        const folly::fbstring &fileId, off_t offset, size_t count) override;
+
     folly::Future<folly::fbstring> readlink(
         const folly::fbstring &fileId) override;
 
