@@ -96,6 +96,8 @@ public:
             [wrappedHandle = m_wrappedHandle] { wrappedHandle->release(); });
     }
 
+    const Timeout &timeout() override { return m_wrappedHandle->timeout(); }
+
     bool needsDataConsistencyCheck() override
     {
         return m_wrappedHandle->needsDataConsistencyCheck();
@@ -210,6 +212,8 @@ public:
     {
         return m_helper->truncate(fileId, size);
     }
+
+    const Timeout &timeout() override { return m_helper->timeout(); }
 
 private:
     BufferLimits m_bufferLimits;

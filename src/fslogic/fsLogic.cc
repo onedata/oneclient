@@ -214,7 +214,7 @@ void FsLogic::flush(
 {
     auto fuseFileHandle = m_fuseFileHandles.at(fileHandleId);
     for (auto &helperHandle : fuseFileHandle->helperHandles())
-        communication::wait(helperHandle->flush());
+        communication::wait(helperHandle->flush(), helperHandle->timeout());
 }
 
 void FsLogic::fsync(const folly::fbstring &uuid,
@@ -222,7 +222,8 @@ void FsLogic::fsync(const folly::fbstring &uuid,
 {
     auto fuseFileHandle = m_fuseFileHandles.at(fileHandleId);
     for (auto &helperHandle : fuseFileHandle->helperHandles())
-        communication::wait(helperHandle->fsync(dataOnly));
+        communication::wait(
+            helperHandle->fsync(dataOnly), helperHandle->timeout());
 }
 
 folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
@@ -265,10 +266,10 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
             uuid, fileBlock.storageId(), fileBlock.fileId());
 
         if (checksum)
-            communication::wait(helperHandle->flush());
+            communication::wait(helperHandle->flush(), helperHandle->timeout());
 
-        auto readBuffer =
-            communication::wait(helperHandle->read(offset, availableSize));
+        auto readBuffer = communication::wait(
+            helperHandle->read(offset, availableSize), helperHandle->timeout());
 
         if (helperHandle->needsDataConsistencyCheck() && checksum &&
             dataCorrupted(
@@ -322,7 +323,8 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
             uuid, fileBlock.storageId(), fileBlock.fileId());
 
         bytesWritten =
-            communication::wait(helperHandle->write(offset, std::move(buf)));
+            communication::wait(helperHandle->write(offset, std::move(buf)),
+                helperHandle->timeout());
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)

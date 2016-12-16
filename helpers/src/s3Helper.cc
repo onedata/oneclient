@@ -71,8 +71,10 @@ namespace one {
 namespace helpers {
 
 S3Helper::S3Helper(folly::fbstring hostname, folly::fbstring bucketName,
-    folly::fbstring accessKey, folly::fbstring secretKey, const bool useHttps)
+    folly::fbstring accessKey, folly::fbstring secretKey, const bool useHttps,
+    Timeout timeout)
     : m_bucket{std::move(bucketName)}
+    , m_timeout{std::move(timeout)}
 {
     static S3HelperApiInit init;
 

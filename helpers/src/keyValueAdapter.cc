@@ -142,6 +142,8 @@ folly::Future<std::size_t> KeyValueFileHandle::write(
         });
 }
 
+const Timeout &KeyValueFileHandle::timeout() { return m_helper->timeout(); }
+
 KeyValueAdapter::KeyValueAdapter(std::shared_ptr<KeyValueHelper> helper,
     std::shared_ptr<folly::Executor> executor, std::size_t blockSize)
     : m_helper{std::move(helper)}
@@ -221,6 +223,8 @@ folly::Future<folly::Unit> KeyValueAdapter::truncate(
         }
     });
 }
+
+const Timeout &KeyValueAdapter::timeout() { return m_helper->timeout(); }
 
 folly::Future<folly::IOBufQueue> KeyValueFileHandle::readBlocks(
     const off_t offset, const std::size_t requestedSize, const off_t fileSize)
