@@ -96,6 +96,8 @@ public:
     virtual folly::fbvector<folly::fbstring> listObjects(
         const folly::fbstring &prefix) = 0;
 
+    virtual const Timeout &timeout() = 0;
+
 protected:
     std::string adjustPrefix(const folly::fbstring &prefix) const
     {

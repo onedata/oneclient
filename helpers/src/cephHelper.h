@@ -44,6 +44,8 @@ public:
     folly::Future<std::size_t> write(
         const off_t offset, folly::IOBufQueue buf) override;
 
+    const Timeout &timeout() override;
+
 private:
     std::shared_ptr<CephHelper> m_helper;
     librados::IoCtx &m_ioCTX;
@@ -66,7 +68,8 @@ public:
      */
     CephHelper(folly::fbstring clusterName, folly::fbstring monHost,
         folly::fbstring poolName, folly::fbstring userName, folly::fbstring key,
-        std::unique_ptr<folly::Executor> executor);
+        std::unique_ptr<folly::Executor> executor,
+        Timeout timeout = ASYNC_OPS_TIMEOUT);
 
     /**
      * Destructor.
@@ -101,6 +104,8 @@ public:
         return folly::makeFuture();
     }
 
+    const Timeout &timeout() override { return m_timeout; }
+
     /**
      * Establishes connection to the Ceph storage cluster.
      */
@@ -114,6 +119,7 @@ private:
     folly::fbstring m_key;
 
     std::unique_ptr<folly::Executor> m_executor;
+    Timeout m_timeout;
 
     librados::Rados m_cluster;
     librados::IoCtx m_ioCTX;
@@ -143,9 +149,12 @@ public:
         const auto &poolName = getParam(parameters, "pool_name");
         const auto &userName = getParam(parameters, "user_name");
         const auto &key = getParam(parameters, "key");
+        Timeout timeout{getParam<std::size_t>(
+            parameters, "timeout", ASYNC_OPS_TIMEOUT.count())};
 
         return std::make_shared<CephHelper>(clusterName, monHost, poolName,
-            userName, key, std::make_unique<AsioExecutor>(m_service));
+            userName, key, std::make_unique<AsioExecutor>(m_service),
+            std::move(timeout));
     }
 
 private:

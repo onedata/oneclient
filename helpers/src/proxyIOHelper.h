@@ -34,7 +34,8 @@ public:
      * with a provider.
      */
     ProxyIOFileHandle(folly::fbstring fileId, folly::fbstring storageId,
-        Params openParams, communication::Communicator &communicator);
+        Params openParams, communication::Communicator &communicator,
+        Timeout timeout);
 
     folly::Future<folly::IOBufQueue> read(
         const off_t offset, const std::size_t size) override;
@@ -45,9 +46,12 @@ public:
     folly::Future<std::size_t> multiwrite(
         folly::fbvector<std::pair<off_t, folly::IOBufQueue>> buffs) override;
 
+    const Timeout &timeout() override { return m_timeout; }
+
 private:
     folly::fbstring m_storageId;
     communication::Communicator &m_communicator;
+    Timeout m_timeout;
 };
 
 /**
@@ -62,15 +66,19 @@ public:
      * @param communicator Communicator that will be used for communication
      * with a provider.
      */
-    ProxyIOHelper(
-        folly::fbstring storageId, communication::Communicator &communicator);
+    ProxyIOHelper(folly::fbstring storageId,
+        communication::Communicator &communicator,
+        Timeout timeout = ASYNC_OPS_TIMEOUT);
 
     folly::Future<FileHandlePtr> open(const folly::fbstring &fileId,
         const int flags, const Params &openParams) override;
 
+    const Timeout &timeout() override { return m_timeout; }
+
 private:
     folly::fbstring m_storageId;
     communication::Communicator &m_communicator;
+    Timeout m_timeout;
 };
 
 /**
@@ -92,8 +100,11 @@ public:
         const Params &parameters) override
     {
         auto storageId = getParam(parameters, "storage_id");
+        Timeout timeout{getParam<std::size_t>(
+            parameters, "timeout", ASYNC_OPS_TIMEOUT.count())};
+
         return std::make_shared<ProxyIOHelper>(
-            std::move(storageId), m_communicator);
+            std::move(storageId), m_communicator, std::move(timeout));
     }
 
 private:

@@ -48,12 +48,14 @@ public:
         const auto &tenantName = getParam(parameters, "tenant_name");
         const auto &userName = getParam(parameters, "user_name");
         const auto &password = getParam(parameters, "password");
+        Timeout timeout{getParam<std::size_t>(
+            parameters, "timeout", ASYNC_OPS_TIMEOUT.count())};
         const auto &blockSize =
             getParam<std::size_t>(parameters, "block_size", DEFAULT_BLOCK_SIZE);
 
         return std::make_shared<KeyValueAdapter>(
-            std::make_shared<SwiftHelper>(
-                containerName, authUrl, tenantName, userName, password),
+            std::make_shared<SwiftHelper>(containerName, authUrl, tenantName,
+                userName, password, std::move(timeout)),
             std::make_shared<AsioExecutor>(m_service), blockSize);
     }
 
@@ -76,7 +78,7 @@ public:
      */
     SwiftHelper(folly::fbstring containerName, const folly::fbstring &authUrl,
         const folly::fbstring &tenantName, const folly::fbstring &userName,
-        const folly::fbstring &password);
+        const folly::fbstring &password, Timeout timeout = ASYNC_OPS_TIMEOUT);
 
     folly::IOBufQueue getObject(const folly::fbstring &key, const off_t offset,
         const std::size_t size) override;
@@ -91,6 +93,8 @@ public:
 
     folly::fbvector<folly::fbstring> listObjects(
         const folly::fbstring &prefix) override;
+
+    const Timeout &timeout() override { return m_timeout; }
 
 private:
     class Authentication {
@@ -108,6 +112,7 @@ private:
     } m_auth;
 
     folly::fbstring m_containerName;
+    Timeout m_timeout;
 };
 
 } // namespace helpers

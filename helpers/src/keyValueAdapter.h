@@ -60,6 +60,8 @@ public:
     virtual folly::Future<std::size_t> write(
         const off_t offset, folly::IOBufQueue buf) override;
 
+    const Timeout &timeout() override;
+
 private:
     folly::Future<folly::IOBufQueue> readBlocks(
         const off_t offset, const std::size_t size, const off_t fileSize);
@@ -125,6 +127,8 @@ public:
     {
         return folly::makeFuture();
     }
+
+    const Timeout &timeout() override;
 
 private:
     std::shared_ptr<KeyValueHelper> m_helper;
