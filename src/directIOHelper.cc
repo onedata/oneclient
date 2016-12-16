@@ -87,12 +87,13 @@ namespace helpers {
 
 DirectIOFileHandle::DirectIOFileHandle(folly::fbstring fileId, const uid_t uid,
     const gid_t gid, const int fileHandle,
-    std::shared_ptr<folly::Executor> executor)
+    std::shared_ptr<folly::Executor> executor, Timeout timeout)
     : FileHandle{std::move(fileId)}
     , m_uid{uid}
     , m_gid{gid}
     , m_fh{fileHandle}
     , m_executor{std::move(executor)}
+    , m_timeout{std::move(timeout)}
 {
 }
 
@@ -209,11 +210,13 @@ folly::Future<folly::Unit> DirectIOFileHandle::fsync(bool /*isDataSync*/)
 }
 
 DirectIOHelper::DirectIOHelper(boost::filesystem::path rootPath,
-    const uid_t uid, const gid_t gid, std::shared_ptr<folly::Executor> executor)
+    const uid_t uid, const gid_t gid, std::shared_ptr<folly::Executor> executor,
+    Timeout timeout)
     : m_rootPath{std::move(rootPath)}
     , m_uid{uid}
     , m_gid{gid}
     , m_executor{std::move(executor)}
+    , m_timeout{std::move(timeout)}
 {
 }
 
@@ -466,7 +469,7 @@ folly::Future<FileHandlePtr> DirectIOHelper::open(
 {
     return folly::via(m_executor.get(), [
         fileId, filePath = root(fileId), flags, executor = m_executor,
-        uid = m_uid, gid = m_gid
+        uid = m_uid, gid = m_gid, timeout = m_timeout
     ]() mutable {
         UserCtxSetter userCTX{uid, gid};
         if (!userCTX.valid())
@@ -477,8 +480,8 @@ folly::Future<FileHandlePtr> DirectIOHelper::open(
         if (res == -1)
             return makeFuturePosixException<FileHandlePtr>(errno);
 
-        auto handle = std::make_shared<DirectIOFileHandle>(
-            std::move(fileId), uid, gid, res, std::move(executor));
+        auto handle = std::make_shared<DirectIOFileHandle>(std::move(fileId),
+            uid, gid, res, std::move(executor), std::move(timeout));
 
         return folly::makeFuture<FileHandlePtr>(std::move(handle));
     });

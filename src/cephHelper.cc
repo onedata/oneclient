@@ -45,8 +45,8 @@ struct WriteCallbackData {
     {
         for (auto &byteRange : *buffer.front())
             bufferlist.append(ceph::buffer::create_static(byteRange.size(),
-                reinterpret_cast<char *>(const_cast<unsigned char *>(
-                    byteRange.data()))));
+                reinterpret_cast<char *>(
+                    const_cast<unsigned char *>(byteRange.data()))));
     }
 
     folly::fbstring fileId;
@@ -160,15 +160,18 @@ folly::Future<std::size_t> CephFileHandle::write(
     });
 }
 
+const Timeout &CephFileHandle::timeout() { return m_helper->timeout(); }
+
 CephHelper::CephHelper(folly::fbstring clusterName, folly::fbstring monHost,
     folly::fbstring poolName, folly::fbstring userName, folly::fbstring key,
-    std::unique_ptr<folly::Executor> executor)
+    std::unique_ptr<folly::Executor> executor, Timeout timeout)
     : m_clusterName{std::move(clusterName)}
     , m_monHost{std::move(monHost)}
     , m_poolName{std::move(poolName)}
     , m_userName{std::move(userName)}
     , m_key{std::move(key)}
     , m_executor{std::move(executor)}
+    , m_timeout{std::move(timeout)}
 {
 }
 

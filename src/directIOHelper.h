@@ -46,7 +46,8 @@ public:
      * @param executor Executor for driving async file operations.
      */
     DirectIOFileHandle(folly::fbstring fileId, const uid_t uid, const gid_t gid,
-        const int fileHandle, std::shared_ptr<folly::Executor> executor);
+        const int fileHandle, std::shared_ptr<folly::Executor> executor,
+        Timeout timeout = ASYNC_OPS_TIMEOUT);
 
     /**
      * Destructor.
@@ -67,6 +68,8 @@ public:
 
     folly::Future<folly::Unit> fsync(bool isDataSync) override;
 
+    const Timeout &timeout() override { return m_timeout; }
+
     bool needsDataConsistencyCheck() override { return true; }
 
 private:
@@ -74,6 +77,7 @@ private:
     gid_t m_gid;
     int m_fh;
     std::shared_ptr<folly::Executor> m_executor;
+    Timeout m_timeout;
     std::atomic_bool m_needsRelease{true};
 };
 
@@ -92,7 +96,8 @@ public:
      * @param executor Executor for driving async file operations.
      */
     DirectIOHelper(boost::filesystem::path rootPath, const uid_t uid,
-        const gid_t gid, std::shared_ptr<folly::Executor> executor);
+        const gid_t gid, std::shared_ptr<folly::Executor> executor,
+        Timeout timeout = ASYNC_OPS_TIMEOUT);
 
     folly::Future<struct stat> getattr(const folly::fbstring &fileId) override;
 
@@ -136,6 +141,8 @@ public:
     folly::Future<FileHandlePtr> open(const folly::fbstring &fileId,
         const int flags, const Params &openParams) override;
 
+    const Timeout &timeout() override { return m_timeout; }
+
 private:
     boost::filesystem::path root(const folly::fbstring &fileId) const
     {
@@ -146,6 +153,7 @@ private:
     const uid_t m_uid;
     const gid_t m_gid;
     std::shared_ptr<folly::Executor> m_executor;
+    Timeout m_timeout;
 };
 
 /**
@@ -168,9 +176,11 @@ public:
         const auto &rootPath = getParam(parameters, DIRECT_IO_HELPER_PATH_ARG);
         const auto &uid = getParam<int>(parameters, "uid", -1);
         const auto &gid = getParam<int>(parameters, "gid", -1);
+        Timeout timeout{getParam<std::size_t>(
+            parameters, "timeout", ASYNC_OPS_TIMEOUT.count())};
 
         return std::make_shared<DirectIOHelper>(rootPath.toStdString(), uid,
-            gid, std::make_shared<AsioExecutor>(m_service));
+            gid, std::make_shared<AsioExecutor>(m_service), std::move(timeout));
     }
 
 private:
