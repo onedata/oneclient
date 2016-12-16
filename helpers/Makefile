@@ -39,11 +39,12 @@ install: release
 
 .PHONY: coverage
 coverage:
-	lcov --directory debug --capture --output-file helpers.info
-	lcov --remove helpers.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
+	lcov --directory `pwd`/debug --capture --output-file `pwd`/helpers.info
+	lcov --remove `pwd`/helpers.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
 	                           'relwithdebinfo/*' 'debug/*' 'release/*' \
-	                           'erlang-tls/*' --output-file helpers.info.cleaned
-	genhtml -o coverage helpers.info.cleaned
+	                           'erlang-tls/*' \
+														 --output-file `pwd`/helpers.info.cleaned
+	genhtml -o `pwd`/coverage `pwd`/helpers.info.cleaned
 	echo "Coverage written to `pwd`/coverage/index.html"
 
 .PHONY: clean

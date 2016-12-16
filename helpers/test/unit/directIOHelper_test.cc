@@ -112,6 +112,27 @@ TEST_F(DirectIOHelperTest, shouldWriteBytes)
     EXPECT_EQ("test_000456789_test", tmp);
 }
 
+TEST_F(DirectIOHelperTest, shouldWrite10MBChunk)
+{
+    std::size_t size = 10 * 1024 * 1024;
+    std::string stmp(size, '0');
+    std::string tmp;
+
+    folly::IOBufQueue writeBuf{folly::IOBufQueue::cacheChainLength()};
+    writeBuf.append(stmp);
+
+    auto bytes_written =
+        handle->write(0, std::move(writeBuf)).getVia(executor.get());
+
+    EXPECT_EQ(size, bytes_written);
+
+    std::ifstream f(testFilePath.string());
+    f >> tmp;
+    f.close();
+
+    EXPECT_EQ(stmp, tmp);
+}
+
 TEST_F(DirectIOHelperTest, shouldReadBytes)
 {
     auto readBuf = handle->read(5, 10).getVia(executor.get());
@@ -139,10 +160,10 @@ TEST_F(DirectIOHelperTest, shouldCheckAccess)
     EXPECT_NO_THROW(proxy->access(testFileId, 0).getVia(executor.get()));
 }
 
-TEST_F(DirectIOHelperTest, shouldNotReadDirectory)
+TEST_F(DirectIOHelperTest, shouldReadDirectory)
 {
-    EXPECT_THROW_POSIX_CODE(
-        proxy->readdir(testFileId, 0, 10).getVia(executor.get()), ENOSYS);
+    EXPECT_NO_THROW(proxy->mkdir("dir", 0755).getVia(executor.get()));
+    EXPECT_NO_THROW(proxy->readdir("dir", 0, 1).getVia(executor.get()));
 }
 
 TEST_F(DirectIOHelperTest, mknod)

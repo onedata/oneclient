@@ -479,15 +479,15 @@ def test_cancel_quota_exceeded_subscription(endpoint, manager):
     configs={
         'all': {
             'description': 'All events with the same uuid.',
-            'parameters': [EvtParam.evt_num(1000000), EvtParam.key_num(1)]
+            'parameters': [EvtParam.evt_num(10000), EvtParam.key_num(1)]
         },
         'half': {
             'description': 'Every second event with the same key.',
-            'parameters': [EvtParam.evt_num(1000000), EvtParam.key_num(2)]
+            'parameters': [EvtParam.evt_num(10000), EvtParam.key_num(2)]
         },
         'one_tenth': {
             'description': 'Every tenth event with the same key.',
-            'parameters': [EvtParam.evt_num(1000000), EvtParam.key_num(10)]
+            'parameters': [EvtParam.evt_num(10000), EvtParam.key_num(10)]
         }
     })
 def test_aggregate_events(result, endpoint, manager, evt_num, key_num):
