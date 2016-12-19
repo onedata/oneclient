@@ -87,12 +87,13 @@ namespace helpers {
 
 DirectIOFileHandle::DirectIOFileHandle(folly::fbstring fileId, const uid_t uid,
     const gid_t gid, const int fileHandle,
-    std::shared_ptr<folly::Executor> executor)
+    std::shared_ptr<folly::Executor> executor, Timeout timeout)
     : FileHandle{std::move(fileId)}
     , m_uid{uid}
     , m_gid{gid}
     , m_fh{fileHandle}
     , m_executor{std::move(executor)}
+    , m_timeout{std::move(timeout)}
 {
 }
 
@@ -153,11 +154,19 @@ folly::Future<std::size_t> DirectIOFileHandle::write(
                 return folly::makeFuture<std::size_t>(0);
 
             auto iov = buf.front()->getIov();
-            res = ::writev(fh, iov.data(), iov.size());
-            if (res == -1)
-                return makeFuturePosixException<std::size_t>(errno);
+            auto iov_size = iov.size();
+            auto size = 0;
 
-            return folly::makeFuture<std::size_t>(res);
+            for (std::size_t iov_off = 0; iov_off < iov_size;
+                 iov_off += IOV_MAX) {
+                res = ::writev(fh, iov.data() + iov_off,
+                    std::min<std::size_t>(IOV_MAX, iov_size - iov_off));
+                if (res == -1)
+                    return makeFuturePosixException<std::size_t>(errno);
+                size += res;
+            }
+
+            return folly::makeFuture<std::size_t>(size);
         });
 }
 
@@ -201,11 +210,13 @@ folly::Future<folly::Unit> DirectIOFileHandle::fsync(bool /*isDataSync*/)
 }
 
 DirectIOHelper::DirectIOHelper(boost::filesystem::path rootPath,
-    const uid_t uid, const gid_t gid, std::shared_ptr<folly::Executor> executor)
+    const uid_t uid, const gid_t gid, std::shared_ptr<folly::Executor> executor,
+    Timeout timeout)
     : m_rootPath{std::move(rootPath)}
     , m_uid{uid}
     , m_gid{gid}
     , m_executor{std::move(executor)}
+    , m_timeout{std::move(timeout)}
 {
 }
 
@@ -238,6 +249,46 @@ folly::Future<folly::Unit> DirectIOHelper::access(
 
             return setResult(::access, filePath.c_str(), mask);
         });
+}
+
+folly::Future<folly::fbvector<folly::fbstring>> DirectIOHelper::readdir(
+    const folly::fbstring &fileId, off_t offset, size_t count)
+{
+    return folly::via(m_executor.get(), [
+        filePath = root(fileId), offset, count, uid = m_uid, gid = m_gid
+    ] {
+        UserCtxSetter userCTX{uid, gid};
+        if (!userCTX.valid())
+            return makeFuturePosixException<folly::fbvector<folly::fbstring>>(
+                EDOM);
+
+        folly::fbvector<folly::fbstring> ret;
+
+        DIR *dir;
+        struct dirent *dp;
+        dir = opendir(filePath.c_str());
+
+        if (!dir)
+            return makeFuturePosixException<folly::fbvector<folly::fbstring>>(
+                errno);
+
+        int offset_ = offset, count_ = count;
+        while ((dp = ::readdir(dir)) != NULL && count_ > 0) {
+            if (strcmp(dp->d_name, ".") && strcmp(dp->d_name, "..")) {
+                if (offset_ > 0) {
+                    --offset_;
+                }
+                else {
+                    ret.push_back(folly::fbstring(dp->d_name));
+                    --count_;
+                }
+            }
+        }
+        closedir(dir);
+
+        return folly::makeFuture<folly::fbvector<folly::fbstring>>(
+            std::move(ret));
+    });
 }
 
 folly::Future<folly::fbstring> DirectIOHelper::readlink(
@@ -418,7 +469,7 @@ folly::Future<FileHandlePtr> DirectIOHelper::open(
 {
     return folly::via(m_executor.get(), [
         fileId, filePath = root(fileId), flags, executor = m_executor,
-        uid = m_uid, gid = m_gid
+        uid = m_uid, gid = m_gid, timeout = m_timeout
     ]() mutable {
         UserCtxSetter userCTX{uid, gid};
         if (!userCTX.valid())
@@ -429,8 +480,8 @@ folly::Future<FileHandlePtr> DirectIOHelper::open(
         if (res == -1)
             return makeFuturePosixException<FileHandlePtr>(errno);
 
-        auto handle = std::make_shared<DirectIOFileHandle>(
-            std::move(fileId), uid, gid, res, std::move(executor));
+        auto handle = std::make_shared<DirectIOFileHandle>(std::move(fileId),
+            uid, gid, res, std::move(executor), std::move(timeout));
 
         return folly::makeFuture<FileHandlePtr>(std::move(handle));
     });

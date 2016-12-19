@@ -53,12 +53,14 @@ public:
         const auto &bucketName = getParam(parameters, "bucket_name");
         const auto &accessKey = getParam(parameters, "access_key");
         const auto &secretKey = getParam(parameters, "secret_key");
+        Timeout timeout{getParam<std::size_t>(
+            parameters, "timeout", ASYNC_OPS_TIMEOUT.count())};
         const auto &blockSize =
             getParam<std::size_t>(parameters, "block_size", DEFAULT_BLOCK_SIZE);
 
         return std::make_shared<KeyValueAdapter>(
-            std::make_shared<S3Helper>(
-                hostname, bucketName, accessKey, secretKey, scheme == "https"),
+            std::make_shared<S3Helper>(hostname, bucketName, accessKey,
+                secretKey, scheme == "https", std::move(timeout)),
             std::make_shared<AsioExecutor>(m_service), blockSize);
     }
 
@@ -81,7 +83,7 @@ public:
      */
     S3Helper(folly::fbstring hostName, folly::fbstring bucketName,
         folly::fbstring accessKey, folly::fbstring secretKey,
-        const bool useHttps = true);
+        const bool useHttps = true, Timeout timeout = ASYNC_OPS_TIMEOUT);
 
     folly::IOBufQueue getObject(const folly::fbstring &key, const off_t offset,
         const std::size_t size) override;
@@ -97,9 +99,12 @@ public:
     folly::fbvector<folly::fbstring> listObjects(
         const folly::fbstring &prefix) override;
 
+    const Timeout &timeout() override { return m_timeout; }
+
 private:
     folly::fbstring m_bucket;
     std::unique_ptr<Aws::S3::S3Client> m_client;
+    Timeout m_timeout;
 };
 
 /*

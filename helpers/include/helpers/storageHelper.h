@@ -36,7 +36,7 @@ namespace one {
 namespace helpers {
 
 namespace {
-constexpr std::chrono::seconds ASYNC_OPS_TIMEOUT{120};
+constexpr std::chrono::milliseconds ASYNC_OPS_TIMEOUT{120000};
 const std::error_code SUCCESS_CODE{};
 } // namespace
 
@@ -97,6 +97,7 @@ using FlagsSet = std::unordered_set<Flag, FlagHash>;
 using Params = std::unordered_map<folly::fbstring, folly::fbstring>;
 using StorageHelperPtr = std::shared_ptr<StorageHelper>;
 using FileHandlePtr = std::shared_ptr<FileHandle>;
+using Timeout = std::chrono::milliseconds;
 
 template <class... T>
 using GeneralCallback = std::function<void(T..., std::error_code)>;
@@ -249,6 +250,8 @@ public:
         return folly::makeFuture();
     }
 
+    virtual const Timeout &timeout() = 0;
+
     virtual bool needsDataConsistencyCheck() { return false; }
 
 protected:
@@ -370,6 +373,8 @@ public:
 
     virtual folly::Future<FileHandlePtr> open(const folly::fbstring &fileId,
         const int flags, const Params &openParams) = 0;
+
+    virtual const Timeout &timeout() = 0;
 };
 
 } // namespace helpers

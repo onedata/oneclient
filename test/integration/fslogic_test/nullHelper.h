@@ -72,7 +72,10 @@ public:
         return folly::makeFuture();
     }
 
+    const one::helpers::Timeout &timeout() override { return m_timeout; }
+
     std::error_code m_ec;
+    one::helpers::Timeout m_timeout{60};
 };
 
 struct NullHelperHandleMock : public NullHelperHandle {
@@ -231,7 +234,10 @@ public:
         return folly::makeFuture(m_handles[fileId]);
     }
 
+    const one::helpers::Timeout &timeout() override { return m_timeout; }
+
     std::error_code m_ec;
+    one::helpers::Timeout m_timeout{60};
     std::unordered_map<folly::fbstring, std::shared_ptr<NullHelperHandleMock>>
         m_handles;
 };
@@ -265,10 +271,10 @@ struct NullHelperMock : public NullHelper {
     bool verify_and_clear_expectations()
     {
         return Mock::VerifyAndClearExpectations(this) &&
-            std::all_of(m_real.m_handles.begin(), m_real.m_handles.end(),
-                   [](auto ha) {
-                       return Mock::VerifyAndClearExpectations(ha.second.get());
-                   });
+            std::all_of(
+                m_real.m_handles.begin(), m_real.m_handles.end(), [](auto ha) {
+                    return Mock::VerifyAndClearExpectations(ha.second.get());
+                });
     }
 
     void set_ec(std::error_code ec)
@@ -279,8 +285,8 @@ struct NullHelperMock : public NullHelper {
     }
 
     MOCK_METHOD3(open,
-        folly::Future<one::helpers::FileHandlePtr>(const folly::fbstring &,
-                     const int, const one::helpers::Params &));
+        folly::Future<one::helpers::FileHandlePtr>(
+            const folly::fbstring &, const int, const one::helpers::Params &));
 
     NullHelper m_real;
 };

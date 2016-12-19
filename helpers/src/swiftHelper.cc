@@ -73,9 +73,11 @@ void throwOnError(folly::fbstring operation, const Outcome &outcome)
 
 SwiftHelper::SwiftHelper(folly::fbstring containerName,
     const folly::fbstring &authUrl, const folly::fbstring &tenantName,
-    const folly::fbstring &userName, const folly::fbstring &password)
+    const folly::fbstring &userName, const folly::fbstring &password,
+    Timeout timeout)
     : m_auth{authUrl, tenantName, userName, password}
     , m_containerName{std::move(containerName)}
+    , m_timeout{std::move(timeout)}
 {
 }
 

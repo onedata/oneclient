@@ -22,10 +22,11 @@ namespace helpers {
 
 ProxyIOFileHandle::ProxyIOFileHandle(folly::fbstring fileId,
     folly::fbstring storageId, Params openParams,
-    communication::Communicator &communicator)
+    communication::Communicator &communicator, Timeout timeout)
     : FileHandle{std::move(fileId), std::move(openParams)}
     , m_storageId{std::move(storageId)}
     , m_communicator{communicator}
+    , m_timeout{std::move(timeout)}
 {
 }
 
@@ -73,10 +74,11 @@ folly::Future<std::size_t> ProxyIOFileHandle::multiwrite(
         });
 }
 
-ProxyIOHelper::ProxyIOHelper(
-    folly::fbstring storageId, communication::Communicator &communicator)
+ProxyIOHelper::ProxyIOHelper(folly::fbstring storageId,
+    communication::Communicator &communicator, Timeout timeout)
     : m_storageId{std::move(storageId)}
     , m_communicator{communicator}
+    , m_timeout{std::move(timeout)}
 {
 }
 
@@ -84,7 +86,7 @@ folly::Future<FileHandlePtr> ProxyIOHelper::open(
     const folly::fbstring &fileId, const int flags, const Params &openParams)
 {
     return folly::makeFuture(std::make_shared<ProxyIOFileHandle>(
-        fileId, m_storageId, openParams, m_communicator));
+        fileId, m_storageId, openParams, m_communicator, m_timeout));
 }
 
 } // namespace helpers
