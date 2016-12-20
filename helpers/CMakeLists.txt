@@ -35,7 +35,7 @@ find_package(NSS REQUIRED)
 
 # Setup Folly
 message(STATUS "Checking for Folly...")
-find_package_prefer_static(Folly REQUIRED)
+find_package(Folly REQUIRED)
 find_library(LIBEVENT_LIBRARY event)
 find_library(IBERTY_LIBRARY iberty)
 find_library(DOUBLE_CONVERSION_LIBRARY double-conversion)
