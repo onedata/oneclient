@@ -31,7 +31,7 @@ class FileRemoved;
 class FileRenamed;
 } // namespace events
 
-constexpr std::chrono::seconds SUBSCRIPTION_DURATION{30};
+constexpr std::chrono::milliseconds REMOTE_TIME_THRESHOLD{500};
 
 template <typename T> struct StdHashCompare {
     bool equal(const T &a, const T &b) const { return a == b; }
