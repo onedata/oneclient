@@ -99,6 +99,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     });
 
     m_metadataCache.onOpen([this](const folly::fbstring &uuid) {
+        m_fsSubscriptions.subscribeFileAttrChanged(uuid);
         m_fsSubscriptions.subscribeFileLocationChanged(uuid);
     });
 

@@ -35,7 +35,7 @@ void FsSubscriptions::subscribeFileAttrChanged(const folly::fbstring &fileUuid)
 {
     subscribe(
         fileUuid, events::FileAttrChangedSubscription{fileUuid.toStdString(),
-                      SUBSCRIPTION_DURATION, [this](auto events) mutable {
+                      REMOTE_TIME_THRESHOLD, [this](auto events) mutable {
                           this->handleFileAttrChanged(std::move(events));
                       }});
 }
@@ -69,7 +69,7 @@ void FsSubscriptions::subscribeFileLocationChanged(
 {
     subscribe(fileUuid,
         events::FileLocationChangedSubscription{fileUuid.toStdString(),
-            SUBSCRIPTION_DURATION, [this](auto events) mutable {
+            REMOTE_TIME_THRESHOLD, [this](auto events) mutable {
                 this->handleFileLocationChanged(std::move(events));
             }});
 }
