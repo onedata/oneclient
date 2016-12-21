@@ -63,7 +63,7 @@ find_package(NSS REQUIRED)
 
 # Setup Folly
 message(STATUS "Checking for Folly...")
-find_package_prefer_static(Folly REQUIRED)
+find_package(Folly REQUIRED)
 find_library(LIBEVENT_LIBRARY event)
 find_library(IBERTY_LIBRARY iberty)
 find_library(DOUBLE_CONVERSION_LIBRARY double-conversion)
@@ -72,8 +72,9 @@ set(FOLLY_LIBRARIES
     ${LIBEVENT_LIBRARY}
     ${IBERTY_LIBRARY}
     ${DOUBLE_CONVERSION_LIBRARY})
+
 # Setup Boost
-message(STATUS "Checking for Boost components......")
+message(STATUS "Checking for Boost components...")
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME     ${STATIC_LIBSTDCPP})
 set(Boost_USE_STATIC_LIBS        ${STATIC_BOOST})
