@@ -71,7 +71,7 @@ find_library(RT_LIBRARY rt)
 find_library(DL_LIBRARY dl)
 
 # Rados library
-find_library_prefer_static(RADOS_LIBRARY rados)
+find_library(RADOS_LIBRARY rados)
 
 # AWS SDK library
 find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core)

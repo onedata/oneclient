@@ -142,6 +142,7 @@ ct_command = ['ct_run',
               '-dir', '.',
               '-logdir', './logs/',
               '-ct_hooks', 'cth_surefire', '[{path, "surefire.xml"}]',
+              'and', 'cth_logger', 'and', 'cth_env_up', 'and', 'cth_mock', 'and', 'cth_posthook',
               '-noshell',
               '-name', 'testmaster@testmaster.{0}.dev.docker'.format(uid),
               '-include', '../include', '../_build/default/lib']
