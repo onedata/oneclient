@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
         '-i', '--image',
         action='store',
-        default='docker.onedata.org/ceph-base',
+        default='onedata/ceph',
         help='docker image to use for the container',
         dest='image')
 

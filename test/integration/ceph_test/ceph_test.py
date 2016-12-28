@@ -14,14 +14,13 @@ sys.path.insert(0, os.path.dirname(script_dir))
 # noinspection PyUnresolvedReferences
 from test_common import *
 # noinspection PyUnresolvedReferences
-from environment import docker
-from environment import ceph as ceph_server
-import ceph
+from environment import docker, common, ceph
+from ceph import CephProxy
 
 
 @pytest.fixture(scope='module')
-def ceph_client(request):
-    class CephClient(object):
+def ceph_server(request):
+    class CephServer(object):
         def __init__(self, mon_host, username, key, pool_name):
             self.mon_host = mon_host
             self.username = username
@@ -29,30 +28,26 @@ def ceph_client(request):
             self.pool_name = pool_name
 
     pool_name = 'data'
-    result = ceph_server.up('onedata/ceph', [(pool_name, '8')], 'storage', '1')
+    result = ceph.up('onedata/ceph', [(pool_name, '8')], 'storage',
+                     common.generate_uid())
 
     [container] = result['docker_ids']
-    username = result['username']
-    key = str(result['key'])
-    mon_host = docker.inspect(container)['NetworkSettings']['IPAddress']. \
-        encode('ascii')
+    username = result['username'].encode('ascii')
+    key = result['key'].encode('ascii')
+    mon_host = result['host_name'].encode('ascii')
 
     def fin():
-        docker.exec_(container, ['btrfs', 'subvolume', 'delete',
-                                 '/var/lib/ceph/osd/ceph-0/current'])
-        docker.exec_(container, ['btrfs', 'subvolume', 'delete',
-                                 '/var/lib/ceph/osd/ceph-0/snap_1'])
         docker.remove([container], force=True, volumes=True)
 
     request.addfinalizer(fin)
 
-    return CephClient(mon_host, username, key, pool_name)
+    return CephServer(mon_host, username, key, pool_name)
 
 
 @pytest.fixture
-def helper(ceph_client):
-    return ceph.CephProxy(ceph_client.mon_host, ceph_client.username,
-                          ceph_client.key, ceph_client.pool_name)
+def helper(ceph_server):
+    return CephProxy(ceph_server.mon_host, ceph_server.username,
+                     ceph_server.key, ceph_server.pool_name)
 
 
 def test_write_should_write_data(helper):

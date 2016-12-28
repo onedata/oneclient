@@ -35,7 +35,7 @@ find_package(NSS REQUIRED)
 
 # Setup Folly
 message(STATUS "Checking for Folly...")
-find_package_prefer_static(Folly REQUIRED)
+find_package(Folly REQUIRED)
 find_library(LIBEVENT_LIBRARY event)
 find_library(IBERTY_LIBRARY iberty)
 find_library(DOUBLE_CONVERSION_LIBRARY double-conversion)
@@ -71,7 +71,7 @@ find_library(RT_LIBRARY rt)
 find_library(DL_LIBRARY dl)
 
 # Rados library
-find_library_prefer_static(RADOS_LIBRARY rados)
+find_library(RADOS_LIBRARY rados)
 
 # AWS SDK library
 find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core)
