@@ -21,7 +21,7 @@ BuildRequires: git
 BuildRequires: glog-devel >= 0.3.4
 BuildRequires: golang
 BuildRequires: libcurl-devel
-BuildRequires: librados2-devel >= 10.2.3
+BuildRequires: librados-devel >= 11.1.0
 BuildRequires: libsodium-devel
 BuildRequires: libtool-ltdl
 BuildRequires: libtool-ltdl-devel
