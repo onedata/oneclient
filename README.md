@@ -16,7 +16,7 @@ To build *oneclient* you need the following packages installed on your system:
 * fuse >= 2.7
 * g++ >= 4.9.0 (or a recent version of Clang)
 * go
-* librados2
+* librados-dev
 * libs3
 * libsodium
 * libtool-ltdl

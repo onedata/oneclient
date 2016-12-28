@@ -21,7 +21,7 @@ Build-Depends:
     libnss3-dev,
     libprotobuf-dev (>= 2.6.0),
     libpython-dev,
-    librados-dev (>= 10.2.3),
+    librados-dev (>= 11.1.0),
     libsodium-dev,
     libssl-dev,
     libstdc++-5-dev,

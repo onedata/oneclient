@@ -126,6 +126,9 @@ command = command.format(
     test_type=args.test_type,
     additional_code=additional_code)
 
+# 128MB or more required for chrome tests to run with xvfb
+run_params = ['--shm-size=128m']
+
 ret = docker.run(tty=True,
                  rm=True,
                  interactive=True,
@@ -133,7 +136,8 @@ ret = docker.run(tty=True,
                  reflect=[(script_dir, 'rw'),
                           ('/var/run/docker.sock', 'rw')],
                  image=args.image,
-                 command=['python', '-c', command])
+                 command=['python', '-c', command],
+                 run_params=run_params)
 
 if ret != 0 and not skipped_test_exists(args.report_path):
     ret = 0
