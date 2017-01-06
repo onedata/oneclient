@@ -20,9 +20,9 @@ default_config = {
     },
     "generators_config": {
         "ceph": {
-            "user": "client.admin",
+            "username": "client.admin",
             "key": "key",
-            "mon_host": "",
+            "monitor_hostname": "",
             "pool_name": "onedata"
         },
         "s3": {
@@ -34,25 +34,25 @@ default_config = {
             "highest_uid": 65536
         },
         "swift": {
-            "user_name": "swift",
+            "username": "swift",
             "password": "swift"
         }
     },
     "generators_mapping": [
         {
-            "storageType": "Ceph",
+            "storageType": "ceph",
             "generatorId": "ceph"
         },
         {
-            "storageType": "Posix",
+            "storageType": "posix",
             "generatorId": "posix"
         },
         {
-            "storageType": "S3",
+            "storageType": "s3",
             "generatorId": "s3"
         },
         {
-            "storageType": "Swift",
+            "storageType": "swift",
             "generatorId": "swift"
         }
     ],
@@ -119,9 +119,11 @@ echo "{4}" > /root/bin/generators/generators.cfg
         tty=True,
         workdir='/root/bin',
         volumes=volumes,
-        run_params=["--privileged"],
-        command=command, output=True,
-        name=hostname, hostname=hostname)
+        privileged=True,
+        command=command,
+        output=True,
+        name=hostname,
+        hostname=hostname)
 
     settings = docker.inspect(container)
     ip = settings['NetworkSettings']['IPAddress']

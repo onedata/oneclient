@@ -1,13 +1,13 @@
 /**
- * @file proxyIOHelper.h
+ * @file proxyHelper.h
  * @author Konrad Zemek
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#ifndef HELPERS_PROXY_IO_HELPER_H
-#define HELPERS_PROXY_IO_HELPER_H
+#ifndef HELPERS_PROXY_HELPER_H
+#define HELPERS_PROXY_HELPER_H
 
 #include "helpers/storageHelper.h"
 
@@ -21,9 +21,9 @@ namespace one {
 namespace helpers {
 
 /**
- * The @c FileHandle implementation for ProxyIO storage helper.
+ * The @c FileHandle implementation for Proxy storage helper.
  */
-class ProxyIOFileHandle : public FileHandle {
+class ProxyFileHandle : public FileHandle {
 public:
     /**
      * Constructor.
@@ -33,7 +33,7 @@ public:
      * @param communicator Communicator that will be used for communication
      * with a provider.
      */
-    ProxyIOFileHandle(folly::fbstring fileId, folly::fbstring storageId,
+    ProxyFileHandle(folly::fbstring fileId, folly::fbstring storageId,
         Params openParams, communication::Communicator &communicator,
         Timeout timeout);
 
@@ -55,10 +55,10 @@ private:
 };
 
 /**
- * @c ProxyIOHelper is responsible for providing a POSIX-like API for operations
+ * @c ProxyHelper is responsible for providing a POSIX-like API for operations
  * on files proxied through a onedata provider.
  */
-class ProxyIOHelper : public StorageHelper {
+class ProxyHelper : public StorageHelper {
 public:
     /**
      * Constructor.
@@ -66,7 +66,7 @@ public:
      * @param communicator Communicator that will be used for communication
      * with a provider.
      */
-    ProxyIOHelper(folly::fbstring storageId,
+    ProxyHelper(folly::fbstring storageId,
         communication::Communicator &communicator,
         Timeout timeout = ASYNC_OPS_TIMEOUT);
 
@@ -82,16 +82,16 @@ private:
 };
 
 /**
- * An implementation of @c StorageHelperFactory for ProxyIO storage helper.
+ * An implementation of @c StorageHelperFactory for Proxy storage helper.
  */
-class ProxyIOHelperFactory : public StorageHelperFactory {
+class ProxyHelperFactory : public StorageHelperFactory {
 public:
     /**
      * Constructor.
      * @param communicator Communicator that will be used for communication
      * with a provider.
      */
-    ProxyIOHelperFactory(communication::Communicator &communicator)
+    ProxyHelperFactory(communication::Communicator &communicator)
         : m_communicator{communicator}
     {
     }
@@ -99,11 +99,11 @@ public:
     std::shared_ptr<StorageHelper> createStorageHelper(
         const Params &parameters) override
     {
-        auto storageId = getParam(parameters, "storage_id");
+        auto storageId = getParam(parameters, "storageId");
         Timeout timeout{getParam<std::size_t>(
             parameters, "timeout", ASYNC_OPS_TIMEOUT.count())};
 
-        return std::make_shared<ProxyIOHelper>(
+        return std::make_shared<ProxyHelper>(
             std::move(storageId), m_communicator, std::move(timeout));
     }
 

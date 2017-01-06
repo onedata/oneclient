@@ -146,9 +146,9 @@ def create_storages(storages, op_nodes, op_config, bindir, storages_dockers):
             config = storages_dockers['ceph'][storage['name']]
             pool = storage['pool'].split(':')[0]
             command = ['escript', script_paths['ceph'], cookie,
-                       first_node, storage['name'], "ceph",
+                       first_node, storage['name'], 'ceph',
                        config['host_name'], pool, config['username'],
-                       config['key']]
+                       config['key'], 'true']
             assert 0 is docker.exec_(container, command, tty=True,
                                      stdout=sys.stdout, stderr=sys.stderr)
         elif storage['type'] == 's3':
@@ -156,9 +156,7 @@ def create_storages(storages, op_nodes, op_config, bindir, storages_dockers):
             command = ['escript', script_paths['s3'], cookie,
                        first_node, storage['name'], config['host_name'],
                        config.get('scheme', 'http'), storage['bucket'],
-                       config['access_key'], config['secret_key'],
-                       config.get('iam_request_scheme', 'https'),
-                       config.get('iam_host', 'iam.amazonaws.com')]
+                       config['access_key'], config['secret_key'], 'true']
             assert 0 is docker.exec_(container, command, tty=True,
                                      stdout=sys.stdout, stderr=sys.stderr)
 
@@ -169,7 +167,7 @@ def create_storages(storages, op_nodes, op_config, bindir, storages_dockers):
                        'http://{0}:{1}/v2.0/tokens'.format(config['host_name'],
                                                     config['keystone_port']),
                        storage['container'], config['tenant_name'],
-                       config['user_name'], config['password']]
+                       config['user_name'], config['password'], 'true']
             assert 0 is docker.exec_(container, command, tty=True,
                                      stdout=sys.stdout, stderr=sys.stderr)
 

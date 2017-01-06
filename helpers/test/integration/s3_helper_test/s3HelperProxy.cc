@@ -1,5 +1,5 @@
 /**
- * @file s3Proxy.cc
+ * @file s3HelperProxy.cc
  * @author Krzysztof Trzepla
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
@@ -35,11 +35,11 @@ private:
     std::unique_ptr<PyThreadState, decltype(&PyEval_RestoreThread)> threadState;
 };
 
-class S3Proxy {
+class S3HelperProxy {
 public:
-    S3Proxy(std::string scheme, std::string hostName, std::string bucketName,
-        std::string accessKey, std::string secretKey, std::size_t threadNumber,
-        std::size_t blockSize)
+    S3HelperProxy(std::string scheme, std::string hostName,
+        std::string bucketName, std::string accessKey, std::string secretKey,
+        std::size_t threadNumber, std::size_t blockSize)
         : m_service{threadNumber}
         , m_idleWork{asio::make_work(m_service)}
         , m_helper{std::make_shared<one::helpers::KeyValueAdapter>(
@@ -50,7 +50,7 @@ public:
     {
         std::generate_n(std::back_inserter(m_workers), threadNumber, [=] {
             std::thread t{[=] {
-                one::etls::utils::nameThread("S3Proxy");
+                one::etls::utils::nameThread("S3HelperProxy");
                 m_service.run();
             }};
 
@@ -58,7 +58,7 @@ public:
         });
     }
 
-    ~S3Proxy()
+    ~S3HelperProxy()
     {
         m_service.stop();
         for (auto &t : m_workers)
@@ -105,22 +105,22 @@ private:
 };
 
 namespace {
-boost::shared_ptr<S3Proxy> create(std::string scheme, std::string hostName,
-    std::string bucketName, std::string accessKey, std::string secretKey,
-    std::size_t threadNumber, std::size_t blockSize)
+boost::shared_ptr<S3HelperProxy> create(std::string scheme,
+    std::string hostName, std::string bucketName, std::string accessKey,
+    std::string secretKey, std::size_t threadNumber, std::size_t blockSize)
 {
-    return boost::make_shared<S3Proxy>(std::move(scheme), std::move(hostName),
-        std::move(bucketName), std::move(accessKey), std::move(secretKey),
-        threadNumber, blockSize);
+    return boost::make_shared<S3HelperProxy>(std::move(scheme),
+        std::move(hostName), std::move(bucketName), std::move(accessKey),
+        std::move(secretKey), threadNumber, blockSize);
 }
 }
 
-BOOST_PYTHON_MODULE(s3)
+BOOST_PYTHON_MODULE(s3_helper)
 {
-    class_<S3Proxy, boost::noncopyable>("S3Proxy", no_init)
+    class_<S3HelperProxy, boost::noncopyable>("S3HelperProxy", no_init)
         .def("__init__", make_constructor(create))
-        .def("unlink", &S3Proxy::unlink)
-        .def("read", &S3Proxy::read)
-        .def("write", &S3Proxy::write)
-        .def("truncate", &S3Proxy::truncate);
+        .def("unlink", &S3HelperProxy::unlink)
+        .def("read", &S3HelperProxy::read)
+        .def("write", &S3HelperProxy::write)
+        .def("truncate", &S3HelperProxy::truncate);
 }

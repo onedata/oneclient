@@ -144,10 +144,10 @@ public:
     std::shared_ptr<StorageHelper> createStorageHelper(
         const Params &parameters) override
     {
-        const auto &clusterName = getParam(parameters, "cluster_name");
-        const auto &monHost = getParam(parameters, "mon_host");
-        const auto &poolName = getParam(parameters, "pool_name");
-        const auto &userName = getParam(parameters, "user_name");
+        const auto &clusterName = getParam(parameters, "clusterName");
+        const auto &monHost = getParam(parameters, "monitorHostname");
+        const auto &poolName = getParam(parameters, "poolName");
+        const auto &userName = getParam(parameters, "username");
         const auto &key = getParam(parameters, "key");
         Timeout timeout{getParam<std::size_t>(
             parameters, "timeout", ASYNC_OPS_TIMEOUT.count())};
