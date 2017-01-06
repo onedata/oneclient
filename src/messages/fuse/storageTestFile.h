@@ -46,7 +46,7 @@ public:
     /**
      * @return UUID of a space in which test file is located.
      */
-    const std::string &spaceUuid() const;
+    const std::string &spaceId() const;
 
     /**
      * @return Storage ID of a test file.
@@ -62,7 +62,7 @@ public:
 
 private:
     HelperParams m_helperParams;
-    std::string m_spaceUuid;
+    std::string m_spaceId;
     std::string m_fileId;
     std::string m_fileContent;
 };

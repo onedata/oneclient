@@ -28,11 +28,11 @@ public:
     /**
      * Constructor.
      * @param storageId ID of a storage on which test file is located.
-     * @param spaceUuid UUID of a space in which test file is located.
+     * @param spaceId ID of a space in which test file is located.
      * @param fileId Storage ID of a test file.
      * @param fileContent Content of a test file.
      */
-    VerifyStorageTestFile(std::string storageId, std::string spaceUuid,
+    VerifyStorageTestFile(std::string storageId, std::string spaceId,
         std::string fileId, std::string fileContent);
 
     std::string toString() const override;
@@ -41,7 +41,7 @@ private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
     std::string m_storageId;
-    std::string m_spaceUuid;
+    std::string m_spaceId;
     std::string m_fileId;
     std::string m_fileContent;
 };
