@@ -43,15 +43,15 @@ public:
     std::shared_ptr<StorageHelper> createStorageHelper(
         const Params &parameters) override
     {
-        const auto &authUrl = getParam(parameters, "auth_url");
-        const auto &containerName = getParam(parameters, "container_name");
-        const auto &tenantName = getParam(parameters, "tenant_name");
-        const auto &userName = getParam(parameters, "user_name");
+        const auto &authUrl = getParam(parameters, "authUrl");
+        const auto &containerName = getParam(parameters, "containerName");
+        const auto &tenantName = getParam(parameters, "tenantName");
+        const auto &userName = getParam(parameters, "username");
         const auto &password = getParam(parameters, "password");
         Timeout timeout{getParam<std::size_t>(
             parameters, "timeout", ASYNC_OPS_TIMEOUT.count())};
         const auto &blockSize =
-            getParam<std::size_t>(parameters, "block_size", DEFAULT_BLOCK_SIZE);
+            getParam<std::size_t>(parameters, "blockSize", DEFAULT_BLOCK_SIZE);
 
         return std::make_shared<KeyValueAdapter>(
             std::make_shared<SwiftHelper>(containerName, authUrl, tenantName,

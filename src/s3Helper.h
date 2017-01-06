@@ -49,14 +49,14 @@ public:
         const Params &parameters) override
     {
         const auto &scheme = getParam(parameters, "scheme", "https");
-        const auto &hostname = getParam(parameters, "host_name");
-        const auto &bucketName = getParam(parameters, "bucket_name");
-        const auto &accessKey = getParam(parameters, "access_key");
-        const auto &secretKey = getParam(parameters, "secret_key");
+        const auto &hostname = getParam(parameters, "hostname");
+        const auto &bucketName = getParam(parameters, "bucketName");
+        const auto &accessKey = getParam(parameters, "accessKey");
+        const auto &secretKey = getParam(parameters, "secretKey");
         Timeout timeout{getParam<std::size_t>(
             parameters, "timeout", ASYNC_OPS_TIMEOUT.count())};
         const auto &blockSize =
-            getParam<std::size_t>(parameters, "block_size", DEFAULT_BLOCK_SIZE);
+            getParam<std::size_t>(parameters, "blockSize", DEFAULT_BLOCK_SIZE);
 
         return std::make_shared<KeyValueAdapter>(
             std::make_shared<S3Helper>(hostname, bucketName, accessKey,

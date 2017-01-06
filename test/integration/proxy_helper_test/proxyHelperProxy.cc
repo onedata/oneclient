@@ -1,12 +1,12 @@
 /**
- * @file proxyIOProxy.cc
+ * @file proxyHelperProxy.cc
  * @author Konrad Zemek
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "proxyIOHelper.h"
+#include "proxyHelper.h"
 
 #include "communication/communicator.h"
 
@@ -31,14 +31,14 @@ private:
     std::unique_ptr<PyThreadState, decltype(&PyEval_RestoreThread)> threadState;
 };
 
-class ProxyIOProxy {
+class ProxyHelperProxy {
 public:
-    ProxyIOProxy(
+    ProxyHelperProxy(
         std::string storageId, std::string host, const unsigned short port)
         : m_communicator{1, host, port, false,
               one::communication::createConnection}
         , m_scheduler{std::make_shared<one::Scheduler>(1)}
-        , m_helper{std::make_shared<one::helpers::ProxyIOHelper>(
+        , m_helper{std::make_shared<one::helpers::ProxyHelper>(
               storageId, m_communicator)}
     {
         m_communicator.setScheduler(m_scheduler);
@@ -81,14 +81,14 @@ public:
 private:
     one::communication::Communicator m_communicator;
     std::shared_ptr<one::Scheduler> m_scheduler;
-    std::shared_ptr<one::helpers::ProxyIOHelper> m_helper;
+    std::shared_ptr<one::helpers::ProxyHelper> m_helper;
 };
 
 namespace {
-boost::shared_ptr<ProxyIOProxy> create(
+boost::shared_ptr<ProxyHelperProxy> create(
     std::string storageId, std::string host, int port)
 {
-    return boost::make_shared<ProxyIOProxy>(storageId, host, port);
+    return boost::make_shared<ProxyHelperProxy>(storageId, host, port);
 }
 }
 
@@ -105,17 +105,17 @@ one::helpers::FileHandlePtr raw_open(tuple args, dict kwargs)
         parametersMap[key] = val;
     }
 
-    return extract<ProxyIOProxy &>(args[0])().open(fileId, parametersMap);
+    return extract<ProxyHelperProxy &>(args[0])().open(fileId, parametersMap);
 }
 
-BOOST_PYTHON_MODULE(proxy_io)
+BOOST_PYTHON_MODULE(proxy_helper)
 {
     class_<one::helpers::FileHandlePtr>("FileHandle", no_init);
 
-    class_<ProxyIOProxy, boost::noncopyable>("ProxyIOProxy", no_init)
+    class_<ProxyHelperProxy, boost::noncopyable>("ProxyHelperProxy", no_init)
         .def("__init__", make_constructor(create))
         .def("open", raw_function(raw_open))
-        .def("read", &ProxyIOProxy::read)
-        .def("write", &ProxyIOProxy::write)
-        .def("release", &ProxyIOProxy::release);
+        .def("read", &ProxyHelperProxy::read)
+        .def("write", &ProxyHelperProxy::write)
+        .def("release", &ProxyHelperProxy::release);
 }

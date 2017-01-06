@@ -1,5 +1,5 @@
 /**
- * @file swiftProxy.cc
+ * @file swiftHelperProxy.cc
  * @author Michal Wrona
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
@@ -36,9 +36,9 @@ private:
     std::unique_ptr<PyThreadState, decltype(&PyEval_RestoreThread)> threadState;
 };
 
-class SwiftProxy {
+class SwiftHelperProxy {
 public:
-    SwiftProxy(std::string authUrl, std::string containerName,
+    SwiftHelperProxy(std::string authUrl, std::string containerName,
         std::string tenantName, std::string userName, std::string password,
         std::size_t threadNumber, std::size_t blockSize)
         : m_service{threadNumber}
@@ -51,7 +51,7 @@ public:
     {
         std::generate_n(std::back_inserter(m_workers), threadNumber, [=] {
             std::thread t{[=] {
-                folly::setThreadName("SwiftProxy");
+                folly::setThreadName("SwiftHelperProxy");
                 m_service.run();
             }};
 
@@ -59,7 +59,7 @@ public:
         });
     }
 
-    ~SwiftProxy()
+    ~SwiftHelperProxy()
     {
         m_service.stop();
         for (auto &t : m_workers)
@@ -106,22 +106,22 @@ private:
 };
 
 namespace {
-boost::shared_ptr<SwiftProxy> create(std::string authUrl,
+boost::shared_ptr<SwiftHelperProxy> create(std::string authUrl,
     std::string containerName, std::string tenantName, std::string userName,
     std::string password, std::size_t threadNumber, std::size_t blockSize)
 {
-    return boost::make_shared<SwiftProxy>(std::move(authUrl),
+    return boost::make_shared<SwiftHelperProxy>(std::move(authUrl),
         std::move(containerName), std::move(tenantName), std::move(userName),
         std::move(password), threadNumber, blockSize);
 }
 }
 
-BOOST_PYTHON_MODULE(swift)
+BOOST_PYTHON_MODULE(swift_helper)
 {
-    class_<SwiftProxy, boost::noncopyable>("SwiftProxy", no_init)
+    class_<SwiftHelperProxy, boost::noncopyable>("SwiftHelperProxy", no_init)
         .def("__init__", make_constructor(create))
-        .def("unlink", &SwiftProxy::unlink)
-        .def("read", &SwiftProxy::read)
-        .def("write", &SwiftProxy::write)
-        .def("truncate", &SwiftProxy::truncate);
+        .def("unlink", &SwiftHelperProxy::unlink)
+        .def("read", &SwiftHelperProxy::read)
+        .def("write", &SwiftHelperProxy::write)
+        .def("truncate", &SwiftHelperProxy::truncate);
 }

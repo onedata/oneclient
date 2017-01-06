@@ -28,11 +28,11 @@ class Scheduler;
 
 namespace helpers {
 
-constexpr auto CEPH_HELPER_NAME = "Ceph";
-constexpr auto DIRECT_IO_HELPER_NAME = "DirectIO";
-constexpr auto PROXY_IO_HELPER_NAME = "ProxyIO";
-constexpr auto S3_HELPER_NAME = "AmazonS3";
-constexpr auto SWIFT_HELPER_NAME = "Swift";
+constexpr auto CEPH_HELPER_NAME = "ceph";
+constexpr auto POSIX_HELPER_NAME = "posix";
+constexpr auto PROXY_HELPER_NAME = "proxy";
+constexpr auto S3_HELPER_NAME = "s3";
+constexpr auto SWIFT_HELPER_NAME = "swift";
 
 /**
  * Factory providing objects of requested storage helpers.

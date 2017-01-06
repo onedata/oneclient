@@ -43,7 +43,7 @@ message CreateStorageTestFile {
 
 message VerifyStorageTestFile {
     required bytes storage_id   = 1;
-    required bytes space_uuid   = 2;
+    required bytes space_id     = 2;
     required bytes file_id      = 3;
     required bytes file_content = 4;
 }
@@ -158,6 +158,7 @@ message FuseResponse {
         FileRenamed file_renamed = 9;
         FileCreated file_created = 10;
         FileOpened file_opened = 11;
+        Uuid uuid = 12;
     }
 }
 
@@ -213,7 +214,7 @@ message HelperParams {
 
 message StorageTestFile {
     required HelperParams helper_params = 1;
-    required bytes        space_uuid    = 2;
+    required bytes        space_id      = 2;
     required bytes        file_id       = 3;
     required bytes        file_content  = 4;
 }
@@ -227,4 +228,8 @@ message FileRenamed {
     required bytes new_uuid = 1;
     repeated FileRenamedEntry child_entries = 2; // entries for children of
                                                  // renamed file
+}
+
+message Uuid {
+    required bytes uuid = 1;
 }

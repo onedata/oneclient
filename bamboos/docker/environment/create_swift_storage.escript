@@ -1,15 +1,29 @@
 #!/usr/bin/env escript
 %%! -name create_storage@test_env
 
-main([Cookie, Node, Name, AuthUrl, ContainerName, TenantName, UserName, Password]) ->
+-export([main/1]).
+
+main([Cookie, Node, Name, AuthUrl, ContainerName, TenantName, Username, Password,
+    Insecure]) ->
+
     erlang:set_cookie(node(), list_to_atom(Cookie)),
     NodeAtom = list_to_atom(Node),
-    Helper = safe_call(NodeAtom, fslogic_storage, new_helper_init, [<<"Swift">>, #{
-        <<"auth_url">> => list_to_binary(AuthUrl), <<"container_name">> => list_to_binary(ContainerName),
-        <<"tenant_name">> => list_to_binary(TenantName), <<"user_name">> => list_to_binary(UserName),
-        <<"password">> => list_to_binary(Password)}]),
-    Storage = safe_call(NodeAtom, fslogic_storage, new_storage, [list_to_binary(Name), [Helper]]),
-    safe_call(NodeAtom, storage, create, [Storage]).
+
+    UserCtx = safe_call(NodeAtom, helper, new_swift_user_ctx, [
+        list_to_binary(Username),
+        list_to_binary(Password)
+    ]),
+    Helper = safe_call(NodeAtom, helper, new_swift_helper, [
+        list_to_binary(AuthUrl),
+        list_to_binary(ContainerName),
+        list_to_binary(TenantName),
+        #{},
+        UserCtx,
+        list_to_atom(Insecure)
+    ]),
+
+    StorageDoc = safe_call(NodeAtom, storage, new, [list_to_binary(Name), [Helper]]),
+    safe_call(NodeAtom, storage, create, [StorageDoc]).
 
 safe_call(Node, Module, Function, Args) ->
     case rpc:call(Node, Module, Function, Args) of

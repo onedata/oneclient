@@ -1,12 +1,12 @@
 /**
- * @file directIOHelper_test.cc
+ * @file posixHelper_test.cc
  * @author Rafal Slota
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "directIOHelper.h"
+#include "posixHelper.h"
 
 #include "testUtils.h"
 
@@ -40,10 +40,10 @@ constexpr int BENCH_BLOCK_SIZE = 1024 * 100;
 constexpr int BENCH_LOOP_COUNT = 10000;
 
 const auto TEST_ROOT =
-    boost::filesystem::temp_directory_path() / "directIOHelper_test";
+    boost::filesystem::temp_directory_path() / "posixHelper_test";
 
-struct DirectIOHelperTest : public ::testing::Test {
-    DirectIOHelperTest()
+struct PosixHelperTest : public ::testing::Test {
+    PosixHelperTest()
     {
         boost::filesystem::create_directories(root);
 
@@ -59,14 +59,14 @@ struct DirectIOHelperTest : public ::testing::Test {
 
         executor = std::make_shared<folly::ManualExecutor>();
 
-        proxy = std::make_shared<DirectIOHelper>(
+        proxy = std::make_shared<PosixHelper>(
             root, getuid(), getgid(), executor);
 
-        handle = std::static_pointer_cast<one::helpers::DirectIOFileHandle>(
+        handle = std::static_pointer_cast<one::helpers::PosixFileHandle>(
             proxy->open(testFileId, O_RDWR, {}).getVia(executor.get()));
     }
 
-    ~DirectIOHelperTest()
+    ~PosixHelperTest()
     {
         boost::system::error_code ec;
         boost::filesystem::remove_all(root, ec);
@@ -88,11 +88,11 @@ struct DirectIOHelperTest : public ::testing::Test {
     std::string testFileId = "test.txt"s;
     boost::filesystem::path testFilePath = root / testFileId;
 
-    std::shared_ptr<DirectIOHelper> proxy;
-    std::shared_ptr<one::helpers::DirectIOFileHandle> handle;
+    std::shared_ptr<PosixHelper> proxy;
+    std::shared_ptr<one::helpers::PosixFileHandle> handle;
 };
 
-TEST_F(DirectIOHelperTest, shouldWriteBytes)
+TEST_F(PosixHelperTest, shouldWriteBytes)
 {
     std::string stmp("000");
     std::string tmp;
@@ -112,7 +112,7 @@ TEST_F(DirectIOHelperTest, shouldWriteBytes)
     EXPECT_EQ("test_000456789_test", tmp);
 }
 
-TEST_F(DirectIOHelperTest, shouldWrite10MBChunk)
+TEST_F(PosixHelperTest, shouldWrite10MBChunk)
 {
     std::size_t size = 10 * 1024 * 1024;
     std::string stmp(size, '0');
@@ -133,7 +133,7 @@ TEST_F(DirectIOHelperTest, shouldWrite10MBChunk)
     EXPECT_EQ(stmp, tmp);
 }
 
-TEST_F(DirectIOHelperTest, shouldReadBytes)
+TEST_F(PosixHelperTest, shouldReadBytes)
 {
     auto readBuf = handle->read(5, 10).getVia(executor.get());
 
@@ -144,53 +144,53 @@ TEST_F(DirectIOHelperTest, shouldReadBytes)
     EXPECT_EQ("123456789_", data);
 }
 
-TEST_F(DirectIOHelperTest, shouldRunSync)
+TEST_F(PosixHelperTest, shouldRunSync)
 {
     EXPECT_NO_THROW(handle->fsync(false).getVia(executor.get()));
 }
 
-TEST_F(DirectIOHelperTest, shouldGetAttributes)
+TEST_F(PosixHelperTest, shouldGetAttributes)
 {
     auto stbuf = proxy->getattr(testFileId).getVia(executor.get());
     EXPECT_EQ(20, stbuf.st_size);
 }
 
-TEST_F(DirectIOHelperTest, shouldCheckAccess)
+TEST_F(PosixHelperTest, shouldCheckAccess)
 {
     EXPECT_NO_THROW(proxy->access(testFileId, 0).getVia(executor.get()));
 }
 
-TEST_F(DirectIOHelperTest, shouldReadDirectory)
+TEST_F(PosixHelperTest, shouldReadDirectory)
 {
     EXPECT_NO_THROW(proxy->mkdir("dir", 0755).getVia(executor.get()));
     EXPECT_NO_THROW(proxy->readdir("dir", 0, 1).getVia(executor.get()));
 }
 
-TEST_F(DirectIOHelperTest, mknod)
+TEST_F(PosixHelperTest, mknod)
 {
     EXPECT_THROW_POSIX_CODE(
         proxy->mknod(testFileId, S_IFREG, {}, 0).getVia(executor.get()),
         EEXIST);
 }
 
-TEST_F(DirectIOHelperTest, shouldMakeDirectory)
+TEST_F(PosixHelperTest, shouldMakeDirectory)
 {
     EXPECT_NO_THROW(proxy->mkdir("dir", 0).getVia(executor.get()));
     std::remove((root / "dir").c_str());
 }
 
-TEST_F(DirectIOHelperTest, shouldDeleteFile)
+TEST_F(PosixHelperTest, shouldDeleteFile)
 {
     EXPECT_NO_THROW(proxy->unlink(testFileId).getVia(executor.get()));
 }
 
-TEST_F(DirectIOHelperTest, shouldDeleteDir)
+TEST_F(PosixHelperTest, shouldDeleteDir)
 {
     EXPECT_THROW_POSIX_CODE(
         proxy->rmdir(testFileId).getVia(executor.get()), ENOTDIR);
 }
 
-TEST_F(DirectIOHelperTest, shouldMakeSymlink)
+TEST_F(PosixHelperTest, shouldMakeSymlink)
 {
     EXPECT_NO_THROW(proxy->symlink("/from", "to").getVia(executor.get()));
 
@@ -200,7 +200,7 @@ TEST_F(DirectIOHelperTest, shouldMakeSymlink)
     unlinkOnDIO("to");
 }
 
-TEST_F(DirectIOHelperTest, shouldReadSymlink)
+TEST_F(PosixHelperTest, shouldReadSymlink)
 {
     auto sres = ::symlink((root / "from").c_str(), (root / "to").c_str());
     ASSERT_TRUE(sres == 0);
@@ -211,31 +211,31 @@ TEST_F(DirectIOHelperTest, shouldReadSymlink)
     unlinkOnDIO("to");
 }
 
-TEST_F(DirectIOHelperTest, shouldRename)
+TEST_F(PosixHelperTest, shouldRename)
 {
     EXPECT_NO_THROW(proxy->rename(testFileId, "to").getVia(executor.get()));
 
     unlinkOnDIO("to");
 }
 
-TEST_F(DirectIOHelperTest, shouldCreateLink)
+TEST_F(PosixHelperTest, shouldCreateLink)
 {
     EXPECT_NO_THROW(proxy->link(testFileId, "to").getVia(executor.get()));
 
     unlinkOnDIO("to");
 }
 
-TEST_F(DirectIOHelperTest, shouldChangeMode)
+TEST_F(PosixHelperTest, shouldChangeMode)
 {
     EXPECT_NO_THROW(proxy->chmod(testFileId, 600).getVia(executor.get()));
 }
 
-TEST_F(DirectIOHelperTest, shouldChangeOwner)
+TEST_F(PosixHelperTest, shouldChangeOwner)
 {
     EXPECT_NO_THROW(proxy->chown(testFileId, -1, -1).getVia(executor.get()));
 }
 
-TEST_F(DirectIOHelperTest, shouldTruncate)
+TEST_F(PosixHelperTest, shouldTruncate)
 {
     EXPECT_NO_THROW(proxy->truncate(testFileId, 0).getVia(executor.get()));
 }
