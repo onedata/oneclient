@@ -7,13 +7,13 @@
  */
 
 #include "storageAccessManager.h"
-#include "directIOHelper.h"
 #include "helpers/storageHelper.h"
 #include "helpers/storageHelperCreator.h"
 #include "logging.h"
 #include "messages/fuse/createStorageTestFile.h"
 #include "messages/fuse/storageTestFile.h"
 #include "messages/fuse/verifyStorageTestFile.h"
+#include "posixHelper.h"
 
 #include <folly/io/IOBuf.h>
 
@@ -108,11 +108,11 @@ StorageAccessManager::verifyStorageTestFile(
     const messages::fuse::StorageTestFile &testFile)
 {
     const auto &helperParams = testFile.helperParams();
-    if (helperParams.name() == helpers::DIRECT_IO_HELPER_NAME) {
+    if (helperParams.name() == helpers::POSIX_HELPER_NAME) {
         for (const auto &mountPoint : m_mountPoints) {
             auto helper = m_helperFactory.getStorageHelper(
-                helpers::DIRECT_IO_HELPER_NAME,
-                {{helpers::DIRECT_IO_HELPER_PATH_ARG, mountPoint.string()}});
+                helpers::POSIX_HELPER_NAME,
+                {{helpers::POSIX_HELPER_MOUNT_POINT_ARG, mountPoint.string()}});
             if (verifyStorageTestFile(helper, testFile))
                 return helper;
         }
@@ -135,10 +135,11 @@ bool StorageAccessManager::verifyStorageTestFile(
 
         auto size = testFile.fileContent().size();
 
-        auto handle =
-            communication::wait(helper->open(testFile.fileId(), O_RDONLY, {}));
+        auto handle = communication::wait(
+            helper->open(testFile.fileId(), O_RDONLY, {}), helper->timeout());
 
-        auto buf = communication::wait(handle->read(0, size));
+        auto buf =
+            communication::wait(handle->read(0, size), helper->timeout());
         std::string content;
         buf.appendToString(content);
 
@@ -182,14 +183,14 @@ folly::fbstring StorageAccessManager::modifyStorageTestFile(
     std::uniform_int_distribution<char> distribution('a', 'z');
     std::generate_n(data, size, [&]() { return distribution(engine); });
 
-    auto handle =
-        communication::wait(helper->open(testFile.fileId(), O_WRONLY, {}));
+    auto handle = communication::wait(
+        helper->open(testFile.fileId(), O_WRONLY, {}), helper->timeout());
 
     std::string content;
     buf.appendToString(content);
 
-    communication::wait(handle->write(0, std::move(buf)));
-    communication::wait(handle->fsync(true));
+    communication::wait(handle->write(0, std::move(buf)), helper->timeout());
+    communication::wait(handle->fsync(true), helper->timeout());
 
     DLOG(INFO) << "Storage test file modified.";
 

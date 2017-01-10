@@ -17,9 +17,9 @@ namespace messages {
 namespace fuse {
 
 VerifyStorageTestFile::VerifyStorageTestFile(std::string storageId,
-    std::string spaceUuid, std::string fileId, std::string fileContent)
+    std::string spaceId, std::string fileId, std::string fileContent)
     : m_storageId{std::move(storageId)}
-    , m_spaceUuid{std::move(spaceUuid)}
+    , m_spaceId{std::move(spaceId)}
     , m_fileId{std::move(fileId)}
     , m_fileContent{std::move(fileContent)}
 {
@@ -29,7 +29,7 @@ std::string VerifyStorageTestFile::toString() const
 {
     std::stringstream ss;
     ss << "type: 'VerifyStorageTestFile', storage ID: '" << m_storageId
-       << "', space UUID: '" << m_spaceUuid << "', file ID: '" << m_fileId
+       << "', space ID: '" << m_spaceId << "', file ID: '" << m_fileId
        << "', file content: '" << m_fileContent << "'";
     return ss.str();
 }
@@ -41,7 +41,7 @@ VerifyStorageTestFile::serializeAndDestroy()
     auto fuseRequest = clientMsg->mutable_fuse_request();
     auto msg = fuseRequest->mutable_verify_storage_test_file();
     msg->mutable_storage_id()->swap(m_storageId);
-    msg->mutable_space_uuid()->swap(m_spaceUuid);
+    msg->mutable_space_id()->swap(m_spaceId);
     msg->mutable_file_id()->swap(m_fileId);
     msg->mutable_file_content()->swap(m_fileContent);
 

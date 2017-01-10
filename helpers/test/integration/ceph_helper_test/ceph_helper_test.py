@@ -14,13 +14,13 @@ sys.path.insert(0, os.path.dirname(script_dir))
 # noinspection PyUnresolvedReferences
 from test_common import *
 # noinspection PyUnresolvedReferences
-from environment import docker, common, ceph
-from ceph import CephProxy
+from environment import ceph, common, docker
+from ceph_helper import CephHelperProxy
 
 
 @pytest.fixture(scope='module')
-def ceph_server(request):
-    class CephServer(object):
+def server(request):
+    class Server(object):
         def __init__(self, mon_host, username, key, pool_name):
             self.mon_host = mon_host
             self.username = username
@@ -41,13 +41,13 @@ def ceph_server(request):
 
     request.addfinalizer(fin)
 
-    return CephServer(mon_host, username, key, pool_name)
+    return Server(mon_host, username, key, pool_name)
 
 
 @pytest.fixture
-def helper(ceph_server):
-    return CephProxy(ceph_server.mon_host, ceph_server.username,
-                     ceph_server.key, ceph_server.pool_name)
+def helper(server):
+    return CephHelperProxy(server.mon_host, server.username, server.key,
+                           server.pool_name)
 
 
 def test_write_should_write_data(helper):

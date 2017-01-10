@@ -119,14 +119,14 @@ def test_write_should_overwrite_data_middle(helper, file_id):
         assert helper.read(file_id, size / 2 - block_size, len(data)) == data
 
 
-def test_write_should_write_multiple_blocks(helper, file_id, client):
+def test_write_should_write_multiple_blocks(helper, file_id, server):
     block_num = 20
     seed = random_str(BLOCK_SIZE)
     data = seed * block_num
 
     assert helper.write(file_id, data, 0) == len(data)
     assert helper.read(file_id, 0, len(data)) == data
-    assert len(client.list(file_id)) == block_num
+    assert len(server.list(file_id)) == block_num
 
 
 def test_write_should_overwrite_multiple_blocks_part(helper, file_id):
@@ -239,14 +239,14 @@ def test_unlink_should_delete_empty_data(helper, file_id):
     helper.unlink(file_id)
 
 
-def test_unlink_should_delete_data(helper, file_id, client):
+def test_unlink_should_delete_data(helper, file_id, server):
     data = random_str()
     offset = random_int()
 
     assert helper.write(file_id, data, offset) == len(data)
-    assert len(client.list(file_id)) > 0
+    assert len(server.list(file_id)) > 0
     helper.unlink(file_id)
-    assert len(client.list(file_id)) == 0
+    assert len(server.list(file_id)) == 0
 
 
 def test_truncate_should_create_empty_file(helper, file_id):
@@ -255,34 +255,34 @@ def test_truncate_should_create_empty_file(helper, file_id):
         assert helper.read(file_id, 0, size + 1) == '\0' * size
 
 
-def test_truncate_should_create_empty_multi_block_file(helper, file_id, client):
+def test_truncate_should_create_empty_multi_block_file(helper, file_id, server):
     blocks_num = 10
     size = blocks_num * BLOCK_SIZE
 
     helper.truncate(file_id, size)
     assert helper.read(file_id, 0, size + 1) == '\0' * size
-    assert len(client.list(file_id)) == 1
+    assert len(server.list(file_id)) == 1
 
 
-def test_truncate_should_pad_block(helper, file_id, client):
+def test_truncate_should_pad_block(helper, file_id, server):
     data = random_str()
 
     assert helper.write(file_id, data, BLOCK_SIZE) == len(data)
-    assert len(client.list(file_id)) == 1
+    assert len(server.list(file_id)) == 1
     helper.truncate(file_id, BLOCK_SIZE)
     assert helper.read(file_id, 0, BLOCK_SIZE + 1) == '\0' * BLOCK_SIZE
     assert helper.write(file_id, data, BLOCK_SIZE) == len(data)
 
 
-def test_truncate_should_delete_all_blocks(helper, file_id, client):
+def test_truncate_should_delete_all_blocks(helper, file_id, server):
     blocks_num = 10
     data = random_str(blocks_num * BLOCK_SIZE)
 
     assert helper.write(file_id, data, 0) == len(data)
-    assert len(client.list(file_id)) == blocks_num
+    assert len(server.list(file_id)) == blocks_num
     helper.truncate(file_id, 0)
     assert helper.read(file_id, 0, len(data)) == ''
-    assert len(client.list(file_id)) == 0
+    assert len(server.list(file_id)) == 0
 
 
 def test_truncate_should_decrease_file_size(helper, file_id):

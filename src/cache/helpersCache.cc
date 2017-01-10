@@ -173,11 +173,11 @@ void HelpersCache::requestStorageTestFileVerification(
     const folly::fbstring &storageId, const folly::fbstring &fileContent)
 {
     DLOG(INFO) << "Requesting verification of storage: '" << storageId
-               << "' with file: " << testFile.toString()
-               << "and modified content << '" << fileContent << ".";
+               << "' with file: '" << testFile.toString()
+               << "' and modified content '" << fileContent << ".";
 
     messages::fuse::VerifyStorageTestFile request{storageId.toStdString(),
-        testFile.spaceUuid(), testFile.fileId(), fileContent.toStdString()};
+        testFile.spaceId(), testFile.fileId(), fileContent.toStdString()};
 
     try {
         communication::wait(

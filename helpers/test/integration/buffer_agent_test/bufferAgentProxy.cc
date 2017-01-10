@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "proxyIOHelper.h"
+#include "proxyHelper.h"
 
 #include "buffering/bufferAgent.h"
 #include "communication/communicator.h"
@@ -40,8 +40,8 @@ public:
               one::communication::createConnection}
         , m_scheduler{std::make_shared<one::Scheduler>(1)}
         , m_helper{one::helpers::buffering::BufferLimits{},
-              std::make_shared<one::helpers::ProxyIOHelper>(
-                       storageId, m_communicator),
+              std::make_shared<one::helpers::ProxyHelper>(
+                  storageId, m_communicator),
               *m_scheduler}
     {
         m_communicator.setScheduler(m_scheduler);

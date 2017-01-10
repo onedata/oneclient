@@ -63,7 +63,7 @@
         "p1": {
             "db_driver": "couchdb",
             "os_config": "cfg1",
-            "enable_luma_proxy": true,
+            "luma_mode": "enabled",
             "cluster_manager": {
                 "cm1": {
                     "vm.args": {

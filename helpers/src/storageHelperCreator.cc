@@ -10,8 +10,8 @@
 
 #include "buffering/bufferAgent.h"
 #include "cephHelper.h"
-#include "directIOHelper.h"
-#include "proxyIOHelper.h"
+#include "posixHelper.h"
+#include "proxyHelper.h"
 #include "s3Helper.h"
 #include "scheduler.h"
 #include "swiftHelper.h"
@@ -52,8 +52,8 @@ std::shared_ptr<StorageHelper> StorageHelperCreator::getStorageHelper(
     const std::unordered_map<folly::fbstring, folly::fbstring> &args,
     const bool buffered)
 {
-    if (sh_name == DIRECT_IO_HELPER_NAME)
-        return DirectIOHelperFactory{m_dioService}.createStorageHelper(args);
+    if (sh_name == POSIX_HELPER_NAME)
+        return PosixHelperFactory{m_dioService}.createStorageHelper(args);
 
     StorageHelperPtr helper;
 
@@ -61,8 +61,8 @@ std::shared_ptr<StorageHelper> StorageHelperCreator::getStorageHelper(
         helper = CephHelperFactory{m_cephService}.createStorageHelper(args);
 
 #ifdef BUILD_PROXY_IO
-    if (sh_name == PROXY_IO_HELPER_NAME)
-        helper = ProxyIOHelperFactory{m_communicator}.createStorageHelper(args);
+    if (sh_name == PROXY_HELPER_NAME)
+        helper = ProxyHelperFactory{m_communicator}.createStorageHelper(args);
 #endif
 
     if (sh_name == S3_HELPER_NAME)

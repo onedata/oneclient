@@ -1,12 +1,12 @@
 /**
- * @file proxyIOHelper.cc
+ * @file proxyHelper.cc
  * @author Konrad Zemek
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "proxyIOHelper.h"
+#include "proxyHelper.h"
 
 #include "messages/proxyio/remoteData.h"
 #include "messages/proxyio/remoteRead.h"
@@ -20,7 +20,7 @@
 namespace one {
 namespace helpers {
 
-ProxyIOFileHandle::ProxyIOFileHandle(folly::fbstring fileId,
+ProxyFileHandle::ProxyFileHandle(folly::fbstring fileId,
     folly::fbstring storageId, Params openParams,
     communication::Communicator &communicator, Timeout timeout)
     : FileHandle{std::move(fileId), std::move(openParams)}
@@ -30,7 +30,7 @@ ProxyIOFileHandle::ProxyIOFileHandle(folly::fbstring fileId,
 {
 }
 
-folly::Future<folly::IOBufQueue> ProxyIOFileHandle::read(
+folly::Future<folly::IOBufQueue> ProxyFileHandle::read(
     const off_t offset, const std::size_t size)
 {
     messages::proxyio::RemoteRead msg{
@@ -45,7 +45,7 @@ folly::Future<folly::IOBufQueue> ProxyIOFileHandle::read(
         });
 }
 
-folly::Future<std::size_t> ProxyIOFileHandle::write(
+folly::Future<std::size_t> ProxyFileHandle::write(
     const off_t offset, folly::IOBufQueue buf)
 {
     folly::fbvector<std::pair<off_t, folly::IOBufQueue>> buffs;
@@ -53,7 +53,7 @@ folly::Future<std::size_t> ProxyIOFileHandle::write(
     return multiwrite(std::move(buffs));
 }
 
-folly::Future<std::size_t> ProxyIOFileHandle::multiwrite(
+folly::Future<std::size_t> ProxyFileHandle::multiwrite(
     folly::fbvector<std::pair<off_t, folly::IOBufQueue>> buffs)
 {
     folly::fbvector<std::pair<off_t, folly::fbstring>> stringBuffs;
@@ -74,7 +74,7 @@ folly::Future<std::size_t> ProxyIOFileHandle::multiwrite(
         });
 }
 
-ProxyIOHelper::ProxyIOHelper(folly::fbstring storageId,
+ProxyHelper::ProxyHelper(folly::fbstring storageId,
     communication::Communicator &communicator, Timeout timeout)
     : m_storageId{std::move(storageId)}
     , m_communicator{communicator}
@@ -82,10 +82,10 @@ ProxyIOHelper::ProxyIOHelper(folly::fbstring storageId,
 {
 }
 
-folly::Future<FileHandlePtr> ProxyIOHelper::open(
+folly::Future<FileHandlePtr> ProxyHelper::open(
     const folly::fbstring &fileId, const int flags, const Params &openParams)
 {
-    return folly::makeFuture(std::make_shared<ProxyIOFileHandle>(
+    return folly::makeFuture(std::make_shared<ProxyFileHandle>(
         fileId, m_storageId, openParams, m_communicator, m_timeout));
 }
 

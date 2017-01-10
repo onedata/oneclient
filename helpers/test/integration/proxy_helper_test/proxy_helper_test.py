@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(script_dir))
 from test_common import *
 # noinspection PyUnresolvedReferences
 from environment import appmock, common, docker
-import proxy_io
+from proxy_helper import ProxyHelperProxy
 
 
 @pytest.fixture
@@ -41,8 +41,7 @@ def endpoint(appmock_client):
 
 @pytest.fixture
 def helper(storage_id, endpoint):
-    return proxy_io.ProxyIOProxy(storage_id, endpoint.ip,
-                                 endpoint.port)
+    return ProxyHelperProxy(storage_id, endpoint.ip, endpoint.port)
 
 
 @pytest.fixture

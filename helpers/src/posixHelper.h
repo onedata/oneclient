@@ -1,13 +1,13 @@
 /**
- * @file directIOHelper.h
+ * @file posixHelper.h
  * @author Rafał Słota
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#ifndef HELPERS_DIRECT_IO_HELPER_H
-#define HELPERS_DIRECT_IO_HELPER_H
+#ifndef HELPERS_POSIX_HELPER_H
+#define HELPERS_POSIX_HELPER_H
 
 #include "helpers/storageHelper.h"
 
@@ -30,12 +30,12 @@
 namespace one {
 namespace helpers {
 
-constexpr auto DIRECT_IO_HELPER_PATH_ARG = "root_path";
+constexpr auto POSIX_HELPER_MOUNT_POINT_ARG = "mountPoint";
 
 /**
  * The @c FileHandle implementation for POSIX storage helper.
  */
-class DirectIOFileHandle : public FileHandle {
+class PosixFileHandle : public FileHandle {
 public:
     /**
      * Constructor.
@@ -45,7 +45,7 @@ public:
      * @param fileHandle POSIX file descriptor for the open file.
      * @param executor Executor for driving async file operations.
      */
-    DirectIOFileHandle(folly::fbstring fileId, const uid_t uid, const gid_t gid,
+    PosixFileHandle(folly::fbstring fileId, const uid_t uid, const gid_t gid,
         const int fileHandle, std::shared_ptr<folly::Executor> executor,
         Timeout timeout = ASYNC_OPS_TIMEOUT);
 
@@ -54,7 +54,7 @@ public:
      * Synchronously releases the file if @c sh_release or @c ash_release have
      * not been yet called.
      */
-    ~DirectIOFileHandle();
+    ~PosixFileHandle();
 
     folly::Future<folly::IOBufQueue> read(
         const off_t offset, const std::size_t size) override;
@@ -82,20 +82,21 @@ private:
 };
 
 /**
- * The DirectIOHelper class provides access to files on mounted as local
+ * The PosixHelper class provides access to files on mounted as local
  * filesystem.
  */
-class DirectIOHelper : public StorageHelper {
+class PosixHelper : public StorageHelper {
 public:
     /**
      * Constructor.
-     * @param rootPath Absolute path to directory used by this storage helper as
+     * @param mountPoint Absolute path to directory used by this storage helper
+     * as
      * root mount point.
      * @param uid UserID under which the helper will work.
      * @param gid GroupID under which the helper will work.
      * @param executor Executor for driving async file operations.
      */
-    DirectIOHelper(boost::filesystem::path rootPath, const uid_t uid,
+    PosixHelper(boost::filesystem::path mountPoint, const uid_t uid,
         const gid_t gid, std::shared_ptr<folly::Executor> executor,
         Timeout timeout = ASYNC_OPS_TIMEOUT);
 
@@ -146,10 +147,10 @@ public:
 private:
     boost::filesystem::path root(const folly::fbstring &fileId) const
     {
-        return m_rootPath / fileId.toStdString();
+        return m_mountPoint / fileId.toStdString();
     }
 
-    boost::filesystem::path m_rootPath;
+    boost::filesystem::path m_mountPoint;
     const uid_t m_uid;
     const gid_t m_gid;
     std::shared_ptr<folly::Executor> m_executor;
@@ -159,13 +160,13 @@ private:
 /**
  * An implementation of @c StorageHelperFactory for POSIX storage helper.
  */
-class DirectIOHelperFactory : public StorageHelperFactory {
+class PosixHelperFactory : public StorageHelperFactory {
 public:
     /**
      * Constructor.
      * @param service @c io_service that will be used for some async operations.
      */
-    DirectIOHelperFactory(asio::io_service &service)
+    PosixHelperFactory(asio::io_service &service)
         : m_service{service}
     {
     }
@@ -173,14 +174,14 @@ public:
     std::shared_ptr<StorageHelper> createStorageHelper(
         const Params &parameters) override
     {
-        const auto &rootPath = getParam(parameters, DIRECT_IO_HELPER_PATH_ARG);
+        const auto &mountPoint = getParam(parameters, "mountPoint");
         const auto &uid = getParam<int>(parameters, "uid", -1);
         const auto &gid = getParam<int>(parameters, "gid", -1);
         Timeout timeout{getParam<std::size_t>(
             parameters, "timeout", ASYNC_OPS_TIMEOUT.count())};
 
-        return std::make_shared<DirectIOHelper>(rootPath.toStdString(), uid,
-            gid, std::make_shared<AsioExecutor>(m_service), std::move(timeout));
+        return std::make_shared<PosixHelper>(mountPoint.toStdString(), uid, gid,
+            std::make_shared<AsioExecutor>(m_service), std::move(timeout));
     }
 
 private:
@@ -190,4 +191,4 @@ private:
 } // namespace helpers
 } // namespace one
 
-#endif // HELPERS_DIRECT_IO_HELPER_H
+#endif // HELPERS_POSIX_HELPER_H

@@ -1,5 +1,5 @@
 /**
- * @file cephProxy.cc
+ * @file cephHelperProxy.cc
  * @author Krzysztof Trzepla
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
@@ -34,9 +34,9 @@ private:
     std::unique_ptr<PyThreadState, decltype(&PyEval_RestoreThread)> threadState;
 };
 
-class CephProxy {
+class CephHelperProxy {
 public:
-    CephProxy(std::string monHost, std::string username, std::string key,
+    CephHelperProxy(std::string monHost, std::string username, std::string key,
         std::string poolName)
         : m_service{1}
         , m_idleWork{asio::make_work(m_service)}
@@ -47,7 +47,7 @@ public:
     {
     }
 
-    ~CephProxy()
+    ~CephHelperProxy()
     {
         m_service.stop();
         m_worker.join();
@@ -98,20 +98,20 @@ private:
 };
 
 namespace {
-boost::shared_ptr<CephProxy> create(std::string monHost, std::string username,
-    std::string key, std::string poolName)
+boost::shared_ptr<CephHelperProxy> create(std::string monHost,
+    std::string username, std::string key, std::string poolName)
 {
-    return boost::make_shared<CephProxy>(std::move(monHost),
+    return boost::make_shared<CephHelperProxy>(std::move(monHost),
         std::move(username), std::move(key), std::move(poolName));
 }
 } // namespace
 
-BOOST_PYTHON_MODULE(ceph)
+BOOST_PYTHON_MODULE(ceph_helper)
 {
-    class_<CephProxy, boost::noncopyable>("CephProxy", no_init)
+    class_<CephHelperProxy, boost::noncopyable>("CephHelperProxy", no_init)
         .def("__init__", make_constructor(create))
-        .def("unlink", &CephProxy::unlink)
-        .def("read", &CephProxy::read)
-        .def("write", &CephProxy::write)
-        .def("truncate", &CephProxy::truncate);
+        .def("unlink", &CephHelperProxy::unlink)
+        .def("read", &CephHelperProxy::read)
+        .def("write", &CephHelperProxy::write)
+        .def("truncate", &CephHelperProxy::truncate);
 }

@@ -286,7 +286,8 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None,
 
 def _add_luma_config(config, luma_config):
     for key in config['provider_domains']:
-        if config['provider_domains'][key].get('enable_luma_proxy'):
+        luma_mode = config['provider_domains'][key].get('luma_mode')
+        if luma_mode:
             op_workers = config['provider_domains'][key]['op_worker']
 
             for wrk_key in op_workers:
@@ -296,6 +297,6 @@ def _add_luma_config(config, luma_config):
                     op_workers[wrk_key]['sys.config']['op_worker'] = {}
 
                 op_workers[wrk_key]['sys.config']['op_worker'][
-                    'enable_luma_proxy'] = True
+                    'luma_mode'] = luma_mode
                 op_workers[wrk_key]['sys.config']['op_worker'][
                     'luma_hostname'] = luma_config['host_name']
