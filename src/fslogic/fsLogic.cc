@@ -32,7 +32,6 @@
 #include "messages/fuse/synchronizeBlockAndComputeChecksum.h"
 #include "messages/fuse/truncate.h"
 #include "messages/fuse/updateTimes.h"
-#include "options.h"
 
 #include <boost/icl/interval_set.hpp>
 #include <folly/fibers/FiberManager.h>

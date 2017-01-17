@@ -1,0 +1,127 @@
+# oneclient completion                               -*- shell-script -*-
+
+#
+# Check if this is OSX, if so defined custom init_completion
+#
+if [[ `uname` =~ "Darwin" ]]; then
+  __osx_init_completion()
+  {
+      COMPREPLY=()
+      _get_comp_words_by_ref cur prev words cword
+  }
+fi
+
+#
+# Declare Fuse options array
+#
+declare -a fuse_mount_options
+fuse_mount_options=(
+"allow_other"
+"auto_unmount"
+"blkdev"
+"fsname="
+"subtype="
+"blksize="
+"default_permissions"
+"context="
+"fscontext="
+"defcontext="
+"rootcontext="
+"max_read="
+"user="
+"ro"
+"rw"
+"suid"
+"nosuid"
+"dev"
+"nodev"
+"exec"
+"noexec"
+"async"
+"sync"
+"dirsync"
+"atime"
+"noatime"
+)
+
+_oneclient() {
+  local cur
+  local prev
+  local words
+  local cword
+
+
+  #
+  # Check if the _init_completion function is available, which is
+  # available since bash-completion 1.4
+  #
+  if [[ `uname` =~ "Darwin" ]]; then
+    __osx_init_completion || return
+  else
+    _init_completion -s || return
+  fi
+
+
+  case $prev in
+    -c|--config)
+      _filedir
+      return
+      ;;
+    -l|--log-path)
+      _filedir
+      return
+      ;;
+    -H|--host)
+      COMPREPLY=()
+      local comp_ssh_hosts=`[[ -f ~/.ssh/known_hosts ]] && \
+                      ( cat ~/.ssh/known_hosts | \
+                      grep '^[a-zA-Z0-9]' | \
+                      cut -f 1 -d ' ' | \
+                      sed -e s/,.*//g | \
+                      grep -v ^# | \
+                      uniq | \
+                      grep -v "\[" ) ;
+                      [[ -f ~/.ssh/config ]] && \
+                      ( cat ~/.ssh/config | \
+                      grep "^Host " | \
+                      awk '{print $2}' )`
+
+      COMPREPLY=( $(compgen -W "${comp_ssh_hosts}" -- $cur))
+      return
+      ;;
+    -u|--unmount)
+      COMPREPLY=()
+      local oneclient_mounts=`mount | grep fuse.oneclient | awk '{print $3}'`
+
+      COMPREPLY=($(compgen -W "${oneclient_mounts}" -- $cur))
+      return
+      ;;
+    -o|--opt)
+      local fuse_opts=`echo "${fuse_mount_options[@]}"`
+      COMPREPLY=($(compgen -o nospace -W "${fuse_opts[@]}" -- "$cur"))
+      return
+      ;;
+  esac
+
+  case $cur in
+    -*)
+    COMPREPLY=( $( compgen -W '-h --help -V --version -c --config -u --unmount \
+                               -i --insecure -H --host -P --port -t --token \
+                               -l --log-path \
+                               -f --foreground -d --debug -s --single-thread \
+                               -o --opt' -- $cur ) )
+    return
+    ;;
+    "")
+      _filedir -d
+      return 0
+  esac
+
+  #
+  # By default complete directories
+  #
+  _filedir -d
+  return 0
+
+} &&
+complete -F _oneclient oneclient

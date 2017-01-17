@@ -12,20 +12,10 @@ set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${PROJECT_SOURCE_DIR}/helpers/cmake)
 
 include(FindLibraryUtils)
-
-if(NOT SYSCONF_INSTALL_DIR)
-    set(SYSCONF_INSTALL_DIR etc CACHE PATH "")
-endif()
+include(GNUInstallDirs)
 
 # Version
-set(oneclient_VERSION_MAJOR 0)
-set(oneclient_VERSION_MINOR 0)
-set(oneclient_VERSION_PATCH 0)
-set(oneclient_VERSION_TWEAK "")
-set(oneclient_VERSION_FALLBACK "unknown version")
-
 include(version.txt OPTIONAL)
-
 file(MAKE_DIRECTORY ${PROJECT_BINARY_DIR}/version)
 configure_file(include/version.h.in ${PROJECT_BINARY_DIR}/version/version.h)
 
@@ -240,9 +230,14 @@ if(NOT ${PROFILER_LIBRARY} MATCHES PROFILER_LIBRARY-NOTFOUND)
     target_link_libraries(oneclient PRIVATE ${PROFILER_LIBRARY})
 endif(NOT ${PROFILER_LIBRARY} MATCHES PROFILER_LIBRARY-NOTFOUND)
 
-# Install config
-install(TARGETS oneclient DESTINATION bin)
-install(DIRECTORY config/ DESTINATION ${SYSCONF_INSTALL_DIR})
+# Install
+install(TARGETS oneclient DESTINATION ${CMAKE_INSTALL_FULL_BINDIR})
+install(DIRECTORY config/ DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR})
+install(FILES man/oneclient.1 DESTINATION ${CMAKE_INSTALL_FULL_MANDIR}/man1)
+install(FILES man/oneclient.conf.5 DESTINATION ${CMAKE_INSTALL_FULL_MANDIR}/man5)
+install(FILES LICENSE.txt DESTINATION ${CMAKE_INSTALL_FULL_DOCDIR})
+install(FILES README.md DESTINATION ${CMAKE_INSTALL_FULL_DOCDIR})
+install(DIRECTORY autocomplete/ DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/oneclient)
 
 enable_testing()
 add_subdirectory(test)

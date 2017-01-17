@@ -8,11 +8,12 @@
 
 #include "auth/tokenHandler.h"
 
-#include "options.h"
+#include "options/options.h"
 #include "testUtils.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/fstream.hpp>
+#include <boost/optional.hpp>
 #include <gmock/gmock.h>
 #include <macaroons.hpp>
 
@@ -22,16 +23,16 @@ using namespace one::client::auth;
 using namespace one::testing;
 using namespace testing;
 
-class MockOptions : public one::client::Options {
+class MockOptions : public one::client::options::Options {
 public:
     MockOptions()
-        : one::client::Options{boost::filesystem::unique_path()}
+        : one::client::options::Options{}
     {
-        ON_CALL(*this, has_authorization_token()).WillByDefault(Return(false));
+        ON_CALL(*this, getAccessToken())
+            .WillByDefault(Return(boost::optional<std::string>()));
     }
 
-    MOCK_CONST_METHOD0(has_authorization_token, bool());
-    MOCK_CONST_METHOD0(get_authorization_token, std::string());
+    MOCK_CONST_METHOD0(getAccessToken, boost::optional<std::string>());
 };
 
 class TokenHandlerTest : public ::testing::Test {
@@ -81,9 +82,7 @@ public:
 
 TEST_F(TokenHandlerTest, shouldUseOptionsToken)
 {
-    EXPECT_CALL(options, has_authorization_token()).WillOnce(Return(true));
-    EXPECT_CALL(options, get_authorization_token())
-        .WillOnce(Return(m.serialize()));
+    EXPECT_CALL(options, getAccessToken()).WillOnce(Return(m.serialize()));
 
     TokenHandler tokenHandler{options, dataDir, providerId};
 
@@ -106,9 +105,7 @@ TEST_F(TokenHandlerTest, shouldPreferOptionsToken)
     auto otherKey = randomString();
     macaroons::Macaroon otherM{location, otherKey, id};
 
-    EXPECT_CALL(options, has_authorization_token()).WillOnce(Return(true));
-    EXPECT_CALL(options, get_authorization_token())
-        .WillOnce(Return(m.serialize()));
+    EXPECT_CALL(options, getAccessToken()).WillOnce(Return(m.serialize()));
 
     boost::filesystem::ofstream tokenFile{dataDir / "token"};
     tokenFile << m.serialize() << std::endl;
@@ -121,9 +118,7 @@ TEST_F(TokenHandlerTest, shouldPreferOptionsToken)
 
 TEST_F(TokenHandlerTest, shouldCacheOptionsToken)
 {
-    EXPECT_CALL(options, has_authorization_token()).WillOnce(Return(true));
-    EXPECT_CALL(options, get_authorization_token())
-        .WillOnce(Return(m.serialize()));
+    EXPECT_CALL(options, getAccessToken()).WillOnce(Return(m.serialize()));
 
     TokenHandler tokenHandler{options, dataDir, providerId};
 
