@@ -188,8 +188,8 @@ int main(int argc, char *argv[])
     }
     if (options->getVersion()) {
         std::cout << "Oneclient: " << ONECLIENT_VERSION << "\n"
-                  << "FUSE: " << FUSE_MAJOR_VERSION << "." << FUSE_MINOR_VERSION
-                  << "\n";
+                  << "FUSE library: " << FUSE_MAJOR_VERSION << "."
+                  << FUSE_MINOR_VERSION << "\n";
         return EXIT_SUCCESS;
     }
     if (options->getUnmount()) {
@@ -219,11 +219,16 @@ int main(int argc, char *argv[])
 
     auto fuse_oper = fuseOperations();
     auto args = options->getFuseArgs(argv[0]);
-    auto mountpoint = options->getMountpoint().c_str();
+    char *mountpoint;
+    int multithreaded;
+    int foreground;
+    int res;
 
-    int res = fuse_parse_cmdline(&args, NULL, NULL, NULL);
+    res = fuse_parse_cmdline(&args, &mountpoint, &multithreaded, &foreground);
     if (res == -1)
         return EXIT_FAILURE;
+
+    ScopeExit freeMountpoint{[=] { free(mountpoint); }};
 
     auto ch = fuse_mount(mountpoint, &args);
     if (!ch)
@@ -249,15 +254,15 @@ int main(int argc, char *argv[])
     fuse_session_add_chan(fuse, ch);
     ScopeExit removeChannel{[&] { fuse_session_remove_chan(ch); }};
 
-    std::cout << "Oneclient has been successfully mounted in '" << mountpoint
-              << "'.\n";
+    std::cout << "Oneclient has been successfully mounted in '"
+              << options->getMountpoint().c_str() << "'.\n";
 
-    if (!options->getForeground()) {
+    if (!foreground) {
         context->scheduler()->prepareForDaemonize();
         folly::SingletonVault::singleton()->destroyInstances();
 
         fuse_remove_signal_handlers(fuse);
-        res = fuse_daemonize(false);
+        res = fuse_daemonize(foreground);
 
         if (res != -1)
             res = fuse_set_signal_handlers(fuse);
@@ -283,8 +288,7 @@ int main(int argc, char *argv[])
     fsLogic = std::make_unique<fslogic::Composite>(rootUuid, std::move(context),
         std::move(configuration), std::move(helpersCache));
 
-    res = options->getSingleThread() ? fuse_session_loop(fuse)
-                                     : fuse_session_loop_mt(fuse);
+    res = multithreaded ? fuse_session_loop_mt(fuse) : fuse_session_loop(fuse);
 
     communicator->stop();
     return res == -1 ? EXIT_FAILURE : EXIT_SUCCESS;
