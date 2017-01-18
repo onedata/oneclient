@@ -9,25 +9,8 @@ interface to user's files in *onedata* system.
 
 ### Dependencies
 
-To build *oneclient* you need the following packages installed on your system:
-
-* boost-devel >= 1.58.0
-* cmake >= 3.0.0
-* fuse >= 2.7
-* g++ >= 4.9.0 (or a recent version of Clang)
-* go
-* librados-dev
-* libs3
-* libsodium
-* libtool-ltdl
-* ninja
-* openssl
-* protobuf >= 2.6.0
-* python
-* tbb >= 4.3
-
-An up-to-date list of packages for Ubuntu and Fedora is listed in
-[control](pkg_config/debian/control) and
+An up-to-date list of *oneclient* build dependencies for Ubuntu and Fedora is
+available in [control](pkg_config/debian/control) and
 [oneclient.spec](pkg_config/oneclient.spec) files respectively.
 
 ## Compilation
@@ -44,55 +27,57 @@ The compiled binary `oneclient` will be created on path `release/oneclient` (or
 ## Usage
 
 ```
-release/oneclient [options] mountpoint
+Usage: oneclient [options] mountpoint
+
+A Onedata command line client.
 
 General options:
-  -h [ --help ]            print help
-  -V [ --version ]         print version
-  --config arg             path to user config file
-  --authentication arg     authentication type to use for connection with a
-                           Provider. Accepted values are 'token' and
-                           'certificate'.
-  -d [ --debug ]           enable debug output (implies -f)
-  --debug_gsi              enable GSI debug output
-  --no_check_certificate   disable remote certificate validation
-  --proxyio                force ProxyIO
+  -h [ --help ]                         Show this help and exit.
+  -V [ --version ]                      Show current Oneclient version and
+                                        exit.
+  -u [ --unmount ]                      Unmount Oneclient and exit.
+  -c [ --config ] <path> (=/etc/oneclient.conf)
+                                        Specify path to config file.
+  -H [ --host ] <host>                  Specify the hostname of the Oneprovider
+                                        instance to which the Oneclient should
+                                        connect.
+  -P [ --port ] <port> (=5555)          Specify the port to which the Oneclient
+                                        should connect on the Oneprovider.
+  -i [ --insecure ]                     Disable verification of server
+                                        certificate, allows to connect to
+                                        servers without valid certificate.
+  -t [ --token ] <token>                Specify Onedata access token for
+                                        authentication and authorization.
+  -l [ --log-dir ] <path> (=/tmp/oneclient/0)
+                                        Specify custom path for Oneclient logs.
 
 FUSE options:
-  -o opt,...               mount options
-  -f                       foreground operation
-  -s                       disable multi-threaded operation
+  -f [ --foreground ]         Foreground operation.
+  -d [ --debug ]              Enable debug mode (implies -f).
+  -s [ --single-thread ]      Single-threaded operation.
+  -o [ --opt ] <mount_option> Pass mount arguments directly to FUSE.
 ```
 
 ### Configuration
 
 Besides commandline configuration options, oneclient reads options from a global
-configuration file located at `/usr/local/oneclient.conf` (`/etc/oneclient.conf`
-when installed from the package). Refer to the
-[example configuration file](config/oneclient.conf.default) for details on the
-options.
+configuration file located at `/usr/local/etc/oneclient.conf`
+(`/etc/oneclient.conf` when installed from the package). Refer to the
+[example configuration file](config/oneclient.conf) for details on the options.
 
-#### Restricted and overridable options
+#### Environment variables
 
-Some options - marked as `[Restricted]` in the example configuration - can only
-be set in the global configuration file. All other options can be overriden in
-user config file (passed through the `--config` commandline options) or through
-environment variable. For example, `PROVIDER_HOSTNAME` environment variable
-overrides `provider_hostname` configuration option. Overriding with environment
-variables can be disabled with `enable_env_option_override=false`.
-
-#### Passing user token
-
-When `--authentication` is set to `token`, *oneclient* reads user token from
-standard input on first run. The token can also be passed to oneclient in
-`ONECLIENT_AUTHORIZATION_TOKEN` environment variable.
+Some options in the config file can be overridden using environment variables,
+whose names are capitalized version of the config options. For the up-to-date
+list of supported environment variables please refer to *oneclient*
+[manpage](man/oneclient.1).
 
 ## Running oneclient docker image
 
 Running dockerized *oneclient* is easy:
 
 ```
-docker run -ti --privileged onedata/oneclient:VFS-1951
+docker run -it --privileged onedata/oneclient:3.0.0-rc11
 ```
 
 ### Persisting the token
@@ -101,21 +86,20 @@ The application will ask for a token and run in the foreground. In order for
 *oneclient* to remember your token, mount volume `/root/.local/share/oneclient`:
 
 ```
-docker run -ti --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:VFS-1951
+docker run -it --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:3.0.0-rc11
 ```
 
-You can also pass your token in `ONECLIENT_AUTHORIZATION_TOKEN` environment
-variable:
+You can also pass your token in `ONECLIENT_ACCESS_TOKEN` environment variable:
 
 ```
-docker run -ti --privileged -e ONECLIENT_AUTHORIZATION_TOKEN=$TOKEN onedata/oneclient:VFS-1951
+docker run -it --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:3.0.0-rc11
 ```
 
 If *oneclient* knows the token (either by reading its config file or by reading
 the environment variable), it can be run as a daemon container:
 
 ```
-docker run -d --privileged -e ONECLIENT_AUTHORIZATION_TOKEN=$TOKEN onedata/oneclient:VFS-1951
+docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:3.0.0-rc11
 ```
 
 ### Accessing your data
@@ -124,7 +108,7 @@ docker run -d --privileged -e ONECLIENT_AUTHORIZATION_TOKEN=$TOKEN onedata/onecl
 spaces.
 
 ```
-docker run -d --privileged -e ONECLIENT_AUTHORIZATION_TOKEN=$TOKEN onedata/oneclient:VFS-1951
+docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:3.0.0-rc11
 
 # Display container's IP address
 docker inspect --format "{{ .NetworkSettings.IPAddress }}" $(docker ps -ql)

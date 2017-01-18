@@ -14,7 +14,7 @@
 #include "fslogic/fsLogic.h"
 #include "fslogic/withUuids.h"
 #include "messages/configuration.h"
-#include "options.h"
+#include "options/options.h"
 #include "scheduler.h"
 
 #include <boost/filesystem.hpp>
@@ -267,7 +267,7 @@ boost::shared_ptr<FsLogicProxy> create(std::string ip, int port)
     context->setScheduler(std::make_shared<Scheduler>(1));
     context->setCommunicator(communicator);
     const auto globalConfigPath = boost::filesystem::unique_path();
-    context->setOptions(std::make_shared<Options>(globalConfigPath));
+    context->setOptions(std::make_shared<options::Options>());
 
     communicator->setScheduler(context->scheduler());
     communicator->connect();

@@ -47,23 +47,26 @@ oneclient is a software based on FUSE (Filesystem in Userspace) that allows moun
 %prep
 %setup -q
 
-
 %build
 %cmake . -DBUILD_INTEGRATION_TESTS=Off -DBUILD_SHARED_LIBS=Off
 make %{?_smp_mflags} oneclient
 
-
 %install
 make install DESTDIR=%{buildroot}
-find %{buildroot}
-
 
 %files
 %{_bindir}/oneclient
 %{_sysconfdir}/oneclient.conf
+%{_mandir}/man1/oneclient.1.gz
+%{_mandir}/man5/oneclient.conf.5.gz
+%{_localstatedir}/lib/oneclient/*
+
+%license
+%{_defaultdocdir}/oneclient/LICENSE.txt
 
 %doc
-
-
+%{_defaultdocdir}/oneclient/README.md
 
 %changelog
+* %(date +"%a %b %d %Y") Onedata Package Maintainer <support@onedata.org>
+  - Build from %{version}

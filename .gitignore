@@ -4,7 +4,6 @@
 /package
 docker-build-list.json
 docker-build-report.txt
-version.txt
 /coverage
 integration-tests-results.xml
 oneclient.info
@@ -35,7 +34,6 @@ oneclient.info.cleaned
 # CMake
 CMakeCache.txt
 CMakeFiles
-Makefile
 cmake_install.cmake
 install_manifest.txt
 

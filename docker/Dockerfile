@@ -8,7 +8,8 @@ ARG VERSION=""
 # Get the image up to date and install utility tools
 RUN apt-get -y update && \
     apt-get -y upgrade && \
-    apt-get -y install ca-certificates curl net-tools traceroute vim && \
+    apt-get -y install bash-completion ca-certificates curl iputils-ping \
+                       man-db net-tools traceroute vim && \
     apt-get clean
 
 WORKDIR /tmp
@@ -24,6 +25,10 @@ RUN case ${RELEASE} in \
         esac && \
         sh oneclient.sh oneclient=${VERSION}-1
 
+# Enable autocompletion
+RUN echo "source /etc/bash_completion" >> /root/.bashrc && \
+    ln -s /var/lib/oneclient/oneclient.bash-completion /etc/bash_completion.d/oneclient
+
 # Install Samba and NFS servers
 RUN apt-get -y install samba rpcbind nfs-kernel-server && \
     apt-get clean
@@ -37,8 +42,7 @@ ADD run.sh /root/run.sh
 
 VOLUME /root/.local/share/oneclient /mnt/oneclient
 
-ENV AUTHENTICATION=token
-ENV NO_CHECK_CERTIFICATE=true
+ENV ONECLIENT_INSECURE=1
 
 ENTRYPOINT ["/root/run.sh"]
 CMD ["/mnt/oneclient"]

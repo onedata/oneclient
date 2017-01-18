@@ -17,7 +17,9 @@ all: debug test
 %/CMakeCache.txt: **/CMakeLists.txt test/integration/* test/integration/**/* \
                   helpers/test/integration/* helpers/test/integration/**
 	mkdir -p $*
-	cd $* && cmake -GNinja -DCMAKE_BUILD_TYPE=$* -DCODE_COVERAGE=${WITH_COVERAGE} ..
+	cd $* && cmake -GNinja -DCMAKE_BUILD_TYPE=$* \
+	                       -DGIT_VERSION=${PKG_REVISION} \
+	                       -DCODE_COVERAGE=${WITH_COVERAGE} ..
 	touch $@
 
 .PHONY: phony
@@ -58,8 +60,8 @@ coverage:
 	lcov --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
 	lcov --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
 	                                   'relwithdebinfo/*' 'debug/*' 'release/*' \
-																		 '**/helpers/*' 'deps/*' \
-																		 --output-file `pwd`/oneclient.info.cleaned
+	                                   '**/helpers/*' 'deps/*' \
+	     --output-file `pwd`/oneclient.info.cleaned
 	genhtml -o `pwd`/coverage `pwd`/oneclient.info.cleaned
 	@echo "Coverage written to `pwd`/coverage/index.html"
 
@@ -75,9 +77,9 @@ endif
 package/$(PKG_ID).tar.gz:
 	mkdir -p package
 	rm -rf package/$(PKG_ID)
-	git archive --format=tar --prefix=$(PKG_ID)/ $(PKG_REVISION)| (cd package && tar -xf -)
+	git archive --format=tar --prefix=$(PKG_ID)/ $(PKG_REVISION) | (cd package && tar -xf -)
 	find package/$(PKG_ID) -depth -name ".git" -exec rm -rf {} \;
-	python cmake_version.py > package/$(PKG_ID)/version.txt
+	echo "set(GIT_VERSION ${PKG_REVISION})" > package/$(PKG_ID)/version.txt
 	tar -C package -czf package/$(PKG_ID).tar.gz $(PKG_ID)
 
 .PHONY: deb
@@ -87,8 +89,10 @@ deb: check_distribution package/$(PKG_ID).tar.gz
 
 	cp -R pkg_config/debian package/$(PKG_ID)/
 	patch -d package/$(PKG_ID)/ -p1 -i pkg_config/$(DISTRIBUTION).patch
-	sed -i "s/oneclient (.*) .*;/oneclient ($(PKG_VERSION)-$(PKG_BUILD)) sid;/g" package/$(PKG_ID)/debian/changelog
-	sed -i "s/Build from .*/Build from $(PKG_VERSION)/g" package/$(PKG_ID)/debian/changelog
+	sed -i "s/{{version}}/$(PKG_VERSION)/g" package/$(PKG_ID)/debian/changelog
+	sed -i "s/{{build}}/$(PKG_BUILD)/g" package/$(PKG_ID)/debian/changelog
+	sed -i "s/{{distribution}}/$(DISTRIBUTION)/g" package/$(PKG_ID)/debian/changelog
+	sed -i "s/{{date}}/`date -R`/g" package/$(PKG_ID)/debian/changelog
 
 	cd package/$(PKG_ID) && sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j4"
 	mv package/*$(PKG_VERSION).orig.tar.gz package/packages/

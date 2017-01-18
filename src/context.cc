@@ -14,13 +14,13 @@
 namespace one {
 namespace client {
 
-std::shared_ptr<Options> Context::options() const
+std::shared_ptr<options::Options> Context::options() const
 {
     std::shared_lock<std::shared_timed_mutex> lock{m_optionsMutex};
     return m_options;
 }
 
-void Context::setOptions(std::shared_ptr<Options> opt)
+void Context::setOptions(std::shared_ptr<options::Options> opt)
 {
     std::lock_guard<std::shared_timed_mutex> guard{m_optionsMutex};
     m_options = std::move(opt);
