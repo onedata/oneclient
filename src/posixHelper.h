@@ -59,7 +59,13 @@ public:
     folly::Future<folly::IOBufQueue> read(
         const off_t offset, const std::size_t size) override;
 
+    virtual folly::IOBufQueue readSync(
+        const off_t offset, const std::size_t size) override;
+
     folly::Future<std::size_t> write(
+        const off_t offset, folly::IOBufQueue buf) override;
+
+    virtual std::size_t writeSync(
         const off_t offset, folly::IOBufQueue buf) override;
 
     folly::Future<folly::Unit> release() override;
