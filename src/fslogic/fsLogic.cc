@@ -268,8 +268,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         if (checksum)
             communication::wait(helperHandle->flush(), helperHandle->timeout());
 
-        auto readBuffer = communication::wait(
-            helperHandle->read(offset, availableSize), helperHandle->timeout());
+        auto readBuffer = helperHandle->readSync(offset, availableSize);
 
         if (helperHandle->needsDataConsistencyCheck() && checksum &&
             dataCorrupted(
@@ -313,7 +312,7 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
 
     // Check if this space is marked as disabled due to exeeded quota
     if (isSpaceDisabled(m_metadataCache.getSpaceId(uuid)))
-        return -ENOSPC;
+        throw std::errc::no_space_on_device;
 
     auto fileBlock = m_metadataCache.getDefaultBlock(uuid);
 
@@ -322,9 +321,7 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
         auto helperHandle = fuseFileHandle->getHelperHandle(
             uuid, fileBlock.storageId(), fileBlock.fileId());
 
-        bytesWritten =
-            communication::wait(helperHandle->write(offset, std::move(buf)),
-                helperHandle->timeout());
+        bytesWritten = helperHandle->writeSync(offset, std::move(buf));
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)

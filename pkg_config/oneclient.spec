@@ -48,7 +48,7 @@ oneclient is a software based on FUSE (Filesystem in Userspace) that allows moun
 %setup -q
 
 %build
-%cmake . -DBUILD_INTEGRATION_TESTS=Off -DBUILD_SHARED_LIBS=Off
+%cmake . -DCMAKE_BUILD_TYPE=Release -DBUILD_INTEGRATION_TESTS=Off -DBUILD_SHARED_LIBS=Off
 make %{?_smp_mflags} oneclient
 
 %install
