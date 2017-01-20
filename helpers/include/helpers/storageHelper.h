@@ -235,8 +235,13 @@ public:
     virtual folly::Future<folly::IOBufQueue> read(
         const off_t offset, const std::size_t size) = 0;
 
+    virtual folly::IOBufQueue readSync(
+        const off_t offset, const std::size_t size);
+
     virtual folly::Future<std::size_t> write(
         const off_t offset, folly::IOBufQueue buf) = 0;
+
+    virtual std::size_t writeSync(const off_t offset, folly::IOBufQueue buf);
 
     virtual folly::Future<std::size_t> multiwrite(
         folly::fbvector<std::pair<off_t, folly::IOBufQueue>> buffs);
