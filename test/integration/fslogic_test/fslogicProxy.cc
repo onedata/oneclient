@@ -79,8 +79,8 @@ public:
 class FsLogicProxy {
 public:
     FsLogicProxy(std::shared_ptr<Context> context)
-        : m_helpersCache{new HelpersCacheProxy(
-              *context->communicator(), *context->scheduler())}
+        : m_helpersCache{new HelpersCacheProxy(*context->communicator(),
+              *context->scheduler(), *context->options())}
         , m_fsLogic{context, std::make_shared<messages::Configuration>(),
               std::unique_ptr<HelpersCacheProxy>{m_helpersCache},
               [](auto f) { f(); }}

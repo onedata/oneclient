@@ -166,8 +166,9 @@ std::shared_ptr<communication::Communicator> getCommunicator(
 {
     auto handshakeHandler = [](auto) { return std::error_code{}; };
 
-    auto communicatorTuple =
-        authManager->createCommunicator(3, sessionId, handshakeHandler);
+    auto communicatorTuple = authManager->createCommunicator(
+        context->options()->getCommunicatorThreadCount(), sessionId,
+        handshakeHandler);
     auto communicator = std::get<std::shared_ptr<communication::Communicator>>(
         communicatorTuple);
 
@@ -211,7 +212,8 @@ int main(int argc, char *argv[])
 
     startLogging(argv[0], options);
 
-    context->setScheduler(std::make_shared<Scheduler>(1));
+    context->setScheduler(
+        std::make_shared<Scheduler>(options->getSchedulerThreadCount()));
 
     auto authManager = getAuthManager(context);
     auto sessionId = generateSessionId();
@@ -282,7 +284,7 @@ int main(int argc, char *argv[])
     communicator->connect();
 
     auto helpersCache = std::make_unique<cache::HelpersCache>(
-        *communicator, *context->scheduler());
+        *communicator, *context->scheduler(), *options);
 
     const auto &rootUuid = configuration->rootUuid();
     fsLogic = std::make_unique<fslogic::Composite>(rootUuid, std::move(context),

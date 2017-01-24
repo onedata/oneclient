@@ -268,7 +268,8 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         if (checksum)
             communication::wait(helperHandle->flush(), helperHandle->timeout());
 
-        auto readBuffer = helperHandle->readSync(offset, availableSize);
+        auto readBuffer = communication::wait(
+            helperHandle->read(offset, availableSize), helperHandle->timeout());
 
         if (helperHandle->needsDataConsistencyCheck() && checksum &&
             dataCorrupted(
@@ -321,7 +322,9 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
         auto helperHandle = fuseFileHandle->getHelperHandle(
             uuid, fileBlock.storageId(), fileBlock.fileId());
 
-        bytesWritten = helperHandle->writeSync(offset, std::move(buf));
+        bytesWritten =
+            communication::wait(helperHandle->write(offset, std::move(buf)),
+                helperHandle->timeout());
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES)

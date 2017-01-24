@@ -89,6 +89,26 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.getSingleThread());
     EXPECT_EQ(false, options.getInsecure());
     EXPECT_EQ(options::DEFAULT_PROVIDER_PORT, options.getProviderPort());
+    EXPECT_EQ(options::DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT,
+        options.getBufferSchedulerThreadCount());
+    EXPECT_EQ(options::DEFAULT_COMMUNICATOR_THREAD_COUNT,
+        options.getCommunicatorThreadCount());
+    EXPECT_EQ(options::DEFAULT_SCHEDULER_THREAD_COUNT,
+        options.getSchedulerThreadCount());
+    EXPECT_EQ(options::DEFAULT_STORAGE_HELPER_THREAD_COUNT,
+        options.getStorageHelperThreadCount());
+    EXPECT_EQ(
+        options::DEFAULT_READ_BUFFER_MIN_SIZE, options.getReadBufferMinSize());
+    EXPECT_EQ(
+        options::DEFAULT_READ_BUFFER_MAX_SIZE, options.getReadBufferMaxSize());
+    EXPECT_EQ(options::DEFAULT_READ_BUFFER_PREFETCH_DURATION,
+        options.getReadBufferPrefetchDuration().count());
+    EXPECT_EQ(options::DEFAULT_WRITE_BUFFER_MIN_SIZE,
+        options.getWriteBufferMinSize());
+    EXPECT_EQ(options::DEFAULT_WRITE_BUFFER_MAX_SIZE,
+        options.getWriteBufferMaxSize());
+    EXPECT_EQ(options::DEFAULT_WRITE_BUFFER_FLUSH_DELAY,
+        options.getWriteBufferFlushDelay().count());
     EXPECT_FALSE(options.getProviderHost());
     EXPECT_FALSE(options.getAccessToken());
 }
@@ -125,27 +145,6 @@ TEST_F(OptionsTest, parseCommandLineShouldSetUnmount)
     cmdArgs.insert(cmdArgs.end(), {"--unmount", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(true, options.getUnmount());
-}
-
-TEST_F(OptionsTest, parseCommandLineShouldSetForeground)
-{
-    cmdArgs.insert(cmdArgs.end(), {"--foreground", "mountpoint"});
-    options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_EQ(true, options.getForeground());
-}
-
-TEST_F(OptionsTest, parseCommandLineShouldSetDebug)
-{
-    cmdArgs.insert(cmdArgs.end(), {"--debug", "mountpoint"});
-    options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_EQ(true, options.getDebug());
-}
-
-TEST_F(OptionsTest, parseCommandLineShouldSetSingleThread)
-{
-    cmdArgs.insert(cmdArgs.end(), {"--single-thread", "mountpoint"});
-    options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_EQ(true, options.getSingleThread());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetProviderHost)
@@ -195,6 +194,107 @@ TEST_F(OptionsTest, parseCommandLineShouldSetLogDirPath)
     cmdArgs.insert(cmdArgs.end(), {"--log-dir", "somePath", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ("somePath", options.getLogDirPath());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetBufferSchedulerThreadCount)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--buffer-scheduler-thread-count", "8", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(8, options.getBufferSchedulerThreadCount());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetCommunicatorThreadCount)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--communicator-thread-count", "8", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(8, options.getCommunicatorThreadCount());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetSchedulerThreadCount)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--scheduler-thread-count", "8", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(8, options.getSchedulerThreadCount());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetStorageHelperThreadCount)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--storage-helper-thread-count", "8", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(8, options.getStorageHelperThreadCount());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetReadBufferMinSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--read-buffer-min-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getReadBufferMinSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetReadBufferMaxSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--read-buffer-max-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getReadBufferMaxSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetReadBufferPrefetchDuration)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--read-buffer-prefetch-duration", "10", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(10, options.getReadBufferPrefetchDuration().count());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetWriteBufferMinSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--write-buffer-min-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getWriteBufferMinSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetWriteBufferMaxSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--write-buffer-max-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getWriteBufferMaxSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetWriteBufferFlushDelay)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--write-buffer-flush-delay", "10", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(10, options.getWriteBufferFlushDelay().count());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetForeground)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--foreground", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.getForeground());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetDebug)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--debug", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.getDebug());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetSingleThread)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--single-thread", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.getSingleThread());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetFuseOpts)
@@ -383,6 +483,76 @@ TEST_F(OptionsTest, parseConfigFileShouldSetLogDir)
     setInConfigFile("log_dir", "somePath");
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ("somePath", options.getLogDirPath());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetBufferSchedulerThreadCount)
+{
+    setInConfigFile("buffer_scheduler_thread_count", "8");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(8, options.getBufferSchedulerThreadCount());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetCommunicatorThreadCount)
+{
+    setInConfigFile("communicator_thread_count", "8");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(8, options.getCommunicatorThreadCount());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetSchedulerThreadCount)
+{
+    setInConfigFile("scheduler_thread_count", "8");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(8, options.getSchedulerThreadCount());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetStorageHelperThreadCount)
+{
+    setInConfigFile("storage_helper_thread_count", "8");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(8, options.getStorageHelperThreadCount());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetReadBufferMinSize)
+{
+    setInConfigFile("read_buffer_min_size", "1024");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(1024, options.getReadBufferMinSize());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetReadBufferMaxSize)
+{
+    setInConfigFile("read_buffer_max_size", "1024");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(1024, options.getReadBufferMaxSize());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetReadBufferPrefetchDuration)
+{
+    setInConfigFile("read_buffer_prefetch_duration", "10");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(10, options.getReadBufferPrefetchDuration().count());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetWriteBufferMinSize)
+{
+    setInConfigFile("write_buffer_min_size", "1024");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(1024, options.getWriteBufferMinSize());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetWriteBufferMaxSize)
+{
+    setInConfigFile("write_buffer_max_size", "1024");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(1024, options.getWriteBufferMaxSize());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetWriteBufferFlushDelay)
+{
+    setInConfigFile("write_buffer_flush_delay", "10");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(10, options.getWriteBufferFlushDelay().count());
 }
 
 TEST_F(OptionsTest, parseConfigFileShouldSetForeground)

@@ -39,6 +39,16 @@ arg_oneclient=(\
   {-P,--port}'[Specify the port to which the oneclient should connect on the Oneprovider.]:_ports' \
   {-t,--token}'[Specify Onedata access token for authentication and authorization.]:token' \
   {-l,--log-path}'[Specify custom path for oneclient logs.]: :{_files -/}' \
+  '--buffer-scheduler-thread-count[Specify number of parallel buffer scheduler threads.]:number' \
+  '--communicator-thread-count[Specify number of parallel communicator threads.]:number' \
+  '--scheduler-thread-count[Specify number of parallel scheduler threads.]:number' \
+  '--storage-helper-thread-count[Specify number of parallel storage helper threads.]:number' \
+  '--read-buffer-min-size[Specify minimum size in bytes of in-memory cache for input data blocks.]:number' \
+  '--read-buffer-max-size[Specify maximum size in bytes of in-memory cache for input data blocks.]:number' \
+  '--read-buffer-prefetch-duration[Specify read ahead period in seconds of in-memory cache for input data blocks.]:number' \
+  '--write-buffer-min-size[Specify minimum size in bytes of in-memory cache for output data blocks.]:number' \
+  '--write-buffer-max-size[Specify maximum size in bytes of in-memory cache for output data blocks.]:number' \
+  '--write-buffer-flush-delay[Specify idle period in seconds before flush of in-memory cache for output data blocks.]:number' \
   '1: :{_files -/}'\
 )
 

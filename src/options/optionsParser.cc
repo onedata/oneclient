@@ -55,13 +55,15 @@ void OptionsParser::parseEnvironment(std::vector<std::string> &deprecated,
         boost::program_options::parse_environment(desc,
             [&](const std::string &env) -> std::string {
                 auto envCopy = env;
-                boost::algorithm::to_lower(envCopy);
+                boost::algorithm::to_upper(envCopy);
 
                 bool prefixed = false;
-                if (envCopy.find(ENVIRONMENT_PREFIX2) == 0) {
+                if (envCopy.find(ENVIRONMENT_PREFIX) == 0) {
                     prefixed = true;
-                    envCopy = envCopy.substr(std::strlen(ENVIRONMENT_PREFIX2));
+                    envCopy = envCopy.substr(std::strlen(ENVIRONMENT_PREFIX));
                 }
+
+                boost::algorithm::to_lower(envCopy);
 
                 if (desc.find_nothrow(envCopy, false) &&
                     (!vm.count(envCopy) || vm.at(envCopy).defaulted())) {

@@ -66,8 +66,8 @@ Options::Options()
     add<std::string>()
         ->withShortName("H")
         .withLongName("host")
-        .withConfigName("provider_host")
         .withEnvName("provider_host")
+        .withConfigName("provider_host")
         .withValueName("<host>")
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Specify the hostname of the Oneprovider instance to "
@@ -76,8 +76,8 @@ Options::Options()
     add<unsigned int>()
         ->withShortName("P")
         .withLongName("port")
-        .withConfigName("provider_port")
         .withEnvName("provider_port")
+        .withConfigName("provider_port")
         .withValueName("<port>")
         .withDefaultValue(
             DEFAULT_PROVIDER_PORT, std::to_string(DEFAULT_PROVIDER_PORT))
@@ -88,9 +88,9 @@ Options::Options()
     add<bool>()
         ->asSwitch()
         .withShortName("i")
+        .withEnvName("insecure")
         .withLongName("insecure")
         .withConfigName("insecure")
-        .withEnvName("insecure")
         .withImplicitValue(true)
         .withDefaultValue(false, "false")
         .withGroup(OptionGroup::GENERAL)
@@ -100,8 +100,8 @@ Options::Options()
     add<std::string>()
         ->withShortName("t")
         .withLongName("token")
-        .withConfigName("access_token")
         .withEnvName("access_token")
+        .withConfigName("access_token")
         .withValueName("<token>")
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Specify Onedata access token for authentication and "
@@ -110,19 +110,116 @@ Options::Options()
     add<boost::filesystem::path>()
         ->withShortName("l")
         .withLongName("log-dir")
-        .withConfigName("log_dir")
         .withEnvName("log_dir")
+        .withConfigName("log_dir")
         .withValueName("<path>")
         .withDefaultValue(m_defaultLogDirPath, m_defaultLogDirPath.c_str())
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Specify custom path for Oneclient logs.");
 
+    add<unsigned int>()
+        ->withLongName("buffer-scheduler-thread-count")
+        .withConfigName("buffer_scheduler_thread_count")
+        .withValueName("<threads>")
+        .withDefaultValue(DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT,
+            std::to_string(DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Specify number of parallel buffer scheduler threads.");
+
+    add<unsigned int>()
+        ->withLongName("communicator-thread-count")
+        .withConfigName("communicator_thread_count")
+        .withValueName("<threads>")
+        .withDefaultValue(DEFAULT_COMMUNICATOR_THREAD_COUNT,
+            std::to_string(DEFAULT_COMMUNICATOR_THREAD_COUNT))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify number of parallel communicator threads.");
+
+    add<unsigned int>()
+        ->withLongName("scheduler-thread-count")
+        .withConfigName("scheduler_thread_count")
+        .withValueName("<threads>")
+        .withDefaultValue(DEFAULT_SCHEDULER_THREAD_COUNT,
+            std::to_string(DEFAULT_SCHEDULER_THREAD_COUNT))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify number of parallel scheduler threads.");
+
+    add<unsigned int>()
+        ->withLongName("storage-helper-thread-count")
+        .withConfigName("storage_helper_thread_count")
+        .withValueName("<threads>")
+        .withDefaultValue(DEFAULT_STORAGE_HELPER_THREAD_COUNT,
+            std::to_string(DEFAULT_STORAGE_HELPER_THREAD_COUNT))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify number of parallel storage helper threads.");
+
+    add<unsigned int>()
+        ->withLongName("read-buffer-min-size")
+        .withConfigName("read_buffer_min_size")
+        .withValueName("<size>")
+        .withDefaultValue(DEFAULT_READ_BUFFER_MIN_SIZE,
+            std::to_string(DEFAULT_READ_BUFFER_MIN_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify minimum size in bytes of in-memory cache for "
+                         "input data blocks.");
+
+    add<unsigned int>()
+        ->withLongName("read-buffer-max-size")
+        .withConfigName("read_buffer_max_size")
+        .withValueName("<size>")
+        .withDefaultValue(DEFAULT_READ_BUFFER_MAX_SIZE,
+            std::to_string(DEFAULT_READ_BUFFER_MAX_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify maximum size in bytes of in-memory cache for "
+                         "input data blocks.");
+
+    add<unsigned int>()
+        ->withLongName("read-buffer-prefetch-duration")
+        .withConfigName("read_buffer_prefetch_duration")
+        .withValueName("<duration>")
+        .withDefaultValue(DEFAULT_READ_BUFFER_PREFETCH_DURATION,
+            std::to_string(DEFAULT_READ_BUFFER_PREFETCH_DURATION))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify read ahead period in seconds of in-memory "
+                         "cache for input data blocks.");
+
+    add<unsigned int>()
+        ->withLongName("write-buffer-min-size")
+        .withConfigName("write_buffer_min_size")
+        .withValueName("<size>")
+        .withDefaultValue(DEFAULT_WRITE_BUFFER_MIN_SIZE,
+            std::to_string(DEFAULT_WRITE_BUFFER_MIN_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify minimum size in bytes of in-memory cache for "
+                         "output data blocks.");
+
+    add<unsigned int>()
+        ->withLongName("write-buffer-max-size")
+        .withConfigName("write_buffer_max_size")
+        .withValueName("<size>")
+        .withDefaultValue(DEFAULT_WRITE_BUFFER_MAX_SIZE,
+            std::to_string(DEFAULT_WRITE_BUFFER_MAX_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify maximum size in bytes of in-memory cache for "
+                         "output data blocks.");
+
+    add<unsigned int>()
+        ->withLongName("write-buffer-flush-delay")
+        .withConfigName("write_buffer_flush_delay")
+        .withValueName("<delay>")
+        .withDefaultValue(DEFAULT_WRITE_BUFFER_FLUSH_DELAY,
+            std::to_string(DEFAULT_WRITE_BUFFER_FLUSH_DELAY))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify idle period in seconds before flush of "
+                         "in-memory cache for output data blocks.");
+
     add<bool>()
         ->asSwitch()
         .withShortName("f")
         .withLongName("foreground")
-        .withConfigName("fuse_foreground")
         .withEnvName("fuse_foreground")
+        .withConfigName("fuse_foreground")
         .withImplicitValue(true)
         .withDefaultValue(false, "false")
         .withGroup(OptionGroup::FUSE)
@@ -132,8 +229,8 @@ Options::Options()
         ->asSwitch()
         .withShortName("d")
         .withLongName("debug")
-        .withConfigName("fuse_debug")
         .withEnvName("fuse_debug")
+        .withConfigName("fuse_debug")
         .withImplicitValue(true)
         .withDefaultValue(false, "false")
         .withGroup(OptionGroup::FUSE)
@@ -143,8 +240,8 @@ Options::Options()
         ->asSwitch()
         .withShortName("s")
         .withLongName("single-thread")
-        .withConfigName("fuse_single_thread")
         .withEnvName("fuse_single_thread")
+        .withConfigName("fuse_single_thread")
         .withImplicitValue(true)
         .withDefaultValue(false, "false")
         .withGroup(OptionGroup::FUSE)
@@ -161,8 +258,8 @@ Options::Options()
     add<boost::filesystem::path>()
         ->required()
         .positional("mountpoint", 1)
-        .withConfigName("mountpoint")
         .withEnvName("mountpoint")
+        .withConfigName("mountpoint")
         .withValueName("<path>")
         .withGroup(OptionGroup::INVISIBLE)
         .withDescription("Specify path for Oneclient mountpoint.");
@@ -207,7 +304,7 @@ std::string Options::formatDeprecated() const
     std::stringstream ss;
     for (const auto &env : m_deprecatedEnvs) {
         ss << "WARNING: use of environment variable '" << env << "' without '"
-           << ENVIRONMENT_PREFIX2
+           << ENVIRONMENT_PREFIX
            << "' prefix is deprecated and will be removed in the future.\n";
     }
     for (const auto &name : selectDeprecated()) {
@@ -221,6 +318,8 @@ std::string Options::formatHelp(const char *programName) const
 {
     boost::program_options::options_description general{"General options"};
     selectCommandLine(general, OptionGroup::GENERAL);
+    boost::program_options::options_description advanced{"Advanced options"};
+    selectCommandLine(advanced, OptionGroup::ADVANCED);
     boost::program_options::options_description fuse{"FUSE options"};
     selectCommandLine(fuse, OptionGroup::FUSE);
 
@@ -231,6 +330,8 @@ std::string Options::formatHelp(const char *programName) const
     ss << "\n";
     ss << "\n";
     ss << general;
+    ss << "\n";
+    ss << advanced;
     ss << "\n";
     ss << fuse;
 
@@ -306,6 +407,74 @@ boost::filesystem::path Options::getLogDirPath() const
 {
     return get<boost::filesystem::path>({"log-dir", "log_dir"})
         .get_value_or(m_defaultLogDirPath);
+}
+
+unsigned int Options::getBufferSchedulerThreadCount() const
+{
+    return get<unsigned int>(
+        {"buffer-scheduler-thread-count", "buffer_scheduler_thread_count"})
+        .get_value_or(DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT);
+}
+
+unsigned int Options::getCommunicatorThreadCount() const
+{
+    return get<unsigned int>(
+        {"communicator-thread-count", "communicator_thread_count"})
+        .get_value_or(DEFAULT_COMMUNICATOR_THREAD_COUNT);
+}
+
+unsigned int Options::getSchedulerThreadCount() const
+{
+    return get<unsigned int>(
+        {"scheduler-thread-count", "scheduler_thread_count"})
+        .get_value_or(DEFAULT_SCHEDULER_THREAD_COUNT);
+}
+
+unsigned int Options::getStorageHelperThreadCount() const
+{
+    return get<unsigned int>(
+        {"storage-helper-thread-count", "storage_helper_thread_count"})
+        .get_value_or(DEFAULT_STORAGE_HELPER_THREAD_COUNT);
+}
+
+unsigned int Options::getReadBufferMinSize() const
+{
+    return get<unsigned int>({"read-buffer-min-size", "read_buffer_min_size"})
+        .get_value_or(DEFAULT_READ_BUFFER_MIN_SIZE);
+}
+
+unsigned int Options::getReadBufferMaxSize() const
+{
+    return get<unsigned int>({"read-buffer-max-size", "read_buffer_max_size"})
+        .get_value_or(DEFAULT_READ_BUFFER_MAX_SIZE);
+}
+
+std::chrono::seconds Options::getReadBufferPrefetchDuration() const
+{
+    return std::chrono::seconds{
+        get<unsigned int>(
+            {"read-buffer-prefetch-duration", "read_buffer_prefetch_duration"})
+            .get_value_or(DEFAULT_READ_BUFFER_PREFETCH_DURATION)};
+}
+
+unsigned int Options::getWriteBufferMinSize() const
+{
+    return get<unsigned int>({"write-buffer-min-size", "write_buffer_min_size"})
+        .get_value_or(DEFAULT_WRITE_BUFFER_MIN_SIZE);
+}
+
+unsigned int Options::getWriteBufferMaxSize() const
+{
+    return get<unsigned int>({"write-buffer-max-size", "write_buffer_max_size"})
+        .get_value_or(DEFAULT_WRITE_BUFFER_MAX_SIZE);
+}
+
+std::chrono::seconds Options::getWriteBufferFlushDelay() const
+{
+    return std::chrono::seconds{
+        get<unsigned int>(
+            {"write-buffer-flush-delay", "write_buffer_flush_delay"})
+            .get_value_or(DEFAULT_WRITE_BUFFER_FLUSH_DELAY)};
 }
 
 boost::filesystem::path Options::getMountpoint() const

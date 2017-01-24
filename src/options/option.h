@@ -18,7 +18,7 @@ namespace one {
 namespace client {
 namespace options {
 
-enum class OptionGroup { GENERAL, FUSE, INVISIBLE, DEPRECATED };
+enum class OptionGroup { GENERAL, ADVANCED, FUSE, INVISIBLE, DEPRECATED };
 
 /**
  * @c Event class represents an abstract client option. It provides an interface
@@ -327,7 +327,9 @@ void TypedOption<T>::addCommandLine(
 
     std::stringstream name;
     name << m_longName.get_value_or("");
-    name << "," << m_shortName.get_value_or("");
+    if (m_shortName) {
+        name << "," << m_shortName.get();
+    }
 
     add(desc, name.str());
 }

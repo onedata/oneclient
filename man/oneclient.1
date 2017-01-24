@@ -7,7 +7,7 @@
 \fBoneclient\fR \- Onedata command line client
 .
 .SH "SYNOPSIS"
-\fBoneclient\fR [\-h|\-\-help] [\-V|\-\-version] [\-u|\-\-unmount] [\-c|\-\-config \fIconfig_path\fR] [\-H|\-\-host \fIhostname\fR] [\-P|\-\-port \fIport\fR] [\-i|\-\-insecure] [\-t|\-\-token \fIaccess_token\fR] [\-l|\-\-log\-dir \fIlog_path\fR] [\-f|\-\-foreground] [\-d|\-\-debug] [\-s|\-\-single\-thread] [\-o|\-\-opt \fImount_options\fR] \fImountpoint\fR
+\fBoneclient\fR [\-h|\-\-help] [\-V|\-\-version] [\-u|\-\-unmount] [\-c|\-\-config \fIconfig_path\fR] [\-H|\-\-host \fIhostname\fR] [\-P|\-\-port \fIport\fR] [\-i|\-\-insecure] [\-t|\-\-token \fIaccess_token\fR] [\-l|\-\-log\-dir \fIlog_path\fR] [\-\-buffer\-scheduler\-thread\-count \fIthreads\fR] [\-\-communicator\-thread\-count \fIthreads\fR] [\-\-scheduler\-thread\-count \fIthreads\fR] [\-\-storage\-helper\-thread\-count \fIthreads\fR] [\-\-read\-buffer\-min\-size \fIsize\fR] [\-\-read\-buffer\-max\-size \fIsize\fR] [\-\-read\-buffer\-prefetch\-duration \fIduration\fR] [\-\-write\-buffer\-min\-size \fIsize\fR] [\-\-write\-buffer\-max\-size \fIsize\fR] [\-\-write\-buffer\-flush\-delay \fIdelay\fR] [\-f|\-\-foreground] [\-d|\-\-debug] [\-s|\-\-single\-thread] [\-o|\-\-opt \fImount_options\fR] \fImountpoint\fR
 .
 .SH "DESCRIPTION"
 \fBoneclient\fR provides command line interface to mount Onedata (http://onedata\.org) distributed file system data spaces on local machine using Fuse\.
@@ -78,6 +78,46 @@ Specify Onedata access token for authentication and authorization\.
 Specify custom path for \fBoneclient\fR logs\.
 .
 .TP
+\fB\-\-buffer\-scheduler\-thread\-count <threads>\fR
+Specify number of parallel buffer scheduler threads\.
+.
+.TP
+\fB\-\-communicator\-thread\-count <threads>\fR
+Specify number of parallel communicator threads\.
+.
+.TP
+\fB\-\-scheduler\-thread\-count <threads>\fR
+Specify number of parallel scheduler threads\.
+.
+.TP
+\fB\-\-storage\-helper\-thread\-count <threads>\fR
+Specify number of parallel storage helper threads\.
+.
+.TP
+\fB\-\-read\-buffer\-min\-size <size>\fR
+Specify minimum size in bytes of in\-memory cache for input data blocks\.
+.
+.TP
+\fB\-\-read\-buffer\-max\-size <size>\fR
+Specify maximum size in bytes of in\-memory cache for input data blocks\.
+.
+.TP
+\fB\-\-read\-buffer\-prefetch\-duration <duration>\fR
+Specify read ahead period in seconds of in\-memory cache for input data blocks\.
+.
+.TP
+\fB\-\-write\-buffer\-min\-size <size>\fR
+Specify minimum size in bytes of in\-memory cache for output data blocks\.
+.
+.TP
+\fB\-\-write\-buffer\-max\-size <size>\fR
+Specify maximum size in bytes of in\-memory cache for output data blocks\.
+.
+.TP
+\fB\-\-write\-buffer\-flush\-delay <delay>\fR
+Specify idle period in seconds before flush of in\-memory cache for output data blocks\.
+.
+.TP
 \fB\-f\fR, \fB\-\-foreground\fR
 Foreground operation (see fuse(8))\.
 .
@@ -110,7 +150,7 @@ Allows to specify Oneprovider port, to which \fBoneclient\fR will connect (defau
 .
 .TP
 \fBONECLIENT_INSECURE\fR
-if set to \fB1\fR, disables verification of server certificate and allows to connect to servers without valid certificate\. (default: 0)\.
+If set to \fB1\fR, disables verification of server certificate and allows to connect to servers without valid certificate\. (default: 0)\.
 .
 .TP
 \fBONECLIENT_ACCESS_TOKEN\fR

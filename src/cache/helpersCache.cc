@@ -8,12 +8,14 @@
 
 #include "helpersCache.h"
 
+#include "buffering/bufferAgent.h"
 #include "messages.pb.h"
 #include "messages/fuse/createStorageTestFile.h"
 #include "messages/fuse/getHelperParams.h"
 #include "messages/fuse/helperParams.h"
 #include "messages/fuse/storageTestFile.h"
 #include "messages/fuse/verifyStorageTestFile.h"
+#include "options/options.h"
 
 #include <folly/ThreadName.h>
 
@@ -29,13 +31,22 @@ constexpr unsigned int VERIFY_TEST_FILE_ATTEMPTS = 5;
 constexpr std::chrono::seconds VERIFY_TEST_FILE_DELAY{15};
 
 HelpersCache::HelpersCache(communication::Communicator &communicator,
-    Scheduler &scheduler, const std::size_t workersNumber)
+    Scheduler &scheduler, const options::Options &options)
     : m_communicator{communicator}
     , m_scheduler{scheduler}
-    , m_helpersIoService{workersNumber}
+    , m_helpersIoService{options.getStorageHelperThreadCount()}
+    , m_helperFactory{m_helpersIoService, m_helpersIoService,
+          m_helpersIoService, m_helpersIoService, m_communicator,
+          options.getBufferSchedulerThreadCount(),
+          helpers::buffering::BufferLimits{options.getReadBufferMinSize(),
+              options.getReadBufferMaxSize(),
+              options.getReadBufferPrefetchDuration(),
+              options.getWriteBufferMinSize(), options.getWriteBufferMaxSize(),
+              options.getWriteBufferFlushDelay()}}
+    , m_storageAccessManager{m_communicator, m_helperFactory}
 {
-    std::generate_n(
-        std::back_inserter(m_helpersWorkers), workersNumber, [this] {
+    std::generate_n(std::back_inserter(m_helpersWorkers),
+        options.getStorageHelperThreadCount(), [this] {
             return std::thread{[this] {
                 folly::setThreadName("HelpersWorker");
                 m_helpersIoService.run();
@@ -81,8 +92,8 @@ HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
             messages::fuse::GetHelperParams{
                 storageId.toStdString(), forceProxyIO}));
 
-    auto helper = m_helperFactory.getStorageHelper(
-        params.name(), params.args(), /*buffered*/ true);
+    auto helper =
+        m_helperFactory.getStorageHelper(params.name(), params.args());
 
     m_cache[key] = helper;
     return helper;
