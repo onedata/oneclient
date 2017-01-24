@@ -73,23 +73,6 @@ FlagsSet maskToFlags(int mask)
     return flags;
 }
 
-folly::IOBufQueue FileHandle::readSync(
-    const off_t offset, const std::size_t size)
-{
-    return read(offset, size)
-        .within(timeout(),
-            std::system_error{std::make_error_code(std::errc::timed_out)})
-        .get();
-}
-
-std::size_t FileHandle::writeSync(const off_t offset, folly::IOBufQueue buf)
-{
-    return write(offset, std::move(buf))
-        .within(timeout(),
-            std::system_error{std::make_error_code(std::errc::timed_out)})
-        .get();
-}
-
 folly::Future<std::size_t> FileHandle::multiwrite(
     folly::fbvector<std::pair<off_t, folly::IOBufQueue>> buffs)
 {

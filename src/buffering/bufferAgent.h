@@ -14,29 +14,18 @@
 
 #include "communication/communicator.h"
 #include "helpers/storageHelper.h"
+#include "helpers/storageHelperCreator.h"
 #include "scheduler.h"
 
 #include <glog/logging.h>
 
+#include <chrono>
 #include <memory>
 #include <mutex>
 
 namespace one {
 namespace helpers {
 namespace buffering {
-
-struct BufferLimits {
-    std::size_t maxGlobalReadCacheSize = 1024 * 1024 * 1024;
-    std::size_t maxGlobalWriteBufferSize = 1024 * 1024 * 1024;
-
-    std::size_t minReadChunkSize = 1 * 1024 * 1024;
-    std::size_t maxReadChunkSize = 50 * 1024 * 1024;
-    std::chrono::seconds readAheadFor = std::chrono::seconds{1};
-
-    std::size_t minWriteChunkSize = 1 * 1024 * 1024;
-    std::size_t maxWriteChunkSize = 50 * 1024 * 1024;
-    std::chrono::seconds flushWriteAfter = std::chrono::seconds{1};
-};
 
 class BufferedFileHandle : public FileHandle {
 public:
@@ -45,11 +34,12 @@ public:
         : FileHandle{std::move(fileId)}
         , m_wrappedHandle{std::move(wrappedHandle)}
         , m_scheduler{scheduler}
-        , m_readCache{std::make_shared<ReadCache>(bl.minReadChunkSize,
-              bl.maxReadChunkSize, bl.readAheadFor, *m_wrappedHandle)}
-        , m_writeBuffer{std::make_shared<WriteBuffer>(bl.minWriteChunkSize,
-              bl.maxWriteChunkSize, bl.flushWriteAfter, *m_wrappedHandle,
-              m_scheduler, m_readCache)}
+        , m_readCache{std::make_shared<ReadCache>(bl.readBufferMinSize,
+              bl.readBufferMaxSize, bl.readBufferPrefetchDuration,
+              *m_wrappedHandle)}
+        , m_writeBuffer{std::make_shared<WriteBuffer>(bl.writeBufferMinSize,
+              bl.writeBufferMaxSize, bl.writeBufferFlushDelay,
+              *m_wrappedHandle, m_scheduler, m_readCache)}
     {
         m_writeBuffer->scheduleFlush();
     }
@@ -114,7 +104,7 @@ class BufferAgent : public StorageHelper {
 public:
     BufferAgent(BufferLimits bufferLimits, StorageHelperPtr helper,
         Scheduler &scheduler)
-        : m_bufferLimits{bufferLimits}
+        : m_bufferLimits{std::move(bufferLimits)}
         , m_helper{std::move(helper)}
         , m_scheduler{scheduler}
     {
@@ -127,7 +117,7 @@ public:
             fileId, bl = m_bufferLimits, &scheduler = m_scheduler
         ](FileHandlePtr handle) {
             return std::make_shared<BufferedFileHandle>(
-                std::move(fileId), std::move(handle), std::move(bl), scheduler);
+                std::move(fileId), std::move(handle), bl, scheduler);
         });
     }
 
