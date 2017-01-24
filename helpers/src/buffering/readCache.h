@@ -42,12 +42,12 @@ class ReadCache : public std::enable_shared_from_this<ReadCache> {
     };
 
 public:
-    ReadCache(std::size_t minReadChunkSize, std::size_t maxReadChunkSize,
-        std::chrono::seconds readAheadFor, FileHandle &handle)
-        : m_minReadChunkSize{minReadChunkSize}
-        , m_maxReadChunkSize{maxReadChunkSize}
-        , m_readAheadFor{readAheadFor}
-        , m_cacheDuration{readAheadFor * 2}
+    ReadCache(std::size_t readBufferMinSize, std::size_t readBufferMaxSize,
+        std::chrono::seconds readBufferPrefetchDuration, FileHandle &handle)
+        : m_readBufferMinSize{readBufferMinSize}
+        , m_readBufferMaxSize{readBufferMaxSize}
+        , m_readBufferPrefetchDuration{readBufferPrefetchDuration}
+        , m_cacheDuration{readBufferPrefetchDuration * 2}
         , m_handle{handle}
     {
     }
@@ -163,14 +163,14 @@ private:
 
     std::size_t blockSize()
     {
-        return std::min(m_maxReadChunkSize,
-                   std::max(m_minReadChunkSize, m_bps.load())) *
-            m_readAheadFor.count();
+        return std::min(m_readBufferMaxSize,
+                   std::max(m_readBufferMinSize, m_bps.load())) *
+            m_readBufferPrefetchDuration.count();
     }
 
-    const std::size_t m_minReadChunkSize;
-    const std::size_t m_maxReadChunkSize;
-    const std::chrono::seconds m_readAheadFor;
+    const std::size_t m_readBufferMinSize;
+    const std::size_t m_readBufferMaxSize;
+    const std::chrono::seconds m_readBufferPrefetchDuration;
     const std::chrono::seconds m_cacheDuration;
     FileHandle &m_handle;
 

@@ -44,13 +44,13 @@ class WriteBuffer : public std::enable_shared_from_this<WriteBuffer> {
     using FiberMutex = folly::fibers::TimedMutex<folly::fibers::Baton>;
 
 public:
-    WriteBuffer(const std::size_t minWriteChunkSize,
-        const std::size_t maxWriteChunkSize,
-        const std::chrono::seconds flushWriteAfter, FileHandle &handle,
+    WriteBuffer(const std::size_t writeBufferMinSize,
+        const std::size_t writeBufferMaxSize,
+        const std::chrono::seconds writeBufferFlushDelay, FileHandle &handle,
         Scheduler &scheduler, std::shared_ptr<ReadCache> readCache)
-        : m_minWriteChunkSize{minWriteChunkSize}
-        , m_maxWriteChunkSize{maxWriteChunkSize}
-        , m_flushWriteAfter{flushWriteAfter}
+        : m_writeBufferMinSize{writeBufferMinSize}
+        , m_writeBufferMaxSize{writeBufferMaxSize}
+        , m_writeBufferFlushDelay{writeBufferFlushDelay}
         , m_handle{handle}
         , m_scheduler{scheduler}
         , m_readCache{readCache}
@@ -95,7 +95,7 @@ public:
 
     void scheduleFlush()
     {
-        m_cancelFlushSchedule = m_scheduler.schedule(m_flushWriteAfter,
+        m_cancelFlushSchedule = m_scheduler.schedule(m_writeBufferFlushDelay,
             [s = std::weak_ptr<WriteBuffer>(shared_from_this())] {
                 if (auto self = s.lock()) {
                     std::unique_lock<FiberMutex> lock{self->m_mutex};
@@ -178,7 +178,7 @@ private:
     std::size_t calculateFlushThreshold()
     {
         return std::min(
-            m_maxWriteChunkSize, std::max(m_minWriteChunkSize, 2 * m_bps));
+            m_writeBufferMaxSize, std::max(m_writeBufferMinSize, 2 * m_bps));
     }
 
     std::size_t calculateConfirmThreshold()
@@ -186,9 +186,9 @@ private:
         return 6 * calculateFlushThreshold();
     }
 
-    std::size_t m_minWriteChunkSize;
-    std::size_t m_maxWriteChunkSize;
-    std::chrono::seconds m_flushWriteAfter;
+    std::size_t m_writeBufferMinSize;
+    std::size_t m_writeBufferMaxSize;
+    std::chrono::seconds m_writeBufferFlushDelay;
 
     FileHandle &m_handle;
     Scheduler &m_scheduler;

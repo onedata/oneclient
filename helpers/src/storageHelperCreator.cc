@@ -23,24 +23,27 @@ namespace helpers {
 StorageHelperCreator::StorageHelperCreator(asio::io_service &cephService,
     asio::io_service &dioService, asio::io_service &s3Service,
     asio::io_service &swiftService, communication::Communicator &communicator,
-    std::size_t bufferSchedulerWorkers)
+    std::size_t bufferSchedulerWorkers, buffering::BufferLimits bufferLimits)
     : m_cephService{cephService}
     , m_dioService{dioService}
     , m_s3Service{s3Service}
     , m_swiftService{swiftService}
     , m_scheduler{std::make_unique<Scheduler>(bufferSchedulerWorkers)}
+    , m_bufferLimits{std::move(bufferLimits)}
     , m_communicator{communicator}
 {
 }
 #else
 StorageHelperCreator::StorageHelperCreator(asio::io_service &cephService,
     asio::io_service &dioService, asio::io_service &s3Service,
-    asio::io_service &swiftService, std::size_t bufferSchedulerWorkers)
+    asio::io_service &swiftService, std::size_t bufferSchedulerWorkers,
+    buffering::BufferLimits bufferLimits)
     : m_cephService{cephService}
     , m_dioService{dioService}
     , m_s3Service{s3Service}
     , m_swiftService{swiftService}
     , m_scheduler{std::make_unique<Scheduler>(bufferSchedulerWorkers)}
+    , m_bufferLimits{std::move(bufferLimits)}
 {
 }
 #endif
@@ -52,10 +55,10 @@ std::shared_ptr<StorageHelper> StorageHelperCreator::getStorageHelper(
     const std::unordered_map<folly::fbstring, folly::fbstring> &args,
     const bool buffered)
 {
-    if (name == POSIX_HELPER_NAME)
-        return PosixHelperFactory{m_dioService}.createStorageHelper(args);
-
     StorageHelperPtr helper;
+
+    if (name == POSIX_HELPER_NAME)
+        helper = PosixHelperFactory{m_dioService}.createStorageHelper(args);
 
     if (name == CEPH_HELPER_NAME)
         helper = CephHelperFactory{m_cephService}.createStorageHelper(args);
@@ -78,7 +81,7 @@ std::shared_ptr<StorageHelper> StorageHelperCreator::getStorageHelper(
 
     if (buffered)
         return std::make_shared<buffering::BufferAgent>(
-            buffering::BufferLimits{}, helper, *m_scheduler);
+            m_bufferLimits, helper, *m_scheduler);
 
     return helper;
 }

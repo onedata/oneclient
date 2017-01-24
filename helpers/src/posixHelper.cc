@@ -118,76 +118,56 @@ PosixFileHandle::~PosixFileHandle()
 folly::Future<folly::IOBufQueue> PosixFileHandle::read(
     const off_t offset, const std::size_t size)
 {
-    return folly::via(m_executor.get(), [=] {
-        try {
-            return folly::makeFuture(readSync(offset, size));
-        }
-        catch (const std::system_error &e) {
-            return makeFuturePosixException<folly::IOBufQueue>(
-                e.code().value());
-        }
-    });
-}
+    return folly::via(m_executor.get(),
+        [ offset, size, uid = m_uid, gid = m_gid, fh = m_fh ] {
+            UserCtxSetter userCTX{uid, gid};
+            if (!userCTX.valid())
+                return makeFuturePosixException<folly::IOBufQueue>(EDOM);
 
-folly::IOBufQueue PosixFileHandle::readSync(
-    const off_t offset, const std::size_t size)
-{
-    UserCtxSetter userCTX{m_uid, m_gid};
-    if (!userCTX.valid())
-        throw makePosixException(EDOM);
+            folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
+            void *data = buf.preallocate(size, size).first;
 
-    folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
-    void *data = buf.preallocate(size, size).first;
+            auto res = ::pread(fh, data, size, offset);
 
-    auto res = ::pread(m_fh, data, size, offset);
+            if (res == -1)
+                return makeFuturePosixException<folly::IOBufQueue>(errno);
 
-    if (res == -1)
-        throw makePosixException(errno);
-
-    buf.postallocate(res);
-    return std::move(buf);
+            buf.postallocate(res);
+            return folly::makeFuture(std::move(buf));
+        });
 }
 
 folly::Future<std::size_t> PosixFileHandle::write(
     const off_t offset, folly::IOBufQueue buf)
 {
-    return folly::via(m_executor.get(), [ =, buf = std::move(buf) ]() mutable {
-        try {
-            return folly::makeFuture(writeSync(offset, std::move(buf)));
-        }
-        catch (const std::system_error &e) {
-            return makeFuturePosixException<std::size_t>(e.code().value());
-        }
-    });
-}
+    return folly::via(m_executor.get(),
+        [ offset, buf = std::move(buf), uid = m_uid, gid = m_gid, fh = m_fh ] {
+            UserCtxSetter userCTX{uid, gid};
+            if (!userCTX.valid())
+                return makeFuturePosixException<std::size_t>(EDOM);
 
-std::size_t PosixFileHandle::writeSync(
-    const off_t offset, folly::IOBufQueue buf)
-{
-    UserCtxSetter userCTX{m_uid, m_gid};
-    if (!userCTX.valid())
-        throw makePosixException(EDOM);
+            auto res = ::lseek(fh, offset, SEEK_SET);
+            if (res == -1)
+                return makeFuturePosixException<std::size_t>(errno);
 
-    auto res = ::lseek(m_fh, offset, SEEK_SET);
-    if (res == -1)
-        throw makePosixException(errno);
+            if (buf.empty())
+                return folly::makeFuture<std::size_t>(0);
 
-    if (buf.empty())
-        return 0;
+            auto iov = buf.front()->getIov();
+            auto iov_size = iov.size();
+            auto size = 0;
 
-    auto iov = buf.front()->getIov();
-    auto iov_size = iov.size();
-    auto size = 0;
+            for (std::size_t iov_off = 0; iov_off < iov_size;
+                 iov_off += IOV_MAX) {
+                res = ::writev(fh, iov.data() + iov_off,
+                    std::min<std::size_t>(IOV_MAX, iov_size - iov_off));
+                if (res == -1)
+                    return makeFuturePosixException<std::size_t>(errno);
+                size += res;
+            }
 
-    for (std::size_t iov_off = 0; iov_off < iov_size; iov_off += IOV_MAX) {
-        res = ::writev(m_fh, iov.data() + iov_off,
-            std::min<std::size_t>(IOV_MAX, iov_size - iov_off));
-        if (res == -1)
-            throw makePosixException(errno);
-        size += res;
-    }
-
-    return size;
+            return folly::makeFuture<std::size_t>(size);
+        });
 }
 
 folly::Future<folly::Unit> PosixFileHandle::release()

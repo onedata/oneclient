@@ -11,58 +11,6 @@
 
 #include <glog/stl_logging.h>
 
-namespace {
-struct UnlinkCallbackData {
-    UnlinkCallbackData(folly::fbstring _fileId)
-        : fileId{std::move(_fileId)}
-    {
-    }
-
-    folly::fbstring fileId;
-    folly::Promise<folly::Unit> promise;
-    std::shared_ptr<librados::AioCompletion> completion;
-};
-
-struct ReadCallbackData {
-    ReadCallbackData(folly::fbstring _fileId, const std::size_t size)
-        : fileId{std::move(_fileId)}
-    {
-        char *data = static_cast<char *>(buffer.preallocate(size, size).first);
-        bufferlist.append(ceph::buffer::create_static(size, data));
-    }
-
-    folly::fbstring fileId;
-    librados::bufferlist bufferlist;
-    folly::Promise<folly::IOBufQueue> promise;
-    folly::IOBufQueue buffer{folly::IOBufQueue::cacheChainLength()};
-    std::shared_ptr<librados::AioCompletion> completion;
-};
-
-struct WriteCallbackData {
-    WriteCallbackData(folly::fbstring _fileId, folly::IOBufQueue _buffer)
-        : fileId{std::move(_fileId)}
-        , buffer{std::move(_buffer)}
-    {
-        for (auto &byteRange : *buffer.front())
-            bufferlist.append(ceph::buffer::create_static(byteRange.size(),
-                reinterpret_cast<char *>(
-                    const_cast<unsigned char *>(byteRange.data()))));
-    }
-
-    folly::fbstring fileId;
-    librados::bufferlist bufferlist;
-    folly::Promise<std::size_t> promise;
-    folly::IOBufQueue buffer;
-    std::shared_ptr<librados::AioCompletion> completion;
-};
-
-std::shared_ptr<librados::AioCompletion> wrapCompletion(
-    librados::AioCompletion *const comp)
-{
-    return {comp, [](librados::AioCompletion *p) { p->release(); }};
-}
-} // namespace
-
 namespace one {
 namespace helpers {
 
@@ -85,36 +33,17 @@ folly::Future<folly::IOBufQueue> CephFileHandle::read(
         if (!self)
             return makeFuturePosixException<folly::IOBufQueue>(ECANCELED);
 
-        auto callbackDataPtr =
-            std::make_unique<ReadCallbackData>(m_fileId, size);
+        folly::IOBufQueue buffer{folly::IOBufQueue::cacheChainLength()};
+        char *raw = static_cast<char *>(buffer.preallocate(size, size).first);
+        librados::bufferlist data;
+        data.append(ceph::buffer::create_static(size, raw));
 
-        auto completion = wrapCompletion(librados::Rados::aio_create_completion(
-            static_cast<void *>(callbackDataPtr.get()), nullptr,
-            [](librados::completion_t, void *callbackData) {
-                auto data = std::unique_ptr<ReadCallbackData>(
-                    static_cast<ReadCallbackData *>(callbackData));
-
-                auto result = data->completion->get_return_value();
-                if (result < 0) {
-                    data->promise.setException(makePosixException(result));
-                }
-                else {
-                    data->buffer.postallocate(result);
-                    data->promise.setValue(std::move(data->buffer));
-                }
-            }));
-
-        callbackDataPtr->completion = completion;
-        auto future = callbackDataPtr->promise.getFuture();
-
-        auto ret = m_ioCTX.aio_read(callbackDataPtr->fileId.toStdString(),
-            completion.get(), &callbackDataPtr->bufferlist, size, offset);
-
+        auto ret = m_ioCTX.read(m_fileId.toStdString(), data, size, offset);
         if (ret < 0)
             return makeFuturePosixException<folly::IOBufQueue>(ret);
 
-        callbackDataPtr.release();
-        return future;
+        buffer.postallocate(ret);
+        return folly::makeFuture(std::move(buffer));
     });
 }
 
@@ -129,34 +58,18 @@ folly::Future<std::size_t> CephFileHandle::write(
         if (!self)
             return makeFuturePosixException<std::size_t>(ECANCELED);
 
-        const auto writeSize = buf.chainLength();
-        auto callbackDataPtr =
-            std::make_unique<WriteCallbackData>(m_fileId, std::move(buf));
+        auto size = buf.chainLength();
+        librados::bufferlist data;
+        for (auto &byteRange : *buf.front())
+            data.append(ceph::buffer::create_static(byteRange.size(),
+                reinterpret_cast<char *>(
+                    const_cast<unsigned char *>(byteRange.data()))));
 
-        auto completion = wrapCompletion(librados::Rados::aio_create_completion(
-            static_cast<void *>(callbackDataPtr.get()), nullptr,
-            [](librados::completion_t, void *callbackData) {
-                auto data = std::unique_ptr<WriteCallbackData>{
-                    static_cast<WriteCallbackData *>(callbackData)};
-
-                auto result = data->completion->get_return_value();
-                if (result < 0)
-                    data->promise.setException(makePosixException(result));
-                else
-                    data->promise.setValue(data->bufferlist.length());
-            }));
-
-        callbackDataPtr->completion = completion;
-        auto future = callbackDataPtr->promise.getFuture();
-
-        auto ret = m_ioCTX.aio_write(callbackDataPtr->fileId.toStdString(),
-            completion.get(), callbackDataPtr->bufferlist, writeSize, offset);
-
+        auto ret = m_ioCTX.write(m_fileId.toStdString(), data, size, offset);
         if (ret < 0)
             return makeFuturePosixException<std::size_t>(ret);
 
-        callbackDataPtr.release();
-        return future;
+        return folly::makeFuture(size);
     });
 }
 
@@ -192,39 +105,18 @@ folly::Future<FileHandlePtr> CephHelper::open(
 
 folly::Future<folly::Unit> CephHelper::unlink(const folly::fbstring &fileId)
 {
-    return connect().then([
-        this, fileId, s = std::weak_ptr<CephHelper>{shared_from_this()}
-    ] {
-        auto self = s.lock();
-        if (!self)
-            return makeFuturePosixException(ECANCELED);
+    return connect().then(
+        [ this, fileId, s = std::weak_ptr<CephHelper>{shared_from_this()} ] {
+            auto self = s.lock();
+            if (!self)
+                return makeFuturePosixException(ECANCELED);
 
-        auto callbackDataPtr = std::make_unique<UnlinkCallbackData>(fileId);
+            auto ret = m_ioCTX.remove(fileId.toStdString());
+            if (ret < 0)
+                return makeFuturePosixException(ret);
 
-        auto completion = wrapCompletion(librados::Rados::aio_create_completion(
-            static_cast<void *>(callbackDataPtr.get()), nullptr,
-            [](librados::completion_t, void *callbackData) {
-                auto data = std::unique_ptr<UnlinkCallbackData>{
-                    static_cast<UnlinkCallbackData *>(callbackData)};
-
-                auto result = data->completion->get_return_value();
-                if (result < 0)
-                    data->promise.setException(makePosixException(result));
-                else
-                    data->promise.setValue();
-            }));
-
-        callbackDataPtr->completion = completion;
-        auto future = callbackDataPtr->promise.getFuture();
-
-        auto ret = m_ioCTX.aio_remove(
-            callbackDataPtr->fileId.toStdString(), completion.get());
-        if (ret < 0)
-            return makeFuturePosixException(ret);
-
-        callbackDataPtr.release();
-        return future;
-    });
+            return folly::makeFuture();
+        });
 }
 
 folly::Future<folly::Unit> CephHelper::truncate(
