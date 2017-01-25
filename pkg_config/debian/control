@@ -42,7 +42,7 @@ Homepage: https://onedata.org
 
 Package: oneclient
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, fuse
 Description: FUSE client for onedata system.
  oneclient is a software based on FUSE (Filesystem in Userspace) that allows
  mounting onedata filesystem on Linux systems.
