@@ -37,6 +37,8 @@
 
 #include <sys/mount.h>
 #include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
 #include <exception>
 #include <future>
@@ -57,7 +59,7 @@ void startLogging(
     }
     catch (const boost::filesystem::filesystem_error &e) {
         std::cerr << "Failed to create log directory: '" << e.what()
-                  << "'. Aborting...\n";
+                  << "'. Aborting..." << std::endl;
     }
 
     FLAGS_minloglevel = 0;
@@ -110,7 +112,7 @@ std::shared_ptr<options::Options> getOptions(int argc, char *argv[])
     }
     catch (const boost::program_options::error &e) {
         std::cerr << std::regex_replace(e.what(), std::regex("--"), "") << "\n"
-                  << "See '" << argv[0] << " --help'.\n";
+                  << "See '" << argv[0] << " --help'." << std::endl;
         exit(EXIT_FAILURE);
     }
 }
@@ -125,8 +127,8 @@ std::shared_ptr<auth::AuthManager> getAuthManager(
             !options->getInsecure());
     }
     catch (auth::AuthException &e) {
-        std::cerr << "Authentication error: '" << e.what()
-                  << "'. Aborting...\n";
+        std::cerr << "Authentication error: '" << e.what() << "'. Aborting..."
+                  << std::endl;
         exit(EXIT_FAILURE);
     }
 }
@@ -139,13 +141,13 @@ std::shared_ptr<messages::Configuration> getConfiguration(
     auto options = context->options();
     std::cout << "Connecting to provider '" << options->getProviderHost().get()
               << ":" << options->getProviderPort() << "' using session ID: '"
-              << sessionId << "'...\n";
+              << sessionId << "'..." << std::endl;
 
     try {
         auto communicator =
             handshake(sessionId, std::move(authManager), std::move(context));
 
-        std::cout << "Getting configuration...\n";
+        std::cout << "Getting configuration..." << std::endl;
 
         auto future = communicator->communicate<messages::Configuration>(
             messages::GetConfiguration{});
@@ -154,7 +156,8 @@ std::shared_ptr<messages::Configuration> getConfiguration(
             std::move(configuration));
     }
     catch (const std::exception &e) {
-        std::cerr << "Connection error: '" << e.what() << "'. Aborting...\n";
+        std::cerr << "Connection error: '" << e.what() << "'. Aborting..."
+                  << std::endl;
         exit(EXIT_FAILURE);
     }
 }
@@ -166,14 +169,31 @@ std::shared_ptr<communication::Communicator> getCommunicator(
 {
     auto handshakeHandler = [](auto) { return std::error_code{}; };
 
-    auto communicatorTuple =
-        authManager->createCommunicator(3, sessionId, handshakeHandler);
+    auto communicatorTuple = authManager->createCommunicator(
+        context->options()->getCommunicatorThreadCount(), sessionId,
+        handshakeHandler);
     auto communicator = std::get<std::shared_ptr<communication::Communicator>>(
         communicatorTuple);
 
     communicator->setScheduler(context->scheduler());
 
     return communicator;
+}
+
+void unmountFuse(std::shared_ptr<options::Options> options)
+{
+    int status = 0, pid = fork();
+    if (pid) {
+        waitpid(pid, &status, 0);
+    }
+    else {
+        auto exec = "/bin/fusermount";
+        execl(exec, exec, "-u", options->getMountpoint().c_str(), NULL);
+    }
+    if (status == 0) {
+        std::cout << "Oneclient has been successfully unmounted." << std::endl;
+    }
+    exit(status);
 }
 
 int main(int argc, char *argv[])
@@ -189,20 +209,15 @@ int main(int argc, char *argv[])
     if (options->getVersion()) {
         std::cout << "Oneclient: " << ONECLIENT_VERSION << "\n"
                   << "FUSE library: " << FUSE_MAJOR_VERSION << "."
-                  << FUSE_MINOR_VERSION << "\n";
+                  << FUSE_MINOR_VERSION << std::endl;
         return EXIT_SUCCESS;
     }
     if (options->getUnmount()) {
-        if (umount(options->getMountpoint().c_str()) == -1) {
-            perror("Failed to unmount Oneclient");
-            return EXIT_FAILURE;
-        }
-        std::cout << "Oneclient has been successfully unmounted.\n";
-        return EXIT_SUCCESS;
+        unmountFuse(options);
     }
     if (!options->getProviderHost()) {
         std::cerr << "the option 'host' is required but missing\n"
-                  << "See '" << argv[0] << " --help'.\n";
+                  << "See '" << argv[0] << " --help'." << std::endl;
         return EXIT_FAILURE;
     }
     if (options->hasDeprecated()) {
@@ -211,7 +226,8 @@ int main(int argc, char *argv[])
 
     startLogging(argv[0], options);
 
-    context->setScheduler(std::make_shared<Scheduler>(1));
+    context->setScheduler(
+        std::make_shared<Scheduler>(options->getSchedulerThreadCount()));
 
     auto authManager = getAuthManager(context);
     auto sessionId = generateSessionId();
@@ -255,7 +271,7 @@ int main(int argc, char *argv[])
     ScopeExit removeChannel{[&] { fuse_session_remove_chan(ch); }};
 
     std::cout << "Oneclient has been successfully mounted in '"
-              << options->getMountpoint().c_str() << "'.\n";
+              << options->getMountpoint().c_str() << "'." << std::endl;
 
     if (!foreground) {
         context->scheduler()->prepareForDaemonize();
@@ -282,7 +298,7 @@ int main(int argc, char *argv[])
     communicator->connect();
 
     auto helpersCache = std::make_unique<cache::HelpersCache>(
-        *communicator, *context->scheduler());
+        *communicator, *context->scheduler(), *options);
 
     const auto &rootUuid = configuration->rootUuid();
     fsLogic = std::make_unique<fslogic::Composite>(rootUuid, std::move(context),

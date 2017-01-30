@@ -14,6 +14,7 @@
 #include <boost/program_options.hpp>
 #include <fuse/fuse_opt.h>
 
+#include <chrono>
 #include <vector>
 
 namespace one {
@@ -22,8 +23,18 @@ namespace options {
 
 namespace {
 static constexpr auto CONFIG_FILE_NAME = "oneclient.conf";
-static constexpr auto ENVIRONMENT_PREFIX2 = "oneclient_";
+static constexpr auto ENVIRONMENT_PREFIX = "ONECLIENT_";
 static constexpr auto DEFAULT_PROVIDER_PORT = 5555;
+static constexpr auto DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT = 1;
+static constexpr auto DEFAULT_COMMUNICATOR_THREAD_COUNT = 3;
+static constexpr auto DEFAULT_SCHEDULER_THREAD_COUNT = 1;
+static constexpr auto DEFAULT_STORAGE_HELPER_THREAD_COUNT = 10;
+static constexpr auto DEFAULT_READ_BUFFER_MIN_SIZE = 1 * 1024 * 1024;
+static constexpr auto DEFAULT_READ_BUFFER_MAX_SIZE = 50 * 1024 * 1024;
+static constexpr auto DEFAULT_READ_BUFFER_PREFETCH_DURATION = 1;
+static constexpr auto DEFAULT_WRITE_BUFFER_MIN_SIZE = 1 * 1024 * 1024;
+static constexpr auto DEFAULT_WRITE_BUFFER_MAX_SIZE = 50 * 1024 * 1024;
+static constexpr auto DEFAULT_WRITE_BUFFER_FLUSH_DELAY = 1;
 }
 
 class Option;
@@ -131,6 +142,58 @@ public:
      * @return Log directory path.
      */
     boost::filesystem::path getLogDirPath() const;
+
+    /*
+     * @return Number of parallel buffer scheduler threads.
+     */
+    unsigned int getBufferSchedulerThreadCount() const;
+
+    /*
+     * @return Number of parallel communicator threads.
+     */
+    unsigned int getCommunicatorThreadCount() const;
+
+    /*
+     * @return Number of parallel scheduler threads.
+     */
+    unsigned int getSchedulerThreadCount() const;
+
+    /*
+     * @return Number of parallel storage helper threads.
+     */
+    unsigned int getStorageHelperThreadCount() const;
+
+    /*
+     * @return Minimum size in bytes of in-memory cache for input data blocks.
+     */
+    unsigned int getReadBufferMinSize() const;
+
+    /*
+     * @return Maximum size in bytes of in-memory cache for input data blocks.
+     */
+    unsigned int getReadBufferMaxSize() const;
+
+    /*
+     * @return Read ahead period in seconds of in-memory cache for input data
+     * blocks.
+     */
+    std::chrono::seconds getReadBufferPrefetchDuration() const;
+
+    /*
+     * @return Minimum size in bytes of in-memory cache for output data blocks.
+     */
+    unsigned int getWriteBufferMinSize() const;
+
+    /*
+     * @return Maximum size in bytes of in-memory cache for output data blocks.
+     */
+    unsigned int getWriteBufferMaxSize() const;
+
+    /*
+     * @return Idle period in seconds before flush of in-memory cache for
+     * output data blocks.
+     */
+    std::chrono::seconds getWriteBufferFlushDelay() const;
 
     /*
      * @return Mountpoint path.

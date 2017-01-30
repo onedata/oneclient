@@ -109,7 +109,17 @@ _oneclient() {
                                -i --insecure -H --host -P --port -t --token \
                                -l --log-path \
                                -f --foreground -d --debug -s --single-thread \
-                               -o --opt' -- $cur ) )
+                               -o --opt \
+                               --buffer-scheduler-thread-count \
+                               --communicator-thread-count \
+                               --scheduler-thread-count \
+                               --storage-helper-thread-count \
+                               --read-buffer-min-size \
+                               --read-buffer-max-size \
+                               --read-buffer-prefetch-duration \
+                               --write-buffer-min-size \
+                               --write-buffer-max-size \
+                               --write-buffer-flush-delay' -- $cur ) )
     return
     ;;
     "")

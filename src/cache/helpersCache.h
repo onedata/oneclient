@@ -32,6 +32,9 @@ class StorageTestFile;
 }
 }
 namespace client {
+namespace options {
+class Options;
+}
 namespace cache {
 
 /**
@@ -45,14 +48,15 @@ public:
     /**
      * Constructor.
      * Starts an @c asio::io_service instance with one worker thread for
-     * @c helpers::StorageHelperCreator .
+     * @c helpers::StorageHelperCreator.
      * @param communicator Communicator instance used to fetch helper
      * parameters.
-     * @param workersNumber Number of worker threads that will drive some async
-     * helpers operations.
+     * @param scheduler Scheduler instance used to execute storage detection
+     * operations.
+     * @param options Options instance used to configure buffer limits.
      */
     HelpersCache(communication::Communicator &communicator,
-        Scheduler &scheduler, const std::size_t workersNumber = 10);
+        Scheduler &scheduler, const options::Options &options);
 
     /**
      * Destructor.
@@ -95,12 +99,8 @@ private:
         asio::make_work(m_helpersIoService)};
     folly::fbvector<std::thread> m_helpersWorkers;
 
-    helpers::StorageHelperCreator m_helperFactory{m_helpersIoService,
-        m_helpersIoService, m_helpersIoService, m_helpersIoService,
-        m_communicator};
-
-    StorageAccessManager m_storageAccessManager{
-        m_communicator, m_helperFactory};
+    helpers::StorageHelperCreator m_helperFactory;
+    StorageAccessManager m_storageAccessManager;
 
     std::unordered_map<folly::fbstring, AccessType> m_accessType;
     std::unordered_map<std::tuple<folly::fbstring, bool>, HelperPtr> m_cache;
