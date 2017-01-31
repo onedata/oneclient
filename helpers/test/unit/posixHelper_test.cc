@@ -36,9 +36,6 @@ template <typename T> bool identityEqual(const T &lhs, const T &rhs)
     return &lhs == &rhs;
 }
 
-constexpr int BENCH_BLOCK_SIZE = 1024 * 100;
-constexpr int BENCH_LOOP_COUNT = 10000;
-
 const auto TEST_ROOT =
     boost::filesystem::temp_directory_path() / "posixHelper_test";
 

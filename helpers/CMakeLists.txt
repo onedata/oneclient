@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(helpers C CXX)
 
+option(WITH_OPENSSL "Use OpenSSL instead of BoringSSL" OFF)
+option(WITH_CEPH "Include Ceph direct IO support" ON)
+option(WITH_S3 "Include S3 direct IO support" ON)
+option(WITH_SWIFT "Include Swift direct IO support" ON)
+
 # CMake config
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY True)
 set(CMAKE_FIND_FRAMEWORK LAST)
@@ -57,9 +62,11 @@ find_package(Boost COMPONENTS atomic chrono context date_time filesystem
 set(ETLS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/etls/c_src)
 
 # Setup BoringSSL
-add_subdirectory(${ETLS_DIR}/deps/boringssl)
-set(BORINGSSL_LIBRARIES ssl crypto)
-set(BORINGSSL_INCLUDE_DIRS ${ETLS_DIR}/deps/boringssl/include)
+if(NOT WITH_OPENSSL)
+    add_subdirectory(${ETLS_DIR}/deps/boringssl)
+    set(BORINGSSL_LIBRARIES ssl crypto)
+    set(BORINGSSL_INCLUDE_DIRS ${ETLS_DIR}/deps/boringssl/include)
+endif(NOT WITH_OPENSSL)
 
 # Setup Asio
 set(ASIO_INCLUDE_DIRS ${ETLS_DIR}/deps/asio/asio/include)
@@ -71,28 +78,43 @@ find_library(RT_LIBRARY rt)
 find_library(DL_LIBRARY dl)
 
 # Rados library
-find_library(RADOS_LIBRARY rados)
+if(WITH_CEPH)
+    find_library(RADOS_LIBRARY rados)
+    add_definitions(-DWITH_CEPH=1)
+else(WITH_CEPH)
+    add_definitions(-DWITH_CEPH=0)
+endif(WITH_CEPH)
 
 # AWS SDK library
-find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core)
-find_library(AWS_SKD_S3_LIBRARY aws-cpp-sdk-s3)
-set(AWS_SDK_LIBRARIES
-    ${AWS_SKD_S3_LIBRARY}
-    ${AWS_SKD_CORE_LIBRARY}
-    ${CURL_LIBRARIES})
+if(WITH_S3)
+    find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core)
+    find_library(AWS_SKD_S3_LIBRARY aws-cpp-sdk-s3)
+    set(AWS_SDK_LIBRARIES
+        ${AWS_SKD_S3_LIBRARY}
+        ${AWS_SKD_CORE_LIBRARY}
+        ${CURL_LIBRARIES})
+    add_definitions(-DWITH_S3=1)
+else(WITH_S3)
+    add_definitions(-DWITH_S3=0)
+endif(WITH_S3)
 
 # Swift SDK library
-find_library(SWIFT_SDK_LIBRARY Swift)
-find_library(POCO_FOUNDATION PocoFoundation)
-find_library(POCO_NET PocoNet)
-find_library(POCO_XML PocoXML)
-find_library(POCO_UTIL PocoUtil)
-set(SWIFT_SDK_LIBRARIES
-    ${SWIFT_SDK_LIBRARY}
-    ${POCO_FOUNDATION}
-    ${POCO_NET}
-    ${POCO_XML}
-    ${POCO_UTIL})
+if(WITH_SWIFT)
+    find_library(SWIFT_SDK_LIBRARY Swift)
+    find_library(POCO_FOUNDATION PocoFoundation)
+    find_library(POCO_NET PocoNet)
+    find_library(POCO_XML PocoXML)
+    find_library(POCO_UTIL PocoUtil)
+    set(SWIFT_SDK_LIBRARIES
+        ${SWIFT_SDK_LIBRARY}
+        ${POCO_FOUNDATION}
+        ${POCO_NET}
+        ${POCO_XML}
+        ${POCO_UTIL})
+    add_definitions(-DWITH_SWIFT=1)
+else(WITH_SWIFT)
+    add_definitions(-DWITH_SWIFT=0)
+endif(WITH_SWIFT)
 
 # Setup compile flags
 set(PLATFORM_EXTRA_LIBS
@@ -104,9 +126,9 @@ set(PLATFORM_EXTRA_LIBS
 # Code coverage
 option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
 if(CODE_COVERAGE)
-  message("Code coverage enabled.")
-  add_compile_options(--coverage)
-  set(PLATFORM_EXTRA_LIBS ${PLATFORM_EXTRA_LIBS} gcov)
+    message("Code coverage enabled.")
+    add_compile_options(--coverage)
+    set(PLATFORM_EXTRA_LIBS ${PLATFORM_EXTRA_LIBS} gcov)
 endif(CODE_COVERAGE)
 
 
@@ -123,17 +145,27 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
 add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wshadow -Wall -Wpedantic)
 add_definitions(
     ${FUSE_DEFINITIONS}
-    -DFUSE_USE_VERSION=29
+    -DFUSE_USE_VERSION=30
     -DBOOST_BIND_NO_PLACEHOLDERS
     -DBOOST_FILESYSTEM_NO_DEPRECATED
     -DBOOST_ALL_DYN_LINK
     -DASIO_STANDALONE
     -DGLOG_STL_LOGGING_FOR_UNORDERED)
 
-    option(BUILD_PROXY_IO "Build Proxy IO helper." ON)
-    if(BUILD_PROXY_IO)
-        add_definitions("-DBUILD_PROXY_IO")
-    endif(BUILD_PROXY_IO)
+option(BUILD_PROXY_IO "Build Proxy IO helper." ON)
+if(BUILD_PROXY_IO)
+    add_definitions("-DBUILD_PROXY_IO")
+endif(BUILD_PROXY_IO)
+
+#
+# Select version of Folly, latest version available on OSX have TimedMutex
+# defined without a template
+#
+if(APPLE)
+    add_definitions(-DFOLLY_TIMEDMUTEX_IS_TEMPLATE=0)
+else(APPLE)
+    add_definitions(-DFOLLY_TIMEDMUTEX_IS_TEMPLATE=1)
+endif(APPLE)
 
 add_subdirectory(clproto)
 add_subdirectory(${ETLS_DIR}/src)
@@ -148,6 +180,21 @@ target_include_directories(helpersStatic SYSTEM PUBLIC ${HELPERS_SYSTEM_INCLUDE_
 target_include_directories(helpersStatic PUBLIC ${HELPERS_INCLUDE_DIRS})
 set_target_properties(helpersStatic PROPERTIES
     OUTPUT_NAME helpers)
+
+#
+# Add helper libraries when building with each helper
+#
+if(WITH_CEPH)
+    list(APPEND HELPERS_LIBRARIES ${RADOS_LIBRARY})
+endif(WITH_CEPH)
+
+if(WITH_S3)
+    list(APPEND HELPERS_LIBRARIES ${AWS_SDK_LIBRARIES})
+endif(WITH_S3)
+
+if(WITH_SWIFT)
+    list(APPEND HELPERS_LIBRARIES ${SWIFT_SDK_LIBRARIES})
+endif(WITH_SWIFT)
 
 add_library(helpersShared SHARED ${HELPERS_SOURCES})
 target_link_libraries(helpersShared PUBLIC ${HELPERS_LIBRARIES})

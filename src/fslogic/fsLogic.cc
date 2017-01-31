@@ -456,10 +456,14 @@ FileAttrPtr FsLogic::setattr(
     if (toSet & FUSE_SET_ATTR_MTIME)
         updateTimes.mtime(
             std::chrono::system_clock::from_time_t(attr.st_mtime));
+#if defined(FUSE_SET_ATTR_ATIME_NOW)
     if (toSet & FUSE_SET_ATTR_ATIME_NOW)
         updateTimes.atime(now);
+#endif
+#if defined(FUSE_SET_ATTR_MTIME_NOW)
     if (toSet & FUSE_SET_ATTR_MTIME_NOW)
         updateTimes.mtime(now);
+#endif
 
     communicate(updateTimes);
     m_metadataCache.updateTimes(uuid, updateTimes);

@@ -35,15 +35,25 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
     : m_communicator{communicator}
     , m_scheduler{scheduler}
     , m_helpersIoService{options.getStorageHelperThreadCount()}
-    , m_helperFactory{m_helpersIoService, m_helpersIoService,
-          m_helpersIoService, m_helpersIoService, m_communicator,
+    , m_helperFactory{
+#if WITH_CEPH
+      m_helpersIoService,
+#endif
+      m_helpersIoService,
+#if WITH_S3
+          m_helpersIoService,
+#endif
+#if WITH_SWIFT
+          m_helpersIoService,
+#endif
+          m_communicator,
           options.getBufferSchedulerThreadCount(),
           helpers::buffering::BufferLimits{options.getReadBufferMinSize(),
               options.getReadBufferMaxSize(),
               options.getReadBufferPrefetchDuration(),
               options.getWriteBufferMinSize(), options.getWriteBufferMaxSize(),
               options.getWriteBufferFlushDelay()}}
-    , m_storageAccessManager{m_communicator, m_helperFactory}
+    , m_storageAccessManager{m_helperFactory}
 {
     std::generate_n(std::back_inserter(m_helpersWorkers),
         options.getStorageHelperThreadCount(), [this] {

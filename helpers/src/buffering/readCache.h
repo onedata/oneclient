@@ -23,6 +23,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <queue>
 
 namespace one {
 namespace helpers {
