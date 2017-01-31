@@ -2,6 +2,7 @@ branches:
   only:
     - develop-osx
     - develop
+    - develop-travis
 
 language: cpp
 
@@ -27,7 +28,7 @@ before_install:
   - brew install libsodium && brew link --force libsodium
   - brew install ninja && brew link --force ninja
   - brew outdated poco || brew upgrade poco
-  - brew install libevent
+  - brew outdated libevent || brew upgrade libevent
   - brew outdated openssl || brew upgrade openssl
   - brew install nspr && brew unlink nspr && brew link --force nspr
   - brew install nss && brew unlink nss && brew link --force nss
