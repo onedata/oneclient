@@ -275,7 +275,24 @@ void wrap_statfs(fuse_req_t req, fuse_ino_t ino)
 {
     wrap(&fslogic::Composite::statfs,
         [req](const struct statvfs &statinfo) {
+#if defined(__APPLE__)
+            /**
+             * Simulate large free space to enable file pasting in Finder
+             */
+            struct statvfs osx_statinfo {
+                statinfo
+            };
+            osx_statinfo.f_bsize = 4096;
+            osx_statinfo.f_frsize = osx_statinfo.f_bsize;
+            osx_statinfo.f_blocks = osx_statinfo.f_bfree =
+                osx_statinfo.f_bavail =
+                    1000ULL * 1024 * 1024 * 1024 / osx_statinfo.f_frsize;
+            osx_statinfo.f_files = osx_statinfo.f_ffree = 1000000;
+
+            fuse_reply_statfs(req, &osx_statinfo);
+#else
             fuse_reply_statfs(req, &statinfo);
+#endif
         },
         req, ino);
 }

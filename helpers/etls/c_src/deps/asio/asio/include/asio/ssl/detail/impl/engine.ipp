@@ -198,10 +198,14 @@ const asio::error_code& engine::map_error_code(
   // If there's data yet to be read, it's an error.
   if (BIO_wpending(ext_bio_))
   {
-    ec = asio::error_code(
-        ERR_PACK(ERR_LIB_SSL, SSL_R_UNEXPECTED_RECORD),
-        asio::error::get_ssl_category());
-    return ec;
+      ec = asio::error_code(
+#ifdef OPENSSL_IS_BORINGSSL
+          ERR_PACK(ERR_LIB_SSL, SSL_R_UNEXPECTED_RECORD),
+#else
+          ERR_PACK(ERR_LIB_SSL, 0, SSL_R_UNEXPECTED_RECORD),
+#endif
+          asio::error::get_ssl_category());
+      return ec;
   }
 
   // SSL v2 doesn't provide a protocol-level shutdown, so an eof on the
@@ -212,9 +216,13 @@ const asio::error_code& engine::map_error_code(
   // Otherwise, the peer should have negotiated a proper shutdown.
   if ((::SSL_get_shutdown(ssl_) & SSL_RECEIVED_SHUTDOWN) == 0)
   {
-    ec = asio::error_code(
-        ERR_PACK(ERR_LIB_SSL, SSL_R_UNEXPECTED_RECORD),
-        asio::error::get_ssl_category());
+      ec = asio::error_code(
+#ifdef OPENSSL_IS_BORINGSSL
+          ERR_PACK(ERR_LIB_SSL, SSL_R_UNEXPECTED_RECORD),
+#else
+          ERR_PACK(ERR_LIB_SSL, 0, SSL_R_UNEXPECTED_RECORD),
+#endif
+          asio::error::get_ssl_category());
   }
 
   return ec;

@@ -36,11 +36,9 @@ class StorageAccessManager {
 public:
     /**
      * Constructor.
-     * @param communicator Instance of @c communication::Communicator.
      * @param helperFactory Instance of @c helpers::StorageHelperCreator.
      */
-    StorageAccessManager(communication::Communicator &communicator,
-        helpers::StorageHelperCreator &helperFactory);
+    StorageAccessManager(helpers::StorageHelperCreator &helperFactory);
 
     /**
      * Verifies the test file by reading it from the storage and checking its
@@ -66,7 +64,6 @@ private:
     bool verifyStorageTestFile(std::shared_ptr<helpers::StorageHelper> helper,
         const messages::fuse::StorageTestFile &testFile);
 
-    communication::Communicator &m_communicator;
     helpers::StorageHelperCreator &m_helperFactory;
     std::vector<boost::filesystem::path> m_mountPoints;
 };

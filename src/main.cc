@@ -187,8 +187,13 @@ void unmountFuse(std::shared_ptr<options::Options> options)
         waitpid(pid, &status, 0);
     }
     else {
+#if defined(__APPLE__)
+        auto exec = "/usr/sbin/diskutil";
+        execl(exec, exec, "unmount", options->getMountpoint().c_str(), NULL);
+#else
         auto exec = "/bin/fusermount";
         execl(exec, exec, "-u", options->getMountpoint().c_str(), NULL);
+#endif
     }
     if (status == 0) {
         std::cout << "Oneclient has been successfully unmounted." << std::endl;

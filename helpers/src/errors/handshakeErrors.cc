@@ -8,6 +8,8 @@
 
 #include "handshakeErrors.h"
 
+#include <string>
+
 namespace one {
 namespace errors {
 namespace handshake {

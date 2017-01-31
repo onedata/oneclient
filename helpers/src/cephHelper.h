@@ -15,7 +15,6 @@
 
 #include <folly/Executor.h>
 #include <rados/librados.hpp>
-
 #include <asio.hpp>
 
 namespace one {
