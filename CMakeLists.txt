@@ -315,10 +315,10 @@ install(FILES man/oneclient.conf.5 DESTINATION ${CMAKE_INSTALL_FULL_MANDIR}/man5
 install(FILES LICENSE.txt DESTINATION ${CMAKE_INSTALL_FULL_DOCDIR})
 install(FILES README.md DESTINATION ${CMAKE_INSTALL_FULL_DOCDIR})
 if(UNIX AND NOT APPLE)
-    install(DIRECTORY autocomplete/linux DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/oneclient)
+    install(DIRECTORY autocomplete/linux/ DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/oneclient)
 endif(UNIX AND NOT APPLE)
 if(APPLE)
-    install(DIRECTORY autocomplete/osx DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/oneclient)
+    install(DIRECTORY autocomplete/osx/ DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/oneclient)
 endif(APPLE)
 
 enable_testing()
