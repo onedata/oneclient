@@ -4,6 +4,18 @@
 CHANGELOG
 ---------
 
+### 3.0.0-rc12
+
+* VFS-2934 Fix unprivileged unmount
+* VFS-2934 Turn on storage helper buffering
+* VFS-2937 Use storage helper sync read and write
+* VFS-2909 Adjust code to updated ceph lib
+* VFS-2876 filter O_CREAT flag in fuseFileHandle
+* VFS-2829 Remove file accessed event
+* VFS-1959 Add and handle OpenFile, CreateFile and MakeFile msgs
+* VFS-2742 Switch to lowlevel FUSE API and fibers.
+
+
 ### 3.0.0-rc11
 
 * Releasing new version 3.0.0-rc11
