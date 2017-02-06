@@ -51,6 +51,24 @@ Fedora. To install *oneclient* using packages simply use the following command:
 curl -sS  http://get.onedata.org/oneclient.sh | bash
 ```
 
+### macOS
+An experimental version of *oneclient* is available for macOS (Sierra or higher),
+and can be installed using Homebrew:
+
+```bash
+# OSXFuse must be installed separately, at least version 3.5.4
+brew cask install osxfuse
+brew tap onedata/onedata
+brew install oneclient
+```
+
+In order to enable Desktop icon for the mounted Onedata volume, it is necessary
+to enable this feature in the system settings:
+
+```bash
+defaults write com.apple.finder ShowMountedServersOnDesktop 1
+```
+
 ## Usage
 
 ```
