@@ -21,7 +21,7 @@ std::shared_ptr<asio::ssl::context> CertificateData::initContext(
     std::shared_ptr<asio::ssl::context> ctx) const
 {
     initContext(*ctx);
-    return std::move(ctx);
+    return ctx;
 }
 
 asio::ssl::context_base::file_format CertificateData::keyFormat() const

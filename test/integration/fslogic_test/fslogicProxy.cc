@@ -157,9 +157,11 @@ public:
     {
         ReleaseGIL guard;
 
+#if defined(FUSE_SET_ATTR_ATIME_NOW) && defined(FUSE_SET_ATTR_MTIME_NOW)
         struct stat statbuf = {};
         m_fsLogic.setattr(
             uuid, statbuf, FUSE_SET_ATTR_ATIME_NOW | FUSE_SET_ATTR_MTIME_NOW);
+#endif
     }
 
     void utime_buf(std::string uuid, Ubuf ubuf)

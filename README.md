@@ -1,5 +1,7 @@
 # oneclient
 
+[![Build Status](https://api.travis-ci.org/onedata/oneclient.svg?branch=develop)](https://travis-ci.org/onedata/oneclient)
+
 *oneclient* is a command line [Onedata](onedata.org) client. It provides a POSIX
 interface to user's files in *onedata* system.
 
@@ -15,14 +17,39 @@ available in [control](pkg_config/debian/control) and
 
 ## Compilation
 
+When compiling from GitHub, an environment variable ONEDATA_GIT_URL must be
+exported to fetch dependencies from public repositories, i.e.:
+
 ```bash
+export ONEDATA_GIT_URL=https://github.com/onedata
 git clone https://github.com/onedata/oneclient.git
 cd oneclient
 make release # or debug
 ```
 
+*oneclient* by default compiles with built-in support for Ceph, S3 and Swift.
+These drivers can be disabled during compilation by providing the following
+flags:
+
+* WITH_CEPH=OFF - disables Ceph support
+* WITH_S3=OFF - disables S3 support
+* WITH_SWIFT=OFF - disables Swift support
+
+By default *oneclient* is compiled with BoringSSL as default SSL implementation.
+To select OpenSSL instead of BoringSSL, add `WITH_OPENSSL=ON` option.
+
 The compiled binary `oneclient` will be created on path `release/oneclient` (or
 `debug/oneclient`).
+
+## Installation
+
+### Linux
+Oneclient is supported on several major Linux platforms including Ubuntu and
+Fedora. To install *oneclient* using packages simply use the following command:
+
+```bash
+curl -sS  http://get.onedata.org/oneclient.sh | bash
+```
 
 ## Usage
 

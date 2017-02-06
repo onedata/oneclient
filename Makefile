@@ -10,6 +10,15 @@ PKG_VERSION     ?= $(shell git describe --tags --always | tr - .)
 PKG_BUILD       ?= 1
 PKG_ID           = oneclient-$(PKG_VERSION)
 
+# Build with Ceph storge helper by default
+WITH_CEPH    = ON
+# Build with Swift storage helper by default
+WITH_SWIFT   = ON
+# Build with S3 storage helper by default
+WITH_S3      = ON
+# Build with BoringSSL by default
+WITH_OPENSSL = OFF
+
 .PHONY: all
 all: debug test
 
@@ -19,7 +28,13 @@ all: debug test
 	mkdir -p $*
 	cd $* && cmake -GNinja -DCMAKE_BUILD_TYPE=$* \
 	                       -DGIT_VERSION=${PKG_REVISION} \
-	                       -DCODE_COVERAGE=${WITH_COVERAGE} ..
+	                       -DCODE_COVERAGE=${WITH_COVERAGE} \
+	                       -DWITH_CEPH=${WITH_CEPH} \
+	                       -DWITH_SWIFT=${WITH_SWIFT} \
+	                       -DWITH_S3=${WITH_S3} \
+	                       -DWITH_OPENSSL=${WITH_OPENSSL} \
+	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
+	                       -DOPENSSL_LIBRARIES=${OPENSSL_LIBRARIES} ..
 	touch $@
 
 .PHONY: phony

@@ -27,7 +27,7 @@ one::clproto::FileRemovedEvent fileRemovedEvent(std::string fileUuid);
 one::clproto::FileRenamedEvent fileRenamedEvent(std::string fileUuid);
 
 struct TestEvent : public one::client::events::SingleEvent {
-    one::client::events::StreamKey streamKey() const
+    one::client::events::StreamKey streamKey() const override
     {
         return one::client::events::StreamKey::TEST;
     }

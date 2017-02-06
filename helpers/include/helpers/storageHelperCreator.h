@@ -28,11 +28,21 @@ class Scheduler;
 
 namespace helpers {
 
+#if WITH_CEPH
 constexpr auto CEPH_HELPER_NAME = "ceph";
+#endif
+
 constexpr auto POSIX_HELPER_NAME = "posix";
+
 constexpr auto PROXY_HELPER_NAME = "proxy";
+
+#if WITH_S3
 constexpr auto S3_HELPER_NAME = "s3";
+#endif
+
+#if WITH_SWIFT
 constexpr auto SWIFT_HELPER_NAME = "swift";
+#endif
 
 namespace buffering {
 
@@ -69,18 +79,34 @@ struct BufferLimits {
 class StorageHelperCreator {
 public:
 #ifdef BUILD_PROXY_IO
-    StorageHelperCreator(asio::io_service &ceph_service,
-        asio::io_service &dio_service, asio::io_service &kvS3Service,
+    StorageHelperCreator(
+#if WITH_CEPH
+        asio::io_service &cephService,
+#endif
+        asio::io_service &dioService,
+#if WITH_S3
+        asio::io_service &kvS3Service,
+#endif
+#if WITH_SWIFT
         asio::io_service &kvSwiftService,
+#endif
         communication::Communicator &m_communicator,
         std::size_t bufferSchedulerWorkers = 1,
         buffering::BufferLimits bufferLimits = buffering::BufferLimits{});
 #else
-    StorageHelperCreator(asio::io_service &ceph_service,
-        asio::io_service &dio_service, asio::io_service &kvS3Service,
+    StorageHelperCreator(
+#if WITH_CEPH
+        asio::io_service &cephService,
+#endif
+        asio::io_service &dioService,
+#if WITH_S3
+        asio::io_service &kvS3Service,
+#endif
+#if WITH_SWIFT
         asio::io_service &kvSwiftService,
         std::size_t bufferSchedulerWorkers = 1,
         buffering::BufferLimits bufferLimits = buffering::BufferLimits{});
+#endif
 #endif
 
     virtual ~StorageHelperCreator();
@@ -98,10 +124,16 @@ public:
         const bool buffered = true);
 
 private:
+#if WITH_CEPH
     asio::io_service &m_cephService;
+#endif
     asio::io_service &m_dioService;
+#if WITH_S3
     asio::io_service &m_s3Service;
+#endif
+#if WITH_SWIFT
     asio::io_service &m_swiftService;
+#endif
     std::unique_ptr<Scheduler> m_scheduler;
     buffering::BufferLimits m_bufferLimits;
 

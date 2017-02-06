@@ -7,3 +7,4 @@
 *.iml
 _build
 compile_commands.json
+rebar.lock.bak

@@ -4,6 +4,10 @@ project(oneclient C CXX)
 option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
 option(STATIC_BOOST "Link Boost statically" Off)
 option(STATIC_LIBSTDCPP "Link libstdc++ statically" Off)
+option(WITH_OPENSSL "Use OpenSSL instead of BoringSSL" OFF)
+option(WITH_CEPH "Include Ceph direct IO support" ON)
+option(WITH_S3 "Include S3 direct IO support" ON)
+option(WITH_SWIFT "Include Swift direct IO support" ON)
 
 # CMake config
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY True)
@@ -43,9 +47,11 @@ find_package(Glog REQUIRED)
 message(STATUS "Checking for CURL...")
 find_package(CURL REQUIRED)
 
-# Setup OpenSSL
-message(STATUS "Checking for OpenSSL...")
-find_package(OpenSSL REQUIRED)
+# Setup OpenSSL if needed
+if(WITH_S3 OR WITH_OPENSSL)
+    message(STATUS "Checking for OpenSSL...")
+    find_package(OpenSSL REQUIRED)
+endif(WITH_S3 OR WITH_OPENSSL)
 
 # Setup NSS
 message(STATUS "Checking for NSS...")
@@ -79,9 +85,11 @@ find_package(Sodium)
 set(ETLS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/helpers/etls/c_src)
 
 # Setup BoringSSL
-add_subdirectory(${ETLS_DIR}/deps/boringssl)
-set(BORINGSSL_LIBRARIES ssl crypto)
-set(BORINGSSL_INCLUDE_DIRS ${ETLS_DIR}/deps/boringssl/include)
+if(NOT WITH_OPENSSL)
+    add_subdirectory(${ETLS_DIR}/deps/boringssl)
+    set(BORINGSSL_LIBRARIES ssl crypto)
+    set(BORINGSSL_INCLUDE_DIRS ${ETLS_DIR}/deps/boringssl/include)
+endif(NOT WITH_OPENSSL)
 
 # Setup Asio
 set(ASIO_INCLUDE_DIRS ${ETLS_DIR}/deps/asio/asio/include)
@@ -93,29 +101,35 @@ find_library(RT_LIBRARY rt)
 find_library(DL_LIBRARY dl)
 
 # Rados library
-find_library(RADOS_LIBRARY rados)
+if(WITH_CEPH)
+    find_library(RADOS_LIBRARY rados)
+endif(WITH_CEPH)
 
 # AWS SDK library
-find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core)
-find_library(AWS_SKD_S3_LIBRARY aws-cpp-sdk-s3)
-set(AWS_SDK_LIBRARIES
-    ${AWS_SKD_S3_LIBRARY}
-    ${AWS_SKD_CORE_LIBRARY}
-    ${CURL_LIBRARIES}
-    ${OPENSSL_LIBRARIES})
+if(WITH_S3)
+    find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core)
+    find_library(AWS_SKD_S3_LIBRARY aws-cpp-sdk-s3)
+    set(AWS_SDK_LIBRARIES
+        ${AWS_SKD_S3_LIBRARY}
+        ${AWS_SKD_CORE_LIBRARY}
+        ${CURL_LIBRARIES}
+        ${OPENSSL_LIBRARIES})
+endif(WITH_S3)
 
 # Swift SDK library
-find_library(SWIFT_SDK_LIBRARY Swift)
-find_library(POCO_UTIL PocoUtil)
-find_library(POCO_NET PocoNet)
-find_library(POCO_XML PocoXML)
-find_library(POCO_FOUNDATION PocoFoundation)
-set(SWIFT_SDK_LIBRARIES
-    ${SWIFT_SDK_LIBRARY}
-    ${POCO_UTIL}
-    ${POCO_NET}
-    ${POCO_XML}
-    ${POCO_FOUNDATION})
+if(WITH_SWIFT)
+    find_library(SWIFT_SDK_LIBRARY Swift)
+    find_library(POCO_UTIL PocoUtil)
+    find_library(POCO_NET PocoNet)
+    find_library(POCO_XML PocoXML)
+    find_library(POCO_FOUNDATION PocoFoundation)
+    set(SWIFT_SDK_LIBRARIES
+        ${SWIFT_SDK_LIBRARY}
+        ${POCO_UTIL}
+        ${POCO_NET}
+        ${POCO_XML}
+        ${POCO_FOUNDATION})
+endif(WITH_SWIFT)
 
 # gpertools lib
 find_library(PROFILER_LIBRARY NAMES profiler)
@@ -166,6 +180,34 @@ add_definitions(
     -DGLOG_STL_LOGGING_FOR_UNORDERED
     -DFIBER_STACK_SIZE=1048576)
 
+if(WITH_CEPH)
+    add_definitions(-DWITH_CEPH=1)
+else(WITH_CEPH)
+    add_definitions(-DWITH_CEPH=0)
+endif(WITH_CEPH)
+
+if(WITH_S3)
+    add_definitions(-DWITH_S3=1)
+else(WITH_S3)
+    add_definitions(-DWITH_S3=0)
+endif(WITH_S3)
+
+if(WITH_SWIFT)
+    add_definitions(-DWITH_SWIFT=1)
+else(WITH_SWIFT)
+    add_definitions(-DWITH_SWIFT=0)
+endif(WITH_SWIFT)
+
+#
+# Select version of Folly, latest versions available on OSX have TimedMutex
+# defined without a template
+#
+if(APPLE)
+    add_definitions(-DFOLLY_TIMEDMUTEX_IS_TEMPLATE=0)
+else(APPLE)
+    add_definitions(-DFOLLY_TIMEDMUTEX_IS_TEMPLATE=1)
+endif(APPLE)
+
 # Add helpers after setting compilation flags but before setting include
 # directories; helpers specify their own includes, pulling from package-set
 # variables when needed.
@@ -184,7 +226,6 @@ include_directories(SYSTEM
     ${FUSE_INCLUDE_DIRS}
     ${FUSE_INCLUDE_DIRS}/..
     ${PROTOBUF_INCLUDE_DIR}
-    ${BORINGSSL_INCLUDE_DIR}
     ${ASIO_INCLUDE_DIRS}
     ${TBB_INCLUDE_DIRS}
     ${Boost_INCLUDE_DIRS}
@@ -194,6 +235,14 @@ include_directories(SYSTEM
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/libmacaroons
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/libmacaroons-cpp)
 
+if(WITH_OPENSSL)
+    include_directories(AFTER SYSTEM
+        ${OPENSSL_INCLUDE_DIR})
+else(WITH_OPENSSL)
+    include_directories(AFTER SYSTEM
+        ${BORINGSSL_INCLUDE_DIR})
+endif(WITH_OPENSSL)
+
 set(CLIENT_LIBRARIES
     libmacaroons-cpp
     ${PLATFORM_EXTRA_LIBS}
@@ -202,13 +251,41 @@ set(CLIENT_LIBRARIES
     ${Boost_LIBRARIES}
     ${SODIUM_LIBRARIES}
     ${PROTOBUF_LIBRARIES}
-    ${BORINGSSL_LIBRARIES}
-    ${RADOS_LIBRARY}
     ${NSS_LIBRARIES}
-    ${AWS_SDK_LIBRARIES}
-    ${SWIFT_SDK_LIBRARIES}
     ${FOLLY_LIBRARIES}
     ${HELPERS_LIBRARIES})
+
+if(WITH_OPENSSL)
+    list(APPEND CLIENT_LIBRARIES
+        ${OPENSSL_LIBRARIES})
+else(WITH_OPENSSL)
+    list(APPEND CLIENT_LIBRARIES
+        ${BORINGSSL_LIBRARIES})
+endif(WITH_OPENSSL)
+
+if(WITH_CEPH)
+    list(APPEND CLIENT_LIBRARIES
+        ${RADOS_LIBRARY})
+    add_definitions(-DWITH_CEPH=1)
+else(WITH_CEPH)
+    add_definitions(-DWITH_CEPH=0)
+endif(WITH_CEPH)
+
+if(WITH_S3)
+    list(APPEND CLIENT_LIBRARIES
+        ${AWS_SDK_LIBRARIES})
+    add_definitions(-DWITH_S3=1)
+else(WITH_S3)
+    add_definitions(-DWITH_S3=0)
+endif(WITH_S3)
+
+if(WITH_SWIFT)
+    list(APPEND CLIENT_LIBRARIES
+        ${SWIFT_SDK_LIBRARIES})
+    add_definitions(-DWITH_SWIFT=1)
+else(WITH_SWIFT)
+    add_definitions(-DWITH_SWIFT=0)
+endif(WITH_SWIFT)
 
 # Define targets
 add_library(client OBJECT ${SOURCES} ${HEADERS})
@@ -237,7 +314,12 @@ install(FILES man/oneclient.1 DESTINATION ${CMAKE_INSTALL_FULL_MANDIR}/man1)
 install(FILES man/oneclient.conf.5 DESTINATION ${CMAKE_INSTALL_FULL_MANDIR}/man5)
 install(FILES LICENSE.txt DESTINATION ${CMAKE_INSTALL_FULL_DOCDIR})
 install(FILES README.md DESTINATION ${CMAKE_INSTALL_FULL_DOCDIR})
-install(DIRECTORY autocomplete/ DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/oneclient)
+if(UNIX AND NOT APPLE)
+    install(DIRECTORY autocomplete/linux/ DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/oneclient)
+endif(UNIX AND NOT APPLE)
+if(APPLE)
+    install(DIRECTORY autocomplete/osx/ DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/oneclient)
+endif(APPLE)
 
 enable_testing()
 add_subdirectory(test)
