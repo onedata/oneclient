@@ -31,15 +31,7 @@ helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
     const folly::fbstring &uuid, const folly::fbstring &storageId,
     const folly::fbstring &fileId)
 {
-#if defined(__APPLE__)
-    /**
-     * Enforce proxyIO on macOS and suppress unused private field warning.
-     */
-    const bool forceProxyIO = true || m_forceProxyIOCache.contains(uuid);
-#else
     const bool forceProxyIO = m_forceProxyIOCache.contains(uuid);
-#endif
-
     const auto key = std::make_tuple(storageId, fileId, forceProxyIO);
 
     auto it = m_handles.find(key);
