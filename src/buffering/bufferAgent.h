@@ -140,65 +140,65 @@ public:
 
     folly::Future<folly::fbvector<folly::fbstring>> readdir(
         const folly::fbstring &fileId, const off_t offset,
-        const std::size_t count)
+        const std::size_t count) override
     {
         return m_helper->readdir(fileId, offset, count);
     }
 
     folly::Future<folly::Unit> mknod(const folly::fbstring &fileId,
-        const mode_t mode, const FlagsSet &flags, const dev_t rdev)
+        const mode_t mode, const FlagsSet &flags, const dev_t rdev) override
     {
         return m_helper->mknod(fileId, mode, flags, rdev);
     }
 
     folly::Future<folly::Unit> mkdir(
-        const folly::fbstring &fileId, const mode_t mode)
+        const folly::fbstring &fileId, const mode_t mode) override
     {
         return m_helper->mkdir(fileId, mode);
     }
 
-    folly::Future<folly::Unit> unlink(const folly::fbstring &fileId)
+    folly::Future<folly::Unit> unlink(const folly::fbstring &fileId) override
     {
         return m_helper->unlink(fileId);
     }
 
-    folly::Future<folly::Unit> rmdir(const folly::fbstring &fileId)
+    folly::Future<folly::Unit> rmdir(const folly::fbstring &fileId) override
     {
         return m_helper->rmdir(fileId);
     }
 
     folly::Future<folly::Unit> symlink(
-        const folly::fbstring &from, const folly::fbstring &to)
+        const folly::fbstring &from, const folly::fbstring &to) override
     {
         return m_helper->symlink(from, to);
     }
 
     folly::Future<folly::Unit> rename(
-        const folly::fbstring &from, const folly::fbstring &to)
+        const folly::fbstring &from, const folly::fbstring &to) override
     {
         return m_helper->rename(from, to);
     }
 
     folly::Future<folly::Unit> link(
-        const folly::fbstring &from, const folly::fbstring &to)
+        const folly::fbstring &from, const folly::fbstring &to) override
     {
         return m_helper->link(from, to);
     }
 
     folly::Future<folly::Unit> chmod(
-        const folly::fbstring &fileId, const mode_t mode)
+        const folly::fbstring &fileId, const mode_t mode) override
     {
         return m_helper->chmod(fileId, mode);
     }
 
     folly::Future<folly::Unit> chown(
-        const folly::fbstring &fileId, const uid_t uid, const gid_t gid)
+        const folly::fbstring &fileId, const uid_t uid, const gid_t gid) override
     {
         return m_helper->chown(fileId, uid, gid);
     }
 
     folly::Future<folly::Unit> truncate(
-        const folly::fbstring &fileId, const off_t size)
+        const folly::fbstring &fileId, const off_t size) override
     {
         return m_helper->truncate(fileId, size);
     }

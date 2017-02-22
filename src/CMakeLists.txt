@@ -9,14 +9,36 @@ set(HELPERS_SYSTEM_INCLUDE_DIRS
     ${GLOG_INCLUDE_DIRS}
     ${ETLS_SYSTEM_INCLUDE_DIRS}
     ${ETLS_INCLUDE_DIRS}
-    ${FOLLY_INCLUDE_DIR}
-    ${SWIFT_SDK_INCLUDE_DIRS})
+    ${FOLLY_INCLUDE_DIR})
+
+#
+# Add Swift include dir when building with Swift helper
+#
+if(WITH_SWIFT)
+    list(APPEND HELPERS_SYSTEM_INCLUDE_DIRS ${SWIFT_SDK_INCLUDE_DIRS})
+endif(WITH_SWIFT)
 
 set(HELPERS_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 
 file(GLOB_RECURSE HELPER_SOURCES *.cc *.h)
+
+#
+# Remove helper sources when building without them
+#
+if(NOT WITH_CEPH)
+    list(REMOVE_ITEM HELPER_SOURCES  ${CMAKE_CURRENT_SOURCE_DIR}/cephHelper.cc)
+endif(NOT WITH_CEPH)
+
+if(NOT WITH_S3)
+    list(REMOVE_ITEM HELPER_SOURCES  ${CMAKE_CURRENT_SOURCE_DIR}/s3Helper.cc)
+endif(NOT WITH_S3)
+
+if(NOT WITH_SWIFT)
+    list(REMOVE_ITEM HELPER_SOURCES  ${CMAKE_CURRENT_SOURCE_DIR}/swiftHelper.cc)
+endif(NOT WITH_SWIFT)
+
 add_library(helpers OBJECT ${HELPER_SOURCES})
 add_dependencies(helpers clproto)
 target_include_directories(helpers SYSTEM PRIVATE
@@ -40,10 +62,7 @@ set(HELPERS_LIBRARIES
     ${TBB_LIBRARIES}
     ${CLPROTO_LIBRARIES}
     ${ETLS_LIBRARIES}
-    ${RADOS_LIBRARY}
     ${NSS_LIBRARIES}
-    ${AWS_SDK_LIBRARIES}
-    ${SWIFT_SDK_LIBRARIES}
     ${FOLLY_LIBRARIES}
     PARENT_SCOPE)
 

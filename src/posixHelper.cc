@@ -21,15 +21,44 @@
 #include <fuse.h>
 #include <sys/stat.h>
 
-#ifdef __linux__
+#if defined(__linux__)
 #include <sys/fsuid.h>
 #endif
 
 #include <map>
 #include <string>
 
+#if defined(__APPLE__)
+/**
+ * These funtions provide drop-in replacements for setfsuid and setfsgid on OSX
+ */
+static inline int setfsuid(uid_t uid)
+{
+    uid_t olduid = geteuid();
+
+    seteuid(uid);
+
+    if (errno != EINVAL)
+        errno = 0;
+
+    return olduid;
+}
+
+static inline int setfsgid(gid_t gid)
+{
+    gid_t oldgid = getegid();
+
+    setegid(gid);
+
+    if (errno != EINVAL)
+        errno = 0;
+
+    return oldgid;
+}
+#endif
+
 namespace {
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
 class UserCtxSetter {
 public:
     UserCtxSetter(const uid_t uid, const gid_t gid)

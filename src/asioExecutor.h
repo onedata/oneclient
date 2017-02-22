@@ -32,7 +32,7 @@ public:
     {
     }
 
-    void add(std::function<void()> func) override
+    void add(folly::Func func) override
     {
         asio::post(m_service, std::move(func));
     }

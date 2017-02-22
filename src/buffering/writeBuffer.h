@@ -21,6 +21,14 @@
 #include <folly/FBString.h>
 #include <folly/FBVector.h>
 #include <folly/fibers/Baton.h>
+
+
+#if defined(__APPLE__)
+// There is no spinlock on OSX and Folly TimedMutex doesn't have an ifded
+// to detect this.
+typedef pthread_rwlock_t pthread_spinlock_t;
+#endif
+
 #include <folly/fibers/TimedMutex.h>
 #include <folly/futures/Future.h>
 
@@ -41,7 +49,11 @@ namespace helpers {
 namespace buffering {
 
 class WriteBuffer : public std::enable_shared_from_this<WriteBuffer> {
+#if FOLLY_TIMEDMUTEX_IS_TEMPLATE
     using FiberMutex = folly::fibers::TimedMutex<folly::fibers::Baton>;
+#else
+    using FiberMutex = folly::fibers::TimedMutex;
+#endif
 
 public:
     WriteBuffer(const std::size_t writeBufferMinSize,
