@@ -59,8 +59,8 @@ void throwOnError(const folly::fbstring &operation, const Outcome &outcome)
     if (!code)
         return;
 
-    auto msg =
-        operation.toStdString() + "': " + outcome.GetError().GetMessage();
+    auto msg = operation.toStdString() + "': " +
+        outcome.GetError().GetMessage().c_str();
 
     throw std::system_error{code, std::move(msg)};
 }
@@ -78,11 +78,10 @@ S3Helper::S3Helper(folly::fbstring hostname, folly::fbstring bucketName,
 {
     static S3HelperApiInit init;
 
-    Aws::Auth::AWSCredentials credentials{
-        accessKey.toStdString(), secretKey.toStdString()};
+    Aws::Auth::AWSCredentials credentials{accessKey.c_str(), secretKey.c_str()};
 
     Aws::Client::ClientConfiguration configuration;
-    configuration.endpointOverride = hostname.toStdString();
+    configuration.endpointOverride = hostname.c_str();
     if (!useHttps)
         configuration.scheme = Aws::Http::Scheme::HTTP;
 
@@ -96,13 +95,19 @@ folly::IOBufQueue S3Helper::getObject(
     char *data = static_cast<char *>(buf.preallocate(size, size).first);
 
     Aws::S3::Model::GetObjectRequest request;
-    request.SetBucket(m_bucket.toStdString());
-    request.SetKey(key.toStdString());
+    request.SetBucket(m_bucket.c_str());
+    request.SetKey(key.c_str());
     request.SetRange(
-        rangeToString(offset, static_cast<off_t>(offset + size - 1)));
+        rangeToString(offset, static_cast<off_t>(offset + size - 1)).c_str());
     request.SetResponseStreamFactory([ data = data, size ] {
         auto stream = new std::stringstream;
+#if !defined(__APPLE__)
+        /**
+         * pubsetbuf() implementation depends on libstdc++, and on some
+         * platforms including OSX it does not work and data must be copied
+         */
         stream->rdbuf()->pubsetbuf(data, size);
+#endif
         return stream;
     });
 
@@ -110,6 +115,11 @@ folly::IOBufQueue S3Helper::getObject(
     auto code = getReturnCode(outcome);
     if (code != SUCCESS_CODE)
         throwOnError("GetObject", outcome);
+
+#if defined(__APPLE__)
+    outcome.GetResult().GetBody().rdbuf()->sgetn(
+        data, outcome.GetResult().GetContentLength());
+#endif
 
     buf.postallocate(
         static_cast<std::size_t>(outcome.GetResult().GetContentLength()));
@@ -121,8 +131,8 @@ off_t S3Helper::getObjectsSize(
     const folly::fbstring &prefix, const std::size_t objectSize)
 {
     Aws::S3::Model::ListObjectsRequest request;
-    request.SetBucket(m_bucket.toStdString());
-    request.SetPrefix(adjustPrefix(prefix));
+    request.SetBucket(m_bucket.c_str());
+    request.SetPrefix(adjustPrefix(prefix).c_str());
     request.SetDelimiter(OBJECT_DELIMITER);
     request.SetMaxKeys(1);
 
@@ -132,7 +142,8 @@ off_t S3Helper::getObjectsSize(
     if (outcome.GetResult().GetContents().empty())
         return 0;
 
-    auto key = outcome.GetResult().GetContents().back().GetKey();
+    auto key = folly::fbstring(
+        outcome.GetResult().GetContents().back().GetKey().c_str());
 
     return getObjectId(std::move(key)) * objectSize +
         outcome.GetResult().GetContents().back().GetSize();
@@ -149,12 +160,18 @@ std::size_t S3Helper::putObject(
 
     Aws::S3::Model::PutObjectRequest request;
     auto size = iobuf->length();
+    request.SetBucket(m_bucket.c_str());
+    request.SetKey(key.c_str());
+    request.SetContentLength(size);
     auto stream = std::make_shared<std::stringstream>();
+#if !defined(__APPLE__)
     stream->rdbuf()->pubsetbuf(
         reinterpret_cast<char *>(iobuf->writableData()), size);
-    request.SetBucket(m_bucket.toStdString());
-    request.SetKey(key.toStdString());
-    request.SetContentLength(size);
+#else
+    stream->rdbuf()->sputn(const_cast<const char *>(
+                               reinterpret_cast<char *>(iobuf->writableData())),
+        size);
+#endif
     request.SetBody(stream);
 
     auto outcome = m_client->PutObject(request);
@@ -166,7 +183,7 @@ std::size_t S3Helper::putObject(
 void S3Helper::deleteObjects(const folly::fbvector<folly::fbstring> &keys)
 {
     Aws::S3::Model::DeleteObjectsRequest request;
-    request.SetBucket(m_bucket.toStdString());
+    request.SetBucket(m_bucket.c_str());
 
     for (auto offset = 0u; offset < keys.size(); offset += MAX_DELETE_OBJECTS) {
         Aws::S3::Model::Delete container;
@@ -176,7 +193,7 @@ void S3Helper::deleteObjects(const folly::fbvector<folly::fbstring> &keys)
 
         for (auto &key : folly::range(keys.begin(), keys.begin() + batchSize))
             container.AddObjects(
-                Aws::S3::Model::ObjectIdentifier{}.WithKey(key.toStdString()));
+                Aws::S3::Model::ObjectIdentifier{}.WithKey(key.c_str()));
 
         request.SetDelete(std::move(container));
         auto outcome = m_client->DeleteObjects(request);
@@ -188,8 +205,8 @@ folly::fbvector<folly::fbstring> S3Helper::listObjects(
     const folly::fbstring &prefix)
 {
     Aws::S3::Model::ListObjectsRequest request;
-    request.SetBucket(m_bucket.toStdString());
-    request.SetPrefix(adjustPrefix(prefix));
+    request.SetBucket(m_bucket.c_str());
+    request.SetPrefix(adjustPrefix(prefix).c_str());
     request.SetDelimiter(OBJECT_DELIMITER);
 
     folly::fbvector<folly::fbstring> keys;
@@ -199,7 +216,7 @@ folly::fbvector<folly::fbstring> S3Helper::listObjects(
         throwOnError("ListObjects", outcome);
 
         for (const auto &object : outcome.GetResult().GetContents())
-            keys.emplace_back(object.GetKey());
+            keys.emplace_back(object.GetKey().c_str());
 
         if (!outcome.GetResult().GetIsTruncated())
             return keys;

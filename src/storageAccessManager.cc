@@ -56,12 +56,14 @@ std::vector<boost::filesystem::path> getMountPoints()
     for (const auto &stat : stats) {
         std::string type(stat.f_fstypename);
         std::string path(stat.f_mntonname);
-        if (type.compare(0, 4, "fuse") != 0 &&
-            path.compare(0, 5, "/proc") != 0 &&
-            path.compare(0, 4, "/dev") != 0 &&
-            path.compare(0, 4, "/sys") != 0 &&
-            path.compare(0, 4, "/etc") != 0 && path.compare(0, 3, "map") != 0 &&
-            path != "/") {
+        if (type.compare(0, strlen("osxfuse"), "osxfuse") != 0 &&
+            type.compare(0, strlen("autofs"), "autofs") != 0 &&
+            type.compare(0, strlen("mtmfs"), "mtmfs") != 0 &&
+            type.compare(0, strlen("devfs"), "devfs") != 0 &&
+            path.compare(0, strlen("/proc"), "/proc") != 0 &&
+            path.compare(0, strlen("/dev"), "/dev") != 0 &&
+            path.compare(0, strlen("/sys"), "/sys") != 0 &&
+            path.compare(0, strlen("/etc"), "/etc") != 0 && path != "/") {
             mountPoints.push_back(stat.f_mntonname);
         }
     }
