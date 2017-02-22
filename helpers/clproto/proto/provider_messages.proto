@@ -39,7 +39,6 @@ message ProviderRequest {
         CreateShare create_share = 23;
         RemoveShare remove_share = 24;
         RemoveMetadata remove_metadata = 25;
-        Copy copy = 26;
     }
 }
 
@@ -150,10 +149,6 @@ message RemoveMetadata {
     required bytes type = 1;
 }
 
-message Copy {
-    required bytes target_path = 1;
-}
-
 // Generic provider response
 message ProviderResponse {
     required Status status = 1;
@@ -170,7 +165,6 @@ message ProviderResponse {
         FileDistribution file_distribution = 10;
         Metadata metadata = 11;
         Share share = 12;
-        FileCopied file_copied = 13;
     }
 }
 
@@ -206,8 +200,4 @@ message FileDistribution {
 message Share {
     required bytes share_id = 1;
     required bytes share_file_uuid = 2;
-}
-
-message FileCopied {
-    required bytes new_uuid = 1;
 }
