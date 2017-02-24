@@ -371,6 +371,13 @@ TEST_F(OptionsTest, parseEnvironmentShouldSetProviderHost)
     EXPECT_EQ("someHost", options.getProviderHost().get());
 }
 
+TEST_F(OptionsTest, parseEnvironmentShouldSetProviderHostDeprecated)
+{
+    setenv("PROVIDER_HOSTNAME", "someHost", true);
+    options.parse(envArgs.size(), envArgs.data());
+    EXPECT_EQ("someHost", options.getProviderHost().get());
+}
+
 TEST_F(OptionsTest, parseEnvironmentShouldSetProviderPort)
 {
     setenv("ONECLIENT_PROVIDER_PORT", "1234", true);
@@ -453,6 +460,13 @@ TEST_F(OptionsTest, parseEnvironmentShouldWarnOnEnvsWithoutPrefix)
 TEST_F(OptionsTest, parseConfigFileShouldSetProviderHost)
 {
     setInConfigFile("provider_host", "someHost");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ("someHost", options.getProviderHost().get());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetProviderHostDeprecated)
+{
+    setInConfigFile("provider_hostname", "someHost");
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ("someHost", options.getProviderHost().get());
 }
