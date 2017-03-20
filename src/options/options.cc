@@ -279,6 +279,11 @@ Options::Options()
         .withEnvName("no_check_certificate")
         .withConfigName("no_check_certificate")
         .withGroup(OptionGroup::DEPRECATED);
+
+    add<std::string>()
+        ->withEnvName("provider_hostname")
+        .withConfigName("provider_hostname")
+        .withGroup(OptionGroup::DEPRECATED);
 }
 
 void Options::parse(const int argc, const char *const argv[])
@@ -376,7 +381,7 @@ bool Options::getSingleThread() const
 
 boost::optional<std::string> Options::getProviderHost() const
 {
-    return get<std::string>({"host", "provider_host"});
+    return get<std::string>({"host", "provider_host", "provider_hostname"});
 }
 
 unsigned int Options::getProviderPort() const
