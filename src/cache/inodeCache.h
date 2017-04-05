@@ -10,6 +10,7 @@
 
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/member.hpp>
+#include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index_container.hpp>
 #include <folly/FBString.h>
 #include <folly/Optional.h>
@@ -91,15 +92,13 @@ private:
         bool deleted{false};
     };
 
-    using Map = boost::multi_index::multi_index_container<
-        Entry,
+    using Map = boost::multi_index::multi_index_container<Entry,
         boost::multi_index::indexed_by<
-            boost::multi_index::hashed_unique<boost::multi_index::tag<ByInode>,
+            boost::multi_index::ordered_unique<boost::multi_index::tag<ByInode>,
                 boost::multi_index::member<Entry, fuse_ino_t, &Entry::inode>>,
-            boost::multi_index::hashed_unique<boost::multi_index::tag<ByUuid>,
+            boost::multi_index::ordered_unique<boost::multi_index::tag<ByUuid>,
                 boost::multi_index::member<Entry, folly::fbstring,
-                                                  &Entry::uuid>,
-                std::hash<folly::fbstring>>>>;
+                    &Entry::uuid>>>>;
 
     const std::size_t m_targetCacheSize;
     Map m_cache;

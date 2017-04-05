@@ -38,13 +38,11 @@ public:
               std::chrono::system_clock::now())}
         , m_fsLogic{std::forward<Args>(args)...}
     {
-        using namespace std::placeholders;
+        m_fsLogic.onMarkDeleted(std::bind(&cache::InodeCache::markDeleted,
+            &m_inodeCache, std::placeholders::_1));
 
-        m_fsLogic.onMarkDeleted(
-            std::bind(&cache::InodeCache::markDeleted, &m_inodeCache, _1));
-
-        m_fsLogic.onRename(
-            std::bind(&cache::InodeCache::rename, &m_inodeCache, _1, _2));
+        m_fsLogic.onRename(std::bind(&cache::InodeCache::rename, &m_inodeCache,
+            std::placeholders::_1, std::placeholders::_2));
     }
 
     auto lookup(const fuse_ino_t ino, const folly::fbstring &name)
