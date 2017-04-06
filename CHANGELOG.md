@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 3.0.0-rc14
+
+* Change inodeCache from hashed index to ordered index, due to segfault during equal_range operation in rename.
+
+
 ### 3.0.0-rc13
 
 * Releasing new version 3.0.0-rc13
