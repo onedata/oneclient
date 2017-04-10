@@ -18,6 +18,8 @@ cache:
 
 before_install:
   - brew update
+  # Make sure Folly is at version 2016.12.19.00_3, future versions are not compatible
+  - cd `brew --prefix`/Homebrew/Library/Taps/homebrew/homebrew-core/Formula && git checkout f4d81171ab96f43663297697fccd48dc6bceedb1 folly.rb && cd -
   - brew install gnu-sed --with-default-names && brew link --force gnu-sed
   - brew install python3 && brew linkapps python3
   - brew outdated boost || brew upgrade boost
@@ -33,7 +35,7 @@ before_install:
   - brew install nss && brew unlink nss && brew link --force nss
   - brew install tbb && brew unlink tbb && brew link --force tbb
   - brew install glog && brew unlink glog && brew link glog
-  - brew install folly
+  - brew install folly && brew switch folly 2016.12.19.00_3
   - brew install protobuf
   - brew install protobuf-c
   - brew install erlang
