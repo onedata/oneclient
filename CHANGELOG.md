@@ -4,8 +4,34 @@
 CHANGELOG
 ---------
 
+### 3.0.0-rc14
+
+* Change inodeCache from hashed index to ordered index, due to segfault during equal_range operation in rename.
+
+
+### 3.0.0-rc13
+
+* Releasing new version 3.0.0-rc13
+
+
 ### 3.0.0-rc12
 
+* VFS-3065 Extend list of deprecated options
+* Ported S3 and Swift helpers to OSX
+* Disabled directIO detection on macOS
+* Ported oneclient to OSX
+* VFS-2585 Fix mounting path
+* VFS-2585 Refactor options
+* VFS-2910 Refactor storage detection
+* VFS-2900 Add package build deps
+* VFS-2876 Fix subscription remote time threshold
+* VFS-2620 Enable storage helper async ops timeout update
+* VFS-2852 enable log_dir option
+* VFS-2809 Refactor events
+* VFS-1959 Ensure file attr and location are cached on open.
+* VFS-1959 Remove getFileLocation
+* VFS-1959 Refactor handleId in separate message
+* Enable missing direct_io flag.
 * VFS-2934 Fix unprivileged unmount
 * VFS-2934 Turn on storage helper buffering
 * VFS-2937 Use storage helper sync read and write
