@@ -58,6 +58,12 @@ and can be installed using Homebrew:
 ```bash
 # OSXFuse must be installed separately, at least version 3.5.4
 brew cask install osxfuse
+# Folly library must be at version 2016.12.19.00_3, newer versions have incompatible API
+cd `brew --prefix`/Homebrew/Library/Taps/homebrew/homebrew-core/Formula
+git checkout f4d81171ab96f43663297697fccd48dc6bceedb1 folly.rb
+cd -
+brew install folly && brew switch folly 2016.12.19.00_3
+
 brew tap onedata/onedata
 brew install oneclient
 ```
