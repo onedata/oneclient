@@ -32,6 +32,13 @@
 #include "messages/fuse/synchronizeBlockAndComputeChecksum.h"
 #include "messages/fuse/truncate.h"
 #include "messages/fuse/updateTimes.h"
+#include "messages/provider/getXAttr.h"
+#include "messages/provider/listXAttr.h"
+#include "messages/provider/providerResponse.h"
+#include "messages/provider/removeXAttr.h"
+#include "messages/provider/setXAttr.h"
+#include "messages/provider/xattr.h"
+#include "messages/provider/xattrList.h"
 
 #include <boost/icl/interval_set.hpp>
 #include <folly/fibers/FiberManager.h>
@@ -469,6 +476,47 @@ FileAttrPtr FsLogic::setattr(
     m_metadataCache.updateTimes(uuid, updateTimes);
 
     return m_metadataCache.getAttr(uuid);
+}
+
+folly::fbstring FsLogic::getxattr(
+    const folly::fbstring &uuid, const folly::fbstring &name)
+{
+    folly::fbstring result;
+
+    messages::provider::GetXAttr getXAttrRequest{uuid, name};
+    auto xattr = communicate<messages::provider::XAttr>(getXAttrRequest);
+    result = xattr.value();
+
+    return result;
+}
+
+void FsLogic::setxattr(const folly::fbstring &uuid, const folly::fbstring &name,
+    const folly::fbstring &value, bool create, bool replace)
+{
+    messages::provider::SetXAttr setXAttrRequest{uuid, name, value, create, replace};
+    communicate<messages::provider::ProviderResponse>(setXAttrRequest);
+}
+
+void FsLogic::removexattr(
+    const folly::fbstring &uuid, const folly::fbstring &name)
+{
+    messages::provider::RemoveXAttr removeXAttrRequest{uuid, name};
+    communicate<messages::provider::ProviderResponse>(removeXAttrRequest);
+}
+
+folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
+{
+    folly::fbvector<folly::fbstring> result;
+
+    messages::provider::ListXAttr listXAttrRequest{uuid};
+    messages::provider::XAttrList providerResponse =
+        communicate<messages::provider::XAttrList>(listXAttrRequest);
+
+    for (const auto &xattrName : providerResponse.xattrNames()) {
+        result.push_back(xattrName.c_str());
+    }
+
+    return result;
 }
 
 template <typename SrvMsg, typename CliMsg>

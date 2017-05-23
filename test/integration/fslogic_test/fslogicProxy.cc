@@ -51,6 +51,11 @@ struct Ubuf {
     time_t modtime;
 };
 
+struct Xattr {
+    std::string name;
+    std::string value;
+};
+
 class ReleaseGIL {
 public:
     ReleaseGIL()
@@ -235,6 +240,43 @@ public:
         m_fsLogic.setattr(uuid, statbuf, FUSE_SET_ATTR_SIZE);
     }
 
+    std::vector<std::string> listxattr(std::string uuid)
+    {
+        ReleaseGIL guard;
+
+        std::vector<std::string> xattrs;
+        for (auto &xattrName : m_fsLogic.listxattr(uuid))
+            xattrs.emplace_back(xattrName.toStdString());
+
+        return xattrs;
+    }
+
+    Xattr getxattr(std::string uuid, std::string name)
+    {
+        ReleaseGIL guard;
+
+        auto xattrValue = m_fsLogic.getxattr(uuid, name);
+
+        Xattr xattr;
+        xattr.name = name;
+        xattr.value = xattrValue.toStdString();
+
+        return xattr;
+    }
+
+    void setxattr(std::string uuid, std::string name, std::string value,
+        bool create, bool replace)
+    {
+        ReleaseGIL guard;
+        m_fsLogic.setxattr(uuid, name, value, create, replace);
+    }
+
+    void removexattr(std::string uuid, std::string name)
+    {
+        ReleaseGIL guard;
+        m_fsLogic.removexattr(uuid, name);
+    }
+
     void expect_call_sh_open(std::string uuid, int times)
     {
         m_helpersCache->m_helper->expect_call_sh_open(uuid, times);
@@ -305,6 +347,10 @@ BOOST_PYTHON_MODULE(fslogic)
         .def_readwrite("actime", &Ubuf::actime)
         .def_readwrite("modtime", &Ubuf::modtime);
 
+    class_<Xattr>("Xattr")
+        .def_readwrite("name", &Xattr::name)
+        .def_readwrite("value", &Xattr::value);
+
     class_<std::vector<std::string>>("vector").def(
         vector_indexing_suite<std::vector<std::string>>());
 
@@ -326,6 +372,10 @@ BOOST_PYTHON_MODULE(fslogic)
         .def("write", &FsLogicProxy::write)
         .def("release", &FsLogicProxy::release)
         .def("truncate", &FsLogicProxy::truncate)
+        .def("listxattr", &FsLogicProxy::listxattr)
+        .def("getxattr", &FsLogicProxy::getxattr)
+        .def("setxattr", &FsLogicProxy::setxattr)
+        .def("removexattr", &FsLogicProxy::removexattr)
         .def("expect_call_sh_open", &FsLogicProxy::expect_call_sh_open)
         .def("expect_call_sh_release", &FsLogicProxy::expect_call_sh_release)
         .def("verify_and_clear_expectations",

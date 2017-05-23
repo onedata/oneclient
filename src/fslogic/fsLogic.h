@@ -169,6 +169,32 @@ public:
         const bool dataOnly);
 
     /**
+     * FUSE @c getxattr callback.
+     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
+     */
+    folly::fbstring getxattr(
+        const folly::fbstring &uuid, const folly::fbstring &name);
+
+    /**
+     * FUSE @c setxattr callback.
+     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
+     */
+    void setxattr(const folly::fbstring &uuid, const folly::fbstring &name,
+        const folly::fbstring &value, bool create, bool replace);
+
+    /**
+     * FUSE @c removexattr callback.
+     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
+     */
+    void removexattr(const folly::fbstring &uuid, const folly::fbstring &name);
+
+    /**
+     * FUSE @c listxattr callback.
+     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
+     */
+    folly::fbvector<folly::fbstring> listxattr(const folly::fbstring &uuid);
+
+    /**
      * Sets a callback to be called when a file is marked as deleted.
      * @param cb The callback function that takes file's uuid as parameter.
      */

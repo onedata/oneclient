@@ -103,6 +103,13 @@ public:
     WRAP(write, (const fuse_ino_t)(const std::uint64_t)(const std::size_t)(
                     folly::IOBufQueue))
 
+    WRAP(listxattr, (const fuse_ino_t))
+    WRAP(getxattr, (const fuse_ino_t)(const folly::fbstring &))
+    WRAP(setxattr,
+        (const fuse_ino_t)(
+            const folly::fbstring &)(const folly::fbstring &)(bool)(bool))
+    WRAP(removexattr, (const fuse_ino_t)(const folly::fbstring &))
+
 private:
     std::function<void(folly::Function<void()>)> makeRunInFiber()
     {
