@@ -16,10 +16,10 @@
 
 namespace one {
 namespace messages {
-namespace provider {
+namespace fuse {
 
 RemoveXAttr::RemoveXAttr(folly::fbstring uuid, folly::fbstring name)
-    : ProviderRequest{uuid.toStdString()}
+    : FileRequest{uuid.toStdString()}
     , m_name(name)
 {
 }
@@ -34,9 +34,11 @@ std::string RemoveXAttr::toString() const
 
 std::unique_ptr<ProtocolClientMessage> RemoveXAttr::serializeAndDestroy()
 {
-    auto msg = ProviderRequest::serializeAndDestroy();
-    msg->mutable_provider_request()->mutable_remove_xattr()->set_name(
-        m_name.toStdString());
+    auto msg = FileRequest::serializeAndDestroy();
+    msg->mutable_fuse_request()
+        ->mutable_file_request()
+        ->mutable_remove_xattr()
+        ->set_name(m_name.toStdString());
 
     return msg;
 }

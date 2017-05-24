@@ -8,17 +8,17 @@
 
 #pragma once
 
-#include "providerResponse.h"
+#include "fuseResponse.h"
 
 namespace one {
 namespace messages {
-namespace provider {
+namespace fuse {
 
 /**
  * The @c XAttrList represent the list of extended attribute names
  * assigned to the file.
  */
-class XAttrList : public ProviderResponse {
+class XAttrList : public FuseResponse {
 public:
     /**
      * Constructor.
@@ -38,6 +38,6 @@ private:
     std::vector<std::string> m_xattrNames;
 };
 
-} // namespace provider
+} // namespace fuse
 } // namespace messages
 } // namespace one

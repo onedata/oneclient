@@ -14,17 +14,17 @@
 
 namespace one {
 namespace messages {
-namespace provider {
+namespace fuse {
 
 XAttrList::XAttrList(std::unique_ptr<ProtocolServerMessage> serverMessage)
-    : ProviderResponse{serverMessage}
+    : FuseResponse{serverMessage}
 {
-    if (!serverMessage->provider_response().has_xattr_list())
+    if (!serverMessage->fuse_response().has_xattr_list())
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "xattr_list field missing"};
 
     auto xattrList =
-        serverMessage->mutable_provider_response()->mutable_xattr_list();
+        serverMessage->mutable_fuse_response()->mutable_xattr_list();
 
     for (int i = 0; i < xattrList->names_size(); i++) {
         m_xattrNames.emplace_back(xattrList->names(i));
@@ -49,6 +49,6 @@ std::string XAttrList::toString() const
     return stream.str();
 }
 
-} // namespace provider
+} // namespace fuse
 } // namespace messages
 } // namespace one

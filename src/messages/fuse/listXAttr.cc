@@ -16,10 +16,10 @@
 
 namespace one {
 namespace messages {
-namespace provider {
+namespace fuse {
 
 ListXAttr::ListXAttr(folly::fbstring uuid)
-    : ProviderRequest{uuid.toStdString()}
+    : FileRequest{uuid.toStdString()}
 {
 }
 
@@ -33,14 +33,19 @@ std::string ListXAttr::toString() const
 
 std::unique_ptr<ProtocolClientMessage> ListXAttr::serializeAndDestroy()
 {
-    auto msg = ProviderRequest::serializeAndDestroy();
-    msg->mutable_provider_request()->mutable_list_xattr()->set_inherited(false);
-    msg->mutable_provider_request()->mutable_list_xattr()->set_show_internal(
-        true);
+    auto msg = FileRequest::serializeAndDestroy();
+    msg->mutable_fuse_request()
+        ->mutable_file_request()
+        ->mutable_list_xattr()
+        ->set_inherited(false);
+    msg->mutable_fuse_request()
+        ->mutable_file_request()
+        ->mutable_list_xattr()
+        ->set_show_internal(true);
 
     return msg;
 }
 
-} // namespace provider
+} // namespace fuse
 } // namespace messages
 } // namespace one

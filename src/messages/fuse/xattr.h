@@ -8,17 +8,17 @@
 
 #pragma once
 
-#include "providerResponse.h"
+#include "fuseResponse.h"
 
 namespace one {
 namespace messages {
-namespace provider {
+namespace fuse {
 
 /**
  * The @c XAttr represents a single extended attribute name and value
  * assigned to a file.
  */
-class XAttr : public ProviderResponse {
+class XAttr : public FuseResponse {
 public:
     /**
      * Constructor.

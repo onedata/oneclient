@@ -32,13 +32,12 @@
 #include "messages/fuse/synchronizeBlockAndComputeChecksum.h"
 #include "messages/fuse/truncate.h"
 #include "messages/fuse/updateTimes.h"
-#include "messages/provider/getXAttr.h"
-#include "messages/provider/listXAttr.h"
-#include "messages/provider/providerResponse.h"
-#include "messages/provider/removeXAttr.h"
-#include "messages/provider/setXAttr.h"
-#include "messages/provider/xattr.h"
-#include "messages/provider/xattrList.h"
+#include "messages/fuse/getXAttr.h"
+#include "messages/fuse/listXAttr.h"
+#include "messages/fuse/removeXAttr.h"
+#include "messages/fuse/setXAttr.h"
+#include "messages/fuse/xattr.h"
+#include "messages/fuse/xattrList.h"
 
 #include <boost/icl/interval_set.hpp>
 #include <folly/fibers/FiberManager.h>
@@ -483,8 +482,8 @@ folly::fbstring FsLogic::getxattr(
 {
     folly::fbstring result;
 
-    messages::provider::GetXAttr getXAttrRequest{uuid, name};
-    auto xattr = communicate<messages::provider::XAttr>(getXAttrRequest);
+    messages::fuse::GetXAttr getXAttrRequest{uuid, name};
+    auto xattr = communicate<messages::fuse::XAttr>(getXAttrRequest);
     result = xattr.value();
 
     return result;
@@ -493,26 +492,26 @@ folly::fbstring FsLogic::getxattr(
 void FsLogic::setxattr(const folly::fbstring &uuid, const folly::fbstring &name,
     const folly::fbstring &value, bool create, bool replace)
 {
-    messages::provider::SetXAttr setXAttrRequest{uuid, name, value, create, replace};
-    communicate<messages::provider::ProviderResponse>(setXAttrRequest);
+    messages::fuse::SetXAttr setXAttrRequest{uuid, name, value, create, replace};
+    communicate<messages::fuse::FuseResponse>(setXAttrRequest);
 }
 
 void FsLogic::removexattr(
     const folly::fbstring &uuid, const folly::fbstring &name)
 {
-    messages::provider::RemoveXAttr removeXAttrRequest{uuid, name};
-    communicate<messages::provider::ProviderResponse>(removeXAttrRequest);
+    messages::fuse::RemoveXAttr removeXAttrRequest{uuid, name};
+    communicate<messages::fuse::FuseResponse>(removeXAttrRequest);
 }
 
 folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
 {
     folly::fbvector<folly::fbstring> result;
 
-    messages::provider::ListXAttr listXAttrRequest{uuid};
-    messages::provider::XAttrList providerResponse =
-        communicate<messages::provider::XAttrList>(listXAttrRequest);
+    messages::fuse::ListXAttr listXAttrRequest{uuid};
+    messages::fuse::XAttrList fuseResponse =
+        communicate<messages::fuse::XAttrList>(listXAttrRequest);
 
-    for (const auto &xattrName : providerResponse.xattrNames()) {
+    for (const auto &xattrName : fuseResponse.xattrNames()) {
         result.push_back(xattrName.c_str());
     }
 

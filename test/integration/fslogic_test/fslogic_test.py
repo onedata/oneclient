@@ -22,7 +22,7 @@ from environment import appmock, common, docker
 import fslogic
 # noinspection PyUnresolvedReferences
 from proto import messages_pb2, fuse_messages_pb2, event_messages_pb2, \
-    common_messages_pb2, stream_messages_pb2, provider_messages_pb2
+    common_messages_pb2, stream_messages_pb2
 
 
 @pytest.fixture
@@ -807,13 +807,13 @@ def test_release_should_send_release_message(endpoint, fl, uuid):
 
 
 def prepare_listxattr_response(uuid):
-    repl = provider_messages_pb2.XattrList()
+    repl = fuse_messages_pb2.XattrList()
 
     repl.names.extend(["xattr1", "xattr2", "xattr3", "xattr4"])
 
     server_response = messages_pb2.ServerMessage()
-    server_response.provider_response.xattr_list.CopyFrom(repl)
-    server_response.provider_response.status.code = common_messages_pb2.Status.ok
+    server_response.fuse_response.xattr_list.CopyFrom(repl)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
     return server_response
 
@@ -826,11 +826,12 @@ def test_listxattrs_should_return_listxattrs(endpoint, fl, uuid):
         listxattrs = fl.listxattr(uuid)
         client_message = queue.get()
 
-    assert client_message.HasField('provider_request')
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
 
-    provider_request = client_message.provider_request
-    assert provider_request.HasField('list_xattr')
-    assert provider_request.context_guid == uuid
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('list_xattr')
+    assert file_request.context_guid == uuid
 
     assert response.status.code == common_messages_pb2.Status.ok
     assert len(listxattrs) == 4
@@ -839,14 +840,14 @@ def test_listxattrs_should_return_listxattrs(endpoint, fl, uuid):
 
 
 def prepare_getxattr_response(uuid, name, value):
-    repl = provider_messages_pb2.Xattr()
+    repl = fuse_messages_pb2.Xattr()
 
     repl.name = name
     repl.value = value
 
     server_response = messages_pb2.ServerMessage()
-    server_response.provider_response.xattr.CopyFrom(repl)
-    server_response.provider_response.status.code = common_messages_pb2.Status.ok
+    server_response.fuse_response.xattr.CopyFrom(repl)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
     return server_response
 
@@ -861,9 +862,11 @@ def test_getxattr_should_return_xattr(endpoint, fl, uuid):
         xattr = fl.getxattr(uuid, xattr_name)
         client_message = queue.get()
 
-    assert client_message.HasField('provider_request')
-    provider_request = client_message.provider_request
-    assert provider_request.HasField('get_xattr')
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('get_xattr')
 
     assert xattr.name == xattr_name
     assert xattr.value == xattr_value
@@ -871,7 +874,7 @@ def test_getxattr_should_return_xattr(endpoint, fl, uuid):
 
 def test_getxattr_should_return_enoattr_for_invalid_xattr(endpoint, fl, uuid):
     response = messages_pb2.ServerMessage()
-    response.provider_response.status.code = common_messages_pb2.Status.enodata
+    response.fuse_response.status.code = common_messages_pb2.Status.enodata
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, response):
@@ -884,40 +887,42 @@ def test_setxattr_should_set_xattr(endpoint, fl, uuid):
     xattr_name = "org.onedata.acl"
     xattr_value = "READ | WRITE | DELETE"
     response = messages_pb2.ServerMessage()
-    response.provider_response.status.code = common_messages_pb2.Status.ok
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
 
     with reply(endpoint, response) as queue:
         fl.setxattr(uuid, xattr_name, xattr_value, False, False)
         client_message = queue.get()
 
-    assert client_message.HasField('provider_request')
-    provider_request = client_message.provider_request
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
 
-    assert provider_request.HasField('set_xattr')
-    assert provider_request.set_xattr.HasField('xattr')
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('set_xattr')
+    assert file_request.set_xattr.HasField('xattr')
 
-    assert provider_request.set_xattr.xattr.name == xattr_name
-    assert provider_request.set_xattr.xattr.value == xattr_value
+    assert file_request.set_xattr.xattr.name == xattr_name
+    assert file_request.set_xattr.xattr.value == xattr_value
 
 
 def test_setxattr_should_set_xattr_with_binary_data(endpoint, fl, uuid):
     xattr_name = "org.onedata.acl"
     xattr_value = b'BEGINSTRINGWITHNULLS\x00\x0F\x00\x0F\x00\x0F\x00\x0F\x00\x0F\x00\x0FENDSTRINGWITHNULLS'
     response = messages_pb2.ServerMessage()
-    response.provider_response.status.code = common_messages_pb2.Status.ok
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
 
     with reply(endpoint, response) as queue:
         fl.setxattr(uuid, xattr_name, xattr_value, False, False)
         client_message = queue.get()
 
-    assert client_message.HasField('provider_request')
-    provider_request = client_message.provider_request
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+    file_request = client_message.fuse_request.file_request
 
-    assert provider_request.HasField('set_xattr')
-    assert provider_request.set_xattr.HasField('xattr')
+    assert file_request.HasField('set_xattr')
+    assert file_request.set_xattr.HasField('xattr')
 
-    assert provider_request.set_xattr.xattr.name == xattr_name
-    assert provider_request.set_xattr.xattr.value == xattr_value
+    assert file_request.set_xattr.xattr.name == xattr_name
+    assert file_request.set_xattr.xattr.value == xattr_value
 
 
 def test_setxattr_should_set_xattr_with_long_value(endpoint, fl, uuid):
@@ -925,43 +930,45 @@ def test_setxattr_should_set_xattr_with_long_value(endpoint, fl, uuid):
     xattr_value = "askljdhflajkshdfjklhasjkldfhajklshdfljkashdfjklhasljkdhfjklashdfjklhasljdfhljkashdfljkhasjkldfhkljasdfhaslkdhfljkashdfljkhasdjklfhajklsdhfljkashdflkjhasjkldfhlakjsdhflkjahsfjklhasdjklfghlajksdgjklashfjklashfljkahsdljkfhasjkldfhlkajshdflkjahsdfljkhasldjkfhlkashdflkjashdfljkhasldkjfhalksdhfljkashdfljkhasdlfjkhaljksdhfjklashdfjklhasjkldfhljkasdhfljkashdlfjkhasldjkfhaljskdhfljkashdfljkhaspeuwshfiuawhgelrfihjasdgffhjgsdfhjgaskhjdfgjkaszgdfjhasdkfgaksjdfgkjahsdgfkhjasgdfkjhagsdkhjfgakhsjdfgkjhasgdfkhjgasdkjhfgakjshdgfkjhasgdkjhfgaskjhdfgakjhsdgfkjhasdgfkjhagsdkfhjgaskjdhfgkajsgdfkhjagsdkfjhgasdkjhfgaksjhdgfkajshdgfkjhasdgfkjhagskjdhfgakjshdgfkhjasdgfkjhasgdkfhjgaskdhjfgaksjdfgkasjdhgfkajshdgfkjhasgdfkhjagskdhjfgaskhjdfgkjasdhgfkjasgdkhjasdgkfhjgaksjhdfgkajshdgfkjhasdgfkjhagsdhjkfgaskhjdfgahjksdgfkhjasdgfhasgdfjhgaskdhjfgadkshjgfakhjsdgfkjhadsgkfhjagshjkdfgadhjsaskljdhflajkshdfjklhasjkldfhajklshdfljkashdfjklhasljkdhfjklashdfjklhasljdfhljkashdfljkhasjkldfhkljasdfhaslkdhfljkashdfljkhasdjklfhajklsdhfljkashdflkjhasjkldfhlakjsdhflkjahsfjklhasdjklfghlajksdgjklashfjklashfljkahsdljkfhasjkldfhlkajshdflkjahsdfljkhasldjkfhlkashdflkjashdfljkhasldkjfhalksdhfljkashdfljkhasdlfjkhaljksdhfjklashdfjklhasjkldfhljkasdhfljkashdlfjkhasldjkfhaljskdhfljkashdfljkhaspeuwshfiuawhgelrfihjasdgffhjgsdfhjgaskhjdfgjkaszgdfjhasdkfgaksjdfgkjahsdgfkhjasgdfkjhagsdkhjfgakhsjdfgkjhasgdfkhjgasdkjhfgakjshdgfkjhasgdkjhfgaskjhdfgakjhsdgfkjhasdgfkjhagsdkfhjgaskjdhfgkajsgdfkhjagsdkfjhgasdkjhfgaksjhdgfkajshdgfkjhasdgfkjhagskjdhfgakjshdgfkhjasdgfkjhasgdkfhjgaskdhjfgaksjdfgkasjdhgfkajshdgfkjhasgdfkhjagskdhjfgaskhjdfgkjasdhgfkjasgdkhjasdgkfhjgaksjhdfgkajshdgfkjhasdgfkjhagsdhjkfgaskhjdfgahjksdgfkhjasdgfhasgdfjhgaskdhjfgadkshjgfakhjsdgfkjhadsgkfhjagshjkdfgadhjsaskljdhflajkshdfjklhasjkldfhajklshdfljkashdfjklhasljkdhfjklashdfjklhasljdfhljkashdfljkhasjkldfhkljasdfhaslkdhfljkashdfljkhasdjklfhajklsdhfljkashdflkjhasjkldfhlakjsdhflkjahsfjklhasdjklfghlajksdgjklashfjklashfljkahsdljkfhasjkldfhlkajshdflkjahsdfljkhasldjkfhlkashdflkjashdfljkhasldkjfhalksdhfljkashdfljkhasdlfjkhaljksdhfjklashdfjklhasjkldfhljkasdhfljkashdlfjkhasldjkfhaljskdhfljkashdfljkhaspeuwshfiuawhgelrfihjasdgffhjgsdfhjgaskhjdfgjkaszgdfjhasdkfgaksjdfgkjahsdgfkhjasgdfkjhagsdkhjfgakhsjdfgkjhasgdfkhjgasdkjhfgakjshdgfkjhasgdkjhfgaskjhdfgakjhsdgfkjhasdgfkjhagsdkfhjgaskjdhfgkajsgdfkhjagsdkfjhgasdkjhfgaksjhdgfkajshdgfkjhasdgfkjhagskjdhfgakjshdgfkhjasdgfkjhasgdkfhjgaskdhjfgaksjdfgkasjdhgfkajshdgfkjhasgdfkhjagskdhjfgaskhjdfgkjasdhgfkjasgdkhjasdgkfhjgaksjhdfgkajshdgfkjhasdgfkjhagsdhjkfgaskhjdfgahjksdgfkhjasdgfhasgdfjhgaskdhjfgadkshjgfakhjsdgfkjhadsgkfhjagshjkdfgadhjsaskljdhflajkshdfjklhasjkldfhajklshdfljkashdfjklhasljkdhfjklashdfjklhasljdfhljkashdfljkhasjkldfhkljasdfhaslkdhfljkashdfljkhasdjklfhajklsdhfljkashdflkjhasjkldfhlakjsdhflkjahsfjklhasdjklfghlajksdgjklashfjklashfljkahsdljkfhasjkldfhlkajshdflkjahsdfljkhasldjkfhlkashdflkjashdfljkhasldkjfhalksdhfljkashdfljkhasdlfjkhaljksdhfjklashdfjklhasjkldfhljkasdhfljkashdlfjkhasldjkfhaljskdhfljkashdfljkhaspeuwshfiuawhgelrfihjasdgffhjgsdfhjgaskhjdfgjkaszgdfjhasdkfgaksjdfgkjahsdgfkhjasgdfkjhagsdkhjfgakhsjdfgkjhasgdfkhjgasdkjhfgakjshdgfkjhasgdkjhfgaskjhdfgakjhsdgfkjhasdgfkjhagsdkfhjgaskjdhfgkajsgdfkhjagsdkfjhgasdkjhfgaksjhdgfkajshdgfkjhasdgfkjhagskjdhfgakjshdgfkhjasdgfkjhasgdkfhjgaskdhjfgaksjdfgkasjdhgfkajshdgfkjhasgdfkhjagskdhjfgaskhjdfgkjasdhgfkjasgdkhjasdgkfhjgaksjhdfgkajshdgfkjhasdgfkjhagsdhjkfgaskhjdfgahjksdgfkhjasdgfhasgdfjhgaskdhjfgadkshjgfakhjsdgfkjhadsgkfhjagshjkdfgadhjs"
 
     response = messages_pb2.ServerMessage()
-    response.provider_response.status.code = common_messages_pb2.Status.ok
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
 
     with reply(endpoint, response) as queue:
         fl.setxattr(uuid, xattr_name, xattr_value, False, False)
         client_message = queue.get()
 
-    assert client_message.HasField('provider_request')
-    provider_request = client_message.provider_request
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+    file_request = client_message.fuse_request.file_request
 
-    assert provider_request.HasField('set_xattr')
-    assert provider_request.set_xattr.HasField('xattr')
+    assert file_request.HasField('set_xattr')
+    assert file_request.set_xattr.HasField('xattr')
 
-    assert provider_request.set_xattr.xattr.name == xattr_name
-    assert provider_request.set_xattr.xattr.value == xattr_value
+    assert file_request.set_xattr.xattr.name == xattr_name
+    assert file_request.set_xattr.xattr.value == xattr_value
 
 
 def test_removexattr_should_remove_xattr(endpoint, fl, uuid):
     xattr_name = "org.onedata.acl"
     response = messages_pb2.ServerMessage()
-    response.provider_response.status.code = common_messages_pb2.Status.ok
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
 
     with reply(endpoint, response) as queue:
         fl.removexattr(uuid, xattr_name)
         client_message = queue.get()
 
-    assert client_message.HasField('provider_request')
-    assert client_message.provider_request.HasField('remove_xattr')
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+    file_request = client_message.fuse_request.file_request
+    assert file_request.context_guid == uuid
 
-    remove_xattr_request = client_message.provider_request.remove_xattr
+    remove_xattr_request = file_request.remove_xattr
     assert remove_xattr_request.HasField('name')
     assert remove_xattr_request.name == xattr_name
-    assert client_message.provider_request.context_guid == uuid
 
 
 def test_removexattr_should_return_enoattr_for_invalid_xattr(endpoint, fl, uuid):
     response = messages_pb2.ServerMessage()
-    response.provider_response.status.code = common_messages_pb2.Status.enodata
+    response.fuse_response.status.code = common_messages_pb2.Status.enodata
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, response):

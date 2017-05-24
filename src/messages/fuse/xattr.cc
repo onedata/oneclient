@@ -15,20 +15,20 @@
 
 namespace one {
 namespace messages {
-namespace provider {
+namespace fuse {
 
 XAttr::XAttr(std::unique_ptr<ProtocolServerMessage> serverMessage)
-    : ProviderResponse{serverMessage}
+    : FuseResponse{serverMessage}
 {
-    if (!serverMessage->provider_response().has_xattr()) {
+    if (!serverMessage->fuse_response().has_xattr()) {
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "xattr field missing"};
     }
 
-    auto xattr = serverMessage->mutable_provider_response()->mutable_xattr();
+    auto xattr = serverMessage->mutable_fuse_response()->mutable_xattr();
 
     m_name = xattr->name();
-    m_value = xattr->value(); // TODO: fix for null terminated binary data
+    m_value = xattr->value();
 }
 
 const std::string &XAttr::name() const { return m_name; }
@@ -43,6 +43,6 @@ std::string XAttr::toString() const
     return stream.str();
 }
 
-} // namespace provider
+} // namespace fuse
 } // namespace messages
 } // namespace one

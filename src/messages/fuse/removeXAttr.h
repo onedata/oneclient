@@ -1,5 +1,5 @@
 /**
- * @file getXAttr.h
+ * @file removeXAttr.h
  * @author Bartek Kryza
  * @copyright (C) 2017 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "providerRequest.h"
+#include "fileRequest.h"
 
 #include <folly/FBString.h>
 
@@ -16,20 +16,21 @@
 
 namespace one {
 namespace messages {
-namespace provider {
+namespace fuse {
 
 /**
- * The GetXAttr class represents a provider request for file's extended
- * attribute value.
+ * The RemoveXAttr class represents a provider request for removal
+ * of files extended attribute.
  */
-class GetXAttr : public ProviderRequest {
+class RemoveXAttr : public FileRequest {
 public:
     /**
      * Constructor.
-     * @param uuid UUID of the file for which extended attribute is requested.
-     * @param name Name of the extended attribute.
+     * @param uuid UUID of the file for which extended attribute is to be
+     * removed.
+     * @param name Name of the extended attribute to remove.
      */
-    GetXAttr(folly::fbstring uuid, folly::fbstring name);
+    RemoveXAttr(folly::fbstring uuid, folly::fbstring name);
 
     std::string toString() const override;
 
@@ -39,6 +40,6 @@ private:
     folly::fbstring m_name;
 };
 
-} // namespace provider
+} // namespace fuse
 } // namespace messages
 } // namespace one

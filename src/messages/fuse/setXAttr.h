@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "providerRequest.h"
+#include "fileRequest.h"
 
 #include <folly/FBString.h>
 
@@ -16,13 +16,13 @@
 
 namespace one {
 namespace messages {
-namespace provider {
+namespace fuse {
 
 /**
  * The SetXAttr class represents a provider request to change file's extended
  * attribute value.
  */
-class SetXAttr : public ProviderRequest {
+class SetXAttr : public FileRequest {
 public:
     /**
      * Constructor.
@@ -49,6 +49,6 @@ private:
     bool m_replace;
 };
 
-} // namespace provider
+} // namespace fuse
 } // namespace messages
 } // namespace one

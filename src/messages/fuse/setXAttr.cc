@@ -16,11 +16,11 @@
 
 namespace one {
 namespace messages {
-namespace provider {
+namespace fuse {
 
 SetXAttr::SetXAttr(folly::fbstring uuid, folly::fbstring name,
     folly::fbstring value, bool create, bool replace)
-    : ProviderRequest{uuid.toStdString()}
+    : FileRequest{uuid.toStdString()}
     , m_name(name)
     , m_value(value)
     , m_create(create)
@@ -40,20 +40,29 @@ std::string SetXAttr::toString() const
 
 std::unique_ptr<ProtocolClientMessage> SetXAttr::serializeAndDestroy()
 {
-    auto msg = ProviderRequest::serializeAndDestroy();
-    msg->mutable_provider_request()
+    auto msg = FileRequest::serializeAndDestroy();
+    msg->mutable_fuse_request()
+        ->mutable_file_request()
         ->mutable_set_xattr()
         ->mutable_xattr()
         ->set_name(m_name.toStdString());
-
-    msg->mutable_provider_request()
+    msg->mutable_fuse_request()
+        ->mutable_file_request()
         ->mutable_set_xattr()
         ->mutable_xattr()
         ->set_value(m_value.toStdString());
+    msg->mutable_fuse_request()
+        ->mutable_file_request()
+        ->mutable_set_xattr()
+        ->set_create(m_create);
+    msg->mutable_fuse_request()
+        ->mutable_file_request()
+        ->mutable_set_xattr()
+        ->set_replace(m_replace);
 
     return msg;
 }
 
-} // namespace provider
+} // namespace fuse
 } // namespace messages
 } // namespace one
