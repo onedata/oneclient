@@ -8,6 +8,7 @@
  * 'LICENSE.txt'
  */
 
+syntax = "proto2";
 package one.clproto;
 
 import "fuse_messages.proto";
@@ -19,6 +20,7 @@ import "diagnostic_messages.proto";
 import "proxyio_messages.proto";
 import "dbsync_messages.proto";
 import "provider_messages.proto";
+// This file is required by Oneprovider for RTransfer
 import "gwproto.proto";
 
 // Messages that can be sent by the client to the server.
@@ -65,7 +67,7 @@ message ClientMessage {
         // provider_messages.proto
         ProviderRequest          provider_request          = 20;
     }
-    
+
     optional bytes proxy_session_id = 21;
     optional Token proxy_session_token = 22;
 }
@@ -109,6 +111,6 @@ message ServerMessage {
         // provider_messages.proto
         ProviderResponse         provider_response         = 17;
     }
-    
+
     optional bytes proxy_session_id = 18;
 }

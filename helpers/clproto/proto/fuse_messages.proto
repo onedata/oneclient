@@ -6,6 +6,7 @@
  * 'LICENSE.txt'
  */
 
+syntax = "proto2";
 package one.clproto;
 
 import "common_messages.proto";
@@ -69,6 +70,10 @@ message FileRequest {
         Truncate truncate = 15;
         SynchronizeBlock synchronize_block = 16;
         SynchronizeBlockAndComputeChecksum synchronize_block_and_compute_checksum = 17;
+        GetXattr get_xattr = 18;
+        SetXattr set_xattr = 19;
+        RemoveXattr remove_xattr = 20;
+        ListXattr list_xattr = 21;
     }
 }
 
@@ -143,6 +148,31 @@ message SynchronizeBlockAndComputeChecksum {
     required FileBlock block = 1;
 }
 
+message Xattr {
+    required bytes name = 1;
+    required bytes value = 2;
+}
+
+message GetXattr {
+    required bytes name = 1;
+    optional bool inherited = 2 [default = false];
+}
+
+message SetXattr {
+    required Xattr xattr = 1;
+    optional bool create = 2 [default = false];
+    optional bool replace = 3 [default = false];
+}
+
+message RemoveXattr {
+    required bytes name = 1;
+}
+
+message ListXattr {
+    optional bool inherited = 1 [default = false];
+    optional bool show_internal = 2 [default = true];
+}
+
 // Generic FUSE client response
 message FuseResponse {
     required Status status = 1;
@@ -159,6 +189,8 @@ message FuseResponse {
         FileCreated file_created = 10;
         FileOpened file_opened = 11;
         Uuid uuid = 12;
+        Xattr xattr = 13;
+        XattrList xattr_list = 14;
     }
 }
 
@@ -232,4 +264,8 @@ message FileRenamed {
 
 message Uuid {
     required bytes uuid = 1;
+}
+
+message XattrList {
+    repeated bytes names = 1;
 }

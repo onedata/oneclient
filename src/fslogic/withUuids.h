@@ -17,6 +17,7 @@
 
 #include <chrono>
 #include <functional>
+#include <cstdint>
 
 namespace one {
 namespace client {
@@ -143,6 +144,27 @@ public:
         const fuse_ino_t ino, const std::uint64_t handle, const bool dataOnly)
     {
         return wrap(&FsLogicT::fsync, ino, handle, dataOnly);
+    }
+
+    auto listxattr(const fuse_ino_t ino)
+    {
+        return wrap(&FsLogicT::listxattr, ino);
+    }
+
+    auto getxattr(const fuse_ino_t ino, const folly::fbstring &name)
+    {
+        return wrap(&FsLogicT::getxattr, ino, name);
+    }
+
+    auto setxattr(const fuse_ino_t ino, const folly::fbstring &name,
+        const folly::fbstring &value, bool create, bool replace)
+    {
+        return wrap(&FsLogicT::setxattr, ino, name, value, create, replace);
+    }
+
+    auto removexattr(const fuse_ino_t ino, const folly::fbstring &name)
+    {
+        return wrap(&FsLogicT::removexattr, ino, name);
     }
 
 private:

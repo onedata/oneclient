@@ -32,6 +32,12 @@
 #include "messages/fuse/synchronizeBlockAndComputeChecksum.h"
 #include "messages/fuse/truncate.h"
 #include "messages/fuse/updateTimes.h"
+#include "messages/fuse/getXAttr.h"
+#include "messages/fuse/listXAttr.h"
+#include "messages/fuse/removeXAttr.h"
+#include "messages/fuse/setXAttr.h"
+#include "messages/fuse/xattr.h"
+#include "messages/fuse/xattrList.h"
 
 #include <boost/icl/interval_set.hpp>
 #include <folly/fibers/FiberManager.h>
@@ -469,6 +475,47 @@ FileAttrPtr FsLogic::setattr(
     m_metadataCache.updateTimes(uuid, updateTimes);
 
     return m_metadataCache.getAttr(uuid);
+}
+
+folly::fbstring FsLogic::getxattr(
+    const folly::fbstring &uuid, const folly::fbstring &name)
+{
+    folly::fbstring result;
+
+    messages::fuse::GetXAttr getXAttrRequest{uuid, name};
+    auto xattr = communicate<messages::fuse::XAttr>(getXAttrRequest);
+    result = xattr.value();
+
+    return result;
+}
+
+void FsLogic::setxattr(const folly::fbstring &uuid, const folly::fbstring &name,
+    const folly::fbstring &value, bool create, bool replace)
+{
+    messages::fuse::SetXAttr setXAttrRequest{uuid, name, value, create, replace};
+    communicate<messages::fuse::FuseResponse>(setXAttrRequest);
+}
+
+void FsLogic::removexattr(
+    const folly::fbstring &uuid, const folly::fbstring &name)
+{
+    messages::fuse::RemoveXAttr removeXAttrRequest{uuid, name};
+    communicate<messages::fuse::FuseResponse>(removeXAttrRequest);
+}
+
+folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
+{
+    folly::fbvector<folly::fbstring> result;
+
+    messages::fuse::ListXAttr listXAttrRequest{uuid};
+    messages::fuse::XAttrList fuseResponse =
+        communicate<messages::fuse::XAttrList>(listXAttrRequest);
+
+    for (const auto &xattrName : fuseResponse.xattrNames()) {
+        result.push_back(xattrName.c_str());
+    }
+
+    return result;
 }
 
 template <typename SrvMsg, typename CliMsg>

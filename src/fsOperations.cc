@@ -13,6 +13,7 @@
 #include "fuseOperations.h"
 #include "logging.h"
 #include "oneException.h"
+#include "util/xattrHelper.h"
 
 #include <boost/asio/buffer.hpp>
 #include <folly/Enumerate.h>
@@ -20,15 +21,17 @@
 #include <folly/Range.h>
 #include <folly/futures/FutureException.h>
 #include <folly/io/IOBufQueue.h>
-
-#include <execinfo.h>
+#include <fuse.h>
 
 #include <array>
 #include <exception>
+#include <execinfo.h>
 #include <memory>
+#include <sys/xattr.h>
 #include <system_error>
 
 using namespace one::client;
+using namespace one::client::util::xattr;
 
 namespace {
 
@@ -262,12 +265,12 @@ void wrap_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set,
 void wrap_create(fuse_req_t req, fuse_ino_t parent, const char *name,
     mode_t mode, struct fuse_file_info *fi)
 {
-    wrap(&fslogic::Composite::create,
-        [ req, fi = *fi ](const std::pair<const struct fuse_entry_param,
-            std::uint64_t> &res) mutable {
-            fi.fh = res.second;
-            fuse_reply_create(req, &res.first, &fi);
-        },
+    wrap(&fslogic::Composite::create, [ req,
+        fi = *fi ](const std::pair<const struct fuse_entry_param, std::uint64_t>
+                                              &res) mutable {
+        fi.fh = res.second;
+        fuse_reply_create(req, &res.first, &fi);
+    },
         req, parent, name, mode, fi->flags);
 }
 
@@ -310,6 +313,164 @@ void wrap_fsync(
         ino, fi->fh, dataSync);
 }
 
+void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
+#if defined(__APPLE__)
+    ,
+    uint32_t position // This attribute is used only on macOS resource forks
+#endif
+    )
+{
+    std::string xattrJsonName;
+    if (!encodeJsonXAttrName(attr, xattrJsonName)) {
+        LOG(WARNING) << "Getting extended attribute with invalid name: "
+                     << attr;
+        fuse_reply_err(req, EINVAL);
+    }
+
+    DLOG(INFO) << "Getting extended attribute '" << xattrJsonName << "' for file "
+               << ino;
+
+    wrap(&fslogic::Composite::getxattr,
+        [req, size, attr](const folly::fbstring &value) {
+
+            // If the value is a JSON string, strip the enclosing
+            // double qoutes
+            std::string stringValue;
+            if (!decodeJsonXAttrValue(value.toStdString(), stringValue)) {
+                fuse_reply_err(req, ERANGE);
+                return;
+            }
+
+            size_t buflen = stringValue.size();
+
+            if (size == 0) {
+                // return the size of the buffer needed to allocate the
+                // xattr value.
+                // For empty strings it is not possible to determine whether
+                // this call is meant to return fuse_reply_xattr
+                // or fuse_reply_buf, thus in such case we return 1 to
+                // check it again on second call when the size is 0.
+                if (buflen == 0) {
+                    fuse_reply_xattr(req, 1);
+                }
+                else {
+                    fuse_reply_xattr(req, buflen);
+                }
+            }
+            else if (buflen == 0 && size == 1) {
+                // Handle special case when the attribute has empty
+                // value
+                const char *buf = stringValue.data();
+                fuse_reply_buf(req, buf, 0);
+            }
+            else if (buflen <= size) {
+                // return the value
+                const char *buf = stringValue.data();
+                fuse_reply_buf(req, buf, buflen);
+            }
+            else {
+                // return error
+                fuse_reply_err(req, ERANGE);
+            }
+        },
+        req, ino, attr);
+}
+
+void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
+    const char *val, size_t size, int flags
+#if defined(__APPLE__)
+    ,
+    uint32_t position // This attribute is used only on macOS resource forks
+#endif
+    )
+{
+    std::string xattrJsonName;
+    if (!encodeJsonXAttrName(attr, xattrJsonName)) {
+        LOG(WARNING) << "Setting extended attribute with invalid name: "
+                     << attr;
+        fuse_reply_err(req, EINVAL);
+    }
+
+    // Since Oneprovider stores extended attributes as JSON values
+    // we have to check the type of the extended attribute based on its
+    // contents. The possible values are:
+    // - number - e.g. 1 or 3.1415 --> send without qoutes
+    // - boolean - e.g. true or false --> send without qoutes
+    // - null - i.e. null --> send without qoutes
+    // - string - e.g. 'ABCDEFGSSDEEDSA' --> send in qoutes
+    // - binary data - e.g. '\0x12\0x00\0x21\0x22\0x00\0x00\0x00' -
+    // convert to base64 value
+    std::string xattrRawValue;
+    xattrRawValue.assign(val, size);
+
+    std::string xattrJsonValue;
+    if (!encodeJsonXAttrValue(xattrRawValue, xattrJsonValue)) {
+        LOG(WARNING) << "Setting extended attribute with invalid value";
+        fuse_reply_err(req, EINVAL);
+    }
+    DLOG(INFO) << "Setting extended attribute '" << attr << "' to value '"
+               << val << "' for file " << ino << " with flags "
+               << "XATTR_CREATE=" << std::to_string(flags & XATTR_CREATE)
+               << " XATTR_REPLACE=" << std::to_string(flags & XATTR_REPLACE);
+
+    wrap(&fslogic::Composite::setxattr, [req] { fuse_reply_err(req, 0); }, req,
+        ino, xattrJsonName, xattrJsonValue, flags & XATTR_CREATE,
+        flags & XATTR_REPLACE);
+}
+
+void wrap_removexattr(fuse_req_t req, fuse_ino_t ino, const char *attr)
+{
+    std::string xattrJsonName;
+    if (!encodeJsonXAttrName(attr, xattrJsonName)) {
+        LOG(WARNING) << "Removing extended attribute with invalid name: "
+                     << attr;
+        fuse_reply_err(req, EINVAL);
+    }
+
+    DLOG(INFO) << "Removing extended attribute '" << xattrJsonName
+               << "' for file " << ino;
+
+    wrap(&fslogic::Composite::removexattr, [req] { fuse_reply_err(req, 0); },
+        req, ino, xattrJsonName);
+}
+
+void wrap_listxattr(fuse_req_t req, fuse_ino_t ino, size_t size)
+{
+    DLOG(INFO) << "Listing extended attributes for file " << ino;
+    wrap(&fslogic::Composite::listxattr,
+        [req, size](const folly::fbvector<folly::fbstring> &names) {
+            // Calculate the length of all xattr names in the list
+            // including the end of string characters needed to separate
+            // the xattr names in the buffer
+            size_t buflen = std::accumulate(names.cbegin(), names.cend(), 0,
+                [](int sum, const folly::fbstring &elem) {
+                    return sum + elem.size() + 1;
+                });
+
+            if (size == 0) {
+                // return the size of the buffer needed to allocate the
+                // xattr names list
+                fuse_reply_xattr(req, buflen);
+            }
+            else if (buflen <= size) {
+                // return the list of extended attribute names
+                auto buf = std::unique_ptr<char[]>(new char[buflen]);
+                int offset = 0;
+
+                for (const auto &name : names) {
+                    sprintf(buf.get() + offset, name.data(), name.length());
+                    offset += name.length() + 1;
+                }
+                fuse_reply_buf(req, buf.get(), buflen);
+            }
+            else {
+                fuse_reply_err(req, ERANGE);
+            }
+
+        },
+        req, ino);
+}
+
 } // extern "C"
 } // namespace
 
@@ -335,6 +496,10 @@ struct fuse_lowlevel_ops fuseOperations()
     operations.statfs = wrap_statfs;
     operations.unlink = wrap_unlink;
     operations.write = wrap_write;
+    operations.getxattr = wrap_getxattr;
+    operations.setxattr = wrap_setxattr;
+    operations.removexattr = wrap_removexattr;
+    operations.listxattr = wrap_listxattr;
 
     return operations;
 }
