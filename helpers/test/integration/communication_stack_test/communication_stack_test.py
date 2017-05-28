@@ -89,7 +89,7 @@ def test_communicate(result, msg_num, msg_size, endpoint, com1):
 
     com1.connect()
 
-    endpoint.wait_for_connections()
+    endpoint.wait_for_connections(accept_more=True)
     msg = random_str(msg_size)
 
     communicate_time = Duration()
