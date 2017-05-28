@@ -6,6 +6,7 @@
  * 'LICENSE.txt'
  */
 
+syntax = "proto2";
 package one.clproto;
 
 // Identifies message as part of the stream

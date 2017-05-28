@@ -6,6 +6,7 @@
  * 'LICENSE.txt'
  */
 
+syntax = "proto2";
 package one.clproto;
 
 import "common_messages.proto";
@@ -15,10 +16,6 @@ message ProviderRequest {
     required bytes context_guid = 1;
 
     oneof provider_request { // list of all provider requests
-        GetXattr get_xattr = 2;
-        SetXattr set_xattr = 3;
-        RemoveXattr remove_xattr = 4;
-        ListXattr list_xattr = 5;
         GetParent get_parent = 6;
         GetAcl get_acl = 7;
         SetAcl set_acl = 8;
@@ -40,30 +37,6 @@ message ProviderRequest {
         RemoveShare remove_share = 24;
         RemoveMetadata remove_metadata = 25;
     }
-}
-
-message Xattr {
-    required bytes name = 1;
-    required bytes value = 2;
-}
-
-message GetXattr {
-    required bytes name = 1;
-    optional bool inherited = 2 [default = false];
-
-}
-
-message SetXattr {
-    required Xattr xattr = 1;
-}
-
-message RemoveXattr {
-    required bytes name = 1;
-}
-
-message ListXattr {
-    optional bool inherited = 1 [default = false];
-    optional bool show_internal = 2 [default = true];
 }
 
 message GetParent {
@@ -154,8 +127,6 @@ message ProviderResponse {
     required Status status = 1;
 
     oneof provider_response { // list of all provider responses
-        Xattr xattr = 2;
-        XattrList xattr_list = 3;
         TransferEncoding transfer_encoding = 4;
         CdmiCompletionStatus cdmi_completion_status = 5;
         Mimetype mimetype = 6;
@@ -166,10 +137,6 @@ message ProviderResponse {
         Metadata metadata = 11;
         Share share = 12;
     }
-}
-
-message XattrList {
-    repeated bytes names = 1;
 }
 
 message TransferEncoding {
