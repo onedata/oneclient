@@ -104,9 +104,9 @@ public:
 #endif
 #if WITH_SWIFT
         asio::io_service &kvSwiftService,
+#endif
         std::size_t bufferSchedulerWorkers = 1,
         buffering::BufferLimits bufferLimits = buffering::BufferLimits{});
-#endif
 #endif
 
     virtual ~StorageHelperCreator();
