@@ -135,9 +135,9 @@ std::shared_ptr<StorageHelper> StorageHelperCreator::getStorageHelper(
             std::make_error_code(std::errc::invalid_argument),
             "Invalid storage helper name: '" + name.toStdString() + "'"};
 
-    if (buffered)
-        return std::make_shared<buffering::BufferAgent>(
-            m_bufferLimits, helper, *m_scheduler);
+    //if (buffered)
+    //    return std::make_shared<buffering::BufferAgent>(
+    //        m_bufferLimits, helper, *m_scheduler);
 
     return helper;
 }
