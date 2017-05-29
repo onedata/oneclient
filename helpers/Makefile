@@ -2,17 +2,17 @@
 all: test
 
 INSTALL_PREFIX ?= ${HOME}/.local/helpers
-BUILD_PROXY_IO ?= On
-WITH_COVERAGE  ?= Off
+BUILD_PROXY_IO ?= ON
+WITH_COVERAGE  ?= OFF
 
 # Build with Ceph storge helper by default
-WITH_CEPH    = ON
+WITH_CEPH    ?= ON
 # Build with Swift storage helper by default
-WITH_SWIFT   = ON
+WITH_SWIFT   ?= ON
 # Build with S3 storage helper by default
-WITH_S3      = ON
+WITH_S3      ?= ON
 # Build with BoringSSL by default
-WITH_OPENSSL = OFF
+WITH_OPENSSL ?= OFF
 
 %/CMakeCache.txt: **/CMakeLists.txt test/integration/* test/integration/**/*
 	mkdir -p $*
