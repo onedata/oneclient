@@ -82,6 +82,11 @@ public:
     bool existsSubscription(std::int64_t subscriptionId);
 
     /**
+     * Requests handling of events aggregated in all streams.
+     */
+    void flush();
+
+    /**
      * Requests handling of events aggregated in the stream.
      * @param streamKey A key that identifies a stream that should be flushed.
      */

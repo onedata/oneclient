@@ -90,6 +90,14 @@ bool Manager::existsSubscription(std::int64_t subscriptionId)
     return m_handles.find(handleAcc, subscriptionId);
 }
 
+void Manager::flush()
+{
+    for (int it = static_cast<int>(StreamKey::FILE_READ);
+         it != static_cast<int>(StreamKey::TEST); ++it) {
+        flush(static_cast<StreamKey>(it));
+    }
+}
+
 void Manager::flush(StreamKey streamKey)
 {
     StreamConstAcc streamAcc;
