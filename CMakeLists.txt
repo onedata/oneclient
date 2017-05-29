@@ -87,8 +87,8 @@ endif(WITH_CEPH)
 
 # AWS SDK library
 if(WITH_S3)
-    find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core)
-    find_library(AWS_SKD_S3_LIBRARY aws-cpp-sdk-s3)
+    find_library(AWS_SKD_CORE_LIBRARY aws-cpp-sdk-core HINTS /usr/lib/x86_64-linux-gnu)
+    find_library(AWS_SKD_S3_LIBRARY aws-cpp-sdk-s3 HINTS /usr/lib/x86_64-linux-gnu)
     set(AWS_SDK_LIBRARIES
         ${AWS_SKD_S3_LIBRARY}
         ${AWS_SKD_CORE_LIBRARY}

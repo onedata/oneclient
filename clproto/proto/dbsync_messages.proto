@@ -5,7 +5,8 @@
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
-
+ 
+syntax = "proto2";
 package one.clproto;
 
 message DBSyncRequest {
