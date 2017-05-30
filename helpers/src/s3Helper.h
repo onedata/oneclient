@@ -53,6 +53,7 @@ public:
         const auto &bucketName = getParam(parameters, "bucketName");
         const auto &accessKey = getParam(parameters, "accessKey");
         const auto &secretKey = getParam(parameters, "secretKey");
+        const auto version = getParam<int>(parameters, "signatureVersion", 4);
         Timeout timeout{getParam<std::size_t>(
             parameters, "timeout", ASYNC_OPS_TIMEOUT.count())};
         const auto &blockSize =
@@ -60,7 +61,7 @@ public:
 
         return std::make_shared<KeyValueAdapter>(
             std::make_shared<S3Helper>(hostname, bucketName, accessKey,
-                secretKey, scheme == "https", std::move(timeout)),
+                secretKey, scheme == "https", version == 2, std::move(timeout)),
             std::make_shared<AsioExecutor>(m_service), blockSize);
     }
 
@@ -69,8 +70,9 @@ private:
 };
 
 /**
-* The S3Helper class provides access to Simple Storage Service (S3) via AWS SDK.
-*/
+ * The S3Helper class provides access to Simple Storage Service (S3) via AWS
+ * SDK.
+ */
 class S3Helper : public KeyValueHelper {
 public:
     /**
@@ -80,10 +82,14 @@ public:
      * @param accessKey Access key of the S3 user.
      * @param secretKey Secret key of the S3 user.
      * @param useHttps Determines whether to use https or http connection.
+     * @param useSigV2 Determines whether V2 or V4 version of AWS signature
+     * should be used to sign requests.
+     * @param timeout Asynchronous operations timeout.
      */
     S3Helper(folly::fbstring hostName, folly::fbstring bucketName,
         folly::fbstring accessKey, folly::fbstring secretKey,
-        const bool useHttps = true, Timeout timeout = ASYNC_OPS_TIMEOUT);
+        const bool useHttps = true, const bool useSigV2 = false,
+        Timeout timeout = ASYNC_OPS_TIMEOUT);
 
     folly::IOBufQueue getObject(const folly::fbstring &key, const off_t offset,
         const std::size_t size) override;
@@ -103,6 +109,7 @@ public:
 
 private:
     folly::fbstring m_bucket;
+    bool m_useSigV2;
     std::unique_ptr<Aws::S3::S3Client> m_client;
     Timeout m_timeout;
 };

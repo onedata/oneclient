@@ -13,6 +13,7 @@
 #include <aws/core/client/ClientConfiguration.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/Delete.h>
+#include <aws/s3/model/DeleteObjectRequest.h>
 #include <aws/s3/model/DeleteObjectsRequest.h>
 #include <aws/s3/model/GetObjectRequest.h>
 #include <aws/s3/model/ListObjectsRequest.h>
@@ -59,8 +60,8 @@ void throwOnError(const folly::fbstring &operation, const Outcome &outcome)
     if (!code)
         return;
 
-    auto msg = operation.toStdString() + "': " +
-        outcome.GetError().GetMessage().c_str();
+    auto msg = operation.toStdString() +
+        "': " + outcome.GetError().GetMessage().c_str();
 
     throw std::system_error{code, std::move(msg)};
 }
@@ -72,8 +73,9 @@ namespace helpers {
 
 S3Helper::S3Helper(folly::fbstring hostname, folly::fbstring bucketName,
     folly::fbstring accessKey, folly::fbstring secretKey, const bool useHttps,
-    Timeout timeout)
+    const bool useSigV2, Timeout timeout)
     : m_bucket{std::move(bucketName)}
+    , m_useSigV2{useSigV2}
     , m_timeout{std::move(timeout)}
 {
     static S3HelperApiInit init;
@@ -82,10 +84,12 @@ S3Helper::S3Helper(folly::fbstring hostname, folly::fbstring bucketName,
 
     Aws::Client::ClientConfiguration configuration;
     configuration.endpointOverride = hostname.c_str();
+    configuration.useSigV2 = useSigV2;
     if (!useHttps)
         configuration.scheme = Aws::Http::Scheme::HTTP;
 
-    m_client = std::make_unique<Aws::S3::S3Client>(credentials, configuration);
+    m_client = std::make_unique<Aws::S3::S3Client>(
+        credentials, configuration, false, false);
 }
 
 folly::IOBufQueue S3Helper::getObject(
@@ -182,22 +186,35 @@ std::size_t S3Helper::putObject(
 
 void S3Helper::deleteObjects(const folly::fbvector<folly::fbstring> &keys)
 {
-    Aws::S3::Model::DeleteObjectsRequest request;
-    request.SetBucket(m_bucket.c_str());
+    if (m_useSigV2) {
+        for (const auto &key : keys) {
+            Aws::S3::Model::DeleteObjectRequest request;
+            request.SetBucket(m_bucket.c_str());
+            request.SetKey(key.c_str());
+            auto outcome = m_client->DeleteObject(request);
+            throwOnError("DeleteObject", outcome);
+        }
+    }
+    else {
+        Aws::S3::Model::DeleteObjectsRequest request;
+        request.SetBucket(m_bucket.c_str());
 
-    for (auto offset = 0u; offset < keys.size(); offset += MAX_DELETE_OBJECTS) {
-        Aws::S3::Model::Delete container;
+        for (auto offset = 0u; offset < keys.size();
+             offset += MAX_DELETE_OBJECTS) {
+            Aws::S3::Model::Delete container;
 
-        const std::size_t batchSize =
-            std::min<std::size_t>(keys.size() - offset, MAX_DELETE_OBJECTS);
+            const std::size_t batchSize =
+                std::min<std::size_t>(keys.size() - offset, MAX_DELETE_OBJECTS);
 
-        for (auto &key : folly::range(keys.begin(), keys.begin() + batchSize))
-            container.AddObjects(
-                Aws::S3::Model::ObjectIdentifier{}.WithKey(key.c_str()));
+            for (auto &key :
+                folly::range(keys.begin(), keys.begin() + batchSize))
+                container.AddObjects(
+                    Aws::S3::Model::ObjectIdentifier{}.WithKey(key.c_str()));
 
-        request.SetDelete(std::move(container));
-        auto outcome = m_client->DeleteObjects(request);
-        throwOnError("DeleteObjects", outcome);
+            request.SetDelete(std::move(container));
+            auto outcome = m_client->DeleteObjects(request);
+            throwOnError("DeleteObjects", outcome);
+        }
     }
 }
 

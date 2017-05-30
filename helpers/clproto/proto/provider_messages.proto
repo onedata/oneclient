@@ -27,7 +27,6 @@ message ProviderRequest {
         GetMimetype get_mimetype = 14;
         SetMimetype set_mimetype = 15;
         GetFilePath get_file_path = 16;
-        FSync fsync = 17;
         GetFileDistribution get_file_distribution = 18;
         ReplicateFile replicate_file = 19;
         ReadMetadata read_metadata = 20;
@@ -78,9 +77,6 @@ message SetMimetype {
 }
 
 message GetFilePath {
-}
-
-message FSync {
 }
 
 message GetFileDistribution {
