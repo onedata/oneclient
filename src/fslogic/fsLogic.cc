@@ -188,6 +188,8 @@ void FsLogic::release(
 {
     auto fuseFileHandle = m_fuseFileHandles.at(fileHandleId);
 
+    fsync(uuid, fileHandleId, false);
+
     folly::fbvector<folly::Future<folly::Unit>> releaseFutures;
     for (auto &helperHandle : fuseFileHandle->helperHandles())
         releaseFutures.emplace_back(helperHandle->release());
