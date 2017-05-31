@@ -23,19 +23,20 @@
 #include "messages/fuse/fileOpened.h"
 #include "messages/fuse/fileRenamed.h"
 #include "messages/fuse/fileRenamedEntry.h"
+#include "messages/fuse/fsync.h"
 #include "messages/fuse/getFileChildren.h"
+#include "messages/fuse/getXAttr.h"
+#include "messages/fuse/listXAttr.h"
 #include "messages/fuse/makeFile.h"
 #include "messages/fuse/openFile.h"
 #include "messages/fuse/release.h"
+#include "messages/fuse/removeXAttr.h"
 #include "messages/fuse/rename.h"
+#include "messages/fuse/setXAttr.h"
 #include "messages/fuse/syncResponse.h"
 #include "messages/fuse/synchronizeBlockAndComputeChecksum.h"
 #include "messages/fuse/truncate.h"
 #include "messages/fuse/updateTimes.h"
-#include "messages/fuse/getXAttr.h"
-#include "messages/fuse/listXAttr.h"
-#include "messages/fuse/removeXAttr.h"
-#include "messages/fuse/setXAttr.h"
 #include "messages/fuse/xattr.h"
 #include "messages/fuse/xattrList.h"
 
@@ -226,7 +227,11 @@ void FsLogic::flush(
 void FsLogic::fsync(const folly::fbstring &uuid,
     const std::uint64_t fileHandleId, const bool dataOnly)
 {
+    m_eventManager.flush();
+
     auto fuseFileHandle = m_fuseFileHandles.at(fileHandleId);
+    communicate(messages::fuse::FSync{uuid.toStdString(), dataOnly,
+        fuseFileHandle->providerHandleId()->toStdString()});
     for (auto &helperHandle : fuseFileHandle->helperHandles())
         communication::wait(
             helperHandle->fsync(dataOnly), helperHandle->timeout());
@@ -492,7 +497,8 @@ folly::fbstring FsLogic::getxattr(
 void FsLogic::setxattr(const folly::fbstring &uuid, const folly::fbstring &name,
     const folly::fbstring &value, bool create, bool replace)
 {
-    messages::fuse::SetXAttr setXAttrRequest{uuid, name, value, create, replace};
+    messages::fuse::SetXAttr setXAttrRequest{
+        uuid, name, value, create, replace};
     communicate<messages::fuse::FuseResponse>(setXAttrRequest);
 }
 
