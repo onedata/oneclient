@@ -197,11 +197,17 @@ def do_open(endpoint, fl, uuid, size=None, blocks=[], handle_id='handle_id'):
 
 
 def do_release(endpoint, fl, uuid, fh):
+    fsync_response = messages_pb2.ServerMessage()
+    fsync_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
     release_response = messages_pb2.ServerMessage()
     release_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, release_response):
+    result = None
+    with reply(endpoint, [fsync_response, release_response]) as queue:
         fl.release(uuid, fh)
+        result = queue
+    return result
 
 
 def get_stream_id_from_location_subscription(subscription_message_data):
@@ -794,16 +800,26 @@ def test_release_should_pass_helper_errors(endpoint, fl, uuid):
 
 def test_release_should_send_release_message(endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=0)
-    release_response = messages_pb2.ServerMessage()
-    release_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [release_response]) as queue:
-        fl.release(uuid, fh)
-        client_message = queue.get()
+    sent_messages = do_release(endpoint, fl, uuid, fh)
 
+    sent_messages.get() # skip fsync message
+    client_message = sent_messages.get()
     assert client_message.HasField('fuse_request')
     assert client_message.fuse_request.HasField('file_request')
     assert client_message.fuse_request.file_request.HasField('release')
+
+
+def test_release_should_send_fsync_message(endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=0)
+
+    sent_messages = do_release(endpoint, fl, uuid, fh)
+
+    client_message = sent_messages.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+    assert client_message.fuse_request.file_request.HasField('fsync')
 
 
 def prepare_listxattr_response(uuid):

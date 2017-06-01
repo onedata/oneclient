@@ -74,6 +74,7 @@ message FileRequest {
         SetXattr set_xattr = 19;
         RemoveXattr remove_xattr = 20;
         ListXattr list_xattr = 21;
+        FSync fsync = 22;
     }
 }
 
@@ -171,6 +172,11 @@ message RemoveXattr {
 message ListXattr {
     optional bool inherited = 1 [default = false];
     optional bool show_internal = 2 [default = true];
+}
+
+message FSync {
+    optional bool data_only = 1 [default = false];
+    optional bytes handle_id = 2;
 }
 
 // Generic FUSE client response
