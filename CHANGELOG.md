@@ -4,6 +4,13 @@
 CHANGELOG
 ---------
 
+### 3.0.0-rc15
+
+* Disable storage helpers buffering
+* VFS-3233 Add support for sig v2 to AWS S3 helper
+* VFS-3159 Pinned Folly version to 2016.12.19.00_3 for OSX builds
+
+
 ### 3.0.0-rc14
 
 * Change inodeCache from hashed index to ordered index, due to segfault during equal_range operation in rename.
