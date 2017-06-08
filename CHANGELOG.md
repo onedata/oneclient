@@ -4,6 +4,16 @@
 CHANGELOG
 ---------
 
+### 3.0.0-rc16
+
+* VFS-3184 Fsync file on release.
+* VFS-3184 Extend oneclient fsync with flushing events and fsyncing files on provider side.
+* VFS-3184 Add flush of all event streams
+* VFS-3233 Add support for sig v2 to AWS S3 helper
+* Moved extended attribute messages from provider to fuse namespace
+* Added extended attributes support
+
+
 ### 3.0.0-rc15
 
 * Disable storage helpers buffering
