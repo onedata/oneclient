@@ -218,8 +218,8 @@ handle_call(healthcheck, _From, State) ->
                 fun(#endpoint{port = Port, use_ssl = UseSSL}) ->
                     case UseSSL of
                         true ->
-                            {ok, Socket} = etls:connect("127.0.0.1", Port, []),
-                            etls:close(Socket);
+                            {ok, Socket} = ssl:connect("127.0.0.1", Port, []),
+                            ssl:close(Socket);
                         false ->
                             {ok, Socket} = gen_tcp:connect("127.0.0.1", Port, []),
                             gen_tcp:close(Socket)
@@ -435,7 +435,7 @@ start_listeners(AppDescriptionModule) ->
             % Generate listener name
             ListenerID = "tcp" ++ integer_to_list(Port),
             Protocol = case UseSSL of
-                           true -> ranch_etls;
+                           true -> ranch_ssl;
                            false -> ranch_tcp
                        end,
             Opts = case UseSSL of

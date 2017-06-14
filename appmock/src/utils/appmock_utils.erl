@@ -56,7 +56,7 @@ load_description_module(FilePath) ->
     {ok, http_client:code(), http_client:headers(), http_client:body()} |
     {error, term()}.
 rc_request(Method, Hostname, Path) ->
-    rc_request(Method, Hostname, Path, []).
+    rc_request(Method, Hostname, Path, #{}).
 
 
 %%--------------------------------------------------------------------

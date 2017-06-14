@@ -27,7 +27,6 @@
             % for awareness of them being used in the project and
             % to make sure they are started before the application.
             lager,
-            etls,
             hackney,
             web_client,
             cowboy
