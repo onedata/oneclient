@@ -8,7 +8,7 @@
 
 #include "asyncStream.h"
 #include "events/types/event.h"
-#include "utils.hpp"
+#include "communication/etls/utils.h"
 
 namespace one {
 namespace client {
@@ -18,7 +18,7 @@ AsyncStream::AsyncStream(StreamPtr stream)
     : m_ioService{1}
     , m_idleWork{asio::make_work(m_ioService)}
     , m_worker{[=] {
-        etls::utils::nameThread("AsyncStream");
+        communication::etls::utils::nameThread("AsyncStream");
         m_ioService.run();
     }}
     , m_stream{std::move(stream)}

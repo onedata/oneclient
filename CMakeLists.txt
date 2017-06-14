@@ -81,18 +81,11 @@ find_package(Boost COMPONENTS atomic chrono context date_time filesystem
 # Setup libsodium
 find_package(Sodium)
 
-# Setup etls
-set(ETLS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/helpers/etls/c_src)
-
-# Setup BoringSSL
-if(NOT WITH_OPENSSL)
-    add_subdirectory(${ETLS_DIR}/deps/boringssl)
-    set(BORINGSSL_LIBRARIES ssl crypto)
-    set(BORINGSSL_INCLUDE_DIRS ${ETLS_DIR}/deps/boringssl/include)
-endif(NOT WITH_OPENSSL)
+# Setup helpers
+set(HELPERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/helpers)
 
 # Setup Asio
-set(ASIO_INCLUDE_DIRS ${ETLS_DIR}/deps/asio/asio/include)
+set(ASIO_INCLUDE_DIRS ${HELPERS_DIR}/deps/asio/asio/include)
 
 # Utility libs
 find_library(LTDL_LIBRARY NAMES ltdl)
@@ -212,7 +205,6 @@ endif(APPLE)
 # directories; helpers specify their own includes, pulling from package-set
 # variables when needed.
 add_subdirectory(helpers/clproto)
-add_subdirectory(${ETLS_DIR}/src)
 add_subdirectory(helpers/src)
 
 include_directories(
