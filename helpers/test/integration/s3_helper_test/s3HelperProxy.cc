@@ -8,7 +8,7 @@
 
 #include "keyValueAdapter.h"
 #include "s3Helper.h"
-#include "utils.hpp"
+#include "communication/etls/utils.h"
 
 #include <asio/buffer.hpp>
 #include <asio/executor_work.hpp>
@@ -50,7 +50,7 @@ public:
     {
         std::generate_n(std::back_inserter(m_workers), threadNumber, [=] {
             std::thread t{[=] {
-                one::etls::utils::nameThread("S3HelperProxy");
+                one::communication::etls::utils::nameThread("S3HelperProxy");
                 m_service.run();
             }};
 

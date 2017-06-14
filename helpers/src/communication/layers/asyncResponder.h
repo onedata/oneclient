@@ -10,7 +10,7 @@
 #define HELPERS_COMMUNICATION_LAYERS_ASYNC_RESPONDER_H
 
 #include "communication/declarations.h"
-#include "utils.hpp"
+#include "communication/etls/utils.h"
 
 #include <asio/executor_work.hpp>
 #include <asio/io_service.hpp>

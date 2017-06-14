@@ -55,11 +55,6 @@ be added to the make command line:
 * WITH_S3=OFF - disables S3 helper
 * WITH_SWIFT=OFF - disables Swift helper
 
-Additionaly, helpers can be built with OpenSSL instead of BoringSSL by passing
-the following option to the make command line:
-
-* WITH_OPENSSL=ON
-
 In order to build the helpers using other Git repository than default, environment
 variable ONEDATA_GIT_URL must be exported before calling `make`, e.g.:
 

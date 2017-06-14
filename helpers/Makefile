@@ -11,19 +11,16 @@ WITH_CEPH    ?= ON
 WITH_SWIFT   ?= ON
 # Build with S3 storage helper by default
 WITH_S3      ?= ON
-# Build with BoringSSL by default
-WITH_OPENSSL ?= OFF
 
 %/CMakeCache.txt: **/CMakeLists.txt test/integration/* test/integration/**/*
 	mkdir -p $*
 	cd $* && cmake -GNinja -DCMAKE_BUILD_TYPE=$* \
 	                       -DCODE_COVERAGE=${WITH_COVERAGE} \
-	                       -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} .. \
+	                       -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
 	                       -DBUILD_PROXY_IO=${BUILD_PROXY_IO} \
 	                       -DWITH_CEPH=${WITH_CEPH} \
 	                       -DWITH_SWIFT=${WITH_SWIFT} \
 	                       -DWITH_S3=${WITH_S3} \
-	                       -DWITH_OPENSSL=${WITH_OPENSSL} \
 	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
 	                       -DOPENSSL_LIBRARIES=${OPENSSL_LIBRARIES} ..
 	touch $@
