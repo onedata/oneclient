@@ -16,7 +16,6 @@ Run the script with -h flag to learn about script's running options.
 from __future__ import print_function
 
 import argparse
-import glob
 import json
 import os
 import platform
@@ -29,6 +28,7 @@ import xml.etree.ElementTree as ElementTree
 
 sys.path.insert(0, 'bamboos/docker')
 from environment import docker
+from environment.common import HOST_STORAGE_PATH
 
 
 def skipped_test_exists(junit_report_path):
@@ -270,7 +270,8 @@ ret = docker.run(tty=True,
                  interactive=True,
                  workdir=os.path.join(script_dir, 'test_distributed'),
                  reflect=[(script_dir, 'rw'),
-                          ('/var/run/docker.sock', 'rw')],
+                          ('/var/run/docker.sock', 'rw'),
+                          (HOST_STORAGE_PATH, 'rw')],
                  name='testmaster_{0}'.format(uid),
                  hostname='testmaster.{0}.dev.docker'.format(uid),
                  image=args.image,
