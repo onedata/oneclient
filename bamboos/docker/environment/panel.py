@@ -10,7 +10,12 @@ import copy
 import json
 import os
 
-from . import common, docker, dns
+from . import common, docker, dns, gui
+
+
+def panel_domain(instance, uid):
+    """Formats domain for a docker hosting onepanel."""
+    return common.format_hostname(instance, uid)
 
 
 def panel_hostname(node_name, instance, uid):
@@ -111,22 +116,31 @@ def up(image, bindir, dns_server, uid, config_path, storages_dockers=None,
     dns_servers, output = dns.maybe_start(dns_server, uid)
 
     for onepanel_instance in config['onepanel_domains']:
-        image = config['onepanel_domains'][onepanel_instance]. \
-            get('image', image)
-        os_config_name = config['onepanel_domains'][onepanel_instance]. \
-            get('os_config')
+        instance_config = config['onepanel_domains'][onepanel_instance]
+
+        image = instance_config.get('image', image)
+        os_config_name = instance_config.get('os_config')
         storages = config.get('os_configs', {}).get(os_config_name, {}). \
             get('storages', [])
 
         extra_volumes, posix_storage_out = _configure_posix_storage(storages)
         common.merge(output, posix_storage_out)
 
+        # Check if gui override is enabled in env and start it
+        if 'gui_override' in instance_config and isinstance(
+                instance_config['gui_override'], dict):
+            gui_config = instance_config['gui_override']
+            onepanel_hostname = panel_domain(onepanel_instance, uid)
+            extra_volumes.extend(
+                gui.extra_volumes(gui_config, onepanel_hostname))
+            gui.override_gui(gui_config, onepanel_hostname)
+
         gen_dev_cfg = {
             'config': {
                 'input_dir': input_dir,
                 'target_dir': '/root/bin'
             },
-            'nodes': config['onepanel_domains'][onepanel_instance]['onepanel']
+            'nodes': instance_config['onepanel']
         }
 
         configs = [_tweak_config(gen_dev_cfg, node, onepanel_instance, uid)
@@ -136,5 +150,14 @@ def up(image, bindir, dns_server, uid, config_path, storages_dockers=None,
             node_out = _node_up(image, bindir, cfg, dns_servers, extra_volumes,
                                 logdir)
             common.merge(output, node_out)
+
+            # Check if gui livereload is enabled in env and turn it on
+            if 'gui_override' in instance_config and isinstance(
+                    instance_config['gui_override'], dict):
+                gui_config = instance_config['gui_override']
+                livereload_flag = gui_config['livereload']
+                if livereload_flag:
+                    livereload_dir = gui_config['mount_path']
+                    gui.run_livereload(node_out['docker_ids'][0], livereload_dir)
 
     return output
