@@ -8,7 +8,7 @@
 
 #include "scheduler.h"
 
-#include "utils.hpp"
+#include "communication/etls/utils.h"
 
 #include <algorithm>
 
@@ -41,7 +41,7 @@ void Scheduler::start()
 
     std::generate_n(std::back_inserter(m_workers), m_threadNumber, [=] {
         std::thread t{[=] {
-            etls::utils::nameThread("Scheduler");
+            communication::etls::utils::nameThread("Scheduler");
             m_ioService.run();
         }};
 

@@ -214,12 +214,12 @@ handle_call(healthcheck, _From, State) ->
     try
         % Check connectivity different rest enpoints using some random data
         {ok, 200, _, _} = appmock_utils:rc_request(get, <<"127.0.0.1">>,
-            <<?REST_ENDPOINT_REQUEST_COUNT_PATH>>, [],
+            <<?REST_ENDPOINT_REQUEST_COUNT_PATH>>, #{},
             json_utils:encode(
                 ?REST_ENDPOINT_REQUEST_COUNT_REQUEST(8080, <<"/">>))),
 
         {ok, 200, _, _} = appmock_utils:rc_request(get, <<"127.0.0.1">>,
-            <<?VERIFY_REST_HISTORY_PATH>>, [],
+            <<?VERIFY_REST_HISTORY_PATH>>, #{},
             json_utils:encode(
                 ?VERIFY_REST_HISTORY_PACK_REQUEST([{8080, <<"/">>}]))),
 
@@ -227,7 +227,7 @@ handle_call(healthcheck, _From, State) ->
             <<?RESET_REST_HISTORY_PATH>>),
 
         {ok, 200, _, _} = appmock_utils:rc_request(get, <<"127.0.0.1">>,
-            ?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PATH(5555), [],
+            ?TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PATH(5555), #{},
             base64:encode(<<"random_data!%$$^&%^&*%^&*">>)),
 
         {ok, 200, _, _} = appmock_utils:rc_request(get, <<"127.0.0.1">>,

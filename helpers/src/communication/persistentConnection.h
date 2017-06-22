@@ -11,8 +11,8 @@
 
 #include "connection.h"
 
-#include "tlsApplication.hpp"
-#include "tlsSocket.hpp"
+#include "etls/tlsApplication.h"
+#include "etls/tlsSocket.h"
 
 #include <asio/buffer.hpp>
 #include <asio/ssl/context.hpp>

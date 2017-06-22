@@ -66,23 +66,30 @@ class ProviderWorkerConfigurator:
             if isinstance(config['os_config']['storages'][0], basestring):
                 posix_storages = config['os_config']['storages']
             else:
-                posix_storages = [s['name'] for s in
-                                  config['os_config']['storages']
-                                  if s['type'] == 'posix']
+                posix_storages = [{
+                                      'name': s['name'],
+                                      'readonly': s.get('readonly', False)
+                                  } for s in config['os_config']['storages'] if s['type'] == 'posix']
         else:
             posix_storages = []
 
         extra_volumes = []
         for s in posix_storages:
-            if not (storages_dockers and s in storages_dockers['posix'].keys()):
-                v = common.volume_for_storage(s)
+            name = s['name']
+            readonly = s['readonly']
+            if not storages_dockers:
+                storages_dockers = {'posix': {}}
+            if name not in storages_dockers['posix'].keys():
+                v = common.volume_for_storage(name, readonly)
                 (host_path, docker_path, mode) = v
-                if not storages_dockers:
-                    storages_dockers = {'posix': {}}
-                storages_dockers['posix'][s] = {"host_path": host_path, "docker_path": docker_path}
+                storages_dockers['posix'][name] = {
+                    "host_path": host_path,
+                    "docker_path": docker_path,
+                    "mode": mode
+                }
             else:
-                d = storages_dockers['posix'][s]
-                v = (d['host_path'], d['docker_path'], 'rw')
+                d = storages_dockers['posix'][name]
+                v = (d['host_path'], d['docker_path'], d['mode'])
 
             extra_volumes.append(v)
 

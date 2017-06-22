@@ -11,7 +11,7 @@
 #include "cert/certificateData.h"
 #include "exception.h"
 #include "logging.h"
-#include "utils.hpp"
+#include "etls/utils.h"
 
 #include <asio.hpp>
 #include <asio/ssl.hpp>
