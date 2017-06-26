@@ -22,7 +22,6 @@
 #include <folly/FBVector.h>
 #include <folly/fibers/Baton.h>
 
-
 #if defined(__APPLE__)
 // There is no spinlock on OSX and Folly TimedMutex doesn't have an ifded
 // to detect this.
@@ -132,29 +131,48 @@ private:
 
         const auto startPoint = std::chrono::steady_clock::now();
 
-        auto writeFuture = m_handle.multiwrite(std::move(buffers)).then([
-            startPoint, sentSize,
-            s = std::weak_ptr<WriteBuffer>(shared_from_this())
-        ](std::size_t) {
-            auto self = s.lock();
-            if (!self)
-                return;
+        auto confirmationPromise =
+            std::make_shared<folly::Promise<folly::Unit>>();
 
-            auto duration =
-                std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    std::chrono::steady_clock::now() - startPoint)
-                    .count();
+        m_writeFuture =
+            m_writeFuture
+                .then([
+                    s = std::weak_ptr<WriteBuffer>(shared_from_this()),
+                    buffers = std::move(buffers)
+                ]() mutable {
+                    if (auto self = s.lock())
+                        return self->m_handle.multiwrite(std::move(buffers));
+                    return folly::makeFuture<std::size_t>(std::system_error{
+                        std::make_error_code(std::errc::owner_dead)});
+                })
+                .then([
+                    startPoint, sentSize,
+                    s = std::weak_ptr<WriteBuffer>(shared_from_this())
+                ](std::size_t) {
+                    auto self = s.lock();
+                    if (!self)
+                        return;
 
-            if (duration > 0) {
-                auto bandwidth = sentSize * 1000000000 / duration;
-                self->m_bps = (self->m_bps * 1 + bandwidth * 2) / 3;
-            }
+                    auto duration =
+                        std::chrono::duration_cast<std::chrono::nanoseconds>(
+                            std::chrono::steady_clock::now() - startPoint)
+                            .count();
 
-            self->m_readCache->clear();
-        });
+                    if (duration > 0) {
+                        auto bandwidth = sentSize * 1000000000 / duration;
+                        self->m_bps = (self->m_bps * 1 + bandwidth * 2) / 3;
+                    }
 
-        m_writeFutures.emplace(
-            std::make_pair(sentSize, std::move(writeFuture)));
+                    self->m_readCache->clear();
+                })
+                .then(
+                    [confirmationPromise] { confirmationPromise->setValue(); })
+                .onError([confirmationPromise](folly::exception_wrapper ew) {
+                    confirmationPromise->setException(std::move(ew));
+                });
+
+        m_confirmationFutures.emplace(
+            std::make_pair(sentSize, confirmationPromise->getFuture()));
     }
 
     folly::Future<folly::Unit> confirmOverThreshold()
@@ -170,10 +188,10 @@ private:
 
         while (m_pendingConfirmation > threshold) {
             confirmFutures.emplace_back(
-                std::move(m_writeFutures.front().second));
+                std::move(m_confirmationFutures.front().second));
 
-            m_pendingConfirmation -= m_writeFutures.front().first;
-            m_writeFutures.pop();
+            m_pendingConfirmation -= m_confirmationFutures.front().first;
+            m_confirmationFutures.pop();
         }
 
         return folly::collectAll(confirmFutures)
@@ -215,7 +233,9 @@ private:
 
     FiberMutex m_mutex;
     std::size_t m_pendingConfirmation = 0;
-    std::queue<std::pair<off_t, folly::Future<folly::Unit>>> m_writeFutures;
+    folly::Future<folly::Unit> m_writeFuture = folly::makeFuture();
+    std::queue<std::pair<off_t, folly::Future<folly::Unit>>>
+        m_confirmationFutures;
 };
 
 } // namespace proxyio
