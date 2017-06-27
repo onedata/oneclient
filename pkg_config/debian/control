@@ -9,7 +9,9 @@ Build-Depends:
     folly-dev,
     g++-5 (>= 5.0.0),
     git,
+    glusterfs-common (>= 3.8.0),
     golang-go,
+    libacl1-dev,
     libboost-all-dev,
     libcurl4-openssl-dev,
     libdouble-conversion-dev,
@@ -36,13 +38,14 @@ Build-Depends:
     protobuf-compiler (>= 2.6.0),
     python-dev,
     subversion,
-    swift-sdk-cpp (>= 1.0.0)
+    swift-sdk-cpp (>= 1.0.0),
+    uuid-dev
 Standards-Version: 3.9.5
 Homepage: https://onedata.org
 
 Package: oneclient
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, fuse
+Depends: glusterfs-common (>= 3.8.0), ${shlibs:Depends}, ${misc:Depends}, fuse
 Description: FUSE client for onedata system.
  oneclient is a software based on FUSE (Filesystem in Userspace) that allows
  mounting onedata filesystem on Linux systems.

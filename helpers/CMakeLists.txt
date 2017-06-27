@@ -4,6 +4,7 @@ project(helpers C CXX)
 option(WITH_CEPH "Include Ceph direct IO support" ON)
 option(WITH_S3 "Include S3 direct IO support" ON)
 option(WITH_SWIFT "Include Swift direct IO support" ON)
+option(WITH_GLUSTERFS "Include GlusterFS direct IO support" ON)
 
 # CMake config
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY True)
@@ -115,6 +116,21 @@ else(WITH_SWIFT)
     add_definitions(-DWITH_SWIFT=0)
 endif(WITH_SWIFT)
 
+# GlusterFS SDK library
+if(WITH_GLUSTERFS)
+    include(FindPkgConfig)
+    if (PKG_CONFIG_FOUND)
+        pkg_check_modules(GLUSTERFSAPI glusterfs-api)
+        if(NOT GLUSTERFSAPI_FOUND EQUAL 1)
+            message(SEND_ERROR "pkg-config for glusterfs-api is missing.")
+        else(NOT GLUSTERFSAPI_FOUND EQUAL 1)
+            add_definitions(-DWITH_GLUSTERFS=1)
+        endif(NOT GLUSTERFSAPI_FOUND EQUAL 1)
+    endif (PKG_CONFIG_FOUND)
+else(WITH_GLUSTERFS)
+    add_definitions(-DWITH_GLUSTERFS=0)
+endif(WITH_GLUSTERFS)
+
 # Setup compile flags
 set(PLATFORM_EXTRA_LIBS
     ${CMAKE_THREAD_LIBS_INIT}
@@ -141,6 +157,7 @@ else(NOT APPLE)
 endif(APPLE)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+
 add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wshadow -Wall -Wpedantic)
 add_definitions(
     ${FUSE_DEFINITIONS}
@@ -193,6 +210,10 @@ endif(WITH_S3)
 if(WITH_SWIFT)
     list(APPEND HELPERS_LIBRARIES ${SWIFT_SDK_LIBRARIES})
 endif(WITH_SWIFT)
+
+if(WITH_GLUSTERFS)
+    list(APPEND HELPERS_LIBRARIES ${GLUSTERFSAPI_LIBRARIES})
+endif(WITH_GLUSTERFS)
 
 add_library(helpersShared SHARED ${HELPERS_SOURCES})
 target_link_libraries(helpersShared PUBLIC ${HELPERS_LIBRARIES})

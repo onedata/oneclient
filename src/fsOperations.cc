@@ -265,12 +265,12 @@ void wrap_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set,
 void wrap_create(fuse_req_t req, fuse_ino_t parent, const char *name,
     mode_t mode, struct fuse_file_info *fi)
 {
-    wrap(&fslogic::Composite::create, [ req,
-        fi = *fi ](const std::pair<const struct fuse_entry_param, std::uint64_t>
-                                              &res) mutable {
-        fi.fh = res.second;
-        fuse_reply_create(req, &res.first, &fi);
-    },
+    wrap(&fslogic::Composite::create,
+        [ req, fi = *fi ](const std::pair<const struct fuse_entry_param,
+            std::uint64_t> &res) mutable {
+            fi.fh = res.second;
+            fuse_reply_create(req, &res.first, &fi);
+        },
         req, parent, name, mode, fi->flags);
 }
 
@@ -278,23 +278,25 @@ void wrap_statfs(fuse_req_t req, fuse_ino_t ino)
 {
     wrap(&fslogic::Composite::statfs,
         [req](const struct statvfs &statinfo) {
+            struct statvfs new_statinfo {
+                statinfo
+            };
 #if defined(__APPLE__)
             /**
              * Simulate large free space to enable file pasting in Finder
              */
-            struct statvfs osx_statinfo {
-                statinfo
-            };
-            osx_statinfo.f_bsize = 4096;
-            osx_statinfo.f_frsize = osx_statinfo.f_bsize;
-            osx_statinfo.f_blocks = osx_statinfo.f_bfree =
-                osx_statinfo.f_bavail =
-                    1000ULL * 1024 * 1024 * 1024 / osx_statinfo.f_frsize;
-            osx_statinfo.f_files = osx_statinfo.f_ffree = 1000000;
+            new_statinfo.f_bsize = 4096;
+            new_statinfo.f_frsize = new_statinfo.f_bsize;
+            new_statinfo.f_blocks = new_statinfo.f_bfree =
+                new_statinfo.f_bavail =
+                    1000ULL * 1024 * 1024 * 1024 / new_statinfo.f_frsize;
+            new_statinfo.f_files = new_statinfo.f_ffree = 1000000;
+            new_statinfo.f_namemax = 255;
 
-            fuse_reply_statfs(req, &osx_statinfo);
+            fuse_reply_statfs(req, &new_statinfo);
 #else
-            fuse_reply_statfs(req, &statinfo);
+            new_statinfo.f_namemax = 255;
+            fuse_reply_statfs(req, &new_statinfo);
 #endif
         },
         req, ino);
@@ -320,15 +322,30 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
 #endif
     )
 {
+    //
+    // Ignore selected system extended attributes which can degrade performance
+    // on some linux distributions
+    //
+    static const std::set<std::string> ignoredExtendedAttributes{
+        "security.capability", "security.ima", "security.evm",
+        "security.selinux"};
+
+    if (ignoredExtendedAttributes.find(attr) !=
+        ignoredExtendedAttributes.end()) {
+        fuse_reply_err(req, ENODATA);
+        return;
+    }
+
     std::string xattrJsonName;
     if (!encodeJsonXAttrName(attr, xattrJsonName)) {
         LOG(WARNING) << "Getting extended attribute with invalid name: "
                      << attr;
         fuse_reply_err(req, EINVAL);
+        return;
     }
 
-    DLOG(INFO) << "Getting extended attribute '" << xattrJsonName << "' for file "
-               << ino;
+    DLOG(INFO) << "Getting extended attribute '" << xattrJsonName
+               << "' for file " << ino;
 
     wrap(&fslogic::Composite::getxattr,
         [req, size, attr](const folly::fbstring &value) {
@@ -389,6 +406,7 @@ void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
         LOG(WARNING) << "Setting extended attribute with invalid name: "
                      << attr;
         fuse_reply_err(req, EINVAL);
+        return;
     }
 
     // Since Oneprovider stores extended attributes as JSON values
@@ -407,6 +425,7 @@ void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
     if (!encodeJsonXAttrValue(xattrRawValue, xattrJsonValue)) {
         LOG(WARNING) << "Setting extended attribute with invalid value";
         fuse_reply_err(req, EINVAL);
+        return;
     }
     DLOG(INFO) << "Setting extended attribute '" << attr << "' to value '"
                << val << "' for file " << ino << " with flags "
@@ -425,6 +444,7 @@ void wrap_removexattr(fuse_req_t req, fuse_ino_t ino, const char *attr)
         LOG(WARNING) << "Removing extended attribute with invalid name: "
                      << attr;
         fuse_reply_err(req, EINVAL);
+        return;
     }
 
     DLOG(INFO) << "Removing extended attribute '" << xattrJsonName

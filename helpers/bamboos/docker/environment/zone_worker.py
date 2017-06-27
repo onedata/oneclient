@@ -97,7 +97,7 @@ sed -i.bak s/onedata.org/{domain}/g /root/bin/node/data/dns.config
         return 1024
 
     def couchbase_buckets(self):
-        return {"default": 512, "location_service": 100}
+        return {"default": 512, "sync": 400, "location_service": 100}
 
     def app_name(self):
         return "oz_worker"
