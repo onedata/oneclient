@@ -4,10 +4,10 @@ project(oneclient C CXX)
 option(CODE_COVERAGE "Enable code coverage (gcc only)." OFF)
 option(STATIC_BOOST "Link Boost statically" Off)
 option(STATIC_LIBSTDCPP "Link libstdc++ statically" Off)
-option(WITH_OPENSSL "Use OpenSSL instead of BoringSSL" OFF)
 option(WITH_CEPH "Include Ceph direct IO support" ON)
 option(WITH_S3 "Include S3 direct IO support" ON)
 option(WITH_SWIFT "Include Swift direct IO support" ON)
+option(WITH_GLUSTERFS "Include GlusterFS direct IO support" ON)
 
 # CMake config
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY True)
@@ -47,11 +47,9 @@ find_package(Glog REQUIRED)
 message(STATUS "Checking for CURL...")
 find_package(CURL REQUIRED)
 
-# Setup OpenSSL if needed
-if(WITH_S3 OR WITH_OPENSSL)
-    message(STATUS "Checking for OpenSSL...")
-    find_package(OpenSSL REQUIRED)
-endif(WITH_S3 OR WITH_OPENSSL)
+# Setup OpenSSL
+message(STATUS "Checking for OpenSSL...")
+find_package(OpenSSL REQUIRED)
 
 # Setup NSS
 message(STATUS "Checking for NSS...")
@@ -105,8 +103,7 @@ if(WITH_S3)
     set(AWS_SDK_LIBRARIES
         ${AWS_SKD_S3_LIBRARY}
         ${AWS_SKD_CORE_LIBRARY}
-        ${CURL_LIBRARIES}
-        ${OPENSSL_LIBRARIES})
+        ${CURL_LIBRARIES})
 endif(WITH_S3)
 
 # Swift SDK library
@@ -123,6 +120,21 @@ if(WITH_SWIFT)
         ${POCO_XML}
         ${POCO_FOUNDATION})
 endif(WITH_SWIFT)
+
+# GlusterFS SDK library
+if(WITH_GLUSTERFS)
+    include(FindPkgConfig)
+    if (PKG_CONFIG_FOUND)
+        pkg_check_modules(GLUSTERFSAPI glusterfs-api)
+        if(NOT GLUSTERFSAPI_FOUND EQUAL 1)
+            message(SEND_ERROR "pkg-config for glusterfs-api is missing.")
+        else(NOT GLUSTERFSAPI_FOUND EQUAL 1)
+            add_definitions(-DWITH_GLUSTERFS=1)
+        endif(NOT GLUSTERFSAPI_FOUND EQUAL 1)
+    endif (PKG_CONFIG_FOUND)
+else(WITH_GLUSTERFS)
+    add_definitions(-DWITH_GLUSTERFS=0)
+endif(WITH_GLUSTERFS)
 
 # gpertools lib
 find_library(PROFILER_LIBRARY NAMES profiler)
@@ -191,6 +203,12 @@ else(WITH_SWIFT)
     add_definitions(-DWITH_SWIFT=0)
 endif(WITH_SWIFT)
 
+if(WITH_GLUSTERFS)
+    add_definitions(-DWITH_GLUSTERFS=1)
+else(WITH_GLUSTERFS)
+    add_definitions(-DWITH_GLUSTERFS=0)
+endif(WITH_GLUSTERFS)
+
 #
 # Select version of Folly, latest versions available on OSX have TimedMutex
 # defined without a template
@@ -225,15 +243,8 @@ include_directories(SYSTEM
     ${SODIUM_INCLUDE_DIRS}
     ${FOLLY_INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/libmacaroons
-    ${CMAKE_CURRENT_SOURCE_DIR}/deps/libmacaroons-cpp)
-
-if(WITH_OPENSSL)
-    include_directories(AFTER SYSTEM
-        ${OPENSSL_INCLUDE_DIR})
-else(WITH_OPENSSL)
-    include_directories(AFTER SYSTEM
-        ${BORINGSSL_INCLUDE_DIR})
-endif(WITH_OPENSSL)
+    ${CMAKE_CURRENT_SOURCE_DIR}/deps/libmacaroons-cpp
+    ${OPENSSL_INCLUDE_DIR})
 
 set(CLIENT_LIBRARIES
     libmacaroons-cpp
@@ -245,39 +256,24 @@ set(CLIENT_LIBRARIES
     ${PROTOBUF_LIBRARIES}
     ${NSS_LIBRARIES}
     ${FOLLY_LIBRARIES}
-    ${HELPERS_LIBRARIES})
-
-if(WITH_OPENSSL)
-    list(APPEND CLIENT_LIBRARIES
-        ${OPENSSL_LIBRARIES})
-else(WITH_OPENSSL)
-    list(APPEND CLIENT_LIBRARIES
-        ${BORINGSSL_LIBRARIES})
-endif(WITH_OPENSSL)
+    ${HELPERS_LIBRARIES}
+    ${OPENSSL_LIBRARIES})
 
 if(WITH_CEPH)
-    list(APPEND CLIENT_LIBRARIES
-        ${RADOS_LIBRARY})
-    add_definitions(-DWITH_CEPH=1)
-else(WITH_CEPH)
-    add_definitions(-DWITH_CEPH=0)
+    list(APPEND CLIENT_LIBRARIES ${RADOS_LIBRARY})
 endif(WITH_CEPH)
 
 if(WITH_S3)
-    list(APPEND CLIENT_LIBRARIES
-        ${AWS_SDK_LIBRARIES})
-    add_definitions(-DWITH_S3=1)
-else(WITH_S3)
-    add_definitions(-DWITH_S3=0)
+    list(APPEND CLIENT_LIBRARIES ${AWS_SDK_LIBRARIES})
 endif(WITH_S3)
 
 if(WITH_SWIFT)
-    list(APPEND CLIENT_LIBRARIES
-        ${SWIFT_SDK_LIBRARIES})
-    add_definitions(-DWITH_SWIFT=1)
-else(WITH_SWIFT)
-    add_definitions(-DWITH_SWIFT=0)
+    list(APPEND CLIENT_LIBRARIES ${SWIFT_SDK_LIBRARIES})
 endif(WITH_SWIFT)
+
+if(WITH_GLUSTERFS)
+    list(APPEND CLIENT_LIBRARIES ${GLUSTERFSAPI_LIBRARIES})
+endif(WITH_GLUSTERFS)
 
 # Define targets
 add_library(client OBJECT ${SOURCES} ${HEADERS})
