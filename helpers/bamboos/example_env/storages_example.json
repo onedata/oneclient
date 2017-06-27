@@ -42,6 +42,14 @@
                   "type": "swift",
                   "name": "swift",
                   "container": "swift"
+                },
+                {
+                  "type": "glusterfs",
+                  "name": "someGluster",
+                  "volume": "data",
+                  "transport": "tcp",
+                  "mountpoint": "/DIR1/DIR2",
+                  "xlatorOptions": ""
                 }
             ],
             "users": [

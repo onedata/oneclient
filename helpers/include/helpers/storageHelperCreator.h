@@ -44,6 +44,10 @@ constexpr auto S3_HELPER_NAME = "s3";
 constexpr auto SWIFT_HELPER_NAME = "swift";
 #endif
 
+#if WITH_GLUSTERFS
+constexpr auto GLUSTERFS_HELPER_NAME = "glusterfs";
+#endif
+
 namespace buffering {
 
 struct BufferLimits {
@@ -90,6 +94,9 @@ public:
 #if WITH_SWIFT
         asio::io_service &kvSwiftService,
 #endif
+#if WITH_GLUSTERFS
+        asio::io_service &glusterfsService,
+#endif
         communication::Communicator &m_communicator,
         std::size_t bufferSchedulerWorkers = 1,
         buffering::BufferLimits bufferLimits = buffering::BufferLimits{});
@@ -104,6 +111,9 @@ public:
 #endif
 #if WITH_SWIFT
         asio::io_service &kvSwiftService,
+#endif
+#if WITH_GLUSTERFS
+        asio::io_service &glusterfsService,
 #endif
         std::size_t bufferSchedulerWorkers = 1,
         buffering::BufferLimits bufferLimits = buffering::BufferLimits{});
@@ -133,6 +143,9 @@ private:
 #endif
 #if WITH_SWIFT
     asio::io_service &m_swiftService;
+#endif
+#if WITH_GLUSTERFS
+    asio::io_service &m_glusterfsService;
 #endif
     std::unique_ptr<Scheduler> m_scheduler;
     buffering::BufferLimits m_bufferLimits;

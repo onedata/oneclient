@@ -25,6 +25,10 @@
 #include "swiftHelper.h"
 #endif
 
+#if WITH_GLUSTERFS
+#include "glusterfsHelper.h"
+#endif
+
 namespace one {
 namespace helpers {
 
@@ -41,6 +45,9 @@ StorageHelperCreator::StorageHelperCreator(
 #if WITH_SWIFT
     asio::io_service &swiftService,
 #endif
+#if WITH_GLUSTERFS
+    asio::io_service &glusterfsService,
+#endif
     communication::Communicator &communicator,
     std::size_t bufferSchedulerWorkers, buffering::BufferLimits bufferLimits)
     :
@@ -56,6 +63,10 @@ StorageHelperCreator::StorageHelperCreator(
 #endif
 #if WITH_SWIFT
     m_swiftService{swiftService}
+    ,
+#endif
+#if WITH_GLUSTERFS
+    m_glusterfsService{glusterfsService}
     ,
 #endif
     m_scheduler{std::make_unique<Scheduler>(bufferSchedulerWorkers)}
@@ -76,6 +87,9 @@ StorageHelperCreator::StorageHelperCreator(
 #if WITH_SWIFT
     asio::io_service &swiftService,
 #endif
+#if WITH_GLUSTERFS
+    asio::io_service &glusterfsService,
+#endif
     std::size_t bufferSchedulerWorkers, buffering::BufferLimits bufferLimits)
     :
 #if WITH_CEPH
@@ -90,6 +104,10 @@ StorageHelperCreator::StorageHelperCreator(
 #endif
 #if WITH_SWIFT
     m_swiftService{swiftService}
+    ,
+#endif
+#if WITH_GLUSTERFS
+    m_glusterfsService{glusterfsService}
     ,
 #endif
     m_scheduler{std::make_unique<Scheduler>(bufferSchedulerWorkers)}
@@ -128,6 +146,11 @@ std::shared_ptr<StorageHelper> StorageHelperCreator::getStorageHelper(
 #if WITH_SWIFT
     if (name == SWIFT_HELPER_NAME)
         helper = SwiftHelperFactory{m_swiftService}.createStorageHelper(args);
+#endif
+
+#if WITH_GLUSTERFS
+    if (name == GLUSTERFS_HELPER_NAME)
+        helper = GlusterFSHelperFactory{m_glusterfsService}.createStorageHelper(args);
 #endif
 
     if (!helper)

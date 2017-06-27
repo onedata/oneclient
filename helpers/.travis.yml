@@ -45,9 +45,8 @@ before_install:
   - brew install swift-cpp-sdk
   - brew install Caskroom/cask/osxfuse
 
-
 script:
-  - make debug WITH_CEPH=OFF WITH_S3=ON WITH_SWIFT=ON OPENSSL_ROOT_DIR=/usr/local/opt/openssl OPENSSL_LIBRARIES=/usr/local/opt/openssl/lib
+  - make debug WITH_CEPH=OFF WITH_S3=ON WITH_SWIFT=ON WITH_GLUSTERFS=OFF OPENSSL_ROOT_DIR=/usr/local/opt/openssl OPENSSL_LIBRARIES=/usr/local/opt/openssl/lib
   - make test
   - make cunit
 
