@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 17.06.0-beta2
+
+* Releasing new version 17.06.0-beta2
+* Add support for GlusterFS
+
 ### 3.0.0-rc16
 
 * VFS-3184 Fsync file on release.
