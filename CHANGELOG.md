@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 17.06.0-beta4
+
+* Releasing new version 17.06.0-beta4
+
+
 ### 17.06.0-beta3
 
 * Releasing new version 17.06.0-beta3
