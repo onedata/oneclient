@@ -154,6 +154,16 @@ Options::Options()
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Specify number of parallel storage helper threads.");
 
+    add<bool>()
+        ->asSwitch()
+        .withLongName("no-buffer")
+        .withConfigName("no_buffer")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Disable in-memory cache for input/output data blocks.");
+
     add<unsigned int>()
         ->withLongName("read-buffer-min-size")
         .withConfigName("read_buffer_min_size")
@@ -440,6 +450,11 @@ unsigned int Options::getStorageHelperThreadCount() const
     return get<unsigned int>(
         {"storage-helper-thread-count", "storage_helper_thread_count"})
         .get_value_or(DEFAULT_STORAGE_HELPER_THREAD_COUNT);
+}
+
+bool Options::isBuffered() const
+{
+    return !get<bool>({"no-buffer", "no_buffer"}).get_value_or(false);
 }
 
 unsigned int Options::getReadBufferMinSize() const

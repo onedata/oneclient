@@ -15,7 +15,6 @@
 #include "messages/fuse/helperParams.h"
 #include "messages/fuse/storageTestFile.h"
 #include "messages/fuse/verifyStorageTestFile.h"
-#include "options/options.h"
 
 #include <folly/ThreadName.h>
 
@@ -34,6 +33,7 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
     Scheduler &scheduler, const options::Options &options)
     : m_communicator{communicator}
     , m_scheduler{scheduler}
+    , m_options{options}
     , m_helpersIoService{options.getStorageHelperThreadCount()}
     , m_helperFactory
 {
@@ -59,7 +59,7 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
             options.getWriteBufferFlushDelay()
     }
 }
-, m_storageAccessManager{m_helperFactory}
+, m_storageAccessManager{m_helperFactory, m_options}
 {
     std::generate_n(std::back_inserter(m_helpersWorkers),
         options.getStorageHelperThreadCount(), [this] {
@@ -108,8 +108,8 @@ HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
             messages::fuse::GetHelperParams{
                 storageId.toStdString(), forceProxyIO}));
 
-    auto helper =
-        m_helperFactory.getStorageHelper(params.name(), params.args());
+    auto helper = m_helperFactory.getStorageHelper(
+        params.name(), params.args(), m_options.isBuffered());
 
     m_cache[key] = helper;
     return helper;

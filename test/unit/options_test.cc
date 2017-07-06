@@ -97,6 +97,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options.getSchedulerThreadCount());
     EXPECT_EQ(options::DEFAULT_STORAGE_HELPER_THREAD_COUNT,
         options.getStorageHelperThreadCount());
+    EXPECT_EQ(true, options.isBuffered());
     EXPECT_EQ(
         options::DEFAULT_READ_BUFFER_MIN_SIZE, options.getReadBufferMinSize());
     EXPECT_EQ(
@@ -228,6 +229,13 @@ TEST_F(OptionsTest, parseCommandLineShouldSetStorageHelperThreadCount)
     EXPECT_EQ(8, options.getStorageHelperThreadCount());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldSetNoBuffer)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--no-buffer", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(false, options.isBuffered());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetReadBufferMinSize)
 {
     cmdArgs.insert(
@@ -299,8 +307,9 @@ TEST_F(OptionsTest, parseCommandLineShouldSetSingleThread)
 
 TEST_F(OptionsTest, parseCommandLineShouldSetFuseOpts)
 {
-    cmdArgs.insert(cmdArgs.end(), {"--opt", "someOpt0", "--opt", "someOpt1",
-                                      "--opt", "someOpt2", "mountpoint"});
+    cmdArgs.insert(cmdArgs.end(),
+        {"--opt", "someOpt0", "--opt", "someOpt1", "--opt", "someOpt2",
+            "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     auto opts = options.getFuseOpts();
     std::sort(opts.begin(), opts.end());
@@ -527,6 +536,13 @@ TEST_F(OptionsTest, parseConfigFileShouldSetStorageHelperThreadCount)
     EXPECT_EQ(8, options.getStorageHelperThreadCount());
 }
 
+TEST_F(OptionsTest, parseConfigFileShouldSetNoBuffer)
+{
+    setInConfigFile("no_buffer", "1");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(false, options.isBuffered());
+}
+
 TEST_F(OptionsTest, parseConfigFileShouldSetReadBufferMinSize)
 {
     setInConfigFile("read_buffer_min_size", "1024");
@@ -614,8 +630,9 @@ TEST_F(OptionsTest, parseConfigFileShouldSetMountpoint)
 
 TEST_F(OptionsTest, parseShouldSetOptionsInOrder)
 {
-    cmdArgs.insert(cmdArgs.end(), {"--host", "someHost1", "--config",
-                                      configFilePath.c_str(), "mountpoint"});
+    cmdArgs.insert(cmdArgs.end(),
+        {"--host", "someHost1", "--config", configFilePath.c_str(),
+            "mountpoint"});
     setenv("ONECLIENT_PROVIDER_HOST", "someHost2", true);
     setInConfigFile("provider_host", "someHost3");
 

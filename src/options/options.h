@@ -164,6 +164,11 @@ public:
     unsigned int getStorageHelperThreadCount() const;
 
     /*
+     * @return false if 'no-buffer' option has been provided, otherwise true.
+     */
+    bool isBuffered() const;
+
+    /*
      * @return Minimum size in bytes of in-memory cache for input data blocks.
      */
     unsigned int getReadBufferMinSize() const;

@@ -105,8 +105,10 @@ std::vector<boost::filesystem::path> getMountPoints()
 }
 
 StorageAccessManager::StorageAccessManager(
-    helpers::StorageHelperCreator &helperFactory)
+    helpers::StorageHelperCreator &helperFactory,
+    const options::Options &options)
     : m_helperFactory{helperFactory}
+    , m_options{options}
     , m_mountPoints{getMountPoints()}
 {
 }
@@ -120,14 +122,15 @@ StorageAccessManager::verifyStorageTestFile(
         for (const auto &mountPoint : m_mountPoints) {
             auto helper = m_helperFactory.getStorageHelper(
                 helpers::POSIX_HELPER_NAME,
-                {{helpers::POSIX_HELPER_MOUNT_POINT_ARG, mountPoint.string()}});
+                {{helpers::POSIX_HELPER_MOUNT_POINT_ARG, mountPoint.string()}},
+                m_options.isBuffered());
             if (verifyStorageTestFile(helper, testFile))
                 return helper;
         }
     }
     else {
         auto helper = m_helperFactory.getStorageHelper(
-            helperParams.name(), helperParams.args());
+            helperParams.name(), helperParams.args(), m_options.isBuffered());
         if (verifyStorageTestFile(helper, testFile))
             return helper;
     }
