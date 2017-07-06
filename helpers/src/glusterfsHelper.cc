@@ -117,18 +117,12 @@ folly::Future<std::size_t> GlusterFSFileHandle::write(
 
     auto iov = buf.front()->getIov();
     auto iov_size = iov.size();
-    std::size_t size = 0;
-    auto res = -1;
 
-    for (std::size_t iov_off = 0; iov_off < iov_size; iov_off += IOV_MAX) {
-        res = glfs_pwritev(m_glfsFd.get(), iov.data() + iov_off,
-            std::min<std::size_t>(IOV_MAX, iov_size - iov_off), offset, 0);
-        if (res == -1)
-            return makeFuturePosixException<std::size_t>(errno);
-        size += res;
-    }
+    auto res = glfs_pwritev(m_glfsFd.get(), iov.data(), iov_size, offset, 0);
+    if (res == -1)
+        return makeFuturePosixException<std::size_t>(errno);
 
-    return folly::makeFuture(size);
+    return folly::makeFuture(res);
 }
 
 const Timeout &GlusterFSFileHandle::timeout() { return m_helper->timeout(); }
