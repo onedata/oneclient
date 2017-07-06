@@ -54,6 +54,10 @@ default_config = {
         {
             "storageType": "swift",
             "generatorId": "swift"
+        },
+        {
+            "storageType": "glusterfs",
+            "generatorId": "posix"
         }
     ],
     "storages_mapping": [],

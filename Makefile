@@ -6,11 +6,14 @@ BUILD_PROXY_IO ?= ON
 WITH_COVERAGE  ?= OFF
 
 # Build with Ceph storge helper by default
-WITH_CEPH    ?= ON
+WITH_CEPH    		?= ON
 # Build with Swift storage helper by default
-WITH_SWIFT   ?= ON
+WITH_SWIFT   		?= ON
 # Build with S3 storage helper by default
-WITH_S3      ?= ON
+WITH_S3      		?= ON
+# Build with GlusterFS storage helper by default
+WITH_GLUSTERFS		?= ON
+
 
 %/CMakeCache.txt: **/CMakeLists.txt test/integration/* test/integration/**/*
 	mkdir -p $*
@@ -21,6 +24,7 @@ WITH_S3      ?= ON
 	                       -DWITH_CEPH=${WITH_CEPH} \
 	                       -DWITH_SWIFT=${WITH_SWIFT} \
 	                       -DWITH_S3=${WITH_S3} \
+	                       -DWITH_GLUSTERFS=${WITH_GLUSTERFS} \
 	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
 	                       -DOPENSSL_LIBRARIES=${OPENSSL_LIBRARIES} ..
 	touch $@
