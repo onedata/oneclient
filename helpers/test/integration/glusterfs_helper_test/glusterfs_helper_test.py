@@ -6,6 +6,7 @@ This software is released under the MIT license cited in 'LICENSE.txt'."""
 
 import os
 import sys
+import md5
 
 import pytest
 
@@ -63,3 +64,19 @@ def helper(server):
         server.volume,
         server.transport,
         server.xlatorOptions)
+
+
+def test_read_write_large_file_should_maintain_consistency(helper):
+    file_id = random_str()
+    data_length = 24*1024*1024
+    data = 'A' * (data_length)
+    offset = 0
+    original_digest = md5.new(data)
+
+    assert helper.write(file_id, data, offset) == data_length
+
+    read_data = helper.read(file_id, offset, data_length)
+    assert len(read_data) == data_length
+
+    read_digest = md5.new(read_data)
+    assert read_digest.digest() == original_digest.digest()
