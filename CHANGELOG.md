@@ -4,6 +4,13 @@
 CHANGELOG
 ---------
 
+### 17.06.0-beta5
+
+* VFS-3365 Extend autocomplete and oneclient.config
+* VFS-3365 Add --force-proxy-io,--force-direct-io options
+* VFS-3365 Add no-buffer option
+
+
 ### 17.06.0-beta4
 
 * Releasing new version 17.06.0-beta4
