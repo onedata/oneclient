@@ -124,9 +124,8 @@ Options::Options()
         .withImplicitValue(true)
         .withDefaultValue(false, "false")
         .withGroup(OptionGroup::ADVANCED)
-        .withDescription("Force proxied access to storage via Oneprovider for "
-                         "all spaces. Oneclient will not attempt to detect "
-                         "direct access to storage for any space.");
+        .withDescription(
+            "Force proxied access to storage via Oneprovider for all spaces.");
 
     add<bool>()
         ->asSwitch()
@@ -135,10 +134,7 @@ Options::Options()
         .withImplicitValue(true)
         .withDefaultValue(false, "false")
         .withGroup(OptionGroup::ADVANCED)
-        .withDescription("Force direct access to storage for all spaces. If "
-                         "the connection to some storage cannot be "
-                         "established, the data in a space backed by this "
-                         "storage will not be accessible.");
+        .withDescription("Force direct access to storage for all spaces.");
 
     add<unsigned int>()
         ->withLongName("buffer-scheduler-thread-count")
