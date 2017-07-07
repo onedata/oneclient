@@ -123,14 +123,14 @@ StorageAccessManager::verifyStorageTestFile(
             auto helper = m_helperFactory.getStorageHelper(
                 helpers::POSIX_HELPER_NAME,
                 {{helpers::POSIX_HELPER_MOUNT_POINT_ARG, mountPoint.string()}},
-                m_options.isBuffered());
+                m_options.isIOBuffered());
             if (verifyStorageTestFile(helper, testFile))
                 return helper;
         }
     }
     else {
         auto helper = m_helperFactory.getStorageHelper(
-            helperParams.name(), helperParams.args(), m_options.isBuffered());
+            helperParams.name(), helperParams.args(), m_options.isIOBuffered());
         if (verifyStorageTestFile(helper, testFile))
             return helper;
     }

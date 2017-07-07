@@ -73,7 +73,7 @@ public:
      * @return Retrieved helper instance.
      */
     virtual HelperPtr get(const folly::fbstring &fileUuid,
-        const folly::fbstring &storageId, const bool forceProxyIO);
+        const folly::fbstring &storageId, bool forceProxyIO);
 
 private:
     enum class AccessType { DIRECT, PROXY };

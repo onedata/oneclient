@@ -78,8 +78,9 @@ HelpersCache::~HelpersCache()
 }
 
 HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
-    const folly::fbstring &storageId, const bool forceProxyIO)
+    const folly::fbstring &storageId, bool forceProxyIO)
 {
+    forceProxyIO |= m_options.isProxyIOForced();
     if (!forceProxyIO) {
         decltype(m_accessType)::iterator accessTypeIt;
         bool accessUnset;
@@ -96,6 +97,12 @@ HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
             return get(fileUuid, storageId, true);
     }
 
+    if (m_options.isDirectIOForced() && forceProxyIO) {
+        LOG(ERROR) << "Direct IO access forced but storage helper is not "
+                      "available";
+        throw std::errc::resource_unavailable_try_again;
+    }
+
     auto key = std::make_pair(storageId, forceProxyIO);
 
     auto helperIt = m_cache.find(key);
@@ -109,7 +116,7 @@ HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
                 storageId.toStdString(), forceProxyIO}));
 
     auto helper = m_helperFactory.getStorageHelper(
-        params.name(), params.args(), m_options.isBuffered());
+        params.name(), params.args(), m_options.isIOBuffered());
 
     m_cache[key] = helper;
     return helper;

@@ -124,7 +124,7 @@ std::shared_ptr<auth::AuthManager> getAuthManager(
         auto options = context->options();
         return std::make_shared<auth::TokenAuthManager>(context,
             options->getProviderHost().get(), options->getProviderPort(),
-            !options->getInsecure());
+            !options->isInsecure());
     }
     catch (auth::AuthException &e) {
         std::cerr << "Authentication error: '" << e.what() << "'. Aborting..."

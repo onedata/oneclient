@@ -126,7 +126,7 @@ public:
     /*
      * @return true if 'insecure' option has been provided, otherwise false.
      */
-    bool getInsecure() const;
+    bool isInsecure() const;
 
     /*
      * @return Access token if option has been provided.
@@ -142,6 +142,18 @@ public:
      * @return Log directory path.
      */
     boost::filesystem::path getLogDirPath() const;
+
+    /*
+     * @return true if 'force-proxy-io' option has been provided, otherwise
+     * false.
+     */
+    bool isProxyIOForced() const;
+
+    /*
+     * @return true if 'force-direct-io' option has been provided, otherwise
+     * false.
+     */
+    bool isDirectIOForced() const;
 
     /*
      * @return Number of parallel buffer scheduler threads.
@@ -166,7 +178,7 @@ public:
     /*
      * @return false if 'no-buffer' option has been provided, otherwise true.
      */
-    bool isBuffered() const;
+    bool isIOBuffered() const;
 
     /*
      * @return Minimum size in bytes of in-memory cache for input data blocks.

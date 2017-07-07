@@ -117,6 +117,29 @@ Options::Options()
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Specify custom path for Oneclient logs.");
 
+    add<bool>()
+        ->asSwitch()
+        .withLongName("force-proxy-io")
+        .withConfigName("force_proxy_io")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Force proxied access to storage via Oneprovider for "
+                         "all spaces. Oneclient will not attempt to detect "
+                         "direct access to storage for any space.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("force-direct-io")
+        .withConfigName("force_direct_io")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Force direct access to storage for all spaces. If "
+                         "the connection to some storage cannot be "
+                         "established, the data in a space backed by this "
+                         "storage will not be accessible.");
+
     add<unsigned int>()
         ->withLongName("buffer-scheduler-thread-count")
         .withConfigName("buffer_scheduler_thread_count")
@@ -400,7 +423,7 @@ unsigned int Options::getProviderPort() const
         .get_value_or(DEFAULT_PROVIDER_PORT);
 }
 
-bool Options::getInsecure() const
+bool Options::isInsecure() const
 {
     return get<bool>(
         {"insecure", "no-check-certificate", "no_check_certificate"})
@@ -422,6 +445,17 @@ boost::filesystem::path Options::getLogDirPath() const
 {
     return get<boost::filesystem::path>({"log-dir", "log_dir"})
         .get_value_or(m_defaultLogDirPath);
+}
+
+bool Options::isProxyIOForced() const
+{
+    return get<bool>({"force-proxy-io", "force_proxy_io"}).get_value_or(false);
+}
+
+bool Options::isDirectIOForced() const
+{
+    return get<bool>({"force-direct-io", "force_direct_io"})
+        .get_value_or(false);
 }
 
 unsigned int Options::getBufferSchedulerThreadCount() const
@@ -452,7 +486,7 @@ unsigned int Options::getStorageHelperThreadCount() const
         .get_value_or(DEFAULT_STORAGE_HELPER_THREAD_COUNT);
 }
 
-bool Options::isBuffered() const
+bool Options::isIOBuffered() const
 {
     return !get<bool>({"no-buffer", "no_buffer"}).get_value_or(false);
 }
