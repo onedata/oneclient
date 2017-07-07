@@ -112,6 +112,9 @@ _oneclient() {
                                -l --log-path \
                                -f --foreground -d --debug -s --single-thread \
                                -o --opt \
+                               --no-buffer \
+                               --force-proxy-io \
+                               --force-direct-io \
                                --buffer-scheduler-thread-count \
                                --communicator-thread-count \
                                --scheduler-thread-count \

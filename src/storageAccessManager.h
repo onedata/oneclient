@@ -10,6 +10,7 @@
 #define ONECLIENT_STORAGE_ACCESS_MANAGER_H
 
 #include "communication/communicator.h"
+#include "options/options.h"
 
 #include <boost/filesystem.hpp>
 #include <folly/FBString.h>
@@ -38,7 +39,8 @@ public:
      * Constructor.
      * @param helperFactory Instance of @c helpers::StorageHelperCreator.
      */
-    StorageAccessManager(helpers::StorageHelperCreator &helperFactory);
+    StorageAccessManager(helpers::StorageHelperCreator &helperFactory,
+        const options::Options &options);
 
     /**
      * Verifies the test file by reading it from the storage and checking its
@@ -65,6 +67,7 @@ private:
         const messages::fuse::StorageTestFile &testFile);
 
     helpers::StorageHelperCreator &m_helperFactory;
+    const options::Options &m_options;
     std::vector<boost::filesystem::path> m_mountPoints;
 };
 

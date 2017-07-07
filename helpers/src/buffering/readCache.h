@@ -140,7 +140,8 @@ private:
                 return buf;
 
             buf.append(cachedBuf->front()->clone());
-            buf.trimStart(offset - cachedOffset);
+            if (offset > cachedOffset)
+                buf.trimStart(offset - cachedOffset);
             if (buf.chainLength() > size)
                 buf.trimEnd(buf.chainLength() - size);
 

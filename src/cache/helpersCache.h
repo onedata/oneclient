@@ -12,6 +12,7 @@
 #include "communication/communicator.h"
 #include "helpers/storageHelper.h"
 #include "helpers/storageHelperCreator.h"
+#include "options/options.h"
 #include "scheduler.h"
 #include "storageAccessManager.h"
 
@@ -72,7 +73,7 @@ public:
      * @return Retrieved helper instance.
      */
     virtual HelperPtr get(const folly::fbstring &fileUuid,
-        const folly::fbstring &storageId, const bool forceProxyIO);
+        const folly::fbstring &storageId, bool forceProxyIO);
 
 private:
     enum class AccessType { DIRECT, PROXY };
@@ -93,6 +94,7 @@ private:
 
     communication::Communicator &m_communicator;
     Scheduler &m_scheduler;
+    const options::Options &m_options;
 
     asio::io_service m_helpersIoService;
     asio::executor_work<asio::io_service::executor_type> m_idleWork{

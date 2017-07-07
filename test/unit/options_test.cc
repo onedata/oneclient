@@ -87,7 +87,9 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.getForeground());
     EXPECT_EQ(false, options.getDebug());
     EXPECT_EQ(false, options.getSingleThread());
-    EXPECT_EQ(false, options.getInsecure());
+    EXPECT_EQ(false, options.isInsecure());
+    EXPECT_EQ(false, options.isProxyIOForced());
+    EXPECT_EQ(false, options.isDirectIOForced());
     EXPECT_EQ(options::DEFAULT_PROVIDER_PORT, options.getProviderPort());
     EXPECT_EQ(options::DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT,
         options.getBufferSchedulerThreadCount());
@@ -97,6 +99,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options.getSchedulerThreadCount());
     EXPECT_EQ(options::DEFAULT_STORAGE_HELPER_THREAD_COUNT,
         options.getStorageHelperThreadCount());
+    EXPECT_EQ(true, options.isIOBuffered());
     EXPECT_EQ(
         options::DEFAULT_READ_BUFFER_MIN_SIZE, options.getReadBufferMinSize());
     EXPECT_EQ(
@@ -172,14 +175,14 @@ TEST_F(OptionsTest, parseCommandLineShouldSetInsecure)
 {
     cmdArgs.insert(cmdArgs.end(), {"--insecure", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_EQ(true, options.getInsecure());
+    EXPECT_EQ(true, options.isInsecure());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetInsecureDeprecated)
 {
     cmdArgs.insert(cmdArgs.end(), {"--no_check_certificate", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_EQ(true, options.getInsecure());
+    EXPECT_EQ(true, options.isInsecure());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetConfigFilePath)
@@ -194,6 +197,20 @@ TEST_F(OptionsTest, parseCommandLineShouldSetLogDirPath)
     cmdArgs.insert(cmdArgs.end(), {"--log-dir", "somePath", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ("somePath", options.getLogDirPath());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetForceProxyIO)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--force-proxy-io", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isProxyIOForced());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetForceDirectIO)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--force-direct-io", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isDirectIOForced());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetBufferSchedulerThreadCount)
@@ -226,6 +243,13 @@ TEST_F(OptionsTest, parseCommandLineShouldSetStorageHelperThreadCount)
         cmdArgs.end(), {"--storage-helper-thread-count", "8", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(8, options.getStorageHelperThreadCount());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetNoBuffer)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--no-buffer", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(false, options.isIOBuffered());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetReadBufferMinSize)
@@ -299,8 +323,9 @@ TEST_F(OptionsTest, parseCommandLineShouldSetSingleThread)
 
 TEST_F(OptionsTest, parseCommandLineShouldSetFuseOpts)
 {
-    cmdArgs.insert(cmdArgs.end(), {"--opt", "someOpt0", "--opt", "someOpt1",
-                                      "--opt", "someOpt2", "mountpoint"});
+    cmdArgs.insert(cmdArgs.end(),
+        {"--opt", "someOpt0", "--opt", "someOpt1", "--opt", "someOpt2",
+            "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     auto opts = options.getFuseOpts();
     std::sort(opts.begin(), opts.end());
@@ -350,7 +375,7 @@ TEST_F(OptionsTest, shortCommandLineOptionsShouldBeInterchangeableWithLong)
     EXPECT_EQ(shortOpts.getProviderHost(), longOpts.getProviderHost());
     EXPECT_EQ(shortOpts.getProviderPort(), longOpts.getProviderPort());
     EXPECT_EQ(shortOpts.getAccessToken(), longOpts.getAccessToken());
-    EXPECT_EQ(shortOpts.getInsecure(), longOpts.getInsecure());
+    EXPECT_EQ(shortOpts.isInsecure(), longOpts.isInsecure());
     EXPECT_EQ(shortOpts.getConfigFilePath(), longOpts.getConfigFilePath());
     EXPECT_EQ(shortOpts.getLogDirPath(), longOpts.getLogDirPath());
     EXPECT_EQ(shortOpts.getMountpoint(), longOpts.getMountpoint());
@@ -389,7 +414,7 @@ TEST_F(OptionsTest, parseEnvironmentShouldSetInsecure)
 {
     setenv("ONECLIENT_INSECURE", "1", true);
     options.parse(envArgs.size(), envArgs.data());
-    EXPECT_EQ(true, options.getInsecure());
+    EXPECT_EQ(true, options.isInsecure());
 }
 
 TEST_F(OptionsTest, parseEnvironmentShouldSetToken)
@@ -482,7 +507,7 @@ TEST_F(OptionsTest, parseConfigFileShouldSetInsecure)
 {
     setInConfigFile("insecure", "1");
     options.parse(fileArgs.size(), fileArgs.data());
-    EXPECT_EQ(true, options.getInsecure());
+    EXPECT_EQ(true, options.isInsecure());
 }
 
 TEST_F(OptionsTest, parseConfigFileShouldSetAccessToken)
@@ -497,6 +522,20 @@ TEST_F(OptionsTest, parseConfigFileShouldSetLogDir)
     setInConfigFile("log_dir", "somePath");
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ("somePath", options.getLogDirPath());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetForceProxyIO)
+{
+    setInConfigFile("force_proxy_io", "1");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(true, options.isProxyIOForced());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetForceDirectIO)
+{
+    setInConfigFile("force_direct_io", "1");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(true, options.isDirectIOForced());
 }
 
 TEST_F(OptionsTest, parseConfigFileShouldSetBufferSchedulerThreadCount)
@@ -525,6 +564,13 @@ TEST_F(OptionsTest, parseConfigFileShouldSetStorageHelperThreadCount)
     setInConfigFile("storage_helper_thread_count", "8");
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ(8, options.getStorageHelperThreadCount());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetNoBuffer)
+{
+    setInConfigFile("no_buffer", "1");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(false, options.isIOBuffered());
 }
 
 TEST_F(OptionsTest, parseConfigFileShouldSetReadBufferMinSize)
@@ -614,8 +660,9 @@ TEST_F(OptionsTest, parseConfigFileShouldSetMountpoint)
 
 TEST_F(OptionsTest, parseShouldSetOptionsInOrder)
 {
-    cmdArgs.insert(cmdArgs.end(), {"--host", "someHost1", "--config",
-                                      configFilePath.c_str(), "mountpoint"});
+    cmdArgs.insert(cmdArgs.end(),
+        {"--host", "someHost1", "--config", configFilePath.c_str(),
+            "mountpoint"});
     setenv("ONECLIENT_PROVIDER_HOST", "someHost2", true);
     setInConfigFile("provider_host", "someHost3");
 

@@ -117,6 +117,25 @@ Options::Options()
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Specify custom path for Oneclient logs.");
 
+    add<bool>()
+        ->asSwitch()
+        .withLongName("force-proxy-io")
+        .withConfigName("force_proxy_io")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Force proxied access to storage via Oneprovider for all spaces.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("force-direct-io")
+        .withConfigName("force_direct_io")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Force direct access to storage for all spaces.");
+
     add<unsigned int>()
         ->withLongName("buffer-scheduler-thread-count")
         .withConfigName("buffer_scheduler_thread_count")
@@ -153,6 +172,16 @@ Options::Options()
             std::to_string(DEFAULT_STORAGE_HELPER_THREAD_COUNT))
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Specify number of parallel storage helper threads.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("no-buffer")
+        .withConfigName("no_buffer")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Disable in-memory cache for input/output data blocks.");
 
     add<unsigned int>()
         ->withLongName("read-buffer-min-size")
@@ -390,7 +419,7 @@ unsigned int Options::getProviderPort() const
         .get_value_or(DEFAULT_PROVIDER_PORT);
 }
 
-bool Options::getInsecure() const
+bool Options::isInsecure() const
 {
     return get<bool>(
         {"insecure", "no-check-certificate", "no_check_certificate"})
@@ -412,6 +441,17 @@ boost::filesystem::path Options::getLogDirPath() const
 {
     return get<boost::filesystem::path>({"log-dir", "log_dir"})
         .get_value_or(m_defaultLogDirPath);
+}
+
+bool Options::isProxyIOForced() const
+{
+    return get<bool>({"force-proxy-io", "force_proxy_io"}).get_value_or(false);
+}
+
+bool Options::isDirectIOForced() const
+{
+    return get<bool>({"force-direct-io", "force_direct_io"})
+        .get_value_or(false);
 }
 
 unsigned int Options::getBufferSchedulerThreadCount() const
@@ -440,6 +480,11 @@ unsigned int Options::getStorageHelperThreadCount() const
     return get<unsigned int>(
         {"storage-helper-thread-count", "storage_helper_thread_count"})
         .get_value_or(DEFAULT_STORAGE_HELPER_THREAD_COUNT);
+}
+
+bool Options::isIOBuffered() const
+{
+    return !get<bool>({"no-buffer", "no_buffer"}).get_value_or(false);
 }
 
 unsigned int Options::getReadBufferMinSize() const
