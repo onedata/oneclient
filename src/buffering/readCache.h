@@ -16,6 +16,7 @@
 #include "scheduler.h"
 
 #include <folly/FBString.h>
+#include <folly/fibers/TimedMutex.h>
 #include <folly/futures/Future.h>
 #include <folly/futures/SharedPromise.h>
 #include <folly/io/IOBufQueue.h>
@@ -30,6 +31,12 @@ namespace helpers {
 namespace buffering {
 
 class ReadCache : public std::enable_shared_from_this<ReadCache> {
+#if FOLLY_TIMEDMUTEX_IS_TEMPLATE
+    using FiberMutex = folly::fibers::TimedMutex<folly::fibers::Baton>;
+#else
+    using FiberMutex = folly::fibers::TimedMutex;
+#endif
+
     struct ReadData {
         ReadData(const off_t offset_, const std::size_t size_)
             : offset{offset_}
@@ -56,9 +63,11 @@ public:
     folly::Future<folly::IOBufQueue> read(
         const off_t offset, const std::size_t size)
     {
+        std::unique_lock<FiberMutex> lock{m_mutex};
         if (isStale()) {
-            decltype(m_cache) emptyQueue;
-            emptyQueue.swap(m_cache);
+            while (!m_cache.empty()) {
+                m_cache.pop();
+            }
             m_clear = false;
         }
 
@@ -78,7 +87,11 @@ public:
         return readFromCache(offset, size);
     }
 
-    void clear() { m_clear = true; }
+    void clear()
+    {
+        std::unique_lock<FiberMutex> lock{m_mutex};
+        m_clear = true;
+    }
 
 private:
     void prefetchIfNeeded()
@@ -140,7 +153,8 @@ private:
                 return buf;
 
             buf.append(cachedBuf->front()->clone());
-            buf.trimStart(offset - cachedOffset);
+            if (offset > cachedOffset)
+                buf.trimStart(offset - cachedOffset);
             if (buf.chainLength() > size)
                 buf.trimEnd(buf.chainLength() - size);
 
@@ -177,8 +191,9 @@ private:
 
     std::atomic<std::size_t> m_bps{0};
 
+    FiberMutex m_mutex;
     std::queue<std::shared_ptr<ReadData>> m_cache;
-    std::atomic<bool> m_clear{false};
+    bool m_clear{false};
     std::chrono::steady_clock::time_point m_lastCacheRefresh{};
 };
 
