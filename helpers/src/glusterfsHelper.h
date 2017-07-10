@@ -86,8 +86,7 @@ public:
     GlusterFSFileHandle(folly::fbstring fileId,
         std::shared_ptr<GlusterFSHelper> helper,
         std::shared_ptr<glfs_fd_t> glfsFd,
-        std::shared_ptr<folly::Executor> executor,
-        Timeout timeout = ASYNC_OPS_TIMEOUT);
+        std::shared_ptr<folly::Executor> executor);
 
     folly::Future<folly::IOBufQueue> read(
         const off_t offset, const std::size_t size) override;
@@ -107,7 +106,6 @@ private:
     std::shared_ptr<GlusterFSHelper> m_helper;
     std::shared_ptr<glfs_fd_t> m_glfsFd;
     std::shared_ptr<folly::Executor> m_executor;
-    Timeout m_timeout;
 };
 
 /**

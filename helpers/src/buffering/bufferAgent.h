@@ -116,8 +116,9 @@ public:
         return m_helper->open(fileId, flags, params).then([
             fileId, bl = m_bufferLimits, &scheduler = m_scheduler
         ](FileHandlePtr handle) {
-            return std::make_shared<BufferedFileHandle>(
+            FileHandlePtr result = std::make_shared<BufferedFileHandle>(
                 std::move(fileId), std::move(handle), bl, scheduler);
+            return result;
         });
     }
 

@@ -11,13 +11,13 @@ PKG_BUILD       ?= 1
 PKG_ID           = oneclient-$(PKG_VERSION)
 
 # Build with Ceph storge helper by default
-WITH_CEPH    = ON
+WITH_CEPH         ?= ON
 # Build with Swift storage helper by default
-WITH_SWIFT   = ON
+WITH_SWIFT        ?= ON
 # Build with S3 storage helper by default
-WITH_S3      = ON
-# Build with BoringSSL by default
-WITH_OPENSSL = OFF
+WITH_S3           ?= ON
+# Build with GlusterFS storage helper by default
+WITH_GLUSTERFS    ?= ON
 
 .PHONY: all
 all: debug test
