@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "ONECLIENT\.CONF" "5" "January 2017" "" ""
+.TH "ONECLIENT\.CONF" "5" "July 2017" "" ""
 .
 .SH "NAME"
 \fBoneclient\.conf\fR \- \fBoneclient\fR configuration file
@@ -85,6 +85,58 @@ Maximum size in bytes of in\-memory cache for output data blocks\.
 .TP
 \fBwrite_buffer_flush_delay\fR [default = 1]
 Idle period in seconds before flush of in\-memory cache for output data blocks\.
+.
+.TP
+\fBforce_proxy_io\fR [default = false]
+Force proxied access to storage via Oneprovider for all spaces\.
+.
+.TP
+\fBforce_direct_io\fR [default = false]
+Force direct access to storage for all spaces\.
+.
+.TP
+\fBbuffer_scheduler_thread_count\fR
+Specify number of parallel buffer scheduler threads\.
+.
+.TP
+\fBcommunicator_thread_count\fR
+Specify number of parallel communicator threads\.
+.
+.TP
+\fBscheduler_thread_count\fR
+Specify number of parallel scheduler threads\.
+.
+.TP
+\fBstorage_helper_thread_count\fR
+Specify number of parallel storage helper threads\.
+.
+.TP
+\fBno_buffer\fR [default = false]
+Disable in\-memory cache for input/output data blocks\.
+.
+.TP
+\fBread_buffer_min_size\fR
+Specify minimum size in bytes of in\-memory cache for input data blocks\.
+.
+.TP
+\fBread_buffer_max_size\fR
+Specify maximum size in bytes of in\-memory cache for input data blocks\.
+.
+.TP
+\fBread_buffer_prefetch_duration\fR
+Specify read ahead period in seconds of in\-memory cache for input data blocks\.
+.
+.TP
+\fBwrite_buffer_min_size\fR
+Specify minimum size in bytes of in\-memory cache for output data blocks\.
+.
+.TP
+\fBwrite_buffer_max_size\fR
+Specify maximum size in bytes of in\-memory cache for output data blocks\.
+.
+.TP
+\fBwrite_buffer_flush_delay\fR
+Specify idle period in seconds before flush of in\-memory cache for output data blocks\.
 .
 .TP
 \fBfuse_foreground\fR [default = false]
