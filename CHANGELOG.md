@@ -4,6 +4,17 @@
 CHANGELOG
 ---------
 
+### 17.06.0-beta6
+
+* VFS-3412 Updated man pages
+* VFS-3412 Updated README
+* VFS-3365 Extend autocomplete and oneclient.config
+* VFS-3365 Add --force-proxy-io,--force-direct-io options
+* VFS-3365 Add no-buffer option
+* VFS-3365 Use debug level for fs subscription logs
+* VFS-3365 Fix buffer trim in read cache
+
+
 ### 17.06.0-beta4
 
 * Releasing new version 17.06.0-beta4
