@@ -11,6 +11,9 @@
 
 #include "proxyIORequest.h"
 
+#include <folly/FBString.h>
+#include <folly/FBVector.h>
+
 #include <sys/types.h>
 
 #include <cstdint>
@@ -23,16 +26,16 @@ namespace proxyio {
 
 class RemoteWrite : public ProxyIORequest {
 public:
-    RemoteWrite(std::unordered_map<std::string, std::string> parameters,
-        std::string storageId, std::string fileId,
-        std::vector<std::pair<off_t, std::string>> data);
+    RemoteWrite(std::unordered_map<folly::fbstring, folly::fbstring> parameters,
+        folly::fbstring storageId, folly::fbstring fileId,
+        folly::fbvector<std::pair<off_t, folly::fbstring>> data);
 
     std::string toString() const override;
 
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    std::vector<std::pair<off_t, std::string>> m_data;
+    folly::fbvector<std::pair<off_t, folly::fbstring>> m_data;
 };
 
 } // namespace proxyio

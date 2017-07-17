@@ -1,6 +1,6 @@
 include_directories(SYSTEM
-    ${ETLS_DIR}/deps/gmock/include
-    ${ETLS_DIR}/deps/gtest/include)
+    ${HELPERS_DIR}/deps/gmock/include
+    ${HELPERS_DIR}/deps/gtest/include)
 
 file(COPY ${PROJECT_SOURCE_DIR}/helpers/appmock DESTINATION ${PROJECT_BINARY_DIR})
 file(COPY ${PROJECT_SOURCE_DIR}/helpers/bamboos DESTINATION ${PROJECT_BINARY_DIR})
@@ -24,6 +24,13 @@ set(PROTO_DIR ${PROJECT_SOURCE_DIR}/helpers/clproto/proto)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/proto)
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/proto/__init__.py "")
 file(GLOB PROTO_FILES ${PROTO_DIR}/*.proto)
+
+if(APPLE AND Protobuf_PROTOC_EXECUTABLE)
+  # On OSX cmake generates the protoc executable variable with small caps
+  # name so we have to manually set the capitalized version
+  set(PROTOBUF_PROTOC_EXECUTABLE ${Protobuf_PROTOC_EXECUTABLE})
+endif(APPLE AND Protobuf_PROTOC_EXECUTABLE)
+
 add_custom_target(pythonProto
     COMMAND ${PROTOBUF_PROTOC_EXECUTABLE} --python_out ${CMAKE_CURRENT_BINARY_DIR}/proto -I ${PROTO_DIR} ${PROTO_FILES}
     COMMENT "Running Python protocol buffer compiler for integration tests"

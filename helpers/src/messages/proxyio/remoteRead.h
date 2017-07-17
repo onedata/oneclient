@@ -11,6 +11,9 @@
 
 #include "proxyIORequest.h"
 
+#include <folly/FBString.h>
+#include <folly/FBVector.h>
+
 #include <sys/types.h>
 
 #include <cstdint>
@@ -22,9 +25,9 @@ namespace proxyio {
 
 class RemoteRead : public ProxyIORequest {
 public:
-    RemoteRead(std::unordered_map<std::string, std::string> parameters,
-               std::string storageId, std::string fileId, const off_t offset,
-               const std::size_t size);
+    RemoteRead(std::unordered_map<folly::fbstring, folly::fbstring> parameters,
+        folly::fbstring storageId, folly::fbstring fileId, const off_t offset,
+        const std::size_t size);
 
     std::string toString() const override;
 

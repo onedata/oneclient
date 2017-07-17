@@ -16,8 +16,8 @@ diff -u a/oneclient.spec b/oneclient.spec
  
  
  %build
--%cmake . -DBUILD_INTEGRATION_TESTS=Off -DBUILD_SHARED_LIBS=Off
-+%cmake . -DBUILD_INTEGRATION_TESTS=Off -DBUILD_SHARED_LIBS=Off \
+-%cmake . -DCMAKE_BUILD_TYPE=Release -DBUILD_INTEGRATION_TESTS=Off -DBUILD_SHARED_LIBS=Off
++%cmake . -DCMAKE_BUILD_TYPE=Release -DBUILD_INTEGRATION_TESTS=Off -DBUILD_SHARED_LIBS=Off \
 +         -DSTATIC_LIBSTDCPP=On -DSTATIC_BOOST=On -DSTATIC_PROTOBUF=On
  make %{?_smp_mflags} oneclient
  

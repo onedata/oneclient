@@ -16,6 +16,7 @@
 #include "messages/handshakeResponse.h"
 
 #include <boost/optional.hpp>
+#include <folly/futures/Future.h>
 
 #include <chrono>
 #include <future>
@@ -27,13 +28,6 @@
 #include <unordered_map>
 
 namespace one {
-
-namespace communication {
-namespace cert {
-class CertificateData;
-}
-}
-
 namespace client {
 
 class Context;
@@ -69,10 +63,11 @@ public:
      * @see one::communication::createCommunicator
      * @param dataPoolSize The size of data pool to be created.
      * @param metaPoolSize The size of meta pool to be created.
-     * @return A new instance of @c Communicator .
+     * @return A new instance of @c Communicator and a future for handshake
+     * completion.
      */
     virtual std::tuple<std::shared_ptr<communication::Communicator>,
-        std::future<void>>
+        folly::Future<folly::Unit>>
     createCommunicator(const unsigned int poolSize, std::string sessionId,
         std::function<std::error_code(messages::HandshakeResponse)>
             onHandshakeResponse) = 0;
@@ -97,29 +92,6 @@ protected:
 };
 
 /**
- * The CertificateAuthManager class is responsible for setting up user
- * authentication using X509 certificates.
- */
-class CertificateAuthManager : public AuthManager {
-public:
-    /**
-     * @copydoc AuthManager::AuthManager()
-     * @param debugGsi Determines whether to enable more detailed (debug) logs.
-     */
-    CertificateAuthManager(std::weak_ptr<Context> context,
-        std::string defaultHostname, const unsigned int port,
-        const bool checkCertificate, const bool debugGsi);
-
-    std::tuple<std::shared_ptr<communication::Communicator>, std::future<void>>
-    createCommunicator(const unsigned int poolSize, std::string sessionId,
-        std::function<std::error_code(messages::HandshakeResponse)>
-            onHandshakeResponse) override;
-
-private:
-    std::shared_ptr<communication::cert::CertificateData> m_certificateData;
-};
-
-/**
  * The TokenAuthManager class is responsible for setting up user authentication
  * using a macaroon token-based scheme.
  */
@@ -131,7 +103,8 @@ public:
 
     ~TokenAuthManager();
 
-    std::tuple<std::shared_ptr<communication::Communicator>, std::future<void>>
+    std::tuple<std::shared_ptr<communication::Communicator>,
+        folly::Future<folly::Unit>>
     createCommunicator(const unsigned int poolSize, std::string sessionId,
         std::function<std::error_code(messages::HandshakeResponse)>
             onHandshakeResponse) override;

@@ -79,7 +79,7 @@ if (WIN32)
 endif (WIN32)
 
 if (UNIX)
-    if (APPLE)
+    if (TBB_FRAMEWORK)
         # MAC
         set(_TBB_DEFAULT_INSTALL_DIR "/Library/Frameworks/Intel_TBB.framework/Versions")
         # libs: libtbb.dylib, libtbbmalloc.dylib, *_debug
@@ -100,7 +100,7 @@ if (UNIX)
         elseif(NOT TBB_ARCHITECTURE)
             set(_TBB_ARCHITECTURE ${TBB_ARCHITECTURE})
         endif(NOT TBB_ARCHITECTURE)
-    else (APPLE)
+    else (TBB_FRAMEWORK)
         # LINUX
         set(_TBB_DEFAULT_INSTALL_DIR "/opt/intel/tbb" "/usr/local/include" "/usr/include")
         set(_TBB_LIB_NAME "tbb")
@@ -112,7 +112,7 @@ if (UNIX)
         # has itanium/*
         set(_TBB_COMPILER ${TBB_COMPILER})
         set(_TBB_ARCHITECTURE ${TBB_ARCHITECTURE})
-    endif (APPLE)
+    endif (TBB_FRAMEWORK)
 endif (UNIX)
 
 if (CMAKE_SYSTEM MATCHES "SunOS.*")

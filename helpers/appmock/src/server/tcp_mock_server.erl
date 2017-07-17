@@ -90,7 +90,25 @@ start_link() ->
 -spec healthcheck() -> ok | error.
 healthcheck() ->
     {ok, Timeout} = application:get_env(?APP_NAME, nagios_healthcheck_timeout),
-    gen_server:call(?SERVER, healthcheck, Timeout).
+    Endpoints = gen_server:call(?SERVER, get_all_endpoints, Timeout),
+    try
+        % Check connectivity to all TCP listeners
+        lists:foreach(
+            fun(#endpoint{port = Port, use_ssl = UseSSL}) ->
+                case UseSSL of
+                    true ->
+                        {ok, Socket} = ssl:connect("127.0.0.1", Port, []),
+                        ssl:close(Socket);
+                    false ->
+                        {ok, Socket} = gen_tcp:connect("127.0.0.1", Port, []),
+                        gen_tcp:close(Socket)
+                end
+            end, Endpoints),
+        ok
+    catch T:M ->
+        ?error_stacktrace("Error during ~p healthcheck- ~p:~p", [?MODULE, T, M]),
+        error
+    end.
 
 
 %%--------------------------------------------------------------------
@@ -210,36 +228,16 @@ init([]) ->
     {noreply, NewState :: #state{}, timeout() | hibernate} |
     {stop, Reason :: term(), Reply :: term(), NewState :: #state{}} |
     {stop, Reason :: term(), NewState :: #state{}}).
-handle_call(healthcheck, _From, State) ->
-    Reply =
-        try
-            % Check connectivity to all TCP listeners
-            lists:foreach(
-                fun(#endpoint{port = Port, use_ssl = UseSSL}) ->
-                    case UseSSL of
-                        true ->
-                            {ok, Socket} = etls:connect("127.0.0.1", Port, []),
-                            etls:close(Socket);
-                        false ->
-                            {ok, Socket} = gen_tcp:connect("127.0.0.1", Port, []),
-                            gen_tcp:close(Socket)
-                    end
-                end, get_all_endpoints(State)),
-            ok
-        catch T:M ->
-            ?error_stacktrace("Error during ~p healthcheck- ~p:~p", [?MODULE, T, M]),
-            error
-        end,
-    {reply, Reply, State};
-
+handle_call(get_all_endpoints, _From, State) ->
+    {reply, get_all_endpoints(State), State};
 
 handle_call({report_connection_state, Port, Pid, IsAlive}, _From, State) ->
     Endpoint = get_endpoint(Port, State),
     Connectiond = Endpoint#endpoint.connections,
     NewConnections = case IsAlive of
-                         true -> [Pid | Connectiond];
-                         false -> lists:delete(Pid, Connectiond)
-                     end,
+        true -> [Pid | Connectiond];
+        false -> lists:delete(Pid, Connectiond)
+    end,
     {reply, ok, update_endpoint(Endpoint#endpoint{connections = NewConnections}, State)};
 
 handle_call({register_packet, Port, Data}, _From, State) ->
@@ -249,9 +247,9 @@ handle_call({register_packet, Port, Data}, _From, State) ->
     MsgHistory = Endpoint#endpoint.msg_history,
     HistoryEnabled = Endpoint#endpoint.history_enabled,
     NewHistory = case HistoryEnabled of
-                     true -> append_to_history(Data, MsgHistory);
-                     false -> MsgHistory
-                 end,
+        true -> append_to_history(Data, MsgHistory);
+        false -> MsgHistory
+    end,
     NewEndpoint = Endpoint#endpoint{
         msg_count_per_msg = dict:update(Data, fun(Old) ->
             Old + 1 end, 1, MsgCountPerMsg),
@@ -262,66 +260,66 @@ handle_call({register_packet, Port, Data}, _From, State) ->
 
 handle_call({tcp_server_specific_message_count, Port, Data}, _From, State) ->
     Reply = case get_endpoint(Port, State) of
-                undefined ->
-                    {error, wrong_endpoint};
-                Endpoint ->
-                    case dict:find(Data, Endpoint#endpoint.msg_count_per_msg) of
-                        {ok, Count} ->
-                            {ok, Count};
-                        error ->
-                            {ok, 0}
-                    end
+        undefined ->
+            {error, wrong_endpoint};
+        Endpoint ->
+            case dict:find(Data, Endpoint#endpoint.msg_count_per_msg) of
+                {ok, Count} ->
+                    {ok, Count};
+                error ->
+                    {ok, 0}
+            end
 
-            end,
+    end,
     {reply, Reply, State};
 
 handle_call({tcp_server_all_messages_count, Port}, _From, State) ->
     Reply = case get_endpoint(Port, State) of
-                undefined ->
-                    {error, wrong_endpoint};
-                Endpoint ->
-                    {ok, Endpoint#endpoint.msg_count}
-            end,
+        undefined ->
+            {error, wrong_endpoint};
+        Endpoint ->
+            {ok, Endpoint#endpoint.msg_count}
+    end,
     {reply, Reply, State};
 
 handle_call({tcp_server_send, Port, Data, Count}, _From, State) ->
     Reply = case get_endpoint(Port, State) of
-                undefined ->
-                    {error, wrong_endpoint};
-                Endpoint ->
-                    Timeout = ?SEND_TIMEOUT_BASE + Count * ?SEND_TIMEOUT_PER_MSG,
-                    Result = utils:pmap(
-                        fun(Pid) ->
-                            Pid ! {self(), send, Data, Count},
-                            receive
-                                {Pid, ok} -> ok
-                            after
-                                Timeout -> error
-                            end
-                        end, Endpoint#endpoint.connections),
-                    % If all pids reported back, sending succeded
-                    case lists:duplicate(length(Result), ok) of
-                        Result ->
-                            true;
-                        SomethingElse ->
-                            ?error("failed_to_send_data: ~p", [SomethingElse]),
-                            {error, failed_to_send_data}
+        undefined ->
+            {error, wrong_endpoint};
+        Endpoint ->
+            Timeout = ?SEND_TIMEOUT_BASE + Count * ?SEND_TIMEOUT_PER_MSG,
+            Result = utils:pmap(
+                fun(Pid) ->
+                    Pid ! {self(), send, Data, Count},
+                    receive
+                        {Pid, ok} -> ok
+                    after
+                        Timeout -> error
                     end
-            end,
+                end, Endpoint#endpoint.connections),
+            % If all pids reported back, sending succeded
+            case lists:duplicate(length(Result), ok) of
+                Result ->
+                    true;
+                SomethingElse ->
+                    ?error("failed_to_send_data: ~p", [SomethingElse]),
+                    {error, failed_to_send_data}
+            end
+    end,
     {reply, Reply, State};
 
 handle_call({tcp_mock_history, Port}, _From, State) ->
     Reply = case get_endpoint(Port, State) of
-                undefined ->
-                    {error, wrong_endpoint};
-                Endpoint ->
-                    case Endpoint#endpoint.history_enabled of
-                        false ->
-                            {error, counter_mode};
-                        true ->
-                            {ok, get_history(Endpoint#endpoint.msg_history)}
-                    end
-            end,
+        undefined ->
+            {error, wrong_endpoint};
+        Endpoint ->
+            case Endpoint#endpoint.history_enabled of
+                false ->
+                    {error, counter_mode};
+                true ->
+                    {ok, get_history(Endpoint#endpoint.msg_history)}
+            end
+    end,
     {reply, Reply, State};
 
 handle_call(reset_tcp_mock_history, _From, State) ->
@@ -338,11 +336,11 @@ handle_call(reset_tcp_mock_history, _From, State) ->
 
 handle_call({tcp_server_connection_count, Port}, _From, State) ->
     Reply = case get_endpoint(Port, State) of
-                undefined ->
-                    {error, wrong_endpoint};
-                Endpoint ->
-                    {ok, length(Endpoint#endpoint.connections)}
-            end,
+        undefined ->
+            {error, wrong_endpoint};
+        Endpoint ->
+            {ok, length(Endpoint#endpoint.connections)}
+    end,
     {reply, Reply, State};
 
 handle_call(_Request, _From, State) ->
@@ -435,23 +433,23 @@ start_listeners(AppDescriptionModule) ->
             % Generate listener name
             ListenerID = "tcp" ++ integer_to_list(Port),
             Protocol = case UseSSL of
-                           true -> ranch_etls;
-                           false -> ranch_tcp
-                       end,
+                true -> ranch_ssl;
+                false -> ranch_tcp
+            end,
             Opts = case UseSSL of
-                       true ->
-                           {ok, CaCertFile} = application:get_env(?APP_NAME, ca_cert_file),
-                           {ok, CertFile} = application:get_env(?APP_NAME, cert_file),
-                           {ok, KeyFile} = application:get_env(?APP_NAME, key_file),
-                           [
-                               {port, Port},
-                               {cacertfile, CaCertFile},
-                               {certfile, CertFile},
-                               {keyfile, KeyFile}
-                           ];
-                       false ->
-                           [{port, Port}]
-                   end,
+                true ->
+                    {ok, CaCertFile} = application:get_env(?APP_NAME, ca_cert_file),
+                    {ok, CertFile} = application:get_env(?APP_NAME, cert_file),
+                    {ok, KeyFile} = application:get_env(?APP_NAME, key_file),
+                    [
+                        {port, Port},
+                        {cacertfile, CaCertFile},
+                        {certfile, CertFile},
+                        {keyfile, KeyFile}
+                    ];
+                false ->
+                    [{port, Port}]
+            end,
             {ok, _} = ranch:start_listener(ListenerID, ?NUMBER_OF_ACCEPTORS,
                 Protocol, Opts, tcp_mock_handler, [Port, Packet]),
             HistoryEnabled = case Type of history -> true; _ -> false end,

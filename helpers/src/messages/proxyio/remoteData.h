@@ -35,7 +35,7 @@ public:
     /**
      * @return The data.
      */
-    asio::const_buffer data() const { return asio::buffer(m_data); }
+    const std::string &data() const { return m_data; }
 
     /**
      * @return The data, mutable.

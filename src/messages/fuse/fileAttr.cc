@@ -35,11 +35,9 @@ FileAttr::FileAttr(const one::clproto::FileAttr &message)
     deserialize(message);
 }
 
-const FileAttr::Key &FileAttr::key() const { return m_uuid; }
+const folly::fbstring &FileAttr::uuid() const { return m_uuid; }
 
-const std::string &FileAttr::uuid() const { return m_uuid; }
-
-void FileAttr::uuid(const std::string uuid_) { m_uuid = uuid_; }
+void FileAttr::setUuid(folly::fbstring uuid_) { m_uuid.swap(uuid_); }
 
 mode_t FileAttr::mode() const { return m_mode; }
 
@@ -85,21 +83,9 @@ void FileAttr::ctime(std::chrono::system_clock::time_point time)
 
 FileAttr::FileType FileAttr::type() const { return m_type; }
 
-boost::optional<off_t> FileAttr::size() const { return m_size; }
+folly::Optional<off_t> FileAttr::size() const { return m_size; }
 
 void FileAttr::size(const off_t size_) { m_size = size_; }
-
-void FileAttr::aggregate(FileAttrPtr fileAttr)
-{
-    m_mode = fileAttr->m_mode;
-    m_uid = fileAttr->m_uid;
-    m_gid = fileAttr->m_gid;
-    m_atime = fileAttr->m_atime;
-    m_mtime = fileAttr->m_mtime;
-    m_ctime = fileAttr->m_ctime;
-    m_size = fileAttr->m_size;
-    m_type = fileAttr->m_type;
-}
 
 std::string FileAttr::toString() const
 {
@@ -111,8 +97,8 @@ std::string FileAttr::toString() const
            << ", ctime: " << std::chrono::system_clock::to_time_t(m_ctime)
            << ", size: ";
 
-    if (m_size.is_initialized())
-        stream << m_size.get();
+    if (m_size)
+        stream << *m_size;
     else
         stream << "unset";
 
@@ -136,6 +122,7 @@ std::string FileAttr::toString() const
 void FileAttr::deserialize(const ProtocolMessage &message)
 {
     m_uuid = message.uuid();
+    m_parentUuid = message.parent_uuid();
     m_name = message.name();
     m_mode = static_cast<mode_t>(message.mode());
     m_uid = static_cast<uid_t>(message.uid());

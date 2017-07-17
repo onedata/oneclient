@@ -1,3 +1,5 @@
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+
 option(BUILD_NIF_LIBS "Build the nif library" OFF)
 option(STATIC_PROTOBUF "Link protobuf statically" OFF)
 
@@ -34,9 +36,14 @@ set(PROJECT_SOURCES
 
 
 if(BUILD_NIF_LIBS)
+  # Setup Erlang
+  find_package(Erlang REQUIRED)
+
   add_library(messages.nif SHARED EXCLUDE_FROM_ALL build/messages.nif.cc $<TARGET_OBJECTS:clproto>)
   target_link_libraries(messages.nif protobuf)
   set_target_properties(messages.nif PROPERTIES PREFIX "" SUFFIX .so)
+
+  target_include_directories(messages.nif SYSTEM PRIVATE ${ERLANG_ERTS_INCLUDE_PATH})
 
   if(APPLE)
   set_target_properties(messages.nif PROPERTIES

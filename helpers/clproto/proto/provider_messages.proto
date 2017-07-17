@@ -6,6 +6,7 @@
  * 'LICENSE.txt'
  */
 
+syntax = "proto2";
 package one.clproto;
 
 import "common_messages.proto";
@@ -15,10 +16,6 @@ message ProviderRequest {
     required bytes context_guid = 1;
 
     oneof provider_request { // list of all provider requests
-        GetXattr get_xattr = 2;
-        SetXattr set_xattr = 3;
-        RemoveXattr remove_xattr = 4;
-        ListXattr list_xattr = 5;
         GetParent get_parent = 6;
         GetAcl get_acl = 7;
         SetAcl set_acl = 8;
@@ -30,32 +27,15 @@ message ProviderRequest {
         GetMimetype get_mimetype = 14;
         SetMimetype set_mimetype = 15;
         GetFilePath get_file_path = 16;
-        FSync fsync = 17;
         GetFileDistribution get_file_distribution = 18;
         ReplicateFile replicate_file = 19;
         ReadMetadata read_metadata = 20;
         WriteMetadata write_metadata = 21;
+        CheckPerms check_perms = 22;
+        CreateShare create_share = 23;
+        RemoveShare remove_share = 24;
+        RemoveMetadata remove_metadata = 25;
     }
-}
-
-message Xattr {
-    required bytes name = 1;
-    required bytes value = 2;
-}
-
-message GetXattr {
-    required bytes name = 1;
-}
-
-message SetXattr {
-    required Xattr xattr = 1;
-}
-
-message RemoveXattr {
-    required bytes name = 1;
-}
-
-message ListXattr {
 }
 
 message GetParent {
@@ -99,9 +79,6 @@ message SetMimetype {
 message GetFilePath {
 }
 
-message FSync {
-}
-
 message GetFileDistribution {
 }
 
@@ -118,6 +95,7 @@ message Metadata {
 message ReadMetadata {
     required bytes type = 1;
     repeated bytes names = 2;
+    optional bool inherited = 3 [default = false];
 }
 
 message WriteMetadata {
@@ -125,13 +103,26 @@ message WriteMetadata {
     repeated bytes names = 2;
 }
 
+message CheckPerms {
+    required OpenFlag flag = 1;
+}
+
+message CreateShare {
+    required bytes name = 1;
+}
+
+message RemoveShare {
+}
+
+message RemoveMetadata {
+    required bytes type = 1;
+}
+
 // Generic provider response
 message ProviderResponse {
     required Status status = 1;
 
     oneof provider_response { // list of all provider responses
-        Xattr xattr = 2;
-        XattrList xattr_list = 3;
         TransferEncoding transfer_encoding = 4;
         CdmiCompletionStatus cdmi_completion_status = 5;
         Mimetype mimetype = 6;
@@ -140,11 +131,8 @@ message ProviderResponse {
         FilePath file_path = 9;
         FileDistribution file_distribution = 10;
         Metadata metadata = 11;
+        Share share = 12;
     }
-}
-
-message XattrList {
-    repeated bytes names = 1;
 }
 
 message TransferEncoding {
@@ -170,4 +158,9 @@ message ProviderFileDistribution {
 
 message FileDistribution {
     repeated ProviderFileDistribution provider_file_distributions = 1;
+}
+
+message Share {
+    required bytes share_id = 1;
+    required bytes share_file_uuid = 2;
 }

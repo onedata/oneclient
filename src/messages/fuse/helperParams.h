@@ -11,6 +11,8 @@
 
 #include "fuseResponse.h"
 
+#include <folly/FBString.h>
+
 #include <memory>
 #include <string>
 #include <unordered_map>
@@ -51,18 +53,18 @@ public:
      * @param name Storage helper name.
      * @param args Storage helper arguments.
      */
-    HelperParams(
-        std::string name, std::unordered_map<std::string, std::string> args);
+    HelperParams(folly::fbstring name,
+        std::unordered_map<folly::fbstring, folly::fbstring> args);
 
     /**
      * @return Helper's name.
      */
-    const std::string &name() const { return m_name; }
+    const folly::fbstring &name() const { return m_name; }
 
     /**
      * @return Helper's arguments.
      */
-    const std::unordered_map<std::string, std::string> &args() const
+    const std::unordered_map<folly::fbstring, folly::fbstring> &args() const
     {
         return m_args;
     }
@@ -72,8 +74,8 @@ public:
 private:
     void deserialize(ProtocolMessage &message);
 
-    std::string m_name;
-    std::unordered_map<std::string, std::string> m_args;
+    folly::fbstring m_name;
+    std::unordered_map<folly::fbstring, folly::fbstring> m_args;
 };
 
 } // namespace fuse

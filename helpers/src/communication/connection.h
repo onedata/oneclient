@@ -9,8 +9,8 @@
 #ifndef HELPERS_COMMUNICATION_CONNECTION_H
 #define HELPERS_COMMUNICATION_CONNECTION_H
 
-#include "tlsApplication.hpp"
-#include "tlsSocket.hpp"
+#include "etls/tlsApplication.h"
+#include "etls/tlsSocket.h"
 
 namespace one {
 namespace communication {

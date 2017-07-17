@@ -6,6 +6,7 @@
  * 'LICENSE.txt'
  */
 
+syntax = "proto2";
 package one.clproto;
 
 import "common_messages.proto";
@@ -14,12 +15,6 @@ enum FileType {
     REG = 1; // regular file
     DIR = 2; // directory
     LNK = 3; // symbolic link
-}
-
-enum FileLocationFlags {
-    READ = 1;
-    WRITE = 2;
-    READ_WRITE = 3;
 }
 
 // Generic FUSE client request
@@ -49,7 +44,7 @@ message CreateStorageTestFile {
 
 message VerifyStorageTestFile {
     required bytes storage_id   = 1;
-    required bytes space_uuid   = 2;
+    required bytes space_id     = 2;
     required bytes file_id      = 3;
     required bytes file_content = 4;
 }
@@ -60,22 +55,34 @@ message FileRequest {
 
     oneof file_request { // list of all FUSE client file requests
         GetFileAttr get_file_attr = 2;
-        GetFileChildren get_file_children = 3;
-        CreateDir create_dir = 4;
-        DeleteFile delete_file = 5;
-        UpdateTimes update_times = 6;
-        ChangeMode change_mode = 7;
-        Rename rename = 8;
-        GetNewFileLocation get_new_file_location = 9;
-        GetFileLocation get_file_location = 10;
-        Release release = 11;
-        Truncate truncate = 12;
-        SynchronizeBlock synchronize_block = 13;
-        SynchronizeBlockAndComputeChecksum synchronize_block_and_compute_checksum = 14;
+        GetChildAttr get_child_attr = 3;
+        GetFileChildren get_file_children = 4;
+        CreateDir create_dir = 5;
+        DeleteFile delete_file = 6;
+        UpdateTimes update_times = 7;
+        ChangeMode change_mode = 8;
+        Rename rename = 9;
+        CreateFile create_file = 10;
+        MakeFile make_file = 11;
+        OpenFile open_file = 12;
+        GetFileLocation get_file_location = 13;
+        Release release = 14;
+        Truncate truncate = 15;
+        SynchronizeBlock synchronize_block = 16;
+        SynchronizeBlockAndComputeChecksum synchronize_block_and_compute_checksum = 17;
+        GetXattr get_xattr = 18;
+        SetXattr set_xattr = 19;
+        RemoveXattr remove_xattr = 20;
+        ListXattr list_xattr = 21;
+        FSync fsync = 22;
     }
 }
 
 message GetFileAttr {
+}
+
+message GetChildAttr {
+    required bytes name = 1;
 }
 
 message GetFileChildren {
@@ -103,19 +110,26 @@ message ChangeMode {
 }
 
 message Rename {
-    required bytes target_path = 1;
+    required bytes target_parent_uuid = 1;
+    required bytes target_name = 2;
 }
 
-message GetNewFileLocation {
+message CreateFile {
     required bytes name = 1;
     required uint32 mode = 2;
-    optional FileLocationFlags flags = 3 [default = READ_WRITE];
-    optional bool create_handle = 4 [default = true];
+    required OpenFlag flag = 3 [default = READ_WRITE];
+}
+
+message MakeFile {
+    required bytes name = 1;
+    required uint32 mode = 2;
+}
+
+message OpenFile {
+    required OpenFlag flag = 1 [default = READ_WRITE];
 }
 
 message GetFileLocation {
-    optional FileLocationFlags flags = 1 [default = READ_WRITE];
-    optional bool create_handle = 2 [default = true];
 }
 
 message Release {
@@ -135,6 +149,36 @@ message SynchronizeBlockAndComputeChecksum {
     required FileBlock block = 1;
 }
 
+message Xattr {
+    required bytes name = 1;
+    required bytes value = 2;
+}
+
+message GetXattr {
+    required bytes name = 1;
+    optional bool inherited = 2 [default = false];
+}
+
+message SetXattr {
+    required Xattr xattr = 1;
+    optional bool create = 2 [default = false];
+    optional bool replace = 3 [default = false];
+}
+
+message RemoveXattr {
+    required bytes name = 1;
+}
+
+message ListXattr {
+    optional bool inherited = 1 [default = false];
+    optional bool show_internal = 2 [default = true];
+}
+
+message FSync {
+    optional bool data_only = 1 [default = false];
+    optional bytes handle_id = 2;
+}
+
 // Generic FUSE client response
 message FuseResponse {
     required Status status = 1;
@@ -146,8 +190,13 @@ message FuseResponse {
         HelperParams helper_params = 5;
         StorageTestFile storage_test_file = 6;
         Dir dir = 7;
-        Checksum checksum = 8;
+        SyncResponse sync_response = 8;
         FileRenamed file_renamed = 9;
+        FileCreated file_created = 10;
+        FileOpened file_opened = 11;
+        Uuid uuid = 12;
+        Xattr xattr = 13;
+        XattrList xattr_list = 14;
     }
 }
 
@@ -162,6 +211,10 @@ message FileAttr {
     required int64 ctime = 8;
     required FileType type = 9;
     optional int64 size = 10 [default = 0];
+    repeated bytes shares = 11;
+    required bytes provider_id = 12;
+    required bytes owner_id = 13;
+    optional bytes parent_uuid = 14;
 }
 
 message FileChildren {
@@ -175,7 +228,16 @@ message FileLocation {
     required bytes storage_id = 4;
     required bytes file_id = 5;
     repeated FileBlock blocks = 6;
-    optional bytes handle_id = 7;
+}
+
+message FileCreated {
+    required bytes handle_id = 1;
+    required FileAttr file_attr = 2;
+    required FileLocation file_location = 3;
+}
+
+message FileOpened {
+    required bytes handle_id = 1;
 }
 
 message HelperArg {
@@ -190,17 +252,26 @@ message HelperParams {
 
 message StorageTestFile {
     required HelperParams helper_params = 1;
-    required bytes        space_uuid    = 2;
+    required bytes        space_id      = 2;
     required bytes        file_id       = 3;
     required bytes        file_content  = 4;
 }
 
-message Checksum {
-    required bytes value = 1;
+message SyncResponse {
+    required bytes checksum = 1;
+    required FileLocation file_location = 2;
 }
 
 message FileRenamed {
-    required bytes new_uuid = 1;                 // new UUID of renamed file
+    required bytes new_uuid = 1;
     repeated FileRenamedEntry child_entries = 2; // entries for children of
                                                  // renamed file
+}
+
+message Uuid {
+    required bytes uuid = 1;
+}
+
+message XattrList {
+    repeated bytes names = 1;
 }

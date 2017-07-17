@@ -13,9 +13,6 @@
 #include "fuseResponse.h"
 
 namespace one {
-namespace clproto {
-class FileRenamed;
-}
 namespace messages {
 namespace fuse {
 
@@ -25,10 +22,6 @@ namespace fuse {
  */
 class FileRenamed : public FuseResponse {
 public:
-    using ProtocolMessage = clproto::FileRenamed;
-
-    FileRenamed() = default;
-
     /**
      * Constructor.
      * @param serverMessage Protocol Buffers message representing

@@ -4,6 +4,92 @@
 CHANGELOG
 ---------
 
+### 17.06.0-beta6
+
+* VFS-3412 Updated man pages
+* VFS-3412 Updated README
+* VFS-3365 Extend autocomplete and oneclient.config
+* VFS-3365 Add --force-proxy-io,--force-direct-io options
+* VFS-3365 Add no-buffer option
+* VFS-3365 Use debug level for fs subscription logs
+* VFS-3365 Fix buffer trim in read cache
+
+
+### 17.06.0-beta4
+
+* Releasing new version 17.06.0-beta4
+
+
+### 17.06.0-beta3
+
+* Releasing new version 17.06.0-beta3
+
+
+### 17.06.0-beta2
+
+* Releasing new version 17.06.0-beta2
+* Add support for GlusterFS
+
+### 3.0.0-rc16
+
+* VFS-3184 Fsync file on release.
+* VFS-3184 Extend oneclient fsync with flushing events and fsyncing files on provider side.
+* VFS-3184 Add flush of all event streams
+* VFS-3233 Add support for sig v2 to AWS S3 helper
+* Moved extended attribute messages from provider to fuse namespace
+* Added extended attributes support
+
+
+### 3.0.0-rc15
+
+* Disable storage helpers buffering
+* VFS-3233 Add support for sig v2 to AWS S3 helper
+* VFS-3159 Pinned Folly version to 2016.12.19.00_3 for OSX builds
+
+
+### 3.0.0-rc14
+
+* Change inodeCache from hashed index to ordered index, due to segfault during equal_range operation in rename.
+
+
+### 3.0.0-rc13
+
+* Releasing new version 3.0.0-rc13
+
+
+### 3.0.0-rc12
+
+* VFS-3065 Extend list of deprecated options
+* Ported S3 and Swift helpers to OSX
+* Disabled directIO detection on macOS
+* Ported oneclient to OSX
+* VFS-2585 Fix mounting path
+* VFS-2585 Refactor options
+* VFS-2910 Refactor storage detection
+* VFS-2900 Add package build deps
+* VFS-2876 Fix subscription remote time threshold
+* VFS-2620 Enable storage helper async ops timeout update
+* VFS-2852 enable log_dir option
+* VFS-2809 Refactor events
+* VFS-1959 Ensure file attr and location are cached on open.
+* VFS-1959 Remove getFileLocation
+* VFS-1959 Refactor handleId in separate message
+* Enable missing direct_io flag.
+* VFS-2934 Fix unprivileged unmount
+* VFS-2934 Turn on storage helper buffering
+* VFS-2937 Use storage helper sync read and write
+* VFS-2909 Adjust code to updated ceph lib
+* VFS-2876 filter O_CREAT flag in fuseFileHandle
+* VFS-2829 Remove file accessed event
+* VFS-1959 Add and handle OpenFile, CreateFile and MakeFile msgs
+* VFS-2742 Switch to lowlevel FUSE API and fibers.
+
+
+### 3.0.0-rc11
+
+* Releasing new version 3.0.0-rc11
+
+
 ### 3.0.0-rc10
 
 * VFS-2400 Update to new ceph and aws libraries

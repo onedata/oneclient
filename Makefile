@@ -10,6 +10,15 @@ PKG_VERSION     ?= $(shell git describe --tags --always | tr - .)
 PKG_BUILD       ?= 1
 PKG_ID           = oneclient-$(PKG_VERSION)
 
+# Build with Ceph storge helper by default
+WITH_CEPH    = ON
+# Build with Swift storage helper by default
+WITH_SWIFT   = ON
+# Build with S3 storage helper by default
+WITH_S3      = ON
+# Build with BoringSSL by default
+WITH_OPENSSL = OFF
+
 .PHONY: all
 all: debug test
 
@@ -17,7 +26,15 @@ all: debug test
 %/CMakeCache.txt: **/CMakeLists.txt test/integration/* test/integration/**/* \
                   helpers/test/integration/* helpers/test/integration/**
 	mkdir -p $*
-	cd $* && cmake -GNinja -DCMAKE_BUILD_TYPE=$* -DCODE_COVERAGE=${WITH_COVERAGE} ..
+	cd $* && cmake -GNinja -DCMAKE_BUILD_TYPE=$* \
+	                       -DGIT_VERSION=${PKG_REVISION} \
+	                       -DCODE_COVERAGE=${WITH_COVERAGE} \
+	                       -DWITH_CEPH=${WITH_CEPH} \
+	                       -DWITH_SWIFT=${WITH_SWIFT} \
+	                       -DWITH_S3=${WITH_S3} \
+	                       -DWITH_OPENSSL=${WITH_OPENSSL} \
+	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
+	                       -DOPENSSL_LIBRARIES=${OPENSSL_LIBRARIES} ..
 	touch $@
 
 .PHONY: phony
@@ -55,9 +72,12 @@ docs:
 
 .PHONY: coverage
 coverage:
-	lcov --directory debug --capture --output-file oneclient.info
-	lcov --remove oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' 'relwithdebinfo/*' 'debug/*' 'release/*' '**/helpers/*' 'deps/*' --output-file oneclient.info.cleaned
-	genhtml  -o coverage oneclient.info.cleaned
+	lcov --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
+	lcov --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
+	                                   'relwithdebinfo/*' 'debug/*' 'release/*' \
+	                                   '**/helpers/*' 'deps/*' \
+	     --output-file `pwd`/oneclient.info.cleaned
+	genhtml -o `pwd`/coverage `pwd`/oneclient.info.cleaned
 	@echo "Coverage written to `pwd`/coverage/index.html"
 
 .PHONY: check_distribution
@@ -72,9 +92,9 @@ endif
 package/$(PKG_ID).tar.gz:
 	mkdir -p package
 	rm -rf package/$(PKG_ID)
-	git archive --format=tar --prefix=$(PKG_ID)/ $(PKG_REVISION)| (cd package && tar -xf -)
+	git archive --format=tar --prefix=$(PKG_ID)/ $(PKG_REVISION) | (cd package && tar -xf -)
 	find package/$(PKG_ID) -depth -name ".git" -exec rm -rf {} \;
-	python cmake_version.py > package/$(PKG_ID)/version.txt
+	echo "set(GIT_VERSION ${PKG_REVISION})" > package/$(PKG_ID)/version.txt
 	tar -C package -czf package/$(PKG_ID).tar.gz $(PKG_ID)
 
 .PHONY: deb
@@ -84,8 +104,10 @@ deb: check_distribution package/$(PKG_ID).tar.gz
 
 	cp -R pkg_config/debian package/$(PKG_ID)/
 	patch -d package/$(PKG_ID)/ -p1 -i pkg_config/$(DISTRIBUTION).patch
-	sed -i "s/oneclient (.*) .*;/oneclient ($(PKG_VERSION)-$(PKG_BUILD)) sid;/g" package/$(PKG_ID)/debian/changelog
-	sed -i "s/Build from .*/Build from $(PKG_VERSION)/g" package/$(PKG_ID)/debian/changelog
+	sed -i "s/{{version}}/$(PKG_VERSION)/g" package/$(PKG_ID)/debian/changelog
+	sed -i "s/{{build}}/$(PKG_BUILD)/g" package/$(PKG_ID)/debian/changelog
+	sed -i "s/{{distribution}}/$(DISTRIBUTION)/g" package/$(PKG_ID)/debian/changelog
+	sed -i "s/{{date}}/`date -R`/g" package/$(PKG_ID)/debian/changelog
 
 	cd package/$(PKG_ID) && sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j4"
 	mv package/*$(PKG_VERSION).orig.tar.gz package/packages/

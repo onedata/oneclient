@@ -1,48 +1,58 @@
 /**
  * @file fileRenamedSubscription.cc
- * @author Mateusz Paciorek
+ * @author Krzysztof Trzepla
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "fileRenamedSubscription.h"
+#include "events/events.h"
 
 #include "messages.pb.h"
-
-#include <sstream>
 
 namespace one {
 namespace client {
 namespace events {
 
 FileRenamedSubscription::FileRenamedSubscription(
-    std::string fileUuid, std::size_t counterThreshold_)
-    : Subscription{counterThreshold_}
-    , m_fileUuid{std::move(fileUuid)}
+    std::string fileUuid, EventHandler<FileRenamed> handler)
+    : m_fileUuid{std::move(fileUuid)}
+    , m_handler{std::move(handler)}
 {
+}
+
+StreamKey FileRenamedSubscription::streamKey() const
+{
+    return StreamKey::FILE_RENAMED;
+}
+
+StreamPtr FileRenamedSubscription::createStream(
+    Manager &manager, SequencerManager &seqManager, Scheduler &scheduler) const
+{
+    auto aggregator = std::make_unique<KeyAggregator<FileRenamed>>();
+    auto emitter = std::make_unique<CounterEmitter<FileRenamed>>(1);
+    auto handler =
+        std::make_unique<LocalHandler<FileRenamed>>(std::move(m_handler));
+
+    return std::make_unique<AsyncStream>(
+        std::make_unique<TypedStream<FileRenamed>>(
+            std::move(aggregator), std::move(emitter), std::move(handler)));
 }
 
 std::string FileRenamedSubscription::toString() const
 {
     std::stringstream stream;
-    stream << Subscription::toString("FileRenamedSubscription")
-           << ", file UUID: '" << m_fileUuid;
+    stream << "type: 'FileRenamed', file UUID: '" << m_fileUuid << "'";
     return stream.str();
 }
 
-std::unique_ptr<messages::ProtocolClientMessage>
-FileRenamedSubscription::serializeAndDestroy()
+ProtoSubscriptionPtr FileRenamedSubscription::serialize() const
 {
-    auto clientMsg = std::make_unique<messages::ProtocolClientMessage>();
-    auto subscriptionMsg = clientMsg->mutable_subscription();
-    auto fileRenamedSubscriptionMsg =
-        subscriptionMsg->mutable_file_renamed_subscription();
+    auto subscriptionMsg = std::make_unique<clproto::Subscription>();
+    auto msg = subscriptionMsg->mutable_file_renamed();
+    msg->set_file_uuid(m_fileUuid);
 
-    subscriptionMsg->set_id(m_id);
-    fileRenamedSubscriptionMsg->mutable_file_uuid()->swap(m_fileUuid);
-
-    return clientMsg;
+    return subscriptionMsg;
 }
 
 } // namespace events

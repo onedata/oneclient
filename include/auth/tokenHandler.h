@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_TOKEN_HANDLER_H
 #define ONECLIENT_TOKEN_HANDLER_H
 
-#include "options.h"
+#include "options/options.h"
 
 #include <boost/filesystem/path.hpp>
 #include <boost/optional.hpp>
@@ -34,12 +34,12 @@ public:
     /**
      * Constructor.
      * Schedules a refresh task for a restricted macaroon.
-     * @param options An instance of options for token retrieval.
+     * @param options An instance of @c options::Options for token retrieval.
      * @param userDataDir Directory where user's application data is saved.
      * @param providerId ID of the provider who will be a recipient of
      * restricted tokens.
      */
-    TokenHandler(Options &options, boost::filesystem::path userDataDir,
+    TokenHandler(options::Options &options, boost::filesystem::path userDataDir,
         std::string providerId);
 
     /**
@@ -87,7 +87,7 @@ private:
     boost::filesystem::path tokenFilePath() const;
     void persistMacaroon(macaroons::Macaroon) const;
 
-    Options &m_options;
+    options::Options &m_options;
 
     boost::filesystem::path m_userDataDir;
     std::string m_providerId;

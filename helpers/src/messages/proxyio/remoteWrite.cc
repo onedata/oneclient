@@ -19,9 +19,9 @@ namespace messages {
 namespace proxyio {
 
 RemoteWrite::RemoteWrite(
-    std::unordered_map<std::string, std::string> parameters,
-    std::string storageId, std::string fileId,
-    std::vector<std::pair<off_t, std::string>> data)
+    std::unordered_map<folly::fbstring, folly::fbstring> parameters,
+    folly::fbstring storageId, folly::fbstring fileId,
+    folly::fbvector<std::pair<off_t, folly::fbstring>> data)
     : ProxyIORequest{std::move(parameters), std::move(storageId),
           std::move(fileId)}
     , m_data{std::move(data)}
@@ -46,7 +46,7 @@ std::unique_ptr<ProtocolClientMessage> RemoteWrite::serializeAndDestroy()
     for (auto &e : m_data) {
         auto byteSequence = writeMsg->add_byte_sequence();
         byteSequence->set_offset(e.first);
-        byteSequence->mutable_data()->swap(e.second);
+        byteSequence->set_data(e.second.toStdString());
     }
 
     return clientMsg;

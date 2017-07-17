@@ -1,10 +1,10 @@
 add_subdirectory(
-    ${ETLS_DIR}/deps/gmock
+    ${HELPERS_DIR}/deps/gmock
     ${PROJECT_BINARY_DIR}/deps/gmock)
 
 include_directories(SYSTEM
-    ${ETLS_DIR}/deps/gmock/include
-    ${ETLS_DIR}/deps/gtest/include)
+    ${HELPERS_DIR}/deps/gmock/include
+    ${HELPERS_DIR}/deps/gtest/include)
 
 include_directories(include ${PROJECT_SOURCE_DIR}/helpers/test/unit/include)
 

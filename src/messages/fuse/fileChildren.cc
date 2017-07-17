@@ -10,6 +10,8 @@
 
 #include "messages.pb.h"
 
+#include <folly/Range.h>
+
 #include <algorithm>
 #include <sstream>
 #include <system_error>
@@ -29,17 +31,10 @@ FileChildren::FileChildren(std::unique_ptr<ProtocolServerMessage> serverMessage)
                             ->mutable_file_children()
                             ->mutable_child_links();
 
-    std::transform(fileChildren->pointer_begin(), fileChildren->pointer_end(),
-        std::back_inserter(m_uuidsAndNames), [](auto child) {
-            return std::make_tuple(std::move(*child->mutable_uuid()),
-                std::move(*child->mutable_name()));
-        });
-}
-
-const std::vector<std::tuple<std::string, std::string>> &
-FileChildren::uuidsAndNames() const
-{
-    return m_uuidsAndNames;
+    for (const auto &child : folly::range(
+             fileChildren->pointer_begin(), fileChildren->pointer_end())) {
+        m_children.emplace_back(child->name());
+    }
 }
 
 std::string FileChildren::toString() const
@@ -47,9 +42,8 @@ std::string FileChildren::toString() const
     std::stringstream stream;
     stream << "type: 'FileChildren', uuids: [";
 
-    for (const auto &uuidAndName : m_uuidsAndNames)
-        stream << "(" << std::get<0>(uuidAndName) << ", "
-               << std::get<1>(uuidAndName) << ") ";
+    for (const auto &name : m_children)
+        stream << name << " ";
 
     stream << "]";
 

@@ -9,11 +9,14 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_FILE_ATTR_H
 #define ONECLIENT_MESSAGES_FUSE_FILE_ATTR_H
 
+#include "events/types/event.h"
 #include "fuseResponse.h"
 
 #include "messages.pb.h"
 
-#include <boost/optional.hpp>
+#include <folly/FBString.h>
+#include <folly/Optional.h>
+
 #include <sys/types.h>
 
 #include <chrono>
@@ -22,11 +25,6 @@
 #include <string>
 
 namespace one {
-namespace client {
-namespace events {
-class FileAttrSubscription;
-} // namespace events
-} // namespace client
 namespace messages {
 namespace fuse {
 
@@ -35,10 +33,7 @@ namespace fuse {
  */
 class FileAttr : public FuseResponse {
 public:
-    using Key = std::string;
-    using FileAttrPtr = std::unique_ptr<FileAttr>;
     using ProtocolMessage = clproto::FileAttr;
-    using Subscription = client::events::FileAttrSubscription;
 
     enum class FileType { regular, directory, link };
 
@@ -57,22 +52,43 @@ public:
     FileAttr(const ProtocolMessage &message);
 
     /**
-     * @return Value that distinguish @c this file attr from other file attrs,
-     * i.e. file attrs with the same key can be aggregated.
-     * @see @c FileAttr::Key.
-     */
-    const Key &key() const;
-
-    /**
      * @return UUID of the file.
      */
-    const std::string &uuid() const;
+    const folly::fbstring &uuid() const;
 
     /**
      * Sets new UUID of the file
      * @param uuid The UUID to set.
      */
-    void uuid(const std::string uuid);
+    void setUuid(folly::fbstring uuid);
+
+    /**
+     * @returns Name of the file.
+     */
+    const folly::fbstring &name() const { return m_name; };
+
+    /**
+     * Sets new name of the file.
+     * @param name Name to set.
+     */
+    void setName(folly::fbstring name) { m_name.swap(name); }
+
+    /**
+     * @returns UUID of the file's parent.
+     */
+    const folly::Optional<folly::fbstring> &parentUuid() const
+    {
+        return m_parentUuid;
+    };
+
+    /**
+     * Sets new UUID of the file's parent.
+     * @param parentUuid Uuid to set.
+     */
+    void setParentUuid(folly::fbstring parentUuid)
+    {
+        m_parentUuid = std::move(parentUuid);
+    }
 
     /**
      * @return File access mode.
@@ -148,28 +164,21 @@ public:
     /**
      * @return Size of the file.
      */
-    boost::optional<off_t> size() const;
+    folly::Optional<off_t> size() const;
 
     /**
      * Set file size.
      */
     void size(const off_t size);
 
-    /**
-     * Aggregates @c this file attr with an other file attr.
-     * Aggregation is done by substitution of all @c this file attr fields with
-     * an other file attr fields.
-     * @param fileAttr File attr to be aggregated.
-     */
-    void aggregate(FileAttrPtr fileAttr);
-
     std::string toString() const override;
 
 private:
     void deserialize(const ProtocolMessage &message);
 
-    std::string m_uuid;
-    std::string m_name;
+    folly::fbstring m_uuid;
+    folly::fbstring m_name;
+    folly::Optional<folly::fbstring> m_parentUuid;
     mode_t m_mode;
     uid_t m_uid;
     gid_t m_gid;
@@ -177,7 +186,7 @@ private:
     std::chrono::system_clock::time_point m_mtime;
     std::chrono::system_clock::time_point m_ctime;
     FileType m_type;
-    boost::optional<off_t> m_size;
+    folly::Optional<off_t> m_size;
 };
 
 } // namespace fuse

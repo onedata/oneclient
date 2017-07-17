@@ -9,16 +9,11 @@
 #ifndef ONECLIENT_VERSION_H
 #define ONECLIENT_VERSION_H
 
+#include <string>
+
 namespace {
-
-constexpr auto oneclient_VERSION_MAJOR = @oneclient_VERSION_MAJOR@;
-constexpr auto oneclient_VERSION_MINOR = @oneclient_VERSION_MINOR@;
-constexpr auto oneclient_VERSION_PATCH = @oneclient_VERSION_PATCH@;
-const std::string oneclient_VERSION_TWEAK = "@oneclient_VERSION_TWEAK@";
-const std::string oneclient_VERSION_FALLBACK = "@oneclient_VERSION_FALLBACK@";
-
-constexpr auto oneclient_INSTALL_PATH = "@CMAKE_INSTALL_PREFIX@",
-               oneclient_CONFIG_DIR   = "@SYSCONF_INSTALL_DIR@";
-}
+static constexpr auto ONECLIENT_VERSION = "@GIT_VERSION@",
+                      ONECLIENT_CONFIG_DIR = "@CMAKE_INSTALL_FULL_SYSCONFDIR@";
+} // namespace
 
 #endif // ONECLIENT_VERSION_H

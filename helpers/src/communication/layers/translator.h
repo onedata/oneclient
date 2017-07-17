@@ -16,11 +16,14 @@
 #include "messages/handshakeResponse.h"
 #include "messages/serverMessage.h"
 
+#include <folly/futures/Future.h>
+
 #include <atomic>
 #include <cassert>
 #include <chrono>
 #include <functional>
 #include <future>
+#include <mutex>
 #include <system_error>
 
 namespace one {
@@ -76,8 +79,8 @@ public:
         std::function<std::error_code(one::messages::HandshakeResponse)>
             onHandshakeResponse)
     {
-        auto hasBeenSet = std::make_shared<std::atomic<int>>(0);
-        auto promise = std::make_shared<std::promise<void>>();
+        auto promise = std::make_shared<folly::Promise<folly::Unit>>();
+        auto callOnceFlag = std::make_shared<std::once_flag>();
 
         LowerLayer::setHandshake(
             [getHandshake = std::move(getHandshake)] {
@@ -87,26 +90,16 @@ public:
                 ServerMessagePtr msg) {
                 return onHandshakeResponse({std::move(msg)});
             },
-            [=](const std::error_code &ec) mutable {
-                // The promise has been already set.
-                if (*hasBeenSet)
-                    return;
-
-                // In case of concurrent access, only one thread will get 1 from
-                // incrementation.
-                if (++(*hasBeenSet) != 1)
-                    return;
-
-                if (ec) {
-                    promise->set_exception(
-                        std::make_exception_ptr(std::system_error{ec}));
-                }
-                else {
-                    promise->set_value();
-                }
+            [promise, callOnceFlag](const std::error_code &ec) {
+                std::call_once(*callOnceFlag, [&] {
+                    if (ec)
+                        promise->setException(std::system_error{ec});
+                    else
+                        promise->setValue();
+                });
             });
 
-        return promise->get_future();
+        return promise->getFuture();
     }
 
     /**
@@ -120,23 +113,19 @@ public:
     auto reply(const clproto::ServerMessage &replyTo,
         messages::ClientMessage &&msg, const int retry = DEFAULT_RETRY_NUMBER)
     {
-        auto promise = std::make_shared<std::promise<void>>();
-        auto future = promise->get_future();
+        auto promise = std::make_shared<folly::Promise<folly::Unit>>();
 
-        auto callback = [promise = std::move(promise)](
-            const std::error_code &ec) mutable
-        {
+        auto callback = [promise](const std::error_code &ec) {
             if (ec)
-                promise->set_exception(
-                    std::make_exception_ptr(std::system_error{ec}));
+                promise->setException(std::system_error{ec});
             else
-                promise->set_value();
+                promise->setValue();
         };
 
         LowerLayer::reply(replyTo, messages::serialize(std::move(msg)),
             std::move(callback), retry);
 
-        return future;
+        return promise->getFuture();
     }
 
     /**
@@ -147,69 +136,23 @@ public:
      * @c communicate method.
      * @return A future representing peer's answer.
      */
-    template <class SvrMsg>
-    auto communicate(
-        messages::ClientMessage &&msg, const int retries = DEFAULT_RETRY_NUMBER)
+    template <class SvrMsg, class CliMsg>
+    auto communicate(CliMsg &&msg, const int retries = DEFAULT_RETRY_NUMBER)
     {
-        auto promise = std::make_shared<std::promise<SvrMsg>>();
-        auto future = promise->get_future();
-
-        auto callback = [promise = std::move(promise)](
-            const std::error_code &ec, ServerMessagePtr protoMessage) mutable
-        {
+        auto promise = std::make_shared<folly::Promise<SvrMsg>>();
+        auto callback = [promise](
+            const std::error_code &ec, ServerMessagePtr protoMessage) {
             if (ec)
-                promise->set_exception(
-                    std::make_exception_ptr(std::system_error{ec}));
-            else {
-                try {
-                    promise->set_value(SvrMsg{std::move(protoMessage)});
-                }
-                catch (const std::exception &e) {
-                    promise->set_exception(std::current_exception());
-                }
-            }
+                promise->setException(std::system_error{ec});
+            else
+                promise->setWith(
+                    [&]() mutable { return SvrMsg{std::move(protoMessage)}; });
         };
 
         LowerLayer::communicate(
             messages::serialize(std::move(msg)), std::move(callback), retries);
 
-        return future;
-    }
-
-    /**
-     * Wraps lower layer's @c communicate.
-     * The outgoing message is serialized as in @c send().
-     * @see Inbox::communicate()
-     * @note This method is only instantiable if the lower layer has a
-     * @c communicate method.
-     */
-    template <class SvrMsg>
-    auto communicate(messages::ClientMessage &&msg,
-        CommunicateCallback<SvrMsg> callback,
-        const int retries = DEFAULT_RETRY_NUMBER)
-    {
-        auto wrappedCallback = [callback = std::move(callback)](
-            const std::error_code &ec, ServerMessagePtr protoMessage)
-        {
-            if (ec) {
-                callback(ec, {});
-            }
-            else {
-                try {
-                    callback(
-                        ec, std::make_unique<SvrMsg>(std::move(protoMessage)));
-                }
-                catch (const std::system_error &err) {
-                    callback(err.code(), {});
-                }
-                catch (const std::exception &e) {
-                    callback(std::make_error_code(std::errc::io_error), {});
-                }
-            }
-        };
-
-        return LowerLayer::communicate(messages::serialize(std::move(msg)),
-            std::move(wrappedCallback), retries);
+        return promise->getFuture();
     }
 };
 
@@ -217,23 +160,19 @@ template <class LowerLayer>
 auto Translator<LowerLayer>::send(
     messages::ClientMessage &&msg, const int retries)
 {
-    auto promise = std::make_shared<std::promise<void>>();
-    auto future = promise->get_future();
+    auto promise = std::make_shared<folly::Promise<folly::Unit>>();
 
-    auto callback = [promise = std::move(promise)](
-        const std::error_code &ec) mutable
-    {
+    auto callback = [promise](const std::error_code &ec) {
         if (ec)
-            promise->set_exception(
-                std::make_exception_ptr(std::system_error{ec}));
+            promise->setException(std::system_error{ec});
         else
-            promise->set_value();
+            promise->setValue();
     };
 
     LowerLayer::send(
         messages::serialize(std::move(msg)), std::move(callback), retries);
 
-    return future;
+    return promise->getFuture();
 }
 
 } // namespace layers
@@ -245,35 +184,25 @@ auto Translator<LowerLayer>::send(
  * @param timeout The timeout to wait for.
  * @returns The value of @c msg.get().
  */
-template <class SvrMsg, typename Rep, typename Period>
-SvrMsg wait(
-    std::future<SvrMsg> &msg, const std::chrono::duration<Rep, Period> timeout)
+template <class Future, typename Rep, typename Period>
+auto wait(Future &&future, const std::chrono::duration<Rep, Period> timeout)
+    -> decltype(future.get())
 {
     using namespace std::literals;
     assert(timeout > 0ms);
-
-    for (auto t = 0ms; t < timeout; ++t) {
-        if (helpers::fuseInterrupted())
-            throw std::system_error{
-                std::make_error_code(std::errc::operation_canceled)};
-
-        const auto status = msg.wait_for(1ms);
-        assert(status != std::future_status::deferred);
-
-        if (status == std::future_status::ready)
-            return msg.get();
-    }
-
-    throw std::system_error{std::make_error_code(std::errc::timed_out)};
+    return std::forward<Future>(future)
+        .within(timeout,
+            std::system_error{std::make_error_code(std::errc::timed_out)})
+        .get();
 }
 
 /**
  * A convenience overload for @c wait.
  * Calls @c wait with @c DEFAULT_TIMEOUT.
  */
-template <class SvrMsg> SvrMsg wait(std::future<SvrMsg> &msg)
+template <class Future> auto wait(Future &&future) -> decltype(future.get())
 {
-    return wait(msg, DEFAULT_TIMEOUT);
+    return wait(std::forward<Future>(future), DEFAULT_TIMEOUT);
 }
 
 } // namespace communication

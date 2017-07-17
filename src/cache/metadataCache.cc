@@ -10,10 +10,17 @@
 #include "fuseOperations.h"
 
 #include "logging.h"
+#include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileRenamed.h"
+#include "messages/fuse/getChildAttr.h"
+#include "messages/fuse/getFileAttr.h"
 #include "messages/fuse/getFileLocation.h"
 #include "messages/fuse/rename.h"
+#include "messages/fuse/updateTimes.h"
 #include "scheduler.h"
+
+#include <folly/FBVector.h>
+#include <folly/Range.h>
 
 #include <chrono>
 
@@ -21,373 +28,338 @@ using namespace std::literals;
 
 namespace one {
 namespace client {
+namespace cache {
 
 MetadataCache::MetadataCache(communication::Communicator &communicator)
     : m_communicator{communicator}
 {
 }
 
-MetadataCache::FileAttr MetadataCache::getAttr(const Path &path)
+FileAttrPtr MetadataCache::getAttr(const folly::fbstring &uuid)
 {
-    ConstUuidAccessor constUuidAcc;
-    if (m_pathToUuid.find(constUuidAcc, path))
-        return getAttr(constUuidAcc->second);
-
-    UuidAccessor uuidAcc;
-    MetaAccessor metaAcc;
-    getAttr(uuidAcc, metaAcc, path);
-    return metaAcc->second.attr.get();
+    return getAttrIt(uuid)->attr;
 }
 
-MetadataCache::FileAttr MetadataCache::getAttr(const std::string &uuid)
+FileAttrPtr MetadataCache::getAttr(
+    const folly::fbstring &parentUuid, const folly::fbstring &name)
 {
-    ConstMetaAccessor constAcc;
-    if (m_metaCache.find(constAcc, uuid)) {
-        if (constAcc->second.attr)
-            return constAcc->second.attr.get();
+    DLOG(INFO) << "Fetching attributes for child '" << name << "' of '"
+               << parentUuid << "'";
 
-        constAcc.release();
+    auto &index = boost::multi_index::get<ByParent>(m_cache);
+    auto it = index.find(std::make_tuple(parentUuid, name));
+    if (it != index.end() && !it->deleted)
+        return it->attr;
+
+    if (it != index.end() && it->deleted) {
+        LOG(WARNING) << "Lookup ('" << parentUuid << "', '" << name
+                     << "') found a deleted file";
+
+        index.modify(it, [&](Metadata &m) { m.attr->setParentUuid(""); });
     }
 
-    MetaAccessor acc;
-    getAttr(acc, uuid);
-    return acc->second.attr.get();
+    auto fetchedIt = fetchAttr(
+        messages::fuse::GetChildAttr{std::move(parentUuid), std::move(name)});
+
+    return fetchedIt->attr;
 }
 
-MetadataCache::FileLocation MetadataCache::getLocation(
-    const std::string &uuid, const one::helpers::FlagsSet flags)
+void MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
 {
-    auto filteredFlags = filterFlagsForLocation(flags);
-
-    ConstMetaAccessor constAcc;
-    if (m_metaCache.find(constAcc, uuid)) {
-        if (constAcc->second.locations.find(filteredFlags) !=
-            constAcc->second.locations.end())
-            return constAcc->second.locations.at(filteredFlags);
-
-        constAcc.release();
-    }
-
-    MetaAccessor acc;
-    getLocation(acc, uuid, flags);
-    return acc->second.locations.at(filteredFlags);
+    auto result = m_cache.emplace(attr);
+    if (!result.second)
+        m_cache.modify(result.first, [&](Metadata &m) { m.attr = attr; });
 }
 
-void MetadataCache::getAttr(MetaAccessor &metaAcc, const Path &path)
+MetadataCache::Map::iterator MetadataCache::getAttrIt(
+    const folly::fbstring &uuid)
 {
-    UuidAccessor uuidAcc;
-    getAttr(uuidAcc, metaAcc, path);
+    auto &index = boost::multi_index::get<ByUuid>(m_cache);
+    auto it = index.find(uuid);
+    if (it != index.end())
+        return it;
+
+    DLOG(INFO) << "Fetching attributes for '" << uuid << "'";
+    return fetchAttr(messages::fuse::GetFileAttr{uuid});
 }
 
-void MetadataCache::getAttr(
-    UuidAccessor &uuidAcc, MetaAccessor &metaAcc, const Path &path)
+void MetadataCache::addBlock(const folly::fbstring &uuid,
+    const boost::icl::discrete_interval<off_t> range,
+    messages::fuse::FileBlock fileBlock)
 {
-    if (!m_pathToUuid.insert(uuidAcc, path)) {
-        getAttr(metaAcc, uuidAcc->second);
-        metaAcc->second.path = path;
-        return;
-    }
+    auto it = getAttrIt(uuid);
+    auto newBlock = std::make_pair(range, std::move(fileBlock));
 
-    try {
-        DLOG(INFO) << "Fetching attributes for " << path;
-        auto attr = fetchAttr(messages::fuse::ResolveGuid{path});
-        uuidAcc->second = attr.uuid();
-        if (m_metaCache.insert(metaAcc, attr.uuid())) {
-            // In this case we're fetching attributes because we didn't know
-            // the path mapped to an already cached uuid. Do not update attrs
-            // to avoid race conditions with our own write events.
-            metaAcc->second.attr = std::move(attr);
-        }
-        metaAcc->second.path = path;
-    }
-    catch (...) {
-        if (!metaAcc.empty())
-            m_metaCache.erase(metaAcc);
+    assert(it->location);
+    it->location->blocks() += newBlock;
 
-        m_pathToUuid.erase(uuidAcc);
-        throw;
-    }
+    m_cache.modify(it, [&](Metadata &m) {
+        m.attr->size(
+            std::max<off_t>(boost::icl::last(range) + 1, *m.attr->size()));
+    });
 }
 
-bool MetadataCache::get(MetaAccessor &metaAcc, const std::string &uuid)
+template <typename ReqMsg>
+MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
 {
-    return m_metaCache.find(metaAcc, uuid);
-}
+    auto attr = communication::wait(
+        m_communicator.communicate<FileAttr>(std::forward<ReqMsg>(msg)));
 
-void MetadataCache::getAttr(MetaAccessor &metaAcc, const std::string &uuid)
-{
-    if (!m_metaCache.insert(metaAcc, uuid)) {
-        if (metaAcc->second.attr)
-            return;
-    }
-
-    try {
-        DLOG(INFO) << "Fetching attributes for " << uuid;
-        metaAcc->second.attr = fetchAttr(messages::fuse::GetFileAttr{uuid});
-    }
-    catch (...) {
-        m_metaCache.erase(metaAcc);
-        throw;
-    }
-}
-
-void MetadataCache::getLocation(MetadataCache::MetaAccessor &metaAcc,
-    const std::string &uuid, const one::helpers::FlagsSet flags)
-{
-    auto filteredFlags = filterFlagsForLocation(flags);
-
-    if (!m_metaCache.insert(metaAcc, uuid)) {
-        if (metaAcc->second.locations.find(filteredFlags) !=
-            metaAcc->second.locations.end())
-            return;
-    }
-
-    try {
-        DLOG(INFO) << "Fetching file location for " << uuid;
-        auto future = m_communicator.communicate<FileLocation>(
-            messages::fuse::GetFileLocation{uuid, flags});
-
-        metaAcc->second.locations[filteredFlags] = communication::wait(future);
-    }
-    catch (...) {
-        m_metaCache.erase(metaAcc);
-        throw;
-    }
-}
-
-std::vector<std::pair<std::string, std::string>> MetadataCache::rename(
-    const MetadataCache::Path &oldPath, const MetadataCache::Path &newPath)
-{
-    // By convention, to avoid deadlocks, always lock on path before metadata
-    UuidAccessor newUuidAcc;
-    m_pathToUuid.insert(newUuidAcc, newPath);
-    std::vector<std::pair<std::string, std::string>> uuidChanges;
-
-    try {
-        UuidAccessor oldUuidAcc;
-        MetaAccessor oldMetaAcc;
-        getAttr(oldUuidAcc, oldMetaAcc, oldPath);
-        auto &oldUuid = oldMetaAcc->second.attr.get().uuid();
-
-        DLOG(INFO) << "Renaming file " << oldUuid << " to " << newPath;
-
-        m_pathToUuid.erase(oldUuidAcc);
-
-        if (oldMetaAcc->second.state == FileState::removedUpstream) {
-            // This rename operation was executed by fileRemovalHandler
-            // Only oldPath is changed to newPath
-            oldMetaAcc->second.locations.clear();
-            oldMetaAcc->second.path = newPath;
-            newUuidAcc->second = oldUuid;
-        }
-        else if (oldMetaAcc->second.state == FileState::renamedUpstream) {
-            // This rename operation was executed by fileRenamedHandler
-            // To inform fuse about file renaming, further modifications
-            // of cache will be done in handler and file should be treated
-            // normally afterwards
-            oldMetaAcc->second.state = FileState::normal;
-        }
-        else if (oldMetaAcc->second.state == FileState::normal) {
-            auto future =
-                m_communicator.communicate<messages::fuse::FileRenamed>(
-                    messages::fuse::Rename{oldUuid, newPath});
-            auto fileRenamed = communication::wait(future);
-
-            // Rename successful; if target exists, its metadata
-            // should be removed from cache, since it has been overwritten.
-            // If it was open, it has been renamed to fuse hidden file
-            // before this rename operation.
-            if (newUuidAcc->second != "") {
-                MetaAccessor targetMetaAcc;
-                if (get(targetMetaAcc, newUuidAcc->second)) {
-                    m_metaCache.erase(targetMetaAcc);
-                }
-            }
-
-            auto newUuid = fileRenamed.newUuid();
-            remapFile(oldMetaAcc, newUuidAcc, oldUuid, newUuid, newPath);
-            if (oldUuid != newUuid)
-                uuidChanges.emplace_back(std::make_pair(oldUuid, newUuid));
-
-            for (auto &childEntry : fileRenamed.childEntries()) {
-                remapFile(childEntry.oldUuid(), childEntry.newUuid(),
-                    childEntry.newPath());
-
-                uuidChanges.emplace_back(
-                    std::make_pair(childEntry.oldUuid(), childEntry.newUuid()));
-            }
-        }
-    }
-    catch (...) {
-        m_pathToUuid.erase(newUuidAcc);
-        throw;
-    }
-
-    return uuidChanges;
-}
-
-void MetadataCache::remapFile(MetaAccessor &oldMetaAcc,
-    UuidAccessor &newUuidAcc, const std::string &oldUuid,
-    const std::string &newUuid, const Path &newPath)
-{
-    newUuidAcc->second = newUuid;
-    newUuidAcc.release();
-
-    m_pathToUuid.erase(oldMetaAcc->second.path.get());
-    if (newUuid != oldUuid) {
-        // Copy and update old metadata if uuid has changed
-        auto attr = oldMetaAcc->second.attr;
-        m_metaCache.erase(oldMetaAcc);
-
-        MetaAccessor newMetaAcc;
-        m_metaCache.insert(newMetaAcc, newUuid);
-        newMetaAcc->second.attr = attr;
-        newMetaAcc->second.attr->uuid(newUuid);
-        newMetaAcc->second.path = newPath;
-    }
-    else {
-        // Update metadata if uuid has not changed
-        oldMetaAcc->second.path = newPath;
-        oldMetaAcc->second.locations.clear();
-        oldMetaAcc.release();
-    }
-}
-
-void MetadataCache::remapFile(
-    const std::string &oldUuid, const std::string &newUuid, const Path &newPath)
-{
-    UuidAccessor newUuidAcc;
-    m_pathToUuid.insert(newUuidAcc, newPath);
-    MetaAccessor oldMetaAcc;
-    if (get(oldMetaAcc, oldUuid))
-        remapFile(oldMetaAcc, newUuidAcc, oldUuid, newUuid, newPath);
-}
-
-void MetadataCache::map(Path path, std::string uuid)
-{
-    UuidAccessor uuidAcc;
-    m_pathToUuid.insert(uuidAcc, path);
-
-    MetaAccessor metaAcc;
-    m_metaCache.insert(metaAcc, uuid);
-
-    uuidAcc->second = std::move(uuid);
-    metaAcc->second.path = std::move(path);
-}
-
-void MetadataCache::map(
-    Path path, FileLocation location, const one::helpers::FlagsSet flags)
-{
-    auto filteredFlags = filterFlagsForLocation(flags);
-
-    UuidAccessor uuidAcc;
-    m_pathToUuid.insert(uuidAcc, path);
-
-    MetaAccessor metaAcc;
-    m_metaCache.insert(metaAcc, location.uuid());
-
-    uuidAcc->second = location.uuid();
-    metaAcc->second.path = std::move(path);
-    metaAcc->second.locations[filteredFlags] = std::move(location);
-}
-
-void MetadataCache::remove(UuidAccessor &uuidAcc, MetaAccessor &metaAcc)
-{
-    m_metaCache.erase(metaAcc);
-    m_pathToUuid.erase(uuidAcc);
-}
-
-void MetadataCache::removePathMapping(
-    UuidAccessor &uuidAcc, MetaAccessor &metaAcc)
-{
-    m_pathToUuid.erase(uuidAcc);
-}
-
-void MetadataCache::remove(const std::string &uuid)
-{
-    MetaAccessor metaAcc;
-    if (!m_metaCache.find(metaAcc, uuid))
-        return;
-
-    if (metaAcc->second.path) {
-        UuidAccessor uuidAcc;
-        if (m_pathToUuid.find(uuidAcc, metaAcc->second.path.get())) {
-            remove(uuidAcc, metaAcc);
-            return;
-        }
-    }
-
-    m_metaCache.erase(metaAcc);
-}
-
-std::size_t MetadataCache::PathHash::hash(const Path &path)
-{
-    return std::hash<std::string>{}(path.string());
-}
-
-bool MetadataCache::PathHash::equal(const Path &a, const Path &b)
-{
-    return a == b;
-}
-
-bool MetadataCache::waitForNewLocation(const std::string &uuid,
-    const boost::icl::discrete_interval<off_t> &range,
-    const std::chrono::milliseconds &timeout,
-    const one::helpers::FlagsSet flags)
-{
-    LOG(INFO) << "Waiting for file_location of '" << uuid << "' at range "
-              << range;
-    auto pair = getMutexConditionPair(uuid);
-    std::unique_lock<std::mutex> lock{pair.first};
-
-    const auto pred = [&] {
-        FileLocation location = getLocation(uuid, flags);
-        return location.blocks().find(boost::icl::first(range)) !=
-            location.blocks().end();
-    };
-
-    for (auto t = 0ms; t < timeout; ++t) {
-        if (helpers::fuseInterrupted())
-            throw std::system_error{
-                std::make_error_code(std::errc::operation_canceled)};
-
-        if (pair.second.wait_for(lock, 1ms, pred))
-            return true;
-    }
-
-    return false;
-}
-
-void MetadataCache::notifyNewLocationArrived(const std::string &uuid)
-{
-    MutexAccessor acc;
-    if (m_mutexConditionPairMap.find(acc, uuid)) {
-        std::condition_variable &condition = *acc->second.second;
-        condition.notify_all();
-    }
-}
-
-std::pair<std::mutex &, std::condition_variable &>
-MetadataCache::getMutexConditionPair(const std::string &uuid)
-{
-    MutexAccessor acc;
-    if (m_mutexConditionPairMap.insert(acc, uuid))
-        acc->second = std::make_pair(std::make_unique<std::mutex>(),
-            std::make_unique<std::condition_variable>());
-    return {*acc->second.first, *acc->second.second};
-}
-
-MetadataCache::FileAttr MetadataCache::fetchAttr(
-    messages::ClientMessage &&request)
-{
-    auto future = m_communicator.communicate<FileAttr>(std::move(request));
-
-    auto attr = communication::wait(future);
-    if (!attr.size().is_initialized())
+    if (!attr.size())
         throw std::errc::protocol_error;
 
-    return attr;
+    auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
+    auto result = m_cache.emplace(sharedAttr);
+    if (!result.second)
+        m_cache.modify(result.first, [&](Metadata &m) { m.attr = sharedAttr; });
+
+    return result.first;
 }
 
+std::shared_ptr<FileLocation> MetadataCache::getLocationPtr(
+    const Map::iterator &it)
+{
+    if (it->location)
+        return it->location;
+
+    return fetchFileLocation(it->attr->uuid());
+}
+
+std::shared_ptr<FileLocation> MetadataCache::fetchFileLocation(
+    const folly::fbstring &uuid)
+{
+    auto location =
+        communication::wait(m_communicator.communicate<FileLocation>(
+            messages::fuse::GetFileLocation{uuid.toStdString()}));
+
+    auto sharedLocation = std::make_shared<FileLocation>(std::move(location));
+
+    auto &index = boost::multi_index::get<ByUuid>(m_cache);
+    auto it = index.find(uuid);
+    assert(it != index.end());
+
+    m_cache.modify(it, [&](Metadata &m) { m.location = sharedLocation; });
+
+    return sharedLocation;
+}
+
+folly::Optional<
+    std::pair<boost::icl::discrete_interval<off_t>, messages::fuse::FileBlock>>
+MetadataCache::getBlock(const folly::fbstring &uuid, const off_t offset)
+{
+    auto it = getAttrIt(uuid);
+    auto location = getLocationPtr(it);
+    auto availableBlockIt =
+        location->blocks().find(boost::icl::discrete_interval<off_t>(offset));
+
+    if (availableBlockIt != location->blocks().end())
+        return std::make_pair(
+            availableBlockIt->first, availableBlockIt->second);
+
+    return {};
+}
+
+messages::fuse::FileBlock MetadataCache::getDefaultBlock(
+    const folly::fbstring &uuid)
+{
+    auto it = getAttrIt(uuid);
+    auto location = getLocationPtr(it);
+    return messages::fuse::FileBlock{location->storageId(), location->fileId()};
+}
+
+const std::string &MetadataCache::getSpaceId(const folly::fbstring &uuid)
+{
+    auto it = getAttrIt(uuid);
+    auto location = getLocationPtr(it);
+    return location->spaceId();
+}
+
+void MetadataCache::ensureAttrAndLocationCached(const folly::fbstring &uuid)
+{
+    auto it = getAttrIt(uuid);
+    getLocationPtr(it);
+}
+
+void MetadataCache::erase(const folly::fbstring &uuid)
+{
+    auto &index = boost::multi_index::get<ByUuid>(m_cache);
+    index.erase(uuid);
+}
+
+void MetadataCache::truncate(
+    const folly::fbstring &uuid, const std::size_t newSize)
+{
+    auto &index = boost::multi_index::get<ByUuid>(m_cache);
+    auto it = index.find(uuid);
+    if (it == index.end())
+        return;
+
+    index.modify(it, [&](Metadata &m) {
+        m.attr->size(newSize);
+        if (m.location)
+            m.location->blocks() &=
+                boost::icl::discrete_interval<off_t>::right_open(0, newSize);
+    });
+}
+
+void MetadataCache::updateTimes(
+    const folly::fbstring &uuid, const messages::fuse::UpdateTimes &updateTimes)
+{
+    auto &index = boost::multi_index::get<ByUuid>(m_cache);
+    auto it = index.find(uuid);
+    if (it == index.end())
+        return;
+
+    index.modify(it, [&](Metadata &m) {
+        if (updateTimes.atime())
+            m.attr->atime(*updateTimes.atime());
+        if (updateTimes.mtime())
+            m.attr->mtime(*updateTimes.mtime());
+        if (updateTimes.ctime())
+            m.attr->ctime(*updateTimes.ctime());
+    });
+}
+
+void MetadataCache::changeMode(
+    const folly::fbstring &uuid, const mode_t newMode)
+{
+    auto &index = boost::multi_index::get<ByUuid>(m_cache);
+    auto it = index.find(uuid);
+    if (it == index.end())
+        return;
+
+    index.modify(it, [&](Metadata &m) { m.attr->mode(newMode); });
+}
+
+void MetadataCache::putLocation(std::unique_ptr<FileLocation> location)
+{
+    auto it = getAttrIt(location->uuid());
+    m_cache.modify(
+        it, [&](Metadata &m) mutable { m.location = {std::move(location)}; });
+}
+
+bool MetadataCache::markDeleted(const folly::fbstring &uuid)
+{
+    auto &index = boost::multi_index::get<ByUuid>(m_cache);
+    auto it = index.find(uuid);
+    if (it == index.end())
+        return false;
+
+    markDeletedIt(it);
+    return true;
+}
+
+void MetadataCache::markDeletedIt(const Map::iterator &it)
+{
+    m_cache.modify(it, [&](Metadata &m) {
+        m.attr->setParentUuid("");
+        m.deleted = true;
+    });
+
+    m_onMarkDeleted(it->attr->uuid());
+}
+
+bool MetadataCache::rename(const folly::fbstring &uuid,
+    const folly::fbstring &newParentUuid, const folly::fbstring &newName,
+    const folly::fbstring &newUuid)
+{
+    auto &targetIndex = boost::multi_index::get<ByParent>(m_cache);
+    auto targetIt = targetIndex.find(std::make_tuple(newParentUuid, newName));
+    if (targetIt != targetIndex.end())
+        markDeletedIt(m_cache.project<ByUuid>(targetIt));
+
+    auto &index = boost::multi_index::get<ByUuid>(m_cache);
+    auto it = index.find(uuid);
+    if (it == index.end())
+        return false;
+
+    if (uuid != newUuid && index.count(newUuid)) {
+        LOG(WARNING) << "The rename target '" << newUuid
+                     << "' is already cached";
+
+        m_cache.erase(it);
+    }
+    else {
+        index.modify(it, [&](Metadata &m) {
+            m.attr->setName(newName);
+            m.attr->setUuid(newUuid);
+            m.attr->setParentUuid(newParentUuid);
+            m.location = nullptr;
+        });
+    }
+
+    m_onRename(uuid, newUuid);
+
+    return true;
+}
+
+bool MetadataCache::updateAttr(const FileAttr &newAttr)
+{
+    auto &index = boost::multi_index::get<ByUuid>(m_cache);
+    auto it = index.find(newAttr.uuid());
+    if (it == index.end())
+        return false;
+
+    index.modify(it, [&](Metadata &m) {
+        if (newAttr.size() && *newAttr.size() < *m.attr->size() && m.location) {
+            LOG(INFO) << "Truncating blocks attributes for uuid: '"
+                      << newAttr.uuid() << "'";
+
+            m.location->blocks() &=
+                boost::icl::discrete_interval<off_t>::right_open(
+                    0, *newAttr.size());
+        }
+
+        m.attr->atime(std::max(m.attr->atime(), newAttr.atime()));
+        m.attr->ctime(std::max(m.attr->ctime(), newAttr.ctime()));
+        m.attr->mtime(std::max(m.attr->mtime(), newAttr.mtime()));
+        m.attr->gid(newAttr.gid());
+        m.attr->mode(newAttr.mode());
+        if (newAttr.size())
+            m.attr->size(*newAttr.size());
+        m.attr->uid(newAttr.uid());
+    });
+
+    return true;
+}
+
+bool MetadataCache::updateLocation(const FileLocation &newLocation)
+{
+    auto &index = boost::multi_index::get<ByUuid>(m_cache);
+    auto it = index.find(newLocation.uuid());
+    if (it == index.end() || !it->location)
+        return false;
+
+    it->location->storageId(newLocation.storageId());
+    it->location->fileId(newLocation.fileId());
+    it->location->blocks() = newLocation.blocks();
+
+    return true;
+}
+
+MetadataCache::Metadata::Metadata(std::shared_ptr<FileAttr> attr_)
+    : attr{std::move(attr_)}
+{
+}
+
+auto MetadataCache::NameExtractor::operator()(const Metadata &m) const
+    -> const result_type &
+{
+    return m.attr->name();
+}
+
+auto MetadataCache::UuidExtractor::operator()(const Metadata &m) const
+    -> const result_type &
+{
+    return m.attr->uuid();
+}
+
+auto MetadataCache::ParentUuidExtractor::operator()(const Metadata &m) const
+    -> result_type
+{
+    return m.attr->parentUuid() ? *m.attr->parentUuid() : folly::fbstring{};
+}
+
+} // namespace cache
 } // namespace one
 } // namespace client

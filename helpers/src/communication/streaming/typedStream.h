@@ -22,10 +22,23 @@
 #include <mutex>
 #include <shared_mutex>
 #include <vector>
+/**
+ * std::<shared_timed_mutex> on OSX is available only since
+ * macOS Sierra (10.12), so use folly::SharedMutex on older OSX version.
+ */
+#if defined(__APPLE__) && (MAC_OS_X_VERSION_MAX_ALLOWED < 101200)
+#include <folly/SharedMutex.h>
+#endif
 
 namespace one {
 namespace communication {
 namespace streaming {
+
+#if defined(__APPLE__) && (MAC_OS_X_VERSION_MAX_ALLOWED < 101200)
+using BufferMutexType = folly::SharedMutex;
+#else
+using BufferMutexType = std::shared_timed_mutex;
+#endif
 
 struct StreamLess {
     bool operator()(const ClientMessagePtr &a, const ClientMessagePtr &b) const
@@ -63,6 +76,12 @@ public:
     virtual void send(messages::ClientMessage &&msg);
 
     /**
+     * Sends a next message in the stream.
+     * @param msg The message to send through the stream.
+     */
+    virtual void send(ClientMessagePtr msg);
+
+    /**
      * Resends messages requested by the remote party.
      * @param msg Details of the request.
      */
@@ -98,7 +117,7 @@ private:
     const std::uint64_t m_streamId;
     std::function<void()> m_unregister;
     std::atomic<std::uint64_t> m_sequenceId{0};
-    std::shared_timed_mutex m_bufferMutex;
+    BufferMutexType m_bufferMutex;
     tbb::concurrent_priority_queue<ClientMessagePtr, StreamLess> m_buffer;
 };
 
@@ -121,11 +140,16 @@ template <class Communicator> TypedStream<Communicator>::~TypedStream()
 template <class Communicator>
 void TypedStream<Communicator>::send(messages::ClientMessage &&msg)
 {
-    auto protoMsg = messages::serialize(std::move(msg));
-    auto msgStream = protoMsg->mutable_message_stream();
+    send(messages::serialize(std::move(msg)));
+}
+
+template <class Communicator>
+void TypedStream<Communicator>::send(ClientMessagePtr msg)
+{
+    auto msgStream = msg->mutable_message_stream();
     msgStream->set_stream_id(m_streamId);
     msgStream->set_sequence_number(m_sequenceId++);
-    saveAndPass(std::move(protoMsg));
+    saveAndPass(std::move(msg));
 }
 
 template <class Communicator> void TypedStream<Communicator>::close()
@@ -135,7 +159,7 @@ template <class Communicator> void TypedStream<Communicator>::close()
 
 template <class Communicator> void TypedStream<Communicator>::reset()
 {
-    std::lock_guard<std::shared_timed_mutex> lock{m_bufferMutex};
+    std::lock_guard<BufferMutexType> lock{m_bufferMutex};
     m_sequenceId = 0;
     std::vector<ClientMessagePtr> processed;
     for (ClientMessagePtr it; m_buffer.try_pop(it);) {
@@ -152,7 +176,7 @@ void TypedStream<Communicator>::saveAndPass(ClientMessagePtr msg)
     auto msgCopy = std::make_unique<clproto::ClientMessage>(*msg);
 
     {
-        std::shared_lock<std::shared_timed_mutex> lock{m_bufferMutex};
+        std::shared_lock<BufferMutexType> lock{m_bufferMutex};
         m_buffer.emplace(std::move(msgCopy));
     }
 
@@ -167,7 +191,7 @@ void TypedStream<Communicator>::handleMessageRequest(
     processed.reserve(
         msg.upper_sequence_number() - msg.lower_sequence_number() + 1);
 
-    std::shared_lock<std::shared_timed_mutex> lock{m_bufferMutex};
+    std::shared_lock<BufferMutexType> lock{m_bufferMutex};
     for (ClientMessagePtr it; m_buffer.try_pop(it);) {
         if (it->message_stream().sequence_number() <=
             msg.upper_sequence_number()) {
@@ -194,7 +218,7 @@ template <class Communicator>
 void TypedStream<Communicator>::handleMessageAcknowledgement(
     const clproto::MessageAcknowledgement &msg)
 {
-    std::shared_lock<std::shared_timed_mutex> lock{m_bufferMutex};
+    std::shared_lock<BufferMutexType> lock{m_bufferMutex};
     for (ClientMessagePtr it; m_buffer.try_pop(it);) {
         if (it->message_stream().sequence_number() > msg.sequence_number()) {
             m_buffer.emplace(std::move(it));

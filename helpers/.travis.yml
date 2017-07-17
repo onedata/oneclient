@@ -1,0 +1,53 @@
+branches:
+  only:
+    - develop-osx
+    - develop
+
+language: cpp
+
+matrix:
+  include:
+    - os: osx
+      osx_image: xcode8.2 # Build on macOS Sierra (10.12)
+      compiler: clang
+      env: ONEDATA_GIT_URL="https://github.com/onedata" OSX_CODENAME=sierra
+
+cache:
+  directories:
+    - $HOME/Library/Caches/Homebrew
+
+before_install:
+  - brew update
+  # Make sure Folly is at version 2016.12.19.00_3, future versions are not compatible
+  - cd `brew --prefix`/Homebrew/Library/Taps/homebrew/homebrew-core/Formula && git checkout f4d81171ab96f43663297697fccd48dc6bceedb1 folly.rb && cd -
+  - brew install gnu-sed --with-default-names && brew link --force gnu-sed
+  - brew install python3 && brew linkapps python3
+  - brew outdated boost || brew upgrade boost
+  - wget -O ../boost-python-1.63.0.bottle.1.tar.gz https://bintray.com/bkryza/onedata-cellar/download_file?file_path=boost-python-1.63.0.${OSX_CODENAME}.bottle.1.tar.gz
+  - brew install ../boost-python-1.63.0.bottle.1.tar.gz
+  - brew install libtool
+  - brew install libsodium && brew link --force libsodium
+  - brew install ninja && brew link --force ninja
+  - brew outdated poco || brew upgrade poco
+  - brew outdated libevent || brew upgrade libevent
+  - brew outdated openssl || brew upgrade openssl
+  - brew install nspr && brew unlink nspr && brew link --force nspr
+  - brew install nss && brew unlink nss && brew link --force nss
+  - brew install tbb && brew unlink tbb && brew link --force tbb
+  - brew install glog && brew unlink glog && brew link glog
+  - brew install folly && brew switch folly 2016.12.19.00_3
+  - brew install protobuf
+  - brew install protobuf-c
+  - brew install erlang
+  - brew install aws-sdk-cpp
+  - brew tap onedata/onedata
+  - brew install libiberty
+  - brew install swift-cpp-sdk
+  - brew install Caskroom/cask/osxfuse
+
+script:
+  - make debug WITH_CEPH=OFF WITH_S3=ON WITH_SWIFT=ON WITH_GLUSTERFS=OFF OPENSSL_ROOT_DIR=/usr/local/opt/openssl OPENSSL_LIBRARIES=/usr/local/opt/openssl/lib
+  - make test
+  - make cunit
+
+after_script: set +e

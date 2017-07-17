@@ -8,14 +8,13 @@
 
 #include "auth/authManager.h"
 #include "auth/authException.h"
-#include "auth/gsiHandler.h"
 #include "auth/tokenHandler.h"
 #include "communication/cert/certificateData.h"
 #include "communication/communicator.h"
 #include "communication/persistentConnection.h"
 #include "context.h"
 #include "environment.h"
-#include "options.h"
+#include "options/options.h"
 #include "scheduler.h"
 
 #include "messages/token.h"
@@ -28,7 +27,6 @@
 
 namespace one {
 namespace client {
-
 namespace auth {
 
 AuthManager::AuthManager(std::weak_ptr<Context> context,
@@ -43,37 +41,6 @@ AuthManager::AuthManager(std::weak_ptr<Context> context,
 
 void AuthManager::cleanup() {}
 
-CertificateAuthManager::CertificateAuthManager(std::weak_ptr<Context> context,
-    std::string defaultHostname, const unsigned int port,
-    const bool checkCertificate, const bool debugGsi)
-    : AuthManager{context, defaultHostname, port, checkCertificate}
-{
-    GSIHandler gsiHandler{m_context, debugGsi};
-    gsiHandler.validateProxyConfig();
-
-    m_certificateData = gsiHandler.getCertData();
-    m_hostname = gsiHandler.getClusterHostname(m_hostname);
-}
-
-std::tuple<std::shared_ptr<communication::Communicator>, std::future<void>>
-CertificateAuthManager::createCommunicator(const unsigned int poolSize,
-    std::string sessionId,
-    std::function<std::error_code(messages::HandshakeResponse)>
-        onHandshakeResponse)
-{
-    auto communicator =
-        std::make_shared<communication::Communicator>(poolSize, m_hostname,
-            m_port, m_checkCertificate, communication::createConnection);
-
-    communicator->setCertificateData(m_certificateData);
-
-    one::messages::HandshakeRequest handshake{std::move(sessionId)};
-    auto future = communicator->setHandshake(
-        [=] { return handshake; }, std::move(onHandshakeResponse));
-
-    return std::forward_as_tuple(std::move(communicator), std::move(future));
-}
-
 TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
     std::string defaultHostname, const unsigned int port,
     const bool checkCertificate)
@@ -85,7 +52,8 @@ TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
 
 TokenAuthManager::~TokenAuthManager() { m_cancelRefresh(); }
 
-std::tuple<std::shared_ptr<communication::Communicator>, std::future<void>>
+std::tuple<std::shared_ptr<communication::Communicator>,
+    folly::Future<folly::Unit>>
 TokenAuthManager::createCommunicator(const unsigned int poolSize,
     std::string sessionId,
     std::function<std::error_code(messages::HandshakeResponse)>

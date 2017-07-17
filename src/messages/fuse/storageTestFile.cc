@@ -28,7 +28,7 @@ StorageTestFile::StorageTestFile(
         *serverMessage->mutable_fuse_response()->mutable_storage_test_file();
 
     m_helperParams = HelperParams{*message.mutable_helper_params()};
-    message.mutable_space_uuid()->swap(m_spaceUuid);
+    message.mutable_space_id()->swap(m_spaceId);
     message.mutable_file_id()->swap(m_fileId);
     message.mutable_file_content()->swap(m_fileContent);
 }
@@ -38,7 +38,7 @@ const HelperParams &StorageTestFile::helperParams() const
     return m_helperParams;
 }
 
-const std::string &StorageTestFile::spaceUuid() const { return m_spaceUuid; }
+const std::string &StorageTestFile::spaceId() const { return m_spaceId; }
 
 const std::string &StorageTestFile::fileId() const { return m_fileId; }
 
@@ -50,8 +50,8 @@ const std::string &StorageTestFile::fileContent() const
 std::string StorageTestFile::toString() const
 {
     std::stringstream ss;
-    ss << "type: 'StorageTestFile', space UUID: '" << m_spaceUuid
-       << "', file ID: '" << m_fileId << "', file content: '" << m_fileContent
+    ss << "type: 'StorageTestFile', space ID: '" << m_spaceId << "', file ID: '"
+       << m_fileId << "', file content: '" << m_fileContent
        << "', helper parameters: " << m_helperParams.toString();
     return ss.str();
 }

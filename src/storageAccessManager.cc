@@ -7,13 +7,15 @@
  */
 
 #include "storageAccessManager.h"
-#include "directIOHelper.h"
-#include "helpers/IStorageHelper.h"
-#include "helpers/storageHelperFactory.h"
+#include "helpers/storageHelper.h"
+#include "helpers/storageHelperCreator.h"
 #include "logging.h"
 #include "messages/fuse/createStorageTestFile.h"
 #include "messages/fuse/storageTestFile.h"
 #include "messages/fuse/verifyStorageTestFile.h"
+#include "posixHelper.h"
+
+#include <folly/io/IOBuf.h>
 
 #include <errno.h>
 #ifdef __APPLE__
@@ -35,23 +37,33 @@ std::vector<boost::filesystem::path> getMountPoints()
 {
     std::vector<boost::filesystem::path> mountPoints;
 
-    auto res = getfsstat(NULL, 0, MNT_NOWAIT);
-    if (res < 0) {
+    int mounted_filesystem_count = getfsstat(NULL, 0, MNT_NOWAIT);
+    if (mounted_filesystem_count <= 0) {
         LOG(ERROR) << "Cannot count mounted filesystems.";
         return mountPoints;
     }
 
-    std::vector<struct statfs> stats(fs_num);
+    std::vector<struct statfs> stats(mounted_filesystem_count);
 
-    res = getfsstat(stats.data(), sizeof(struct statfs) * res, MNT_NOWAIT);
-    if (res < 0) {
-        LOG(ERROR) << "Cannot get fsstat.";
+    mounted_filesystem_count = getfsstat(stats.data(),
+        sizeof(struct statfs) * mounted_filesystem_count, MNT_NOWAIT);
+
+    if (mounted_filesystem_count <= 0) {
+        LOG(ERROR) << "Cannot get fsstat data.";
         return mountPoints;
     }
 
     for (const auto &stat : stats) {
         std::string type(stat.f_fstypename);
-        if (type.compare(0, 4, "fuse") != 0) {
+        std::string path(stat.f_mntonname);
+        if (type.compare(0, strlen("osxfuse"), "osxfuse") != 0 &&
+            type.compare(0, strlen("autofs"), "autofs") != 0 &&
+            type.compare(0, strlen("mtmfs"), "mtmfs") != 0 &&
+            type.compare(0, strlen("devfs"), "devfs") != 0 &&
+            path.compare(0, strlen("/proc"), "/proc") != 0 &&
+            path.compare(0, strlen("/dev"), "/dev") != 0 &&
+            path.compare(0, strlen("/sys"), "/sys") != 0 &&
+            path.compare(0, strlen("/etc"), "/etc") != 0 && path != "/") {
             mountPoints.push_back(stat.f_mntonname);
         }
     }
@@ -93,31 +105,32 @@ std::vector<boost::filesystem::path> getMountPoints()
 }
 
 StorageAccessManager::StorageAccessManager(
-    communication::Communicator &communicator,
-    helpers::StorageHelperFactory &helperFactory)
-    : m_communicator{communicator}
-    , m_helperFactory{helperFactory}
+    helpers::StorageHelperCreator &helperFactory,
+    const options::Options &options)
+    : m_helperFactory{helperFactory}
+    , m_options{options}
     , m_mountPoints{getMountPoints()}
 {
 }
 
-std::shared_ptr<helpers::IStorageHelper>
+std::shared_ptr<helpers::StorageHelper>
 StorageAccessManager::verifyStorageTestFile(
     const messages::fuse::StorageTestFile &testFile)
 {
     const auto &helperParams = testFile.helperParams();
-    if (helperParams.name() == helpers::DIRECT_IO_HELPER_NAME) {
+    if (helperParams.name() == helpers::POSIX_HELPER_NAME) {
         for (const auto &mountPoint : m_mountPoints) {
             auto helper = m_helperFactory.getStorageHelper(
-                helpers::DIRECT_IO_HELPER_NAME,
-                {{helpers::DIRECT_IO_HELPER_PATH_ARG, mountPoint.string()}});
+                helpers::POSIX_HELPER_NAME,
+                {{helpers::POSIX_HELPER_MOUNT_POINT_ARG, mountPoint.string()}},
+                m_options.isIOBuffered());
             if (verifyStorageTestFile(helper, testFile))
                 return helper;
         }
     }
     else {
         auto helper = m_helperFactory.getStorageHelper(
-            helperParams.name(), helperParams.args());
+            helperParams.name(), helperParams.args(), m_options.isIOBuffered());
         if (verifyStorageTestFile(helper, testFile))
             return helper;
     }
@@ -126,40 +139,30 @@ StorageAccessManager::verifyStorageTestFile(
 }
 
 bool StorageAccessManager::verifyStorageTestFile(
-    std::shared_ptr<helpers::IStorageHelper> helper,
+    std::shared_ptr<helpers::StorageHelper> helper,
     const messages::fuse::StorageTestFile &testFile)
 {
     try {
 
         auto size = testFile.fileContent().size();
-        std::vector<char> buffer(size);
 
-        auto ctx = helper->createCTX({});
-        helper->sh_open(ctx, testFile.fileId(), O_RDONLY);
+        auto handle = communication::wait(
+            helper->open(testFile.fileId(), O_RDONLY, {}), helper->timeout());
 
-        asio::mutable_buffer content;
-        try {
-            content = helper->sh_read(
-                ctx, testFile.fileId(), asio::buffer(buffer), 0);
-        }
-        catch (...) {
-            helper->sh_release(ctx, testFile.fileId());
-            throw;
-        }
-        helper->sh_release(ctx, testFile.fileId());
+        auto buf =
+            communication::wait(handle->read(0, size), helper->timeout());
+        std::string content;
+        buf.appendToString(content);
 
-        if (asio::buffer_size(content) != size) {
+        if (content.size() != size) {
             LOG(WARNING) << "Storage test file size mismatch, expected: "
-                         << size << ", actual: " << asio::buffer_size(content);
+                         << size << ", actual: " << content.size();
             return false;
         }
 
-        if (testFile.fileContent().compare(
-                0, size, asio::buffer_cast<char *>(content), size) != 0) {
+        if (testFile.fileContent() != content) {
             LOG(WARNING) << "Storage test file content mismatch, expected: '"
-                         << testFile.fileContent() << "', actual: '"
-                         << std::string{asio::buffer_cast<char *>(content),
-                                asio::buffer_size(content)}
+                         << testFile.fileContent() << "', actual: '" << content
                          << "'";
             return false;
         }
@@ -177,35 +180,32 @@ bool StorageAccessManager::verifyStorageTestFile(
     return false;
 }
 
-std::string StorageAccessManager::modifyStorageTestFile(
-    std::shared_ptr<helpers::IStorageHelper> helper,
+folly::fbstring StorageAccessManager::modifyStorageTestFile(
+    std::shared_ptr<helpers::StorageHelper> helper,
     const messages::fuse::StorageTestFile &testFile)
 {
     auto size = testFile.fileContent().size();
-    std::vector<char> buffer(size);
+    folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
+
+    auto data = static_cast<char *>(buf.allocate(size));
 
     std::random_device device;
     std::default_random_engine engine(device());
     std::uniform_int_distribution<char> distribution('a', 'z');
-    std::generate_n(
-        buffer.data(), size, [&]() { return distribution(engine); });
+    std::generate_n(data, size, [&]() { return distribution(engine); });
 
-    auto ctx = helper->createCTX({});
-    helper->sh_open(ctx, testFile.fileId(), O_WRONLY);
-    try {
-        helper->sh_write(
-            ctx, testFile.fileId(), asio::const_buffer(buffer.data(), size), 0);
-        helper->sh_fsync(ctx, testFile.fileId(), true);
+    auto handle = communication::wait(
+        helper->open(testFile.fileId(), O_WRONLY, {}), helper->timeout());
 
-        DLOG(INFO) << "Storage test file modified.";
-    }
-    catch (...) {
-        helper->sh_release(ctx, testFile.fileId());
-        throw;
-    }
-    helper->sh_release(ctx, testFile.fileId());
+    std::string content;
+    buf.appendToString(content);
 
-    return std::string{buffer.data(), size};
+    communication::wait(handle->write(0, std::move(buf)), helper->timeout());
+    communication::wait(handle->fsync(true), helper->timeout());
+
+    DLOG(INFO) << "Storage test file modified.";
+
+    return content;
 }
 
 } // namespace client

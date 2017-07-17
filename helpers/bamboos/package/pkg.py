@@ -260,7 +260,7 @@ def push(package_artifact):
 
                 # update createrepo
                 print("Updating repository ...")
-                call(['createrepo', repo_dir])
+                call(['createrepo', '--update', repo_dir])
 
         write_report(packages)
         return 0

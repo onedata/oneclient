@@ -8,37 +8,52 @@
 
 #include "forceProxyIOCache.h"
 
+#include <glog/logging.h>
+
 namespace one {
 namespace client {
+namespace cache {
 
-ForceProxyIOCache::ForceProxyIOCache(FsSubscriptions &fsSubscriptions)
-    : m_fsSubscriptions{fsSubscriptions}
+bool ForceProxyIOCache::contains(const folly::fbstring &fileUuid)
 {
-}
-
-bool ForceProxyIOCache::contains(const std::string &fileUuid)
-{
-    std::shared_lock<std::shared_timed_mutex> lock{m_cacheMutex};
-    return m_cache.find(fileUuid) != m_cache.end();
-}
-
-void ForceProxyIOCache::insert(const std::string &fileUuid)
-{
-    {
-        std::shared_lock<std::shared_timed_mutex> lock{m_cacheMutex};
-        m_cache.insert(fileUuid);
+    ConstCacheAcc acc;
+    if (m_cache.find(acc, fileUuid)) {
+        return true;
     }
-    m_fsSubscriptions.addPermissionChangedSubscription(fileUuid);
+    return false;
 }
 
-void ForceProxyIOCache::erase(const std::string &fileUuid)
+void ForceProxyIOCache::add(const folly::fbstring &fileUuid)
 {
-    {
-        std::lock_guard<std::shared_timed_mutex> guard{m_cacheMutex};
-        m_cache.unsafe_erase(fileUuid);
+    CacheAcc acc;
+    if (m_cache.insert(acc, fileUuid)) {
+        acc->second = true;
+        m_onAdd(fileUuid);
     }
-    m_fsSubscriptions.removePermissionChangedSubscription(fileUuid);
 }
 
-} // namespace one
+void ForceProxyIOCache::remove(const folly::fbstring &fileUuid)
+{
+    CacheAcc acc;
+    if (m_cache.find(acc, fileUuid)) {
+        LOG(INFO) << "Invalidating ForceProxyIOCache for uuid: '" << fileUuid
+                  << "'";
+        m_onRemove(fileUuid);
+        m_cache.erase(acc);
+    }
+}
+
+void ForceProxyIOCache::onAdd(std::function<void(const folly::fbstring &)> cb)
+{
+    m_onAdd = std::move(cb);
+}
+
+void ForceProxyIOCache::onRemove(
+    std::function<void(const folly::fbstring &)> cb)
+{
+    m_onRemove = std::move(cb);
+}
+
+} // namespace cache
 } // namespace client
+} // namespace one

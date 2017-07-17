@@ -9,8 +9,11 @@
 #ifndef ONECLIENT_MESSAGES_CONFIGURATION_H
 #define ONECLIENT_MESSAGES_CONFIGURATION_H
 
-#include "events/subscriptionContainer.h"
 #include "messages/serverMessage.h"
+
+#include "messages.pb.h"
+
+#include <folly/FBString.h>
 
 #include <memory>
 #include <string>
@@ -24,10 +27,7 @@ namespace messages {
  */
 class Configuration : public ServerMessage {
 public:
-    /**
-     * Constructor.
-     */
-    Configuration(){};
+    Configuration() = default;
 
     /**
      * Constructor.
@@ -37,20 +37,26 @@ public:
     Configuration(std::unique_ptr<ProtocolServerMessage> serverMessage);
 
     /**
-     * @return subscription container.
+     * @return UUID of user's root directory.
      */
-    client::events::SubscriptionContainer subscriptionContainer();
+    const folly::fbstring &rootUuid() const;
 
     /**
-     * @return disabled spaces' container.
+     * @return subscriptions.
      */
-    std::vector<std::string> disabledSpacesContainer();
+    const std::vector<clproto::Subscription> &subscriptions() const;
+
+    /**
+     * @return disabled spaces.
+     */
+    const std::vector<std::string> &disabledSpaces() const;
 
     std::string toString() const override;
 
 private:
-    client::events::SubscriptionContainer m_subscriptionContainer;
-    std::vector<std::string> m_disabledSpacesContainer;
+    folly::fbstring m_rootUuid;
+    std::vector<clproto::Subscription> m_subscriptions;
+    std::vector<std::string> m_disabledSpaces;
 };
 
 } // namespace messages

@@ -5,7 +5,8 @@
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
-
+ 
+syntax = "proto2";
 package one.clproto;
 
 message Status {
@@ -109,11 +110,18 @@ message ChildLink {
 }
 
 message FileRenamedEntry {
-    required bytes old_uuid = 1; // old UUID of renamed file
-    required bytes new_uuid = 2; // new UUID of renamed file
-    required bytes new_path = 3; // new path of renamed file
+    required bytes old_uuid = 1;
+    required bytes new_uuid = 2;
+    required bytes new_parent_uuid = 3;
+    required bytes new_name = 4;
 }
 
 message Dir {
     required bytes uuid = 1;
+}
+
+enum OpenFlag {
+    READ = 1;
+    WRITE = 2;
+    READ_WRITE = 3;
 }

@@ -1,7 +1,7 @@
 /**
  * @file main.cc
  * @author Rafal Slota
- * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
@@ -19,123 +19,67 @@
 #include "auth/authManager.h"
 #include "communication/exception.h"
 #include "context.h"
-#include "errors/handshakeErrors.h"
-#include "events/eventManager.h"
-#include "fsLogic.h"
 #include "fsOperations.h"
+#include "fslogic/composite.h"
 #include "fuseOperations.h"
 #include "logging.h"
 #include "messages/configuration.h"
 #include "messages/getConfiguration.h"
 #include "messages/handshakeResponse.h"
-#include "messages/ping.h"
-#include "messages/pong.h"
-#include "oneException.h"
-#include "options.h"
+#include "options/options.h"
 #include "scheduler.h"
 #include "scopeExit.h"
-#include "shMock.h"
 #include "version.h"
 
+#include <folly/Singleton.h>
 #include <fuse/fuse_lowlevel.h>
 #include <fuse/fuse_opt.h>
 
-#include <pwd.h>
+#include <sys/mount.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <exception>
-#include <functional>
 #include <future>
 #include <iostream>
 #include <memory>
 #include <random>
-#include <sstream>
+#include <regex>
 #include <string>
-#include <vector>
 
 using namespace one;
 using namespace one::client;
-using namespace std::placeholders;
-using namespace std::literals;
-using boost::filesystem::path;
 
-std::string generateFuseID()
+void startLogging(
+    const char *programName, std::shared_ptr<options::Options> options)
+{
+    try {
+        boost::filesystem::create_directories(options->getLogDirPath());
+    }
+    catch (const boost::filesystem::filesystem_error &e) {
+        std::cerr << "Failed to create log directory: '" << e.what()
+                  << "'. Aborting..." << std::endl;
+    }
+
+    FLAGS_minloglevel = 0;
+    FLAGS_logtostderr = false;
+    FLAGS_stderrthreshold = options->getDebug() ? 0 : 2;
+    FLAGS_log_dir = options->getLogDirPath().c_str();
+    google::InitGoogleLogging(programName);
+}
+
+std::string generateSessionId()
 {
     std::random_device rd;
     std::default_random_engine randomEngine{rd()};
-    std::uniform_int_distribution<unsigned long long> fuseIdDistribution;
-    return std::to_string(fuseIdDistribution(randomEngine));
-}
-
-std::string clientVersion()
-{
-    std::stringstream stream;
-    if (oneclient_VERSION_FALLBACK.empty()) {
-        stream << oneclient_VERSION_MAJOR << "." << oneclient_VERSION_MINOR
-               << "." << oneclient_VERSION_PATCH;
-        if (!oneclient_VERSION_TWEAK.empty()) {
-            stream << "-" << oneclient_VERSION_TWEAK;
-        }
-    }
-    else {
-        stream << oneclient_VERSION_FALLBACK;
-    }
-
-    return stream.str();
-}
-
-std::string fuseVersion()
-{
-    std::stringstream stream;
-    stream << FUSE_MAJOR_VERSION << "." << FUSE_MINOR_VERSION;
-    return stream.str();
-}
-
-void printHelp(const char *name, std::shared_ptr<Options> options)
-{
-    std::cout << "Usage: " << name << " [options] mountpoint" << std::endl;
-    std::cout << options->describeCommandlineOptions() << std::endl;
-}
-
-void printVersions()
-{
-    std::cout << "oneclient version: " << clientVersion() << std::endl;
-    std::cout << "FUSE library version: " << fuseVersion() << std::endl;
-}
-
-void createScheduler(std::shared_ptr<Context> context)
-{
-    auto options = context->options();
-    const auto schedulerThreadsNo = options->get_jobscheduler_threads() > 1
-        ? options->get_jobscheduler_threads()
-        : 1;
-    context->setScheduler(std::make_shared<Scheduler>(schedulerThreadsNo));
-}
-
-std::shared_ptr<auth::AuthManager> createAuthManager(
-    std::shared_ptr<Context> context)
-{
-    auto options = context->options();
-    if (options->get_authentication() == "certificate") {
-        return std::make_shared<auth::CertificateAuthManager>(
-            std::move(context), options->get_provider_hostname(),
-            options->get_provider_port(), !options->get_no_check_certificate(),
-            options->get_debug_gsi());
-    }
-    else if (options->get_authentication() == "token") {
-        return std::make_shared<auth::TokenAuthManager>(std::move(context),
-            options->get_provider_hostname(), options->get_provider_port(),
-            !options->get_no_check_certificate());
-    }
-    else {
-        throw auth::AuthException{
-            "unknown authentication type: " + options->get_authentication()};
-    }
+    std::uniform_int_distribution<unsigned long long> sessionIdDistribution;
+    return std::to_string(sessionIdDistribution(randomEngine));
 }
 
 std::shared_ptr<communication::Communicator> handshake(
-    const std::string &fuseId, std::shared_ptr<auth::AuthManager> authManager,
+    const std::string &sessionId,
+    std::shared_ptr<auth::AuthManager> authManager,
     std::shared_ptr<Context> context)
 {
     auto handshakeHandler = [&](messages::HandshakeResponse msg) {
@@ -146,233 +90,226 @@ std::shared_ptr<communication::Communicator> handshake(
     };
 
     auto testCommunicatorTuple =
-        authManager->createCommunicator(1, fuseId, handshakeHandler);
+        authManager->createCommunicator(1, sessionId, handshakeHandler);
     auto testCommunicator =
         std::get<std::shared_ptr<communication::Communicator>>(
             testCommunicatorTuple);
 
     testCommunicator->setScheduler(context->scheduler());
     testCommunicator->connect();
-    communication::wait(std::get<std::future<void>>(testCommunicatorTuple));
+    communication::wait(
+        std::get<folly::Future<folly::Unit>>(testCommunicatorTuple));
 
     return testCommunicator;
 }
 
-std::shared_ptr<messages::Configuration> getConfiguration(
-    std::shared_ptr<communication::Communicator> communicator)
+std::shared_ptr<options::Options> getOptions(int argc, char *argv[])
 {
-    auto future = communicator->communicate<messages::Configuration>(
-        messages::GetConfiguration{});
-    auto configuration = communication::wait(future);
-    return std::make_shared<messages::Configuration>(std::move(configuration));
+    auto options = std::make_shared<options::Options>();
+    try {
+        options->parse(argc, argv);
+        return options;
+    }
+    catch (const boost::program_options::error &e) {
+        std::cerr << std::regex_replace(e.what(), std::regex("--"), "") << "\n"
+                  << "See '" << argv[0] << " --help'." << std::endl;
+        exit(EXIT_FAILURE);
+    }
 }
 
-std::shared_ptr<communication::Communicator> createCommunicator(
+std::shared_ptr<auth::AuthManager> getAuthManager(
+    std::shared_ptr<Context> context)
+{
+    try {
+        auto options = context->options();
+        return std::make_shared<auth::TokenAuthManager>(context,
+            options->getProviderHost().get(), options->getProviderPort(),
+            !options->isInsecure());
+    }
+    catch (auth::AuthException &e) {
+        std::cerr << "Authentication error: '" << e.what() << "'. Aborting..."
+                  << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+std::shared_ptr<messages::Configuration> getConfiguration(
+    const std::string &sessionId,
     std::shared_ptr<auth::AuthManager> authManager,
-    std::shared_ptr<Context> context, std::string fuseId)
+    std::shared_ptr<Context> context)
+{
+    auto options = context->options();
+    std::cout << "Connecting to provider '" << options->getProviderHost().get()
+              << ":" << options->getProviderPort() << "' using session ID: '"
+              << sessionId << "'..." << std::endl;
+
+    try {
+        auto communicator =
+            handshake(sessionId, std::move(authManager), std::move(context));
+
+        std::cout << "Getting configuration..." << std::endl;
+
+        auto future = communicator->communicate<messages::Configuration>(
+            messages::GetConfiguration{});
+        auto configuration = communication::wait(future);
+        return std::make_shared<messages::Configuration>(
+            std::move(configuration));
+    }
+    catch (const std::exception &e) {
+        std::cerr << "Connection error: '" << e.what() << "'. Aborting..."
+                  << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+std::shared_ptr<communication::Communicator> getCommunicator(
+    const std::string &sessionId,
+    std::shared_ptr<auth::AuthManager> authManager,
+    std::shared_ptr<Context> context)
 {
     auto handshakeHandler = [](auto) { return std::error_code{}; };
 
-    auto communicatorTuple =
-        authManager->createCommunicator(3, fuseId, handshakeHandler);
+    auto communicatorTuple = authManager->createCommunicator(
+        context->options()->getCommunicatorThreadCount(), sessionId,
+        handshakeHandler);
     auto communicator = std::get<std::shared_ptr<communication::Communicator>>(
         communicatorTuple);
 
     communicator->setScheduler(context->scheduler());
-    context->setCommunicator(communicator);
 
     return communicator;
 }
 
-boost::filesystem::path getLogDir(std::string name, const Options &options)
+void unmountFuse(std::shared_ptr<options::Options> options)
 {
-    if (options.is_default_log_dir()) {
-        uid_t uid = geteuid();
-        auto userIdent = std::to_string(uid);
-        if (auto pw = getpwuid(uid))
-            userIdent = pw->pw_name;
-
-        auto log_subdir_name = name + "_" + userIdent + "_logs";
-        auto log_path = boost::filesystem::path(options.get_log_dir()) /
-            boost::filesystem::path(log_subdir_name).filename();
-
-        boost::filesystem::create_directories(log_path);
-        return log_path;
-    }
-
-    return {options.get_log_dir()};
-}
-
-const path getGlobalConfigPath()
-{
-    path configDir{oneclient_CONFIG_DIR};
-    if (configDir.is_absolute()) {
-        return configDir / GLOBAL_CONFIG_FILE;
+    int status = 0, pid = fork();
+    if (pid) {
+        waitpid(pid, &status, 0);
     }
     else {
-        return path(oneclient_INSTALL_PATH) / configDir / GLOBAL_CONFIG_FILE;
+#if defined(__APPLE__)
+        auto exec = "/usr/sbin/diskutil";
+        execl(exec, exec, "unmount", options->getMountpoint().c_str(), NULL);
+#else
+        auto exec = "/bin/fusermount";
+        execl(exec, exec, "-u", options->getMountpoint().c_str(), NULL);
+#endif
     }
+    if (status == 0) {
+        std::cout << "Oneclient has been successfully unmounted." << std::endl;
+    }
+    exit(status);
 }
 
 int main(int argc, char *argv[])
 {
-    FLAGS_minloglevel = 1;
-    FLAGS_logtostderr = true;
-    FLAGS_colorlogtostderr = true;
-    google::InitGoogleLogging(argv[0]);
-
     auto context = std::make_shared<Context>();
-    const auto globalConfigPath = getGlobalConfigPath();
-    auto options = std::make_shared<Options>(globalConfigPath);
+    auto options = getOptions(argc, argv);
     context->setOptions(options);
-    try {
-        options->parseConfigs(argc, argv);
-    }
-    catch (const boost::program_options::error &e) {
-        printHelp(argv[0], std::move(options));
-        return EXIT_FAILURE;
-    }
-    catch (const OneException &e) {
-        std::cerr << "Cannot parse configuration: " << e.what()
-                  << ". Check logs for more details. Aborting" << std::endl;
-        return EXIT_FAILURE;
-    }
 
-    if (options->get_help()) {
-        printHelp(argv[0], std::move(options));
+    if (options->getHelp()) {
+        std::cout << options->formatHelp(argv[0]);
         return EXIT_SUCCESS;
     }
-    if (options->get_version()) {
-        printVersions();
+    if (options->getVersion()) {
+        std::cout << "Oneclient: " << ONECLIENT_VERSION << "\n"
+                  << "FUSE library: " << FUSE_MAJOR_VERSION << "."
+                  << FUSE_MINOR_VERSION << std::endl;
         return EXIT_SUCCESS;
     }
-
-    google::ShutdownGoogleLogging();
-
-    try {
-        FLAGS_log_dir = getLogDir(argv[0], *options).string();
+    if (options->getUnmount()) {
+        unmountFuse(options);
     }
-    catch (const boost::filesystem::filesystem_error &e) {
-        std::cerr << "Failed to create logdir: " << e.what() << std::endl;
-        std::cerr << "Cannot continue. Aborting" << std::endl;
+    if (!options->getProviderHost()) {
+        std::cerr << "the option 'host' is required but missing\n"
+                  << "See '" << argv[0] << " --help'." << std::endl;
         return EXIT_FAILURE;
     }
-
-    FLAGS_minloglevel = 0;
-    FLAGS_logtostderr = false;
-    FLAGS_stderrthreshold = options->get_debug() ? 0 : 2;
-    google::InitGoogleLogging(argv[0]);
-
-    createScheduler(context);
-
-    std::shared_ptr<auth::AuthManager> authManager;
-    try {
-        authManager = createAuthManager(context);
-    }
-    catch (auth::AuthException &e) {
-        std::cerr << "Authentication error: " << e.what() << std::endl;
-        std::cerr << "Cannot continue. Aborting" << std::endl;
-        return EXIT_FAILURE;
+    if (options->hasDeprecated()) {
+        std::cout << options->formatDeprecated();
     }
 
-    std::cout << "Connecting to provider '" << authManager->hostname()
-              << "' ..." << std::endl;
+    startLogging(argv[0], options);
 
-    // Initialize cluster handshake in order to check if everything is ok before
-    // becoming daemon
-    const auto fuseId = generateFuseID();
-    std::shared_ptr<messages::Configuration> configuration;
-    try {
-        /// @todo InvalidServerCertificate
-        /// @todo More specific errors.
-        /// @todo boost::system::system_error thrown on host not found
-        auto communicator = handshake(fuseId, authManager, context);
-        std::cout << "Getting configuration ..." << std::endl;
-        configuration = getConfiguration(std::move(communicator));
-    }
-    catch (const OneException &e) {
-        std::cerr << "Handshake error: " << e.code() << " (" << e.what()
-                  << "). Aborting." << std::endl;
-        return EXIT_FAILURE;
-    }
-    catch (const communication::Exception &e) {
-        std::cerr << "Error: " << e.what() << ". Aborting." << std::endl;
-        return EXIT_FAILURE;
-    }
-    catch (const std::system_error &e) {
-        std::cerr << "Handshake connection error: " << e.what() << ". Aborting."
-                  << std::endl;
-        return EXIT_FAILURE;
-    }
+    context->setScheduler(
+        std::make_shared<Scheduler>(options->getSchedulerThreadCount()));
 
-    // FUSE main:
-    struct fuse *fuse;
-    struct fuse_chan *ch;
-    struct fuse_operations fuse_oper = fuseOperations();
+    auto authManager = getAuthManager(context);
+    auto sessionId = generateSessionId();
+    auto configuration = getConfiguration(sessionId, authManager, context);
+
+    auto fuse_oper = fuseOperations();
+    auto args = options->getFuseArgs(argv[0]);
     char *mountpoint;
     int multithreaded;
     int foreground;
     int res;
 
-    struct fuse_args args = options->getFuseArgs();
     res = fuse_parse_cmdline(&args, &mountpoint, &multithreaded, &foreground);
     if (res == -1)
         return EXIT_FAILURE;
 
-    ScopeExit freeMountpoint{[&] { free(mountpoint); }};
+    ScopeExit freeMountpoint{[=] { free(mountpoint); }};
 
-    ch = fuse_mount(mountpoint, &args);
+    auto ch = fuse_mount(mountpoint, &args);
     if (!ch)
         return EXIT_FAILURE;
 
-    ScopeExit unmountFuse{[&] { fuse_unmount(mountpoint, ch); }};
+    ScopeExit unmountFuse{[=] { fuse_unmount(mountpoint, ch); }};
 
     res = fcntl(fuse_chan_fd(ch), F_SETFD, FD_CLOEXEC);
     if (res == -1)
         perror("WARNING: failed to set FD_CLOEXEC on fuse device");
 
-    FsLogicWrapper fsLogicWrapper;
-    fuse = fuse_new(ch, &args, &fuse_oper, sizeof(fuse_oper), &fsLogicWrapper);
+    std::unique_ptr<fslogic::Composite> fsLogic;
+    auto fuse =
+        fuse_lowlevel_new(&args, &fuse_oper, sizeof(fuse_oper), &fsLogic);
     if (fuse == nullptr)
         return EXIT_FAILURE;
 
-    ScopeExit destroyFuse{[&] { fuse_destroy(fuse); }, unmountFuse};
+    ScopeExit destroyFuse{[=] { fuse_session_destroy(fuse); }, unmountFuse};
 
-    fuse_set_signal_handlers(fuse_get_session(fuse));
-    ScopeExit removeHandlers{
-        [&] { fuse_remove_signal_handlers(fuse_get_session(fuse)); }};
+    fuse_set_signal_handlers(fuse);
+    ScopeExit removeHandlers{[&] { fuse_remove_signal_handlers(fuse); }};
 
-    std::cout << "oneclient has been successfully mounted in " << mountpoint
-              << std::endl;
+    fuse_session_add_chan(fuse, ch);
+    ScopeExit removeChannel{[&] { fuse_session_remove_chan(ch); }};
+
+    std::cout << "Oneclient has been successfully mounted in '"
+              << options->getMountpoint().c_str() << "'." << std::endl;
 
     if (!foreground) {
         context->scheduler()->prepareForDaemonize();
+        folly::SingletonVault::singleton()->destroyInstances();
 
-        fuse_remove_signal_handlers(fuse_get_session(fuse));
+        fuse_remove_signal_handlers(fuse);
         res = fuse_daemonize(foreground);
 
         if (res != -1)
-            res = fuse_set_signal_handlers(fuse_get_session(fuse));
+            res = fuse_set_signal_handlers(fuse);
 
         if (res == -1)
             return EXIT_FAILURE;
 
+        folly::SingletonVault::singleton()->reenableInstances();
         context->scheduler()->restartAfterDaemonize();
     }
     else {
-        // in foreground, log at least warning messages
-        FLAGS_stderrthreshold = options->get_debug() ? 0 : 1;
+        FLAGS_stderrthreshold = options->getDebug() ? 0 : 1;
     }
 
-    auto communicator =
-        createCommunicator(authManager, context, std::move(fuseId));
+    auto communicator = getCommunicator(sessionId, authManager, context);
+    context->setCommunicator(communicator);
     communicator->connect();
 
-    fsLogicWrapper.logic =
-        std::make_unique<FsLogic>(std::move(context), std::move(configuration));
+    auto helpersCache = std::make_unique<cache::HelpersCache>(
+        *communicator, *context->scheduler(), *options);
 
-    // Enter FUSE loop
-    res = multithreaded ? fuse_loop_mt(fuse) : fuse_loop(fuse);
+    const auto &rootUuid = configuration->rootUuid();
+    fsLogic = std::make_unique<fslogic::Composite>(rootUuid, std::move(context),
+        std::move(configuration), std::move(helpersCache));
+
+    res = multithreaded ? fuse_session_loop_mt(fuse) : fuse_session_loop(fuse);
 
     communicator->stop();
     return res == -1 ? EXIT_FAILURE : EXIT_SUCCESS;

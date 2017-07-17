@@ -9,16 +9,21 @@ License:	MIT
 URL:		https://onedata.org
 Source0:	oneclient-%{version}.orig.tar.gz
 
+Requires: fuse
 BuildRequires: aws-sdk-cpp-s3 >= 1.0.11
+BuildRequires: binutils-devel,
 BuildRequires: boost-devel >= 1.58.0
 BuildRequires: cmake >= 3.0.0
+BuildRequires: double-conversion-devel
 BuildRequires: fuse-devel >= 2.7
+BuildRequires: folly-devel = 2016.09.19.00, folly-static = 2016.09.19.00
 BuildRequires: gcc-c++ >= 5.0.0
 BuildRequires: git
 BuildRequires: glog-devel >= 0.3.4
+BuildRequires: glusterfs-api-devel = 3.7.18
 BuildRequires: golang
 BuildRequires: libcurl-devel
-BuildRequires: librados2-devel >= 10.2.3
+BuildRequires: librados-devel >= 11.1.0
 BuildRequires: libsodium-devel
 BuildRequires: libtool-ltdl
 BuildRequires: libtool-ltdl-devel
@@ -44,23 +49,26 @@ oneclient is a software based on FUSE (Filesystem in Userspace) that allows moun
 %prep
 %setup -q
 
-
 %build
-%cmake . -DBUILD_INTEGRATION_TESTS=Off -DBUILD_SHARED_LIBS=Off
+%cmake . -DCMAKE_BUILD_TYPE=Release -DBUILD_INTEGRATION_TESTS=Off -DBUILD_SHARED_LIBS=Off
 make %{?_smp_mflags} oneclient
-
 
 %install
 make install DESTDIR=%{buildroot}
-find %{buildroot}
-
 
 %files
 %{_bindir}/oneclient
 %{_sysconfdir}/oneclient.conf
+%{_mandir}/man1/oneclient.1.gz
+%{_mandir}/man5/oneclient.conf.5.gz
+%{_localstatedir}/lib/oneclient/*
+
+%license
+%{_defaultdocdir}/oneclient/LICENSE.txt
 
 %doc
-
-
+%{_defaultdocdir}/oneclient/README.md
 
 %changelog
+* %(date +"%a %b %d %Y") Onedata Package Maintainer <support@onedata.org>
+  - Build from %{version}

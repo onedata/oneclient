@@ -18,7 +18,7 @@
 #include <sys/types.h>
 
 #include <cstdint>
-#include <helpers/IStorageHelper.h>
+#include <helpers/storageHelper.h>
 #include <string>
 
 namespace one {
@@ -32,17 +32,14 @@ class GetFileLocation : public FileRequest {
 public:
     /**
      * Constructor.
-     * @param uuid UUID of the directory of which children are requested.
-     * @param flags Open flags
+     * @param uuid UUID of the file for which location is requested.
      */
-    GetFileLocation(std::string uuid, const one::helpers::FlagsSet flags);
+    GetFileLocation(std::string uuid);
 
     std::string toString() const override;
 
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
-
-    one::helpers::FlagsSet m_flags;
 };
 
 } // namespace fuse

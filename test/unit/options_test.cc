@@ -1,295 +1,680 @@
 /**
  * @file options_test.cc
- * @author Michal Wrona
+ * @author Krzysztof Trzepla
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "options.h"
-#include "oneException.h"
+#include "options/options.h"
 
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/fstream.hpp>
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <fstream>
+#include <iostream>
+#include <vector>
 
-using namespace one::client;
 using namespace ::testing;
 
-namespace {
-const auto USER_CONFIG_PATH = boost::filesystem::unique_path();
-const auto GLOBAL_CONFIG_PATH = boost::filesystem::unique_path();
-constexpr auto ARG0 = "./oneclient";
-constexpr auto PROVIDER_HOSTNAME_VAL = "hostname";
-constexpr auto PROVIDER_PORT_CONF_VAL = "1234";
-constexpr auto PROVIDER_PORT_ENV_VAL = "4321";
-constexpr auto AUTHENTICATION_VAL = "token";
-constexpr auto CLUSTER_PING_INTERVAL_VAL = "30";
-constexpr auto MOUNTPOINT = "/mnt/data";
-} // namespace
-
-class OptionsTest : public Test {
-public:
-    OptionsTest() {}
+struct OptionsTest : public ::testing::Test {
+    OptionsTest()
+        : configFilePath{boost::filesystem::temp_directory_path() /
+              boost::filesystem::unique_path()}
+        , cmdArgs{"oneclient"}
+        , envArgs{"oneclient", "mountpoint"}
+        , fileArgs{"oneclient", "-c", configFilePath.c_str(), "mountpoint"}
+    {
+    }
 
     ~OptionsTest()
     {
-        unsetenv("NO_CHECK_CERTIFICATE");
-        unsetenv("PROVIDER_PORT");
-        unsetenv("ONECLIENT_PROVIDER_PORT");
-        unsetenv("PROVIDER_HOSTNAME");
-        boost::filesystem::remove(USER_CONFIG_PATH);
-        boost::filesystem::remove(GLOBAL_CONFIG_PATH);
+        for (const std::string &env :
+            {"CONFIG", "PROVIDER_HOST", "PROVIDER_PORT", "INSECURE",
+                "ACCESS_TOKEN", "AUTHORIZATION_TOKEN", "LOG_DIR",
+                "FUSE_FOREGROUND", "FUSE_DEBUG", "FUSE_SINGLE_THREAD",
+                "FUSE_MOUNT_OPT", "FUSE_MOUNTPOINT"}) {
+            unsetenv(env.c_str());
+            unsetenv(("ONECLIENT_" + env).c_str());
+        }
+
+        boost::system::error_code ec;
+        boost::filesystem::remove_all(configFilePath, ec);
     }
 
-protected:
-    Options options{GLOBAL_CONFIG_PATH};
+    void setInConfigFile(const std::string &key, const std::string &value)
+    {
+        std::ofstream configFile;
+        configFile.open(configFilePath.c_str(), std::ios_base::app);
+        configFile << key << " = " << value << std::endl;
+        configFile.close();
+    }
+
+    boost::filesystem::path configFilePath;
+    std::vector<const char *> cmdArgs;
+    std::vector<const char *> envArgs;
+    std::vector<const char *> fileArgs;
+    one::client::options::Options options{};
 };
 
-TEST_F(OptionsTest, shouldThrowExceptionOnMissingMountpoint)
+TEST_F(OptionsTest, formatHelpShouldReturnNonemptyString)
 {
-    const char *const argv[] = {ARG0};
-    ASSERT_THROW(options.parseConfigs(1, argv), boost::program_options::error);
+    EXPECT_FALSE(options.formatHelp("oneclient").empty());
 }
 
-TEST_F(OptionsTest, optionsShouldParseCommandLineArguments)
+TEST_F(OptionsTest, formatDeprecatedShouldReturnEmptyString)
 {
-    const char *const argv[] = {ARG0, "-d", "--debug_gsi", "--proxyio",
-        "--authentication", AUTHENTICATION_VAL, MOUNTPOINT};
-    EXPECT_EQ(false, options.get_debug());
-    EXPECT_EQ(false, options.get_debug_gsi());
-    EXPECT_EQ(false, options.get_proxyio());
-    EXPECT_NE(AUTHENTICATION_VAL, options.get_authentication());
-
-    options.parseConfigs(7, argv);
-    EXPECT_EQ(true, options.get_debug());
-    EXPECT_EQ(true, options.get_debug_gsi());
-    EXPECT_EQ(true, options.get_proxyio());
-    EXPECT_EQ(AUTHENTICATION_VAL, options.get_authentication());
+    EXPECT_TRUE(options.formatDeprecated().empty());
 }
 
-TEST_F(OptionsTest, optionsShouldParseHelpCommandLineArgument)
+TEST_F(OptionsTest, parseCommandLineShouldFailWhenMountpointIsMissing)
 {
-    const char *const argv[] = {ARG0, "--help"};
-    EXPECT_EQ(false, options.get_help());
-    options.parseConfigs(2, argv);
-    EXPECT_EQ(true, options.get_help());
+    cmdArgs.push_back("--foreground");
+    EXPECT_THROW(options.parse(cmdArgs.size(), cmdArgs.data()),
+        boost::program_options::error);
+    cmdArgs.push_back("mountpoint");
+    options.parse(cmdArgs.size(), cmdArgs.data());
 }
 
-TEST_F(OptionsTest, optionsShouldParseVersionCommandLineArgument)
+TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
 {
-    const char *const argv[] = {ARG0, "--version"};
-    EXPECT_EQ(false, options.get_version());
-    options.parseConfigs(2, argv);
-    EXPECT_EQ(true, options.get_version());
+    using namespace one::client;
+
+    cmdArgs.push_back("mountpoint");
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(false, options.getHelp());
+    EXPECT_EQ(false, options.getVersion());
+    EXPECT_EQ(false, options.getUnmount());
+    EXPECT_EQ(false, options.getForeground());
+    EXPECT_EQ(false, options.getDebug());
+    EXPECT_EQ(false, options.getSingleThread());
+    EXPECT_EQ(false, options.isInsecure());
+    EXPECT_EQ(false, options.isProxyIOForced());
+    EXPECT_EQ(false, options.isDirectIOForced());
+    EXPECT_EQ(options::DEFAULT_PROVIDER_PORT, options.getProviderPort());
+    EXPECT_EQ(options::DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT,
+        options.getBufferSchedulerThreadCount());
+    EXPECT_EQ(options::DEFAULT_COMMUNICATOR_THREAD_COUNT,
+        options.getCommunicatorThreadCount());
+    EXPECT_EQ(options::DEFAULT_SCHEDULER_THREAD_COUNT,
+        options.getSchedulerThreadCount());
+    EXPECT_EQ(options::DEFAULT_STORAGE_HELPER_THREAD_COUNT,
+        options.getStorageHelperThreadCount());
+    EXPECT_EQ(true, options.isIOBuffered());
+    EXPECT_EQ(
+        options::DEFAULT_READ_BUFFER_MIN_SIZE, options.getReadBufferMinSize());
+    EXPECT_EQ(
+        options::DEFAULT_READ_BUFFER_MAX_SIZE, options.getReadBufferMaxSize());
+    EXPECT_EQ(options::DEFAULT_READ_BUFFER_PREFETCH_DURATION,
+        options.getReadBufferPrefetchDuration().count());
+    EXPECT_EQ(options::DEFAULT_WRITE_BUFFER_MIN_SIZE,
+        options.getWriteBufferMinSize());
+    EXPECT_EQ(options::DEFAULT_WRITE_BUFFER_MAX_SIZE,
+        options.getWriteBufferMaxSize());
+    EXPECT_EQ(options::DEFAULT_WRITE_BUFFER_FLUSH_DELAY,
+        options.getWriteBufferFlushDelay().count());
+    EXPECT_FALSE(options.getProviderHost());
+    EXPECT_FALSE(options.getAccessToken());
 }
 
-TEST_F(OptionsTest, shouldThrowOneExceptionOnUnknownCommandLineArgument)
+TEST_F(OptionsTest, parseCommandLineShouldSetHelpWhenNoArguments)
 {
-    const char *const argv[] = {ARG0, "--unknown", MOUNTPOINT};
-    ASSERT_THROW(options.parseConfigs(2, argv), OneException);
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.getHelp());
 }
 
-TEST_F(OptionsTest, shouldThrowOneExceptionOnMissingCommandLineArgumentValue)
+TEST_F(OptionsTest, parseCommandLineShouldSetMountpoint)
 {
-    const char *const argv[] = {ARG0, "--config"};
-    ASSERT_THROW(options.parseConfigs(2, argv), OneException);
+    cmdArgs.push_back("somePath");
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ("somePath", options.getMountpoint());
 }
 
-TEST_F(
-    OptionsTest, shouldThrowOneExceptionOnTooManyPositionalCommandLineArguments)
+TEST_F(OptionsTest, parseCommandLineShouldSetHelp)
 {
-    const char *const argv[] = {ARG0, "positional", "positional"};
-    ASSERT_THROW(options.parseConfigs(3, argv), OneException);
+    cmdArgs.push_back("--help");
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.getHelp());
 }
 
-TEST_F(OptionsTest,
-    shouldThrowOneExceptionOnOptionSpecifiedMoreThanOnceInCommandLineArguments)
+TEST_F(OptionsTest, parseCommandLineShouldSetVersion)
 {
-    const char *const argv[] = {ARG0, "--config", "val", "--config", "val2"};
-    ASSERT_THROW(options.parseConfigs(5, argv), OneException);
+    cmdArgs.push_back("--version");
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.getVersion());
 }
 
-TEST_F(OptionsTest, optionsShouldParseEnvironmentOptions)
+TEST_F(OptionsTest, parseCommandLineShouldSetUnmount)
 {
-    const char *const argv[] = {ARG0, MOUNTPOINT};
-    setenv("NO_CHECK_CERTIFICATE", "true", 1);
-    setenv("ONECLIENT_PROVIDER_PORT", PROVIDER_PORT_ENV_VAL, 1);
-    setenv("PROVIDER_HOSTNAME", PROVIDER_HOSTNAME_VAL, 1);
-
-    EXPECT_EQ(false, options.get_no_check_certificate());
-    EXPECT_NE(std::stoi(PROVIDER_PORT_ENV_VAL), options.get_provider_port());
-    EXPECT_NE(PROVIDER_HOSTNAME_VAL, options.get_provider_hostname());
-
-    options.parseConfigs(2, argv);
-    EXPECT_EQ(true, options.get_no_check_certificate());
-    EXPECT_EQ(std::stoi(PROVIDER_PORT_ENV_VAL), options.get_provider_port());
-    EXPECT_EQ(PROVIDER_HOSTNAME_VAL, options.get_provider_hostname());
+    cmdArgs.insert(cmdArgs.end(), {"--unmount", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.getUnmount());
 }
 
-TEST_F(OptionsTest, optionsShouldParseUserConfigurationFile)
+TEST_F(OptionsTest, parseCommandLineShouldSetProviderHost)
 {
-    const char *const argv[] = {
-        ARG0, "--config", USER_CONFIG_PATH.c_str(), MOUNTPOINT};
-    boost::filesystem::ofstream userConfig(USER_CONFIG_PATH);
-    userConfig << "no_check_certificate = " << true
-               << "\nprovider_port = " << PROVIDER_PORT_ENV_VAL
-               << "\nprovider_hostname = " << PROVIDER_HOSTNAME_VAL
-               << std::endl;
-    userConfig.close();
-
-    EXPECT_EQ(false, options.get_no_check_certificate());
-    EXPECT_NE(std::stoi(PROVIDER_PORT_ENV_VAL), options.get_provider_port());
-    EXPECT_NE(PROVIDER_HOSTNAME_VAL, options.get_provider_hostname());
-
-    options.parseConfigs(4, argv);
-    EXPECT_EQ(true, options.get_no_check_certificate());
-    EXPECT_EQ(std::stoi(PROVIDER_PORT_ENV_VAL), options.get_provider_port());
-    EXPECT_EQ(PROVIDER_HOSTNAME_VAL, options.get_provider_hostname());
+    cmdArgs.insert(cmdArgs.end(), {"--host", "someHost", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ("someHost", options.getProviderHost().get());
 }
 
-/**
-* Tests whether parsing configs throws exception for user config with given
-* content
-* @param options
-* @param fileContent
-*/
-void testUserConfigFileContentError(Options &options, std::string fileContent)
+TEST_F(OptionsTest, parseCommandLineShouldSetProviderPort)
 {
-    const char *const argv[] = {ARG0, "--config", USER_CONFIG_PATH.c_str()};
-    boost::filesystem::ofstream config(USER_CONFIG_PATH);
-    config << fileContent << std::endl;
-    config.close();
-
-    ASSERT_THROW(options.parseConfigs(3, argv), OneException);
+    cmdArgs.insert(cmdArgs.end(), {"--port", "1234", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1234, options.getProviderPort());
 }
 
-TEST_F(OptionsTest,
-    shouldThrowOneExceptionWhenRestrictedOptionIsSpecifiedInUserConfig)
+TEST_F(OptionsTest, parseCommandLineShouldSetAccessToken)
 {
-    testUserConfigFileContentError(options, "cluster_ping_interval = 30");
+    cmdArgs.insert(cmdArgs.end(), {"--token", "someToken", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ("someToken", options.getAccessToken().get());
 }
 
-TEST_F(OptionsTest, shouldThrowOneExceptionOnUnknownOptionInUserConfig)
+TEST_F(OptionsTest, parseCommandLineShouldSetInsecure)
 {
-    testUserConfigFileContentError(options, "unknown = unknown");
+    cmdArgs.insert(cmdArgs.end(), {"--insecure", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isInsecure());
 }
 
-TEST_F(OptionsTest, shouldThrowOneExceptionWhenFormatInUserConfigIsInvalid)
+TEST_F(OptionsTest, parseCommandLineShouldSetInsecureDeprecated)
 {
-    testUserConfigFileContentError(options, "invalid format");
+    cmdArgs.insert(cmdArgs.end(), {"--no_check_certificate", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isInsecure());
 }
 
-TEST_F(OptionsTest,
-    shouldThrowOneExceptionOnOptionSpecifiedMoreThanOnceInUserConfig)
+TEST_F(OptionsTest, parseCommandLineShouldSetConfigFilePath)
 {
-    testUserConfigFileContentError(
-        options, "provider_hostname = name\nprovider_hostname = host");
+    cmdArgs.insert(cmdArgs.end(), {"--config", "somePath", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ("somePath", options.getConfigFilePath());
 }
 
-TEST_F(OptionsTest, optionsShouldParseGlobalConfigurationFile)
+TEST_F(OptionsTest, parseCommandLineShouldSetLogDirPath)
 {
-    const char *const argv[] = {ARG0, MOUNTPOINT};
-    boost::filesystem::ofstream globalConfig(GLOBAL_CONFIG_PATH);
-    globalConfig << "no_check_certificate = " << true
-                 << "\nprovider_port = " << PROVIDER_PORT_ENV_VAL
-                 << "\nprovider_hostname = " << PROVIDER_HOSTNAME_VAL
-                 << "\ncluster_ping_interval = " << CLUSTER_PING_INTERVAL_VAL
-                 << std::endl;
-    globalConfig.close();
-
-    EXPECT_EQ(false, options.get_no_check_certificate());
-    EXPECT_NE(std::stoi(PROVIDER_PORT_ENV_VAL), options.get_provider_port());
-    EXPECT_NE(PROVIDER_HOSTNAME_VAL, options.get_provider_hostname());
-    EXPECT_NE(std::stoi(CLUSTER_PING_INTERVAL_VAL),
-        options.get_cluster_ping_interval());
-
-    options.parseConfigs(2, argv);
-    EXPECT_EQ(true, options.get_no_check_certificate());
-    EXPECT_EQ(std::stoi(PROVIDER_PORT_ENV_VAL), options.get_provider_port());
-    EXPECT_EQ(PROVIDER_HOSTNAME_VAL, options.get_provider_hostname());
-    EXPECT_EQ(std::stoi(CLUSTER_PING_INTERVAL_VAL),
-        options.get_cluster_ping_interval());
+    cmdArgs.insert(cmdArgs.end(), {"--log-dir", "somePath", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ("somePath", options.getLogDirPath());
 }
 
-/**
-* Tests whether parsing configs throws exception for global config with given
-* content
-* @param options
-* @param fileContent
-*/
-void testGlobalConfigFileContentError(Options &options, std::string fileContent)
+TEST_F(OptionsTest, parseCommandLineShouldSetForceProxyIO)
 {
-    const char *const argv[] = {ARG0};
-    boost::filesystem::ofstream config(GLOBAL_CONFIG_PATH);
-    config << fileContent << std::endl;
-    config.close();
-
-    ASSERT_THROW(options.parseConfigs(1, argv), OneException);
+    cmdArgs.insert(cmdArgs.end(), {"--force-proxy-io", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isProxyIOForced());
 }
 
-TEST_F(OptionsTest, shouldThrowOneExceptionOnUnknownOptionInGlobalConfig)
+TEST_F(OptionsTest, parseCommandLineShouldSetForceDirectIO)
 {
-    testGlobalConfigFileContentError(options, "unknown = unknown");
+    cmdArgs.insert(cmdArgs.end(), {"--force-direct-io", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isDirectIOForced());
 }
 
-TEST_F(OptionsTest, shouldThrowOneExceptionWhenFormatInGlobalConfigIsInvalid)
+TEST_F(OptionsTest, parseCommandLineShouldSetBufferSchedulerThreadCount)
 {
-    testGlobalConfigFileContentError(options, "invalid format");
+    cmdArgs.insert(
+        cmdArgs.end(), {"--buffer-scheduler-thread-count", "8", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(8, options.getBufferSchedulerThreadCount());
 }
 
-TEST_F(OptionsTest,
-    shouldThrowOneExceptionOnOptionSpecifiedMoreThanOnceInGlobalConfig)
+TEST_F(OptionsTest, parseCommandLineShouldSetCommunicatorThreadCount)
 {
-    testGlobalConfigFileContentError(
-        options, "provider_hostname = name\nprovider_hostname = host");
+    cmdArgs.insert(
+        cmdArgs.end(), {"--communicator-thread-count", "8", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(8, options.getCommunicatorThreadCount());
 }
 
-TEST_F(
-    OptionsTest, environmentOptionsShouldNotOverrideWhenOverridingIsNotAllowed)
+TEST_F(OptionsTest, parseCommandLineShouldSetSchedulerThreadCount)
 {
-    const char *const argv[] = {ARG0, MOUNTPOINT};
-    setenv("PROVIDER_PORT", PROVIDER_PORT_ENV_VAL, 1);
-    boost::filesystem::ofstream globalConfig(GLOBAL_CONFIG_PATH);
-    globalConfig << "provider_port = " << PROVIDER_PORT_CONF_VAL
-                 << "\nenable_env_option_override = false" << std::endl;
-    globalConfig.close();
-
-    EXPECT_NE(std::stoi(PROVIDER_PORT_CONF_VAL), options.get_provider_port());
-    options.parseConfigs(2, argv);
-    EXPECT_EQ(std::stoi(PROVIDER_PORT_CONF_VAL), options.get_provider_port());
+    cmdArgs.insert(
+        cmdArgs.end(), {"--scheduler-thread-count", "8", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(8, options.getSchedulerThreadCount());
 }
 
-TEST_F(OptionsTest, environmentOptionsShouldOverrideWhenOverridingIsAllowed)
+TEST_F(OptionsTest, parseCommandLineShouldSetStorageHelperThreadCount)
 {
-    const char *const argv[] = {ARG0, MOUNTPOINT};
-    setenv("PROVIDER_PORT", PROVIDER_PORT_ENV_VAL, 1);
-    EXPECT_NE(std::stoi(PROVIDER_PORT_ENV_VAL), options.get_provider_port());
-    options.parseConfigs(2, argv);
-    EXPECT_EQ(std::stoi(PROVIDER_PORT_ENV_VAL), options.get_provider_port());
+    cmdArgs.insert(
+        cmdArgs.end(), {"--storage-helper-thread-count", "8", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(8, options.getStorageHelperThreadCount());
 }
 
-TEST_F(OptionsTest, fuseArgsShouldBeParsedAndReturnedAsFuseArgsStruct)
+TEST_F(OptionsTest, parseCommandLineShouldSetNoBuffer)
 {
-    const char *const argv[] = {ARG0, "-f", "-o", "opt", "mountpoint"};
-    options.parseConfigs(5, argv);
-
-    auto fuse_args = options.getFuseArgs();
-    auto fuse_argv = std::vector<std::string>();
-    for (int i = 0; i < fuse_args.argc; ++i)
-        fuse_argv.push_back(std::string(fuse_args.argv[i]));
-
-    EXPECT_THAT(fuse_argv, Contains("-obig_writes"));
-    EXPECT_THAT(fuse_argv, Contains("-f"));
-    EXPECT_THAT(fuse_argv, Contains("-oopt"));
-    EXPECT_THAT(fuse_argv, Contains("mountpoint"));
+    cmdArgs.insert(cmdArgs.end(), {"--no-buffer", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(false, options.isIOBuffered());
 }
 
-TEST_F(OptionsTest, describeCommandlineOptionsShouldReturnNotEmptyDescription)
+TEST_F(OptionsTest, parseCommandLineShouldSetReadBufferMinSize)
 {
-    auto description = options.describeCommandlineOptions();
-    EXPECT_FALSE(description.empty());
+    cmdArgs.insert(
+        cmdArgs.end(), {"--read-buffer-min-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getReadBufferMinSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetReadBufferMaxSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--read-buffer-max-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getReadBufferMaxSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetReadBufferPrefetchDuration)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--read-buffer-prefetch-duration", "10", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(10, options.getReadBufferPrefetchDuration().count());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetWriteBufferMinSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--write-buffer-min-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getWriteBufferMinSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetWriteBufferMaxSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--write-buffer-max-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getWriteBufferMaxSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetWriteBufferFlushDelay)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--write-buffer-flush-delay", "10", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(10, options.getWriteBufferFlushDelay().count());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetForeground)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--foreground", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.getForeground());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetDebug)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--debug", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.getDebug());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetSingleThread)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--single-thread", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.getSingleThread());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetFuseOpts)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--opt", "someOpt0", "--opt", "someOpt1", "--opt", "someOpt2",
+            "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    auto opts = options.getFuseOpts();
+    std::sort(opts.begin(), opts.end());
+    EXPECT_EQ(3, opts.size());
+    EXPECT_EQ("someOpt0", opts[0]);
+    EXPECT_EQ("someOpt1", opts[1]);
+    EXPECT_EQ("someOpt2", opts[2]);
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetFuseArgs)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--foreground", "--debug", "--single-thread", "--opt", "someOpt0",
+            "--opt", "someOpt1", "--opt", "someOpt2", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(9, options.getFuseArgs("oneclient").argc);
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldWarnOnDeprecatedOptions)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--no_check_certificate", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.hasDeprecated());
+    EXPECT_FALSE(options.formatDeprecated().empty());
+}
+
+TEST_F(OptionsTest, shortCommandLineOptionsShouldBeInterchangeableWithLong)
+{
+    std::vector<const char *> shortArgs{"oneclient", "-u", "-f", "-d", "-s",
+        "-H", "someHost", "-P", "1234", "-t", "someToken", "-i", "-c",
+        "someFileConfigPath", "-l", "someLogDirPath", "--opt", "someOpt",
+        "mountpoint"};
+    one::client::options::Options shortOpts{};
+    shortOpts.parse(shortArgs.size(), shortArgs.data());
+
+    std::vector<const char *> longArgs{"oneclient", "--unmount", "--foreground",
+        "--debug", "--single-thread", "--host", "someHost", "--port", "1234",
+        "--token", "someToken", "--insecure", "--config", "someFileConfigPath",
+        "--log-dir", "someLogDirPath", "-o", "someOpt", "mountpoint"};
+    one::client::options::Options longOpts{};
+    longOpts.parse(longArgs.size(), longArgs.data());
+
+    EXPECT_EQ(shortOpts.getUnmount(), longOpts.getUnmount());
+    EXPECT_EQ(shortOpts.getForeground(), longOpts.getForeground());
+    EXPECT_EQ(shortOpts.getDebug(), longOpts.getDebug());
+    EXPECT_EQ(shortOpts.getSingleThread(), longOpts.getSingleThread());
+    EXPECT_EQ(shortOpts.getProviderHost(), longOpts.getProviderHost());
+    EXPECT_EQ(shortOpts.getProviderPort(), longOpts.getProviderPort());
+    EXPECT_EQ(shortOpts.getAccessToken(), longOpts.getAccessToken());
+    EXPECT_EQ(shortOpts.isInsecure(), longOpts.isInsecure());
+    EXPECT_EQ(shortOpts.getConfigFilePath(), longOpts.getConfigFilePath());
+    EXPECT_EQ(shortOpts.getLogDirPath(), longOpts.getLogDirPath());
+    EXPECT_EQ(shortOpts.getMountpoint(), longOpts.getMountpoint());
+    EXPECT_EQ(shortOpts.getFuseOpts(), longOpts.getFuseOpts());
+}
+
+TEST_F(OptionsTest, parseEnvironmentShouldSetConfigFilePath)
+{
+    setenv("ONECLIENT_CONFIG", "somePath", true);
+    options.parse(envArgs.size(), envArgs.data());
+    EXPECT_EQ("somePath", options.getConfigFilePath());
+}
+
+TEST_F(OptionsTest, parseEnvironmentShouldSetProviderHost)
+{
+    setenv("ONECLIENT_PROVIDER_HOST", "someHost", true);
+    options.parse(envArgs.size(), envArgs.data());
+    EXPECT_EQ("someHost", options.getProviderHost().get());
+}
+
+TEST_F(OptionsTest, parseEnvironmentShouldSetProviderHostDeprecated)
+{
+    setenv("PROVIDER_HOSTNAME", "someHost", true);
+    options.parse(envArgs.size(), envArgs.data());
+    EXPECT_EQ("someHost", options.getProviderHost().get());
+}
+
+TEST_F(OptionsTest, parseEnvironmentShouldSetProviderPort)
+{
+    setenv("ONECLIENT_PROVIDER_PORT", "1234", true);
+    options.parse(envArgs.size(), envArgs.data());
+    EXPECT_EQ(1234, options.getProviderPort());
+}
+
+TEST_F(OptionsTest, parseEnvironmentShouldSetInsecure)
+{
+    setenv("ONECLIENT_INSECURE", "1", true);
+    options.parse(envArgs.size(), envArgs.data());
+    EXPECT_EQ(true, options.isInsecure());
+}
+
+TEST_F(OptionsTest, parseEnvironmentShouldSetToken)
+{
+    setenv("ONECLIENT_ACCESS_TOKEN", "someToken", true);
+    options.parse(envArgs.size(), envArgs.data());
+    EXPECT_EQ("someToken", options.getAccessToken().get());
+}
+
+TEST_F(OptionsTest, parseEnvironmentShouldSetTokenDeprecated)
+{
+    setenv("AUTHORIZATION_TOKEN", "someToken", true);
+    options.parse(envArgs.size(), envArgs.data());
+    EXPECT_EQ("someToken", options.getAccessToken().get());
+}
+
+TEST_F(OptionsTest, parseEnvironmentShouldSetLogDirPath)
+{
+    setenv("ONECLIENT_LOG_DIR", "somePath", true);
+    options.parse(envArgs.size(), envArgs.data());
+    EXPECT_EQ("somePath", options.getLogDirPath());
+}
+
+TEST_F(OptionsTest, parseEnvironmentShouldSetForeground)
+{
+    setenv("ONECLIENT_FUSE_FOREGROUND", "1", true);
+    options.parse(envArgs.size(), envArgs.data());
+    EXPECT_EQ(true, options.getForeground());
+}
+
+TEST_F(OptionsTest, parseEnvironmentShouldSetDebug)
+{
+    setenv("ONECLIENT_FUSE_DEBUG", "1", true);
+    options.parse(envArgs.size(), envArgs.data());
+    EXPECT_EQ(true, options.getDebug());
+}
+
+TEST_F(OptionsTest, parseEnvironmentShouldSetSingleThread)
+{
+    setenv("ONECLIENT_FUSE_SINGLE_THREAD", "1", true);
+    options.parse(envArgs.size(), envArgs.data());
+    EXPECT_EQ(true, options.getSingleThread());
+}
+
+TEST_F(OptionsTest, parseEnvironmentShouldSetMountpoint)
+{
+    cmdArgs.push_back("--insecure");
+    setenv("ONECLIENT_MOUNTPOINT", "somePath", true);
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ("somePath", options.getMountpoint());
+}
+
+TEST_F(OptionsTest, parseEnvironmentShouldAcceptEnvsWithoutPrefix)
+{
+    setenv("CONFIG", "somePath", true);
+    options.parse(envArgs.size(), envArgs.data());
+    EXPECT_EQ("somePath", options.getConfigFilePath());
+}
+
+TEST_F(OptionsTest, parseEnvironmentShouldWarnOnEnvsWithoutPrefix)
+{
+    setenv("CONFIG", "somePath", true);
+    options.parse(envArgs.size(), envArgs.data());
+    EXPECT_TRUE(options.hasDeprecated());
+    EXPECT_FALSE(options.formatDeprecated().empty());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetProviderHost)
+{
+    setInConfigFile("provider_host", "someHost");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ("someHost", options.getProviderHost().get());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetProviderHostDeprecated)
+{
+    setInConfigFile("provider_hostname", "someHost");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ("someHost", options.getProviderHost().get());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetProviderPort)
+{
+    setInConfigFile("provider_port", "1234");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(1234, options.getProviderPort());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetInsecure)
+{
+    setInConfigFile("insecure", "1");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(true, options.isInsecure());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetAccessToken)
+{
+    setInConfigFile("access_token", "someToken");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ("someToken", options.getAccessToken().get());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetLogDir)
+{
+    setInConfigFile("log_dir", "somePath");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ("somePath", options.getLogDirPath());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetForceProxyIO)
+{
+    setInConfigFile("force_proxy_io", "1");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(true, options.isProxyIOForced());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetForceDirectIO)
+{
+    setInConfigFile("force_direct_io", "1");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(true, options.isDirectIOForced());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetBufferSchedulerThreadCount)
+{
+    setInConfigFile("buffer_scheduler_thread_count", "8");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(8, options.getBufferSchedulerThreadCount());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetCommunicatorThreadCount)
+{
+    setInConfigFile("communicator_thread_count", "8");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(8, options.getCommunicatorThreadCount());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetSchedulerThreadCount)
+{
+    setInConfigFile("scheduler_thread_count", "8");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(8, options.getSchedulerThreadCount());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetStorageHelperThreadCount)
+{
+    setInConfigFile("storage_helper_thread_count", "8");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(8, options.getStorageHelperThreadCount());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetNoBuffer)
+{
+    setInConfigFile("no_buffer", "1");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(false, options.isIOBuffered());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetReadBufferMinSize)
+{
+    setInConfigFile("read_buffer_min_size", "1024");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(1024, options.getReadBufferMinSize());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetReadBufferMaxSize)
+{
+    setInConfigFile("read_buffer_max_size", "1024");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(1024, options.getReadBufferMaxSize());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetReadBufferPrefetchDuration)
+{
+    setInConfigFile("read_buffer_prefetch_duration", "10");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(10, options.getReadBufferPrefetchDuration().count());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetWriteBufferMinSize)
+{
+    setInConfigFile("write_buffer_min_size", "1024");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(1024, options.getWriteBufferMinSize());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetWriteBufferMaxSize)
+{
+    setInConfigFile("write_buffer_max_size", "1024");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(1024, options.getWriteBufferMaxSize());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetWriteBufferFlushDelay)
+{
+    setInConfigFile("write_buffer_flush_delay", "10");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(10, options.getWriteBufferFlushDelay().count());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetForeground)
+{
+    setInConfigFile("fuse_foreground", "1");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(true, options.getForeground());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetDebug)
+{
+    setInConfigFile("fuse_debug", "1");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(true, options.getDebug());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetSingleThread)
+{
+    setInConfigFile("fuse_single_thread", "1");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(true, options.getSingleThread());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetFuseOpts)
+{
+    setInConfigFile("fuse_mount_opt", "someOpt0");
+    setInConfigFile("fuse_mount_opt", "someOpt1");
+    setInConfigFile("fuse_mount_opt", "someOpt2");
+    options.parse(fileArgs.size(), fileArgs.data());
+    auto opts = options.getFuseOpts();
+    std::sort(opts.begin(), opts.end());
+    EXPECT_EQ(3, opts.size());
+    EXPECT_EQ("someOpt0", opts[0]);
+    EXPECT_EQ("someOpt1", opts[1]);
+    EXPECT_EQ("someOpt2", opts[2]);
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetMountpoint)
+{
+    cmdArgs.insert(cmdArgs.end(), {"-c", configFilePath.c_str()});
+    setInConfigFile("mountpoint", "somePath");
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ("somePath", options.getMountpoint());
+}
+
+TEST_F(OptionsTest, parseShouldSetOptionsInOrder)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--host", "someHost1", "--config", configFilePath.c_str(),
+            "mountpoint"});
+    setenv("ONECLIENT_PROVIDER_HOST", "someHost2", true);
+    setInConfigFile("provider_host", "someHost3");
+
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ("someHost1", options.getProviderHost().get());
+
+    options = one::client::options::Options{};
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ("someHost2", options.getProviderHost().get());
+
+    unsetenv("ONECLIENT_PROVIDER_HOST");
+    options = one::client::options::Options{};
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ("someHost3", options.getProviderHost().get());
 }

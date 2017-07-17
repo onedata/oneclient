@@ -16,27 +16,29 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-Rename::Rename(std::string uuid, boost::filesystem::path targetPath)
+Rename::Rename(
+    std::string uuid, std::string targetParentUuid, std::string targetName)
     : FileRequest{std::move(uuid)}
-    , m_targetPath{std::move(targetPath)}
+    , m_targetParentUuid{std::move(targetParentUuid)}
+    , m_targetName{std::move(targetName)}
 {
 }
 
 std::string Rename::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'Rename', uuid: " << m_contextGuid
-           << ", targetPath: " << m_targetPath;
+    stream << "type: 'Rename', uuid: " << m_contextGuid;
     return stream.str();
 }
 
 std::unique_ptr<ProtocolClientMessage> Rename::serializeAndDestroy()
 {
     auto msg = FileRequest::serializeAndDestroy();
-    auto r =
+    auto rnm =
         msg->mutable_fuse_request()->mutable_file_request()->mutable_rename();
 
-    r->set_target_path(m_targetPath.string());
+    rnm->mutable_target_parent_uuid()->swap(m_targetParentUuid);
+    rnm->mutable_target_name()->swap(m_targetName);
 
     return msg;
 }

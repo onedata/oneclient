@@ -6,34 +6,24 @@ Build-Depends:
     aws-sdk-cpp-s3 (>= 1.0.11),
     cmake (>= 3.0.0),
     debhelper (>= 9),
+    folly-dev,
     g++-5 (>= 5.0.0),
     git,
+    glusterfs-common (>= 3.8.0),
     golang-go,
-    libboost-filesystem1.58-dev,
-    libboost-filesystem1.58.0,
-    libboost-iostreams1.58-dev,
-    libboost-iostreams1.58.0,
-    libboost-log1.58-dev,
-    libboost-log1.58.0,
-    libboost-program-options1.58-dev,
-    libboost-program-options1.58.0,
-    libboost-python1.58-dev,
-    libboost-python1.58.0,
-    libboost-random1.58-dev,
-    libboost-random1.58.0,
-    libboost-system1.58-dev,
-    libboost-system1.58.0,
-    libboost-thread1.58-dev,
-    libboost-thread1.58.0,
+    libacl1-dev,
+    libboost-all-dev,
     libcurl4-openssl-dev,
+    libdouble-conversion-dev,
     libfuse-dev (>= 2.7),
     libgoogle-glog-dev (>= 0.3.4),
+    libiberty-dev,
     libltdl-dev,
     libnspr4-dev,
     libnss3-dev,
     libprotobuf-dev (>= 2.6.0),
     libpython-dev,
-    librados-dev (>= 10.2.3),
+    librados-dev (>= 11.1.0),
     libsodium-dev,
     libssl-dev,
     libstdc++-5-dev,
@@ -48,13 +38,14 @@ Build-Depends:
     protobuf-compiler (>= 2.6.0),
     python-dev,
     subversion,
-    swift-sdk-cpp (>= 1.0.0)
+    swift-sdk-cpp (>= 1.0.0),
+    uuid-dev
 Standards-Version: 3.9.5
 Homepage: https://onedata.org
 
 Package: oneclient
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: glusterfs-common (>= 3.8.0), ${shlibs:Depends}, ${misc:Depends}, fuse
 Description: FUSE client for onedata system.
  oneclient is a software based on FUSE (Filesystem in Userspace) that allows
  mounting onedata filesystem on Linux systems.

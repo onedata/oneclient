@@ -18,8 +18,9 @@ namespace one {
 namespace messages {
 namespace proxyio {
 
-RemoteRead::RemoteRead(std::unordered_map<std::string, std::string> parameters,
-    std::string storageId, std::string fileId, const off_t offset,
+RemoteRead::RemoteRead(
+    std::unordered_map<folly::fbstring, folly::fbstring> parameters,
+    folly::fbstring storageId, folly::fbstring fileId, const off_t offset,
     const std::size_t size)
     : ProxyIORequest{std::move(parameters), std::move(storageId),
           std::move(fileId)}

@@ -48,7 +48,7 @@ namespace one {
 namespace client {
 namespace auth {
 
-TokenHandler::TokenHandler(Options &options,
+TokenHandler::TokenHandler(options::Options &options,
     boost::filesystem::path userDataDir, std::string providerId)
     : m_options{options}
     , m_userDataDir{std::move(userDataDir)}
@@ -117,11 +117,12 @@ boost::optional<macaroons::Macaroon> TokenHandler::readTokenFromFile() const
 
 boost::optional<macaroons::Macaroon> TokenHandler::getTokenFromOptions() const
 {
-    if (!m_options.has_authorization_token())
+    const auto &token = m_options.getAccessToken();
+    if (!token)
         return {};
 
     try {
-        return deserialize(m_options.get_authorization_token());
+        return deserialize(token.get());
     }
     catch (const macaroons::exception::Exception &e) {
         LOG(WARNING) << "Failed to parse macaroon retrieved from options: "
@@ -134,7 +135,7 @@ boost::optional<macaroons::Macaroon> TokenHandler::getTokenFromOptions() const
 macaroons::Macaroon TokenHandler::getTokenFromUser() const
 {
     std::string token;
-    std::cout << "Authorization token: ";
+    std::cout << "Access token: ";
 
     auto prevExceptions = std::cin.exceptions();
     std::cin.exceptions(

@@ -5,7 +5,8 @@
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
-
+ 
+syntax = "proto2";
 package one.clproto;
 
 import "event_messages.proto";
@@ -30,6 +31,7 @@ message GetConfiguration {
 }
 
 message Configuration {
-    repeated Subscription subscriptions = 1;
-    repeated bytes disabled_spaces = 2;
+    required bytes root_uuid = 1;
+    repeated Subscription subscriptions = 2;
+    repeated bytes disabled_spaces = 3;
 }

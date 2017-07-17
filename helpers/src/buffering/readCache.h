@@ -10,155 +10,190 @@
 #define HELPERS_BUFFERING_READ_CACHE_H
 
 #include "communication/communicator.h"
-#include "helpers/IStorageHelper.h"
+#include "helpers/storageHelper.h"
 #include "messages/proxyio/remoteData.h"
 #include "messages/proxyio/remoteRead.h"
 #include "scheduler.h"
 
+#include <folly/FBString.h>
+#include <folly/fibers/TimedMutex.h>
+#include <folly/futures/Future.h>
+#include <folly/futures/SharedPromise.h>
+#include <folly/io/IOBufQueue.h>
+
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <queue>
 
 namespace one {
 namespace helpers {
 namespace buffering {
 
 class ReadCache : public std::enable_shared_from_this<ReadCache> {
+#if FOLLY_TIMEDMUTEX_IS_TEMPLATE
+    using FiberMutex = folly::fibers::TimedMutex<folly::fibers::Baton>;
+#else
+    using FiberMutex = folly::fibers::TimedMutex;
+#endif
+
+    struct ReadData {
+        ReadData(const off_t offset_, const std::size_t size_)
+            : offset{offset_}
+            , size{size_}
+        {
+        }
+
+        off_t offset;
+        std::atomic<std::size_t> size;
+        folly::SharedPromise<std::shared_ptr<folly::IOBufQueue>> promise;
+    };
+
 public:
-    ReadCache(std::size_t minReadChunkSize, std::size_t maxReadChunkSize,
-        std::chrono::seconds readAheadFor, IStorageHelper &helper)
-        : m_minReadChunkSize{minReadChunkSize}
-        , m_maxReadChunkSize{maxReadChunkSize}
-        , m_readAheadFor{readAheadFor}
-        , m_helper{helper}
+    ReadCache(std::size_t readBufferMinSize, std::size_t readBufferMaxSize,
+        std::chrono::seconds readBufferPrefetchDuration, FileHandle &handle)
+        : m_readBufferMinSize{readBufferMinSize}
+        , m_readBufferMaxSize{readBufferMaxSize}
+        , m_readBufferPrefetchDuration{readBufferPrefetchDuration}
+        , m_cacheDuration{readBufferPrefetchDuration * 2}
+        , m_handle{handle}
     {
     }
 
-    asio::mutable_buffer read(CTXPtr ctx, const boost::filesystem::path &p,
-        asio::mutable_buffer buf, const off_t offset)
+    folly::Future<folly::IOBufQueue> read(
+        const off_t offset, const std::size_t size)
     {
-        if (m_clear ||
-            m_lastCacheRefresh + std::chrono::seconds{5} <
-                std::chrono::steady_clock::now()) {
-            m_lastRead.clear();
-            m_pendingRead = {};
+        std::unique_lock<FiberMutex> lock{m_mutex};
+        if (isStale()) {
+            while (!m_cache.empty()) {
+                m_cache.pop();
+            }
             m_clear = false;
         }
 
-        if (m_lastReadOffset <= offset &&
-            offset < static_cast<off_t>(m_lastReadOffset + m_lastRead.size())) {
-            auto cacheOffset = offset - m_lastReadOffset;
-            auto copied =
-                asio::buffer_copy(buf, asio::buffer(m_lastRead) + cacheOffset);
+        if (isCurrentRead(offset))
+            return readFromCache(offset, size);
 
-            return asio::buffer(buf, copied);
-        }
-
-        if (m_pendingRead.valid() && m_pendingReadOffset <= offset) {
-            m_lastReadOffset = m_pendingReadOffset;
-            m_lastRead = readFuture(m_pendingRead);
-            m_lastCacheRefresh = std::chrono::steady_clock::now();
-
-            m_pendingReadOffset = m_lastReadOffset + m_lastRead.size();
-            m_pendingRead = download(ctx, p, m_pendingReadOffset, blockSize());
-
-            if (offset <
-                static_cast<off_t>(m_lastReadOffset + m_lastRead.size())) {
-                auto cacheOffset = offset - m_lastReadOffset;
-                auto copied = asio::buffer_copy(
-                    buf, asio::buffer(m_lastRead) + cacheOffset);
-
-                return asio::buffer(buf, copied);
-            }
-        }
-
-        auto size = asio::buffer_size(buf);
-        auto future = download(ctx, p, offset, size);
-        m_pendingReadOffset = offset + size;
-        m_pendingRead = download(ctx, p, m_pendingReadOffset, blockSize());
-
-        m_lastReadOffset = offset;
-        m_lastRead = readFuture(future);
         m_lastCacheRefresh = std::chrono::steady_clock::now();
 
-        auto copied = asio::buffer_copy(buf, asio::buffer(m_lastRead));
+        while (!m_cache.empty() && !isCurrentRead(offset))
+            m_cache.pop();
 
-        return asio::buffer(buf, copied);
+        if (m_cache.empty())
+            fetch(offset, size);
+
+        prefetchIfNeeded();
+
+        return readFromCache(offset, size);
     }
 
-    void clear() { m_clear = true; }
+    void clear()
+    {
+        std::unique_lock<FiberMutex> lock{m_mutex};
+        m_clear = true;
+    }
 
 private:
-    std::future<std::string> download(CTXPtr ctx,
-        const boost::filesystem::path &p, const off_t offset,
-        const std::size_t block)
+    void prefetchIfNeeded()
     {
-        auto promise = std::make_shared<std::promise<std::string>>();
-        auto future = promise->get_future();
-        auto startPoint = std::chrono::steady_clock::now();
-        auto stringBuffer = std::make_shared<std::string>(block, '\0');
+        assert(!m_cache.empty());
 
-        auto callback = [ =, s = std::weak_ptr<ReadCache>(shared_from_this()) ](
-            asio::mutable_buffer buf, const std::error_code &ec) mutable
-        {
-            if (ec) {
-                promise->set_exception(
-                    std::make_exception_ptr(std::system_error{ec}));
-            }
-            else {
-                auto duration =
-                    std::chrono::duration_cast<std::chrono::nanoseconds>(
-                        std::chrono::steady_clock::now() - startPoint)
-                        .count();
+        while (m_cache.size() < 2) {
+            const auto nextOffset =
+                m_cache.back()->offset + m_cache.back()->size;
+            fetch(nextOffset, blockSize());
+        }
+    }
 
-                if (duration > 0) {
-                    auto bandwidth =
-                        asio::buffer_size(buf) * 1000000000 / duration;
+    void fetch(const off_t offset, const std::size_t size)
+    {
+        const auto startPoint = std::chrono::steady_clock::now();
 
-                    if (auto self = s.lock()) {
-                        std::lock_guard<std::mutex> guard{m_mutex};
-                        m_bps = (m_bps * 1 + bandwidth * 2) / 3;
+        m_cache.emplace(std::make_shared<ReadData>(offset, size));
+        m_handle.read(offset, size)
+            .then([
+                startPoint, readData = m_cache.back(),
+                s = std::weak_ptr<ReadCache>{shared_from_this()}
+            ](folly::IOBufQueue && buf) {
+                if (auto self = s.lock()) {
+                    const auto duration =
+                        std::chrono::duration_cast<std::chrono::nanoseconds>(
+                            std::chrono::steady_clock::now() - startPoint)
+                            .count();
+
+                    if (duration > 0) {
+                        auto bandwidth =
+                            buf.chainLength() * 1000000000 / duration;
+
+                        self->m_bps = (self->m_bps * 1 + bandwidth * 2) / 3;
                     }
                 }
 
-                stringBuffer->resize(asio::buffer_size(buf));
-                promise->set_value(std::move(*stringBuffer));
-            };
-        };
+                readData->size = buf.chainLength();
+                readData->promise.setValue(
+                    std::make_shared<folly::IOBufQueue>(std::move(buf)));
+            })
+            .onError([readData = m_cache.back()](folly::exception_wrapper ew) {
+                readData->promise.setException(std::move(ew));
+            });
+    }
 
-        auto buf = asio::buffer(&(*stringBuffer)[0], stringBuffer->size());
-        m_helper.ash_read(std::move(ctx), p, buf, offset, std::move(callback));
+    folly::Future<folly::IOBufQueue> readFromCache(
+        const off_t offset, const std::size_t size)
+    {
+        assert(!m_cache.empty());
+        return m_cache.front()->promise.getFuture().then([
+            offset, size, cachedOffset = m_cache.front()->offset
+        ](std::shared_ptr<folly::IOBufQueue> cachedBuf) {
 
-        return future;
+            folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
+            if (cachedBuf->empty() ||
+                static_cast<off_t>(cachedOffset + cachedBuf->chainLength()) <
+                    offset)
+                return buf;
+
+            buf.append(cachedBuf->front()->clone());
+            if (offset > cachedOffset)
+                buf.trimStart(offset - cachedOffset);
+            if (buf.chainLength() > size)
+                buf.trimEnd(buf.chainLength() - size);
+
+            return buf;
+        });
+    }
+
+    bool isCurrentRead(const off_t offset)
+    {
+        return !m_cache.empty() && m_cache.front()->offset <= offset &&
+            offset <
+            static_cast<off_t>(m_cache.front()->offset + m_cache.front()->size);
+    }
+
+    bool isStale() const
+    {
+        return m_clear ||
+            m_lastCacheRefresh + m_cacheDuration <
+            std::chrono::steady_clock::now();
     }
 
     std::size_t blockSize()
     {
-        return std::min(
-                   m_maxReadChunkSize, std::max(m_minReadChunkSize, m_bps)) *
-            m_readAheadFor.count();
+        return std::min(m_readBufferMaxSize,
+                   std::max(m_readBufferMinSize, m_bps.load())) *
+            m_readBufferPrefetchDuration.count();
     }
 
-    std::string readFuture(std::future<std::string> &future)
-    {
-        // 500ms + 2ms for each byte (minimum of 500B/s);
-        std::chrono::milliseconds timeout{5000 + blockSize() * 2};
-        return communication::wait(future, timeout);
-    }
+    const std::size_t m_readBufferMinSize;
+    const std::size_t m_readBufferMaxSize;
+    const std::chrono::seconds m_readBufferPrefetchDuration;
+    const std::chrono::seconds m_cacheDuration;
+    FileHandle &m_handle;
 
-    const std::size_t m_minReadChunkSize;
-    const std::size_t m_maxReadChunkSize;
-    const std::chrono::seconds m_readAheadFor;
-    IStorageHelper &m_helper;
+    std::atomic<std::size_t> m_bps{0};
 
-    std::mutex m_mutex;
-    std::size_t m_bps = 0;
-
-    off_t m_lastReadOffset = 0;
-    std::string m_lastRead;
-    off_t m_pendingReadOffset = 0;
-    std::future<std::string> m_pendingRead;
-    std::atomic<bool> m_clear{false};
+    FiberMutex m_mutex;
+    std::queue<std::shared_ptr<ReadData>> m_cache;
+    bool m_clear{false};
     std::chrono::steady_clock::time_point m_lastCacheRefresh{};
 };
 

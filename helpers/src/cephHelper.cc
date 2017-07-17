@@ -11,243 +11,180 @@
 
 #include <glog/stl_logging.h>
 
-namespace {
-std::shared_ptr<librados::AioCompletion> wrapCompletion(
-    librados::AioCompletion *const comp)
-{
-    return {comp, [](librados::AioCompletion *p) { p->release(); }};
-}
-}
-
 namespace one {
 namespace helpers {
 
-CephHelper::CephHelper(std::unordered_map<std::string, std::string> args,
-    asio::io_service &service)
-    : m_service{service}
-    , m_args{std::move(args)}
+CephFileHandle::CephFileHandle(folly::fbstring fileId,
+    std::shared_ptr<CephHelper> helper, librados::IoCtx &ioCTX)
+    : FileHandle{std::move(fileId)}
+    , m_helper{std::move(helper)}
+    , m_ioCTX{ioCTX}
 {
 }
 
-CTXPtr CephHelper::createCTX(
-    std::unordered_map<std::string, std::string> params)
+folly::Future<folly::IOBufQueue> CephFileHandle::read(
+    const off_t offset, const std::size_t size)
 {
-    return std::make_shared<CephHelperCTX>(std::move(params), m_args);
-}
+    return m_helper->connect().then([
+        this, offset, size,
+        s = std::weak_ptr<CephFileHandle>{shared_from_this()}
+    ] {
+        auto self = s.lock();
+        if (!self)
+            return makeFuturePosixException<folly::IOBufQueue>(ECANCELED);
 
-void CephHelper::ash_unlink(
-    CTXPtr rawCTX, const boost::filesystem::path &p, VoidCallback callback)
-{
-    auto ctx = getCTX(std::move(rawCTX));
-    auto ret = ctx->connect();
+        folly::IOBufQueue buffer{folly::IOBufQueue::cacheChainLength()};
+        char *raw = static_cast<char *>(buffer.preallocate(size, size).first);
+        librados::bufferlist data;
+        data.append(ceph::buffer::create_static(size, raw));
 
-    if (ret < 0)
-        return callback(makePosixError(ret));
+        auto ret = m_ioCTX.read(m_fileId.toStdString(), data, size, offset);
+        if (ret < 0)
+            return makeFuturePosixException<folly::IOBufQueue>(ret);
 
-    auto callbackDataPtr =
-        std::make_unique<UnlinkCallbackData>(p.string(), std::move(callback));
-
-    auto completion = wrapCompletion(librados::Rados::aio_create_completion(
-        static_cast<void *>(callbackDataPtr.get()), nullptr,
-        [](librados::completion_t, void *callbackData) {
-            auto data = std::unique_ptr<UnlinkCallbackData>{
-                static_cast<UnlinkCallbackData *>(callbackData)};
-
-            auto result = data->completion->get_return_value();
-            data->callback(result < 0 ? makePosixError(result) : SUCCESS_CODE);
-        }));
-
-    callbackDataPtr->completion = completion;
-
-    ret = ctx->ioCTX.aio_remove(callbackDataPtr->fileId, completion.get());
-    if (ret < 0)
-        callback(makePosixError(ret));
-    else
-        callbackDataPtr.release();
-}
-
-void CephHelper::ash_read(CTXPtr rawCTX, const boost::filesystem::path &p,
-    asio::mutable_buffer buf, off_t offset,
-    GeneralCallback<asio::mutable_buffer> callback)
-{
-    auto ctx = getCTX(std::move(rawCTX));
-    auto ret = ctx->connect();
-
-    if (ret < 0)
-        return callback(asio::mutable_buffer(), makePosixError(ret));
-
-    auto callbackDataPtr = std::make_unique<ReadCallbackData>(
-        p.string(), buf, std::move(callback));
-
-    auto completion = wrapCompletion(librados::Rados::aio_create_completion(
-        static_cast<void *>(callbackDataPtr.get()), nullptr,
-        [](librados::completion_t, void *callbackData) {
-            auto data = std::unique_ptr<ReadCallbackData>(
-                static_cast<ReadCallbackData *>(callbackData));
-
-            auto result = data->completion->get_return_value();
-            if (result < 0)
-                data->callback({}, makePosixError(result));
-            else
-                data->callback(
-                    asio::buffer(data->buffer, result), SUCCESS_CODE);
-        }));
-
-    callbackDataPtr->completion = completion;
-
-    ret = ctx->ioCTX.aio_read(callbackDataPtr->fileId, completion.get(),
-        &callbackDataPtr->bufferlist, asio::buffer_size(buf), offset);
-
-    if (ret < 0)
-        callback({}, makePosixError(ret));
-    else
-        callbackDataPtr.release();
-}
-
-void CephHelper::ash_write(CTXPtr rawCTX, const boost::filesystem::path &p,
-    asio::const_buffer buf, off_t offset, GeneralCallback<std::size_t> callback)
-{
-    auto ctx = getCTX(std::move(rawCTX));
-    auto ret = ctx->connect();
-
-    if (ret < 0)
-        return callback(0, makePosixError(ret));
-
-    auto callbackDataPtr = std::make_unique<WriteCallbackData>(
-        p.string(), buf, std::move(callback));
-
-    auto completion = wrapCompletion(librados::Rados::aio_create_completion(
-        static_cast<void *>(callbackDataPtr.get()), nullptr,
-        [](librados::completion_t, void *callbackData) {
-            auto data = std::unique_ptr<WriteCallbackData>{
-                static_cast<WriteCallbackData *>(callbackData)};
-
-            auto result = data->completion->get_return_value();
-            if (result < 0)
-                data->callback(0, makePosixError(result));
-            else
-                data->callback(data->bufferlist.length(), SUCCESS_CODE);
-        }));
-
-    callbackDataPtr->completion = completion;
-
-    ret = ctx->ioCTX.aio_write(callbackDataPtr->fileId, completion.get(),
-        callbackDataPtr->bufferlist, asio::buffer_size(buf), offset);
-
-    if (ret < 0)
-        callback(0, makePosixError(ret));
-    else
-        callbackDataPtr.release();
-}
-
-void CephHelper::ash_truncate(CTXPtr rawCTX, const boost::filesystem::path &p,
-    off_t size, VoidCallback callback)
-{
-    auto ctx = getCTX(std::move(rawCTX));
-    auto ret = ctx->connect();
-
-    if (ret < 0)
-        return callback(makePosixError(ret));
-
-    auto fileId = p.string();
-
-    m_service.post([
-        size, ctx = std::move(ctx), fileId = std::move(fileId),
-        callback = std::move(callback)
-    ]() {
-        auto result = ctx->ioCTX.trunc(fileId, size);
-        if (result < 0)
-            callback(makePosixError(result));
-        else
-            callback(SUCCESS_CODE);
+        buffer.postallocate(ret);
+        return folly::makeFuture(std::move(buffer));
     });
 }
 
-std::shared_ptr<CephHelperCTX> CephHelper::getCTX(CTXPtr rawCTX) const
+folly::Future<std::size_t> CephFileHandle::write(
+    const off_t offset, folly::IOBufQueue buf)
 {
-    auto ctx = std::dynamic_pointer_cast<CephHelperCTX>(rawCTX);
-    if (ctx == nullptr) {
-        LOG(INFO) << "Helper changed. Creating new context with arguments: "
-                  << m_args;
-        return std::make_shared<CephHelperCTX>(rawCTX->parameters(), m_args);
-    }
-    return ctx;
+    return m_helper->connect().then([
+        this, buf = std::move(buf), offset,
+        s = std::weak_ptr<CephFileHandle>{shared_from_this()}
+    ]() mutable {
+        auto self = s.lock();
+        if (!self)
+            return makeFuturePosixException<std::size_t>(ECANCELED);
+
+        auto size = buf.chainLength();
+        librados::bufferlist data;
+        for (auto &byteRange : *buf.front())
+            data.append(ceph::buffer::create_static(byteRange.size(),
+                reinterpret_cast<char *>(
+                    const_cast<unsigned char *>(byteRange.data()))));
+
+        auto ret = m_ioCTX.write(m_fileId.toStdString(), data, size, offset);
+        if (ret < 0)
+            return makeFuturePosixException<std::size_t>(ret);
+
+        return folly::makeFuture(size);
+    });
 }
 
-CephHelperCTX::CephHelperCTX(
-    std::unordered_map<std::string, std::string> params,
-    std::unordered_map<std::string, std::string> args)
-    : IStorageHelperCTX{std::move(params)}
-    , m_args{std::move(args)}
+const Timeout &CephFileHandle::timeout() { return m_helper->timeout(); }
+
+CephHelper::CephHelper(folly::fbstring clusterName, folly::fbstring monHost,
+    folly::fbstring poolName, folly::fbstring userName, folly::fbstring key,
+    std::unique_ptr<folly::Executor> executor, Timeout timeout)
+    : m_clusterName{std::move(clusterName)}
+    , m_monHost{std::move(monHost)}
+    , m_poolName{std::move(poolName)}
+    , m_userName{std::move(userName)}
+    , m_key{std::move(key)}
+    , m_executor{std::move(executor)}
+    , m_timeout{std::move(timeout)}
 {
 }
 
-CephHelperCTX::~CephHelperCTX()
+CephHelper::~CephHelper()
 {
-    ioCTX.close();
-    cluster.shutdown();
+    m_ioCTX.close();
+    m_cluster.shutdown();
 }
 
-void CephHelperCTX::setUserCTX(
-    std::unordered_map<std::string, std::string> args)
+folly::Future<FileHandlePtr> CephHelper::open(
+    const folly::fbstring &fileId, const int, const Params &)
 {
-    m_args.swap(args);
-    m_args.insert(args.begin(), args.end());
-    connect(true);
+    auto handle =
+        std::make_shared<CephFileHandle>(fileId, shared_from_this(), m_ioCTX);
+
+    return folly::makeFuture(std::move(handle));
 }
 
-std::unordered_map<std::string, std::string> CephHelperCTX::getUserCTX()
+folly::Future<folly::Unit> CephHelper::unlink(const folly::fbstring &fileId)
 {
-    return m_args;
+    return connect().then(
+        [ this, fileId, s = std::weak_ptr<CephHelper>{shared_from_this()} ] {
+            auto self = s.lock();
+            if (!self)
+                return makeFuturePosixException(ECANCELED);
+
+            auto ret = m_ioCTX.remove(fileId.toStdString());
+            if (ret < 0)
+                return makeFuturePosixException(ret);
+
+            return folly::makeFuture();
+        });
 }
 
-int CephHelperCTX::connect(bool reconnect)
+folly::Future<folly::Unit> CephHelper::truncate(
+    const folly::fbstring &fileId, off_t size)
 {
-    std::lock_guard<std::mutex> guard{m_connectionMutex};
+    return connect().then([
+        this, size, fileId, s = std::weak_ptr<CephHelper>{shared_from_this()}
+    ] {
+        auto self = s.lock();
+        if (!self)
+            return makeFuturePosixException(ECANCELED);
 
-    if (m_connected && !reconnect)
-        return 0;
+        auto ret = m_ioCTX.trunc(fileId.toStdString(), size);
+        if (ret < 0)
+            return makeFuturePosixException(ret);
 
-    if (m_connected) {
-        ioCTX.close();
-        cluster.shutdown();
-    }
+        return folly::makeFuture();
+    });
+}
 
-    int ret = cluster.init2(m_args.at(CEPH_HELPER_USER_NAME_ARG).c_str(),
-        m_args.at(CEPH_HELPER_CLUSTER_NAME_ARG).c_str(), 0);
-    if (ret < 0) {
-        LOG(ERROR) << "Couldn't initialize the cluster handle.";
-        return ret;
-    }
+folly::Future<folly::Unit> CephHelper::connect()
+{
+    return folly::via(m_executor.get(),
+        [ this, s = std::weak_ptr<CephHelper>{shared_from_this()} ] {
+            auto self = s.lock();
+            if (!self)
+                return makeFuturePosixException(ECANCELED);
 
-    ret = cluster.conf_set(
-        "mon host", m_args.at(CEPH_HELPER_MON_HOST_ARG).c_str());
-    if (ret < 0) {
-        LOG(ERROR) << "Couldn't set monitor host configuration variable.";
-        return ret;
-    }
+            std::lock_guard<std::mutex> guard{m_connectionMutex};
 
-    ret = cluster.conf_set("key", m_args.at(CEPH_HELPER_KEY_ARG).c_str());
-    if (ret < 0) {
-        LOG(ERROR) << "Couldn't set key configuration variable.";
-        return ret;
-    }
+            if (m_connected)
+                return folly::makeFuture();
 
-    ret = cluster.connect();
-    if (ret < 0) {
-        LOG(ERROR) << "Couldn't connect to cluster.";
-        return ret;
-    }
+            int ret =
+                m_cluster.init2(m_userName.c_str(), m_clusterName.c_str(), 0);
+            if (ret < 0) {
+                LOG(ERROR) << "Couldn't initialize the cluster handle.";
+                return makeFuturePosixException(ret);
+            }
 
-    ret = cluster.ioctx_create(
-        m_args.at(CEPH_HELPER_POOL_NAME_ARG).c_str(), ioCTX);
-    if (ret < 0) {
-        LOG(ERROR) << "Couldn't set up ioCTX.";
-        return ret;
-    }
+            ret = m_cluster.conf_set("mon host", m_monHost.c_str());
+            if (ret < 0) {
+                LOG(ERROR) << "Couldn't set monitor host configuration "
+                              "variable.";
+                return makeFuturePosixException(ret);
+            }
 
-    m_connected = true;
-    return 0;
+            ret = m_cluster.conf_set("key", m_key.c_str());
+            if (ret < 0) {
+                LOG(ERROR) << "Couldn't set key configuration variable.";
+                return makeFuturePosixException(ret);
+            }
+
+            ret = m_cluster.connect();
+            if (ret < 0) {
+                LOG(ERROR) << "Couldn't connect to cluster.";
+                return makeFuturePosixException(ret);
+            }
+
+            ret = m_cluster.ioctx_create(m_poolName.c_str(), m_ioCTX);
+            if (ret < 0) {
+                LOG(ERROR) << "Couldn't set up ioCTX.";
+                return makeFuturePosixException(ret);
+            }
+
+            m_connected = true;
+            return folly::makeFuture();
+        });
 }
 
 } // namespace helpers

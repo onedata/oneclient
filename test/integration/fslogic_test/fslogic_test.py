@@ -35,14 +35,28 @@ def fl(endpoint):
     return fslogic.FsLogicProxy(endpoint.ip, endpoint.port)
 
 
-def send_event_with_delay(endpoint, event, delay=1):
-    time.sleep(delay)
-    endpoint.send(event)
+@pytest.fixture
+def uuid():
+    return random_str()
 
 
-def schedule_sending_event(endpoint, event):
-    thread = Thread(target=send_event_with_delay, args=(endpoint, event))
-    thread.start()
+@pytest.fixture
+def parentUuid():
+    return random_str()
+
+
+@pytest.fixture
+def stat(endpoint, fl, uuid):
+    response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
+    with reply(endpoint, response):
+        return fl.getattr(uuid)
+
+
+@pytest.fixture
+def parentStat(endpoint, fl, parentUuid):
+    response = prepare_attr_response(parentUuid, fuse_messages_pb2.REG)
+    with reply(endpoint, response):
+        return fl.getattr(parentUuid)
 
 
 def prepare_file_blocks(blocks=[]):
@@ -61,54 +75,22 @@ def prepare_file_blocks(blocks=[]):
     return file_blocks
 
 
-def prepare_location_update_event(blocks, stream_id, sequence_number):
-    file_blocks = prepare_file_blocks(blocks)
-
-    file_location = fuse_messages_pb2.FileLocation()
-    file_location.uuid = 'uuid1'
-    file_location.space_id = 'space1'
-    file_location.storage_id = 'storage1'
-    file_location.file_id = 'file1'
-    file_location.provider_id = 'provider1'
-    file_location.blocks.extend(file_blocks)
-
-    update_event = event_messages_pb2.UpdateEvent()
-    update_event.file_location.CopyFrom(file_location)
-
-    event = event_messages_pb2.Event()
-    event.counter = 1
-    event.update_event.CopyFrom(update_event)
-
-    events = event_messages_pb2.Events()
-    events.events.extend([event])
-
-    message_stream = stream_messages_pb2.MessageStream()
-    message_stream.stream_id = stream_id
-    message_stream.sequence_number = sequence_number
-
-    server_msg = messages_pb2.ServerMessage()
-    server_msg.message_stream.CopyFrom(message_stream)
-    server_msg.events.CopyFrom(events)
-
-    return server_msg
-
-
-def prepare_checksum(data):
+def prepare_sync_response(uuid, data, blocks):
     md = hashlib.new('MD4')
     md.update(data)
-    hash = md.digest()
 
-    repl = fuse_messages_pb2.Checksum()
-    repl.value = hash
+    repl = fuse_messages_pb2.SyncResponse()
+    repl.checksum = md.digest()
+    repl.file_location.CopyFrom(prepare_location(uuid, blocks))
 
     server_response = messages_pb2.ServerMessage()
-    server_response.fuse_response.checksum.CopyFrom(repl)
+    server_response.fuse_response.sync_response.CopyFrom(repl)
     server_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
     return server_response
 
 
-def prepare_synchronize_block(offset, size):
+def prepare_sync_request(offset, size):
     block = common_messages_pb2.FileBlock()
     block.offset = offset
     block.size = size
@@ -123,10 +105,10 @@ def prepare_synchronize_block(offset, size):
     return client_request
 
 
-def prepare_getattr(filename, filetype, size=None):
+def prepare_attr_response(uuid, filetype, size=None):
     repl = fuse_messages_pb2.FileAttr()
-    repl.uuid = 'uuid1'
-    repl.name = filename
+    repl.uuid = uuid
+    repl.name = 'filename'
     repl.mode = random.randint(0, 1023)
     repl.uid = random.randint(0, 20000)
     repl.gid = random.randint(0, 20000)
@@ -135,6 +117,8 @@ def prepare_getattr(filename, filetype, size=None):
     repl.ctime = repl.atime - random.randint(0, 1000000)
     repl.type = filetype
     repl.size = size if size else random.randint(0, 1000000000)
+    repl.owner_id = ''
+    repl.provider_id = ''
 
     server_response = messages_pb2.ServerMessage()
     server_response.fuse_response.file_attr.CopyFrom(repl)
@@ -143,7 +127,7 @@ def prepare_getattr(filename, filetype, size=None):
     return server_response
 
 
-def prepare_helper():
+def prepare_helper_response():
     repl = fuse_messages_pb2.HelperParams()
     repl.helper_name = 'null'
 
@@ -154,29 +138,33 @@ def prepare_helper():
     return server_response
 
 
-def prepare_location(blocks=[], handle_id=None):
+def prepare_location(uuid, blocks=[]):
     file_blocks = prepare_file_blocks(blocks)
 
     repl = fuse_messages_pb2.FileLocation()
-    repl.uuid = 'uuid1'
+    repl.uuid = uuid
     repl.space_id = 'space1'
     repl.storage_id = 'storage1'
     repl.file_id = 'file1'
     repl.provider_id = 'provider1'
     repl.blocks.extend(file_blocks)
-    if handle_id is not None:
-        repl.handle_id = handle_id
+
+    return repl
+
+
+def prepare_location_response(uuid, blocks=[]):
+    location = prepare_location(uuid, blocks)
 
     server_response = messages_pb2.ServerMessage()
-    server_response.fuse_response.file_location.CopyFrom(repl)
+    server_response.fuse_response.file_location.CopyFrom(location)
     server_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
     return server_response
 
 
-def prepare_rename():
+def prepare_rename_response(new_uuid):
     repl = fuse_messages_pb2.FileRenamed()
-    repl.new_uuid = 'uuid2'
+    repl.new_uuid = new_uuid
 
     server_response = messages_pb2.ServerMessage()
     server_response.fuse_response.file_renamed.CopyFrom(repl)
@@ -185,17 +173,42 @@ def prepare_rename():
     return server_response
 
 
-def do_open(endpoint, fl, blocks=[], size=None, handle_id=None):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG,
-                                       size=size)
+def prepare_open_response(handle_id='handle_id'):
+    repl = fuse_messages_pb2.FileOpened()
+    repl.handle_id = handle_id
 
-    open_response = prepare_location(blocks, handle_id)
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.file_opened.CopyFrom(repl)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [getattr_response, open_response]):
-        assert fl.open('/random/path', 0) >= 0
+    return server_response
 
-def do_read(fl, path, offset, size):
-    fl.read(path, offset, size)
+
+def do_open(endpoint, fl, uuid, size=None, blocks=[], handle_id='handle_id'):
+    attr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG,
+                                          size=size)
+    location_response = prepare_location_response(uuid, blocks)
+    open_response = prepare_open_response(handle_id)
+
+    with reply(endpoint, [attr_response, location_response, open_response]):
+        handle = fl.open(uuid, 0)
+        assert handle >= 0
+        return handle
+
+
+def do_release(endpoint, fl, uuid, fh):
+    fsync_response = messages_pb2.ServerMessage()
+    fsync_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    release_response = messages_pb2.ServerMessage()
+    release_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    result = None
+    with reply(endpoint, [fsync_response, release_response]) as queue:
+        fl.release(uuid, fh)
+        result = queue
+    return result
+
 
 def get_stream_id_from_location_subscription(subscription_message_data):
     location_subsc = messages_pb2.ClientMessage()
@@ -203,21 +216,21 @@ def get_stream_id_from_location_subscription(subscription_message_data):
     return location_subsc.message_stream.stream_id
 
 
-def test_getattrs_should_get_attrs(endpoint, fl):
-    response = prepare_getattr('path', fuse_messages_pb2.REG)
+def test_getattrs_should_get_attrs(endpoint, fl, uuid):
+    response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
 
-    stat = fslogic.Stat()
     with reply(endpoint, response) as queue:
-        assert 0 == fl.getattr('/random/path', stat)
+        stat = fl.getattr(uuid)
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
 
     fuse_request = client_message.fuse_request
-    assert fuse_request.HasField('resolve_guid')
-    assert fuse_request.resolve_guid.path == '/random/path'
+    assert fuse_request.file_request.HasField('get_file_attr')
+    assert fuse_request.file_request.context_guid == uuid
 
     repl = response.fuse_response.file_attr
+    assert repl.uuid == uuid
     assert stat.atime == repl.atime
     assert stat.mtime == repl.mtime
     assert stat.ctime == repl.ctime
@@ -227,93 +240,71 @@ def test_getattrs_should_get_attrs(endpoint, fl):
     assert stat.size == repl.size
 
 
-def test_getattrs_should_pass_errors(endpoint, fl):
+def test_getattrs_should_pass_errors(endpoint, fl, uuid):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.enoent
 
-    stat = fslogic.Stat()
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, response):
-            fl.getattr('/random/path', stat)
+            fl.getattr(uuid)
 
     assert 'No such file or directory' in str(excinfo.value)
 
 
-def test_getattrs_should_cache_attrs(endpoint, fl):
-    fuse_response = prepare_getattr('path', fuse_messages_pb2.REG)
+def test_getattrs_should_cache_attrs(endpoint, fl, uuid):
+    fuse_response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
 
-    stat = fslogic.Stat()
     with reply(endpoint, fuse_response):
-        assert 0 == fl.getattr('/random/path', stat)
+        stat = fl.getattr(uuid)
 
-    new_stat = fslogic.Stat()
-    assert fl.getattr('/random/path', new_stat) == 0
+    new_stat = fl.getattr(uuid)
+
     assert stat == new_stat
     assert 3 == endpoint.all_messages_count()
 
 
 def test_mkdir_should_mkdir(endpoint, fl):
-    getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
+    getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [getattr_response, response]) as queue:
-        fl.mkdir('/random/path', 0123)
-        queue.get()
+    with reply(endpoint, [response, getattr_response]) as queue:
+        fl.mkdir('parentUuid', 'name', 0123)
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
     assert client_message.fuse_request.HasField('file_request')
 
     file_request = client_message.fuse_request.file_request
-    assert file_request.HasField('create_dir')
+    assert file_request.context_guid == 'parentUuid'
 
+    assert file_request.HasField('create_dir')
     create_dir = file_request.create_dir
-    assert create_dir.name == 'path'
+    assert create_dir.name == 'name'
     assert create_dir.mode == 0123
     assert file_request.context_guid == \
            getattr_response.fuse_response.file_attr.uuid
 
 
-def test_mkdir_should_error_on_parent_not_dir(endpoint, fl):
-    getattr_response = prepare_getattr('random', fuse_messages_pb2.REG)
-    with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, getattr_response):
-            fl.mkdir('/random/path', 0123)
-
-    assert 'Not a directory' in str(excinfo.value)
-
-
-def test_mkdir_should_pass_getattr_errors(endpoint, fl):
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.enoent
-
-    with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, response):
-            fl.mkdir('/random/path', 0123)
-
-    assert 'No such file or directory' in str(excinfo.value)
-
-
 def test_mkdir_should_pass_mkdir_errors(endpoint, fl):
-    getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
+    getattr_response = prepare_attr_response('parentUuid', fuse_messages_pb2.DIR)
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, [getattr_response, response]):
-            fl.mkdir('/random/path', 0123)
+            fl.mkdir('parentUuid', 'name', 0123)
 
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_rmdir_should_rmdir(endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+def test_rmdir_should_rmdir(endpoint, fl, uuid):
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
     with reply(endpoint, [getattr_response, response]) as queue:
-        assert 0 == fl.rmdir('/random/path')
+        fl.rmdir('parentUuid', 'name')
         queue.get()
         client_message = queue.get()
 
@@ -326,35 +317,24 @@ def test_rmdir_should_rmdir(endpoint, fl):
            getattr_response.fuse_response.file_attr.uuid
 
 
-def test_rmdir_should_pass_getattr_errors(endpoint, fl):
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.enoent
-
-    with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, response):
-            fl.rmdir('/random/path')
-
-    assert 'No such file or directory' in str(excinfo.value)
-
-
-def test_rmdir_should_pass_rmdir_errors(endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+def test_rmdir_should_pass_rmdir_errors(endpoint, fl, uuid):
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, [getattr_response, response]):
-            fl.rmdir('/random/path')
+            fl.rmdir('parentUuid', 'name')
 
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_rename_should_rename(endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    rename_response = prepare_rename()
+def test_rename_should_rename(endpoint, fl, uuid):
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
+    rename_response = prepare_rename_response('newUuid')
 
     with reply(endpoint, [getattr_response, rename_response]) as queue:
-        assert 0 == fl.rename('/random/path', '/random/path2')
+        fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
         queue.get()
         client_message = queue.get()
 
@@ -365,23 +345,22 @@ def test_rename_should_rename(endpoint, fl):
     assert file_request.HasField('rename')
 
     rename = file_request.rename
-    assert rename.target_path == '/random/path2'
+    assert rename.target_parent_uuid == 'newParentUuid'
+    assert rename.target_name == 'newName'
     assert file_request.context_guid == \
            getattr_response.fuse_response.file_attr.uuid
 
 
-def test_rename_should_change_caches(appmock_client, endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    rename_response = prepare_rename()
+def test_rename_should_change_caches(appmock_client, endpoint, fl, uuid):
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
+    rename_response = prepare_rename_response('newUuid')
 
     with reply(endpoint, [getattr_response, rename_response]):
-        fl.rename('/random/path', '/random/path2')
+        fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
 
-    stat = fslogic.Stat()
-    fl.getattr('/random/path2', stat)
+    stat = fl.getattr('newUuid')
 
     assert stat.size == getattr_response.fuse_response.file_attr.size
-    1 == endpoint.all_messages_count()
     appmock_client.reset_tcp_history()
 
     response = messages_pb2.ServerMessage()
@@ -389,42 +368,30 @@ def test_rename_should_change_caches(appmock_client, endpoint, fl):
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, response):
-            fl.getattr('/random/path', stat)
+            fl.getattr(uuid)
 
     assert 'No such file or directory' in str(excinfo.value)
 
 
-def test_rename_should_pass_getattr_errors(endpoint, fl):
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.enoent
-
-    with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, response):
-            fl.rename('/random/path', 'dawaw')
-
-    assert 'No such file or directory' in str(excinfo.value)
-
-
-def test_rename_should_pass_rename_errors(endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+def test_rename_should_pass_rename_errors(endpoint, fl, uuid):
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, [getattr_response, response]):
-            fl.rename('/random/path', 'dawaw2')
+            fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
 
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_chmod_should_change_mode(endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+def test_chmod_should_change_mode(endpoint, fl, uuid):
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [getattr_response, response]) as queue:
-        assert 0 == fl.chmod('/random/path', 0123)
-        queue.get()
+    with reply(endpoint, [response, response, getattr_response]) as queue:
+        fl.chmod(uuid, 0123)
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
@@ -439,12 +406,11 @@ def test_chmod_should_change_mode(endpoint, fl):
            getattr_response.fuse_response.file_attr.uuid
 
 
-def test_chmod_should_change_cached_mode(appmock_client, endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+def test_chmod_should_change_cached_mode(appmock_client, endpoint, fl, uuid):
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
 
-    stat = fslogic.Stat()
     with reply(endpoint, getattr_response):
-        fl.getattr('/random/path', stat)
+        stat = fl.getattr(uuid)
 
     assert stat.mode == getattr_response.fuse_response.file_attr.mode | \
                         fslogic.regularMode()
@@ -453,46 +419,31 @@ def test_chmod_should_change_cached_mode(appmock_client, endpoint, fl):
 
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
-    with reply(endpoint, response):
-        fl.chmod('/random/path', 0356)
+    with reply(endpoint, [response, response]):
+        fl.chmod(uuid, 0356)
 
-    stat = fslogic.Stat()
-    fl.getattr('/random/path', stat)
+    stat = fl.getattr(uuid)
 
     assert stat.mode == 0356 | fslogic.regularMode()
 
 
-def test_chmod_should_pass_getattr_errors(endpoint, fl):
+def test_chmod_should_pass_chmod_errors(endpoint, fl, uuid):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.enoent
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, response):
-            fl.chmod('/random/path', 0312)
+            fl.chmod(uuid, 0312)
 
     assert 'No such file or directory' in str(excinfo.value)
 
 
-def test_chmod_should_pass_chmod_errors(endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.eperm
-
-    with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response, response]):
-            fl.chmod('/random/path', 0123)
-
-    assert 'Operation not permitted' in str(excinfo.value)
-
-
-def test_utime_should_update_times(endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
+def test_utime_should_update_times(endpoint, fl, uuid, stat):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [getattr_response, response]) as queue:
-        assert 0 == fl.utime('/random/path')
-        queue.get()
+    with reply(endpoint, response) as queue:
+        fl.utime(uuid)
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
@@ -505,16 +456,14 @@ def test_utime_should_update_times(endpoint, fl):
     assert update_times.atime == update_times.mtime
     assert update_times.atime == update_times.ctime
     assert update_times.atime <= time.time()
-    assert file_request.context_guid == \
-           getattr_response.fuse_response.file_attr.uuid
+    assert file_request.context_guid == uuid
 
 
-def test_utime_should_change_cached_times(appmock_client, endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+def test_utime_should_change_cached_times(appmock_client, endpoint, fl, uuid):
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
 
-    stat = fslogic.Stat()
     with reply(endpoint, getattr_response):
-        fl.getattr('/random/path', stat)
+        stat = fl.getattr(uuid)
 
     assert stat.atime == getattr_response.fuse_response.file_attr.atime
     assert stat.mtime == getattr_response.fuse_response.file_attr.mtime
@@ -524,17 +473,16 @@ def test_utime_should_change_cached_times(appmock_client, endpoint, fl):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
     with reply(endpoint, response):
-        fl.utime('/random/path')
+        fl.utime(uuid)
 
     stat = fslogic.Stat()
-    fl.getattr('/random/path', stat)
+    fl.getattr(uuid)
 
     assert stat.atime != getattr_response.fuse_response.file_attr.atime
     assert stat.mtime != getattr_response.fuse_response.file_attr.mtime
 
 
-def test_utime_should_update_times_with_buf(endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+def test_utime_should_update_times_with_buf(endpoint, fl, uuid, stat):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
@@ -542,9 +490,8 @@ def test_utime_should_update_times_with_buf(endpoint, fl):
     ubuf.actime = 54321
     ubuf.modtime = 12345
 
-    with reply(endpoint, [getattr_response, response]) as queue:
-        assert 0 == fl.utime_buf('/random/path', ubuf)
-        queue.get()
+    with reply(endpoint, response) as queue:
+        fl.utime_buf(uuid, ubuf)
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
@@ -556,56 +503,34 @@ def test_utime_should_update_times_with_buf(endpoint, fl):
     update_times = file_request.update_times
     assert update_times.atime == ubuf.actime
     assert update_times.mtime == ubuf.modtime
-    assert file_request.context_guid == \
-           getattr_response.fuse_response.file_attr.uuid
+    assert file_request.context_guid == uuid
 
 
-def test_utime_should_pass_getattr_errors(endpoint, fl):
+def test_utime_should_pass_utime_errors(endpoint, fl, uuid, stat):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, response):
-            fl.utime('/random/path')
+            fl.utime(uuid)
 
     assert 'Operation not permitted' in str(excinfo.value)
 
     ubuf = fslogic.Ubuf()
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, response):
-            fl.utime_buf('/random/path', ubuf)
+            fl.utime_buf(uuid, ubuf)
 
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_utime_should_pass_utime_errors(endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.eperm
-
-    with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response, response]):
-            fl.utime('/random/path')
-
-    assert 'Operation not permitted' in str(excinfo.value)
-
-    ubuf = fslogic.Ubuf()
-    with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, response):
-            fl.utime_buf('/random/path', ubuf)
-
-    assert 'Operation not permitted' in str(excinfo.value)
-
-
-def test_readdir_should_read_dir(endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-
+def test_readdir_should_read_dir(endpoint, fl, uuid, stat):
     file1 = common_messages_pb2.ChildLink()
-    file1.uuid = "uuid1"
+    file1.uuid = "childUuid1"
     file1.name = "file1"
 
     file2 = common_messages_pb2.ChildLink()
-    file2.uuid = "uuid2"
+    file2.uuid = "childUuid2"
     file2.name = "file2"
 
     repl = fuse_messages_pb2.FileChildren()
@@ -616,14 +541,11 @@ def test_readdir_should_read_dir(endpoint, fl):
     response.fuse_response.status.code = common_messages_pb2.Status.ok
 
     children = []
-    with reply(endpoint, [getattr_response, response]) as queue:
-        assert 0 == fl.readdir('/random/path', children)
-        queue.get()
+    with reply(endpoint, response) as queue:
+        children = fl.readdir(uuid)
         client_message = queue.get()
 
-    assert len(children) == 4
-    assert file1.name in children
-    assert file2.name in children
+    assert sorted(children) == sorted([file1.name, file2.name, '..', '.'])
 
     assert client_message.HasField('fuse_request')
     assert client_message.fuse_request.HasField('file_request')
@@ -633,181 +555,104 @@ def test_readdir_should_read_dir(endpoint, fl):
 
     get_file_children = file_request.get_file_children
     assert get_file_children.offset == 0
-    assert file_request.context_guid == \
-           getattr_response.fuse_response.file_attr.uuid
+    assert file_request.context_guid == uuid
 
 
-def test_readdir_should_pass_getattr_errors(endpoint, fl):
+def test_readdir_should_pass_readdir_errors(endpoint, fl, uuid, stat):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
-        l = []
         with reply(endpoint, response):
-            fl.readdir('/random/path', l)
+            fl.readdir(uuid)
 
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_readdir_should_pass_readdir_errors(endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.eperm
+def test_mknod_should_make_new_location(endpoint, fl, uuid, parentUuid, parentStat):
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
 
-    with pytest.raises(RuntimeError) as excinfo:
-        l = []
-        with reply(endpoint, [getattr_response, response]):
-            fl.readdir('/random/path', l)
-
-    assert 'Operation not permitted' in str(excinfo.value)
-
-
-def test_mknod_should_make_new_location(endpoint, fl):
-    getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
-    mknod_response = prepare_location()
-
-    with reply(endpoint, [getattr_response, mknod_response]) as queue:
-        assert 0 == fl.mknod('/random/path', 0762, 0)
-        queue.get()
+    with reply(endpoint, [getattr_response]) as queue:
+        fl.mknod(parentUuid, 'childName', 0762)
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
     assert client_message.fuse_request.HasField('file_request')
 
     file_request = client_message.fuse_request.file_request
-    assert file_request.HasField('get_new_file_location')
+    assert file_request.HasField('make_file')
 
-    get_new_file_location = file_request.get_new_file_location
-    assert get_new_file_location.name == 'path'
-    assert get_new_file_location.mode == 0762
-    assert file_request.context_guid == \
-           getattr_response.fuse_response.file_attr.uuid
+    make_file = file_request.make_file
+    assert make_file.name == 'childName'
+    assert make_file.mode == 0762
+    assert file_request.context_guid == parentUuid
 
 
-def test_mknod_should_pass_getattr_errors(endpoint, fl):
+def test_mknod_should_pass_location_errors(endpoint, fl, parentUuid, parentStat):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, response):
-            fl.mknod('/random/path', 0724, 0)
+            fl.mknod(parentUuid, 'childName', 0123)
 
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_mknod_should_pass_location_errors(endpoint, fl):
-    getattr_response = prepare_getattr('random', fuse_messages_pb2.DIR)
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.eperm
+def test_read_should_read(endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, blocks=[(0, 10)])
 
-    with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response, response]):
-            fl.mknod('/random/path', 0123, 0)
-
-    assert 'Operation not permitted' in str(excinfo.value)
+    assert 5 == len(fl.read(uuid, fh, 0, 5))
 
 
-def test_open_should_get_file_location(endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
-    open_response = prepare_location()
+def test_read_should_read_zero_on_eof(endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(0, 10)])
 
-    with reply(endpoint, [getattr_response, open_response]) as queue:
-        assert fl.open('/random/path', 0) >= 0
-        queue.get()
-        client_message = queue.get()
-
-    assert client_message.HasField('fuse_request')
-    assert client_message.fuse_request.HasField('file_request')
-
-    file_request = client_message.fuse_request.file_request
-    assert file_request.HasField('get_file_location')
-    assert file_request.context_guid == \
-           getattr_response.fuse_response.file_attr.uuid
+    assert 10 == len(fl.read(uuid, fh, 0, 12))
+    assert 0 == len(fl.read(uuid, fh, 10, 2))
 
 
-def test_open_should_pass_getattr_errors(endpoint, fl):
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.eperm
-
-    with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, response):
-            fl.open('/random/path', 0)
-
-    assert 'Operation not permitted' in str(excinfo.value)
-
-
-def test_open_should_pass_location_errors(endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.eperm
-
-    with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response, response]):
-            fl.open('/random/path', 0)
-
-    assert 'Operation not permitted' in str(excinfo.value)
-
-
-def test_read_should_read(endpoint, fl):
-    do_open(endpoint, fl, blocks=[(0, 10)])
-    assert 5 == fl.read('/random/path', 0, 5)
-
-
-def test_read_should_read_zero_on_eof(endpoint, fl):
-    do_open(endpoint, fl, blocks=[(0, 10)], size=10)
-    assert 10 == fl.read('/random/path', 0, 12)
-    assert 0 == fl.read('/random/path', 10, 2)
-
-
-def test_read_should_pass_helper_errors(endpoint, fl):
-    do_open(endpoint, fl, blocks=[(0, 10)], size=10)
+def test_read_should_pass_helper_errors(endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(0, 10)])
 
     with pytest.raises(RuntimeError) as excinfo:
         fl.failHelper()
-        fl.read('/random/path', 0, 10)
+        fl.read(uuid, fh, 0, 10)
 
     assert 'Owner died' in str(excinfo.value)
 
 
-def test_write_should_write(endpoint, fl):
-    do_open(endpoint, fl, blocks=[(0, 10)], size=10)
-    assert 5 == fl.write('/random/path', 0, 5)
+def test_write_should_write(endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(0, 10)])
+
+    assert 5 == fl.write(uuid, fh, 0, 5)
 
 
-def test_write_should_partition_writes(endpoint, fl):
-    do_open(endpoint, fl, blocks=[(0, 5)], size=5)
-    assert 5 == fl.write('/random/path', 0, 11)
-    assert 6 == fl.write('/random/path', 5, 6)
+def test_write_should_change_file_size(endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=5, blocks=[(0, 5)])
+    assert 20 == fl.write(uuid, fh, 10, 20)
 
-
-def test_write_should_change_file_size(endpoint, fl):
-    do_open(endpoint, fl, blocks=[(0, 5)], size=5)
-    assert 20 == fl.write('/random/path', 10, 20)
-
-    stat = fslogic.Stat()
-    fl.getattr('/random/path', stat)
+    stat = fl.getattr(uuid)
     assert 30 == stat.size
 
 
-def test_write_should_pass_helper_errors(endpoint, fl):
-    do_open(endpoint, fl, blocks=[(0, 10)], size=10)
+def test_write_should_pass_helper_errors(endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(0, 10)])
 
     with pytest.raises(RuntimeError) as excinfo:
         fl.failHelper()
-        fl.write('/random/path', 0, 10)
+        fl.write(uuid, fh, 0, 10)
 
     assert 'Owner died' in str(excinfo.value)
 
 
-def test_truncate_should_truncate(endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+def test_truncate_should_truncate(endpoint, fl, uuid, stat):
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.ok
-    loc_response = prepare_location()
+    location_response = prepare_location_response(uuid)
 
-    with reply(endpoint, [getattr_response, response, loc_response]) as queue:
-        assert fl.truncate('/random/path', 4) >= 0
-        queue.get()
+    with reply(endpoint, [response, location_response]) as queue:
+        fl.truncate(uuid, 4)
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
@@ -818,37 +663,23 @@ def test_truncate_should_truncate(endpoint, fl):
 
     truncate = file_request.truncate
     assert truncate.size == 4
-    assert file_request.context_guid == \
-           getattr_response.fuse_response.file_attr.uuid
+    assert file_request.context_guid == uuid
 
 
-def test_truncate_should_pass_getattr_errors(endpoint, fl):
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.status.code = common_messages_pb2.Status.eperm
-
-    with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, response):
-            fl.truncate('/random/path', 2)
-
-    assert 'Operation not permitted' in str(excinfo.value)
-
-
-def test_truncate_should_pass_truncate_errors(endpoint, fl):
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG)
+def test_truncate_should_pass_truncate_errors(endpoint, fl, uuid):
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
     response = messages_pb2.ServerMessage()
     response.fuse_response.status.code = common_messages_pb2.Status.eperm
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, [getattr_response, response]):
-            fl.truncate('/random/path', 3)
+            fl.truncate(uuid, 3)
 
     assert 'Operation not permitted' in str(excinfo.value)
 
 
-def test_readdir_big_directory(endpoint, fl):
+def test_readdir_big_directory(endpoint, fl, uuid, stat):
     children_num = 100000
-
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.DIR)
 
     repl = fuse_messages_pb2.FileChildren()
     for i in xrange(0, children_num):
@@ -865,35 +696,32 @@ def test_readdir_big_directory(endpoint, fl):
         fuse_messages_pb2.FileChildren())
     empty_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    children = []
-    with reply(endpoint, [getattr_response, response, empty_response]):
-        assert 0 == fl.readdir('/random/path', children)
+    with reply(endpoint, [response, empty_response]):
+        children = fl.readdir(uuid)
 
     assert len(children) == children_num + 2
 
 
-def test_write_should_save_blocks(endpoint, fl):
-    do_open(endpoint, fl, size=0)
-    assert 5 == fl.write('/random/path', 0, 5)
-    assert 5 == fl.read('/random/path', 0, 10)
+def test_write_should_save_blocks(endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=0)
+    assert 5 == fl.write(uuid, fh, 0, 5)
+    assert 5 == len(fl.read(uuid, fh, 0, 10))
 
 
-def test_read_should_read_partial_content(endpoint, fl):
-    do_open(endpoint, fl, blocks=[(4, 6)], size=10)
+def test_read_should_read_partial_content(endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
+    data = fl.read(uuid, fh, 6, 4)
 
-    assert 4 == fl.read('/random/path', 6, 4)
+    assert len(data) == 4
 
 
-def test_read_should_request_synchronization(appmock_client, endpoint, fl):
-    do_open(endpoint, fl, blocks=[(4, 6)], size=10)
-    stream_id = get_stream_id_from_location_subscription(endpoint.history()[0])
-    location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0).SerializeToString()
-    checksum = prepare_checksum('')
+def test_read_should_request_synchronization(appmock_client, endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
+    sync_response = prepare_sync_response(uuid, '', [(0, 10)])
 
-    schedule_sending_event(endpoint, location_update_event)
     appmock_client.reset_tcp_history()
-    with reply(endpoint, checksum) as queue:
-        fl.read('/random/path', 2, 5)
+    with reply(endpoint, sync_response) as queue:
+        fl.read(uuid, fh, 2, 5)
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
@@ -905,168 +733,261 @@ def test_read_should_request_synchronization(appmock_client, endpoint, fl):
     block.size = 5
     sync = file_request.synchronize_block_and_compute_checksum
     assert sync.block == block
-    assert file_request.context_guid == 'uuid1'
+    assert file_request.context_guid == uuid
 
 
-def test_read_should_continue_reading_after_synchronization(appmock_client, endpoint, fl):
-    do_open(endpoint, fl, blocks=[(4, 6)], size=10)
-    stream_id = get_stream_id_from_location_subscription(endpoint.history()[0])
-    checksum = prepare_checksum('')
-    location_update_event = prepare_location_update_event([(0, 10)], stream_id, 0).SerializeToString()
+def test_read_should_continue_reading_after_synchronization(appmock_client,
+                                                            endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
+    sync_response = prepare_sync_response(uuid, '', [(0, 10)])
 
-    schedule_sending_event(endpoint, location_update_event)
     appmock_client.reset_tcp_history()
-    with reply(endpoint, checksum):
-        assert 5 == fl.read('/random/path', 2, 5)
+    with reply(endpoint, sync_response):
+        assert 5 == len(fl.read(uuid, fh, 2, 5))
 
 
-def test_read_should_should_open_file_block_once(endpoint, fl):
-    do_open(endpoint, fl, blocks=[(0, 5, 'storage1', 'file1'),
-                                       (5, 5, 'storage2', 'file2')], size=10)
-
-    fl.expect_call_sh_open("file1", 1)
-    fl.expect_call_sh_open("file2", 1)
-
-    assert 5 == fl.read('/random/path', 0, 5)
-    assert 5 == fl.read('/random/path', 5, 5)
-
-    assert 5 == fl.read('/random/path', 0, 5)
-    assert 5 == fl.read('/random/path', 0, 5)
-
-    assert 5 == fl.read('/random/path', 5, 5)
-    assert 5 == fl.read('/random/path', 5, 5)
-
-    assert fl.verify_and_clear_expectations()
-
-
-def test_write_should_should_open_file_block_once(endpoint, fl):
-    do_open(endpoint, fl, blocks=[(0, 5, 'storage1', 'file1'),
-                                       (5, 5, 'storage2', 'file2')], size=10)
+def test_read_should_should_open_file_block_once(endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[
+        (0, 5, 'storage1', 'file1'), (5, 5, 'storage2', 'file2')])
 
     fl.expect_call_sh_open("file1", 1)
     fl.expect_call_sh_open("file2", 1)
 
-    assert 5 == fl.write('/random/path', 0, 5)
-    assert 5 == fl.write('/random/path', 5, 5)
+    assert 5 == len(fl.read(uuid, fh, 0, 5))
+    assert 5 == len(fl.read(uuid, fh, 5, 5))
 
-    assert 5 == fl.write('/random/path', 0, 5)
-    assert 5 == fl.write('/random/path', 0, 5)
+    assert 5 == len(fl.read(uuid, fh, 0, 5))
+    assert 5 == len(fl.read(uuid, fh, 0, 5))
 
-    assert 5 == fl.write('/random/path', 5, 5)
-    assert 5 == fl.write('/random/path', 5, 5)
-
-    assert fl.verify_and_clear_expectations()
-
-
-def test_release_should_release_open_file_blocks(endpoint, fl):
-    do_open(endpoint, fl, blocks=[(0, 5, 'storage1', 'file1'),
-                                       (5, 5, 'storage2', 'file2')], size=10)
-    assert 5 == fl.read('/random/path', 0, 5)
-    assert 5 == fl.read('/random/path', 5, 5)
-
-    fl.expect_call_sh_release("file1", 1)
-    fl.expect_call_sh_release("file2", 1)
-
-    assert 0 == fl.release('/random/path')
+    assert 5 == len(fl.read(uuid, fh, 5, 5))
+    assert 5 == len(fl.read(uuid, fh, 5, 5))
 
     assert fl.verify_and_clear_expectations()
 
 
-def test_release_should_pass_helper_errors(endpoint, fl):
-    do_open(endpoint, fl, blocks=[(0, 5, 'storage1', 'file1'),
-                                       (5, 5, 'storage2', 'file2')], size=10)
-    assert 5 == fl.read('/random/path', 0, 5)
-    assert 5 == fl.read('/random/path', 5, 5)
+def test_release_should_release_open_file_blocks(endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[
+        (0, 5, 'storage1', 'file1'), (5, 5, 'storage2', 'file2')])
 
-    fl.expect_call_sh_release("file1", 1)
-    fl.expect_call_sh_release("file2", 1)
+    assert 5 == len(fl.read(uuid, fh, 0, 5))
+    assert 5 == len(fl.read(uuid, fh, 5, 5))
+
+    fl.expect_call_sh_release('file1', 1)
+    fl.expect_call_sh_release('file2', 1)
+
+    do_release(endpoint, fl, uuid, fh)
+
+    assert fl.verify_and_clear_expectations()
+
+
+def test_release_should_pass_helper_errors(endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[
+        (0, 5, 'storage1', 'file1'), (5, 5, 'storage2', 'file2')])
+
+    assert 5 == len(fl.read(uuid, fh, 0, 5))
+    assert 5 == len(fl.read(uuid, fh, 5, 5))
+
+    fl.expect_call_sh_release('file1', 1)
+    fl.expect_call_sh_release('file2', 1)
 
     with pytest.raises(RuntimeError) as excinfo:
         fl.failHelper()
-        fl.release('/random/path')
+        do_release(endpoint, fl, uuid, fh)
 
     assert 'Owner died' in str(excinfo.value)
     assert fl.verify_and_clear_expectations()
 
 
-def test_release_should_send_release_message_if_handle_id_is_set(endpoint, fl):
-    do_open(endpoint, fl, size=0, handle_id='handle_id')
-    release_response = messages_pb2.ServerMessage()
-    release_response.fuse_response.status.code = common_messages_pb2.Status.ok
+def test_release_should_send_release_message(endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=0)
 
-    with reply(endpoint, [release_response]) as queue:
-        assert 0 == fl.release('/random/path')
-        client_message = queue.get()
+    sent_messages = do_release(endpoint, fl, uuid, fh)
 
+    sent_messages.get() # skip fsync message
+    client_message = sent_messages.get()
     assert client_message.HasField('fuse_request')
     assert client_message.fuse_request.HasField('file_request')
     assert client_message.fuse_request.file_request.HasField('release')
 
 
-def test_release_should_not_send_release_message_if_handle_id_is_not_set(endpoint, fl):
-    do_open(endpoint, fl, size=0)
-    release_response = messages_pb2.ServerMessage()
-    release_response.fuse_response.status.code = common_messages_pb2.Status.ok
+def test_release_should_send_fsync_message(endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=0)
 
-    with reply(endpoint, []) as queue:
-        assert 0 == fl.release('/random/path')
-        assert queue.empty()
+    sent_messages = do_release(endpoint, fl, uuid, fh)
 
+    client_message = sent_messages.get()
 
-def test_release_should_clear_handle_id_if_set(endpoint, fl):
-    do_open(endpoint, fl, size=0, handle_id='handle_id')
-    release_response = messages_pb2.ServerMessage()
-    release_response.fuse_response.status.code = common_messages_pb2.Status.ok
-
-    with reply(endpoint, [release_response]):
-        assert 0 == fl.release('/random/path')
-
-    assert fl.open('/random/path', 0) >= 0
-    with reply(endpoint, []) as queue:
-        assert 0 == fl.release('/random/path')
-        assert queue.empty()
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+    assert client_message.fuse_request.file_request.HasField('fsync')
 
 
-def test_location_with_different_flags(endpoint, fl):
-    O_RDONLY = 00
-    O_WRONLY = 01
-    O_RDWR = 02
+def prepare_listxattr_response(uuid):
+    repl = fuse_messages_pb2.XattrList()
 
-    getattr_response = prepare_getattr('path', fuse_messages_pb2.REG, size=0)
+    repl.names.extend(["xattr1", "xattr2", "xattr3", "xattr4"])
 
-    location_response = prepare_location([], 'id')
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.xattr_list.CopyFrom(repl)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [getattr_response, location_response]):
-        assert fl.open('/location', O_RDONLY) >= 0
+    return server_response
 
-    # should not ask for location and will fail on try due to wrong response
-    with reply(endpoint, [getattr_response]):
-        assert fl.open('/location', O_RDONLY) >= 0
 
-    # should try to get location for different flags and
-    # fail due to wrong response
+def test_listxattrs_should_return_listxattrs(endpoint, fl, uuid):
+    response = prepare_listxattr_response(uuid)
+
+    listxattrs = []
+    with reply(endpoint, response) as queue:
+        listxattrs = fl.listxattr(uuid)
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('list_xattr')
+    assert file_request.context_guid == uuid
+
+    assert response.status.code == common_messages_pb2.Status.ok
+    assert len(listxattrs) == 4
+    assert listxattrs[0] == "xattr1"
+    assert listxattrs[3] == "xattr4"
+
+
+def prepare_getxattr_response(uuid, name, value):
+    repl = fuse_messages_pb2.Xattr()
+
+    repl.name = name
+    repl.value = value
+
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.xattr.CopyFrom(repl)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    return server_response
+
+
+def test_getxattr_should_return_xattr(endpoint, fl, uuid):
+    xattr_name = "org.onedata.acl"
+    xattr_value = "READ | WRITE | DELETE"
+    response = prepare_getxattr_response(uuid, xattr_name, xattr_value)
+
+    xattr = None
+    with reply(endpoint, response) as queue:
+        xattr = fl.getxattr(uuid, xattr_name)
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('get_xattr')
+
+    assert xattr.name == xattr_name
+    assert xattr.value == xattr_value
+
+
+def test_getxattr_should_return_enoattr_for_invalid_xattr(endpoint, fl, uuid):
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.enodata
+
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response]):
-            assert fl.open('/location', O_WRONLY) >= 0
-    assert 'file_location field missing: Protocol error' in str(excinfo.value)
+        with reply(endpoint, response):
+            fl.getxattr(uuid, "org.onedata.dontexist")
 
-    with reply(endpoint, [getattr_response, location_response]):
-        assert fl.open('/location', O_WRONLY) >= 0
+    assert 'No data available' in str(excinfo.value)
 
-    # should not ask for location and will fail on try due to wrong response
-    with reply(endpoint, [getattr_response, getattr_response]):
-        assert fl.open('/location', O_WRONLY) >= 0
 
-    # should try to get location for different flags and
-    # fail due to wrong response
+def test_setxattr_should_set_xattr(endpoint, fl, uuid):
+    xattr_name = "org.onedata.acl"
+    xattr_value = "READ | WRITE | DELETE"
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    with reply(endpoint, response) as queue:
+        fl.setxattr(uuid, xattr_name, xattr_value, False, False)
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('set_xattr')
+    assert file_request.set_xattr.HasField('xattr')
+
+    assert file_request.set_xattr.xattr.name == xattr_name
+    assert file_request.set_xattr.xattr.value == xattr_value
+
+
+def test_setxattr_should_set_xattr_with_binary_data(endpoint, fl, uuid):
+    xattr_name = "org.onedata.acl"
+    xattr_value = b'BEGINSTRINGWITHNULLS\x00\x0F\x00\x0F\x00\x0F\x00\x0F\x00\x0F\x00\x0FENDSTRINGWITHNULLS'
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    with reply(endpoint, response) as queue:
+        fl.setxattr(uuid, xattr_name, xattr_value, False, False)
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+    file_request = client_message.fuse_request.file_request
+
+    assert file_request.HasField('set_xattr')
+    assert file_request.set_xattr.HasField('xattr')
+
+    assert file_request.set_xattr.xattr.name == xattr_name
+    assert file_request.set_xattr.xattr.value == xattr_value
+
+
+def test_setxattr_should_set_xattr_with_long_value(endpoint, fl, uuid):
+    xattr_name = "org.onedata.acl"
+    xattr_value = "askljdhflajkshdfjklhasjkldfhajklshdfljkashdfjklhasljkdhfjklashdfjklhasljdfhljkashdfljkhasjkldfhkljasdfhaslkdhfljkashdfljkhasdjklfhajklsdhfljkashdflkjhasjkldfhlakjsdhflkjahsfjklhasdjklfghlajksdgjklashfjklashfljkahsdljkfhasjkldfhlkajshdflkjahsdfljkhasldjkfhlkashdflkjashdfljkhasldkjfhalksdhfljkashdfljkhasdlfjkhaljksdhfjklashdfjklhasjkldfhljkasdhfljkashdlfjkhasldjkfhaljskdhfljkashdfljkhaspeuwshfiuawhgelrfihjasdgffhjgsdfhjgaskhjdfgjkaszgdfjhasdkfgaksjdfgkjahsdgfkhjasgdfkjhagsdkhjfgakhsjdfgkjhasgdfkhjgasdkjhfgakjshdgfkjhasgdkjhfgaskjhdfgakjhsdgfkjhasdgfkjhagsdkfhjgaskjdhfgkajsgdfkhjagsdkfjhgasdkjhfgaksjhdgfkajshdgfkjhasdgfkjhagskjdhfgakjshdgfkhjasdgfkjhasgdkfhjgaskdhjfgaksjdfgkasjdhgfkajshdgfkjhasgdfkhjagskdhjfgaskhjdfgkjasdhgfkjasgdkhjasdgkfhjgaksjhdfgkajshdgfkjhasdgfkjhagsdhjkfgaskhjdfgahjksdgfkhjasdgfhasgdfjhgaskdhjfgadkshjgfakhjsdgfkjhadsgkfhjagshjkdfgadhjsaskljdhflajkshdfjklhasjkldfhajklshdfljkashdfjklhasljkdhfjklashdfjklhasljdfhljkashdfljkhasjkldfhkljasdfhaslkdhfljkashdfljkhasdjklfhajklsdhfljkashdflkjhasjkldfhlakjsdhflkjahsfjklhasdjklfghlajksdgjklashfjklashfljkahsdljkfhasjkldfhlkajshdflkjahsdfljkhasldjkfhlkashdflkjashdfljkhasldkjfhalksdhfljkashdfljkhasdlfjkhaljksdhfjklashdfjklhasjkldfhljkasdhfljkashdlfjkhasldjkfhaljskdhfljkashdfljkhaspeuwshfiuawhgelrfihjasdgffhjgsdfhjgaskhjdfgjkaszgdfjhasdkfgaksjdfgkjahsdgfkhjasgdfkjhagsdkhjfgakhsjdfgkjhasgdfkhjgasdkjhfgakjshdgfkjhasgdkjhfgaskjhdfgakjhsdgfkjhasdgfkjhagsdkfhjgaskjdhfgkajsgdfkhjagsdkfjhgasdkjhfgaksjhdgfkajshdgfkjhasdgfkjhagskjdhfgakjshdgfkhjasdgfkjhasgdkfhjgaskdhjfgaksjdfgkasjdhgfkajshdgfkjhasgdfkhjagskdhjfgaskhjdfgkjasdhgfkjasgdkhjasdgkfhjgaksjhdfgkajshdgfkjhasdgfkjhagsdhjkfgaskhjdfgahjksdgfkhjasdgfhasgdfjhgaskdhjfgadkshjgfakhjsdgfkjhadsgkfhjagshjkdfgadhjsaskljdhflajkshdfjklhasjkldfhajklshdfljkashdfjklhasljkdhfjklashdfjklhasljdfhljkashdfljkhasjkldfhkljasdfhaslkdhfljkashdfljkhasdjklfhajklsdhfljkashdflkjhasjkldfhlakjsdhflkjahsfjklhasdjklfghlajksdgjklashfjklashfljkahsdljkfhasjkldfhlkajshdflkjahsdfljkhasldjkfhlkashdflkjashdfljkhasldkjfhalksdhfljkashdfljkhasdlfjkhaljksdhfjklashdfjklhasjkldfhljkasdhfljkashdlfjkhasldjkfhaljskdhfljkashdfljkhaspeuwshfiuawhgelrfihjasdgffhjgsdfhjgaskhjdfgjkaszgdfjhasdkfgaksjdfgkjahsdgfkhjasgdfkjhagsdkhjfgakhsjdfgkjhasgdfkhjgasdkjhfgakjshdgfkjhasgdkjhfgaskjhdfgakjhsdgfkjhasdgfkjhagsdkfhjgaskjdhfgkajsgdfkhjagsdkfjhgasdkjhfgaksjhdgfkajshdgfkjhasdgfkjhagskjdhfgakjshdgfkhjasdgfkjhasgdkfhjgaskdhjfgaksjdfgkasjdhgfkajshdgfkjhasgdfkhjagskdhjfgaskhjdfgkjasdhgfkjasgdkhjasdgkfhjgaksjhdfgkajshdgfkjhasdgfkjhagsdhjkfgaskhjdfgahjksdgfkhjasdgfhasgdfjhgaskdhjfgadkshjgfakhjsdgfkjhadsgkfhjagshjkdfgadhjsaskljdhflajkshdfjklhasjkldfhajklshdfljkashdfjklhasljkdhfjklashdfjklhasljdfhljkashdfljkhasjkldfhkljasdfhaslkdhfljkashdfljkhasdjklfhajklsdhfljkashdflkjhasjkldfhlakjsdhflkjahsfjklhasdjklfghlajksdgjklashfjklashfljkahsdljkfhasjkldfhlkajshdflkjahsdfljkhasldjkfhlkashdflkjashdfljkhasldkjfhalksdhfljkashdfljkhasdlfjkhaljksdhfjklashdfjklhasjkldfhljkasdhfljkashdlfjkhasldjkfhaljskdhfljkashdfljkhaspeuwshfiuawhgelrfihjasdgffhjgsdfhjgaskhjdfgjkaszgdfjhasdkfgaksjdfgkjahsdgfkhjasgdfkjhagsdkhjfgakhsjdfgkjhasgdfkhjgasdkjhfgakjshdgfkjhasgdkjhfgaskjhdfgakjhsdgfkjhasdgfkjhagsdkfhjgaskjdhfgkajsgdfkhjagsdkfjhgasdkjhfgaksjhdgfkajshdgfkjhasdgfkjhagskjdhfgakjshdgfkhjasdgfkjhasgdkfhjgaskdhjfgaksjdfgkasjdhgfkajshdgfkjhasgdfkhjagskdhjfgaskhjdfgkjasdhgfkjasgdkhjasdgkfhjgaksjhdfgkajshdgfkjhasdgfkjhagsdhjkfgaskhjdfgahjksdgfkhjasdgfhasgdfjhgaskdhjfgadkshjgfakhjsdgfkjhadsgkfhjagshjkdfgadhjs"
+
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    with reply(endpoint, response) as queue:
+        fl.setxattr(uuid, xattr_name, xattr_value, False, False)
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+    file_request = client_message.fuse_request.file_request
+
+    assert file_request.HasField('set_xattr')
+    assert file_request.set_xattr.HasField('xattr')
+
+    assert file_request.set_xattr.xattr.name == xattr_name
+    assert file_request.set_xattr.xattr.value == xattr_value
+
+
+def test_removexattr_should_remove_xattr(endpoint, fl, uuid):
+    xattr_name = "org.onedata.acl"
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    with reply(endpoint, response) as queue:
+        fl.removexattr(uuid, xattr_name)
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+    file_request = client_message.fuse_request.file_request
+    assert file_request.context_guid == uuid
+
+    remove_xattr_request = file_request.remove_xattr
+    assert remove_xattr_request.HasField('name')
+    assert remove_xattr_request.name == xattr_name
+
+
+def test_removexattr_should_return_enoattr_for_invalid_xattr(endpoint, fl, uuid):
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.enodata
+
     with pytest.raises(RuntimeError) as excinfo:
-        with reply(endpoint, [getattr_response]):
-            assert fl.open('/location', O_RDWR) >= 0
-    assert 'file_location field missing: Protocol error' in str(excinfo.value)
+        with reply(endpoint, response):
+            fl.removexattr(uuid, "org.onedata.dontexist")
 
-    with reply(endpoint, [getattr_response, location_response]):
-        assert fl.open('/location', O_RDWR) >= 0
-
-    # should not ask for location and will fail on try due to wrong response
-    with reply(endpoint, [getattr_response, getattr_response]):
-        assert fl.open('/location', O_RDWR) >= 0
+    assert 'No data available' in str(excinfo.value)
