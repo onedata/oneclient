@@ -15,8 +15,16 @@ add_custom_command(OUTPUT ${APPMOCK_BINARY}
     WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/appmock)
 add_custom_target(appmock ALL DEPENDS ${APPMOCK_BINARY})
 
-find_package(Boost COMPONENTS python REQUIRED)
-find_package(PythonLibs REQUIRED)
+if(APPLE)
+    # On OSX we have to force Python 2 to run tests using default
+    # boost-python library
+    find_package(Boost COMPONENTS python REQUIRED)
+    find_package(PythonLibs 2 REQUIRED)
+    find_package(PythonInterp 2 REQUIRED)
+else(APPLE)
+    find_package(Boost COMPONENTS python REQUIRED)
+    find_package(PythonLibs REQUIRED)
+endif(APPLE)
 include_directories(SYSTEM ${PYTHON_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 remove_definitions(-DBOOST_BIND_NO_PLACEHOLDERS)
 
