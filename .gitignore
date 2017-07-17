@@ -46,3 +46,7 @@ install_manifest.txt
 
 # Clion project files
 .idea
+
+# YouCompleteMe database
+.ycm_extra_conf.py
+compile_commands.json

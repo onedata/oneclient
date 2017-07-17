@@ -38,8 +38,8 @@ public:
               bl.readBufferMaxSize, bl.readBufferPrefetchDuration,
               *m_wrappedHandle)}
         , m_writeBuffer{std::make_shared<WriteBuffer>(bl.writeBufferMinSize,
-              bl.writeBufferMaxSize, bl.writeBufferFlushDelay,
-              *m_wrappedHandle, m_scheduler, m_readCache)}
+              bl.writeBufferMaxSize, bl.writeBufferFlushDelay, *m_wrappedHandle,
+              m_scheduler, m_readCache)}
     {
         m_writeBuffer->scheduleFlush();
     }
@@ -116,8 +116,9 @@ public:
         return m_helper->open(fileId, flags, params).then([
             fileId, bl = m_bufferLimits, &scheduler = m_scheduler
         ](FileHandlePtr handle) {
-            return std::make_shared<BufferedFileHandle>(
-                std::move(fileId), std::move(handle), bl, scheduler);
+            return static_cast<FileHandlePtr>(
+                std::make_shared<BufferedFileHandle>(
+                    std::move(fileId), std::move(handle), bl, scheduler));
         });
     }
 
@@ -191,8 +192,8 @@ public:
         return m_helper->chmod(fileId, mode);
     }
 
-    folly::Future<folly::Unit> chown(
-        const folly::fbstring &fileId, const uid_t uid, const gid_t gid) override
+    folly::Future<folly::Unit> chown(const folly::fbstring &fileId,
+        const uid_t uid, const gid_t gid) override
     {
         return m_helper->chown(fileId, uid, gid);
     }
