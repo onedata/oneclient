@@ -2,6 +2,7 @@ branches:
   only:
     - develop
     - develop-osx
+    - feature/VFS-3378-add-native-glusterfs-support-on
 
 language: cpp
 
