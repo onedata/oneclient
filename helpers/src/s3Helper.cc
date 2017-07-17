@@ -84,12 +84,18 @@ S3Helper::S3Helper(folly::fbstring hostname, folly::fbstring bucketName,
 
     Aws::Client::ClientConfiguration configuration;
     configuration.endpointOverride = hostname.c_str();
+#if !defined(S3_HAS_NO_V2_SUPPORT)
     configuration.useSigV2 = useSigV2;
+#endif
     if (!useHttps)
         configuration.scheme = Aws::Http::Scheme::HTTP;
 
     m_client = std::make_unique<Aws::S3::S3Client>(
-        credentials, configuration, false, false);
+        credentials, configuration, false
+#if !defined(S3_HAS_NO_V2_SUPPORT)
+        , false
+#endif
+        );
 }
 
 folly::IOBufQueue S3Helper::getObject(
@@ -186,7 +192,11 @@ std::size_t S3Helper::putObject(
 
 void S3Helper::deleteObjects(const folly::fbvector<folly::fbstring> &keys)
 {
+#if !defined(S3_HAS_NO_V2_SUPPORT)
     if (m_useSigV2) {
+#else
+    if (false && m_useSigV2) {
+#endif
         for (const auto &key : keys) {
             Aws::S3::Model::DeleteObjectRequest request;
             request.SetBucket(m_bucket.c_str());

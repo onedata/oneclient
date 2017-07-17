@@ -54,6 +54,7 @@ be added to the make command line:
 * WITH_CEPH=OFF - disables Ceph helper
 * WITH_S3=OFF - disables S3 helper
 * WITH_SWIFT=OFF - disables Swift helper
+* WITH_GLUSTERFS=OFF - disables GlusterFS helper
 
 In order to build the helpers using other Git repository than default, environment
 variable ONEDATA_GIT_URL must be exported before calling `make`, e.g.:
@@ -73,11 +74,12 @@ after this step you should have your libhelpers.a and libhelpers.so/dylib in "re
 #### Building on OSX
 
 In order to build `helpers` on OSX all dependecies must be installed using
-Homebrew (see [Travis build specification](.travis.yml)). Currently helpers for
-Ceph, S3 and Swift are not supported on OSX, furthermore NSS library is by
-default linked to a special folder on OSX, thus:
+Homebrew (see [Travis build specification](.travis.yml)). Currently helper for
+Ceph is not supported on OSX, furthermore NSS library is by default linked to a 
+special folder on OSX, thus `make` has to called with the following
+paremeters':
 
-    PKG_CONFIG_PATH=/usr/local/opt/nss/lib/pkgconfig make release WITH_CEPH=OFF WITH_S3=OFF WITH_SWIFT=OFF
+    PKG_CONFIG_PATH=/usr/local/opt/nss/lib/pkgconfig make release WITH_CEPH=OFF OPENSSL_ROOT_DIR=/usr/local/opt/openssl OPENSSL_LIBRARIES=/usr/local/opt/openssl/lib
 
 #### Testing
 
