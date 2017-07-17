@@ -65,9 +65,9 @@ public:
         const folly::fbstring &fileId, const int /*flags*/,
         const one::helpers::Params & /*openParams*/) override
     {
-        one::helpers::FileHandlePtr result =
-            std::make_shared<FileHandle>(fileId, m_executor, m_wasSimultaneous);
-        return folly::makeFuture(result);
+        return folly::makeFuture(static_cast<one::helpers::FileHandlePtr>(
+            std::make_shared<FileHandle>(
+                fileId, m_executor, m_wasSimultaneous)));
     }
 
     const one::helpers::Timeout &timeout() override
