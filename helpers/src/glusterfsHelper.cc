@@ -86,12 +86,11 @@ static std::mutex connectionMutex;
 
 GlusterFSFileHandle::GlusterFSFileHandle(folly::fbstring fileId,
     std::shared_ptr<GlusterFSHelper> helper, std::shared_ptr<glfs_fd_t> glfsFd,
-    std::shared_ptr<folly::Executor> executor, Timeout timeout)
+    std::shared_ptr<folly::Executor> executor)
     : FileHandle{std::move(fileId)}
     , m_helper{std::move(helper)}
     , m_glfsFd{std::move(glfsFd)}
     , m_executor{std::move(executor)}
-    , m_timeout{timeout}
 {
 }
 
@@ -122,7 +121,7 @@ folly::Future<std::size_t> GlusterFSFileHandle::write(
     if (res == -1)
         return makeFuturePosixException<std::size_t>(errno);
 
-    return folly::makeFuture(res);
+    return folly::makeFuture<std::size_t>(res);
 }
 
 const Timeout &GlusterFSFileHandle::timeout() { return m_helper->timeout(); }
@@ -283,7 +282,7 @@ folly::Future<FileHandlePtr> GlusterFSHelper::open(
             return makeFuturePosixException<FileHandlePtr>(errno);
 
         auto handle = std::make_shared<GlusterFSFileHandle>(
-            filePath.string(), shared_from_this(), glfsFd, executor, timeout);
+            filePath.string(), shared_from_this(), glfsFd, executor);
 
         return folly::makeFuture<FileHandlePtr>(std::move(handle));
     });
@@ -362,7 +361,7 @@ folly::Future<folly::fbstring> GlusterFSHelper::readlink(
         auto linkedPath = buf->moveToFbString();
         auto relativePath = relative(linkedPath.toStdString());
         return folly::makeFuture(
-            std::move(folly::fbstring(relativePath.c_str())));
+            folly::fbstring(relativePath.c_str()));
     });
 }
 

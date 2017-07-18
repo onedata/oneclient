@@ -231,7 +231,8 @@ public:
         m_handles.insert(std::make_pair(
             fileId, std::make_shared<NullHelperHandleMock>(m_ec)));
 
-        return folly::makeFuture(m_handles[fileId]);
+        return folly::makeFuture(
+            static_cast<one::helpers::FileHandlePtr>(m_handles[fileId]));
     }
 
     const one::helpers::Timeout &timeout() override { return m_timeout; }

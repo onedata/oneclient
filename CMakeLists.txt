@@ -104,6 +104,12 @@ if(WITH_S3)
         ${AWS_SKD_S3_LIBRARY}
         ${AWS_SKD_CORE_LIBRARY}
         ${CURL_LIBRARIES})
+    add_definitions(-DWITH_S3=1)
+    if(APPLE)
+      add_definitions(-DS3_HAS_NO_V2_SUPPORT)
+    endif(APPLE)
+else(WITH_S3)
+    add_definitions(-DWITH_S3=0)
 endif(WITH_S3)
 
 # Swift SDK library
@@ -193,6 +199,9 @@ endif(WITH_CEPH)
 
 if(WITH_S3)
     add_definitions(-DWITH_S3=1)
+    if(APPLE)
+      add_definitions(-DS3_HAS_NO_V2_SUPPORT)
+    endif(APPLE)
 else(WITH_S3)
     add_definitions(-DWITH_S3=0)
 endif(WITH_S3)

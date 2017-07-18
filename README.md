@@ -34,6 +34,7 @@ flags:
 * WITH_CEPH=OFF - disables Ceph support
 * WITH_S3=OFF - disables S3 support
 * WITH_SWIFT=OFF - disables Swift support
+* WITH_GLUSTERFS=OFF - disables GlusterFS support
 
 The compiled binary `oneclient` will be created on path `release/oneclient` (or
 `debug/oneclient`).
@@ -96,7 +97,7 @@ If for some reason this local cache is undesired, it can be disabled using `--no
 
 ### Other options
 
-The list of all options can be accessed using 
+The list of all options can be accessed using: 
 
 ```
 $ oneclient -h

@@ -85,8 +85,9 @@ ProxyHelper::ProxyHelper(folly::fbstring storageId,
 folly::Future<FileHandlePtr> ProxyHelper::open(
     const folly::fbstring &fileId, const int flags, const Params &openParams)
 {
-    return folly::makeFuture(std::make_shared<ProxyFileHandle>(
-        fileId, m_storageId, openParams, m_communicator, m_timeout));
+    return folly::makeFuture(
+        static_cast<FileHandlePtr>(std::make_shared<ProxyFileHandle>(
+            fileId, m_storageId, openParams, m_communicator, m_timeout)));
 }
 
 } // namespace helpers
