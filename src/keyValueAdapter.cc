@@ -346,7 +346,7 @@ folly::Future<FileHandlePtr> KeyValueAdapter::open(
     const folly::fbstring &fileId, const int /*flags*/,
     const Params &openParams)
 {
-    auto handle = std::make_shared<KeyValueFileHandle>(
+    FileHandlePtr handle = std::make_shared<KeyValueFileHandle>(
         fileId, m_helper, m_blockSize, m_locks, m_executor);
 
     return folly::makeFuture(std::move(handle));

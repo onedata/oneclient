@@ -62,8 +62,8 @@ folly::Future<std::size_t> CephFileHandle::write(
         librados::bufferlist data;
         for (auto &byteRange : *buf.front())
             data.append(ceph::buffer::create_static(byteRange.size(),
-                reinterpret_cast<char *>(
-                    const_cast<unsigned char *>(byteRange.data()))));
+                reinterpret_cast<char *>(const_cast<unsigned char *>(
+                    byteRange.data()))));
 
         auto ret = m_ioCTX.write(m_fileId.toStdString(), data, size, offset);
         if (ret < 0)
@@ -134,6 +134,118 @@ folly::Future<folly::Unit> CephHelper::truncate(
             return makeFuturePosixException(ret);
 
         return folly::makeFuture();
+    });
+}
+
+folly::Future<folly::fbstring> CephHelper::getxattr(
+    const folly::fbstring &fileId, const folly::fbstring &name)
+{
+    return connect().then([
+        this, fileId, name, s = std::weak_ptr<CephHelper>{shared_from_this()}
+    ] {
+        auto self = s.lock();
+        if (!self)
+            return makeFuturePosixException<folly::fbstring>(ECANCELED);
+
+        std::string xattrValue;
+
+        librados::bufferlist bl;
+        int ret = m_ioCTX.getxattr(fileId.toStdString(), name.c_str(), bl);
+
+        if (ret < 0)
+            return makeFuturePosixException<folly::fbstring>(ret);
+
+        bl.copy(0, ret, xattrValue);
+
+        return folly::makeFuture<folly::fbstring>(std::move(xattrValue));
+    });
+}
+
+folly::Future<folly::Unit> CephHelper::setxattr(const folly::fbstring &fileId,
+    const folly::fbstring &name, const folly::fbstring &value, bool create,
+    bool replace)
+{
+    return connect().then([
+        this, fileId, name, value, create, replace,
+        s = std::weak_ptr<CephHelper>{shared_from_this()}
+    ] {
+        auto self = s.lock();
+        if (!self)
+            return makeFuturePosixException(ECANCELED);
+
+        if (create && replace) {
+            return makeFuturePosixException<folly::Unit>(EINVAL);
+        }
+
+        librados::bufferlist bl;
+
+        if (create) {
+            int xattrExists =
+                m_ioCTX.getxattr(fileId.toStdString(), name.c_str(), bl);
+            if (xattrExists >= 0)
+                return makeFuturePosixException<folly::Unit>(EEXIST);
+        }
+        else if (replace) {
+            int xattrExists =
+                m_ioCTX.getxattr(fileId.toStdString(), name.c_str(), bl);
+            if (xattrExists < 0)
+                return makeFuturePosixException<folly::Unit>(ENODATA);
+        }
+
+        bl.clear();
+        bl.append(value.toStdString());
+        int ret = m_ioCTX.setxattr(fileId.toStdString(), name.c_str(), bl);
+
+        if (ret < 0)
+            return makeFuturePosixException<folly::Unit>(ret);
+
+        return folly::makeFuture();
+    });
+}
+
+folly::Future<folly::Unit> CephHelper::removexattr(
+    const folly::fbstring &fileId, const folly::fbstring &name)
+{
+    return connect().then([
+        this, fileId, name, s = std::weak_ptr<CephHelper>{shared_from_this()}
+    ] {
+        auto self = s.lock();
+        if (!self)
+            return makeFuturePosixException(ECANCELED);
+
+        int ret = m_ioCTX.rmxattr(fileId.toStdString(), name.c_str());
+        if (ret < 0)
+            return makeFuturePosixException<folly::Unit>(ret);
+
+        return folly::makeFuture();
+    });
+}
+
+folly::Future<folly::fbvector<folly::fbstring>> CephHelper::listxattr(
+    const folly::fbstring &fileId)
+{
+    return connect().then([
+        this, fileId, s = std::weak_ptr<CephHelper>{shared_from_this()}
+    ] {
+        auto self = s.lock();
+        if (!self)
+            return makeFuturePosixException<folly::fbvector<folly::fbstring>>(
+                ECANCELED);
+
+        std::map<std::string, librados::bufferlist> xattrs;
+
+        int ret = m_ioCTX.getxattrs(fileId.toStdString(), xattrs);
+        if (ret < 0)
+            return makeFuturePosixException<folly::fbvector<folly::fbstring>>(
+                ret);
+
+        folly::fbvector<folly::fbstring> xattrNames;
+        for (auto const &xattr : xattrs) {
+            xattrNames.push_back(xattr.first);
+        }
+
+        return folly::makeFuture<folly::fbvector<folly::fbstring>>(
+            std::move(xattrNames));
     });
 }
 

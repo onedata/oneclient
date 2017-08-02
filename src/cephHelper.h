@@ -103,6 +103,19 @@ public:
         return folly::makeFuture();
     }
 
+    folly::Future<folly::fbstring> getxattr(
+        const folly::fbstring &fileId, const folly::fbstring &name) override;
+
+    folly::Future<folly::Unit> setxattr(const folly::fbstring &fileId,
+        const folly::fbstring &name, const folly::fbstring &value, bool create,
+        bool replace) override;
+
+    folly::Future<folly::Unit> removexattr(
+        const folly::fbstring &fileId, const folly::fbstring &name) override;
+
+    folly::Future<folly::fbvector<folly::fbstring>> listxattr(
+        const folly::fbstring &fileId) override;
+
     const Timeout &timeout() override { return m_timeout; }
 
     /**

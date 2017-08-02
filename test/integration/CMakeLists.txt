@@ -1,7 +1,7 @@
 file(COPY ${PROJECT_SOURCE_DIR}/appmock DESTINATION ${PROJECT_BINARY_DIR})
 file(COPY ${PROJECT_SOURCE_DIR}/bamboos DESTINATION ${PROJECT_BINARY_DIR})
 file(COPY conftest.py test_common.py common_test_base.py key_value_test_base.py
-          posix_test_base.py
+          posix_test_base.py xattr_test_base.py
           DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 set(APPMOCK_BINARY ${PROJECT_BINARY_DIR}/appmock/rel/appmock/bin/appmock)
@@ -26,8 +26,16 @@ add_custom_target(pythonProto
     COMMENT "Running Python protocol buffer compiler for integration tests"
     VERBATIM)
 
-find_package(Boost COMPONENTS python REQUIRED)
-find_package(PythonLibs REQUIRED)
+if(APPLE)
+    # On OSX we have to force Python 2 to run tests using default
+    # boost-python library
+    find_package(Boost COMPONENTS python REQUIRED)
+    find_package(PythonLibs 2 REQUIRED)
+    find_package(PythonInterp 2 REQUIRED)
+else(APPLE)
+    find_package(Boost COMPONENTS python REQUIRED)
+    find_package(PythonLibs REQUIRED)
+endif(APPLE)
 include_directories(SYSTEM ${PYTHON_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 remove_definitions(-DBOOST_BIND_NO_PLACEHOLDERS)
 

@@ -85,9 +85,9 @@ public:
      */
     GlusterFSFileHandle(folly::fbstring fileId,
         std::shared_ptr<GlusterFSHelper> helper,
-        std::shared_ptr<glfs_fd_t> glfsFd,
-        std::shared_ptr<folly::Executor> executor,
-        Timeout timeout = ASYNC_OPS_TIMEOUT);
+        std::shared_ptr<glfs_fd_t> glfsFd, uid_t uid, gid_t gid);
+
+    ~GlusterFSFileHandle();
 
     folly::Future<folly::IOBufQueue> read(
         const off_t offset, const std::size_t size) override;
@@ -106,8 +106,9 @@ public:
 private:
     std::shared_ptr<GlusterFSHelper> m_helper;
     std::shared_ptr<glfs_fd_t> m_glfsFd;
-    std::shared_ptr<folly::Executor> m_executor;
-    Timeout m_timeout;
+    std::atomic_bool m_needsRelease{true};
+    const uid_t m_uid;
+    const gid_t m_gid;
 };
 
 /**
@@ -184,6 +185,20 @@ public:
 
     folly::Future<FileHandlePtr> open(const folly::fbstring &fileId,
         const int flags, const Params &openParams) override;
+
+    folly::Future<folly::fbstring> getxattr(
+        const folly::fbstring &fileId, const folly::fbstring &name) override;
+
+    folly::Future<folly::Unit> setxattr(const folly::fbstring &fileId,
+        const folly::fbstring &name, const folly::fbstring &value, bool create,
+        bool replace) override;
+
+    folly::Future<folly::Unit> removexattr(
+        const folly::fbstring &fileId, const folly::fbstring &name) override;
+
+    folly::Future<folly::fbvector<folly::fbstring>> listxattr(
+        const folly::fbstring &fileId) override;
+
 
     const Timeout &timeout() override { return m_timeout; }
 
