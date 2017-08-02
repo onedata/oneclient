@@ -90,6 +90,35 @@ public:
         m_helper->truncate(fileId, offset).get();
     }
 
+    std::string getxattr(std::string fileId, std::string name)
+    {
+        ReleaseGIL guard;
+        return m_helper->getxattr(fileId, name).get().toStdString();
+    }
+
+    void setxattr(std::string fileId, std::string name, std::string value,
+        bool create, bool replace)
+    {
+        ReleaseGIL guard;
+        m_helper->setxattr(fileId, name, value, create, replace).get();
+    }
+
+    void removexattr(std::string fileId, std::string name)
+    {
+        ReleaseGIL guard;
+        m_helper->removexattr(fileId, name).get();
+    }
+
+    std::vector<std::string> listxattr(std::string fileId)
+    {
+        ReleaseGIL guard;
+        std::vector<std::string> res;
+        for (auto &xattr : m_helper->listxattr(fileId).get()) {
+            res.emplace_back(xattr.toStdString());
+        }
+        return res;
+    }
+
 private:
     asio::io_service m_service;
     asio::executor_work<asio::io_service::executor_type> m_idleWork;
@@ -113,5 +142,9 @@ BOOST_PYTHON_MODULE(ceph_helper)
         .def("unlink", &CephHelperProxy::unlink)
         .def("read", &CephHelperProxy::read)
         .def("write", &CephHelperProxy::write)
-        .def("truncate", &CephHelperProxy::truncate);
+        .def("truncate", &CephHelperProxy::truncate)
+        .def("getxattr", &CephHelperProxy::getxattr)
+        .def("setxattr", &CephHelperProxy::setxattr)
+        .def("removexattr", &CephHelperProxy::removexattr)
+        .def("listxattr", &CephHelperProxy::listxattr);
 }

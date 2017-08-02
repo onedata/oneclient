@@ -12,6 +12,11 @@
 #include <fuse.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#if defined(__linux__)
+#include <linux/limits.h>
+#else
+#define XATTR_SIZE_MAX (64 * 1024)
+#endif
 
 #include <asio/buffer.hpp>
 #include <asio/io_service.hpp>
@@ -373,6 +378,35 @@ public:
 
     virtual folly::Future<FileHandlePtr> open(const folly::fbstring &fileId,
         const int flags, const Params &openParams) = 0;
+
+    virtual folly::Future<folly::fbstring> getxattr(
+       const folly::fbstring &uuid, const folly::fbstring &name) {
+        return folly::makeFuture<folly::fbstring>(std::system_error{
+            std::make_error_code(std::errc::function_not_supported)});
+    }
+
+    virtual folly::Future<folly::Unit> setxattr(const folly::fbstring &uuid,
+        const folly::fbstring &name, const folly::fbstring &value, bool create,
+        bool replace)
+    {
+        return folly::makeFuture<folly::Unit>(std::system_error{
+            std::make_error_code(std::errc::function_not_supported)});
+    }
+
+    virtual folly::Future<folly::Unit> removexattr(
+        const folly::fbstring &uuid, const folly::fbstring &name)
+    {
+        return folly::makeFuture<folly::Unit>(std::system_error{
+            std::make_error_code(std::errc::function_not_supported)});
+    }
+
+    virtual folly::Future<folly::fbvector<folly::fbstring>> listxattr(
+        const folly::fbstring &uuid)
+    {
+        return folly::makeFuture<folly::fbvector<folly::fbstring>>(
+            std::system_error{
+                std::make_error_code(std::errc::function_not_supported)});
+    }
 
     virtual const Timeout &timeout() = 0;
 };

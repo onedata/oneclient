@@ -204,6 +204,31 @@ public:
         return m_helper->truncate(fileId, size);
     }
 
+    folly::Future<folly::fbstring> getxattr(
+        const folly::fbstring &uuid, const folly::fbstring &name) override
+    {
+        return m_helper->getxattr(uuid, name);
+    }
+
+    folly::Future<folly::Unit> setxattr(const folly::fbstring &uuid,
+        const folly::fbstring &name, const folly::fbstring &value, bool create,
+        bool replace) override
+    {
+        return m_helper->setxattr(uuid, name, value, create, replace);
+    }
+
+    folly::Future<folly::Unit> removexattr(
+        const folly::fbstring &uuid, const folly::fbstring &name) override
+    {
+        return m_helper->removexattr(uuid, name);
+    }
+
+    folly::Future<folly::fbvector<folly::fbstring>> listxattr(
+        const folly::fbstring &uuid) override
+    {
+        return m_helper->listxattr(uuid);
+    }
+
     const Timeout &timeout() override { return m_helper->timeout(); }
 
 private:

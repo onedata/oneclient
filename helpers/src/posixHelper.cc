@@ -20,6 +20,7 @@
 #include <errno.h>
 #include <fuse.h>
 #include <sys/stat.h>
+#include <sys/xattr.h>
 
 #if defined(__linux__)
 #include <sys/fsuid.h>
@@ -511,6 +512,151 @@ folly::Future<FileHandlePtr> PosixHelper::open(
             gid, res, std::move(executor), std::move(timeout));
 
         return folly::makeFuture<FileHandlePtr>(std::move(handle));
+    });
+}
+
+folly::Future<folly::fbstring> PosixHelper::getxattr(
+    const folly::fbstring &fileId, const folly::fbstring &name)
+{
+    return folly::via(m_executor.get(),
+        [ filePath = root(fileId), name, uid = m_uid, gid = m_gid ] {
+            UserCtxSetter userCTX{uid, gid};
+            if (!userCTX.valid())
+                return makeFuturePosixException<folly::fbstring>(EDOM);
+
+            constexpr std::size_t initialMaxSize = 256;
+            auto buf = folly::IOBuf::create(initialMaxSize);
+            int res = ::getxattr(filePath.c_str(), name.c_str(),
+                reinterpret_cast<char *>(buf->writableData()),
+                initialMaxSize - 1
+#if defined(__APPLE__)
+                ,
+                0, 0
+#endif
+                );
+
+            // If the initial buffer for xattr value was too small, try again
+            // with maximum allowed value
+            if (res == -1 && errno == ERANGE) {
+                buf = folly::IOBuf::create(XATTR_SIZE_MAX);
+                res = ::getxattr(filePath.c_str(), name.c_str(),
+                    reinterpret_cast<char *>(buf->writableData()),
+                    XATTR_SIZE_MAX - 1
+#if defined(__APPLE__)
+                    ,
+                    0, 0
+#endif
+                    );
+            }
+
+            if (res == -1)
+                return makeFuturePosixException<folly::fbstring>(errno);
+
+            buf->append(res);
+            return folly::makeFuture(buf->moveToFbString());
+        });
+}
+
+folly::Future<folly::Unit> PosixHelper::setxattr(const folly::fbstring &fileId,
+    const folly::fbstring &name, const folly::fbstring &value, bool create,
+    bool replace)
+{
+    return folly::via(m_executor.get(), [
+        filePath = root(fileId), name, value, create, replace, uid = m_uid,
+        gid = m_gid
+    ] {
+        UserCtxSetter userCTX{uid, gid};
+        if (!userCTX.valid())
+            return makeFuturePosixException<folly::Unit>(EDOM);
+
+        int flags = 0;
+
+        if (create && replace) {
+            return makeFuturePosixException<folly::Unit>(EINVAL);
+        }
+
+        if (create) {
+            flags = XATTR_CREATE;
+        }
+        else if (replace) {
+            flags = XATTR_REPLACE;
+        }
+
+        return setResult(::setxattr, filePath.c_str(), name.c_str(),
+            value.c_str(), value.size(),
+#if defined(__APPLE__)
+            0,
+#endif
+            flags);
+    });
+}
+
+folly::Future<folly::Unit> PosixHelper::removexattr(
+    const folly::fbstring &fileId, const folly::fbstring &name)
+{
+    return folly::via(m_executor.get(),
+        [ filePath = root(fileId), name, uid = m_uid, gid = m_gid ] {
+            UserCtxSetter userCTX{uid, gid};
+            if (!userCTX.valid())
+                return makeFuturePosixException(EDOM);
+
+            return setResult(::removexattr, filePath.c_str(), name.c_str()
+#if defined(__APPLE__)
+                                                                  ,
+                0
+#endif
+                );
+        });
+}
+
+folly::Future<folly::fbvector<folly::fbstring>> PosixHelper::listxattr(
+    const folly::fbstring &fileId)
+{
+    return folly::via(m_executor.get(), [
+        filePath = root(fileId), uid = m_uid, gid = m_gid
+    ] {
+        UserCtxSetter userCTX{uid, gid};
+        if (!userCTX.valid())
+            return makeFuturePosixException<folly::fbvector<folly::fbstring>>(
+                EDOM);
+
+        folly::fbvector<folly::fbstring> ret;
+
+        ssize_t buflen = ::listxattr(filePath.c_str(), NULL, 0
+#if defined(__APPLE__)
+            ,
+            0
+#endif
+            );
+        if (buflen == -1)
+            return makeFuturePosixException<folly::fbvector<folly::fbstring>>(
+                errno);
+
+        if (buflen == 0)
+            return folly::makeFuture<folly::fbvector<folly::fbstring>>(
+                std::move(ret));
+
+        auto buf = std::unique_ptr<char[]>(new char[buflen]);
+        buflen = ::listxattr(filePath.c_str(), buf.get(), buflen
+#if defined(__APPLE__)
+            ,
+            0
+#endif
+            );
+
+        if (buflen == -1)
+            return makeFuturePosixException<folly::fbvector<folly::fbstring>>(
+                errno);
+
+        char *xattrNamePtr = buf.get();
+        while (xattrNamePtr < buf.get() + buflen) {
+            ret.emplace_back(xattrNamePtr);
+            xattrNamePtr +=
+                strnlen(xattrNamePtr, buflen - (buf.get() - xattrNamePtr)) + 1;
+        }
+
+        return folly::makeFuture<folly::fbvector<folly::fbstring>>(
+            std::move(ret));
     });
 }
 

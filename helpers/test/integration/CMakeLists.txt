@@ -1,7 +1,7 @@
 file(COPY ${PROJECT_SOURCE_DIR}/appmock DESTINATION ${PROJECT_BINARY_DIR})
 file(COPY ${PROJECT_SOURCE_DIR}/bamboos DESTINATION ${PROJECT_BINARY_DIR})
 file(COPY conftest.py test_common.py common_test_base.py key_value_test_base.py
-          posix_test_base.py
+          posix_test_base.py xattr_test_base.py
           DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 set(APPMOCK_BINARY ${PROJECT_BINARY_DIR}/appmock/rel/appmock/bin/appmock)

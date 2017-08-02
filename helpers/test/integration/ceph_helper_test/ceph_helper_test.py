@@ -16,6 +16,7 @@ from test_common import *
 # noinspection PyUnresolvedReferences
 from environment import ceph, common, docker
 from ceph_helper import CephHelperProxy
+from xattr_test_base import *
 
 
 @pytest.fixture(scope='module')

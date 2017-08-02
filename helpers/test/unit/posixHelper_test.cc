@@ -56,8 +56,8 @@ struct PosixHelperTest : public ::testing::Test {
 
         executor = std::make_shared<folly::ManualExecutor>();
 
-        proxy = std::make_shared<PosixHelper>(
-            root, getuid(), getgid(), executor);
+        proxy =
+            std::make_shared<PosixHelper>(root, getuid(), getgid(), executor);
 
         handle = std::static_pointer_cast<one::helpers::PosixFileHandle>(
             proxy->open(testFileId, O_RDWR, {}).getVia(executor.get()));
@@ -235,4 +235,123 @@ TEST_F(PosixHelperTest, shouldChangeOwner)
 TEST_F(PosixHelperTest, shouldTruncate)
 {
     EXPECT_NO_THROW(proxy->truncate(testFileId, 0).getVia(executor.get()));
+}
+
+TEST_F(PosixHelperTest, setxattrShouldSetExtendedAttribute)
+{
+    EXPECT_NO_THROW(
+        proxy->setxattr(testFileId, "user.xattr1", "VALUE", false, false)
+            .getVia(executor.get()));
+
+    ASSERT_EQ(proxy->getxattr(testFileId, "user.xattr1").getVia(executor.get()),
+        "VALUE");
+}
+
+TEST_F(PosixHelperTest, setxattrShouldHandleCreateAndReplaceFlags)
+{
+    EXPECT_NO_THROW(
+        proxy->setxattr(testFileId, "user.xattr1", "VALUE", false, false)
+            .getVia(executor.get()));
+
+    EXPECT_THROW_POSIX_CODE(
+        proxy->setxattr(testFileId, "user.anyxattr", "ANYVALUE", true, true)
+            .getVia(executor.get()),
+        EINVAL);
+
+#if defined(__APPLE__)
+    EXPECT_THROW_POSIX_CODE(
+        proxy->setxattr(testFileId, "user.xattr2", "DOESN'T EXIST", false, true)
+            .getVia(executor.get()),
+        ENOATTR);
+#else
+    EXPECT_THROW_POSIX_CODE(
+        proxy->setxattr(testFileId, "user.xattr2", "DOESN'T EXIST", false, true)
+            .getVia(executor.get()),
+        ENODATA);
+#endif
+
+    EXPECT_THROW_POSIX_CODE(
+        proxy->setxattr(testFileId, "user.xattr1", "VALUE", true, false)
+            .getVia(executor.get()),
+        EEXIST);
+
+    EXPECT_NO_THROW(
+        proxy->setxattr(testFileId, "user.xattr1", "NEWVALUE", false, true)
+            .getVia(executor.get()));
+
+    ASSERT_EQ(proxy->getxattr(testFileId, "user.xattr1").getVia(executor.get()),
+        "NEWVALUE");
+}
+
+TEST_F(PosixHelperTest, listxattrShouldReturnExtendedAttributeNames)
+{
+    EXPECT_NO_THROW(proxy->listxattr(testFileId).getVia(executor.get()));
+
+    ASSERT_EQ(proxy->listxattr(testFileId).getVia(executor.get()).size(), 0);
+
+    EXPECT_NO_THROW(
+        proxy->setxattr(testFileId, "user.xattr1", "VALUE1", true, false)
+            .getVia(executor.get()));
+    EXPECT_NO_THROW(
+        proxy->setxattr(testFileId, "user.xattr2", "VALUE1", true, false)
+            .getVia(executor.get()));
+    EXPECT_NO_THROW(proxy->setxattr(testFileId, "user.xattr3", "", true, false)
+                        .getVia(executor.get()));
+    EXPECT_NO_THROW(
+        proxy->setxattr(testFileId, "user.xattr4", "VALUE1", true, false)
+            .getVia(executor.get()));
+    EXPECT_NO_THROW(proxy->setxattr(testFileId, "user.xattr5", "", true, false)
+                        .getVia(executor.get()));
+
+    EXPECT_NO_THROW(proxy->listxattr(testFileId).getVia(executor.get()));
+
+    folly::fbvector<folly::fbstring> xattrList =
+        proxy->listxattr(testFileId).getVia(executor.get());
+
+    ASSERT_EQ(xattrList.size(), 5);
+
+    ASSERT_TRUE(std::find(xattrList.begin(), xattrList.end(), "user.xattr1") !=
+        xattrList.end());
+    ASSERT_TRUE(std::find(xattrList.begin(), xattrList.end(), "user.xattr2") !=
+        xattrList.end());
+    ASSERT_TRUE(std::find(xattrList.begin(), xattrList.end(), "user.xattr3") !=
+        xattrList.end());
+    ASSERT_TRUE(std::find(xattrList.begin(), xattrList.end(), "user.xattr4") !=
+        xattrList.end());
+    ASSERT_TRUE(std::find(xattrList.begin(), xattrList.end(), "user.xattr5") !=
+        xattrList.end());
+}
+
+TEST_F(PosixHelperTest, removexattrShouldRemoveAttributes)
+{
+#if defined(__APPLE__)
+    EXPECT_THROW_POSIX_CODE(
+        proxy->removexattr(testFileId, "user.xattr1").getVia(executor.get()),
+        ENOATTR);
+#else
+    EXPECT_THROW_POSIX_CODE(
+        proxy->removexattr(testFileId, "user.xattr1").getVia(executor.get()),
+        ENODATA);
+#endif
+
+    ASSERT_EQ(proxy->listxattr(testFileId).getVia(executor.get()).size(), 0);
+
+    EXPECT_NO_THROW(
+        proxy->setxattr(testFileId, "user.xattr1", "VALUE1", true, false)
+            .getVia(executor.get()));
+    EXPECT_NO_THROW(
+        proxy->setxattr(testFileId, "user.xattr2", "VALUE2", true, false)
+            .getVia(executor.get()));
+
+    EXPECT_NO_THROW(
+        proxy->removexattr(testFileId, "user.xattr1").getVia(executor.get()));
+    EXPECT_NO_THROW(
+        proxy->removexattr(testFileId, "user.xattr2").getVia(executor.get()));
+
+    EXPECT_NO_THROW(proxy->listxattr(testFileId).getVia(executor.get()));
+
+    folly::fbvector<folly::fbstring> xattrList =
+        proxy->listxattr(testFileId).getVia(executor.get());
+
+    ASSERT_EQ(xattrList.size(), 0);
 }

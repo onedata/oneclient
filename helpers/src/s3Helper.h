@@ -108,6 +108,8 @@ public:
     const Timeout &timeout() override { return m_timeout; }
 
 private:
+    folly::fbstring getRegion(const folly::fbstring &hostname);
+
     folly::fbstring m_bucket;
     bool m_useSigV2;
     std::unique_ptr<Aws::S3::S3Client> m_client;
