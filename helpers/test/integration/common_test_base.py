@@ -1,4 +1,4 @@
-"""This module contains test for KeyValue helpers."""
+"""This module contains common test cases for storage helpers."""
 
 __author__ = "Krzysztof Trzepla"
 __copyright__ = """(C) 2016 ACK CYFRONET AGH,

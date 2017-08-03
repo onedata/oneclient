@@ -1,12 +1,12 @@
 /**
- * @file glusterfsHelperProxy.cc
+ * @file posixHelperProxy.cc
  * @author Bartek Kryza
  * @copyright (C) 2017 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "glusterfsHelper.h"
+#include "posixHelper.h"
 
 #include <asio/buffer.hpp>
 #include <asio/executor_work.hpp>
@@ -30,9 +30,9 @@ using namespace boost::python;
 using namespace one::helpers;
 
 /*
- * Minimum 2 threads are required to run helper.
+ * Minimum 4 threads are required to run this helper proxy.
  */
-constexpr int GLUSTERFS_HELPER_WORKER_THREADS = 2;
+constexpr int POSIX_HELPER_WORKER_THREADS = 4;
 
 class ReleaseGIL {
 public:
@@ -45,23 +45,20 @@ private:
     std::unique_ptr<PyThreadState, decltype(&PyEval_RestoreThread)> threadState;
 };
 
-class GlusterFSHelperProxy {
+class PosixHelperProxy {
 public:
-    GlusterFSHelperProxy(std::string mountPoint, uid_t uid, gid_t gid,
-        std::string hostname, int port, std::string volume,
-        std::string transport, std::string xlatorOptions)
-        : m_service{GLUSTERFS_HELPER_WORKER_THREADS}
+    PosixHelperProxy(std::string mountPoint, uid_t uid, gid_t gid)
+        : m_service{POSIX_HELPER_WORKER_THREADS}
         , m_idleWork{asio::make_work(m_service)}
-        , m_helper{std::make_shared<one::helpers::GlusterFSHelper>(mountPoint,
-              uid, gid, hostname, port, volume, transport, xlatorOptions,
-              std::make_shared<one::AsioExecutor>(m_service))}
+        , m_helper{std::make_shared<one::helpers::PosixHelper>(mountPoint, uid,
+              gid, std::make_shared<one::AsioExecutor>(m_service))}
     {
-        for (int i = 0; i < GLUSTERFS_HELPER_WORKER_THREADS; i++) {
+        for (int i = 0; i < POSIX_HELPER_WORKER_THREADS; i++) {
             m_workers.push_back(std::thread([=]() { m_service.run(); }));
         }
     }
 
-    ~GlusterFSHelperProxy()
+    ~PosixHelperProxy()
     {
         m_service.stop();
         for (auto &worker : m_workers) {
@@ -93,11 +90,33 @@ public:
     int write(std::string fileId, std::string data, int offset)
     {
         ReleaseGIL guard;
-        return m_helper->open(fileId, O_WRONLY | O_CREAT, {})
-            .then([&](one::helpers::FileHandlePtr handle) {
-                folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
-                buf.append(data);
-                return handle->write(offset, std::move(buf)).get();
+
+        // PosixHelper does not support creating file with approriate mode,
+        // so in case it doesn't exist we have to create it first to be
+        // compatible with other helpers' test cases.
+        auto mknodLambda = [&] {
+            return m_helper->mknod(fileId, S_IFREG | 0666, {}, 0).get();
+        };
+        auto writeLambda = [&] {
+            return m_helper->open(fileId, O_WRONLY, {})
+                .then([&](one::helpers::FileHandlePtr handle) {
+                    folly::IOBufQueue buf{
+                        folly::IOBufQueue::cacheChainLength()};
+                    buf.append(data);
+                    return handle->write(offset, std::move(buf)).get();
+                })
+                .get();
+        };
+
+        return m_helper->access(fileId, 0)
+            .then(writeLambda)
+            .onError([
+                mknodLambda = mknodLambda, writeLambda = writeLambda,
+                executor = std::make_shared<one::AsioExecutor>(m_service)
+            ](std::exception const &e) {
+                return folly::via(executor.get(), mknodLambda)
+                    .then(writeLambda)
+                    .get();
             })
             .get();
     }
@@ -214,7 +233,7 @@ public:
     {
         ReleaseGIL guard;
         std::vector<std::string> res;
-        for (auto &xattr: m_helper->listxattr(fileId).get()) {
+        for (auto &xattr : m_helper->listxattr(fileId).get()) {
             res.emplace_back(xattr.toStdString());
         }
         return res;
@@ -224,43 +243,40 @@ private:
     asio::io_service m_service;
     asio::executor_work<asio::io_service::executor_type> m_idleWork;
     std::vector<std::thread> m_workers;
-    std::shared_ptr<one::helpers::GlusterFSHelper> m_helper;
+    std::shared_ptr<one::helpers::PosixHelper> m_helper;
 };
 
 namespace {
-boost::shared_ptr<GlusterFSHelperProxy> create(std::string mountPoint,
-    uid_t uid, gid_t gid, std::string hostname, int port, std::string volume,
-    std::string transport, std::string xlatorOptions)
+boost::shared_ptr<PosixHelperProxy> create(
+    std::string mountPoint, uid_t uid, gid_t gid)
 {
-    return boost::make_shared<GlusterFSHelperProxy>(std::move(mountPoint), uid,
-        gid, std::move(hostname), std::move(port), std::move(volume),
-        std::move(transport), std::move(xlatorOptions));
+    return boost::make_shared<PosixHelperProxy>(
+        std::move(mountPoint), uid, gid);
 }
 } // namespace
 
-BOOST_PYTHON_MODULE(glusterfs_helper)
+BOOST_PYTHON_MODULE(posix_helper)
 {
-    class_<GlusterFSHelperProxy, boost::noncopyable>(
-        "GlusterFSHelperProxy", no_init)
+    class_<PosixHelperProxy, boost::noncopyable>("PosixHelperProxy", no_init)
         .def("__init__", make_constructor(create))
-        .def("open", &GlusterFSHelperProxy::open)
-        .def("read", &GlusterFSHelperProxy::read)
-        .def("write", &GlusterFSHelperProxy::write)
-        .def("getattr", &GlusterFSHelperProxy::getattr)
-        .def("readdir", &GlusterFSHelperProxy::readdir)
-        .def("readlink", &GlusterFSHelperProxy::readlink)
-        .def("mknod", &GlusterFSHelperProxy::mknod)
-        .def("mkdir", &GlusterFSHelperProxy::mkdir)
-        .def("unlink", &GlusterFSHelperProxy::unlink)
-        .def("rmdir", &GlusterFSHelperProxy::rmdir)
-        .def("symlink", &GlusterFSHelperProxy::symlink)
-        .def("rename", &GlusterFSHelperProxy::rename)
-        .def("link", &GlusterFSHelperProxy::link)
-        .def("chmod", &GlusterFSHelperProxy::chmod)
-        .def("chown", &GlusterFSHelperProxy::chown)
-        .def("truncate", &GlusterFSHelperProxy::truncate)
-        .def("getxattr", &GlusterFSHelperProxy::getxattr)
-        .def("setxattr", &GlusterFSHelperProxy::setxattr)
-        .def("removexattr", &GlusterFSHelperProxy::removexattr)
-        .def("listxattr", &GlusterFSHelperProxy::listxattr);
+        .def("open", &PosixHelperProxy::open)
+        .def("read", &PosixHelperProxy::read)
+        .def("write", &PosixHelperProxy::write)
+        .def("getattr", &PosixHelperProxy::getattr)
+        .def("readdir", &PosixHelperProxy::readdir)
+        .def("readlink", &PosixHelperProxy::readlink)
+        .def("mknod", &PosixHelperProxy::mknod)
+        .def("mkdir", &PosixHelperProxy::mkdir)
+        .def("unlink", &PosixHelperProxy::unlink)
+        .def("rmdir", &PosixHelperProxy::rmdir)
+        .def("symlink", &PosixHelperProxy::symlink)
+        .def("rename", &PosixHelperProxy::rename)
+        .def("link", &PosixHelperProxy::link)
+        .def("chmod", &PosixHelperProxy::chmod)
+        .def("chown", &PosixHelperProxy::chown)
+        .def("truncate", &PosixHelperProxy::truncate)
+        .def("getxattr", &PosixHelperProxy::getxattr)
+        .def("setxattr", &PosixHelperProxy::setxattr)
+        .def("removexattr", &PosixHelperProxy::removexattr)
+        .def("listxattr", &PosixHelperProxy::listxattr);
 }

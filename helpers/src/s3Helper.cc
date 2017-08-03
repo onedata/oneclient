@@ -83,6 +83,7 @@ S3Helper::S3Helper(folly::fbstring hostname, folly::fbstring bucketName,
     Aws::Auth::AWSCredentials credentials{accessKey.c_str(), secretKey.c_str()};
 
     Aws::Client::ClientConfiguration configuration;
+    configuration.region = getRegion(hostname).c_str();
     configuration.endpointOverride = hostname.c_str();
 #if !defined(S3_HAS_NO_V2_SUPPORT)
     configuration.useSigV2 = useSigV2;
@@ -90,12 +91,29 @@ S3Helper::S3Helper(folly::fbstring hostname, folly::fbstring bucketName,
     if (!useHttps)
         configuration.scheme = Aws::Http::Scheme::HTTP;
 
-    m_client = std::make_unique<Aws::S3::S3Client>(
-        credentials, configuration, false
+    m_client =
+        std::make_unique<Aws::S3::S3Client>(credentials, configuration, false
 #if !defined(S3_HAS_NO_V2_SUPPORT)
-        , false
+            ,
+            false
 #endif
         );
+}
+
+folly::fbstring S3Helper::getRegion(const folly::fbstring &hostname)
+{
+    folly::fbvector<folly::fbstring> regions{"us-east-2", "us-east-1",
+        "us-west-1", "us-west-2", "ca-central-1", "ap-south-1",
+        "ap-northeast-2", "ap-southeast-1", "ap-southeast-2", "ap-northeast-1",
+        "eu-central-1", "eu-west-1", "eu-west-2", "sa-east-1"};
+
+    for (const auto &region : regions) {
+        if (hostname.find(region) != folly::fbstring::npos) {
+            return region;
+        }
+    }
+
+    return "us-east-1";
 }
 
 folly::IOBufQueue S3Helper::getObject(

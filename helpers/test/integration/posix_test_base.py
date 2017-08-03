@@ -7,6 +7,9 @@ This software is released under the MIT license cited in 'LICENSE.txt'."""
 from test_common import *
 from common_test_base import *
 from posix_test_types import *
+
+import md5
+
 import pytest
 
 
@@ -43,7 +46,7 @@ def test_mkdir_should_create_directory(helper, file_id):
     try:
         helper.mkdir(dir_id, 0777)
     except:
-        fail("Couldn't create directory: %s"%(dir_id))
+        pytest.fail("Couldn't create directory: %s"%(dir_id))
 
     assert helper.write(dir_id+"/"+file_id, data, offset) == len(data)
 
@@ -62,8 +65,8 @@ def test_rename_directory_should_rename(helper, file_id):
 
 
 @pytest.mark.directory_operations_tests
-def test_readdir_should_list_files_in_directory(helper):
-    dir_id = random_str()
+def test_readdir_should_list_files_in_directory(helper, file_id):
+    dir_id = file_id
     file1_id = random_str()
     file2_id = random_str()
     data = random_str()
@@ -74,7 +77,7 @@ def test_readdir_should_list_files_in_directory(helper):
         helper.write(dir_id+"/"+file1_id, data, offset)
         helper.write(dir_id+"/"+file2_id, data, offset)
     except:
-        fail("Couldn't create directory: %s"%(dir_id))
+        pytest.fail("Couldn't create directory: %s"%(dir_id))
 
     assert len(helper.readdir(dir_id, 0, 1024)) == 2
     assert file1_id in helper.readdir(dir_id, 0, 1024)
@@ -82,8 +85,8 @@ def test_readdir_should_list_files_in_directory(helper):
 
 
 @pytest.mark.directory_operations_tests
-def test_rmdir_should_remove_directory(helper):
-    dir_id = random_str()
+def test_rmdir_should_remove_directory(helper, file_id):
+    dir_id = file_id
     file1_id = random_str()
     file2_id = random_str()
     data = random_str()
@@ -94,7 +97,7 @@ def test_rmdir_should_remove_directory(helper):
         helper.write(dir_id+"/"+file1_id, data, offset)
         helper.write(dir_id+"/"+file2_id, data, offset)
     except:
-        fail("Couldn't create directory: %s"%(dir_id))
+        pytest.fail("Couldn't create directory: %s"%(dir_id))
 
     with pytest.raises(RuntimeError) as excinfo:
         helper.rmdir(dir_id)
@@ -144,24 +147,26 @@ def test_symlink_should_create_link(helper, mountpoint, file_id):
         helper.mkdir(dir_id, 0777)
         helper.write(dir_id+"/"+file_id, data, 0)
     except:
-        fail("Couldn't create directory: %s"%(dir_id))
+        pytest.fail("Couldn't create directory: %s"%(dir_id))
 
     helper.symlink(dir_id+"/"+file_id, file_id+".lnk")
 
-    assert helper.readlink(file_id+".lnk") == dir_id+"/"+file_id
-    assert helper.read(helper.readlink(file_id+".lnk"), 0, 1024) == data
+    assert helper.readlink(file_id+".lnk") == os.path.join(
+        mountpoint, dir_id, file_id)
+    assert helper.read(os.path.relpath(
+        helper.readlink(file_id+".lnk"), mountpoint), 0, 1024) == data
 
 
 @pytest.mark.links_operations_tests
 def test_link_should_create_hard_link(helper, mountpoint, file_id):
-    dir_id = random_str()
+    dir_id = file_id
     data = random_str()
 
     try:
         helper.mkdir(dir_id, 0777)
         helper.write(dir_id+"/"+file_id, data, 0)
     except:
-        fail("Couldn't create directory: %s"%(dir_id))
+        pytest.fail("Couldn't create directory: %s"%(dir_id))
 
     helper.link(dir_id+"/"+file_id, file_id+".lnk")
 
@@ -175,7 +180,7 @@ def test_link_should_create_hard_link(helper, mountpoint, file_id):
 
 @pytest.mark.mknod_operations_tests
 def test_mknod_should_set_premissions(helper, file_id):
-    dir_id = random_str()
+    dir_id = file_id
     data = random_str()
 
     flags = FlagsSet()
@@ -187,7 +192,7 @@ def test_mknod_should_set_premissions(helper, file_id):
 
 @pytest.mark.mknod_operations_tests
 def test_mknod_should_create_regular_file_by_default(helper, file_id):
-    dir_id = random_str()
+    dir_id = file_id
     data = random_str()
 
     flags = FlagsSet()
@@ -203,7 +208,7 @@ def test_mknod_should_create_regular_file_by_default(helper, file_id):
 
 @pytest.mark.mknod_operations_tests
 def test_mknod_should_create_regular_file_by_default(helper, file_id):
-    dir_id = random_str()
+    dir_id = file_id
     data = random_str()
 
     flags = FlagsSet()
@@ -219,15 +224,19 @@ def test_mknod_should_create_regular_file_by_default(helper, file_id):
 
 @pytest.mark.ownership_operations_tests
 def test_chown_should_change_user_and_group(helper, file_id):
-    data = random_str()
+    #
+    # This test case can only be executed in root context
+    #
+    if(os.geteuid() == 0):
+        data = random_str()
 
-    helper.write(file_id, data, 0)
+        helper.write(file_id, data, 0)
 
-    flags = FlagsSet()
+        flags = FlagsSet()
 
-    helper.chown(file_id, 1001, 2002)
-    assert helper.getattr(file_id).st_uid == 1001
-    assert helper.getattr(file_id).st_gid == 2002
+        helper.chown(file_id, 1001, 2002)
+        assert helper.getattr(file_id).st_uid == 1001
+        assert helper.getattr(file_id).st_gid == 2002
 
 
 @pytest.mark.truncate_operations_tests
@@ -238,3 +247,18 @@ def test_truncate_should_not_create_file(helper, file_id):
     with pytest.raises(RuntimeError) as excinfo:
         helper.truncate(file_id, size)
     assert 'No such file' in str(excinfo.value)
+
+
+def test_read_write_large_file_should_maintain_consistency(helper, file_id):
+    data_length = 24*1024*1024
+    data = 'A' * (data_length)
+    offset = 0
+    original_digest = md5.new(data)
+
+    assert helper.write(file_id, data, offset) == data_length
+
+    read_data = helper.read(file_id, offset, data_length)
+    assert len(read_data) == data_length
+
+    read_digest = md5.new(read_data)
+    assert read_digest.digest() == original_digest.digest()
