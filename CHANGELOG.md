@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 17.06.0-rc2
+
+* Releasing new version 17.06.0-rc2
+
+
 ### 17.06.0-rc1
 
 * VFS-3378 Enabled native GlusterFS support on OSX
