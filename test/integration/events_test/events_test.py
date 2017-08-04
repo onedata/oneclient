@@ -217,9 +217,17 @@ def prepare_events(evt_list):
 # -----------------------------------------------------------------------------
 
 def test_subscribe_file_read(endpoint, manager, sid):
-    sub = prepare_file_read_subscription(sid)
-    with send(endpoint, sub):
-        wait_until(lambda: manager.existsSubscription(sid, True))
+    for retry in range(10, 0, -1):
+        sub = prepare_file_read_subscription(sid)
+        with send(endpoint, sub):
+            try:
+                wait_until(lambda: manager.existsSubscription(sid, True))
+                break
+            except Exception:
+                if retry == 1:
+                    raise
+                else:
+                    pass
 
 
 def test_cancel_file_read_subscription(endpoint, manager):
