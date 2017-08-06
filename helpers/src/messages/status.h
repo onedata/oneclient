@@ -9,8 +9,8 @@
 #ifndef HELPERS_MESSAGES_STATUS_H
 #define HELPERS_MESSAGES_STATUS_H
 
-#include "messages/serverMessage.h"
 #include "messages/clientMessage.h"
+#include "messages/serverMessage.h"
 
 #include <boost/optional.hpp>
 

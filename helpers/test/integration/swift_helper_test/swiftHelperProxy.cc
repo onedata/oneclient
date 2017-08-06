@@ -6,9 +6,9 @@
  * 'LICENSE.txt'
  */
 
+#include "communication/etls/utils.h"
 #include "keyValueAdapter.h"
 #include "swiftHelper.h"
-#include "communication/etls/utils.h"
 
 #include <asio/buffer.hpp>
 #include <asio/executor_work.hpp>

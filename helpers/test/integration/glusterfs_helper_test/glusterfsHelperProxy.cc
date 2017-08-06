@@ -214,7 +214,7 @@ public:
     {
         ReleaseGIL guard;
         std::vector<std::string> res;
-        for (auto &xattr: m_helper->listxattr(fileId).get()) {
+        for (auto &xattr : m_helper->listxattr(fileId).get()) {
             res.emplace_back(xattr.toStdString());
         }
         return res;

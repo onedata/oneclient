@@ -29,7 +29,8 @@ struct GlusterFSHelperTest : public ::testing::Test {
     void TearDown() override {}
 };
 
-TEST_F(GlusterFSHelperTest, relativePathsShouldBeProperlyAliasedWithinMountpoint)
+TEST_F(
+    GlusterFSHelperTest, relativePathsShouldBeProperlyAliasedWithinMountpoint)
 {
     using namespace boost::filesystem;
 
@@ -45,7 +46,8 @@ TEST_F(GlusterFSHelperTest, relativePathsShouldBeProperlyAliasedWithinMountpoint
     EXPECT_EQ(
         "file1.txt", makeRelative("/DIR1/DIR2", "DIR1/DIR2/../../file1.txt"));
     EXPECT_EQ("file1.txt",
-        makeRelative("/DIR1/DIR2", "DIR1/DIR2/../../../DIR3/../../../file1.txt"));
+        makeRelative(
+            "/DIR1/DIR2", "DIR1/DIR2/../../../DIR3/../../../file1.txt"));
 
     auto helper = std::make_unique<GlusterFSHelper>(
         "/DIR1/DIR2", 0, 0, "", 0, "", "", "", nullptr);
@@ -59,8 +61,8 @@ TEST_F(GlusterFSHelperTest, relativePathsShouldBeProperlyAliasedWithinMountpoint
     EXPECT_EQ("DIR1/DIR2/file1.txt", helper2->relative("DIR1/DIR2/file1.txt"));
     EXPECT_EQ("DIR1/DIR2/file1.txt", helper2->relative("/DIR1/DIR2/file1.txt"));
 
-    auto helper3 =
-        std::make_unique<GlusterFSHelper>("/", 0, 0, "", 0, "", "", "", nullptr);
+    auto helper3 = std::make_unique<GlusterFSHelper>(
+        "/", 0, 0, "", 0, "", "", "", nullptr);
 
     EXPECT_EQ("DIR1/DIR2/file1.txt", helper2->relative("DIR1/DIR2/file1.txt"));
     EXPECT_EQ("DIR1/DIR2/file1.txt", helper2->relative("/DIR1/DIR2/file1.txt"));

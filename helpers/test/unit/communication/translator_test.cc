@@ -41,10 +41,10 @@ struct LowerLayer {
 
     MOCK_METHOD2(communicateProxy, std::string(clproto::ClientMessage, int));
 
-    MOCK_METHOD3(
-        setHandshake, void(std::function<ClientMessagePtr()>,
-                          std::function<std::error_code(ServerMessagePtr)>,
-                          std::function<void(std::error_code)>));
+    MOCK_METHOD3(setHandshake,
+        void(std::function<ClientMessagePtr()>,
+            std::function<std::error_code(ServerMessagePtr)>,
+            std::function<void(std::error_code)>));
 
     MOCK_METHOD3(replyProxy,
         void(const clproto::ServerMessage, const clproto::ClientMessage, int));
@@ -194,12 +194,12 @@ TEST_F(TranslatorTest, onHandshakeResponseShouldDeserializeProtocolObjects)
     auto domainHandshakeF = [&]() {
         return messages::HandshakeRequest{sessionId};
     };
-    auto domainHandshakeResponseF = [&](
-        one::messages::HandshakeResponse msg) mutable {
-        called = true;
-        EXPECT_EQ(makeErrorCode(ErrorCode::ok), msg.status());
-        return msg.status();
-    };
+    auto domainHandshakeResponseF =
+        [&](one::messages::HandshakeResponse msg) mutable {
+            called = true;
+            EXPECT_EQ(makeErrorCode(ErrorCode::ok), msg.status());
+            return msg.status();
+        };
 
     translator.setHandshake(domainHandshakeF, domainHandshakeResponseF);
 

@@ -40,7 +40,7 @@ public:
         m_handshake = getHandshake();
         return LowerLayer::setHandshake(std::move(getHandshake),
             [ this, onHandshakeResponse = std::move(onHandshakeResponse) ](
-                                            std::string response) {
+                std::string response) {
                 try {
                     m_handshakeResponsePromise.set_value(response);
                 }

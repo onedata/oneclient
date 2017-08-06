@@ -22,9 +22,9 @@ public:
         ON_CALL(*this, schedule(_, _)).WillByDefault(Return([] {}));
     }
 
-    MOCK_METHOD2(
-        schedule, std::function<void()>(
-                      const std::chrono::milliseconds, std::function<void()>));
+    MOCK_METHOD2(schedule,
+        std::function<void()>(
+            const std::chrono::milliseconds, std::function<void()>));
 };
 
 #endif // HELPERS_SCHEDULER_MOCK_H

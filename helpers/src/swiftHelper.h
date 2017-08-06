@@ -64,8 +64,8 @@ private:
 };
 
 /**
-* The SwiftHelper class provides access to Swift storage system.
-*/
+ * The SwiftHelper class provides access to Swift storage system.
+ */
 class SwiftHelper : public KeyValueHelper {
 public:
     /**

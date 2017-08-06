@@ -33,8 +33,7 @@ struct TLSSocketTest : public Test {
     one::communication::etls::TLSSocket::Ptr socket;
 
     TLSSocketTest()
-        :
-        socket{std::make_shared < one::communication::etls::TLSSocket > (app)}
+        : socket{std::make_shared<one::communication::etls::TLSSocket>(app)}
     {
     }
 };
@@ -166,18 +165,20 @@ TEST_F(TLSSocketTestC, shouldReceiveMessagesAsTheyCome)
 
     std::vector<char> received(data.size() + 100);
 
-    socket->recvAnyAsync(socket, asio::buffer(received), {[&](auto b) {
-                                                              buffer = b;
-                                                              called = true;
-                                                          },
-                                                             [](auto) {}});
+    socket->recvAnyAsync(socket, asio::buffer(received),
+        {[&](auto b) {
+             buffer = b;
+             called = true;
+         },
+            [](auto) {}});
 
     waitFor(called);
 
     ASSERT_NE(data, received);
     ASSERT_LT(0u, asio::buffer_size(buffer));
-    ASSERT_EQ(0, memcmp(asio::buffer_cast<char *>(buffer), data.data(),
-                     asio::buffer_size(buffer)));
+    ASSERT_EQ(0,
+        memcmp(asio::buffer_cast<char *>(buffer), data.data(),
+            asio::buffer_size(buffer)));
 }
 
 TEST_F(TLSSocketTestC, shouldNotifyOnRecvAnySuccess)
@@ -209,11 +210,12 @@ TEST_F(TLSSocketTestC, shouldReturnLocalEndpoint)
     asio::ip::tcp::endpoint endpoint;
     std::atomic<bool> called{false};
 
-    socket->localEndpointAsync(socket, {[&](auto e) {
-                                            endpoint = e;
-                                            called = true;
-                                        },
-                                           [](auto) {}});
+    socket->localEndpointAsync(socket,
+        {[&](auto e) {
+             endpoint = e;
+             called = true;
+         },
+            [](auto) {}});
 
     ASSERT_TRUE(waitFor(called));
     ASSERT_EQ("127.0.0.1", endpoint.address().to_string());
@@ -225,11 +227,12 @@ TEST_F(TLSSocketTestC, shouldReturnRemoteEndpoint)
     asio::ip::tcp::endpoint endpoint;
     std::atomic<bool> called{false};
 
-    socket->remoteEndpointAsync(socket, {[&](auto e) {
-                                             endpoint = e;
-                                             called = true;
-                                         },
-                                            [](auto) {}});
+    socket->remoteEndpointAsync(socket,
+        {[&](auto e) {
+             endpoint = e;
+             called = true;
+         },
+            [](auto) {}});
 
     ASSERT_TRUE(waitFor(called));
     ASSERT_EQ("127.0.0.1", endpoint.address().to_string());

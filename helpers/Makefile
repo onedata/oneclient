@@ -66,3 +66,7 @@ coverage:
 .PHONY: clean
 clean:
 	rm -rf debug release
+
+.PHONY: clang-format
+clang-format:
+	docker run --rm -v ${PWD}:/root/sources onedata/clang-format-check:1.1

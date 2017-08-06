@@ -21,8 +21,8 @@
 #include <utility>
 #include <vector>
 /**
-* std::<shared_timed_mutex> on OSX is available only since
-* macOS Sierra (10.12), so use folly::SharedMutex on older OSX version.
+ * std::<shared_timed_mutex> on OSX is available only since
+ * macOS Sierra (10.12), so use folly::SharedMutex on older OSX version.
  */
 #if defined(__APPLE__) && (MAC_OS_X_VERSION_MAX_ALLOWED < 101200)
 #include <folly/SharedMutex.h>
