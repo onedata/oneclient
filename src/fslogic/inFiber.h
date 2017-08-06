@@ -94,14 +94,16 @@ public:
     WRAP(create,
         (const fuse_ino_t)(const folly::fbstring &)(const mode_t)(const int))
 
-    WRAP(rename, (const fuse_ino_t)(const folly::fbstring &)(const fuse_ino_t)(
-                     const folly::fbstring &))
+    WRAP(rename,
+        (const fuse_ino_t)(const folly::fbstring &)(const fuse_ino_t)(
+            const folly::fbstring &))
 
     WRAP(read,
         (const fuse_ino_t)(const std::uint64_t)(const off_t)(const std::size_t))
 
-    WRAP(write, (const fuse_ino_t)(const std::uint64_t)(const std::size_t)(
-                    folly::IOBufQueue))
+    WRAP(write,
+        (const fuse_ino_t)(const std::uint64_t)(const std::size_t)(
+            folly::IOBufQueue))
 
     WRAP(listxattr, (const fuse_ino_t))
     WRAP(getxattr, (const fuse_ino_t)(const folly::fbstring &))

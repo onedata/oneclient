@@ -181,10 +181,10 @@ public:
     using MetadataCache::getDefaultBlock;
     using MetadataCache::getSpaceId;
 
-    using MetadataCache::updateAttr;
-    using MetadataCache::putAttr;
-    using MetadataCache::updateLocation;
     using MetadataCache::markDeleted;
+    using MetadataCache::putAttr;
+    using MetadataCache::updateAttr;
+    using MetadataCache::updateLocation;
 
 private:
     struct LRUData {

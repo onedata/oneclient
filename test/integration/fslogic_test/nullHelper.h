@@ -13,10 +13,10 @@
 
 #include <gmock/gmock.h>
 
-using ::testing::_;
 using ::testing::Invoke;
 using ::testing::Mock;
 using ::testing::Return;
+using ::testing::_;
 
 class NullHelperHandle : public one::helpers::FileHandle {
 public:

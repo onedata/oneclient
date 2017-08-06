@@ -24,10 +24,12 @@ using namespace boost::python;
  * LittleHelper takes a number in its constructor, stores it, and returns
  * the number on call to @c i() .
  */
-class LittleHelper
-{
+class LittleHelper {
 public:
-    LittleHelper(int i_) : m_i(i_) {}
+    LittleHelper(int i_)
+        : m_i(i_)
+    {
+    }
     int i() const { return m_i; }
 
 private:

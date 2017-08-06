@@ -23,10 +23,10 @@ namespace messages {
 namespace fuse {
 
 /**
-* The StorageTestFile class represents a message that is sent by the server to
-* provide location of a created storage test file along with helper arguments
-* used to access the file.
-*/
+ * The StorageTestFile class represents a message that is sent by the server to
+ * provide location of a created storage test file along with helper arguments
+ * used to access the file.
+ */
 class StorageTestFile : public FuseResponse {
 public:
     using ProtocolMessage = clproto::StorageTestFile;

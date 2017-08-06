@@ -26,8 +26,7 @@ std::string ChangeMode::toString() const
 {
     std::stringstream stream;
     stream << "type: 'ChangeMode', "
-           << "uuid: " << m_contextGuid << ", mode: " << std::oct
-           << m_mode;
+           << "uuid: " << m_contextGuid << ", mode: " << std::oct << m_mode;
     return stream.str();
 }
 

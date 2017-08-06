@@ -142,3 +142,7 @@ docker:
 .PHONY: clean
 clean:
 	rm -rf debug release relwithdebinfo doc package
+
+.PHONY: clang-format
+clang-format:
+	docker run --rm -v ${PWD}:/root/sources onedata/clang-format-check:1.1
