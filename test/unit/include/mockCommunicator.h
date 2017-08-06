@@ -9,9 +9,9 @@
 #ifndef HELPERS_TEST_MOCK_COMMUNICATOR_H
 #define HELPERS_TEST_MOCK_COMMUNICATOR_H
 
+#include "communication/communicator.h"
 #include "mockConnection.h"
 #include "scheduler.h"
-#include "communication/communicator.h"
 
 #include <gmock/gmock.h>
 

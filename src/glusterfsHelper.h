@@ -64,8 +64,8 @@ struct GlusterFSConnection {
     static folly::fbstring generateCtxId(
         folly::fbstring hostname, int port, folly::fbstring volume)
     {
-        return hostname + "::" + folly::fbstring(std::to_string(port)) + "::" +
-            volume;
+        return hostname + "::" + folly::fbstring(std::to_string(port)) +
+            "::" + volume;
     }
 };
 
@@ -112,9 +112,9 @@ private:
 };
 
 /**
-* The GlusterFSHelper class provides access to Gluster volume
-* directly using libgfapi library.
-*/
+ * The GlusterFSHelper class provides access to Gluster volume
+ * directly using libgfapi library.
+ */
 class GlusterFSHelper : public StorageHelper,
                         public std::enable_shared_from_this<GlusterFSHelper> {
 public:
@@ -198,7 +198,6 @@ public:
 
     folly::Future<folly::fbvector<folly::fbstring>> listxattr(
         const folly::fbstring &fileId) override;
-
 
     const Timeout &timeout() override { return m_timeout; }
 

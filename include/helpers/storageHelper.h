@@ -380,7 +380,8 @@ public:
         const int flags, const Params &openParams) = 0;
 
     virtual folly::Future<folly::fbstring> getxattr(
-       const folly::fbstring &uuid, const folly::fbstring &name) {
+        const folly::fbstring &uuid, const folly::fbstring &name)
+    {
         return folly::makeFuture<folly::fbstring>(std::system_error{
             std::make_error_code(std::errc::function_not_supported)});
     }

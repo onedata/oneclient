@@ -23,7 +23,8 @@ using namespace one::helpers;
 using ReadDirResult = std::vector<std::string>;
 using FlagsVector = std::vector<Flag>;
 
-std::vector<Flag> maskToFlagsV(int mask) {
+std::vector<Flag> maskToFlagsV(int mask)
+{
     auto flagset = maskToFlags(mask);
     return std::vector<Flag>(flagset.begin(), flagset.end());
 }

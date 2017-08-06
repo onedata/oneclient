@@ -55,8 +55,8 @@ template <class LowerLayer>
 void Retrier<LowerLayer>::send(
     std::string message, Callback callback, const int retries)
 {
-    auto wrappedCallback = [ =, callback = std::move(callback) ](
-        const std::error_code &ec) mutable
+    auto wrappedCallback =
+        [ =, callback = std::move(callback) ](const std::error_code &ec) mutable
     {
         if (ec && retries > 0)
             send(std::move(message), std::move(callback), retries - 1);

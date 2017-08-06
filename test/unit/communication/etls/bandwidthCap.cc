@@ -18,12 +18,12 @@
 
 #include <atomic>
 #include <chrono>
-#include <thread>
-#include <vector>
-#include <string>
+#include <functional>
 #include <future>
 #include <iostream>
-#include <functional>
+#include <string>
+#include <thread>
+#include <vector>
 
 using namespace asio;
 using namespace std::literals;
@@ -122,10 +122,12 @@ int main()
     auto bandwidthTestSize = 20 * gb;
     auto bandwidthSeconds = measure(100 * mb, bandwidthTestSize);
     std::cout << static_cast<long double>(bandwidthTestSize / mb) /
-            bandwidthSeconds.count() << " MB/s" << std::endl;
+            bandwidthSeconds.count()
+              << " MB/s" << std::endl;
 
     auto messagesTestSize = 1 * mb;
     auto messagesSeconds = measure(1 * b, messagesTestSize);
     std::cout << static_cast<long double>(messagesTestSize) /
-            messagesSeconds.count() << " messages/s" << std::endl;
+            messagesSeconds.count()
+              << " messages/s" << std::endl;
 }

@@ -13,9 +13,9 @@
 
 #include "asioExecutor.h"
 
+#include <asio.hpp>
 #include <folly/Executor.h>
 #include <rados/librados.hpp>
-#include <asio.hpp>
 
 namespace one {
 namespace helpers {
@@ -51,8 +51,8 @@ private:
 };
 
 /**
-* The CephHelper class provides access to Ceph storage via librados library.
-*/
+ * The CephHelper class provides access to Ceph storage via librados library.
+ */
 class CephHelper : public StorageHelper,
                    public std::enable_shared_from_this<CephHelper> {
 public:

@@ -183,7 +183,7 @@ void TLSSocket::sendAsync(
     ]() mutable {
         asio::async_write(m_socket, buffers,
             [ =, self = std::move(self), callback = std::move(callback) ](
-                              const auto ec, const auto read) {
+                const auto ec, const auto read) {
                 if (ec)
                     callback(ec);
                 else

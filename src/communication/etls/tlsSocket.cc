@@ -79,7 +79,7 @@ void TLSSocket::connectAsync(Ptr self, std::string host,
         asio::async_connect(m_socket.lowest_layer(), endpoints.begin(),
             endpoints.end(),
             [ this, self = std::move(self), callback = std::move(callback) ](
-                                const auto ec2, auto) mutable {
+                const auto ec2, auto) mutable {
 
                 if (ec2) {
                     callback(ec2);
@@ -112,7 +112,7 @@ void TLSSocket::recvAsync(Ptr self, asio::mutable_buffer buffer,
     ]() mutable {
         asio::async_read(m_socket, asio::mutable_buffers_1{buffer},
             [ =, self = std::move(self), callback = std::move(callback) ](
-                             const auto ec, const auto read) mutable {
+                const auto ec, const auto read) mutable {
                 if (ec)
                     callback(ec);
                 else
@@ -129,7 +129,7 @@ void TLSSocket::recvAnyAsync(Ptr self, asio::mutable_buffer buffer,
     ]() mutable {
         m_socket.async_read_some(asio::mutable_buffers_1{buffer},
             [ =, self = std::move(self), callback = std::move(callback) ](
-                                     const auto ec, const auto read) {
+                const auto ec, const auto read) {
                 if (ec)
                     callback(ec);
                 else
@@ -145,7 +145,7 @@ void TLSSocket::handshakeAsync(Ptr self, Callback<> callback)
     ]() mutable {
         m_socket.async_handshake(asio::ssl::stream_base::server,
             [ =, self = std::move(self), callback = std::move(callback) ](
-                                     const auto ec) {
+                const auto ec) {
                 if (ec) {
                     callback(ec);
                 }

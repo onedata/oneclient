@@ -149,8 +149,8 @@ Status::Status(clproto::Status &status)
     m_code = std::make_error_code(errc);
     if (status.has_description()) {
         m_description = std::move(*status.mutable_description());
-        LOG(INFO) << "Received status with description: "
-                  << m_code.message() << ": " << m_description.get();
+        LOG(INFO) << "Received status with description: " << m_code.message()
+                  << ": " << m_description.get();
     }
 }
 
