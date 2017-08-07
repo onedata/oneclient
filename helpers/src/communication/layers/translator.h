@@ -140,8 +140,8 @@ public:
     auto communicate(CliMsg &&msg, const int retries = DEFAULT_RETRY_NUMBER)
     {
         auto promise = std::make_shared<folly::Promise<SvrMsg>>();
-        auto callback = [promise](
-            const std::error_code &ec, ServerMessagePtr protoMessage) {
+        auto callback = [promise](const std::error_code &ec,
+                            ServerMessagePtr protoMessage) {
             if (ec)
                 promise->setException(std::system_error{ec});
             else

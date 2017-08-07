@@ -30,9 +30,10 @@ struct LowerLayer {
 
     MOCK_METHOD2(sendProxy, void(std::string, int));
     MOCK_METHOD1(setOnMessageCallback, void(std::function<void(std::string)>));
-    MOCK_METHOD3(setHandshake, void(std::function<std::string()>,
-                                   std::function<std::error_code(std::string)>,
-                                   std::function<void(std::error_code)>));
+    MOCK_METHOD3(setHandshake,
+        void(std::function<std::string()>,
+            std::function<std::error_code(std::string)>,
+            std::function<void(std::error_code)>));
 
     void send(std::string msg, Callback, int i)
     {

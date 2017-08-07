@@ -16,8 +16,8 @@
 #include <string>
 #include <thread>
 
-#include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 #define EXPECT_THROW_POSIX_CODE(WHAT, CODE)                                    \
     try {                                                                      \

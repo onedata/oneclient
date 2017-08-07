@@ -324,7 +324,7 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
     ,
     uint32_t position // This attribute is used only on macOS resource forks
 #endif
-    )
+)
 {
     //
     // Ignore selected system extended attributes which can degrade performance
@@ -403,7 +403,7 @@ void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
     ,
     uint32_t position // This attribute is used only on macOS resource forks
 #endif
-    )
+)
 {
     std::string xattrJsonName;
     if (!encodeJsonXAttrName(attr, xattrJsonName)) {

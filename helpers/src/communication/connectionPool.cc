@@ -9,9 +9,9 @@
 #include "connectionPool.h"
 
 #include "cert/certificateData.h"
+#include "etls/utils.h"
 #include "exception.h"
 #include "logging.h"
-#include "etls/utils.h"
 
 #include <asio.hpp>
 #include <asio/ssl.hpp>

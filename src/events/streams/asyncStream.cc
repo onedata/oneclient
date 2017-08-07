@@ -7,8 +7,8 @@
  */
 
 #include "asyncStream.h"
-#include "events/types/event.h"
 #include "communication/etls/utils.h"
+#include "events/types/event.h"
 
 namespace one {
 namespace client {

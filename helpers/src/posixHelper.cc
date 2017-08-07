@@ -533,7 +533,7 @@ folly::Future<folly::fbstring> PosixHelper::getxattr(
                 ,
                 0, 0
 #endif
-                );
+            );
 
             // If the initial buffer for xattr value was too small, try again
             // with maximum allowed value
@@ -546,7 +546,7 @@ folly::Future<folly::fbstring> PosixHelper::getxattr(
                     ,
                     0, 0
 #endif
-                    );
+                );
             }
 
             if (res == -1)
@@ -605,7 +605,7 @@ folly::Future<folly::Unit> PosixHelper::removexattr(
                                                                   ,
                 0
 #endif
-                );
+            );
         });
 }
 
@@ -627,7 +627,7 @@ folly::Future<folly::fbvector<folly::fbstring>> PosixHelper::listxattr(
             ,
             0
 #endif
-            );
+        );
         if (buflen == -1)
             return makeFuturePosixException<folly::fbvector<folly::fbstring>>(
                 errno);
@@ -642,7 +642,7 @@ folly::Future<folly::fbvector<folly::fbstring>> PosixHelper::listxattr(
             ,
             0
 #endif
-            );
+        );
 
         if (buflen == -1)
             return makeFuturePosixException<folly::fbvector<folly::fbstring>>(

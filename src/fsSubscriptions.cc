@@ -33,11 +33,11 @@ FsSubscriptions::FsSubscriptions(events::Manager &eventManager,
 
 void FsSubscriptions::subscribeFileAttrChanged(const folly::fbstring &fileUuid)
 {
-    subscribe(
-        fileUuid, events::FileAttrChangedSubscription{fileUuid.toStdString(),
-                      REMOTE_TIME_THRESHOLD, [this](auto events) mutable {
-                          this->handleFileAttrChanged(std::move(events));
-                      }});
+    subscribe(fileUuid,
+        events::FileAttrChangedSubscription{fileUuid.toStdString(),
+            REMOTE_TIME_THRESHOLD, [this](auto events) mutable {
+                this->handleFileAttrChanged(std::move(events));
+            }});
 }
 
 void FsSubscriptions::handleFileAttrChanged(
@@ -50,10 +50,10 @@ void FsSubscriptions::handleFileAttrChanged(
             auto &attr = event->fileAttr();
             if (m_metadataCache.updateAttr(attr))
                 DLOG(INFO) << "Updated attributes for uuid: '" << attr.uuid()
-                          << "', size: " << (attr.size() ? *attr.size() : -1);
+                           << "', size: " << (attr.size() ? *attr.size() : -1);
             else
                 DLOG(INFO) << "No attributes to update for uuid: '"
-                          << attr.uuid() << "'";
+                           << attr.uuid() << "'";
         }
     });
 }
@@ -84,10 +84,10 @@ void FsSubscriptions::handleFileLocationChanged(
             auto &loc = event->fileLocation();
             if (m_metadataCache.updateLocation(loc))
                 DLOG(INFO) << "Updated locations for uuid: '" << loc.uuid()
-                          << "'";
+                           << "'";
             else
                 DLOG(INFO) << "No location to update for uuid: '" << loc.uuid()
-                          << "'";
+                           << "'";
         }
     });
 }
@@ -100,11 +100,11 @@ bool FsSubscriptions::unsubscribeFileLocationChanged(
 
 void FsSubscriptions::subscribeFilePermChanged(const folly::fbstring &fileUuid)
 {
-    subscribe(
-        fileUuid, events::FilePermChangedSubscription{
-                      fileUuid.toStdString(), [this](auto events) mutable {
-                          this->handlePermissionChanged(std::move(events));
-                      }});
+    subscribe(fileUuid,
+        events::FilePermChangedSubscription{
+            fileUuid.toStdString(), [this](auto events) mutable {
+                this->handlePermissionChanged(std::move(events));
+            }});
 }
 
 void FsSubscriptions::handlePermissionChanged(
@@ -125,10 +125,11 @@ bool FsSubscriptions::unsubscribeFilePermChanged(
 
 void FsSubscriptions::subscribeFileRemoved(const folly::fbstring &fileUuid)
 {
-    subscribe(fileUuid, events::FileRemovedSubscription{fileUuid.toStdString(),
-                            [this](auto events) mutable {
-                                this->handleFileRemoved(std::move(events));
-                            }});
+    subscribe(fileUuid,
+        events::FileRemovedSubscription{
+            fileUuid.toStdString(), [this](auto events) mutable {
+                this->handleFileRemoved(std::move(events));
+            }});
 }
 
 void FsSubscriptions::handleFileRemoved(
@@ -141,7 +142,7 @@ void FsSubscriptions::handleFileRemoved(
                 DLOG(INFO) << "File remove event received: " << uuid;
             else
                 DLOG(INFO) << "Received a file remove event for '" << uuid
-                          << "', but the file metadata is no longer cached.";
+                           << "', but the file metadata is no longer cached.";
         }
     });
 }
@@ -153,10 +154,11 @@ bool FsSubscriptions::unsubscribeFileRemoved(const folly::fbstring &fileUuid)
 
 void FsSubscriptions::subscribeFileRenamed(const folly::fbstring &fileUuid)
 {
-    subscribe(fileUuid, events::FileRenamedSubscription{fileUuid.toStdString(),
-                            [this](auto events) mutable {
-                                this->handleFileRenamed(std::move(events));
-                            }});
+    subscribe(fileUuid,
+        events::FileRenamedSubscription{
+            fileUuid.toStdString(), [this](auto events) mutable {
+                this->handleFileRenamed(std::move(events));
+            }});
 }
 
 void FsSubscriptions::handleFileRenamed(
@@ -168,7 +170,7 @@ void FsSubscriptions::handleFileRenamed(
             if (m_metadataCache.rename(entry.oldUuid(), entry.newParentUuid(),
                     entry.newName(), entry.newUuid()))
                 DLOG(INFO) << "File renamed event handled: '" << entry.oldUuid()
-                          << "' -> '" << entry.newUuid() << "'";
+                           << "' -> '" << entry.newUuid() << "'";
             else
                 DLOG(INFO) << "Received a file renamed event for '"
                            << entry.oldUuid()

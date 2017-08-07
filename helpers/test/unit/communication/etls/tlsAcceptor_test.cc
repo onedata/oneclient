@@ -55,18 +55,22 @@ struct TLSAcceptorTestC : public TLSAcceptorTest {
         std::atomic<bool> connectCalled{false};
         std::atomic<bool> handshakeCalled{false};
 
-        acceptor->acceptAsync(acceptor, {[&](one::communication::etls::TLSSocket::Ptr s) {
-            s->handshakeAsync(s, {[&, s] {
-                ssock = s;
-                handshakeCalled = true;
-            },
-                                  [](auto) {}});
-        },
-                                         [](auto) {}});
+        acceptor->acceptAsync(acceptor,
+            {[&](one::communication::etls::TLSSocket::Ptr s) {
+                 s->handshakeAsync(s,
+                     {[&, s] {
+                          ssock = s;
+                          handshakeCalled = true;
+                      },
+                         [](auto) {}});
+             },
+                [](auto) {}});
 
         csock->connectAsync(csock, host, port,
-            {[&](one::communication::etls::TLSSocket::Ptr) { connectCalled = true; },
-             [](auto) {}});
+            {[&](one::communication::etls::TLSSocket::Ptr) {
+                 connectCalled = true;
+             },
+                [](auto) {}});
 
         waitFor(connectCalled);
         waitFor(handshakeCalled);
@@ -79,11 +83,12 @@ TEST_F(TLSAcceptorTest, shouldAcceptConnections)
 
     one::communication::etls::TLSSocket::Ptr ssock;
 
-    acceptor->acceptAsync(acceptor, {[&](one::communication::etls::TLSSocket::Ptr s) {
-        ssock = std::move(s);
-        acceptCalled = true;
-    },
-                                     [](auto) {}});
+    acceptor->acceptAsync(acceptor,
+        {[&](one::communication::etls::TLSSocket::Ptr s) {
+             ssock = std::move(s);
+             acceptCalled = true;
+         },
+            [](auto) {}});
 
     auto csock = std::make_shared<one::communication::etls::TLSSocket>(app);
     csock->connectAsync(csock, host, port, {[](auto) {}, [](auto) {}});
@@ -96,15 +101,19 @@ TEST_F(TLSAcceptorTest, shouldReturnHandshakableSockets)
     std::atomic<bool> connectCalled{false};
     std::atomic<bool> handshakeCalled{false};
 
-    acceptor->acceptAsync(acceptor, {[&](one::communication::etls::TLSSocket::Ptr s) {
-        s->handshakeAsync(s, {[&] { handshakeCalled = true; }, [](auto) {}});
-    },
-                                     [](auto) {}});
+    acceptor->acceptAsync(acceptor,
+        {[&](one::communication::etls::TLSSocket::Ptr s) {
+             s->handshakeAsync(
+                 s, {[&] { handshakeCalled = true; }, [](auto) {}});
+         },
+            [](auto) {}});
 
     auto csock = std::make_shared<one::communication::etls::TLSSocket>(app);
     csock->connectAsync(csock, host, port,
-        {[&](one::communication::etls::TLSSocket::Ptr) { connectCalled = true; },
-         [](auto) {}});
+        {[&](one::communication::etls::TLSSocket::Ptr) {
+             connectCalled = true;
+         },
+            [](auto) {}});
 
     ASSERT_TRUE(waitFor(connectCalled));
     ASSERT_TRUE(waitFor(handshakeCalled));
@@ -145,11 +154,12 @@ TEST_F(TLSAcceptorTest, shouldReturnLocalEndpoint)
     asio::ip::tcp::endpoint endpoint;
     std::atomic<bool> called{false};
 
-    acceptor->localEndpointAsync(acceptor, {[&](auto e) {
-        endpoint = e;
-        called = true;
-    },
-                                            [](auto) {}});
+    acceptor->localEndpointAsync(acceptor,
+        {[&](auto e) {
+             endpoint = e;
+             called = true;
+         },
+            [](auto) {}});
 
     ASSERT_TRUE(waitFor(called));
     ASSERT_EQ("0.0.0.0", endpoint.address().to_string());

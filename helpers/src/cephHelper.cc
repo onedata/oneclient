@@ -62,8 +62,8 @@ folly::Future<std::size_t> CephFileHandle::write(
         librados::bufferlist data;
         for (auto &byteRange : *buf.front())
             data.append(ceph::buffer::create_static(byteRange.size(),
-                reinterpret_cast<char *>(const_cast<unsigned char *>(
-                    byteRange.data()))));
+                reinterpret_cast<char *>(
+                    const_cast<unsigned char *>(byteRange.data()))));
 
         auto ret = m_ioCTX.write(m_fileId.toStdString(), data, size, offset);
         if (ret < 0)

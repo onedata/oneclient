@@ -9,8 +9,8 @@
 #ifndef HELPERS_COMMUNICATION_LAYERS_BINARY_TRANSLATOR_H
 #define HELPERS_COMMUNICATION_LAYERS_BINARY_TRANSLATOR_H
 
-#include "logging.h"
 #include "communication/declarations.h"
+#include "logging.h"
 
 #include <functional>
 #include <memory>

@@ -16,8 +16,8 @@ namespace one {
 namespace client {
 
 /**
-* Base class of all oneclient exceptions.
-*/
+ * Base class of all oneclient exceptions.
+ */
 class OneException : public std::exception {
 public:
     /**

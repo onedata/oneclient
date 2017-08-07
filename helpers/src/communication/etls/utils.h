@@ -13,6 +13,7 @@
 #include <pthread.h>
 #endif
 
+#include <cassert>
 #include <string>
 #include <thread>
 

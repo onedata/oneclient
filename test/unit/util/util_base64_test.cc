@@ -21,8 +21,8 @@ using namespace one::client::util::base64;
     {                                                                          \
         IN_STRING_TYPE __input = IN;                                           \
         OUT_STRING_TYPE __output;                                              \
-        EXPECT_TRUE(base64_encode(__input, __output)) << "BASE64(" << IN       \
-                                                      << ") failed.";          \
+        EXPECT_TRUE(base64_encode(__input, __output))                          \
+            << "BASE64(" << IN << ") failed.";                                 \
         EXPECT_TRUE(__output == OUT) << "BASE64(" << IN << ") != " << OUT;     \
     }
 
@@ -30,10 +30,10 @@ using namespace one::client::util::base64;
     {                                                                          \
         IN_STRING_TYPE __input = IN;                                           \
         OUT_STRING_TYPE __output;                                              \
-        EXPECT_TRUE(base64_decode(__input, __output)) << "DECODE_BASE64("      \
-                                                      << IN << ") failed.";    \
-        EXPECT_TRUE(__output == OUT) << "DECODE_BASE64(" << IN                 \
-                                     << ") != " << OUT;                        \
+        EXPECT_TRUE(base64_decode(__input, __output))                          \
+            << "DECODE_BASE64(" << IN << ") failed.";                          \
+        EXPECT_TRUE(__output == OUT)                                           \
+            << "DECODE_BASE64(" << IN << ") != " << OUT;                       \
     }
 
 /**

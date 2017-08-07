@@ -9,9 +9,9 @@
 #ifndef ONE_ETLS_TEST_SERVER_HPP
 #define ONE_ETLS_TEST_SERVER_HPP
 
-#include <asio/read.hpp>
 #include <asio/io_service.hpp>
 #include <asio/ip/tcp.hpp>
+#include <asio/read.hpp>
 #include <asio/ssl/context.hpp>
 #include <asio/ssl/stream.hpp>
 

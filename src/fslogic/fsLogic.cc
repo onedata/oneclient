@@ -561,22 +561,24 @@ bool FsLogic::dataCorrupted(const folly::fbstring &uuid,
 folly::fbstring FsLogic::computeHash(const folly::IOBufQueue &buf)
 {
     // TODO: move this to CPU-bound threadpool
-    return folly::fibers::await([&](
-        folly::fibers::Promise<folly::fbstring> promise) {
-        m_context->scheduler()->post(
-            [&, promise = std::move(promise) ]() mutable {
-                folly::fbstring hash(MD4_DIGEST_LENGTH, '\0');
-                MD4_CTX ctx;
-                MD4_Init(&ctx);
+    return folly::fibers::await(
+        [&](folly::fibers::Promise<folly::fbstring> promise) {
+            m_context->scheduler()->post(
+                [&, promise = std::move(promise) ]() mutable {
+                    folly::fbstring hash(MD4_DIGEST_LENGTH, '\0');
+                    MD4_CTX ctx;
+                    MD4_Init(&ctx);
 
-                if (!buf.empty())
-                    for (auto &byteRange : *buf.front())
-                        MD4_Update(&ctx, byteRange.data(), byteRange.size());
+                    if (!buf.empty())
+                        for (auto &byteRange : *buf.front())
+                            MD4_Update(
+                                &ctx, byteRange.data(), byteRange.size());
 
-                MD4_Final(reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
-                promise.setValue(std::move(hash));
-            });
-    });
+                    MD4_Final(
+                        reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
+                    promise.setValue(std::move(hash));
+                });
+        });
 }
 
 bool FsLogic::isSpaceDisabled(const folly::fbstring &spaceId)

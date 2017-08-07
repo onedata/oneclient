@@ -32,18 +32,18 @@ public:
     FileCreated(std::unique_ptr<ProtocolServerMessage> serverMessage);
 
     /**
-    * @return A handleID representing the handle on the server.
-    */
+     * @return A handleID representing the handle on the server.
+     */
     const std::string &handleId() const;
 
     /**
-    * @return Attributes of the file.
-    */
+     * @return Attributes of the file.
+     */
     const FileAttr &attr() const;
 
     /**
-    * @return Location of the file.
-    */
+     * @return Location of the file.
+     */
     const FileLocation &location() const;
 
     std::string toString() const override;

@@ -9,13 +9,13 @@
 #ifndef HELPERS_COMMUNICATION_STREAMING_STREAM_MANAGER_H
 #define HELPERS_COMMUNICATION_STREAMING_STREAM_MANAGER_H
 
-#include "typedStream.h"
-#include "communication/subscriptionData.h"
 #include "communication/layers/translator.h"
+#include "communication/subscriptionData.h"
+#include "typedStream.h"
 
 #include <tbb/concurrent_hash_map.h>
-#include <tbb/concurrent_vector.h>
 #include <tbb/concurrent_queue.h>
+#include <tbb/concurrent_vector.h>
 
 #include <atomic>
 #include <cstdint>

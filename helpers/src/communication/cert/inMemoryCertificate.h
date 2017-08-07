@@ -31,8 +31,8 @@ public:
      * @param keyData Buffer holding the key data.
      * @param keyFormat Format in which the key is stored.
      */
-    InMemoryCertificate(asio::const_buffer certData,
-        asio::const_buffer keyData, KeyFormat keyFormat);
+    InMemoryCertificate(asio::const_buffer certData, asio::const_buffer keyData,
+        KeyFormat keyFormat);
 
     /**
      * Updates given context with certificate data given as data buffers.

@@ -89,8 +89,8 @@ public:
     void fileId(std::string fileId);
 
     /**
-      * @return Blocks per storageId/fileId pair.
-      */
+     * @return Blocks per storageId/fileId pair.
+     */
     FileBlocksMap &blocks();
 
     /**

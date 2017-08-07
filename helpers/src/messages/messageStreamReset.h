@@ -1,10 +1,10 @@
 /**
-* @file messageStreamReset.h
-* @author Krzysztof Trzepla
-* @copyright (C) 2015 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file messageStreamReset.h
+ * @author Krzysztof Trzepla
+ * @copyright (C) 2015 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef HELPERS_MESSAGES_MESSAGE_STREAM_RESET_H
 #define HELPERS_MESSAGES_MESSAGE_STREAM_RESET_H

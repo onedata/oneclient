@@ -56,12 +56,12 @@ one::communication::ConnectionPool::ConnectionFactory
 createMockConnectionFactory(MockConnection &mockConnection)
 {
     return [&](std::string host, const unsigned short port,
-        std::shared_ptr<asio::ssl::context> context,
-        std::function<void(std::string)> onMessage,
-        std::function<void(one::communication::Connection &)> onReady,
-        std::function<std::string()> getHandshake,
-        std::function<std::error_code(std::string)> onHandshakeResponse,
-        std::function<void(std::error_code)> onHandshakeDone) {
+               std::shared_ptr<asio::ssl::context> context,
+               std::function<void(std::string)> onMessage,
+               std::function<void(one::communication::Connection &)> onReady,
+               std::function<std::string()> getHandshake,
+               std::function<std::error_code(std::string)> onHandshakeResponse,
+               std::function<void(std::error_code)> onHandshakeDone) {
         mockConnection.host = std::move(host);
         mockConnection.port = port;
         mockConnection.context = context.get();

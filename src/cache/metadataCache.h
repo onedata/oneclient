@@ -237,8 +237,7 @@ private:
         boost::multi_index::indexed_by<
             boost::multi_index::hashed_unique<boost::multi_index::tag<ByUuid>,
                 UuidExtractor, std::hash<folly::fbstring>>,
-            boost::multi_index::hashed_unique<
-                boost::multi_index::tag<ByParent>,
+            boost::multi_index::hashed_unique<boost::multi_index::tag<ByParent>,
                 boost::multi_index::composite_key<Metadata, ParentUuidExtractor,
                     NameExtractor>,
                 boost::multi_index::composite_key_hash<

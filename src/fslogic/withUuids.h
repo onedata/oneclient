@@ -16,8 +16,8 @@
 #include <folly/io/IOBufQueue.h>
 
 #include <chrono>
-#include <functional>
 #include <cstdint>
+#include <functional>
 
 namespace one {
 namespace client {
