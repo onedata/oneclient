@@ -104,7 +104,7 @@ class ProviderWorkerConfigurator:
         return 1024
 
     def couchbase_buckets(self):
-        return {"default": 300, "sync": 400}
+        return {"onedata": 1024}
 
     def app_name(self):
         return "op_worker"
