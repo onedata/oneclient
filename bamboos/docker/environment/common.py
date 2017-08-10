@@ -18,6 +18,7 @@ from . import docker
 from timeouts import *
 import tempfile
 import stat
+import pytest
 
 try:
     import xml.etree.cElementTree as eTree
@@ -50,7 +51,7 @@ def wait_until(condition, containers, timeout):
                 message = 'Timeout while waiting for condition {0} ' \
                           'of container {1}'
                 message = message.format(condition.__name__, container)
-                raise ValueError(message)
+                pytest.skip(message)
 
             time.sleep(1)
 
