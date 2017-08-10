@@ -144,22 +144,22 @@ Advanced options:
                                         helper threads.
   --no-buffer                           Disable in-memory cache for
                                         input/output data blocks.
-  --read-buffer-min-size <size> (=1048576)
+  --read-buffer-min-size <size> (=5242880)
                                         Specify minimum size in bytes of
                                         in-memory cache for input data blocks.
-  --read-buffer-max-size <size> (=52428800)
+  --read-buffer-max-size <size> (=10485760)
                                         Specify maximum size in bytes of
                                         in-memory cache for input data blocks.
   --read-buffer-prefetch-duration <duration> (=1)
                                         Specify read ahead period in seconds of
                                         in-memory cache for input data blocks.
-  --write-buffer-min-size <size> (=1048576)
+  --write-buffer-min-size <size> (=20971520)
                                         Specify minimum size in bytes of
                                         in-memory cache for output data blocks.
   --write-buffer-max-size <size> (=52428800)
                                         Specify maximum size in bytes of
                                         in-memory cache for output data blocks.
-  --write-buffer-flush-delay <delay> (=1)
+  --write-buffer-flush-delay <delay> (=5)
                                         Specify idle period in seconds before
                                         flush of in-memory cache for output
                                         data blocks.
