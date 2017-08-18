@@ -18,6 +18,7 @@
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileBlock.h"
 #include "messages/fuse/fileChildren.h"
+#include "messages/fuse/fileChildrenAttrs.h"
 #include "messages/fuse/fileCreated.h"
 #include "messages/fuse/fileLocation.h"
 #include "messages/fuse/fileOpened.h"
@@ -25,6 +26,7 @@
 #include "messages/fuse/fileRenamedEntry.h"
 #include "messages/fuse/fsync.h"
 #include "messages/fuse/getFileChildren.h"
+#include "messages/fuse/getFileChildrenAttrs.h"
 #include "messages/fuse/getXAttr.h"
 #include "messages/fuse/listXAttr.h"
 #include "messages/fuse/makeFile.h"
@@ -41,6 +43,8 @@
 #include "messages/fuse/xattrList.h"
 
 #include <boost/icl/interval_set.hpp>
+#include <folly/Enumerate.h>
+#include <folly/Range.h>
 #include <folly/fibers/FiberManager.h>
 #include <folly/fibers/ForEach.h>
 #include <fuse/fuse_lowlevel.h>
@@ -146,19 +150,39 @@ FileAttrPtr FsLogic::getattr(const folly::fbstring &uuid)
     return m_metadataCache.getAttr(uuid);
 }
 
-folly::fbvector<folly::fbstring> FsLogic::readdir(const folly::fbstring &uuid)
+folly::fbvector<folly::fbstring> FsLogic::readdir(
+    const folly::fbstring &uuid, const size_t maxSize, const off_t off)
 {
-    const std::size_t chunkSize = 1000;
+    folly::fbvector<folly::fbstring> acc;
+    auto chunkSize = maxSize;
 
-    folly::fbvector<folly::fbstring> acc{".", ".."};
+    if (off == 0) {
+        // Since the server does not provide '.' and '..' entries, we
+        // have to add them here
+        if (chunkSize > 0) {
+            acc.emplace_back(".");
+            chunkSize--;
+        }
+        if (chunkSize > 0) {
+            acc.emplace_back("..");
+            chunkSize--;
+        }
+    }
 
-    for (off_t offset = 0;; offset += chunkSize) {
-        auto msg = communicate<messages::fuse::FileChildren>(
-            messages::fuse::GetFileChildren{uuid, offset, chunkSize});
+    if (chunkSize == 0)
+        return acc;
 
-        acc.insert(acc.end(), msg.children().begin(), msg.children().end());
-        if (msg.children().size() < chunkSize)
-            break;
+    // Since most applications (even plain 'ls') invoke getattr operation
+    // after listing directory contents, it is typically faster to
+    // fetch them in advance and store them in the cache, thus
+    // in fact making this operation equivalent to readdirplus
+    auto msg = communicate<messages::fuse::FileChildrenAttrs>(
+        messages::fuse::GetFileChildrenAttrs{uuid, off, chunkSize});
+
+    for (const auto it : folly::enumerate(msg.childrenAttrs())) {
+        const auto fileAttrPtr = std::make_shared<FileAttr>(*it);
+        m_metadataCache.putAttr(fileAttrPtr);
+        acc.emplace_back(fileAttrPtr->name());
     }
 
     return acc;
@@ -257,8 +281,10 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     if (boost::icl::size(wantedRange) == 0)
         return folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()};
 
-    // Even if several "touching" blocks with different helpers are available to
-    // read right now, for simplicity we'll only read a single block per a read
+    // Even if several "touching" blocks with different helpers are
+    // available to
+    // read right now, for simplicity we'll only read a single block per a
+    // read
     // operation.
 
     auto locationData = m_metadataCache.getBlock(uuid, offset);
@@ -561,24 +587,22 @@ bool FsLogic::dataCorrupted(const folly::fbstring &uuid,
 folly::fbstring FsLogic::computeHash(const folly::IOBufQueue &buf)
 {
     // TODO: move this to CPU-bound threadpool
-    return folly::fibers::await(
-        [&](folly::fibers::Promise<folly::fbstring> promise) {
-            m_context->scheduler()->post(
-                [&, promise = std::move(promise) ]() mutable {
-                    folly::fbstring hash(MD4_DIGEST_LENGTH, '\0');
-                    MD4_CTX ctx;
-                    MD4_Init(&ctx);
+    return folly::fibers::await([&](
+        folly::fibers::Promise<folly::fbstring> promise) {
+        m_context->scheduler()->post(
+            [&, promise = std::move(promise) ]() mutable {
+                folly::fbstring hash(MD4_DIGEST_LENGTH, '\0');
+                MD4_CTX ctx;
+                MD4_Init(&ctx);
 
-                    if (!buf.empty())
-                        for (auto &byteRange : *buf.front())
-                            MD4_Update(
-                                &ctx, byteRange.data(), byteRange.size());
+                if (!buf.empty())
+                    for (auto &byteRange : *buf.front())
+                        MD4_Update(&ctx, byteRange.data(), byteRange.size());
 
-                    MD4_Final(
-                        reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
-                    promise.setValue(std::move(hash));
-                });
-        });
+                MD4_Final(reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
+                promise.setValue(std::move(hash));
+            });
+    });
 }
 
 bool FsLogic::isSpaceDisabled(const folly::fbstring &spaceId)
