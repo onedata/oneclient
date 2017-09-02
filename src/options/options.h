@@ -35,6 +35,7 @@ static constexpr auto DEFAULT_READ_BUFFER_PREFETCH_DURATION = 1;
 static constexpr auto DEFAULT_WRITE_BUFFER_MIN_SIZE = 20 * 1024 * 1024;
 static constexpr auto DEFAULT_WRITE_BUFFER_MAX_SIZE = 50 * 1024 * 1024;
 static constexpr auto DEFAULT_WRITE_BUFFER_FLUSH_DELAY = 5;
+static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 100000;
 }
 
 class Option;
@@ -211,6 +212,11 @@ public:
      * output data blocks.
      */
     std::chrono::seconds getWriteBufferFlushDelay() const;
+
+    /*
+     * @return Maximum number of entries in metadata cache.
+     */
+    unsigned int getMetadataCacheSize() const;
 
     /*
      * @return Mountpoint path.

@@ -278,12 +278,12 @@ void wrap_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set,
 void wrap_create(fuse_req_t req, fuse_ino_t parent, const char *name,
     mode_t mode, struct fuse_file_info *fi)
 {
-    wrap(&fslogic::Composite::create, [ req,
-        fi = *fi ](const std::pair<const struct fuse_entry_param, std::uint64_t>
-                                              &res) mutable {
-        fi.fh = res.second;
-        fuse_reply_create(req, &res.first, &fi);
-    },
+    wrap(&fslogic::Composite::create,
+        [ req, fi = *fi ](const std::pair<const struct fuse_entry_param,
+            std::uint64_t> &res) mutable {
+            fi.fh = res.second;
+            fuse_reply_create(req, &res.first, &fi);
+        },
         req, parent, name, mode, fi->flags);
 }
 
@@ -333,7 +333,7 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
     ,
     uint32_t position // This attribute is used only on macOS resource forks
 #endif
-    )
+)
 {
     if (!attr) {
         fuse_reply_err(req, EINVAL);
@@ -414,7 +414,7 @@ void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
     ,
     uint32_t position // This attribute is used only on macOS resource forks
 #endif
-    )
+)
 {
     std::string xattrJsonName;
     if (!encodeJsonXAttrName(attr, xattrJsonName)) {

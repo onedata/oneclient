@@ -74,9 +74,10 @@ inline helpers::Flag getOpenFlag(const helpers::FlagsSet &flagsSet)
 FsLogic::FsLogic(std::shared_ptr<Context> context,
     std::shared_ptr<messages::Configuration> configuration,
     std::unique_ptr<cache::HelpersCache> helpersCache,
+    unsigned int metadataCacheSize,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_context{std::move(context)}
-    , m_metadataCache{*m_context->communicator()}
+    , m_metadataCache{*m_context->communicator(), metadataCacheSize}
     , m_helpersCache{std::move(helpersCache)}
     , m_fsSubscriptions{
           m_eventManager, m_metadataCache, m_forceProxyIOCache, runInFiber}
@@ -282,10 +283,8 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         return folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()};
 
     // Even if several "touching" blocks with different helpers are
-    // available to
-    // read right now, for simplicity we'll only read a single block per a
-    // read
-    // operation.
+    // available to read right now, for simplicity we'll only read a single
+    // block per a read operation.
 
     auto locationData = m_metadataCache.getBlock(uuid, offset);
     if (!locationData.hasValue()) {
@@ -587,22 +586,24 @@ bool FsLogic::dataCorrupted(const folly::fbstring &uuid,
 folly::fbstring FsLogic::computeHash(const folly::IOBufQueue &buf)
 {
     // TODO: move this to CPU-bound threadpool
-    return folly::fibers::await([&](
-        folly::fibers::Promise<folly::fbstring> promise) {
-        m_context->scheduler()->post(
-            [&, promise = std::move(promise) ]() mutable {
-                folly::fbstring hash(MD4_DIGEST_LENGTH, '\0');
-                MD4_CTX ctx;
-                MD4_Init(&ctx);
+    return folly::fibers::await(
+        [&](folly::fibers::Promise<folly::fbstring> promise) {
+            m_context->scheduler()->post(
+                [&, promise = std::move(promise) ]() mutable {
+                    folly::fbstring hash(MD4_DIGEST_LENGTH, '\0');
+                    MD4_CTX ctx;
+                    MD4_Init(&ctx);
 
-                if (!buf.empty())
-                    for (auto &byteRange : *buf.front())
-                        MD4_Update(&ctx, byteRange.data(), byteRange.size());
+                    if (!buf.empty())
+                        for (auto &byteRange : *buf.front())
+                            MD4_Update(
+                                &ctx, byteRange.data(), byteRange.size());
 
-                MD4_Final(reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
-                promise.setValue(std::move(hash));
-            });
-    });
+                    MD4_Final(
+                        reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
+                    promise.setValue(std::move(hash));
+                });
+        });
 }
 
 bool FsLogic::isSpaceDisabled(const folly::fbstring &spaceId)

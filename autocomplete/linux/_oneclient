@@ -54,6 +54,7 @@ arg_oneclient=(\
   '--write-buffer-min-size[Specify minimum size in bytes of in-memory cache for output data blocks.]:number' \
   '--write-buffer-max-size[Specify maximum size in bytes of in-memory cache for output data blocks.]:number' \
   '--write-buffer-flush-delay[Specify idle period in seconds before flush of in-memory cache for output data blocks.]:number' \
+  '--metadata-cache-size[Specify maximum number of entries in file metadata cache.]:number' \
   '1: :{_files -/}'\
 )
 

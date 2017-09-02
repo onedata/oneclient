@@ -307,7 +307,8 @@ int main(int argc, char *argv[])
 
     const auto &rootUuid = configuration->rootUuid();
     fsLogic = std::make_unique<fslogic::Composite>(rootUuid, std::move(context),
-        std::move(configuration), std::move(helpersCache));
+        std::move(configuration), std::move(helpersCache),
+        options->getMetadataCacheSize());
 
     res = multithreaded ? fuse_session_loop_mt(fuse) : fuse_session_loop(fuse);
 

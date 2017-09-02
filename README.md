@@ -163,7 +163,9 @@ Advanced options:
                                         Specify idle period in seconds before
                                         flush of in-memory cache for output
                                         data blocks.
-                                        
+  --metadata-cache-size <size> (=100000)
+                                        Specify maximum number of file metadata
+                                        entries which can be stored in cache.
 FUSE options:
   -f [ --foreground ]         Foreground operation.
   -d [ --debug ]              Enable debug mode (implies -f).

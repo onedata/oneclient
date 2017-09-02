@@ -112,6 +112,8 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options.getWriteBufferMaxSize());
     EXPECT_EQ(options::DEFAULT_WRITE_BUFFER_FLUSH_DELAY,
         options.getWriteBufferFlushDelay().count());
+    EXPECT_EQ(
+        options::DEFAULT_METADATA_CACHE_SIZE, options.getMetadataCacheSize());
     EXPECT_FALSE(options.getProviderHost());
     EXPECT_FALSE(options.getAccessToken());
 }
@@ -298,6 +300,14 @@ TEST_F(OptionsTest, parseCommandLineShouldSetWriteBufferFlushDelay)
         cmdArgs.end(), {"--write-buffer-flush-delay", "10", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(10, options.getWriteBufferFlushDelay().count());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetMetadataCacheSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--metadata-cache-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getMetadataCacheSize());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetForeground)

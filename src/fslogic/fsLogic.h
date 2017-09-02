@@ -64,6 +64,7 @@ public:
     FsLogic(std::shared_ptr<Context> context,
         std::shared_ptr<messages::Configuration> configuration,
         std::unique_ptr<cache::HelpersCache> helpersCache,
+        unsigned int metadataCacheSize,
         std::function<void(folly::Function<void()>)> runInFiber);
 
     /**

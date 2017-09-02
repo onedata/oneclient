@@ -124,7 +124,8 @@ _oneclient() {
                                --read-buffer-prefetch-duration \
                                --write-buffer-min-size \
                                --write-buffer-max-size \
-                               --write-buffer-flush-delay' -- $cur ) )
+                               --write-buffer-flush-delay \
+                               --metadata-cache-size' -- $cur ) )
     return
     ;;
     "")
