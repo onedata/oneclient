@@ -51,3 +51,32 @@ message ChangesRequest {
     required bytes since_seq    = 1;
     required bytes until_seq    = 2;
 }
+
+message DBSyncMessage {
+    oneof message_body {
+        TreeBroadcast2  tree_broadcast  = 1;
+        ChangesBatch    changes_batch   = 2;
+        ChangesRequest2 changes_request = 3;
+    }
+}
+
+message TreeBroadcast2 {
+    required bytes        src_provider_id  = 1;
+    required bytes        low_provider_id  = 2;
+    required bytes        high_provider_id = 3;
+    required bytes        message_id       = 4;
+    required ChangesBatch changes_batch    = 5;
+}
+
+message ChangesBatch {
+    required bytes  space_id        = 1;
+    required uint64 since           = 2;
+    required uint64 until           = 3;
+    required bytes  compressed_docs = 4;
+}
+
+message ChangesRequest2 {
+    required bytes  space_id = 1;
+    required uint64 since    = 2;
+    required uint64 until    = 3;
+}

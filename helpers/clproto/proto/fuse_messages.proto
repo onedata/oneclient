@@ -75,6 +75,7 @@ message FileRequest {
         RemoveXattr remove_xattr = 20;
         ListXattr list_xattr = 21;
         FSync fsync = 22;
+        GetFileChildrenAttrs get_file_children_attrs = 23;
     }
 }
 
@@ -86,8 +87,13 @@ message GetChildAttr {
 }
 
 message GetFileChildren {
-    required int32 offset = 1 [default = 0];
-    optional int32 size = 2;
+    required int32 offset = 1;
+    required int32 size = 2;
+}
+
+message GetFileChildrenAttrs {
+    required int32 offset = 1;
+    required int32 size = 2;
 }
 
 message CreateDir {
@@ -197,6 +203,7 @@ message FuseResponse {
         Uuid uuid = 12;
         Xattr xattr = 13;
         XattrList xattr_list = 14;
+        FileChildrenAttrs file_children_attrs = 15;
     }
 }
 
@@ -219,6 +226,10 @@ message FileAttr {
 
 message FileChildren {
     repeated ChildLink child_links = 1;
+}
+
+message FileChildrenAttrs {
+    repeated FileAttr child_attrs = 1;
 }
 
 message FileLocation {
