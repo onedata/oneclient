@@ -22,7 +22,7 @@
 namespace one {
 namespace helpers {
 
-constexpr std::size_t DEFAULT_BLOCK_SIZE = 5 * 1024 * 1024;
+constexpr std::size_t DEFAULT_BLOCK_SIZE = 10 * 1024 * 1024;
 
 template <typename T> struct StdHashCompare {
     bool equal(const T &a, const T &b) const { return a == b; }

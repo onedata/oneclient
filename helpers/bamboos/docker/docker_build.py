@@ -65,19 +65,19 @@ def get_tags():
     return tags
 
 
-def write_short_report(images):
+def write_short_report(file_name, images):
     """Creates a short report consisting of docker images and theirs tag
     types in JSON format."""
 
-    with open('docker-build-list.json', 'w') as f:
+    with open(file_name, 'w') as f:
         json.dump(dict(images), f, indent=2)
 
 
-def write_report(name, images, publish):
+def write_report(file_name, name, images, publish):
     """Creates a report consisting of built artifacts (docker images) and
     commands describing how to download those artifacts."""
 
-    with open('docker-build-report.txt', 'w') as f:
+    with open(file_name, 'w') as f:
         f.write('Build report for {0}\n\n'.format(name))
         f.write('Artifacts:\n\n')
         for _, image in images:
@@ -110,6 +110,20 @@ if __name__ == '__main__':
         default='docker.onedata.org',
         help='repository used to publish docker',
         dest='repository')
+
+    parser.add_argument(
+        '--report',
+        action='store',
+        default='docker-build-report.txt',
+        help='report file',
+        dest='report')
+
+    parser.add_argument(
+        '--short-report',
+        action='store',
+        default='docker-build-list.json',
+        help='short report file',
+        dest='short_report')
 
     try:
         parser.add_argument(
@@ -172,5 +186,5 @@ if __name__ == '__main__':
         if args.remove:
             docker.remove_image(image)
 
-    write_short_report(images)
-    write_report(args.name, images, args.publish)
+    write_short_report(args.short_report, images)
+    write_report(args.report, args.name, images, args.publish)

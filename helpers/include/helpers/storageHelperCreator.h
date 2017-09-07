@@ -51,13 +51,13 @@ constexpr auto GLUSTERFS_HELPER_NAME = "glusterfs";
 namespace buffering {
 
 struct BufferLimits {
-    BufferLimits(std::size_t readBufferMinSize_ = 1 * 1024 * 1024,
-        std::size_t readBufferMaxSize_ = 50 * 1024 * 1024,
+    BufferLimits(std::size_t readBufferMinSize_ = 5 * 1024 * 1024,
+        std::size_t readBufferMaxSize_ = 10 * 1024 * 1024,
         std::chrono::seconds readBufferPrefetchDuration_ =
             std::chrono::seconds{1},
-        std::size_t writeBufferMinSize_ = 1 * 1024 * 1024,
+        std::size_t writeBufferMinSize_ = 20 * 1024 * 1024,
         std::size_t writeBufferMaxSize_ = 50 * 1024 * 1024,
-        std::chrono::seconds writeBufferFlushDelay_ = std::chrono::seconds{1})
+        std::chrono::seconds writeBufferFlushDelay_ = std::chrono::seconds{5})
         : readBufferMinSize{readBufferMinSize_}
         , readBufferMaxSize{readBufferMaxSize_}
         , readBufferPrefetchDuration{std::move(readBufferPrefetchDuration_)}

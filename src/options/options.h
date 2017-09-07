@@ -29,12 +29,12 @@ static constexpr auto DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT = 1;
 static constexpr auto DEFAULT_COMMUNICATOR_THREAD_COUNT = 3;
 static constexpr auto DEFAULT_SCHEDULER_THREAD_COUNT = 1;
 static constexpr auto DEFAULT_STORAGE_HELPER_THREAD_COUNT = 10;
-static constexpr auto DEFAULT_READ_BUFFER_MIN_SIZE = 1 * 1024 * 1024;
-static constexpr auto DEFAULT_READ_BUFFER_MAX_SIZE = 50 * 1024 * 1024;
+static constexpr auto DEFAULT_READ_BUFFER_MIN_SIZE = 5 * 1024 * 1024;
+static constexpr auto DEFAULT_READ_BUFFER_MAX_SIZE = 10 * 1024 * 1024;
 static constexpr auto DEFAULT_READ_BUFFER_PREFETCH_DURATION = 1;
-static constexpr auto DEFAULT_WRITE_BUFFER_MIN_SIZE = 1 * 1024 * 1024;
+static constexpr auto DEFAULT_WRITE_BUFFER_MIN_SIZE = 20 * 1024 * 1024;
 static constexpr auto DEFAULT_WRITE_BUFFER_MAX_SIZE = 50 * 1024 * 1024;
-static constexpr auto DEFAULT_WRITE_BUFFER_FLUSH_DELAY = 1;
+static constexpr auto DEFAULT_WRITE_BUFFER_FLUSH_DELAY = 5;
 }
 
 class Option;
