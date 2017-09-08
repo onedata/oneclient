@@ -35,6 +35,7 @@ message ProviderRequest {
         CreateShare create_share = 23;
         RemoveShare remove_share = 24;
         RemoveMetadata remove_metadata = 25;
+        InvalidateFileReplica invalidate_file_replica = 26;
     }
 }
 
@@ -163,4 +164,9 @@ message FileDistribution {
 message Share {
     required bytes share_id = 1;
     required bytes share_file_uuid = 2;
+}
+
+message InvalidateFileReplica {
+    required bytes provider_id = 1;
+    optional bytes migration_provider_id = 2;
 }

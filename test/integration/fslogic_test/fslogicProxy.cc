@@ -87,7 +87,7 @@ public:
         : m_helpersCache{new HelpersCacheProxy(*context->communicator(),
               *context->scheduler(), *context->options())}
         , m_fsLogic{context, std::make_shared<messages::Configuration>(),
-              std::unique_ptr<HelpersCacheProxy>{m_helpersCache},
+              std::unique_ptr<HelpersCacheProxy>{m_helpersCache}, 1000,
               [](auto f) { f(); }}
         , m_context{context}
     {
@@ -181,12 +181,13 @@ public:
             uuid, statbuf, FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME);
     }
 
-    std::vector<std::string> readdir(std::string uuid)
+    std::vector<std::string> readdir(
+        std::string uuid, int chunkSize, int offset)
     {
         ReleaseGIL guard;
 
         std::vector<std::string> children;
-        for (auto &name : m_fsLogic.readdir(uuid))
+        for (auto &name : m_fsLogic.readdir(uuid, chunkSize, offset))
             children.emplace_back(name.toStdString());
 
         return children;

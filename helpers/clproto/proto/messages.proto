@@ -63,13 +63,14 @@ message ClientMessage {
 
         // dbsync_messages.proto
         DBSyncRequest            dbsync_request            = 19;
+        DBSyncMessage            dbsync_message            = 20;
 
         // provider_messages.proto
-        ProviderRequest          provider_request          = 20;
+        ProviderRequest          provider_request          = 21;
     }
-
-    optional bytes proxy_session_id = 21;
-    optional Token proxy_session_token = 22;
+    
+    optional bytes proxy_session_id = 22;
+    optional Token proxy_session_token = 23;
 }
 
 // Messages that can be sent by the server to the client.

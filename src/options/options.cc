@@ -243,6 +243,16 @@ Options::Options()
         .withDescription("Specify idle period in seconds before flush of "
                          "in-memory cache for output data blocks.");
 
+    add<unsigned int>()
+        ->withLongName("metadata-cache-size")
+        .withConfigName("metadata_cache_size")
+        .withValueName("<size>")
+        .withDefaultValue(DEFAULT_METADATA_CACHE_SIZE,
+            std::to_string(DEFAULT_METADATA_CACHE_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify maximum number of file metadata entries "
+                         "which can be stored in cache.");
+
     add<bool>()
         ->asSwitch()
         .withShortName("f")
@@ -525,6 +535,12 @@ std::chrono::seconds Options::getWriteBufferFlushDelay() const
         get<unsigned int>(
             {"write-buffer-flush-delay", "write_buffer_flush_delay"})
             .get_value_or(DEFAULT_WRITE_BUFFER_FLUSH_DELAY)};
+}
+
+unsigned int Options::getMetadataCacheSize() const
+{
+    return get<unsigned int>({"metadata-cache-size", "metadata_cache_size"})
+        .get_value_or(DEFAULT_METADATA_CACHE_SIZE);
 }
 
 boost::filesystem::path Options::getMountpoint() const

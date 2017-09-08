@@ -63,7 +63,10 @@ public:
         return detail::toStatbuf(std::move(attr), ino);
     }
 
-    auto readdir(const fuse_ino_t ino) { return wrap(&FsLogicT::readdir, ino); }
+    auto readdir(const fuse_ino_t ino, const size_t maxSize, const off_t off)
+    {
+        return wrap(&FsLogicT::readdir, ino, maxSize, off);
+    }
 
     auto open(const fuse_ino_t ino, const int flags)
     {

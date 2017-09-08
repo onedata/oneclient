@@ -18,6 +18,7 @@
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileBlock.h"
 #include "messages/fuse/fileChildren.h"
+#include "messages/fuse/fileChildrenAttrs.h"
 #include "messages/fuse/fileCreated.h"
 #include "messages/fuse/fileLocation.h"
 #include "messages/fuse/fileOpened.h"
@@ -25,6 +26,7 @@
 #include "messages/fuse/fileRenamedEntry.h"
 #include "messages/fuse/fsync.h"
 #include "messages/fuse/getFileChildren.h"
+#include "messages/fuse/getFileChildrenAttrs.h"
 #include "messages/fuse/getXAttr.h"
 #include "messages/fuse/listXAttr.h"
 #include "messages/fuse/makeFile.h"
@@ -41,6 +43,8 @@
 #include "messages/fuse/xattrList.h"
 
 #include <boost/icl/interval_set.hpp>
+#include <folly/Enumerate.h>
+#include <folly/Range.h>
 #include <folly/fibers/FiberManager.h>
 #include <folly/fibers/ForEach.h>
 #include <fuse/fuse_lowlevel.h>
@@ -70,9 +74,10 @@ inline helpers::Flag getOpenFlag(const helpers::FlagsSet &flagsSet)
 FsLogic::FsLogic(std::shared_ptr<Context> context,
     std::shared_ptr<messages::Configuration> configuration,
     std::unique_ptr<cache::HelpersCache> helpersCache,
+    unsigned int metadataCacheSize,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_context{std::move(context)}
-    , m_metadataCache{*m_context->communicator()}
+    , m_metadataCache{*m_context->communicator(), metadataCacheSize}
     , m_helpersCache{std::move(helpersCache)}
     , m_fsSubscriptions{
           m_eventManager, m_metadataCache, m_forceProxyIOCache, runInFiber}
@@ -146,19 +151,39 @@ FileAttrPtr FsLogic::getattr(const folly::fbstring &uuid)
     return m_metadataCache.getAttr(uuid);
 }
 
-folly::fbvector<folly::fbstring> FsLogic::readdir(const folly::fbstring &uuid)
+folly::fbvector<folly::fbstring> FsLogic::readdir(
+    const folly::fbstring &uuid, const size_t maxSize, const off_t off)
 {
-    const std::size_t chunkSize = 1000;
+    folly::fbvector<folly::fbstring> acc;
+    auto chunkSize = maxSize;
 
-    folly::fbvector<folly::fbstring> acc{".", ".."};
+    if (off == 0) {
+        // Since the server does not provide '.' and '..' entries, we
+        // have to add them here
+        if (chunkSize > 0) {
+            acc.emplace_back(".");
+            chunkSize--;
+        }
+        if (chunkSize > 0) {
+            acc.emplace_back("..");
+            chunkSize--;
+        }
+    }
 
-    for (off_t offset = 0;; offset += chunkSize) {
-        auto msg = communicate<messages::fuse::FileChildren>(
-            messages::fuse::GetFileChildren{uuid, offset, chunkSize});
+    if (chunkSize == 0)
+        return acc;
 
-        acc.insert(acc.end(), msg.children().begin(), msg.children().end());
-        if (msg.children().size() < chunkSize)
-            break;
+    // Since most applications (even plain 'ls') invoke getattr operation
+    // after listing directory contents, it is typically faster to
+    // fetch them in advance and store them in the cache, thus
+    // in fact making this operation equivalent to readdirplus
+    auto msg = communicate<messages::fuse::FileChildrenAttrs>(
+        messages::fuse::GetFileChildrenAttrs{uuid, off, chunkSize});
+
+    for (const auto it : folly::enumerate(msg.childrenAttrs())) {
+        const auto fileAttrPtr = std::make_shared<FileAttr>(*it);
+        m_metadataCache.putAttr(fileAttrPtr);
+        acc.emplace_back(fileAttrPtr->name());
     }
 
     return acc;
@@ -257,9 +282,9 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     if (boost::icl::size(wantedRange) == 0)
         return folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()};
 
-    // Even if several "touching" blocks with different helpers are available to
-    // read right now, for simplicity we'll only read a single block per a read
-    // operation.
+    // Even if several "touching" blocks with different helpers are
+    // available to read right now, for simplicity we'll only read a single
+    // block per a read operation.
 
     auto locationData = m_metadataCache.getBlock(uuid, offset);
     if (!locationData.hasValue()) {

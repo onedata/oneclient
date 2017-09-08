@@ -15,6 +15,7 @@
 #include "oneException.h"
 #include "util/xattrHelper.h"
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/asio/buffer.hpp>
 #include <folly/Enumerate.h>
 #include <folly/FBString.h>
@@ -34,6 +35,15 @@ using namespace one::client;
 using namespace one::client::util::xattr;
 
 namespace {
+
+// Fuse readdir requires that a response (i.e. a list of file
+// names or list of file attribute structs) fits in a single page (4K). If we
+// only request from op-worker chunks in the size of PAGE_SIZE/MAXIMUM_FILE_NAME
+// most of the time we'll be making very small requests. Since typically most
+// file names are short, with this constant we can make bigger requests, even if
+// sometimes we will have to request entries already received in the previous
+// request
+constexpr auto AVERAGE_FILE_NAME_LENGTH = 40;
 
 template <typename Fun, typename... Args>
 auto callFslogic(Fun &&fun, void *userData, Args &&... args)
@@ -135,9 +145,13 @@ void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
 {
     wrap(&fslogic::Composite::readdir,
         [req, maxSize, off](const folly::fbvector<folly::fbstring> &names) {
+            if (names.empty()) {
+                fuse_reply_buf(req, nullptr, 0);
+                return;
+            }
 
             std::size_t bufSize = 0;
-            auto begin = names.begin() + off;
+            auto begin = names.begin();
             auto end = begin;
             for (; end < names.end(); ++end) {
                 const auto nextSize = fuse_add_direntry(
@@ -147,11 +161,6 @@ void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
                     break;
 
                 bufSize += nextSize;
-            }
-
-            if (begin == end) {
-                fuse_reply_buf(req, nullptr, 0);
-                return;
             }
 
             folly::fbvector<char> buf(bufSize);
@@ -170,7 +179,7 @@ void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
 
             fuse_reply_buf(req, buf.data(), buf.size());
         },
-        req, ino);
+        req, ino, floor(maxSize / AVERAGE_FILE_NAME_LENGTH), off);
 }
 
 void wrap_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
@@ -326,16 +335,18 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
 #endif
 )
 {
+    if (!attr) {
+        fuse_reply_err(req, EINVAL);
+    }
+
     //
     // Ignore selected system extended attributes which can degrade performance
-    // on some linux distributions
+    // on some linux distributions, and do not make sense for network filesystem
+    // anyway
     //
-    static const std::set<std::string> ignoredExtendedAttributes{
-        "security.capability", "security.ima", "security.evm",
-        "security.selinux"};
-
-    if (ignoredExtendedAttributes.find(attr) !=
-        ignoredExtendedAttributes.end()) {
+    if (boost::starts_with(attr, "system.") ||
+        boost::starts_with(attr, "security.") ||
+        boost::starts_with(attr, "capability.")) {
         fuse_reply_err(req, ENODATA);
         return;
     }
