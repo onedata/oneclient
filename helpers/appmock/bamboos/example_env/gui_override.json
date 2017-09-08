@@ -40,7 +40,7 @@
     "provider_domains": {
         "p1": {
             "gui_override": {
-                "mount_path": "/var/www/html",
+                "mount_path": "/var/www/html/op_worker",
                 "mount_from": {
                     "docker": "docker.onedata.org/op-gui-default:VFS-1825"
                 },
@@ -87,7 +87,7 @@
     "zone_domains": {
         "oz": {
             "gui_override": {
-                "mount_path": "/var/www/html",
+                "mount_path": "/var/www/html/oz_worker",
                 "mount_from": {
                     "host": "/Users/lopiola/git/oz-gui-homepage/rel"
                 },

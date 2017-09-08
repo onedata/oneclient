@@ -22,6 +22,7 @@ def default(key):
             's3_image': 'onedata/s3proxy',
             'swift_image': 'onedata/dockswift',
             'nfs_image': 'erezhorev/dockerized_nfs_server',
+            'glusterfs_image': 'gluster/gluster-centos',
             'bin_am': '{0}/appmock'.format(os.getcwd()),
             'bin_oz': '{0}/oz_worker'.format(os.getcwd()),
             'bin_op_worker': '{0}/op_worker'.format(os.getcwd()),
@@ -36,6 +37,7 @@ def default(key):
 def up(config_path, image=default('image'), ceph_image=default('ceph_image'),
        s3_image=default('s3_image'), nfs_image=default('nfs_image'),
        swift_image=default('swift_image'),
+       glusterfs_image=default('glusterfs_image'),
        bin_am=default('bin_am'), bin_oz=default('bin_oz'),
        bin_cluster_manager=default('bin_cluster_manager'),
        bin_op_worker=default('bin_op_worker'),
@@ -81,7 +83,7 @@ def up(config_path, image=default('image'), ceph_image=default('ceph_image'),
     # Start storages
     storages_dockers, storages_dockers_ids = \
         storages.start_storages(config, config_path, ceph_image, s3_image,
-                                nfs_image, swift_image, image, uid)
+                                nfs_image, swift_image, glusterfs_image, image, uid)
     output['storages'] = storages_dockers
 
     # Start onepanel instances

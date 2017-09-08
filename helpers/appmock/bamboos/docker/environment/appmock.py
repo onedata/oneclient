@@ -107,6 +107,7 @@ sleep 5'''  # Add sleep so logs can be chowned
 
     if logdir:
         logdir = os.path.join(os.path.abspath(logdir), hostname)
+        os.makedirs(logdir)
         volumes.extend([(logdir, '/root/bin/node/log', 'rw')])
 
     container = docker.run(
