@@ -160,8 +160,14 @@ std::shared_ptr<StorageHelper> StorageHelperCreator::getStorageHelper(
             "Invalid storage helper name: '" + name.toStdString() + "'"};
 
     if (buffered
-        // disable buffering for GlusterFS and Ceph
-        && (name != GLUSTERFS_HELPER_NAME) && (name != CEPH_HELPER_NAME))
+    // disable buffering for GlusterFS and Ceph
+#if WITH_GLUSTERFS
+        && (name != GLUSTERFS_HELPER_NAME)
+#endif
+#if WITH_CEPH
+        && (name != CEPH_HELPER_NAME)
+#endif
+    )
         return std::make_shared<buffering::BufferAgent>(
             m_bufferLimits, helper, *m_scheduler);
 

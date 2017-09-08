@@ -94,10 +94,10 @@ sed -i.bak s/onedata.org/{domain}/g /root/bin/node/data/dns.config
         return extra_volumes
 
     def couchbase_ramsize(self):
-        return 1124
+        return 1024
 
     def couchbase_buckets(self):
-        return {"onedata": 1024, "location_service": 100}
+        return {"default": 512, "location_service": 100}
 
     def app_name(self):
         return "oz_worker"
