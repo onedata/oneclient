@@ -8,8 +8,7 @@ import platform
 import sys
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
-helpers_dir = os.path.join(script_dir, 'helpers')
-docker_dir = os.path.join(helpers_dir, 'bamboos', 'docker')
+docker_dir = os.path.join(script_dir, 'bamboos', 'docker')
 sys.path.insert(0, docker_dir)
 from environment import docker
 
@@ -64,9 +63,9 @@ if {shed_privileges}:
     os.setreuid({uid}, {uid})
 
 if {gdb}:
-    command = ['gdb', 'python', '-silent', '-statistics', '-ex', """run -c '
+    command = ['gdb', 'python', '-silent', '-ex', """run -c "
 import pytest
-pytest.main({args} + ["{test_dirs}"])'"""]
+pytest.main({args} + ['{test_dirs}'])" """]
 else:
     command = ['py.test'] + {args} + ['{test_dirs}']
 

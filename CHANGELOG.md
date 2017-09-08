@@ -1,433 +1,139 @@
-# Release notes for project oneclient
+# Release notes for project helpers
 
 
 CHANGELOG
 ---------
 
-### 17.06.0-rc2
-
-* Releasing new version 17.06.0-rc2
-
-
-### 17.06.0-rc1
-
-* VFS-3378 Enabled native GlusterFS support on OSX
-
-
-### 17.06.0-beta6
-
-* VFS-3412 Updated man pages
-* VFS-3412 Updated README
-* VFS-3365 Extend autocomplete and oneclient.config
-* VFS-3365 Add --force-proxy-io,--force-direct-io options
-* VFS-3365 Add no-buffer option
-* VFS-3365 Use debug level for fs subscription logs
-* VFS-3365 Fix buffer trim in read cache
-
-
-### 17.06.0-beta4
-
-* Releasing new version 17.06.0-beta4
-
-
-### 17.06.0-beta3
-
-* Releasing new version 17.06.0-beta3
-
-
-### 17.06.0-beta2
-
-* Releasing new version 17.06.0-beta2
-* Add support for GlusterFS
-
-### 3.0.0-rc16
-
-* VFS-3184 Fsync file on release.
-* VFS-3184 Extend oneclient fsync with flushing events and fsyncing files on provider side.
-* VFS-3184 Add flush of all event streams
-* VFS-3233 Add support for sig v2 to AWS S3 helper
-* Moved extended attribute messages from provider to fuse namespace
-* Added extended attributes support
-
-
-### 3.0.0-rc15
-
-* Disable storage helpers buffering
-* VFS-3233 Add support for sig v2 to AWS S3 helper
-* VFS-3159 Pinned Folly version to 2016.12.19.00_3 for OSX builds
-
-
-### 3.0.0-rc14
-
-* Change inodeCache from hashed index to ordered index, due to segfault during equal_range operation in rename.
-
-
-### 3.0.0-rc13
-
-* Releasing new version 3.0.0-rc13
-
-
-### 3.0.0-rc12
-
-* VFS-3065 Extend list of deprecated options
-* Ported S3 and Swift helpers to OSX
-* Disabled directIO detection on macOS
-* Ported oneclient to OSX
-* VFS-2585 Fix mounting path
-* VFS-2585 Refactor options
-* VFS-2910 Refactor storage detection
-* VFS-2900 Add package build deps
-* VFS-2876 Fix subscription remote time threshold
-* VFS-2620 Enable storage helper async ops timeout update
-* VFS-2852 enable log_dir option
-* VFS-2809 Refactor events
-* VFS-1959 Ensure file attr and location are cached on open.
-* VFS-1959 Remove getFileLocation
-* VFS-1959 Refactor handleId in separate message
-* Enable missing direct_io flag.
-* VFS-2934 Fix unprivileged unmount
-* VFS-2934 Turn on storage helper buffering
-* VFS-2937 Use storage helper sync read and write
-* VFS-2909 Adjust code to updated ceph lib
-* VFS-2876 filter O_CREAT flag in fuseFileHandle
-* VFS-2829 Remove file accessed event
-* VFS-1959 Add and handle OpenFile, CreateFile and MakeFile msgs
-* VFS-2742 Switch to lowlevel FUSE API and fibers.
-
-
-### 3.0.0-rc11
-
-* Releasing new version 3.0.0-rc11
-
-
-### 3.0.0-rc10
-
-* VFS-2400 Update to new ceph and aws libraries
-
-
-### 3.0.0-rc9
-
-* Releasing new version 3.0.0-rc9
-
-
-### 3.0.0-rc8
-
-* Releasing new version 3.0.0-rc8
-
-
-### 3.0.0-rc7
-
-* Releasing new version 3.0.0-rc7
-
-
-### 3.0.0-rc6
-
-* Fix storage detection in case of unsupported space
-
-
-### 3.0.0-rc5
-
-* VFS-2534 Use only time aggregation for update events
-* VFS-2497 Enable destruction of not-connected AsyncResponder.
-* VFS-2497 Do not lock mutex in WriteBuffer's destructor.
-* VFS-2497 Fix undefined behaviour after timeout in WriteBuffer.
-* VFS-2497 Ensure DIOHandler exists in async ops.
-* VFS-2497 Add AsyncResponder communication layer.
-* VFS-2497 Fix crash on WriteBuffer flush schedule.
-
-
-### 3.0.0-rc4
-
-* VFS-1956 Improve CephHelper's raw pointer handling.
-* VFS-1956 Protect connecting to Ceph with mutex.
-
-
-### 3.0.0-RC3
-
-* Fix deadlock in CacheExpirationHelper::tick().
-* VFS-2347 Fix a race condition on renaming a deleted file.
-* Releasing new version 3.0.0-RC2
-* VFS-2273 Handle handshake errors
-* Releasing new version 3.0.0-RC1
-* VFS-1963 Improve automatic storage discovery
-* VFS-2316 Integrate new etls version.
-* VFS-2250 Add base62 encoding and decoding to tokenHandler
-* VFS-2272 Give precendence to env AUTHORIZATION_TOKEN.
-* VFS-2270 Print out the hostname of client's provider.
-* VFS-2215 Remove the file immediately on unlink.
-
-
-### 3.0.0-RC2
-
-* minor changes and improvements
-
-
-### 3.0.0-RC1
-
-* VFS-1963 Improve automatic storage discovery
-* VFS-2316 Integrate new etls version.
-* VFS-2250 Add base62 encoding and decoding to tokenHandler
-* VFS-2272 Give precendence to env AUTHORIZATION_TOKEN.
-* VFS-2270 Print out the hostname of client's provider.
-* VFS-2085 Do not communicate with server in event handlers.
-* VFS-2215 Remove the file immediately on unlink.
-
-
-### 3.0.0-beta8
-
-* VFS-2197 Fail with proper error when sync has failed.
-
-
-### 3.0.0-beta7
-
-* VFS-2166 Generate 'Format 1.0' packages for trusty.
-* Fix wily package compilation to use GCC 5.
-* VFS-2173 Add flag to deleteFile message whether event should be emitted
-* VFS-2166 Change dependencies for centos 7 package.
-* VFS-1882 Postpone deletion of open files
-* VFS-2166 Change dependencies and fix tests for Trusty package.
-
-
-### 3.0.0-beta6
-
-* Update erlang tls
-* VFS-2038 Map file locations by flags
-* VFS-2018 Improve readability of keys rename in expiration handler
-* VFS-2018 Remove subscriptions for old UUID after rename
-* VFS-2018 Remove deadlock on overwriting file with mv
-* VFS-2018 Add entry renaming in expiration helper
-* VFS-2018 Do not pin entry if UUID does not change
-* VFS-1999 Make disabled spaces update thread-safe
-* VFS-1999 Quota implementation
-* VFS-2018 Remap files after rename response and event
-* VFS-2017 Flush on read when synchronization needed
-* VFS-1821 Enable flag_utime_omit_ok in fuse_operations.
-* VFS-2018 Add FileRenamed fuse response, modify FileRenamedEvent
-* VFS-2071 Adjust code to the new S3 helper
-
-
-### 3.0.0-beta5
-
-* Fix adding message size twice to the tpc message in connection layer during retry.
-* Filter out O_APPEND flag when opening file, add some logging.
-
-
-### 3.0.0-beta4
-
-* Filter out O_CREAT flag when opening file.
-* VFS-2057 Enable --no-check-certificate in docker.
-* Removing path from target file attrs after overwrite in rename
-* Fix getattr on alternative file path returning bad attrs.
-* VFS-1973 Name client's threads.
-* VFS-1991 Update auto install script names.
-* VFS-1975 Adding uuid to release message
-* VFS-1841 Clearing caches after rename
-* VFS-1887 Fix segmentation fault during release when file open has failed.
-* VFS-1887 Open file with correct mode.
-* VFS-1901 Improve README.
-
-
-### 3.0.0-beta3
-
-* VFS-1932 Use BufferAgent with StorageHelperFactory.
-* VFS-1747 Change unique_ptr to boost::optional, rename dataIsCorrupted function.
-* VFS-1853 Add "." nad ".." to readdir output
-* VFS-1853 Remove sticky bit for nfs compatibility
-* VFS-1853 Update shares configs
-* VFS-1952 Remove handle_id from location immediately after open
-* VFS-1747 Change checksum algorithm to md4.
-* VFS-1932 Move parameters to IStorageHelperCTX.
-* VFS-1747 Change hash function to sha2.
-* VFS-1747 Add checksum computation.
-* VFS-1747 Fix empty buffer during reread of synced data.
-* VFS-1857 Multi path file removal event handling
-* VFS-1763 Activate FUSE session in fsOperations' wrap.
-* VFS-1507 Replacing map by unordered_map
-* VFS-1857 Redefine metadate field path to set
-* VFS-1763 Check FUSE interrupted while waiting on condition.
-* VFS-1703 Move subscription to cache helper invocations
-* VFS-1703 Remove counter from remove file subscription
-* VFS-1703 fuse_hidden support for remote file deletion
-* VFS-1747 Reopen file if storage is out of sync.
-* VFS-1507 Disabling clearing handle id on release
-* VFS-1507 Change Close message to Release, send Release on file release
-* VFS-1507 Receiving file handle in open and create, using handles in read and write
-* VFS-1507 Add create callback
-* Initialize S3 bucket context.
-* Samba auto refresh
-* VFS-1802 Expire read cache.
-* VFS-1802 Implement read/write proxyio caches.
-* VFS-1802 Introduce BufferAgent for ProxyIOHelper.
-* VFS-1850 Configuration to enable special characters in filenames
-* VFS-1850 Map SMB bad user to guest
-
-
-### 3.0.0-beta1
-
-* Initialize S3 bucket context.
-* Samba auto refresh
-* VFS-1802 Expire read cache.
-* VFS-1802 Implement read/write proxyio caches.
-* VFS-1850 Configuration to enable special characters in filenames
-* VFS-1762 Add file location expiration helper.
-* VFS-1728 - increase file_sync_timeout
-* VFS-1660 Oneclient command wrapper
-* VFS-1702 Remove subscriptions counters and scheduler
-* VFS-1669 Allow concurrent read/write operations on a storage/file pair.
-* VFS-1660 Export oneclient mount folder though nfs
-* VFS-1660 Export mounted files through SMB
-
-
-### 3.0.0-alpha3
-
-* VFS-1531 Use CacheExpirationHelper in MetadataCache.
-* VFS-1659 Run oneclient release directly from Dockerfile.
-* VFS-1701 Read token from environment variable.
-* VFS-1706 Set default access type to PROXY
-* VFS-1706 Filter mount points
-* VFS-1531 Add CacheExpirationHelper class.
-
-
-### 3.0.0-alpha2
-
-* VFS-1657 Add system update to release dockers.
-* Remove gflags from package build requirements.
-* Adjustments for open function that takes flags as integer.
-* VFS-1522 Override block map on file_location update.
-
-
-### 3.0.0-alpha
-
-* VFS-1525 Move open file to fsLogic.
-* VFS-1525 Move open file to helpers.
-* VFS-1525 Flag values translation.
-* VFS-1505 Disable setting FileAttr size to default when not present
-* VFS-1505 Handling unset size in FileAttr
-* VFS-1522 Move condition_variable include to separate block.
-* VFS-1522 Keep locks and conditions internal for metadataCache.
-* VFS-1522 Add file_sync_timeout to options.
-* VFS-1522 Request synchronization when file block is not available.
-* VFS-1450 Deserialize PermissionChangedEvent in constructor.
-* VFS-1450 Add permission changed event test.
-* VFS-1450 Add invalidation of forceClusterProxy cache.
-* VFS-1371 Add SpaceID to GetHelperParams.
-* VFS-1371 Add --directio switch.
+### 2.0.1
+
+* VFS-1525 Refactor for loop
+* VFS-1525 Remove openFile method from helpers
+* VFS-1525 Make flag translation public for use in open.
+* VFS-1525 Update sh_open with FlagsSet
+* VFS-1525 Synchronous version of open and release methods
+
+
+### 2.0.0
+
+
+
+* VFS-1527 Add flags to mknod and open operations.
+* VFS-1450 Add permission_changed_event.
+* VFS-1472 Add Amazon S3 helper to storage helper factory.
+* VFS-1472 Add Amazon S3 storage helper with integration tests.
+* VFS-1450 Add fileUuid argument to read and write operations in IStorageHelper.
+* VFS-1450 Remove storage_id from get_helper_args message
+* VFS-1398 Change ProxyIORequest.space_id to ProxyIORequest.file_uuid.
+* VFS-1428 Ceph helper return 0 from open method. Enclose SUCCESS_CODE in anonymous namespace.
+* VFS-1428 Add auto-connect mechanism to Ceph storage helper. Pass -1 as default file handle in Direct IO storage helper.
+* VFS-1428 Add proxy helper context.
+* VFS-1428 Pass arguments from Ceph helper to Ceph helper context.
+* VFS-1428 Passing key content instead of keyring path in Ceph helper.
+* VFS-1428 Extend IStorageHelper interface.
+* VFS-1428 Add option that disables proxy IO helper build.
+* VFS-1428 Add abstract storage helper context layer.
+* VFS-1407 Change handshake response message behaviour.
+* VFS-1376 Change subscriptions processing on handshake. Add subscription container wrapper.
+* VFS-1411 Add Ceph storage helper.
+* VFS-1371 Add SpaceID to proxyio requests.
+* VFS-1363 Use CamelCase for class members' names
+* VFS-1363 Use auto type for user's context object
+* VFS-1371 Add SpaceId to GetHelperParams and FileLocation.
+* VFS-1371 Add space_id to ProxyIORequest.
+* VFS-1398 Add xattr messages.
+* VFS-1407 Getting subscriptions on handshake response.
+* VFS-1371 Add protocol messages for ProxyIO helper.
+* VFS-1371 Add ProxyIO helper.
+* VFS-1371 Add protocol messages for ProxyIO helper.
+* VFS-1371 Provide default implementations for IStorageHelper methods.
+* VFS-1371 Change ClientMessage::serialize to serializeAndDestroy.
+* VFS-1289 Add message that can carry multiple events of the same type.
+* VFS-1363 handle user context in DirectIO
+* VFS-1289 Change type of subscription ID from unsigned to signed integer.
+* VFS-1289 Add stream ID to stream reset message.
 * VFS-1289 New events multilayer architecture. Unit and integration tests extension.
-* VFS-1235 Implement truncate.
-* VFS-1235 Implement write operation.
-* VFS-1235 Implement read.
-* VFS-1235 Implement read.
-* VFS-1235 Implement mknod.
-* VFS-1235 Introduce cache classes.
-* VFS-1153 Set file type in getattr.
+* VFS-1235 Change protocol to support file operations.
+* VFS-1222 update StorageHelperCTX
+* VFS-1222 change promises to callbacks
+* VFS-1153 Fix handshake logic.
+* VFS-1153 Add Rename and ChangeMode messages.
+* VFS-1160 Wait for handshake message before replying.
 * VFS-1153 Catch constructor exceptions in communication translator.
-* VFS-1153 Implement getattr.
 * VFS-1153 Add new FUSE messages domain objects.
+* VFS-1147 Add name to FileAttr message.
+* VFS-1147 Change FileChildren message format.
+* VFS-1147 Add UUID to file attr.
+* VFS-1147 Using parent UUID for directory creation.
 * Fix oneclient compilation on OS X.
-* VFS-1142 Improve deb packaging. Add rpm packaging.
-* VFS-1040 Add events integration tests skeleton.
+* VFS-1147 Add communication protocol between FUSE client and the server.
+* VFS-1111 Implement BinaryTranslator layer unit tests.
+* VFS-1111 Implement Inbox layer unit tests.
+* VFS-1111 Implement Replier layer unit tests.
+* VFS-1111 Implement Translator layer tests.
 * VFS-1110 Propagate errors on first connection in client.
-* VFS-1072 Add unit tests for events.
+* VFS-1072 Move some messages back to the client.
 * VFS-1072 More asynchronous events.
-* VFS-1072 Add handlers for server messages concerning events.
-* VFS-961 add file uuid to events
-* VFS-952 implement AttrUnsubscribe notification
-* Added lock in eventAggregator.
-* Added support to aggregating events by path.
-* VFS-936 handle asyn attrs update
-* VFS-931 Clearing client file block mapping.
-* VFS-932 Add block info aggregation.
-* VFS-932 Add block info to event message.
+* VFS-1093 Implement a future wrapper for communication layer.
+* VFS-1093 Implement asio::io_service based Executor.
+* switch to async blocking I/O
+* implement async DirectIO
+* VFS-1034 Add stream messages.
+* VFS-1034 Add end of stream message.
+* VFS-1034 Add get protocol version message.
+* VFS-1034 Add protocol version message.
+* VFS-1034 Add status message.
+* VFS-1016 Add new communication stack to oneclient.
+* VFS-1016 Add accessor to returned SessionId.
+* VFS-1034 Set token as optional in handshake request message.
+* VFS-1034 Add constructor to handshake request message.
+* VFS-1016 Translate handshake message and response.
+* VFS-1034 Add ping and pong messages.
+* VFS-1034 Add handshake response message.
+* VFS-1034 Add handshake request message.
+* VFS-1016 Rewrite CommunicationHandler for new protocol.
+* VFS-1035 Introduce integration test framework for C++ code.
+* VFS-997 Extend protocol messages.
+* VFS-967 Add daemonize-related methods for Scheduler.
+* GetFileBlockMap change uuid to logical name
+* GetFileBlockMap and FileBlockMap messages
+* VFS-931 Update BlocksAvailable message.
+* VFS-931 Add UpdateFileBlockMap message.
+* VFS-932 Change event message.
+* VFS-818 Add alias support.
+* VFS-888 Change identification fields of RequestFileBlock.
+* VFS-888 Add block-related messages and message fields.
+* Add Scheduler overloads accepting shared_ptrs.
+* Add templated overloads for non-owning scheduling on objects.
+* Change Scheduler back so that it can be mocked.
+* Allow to post tasks to Scheduler for immediate execution.
+* Allow Scheduler to work with any kind of duration.
+* Return a function cancelling the task in Scheduler.
+* VFS-837 Change from 'veil' to 'onedata'.
+* VFS-679 Read connections on recreating communicator.
+* children count messages
+* VFS-679 Manually set CFLAGS for Glog build.
+* new acl messages
+* VFS-679 Use Scheduler to delayed-close connections.
+* VFS-679 Move Scheduler class from client to helpers.
+* VFS-679 Return additional headers by value.
+* VFS-679 Allow for connection recreation and read websocket HTTP headers from a function.
+* VFS-828 Allow to set HTTP headers for websocket connection.
+* VFS-829: add DirEntry to protocol
 
 
 
-### 2.9.0
-
-* VFS-1255 Add golang, sodium to package dependencies.
-* VFS-1235 Do not call helper's mknod on mknod.
-* VFS-1235 Implement PushListener.
-* VFS-1235 Add a local fileblock after writing behind the file.
-* VFS-1223 Chmod the token file.
-* VFS-1235 Implement big directory test.
-* VFS-1235 Implement truncate.
-* VFS-1235 Test write operation.
-* VFS-1235 Implement write operation.
-* VFS-1235 Implement read.
-* VFS-1235 Implement mknod.
-* VFS-1235 Introduce cache classes.
-* VFS-1223 Streamline I/O in TokenHandler.
-* VFS-1223 Add a refreshing macaroons capability.
-* VFS-1223 Implement first version of macaroon auth.
-* VFS-1223 Add libmacaroons, libmacaroons-cpp and libsodium deps.
-* VFS-1153 Make getAttr exception safe.
-* VFS-1160 Enable -Wshadow.
-* VFS-1153 Set file type in getattr.
-* VFS-1153 Catch constructor exceptions in communication translator.
-* VFS-997 Make events emit themselves.
-* VFS-997 Templating event stream only with event type.
-
-
-### 2.5.12
-
-* VFS-1281 Security 3.7 - reenable checking certs by default.
-* VFS-1281 Security 3.23 - disable SSLv3 access to provider endpoints.
-* VFS-1281 Security 3.19 - set token file access rights.
-
-
-### 2.5.11
-
-* Send pending events on file close.
-* Clear location cache and update attribute cache during rename operation. Do not clear attribute cache on chmod and chown operations.
-
-
-### 2.5.10
-
-* VFS-1263 Handle disabling write to all spaces.
-* VFS-1263 Implement per-space quota.
-
-
-### 2.5.9
-
-* Create new files through the cluster.
-* Always unlink files through cluster.
-* cleaning location cache
-* Add prefetching.
-* VFS-1080 Set default retry number for network communication.
-* VFS-1074 Connect to a random resolved address.
-* VFS-1084 Allow user to use created file through directio.
-* enable no-check-certificate
-* VFS-976 Reschedule location renews instead of scheduling new.
-* VFS-974 Assume written block is immediately available to read.
-* VFS-974 Try to read all blocks marked as available.
-* VFS-976 Use std::string instead of c-strings in FsImpl.
-* Don't wait for event ack from cluster.
-* VFS-958 Change scheduling. Events have circular shared_ptr dependencies.
-* VFS-958 Perform events operations in a strand, number messages.
-
-
-
-### 1.6
+### 1.6.0
 
 * RPATH fixed
-* Invalid use of location cache fixed
 
 
 
-### 1.5
-
-* Using default settings, oneclient will not connect to oneprovider that uses untrusted certificate.
+### 1.0.0
 
 
+* provide storage helper for direct operations on storage systems mounted locally (e.g. Lustre, GPFS).
+* provide storage helper for remote operations on data (provider works as proxy).
 
-### 1.0
-
-
-* provide file system API.
-* produce basic notifications for monitoring purpose.
-* oneclient may be distributed using RPM, DEP packages or singe binary file.
-* support user authentication using certificates.
-* oneclient may be configured using appropriate config files. All options may be configured by administrators, only chosen options may be changed by users.
-* oneclient may be reconfigured by provider using callbacks.
 
 ________
 

@@ -1,56 +1,43 @@
-# distro for package building (oneof: wily, fedora-23-x86_64)
-DISTRIBUTION        ?= none
-DOCKER_RELEASE      ?= development
-DOCKER_REG_NAME     ?= "docker.onedata.org"
-DOCKER_REG_USER     ?= ""
-DOCKER_REG_PASSWORD ?= ""
+.PHONY: all
+all: test
 
-PKG_REVISION    ?= $(shell git describe --tags --always)
-PKG_VERSION     ?= $(shell git describe --tags --always | tr - .)
-PKG_BUILD       ?= 1
-PKG_ID           = oneclient-$(PKG_VERSION)
+INSTALL_PREFIX ?= ${HOME}/.local/helpers
+BUILD_PROXY_IO ?= ON
+WITH_COVERAGE  ?= OFF
 
 # Build with Ceph storge helper by default
-WITH_CEPH         ?= ON
+WITH_CEPH    		?= ON
 # Build with Swift storage helper by default
-WITH_SWIFT        ?= ON
+WITH_SWIFT   		?= ON
 # Build with S3 storage helper by default
-WITH_S3           ?= ON
+WITH_S3      		?= ON
 # Build with GlusterFS storage helper by default
-WITH_GLUSTERFS    ?= ON
+WITH_GLUSTERFS		?= ON
 
-.PHONY: all
-all: debug test
 
-.PRECIOUS: %/CMakeCache.txt
-%/CMakeCache.txt: **/CMakeLists.txt test/integration/* test/integration/**/* \
-                  helpers/test/integration/* helpers/test/integration/**
+%/CMakeCache.txt: **/CMakeLists.txt test/integration/* test/integration/**/*
 	mkdir -p $*
 	cd $* && cmake -GNinja -DCMAKE_BUILD_TYPE=$* \
-	                       -DGIT_VERSION=${PKG_REVISION} \
 	                       -DCODE_COVERAGE=${WITH_COVERAGE} \
+	                       -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
+	                       -DBUILD_PROXY_IO=${BUILD_PROXY_IO} \
 	                       -DWITH_CEPH=${WITH_CEPH} \
 	                       -DWITH_SWIFT=${WITH_SWIFT} \
 	                       -DWITH_S3=${WITH_S3} \
-	                       -DWITH_OPENSSL=${WITH_OPENSSL} \
+	                       -DWITH_GLUSTERFS=${WITH_GLUSTERFS} \
 	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
 	                       -DOPENSSL_LIBRARIES=${OPENSSL_LIBRARIES} ..
 	touch $@
 
-.PHONY: phony
-phony:
-
-%/oneclient: %/CMakeCache.txt phony
-	cmake --build $* --target oneclient
-
-.PHONY: deb-info
-deb-info: relwithdebinfo/oneclient
-
 .PHONY: release
-release: release/oneclient
+release: release/CMakeCache.txt
+	cmake --build release --target helpersStatic
+	cmake --build release --target helpersShared
 
 .PHONY: debug
-debug: debug/oneclient
+debug: debug/CMakeCache.txt
+	cmake --build debug --target helpersStatic
+	cmake --build debug --target helpersShared
 
 .PHONY: test
 test: debug
@@ -64,84 +51,21 @@ cunit: debug
 
 .PHONY: install
 install: release
-	ninja -C release install
-
-.PHONY: docs
-docs:
-	@doxygen Doxyfile
+	cmake --build release --target install
 
 .PHONY: coverage
 coverage:
-	lcov --directory `pwd`/debug --capture --output-file `pwd`/oneclient.info
-	lcov --remove `pwd`/oneclient.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
-	                                   'relwithdebinfo/*' 'debug/*' 'release/*' \
-	                                   '**/helpers/*' 'deps/*' \
-	     --output-file `pwd`/oneclient.info.cleaned
-	genhtml -o `pwd`/coverage `pwd`/oneclient.info.cleaned
-	@echo "Coverage written to `pwd`/coverage/index.html"
-
-.PHONY: check_distribution
-check_distribution:
-ifeq ($(DISTRIBUTION), none)
-	@echo "Please provide package distribution. Oneof: 'trusty', 'wily', 'xenial', 'centos-7-x86_64', 'fedora-23-x86_64'"
-	@exit 1
-else
-	@echo "Building package for distribution $(DISTRIBUTION)"
-endif
-
-package/$(PKG_ID).tar.gz:
-	mkdir -p package
-	rm -rf package/$(PKG_ID)
-	git archive --format=tar --prefix=$(PKG_ID)/ $(PKG_REVISION) | (cd package && tar -xf -)
-	find package/$(PKG_ID) -depth -name ".git" -exec rm -rf {} \;
-	echo "set(GIT_VERSION ${PKG_REVISION})" > package/$(PKG_ID)/version.txt
-	tar -C package -czf package/$(PKG_ID).tar.gz $(PKG_ID)
-
-.PHONY: deb
-deb: check_distribution package/$(PKG_ID).tar.gz
-	rm -rf package/packages && mkdir -p package/packages
-	mv -f package/$(PKG_ID).tar.gz package/oneclient_$(PKG_VERSION).orig.tar.gz
-
-	cp -R pkg_config/debian package/$(PKG_ID)/
-	patch -d package/$(PKG_ID)/ -p1 -i pkg_config/$(DISTRIBUTION).patch
-	sed -i "s/{{version}}/$(PKG_VERSION)/g" package/$(PKG_ID)/debian/changelog
-	sed -i "s/{{build}}/$(PKG_BUILD)/g" package/$(PKG_ID)/debian/changelog
-	sed -i "s/{{distribution}}/$(DISTRIBUTION)/g" package/$(PKG_ID)/debian/changelog
-	sed -i "s/{{date}}/`date -R`/g" package/$(PKG_ID)/debian/changelog
-
-	cd package/$(PKG_ID) && sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j4"
-	mv package/*$(PKG_VERSION).orig.tar.gz package/packages/
-	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.deb package/packages/
-	mv package/*$(PKG_VERSION)-$(PKG_BUILD).dsc package/packages/
-	mv package/*$(PKG_VERSION)-$(PKG_BUILD)_amd64.changes package/packages/
-	-mv package/*$(PKG_VERSION)-$(PKG_BUILD).debian.tar.xz package/packages/
-	-mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.ddeb package/packages/
-	-mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.diff.gz package/packages/
-
-.PHONY: rpm
-rpm: check_distribution package/$(PKG_ID).tar.gz
-	rm -rf package/packages && mkdir -p package/packages
-	mv -f package/$(PKG_ID).tar.gz package/$(PKG_ID).orig.tar.gz
-
-	cp pkg_config/oneclient.spec package/oneclient.spec
-	patch -d package/ -p1 -i $(PKG_ID)/pkg_config/$(DISTRIBUTION).patch
-	sed -i "s/{{version}}/$(PKG_VERSION)/g" package/oneclient.spec
-	sed -i "s/{{build}}/$(PKG_BUILD)/g" package/oneclient.spec
-
-	mock --root $(DISTRIBUTION) --buildsrpm --spec package/oneclient.spec --resultdir=package/packages \
-		--sources package/$(PKG_ID).orig.tar.gz
-	mock --root $(DISTRIBUTION) --resultdir=package/packages --rebuild package/packages/$(PKG_ID)*.src.rpm
-
-.PHONY: docker
-docker:
-	./docker_build.py --repository $(DOCKER_REG_NAME) --user $(DOCKER_REG_USER) \
-                          --password $(DOCKER_REG_PASSWORD) --build-arg RELEASE=$(DOCKER_RELEASE) \
-                          --build-arg VERSION=$(PKG_VERSION) --name oneclient \
-                          --publish --remove docker
+	lcov --directory `pwd`/debug --capture --output-file `pwd`/helpers.info
+	lcov --remove `pwd`/helpers.info 'test/*' '/usr/*' 'asio/*' '**/messages/*' \
+	                           'relwithdebinfo/*' 'debug/*' 'release/*' \
+	                           'erlang-tls/*' \
+														 --output-file `pwd`/helpers.info.cleaned
+	genhtml -o `pwd`/coverage `pwd`/helpers.info.cleaned
+	echo "Coverage written to `pwd`/coverage/index.html"
 
 .PHONY: clean
 clean:
-	rm -rf debug release relwithdebinfo doc package
+	rm -rf debug release
 
 .PHONY: clang-format
 clang-format:

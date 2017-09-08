@@ -1,236 +1,94 @@
-# oneclient
+helpers
+=======
 
-[![Build Status](https://api.travis-ci.org/onedata/oneclient.svg?branch=develop)](https://travis-ci.org/onedata/oneclient)
+[![Build Status](https://api.travis-ci.org/onedata/helpers.svg?branch=develop)](https://travis-ci.org/onedata/helpers)
 
-*oneclient* is a command line [Onedata](onedata.org) client. It provides a POSIX
-interface to user's files in *onedata* system.
+*helpers* is a part of *onedata* system that unifies access to files stored at heterogeneous data storage systems that belong
+to geographically distributed organizations.
 
-# User Guide
+Goals
+-----
 
-## Building
+The goal of *helpers* is provision of a "storage helpers" - libraries allowing access to all supported by *onedata*
+(self-scalable cluster that will is a central point of each data centre that uses *onedata*) filesystems.
 
-### Dependencies
+Getting Started
+---------------
+*helpers* is built with CMake. More information about compiling the project in "Compilation" section.
 
-An up-to-date list of *oneclient* build dependencies for Ubuntu and Fedora is
-available in [control](pkg_config/debian/control) and
-[oneclient.spec](pkg_config/oneclient.spec) files respectively.
+Prerequisites
+-------------
 
-## Compilation
+In order to compile the project, you need to have fallowing additional libraries, its headers and all its prerequisites
+in include/ld path:
 
-When compiling from GitHub, an environment variable ONEDATA_GIT_URL must be
-exported to fetch dependencies from public repositories, i.e.:
+* libfuse (only headers needed)
+* libboost
+* libprotobuf
+* libtbb
+* folly
+* librados (when compiling with Ceph support)
+* aws-sdk-cpp-s3 (when compiling with S3 support)
+* Swift_CPP_SDK (when compiling with Swift support)
+* OpenSSL (when compiling with OpenSSL instead of BoringSSL)
 
-```bash
-export ONEDATA_GIT_URL=https://github.com/onedata
-git clone https://github.com/onedata/oneclient.git
-cd oneclient
-make release # or debug
-```
+Also you need cmake 2.8+. Use this command to install the required dependency packages:
 
-*oneclient* by default compiles with built-in support for Ceph, S3 and Swift.
-These drivers can be disabled during compilation by providing the following
-flags:
+* Debian/Ubuntu Dependencies (.deb packages):
 
-* WITH_CEPH=OFF - disables Ceph support
-* WITH_S3=OFF - disables S3 support
-* WITH_SWIFT=OFF - disables Swift support
-* WITH_GLUSTERFS=OFF - disables GlusterFS support
+        apt-get install libfuse-dev libboost-dev libprotobuf-dev
 
-The compiled binary `oneclient` will be created on path `release/oneclient` (or
-`debug/oneclient`).
+* RHEL/CentOS/Fedora Dependencies (.rpm packages):
 
-## Installation
+        yum install fuse-libs fuse-devel cmake28 boost-devel boost-static subversion protobuf-devel
 
-### Linux
-Oneclient is supported on several major Linux platforms including Ubuntu and
-Fedora. To install *oneclient* using packages simply use the following command:
+Compilation
+-----------
 
-```bash
-curl -sS  http://get.onedata.org/oneclient.sh | bash
-```
+If 'PREFER_STATIC_LINK' env variable is set during compilation, shared library - libhelpers.so/dylib
+will be linked statically against protobuf, boost_ and openssl (if it's possible).
 
-### macOS
-An experimental version of *oneclient* is available for macOS (Sierra or higher),
-and can be installed using Homebrew:
+In order to build with only selected helpers the following variables should
+be added to the make command line:
 
-```bash
-# OSXFuse must be installed separately, at least version 3.5.4
-brew cask install osxfuse
-brew tap onedata/onedata
-brew install oneclient
-```
+* WITH_CEPH=OFF - disables Ceph helper
+* WITH_S3=OFF - disables S3 helper
+* WITH_SWIFT=OFF - disables Swift helper
+* WITH_GLUSTERFS=OFF - disables GlusterFS helper
 
-In order to enable Desktop icon for the mounted Onedata volume, it is necessary
-to enable this feature in the system settings:
+In order to build the helpers using other Git repository than default, environment
+variable ONEDATA_GIT_URL must be exported before calling `make`, e.g.:
 
-```bash
-defaults write com.apple.finder ShowMountedServersOnDesktop 1
-```
+    export ONEDATA_GIT_URL=https://github.com/onedata
 
-## Usage
+#### Build Release binaries
 
-`oneclient` can be called directly from command line to mount Onedata virtual filesystem
-on the machine. For most cases basic usage should be sufficient:
+    make -s release
 
-```
-oneclient -t <ACCESS_TOKEN> -H <PROVIDER_IP> <MOUNT_PATH>
-```
+#### Build Debug binaries
 
-When connecting to a Oneprovider instance without a valid trusted SSL certificate, `-i` 
-option must be added.
+    make -s debug
 
-### Direct IO and Proxy IO modes
-By default `oneclient` will automatically try to detect if it can access storage supporting
-mounted spaces directly, which significantly improves IO performance as all read and write
-operations go directly to the storage and not via the Oneprovider service.
+after this step you should have your libhelpers.a and libhelpers.so/dylib in "release" or "debug" subdirectory.
 
-This feature can be controlled using 2 command line options:
-  
-  * `--force-proxy-io` - disables Direct IO mode, all data transfers will go via Oneprovider service
-  * `--force-direct-io` - forces Direct IO mode, if it is not available for any of mounted spaces, `oneclient` will fail to mount
+#### Building on OSX
 
-### Buffering
-`oneclient` employs an in-memory buffer for input and output data blocks, which can significantly
-improve performance for various types of storages, in particular object based storages such as S3.
+In order to build `helpers` on OSX all dependecies must be installed using
+Homebrew (see [Travis build specification](.travis.yml)). Currently helper for
+Ceph is not supported on OSX, furthermore NSS library is by default linked to a 
+special folder on OSX, thus `make` has to called with the following
+paremeters':
 
-If for some reason this local cache is undesired, it can be disabled using `--no-buffer` option.
+    PKG_CONFIG_PATH=/usr/local/opt/nss/lib/pkgconfig make release WITH_CEPH=OFF OPENSSL_ROOT_DIR=/usr/local/opt/openssl OPENSSL_LIBRARIES=/usr/local/opt/openssl/lib
 
-### Other options
+#### Testing
 
-The list of all options can be accessed using: 
+There are two testing targets:
 
-```
-$ oneclient -h
-Usage: oneclient [options] mountpoint
+    make -s test
 
-A Onedata command line client.
+which has summarized output (per test case) and:
 
-General options:
-  -h [ --help ]                         Show this help and exit.
-  -V [ --version ]                      Show current Oneclient version and
-                                        exit.
-  -u [ --unmount ]                      Unmount Oneclient and exit.
-  -c [ --config ] <path> (=/etc/oneclient.conf)
-                                        Specify path to config file.
-  -H [ --host ] <host>                  Specify the hostname of the Oneprovider
-                                        instance to which the Oneclient should
-                                        connect.
-  -P [ --port ] <port> (=5555)          Specify the port to which the Oneclient
-                                        should connect on the Oneprovider.
-  -i [ --insecure ]                     Disable verification of server
-                                        certificate, allows to connect to
-                                        servers without valid certificate.
-  -t [ --token ] <token>                Specify Onedata access token for
-                                        authentication and authorization.
-  -l [ --log-dir ] <path> (=/tmp/oneclient/0)
-                                        Specify custom path for Oneclient logs.
+    make -s cunit
 
-Advanced options:
-  --force-proxy-io                      Force proxied access to storage via
-                                        Oneprovider for all spaces.
-  --force-direct-io                     Force direct access to storage for all
-                                        spaces.
-  --buffer-scheduler-thread-count <threads> (=1)
-                                        Specify number of parallel buffer
-                                        scheduler threads.
-  --communicator-thread-count <threads> (=3)
-                                        Specify number of parallel communicator
-                                        threads.
-  --scheduler-thread-count <threads> (=1)
-                                        Specify number of parallel scheduler
-                                        threads.
-  --storage-helper-thread-count <threads> (=10)
-                                        Specify number of parallel storage
-                                        helper threads.
-  --no-buffer                           Disable in-memory cache for
-                                        input/output data blocks.
-  --read-buffer-min-size <size> (=5242880)
-                                        Specify minimum size in bytes of
-                                        in-memory cache for input data blocks.
-  --read-buffer-max-size <size> (=10485760)
-                                        Specify maximum size in bytes of
-                                        in-memory cache for input data blocks.
-  --read-buffer-prefetch-duration <duration> (=1)
-                                        Specify read ahead period in seconds of
-                                        in-memory cache for input data blocks.
-  --write-buffer-min-size <size> (=20971520)
-                                        Specify minimum size in bytes of
-                                        in-memory cache for output data blocks.
-  --write-buffer-max-size <size> (=52428800)
-                                        Specify maximum size in bytes of
-                                        in-memory cache for output data blocks.
-  --write-buffer-flush-delay <delay> (=5)
-                                        Specify idle period in seconds before
-                                        flush of in-memory cache for output
-                                        data blocks.
-                                        
-FUSE options:
-  -f [ --foreground ]         Foreground operation.
-  -d [ --debug ]              Enable debug mode (implies -f).
-  -s [ --single-thread ]      Single-threaded operation.
-  -o [ --opt ] <mount_option> Pass mount arguments directly to FUSE.
-```
-
-### Configuration
-
-Besides commandline configuration options, oneclient reads options from a global
-configuration file located at `/usr/local/etc/oneclient.conf`
-(`/etc/oneclient.conf` when installed from the package). Refer to the
-[example configuration file](config/oneclient.conf) for details on the options.
-
-#### Environment variables
-
-Some options in the config file can be overridden using environment variables,
-whose names are capitalized version of the config options. For the up-to-date
-list of supported environment variables please refer to *oneclient*
-[manpage](man/oneclient.1).
-
-## Running oneclient docker image
-
-Running dockerized *oneclient* is easy:
-
-```
-docker run -it --privileged onedata/oneclient:17.06.0-beta5
-```
-
-### Persisting the token
-
-The application will ask for a token and run in the foreground. In order for
-*oneclient* to remember your token, mount volume `/root/.local/share/oneclient`:
-
-```
-docker run -it --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:17.06.0-beta5
-```
-
-You can also pass your token in `ONECLIENT_ACCESS_TOKEN` environment variable:
-
-```
-docker run -it --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:17.06.0-beta5
-```
-
-If *oneclient* knows the token (either by reading its config file or by reading
-the environment variable), it can be run as a daemon container:
-
-```
-docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:17.06.0-beta5
-```
-
-### Accessing your data
-
-*oneclient* exposes NFS and SMB services for easy outside access to your mounted
-spaces.
-
-```
-docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:17.06.0-beta5
-
-# Display container's IP address
-docker inspect --format "{{ .NetworkSettings.IPAddress }}" $(docker ps -ql)
-```
-
-Now you can mount using *NFS* or *Samba* with:
-
-```
-nfs://<CONTAINER_IP_ADDR>/mnt/oneclient
-smb://<CONTAINER_IP_ADDR>/onedata
-```
-
+which shows detailed test results.

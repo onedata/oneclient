@@ -1,8 +1,7 @@
 /**
  * @file testRunner.cc
- * @author Rafal Slota
  * @author Konrad Zemek
- * @copyright (C) 2013-2014 ACK CYFRONET AGH
+ * @copyright (C) 2014 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
@@ -11,7 +10,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-int main(int argc, char **argv)
+int main(int argc, char *argv[])
 {
     ::testing::InitGoogleTest(&argc, argv);
     ::testing::InitGoogleMock(&argc, argv);

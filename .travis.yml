@@ -50,11 +50,11 @@ before_install:
 
 script:
   - >
-    make release WITH_CEPH=OFF
-                 WITH_S3=ON
-                 WITH_SWIFT=ON
-                 WITH_GLUSTERFS=ON
-                 OPENSSL_ROOT_DIR=/usr/local/opt/openssl
-                 OPENSSL_LIBRARIES=/usr/local/opt/openssl/lib
+    make cunit test WITH_CEPH=OFF
+                    WITH_S3=ON
+                    WITH_SWIFT=ON
+                    WITH_GLUSTERFS=ON
+                    OPENSSL_ROOT_DIR=/usr/local/opt/openssl
+                    OPENSSL_LIBRARIES=/usr/local/opt/openssl/lib
 
 after_script: set +e

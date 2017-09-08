@@ -1,13 +1,6 @@
+src/proto
 /release
 /debug
-/relwithdebinfo
-/package
-docker-build-list.json
-docker-build-report.txt
-/coverage
-integration-tests-results.xml
-oneclient.info
-oneclient.info.cleaned
 
 # Compiled Object files
 *.slo
@@ -31,9 +24,13 @@ oneclient.info.cleaned
 *.out
 *.app
 
+# Compiled Python files
+*.pyc
+
 # CMake
 CMakeCache.txt
 CMakeFiles
+Makefile
 cmake_install.cmake
 install_manifest.txt
 
