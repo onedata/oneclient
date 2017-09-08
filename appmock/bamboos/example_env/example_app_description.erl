@@ -95,6 +95,6 @@ tcp_server_mocks() -> [
         % counter - the endpoint will ignore the content of incoming requests and only count them.
         %    This mode is as fast as it gets.
         % NOTE: in history mode, it is also possible to check the count of all received requests.
-        type = history
+        type = counter
     }
 ].
