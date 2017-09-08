@@ -20,6 +20,8 @@ def _node_up(image, bin_oz, config, name, uid, logdir=None):
     rel_dir = os.path.join(bin_oz, config['dirs_config']['oz_worker']['input_dir'])
     volumes = [(rel_dir, '/root/bin', 'ro')]
     if logdir:
+        logdir = os.path.join(os.path.abspath(logdir), hostname)
+        os.makedirs(logdir)
         volumes.extend([(logdir, container_logs_root, 'rw')])
 
     cmd = '''mkdir {container_logs_root}/{hostname} && \

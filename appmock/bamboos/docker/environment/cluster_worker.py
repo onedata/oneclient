@@ -40,7 +40,7 @@ class ClusterWorkerConfigurator:
         return 1024
 
     def couchbase_buckets(self):
-        return {"default": 512}
+        return {"onedata": 512}
 
     def app_name(self):
         return "cluster_worker"

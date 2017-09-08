@@ -58,6 +58,13 @@ parser.add_argument(
     dest='mount_cache')
 
 parser.add_argument(
+    '--cache-prefix',
+    action='store',
+    default="/var/cache",
+    help='Specify the cache prefix on host system (default: /var/cache)',
+    dest='cache_prefix')
+
+parser.add_argument(
     '-k', '--keys',
     action='store',
     default=default_keys_location(),
@@ -174,10 +181,6 @@ command = command.format(
 # Mount docker socket so dockers can start dockers
 reflect = [(args.src, 'rw'), ('/var/run/docker.sock', 'rw')]
 reflect.extend(zip(args.reflect, ['rw'] * len(args.reflect)))
-if args.mount_cache:
-    reflect.extend([
-        ('/var/cache/ccache', 'rw'), ('/var/cache/rebar3', 'rw')
-    ])
 
 # Mount keys required for git and docker config that holds auth to
 # docker.onedata.org, so the docker can pull images from there.
@@ -186,12 +189,15 @@ if args.mount_cache:
 volumes = [
     (args.keys, '/tmp/keys', 'ro')
 ]
+
+if args.mount_cache:
+    volumes.extend([
+        ("%s/ccache"%(args.cache_prefix), '/var/cache/ccache', 'rw'),
+        ("%s/rebar3"%(args.cache_prefix), '/var/cache/rebar3', 'rw')
+    ])
+
 if os.path.isdir(expanduser('~/.docker')):
     volumes += [(expanduser('~/.docker'), '/tmp/docker_config', 'ro')]
-
-# @TODO MUSIMY WPYCHAC DOCKERY Z GUI DO OFICJALNEGO REPO ZEBY LUDZIE MOGLI BUDOWAC,
-# JAK NIE TO FALLBACK DO DOCKER.ONEDATA.ORG
-# NIE WOLNO PRZEPUSCIC BEZ TEGO PRZEZ REVIEW!!!!
 
 split_envs = [e.split('=') for e in args.envs]
 envs = {kv[0]: kv[1] for kv in split_envs}

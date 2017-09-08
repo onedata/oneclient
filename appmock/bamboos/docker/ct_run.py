@@ -15,8 +15,8 @@ Run the script with -h flag to learn about script's running options.
 
 from __future__ import print_function
 
+from os.path import expanduser
 import argparse
-import glob
 import json
 import os
 import platform
@@ -29,6 +29,7 @@ import xml.etree.ElementTree as ElementTree
 
 sys.path.insert(0, 'bamboos/docker')
 from environment import docker
+from environment.common import HOST_STORAGE_PATH
 
 
 def skipped_test_exists(junit_report_path):
@@ -142,6 +143,8 @@ ct_command = ['ct_run',
               '-dir', '.',
               '-logdir', './logs/',
               '-ct_hooks', 'cth_surefire', '[{path, "surefire.xml"}]',
+              'and', 'cth_logger', 'and', 'cth_env_up', 'and', 'cth_mock',
+              'and', 'cth_posthook',
               '-noshell',
               '-name', 'testmaster@testmaster.{0}.dev.docker'.format(uid),
               '-include', '../include', '../_build/default/lib']
@@ -150,7 +153,8 @@ code_paths = ['-pa']
 if incl_dirs:
     code_paths.extend([os.path.join(script_dir, item[:-1])
                        for item in incl_dirs])
-code_paths.extend(glob.glob(os.path.join(script_dir, '_build/default/lib', '*', 'ebin')))
+code_paths.extend(
+    glob.glob(os.path.join(script_dir, '_build/default/lib', '*', 'ebin')))
 ct_command.extend(code_paths)
 
 if args.suites:
@@ -184,64 +188,100 @@ elif args.cover:
                 for provider in data['provider_domains']:
                     if 'op_worker' in data['provider_domains'][provider]:
                         configs_to_change.append(
-                            ('op_worker', data['provider_domains'][provider]['op_worker'].values())
+                            ('op_worker', data['provider_domains'][provider][
+                                'op_worker'].values())
                         )
                     if 'cluster_manager' in data['provider_domains'][provider]:
                         configs_to_change.append(
-                            ('cluster_manager', data['provider_domains'][provider]['cluster_manager'].values())
+                            ('cluster_manager',
+                             data['provider_domains'][provider][
+                                 'cluster_manager'].values())
                         )
 
             if 'cluster_domains' in data:
                 for cluster in data['cluster_domains']:
                     if 'cluster_worker' in data['cluster_domains'][cluster]:
                         configs_to_change.append(
-                            ('cluster_worker', data['cluster_domains'][cluster]['cluster_worker'].values())
+                            ('cluster_worker', data['cluster_domains'][cluster][
+                                'cluster_worker'].values())
                         )
                     if 'cluster_manager' in data['cluster_domains'][cluster]:
                         configs_to_change.append(
-                            ('cluster_manager', data['cluster_domains'][cluster]['cluster_manager'].values())
+                            ('cluster_manager',
+                             data['cluster_domains'][cluster][
+                                 'cluster_manager'].values())
                         )
 
             if 'zone_domains' in data:
                 for zone in data['zone_domains']:
                     configs_to_change.append(
-                        ('oz_worker', data['zone_domains'][zone]['oz_worker'].values())
+                        ('oz_worker',
+                         data['zone_domains'][zone]['oz_worker'].values())
                     )
                     configs_to_change.append(
-                        ('oz_worker', data['zone_domains'][zone]['cluster_manager'].values())
+                        ('oz_worker',
+                         data['zone_domains'][zone]['cluster_manager'].values())
                     )
 
             if 'onepanel_domains' in data:
                 for onepanel in data['onepanel_domains']:
                     configs_to_change.append(
-                        ('onepanel', data['onepanel_domains'][onepanel]['onepanel'].values())
+                        ('onepanel', data['onepanel_domains'][onepanel][
+                            'onepanel'].values())
                     )
 
             for (app_name, configs) in configs_to_change:
                 for config in configs:
                     if app_name in config['sys.config']:
-                        config['sys.config'][app_name]['covered_dirs'] = docker_dirs
-                        config['sys.config'][app_name]['covered_excluded_modules'] = excl_mods
+                        config['sys.config'][app_name][
+                            'covered_dirs'] = docker_dirs
+                        config['sys.config'][app_name][
+                            'covered_excluded_modules'] = excl_mods
                     elif 'cluster_manager' in config['sys.config']:
-                        config['sys.config']['cluster_manager']['covered_dirs'] = docker_dirs
-                        config['sys.config']['cluster_manager']['covered_excluded_modules'] = excl_mods
+                        config['sys.config']['cluster_manager'][
+                            'covered_dirs'] = docker_dirs
+                        config['sys.config']['cluster_manager'][
+                            'covered_excluded_modules'] = excl_mods
                     else:
                         config['sys.config']['covered_dirs'] = docker_dirs
-                        config['sys.config']['covered_excluded_modules'] = excl_mods
+                        config['sys.config'][
+                            'covered_excluded_modules'] = excl_mods
 
             with open(file, 'w') as jsonFile:
                 jsonFile.write(json.dumps(data))
 
 command = '''
-import os, subprocess, sys, stat
+import os, shutil, subprocess, sys, stat
 
+os.environ['HOME'] = '/root'
+
+docker_home = '/root/.docker/'
 if {shed_privileges}:
-    os.environ['HOME'] = '/tmp'
+    useradd = ['useradd', '--create-home', '--uid', '{uid}', 'maketmp']
+
+    subprocess.call(useradd)
+
+    os.environ['PATH'] = os.environ['PATH'].replace('sbin', 'bin')
+    os.environ['HOME'] = '/home/maketmp'
+    docker_home = '/home/maketmp/.docker'
     docker_gid = os.stat('/var/run/docker.sock').st_gid
     os.chmod('/etc/resolv.conf', 0o666)
     os.setgroups([docker_gid])
     os.setregid({gid}, {gid})
     os.setreuid({uid}, {uid})
+
+# Try to copy config.json, continue if it fails (might not exist on host).
+try:
+    os.makedirs(docker_home)
+except:
+    pass
+try:
+    shutil.copyfile(
+        '/tmp/docker_config/config.json',
+        os.path.join(docker_home, 'config.json'
+    ))
+except:
+    pass
 
 command = {cmd}
 ret = subprocess.call(command)
@@ -264,12 +304,18 @@ command = command.format(
     cmd=ct_command,
     shed_privileges=(platform.system() == 'Linux'))
 
+volumes = []
+if os.path.isdir(expanduser('~/.docker')):
+    volumes += [(expanduser('~/.docker'), '/tmp/docker_config', 'ro')]
+
 ret = docker.run(tty=True,
                  rm=True,
                  interactive=True,
                  workdir=os.path.join(script_dir, 'test_distributed'),
+                 volumes=volumes,
                  reflect=[(script_dir, 'rw'),
-                          ('/var/run/docker.sock', 'rw')],
+                          ('/var/run/docker.sock', 'rw'),
+                          (HOST_STORAGE_PATH, 'rw')],
                  name='testmaster_{0}'.format(uid),
                  hostname='testmaster.{0}.dev.docker'.format(uid),
                  image=args.image,

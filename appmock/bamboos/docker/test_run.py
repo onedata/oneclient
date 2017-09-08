@@ -12,6 +12,8 @@ import argparse
 import os
 import platform
 import sys
+
+from environment.common import HOST_STORAGE_PATH
 from environment import docker
 import glob
 import xml.etree.ElementTree as ElementTree
@@ -86,10 +88,19 @@ parser.add_argument(
     action='store_true'
 )
 
+parser.add_argument(
+    '--env-file', '-e',
+    action='store',
+    default=None,
+    help="path to description of test environment in .json file",
+    dest='env_file')
+
 [args, pass_args] = parser.parse_known_args()
 
 command = '''
 import os, subprocess, sys, stat
+
+{additional_code}
 
 if {shed_privileges}:
     os.environ['HOME'] = '/tmp'
@@ -99,9 +110,7 @@ if {shed_privileges}:
     os.setregid({gid}, {gid})
     os.setreuid({uid}, {uid})
 
-{additional_code}
-
-command = ['py.test'] + {args} + ['--test-type={test_type}'] + ['{test_dir}'] + ['--junitxml={report_path}']
+command = ['py.test'] + ['--test-type={test_type}'] + ['{test_dir}'] + {args} + {env_file} + ['--junitxml={report_path}']
 ret = subprocess.call(command)
 sys.exit(ret)
 '''
@@ -124,16 +133,23 @@ command = command.format(
     shed_privileges=(platform.system() == 'Linux'),
     report_path=args.report_path,
     test_type=args.test_type,
-    additional_code=additional_code)
+    additional_code=additional_code,
+    env_file=["--env-file={}".format(args.env_file)] if args.env_file else "[]"
+)
+
+# 128MB or more required for chrome tests to run with xvfb
+run_params = ['--shm-size=128m']
 
 ret = docker.run(tty=True,
                  rm=True,
                  interactive=True,
                  workdir=script_dir,
                  reflect=[(script_dir, 'rw'),
-                          ('/var/run/docker.sock', 'rw')],
+                          ('/var/run/docker.sock', 'rw'),
+                          (HOST_STORAGE_PATH, 'rw')],
                  image=args.image,
-                 command=['python', '-c', command])
+                 command=['python', '-c', command],
+                 run_params=run_params)
 
 if ret != 0 and not skipped_test_exists(args.report_path):
     ret = 0

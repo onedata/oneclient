@@ -7,27 +7,32 @@ Contains methods used to bring up storages.
 """
 import sys
 
-from . import common, s3, ceph, nfs, amazon_iam, luma, swift
+from . import common, s3, ceph, nfs, glusterfs, amazon_iam, luma, swift
 
 
 def start_luma(config, storages_dockers, image, bin_luma, output, uid):
-    enable_luma_proxy = False
+    luma_mode = 'disabled'
     for key in config['provider_domains']:
-        if config['provider_domains'][key].get('enable_luma_proxy'):
-            enable_luma_proxy = True
+        luma_mode = config['provider_domains'][key].get('luma_mode', 'disabled')
+        if luma_mode != 'disabled':
             break
     luma_config = None
-    if enable_luma_proxy:
-        if 'luma_setup' not in config:
-            luma_config = luma.get_default_config()
-            if storages_dockers['ceph']:
-                ceph_config = storages_dockers['ceph'].values()[0]
-                luma_config['generators_config']['ceph']['key'] = \
-                    ceph_config['key']
-                luma_config['generators_config']['ceph']['mon_host'] = \
-                    ceph_config['host_name']
-            config['luma_setup'] = luma_config
+    if luma_mode != 'disabled':
+        luma_config = config.get('luma_setup', luma.get_default_config())
 
+        if storages_dockers['ceph']:
+            ceph_storage = storages_dockers['ceph'].values()[0]
+            generators_config = luma_config.get('generators_config', {})
+            ceph_config = generators_config.get('ceph', {})
+            ceph_config['username'] = ceph_storage.get('username', 'client.admin')
+            ceph_config['key'] = ceph_storage.get('key', ceph_storage['key'])
+            ceph_config['monitor_hostname'] = ceph_storage.get('monitor_hostname', \
+                ceph_storage['host_name'])
+            ceph_config['pool_name'] = ceph_storage.get('pool_name', 'onedata')
+            generators_config['ceph'] = ceph_config
+            luma_config['generators_config'] = generators_config
+
+        config['luma_setup'] = luma_config
         luma_config = luma.up(image, bin_luma, config, uid)
         output['docker_ids'].extend(luma_config['docker_ids'])
         output['luma'] = {'host_name': luma_config['host_name']}
@@ -35,9 +40,9 @@ def start_luma(config, storages_dockers, image, bin_luma, output, uid):
 
 
 def start_storages(config, config_path, ceph_image, s3_image, nfs_image,
-                    swift_image, image, uid):
+                    swift_image, glusterfs_image, image, uid):
     storages_dockers = {'ceph': {}, 's3': {}, 'nfs': {}, 'posix': {},
-                        'swift': {}}
+                        'swift': {}, 'glusterfs': {}}
     docker_ids = []
     if 'os_configs' in config:
         start_iam_mock = False
@@ -69,6 +74,11 @@ def start_storages(config, config_path, ceph_image, s3_image, nfs_image,
                         storages_dockers['nfs']:
                     _nfs_up(storage, storages_dockers, nfs_image, docker_ids,
                             uid, cfg)
+
+                elif storage['type'] == 'glusterfs' and storage['name'] not in \
+                        storages_dockers['glusterfs']:
+                    _glusterfs_up(storage, storages_dockers, glusterfs_image,
+                                  docker_ids, uid)
 
         if start_iam_mock:
             docker_ids.extend(_start_iam_mock(image, uid, storages_dockers))
@@ -138,3 +148,11 @@ def _nfs_up(storage, storages_dockers, nfs_image, docker_ids, uid, cfg):
 
     del result['docker_ids']
     storages_dockers['nfs'][storage['name']] = result
+
+
+def _glusterfs_up(storage, storages_dockers, glusterfs_image, docker_ids, uid):
+    result = glusterfs.up(glusterfs_image, [storage['volume']], storage['name'],
+                          uid, storage['transport'], storage['mountpoint'])
+    docker_ids.extend(result['docker_ids'])
+    del result['docker_ids']
+    storages_dockers['glusterfs'][storage['name']] = result

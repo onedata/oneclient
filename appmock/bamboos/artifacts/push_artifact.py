@@ -9,18 +9,29 @@ __author__ = "Jakub Kudzia"
 __copyright__ = "Copyright (C) 2016 ACK CYFRONET AGH"
 __license__ = "This software is released under the MIT license cited in " \
               "LICENSE.txt"
+
+import signal
+import sys
 import argparse
 from paramiko import SSHClient, AutoAddPolicy
-
 from scp import SCPClient
-
-from artifact_utils import lock_file, unlock_file, artifact_path, PARTIAL_EXT
+from artifact_utils import (lock_file, unlock_file, artifact_path,
+                            PARTIAL_EXT, delete_file)
 
 
 def upload_artifact_safe(ssh, artifact, plan, branch):
 
     file_name = artifact_path(plan, branch)
     partial_file_name = file_name + PARTIAL_EXT
+
+    def signal_handler(_signum, _frame):
+        ssh.connect(args.hostname, port=args.port, username=args.username)
+        unlock_file(ssh, partial_file_name)
+        delete_file(ssh, partial_file_name)
+        unlock_file(ssh, file_name)
+        sys.exit(1)
+    signal.signal(signal.SIGINT, signal_handler)
+
     lock_file(ssh, partial_file_name)
     try:
         upload_artifact(ssh, artifact, plan, branch)
@@ -28,7 +39,7 @@ def upload_artifact_safe(ssh, artifact, plan, branch):
     except:
         print "Uploading artifact of plan {0}, on branch {1} failed" \
             .format(plan, branch)
-        ssh.exec_command("rm -rf {}".format(partial_file_name))
+        delete_file(ssh, partial_file_name)
     finally:
         unlock_file(ssh, partial_file_name)
 
