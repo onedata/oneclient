@@ -176,9 +176,11 @@ folly::fbvector<folly::fbstring> FsLogic::readdir(
     // Since most applications (even plain 'ls') invoke getattr operation
     // after listing directory contents, it is typically faster to
     // fetch them in advance and store them in the cache, thus
-    // in fact making this operation equivalent to readdirplus
+    // in fact making this operation equivalent to readdirplus.
+    // Adjust the offset in order to account for initial . and .. entries
     auto msg = communicate<messages::fuse::FileChildrenAttrs>(
-        messages::fuse::GetFileChildrenAttrs{uuid, off, chunkSize});
+        messages::fuse::GetFileChildrenAttrs{
+            uuid, off < 2 ? 0 : off - 2, chunkSize});
 
     for (const auto it : folly::enumerate(msg.childrenAttrs())) {
         const auto fileAttrPtr = std::make_shared<FileAttr>(*it);
