@@ -305,7 +305,7 @@ boost::shared_ptr<FsLogicProxy> create(std::string ip, int port)
     FLAGS_minloglevel = 1;
 
     auto communicator =
-        std::make_shared<Communicator>(/*connections*/ 1, ip, port,
+        std::make_shared<Communicator>(/*connections*/ 10, ip, port,
             /*verifyServerCertificate*/ false, createConnection);
 
     auto context = std::make_shared<Context>();

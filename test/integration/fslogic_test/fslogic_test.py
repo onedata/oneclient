@@ -698,7 +698,7 @@ def test_truncate_should_pass_truncate_errors(endpoint, fl, uuid):
 
 
 def test_readdir_big_directory(endpoint, fl, uuid, stat):
-    chunk_size = 10
+    chunk_size = 5
     children_num = 1024*chunk_size
 
     # Prepare an array of responses of appropriate sizes to client
