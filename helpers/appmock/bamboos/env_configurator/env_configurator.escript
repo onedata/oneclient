@@ -269,8 +269,8 @@ create_space_storage_mapping(Worker, Cookie, Spaces, ProviderDomain) ->
                 ok;
             ProviderSupportInfo ->
                 StorageName = proplists:get_value(<<"storage">>, ProviderSupportInfo),
-                {ok, Storage} = call_node(Worker, Cookie, storage, get_by_name, [StorageName]),
-                StorageId = call_node(Worker, Cookie, storage, id, [Storage]),
+                {ok, Storage} = call_node(Worker, Cookie, storage, select, [StorageName]),
+                StorageId = call_node(Worker, Cookie, storage, get_id, [Storage]),
                 {ok, _} = call_node(Worker, Cookie, space_storage, add, [SpaceId, StorageId])
         end
     end, Spaces).

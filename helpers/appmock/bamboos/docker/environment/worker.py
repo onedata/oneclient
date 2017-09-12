@@ -164,7 +164,7 @@ def _couchbase_up(cluster_name, db_nodes, dns_servers, uid, configurator):
         return db_node_mappings, {}
 
     [dns] = dns_servers
-    couchbase_output = couchbase.up('couchbase/server:community-4.1.0', dns,
+    couchbase_output = couchbase.up('couchbase/server:community-4.5.1', dns,
                                     uid, cluster_name, len(db_node_mappings),
                                     configurator.couchbase_buckets(),
                                     configurator.couchbase_ramsize())
@@ -286,7 +286,8 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None,
 
 def _add_luma_config(config, luma_config):
     for key in config['provider_domains']:
-        if config['provider_domains'][key].get('enable_luma_proxy'):
+        luma_mode = config['provider_domains'][key].get('luma_mode')
+        if luma_mode:
             op_workers = config['provider_domains'][key]['op_worker']
 
             for wrk_key in op_workers:
@@ -296,6 +297,6 @@ def _add_luma_config(config, luma_config):
                     op_workers[wrk_key]['sys.config']['op_worker'] = {}
 
                 op_workers[wrk_key]['sys.config']['op_worker'][
-                    'enable_luma_proxy'] = True
+                    'luma_mode'] = luma_mode
                 op_workers[wrk_key]['sys.config']['op_worker'][
                     'luma_hostname'] = luma_config['host_name']

@@ -45,11 +45,11 @@ def get_tags():
     branch = cmd(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
     ticket = re.search(r'VFS-\d+', branch)
 
-    try:
-        tag = cmd(['git', 'describe', '--contains', '--candidates=0', commit])
-        tags.append(('git-tag', tag))
-    except subprocess.CalledProcessError:
-        pass
+    git_tags = cmd(['git', 'tag', '--points-at', commit]).split('\n')
+    git_tags = filter(lambda tag: tag, git_tags)
+
+    if git_tags:
+        tags.append(('git-tag', git_tags[0]))
 
     for prefix in ['release/', 'hotfix/']:
         if branch.startswith(prefix):

@@ -97,6 +97,11 @@ public:
         const folly::fbstring &parentUuid, const folly::fbstring &name);
 
     /**
+     * @copydoc MetadataCache::putattr(std::shared_ptr<FileAttr> attr)
+     */
+    void putAttr(std::shared_ptr<FileAttr> attr);
+
+    /**
      * Sets a callback that will be called after a file is added to the cache.
      * @param cb The callback which takes uuid as parameter.
      */

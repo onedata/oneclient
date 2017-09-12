@@ -698,7 +698,7 @@ def test_truncate_should_pass_truncate_errors(endpoint, fl, uuid):
 
 
 def test_readdir_big_directory(endpoint, fl, uuid, stat):
-    chunk_size = 10
+    chunk_size = 5
     children_num = 1024*chunk_size
 
     # Prepare an array of responses of appropriate sizes to client
@@ -709,8 +709,8 @@ def test_readdir_big_directory(endpoint, fl, uuid, stat):
         for j in xrange(0, chunk_size):
             link = prepare_attr_response(uuid, fuse_messages_pb2.REG).\
                         fuse_response.file_attr
-            link.uuid = "childUuid"+str(i*j)
-            link.name = "file"+str(i*j)
+            link.uuid = "childUuid_"+str(i)+"_"+str(j)
+            link.name = "file_"+str(i)+"+"+str(j)
             repl.child_attrs.extend([link])
 
         response = messages_pb2.ServerMessage()

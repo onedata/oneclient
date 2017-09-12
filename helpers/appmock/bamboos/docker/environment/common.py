@@ -18,6 +18,7 @@ from . import docker
 from timeouts import *
 import tempfile
 import stat
+import pytest
 
 try:
     import xml.etree.cElementTree as eTree
@@ -50,7 +51,7 @@ def wait_until(condition, containers, timeout):
                 message = 'Timeout while waiting for condition {0} ' \
                           'of container {1}'
                 message = message.format(condition.__name__, container)
-                raise ValueError(message)
+                pytest.skip(message)
 
             time.sleep(1)
 
@@ -232,14 +233,14 @@ def create_groups(container, groups):
             assert 0 is docker.exec_(container, command, interactive=True)
 
 
-def volume_for_storage(storage):
+def volume_for_storage(storage, readonly=False):
     """Returns tuple (path_on_host, path_on_docker, read_write_mode)
     for a given storage
     """
-    return storage_host_path(storage), storage, 'rw'
+    return storage_host_path(), storage, 'ro' if readonly else 'rw'
 
 
-def storage_host_path(storage):
+def storage_host_path():
     """Returns path to temporary directory for storage on host
     """
     if not os.path.exists(HOST_STORAGE_PATH):

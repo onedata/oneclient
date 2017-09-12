@@ -115,6 +115,12 @@ FileAttrPtr LRUMetadataCache::getAttr(
     return attr;
 }
 
+void LRUMetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
+{
+    MetadataCache::putAttr(attr);
+    noteActivity(attr->uuid());
+}
+
 void LRUMetadataCache::noteActivity(const folly::fbstring &uuid)
 {
     auto res = m_lruData.emplace(uuid, LRUData{});

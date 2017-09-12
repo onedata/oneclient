@@ -87,7 +87,7 @@ public:
         : m_helpersCache{new HelpersCacheProxy(*context->communicator(),
               *context->scheduler(), *context->options())}
         , m_fsLogic{context, std::make_shared<messages::Configuration>(),
-              std::unique_ptr<HelpersCacheProxy>{m_helpersCache}, 1000,
+              std::unique_ptr<HelpersCacheProxy>{m_helpersCache}, 100000,
               [](auto f) { f(); }}
         , m_context{context}
     {
@@ -305,7 +305,7 @@ boost::shared_ptr<FsLogicProxy> create(std::string ip, int port)
     FLAGS_minloglevel = 1;
 
     auto communicator =
-        std::make_shared<Communicator>(/*connections*/ 1, ip, port,
+        std::make_shared<Communicator>(/*connections*/ 10, ip, port,
             /*verifyServerCertificate*/ false, createConnection);
 
     auto context = std::make_shared<Context>();
