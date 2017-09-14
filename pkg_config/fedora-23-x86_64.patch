@@ -1,0 +1,11 @@
+
+--- a/oneclient.spec	2017-09-14 22:10:26.274602444 +0200
++++ b/oneclient.spec    2017-09-14 22:12:03.117931639 +0200
+@@ -20,6 +20,7 @@
+ BuildRequires: gcc-c++ >= 5.0.0
+ BuildRequires: git
+ BuildRequires: glog-devel >= 0.3.4
++BuildRequires: glusterfs-api-devel = 3.7.18
+ BuildRequires: golang
+ BuildRequires: libcurl-devel
+ BuildRequires: librados-devel >= 11.1.0

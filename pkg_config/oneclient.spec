@@ -20,7 +20,6 @@ BuildRequires: folly-devel = 2016.09.19.00, folly-static = 2016.09.19.00
 BuildRequires: gcc-c++ >= 5.0.0
 BuildRequires: git
 BuildRequires: glog-devel >= 0.3.4
-BuildRequires: glusterfs-api-devel = 3.7.18
 BuildRequires: golang
 BuildRequires: libcurl-devel
 BuildRequires: librados-devel >= 11.1.0
