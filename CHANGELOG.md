@@ -14,10 +14,6 @@ CHANGELOG
 * VFS-3510 Added clang format check
 
 
-### 17.06.0.beta1
-
-
-
 ### 17.06.0-rc2
 
 * Releasing new version 17.06.0-rc2
