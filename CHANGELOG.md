@@ -4,6 +4,20 @@
 CHANGELOG
 ---------
 
+### 17.06.1
+
+* VFS-3650 Updated CentOS GlusterFS dependency
+* VFS-3630 Fixed readdir behavior in multiprovider scenarios
+* VFS-3602 Added metadata-cache-size CLI option
+* VFS-3602 Added attribute fetching to readdir
+* VFS-3444 Adjuster default buffer values in options
+* VFS-3510 Added clang format check
+
+
+### 17.06.0.beta1
+
+
+
 ### 17.06.0-rc2
 
 * Releasing new version 17.06.0-rc2
