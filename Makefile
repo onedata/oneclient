@@ -8,7 +8,7 @@ DOCKER_REG_PASSWORD ?= ""
 PKG_REVISION    ?= $(shell git describe --tags --always)
 PKG_VERSION     ?= $(shell git describe --tags --always | tr - .)
 PKG_BUILD       ?= 1
-PKG_ID           = oneclient-$(PKG_VERSION)
+PKG_ID           = oneclient-base-$(PKG_VERSION)
 
 # Build with Ceph storge helper by default
 WITH_CEPH         ?= ON
@@ -18,6 +18,19 @@ WITH_SWIFT        ?= ON
 WITH_S3           ?= ON
 # Build with GlusterFS storage helper by default
 WITH_GLUSTERFS    ?= ON
+
+# Oneclient FPM packaging variables
+PATCHELF_DOCKER_IMAGE   ?= docker.onedata.org/patchelf:0.9
+FPM_DOCKER_IMAGE        ?= docker.onedata.org/fpm:1.9.3
+GLUSTERFS_VERSION       ?= 3.12.1
+ONECLIENT_FPMPACKAGE_TMP := package_fpm
+
+ifeq ($(strip $(ONECLIENT_BASE_IMAGE)),)
+# Oneclient base image is an ID of the Docker container 'oneclient-base' with
+# containing Oneclient installed on a reference OS (currently Ubuntu Xenial).
+# This image is used to create self-contained binary packages for other distributions.
+ONECLIENT_BASE_IMAGE    := ID-$(shell git rev-parse HEAD | cut -c1-10)
+endif
 
 .PHONY: all
 all: debug test
@@ -100,7 +113,7 @@ package/$(PKG_ID).tar.gz:
 .PHONY: deb
 deb: check_distribution package/$(PKG_ID).tar.gz
 	rm -rf package/packages && mkdir -p package/packages
-	mv -f package/$(PKG_ID).tar.gz package/oneclient_$(PKG_VERSION).orig.tar.gz
+	mv -f package/$(PKG_ID).tar.gz package/oneclient-base_$(PKG_VERSION).orig.tar.gz
 
 	cp -R pkg_config/debian package/$(PKG_ID)/
 	patch -d package/$(PKG_ID)/ -p1 -i pkg_config/$(DISTRIBUTION).patch
@@ -116,7 +129,7 @@ deb: check_distribution package/$(PKG_ID).tar.gz
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)_amd64.changes package/packages/
 	-mv package/*$(PKG_VERSION)-$(PKG_BUILD).debian.tar.xz package/packages/
 	-mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.ddeb package/packages/
-	-mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.diff.gz package/packages/
+	-mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.diff.gz package/packages/ || true
 
 .PHONY: rpm
 rpm: check_distribution package/$(PKG_ID).tar.gz
@@ -132,17 +145,153 @@ rpm: check_distribution package/$(PKG_ID).tar.gz
 		--sources package/$(PKG_ID).orig.tar.gz
 	mock --root $(DISTRIBUTION) --resultdir=package/packages --rebuild package/packages/$(PKG_ID)*.src.rpm
 
+##
+## Oneclient self contained packages
+##
+## These targets create self-contained Oneclient packages for various distributions,
+## by collecting all necessary dependencies from a reference Oneclient Docker image
+## (including glibc and ld-linux) and packages them into /opt/oneclient/... tree.
+##
+
+## Determine the RPM dist tag based on distribution name
+ifeq ($(strip $(DISTRIBUTION)),centos-6-x86_64)
+RPM_DIST     := el6.centos
+endif
+ifeq ($(strip $(DISTRIBUTION)),centos-7-x86_64)
+RPM_DIST     := el7.centos
+endif
+ifeq ($(strip $(DISTRIBUTION)),fedora-23-x86_64)
+RPM_DIST     := f23
+endif
+ifeq ($(strip $(DISTRIBUTION)),fedora-25-x86_64)
+RPM_DIST     := f25
+endif
+ifeq ($(strip $(DISTRIBUTION)),fedora-26-x86_64)
+RPM_DIST     := f26
+endif
+ifeq ($(strip $(DISTRIBUTION)),scientific-6-x86_64)
+RPM_DIST     := el6
+endif
+ifeq ($(strip $(DISTRIBUTION)),scientific-7-x86_64)
+RPM_DIST     := el7
+endif
+
+#
+# Build Oneclient self-contained tarball
+#
+oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
+	# Create directory structure
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/bin
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/etc
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/etc/bash_completion.d
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/lib
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/share/man/man1
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/share/man/man5
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/share/doc
+	mkdir -p $(ONECLIENT_FPMPACKAGE_TMP)/root/share/zsh/site-functions
+
+	# Collect all necessary Oneclient files in one folder
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		-v $(CURDIR)/cpld.sh:/bin/cpld.sh --entrypoint /bin/cpld.sh \
+		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
+		/usr/bin/oneclient /output/lib
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		--entrypoint /bin/bash \
+		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
+		-c 'cp /usr/bin/oneclient /output/bin && \
+		    cp /etc/oneclient.conf /output/etc && \
+		    cp /usr/share/man/man1/oneclient.1.gz /output/share/man/man1/ && \
+		    cp /usr/share/man/man5/oneclient.conf.5.gz /output/share/man/man5/ && \
+		    cp /usr/share/doc/oneclient/* /output/share/doc/ && \
+		    cp /var/lib/oneclient/_oneclient /output/share/zsh/site-functions/ && \
+		    cp /var/lib/oneclient/oneclient.bash-completion /output/etc/bash_completion.d/ && \
+		    cp -r /lib/x86_64-linux-gnu/* /output/lib/ && \
+		    cp -r /usr/lib/x86_64-linux-gnu/nss/* /output/lib/ && \
+	        cp -r /opt/oneclient/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/ && \
+	        cp -r /opt/oneclient/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/'
+	# Collect all dynamic libraries GlusterFS dependencies
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		-v $(CURDIR)/cpld.sh:/bin/cpld.sh --entrypoint /bin/sh \
+		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
+		-c "find /opt/oneclient/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/ -name '*so*' -exec /bin/cpld.sh '{}' /output/lib \;"
+	# Change the ld loader and rpath in Oneclient binary
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		-t $(PATCHELF_DOCKER_IMAGE) \
+		--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
+		--set-rpath /opt/oneclient/lib --force-rpath \
+		/output/bin/oneclient
+	# Create binary archive
+	cd $(ONECLIENT_FPMPACKAGE_TMP)/root && \
+		tar -cf oneclient-bin.tar * && \
+		gzip -f oneclient-bin.tar && \
+		mv oneclient-bin.tar.gz ../ && \
+		cd ../..
+	# Cleanup the temporary files
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP):/output \
+		-v $(CURDIR)/cpld.sh:/bin/cpld.sh --entrypoint /bin/sh \
+		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
+		-c "rm -rf /output/root"
+
+#
+# Build Oneclient self-contained rpm
+#
+oneclient_rpm: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
+	# Build RPM package for the distribution specified using FPM
+	cp pkg_config/fpm/oneclient_rpm.pre $(ONECLIENT_FPMPACKAGE_TMP)/
+	cp pkg_config/fpm/oneclient_rpm.post $(ONECLIENT_FPMPACKAGE_TMP)/
+	docker run -u=$$UID:$$GID -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro \
+		   -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP):/data \
+		   -t $(FPM_DOCKER_IMAGE) \
+		   fpm -t rpm --rpm-dist $(RPM_DIST) -s tar \
+		   --prefix=/opt/oneclient -n oneclient -v $(ONECLIENT_VERSION) \
+		   --architecture=x86_64 \
+		   --iteration $(PKG_BUILD) --license "Apache 2.0" \
+		   --after-install=/data/oneclient_rpm.pre \
+		   --after-remove=/data/oneclient_rpm.post \
+		   --depends fuse --maintainer "Onedata Package Maintainers <info@onedata.org>" \
+		   --description "Self-contained Onedata Oneclient command-line client package" \
+		   /data/oneclient-bin.tar.gz
+
+#
+# Build Oneclient self-contained deb
+#
+oneclient_deb: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
+	# Build DEB package for the distribution specified using FPM
+	cp pkg_config/fpm/oneclient_deb.pre $(ONECLIENT_FPMPACKAGE_TMP)/
+	cp pkg_config/fpm/oneclient_deb.post $(ONECLIENT_FPMPACKAGE_TMP)/
+	docker run -u=$$UID:$$GID -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro \
+		   -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP):/data \
+		   -t $(FPM_DOCKER_IMAGE) fpm -t deb -s tar \
+		   -p /data/oneclient_$(ONECLIENT_VERSION)-$(PKG_BUILD)_amd64.deb \
+		   --architecture=amd64 \
+		   --prefix=/opt/oneclient -n oneclient -v $(ONECLIENT_VERSION) \
+		   --iteration $(PKG_BUILD) --license "Apache 2.0" \
+		   --after-install=/data/oneclient_deb.pre \
+		   --after-remove=/data/oneclient_deb.post \
+		   --depends fuse --maintainer "Onedata Package Maintainers <info@onedata.org>" \
+		   --description "Self-contained Onedata Oneclient command-line client package" \
+		   /data/oneclient-bin.tar.gz
+
+.PHONY: docker-base
+docker-base:
+	./docker_build.py --repository $(DOCKER_REG_NAME) --user $(DOCKER_REG_USER) \
+                          --password $(DOCKER_REG_PASSWORD) --build-arg RELEASE=$(DOCKER_RELEASE) \
+                          --build-arg VERSION=$(PKG_VERSION) --build-arg ONECLIENT_PACKAGE=oneclient-base \
+                          --name oneclient-base --publish --remove docker
+
 .PHONY: docker
 docker:
 	./docker_build.py --repository $(DOCKER_REG_NAME) --user $(DOCKER_REG_USER) \
                           --password $(DOCKER_REG_PASSWORD) --build-arg RELEASE=$(DOCKER_RELEASE) \
-                          --build-arg VERSION=$(PKG_VERSION) --name oneclient \
-                          --publish --remove docker
+                          --build-arg VERSION=$(PKG_VERSION) --build-arg ONECLIENT_PACKAGE=oneclient \
+                          --name oneclient --publish --remove docker
 
 .PHONY: clean
 clean:
-	rm -rf debug release relwithdebinfo doc package
+	rm -rf debug release relwithdebinfo doc package package_fpm
 
 .PHONY: clang-format
 clang-format:
-	docker run --rm -v ${PWD}:/root/sources onedata/clang-format-check:1.1
+	docker run --rm -v $(CURDIR):/root/sources onedata/clang-format-check:1.1

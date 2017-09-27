@@ -18,6 +18,7 @@ include /usr/share/dpkg/default.mk
 
 export CC=gcc-5
 export CXX=g++-5
+export PKG_CONFIG_PATH=/opt/oneclient/lib/x86_64-linux-gnu/pkgconfig
 
 # main packaging script based on dh7 syntax
 %:

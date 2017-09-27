@@ -1,0 +1,6 @@
+ln -s /opt/oneclient/bin/oneclient /usr/bin/oneclient
+[ ! -f /etc/oneclient.conf ] && ln -s /opt/oneclient/etc/oneclient.conf /etc/oneclient.conf
+[ -d /etc/bash_completion.d ] && ln -s /opt/oneclient/etc/bash_completion.d/oneclient.bash-completion /etc/bash_completion.d/oneclient
+[ -d /usr/share/zsh/site-functions/ ] && ln -s /opt/oneclient/share/zsh/site-functions/_oneclient /usr/share/zsh/site-functions/_oneclient
+ln -s /opt/oneclient/share/man/man1/oneclient.1.gz /usr/share/man/man1/oneclient.1.gz
+ln -s /opt/oneclient/share/man/man5/oneclient.conf.5.gz /usr/share/man/man5/oneclient.conf.5.gz

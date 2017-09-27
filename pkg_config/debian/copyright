@@ -1,5 +1,5 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: oneclient
+Upstream-Name: oneclient-base
 
 Files: *
 Copyright: 2013-2015 ACK Cyfronet AGH
