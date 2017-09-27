@@ -1,6 +1,6 @@
 %global version {{version}}
 
-Name:		oneclient
+Name:		oneclient-base
 Version:	%{version}
 Release:	{{build}}%{?dist}
 Summary:	FUSE client for onedata system

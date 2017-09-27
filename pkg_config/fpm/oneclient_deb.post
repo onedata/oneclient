@@ -1,0 +1,6 @@
+rm -f /usr/bin/oneclient
+rm -f /etc/bash_completion.d/oneclient
+rm -f /usr/share/zsh/site-functions/_oneclient
+rm -f /usr/share/man/man1/oneclient.1.gz
+rm -f /usr/share/man/man5/oneclient.conf.5.gz
+rm -rf /opt/oneclient
