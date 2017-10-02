@@ -4,6 +4,7 @@ MAINTAINER Krzysztof Trzepla <krzysztof.trzepla@gmail.com>
 # Build arguments
 ARG RELEASE
 ARG VERSION=""
+ARG ONECLIENT_PACKAGE="oneclient"
 
 # Get the image up to date and install utility tools
 RUN apt-get -y update && \
@@ -23,11 +24,10 @@ RUN case ${RELEASE} in \
             curl -O http://onedata-dev-packages.cloud.plgrid.pl/oneclient.sh; \
             ;; \
         esac && \
-        sh oneclient.sh oneclient=${VERSION}-1
+        sh oneclient.sh ${ONECLIENT_PACKAGE}=${VERSION}-1
 
 # Enable autocompletion
-RUN echo "source /etc/bash_completion" >> /root/.bashrc && \
-    ln -s /var/lib/oneclient/oneclient.bash-completion /etc/bash_completion.d/oneclient
+RUN echo "source /etc/bash_completion" >> /root/.bashrc
 
 # Install Samba and NFS servers
 RUN apt-get -y install samba rpcbind nfs-kernel-server && \

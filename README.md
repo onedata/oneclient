@@ -27,9 +27,9 @@ cd oneclient
 make release # or debug
 ```
 
-*oneclient* by default compiles with built-in support for Ceph, S3 and Swift.
-These drivers can be disabled during compilation by providing the following
-flags:
+*oneclient* by default compiles with built-in support for Ceph, S3, OpenStack
+SWIFT and GlusterFS.  These drivers can be disabled during compilation by
+providing the following flags:
 
 * WITH_CEPH=OFF - disables Ceph support
 * WITH_S3=OFF - disables S3 support
@@ -48,6 +48,11 @@ Fedora. To install *oneclient* using packages simply use the following command:
 ```bash
 curl -sS  http://get.onedata.org/oneclient.sh | bash
 ```
+
+> Oneclient is packaged into self-contained packages, i.e. it has to be installed
+into it's default prefix `/opt/oneclient`. The provided packages will do that by
+default and create symlinks in the `/usr` prefix to the `oneclient` binary as well
+as man pages, configuration file and auto-completion scripts.
 
 ### macOS
 An experimental version of *oneclient* is available for macOS (Sierra or higher),
@@ -88,6 +93,11 @@ This feature can be controlled using 2 command line options:
   
   * `--force-proxy-io` - disables Direct IO mode, all data transfers will go via Oneprovider service
   * `--force-direct-io` - forces Direct IO mode, if it is not available for any of mounted spaces, `oneclient` will fail to mount
+
+> In direct io mode, Oneclient will attempt to access the target storage directly on first
+attempt to read/write a file. This means that very often the first operation will fail with
+warning `Resource temporarily unavailable`. However if the storage access is detected, the 
+consecutive operations should work as expected.
 
 ### Buffering
 `oneclient` employs an in-memory buffer for input and output data blocks, which can significantly
@@ -192,7 +202,7 @@ list of supported environment variables please refer to *oneclient*
 Running dockerized *oneclient* is easy:
 
 ```
-docker run -it --privileged onedata/oneclient:17.06.0-beta5
+docker run -it --privileged onedata/oneclient:17.06.0-rc4
 ```
 
 ### Persisting the token
@@ -201,20 +211,20 @@ The application will ask for a token and run in the foreground. In order for
 *oneclient* to remember your token, mount volume `/root/.local/share/oneclient`:
 
 ```
-docker run -it --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:17.06.0-beta5
+docker run -it --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:17.06.0-rc4
 ```
 
 You can also pass your token in `ONECLIENT_ACCESS_TOKEN` environment variable:
 
 ```
-docker run -it --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:17.06.0-beta5
+docker run -it --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:17.06.0-rc4
 ```
 
 If *oneclient* knows the token (either by reading its config file or by reading
 the environment variable), it can be run as a daemon container:
 
 ```
-docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:17.06.0-beta5
+docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:17.06.0-rc4
 ```
 
 ### Accessing your data
@@ -223,7 +233,7 @@ docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:17
 spaces.
 
 ```
-docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:17.06.0-beta5
+docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:17.06.0-rc4
 
 # Display container's IP address
 docker inspect --format "{{ .NetworkSettings.IPAddress }}" $(docker ps -ql)

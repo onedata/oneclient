@@ -131,12 +131,15 @@ endif(WITH_SWIFT)
 if(WITH_GLUSTERFS)
     include(FindPkgConfig)
     if (PKG_CONFIG_FOUND)
+        set(ENV{PKG_CONFIG_PATH} "/opt/oneclient/lib/x86_64-linux-gnu/pkgconfig:$ENV{PKG_CONFIG_PATH}")
         pkg_check_modules(GLUSTERFSAPI glusterfs-api)
         if(NOT GLUSTERFSAPI_FOUND EQUAL 1)
             message(SEND_ERROR "pkg-config for glusterfs-api is missing.")
-        else(NOT GLUSTERFSAPI_FOUND EQUAL 1)
+        else()
+            # message(SEND_ERROR "Found glusterfs-api ${GLUSTERFSAPI_PREFIX} ${GLUSTERFSAPI_LIBDIR} ${GLUSTERFSAPI_INCLUDEDIR}")
             add_definitions(-DWITH_GLUSTERFS=1)
-        endif(NOT GLUSTERFSAPI_FOUND EQUAL 1)
+            link_directories(${GLUSTERFSAPI_LIBDIR})
+        endif()
     endif (PKG_CONFIG_FOUND)
 else(WITH_GLUSTERFS)
     add_definitions(-DWITH_GLUSTERFS=0)
@@ -242,6 +245,7 @@ include_directories(
 
 include_directories(SYSTEM
     ${HELPERS_SYSTEM_INCLUDE_DIRS}
+    ${GLUSTERFSAPI_INCLUDEDIR}
     ${FUSE_INCLUDE_DIRS}
     ${FUSE_INCLUDE_DIRS}/..
     ${PROTOBUF_INCLUDE_DIR}
@@ -258,6 +262,7 @@ include_directories(SYSTEM
 set(CLIENT_LIBRARIES
     libmacaroons-cpp
     ${PLATFORM_EXTRA_LIBS}
+    ${GLUSTERFSAPI_LIBRARIES}
     ${GLOG_LIBRARIES}
     ${FUSE_LIBRARIES}
     ${Boost_LIBRARIES}

@@ -15,56 +15,47 @@ import sys
 import argparse
 from paramiko import SSHClient, AutoAddPolicy
 from scp import SCPClient
-from artifact_utils import (lock_file, unlock_file, artifact_path,
-                            PARTIAL_EXT, delete_file)
+from artifact_utils import (artifact_path, delete_file, partial_extension)
 
 
 def upload_artifact_safe(ssh, artifact, plan, branch):
 
     file_name = artifact_path(plan, branch)
-    partial_file_name = file_name + PARTIAL_EXT
+    ext = partial_extension()
+    partial_file_name = file_name + ext
 
     def signal_handler(_signum, _frame):
         ssh.connect(args.hostname, port=args.port, username=args.username)
-        unlock_file(ssh, partial_file_name)
         delete_file(ssh, partial_file_name)
-        unlock_file(ssh, file_name)
         sys.exit(1)
     signal.signal(signal.SIGINT, signal_handler)
 
-    lock_file(ssh, partial_file_name)
     try:
-        upload_artifact(ssh, artifact, plan, branch)
-        rename_uploaded_file(ssh, file_name)
+        upload_artifact(ssh, artifact, partial_file_name)
+        rename_uploaded_file(ssh, partial_file_name, file_name)
     except:
         print "Uploading artifact of plan {0}, on branch {1} failed" \
             .format(plan, branch)
         delete_file(ssh, partial_file_name)
-    finally:
-        unlock_file(ssh, partial_file_name)
 
 
-def upload_artifact(ssh, artifact, plan, branch):
+def upload_artifact(ssh, artifact, remote_path):
     """
     Uploads given artifact to repo.
     :param ssh: sshclient with opened connection
     :type ssh: paramiko.SSHClient
     :param artifact: name of artifact to be pushed
     :type artifact: str
-    :param plan: name of current bamboo plan
-    :type plan: str
-    :param branch: name of current git branch
-    :type branch: str
+    :param remote_path: path for uploaded file
+    :type remote_path: str
     :return None
     """
     with SCPClient(ssh.get_transport()) as scp:
-        scp.put(artifact, remote_path=artifact_path(plan, branch) + PARTIAL_EXT)
+        scp.put(artifact, remote_path=remote_path)
 
 
-def rename_uploaded_file(ssh, file_name):
-    lock_file(ssh, file_name)
-    ssh.exec_command("mv {0}{1} {0}".format(file_name, PARTIAL_EXT))
-    unlock_file(ssh, file_name)
+def rename_uploaded_file(ssh, src_file, target_file):
+    ssh.exec_command("mv {0} {1}".format(src_file, target_file))
 
 
 parser = argparse.ArgumentParser(

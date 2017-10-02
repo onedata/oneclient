@@ -2,6 +2,7 @@
 /debug
 /relwithdebinfo
 /package
+package_fpm
 docker-build-list.json
 docker-build-report.txt
 /coverage

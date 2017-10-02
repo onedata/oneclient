@@ -16,35 +16,6 @@ PARTIAL_EXT = '.partial'
 DEFAULT_BRANCH = 'develop'
 
 
-def lock_file(ssh, file_name):
-    """
-    Set lock on file_name via ssh. Hangs if file_name is currently locked.
-    :param ssh: sshclient with opened connection
-    :type ssh: paramiko.SSHClient
-    :param file_name: name of file to be locked
-    :type file_name: str
-    :return None
-    """
-    _, stdout, _ = ssh.exec_command("lockfile {}.lock".format(file_name),
-                                    get_pty=True)
-    while not stdout.channel.exit_status_ready():
-        # ssh.exec_command is asynchronous therefore we must wait till command
-        # exit status is ready
-        time.sleep(1)
-
-
-def unlock_file(ssh, file_name):
-    """
-    Delete lock on file_name via ssh.
-    :param ssh: sshclient with opened connection
-    :type ssh: paramiko.SSHClient
-    :param file_name: name of file to be unlocked
-    :type file_name: str
-    :return None
-    """
-    delete_file(ssh, "{}.lock".format(file_name))
-
-
 def artifact_path(plan, branch):
     """
     Returns path to artifact for specific plan and branch. Path is relative
@@ -69,3 +40,9 @@ def delete_file(ssh, file_name):
 
     ssh.exec_command("rm -rf {}".format(file_name))
 
+
+def partial_extension():
+    return "{partial}.{timestamp}".format(
+        partial=PARTIAL_EXT,
+        timestamp=time.time()
+    )
