@@ -2,7 +2,7 @@
 # coding=utf-8
 
 """Author: Michał Ćwiertnia
-Copyright (C) 2016 ACK CYFRONET AGH
+Copyright (C) 2016-2017 ACK CYFRONET AGH
 This software is released under the MIT license cited in 'LICENSE.txt'
 
 Runs gui tests in docker environment.
@@ -21,6 +21,7 @@ import glob
 import xml.etree.ElementTree as ElementTree
 import subprocess
 import json
+import os.path
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -69,6 +70,10 @@ with open('/etc/hosts', 'a') as f:
 
 
 def run_docker(command):
+
+    # 128MB or more required for chrome tests to run with xvfb
+    run_params = ['--shm-size=128m']
+
     return docker.run(tty=True,
                       rm=True,
                       interactive=True,
@@ -76,13 +81,20 @@ def run_docker(command):
                       workdir=script_dir,
                       reflect=[(script_dir, 'rw'),
                                ('/var/run/docker.sock', 'rw')],
+                      volumes=[(os.path.join(os.path.expanduser('~'),
+                                             '.docker', 'config.json'),
+                               '/root/.docker/config.json', 'ro')],
                       image=args.image,
-                      command=['python', '-c', command])
+                      command=['python', '-c', command],
+                      run_params=run_params)
 
 
 def getting_started_local():
-    start_env_command = ['python', '-u', 'getting_started_env_up.py']
-    proc = subprocess.Popen(start_env_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    start_env_command = ['python', '-u', 'getting_started_env_up.py',
+                         '--scenario', args.scenario, '--zone_name',
+                         args.zone_name, '--provider_name', args.provider_name]
+    proc = subprocess.Popen(start_env_command, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT)
     output = ''
     for line in iter(proc.stdout.readline, ''):
         print line,
@@ -96,10 +108,11 @@ def getting_started_local():
     command = ['py.test'] + pass_args + \
               ['--test-type={}'.format(args.test_type),
                args.test_dir,
-               '--onezone-host={}'.format(hosts_parsed['onezone_host']),
-               '--oz-panel-host={}'.format(hosts_parsed['oz_panel_host']),
-               '--oneprovider-host={}'.format(hosts_parsed['oneprovider_host']),
-               '--op-panel-host={}'.format(hosts_parsed['op_panel_host'])]
+               '--onezone-host {} {}'.format(args.zone_name, hosts_parsed['onezone_host']),
+               '--base-url=https://{}'.format(hosts_parsed['onezone_host']),
+               '--oz-panel-host {} {}'.format(args.zone_name, hosts_parsed['oz_panel_host']),
+               '--oneprovider-host {} {}'.format(args.provider_name, hosts_parsed['oneprovider_host']),
+               '--op-panel-host={} {}'.format(args.provider_name, hosts_parsed['op_panel_host'])]
     subprocess.call(command)
 
 
@@ -119,9 +132,9 @@ if {shed_privileges}:
     os.setreuid({uid}, {uid})
 
 command = ['py.test'] + {args} + ['--test-type={test_type}'] + ['{test_dir}'] + \\
- ['--junitxml={report_path}'] + ['--onezone-host={onezone_host}'] + \\
- ['--oz-panel-host={oz_panel_host}'] + ['--oneprovider-host={oneprovider_host}'] + \\
- ['--op-panel-host={op_panel_host}']
+ ['--junitxml={report_path}'] + ['--onezone-host'] + ['{zone_name}'] + ['{onezone_host}'] + \\
+ ['--oz-panel-host'] + ['{zone_name}'] + ['{oz_panel_host}'] + ['--oneprovider-host'] + ['{provider_name}'] + ['{oneprovider_host}'] + \\
+ ['--op-panel-host'] + ['{provider_name}'] + ['{op_panel_host}']
 ret = subprocess.call(command)
 sys.exit(ret)
 '''
@@ -139,8 +152,10 @@ sys.exit(ret)
         test_type=args.test_type,
         additional_code=additional_code,
         onezone_host=args.onezone_host,
+        zone_name=args.zone_name,
         oz_panel_host=args.oz_panel_host,
         oneprovider_host=args.oneprovider_host,
+        provider_name=args.provider_name,
         op_panel_host=args.op_panel_host,
         docker_name=args.docker_name)
 
@@ -159,7 +174,9 @@ import os, subprocess, sys, stat, json
 
 {additional_code}
 
-start_env_command = ['python', '-u', 'getting_started_env_up.py', '--docker-name', '{docker_name}']
+start_env_command = ['python', '-u', 'getting_started_env_up.py', 
+'--docker-name', '{docker_name}', '--scenario', '{scenario}', '--zone_name',
+'{zone_name}', '--provider_name', '{provider_name}']
 proc = subprocess.Popen(start_env_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
 output = ''
@@ -181,10 +198,11 @@ if {shed_privileges}:
     os.setreuid({uid}, {uid})
 
 command = ['py.test'] + {args} + ['--test-type={test_type}'] + ['{test_dir}'] + \\
- ['--junitxml={report_path}'] + ['--onezone-host=' + str(hosts_parsed['onezone_host'])] + \\
- ['--oz-panel-host=' + str(hosts_parsed['oz_panel_host'])] + ['--oneprovider-host=' + \\
- str(hosts_parsed['oneprovider_host'])] + ['--op-panel-host=' + \\
- str(hosts_parsed['op_panel_host'])]
+ ['--base-url=https://' + str(hosts_parsed['onezone_host'])] + \\
+ ['--junitxml={report_path}'] + ['--onezone-host'] + ['{zone_name}'] + [str(hosts_parsed['onezone_host'])] + \\
+ ['--oz-panel-host'] + ['{zone_name}'] + [str(hosts_parsed['oz_panel_host'])  + ':9443'] + ['--oneprovider-host'] + ['{provider_name}'] + \\
+ [str(hosts_parsed['oneprovider_host'])] + ['--op-panel-host'] + ['{provider_name}'] + \\
+ [str(hosts_parsed['op_panel_host']) + ':9443']
 ret = subprocess.call(command)
 sys.exit(ret)
 '''
@@ -201,6 +219,9 @@ sys.exit(ret)
         report_path=args.report_path,
         test_type=args.test_type,
         docker_name=args.docker_name,
+        scenario=args.scenario,
+        zone_name=args.zone_name,
+        provider_name=args.provider_name,
         additional_code=additional_code)
 
     ret = run_docker(command)
@@ -212,7 +233,8 @@ sys.exit(ret)
 
 
 def get_local_etc_hosts_entries():
-    """Get entries from local etc/hosts, excluding commented out, blank and localhost entries
+    """Get entries from local etc/hosts, excluding commented out, blank and
+    localhost entries
     Returns a str - content of etc/hosts except excluded lines.
     """
 
@@ -221,7 +243,8 @@ def get_local_etc_hosts_entries():
         hosts_content = f.read()
 
     re_exclude_entry = re.compile(r'\s*#.*|.*localhost.*|.*broadcasthost.*|^\s*$')
-    entries = filter(lambda line: not re_exclude_entry.match(line), hosts_content.splitlines())
+    entries = filter(lambda line: not re_exclude_entry.match(line),
+                     hosts_content.splitlines())
 
     return '### /etc/hosts from host ###\n' + '\n'.join(entries)
 
@@ -272,7 +295,8 @@ parser.add_argument(
 
 parser.add_argument(
     '--copy-etc-hosts',
-    help="Copies local /etc/hosts file to docker (useful when want to test GUI on locally defined domain)",
+    help="Copies local /etc/hosts file to docker (useful when want to test GUI "
+         "on locally defined domain)",
     dest='copy_etc_hosts',
     action='store_true'
 )
@@ -293,6 +317,35 @@ parser.add_argument(
     default='test_run_gui_docker',
     required=False
 )
+
+parser.add_argument(
+    '--scenario',
+    action='store',
+    help='Getting started scenario\'s name',
+    dest='scenario',
+    default='2_0_oneprovider_onezone',
+    required=False
+)
+
+parser.add_argument(
+    '--zone_name',
+    action='store',
+    help='Example zone\'s name',
+    dest='zone_name',
+    default='z1',
+    required=False
+)
+
+
+parser.add_argument(
+    '--provider_name',
+    action='store',
+    help='Examples providers\'s name',
+    dest='provider_name',
+    default='p1',
+    required=False
+)
+
 
 [args, pass_args] = parser.parse_known_args()
 

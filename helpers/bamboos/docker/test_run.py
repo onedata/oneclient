@@ -110,7 +110,7 @@ if {shed_privileges}:
     os.setregid({gid}, {gid})
     os.setreuid({uid}, {uid})
 
-command = ['py.test'] + {args} + {env_file} + ['--test-type={test_type}'] + ['{test_dir}'] + ['--junitxml={report_path}']
+command = ['py.test'] + ['--test-type={test_type}'] + ['{test_dir}'] + {args} + {env_file} + ['--junitxml={report_path}']
 ret = subprocess.call(command)
 sys.exit(ret)
 '''
