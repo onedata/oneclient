@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 17.06.0-rc4
+
+* VFS-3682 Modified Oneclient packaging to FPM
+
+
 ### 17.06.0-rc3
 
 * VFS-3650 Updated CentOS GlusterFS dependency
