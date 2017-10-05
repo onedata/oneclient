@@ -697,6 +697,7 @@ def test_truncate_should_pass_truncate_errors(endpoint, fl, uuid):
     assert 'Operation not permitted' in str(excinfo.value)
 
 
+@pytest.mark.skip(reason="TODO VFS-3718")
 def test_readdir_big_directory(endpoint, fl, uuid, stat):
     chunk_size = 5
     children_num = 1024*chunk_size

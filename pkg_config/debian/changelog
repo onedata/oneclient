@@ -1,4 +1,4 @@
-oneclient ({{version}}-{{build}}) {{distribution}}; urgency=low
+oneclient-base ({{version}}-{{build}}) {{distribution}}; urgency=low
 
   * Build from {{version}}
 
