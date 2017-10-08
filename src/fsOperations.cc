@@ -89,11 +89,7 @@ void wrap(Fun &&fun, Cb &&callback, fuse_req_t req, Args &&... args)
         .onError([req](folly::exception_wrapper ew) {
             try {
                 try {
-#if defined(__APPLE__)
                     ew.throw_exception();
-#else
-                    ew.throwException();
-#endif
                 }
                 catch (const std::exception &e) {
                     LOG(ERROR) << "Exception: " << e.what();
