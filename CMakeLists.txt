@@ -136,7 +136,6 @@ if(WITH_GLUSTERFS)
         if(NOT GLUSTERFSAPI_FOUND EQUAL 1)
             message(SEND_ERROR "pkg-config for glusterfs-api is missing.")
         else()
-            # message(SEND_ERROR "Found glusterfs-api ${GLUSTERFSAPI_PREFIX} ${GLUSTERFSAPI_LIBDIR} ${GLUSTERFSAPI_INCLUDEDIR}")
             add_definitions(-DWITH_GLUSTERFS=1)
             link_directories(${GLUSTERFSAPI_LIBDIR})
         endif()
@@ -262,7 +261,6 @@ include_directories(SYSTEM
 set(CLIENT_LIBRARIES
     libmacaroons-cpp
     ${PLATFORM_EXTRA_LIBS}
-    ${GLUSTERFSAPI_LIBRARIES}
     ${GLOG_LIBRARIES}
     ${FUSE_LIBRARIES}
     ${Boost_LIBRARIES}
