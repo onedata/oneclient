@@ -18,6 +18,9 @@ if(WITH_SWIFT)
     list(APPEND HELPERS_SYSTEM_INCLUDE_DIRS ${SWIFT_SDK_INCLUDE_DIRS})
 endif(WITH_SWIFT)
 
+#
+# Add GlusterFS include dir when building with GlusterFS helper
+#
 if(WITH_GLUSTERFS)
     list(APPEND HELPERS_SYSTEM_INCLUDE_DIRS ${GLUSTERFSAPI_INCLUDEDIR})
 endif(WITH_GLUSTERFS)
@@ -42,6 +45,10 @@ endif(NOT WITH_S3)
 if(NOT WITH_SWIFT)
     list(REMOVE_ITEM HELPER_SOURCES  ${CMAKE_CURRENT_SOURCE_DIR}/swiftHelper.cc)
 endif(NOT WITH_SWIFT)
+
+if(NOT WITH_GLUSTERFS)
+    list(REMOVE_ITEM HELPER_SOURCES  ${CMAKE_CURRENT_SOURCE_DIR}/glusterfsHelper.cc)
+endif(NOT WITH_GLUSTERFS)
 
 add_library(helpers OBJECT ${HELPER_SOURCES})
 add_dependencies(helpers clproto)

@@ -22,6 +22,7 @@
 #include "fsOperations.h"
 #include "fslogic/composite.h"
 #include "fuseOperations.h"
+#include "helpers/init.h"
 #include "logging.h"
 #include "messages/configuration.h"
 #include "messages/getConfiguration.h"
@@ -203,6 +204,8 @@ void unmountFuse(std::shared_ptr<options::Options> options)
 
 int main(int argc, char *argv[])
 {
+    helpers::init();
+
     auto context = std::make_shared<Context>();
     auto options = getOptions(argc, argv);
     context->setOptions(options);
