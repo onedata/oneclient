@@ -177,16 +177,6 @@ if(BUILD_PROXY_IO)
     add_definitions("-DBUILD_PROXY_IO")
 endif(BUILD_PROXY_IO)
 
-#
-# Select version of Folly, latest version available on OSX have TimedMutex
-# defined without a template
-#
-if(APPLE)
-    add_definitions(-DFOLLY_TIMEDMUTEX_IS_TEMPLATE=0)
-else(APPLE)
-    add_definitions(-DFOLLY_TIMEDMUTEX_IS_TEMPLATE=1)
-endif(APPLE)
-
 add_subdirectory(clproto)
 add_subdirectory(src)
 
