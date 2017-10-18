@@ -48,11 +48,7 @@ namespace helpers {
 namespace buffering {
 
 class WriteBuffer : public std::enable_shared_from_this<WriteBuffer> {
-#if FOLLY_TIMEDMUTEX_IS_TEMPLATE
-    using FiberMutex = folly::fibers::TimedMutex<folly::fibers::Baton>;
-#else
     using FiberMutex = folly::fibers::TimedMutex;
-#endif
 
 public:
     WriteBuffer(const std::size_t writeBufferMinSize,

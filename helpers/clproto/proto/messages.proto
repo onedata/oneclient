@@ -20,6 +20,7 @@ import "diagnostic_messages.proto";
 import "proxyio_messages.proto";
 import "dbsync_messages.proto";
 import "provider_messages.proto";
+import "remote_driver_messages.proto";
 // This file is required by Oneprovider for RTransfer
 import "gwproto.proto";
 
@@ -67,10 +68,13 @@ message ClientMessage {
 
         // provider_messages.proto
         ProviderRequest          provider_request          = 21;
+
+        // remote_driver_messages.proto
+        GetRemoteDocument        get_remote_document       = 22;
     }
     
-    optional bytes proxy_session_id = 22;
-    optional Token proxy_session_token = 23;
+    optional bytes proxy_session_id = 23;
+    optional Token proxy_session_token = 24;
 }
 
 // Messages that can be sent by the server to the client.
@@ -111,7 +115,10 @@ message ServerMessage {
 
         // provider_messages.proto
         ProviderResponse         provider_response         = 17;
+
+        // remote_driver_messages.proto
+        RemoteDocument           remote_document           = 18;
     }
 
-    optional bytes proxy_session_id = 18;
+    optional bytes proxy_session_id = 19;
 }
