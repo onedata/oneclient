@@ -31,11 +31,7 @@ namespace helpers {
 namespace buffering {
 
 class ReadCache : public std::enable_shared_from_this<ReadCache> {
-#if FOLLY_TIMEDMUTEX_IS_TEMPLATE
-    using FiberMutex = folly::fibers::TimedMutex<folly::fibers::Baton>;
-#else
     using FiberMutex = folly::fibers::TimedMutex;
-#endif
 
     struct ReadData {
         ReadData(const off_t offset_, const std::size_t size_)
