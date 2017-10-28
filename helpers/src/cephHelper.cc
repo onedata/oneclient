@@ -36,12 +36,13 @@ folly::Future<folly::IOBufQueue> CephFileHandle::read(
         folly::IOBufQueue buffer{folly::IOBufQueue::cacheChainLength()};
         char *raw = static_cast<char *>(buffer.preallocate(size, size).first);
         librados::bufferlist data;
-        data.append(ceph::buffer::create_static(size, raw));
+        libradosstriper::RadosStriper &rs = m_helper->getRadosStriper();
 
-        auto ret = m_ioCTX.read(m_fileId.toStdString(), data, size, offset);
+        auto ret = rs.read(m_fileId.toStdString(), &data, size, offset);
         if (ret < 0)
             return makeFuturePosixException<folly::IOBufQueue>(ret);
 
+        data.copy(0, ret, raw);
         buffer.postallocate(ret);
         return folly::makeFuture(std::move(buffer));
     });
@@ -65,7 +66,8 @@ folly::Future<std::size_t> CephFileHandle::write(
                 reinterpret_cast<char *>(
                     const_cast<unsigned char *>(byteRange.data()))));
 
-        auto ret = m_ioCTX.write(m_fileId.toStdString(), data, size, offset);
+        libradosstriper::RadosStriper &rs = m_helper->getRadosStriper();
+        auto ret = rs.write(m_fileId.toStdString(), data, size, offset);
         if (ret < 0)
             return makeFuturePosixException<std::size_t>(ret);
 
@@ -88,11 +90,7 @@ CephHelper::CephHelper(folly::fbstring clusterName, folly::fbstring monHost,
 {
 }
 
-CephHelper::~CephHelper()
-{
-    m_ioCTX.close();
-    m_cluster.shutdown();
-}
+CephHelper::~CephHelper() { m_ioCTX.close(); }
 
 folly::Future<FileHandlePtr> CephHelper::open(
     const folly::fbstring &fileId, const int, const Params &)
@@ -111,7 +109,7 @@ folly::Future<folly::Unit> CephHelper::unlink(const folly::fbstring &fileId)
             if (!self)
                 return makeFuturePosixException(ECANCELED);
 
-            auto ret = m_ioCTX.remove(fileId.toStdString());
+            auto ret = m_radosStriper.remove(fileId.toStdString());
             if (ret < 0)
                 return makeFuturePosixException(ret);
 
@@ -129,7 +127,15 @@ folly::Future<folly::Unit> CephHelper::truncate(
         if (!self)
             return makeFuturePosixException(ECANCELED);
 
-        auto ret = m_ioCTX.trunc(fileId.toStdString(), size);
+        auto ret = m_radosStriper.trunc(fileId.toStdString(), size);
+
+        if (ret == -ENOENT) {
+            // libradosstripe will not truncate non-existing file, so we have to
+            // create one first
+            librados::bufferlist bl;
+            m_radosStriper.write_full(fileId.toStdString(), bl);
+            ret = m_radosStriper.trunc(fileId.toStdString(), size);
+        }
         if (ret < 0)
             return makeFuturePosixException(ret);
 
@@ -150,7 +156,8 @@ folly::Future<folly::fbstring> CephHelper::getxattr(
         std::string xattrValue;
 
         librados::bufferlist bl;
-        int ret = m_ioCTX.getxattr(fileId.toStdString(), name.c_str(), bl);
+        int ret =
+            m_radosStriper.getxattr(fileId.toStdString(), name.c_str(), bl);
 
         if (ret < 0)
             return makeFuturePosixException<folly::fbstring>(ret);
@@ -181,20 +188,21 @@ folly::Future<folly::Unit> CephHelper::setxattr(const folly::fbstring &fileId,
 
         if (create) {
             int xattrExists =
-                m_ioCTX.getxattr(fileId.toStdString(), name.c_str(), bl);
+                m_radosStriper.getxattr(fileId.toStdString(), name.c_str(), bl);
             if (xattrExists >= 0)
                 return makeFuturePosixException<folly::Unit>(EEXIST);
         }
         else if (replace) {
             int xattrExists =
-                m_ioCTX.getxattr(fileId.toStdString(), name.c_str(), bl);
+                m_radosStriper.getxattr(fileId.toStdString(), name.c_str(), bl);
             if (xattrExists < 0)
                 return makeFuturePosixException<folly::Unit>(ENODATA);
         }
 
         bl.clear();
         bl.append(value.toStdString());
-        int ret = m_ioCTX.setxattr(fileId.toStdString(), name.c_str(), bl);
+        int ret =
+            m_radosStriper.setxattr(fileId.toStdString(), name.c_str(), bl);
 
         if (ret < 0)
             return makeFuturePosixException<folly::Unit>(ret);
@@ -213,7 +221,7 @@ folly::Future<folly::Unit> CephHelper::removexattr(
         if (!self)
             return makeFuturePosixException(ECANCELED);
 
-        int ret = m_ioCTX.rmxattr(fileId.toStdString(), name.c_str());
+        int ret = m_radosStriper.rmxattr(fileId.toStdString(), name.c_str());
         if (ret < 0)
             return makeFuturePosixException<folly::Unit>(ret);
 
@@ -234,7 +242,7 @@ folly::Future<folly::fbvector<folly::fbstring>> CephHelper::listxattr(
 
         std::map<std::string, librados::bufferlist> xattrs;
 
-        int ret = m_ioCTX.getxattrs(fileId.toStdString(), xattrs);
+        int ret = m_radosStriper.getxattrs(fileId.toStdString(), xattrs);
         if (ret < 0)
             return makeFuturePosixException<folly::fbvector<folly::fbstring>>(
                 ret);
@@ -293,6 +301,34 @@ folly::Future<folly::Unit> CephHelper::connect()
                 LOG(ERROR) << "Couldn't set up ioCTX.";
                 return makeFuturePosixException(ret);
             }
+
+            // Setup libradosstriper context
+            ret = libradosstriper::RadosStriper::striper_create(
+                m_ioCTX, &m_radosStriper);
+            if (ret < 0) {
+                LOG(ERROR) << "Couldn't Create RadosStriper: " << ret;
+
+                m_ioCTX.close();
+                m_cluster.shutdown();
+                return makeFuturePosixException(ret);
+            }
+
+            // Get the alignment setting for pool from io_ctx
+            uint64_t alignment = 0;
+            ret = m_ioCTX.pool_required_alignment2(&alignment);
+            if (ret < 0) {
+                LOG(ERROR) << "IO_CTX didn't return pool alignment: " << ret
+                           << "\n Is this an erasure coded pool? " << std::endl;
+
+                m_ioCTX.close();
+                m_cluster.shutdown();
+                return makeFuturePosixException(ret);
+            }
+
+            // TODO: VFS-3780
+            m_radosStriper.set_object_layout_stripe_unit(4 * 1024 * 1024);
+            m_radosStriper.set_object_layout_stripe_count(8);
+            m_radosStriper.set_object_layout_object_size(16 * 1024 * 1024);
 
             m_connected = true;
             return folly::makeFuture();
