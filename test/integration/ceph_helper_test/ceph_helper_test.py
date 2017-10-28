@@ -78,6 +78,8 @@ def test_read_should_read_data(helper):
     assert helper.read(file_id, offset, len(data)) == data
 
 
+@pytest.mark.skip(reason=
+  "libradosstriper does not report error when removing non existing file")
 def test_unlink_should_pass_errors(helper):
     file_id = random_str()
 
@@ -93,6 +95,18 @@ def test_unlink_should_delete_data(helper):
 
     assert helper.write(file_id, data, offset) == len(data)
     helper.unlink(file_id)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        helper.read(file_id, offset, len(data))
+    assert 'No such file or directory' in str(excinfo.value)
+
+
+def test_truncate_should_truncate_nonexisting_file(helper):
+    file_id = random_str()
+    data = random_str()
+
+    helper.truncate(file_id, len(data))
+    assert len(helper.read(file_id, 0, len(data))) == len(data)
 
 
 def test_truncate_should_truncate_data(helper):
