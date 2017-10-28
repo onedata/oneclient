@@ -164,9 +164,6 @@ std::shared_ptr<StorageHelper> StorageHelperCreator::getStorageHelper(
 #if WITH_GLUSTERFS
         && (name != GLUSTERFS_HELPER_NAME)
 #endif
-#if WITH_CEPH
-        && (name != CEPH_HELPER_NAME)
-#endif
     )
         return std::make_shared<buffering::BufferAgent>(
             m_bufferLimits, helper, *m_scheduler);
