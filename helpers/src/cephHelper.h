@@ -16,6 +16,7 @@
 #include <asio.hpp>
 #include <folly/Executor.h>
 #include <rados/librados.hpp>
+#include <radosstriper/libradosstriper.hpp>
 
 namespace one {
 namespace helpers {
@@ -118,6 +119,8 @@ public:
 
     const Timeout &timeout() override { return m_timeout; }
 
+    libradosstriper::RadosStriper &getRadosStriper() { return m_radosStriper; }
+
     /**
      * Establishes connection to the Ceph storage cluster.
      */
@@ -135,6 +138,7 @@ private:
 
     librados::Rados m_cluster;
     librados::IoCtx m_ioCTX;
+    libradosstriper::RadosStriper m_radosStriper;
     std::mutex m_connectionMutex;
     bool m_connected = false;
 };
