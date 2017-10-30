@@ -35,8 +35,8 @@ BuildRequires: poco-netssl
 BuildRequires: poco-util
 BuildRequires: poco-xml
 BuildRequires: openssl-devel
-BuildRequires: protobuf-compiler >= 2.6.0
-BuildRequires: protobuf-devel >= 2.6.0
+BuildRequires: protobuf-compiler >= 3.4.1
+BuildRequires: protobuf-devel >= 3.4.1
 BuildRequires: python-devel
 BuildRequires: subversion
 BuildRequires: swift-sdk-cpp >= 1.0.0
