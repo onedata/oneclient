@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 17.06.0-rc8
+
+* Releasing new version 17.06.0-rc8
+
+
 ### 17.06.0-rc7
 
 * Releasing new version 17.06.0-rc7
