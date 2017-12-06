@@ -92,8 +92,7 @@
                             "db_nodes": [
                                 "dbnode1"
                             ],
-                            "oz_domain": "oz1",
-                            "verify_oz_cert": false
+                            "oz_domain": "oz1"
                         }
                     },
                     "storage": {
