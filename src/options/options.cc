@@ -294,6 +294,84 @@ Options::Options()
         .withGroup(OptionGroup::FUSE)
         .withDescription("Pass mount arguments directly to FUSE.");
 
+    add<std::string>()
+        ->withEnvName("monitoring_type")
+        .withLongName("monitoring-type")
+        .withConfigName("monitoring_type")
+        .withValueName("<reporter>")
+        .withGroup(OptionGroup::MONITORING)
+        .withDescription("Enables performance metrics monitoring - allowed "
+                         "values are: graphite.");
+
+    add<bool>()
+        ->asSwitch()
+        .withEnvName("monitoring_level_basic")
+        .withLongName("monitoring-level_basic")
+        .withConfigName("monitoring_level_basic")
+        .withImplicitValue(true)
+        .withDefaultValue(true, "true")
+        .withGroup(OptionGroup::MONITORING)
+        .withDescription("Sets monitoring reporting level to basic - default.");
+
+    add<bool>()
+        ->asSwitch()
+        .withEnvName("monitoring_level_full")
+        .withLongName("monitoring-level-full")
+        .withConfigName("monitoring_level_full")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::MONITORING)
+        .withDescription("Sets monitoring reporting level to full.");
+
+    add<unsigned int>()
+        ->withEnvName("monitoring_period")
+        .withLongName("monitoring-period")
+        .withConfigName("monitoring_period")
+        .withValueName("<seconds>")
+        .withDefaultValue(30, std::to_string(30))
+        .withGroup(OptionGroup::MONITORING)
+        .withDescription("Performance metrics reporting period.");
+
+    add<std::string>()
+        ->withEnvName("graphite_url")
+        .withLongName("graphite-url")
+        .withConfigName("graphite_url")
+        .withValueName("<url>")
+        .withGroup(OptionGroup::MONITORING)
+        .withDescription("Graphite url - required when monitoring-type is "
+                         "'graphite', the scheme can be either tcp or udp and "
+                         "default port is 2003");
+
+    add<std::string>()
+        ->withEnvName("graphite_namespace_root")
+        .withLongName("graphite-namespace-root")
+        .withConfigName("graphite_namespace_root")
+        .withValueName("<name>")
+        .withGroup(OptionGroup::MONITORING)
+        .withDescription("Graphite namespace root name - can be used to group "
+                         "multiple oneclient instances over several hosts.");
+
+    add<std::string>()
+        ->withEnvName("graphite_namespace_host")
+        .withLongName("graphite-namespace-host")
+        .withConfigName("graphite_namespace_host")
+        .withValueName("<name>")
+        .withGroup(OptionGroup::MONITORING)
+        .withDescription("Graphite namespace host name - optional, if not "
+                         "provided the hostname will be determined "
+                         "automatically.");
+
+    add<std::string>()
+        ->withEnvName("graphite_namespace_container")
+        .withLongName("graphite-namespace-container")
+        .withConfigName("graphite_namespace_container")
+        .withValueName("<name>")
+        .withGroup(OptionGroup::MONITORING)
+        .withDescription(
+            "Graphite namespace container name - optional, if not "
+            "provided it will be omitted. Can be used to scpecify Docker "
+            "container or Kubernetes pod in which Oneclient is running.");
+
     add<boost::filesystem::path>()
         ->required()
         .positional("mountpoint", 1)
@@ -366,6 +444,9 @@ std::string Options::formatHelp(const char *programName) const
     selectCommandLine(advanced, OptionGroup::ADVANCED);
     boost::program_options::options_description fuse{"FUSE options"};
     selectCommandLine(fuse, OptionGroup::FUSE);
+    boost::program_options::options_description monitoring{
+        "Monitoring options"};
+    selectCommandLine(monitoring, OptionGroup::MONITORING);
 
     std::stringstream ss;
     ss << "Usage: " << programName << " [options] mountpoint\n";
@@ -378,6 +459,8 @@ std::string Options::formatHelp(const char *programName) const
     ss << advanced;
     ss << "\n";
     ss << fuse;
+    ss << "\n";
+    ss << monitoring;
 
     return ss.str();
 }
@@ -541,6 +624,59 @@ unsigned int Options::getMetadataCacheSize() const
 {
     return get<unsigned int>({"metadata-cache-size", "metadata_cache_size"})
         .get_value_or(DEFAULT_METADATA_CACHE_SIZE);
+}
+
+bool Options::isMonitoringEnabled() const
+{
+    return get<std::string>({"monitoring-type", "monitoring_type"})
+        .
+        operator bool();
+}
+
+boost::optional<std::string> Options::getMonitoringType() const
+{
+    return get<std::string>({"monitoring-type", "monitoring_type"});
+}
+
+bool Options::isMonitoringLevelBasic() const
+{
+    return get<bool>({"monitoring-level-basic", "monitoring_level_basic"})
+        .get_value_or(true);
+}
+
+bool Options::isMonitoringLevelFull() const
+{
+    return get<bool>({"monitoring-level-full", "monitoring_level_full"})
+        .get_value_or(false);
+}
+
+boost::optional<std::string> Options::getMonitoringGraphiteUrl() const
+{
+    return get<std::string>({"graphite-url", "graphite_url"});
+}
+
+boost::optional<std::string> Options::getMonitoringGraphiteNamespaceRoot() const
+{
+    return get<std::string>(
+        {"graphite-namespace-root", "graphite_namespace_root"});
+}
+
+boost::optional<std::string> Options::getMonitoringGraphiteNamespaceHost() const
+{
+    return get<std::string>(
+        {"graphite-namespace-host", "graphite_namespace_host"});
+}
+
+boost::optional<std::string>
+Options::getMonitoringGraphiteNamespaceContainer() const
+{
+    return get<std::string>(
+        {"graphite-namespace-container", "graphite_namespace_container"});
+}
+unsigned int Options::getMonitoringReportingPeriod() const
+{
+    return get<unsigned int>({"monitoring-period", "monitoring_period"})
+        .get_value_or(30);
 }
 
 boost::filesystem::path Options::getMountpoint() const

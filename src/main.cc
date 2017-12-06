@@ -15,6 +15,7 @@
 #define _XOPEN_SOURCE 700
 #endif
 
+#include "asio.hpp"
 #include "auth/authException.h"
 #include "auth/authManager.h"
 #include "communication/exception.h"
@@ -27,6 +28,8 @@
 #include "messages/configuration.h"
 #include "messages/getConfiguration.h"
 #include "messages/handshakeResponse.h"
+#include "monitoring/monitoring.h"
+#include "monitoring/monitoringConfiguration.h"
 #include "options/options.h"
 #include "scheduler.h"
 #include "scopeExit.h"
@@ -51,6 +54,7 @@
 
 using namespace one;
 using namespace one::client;
+using namespace one::monitoring;
 
 void startLogging(
     const char *programName, std::shared_ptr<options::Options> options)
@@ -68,6 +72,105 @@ void startLogging(
     FLAGS_stderrthreshold = options->getDebug() ? 0 : 2;
     FLAGS_log_dir = options->getLogDirPath().c_str();
     google::InitGoogleLogging(programName);
+}
+
+int startPerformanceMonitoring(std::shared_ptr<options::Options> options)
+{
+    if (options->isMonitoringEnabled()) {
+        if (options->getMonitoringType().get() == "graphite") {
+            if (!options->getMonitoringGraphiteUrl()) {
+                std::cerr << "Graphite URL not specified - use option "
+                             "--graphite-url."
+                          << std::endl;
+                return EXIT_FAILURE;
+            }
+            if (!options->getMonitoringGraphiteNamespaceRoot()) {
+                std::cerr << "Graphite root namespace not specified - use "
+                             "option --graphite-namespace-root."
+                          << std::endl;
+                return EXIT_FAILURE;
+            }
+
+            auto config = std::make_shared<GraphiteMonitoringConfiguration>();
+            config->fromGraphiteURL(options->getMonitoringGraphiteUrl().get());
+            config->namespaceRoot =
+                options->getMonitoringGraphiteNamespaceRoot().get();
+            std::string namespaceHost;
+            if (options->getMonitoringGraphiteNamespaceHost()) {
+                namespaceHost =
+                    options->getMonitoringGraphiteNamespaceHost().get();
+            }
+            else {
+                namespaceHost = asio::ip::host_name();
+            }
+            config->namespaceHost =
+                std::regex_replace(namespaceHost, std::regex("\\."), "_");
+
+            if (options->getMonitoringGraphiteNamespaceContainer()) {
+                config->namespaceContainer =
+                    options->getMonitoringGraphiteNamespaceContainer().get();
+            }
+            config->reportingPeriod = options->getMonitoringReportingPeriod();
+            if (options->isMonitoringLevelFull()) {
+                config->reportingLevel = cppmetrics::core::ReportingLevel::Full;
+            }
+            else {
+                config->reportingLevel =
+                    cppmetrics::core::ReportingLevel::Basic;
+            }
+
+            LOG(INFO) << "Starting Graphite performance monitoring to host: "
+                      << config->graphiteHostname;
+
+            // Configure and start monitoring threads
+            helpers::configureMonitoring(config, true);
+
+            // Initialize the command line option counter values
+            ONE_METRIC_COUNTER_SET(
+                "comp.oneclient.mod.options.scheduler_thread_count",
+                options->getSchedulerThreadCount());
+            ONE_METRIC_COUNTER_SET(
+                "comp.oneclient.mod.options.communicator_thread_count",
+                options->getCommunicatorThreadCount());
+            ONE_METRIC_COUNTER_SET(
+                "comp.oneclient.mod.options.storage_helper_thread_count",
+                options->getStorageHelperThreadCount());
+            ONE_METRIC_COUNTER_SET("comp.oneclient.mod.options.buffer_"
+                                   "scheduler_helper_thread_count",
+                options->getBufferSchedulerThreadCount());
+            ONE_METRIC_COUNTER_SET(
+                "comp.oneclient.mod.options.read_buffer_min_size",
+                options->getReadBufferMinSize());
+            ONE_METRIC_COUNTER_SET(
+                "comp.oneclient.mod.options.read_buffer_max_size",
+                options->getReadBufferMaxSize());
+            ONE_METRIC_COUNTER_SET(
+                "comp.oneclient.mod.options.write_buffer_min_size",
+                options->getWriteBufferMinSize());
+            ONE_METRIC_COUNTER_SET(
+                "comp.oneclient.mod.options.write_buffer_max_size",
+                options->getWriteBufferMaxSize());
+            ONE_METRIC_COUNTER_SET(
+                "comp.oneclient.mod.options.read_buffer_prefetch_duration",
+                options->getReadBufferPrefetchDuration().count());
+            ONE_METRIC_COUNTER_SET(
+                "comp.oneclient.mod.options.write_buffer_flush_delay",
+                options->getWriteBufferFlushDelay().count());
+            ONE_METRIC_COUNTER_SET(
+                "comp.oneclient.mod.options.metadata_cache_size",
+                options->getMetadataCacheSize());
+            ONE_METRIC_COUNTER_SET(
+                "comp.oneclient.mod.options.monitoring_reporting_period",
+                options->getMonitoringReportingPeriod());
+        }
+        else {
+            std::cerr << "Unsupported performance monitoring reporter: "
+                      << options->getMonitoringType().get() << std::endl;
+            return EXIT_FAILURE;
+        }
+    }
+
+    return EXIT_SUCCESS;
 }
 
 std::string generateSessionId()
@@ -300,6 +403,9 @@ int main(int argc, char *argv[])
     else {
         FLAGS_stderrthreshold = options->getDebug() ? 0 : 1;
     }
+
+    if (startPerformanceMonitoring(options) != EXIT_SUCCESS)
+        return EXIT_FAILURE;
 
     auto communicator = getCommunicator(sessionId, authManager, context);
     context->setCommunicator(communicator);

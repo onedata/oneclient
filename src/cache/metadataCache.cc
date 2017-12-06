@@ -17,6 +17,7 @@
 #include "messages/fuse/getFileLocation.h"
 #include "messages/fuse/rename.h"
 #include "messages/fuse/updateTimes.h"
+#include "monitoring/monitoring.h"
 #include "scheduler.h"
 
 #include <folly/FBVector.h>
@@ -69,6 +70,7 @@ void MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
     auto result = m_cache.emplace(attr);
     if (!result.second)
         m_cache.modify(result.first, [&](Metadata &m) { m.attr = attr; });
+    ONE_METRIC_COUNTER_INC("comp.oneclient.mod.metadatacache.size");
 }
 
 MetadataCache::Map::iterator MetadataCache::getAttrIt(
@@ -184,6 +186,8 @@ void MetadataCache::erase(const folly::fbstring &uuid)
 {
     auto &index = boost::multi_index::get<ByUuid>(m_cache);
     index.erase(uuid);
+    ONE_METRIC_COUNTER_SET(
+        "comp.oneclient.mod.metadatacache.size", index.size());
 }
 
 void MetadataCache::truncate(
