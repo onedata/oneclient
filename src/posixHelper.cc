@@ -13,6 +13,7 @@
 
 #include "posixHelper.h"
 #include "logging.h"
+#include "monitoring/monitoring.h"
 
 #include <boost/any.hpp>
 
@@ -148,56 +149,67 @@ PosixFileHandle::~PosixFileHandle()
 folly::Future<folly::IOBufQueue> PosixFileHandle::read(
     const off_t offset, const std::size_t size)
 {
-    return folly::via(m_executor.get(),
-        [ offset, size, uid = m_uid, gid = m_gid, fh = m_fh ] {
-            UserCtxSetter userCTX{uid, gid};
-            if (!userCTX.valid())
-                return makeFuturePosixException<folly::IOBufQueue>(EDOM);
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.posix.read");
+    return folly::via(m_executor.get(), [
+        offset, size, uid = m_uid, gid = m_gid, fh = m_fh,
+        timer = std::move(timer)
+    ] {
+        UserCtxSetter userCTX{uid, gid};
+        if (!userCTX.valid())
+            return makeFuturePosixException<folly::IOBufQueue>(EDOM);
 
-            folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
-            void *data = buf.preallocate(size, size).first;
+        folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
 
-            auto res = ::pread(fh, data, size, offset);
+        void *data = buf.preallocate(size, size).first;
 
-            if (res == -1)
-                return makeFuturePosixException<folly::IOBufQueue>(errno);
+        auto res = ::pread(fh, data, size, offset);
 
-            buf.postallocate(res);
-            return folly::makeFuture(std::move(buf));
-        });
+        if (res == -1)
+            return makeFuturePosixException<folly::IOBufQueue>(errno);
+
+        buf.postallocate(res);
+
+        ONE_METRIC_TIMERCTX_STOP(timer, res);
+
+        return folly::makeFuture(std::move(buf));
+    });
 }
 
 folly::Future<std::size_t> PosixFileHandle::write(
     const off_t offset, folly::IOBufQueue buf)
 {
-    return folly::via(m_executor.get(),
-        [ offset, buf = std::move(buf), uid = m_uid, gid = m_gid, fh = m_fh ] {
-            UserCtxSetter userCTX{uid, gid};
-            if (!userCTX.valid())
-                return makeFuturePosixException<std::size_t>(EDOM);
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.posix.write");
+    return folly::via(m_executor.get(), [
+        offset, buf = std::move(buf), uid = m_uid, gid = m_gid, fh = m_fh,
+        timer = std::move(timer)
+    ] {
+        UserCtxSetter userCTX{uid, gid};
+        if (!userCTX.valid())
+            return makeFuturePosixException<std::size_t>(EDOM);
 
-            auto res = ::lseek(fh, offset, SEEK_SET);
+        auto res = ::lseek(fh, offset, SEEK_SET);
+        if (res == -1)
+            return makeFuturePosixException<std::size_t>(errno);
+
+        if (buf.empty())
+            return folly::makeFuture<std::size_t>(0);
+
+        auto iov = buf.front()->getIov();
+        auto iov_size = iov.size();
+        auto size = 0;
+
+        for (std::size_t iov_off = 0; iov_off < iov_size; iov_off += IOV_MAX) {
+            res = ::writev(fh, iov.data() + iov_off,
+                std::min<std::size_t>(IOV_MAX, iov_size - iov_off));
             if (res == -1)
                 return makeFuturePosixException<std::size_t>(errno);
+            size += res;
+        }
 
-            if (buf.empty())
-                return folly::makeFuture<std::size_t>(0);
+        ONE_METRIC_TIMERCTX_STOP(timer, size);
 
-            auto iov = buf.front()->getIov();
-            auto iov_size = iov.size();
-            auto size = 0;
-
-            for (std::size_t iov_off = 0; iov_off < iov_size;
-                 iov_off += IOV_MAX) {
-                res = ::writev(fh, iov.data() + iov_off,
-                    std::min<std::size_t>(IOV_MAX, iov_size - iov_off));
-                if (res == -1)
-                    return makeFuturePosixException<std::size_t>(errno);
-                size += res;
-            }
-
-            return folly::makeFuture<std::size_t>(size);
-        });
+        return folly::makeFuture<std::size_t>(size);
+    });
 }
 
 folly::Future<folly::Unit> PosixFileHandle::release()
@@ -207,6 +219,8 @@ folly::Future<folly::Unit> PosixFileHandle::release()
 
     return folly::via(
         m_executor.get(), [ uid = m_uid, gid = m_gid, fh = m_fh ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.release");
+
             UserCtxSetter userCTX{uid, gid};
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
@@ -219,6 +233,8 @@ folly::Future<folly::Unit> PosixFileHandle::flush()
 {
     return folly::via(
         m_executor.get(), [ uid = m_uid, gid = m_gid, fh = m_fh ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.flush");
+
             UserCtxSetter userCTX{uid, gid};
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
@@ -231,6 +247,8 @@ folly::Future<folly::Unit> PosixFileHandle::fsync(bool /*isDataSync*/)
 {
     return folly::via(
         m_executor.get(), [ uid = m_uid, gid = m_gid, fh = m_fh ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.fsync");
+
             UserCtxSetter userCTX{uid, gid};
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
@@ -253,6 +271,8 @@ folly::Future<struct stat> PosixHelper::getattr(const folly::fbstring &fileId)
 {
     return folly::via(m_executor.get(),
         [ filePath = root(fileId), uid = m_uid, gid = m_gid ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.getattr");
+
             struct stat stbuf = {};
 
             UserCtxSetter userCTX{uid, gid};
@@ -271,6 +291,8 @@ folly::Future<folly::Unit> PosixHelper::access(
 {
     return folly::via(m_executor.get(),
         [ filePath = root(fileId), mask, uid = m_uid, gid = m_gid ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.access");
+
             UserCtxSetter userCTX{uid, gid};
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
@@ -285,6 +307,8 @@ folly::Future<folly::fbvector<folly::fbstring>> PosixHelper::readdir(
     return folly::via(m_executor.get(), [
         filePath = root(fileId), offset, count, uid = m_uid, gid = m_gid
     ] {
+        ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.readdir");
+
         UserCtxSetter userCTX{uid, gid};
         if (!userCTX.valid())
             return makeFuturePosixException<folly::fbvector<folly::fbstring>>(
@@ -324,6 +348,8 @@ folly::Future<folly::fbstring> PosixHelper::readlink(
 {
     return folly::via(m_executor.get(),
         [ filePath = root(fileId), uid = m_uid, gid = m_gid ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.readlink");
+
             UserCtxSetter userCTX{uid, gid};
             if (!userCTX.valid())
                 return makeFuturePosixException<folly::fbstring>(EDOM);
@@ -347,6 +373,8 @@ folly::Future<folly::Unit> PosixHelper::mknod(const folly::fbstring &fileId,
     const mode_t mode = unmaskedMode | flagsToMask(flags);
     return folly::via(m_executor.get(),
         [ filePath = root(fileId), mode, rdev, uid = m_uid, gid = m_gid ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.mknod");
+
             UserCtxSetter userCTX{uid, gid};
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
@@ -380,6 +408,8 @@ folly::Future<folly::Unit> PosixHelper::mkdir(
 {
     return folly::via(m_executor.get(),
         [ filePath = root(fileId), mode, uid = m_uid, gid = m_gid ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.mkdir");
+
             UserCtxSetter userCTX{uid, gid};
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
@@ -392,6 +422,8 @@ folly::Future<folly::Unit> PosixHelper::unlink(const folly::fbstring &fileId)
 {
     return folly::via(m_executor.get(),
         [ filePath = root(fileId), uid = m_uid, gid = m_gid ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.unlink");
+
             UserCtxSetter userCTX{uid, gid};
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
@@ -404,6 +436,8 @@ folly::Future<folly::Unit> PosixHelper::rmdir(const folly::fbstring &fileId)
 {
     return folly::via(m_executor.get(),
         [ filePath = root(fileId), uid = m_uid, gid = m_gid ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.rmdir");
+
             UserCtxSetter userCTX{uid, gid};
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
@@ -417,6 +451,8 @@ folly::Future<folly::Unit> PosixHelper::symlink(
 {
     return folly::via(m_executor.get(),
         [ from = root(from), to = root(to), uid = m_uid, gid = m_gid ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.symlink");
+
             UserCtxSetter userCTX{uid, gid};
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
@@ -430,6 +466,8 @@ folly::Future<folly::Unit> PosixHelper::rename(
 {
     return folly::via(m_executor.get(),
         [ from = root(from), to = root(to), uid = m_uid, gid = m_gid ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.rename");
+
             UserCtxSetter userCTX{uid, gid};
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
@@ -443,6 +481,8 @@ folly::Future<folly::Unit> PosixHelper::link(
 {
     return folly::via(m_executor.get(),
         [ from = root(from), to = root(to), uid = m_uid, gid = m_gid ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.link");
+
             UserCtxSetter userCTX{uid, gid};
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
@@ -456,6 +496,8 @@ folly::Future<folly::Unit> PosixHelper::chmod(
 {
     return folly::via(m_executor.get(),
         [ filePath = root(fileId), mode, uid = m_uid, gid = m_gid ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.chmod");
+
             UserCtxSetter userCTX{uid, gid};
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
@@ -471,6 +513,8 @@ folly::Future<folly::Unit> PosixHelper::chown(
         filePath = root(fileId), argUid = uid, argGid = gid, uid = m_uid,
         gid = m_gid
     ] {
+        ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.chown");
+
         UserCtxSetter userCTX{uid, gid};
         if (!userCTX.valid())
             return makeFuturePosixException(EDOM);
@@ -484,6 +528,8 @@ folly::Future<folly::Unit> PosixHelper::truncate(
 {
     return folly::via(m_executor.get(),
         [ filePath = root(fileId), size, uid = m_uid, gid = m_gid ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.truncate");
+
             UserCtxSetter userCTX{uid, gid};
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
@@ -499,6 +545,8 @@ folly::Future<FileHandlePtr> PosixHelper::open(
         fileId, filePath = root(fileId), flags, executor = m_executor,
         uid = m_uid, gid = m_gid, timeout = m_timeout
     ]() mutable {
+        ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.open");
+
         UserCtxSetter userCTX{uid, gid};
         if (!userCTX.valid())
             return makeFuturePosixException<FileHandlePtr>(EDOM);
@@ -520,6 +568,8 @@ folly::Future<folly::fbstring> PosixHelper::getxattr(
 {
     return folly::via(m_executor.get(),
         [ filePath = root(fileId), name, uid = m_uid, gid = m_gid ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.getxattr");
+
             UserCtxSetter userCTX{uid, gid};
             if (!userCTX.valid())
                 return makeFuturePosixException<folly::fbstring>(EDOM);
@@ -565,6 +615,8 @@ folly::Future<folly::Unit> PosixHelper::setxattr(const folly::fbstring &fileId,
         filePath = root(fileId), name, value, create, replace, uid = m_uid,
         gid = m_gid
     ] {
+        ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.setxattr");
+
         UserCtxSetter userCTX{uid, gid};
         if (!userCTX.valid())
             return makeFuturePosixException<folly::Unit>(EDOM);
@@ -596,6 +648,8 @@ folly::Future<folly::Unit> PosixHelper::removexattr(
 {
     return folly::via(m_executor.get(),
         [ filePath = root(fileId), name, uid = m_uid, gid = m_gid ] {
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.removexattr");
+
             UserCtxSetter userCTX{uid, gid};
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
@@ -615,6 +669,8 @@ folly::Future<folly::fbvector<folly::fbstring>> PosixHelper::listxattr(
     return folly::via(m_executor.get(), [
         filePath = root(fileId), uid = m_uid, gid = m_gid
     ] {
+        ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.listxattr");
+
         UserCtxSetter userCTX{uid, gid};
         if (!userCTX.valid())
             return makeFuturePosixException<folly::fbvector<folly::fbstring>>(

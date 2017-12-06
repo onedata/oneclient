@@ -8,6 +8,7 @@
 
 #include "glusterfsHelper.h"
 #include "logging.h"
+#include "monitoring/monitoring.h"
 
 #include <boost/algorithm/string.hpp>
 #include <folly/String.h>
@@ -113,10 +114,12 @@ GlusterFSFileHandle::~GlusterFSFileHandle()
 folly::Future<folly::IOBufQueue> GlusterFSFileHandle::read(
     const off_t offset, const std::size_t size)
 {
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.glusterfs.read");
     return m_helper->connect().then([
         offset, size, glfsFd = m_glfsFd, uid = m_uid, gid = m_gid,
+        timer = std::move(timer),
         s = std::weak_ptr<GlusterFSFileHandle>{shared_from_this()}
-    ] {
+    ]() mutable {
         auto self = s.lock();
         if (!self)
             return makeFuturePosixException<folly::IOBufQueue>(ECANCELED);
@@ -132,6 +135,9 @@ folly::Future<folly::IOBufQueue> GlusterFSFileHandle::read(
             return makeFuturePosixException<folly::IOBufQueue>(readBytesCount);
 
         buffer.postallocate(readBytesCount);
+
+        ONE_METRIC_TIMERCTX_STOP(timer, readBytesCount);
+
         return folly::makeFuture(std::move(buffer));
     });
 }
@@ -139,10 +145,12 @@ folly::Future<folly::IOBufQueue> GlusterFSFileHandle::read(
 folly::Future<std::size_t> GlusterFSFileHandle::write(
     const off_t offset, folly::IOBufQueue buf)
 {
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.glusterfs.write");
     return m_helper->connect().then([
         offset, buf = std::move(buf), glfsFd = m_glfsFd, uid = m_uid,
-        gid = m_gid, s = std::weak_ptr<GlusterFSFileHandle>{shared_from_this()}
-    ] {
+        timer = std::move(timer), gid = m_gid,
+        s = std::weak_ptr<GlusterFSFileHandle>{shared_from_this()}
+    ]() mutable {
         auto self = s.lock();
         if (!self)
             return makeFuturePosixException<std::size_t>(ECANCELED);
@@ -159,6 +167,8 @@ folly::Future<std::size_t> GlusterFSFileHandle::write(
         auto res = glfs_pwritev(glfsFd.get(), iov.data(), iov_size, offset, 0);
         if (res == -1)
             return makeFuturePosixException<std::size_t>(errno);
+
+        ONE_METRIC_TIMERCTX_STOP(timer, res);
 
         return folly::makeFuture<std::size_t>(res);
     });
@@ -244,7 +254,6 @@ folly::Future<folly::Unit> GlusterFSHelper::connect()
         // have to set it in each lambda, which can be scheduled on
         // an arbitrary worker thread by Folly executor using glfs_setfsuid()
         // and glfs_setfsgid()
-
         auto ctxId =
             GlusterFSConnection::generateCtxId(m_hostname, m_port, m_volume);
 

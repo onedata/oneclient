@@ -8,6 +8,7 @@
 
 #include "s3Helper.h"
 #include "logging.h"
+#include "monitoring/monitoring.h"
 
 #include <aws/core/auth/AWSCredentialsProvider.h>
 #include <aws/core/client/ClientConfiguration.h>
@@ -139,6 +140,8 @@ folly::IOBufQueue S3Helper::getObject(
         return stream;
     });
 
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.s3.read");
+
     auto outcome = m_client->GetObject(request);
     auto code = getReturnCode(outcome);
     if (code != SUCCESS_CODE)
@@ -149,8 +152,10 @@ folly::IOBufQueue S3Helper::getObject(
         data, outcome.GetResult().GetContentLength());
 #endif
 
-    buf.postallocate(
-        static_cast<std::size_t>(outcome.GetResult().GetContentLength()));
+    auto readBytes = outcome.GetResult().GetContentLength();
+    buf.postallocate(static_cast<std::size_t>(readBytes));
+
+    ONE_METRIC_TIMERCTX_STOP(timer, readBytes);
 
     return buf;
 }
@@ -186,6 +191,8 @@ std::size_t S3Helper::putObject(
         iobuf->coalesce();
     }
 
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.s3.write");
+
     Aws::S3::Model::PutObjectRequest request;
     auto size = iobuf->length();
     request.SetBucket(m_bucket.c_str());
@@ -203,6 +210,9 @@ std::size_t S3Helper::putObject(
     request.SetBody(stream);
 
     auto outcome = m_client->PutObject(request);
+
+    ONE_METRIC_TIMERCTX_STOP(timer, size);
+
     throwOnError("PutObject", outcome);
 
     return size;
@@ -256,6 +266,8 @@ folly::fbvector<folly::fbstring> S3Helper::listObjects(
 
     folly::fbvector<folly::fbstring> keys;
 
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.s3.listobjects");
+
     while (true) {
         auto outcome = m_client->ListObjects(request);
         throwOnError("ListObjects", outcome);
@@ -268,6 +280,10 @@ folly::fbvector<folly::fbstring> S3Helper::listObjects(
 
         request.SetMarker(outcome.GetResult().GetNextMarker());
     }
+
+    ONE_METRIC_TIMERCTX_STOP(timer, keys.size());
+
+    return keys;
 }
 
 } // namespace helpers

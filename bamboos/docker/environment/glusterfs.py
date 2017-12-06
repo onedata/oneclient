@@ -25,7 +25,7 @@ def _node_up(image, volumes, name, uid, transport, mountpoint):
         privileged=True,
         hostname=hostname,
         name=hostname,
-        volumes=[('/dev', '/dev', 'rw'), ('/sys/fs/cgroup', '/sys/fs/cgroup', 'ro')],
+        volumes=[],
         detach=True)
 
     settings = docker.inspect(container)
