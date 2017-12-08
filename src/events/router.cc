@@ -10,6 +10,7 @@
 #include "logging.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
+#include "monitoring/monitoring.h"
 
 #include "messages.pb.h"
 
@@ -42,26 +43,38 @@ void Router::handle(const ProtoEvents &msg)
         if (eventMsg.has_file_attr_changed()) {
             m_eventManager.emit(std::make_unique<FileAttrChanged>(
                 eventMsg.file_attr_changed()));
+            ONE_METRIC_COUNTER_INC(
+                "comp.oneclient.mod.events.submod.emitted.file_attr_changed");
         }
         else if (eventMsg.has_file_location_changed()) {
             m_eventManager.emit(std::make_unique<FileLocationChanged>(
                 eventMsg.file_location_changed()));
+            ONE_METRIC_COUNTER_INC("comp.oneclient.mod.events.submod.emitted."
+                                   "file_location_changed");
         }
         else if (eventMsg.has_file_perm_changed()) {
             m_eventManager.emit(std::make_unique<FilePermChanged>(
                 eventMsg.file_perm_changed()));
+            ONE_METRIC_COUNTER_INC(
+                "comp.oneclient.mod.events.submod.emitted.file_perm_changed");
         }
         else if (eventMsg.has_file_removed()) {
             m_eventManager.emit(
                 std::make_unique<FileRemoved>(eventMsg.file_removed()));
+            ONE_METRIC_COUNTER_INC(
+                "comp.oneclient.mod.events.submod.emitted.file_removed");
         }
         else if (eventMsg.has_file_renamed()) {
             m_eventManager.emit(
                 std::make_unique<FileRenamed>(eventMsg.file_renamed()));
+            ONE_METRIC_COUNTER_INC(
+                "comp.oneclient.mod.events.submod.emitted.file_renamed");
         }
         else if (eventMsg.has_quota_exceeded()) {
             m_eventManager.emit(
                 std::make_unique<QuotaExceeded>(eventMsg.quota_exceeded()));
+            ONE_METRIC_COUNTER_INC(
+                "comp.oneclient.mod.events.submod.emitted.quota_exceeded");
         }
         else {
             DLOG(WARNING) << "Received unhandled event '"

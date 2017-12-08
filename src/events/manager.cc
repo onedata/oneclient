@@ -10,7 +10,6 @@
 #include "events.h"
 #include "logging.h"
 #include "messages/configuration.h"
-#include "monitoring/monitoring.h"
 #include "scheduler.h"
 
 namespace one {
@@ -62,8 +61,6 @@ std::int64_t Manager::subscribe(
     handleAcc->second = subscription.createHandle(
         subscriptionId, m_streams, *m_sequencerStream);
 
-    ONE_METRIC_COUNTER_INC("comp.oneclient.mod.events.subscriptions");
-
     return subscriptionId;
 }
 
@@ -82,8 +79,6 @@ bool Manager::unsubscribe(std::int64_t subscriptionId)
                    << "'";
 
         m_handles.erase(handleAcc);
-
-        ONE_METRIC_COUNTER_DEC("comp.oneclient.mod.events.subscriptions");
 
         return true;
     }
