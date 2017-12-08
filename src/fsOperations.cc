@@ -148,6 +148,7 @@ void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
             const folly::fbvector<folly::fbstring> &names) {
             if (names.empty()) {
                 fuse_reply_buf(req, nullptr, 0);
+                ONE_METRIC_TIMERCTX_STOP(timer, 0);
                 return;
             }
 
@@ -180,7 +181,7 @@ void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
 
             fuse_reply_buf(req, buf.data(), buf.size());
 
-            ONE_METRIC_TIMERCTX_STOP(timer, buf.size());
+            ONE_METRIC_TIMERCTX_STOP(timer, names.size());
         },
         req, ino, floor(maxSize / AVERAGE_FILE_NAME_LENGTH), off);
 }
