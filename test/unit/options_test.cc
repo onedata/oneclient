@@ -674,31 +674,13 @@ TEST_F(OptionsTest, parseCommandLineShouldReturnGraphiteUrl)
         "tcp://graphite.example.com:2003");
 }
 
-TEST_F(OptionsTest, parseCommandLineShouldReturnGraphiteiNamespaceRoot)
+TEST_F(OptionsTest, parseCommandLineShouldReturnGraphiteiNamespacePrefix)
 {
     cmdArgs.insert(cmdArgs.end(),
-        {"--graphite-namespace-root", "DataCenterA", "mountpoint"});
+        {"--graphite-namespace-prefix", "DataCenterA", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_TRUE(
-        options.getMonitoringGraphiteNamespaceRoot().get() == "DataCenterA");
-}
-
-TEST_F(OptionsTest, parseCommandLineShouldReturnGraphiteiNamespaceHost)
-{
-    cmdArgs.insert(cmdArgs.end(),
-        {"--graphite-namespace-host", "oneclient1.localhost", "mountpoint"});
-    options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_TRUE(options.getMonitoringGraphiteNamespaceHost().get() ==
-        "oneclient1.localhost");
-}
-
-TEST_F(OptionsTest, parseCommandLineShouldReturnGraphiteiNamespaceContainer)
-{
-    cmdArgs.insert(cmdArgs.end(),
-        {"--graphite-namespace-container", "oneclient-4", "mountpoint"});
-    options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_TRUE(options.getMonitoringGraphiteNamespaceContainer().get() ==
-        "oneclient-4");
+        options.getMonitoringGraphiteNamespacePrefix().get() == "DataCenterA");
 }
 
 TEST_F(OptionsTest, parseConfigFileShouldSetFuseOpts)

@@ -343,34 +343,12 @@ Options::Options()
                          "default port is 2003");
 
     add<std::string>()
-        ->withEnvName("graphite_namespace_root")
-        .withLongName("graphite-namespace-root")
-        .withConfigName("graphite_namespace_root")
+        ->withEnvName("graphite_namespace_prefix")
+        .withLongName("graphite-namespace-prefix")
+        .withConfigName("graphite_namespace_prefix")
         .withValueName("<name>")
         .withGroup(OptionGroup::MONITORING)
-        .withDescription("Graphite namespace root name - can be used to group "
-                         "multiple oneclient instances over several hosts.");
-
-    add<std::string>()
-        ->withEnvName("graphite_namespace_host")
-        .withLongName("graphite-namespace-host")
-        .withConfigName("graphite_namespace_host")
-        .withValueName("<name>")
-        .withGroup(OptionGroup::MONITORING)
-        .withDescription("Graphite namespace host name - optional, if not "
-                         "provided the hostname will be determined "
-                         "automatically.");
-
-    add<std::string>()
-        ->withEnvName("graphite_namespace_container")
-        .withLongName("graphite-namespace-container")
-        .withConfigName("graphite_namespace_container")
-        .withValueName("<name>")
-        .withGroup(OptionGroup::MONITORING)
-        .withDescription(
-            "Graphite namespace container name - optional, if not "
-            "provided it will be omitted. Can be used to scpecify Docker "
-            "container or Kubernetes pod in which Oneclient is running.");
+        .withDescription("Graphite namespace prefix.");
 
     add<boost::filesystem::path>()
         ->required()
@@ -655,24 +633,13 @@ boost::optional<std::string> Options::getMonitoringGraphiteUrl() const
     return get<std::string>({"graphite-url", "graphite_url"});
 }
 
-boost::optional<std::string> Options::getMonitoringGraphiteNamespaceRoot() const
-{
-    return get<std::string>(
-        {"graphite-namespace-root", "graphite_namespace_root"});
-}
-
-boost::optional<std::string> Options::getMonitoringGraphiteNamespaceHost() const
-{
-    return get<std::string>(
-        {"graphite-namespace-host", "graphite_namespace_host"});
-}
-
 boost::optional<std::string>
-Options::getMonitoringGraphiteNamespaceContainer() const
+Options::getMonitoringGraphiteNamespacePrefix() const
 {
     return get<std::string>(
-        {"graphite-namespace-container", "graphite_namespace_container"});
+        {"graphite-namespace-prefix", "graphite_namespace_prefix"});
 }
+
 unsigned int Options::getMonitoringReportingPeriod() const
 {
     return get<unsigned int>({"monitoring-period", "monitoring_period"})

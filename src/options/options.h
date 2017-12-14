@@ -244,20 +244,9 @@ public:
     boost::optional<std::string> getMonitoringGraphiteUrl() const;
 
     /*
-     * @return Performance monitoring Graphite namespace root name.
+     * @return Performance monitoring Graphite namespace prefix.
      */
-    boost::optional<std::string> getMonitoringGraphiteNamespaceRoot() const;
-
-    /*
-     * @return Performance monitoring Graphite namespace host name.
-     */
-    boost::optional<std::string> getMonitoringGraphiteNamespaceHost() const;
-
-    /*
-     * @return Performance monitoring Graphite namespace container name.
-     */
-    boost::optional<std::string>
-    getMonitoringGraphiteNamespaceContainer() const;
+    boost::optional<std::string> getMonitoringGraphiteNamespacePrefix() const;
 
     /*
      * @return Performance monitoring reporting period.

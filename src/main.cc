@@ -84,31 +84,19 @@ int startPerformanceMonitoring(std::shared_ptr<options::Options> options)
                           << std::endl;
                 return EXIT_FAILURE;
             }
-            if (!options->getMonitoringGraphiteNamespaceRoot()) {
-                std::cerr << "Graphite root namespace not specified - use "
-                             "option --graphite-namespace-root."
-                          << std::endl;
-                return EXIT_FAILURE;
-            }
 
             auto config = std::make_shared<GraphiteMonitoringConfiguration>();
-            config->fromGraphiteURL(options->getMonitoringGraphiteUrl().get());
-            config->namespaceRoot =
-                options->getMonitoringGraphiteNamespaceRoot().get();
-            std::string namespaceHost;
-            if (options->getMonitoringGraphiteNamespaceHost()) {
-                namespaceHost =
-                    options->getMonitoringGraphiteNamespaceHost().get();
+            try {
+                config->fromGraphiteURL(
+                    options->getMonitoringGraphiteUrl().get());
             }
-            else {
-                namespaceHost = asio::ip::host_name();
+            catch (std::invalid_argument &e) {
+                std::cerr << "Graphite configuration error: " << e.what()
+                          << std::endl;
             }
-            config->namespaceHost =
-                std::regex_replace(namespaceHost, std::regex("\\."), "_");
-
-            if (options->getMonitoringGraphiteNamespaceContainer()) {
-                config->namespaceContainer =
-                    options->getMonitoringGraphiteNamespaceContainer().get();
+            if (options->getMonitoringGraphiteNamespacePrefix()) {
+                config->namespacePrefix =
+                    options->getMonitoringGraphiteNamespacePrefix().get();
             }
             config->reportingPeriod = options->getMonitoringReportingPeriod();
             if (options->isMonitoringLevelFull()) {
