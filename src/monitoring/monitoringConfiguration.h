@@ -43,34 +43,24 @@ constexpr auto REPORTING_LEVEL = cppmetrics::core::ReportingLevel::Basic;
  */
 class MonitoringConfiguration {
 public:
+    /**
+     * Reporting period in seconds.
+     */
     uint32_t reportingPeriod = REPORTING_PERIOD;
+
+    /**
+     * Monitoring reporting level.
+     */
     cppmetrics::core::ReportingLevel reportingLevel = REPORTING_LEVEL;
-    std::string namespaceRoot;
-    std::string namespaceHost;
-    std::string namespaceContainer;
 
-    virtual std::string getPrefix() const
-    {
-        std::string result;
-        result += namespaceRoot;
-        result += getNamespaceSeparator();
-        result += "host";
-        result += getNamespaceSeparator();
-        result += namespaceHost;
-        result += getNamespaceSeparator();
-        if (!namespaceContainer.empty()) {
-            result += "container";
-            result += getNamespaceSeparator();
-            result += namespaceContainer;
-            result += getNamespaceSeparator();
-        }
-        result += "uid";
-        result += getNamespaceSeparator();
-        result += std::to_string(getuid());
+    /**
+     * The prefix prepended to each metric name.
+     */
+    std::string namespacePrefix;
 
-        return result;
-    }
-
+    /**
+     * Default separator of the metric name tokens.
+     */
     virtual std::string getNamespaceSeparator() const
     {
         return GRAPHITE_NAMESPACE_SEPARATOR;
@@ -84,21 +74,40 @@ class GraphiteMonitoringConfiguration : public MonitoringConfiguration {
 public:
     enum class GraphiteProtocol { UDP, TCP };
 
+    /**
+     * Graphite protocol (either UDP or TCP)
+     */
     GraphiteProtocol graphiteProtocol = GraphiteProtocol::TCP;
+
+    /**
+     * Hostname of the Graphite server.
+     */
     std::string graphiteHostname;
+
+    /**
+     * Port of the Graphite server.
+     */
     uint32_t graphitePort = GRAPHITE_PORT;
 
+    /**
+     * Initialize Graphite endpoint configuration from URL. URL should have the
+     * form e.g. tcp://192.168.1.2:2003
+     */
     void fromGraphiteURL(std::string url)
     {
         folly::Uri folly(url);
 
-        if (folly.scheme() == "tcp")
+        // Assume TCP as default scheme
+        if (folly.scheme().empty() || folly.scheme() == "tcp") {
             graphiteProtocol = GraphiteProtocol::TCP;
-        else if (folly.scheme() == "udp")
+        }
+        else if (folly.scheme() == "udp") {
             graphiteProtocol = GraphiteProtocol::UDP;
-        else
+        }
+        else {
             throw std::invalid_argument(
-                "Unsupported Graphite protocol: " + folly.scheme());
+                "Unsupported Graphite protocol provided: " + url);
+        }
 
         graphiteHostname = folly.host();
         if (folly.port())

@@ -39,7 +39,7 @@ void GraphiteMetricsCollector::initialize()
     }
 
     m_reporter.reset(new graphite::GraphiteReporter(
-        getRegistry(), m_sender, conf->getPrefix()));
+        getRegistry(), m_sender, conf->namespacePrefix));
 
     m_reporter->setReportingLevel(conf->reportingLevel);
 }

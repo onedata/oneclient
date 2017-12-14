@@ -23,8 +23,16 @@ public:
      */
     GraphiteMetricsCollector();
 
+    /**
+     * Destructor.
+     */
     virtual ~GraphiteMetricsCollector();
 
+    /**
+     * Provide Graphite specific initialization. The metrics collector has to
+     * be first configured with a proper GraphiteMonitoringConfiguration
+     * instance.
+     */
     virtual void initialize() override;
 
 private:

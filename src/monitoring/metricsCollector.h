@@ -28,21 +28,46 @@ public:
      */
     MetricsCollector();
 
+    /**
+     * Destructor.
+     */
     virtual ~MetricsCollector();
 
+    /**
+     * Configure the monitoring metrics collector.
+     * @param monitoringConfiguration New configuration.
+     */
     void setConfiguration(
         std::shared_ptr<MonitoringConfiguration> monitoringConfiguration);
 
+    /**
+     * Return the current monitoring configuration.
+     */
     const MonitoringConfiguration &getConfiguration() const;
 
+    /**
+     * Initialize the metrics collector. It has to be configured first.
+     */
     virtual void initialize();
 
+    /**
+     * Start the metrics collector and reporting process.
+     */
     virtual void start();
 
+    /**
+     * Stop the metrics collector and reporting process.
+     */
     virtual void stop();
 
+    /**
+     * Get the underlying MetricRegistry instance.
+     */
     core::MetricRegistryPtr getRegistry();
 
+    /**
+     * Return the MetricsCollector singleton instance
+     */
     template <typename TMetricsCollector = MetricsCollector>
     static std::shared_ptr<MetricsCollector> getInstance()
     {
@@ -55,6 +80,9 @@ public:
         return m_singleton;
     }
 
+    /**
+     * Check if the Metrics collector is enabled.
+     */
     static bool isEnabled() { return m_isEnabled; }
 
 protected:
