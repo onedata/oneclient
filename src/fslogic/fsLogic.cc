@@ -328,9 +328,6 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         m_eventManager.emit<events::FileRead>(
             uuid.toStdString(), offset, bytesRead);
 
-        ONE_METRIC_COUNTER_INC(
-            "comp.oneclient.mod.events.submod.emitted.file_read");
-
         return readBuffer;
     }
     catch (const std::system_error &e) {
