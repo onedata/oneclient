@@ -7,6 +7,7 @@
  */
 
 #include "proxyHelper.h"
+#include "monitoring/monitoring.h"
 
 #include "messages/proxyio/remoteData.h"
 #include "messages/proxyio/remoteRead.h"
@@ -36,11 +37,15 @@ folly::Future<folly::IOBufQueue> ProxyFileHandle::read(
     messages::proxyio::RemoteRead msg{
         m_openParams, m_storageId, m_fileId, offset, size};
 
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.proxy.read");
+
     return m_communicator
         .communicate<messages::proxyio::RemoteData>(std::move(msg))
-        .then([](const messages::proxyio::RemoteData &rd) {
+        .then([timer = std::move(timer)](
+            const messages::proxyio::RemoteData &rd) mutable {
             folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
             buf.append(rd.data());
+            ONE_METRIC_TIMERCTX_STOP(timer, rd.data().size());
             return buf;
         });
 }
@@ -56,6 +61,8 @@ folly::Future<std::size_t> ProxyFileHandle::write(
 folly::Future<std::size_t> ProxyFileHandle::multiwrite(
     folly::fbvector<std::pair<off_t, folly::IOBufQueue>> buffs)
 {
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.proxy.write");
+
     folly::fbvector<std::pair<off_t, folly::fbstring>> stringBuffs;
     stringBuffs.reserve(buffs.size());
     for (auto &elem : buffs) {
@@ -69,7 +76,9 @@ folly::Future<std::size_t> ProxyFileHandle::multiwrite(
 
     return m_communicator
         .communicate<messages::proxyio::RemoteWriteResult>(std::move(msg))
-        .then([](const messages::proxyio::RemoteWriteResult &result) {
+        .then([timer = std::move(timer)](
+            const messages::proxyio::RemoteWriteResult &result) mutable {
+            ONE_METRIC_TIMERCTX_STOP(timer, result.wrote());
             return result.wrote();
         });
 }

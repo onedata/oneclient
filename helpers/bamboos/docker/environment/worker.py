@@ -40,8 +40,9 @@ def _tweak_config(config, name, instance, uid, configurator):
         cluster_manager.cm_erl_node_name(n, instance, uid) for n in
         sys_config[app_name]['cm_nodes']]
     # Set the cluster domain (needed for nodes to start)
-    sys_config[app_name][configurator.domain_env_name()] = cluster_domain(
-        instance, uid)
+    sys_config[app_name][configurator.domain_env_name()] = {
+        'string': cluster_domain(instance, uid)
+    }
 
     if 'cluster_worker' not in sys_config:
         sys_config['cluster_worker'] = dict()
@@ -259,12 +260,13 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None,
         # Wait for all workers to start
         common.wait_until(_ready, workers, CLUSTER_WAIT_FOR_NAGIOS_SECONDS)
 
-        # Add the domain of current clusters
+        # Add the domain of current clusters, NS records if the cluster has
+        # its own DNS server, A records if not
         domains = {
             'domains': {
                 instance_domain: {
-                    'ns': worker_ips,
-                    'a': []
+                    'ns': worker_ips if configurator.has_dns_server() else [],
+                    'a': [] if configurator.has_dns_server() else worker_ips
                 }
             },
             'domain_mappings': {

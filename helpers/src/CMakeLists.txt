@@ -1,6 +1,7 @@
 # Set up helpers
 set(HELPERS_SYSTEM_INCLUDE_DIRS
     ${ASIO_INCLUDE_DIRS}
+    ${CPPMETRICS_INCLUDE_DIRS}
     ${FUSE_INCLUDE_DIRS}
     ${FUSE_INCLUDE_DIRS}/..
     ${PROTOBUF_INCLUDE_DIR}
@@ -29,7 +30,8 @@ set(HELPERS_INCLUDE_DIRS
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/../include)
 
-file(GLOB_RECURSE HELPER_SOURCES *.cc *.h)
+file(GLOB_RECURSE HELPER_SOURCES *.cc *.h
+                  ${CMAKE_CURRENT_SOURCE_DIR}/../deps/cppmetrics/cppmetrics/*.cpp)
 
 #
 # Remove helper sources when building without them

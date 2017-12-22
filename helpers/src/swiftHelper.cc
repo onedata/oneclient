@@ -8,6 +8,7 @@
 
 #include "swiftHelper.h"
 #include "logging.h"
+#include "monitoring/monitoring.h"
 
 #include <folly/FBString.h>
 #include <folly/FBVector.h>
@@ -93,13 +94,16 @@ folly::IOBufQueue SwiftHelper::getObject(
     Swift::Container container(&account, m_containerName.toStdString());
     Swift::Object object(&container, key.toStdString());
 
+    folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
+
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.swift.read");
+
     auto headers = std::vector<Swift::HTTPHeader>({Swift::HTTPHeader("Range",
         rangeToString(offset, static_cast<off_t>(offset + size - 1)))});
     auto getResponse = std::unique_ptr<Swift::SwiftResult<std::istream *>>(
         object.swiftGetObjectContent(nullptr, &headers));
     throwOnError("getObject", getResponse);
 
-    folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
     char *data = static_cast<char *>(buf.preallocate(size, size).first);
 
     const auto newTail =
@@ -107,6 +111,10 @@ folly::IOBufQueue SwiftHelper::getObject(
             std::istreambuf_iterator<char>{}, data);
 
     buf.postallocate(newTail - data);
+
+    ONE_METRIC_TIMERCTX_STOP(
+        timer, getResponse->getResponse()->getContentLength());
+
     return buf;
 }
 
@@ -139,12 +147,16 @@ off_t SwiftHelper::getObjectsSize(
 std::size_t SwiftHelper::putObject(
     const folly::fbstring &key, folly::IOBufQueue buf)
 {
+    std::size_t writtenBytes = 0;
     auto &account = m_auth.getAccount();
 
     Swift::Container container(&account, m_containerName.toStdString());
     Swift::Object object(&container, key.toStdString());
 
     auto iobuf = buf.empty() ? folly::IOBuf::create(0) : buf.move();
+
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.swift.write");
+
     if (iobuf->isChained()) {
         iobuf->unshare();
         iobuf->coalesce();
@@ -157,7 +169,11 @@ std::size_t SwiftHelper::putObject(
 
     throwOnError("putObject", createResponse);
 
-    return iobuf->length();
+    writtenBytes = iobuf->length();
+
+    ONE_METRIC_TIMERCTX_STOP(timer, writtenBytes);
+
+    return writtenBytes;
 }
 
 void SwiftHelper::deleteObjects(const folly::fbvector<folly::fbstring> &keys)
