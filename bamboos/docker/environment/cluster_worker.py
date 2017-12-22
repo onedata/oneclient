@@ -53,3 +53,6 @@ class ClusterWorkerConfigurator:
 
     def nodes_list_attribute(self):
         return "cluster_worker_nodes"
+
+    def has_dns_server(self):
+        return False

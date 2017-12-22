@@ -27,6 +27,12 @@ except ImportError:
 
 requests.packages.urllib3.disable_warnings()
 
+# How often (in seconds) and how many retries should be performed waiting for OP
+# instances to connect to their zones.
+OZ_CONNECTIVITY_CHECK_INTERVAL = 5
+OZ_CONNECTIVITY_CHECK_TIMEOUT = 10
+OZ_CONNECTIVITY_CHECK_RETRIES = 25
+
 HOST_STORAGE_PATH = "/tmp/onedata"
 
 
@@ -267,4 +273,28 @@ mkdir -p {mount_point}
 mount -t nfs -o proto=tcp,port=2049,nolock {host}:/exports {mount_point}
 '''.format(host=storages_dockers['nfs'][storage['name']]['ip'], mount_point=storage['name'])
     return mount_command
+
+
+def ensure_provider_oz_connectivity(host):
+    """Returns True when given OP instance is connected to its OZ or False
+    when certain amount of retries fail.
+    """
+    for _ in range(0, OZ_CONNECTIVITY_CHECK_RETRIES):
+        if _check_provider_oz_connectivity(host):
+            return True
+        time.sleep(OZ_CONNECTIVITY_CHECK_INTERVAL)
+    return False
+
+
+def _check_provider_oz_connectivity(host):
+    url = 'https://{0}/nagios/oz_connectivity'.format(host)
+    try:
+        r = requests.get(url, verify=False, timeout=OZ_CONNECTIVITY_CHECK_TIMEOUT)
+        if r.status_code != requests.codes.ok:
+            return False
+
+        body_json = json.loads(r.text)
+        return body_json['status'] == 'ok'
+    except requests.exceptions.RequestException as e:
+        return False
 

@@ -118,6 +118,9 @@ class ProviderWorkerConfigurator:
     def nodes_list_attribute(self):
         return "op_worker_nodes"
 
+    def has_dns_server(self):
+        return False
+
 
 def create_storages(storages, op_nodes, op_config, bindir, storages_dockers):
     # copy escript to docker host

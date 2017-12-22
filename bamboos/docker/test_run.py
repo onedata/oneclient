@@ -95,6 +95,14 @@ parser.add_argument(
     help="path to description of test environment in .json file",
     dest='env_file')
 
+parser.add_argument(
+    '--docker-name',
+    action='store',
+    help="Name of docker container where tests will be running",
+    dest='docker_name',
+    default='test_run_docker'
+)    
+
 [args, pass_args] = parser.parse_known_args()
 
 command = '''
@@ -110,7 +118,7 @@ if {shed_privileges}:
     os.setregid({gid}, {gid})
     os.setreuid({uid}, {uid})
 
-command = ['py.test'] + ['--test-type={test_type}'] + ['{test_dir}'] + {args} + {env_file} + ['--junitxml={report_path}']
+command = ['py.test'] + ['--test-type={test_type}'] + ['{test_dir}'] + ['--docker-name', '{docker_name}'] + {args} + {env_file} + ['--junitxml={report_path}']
 ret = subprocess.call(command)
 sys.exit(ret)
 '''
@@ -125,11 +133,13 @@ with open('/etc/hosts', 'a') as f:
 """)
 '''.format(etc_hosts_content=get_local_etc_hosts_entries())
 
+
 command = command.format(
     args=pass_args,
     uid=os.geteuid(),
     gid=os.getegid(),
     test_dir=args.test_dir,
+    docker_name=args.docker_name,
     shed_privileges=(platform.system() == 'Linux'),
     report_path=args.report_path,
     test_type=args.test_type,
@@ -143,10 +153,13 @@ run_params = ['--shm-size=128m']
 ret = docker.run(tty=True,
                  rm=True,
                  interactive=True,
+                 name=args.docker_name,
                  workdir=script_dir,
                  reflect=[(script_dir, 'rw'),
                           ('/var/run/docker.sock', 'rw'),
                           (HOST_STORAGE_PATH, 'rw')],
+                 volumes=[(os.path.join(os.path.expanduser('~'),
+                                        '.docker'), '/tmp/.docker', 'rw')],
                  image=args.image,
                  command=['python', '-c', command],
                  run_params=run_params)

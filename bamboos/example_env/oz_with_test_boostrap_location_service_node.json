@@ -43,10 +43,7 @@
                             "location_service_enabled": "true",
                             "location_service_bootstrap_nodes": [
                                 "test-bootstrap-node"
-                            ],
-                            "http_domain": {
-                                "string": "127.0.0.1"
-                            }
+                            ]
                         }
                     }
                 }
@@ -85,10 +82,7 @@
                             "location_service_enabled": "true",
                             "location_service_bootstrap_nodes": [
                                 "test-bootstrap-node"
-                            ],
-                            "http_domain": {
-                                "string": "127.0.0.1"
-                            }
+                            ]
                         }
                     }
                 }
@@ -127,10 +121,7 @@
                             "location_service_enabled": "true",
                             "location_service_bootstrap_nodes": [
                                 "test-bootstrap-node"
-                            ],
-                            "http_domain": {
-                                "string": "127.0.0.1"
-                            }
+                            ]
                         }
                     }
                 }
