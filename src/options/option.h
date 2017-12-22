@@ -18,7 +18,14 @@ namespace one {
 namespace client {
 namespace options {
 
-enum class OptionGroup { GENERAL, ADVANCED, FUSE, INVISIBLE, DEPRECATED };
+enum class OptionGroup {
+    GENERAL,
+    ADVANCED,
+    FUSE,
+    MONITORING,
+    INVISIBLE,
+    DEPRECATED
+};
 
 /**
  * @c Event class represents an abstract client option. It provides an interface

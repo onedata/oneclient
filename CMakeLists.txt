@@ -85,6 +85,9 @@ set(HELPERS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/helpers)
 # Setup Asio
 set(ASIO_INCLUDE_DIRS ${HELPERS_DIR}/deps/asio/asio/include)
 
+# Setup cppmetrics
+set(CPPMETRICS_INCLUDE_DIRS ${HELPERS_DIR}/deps/cppmetrics)
+
 # Utility libs
 find_library(LTDL_LIBRARY NAMES ltdl)
 find_library(ZLIB_LIBRARY NAMES z)

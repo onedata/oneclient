@@ -7,6 +7,7 @@
  */
 
 #include "inodeCache.h"
+#include "monitoring/monitoring.h"
 
 #include <cassert>
 #include <stdexcept>
@@ -27,6 +28,8 @@ InodeCache::InodeCache(
     : m_targetCacheSize{targetCacheSize}
 {
     m_cache.emplace(FUSE_ROOT_ID, rootUuid);
+    ONE_METRIC_COUNTER_SET(
+        "comp.oneclient.mod.inodecache.maxsize", targetCacheSize);
 }
 
 fuse_ino_t InodeCache::lookup(const folly::fbstring &uuid)
@@ -52,6 +55,8 @@ fuse_ino_t InodeCache::lookup(const folly::fbstring &uuid)
     m_cache.emplace(inode, std::move(uuid));
 
     prune();
+
+    ONE_METRIC_COUNTER_SET("comp.oneclient.mod.inodecache.size", index.size());
 
     return inode;
 }
@@ -92,6 +97,7 @@ void InodeCache::forget(const fuse_ino_t inode, const std::size_t count)
 
         prune();
     }
+    ONE_METRIC_COUNTER_SET("comp.oneclient.mod.inodecache.size", index.size());
 }
 
 void InodeCache::rename(const folly::fbstring &oldUuid, folly::fbstring newUuid)

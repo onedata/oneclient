@@ -41,6 +41,7 @@
 #include "messages/fuse/updateTimes.h"
 #include "messages/fuse/xattr.h"
 #include "messages/fuse/xattrList.h"
+#include "monitoring/monitoring.h"
 
 #include <boost/icl/interval_set.hpp>
 #include <folly/Enumerate.h>
@@ -484,6 +485,9 @@ FileAttrPtr FsLogic::setattr(
         m_metadataCache.truncate(uuid, attr.st_size);
         m_eventManager.emit<events::FileTruncated>(
             uuid.toStdString(), attr.st_size);
+
+        ONE_METRIC_COUNTER_INC(
+            "comp.oneclient.mod.events.submod.emitted.truncate");
     }
 
     messages::fuse::UpdateTimes updateTimes{uuid.toStdString()};

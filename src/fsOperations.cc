@@ -12,6 +12,7 @@
 #include "fslogic/composite.h"
 #include "fuseOperations.h"
 #include "logging.h"
+#include "monitoring/monitoring.h"
 #include "oneException.h"
 #include "util/xattrHelper.h"
 
@@ -118,31 +119,36 @@ extern "C" {
 
 void wrap_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
 {
-    wrap(&fslogic::Composite::lookup,
-        [req](const struct fuse_entry_param &entry) {
-            const auto userdata = fuse_req_userdata(req);
-            if (fuse_reply_entry(req, &entry))
-                callFslogic(
-                    &fslogic::Composite::forget, userdata, entry.ino, 1);
-        },
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.lookup");
+    wrap(&fslogic::Composite::lookup, [ req,
+        timer = std::move(timer) ](const struct fuse_entry_param &entry) {
+        const auto userdata = fuse_req_userdata(req);
+        if (fuse_reply_entry(req, &entry))
+            callFslogic(&fslogic::Composite::forget, userdata, entry.ino, 1);
+    },
         req, parent, name);
 }
 
 void wrap_getattr(
     fuse_req_t req, fuse_ino_t ino, struct fuse_file_info * /*fi*/)
 {
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.getattr");
     wrap(&fslogic::Composite::getattr,
-        [req](const struct stat &attrs) { fuse_reply_attr(req, &attrs, 0); },
+        [ req, timer = std::move(timer) ](
+            const struct stat &attrs) { fuse_reply_attr(req, &attrs, 0); },
         req, ino);
 }
 
 void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
     struct fuse_file_info * /*fi*/)
 {
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.readdir");
     wrap(&fslogic::Composite::readdir,
-        [req, maxSize, off](const folly::fbvector<folly::fbstring> &names) {
+        [ req, maxSize, off, timer = std::move(timer) ](
+            const folly::fbvector<folly::fbstring> &names) {
             if (names.empty()) {
                 fuse_reply_buf(req, nullptr, 0);
+                ONE_METRIC_TIMERCTX_STOP(timer, 0);
                 return;
             }
 
@@ -174,14 +180,18 @@ void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
             }
 
             fuse_reply_buf(req, buf.data(), buf.size());
+
+            ONE_METRIC_TIMERCTX_STOP(timer, names.size());
         },
         req, ino, floor(maxSize / AVERAGE_FILE_NAME_LENGTH), off);
 }
 
 void wrap_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.open");
     wrap(&fslogic::Composite::open,
-        [ req, ino, fi = *fi ](const std::uint64_t fh) mutable {
+        [ req, ino, fi = *fi, timer = std::move(timer) ](
+            const std::uint64_t fh) mutable {
             const auto userdata = fuse_req_userdata(req);
             fi.fh = fh;
             fi.direct_io = 1;
@@ -193,18 +203,22 @@ void wrap_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 
 void wrap_release(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
-    wrap(&fslogic::Composite::release, [&, req]() { fuse_reply_err(req, 0); },
-        req, ino, fi->fh);
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.release");
+    wrap(&fslogic::Composite::release,
+        [&, req, timer = std::move(timer) ]() { fuse_reply_err(req, 0); }, req,
+        ino, fi->fh);
 }
 
 void wrap_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
     struct fuse_file_info *fi)
 {
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.read");
     wrap(&fslogic::Composite::read,
-        [req](folly::IOBufQueue &&buf) {
+        [ req, timer = std::move(timer) ](folly::IOBufQueue && buf) {
             if (!buf.empty()) {
                 auto iov = buf.front()->getIov();
                 fuse_reply_iov(req, iov.data(), iov.size());
+                ONE_METRIC_TIMERCTX_STOP(timer, iov.size());
             }
             else {
                 fuse_reply_buf(req, nullptr, 0);
@@ -216,67 +230,83 @@ void wrap_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
 void wrap_write(fuse_req_t req, fuse_ino_t ino, const char *buf, size_t size,
     off_t off, struct fuse_file_info *fi)
 {
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.write");
     folly::IOBufQueue bufq{folly::IOBufQueue::cacheChainLength()};
     bufq.append(buf, size);
 
     wrap(&fslogic::Composite::write,
-        [req](const std::size_t wrote) { fuse_reply_write(req, wrote); }, req,
-        ino, fi->fh, off, std::move(bufq));
+        [ req, timer = std::move(timer) ](const std::size_t wrote) {
+            fuse_reply_write(req, wrote);
+            ONE_METRIC_TIMERCTX_STOP(timer, wrote);
+        },
+        req, ino, fi->fh, off, std::move(bufq));
 }
 
 void wrap_mkdir(
     fuse_req_t req, fuse_ino_t parent, const char *name, mode_t mode)
 {
-    wrap(&fslogic::Composite::mkdir,
-        [req](const struct fuse_entry_param &entry) {
-            fuse_reply_entry(req, &entry);
-        },
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.mkdir");
+    wrap(&fslogic::Composite::mkdir, [ req,
+        timer = std::move(timer) ](const struct fuse_entry_param &entry) {
+        fuse_reply_entry(req, &entry);
+    },
         req, parent, name, mode);
 }
 
 void wrap_mknod(fuse_req_t req, fuse_ino_t parent, const char *name,
     mode_t mode, dev_t /*rdev*/)
 {
-    wrap(&fslogic::Composite::mknod,
-        [req](const struct fuse_entry_param &entry) {
-            fuse_reply_entry(req, &entry);
-        },
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.mknod");
+    wrap(&fslogic::Composite::mknod, [ req,
+        timer = std::move(timer) ](const struct fuse_entry_param &entry) {
+        fuse_reply_entry(req, &entry);
+    },
         req, parent, name, mode);
 }
 
 void wrap_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
 {
-    wrap(&fslogic::Composite::unlink, [req] { fuse_reply_err(req, 0); }, req,
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.unlink");
+    wrap(&fslogic::Composite::unlink,
+        [ req, timer = std::move(timer) ] { fuse_reply_err(req, 0); }, req,
         parent, name);
 }
 
 void wrap_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
     fuse_ino_t newparent, const char *newname)
 {
-    wrap(&fslogic::Composite::rename, [req] { fuse_reply_err(req, 0); }, req,
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.rename");
+    wrap(&fslogic::Composite::rename,
+        [ req, timer = std::move(timer) ] { fuse_reply_err(req, 0); }, req,
         parent, name, newparent, newname);
 }
 
 void wrap_forget(fuse_req_t req, fuse_ino_t ino, unsigned long nlookup)
 {
-    wrap(&fslogic::Composite::forget, [req] { fuse_reply_none(req); }, req, ino,
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.forget");
+    wrap(&fslogic::Composite::forget,
+        [ req, timer = std::move(timer) ] { fuse_reply_none(req); }, req, ino,
         nlookup);
 }
 
 void wrap_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set,
     struct fuse_file_info * /*fi*/)
 {
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.setattr");
     wrap(&fslogic::Composite::setattr,
-        [req](const struct stat &attrs) { fuse_reply_attr(req, &attrs, 0); },
+        [ req, timer = std::move(timer) ](
+            const struct stat &attrs) { fuse_reply_attr(req, &attrs, 0); },
         req, ino, *attr, to_set);
 }
 
 void wrap_create(fuse_req_t req, fuse_ino_t parent, const char *name,
     mode_t mode, struct fuse_file_info *fi)
 {
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.create");
     wrap(&fslogic::Composite::create,
-        [ req, fi = *fi ](const std::pair<const struct fuse_entry_param,
-            std::uint64_t> &res) mutable {
+        [ req, fi = *fi, timer = std::move(timer) ](
+            const std::pair<const struct fuse_entry_param, std::uint64_t>
+                &res) mutable {
             fi.fh = res.second;
             fuse_reply_create(req, &res.first, &fi);
         },
@@ -285,8 +315,9 @@ void wrap_create(fuse_req_t req, fuse_ino_t parent, const char *name,
 
 void wrap_statfs(fuse_req_t req, fuse_ino_t ino)
 {
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.statfs");
     wrap(&fslogic::Composite::statfs,
-        [req](const struct statvfs &statinfo) {
+        [ req, timer = std::move(timer) ](const struct statvfs &statinfo) {
             struct statvfs new_statinfo {
                 statinfo
             };
@@ -313,15 +344,19 @@ void wrap_statfs(fuse_req_t req, fuse_ino_t ino)
 
 void wrap_flush(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
 {
-    wrap(&fslogic::Composite::flush, [req] { fuse_reply_err(req, 0); }, req,
-        ino, fi->fh);
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.flush");
+    wrap(&fslogic::Composite::flush,
+        [ req, timer = std::move(timer) ] { fuse_reply_err(req, 0); }, req, ino,
+        fi->fh);
 }
 
 void wrap_fsync(
     fuse_req_t req, fuse_ino_t ino, int dataSync, struct fuse_file_info *fi)
 {
-    wrap(&fslogic::Composite::fsync, [req] { fuse_reply_err(req, 0); }, req,
-        ino, fi->fh, dataSync);
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.fsync");
+    wrap(&fslogic::Composite::fsync,
+        [ req, timer = std::move(timer) ] { fuse_reply_err(req, 0); }, req, ino,
+        fi->fh, dataSync);
 }
 
 void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
@@ -333,7 +368,10 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
 {
     if (!attr) {
         fuse_reply_err(req, EINVAL);
+        return;
     }
+
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.getxattr");
 
     //
     // Ignore selected system extended attributes which can degrade performance
@@ -359,7 +397,8 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
                << "' for file " << ino;
 
     wrap(&fslogic::Composite::getxattr,
-        [req, size, attr](const folly::fbstring &value) {
+        [ req, size, attr, timer = std::move(timer) ](
+            const folly::fbstring &value) {
 
             // If the value is a JSON string, strip the enclosing
             // double qoutes
@@ -412,6 +451,8 @@ void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
 #endif
 )
 {
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.setxattr");
+
     std::string xattrJsonName;
     if (!encodeJsonXAttrName(attr, xattrJsonName)) {
         LOG(WARNING) << "Setting extended attribute with invalid name: "
@@ -443,13 +484,17 @@ void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
                << "XATTR_CREATE=" << std::to_string(flags & XATTR_CREATE)
                << " XATTR_REPLACE=" << std::to_string(flags & XATTR_REPLACE);
 
-    wrap(&fslogic::Composite::setxattr, [req] { fuse_reply_err(req, 0); }, req,
-        ino, xattrJsonName, xattrJsonValue, flags & XATTR_CREATE,
+    wrap(&fslogic::Composite::setxattr,
+        [ req, timer = std::move(timer) ] { fuse_reply_err(req, 0); }, req, ino,
+        xattrJsonName, xattrJsonValue, flags & XATTR_CREATE,
         flags & XATTR_REPLACE);
 }
 
 void wrap_removexattr(fuse_req_t req, fuse_ino_t ino, const char *attr)
 {
+    auto timer =
+        ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.removexattr");
+
     std::string xattrJsonName;
     if (!encodeJsonXAttrName(attr, xattrJsonName)) {
         LOG(WARNING) << "Removing extended attribute with invalid name: "
@@ -461,15 +506,20 @@ void wrap_removexattr(fuse_req_t req, fuse_ino_t ino, const char *attr)
     DLOG(INFO) << "Removing extended attribute '" << xattrJsonName
                << "' for file " << ino;
 
-    wrap(&fslogic::Composite::removexattr, [req] { fuse_reply_err(req, 0); },
-        req, ino, xattrJsonName);
+    wrap(&fslogic::Composite::removexattr,
+        [ req, timer = std::move(timer) ] { fuse_reply_err(req, 0); }, req, ino,
+        xattrJsonName);
 }
 
 void wrap_listxattr(fuse_req_t req, fuse_ino_t ino, size_t size)
 {
+    auto timer =
+        ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.listxattr");
+
     DLOG(INFO) << "Listing extended attributes for file " << ino;
     wrap(&fslogic::Composite::listxattr,
-        [req, size](const folly::fbvector<folly::fbstring> &names) {
+        [ req, size, timer = std::move(timer) ](
+            const folly::fbvector<folly::fbstring> &names) {
             // Calculate the length of all xattr names in the list
             // including the end of string characters needed to separate
             // the xattr names in the buffer

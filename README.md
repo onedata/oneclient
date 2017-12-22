@@ -181,6 +181,19 @@ FUSE options:
   -d [ --debug ]              Enable debug mode (implies -f).
   -s [ --single-thread ]      Single-threaded operation.
   -o [ --opt ] <mount_option> Pass mount arguments directly to FUSE.
+
+Monitoring options:
+  --monitoring-type <reporter>        Enables performance metrics monitoring -
+                                      allowed values are: graphite.
+  --monitoring-level_basic            Sets monitoring reporting level to basic
+                                      - default.
+  --monitoring-level-full             Sets monitoring reporting level to full.
+  --monitoring-period <seconds> (=30) Performance metrics reporting period.
+  --graphite-url <url>                Graphite url - required when
+                                      monitoring-type is 'graphite', the scheme
+                                      can be either tcp or udp and default port
+                                      is 2003
+  --graphite-namespace-prefix <name>  Graphite namespace prefix.
 ```
 
 ### Configuration
@@ -202,7 +215,7 @@ list of supported environment variables please refer to *oneclient*
 Running dockerized *oneclient* is easy:
 
 ```
-docker run -it --privileged onedata/oneclient:17.06.0-rc4
+docker run -it --privileged onedata/oneclient:17.06.0-rc8
 ```
 
 ### Persisting the token
@@ -211,13 +224,13 @@ The application will ask for a token and run in the foreground. In order for
 *oneclient* to remember your token, mount volume `/root/.local/share/oneclient`:
 
 ```
-docker run -it --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:17.06.0-rc4
+docker run -it --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:17.06.0-rc8
 ```
 
 You can also pass your token in `ONECLIENT_ACCESS_TOKEN` environment variable:
 
 ```
-docker run -it --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:17.06.0-rc4
+docker run -it --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:17.06.0-rc8
 ```
 
 If *oneclient* knows the token (either by reading its config file or by reading
