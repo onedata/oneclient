@@ -77,7 +77,7 @@ folly::Future<std::size_t> CephFileHandle::write(
                     const_cast<unsigned char *>(byteRange.data()))));
 
         libradosstriper::RadosStriper &rs = m_helper->getRadosStriper();
-        auto ret = rs.write(m_fileId.toStdString(), data, size, offset);
+        auto ret = rs.write(m_fileId.toStdString(), data, byteRange.size(), offset);
         if (ret < 0)
             return makeFuturePosixException<std::size_t>(ret);
 
