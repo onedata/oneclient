@@ -62,10 +62,10 @@ ProtoEventPtr FileRead::serializeAndDestroy()
     }
 
     ONE_METRIC_COUNTER_ADD(
-            "comp.oneclient.mod.events.submod.emitted.file_read", m_counter);
+        "comp.oneclient.mod.events.submod.emitted.file_read", m_counter);
 
     ONE_METRIC_COUNTER_INC(
-            "comp.oneclient.mod.events.submod.emitted.file_read_aggregated");
+        "comp.oneclient.mod.events.submod.emitted.file_read_aggregated");
 
     return msg;
 }

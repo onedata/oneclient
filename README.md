@@ -185,7 +185,7 @@ FUSE options:
 Monitoring options:
   --monitoring-type <reporter>        Enables performance metrics monitoring -
                                       allowed values are: graphite.
-  --monitoring-level_basic            Sets monitoring reporting level to basic
+  --monitoring-level-basic            Sets monitoring reporting level to basic
                                       - default.
   --monitoring-level-full             Sets monitoring reporting level to full.
   --monitoring-period <seconds> (=30) Performance metrics reporting period.
