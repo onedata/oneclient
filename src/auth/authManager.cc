@@ -67,7 +67,7 @@ TokenAuthManager::createCommunicator(const unsigned int poolSize,
 
     auto future = communicator->setHandshake(
         [=] {
-            one::messages::HandshakeRequest handshake{
+            one::messages::ClientHandshakeRequest handshake{
                 sessionId, m_tokenHandler.restrictedToken()};
 
             return handshake;
