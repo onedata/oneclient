@@ -22,7 +22,7 @@ def default(key):
             's3_image': 'onedata/s3proxy',
             'swift_image': 'onedata/dockswift',
             'nfs_image': 'erezhorev/dockerized_nfs_server',
-            'glusterfs_image': 'gluster/gluster-centos',
+            'glusterfs_image': 'gluster/gluster-centos:gluster3u7_centos7',
             'bin_am': '{0}/appmock'.format(os.getcwd()),
             'bin_oz': '{0}/oz_worker'.format(os.getcwd()),
             'bin_op_worker': '{0}/op_worker'.format(os.getcwd()),

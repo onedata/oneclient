@@ -42,7 +42,7 @@
             "gui_override": {
                 "mount_path": "/var/www/html/op_worker",
                 "mount_from": {
-                    "docker": "docker.onedata.org/op-gui-default:VFS-1825"
+                    "docker": "onedata/op-gui-default:VFS-1825"
                 },
                 "livereload": true
             },
@@ -76,7 +76,6 @@
                             "db_nodes": [
                                 "dbnode1"
                             ],
-                            "verify_oz_cert": false,
                             "oz_domain": "oz"
                         }
                     }
@@ -89,7 +88,7 @@
             "gui_override": {
                 "mount_path": "/var/www/html/oz_worker",
                 "mount_from": {
-                    "host": "/Users/lopiola/git/oz-gui-homepage/rel"
+                    "host": "/tmp"
                 },
                 "livereload": true
             },
@@ -122,9 +121,6 @@
                             "db_nodes": [
                                 "127.0.0.1:49161"
                             ],
-                            "http_domain": {
-                                "string": "127.0.0.1"
-                            },
                             "dev_mode": true
                         }
                     }
