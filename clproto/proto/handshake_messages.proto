@@ -23,9 +23,14 @@ enum HandshakeStatus {
     INTERNAL_SERVER_ERROR            = 11;
 }
 
-message HandshakeRequest {
+message ClientHandshakeRequest {
     optional bytes session_id = 1;
     optional Token token      = 2;
+}
+
+message ProviderHandshakeRequest {
+    required Token token       = 1;
+    required bytes provider_id = 2;
 }
 
 message HandshakeResponse {

@@ -9,7 +9,7 @@
 #include "communication/declarations.h"
 #include "communication/layers/translator.h"
 #include "errors/handshakeErrors.h"
-#include "messages/handshakeRequest.h"
+#include "messages/clientHandshakeRequest.h"
 #include "messages/handshakeResponse.h"
 #include "messages/ping.h"
 #include "messages/pong.h"
@@ -172,13 +172,15 @@ TEST_F(TranslatorTest, setHandshakeShouldSerializeDomainObjects)
 
     const auto data = randomString();
 
-    auto domainHandshakeF = [&]() { return messages::HandshakeRequest{data}; };
+    auto domainHandshakeF = [&]() {
+        return messages::ClientHandshakeRequest{data};
+    };
     translator.setHandshake(
         domainHandshakeF, [&](auto) { return std::error_code{}; });
 
     auto protoHandshake = protoHandshakeF();
-    ASSERT_TRUE(protoHandshake->has_handshake_request());
-    ASSERT_EQ(data, protoHandshake->handshake_request().session_id());
+    ASSERT_TRUE(protoHandshake->has_client_handshake_request());
+    ASSERT_EQ(data, protoHandshake->client_handshake_request().session_id());
 }
 
 TEST_F(TranslatorTest, onHandshakeResponseShouldDeserializeProtocolObjects)
@@ -192,7 +194,7 @@ TEST_F(TranslatorTest, onHandshakeResponseShouldDeserializeProtocolObjects)
     bool called = false;
 
     auto domainHandshakeF = [&]() {
-        return messages::HandshakeRequest{sessionId};
+        return messages::ClientHandshakeRequest{sessionId};
     };
     auto domainHandshakeResponseF =
         [&](one::messages::HandshakeResponse msg) mutable {

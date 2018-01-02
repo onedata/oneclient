@@ -1,5 +1,5 @@
 /**
- * @file handshakeRequest.h
+ * @file clientHandshakeRequest.h
  * @author Krzysztof Trzepla
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
@@ -23,20 +23,20 @@ namespace messages {
  * The HandshakeRequest class represents a message that is sent by the client to
  * establish session.
  */
-class HandshakeRequest : public ClientMessage {
+class ClientHandshakeRequest : public ClientMessage {
 public:
     /**
      * Constructor.
      * @param sessionId Id of session to be used in handshake
      * */
-    HandshakeRequest(std::string sessionId);
+    ClientHandshakeRequest(std::string sessionId);
 
     /**
      * Constructor.
      * @param sessionId Id of session to be used in handshake
      * @param token Access token used to established session
      */
-    HandshakeRequest(std::string sessionId, std::string token);
+    ClientHandshakeRequest(std::string sessionId, std::string token);
 
     std::string toString() const override;
 

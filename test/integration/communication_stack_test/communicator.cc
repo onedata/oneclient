@@ -1,7 +1,7 @@
 #include "communication/communicator.h"
 #include "communication/declarations.h"
+#include "messages/clientHandshakeRequest.h"
 #include "messages/clientMessage.h"
-#include "messages/handshakeRequest.h"
 #include "messages/serverMessage.h"
 
 #include "messages.pb.h"
@@ -149,7 +149,7 @@ public:
     std::string setHandshake(const std::string &description, bool fail)
     {
         m_communicator.setHandshake(
-            [=] { return messages::HandshakeRequest{description}; },
+            [=] { return messages::ClientHandshakeRequest{description}; },
             [=](auto) {
                 return fail ? std::make_error_code(std::errc::bad_message)
                             : std::error_code{};
