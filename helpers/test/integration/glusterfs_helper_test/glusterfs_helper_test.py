@@ -37,8 +37,9 @@ def server(request):
     uid = 0
     gid = 0
     volume = 'data'
-    result = glusterfs.up('gluster/gluster-centos', [volume], 'storage',
-                     common.generate_uid(), 'tcp', random_str()+"/"+random_str())
+    result = glusterfs.up('gluster/gluster-centos:gluster3u7_centos7',
+                          [volume], 'storage', common.generate_uid(), 'tcp',
+                          random_str()+"/"+random_str())
 
     [container] = result['docker_ids']
     hostname = result['host_name'].encode('ascii')

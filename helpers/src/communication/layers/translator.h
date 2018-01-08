@@ -11,8 +11,8 @@
 
 #include "communication/declarations.h"
 #include "fuseOperations.h"
+#include "messages/clientHandshakeRequest.h"
 #include "messages/clientMessage.h"
-#include "messages/handshakeRequest.h"
 #include "messages/handshakeResponse.h"
 #include "messages/serverMessage.h"
 
@@ -75,7 +75,7 @@ public:
      */
     template <typename = void>
     auto setHandshake(
-        std::function<one::messages::HandshakeRequest()> getHandshake,
+        std::function<one::messages::ClientHandshakeRequest()> getHandshake,
         std::function<std::error_code(one::messages::HandshakeResponse)>
             onHandshakeResponse)
     {

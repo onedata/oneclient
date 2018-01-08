@@ -12,7 +12,7 @@
 #include "auth/tokenHandler.h"
 #include "communication/communicator.h"
 #include "environment.h"
-#include "messages/handshakeRequest.h"
+#include "messages/clientHandshakeRequest.h"
 #include "messages/handshakeResponse.h"
 
 #include <boost/optional.hpp>
