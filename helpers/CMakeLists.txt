@@ -5,6 +5,7 @@ option(WITH_CEPH "Include Ceph direct IO support" ON)
 option(WITH_S3 "Include S3 direct IO support" ON)
 option(WITH_SWIFT "Include Swift direct IO support" ON)
 option(WITH_GLUSTERFS "Include GlusterFS direct IO support" ON)
+option(BUILD_PROXY_IO "Build Proxy IO helper." ON)
 
 # CMake config
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY True)
@@ -70,6 +71,9 @@ find_package(Boost COMPONENTS atomic chrono context date_time filesystem
 # Setup Asio
 set(ASIO_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/deps/asio/asio/include)
 add_definitions(-DASIO_STANDALONE)
+
+# Setup cppmetrics
+set(CPPMETRICS_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/deps/cppmetrics)
 
 # Utility libs
 find_library(LTDL_LIBRARY ltdl)
@@ -173,7 +177,6 @@ add_definitions(
     -DASIO_STANDALONE
     -DGLOG_STL_LOGGING_FOR_UNORDERED)
 
-option(BUILD_PROXY_IO "Build Proxy IO helper." ON)
 if(BUILD_PROXY_IO)
     add_definitions("-DBUILD_PROXY_IO")
 endif(BUILD_PROXY_IO)
@@ -188,8 +191,7 @@ set(HELPERS_SOURCES ${CMAKE_CURRENT_BINARY_DIR}/dummy.cc ${PROJECT_SOURCES})
 add_library(helpersStatic STATIC ${HELPERS_SOURCES})
 target_include_directories(helpersStatic SYSTEM PUBLIC ${HELPERS_SYSTEM_INCLUDE_DIRS})
 target_include_directories(helpersStatic PUBLIC ${HELPERS_INCLUDE_DIRS})
-set_target_properties(helpersStatic PROPERTIES
-    OUTPUT_NAME helpers)
+set_target_properties(helpersStatic PROPERTIES OUTPUT_NAME helpers)
 
 #
 # Add helper libraries when building with each helper
@@ -214,8 +216,7 @@ add_library(helpersShared SHARED ${HELPERS_SOURCES})
 target_link_libraries(helpersShared PUBLIC ${HELPERS_LIBRARIES})
 target_include_directories(helpersShared SYSTEM PUBLIC ${HELPERS_SYSTEM_INCLUDE_DIRS})
 target_include_directories(helpersShared PUBLIC ${HELPERS_INCLUDE_DIRS})
-set_target_properties(helpersShared PROPERTIES
-    OUTPUT_NAME helpers
+set_target_properties(helpersShared PROPERTIES OUTPUT_NAME helpers
     BUILD_WITH_INSTALL_RPATH true
     INSTALL_RPATH_USE_LINK_PATH true
     INSTALL_RPATH "${CUSTOM_RPATH}")

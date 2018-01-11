@@ -8,6 +8,7 @@
 
 #include "cephHelper.h"
 #include "logging.h"
+#include "monitoring/monitoring.h"
 
 #include <glog/stl_logging.h>
 
@@ -25,9 +26,12 @@ CephFileHandle::CephFileHandle(folly::fbstring fileId,
 folly::Future<folly::IOBufQueue> CephFileHandle::read(
     const off_t offset, const std::size_t size)
 {
+
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.ceph.read");
     return m_helper->connect().then([
         this, offset, size,
-        s = std::weak_ptr<CephFileHandle>{shared_from_this()}
+        s = std::weak_ptr<CephFileHandle>{shared_from_this()},
+        timer = std::move(timer)
     ] {
         auto self = s.lock();
         if (!self)
@@ -44,6 +48,9 @@ folly::Future<folly::IOBufQueue> CephFileHandle::read(
 
         data.copy(0, ret, raw);
         buffer.postallocate(ret);
+
+        ONE_METRIC_TIMERCTX_STOP(timer, ret);
+
         return folly::makeFuture(std::move(buffer));
     });
 }
@@ -51,9 +58,11 @@ folly::Future<folly::IOBufQueue> CephFileHandle::read(
 folly::Future<std::size_t> CephFileHandle::write(
     const off_t offset, folly::IOBufQueue buf)
 {
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.ceph.write");
     return m_helper->connect().then([
         this, buf = std::move(buf), offset,
-        s = std::weak_ptr<CephFileHandle>{shared_from_this()}
+        s = std::weak_ptr<CephFileHandle>{shared_from_this()},
+        timer = std::move(timer)
     ]() mutable {
         auto self = s.lock();
         if (!self)
@@ -61,6 +70,7 @@ folly::Future<std::size_t> CephFileHandle::write(
 
         auto size = buf.chainLength();
         librados::bufferlist data;
+
         for (auto &byteRange : *buf.front())
             data.append(ceph::buffer::create_static(byteRange.size(),
                 reinterpret_cast<char *>(
@@ -70,6 +80,8 @@ folly::Future<std::size_t> CephFileHandle::write(
         auto ret = rs.write(m_fileId.toStdString(), data, size, offset);
         if (ret < 0)
             return makeFuturePosixException<std::size_t>(ret);
+
+        ONE_METRIC_TIMERCTX_STOP(timer, size);
 
         return folly::makeFuture(size);
     });
@@ -120,8 +132,10 @@ folly::Future<folly::Unit> CephHelper::unlink(const folly::fbstring &fileId)
 folly::Future<folly::Unit> CephHelper::truncate(
     const folly::fbstring &fileId, off_t size)
 {
+    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.ceph.truncate");
     return connect().then([
-        this, size, fileId, s = std::weak_ptr<CephHelper>{shared_from_this()}
+        this, size, fileId, s = std::weak_ptr<CephHelper>{shared_from_this()},
+        timer = std::move(timer)
     ] {
         auto self = s.lock();
         if (!self)
@@ -135,6 +149,7 @@ folly::Future<folly::Unit> CephHelper::truncate(
             librados::bufferlist bl;
             m_radosStriper.write_full(fileId.toStdString(), bl);
             ret = m_radosStriper.trunc(fileId.toStdString(), size);
+            ONE_METRIC_TIMERCTX_STOP(timer, size);
         }
         if (ret < 0)
             return makeFuturePosixException(ret);

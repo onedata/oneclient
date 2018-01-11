@@ -219,6 +219,41 @@ public:
     unsigned int getMetadataCacheSize() const;
 
     /*
+     * @return Is monitoring enabled.
+     */
+    bool isMonitoringEnabled() const;
+
+    /*
+     * @return Type of performance monitoring reporter.
+     */
+    boost::optional<std::string> getMonitoringType() const;
+
+    /*
+     * @return Monitoring reporting level basic flag.
+     */
+    bool isMonitoringLevelBasic() const;
+
+    /*
+     * @return Monitoring reporting level full flag.
+     */
+    bool isMonitoringLevelFull() const;
+
+    /*
+     * @return Performance monitoring Graphite URL.
+     */
+    boost::optional<std::string> getMonitoringGraphiteUrl() const;
+
+    /*
+     * @return Performance monitoring Graphite namespace prefix.
+     */
+    boost::optional<std::string> getMonitoringGraphiteNamespacePrefix() const;
+
+    /*
+     * @return Performance monitoring reporting period.
+     */
+    unsigned int getMonitoringReportingPeriod() const;
+
+    /*
      * @return Mountpoint path.
      */
     boost::filesystem::path getMountpoint() const;

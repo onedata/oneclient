@@ -90,6 +90,9 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.isInsecure());
     EXPECT_EQ(false, options.isProxyIOForced());
     EXPECT_EQ(false, options.isDirectIOForced());
+    EXPECT_EQ(false, options.isMonitoringEnabled());
+    EXPECT_EQ(false, options.isMonitoringLevelFull());
+    EXPECT_EQ(true, options.isMonitoringLevelBasic());
     EXPECT_EQ(options::DEFAULT_PROVIDER_PORT, options.getProviderPort());
     EXPECT_EQ(options::DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT,
         options.getBufferSchedulerThreadCount());
@@ -644,6 +647,40 @@ TEST_F(OptionsTest, parseConfigFileShouldSetSingleThread)
     setInConfigFile("fuse_single_thread", "1");
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ(true, options.getSingleThread());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldEnableMonitoringWithType)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--monitoring-type", "graphite", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isMonitoringEnabled());
+    EXPECT_TRUE(options.getMonitoringType().get() == "graphite");
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldEnableMonitoringLevelFull)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--monitoring-level-full", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isMonitoringLevelFull());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldReturnGraphiteUrl)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--graphite-url", "tcp://graphite.example.com:2003", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.getMonitoringGraphiteUrl().get() ==
+        "tcp://graphite.example.com:2003");
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldReturnGraphiteiNamespacePrefix)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--graphite-namespace-prefix", "DataCenterA", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(
+        options.getMonitoringGraphiteNamespacePrefix().get() == "DataCenterA");
 }
 
 TEST_F(OptionsTest, parseConfigFileShouldSetFuseOpts)
