@@ -7,6 +7,7 @@
  */
 
 #include "fileWritten.h"
+#include "monitoring/monitoring.h"
 
 #include "messages.pb.h"
 
@@ -79,6 +80,12 @@ ProtoEventPtr FileWritten::serializeAndDestroy()
         blockMsg->mutable_storage_id()->swap(block.second.mutableStorageId());
         blockMsg->mutable_file_id()->swap(block.second.mutableFileId());
     }
+
+    ONE_METRIC_COUNTER_ADD(
+        "comp.oneclient.mod.events.submod.emitted.file_written", m_counter);
+
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.emitted.file_written_aggregated");
 
     return msg;
 }

@@ -7,6 +7,7 @@
  */
 
 #include "fileRead.h"
+#include "monitoring/monitoring.h"
 
 #include "messages.pb.h"
 
@@ -59,6 +60,12 @@ ProtoEventPtr FileRead::serializeAndDestroy()
         blockMsg->mutable_file_id()->swap(block.second.mutableFileId());
         blockMsg->mutable_storage_id()->swap(block.second.mutableStorageId());
     }
+
+    ONE_METRIC_COUNTER_ADD(
+        "comp.oneclient.mod.events.submod.emitted.file_read", m_counter);
+
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.emitted.file_read_aggregated");
 
     return msg;
 }

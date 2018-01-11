@@ -12,6 +12,7 @@
 #include "events/events.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
+#include "monitoring/monitoring.h"
 #include "scheduler.h"
 
 #include <cassert>
@@ -33,6 +34,8 @@ FsSubscriptions::FsSubscriptions(events::Manager &eventManager,
 
 void FsSubscriptions::subscribeFileAttrChanged(const folly::fbstring &fileUuid)
 {
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_attr_changed");
     subscribe(fileUuid,
         events::FileAttrChangedSubscription{fileUuid.toStdString(),
             REMOTE_TIME_THRESHOLD, [this](auto events) mutable {
@@ -45,6 +48,8 @@ void FsSubscriptions::handleFileAttrChanged(
 {
     using namespace messages::fuse;
 
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.received.file_attr_changed");
     m_runInFiber([ this, events = std::move(events) ] {
         for (auto &event : events) {
             auto &attr = event->fileAttr();
@@ -61,12 +66,16 @@ void FsSubscriptions::handleFileAttrChanged(
 bool FsSubscriptions::unsubscribeFileAttrChanged(
     const folly::fbstring &fileUuid)
 {
+    ONE_METRIC_COUNTER_DEC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_attr_changed");
     return unsubscribe(events::StreamKey::FILE_ATTR_CHANGED, fileUuid);
 }
 
 void FsSubscriptions::subscribeFileLocationChanged(
     const folly::fbstring &fileUuid)
 {
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_location_changed");
     subscribe(fileUuid,
         events::FileLocationChangedSubscription{fileUuid.toStdString(),
             REMOTE_TIME_THRESHOLD, [this](auto events) mutable {
@@ -79,6 +88,8 @@ void FsSubscriptions::handleFileLocationChanged(
 {
     using namespace messages::fuse;
 
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.received.file_location_changed");
     m_runInFiber([ this, events = std::move(events) ] {
         for (auto &event : events) {
             auto &loc = event->fileLocation();
@@ -95,11 +106,15 @@ void FsSubscriptions::handleFileLocationChanged(
 bool FsSubscriptions::unsubscribeFileLocationChanged(
     const folly::fbstring &fileUuid)
 {
+    ONE_METRIC_COUNTER_DEC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_location_changed");
     return unsubscribe(events::StreamKey::FILE_LOCATION_CHANGED, fileUuid);
 }
 
 void FsSubscriptions::subscribeFilePermChanged(const folly::fbstring &fileUuid)
 {
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_perm_changed");
     subscribe(fileUuid,
         events::FilePermChangedSubscription{
             fileUuid.toStdString(), [this](auto events) mutable {
@@ -110,6 +125,8 @@ void FsSubscriptions::subscribeFilePermChanged(const folly::fbstring &fileUuid)
 void FsSubscriptions::handlePermissionChanged(
     events::Events<events::FilePermChanged> events)
 {
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.received.file_permission_changed");
     m_runInFiber([ this, events = std::move(events) ] {
         for (auto &event : events) {
             m_forceProxyIOCache.remove(event->fileUuid());
@@ -120,11 +137,15 @@ void FsSubscriptions::handlePermissionChanged(
 bool FsSubscriptions::unsubscribeFilePermChanged(
     const folly::fbstring &fileUuid)
 {
+    ONE_METRIC_COUNTER_DEC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_perm_changed");
     return unsubscribe(events::StreamKey::FILE_PERM_CHANGED, fileUuid);
 }
 
 void FsSubscriptions::subscribeFileRemoved(const folly::fbstring &fileUuid)
 {
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_removed");
     subscribe(fileUuid,
         events::FileRemovedSubscription{
             fileUuid.toStdString(), [this](auto events) mutable {
@@ -135,6 +156,8 @@ void FsSubscriptions::subscribeFileRemoved(const folly::fbstring &fileUuid)
 void FsSubscriptions::handleFileRemoved(
     events::Events<events::FileRemoved> events)
 {
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.received.file_removed");
     m_runInFiber([ this, events = std::move(events) ] {
         for (auto &event : events) {
             auto &uuid = event->fileUuid();
@@ -149,11 +172,15 @@ void FsSubscriptions::handleFileRemoved(
 
 bool FsSubscriptions::unsubscribeFileRemoved(const folly::fbstring &fileUuid)
 {
+    ONE_METRIC_COUNTER_DEC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_removed");
     return unsubscribe(events::StreamKey::FILE_REMOVED, fileUuid);
 }
 
 void FsSubscriptions::subscribeFileRenamed(const folly::fbstring &fileUuid)
 {
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_renamed");
     subscribe(fileUuid,
         events::FileRenamedSubscription{
             fileUuid.toStdString(), [this](auto events) mutable {
@@ -164,6 +191,8 @@ void FsSubscriptions::subscribeFileRenamed(const folly::fbstring &fileUuid)
 void FsSubscriptions::handleFileRenamed(
     events::Events<events::FileRenamed> events)
 {
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.received.file_renamed");
     m_runInFiber([ this, events = std::move(events) ] {
         for (auto &event : events) {
             auto &entry = event->topEntry();
@@ -181,6 +210,8 @@ void FsSubscriptions::handleFileRenamed(
 
 bool FsSubscriptions::unsubscribeFileRenamed(const folly::fbstring &fileUuid)
 {
+    ONE_METRIC_COUNTER_DEC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_renamed");
     return unsubscribe(events::StreamKey::FILE_RENAMED, fileUuid);
 }
 

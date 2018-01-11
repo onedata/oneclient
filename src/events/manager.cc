@@ -79,6 +79,7 @@ bool Manager::unsubscribe(std::int64_t subscriptionId)
                    << "'";
 
         m_handles.erase(handleAcc);
+
         return true;
     }
     return false;

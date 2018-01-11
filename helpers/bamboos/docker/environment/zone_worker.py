@@ -34,10 +34,6 @@ class OZWorkerConfigurator:
                 location_service_bootstrap.format_if_test_node(name, uid),
                 sys_config['location_service_bootstrap_nodes'])
 
-        if 'http_domain' in sys_config:
-            domain = worker.cluster_domain(instance, uid)
-            sys_config['http_domain'] = {'string': domain}
-
         if 'onepanel_rest_url' in sys_config:
             rest_url = sys_config['onepanel_rest_url']
             port = rest_url['port']
@@ -106,7 +102,10 @@ sed -i.bak s/onedata.org/{domain}/g /root/bin/node/data/dns.config
         return "zone_domains"
 
     def domain_env_name(self):
-        return "zone_domain"
+        return "http_domain"
 
     def nodes_list_attribute(self):
         return "oz_worker_nodes"
+
+    def has_dns_server(self):
+        return True
