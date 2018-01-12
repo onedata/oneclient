@@ -6,11 +6,25 @@ import argparse
 import os
 import platform
 import sys
+import re
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 docker_dir = os.path.join(script_dir, 'bamboos', 'docker')
 sys.path.insert(0, docker_dir)
 from environment import docker
+
+def parse_valgrind_log_error_count(log_file):
+    """
+    Parses valgrind memcheck file and returns the identified error count.
+    """
+    with open(log_file, 'r') as f:
+        regex = re.compile("ERROR SUMMARY:\s(\d+)\serrors")
+        for line in f:
+            match = re.search(regex, line)
+            if match:
+                return int(match.groups()[0])
+        raise SystemExit("Invalid Valgrind memcheck report file: "+log_file)
+
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -21,6 +35,12 @@ parser.add_argument(
     action='store_true',
     default=False,
     help='run tests in GDB')
+
+parser.add_argument(
+    '--valgrind',
+    action='store_true',
+    default=False,
+    help='run tests under Valgrind')
 
 parser.add_argument(
     '--image', '-i',
@@ -48,6 +68,14 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 base_test_dir = os.path.join(os.path.realpath(args.release), 'test',
                              'integration')
 test_dirs = map(lambda suite: os.path.join(base_test_dir, suite), args.suites)
+if args.valgrind:
+    if len(test_dirs) != 1: 
+        raise SystemExit('Valgrind test run requires specification of a single '
+                         'test case suite, e.g. \'--suite ceph_helper_test\'')
+    if args.gdb: 
+        raise SystemExit('GDB and Valgrind cannot be used simultanously for '
+                         'tests')
+
 if not test_dirs:
     test_dirs = [base_test_dir]
 
@@ -66,6 +94,15 @@ if {gdb}:
     command = ['gdb', 'python', '-silent', '-ex', """run -c "
 import pytest
 pytest.main({args} + ['{test_dirs}'])" """]
+elif {valgrind}:
+    command = ['valgrind'] \\
+            + ['--gen-suppressions=all'] \\
+            + ['--suppressions=valgrind.supp'] \\
+            + ['--track-origins=yes'] \\
+            + ['--log-file=valgrind-{suite}.txt'] \\
+            + ['--show-leak-kinds=definite'] \\
+            + ['--leak-check=full'] \\
+            + ['py.test'] + {args} + ['{test_dirs}']
 else:
     command = ['py.test'] + {args} + ['{test_dirs}']
 
@@ -78,7 +115,9 @@ command = command.format(
     gid=os.getegid(),
     test_dirs="', '".join(test_dirs),
     shed_privileges=(platform.system() == 'Linux'),
-    gdb=args.gdb)
+    gdb=args.gdb,
+    valgrind=args.valgrind,
+    suite=(args.suites[0] if args.valgrind else "', '".join(test_dirs)))
 
 ret = docker.run(tty=True,
                  rm=True,
@@ -88,6 +127,12 @@ ret = docker.run(tty=True,
                           ('/var/run/docker.sock', 'rw')],
                  image=args.image,
                  envs={'BASE_TEST_DIR': base_test_dir},
-                 run_params=['--privileged'] if args.gdb else [],
+                 run_params=['--privileged'] if (args.gdb or args.valgrind) else [],
                  command=['python', '-c', command])
+
+# If test suite succeeded and Valgrind was enabled, parse the memcheck report
+# and return error if any errors were identified
+if ret == 0 and args.valgrind:
+    ret = parse_valgrind_log_error_count("valgrind-"+args.suites[0]+".txt")
+
 sys.exit(ret)
