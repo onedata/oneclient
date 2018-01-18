@@ -198,17 +198,11 @@ Monitoring options:
 
 ### Configuration
 
-Besides commandline configuration options, oneclient reads options from a global
-configuration file located at `/usr/local/etc/oneclient.conf`
-(`/etc/oneclient.conf` when installed from the package). Refer to the
-[example configuration file](config/oneclient.conf) for details on the options.
+Besides commandline configuration options, oneclient reads options from a global configuration file located at `/usr/local/etc/oneclient.conf` (`/etc/oneclient.conf` when installed from the package). Refer to the [example configuration file](config/oneclient.conf) for details on the options.
 
 #### Environment variables
 
-Some options in the config file can be overridden using environment variables,
-whose names are capitalized version of the config options. For the up-to-date
-list of supported environment variables please refer to *oneclient*
-[manpage](man/oneclient.1).
+Some options in the config file can be overridden using environment variables, whose names are capitalized version of the config options. For the up-to-date list of supported environment variables please refer to *oneclient* [manpage](man/oneclient.1).
 
 ## Running oneclient docker image
 

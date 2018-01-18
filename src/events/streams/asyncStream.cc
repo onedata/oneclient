@@ -9,6 +9,7 @@
 #include "asyncStream.h"
 #include "communication/etls/utils.h"
 #include "events/types/event.h"
+#include "logging.h"
 
 namespace one {
 namespace client {
@@ -33,6 +34,8 @@ AsyncStream::~AsyncStream()
 
 void AsyncStream::process(EventPtr<> event)
 {
+    LOG_FCALL();
+
     asio::post(m_ioService, [ this, event = std::move(event) ]() mutable {
         m_stream->process(std::move(event));
     });
@@ -40,6 +43,8 @@ void AsyncStream::process(EventPtr<> event)
 
 void AsyncStream::flush()
 {
+    LOG_FCALL();
+
     asio::post(m_ioService, [this] { m_stream->flush(); });
 }
 

@@ -203,7 +203,8 @@ folly::fbstring StorageAccessManager::modifyStorageTestFile(
     communication::wait(handle->write(0, std::move(buf)), helper->timeout());
     communication::wait(handle->fsync(true), helper->timeout());
 
-    DLOG(INFO) << "Storage test file modified.";
+    LOG_DBG(1) << "Storage test file " << testFile.fileId() << " in space "
+               << testFile.spaceId() << " modified with content " << content;
 
     return content;
 }

@@ -30,7 +30,7 @@
 namespace {
 
 macaroons::Macaroon restrictMacaroon(
-    const macaroons::Macaroon &macaroon, const std::string &providerId)
+    const macaroons::Macaroon &macaroon, const std::string & /*providerId*/)
 {
     auto expiration = std::chrono::system_clock::now() +
         one::client::auth::RESTRICTED_MACAROON_EXPIRATION;
@@ -38,8 +38,8 @@ macaroons::Macaroon restrictMacaroon(
     auto expirationSinceEpoch =
         std::chrono::system_clock::to_time_t(expiration);
 
-    return macaroon /*.addFirstPartyCaveat("providerId = " + providerId)*/
-        .addFirstPartyCaveat("time < " + std::to_string(expirationSinceEpoch));
+    return macaroon.addFirstPartyCaveat(
+        "time < " + std::to_string(expirationSinceEpoch));
 }
 
 } // namespace
@@ -60,6 +60,8 @@ TokenHandler::TokenHandler(options::Options &options,
 
 std::string TokenHandler::refreshRestrictedToken()
 {
+    LOG_FCALL();
+
     m_restrictedMacaroon = restrictMacaroon(m_macaroon, m_providerId);
     return restrictedToken();
 }
@@ -71,13 +73,15 @@ std::string TokenHandler::restrictedToken() const
 
 macaroons::Macaroon TokenHandler::retrieveToken() const
 {
+    LOG_FCALL();
+
     if (auto macaroon = getTokenFromOptions()) {
         persistMacaroon(macaroon.get());
         return macaroon.get();
     }
 
     if (auto macaroon = readTokenFromFile()) {
-        LOG(INFO) << "Retrieved token from " << tokenFilePath();
+        LOG(INFO) << "Retrieved access token from file " << tokenFilePath();
         return macaroon.get();
     }
 
@@ -87,13 +91,15 @@ macaroons::Macaroon TokenHandler::retrieveToken() const
         return macaroon;
     }
     catch (const std::exception &e) {
-        LOG(WARNING) << "Failed to retrieve token from user: " << e.what();
+        LOG(WARNING) << "Failed to retrieve user's token: " << e.what();
         throw BadAccess{"invalid authorization token"};
     }
 }
 
 boost::optional<macaroons::Macaroon> TokenHandler::readTokenFromFile() const
 {
+    LOG_FCALL();
+
     std::string token;
 
     boost::filesystem::ifstream stream{tokenFilePath()};
@@ -117,6 +123,8 @@ boost::optional<macaroons::Macaroon> TokenHandler::readTokenFromFile() const
 
 boost::optional<macaroons::Macaroon> TokenHandler::getTokenFromOptions() const
 {
+    LOG_FCALL();
+
     const auto &token = m_options.getAccessToken();
     if (!token)
         return {};
@@ -134,6 +142,8 @@ boost::optional<macaroons::Macaroon> TokenHandler::getTokenFromOptions() const
 
 macaroons::Macaroon TokenHandler::getTokenFromUser() const
 {
+    LOG_FCALL();
+
     std::string token;
     std::cout << "Access token: ";
 
@@ -148,6 +158,8 @@ macaroons::Macaroon TokenHandler::getTokenFromUser() const
 
 void TokenHandler::persistMacaroon(macaroons::Macaroon macaroon) const
 {
+    LOG_FCALL();
+
     try {
         boost::filesystem::ofstream stream{tokenFilePath()};
         stream.exceptions(
@@ -174,6 +186,8 @@ boost::filesystem::path TokenHandler::tokenFilePath() const
 
 macaroons::Macaroon TokenHandler::deserialize(std::string token) const
 {
+    LOG_FCALL() << LOG_FARG(token);
+
     try {
         return macaroons::Macaroon::deserialize(decode62(token));
     }
@@ -202,6 +216,8 @@ const Coding coding = createCoding();
 
 std::string TokenHandler::decode62(std::string token62)
 {
+    LOG_FCALL() << LOG_FARG(token62);
+
     std::string token64;
     token64.reserve(token62.size());
 
@@ -227,6 +243,8 @@ std::string TokenHandler::decode62(std::string token62)
 
 std::string TokenHandler::encode62(std::string token64)
 {
+    LOG_FCALL() << LOG_FARG(token64);
+
     std::string token62;
     token62.reserve(token64.size());
 

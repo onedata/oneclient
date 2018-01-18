@@ -80,6 +80,9 @@ HelpersCache::~HelpersCache()
 HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
     const folly::fbstring &storageId, bool forceProxyIO)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid) << LOG_FARG(storageId)
+                << LOG_FARG(forceProxyIO);
+
     forceProxyIO |= m_options.isProxyIOForced();
     if (!forceProxyIO) {
         decltype(m_accessType)::iterator accessTypeIt;
@@ -125,7 +128,7 @@ HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
 void HelpersCache::requestStorageTestFileCreation(
     const folly::fbstring &fileUuid, const folly::fbstring &storageId)
 {
-    DLOG(INFO) << "Requesting storage test file creation for file: '"
+    LOG_DBG(1) << "Requesting storage test file creation for file: '"
                << fileUuid << "' and storage: '" << storageId << "'";
 
     try {
@@ -157,7 +160,7 @@ void HelpersCache::handleStorageTestFile(
     std::shared_ptr<messages::fuse::StorageTestFile> testFile,
     const folly::fbstring &storageId, const std::size_t attempts)
 {
-    DLOG(INFO) << "Handling storage test file: " << testFile->toString()
+    LOG_DBG(1) << "Handling storage test file: " << testFile->toString()
                << " for storage: '" << storageId
                << "' with left attempts: " << attempts << ".";
 
@@ -206,7 +209,7 @@ void HelpersCache::requestStorageTestFileVerification(
     const messages::fuse::StorageTestFile &testFile,
     const folly::fbstring &storageId, const folly::fbstring &fileContent)
 {
-    DLOG(INFO) << "Requesting verification of storage: '" << storageId
+    LOG_DBG(1) << "Requesting verification of storage: '" << storageId
                << "' with file: '" << testFile.toString()
                << "' and modified content '" << fileContent << ".";
 
@@ -228,11 +231,12 @@ void HelpersCache::requestStorageTestFileVerification(
 void HelpersCache::handleStorageTestFileVerification(
     const std::error_code &ec, const folly::fbstring &storageId)
 {
-    DLOG(INFO) << "Handling verification of storage: '" << storageId << "'.";
+    LOG_DBG(1) << "Handling verification of storage direct access: "
+               << storageId;
 
     if (!ec) {
-        LOG(INFO) << "Storage '" << storageId
-                  << "' is directly accessible to the client.";
+        LOG(INFO) << "Storage " << storageId
+                  << " is directly accessible to the client.";
 
         m_accessType[storageId] = AccessType::DIRECT;
     }

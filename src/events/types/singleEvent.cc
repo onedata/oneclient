@@ -20,7 +20,7 @@ const AggregationKey &SingleEvent::aggregationKey() const
 
 void SingleEvent::aggregate(EventPtr<> event)
 {
-    DLOG(ERROR) << "Aggregation requested for a single event: " << toString();
+    LOG_DBG(1) << "Aggregation requested for a single event: " << toString();
 }
 
 } // namespace events

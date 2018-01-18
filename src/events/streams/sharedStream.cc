@@ -21,15 +21,23 @@ SharedStream::SharedStream(StreamPtr stream)
 
 void SharedStream::process(EventPtr<> event)
 {
+    LOG_FCALL();
+
     m_stream->process(std::move(event));
 }
 
-void SharedStream::flush() { m_stream->flush(); }
+void SharedStream::flush()
+{
+    LOG_FCALL();
+    m_stream->flush();
+}
 
 void SharedStream::share() { ++m_counter; }
 
 bool SharedStream::release()
 {
+    LOG_FCALL();
+
     assert(m_counter > 0);
     return --m_counter == 0;
 }

@@ -52,6 +52,14 @@
 #include <regex>
 #include <string>
 
+#if !defined(NDEBUG)
+/**
+ * We have to expose FLAGS_vmodule variable here, as it is not declared
+ * publicly by Glog library.
+ */
+DECLARE_string(vmodule);
+#endif
+
 using namespace one;
 using namespace one::client;
 using namespace one::monitoring;
@@ -71,6 +79,13 @@ void startLogging(
     FLAGS_logtostderr = false;
     FLAGS_stderrthreshold = options->getDebug() ? 0 : 2;
     FLAGS_log_dir = options->getLogDirPath().c_str();
+    FLAGS_stop_logging_if_full_disk = true;
+#if !defined(NDEBUG)
+    FLAGS_v = options->getVerboseLogLevel();
+    FLAGS_vmodule = options->getVerboseLogFilter()
+        ? options->getVerboseLogFilter().get()
+        : "*";
+#endif
     google::InitGoogleLogging(programName);
 }
 

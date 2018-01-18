@@ -42,6 +42,8 @@ public:
 
 template <class T> EventPtr<T> FalseEmitter<T>::process(EventPtr<T> event)
 {
+    LOG_FCALL();
+
     return std::move(event);
 }
 
