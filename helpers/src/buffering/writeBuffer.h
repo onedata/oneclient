@@ -13,6 +13,7 @@
 
 #include "communication/communicator.h"
 #include "helpers/storageHelper.h"
+#include "logging.h"
 #include "messages/proxyio/remoteWrite.h"
 #include "messages/proxyio/remoteWriteResult.h"
 #include "scheduler.h"
@@ -62,12 +63,21 @@ public:
         , m_scheduler{scheduler}
         , m_readCache{readCache}
     {
+        LOG_FCALL() << LOG_FARG(writeBufferMinSize)
+                    << LOG_FARG(writeBufferMaxSize)
+                    << LOG_FARG(writeBufferFlushDelay.count());
     }
 
-    ~WriteBuffer() { m_cancelFlushSchedule(); }
+    ~WriteBuffer()
+    {
+        LOG_FCALL();
+        m_cancelFlushSchedule();
+    }
 
     folly::Future<std::size_t> write(const off_t offset, folly::IOBufQueue buf)
     {
+        LOG_FCALL() << LOG_FARG(offset) << LOG_FARG(buf.chainLength());
+
         std::unique_lock<FiberMutex> lock{m_mutex};
 
         m_cancelFlushSchedule();
@@ -95,6 +105,8 @@ public:
 
     folly::Future<folly::Unit> fsync()
     {
+        LOG_FCALL();
+
         std::unique_lock<FiberMutex> lock{m_mutex};
         pushBuffer();
         return confirmAll();
@@ -102,6 +114,8 @@ public:
 
     void scheduleFlush()
     {
+        LOG_FCALL();
+
         m_cancelFlushSchedule = m_scheduler.schedule(m_writeBufferFlushDelay,
             [s = std::weak_ptr<WriteBuffer>(shared_from_this())] {
                 if (auto self = s.lock()) {
@@ -115,6 +129,8 @@ public:
 private:
     void pushBuffer()
     {
+        LOG_FCALL();
+
         if (m_bufferedSize == 0)
             return;
 
@@ -173,13 +189,21 @@ private:
 
     folly::Future<folly::Unit> confirmOverThreshold()
     {
+        LOG_FCALL();
+
         return confirm(calculateConfirmThreshold());
     }
 
-    folly::Future<folly::Unit> confirmAll() { return confirm(0); }
+    folly::Future<folly::Unit> confirmAll()
+    {
+        LOG_FCALL();
+        return confirm(0);
+    }
 
     folly::Future<folly::Unit> confirm(const std::size_t threshold)
     {
+        LOG_FCALL() << LOG_FARG(threshold);
+
         folly::fbvector<folly::Future<folly::Unit>> confirmFutures;
 
         while (m_pendingConfirmation > threshold) {

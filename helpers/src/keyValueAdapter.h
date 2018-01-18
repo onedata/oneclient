@@ -10,6 +10,7 @@
 #define HELPERS_KEY_VALUE_ADAPTER_H
 
 #include "helpers/storageHelper.h"
+#include "logging.h"
 
 #include <folly/Executor.h>
 #include <folly/Hash.h>

@@ -9,6 +9,7 @@
 #include "helpers/storageHelperCreator.h"
 
 #include "buffering/bufferAgent.h"
+#include "logging.h"
 #include "posixHelper.h"
 #include "proxyHelper.h"
 #include "scheduler.h"
@@ -123,6 +124,8 @@ std::shared_ptr<StorageHelper> StorageHelperCreator::getStorageHelper(
     const std::unordered_map<folly::fbstring, folly::fbstring> &args,
     const bool buffered)
 {
+    LOG_FCALL() << LOG_FARG(name) << LOG_FARGM(args) << LOG_FARG(buffered);
+
     StorageHelperPtr helper;
 
     if (name == POSIX_HELPER_NAME)
@@ -164,9 +167,13 @@ std::shared_ptr<StorageHelper> StorageHelperCreator::getStorageHelper(
 #if WITH_GLUSTERFS
         && (name != GLUSTERFS_HELPER_NAME)
 #endif
-    )
+    ) {
+        LOG_DBG(1) << "Created buffered helper of type " << name;
         return std::make_shared<buffering::BufferAgent>(
             m_bufferLimits, helper, *m_scheduler);
+    }
+
+    LOG_DBG(1) << "Created non-buffered helper of type " << name;
 
     return helper;
 }

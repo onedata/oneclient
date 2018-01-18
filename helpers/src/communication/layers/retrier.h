@@ -10,6 +10,7 @@
 #define HELPERS_COMMUNICATION_LAYERS_RETRIER_H
 
 #include "communication/exception.h"
+#include "logging.h"
 
 #include <chrono>
 #include <functional>
@@ -58,10 +59,15 @@ void Retrier<LowerLayer>::send(
     auto wrappedCallback =
         [ =, callback = std::move(callback) ](const std::error_code &ec) mutable
     {
-        if (ec && retries > 0)
+        if (ec && retries > 0) {
+            LOG_DBG(1) << "Sending message - remaining retry count: "
+                       << retries;
             send(std::move(message), std::move(callback), retries - 1);
-        else
+        }
+        else {
+            LOG_DBG(1) << "Sending message failed: " << ec.message();
             callback(ec);
+        }
     };
 
     LowerLayer::send(std::move(message), std::move(wrappedCallback), retries);

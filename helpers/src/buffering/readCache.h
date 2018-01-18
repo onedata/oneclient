@@ -11,6 +11,7 @@
 
 #include "communication/communicator.h"
 #include "helpers/storageHelper.h"
+#include "logging.h"
 #include "messages/proxyio/remoteData.h"
 #include "messages/proxyio/remoteRead.h"
 #include "scheduler.h"
@@ -54,11 +55,16 @@ public:
         , m_cacheDuration{readBufferPrefetchDuration * 2}
         , m_handle{handle}
     {
+        LOG_FCALL() << LOG_FARG(readBufferMinSize)
+                    << LOG_FARG(readBufferMaxSize)
+                    << LOG_FARG(readBufferPrefetchDuration.count());
     }
 
     folly::Future<folly::IOBufQueue> read(
         const off_t offset, const std::size_t size)
     {
+        LOG_FCALL() << LOG_FARG(offset) << LOG_FARG(size);
+
         std::unique_lock<FiberMutex> lock{m_mutex};
         if (isStale()) {
             while (!m_cache.empty()) {
@@ -85,6 +91,8 @@ public:
 
     void clear()
     {
+        LOG_FCALL();
+
         std::unique_lock<FiberMutex> lock{m_mutex};
         m_clear = true;
     }
@@ -92,6 +100,8 @@ public:
 private:
     void prefetchIfNeeded()
     {
+        LOG_FCALL();
+
         assert(!m_cache.empty());
 
         while (m_cache.size() < 2) {
@@ -103,6 +113,8 @@ private:
 
     void fetch(const off_t offset, const std::size_t size)
     {
+        LOG_FCALL() << LOG_FARG(offset) << LOG_FARG(size);
+
         const auto startPoint = std::chrono::steady_clock::now();
 
         m_cache.emplace(std::make_shared<ReadData>(offset, size));
@@ -137,6 +149,8 @@ private:
     folly::Future<folly::IOBufQueue> readFromCache(
         const off_t offset, const std::size_t size)
     {
+        LOG_FCALL() << LOG_FARG(offset) << LOG_FARG(size);
+
         assert(!m_cache.empty());
         return m_cache.front()->promise.getFuture().then([
             offset, size, cachedOffset = m_cache.front()->offset

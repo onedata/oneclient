@@ -129,10 +129,13 @@ TypedStream<Communicator>::TypedStream(
     , m_streamId{streamId}
     , m_unregister{std::move(unregister)}
 {
+    LOG_FCALL() << LOG_FARG(streamId);
 }
 
 template <class Communicator> TypedStream<Communicator>::~TypedStream()
 {
+    LOG_FCALL();
+
     close();
     m_unregister();
 }
@@ -140,12 +143,16 @@ template <class Communicator> TypedStream<Communicator>::~TypedStream()
 template <class Communicator>
 void TypedStream<Communicator>::send(messages::ClientMessage &&msg)
 {
+    LOG_FCALL() << LOG_FARG(msg.toString());
+
     send(messages::serialize(std::move(msg)));
 }
 
 template <class Communicator>
 void TypedStream<Communicator>::send(ClientMessagePtr msg)
 {
+    LOG_FCALL();
+
     auto msgStream = msg->mutable_message_stream();
     msgStream->set_stream_id(m_streamId);
     msgStream->set_sequence_number(m_sequenceId++);
@@ -154,11 +161,15 @@ void TypedStream<Communicator>::send(ClientMessagePtr msg)
 
 template <class Communicator> void TypedStream<Communicator>::close()
 {
+    LOG_FCALL();
+
     send(messages::EndOfStream{});
 }
 
 template <class Communicator> void TypedStream<Communicator>::reset()
 {
+    LOG_FCALL();
+
     std::lock_guard<BufferMutexType> lock{m_bufferMutex};
     m_sequenceId = 0;
     std::vector<ClientMessagePtr> processed;
@@ -173,6 +184,8 @@ template <class Communicator> void TypedStream<Communicator>::reset()
 template <class Communicator>
 void TypedStream<Communicator>::saveAndPass(ClientMessagePtr msg)
 {
+    LOG_FCALL();
+
     auto msgCopy = std::make_unique<clproto::ClientMessage>(*msg);
 
     {
@@ -187,6 +200,8 @@ template <class Communicator>
 void TypedStream<Communicator>::handleMessageRequest(
     const clproto::MessageRequest &msg)
 {
+    LOG_FCALL();
+
     std::vector<ClientMessagePtr> processed;
     processed.reserve(
         msg.upper_sequence_number() - msg.lower_sequence_number() + 1);
@@ -218,6 +233,8 @@ template <class Communicator>
 void TypedStream<Communicator>::handleMessageAcknowledgement(
     const clproto::MessageAcknowledgement &msg)
 {
+    LOG_FCALL();
+
     std::shared_lock<BufferMutexType> lock{m_bufferMutex};
     for (ClientMessagePtr it; m_buffer.try_pop(it);) {
         if (it->message_stream().sequence_number() > msg.sequence_number()) {

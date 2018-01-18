@@ -7,6 +7,7 @@
  */
 
 #include "fuseOperations.h"
+#include "logging.h"
 
 namespace {
 thread_local bool fuseSessionActive = false;
@@ -15,9 +16,17 @@ thread_local bool fuseSessionActive = false;
 namespace one {
 namespace helpers {
 
-void activateFuseSession() { fuseSessionActive = true; }
+void activateFuseSession()
+{
+    LOG_FCALL();
+    fuseSessionActive = true;
+}
 
-bool fuseInterrupted() { return fuseSessionActive && fuse_interrupted(); }
+bool fuseInterrupted()
+{
+    LOG_FCALL();
+    return fuseSessionActive && fuse_interrupted();
+}
 
 } // namespace helpers
 } // namespace one

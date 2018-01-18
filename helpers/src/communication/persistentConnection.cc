@@ -40,12 +40,20 @@ PersistentConnection::PersistentConnection(std::string host,
     , m_onHandshakeResponse{std::move(onHandshakeResponse)}
     , m_callback{std::move(onHandshakeDone)}
 {
+    LOG_FCALL() << LOG_FARG(host) << LOG_FARG(port);
 }
 
-PersistentConnection::~PersistentConnection() { close(); }
+PersistentConnection::~PersistentConnection()
+{
+    LOG_FCALL();
+
+    close();
+}
 
 void PersistentConnection::connect()
 {
+    LOG_FCALL();
+
     m_socket = std::make_shared<etls::TLSSocket>(m_app, m_context);
     m_socket->connectAsync(m_socket, m_host, m_port,
         createCallback<etls::TLSSocket::Ptr>([=](auto) { this->onConnect(); }));
@@ -53,6 +61,8 @@ void PersistentConnection::connect()
 
 void PersistentConnection::onConnect()
 {
+    LOG_FCALL();
+
     if (!m_getHandshake) {
         start();
         return;
@@ -65,11 +75,15 @@ void PersistentConnection::onConnect()
 
 void PersistentConnection::onHandshakeSent()
 {
+    LOG_FCALL();
+
     asyncRead([=](auto) { this->onHandshakeReceived(); });
 }
 
 void PersistentConnection::onHandshakeReceived()
 {
+    LOG_FCALL();
+
     std::error_code ec;
     if (m_onHandshakeResponse)
         ec = m_onHandshakeResponse(std::move(m_inData));
@@ -82,12 +96,16 @@ void PersistentConnection::onHandshakeReceived()
 
 void PersistentConnection::onSent()
 {
+    LOG_FCALL();
+
     notify();
     m_onReady(*this);
 }
 
 void PersistentConnection::onError(const std::error_code &ec1)
 {
+    LOG_FCALL();
+
     m_recreateTimer.expires_at(
         std::chrono::steady_clock::now() + RECREATE_DELAY);
 
@@ -102,6 +120,8 @@ void PersistentConnection::onError(const std::error_code &ec1)
 
 void PersistentConnection::send(std::string message, Callback callback)
 {
+    LOG_FCALL() << LOG_FARG(message.size());
+
     asio::post(m_app.ioService(), [
         =, message = std::move(message), callback = std::move(callback)
     ]() mutable {
@@ -120,6 +140,8 @@ void PersistentConnection::send(std::string message, Callback callback)
 std::array<asio::const_buffer, 2> PersistentConnection::prepareOutBuffer(
     std::string message)
 {
+    LOG_FCALL() << LOG_FARG(message.size());
+
     m_outHeader = htonl(message.size());
     m_outData = std::move(message);
     return {{headerToBuffer(m_outHeader), asio::buffer(m_outData)}};
@@ -127,6 +149,8 @@ std::array<asio::const_buffer, 2> PersistentConnection::prepareOutBuffer(
 
 void PersistentConnection::readLoop()
 {
+    LOG_FCALL();
+
     asyncRead([=](asio::mutable_buffer) {
         m_onMessage(std::move(m_inData));
         readLoop();
@@ -135,6 +159,8 @@ void PersistentConnection::readLoop()
 
 void PersistentConnection::close()
 {
+    LOG_FCALL();
+
     if (!m_socket)
         return;
 
@@ -147,6 +173,8 @@ void PersistentConnection::close()
 
 void PersistentConnection::notify(const std::error_code &ec)
 {
+    LOG_FCALL() << LOG_FARG(ec);
+
     if (m_callback) {
         decltype(m_callback) callback;
         std::swap(callback, m_callback);
@@ -159,6 +187,8 @@ void PersistentConnection::notify(const std::error_code &ec)
 
 void PersistentConnection::start()
 {
+    LOG_FCALL();
+
     notify();
     m_connected = true;
     readLoop();
@@ -222,6 +252,8 @@ std::unique_ptr<Connection> createConnection(std::string host,
     std::function<std::error_code(std::string)> onHandshakeResponse,
     std::function<void(std::error_code)> onHandshakeDone)
 {
+    LOG_DBG(1) << "Creating connection to " << host;
+
     return std::make_unique<PersistentConnection>(std::move(host), port,
         std::move(context), std::move(onMessage), std::move(onReady),
         std::move(getHandshake), std::move(onHandshakeResponse),

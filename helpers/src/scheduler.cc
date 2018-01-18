@@ -7,6 +7,7 @@
  */
 
 #include "scheduler.h"
+#include "logging.h"
 
 #include "communication/etls/utils.h"
 
@@ -24,18 +25,24 @@ Scheduler::~Scheduler() { stop(); }
 
 void Scheduler::prepareForDaemonize()
 {
+    LOG_FCALL();
+
     stop();
     m_ioService.notify_fork(asio::io_service::fork_prepare);
 }
 
 void Scheduler::restartAfterDaemonize()
 {
+    LOG_FCALL();
+
     m_ioService.notify_fork(asio::io_service::fork_child);
     start();
 }
 
 void Scheduler::start()
 {
+    LOG_FCALL();
+
     if (m_ioService.stopped())
         m_ioService.reset();
 
@@ -51,6 +58,8 @@ void Scheduler::start()
 
 void Scheduler::stop()
 {
+    LOG_FCALL();
+
     m_ioService.stop();
     for (auto &t : m_workers)
         t.join();
