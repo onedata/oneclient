@@ -11,6 +11,7 @@
 
 #include "communication/declarations.h"
 #include "communication/etls/utils.h"
+#include "logging.h"
 
 #include <asio/executor_work.hpp>
 #include <asio/io_service.hpp>
@@ -76,6 +77,7 @@ template <class LowerLayer> auto AsyncResponder<LowerLayer>::connect()
             asio::make_work(m_ioService));
 
     m_thread = std::thread{[this] {
+        LOG_DBG(1) << "Creating AsyncResponder thread";
         etls::utils::nameThread("AsyncResponder");
         m_ioService.run();
     }};

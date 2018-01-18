@@ -37,7 +37,11 @@ ConnectionPool::ConnectionPool(const std::size_t connectionsNumber,
     , m_verifyServerCertificate{verifyServerCertificate}
     , m_connectionFactory{std::move(connectionFactory)}
 {
+    LOG_FCALL() << LOG_FARG(connectionsNumber) << LOG_FARG(host)
+                << LOG_FARG(port) << LOG_FARG(verifyServerCertificate);
+
     m_thread = std::thread{[=] {
+        LOG_DBG(1) << "Starting ConnectionPool thread";
         etls::utils::nameThread("ConnectionPool");
         m_ioService.run();
     }};
@@ -45,6 +49,8 @@ ConnectionPool::ConnectionPool(const std::size_t connectionsNumber,
 
 void ConnectionPool::connect()
 {
+    LOG_FCALL();
+
     m_context->set_options(asio::ssl::context::default_workarounds |
         asio::ssl::context::no_sslv2 | asio::ssl::context::no_sslv3 |
         asio::ssl::context::no_tlsv1 | asio::ssl::context::no_tlsv1_1 |
@@ -70,7 +76,11 @@ void ConnectionPool::connect()
                 std::bind(&ConnectionPool::onConnectionReady, this, _1),
                 m_getHandshake, m_onHandshakeResponse, m_onHandshakeDone);
 
+            LOG_DBG(1) << "Establishing connection in connection pool to "
+                       << m_host;
+
             connection->connect();
+
             return connection;
         });
 
@@ -81,6 +91,8 @@ void ConnectionPool::setHandshake(std::function<std::string()> getHandshake,
     std::function<std::error_code(std::string)> onHandshakeResponse,
     std::function<void(std::error_code)> onHandshakeDone)
 {
+    LOG_FCALL();
+
     m_getHandshake = std::move(getHandshake);
     m_onHandshakeResponse = std::move(onHandshakeResponse);
     m_onHandshakeDone = std::move(onHandshakeDone);
@@ -89,26 +101,38 @@ void ConnectionPool::setHandshake(std::function<std::string()> getHandshake,
 void ConnectionPool::setOnMessageCallback(
     std::function<void(std::string)> onMessage)
 {
+    LOG_FCALL();
+
     m_onMessage = std::move(onMessage);
 }
 
 void ConnectionPool::setCertificateData(
     std::shared_ptr<cert::CertificateData> certificateData)
 {
+    LOG_FCALL();
+
     m_certificateData = std::move(certificateData);
 }
 
 void ConnectionPool::send(std::string message, Callback callback, const int)
 {
-    if (!m_connected)
+    LOG_FCALL() << LOG_FARG(message.size());
+
+    LOG_DBG(1) << "Attempting to send message of size " << message.size();
+
+    if (!m_connected) {
+        LOG_DBG(1) << "Connection pool is not connected - aborting";
         return;
+    }
 
     Connection *conn;
     try {
         m_idleConnections.pop(conn);
+        LOG_DBG(1) << "Retrieved active connection from connection pool";
     }
     catch (const tbb::user_abort &) {
         // We have aborted the wait by calling stop()
+        LOG_DBG(1) << "Waiting for connection from connection pool aborted";
         return;
     }
 
@@ -116,17 +140,32 @@ void ConnectionPool::send(std::string message, Callback callback, const int)
     // inserting it into ready queue and popping it here; that's ok
     // since connection will fail the send instead of erroring out.
     conn->send(std::move(message), std::move(callback));
+
+    LOG_DBG(1) << "Message sent";
 }
 
 void ConnectionPool::onConnectionReady(Connection &conn)
 {
+    LOG_FCALL();
+
+    LOG_DBG(1) << "Connection established - adding to idle connection pool";
+
     m_idleConnections.emplace(&conn);
 }
 
-ConnectionPool::~ConnectionPool() { stop(); }
+ConnectionPool::~ConnectionPool()
+{
+    LOG_FCALL();
+
+    stop();
+}
 
 void ConnectionPool::stop()
 {
+    LOG_FCALL();
+
+    LOG_DBG(1) << "Stopping connection pool";
+
     m_connected = false;
     m_connections.clear();
     m_idleConnections.abort();
@@ -136,6 +175,8 @@ void ConnectionPool::stop()
 
     if (m_thread.joinable())
         m_thread.join();
+
+    LOG_DBG(1) << "Connection pool stopped";
 }
 
 } // namespace communication
