@@ -21,11 +21,13 @@ enum HandshakeStatus {
     NO_DISCHARGE_MACAROON_FOR_CAVEAT = 9;
     INVALID_TOKEN                    = 10;
     INTERNAL_SERVER_ERROR            = 11;
+    INCOMPATIBLE_CLIENT_VERSION      = 12;
 }
 
 message HandshakeRequest {
     optional bytes session_id = 1;
     optional Token token      = 2;
+    required string version   = 3;
 }
 
 message HandshakeResponse {

@@ -20,9 +20,11 @@ HandshakeRequest::HandshakeRequest(std::string sessionId)
 {
 }
 
-HandshakeRequest::HandshakeRequest(std::string sessionId, std::string token)
+HandshakeRequest::HandshakeRequest(
+    std::string sessionId, std::string token, std::string version)
     : m_sessionId{std::move(sessionId)}
     , m_token{std::move(token)}
+    , m_version{std::move(version)}
 {
 }
 
@@ -35,6 +37,7 @@ std::string HandshakeRequest::toString() const
         stream << "'" << m_token.get() << "'";
     else
         stream << "'undefined'";
+    stream << ", version: '" << m_version << "'";
     return stream.str();
 }
 
@@ -48,6 +51,8 @@ std::unique_ptr<ProtocolClientMessage> HandshakeRequest::serializeAndDestroy()
         auto tokenMsg = handshakeRequestMsg->mutable_token();
         tokenMsg->set_value(m_token.get());
     }
+
+    handshakeRequestMsg->set_version(m_version);
 
     return clientMsg;
 }
