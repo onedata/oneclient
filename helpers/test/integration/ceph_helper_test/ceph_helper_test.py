@@ -50,6 +50,11 @@ def helper(server):
     return CephHelperProxy(server.mon_host, server.username, server.key,
                            server.pool_name)
 
+def test_helper_creation_should_not_leak_memory(server):
+    for i in range(10):
+        helper = CephHelperProxy(server.mon_host, server.username, server.key,
+                           server.pool_name)
+        test_write_should_write_data(helper)
 
 def test_write_should_write_data(helper):
     file_id = random_str()
