@@ -8,9 +8,9 @@
 
 #include "helpers/storageHelper.h"
 #include "fuseOperations.h"
+#include "logging.h"
 
 #include <folly/futures/Future.h>
-#include <glog/logging.h>
 
 #include <sys/stat.h>
 
@@ -76,6 +76,8 @@ FlagsSet maskToFlags(int mask)
 folly::Future<std::size_t> FileHandle::multiwrite(
     folly::fbvector<std::pair<off_t, folly::IOBufQueue>> buffs)
 {
+    LOG_FCALL();
+
     auto future = folly::makeFuture<std::size_t>(0);
 
     std::size_t shouldHaveWrittenSoFar = 0;

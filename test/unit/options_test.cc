@@ -93,6 +93,9 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.isMonitoringEnabled());
     EXPECT_EQ(false, options.isMonitoringLevelFull());
     EXPECT_EQ(true, options.isMonitoringLevelBasic());
+#if !defined(NDEBUG)
+    EXPECT_EQ(0, options.getVerboseLogLevel());
+#endif
     EXPECT_EQ(options::DEFAULT_PROVIDER_PORT, options.getProviderPort());
     EXPECT_EQ(options::DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT,
         options.getBufferSchedulerThreadCount());
@@ -326,6 +329,23 @@ TEST_F(OptionsTest, parseCommandLineShouldSetDebug)
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(true, options.getDebug());
 }
+
+#if !defined(NDEBUG)
+TEST_F(OptionsTest, parseCommandLineShouldSetVerboseLogLevel)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--verbose-log-level", "3", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(3, options.getVerboseLogLevel());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetVerboseLogFilter)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--verbose-log-filter", "fsLogic=3,ceph*=1", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ("fsLogic=3,ceph*=1", options.getVerboseLogFilter().get());
+}
+#endif
 
 TEST_F(OptionsTest, parseCommandLineShouldSetSingleThread)
 {

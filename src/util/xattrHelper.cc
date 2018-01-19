@@ -51,8 +51,12 @@ folly::json::serialization_opts xattrValueJsonOptions()
 
 bool encodeJsonXAttrName(const std::string &name, std::string &output)
 {
-    if (name.empty())
+    LOG_FCALL() << LOG_FARG(name);
+
+    if (name.empty()) {
+        LOG_DBG(1) << "Cannot encode empty xattr name";
         return false;
+    }
 
     std::ostringstream o;
     for (auto c = name.cbegin(); c != name.cend(); c++) {
@@ -71,6 +75,8 @@ bool encodeJsonXAttrName(const std::string &name, std::string &output)
 
 bool encodeJsonXAttrValue(const std::string &value, std::string &output)
 {
+    LOG_FCALL() << LOG_FARG(value);
+
     try {
         // Handle special case as empty string without quotes
         // is invalid Json value
@@ -83,15 +89,20 @@ bool encodeJsonXAttrValue(const std::string &value, std::string &output)
         }
     }
     catch (std::exception &e) {
+        LOG_DBG(1) << "Failed to encode value to Json: " << e.what() << "\n"
+                   << " - trying to treat value as string";
         try {
-            // Try to parse the value as a Json string
             auto jsonValue = folly::parseJson(
                 std::string("\"") + value + "\"", xattrValueJsonOptions());
             output = folly::toJson(jsonValue);
         }
         catch (std::exception &ee) {
-            // The value is most probably binary data so we have to encode it
-            // in order to store it on Oneprovider in base64
+            LOG_DBG(1) << "Failed to encode value to JSON as string: "
+                       << e.what() << "\n"
+                       << " - the value is most probably binary data so we "
+                          "have to encode it in order to store it on "
+                          "Oneprovider in base64";
+
             std::string temp;
             bool encodingResult = base64_encode(value, temp);
             if (encodingResult) {
@@ -99,7 +110,7 @@ bool encodeJsonXAttrValue(const std::string &value, std::string &output)
                     "\":\"" + temp + "\"}";
             }
             else {
-                // Fallback
+                LOG_DBG(1) << "Failed to encode value to Json.";
                 return false;
             }
         }
@@ -109,6 +120,8 @@ bool encodeJsonXAttrValue(const std::string &value, std::string &output)
 
 bool decodeJsonXAttrValue(const std::string &value, std::string &output)
 {
+    LOG_FCALL() << LOG_FARG(value);
+
     try {
         // Parse Json value and return it's string
         // representation based on it's type

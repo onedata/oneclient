@@ -10,6 +10,7 @@
 
 #include "cache/forceProxyIOCache.h"
 #include "cache/helpersCache.h"
+#include "logging.h"
 
 namespace one {
 namespace client {
@@ -31,6 +32,8 @@ helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
     const folly::fbstring &uuid, const folly::fbstring &storageId,
     const folly::fbstring &fileId)
 {
+    LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(storageId) << LOG_FARG(fileId);
+
     const bool forceProxyIO = m_forceProxyIOCache.contains(uuid);
     const auto key = std::make_tuple(storageId, fileId, forceProxyIO);
 
@@ -51,6 +54,8 @@ helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
 void FuseFileHandle::releaseHelperHandle(const folly::fbstring &uuid,
     const folly::fbstring &storageId, const folly::fbstring &fileId)
 {
+    LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(storageId) << LOG_FARG(fileId);
+
     for (bool forceProxyIO : {true, false}) {
         const auto key = std::make_tuple(storageId, fileId, forceProxyIO);
         auto it = m_handles.find(key);

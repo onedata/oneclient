@@ -14,11 +14,15 @@ namespace {
 
 uint64_t getBlockId(off_t offset, std::size_t blockSize)
 {
+    LOG_FCALL() << LOG_FARG(offset) << LOG_FARG(blockSize);
+
     return offset / blockSize;
 }
 
 off_t getBlockOffset(off_t offset, std::size_t blockSize)
 {
+    LOG_FCALL() << LOG_FARG(offset) << LOG_FARG(blockSize);
+
     return offset - getBlockId(offset, blockSize) * blockSize;
 }
 
@@ -33,6 +37,8 @@ folly::IOBufQueue readBlock(
     const std::shared_ptr<one::helpers::KeyValueHelper> &helper,
     const folly::fbstring &key, const off_t offset, const std::size_t size)
 {
+    LOG_FCALL() << LOG_FARG(key) << LOG_FARG(offset) << LOG_FARG(size);
+
     try {
         return helper->getObject(key, offset, size);
     }
@@ -46,6 +52,8 @@ folly::IOBufQueue readBlock(
 
 folly::IOBufQueue fillToSize(folly::IOBufQueue buf, const std::size_t size)
 {
+    LOG_FCALL() << LOG_FARG(buf.chainLength()) << LOG_FARG(size);
+
     if (buf.chainLength() < size) {
         const std::size_t fillLength = size - buf.chainLength();
         char *data = static_cast<char *>(buf.allocate(fillLength));
@@ -68,11 +76,14 @@ KeyValueFileHandle::KeyValueFileHandle(folly::fbstring fileId,
     , m_locks{std::move(locks)}
     , m_executor{std::move(executor)}
 {
+    LOG_FCALL() << LOG_FARG(fileId) << LOG_FARG(blockSize);
 }
 
 folly::Future<folly::IOBufQueue> KeyValueFileHandle::read(
     const off_t offset, const std::size_t size)
 {
+    LOG_FCALL() << LOG_FARG(offset) << LOG_FARG(size);
+
     return folly::via(
         m_executor.get(), [ this, offset, size, self = shared_from_this() ] {
             const off_t fileSize =
@@ -89,6 +100,8 @@ folly::Future<folly::IOBufQueue> KeyValueFileHandle::read(
 folly::Future<std::size_t> KeyValueFileHandle::write(
     const off_t offset, folly::IOBufQueue buf)
 {
+    LOG_FCALL() << LOG_FARG(offset) << LOG_FARG(buf.chainLength());
+
     if (buf.empty())
         return folly::makeFuture<std::size_t>(0);
 
@@ -151,11 +164,14 @@ KeyValueAdapter::KeyValueAdapter(std::shared_ptr<KeyValueHelper> helper,
     , m_locks{std::make_shared<Locks>()}
     , m_blockSize{blockSize}
 {
+    LOG_FCALL() << LOG_FARG(blockSize);
 }
 
 folly::Future<folly::Unit> KeyValueAdapter::unlink(
     const folly::fbstring &fileId)
 {
+    LOG_FCALL() << LOG_FARG(fileId);
+
     return folly::via(m_executor.get(), [ fileId, helper = m_helper ] {
         try {
             auto keys = helper->listObjects(fileId);
@@ -171,6 +187,8 @@ folly::Future<folly::Unit> KeyValueAdapter::unlink(
 folly::Future<folly::Unit> KeyValueAdapter::truncate(
     const folly::fbstring &fileId, const off_t size)
 {
+    LOG_FCALL() << LOG_FARG(fileId) << LOG_FARG(size);
+
     return folly::via(m_executor.get(), [
         fileId, size, helper = m_helper, locks = m_locks,
         defBlockSize = m_blockSize
@@ -224,11 +242,19 @@ folly::Future<folly::Unit> KeyValueAdapter::truncate(
     });
 }
 
-const Timeout &KeyValueAdapter::timeout() { return m_helper->timeout(); }
+const Timeout &KeyValueAdapter::timeout()
+{
+    LOG_FCALL();
+
+    return m_helper->timeout();
+}
 
 folly::Future<folly::IOBufQueue> KeyValueFileHandle::readBlocks(
     const off_t offset, const std::size_t requestedSize, const off_t fileSize)
 {
+    LOG_FCALL() << LOG_FARG(offset) << LOG_FARG(requestedSize)
+                << LOG_FARG(fileSize);
+
     const auto size =
         std::min(requestedSize, static_cast<std::size_t>(fileSize - offset));
 
@@ -280,6 +306,8 @@ folly::Future<folly::IOBufQueue> KeyValueFileHandle::readBlocks(
 folly::IOBufQueue KeyValueFileHandle::readBlock(
     const uint64_t blockId, const off_t blockOffset, const std::size_t size)
 {
+    LOG_FCALL() << LOG_FARG(blockId) << LOG_FARG(blockOffset) << LOG_FARG(size);
+
     auto key = m_helper->getKey(m_fileId, blockId);
 
     Locks::accessor acc;
@@ -299,6 +327,9 @@ folly::IOBufQueue KeyValueFileHandle::readBlock(
 void KeyValueFileHandle::writeBlock(
     folly::IOBufQueue buf, const uint64_t blockId, const off_t blockOffset)
 {
+    LOG_FCALL() << LOG_FARG(buf.chainLength()) << LOG_FARG(blockId)
+                << LOG_FARG(blockOffset);
+
     auto key = m_helper->getKey(m_fileId, blockId);
     Locks::accessor acc;
     m_locks->insert(acc, key);
@@ -346,6 +377,8 @@ folly::Future<FileHandlePtr> KeyValueAdapter::open(
     const folly::fbstring &fileId, const int /*flags*/,
     const Params &openParams)
 {
+    LOG_FCALL() << LOG_FARG(fileId) << LOG_FARGM(openParams);
+
     FileHandlePtr handle = std::make_shared<KeyValueFileHandle>(
         fileId, m_helper, m_blockSize, m_locks, m_executor);
 

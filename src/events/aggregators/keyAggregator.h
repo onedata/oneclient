@@ -47,21 +47,30 @@ private:
 
 template <class T> void KeyAggregator<T>::process(EventPtr<T> event)
 {
+    LOG_FCALL();
+
     auto it = m_events.find(event->aggregationKey());
     if (it != m_events.end()) {
+        LOG_DBG(2) << "Aggregating event " << event->toString()
+                   << " with existing aggregation key "
+                   << event->aggregationKey();
         it->second->aggregate(std::move(event));
     }
     else {
         auto key = event->aggregationKey();
+        LOG_DBG(2) << "Aggregating event " << event->toString()
+                   << " with new aggregation key " << event->aggregationKey();
         m_events.emplace(std::move(key), std::move(event));
     }
 }
 
 template <class T> Events<T> KeyAggregator<T>::flush()
 {
+    LOG_FCALL();
+
     Events<T> events;
     for (auto it = m_events.begin(); it != m_events.end(); ++it) {
-        DLOG(INFO) << "Emitting event: " << it->second->toString();
+        LOG_DBG(1) << "Emitting event: " << it->second->toString();
         events.emplace_back(std::move(it->second));
     }
     m_events.clear();

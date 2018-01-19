@@ -41,6 +41,8 @@ public:
     virtual folly::fbstring getKey(
         const folly::fbstring &prefix, const uint64_t objectId)
     {
+        LOG_FCALL() << LOG_FARG(prefix) << LOG_FARG(objectId);
+
         std::stringstream ss;
         ss << adjustPrefix(prefix) << std::setfill('0')
            << std::setw(MAX_OBJECT_ID_DIGITS) << MAX_OBJECT_ID - objectId;
@@ -53,6 +55,7 @@ public:
      */
     virtual uint64_t getObjectId(const folly::fbstring &key)
     {
+        LOG_FCALL() << LOG_FARG(key);
         const auto pos = key.find_last_of(OBJECT_DELIMITER);
         return MAX_OBJECT_ID - std::stoull(key.substr(pos + 1).toStdString());
     }
@@ -101,6 +104,8 @@ public:
 protected:
     std::string adjustPrefix(const folly::fbstring &prefix) const
     {
+        LOG_FCALL() << LOG_FARG(prefix);
+
         return prefix.substr(prefix.find_first_not_of(OBJECT_DELIMITER))
                    .toStdString() +
             OBJECT_DELIMITER;
@@ -108,6 +113,8 @@ protected:
 
     std::string rangeToString(const off_t lower, const off_t upper) const
     {
+        LOG_FCALL() << LOG_FARG(lower) << LOG_FARG(upper);
+
         return "bytes=" + std::to_string(lower) + RANGE_DELIMITER +
             std::to_string(upper);
     }

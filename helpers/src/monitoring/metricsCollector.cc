@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "cppmetrics/cppmetrics.h"
+#include "logging.h"
 #include "monitoring/graphiteMetricsCollector.h"
 #include "monitoring/metricsCollector.h"
 
@@ -27,6 +28,8 @@ MetricsCollector::~MetricsCollector() {}
 void MetricsCollector::setConfiguration(
     std::shared_ptr<MonitoringConfiguration> monitoringConfiguration)
 {
+    LOG_FCALL();
+
     m_conf = monitoringConfiguration;
     initialize();
 }
@@ -36,14 +39,21 @@ const MonitoringConfiguration &MetricsCollector::getConfiguration() const
     return *m_conf;
 }
 
-void MetricsCollector::initialize() {}
+void MetricsCollector::initialize() { LOG_FCALL(); }
 
 void MetricsCollector::start()
 {
+    LOG_FCALL();
+
     m_reporter->start(std::chrono::seconds(m_conf->reportingPeriod));
 }
 
-void MetricsCollector::stop() { m_reporter->stop(); }
+void MetricsCollector::stop()
+{
+    LOG_FCALL();
+
+    m_reporter->stop();
+}
 
 core::MetricRegistryPtr MetricsCollector::getRegistry()
 {

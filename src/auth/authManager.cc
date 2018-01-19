@@ -81,7 +81,9 @@ TokenAuthManager::createCommunicator(const unsigned int poolSize,
 
 void TokenAuthManager::refreshToken()
 {
-    LOG(INFO) << "Sending a refreshed token";
+    LOG_FCALL();
+    LOG_DBG(1) << "Sending a refreshed token";
+
     auto future = m_context.lock()->communicator()->send(
         one::messages::Token{m_tokenHandler.refreshRestrictedToken()});
 
@@ -99,15 +101,21 @@ void TokenAuthManager::refreshToken()
 
 void TokenAuthManager::scheduleRefresh(const std::chrono::seconds after)
 {
-    LOG(INFO) << "Scheduling next token refresh in "
-              << std::chrono::duration_cast<std::chrono::seconds>(after).count()
-              << " seconds";
+    LOG_FCALL() << LOG_FARG(after.count());
+    LOG_DBG(1)
+        << "Scheduling next token refresh in "
+        << std::chrono::duration_cast<std::chrono::seconds>(after).count()
+        << " seconds";
 
     m_cancelRefresh = m_context.lock()->scheduler()->schedule(
         after, std::bind(&TokenAuthManager::refreshToken, this));
 }
 
-void TokenAuthManager::cleanup() { m_tokenHandler.removeTokenFile(); }
+void TokenAuthManager::cleanup()
+{
+    LOG_FCALL();
+    m_tokenHandler.removeTokenFile();
+}
 
 } // namespace auth
 } // namespace client

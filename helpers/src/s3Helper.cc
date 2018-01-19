@@ -43,6 +43,7 @@ std::map<Aws::S3::S3Errors, std::errc> g_errors = {
 template <typename Outcome>
 std::error_code getReturnCode(const Outcome &outcome)
 {
+    LOG_FCALL();
     if (outcome.IsSuccess())
         return one::helpers::SUCCESS_CODE;
 
@@ -64,6 +65,8 @@ void throwOnError(const folly::fbstring &operation, const Outcome &outcome)
     auto msg = operation.toStdString() +
         "': " + outcome.GetError().GetMessage().c_str();
 
+    LOG_DBG(1) << "Operation " << operation << " failed with message " << msg;
+
     throw std::system_error{code, std::move(msg)};
 }
 
@@ -79,6 +82,11 @@ S3Helper::S3Helper(folly::fbstring hostname, folly::fbstring bucketName,
     , m_useSigV2{useSigV2}
     , m_timeout{std::move(timeout)}
 {
+    LOG_FCALL() << LOG_FARG(hostname) << LOG_FARG(bucketName)
+                << LOG_FARG(accessKey) << LOG_FARG(secretKey)
+                << LOG_FARG(useHttps) << LOG_FARG(useSigV2)
+                << LOG_FARG(timeout.count());
+
     static S3HelperApiInit init;
 
     Aws::Auth::AWSCredentials credentials{accessKey.c_str(), secretKey.c_str()};
@@ -103,16 +111,23 @@ S3Helper::S3Helper(folly::fbstring hostname, folly::fbstring bucketName,
 
 folly::fbstring S3Helper::getRegion(const folly::fbstring &hostname)
 {
+    LOG_FCALL() << LOG_FARG(hostname);
+
     folly::fbvector<folly::fbstring> regions{"us-east-2", "us-east-1",
         "us-west-1", "us-west-2", "ca-central-1", "ap-south-1",
         "ap-northeast-2", "ap-southeast-1", "ap-southeast-2", "ap-northeast-1",
         "eu-central-1", "eu-west-1", "eu-west-2", "sa-east-1"};
 
+    LOG_DBG(1) << "Attempting to determine S3 region based on hostname";
+
     for (const auto &region : regions) {
         if (hostname.find(region) != folly::fbstring::npos) {
+            LOG_DBG(1) << "Using region " << region;
             return region;
         }
     }
+
+    LOG_DBG(1) << "Using default region us-east-1";
 
     return "us-east-1";
 }
@@ -120,6 +135,8 @@ folly::fbstring S3Helper::getRegion(const folly::fbstring &hostname)
 folly::IOBufQueue S3Helper::getObject(
     const folly::fbstring &key, const off_t offset, const std::size_t size)
 {
+    LOG_FCALL() << LOG_FARG(key) << LOG_FARG(offset) << LOG_FARG(size);
+
     folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
     char *data = static_cast<char *>(buf.preallocate(size, size).first);
 
@@ -142,10 +159,16 @@ folly::IOBufQueue S3Helper::getObject(
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.s3.read");
 
+    LOG_DBG(1) << "Attempting to get " << size << "bytes from object " << key
+               << " at offset " << offset;
+
     auto outcome = m_client->GetObject(request);
     auto code = getReturnCode(outcome);
-    if (code != SUCCESS_CODE)
+    if (code != SUCCESS_CODE) {
+        LOG_DBG(1) << "Reading from object " << key << " failed with error "
+                   << outcome.GetError().GetMessage();
         throwOnError("GetObject", outcome);
+    }
 
 #if defined(__APPLE__)
     outcome.GetResult().GetBody().rdbuf()->sgetn(
@@ -155,6 +178,8 @@ folly::IOBufQueue S3Helper::getObject(
     auto readBytes = outcome.GetResult().GetContentLength();
     buf.postallocate(static_cast<std::size_t>(readBytes));
 
+    LOG_DBG(1) << "Got " << readBytes << " from object " << key;
+
     ONE_METRIC_TIMERCTX_STOP(timer, readBytes);
 
     return buf;
@@ -163,11 +188,15 @@ folly::IOBufQueue S3Helper::getObject(
 off_t S3Helper::getObjectsSize(
     const folly::fbstring &prefix, const std::size_t objectSize)
 {
+    LOG_FCALL() << LOG_FARG(prefix) << LOG_FARG(objectSize);
+
     Aws::S3::Model::ListObjectsRequest request;
     request.SetBucket(m_bucket.c_str());
     request.SetPrefix(adjustPrefix(prefix).c_str());
     request.SetDelimiter(OBJECT_DELIMITER);
     request.SetMaxKeys(1);
+
+    LOG_DBG(1) << "Attempting to get size of object at prefix " << prefix;
 
     auto outcome = m_client->ListObjects(request);
     throwOnError("ListObjects", outcome);
@@ -185,6 +214,8 @@ off_t S3Helper::getObjectsSize(
 std::size_t S3Helper::putObject(
     const folly::fbstring &key, folly::IOBufQueue buf)
 {
+    LOG_FCALL() << LOG_FARG(key) << LOG_FARG(buf.chainLength());
+
     auto iobuf = buf.empty() ? folly::IOBuf::create(0) : buf.move();
     if (iobuf->isChained()) {
         iobuf->unshare();
@@ -209,17 +240,23 @@ std::size_t S3Helper::putObject(
 #endif
     request.SetBody(stream);
 
+    LOG_DBG(1) << "Attempting to write object " << key << " of size " << size;
+
     auto outcome = m_client->PutObject(request);
 
     ONE_METRIC_TIMERCTX_STOP(timer, size);
 
     throwOnError("PutObject", outcome);
 
+    LOG_DBG(1) << "Written " << size << " bytes to object " << key;
+
     return size;
 }
 
 void S3Helper::deleteObjects(const folly::fbvector<folly::fbstring> &keys)
 {
+    LOG_FCALL() << LOG_FARGV(keys);
+
 #if !defined(S3_HAS_NO_V2_SUPPORT)
     if (m_useSigV2) {
 #else
@@ -229,6 +266,7 @@ void S3Helper::deleteObjects(const folly::fbvector<folly::fbstring> &keys)
             Aws::S3::Model::DeleteObjectRequest request;
             request.SetBucket(m_bucket.c_str());
             request.SetKey(key.c_str());
+            LOG_DBG(1) << "Deleting object " << key;
             auto outcome = m_client->DeleteObject(request);
             throwOnError("DeleteObject", outcome);
         }
@@ -236,6 +274,8 @@ void S3Helper::deleteObjects(const folly::fbvector<folly::fbstring> &keys)
     else {
         Aws::S3::Model::DeleteObjectsRequest request;
         request.SetBucket(m_bucket.c_str());
+
+        LOG_DBG(1) << "Attempting to delete objects " << LOG_VEC(keys);
 
         for (auto offset = 0u; offset < keys.size();
              offset += MAX_DELETE_OBJECTS) {
@@ -259,6 +299,8 @@ void S3Helper::deleteObjects(const folly::fbvector<folly::fbstring> &keys)
 folly::fbvector<folly::fbstring> S3Helper::listObjects(
     const folly::fbstring &prefix)
 {
+    LOG_FCALL() << LOG_FARG(prefix);
+
     Aws::S3::Model::ListObjectsRequest request;
     request.SetBucket(m_bucket.c_str());
     request.SetPrefix(adjustPrefix(prefix).c_str());
@@ -267,6 +309,8 @@ folly::fbvector<folly::fbstring> S3Helper::listObjects(
     folly::fbvector<folly::fbstring> keys;
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.s3.listobjects");
+
+    LOG_DBG(1) << "Retrieving object list for prefix " << prefix;
 
     while (true) {
         auto outcome = m_client->ListObjects(request);
@@ -282,6 +326,9 @@ folly::fbvector<folly::fbstring> S3Helper::listObjects(
     }
 
     ONE_METRIC_TIMERCTX_STOP(timer, keys.size());
+
+    LOG_DBG(1) << "Got object list at prefix " << prefix << ": "
+               << LOG_VEC(keys);
 
     return keys;
 }

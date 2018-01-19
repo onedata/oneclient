@@ -12,6 +12,7 @@
 #include "helpers/storageHelper.h"
 
 #include "asioExecutor.h"
+#include "logging.h"
 
 #include <asio.hpp>
 #include <folly/Executor.h>
@@ -155,6 +156,7 @@ public:
     CephHelperFactory(asio::io_service &service)
         : m_service{service}
     {
+        LOG_FCALL();
     }
 
     std::shared_ptr<StorageHelper> createStorageHelper(
@@ -167,6 +169,10 @@ public:
         const auto &key = getParam(parameters, "key");
         Timeout timeout{getParam<std::size_t>(
             parameters, "timeout", ASYNC_OPS_TIMEOUT.count())};
+
+        LOG_FCALL() << LOG_FARG(clusterName) << LOG_FARG(monHost)
+                    << LOG_FARG(poolName) << LOG_FARG(userName)
+                    << LOG_FARG(key);
 
         return std::make_shared<CephHelper>(clusterName, monHost, poolName,
             userName, key, std::make_unique<AsioExecutor>(m_service),

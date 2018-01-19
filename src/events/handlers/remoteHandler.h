@@ -46,6 +46,8 @@ RemoteHandler<T>::RemoteHandler(SequencerStreamPtr sequencerStream)
 
 template <class T> void RemoteHandler<T>::process(Events<T> events)
 {
+    LOG_FCALL();
+
     if (!events.empty()) {
         auto clientMsg = std::make_unique<one::clproto::ClientMessage>();
         auto eventsMsg = clientMsg->mutable_events();
