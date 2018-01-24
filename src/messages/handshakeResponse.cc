@@ -69,6 +69,8 @@ errors::handshake::ErrorCode HandshakeResponse::translateStatus(
             return ErrorCode::failed_to_decrypt_caveat;
         case HandshakeStatus::NO_DISCHARGE_MACAROON_FOR_CAVEAT:
             return ErrorCode::no_discharge_macaroon_for_caveat;
+        case HandshakeStatus::INCOMPATIBLE_VERSION:
+            return ErrorCode::incompatible_version;
         default:
             return ErrorCode::internal_server_error;
     }
