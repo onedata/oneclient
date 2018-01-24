@@ -20,7 +20,8 @@ enum HandshakeStatus {
     FAILED_TO_DESCRYPT_CAVEAT        = 8;
     NO_DISCHARGE_MACAROON_FOR_CAVEAT = 9;
     INVALID_TOKEN                    = 10;
-    INTERNAL_SERVER_ERROR            = 11;
+    INVALID_NONCE                    = 11;
+    INTERNAL_SERVER_ERROR            = 12;
 }
 
 message ClientHandshakeRequest {
@@ -29,8 +30,8 @@ message ClientHandshakeRequest {
 }
 
 message ProviderHandshakeRequest {
-    required Token token       = 1;
-    required bytes provider_id = 2;
+    required bytes provider_id = 1;
+    required bytes nonce       = 2;
 }
 
 message HandshakeResponse {
