@@ -28,14 +28,14 @@ message ProviderRequest {
         SetMimetype set_mimetype = 15;
         GetFilePath get_file_path = 16;
         GetFileDistribution get_file_distribution = 18;
-        ReplicateFile replicate_file = 19;
-        ReadMetadata read_metadata = 20;
-        WriteMetadata write_metadata = 21;
-        CheckPerms check_perms = 22;
-        CreateShare create_share = 23;
-        RemoveShare remove_share = 24;
-        RemoveMetadata remove_metadata = 25;
-        InvalidateFileReplica invalidate_file_replica = 26;
+        ScheduleFileReplication schedule_file_replication = 19;
+        ScheduleReplicaInvalidation schedule_replica_invalidation = 20;
+        ReadMetadata read_metadata = 21;
+        WriteMetadata write_metadata = 22;
+        CheckPerms check_perms = 23;
+        CreateShare create_share = 24;
+        RemoveShare remove_share = 25;
+        RemoveMetadata remove_metadata = 26;
     }
 }
 
@@ -83,9 +83,15 @@ message GetFilePath {
 message GetFileDistribution {
 }
 
-message ReplicateFile {
-    required bytes provider_id = 1;
+message ScheduleFileReplication {
+    required bytes target_provider_id = 1;
     optional FileBlock block = 2;
+    optional bytes callback = 3;
+}
+
+message ScheduleReplicaInvalidation {
+    required bytes source_provider_id = 1;
+    required bytes target_provider_id = 2;
 }
 
 message Metadata {
@@ -133,6 +139,7 @@ message ProviderResponse {
         FileDistribution file_distribution = 10;
         Metadata metadata = 11;
         Share share = 12;
+        ScheduledTransfer scheduled_transfer = 13;
     }
 }
 
@@ -166,7 +173,6 @@ message Share {
     required bytes share_file_uuid = 2;
 }
 
-message InvalidateFileReplica {
-    required bytes provider_id = 1;
-    optional bytes migration_provider_id = 2;
+message ScheduledTransfer {
+    required bytes transfer_id = 1;
 }
