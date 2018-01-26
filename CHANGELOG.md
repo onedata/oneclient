@@ -4,6 +4,13 @@
 CHANGELOG
 ---------
 
+### 17.06.0-rc9
+
+* VFS-3951 Added Oneclient version in handshake
+* VFS-3932 Fixed formatting
+* VFS-3932 Added helper performance metrics to rc branch
+
+
 ### 17.06.0-rc8
 
 * Releasing new version 17.06.0-rc8
