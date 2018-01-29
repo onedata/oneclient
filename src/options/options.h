@@ -24,7 +24,7 @@ namespace options {
 namespace {
 static constexpr auto CONFIG_FILE_NAME = "oneclient.conf";
 static constexpr auto ENVIRONMENT_PREFIX = "ONECLIENT_";
-static constexpr auto DEFAULT_PROVIDER_PORT = 5555;
+static constexpr auto DEFAULT_PROVIDER_PORT = 443;
 static constexpr auto DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT = 1;
 static constexpr auto DEFAULT_COMMUNICATOR_THREAD_COUNT = 3;
 static constexpr auto DEFAULT_SCHEDULER_THREAD_COUNT = 1;
