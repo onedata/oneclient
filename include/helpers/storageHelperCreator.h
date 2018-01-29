@@ -36,6 +36,8 @@ constexpr auto POSIX_HELPER_NAME = "posix";
 
 constexpr auto PROXY_HELPER_NAME = "proxy";
 
+constexpr auto NULL_DEVICE_HELPER_NAME = "nulldevice";
+
 #if WITH_S3
 constexpr auto S3_HELPER_NAME = "s3";
 #endif
@@ -97,6 +99,7 @@ public:
 #if WITH_GLUSTERFS
         asio::io_service &glusterfsService,
 #endif
+        asio::io_service &nullDeviceService,
         communication::Communicator &m_communicator,
         std::size_t bufferSchedulerWorkers = 1,
         buffering::BufferLimits bufferLimits = buffering::BufferLimits{});
@@ -115,6 +118,7 @@ public:
 #if WITH_GLUSTERFS
         asio::io_service &glusterfsService,
 #endif
+        asio::io_service &nullDeviceService,
         std::size_t bufferSchedulerWorkers = 1,
         buffering::BufferLimits bufferLimits = buffering::BufferLimits{});
 #endif
@@ -147,6 +151,7 @@ private:
 #if WITH_GLUSTERFS
     asio::io_service &m_glusterfsService;
 #endif
+    asio::io_service &m_nullDeviceService;
     std::unique_ptr<Scheduler> m_scheduler;
     buffering::BufferLimits m_bufferLimits;
 

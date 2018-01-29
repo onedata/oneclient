@@ -113,7 +113,7 @@ class ProviderWorkerConfigurator:
         return "provider_domains"
 
     def domain_env_name(self):
-        return "provider_domain"
+        return "test_web_cert_domain"
 
     def nodes_list_attribute(self):
         return "op_worker_nodes"
@@ -128,7 +128,8 @@ def create_storages(storages, op_nodes, op_config, bindir, storages_dockers):
                     's3': 'create_s3_storage.escript',
                     'ceph': 'create_ceph_storage.escript',
                     'swift': 'create_swift_storage.escript',
-                    'glusterfs': 'create_glusterfs_storage.escript'}
+                    'glusterfs': 'create_glusterfs_storage.escript',
+                    'nulldevice': 'create_nulldevice_storage.escript'}
     pwd = common.get_script_dir()
     for script_name in script_names.values():
         command = ['cp', os.path.join(pwd, script_name),
@@ -186,6 +187,13 @@ def create_storages(storages, op_nodes, op_config, bindir, storages_dockers):
                        first_node, storage['name'], storage['volume'],
                        config['host_name'], str(config['port']), config['transport'],
                        config['mountpoint'], 'cluster.write-freq-threshold=100;', 'true']
+            assert 0 is docker.exec_(container, command, tty=True,
+                                     stdout=sys.stdout, stderr=sys.stderr)
+        elif storage['type'] == 'nulldevice':
+            command = ['escript', script_paths['nulldevice'], cookie,
+                       first_node, storage['name'], storage['latencyMin'],
+                       storage['latencyMax'], storage['timeoutProbability'],
+                       storage['filter'], 'true']
             assert 0 is docker.exec_(container, command, tty=True,
                                      stdout=sys.stdout, stderr=sys.stderr)
         else:

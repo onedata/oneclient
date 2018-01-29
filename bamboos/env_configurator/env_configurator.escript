@@ -101,8 +101,6 @@
         Hostname = os:cmd("hostname -f") -- "\n",
         list_to_atom(lists:concat(["env_configurator_", os:getpid(), "@", Hostname]))
     end).
-% Password for keyfiles created for providers
--define(DEFAULT_KEY_FILE_PASSWD, "").
 
 
 %% API
@@ -250,7 +248,7 @@ bin_to_atom(Bin) ->
     Provider :: binary()) -> ok.
 register_in_onezone(Workers, Cookie, Provider) ->
     {ok, Provider} = call_node(hd(Workers), Cookie, oneprovider,
-        register_in_oz_dev, [Workers, ?DEFAULT_KEY_FILE_PASSWD, Provider]),
+        register_in_oz_dev, [Workers, Provider]),
     ok.
 
 

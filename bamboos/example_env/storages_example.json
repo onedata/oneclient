@@ -50,6 +50,14 @@
                   "transport": "tcp",
                   "mountpoint": "/DIR1/DIR2",
                   "xlatorOptions": ""
+                },
+                {
+                  "type": "nulldevice",
+                  "name": "someNullDevice",
+                  "latencyMin": 0,
+                  "latencyMax": 0,
+                  "timeoutProbability": 0.0,
+                  "filter": "*"
                 }
             ],
             "users": [
