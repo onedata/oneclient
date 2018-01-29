@@ -50,7 +50,8 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
 #if WITH_GLUSTERFS
         m_helpersIoService,
 #endif
-        m_communicator, options.getBufferSchedulerThreadCount(),
+        m_helpersIoService, m_communicator,
+        options.getBufferSchedulerThreadCount(),
         helpers::buffering::BufferLimits
     {
         options.getReadBufferMinSize(), options.getReadBufferMaxSize(),
@@ -209,9 +210,15 @@ void HelpersCache::requestStorageTestFileVerification(
     const messages::fuse::StorageTestFile &testFile,
     const folly::fbstring &storageId, const folly::fbstring &fileContent)
 {
-    LOG_DBG(1) << "Requesting verification of storage: '" << storageId
-               << "' with file: '" << testFile.toString()
-               << "' and modified content '" << fileContent << ".";
+    LOG(INFO) << "Requesting verification of storage: '" << storageId
+              << "' of type '" << testFile.helperParams().name()
+              << "' with file: '" << testFile.toString()
+              << "' and modified content '" << fileContent << ".";
+
+    if (testFile.helperParams().name() == helpers::NULL_DEVICE_HELPER_NAME) {
+        handleStorageTestFileVerification({}, storageId);
+        return;
+    }
 
     messages::fuse::VerifyStorageTestFile request{storageId.toStdString(),
         testFile.spaceId(), testFile.fileId(), fileContent.toStdString()};
