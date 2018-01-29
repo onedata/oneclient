@@ -15,8 +15,7 @@ from scp import SCPClient
 import signal
 import sys
 
-from artifact_utils import lock_file, unlock_file, artifact_path, \
-    ARTIFACTS_EXT, DEFAULT_BRANCH
+from artifact_utils import artifact_path, ARTIFACTS_EXT, DEFAULT_BRANCH
 
 
 def download_specific_or_develop(ssh, plan, branch):
@@ -78,24 +77,19 @@ def download_artifact_safe(ssh, plan, branch, exception_handler=None,
     :type exception_log: str
     :return None
     """
-    file_name = artifact_path(plan, branch)
 
     def signal_handler(_signum, _frame):
         ssh.connect(args.hostname, port=args.port, username=args.username)
-        unlock_file(ssh, file_name)
         sys.exit(1)
 
     signal.signal(signal.SIGINT, signal_handler)
 
-    lock_file(ssh, file_name)
     try:
         download_artifact(ssh, plan, branch)
     except:
         print exception_log
         if exception_handler:
             exception_handler(*exception_handler_args)
-    finally:
-        unlock_file(ssh, file_name)
 
 
 def download_artifact(ssh, plan, branch):

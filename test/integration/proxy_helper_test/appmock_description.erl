@@ -9,8 +9,9 @@ rest_mocks() -> [].
 
 tcp_server_mocks() -> [
     #tcp_server_mock{
-        port = 5555,
+        port = 443,
         ssl = true,
+        http_upgrade_mode = {true, <<"/clproto">>, <<"clproto">>},
         packet = 4
     }
 ].

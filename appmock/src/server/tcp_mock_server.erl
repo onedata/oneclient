@@ -301,8 +301,8 @@ handle_call({tcp_server_send, Port, Data, Count}, _From, State) ->
             case lists:duplicate(length(Result), ok) of
                 Result ->
                     true;
-                SomethingElse ->
-                    ?error("failed_to_send_data: ~p", [SomethingElse]),
+                _ ->
+                    ?error("failed_to_send_data: ~p", [Result]),
                     {error, failed_to_send_data}
             end
     end,
@@ -429,7 +429,8 @@ code_change(_OldVsn, State, _Extra) ->
 start_listeners(AppDescriptionModule) ->
     TCPServerMocks = AppDescriptionModule:tcp_server_mocks(),
     lists:map(
-        fun(#tcp_server_mock{port = Port, ssl = UseSSL, packet = Packet, type = Type}) ->
+        fun(#tcp_server_mock{port = Port, ssl = UseSSL, packet = Packet,
+            http_upgrade_mode = HttpUpgradeMode, type = Type}) ->
             % Generate listener name
             ListenerID = "tcp" ++ integer_to_list(Port),
             Protocol = case UseSSL of
@@ -451,7 +452,7 @@ start_listeners(AppDescriptionModule) ->
                     [{port, Port}]
             end,
             {ok, _} = ranch:start_listener(ListenerID, ?NUMBER_OF_ACCEPTORS,
-                Protocol, Opts, tcp_mock_handler, [Port, Packet]),
+                Protocol, Opts, tcp_mock_handler, [Port, Packet, HttpUpgradeMode]),
             HistoryEnabled = case Type of history -> true; _ -> false end,
             #endpoint{name = ListenerID, port = Port, use_ssl = UseSSL, history_enabled = HistoryEnabled}
         end, TCPServerMocks).
