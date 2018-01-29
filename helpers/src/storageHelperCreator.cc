@@ -10,6 +10,7 @@
 
 #include "buffering/bufferAgent.h"
 #include "logging.h"
+#include "nullDeviceHelper.h"
 #include "posixHelper.h"
 #include "proxyHelper.h"
 #include "scheduler.h"
@@ -49,6 +50,7 @@ StorageHelperCreator::StorageHelperCreator(
 #if WITH_GLUSTERFS
     asio::io_service &glusterfsService,
 #endif
+    asio::io_service &nullDeviceService,
     communication::Communicator &communicator,
     std::size_t bufferSchedulerWorkers, buffering::BufferLimits bufferLimits)
     :
@@ -70,7 +72,8 @@ StorageHelperCreator::StorageHelperCreator(
     m_glusterfsService{glusterfsService}
     ,
 #endif
-    m_scheduler{std::make_unique<Scheduler>(bufferSchedulerWorkers)}
+    m_nullDeviceService{nullDeviceService}
+    , m_scheduler{std::make_unique<Scheduler>(bufferSchedulerWorkers)}
     , m_bufferLimits{std::move(bufferLimits)}
     , m_communicator{communicator}
 {
@@ -91,7 +94,8 @@ StorageHelperCreator::StorageHelperCreator(
 #if WITH_GLUSTERFS
     asio::io_service &glusterfsService,
 #endif
-    std::size_t bufferSchedulerWorkers, buffering::BufferLimits bufferLimits)
+    asio::io_service &nullDeviceService, std::size_t bufferSchedulerWorkers,
+    buffering::BufferLimits bufferLimits)
     :
 #if WITH_CEPH
     m_cephService{cephService}
@@ -111,7 +115,8 @@ StorageHelperCreator::StorageHelperCreator(
     m_glusterfsService{glusterfsService}
     ,
 #endif
-    m_scheduler{std::make_unique<Scheduler>(bufferSchedulerWorkers)}
+    m_nullDeviceService{nullDeviceService}
+    , m_scheduler{std::make_unique<Scheduler>(bufferSchedulerWorkers)}
     , m_bufferLimits{std::move(bufferLimits)}
 {
 }
@@ -157,13 +162,17 @@ std::shared_ptr<StorageHelper> StorageHelperCreator::getStorageHelper(
             args);
 #endif
 
+    if (name == NULL_DEVICE_HELPER_NAME)
+        helper =
+            NullDeviceHelperFactory{m_dioService}.createStorageHelper(args);
+
     if (!helper)
         throw std::system_error{
             std::make_error_code(std::errc::invalid_argument),
             "Invalid storage helper name: '" + name.toStdString() + "'"};
 
     if (buffered
-    // disable buffering for GlusterFS and Ceph
+    // disable buffering for GlusterFS
 #if WITH_GLUSTERFS
         && (name != GLUSTERFS_HELPER_NAME)
 #endif
