@@ -19,7 +19,7 @@ import communication_stack
 
 @pytest.fixture
 def endpoint(appmock_client):
-    return appmock_client.tcp_endpoint(5555)
+    return appmock_client.tcp_endpoint(443)
 
 
 @pytest.fixture

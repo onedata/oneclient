@@ -37,6 +37,11 @@ public:
      * Starts the managed connection.
      */
     virtual void connect() = 0;
+
+    /**
+     * Invokes the protocol upgrade HTTP request
+     */
+    virtual void upgrade() = 0;
 };
 
 } // namespace communication

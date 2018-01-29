@@ -84,7 +84,8 @@ public:
     void sendAsync(Ptr self, const BufferSequence &buffer, Callback<> callback);
 
     /**
-     * Asynchronously receives a message from the socket.
+     * Asynchronously receives a message from the socket in the Erlang
+     * packet format.
      * Calls success callback with @c buffer. Either all of the buffer will
      * be filled with received data, or error will be called.
      * @param self Shared pointer to this.
@@ -94,6 +95,19 @@ public:
      */
     void recvAsync(Ptr self, asio::mutable_buffer buffer,
         Callback<asio::mutable_buffer> callback);
+
+    /**
+     * Asynchronously receives a message from the socket in raw format,
+     * until 'delimiter' char sequence appears in the input stream.
+     * Calls success callback with @c buffer.
+     * @param self Shared pointer to this.
+     * @param buffer Buffer to save the received message to.
+     * @param delimiter String which stops receiving and invokes callback.
+     * @param success Callback function to call on success.
+     * @param error Callback function to call on error.
+     */
+    void recvUntilAsyncRaw(Ptr self, asio::mutable_buffer buffer,
+        std::string delimiter, Callback<asio::mutable_buffer> callback);
 
     /**
      * Asynchronously receive a message from the socket.
@@ -172,6 +186,7 @@ private:
     asio::ip::tcp::resolver m_resolver;
     asio::ssl::stream<asio::ip::tcp::socket> m_socket;
     std::vector<std::vector<unsigned char>> m_certificateChain;
+    asio::streambuf m_inRawData;
 };
 
 template <typename BufferSequence>
