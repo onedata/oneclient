@@ -75,9 +75,9 @@ When connecting to a Oneprovider instance without a valid trusted SSL certificat
 ### Direct IO and Proxy IO modes
 By default `oneclient` will automatically try to detect if it can access storage supporting mounted spaces directly, which significantly improves IO performance as all read and write operations go directly to the storage and not via the Oneprovider service.
 
-This feature can be controlled using 2 command line options: 
+This feature can be controlled using 2 command line options:
 
-  * `--force-proxy-io` - disables Direct IO mode, all data transfers will go via Oneprovider service 
+  * `--force-proxy-io` - disables Direct IO mode, all data transfers will go via Oneprovider service
   * `--force-direct-io` - forces Direct IO mode, if it is not available for any of mounted spaces, `oneclient` will fail to mount
 
 > In direct io mode, Oneclient will attempt to access the target storage directly on first attempt to read/write a file. This means that very often the first operation will fail with warning `Resource temporarily unavailable`. However if the storage access is detected, the  consecutive operations should work as expected.
@@ -89,7 +89,7 @@ If for some reason this local cache is undesired, it can be disabled using `--no
 
 ### Other options
 
-The list of all options can be accessed using: 
+The list of all options can be accessed using:
 
 ```
 $ oneclient -h
@@ -107,7 +107,7 @@ General options:
   -H [ --host ] <host>                  Specify the hostname of the Oneprovider
                                         instance to which the Oneclient should
                                         connect.
-  -P [ --port ] <port> (=5555)          Specify the port to which the Oneclient
+  -P [ --port ] <port> (=443)           Specify the port to which the Oneclient
                                         should connect on the Oneprovider.
   -i [ --insecure ]                     Disable verification of server
                                         certificate, allows to connect to

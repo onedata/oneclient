@@ -22,6 +22,7 @@ struct MockConnection {
     MOCK_METHOD2(
         send, void(std::string, one::communication::Connection::Callback));
     MOCK_METHOD0(connect, void());
+    MOCK_METHOD0(upgrade, void());
 
     std::atomic<bool> created{false};
     MockConnectionWrapper *wrapper = nullptr;
@@ -48,6 +49,8 @@ struct MockConnectionWrapper : public one::communication::Connection {
     }
 
     void connect() override { m_mockConnection.connect(); }
+
+    void upgrade() override { m_mockConnection.upgrade(); }
 
     MockConnection &m_mockConnection;
 };

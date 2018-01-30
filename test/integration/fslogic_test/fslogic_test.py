@@ -27,7 +27,7 @@ from proto import messages_pb2, fuse_messages_pb2, event_messages_pb2, \
 
 @pytest.fixture
 def endpoint(appmock_client):
-    return appmock_client.tcp_endpoint(5555)
+    return appmock_client.tcp_endpoint(443)
 
 
 @pytest.fixture

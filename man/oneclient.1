@@ -19,7 +19,7 @@
 In order to connect to Onedata services, \fBoneclient\fR needs credentials in the form of access token to authenticate the user remotely on the Oneprovider side\. Access tokens can be generated in the web user interface or using the REST API\.
 .
 .P
-\fBoneclient\fR connects to a specific Oneprovider service selected by the user and specified using \fB\-H\fR or \fB\-\-host\fR option and port using \fB\-P\fR or \fB\-\-port\fR\. Port can be omitted if Oneprovider service is deployed on default port (5555)\.
+\fBoneclient\fR connects to a specific Oneprovider service selected by the user and specified using \fB\-H\fR or \fB\-\-host\fR option and port using \fB\-P\fR or \fB\-\-port\fR\. Port can be omitted if Oneprovider service is deployed on default port (443)\.
 .
 .P
 \fBNOTE:\fR If you are connecting to a Onedata provider service, which does not have a globally trusted certificate, you will have to use \fB\-i\fR or \fB\-\-insecure\fR on every \fBoneclient\fR invocation\.
@@ -158,7 +158,7 @@ Allows to specify the Oneprovider host to which the \fBoneclient\fR will connect
 .
 .TP
 \fBONECLIENT_PROVIDER_PORT\fR
-Allows to specify Oneprovider port, to which \fBoneclient\fR will connect (default: 5555)\.
+Allows to specify Oneprovider port, to which \fBoneclient\fR will connect (default: 443)\.
 .
 .TP
 \fBONECLIENT_INSECURE\fR

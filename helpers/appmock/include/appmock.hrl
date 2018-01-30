@@ -48,6 +48,15 @@
     ssl = true,
     % Erlang transport's packet option that will be passed to server initialization.
     packet = raw,
+    % If http_upgrade_mode is disabled, this is a bare tcp server.
+    % If http_upgrade_mode is enabled, the server starts up as a HTTP server
+    % and expects a valid HTTP Upgrade request (GET with "Connection: Upgrade"
+    % headers). Upon such message, it sends back a 101 Switching Protocol
+    % response and switches into binary mode. Desired "packet" option is set
+    % after the protocol upgrade (up to that point it is set to 'raw').
+    %   UpgradePath - URN where the upgrade should be performed, e.g. <<"/clproto">>
+    %   ProtocolName - name of the protocol. e.g. <<"clproto">>
+    http_upgrade_mode = false :: false | {true, UpgradePath :: binary(), ProtocolName :: binary()},
     % TCP mock can work in two modes:
     % history - it remembers exact history of incoming requests and can validate requests per message contents.
     %    This mode is slow and dedicated for content verification rather that tests with many messages.
