@@ -12,6 +12,7 @@ import os
 from . import common, docker, riak, couchbase, dns, cluster_manager
 from timeouts import *
 
+
 def cluster_domain(instance, uid):
     """Formats domain for a cluster."""
     return common.format_hostname(instance, uid)
@@ -31,7 +32,7 @@ def worker_erl_node_name(node_name, instance, uid):
     return common.format_erl_node_name('worker', hostname)
 
 
-def _tweak_config(config, name, instance, uid, configurator):
+def _tweak_config(config, name, instance, uid, configurator, docker_host=None):
     cfg = copy.deepcopy(config)
     cfg['nodes'] = {'node': cfg['nodes'][name]}
     app_name = configurator.app_name()
@@ -153,13 +154,15 @@ def _riak_up(cluster_name, db_nodes, dns_servers, uid):
     return db_node_mappings, riak_output
 
 
-def _couchbase_up(cluster_name, db_nodes, dns_servers, uid, configurator):
+def _couchbase_up(cluster_name, db_nodes, dns_servers, uid, configurator,
+                  docker_host=None):
     db_node_mappings = {}
     for node in db_nodes:
         db_node_mappings[node] = ''
 
     for i, node in enumerate(db_node_mappings):
-        db_node_mappings[node] = couchbase.config_entry(cluster_name, i, uid)
+        db_node_mappings[node] = couchbase.config_entry(cluster_name, i, uid,
+                                                        docker_host)
 
     if not db_node_mappings:
         return db_node_mappings, {}
@@ -168,13 +171,18 @@ def _couchbase_up(cluster_name, db_nodes, dns_servers, uid, configurator):
     couchbase_output = couchbase.up('couchbase/server:community-4.5.1', dns,
                                     uid, cluster_name, len(db_node_mappings),
                                     configurator.couchbase_buckets(),
-                                    configurator.couchbase_ramsize())
+                                    configurator.couchbase_ramsize(),
+                                    docker_host)
 
     return db_node_mappings, couchbase_output
 
 
 def _db_driver(config):
     return config['db_driver'] if 'db_driver' in config else 'couchdb'
+
+
+def _db_docker_host(config):
+    return config['db_docker_host'] if 'db_docker_host' in config else None
 
 
 def _db_driver_module(db_driver):
@@ -218,15 +226,17 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None,
         configs = []
         all_db_nodes = []
 
+        db_driver = _db_driver(instance_config)
+        db_docker_host = _db_docker_host(instance_config)
+
         for worker_node in gen_dev_cfg['nodes']:
             tw_cfg, db_nodes = _tweak_config(gen_dev_cfg, worker_node, instance,
-                                             uid, configurator)
+                                             uid, configurator, db_docker_host)
             configs.append(tw_cfg)
             all_db_nodes.extend(db_nodes)
 
         db_node_mappings = None
         db_out = None
-        db_driver = _db_driver(instance_config)
 
         # Start db nodes, obtain mappings
         if db_driver == 'riak':
@@ -235,7 +245,8 @@ def up(image, bindir, dns_server, uid, config_path, configurator, logdir=None,
         elif db_driver in ['couchbase', 'couchdb']:
             db_node_mappings, db_out = _couchbase_up(instance, all_db_nodes,
                                                      dns_servers, uid,
-                                                     configurator)
+                                                     configurator,
+                                                     db_docker_host)
         else:
             raise ValueError("Invalid db_driver: {0}".format(db_driver))
 

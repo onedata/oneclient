@@ -133,6 +133,11 @@ with open('/etc/hosts', 'a') as f:
 """)
 '''.format(etc_hosts_content=get_local_etc_hosts_entries())
 
+if '--getting-started' in pass_args:
+    additional_code += """
+with open('/etc/sudoers.d/all', 'w+') as file:
+    file.write("\\nALL       ALL = (ALL) NOPASSWD: ALL\\n")
+"""
 
 command = command.format(
     args=pass_args,
@@ -157,6 +162,7 @@ ret = docker.run(tty=True,
                  workdir=script_dir,
                  reflect=[(script_dir, 'rw'),
                           ('/var/run/docker.sock', 'rw'),
+                          ('/etc/passwd', 'ro'),
                           (HOST_STORAGE_PATH, 'rw')],
                  volumes=[(os.path.join(os.path.expanduser('~'),
                                         '.docker'), '/tmp/.docker', 'rw')],

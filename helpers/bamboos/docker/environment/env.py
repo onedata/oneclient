@@ -12,8 +12,7 @@ import copy
 import json
 import time
 from . import appmock, client, common, zone_worker, cluster_manager, \
-    worker, provider_worker, cluster_worker, docker, dns, storages, panel, \
-    location_service_bootstrap
+    worker, provider_worker, cluster_worker, docker, dns, storages, panel
 
 
 def default(key):
@@ -71,9 +70,6 @@ def up(config_path, image=default('image'), ceph_image=default('ceph_image'),
         # Setting first arg to 'auto' will force the restart and this is needed
         # so that dockers that start after can immediately see the domains.
         dns.maybe_restart_with_configuration('auto', uid, output)
-
-    ls_nodes = location_service_bootstrap.up_nodes(image, bin_oz, config, uid, logdir)
-    output['docker_ids'].extend(ls_nodes)
 
     # Start provider cluster instances
     setup_worker(zone_worker, bin_oz, 'zone_domains',

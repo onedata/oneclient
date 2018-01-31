@@ -49,10 +49,17 @@ def nagios_up(ip, port=None, protocol='https'):
         return False
 
 
-def wait_until(condition, containers, timeout):
+def wait_until(condition, containers, timeout, docker_host=None):
     deadline = time.time() + timeout
+
+    def ready():
+        if docker_host:
+            return condition(container, docker_host)
+        else:
+            return condition(container)
+
     for container in containers:
-        while not condition(container):
+        while not ready():
             if time.time() > deadline:
                 message = 'Timeout while waiting for condition {0} ' \
                           'of container {1}'
