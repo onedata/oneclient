@@ -42,6 +42,8 @@ std::string HandshakeErrorCategory::message(int ev) const
             return "failed to decrypt a token caveat";
         case ErrorCode::no_discharge_macaroon_for_caveat:
             return "discharge macaroon not found for a token caveat";
+        case ErrorCode::incompatible_version:
+            return "incompatible Oneprovider version";
         default:
             return "internal server error";
     }

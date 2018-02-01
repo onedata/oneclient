@@ -99,13 +99,23 @@ public:
      */
     void connect() override;
 
+    /**
+     * Invokes the protocol upgrade HTTP request
+     */
+    void upgrade() override;
+
     PersistentConnection(const PersistentConnection &) = delete;
     PersistentConnection(PersistentConnection &&) = delete;
     PersistentConnection &operator=(const PersistentConnection &) = delete;
     PersistentConnection &operator=(PersistentConnection &&) = delete;
 
 private:
+    static const std::string CLPROTO_UPGRADE_ENDPOINT;
+    static const std::string CLPROTO_UPGRADE_RESPONSE_STATUS;
+
     void onConnect();
+    void onUpgradeRequestSent();
+    void onUpgradeResponseReceived();
     void onHandshakeSent();
     void onHandshakeReceived();
     void onSent();
@@ -121,7 +131,10 @@ private:
     template <typename... Args, typename SF>
     etls::Callback<Args...> createCallback(SF &&onSuccess);
     template <typename SF> void asyncRead(SF &&onSuccess);
+    template <typename SF>
+    void asyncReadRawUntil(std::string delimiter, SF &&onSuccess);
     std::array<asio::const_buffer, 2> prepareOutBuffer(std::string message);
+    std::array<asio::const_buffer, 1> prepareRawOutBuffer(std::string message);
     asio::mutable_buffers_1 headerToBuffer(std::uint32_t &header);
 
     std::string m_host;

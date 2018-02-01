@@ -161,7 +161,7 @@ handle_call(healthcheck, _From, #state{mock_states = MockStates} = State) ->
             fun({{Port, Path}, MockState}) ->
                 case MockState of
                     #rest_mock_state{response = #rest_response{code = Code}} ->
-                        URL = str_utils:format("https://127.0.0.1:~B~s",
+                        URL = str_utils:format_bin("https://127.0.0.1:~B~s",
                             [Port, Path]),
                         {ok, Code, _, _} = http_client:get(URL);
                     _ ->

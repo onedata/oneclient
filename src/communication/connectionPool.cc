@@ -118,21 +118,21 @@ void ConnectionPool::send(std::string message, Callback callback, const int)
 {
     LOG_FCALL() << LOG_FARG(message.size());
 
-    LOG_DBG(1) << "Attempting to send message of size " << message.size();
+    LOG_DBG(2) << "Attempting to send message of size " << message.size();
 
     if (!m_connected) {
-        LOG_DBG(1) << "Connection pool is not connected - aborting";
         return;
     }
 
     Connection *conn;
     try {
+        LOG_DBG(2) << "Waiting for idle connection to become available";
         m_idleConnections.pop(conn);
-        LOG_DBG(1) << "Retrieved active connection from connection pool";
+        LOG_DBG(2) << "Retrieved active connection from connection pool";
     }
     catch (const tbb::user_abort &) {
         // We have aborted the wait by calling stop()
-        LOG_DBG(1) << "Waiting for connection from connection pool aborted";
+        LOG(ERROR) << "Waiting for connection from connection pool aborted";
         return;
     }
 

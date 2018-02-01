@@ -49,7 +49,7 @@ auto writer(std::size_t messageSize, std::size_t messages)
         ssl::stream<ip::tcp::socket> socket{ioService, context};
 
         ip::tcp::resolver resolver{ioService};
-        ip::tcp::resolver::query query{"localhost", "5555"};
+        ip::tcp::resolver::query query{"localhost", "443"};
         ip::tcp::resolver::iterator iterator = resolver.resolve(query);
 
         std::vector<char> data(messageSize, 'a');
@@ -76,7 +76,7 @@ auto reader(
         ssl::stream<ip::tcp::socket> socket{ioService, context};
 
         ip::tcp::acceptor acceptor{
-            ioService, ip::tcp::endpoint(ip::tcp::v4(), 5555)};
+            ioService, ip::tcp::endpoint(ip::tcp::v4(), 443)};
 
         listening = true;
 

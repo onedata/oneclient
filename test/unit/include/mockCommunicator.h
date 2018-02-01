@@ -41,7 +41,7 @@ struct MockCommunicator {
     MockConnection connection;
     one::clproto::ClientMessage lastSentMessage;
     one::communication::Communicator communicator{
-        1, "host", 5555, true, createMockConnectionFactory(connection)};
+        1, "host", 443, true, createMockConnectionFactory(connection)};
 
 private:
     void sendUnwrap(

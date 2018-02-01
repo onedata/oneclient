@@ -21,9 +21,10 @@ ClientHandshakeRequest::ClientHandshakeRequest(std::string sessionId)
 }
 
 ClientHandshakeRequest::ClientHandshakeRequest(
-    std::string sessionId, std::string token)
+    std::string sessionId, std::string token, std::string version)
     : m_sessionId{std::move(sessionId)}
     , m_token{std::move(token)}
+    , m_version{std::move(version)}
 {
 }
 
@@ -32,10 +33,14 @@ std::string ClientHandshakeRequest::toString() const
     std::stringstream stream;
     stream << "type: 'ClientHandshakeRequest', session ID: '" << m_sessionId
            << "', token: ";
+
     if (m_token)
         stream << "'" << m_token.get() << "'";
     else
         stream << "'undefined'";
+
+    stream << ", version: '" << m_version << "'";
+
     return stream.str();
 }
 
@@ -50,6 +55,8 @@ ClientHandshakeRequest::serializeAndDestroy()
         auto tokenMsg = handshakeRequestMsg->mutable_token();
         tokenMsg->set_value(m_token.get());
     }
+
+    handshakeRequestMsg->set_version(m_version);
 
     return clientMsg;
 }

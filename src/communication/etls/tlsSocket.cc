@@ -121,6 +121,29 @@ void TLSSocket::recvAsync(Ptr self, asio::mutable_buffer buffer,
     });
 }
 
+void TLSSocket::recvUntilAsyncRaw(Ptr self, asio::mutable_buffer buffer,
+    std::string delimiter, Callback<asio::mutable_buffer> callback)
+{
+    asio::post(m_ioService, [
+        =, self = std::move(self), callback = std::move(callback),
+        delimiter = std::move(delimiter)
+    ]() mutable {
+        m_inRawData.prepare(256);
+        asio::async_read_until(m_socket, m_inRawData, delimiter,
+            [ =, self = std::move(self), callback = std::move(callback) ](
+                const auto ec, const auto read) mutable {
+                if (ec) {
+                    callback(ec);
+                }
+                else {
+                    asio::buffer_copy(buffer, m_inRawData.data(), read);
+                    m_inRawData.consume(read);
+                    callback(std::move(buffer));
+                }
+            });
+    });
+}
+
 void TLSSocket::recvAnyAsync(Ptr self, asio::mutable_buffer buffer,
     Callback<asio::mutable_buffer> callback)
 {
