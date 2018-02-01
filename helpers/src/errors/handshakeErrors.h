@@ -29,6 +29,7 @@ enum class ErrorCode {
     bad_signature_for_macaroon,
     failed_to_decrypt_caveat,
     no_discharge_macaroon_for_caveat,
+    incompatible_version,
     internal_server_error
 };
 

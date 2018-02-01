@@ -55,7 +55,7 @@ TokenAuthManager::~TokenAuthManager() { m_cancelRefresh(); }
 std::tuple<std::shared_ptr<communication::Communicator>,
     folly::Future<folly::Unit>>
 TokenAuthManager::createCommunicator(const unsigned int poolSize,
-    std::string sessionId,
+    std::string sessionId, std::string version,
     std::function<std::error_code(messages::HandshakeResponse)>
         onHandshakeResponse)
 {
@@ -68,7 +68,7 @@ TokenAuthManager::createCommunicator(const unsigned int poolSize,
     auto future = communicator->setHandshake(
         [=] {
             one::messages::ClientHandshakeRequest handshake{
-                sessionId, m_tokenHandler.restrictedToken()};
+                sessionId, m_tokenHandler.restrictedToken(), version};
 
             return handshake;
         },
