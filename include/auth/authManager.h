@@ -69,6 +69,7 @@ public:
     virtual std::tuple<std::shared_ptr<communication::Communicator>,
         folly::Future<folly::Unit>>
     createCommunicator(const unsigned int poolSize, std::string sessionId,
+        std::string version,
         std::function<std::error_code(messages::HandshakeResponse)>
             onHandshakeResponse) = 0;
 
@@ -106,6 +107,7 @@ public:
     std::tuple<std::shared_ptr<communication::Communicator>,
         folly::Future<folly::Unit>>
     createCommunicator(const unsigned int poolSize, std::string sessionId,
+        std::string version,
         std::function<std::error_code(messages::HandshakeResponse)>
             onHandshakeResponse) override;
 

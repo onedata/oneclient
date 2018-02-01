@@ -196,8 +196,8 @@ std::shared_ptr<communication::Communicator> handshake(
         return msg.status();
     };
 
-    auto testCommunicatorTuple =
-        authManager->createCommunicator(1, sessionId, handshakeHandler);
+    auto testCommunicatorTuple = authManager->createCommunicator(
+        1, sessionId, ONECLIENT_VERSION, handshakeHandler);
     auto testCommunicator =
         std::get<std::shared_ptr<communication::Communicator>>(
             testCommunicatorTuple);
@@ -278,7 +278,7 @@ std::shared_ptr<communication::Communicator> getCommunicator(
 
     auto communicatorTuple = authManager->createCommunicator(
         context->options()->getCommunicatorThreadCount(), sessionId,
-        handshakeHandler);
+        ONECLIENT_VERSION, handshakeHandler);
     auto communicator = std::get<std::shared_ptr<communication::Communicator>>(
         communicatorTuple);
 
