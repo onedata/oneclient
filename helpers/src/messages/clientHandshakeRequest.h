@@ -36,7 +36,8 @@ public:
      * @param sessionId Id of session to be used in handshake
      * @param token Access token used to established session
      */
-    ClientHandshakeRequest(std::string sessionId, std::string token);
+    ClientHandshakeRequest(
+        std::string sessionId, std::string token, std::string version);
 
     std::string toString() const override;
 
@@ -45,6 +46,7 @@ private:
 
     std::string m_sessionId;
     boost::optional<std::string> m_token;
+    std::string m_version;
 };
 
 } // namespace messages
