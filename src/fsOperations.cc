@@ -233,19 +233,21 @@ void wrap_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.read");
     wrap(&fslogic::Composite::read,
-        [ req, timer = std::move(timer), ino, off ](folly::IOBufQueue && buf) {
+        [ req, timer = std::move(timer), ino, size, off ](
+            folly::IOBufQueue && buf) {
             if (!buf.empty()) {
                 LOG_DBG(1) << "Received  " << buf.chainLength()
                            << " bytes when reading inode " << ino
                            << " at offset " << off;
                 auto iov = buf.front()->getIov();
                 fuse_reply_iov(req, iov.data(), iov.size());
-                ONE_METRIC_TIMERCTX_STOP(timer, iov.size());
+                ONE_METRIC_TIMERCTX_STOP(timer, size);
             }
             else {
                 LOG_DBG(1) << "Received empty buffer when reading inode " << ino
                            << " at offset " << off;
                 fuse_reply_buf(req, nullptr, 0);
+                ONE_METRIC_TIMERCTX_STOP(timer, 0);
             }
         },
         req, ino, fi->fh, off, size);
