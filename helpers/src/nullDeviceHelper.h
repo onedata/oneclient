@@ -69,6 +69,10 @@ private:
     std::shared_ptr<NullDeviceHelper> m_helper;
     std::shared_ptr<folly::Executor> m_executor;
     Timeout m_timeout;
+
+    // Use a preallocated, prefilled buffer for reads to avoid the cost of
+    // memset on each read call.
+    static std::vector<uint8_t> nullReadBuffer;
 };
 
 /**

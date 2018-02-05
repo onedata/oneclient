@@ -13,8 +13,9 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/any.hpp>
-
+#include <boost/thread/once.hpp>
 #include <errno.h>
+#include <folly/io/IOBuf.h>
 #include <fuse.h>
 
 #include <cstring>
@@ -41,6 +42,11 @@ inline folly::Future<folly::Unit> setResult(
 
 namespace one {
 namespace helpers {
+
+constexpr auto NULL_DEVICE_HELPER_READ_PREALLOC_SIZE = 150 * 1024 * 1024;
+static boost::once_flag __nullReadBufferInitialized = BOOST_ONCE_INIT;
+
+std::vector<uint8_t> NullDeviceFileHandle::nullReadBuffer = {};
 
 NullDeviceFileHandle::NullDeviceFileHandle(folly::fbstring fileId,
     std::shared_ptr<NullDeviceHelper> helper,
@@ -70,14 +76,27 @@ folly::Future<folly::IOBufQueue> NullDeviceFileHandle::read(
 
         SIMULATE_STORAGE_ISSUES(helper, "read", folly::IOBufQueue)
 
-        void *data = buf.preallocate(size, size).first;
-
         LOG_DBG(1) << "Attempting to read " << size << " bytes at offset "
                    << offset << " from file " << fileId;
 
-        memset(data, NULL_DEVICE_HELPER_CHAR, size);
-
-        buf.postallocate(size);
+        if (size < NULL_DEVICE_HELPER_READ_PREALLOC_SIZE) {
+            boost::call_once(
+                [] {
+                    nullReadBuffer.reserve(
+                        NULL_DEVICE_HELPER_READ_PREALLOC_SIZE);
+                    std::fill(nullReadBuffer.begin(), nullReadBuffer.end(),
+                        NULL_DEVICE_HELPER_CHAR);
+                },
+                __nullReadBufferInitialized);
+            auto nullBuf =
+                folly::IOBuf::wrapBuffer(nullReadBuffer.data(), size);
+            buf.append(std::move(nullBuf));
+        }
+        else {
+            void *data = buf.preallocate(size, size).first;
+            memset(data, NULL_DEVICE_HELPER_CHAR, size);
+            buf.postallocate(size);
+        }
 
         LOG_DBG(1) << "Read " << size << " bytes from file " << fileId;
 
