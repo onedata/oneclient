@@ -128,6 +128,15 @@ def test_read_should_read_nonexistent_file(helper, file_id):
     assert len(helper.read(file_id, offset, size)) == size
 
 
+@pytest.mark.readwrite_operations_tests
+def test_read_should_read_buffered_content(helper, file_id):
+    offset = 20
+    size = 4
+
+    assert len(helper.read(file_id, offset, size)) == size
+    assert helper.read(file_id, offset, size) == 'xxxx'
+
+
 @pytest.mark.directory_operations_tests
 def test_mkdir_should_create_directory(helper, file_id):
     dir_id = random_str()
