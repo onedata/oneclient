@@ -29,8 +29,8 @@ FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
 }
 
 helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
-    const folly::fbstring &uuid, const folly::fbstring &storageId,
-    const folly::fbstring &fileId)
+    const folly::fbstring &uuid, const folly::fbstring &spaceId,
+    const folly::fbstring &storageId, const folly::fbstring &fileId)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(storageId) << LOG_FARG(fileId);
 
@@ -41,7 +41,7 @@ helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
     if (it != m_handles.end())
         return it->second;
 
-    auto helper = m_helpersCache.get(uuid, storageId, forceProxyIO);
+    auto helper = m_helpersCache.get(uuid, spaceId, storageId, forceProxyIO);
     const auto filteredFlags = m_flags & (~O_CREAT) & (~O_APPEND);
 
     auto handle = communication::wait(
