@@ -17,9 +17,11 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-GetHelperParams::GetHelperParams(std::string storageId, bool forceProxyIO)
+GetHelperParams::GetHelperParams(
+    std::string storageId, std::string spaceId, HelperMode mode)
     : m_storageId{std::move(storageId)}
-    , m_forceProxyIO{forceProxyIO}
+    , m_spaceId{std::move(spaceId)}
+    , m_mode{mode}
 {
 }
 
@@ -28,7 +30,18 @@ std::string GetHelperParams::toString() const
     std::stringstream stream;
 
     stream << "type: 'GetHelperParams', storageId: '" << m_storageId
-           << "'', forceProxyIO: " << m_forceProxyIO;
+           << "', spaceId: '" << m_spaceId << "', mode: ";
+
+    switch (m_mode) {
+        case HelperMode::autoMode:
+            stream << "AUTO";
+            break;
+        case HelperMode::directMode:
+            stream << "FORCE_DIRECT";
+            break;
+        case HelperMode::proxyMode:
+            stream << "FORCE_PROXY";
+    }
 
     return stream.str();
 }
@@ -39,7 +52,18 @@ std::unique_ptr<ProtocolClientMessage> GetHelperParams::serializeAndDestroy()
     auto ghp = msg->mutable_fuse_request()->mutable_get_helper_params();
 
     ghp->mutable_storage_id()->swap(m_storageId);
-    ghp->set_force_proxy_io(m_forceProxyIO);
+    ghp->mutable_space_id()->swap(m_spaceId);
+
+    switch (m_mode) {
+        case HelperMode::autoMode:
+            ghp->set_helper_mode(one::clproto::HelperMode::AUTO);
+            break;
+        case HelperMode::directMode:
+            ghp->set_helper_mode(one::clproto::HelperMode::FORCE_DIRECT);
+            break;
+        case HelperMode::proxyMode:
+            ghp->set_helper_mode(one::clproto::HelperMode::FORCE_PROXY);
+    }
 
     return msg;
 }

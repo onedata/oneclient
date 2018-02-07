@@ -17,6 +17,12 @@ enum FileType {
     LNK = 3; // symbolic link
 }
 
+enum HelperMode {
+    AUTO         = 1; // automatic helper mode detection
+    FORCE_PROXY  = 2; // return proxy io helper or error
+    FORCE_DIRECT = 3; // return direct io helper or error
+}
+
 // Generic FUSE client request
 message FuseRequest {
     oneof fuse_request { // list of all FUSE client requests
@@ -33,8 +39,9 @@ message ResolveGuid {
 }
 
 message GetHelperParams {
-    required bytes storage_id = 1;
-    optional bool force_proxy_io = 2 [default = false];
+    required bytes storage_id       = 1;
+    required bytes space_id         = 2;
+    optional HelperMode helper_mode = 3 [default = AUTO];
 }
 
 message CreateStorageTestFile {

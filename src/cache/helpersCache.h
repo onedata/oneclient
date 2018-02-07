@@ -68,12 +68,15 @@ public:
     /**
      * Retrieves a helper instance.
      * @param fileUuid UUID of a file for which helper will be used.
+     * @param spaceId SpaceId in the context of which the helper should be
+     *                determined.
      * @param storageId Storage id for which to retrieve a helper.
      * @param forceProxyIO Determines whether to return a ProxyIO helper.
      * @return Retrieved helper instance.
      */
     virtual HelperPtr get(const folly::fbstring &fileUuid,
-        const folly::fbstring &storageId, bool forceProxyIO);
+        const folly::fbstring &spaceId, const folly::fbstring &storageId,
+        bool forceProxyIO);
 
 private:
     enum class AccessType { DIRECT, PROXY };

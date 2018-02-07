@@ -221,6 +221,8 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
         std::make_shared<FuseFileHandle>(filteredFlags, opened.handleId(),
             openFileToken, *m_helpersCache, m_forceProxyIOCache));
 
+    LOG_DBG(1) << "Stored fuse handle for file " << uuid;
+
     return fuseFileHandleId;
 }
 
@@ -344,8 +346,9 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     const std::size_t availableSize = boost::icl::size(availableRange);
 
     try {
-        auto helperHandle = fuseFileHandle->getHelperHandle(
-            uuid, fileBlock.storageId(), fileBlock.fileId());
+        auto helperHandle = fuseFileHandle->getHelperHandle(uuid,
+            m_metadataCache.getSpaceId(uuid), fileBlock.storageId(),
+            fileBlock.fileId());
 
         if (checksum) {
             LOG_DBG(1) << "Waiting on helper flush for " << uuid
@@ -418,9 +421,10 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
 
     auto fuseFileHandle = m_fuseFileHandles.at(fuseFileHandleId);
     auto attr = m_metadataCache.getAttr(uuid);
+    auto spaceId = m_metadataCache.getSpaceId(uuid);
 
     // Check if this space is marked as disabled due to exeeded quota
-    if (isSpaceDisabled(m_metadataCache.getSpaceId(uuid))) {
+    if (isSpaceDisabled(spaceId)) {
         LOG(ERROR) << "Write to file " << uuid << " failed - space "
                    << m_metadataCache.getSpaceId(uuid) << " quota exceeded";
         throw std::errc::no_space_on_device;
@@ -431,7 +435,7 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
     size_t bytesWritten = 0;
     try {
         auto helperHandle = fuseFileHandle->getHelperHandle(
-            uuid, fileBlock.storageId(), fileBlock.fileId());
+            uuid, spaceId, fileBlock.storageId(), fileBlock.fileId());
 
         bytesWritten =
             communication::wait(helperHandle->write(offset, std::move(buf)),
@@ -440,9 +444,10 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES) {
             LOG_DBG(1) << "Reading from " << uuid
-                       << " failed to insufficient permissions";
+                       << " failed with error code: " << e.what();
             throw;
         }
+
         if (m_forceProxyIOCache.contains(uuid)) {
             LOG_DBG(1) << "Reading from " << uuid
                        << " failed since proxy mode is forced for this file";

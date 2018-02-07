@@ -22,12 +22,17 @@ namespace fuse {
  */
 class GetHelperParams : public ClientMessage {
 public:
+    enum class HelperMode { autoMode, proxyMode, directMode };
+
     /**
      * Constructor.
      * @param storageId ID of the storage to request helper params for.
+     * @param spaceId Id of the space in which context the helper should be
+     *                determined.
      * @param forceProxyIO Whether to force proxying through cluster.
      */
-    GetHelperParams(std::string storageId, bool forceProxyIO = false);
+    GetHelperParams(std::string storageId, std::string spaceId,
+        HelperMode mode = HelperMode::autoMode);
 
     std::string toString() const override;
 
@@ -35,7 +40,8 @@ private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
     std::string m_storageId;
-    bool m_forceProxyIO;
+    std::string m_spaceId;
+    HelperMode m_mode;
 };
 
 } // namespace fuse

@@ -74,8 +74,8 @@ public:
     std::shared_ptr<NullHelperMock> m_helper =
         std::make_shared<NullHelperMock>();
 
-    HelperPtr get(
-        const folly::fbstring &, const folly::fbstring &, const bool) override
+    HelperPtr get(const folly::fbstring &, const folly::fbstring &,
+        const folly::fbstring &, const bool) override
     {
         return m_helper;
     }

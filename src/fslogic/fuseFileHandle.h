@@ -52,12 +52,14 @@ public:
     /**
      * Retrieves a helper handle for an open file.
      * @param uuid Uuid of the file.
+     * @param spaceId Id of the space for which the helper should be returned.
      * @param storageId ID of the storage of the file.
      * @param fileId ID of a file on the storage.
      * @returns A new or cached file handle for the location.
      */
     helpers::FileHandlePtr getHelperHandle(const folly::fbstring &uuid,
-        const folly::fbstring &storageId, const folly::fbstring &fileId);
+        const folly::fbstring &spaceId, const folly::fbstring &storageId,
+        const folly::fbstring &fileId);
 
     /**
      * Releases an open helper handle for a file.

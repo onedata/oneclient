@@ -79,51 +79,143 @@ HelpersCache::~HelpersCache()
 }
 
 HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
-    const folly::fbstring &storageId, bool forceProxyIO)
+    const folly::fbstring &spaceId, const folly::fbstring &storageId,
+    bool forceProxyIO)
 {
     LOG_FCALL() << LOG_FARG(fileUuid) << LOG_FARG(storageId)
                 << LOG_FARG(forceProxyIO);
 
-    forceProxyIO |= m_options.isProxyIOForced();
-    if (!forceProxyIO) {
-        decltype(m_accessType)::iterator accessTypeIt;
-        bool accessUnset;
-        std::tie(accessTypeIt, accessUnset) =
-            m_accessType.emplace(std::make_pair(storageId, AccessType::PROXY));
+    LOG_DBG(1) << "Getting storage helper for " << fileUuid << " on storage "
+               << storageId;
 
-        if (accessUnset) {
-            accessTypeIt->second = AccessType::PROXY;
-            requestStorageTestFileCreation(fileUuid, storageId);
-            return get(fileUuid, storageId, true);
+    if (m_options.isDirectIOForced()) {
+        bool accessUnset;
+        std::tie(std::ignore, accessUnset) =
+            m_accessType.emplace(std::make_pair(storageId, AccessType::DIRECT));
+
+        auto helperKey = std::make_pair(storageId, false);
+        auto helperIt = m_cache.find(helperKey);
+        if (helperIt != m_cache.end()) {
+            LOG_DBG(1) << "Found storage helper in cache for storage "
+                       << storageId;
+            return helperIt->second;
         }
 
-        if (accessTypeIt->second == AccessType::PROXY)
-            return get(fileUuid, storageId, true);
+        if (!accessUnset && m_cache.find(helperKey) == m_cache.end()) {
+            LOG_DBG(1) << "Storage helper discovery already requested but not "
+                          "yet available - waiting...";
+
+            int retryCountRemaining = 10;
+            constexpr int retryDelayMs = 200;
+
+            while (retryCountRemaining--) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(
+                    retryCountRemaining * retryDelayMs));
+                if (m_cache.find(helperKey) != m_cache.end()) {
+                    LOG(INFO) << "Storage helper to storage " << storageId
+                              << " is now available";
+                    return m_cache[helperKey];
+                }
+            }
+
+            LOG(ERROR) << "Direct IO access forced to storage " << storageId
+                       << " but storage is not accessible from here";
+            throw std::errc::operation_not_supported;
+        }
+
+        LOG_DBG(1) << "Requesting helper parameters for storage " << storageId
+                   << " in forced directIO mode";
+
+        try {
+            auto params = communication::wait(m_communicator.communicate<
+                                              messages::fuse::HelperParams>(
+                messages::fuse::GetHelperParams{storageId.toStdString(),
+                    spaceId.toStdString(),
+                    messages::fuse::GetHelperParams::HelperMode::directMode}));
+            LOG_DBG(1) << "Received storage helper params: " << params.name();
+
+            if (params.name() == helpers::PROXY_HELPER_NAME) {
+                LOG(ERROR)
+                    << "File " << fileUuid
+                    << " is not accessible in directIO mode on this provider";
+                throw std::errc::operation_not_supported;
+            }
+            else if (params.name() == helpers::POSIX_HELPER_NAME) {
+                LOG_DBG(1)
+                    << "Direct IO requested to Posix storage - attempting "
+                       "storage mountpoint detection in local filesystem";
+
+                requestStorageTestFileCreation(fileUuid, storageId);
+                return get(fileUuid, spaceId, storageId, false);
+            }
+            else {
+                LOG_DBG(1) << "Got storage helper params for file " << fileUuid
+                           << " on " << params.name() << " storage "
+                           << storageId;
+
+                auto helper = m_helperFactory.getStorageHelper(
+                    params.name(), params.args(), m_options.isIOBuffered());
+
+                m_cache[std::make_pair(storageId, false)] = helper;
+                return helper;
+            }
+        }
+        catch (std::exception &e) {
+            LOG_DBG(1) << "Unexpected error when waiting for storage helper: "
+                       << e.what();
+            throw std::errc::resource_unavailable_try_again;
+        }
     }
+    else {
+        forceProxyIO |= m_options.isProxyIOForced();
 
-    if (m_options.isDirectIOForced() && forceProxyIO) {
-        LOG(ERROR) << "Direct IO access forced but storage helper is not "
-                      "available";
-        throw std::errc::resource_unavailable_try_again;
+        auto helperKey = std::make_pair(storageId, forceProxyIO);
+        auto helperIt = m_cache.find(helperKey);
+        if (helperIt != m_cache.end()) {
+            LOG_DBG(1) << "Found storage helper in cache for storage "
+                       << storageId;
+            return helperIt->second;
+        }
+
+        if (!forceProxyIO) {
+            decltype(m_accessType)::iterator accessTypeIt;
+            bool accessUnset;
+
+            // Check if the access type (PROXY or DIRECT) is already determined
+            // for storage 'storageId'
+            std::tie(accessTypeIt, accessUnset) = m_accessType.emplace(
+                std::make_pair(storageId, AccessType::PROXY));
+
+            if (accessUnset) {
+                // Request identification of storage asynchronously and return
+                // for now a helper in proxy mode
+                accessTypeIt->second = AccessType::PROXY;
+                requestStorageTestFileCreation(fileUuid, storageId);
+                return get(fileUuid, spaceId, storageId, true);
+            }
+
+            if (accessTypeIt->second == AccessType::PROXY)
+                return get(fileUuid, spaceId, storageId, true);
+        }
+
+        if (m_options.isDirectIOForced() && forceProxyIO) {
+            LOG(ERROR) << "Direct IO access forced to storage " << storageId
+                       << " but storage is not accessible from here.";
+            throw std::errc::operation_not_supported;
+        }
+
+        auto params = communication::wait(
+            m_communicator.communicate<messages::fuse::HelperParams>(
+                messages::fuse::GetHelperParams{storageId.toStdString(),
+                    spaceId.toStdString(),
+                    messages::fuse::GetHelperParams::HelperMode::autoMode}));
+
+        auto helper = m_helperFactory.getStorageHelper(
+            params.name(), params.args(), m_options.isIOBuffered());
+
+        m_cache[helperKey] = helper;
+        return helper;
     }
-
-    auto key = std::make_pair(storageId, forceProxyIO);
-
-    auto helperIt = m_cache.find(key);
-    if (helperIt != m_cache.end())
-        return helperIt->second;
-
-    // TODO: multiple requests may go out before helper is resolved
-    auto params = communication::wait(
-        m_communicator.communicate<messages::fuse::HelperParams>(
-            messages::fuse::GetHelperParams{
-                storageId.toStdString(), forceProxyIO}));
-
-    auto helper = m_helperFactory.getStorageHelper(
-        params.name(), params.args(), m_options.isIOBuffered());
-
-    m_cache[key] = helper;
-    return helper;
 }
 
 void HelpersCache::requestStorageTestFileCreation(
@@ -161,9 +253,8 @@ void HelpersCache::handleStorageTestFile(
     std::shared_ptr<messages::fuse::StorageTestFile> testFile,
     const folly::fbstring &storageId, const std::size_t attempts)
 {
-    LOG_DBG(1) << "Handling storage test file: " << testFile->toString()
-               << " for storage: '" << storageId
-               << "' with left attempts: " << attempts << ".";
+    LOG_DBG(1) << "Handling storage test file for storage: '" << storageId
+               << "' with remaining attempts: " << attempts << ".";
 
     if (attempts == 0) {
         LOG(INFO) << "Storage '" << storageId
@@ -211,9 +302,7 @@ void HelpersCache::requestStorageTestFileVerification(
     const folly::fbstring &storageId, const folly::fbstring &fileContent)
 {
     LOG(INFO) << "Requesting verification of storage: '" << storageId
-              << "' of type '" << testFile.helperParams().name()
-              << "' with file: '" << testFile.toString()
-              << "' and modified content '" << fileContent << ".";
+              << "' of type '" << testFile.helperParams().name();
 
     if (testFile.helperParams().name() == helpers::NULL_DEVICE_HELPER_NAME) {
         handleStorageTestFileVerification({}, storageId);
