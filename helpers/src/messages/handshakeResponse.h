@@ -35,9 +35,10 @@ public:
     HandshakeResponse(std::unique_ptr<ProtocolServerMessage> serverMessage);
 
     /**
-     * @return true if a token error occurred during handshake, otherwise false
+     * @return true if a macaroon error occurred during handshake, otherwise
+     * false
      */
-    bool isTokenError() const;
+    bool isMacaroonError() const;
 
     /**
      * @return handshake status

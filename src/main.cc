@@ -190,7 +190,7 @@ std::shared_ptr<communication::Communicator> handshake(
     std::shared_ptr<Context> context)
 {
     auto handshakeHandler = [&](messages::HandshakeResponse msg) {
-        if (msg.isTokenError()) {
+        if (msg.isMacaroonError()) {
             authManager->cleanup();
         }
         return msg.status();
@@ -229,7 +229,7 @@ std::shared_ptr<auth::AuthManager> getAuthManager(
 {
     try {
         auto options = context->options();
-        return std::make_shared<auth::TokenAuthManager>(context,
+        return std::make_shared<auth::MacaroonAuthManager>(context,
             options->getProviderHost().get(), options->getProviderPort(),
             !options->isInsecure());
     }

@@ -21,9 +21,9 @@ ClientHandshakeRequest::ClientHandshakeRequest(std::string sessionId)
 }
 
 ClientHandshakeRequest::ClientHandshakeRequest(
-    std::string sessionId, std::string token, std::string version)
+    std::string sessionId, std::string macaroon, std::string version)
     : m_sessionId{std::move(sessionId)}
-    , m_token{std::move(token)}
+    , m_macaroon{std::move(macaroon)}
     , m_version{std::move(version)}
 {
 }
@@ -32,10 +32,10 @@ std::string ClientHandshakeRequest::toString() const
 {
     std::stringstream stream;
     stream << "type: 'ClientHandshakeRequest', session ID: '" << m_sessionId
-           << "', token: ";
+           << "', macaroon: ";
 
-    if (m_token)
-        stream << "'" << m_token.get() << "'";
+    if (m_macaroon)
+        stream << "'" << m_macaroon.get() << "'";
     else
         stream << "'undefined'";
 
@@ -51,9 +51,9 @@ ClientHandshakeRequest::serializeAndDestroy()
     auto handshakeRequestMsg = clientMsg->mutable_client_handshake_request();
     handshakeRequestMsg->set_session_id(m_sessionId);
 
-    if (m_token) {
-        auto tokenMsg = handshakeRequestMsg->mutable_token();
-        tokenMsg->set_value(m_token.get());
+    if (m_macaroon) {
+        auto macaroonMsg = handshakeRequestMsg->mutable_macaroon();
+        macaroonMsg->set_macaroon(m_macaroon.get());
     }
 
     handshakeRequestMsg->set_version(m_version);

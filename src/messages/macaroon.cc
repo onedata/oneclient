@@ -1,12 +1,12 @@
 /**
- * @file token.cc
+ * @file macaroon.cc
  * @author Konrad Zemek
  * @copyright (C) 2015 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "token.h"
+#include "macaroon.h"
 
 #include "messages.pb.h"
 
@@ -15,22 +15,22 @@
 namespace one {
 namespace messages {
 
-Token::Token(std::string token)
-    : m_token{std::move(token)}
+Macaroon::Macaroon(std::string macaroon)
+    : m_macaroon{std::move(macaroon)}
 {
 }
 
-std::unique_ptr<ProtocolClientMessage> Token::serializeAndDestroy()
+std::unique_ptr<ProtocolClientMessage> Macaroon::serializeAndDestroy()
 {
     auto clientMsg = std::make_unique<ProtocolClientMessage>();
-    clientMsg->mutable_token()->mutable_value()->swap(m_token);
+    clientMsg->mutable_macaroon()->mutable_macaroon()->swap(m_macaroon);
     return clientMsg;
 }
 
-std::string Token::toString() const
+std::string Macaroon::toString() const
 {
     std::stringstream stream;
-    stream << "type: 'Token', token: '" << m_token << "'";
+    stream << "type: 'Macaroon', macaroon: '" << m_macaroon << "'";
     return stream.str();
 }
 
