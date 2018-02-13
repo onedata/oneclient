@@ -12,7 +12,7 @@
 #include "messages/clientMessage.h"
 
 #include <boost/filesystem/path.hpp>
-#include <boost/optional.hpp>
+#include <folly/Optional.h>
 
 #include <memory>
 #include <sstream>
@@ -31,7 +31,8 @@ public:
      * Constructor.
      * @param contextGuid Uuid of the file targeted by request.
      */
-    FileRequest(std::string contextGuid);
+    FileRequest(std::string contextGuid,
+        folly::Optional<bool> extendedDirectIO = folly::Optional<bool>());
 
     virtual ~FileRequest() = default;
 
@@ -40,6 +41,7 @@ protected:
     serializeAndDestroy() override;
 
     std::string m_contextGuid;
+    folly::Optional<bool> m_extendedDirectIO;
 };
 
 } // namespace fuse
