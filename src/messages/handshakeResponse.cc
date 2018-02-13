@@ -21,7 +21,7 @@ HandshakeResponse::HandshakeResponse(
     m_status = translateStatus(msg);
 }
 
-bool HandshakeResponse::isTokenError() const
+bool HandshakeResponse::isMacaroonError() const
 {
     using errors::handshake::ErrorCode;
 
@@ -51,12 +51,12 @@ errors::handshake::ErrorCode HandshakeResponse::translateStatus(
     switch (msg.status()) {
         case HandshakeStatus::OK:
             return ErrorCode::ok;
-        case HandshakeStatus::TOKEN_NOT_FOUND:
-            return ErrorCode::token_not_found;
-        case HandshakeStatus::TOKEN_EXPIRED:
-            return ErrorCode::token_expired;
-        case HandshakeStatus::INVALID_TOKEN:
-            return ErrorCode::invalid_token;
+        case HandshakeStatus::MACAROON_NOT_FOUND:
+            return ErrorCode::macaroon_not_found;
+        case HandshakeStatus::MACAROON_EXPIRED:
+            return ErrorCode::macaroon_expired;
+        case HandshakeStatus::INVALID_MACAROON:
+            return ErrorCode::invalid_macaroon;
         case HandshakeStatus::INVALID_METHOD:
             return ErrorCode::invalid_method;
         case HandshakeStatus::ROOT_RESOURCE_NOT_FOUND:

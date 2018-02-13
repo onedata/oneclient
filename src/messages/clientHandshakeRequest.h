@@ -34,10 +34,10 @@ public:
     /**
      * Constructor.
      * @param sessionId Id of session to be used in handshake
-     * @param token Access token used to established session
+     * @param macaroon Access macaroon used to established session
      */
     ClientHandshakeRequest(
-        std::string sessionId, std::string token, std::string version);
+        std::string sessionId, std::string macaroon, std::string version);
 
     std::string toString() const override;
 
@@ -45,7 +45,7 @@ private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
     std::string m_sessionId;
-    boost::optional<std::string> m_token;
+    boost::optional<std::string> m_macaroon;
     std::string m_version;
 };
 

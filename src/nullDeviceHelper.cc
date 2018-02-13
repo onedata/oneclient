@@ -84,7 +84,8 @@ folly::Future<folly::IOBufQueue> NullDeviceFileHandle::read(
                 [] {
                     nullReadBuffer.reserve(
                         NULL_DEVICE_HELPER_READ_PREALLOC_SIZE);
-                    std::fill(nullReadBuffer.begin(), nullReadBuffer.end(),
+                    std::fill_n(nullReadBuffer.begin(),
+                        NULL_DEVICE_HELPER_READ_PREALLOC_SIZE,
                         NULL_DEVICE_HELPER_CHAR);
                 },
                 __nullReadBufferInitialized);
