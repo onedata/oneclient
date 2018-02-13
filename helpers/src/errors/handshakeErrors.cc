@@ -24,24 +24,24 @@ std::string HandshakeErrorCategory::message(int ev) const
     switch (static_cast<ErrorCode>(ev)) {
         case ErrorCode::ok:
             return "ok";
-        case ErrorCode::token_expired:
-            return "token expired";
-        case ErrorCode::token_not_found:
-            return "token not found";
-        case ErrorCode::invalid_token:
-            return "invalid token";
+        case ErrorCode::macaroon_expired:
+            return "macaroon expired";
+        case ErrorCode::macaroon_not_found:
+            return "macaroon not found";
+        case ErrorCode::invalid_macaroon:
+            return "invalid macaroon";
         case ErrorCode::invalid_method:
-            return "invalid method for the token";
+            return "invalid method for the macaroon";
         case ErrorCode::root_resource_not_found:
-            return "required root resource not found in the token";
+            return "required root resource not found in the macaroon";
         case ErrorCode::invalid_provider:
             return "invalid provider";
         case ErrorCode::bad_signature_for_macaroon:
-            return "bad token signature";
+            return "bad macaroon signature";
         case ErrorCode::failed_to_decrypt_caveat:
-            return "failed to decrypt a token caveat";
+            return "failed to decrypt a macaroon caveat";
         case ErrorCode::no_discharge_macaroon_for_caveat:
-            return "discharge macaroon not found for a token caveat";
+            return "discharge macaroon not found for a macaroon caveat";
         case ErrorCode::incompatible_version:
             return "incompatible Oneprovider version";
         default:

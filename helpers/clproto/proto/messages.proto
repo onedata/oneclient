@@ -35,7 +35,7 @@ message ClientMessage {
         // handshake_messages.proto
         ClientHandshakeRequest   client_handshake_request   = 3;
         ProviderHandshakeRequest provider_handshake_request = 4;
-        Token                    token                      = 5;
+        Macaroon                 macaroon                   = 5;
 
         // common_messages.proto
         Status                   status                     = 6;
@@ -74,8 +74,8 @@ message ClientMessage {
         GetRemoteDocument        get_remote_document        = 23;
     }
     
-    optional bytes proxy_session_id = 24;
-    optional Token proxy_session_token = 25;
+    optional bytes proxy_session_id                         = 24;
+    optional Macaroon proxy_session_macaroon                = 25;
 }
 
 // Messages that can be sent by the server to the client.

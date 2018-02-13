@@ -7,28 +7,29 @@
  */
 
 syntax = "proto2";
+
 package one.clproto;
 
 enum HandshakeStatus {
     OK                               = 1;
-    TOKEN_EXPIRED                    = 2;
-    TOKEN_NOT_FOUND                  = 3;
+    MACAROON_EXPIRED                 = 2;
+    MACAROON_NOT_FOUND               = 3;
     INVALID_METHOD                   = 4;
     ROOT_RESOURCE_NOT_FOUND          = 5;
     INVALID_PROVIDER                 = 6;
     BAD_SIGNATURE_FOR_MACAROON       = 7;
     FAILED_TO_DESCRYPT_CAVEAT        = 8;
     NO_DISCHARGE_MACAROON_FOR_CAVEAT = 9;
-    INVALID_TOKEN                    = 10;
+    INVALID_MACAROON                 = 10;
     INVALID_NONCE                    = 11;
     INCOMPATIBLE_VERSION             = 12;
     INTERNAL_SERVER_ERROR            = 13;
 }
 
 message ClientHandshakeRequest {
-    optional bytes session_id = 1;
-    optional Token token      = 2;
-    required bytes version    = 3;
+    optional bytes session_id   = 1;
+    optional Macaroon macaroon  = 2;
+    required bytes version      = 3;
 }
 
 message ProviderHandshakeRequest {
@@ -40,7 +41,7 @@ message HandshakeResponse {
     required HandshakeStatus status = 1;
 }
 
-message Token {
-    required bytes value            = 1;
-    repeated bytes secondary_values = 2;
+message Macaroon {
+    required bytes macaroon        = 1;
+    repeated bytes disch_macaroons = 2;
 }
