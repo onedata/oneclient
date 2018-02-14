@@ -22,8 +22,6 @@ namespace one {
 namespace communication {
 namespace layers {
 
-constexpr std::chrono::seconds DEFAULT_SEND_TIMEOUT{5};
-
 /**
  * Retrier is responsible for retrying message send operation handled by
  * a lower layer.

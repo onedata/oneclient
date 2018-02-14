@@ -102,7 +102,7 @@ public:
                     m_buffer.emplace(std::move(it));
                     // Sequence number of pending message is greater than
                     // expected sequence number. Return sequence number that
-                    // proceeds sequence number of pending message.
+                    // preceeds sequence number of pending message.
                     return {seqNum - 1, false};
                 }
             }

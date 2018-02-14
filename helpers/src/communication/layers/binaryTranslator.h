@@ -99,15 +99,14 @@ auto BinaryTranslator<LowerLayer>::setOnMessageCallback(
     return LowerLayer::setOnMessageCallback([onMessageCallback =
                                                  std::move(onMessageCallback)](
         std::string message) {
-        LOG_FCALL() << LOG_FARG(message.substr(0, 40));
+        LOG_DBG(2) << "Received low level message of size: " << message.size();
         auto serverMsg = std::make_unique<clproto::ServerMessage>();
         if (serverMsg->ParseFromString(message)) {
             onMessageCallback(std::move(serverMsg));
         }
         else {
-            LOG_DBG(1) << "Received an invalid message from the server: '"
-                       << message.substr(0, 40)
-                       << "' (message trimmed to 40 chars).";
+            LOG(ERROR) << "Received an invalid message from the server, not "
+                          "compliant with clproto ServerMessage.";
         }
     });
 }
