@@ -59,30 +59,32 @@ message VerifyStorageTestFile {
 // Generic FUSE client file request
 message FileRequest {
     required bytes context_guid = 1;
+    optional bool extended_direct_io = 2 [default = false];
 
     oneof file_request { // list of all FUSE client file requests
-        GetFileAttr get_file_attr = 2;
-        GetChildAttr get_child_attr = 3;
-        GetFileChildren get_file_children = 4;
-        CreateDir create_dir = 5;
-        DeleteFile delete_file = 6;
-        UpdateTimes update_times = 7;
-        ChangeMode change_mode = 8;
-        Rename rename = 9;
-        CreateFile create_file = 10;
-        MakeFile make_file = 11;
-        OpenFile open_file = 12;
-        GetFileLocation get_file_location = 13;
-        Release release = 14;
-        Truncate truncate = 15;
-        SynchronizeBlock synchronize_block = 16;
-        SynchronizeBlockAndComputeChecksum synchronize_block_and_compute_checksum = 17;
-        GetXattr get_xattr = 18;
-        SetXattr set_xattr = 19;
-        RemoveXattr remove_xattr = 20;
-        ListXattr list_xattr = 21;
-        FSync fsync = 22;
-        GetFileChildrenAttrs get_file_children_attrs = 23;
+        GetFileAttr get_file_attr = 3;
+        GetChildAttr get_child_attr = 4;
+        GetFileChildren get_file_children = 5;
+        CreateDir create_dir = 6;
+        DeleteFile delete_file = 7;
+        UpdateTimes update_times = 8;
+        ChangeMode change_mode = 9;
+        Rename rename = 10;
+        CreateFile create_file = 11;
+        MakeFile make_file = 12;
+        OpenFile open_file = 13;
+        GetFileLocation get_file_location = 14;
+        Release release = 15;
+        Truncate truncate = 16;
+        SynchronizeBlock synchronize_block = 17;
+        SynchronizeBlockAndComputeChecksum synchronize_block_and_compute_checksum = 18;
+        GetXattr get_xattr = 19;
+        SetXattr set_xattr = 20;
+        RemoveXattr remove_xattr = 21;
+        ListXattr list_xattr = 22;
+        FSync fsync = 23;
+        GetFileChildrenAttrs get_file_children_attrs = 24;
+        StorageFileCreated storage_file_created = 25;
     }
 }
 
@@ -192,6 +194,9 @@ message FSync {
     optional bytes handle_id = 2;
 }
 
+message StorageFileCreated {
+}
+
 // Generic FUSE client response
 message FuseResponse {
     required Status status = 1;
@@ -266,6 +271,7 @@ message HelperArg {
 message HelperParams {
     required bytes helper_name = 1;
     repeated HelperArg helper_args = 2;
+    optional bool extended_direct_io = 3 [default = false];
 }
 
 message StorageTestFile {

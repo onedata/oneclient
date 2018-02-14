@@ -119,7 +119,19 @@ message ServerMessage {
 
         // remote_driver_messages.proto
         RemoteDocument           remote_document           = 18;
+
+        // heartbeat or unknown error
+        ProcessingStatus         processing_status         = 19;
     }
 
-    optional bytes proxy_session_id = 19;
+    optional bytes proxy_session_id = 20;
+}
+
+enum ProcessingCode {
+    IN_PROGRESS = 1;
+    ERROR       = 2; // unknown error
+}
+
+message ProcessingStatus {
+    required ProcessingCode code = 1;
 }
