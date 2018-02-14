@@ -29,6 +29,7 @@ using namespace one;
 using namespace one::client;
 using namespace one::communication;
 using namespace boost::python;
+using namespace std::literals;
 
 struct Stat {
     time_t atime;
@@ -87,8 +88,8 @@ public:
         : m_helpersCache{new HelpersCacheProxy(*context->communicator(),
               *context->scheduler(), *context->options())}
         , m_fsLogic{context, std::make_shared<messages::Configuration>(),
-              std::unique_ptr<HelpersCacheProxy>{m_helpersCache}, 100000,
-              [](auto f) { f(); }}
+              std::unique_ptr<HelpersCacheProxy>{m_helpersCache}, 100000, false,
+              10s, [](auto f) { f(); }}
         , m_context{context}
     {
     }

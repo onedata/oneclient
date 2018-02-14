@@ -65,7 +65,8 @@ public:
      * to keep population no bigger than this number.
      */
     LRUMetadataCache(communication::Communicator &communicator,
-        const std::size_t targetSize = 1000);
+        const std::size_t targetSize,
+        const std::chrono::seconds providerTimeout);
 
     /**
      * Opens a file in the cache.

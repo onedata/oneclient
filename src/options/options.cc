@@ -184,6 +184,24 @@ Options::Options()
             "Disable in-memory cache for input/output data blocks.");
 
     add<unsigned int>()
+        ->withLongName("provider-timeout")
+        .withConfigName("provider_timeout")
+        .withValueName("<duration>")
+        .withDefaultValue(
+            DEFAULT_PROVIDER_TIMEOUT, std::to_string(DEFAULT_PROVIDER_TIMEOUT))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify Oneprovider connection timeout in seconds.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("disable-read-events")
+        .withConfigName("disable_read_events")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Disable reporting of file read events.");
+
+    add<unsigned int>()
         ->withLongName("read-buffer-min-size")
         .withConfigName("read_buffer_min_size")
         .withValueName("<size>")
@@ -589,9 +607,22 @@ unsigned int Options::getStorageHelperThreadCount() const
         .get_value_or(DEFAULT_STORAGE_HELPER_THREAD_COUNT);
 }
 
+bool Options::areFileReadEventsDisabled() const
+{
+    return get<bool>({"disable-read-events", "disable_read_events"})
+        .get_value_or(false);
+}
+
 bool Options::isIOBuffered() const
 {
     return !get<bool>({"no-buffer", "no_buffer"}).get_value_or(false);
+}
+
+std::chrono::seconds Options::getProviderTimeout() const
+{
+    return std::chrono::seconds{
+        get<unsigned int>({"provider-timeout", "provider_timeout"})
+            .get_value_or(DEFAULT_PROVIDER_TIMEOUT)};
 }
 
 unsigned int Options::getReadBufferMinSize() const

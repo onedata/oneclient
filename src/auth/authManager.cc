@@ -31,11 +31,12 @@ namespace auth {
 
 AuthManager::AuthManager(std::weak_ptr<Context> context,
     std::string defaultHostname, const unsigned int port,
-    const bool checkCertificate)
+    const bool checkCertificate, const std::chrono::seconds providerTimeout)
     : m_context{std::move(context)}
     , m_hostname{std::move(defaultHostname)}
     , m_port{port}
     , m_checkCertificate{checkCertificate}
+    , m_providerTimeout{std::move(providerTimeout)}
 {
 }
 
@@ -43,8 +44,9 @@ void AuthManager::cleanup() {}
 
 MacaroonAuthManager::MacaroonAuthManager(std::weak_ptr<Context> context,
     std::string defaultHostname, const unsigned int port,
-    const bool checkCertificate)
-    : AuthManager{context, defaultHostname, port, checkCertificate}
+    const bool checkCertificate, const std::chrono::seconds providerTimeout)
+    : AuthManager{context, defaultHostname, port, checkCertificate,
+          providerTimeout}
     , m_macaroonHandler{*context.lock()->options(), m_environment.userDataDir(),
           "TODO:ProviderId"}
 {
@@ -88,7 +90,7 @@ void MacaroonAuthManager::refreshMacaroon()
         one::messages::Macaroon{m_macaroonHandler.refreshRestrictedMacaroon()});
 
     try {
-        communication::wait(future);
+        communication::wait(future, m_providerTimeout);
         scheduleRefresh(RESTRICTED_MACAROON_REFRESH);
     }
     catch (const std::exception &e) {

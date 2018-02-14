@@ -51,9 +51,11 @@ public:
      * @param port A port to be used for communication with a Provider.
      * @param checkCertificate Determines whether to check Provider's and
      * Global Registry's server certificates for validity.
+     * @param providerTimeout Timeout for provider connection.
      */
     AuthManager(std::weak_ptr<Context> context, std::string defaultHostname,
-        const unsigned int port, const bool checkCertificate);
+        const unsigned int port, const bool checkCertificate,
+        const std::chrono::seconds providerTimeout);
 
     virtual ~AuthManager() = default;
 
@@ -90,6 +92,7 @@ protected:
     const bool m_checkCertificate;
 
     Environment m_environment;
+    const std::chrono::seconds m_providerTimeout;
 };
 
 /**
@@ -100,7 +103,8 @@ class MacaroonAuthManager : public AuthManager {
 public:
     MacaroonAuthManager(std::weak_ptr<Context> context,
         std::string defaultHostname, const unsigned int port,
-        const bool checkCertificate);
+        const bool checkCertificate,
+        const std::chrono::seconds providerTimeout);
 
     ~MacaroonAuthManager();
 
