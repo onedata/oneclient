@@ -48,7 +48,8 @@ public:
     FuseFileHandle(const int flags, folly::fbstring handleId,
         std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,
         cache::HelpersCache &helpersCache,
-        cache::ForceProxyIOCache &forceProxyIOCache, std::chrono::seconds providerTimeout);
+        cache::ForceProxyIOCache &forceProxyIOCache,
+        std::chrono::seconds providerTimeout);
 
     /**
      * Retrieves a helper handle for an open file.

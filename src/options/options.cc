@@ -187,8 +187,8 @@ Options::Options()
         ->withLongName("provider-timeout")
         .withConfigName("provider_timeout")
         .withValueName("<duration>")
-        .withDefaultValue(DEFAULT_PROVIDER_TIMEOUT,
-            std::to_string(DEFAULT_PROVIDER_TIMEOUT))
+        .withDefaultValue(
+            DEFAULT_PROVIDER_TIMEOUT, std::to_string(DEFAULT_PROVIDER_TIMEOUT))
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Specify Oneprovider connection timeout in seconds.");
 
