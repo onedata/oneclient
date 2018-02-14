@@ -76,11 +76,12 @@ inline helpers::Flag getOpenFlag(const helpers::FlagsSet &flagsSet)
 FsLogic::FsLogic(std::shared_ptr<Context> context,
     std::shared_ptr<messages::Configuration> configuration,
     std::unique_ptr<cache::HelpersCache> helpersCache,
-    unsigned int metadataCacheSize,
+    unsigned int metadataCacheSize, bool readEventsDisabled,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_context{std::move(context)}
     , m_metadataCache{*m_context->communicator(), metadataCacheSize}
     , m_helpersCache{std::move(helpersCache)}
+    , m_readEventsDisabled{readEventsDisabled}
     , m_fsSubscriptions{
           m_eventManager, m_metadataCache, m_forceProxyIOCache, runInFiber}
 {
@@ -377,8 +378,10 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         }
 
         const auto bytesRead = readBuffer.chainLength();
-        m_eventManager.emit<events::FileRead>(
-            uuid.toStdString(), offset, bytesRead);
+        if (!m_readEventsDisabled) {
+            m_eventManager.emit<events::FileRead>(
+                uuid.toStdString(), offset, bytesRead);
+        }
 
         LOG_DBG(1) << "Read " << bytesRead << " bytes from " << uuid
                    << " at offset " << offset;

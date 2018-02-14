@@ -87,7 +87,7 @@ public:
         : m_helpersCache{new HelpersCacheProxy(*context->communicator(),
               *context->scheduler(), *context->options())}
         , m_fsLogic{context, std::make_shared<messages::Configuration>(),
-              std::unique_ptr<HelpersCacheProxy>{m_helpersCache}, 100000,
+              std::unique_ptr<HelpersCacheProxy>{m_helpersCache}, 100000, false,
               [](auto f) { f(); }}
         , m_context{context}
     {

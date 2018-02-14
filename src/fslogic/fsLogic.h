@@ -64,7 +64,7 @@ public:
     FsLogic(std::shared_ptr<Context> context,
         std::shared_ptr<messages::Configuration> configuration,
         std::unique_ptr<cache::HelpersCache> helpersCache,
-        unsigned int metadataCacheSize,
+        unsigned int metadataCacheSize, bool readEventsDisabled,
         std::function<void(folly::Function<void()>)> runInFiber);
 
     /**
@@ -243,6 +243,7 @@ private:
     cache::LRUMetadataCache m_metadataCache;
     cache::ForceProxyIOCache m_forceProxyIOCache;
     std::unique_ptr<cache::HelpersCache> m_helpersCache;
+    bool m_readEventsDisabled = false;
     FsSubscriptions m_fsSubscriptions;
     std::unordered_set<folly::fbstring> m_disabledSpaces;
 

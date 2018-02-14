@@ -183,6 +183,15 @@ Options::Options()
         .withDescription(
             "Disable in-memory cache for input/output data blocks.");
 
+    add<bool>()
+        ->asSwitch()
+        .withLongName("disable-read-events")
+        .withConfigName("disable_read_events")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Disable reporting of file read events.");
+
     add<unsigned int>()
         ->withLongName("read-buffer-min-size")
         .withConfigName("read_buffer_min_size")
@@ -587,6 +596,12 @@ unsigned int Options::getStorageHelperThreadCount() const
     return get<unsigned int>(
         {"storage-helper-thread-count", "storage_helper_thread_count"})
         .get_value_or(DEFAULT_STORAGE_HELPER_THREAD_COUNT);
+}
+
+bool Options::areFileReadEventsDisabled() const
+{
+    return get<bool>({"disable-read-events", "disable_read_events"})
+        .get_value_or(false);
 }
 
 bool Options::isIOBuffered() const

@@ -189,6 +189,11 @@ public:
     unsigned int getStorageHelperThreadCount() const;
 
     /*
+     * @return true if 'disable-read-events' is specified.
+     */
+    bool areFileReadEventsDisabled() const;
+
+    /*
      * @return false if 'no-buffer' option has been provided, otherwise true.
      */
     bool isIOBuffered() const;

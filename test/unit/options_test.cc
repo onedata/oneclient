@@ -92,6 +92,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.isDirectIOForced());
     EXPECT_EQ(false, options.isMonitoringEnabled());
     EXPECT_EQ(false, options.isMonitoringLevelFull());
+    EXPECT_EQ(false, options.areFileReadEventsDisabled());
     EXPECT_EQ(true, options.isMonitoringLevelBasic());
 #if !defined(NDEBUG)
     EXPECT_EQ(0, options.getVerboseLogLevel());
@@ -258,6 +259,13 @@ TEST_F(OptionsTest, parseCommandLineShouldSetNoBuffer)
     cmdArgs.insert(cmdArgs.end(), {"--no-buffer", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(false, options.isIOBuffered());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetDisableFileReadEvents)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--disable-read-events", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.areFileReadEventsDisabled());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetReadBufferMinSize)
