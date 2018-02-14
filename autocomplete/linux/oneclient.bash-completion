@@ -111,6 +111,8 @@ _oneclient() {
                                -f --foreground -d --debug -s --single-thread \
                                -o --opt \
                                --no-buffer \
+                               --provider-timeout \
+                               --disable-read-events \
                                --force-proxy-io \
                                --force-direct-io \
                                --buffer-scheduler-thread-count \

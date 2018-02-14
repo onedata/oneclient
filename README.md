@@ -136,6 +136,9 @@ Advanced options:
                                         helper threads.
   --no-buffer                           Disable in-memory cache for
                                         input/output data blocks.
+  --provider-timeout <duration> (=120)  Specify Oneprovider connection timeout 
+                                        in seconds.
+  --disable-read-events                 Disable reporting of file read events.                                        
   --read-buffer-min-size <size> (=5242880)
                                         Specify minimum size in bytes of
                                         in-memory cache for input data blocks.
