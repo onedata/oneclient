@@ -29,8 +29,6 @@
 namespace one {
 namespace communication {
 
-constexpr std::chrono::seconds DEFAULT_TIMEOUT{60};
-
 namespace layers {
 
 /**
@@ -194,15 +192,6 @@ auto wait(Future &&future, const std::chrono::duration<Rep, Period> timeout)
         .within(timeout,
             std::system_error{std::make_error_code(std::errc::timed_out)})
         .get();
-}
-
-/**
- * A convenience overload for @c wait.
- * Calls @c wait with @c DEFAULT_TIMEOUT.
- */
-template <class Future> auto wait(Future &&future) -> decltype(future.get())
-{
-    return wait(std::forward<Future>(future), DEFAULT_TIMEOUT);
 }
 
 } // namespace communication
