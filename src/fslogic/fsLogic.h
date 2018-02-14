@@ -59,12 +59,15 @@ public:
      * @param context Shared pointer to application context instance.
      * @param configuration Starting configuration from server.
      * @param helpersCache Cache from which helpers will be fetched.
+     * @param readEventsDisabled Specifies if FileRead event should be emitted.
+     * @param providerTimeout Timeout for provider connection.
      * @param runInFiber A function that runs callback inside a main fiber.
      */
     FsLogic(std::shared_ptr<Context> context,
         std::shared_ptr<messages::Configuration> configuration,
         std::unique_ptr<cache::HelpersCache> helpersCache,
         unsigned int metadataCacheSize, bool readEventsDisabled,
+        const std::chrono::seconds providerTimeout,
         std::function<void(folly::Function<void()>)> runInFiber);
 
     /**
@@ -219,7 +222,7 @@ public:
 
 private:
     template <typename SrvMsg = messages::fuse::FuseResponse, typename CliMsg>
-    SrvMsg communicate(CliMsg &&msg);
+    SrvMsg communicate(CliMsg &&msg, const std::chrono::seconds timeout);
 
     folly::fbstring syncAndFetchChecksum(const folly::fbstring &uuid,
         const boost::icl::discrete_interval<off_t> &range);
@@ -254,6 +257,8 @@ private:
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
     std::function<void(const folly::fbstring &, const folly::fbstring &)>
         m_onRename = [](auto, auto) {};
+
+    const std::chrono::seconds m_providerTimeout;
 };
 
 } // namespace fslogic

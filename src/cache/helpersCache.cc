@@ -60,7 +60,8 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
             options.getWriteBufferFlushDelay()
     }
 }
-, m_storageAccessManager{m_helperFactory, m_options}
+, m_storageAccessManager{m_helperFactory, m_options},
+    m_providerTimeout{options.getProviderTimeout()}
 {
     std::generate_n(std::back_inserter(m_helpersWorkers),
         options.getStorageHelperThreadCount(), [this] {
@@ -127,11 +128,13 @@ HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
                    << " in forced directIO mode";
 
         try {
-            auto params = communication::wait(m_communicator.communicate<
-                                              messages::fuse::HelperParams>(
-                messages::fuse::GetHelperParams{storageId.toStdString(),
-                    spaceId.toStdString(),
-                    messages::fuse::GetHelperParams::HelperMode::directMode}));
+            auto params = communication::wait(
+                m_communicator.communicate<messages::fuse::HelperParams>(
+                    messages::fuse::GetHelperParams{storageId.toStdString(),
+                        spaceId.toStdString(),
+                        messages::fuse::GetHelperParams::HelperMode::
+                            directMode}),
+                m_providerTimeout);
             LOG_DBG(1) << "Received storage helper params: " << params.name();
 
             if (params.name() == helpers::PROXY_HELPER_NAME) {
@@ -208,7 +211,8 @@ HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
             m_communicator.communicate<messages::fuse::HelperParams>(
                 messages::fuse::GetHelperParams{storageId.toStdString(),
                     spaceId.toStdString(),
-                    messages::fuse::GetHelperParams::HelperMode::autoMode}));
+                    messages::fuse::GetHelperParams::HelperMode::autoMode}),
+            m_providerTimeout);
 
         auto helper = m_helperFactory.getStorageHelper(
             params.name(), params.args(), m_options.isIOBuffered());
@@ -228,7 +232,8 @@ void HelpersCache::requestStorageTestFileCreation(
         auto testFile = communication::wait(
             m_communicator.communicate<messages::fuse::StorageTestFile>(
                 messages::fuse::CreateStorageTestFile{
-                    fileUuid.toStdString(), storageId.toStdString()}));
+                    fileUuid.toStdString(), storageId.toStdString()}),
+            m_providerTimeout);
 
         auto sharedTestFileMsg =
             std::make_shared<messages::fuse::StorageTestFile>(
@@ -315,7 +320,8 @@ void HelpersCache::requestStorageTestFileVerification(
     try {
         communication::wait(
             m_communicator.communicate<messages::fuse::FuseResponse>(
-                std::move(request)));
+                std::move(request)),
+            m_providerTimeout);
 
         handleStorageTestFileVerification({}, storageId);
     }

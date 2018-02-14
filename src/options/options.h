@@ -36,6 +36,7 @@ static constexpr auto DEFAULT_WRITE_BUFFER_MIN_SIZE = 20 * 1024 * 1024;
 static constexpr auto DEFAULT_WRITE_BUFFER_MAX_SIZE = 50 * 1024 * 1024;
 static constexpr auto DEFAULT_WRITE_BUFFER_FLUSH_DELAY = 5;
 static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 100000;
+static constexpr auto DEFAULT_PROVIDER_TIMEOUT = 2 * 60;
 }
 
 class Option;
@@ -197,6 +198,11 @@ public:
      * @return false if 'no-buffer' option has been provided, otherwise true.
      */
     bool isIOBuffered() const;
+
+    /*
+     * @return Return timeout for Oneprovider communication.
+     */
+    std::chrono::seconds getProviderTimeout() const;
 
     /*
      * @return Minimum size in bytes of in-memory cache for input data blocks.

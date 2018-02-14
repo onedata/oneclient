@@ -77,13 +77,16 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     std::shared_ptr<messages::Configuration> configuration,
     std::unique_ptr<cache::HelpersCache> helpersCache,
     unsigned int metadataCacheSize, bool readEventsDisabled,
+    const std::chrono::seconds providerTimeout,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_context{std::move(context)}
-    , m_metadataCache{*m_context->communicator(), metadataCacheSize}
+    , m_metadataCache{*m_context->communicator(), metadataCacheSize,
+          providerTimeout}
     , m_helpersCache{std::move(helpersCache)}
     , m_readEventsDisabled{readEventsDisabled}
-    , m_fsSubscriptions{
-          m_eventManager, m_metadataCache, m_forceProxyIOCache, runInFiber}
+    , m_fsSubscriptions{m_eventManager, m_metadataCache, m_forceProxyIOCache,
+          runInFiber}
+    , m_providerTimeout{std::move(providerTimeout)}
 {
     using namespace std::placeholders;
 
@@ -191,7 +194,8 @@ folly::fbvector<folly::fbstring> FsLogic::readdir(
                << " starting at offset " << off;
     auto msg = communicate<messages::fuse::FileChildrenAttrs>(
         messages::fuse::GetFileChildrenAttrs{
-            uuid, off < 2 ? 0 : off - 2, chunkSize});
+            uuid, off < 2 ? 0 : off - 2, chunkSize},
+        m_providerTimeout);
 
     for (const auto it : folly::enumerate(msg.childrenAttrs())) {
         const auto fileAttrPtr = std::make_shared<FileAttr>(*it);
@@ -215,12 +219,14 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
 
     LOG_DBG(1) << "Sending file opened message for " << uuid;
 
-    auto opened = communicate<messages::fuse::FileOpened>(std::move(msg));
+    auto opened = communicate<messages::fuse::FileOpened>(
+        std::move(msg), m_providerTimeout);
 
     const auto fuseFileHandleId = m_nextFuseHandleId++;
     m_fuseFileHandles.emplace(fuseFileHandleId,
         std::make_shared<FuseFileHandle>(filteredFlags, opened.handleId(),
-            openFileToken, *m_helpersCache, m_forceProxyIOCache));
+            openFileToken, *m_helpersCache, m_forceProxyIOCache,
+            m_providerTimeout));
 
     LOG_DBG(1) << "Stored fuse handle for file " << uuid;
 
@@ -249,7 +255,7 @@ void FsLogic::release(
 
     std::exception_ptr releaseException;
     try {
-        communication::wait(releaseExceptionFuture);
+        communication::wait(releaseExceptionFuture, m_providerTimeout);
     }
     catch (...) {
         releaseException = std::current_exception();
@@ -257,8 +263,9 @@ void FsLogic::release(
 
     LOG_DBG(1) << "Sending file release message for " << uuid;
 
-    communicate(messages::fuse::Release{
-        uuid.toStdString(), fuseFileHandle->providerHandleId()->toStdString()});
+    communicate(messages::fuse::Release{uuid.toStdString(),
+                    fuseFileHandle->providerHandleId()->toStdString()},
+        m_providerTimeout);
 
     m_fuseFileHandles.erase(fileHandleId);
 
@@ -292,7 +299,8 @@ void FsLogic::fsync(const folly::fbstring &uuid,
     LOG_DBG(1) << "Sending file fsync message for " << uuid;
 
     communicate(messages::fuse::FSync{uuid.toStdString(), dataOnly,
-        fuseFileHandle->providerHandleId()->toStdString()});
+                    fuseFileHandle->providerHandleId()->toStdString()},
+        m_providerTimeout);
     for (auto &helperHandle : fuseFileHandle->helperHandles())
         communication::wait(
             helperHandle->fsync(dataOnly), helperHandle->timeout());
@@ -489,8 +497,9 @@ FileAttrPtr FsLogic::mkdir(const folly::fbstring &parentUuid,
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name) << LOG_FARG(mode);
 
     // TODO: CreateDir should probably also return attrs
-    communicate(messages::fuse::CreateDir{
-        parentUuid.toStdString(), name.toStdString(), mode});
+    communicate(messages::fuse::CreateDir{parentUuid.toStdString(),
+                    name.toStdString(), mode},
+        m_providerTimeout);
 
     LOG_DBG(1) << "Created directory " << name << " in " << parentUuid;
 
@@ -504,7 +513,7 @@ FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name) << LOG_FARG(mode);
 
     messages::fuse::MakeFile msg{parentUuid, name, mode};
-    auto attr = communicate<FileAttr>(std::move(msg));
+    auto attr = communicate<FileAttr>(std::move(msg), m_providerTimeout);
     auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
     m_metadataCache.putAttr(sharedAttr);
 
@@ -524,7 +533,8 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
     const auto flag = getOpenFlag(helpers::maskToFlags(flags));
     messages::fuse::CreateFile msg{parentUuid, name, mode, flag};
 
-    auto created = communicate<messages::fuse::FileCreated>(std::move(msg));
+    auto created = communicate<messages::fuse::FileCreated>(
+        std::move(msg), m_providerTimeout);
 
     const auto &uuid = created.attr().uuid();
     auto sharedAttr = std::make_shared<FileAttr>(std::move(created.attr()));
@@ -535,7 +545,8 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
     const auto fuseFileHandleId = m_nextFuseHandleId++;
     m_fuseFileHandles.emplace(fuseFileHandleId,
         std::make_shared<FuseFileHandle>(flags, created.handleId(),
-            openFileToken, *m_helpersCache, m_forceProxyIOCache));
+            openFileToken, *m_helpersCache, m_forceProxyIOCache,
+            m_providerTimeout));
 
     LOG_DBG(1) << "Created file " << name << " in " << parentUuid
                << " with uuid " << uuid;
@@ -550,7 +561,8 @@ void FsLogic::unlink(
 
     // TODO: directly order provider to delete {parentUuid, name}
     auto attr = m_metadataCache.getAttr(parentUuid, name);
-    communicate(messages::fuse::DeleteFile{attr->uuid().toStdString()});
+    communicate(messages::fuse::DeleteFile{attr->uuid().toStdString()},
+        m_providerTimeout);
     m_metadataCache.markDeleted(attr->uuid());
 
     LOG_DBG(1) << "Deleted file " << name << " in " << parentUuid
@@ -570,7 +582,8 @@ void FsLogic::rename(const folly::fbstring &parentUuid,
 
     auto renamed = communicate<messages::fuse::FileRenamed>(
         messages::fuse::Rename{oldUuid.toStdString(),
-            newParentUuid.toStdString(), newName.toStdString()});
+            newParentUuid.toStdString(), newName.toStdString()},
+        m_providerTimeout);
 
     m_metadataCache.rename(oldUuid, newParentUuid, newName, renamed.newUuid());
 
@@ -600,7 +613,8 @@ FileAttrPtr FsLogic::setattr(
         const mode_t normalizedMode = attr.st_mode & ALLPERMS;
 
         communicate(
-            messages::fuse::ChangeMode{uuid.toStdString(), normalizedMode});
+            messages::fuse::ChangeMode{uuid.toStdString(), normalizedMode},
+            m_providerTimeout);
 
         m_metadataCache.changeMode(uuid, normalizedMode);
 
@@ -609,7 +623,8 @@ FileAttrPtr FsLogic::setattr(
     }
 
     if (toSet & FUSE_SET_ATTR_SIZE) {
-        communicate(messages::fuse::Truncate{uuid.toStdString(), attr.st_size});
+        communicate(messages::fuse::Truncate{uuid.toStdString(), attr.st_size},
+            m_providerTimeout);
         m_metadataCache.truncate(uuid, attr.st_size);
         m_eventManager.emit<events::FileTruncated>(
             uuid.toStdString(), attr.st_size);
@@ -648,7 +663,7 @@ FileAttrPtr FsLogic::setattr(
     }
 #endif
 
-    communicate(updateTimes);
+    communicate(updateTimes, m_providerTimeout);
     m_metadataCache.updateTimes(uuid, updateTimes);
 
     return m_metadataCache.getAttr(uuid);
@@ -662,7 +677,8 @@ folly::fbstring FsLogic::getxattr(
     folly::fbstring result;
 
     messages::fuse::GetXAttr getXAttrRequest{uuid, name};
-    auto xattr = communicate<messages::fuse::XAttr>(getXAttrRequest);
+    auto xattr =
+        communicate<messages::fuse::XAttr>(getXAttrRequest, m_providerTimeout);
     result = xattr.value();
 
     LOG_DBG(1) << "Received xattr " << name << " value for file " << uuid;
@@ -678,7 +694,8 @@ void FsLogic::setxattr(const folly::fbstring &uuid, const folly::fbstring &name,
 
     messages::fuse::SetXAttr setXAttrRequest{
         uuid, name, value, create, replace};
-    communicate<messages::fuse::FuseResponse>(setXAttrRequest);
+    communicate<messages::fuse::FuseResponse>(
+        setXAttrRequest, m_providerTimeout);
 
     LOG_DBG(1) << "Set xattr " << name << " value for file " << uuid;
 }
@@ -689,7 +706,8 @@ void FsLogic::removexattr(
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name);
 
     messages::fuse::RemoveXAttr removeXAttrRequest{uuid, name};
-    communicate<messages::fuse::FuseResponse>(removeXAttrRequest);
+    communicate<messages::fuse::FuseResponse>(
+        removeXAttrRequest, m_providerTimeout);
 
     LOG_DBG(1) << "Removed xattr " << name << " from file " << uuid;
 }
@@ -702,7 +720,8 @@ folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
 
     messages::fuse::ListXAttr listXAttrRequest{uuid};
     messages::fuse::XAttrList fuseResponse =
-        communicate<messages::fuse::XAttrList>(listXAttrRequest);
+        communicate<messages::fuse::XAttrList>(
+            listXAttrRequest, m_providerTimeout);
 
     for (const auto &xattrName : fuseResponse.xattrNames()) {
         result.push_back(xattrName.c_str());
@@ -714,10 +733,11 @@ folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
 }
 
 template <typename SrvMsg, typename CliMsg>
-SrvMsg FsLogic::communicate(CliMsg &&msg)
+SrvMsg FsLogic::communicate(CliMsg &&msg, const std::chrono::seconds timeout)
 {
     return communication::wait(m_context->communicator()->communicate<SrvMsg>(
-        std::forward<CliMsg>(msg)));
+                                   std::forward<CliMsg>(msg)),
+        timeout);
 }
 
 folly::fbstring FsLogic::syncAndFetchChecksum(const folly::fbstring &uuid,
@@ -726,8 +746,8 @@ folly::fbstring FsLogic::syncAndFetchChecksum(const folly::fbstring &uuid,
     messages::fuse::SynchronizeBlockAndComputeChecksum request{
         uuid.toStdString(), range};
 
-    auto syncResponse =
-        communicate<messages::fuse::SyncResponse>(std::move(request));
+    auto syncResponse = communicate<messages::fuse::SyncResponse>(
+        std::move(request), m_providerTimeout);
 
     m_metadataCache.updateLocation(syncResponse.fileLocation());
 

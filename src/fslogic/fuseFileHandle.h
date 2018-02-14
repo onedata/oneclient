@@ -43,11 +43,12 @@ public:
      * @param helpersCache Cache from which helper objects can be fetched.
      * @param forceProxyIOCache Cache for determining whether ProxyIO is forced
      * for a file.
+     * @param providerTimeout Timeout for provider connections.
      */
     FuseFileHandle(const int flags, folly::fbstring handleId,
         std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,
         cache::HelpersCache &helpersCache,
-        cache::ForceProxyIOCache &forceProxyIOCache);
+        cache::ForceProxyIOCache &forceProxyIOCache, std::chrono::seconds providerTimeout);
 
     /**
      * Retrieves a helper handle for an open file.
@@ -99,6 +100,7 @@ private:
     std::unordered_map<std::tuple<folly::fbstring, folly::fbstring, bool>,
         helpers::FileHandlePtr>
         m_handles;
+    const std::chrono::seconds m_providerTimeout;
 };
 
 } // namespace fslogic

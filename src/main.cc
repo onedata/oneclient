@@ -205,7 +205,8 @@ std::shared_ptr<communication::Communicator> handshake(
     testCommunicator->setScheduler(context->scheduler());
     testCommunicator->connect();
     communication::wait(
-        std::get<folly::Future<folly::Unit>>(testCommunicatorTuple));
+        std::get<folly::Future<folly::Unit>>(testCommunicatorTuple),
+        context->options()->getProviderTimeout());
 
     return testCommunicator;
 }
@@ -231,7 +232,7 @@ std::shared_ptr<auth::AuthManager> getAuthManager(
         auto options = context->options();
         return std::make_shared<auth::MacaroonAuthManager>(context,
             options->getProviderHost().get(), options->getProviderPort(),
-            !options->isInsecure());
+            !options->isInsecure(), options->getProviderTimeout());
     }
     catch (auth::AuthException &e) {
         std::cerr << "Authentication error: '" << e.what() << "'. Aborting..."
@@ -258,7 +259,8 @@ std::shared_ptr<messages::Configuration> getConfiguration(
 
         auto future = communicator->communicate<messages::Configuration>(
             messages::GetConfiguration{});
-        auto configuration = communication::wait(future);
+        auto configuration =
+            communication::wait(future, options->getProviderTimeout());
         return std::make_shared<messages::Configuration>(
             std::move(configuration));
     }
@@ -420,7 +422,8 @@ int main(int argc, char *argv[])
     const auto &rootUuid = configuration->rootUuid();
     fsLogic = std::make_unique<fslogic::Composite>(rootUuid, std::move(context),
         std::move(configuration), std::move(helpersCache),
-        options->areFileReadEventsDisabled(), options->getMetadataCacheSize());
+        options->areFileReadEventsDisabled(), options->getMetadataCacheSize(),
+        options->getProviderTimeout());
 
     res = multithreaded ? fuse_session_loop_mt(fuse) : fuse_session_loop(fuse);
 

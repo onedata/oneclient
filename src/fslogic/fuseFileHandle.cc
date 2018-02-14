@@ -19,12 +19,14 @@ namespace fslogic {
 FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
     std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,
     cache::HelpersCache &helpersCache,
-    cache::ForceProxyIOCache &forceProxyIOCache)
+    cache::ForceProxyIOCache &forceProxyIOCache,
+    const std::chrono::seconds providerTimeout)
     : m_flags{flags_}
     , m_handleId{std::move(handleId)}
     , m_openFileToken{std::move(openFileToken)}
     , m_helpersCache{helpersCache}
     , m_forceProxyIOCache{forceProxyIOCache}
+    , m_providerTimeout{std::move(providerTimeout)}
 {
 }
 
@@ -45,7 +47,8 @@ helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
     const auto filteredFlags = m_flags & (~O_CREAT) & (~O_APPEND);
 
     auto handle = communication::wait(
-        helper->open(fileId, filteredFlags, makeParameters(uuid)));
+        helper->open(fileId, filteredFlags, makeParameters(uuid)),
+        m_providerTimeout);
 
     m_handles[key] = handle;
     return handle;
@@ -60,7 +63,7 @@ void FuseFileHandle::releaseHelperHandle(const folly::fbstring &uuid,
         const auto key = std::make_tuple(storageId, fileId, forceProxyIO);
         auto it = m_handles.find(key);
         if (it != m_handles.end()) {
-            communication::wait(it->second->release());
+            communication::wait(it->second->release(), m_providerTimeout);
             m_handles.erase(key);
         }
     }

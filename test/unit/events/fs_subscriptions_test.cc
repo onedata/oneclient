@@ -15,6 +15,7 @@ using namespace ::testing;
 using namespace one::client;
 using namespace one::client::cache;
 using namespace one::client::events;
+using namespace std::literals;
 
 struct FsSubscriptionsTest : public ::testing::Test {
 
@@ -32,7 +33,7 @@ struct FsSubscriptionsTest : public ::testing::Test {
     std::int64_t subscriptionId;
     std::shared_ptr<Context> context = testContext();
     MockManager mockManager{context};
-    LRUMetadataCache metadataCache{*context->communicator()};
+    LRUMetadataCache metadataCache{*context->communicator(), 10000, 60s};
     ForceProxyIOCache forceProxyIOCache;
     FsSubscriptions fsSubscriptions{
         mockManager, metadataCache, forceProxyIOCache, [](auto) {}};

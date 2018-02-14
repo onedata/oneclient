@@ -183,6 +183,15 @@ Options::Options()
         .withDescription(
             "Disable in-memory cache for input/output data blocks.");
 
+    add<unsigned int>()
+        ->withLongName("provider-timeout")
+        .withConfigName("provider_timeout")
+        .withValueName("<duration>")
+        .withDefaultValue(DEFAULT_PROVIDER_TIMEOUT,
+            std::to_string(DEFAULT_PROVIDER_TIMEOUT))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify Oneprovider connection timeout in seconds.");
+
     add<bool>()
         ->asSwitch()
         .withLongName("disable-read-events")
@@ -607,6 +616,13 @@ bool Options::areFileReadEventsDisabled() const
 bool Options::isIOBuffered() const
 {
     return !get<bool>({"no-buffer", "no_buffer"}).get_value_or(false);
+}
+
+std::chrono::seconds Options::getProviderTimeout() const
+{
+    return std::chrono::seconds{
+        get<unsigned int>({"provider-timeout", "provider_timeout"})
+            .get_value_or(DEFAULT_PROVIDER_TIMEOUT)};
 }
 
 unsigned int Options::getReadBufferMinSize() const
