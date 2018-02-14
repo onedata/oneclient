@@ -107,6 +107,8 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(options::DEFAULT_STORAGE_HELPER_THREAD_COUNT,
         options.getStorageHelperThreadCount());
     EXPECT_EQ(true, options.isIOBuffered());
+    EXPECT_EQ(options::DEFAULT_PROVIDER_TIMEOUT,
+        options.getProviderTimeout().count());
     EXPECT_EQ(
         options::DEFAULT_READ_BUFFER_MIN_SIZE, options.getReadBufferMinSize());
     EXPECT_EQ(
@@ -266,6 +268,13 @@ TEST_F(OptionsTest, parseCommandLineShouldSetDisableFileReadEvents)
     cmdArgs.insert(cmdArgs.end(), {"--disable-read-events", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(true, options.areFileReadEventsDisabled());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetProviderTimeout)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--provider-timeout", "300", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(300, options.getProviderTimeout().count());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetReadBufferMinSize)
@@ -612,6 +621,13 @@ TEST_F(OptionsTest, parseConfigFileShouldSetNoBuffer)
     setInConfigFile("no_buffer", "1");
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ(false, options.isIOBuffered());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetProviderTimeout)
+{
+    setInConfigFile("provider_timeout", "300");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(300, options.getProviderTimeout().count());
 }
 
 TEST_F(OptionsTest, parseConfigFileShouldSetReadBufferMinSize)
