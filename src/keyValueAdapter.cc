@@ -43,6 +43,8 @@ folly::IOBufQueue readBlock(
         return helper->getObject(key, offset, size);
     }
     catch (const std::system_error &e) {
+        LOG(ERROR) << "Error reading block with key " << key << " at offset "
+                   << offset << ". Error code: " << e.code().value();
         if (e.code().value() == ENOENT)
             return folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()};
 
@@ -228,6 +230,8 @@ folly::Future<folly::Unit> KeyValueAdapter::truncate(
                 }
                 catch (...) {
                     locks->erase(acc);
+                    LOG(ERROR) << "Truncate failed due to unknown error during "
+                                  "'fillToSize'";
                     throw;
                 }
             }

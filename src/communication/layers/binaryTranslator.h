@@ -83,8 +83,12 @@ auto BinaryTranslator<LowerLayer>::setHandshake(
             /// @todo A potential place for optimization [static serverMsg]
             auto serverMsg = std::make_unique<clproto::ServerMessage>();
 
-            if (!serverMsg->ParseFromString(message))
+            if (!serverMsg->ParseFromString(message)) {
+                LOG(ERROR) << "Cannot parse protobuf message from binary "
+                              "stream. Message size in bytes is "
+                           << message.size();
                 return std::make_error_code(std::errc::protocol_error);
+            }
 
             return onHandshakeResponse(std::move(serverMsg));
         },

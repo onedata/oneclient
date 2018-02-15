@@ -90,8 +90,11 @@ public:
             },
             [promise, callOnceFlag](const std::error_code &ec) {
                 std::call_once(*callOnceFlag, [&] {
-                    if (ec)
+                    if (ec) {
+                        LOG(ERROR) << "Handshake error: " << ec.message() << "("
+                                   << ec.value() << ")";
                         promise->setException(std::system_error{ec});
+                    }
                     else
                         promise->setValue();
                 });
@@ -114,8 +117,11 @@ public:
         auto promise = std::make_shared<folly::Promise<folly::Unit>>();
 
         auto callback = [promise](const std::error_code &ec) {
-            if (ec)
+            if (ec) {
+                LOG(ERROR) << "Reply error: " << ec.message() << "("
+                           << ec.value() << ")";
                 promise->setException(std::system_error{ec});
+            }
             else
                 promise->setValue();
         };
@@ -140,8 +146,11 @@ public:
         auto promise = std::make_shared<folly::Promise<SvrMsg>>();
         auto callback = [promise](const std::error_code &ec,
                             ServerMessagePtr protoMessage) {
-            if (ec)
+            if (ec) {
+                LOG(ERROR) << "Communicate error: " << ec.message() << "("
+                           << ec.value() << ")";
                 promise->setException(std::system_error{ec});
+            }
             else
                 promise->setWith(
                     [&]() mutable { return SvrMsg{std::move(protoMessage)}; });
@@ -161,8 +170,11 @@ auto Translator<LowerLayer>::send(
     auto promise = std::make_shared<folly::Promise<folly::Unit>>();
 
     auto callback = [promise](const std::error_code &ec) {
-        if (ec)
+        if (ec) {
+            LOG(ERROR) << "Send error: " << ec.message() << "(" << ec.value()
+                       << ")";
             promise->setException(std::system_error{ec});
+        }
         else
             promise->setValue();
     };
