@@ -109,6 +109,7 @@ private:
 
     std::unordered_map<folly::fbstring, AccessType> m_accessType;
     std::unordered_map<std::tuple<folly::fbstring, bool>, HelperPtr> m_cache;
+    std::chrono::milliseconds m_providerTimeout;
 };
 
 } // namespace cache

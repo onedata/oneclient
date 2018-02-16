@@ -20,9 +20,9 @@ namespace handshake {
  */
 enum class ErrorCode {
     ok,
-    token_expired,
-    token_not_found,
-    invalid_token,
+    macaroon_expired,
+    macaroon_not_found,
+    invalid_macaroon,
     invalid_method,
     root_resource_not_found,
     invalid_provider,

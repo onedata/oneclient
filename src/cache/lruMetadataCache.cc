@@ -22,9 +22,9 @@ LRUMetadataCache::OpenFileToken::~OpenFileToken()
     m_cache.release(m_attr->uuid());
 }
 
-LRUMetadataCache::LRUMetadataCache(
-    communication::Communicator &communicator, const std::size_t targetSize)
-    : MetadataCache{communicator}
+LRUMetadataCache::LRUMetadataCache(communication::Communicator &communicator,
+    const std::size_t targetSize, const std::chrono::seconds providerTimeout)
+    : MetadataCache{communicator, providerTimeout}
     , m_targetSize{targetSize}
 {
     using namespace std::placeholders;

@@ -1,12 +1,12 @@
 /**
- * @file tokenHandler_test.cc
+ * @file macaroonHandler_test.cc
  * @author Konrad Zemek
  * @copyright (C) 2016 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "auth/tokenHandler.h"
+#include "auth/macaroonHandler.h"
 
 #include "options/options.h"
 #include "testUtils.h"
@@ -35,25 +35,25 @@ public:
     MOCK_CONST_METHOD0(getAccessToken, boost::optional<std::string>());
 };
 
-class TokenHandlerTest : public ::testing::Test {
+class MacaroonHandlerTest : public ::testing::Test {
 public:
-    TokenHandlerTest()
+    MacaroonHandlerTest()
     {
         verifier.satisfyGeneral([](auto) { return true; });
         boost::filesystem::create_directory(dataDir);
     }
 
-    ~TokenHandlerTest()
+    ~MacaroonHandlerTest()
     {
         unsetenv("AUTHORIZATION_TOKEN");
         unsetenv("ONECLIENT_AUTHORIZATION_TOKEN");
         boost::filesystem::remove_all(dataDir);
     }
 
-    bool verifyToken(TokenHandler &tokenHandler)
+    bool verifyMacaroon(MacaroonHandler &macaroonHandler)
     {
         auto serialized =
-            TokenHandler::decode62(tokenHandler.restrictedToken());
+            MacaroonHandler::decode62(macaroonHandler.restrictedMacaroon());
 
         auto restrictedM = macaroons::Macaroon::deserialize(serialized);
         return verifier.verifyUnsafe(restrictedM, key);
@@ -61,10 +61,10 @@ public:
 
     macaroons::Macaroon macaroonFromCache()
     {
-        boost::filesystem::ifstream tokenFile{dataDir / "token"};
-        std::string token;
-        tokenFile >> token;
-        return macaroons::Macaroon::deserialize(token);
+        boost::filesystem::ifstream macaroonFile{dataDir / "macaroon"};
+        std::string macaroon;
+        macaroonFile >> macaroon;
+        return macaroons::Macaroon::deserialize(macaroon);
     }
 
     macaroons::Verifier verifier;
@@ -80,47 +80,47 @@ public:
     std::string providerId{randomString()};
 };
 
-TEST_F(TokenHandlerTest, shouldUseOptionsToken)
+TEST_F(MacaroonHandlerTest, shouldUseOptionsMacaroon)
 {
     EXPECT_CALL(options, getAccessToken()).WillOnce(Return(m.serialize()));
 
-    TokenHandler tokenHandler{options, dataDir, providerId};
+    MacaroonHandler macaroonHandler{options, dataDir, providerId};
 
-    ASSERT_TRUE(verifyToken(tokenHandler));
+    ASSERT_TRUE(verifyMacaroon(macaroonHandler));
 }
 
-TEST_F(TokenHandlerTest, shouldUseCachedToken)
+TEST_F(MacaroonHandlerTest, shouldUseCachedMacaroon)
 {
-    boost::filesystem::ofstream tokenFile{dataDir / "token"};
-    tokenFile << m.serialize() << std::endl;
-    tokenFile.close();
+    boost::filesystem::ofstream macaroonFile{dataDir / "macaroon"};
+    macaroonFile << m.serialize() << std::endl;
+    macaroonFile.close();
 
-    TokenHandler tokenHandler{options, dataDir, providerId};
+    MacaroonHandler macaroonHandler{options, dataDir, providerId};
 
-    ASSERT_TRUE(verifyToken(tokenHandler));
+    ASSERT_TRUE(verifyMacaroon(macaroonHandler));
 }
 
-TEST_F(TokenHandlerTest, shouldPreferOptionsToken)
+TEST_F(MacaroonHandlerTest, shouldPreferOptionsMacaroon)
 {
     auto otherKey = randomString();
     macaroons::Macaroon otherM{location, otherKey, id};
 
     EXPECT_CALL(options, getAccessToken()).WillOnce(Return(m.serialize()));
 
-    boost::filesystem::ofstream tokenFile{dataDir / "token"};
-    tokenFile << m.serialize() << std::endl;
-    tokenFile.close();
+    boost::filesystem::ofstream macaroonFile{dataDir / "macaroon"};
+    macaroonFile << m.serialize() << std::endl;
+    macaroonFile.close();
 
-    TokenHandler tokenHandler{options, dataDir, providerId};
+    MacaroonHandler macaroonHandler{options, dataDir, providerId};
 
-    ASSERT_TRUE(verifyToken(tokenHandler));
+    ASSERT_TRUE(verifyMacaroon(macaroonHandler));
 }
 
-TEST_F(TokenHandlerTest, shouldCacheOptionsToken)
+TEST_F(MacaroonHandlerTest, shouldCacheOptionsMacaroon)
 {
     EXPECT_CALL(options, getAccessToken()).WillOnce(Return(m.serialize()));
 
-    TokenHandler tokenHandler{options, dataDir, providerId};
+    MacaroonHandler macaroonHandler{options, dataDir, providerId};
 
     auto deserialized = macaroonFromCache();
     ASSERT_TRUE(verifier.verifyUnsafe(deserialized, key));

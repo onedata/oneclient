@@ -89,7 +89,7 @@ CHANGELOG
 
 * VFS-754: add global user id to cluster message
 * VFS-754: add ProviderMsg
-* VFS-754: add access tokent to cluster message
+* VFS-754: add access token to cluster message
 * VFS-754: make space_id optional
 * VFS-749: add ClusterProxy context info
 * VFS-754: add space_id to RFM

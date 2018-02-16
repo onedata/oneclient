@@ -31,8 +31,10 @@ namespace one {
 namespace client {
 namespace cache {
 
-MetadataCache::MetadataCache(communication::Communicator &communicator)
+MetadataCache::MetadataCache(communication::Communicator &communicator,
+    const std::chrono::seconds providerTimeout)
     : m_communicator{communicator}
+    , m_providerTimeout{std::move(providerTimeout)}
 {
 }
 
@@ -137,7 +139,8 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
     LOG_DBG(1) << "Fetching attribute for metadata cache";
 
     auto attr = communication::wait(
-        m_communicator.communicate<FileAttr>(std::forward<ReqMsg>(msg)));
+        m_communicator.communicate<FileAttr>(std::forward<ReqMsg>(msg)),
+        m_providerTimeout);
 
     if (!attr.size()) {
         LOG_DBG(1)
@@ -179,9 +182,10 @@ std::shared_ptr<FileLocation> MetadataCache::fetchFileLocation(
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    auto location =
-        communication::wait(m_communicator.communicate<FileLocation>(
-            messages::fuse::GetFileLocation{uuid.toStdString()}));
+    auto location = communication::wait(
+        m_communicator.communicate<FileLocation>(
+            messages::fuse::GetFileLocation{uuid.toStdString()}),
+        m_providerTimeout);
 
     auto sharedLocation = std::make_shared<FileLocation>(std::move(location));
 

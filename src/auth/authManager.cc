@@ -8,7 +8,7 @@
 
 #include "auth/authManager.h"
 #include "auth/authException.h"
-#include "auth/tokenHandler.h"
+#include "auth/macaroonHandler.h"
 #include "communication/cert/certificateData.h"
 #include "communication/communicator.h"
 #include "communication/persistentConnection.h"
@@ -17,7 +17,7 @@
 #include "options/options.h"
 #include "scheduler.h"
 
-#include "messages/token.h"
+#include "messages/macaroon.h"
 
 #include <array>
 #include <cassert>
@@ -31,30 +31,32 @@ namespace auth {
 
 AuthManager::AuthManager(std::weak_ptr<Context> context,
     std::string defaultHostname, const unsigned int port,
-    const bool checkCertificate)
+    const bool checkCertificate, const std::chrono::seconds providerTimeout)
     : m_context{std::move(context)}
     , m_hostname{std::move(defaultHostname)}
     , m_port{port}
     , m_checkCertificate{checkCertificate}
+    , m_providerTimeout{std::move(providerTimeout)}
 {
 }
 
 void AuthManager::cleanup() {}
 
-TokenAuthManager::TokenAuthManager(std::weak_ptr<Context> context,
+MacaroonAuthManager::MacaroonAuthManager(std::weak_ptr<Context> context,
     std::string defaultHostname, const unsigned int port,
-    const bool checkCertificate)
-    : AuthManager{context, defaultHostname, port, checkCertificate}
-    , m_tokenHandler{*context.lock()->options(), m_environment.userDataDir(),
+    const bool checkCertificate, const std::chrono::seconds providerTimeout)
+    : AuthManager{context, defaultHostname, port, checkCertificate,
+          providerTimeout}
+    , m_macaroonHandler{*context.lock()->options(), m_environment.userDataDir(),
           "TODO:ProviderId"}
 {
 }
 
-TokenAuthManager::~TokenAuthManager() { m_cancelRefresh(); }
+MacaroonAuthManager::~MacaroonAuthManager() { m_cancelRefresh(); }
 
 std::tuple<std::shared_ptr<communication::Communicator>,
     folly::Future<folly::Unit>>
-TokenAuthManager::createCommunicator(const unsigned int poolSize,
+MacaroonAuthManager::createCommunicator(const unsigned int poolSize,
     std::string sessionId, std::string version,
     std::function<std::error_code(messages::HandshakeResponse)>
         onHandshakeResponse)
@@ -68,7 +70,7 @@ TokenAuthManager::createCommunicator(const unsigned int poolSize,
     auto future = communicator->setHandshake(
         [=] {
             one::messages::ClientHandshakeRequest handshake{
-                sessionId, m_tokenHandler.restrictedToken(), version};
+                sessionId, m_macaroonHandler.restrictedMacaroon(), version};
 
             return handshake;
         },
@@ -79,42 +81,42 @@ TokenAuthManager::createCommunicator(const unsigned int poolSize,
     return std::forward_as_tuple(std::move(communicator), std::move(future));
 }
 
-void TokenAuthManager::refreshToken()
+void MacaroonAuthManager::refreshMacaroon()
 {
     LOG_FCALL();
-    LOG_DBG(1) << "Sending a refreshed token";
+    LOG_DBG(1) << "Sending a refreshed macaroon";
 
     auto future = m_context.lock()->communicator()->send(
-        one::messages::Token{m_tokenHandler.refreshRestrictedToken()});
+        one::messages::Macaroon{m_macaroonHandler.refreshRestrictedMacaroon()});
 
     try {
-        communication::wait(future);
+        communication::wait(future, m_providerTimeout);
         scheduleRefresh(RESTRICTED_MACAROON_REFRESH);
     }
     catch (const std::exception &e) {
-        LOG(WARNING) << "Sending a refreshed token failed with error: "
+        LOG(WARNING) << "Sending a refreshed macaroon failed with error: "
                      << e.what();
 
-        scheduleRefresh(FAILED_TOKEN_REFRESH_RETRY);
+        scheduleRefresh(FAILED_MACAROON_REFRESH_RETRY);
     }
 }
 
-void TokenAuthManager::scheduleRefresh(const std::chrono::seconds after)
+void MacaroonAuthManager::scheduleRefresh(const std::chrono::seconds after)
 {
     LOG_FCALL() << LOG_FARG(after.count());
     LOG_DBG(1)
-        << "Scheduling next token refresh in "
+        << "Scheduling next macaroon refresh in "
         << std::chrono::duration_cast<std::chrono::seconds>(after).count()
         << " seconds";
 
     m_cancelRefresh = m_context.lock()->scheduler()->schedule(
-        after, std::bind(&TokenAuthManager::refreshToken, this));
+        after, std::bind(&MacaroonAuthManager::refreshMacaroon, this));
 }
 
-void TokenAuthManager::cleanup()
+void MacaroonAuthManager::cleanup()
 {
     LOG_FCALL();
-    m_tokenHandler.removeTokenFile();
+    m_macaroonHandler.removeMacaroonFile();
 }
 
 } // namespace auth

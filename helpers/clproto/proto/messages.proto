@@ -21,6 +21,7 @@ import "proxyio_messages.proto";
 import "dbsync_messages.proto";
 import "provider_messages.proto";
 import "remote_driver_messages.proto";
+import "rtransfer_messages.proto";
 // This file is required by Oneprovider for RTransfer
 import "gwproto.proto";
 
@@ -33,49 +34,52 @@ message ClientMessage {
     oneof message_body { // list of messages that can be sent from
                          // the client to the server
         // handshake_messages.proto
-        ClientHandshakeRequest   client_handshake_request   = 3;
-        ProviderHandshakeRequest provider_handshake_request = 4;
-        Token                    token                      = 5;
+        ClientHandshakeRequest   client_handshake_request          = 3;
+        ProviderHandshakeRequest provider_handshake_request        = 4;
+        Macaroon                 macaroon                          = 5;
 
         // common_messages.proto
-        Status                   status                     = 6;
+        Status                      status                         = 6;
 
         // stream_messages.proto
-        MessageStreamReset       message_stream_reset       = 7;
-        MessageRequest           message_request            = 8;
-        MessageAcknowledgement   message_acknowledgement    = 9;
-        EndOfMessageStream       end_of_stream              = 10;
+        MessageStreamReset          message_stream_reset           = 7;
+        MessageRequest              message_request                = 8;
+        MessageAcknowledgement      message_acknowledgement        = 9;
+        EndOfMessageStream          end_of_stream                  = 10;
 
         // event_messages.proto
-        Events                   events                     = 11;
-        Subscription             subscription               = 12;
-        SubscriptionCancellation subscription_cancellation  = 13;
-        FlushEvents              flush_events               = 14;
+        Events                      events                         = 11;
+        Subscription                subscription                   = 12;
+        SubscriptionCancellation    subscription_cancellation      = 13;
+        FlushEvents                 flush_events                   = 14;
 
         // diagnostic_messages.proto
-        Ping                     ping                       = 15;
-        GetProtocolVersion       get_protocol_version       = 16;
-        GetConfiguration         get_configuration          = 17;
+        Ping                        ping                           = 15;
+        GetProtocolVersion          get_protocol_version           = 16;
+        GetConfiguration            get_configuration              = 17;
 
         // fuse_messages.proto
-        FuseRequest              fuse_request               = 18;
+        FuseRequest                 fuse_request                   = 18;
 
         // proxyio_messages.proto
-        ProxyIORequest           proxyio_request            = 19;
+        ProxyIORequest              proxyio_request                = 19;
 
         // dbsync_messages.proto
-        DBSyncRequest            dbsync_request             = 20;
-        DBSyncMessage            dbsync_message             = 21;
+        DBSyncRequest               dbsync_request                 = 20;
+        DBSyncMessage               dbsync_message                 = 21;
 
         // provider_messages.proto
-        ProviderRequest          provider_request           = 22;
+        ProviderRequest             provider_request               = 22;
 
         // remote_driver_messages.proto
-        GetRemoteDocument        get_remote_document        = 23;
+        GetRemoteDocument           get_remote_document            = 23;
+
+        // rtransfer_messages.proto
+        GenerateRTransferConnSecret generate_rtransfer_conn_secret = 24;
     }
     
-    optional bytes proxy_session_id = 24;
-    optional Token proxy_session_token = 25;
+    optional bytes proxy_session_id                                = 25;
+    optional Macaroon proxy_session_macaroon                       = 26;
 }
 
 // Messages that can be sent by the server to the client.
@@ -119,7 +123,22 @@ message ServerMessage {
 
         // remote_driver_messages.proto
         RemoteDocument           remote_document           = 18;
+
+        // heartbeat or unknown error
+        ProcessingStatus         processing_status         = 19;
+
+        // rtransfer_messages.proto
+        RTransferConnSecret      rtransfer_conn_secret     = 20;
     }
 
-    optional bytes proxy_session_id = 19;
+    optional bytes proxy_session_id                        = 21;
+}
+
+enum ProcessingCode {
+    IN_PROGRESS = 1;
+    ERROR       = 2; // unknown error
+}
+
+message ProcessingStatus {
+    required ProcessingCode code = 1;
 }

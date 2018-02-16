@@ -44,7 +44,8 @@ namespace cache {
  */
 class MetadataCache {
 public:
-    MetadataCache(communication::Communicator &communicator);
+    MetadataCache(communication::Communicator &communicator,
+        const std::chrono::seconds providerTimeout);
 
     /**
      * Retrieves file attributes by uuid.
@@ -261,6 +262,8 @@ private:
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
     std::function<void(const folly::fbstring &, const folly::fbstring &)>
         m_onRename = [](auto, auto) {};
+
+    const std::chrono::seconds m_providerTimeout;
 };
 
 } // namespace cache

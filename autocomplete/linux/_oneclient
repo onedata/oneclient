@@ -41,9 +41,11 @@ arg_oneclient=(\
   {-P,--port}'[Specify the port to which the oneclient should connect on the Oneprovider.]:_ports' \
   {-t,--token}'[Specify Onedata access token for authentication and authorization.]:token' \
   {-l,--log-path}'[Specify custom path for oneclient logs.]: :{_files -/}' \
-  '--no-buffer[Disable in-memory cache for input/output data blocks]' \
-  '--force-proxy-io[Force proxied access to storage via Oneprovider for all spaces]' \
-  '--force-direct-io[Force direct access to storage for all spaces]' \
+  '--no-buffer[Disable in-memory cache for input/output data blocks.]' \
+  '--provider-timeout[Specify Oneprovider connection timeout in seconds.]:number' \
+  '--disable-read-events[Disable reporting of file read events.]' \
+  '--force-proxy-io[Force proxied access to storage via Oneprovider for all spaces.]' \
+  '--force-direct-io[Force direct access to storage for all spaces.]' \
   '--buffer-scheduler-thread-count[Specify number of parallel buffer scheduler threads.]:number' \
   '--communicator-thread-count[Specify number of parallel communicator threads.]:number' \
   '--scheduler-thread-count[Specify number of parallel scheduler threads.]:number' \
