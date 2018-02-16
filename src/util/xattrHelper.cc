@@ -142,7 +142,7 @@ bool decodeJsonXAttrValue(const std::string &value, std::string &output)
         }
     }
     catch (std::exception &e) {
-        LOG(WARNING) << "Parsing Json extended attribute value failed.";
+        LOG(ERROR) << "Parsing Json extended attribute value failed.";
         return false;
     }
 

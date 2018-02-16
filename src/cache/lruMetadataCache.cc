@@ -70,7 +70,7 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
         return std::make_shared<OpenFileToken>(std::move(attr), *this);
     }
     catch (...) {
-        LOG_DBG(1) << " Removing " << uuid
+        LOG(ERROR) << " Removing " << uuid
                    << " from LRU metadata cache due to unexpected error.";
         release(uuid);
         throw;

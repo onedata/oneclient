@@ -92,7 +92,7 @@ macaroons::Macaroon MacaroonHandler::retrieveMacaroon() const
         return macaroon;
     }
     catch (const std::exception &e) {
-        LOG(WARNING) << "Failed to retrieve user's macaroon: " << e.what();
+        LOG(ERROR) << "Failed to retrieve user's macaroon: " << e.what();
         throw BadAccess{"invalid authorization macaroon"};
     }
 }
@@ -107,8 +107,8 @@ MacaroonHandler::readMacaroonFromFile() const
     boost::filesystem::ifstream stream{macaroonFilePath()};
     stream >> macaroon;
     if (stream.fail() || stream.bad() || stream.eof()) {
-        LOG(WARNING) << "Failed to retrieve macaroon from file "
-                     << macaroonFilePath();
+        LOG(ERROR) << "Failed to retrieve macaroon from file "
+                   << macaroonFilePath();
         return {};
     }
 
@@ -116,8 +116,8 @@ MacaroonHandler::readMacaroonFromFile() const
         return deserialize(macaroon);
     }
     catch (const macaroons::exception::Exception &e) {
-        LOG(WARNING) << "Failed to parse macaroon retrieved from file "
-                     << macaroonFilePath() << ": " << e.what();
+        LOG(ERROR) << "Failed to parse macaroon retrieved from file "
+                   << macaroonFilePath() << ": " << e.what();
 
         return {};
     }
@@ -136,8 +136,8 @@ MacaroonHandler::getMacaroonFromOptions() const
         return deserialize(macaroon.get());
     }
     catch (const macaroons::exception::Exception &e) {
-        LOG(WARNING) << "Failed to parse macaroon retrieved from options: "
-                     << e.what();
+        LOG(ERROR) << "Failed to parse macaroon retrieved from options: "
+                   << e.what();
 
         return {};
     }

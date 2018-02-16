@@ -87,6 +87,32 @@ void startLogging(
         : "*";
 #endif
     google::InitGoogleLogging(programName);
+
+    if (options->getProviderHost())
+        LOG(INFO) << "Connecting to Oneprovider: "
+                  << options->getProviderHost().get();
+    LOG(INFO) << "Forced direct io: " << options->isDirectIOForced();
+    LOG(INFO) << "Forced proxy io: " << options->isDirectIOForced();
+    LOG(INFO) << "Verify service certificate: " << options->isInsecure();
+    LOG(INFO) << "File read events disabled: "
+              << options->areFileReadEventsDisabled();
+    LOG(INFO) << "Is IO buffered: " << options->isIOBuffered();
+    LOG(INFO) << "Oneprovider connection timeout [s]: "
+              << options->getProviderTimeout().count();
+    LOG(INFO) << "Is monitoring enabled: " << options->isMonitoringEnabled();
+    if (options->getMonitoringType())
+        LOG(INFO) << "Monitoring type: " << options->getMonitoringType().get();
+    LOG(INFO) << "Is monitoring level basic: "
+              << options->isMonitoringLevelBasic();
+    LOG(INFO) << "Is monitoring level full: "
+              << options->isMonitoringLevelFull();
+    if (options->getMonitoringGraphiteUrl())
+        LOG(INFO) << "Graphite URL: "
+                  << options->getMonitoringGraphiteUrl().get();
+    if (options->getMonitoringGraphiteNamespacePrefix())
+        LOG(INFO) << "Graphite URL: "
+                  << options->getMonitoringGraphiteNamespacePrefix().get();
+    LOG(INFO) << "Mountpoint: " << options->getMountpoint();
 }
 
 int startPerformanceMonitoring(std::shared_ptr<options::Options> options)
