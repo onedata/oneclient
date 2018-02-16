@@ -75,7 +75,7 @@ folly::fbstring InodeCache::at(const fuse_ino_t inode) const
     auto &index = boost::multi_index::get<ByInode>(m_cache);
     auto entryIt = index.find(inode);
     if (entryIt == index.end() || entryIt->lruIt) {
-        LOG_DBG(1) << "No file found for inode " << inode;
+        LOG(ERROR) << "No file found for inode " << inode;
         throw std::out_of_range{
             "no active mapping for inode " + std::to_string(inode)};
     }

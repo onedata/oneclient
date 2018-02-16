@@ -8,14 +8,21 @@
 
 #include "messages/processingStatus.h"
 
+#include "logging.h"
+
 namespace one {
 namespace messages {
 
 ProcessingStatus::ProcessingStatus(
     std::unique_ptr<ProtocolServerMessage> serverMessage)
 {
-    if (serverMessage->processing_status().has_code())
-        m_code = serverMessage->processing_status().code();
+    if (!serverMessage->processing_status().has_code()) {
+        LOG(ERROR) << "Invalid ProcessingStatus - missing code field";
+        throw std::system_error{std::make_error_code(std::errc::protocol_error),
+            "code field missing"};
+    }
+
+    m_code = serverMessage->processing_status().code();
 }
 
 one::clproto::ProcessingCode ProcessingStatus::code() const { return m_code; }

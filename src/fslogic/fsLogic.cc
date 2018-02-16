@@ -398,12 +398,12 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES) {
-            LOG_DBG(1) << "Reading from " << uuid
+            LOG(ERROR) << "Reading from " << uuid
                        << " failed to insufficient permissions";
             throw;
         }
         if (m_forceProxyIOCache.contains(uuid)) {
-            LOG_DBG(1) << "Reading from " << uuid
+            LOG(ERROR) << "Reading from " << uuid
                        << " failed since proxy mode is forced for this file";
             throw;
         }
@@ -454,13 +454,13 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES) {
-            LOG_DBG(1) << "Reading from " << uuid
+            LOG(ERROR) << "Reading from " << uuid
                        << " failed with error code: " << e.what();
             throw;
         }
 
         if (m_forceProxyIOCache.contains(uuid)) {
-            LOG_DBG(1) << "Reading from " << uuid
+            LOG(ERROR) << "Reading from " << uuid
                        << " failed since proxy mode is forced for this file";
             throw;
         }
@@ -604,7 +604,8 @@ FileAttrPtr FsLogic::setattr(
     // provider
 
     if (toSet & FUSE_SET_ATTR_UID || toSet & FUSE_SET_ATTR_GID) {
-        LOG_DBG(1) << "Modyfing uid or gid attempted for " << uuid;
+        LOG_DBG(1) << "Attempting to modify uid or gid attempted for " << uuid
+                   << ". Operation not supported.";
         throw std::errc::operation_not_supported;
     }
 

@@ -82,7 +82,7 @@ template <class T> void TypedStream<T>::process(EventPtr<> event)
         }
     }
     else {
-        LOG_DBG(1) << "Cannot process event " << rawEvent->toString()
+        LOG(ERROR) << "Cannot process event " << rawEvent->toString()
                    << " in a typed stream '" << typeid(T).name() << "'";
     }
 }

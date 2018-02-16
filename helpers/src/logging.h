@@ -28,7 +28,7 @@
  * following rules should be followed when adding logs in the code:
  *  - Runtime info, warning and error logs which will be included in release
  *    builds should be logged using LOG(INFO), LOG(WARNING) and LOG(ERROR)
- *    macros. They should be kept to minimum and provide information on 
+ *    macros. They should be kept to minimum and provide information on
  *    errors and their possible mitigation.
  *  - Debug logs which will be included in debug builds only, should be logged
  *    using GLOG verbose logging facility, i.e. DVLOG(n) macros. Below are
@@ -36,7 +36,7 @@
  *    GLOG native macros:
  *     * LOG_DBG(n) - log with specific verbosity level
  *     * LOG_FCALL() - log function signature, should be used at the beginning
- *                     of functions and methods, which are relevant for the 
+ *                     of functions and methods, which are relevant for the
  *                     program flow
  *     * LOG_FARG(arg) - appends to LOG_FCALL() name and value of a specific
  *                       function argument, example use:
@@ -48,7 +48,7 @@
  *    Debug logs can be enabled by setting global GLOG variables:
  *     * FLAGS_v = n; - where n determines the verbosity level
  *     * FLAGS_vmodule = pattern; - where pattern specifies a filter to enable
- *                                 logs only for specific compilation units 
+ *                                 logs only for specific compilation units
  *                                 with specific verbosity levels
  */
 // clang-format on

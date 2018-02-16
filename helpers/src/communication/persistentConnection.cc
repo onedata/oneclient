@@ -196,6 +196,7 @@ void PersistentConnection::send(std::string message, Callback callback)
     ]() mutable {
         auto socket = getSocket();
         if (!m_connected || !socket) {
+            LOG(ERROR) << "Cannot send message - socket not connected.";
             callback(asio::error::not_connected);
             return;
         }

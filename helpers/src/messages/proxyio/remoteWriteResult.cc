@@ -8,6 +8,7 @@
 
 #include "remoteWriteResult.h"
 
+#include "logging.h"
 #include "messages.pb.h"
 
 #include <sstream>
@@ -20,9 +21,12 @@ RemoteWriteResult::RemoteWriteResult(
     std::unique_ptr<ProtocolServerMessage> serverMessage)
     : ProxyIOResponse{serverMessage}
 {
-    if (!serverMessage->proxyio_response().has_remote_write_result())
+    if (!serverMessage->proxyio_response().has_remote_write_result()) {
+        LOG(ERROR)
+            << "Invalid ProxyIOResponse - missing remote_write_result field";
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "remote_write_result field missing"};
+    }
 
     m_wrote = serverMessage->proxyio_response().remote_write_result().wrote();
 }

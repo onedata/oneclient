@@ -895,6 +895,8 @@ GlusterFSXlatorOptions GlusterFSHelper::parseXlatorOptions(
         folly::split(xlatorOptionValueSeparator, optionPair, optionPairVec);
         if (optionPairVec.size() != 2 || optionPairVec[0].empty() ||
             optionPairVec[1].empty()) {
+            LOG(ERROR) << "Invalid GlusterFS xlator option: "
+                       << options.toStdString();
             throw std::runtime_error(
                 std::string("Invalid GlusterFS xlator option: ") +
                 options.toStdString());
