@@ -166,10 +166,12 @@ std::shared_ptr<StorageHelper> StorageHelperCreator::getStorageHelper(
         helper =
             NullDeviceHelperFactory{m_dioService}.createStorageHelper(args);
 
-    if (!helper)
+    if (!helper) {
+        LOG(ERROR) << "Invalid storage helper name: " << name.toStdString();
         throw std::system_error{
             std::make_error_code(std::errc::invalid_argument),
             "Invalid storage helper name: '" + name.toStdString() + "'"};
+    }
 
     if (buffered
     // disable buffering for GlusterFS

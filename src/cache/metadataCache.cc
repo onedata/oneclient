@@ -143,7 +143,7 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
         m_providerTimeout);
 
     if (!attr.size()) {
-        LOG_DBG(1)
+        LOG(ERROR)
             << "Received invalid message from server when fetching attribute.";
         throw std::errc::protocol_error;
     }

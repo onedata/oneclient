@@ -64,12 +64,16 @@ void wrap(Fun &&fun, Cb &&callback, fuse_req_t req, Args &&... args)
         std::forward<Args>(args)...)
         .then(std::forward<Cb>(callback))
         .onError([req](const std::errc errc) {
+            LOG(ERROR) << "Fuse error exception: "
+                       << std::make_error_code(errc).message();
             fuse_reply_err(req, std::make_error_code(errc).value());
         })
         .onError([req](const std::system_error &e) {
+            LOG(ERROR) << "System error exception: " << e.code().value();
             fuse_reply_err(req, e.code().value());
         })
         .onError([req](const one::communication::TimeoutExceeded &t) {
+            LOG(ERROR) << "Provider connection timed out";
             fuse_reply_err(
                 req, std::make_error_code(std::errc::timed_out).value());
         })
@@ -84,6 +88,7 @@ void wrap(Fun &&fun, Cb &&callback, fuse_req_t req, Args &&... args)
                 req, std::make_error_code(std::errc::io_error).value());
         })
         .onError([req](const folly::TimedOut &e) {
+            LOG(ERROR) << "Fuse operation timed out";
             fuse_reply_err(
                 req, std::make_error_code(std::errc::timed_out).value());
         })
