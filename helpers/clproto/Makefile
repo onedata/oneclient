@@ -19,6 +19,7 @@ build/messages.nif.so: | build/messages.nif.cc
 
 src/messages.erl include/messages.hrl build/messages.nif.cc:
 	mkdir -p build include
+	chmod ug+x $(PROTOCERL)
 	$(PROTOCERL) -il -strbin -nif -I$(CURDIR)/proto -o-erl src -o-hrl include \
 			     -o-nif-cc build $(CURDIR)/proto/messages.proto
 
