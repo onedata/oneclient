@@ -7,8 +7,9 @@
  */
 
 #include "metadataCache.h"
-#include "fuseOperations.h"
 
+#include "cache/readdirCache.h"
+#include "fuseOperations.h"
 #include "logging.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileRenamed.h"
@@ -36,6 +37,11 @@ MetadataCache::MetadataCache(communication::Communicator &communicator,
     : m_communicator{communicator}
     , m_providerTimeout{std::move(providerTimeout)}
 {
+}
+
+void MetadataCache::setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache)
+{
+    m_readdirCache = readdirCache;
 }
 
 FileAttrPtr MetadataCache::getAttr(const folly::fbstring &uuid)
@@ -356,6 +362,9 @@ void MetadataCache::markDeletedIt(const Map::iterator &it)
         m.deleted = true;
     });
 
+    if (it->attr->parentUuid())
+        m_readdirCache->invalidate(*(it->attr->parentUuid()));
+
     m_onMarkDeleted(it->attr->uuid());
 }
 
@@ -395,6 +404,11 @@ bool MetadataCache::rename(const folly::fbstring &uuid,
             m.attr->setParentUuid(newParentUuid);
             m.location = nullptr;
         });
+
+        if (it->attr->parentUuid())
+            m_readdirCache->invalidate(*(it->attr->parentUuid()));
+        m_readdirCache->invalidate(newParentUuid);
+
         LOG_DBG(1) << "Renamed file " << uuid << " to " << newName
                    << " with new uuid " << newUuid << " in " << newParentUuid;
     }

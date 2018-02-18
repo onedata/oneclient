@@ -38,6 +38,8 @@ class UpdateTimes;
 namespace client {
 namespace cache {
 
+class ReaddirCache;
+
 /**
  * @c MetadataCache is responsible for retrieving and caching file attributes
  * and locations.
@@ -46,6 +48,12 @@ class MetadataCache {
 public:
     MetadataCache(communication::Communicator &communicator,
         const std::chrono::seconds providerTimeout);
+
+    /**
+     * Sets a pointer to an instance of @c ReaddirCache.
+     * @param readdirCache Shared pointer to an instance of @c ReaddirCache.
+     */
+    void setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache);
 
     /**
      * Retrieves file attributes by uuid.
@@ -262,6 +270,8 @@ private:
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
     std::function<void(const folly::fbstring &, const folly::fbstring &)>
         m_onRename = [](auto, auto) {};
+
+    std::shared_ptr<ReaddirCache> m_readdirCache;
 
     const std::chrono::seconds m_providerTimeout;
 };

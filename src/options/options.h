@@ -36,6 +36,7 @@ static constexpr auto DEFAULT_WRITE_BUFFER_MIN_SIZE = 20 * 1024 * 1024;
 static constexpr auto DEFAULT_WRITE_BUFFER_MAX_SIZE = 50 * 1024 * 1024;
 static constexpr auto DEFAULT_WRITE_BUFFER_FLUSH_DELAY = 5;
 static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 100000;
+static constexpr auto DEFAULT_READDIR_PREFETCH_SIZE = 2500;
 static constexpr auto DEFAULT_PROVIDER_TIMEOUT = 2 * 60;
 }
 
@@ -240,6 +241,11 @@ public:
      * @return Maximum number of entries in metadata cache.
      */
     unsigned int getMetadataCacheSize() const;
+
+    /*
+     * @return Set readdir cache prefetch size.
+     */
+    unsigned int getReaddirPrefetchSize() const;
 
     /*
      * @return Is monitoring enabled.
