@@ -4,6 +4,66 @@
 CHANGELOG
 ---------
 
+### 18.02.0-beta1
+
+* Improved storage detection
+* Changed default communication port to 443
+* Added NullDevice storage helper for testing
+* Added Graphite performance monitoring
+
+
+### 17.06.2
+
+* Releasing new version 17.06.2
+
+
+### 17.06.1
+
+* Releasing new version 17.06.1
+
+
+### 17.06.0-rc9
+
+* VFS-3951 Added Oneclient version in handshake
+* VFS-3932 Fixed formatting
+* VFS-3932 Added helper performance metrics to rc branch
+
+
+### 17.06.0-rc8
+
+* Releasing new version 17.06.0-rc8
+
+
+### 17.06.0-rc7
+
+* Releasing new version 17.06.0-rc7
+
+
+### 17.06.0-rc6
+
+* Releasing new version 17.06.0-rc6
+
+
+### 17.06.0-rc5
+
+* Releasing new version 17.06.0-rc5
+
+
+### 17.06.0-rc4
+
+* VFS-3682 Modified Oneclient packaging to FPM
+
+
+### 17.06.0-rc3
+
+* VFS-3650 Updated CentOS GlusterFS dependency
+* VFS-3630 Fixed readdir behavior in multiprovider scenarios
+* VFS-3602 Added metadata-cache-size CLI option
+* VFS-3602 Added attribute fetching to readdir
+* VFS-3444 Adjuster default buffer values in options
+* VFS-3510 Added clang format check
+
+
 ### 17.06.0-rc2
 
 * Releasing new version 17.06.0-rc2
