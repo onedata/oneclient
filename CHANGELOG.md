@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 17.06.2
+
+* Releasing new version 17.06.2
+
+
 ### 17.06.1
 
 * Releasing new version 17.06.1
