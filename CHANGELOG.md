@@ -4,6 +4,14 @@
 CHANGELOG
 ---------
 
+### 18.02.0-beta1
+
+* Improved storage detection
+* Changed default communication port to 443
+* Added NullDevice storage helper for testing
+* Added Graphite performance monitoring
+
+
 ### 17.06.2
 
 * Releasing new version 17.06.2
