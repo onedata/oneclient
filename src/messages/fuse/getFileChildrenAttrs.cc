@@ -24,12 +24,23 @@ GetFileChildrenAttrs::GetFileChildrenAttrs(
 {
 }
 
+GetFileChildrenAttrs::GetFileChildrenAttrs(const folly::fbstring &uuid,
+    const off_t offset, const std::size_t size,
+    const folly::Optional<folly::fbstring> &indexToken)
+    : GetFileChildrenAttrs{uuid, offset, size}
+{
+    m_indexToken = indexToken;
+}
+
 std::string GetFileChildrenAttrs::toString() const
 {
     std::stringstream stream;
 
     stream << "type: 'GetFileChildrenAttrs', uuid: " << m_contextGuid
            << ", offset: " << m_offset << ", size: " << m_size;
+
+    if (m_indexToken)
+        stream << ", index_token: " << *m_indexToken;
 
     return stream.str();
 }
@@ -44,6 +55,9 @@ GetFileChildrenAttrs::serializeAndDestroy()
 
     gfc->set_offset(m_offset);
     gfc->set_size(m_size);
+
+    if (m_indexToken)
+        gfc->set_index_token(m_indexToken->toStdString());
 
     return msg;
 }

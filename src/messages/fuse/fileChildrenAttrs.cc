@@ -28,13 +28,22 @@ FileChildrenAttrs::FileChildrenAttrs(
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
             "file_children_attrs field missing"};
 
-    auto fileChildrenAttrs = serverMessage->mutable_fuse_response()
-                                 ->mutable_file_children_attrs()
-                                 ->mutable_child_attrs();
+    auto fileChildrenAttrs =
+        serverMessage->mutable_fuse_response()->mutable_file_children_attrs();
 
-    for (const auto &child : folly::range(fileChildrenAttrs->pointer_begin(),
-             fileChildrenAttrs->pointer_end())) {
+    auto childAttrs = fileChildrenAttrs->mutable_child_attrs();
+
+    for (const auto &child :
+        folly::range(childAttrs->pointer_begin(), childAttrs->pointer_end())) {
         m_childrenAttrs.emplace_back(*child);
+    }
+
+    if (fileChildrenAttrs->has_index_token()) {
+        m_indexToken = fileChildrenAttrs->index_token();
+    }
+
+    if (fileChildrenAttrs->has_is_last()) {
+        m_isLast = fileChildrenAttrs->is_last();
     }
 }
 
@@ -47,6 +56,12 @@ std::string FileChildrenAttrs::toString() const
         stream << attr.uuid() << " ";
 
     stream << "]";
+
+    if (m_indexToken)
+        stream << ", index_token: " << *m_indexToken;
+
+    if (m_isLast)
+        stream << ", is_last: " << *m_isLast;
 
     return stream.str();
 }

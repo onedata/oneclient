@@ -14,6 +14,7 @@
 
 #include <folly/FBString.h>
 #include <folly/FBVector.h>
+#include <folly/Optional.h>
 
 #include <memory>
 #include <string>
@@ -44,10 +45,29 @@ public:
         return m_childrenAttrs;
     }
 
+    /**
+     * @return Optional index token which contains id of the last returned
+     *         item.
+     */
+    const folly::Optional<folly::fbstring> &indexToken() const
+    {
+        return m_indexToken;
+    }
+
+    /**
+     * @return Optional flag determining whether there are any more children
+     *                  in directory.
+     */
+    const folly::Optional<bool> &isLast() const { return m_isLast; }
+
     std::string toString() const override;
 
 private:
     folly::fbvector<FileAttr> m_childrenAttrs;
+
+    folly::Optional<folly::fbstring> m_indexToken;
+
+    folly::Optional<bool> m_isLast;
 };
 
 } // namespace fuse

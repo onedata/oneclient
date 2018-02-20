@@ -12,6 +12,7 @@
 #include "fileRequest.h"
 
 #include <folly/FBString.h>
+#include <folly/Optional.h>
 
 #include <sys/types.h>
 
@@ -36,6 +37,18 @@ public:
     GetFileChildrenAttrs(const folly::fbstring &uuid, const off_t offset,
         const std::size_t size);
 
+    /**
+     * @copydoc GetFileChildrenAttrs(std::string)
+     * @param offset A number of skipped entries at the beginning of directory's
+     * children list.
+     * @param size A number of returned entries of directory's children list.
+     * @param indexToken Token which can be used by the server to find last
+     * returned item.
+     */
+    GetFileChildrenAttrs(const folly::fbstring &uuid, const off_t offset,
+        const std::size_t size,
+        const folly::Optional<folly::fbstring> &indexToken);
+
     std::string toString() const override;
 
 private:
@@ -43,6 +56,7 @@ private:
 
     const off_t m_offset;
     const std::size_t m_size;
+    folly::Optional<folly::fbstring> m_indexToken;
 };
 
 } // namespace fuse

@@ -29,7 +29,6 @@ using namespace std::literals;
 
 DirCacheEntry::DirCacheEntry(const DirCacheEntry &e)
 {
-    ctime = e.ctime;
     atime = e.atime.load();
     invalid = e.invalid.load();
     dirEntries = e.dirEntries;
@@ -37,7 +36,6 @@ DirCacheEntry::DirCacheEntry(const DirCacheEntry &e)
 
 DirCacheEntry::DirCacheEntry(DirCacheEntry &&e)
 {
-    ctime = std::move(e.ctime);
     atime = e.atime.load();
     invalid = e.invalid.load();
     dirEntries = std::move(e.dirEntries);
@@ -89,17 +87,25 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
 
             std::size_t chunkIndex = 0;
             std::size_t fetchedSize = 0;
+            auto isLast = false;
 
             do {
+                // Start with empty index token, and then if server returns
+                // index token pass to next request.
+                folly::Optional<folly::fbstring> indexToken;
+
                 LOG_DBG(2) << "Requesting directory entries for directory "
                            << uuid << " starting at offset " << chunkIndex;
 
                 auto msg = communicate<one::messages::fuse::FileChildrenAttrs>(
-                    one::messages::fuse::GetFileChildrenAttrs{
-                        uuid, static_cast<off_t>(chunkIndex), m_prefetchSize},
+                    one::messages::fuse::GetFileChildrenAttrs{uuid,
+                        static_cast<off_t>(chunkIndex), m_prefetchSize,
+                        indexToken},
                     m_providerTimeout);
 
                 fetchedSize = msg.childrenAttrs().size();
+                indexToken = msg.indexToken();
+                isLast = msg.isLast() && *msg.isLast();
 
                 for (const auto it : folly::enumerate(msg.childrenAttrs())) {
                     const auto fileAttrPtr = std::make_shared<FileAttr>(*it);
@@ -109,9 +115,8 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
 
                 chunkIndex = cacheEntry.dirEntries.size() - 2;
 
-            } while (fetchedSize > 0);
+            } while (!isLast && fetchedSize > 0);
 
-            cacheEntry.ctime = std::chrono::system_clock::now();
             cacheEntry.touch();
 
             return cacheEntry;
@@ -147,15 +152,19 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
     }
 
     DirCacheEntry &dirCacheEntry = f.value();
+
+    // Update the cache entry so that it doesn't expire before the entire
+    // directory is read
     dirCacheEntry.touch();
 
     folly::fbvector<folly::fbstring> acc;
 
+    if (off < 0 ||
+        static_cast<std::size_t>(off) >= dirCacheEntry.cDirEntries().size())
+        return acc;
+
     auto begin = dirCacheEntry.cDirEntries().cbegin();
     auto end = dirCacheEntry.cDirEntries().cend();
-
-    if (static_cast<std::size_t>(off) >= dirCacheEntry.cDirEntries().size())
-        return acc;
 
     std::advance(begin, off);
 
