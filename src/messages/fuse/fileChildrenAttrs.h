@@ -49,16 +49,13 @@ public:
      * @return Optional index token which contains id of the last returned
      *         item.
      */
-    const folly::Optional<folly::fbstring> &indexToken() const
-    {
-        return m_indexToken;
-    }
+    folly::Optional<folly::fbstring> indexToken() const { return m_indexToken; }
 
     /**
      * @return Optional flag determining whether there are any more children
      *                  in directory.
      */
-    const folly::Optional<bool> &isLast() const { return m_isLast; }
+    folly::Optional<bool> isLast() const { return m_isLast; }
 
     std::string toString() const override;
 

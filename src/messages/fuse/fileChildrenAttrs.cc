@@ -38,13 +38,11 @@ FileChildrenAttrs::FileChildrenAttrs(
         m_childrenAttrs.emplace_back(*child);
     }
 
-    if (fileChildrenAttrs->has_index_token()) {
+    if (fileChildrenAttrs->has_index_token())
         m_indexToken = fileChildrenAttrs->index_token();
-    }
 
-    if (fileChildrenAttrs->has_is_last()) {
+    if (fileChildrenAttrs->has_is_last())
         m_isLast = fileChildrenAttrs->is_last();
-    }
 }
 
 std::string FileChildrenAttrs::toString() const

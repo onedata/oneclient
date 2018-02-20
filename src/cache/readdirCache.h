@@ -35,20 +35,25 @@ using namespace std::literals;
  * DirCacheEntry stores the list of entries fetched from the
  * provider for a specific directory entry.
  */
-struct DirCacheEntry {
-    std::atomic_ullong atime;
-    std::atomic_bool invalid;
-    std::list<folly::fbstring> dirEntries;
-
-    DirCacheEntry() = default;
+class DirCacheEntry {
+public:
+    DirCacheEntry();
     ~DirCacheEntry() = default;
     DirCacheEntry(const DirCacheEntry &e);
     DirCacheEntry(DirCacheEntry &&e);
 
     /**
+     * Add directory entry to cache.
+     *
+     * @param name Directory entry name.
+     */
+    void addEntry(const folly::fbstring &name);
+    void addEntry(folly::fbstring &&name);
+
+    /**
      * Returns const reference to the directory entries.
      */
-    const auto &cDirEntries() const;
+    const auto &dirEntries() const;
 
     /**
      * Checks if the dir cache entry is still valid.
@@ -64,6 +69,11 @@ struct DirCacheEntry {
      * Makes the cache entry fresh again.
      */
     void touch();
+
+private:
+    std::atomic_ullong m_atime;
+    std::atomic_bool m_invalid;
+    std::list<folly::fbstring> m_dirEntries;
 };
 
 /**
@@ -127,7 +137,7 @@ private:
      * the future generated from this promise.
      */
     folly::ConcurrentHashMap<folly::fbstring,
-        std::shared_ptr<folly::SharedPromise<DirCacheEntry>>>
+        std::shared_ptr<folly::SharedPromise<std::shared_ptr<DirCacheEntry>>>>
         m_cache;
 
     /**

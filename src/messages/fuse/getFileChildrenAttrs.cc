@@ -26,10 +26,10 @@ GetFileChildrenAttrs::GetFileChildrenAttrs(
 
 GetFileChildrenAttrs::GetFileChildrenAttrs(const folly::fbstring &uuid,
     const off_t offset, const std::size_t size,
-    const folly::Optional<folly::fbstring> &indexToken)
+    folly::Optional<folly::fbstring> indexToken)
     : GetFileChildrenAttrs{uuid, offset, size}
 {
-    m_indexToken = indexToken;
+    m_indexToken.assign(std::move(indexToken));
 }
 
 std::string GetFileChildrenAttrs::toString() const

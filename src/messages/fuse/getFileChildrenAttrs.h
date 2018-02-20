@@ -46,8 +46,7 @@ public:
      * returned item.
      */
     GetFileChildrenAttrs(const folly::fbstring &uuid, const off_t offset,
-        const std::size_t size,
-        const folly::Optional<folly::fbstring> &indexToken);
+        const std::size_t size, folly::Optional<folly::fbstring> indexToken);
 
     std::string toString() const override;
 
