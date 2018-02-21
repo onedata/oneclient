@@ -84,7 +84,7 @@ void PersistentConnection::upgrade()
     requestStream << "Connection: upgrade\r\n";
     requestStream << "Upgrade: clproto\r\n\r\n";
 
-    LOG_DBG(2) << "Sending socket upgrade request: \n" << requestStream.str();
+    LOG_DBG(2) << "Sending socket upgrade request";
 
     m_socket->sendAsync(m_socket, prepareRawOutBuffer(requestStream.str()),
         createCallback([=] { this->onUpgradeRequestSent(); }));
@@ -105,7 +105,7 @@ void PersistentConnection::onUpgradeResponseReceived()
 {
     LOG_FCALL();
 
-    LOG_DBG(2) << "Upgrade response received: " << m_inData << "\n";
+    LOG_DBG(2) << "Upgrade response received";
 
     std::string httpResponseStatus;
     std::istringstream iss(std::move(m_inData));
@@ -149,7 +149,7 @@ void PersistentConnection::onHandshakeReceived()
 {
     LOG_FCALL();
 
-    LOG_DBG(2) << "Handshake received " << m_inData;
+    LOG_DBG(2) << "Handshake received";
 
     std::error_code ec;
     if (m_onHandshakeResponse)
