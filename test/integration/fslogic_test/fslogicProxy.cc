@@ -188,7 +188,7 @@ public:
         ReleaseGIL guard;
 
         std::vector<std::string> children;
-        for (auto &name : m_fsLogic.readdir(uuid, 0, chunkSize, offset))
+        for (auto &name : m_fsLogic.readdir(uuid, chunkSize, offset))
             children.emplace_back(name.toStdString());
 
         return children;

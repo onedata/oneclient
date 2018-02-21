@@ -150,7 +150,7 @@ void wrap_getattr(
 }
 
 void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
-    struct fuse_file_info *fi)
+    struct fuse_file_info * /*fi*/)
 {
     LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(maxSize)
                 << LOG_FARG(off);
@@ -201,34 +201,7 @@ void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
 
             ONE_METRIC_TIMERCTX_STOP(timer, names.size());
         },
-        req, ino, fi->fh, floor(maxSize / AVERAGE_FILE_NAME_LENGTH), off);
-}
-
-void wrap_opendir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
-{
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino);
-
-    auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.opendir");
-    wrap(&fslogic::Composite::opendir,
-        [&, req, ino, fi = *fi, timer = std::move(timer) ](
-            const std::uint64_t fh) mutable {
-            const auto userdata = fuse_req_userdata(req);
-            fi.fh = fh;
-            if (fuse_reply_open(req, &fi))
-                callFslogic(&fslogic::Composite::releasedir, userdata, ino, fh);
-        },
-        req, ino);
-}
-
-void wrap_releasedir(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
-{
-    LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(fi->fh);
-
-    auto timer =
-        ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.releasedir");
-    wrap(&fslogic::Composite::releasedir,
-        [&, req, timer = std::move(timer) ]() { fuse_reply_err(req, 0); }, req,
-        ino, fi->fh);
+        req, ino, floor(maxSize / AVERAGE_FILE_NAME_LENGTH), off);
 }
 
 void wrap_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
@@ -704,8 +677,6 @@ struct fuse_lowlevel_ops fuseOperations()
     operations.open = wrap_open;
     operations.read = wrap_read;
     operations.readdir = wrap_readdir;
-    operations.opendir = wrap_opendir;
-    operations.releasedir = wrap_releasedir;
     operations.release = wrap_release;
     operations.rename = wrap_rename;
     operations.rmdir = wrap_unlink;

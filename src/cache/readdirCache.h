@@ -100,7 +100,7 @@ private:
  * from Oneprovider in much larger chunks than is allowed by the Fuse
  * page limit, and then retreived by Fuse from this cache in smaller chunks.
  */
-class ReaddirCache {
+class ReaddirCache : public std::enable_shared_from_this<ReaddirCache> {
 public:
     /**
      * Constructor.
@@ -133,16 +133,9 @@ public:
     void invalidate(const folly::fbstring &uuid);
 
     /**
-     * Increments the open directory count for uuid directory.
+     * Returns true if cache doesn't contain any elements.
      */
-    void opendir(const folly::fbstring &uuid);
-
-    /**
-     * Decrements the open directory count for uuid directory.
-     *
-     * If the directory open count drops to zero it is released.
-     */
-    void releasedir(const folly::fbstring &uuid);
+    bool empty();
 
 private:
     /**
@@ -159,25 +152,31 @@ private:
     void fetch(const folly::fbstring &uuid);
 
     /**
+     * Removes element cache for specific directory.
+     */
+    void purge(const folly::fbstring &uuid);
+
+    /**
+     * Worker function which should be scheduled to clean directory entry after
+     * it becomes stale. It should also schedule itself again in case the entry
+     * is still valid.
+     */
+    void purgeWorker(
+        folly::fbstring uuid, std::shared_ptr<DirCacheEntry> entry);
+
+    /**
      * Directory entry cache.
      *
-     * Each directory entry is stored in a shared promise, so that when several
-     * threads try to fetch directory entries in the same time, only one
-     * request to the provider is performed. The first thread will initiate
-     * the fetch from the provider, and the consecutive ones will wait on
-     * the future generated from this promise.
+     * Each directory entry is stored in a shared promise, so that when
+     * several threads try to fetch directory entries in the same time, only
+     * one request to the provider is performed. The first thread will
+     * initiate the fetch from the provider, and the consecutive ones will
+     * wait on the future generated from this promise.
      */
     std::unordered_map<folly::fbstring,
         std::shared_ptr<folly::SharedPromise<std::shared_ptr<DirCacheEntry>>>>
         m_cache;
     std::mutex m_cacheMutex;
-
-    /**
-     * Map which stores directory open count (i.e. handle count) for each
-     * directory.
-     */
-    std::unordered_map<folly::fbstring, uint64_t> m_directoryOpenCount;
-    std::mutex m_directoryOpenCountMutex;
 
     /**
      * Reference to metadata cache.

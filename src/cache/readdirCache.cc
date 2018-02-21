@@ -21,6 +21,8 @@
 #include <folly/Range.h>
 #include <fuse/fuse_lowlevel.h>
 
+#include <memory>
+
 namespace one {
 namespace client {
 namespace cache {
@@ -144,10 +146,34 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
 
             cacheEntry->unique();
             cacheEntry->touch();
+            m_context->scheduler()->schedule(2 * m_cacheValidityPeriod, [
+                uuid = uuid, cacheEntry = cacheEntry, self = shared_from_this()
+            ]() { self->purgeWorker(uuid, cacheEntry); });
 
             return cacheEntry;
         });
     });
+}
+
+void ReaddirCache::purgeWorker(
+    folly::fbstring uuid, std::shared_ptr<DirCacheEntry> entry)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    if (!entry->isValid(m_cacheValidityPeriod)) {
+        LOG_DBG(2) << "Purging stale readdir cache entry " << uuid;
+
+        purge(uuid);
+    }
+    else {
+        LOG_DBG(2) << "Readdir cache entry " << uuid
+                   << " still valid - scheduling next purge";
+
+        m_context->scheduler()->schedule(2 * m_cacheValidityPeriod, [
+            uuid = std::move(uuid), entry = std::move(entry),
+            self = shared_from_this()
+        ]() { self->purgeWorker(uuid, entry); });
+    }
 }
 
 folly::fbvector<folly::fbstring> ReaddirCache::readdir(
@@ -222,26 +248,19 @@ void ReaddirCache::invalidate(const folly::fbstring &uuid)
     }
 }
 
-void ReaddirCache::opendir(const folly::fbstring &uuid)
+void ReaddirCache::purge(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    std::lock_guard<std::mutex> lock(m_directoryOpenCountMutex);
-
-    m_directoryOpenCount[uuid]++;
+    std::lock_guard<std::mutex> lock(m_cacheMutex);
+    m_cache.erase(uuid);
 }
 
-void ReaddirCache::releasedir(const folly::fbstring &uuid)
+bool ReaddirCache::empty()
 {
-    LOG_FCALL() << LOG_FARG(uuid);
+    LOG_FCALL();
 
-    std::lock_guard<std::mutex> lock(m_directoryOpenCountMutex);
-
-    m_directoryOpenCount[uuid]--;
-    if (m_directoryOpenCount[uuid] <= 0) {
-        m_directoryOpenCount.erase(uuid);
-        m_cache.erase(uuid);
-    }
+    return m_cache.empty();
 }
 
 template <typename SrvMsg, typename CliMsg>

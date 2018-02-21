@@ -88,22 +88,8 @@ public:
      * FUSE @c readdir callback.
      * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
      */
-    folly::fbvector<folly::fbstring> readdir(const folly::fbstring &uuid,
-        const std::uint64_t dirHandleId, const size_t maxSize,
-        const off_t off);
-
-    /**
-     * FUSE @c opendir callback.
-     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
-     */
-    std::uint64_t opendir(const folly::fbstring &uuid);
-
-    /**
-     * FUSE @c releasedir callback.
-     * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
-     */
-    void releasedir(
-        const folly::fbstring &uuid, const std::uint64_t fileHandleId);
+    folly::fbvector<folly::fbstring> readdir(
+        const folly::fbstring &uuid, const size_t maxSize, const off_t off);
 
     /**
      * FUSE @c open callback.
