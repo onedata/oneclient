@@ -173,6 +173,16 @@ def prepare_rename_response(new_uuid):
     return server_response
 
 
+def prepare_processing_status_response(status):
+    repl = messages_pb2.ProcessingStatus()
+    repl.code = status
+
+    server_response = messages_pb2.ServerMessage()
+    server_response.processing_status.CopyFrom(repl)
+
+    return server_response
+
+
 def prepare_open_response(handle_id='handle_id'):
     repl = fuse_messages_pb2.FileOpened()
     repl.handle_id = handle_id
@@ -859,6 +869,34 @@ def test_release_should_send_fsync_message(endpoint, fl, uuid):
     assert client_message.HasField('fuse_request')
     assert client_message.fuse_request.HasField('file_request')
     assert client_message.fuse_request.file_request.HasField('fsync')
+
+
+def test_fslogic_should_handle_processing_status_message(endpoint, fl, uuid):
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
+    rename_response = prepare_rename_response('newUuid')
+    processing_status_responses = \
+        [prepare_processing_status_response(messages_pb2.IN_PROGRESS)
+                for _ in range(5)]
+
+    responses = [getattr_response]
+    responses.extend(processing_status_responses)
+    responses.append(rename_response)
+    with reply(endpoint, responses) as queue:
+        fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
+        queue.get()
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('rename')
+
+    rename = file_request.rename
+    assert rename.target_parent_uuid == 'newParentUuid'
+    assert rename.target_name == 'newName'
+    assert file_request.context_guid == \
+           getattr_response.fuse_response.file_attr.uuid
 
 
 def prepare_listxattr_response(uuid):
