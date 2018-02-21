@@ -69,7 +69,8 @@ void wrap(Fun &&fun, Cb &&callback, fuse_req_t req, Args &&... args)
             fuse_reply_err(req, std::make_error_code(errc).value());
         })
         .onError([req](const std::system_error &e) {
-            LOG(ERROR) << "System error exception: " << e.code().value();
+            LOG_DBG(1) << "System error exception: " << e.what() << " ("
+                       << e.code().value() << ")";
             fuse_reply_err(req, e.code().value());
         })
         .onError([req](const one::communication::TimeoutExceeded &t) {
