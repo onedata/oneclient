@@ -77,7 +77,7 @@ void throwOnError(folly::fbstring operation, const Outcome &outcome)
     auto reason =
         "'" + operation.toStdString() + "': " + outcome->getError().msg;
 
-    LOG_DBG(1) << "Operation " << operation << " failed with message "
+    LOG(ERROR) << "Operation " << operation << " failed with message "
                << outcome->getError().msg;
 
     throw std::system_error{code, std::move(reason)};

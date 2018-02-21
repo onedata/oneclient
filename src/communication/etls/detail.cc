@@ -8,6 +8,8 @@
 
 #include "detail.h"
 
+#include "logging.h"
+
 #include <asio/ssl/context.hpp>
 #include <asio/ssl/rfc2818_verification.hpp>
 
@@ -47,8 +49,10 @@ WithSSLContext::WithSSLContext(const asio::ssl::context_base::method method,
 
     std::unique_ptr<X509_VERIFY_PARAM, decltype(&X509_VERIFY_PARAM_free)> param{
         X509_VERIFY_PARAM_new(), X509_VERIFY_PARAM_free};
-    if (!param)
+    if (!param) {
+        LOG(ERROR) << "Failed to allocate X509 param structure";
         throw std::bad_alloc{};
+    }
 
     X509_VERIFY_PARAM_set_flags(
         param.get(), X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
@@ -99,6 +103,9 @@ void WithSSLContext::addCertificateRevocationList(
         }
     }
 
+    LOG(ERROR) << "Failed to add certificate to revocation list: "
+               << static_cast<int>(ERR_get_error());
+
     throw std::system_error{
         static_cast<int>(ERR_get_error()), asio::error::get_ssl_category()};
 }
@@ -125,6 +132,9 @@ void WithSSLContext::addChainCertificate(const asio::const_buffer &data)
             }
         }
     }
+
+    LOG(ERROR) << "Failed to add certificate to certificate chain: "
+               << static_cast<int>(ERR_get_error());
 
     throw std::system_error{
         static_cast<int>(ERR_get_error()), asio::error::get_ssl_category()};

@@ -65,7 +65,18 @@ def _with_reply_process(endpoint, responses, queue, reply_to_async=False):
             print "client_message", client_message
 
             if message_has_id or reply_to_async:
+                # first send out all consecutive processing status messages
+                # in the responses list without waiting for client message
                 response = responses.pop(0)
+                while response.HasField('processing_status'):
+                    if message_has_id:
+                        response.message_id = client_message.message_id.encode(
+                            'utf-8')
+
+                    print "response", response
+                    endpoint.send(response.SerializeToString())
+                    response = responses.pop(0)
+
                 if message_has_id:
                     response.message_id = client_message.message_id.encode(
                         'utf-8')

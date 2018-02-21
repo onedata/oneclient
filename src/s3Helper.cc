@@ -65,7 +65,7 @@ void throwOnError(const folly::fbstring &operation, const Outcome &outcome)
     auto msg = operation.toStdString() +
         "': " + outcome.GetError().GetMessage().c_str();
 
-    LOG_DBG(1) << "Operation " << operation << " failed with message " << msg;
+    LOG(ERROR) << "Operation " << operation << " failed with message " << msg;
 
     throw std::system_error{code, std::move(msg)};
 }
