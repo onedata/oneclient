@@ -552,7 +552,7 @@ def test_utime_should_pass_utime_errors(endpoint, fl, uuid, stat):
 
 def test_readdir_should_read_dir(endpoint, fl, uuid, stat):
     #
-    # Prepare first response with 2 files
+    # Prepare first response with 5 files
     #
     repl1 = prepare_file_children_attr_response(uuid, "afiles-", 5)
     repl1.is_last = False
@@ -562,7 +562,7 @@ def test_readdir_should_read_dir(endpoint, fl, uuid, stat):
     response1.fuse_response.status.code = common_messages_pb2.Status.ok
 
     #
-    # Prepare second response with 1 file
+    # Prepare second response with another 5 file
     #
     repl2 = prepare_file_children_attr_response(uuid, "bfiles-", 5)
     repl2.is_last = True
@@ -573,11 +573,11 @@ def test_readdir_should_read_dir(endpoint, fl, uuid, stat):
 
     children = []
     offset = 0
-    chunk_size = 5
+    chunk_size = 50
     with reply(endpoint, [response1, response2]) as queue:
         children_chunk = fl.readdir(uuid, chunk_size, offset)
         _ = queue.get()
-        assert len(children_chunk) == 5
+        assert len(children_chunk) == 12
 
     #
     # Immediately after the last request the value should be available
@@ -608,6 +608,38 @@ def test_readdir_should_read_dir(endpoint, fl, uuid, stat):
         children += children_chunk
 
     assert sorted(children) == sorted(['..', '.'])
+
+
+def test_readdir_should_return_unique_entries(endpoint, fl, uuid, stat):
+    #
+    # Prepare first response with 5 files
+    #
+    repl1 = prepare_file_children_attr_response(uuid, "afiles-", 5)
+    repl1.is_last = False
+
+    response1 = messages_pb2.ServerMessage()
+    response1.fuse_response.file_children_attrs.CopyFrom(repl1)
+    response1.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    #
+    # Prepare second response with the same 5 files
+    #
+    repl2 = prepare_file_children_attr_response(uuid, "afiles-", 5)
+    repl2.is_last = True
+
+    response2 = messages_pb2.ServerMessage()
+    response2.fuse_response.file_children_attrs.CopyFrom(repl2)
+    response2.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    children = []
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [response1, response2]) as queue:
+        children_chunk = fl.readdir(uuid, chunk_size, offset)
+        _ = queue.get()
+        children.extend(children_chunk)
+
+    assert len(children) == 5 + 2
 
 
 def test_readdir_should_pass_readdir_errors(endpoint, fl, uuid, stat):
@@ -732,8 +764,8 @@ def test_truncate_should_pass_truncate_errors(endpoint, fl, uuid):
 
 @pytest.mark.skip(reason="TODO VFS-3718")
 def test_readdir_big_directory(endpoint, fl, uuid, stat):
-    chunk_size = 5
-    children_num = 5*chunk_size
+    chunk_size = 2500
+    children_num = 10*chunk_size
 
     # Prepare an array of responses of appropriate sizes to client
     # requests
@@ -755,6 +787,7 @@ def test_readdir_big_directory(endpoint, fl, uuid, stat):
 
     empty_repl = fuse_messages_pb2.FileChildrenAttrs()
     empty_repl.child_attrs.extend([])
+    empty_repl.is_last = True
     empty_response = messages_pb2.ServerMessage()
     empty_response.fuse_response.file_children_attrs.CopyFrom(empty_repl)
     empty_response.fuse_response.status.code = common_messages_pb2.Status.ok

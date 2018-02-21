@@ -70,11 +70,27 @@ public:
         return detail::toStatbuf(std::move(attr), ino);
     }
 
-    auto readdir(const fuse_ino_t ino, const size_t maxSize, const off_t off)
+    auto readdir(const fuse_ino_t ino, const std::uint64_t handle,
+        const size_t maxSize, const off_t off)
     {
-        LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(maxSize) << LOG_FARG(off);
+        LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(handle) << LOG_FARG(maxSize)
+                    << LOG_FARG(off);
 
-        return wrap(&FsLogicT::readdir, ino, maxSize, off);
+        return wrap(&FsLogicT::readdir, ino, handle, maxSize, off);
+    }
+
+    auto opendir(const fuse_ino_t ino)
+    {
+        LOG_FCALL() << LOG_FARG(ino);
+
+        return wrap(&FsLogicT::opendir, ino);
+    }
+
+    auto releasedir(const fuse_ino_t ino, const std::uint64_t handle)
+    {
+        LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(handle);
+
+        return wrap(&FsLogicT::releasedir, ino, handle);
     }
 
     auto open(const fuse_ino_t ino, const int flags)

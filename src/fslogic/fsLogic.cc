@@ -166,12 +166,36 @@ FileAttrPtr FsLogic::getattr(const folly::fbstring &uuid)
     return m_metadataCache.getAttr(uuid);
 }
 
-folly::fbvector<folly::fbstring> FsLogic::readdir(
-    const folly::fbstring &uuid, const size_t maxSize, const off_t off)
+folly::fbvector<folly::fbstring> FsLogic::readdir(const folly::fbstring &uuid,
+    const std::uint64_t /*dirHandleId*/, const size_t maxSize, const off_t off)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(maxSize) << LOG_FARG(off);
 
     return m_readdirCache->readdir(uuid, off, maxSize);
+}
+
+std::uint64_t FsLogic::opendir(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    const auto fuseDirectoryHandleId = m_nextFuseHandleId++;
+    m_fuseDirectoryHandles.emplace(fuseDirectoryHandleId, uuid);
+
+    m_readdirCache->opendir(uuid);
+
+    return fuseDirectoryHandleId;
+}
+
+void FsLogic::releasedir(
+    const folly::fbstring &uuid, const std::uint64_t dirHandleId)
+{
+    LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(dirHandleId);
+
+    auto fuseDirHandle = m_fuseDirectoryHandles.at(dirHandleId);
+
+    m_readdirCache->releasedir(fuseDirHandle);
+
+    m_fuseDirectoryHandles.erase(dirHandleId);
 }
 
 std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
@@ -535,7 +559,10 @@ void FsLogic::unlink(
     auto attr = m_metadataCache.getAttr(parentUuid, name);
     communicate(messages::fuse::DeleteFile{attr->uuid().toStdString()},
         m_providerTimeout);
+
     m_metadataCache.markDeleted(attr->uuid());
+
+    m_readdirCache->invalidate(parentUuid);
 
     LOG_DBG(1) << "Deleted file " << name << " in " << parentUuid
                << " with uuid " << attr->uuid();

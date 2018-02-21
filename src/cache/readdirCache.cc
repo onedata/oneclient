@@ -25,10 +25,9 @@ namespace one {
 namespace client {
 namespace cache {
 
-using namespace std::literals;
-
 DirCacheEntry::DirCacheEntry()
-    : m_invalid{false}
+    : m_atime{0}
+    , m_invalid{false}
 {
 }
 
@@ -56,7 +55,10 @@ void DirCacheEntry::addEntry(folly::fbstring &&name)
     m_dirEntries.emplace_back(std::move(name));
 }
 
-const auto &DirCacheEntry::dirEntries() const { return m_dirEntries; }
+const std::list<folly::fbstring> &DirCacheEntry::dirEntries() const
+{
+    return m_dirEntries;
+}
 
 void DirCacheEntry::invalidate() { m_invalid = true; }
 
@@ -76,6 +78,12 @@ void DirCacheEntry::touch(void)
                   .count();
 }
 
+void DirCacheEntry::unique(void)
+{
+    m_dirEntries.sort();
+    m_dirEntries.unique();
+}
+
 ReaddirCache::ReaddirCache(
     LRUMetadataCache &metadataCache, std::shared_ptr<Context> context)
     : m_metadataCache(metadataCache)
@@ -89,13 +97,14 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    // This private method is only called from a lock_guard block, which makes
+    // sure before that uuid is no longer member of m_cache, so that we don't
+    // have to check again here
     auto p = std::make_shared<
         folly::SharedPromise<std::shared_ptr<DirCacheEntry>>>();
     m_cache.emplace(uuid, p);
 
-    m_context->scheduler()->schedule(0s, [
-        this, uuid = uuid, p = std::move(p)
-    ] {
+    m_context->scheduler()->post([ this, uuid = uuid, p = std::move(p) ] {
         p->setWith([=] {
             auto cacheEntry = std::make_shared<DirCacheEntry>();
             cacheEntry->addEntry(".");
@@ -104,6 +113,7 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
             std::size_t chunkIndex = 0;
             std::size_t fetchedSize = 0;
             auto isLast = false;
+
             // Start with empty index token, and then if server returns
             // index token pass to next request.
             folly::Optional<folly::fbstring> indexToken;
@@ -132,6 +142,7 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
 
             } while (!isLast && fetchedSize > 0);
 
+            cacheEntry->unique();
             cacheEntry->touch();
 
             return cacheEntry;
@@ -144,20 +155,28 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
 
-    // Check if the uuid is already in the cache if not start fetch
+    // Check if the uuid is already in the cache, if not start fetch
     // asynchronously and add a shared promise to the cache so if any
-    // other request for this uuid comes in the mean time it is queued
-    // on that promised
-    m_cacheMutex.lock();
-    auto uuidIt = m_cache.find(uuid);
-    if (uuidIt != m_cache.cend() && (*uuidIt).second->isFulfilled() &&
-        !(*uuidIt).second->getFuture().get()->isValid(m_cacheValidityPeriod)) {
-        m_cache.erase(uuid);
+    // other request for this uuid comes in the meantime it gets queued
+    // on that promise
+    // In case of error, the promise contains an exception which can
+    // be propagated upwards
+    {
+        std::lock_guard<std::mutex> lock(m_cacheMutex);
+
+        auto uuidIt = m_cache.find(uuid);
+
+        if (uuidIt != m_cache.cend() && (*uuidIt).second->isFulfilled() &&
+            !(*uuidIt).second->getFuture().get()->isValid(
+                m_cacheValidityPeriod)) {
+            m_cache.erase(uuidIt);
+            uuidIt = m_cache.end();
+        }
+
+        if (uuidIt == m_cache.end()) {
+            fetch(uuid);
+        }
     }
-    if (m_cache.find(uuid) == m_cache.cend()) {
-        fetch(uuid);
-    }
-    m_cacheMutex.unlock();
 
     auto dirEntriesFuture = (*m_cache.find(uuid)).second;
     auto f = dirEntriesFuture->getFuture().wait();
@@ -193,14 +212,36 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
 
 void ReaddirCache::invalidate(const folly::fbstring &uuid)
 {
-    m_cacheMutex.lock();
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    std::lock_guard<std::mutex> lock(m_cacheMutex);
 
     auto it = m_cache.find(uuid);
     if (it != m_cache.cend() && (*it).second->isFulfilled()) {
         (*it).second->getFuture().get()->invalidate();
     }
+}
 
-    m_cacheMutex.unlock();
+void ReaddirCache::opendir(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    std::lock_guard<std::mutex> lock(m_directoryOpenCountMutex);
+
+    m_directoryOpenCount[uuid]++;
+}
+
+void ReaddirCache::releasedir(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    std::lock_guard<std::mutex> lock(m_directoryOpenCountMutex);
+
+    m_directoryOpenCount[uuid]--;
+    if (m_directoryOpenCount[uuid] <= 0) {
+        m_directoryOpenCount.erase(uuid);
+        m_cache.erase(uuid);
+    }
 }
 
 template <typename SrvMsg, typename CliMsg>

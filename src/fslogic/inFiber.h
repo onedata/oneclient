@@ -79,7 +79,10 @@ public:
 
     WRAP(lookup, (const fuse_ino_t)(const folly::fbstring &))
     WRAP(getattr, (const fuse_ino_t))
-    WRAP(readdir, (const fuse_ino_t)(const size_t)(const off_t))
+    WRAP(readdir,
+        (const fuse_ino_t)(const std::uint64_t)(const size_t)(const off_t))
+    WRAP(opendir, (const fuse_ino_t))
+    WRAP(releasedir, (const fuse_ino_t)(const std::uint64_t))
     WRAP(open, (const fuse_ino_t)(const int))
     WRAP(release, (const fuse_ino_t)(const std::uint64_t))
     WRAP(mkdir, (const fuse_ino_t)(const folly::fbstring &)(const mode_t))

@@ -16,8 +16,6 @@
 #include <folly/FBString.h>
 #include <folly/FBVector.h>
 #include <folly/Optional.h>
-#include <folly/SharedMutex.h>
-#include <folly/concurrency/ConcurrentHashMap.h>
 #include <folly/futures/Future.h>
 #include <folly/futures/SharedPromise.h>
 #include <fuse/fuse_lowlevel.h>
@@ -30,6 +28,8 @@ namespace client {
 namespace cache {
 
 using namespace std::literals;
+
+constexpr auto READDIR_CACHE_VALIDITY_DURATION = 2000ms;
 
 /**
  * DirCacheEntry stores the list of entries fetched from the
@@ -53,7 +53,7 @@ public:
     /**
      * Returns const reference to the directory entries.
      */
-    const auto &dirEntries() const;
+    const std::list<folly::fbstring> &dirEntries() const;
 
     /**
      * Checks if the dir cache entry is still valid.
@@ -70,9 +70,28 @@ public:
      */
     void touch();
 
+    /**
+     * Remove any duplicates from the directory entries container.
+     */
+    void unique();
+
 private:
+    /**
+     * Last access time to this cache entry, stored as milliseconds
+     * since epoch for atomic access.
+     */
     std::atomic_ullong m_atime;
+
+    /**
+     * When true, this directory cache is invalid and should be purged.
+     */
     std::atomic_bool m_invalid;
+
+    /**
+     * The directory entries list doesn't have to be locked for now as
+     * it is only filled by a single thread and cannot be accessed
+     * by other threads until is completely fetched from the provider.
+     */
     std::list<folly::fbstring> m_dirEntries;
 };
 
@@ -87,7 +106,7 @@ public:
      * Constructor.
      *
      * @param metadataCache Reference to the metadata cache.
-     * @param context Pointer to @ Context to access options and scheduler.
+     * @param context Pointer to @c Context to access options and scheduler.
      */
     ReaddirCache(
         LRUMetadataCache &metadataCache, std::shared_ptr<Context> context);
@@ -109,9 +128,21 @@ public:
         const off_t off, const std::size_t chunkSize);
 
     /**
-     * Invalidate a specific directory cache.
+     * Invalidate cache for a specific directory.
      */
     void invalidate(const folly::fbstring &uuid);
+
+    /**
+     * Increments the open directory count for uuid directory.
+     */
+    void opendir(const folly::fbstring &uuid);
+
+    /**
+     * Decrements the open directory count for uuid directory.
+     *
+     * If the directory open count drops to zero it is released.
+     */
+    void releasedir(const folly::fbstring &uuid);
 
 private:
     /**
@@ -136,14 +167,17 @@ private:
      * the fetch from the provider, and the consecutive ones will wait on
      * the future generated from this promise.
      */
-    folly::ConcurrentHashMap<folly::fbstring,
+    std::unordered_map<folly::fbstring,
         std::shared_ptr<folly::SharedPromise<std::shared_ptr<DirCacheEntry>>>>
         m_cache;
+    std::mutex m_cacheMutex;
 
     /**
-     * Mutex for synchronizing access to the cache.
+     * Map which stores directory open count (i.e. handle count) for each
+     * directory.
      */
-    folly::SharedMutex m_cacheMutex;
+    std::unordered_map<folly::fbstring, uint64_t> m_directoryOpenCount;
+    std::mutex m_directoryOpenCountMutex;
 
     /**
      * Reference to metadata cache.
@@ -176,7 +210,8 @@ private:
      * If a given entry has not been access in this amount of time,
      * the entry is invalid and has to retrieved again.
      */
-    const std::chrono::milliseconds m_cacheValidityPeriod = 2000ms;
+    const std::chrono::milliseconds m_cacheValidityPeriod =
+        READDIR_CACHE_VALIDITY_DURATION;
 };
 }
 }
