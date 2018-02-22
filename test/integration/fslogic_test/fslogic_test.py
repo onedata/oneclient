@@ -592,7 +592,7 @@ def test_readdir_should_read_dir(endpoint, fl, uuid, stat):
     #
     # After time validity has passed, the cache should be empty again
     #
-    time.sleep(2)
+    time.sleep(3)
 
     repl4 = fuse_messages_pb2.FileChildrenAttrs()
     repl4.child_attrs.extend([])
@@ -604,6 +604,7 @@ def test_readdir_should_read_dir(endpoint, fl, uuid, stat):
     children = []
     with reply(endpoint, [response4]) as queue:
         children_chunk = fl.readdir(uuid, 5, 0)
+        _ = queue.get()
         assert len(children_chunk) == 2
         children += children_chunk
 

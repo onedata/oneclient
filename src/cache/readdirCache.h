@@ -37,7 +37,7 @@ constexpr auto READDIR_CACHE_VALIDITY_DURATION = 2000ms;
  */
 class DirCacheEntry {
 public:
-    DirCacheEntry();
+    DirCacheEntry(std::chrono::milliseconds cacheValidityPeriod);
     ~DirCacheEntry() = default;
     DirCacheEntry(const DirCacheEntry &e);
     DirCacheEntry(DirCacheEntry &&e);
@@ -56,9 +56,18 @@ public:
     const std::list<folly::fbstring> &dirEntries() const;
 
     /**
-     * Checks if the dir cache entry is still valid.
+     * Checks if the dir cache entry is still valid. In case off
+     * is 0 (i.e. this is a new readdir request compare against
+     * creation time otherwise compare vs access time. This allows
+     * a single thread to list event large directories without
+     * refereshing, while ensuring that it doesn't starve processes
+     * which start new readdir requests.
+     *
+     * @param sinceLastAccess If true validity is checked against last
+     *                        access time, otherwise it is validated
+     *                        since creation.
      */
-    bool isValid(std::chrono::milliseconds duration);
+    bool isValid(bool sinceLastAccess);
 
     /**
      * Invalidates the cache forcibly.
@@ -71,11 +80,21 @@ public:
     void touch();
 
     /**
+     * Marks the entry as created
+     */
+    void markCreated();
+
+    /**
      * Remove any duplicates from the directory entries container.
      */
     void unique();
 
 private:
+    /**
+     * Absolute creation time.
+     */
+    std::atomic_ullong m_ctime;
+
     /**
      * Last access time to this cache entry, stored as milliseconds
      * since epoch for atomic access.
@@ -93,6 +112,14 @@ private:
      * by other threads until is completely fetched from the provider.
      */
     std::list<folly::fbstring> m_dirEntries;
+
+    /**
+     * Validity period of dir cache entries.
+     *
+     * If a given entry has not been access in this amount of time,
+     * the entry is invalid and has to retrieved again.
+     */
+    std::chrono::milliseconds m_cacheValidityPeriod;
 };
 
 /**

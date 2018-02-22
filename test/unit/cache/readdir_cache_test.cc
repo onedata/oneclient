@@ -24,29 +24,37 @@ public:
 
 TEST_F(ReaddirCacheTest, dirCacheEntryIsValidShouldWork)
 {
-    DirCacheEntry e;
+    DirCacheEntry e(100ms);
 
-    ASSERT_FALSE(e.isValid(0s));
+    ASSERT_FALSE(e.isValid(false));
+    ASSERT_FALSE(e.isValid(true));
+
+    e.markCreated();
+    e.touch();
+    ASSERT_TRUE(e.isValid(true));
+    ASSERT_TRUE(e.isValid(false));
+
+    std::this_thread::sleep_for(150ms);
+    ASSERT_FALSE(e.isValid(true));
+    ASSERT_TRUE(e.isValid(false));
 
     e.touch();
-    ASSERT_TRUE(e.isValid(1s));
-
-    std::this_thread::sleep_for(1s);
-    ASSERT_FALSE(e.isValid(500ms));
-
-    e.touch();
-    ASSERT_TRUE(e.isValid(100ms));
+    ASSERT_TRUE(e.isValid(true));
+    std::this_thread::sleep_for(5 * 100ms);
+    ASSERT_FALSE(e.isValid(false));
 
     e.invalidate();
-    ASSERT_FALSE(e.isValid(1s));
+    ASSERT_FALSE(e.isValid(true));
+    ASSERT_FALSE(e.isValid(false));
 
     e.touch();
-    ASSERT_FALSE(e.isValid(1s));
+    ASSERT_FALSE(e.isValid(true));
+    ASSERT_FALSE(e.isValid(false));
 }
 
 TEST_F(ReaddirCacheTest, dirCacheEntryUniqueShouldWork)
 {
-    DirCacheEntry e;
+    DirCacheEntry e(2000ms);
 
     folly::fbvector<folly::fbstring> dirs = {
         "dir1", "dir3", "dir3", "dir2", "dir1"};

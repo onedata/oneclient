@@ -27,9 +27,10 @@ namespace one {
 namespace client {
 namespace cache {
 
-DirCacheEntry::DirCacheEntry()
+DirCacheEntry::DirCacheEntry(std::chrono::milliseconds cacheValidityPeriod)
     : m_atime{0}
     , m_invalid{false}
+    , m_cacheValidityPeriod{cacheValidityPeriod}
 {
 }
 
@@ -38,6 +39,7 @@ DirCacheEntry::DirCacheEntry(const DirCacheEntry &e)
     m_atime = e.m_atime.load();
     m_invalid = e.m_invalid.load();
     m_dirEntries = e.m_dirEntries;
+    m_cacheValidityPeriod = e.m_cacheValidityPeriod;
 }
 
 DirCacheEntry::DirCacheEntry(DirCacheEntry &&e)
@@ -45,6 +47,7 @@ DirCacheEntry::DirCacheEntry(DirCacheEntry &&e)
     m_atime = e.m_atime.load();
     m_invalid = e.m_invalid.load();
     m_dirEntries = std::move(e.m_dirEntries);
+    m_cacheValidityPeriod = std::move(e.m_cacheValidityPeriod);
 }
 
 void DirCacheEntry::addEntry(const folly::fbstring &name)
@@ -64,18 +67,37 @@ const std::list<folly::fbstring> &DirCacheEntry::dirEntries() const
 
 void DirCacheEntry::invalidate() { m_invalid = true; }
 
-bool DirCacheEntry::isValid(std::chrono::milliseconds duration)
+bool DirCacheEntry::isValid(bool sinceLastAccess)
 {
-    return !m_invalid &&
-        std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch()) -
-            std::chrono::milliseconds(m_atime) <
-        duration;
+    if (sinceLastAccess) {
+        // Check validity since the last time the cache was accessed
+        return !m_invalid &&
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()) -
+                std::chrono::milliseconds(m_atime) <
+            m_cacheValidityPeriod;
+    }
+    else {
+        // Check validity since the the cache entry was retrieved
+        // from server
+        return !m_invalid &&
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()) -
+                std::chrono::milliseconds(m_ctime) <
+            2 * m_cacheValidityPeriod;
+    }
 }
 
 void DirCacheEntry::touch(void)
 {
     m_atime = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch())
+                  .count();
+}
+
+void DirCacheEntry::markCreated(void)
+{
+    m_ctime = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch())
                   .count();
 }
@@ -108,7 +130,8 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
 
     m_context->scheduler()->post([ this, uuid = uuid, p = std::move(p) ] {
         p->setWith([=] {
-            auto cacheEntry = std::make_shared<DirCacheEntry>();
+            auto cacheEntry =
+                std::make_shared<DirCacheEntry>(m_cacheValidityPeriod);
             cacheEntry->addEntry(".");
             cacheEntry->addEntry("..");
 
@@ -146,7 +169,9 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
 
             cacheEntry->unique();
             cacheEntry->touch();
-            m_context->scheduler()->schedule(2 * m_cacheValidityPeriod, [
+            cacheEntry->markCreated();
+
+            m_context->scheduler()->schedule(4 * m_cacheValidityPeriod, [
                 uuid = uuid, cacheEntry = cacheEntry, self = shared_from_this()
             ]() { self->purgeWorker(uuid, cacheEntry); });
 
@@ -160,7 +185,7 @@ void ReaddirCache::purgeWorker(
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    if (!entry->isValid(m_cacheValidityPeriod)) {
+    if (!entry->isValid(false)) {
         LOG_DBG(2) << "Purging stale readdir cache entry " << uuid;
 
         purge(uuid);
@@ -193,8 +218,7 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
         auto uuidIt = m_cache.find(uuid);
 
         if (uuidIt != m_cache.cend() && (*uuidIt).second->isFulfilled() &&
-            !(*uuidIt).second->getFuture().get()->isValid(
-                m_cacheValidityPeriod)) {
+            !(*uuidIt).second->getFuture().get()->isValid(off)) {
             m_cache.erase(uuidIt);
             uuidIt = m_cache.end();
         }
