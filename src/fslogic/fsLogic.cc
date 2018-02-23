@@ -55,6 +55,7 @@
 namespace one {
 namespace client {
 namespace fslogic {
+using namespace std::literals;
 
 /**
  * Filters given flags set to one of RDONLY, WRONLY or RDWR.
@@ -83,6 +84,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_metadataCache{*m_context->communicator(), metadataCacheSize,
           providerTimeout}
     , m_helpersCache{std::move(helpersCache)}
+    , m_readdirCache{std::make_shared<cache::ReaddirCache>(
+          m_metadataCache, m_context)}
     , m_readEventsDisabled{readEventsDisabled}
     , m_fsSubscriptions{m_eventManager, m_metadataCache, m_forceProxyIOCache,
           runInFiber}
@@ -91,6 +94,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     using namespace std::placeholders;
 
     m_eventManager.subscribe(*configuration);
+
+    m_metadataCache.setReaddirCache(m_readdirCache);
 
     // Quota initial configuration
     m_eventManager.subscribe(
@@ -166,44 +171,7 @@ folly::fbvector<folly::fbstring> FsLogic::readdir(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(maxSize) << LOG_FARG(off);
 
-    folly::fbvector<folly::fbstring> acc;
-    auto chunkSize = maxSize;
-
-    if (off == 0) {
-        // Since the server does not provide '.' and '..' entries, we
-        // have to add them here
-        if (chunkSize > 0) {
-            acc.emplace_back(".");
-            chunkSize--;
-        }
-        if (chunkSize > 0) {
-            acc.emplace_back("..");
-            chunkSize--;
-        }
-    }
-
-    if (chunkSize == 0)
-        return acc;
-
-    // Since most applications (even plain 'ls') invoke getattr operation
-    // after listing directory contents, it is typically faster to
-    // fetch them in advance and store them in the cache, thus
-    // in fact making this operation equivalent to readdirplus.
-    // Adjust the offset in order to account for initial . and .. entries
-    LOG_DBG(1) << "Fetching children of directory " << uuid
-               << " starting at offset " << off;
-    auto msg = communicate<messages::fuse::FileChildrenAttrs>(
-        messages::fuse::GetFileChildrenAttrs{
-            uuid, off < 2 ? 0 : off - 2, chunkSize},
-        m_providerTimeout);
-
-    for (const auto it : folly::enumerate(msg.childrenAttrs())) {
-        const auto fileAttrPtr = std::make_shared<FileAttr>(*it);
-        m_metadataCache.putAttr(fileAttrPtr);
-        acc.emplace_back(fileAttrPtr->name());
-    }
-
-    return acc;
+    return m_readdirCache->readdir(uuid, off, maxSize);
 }
 
 std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
@@ -517,6 +485,8 @@ FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
     auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
     m_metadataCache.putAttr(sharedAttr);
 
+    m_readdirCache->invalidate(parentUuid);
+
     LOG_DBG(1) << "Created node " << name << " in " << parentUuid
                << " with uuid " << attr.uuid();
 
@@ -551,6 +521,8 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
     LOG_DBG(1) << "Created file " << name << " in " << parentUuid
                << " with uuid " << uuid;
 
+    m_readdirCache->invalidate(parentUuid);
+
     return {sharedAttr, fuseFileHandleId};
 }
 
@@ -563,7 +535,10 @@ void FsLogic::unlink(
     auto attr = m_metadataCache.getAttr(parentUuid, name);
     communicate(messages::fuse::DeleteFile{attr->uuid().toStdString()},
         m_providerTimeout);
+
     m_metadataCache.markDeleted(attr->uuid());
+
+    m_readdirCache->invalidate(parentUuid);
 
     LOG_DBG(1) << "Deleted file " << name << " in " << parentUuid
                << " with uuid " << attr->uuid();

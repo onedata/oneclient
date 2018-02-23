@@ -271,6 +271,16 @@ Options::Options()
         .withDescription("Specify maximum number of file metadata entries "
                          "which can be stored in cache.");
 
+    add<unsigned int>()
+        ->withLongName("readdir-prefetch-size")
+        .withConfigName("readdir_prefetch_size")
+        .withValueName("<size>")
+        .withDefaultValue(DEFAULT_READDIR_PREFETCH_SIZE,
+            std::to_string(DEFAULT_READDIR_PREFETCH_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify the size of requests made during readdir "
+                         "prefetch (in number of dir entries).");
+
     add<bool>()
         ->asSwitch()
         .withShortName("f")
@@ -669,6 +679,12 @@ unsigned int Options::getMetadataCacheSize() const
 {
     return get<unsigned int>({"metadata-cache-size", "metadata_cache_size"})
         .get_value_or(DEFAULT_METADATA_CACHE_SIZE);
+}
+
+unsigned int Options::getReaddirPrefetchSize() const
+{
+    return get<unsigned int>({"readdir-prefetch-size", "readdir_prefetch_size"})
+        .get_value_or(DEFAULT_READDIR_PREFETCH_SIZE);
 }
 
 bool Options::isMonitoringEnabled() const

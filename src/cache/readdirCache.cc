@@ -1,0 +1,300 @@
+/**
+ * @file readdirCache.cc
+ * @author Bartek Kryza
+ * @copyright (C) 2018 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
+
+#include "cache/readdirCache.h"
+
+#include "communication/communicator.h"
+#include "logging.h"
+#include "options/options.h"
+
+#include "messages/fuse/fileChildrenAttrs.h"
+#include "messages/fuse/getFileChildren.h"
+#include "messages/fuse/getFileChildrenAttrs.h"
+#include <folly/Enumerate.h>
+#include <folly/FBString.h>
+#include <folly/Optional.h>
+#include <folly/Range.h>
+#include <fuse/fuse_lowlevel.h>
+
+#include <memory>
+
+namespace one {
+namespace client {
+namespace cache {
+
+DirCacheEntry::DirCacheEntry(std::chrono::milliseconds cacheValidityPeriod)
+    : m_atime{0}
+    , m_invalid{false}
+    , m_cacheValidityPeriod{cacheValidityPeriod}
+{
+}
+
+DirCacheEntry::DirCacheEntry(const DirCacheEntry &e)
+{
+    m_atime = e.m_atime.load();
+    m_invalid = e.m_invalid.load();
+    m_dirEntries = e.m_dirEntries;
+    m_cacheValidityPeriod = e.m_cacheValidityPeriod;
+}
+
+DirCacheEntry::DirCacheEntry(DirCacheEntry &&e)
+{
+    m_atime = e.m_atime.load();
+    m_invalid = e.m_invalid.load();
+    m_dirEntries = std::move(e.m_dirEntries);
+    m_cacheValidityPeriod = std::move(e.m_cacheValidityPeriod);
+}
+
+void DirCacheEntry::addEntry(const folly::fbstring &name)
+{
+    m_dirEntries.emplace_back(name);
+}
+
+void DirCacheEntry::addEntry(folly::fbstring &&name)
+{
+    m_dirEntries.emplace_back(std::move(name));
+}
+
+const std::list<folly::fbstring> &DirCacheEntry::dirEntries() const
+{
+    return m_dirEntries;
+}
+
+void DirCacheEntry::invalidate() { m_invalid = true; }
+
+bool DirCacheEntry::isValid(bool sinceLastAccess)
+{
+    if (sinceLastAccess) {
+        // Check validity since the last time the cache was accessed
+        return !m_invalid &&
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()) -
+                std::chrono::milliseconds(m_atime) <
+            m_cacheValidityPeriod;
+    }
+    else {
+        // Check validity since the the cache entry was retrieved
+        // from server
+        return !m_invalid &&
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                std::chrono::system_clock::now().time_since_epoch()) -
+                std::chrono::milliseconds(m_ctime) <
+            2 * m_cacheValidityPeriod;
+    }
+}
+
+void DirCacheEntry::touch(void)
+{
+    m_atime = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch())
+                  .count();
+}
+
+void DirCacheEntry::markCreated(void)
+{
+    m_ctime = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::system_clock::now().time_since_epoch())
+                  .count();
+}
+
+void DirCacheEntry::unique(void)
+{
+    m_dirEntries.sort();
+    m_dirEntries.unique();
+}
+
+ReaddirCache::ReaddirCache(
+    LRUMetadataCache &metadataCache, std::shared_ptr<Context> context)
+    : m_metadataCache(metadataCache)
+    , m_context{std::move(context)}
+    , m_providerTimeout(m_context->options()->getProviderTimeout())
+    , m_prefetchSize(m_context->options()->getReaddirPrefetchSize())
+{
+}
+
+void ReaddirCache::fetch(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    // This private method is only called from a lock_guard block, which makes
+    // sure before that uuid is no longer member of m_cache, so that we don't
+    // have to check again here
+    auto p = std::make_shared<
+        folly::SharedPromise<std::shared_ptr<DirCacheEntry>>>();
+    m_cache.emplace(uuid, p);
+
+    m_context->scheduler()->post([ this, uuid = uuid, p = std::move(p) ] {
+        p->setWith([=] {
+            auto cacheEntry =
+                std::make_shared<DirCacheEntry>(m_cacheValidityPeriod);
+            cacheEntry->addEntry(".");
+            cacheEntry->addEntry("..");
+
+            std::size_t chunkIndex = 0;
+            std::size_t fetchedSize = 0;
+            auto isLast = false;
+
+            // Start with empty index token, and then if server returns
+            // index token pass to next request.
+            folly::Optional<folly::fbstring> indexToken;
+
+            do {
+                LOG_DBG(2) << "Requesting directory entries for directory "
+                           << uuid << " starting at offset " << chunkIndex;
+
+                auto msg = communicate<one::messages::fuse::FileChildrenAttrs>(
+                    one::messages::fuse::GetFileChildrenAttrs{uuid,
+                        static_cast<off_t>(chunkIndex), m_prefetchSize,
+                        indexToken},
+                    m_providerTimeout);
+
+                fetchedSize = msg.childrenAttrs().size();
+                indexToken.assign(msg.indexToken());
+                isLast = msg.isLast() && *msg.isLast();
+
+                for (const auto it : folly::enumerate(msg.childrenAttrs())) {
+                    const auto fileAttrPtr = std::make_shared<FileAttr>(*it);
+                    m_metadataCache.putAttr(fileAttrPtr);
+                    cacheEntry->addEntry(fileAttrPtr->name());
+                }
+
+                chunkIndex = cacheEntry->dirEntries().size() - 2;
+
+            } while (!isLast && fetchedSize > 0);
+
+            cacheEntry->unique();
+            cacheEntry->touch();
+            cacheEntry->markCreated();
+
+            m_context->scheduler()->schedule(4 * m_cacheValidityPeriod, [
+                uuid = uuid, cacheEntry = cacheEntry, self = shared_from_this()
+            ]() { self->purgeWorker(uuid, cacheEntry); });
+
+            return cacheEntry;
+        });
+    });
+}
+
+void ReaddirCache::purgeWorker(
+    folly::fbstring uuid, std::shared_ptr<DirCacheEntry> entry)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    if (!entry->isValid(false)) {
+        LOG_DBG(2) << "Purging stale readdir cache entry " << uuid;
+
+        purge(uuid);
+    }
+    else {
+        LOG_DBG(2) << "Readdir cache entry " << uuid
+                   << " still valid - scheduling next purge";
+
+        m_context->scheduler()->schedule(2 * m_cacheValidityPeriod, [
+            uuid = std::move(uuid), entry = std::move(entry),
+            self = shared_from_this()
+        ]() { self->purgeWorker(uuid, entry); });
+    }
+}
+
+folly::fbvector<folly::fbstring> ReaddirCache::readdir(
+    const folly::fbstring &uuid, off_t off, std::size_t chunkSize)
+{
+    LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(off) << LOG_FARG(chunkSize);
+
+    // Check if the uuid is already in the cache, if not start fetch
+    // asynchronously and add a shared promise to the cache so if any
+    // other request for this uuid comes in the meantime it gets queued
+    // on that promise
+    // In case of error, the promise contains an exception which can
+    // be propagated upwards
+    {
+        std::lock_guard<std::mutex> lock(m_cacheMutex);
+
+        auto uuidIt = m_cache.find(uuid);
+
+        if (uuidIt != m_cache.cend() && (*uuidIt).second->isFulfilled() &&
+            !(*uuidIt).second->getFuture().get()->isValid(off)) {
+            m_cache.erase(uuidIt);
+            uuidIt = m_cache.end();
+        }
+
+        if (uuidIt == m_cache.end()) {
+            fetch(uuid);
+        }
+    }
+
+    auto dirEntriesFuture = (*m_cache.find(uuid)).second;
+    auto f = dirEntriesFuture->getFuture().wait();
+
+    if (f.hasException()) {
+        f.get();
+    }
+
+    auto dirCacheEntry = f.value();
+
+    // Update the cache entry so that it doesn't expire before the entire
+    // directory is read
+    dirCacheEntry->touch();
+
+    folly::fbvector<folly::fbstring> acc;
+
+    if (off < 0 ||
+        static_cast<std::size_t>(off) >= dirCacheEntry->dirEntries().size())
+        return acc;
+
+    auto begin = dirCacheEntry->dirEntries().cbegin();
+    auto end = dirCacheEntry->dirEntries().cend();
+
+    std::advance(begin, off);
+
+    std::copy_n(begin,
+        std::min(
+            chunkSize, static_cast<std::size_t>(std::distance(begin, end))),
+        std::back_inserter(acc));
+
+    return acc;
+}
+
+void ReaddirCache::invalidate(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    std::lock_guard<std::mutex> lock(m_cacheMutex);
+
+    auto it = m_cache.find(uuid);
+    if (it != m_cache.cend() && (*it).second->isFulfilled()) {
+        (*it).second->getFuture().get()->invalidate();
+    }
+}
+
+void ReaddirCache::purge(const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    std::lock_guard<std::mutex> lock(m_cacheMutex);
+    m_cache.erase(uuid);
+}
+
+bool ReaddirCache::empty()
+{
+    LOG_FCALL();
+
+    return m_cache.empty();
+}
+
+template <typename SrvMsg, typename CliMsg>
+SrvMsg ReaddirCache::communicate(
+    CliMsg &&msg, const std::chrono::seconds timeout)
+{
+    return communication::wait(m_context->communicator()->communicate<SrvMsg>(
+                                   std::forward<CliMsg>(msg)),
+        timeout);
+}
+}
+}
+}

@@ -24,6 +24,8 @@ namespace one {
 namespace client {
 namespace cache {
 
+class ReaddirCache;
+
 /**
  * @c LRUMetadataCache is responsible for managing lifetime of entries cached
  * in @c MetadataCache .
@@ -67,6 +69,12 @@ public:
     LRUMetadataCache(communication::Communicator &communicator,
         const std::size_t targetSize,
         const std::chrono::seconds providerTimeout);
+
+    /**
+     * Sets a pointer to an instance of @c ReaddirCache.
+     * @param readdirCache Shared pointer to an instance of @c ReaddirCache.
+     */
+    void setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache);
 
     /**
      * Opens a file in the cache.

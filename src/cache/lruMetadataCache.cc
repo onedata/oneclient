@@ -1,5 +1,6 @@
 #include "lruMetadataCache.h"
 
+#include "cache/readdirCache.h"
 #include "logging.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
@@ -34,6 +35,12 @@ LRUMetadataCache::LRUMetadataCache(communication::Communicator &communicator,
 
     MetadataCache::onMarkDeleted(
         std::bind(&LRUMetadataCache::handleMarkDeleted, this, _1));
+}
+
+void LRUMetadataCache::setReaddirCache(
+    std::shared_ptr<ReaddirCache> readdirCache)
+{
+    MetadataCache::setReaddirCache(readdirCache);
 }
 
 void LRUMetadataCache::pinEntry(const folly::fbstring &uuid)

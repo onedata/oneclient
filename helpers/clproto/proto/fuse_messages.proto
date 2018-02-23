@@ -103,6 +103,7 @@ message GetFileChildren {
 message GetFileChildrenAttrs {
     required int32 offset = 1;
     required int32 size = 2;
+    optional bytes index_token = 3;
 }
 
 message CreateDir {
@@ -242,6 +243,8 @@ message FileChildren {
 
 message FileChildrenAttrs {
     repeated FileAttr child_attrs = 1;
+    optional bytes index_token = 2;
+    optional bool is_last = 3;
 }
 
 message FileLocation {

@@ -44,7 +44,7 @@ namespace {
 // file names are short, with this constant we can make bigger requests, even if
 // sometimes we will have to request entries already received in the previous
 // request
-constexpr auto AVERAGE_FILE_NAME_LENGTH = 40;
+constexpr auto AVERAGE_FILE_NAME_LENGTH = 20;
 
 template <typename Fun, typename... Args>
 auto callFslogic(Fun &&fun, void *userData, Args &&... args)

@@ -14,6 +14,7 @@
 #include "cache/forceProxyIOCache.h"
 #include "cache/helpersCache.h"
 #include "cache/lruMetadataCache.h"
+#include "cache/readdirCache.h"
 #include "events/events.h"
 #include "fsSubscriptions.h"
 
@@ -246,12 +247,14 @@ private:
     cache::LRUMetadataCache m_metadataCache;
     cache::ForceProxyIOCache m_forceProxyIOCache;
     std::unique_ptr<cache::HelpersCache> m_helpersCache;
+    std::shared_ptr<cache::ReaddirCache> m_readdirCache;
     bool m_readEventsDisabled = false;
     FsSubscriptions m_fsSubscriptions;
     std::unordered_set<folly::fbstring> m_disabledSpaces;
 
     std::unordered_map<std::uint64_t, std::shared_ptr<FuseFileHandle>>
         m_fuseFileHandles;
+    std::unordered_map<std::uint64_t, folly::fbstring> m_fuseDirectoryHandles;
     std::uint64_t m_nextFuseHandleId = 0;
 
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};

@@ -123,6 +123,8 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options.getWriteBufferFlushDelay().count());
     EXPECT_EQ(
         options::DEFAULT_METADATA_CACHE_SIZE, options.getMetadataCacheSize());
+    EXPECT_EQ(options::DEFAULT_READDIR_PREFETCH_SIZE,
+        options.getReaddirPrefetchSize());
     EXPECT_FALSE(options.getProviderHost());
     EXPECT_FALSE(options.getAccessToken());
 }
@@ -331,6 +333,14 @@ TEST_F(OptionsTest, parseCommandLineShouldSetMetadataCacheSize)
         cmdArgs.end(), {"--metadata-cache-size", "1024", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(1024, options.getMetadataCacheSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetReaddirPrefetchSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--readdir-prefetch-size", "10000", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(10000, options.getReaddirPrefetchSize());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetForeground)
