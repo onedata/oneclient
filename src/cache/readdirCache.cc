@@ -28,7 +28,8 @@ namespace client {
 namespace cache {
 
 DirCacheEntry::DirCacheEntry(std::chrono::milliseconds cacheValidityPeriod)
-    : m_atime{0}
+    : m_ctime{0}
+    , m_atime{0}
     , m_invalid{false}
     , m_cacheValidityPeriod{cacheValidityPeriod}
 {
@@ -36,6 +37,7 @@ DirCacheEntry::DirCacheEntry(std::chrono::milliseconds cacheValidityPeriod)
 
 DirCacheEntry::DirCacheEntry(const DirCacheEntry &e)
 {
+    m_ctime = e.m_ctime.load();
     m_atime = e.m_atime.load();
     m_invalid = e.m_invalid.load();
     m_dirEntries = e.m_dirEntries;
@@ -44,6 +46,7 @@ DirCacheEntry::DirCacheEntry(const DirCacheEntry &e)
 
 DirCacheEntry::DirCacheEntry(DirCacheEntry &&e)
 {
+    m_ctime = e.m_ctime.load();
     m_atime = e.m_atime.load();
     m_invalid = e.m_invalid.load();
     m_dirEntries = std::move(e.m_dirEntries);
