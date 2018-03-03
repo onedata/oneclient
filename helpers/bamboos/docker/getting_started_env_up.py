@@ -28,7 +28,7 @@ sys.path.append('.')
 
 from environment import docker
 from environment.common import ensure_provider_oz_connectivity
-from subprocess import Popen, PIPE, STDOUT
+from subprocess import Popen, PIPE, STDOUT, call
 import os
 import re
 import time
@@ -100,8 +100,9 @@ def rm_persistence(path, service_name):
 
 
 def add_etc_hosts_entries(service_ip, service_host):
-    with open('/etc/hosts', 'a') as f:
-        f.write('\n{} {}\n'.format(service_ip, service_host))
+    call('sudo bash -c "echo {} {} >> /etc/hosts"'.format(service_ip, 
+                                                              service_host),
+                                                              shell=True)
 
 
 def wait_for_service_start(service_name, docker_name, pattern, timeout):
@@ -155,17 +156,16 @@ def start_service(start_service_path, start_service_args, service_name,
     service_process = Popen(['docker', 'inspect',
                              '--format={}'.format(format_options), docker_name],
                             stdout=PIPE, stderr=STDOUT)
-    docker_conf = service_process.communicate()[0]
+    docker_conf = service_process.communicate()[0].strip().strip("\'")
     ip, docker_hostname, docker_domain = docker_conf.split()
-    service_host = '{}.{}'.format(docker_hostname,
-                                  docker_domain if docker_domain[-1] != '\''
-                                  else docker_domain[:-1])
+    service_host = '{}.{}'.format(docker_hostname, docker_domain)
 
     if service_host.endswith('.'):
         service_host = service_host[:-1]
 
     if args.write_to_etc_hosts:
         add_etc_hosts_entries(ip, service_host)
+        add_etc_hosts_entries(ip, '{}.{}'.format(service_host,'test'))
     else:
         etc_hosts_entries[ip] = service_host
 
