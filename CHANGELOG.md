@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 18.02.0-beta2
+
+* Add support for flat storages
+
+
 ### 18.02.0-beta1
 
 * Improved storage detection
