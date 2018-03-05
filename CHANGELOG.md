@@ -4,6 +4,12 @@
 CHANGELOG
 ---------
 
+### 18.02.0-beta2
+
+* Add support for flat storages
+* VFS-4102 Added support for index token for readdir prefetching
+* VFS-4102 Added readdir prefetch cache
+
 ### 18.02.0-beta1
 
 * Improved storage detection
