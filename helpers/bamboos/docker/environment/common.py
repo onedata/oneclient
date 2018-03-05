@@ -190,7 +190,7 @@ def env_domain_name():
     """Returns domain name used in the environment. It will be concatenated
     to the dockernames (=hostnames) of all dockers.
     """
-    return 'dev'
+    return 'test'
 
 
 def format_hostname(domain_parts, uid):

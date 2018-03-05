@@ -14,19 +14,19 @@
 %%% It has the following structure:
 %%%
 %%% {
-%%%     'oz_worker_node': 'gr1@gr1.1436272392.dev.docker',
+%%%     'oz_worker_node': 'gr1@gr1.1436272392.test',
 %%%     'oz_cookie': 'cookie0',
 %%%     'provider_domains': {
 %%%         'p1': {
 %%%             'nodes': [
-%%%                 'worker1_p1@worker1_p1.1436272392.dev.docker'
+%%%                 'worker1_p1@worker1_p1.1436272392.test'
 %%%             ],
 %%%             'cookie': 'cookie1'
 %%%         },
 %%%         'p2': {
 %%%             'nodes': [
-%%%                 'worker1_p2@worker1_p2.1436279125.dev.docker',
-%%%                 'worker2_p2@worker2_p2.1436279125.dev.docker'
+%%%                 'worker1_p2@worker1_p2.1436279125.test',
+%%%                 'worker2_p2@worker2_p2.1436279125.test'
 %%%             ],
 %%%             'cookie': 'cookie1'
 %%%         }

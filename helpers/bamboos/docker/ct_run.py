@@ -146,7 +146,7 @@ ct_command = ['ct_run',
               'and', 'cth_logger', 'and', 'cth_env_up', 'and', 'cth_mock',
               'and', 'cth_posthook',
               '-noshell',
-              '-name', 'testmaster@testmaster.{0}.dev.docker'.format(uid),
+              '-name', 'testmaster@testmaster.{0}.test'.format(uid),
               '-include', '../include', '../_build/default/lib']
 
 code_paths = ['-pa']
@@ -317,7 +317,7 @@ ret = docker.run(tty=True,
                           ('/var/run/docker.sock', 'rw'),
                           (HOST_STORAGE_PATH, 'rw')],
                  name='testmaster_{0}'.format(uid),
-                 hostname='testmaster.{0}.dev.docker'.format(uid),
+                 hostname='testmaster.{0}.test'.format(uid),
                  image=args.image,
                  command=['python', '-c', command])
 
