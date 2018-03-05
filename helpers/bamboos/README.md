@@ -168,7 +168,7 @@ Section **dirs_config** allows to define where to look for binaries of a given c
 
 Section **os_configs** defines named configurations of Operating System, i.e. users, groups and storages to be created. Later, such config can be specified in [oneprovider](https://github.com/onedata/op-worker) configuration which will create required entites on every docker hosting the *oneprovider* nodes.
 
-Section **provider_domains** defines a list of *oneprovider* instances. Each instance must get its unique identifier (e.g. `p1`), which will be transformed to domain name like this: `p1.1465312143.dev`. Inside provider configuration, you can specify which database driver and predefined *os_config* it should use, as well as how many nodes should be set up into a cluster. Each node can have its own configuration.
+Section **provider_domains** defines a list of *oneprovider* instances. Each instance must get its unique identifier (e.g. `p1`), which will be transformed to domain name like this: `p1.1465312143.test`. Inside provider configuration, you can specify which database driver and predefined *os_config* it should use, as well as how many nodes should be set up into a cluster. Each node can have its own configuration.
 
 Section **zone_domains** defines a list of *onezone* instances. The configuration is simillar to *oneprovider* config, excluding *os_config* which is not used in onezone.
 

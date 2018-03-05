@@ -9,7 +9,7 @@ Script is parametrised by worker type related configurator.
 import copy
 import json
 import os
-from . import common, docker, riak, couchbase, dns, cluster_manager
+from . import common, docker, riak, couchbase, dns, cluster_manager, test_ca
 from timeouts import *
 
 
@@ -73,11 +73,27 @@ def _node_up(image, bindir, dns_servers, config, db_node_mappings, logdir,
 
     bindir = os.path.abspath(bindir)
 
+    key, cert, cacert = test_ca.generate_webcert(domain)
+
     command = '''set -e
 mkdir -p /root/bin/node/log/
+mkdir -p /root/bin/node/etc/certs
+mkdir -p /root/bin/node/etc/cacerts
 bindfs --create-for-user={uid} --create-for-group={gid} /root/bin/node/log /root/bin/node/log
 cat <<"EOF" > /tmp/gen_dev_args.json
 {gen_dev_args}
+EOF
+cat <<"EOF" > /root/bin/node/etc/certs/web_key.pem
+{key}
+EOF
+cat <<"EOF" > /root/bin/node/etc/certs/web_cert.pem
+{cert}
+EOF
+cat <<"EOF" > /root/bin/node/etc/certs/web_chain.pem
+{cacert}
+EOF
+cat <<"EOF" > /root/bin/node/etc/cacerts/OneDataTestWebServerCa.pem
+{cacert}
 EOF
 {mount_commands}
 {pre_start_commands}
@@ -89,6 +105,9 @@ ln -s {bindir} /root/build
     command = command.format(
         bindir=bindir,
         gen_dev_args=json.dumps({configurator.app_name(): config}),
+        key=key,
+        cert=cert,
+        cacert=cacert,
         mount_commands=mount_commands,
         pre_start_commands=pre_start_commands,
         uid=os.geteuid(),

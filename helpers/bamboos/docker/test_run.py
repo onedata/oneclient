@@ -12,6 +12,7 @@ import argparse
 import os
 import platform
 import sys
+import time
 
 from environment.common import HOST_STORAGE_PATH
 from environment import docker
@@ -100,7 +101,7 @@ parser.add_argument(
     action='store',
     help="Name of docker container where tests will be running",
     dest='docker_name',
-    default='test_run_docker'
+    default='test_run_docker_{}'.format(int(time.time()))
 )    
 
 [args, pass_args] = parser.parse_known_args()
