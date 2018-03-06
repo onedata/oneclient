@@ -550,6 +550,16 @@ void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.setxattr");
 
+    //
+    // Creating system extended attributes should be disabled
+    //
+    if (boost::starts_with(attr, "system.") ||
+        boost::starts_with(attr, "security.") ||
+        boost::starts_with(attr, "capability.")) {
+        fuse_reply_err(req, EPERM);
+        return;
+    }
+
     std::string xattrJsonName;
     if (!encodeJsonXAttrName(attr, xattrJsonName)) {
         LOG(WARNING) << "Setting extended attribute with invalid name: "
