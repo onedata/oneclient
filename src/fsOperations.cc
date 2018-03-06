@@ -587,7 +587,7 @@ void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
         return;
     }
     LOG_DBG(1) << "Setting extended attribute '" << attr << "' to value '"
-               << val << "' for file " << ino << " with flags "
+               << xattrJsonValue << "' for file " << ino << " with flags "
                << "XATTR_CREATE=" << std::to_string(flags & XATTR_CREATE)
                << " XATTR_REPLACE=" << std::to_string(flags & XATTR_REPLACE);
 

@@ -46,6 +46,7 @@ folly::json::serialization_opts xattrValueJsonOptions()
     options.allow_nan_inf = true;
     options.double_fallback = false;
     options.javascript_safe = true;
+    options.validate_utf8 = true;
     return options;
 }
 
@@ -92,9 +93,9 @@ bool encodeJsonXAttrValue(const std::string &value, std::string &output)
         LOG_DBG(1) << "Failed to encode value to Json: " << e.what() << "\n"
                    << " - trying to treat value as string";
         try {
-            auto jsonValue = folly::parseJson(
+            folly::parseJson(
                 std::string("\"") + value + "\"", xattrValueJsonOptions());
-            output = folly::toJson(jsonValue);
+            output = folly::json::serialize(value, xattrValueJsonOptions());
         }
         catch (std::exception &ee) {
             LOG_DBG(1) << "Failed to encode value to JSON as string: "
