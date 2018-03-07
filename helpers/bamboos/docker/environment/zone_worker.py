@@ -26,8 +26,12 @@ class OZWorkerConfigurator:
         self.dnsconfig_path = dnsconfig_path
 
     def tweak_config(self, cfg, uid, instance):
-        sys_config = cfg['nodes']['node']['sys.config'][self.app_name()]
-        sys_config['external_ip'] = {'string': 'IP_PLACEHOLDER'}
+        apps_sys_config = cfg['nodes']['node']['sys.config']
+        sys_config = apps_sys_config[self.app_name()]
+
+        if 'cluster_worker' not in apps_sys_config:
+            apps_sys_config['cluster_worker'] = dict()
+        apps_sys_config['cluster_worker']['external_ip'] = {'string': 'IP_PLACEHOLDER'}
 
         if 'onepanel_rest_url' in sys_config:
             rest_url = sys_config['onepanel_rest_url']

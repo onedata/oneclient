@@ -34,6 +34,7 @@ OZ_CONNECTIVITY_CHECK_TIMEOUT = 10
 OZ_CONNECTIVITY_CHECK_RETRIES = 25
 
 HOST_STORAGE_PATH = "/tmp/onedata"
+BAMBOO_AGENT_ID_VAR = "bamboo_agentId"
 
 
 def nagios_up(ip, port=None, protocol='https'):
@@ -305,3 +306,19 @@ def _check_provider_oz_connectivity(host):
     except requests.exceptions.RequestException as e:
         return False
 
+
+def remove_dockers_and_volumes():
+    if BAMBOO_AGENT_ID_VAR in os.environ:
+        containers = docker.ps(all=True, quiet=True)
+        if containers:
+            try:
+                docker.remove(containers, force=True, volumes=True)
+            except Exception as e:
+                print("Removing docker containers failed due to ", e)
+
+        volumes = docker.list_volumes(quiet=True)
+        if volumes:
+            try:
+                docker.remove_volumes(volumes)
+            except Exception as e:
+                print("Removing docker volumes failed due to ", e)
