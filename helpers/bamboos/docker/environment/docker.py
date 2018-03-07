@@ -260,6 +260,37 @@ def create_volume(path, name, image, command):
                                    stderr=subprocess.STDOUT)
 
 
+def ps(all=False, quiet=False):
+    """
+    List containers
+    """
+    cmd = ["docker", "ps"]
+    if all:
+        cmd.append("--all")
+    if quiet:
+        cmd.append("--quiet")
+    return subprocess.check_output(cmd, universal_newlines=True).split()
+
+
+def list_volumes(quiet=True):
+    """
+    List volumes
+    """
+    cmd = ["docker", "volume", "ls"]
+    if quiet:
+        cmd.append("--quiet")
+    return subprocess.check_output(cmd,  universal_newlines=True).split()
+
+
+def remove_volumes(volumes):
+    """
+    Remove volumes
+    """
+    cmd = ["docker", "volume", "rm"]
+    cmd.extend(volumes)
+    return subprocess.check_call(cmd)
+
+
 def connect_docker_to_network(network, container):
     """
     Connect docker to the network
