@@ -3,7 +3,7 @@
 
 -export([main/1]).
 
-main([Cookie, Node, Name, MountPoint]) ->
+main([Cookie, Node, Name, MountPoint, StoragePathType]) ->
     erlang:set_cookie(node(), list_to_atom(Cookie)),
     NodeAtom = list_to_atom(Node),
 
@@ -11,7 +11,8 @@ main([Cookie, Node, Name, MountPoint]) ->
     Helper = safe_call(NodeAtom, helper, new_posix_helper, [
         list_to_binary(MountPoint),
         #{},
-        UserCtx
+        UserCtx,
+        list_to_binary(StoragePathType)
     ]),
 
     StorageDoc = safe_call(NodeAtom, storage, new, [list_to_binary(Name), [Helper]]),

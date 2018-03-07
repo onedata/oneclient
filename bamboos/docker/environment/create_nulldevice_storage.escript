@@ -3,7 +3,9 @@
 
 -export([main/1]).
 
-main([Cookie, Node, Name, LatencyMin, LatencyMax, TimeoutProbability, Filter, Insecure]) ->
+main([Cookie, Node, Name, LatencyMin, LatencyMax, TimeoutProbability, Filter,
+    Insecure, StoragePathType]) ->
+
     erlang:set_cookie(node(), list_to_atom(Cookie)),
     NodeAtom = list_to_atom(Node),
 
@@ -16,7 +18,8 @@ main([Cookie, Node, Name, LatencyMin, LatencyMax, TimeoutProbability, Filter, In
             <<"filter">> => list_to_binary(Filter)
         },
         UserCtx,
-        list_to_atom(Insecure)
+        list_to_atom(Insecure),
+        list_to_binary(StoragePathType)
     ]),
 
     StorageDoc = safe_call(NodeAtom, storage, new, [list_to_binary(Name), [Helper]]),

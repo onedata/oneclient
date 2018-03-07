@@ -30,6 +30,7 @@ import xml.etree.ElementTree as ElementTree
 sys.path.insert(0, 'bamboos/docker')
 from environment import docker
 from environment.common import HOST_STORAGE_PATH
+from environment.common import remove_dockers_and_volumes
 
 
 def skipped_test_exists(junit_report_path):
@@ -308,13 +309,7 @@ volumes = []
 if os.path.isdir(expanduser('~/.docker')):
     volumes += [(expanduser('~/.docker'), '/tmp/docker_config', 'ro')]
 
-if "bamboo_agentId" in os.environ:
-    containers = docker.ps(all=True, quiet=True)
-    if containers:
-        docker.remove(containers, force=True)
-    volumes = docker.list_volumes(quiet=True)
-    if volumes:
-        docker.remove_volumes(volumes)
+remove_dockers_and_volumes()
 
 ret = docker.run(tty=True,
                  rm=True,
