@@ -308,6 +308,14 @@ volumes = []
 if os.path.isdir(expanduser('~/.docker')):
     volumes += [(expanduser('~/.docker'), '/tmp/docker_config', 'ro')]
 
+if "bamboo_agentId" in os.environ:
+    containers = docker.ps(all=True, quiet=True)
+    if containers:
+        docker.remove(containers, force=True)
+    volumes = docker.list_volumes(quiet=True)
+    if volumes:
+        docker.remove_volumes(volumes)
+
 ret = docker.run(tty=True,
                  rm=True,
                  interactive=True,

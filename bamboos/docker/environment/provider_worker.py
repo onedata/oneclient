@@ -154,8 +154,7 @@ def create_storages(storages, op_nodes, op_config, bindir, storages_dockers):
         if storage['type'] in ['posix', 'nfs']:
             st_path = storage['name']
             command = ['escript', script_paths['posix'], cookie,
-                       first_node, storage['name'], st_path,
-                       'canonical']
+                       first_node, storage['name'], st_path]
             assert 0 is docker.exec_(container, command, tty=True,
                                      stdout=sys.stdout, stderr=sys.stderr)
         elif storage['type'] == 'ceph':
@@ -164,7 +163,7 @@ def create_storages(storages, op_nodes, op_config, bindir, storages_dockers):
             command = ['escript', script_paths['ceph'], cookie,
                        first_node, storage['name'], 'ceph',
                        config['host_name'], pool, config['username'],
-                       config['key'], 'true', 'flat']
+                       config['key'], 'true']
             assert 0 is docker.exec_(container, command, tty=True,
                                      stdout=sys.stdout, stderr=sys.stderr)
         elif storage['type'] == 's3':
@@ -172,8 +171,7 @@ def create_storages(storages, op_nodes, op_config, bindir, storages_dockers):
             command = ['escript', script_paths['s3'], cookie,
                        first_node, storage['name'], config['host_name'],
                        config.get('scheme', 'http'), storage['bucket'],
-                       config['access_key'], config['secret_key'], 'true',
-                       'flat']
+                       config['access_key'], config['secret_key'], 'true']
             assert 0 is docker.exec_(container, command, tty=True,
                                      stdout=sys.stdout, stderr=sys.stderr)
         elif storage['type'] == 'swift':
@@ -184,7 +182,7 @@ def create_storages(storages, op_nodes, op_config, bindir, storages_dockers):
                                                            config[
                                                                'keystone_port']),
                        storage['container'], config['tenant_name'],
-                       config['user_name'], config['password'], 'true', 'flat']
+                       config['user_name'], config['password'], 'true']
             assert 0 is docker.exec_(container, command, tty=True,
                                      stdout=sys.stdout, stderr=sys.stderr)
         elif storage['type'] == 'glusterfs':
@@ -194,14 +192,14 @@ def create_storages(storages, op_nodes, op_config, bindir, storages_dockers):
                        config['host_name'], str(config['port']),
                        config['transport'],
                        config['mountpoint'],
-                       'cluster.write-freq-threshold=100;', 'true', 'flat']
+                       'cluster.write-freq-threshold=100;', 'true']
             assert 0 is docker.exec_(container, command, tty=True,
                                      stdout=sys.stdout, stderr=sys.stderr)
         elif storage['type'] == 'nulldevice':
             command = ['escript', script_paths['nulldevice'], cookie,
                        first_node, storage['name'], storage['latencyMin'],
                        storage['latencyMax'], storage['timeoutProbability'],
-                       storage['filter'], 'true', 'canonical']
+                       storage['filter'], 'true']
             assert 0 is docker.exec_(container, command, tty=True,
                                      stdout=sys.stdout, stderr=sys.stderr)
         else:

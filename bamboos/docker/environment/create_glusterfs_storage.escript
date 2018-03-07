@@ -3,8 +3,7 @@
 
 -export([main/1]).
 
-main([Cookie, Node, Name, Volume, Hostname, Port, Transport, MountPoint, XlatorOptions,
-    Insecure, StoragePathType]) ->
+main([Cookie, Node, Name, Volume, Hostname, Port, Transport, MountPoint, XlatorOptions, Insecure]) ->
 
     erlang:set_cookie(node(), list_to_atom(Cookie)),
     NodeAtom = list_to_atom(Node),
@@ -20,8 +19,7 @@ main([Cookie, Node, Name, Volume, Hostname, Port, Transport, MountPoint, XlatorO
             <<"xlatorOptions">> => list_to_binary(XlatorOptions)
         },
         UserCtx,
-        list_to_atom(Insecure),
-        list_to_binary(StoragePathType)
+        list_to_atom(Insecure)
     ]),
 
     StorageDoc = safe_call(NodeAtom, storage, new, [list_to_binary(Name), [Helper]]),
