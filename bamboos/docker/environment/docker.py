@@ -175,7 +175,10 @@ def remove(containers, docker_host=None, force=False,
     if volumes:
         cmd.append('-v')
 
-    cmd.extend(containers)
+    if isinstance(containers, str):
+        cmd.append(containers)
+    else:
+        cmd.extend(containers)
 
     if docker_host:
         cmd = wrap_in_ssh_call(cmd, docker_host)
@@ -258,6 +261,40 @@ def create_volume(path, name, image, command):
 
     return subprocess.check_output(cmd, universal_newlines=True,
                                    stderr=subprocess.STDOUT)
+
+
+def ps(all=False, quiet=False):
+    """
+    List containers
+    """
+    cmd = ["docker", "ps"]
+    if all:
+        cmd.append("--all")
+    if quiet:
+        cmd.append("--quiet")
+    return subprocess.check_output(cmd, universal_newlines=True).split()
+
+
+def list_volumes(quiet=True):
+    """
+    List volumes
+    """
+    cmd = ["docker", "volume", "ls"]
+    if quiet:
+        cmd.append("--quiet")
+    return subprocess.check_output(cmd,  universal_newlines=True).split()
+
+
+def remove_volumes(volumes):
+    """
+    Remove volumes
+    """
+    cmd = ["docker", "volume", "rm"]
+    if isinstance(volumes, str):
+        cmd.append(volumes)
+    else:
+        cmd.extend(volumes)
+    return subprocess.check_call(cmd)
 
 
 def connect_docker_to_network(network, container):
