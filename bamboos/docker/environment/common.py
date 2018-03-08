@@ -310,15 +310,21 @@ def _check_provider_oz_connectivity(host):
 def remove_dockers_and_volumes():
     if BAMBOO_AGENT_ID_VAR in os.environ:
         containers = docker.ps(all=True, quiet=True)
-        if containers:
+        print("Stalled docker containers to remove", containers)
+        for container in containers:
             try:
-                docker.remove(containers, force=True, volumes=True)
+                print("Removing docker container", container)
+                docker.remove(container, force=True, volumes=True)
+                print("Successfully removed docker container", container)
             except Exception as e:
-                print("Removing docker containers failed due to ", e)
+                print("Removing docker container %s failed due to %s" % (container, e))
 
         volumes = docker.list_volumes(quiet=True)
-        if volumes:
+        print("Stalled docker volumes to remove", volumes)
+        for volume in volumes:
             try:
-                docker.remove_volumes(volumes)
+                print("Removing docker volume", volume)
+                docker.remove_volumes(volume)
+                print("Successfully removed docker volume", volume)
             except Exception as e:
-                print("Removing docker volumes failed due to ", e)
+                print("Removing docker volume %s failed due to %s" % (volume, e))
