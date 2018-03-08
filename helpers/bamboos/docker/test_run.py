@@ -15,8 +15,7 @@ import sys
 import time
 
 from environment.common import HOST_STORAGE_PATH
-from environment import docker
-from environment.common import remove_dockers_and_volumes
+from environment import docker, remove_dockers_and_volumes
 import glob
 import xml.etree.ElementTree as ElementTree
 

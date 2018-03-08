@@ -175,7 +175,10 @@ def remove(containers, docker_host=None, force=False,
     if volumes:
         cmd.append('-v')
 
-    cmd.extend(containers)
+    if isinstance(containers, str):
+        cmd.append(containers)
+    else:
+        cmd.extend(containers)
 
     if docker_host:
         cmd = wrap_in_ssh_call(cmd, docker_host)
@@ -287,7 +290,10 @@ def remove_volumes(volumes):
     Remove volumes
     """
     cmd = ["docker", "volume", "rm"]
-    cmd.extend(volumes)
+    if isinstance(volumes, str):
+        cmd.append(volumes)
+    else:
+        cmd.extend(volumes)
     return subprocess.check_call(cmd)
 
 
