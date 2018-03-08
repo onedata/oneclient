@@ -11,6 +11,7 @@
 
 #include "communication/declarations.h"
 #include "fuseOperations.h"
+#include "logging.h"
 #include "messages/clientHandshakeRequest.h"
 #include "messages/clientMessage.h"
 #include "messages/handshakeResponse.h"
@@ -114,6 +115,11 @@ public:
     auto reply(const clproto::ServerMessage &replyTo,
         messages::ClientMessage &&msg, const int retry = DEFAULT_RETRY_NUMBER)
     {
+        LOG_FCALL() << LOG_FARG(retry);
+
+        LOG_DBG(3) << "Replying to server message id: " << replyTo.message_id()
+                   << " with message: {" << msg.toString() << "}";
+
         auto promise = std::make_shared<folly::Promise<folly::Unit>>();
 
         auto callback = [promise](const std::error_code &ec) {
@@ -143,6 +149,11 @@ public:
     template <class SvrMsg, class CliMsg>
     auto communicate(CliMsg &&msg, const int retries = DEFAULT_RETRY_NUMBER)
     {
+        LOG_FCALL() << LOG_FARG(retries);
+
+        LOG_DBG(3) << "Communicating clproto message: {" << msg.toString()
+                   << "}";
+
         auto promise = std::make_shared<folly::Promise<SvrMsg>>();
         auto callback = [promise](const std::error_code &ec,
                             ServerMessagePtr protoMessage) {
@@ -167,6 +178,10 @@ template <class LowerLayer>
 auto Translator<LowerLayer>::send(
     messages::ClientMessage &&msg, const int retries)
 {
+    LOG_FCALL() << LOG_FARG(retries);
+
+    LOG_DBG(3) << "Sending clproto message: {" << msg.toString() << "}";
+
     auto promise = std::make_shared<folly::Promise<folly::Unit>>();
 
     auto callback = [promise](const std::error_code &ec) {
