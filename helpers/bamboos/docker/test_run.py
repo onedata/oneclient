@@ -15,7 +15,7 @@ import sys
 import time
 
 from environment.common import HOST_STORAGE_PATH
-from environment import docker
+from environment import docker, remove_dockers_and_volumes
 import glob
 import xml.etree.ElementTree as ElementTree
 
@@ -155,6 +155,8 @@ command = command.format(
 
 # 128MB or more required for chrome tests to run with xvfb
 run_params = ['--shm-size=128m']
+
+remove_dockers_and_volumes()
 
 ret = docker.run(tty=True,
                  rm=True,
