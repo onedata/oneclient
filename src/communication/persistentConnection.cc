@@ -191,6 +191,8 @@ void PersistentConnection::send(std::string message, Callback callback)
 {
     LOG_FCALL() << LOG_FARG(message.size());
 
+    LOG_DBG(4) << "Sending binary message: " << LOG_ERL_BIN(message);
+
     asio::post(m_app.ioService(), [
         =, message = std::move(message), callback = std::move(callback)
     ]() mutable {
@@ -231,6 +233,8 @@ void PersistentConnection::readLoop()
     LOG_FCALL();
 
     asyncRead([=](asio::mutable_buffer) {
+        LOG_DBG(4) << "Received binary message: " << LOG_ERL_BIN(m_inData);
+
         m_onMessage(std::move(m_inData));
         readLoop();
     });
