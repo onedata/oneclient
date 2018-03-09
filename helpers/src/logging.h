@@ -81,6 +81,12 @@
 #define LOG_MAP(X) one::logging::mapToString(X)
 
 /**
+ * Encodes a string into a comma-separate int format compatible
+ * with Erlang binary logs.
+ */
+#define LOG_ERL_BIN(X) one::logging::containerToErlangBinaryString(X)
+
+/**
  * Macro for verbose logging in debug mode
  */
 #define LOG_DBG(X) DVLOG(X)
@@ -140,6 +146,18 @@ TResult mapToString(const TMap &map)
     result = result.substr(0, result.size() - 2);
     result += " }";
     return result;
+}
+
+template <typename TSeq = std::string>
+std::string containerToErlangBinaryString(const TSeq &bytes)
+{
+    std::vector<std::string> bytesValues;
+
+    std::for_each(bytes.begin(), bytes.end(), [&](const char &byte) {
+        return bytesValues.push_back(std::to_string((uint8_t)byte));
+    });
+
+    return std::string("<<") + boost::algorithm::join(bytesValues, ",") + ">>";
 }
 }
 }
