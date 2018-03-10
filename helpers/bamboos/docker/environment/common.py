@@ -35,6 +35,7 @@ OZ_CONNECTIVITY_CHECK_RETRIES = 25
 
 HOST_STORAGE_PATH = "/tmp/onedata"
 BAMBOO_AGENT_ID_VAR = "bamboo_agentId"
+K8S_CONTAINER_NAME_LABEL_KEY = "io.kubernetes.container.name"
 
 
 def nagios_up(ip, port=None, protocol='https'):
@@ -310,8 +311,24 @@ def _check_provider_oz_connectivity(host):
 def remove_dockers_and_volumes():
     if BAMBOO_AGENT_ID_VAR in os.environ:
         containers = docker.ps(all=True, quiet=True)
-        print("Stalled docker containers to remove", containers)
+        k8s_containers = []
+
         for container in containers:
+            try:
+                container_config = docker.inspect(container)
+                if K8S_CONTAINER_NAME_LABEL_KEY in container_config['Config']['Labels']:
+                    k8s_containers.append(container)
+            except KeyError:
+                pass
+            except Exception as e:
+                print("Inspecting docker container %s failed due to %s" % (
+                container, e))
+
+        print("Detected k8s containers", k8s_containers)
+        stalled_containers = [container for container in containers
+                              if container not in k8s_containers]
+        print("Stalled docker containers to remove", stalled_containers)
+        for container in stalled_containers:
             try:
                 print("Removing docker container", container)
                 docker.remove(container, force=True, volumes=True)
