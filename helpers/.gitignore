@@ -53,3 +53,4 @@ compile_commands.json
 
 # Valgrind reports
 valgrind-*.txt
+/priv
