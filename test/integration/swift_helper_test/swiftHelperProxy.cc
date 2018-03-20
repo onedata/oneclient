@@ -11,8 +11,8 @@
 #include "swiftHelper.h"
 
 #include <asio/buffer.hpp>
-#include <asio/executor_work.hpp>
 #include <asio/io_service.hpp>
+#include <asio/ts/executor.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
 #include <folly/ThreadName.h>
@@ -40,9 +40,9 @@ class SwiftHelperProxy {
 public:
     SwiftHelperProxy(std::string authUrl, std::string containerName,
         std::string tenantName, std::string userName, std::string password,
-        std::size_t threadNumber, std::size_t blockSize)
+        int threadNumber, std::size_t blockSize)
         : m_service{threadNumber}
-        , m_idleWork{asio::make_work(m_service)}
+        , m_idleWork{asio::make_work_guard(m_service)}
         , m_helper{std::make_shared<one::helpers::KeyValueAdapter>(
               std::make_shared<one::helpers::SwiftHelper>(
                   std::move(containerName), authUrl, tenantName, userName,
@@ -100,7 +100,7 @@ public:
 
 private:
     asio::io_service m_service;
-    asio::executor_work<asio::io_service::executor_type> m_idleWork;
+    asio::executor_work_guard<asio::io_service::executor_type> m_idleWork;
     std::vector<std::thread> m_workers;
     std::shared_ptr<one::helpers::StorageHelper> m_helper;
 };

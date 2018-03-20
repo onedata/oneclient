@@ -9,10 +9,10 @@
 #ifndef HELPERS_SCHEDULER_H
 #define HELPERS_SCHEDULER_H
 
-#include <asio/executor_work.hpp>
 #include <asio/io_service.hpp>
 #include <asio/post.hpp>
 #include <asio/steady_timer.hpp>
+#include <asio/ts/executor.hpp>
 
 #include <chrono>
 #include <cstdint>
@@ -33,7 +33,7 @@ public:
      * Creates worker threads.
      * @param threadNumber The number of threads to be spawned.
      */
-    Scheduler(const std::size_t threadNumber);
+    Scheduler(const int threadNumber);
 
     /**
      * Destructor.
@@ -147,11 +147,11 @@ private:
     void start();
     void stop();
 
-    const std::size_t m_threadNumber;
+    const int m_threadNumber;
     std::vector<std::thread> m_workers;
     asio::io_service m_ioService{m_threadNumber};
-    asio::executor_work<asio::io_service::executor_type> m_idleWork =
-        asio::make_work(m_ioService);
+    asio::executor_work_guard<asio::io_service::executor_type> m_idleWork =
+        asio::make_work_guard(m_ioService);
 };
 
 } // namespace one

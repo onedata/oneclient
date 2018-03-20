@@ -15,7 +15,7 @@
 
 namespace one {
 
-Scheduler::Scheduler(const std::size_t threadNumber)
+Scheduler::Scheduler(const int threadNumber)
     : m_threadNumber{threadNumber}
 {
     start();

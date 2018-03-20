@@ -9,8 +9,8 @@
 #include "cephHelper.h"
 
 #include <asio/buffer.hpp>
-#include <asio/executor_work.hpp>
 #include <asio/io_service.hpp>
+#include <asio/ts/executor.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
 #include <boost/python/extract.hpp>
@@ -39,7 +39,7 @@ public:
     CephHelperProxy(std::string monHost, std::string username, std::string key,
         std::string poolName)
         : m_service{1}
-        , m_idleWork{asio::make_work(m_service)}
+        , m_idleWork{asio::make_work_guard(m_service)}
         , m_worker{[=] { m_service.run(); }}
         , m_helper{std::make_shared<one::helpers::CephHelper>("ceph", monHost,
               poolName, username, key,
@@ -121,7 +121,7 @@ public:
 
 private:
     asio::io_service m_service;
-    asio::executor_work<asio::io_service::executor_type> m_idleWork;
+    asio::executor_work_guard<asio::io_service::executor_type> m_idleWork;
     std::thread m_worker;
     std::shared_ptr<one::helpers::CephHelper> m_helper;
 };

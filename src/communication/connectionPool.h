@@ -144,8 +144,8 @@ private:
     std::function<void(std::string)> m_onMessage = [](auto) {};
 
     asio::io_service m_ioService;
-    asio::executor_work<asio::io_service::executor_type> m_work{
-        asio::make_work(m_ioService)};
+    asio::executor_work_guard<asio::io_service::executor_type> m_work{
+        asio::make_work_guard(m_ioService)};
     std::thread m_thread;
     std::shared_ptr<asio::ssl::context> m_context{
         std::make_shared<asio::ssl::context>(

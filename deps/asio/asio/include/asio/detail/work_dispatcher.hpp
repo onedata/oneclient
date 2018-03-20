@@ -2,7 +2,7 @@
 // detail/work_dispatcher.hpp
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2017 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -18,7 +18,7 @@
 #include "asio/detail/config.hpp"
 #include "asio/associated_executor.hpp"
 #include "asio/associated_allocator.hpp"
-#include "asio/executor_work.hpp"
+#include "asio/executor_work_guard.hpp"
 
 #include "asio/detail/push_options.hpp"
 
@@ -43,7 +43,7 @@ public:
   }
 
   work_dispatcher(work_dispatcher&& other)
-    : work_(ASIO_MOVE_CAST(executor_work<
+    : work_(ASIO_MOVE_CAST(executor_work_guard<
         typename associated_executor<Handler>::type>)(other.work_)),
       handler_(ASIO_MOVE_CAST(Handler)(other.handler_))
   {
@@ -52,15 +52,15 @@ public:
 
   void operator()()
   {
-    typename associated_executor<Handler>::type ex(work_.get_executor());
     typename associated_allocator<Handler>::type alloc(
         (get_associated_allocator)(handler_));
-    ex.dispatch(ASIO_MOVE_CAST(Handler)(handler_), alloc);
+    work_.get_executor().dispatch(
+        ASIO_MOVE_CAST(Handler)(handler_), alloc);
     work_.reset();
   }
 
 private:
-  executor_work<typename associated_executor<Handler>::type> work_;
+  executor_work_guard<typename associated_executor<Handler>::type> work_;
   Handler handler_;
 };
 
