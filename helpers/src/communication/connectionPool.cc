@@ -72,7 +72,7 @@ void ConnectionPool::connect()
     std::generate_n(
         std::back_inserter(m_connections), m_connectionsNumber, [&] {
             auto connection = m_connectionFactory(m_host, m_port, m_context,
-                asio::wrap(m_ioService, m_onMessage),
+                asio::bind_executor(m_ioService, m_onMessage),
                 std::bind(&ConnectionPool::onConnectionReady, this, _1),
                 m_getHandshake, m_onHandshakeResponse, m_onHandshakeDone);
 

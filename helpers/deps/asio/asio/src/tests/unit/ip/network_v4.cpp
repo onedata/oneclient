@@ -2,7 +2,7 @@
 // network_v4.cpp
 // ~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2017 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 // Copyright (c) 2014 Oliver Kowalke (oliver dot kowalke at gmail dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
@@ -18,6 +18,7 @@
 #include "asio/ip/network_v4.hpp"
 
 #include "../unit_test.hpp"
+#include <sstream>
 
 //------------------------------------------------------------------------------
 
@@ -60,7 +61,7 @@ void test()
     ip::address_v4 addr4 = net1.broadcast();
     (void)addr4;
 
-    ip::address_range_v4 hosts = net1.hosts();
+    ip::address_v4_range hosts = net1.hosts();
     (void)hosts;
 
     ip::network_v4 net3 = net1.canonical();
@@ -86,6 +87,33 @@ void test()
     bool b4 = (net1 != net2);
     (void)b4;
 
+    // network_v4 creation functions.
+
+    net1 = ip::make_network_v4(ip::address_v4(), 24);
+    net1 = ip::make_network_v4(ip::address_v4(), ip::address_v4());
+    net1 = ip::make_network_v4("10.0.0.0/8");
+    net1 = ip::make_network_v4("10.0.0.0/8", ec);
+    net1 = ip::make_network_v4(s1);
+    net1 = ip::make_network_v4(s1, ec);
+#if defined(ASIO_HAS_STD_STRING_VIEW)
+# if defined(ASIO_HAS_STD_EXPERIMENTAL_STRING_VIEW)
+    std::experimental::string_view string_view_value("10.0.0.0/8");
+# else // defined(ASIO_HAS_STD_EXPERIMENTAL_STRING_VIEW)
+    std::string_view string_view_value("10.0.0.0/8");
+# endif // defined(ASIO_HAS_STD_EXPERIMENTAL_STRING_VIEW)
+    net1 = ip::make_network_v4(string_view_value);
+    net1 = ip::make_network_v4(string_view_value, ec);
+#endif // defined(ASIO_HAS_STD_STRING_VIEW)
+
+    // network_v4 I/O.
+
+    std::ostringstream os;
+    os << net1;
+
+#if !defined(BOOST_NO_STD_WSTREAMBUF)
+    std::wostringstream wos;
+    wos << net1;
+#endif // !defined(BOOST_NO_STD_WSTREAMBUF)
   }
   catch (std::exception&)
   {
@@ -191,6 +219,19 @@ void test()
   ASIO_CHECK(make_network_v4("192.168.77.100/32").network() == make_address_v4("192.168.77.100"));
   ASIO_CHECK(make_network_v4("192.168.77.100/24").network() == make_address_v4("192.168.77.0"));
   ASIO_CHECK(make_network_v4("192.168.77.128/25").network() == make_address_v4("192.168.77.128"));
+
+  // construct network from invalid string
+  asio::error_code ec;
+  make_network_v4("10.0.0.256/24", ec);
+  ASIO_CHECK(!!ec);
+  make_network_v4("10.0.0.0/33", ec);
+  ASIO_CHECK(!!ec);
+  make_network_v4("10.0.0.0/-1", ec);
+  ASIO_CHECK(!!ec);
+  make_network_v4("10.0.0.0/", ec);
+  ASIO_CHECK(!!ec);
+  make_network_v4("10.0.0.0", ec);
+  ASIO_CHECK(!!ec);
 
   // prefix length
   ASIO_CHECK(make_network_v4("193.99.144.80/24").prefix_length() == 24);

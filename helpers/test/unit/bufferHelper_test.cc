@@ -3,8 +3,8 @@
 #include "helpers/storageHelper.h"
 #include "scheduler.h"
 
-#include <asio/executor_work.hpp>
 #include <asio/io_service.hpp>
+#include <asio/ts/executor.hpp>
 #include <folly/FBString.h>
 #include <folly/futures/Future.h>
 #include <folly/io/IOBufQueue.h>
@@ -106,8 +106,8 @@ protected:
 
 private:
     asio::io_service service{100};
-    asio::executor_work<asio::io_service::executor_type> idleWork{
-        asio::make_work(service)};
+    asio::executor_work_guard<asio::io_service::executor_type> idleWork{
+        asio::make_work_guard(service)};
     folly::fbvector<std::thread> workers;
     one::Scheduler scheduler{1};
     one::AsioExecutor executor{service};

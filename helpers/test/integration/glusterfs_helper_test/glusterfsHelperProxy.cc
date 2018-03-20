@@ -9,8 +9,8 @@
 #include "glusterfsHelper.h"
 
 #include <asio/buffer.hpp>
-#include <asio/executor_work.hpp>
 #include <asio/io_service.hpp>
+#include <asio/ts/executor.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/python.hpp>
 #include <boost/python/extract.hpp>
@@ -51,7 +51,7 @@ public:
         std::string hostname, int port, std::string volume,
         std::string transport, std::string xlatorOptions)
         : m_service{GLUSTERFS_HELPER_WORKER_THREADS}
-        , m_idleWork{asio::make_work(m_service)}
+        , m_idleWork{asio::make_work_guard(m_service)}
         , m_helper{std::make_shared<one::helpers::GlusterFSHelper>(mountPoint,
               uid, gid, hostname, port, volume, transport, xlatorOptions,
               std::make_shared<one::AsioExecutor>(m_service))}
@@ -222,7 +222,7 @@ public:
 
 private:
     asio::io_service m_service;
-    asio::executor_work<asio::io_service::executor_type> m_idleWork;
+    asio::executor_work_guard<asio::io_service::executor_type> m_idleWork;
     std::vector<std::thread> m_workers;
     std::shared_ptr<one::helpers::GlusterFSHelper> m_helper;
 };

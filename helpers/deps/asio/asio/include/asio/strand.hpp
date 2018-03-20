@@ -2,7 +2,7 @@
 // strand.hpp
 // ~~~~~~~~~~
 //
-// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2017 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -18,7 +18,6 @@
 #include "asio/detail/config.hpp"
 #include "asio/detail/strand_executor_service.hpp"
 #include "asio/detail/type_traits.hpp"
-#include "asio/is_executor.hpp"
 
 #include "asio/detail/push_options.hpp"
 
@@ -149,7 +148,7 @@ public:
   }
 
   /// Obtain the underlying execution context.
-  execution_context& context() ASIO_NOEXCEPT
+  execution_context& context() const ASIO_NOEXCEPT
   {
     return executor_.context();
   }
@@ -158,7 +157,7 @@ public:
   /**
    * The strand delegates this call to its underlying executor.
    */
-  void on_work_started() ASIO_NOEXCEPT
+  void on_work_started() const ASIO_NOEXCEPT
   {
     executor_.on_work_started();
   }
@@ -167,7 +166,7 @@ public:
   /**
    * The strand delegates this call to its underlying executor.
    */
-  void on_work_finished() ASIO_NOEXCEPT
+  void on_work_finished() const ASIO_NOEXCEPT
   {
     executor_.on_work_finished();
   }
@@ -188,7 +187,7 @@ public:
    * internal storage needed for function invocation.
    */
   template <typename Function, typename Allocator>
-  void dispatch(ASIO_MOVE_ARG(Function) f, const Allocator& a)
+  void dispatch(ASIO_MOVE_ARG(Function) f, const Allocator& a) const
   {
     detail::strand_executor_service::dispatch(impl_,
         executor_, ASIO_MOVE_CAST(Function)(f), a);
@@ -208,7 +207,7 @@ public:
    * internal storage needed for function invocation.
    */
   template <typename Function, typename Allocator>
-  void post(ASIO_MOVE_ARG(Function) f, const Allocator& a)
+  void post(ASIO_MOVE_ARG(Function) f, const Allocator& a) const
   {
     detail::strand_executor_service::post(impl_,
         executor_, ASIO_MOVE_CAST(Function)(f), a);
@@ -228,7 +227,7 @@ public:
    * internal storage needed for function invocation.
    */
   template <typename Function, typename Allocator>
-  void defer(ASIO_MOVE_ARG(Function) f, const Allocator& a)
+  void defer(ASIO_MOVE_ARG(Function) f, const Allocator& a) const
   {
     detail::strand_executor_service::defer(impl_,
         executor_, ASIO_MOVE_CAST(Function)(f), a);
@@ -272,19 +271,16 @@ private:
   implementation_type impl_;
 };
 
-#if !defined(GENERATING_DOCUMENTATION)
-template <typename Executor>
-struct is_executor<strand<Executor> > : true_type {};
-#endif // !defined(GENERATING_DOCUMENTATION)
-
 } // namespace asio
 
 #include "asio/detail/pop_options.hpp"
 
-// If both io_service.hpp and strand.hpp have been included, automatically
-// include the header file needed for the io_service::strand class.
-#if defined(ASIO_IO_SERVICE_HPP)
-# include "asio/io_service_strand.hpp"
-#endif // defined(ASIO_IO_SERVICE_HPP)
+// If both io_context.hpp and strand.hpp have been included, automatically
+// include the header file needed for the io_context::strand class.
+#if !defined(ASIO_NO_EXTENSIONS)
+# if defined(ASIO_IO_CONTEXT_HPP)
+#  include "asio/io_context_strand.hpp"
+# endif // defined(ASIO_IO_CONTEXT_HPP)
+#endif // !defined(ASIO_NO_EXTENSIONS)
 
 #endif // ASIO_STRAND_HPP
