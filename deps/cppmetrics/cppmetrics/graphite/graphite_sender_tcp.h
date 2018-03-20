@@ -17,7 +17,10 @@
 #define GRAPHITE_SENDER_TCP_H_
 
 #include "cppmetrics/graphite/graphite_sender.h"
-#include <asio.hpp>
+
+#include <asio/io_service.hpp>
+#include <asio/ip/tcp.hpp>
+
 #include <cstdint>
 
 namespace cppmetrics {

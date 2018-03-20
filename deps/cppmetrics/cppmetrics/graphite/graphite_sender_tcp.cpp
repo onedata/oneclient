@@ -14,6 +14,10 @@
  */
 
 #include "cppmetrics/graphite/graphite_sender_tcp.h"
+
+#include <asio/connect.hpp>
+#include <asio/write.hpp>
+
 #include <sstream>
 
 namespace cppmetrics {
