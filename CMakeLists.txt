@@ -225,6 +225,7 @@ install(TARGETS helpersShared LIBRARY DESTINATION lib)
 install(TARGETS helpersStatic ARCHIVE DESTINATION lib)
 install(DIRECTORY include DESTINATION .)
 install(DIRECTORY ${ASIO_INCLUDE_DIRS} DESTINATION .)
+install(DIRECTORY ${CPPMETRICS_INCLUDE_DIRS}/cppmetrics DESTINATION include/)
 
 
 enable_testing()
