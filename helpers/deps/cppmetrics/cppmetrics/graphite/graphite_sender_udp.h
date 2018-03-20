@@ -7,8 +7,12 @@
 
 #ifndef SRC_CPPMETRICS_GRAPHITE_GRAPHITE_SENDER_UDP_H_
 #define SRC_CPPMETRICS_GRAPHITE_GRAPHITE_SENDER_UDP_H_
+
 #include "cppmetrics/graphite/graphite_sender.h"
-#include <asio.hpp>
+
+#include <asio/io_service.hpp>
+#include <asio/ip/udp.hpp>
+
 #include <cstdint>
 
 namespace cppmetrics {

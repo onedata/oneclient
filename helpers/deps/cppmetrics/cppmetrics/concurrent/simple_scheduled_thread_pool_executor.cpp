@@ -14,9 +14,11 @@
  */
 
 #include "cppmetrics/concurrent/simple_scheduled_thread_pool_executor.h"
-#include <asio.hpp>
-#include <chrono>
+
+#include <asio/basic_waitable_timer.hpp>
 #include <glog/logging.h>
+
+#include <chrono>
 #include <mutex>
 
 namespace cppmetrics {
@@ -53,9 +55,6 @@ SimpleScheduledThreadPoolExecutor::SimpleScheduledThreadPoolExecutor(
     for (size_t i = 0; i < thread_count; ++i) {
         thread_group_.emplace_back([&]() { io_service_.run(); });
     }
-    // for(auto &t : thread_group_) {
-    //     t.detach();
-    // }
 }
 
 SimpleScheduledThreadPoolExecutor::~SimpleScheduledThreadPoolExecutor()
