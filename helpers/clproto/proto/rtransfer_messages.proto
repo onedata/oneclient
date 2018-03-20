@@ -12,6 +12,7 @@ package one.clproto;
 import "common_messages.proto";
 
 message GenerateRTransferConnSecret {
+    required bytes secret = 1;
 }
 
 message RTransferConnSecret {
