@@ -17,7 +17,7 @@ namespace events {
 
 AsyncStream::AsyncStream(StreamPtr stream)
     : m_ioService{1}
-    , m_idleWork{asio::make_work(m_ioService)}
+    , m_idleWork{asio::make_work_guard(m_ioService)}
     , m_worker{[=] {
         communication::etls::utils::nameThread("AsyncStream");
         m_ioService.run();

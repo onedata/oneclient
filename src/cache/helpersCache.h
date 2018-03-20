@@ -16,8 +16,8 @@
 #include "scheduler.h"
 #include "storageAccessManager.h"
 
-#include <asio/executor_work.hpp>
 #include <asio/io_service.hpp>
+#include <asio/ts/executor.hpp>
 #include <folly/FBString.h>
 #include <folly/FBVector.h>
 #include <folly/Hash.h>
@@ -100,8 +100,8 @@ private:
     const options::Options &m_options;
 
     asio::io_service m_helpersIoService;
-    asio::executor_work<asio::io_service::executor_type> m_idleWork{
-        asio::make_work(m_helpersIoService)};
+    asio::executor_work_guard<asio::io_service::executor_type> m_idleWork{
+        asio::make_work_guard(m_helpersIoService)};
     folly::fbvector<std::thread> m_helpersWorkers;
 
     helpers::StorageHelperCreator m_helperFactory;
