@@ -13,10 +13,9 @@
 #include "communication/etls/utils.h"
 #include "logging.h"
 
-#include <asio/executor_work.hpp>
 #include <asio/io_service.hpp>
 #include <asio/post.hpp>
-#include <asio/wrap.hpp>
+#include <asio/ts/executor.hpp>
 
 #include <functional>
 #include <iostream>
@@ -58,7 +57,7 @@ public:
 
 private:
     asio::io_service m_ioService;
-    std::unique_ptr<asio::executor_work<asio::io_service::executor_type>>
+    std::unique_ptr<asio::executor_work_guard<asio::io_service::executor_type>>
         m_work;
     std::thread m_thread;
 };
@@ -72,9 +71,9 @@ template <class LowerLayer> AsyncResponder<LowerLayer>::~AsyncResponder()
 
 template <class LowerLayer> auto AsyncResponder<LowerLayer>::connect()
 {
-    m_work =
-        std::make_unique<asio::executor_work<asio::io_service::executor_type>>(
-            asio::make_work(m_ioService));
+    m_work = std::make_unique<
+        asio::executor_work_guard<asio::io_service::executor_type>>(
+        asio::make_work_guard(m_ioService));
 
     m_thread = std::thread{[this] {
         LOG_DBG(1) << "Creating AsyncResponder thread";

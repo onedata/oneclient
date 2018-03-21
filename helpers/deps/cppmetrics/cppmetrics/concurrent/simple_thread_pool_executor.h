@@ -16,7 +16,8 @@
 #ifndef SIMPLE_THREAD_POOL_EXECUTOR_H_
 #define SIMPLE_THREAD_POOL_EXECUTOR_H_
 
-#include <asio.hpp>
+#include <asio/io_service.hpp>
+
 #include <atomic>
 #include <thread>
 #include <vector>

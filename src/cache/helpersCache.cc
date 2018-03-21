@@ -34,7 +34,8 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
     : m_communicator{communicator}
     , m_scheduler{scheduler}
     , m_options{options}
-    , m_helpersIoService{options.getStorageHelperThreadCount()}
+    , m_helpersIoService{static_cast<int>(
+          options.getStorageHelperThreadCount())}
     , m_helperFactory
 {
 #if WITH_CEPH

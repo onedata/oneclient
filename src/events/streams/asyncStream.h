@@ -11,10 +11,10 @@
 
 #include "stream.h"
 
-#include <asio/executor_work.hpp>
 #include <asio/io_service.hpp>
 #include <asio/io_service_strand.hpp>
 #include <asio/post.hpp>
+#include <asio/ts/executor.hpp>
 
 #include <thread>
 
@@ -56,7 +56,7 @@ public:
 
 private:
     asio::io_service m_ioService;
-    asio::executor_work<asio::io_service::executor_type> m_idleWork;
+    asio::executor_work_guard<asio::io_service::executor_type> m_idleWork;
     std::thread m_worker;
     StreamPtr m_stream;
 };

@@ -2,7 +2,7 @@
 // thread_pool.hpp
 // ~~~~~~~~~~~~~~~
 //
-// Copyright (c) 2003-2015 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+// Copyright (c) 2003-2017 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -20,7 +20,6 @@
 #include "asio/detail/scheduler.hpp"
 #include "asio/detail/thread_group.hpp"
 #include "asio/execution_context.hpp"
-#include "asio/is_executor.hpp"
 
 #include "asio/detail/push_options.hpp"
 
@@ -30,6 +29,36 @@ namespace asio {
 /**
  * The thread pool class is an execution context where functions are permitted
  * to run on one of a fixed number of threads.
+ *
+ * @par Submitting tasks to the pool
+ *
+ * To submit functions to the io_context, use the @ref asio::dispatch,
+ * @ref asio::post or @ref asio::defer free functions.
+ *
+ * For example:
+ *
+ * @code void my_task()
+ * {
+ *   ...
+ * }
+ *
+ * ...
+ *
+ * // Launch the pool with four threads.
+ * asio::thread_pool pool(4);
+ *
+ * // Submit a function to the pool.
+ * asio::post(pool, my_task);
+ *
+ * // Submit a lambda object to the pool.
+ * asio::post(pool,
+ *     []()
+ *     {
+ *       ...
+ *     });
+ *
+ * // Wait for all tasks in the pool to complete.
+ * pool.join(); @endcode
  */
 class thread_pool
   : public execution_context
@@ -83,7 +112,7 @@ class thread_pool::executor_type
 {
 public:
   /// Obtain the underlying execution context.
-  thread_pool& context() ASIO_NOEXCEPT;
+  thread_pool& context() const ASIO_NOEXCEPT;
 
   /// Inform the thread pool that it has some outstanding work to do.
   /**
@@ -91,7 +120,7 @@ public:
    * This ensures that the thread pool's join() function will not return while
    * the work is underway.
    */
-  void on_work_started() ASIO_NOEXCEPT;
+  void on_work_started() const ASIO_NOEXCEPT;
 
   /// Inform the thread pool that some work is no longer outstanding.
   /**
@@ -99,7 +128,7 @@ public:
    * finished. Once the count of unfinished work reaches zero, the thread
    * pool's join() function is permitted to exit.
    */
-  void on_work_finished() ASIO_NOEXCEPT;
+  void on_work_finished() const ASIO_NOEXCEPT;
 
   /// Request the thread pool to invoke the given function object.
   /**
@@ -116,7 +145,7 @@ public:
    * internal storage needed for function invocation.
    */
   template <typename Function, typename Allocator>
-  void dispatch(ASIO_MOVE_ARG(Function) f, const Allocator& a);
+  void dispatch(ASIO_MOVE_ARG(Function) f, const Allocator& a) const;
 
   /// Request the thread pool to invoke the given function object.
   /**
@@ -132,7 +161,7 @@ public:
    * internal storage needed for function invocation.
    */
   template <typename Function, typename Allocator>
-  void post(ASIO_MOVE_ARG(Function) f, const Allocator& a);
+  void post(ASIO_MOVE_ARG(Function) f, const Allocator& a) const;
 
   /// Request the thread pool to invoke the given function object.
   /**
@@ -152,7 +181,7 @@ public:
    * internal storage needed for function invocation.
    */
   template <typename Function, typename Allocator>
-  void defer(ASIO_MOVE_ARG(Function) f, const Allocator& a);
+  void defer(ASIO_MOVE_ARG(Function) f, const Allocator& a) const;
 
   /// Determine whether the thread pool is running in the current thread.
   /**
@@ -190,10 +219,6 @@ private:
   // The underlying thread pool.
   thread_pool& pool_;
 };
-
-#if !defined(GENERATING_DOCUMENTATION)
-template <> struct is_executor<thread_pool::executor_type> : true_type {};
-#endif // !defined(GENERATING_DOCUMENTATION)
 
 } // namespace asio
 
