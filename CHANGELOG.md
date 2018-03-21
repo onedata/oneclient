@@ -4,6 +4,12 @@
 CHANGELOG
 ---------
 
+### 18.02.0-beta3
+
+* VFS-4190 Fixed binary xattr value serialization
+* VFS-4190 Disable setting system, security and capabilities xattrs in oneclient
+
+
 ### 18.02.0-beta2
 
 * Add support for flat storages
