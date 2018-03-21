@@ -33,11 +33,11 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/proto)
 file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/proto/__init__.py "")
 file(GLOB PROTO_FILES ${PROTO_DIR}/*.proto)
 
-if(APPLE AND Protobuf_PROTOC_EXECUTABLE)
+if(Protobuf_PROTOC_EXECUTABLE)
   # On OSX cmake generates the protoc executable variable with small caps
   # name so we have to manually set the capitalized version
   set(PROTOBUF_PROTOC_EXECUTABLE ${Protobuf_PROTOC_EXECUTABLE})
-endif(APPLE AND Protobuf_PROTOC_EXECUTABLE)
+endif(Protobuf_PROTOC_EXECUTABLE)
 
 add_custom_target(pythonProto
     COMMAND ${PROTOBUF_PROTOC_EXECUTABLE} --python_out ${CMAKE_CURRENT_BINARY_DIR}/proto -I ${PROTO_DIR} ${PROTO_FILES}
