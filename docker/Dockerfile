@@ -8,8 +8,8 @@ ARG ONECLIENT_PACKAGE="oneclient"
 
 # onedata deps ppa
 RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C211375C && \
-    echo "deb http://ppa.launchpad.net/onedata/ceph/ubuntu xenial main" > /etc/apt/sources.list.d/onedata.list && \
-    echo "deb http://ppa.launchpad.net/onedata/build-deps-openssl11/ubuntu xenial main" >> /etc/apt/sources.list.d/onedata.list
+    echo "deb http://ppa.launchpad.net/onedata/ceph/ubuntu xenial main" > /etc/apt/sources.list.d/onedata-ppa.list && \
+    echo "deb http://ppa.launchpad.net/onedata/build-deps-openssl11/ubuntu xenial main" >> /etc/apt/sources.list.d/onedata-ppa.list
 
 # Get the image up to date and install utility tools
 RUN apt-get -y update && \
