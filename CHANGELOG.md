@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 18.02.0-beta4
+
+* VFS-4262 Updated asio executors to new API
+
+
 ### 18.02.0-beta3
 
 * VFS-4190 Fixed binary xattr value serialization
