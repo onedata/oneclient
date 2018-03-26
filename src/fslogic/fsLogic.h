@@ -242,6 +242,11 @@ private:
     bool isSpaceDisabled(const folly::fbstring &spaceId);
     void disableSpaces(const std::vector<std::string> &spaces);
 
+    void prefetchSync(helpers::FileHandlePtr helperHandle, const off_t offset,
+        const std::size_t size, const folly::fbstring &uuid,
+        const boost::icl::discrete_interval<off_t> possibleRange,
+        const boost::icl::discrete_interval<off_t> availableRange);
+
     std::shared_ptr<Context> m_context;
     events::Manager m_eventManager{m_context};
     cache::LRUMetadataCache m_metadataCache;
