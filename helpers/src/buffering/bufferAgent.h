@@ -36,7 +36,7 @@ public:
         , m_scheduler{scheduler}
         , m_readCache{std::make_shared<ReadCache>(bl.readBufferMinSize,
               bl.readBufferMaxSize, bl.readBufferPrefetchDuration,
-              *m_wrappedHandle)}
+              bl.prefetchPowerBase, bl.targetLatency, *m_wrappedHandle)}
         , m_writeBuffer{std::make_shared<WriteBuffer>(bl.writeBufferMinSize,
               bl.writeBufferMaxSize, bl.writeBufferFlushDelay, *m_wrappedHandle,
               m_scheduler, m_readCache)}
@@ -48,14 +48,23 @@ public:
     folly::Future<folly::IOBufQueue> read(
         const off_t offset, const std::size_t size) override
     {
-        LOG_FCALL() << LOG_FARG(offset) << LOG_FARG(size);
+        return read(offset, size, std::numeric_limits<off_t>::max() - offset);
+    }
+
+    folly::Future<folly::IOBufQueue> read(const off_t offset,
+        const std::size_t size, const std::size_t continuousSize) override
+    {
+        LOG_FCALL() << LOG_FARG(offset) << LOG_FARG(size)
+                    << LOG_FARG(continuousSize);
+
+        DCHECK(continuousSize >= size);
 
         // Push all changes so we'll always read data that we just wrote. A
         // mechanism in `WriteBuffer` will trigger a clear of the readCache if
         // needed. This might be optimized in the future by modifying readcache
         // on write.
         return m_writeBuffer->fsync().then(
-            [this, offset, size] { return m_readCache->read(offset, size); });
+            [=] { return m_readCache->read(offset, size, continuousSize); });
     }
 
     folly::Future<std::size_t> write(
@@ -99,6 +108,17 @@ public:
     bool needsDataConsistencyCheck() override
     {
         return m_wrappedHandle->needsDataConsistencyCheck();
+    }
+
+    std::size_t wouldPrefetch(
+        const off_t offset, const std::size_t size) override
+    {
+        return m_readCache->wouldPrefetch(offset, size);
+    }
+
+    folly::Future<folly::Unit> flushUnderlying() override
+    {
+        return m_wrappedHandle->flush();
     }
 
 private:

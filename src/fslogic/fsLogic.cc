@@ -37,6 +37,7 @@
 #include "messages/fuse/rename.h"
 #include "messages/fuse/setXAttr.h"
 #include "messages/fuse/syncResponse.h"
+#include "messages/fuse/synchronizeBlock.h"
 #include "messages/fuse/synchronizeBlockAndComputeChecksum.h"
 #include "messages/fuse/truncate.h"
 #include "messages/fuse/updateTimes.h"
@@ -315,12 +316,12 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     boost::icl::discrete_interval<off_t> availableRange;
     messages::fuse::FileBlock fileBlock;
     std::tie(availableRange, fileBlock) = std::move(*locationData);
-    availableRange = availableRange & wantedRange;
+    const auto wantedAvailableRange = availableRange & wantedRange;
 
     LOG_DBG(1) << "Availble block range for file " << uuid
-               << " in requested range: " << availableRange;
+               << " in requested range: " << wantedAvailableRange;
 
-    const std::size_t availableSize = boost::icl::size(availableRange);
+    const std::size_t availableSize = boost::icl::size(wantedAvailableRange);
 
     try {
         auto helperHandle = fuseFileHandle->getHelperHandle(uuid,
@@ -330,18 +331,26 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         if (checksum) {
             LOG_DBG(1) << "Waiting on helper flush for " << uuid
                        << " due to required checksum";
-            communication::wait(helperHandle->flush(), helperHandle->timeout());
+            communication::wait(
+                helperHandle->flushUnderlying(), helperHandle->timeout());
         }
+
+        prefetchSync(helperHandle, offset, availableSize, uuid, possibleRange,
+            availableRange);
+
+        const std::size_t continuousSize =
+            boost::icl::size(boost::icl::left_subtract(availableRange,
+                boost::icl::discrete_interval<off_t>::right_open(0, offset)));
 
         LOG_DBG(1) << "Reading " << availableSize << " bytes from " << uuid
                    << " at offset " << offset;
         auto readBuffer = communication::wait(
-            helperHandle->read(offset, availableSize), helperHandle->timeout());
+            helperHandle->read(offset, availableSize, continuousSize),
+            helperHandle->timeout());
 
         if (helperHandle->needsDataConsistencyCheck() && checksum &&
-            dataCorrupted(
-                uuid, readBuffer, *checksum, availableRange, wantedRange)) {
-
+            dataCorrupted(uuid, readBuffer, *checksum, wantedAvailableRange,
+                wantedRange)) {
             // close the file to get data up to date, it will be opened
             // again by read function
             fuseFileHandle->releaseHelperHandle(
@@ -384,6 +393,28 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
                    << " via proxy fallback";
         return read(uuid, fileHandleId, offset, size, checksum);
     }
+}
+
+void FsLogic::prefetchSync(helpers::FileHandlePtr helperHandle,
+    const off_t offset, const std::size_t size, const folly::fbstring &uuid,
+    const boost::icl::discrete_interval<off_t> possibleRange,
+    const boost::icl::discrete_interval<off_t> availableRange)
+{
+    const std::size_t wouldPrefetch = helperHandle->wouldPrefetch(offset, size);
+
+    const auto wantToPrefetchRange =
+        boost::icl::discrete_interval<off_t>::right_open(
+            offset + size, offset + size + wouldPrefetch * 2);
+
+    const auto prefetchRange = boost::icl::left_subtract(
+        wantToPrefetchRange & possibleRange, availableRange);
+
+    if (boost::icl::size(prefetchRange) > 0)
+        communication::wait(
+            m_context->communicator()->send(
+                messages::fuse::SynchronizeBlockAndComputeChecksum{
+                    uuid.toStdString(), prefetchRange}),
+            helperHandle->timeout());
 }
 
 std::size_t FsLogic::write(const folly::fbstring &uuid,

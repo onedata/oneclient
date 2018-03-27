@@ -173,12 +173,7 @@ std::shared_ptr<StorageHelper> StorageHelperCreator::getStorageHelper(
             "Invalid storage helper name: '" + name.toStdString() + "'"};
     }
 
-    if (buffered
-    // disable buffering for GlusterFS
-#if WITH_GLUSTERFS
-        && (name != GLUSTERFS_HELPER_NAME)
-#endif
-    ) {
+    if (buffered) {
         LOG_DBG(1) << "Created buffered helper of type " << name;
         return std::make_shared<buffering::BufferAgent>(
             m_bufferLimits, helper, *m_scheduler);
