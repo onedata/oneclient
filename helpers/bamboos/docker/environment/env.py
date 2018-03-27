@@ -16,7 +16,7 @@ from . import appmock, client, common, zone_worker, cluster_manager, \
 
 
 def default(key):
-    return {'image': 'onedata/worker',
+    return {'image': 'onedata/worker:v57',
             'ceph_image': 'onedata/ceph',
             's3_image': 'onedata/s3proxy',
             'swift_image': 'onedata/dockswift',
@@ -153,7 +153,7 @@ echo $?'''
         command = command.format(json.dumps(env_configurator_input), True, True)
         env_configurator_dir = os.path.abspath(env_configurator_dir)
         docker_output = docker.run(
-            image='onedata/builder',
+            image='onedata/builder:v60',
             interactive=True,
             tty=True,
             rm=True,

@@ -348,16 +348,22 @@ start_remote_control_listener() ->
     {ok, KeyFile} = application:get_env(?APP_NAME, key_file),
     % Start a https listener on given port
     ?info("Starting cowboy listener: ~p (~p)", [?REMOTE_CONTROL_LISTENER, RemoteControlPort]),
-    {ok, _} = cowboy:start_https(
-        ?REMOTE_CONTROL_LISTENER,
-        ?NUMBER_OF_ACCEPTORS,
+
+
+    {ok, _} = ranch:start_listener(?REMOTE_CONTROL_LISTENER, ranch_ssl,
         [
+            {num_acceptors, ?NUMBER_OF_ACCEPTORS},
             {port, RemoteControlPort},
             {cacertfile, CaCertFile},
             {certfile, CertFile},
-            {keyfile, KeyFile}
+            {keyfile, KeyFile},
+            {next_protocols_advertised, [<<"http/1.1">>]},
+            {alpn_preferred_protocols, [<<"http/1.1">>]}
         ],
-        [
-            {env, [{dispatch, Dispatch}]}
-        ]),
+        cowboy_tls, #{
+            env => #{dispatch => Dispatch},
+            connection_type => supervisor,
+            idle_timeout => infinity,
+            inactivity_timeout => timer:hours(24)
+        }),
     ok.
