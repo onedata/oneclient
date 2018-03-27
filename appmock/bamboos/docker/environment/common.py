@@ -27,7 +27,15 @@ except ImportError:
 
 requests.packages.urllib3.disable_warnings()
 
+# How often (in seconds) and how many retries should be performed waiting for OP
+# instances to connect to their zones.
+OZ_CONNECTIVITY_CHECK_INTERVAL = 5
+OZ_CONNECTIVITY_CHECK_TIMEOUT = 10
+OZ_CONNECTIVITY_CHECK_RETRIES = 25
+
 HOST_STORAGE_PATH = "/tmp/onedata"
+BAMBOO_AGENT_ID_VAR = "bamboo_agentId"
+K8S_CONTAINER_NAME_LABEL_KEY = "io.kubernetes.container.name"
 
 
 def nagios_up(ip, port=None, protocol='https'):
@@ -43,10 +51,17 @@ def nagios_up(ip, port=None, protocol='https'):
         return False
 
 
-def wait_until(condition, containers, timeout):
+def wait_until(condition, containers, timeout, docker_host=None):
     deadline = time.time() + timeout
+
+    def ready():
+        if docker_host:
+            return condition(container, docker_host)
+        else:
+            return condition(container)
+
     for container in containers:
-        while not condition(container):
+        while not ready():
             if time.time() > deadline:
                 message = 'Timeout while waiting for condition {0} ' \
                           'of container {1}'
@@ -64,7 +79,7 @@ def standard_arg_parser(desc):
     parser.add_argument(
         '-i-', '--image',
         action='store',
-        default='onedata/worker',
+        default='onedata/worker:v57',
         help='docker image to use for the container',
         dest='image')
 
@@ -177,7 +192,7 @@ def env_domain_name():
     """Returns domain name used in the environment. It will be concatenated
     to the dockernames (=hostnames) of all dockers.
     """
-    return 'dev'
+    return 'test'
 
 
 def format_hostname(domain_parts, uid):
@@ -268,3 +283,65 @@ mount -t nfs -o proto=tcp,port=2049,nolock {host}:/exports {mount_point}
 '''.format(host=storages_dockers['nfs'][storage['name']]['ip'], mount_point=storage['name'])
     return mount_command
 
+
+def ensure_provider_oz_connectivity(host):
+    """Returns True when given OP instance is connected to its OZ or False
+    when certain amount of retries fail.
+    """
+    for _ in range(0, OZ_CONNECTIVITY_CHECK_RETRIES):
+        if _check_provider_oz_connectivity(host):
+            return True
+        time.sleep(OZ_CONNECTIVITY_CHECK_INTERVAL)
+    return False
+
+
+def _check_provider_oz_connectivity(host):
+    url = 'https://{0}/nagios/oz_connectivity'.format(host)
+    try:
+        r = requests.get(url, verify=False, timeout=OZ_CONNECTIVITY_CHECK_TIMEOUT)
+        if r.status_code != requests.codes.ok:
+            return False
+
+        body_json = json.loads(r.text)
+        return body_json['status'] == 'ok'
+    except requests.exceptions.RequestException as e:
+        return False
+
+
+def remove_dockers_and_volumes():
+    if BAMBOO_AGENT_ID_VAR in os.environ:
+        containers = docker.ps(all=True, quiet=True)
+        k8s_containers = []
+
+        for container in containers:
+            try:
+                container_config = docker.inspect(container)
+                if K8S_CONTAINER_NAME_LABEL_KEY in container_config['Config']['Labels']:
+                    k8s_containers.append(container)
+            except KeyError:
+                pass
+            except Exception as e:
+                print("Inspecting docker container %s failed due to %s" % (
+                container, e))
+
+        print("Detected k8s containers", k8s_containers)
+        stalled_containers = [container for container in containers
+                              if container not in k8s_containers]
+        print("Stalled docker containers to remove", stalled_containers)
+        for container in stalled_containers:
+            try:
+                print("Removing docker container", container)
+                docker.remove(container, force=True, volumes=True)
+                print("Successfully removed docker container", container)
+            except Exception as e:
+                print("Removing docker container %s failed due to %s" % (container, e))
+
+        volumes = docker.list_volumes(quiet=True)
+        print("Stalled docker volumes to remove", volumes)
+        for volume in volumes:
+            try:
+                print("Removing docker volume", volume)
+                docker.remove_volumes(volume)
+                print("Successfully removed docker volume", volume)
+            except Exception as e:
+                print("Removing docker volume %s failed due to %s" % (volume, e))

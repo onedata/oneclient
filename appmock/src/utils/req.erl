@@ -15,7 +15,6 @@
 %% API
 -export([headers/1, header/2, host/1, peer/1]).
 -export([path/1, binding/2]).
--export([body/1, post_params/1]).
 
 %%%===================================================================
 %%% API
@@ -28,8 +27,7 @@
 %%--------------------------------------------------------------------
 -spec headers(Req :: cowboy_req:req()) -> [{Key :: binary(), Value :: binary()}].
 headers(Req) ->
-    {Headers, _} = cowboy_req:headers(Req),
-    Headers.
+    maps:to_list(cowboy_req:headers(Req)).
 
 
 %%--------------------------------------------------------------------
@@ -37,9 +35,9 @@ headers(Req) ->
 %% Returns request header by name.
 %% @end
 %%--------------------------------------------------------------------
--spec header(Header :: binary(), Req :: cowboy_req:req()) -> [{Key :: binary(), Value :: binary()}] | undefined.
+-spec header(Header :: binary(), Req :: cowboy_req:req()) -> binary() | undefined.
 header(Header, Req) ->
-    proplists:get_value(Header, headers(Req), undefined).
+    cowboy_req:header(Header, Req).
 
 
 %%--------------------------------------------------------------------
@@ -49,7 +47,7 @@ header(Header, Req) ->
 %%--------------------------------------------------------------------
 -spec host(Req :: cowboy_req:req()) -> binary() | undefined.
 host(Req) ->
-    header(<<"host">>, Req).
+    cowboy_req:host(Req).
 
 
 %%--------------------------------------------------------------------
@@ -57,10 +55,9 @@ host(Req) ->
 %% Returns host i. e. hostname that was requested by a client.
 %% @end
 %%---------------------------------------------------------------------spec header(Header :: binary(), Req :: cowboy_req:req()) -> [{Key :: binary(), Value :: binary()}].
--spec peer(Req :: cowboy_req:req()) -> {Ip :: {integer(), integer(), integer(), integer()}, Port :: integer()}.
+-spec peer(Req :: cowboy_req:req()) -> {Ip :: inet:ip_address(), Port :: inet:port_number()}.
 peer(Req) ->
-    {{Ip, Port}, Req} = cowboy_req:peer(Req),
-    {Ip, Port}.
+    cowboy_req:peer(Req).
 
 
 %%--------------------------------------------------------------------
@@ -70,8 +67,7 @@ peer(Req) ->
 %%--------------------------------------------------------------------
 -spec path(Req :: cowboy_req:req()) -> binary().
 path(Req) ->
-    {Path, _} = cowboy_req:path(Req),
-    Path.
+    cowboy_req:path(Req).
 
 
 %%--------------------------------------------------------------------
@@ -81,27 +77,4 @@ path(Req) ->
 %%--------------------------------------------------------------------
 -spec binding(Binding :: atom(), Req :: cowboy_req:req()) -> binary() | undefined.
 binding(Binding, Req) ->
-    {Match, _} = cowboy_req:binding(Binding, Req),
-    Match.
-
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Returns request body.
-%% @end
-%%--------------------------------------------------------------------
--spec body(Req :: cowboy_req:req()) -> binary().
-body(Req) ->
-    {ok, Body, _} = cowboy_req:body(Req),
-    Body.
-
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Retrieves all form parameters sent in POST request.
-%% @end
-%%--------------------------------------------------------------------
--spec post_params(Req :: cowboy_req:req()) -> Params :: [{Key :: binary(), Value :: binary()}].
-post_params(Req) ->
-    {ok, Params, _} = cowboy_req:body_qs(Req),
-    Params.
+    cowboy_req:binding(Binding, Req).

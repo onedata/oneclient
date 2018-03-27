@@ -81,7 +81,9 @@ healthcheck() ->
 -spec produce_response(Req :: cowboy_req:req(), ETSKey :: {Port :: integer(), Path :: binary()}) ->
     {ok, {Code :: integer(), Headers :: [{term(), term()}], Body :: binary()}}.
 produce_response(Req, ETSKey) ->
-    gen_server:call(?SERVER, {produce_response, Req, ETSKey}).
+    % Extract request body here as it can only be done from the handler process
+    {ok, ReqBody, _} = cowboy_req:read_body(Req),
+    gen_server:call(?SERVER, {produce_response, Req, ReqBody, ETSKey}).
 
 
 %%--------------------------------------------------------------------
@@ -175,8 +177,8 @@ handle_call(healthcheck, _From, #state{mock_states = MockStates} = State) ->
         {reply, error, State}
     end;
 
-handle_call({produce_response, Req, ETSKey}, _From, State) ->
-    {{Code, Headers, Body}, NewState} = internal_produce_response(Req, ETSKey, State),
+handle_call({produce_response, Req, ReqBody, ETSKey}, _From, State) ->
+    {{Code, Headers, Body}, NewState} = internal_produce_response(Req, ReqBody, ETSKey, State),
     {reply, {ok, {Code, Headers, Body}}, NewState};
 
 handle_call({rest_endpoint_request_count, Port, Path}, _From, State) ->
@@ -359,18 +361,22 @@ start_listener(ListenerID, Port, Dispatch) ->
     {ok, KeyFile} = application:get_env(?APP_NAME, key_file),
     % Start a https listener on given port
     ?info("Starting cowboy listener: ~p (~p)", [ListenerID, Port]),
-    {ok, _} = cowboy:start_https(
-        ListenerID,
-        ?NUMBER_OF_ACCEPTORS,
+    {ok, _} = ranch:start_listener(ListenerID, ranch_ssl,
         [
+            {num_acceptors, ?NUMBER_OF_ACCEPTORS},
             {port, Port},
             {cacertfile, CaCertFile},
             {certfile, CertFile},
-            {keyfile, KeyFile}
+            {keyfile, KeyFile},
+            {next_protocols_advertised, [<<"http/1.1">>]},
+            {alpn_preferred_protocols, [<<"http/1.1">>]}
         ],
-        [
-            {env, [{dispatch, Dispatch}]}
-        ]),
+        cowboy_tls, #{
+            env => #{dispatch => Dispatch},
+            connection_type => supervisor,
+            idle_timeout => infinity,
+            inactivity_timeout => timer:hours(24)
+        }),
     ok.
 
 
@@ -380,9 +386,9 @@ start_listener(ListenerID, Port, Dispatch) ->
 %% Internal function called from handle_call, creating a response from mocked endpoint.
 %% @end
 %%--------------------------------------------------------------------
--spec internal_produce_response(Req :: cowboy_req:req(), ETSKey :: {Port :: integer(), Path :: binary()}, State :: #state{}) ->
+-spec internal_produce_response(Req :: cowboy_req:req(), ReqBody :: binary(), ETSKey :: {Port :: integer(), Path :: binary()}, State :: #state{}) ->
     {{Code :: integer(), Headers :: [{term(), term()}], Body :: binary()}, NewState :: #state{}}.
-internal_produce_response(Req, ETSKey, #state{request_history = History, mock_states = MockStatesDict} = ServerState) ->
+internal_produce_response(Req, ReqBody, ETSKey, #state{request_history = History, mock_states = MockStatesDict} = ServerState) ->
     % Get the response term and current state by {Port, Path} key
     {ok, [MockStateRec]} = dict:find(ETSKey, MockStatesDict),
     #rest_mock_state{response = ResponseField, state = MockState, counter = Counter} = MockStateRec,
@@ -394,8 +400,8 @@ internal_produce_response(Req, ETSKey, #state{request_history = History, mock_st
             RespList when is_list(RespList) ->
                 CurrentResp = lists:nth((Counter rem length(RespList)) + 1, RespList),
                 {CurrentResp, MockState};
-            Fun when is_function(Fun, 2) ->
-                {_Response, _NewState} = Fun(Req, MockState)
+            Fun when is_function(Fun, 3) ->
+                {_Response, _NewState} = Fun(Req, ReqBody, MockState)
         end,
     % Put new state in the dictionary
     NewMockStatesDict = dict:update(ETSKey,

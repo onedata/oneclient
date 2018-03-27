@@ -79,7 +79,7 @@ def standard_arg_parser(desc):
     parser.add_argument(
         '-i-', '--image',
         action='store',
-        default='onedata/worker',
+        default='onedata/worker:v57',
         help='docker image to use for the container',
         dest='image')
 

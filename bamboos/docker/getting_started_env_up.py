@@ -101,8 +101,8 @@ def rm_persistence(path, service_name):
 
 def add_etc_hosts_entries(service_ip, service_host):
     call('sudo bash -c "echo {} {} >> /etc/hosts"'.format(service_ip, 
-                                                              service_host),
-                                                              shell=True)
+                                                          service_host),
+                                                          shell=True)
 
 
 def wait_for_service_start(service_name, docker_name, pattern, timeout):
@@ -166,8 +166,8 @@ def start_service(start_service_path, start_service_args, service_name,
     if args.write_to_etc_hosts:
         add_etc_hosts_entries(ip, service_host)
         add_etc_hosts_entries(ip, '{}.{}'.format(service_host,'test'))
-    else:
-        etc_hosts_entries[ip] = service_host
+
+    etc_hosts_entries[service_host] = ip
 
     return service_host, docker_name
 
@@ -279,7 +279,8 @@ output = {
         {
             'alias': args.zone_name,
             'hostname': oz_hostname,
-            'docker_name': oz_docker_name
+            'docker_name': oz_docker_name,
+            'ip': etc_hosts_entries[oz_hostname]
         }
     ],
     'op_worker_nodes': [
@@ -308,12 +309,13 @@ for provider in args.providers_names:
     finally:
         with open(provider_dockerfile, "w") as f:
             f.write(base_provider_dockerfile)
-
+    
     output['op_worker_nodes'] += [
         {
             'alias': provider,
             'hostname': op_hostname,
-            'docker_name': op_docker_name
+            'docker_name': op_docker_name,
+            'ip': etc_hosts_entries[op_hostname]
         }
     ]
 
@@ -332,7 +334,7 @@ if '2_0' in args.scenario:
                     op_node_output['hostname']))
     print('OZ connectivity established')
 
-for ip in etc_hosts_entries:
-    print '{} {}'.format(ip, etc_hosts_entries[ip])
+for hostname in etc_hosts_entries:
+    print '{} {}'.format(etc_hosts_entries[hostname], hostname)
 
 print json.dumps(output)

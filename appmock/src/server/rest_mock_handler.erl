@@ -10,14 +10,14 @@
 %%% @end
 %%%-------------------------------------------------------------------
 -module(rest_mock_handler).
--behaviour(cowboy_http_handler).
+-behaviour(cowboy_handler).
 -author("Lukasz Opiola").
 
 -include_lib("ctool/include/logging.hrl").
 -include("appmock.hrl").
 
 %% Cowboy API
--export([init/3, handle/2, terminate/3]).
+-export([init/2]).
 
 %%%===================================================================
 %%% API
@@ -28,48 +28,27 @@
 %% Cowboy callback, called to initialize the state of the handler.
 %% @end
 %%--------------------------------------------------------------------
--spec init(Type :: term(), Req :: cowboy_req:req(), [ETSKey]) -> {ok, cowboy_req:req(), [ETSKey]} when ETSKey :: {Port :: integer(), Path :: binary()}.
-init(_Type, Req, [ETSKey]) ->
-    % This is a REST endpoint, close connection after every request.
-    {ok, cowboy_req:set([{connection, close}], Req), [ETSKey]}.
+-spec init(Req :: cowboy_req:req(), [ETSKey]) -> {ok, cowboy_req:req(), [ETSKey]} when ETSKey :: {Port :: integer(), Path :: binary()}.
+init(Req, [ETSKey] = State) ->
+    Req2 = cowboy_req:set_resp_header(<<"connection">>, <<"close">>, Req),
 
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Cowboy callback, called to process a request.
-%% Handles requests to mocked endpoints by delegating them to appmock_server.
-%% @end
-%%--------------------------------------------------------------------
--spec handle(Req :: cowboy_req:req(), [ETSKey]) -> {ok, cowboy_req:req(), [ETSKey]} when ETSKey :: {Port :: integer(), Path :: binary()}.
-handle(Req, [ETSKey]) ->
-    {ok, NewReq} =
-        try
-            {ok, {Code, Headers, Body}} = rest_mock_server:produce_response(Req, ETSKey),
-            Req2 = cowboy_req:set_resp_body(Body, Req),
-            Req3 = lists:foldl(
-                fun({HKey, HValue}, CurrReq) ->
-                    cowboy_req:set_resp_header(HKey, HValue, CurrReq)
-                end, Req2, Headers),
-            {ok, _NewReq} = cowboy_req:reply(Code, Req3)
-        catch T:M ->
-            {Port, Path} = ETSKey,
-            Stacktrace = erlang:get_stacktrace(),
-            ?error("Error in ~p. Path: ~p. Port: ~p. ~p:~p.~nStacktrace: ~p",
-                [?MODULE, Path, Port, T, M, Stacktrace]),
-            Error = str_utils:format_bin("500 Internal server error - make sure that your description file does not " ++
-            "contain errors.~n-----------------~nType:       ~p~nMessage:    ~p~nStacktrace: ~p", [T, M, Stacktrace]),
-            ErrorReq2 = cowboy_req:set_resp_body(Error, Req),
-            ErrorReq3 = cowboy_req:set_resp_header(<<"content-type">>, <<"text/plain">>, ErrorReq2),
-            {ok, _ErrorReq} = cowboy_req:reply(500, ErrorReq3)
-        end,
-    {ok, NewReq, [ETSKey]}.
-
-
-%%--------------------------------------------------------------------
-%% @doc
-%% Cowboy callback, called to perform cleanup after the request is handled.
-%% @end
-%%--------------------------------------------------------------------
--spec terminate(Reason :: term(), Req :: cowboy_req:req(), State :: term()) -> ok.
-terminate(_Reason, _Req, _State) ->
-    ok.
+    NewReq = try
+        {ok, {Code, Headers, Body}} = rest_mock_server:produce_response(Req2, ETSKey),
+        Req3 = cowboy_req:set_resp_body(Body, Req2),
+        Req4 = lists:foldl(
+            fun({HKey, HValue}, CurrReq) ->
+                cowboy_req:set_resp_header(HKey, HValue, CurrReq)
+            end, Req3, Headers),
+        cowboy_req:reply(Code, Req4)
+    catch T:M ->
+        {Port, Path} = ETSKey,
+        Stacktrace = erlang:get_stacktrace(),
+        ?error("Error in ~p. Path: ~p. Port: ~p. ~p:~p.~nStacktrace: ~p",
+            [?MODULE, Path, Port, T, M, Stacktrace]),
+        Error = str_utils:format_bin("500 Internal server error - make sure that your description file does not " ++
+        "contain errors.~n-----------------~nType:       ~p~nMessage:    ~p~nStacktrace: ~p", [T, M, Stacktrace]),
+        ErrorReq2 = cowboy_req:set_resp_body(Error, Req2),
+        ErrorReq3 = cowboy_req:set_resp_header(<<"content-type">>, <<"text/plain">>, ErrorReq2),
+        cowboy_req:reply(500, ErrorReq3)
+    end,
+    {ok, NewReq, State}.
