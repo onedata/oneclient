@@ -29,7 +29,7 @@ import xml.etree.ElementTree as ElementTree
 
 sys.path.insert(0, 'bamboos/docker')
 from environment import docker
-from environment.common import HOST_STORAGE_PATH
+from environment.common import HOST_STORAGE_PATH, remove_dockers_and_volumes
 
 
 def skipped_test_exists(junit_report_path):
@@ -51,7 +51,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '--image', '-i',
     action='store',
-    default='onedata/worker',
+    default='onedata/worker:v57',
     help='docker image to use as a test master',
     dest='image')
 
@@ -146,7 +146,7 @@ ct_command = ['ct_run',
               'and', 'cth_logger', 'and', 'cth_env_up', 'and', 'cth_mock',
               'and', 'cth_posthook',
               '-noshell',
-              '-name', 'testmaster@testmaster.{0}.dev.docker'.format(uid),
+              '-name', 'testmaster@testmaster.{0}.test'.format(uid),
               '-include', '../include', '../_build/default/lib']
 
 code_paths = ['-pa']
@@ -308,6 +308,8 @@ volumes = []
 if os.path.isdir(expanduser('~/.docker')):
     volumes += [(expanduser('~/.docker'), '/tmp/docker_config', 'ro')]
 
+remove_dockers_and_volumes()
+
 ret = docker.run(tty=True,
                  rm=True,
                  interactive=True,
@@ -317,7 +319,7 @@ ret = docker.run(tty=True,
                           ('/var/run/docker.sock', 'rw'),
                           (HOST_STORAGE_PATH, 'rw')],
                  name='testmaster_{0}'.format(uid),
-                 hostname='testmaster.{0}.dev.docker'.format(uid),
+                 hostname='testmaster.{0}.test'.format(uid),
                  image=args.image,
                  command=['python', '-c', command])
 

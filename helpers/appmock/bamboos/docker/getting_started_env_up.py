@@ -9,8 +9,8 @@ This file is mainly used in onedata tests.
 
 Starts scenario 2.0 or 2.1 from onedata's getting started.
 Runs isolated Onedata deployment consisting of:
-- a single node preconfigured Onezone instance
-- a single node preconfigured Oneprovider instance
+- a single node Onezone instance
+- a single node Oneprovider instances
 
 To run this script manually:
 - run script from onedata repo root dir
@@ -23,18 +23,22 @@ Run the script with -h flag to learn about script's running options.
 """
 
 import sys
+
 sys.path.append('.')
 
 from environment import docker
-from subprocess import Popen, PIPE, STDOUT
+from environment.common import ensure_provider_oz_connectivity
+from subprocess import Popen, PIPE, STDOUT, call
 import os
 import re
 import time
 import json
 import argparse
 
-
+PROVIDER_DOCKER_COMPOSE_FILE = 'docker-compose-oneprovider.yml'
+ZONE_DOCKER_COMPOSE_FILE = 'docker-compose-onezone.yml'
 SCENARIOS_DIR_PATH = os.path.join('getting_started', 'scenarios')
+SERVICE_LOGS_DIR = '/volumes/persistence/var/log'
 TIMEOUT = 60 * 10
 
 
@@ -59,9 +63,9 @@ def print_logs(service_name, service_docker_logs):
                         with open(os.path.join(path, directory, file), 'r') \
                                 as logs:
                             print '{service_name} {dir} {file}'.format(
-                                                    service_name=service_name,
-                                                    dir=directory,
-                                                    file=file)
+                                service_name=service_name,
+                                dir=directory,
+                                file=file)
 
                             print logs.readlines()
                     except IOError:
@@ -96,8 +100,9 @@ def rm_persistence(path, service_name):
 
 
 def add_etc_hosts_entries(service_ip, service_host):
-    with open('/etc/hosts', 'a') as f:
-        f.write('\n{} {}\n'.format(service_ip, service_host))
+    call('sudo bash -c "echo {} {} >> /etc/hosts"'.format(service_ip, 
+                                                          service_host),
+                                                          shell=True)
 
 
 def wait_for_service_start(service_name, docker_name, pattern, timeout):
@@ -119,11 +124,11 @@ def wait_for_service_start(service_name, docker_name, pattern, timeout):
 
 
 def start_service(start_service_path, start_service_args, service_name,
-                  timeout):
+                  timeout, etc_hosts_entries):
     """
-    service_name argument is one of: onezone, oneprovider
+    service_name argument is either 'onezone' or provider name
     Runs ./run_onedata.sh script from given onedata's getting started scenario
-    Returns ip of started service
+    Returns hostname and docker name of started service
     """
     service_process = Popen(['./run_onedata.sh'] + start_service_args,
                             stdout=PIPE, stderr=STDOUT, cwd=start_service_path)
@@ -131,9 +136,8 @@ def start_service(start_service_path, start_service_args, service_name,
 
     print service_output
 
-    service = 'onezone' if service_name == 'oz_panel' else 'oneprovider'
-    docker_name = re.search(r'Creating\s*(?P<name>{}[\w-]+)\b'.format(service),
-                            service_output).group('name')
+    docker_name = re.search(r'Creating\s*(?P<name>{})\b'.format(
+        service_name), service_output).group('name')
 
     if '2_1' in args.scenario:
         wait_for_service_start(service_name, docker_name,
@@ -147,20 +151,57 @@ def start_service(start_service_path, start_service_args, service_name,
     # get service ip and hostname
     format_options = ('\'{{with index .NetworkSettings.Networks "' +
                       scenario_network + '"}}{{.IPAddress}}{{end}} '
-                      '{{ .Config.Hostname }} {{ .Config.Domainname }}\'')
+                                         '{{ .Config.Hostname }} {{ .Config.Domainname }}\'')
 
     service_process = Popen(['docker', 'inspect',
                              '--format={}'.format(format_options), docker_name],
                             stdout=PIPE, stderr=STDOUT)
-    docker_conf = service_process.communicate()[0]
+    docker_conf = service_process.communicate()[0].strip().strip("\'")
     ip, docker_hostname, docker_domain = docker_conf.split()
-    service_host = '{}.{}'.format(docker_hostname,
-                                  docker_domain if docker_domain[-1] != '.'
-                                  else docker_domain[:-1])
-    add_etc_hosts_entries(ip, service_host)
+    service_host = '{}.{}'.format(docker_hostname, docker_domain)
 
-    return service_host
+    if service_host.endswith('.'):
+        service_host = service_host[:-1]
 
+    if args.write_to_etc_hosts:
+        add_etc_hosts_entries(ip, service_host)
+        add_etc_hosts_entries(ip, '{}.{}'.format(service_host,'test'))
+
+    etc_hosts_entries[service_host] = ip
+
+    return service_host, docker_name
+
+
+def set_logs_dir(base_file_str, logs_dir, dockerfile, alias):
+    file_str = re.sub(r'(volumes:)(\s*)',
+                      r'\1\2- "{}:{}"\2'.format(
+                          os.path.join(logs_dir, alias), SERVICE_LOGS_DIR),
+                      base_file_str)
+
+    with open(dockerfile, 'w') as f:
+        f.write(file_str)
+
+
+def modify_provider_docker_compose(provider_name, base_file_str,
+                                   provider_dockerfile):
+    file_str = re.sub(r'(services:\s*).*', r'\1node1.{}.local:'.format(provider_name),
+                      base_file_str)
+    file_str = re.sub(r'(image:.*\s*hostname: ).*',
+                      r'\1node1.{}.local'.format(provider_name),
+                      file_str)
+    file_str = re.sub(r'container_name: .*',
+                      r'container_name: {}'.format(provider_name), file_str)
+    file_str = re.sub(r'(cluster:\s*domainName: ).*',
+                      r'\1"{}.local"'.format(provider), file_str)
+    file_str = re.sub(r'domain: .*',
+                      r'domain: "node1.{}.local"'.format(
+                          provider_name), file_str)
+    if args.logs_dir:
+        set_logs_dir(file_str, os.path.join(os.getcwd(), args.logs_dir),
+                     provider_dockerfile, provider_name)
+    else:
+        with open(provider_dockerfile, 'w') as f:
+            f.write(file_str)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--docker-name',
@@ -173,43 +214,127 @@ parser.add_argument('--scenario',
                     default='2_0_oneprovider_onezone',
                     help='Getting started scenario\'s name',
                     required=False)
-parser.add_argument('--zone_name',
+parser.add_argument('--zone-name',
                     action='store',
                     default='z1',
+                    dest='zone_name',
                     help='Zone\'s name',
                     required=False)
-parser.add_argument('--provider_name',
-                    action='store',
-                    default='p1',
-                    help='Provider\'s name',
+parser.add_argument('--providers-names',
+                    nargs='+',
+                    default=['p1'],
+                    dest='providers_names',
+                    help='List of providers names separated with space',
                     required=False)
+parser.add_argument('--write-to-etc-hosts',
+                    action='store_true',
+                    dest='write_to_etc_hosts',
+                    help='If given write ip-hostname mappings to '
+                         '/etc/hosts else ip-hostname mappings will'
+                         'be printed to stdout',
+                    required=False)
+parser.add_argument('--l', '--logs_dir',
+                    action='store',
+                    default='',
+                    dest='logs_dir',
+                    help='Directory where logs should be placed',
+                    required=False)
+
 args = parser.parse_args()
-
-
-start_onezone_args = ['--zone', '--detach', '--with-clean', '--name',
-                      args.zone_name]
-start_oneprovider_args = ['--provider', '--detach', '--without-clean', '--name',
-                          args.provider_name]
 
 scenario_path = os.path.join(SCENARIOS_DIR_PATH, args.scenario)
 scenario_network = '{}_{}'.format(args.scenario.replace('_', ''), 'scenario2')
+etc_hosts_entries = {}
+
+
+zone_dockerfile = os.path.join(SCENARIOS_DIR_PATH, args.scenario,
+                               ZONE_DOCKER_COMPOSE_FILE)
 print 'Starting onezone'
+start_onezone_args = ['--zone', '--detach', '--with-clean', '--name',
+                      args.zone_name]
 rm_persistence(scenario_path, 'onezone')
-oz_panel_hostname = start_service(scenario_path, start_onezone_args, 'oz_panel',
-                                  TIMEOUT)
-print 'Starting oneprovider'
-rm_persistence(scenario_path, 'oneprovider')
-op_panel_hostname = start_service(scenario_path, start_oneprovider_args,
-                                  'op_panel', TIMEOUT)
+
+if args.logs_dir:
+    with open(zone_dockerfile) as f:
+        base_zone_dockerfile = f.read()
+    try:
+        set_logs_dir(base_zone_dockerfile,
+                     os.path.join(os.getcwd(), args.logs_dir), zone_dockerfile,
+                     args.zone_name)
+        oz_hostname, oz_docker_name = start_service(scenario_path,
+                                                    start_onezone_args,
+                                                    'onezone-1', TIMEOUT,
+                                                    etc_hosts_entries)
+    finally:
+        with open(zone_dockerfile, "w") as f:
+                f.write(base_zone_dockerfile)
+else:
+    oz_hostname, oz_docker_name = start_service(scenario_path,
+                                                start_onezone_args,
+                                                'onezone-1', TIMEOUT,
+                                                etc_hosts_entries)
+
+output = {
+    'oz_worker_nodes': [
+        {
+            'alias': args.zone_name,
+            'hostname': oz_hostname,
+            'docker_name': oz_docker_name,
+            'ip': etc_hosts_entries[oz_hostname]
+        }
+    ],
+    'op_worker_nodes': [
+    ]
+
+}
+
+provider_dockerfile = os.path.join(SCENARIOS_DIR_PATH, args.scenario,
+                                   PROVIDER_DOCKER_COMPOSE_FILE)
+
+with open(provider_dockerfile) as f:
+    base_provider_dockerfile = f.read()
+
+for provider in args.providers_names:
+    print 'Starting provider: ' + provider
+    start_oneprovider_args = ['--provider', '--detach', '--without-clean',
+                              '--name', provider]
+    try:
+        modify_provider_docker_compose(provider, base_provider_dockerfile,
+                                       provider_dockerfile)
+        rm_persistence(scenario_path, 'oneprovider')
+        op_hostname, op_docker_name = start_service(
+            scenario_path, start_oneprovider_args, provider, TIMEOUT,
+            etc_hosts_entries)
+
+    finally:
+        with open(provider_dockerfile, "w") as f:
+            f.write(base_provider_dockerfile)
+    
+    output['op_worker_nodes'] += [
+        {
+            'alias': provider,
+            'hostname': op_hostname,
+            'docker_name': op_docker_name,
+            'ip': etc_hosts_entries[op_hostname]
+        }
+    ]
 
 if args.docker_name:
     docker.connect_docker_to_network(scenario_network, args.docker_name)
 
-output = {
-    'oneprovider_host': op_panel_hostname,
-    'onezone_host': oz_panel_hostname,
-    'op_panel_host': op_panel_hostname,
-    'oz_panel_host': oz_panel_hostname
-}
+# In scenario 2_0, OP and OZ are created and the provider is registered. In such
+# case, make sure provider instances are connected to their zones before the
+# test starts.
+if '2_0' in args.scenario:
+    print('Waiting for OZ connectivity of providers...')
+    for op_node_output in output['op_worker_nodes']:
+        if not ensure_provider_oz_connectivity(op_node_output['hostname']):
+            raise Exception(
+                'Could not ensure OZ connectivity of provider {0}'.format(
+                    op_node_output['hostname']))
+    print('OZ connectivity established')
+
+for hostname in etc_hosts_entries:
+    print '{} {}'.format(etc_hosts_entries[hostname], hostname)
 
 print json.dumps(output)

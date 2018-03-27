@@ -12,17 +12,16 @@ import copy
 import json
 import time
 from . import appmock, client, common, zone_worker, cluster_manager, \
-    worker, provider_worker, cluster_worker, docker, dns, storages, panel, \
-    location_service_bootstrap
+    worker, provider_worker, cluster_worker, docker, dns, storages, panel
 
 
 def default(key):
-    return {'image': 'onedata/worker',
+    return {'image': 'onedata/worker:v57',
             'ceph_image': 'onedata/ceph',
             's3_image': 'onedata/s3proxy',
             'swift_image': 'onedata/dockswift',
             'nfs_image': 'erezhorev/dockerized_nfs_server',
-            'glusterfs_image': 'gluster/gluster-centos',
+            'glusterfs_image': 'gluster/gluster-centos:gluster3u7_centos7',
             'bin_am': '{0}/appmock'.format(os.getcwd()),
             'bin_oz': '{0}/oz_worker'.format(os.getcwd()),
             'bin_op_worker': '{0}/op_worker'.format(os.getcwd()),
@@ -71,9 +70,6 @@ def up(config_path, image=default('image'), ceph_image=default('ceph_image'),
         # Setting first arg to 'auto' will force the restart and this is needed
         # so that dockers that start after can immediately see the domains.
         dns.maybe_restart_with_configuration('auto', uid, output)
-
-    ls_nodes = location_service_bootstrap.up_nodes(image, bin_oz, config, uid, logdir)
-    output['docker_ids'].extend(ls_nodes)
 
     # Start provider cluster instances
     setup_worker(zone_worker, bin_oz, 'zone_domains',
@@ -157,7 +153,7 @@ echo $?'''
         command = command.format(json.dumps(env_configurator_input), True, True)
         env_configurator_dir = os.path.abspath(env_configurator_dir)
         docker_output = docker.run(
-            image='onedata/builder',
+            image='onedata/builder:v60',
             interactive=True,
             tty=True,
             rm=True,
