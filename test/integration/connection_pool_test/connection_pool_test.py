@@ -25,7 +25,7 @@ def endpoint(appmock_client):
 
 @pytest.fixture
 def cp(endpoint):
-    return connection_pool.ConnectionPoolProxy(3, endpoint.ip, endpoint.port)
+    return connection_pool.ConnectionPoolProxy(5, 2, endpoint.ip, endpoint.port)
 
 
 @pytest.mark.performance(

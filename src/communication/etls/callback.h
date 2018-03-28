@@ -31,9 +31,9 @@ public:
     }
 
     Callback(Callback &&) = default;
-    Callback(const Callback &) = delete;
+    Callback(const Callback &) = default;
     Callback &operator=(Callback &&) = default;
-    Callback &operator=(const Callback &) = delete;
+    Callback &operator=(const Callback &) = default;
 
     void operator()() const { m_successFun(); }
 

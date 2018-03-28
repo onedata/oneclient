@@ -14,7 +14,6 @@
 #include <folly/String.h>
 #include <glog/stl_logging.h>
 
-#include <iostream>
 #include <map>
 #include <sys/xattr.h>
 

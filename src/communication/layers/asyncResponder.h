@@ -18,7 +18,6 @@
 #include <asio/ts/executor.hpp>
 
 #include <functional>
-#include <iostream>
 #include <memory>
 
 namespace one {
