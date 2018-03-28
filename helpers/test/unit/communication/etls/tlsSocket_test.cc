@@ -6,7 +6,6 @@
  * 'LICENSE.md'
  */
 
-#include "communication/etls/tlsApplication.h"
 #include "communication/etls/tlsSocket.h"
 #include "testServer.h"
 #include "testUtils.h"
@@ -28,13 +27,24 @@ struct TLSSocketTest : public Test {
     std::string host{"127.0.0.1"};
     unsigned short port{randomPort()};
     TestServer server{port};
+    asio::io_service ioService{1};
+    std::thread worker;
+    asio::executor_work_guard<asio::io_service::executor_type> work{
+        asio::make_work_guard(ioService)};
 
-    one::communication::etls::TLSApplication app;
     one::communication::etls::TLSSocket::Ptr socket;
 
     TLSSocketTest()
-        : socket{std::make_shared<one::communication::etls::TLSSocket>(app)}
+        : worker{[&] { ioService.run(); }}
+        , socket{
+              std::make_shared<one::communication::etls::TLSSocket>(ioService)}
     {
+    }
+
+    ~TLSSocketTest()
+    {
+        ioService.stop();
+        worker.join();
     }
 };
 

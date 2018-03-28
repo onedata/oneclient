@@ -35,7 +35,7 @@ struct ConnectionPoolTest : public ::testing::Test {
     MockConnection connection;
 
     ConnectionPool connectionPool{
-        1, host, port, true, createMockConnectionFactory(connection)};
+        1, 1, host, port, true, createMockConnectionFactory(connection)};
 };
 
 TEST_F(ConnectionPoolTest, connectShouldCreateConnections)

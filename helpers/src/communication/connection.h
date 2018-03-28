@@ -9,7 +9,6 @@
 #ifndef HELPERS_COMMUNICATION_CONNECTION_H
 #define HELPERS_COMMUNICATION_CONNECTION_H
 
-#include "etls/tlsApplication.h"
 #include "etls/tlsSocket.h"
 
 namespace one {
@@ -37,6 +36,11 @@ public:
      * Starts the managed connection.
      */
     virtual void connect() = 0;
+
+    /**
+     * Returns true if the connections is active.
+     */
+    virtual bool connected() const = 0;
 
     /**
      * Invokes the protocol upgrade HTTP request
