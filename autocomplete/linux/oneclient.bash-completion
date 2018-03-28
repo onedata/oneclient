@@ -116,6 +116,7 @@ _oneclient() {
                                --force-proxy-io \
                                --force-direct-io \
                                --buffer-scheduler-thread-count \
+                               --communicator-pool-size \
                                --communicator-thread-count \
                                --scheduler-thread-count \
                                --storage-helper-thread-count \

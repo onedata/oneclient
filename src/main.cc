@@ -304,7 +304,8 @@ std::shared_ptr<communication::Communicator> getCommunicator(
 {
     auto handshakeHandler = [](auto) { return std::error_code{}; };
 
-    auto communicatorTuple = authManager->createCommunicator(10,
+    auto communicatorTuple = authManager->createCommunicator(
+        context->options()->getCommunicatorConnectionPoolSize(),
         context->options()->getCommunicatorThreadCount(), sessionId,
         ONECLIENT_VERSION, handshakeHandler);
     auto communicator = std::get<std::shared_ptr<communication::Communicator>>(

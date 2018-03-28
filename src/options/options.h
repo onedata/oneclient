@@ -26,7 +26,8 @@ static constexpr auto CONFIG_FILE_NAME = "oneclient.conf";
 static constexpr auto ENVIRONMENT_PREFIX = "ONECLIENT_";
 static constexpr auto DEFAULT_PROVIDER_PORT = 443;
 static constexpr auto DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT = 1;
-static constexpr auto DEFAULT_COMMUNICATOR_THREAD_COUNT = 3;
+static constexpr auto DEFAULT_COMMUNICATOR_POOL_SIZE = 10;
+static constexpr auto DEFAULT_COMMUNICATOR_THREAD_COUNT = 2;
 static constexpr auto DEFAULT_SCHEDULER_THREAD_COUNT = 1;
 static constexpr auto DEFAULT_STORAGE_HELPER_THREAD_COUNT = 10;
 static constexpr auto DEFAULT_READ_BUFFER_MIN_SIZE = 5 * 1024 * 1024;
@@ -174,6 +175,11 @@ public:
      * @return Number of parallel buffer scheduler threads.
      */
     unsigned int getBufferSchedulerThreadCount() const;
+
+    /*
+     * @return Number of connections in communicator connection pool.
+     */
+    unsigned int getCommunicatorConnectionPoolSize() const;
 
     /*
      * @return Number of parallel communicator threads.
