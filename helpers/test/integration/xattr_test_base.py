@@ -9,7 +9,7 @@ from posix_test_types import *
 import pytest
 
 def generate_xattr_name():
-    return "user."+random_str()
+    return "user."+random_str(16)
 
 @pytest.mark.xattr_tests
 def test_setxattr_should_set_extended_attribute(helper):
@@ -76,7 +76,7 @@ def test_setxattr_should_handle_create_replace_flags(helper):
         helper.setxattr(file_id, xattr_name, xattr_value, True, False)
         helper.setxattr(file_id, xattr_name, xattr_value_replaced, False, True)
     except:
-        fail("Couldn't replace extended attribute: %s"%(xattr_name))
+        pytest.fail("Couldn't replace extended attribute: %s"%(xattr_name))
 
     assert helper.getxattr(file_id, xattr_name) == xattr_value_replaced
 

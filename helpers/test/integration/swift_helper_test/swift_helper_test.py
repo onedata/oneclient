@@ -16,6 +16,7 @@ from test_common import *
 from environment import common, docker, swift
 from key_value_test_base import *
 from swift_helper import SwiftHelperProxy
+from io_perf_test_base import *
 
 
 @pytest.fixture(scope='module')

@@ -34,6 +34,10 @@ release: release/CMakeCache.txt
 	cmake --build release --target helpersStatic
 	cmake --build release --target helpersShared
 
+.PHONY: test-release
+test-release: release/CMakeCache.txt
+	cmake --build release
+
 .PHONY: debug
 debug: debug/CMakeCache.txt
 	cmake --build debug --target helpersStatic
