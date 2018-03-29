@@ -17,6 +17,7 @@ from environment import common, docker, s3
 from boto.s3.connection import S3Connection, OrdinaryCallingFormat
 from key_value_test_base import *
 from s3_helper import S3HelperProxy
+from io_perf_test_base import *
 
 
 @pytest.fixture(scope='module')

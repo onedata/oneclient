@@ -66,15 +66,18 @@ public:
             t.join();
     }
 
-    void unlink(std::string fileId) { m_helper->unlink(fileId).get(); }
+    void unlink(std::string fileId)
+    {
+        ReleaseGIL guard;
+        m_helper->unlink(fileId).get();
+    }
 
     std::string read(std::string fileId, int offset, int size)
     {
+        ReleaseGIL guard;
         return m_helper->open(fileId, 0, {})
             .then([&](one::helpers::FileHandlePtr handle) {
-                return handle->read(offset, size);
-            })
-            .then([&](const folly::IOBufQueue &buf) {
+                auto buf = handle->read(offset, size).get();
                 std::string data;
                 buf.appendToString(data);
                 return data;
@@ -84,6 +87,7 @@ public:
 
     std::size_t write(std::string fileId, std::string data, int offset)
     {
+        ReleaseGIL guard;
         return m_helper->open(fileId, 0, {})
             .then([&](one::helpers::FileHandlePtr handle) {
                 folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
@@ -95,6 +99,7 @@ public:
 
     void truncate(std::string fileId, int offset)
     {
+        ReleaseGIL guard;
         m_helper->truncate(fileId, offset).get();
     }
 

@@ -32,7 +32,7 @@ using namespace one::helpers;
 /*
  * Minimum 4 threads are required to run this helper proxy.
  */
-constexpr int POSIX_HELPER_WORKER_THREADS = 4;
+constexpr int POSIX_HELPER_WORKER_THREADS = 8;
 
 class ReleaseGIL {
 public:

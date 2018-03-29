@@ -38,7 +38,7 @@ class CephHelperProxy {
 public:
     CephHelperProxy(std::string monHost, std::string username, std::string key,
         std::string poolName)
-        : m_service{1}
+        : m_service{8}
         , m_idleWork{asio::make_work_guard(m_service)}
         , m_worker{[=] { m_service.run(); }}
         , m_helper{std::make_shared<one::helpers::CephHelper>("ceph", monHost,
