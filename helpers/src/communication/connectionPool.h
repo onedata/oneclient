@@ -40,9 +40,9 @@ class ConnectionPool {
 public:
     using Callback = Connection::Callback;
     using ConnectionFactory = std::function<std::unique_ptr<Connection>(
-        std::string, const unsigned short, std::shared_ptr<asio::ssl::context>,
-        std::function<void(std::string)>, std::function<void(Connection &)>,
-        std::function<std::string()>,
+        std::string, const unsigned short, asio::io_service &,
+        std::shared_ptr<asio::ssl::context>, std::function<void(std::string)>,
+        std::function<void(Connection &)>, std::function<std::string()>,
         std::function<std::error_code(std::string)>,
         std::function<void(std::error_code)>)>;
 
@@ -55,6 +55,8 @@ public:
      * Constructor.
      * @param connectionsNumber Number of connections that should be maintained
      * by this pool.
+     * @param workersNumber Number of worker threads that should be maintained
+     * by this pool.
      * @param host Hostname of the remote endpoint.
      * @param port Port number of the remote endpoint.
      * @param verifyServerCertificate Specifies whether to verify server's
@@ -62,7 +64,8 @@ public:
      * @param connectionFactory A function that returns a new connection object
      * that is then maintained by the @c ConnectionPool.
      */
-    ConnectionPool(const std::size_t connectionsNumber, std::string host,
+    ConnectionPool(const std::size_t connectionsNumber,
+        const std::size_t workersNumber, std::string host,
         const unsigned short port, const bool verifyServerCertificate,
         ConnectionFactory connectionFactory);
 
@@ -126,11 +129,17 @@ public:
      */
     void stop();
 
+    /**
+     * Return the reference to the underlying io_service instance.
+     */
+    asio::io_service &ioService();
+
 private:
     void onConnectionReady(Connection &conn);
 
     std::atomic<bool> m_connected{false};
     const std::size_t m_connectionsNumber;
+    const std::size_t m_workersNumber;
     std::string m_host;
     const unsigned short m_port;
     const bool m_verifyServerCertificate;
@@ -143,15 +152,20 @@ private:
 
     std::function<void(std::string)> m_onMessage = [](auto) {};
 
+    // Main io_service instance for the connection pool
     asio::io_service m_ioService;
     asio::executor_work_guard<asio::io_service::executor_type> m_work{
         asio::make_work_guard(m_ioService)};
-    std::thread m_thread;
+    // Pool of worker threads to handle connection pool
+    std::vector<std::thread> m_poolWorkers;
+
     std::shared_ptr<asio::ssl::context> m_context{
         std::make_shared<asio::ssl::context>(
             asio::ssl::context::tlsv12_client)};
 
+    // Fixed pool of connection instances
     std::vector<std::unique_ptr<Connection>> m_connections;
+    // Queue of pointers to currently idle connections from the fixed pool
     tbb::concurrent_bounded_queue<Connection *> m_idleConnections;
 };
 

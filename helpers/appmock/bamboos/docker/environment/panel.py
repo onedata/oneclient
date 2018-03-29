@@ -36,6 +36,11 @@ def _tweak_config(config, name, onepanel_instance, uid):
     cfg = copy.deepcopy(config)
     cfg['nodes'] = {'node': cfg['nodes'][name]}
 
+    sys_config = cfg['nodes']['node']['sys.config']['onepanel']
+    sys_config['generate_test_web_cert'] = True
+    sys_config['treat_test_ca_as_trusted'] = True
+    sys_config['test_web_cert_domain'] = panel_domain(onepanel_instance, uid)
+
     vm_args = cfg['nodes']['node']['vm.args']
     vm_args['name'] = panel_erl_node_name(name, onepanel_instance, uid)
 

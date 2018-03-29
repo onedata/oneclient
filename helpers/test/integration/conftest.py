@@ -22,7 +22,7 @@ PERFORMANCE_RESULT_FILE = \
 def _appmock_client(request):
     test_dir = os.path.dirname(os.path.realpath(request.module.__file__))
 
-    result = appmock.up(image='onedata/builder', bindir=appmock_dir,
+    result = appmock.up(image='onedata/builder:v60', bindir=appmock_dir,
                         dns_server='none', uid=common.generate_uid(),
                         config_path=os.path.join(test_dir, 'env.json'))
 

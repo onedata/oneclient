@@ -25,8 +25,6 @@ namespace one {
 namespace communication {
 namespace etls {
 
-class TLSApplication;
-
 /**
  * The @c TLSSocket class is responsible for handling a single TLS socket.
  */
@@ -42,24 +40,25 @@ public:
     /**
      * Constructor.
      * Prepares a new @c asio socket with a local @c ssl::context.
-     * @param app @c TLSApplication object to retrieve @c io_service for this
-     * object's asynchronous operations.
+     * @param ioService @c io_service object for this object's asynchronous
+     *                  operations.
      * @param certPath Path to a PEM certificate file to use for the TLS
      * connection.
      * @param keyPath Path to a PEM keyfile to use for the TLS connection.
      */
-    TLSSocket(TLSApplication &app, const std::string &keyPath = "",
+    TLSSocket(asio::io_service &ioService, const std::string &keyPath = "",
         const std::string &certPath = "", std::string rfc2818Hostname = "");
 
     /**
      * Constructor.
      * Prepares a new @c asio socket with a given SSL context.
-     * @param app @c TLSApplication object to retrieve @c io_service for this
-     * object's asynchronous operations.
+     * @param ioService @c io_service object for this object's asynchronous
+     *                  operations.
      * @param acceptor a @c context handler to use for this socket's
      * configuration.
      */
-    TLSSocket(TLSApplication &app, std::shared_ptr<asio::ssl::context> context);
+    TLSSocket(asio::io_service &ioService,
+        std::shared_ptr<asio::ssl::context> context);
 
     /**
      * Asynchronously connects the socket to a remote service.
@@ -182,7 +181,11 @@ private:
     std::vector<asio::ip::basic_resolver_entry<asio::ip::tcp>> shuffleEndpoints(
         asio::ip::tcp::resolver::iterator iterator);
 
+    // Reference to a shared io_service instance
     asio::io_service &m_ioService;
+    // Socket specific strand instance to ensure sequential handler execution
+    // per socket
+    asio::io_service::strand m_ioStrand;
     asio::ip::tcp::resolver m_resolver;
     asio::ssl::stream<asio::ip::tcp::socket> m_socket;
     std::vector<std::vector<unsigned char>> m_certificateChain;
@@ -193,18 +196,14 @@ template <typename BufferSequence>
 void TLSSocket::sendAsync(
     Ptr self, const BufferSequence &buffers, Callback<> callback)
 {
-    asio::post(m_ioService, [
+    asio::async_write(m_socket, buffers, m_ioStrand.wrap([
         =, self = std::move(self), callback = std::move(callback)
-    ]() mutable {
-        asio::async_write(m_socket, buffers,
-            [ =, self = std::move(self), callback = std::move(callback) ](
-                const auto ec, const auto read) {
-                if (ec)
-                    callback(ec);
-                else
-                    callback();
-            });
-    });
+    ](const auto ec, const auto read) {
+        if (ec)
+            callback(ec);
+        else
+            callback();
+    }));
 }
 
 } // namespace etls

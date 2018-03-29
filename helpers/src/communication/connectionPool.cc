@@ -29,9 +29,11 @@ namespace one {
 namespace communication {
 
 ConnectionPool::ConnectionPool(const std::size_t connectionsNumber,
-    std::string host, const unsigned short port,
-    const bool verifyServerCertificate, ConnectionFactory connectionFactory)
+    const std::size_t workersNumber, std::string host,
+    const unsigned short port, const bool verifyServerCertificate,
+    ConnectionFactory connectionFactory)
     : m_connectionsNumber{connectionsNumber}
+    , m_workersNumber{workersNumber}
     , m_host{std::move(host)}
     , m_port{port}
     , m_verifyServerCertificate{verifyServerCertificate}
@@ -40,11 +42,12 @@ ConnectionPool::ConnectionPool(const std::size_t connectionsNumber,
     LOG_FCALL() << LOG_FARG(connectionsNumber) << LOG_FARG(host)
                 << LOG_FARG(port) << LOG_FARG(verifyServerCertificate);
 
-    m_thread = std::thread{[=] {
-        LOG_DBG(1) << "Starting ConnectionPool thread";
-        etls::utils::nameThread("ConnectionPool");
-        m_ioService.run();
-    }};
+    for (std::size_t i = 0; i < m_workersNumber; i++) {
+        m_poolWorkers.emplace_back([&, tid = i ] {
+            etls::utils::nameThread("CPWorker-" + std::to_string(tid));
+            m_ioService.run();
+        });
+    }
 }
 
 void ConnectionPool::connect()
@@ -71,8 +74,8 @@ void ConnectionPool::connect()
 
     std::generate_n(
         std::back_inserter(m_connections), m_connectionsNumber, [&] {
-            auto connection = m_connectionFactory(m_host, m_port, m_context,
-                asio::bind_executor(m_ioService, m_onMessage),
+            auto connection = m_connectionFactory(m_host, m_port, m_ioService,
+                m_context, asio::bind_executor(m_ioService, m_onMessage),
                 std::bind(&ConnectionPool::onConnectionReady, this, _1),
                 m_getHandshake, m_onHandshakeResponse, m_onHandshakeDone);
 
@@ -86,6 +89,8 @@ void ConnectionPool::connect()
 
     m_connected = true;
 }
+
+asio::io_service &ConnectionPool::ioService() { return m_ioService; }
 
 void ConnectionPool::setHandshake(std::function<std::string()> getHandshake,
     std::function<std::error_code(std::string)> onHandshakeResponse,
@@ -124,10 +129,12 @@ void ConnectionPool::send(std::string message, Callback callback, const int)
         return;
     }
 
-    Connection *conn;
+    Connection *conn = nullptr;
     try {
         LOG_DBG(2) << "Waiting for idle connection to become available";
-        m_idleConnections.pop(conn);
+        while (!conn || !conn->connected()) {
+            m_idleConnections.pop(conn);
+        }
         LOG_DBG(2) << "Retrieved active connection from connection pool";
     }
     catch (const tbb::user_abort &) {
@@ -173,8 +180,10 @@ void ConnectionPool::stop()
     if (!m_ioService.stopped())
         m_ioService.stop();
 
-    if (m_thread.joinable())
-        m_thread.join();
+    for (auto &worker : m_poolWorkers) {
+        if (worker.joinable())
+            worker.join();
+    }
 
     LOG_DBG(1) << "Connection pool stopped";
 }

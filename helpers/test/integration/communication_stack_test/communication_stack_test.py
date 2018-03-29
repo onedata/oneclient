@@ -24,12 +24,12 @@ def endpoint(appmock_client):
 
 @pytest.fixture
 def com3(endpoint):
-    return communication_stack.Communicator(3, endpoint.ip, endpoint.port)
+    return communication_stack.Communicator(3, 1, endpoint.ip, endpoint.port)
 
 
 @pytest.fixture
 def com1(endpoint):
-    return communication_stack.Communicator(1, endpoint.ip, endpoint.port)
+    return communication_stack.Communicator(1, 1, endpoint.ip, endpoint.port)
 
 
 @pytest.mark.performance(

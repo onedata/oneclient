@@ -107,10 +107,10 @@ private:
 
 class CommunicatorProxy {
 public:
-    CommunicatorProxy(const std::size_t connectionsNumber, std::string host,
-        const unsigned short port)
-        : m_communicator{
-              connectionsNumber, std::move(host), port, false, createConnection}
+    CommunicatorProxy(const std::size_t connectionsNumber,
+        std::size_t workersNumber, std::string host, const unsigned short port)
+        : m_communicator{connectionsNumber, workersNumber, std::move(host),
+              port, false, createConnection}
     {
         m_communicator.setScheduler(std::make_shared<Scheduler>(1));
     }
@@ -169,11 +169,11 @@ private:
 };
 
 boost::shared_ptr<CommunicatorProxy> create(
-    const unsigned int connectionsNumber, std::string host,
-    const unsigned short port)
+    const unsigned int connectionsNumber, const unsigned int workersNumber,
+    std::string host, const unsigned short port)
 {
     return boost::make_shared<CommunicatorProxy>(
-        connectionsNumber, std::move(host), port);
+        connectionsNumber, workersNumber, std::move(host), port);
 }
 
 std::string prepareReply(
