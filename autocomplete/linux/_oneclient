@@ -47,6 +47,7 @@ arg_oneclient=(\
   '--force-proxy-io[Force proxied access to storage via Oneprovider for all spaces.]' \
   '--force-direct-io[Force direct access to storage for all spaces.]' \
   '--buffer-scheduler-thread-count[Specify number of parallel buffer scheduler threads.]:number' \
+  '--communicator-pool-size[Specify number of connections in communicator pool.]:number' \
   '--communicator-thread-count[Specify number of parallel communicator threads.]:number' \
   '--scheduler-thread-count[Specify number of parallel scheduler threads.]:number' \
   '--storage-helper-thread-count[Specify number of parallel storage helper threads.]:number' \

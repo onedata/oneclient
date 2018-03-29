@@ -100,6 +100,8 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(options::DEFAULT_PROVIDER_PORT, options.getProviderPort());
     EXPECT_EQ(options::DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT,
         options.getBufferSchedulerThreadCount());
+    EXPECT_EQ(options::DEFAULT_COMMUNICATOR_POOL_SIZE,
+        options.getCommunicatorConnectionPoolSize());
     EXPECT_EQ(options::DEFAULT_COMMUNICATOR_THREAD_COUNT,
         options.getCommunicatorThreadCount());
     EXPECT_EQ(options::DEFAULT_SCHEDULER_THREAD_COUNT,
@@ -232,6 +234,14 @@ TEST_F(OptionsTest, parseCommandLineShouldSetBufferSchedulerThreadCount)
         cmdArgs.end(), {"--buffer-scheduler-thread-count", "8", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(8, options.getBufferSchedulerThreadCount());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetCommunicatorPoolSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--communicator-pool-size", "24", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(24, options.getCommunicatorConnectionPoolSize());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetCommunicatorThreadCount)
@@ -603,6 +613,13 @@ TEST_F(OptionsTest, parseConfigFileShouldSetBufferSchedulerThreadCount)
     setInConfigFile("buffer_scheduler_thread_count", "8");
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ(8, options.getBufferSchedulerThreadCount());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetCommunicatorPoolSize)
+{
+    setInConfigFile("communicator_pool_size", "24");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(24, options.getCommunicatorConnectionPoolSize());
 }
 
 TEST_F(OptionsTest, parseConfigFileShouldSetCommunicatorThreadCount)

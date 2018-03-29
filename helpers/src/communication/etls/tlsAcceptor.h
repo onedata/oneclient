@@ -24,8 +24,6 @@ namespace one {
 namespace communication {
 namespace etls {
 
-class TLSApplication;
-
 /**
  * The @c TLSAcceptor class is responsible for representing an acceptor socket
  * and its interface methods.
@@ -47,7 +45,7 @@ public:
      * connection.
      * @param keyPath Path to a PEM keyfile to use for the TLS connection.
      */
-    TLSAcceptor(TLSApplication &m_app, const unsigned short port,
+    TLSAcceptor(asio::io_service &ioService, const unsigned short port,
         const std::string &certPath, const std::string &keyPath,
         std::string rfc2818Hostname = "");
 
@@ -72,7 +70,6 @@ public:
         Ptr self, Callback<const asio::ip::tcp::endpoint &> callback);
 
 private:
-    TLSApplication &m_app;
     asio::io_service &m_ioService;
     asio::ip::tcp::acceptor m_acceptor;
 };

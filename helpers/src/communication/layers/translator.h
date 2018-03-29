@@ -155,8 +155,10 @@ public:
                    << "}";
 
         auto promise = std::make_shared<folly::Promise<SvrMsg>>();
-        auto callback = [promise](const std::error_code &ec,
-                            ServerMessagePtr protoMessage) {
+        auto future = promise->getFuture();
+        auto callback = [promise = std::move(promise)](
+            const std::error_code &ec, ServerMessagePtr protoMessage)
+        {
             if (ec) {
                 LOG(ERROR) << "Communicate error: " << ec.message() << "("
                            << ec.value() << ")";
@@ -170,7 +172,7 @@ public:
         LowerLayer::communicate(
             messages::serialize(std::move(msg)), std::move(callback), retries);
 
-        return promise->getFuture();
+        return future;
     }
 };
 

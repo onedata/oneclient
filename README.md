@@ -125,7 +125,10 @@ Advanced options:
   --buffer-scheduler-thread-count <threads> (=1)
                                         Specify number of parallel buffer
                                         scheduler threads.
-  --communicator-thread-count <threads> (=3)
+  --communicator-pool-size <connections> (=10)
+                                        Specify number of connections in
+                                        communicator pool.
+  --communicator-thread-count <threads> (=2)
                                         Specify number of parallel communicator
                                         threads.
   --scheduler-thread-count <threads> (=1)
@@ -136,13 +139,13 @@ Advanced options:
                                         helper threads.
   --no-buffer                           Disable in-memory cache for
                                         input/output data blocks.
-  --provider-timeout <duration> (=120)  Specify Oneprovider connection timeout 
+  --provider-timeout <duration> (=120)  Specify Oneprovider connection timeout
                                         in seconds.
-  --disable-read-events                 Disable reporting of file read events.                                        
+  --disable-read-events                 Disable reporting of file read events.
   --read-buffer-min-size <size> (=5242880)
                                         Specify minimum size in bytes of
                                         in-memory cache for input data blocks.
-  --read-buffer-max-size <size> (=10485760)
+  --read-buffer-max-size <size> (=104857600)
                                         Specify maximum size in bytes of
                                         in-memory cache for input data blocks.
   --read-buffer-prefetch-duration <duration> (=1)
@@ -161,6 +164,11 @@ Advanced options:
   --metadata-cache-size <size> (=100000)
                                         Specify maximum number of file metadata
                                         entries which can be stored in cache.
+  --readdir-prefetch-size <size> (=2500)
+                                        Specify the size of requests made
+                                        during readdir prefetch (in number of
+                                        dir entries).
+
 FUSE options:
   -f [ --foreground ]         Foreground operation.
   -d [ --debug ]              Enable debug mode (implies -f).

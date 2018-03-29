@@ -36,7 +36,7 @@ class BufferAgentProxy {
 public:
     BufferAgentProxy(
         std::string storageId, std::string host, const unsigned short port)
-        : m_communicator{1, host, port, false,
+        : m_communicator{5, 2, host, port, false,
               one::communication::createConnection}
         , m_scheduler{std::make_shared<one::Scheduler>(1)}
         , m_helper{one::helpers::buffering::BufferLimits{},

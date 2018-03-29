@@ -11,8 +11,8 @@
 
 #include "connection.h"
 
-#include "etls/tlsApplication.h"
 #include "etls/tlsSocket.h"
+#include "sharedBufferSequence.h"
 
 #include <asio/buffer.hpp>
 #include <asio/ssl/context.hpp>
@@ -29,7 +29,16 @@
 namespace one {
 namespace communication {
 
-static constexpr std::chrono::seconds RECREATE_DELAY{2};
+/**
+ * These constants control the reconnection delay backoff. On first error
+ * the reconnection attempt is performed after RECREATE_DELAY_INITIAL ms
+ * then every consecutive reconnection delay is calculated as
+ * m_recreateBackoffDelay*RECREATE_DELAY_FACTOR until RECREATE_DELAY_MAX is
+ * reached.
+ */
+static constexpr float RECREATE_DELAY_FACTOR{1.5};
+static constexpr std::chrono::milliseconds RECREATE_DELAY_INITIAL{500};
+static constexpr std::chrono::milliseconds RECREATE_DELAY_MAX{5 * 60 * 1000};
 
 /**
  * @c PersistentConnection class represents a single TCP/TLS connection between
@@ -73,6 +82,7 @@ public:
      * success or error.
      */
     PersistentConnection(std::string host, const unsigned short port,
+        asio::io_service &ioService,
         std::shared_ptr<asio::ssl::context> context,
         std::function<void(std::string)> onMessage,
         std::function<void(PersistentConnection &)> onReady,
@@ -104,6 +114,11 @@ public:
      */
     void upgrade() override;
 
+    /**
+     * Returns true if the connections is active.
+     */
+    bool connected() const override;
+
     PersistentConnection(const PersistentConnection &) = delete;
     PersistentConnection(PersistentConnection &&) = delete;
     PersistentConnection &operator=(const PersistentConnection &) = delete;
@@ -126,6 +141,8 @@ private:
     void notify(const std::error_code &ec = {});
     void start();
 
+    std::chrono::milliseconds nextReconnectionDelay();
+
     etls::TLSSocket::Ptr getSocket();
 
     template <typename... Args, typename SF>
@@ -133,12 +150,15 @@ private:
     template <typename SF> void asyncRead(SF &&onSuccess);
     template <typename SF>
     void asyncReadRawUntil(std::string delimiter, SF &&onSuccess);
-    std::array<asio::const_buffer, 2> prepareOutBuffer(std::string message);
-    std::array<asio::const_buffer, 1> prepareRawOutBuffer(std::string message);
+    std::shared_ptr<SharedConstBufferSequence<1>> prepareOutBuffer(
+        std::string message);
+    std::shared_ptr<SharedConstBufferSequence<1>> prepareRawOutBuffer(
+        std::string message);
     asio::mutable_buffers_1 headerToBuffer(std::uint32_t &header);
 
     std::string m_host;
     const unsigned short m_port;
+    asio::io_service &m_ioService;
     std::shared_ptr<asio::ssl::context> m_context;
     std::function<void(std::string)> m_onMessage;
     std::function<void(PersistentConnection &)> m_onReady;
@@ -149,19 +169,18 @@ private:
     Callback m_callback;
 
     etls::TLSSocket::Ptr m_socket;
-    etls::TLSApplication m_app{1};
-    asio::steady_timer m_recreateTimer{m_app.ioService()};
+    asio::steady_timer m_recreateTimer{m_ioService};
     std::atomic<bool> m_connected{false};
     std::atomic<int> m_connectionId{0};
 
     std::uint32_t m_inHeader;
     std::string m_inData;
-    std::uint32_t m_outHeader;
-    std::string m_outData;
+    std::chrono::milliseconds m_recreateBackoffDelay;
 };
 
 std::unique_ptr<Connection> createConnection(std::string host,
-    const unsigned short port, std::shared_ptr<asio::ssl::context> context,
+    const unsigned short port, asio::io_service &ioService,
+    std::shared_ptr<asio::ssl::context> context,
     std::function<void(std::string)> onMessage,
     std::function<void(Connection &)> onReady,
     std::function<std::string()> getHandshake = {},

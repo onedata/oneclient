@@ -8,7 +8,6 @@
 
 #include "communication/etls/callback.h"
 #include "communication/etls/tlsAcceptor.h"
-#include "communication/etls/tlsApplication.h"
 #include "communication/etls/tlsSocket.h"
 #include "testUtils.h"
 
@@ -34,14 +33,23 @@ one::communication::etls::Callback<Args...> errorCallback(EF &&error)
 struct TLSAcceptorTest : public Test {
     std::string host{"127.0.0.1"};
     unsigned short port{randomPort()};
-
-    one::communication::etls::TLSApplication app{1};
+    asio::io_service ioService{1};
+    std::thread worker;
+    asio::executor_work_guard<asio::io_service::executor_type> work{
+        asio::make_work_guard(ioService)};
     one::communication::etls::TLSAcceptor::Ptr acceptor;
 
     TLSAcceptorTest()
-        : acceptor{std::make_shared<one::communication::etls::TLSAcceptor>(
-              app, port, "server.pem", "server.key")}
+        : worker{[&] { ioService.run(); }}
+        , acceptor{std::make_shared<one::communication::etls::TLSAcceptor>(
+              ioService, port, "server.pem", "server.key")}
     {
+    }
+
+    ~TLSAcceptorTest()
+    {
+        ioService.stop();
+        worker.join();
     }
 };
 
@@ -50,7 +58,8 @@ struct TLSAcceptorTestC : public TLSAcceptorTest {
     one::communication::etls::TLSSocket::Ptr csock;
 
     TLSAcceptorTestC()
-        : csock{std::make_shared<one::communication::etls::TLSSocket>(app)}
+        : csock{
+              std::make_shared<one::communication::etls::TLSSocket>(ioService)}
     {
         std::atomic<bool> connectCalled{false};
         std::atomic<bool> handshakeCalled{false};
@@ -90,7 +99,8 @@ TEST_F(TLSAcceptorTest, shouldAcceptConnections)
          },
             [](auto) {}});
 
-    auto csock = std::make_shared<one::communication::etls::TLSSocket>(app);
+    auto csock =
+        std::make_shared<one::communication::etls::TLSSocket>(ioService);
     csock->connectAsync(csock, host, port, {[](auto) {}, [](auto) {}});
 
     ASSERT_TRUE(waitFor(acceptCalled));
@@ -108,7 +118,8 @@ TEST_F(TLSAcceptorTest, shouldReturnHandshakableSockets)
          },
             [](auto) {}});
 
-    auto csock = std::make_shared<one::communication::etls::TLSSocket>(app);
+    auto csock =
+        std::make_shared<one::communication::etls::TLSSocket>(ioService);
     csock->connectAsync(csock, host, port,
         {[&](one::communication::etls::TLSSocket::Ptr) {
              connectCalled = true;

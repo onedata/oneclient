@@ -8,7 +8,6 @@
 
 #include "tlsSocket.h"
 #include "detail.h"
-#include "tlsApplication.h"
 
 #include <asio.hpp>
 
@@ -43,20 +42,22 @@ namespace one {
 namespace communication {
 namespace etls {
 
-TLSSocket::TLSSocket(TLSApplication &app, const std::string &keyPath,
+TLSSocket::TLSSocket(asio::io_service &ioService, const std::string &keyPath,
     const std::string &certPath, std::string rfc2818Hostname)
     : detail::WithSSLContext{asio::ssl::context::tlsv12_client, keyPath,
           certPath, std::move(rfc2818Hostname)}
-    , m_ioService{app.ioService()}
+    , m_ioService{ioService}
+    , m_ioStrand{m_ioService}
     , m_resolver{m_ioService}
     , m_socket{m_ioService, *m_context}
 {
 }
 
 TLSSocket::TLSSocket(
-    TLSApplication &app, std::shared_ptr<asio::ssl::context> context)
+    asio::io_service &ioService, std::shared_ptr<asio::ssl::context> context)
     : detail::WithSSLContext{std::move(context)}
-    , m_ioService{app.ioService()}
+    , m_ioService{ioService}
+    , m_ioStrand{m_ioService}
     , m_resolver{m_ioService}
     , m_socket{m_ioService, *m_context}
 {
@@ -107,83 +108,67 @@ void TLSSocket::connectAsync(Ptr self, std::string host,
 void TLSSocket::recvAsync(Ptr self, asio::mutable_buffer buffer,
     Callback<asio::mutable_buffer> callback)
 {
-    asio::post(m_ioService, [
-        =, self = std::move(self), callback = std::move(callback)
-    ]() mutable {
-        asio::async_read(m_socket, asio::mutable_buffers_1{buffer},
+    asio::async_read(m_socket, asio::mutable_buffers_1{buffer},
+        m_ioStrand.wrap(
             [ =, self = std::move(self), callback = std::move(callback) ](
                 const auto ec, const auto read) mutable {
                 if (ec)
                     callback(ec);
                 else
                     callback(std::move(buffer));
-            });
-    });
+            }));
 }
 
 void TLSSocket::recvUntilAsyncRaw(Ptr self, asio::mutable_buffer buffer,
     std::string delimiter, Callback<asio::mutable_buffer> callback)
 {
-    asio::post(m_ioService, [
-        =, self = std::move(self), callback = std::move(callback),
-        delimiter = std::move(delimiter)
-    ]() mutable {
-        m_inRawData.prepare(256);
-        asio::async_read_until(m_socket, m_inRawData, delimiter,
-            [ =, self = std::move(self), callback = std::move(callback) ](
-                const auto ec, const auto read) mutable {
-                if (ec) {
-                    callback(ec);
-                }
-                else {
-                    asio::buffer_copy(buffer, m_inRawData.data(), read);
-                    m_inRawData.consume(read);
-                    callback(std::move(buffer));
-                }
-            });
-    });
+    m_inRawData.prepare(256);
+    asio::async_read_until(m_socket, m_inRawData, delimiter, m_ioStrand.wrap([
+        =, self = std::move(self), callback = std::move(callback)
+    ](const auto ec, const auto read) mutable {
+        if (ec) {
+            callback(ec);
+        }
+        else {
+            asio::buffer_copy(buffer, m_inRawData.data(), read);
+            m_inRawData.consume(read);
+            callback(std::move(buffer));
+        }
+    }));
 }
 
 void TLSSocket::recvAnyAsync(Ptr self, asio::mutable_buffer buffer,
     Callback<asio::mutable_buffer> callback)
 {
-    asio::post(m_ioService, [
+    m_socket.async_read_some(asio::mutable_buffers_1{buffer}, m_ioStrand.wrap([
         =, self = std::move(self), callback = std::move(callback)
-    ]() mutable {
-        m_socket.async_read_some(asio::mutable_buffers_1{buffer},
-            [ =, self = std::move(self), callback = std::move(callback) ](
-                const auto ec, const auto read) {
-                if (ec)
-                    callback(ec);
-                else
-                    callback(asio::buffer(buffer, read));
-            });
-    });
+    ](const auto ec, const auto read) {
+        if (ec)
+            callback(ec);
+        else
+            callback(asio::buffer(buffer, read));
+    }));
 }
 
 void TLSSocket::handshakeAsync(Ptr self, Callback<> callback)
 {
-    asio::post(m_ioService, [
+    m_socket.async_handshake(asio::ssl::stream_base::server, m_ioStrand.wrap([
         =, self = std::move(self), callback = std::move(callback)
-    ]() mutable {
-        m_socket.async_handshake(asio::ssl::stream_base::server,
-            [ =, self = std::move(self), callback = std::move(callback) ](
-                const auto ec) {
-                if (ec) {
-                    callback(ec);
-                }
-                else {
-                    this->saveChain(true);
-                    callback();
-                }
-            });
-    });
+    ](const auto ec) {
+        if (ec) {
+            callback(ec);
+        }
+        else {
+            this->saveChain(true);
+            callback();
+        }
+    }));
 }
 
 void TLSSocket::shutdownAsync(
     Ptr self, const asio::socket_base::shutdown_type type, Callback<> callback)
 {
-    asio::post(m_ioService, [
+    m_ioStrand.post([
         =, self = std::move(self), callback = std::move(callback)
     ]() mutable {
         std::error_code ec;
@@ -197,7 +182,7 @@ void TLSSocket::shutdownAsync(
 
 void TLSSocket::closeAsync(Ptr self, Callback<> callback)
 {
-    asio::post(m_ioService, [
+    m_ioStrand.post([
         =, self = std::move(self), callback = std::move(callback)
     ]() mutable {
         std::error_code ec;
@@ -254,7 +239,7 @@ void TLSSocket::saveChain(bool server)
 void TLSSocket::localEndpointAsync(
     Ptr self, Callback<const asio::ip::tcp::endpoint &> callback)
 {
-    asio::post(m_ioService, [
+    m_ioStrand.post([
         =, self = std::move(self), callback = std::move(callback)
     ]() mutable { callback(m_socket.lowest_layer().local_endpoint()); });
 }
@@ -262,7 +247,7 @@ void TLSSocket::localEndpointAsync(
 void TLSSocket::remoteEndpointAsync(
     Ptr self, Callback<const asio::ip::tcp::endpoint &> callback)
 {
-    asio::post(m_ioService, [
+    m_ioStrand.post([
         =, self = std::move(self), callback = std::move(callback)
     ]() mutable { callback(m_socket.lowest_layer().remote_endpoint()); });
 }

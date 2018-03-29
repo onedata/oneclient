@@ -172,9 +172,9 @@ boost::shared_ptr<ManagerProxy> create(
 {
     FLAGS_minloglevel = 1;
 
-    auto communicator =
-        std::make_shared<Communicator>(/*connections*/ 1, std::move(ip), port,
-            /*verifyServerCertificate*/ false, createConnection);
+    auto communicator = std::make_shared<Communicator>(/*connections*/ 1,
+        /*threads*/ 1, std::move(ip), port,
+        /*verifyServerCertificate*/ false, createConnection);
 
     auto context = std::make_shared<Context>();
     context->setScheduler(std::make_shared<Scheduler>(1));

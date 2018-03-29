@@ -8,19 +8,16 @@
 
 #include "tlsAcceptor.h"
 
-#include "tlsApplication.h"
-
 namespace one {
 namespace communication {
 namespace etls {
 
-TLSAcceptor::TLSAcceptor(TLSApplication &app, const unsigned short port,
+TLSAcceptor::TLSAcceptor(asio::io_service &ioService, const unsigned short port,
     const std::string &certPath, const std::string &keyPath,
     std::string rfc2818Hostname)
     : detail::WithSSLContext{asio::ssl::context::tlsv12_server, certPath,
           keyPath, std::move(rfc2818Hostname)}
-    , m_app{app}
-    , m_ioService{app.ioService()}
+    , m_ioService{ioService}
     , m_acceptor{m_ioService, {asio::ip::tcp::v4(), port}}
 {
 }
@@ -30,7 +27,7 @@ void TLSAcceptor::acceptAsync(Ptr self, Callback<TLSSocket::Ptr> callback)
     asio::post(m_ioService, [
         =, self = std::move(self), callback = std::move(callback)
     ]() mutable {
-        auto sock = std::make_shared<TLSSocket>(m_app, m_context);
+        auto sock = std::make_shared<TLSSocket>(m_ioService, m_context);
         m_acceptor.async_accept(sock->m_socket.lowest_layer(), [
             =, s = std::weak_ptr<TLSAcceptor>{self},
             callback = std::move(callback)

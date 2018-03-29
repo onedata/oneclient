@@ -57,15 +57,15 @@ MacaroonAuthManager::~MacaroonAuthManager() { m_cancelRefresh(); }
 std::tuple<std::shared_ptr<communication::Communicator>,
     folly::Future<folly::Unit>>
 MacaroonAuthManager::createCommunicator(const unsigned int poolSize,
-    std::string sessionId, std::string version,
+    const unsigned int workerCount, std::string sessionId, std::string version,
     std::function<std::error_code(messages::HandshakeResponse)>
         onHandshakeResponse)
 {
     m_cancelRefresh();
 
-    auto communicator =
-        std::make_shared<communication::Communicator>(poolSize, m_hostname,
-            m_port, m_checkCertificate, communication::createConnection);
+    auto communicator = std::make_shared<communication::Communicator>(poolSize,
+        workerCount, m_hostname, m_port, m_checkCertificate,
+        communication::createConnection);
 
     auto future = communicator->setHandshake(
         [=] {

@@ -147,6 +147,15 @@ Options::Options()
             "Specify number of parallel buffer scheduler threads.");
 
     add<unsigned int>()
+        ->withLongName("communicator-pool-size")
+        .withConfigName("communicator_pool_size")
+        .withValueName("<connections>")
+        .withDefaultValue(DEFAULT_COMMUNICATOR_POOL_SIZE,
+            std::to_string(DEFAULT_COMMUNICATOR_POOL_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify number of connections in communicator pool.");
+
+    add<unsigned int>()
         ->withLongName("communicator-thread-count")
         .withConfigName("communicator_thread_count")
         .withValueName("<threads>")
@@ -594,6 +603,13 @@ unsigned int Options::getBufferSchedulerThreadCount() const
     return get<unsigned int>(
         {"buffer-scheduler-thread-count", "buffer_scheduler_thread_count"})
         .get_value_or(DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT);
+}
+
+unsigned int Options::getCommunicatorConnectionPoolSize() const
+{
+    return get<unsigned int>(
+        {"communicator-pool-size", "communicator_pool_size"})
+        .get_value_or(DEFAULT_COMMUNICATOR_POOL_SIZE);
 }
 
 unsigned int Options::getCommunicatorThreadCount() const
