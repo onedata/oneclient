@@ -80,6 +80,15 @@ HelpersCache::~HelpersCache()
         worker.join();
 }
 
+HelpersCache::AccessType HelpersCache::getAccessType(
+    const folly::fbstring &storageId)
+{
+    if (m_accessType.find(storageId) == m_accessType.end())
+        return AccessType::UNKNOWN;
+
+    return m_accessType[storageId];
+}
+
 HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
     const folly::fbstring &spaceId, const folly::fbstring &storageId,
     bool forceProxyIO)

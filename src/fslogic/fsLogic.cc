@@ -683,6 +683,31 @@ folly::fbstring FsLogic::getxattr(
 
     folly::fbstring result;
 
+    if (name == "org.onedata.uuid") {
+        return "\"" + uuid + "\"";
+    }
+    else if (name == "org.onedata.file_id") {
+        return "\"" + m_metadataCache.getDefaultBlock(uuid).fileId() + "\"";
+    }
+    else if (name == "org.onedata.storage_id") {
+        return "\"" + m_metadataCache.getDefaultBlock(uuid).storageId() + "\"";
+    }
+    else if (name == "org.onedata.space_id") {
+        return "\"" + m_metadataCache.getSpaceId(uuid) + "\"";
+    }
+    else if (name == "org.onedata.access_type") {
+        auto accessType = m_helpersCache->getAccessType(
+            m_metadataCache.getDefaultBlock(uuid).storageId());
+        if (accessType == cache::HelpersCache::AccessType::DIRECT)
+            return "\"direct\"";
+        else if (accessType == cache::HelpersCache::AccessType::PROXY)
+            return "\"proxy\"";
+        else
+            return "\"unknown\"";
+    }
+    else {
+    }
+
     messages::fuse::GetXAttr getXAttrRequest{uuid, name};
     auto xattr =
         communicate<messages::fuse::XAttr>(getXAttrRequest, m_providerTimeout);
@@ -733,6 +758,12 @@ folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
     for (const auto &xattrName : fuseResponse.xattrNames()) {
         result.push_back(xattrName.c_str());
     }
+
+    result.push_back("org.onedata.uuid");
+    result.push_back("org.onedata.file_id");
+    result.push_back("org.onedata.storage_id");
+    result.push_back("org.onedata.space_id");
+    result.push_back("org.onedata.access_type");
 
     LOG_DBG(1) << "Received xattr list for file " << uuid;
 
