@@ -32,7 +32,7 @@ using namespace one::helpers;
 /*
  * Minimum 2 threads are required to run helper.
  */
-constexpr int GLUSTERFS_HELPER_WORKER_THREADS = 2;
+constexpr int GLUSTERFS_HELPER_WORKER_THREADS = 8;
 
 class ReleaseGIL {
 public:

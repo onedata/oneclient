@@ -8,6 +8,7 @@ import os
 import sys
 
 import pytest
+import threading
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.dirname(script_dir))
@@ -17,6 +18,7 @@ from test_common import *
 from environment import ceph, common, docker
 from ceph_helper import CephHelperProxy
 from xattr_test_base import *
+from io_perf_test_base import *
 
 
 @pytest.fixture(scope='module')
