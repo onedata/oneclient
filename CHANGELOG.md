@@ -6,7 +6,11 @@ CHANGELOG
 
 ### 18.02.0-beta5
 
-* Releasing new version 18.02.0-beta5
+* VFS-4291 Added communicator pool size command line option
+* VFS-4291 Updated to refactored communication stack
+* VFS-4267 Updated deps to OpenSSL 1.1.0
+* VFS-4267 Fix protobuf cmake detection
+* Improve synchronization requests by prefetching.
 
 
 ### 18.02.0-beta4
