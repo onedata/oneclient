@@ -189,6 +189,11 @@ public:
      */
     void putLocation(std::unique_ptr<FileLocation> location);
 
+    /**
+     * @copydoc MetadataCache::getLocation(const folly::fbstring &uuid);
+     */
+    std::shared_ptr<FileLocation> getLocation(const folly::fbstring &uuid);
+
     // Operations used only on open files
     using MetadataCache::addBlock;
     using MetadataCache::getBlock;

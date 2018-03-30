@@ -94,11 +94,28 @@ public:
     FileBlocksMap &blocks();
 
     /**
+     * Adds new file block to file location map.
+     * @param offset Offset of the block in the file
+     * @param size Length of the block
+     * @param block File block
+     */
+    void putBlock(const off_t offset, const size_t size, FileBlock &&block);
+
+    /**
      * @return Blocks per storageId/fileId pair.
      */
     const FileBlocksMap &blocks() const;
 
     std::string toString() const override;
+
+    /**
+     * Render progress string of specified length for the file location map.
+     * @param fileSize The current file size
+     * @param progressSteps The length of the rendered progress bar
+     * @return Block replication map
+     */
+    std::string progressString(
+        const size_t fileSize, const size_t progressSteps) const;
 
 private:
     void deserialize(const ProtocolMessage &message);

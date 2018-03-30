@@ -553,7 +553,8 @@ void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
     //
     // Creating system extended attributes should be disabled
     //
-    if (boost::starts_with(attr, "system.") ||
+    if (boost::starts_with(attr, ONE_XATTR_PREFIX) ||
+        boost::starts_with(attr, "system.") ||
         boost::starts_with(attr, "security.") ||
         boost::starts_with(attr, "capability.")) {
         fuse_reply_err(req, EPERM);
@@ -603,6 +604,17 @@ void wrap_removexattr(fuse_req_t req, fuse_ino_t ino, const char *attr)
 
     auto timer =
         ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.removexattr");
+
+    //
+    // Removing system extended attributes should be disabled
+    //
+    if (boost::starts_with(attr, ONE_XATTR_PREFIX) ||
+        boost::starts_with(attr, "system.") ||
+        boost::starts_with(attr, "security.") ||
+        boost::starts_with(attr, "capability.")) {
+        fuse_reply_err(req, EPERM);
+        return;
+    }
 
     std::string xattrJsonName;
     if (!encodeJsonXAttrName(attr, xattrJsonName)) {

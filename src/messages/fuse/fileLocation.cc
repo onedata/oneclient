@@ -56,6 +56,14 @@ const FileLocation::FileBlocksMap &FileLocation::blocks() const
     return m_blocks;
 }
 
+void FileLocation::putBlock(
+    const off_t offset, const size_t size, FileBlock &&block)
+{
+    auto interval =
+        boost::icl::discrete_interval<off_t>::right_open(offset, offset + size);
+    m_blocks += std::make_pair(interval, block);
+}
+
 std::string FileLocation::toString() const
 {
     std::stringstream stream;
@@ -69,6 +77,57 @@ std::string FileLocation::toString() const
     stream << "]";
 
     return stream.str();
+}
+
+std::string FileLocation::progressString(
+    const size_t fileSize, const size_t progressSteps) const
+{
+    std::string result;
+    result.reserve(progressSteps);
+
+    assert(progressSteps > 0);
+
+    if (fileSize < progressSteps * 2) {
+        size_t intersectionLength = boost::icl::length(m_blocks &
+            boost::icl::discrete_interval<off_t>::right_open(0, fileSize));
+
+        if (intersectionLength == 0)
+            result.append(progressSteps, ' ');
+        else if (intersectionLength < fileSize / 2)
+            result.append(progressSteps, '.');
+        else if (intersectionLength < fileSize)
+            result.append(progressSteps, 'o');
+        else
+            result.append(progressSteps, '#');
+    }
+    else {
+        uint64_t progressStepByteLength = fileSize / progressSteps;
+
+        for (size_t i = 0; i < progressSteps; i++) {
+            auto startRange = i * progressStepByteLength;
+            auto endRange = 0L;
+            if (i < progressSteps - 1)
+                endRange = (i + 1) * progressStepByteLength;
+            else
+                endRange = fileSize;
+
+            size_t intersectionLength = boost::icl::length(m_blocks &
+                boost::icl::discrete_interval<off_t>::right_open(
+                    startRange, endRange));
+
+            if (intersectionLength == 0)
+                result += ' ';
+            else if (intersectionLength <
+                std::round(progressStepByteLength / 2.0))
+                result += '.';
+            else if (intersectionLength < progressStepByteLength)
+                result += 'o';
+            else
+                result += '#';
+        }
+    }
+
+    return result;
 }
 
 void FileLocation::deserialize(const ProtocolMessage &message)
