@@ -117,6 +117,13 @@ public:
     std::string progressString(
         const size_t fileSize, const size_t progressSteps) const;
 
+    /**
+     * Calculates replication progress with respect the provided file size.
+     * @param fileSize The current file size
+     * @return Replication progress [0.0-1.0]
+     */
+    double replicationProgress(const size_t fileSize) const;
+
 private:
     void deserialize(const ProtocolMessage &message);
 

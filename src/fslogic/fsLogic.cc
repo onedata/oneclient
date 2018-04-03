@@ -723,6 +723,15 @@ folly::fbstring FsLogic::getxattr(
                     size, XATTR_FILE_BLOCKS_MAP_LENGTH) +
                 "]\"";
     }
+    else if (name == ONE_XATTR("replication_progress")) {
+        std::size_t size = m_metadataCache.getAttr(uuid)->size().value_or(0);
+
+        auto replicationProgress =
+            m_metadataCache.getLocation(uuid)->replicationProgress(size);
+
+        return "\"" +
+            std::to_string((int)std::round(replicationProgress * 100)) + "%\"";
+    }
 
     messages::fuse::GetXAttr getXAttrRequest{uuid, name};
     auto xattr =
@@ -783,6 +792,7 @@ folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
         result.push_back(ONE_XATTR("storage_id"));
         result.push_back(ONE_XATTR("access_type"));
         result.push_back(ONE_XATTR("file_blocks"));
+        result.push_back(ONE_XATTR("replication_progress"));
     }
 
     LOG_DBG(1) << "Received xattr list for file " << uuid;

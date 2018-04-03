@@ -130,6 +130,17 @@ std::string FileLocation::progressString(
     return result;
 }
 
+double FileLocation::replicationProgress(const size_t fileSize) const
+{
+    if (fileSize == 0)
+        return 0.0;
+
+    size_t intersectionLength = boost::icl::length(m_blocks &
+        boost::icl::discrete_interval<off_t>::right_open(0, fileSize));
+
+    return ((double)intersectionLength) / ((double)fileSize);
+}
+
 void FileLocation::deserialize(const ProtocolMessage &message)
 {
     m_uuid = message.uuid();

@@ -94,3 +94,30 @@ TEST_F(FuseFileLocationMessagesTest,
     fileLocation.putBlock(0, 15, FileBlock{"", ""});
     EXPECT_EQ(fileLocation.progressString(15, 10), "##########");
 }
+
+TEST_F(
+    FuseFileLocationMessagesTest, replicationProgressShouldReportProperValues)
+{
+    auto fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 1, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.replicationProgress(100), 0.01);
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 512, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.replicationProgress(1024), 0.5);
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 100, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.replicationProgress(0), 0);
+
+    fileLocation = FileLocation{};
+    EXPECT_EQ(fileLocation.replicationProgress(1024), 0);
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 100, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.replicationProgress(100), 1.0);
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 100, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.replicationProgress(50), 1.0);
+}
