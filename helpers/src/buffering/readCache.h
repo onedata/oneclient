@@ -93,8 +93,17 @@ public:
 
         clearStaleEntries();
 
-        if (isCurrentRead(offset))
+        if (isCurrentRead(offset)) {
+            ONE_METRIC_COUNTER_ADD(
+                "comp.helpers.mod.readcache.cacheHitBytes", size);
+            ONE_METRIC_COUNTER_ADD(
+                "comp.helpers.mod.readcache.cacheHitCount", 1);
             return readFromCache(offset, size);
+        }
+
+        ONE_METRIC_COUNTER_ADD(
+            "comp.helpers.mod.readcache.cacheMissBytes", size);
+        ONE_METRIC_COUNTER_ADD("comp.helpers.mod.readcache.cacheMissCount", 1);
 
         std::tie(m_blockSize, m_prefetchCoeff) =
             isSequential(offset) ? increaseBlockSize() : resetBlockSize();
@@ -214,6 +223,7 @@ private:
 
         assert(!m_cache.empty());
 
+#if !defined(NDEBUG)
         ONE_METRIC_COUNTER_SET("comp.helpers.mod.readcache." +
                 m_handle.fileId().toStdString() + ".blockSize",
             m_blockSize);
@@ -232,6 +242,7 @@ private:
                 [](int acc, std::shared_ptr<ReadData> rd) {
                     return acc + rd->size;
                 }));
+#endif
 
         auto readData = m_cache.front();
         const auto startPoint = std::chrono::steady_clock::now();
