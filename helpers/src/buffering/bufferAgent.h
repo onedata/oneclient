@@ -121,6 +121,8 @@ public:
         return m_wrappedHandle->flush();
     }
 
+    FileHandlePtr wrappedHandle() { return m_wrappedHandle; }
+
 private:
     FileHandlePtr m_wrappedHandle;
     Scheduler &m_scheduler;
