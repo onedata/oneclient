@@ -34,6 +34,8 @@ FsSubscriptions::FsSubscriptions(events::Manager &eventManager,
 
 void FsSubscriptions::subscribeFileAttrChanged(const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.subscriptions.file_attr_changed");
 
@@ -69,6 +71,8 @@ void FsSubscriptions::handleFileAttrChanged(
 bool FsSubscriptions::unsubscribeFileAttrChanged(
     const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
     ONE_METRIC_COUNTER_DEC(
         "comp.oneclient.mod.events.submod.subscriptions.file_attr_changed");
     LOG_DBG(1) << "Unsubscribing for FileAttrChanged for file " << fileUuid;
@@ -78,6 +82,8 @@ bool FsSubscriptions::unsubscribeFileAttrChanged(
 void FsSubscriptions::subscribeFileLocationChanged(
     const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.subscriptions.file_location_changed");
     LOG_DBG(1) << "Subscribing for FileLocationChanged for file " << fileUuid;
@@ -111,6 +117,8 @@ void FsSubscriptions::handleFileLocationChanged(
 bool FsSubscriptions::unsubscribeFileLocationChanged(
     const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
     ONE_METRIC_COUNTER_DEC(
         "comp.oneclient.mod.events.submod.subscriptions.file_location_changed");
     LOG_DBG(1) << "Unsubscribing for FileLocationChanged for file " << fileUuid;
@@ -119,6 +127,8 @@ bool FsSubscriptions::unsubscribeFileLocationChanged(
 
 void FsSubscriptions::subscribeFilePermChanged(const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.subscriptions.file_perm_changed");
     LOG_DBG(1) << "Subscribing for FilePermChanged for file " << fileUuid;
@@ -144,6 +154,8 @@ void FsSubscriptions::handlePermissionChanged(
 bool FsSubscriptions::unsubscribeFilePermChanged(
     const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
     ONE_METRIC_COUNTER_DEC(
         "comp.oneclient.mod.events.submod.subscriptions.file_perm_changed");
     LOG_DBG(1) << "Unsubscribing for FilePermChanged for file " << fileUuid;
@@ -152,6 +164,8 @@ bool FsSubscriptions::unsubscribeFilePermChanged(
 
 void FsSubscriptions::subscribeFileRemoved(const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.subscriptions.file_removed");
     LOG_DBG(1) << "Subscribing for FileRemoved for file " << fileUuid;
@@ -181,6 +195,8 @@ void FsSubscriptions::handleFileRemoved(
 
 bool FsSubscriptions::unsubscribeFileRemoved(const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
     ONE_METRIC_COUNTER_DEC(
         "comp.oneclient.mod.events.submod.subscriptions.file_removed");
     LOG_DBG(1) << "Unsubscribing for FileRemoved for file " << fileUuid;
@@ -189,6 +205,8 @@ bool FsSubscriptions::unsubscribeFileRemoved(const folly::fbstring &fileUuid)
 
 void FsSubscriptions::subscribeFileRenamed(const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.subscriptions.file_renamed");
     LOG_DBG(1) << "Subscribing for FileRenamed for file " << fileUuid;
@@ -202,6 +220,8 @@ void FsSubscriptions::subscribeFileRenamed(const folly::fbstring &fileUuid)
 void FsSubscriptions::handleFileRenamed(
     events::Events<events::FileRenamed> events)
 {
+    LOG_FCALL() << LOG_FARG(events.size());
+
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.received.file_renamed");
     m_runInFiber([ this, events = std::move(events) ] {
@@ -221,6 +241,8 @@ void FsSubscriptions::handleFileRenamed(
 
 bool FsSubscriptions::unsubscribeFileRenamed(const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
     ONE_METRIC_COUNTER_DEC(
         "comp.oneclient.mod.events.submod.subscriptions.file_renamed");
     LOG_DBG(1) << "Unsubscribing for FileRenamed for file " << fileUuid;
