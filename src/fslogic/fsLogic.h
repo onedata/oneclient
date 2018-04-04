@@ -30,6 +30,8 @@
 #include <unordered_map>
 #include <unordered_set>
 
+constexpr auto ONE_XATTR_PREFIX = "org.onedata.";
+
 namespace one {
 
 namespace messages {

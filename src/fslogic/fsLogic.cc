@@ -75,6 +75,14 @@ inline helpers::Flag getOpenFlag(const helpers::FlagsSet &flagsSet)
     return one::helpers::Flag::RDONLY;
 }
 
+constexpr auto XATTR_FILE_BLOCKS_MAP_LENGTH = 50;
+
+inline static folly::fbstring ONE_XATTR(std::string name)
+{
+    assert(name.size() > 0);
+    return ONE_XATTR_PREFIX + name;
+}
+
 FsLogic::FsLogic(std::shared_ptr<Context> context,
     std::shared_ptr<messages::Configuration> configuration,
     std::unique_ptr<cache::HelpersCache> helpersCache,
@@ -683,6 +691,48 @@ folly::fbstring FsLogic::getxattr(
 
     folly::fbstring result;
 
+    if (name == ONE_XATTR("uuid")) {
+        return "\"" + uuid + "\"";
+    }
+    else if (name == ONE_XATTR("file_id")) {
+        return "\"" + m_metadataCache.getDefaultBlock(uuid).fileId() + "\"";
+    }
+    else if (name == ONE_XATTR("storage_id")) {
+        return "\"" + m_metadataCache.getDefaultBlock(uuid).storageId() + "\"";
+    }
+    else if (name == ONE_XATTR("space_id")) {
+        return "\"" + m_metadataCache.getSpaceId(uuid) + "\"";
+    }
+    else if (name == ONE_XATTR("access_type")) {
+        auto accessType = m_helpersCache->getAccessType(
+            m_metadataCache.getDefaultBlock(uuid).storageId());
+        if (accessType == cache::HelpersCache::AccessType::DIRECT)
+            return "\"direct\"";
+        else if (accessType == cache::HelpersCache::AccessType::PROXY)
+            return "\"proxy\"";
+        else
+            return "\"unknown\"";
+    }
+    else if (name == ONE_XATTR("file_blocks")) {
+        std::size_t size = m_metadataCache.getAttr(uuid)->size().value_or(0);
+        if (size == 0)
+            return "\"empty\"";
+        else
+            return "\"[" +
+                m_metadataCache.getLocation(uuid)->progressString(
+                    size, XATTR_FILE_BLOCKS_MAP_LENGTH) +
+                "]\"";
+    }
+    else if (name == ONE_XATTR("replication_progress")) {
+        std::size_t size = m_metadataCache.getAttr(uuid)->size().value_or(0);
+
+        auto replicationProgress =
+            m_metadataCache.getLocation(uuid)->replicationProgress(size);
+
+        return "\"" +
+            std::to_string((int)std::round(replicationProgress * 100)) + "%\"";
+    }
+
     messages::fuse::GetXAttr getXAttrRequest{uuid, name};
     auto xattr =
         communicate<messages::fuse::XAttr>(getXAttrRequest, m_providerTimeout);
@@ -723,15 +773,26 @@ folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
+    using namespace one::messages::fuse;
+
     folly::fbvector<folly::fbstring> result;
 
-    messages::fuse::ListXAttr listXAttrRequest{uuid};
-    messages::fuse::XAttrList fuseResponse =
-        communicate<messages::fuse::XAttrList>(
-            listXAttrRequest, m_providerTimeout);
+    ListXAttr listXAttrRequest{uuid};
+    XAttrList fuseResponse =
+        communicate<XAttrList>(listXAttrRequest, m_providerTimeout);
 
     for (const auto &xattrName : fuseResponse.xattrNames()) {
         result.push_back(xattrName.c_str());
+    }
+
+    result.push_back(ONE_XATTR("uuid"));
+    if (m_metadataCache.getAttr(uuid)->type() == FileAttr::FileType::regular) {
+        result.push_back(ONE_XATTR("space_id"));
+        result.push_back(ONE_XATTR("file_id"));
+        result.push_back(ONE_XATTR("storage_id"));
+        result.push_back(ONE_XATTR("access_type"));
+        result.push_back(ONE_XATTR("file_blocks"));
+        result.push_back(ONE_XATTR("replication_progress"));
     }
 
     LOG_DBG(1) << "Received xattr list for file " << uuid;

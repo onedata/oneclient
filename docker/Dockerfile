@@ -15,7 +15,7 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C211375C && \
 RUN apt-get -y update && \
     apt-get -y upgrade && \
     apt-get -y install bash-completion ca-certificates curl iputils-ping \
-                       man-db net-tools traceroute vim && \
+                       man-db net-tools traceroute vim python-xattr && \
     apt-get clean
 
 WORKDIR /tmp
