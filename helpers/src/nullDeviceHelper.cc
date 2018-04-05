@@ -55,6 +55,8 @@ NullDeviceFileHandle::NullDeviceFileHandle(folly::fbstring fileId,
     , m_helper{helper}
     , m_executor{std::move(executor)}
     , m_timeout{std::move(timeout)}
+    , m_readBytes{0}
+    , m_writtenBytes{0}
 {
     LOG_FCALL() << LOG_FARG(fileId);
 }
@@ -69,8 +71,8 @@ folly::Future<folly::IOBufQueue> NullDeviceFileHandle::read(
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.nulldevice.read");
 
     return folly::via(m_executor.get(), [
-        offset, size, fileId = m_fileId, timer = std::move(timer),
-        helper = m_helper
+        self = shared_from_this(), offset, size, fileId = m_fileId,
+        timer = std::move(timer), helper = m_helper
     ] {
         folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
 
@@ -101,6 +103,8 @@ folly::Future<folly::IOBufQueue> NullDeviceFileHandle::read(
 
         LOG_DBG(1) << "Read " << size << " bytes from file " << fileId;
 
+        self->m_readBytes += size;
+
         ONE_METRIC_TIMERCTX_STOP(timer, size);
 
         return folly::makeFuture(std::move(buf));
@@ -116,14 +120,16 @@ folly::Future<std::size_t> NullDeviceFileHandle::write(
         ONE_METRIC_TIMERCTX_CREATE("comp.helpers.mod.nulldevice.write");
 
     return folly::via(m_executor.get(), [
-        offset, buf = std::move(buf), fileId = m_fileId,
-        timer = std::move(timer), helper = m_helper
+        self = shared_from_this(), offset, buf = std::move(buf),
+        fileId = m_fileId, timer = std::move(timer), helper = m_helper
     ] {
         SIMULATE_STORAGE_ISSUES(helper, "write", std::size_t)
 
         std::size_t size = buf.chainLength();
 
-        LOG_DBG(1) << "Read " << size << " bytes from file " << fileId;
+        LOG_DBG(1) << "Written " << size << " bytes to file " << fileId;
+
+        self->m_writtenBytes += size;
 
         ONE_METRIC_TIMERCTX_STOP(timer, size);
 

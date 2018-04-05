@@ -162,6 +162,14 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
     return result.first;
 }
 
+std::shared_ptr<FileLocation> MetadataCache::getLocation(
+    const folly::fbstring &uuid)
+{
+    LOG_FCALL() << LOG_FARG(uuid);
+
+    return getLocationPtr(getAttrIt(uuid));
+}
+
 std::shared_ptr<FileLocation> MetadataCache::getLocationPtr(
     const Map::iterator &it)
 {

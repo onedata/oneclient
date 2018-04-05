@@ -25,11 +25,17 @@ namespace helpers {
 constexpr auto NULL_DEVICE_HELPER_CHAR = 'x';
 
 class NullDeviceHelper;
+class NullDeviceFileHandle;
+
+using NullDeviceHelperPtr = std::shared_ptr<NullDeviceHelper>;
+using NullDeviceFileHandlePtr = std::shared_ptr<NullDeviceFileHandle>;
 
 /**
  * The @c FileHandle implementation for NullDevice storage helper.
  */
-class NullDeviceFileHandle : public FileHandle {
+class NullDeviceFileHandle
+    : public FileHandle,
+      public std::enable_shared_from_this<NullDeviceFileHandle> {
 public:
     /**
      * Constructor.
@@ -65,10 +71,19 @@ public:
 
     bool needsDataConsistencyCheck() override { return true; }
 
+    std::size_t readBytes() const { return m_readBytes.load(); }
+
+    std::size_t writtenBytes() const { return m_writtenBytes.load(); }
+
 private:
     std::shared_ptr<NullDeviceHelper> m_helper;
     std::shared_ptr<folly::Executor> m_executor;
     Timeout m_timeout;
+
+    // The total number of bytes read since the file was opened
+    std::atomic<std::size_t> m_readBytes;
+    // The total number of bytes written since the file was opened
+    std::atomic<std::size_t> m_writtenBytes;
 
     // Use a preallocated, prefilled buffer for reads to avoid the cost of
     // memset on each read call.

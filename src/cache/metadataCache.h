@@ -117,6 +117,11 @@ public:
     void putLocation(std::unique_ptr<FileLocation> location);
 
     /**
+     * Returns a pointer to fetched or cached file location.
+     */
+    std::shared_ptr<FileLocation> getLocation(const folly::fbstring &uuid);
+
+    /**
      * Retrieves space Id by uuid.
      * @param uuid Uuid of the file.
      * @returns Id of space this file belongs to.

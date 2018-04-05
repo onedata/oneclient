@@ -47,8 +47,15 @@ class ReadCache : public std::enable_shared_from_this<ReadCache> {
                 folly::call_once(measureLatencyFlag, [] {});
         }
 
+        std::chrono::steady_clock::time_point t() const
+        {
+            return std::chrono::steady_clock::time_point{t_.load()};
+        }
+
         off_t offset;
         std::atomic<std::size_t> size;
+        std::atomic<std::chrono::steady_clock::duration> t_{
+            std::chrono::steady_clock::duration::max()};
         folly::once_flag measureLatencyFlag;
         folly::IOBufQueue buf;
         folly::SharedPromise<folly::Unit> promise;
@@ -78,22 +85,28 @@ public:
         DCHECK(continuousSize >= size);
 
         std::unique_lock<FiberMutex> lock{m_mutex};
-        if (isStale()) {
-            LOG_DBG(2) << "Prefetch cache stalled for file "
-                       << m_handle.fileId();
-            while (!m_cache.empty()) {
-                m_cache.pop_front();
-            }
+        if (m_clear) {
+            LOG_DBG(2) << "Clearing cache for file " << m_handle.fileId();
+            m_cache.clear();
             m_clear = false;
         }
 
-        if (isCurrentRead(offset))
+        clearStaleEntries();
+
+        if (isCurrentRead(offset)) {
+            ONE_METRIC_COUNTER_ADD(
+                "comp.helpers.mod.readcache.cacheHitBytes", size);
+            ONE_METRIC_COUNTER_ADD(
+                "comp.helpers.mod.readcache.cacheHitCount", 1);
             return readFromCache(offset, size);
+        }
+
+        ONE_METRIC_COUNTER_ADD(
+            "comp.helpers.mod.readcache.cacheMissBytes", size);
+        ONE_METRIC_COUNTER_ADD("comp.helpers.mod.readcache.cacheMissCount", 1);
 
         std::tie(m_blockSize, m_prefetchCoeff) =
             isSequential(offset) ? increaseBlockSize() : resetBlockSize();
-
-        m_lastCacheRefresh = std::chrono::steady_clock::now();
 
         while (!m_cache.empty() && !isCurrentRead(offset))
             m_cache.pop_front();
@@ -125,6 +138,13 @@ public:
     }
 
 private:
+    void clearStaleEntries()
+    {
+        auto now = std::chrono::steady_clock::now();
+        while (!m_cache.empty() && m_cache.front()->t() < now - m_cacheDuration)
+            m_cache.pop_front();
+    }
+
     bool isSequential(const off_t offset)
     {
         if (m_cache.empty())
@@ -187,6 +207,8 @@ private:
             .then([readData = m_cache.back()](folly::IOBufQueue buf) {
                 readData->size = buf.chainLength();
                 readData->buf = std::move(buf);
+                readData->t_ =
+                    std::chrono::steady_clock::now().time_since_epoch();
                 readData->promise.setValue();
             })
             .onError([readData = m_cache.back()](folly::exception_wrapper ew) {
@@ -201,6 +223,7 @@ private:
 
         assert(!m_cache.empty());
 
+#if !defined(NDEBUG)
         ONE_METRIC_COUNTER_SET("comp.helpers.mod.readcache." +
                 m_handle.fileId().toStdString() + ".blockSize",
             m_blockSize);
@@ -219,6 +242,7 @@ private:
                 [](int acc, std::shared_ptr<ReadData> rd) {
                     return acc + rd->size;
                 }));
+#endif
 
         auto readData = m_cache.front();
         const auto startPoint = std::chrono::steady_clock::now();
@@ -277,13 +301,6 @@ private:
         return !m_cache.empty() && m_cache.front()->offset <= offset &&
             offset <
             static_cast<off_t>(m_cache.front()->offset + m_cache.front()->size);
-    }
-
-    bool isStale() const
-    {
-        return m_clear ||
-            m_lastCacheRefresh + m_cacheDuration <
-            std::chrono::steady_clock::now();
     }
 
     std::pair<std::size_t, double> resetBlockSize()

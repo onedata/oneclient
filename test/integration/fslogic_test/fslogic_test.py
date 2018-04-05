@@ -972,10 +972,11 @@ def prepare_listxattr_response(uuid):
 
 
 def test_listxattrs_should_return_listxattrs(endpoint, fl, uuid):
-    response = prepare_listxattr_response(uuid)
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
+    listxattr_response = prepare_listxattr_response(uuid)
 
     listxattrs = []
-    with reply(endpoint, response) as queue:
+    with reply(endpoint, [listxattr_response, getattr_response]) as queue:
         listxattrs = fl.listxattr(uuid)
         client_message = queue.get()
 
@@ -986,10 +987,11 @@ def test_listxattrs_should_return_listxattrs(endpoint, fl, uuid):
     assert file_request.HasField('list_xattr')
     assert file_request.context_guid == uuid
 
-    assert response.status.code == common_messages_pb2.Status.ok
-    assert len(listxattrs) == 4
-    assert listxattrs[0] == "xattr1"
-    assert listxattrs[3] == "xattr4"
+    assert listxattr_response.status.code == common_messages_pb2.Status.ok
+    assert "xattr1" in set(listxattrs)
+    assert "xattr2" in set(listxattrs)
+    assert "xattr3" in set(listxattrs)
+    assert "xattr4" in set(listxattrs)
 
 
 def prepare_getxattr_response(uuid, name, value):

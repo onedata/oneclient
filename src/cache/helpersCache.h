@@ -46,6 +46,8 @@ class HelpersCache {
 public:
     using HelperPtr = std::shared_ptr<helpers::StorageHelper>;
 
+    enum class AccessType { DIRECT, PROXY, UNKNOWN };
+
     /**
      * Constructor.
      * Starts an @c asio::io_service instance with one worker thread for
@@ -78,9 +80,14 @@ public:
         const folly::fbstring &spaceId, const folly::fbstring &storageId,
         bool forceProxyIO);
 
-private:
-    enum class AccessType { DIRECT, PROXY };
+    /**
+     * Returns the storage access type for specific storage, if not
+     * determined yet UNKNOWN value will be returned.
+     */
+    virtual HelpersCache::AccessType getAccessType(
+        const folly::fbstring &storageId);
 
+private:
     void requestStorageTestFileCreation(
         const folly::fbstring &fileUuid, const folly::fbstring &storageId);
 
