@@ -2,7 +2,7 @@ This directory contains standalone Asio library from:
 
 https://github.com/chriskohlhoff/asio
 
-Currently at version 1.12.0 (commit: b3d2ab7255fabe46a49b24a584c9fd797c8248e5)
+Currently at version 1.12.0+ (commit: b0926b61b057ce563241d609cae5768ed3a4e1b1)
 
 Asio official release versions are best described here:
 
