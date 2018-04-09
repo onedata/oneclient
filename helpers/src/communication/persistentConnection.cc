@@ -44,7 +44,7 @@ PersistentConnection::PersistentConnection(std::string host,
     , m_onReady{std::move(onReady)}
     , m_getHandshake{std::move(getHandshake)}
     , m_onHandshakeResponse{std::move(onHandshakeResponse)}
-    , m_callback{std::move(onHandshakeDone)}
+    , m_onHandshakeDone{std::move(onHandshakeDone)}
     , m_recreateBackoffDelay{RECREATE_DELAY_INITIAL}
 {
     LOG_FCALL() << LOG_FARG(host) << LOG_FARG(port);
@@ -94,10 +94,10 @@ void PersistentConnection::upgrade()
     LOG_DBG(2) << "Sending socket upgrade request";
 
     auto buffer = prepareRawOutBuffer(requestStream.str());
-    m_socket->sendAsync(
-        m_socket, buffer->asioBufferSequence(), createCallback([=] {
+    m_socket->sendAsync(m_socket, buffer->asioBufferSequence(),
+        createCallback([this, buffer]() mutable {
             this->onUpgradeRequestSent();
-            (void *)buffer.get();
+            buffer.reset();
         }));
 }
 
@@ -143,10 +143,10 @@ void PersistentConnection::onUpgradeResponseReceived()
 
         auto buffer = prepareOutBuffer(m_getHandshake());
 
-        m_socket->sendAsync(
-            m_socket, buffer->asioBufferSequence(), createCallback([=] {
+        m_socket->sendAsync(m_socket, buffer->asioBufferSequence(),
+            createCallback([this, buffer]() mutable {
                 onHandshakeSent();
-                (void *)buffer.get();
+                buffer.reset();
             }));
     }
 }
@@ -176,11 +176,11 @@ void PersistentConnection::onHandshakeReceived()
         start();
 }
 
-void PersistentConnection::onSent()
+void PersistentConnection::onSent(Callback &&callback)
 {
     LOG_FCALL();
 
-    notify();
+    notify(std::move(callback));
     m_onReady(*this);
 }
 
@@ -204,7 +204,7 @@ void PersistentConnection::onError(const std::error_code &ec1)
             this->connect();
     });
 
-    notify(ec1);
+    notify({}, ec1);
 }
 
 void PersistentConnection::send(std::string message, Callback callback)
@@ -220,14 +220,14 @@ void PersistentConnection::send(std::string message, Callback callback)
         return;
     }
 
-    m_callback = std::move(callback);
-
     auto buffer = prepareOutBuffer(std::move(message));
 
-    socket->sendAsync(socket, buffer->asioBufferSequence(), createCallback([=] {
-        onSent();
-        (void *)buffer.get();
-    }));
+    socket->sendAsync(socket, buffer->asioBufferSequence(),
+        createCallback(
+            [ this, buffer, callback = std::move(callback) ]() mutable {
+                onSent(std::move(callback));
+                buffer.reset();
+            }));
 }
 
 std::shared_ptr<SharedConstBufferSequence<1>>
@@ -247,7 +247,6 @@ PersistentConnection::prepareRawOutBuffer(std::string message)
 {
     LOG_FCALL() << LOG_FARG(message.size());
 
-    // m_outData = std::move(message);
     return std::make_shared<SharedConstBufferSequence<1>>(std::move(message));
 }
 
@@ -280,13 +279,12 @@ void PersistentConnection::close()
     socket->closeAsync(socket, {[=] {}, [=](auto) {}});
 }
 
-void PersistentConnection::notify(const std::error_code &ec)
+void PersistentConnection::notify(
+    Callback &&callback, const std::error_code &ec)
 {
     LOG_FCALL() << LOG_FARG(ec);
 
-    if (m_callback) {
-        decltype(m_callback) callback;
-        std::swap(callback, m_callback);
+    if (callback) {
         callback(ec);
     }
 
@@ -347,6 +345,7 @@ template <typename SF> void PersistentConnection::asyncRead(SF &&onSuccess)
         asio::mutable_buffer) mutable
     {
         const std::size_t size = ntohl(m_inHeader);
+        m_inData.clear();
         m_inData.resize(size);
 
         if (auto socket = getSocket())
@@ -364,6 +363,7 @@ void PersistentConnection::asyncReadRawUntil(
     std::string delimiter, SF &&onSuccess)
 {
     if (auto socket = getSocket()) {
+        m_inData.clear();
         m_inData.resize(256);
         socket->recvUntilAsyncRaw(socket, asio::buffer(m_inData), delimiter,
             createCallback<asio::mutable_buffer>(std::move(onSuccess)));
