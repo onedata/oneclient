@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <mutex>
 #include <random>
 #include <system_error>
 #include <vector>
