@@ -190,12 +190,14 @@ private:
     asio::ssl::stream<asio::ip::tcp::socket> m_socket;
     std::vector<std::vector<unsigned char>> m_certificateChain;
     asio::streambuf m_inRawData;
+    std::mutex m_mutex;
 };
 
 template <typename BufferSequence>
 void TLSSocket::sendAsync(
     Ptr self, const BufferSequence &buffers, Callback<> callback)
 {
+    std::lock_guard<std::mutex> lock{m_mutex};
     asio::async_write(m_socket, buffers, m_ioStrand.wrap([
         =, self = std::move(self), callback = std::move(callback)
     ](const auto ec, const auto read) {
