@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <functional>
+#include <mutex>
 #include <random>
 #include <system_error>
 #include <vector>
@@ -66,48 +67,52 @@ TLSSocket::TLSSocket(
 void TLSSocket::connectAsync(Ptr self, std::string host,
     const unsigned short port, Callback<Ptr> callback)
 {
-    m_resolver.async_resolve({std::move(host), std::to_string(port)}, [
-        this, self = std::move(self), callback = std::move(callback)
-    ](const auto ec1, auto iterator) mutable {
+    std::lock_guard<std::mutex> lock{m_mutex};
+    m_resolver.async_resolve(
+        {std::move(host), std::to_string(port)}, m_ioStrand.wrap([
+            this, self = std::move(self), callback = std::move(callback)
+        ](const auto ec1, auto iterator) mutable {
 
-        auto endpoints = this->shuffleEndpoints(std::move(iterator));
+            auto endpoints = this->shuffleEndpoints(std::move(iterator));
 
-        if (ec1) {
-            callback(ec1);
-            return;
-        }
+            if (ec1) {
+                callback(ec1);
+                return;
+            }
 
-        asio::async_connect(m_socket.lowest_layer(), endpoints.begin(),
-            endpoints.end(),
-            [ this, self = std::move(self), callback = std::move(callback) ](
-                const auto ec2, auto) mutable {
-
-                if (ec2) {
-                    callback(ec2);
-                    return;
-                }
-
-                m_socket.lowest_layer().set_option(
-                    asio::ip::tcp::no_delay{true});
-
-                m_socket.async_handshake(asio::ssl::stream_base::client, [
+            asio::async_connect(
+                m_socket.lowest_layer(), endpoints.begin(), endpoints.end(), [
                     this, self = std::move(self), callback = std::move(callback)
-                ](const auto ec3) mutable {
-                    if (ec3) {
-                        callback(ec3);
+                ](const auto ec2, auto) mutable {
+
+                    if (ec2) {
+                        callback(ec2);
+                        return;
                     }
-                    else {
-                        this->saveChain(false);
-                        callback(std::move(self));
-                    }
+
+                    m_socket.lowest_layer().set_option(
+                        asio::ip::tcp::no_delay{true});
+
+                    m_socket.async_handshake(asio::ssl::stream_base::client, [
+                        this, self = std::move(self),
+                        callback = std::move(callback)
+                    ](const auto ec3) mutable {
+                        if (ec3) {
+                            callback(ec3);
+                        }
+                        else {
+                            this->saveChain(false);
+                            callback(std::move(self));
+                        }
+                    });
                 });
-            });
-    });
+        }));
 }
 
 void TLSSocket::recvAsync(Ptr self, asio::mutable_buffer buffer,
     Callback<asio::mutable_buffer> callback)
 {
+    std::lock_guard<std::mutex> lock{m_mutex};
     asio::async_read(m_socket, asio::mutable_buffers_1{buffer},
         m_ioStrand.wrap(
             [ =, self = std::move(self), callback = std::move(callback) ](
@@ -122,6 +127,7 @@ void TLSSocket::recvAsync(Ptr self, asio::mutable_buffer buffer,
 void TLSSocket::recvUntilAsyncRaw(Ptr self, asio::mutable_buffer buffer,
     std::string delimiter, Callback<asio::mutable_buffer> callback)
 {
+    std::lock_guard<std::mutex> lock{m_mutex};
     m_inRawData.prepare(256);
     asio::async_read_until(m_socket, m_inRawData, delimiter, m_ioStrand.wrap([
         =, self = std::move(self), callback = std::move(callback)
@@ -140,6 +146,7 @@ void TLSSocket::recvUntilAsyncRaw(Ptr self, asio::mutable_buffer buffer,
 void TLSSocket::recvAnyAsync(Ptr self, asio::mutable_buffer buffer,
     Callback<asio::mutable_buffer> callback)
 {
+    std::lock_guard<std::mutex> lock{m_mutex};
     m_socket.async_read_some(asio::mutable_buffers_1{buffer}, m_ioStrand.wrap([
         =, self = std::move(self), callback = std::move(callback)
     ](const auto ec, const auto read) {
@@ -152,6 +159,7 @@ void TLSSocket::recvAnyAsync(Ptr self, asio::mutable_buffer buffer,
 
 void TLSSocket::handshakeAsync(Ptr self, Callback<> callback)
 {
+    std::lock_guard<std::mutex> lock{m_mutex};
     m_socket.async_handshake(asio::ssl::stream_base::server, m_ioStrand.wrap([
         =, self = std::move(self), callback = std::move(callback)
     ](const auto ec) {
@@ -168,6 +176,7 @@ void TLSSocket::handshakeAsync(Ptr self, Callback<> callback)
 void TLSSocket::shutdownAsync(
     Ptr self, const asio::socket_base::shutdown_type type, Callback<> callback)
 {
+    std::lock_guard<std::mutex> lock{m_mutex};
     m_ioStrand.post([
         =, self = std::move(self), callback = std::move(callback)
     ]() mutable {
@@ -182,6 +191,7 @@ void TLSSocket::shutdownAsync(
 
 void TLSSocket::closeAsync(Ptr self, Callback<> callback)
 {
+    std::lock_guard<std::mutex> lock{m_mutex};
     m_ioStrand.post([
         =, self = std::move(self), callback = std::move(callback)
     ]() mutable {
@@ -199,11 +209,13 @@ void TLSSocket::closeAsync(Ptr self, Callback<> callback)
 
 void TLSSocket::setVerifyMode(const asio::ssl::verify_mode mode)
 {
+    std::lock_guard<std::mutex> lock{m_mutex};
     m_socket.set_verify_mode(mode);
 }
 
 void TLSSocket::saveChain(bool server)
 {
+    std::lock_guard<std::mutex> lock{m_mutex};
     auto ssl = m_socket.native_handle();
     if (!ssl)
         return;
@@ -239,6 +251,7 @@ void TLSSocket::saveChain(bool server)
 void TLSSocket::localEndpointAsync(
     Ptr self, Callback<const asio::ip::tcp::endpoint &> callback)
 {
+    std::lock_guard<std::mutex> lock{m_mutex};
     m_ioStrand.post([
         =, self = std::move(self), callback = std::move(callback)
     ]() mutable { callback(m_socket.lowest_layer().local_endpoint()); });
@@ -247,6 +260,7 @@ void TLSSocket::localEndpointAsync(
 void TLSSocket::remoteEndpointAsync(
     Ptr self, Callback<const asio::ip::tcp::endpoint &> callback)
 {
+    std::lock_guard<std::mutex> lock{m_mutex};
     m_ioStrand.post([
         =, self = std::move(self), callback = std::move(callback)
     ]() mutable { callback(m_socket.lowest_layer().remote_endpoint()); });
