@@ -6,6 +6,14 @@ CHANGELOG
 
 ### 18.02.0-beta5
 
+* VFS-4333 Increased communicator thread count
+* VFS-4333 Added Oneclient version to logs
+* VFS-4326 Fixed subscriptions for files created in Oneclient
+* VFS-4318 Decreased minimum read buffer size
+* VFS-4308 Added replication progress xattr
+* VFS-4308 Updated fslogic listxattr test
+* VFS-4308 Added file block replication progress xattr
+* VFS-4308 Added system level xattrs
 * VFS-4291 Added communicator pool size command line option
 * VFS-4291 Updated to refactored communication stack
 * VFS-4267 Updated deps to OpenSSL 1.1.0
