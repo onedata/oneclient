@@ -12,8 +12,11 @@
 
 #include <asio/ssl/context.hpp>
 #include <asio/ssl/rfc2818_verification.hpp>
+#include <boost/filesystem.hpp>
 
 #include <cassert>
+#include <cstdlib>
+#include <deque>
 #include <memory>
 
 namespace {
@@ -39,7 +42,11 @@ WithSSLContext::WithSSLContext(const asio::ssl::context_base::method method,
     : m_context{std::make_shared<asio::ssl::context>(method)}
 {
     m_context->set_options(asio::ssl::context::default_workarounds);
-    m_context->set_default_verify_paths();
+    if (!setupOpenSSLCABundlePath()) {
+        LOG(WARNING) << "Couldn't find CA bundle file in the system, using "
+                        "default paths.";
+        m_context->set_default_verify_paths();
+    }
     m_context->set_verify_depth(100);
 
     if (!certPath.empty()) {
@@ -77,6 +84,11 @@ WithSSLContext::WithSSLContext(const asio::ssl::context_base::method method,
 WithSSLContext::WithSSLContext(std::shared_ptr<asio::ssl::context> context)
     : m_context{std::move(context)}
 {
+    if (!setupOpenSSLCABundlePath()) {
+        LOG(WARNING) << "Couldn't find CA bundle file in the system, using "
+                        "default paths.";
+        m_context->set_default_verify_paths();
+    }
 }
 
 void WithSSLContext::addCertificateRevocationList(
@@ -140,6 +152,39 @@ void WithSSLContext::addChainCertificate(const asio::const_buffer &data)
 void WithSSLContext::setVerifyMode(const asio::ssl::verify_mode mode)
 {
     m_context->set_verify_mode(mode);
+}
+
+bool WithSSLContext::setupOpenSSLCABundlePath()
+{
+    std::deque<std::string> caBundlePossibleLocations{
+        "/etc/ssl/certs/ca-certificates.crt", "/etc/ssl/certs/ca-bundle.crt",
+        "/etc/pki/tls/certs/ca-bundle.crt",
+        "/etc/pki/tls/certs/ca-bundle.trust.crt",
+        "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"};
+
+    if (auto sslCertFileEnv = std::getenv("SSL_CERT_FILE")) {
+        caBundlePossibleLocations.push_front(sslCertFileEnv);
+    }
+
+    auto it = std::find_if(caBundlePossibleLocations.begin(),
+        caBundlePossibleLocations.end(), [](const auto &path) {
+            using namespace boost::filesystem;
+            return exists(path) && (is_regular_file(path) || is_symlink(path));
+        });
+
+    if (it != caBundlePossibleLocations.end()) {
+        asio::error_code ec;
+        m_context->load_verify_file(*it, ec);
+        if (ec) {
+            LOG(WARNING) << "Invalid CA bundle at " << *it;
+            return false;
+        }
+        else {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 } // namespace detail
