@@ -37,7 +37,7 @@ namespace communication {
  * reached.
  */
 static constexpr float RECREATE_DELAY_FACTOR{1.5};
-static constexpr std::chrono::milliseconds RECREATE_DELAY_INITIAL{500};
+static constexpr std::chrono::milliseconds RECREATE_DELAY_INITIAL{100};
 static constexpr std::chrono::milliseconds RECREATE_DELAY_MAX{5 * 60 * 1000};
 
 /**
@@ -133,12 +133,12 @@ private:
     void onUpgradeResponseReceived();
     void onHandshakeSent();
     void onHandshakeReceived();
-    void onSent();
+    void onSent(Callback &&callback);
     void onError(const std::error_code &ec);
     void readLoop();
 
     void close();
-    void notify(const std::error_code &ec = {});
+    void notify(Callback &&callback = {}, const std::error_code &ec = {});
     void start();
 
     std::chrono::milliseconds nextReconnectionDelay();
@@ -165,8 +165,6 @@ private:
     std::function<std::string()> m_getHandshake;
     std::function<std::error_code(std::string)> m_onHandshakeResponse;
     std::function<void(std::error_code)> m_onHandshakeDone;
-
-    Callback m_callback;
 
     etls::TLSSocket::Ptr m_socket;
     asio::steady_timer m_recreateTimer{m_ioService};

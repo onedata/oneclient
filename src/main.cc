@@ -88,6 +88,7 @@ void startLogging(
 #endif
     google::InitGoogleLogging(programName);
 
+    LOG(INFO) << "Oneclient version: " << ONECLIENT_VERSION;
     if (options->getProviderHost())
         LOG(INFO) << "Connecting to Oneprovider: "
                   << options->getProviderHost().get();

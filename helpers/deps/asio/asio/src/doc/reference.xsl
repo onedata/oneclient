@@ -2,7 +2,7 @@
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" version="1.0">
 
 <!--
-  Copyright (c) 2003-2017 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+  Copyright (c) 2003-2018 Christopher M. Kohlhoff (chris at kohlhoff dot com)
 
   Distributed under the Boost Software License, Version 1.0. (See accompanying
   file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -26,7 +26,7 @@
 -->
 <xsl:template match="/doxygen">
 <xsl:text>[/
- / Copyright (c) 2003-2017 Christopher M. Kohlhoff (chris at kohlhoff dot com)
+ / Copyright (c) 2003-2018 Christopher M. Kohlhoff (chris at kohlhoff dot com)
  /
  / Distributed under the Boost Software License, Version 1.0. (See accompanying
  / file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
@@ -65,6 +65,7 @@
 [include requirements/IoControlCommand.qbk]
 [include requirements/IoObjectService.qbk]
 [include requirements/IteratorConnectHandler.qbk]
+[include requirements/LegacyCompletionHandler.qbk]
 [include requirements/MoveAcceptHandler.qbk]
 [include requirements/MutableBufferSequence.qbk]
 [include requirements/ProtoAllocator.qbk]
@@ -766,6 +767,9 @@
   <xsl:choose>
     <xsl:when test="contains($file, 'include/asio/ssl')">
       <xsl:text>[^asio/ssl.hpp]</xsl:text>
+    </xsl:when>
+    <xsl:when test="contains($file, 'include/asio/experimental')">
+      <xsl:text>[^asio/experimental.hpp]</xsl:text>
     </xsl:when>
     <xsl:when test="contains($file, 'include/asio/spawn')">
       <xsl:text>None</xsl:text>
@@ -1516,6 +1520,9 @@
         </xsl:when>
         <xsl:when test="declname = 'Executor'">
           <xsl:value-of select="concat('``[link asio.reference.Executor1 ', declname, ']``')"/>
+        </xsl:when>
+        <xsl:when test="declname = 'F'">
+          <xsl:value-of select="declname"/>
         </xsl:when>
         <xsl:when test="declname = 'Function'">
           <xsl:value-of select="declname"/>

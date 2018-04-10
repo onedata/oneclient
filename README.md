@@ -128,7 +128,7 @@ Advanced options:
   --communicator-pool-size <connections> (=10)
                                         Specify number of connections in
                                         communicator pool.
-  --communicator-thread-count <threads> (=2)
+  --communicator-thread-count <threads> (=4)
                                         Specify number of parallel communicator
                                         threads.
   --scheduler-thread-count <threads> (=1)
