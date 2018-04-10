@@ -22,6 +22,8 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
+#include <functional>
+
 namespace std {
 template <> struct hash<Poco::Net::HTTPResponse::HTTPStatus> {
     size_t operator()(const Poco::Net::HTTPResponse::HTTPStatus &p) const
@@ -33,6 +35,8 @@ template <> struct hash<Poco::Net::HTTPResponse::HTTPStatus> {
 
 namespace one {
 namespace helpers {
+
+using namespace std::placeholders;
 
 namespace {
 
@@ -48,6 +52,15 @@ std::unordered_map<Poco::Net::HTTPResponse::HTTPStatus, std::errc> errors = {
     {Poco::Net::HTTPResponse::HTTPStatus::HTTP_UNAUTHORIZED,
         std::errc::permission_denied},
 };
+
+// Retry only in case one of these errors occured
+const std::set<Poco::Net::HTTPResponse::HTTPStatus> SWIFT_RETRY_ERRORS = {
+    Poco::Net::HTTPResponse::HTTPStatus::HTTP_REQUEST_TIMEOUT,
+    Poco::Net::HTTPResponse::HTTPStatus::HTTP_GONE,
+    Poco::Net::HTTPResponse::HTTPStatus::HTTP_INTERNAL_SERVER_ERROR,
+    Poco::Net::HTTPResponse::HTTPStatus::HTTP_BAD_GATEWAY,
+    Poco::Net::HTTPResponse::HTTPStatus::HTTP_SERVICE_UNAVAILABLE,
+    Poco::Net::HTTPResponse::HTTPStatus::HTTP_GATEWAY_TIMEOUT};
 
 template <typename Outcome>
 std::error_code getReturnCode(const Outcome &outcome)
@@ -81,6 +94,23 @@ void throwOnError(folly::fbstring operation, const Outcome &outcome)
                << outcome->getError().msg;
 
     throw std::system_error{code, std::move(reason)};
+}
+
+template <typename Outcome>
+bool SWIFTRetryCondition(const Outcome &outcome, const std::string &operation)
+{
+    auto statusCode = outcome->getResponse()->getStatus();
+    auto ret = (statusCode == Swift::SwiftError::SWIFT_OK ||
+        !SWIFT_RETRY_ERRORS.count(statusCode));
+
+    if (!ret) {
+        LOG(WARNING) << "Retrying SWIFT helper operation '" << operation
+                     << "' due to error: " << outcome->getError().msg;
+        ONE_METRIC_COUNTER_INC(
+            "comp.helpers.mod.swift." + operation + ".retries");
+    }
+
+    return ret;
 }
 }
 
@@ -116,8 +146,16 @@ folly::IOBufQueue SwiftHelper::getObject(
 
     auto headers = std::vector<Swift::HTTPHeader>({Swift::HTTPHeader("Range",
         rangeToString(offset, static_cast<off_t>(offset + size - 1)))});
-    auto getResponse = std::unique_ptr<Swift::SwiftResult<std::istream *>>(
-        object.swiftGetObjectContent(nullptr, &headers));
+
+    using GetResponsePtr = std::unique_ptr<Swift::SwiftResult<std::istream *>>;
+
+    auto getResponse = retry(
+        [&]() {
+            return GetResponsePtr{
+                object.swiftGetObjectContent(nullptr, &headers)};
+        },
+        std::bind(SWIFTRetryCondition<GetResponsePtr>, _1, "GetObjectContent"));
+
     throwOnError("getObject", getResponse);
 
     char *data = static_cast<char *>(buf.preallocate(size, size).first);
@@ -149,9 +187,15 @@ off_t SwiftHelper::getObjectsSize(
     std::vector<Swift::HTTPHeader> params{
         {Swift::HTTPHeader("prefix", adjustPrefix(prefix))}};
 
-    auto listResponse = std::unique_ptr<Swift::SwiftResult<std::istream *>>(
-        container.swiftListObjects(
-            Swift::HEADER_FORMAT_APPLICATION_JSON, &params, true));
+    using ListResponsePtr = std::unique_ptr<Swift::SwiftResult<std::istream *>>;
+
+    auto listResponse = retry(
+        [&]() {
+            return ListResponsePtr{container.swiftListObjects(
+                Swift::HEADER_FORMAT_APPLICATION_JSON, &params, true)};
+        },
+        std::bind(SWIFTRetryCondition<ListResponsePtr>, _1, "ListObjects"));
+
     throwOnError("getObjectsSize", listResponse);
 
     boost::property_tree::ptree pt;
@@ -189,10 +233,16 @@ std::size_t SwiftHelper::putObject(
     LOG_DBG(1) << "Attempting to write object " << key << " of size "
                << iobuf->length();
 
-    auto createResponse = std::unique_ptr<Swift::SwiftResult<int *>>(
-        object.swiftCreateReplaceObject(
-            reinterpret_cast<const char *>(iobuf->data()), iobuf->length(),
-            true));
+    using CreateResponsePtr = std::unique_ptr<Swift::SwiftResult<int *>>;
+
+    auto createResponse = retry(
+        [&]() {
+            return CreateResponsePtr{object.swiftCreateReplaceObject(
+                reinterpret_cast<const char *>(iobuf->data()), iobuf->length(),
+                true)};
+        },
+        std::bind(
+            SWIFTRetryCondition<CreateResponsePtr>, _1, "CreateReplaceObject"));
 
     throwOnError("putObject", createResponse);
 
@@ -223,9 +273,16 @@ void SwiftHelper::deleteObjects(const folly::fbvector<folly::fbstring> &keys)
         for (auto &key : folly::range(keys.begin(), keys.begin() + batchSize))
             keyBatch.emplace_back(key.toStdString());
 
-        auto deleteResponse =
-            std::unique_ptr<Swift::SwiftResult<std::istream *>>{
-                container.swiftDeleteObjects(std::move(keyBatch))};
+        using DeleteResponsePtr =
+            std::unique_ptr<Swift::SwiftResult<std::istream *>>;
+
+        auto deleteResponse = retry(
+            [&]() {
+                return DeleteResponsePtr{
+                    container.swiftDeleteObjects(std::move(keyBatch))};
+            },
+            std::bind(
+                SWIFTRetryCondition<DeleteResponsePtr>, _1, "DeleteObjects"));
 
         throwOnError("deleteObjects", deleteResponse);
     }
@@ -255,9 +312,15 @@ folly::fbvector<folly::fbstring> SwiftHelper::listObjects(
                 Swift::HTTPHeader("marker", objectsList.back().toStdString()));
         }
 
-        auto listResponse = std::unique_ptr<Swift::SwiftResult<std::istream *>>(
-            container.swiftListObjects(
-                Swift::HEADER_FORMAT_TEXT_XML, &params, true));
+        using ListResponsePtr =
+            std::unique_ptr<Swift::SwiftResult<std::istream *>>;
+
+        auto listResponse = retry(
+            [&]() {
+                return ListResponsePtr{container.swiftListObjects(
+                    Swift::HEADER_FORMAT_TEXT_XML, &params, true)};
+            },
+            std::bind(SWIFTRetryCondition<ListResponsePtr>, _1, "ListObjects"));
 
         throwOnError("listObjects", listResponse);
 
