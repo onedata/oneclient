@@ -43,7 +43,40 @@ namespace helpers {
 namespace {
 constexpr std::chrono::milliseconds ASYNC_OPS_TIMEOUT{120000};
 const std::error_code SUCCESS_CODE{};
+constexpr int IO_RETRY_COUNT{4};
+constexpr std::chrono::milliseconds IO_RETRY_INITIAL_DELAY{10};
+constexpr float IO_RETRY_DELAY_BACKOFF_FACTOR{5.0};
 } // namespace
+
+/**
+ * Generic retry function wrapper.
+ * @param op Function to repeat.
+ * @param condition Function to use to test the result returned by @c op,
+ *                  when evaluates to true the result is returned.
+ * @param retryCount Maximum number of retries.
+ * @param retryInitialDelay Delay before first retry.
+ * @param retryBackoff Factor determining the retry delay increase.
+ * @return Last returned value of @c op.
+ */
+template <typename OpFunc, typename CondFunc>
+inline auto retry(OpFunc &&op, CondFunc &&condition,
+    int retryCount = IO_RETRY_COUNT,
+    std::chrono::milliseconds retryInitialDelay = IO_RETRY_INITIAL_DELAY,
+    float retryBackoff = IO_RETRY_DELAY_BACKOFF_FACTOR)
+{
+    auto ret = op();
+    auto retryIt = 0;
+
+    while (!condition(ret) && (retryIt < retryCount)) {
+        std::this_thread::sleep_for(
+            retryInitialDelay * std::pow(retryBackoff, retryIt));
+
+        ret = op();
+        retryIt++;
+    }
+
+    return ret;
+}
 
 /**
  * Creates an instance of @c std::error_code in @c std::system_category that
