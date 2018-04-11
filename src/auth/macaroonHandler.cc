@@ -107,8 +107,7 @@ MacaroonHandler::readMacaroonFromFile() const
     boost::filesystem::ifstream stream{macaroonFilePath()};
     stream >> macaroon;
     if (stream.fail() || stream.bad() || stream.eof()) {
-        LOG(ERROR) << "Failed to retrieve macaroon from file "
-                   << macaroonFilePath();
+        LOG(INFO) << "No cached macaroon at: " << macaroonFilePath();
         return {};
     }
 
