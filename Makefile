@@ -250,7 +250,8 @@ oneclient_rpm: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 		   --iteration $(PKG_BUILD) --license "Apache 2.0" \
 		   --after-install=/data/oneclient_rpm.pre \
 		   --after-remove=/data/oneclient_rpm.post \
-		   --depends fuse --maintainer "Onedata Package Maintainers <info@onedata.org>" \
+		   --depends fuse --depends ca-certificates \
+		   --maintainer "Onedata Package Maintainers <info@onedata.org>" \
 		   --description "Self-contained Onedata Oneclient command-line client package" \
 		   /data/oneclient-bin.tar.gz
 
@@ -270,7 +271,8 @@ oneclient_deb: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 		   --iteration $(PKG_BUILD) --license "Apache 2.0" \
 		   --after-install=/data/oneclient_deb.pre \
 		   --after-remove=/data/oneclient_deb.post \
-		   --depends fuse --maintainer "Onedata Package Maintainers <info@onedata.org>" \
+		   --depends fuse --depends ca-certificates \
+		   --maintainer "Onedata Package Maintainers <info@onedata.org>" \
 		   --description "Self-contained Onedata Oneclient command-line client package" \
 		   /data/oneclient-bin.tar.gz
 

@@ -68,6 +68,14 @@ public:
      */
     virtual void setVerifyMode(const asio::ssl::verify_mode mode);
 
+    /**
+     * This function sets up OpenSSL CA certificate bundle path by finding
+     * it in the filesystem or using the exported SSL_CERT_FILE variable.
+     * @param ctx OpenSSL context
+     * @return True if succeeded
+     */
+    bool setupOpenSSLCABundlePath();
+
 protected:
     std::shared_ptr<asio::ssl::context> m_context;
 };
