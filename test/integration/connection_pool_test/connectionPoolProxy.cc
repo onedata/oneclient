@@ -19,11 +19,27 @@
 using namespace boost::python;
 using namespace one::communication;
 
+std::unique_ptr<Connection> createRawConnection(std::string host,
+    const unsigned short port, asio::io_service &ioService,
+    std::shared_ptr<asio::ssl::context> context,
+    std::function<void(std::string)> onMessage,
+    std::function<void(Connection &)> onReady,
+    std::function<std::string()> getHandshake,
+    std::function<std::error_code(std::string)> onHandshakeResponse,
+    std::function<void(std::error_code)> onHandshakeDone)
+{
+    return std::make_unique<PersistentConnection>(std::move(host), port,
+        ioService, std::move(context), std::move(onMessage), std::move(onReady),
+        std::move(getHandshake), std::move(onHandshakeResponse),
+        std::move(onHandshakeDone), false);
+}
+
 class ConnectionPoolProxy {
 public:
     ConnectionPoolProxy(const std::size_t conn, const std::size_t workers,
         std::string host, const unsigned short port)
-        : m_pool{conn, workers, std::move(host), port, false, createConnection}
+        : m_pool{
+              conn, workers, std::move(host), port, false, createRawConnection}
     {
         m_pool.setOnMessageCallback([this](std::string msg) {
             m_messages.emplace(std::move(msg));

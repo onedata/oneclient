@@ -88,7 +88,8 @@ public:
         std::function<void(PersistentConnection &)> onReady,
         std::function<std::string()> getHandshake = {},
         std::function<std::error_code(std::string)> onHandshakeResponse = {},
-        std::function<void(std::error_code)> onHandshakeDone = {});
+        std::function<void(std::error_code)> onHandshakeDone = {},
+        bool clProtoUpgrade = true);
 
     /**
      * Destructor.
@@ -174,6 +175,10 @@ private:
     std::uint32_t m_inHeader;
     std::string m_inData;
     std::chrono::milliseconds m_recreateBackoffDelay;
+
+    // Determines whether the socket should request upgrade to clproto
+    // protocol or remain raw
+    const bool m_clProtoUpgrade;
 };
 
 std::unique_ptr<Connection> createConnection(std::string host,

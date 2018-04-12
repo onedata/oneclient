@@ -27,7 +27,9 @@
 #include <sys/fsuid.h>
 #endif
 
+#include <functional>
 #include <map>
+#include <set>
 #include <string>
 
 #if defined(__APPLE__)
@@ -105,11 +107,37 @@ public:
 };
 #endif
 
+// Retry only in case one of these errors occured
+const std::set<int> POSIX_RETRY_ERRORS = {EINTR, EIO, EAGAIN, EACCES, EBUSY,
+    EMFILE, ETXTBSY, ESPIPE, EMLINK, EPIPE, EDEADLK, EWOULDBLOCK, ENONET,
+    ENOLINK, EADDRINUSE, EADDRNOTAVAIL, ENETDOWN, ENETUNREACH, ECONNABORTED,
+    ECONNRESET, ENOTCONN, EHOSTDOWN, EHOSTUNREACH, EREMOTEIO, ENOMEDIUM,
+    ECANCELED, ESTALE};
+
+inline bool POSIXRetryCondition(int result, const std::string &operation)
+{
+    auto ret = (result >= 0 ||
+        POSIX_RETRY_ERRORS.find(errno) == POSIX_RETRY_ERRORS.end());
+
+    if (!ret) {
+        LOG(WARNING) << "Retrying POSIX helper operation '" << operation
+                     << "' due to error: " << errno;
+        ONE_METRIC_COUNTER_INC(
+            "comp.helpers.mod.posix." + operation + ".retries");
+    }
+
+    return ret;
+}
+
 template <typename... Args1, typename... Args2>
 inline folly::Future<folly::Unit> setResult(
-    int (*fun)(Args2...), Args1 &&... args)
+    const std::string &operation, int (*fun)(Args2...), Args1 &&... args)
 {
-    if (fun(std::forward<Args1>(args)...) < 0)
+    auto ret =
+        one::helpers::retry([&]() { return fun(std::forward<Args1>(args)...); },
+            std::bind(POSIXRetryCondition, std::placeholders::_1, operation));
+
+    if (ret < 0)
         return one::helpers::makeFuturePosixException(errno);
 
     return folly::makeFuture();
@@ -119,6 +147,8 @@ inline folly::Future<folly::Unit> setResult(
 
 namespace one {
 namespace helpers {
+
+using namespace std::placeholders;
 
 PosixFileHandle::PosixFileHandle(folly::fbstring fileId, const uid_t uid,
     const gid_t gid, const int fileHandle,
@@ -176,7 +206,8 @@ folly::Future<folly::IOBufQueue> PosixFileHandle::read(
         LOG_DBG(1) << "Attempting to read " << size << " bytes at offset "
                    << offset << " from file " << fileId;
 
-        auto res = ::pread(fh, data, size, offset);
+        auto res = retry([&]() { return ::pread(fh, data, size, offset); },
+            std::bind(POSIXRetryCondition, _1, "pread"));
 
         if (res == -1) {
             LOG_DBG(1) << "Reading from file " << fileId
@@ -223,17 +254,22 @@ folly::Future<std::size_t> PosixFileHandle::write(
                    << " bytes at offset " << offset << " to file " << fileId;
 
         for (std::size_t iov_off = 0; iov_off < iov_size; iov_off += IOV_MAX) {
-            res = ::writev(fh, iov.data() + iov_off,
-                std::min<std::size_t>(IOV_MAX, iov_size - iov_off));
+            res = retry(
+                [&]() {
+                    return ::writev(fh, iov.data() + iov_off,
+                        std::min<std::size_t>(IOV_MAX, iov_size - iov_off));
+                },
+                [](int result) { return result != -1; });
+
             if (res == -1) {
-                LOG_DBG(1) << "Reading from file " << fileId
+                LOG_DBG(1) << "Writing to file " << fileId
                            << " failed with error " << errno;
                 return makeFuturePosixException<std::size_t>(errno);
             }
             size += res;
         }
 
-        LOG_DBG(1) << "Read " << size << " bytes from file " << fileId;
+        LOG_DBG(1) << "Written " << size << " bytes to file " << fileId;
 
         ONE_METRIC_TIMERCTX_STOP(timer, size);
 
@@ -258,7 +294,7 @@ folly::Future<folly::Unit> PosixFileHandle::release()
 
             LOG_DBG(1) << "Closing file " << fileId;
 
-            return setResult(close, fh);
+            return setResult("close", close, fh);
         });
 }
 
@@ -294,7 +330,7 @@ folly::Future<folly::Unit> PosixFileHandle::fsync(bool /*isDataSync*/)
 
             LOG_DBG(1) << "Syncing file " << fileId;
 
-            return setResult(::fsync, fh);
+            return setResult("fsync", ::fsync, fh);
         });
 }
 
@@ -325,7 +361,11 @@ folly::Future<struct stat> PosixHelper::getattr(const folly::fbstring &fileId)
             if (!userCTX.valid())
                 return makeFuturePosixException<struct stat>(EDOM);
 
-            if (::lstat(filePath.c_str(), &stbuf) == -1) {
+            auto res =
+                retry([&]() { return ::lstat(filePath.c_str(), &stbuf); },
+                    std::bind(POSIXRetryCondition, _1, "lstat"));
+
+            if (res == -1) {
                 LOG_DBG(1) << "Stating file " << filePath
                            << " failed with error " << errno;
                 return makeFuturePosixException<struct stat>(errno);
@@ -350,7 +390,7 @@ folly::Future<folly::Unit> PosixHelper::access(
 
             LOG_DBG(1) << "Attempting to access file " << filePath;
 
-            return setResult(::access, filePath.c_str(), mask);
+            return setResult("access", ::access, filePath.c_str(), mask);
         });
 }
 
@@ -375,7 +415,11 @@ folly::Future<folly::fbvector<folly::fbstring>> PosixHelper::readdir(
 
         DIR *dir;
         struct dirent *dp;
-        dir = opendir(filePath.c_str());
+        dir = retry([&]() { return opendir(filePath.c_str()); },
+            [](DIR *d) {
+                return d != nullptr ||
+                    POSIX_RETRY_ERRORS.find(errno) == POSIX_RETRY_ERRORS.end();
+            });
 
         if (!dir) {
             LOG_DBG(1) << "Opening directory " << filePath
@@ -385,7 +429,13 @@ folly::Future<folly::fbvector<folly::fbstring>> PosixHelper::readdir(
         }
 
         int offset_ = offset, count_ = count;
-        while ((dp = ::readdir(dir)) != NULL && count_ > 0) {
+        while ((dp = retry([&]() { return ::readdir(dir); },
+                    [](struct dirent *de) {
+                        return de != nullptr ||
+                            POSIX_RETRY_ERRORS.find(errno) ==
+                            POSIX_RETRY_ERRORS.end();
+                    })) != nullptr &&
+            count_ > 0) {
             if (strcmp(dp->d_name, ".") && strcmp(dp->d_name, "..")) {
                 if (offset_ > 0) {
                     --offset_;
@@ -423,8 +473,13 @@ folly::Future<folly::fbstring> PosixHelper::readlink(
 
             constexpr std::size_t maxSize = 1024;
             auto buf = folly::IOBuf::create(maxSize);
-            const int res = ::readlink(filePath.c_str(),
-                reinterpret_cast<char *>(buf->writableData()), maxSize - 1);
+            auto res = retry(
+                [&]() {
+                    return ::readlink(filePath.c_str(),
+                        reinterpret_cast<char *>(buf->writableData()),
+                        maxSize - 1);
+                },
+                std::bind(POSIXRetryCondition, _1, "readlink"));
 
             if (res == -1) {
                 LOG_DBG(1) << "Reading link " << filePath
@@ -463,16 +518,24 @@ folly::Future<folly::Unit> PosixHelper::mknod(const folly::fbstring &fileId,
             /* On Linux this could just be 'mknod(path, mode, rdev)' but this
                is more portable */
             if (S_ISREG(mode)) {
-                res =
-                    ::open(filePath.c_str(), O_CREAT | O_EXCL | O_WRONLY, mode);
+                res = retry(
+                    [&]() {
+                        return ::open(filePath.c_str(),
+                            O_CREAT | O_EXCL | O_WRONLY, mode);
+                    },
+                    std::bind(POSIXRetryCondition, _1, "open"));
+
                 if (res >= 0)
                     res = close(res);
             }
             else if (S_ISFIFO(mode)) {
-                res = ::mkfifo(filePath.c_str(), mode);
+                res = retry([&]() { return ::mkfifo(filePath.c_str(), mode); },
+                    std::bind(POSIXRetryCondition, _1, "mkfifo"));
             }
             else {
-                res = ::mknod(filePath.c_str(), mode, rdev);
+                res = retry(
+                    [&]() { return ::mknod(filePath.c_str(), mode, rdev); },
+                    std::bind(POSIXRetryCondition, _1, "mknod"));
             }
 
             if (res == -1)
@@ -495,7 +558,7 @@ folly::Future<folly::Unit> PosixHelper::mkdir(
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
 
-            return setResult(::mkdir, filePath.c_str(), mode);
+            return setResult("mkdir", ::mkdir, filePath.c_str(), mode);
         });
 }
 
@@ -511,7 +574,7 @@ folly::Future<folly::Unit> PosixHelper::unlink(const folly::fbstring &fileId)
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
 
-            return setResult(::unlink, filePath.c_str());
+            return setResult("unlink", ::unlink, filePath.c_str());
         });
 }
 
@@ -527,7 +590,7 @@ folly::Future<folly::Unit> PosixHelper::rmdir(const folly::fbstring &fileId)
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
 
-            return setResult(::rmdir, filePath.c_str());
+            return setResult("rmdir", ::rmdir, filePath.c_str());
         });
 }
 
@@ -544,7 +607,7 @@ folly::Future<folly::Unit> PosixHelper::symlink(
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
 
-            return setResult(::symlink, from.c_str(), to.c_str());
+            return setResult("symlink", ::symlink, from.c_str(), to.c_str());
         });
 }
 
@@ -561,7 +624,7 @@ folly::Future<folly::Unit> PosixHelper::rename(
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
 
-            return setResult(::rename, from.c_str(), to.c_str());
+            return setResult("rename", ::rename, from.c_str(), to.c_str());
         });
 }
 
@@ -578,7 +641,7 @@ folly::Future<folly::Unit> PosixHelper::link(
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
 
-            return setResult(::link, from.c_str(), to.c_str());
+            return setResult("link", ::link, from.c_str(), to.c_str());
         });
 }
 
@@ -595,7 +658,7 @@ folly::Future<folly::Unit> PosixHelper::chmod(
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
 
-            return setResult(::chmod, filePath.c_str(), mode);
+            return setResult("chmod", ::chmod, filePath.c_str(), mode);
         });
 }
 
@@ -614,7 +677,7 @@ folly::Future<folly::Unit> PosixHelper::chown(
         if (!userCTX.valid())
             return makeFuturePosixException(EDOM);
 
-        return setResult(::chown, filePath.c_str(), argUid, argGid);
+        return setResult("chown", ::chown, filePath.c_str(), argUid, argGid);
     });
 }
 
@@ -631,7 +694,7 @@ folly::Future<folly::Unit> PosixHelper::truncate(
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
 
-            return setResult(::truncate, filePath.c_str(), size);
+            return setResult("truncate", ::truncate, filePath.c_str(), size);
         });
 }
 
@@ -650,7 +713,8 @@ folly::Future<FileHandlePtr> PosixHelper::open(
         if (!userCTX.valid())
             return makeFuturePosixException<FileHandlePtr>(EDOM);
 
-        int res = ::open(filePath.c_str(), flags);
+        int res = retry([&]() { return ::open(filePath.c_str(), flags); },
+            std::bind(POSIXRetryCondition, _1, "open"));
 
         if (res == -1)
             return makeFuturePosixException<FileHandlePtr>(errno);
@@ -677,27 +741,35 @@ folly::Future<folly::fbstring> PosixHelper::getxattr(
 
             constexpr std::size_t initialMaxSize = 256;
             auto buf = folly::IOBuf::create(initialMaxSize);
-            int res = ::getxattr(filePath.c_str(), name.c_str(),
-                reinterpret_cast<char *>(buf->writableData()),
-                initialMaxSize - 1
-#if defined(__APPLE__)
-                ,
-                0, 0
-#endif
-            );
 
+            int res = retry(
+                [&]() {
+                    return ::getxattr(filePath.c_str(), name.c_str(),
+                        reinterpret_cast<char *>(buf->writableData()),
+                        initialMaxSize - 1
+#if defined(__APPLE__)
+                        ,
+                        0, 0
+#endif
+                    );
+                },
+                std::bind(POSIXRetryCondition, _1, "getxattr"));
             // If the initial buffer for xattr value was too small, try again
             // with maximum allowed value
             if (res == -1 && errno == ERANGE) {
                 buf = folly::IOBuf::create(XATTR_SIZE_MAX);
-                res = ::getxattr(filePath.c_str(), name.c_str(),
-                    reinterpret_cast<char *>(buf->writableData()),
-                    XATTR_SIZE_MAX - 1
+                res = retry(
+                    [&]() {
+                        return ::getxattr(filePath.c_str(), name.c_str(),
+                            reinterpret_cast<char *>(buf->writableData()),
+                            XATTR_SIZE_MAX - 1
 #if defined(__APPLE__)
-                    ,
-                    0, 0
+                            ,
+                            0, 0
 #endif
-                );
+                        );
+                    },
+                    std::bind(POSIXRetryCondition, _1, "getxattr"));
             }
 
             if (res == -1)
@@ -738,7 +810,7 @@ folly::Future<folly::Unit> PosixHelper::setxattr(const folly::fbstring &fileId,
             flags = XATTR_REPLACE;
         }
 
-        return setResult(::setxattr, filePath.c_str(), name.c_str(),
+        return setResult("setxattr", ::setxattr, filePath.c_str(), name.c_str(),
             value.c_str(), value.size(),
 #if defined(__APPLE__)
             0,
@@ -760,9 +832,10 @@ folly::Future<folly::Unit> PosixHelper::removexattr(
             if (!userCTX.valid())
                 return makeFuturePosixException(EDOM);
 
-            return setResult(::removexattr, filePath.c_str(), name.c_str()
+            return setResult(
+                "removexattr", ::removexattr, filePath.c_str(), name.c_str()
 #if defined(__APPLE__)
-                                                                  ,
+                                                                    ,
                 0
 #endif
             );
@@ -786,12 +859,17 @@ folly::Future<folly::fbvector<folly::fbstring>> PosixHelper::listxattr(
 
         folly::fbvector<folly::fbstring> ret;
 
-        ssize_t buflen = ::listxattr(filePath.c_str(), NULL, 0
+        ssize_t buflen = retry(
+            [&]() {
+                return ::listxattr(filePath.c_str(), NULL, 0
 #if defined(__APPLE__)
-            ,
-            0
+                    ,
+                    0
 #endif
-        );
+                );
+            },
+            std::bind(POSIXRetryCondition, _1, "listxattr"));
+
         if (buflen == -1)
             return makeFuturePosixException<folly::fbvector<folly::fbstring>>(
                 errno);
