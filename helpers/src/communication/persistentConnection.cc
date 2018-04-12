@@ -35,7 +35,7 @@ PersistentConnection::PersistentConnection(std::string host,
     std::function<void(PersistentConnection &)> onReady,
     std::function<std::string()> getHandshake,
     std::function<std::error_code(std::string)> onHandshakeResponse,
-    std::function<void(std::error_code)> onHandshakeDone)
+    std::function<void(std::error_code)> onHandshakeDone, bool clProtoUpgrade)
     : m_host{std::move(host)}
     , m_port{port}
     , m_ioService(ioService)
@@ -46,6 +46,7 @@ PersistentConnection::PersistentConnection(std::string host,
     , m_onHandshakeResponse{std::move(onHandshakeResponse)}
     , m_onHandshakeDone{std::move(onHandshakeDone)}
     , m_recreateBackoffDelay{RECREATE_DELAY_INITIAL}
+    , m_clProtoUpgrade{clProtoUpgrade}
 {
     LOG_FCALL() << LOG_FARG(host) << LOG_FARG(port);
 }
@@ -78,7 +79,10 @@ void PersistentConnection::onConnect()
 
     m_recreateBackoffDelay = RECREATE_DELAY_INITIAL;
 
-    upgrade();
+    if (m_clProtoUpgrade)
+        upgrade();
+    else
+        start();
 }
 
 void PersistentConnection::upgrade()
