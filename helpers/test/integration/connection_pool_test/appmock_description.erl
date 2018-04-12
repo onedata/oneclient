@@ -12,7 +12,6 @@ tcp_server_mocks() -> [
         port = 443,
         ssl = true,
         packet = 4,
-        http_upgrade_mode = {true, <<"/clproto">>, <<"clproto">>},
         type = counter
     }
 ].
