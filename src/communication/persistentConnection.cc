@@ -66,7 +66,8 @@ void PersistentConnection::connect()
 
     m_socket = std::make_shared<etls::TLSSocket>(m_ioService, m_context);
     m_socket->connectAsync(m_socket, m_host, m_port,
-        createCallback<etls::TLSSocket::Ptr>([=](auto) { this->onConnect(); }));
+        createCallback<etls::TLSSocket::Ptr>([self = shared_from_this()](
+            auto) { self->onConnect(); }));
 }
 
 bool PersistentConnection::connected() const { return m_connected.load(); }
@@ -99,8 +100,8 @@ void PersistentConnection::upgrade()
 
     auto buffer = prepareRawOutBuffer(requestStream.str());
     m_socket->sendAsync(m_socket, buffer->asioBufferSequence(),
-        createCallback([this, buffer]() mutable {
-            this->onUpgradeRequestSent();
+        createCallback([ self = shared_from_this(), buffer ]() mutable {
+            self->onUpgradeRequestSent();
             buffer.reset();
         }));
 }
@@ -112,8 +113,9 @@ void PersistentConnection::onUpgradeRequestSent()
     LOG_DBG(2) << "Upgrade request sent to " << m_host << ":" << m_port;
 
     // Read the raw stream until end of HTTP response
-    asyncReadRawUntil(
-        "\r\n\r\n", [=](auto) { this->onUpgradeResponseReceived(); });
+    asyncReadRawUntil("\r\n\r\n", [self = shared_from_this()](auto) {
+        self->onUpgradeResponseReceived();
+    });
 }
 
 void PersistentConnection::onUpgradeResponseReceived()
@@ -148,8 +150,8 @@ void PersistentConnection::onUpgradeResponseReceived()
         auto buffer = prepareOutBuffer(m_getHandshake());
 
         m_socket->sendAsync(m_socket, buffer->asioBufferSequence(),
-            createCallback([this, buffer]() mutable {
-                onHandshakeSent();
+            createCallback([ self = shared_from_this(), buffer ]() mutable {
+                self->onHandshakeSent();
                 buffer.reset();
             }));
     }
@@ -161,7 +163,8 @@ void PersistentConnection::onHandshakeSent()
 
     LOG_DBG(2) << "Handshake sent - waiting for response...";
 
-    asyncRead([=](auto) { this->onHandshakeReceived(); });
+    asyncRead([self = shared_from_this()](
+        auto) { self->onHandshakeReceived(); });
 }
 
 void PersistentConnection::onHandshakeReceived()
@@ -203,9 +206,9 @@ void PersistentConnection::onError(const std::error_code &ec1)
     m_recreateTimer.expires_at(
         std::chrono::steady_clock::now() + recreateDelay);
 
-    m_recreateTimer.async_wait([this](auto ec2) {
+    m_recreateTimer.async_wait([self = shared_from_this()](auto ec2) {
         if (!ec2)
-            this->connect();
+            self->connect();
     });
 
     notify({}, ec1);
@@ -226,12 +229,12 @@ void PersistentConnection::send(std::string message, Callback callback)
 
     auto buffer = prepareOutBuffer(std::move(message));
 
-    socket->sendAsync(socket, buffer->asioBufferSequence(),
-        createCallback(
-            [ this, buffer, callback = std::move(callback) ]() mutable {
-                onSent(std::move(callback));
-                buffer.reset();
-            }));
+    socket->sendAsync(socket, buffer->asioBufferSequence(), createCallback([
+        self = shared_from_this(), buffer, callback = std::move(callback)
+    ]() mutable {
+        self->onSent(std::move(callback));
+        buffer.reset();
+    }));
 }
 
 std::shared_ptr<SharedConstBufferSequence<1>>
@@ -307,6 +310,8 @@ void PersistentConnection::start()
     m_onReady(*this);
 }
 
+int PersistentConnection::connectionId() const { return m_connectionId.load(); }
+
 std::chrono::milliseconds PersistentConnection::nextReconnectionDelay()
 {
     LOG_FCALL();
@@ -328,16 +333,20 @@ etls::Callback<Args...> PersistentConnection::createCallback(SF &&onSuccess)
 {
     const int connectionId = m_connectionId;
 
-    auto wrappedSuccess =
-        [ =, onSuccess = std::forward<SF>(onSuccess) ](Args && ... args) mutable
+    auto wrappedSuccess = [
+        self = shared_from_this(), connectionId,
+        onSuccess = std::forward<SF>(onSuccess)
+    ](Args && ... args) mutable
     {
-        if (m_connectionId == connectionId)
+        if (self->connectionId() == connectionId)
             onSuccess(std::forward<Args>(args)...);
     };
 
-    auto wrappedError = [=](const std::error_code &ec) {
-        if (m_connectionId == connectionId)
-            onError(ec);
+    auto wrappedError =
+        [ self = shared_from_this(), connectionId ](const std::error_code &ec)
+    {
+        if (self->connectionId() == connectionId)
+            self->onError(ec);
     };
 
     return {std::move(wrappedSuccess), std::move(wrappedError)};
@@ -345,16 +354,18 @@ etls::Callback<Args...> PersistentConnection::createCallback(SF &&onSuccess)
 
 template <typename SF> void PersistentConnection::asyncRead(SF &&onSuccess)
 {
-    auto onHeaderSuccess = [ =, onSuccess = std::forward<SF>(onSuccess) ](
-        asio::mutable_buffer) mutable
+    auto onHeaderSuccess =
+        [ self = shared_from_this(), onSuccess = std::forward<SF>(onSuccess) ](
+            asio::mutable_buffer) mutable
     {
-        const std::size_t size = ntohl(m_inHeader);
-        m_inData.clear();
-        m_inData.resize(size);
+        const std::size_t size = ntohl(self->m_inHeader);
+        self->m_inData.clear();
+        self->m_inData.resize(size);
 
-        if (auto socket = getSocket())
-            socket->recvAsync(socket, asio::buffer(m_inData),
-                createCallback<asio::mutable_buffer>(std::move(onSuccess)));
+        if (auto socket = self->getSocket())
+            socket->recvAsync(socket, asio::buffer(self->m_inData),
+                self->createCallback<asio::mutable_buffer>(
+                    std::move(onSuccess)));
     };
 
     if (auto socket = getSocket())
@@ -380,7 +391,7 @@ asio::mutable_buffers_1 PersistentConnection::headerToBuffer(
     return {static_cast<void *>(&header), sizeof(header)};
 }
 
-std::unique_ptr<Connection> createConnection(std::string host,
+std::shared_ptr<Connection> createConnection(std::string host,
     const unsigned short port, asio::io_service &ioService,
     std::shared_ptr<asio::ssl::context> context,
     std::function<void(std::string)> onMessage,
@@ -389,7 +400,7 @@ std::unique_ptr<Connection> createConnection(std::string host,
     std::function<std::error_code(std::string)> onHandshakeResponse,
     std::function<void(std::error_code)> onHandshakeDone)
 {
-    return std::make_unique<PersistentConnection>(std::move(host), port,
+    return std::make_shared<PersistentConnection>(std::move(host), port,
         ioService, std::move(context), std::move(onMessage), std::move(onReady),
         std::move(getHandshake), std::move(onHandshakeResponse),
         std::move(onHandshakeDone));

@@ -63,7 +63,9 @@ static constexpr std::chrono::milliseconds RECREATE_DELAY_MAX{5 * 60 * 1000};
  * No callback shall perform a blocking or computationally-heavy operation, as
  * those would take up resources dedicated to managing connections.
  */
-class PersistentConnection : public Connection {
+class PersistentConnection
+    : public Connection,
+      public std::enable_shared_from_this<PersistentConnection> {
 public:
     using Connection::Callback;
 
@@ -119,6 +121,11 @@ public:
      * Returns true if the connections is active.
      */
     bool connected() const override;
+
+    /**
+     * Returns connection id.
+     */
+    int connectionId() const override;
 
     PersistentConnection(const PersistentConnection &) = delete;
     PersistentConnection(PersistentConnection &&) = delete;
@@ -181,7 +188,7 @@ private:
     const bool m_clProtoUpgrade;
 };
 
-std::unique_ptr<Connection> createConnection(std::string host,
+std::shared_ptr<Connection> createConnection(std::string host,
     const unsigned short port, asio::io_service &ioService,
     std::shared_ptr<asio::ssl::context> context,
     std::function<void(std::string)> onMessage,

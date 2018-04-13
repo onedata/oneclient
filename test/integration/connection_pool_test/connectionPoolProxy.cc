@@ -19,7 +19,7 @@
 using namespace boost::python;
 using namespace one::communication;
 
-std::unique_ptr<Connection> createRawConnection(std::string host,
+std::shared_ptr<Connection> createRawConnection(std::string host,
     const unsigned short port, asio::io_service &ioService,
     std::shared_ptr<asio::ssl::context> context,
     std::function<void(std::string)> onMessage,
@@ -28,7 +28,7 @@ std::unique_ptr<Connection> createRawConnection(std::string host,
     std::function<std::error_code(std::string)> onHandshakeResponse,
     std::function<void(std::error_code)> onHandshakeDone)
 {
-    return std::make_unique<PersistentConnection>(std::move(host), port,
+    return std::make_shared<PersistentConnection>(std::move(host), port,
         ioService, std::move(context), std::move(onMessage), std::move(onReady),
         std::move(getHandshake), std::move(onHandshakeResponse),
         std::move(onHandshakeDone), false);
