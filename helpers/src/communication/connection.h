@@ -46,6 +46,11 @@ public:
      * Invokes the protocol upgrade HTTP request
      */
     virtual void upgrade() = 0;
+
+    /**
+     * Returns connection id.
+     */
+    virtual int connectionId() const = 0;
 };
 
 } // namespace communication
