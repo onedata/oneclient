@@ -41,6 +41,29 @@ const std::unordered_map<int, Flag> g_maskTranslation{
 namespace one {
 namespace helpers {
 
+template <>
+folly::fbstring getParam<folly::fbstring>(
+    const Params &params, const folly::fbstring &key)
+{
+    try {
+        return params.at(key);
+    }
+    catch (const std::out_of_range &) {
+        throw MissingParameterException{key};
+    }
+}
+
+template <>
+folly::fbstring getParam<folly::fbstring, folly::fbstring>(
+    const Params &params, const folly::fbstring &key, folly::fbstring &&def)
+{
+    auto param = params.find(key);
+    if (param != params.end())
+        return param->second;
+
+    return std::forward<folly::fbstring>(def);
+}
+
 int flagsToMask(const FlagsSet &flags)
 {
     int value = 0;

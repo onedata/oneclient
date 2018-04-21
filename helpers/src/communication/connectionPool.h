@@ -39,7 +39,7 @@ class CertificateData;
 class ConnectionPool {
 public:
     using Callback = Connection::Callback;
-    using ConnectionFactory = std::function<std::shared_ptr<Connection>(
+    using ConnectionFactory = std::function<std::unique_ptr<Connection>(
         std::string, const unsigned short, asio::io_service &,
         std::shared_ptr<asio::ssl::context>, std::function<void(std::string)>,
         std::function<void(Connection &)>, std::function<std::string()>,
@@ -164,7 +164,7 @@ private:
             asio::ssl::context::tlsv12_client)};
 
     // Fixed pool of connection instances
-    std::vector<std::shared_ptr<Connection>> m_connections;
+    std::vector<std::unique_ptr<Connection>> m_connections;
     // Queue of pointers to currently idle connections from the fixed pool
     tbb::concurrent_bounded_queue<Connection *> m_idleConnections;
 };
