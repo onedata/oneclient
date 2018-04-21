@@ -13,6 +13,7 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/any.hpp>
+#include <boost/filesystem.hpp>
 #include <boost/thread/once.hpp>
 #include <errno.h>
 #include <folly/io/IOBuf.h>
@@ -45,6 +46,9 @@ namespace helpers {
 
 constexpr auto NULL_DEVICE_HELPER_READ_PREALLOC_SIZE = 150 * 1024 * 1024;
 static boost::once_flag __nullReadBufferInitialized = BOOST_ONCE_INIT;
+static boost::once_flag __nullMountTimeOnceFlag = BOOST_ONCE_INIT;
+std::chrono::time_point<std::chrono::system_clock>
+    NullDeviceHelper::m_mountTime = {};
 
 std::vector<uint8_t> NullDeviceFileHandle::nullReadBuffer = {};
 
@@ -190,6 +194,8 @@ folly::Future<folly::Unit> NullDeviceFileHandle::fsync(bool /*isDataSync*/)
 
 NullDeviceHelper::NullDeviceHelper(const int latencyMin, const int latencyMax,
     const double timeoutProbability, folly::fbstring filter,
+    std::vector<std::pair<long int, long int>> simulatedFilesystemParameters,
+    double simulatedFilesystemGrowSpeed,
     std::shared_ptr<folly::Executor> executor, Timeout timeout)
     : m_latencyGenerator{std::bind(
           std::uniform_int_distribution<>(latencyMin, latencyMax),
@@ -197,6 +203,10 @@ NullDeviceHelper::NullDeviceHelper(const int latencyMin, const int latencyMax,
     , m_timeoutGenerator{std::bind(std::uniform_real_distribution<>(0.0, 1.0),
           std::default_random_engine())}
     , m_timeoutProbability{timeoutProbability}
+    , m_simulatedFilesystemParameters{simulatedFilesystemParameters}
+    , m_simulatedFilesystemGrowSpeed{simulatedFilesystemGrowSpeed}
+    , m_simulatedFilesystemLevelEntryCountReady{false}
+    , m_simulatedFilesystemEntryCountReady{false}
     , m_executor{std::move(executor)}
     , m_timeout{std::move(timeout)}
 {
@@ -214,6 +224,17 @@ NullDeviceHelper::NullDeviceHelper(const int latencyMin, const int latencyMax,
             boost::algorithm::to_lower(token);
         });
     }
+
+    // Initialize the mount time safely to the creation time of first
+    // helper instance
+    boost::call_once(
+        []() {
+            NullDeviceHelper::m_mountTime = std::chrono::system_clock::now();
+        },
+        __nullMountTimeOnceFlag);
+
+    // Precalculate the number of entries per level and total in the filesystem
+    simulatedFilesystemEntryCount();
 }
 
 folly::Future<struct stat> NullDeviceHelper::getattr(
@@ -221,22 +242,85 @@ folly::Future<struct stat> NullDeviceHelper::getattr(
 {
     LOG_FCALL() << LOG_FARG(fileId);
 
-    return folly::via(m_executor.get(), [ fileId, self = shared_from_this() ] {
+    return folly::via(
+        m_executor.get(), [ this, fileId, self = shared_from_this() ] {
 
-        ONE_METRIC_COUNTER_INC("comp.helpers.mod.nulldevice.getattr");
+            ONE_METRIC_COUNTER_INC("comp.helpers.mod.nulldevice.getattr");
 
-        SIMULATE_STORAGE_ISSUES(self, "getattr", struct stat)
+            SIMULATE_STORAGE_ISSUES(self, "getattr", struct stat)
 
-        struct stat stbuf = {};
-        stbuf.st_ino = 1;
-        stbuf.st_gid = 0;
-        stbuf.st_uid = 0;
-        stbuf.st_mode = 0777;
+            LOG_DBG(1) << "Attempting to stat file " << fileId;
 
-        LOG_DBG(1) << "Attempting to stat file " << fileId;
+            struct stat stbuf = {};
+            stbuf.st_gid = 0;
+            stbuf.st_uid = 0;
 
-        return folly::makeFuture(stbuf);
-    });
+            if (isSimulatedFilesystem()) {
+                std::vector<std::string> pathTokens;
+                auto fileIdStr = fileId.toStdString();
+                folly::split("/", fileIdStr, pathTokens, true);
+                auto level = pathTokens.size();
+
+                if (level == 0) {
+                    stbuf.st_mode = 0777 | S_IFDIR;
+                }
+                else {
+                    auto pathLeaf = std::stol(pathTokens[level - 1]);
+
+                    if (pathLeaf <
+                        std::get<0>(
+                            m_simulatedFilesystemParameters[level - 1])) {
+                        stbuf.st_mode = 0777 | S_IFDIR;
+                    }
+                    else {
+                        stbuf.st_mode = 0777 | S_IFREG;
+                        stbuf.st_size = pathLeaf * 1024;
+                    }
+                }
+
+                stbuf.st_ino = simulatedFilesystemFileDist(pathTokens) + 2;
+
+                stbuf.st_ctim.tv_sec =
+                    std::chrono::system_clock::to_time_t(m_mountTime);
+                stbuf.st_ctim.tv_nsec = 0;
+
+                if (m_simulatedFilesystemGrowSpeed == 0.0) {
+                    stbuf.st_mtim.tv_sec =
+                        std::chrono::system_clock::to_time_t(m_mountTime);
+                    stbuf.st_mtim.tv_nsec = 0;
+                }
+                else {
+                    if (stbuf.st_mode & S_IFDIR) {
+                        auto now = std::chrono::system_clock::now();
+                        auto mtimeMax = m_mountTime +
+                            std::chrono::seconds(
+                                (long int)(m_simulatedFilesystemEntryCount /
+                                    m_simulatedFilesystemGrowSpeed));
+
+                        if (now < mtimeMax)
+                            stbuf.st_mtim.tv_sec =
+                                std::chrono::system_clock::to_time_t(now);
+                        else
+                            stbuf.st_mtim.tv_sec =
+                                std::chrono::system_clock::to_time_t(mtimeMax);
+                    }
+                    else {
+                        stbuf.st_mtim.tv_sec =
+                            std::chrono::system_clock::to_time_t(m_mountTime +
+                                std::chrono::seconds((long int)(stbuf.st_ino /
+                                    m_simulatedFilesystemGrowSpeed)));
+                    }
+                    stbuf.st_mtim.tv_nsec = 0;
+                }
+            }
+            else {
+                stbuf.st_ino = 1;
+                stbuf.st_mode = 0777 | S_IFREG;
+                stbuf.st_size = 0;
+            }
+
+            return folly::makeFuture(stbuf);
+        });
 }
 
 folly::Future<folly::Unit> NullDeviceHelper::access(
@@ -262,8 +346,8 @@ folly::Future<folly::fbvector<folly::fbstring>> NullDeviceHelper::readdir(
 {
     LOG_FCALL() << LOG_FARG(fileId) << LOG_FARG(offset) << LOG_FARG(count);
 
-    return folly::via(
-        m_executor.get(), [ fileId, offset, count, self = shared_from_this() ] {
+    return folly::via(m_executor.get(),
+        [ this, fileId, offset, count, self = shared_from_this() ] {
 
             ONE_METRIC_COUNTER_INC("comp.helpers.mod.nulldevice.readdir");
 
@@ -274,10 +358,47 @@ folly::Future<folly::fbvector<folly::fbstring>> NullDeviceHelper::readdir(
 
             LOG_DBG(1) << "Attempting to read directory " << fileId;
 
-            // we want the files to have unique names even when listing
-            // thousands of files
-            for (size_t i = 0; i < count; i++)
-                ret.emplace_back(std::to_string(i + offset));
+            if (isSimulatedFilesystem()) {
+                std::vector<std::string> pathTokens;
+                auto fileIdStr = fileId.toStdString();
+                folly::split("/", fileIdStr, pathTokens, true);
+
+                auto level = pathTokens.size();
+
+                if (level < m_simulatedFilesystemParameters.size()) {
+                    size_t totalEntriesOnLevel =
+                        std::get<0>(m_simulatedFilesystemParameters[level]) +
+                        std::get<1>(m_simulatedFilesystemParameters[level]);
+
+                    for (size_t i = offset;
+                         i < std::min(offset + count, totalEntriesOnLevel);
+                         i++) {
+                        auto entryId = std::to_string(i);
+                        auto entryPath =
+                            boost::filesystem::path(fileId.toStdString()) /
+                            boost::filesystem::path(entryId);
+
+                        std::vector<std::string> entryPathTokens;
+                        folly::split(
+                            "/", entryPath.string(), entryPathTokens, true);
+
+                        if (m_simulatedFilesystemGrowSpeed == 0.0 ||
+                            (std::chrono::seconds(
+                                 simulatedFilesystemFileDist(entryPathTokens)) /
+                                m_simulatedFilesystemGrowSpeed) +
+                                    m_mountTime <
+                                std::chrono::system_clock::now()) {
+                            ret.emplace_back(entryId);
+                        }
+                    }
+                }
+            }
+            else {
+                // we want the files to have unique names even when listing
+                // thousands of files
+                for (size_t i = 0; i < count; i++)
+                    ret.emplace_back(std::to_string(i + offset));
+            }
 
             LOG_DBG(1) << "Read directory " << fileId << " at offset " << offset
                        << " with entries " << LOG_VEC(ret);
@@ -593,6 +714,116 @@ void NullDeviceHelper::simulateLatency(std::string operationName)
     if (applies(operationName)) {
         std::this_thread::sleep_for(std::chrono::milliseconds(randomLatency()));
     }
+}
+
+bool NullDeviceHelper::isSimulatedFilesystem() const
+{
+    return !m_simulatedFilesystemParameters.empty();
+}
+
+std::vector<std::pair<long int, long int>>
+NullDeviceHelper::simulatedFilesystemParameters() const
+{
+    return m_simulatedFilesystemParameters;
+}
+
+double NullDeviceHelper::simulatedFilesystemGrowSpeed() const
+{
+    return m_simulatedFilesystemGrowSpeed;
+}
+
+size_t NullDeviceHelper::simulatedFilesystemLevelEntryCount(size_t level)
+{
+    if (!m_simulatedFilesystemLevelEntryCountReady) {
+        for (size_t l = 0; l < m_simulatedFilesystemParameters.size(); l++) {
+            size_t directoryProduct = 1;
+            for (size_t i = 0; i < l; i++)
+                directoryProduct *=
+                    std::get<0>(m_simulatedFilesystemParameters[i]);
+
+            m_simulatedFilesystemLevelEntryCount.push_back(directoryProduct *
+                (std::get<0>(m_simulatedFilesystemParameters[l]) +
+                    std::get<1>(m_simulatedFilesystemParameters[l])));
+        }
+    }
+
+    if (level >= m_simulatedFilesystemParameters.size())
+        level = m_simulatedFilesystemParameters.size() - 1;
+
+    return m_simulatedFilesystemLevelEntryCount[level];
+}
+
+size_t NullDeviceHelper::simulatedFilesystemEntryCount()
+{
+    if (!m_simulatedFilesystemEntryCountReady) {
+        m_simulatedFilesystemEntryCount = 0;
+
+        for (size_t i = 0; i < m_simulatedFilesystemParameters.size(); i++) {
+            m_simulatedFilesystemEntryCount +=
+                simulatedFilesystemLevelEntryCount(i);
+        }
+    }
+
+    return m_simulatedFilesystemEntryCount;
+}
+
+size_t NullDeviceHelper::simulatedFilesystemFileDist(
+    const std::vector<std::string> &path)
+{
+    if (path.empty())
+        return 0;
+
+    size_t level = path.size() - 1;
+    size_t distance = 0;
+    for (size_t i = 0; i < level; i++) {
+        distance += simulatedFilesystemLevelEntryCount(i);
+    }
+
+    std::vector<size_t> parentPath;
+    for (size_t i = 0; i < path.size() - 1; i++) {
+        parentPath.emplace_back(std::stol(path[i]));
+    }
+
+    size_t pathDirProduct = std::accumulate(
+        parentPath.begin(), parentPath.end(), 1, std::multiplies<size_t>());
+
+    auto levelDirs = std::get<0>(m_simulatedFilesystemParameters[level]);
+    auto levelFiles = std::get<1>(m_simulatedFilesystemParameters[level]);
+
+    distance += (levelDirs + levelFiles) * (pathDirProduct - 1) +
+        std::stol(path[path.size() - 1]) + 1;
+
+    return distance - 1;
+}
+
+std::vector<std::pair<long int, long int>>
+NullDeviceHelperFactory::parseSimulatedFilesystemParameters(
+    const std::string &params)
+{
+    auto result = std::vector<std::pair<long int, long int>>{};
+
+    if (params.empty())
+        return result;
+
+    auto levels = std::vector<std::string>{};
+
+    folly::split(":", params, levels, true);
+
+    for (const auto &level : levels) {
+        auto levelParams = std::vector<std::string>{};
+        folly::split("-", level, levelParams, true);
+
+        if (levelParams.size() != 2)
+            throw std::invalid_argument("Invalid null helper simulated "
+                                        "filesystem parameters "
+                                        "specification: '" +
+                params + "'");
+
+        result.emplace_back(
+            std::stol(levelParams[0]), std::stol(levelParams[1]));
+    }
+
+    return result;
 }
 
 } // namespace helpers

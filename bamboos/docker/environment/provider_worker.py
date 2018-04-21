@@ -201,7 +201,8 @@ def create_storages(storages, op_nodes, op_config, bindir, storages_dockers):
             command = ['escript', script_paths['nulldevice'], cookie,
                        first_node, storage['name'], storage['latencyMin'],
                        storage['latencyMax'], storage['timeoutProbability'],
-                       storage['filter'], 'true', 'canonical']
+                       storage['filter'], storage['simulatedFilesystemParameters'],
+                       storage['simulatedFilesystemGrowSpeed'], 'true', 'canonical']
             assert 0 is docker.exec_(container, command, tty=True,
                                      stdout=sys.stdout, stderr=sys.stderr)
         else:

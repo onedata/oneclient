@@ -17,6 +17,7 @@
 #include <folly/Executor.h>
 #include <fuse.h>
 
+#include <chrono>
 #include <random>
 
 namespace one {
@@ -108,10 +109,17 @@ public:
      * @param filter Defines whic operations should be affected by latency and
      *               timeout, comma separated, empty or '*' enable for all
      *               operations
+     * @param simulatedFilesystemParameters Parameters for a simulated null
+     *                                      helper filesystem
+     * @param simulatedFilesystemGrowSpeed Simulated filesystem grow speed in
+     *                                     files per second
      * @param executor Executor for driving async file operations.
      */
     NullDeviceHelper(const int latencyMin, const int latencyMax,
         const double timeoutProbabilty, folly::fbstring filter,
+        std::vector<std::pair<long int, long int>>
+            simulatedFilesystemParameters,
+        double simulatedFilesystemGrowSpeed,
         std::shared_ptr<folly::Executor> executor,
         Timeout timeout = ASYNC_OPS_TIMEOUT);
 
@@ -182,6 +190,72 @@ public:
 
     void simulateLatency(std::string operationName);
 
+    bool isSimulatedFilesystem() const;
+
+    /**
+     * Returns the simulated filesystem parameters
+     */
+    std::vector<std::pair<long int, long int>>
+    simulatedFilesystemParameters() const;
+
+    /**
+     * Return the simulated filesystem grow speed in files per second.
+     */
+    double simulatedFilesystemGrowSpeed() const;
+
+    /**
+     * Returns the total number of entries (directories and files) on
+     * a given filesystem tree level.
+     * @param level Tree level
+     */
+    size_t simulatedFilesystemLevelEntryCount(size_t level);
+
+    /**
+     * Returns the total number of files directories in the simulated
+     * filesystem.
+     */
+    size_t simulatedFilesystemEntryCount();
+
+    /**
+     * Returns a distance of the file or directory in the tree.
+     * This distance is unique for each entry, and is calculated by
+     * linearizing the tree from top to bottom and from left to right.
+     * For instance the following specification:
+     *
+     *   2-2:2-2:0-1
+     *
+     * will generate the following filesystem tree:
+     *
+     *          1 2 3 4
+     *          | |
+     *          | +
+     *          | 1 2 3 4
+     *          | | |
+     *          | + +
+     *          | 1 1
+     *          +
+     *          1 2 3 4
+     *          | |
+     *          + +
+     *          1 1
+     *
+     * which should result in the following numbering:
+     *
+     *          1 2 3 4
+     *          | |
+     *          | +
+     *          | 9  10 11 12
+     *          | |  |
+     *          | +  +
+     *          | 15 16
+     *          +
+     *          5  6 7 8
+     *          |  |
+     *          +  +
+     *          13 14
+     */
+    size_t simulatedFilesystemFileDist(const std::vector<std::string> &path);
+
 private:
     std::mt19937 m_randomGenerator(std::random_device());
     std::function<int()> m_latencyGenerator;
@@ -190,6 +264,17 @@ private:
     double m_timeoutProbability;
 
     std::vector<std::string> m_filter;
+
+    std::vector<std::pair<long int, long int>> m_simulatedFilesystemParameters;
+    double m_simulatedFilesystemGrowSpeed;
+
+    bool m_simulatedFilesystemLevelEntryCountReady;
+    std::vector<size_t> m_simulatedFilesystemLevelEntryCount;
+
+    bool m_simulatedFilesystemEntryCountReady;
+    size_t m_simulatedFilesystemEntryCount;
+
+    static std::chrono::time_point<std::chrono::system_clock> m_mountTime;
 
     bool m_applyToAllOperations = false;
 
@@ -211,6 +296,9 @@ public:
     {
     }
 
+    static std::vector<std::pair<long int, long int>>
+    parseSimulatedFilesystemParameters(const std::string &params);
+
     std::shared_ptr<StorageHelper> createStorageHelper(
         const Params &parameters) override
     {
@@ -218,13 +306,24 @@ public:
         const auto latencyMax = getParam<int>(parameters, "latencyMax", 0.0);
         const auto timeoutProbability =
             getParam<double>(parameters, "timeoutProbability", 0.0);
-        const auto &filter = getParam(parameters, "filter", "*");
+        const auto &filter = getParam<folly::fbstring, folly::fbstring>(
+            parameters, "filter", "*");
+        const auto &simulatedFilesystemParameters =
+            getParam<folly::fbstring, folly::fbstring>(
+                parameters, "simulatedFilesystemParameters", "");
+        const auto simulatedFilesystemGrowSpeed =
+            getParam<double>(parameters, "simulatedFilesystemGrowSpeed", 0.0);
 
         Timeout timeout{getParam<std::size_t>(
             parameters, "timeout", ASYNC_OPS_TIMEOUT.count())};
 
+        auto simulatedFilesystemParametersParsed =
+            parseSimulatedFilesystemParameters(
+                simulatedFilesystemParameters.toStdString());
+
         return std::make_shared<NullDeviceHelper>(latencyMin, latencyMax,
-            timeoutProbability, filter,
+            timeoutProbability, filter, simulatedFilesystemParametersParsed,
+            simulatedFilesystemGrowSpeed,
             std::make_shared<AsioExecutor>(m_service), std::move(timeout));
     }
 
