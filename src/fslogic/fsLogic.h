@@ -230,6 +230,9 @@ private:
     folly::fbstring syncAndFetchChecksum(const folly::fbstring &uuid,
         const boost::icl::discrete_interval<off_t> &range);
 
+    void sync(const folly::fbstring &uuid,
+        const boost::icl::discrete_interval<off_t> &range);
+
     bool dataCorrupted(const folly::fbstring &uuid,
         const folly::IOBufQueue &buf, const folly::fbstring &serverChecksum,
         const boost::icl::discrete_interval<off_t> &availableRange,
@@ -244,7 +247,8 @@ private:
     bool isSpaceDisabled(const folly::fbstring &spaceId);
     void disableSpaces(const std::vector<std::string> &spaces);
 
-    void prefetchSync(helpers::FileHandlePtr helperHandle, const off_t offset,
+    void prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
+        helpers::FileHandlePtr helperHandle, const off_t offset,
         const std::size_t size, const folly::fbstring &uuid,
         const boost::icl::discrete_interval<off_t> possibleRange,
         const boost::icl::discrete_interval<off_t> availableRange);
@@ -269,6 +273,7 @@ private:
         m_onRename = [](auto, auto) {};
 
     const std::chrono::seconds m_providerTimeout;
+    std::function<void(folly::Function<void()>)> m_runInFiber;
 };
 
 } // namespace fslogic

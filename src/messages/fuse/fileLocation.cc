@@ -64,6 +64,10 @@ void FileLocation::putBlock(
     m_blocks += std::make_pair(interval, block);
 }
 
+std::uint64_t FileLocation::version() const { return m_version; }
+
+void FileLocation::version(std::uint64_t v) { m_version = v; }
+
 std::string FileLocation::toString() const
 {
     std::stringstream stream;
@@ -147,6 +151,7 @@ void FileLocation::deserialize(const ProtocolMessage &message)
     m_spaceId = message.space_id();
     m_storageId = message.storage_id();
     m_fileId = message.file_id();
+    m_version = message.version();
     std::string fileId_;
     std::string storageId_;
 

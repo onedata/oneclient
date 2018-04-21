@@ -37,6 +37,7 @@ std::unique_ptr<ProtocolClientMessage> SynchronizeBlock::serializeAndDestroy()
                   ->mutable_file_request()
                   ->mutable_synchronize_block();
 
+    sb->set_prefetch(true);
     sb->mutable_block()->set_offset(boost::icl::first(m_block));
     sb->mutable_block()->set_size(boost::icl::size(m_block));
 
