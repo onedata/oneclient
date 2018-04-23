@@ -228,6 +228,14 @@ Ret getParam(const Params &params, const folly::fbstring &key, Def &&def)
     }
 }
 
+template <>
+folly::fbstring getParam<folly::fbstring>(
+    const Params &params, const folly::fbstring &key);
+
+template <>
+folly::fbstring getParam<folly::fbstring, folly::fbstring>(
+    const Params &params, const folly::fbstring &key, folly::fbstring &&def);
+
 /**
  * @c StorageHelperFactory is responsible for creating a helper instance from
  * generic parameter representation.

@@ -24,11 +24,9 @@ struct MockConnection {
     MOCK_METHOD0(connect, void());
     MOCK_METHOD0(upgrade, void());
     MOCK_METHOD0(connected, bool());
-    MOCK_METHOD0(connectionId, int());
 
     std::atomic<bool> created{false};
     std::atomic<bool> m_connected{false};
-    std::atomic<int> m_connectionId{0};
     MockConnectionWrapper *wrapper = nullptr;
 
     std::string host;
@@ -63,11 +61,6 @@ struct MockConnectionWrapper : public one::communication::Connection {
 
     bool connected() const override { return m_mockConnection.m_connected; }
 
-    int connectionId() const override
-    {
-        return m_mockConnection.m_connectionId;
-    }
-
     MockConnection &m_mockConnection;
 };
 
@@ -92,7 +85,7 @@ createMockConnectionFactory(MockConnection &mockConnection)
         mockConnection.onHandshakeResponse = std::move(onHandshakeResponse);
         mockConnection.onHandshakeDone = std::move(onHandshakeDone);
 
-        auto conn = std::make_shared<MockConnectionWrapper>(mockConnection);
+        auto conn = std::make_unique<MockConnectionWrapper>(mockConnection);
 
         mockConnection.wrapper = conn.get();
         mockConnection.created = true;
