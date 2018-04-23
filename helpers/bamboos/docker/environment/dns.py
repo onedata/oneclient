@@ -11,7 +11,7 @@ providers <-> oz environment.
 
 import subprocess
 from timeouts import *
-from . import common, docker
+from . import common, docker, dockers_config
 
 
 def _dns_ready(dns):
@@ -69,7 +69,7 @@ def up(uid, hosts, dnses, dns_to_restart):
     if dns is 'none':
         # Start new DNS docker (just the docker, don't start the DNS server yet)
         dns = docker.run(
-            image='onedata/dns',
+            image=dockers_config.get_image('dns'),
             name=dns_hostname(uid),
             detach=True,
             interactive=True,

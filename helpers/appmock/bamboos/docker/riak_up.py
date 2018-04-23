@@ -12,7 +12,7 @@ from __future__ import print_function
 import argparse
 import json
 
-from environment import riak, common
+from environment import riak, common, dockers_config
 
 
 parser = argparse.ArgumentParser(
@@ -22,8 +22,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '-i', '--image',
     action='store',
-    default='onedata/riak',
-    help='docker image to use for the container',
+    default=None,
+    help='override of docker image for the container',
     dest='image')
 
 parser.add_argument(
@@ -65,6 +65,7 @@ parser.add_argument(
 
 
 args = parser.parse_args()
+dockers_config.ensure_image(args, 'image', riak)
 
 output = riak.up(args.image, args.dns, args.uid, args.maps, args.cluster_name, args.nodes)
 print(json.dumps(output))

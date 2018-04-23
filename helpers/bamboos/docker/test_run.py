@@ -15,7 +15,7 @@ import sys
 import time
 
 from environment.common import HOST_STORAGE_PATH, remove_dockers_and_volumes
-from environment import docker
+from environment import docker, dockers_config
 import glob
 import xml.etree.ElementTree as ElementTree
 
@@ -56,8 +56,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '--image', '-i',
     action='store',
-    default='onedata/worker:v57',
-    help='Docker image to use as a test master.',
+    default=None,
+    help='override of docker image to use as test master.',
     dest='image')
 
 parser.add_argument(
@@ -112,6 +112,7 @@ parser.add_argument(
 )    
 
 [args, pass_args] = parser.parse_known_args()
+dockers_config.ensure_image(args, 'image', 'worker')
 
 command = '''
 import os, subprocess, sys, stat

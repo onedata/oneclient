@@ -13,34 +13,36 @@ from __future__ import print_function
 import argparse
 import json
 
-from environment import ceph, common
+from environment import ceph, common, dockers_config
 
 parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description='Bring up Ceph storage cluster.')
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    description='Bring up Ceph storage cluster.')
 
 parser.add_argument(
-        '-i', '--image',
-        action='store',
-        default='onedata/ceph',
-        help='docker image to use for the container',
-        dest='image')
+    '-i', '--image',
+    action='store',
+    default=None,
+    help='override of docker image for the container',
+    dest='image')
 
 parser.add_argument(
-        '-p', '--pool',
-        action='append',
-        default=[],
-        help='pool name and number of placement groups in format name:pg_num',
-        dest='pools')
+    '-p', '--pool',
+    action='append',
+    default=[],
+    help='pool name and number of placement groups in format name:pg_num',
+    dest='pools')
 
 parser.add_argument(
-        '-u', '--uid',
-        action='store',
-        default=common.generate_uid(),
-        help='uid that will be concatenated to docker names',
-        dest='uid')
+    '-u', '--uid',
+    action='store',
+    default=common.generate_uid(),
+    help='uid that will be concatenated to docker names',
+    dest='uid')
 
 args = parser.parse_args()
+dockers_config.ensure_image(args, 'image', 'ceph')
+
 pools = map(lambda pool: tuple(pool.split(':')), args.pools)
 
 config = ceph.up(args.image, pools, 'storage', args.uid)

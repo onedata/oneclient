@@ -14,7 +14,7 @@ import argparse
 import json
 import os
 
-from environment import luma, common
+from environment import luma, common, dockers_config
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -23,8 +23,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '-i', '--image',
     action='store',
-    default='onedata/worker:v57',
-    help='docker image to use for the container',
+    default=None,
+    help='override of docker image for the container',
     dest='image')
 
 parser.add_argument(
@@ -49,6 +49,7 @@ parser.add_argument(
     dest='uid')
 
 args = parser.parse_args()
+dockers_config.ensure_image(args, 'image', 'worker')
 
 env_config = None
 if args.config_path:

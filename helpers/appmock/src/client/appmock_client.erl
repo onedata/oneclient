@@ -81,7 +81,7 @@ verify_rest_history(Hostname, ExpectedOrder) ->
             <<?VERIFY_REST_HISTORY_PATH>>, #{}, JSON),
         RespBody = json_utils:decode(RespBodyJSON),
         case RespBody of
-            ?TRUE_RESULT ->
+            ?TRUE_RESULT_PATTERN ->
                 true;
             _ ->
                 History = ?VERIFY_REST_HISTORY_UNPACK_ERROR(RespBody),
@@ -106,7 +106,7 @@ reset_rest_history(Hostname) ->
             ?RESET_REST_HISTORY_PATH),
         RespBody = json_utils:decode(RespBodyJSON),
         case RespBody of
-            ?TRUE_RESULT ->
+            ?TRUE_RESULT_PATTERN ->
                 true
         end
     catch T:M ->
@@ -269,7 +269,7 @@ tcp_server_send(Hostname, Port, Data, MessageCount) ->
             ?TCP_SERVER_SEND_PACK_REQUEST(Data)),
         RespBody = json_utils:decode(RespBodyJSON),
         case RespBody of
-            ?TRUE_RESULT ->
+            ?TRUE_RESULT_PATTERN ->
                 true;
             _ ->
                 ?TCP_SERVER_SEND_UNPACK_ERROR(RespBody)
@@ -294,7 +294,7 @@ reset_tcp_server_history(Hostname) ->
             ?RESET_TCP_SERVER_HISTORY_PATH),
         RespBody = json_utils:decode(RespBodyJSON),
         case RespBody of
-            ?TRUE_RESULT ->
+            ?TRUE_RESULT_PATTERN ->
                 true
         end
     catch T:M ->

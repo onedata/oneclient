@@ -13,7 +13,7 @@ from __future__ import print_function
 import argparse
 import json
 
-from environment import amazon_iam, common
+from environment import amazon_iam, common, dockers_config
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -22,8 +22,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '-i', '--image',
     action='store',
-    default='onedata/worker:v57',
-    help='docker image to use for the container',
+    default=None,
+    help='override of docker image for the container',
     dest='image')
 
 parser.add_argument(
@@ -34,6 +34,7 @@ parser.add_argument(
     dest='uid')
 
 args = parser.parse_args()
+dockers_config.ensure_image(args, 'image', 'worker')
 
 config = amazon_iam.up(args.image, args.uid)
 
