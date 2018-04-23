@@ -13,7 +13,7 @@ from __future__ import print_function
 import argparse
 import json
 
-from environment import common, swift
+from environment import common, swift, dockers_config
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -22,8 +22,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '-i', '--image',
     action='store',
-    default='onedata/dockswift',
-    help='docker image to use for the container',
+    default=None,
+    help='override of docker image for the container',
     dest='image')
 
 parser.add_argument(
@@ -41,6 +41,7 @@ parser.add_argument(
     dest='uid')
 
 args = parser.parse_args()
+dockers_config.ensure_image(args, 'image', 'swift')
 
 config = swift.up(args.image, args.containers, 'storage', args.uid)
 

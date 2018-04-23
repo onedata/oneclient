@@ -14,8 +14,7 @@ from __future__ import print_function
 import argparse
 import json
 
-from environment import nfs
-from environment import common
+from environment import nfs, common, dockers_config
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -24,11 +23,13 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '-i', '--image',
     action='store',
-    default='onedata/worker:v57',
-    help='docker image to use for the container',
+    default=None,
+    help='override of docker image for the container',
     dest='image')
 
 args = parser.parse_args()
+dockers_config.ensure_image(args, 'image', 'worker')
+
 config = nfs.up(args.image, common.generate_uid(), 'storage')
 
 print(json.dumps(config))

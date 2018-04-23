@@ -14,7 +14,7 @@ from __future__ import print_function
 import argparse
 import json
 
-from environment import s3, common
+from environment import s3, common, dockers_config
 
 parser = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -23,8 +23,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '-i', '--image',
     action='store',
-    default='onedata/s3proxy',
-    help='docker image to use for the container',
+    default=None,
+    help='override of docker image for the container',
     dest='image')
 
 parser.add_argument(
@@ -42,6 +42,8 @@ parser.add_argument(
     dest='uid')
 
 args = parser.parse_args()
+dockers_config.ensure_image(args, 'image', 's3')
+
 config = s3.up(args.image, args.buckets, 'storage', args.uid)
 
 print(json.dumps(config))

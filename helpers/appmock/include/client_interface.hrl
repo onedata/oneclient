@@ -12,7 +12,8 @@
 %%%-------------------------------------------------------------------
 
 % Term that is sent back when an operation has completed successfully.
--define(TRUE_RESULT, [{<<"result">>, true}]).
+-define(TRUE_RESULT_PATTERN, #{<<"result">> := true}).
+-define(TRUE_RESULT, #{<<"result">> => true}).
 
 -define(NAGIOS_ENPOINT, "/nagios").
 
@@ -23,36 +24,33 @@
 % Transform a proplist of pairs {Port, Path} into a term that is sent as JSON
 % to verify_rest_history endpoint (client side).
 -define(VERIFY_REST_HISTORY_PACK_REQUEST(_VerificationList),
-    lists:map(
-        fun({_Port, _Path}) ->
-            [{<<"endpoint">>, [{<<"port">>, _Port}, {<<"path">>, _Path}]}]
-        end, _VerificationList)
+    lists:foldl(fun({_Port, _Path}, Map) -> 
+                    maps:put(<<"endpoint">>, #{<<"port">> => _Port, 
+                                               <<"path">> => _Path}, Map) 
+                end, maps:new(), _VerificationList)
 ).
 
-% Transform a struct obtained by decoding JSON into a proplist
-% of pairs {Port, Path} (server side).
+% Transform a struct obtained by decoding JSON into a map {Port => Path}
+% (server side).
 -define(VERIFY_REST_HISTORY_UNPACK_REQUEST(_Struct),
-    lists:map(
-        fun([{<<"endpoint">>, _Props}]) ->
-            {
-                proplists:get_value(<<"port">>, _Props),
-                proplists:get_value(<<"path">>, _Props)
-            }
-        end, _Struct)
+    maps:fold(fun(<<"endpoint">>, _Map, List) -> 
+                   List ++ [{maps:get(<<"port">>, _Map), 
+                             maps:get(<<"path">>, _Map)}] 
+              end, [], _Struct) 
 ).
 
 % Produces an error message if verification fails (server side).
 -define(VERIFY_REST_HISTORY_PACK_ERROR(_History),
-    [
-        {<<"result">>, <<"error">>},
-        {<<"history">>, ?VERIFY_REST_HISTORY_PACK_REQUEST(_History)}
-    ]).
+    #{
+        <<"result">> => <<"error">>,
+        <<"history">> => ?VERIFY_REST_HISTORY_PACK_REQUEST(_History)
+    }).
 
 % Retrieves the error details from verify_rest_history error
 % (actual request history) (client side).
 -define(VERIFY_REST_HISTORY_UNPACK_ERROR(_RespBody),
     begin
-        [{<<"result">>, <<"error">>}, {<<"history">>, _Struct}] = _RespBody,
+        #{<<"result">> := <<"error">>, <<"history">> := _Struct} = _RespBody,
         ?VERIFY_REST_HISTORY_UNPACK_REQUEST(_Struct)
     end
 ).
@@ -70,36 +68,36 @@
 % Creates a term that is sent as JSON to
 % verify_rest_endpoint endpoint (client side).
 -define(REST_ENDPOINT_REQUEST_COUNT_REQUEST(_Port, _Path),
-    [
-        {<<"port">>, _Port},
-        {<<"path">>, _Path}
-    ]
+    #{
+        <<"port">> => _Port,
+        <<"path">> => _Path
+    }
 ).
 
 % Retrieves params sent to verify_rest_endpoint endpoint (server side).
 -define(REST_ENDPOINT_REQUEST_COUNT_UNPACK_REQUEST(_Struct),
     {
-        proplists:get_value(<<"port">>, _Struct),
-        proplists:get_value(<<"path">>, _Struct)
+        maps:get(<<"port">>, _Struct),
+        maps:get(<<"path">>, _Struct)
     }
 ).
 
 % Produces success message which carries information of message count.
 -define(REST_ENDPOINT_REQUEST_COUNT_PACK_RESPONSE(_Count),
-    [{<<"result">>, _Count}]
+    #{<<"result">> => _Count}
 ).
 
 % Produces an error message if the endpoint requested
 % to be verified does not exist (server side).
 -define(REST_ENDPOINT_REQUEST_COUNT_PACK_ERROR_WRONG_ENDPOINT,
-    [{<<"result">>, <<"error">>}, {<<"reason">>, <<"wrong_endpoint">>}]).
+    #{<<"result">> => <<"error">>, <<"reason">> => <<"wrong_endpoint">>}).
 
 % Retrieves the error details from verify_rest_endpoint error (client side).
 % Retrieves the response from appmock server (client side).
 -define(REST_ENDPOINT_REQUEST_COUNT_UNPACK_RESPONSE(_RespBody),
     case _RespBody of
-        [{<<"result">>, _Count}] -> {ok, _Count};
-        [{<<"result">>, <<"error">>}, {<<"reason">>, <<"wrong_endpoint">>}] ->
+        #{<<"result">> := _Count} -> {ok, _Count};
+        #{<<"result">> := <<"error">>, <<"reason">> := <<"wrong_endpoint">>} ->
             {error, wrong_endpoint}
     end
 ).
@@ -126,19 +124,19 @@
 
 % Produces success message which carries information of request count.
 -define(TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PACK_RESPONSE(_Count),
-    [{<<"result">>, _Count}]
+    #{<<"result">> => _Count}
 ).
 
 % Produces an error message if the tcp server
 % requested to be verified does not exist (server side).
 -define(TCP_SERVER_SPECIFIC_MESSAGE_COUNT_PACK_ERROR_WRONG_ENDPOINT,
-    [{<<"result">>, <<"error">>}, {<<"reason">>, <<"wrong_endpoint">>}]).
+    #{<<"result">> => <<"error">>, <<"reason">> => <<"wrong_endpoint">>}).
 
 % Retrieves the response from appmock server (client side).
 -define(TCP_SERVER_SPECIFIC_MESSAGE_COUNT_UNPACK_RESPONSE(_RespBody),
     case _RespBody of
-        [{<<"result">>, _Count}] -> {ok, _Count};
-        [{<<"result">>, <<"error">>}, {<<"reason">>, <<"wrong_endpoint">>}] ->
+        #{<<"result">> := _Count} -> {ok, _Count};
+        #{<<"result">> := <<"error">>, <<"reason">> := <<"wrong_endpoint">>} ->
             {error, wrong_endpoint}
     end
 ).
@@ -154,19 +152,19 @@
 
 % Produces success message which carries information of request count.
 -define(TCP_SERVER_ALL_MESSAGES_COUNT_PACK_RESPONSE(_Count),
-    [{<<"result">>, _Count}]
+    #{<<"result">> => _Count}
 ).
 
 % Produces an error message if the tcp server
 %% requested to be verified does not exist (server side).
 -define(TCP_SERVER_ALL_MESSAGES_COUNT_PACK_ERROR_WRONG_ENDPOINT,
-    [{<<"result">>, <<"error">>}, {<<"reason">>, <<"wrong_endpoint">>}]).
+    #{<<"result">> => <<"error">>, <<"reason">> => <<"wrong_endpoint">>}).
 
 % Retrieves the response from appmock server (client side).
 -define(TCP_SERVER_ALL_MESSAGES_COUNT_UNPACK_RESPONSE(_RespBody),
     case _RespBody of
-        [{<<"result">>, _Count}] -> {ok, _Count};
-        [{<<"result">>, <<"error">>}, {<<"reason">>, <<"wrong_endpoint">>}] ->
+        #{<<"result">> := _Count} -> {ok, _Count};
+        #{<<"result">> := <<"error">>, <<"reason">> := <<"wrong_endpoint">>} ->
             {error, wrong_endpoint}
     end
 ).
@@ -193,25 +191,25 @@
 
 % Produces an error message if sending fails.
 -define(TCP_SERVER_SEND_PACK_SEND_FAILED_ERROR,
-    [{<<"result">>, <<"error">>}, {<<"reason">>, <<"failed_to_send_data">>}]).
+    #{<<"result">> => <<"error">>, <<"reason">> => <<"failed_to_send_data">>}).
 
 % Produces an error message if the tcp server
 % requested to send data does not exist (server side).
 -define(TCP_SERVER_SEND_PACK_WRONG_ENDPOINT_ERROR,
-    [{<<"result">>, <<"error">>}, {<<"reason">>, <<"wrong_endpoint">>}]).
+    #{<<"result">> => <<"error">>, <<"reason">> => <<"wrong_endpoint">>}).
 
 % Retrieves the error details from tcp_server_send error (client side).
 -define(TCP_SERVER_SEND_UNPACK_ERROR(_RespBody),
     case _RespBody of
-        [
-            {<<"result">>, <<"error">>},
-            {<<"reason">>, <<"failed_to_send_data">>}
-        ] ->
+        #{
+            <<"result">> := <<"error">>,
+            <<"reason">> := <<"failed_to_send_data">>
+        } ->
             {error, failed_to_send_data};
-        [
-            {<<"result">>, <<"error">>},
-            {<<"reason">>, <<"wrong_endpoint">>}
-        ] ->
+        #{
+            <<"result">> := <<"error">>,
+            <<"reason">> := <<"wrong_endpoint">>
+        } ->
             {error, wrong_endpoint}
     end
 ).
@@ -226,33 +224,33 @@
 
 % Produces success message which carries information of message history.
 -define(TCP_SERVER_HISTORY_PACK_RESPONSE(_Messages),
-    [{<<"result">>, [base64:encode(M) || M <- _Messages]}]
+    #{<<"result">> => [base64:encode(M) || M <- _Messages]}
 ).
 
 % Produces an error message if the tcp server
 % requested to be verified does not exist (server side).
 -define(TCP_SERVER_HISTORY_PACK_ERROR_WRONG_ENDPOINT,
-    [
-        {<<"result">>, <<"error">>},
-        {<<"reason">>, <<"wrong_endpoint">>}
-    ]).
+    #{
+        <<"result">> => <<"error">>,
+        <<"reason">> => <<"wrong_endpoint">>
+    }).
 
 % Produces an error message if the tcp server
 % requested to be verified works in counter mode.
 -define(TCP_SERVER_HISTORY_PACK_ERROR_COUNTER_MODE,
-    [
-        {<<"result">>, <<"error">>},
-        {<<"reason">>, <<"counter_mode">>}
-    ]).
+    #{
+        <<"result">> => <<"error">>,
+        <<"reason">> => <<"counter_mode">>
+    }).
 
 % Retrieves the response from appmock server (client side).
 -define(TCP_SERVER_HISTORY_UNPACK_RESPONSE(_RespBody),
     case _RespBody of
-        [{<<"result">>, _Messages}] ->
+        #{<<"result">> := _Messages} ->
             {ok, [base64:decode(M) || M <- _Messages]};
-        [{<<"result">>, <<"error">>}, {<<"reason">>, <<"wrong_endpoint">>}] ->
+        #{<<"result">> := <<"error">>, <<"reason">> := <<"wrong_endpoint">>} ->
             {error, wrong_endpoint};
-        [{<<"result">>, <<"error">>}, {<<"reason">>, <<"counter_mode">>}] ->
+        #{<<"result">> := <<"error">>, <<"reason">> := <<"counter_mode">>} ->
             {error, counter_mode}
     end
 ).
@@ -275,22 +273,22 @@
 
 % Produces success message which carries information of connection count.
 -define(TCP_SERVER_CONNECTION_COUNT_PACK_RESPONSE(_Count),
-    [{<<"result">>, _Count}]
+    #{<<"result">> => _Count}
 ).
 
 % Produces an error message if the tcp server
 % requested to be verified does not exist (server side).
 -define(TCP_SERVER_CONNECTION_COUNT_PACK_ERROR_WRONG_ENDPOINT,
-    [
-        {<<"result">>, <<"error">>},
-        {<<"reason">>, <<"wrong_endpoint">>}
-    ]).
+    #{
+        <<"result">> => <<"error">>,
+        <<"reason">> => <<"wrong_endpoint">>
+    }).
 
 % Retrieves the response from appmock server (client side).
 -define(TCP_SERVER_CONNECTION_COUNT_UNPACK_RESPONSE(_RespBody),
     case _RespBody of
-        [{<<"result">>, _Count}] -> {ok, _Count};
-        [{<<"result">>, <<"error">>}, {<<"reason">>, <<"wrong_endpoint">>}] ->
+        #{<<"result">> := _Count} -> {ok, _Count};
+        #{<<"result">> := <<"error">>, <<"reason">> := <<"wrong_endpoint">>} ->
             {error, wrong_endpoint}
     end
 ).

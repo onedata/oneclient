@@ -21,7 +21,7 @@ import os
 import platform
 import sys
 
-from environment import docker
+from environment import docker, dockers_config
 
 
 def default_keys_location():
@@ -39,8 +39,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '-i', '--image',
     action='store',
-    default='onedata/builder:v60',
-    help='docker image to use for building',
+    default=None,
+    help='override of docker image for building',
     dest='image')
 
 parser.add_argument(
@@ -121,6 +121,7 @@ parser.add_argument(
     dest='cpuset_cpus')
 
 [args, pass_args] = parser.parse_known_args()
+dockers_config.ensure_image(args, 'image', 'builder')
 
 command = '''
 import os, shutil, subprocess, sys
