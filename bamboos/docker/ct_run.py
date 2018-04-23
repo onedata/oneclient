@@ -28,7 +28,7 @@ import glob
 import xml.etree.ElementTree as ElementTree
 
 sys.path.insert(0, 'bamboos/docker')
-from environment import docker
+from environment import docker, dockers_config
 from environment.common import HOST_STORAGE_PATH, remove_dockers_and_volumes
 
 
@@ -51,8 +51,8 @@ parser = argparse.ArgumentParser(
 parser.add_argument(
     '--image', '-i',
     action='store',
-    default='onedata/worker:v57',
-    help='docker image to use as a test master',
+    default=None,
+    help='override of docker image to use as test master.',
     dest='image')
 
 parser.add_argument(
@@ -109,6 +109,8 @@ parser.add_argument(
     dest='auto_compile')
 
 args = parser.parse_args()
+dockers_config.ensure_image(args, 'image', 'worker')
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
 uid = str(int(time.time()))
 

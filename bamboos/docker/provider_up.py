@@ -13,10 +13,17 @@ from __future__ import print_function
 import json
 import os
 
-from environment import common, provider_worker, cluster_manager, dns
+from environment import common, provider_worker, cluster_manager, dns, \
+    dockers_config
 
 parser = common.standard_arg_parser(
     'Bring up oneprovider nodes (workers and cms).')
+parser.add_argument(
+    '-i-', '--image',
+    action='store',
+    default=None,
+    help='docker image to use for the container',
+    dest='image')
 parser.add_argument(
     '-l', '--logdir',
     action='store',
@@ -38,6 +45,8 @@ parser.add_argument(
 
 # Prepare config
 args = parser.parse_args()
+dockers_config.ensure_image(args, 'image', 'worker')
+
 config = common.parse_json_config_file(args.config_path)
 output = {
     'cluster_manager_nodes': [],

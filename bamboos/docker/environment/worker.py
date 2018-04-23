@@ -9,7 +9,8 @@ Script is parametrised by worker type related configurator.
 import copy
 import json
 import os
-from . import common, docker, riak, couchbase, dns, cluster_manager, test_ca
+from . import common, docker, riak, couchbase, dns, cluster_manager, test_ca, \
+    dockers_config
 from timeouts import *
 
 
@@ -167,8 +168,8 @@ def _riak_up(cluster_name, db_nodes, dns_servers, uid):
         return db_node_mappings, {}
 
     [dns] = dns_servers
-    riak_output = riak.up('onedata/riak', dns, uid, None, cluster_name,
-                          len(db_node_mappings))
+    riak_output = riak.up(dockers_config.get_image('riak'), dns, uid, None,
+                          cluster_name, len(db_node_mappings))
 
     return db_node_mappings, riak_output
 
