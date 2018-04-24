@@ -142,6 +142,11 @@ Advanced options:
   --provider-timeout <duration> (=120)  Specify Oneprovider connection timeout
                                         in seconds.
   --disable-read-events                 Disable reporting of file read events.
+  --force-fullblock-read                Force fullblock read mode. By
+                                        default read can return less data than
+                                        request in case it is immediately
+                                        available and consecutive blocks need
+                                        to be prefetched from remote storage.
   --read-buffer-min-size <size> (=5242880)
                                         Specify minimum size in bytes of
                                         in-memory cache for input data blocks.

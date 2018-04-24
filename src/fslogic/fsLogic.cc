@@ -87,7 +87,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     std::shared_ptr<messages::Configuration> configuration,
     std::unique_ptr<cache::HelpersCache> helpersCache,
     unsigned int metadataCacheSize, bool readEventsDisabled,
-    const std::chrono::seconds providerTimeout,
+    bool forceFullblockRead, const std::chrono::seconds providerTimeout,
     std::function<void(folly::Function<void()>)> runInFiber)
     : m_context{std::move(context)}
     , m_metadataCache{*m_context->communicator(), metadataCacheSize,
@@ -96,6 +96,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_readdirCache{std::make_shared<cache::ReaddirCache>(
           m_metadataCache, m_context)}
     , m_readEventsDisabled{readEventsDisabled}
+    , m_forceFullblockRead{forceFullblockRead}
     , m_fsSubscriptions{m_eventManager, m_metadataCache, m_forceProxyIOCache,
           runInFiber}
     , m_providerTimeout{std::move(providerTimeout)}
@@ -352,9 +353,25 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
 
         LOG_DBG(1) << "Reading " << availableSize << " bytes from " << uuid
                    << " at offset " << offset;
+
         auto readBuffer = communication::wait(
             helperHandle->read(offset, availableSize, continuousSize),
             helperHandle->timeout());
+
+        if (m_forceFullblockRead) {
+            while (readBuffer.chainLength() < size) {
+                auto readChunk = communication::wait(
+                    helperHandle->read(offset + readBuffer.chainLength(),
+                        availableSize - readBuffer.chainLength(),
+                        continuousSize),
+                    helperHandle->timeout());
+
+                if (readChunk.chainLength() > 0)
+                    readBuffer.append(std::move(readChunk));
+                else
+                    break;
+            }
+        }
 
         if (helperHandle->needsDataConsistencyCheck() && checksum &&
             dataCorrupted(uuid, readBuffer, *checksum, wantedAvailableRange,
