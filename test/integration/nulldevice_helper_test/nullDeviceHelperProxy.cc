@@ -48,11 +48,16 @@ private:
 class NullDeviceHelperProxy {
 public:
     NullDeviceHelperProxy(const int latencyMin, const int latencyMax,
-        const double timeoutProbability, std::string filter)
+        const double timeoutProbability, std::string filter,
+        std::string simulatedFilesystemParameters,
+        float simulatedFilesystemGrowSpeed)
         : m_service{NULL_DEVICE_HELPER_WORKER_THREADS}
         , m_idleWork{asio::make_work_guard(m_service)}
         , m_helper{std::make_shared<one::helpers::NullDeviceHelper>(latencyMin,
               latencyMax, timeoutProbability, std::move(filter),
+              NullDeviceHelperFactory::parseSimulatedFilesystemParameters(
+                  simulatedFilesystemParameters),
+              simulatedFilesystemGrowSpeed,
               std::make_shared<one::AsioExecutor>(m_service))}
     {
         for (int i = 0; i < NULL_DEVICE_HELPER_WORKER_THREADS; i++) {
@@ -250,10 +255,13 @@ private:
 
 namespace {
 boost::shared_ptr<NullDeviceHelperProxy> create(const int latencyMin,
-    const int latencyMax, const double timeoutProbability, std::string filter)
+    const int latencyMax, const double timeoutProbability, std::string filter,
+    std::string simulatedFilesystemParameters = "",
+    float simulatedFilesystemGrowSpeed = 0.0)
 {
-    return boost::make_shared<NullDeviceHelperProxy>(
-        latencyMin, latencyMax, timeoutProbability, std::move(filter));
+    return boost::make_shared<NullDeviceHelperProxy>(latencyMin, latencyMax,
+        timeoutProbability, std::move(filter),
+        std::move(simulatedFilesystemParameters), simulatedFilesystemGrowSpeed);
 }
 } // namespace
 
