@@ -150,6 +150,7 @@ def prepare_file_location_changed_event(uuid):
     loc.storage_id = 'storage1'
     loc.file_id = 'file1'
     loc.provider_id = 'provider1'
+    loc.version = 1
 
     loc_evt = event_messages_pb2.FileLocationChangedEvent()
     loc_evt.file_location.CopyFrom(loc)
