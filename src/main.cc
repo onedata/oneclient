@@ -451,7 +451,7 @@ int main(int argc, char *argv[])
     fsLogic = std::make_unique<fslogic::Composite>(rootUuid, std::move(context),
         std::move(configuration), std::move(helpersCache),
         options->getMetadataCacheSize(), options->areFileReadEventsDisabled(),
-        options->getProviderTimeout());
+        options->isFullblockReadForced(), options->getProviderTimeout());
 
     res = multithreaded ? fuse_session_loop_mt(fuse) : fuse_session_loop(fuse);
 

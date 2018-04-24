@@ -70,7 +70,7 @@ public:
         std::shared_ptr<messages::Configuration> configuration,
         std::unique_ptr<cache::HelpersCache> helpersCache,
         unsigned int metadataCacheSize, bool readEventsDisabled,
-        const std::chrono::seconds providerTimeout,
+        bool forceFullblockRead, const std::chrono::seconds providerTimeout,
         std::function<void(folly::Function<void()>)> runInFiber);
 
     /**
@@ -256,6 +256,11 @@ private:
     std::unique_ptr<cache::HelpersCache> m_helpersCache;
     std::shared_ptr<cache::ReaddirCache> m_readdirCache;
     bool m_readEventsDisabled = false;
+
+    // Determines whether the read requests should return full requested
+    // size, or can return partial byte range if it is immediately
+    // available
+    bool m_forceFullblockRead;
     FsSubscriptions m_fsSubscriptions;
     std::unordered_set<folly::fbstring> m_disabledSpaces;
 

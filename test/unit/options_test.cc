@@ -93,6 +93,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.isMonitoringEnabled());
     EXPECT_EQ(false, options.isMonitoringLevelFull());
     EXPECT_EQ(false, options.areFileReadEventsDisabled());
+    EXPECT_EQ(false, options.isFullblockReadForced());
     EXPECT_EQ(true, options.isMonitoringLevelBasic());
 #if !defined(NDEBUG)
     EXPECT_EQ(0, options.getVerboseLogLevel());
@@ -280,6 +281,13 @@ TEST_F(OptionsTest, parseCommandLineShouldSetDisableFileReadEvents)
     cmdArgs.insert(cmdArgs.end(), {"--disable-read-events", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(true, options.areFileReadEventsDisabled());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetForceFullblockRead)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--force-fullblock-read", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isFullblockReadForced());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetProviderTimeout)
