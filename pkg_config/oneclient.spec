@@ -10,7 +10,7 @@ URL:		https://onedata.org
 Source0:	oneclient-%{version}.orig.tar.gz
 
 Requires: fuse
-BuildRequires: aws-sdk-cpp-s3 >= 1.0.11
+BuildRequires: aws-sdk-cpp-s3 >= 1.4.35
 BuildRequires: binutils-devel,
 BuildRequires: boost-devel >= 1.58.0
 BuildRequires: cmake >= 3.0.0
