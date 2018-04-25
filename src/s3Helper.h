@@ -59,9 +59,15 @@ public:
         const auto &blockSize =
             getParam<std::size_t>(parameters, "blockSize", DEFAULT_BLOCK_SIZE);
 
+        if (version != 4)
+            throw std::invalid_argument(
+                "Unsupported S3 signature version: " + std::to_string(version) +
+                ". Currently only supported signature "
+                "version is '4'.");
+
         return std::make_shared<KeyValueAdapter>(
             std::make_shared<S3Helper>(hostname, bucketName, accessKey,
-                secretKey, scheme == "https", version == 2, std::move(timeout)),
+                secretKey, scheme == "https", std::move(timeout)),
             std::make_shared<AsioExecutor>(m_service), blockSize);
     }
 
@@ -82,14 +88,12 @@ public:
      * @param accessKey Access key of the S3 user.
      * @param secretKey Secret key of the S3 user.
      * @param useHttps Determines whether to use https or http connection.
-     * @param useSigV2 Determines whether V2 or V4 version of AWS signature
      * should be used to sign requests.
      * @param timeout Asynchronous operations timeout.
      */
     S3Helper(folly::fbstring hostName, folly::fbstring bucketName,
         folly::fbstring accessKey, folly::fbstring secretKey,
-        const bool useHttps = true, const bool useSigV2 = false,
-        Timeout timeout = ASYNC_OPS_TIMEOUT);
+        const bool useHttps = true, Timeout timeout = ASYNC_OPS_TIMEOUT);
 
     folly::IOBufQueue getObject(const folly::fbstring &key, const off_t offset,
         const std::size_t size) override;
@@ -111,7 +115,6 @@ private:
     folly::fbstring getRegion(const folly::fbstring &hostname);
 
     folly::fbstring m_bucket;
-    bool m_useSigV2;
     std::unique_ptr<Aws::S3::S3Client> m_client;
     Timeout m_timeout;
 };
