@@ -106,15 +106,13 @@ using namespace std::placeholders;
 
 S3Helper::S3Helper(folly::fbstring hostname, folly::fbstring bucketName,
     folly::fbstring accessKey, folly::fbstring secretKey, const bool useHttps,
-    const bool useSigV2, Timeout timeout)
+    Timeout timeout)
     : m_bucket{std::move(bucketName)}
-    , m_useSigV2{useSigV2}
     , m_timeout{std::move(timeout)}
 {
     LOG_FCALL() << LOG_FARG(hostname) << LOG_FARG(bucketName)
                 << LOG_FARG(accessKey) << LOG_FARG(secretKey)
-                << LOG_FARG(useHttps) << LOG_FARG(useSigV2)
-                << LOG_FARG(timeout.count());
+                << LOG_FARG(useHttps) << LOG_FARG(timeout.count());
 
     static S3HelperApiInit init;
 
@@ -123,19 +121,11 @@ S3Helper::S3Helper(folly::fbstring hostname, folly::fbstring bucketName,
     Aws::Client::ClientConfiguration configuration;
     configuration.region = getRegion(hostname).c_str();
     configuration.endpointOverride = hostname.c_str();
-#if !defined(S3_HAS_NO_V2_SUPPORT)
-    configuration.useSigV2 = useSigV2;
-#endif
     if (!useHttps)
         configuration.scheme = Aws::Http::Scheme::HTTP;
 
-    m_client =
-        std::make_unique<Aws::S3::S3Client>(credentials, configuration, false
-#if !defined(S3_HAS_NO_V2_SUPPORT)
-            ,
-            false
-#endif
-        );
+    m_client = std::make_unique<Aws::S3::S3Client>(credentials, configuration,
+        Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never, false);
 }
 
 folly::fbstring S3Helper::getRegion(const folly::fbstring &hostname)
@@ -301,49 +291,30 @@ void S3Helper::deleteObjects(const folly::fbvector<folly::fbstring> &keys)
 {
     LOG_FCALL() << LOG_FARGV(keys);
 
-#if !defined(S3_HAS_NO_V2_SUPPORT)
-    if (m_useSigV2) {
-#else
-    if (false && m_useSigV2) {
-#endif
-        for (const auto &key : keys) {
-            Aws::S3::Model::DeleteObjectRequest request;
-            request.SetBucket(m_bucket.c_str());
-            request.SetKey(key.c_str());
-            LOG_DBG(1) << "Deleting object " << key;
-            auto outcome = m_client->DeleteObject(request);
-            throwOnError("DeleteObject", outcome);
-        }
-    }
-    else {
-        Aws::S3::Model::DeleteObjectsRequest request;
-        request.SetBucket(m_bucket.c_str());
+    Aws::S3::Model::DeleteObjectsRequest request;
+    request.SetBucket(m_bucket.c_str());
 
-        LOG_DBG(1) << "Attempting to delete objects " << LOG_VEC(keys);
+    LOG_DBG(1) << "Attempting to delete objects " << LOG_VEC(keys);
 
-        for (auto offset = 0u; offset < keys.size();
-             offset += MAX_DELETE_OBJECTS) {
-            Aws::S3::Model::Delete container;
+    for (auto offset = 0u; offset < keys.size(); offset += MAX_DELETE_OBJECTS) {
+        Aws::S3::Model::Delete container;
 
-            const std::size_t batchSize =
-                std::min<std::size_t>(keys.size() - offset, MAX_DELETE_OBJECTS);
+        const std::size_t batchSize =
+            std::min<std::size_t>(keys.size() - offset, MAX_DELETE_OBJECTS);
 
-            for (auto &key :
-                folly::range(keys.begin(), keys.begin() + batchSize))
-                container.AddObjects(
-                    Aws::S3::Model::ObjectIdentifier{}.WithKey(key.c_str()));
+        for (auto &key : folly::range(keys.begin(), keys.begin() + batchSize))
+            container.AddObjects(
+                Aws::S3::Model::ObjectIdentifier{}.WithKey(key.c_str()));
 
-            request.SetDelete(std::move(container));
+        request.SetDelete(std::move(container));
 
-            auto outcome = retry([&, request = std::move(request) ]() {
-                return m_client->DeleteObjects(request);
-            },
-                std::bind(
-                    S3RetryCondition<Aws::S3::Model::DeleteObjectsOutcome>, _1,
-                    "DeleteObjects"));
+        auto outcome = retry([&, request = std::move(request) ]() {
+            return m_client->DeleteObjects(request);
+        },
+            std::bind(S3RetryCondition<Aws::S3::Model::DeleteObjectsOutcome>,
+                _1, "DeleteObjects"));
 
-            throwOnError("DeleteObjects", outcome);
-        }
+        throwOnError("DeleteObjects", outcome);
     }
 }
 
