@@ -70,7 +70,7 @@ public:
         std::shared_ptr<messages::Configuration> configuration,
         std::unique_ptr<cache::HelpersCache> helpersCache,
         unsigned int metadataCacheSize, bool readEventsDisabled,
-        const std::chrono::seconds providerTimeout,
+        bool forceFullblockRead, const std::chrono::seconds providerTimeout,
         std::function<void(folly::Function<void()>)> runInFiber);
 
     /**
@@ -230,6 +230,9 @@ private:
     folly::fbstring syncAndFetchChecksum(const folly::fbstring &uuid,
         const boost::icl::discrete_interval<off_t> &range);
 
+    void sync(const folly::fbstring &uuid,
+        const boost::icl::discrete_interval<off_t> &range);
+
     bool dataCorrupted(const folly::fbstring &uuid,
         const folly::IOBufQueue &buf, const folly::fbstring &serverChecksum,
         const boost::icl::discrete_interval<off_t> &availableRange,
@@ -244,7 +247,8 @@ private:
     bool isSpaceDisabled(const folly::fbstring &spaceId);
     void disableSpaces(const std::vector<std::string> &spaces);
 
-    void prefetchSync(helpers::FileHandlePtr helperHandle, const off_t offset,
+    void prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
+        helpers::FileHandlePtr helperHandle, const off_t offset,
         const std::size_t size, const folly::fbstring &uuid,
         const boost::icl::discrete_interval<off_t> possibleRange,
         const boost::icl::discrete_interval<off_t> availableRange);
@@ -256,6 +260,11 @@ private:
     std::unique_ptr<cache::HelpersCache> m_helpersCache;
     std::shared_ptr<cache::ReaddirCache> m_readdirCache;
     bool m_readEventsDisabled = false;
+
+    // Determines whether the read requests should return full requested
+    // size, or can return partial byte range if it is immediately
+    // available
+    bool m_forceFullblockRead;
     FsSubscriptions m_fsSubscriptions;
     std::unordered_set<folly::fbstring> m_disabledSpaces;
 
@@ -269,6 +278,7 @@ private:
         m_onRename = [](auto, auto) {};
 
     const std::chrono::seconds m_providerTimeout;
+    std::function<void(folly::Function<void()>)> m_runInFiber;
 };
 
 } // namespace fslogic

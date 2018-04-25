@@ -210,6 +210,18 @@ Options::Options()
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Disable reporting of file read events.");
 
+    add<bool>()
+        ->asSwitch()
+        .withLongName("force-fullblock-read")
+        .withConfigName("force_fullblock_read")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Force fullblock read mode. By default read can return less "
+            "data than request in case it is immediately available and "
+            "consecutive blocks need to be prefetched from remote storage.");
+
     add<unsigned int>()
         ->withLongName("read-buffer-min-size")
         .withConfigName("read_buffer_min_size")
@@ -636,6 +648,12 @@ unsigned int Options::getStorageHelperThreadCount() const
 bool Options::areFileReadEventsDisabled() const
 {
     return get<bool>({"disable-read-events", "disable_read_events"})
+        .get_value_or(false);
+}
+
+bool Options::isFullblockReadForced() const
+{
+    return get<bool>({"force-fullblock-read", "force_fullblock_read"})
         .get_value_or(false);
 }
 

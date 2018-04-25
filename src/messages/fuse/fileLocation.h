@@ -106,6 +106,17 @@ public:
      */
     const FileBlocksMap &blocks() const;
 
+    /**
+     * @return Version of this location.
+     */
+    std::uint64_t version() const;
+
+    /**
+     * Sets a new location version.
+     * @param version Version to set for the location.
+     */
+    void version(std::uint64_t);
+
     std::string toString() const override;
 
     /**
@@ -132,6 +143,7 @@ private:
     std::string m_storageId;
     std::string m_fileId;
     FileBlocksMap m_blocks;
+    std::uint64_t m_version;
 };
 
 } // namespace fuse

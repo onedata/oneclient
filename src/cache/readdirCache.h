@@ -136,7 +136,7 @@ public:
      * @param context Pointer to @c Context to access options and scheduler.
      */
     ReaddirCache(
-        LRUMetadataCache &metadataCache, std::shared_ptr<Context> context);
+        LRUMetadataCache &metadataCache, std::weak_ptr<Context> context);
 
     /**
      * Destructor
@@ -217,7 +217,7 @@ private:
     /**
      * Pointer to Oneclient context, used to access options and scheduler.
      */
-    std::shared_ptr<Context> m_context;
+    std::weak_ptr<Context> m_context;
 
     /**
      * Timeout for communication with provider.

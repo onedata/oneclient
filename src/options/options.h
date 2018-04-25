@@ -202,6 +202,11 @@ public:
     bool areFileReadEventsDisabled() const;
 
     /*
+     * @return true if 'force-fullblock-read' is specified.
+     */
+    bool isFullblockReadForced() const;
+
+    /*
      * @return false if 'no-buffer' option has been provided, otherwise true.
      */
     bool isIOBuffered() const;

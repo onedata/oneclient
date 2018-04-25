@@ -474,6 +474,14 @@ bool MetadataCache::updateLocation(const FileLocation &newLocation)
         return false;
     }
 
+    if (newLocation.version() < it->location->version()) {
+        LOG(INFO) << "New file location older than current ("
+                  << newLocation.version() << " < " << it->location->version()
+                  << ". Aborting update.";
+        return false;
+    }
+
+    it->location->version(newLocation.version());
     it->location->storageId(newLocation.storageId());
     it->location->fileId(newLocation.fileId());
     it->location->blocks() = newLocation.blocks();

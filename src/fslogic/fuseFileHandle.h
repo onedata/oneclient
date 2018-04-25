@@ -89,6 +89,16 @@ public:
      */
     folly::Optional<folly::fbstring> providerHandleId() const;
 
+    void setLastPrefetch(boost::icl::discrete_interval<off_t> p)
+    {
+        m_lastPrefetch = p;
+    }
+
+    boost::icl::discrete_interval<off_t> lastPrefetch() const
+    {
+        return m_lastPrefetch;
+    };
+
 private:
     std::unordered_map<folly::fbstring, folly::fbstring> makeParameters(
         const folly::fbstring &uuid);
@@ -102,6 +112,7 @@ private:
         helpers::FileHandlePtr>
         m_handles;
     const std::chrono::seconds m_providerTimeout;
+    boost::icl::discrete_interval<off_t> m_lastPrefetch;
 };
 
 } // namespace fslogic

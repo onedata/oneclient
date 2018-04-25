@@ -98,6 +98,7 @@ message GetChildAttr {
 message GetFileChildren {
     required int32 offset = 1;
     required int32 size = 2;
+    optional bytes index_token = 3;
 }
 
 message GetFileChildrenAttrs {
@@ -239,6 +240,8 @@ message FileAttr {
 
 message FileChildren {
     repeated ChildLink child_links = 1;
+    optional bytes index_token = 2;
+    optional bool is_last = 3;
 }
 
 message FileChildrenAttrs {
@@ -254,6 +257,7 @@ message FileLocation {
     required bytes storage_id = 4;
     required bytes file_id = 5;
     repeated FileBlock blocks = 6;
+    required uint64 version = 7;
 }
 
 message FileCreated {
