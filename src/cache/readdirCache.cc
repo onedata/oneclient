@@ -112,11 +112,11 @@ void DirCacheEntry::unique(void)
 }
 
 ReaddirCache::ReaddirCache(
-    LRUMetadataCache &metadataCache, std::shared_ptr<Context> context)
+    LRUMetadataCache &metadataCache, std::weak_ptr<Context> context)
     : m_metadataCache(metadataCache)
     , m_context{std::move(context)}
-    , m_providerTimeout(m_context->options()->getProviderTimeout())
-    , m_prefetchSize(m_context->options()->getReaddirPrefetchSize())
+    , m_providerTimeout(m_context.lock()->options()->getProviderTimeout())
+    , m_prefetchSize(m_context.lock()->options()->getReaddirPrefetchSize())
 {
 }
 
@@ -131,7 +131,9 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
         folly::SharedPromise<std::shared_ptr<DirCacheEntry>>>();
     m_cache.emplace(uuid, p);
 
-    m_context->scheduler()->post([ this, uuid = uuid, p = std::move(p) ] {
+    m_context.lock()->scheduler()->post([
+        this, uuid = uuid, p = std::move(p)
+    ] {
         p->setWith([=] {
             auto cacheEntry =
                 std::make_shared<DirCacheEntry>(m_cacheValidityPeriod);
@@ -174,7 +176,7 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
             cacheEntry->touch();
             cacheEntry->markCreated();
 
-            m_context->scheduler()->schedule(4 * m_cacheValidityPeriod, [
+            m_context.lock()->scheduler()->schedule(4 * m_cacheValidityPeriod, [
                 uuid = uuid, cacheEntry = cacheEntry, self = shared_from_this()
             ]() { self->purgeWorker(uuid, cacheEntry); });
 
@@ -197,7 +199,7 @@ void ReaddirCache::purgeWorker(
         LOG_DBG(2) << "Readdir cache entry " << uuid
                    << " still valid - scheduling next purge";
 
-        m_context->scheduler()->schedule(2 * m_cacheValidityPeriod, [
+        m_context.lock()->scheduler()->schedule(2 * m_cacheValidityPeriod, [
             uuid = std::move(uuid), entry = std::move(entry),
             self = shared_from_this()
         ]() { self->purgeWorker(uuid, entry); });
@@ -294,8 +296,9 @@ template <typename SrvMsg, typename CliMsg>
 SrvMsg ReaddirCache::communicate(
     CliMsg &&msg, const std::chrono::seconds timeout)
 {
-    return communication::wait(m_context->communicator()->communicate<SrvMsg>(
-                                   std::forward<CliMsg>(msg)),
+    return communication::wait(
+        m_context.lock()->communicator()->communicate<SrvMsg>(
+            std::forward<CliMsg>(msg)),
         timeout);
 }
 }

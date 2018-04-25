@@ -6,7 +6,6 @@ __author__ = "Konrad Zemek"
 __copyright__ = """(C) 2015 ACK CYFRONET AGH,
 This software is released under the MIT license cited in 'LICENSE.txt'."""
 
-import hashlib
 import os
 import sys
 from threading import Thread
@@ -77,15 +76,10 @@ def prepare_file_blocks(blocks=[]):
 
 
 def prepare_sync_response(uuid, data, blocks):
-    md = hashlib.new('MD4')
-    md.update(data)
-
-    repl = fuse_messages_pb2.SyncResponse()
-    repl.checksum = md.digest()
-    repl.file_location.CopyFrom(prepare_location(uuid, blocks))
+    location = prepare_location(uuid, blocks)
 
     server_response = messages_pb2.ServerMessage()
-    server_response.fuse_response.sync_response.CopyFrom(repl)
+    server_response.fuse_response.file_location.CopyFrom(location)
     server_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
     return server_response
@@ -149,6 +143,7 @@ def prepare_location(uuid, blocks=[]):
     repl.file_id = 'file1'
     repl.provider_id = 'provider1'
     repl.blocks.extend(file_blocks)
+    repl.version = 1
 
     return repl
 
@@ -836,11 +831,11 @@ def test_read_should_request_synchronization(appmock_client, endpoint, fl, uuid)
     assert client_message.HasField('fuse_request')
     assert client_message.fuse_request.HasField('file_request')
     file_request = client_message.fuse_request.file_request
-    assert file_request.HasField('synchronize_block_and_compute_checksum')
+    assert file_request.HasField('synchronize_block')
     block = common_messages_pb2.FileBlock()
     block.offset = 2
     block.size = 5
-    sync = file_request.synchronize_block_and_compute_checksum
+    sync = file_request.synchronize_block
     assert sync.block == block
     assert file_request.context_guid == uuid
 

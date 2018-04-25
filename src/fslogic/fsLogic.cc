@@ -100,6 +100,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_fsSubscriptions{m_eventManager, m_metadataCache, m_forceProxyIOCache,
           runInFiber}
     , m_providerTimeout{std::move(providerTimeout)}
+    , m_runInFiber{std::move(runInFiber)}
 {
     using namespace std::placeholders;
 
@@ -110,7 +111,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     // Quota initial configuration
     m_eventManager.subscribe(
         events::QuotaExceededSubscription{[=](auto events) {
-            runInFiber([ this, events = std::move(events) ] {
+            m_runInFiber([ this, events = std::move(events) ] {
                 this->disableSpaces(events.back()->spaces());
             });
         }});
@@ -314,25 +315,36 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     // available to read right now, for simplicity we'll only read a single
     // block per a read operation.
 
-    auto locationData = m_metadataCache.getBlock(uuid, offset);
-    if (!locationData.hasValue()) {
-        auto csum = syncAndFetchChecksum(uuid, wantedRange);
-        LOG_DBG(1) << "Requested block for " << uuid
-                   << " not in cache - fetching from server";
-        return read(uuid, fileHandleId, offset, size, std::move(csum));
-    }
-
-    boost::icl::discrete_interval<off_t> availableRange;
-    messages::fuse::FileBlock fileBlock;
-    std::tie(availableRange, fileBlock) = std::move(*locationData);
-    const auto wantedAvailableRange = availableRange & wantedRange;
-
-    LOG_DBG(1) << "Availble block range for file " << uuid
-               << " in requested range: " << wantedAvailableRange;
-
-    const std::size_t availableSize = boost::icl::size(wantedAvailableRange);
-
     try {
+        auto locationData = m_metadataCache.getBlock(uuid, offset);
+        if (!locationData.hasValue()) {
+            LOG_DBG(1) << "Requested block for " << uuid
+                       << " not in cache - fetching from server";
+            auto fileBlock = m_metadataCache.getDefaultBlock(uuid);
+            auto helperHandle = fuseFileHandle->getHelperHandle(uuid,
+                m_metadataCache.getSpaceId(uuid), fileBlock.storageId(),
+                fileBlock.fileId());
+
+            folly::Optional<folly::fbstring> csum;
+            if (helperHandle->needsDataConsistencyCheck())
+                csum = syncAndFetchChecksum(uuid, wantedRange);
+            else
+                sync(uuid, wantedRange);
+
+            return read(uuid, fileHandleId, offset, size, std::move(csum));
+        }
+
+        boost::icl::discrete_interval<off_t> availableRange;
+        messages::fuse::FileBlock fileBlock;
+        std::tie(availableRange, fileBlock) = std::move(*locationData);
+        const auto wantedAvailableRange = availableRange & wantedRange;
+
+        LOG_DBG(1) << "Availble block range for file " << uuid
+                   << " in requested range: " << wantedAvailableRange;
+
+        const std::size_t availableSize =
+            boost::icl::size(wantedAvailableRange);
+
         auto helperHandle = fuseFileHandle->getHelperHandle(uuid,
             m_metadataCache.getSpaceId(uuid), fileBlock.storageId(),
             fileBlock.fileId());
@@ -344,8 +356,8 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
                 helperHandle->flushUnderlying(), helperHandle->timeout());
         }
 
-        prefetchSync(helperHandle, offset, availableSize, uuid, possibleRange,
-            availableRange);
+        prefetchSync(fuseFileHandle, helperHandle, offset, availableSize, uuid,
+            possibleRange, availableRange);
 
         const std::size_t continuousSize =
             boost::icl::size(boost::icl::left_subtract(availableRange,
@@ -420,8 +432,9 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     }
 }
 
-void FsLogic::prefetchSync(helpers::FileHandlePtr helperHandle,
-    const off_t offset, const std::size_t size, const folly::fbstring &uuid,
+void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
+    helpers::FileHandlePtr helperHandle, const off_t offset,
+    const std::size_t size, const folly::fbstring &uuid,
     const boost::icl::discrete_interval<off_t> possibleRange,
     const boost::icl::discrete_interval<off_t> availableRange)
 {
@@ -434,12 +447,24 @@ void FsLogic::prefetchSync(helpers::FileHandlePtr helperHandle,
     const auto prefetchRange = boost::icl::left_subtract(
         wantToPrefetchRange & possibleRange, availableRange);
 
-    if (boost::icl::size(prefetchRange) > 0)
-        communication::wait(
-            m_context->communicator()->send(
-                messages::fuse::SynchronizeBlockAndComputeChecksum{
-                    uuid.toStdString(), prefetchRange}),
-            helperHandle->timeout());
+    bool worthPrefetching =
+        boost::icl::size(prefetchRange & fuseFileHandle->lastPrefetch()) == 0 ||
+        boost::icl::size(boost::icl::left_subtract(
+            prefetchRange, fuseFileHandle->lastPrefetch())) >=
+            boost::icl::size(prefetchRange) / 2;
+
+    if (boost::icl::size(prefetchRange) > 0 && worthPrefetching) {
+        fuseFileHandle->setLastPrefetch(prefetchRange);
+        m_context->communicator()
+            ->communicate<messages::fuse::FileLocation>(
+                messages::fuse::SynchronizeBlock{
+                    uuid.toStdString(), prefetchRange})
+            .then([this](messages::fuse::FileLocation location) {
+                m_runInFiber([ this, location = std::move(location) ] {
+                    m_metadataCache.updateLocation(std::move(location));
+                });
+            });
+    }
 }
 
 std::size_t FsLogic::write(const folly::fbstring &uuid,
@@ -837,6 +862,16 @@ folly::fbstring FsLogic::syncAndFetchChecksum(const folly::fbstring &uuid,
     m_metadataCache.updateLocation(syncResponse.fileLocation());
 
     return syncResponse.checksum();
+}
+
+void FsLogic::sync(const folly::fbstring &uuid,
+    const boost::icl::discrete_interval<off_t> &range)
+{
+    messages::fuse::SynchronizeBlock request{uuid.toStdString(), range};
+    auto fileLocation = communicate<messages::fuse::FileLocation>(
+        std::move(request), m_providerTimeout);
+
+    m_metadataCache.updateLocation(fileLocation);
 }
 
 bool FsLogic::dataCorrupted(const folly::fbstring &uuid,
