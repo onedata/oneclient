@@ -64,11 +64,15 @@ namespace helpers {
 using namespace std::placeholders;
 
 // Retry only in case one of these errors occured
-const std::set<int> GLUSTERFS_RETRY_ERRORS = {EINTR, EIO, EAGAIN, EACCES, EBUSY,
-    EMFILE, ETXTBSY, ESPIPE, EMLINK, EPIPE, EDEADLK, EWOULDBLOCK, ENONET,
-    ENOLINK, EADDRINUSE, EADDRNOTAVAIL, ENETDOWN, ENETUNREACH, ECONNABORTED,
-    ECONNRESET, ENOTCONN, EHOSTDOWN, EHOSTUNREACH, EREMOTEIO, ENOMEDIUM,
-    ECANCELED};
+const std::set<int> GLUSTERFS_RETRY_ERRORS = {
+    EINTR, EIO, EAGAIN, EACCES, EBUSY, EMFILE, ETXTBSY, ESPIPE, EMLINK, EPIPE,
+    EDEADLK, EWOULDBLOCK, ENOLINK, EADDRINUSE, EADDRNOTAVAIL, ENETDOWN,
+    ENETUNREACH, ECONNABORTED, ECONNRESET, ENOTCONN, EHOSTUNREACH, ECANCELED
+#if !defined(__APPLE__)
+    ,
+    ENONET, EHOSTDOWN, EREMOTEIO, ENOMEDIUM
+#endif
+};
 
 inline bool GlusterFSRetryCondition(int result, const std::string &operation)
 {
@@ -454,8 +458,7 @@ folly::Future<FileHandlePtr> GlusterFSHelper::open(
                 retry(
                     [&]() {
                         return glfs_creat(m_glfsCtx.get(), filePath.c_str(),
-                            flags,
-                            (flags & S_IRWXU) | (flags & S_IRWXG) |
+                            flags, (flags & S_IRWXU) | (flags & S_IRWXG) |
                                 (flags & S_IRWXO));
                     },
                     std::bind(GlusterFSRetryHandleCondition, _1, "glfs_creat")),
