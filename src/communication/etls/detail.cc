@@ -66,7 +66,7 @@ WithSSLContext::WithSSLContext(const asio::ssl::context_base::method method,
     SSL_CTX_set1_param(m_context->native_handle(), param.get());
 
     m_context->set_verify_callback([
-        this, rfc2818Hostname = std::move(rfc2818Hostname)
+        rfc2818Hostname = std::move(rfc2818Hostname)
     ](bool preverify, asio::ssl::verify_context &ctx) mutable {
 
         if (!preverify &&

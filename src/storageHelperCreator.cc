@@ -164,7 +164,7 @@ std::shared_ptr<StorageHelper> StorageHelperCreator::getStorageHelper(
 
     if (name == NULL_DEVICE_HELPER_NAME)
         helper =
-            NullDeviceHelperFactory{m_dioService}.createStorageHelper(args);
+            NullDeviceHelperFactory{m_nullDeviceService}.createStorageHelper(args);
 
     if (!helper) {
         LOG(ERROR) << "Invalid storage helper name: " << name.toStdString();

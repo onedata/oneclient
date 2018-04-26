@@ -164,7 +164,7 @@ folly::IOBufQueue S3Helper::getObject(
     request.SetKey(key.c_str());
     request.SetRange(
         rangeToString(offset, static_cast<off_t>(offset + size - 1)).c_str());
-    request.SetResponseStreamFactory([ data = data, size ] {
+    request.SetResponseStreamFactory([ data = data ] {
         auto stream = new std::stringstream;
 #if !defined(__APPLE__)
         /**
@@ -172,6 +172,8 @@ folly::IOBufQueue S3Helper::getObject(
          * platforms including OSX it does not work and data must be copied
          */
         stream->rdbuf()->pubsetbuf(data, size);
+#else
+        (void)data;
 #endif
         return stream;
     });
