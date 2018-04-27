@@ -36,7 +36,7 @@ template <> struct hash<Poco::Net::HTTPResponse::HTTPStatus> {
 namespace one {
 namespace helpers {
 
-using namespace std::placeholders;
+namespace sp = std::placeholders;
 
 namespace {
 
@@ -154,7 +154,8 @@ folly::IOBufQueue SwiftHelper::getObject(
             return GetResponsePtr{
                 object.swiftGetObjectContent(nullptr, &headers)};
         },
-        std::bind(SWIFTRetryCondition<GetResponsePtr>, _1, "GetObjectContent"));
+        std::bind(
+            SWIFTRetryCondition<GetResponsePtr>, sp::_1, "GetObjectContent"));
 
     throwOnError("getObject", getResponse);
 
@@ -194,7 +195,7 @@ off_t SwiftHelper::getObjectsSize(
             return ListResponsePtr{container.swiftListObjects(
                 Swift::HEADER_FORMAT_APPLICATION_JSON, &params, true)};
         },
-        std::bind(SWIFTRetryCondition<ListResponsePtr>, _1, "ListObjects"));
+        std::bind(SWIFTRetryCondition<ListResponsePtr>, sp::_1, "ListObjects"));
 
     throwOnError("getObjectsSize", listResponse);
 
@@ -241,8 +242,8 @@ std::size_t SwiftHelper::putObject(
                 reinterpret_cast<const char *>(iobuf->data()), iobuf->length(),
                 true)};
         },
-        std::bind(
-            SWIFTRetryCondition<CreateResponsePtr>, _1, "CreateReplaceObject"));
+        std::bind(SWIFTRetryCondition<CreateResponsePtr>, sp::_1,
+            "CreateReplaceObject"));
 
     throwOnError("putObject", createResponse);
 
@@ -281,8 +282,8 @@ void SwiftHelper::deleteObjects(const folly::fbvector<folly::fbstring> &keys)
                 return DeleteResponsePtr{
                     container.swiftDeleteObjects(std::move(keyBatch))};
             },
-            std::bind(
-                SWIFTRetryCondition<DeleteResponsePtr>, _1, "DeleteObjects"));
+            std::bind(SWIFTRetryCondition<DeleteResponsePtr>, sp::_1,
+                "DeleteObjects"));
 
         throwOnError("deleteObjects", deleteResponse);
     }
@@ -320,7 +321,8 @@ folly::fbvector<folly::fbstring> SwiftHelper::listObjects(
                 return ListResponsePtr{container.swiftListObjects(
                     Swift::HEADER_FORMAT_TEXT_XML, &params, true)};
             },
-            std::bind(SWIFTRetryCondition<ListResponsePtr>, _1, "ListObjects"));
+            std::bind(
+                SWIFTRetryCondition<ListResponsePtr>, sp::_1, "ListObjects"));
 
         throwOnError("listObjects", listResponse);
 

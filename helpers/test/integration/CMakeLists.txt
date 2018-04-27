@@ -29,7 +29,7 @@ add_custom_target(pythonProto
 if(APPLE)
     # On OSX we have to force Python 2 to run tests using default
     # boost-python library
-    find_package(Boost COMPONENTS python REQUIRED)
+    find_package(Boost COMPONENTS python27-mt REQUIRED)
     find_package(PythonLibs 2 REQUIRED)
     find_package(PythonInterp 2 REQUIRED)
 else(APPLE)
