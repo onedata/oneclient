@@ -4,4 +4,6 @@ add_library(libmacaroons STATIC
     ${CMAKE_CURRENT_SOURCE_DIR}/packet.c
     ${CMAKE_CURRENT_SOURCE_DIR}/port.c)
 
-target_include_directories(libmacaroons PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+find_package(Sodium)
+
+target_include_directories(libmacaroons PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${SODIUM_INCLUDE_DIRS})

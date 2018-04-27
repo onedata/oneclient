@@ -8,7 +8,7 @@ language: cpp
 matrix:
   include:
     - os: osx
-      osx_image: xcode8.2 # Build on macOS Sierra (10.12)
+      osx_image: xcode8.3
       compiler: clang
       env: >
         ONEDATA_GIT_URL="https://github.com/onedata"
@@ -25,6 +25,7 @@ before_install:
   - brew install ccache
   - PATH=/usr/local/opt/ccache/libexec:$PATH
   - brew install gnu-sed --with-default-names && brew link --force gnu-sed
+  - brew upgrade python
   - brew outdated boost || brew upgrade boost
   - brew install boost-python
   - brew install libtool
@@ -37,12 +38,12 @@ before_install:
   - brew install nss && brew unlink nss && brew link --force nss
   - brew install tbb && brew unlink tbb && brew link --force tbb
   - brew install glog && brew unlink glog && brew link glog
-  - brew install folly
   - brew install protobuf
   - brew install protobuf-c
   - brew install erlang
   - brew install aws-sdk-cpp
   - brew tap onedata/onedata
+  - brew install onedata/onedata/folly
   - brew install libiberty
   - brew install swift-cpp-sdk
   - brew install glusterfs-api
