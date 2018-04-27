@@ -109,10 +109,15 @@ public:
 
 // Retry only in case one of these errors occured
 const std::set<int> POSIX_RETRY_ERRORS = {EINTR, EIO, EAGAIN, EACCES, EBUSY,
-    EMFILE, ETXTBSY, ESPIPE, EMLINK, EPIPE, EDEADLK, EWOULDBLOCK, ENONET,
-    ENOLINK, EADDRINUSE, EADDRNOTAVAIL, ENETDOWN, ENETUNREACH, ECONNABORTED,
-    ECONNRESET, ENOTCONN, EHOSTDOWN, EHOSTUNREACH, EREMOTEIO, ENOMEDIUM,
-    ECANCELED, ESTALE};
+    EMFILE, ETXTBSY, ESPIPE, EMLINK, EPIPE, EDEADLK, EWOULDBLOCK, ENOLINK,
+    EADDRINUSE, EADDRNOTAVAIL, ENETDOWN, ENETUNREACH, ECONNABORTED, ECONNRESET,
+    ENOTCONN, EHOSTUNREACH, ECANCELED, ESTALE
+#if !defined(__APPLE__)
+    ,
+    ENONET, EHOSTDOWN, EREMOTEIO, ENOMEDIUM
+#endif
+
+};
 
 inline bool POSIXRetryCondition(int result, const std::string &operation)
 {
@@ -302,8 +307,8 @@ folly::Future<folly::Unit> PosixFileHandle::flush()
 {
     LOG_FCALL();
 
-    return folly::via(m_executor.get(),
-        [ uid = m_uid, gid = m_gid, fh = m_fh, fileId = m_fileId ] {
+    return folly::via(
+        m_executor.get(), [ uid = m_uid, gid = m_gid, fileId = m_fileId ] {
             ONE_METRIC_COUNTER_INC("comp.helpers.mod.posix.flush");
 
             UserCtxSetter userCTX{uid, gid};

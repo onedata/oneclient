@@ -172,6 +172,9 @@ folly::IOBufQueue S3Helper::getObject(
          * platforms including OSX it does not work and data must be copied
          */
         stream->rdbuf()->pubsetbuf(data, size);
+#else
+        (void)data;
+        (void)size;
 #endif
         return stream;
     });

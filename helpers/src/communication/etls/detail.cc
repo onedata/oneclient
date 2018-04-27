@@ -65,9 +65,9 @@ WithSSLContext::WithSSLContext(const asio::ssl::context_base::method method,
         param.get(), X509_V_FLAG_CRL_CHECK | X509_V_FLAG_CRL_CHECK_ALL);
     SSL_CTX_set1_param(m_context->native_handle(), param.get());
 
-    m_context->set_verify_callback([
-        this, rfc2818Hostname = std::move(rfc2818Hostname)
-    ](bool preverify, asio::ssl::verify_context &ctx) mutable {
+    m_context->set_verify_callback([rfc2818Hostname =
+                                        std::move(rfc2818Hostname)](
+        bool preverify, asio::ssl::verify_context &ctx) mutable {
 
         if (!preverify &&
             X509_STORE_CTX_get_error(ctx.native_handle()) ==

@@ -43,7 +43,7 @@ fuse_ino_t InodeCache::lookup(const folly::fbstring &uuid)
     if (entryIt != index.end()) {
         if (entryIt->lruIt) {
             m_lru.erase(*entryIt->lruIt);
-            index.modify(entryIt, [this](Entry &entry) {
+            index.modify(entryIt, [](Entry &entry) {
                 entry.lruIt.clear();
                 ++entry.lookupCount;
             });
