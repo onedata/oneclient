@@ -223,7 +223,8 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
         auto uuidIt = m_cache.find(uuid);
 
         if (uuidIt != m_cache.cend() && (*uuidIt).second->isFulfilled() &&
-            !(*uuidIt).second->getFuture().get()->isValid(off)) {
+            ((*uuidIt).second->getFuture().hasException() ||
+                !(*uuidIt).second->getFuture().get()->isValid(off))) {
             m_cache.erase(uuidIt);
             uuidIt = m_cache.end();
         }
