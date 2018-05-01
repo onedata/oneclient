@@ -649,6 +649,45 @@ def test_readdir_should_pass_readdir_errors(endpoint, fl, uuid, stat):
     assert 'Operation not permitted' in str(excinfo.value)
 
 
+def test_readdir_should_not_get_stuck_on_errors(endpoint, fl, uuid, stat):
+    response0 = messages_pb2.ServerMessage()
+    response0.fuse_response.status.code = common_messages_pb2.Status.eperm
+
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, response0):
+            fl.readdir(uuid, 1024, 0)
+
+    assert 'Operation not permitted' in str(excinfo.value)
+
+    #
+    # Prepare first response with 5 files
+    #
+    repl1 = prepare_file_children_attr_response(uuid, "afiles-", 5)
+    repl1.is_last = False
+
+    response1 = messages_pb2.ServerMessage()
+    response1.fuse_response.file_children_attrs.CopyFrom(repl1)
+    response1.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    #
+    # Prepare second response with another 5 file
+    #
+    repl2 = prepare_file_children_attr_response(uuid, "bfiles-", 5)
+    repl2.is_last = True
+
+    response2 = messages_pb2.ServerMessage()
+    response2.fuse_response.file_children_attrs.CopyFrom(repl2)
+    response2.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    children = []
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [response1, response2]) as queue:
+        children_chunk = fl.readdir(uuid, chunk_size, offset)
+        _ = queue.get()
+        assert len(children_chunk) == 12
+
+
 def test_mknod_should_make_new_location(endpoint, fl, uuid, parentUuid, parentStat):
     getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
 
