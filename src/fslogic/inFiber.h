@@ -112,6 +112,13 @@ public:
             const folly::fbstring &)(const folly::fbstring &)(bool)(bool))
     WRAP(removexattr, (const fuse_ino_t)(const folly::fbstring &))
 
+    bool isFullBlockReadForced() const
+    {
+        return m_fsLogic.isFullBlockReadForced();
+    }
+
+    FsLogicT &fsLogic() { return m_fsLogic; }
+
 private:
     std::function<void(folly::Function<void()>)> makeRunInFiber()
     {

@@ -319,11 +319,12 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         auto locationData = m_metadataCache.getBlock(uuid, offset);
         if (!locationData.hasValue()) {
             LOG_DBG(1) << "Requested block for " << uuid
-                       << " not in cache - fetching from server";
-            auto fileBlock = m_metadataCache.getDefaultBlock(uuid);
+                       << " not replicated - fetching from remote provider";
+
+            auto defaultBlock = m_metadataCache.getDefaultBlock(uuid);
             auto helperHandle = fuseFileHandle->getHelperHandle(uuid,
-                m_metadataCache.getSpaceId(uuid), fileBlock.storageId(),
-                fileBlock.fileId());
+                m_metadataCache.getSpaceId(uuid), defaultBlock.storageId(),
+                defaultBlock.fileId());
 
             folly::Optional<folly::fbstring> csum;
             if (helperHandle->needsDataConsistencyCheck())
@@ -369,21 +370,6 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         auto readBuffer = communication::wait(
             helperHandle->read(offset, availableSize, continuousSize),
             helperHandle->timeout());
-
-        if (m_forceFullblockRead) {
-            while (readBuffer.chainLength() < size) {
-                auto readChunk = communication::wait(
-                    helperHandle->read(offset + readBuffer.chainLength(),
-                        availableSize - readBuffer.chainLength(),
-                        continuousSize),
-                    helperHandle->timeout());
-
-                if (readChunk.chainLength() > 0)
-                    readBuffer.append(std::move(readChunk));
-                else
-                    break;
-            }
-        }
 
         if (helperHandle->needsDataConsistencyCheck() && checksum &&
             dataCorrupted(uuid, readBuffer, *checksum, wantedAvailableRange,
