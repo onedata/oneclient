@@ -223,6 +223,11 @@ public:
         m_onRename = std::move(cb);
     }
 
+    /**
+     * Returns true if full block reads are forced.
+     */
+    bool isFullBlockReadForced() const { return m_forceFullblockRead; }
+
 private:
     template <typename SrvMsg = messages::fuse::FuseResponse, typename CliMsg>
     SrvMsg communicate(CliMsg &&msg, const std::chrono::seconds timeout);

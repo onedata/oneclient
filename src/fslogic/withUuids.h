@@ -219,6 +219,11 @@ public:
         return wrap(&FsLogicT::removexattr, ino, name);
     }
 
+    bool isFullBlockReadForced() const
+    {
+        return m_fsLogic.isFullBlockReadForced();
+    }
+
 private:
     template <typename Ret, typename... FunArgs, typename... Args>
     inline constexpr Ret wrap(

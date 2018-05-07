@@ -238,16 +238,36 @@ void wrap_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
                 << LOG_FARG(off) << LOG_FARG(fi->fh);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.read");
+
     wrap(&fslogic::Composite::read,
-        [ req, timer = std::move(timer), ino, size, off ](
+        [ req, timer = std::move(timer), ino, fi, size, off ](
             folly::IOBufQueue && buf) {
             if (!buf.empty()) {
+                auto &fsLogic =
+                    (*static_cast<std::unique_ptr<fslogic::Composite> *>(
+                         fuse_req_userdata(req)))
+                        ->fsLogic();
+
+                // When full block read mode is forced, read until exactly
+                // 'size' bytes are read from storage or any of the 'read' calls
+                // returns 0 or error.
+                while (fsLogic.isFullBlockReadForced() &&
+                    (buf.chainLength() < size)) {
+                    auto remainderBuf = fsLogic.read(ino, fi->fh,
+                        off + buf.chainLength(), size - buf.chainLength());
+                    if (remainderBuf.chainLength() > 0)
+                        buf.append(std::move(remainderBuf));
+                    else
+                        break;
+                }
+
                 LOG_DBG(1) << "Received  " << buf.chainLength()
                            << " bytes when reading inode " << ino
                            << " at offset " << off;
+
                 auto iov = buf.front()->getIov();
                 fuse_reply_iov(req, iov.data(), iov.size());
-                ONE_METRIC_TIMERCTX_STOP(timer, size);
+                ONE_METRIC_TIMERCTX_STOP(timer, buf.chainLength());
             }
             else {
                 LOG_DBG(1) << "Received empty buffer when reading inode " << ino
