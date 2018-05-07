@@ -19,6 +19,8 @@ When compiling from GitHub, an environment variable ONEDATA_GIT_URL must be expo
 ```bash
 export ONEDATA_GIT_URL=https://github.com/onedata
 git clone https://github.com/onedata/oneclient.git
+# To initialize submodules
+make submodules
 cd oneclient
 # To build debug version
 ./make.py

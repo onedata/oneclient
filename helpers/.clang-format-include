@@ -1,9 +1,0 @@
-#
-# List of glob patterns for files to check
-#
-
-+ include/**/*.h
-+ src/**/*.cc
-+ src/**/*.h
-+ test/**/*.cc
-+ test/**/*.h
