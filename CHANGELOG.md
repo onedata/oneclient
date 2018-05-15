@@ -4,6 +4,16 @@
 CHANGELOG
 ---------
 
+### 18.02.0-rc2
+
+* VFS-4443 Fixed generation of source archive with submodules
+* VFS-4295 Changed subtrees to submodules
+* VFS-4405 Fixed full block read mode for remote blocks
+* VFS-4403 Fixed persistent exception in readdir cache
+* VFS-4313 Updated pkg config with new aws sdk s3 version
+* VFS-4313 Updated dockers.config
+
+
 ### 18.02.0-rc1
 
 * VFS-2021 Added dockers.config
