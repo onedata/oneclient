@@ -111,17 +111,10 @@ public:
      */
     bool getDebug() const;
 
-#if !defined(NDEBUG)
     /*
      * @return Get verbose log level.
      */
     unsigned int getVerboseLogLevel() const;
-
-    /*
-     * @return Get verbose log filter.
-     */
-    boost::optional<std::string> getVerboseLogFilter() const;
-#endif
 
     /*
      * @return true if 'single-thread' option has been provided, otherwise

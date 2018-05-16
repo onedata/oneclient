@@ -47,7 +47,7 @@ std::int64_t Manager::subscribe(
 
     StreamAcc streamAcc;
     if (m_streams.insert(streamAcc, subscription.streamKey())) {
-        LOG_DBG(1) << "Creating stream '" << subscription.streamKey()
+        LOG_DBG(2) << "Creating stream '" << subscription.streamKey()
                    << "' for subscription " << subscription.toString();
 
         streamAcc->second = std::make_unique<SharedStream>(
@@ -58,7 +58,7 @@ std::int64_t Manager::subscribe(
     }
     streamAcc.release();
 
-    LOG_DBG(1) << "Adding subscription " << subscription.toString()
+    LOG_DBG(2) << "Adding subscription " << subscription.toString()
                << " with ID: '" << subscriptionId << "'";
 
     HandleAcc handleAcc;
@@ -84,7 +84,7 @@ bool Manager::unsubscribe(std::int64_t subscriptionId)
 
     HandleAcc handleAcc;
     if (m_handles.find(handleAcc, subscriptionId)) {
-        LOG_DBG(1) << "Removing subscription with ID: '" << subscriptionId
+        LOG_DBG(2) << "Removing subscription with ID: '" << subscriptionId
                    << "'";
 
         m_handles.erase(handleAcc);

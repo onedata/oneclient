@@ -196,7 +196,7 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
     const auto flag = getOpenFlag(helpers::maskToFlags(filteredFlags));
     messages::fuse::OpenFile msg{uuid.toStdString(), flag};
 
-    LOG_DBG(1) << "Sending file opened message for " << uuid;
+    LOG_DBG(2) << "Sending file opened message for " << uuid;
 
     auto opened = communicate<messages::fuse::FileOpened>(
         std::move(msg), m_providerTimeout);
@@ -207,7 +207,7 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
             openFileToken, *m_helpersCache, m_forceProxyIOCache,
             m_providerTimeout));
 
-    LOG_DBG(1) << "Stored fuse handle for file " << uuid;
+    LOG_DBG(2) << "Stored fuse handle for file " << uuid;
 
     return fuseFileHandleId;
 }
@@ -240,7 +240,7 @@ void FsLogic::release(
         releaseException = std::current_exception();
     }
 
-    LOG_DBG(1) << "Sending file release message for " << uuid;
+    LOG_DBG(2) << "Sending file release message for " << uuid;
 
     communicate(messages::fuse::Release{uuid.toStdString(),
                     fuseFileHandle->providerHandleId()->toStdString()},
@@ -259,7 +259,7 @@ void FsLogic::flush(
 
     auto fuseFileHandle = m_fuseFileHandles.at(fileHandleId);
 
-    LOG_DBG(1) << "Sending file flush message for " << uuid;
+    LOG_DBG(2) << "Sending file flush message for " << uuid;
 
     for (auto &helperHandle : fuseFileHandle->helperHandles())
         communication::wait(helperHandle->flush(), helperHandle->timeout());
@@ -275,7 +275,7 @@ void FsLogic::fsync(const folly::fbstring &uuid,
 
     auto fuseFileHandle = m_fuseFileHandles.at(fileHandleId);
 
-    LOG_DBG(1) << "Sending file fsync message for " << uuid;
+    LOG_DBG(2) << "Sending file fsync message for " << uuid;
 
     communicate(messages::fuse::FSync{uuid.toStdString(), dataOnly,
                     fuseFileHandle->providerHandleId()->toStdString()},
@@ -304,12 +304,12 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     const auto wantedRange = requestedRange & possibleRange;
 
     if (boost::icl::size(wantedRange) == 0) {
-        LOG_DBG(1) << "Read requested for impossible range " << requestedRange
+        LOG_DBG(2) << "Read requested for impossible range " << requestedRange
                    << " for file " << uuid;
         return folly::IOBufQueue{folly::IOBufQueue::cacheChainLength()};
     }
 
-    LOG_DBG(1) << "Reading from file " << uuid << " from range " << wantedRange;
+    LOG_DBG(2) << "Reading from file " << uuid << " from range " << wantedRange;
 
     // Even if several "touching" blocks with different helpers are
     // available to read right now, for simplicity we'll only read a single
@@ -319,7 +319,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         auto locationData = m_metadataCache.getBlock(uuid, offset);
         if (!locationData.hasValue()) {
             LOG_DBG(1) << "Requested block for " << uuid
-                       << " not replicated - fetching from remote provider";
+                       << " not yet replicated - fetching from remote provider";
 
             auto defaultBlock = m_metadataCache.getDefaultBlock(uuid);
             auto helperHandle = fuseFileHandle->getHelperHandle(uuid,
@@ -340,7 +340,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         std::tie(availableRange, fileBlock) = std::move(*locationData);
         const auto wantedAvailableRange = availableRange & wantedRange;
 
-        LOG_DBG(1) << "Availble block range for file " << uuid
+        LOG_DBG(2) << "Availble block range for file " << uuid
                    << " in requested range: " << wantedAvailableRange;
 
         const std::size_t availableSize =
@@ -364,7 +364,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
             boost::icl::size(boost::icl::left_subtract(availableRange,
                 boost::icl::discrete_interval<off_t>::right_open(0, offset)));
 
-        LOG_DBG(1) << "Reading " << availableSize << " bytes from " << uuid
+        LOG_DBG(2) << "Reading " << availableSize << " bytes from " << uuid
                    << " at offset " << offset;
 
         auto readBuffer = communication::wait(
@@ -391,17 +391,23 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
                 uuid.toStdString(), offset, bytesRead);
         }
 
-        LOG_DBG(1) << "Read " << bytesRead << " bytes from " << uuid
+        LOG_DBG(2) << "Read " << bytesRead << " bytes from " << uuid
                    << " at offset " << offset;
 
         return readBuffer;
     }
     catch (const std::system_error &e) {
         if (e.code().value() != EPERM && e.code().value() != EACCES) {
-            LOG(ERROR) << "Reading from " << uuid
-                       << " failed to insufficient permissions";
+            LOG_DBG(1) << "Reading from " << uuid
+                       << " failed due to error: " << e.what() << "("
+                       << e.code() << ")";
             throw;
         }
+        else {
+            LOG(ERROR) << "Reading from " << uuid
+                       << " failed due to insufficient permissions";
+        }
+
         if (m_forceProxyIOCache.contains(uuid)) {
             LOG(ERROR) << "Reading from " << uuid
                        << " failed since proxy mode is forced for this file";
@@ -410,10 +416,12 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
 
         LOG_DBG(1) << "Adding file " << uuid
                    << " to force proxy cache after direct read failed";
+
         m_forceProxyIOCache.add(uuid);
 
         LOG_DBG(1) << "Rereading requested block for " << uuid
                    << " via proxy fallback";
+
         return read(uuid, fileHandleId, offset, size, checksum);
     }
 }
@@ -461,7 +469,7 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
                 << LOG_FARG(offset) << LOG_FARG(buf.chainLength());
 
     if (buf.empty()) {
-        LOG_DBG(1) << "Write called with empty buffer - skipping";
+        LOG_DBG(2) << "Write called with empty buffer - skipping";
         return 0;
     }
 
@@ -501,7 +509,7 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
         }
 
         LOG_DBG(1) << "Adding file " << uuid
-                   << " to force proxy cache after direct read failed";
+                   << " to force proxy cache after direct write failed";
 
         m_forceProxyIOCache.add(uuid);
 
@@ -517,7 +525,7 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
     auto writtenRange = boost::icl::discrete_interval<off_t>::right_open(
         offset, offset + bytesWritten);
 
-    LOG_DBG(1) << "Written " << bytesWritten << " bytes to file " << uuid
+    LOG_DBG(2) << "Written " << bytesWritten << " bytes to file " << uuid
                << " at offset " << offset << " on storage "
                << fileBlock.storageId();
 
@@ -536,7 +544,7 @@ FileAttrPtr FsLogic::mkdir(const folly::fbstring &parentUuid,
                     name.toStdString(), mode},
         m_providerTimeout);
 
-    LOG_DBG(1) << "Created directory " << name << " in " << parentUuid;
+    LOG_DBG(2) << "Created directory " << name << " in " << parentUuid;
 
     // TODO: Provider returns uuid of the created dir, no need for lookup
     return m_metadataCache.getAttr(parentUuid, name);
@@ -554,7 +562,7 @@ FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
 
     m_readdirCache->invalidate(parentUuid);
 
-    LOG_DBG(1) << "Created node " << name << " in " << parentUuid
+    LOG_DBG(2) << "Created node " << name << " in " << parentUuid
                << " with uuid " << attr.uuid();
 
     return sharedAttr;
@@ -585,7 +593,7 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
             openFileToken, *m_helpersCache, m_forceProxyIOCache,
             m_providerTimeout));
 
-    LOG_DBG(1) << "Created file " << name << " in " << parentUuid
+    LOG_DBG(2) << "Created file " << name << " in " << parentUuid
                << " with uuid " << uuid;
 
     m_readdirCache->invalidate(parentUuid);
@@ -607,7 +615,7 @@ void FsLogic::unlink(
 
     m_readdirCache->invalidate(parentUuid);
 
-    LOG_DBG(1) << "Deleted file " << name << " in " << parentUuid
+    LOG_DBG(2) << "Deleted file " << name << " in " << parentUuid
                << " with uuid " << attr->uuid();
 }
 
@@ -629,7 +637,7 @@ void FsLogic::rename(const folly::fbstring &parentUuid,
 
     m_metadataCache.rename(oldUuid, newParentUuid, newName, renamed.newUuid());
 
-    LOG_DBG(1) << "Renamed file " << name << " in " << parentUuid << " to "
+    LOG_DBG(2) << "Renamed file " << name << " in " << parentUuid << " to "
                << newName << " in " << newParentUuid;
 
     for (auto &child : renamed.childEntries())
@@ -661,7 +669,7 @@ FileAttrPtr FsLogic::setattr(
 
         m_metadataCache.changeMode(uuid, normalizedMode);
 
-        LOG_DBG(1) << "Changed mode of " << uuid << " to "
+        LOG_DBG(2) << "Changed mode of " << uuid << " to "
                    << LOG_OCT(normalizedMode);
     }
 
@@ -672,7 +680,7 @@ FileAttrPtr FsLogic::setattr(
         m_eventManager.emit<events::FileTruncated>(
             uuid.toStdString(), attr.st_size);
 
-        LOG_DBG(1) << "Truncated file " << uuid << " to size " << attr.st_size
+        LOG_DBG(2) << "Truncated file " << uuid << " to size " << attr.st_size
                    << " via setattr";
 
         ONE_METRIC_COUNTER_INC(
@@ -686,23 +694,23 @@ FileAttrPtr FsLogic::setattr(
     if (toSet & FUSE_SET_ATTR_ATIME) {
         updateTimes.atime(
             std::chrono::system_clock::from_time_t(attr.st_atime));
-        LOG_DBG(1) << "Changed atime of " << uuid << " to " << attr.st_atime;
+        LOG_DBG(2) << "Changed atime of " << uuid << " to " << attr.st_atime;
     }
     if (toSet & FUSE_SET_ATTR_MTIME) {
         updateTimes.mtime(
             std::chrono::system_clock::from_time_t(attr.st_mtime));
-        LOG_DBG(1) << "Changed mtime of " << uuid << " to " << attr.st_atime;
+        LOG_DBG(2) << "Changed mtime of " << uuid << " to " << attr.st_atime;
     }
 #if defined(FUSE_SET_ATTR_ATIME_NOW)
     if (toSet & FUSE_SET_ATTR_ATIME_NOW) {
         updateTimes.atime(now);
-        LOG_DBG(1) << "Changed atime of " << uuid << " to now";
+        LOG_DBG(2) << "Changed atime of " << uuid << " to now";
     }
 #endif
 #if defined(FUSE_SET_ATTR_MTIME_NOW)
     if (toSet & FUSE_SET_ATTR_MTIME_NOW) {
         updateTimes.mtime(now);
-        LOG_DBG(1) << "Changed mtime of " << uuid << " to now";
+        LOG_DBG(2) << "Changed mtime of " << uuid << " to now";
     }
 #endif
 
@@ -766,7 +774,7 @@ folly::fbstring FsLogic::getxattr(
         communicate<messages::fuse::XAttr>(getXAttrRequest, m_providerTimeout);
     result = xattr.value();
 
-    LOG_DBG(1) << "Received xattr " << name << " value for file " << uuid;
+    LOG_DBG(2) << "Received xattr " << name << " value for file " << uuid;
 
     return result;
 }
@@ -782,7 +790,7 @@ void FsLogic::setxattr(const folly::fbstring &uuid, const folly::fbstring &name,
     communicate<messages::fuse::FuseResponse>(
         setXAttrRequest, m_providerTimeout);
 
-    LOG_DBG(1) << "Set xattr " << name << " value for file " << uuid;
+    LOG_DBG(2) << "Set xattr " << name << " value for file " << uuid;
 }
 
 void FsLogic::removexattr(
@@ -794,7 +802,7 @@ void FsLogic::removexattr(
     communicate<messages::fuse::FuseResponse>(
         removeXAttrRequest, m_providerTimeout);
 
-    LOG_DBG(1) << "Removed xattr " << name << " from file " << uuid;
+    LOG_DBG(2) << "Removed xattr " << name << " from file " << uuid;
 }
 
 folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
@@ -823,7 +831,7 @@ folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
         result.push_back(ONE_XATTR("replication_progress"));
     }
 
-    LOG_DBG(1) << "Received xattr list for file " << uuid;
+    LOG_DBG(2) << "Received xattr list for file " << uuid;
 
     return result;
 }
