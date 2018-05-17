@@ -89,7 +89,23 @@ This feature can be controlled using 2 command line options:
 
 If for some reason this local cache is undesired, it can be disabled using `--no-buffer` option.
 
-### Other options
+### Force full block read mode
+
+By default, POSIX `read` request can return less bytes than requested, especially on network filesystem which can return partial data range which is immediately available and request the remaining bytes assuming the application will run another `read` request with adjusted offset and size. However, some applications assume that the read always return the requested range or error. In order to enable this behavior in `oneclient` it necessary to provide the `--force-fullblock-read` on the command line.
+
+### Logging
+
+In order to enable a verbose log, *oneclient* provides a `-v` flag which takes a single integer argument which determines the log verbosity:
+
+- `-v 0` - *(default)* only serious errors
+- `-v 1` - warnings and errors which are not fatal
+- `-v 2` - verbose information on requests and their handling
+- `-v 3` - trace function calls along with their arguments
+- `-v 4` - binary messages between Oneclient and Oneprovider
+
+> Please note that above level 2, the size of the logs can be substantial thus it is necessary to monitor free disk space.
+
+### All options
 
 The list of all options can be accessed using:
 
@@ -118,6 +134,10 @@ General options:
                                         authentication and authorization.
   -l [ --log-dir ] <path> (=/tmp/oneclient/0)
                                         Specify custom path for Oneclient logs.
+  -v [ --verbose-log-level ] <level> (=0)
+                                        Specify the verbosity level (0-4) for
+                                        verbose logs (only available in debug
+                                        builds).
 
 Advanced options:
   --force-proxy-io                      Force proxied access to storage via
@@ -204,14 +224,7 @@ Besides commandline configuration options, oneclient reads options from a global
 
 Some options in the config file can be overridden using environment variables, whose names are capitalized version of the config options. For the up-to-date list of supported environment variables please refer to *oneclient* [manpage](man/oneclient.1).
 
-### Debugging
-
-In order to enable a verbose debug log, *oneclient* has to be compiled in debug mode. Debug builds of *oneclient* provide 2 additional command line flags, which provide fine grained control over debug logs:
-
-  * `-v n` - where `n` determines the default verbose log level (`1` - enables most important debug messages, `2` - enables function call trace)
-  * `--verbose-log-filter <filter>` - allows to specify which compilation units should be included in the debug log and at which level (e.g. `cephHelper=2,fsLogic=1,*Cache=0`)
-
-## Running oneclient docker image
+## Running `oneclient` docker image
 
 Running dockerized *oneclient* is easy:
 
