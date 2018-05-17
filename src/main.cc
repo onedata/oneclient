@@ -52,14 +52,6 @@
 #include <regex>
 #include <string>
 
-#if !defined(NDEBUG)
-/**
- * We have to expose FLAGS_vmodule variable here, as it is not declared
- * publicly by Glog library.
- */
-DECLARE_string(vmodule);
-#endif
-
 using namespace one;
 using namespace one::client;
 using namespace one::monitoring;
@@ -71,49 +63,53 @@ void startLogging(
         boost::filesystem::create_directories(options->getLogDirPath());
     }
     catch (const boost::filesystem::filesystem_error &e) {
-        std::cerr << "Failed to create log directory: '" << e.what()
+        std::cerr << "Failed to create log directory "
+                  << options->getLogDirPath() << ": '" << e.what()
                   << "'. Aborting..." << std::endl;
     }
 
-    FLAGS_minloglevel = 0;
-    FLAGS_logtostderr = false;
-    FLAGS_stderrthreshold = options->getDebug() ? 0 : 2;
     FLAGS_log_dir = options->getLogDirPath().c_str();
     FLAGS_stop_logging_if_full_disk = true;
-#if !defined(NDEBUG)
+    FLAGS_logtostderr = false;
     FLAGS_v = options->getVerboseLogLevel();
-    FLAGS_vmodule = options->getVerboseLogFilter()
-        ? options->getVerboseLogFilter().get()
-        : "*";
-#endif
+    // Set maximum log size to 50MB plus 50MB for each verbosity level
+    FLAGS_max_log_size = 50 * (1 + options->getVerboseLogLevel());
+    FLAGS_minloglevel = 0;
+
     google::InitGoogleLogging(programName);
 
     LOG(INFO) << "Oneclient version: " << ONECLIENT_VERSION;
+    LOG(INFO) << "Verbose logging level: " << options->getVerboseLogLevel();
     if (options->getProviderHost())
         LOG(INFO) << "Connecting to Oneprovider: "
                   << options->getProviderHost().get();
-    LOG(INFO) << "Forced direct io: " << options->isDirectIOForced();
-    LOG(INFO) << "Forced proxy io: " << options->isDirectIOForced();
+    LOG(INFO) << "Forced direct IO: " << options->isDirectIOForced();
+    LOG(INFO) << "Forced proxy IO: " << options->isProxyIOForced();
     LOG(INFO) << "Verify service certificate: " << options->isInsecure();
     LOG(INFO) << "File read events disabled: "
               << options->areFileReadEventsDisabled();
-    LOG(INFO) << "Is IO buffered: " << options->isIOBuffered();
+    LOG(INFO) << "IO buffered: " << options->isIOBuffered();
     LOG(INFO) << "Oneprovider connection timeout [s]: "
               << options->getProviderTimeout().count();
-    LOG(INFO) << "Is monitoring enabled: " << options->isMonitoringEnabled();
-    if (options->getMonitoringType())
-        LOG(INFO) << "Monitoring type: " << options->getMonitoringType().get();
-    LOG(INFO) << "Is monitoring level basic: "
-              << options->isMonitoringLevelBasic();
-    LOG(INFO) << "Is monitoring level full: "
-              << options->isMonitoringLevelFull();
-    if (options->getMonitoringGraphiteUrl())
-        LOG(INFO) << "Graphite URL: "
-                  << options->getMonitoringGraphiteUrl().get();
-    if (options->getMonitoringGraphiteNamespacePrefix())
-        LOG(INFO) << "Graphite URL: "
-                  << options->getMonitoringGraphiteNamespacePrefix().get();
+    LOG(INFO) << "Monitoring enabled: " << options->isMonitoringEnabled();
+    if (options->isMonitoringEnabled()) {
+        if (options->getMonitoringType())
+            LOG(INFO) << "Monitoring type: "
+                      << options->getMonitoringType().get();
+        LOG(INFO) << "Monitoring level basic: "
+                  << options->isMonitoringLevelBasic();
+        LOG(INFO) << "Monitoring level full: "
+                  << options->isMonitoringLevelFull();
+        if (options->getMonitoringGraphiteUrl())
+            LOG(INFO) << "Graphite URL: "
+                      << options->getMonitoringGraphiteUrl().get();
+        if (options->getMonitoringGraphiteNamespacePrefix())
+            LOG(INFO) << "Graphite namespace prefix: "
+                      << options->getMonitoringGraphiteNamespacePrefix().get();
+    }
     LOG(INFO) << "Mountpoint: " << options->getMountpoint();
+
+    google::FlushLogFiles(google::GLOG_INFO);
 }
 
 int startPerformanceMonitoring(std::shared_ptr<options::Options> options)

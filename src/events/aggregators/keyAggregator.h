@@ -70,7 +70,7 @@ template <class T> Events<T> KeyAggregator<T>::flush()
 
     Events<T> events;
     for (auto it = m_events.begin(); it != m_events.end(); ++it) {
-        LOG_DBG(1) << "Emitting event: " << it->second->toString();
+        LOG_DBG(2) << "Emitting event: " << it->second->toString();
         events.emplace_back(std::move(it->second));
     }
     m_events.clear();

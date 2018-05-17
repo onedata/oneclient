@@ -98,16 +98,16 @@ void InodeCache::forget(const fuse_ino_t inode, const std::size_t count)
     const auto newCount = entryIt->lookupCount - count;
 
     if (newCount > 0) {
-        LOG_DBG(1) << "Changing inode " << inode << " lookup count to "
+        LOG_DBG(2) << "Changing inode " << inode << " lookup count to "
                    << newCount;
         index.modify(entryIt, [&](Entry &e) { e.lookupCount = newCount; });
     }
     else if (entryIt->deleted) {
-        LOG_DBG(1) << "Removing deleted inode " << inode << " from inode cache";
+        LOG_DBG(2) << "Removing deleted inode " << inode << " from inode cache";
         index.erase(entryIt);
     }
     else {
-        LOG_DBG(1) << "Modifying entry lookup count to " << newCount
+        LOG_DBG(2) << "Modifying entry lookup count to " << newCount
                    << " and lru index";
         const auto newLruIt = m_lru.insert(m_lru.end(), inode);
         index.modify(entryIt, [&](Entry &entry) {

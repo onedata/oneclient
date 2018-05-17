@@ -34,6 +34,7 @@ fi
 arg_oneclient=(\
   {-h,--help}'[Show help and exit]' \
   {-V,--version}'[Show current oneclient version and exit]' \
+  {-v,--verbose-log-level}'[Specify the log verbosity level]' \
   {-c,--config}'[Specify path to user config file.]: :_files' \
   {-u,--unmount}'[Unmount oneclient and exit]: :{_values "Oneclient mount points" "" $onemounts}' \
   {-i,--insecure}'[Disable verification of server certificate, allows to connect to servers without valid certificate.]' \

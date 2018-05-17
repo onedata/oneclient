@@ -324,7 +324,6 @@ Options::Options()
         .withGroup(OptionGroup::FUSE)
         .withDescription("Enable debug mode (implies -f).");
 
-#if !defined(NDEBUG)
     add<unsigned int>()
         ->withShortName("v")
         .withLongName("verbose-log-level")
@@ -335,18 +334,6 @@ Options::Options()
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Specify the verbosity level (0-3) for verbose logs "
                          "(only available in debug builds).");
-
-    add<std::string>()
-        ->withShortName("r")
-        .withLongName("verbose-log-filter")
-        .withEnvName("verbose_log_filter")
-        .withConfigName("verbose_log_filter")
-        .withValueName("<pattern>")
-        .withGroup(OptionGroup::GENERAL)
-        .withDescription("Specify which modules (compilation units) should be "
-                         "included in verbose log (e.g. '-v 0 -r "
-                         "fsOperations=2,cephHelper=1').");
-#endif
 
     add<bool>()
         ->asSwitch()
@@ -546,17 +533,10 @@ bool Options::getDebug() const
     return get<bool>({"debug", "fuse_debug"}).get_value_or(false);
 }
 
-#if !defined(NDEBUG)
 unsigned int Options::getVerboseLogLevel() const
 {
     return get<unsigned int>({"verbose-log-level"}).get_value_or(0);
 }
-
-boost::optional<std::string> Options::getVerboseLogFilter() const
-{
-    return get<std::string>({"verbose-log-filter"});
-}
-#endif
 
 bool Options::getSingleThread() const
 {

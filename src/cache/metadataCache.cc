@@ -53,13 +53,13 @@ FileAttrPtr MetadataCache::getAttr(
     const folly::fbstring &parentUuid, const folly::fbstring &name)
 {
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name);
-    LOG_DBG(1) << "Fetching attributes for child '" << name << "' of '"
+    LOG_DBG(2) << "Fetching attributes for child '" << name << "' of '"
                << parentUuid << "'";
 
     auto &index = boost::multi_index::get<ByParent>(m_cache);
     auto it = index.find(std::make_tuple(parentUuid, name));
     if (it != index.end() && !it->deleted) {
-        LOG_DBG(1) << "Found metadata attr for file " << name
+        LOG_DBG(2) << "Found metadata attr for file " << name
                    << " in directory " << parentUuid;
         return it->attr;
     }
@@ -71,13 +71,13 @@ FileAttrPtr MetadataCache::getAttr(
         index.modify(it, [&](Metadata &m) { m.attr->setParentUuid(""); });
     }
 
-    LOG_DBG(1) << "Metadata attr for file " << name << " in directory "
+    LOG_DBG(2) << "Metadata attr for file " << name << " in directory "
                << parentUuid << " not found in cache - retrieving from server";
 
     auto fetchedIt = fetchAttr(
         messages::fuse::GetChildAttr{std::move(parentUuid), std::move(name)});
 
-    LOG_DBG(1) << "Got metadata attr for file " << name << " in directory "
+    LOG_DBG(2) << "Got metadata attr for file " << name << " in directory "
                << parentUuid << " from server";
 
     return fetchedIt->attr;
@@ -100,16 +100,16 @@ MetadataCache::Map::iterator MetadataCache::getAttrIt(
     auto &index = boost::multi_index::get<ByUuid>(m_cache);
     auto it = index.find(uuid);
     if (it != index.end()) {
-        LOG_DBG(1) << "Metadata attr for file " << uuid << " found in cache";
+        LOG_DBG(2) << "Metadata attr for file " << uuid << " found in cache";
         return it;
     }
 
-    LOG_DBG(1) << "Metadata attributes for " << uuid
+    LOG_DBG(2) << "Metadata attributes for " << uuid
                << " not found in cache - fetching from server";
 
     auto res = fetchAttr(messages::fuse::GetFileAttr{uuid});
 
-    LOG_DBG(1) << "Got metadata attr for " << uuid << " from server";
+    LOG_DBG(2) << "Got metadata attr for " << uuid << " from server";
 
     return res;
 }
@@ -128,7 +128,7 @@ void MetadataCache::addBlock(const folly::fbstring &uuid,
     assert(it->location);
     it->location->blocks() += newBlock;
 
-    LOG_DBG(1) << "Updated file " << uuid
+    LOG_DBG(2) << "Updated file " << uuid
                << " location range with new block: " << range;
 
     m_cache.modify(it, [&](Metadata &m) {
@@ -142,7 +142,7 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
 {
     LOG_FCALL();
 
-    LOG_DBG(1) << "Fetching attribute for metadata cache";
+    LOG_DBG(2) << "Fetching attribute for metadata cache";
 
     auto attr = communication::wait(
         m_communicator.communicate<FileAttr>(std::forward<ReqMsg>(msg)),
@@ -176,17 +176,17 @@ std::shared_ptr<FileLocation> MetadataCache::getLocationPtr(
     LOG_FCALL();
 
     if (it->location) {
-        LOG_DBG(1) << "Found file location in metadata cache for "
+        LOG_DBG(2) << "Found file location in metadata cache for "
                    << it->attr->uuid();
         return it->location;
     }
 
-    LOG_DBG(1) << "File location not found in metadata cache for "
+    LOG_DBG(2) << "File location not found in metadata cache for "
                << it->attr->uuid() << " - fetching from server";
 
     auto res = fetchFileLocation(it->attr->uuid());
 
-    LOG_DBG(1) << "Received file location from server for " << it->attr->uuid();
+    LOG_DBG(2) << "Received file location from server for " << it->attr->uuid();
 
     return res;
 }
@@ -300,19 +300,19 @@ void MetadataCache::updateTimes(
 
     index.modify(it, [&](Metadata &m) {
         if (updateTimes.atime()) {
-            LOG_DBG(1) << "Updating atime to for " << uuid << " to "
+            LOG_DBG(2) << "Updating atime to for " << uuid << " to "
                        << std::chrono::system_clock::to_time_t(
                               *updateTimes.atime());
             m.attr->atime(*updateTimes.atime());
         }
         if (updateTimes.mtime()) {
-            LOG_DBG(1) << "Updating mtime to for " << uuid << " to "
+            LOG_DBG(2) << "Updating mtime to for " << uuid << " to "
                        << std::chrono::system_clock::to_time_t(
                               *updateTimes.mtime());
             m.attr->mtime(*updateTimes.mtime());
         }
         if (updateTimes.ctime()) {
-            LOG_DBG(1) << "Updating ctime to for " << uuid << " to "
+            LOG_DBG(2) << "Updating ctime to for " << uuid << " to "
                        << std::chrono::system_clock::to_time_t(
                               *updateTimes.ctime());
             m.attr->ctime(*updateTimes.ctime());
@@ -417,7 +417,7 @@ bool MetadataCache::rename(const folly::fbstring &uuid,
             m_readdirCache->invalidate(*(it->attr->parentUuid()));
         m_readdirCache->invalidate(newParentUuid);
 
-        LOG_DBG(1) << "Renamed file " << uuid << " to " << newName
+        LOG_DBG(2) << "Renamed file " << uuid << " to " << newName
                    << " with new uuid " << newUuid << " in " << newParentUuid;
     }
 
@@ -440,7 +440,7 @@ bool MetadataCache::updateAttr(const FileAttr &newAttr)
 
     index.modify(it, [&](Metadata &m) {
         if (newAttr.size() && *newAttr.size() < *m.attr->size() && m.location) {
-            LOG_DBG(1) << "Truncating file size based on updated attributes "
+            LOG_DBG(2) << "Truncating file size based on updated attributes "
                           "for uuid: '"
                        << newAttr.uuid() << "'";
 
@@ -486,7 +486,7 @@ bool MetadataCache::updateLocation(const FileLocation &newLocation)
     it->location->fileId(newLocation.fileId());
     it->location->blocks() = newLocation.blocks();
 
-    LOG_DBG(1) << "Updated file location for file " << newLocation.uuid();
+    LOG_DBG(2) << "Updated file location for file " << newLocation.uuid();
 
     return true;
 }

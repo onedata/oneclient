@@ -147,7 +147,7 @@ macaroons::Macaroon MacaroonHandler::getMacaroonFromUser() const
     LOG_FCALL();
 
     std::string macaroon;
-    std::cout << "Access macaroon: ";
+    std::cout << "Paste access token: ";
 
     auto prevExceptions = std::cin.exceptions();
     std::cin.exceptions(

@@ -92,12 +92,12 @@ void Router::handle(const ProtoSubscription &msg)
     LOG_FCALL() << LOG_FARG(msg.DebugString());
 
     if (msg.has_file_read()) {
-        LOG_DBG(1) << "Creating file read subscription";
+        LOG_DBG(2) << "Creating file read subscription";
         m_eventManager.subscribe(
             msg.id(), FileReadSubscription{msg.file_read()});
     }
     else if (msg.has_file_written()) {
-        LOG_DBG(1) << "Creating file written subscription";
+        LOG_DBG(2) << "Creating file written subscription";
         m_eventManager.subscribe(
             msg.id(), FileWrittenSubscription{msg.file_written()});
     }

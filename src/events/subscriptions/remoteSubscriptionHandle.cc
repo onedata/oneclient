@@ -22,7 +22,7 @@ RemoteSubscriptionHandle::RemoteSubscriptionHandle(StreamKey streamKey,
     , m_subscriptionId{subscriptionId}
     , m_stream{stream}
 {
-    LOG_DBG(1) << "Sending subscription with ID: '" << subscriptionId << "'";
+    LOG_DBG(2) << "Sending subscription with ID: '" << subscriptionId << "'";
 
     auto clientMsg = std::make_unique<ProtoClient>();
     msg->set_id(m_subscriptionId);
@@ -32,7 +32,7 @@ RemoteSubscriptionHandle::RemoteSubscriptionHandle(StreamKey streamKey,
 
 RemoteSubscriptionHandle::~RemoteSubscriptionHandle()
 {
-    LOG_DBG(1) << "Sending cancellation for subscription with ID: '"
+    LOG_DBG(2) << "Sending cancellation for subscription with ID: '"
                << m_subscriptionId << "'";
 
     auto clientMsg = std::make_unique<ProtoClient>();

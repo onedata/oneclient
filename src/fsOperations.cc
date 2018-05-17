@@ -104,17 +104,7 @@ void wrap(Fun &&fun, Cb &&callback, fuse_req_t req, Args &&... args)
                 }
             }
             catch (...) {
-                std::array<void *, 64> trace;
-
-                const auto size = backtrace(trace.data(), trace.size());
-                std::unique_ptr<char *[]> strings {
-                    backtrace_symbols(trace.data(), size)
-                };
-
-                LOG(ERROR) << "Unknown exception caught at the top level. "
-                              "Stacktrace : ";
-                for (auto i = 0; i < size; ++i)
-                    LOG(ERROR) << strings[i];
+                LOG_STACKTRACE(1, "Unknown exception caught at the top level: ")
             }
 
             fuse_reply_err(req, EIO);
@@ -160,7 +150,7 @@ void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
         [ req, maxSize, off, timer = std::move(timer) ](
             const folly::fbvector<folly::fbstring> &names) {
 
-            LOG_DBG(1) << "Received " << names.size() << " directory entries.";
+            LOG_DBG(2) << "Received " << names.size() << " directory entries.";
 
             if (names.empty()) {
                 fuse_reply_buf(req, nullptr, 0);
@@ -261,7 +251,7 @@ void wrap_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
                         break;
                 }
 
-                LOG_DBG(1) << "Received  " << buf.chainLength()
+                LOG_DBG(2) << "Received  " << buf.chainLength()
                            << " bytes when reading inode " << ino
                            << " at offset " << off;
 
@@ -270,7 +260,7 @@ void wrap_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
                 ONE_METRIC_TIMERCTX_STOP(timer, buf.chainLength());
             }
             else {
-                LOG_DBG(1) << "Received empty buffer when reading inode " << ino
+                LOG_DBG(2) << "Received empty buffer when reading inode " << ino
                            << " at offset " << off;
                 fuse_reply_buf(req, nullptr, 0);
                 ONE_METRIC_TIMERCTX_STOP(timer, 0);
@@ -291,7 +281,7 @@ void wrap_write(fuse_req_t req, fuse_ino_t ino, const char *buf, size_t size,
 
     wrap(&fslogic::Composite::write,
         [ req, timer = std::move(timer), ino, off ](const std::size_t wrote) {
-            LOG_DBG(1) << "Written " << wrote << " bytes to inode " << ino
+            LOG_DBG(2) << "Written " << wrote << " bytes to inode " << ino
                        << " at offset " << off;
             fuse_reply_write(req, wrote);
             ONE_METRIC_TIMERCTX_STOP(timer, wrote);
@@ -309,7 +299,7 @@ void wrap_mkdir(
     wrap(&fslogic::Composite::mkdir,
         [ req, timer = std::move(timer), sname = std::string(name), mode ](
             const struct fuse_entry_param &entry) {
-            LOG_DBG(1) << "Created directory " << sname << " with mode "
+            LOG_DBG(2) << "Created directory " << sname << " with mode "
                        << LOG_OCT(mode);
             fuse_reply_entry(req, &entry);
         },
@@ -326,7 +316,7 @@ void wrap_mknod(fuse_req_t req, fuse_ino_t parent, const char *name,
     wrap(&fslogic::Composite::mknod,
         [ req, timer = std::move(timer), sname = std::string(name), mode ](
             const struct fuse_entry_param &entry) {
-            LOG_DBG(1) << "Created node " << sname << " with mode "
+            LOG_DBG(2) << "Created node " << sname << " with mode "
                        << LOG_OCT(mode);
             fuse_reply_entry(req, &entry);
         },
@@ -340,7 +330,7 @@ void wrap_unlink(fuse_req_t req, fuse_ino_t parent, const char *name)
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.unlink");
     wrap(&fslogic::Composite::unlink,
         [ req, timer = std::move(timer), sname = std::string(name) ] {
-            LOG_DBG(1) << "Unlinked file " << sname;
+            LOG_DBG(2) << "Unlinked file " << sname;
             fuse_reply_err(req, 0);
         },
         req, parent, name);
@@ -358,7 +348,7 @@ void wrap_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
             req, timer = std::move(timer), parent, newparent,
             sname = std::string(name), snewname = std::string(newname)
         ] {
-            LOG_DBG(1) << "Renamed " << parent << ":" << sname << " to "
+            LOG_DBG(2) << "Renamed " << parent << ":" << sname << " to "
                        << newparent << ":" << snewname;
             fuse_reply_err(req, 0);
         },
@@ -371,7 +361,7 @@ void wrap_forget(fuse_req_t req, fuse_ino_t ino, unsigned long nlookup)
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.forget");
     wrap(&fslogic::Composite::forget, [ req, timer = std::move(timer), ino ] {
-        LOG_DBG(1) << "Forgotten inode " << ino;
+        LOG_DBG(2) << "Forgotten inode " << ino;
         fuse_reply_none(req);
     },
         req, ino, nlookup);
@@ -386,7 +376,7 @@ void wrap_setattr(fuse_req_t req, fuse_ino_t ino, struct stat *attr, int to_set,
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.setattr");
     wrap(&fslogic::Composite::setattr,
         [ req, timer = std::move(timer), ino ](const struct stat &attrs) {
-            LOG_DBG(1) << "Changed attributes on inode " << ino;
+            LOG_DBG(2) << "Changed attributes on inode " << ino;
             fuse_reply_attr(req, &attrs, 0);
         },
         req, ino, *attr, to_set);
@@ -406,7 +396,7 @@ void wrap_create(fuse_req_t req, fuse_ino_t parent, const char *name,
         ](const std::pair<const struct fuse_entry_param, std::uint64_t>
                 &res) mutable {
             fi.fh = res.second;
-            LOG_DBG(1) << "Created file " << sname << " with mode "
+            LOG_DBG(2) << "Created file " << sname << " with mode "
                        << LOG_OCT(mode);
             fuse_reply_create(req, &res.first, &fi);
         },
@@ -502,7 +492,7 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
         return;
     }
 
-    LOG_DBG(1) << "Getting extended attribute '" << xattrJsonName
+    LOG_DBG(2) << "Getting extended attribute '" << xattrJsonName
                << "' for file " << ino;
 
     wrap(&fslogic::Composite::getxattr,
@@ -537,20 +527,20 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
                 // Handle special case when the attribute has empty
                 // value
                 const char *buf = stringValue.data();
-                LOG_DBG(1) << "Returning extended attribute " << attr
+                LOG_DBG(2) << "Returning extended attribute " << attr
                            << " with empty value";
                 fuse_reply_buf(req, buf, 0);
             }
             else if (buflen <= size) {
                 // return the value
                 const char *buf = stringValue.data();
-                LOG_DBG(1) << "Returning extended attribute " << attr
+                LOG_DBG(2) << "Returning extended attribute " << attr
                            << " with value " << buf;
                 fuse_reply_buf(req, buf, buflen);
             }
             else {
                 // return error
-                LOG_DBG(1) << "Extended attribute " << attr << " doesn't exist";
+                LOG_DBG(2) << "Extended attribute " << attr << " doesn't exist";
                 fuse_reply_err(req, ERANGE);
             }
         },
@@ -644,7 +634,7 @@ void wrap_removexattr(fuse_req_t req, fuse_ino_t ino, const char *attr)
         return;
     }
 
-    LOG_DBG(1) << "Removing extended attribute '" << xattrJsonName
+    LOG_DBG(2) << "Removing extended attribute '" << xattrJsonName
                << "' for file " << ino;
 
     wrap(&fslogic::Composite::removexattr,
@@ -659,14 +649,12 @@ void wrap_listxattr(fuse_req_t req, fuse_ino_t ino, size_t size)
     auto timer =
         ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.listxattr");
 
-    LOG_DBG(1) << "Listing extended attributes for file " << ino;
+    LOG_DBG(2) << "Listing extended attributes for file " << ino;
     wrap(&fslogic::Composite::listxattr,
         [ req, size, timer = std::move(timer), ino ](
             const folly::fbvector<folly::fbstring> &names) {
 
-            LOG_DBG(1) << "Received " << names.size()
-                       << " extended attributes for inode " << ino;
-            LOG_DBG(2) << "Received extended attributes for inode " << ino
+            LOG_DBG(3) << "Received extended attributes for inode " << ino
                        << ": " << LOG_VEC(names);
 
             // Calculate the length of all xattr names in the list

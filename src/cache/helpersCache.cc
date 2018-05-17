@@ -96,7 +96,7 @@ HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
     LOG_FCALL() << LOG_FARG(fileUuid) << LOG_FARG(storageId)
                 << LOG_FARG(forceProxyIO);
 
-    LOG_DBG(1) << "Getting storage helper for " << fileUuid << " on storage "
+    LOG_DBG(2) << "Getting storage helper for " << fileUuid << " on storage "
                << storageId;
 
     if (m_options.isDirectIOForced()) {
@@ -107,14 +107,15 @@ HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
         auto helperKey = std::make_pair(storageId, false);
         auto helperIt = m_cache.find(helperKey);
         if (helperIt != m_cache.end()) {
-            LOG_DBG(1) << "Found storage helper in cache for storage "
+            LOG_DBG(2) << "Found storage helper in cache for storage "
                        << storageId;
             return helperIt->second;
         }
 
         if (!accessUnset && m_cache.find(helperKey) == m_cache.end()) {
-            LOG_DBG(1) << "Storage helper discovery already requested but not "
-                          "yet available - waiting...";
+            LOG_DBG(1) << "Storage helper discovery for storage " << storageId
+                       << " already requested but helper is not yet available "
+                          "- waiting...";
 
             int retryCountRemaining = 10;
             constexpr int retryDelayMs = 200;
@@ -123,8 +124,8 @@ HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
                 std::this_thread::sleep_for(std::chrono::milliseconds(
                     retryCountRemaining * retryDelayMs));
                 if (m_cache.find(helperKey) != m_cache.end()) {
-                    LOG(INFO) << "Storage helper to storage " << storageId
-                              << " is now available";
+                    LOG_DBG(1) << "Storage helper to storage " << storageId
+                               << " is now available";
                     return m_cache[helperKey];
                 }
             }
@@ -145,7 +146,6 @@ HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
                         messages::fuse::GetHelperParams::HelperMode::
                             directMode}),
                 m_providerTimeout);
-            LOG_DBG(1) << "Received storage helper params: " << params.name();
 
             if (params.name() == helpers::PROXY_HELPER_NAME) {
                 LOG(ERROR)
@@ -185,7 +185,7 @@ HelpersCache::HelperPtr HelpersCache::get(const folly::fbstring &fileUuid,
         auto helperKey = std::make_pair(storageId, forceProxyIO);
         auto helperIt = m_cache.find(helperKey);
         if (helperIt != m_cache.end()) {
-            LOG_DBG(1) << "Found storage helper in cache for storage "
+            LOG_DBG(2) << "Found storage helper in cache for storage "
                        << storageId;
             return helperIt->second;
         }
