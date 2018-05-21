@@ -230,7 +230,7 @@ void wrap_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.read");
 
     wrap(&fslogic::Composite::read,
-        [ req, timer = std::move(timer), ino, fi, size, off ](
+        [ req, timer = std::move(timer), ino, fh = fi->fh, size, off ](
             folly::IOBufQueue && buf) {
             if (!buf.empty()) {
                 auto &fsLogic =
@@ -243,7 +243,7 @@ void wrap_read(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
                 // returns 0 or error.
                 while (fsLogic.isFullBlockReadForced() &&
                     (buf.chainLength() < size)) {
-                    auto remainderBuf = fsLogic.read(ino, fi->fh,
+                    auto remainderBuf = fsLogic.read(ino, fh,
                         off + buf.chainLength(), size - buf.chainLength());
                     if (remainderBuf.chainLength() > 0)
                         buf.append(std::move(remainderBuf));
