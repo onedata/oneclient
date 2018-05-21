@@ -104,6 +104,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
 {
     using namespace std::placeholders;
 
+    m_nextFuseHandleId = 0;
+
     m_eventManager.subscribe(*configuration);
 
     m_metadataCache.setReaddirCache(m_readdirCache);
@@ -207,7 +209,8 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
             openFileToken, *m_helpersCache, m_forceProxyIOCache,
             m_providerTimeout));
 
-    LOG_DBG(2) << "Stored fuse handle for file " << uuid;
+    LOG_DBG(2) << "Assigned fuse handle " << fuseFileHandleId << " for file "
+               << uuid;
 
     return fuseFileHandleId;
 }
@@ -216,6 +219,12 @@ void FsLogic::release(
     const folly::fbstring &uuid, const std::uint64_t fileHandleId)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(fileHandleId);
+
+    if (m_fuseFileHandles.find(fileHandleId) == m_fuseFileHandles.cend()) {
+        LOG_DBG(1) << "Fuse file handle " << fileHandleId
+                   << " already released.";
+        return;
+    }
 
     auto fuseFileHandle = m_fuseFileHandles.at(fileHandleId);
 
@@ -236,7 +245,12 @@ void FsLogic::release(
     try {
         communication::wait(releaseExceptionFuture, m_providerTimeout);
     }
+    catch (const std::exception &e) {
+        LOG(WARNING) << "File release failed: " << e.what();
+        releaseException = std::current_exception();
+    }
     catch (...) {
+        LOG(WARNING) << "File release failed: unknown error";
         releaseException = std::current_exception();
     }
 

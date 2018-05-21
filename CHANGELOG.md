@@ -4,6 +4,12 @@
 CHANGELOG
 ---------
 
+### 18.02.0-rc3
+
+* VFS-4407 Added -v flag to README and autocomplete scripts
+* VFS-4407 Adjusted logging levels
+
+
 ### 18.02.0-rc2
 
 * VFS-4443 Fixed generation of source archive with submodules
