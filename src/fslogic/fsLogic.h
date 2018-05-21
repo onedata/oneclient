@@ -276,7 +276,7 @@ private:
     std::unordered_map<std::uint64_t, std::shared_ptr<FuseFileHandle>>
         m_fuseFileHandles;
     std::unordered_map<std::uint64_t, folly::fbstring> m_fuseDirectoryHandles;
-    std::uint64_t m_nextFuseHandleId = 0;
+    std::atomic<std::uint64_t> m_nextFuseHandleId;
 
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
     std::function<void(const folly::fbstring &, const folly::fbstring &)>
