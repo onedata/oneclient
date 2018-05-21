@@ -145,6 +145,26 @@ double FileLocation::replicationProgress(const size_t fileSize) const
     return ((double)intersectionLength) / ((double)fileSize);
 }
 
+bool FileLocation::linearReadPrefetchThresholdReached(
+    const double threshold, const size_t fileSize) const
+{
+    const off_t fileThresholdRange = fileSize * threshold;
+    return boost::icl::length(m_blocks &
+               boost::icl::discrete_interval<off_t>::right_open(0, fileSize)) >
+        fileThresholdRange;
+}
+
+bool FileLocation::randomReadPrefetchThresholdReached(
+    const double threshold, const size_t fileSize) const
+{
+    const off_t fileThresholdBytes = fileSize * threshold;
+
+    return (boost::icl::interval_count(m_blocks) > 5) &&
+        boost::icl::length(m_blocks &
+            boost::icl::discrete_interval<off_t>::right_open(0, fileSize)) >
+        fileThresholdBytes;
+}
+
 void FileLocation::deserialize(const ProtocolMessage &message)
 {
     m_uuid = message.uuid();

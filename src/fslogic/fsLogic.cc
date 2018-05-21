@@ -295,13 +295,14 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     auto fuseFileHandle = m_fuseFileHandles.at(fileHandleId);
     auto attr = m_metadataCache.getAttr(uuid);
 
+    const auto fileSize = *attr->size();
     const auto possibleRange =
-        boost::icl::discrete_interval<off_t>::right_open(0, *attr->size());
+        boost::icl::discrete_interval<off_t>::right_open(0, fileSize);
 
     const auto requestedRange =
         boost::icl::discrete_interval<off_t>::right_open(offset, offset + size);
 
-    const auto wantedRange = requestedRange & possibleRange;
+    auto wantedRange = requestedRange & possibleRange;
 
     if (boost::icl::size(wantedRange) == 0) {
         LOG_DBG(2) << "Read requested for impossible range " << requestedRange
@@ -325,6 +326,30 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
             auto helperHandle = fuseFileHandle->getHelperHandle(uuid,
                 m_metadataCache.getSpaceId(uuid), defaultBlock.storageId(),
                 defaultBlock.fileId());
+
+            auto fileLocation = m_metadataCache.getLocation(uuid);
+
+            if (fileSize) {
+                auto linearReadPrefetchThreshold =
+                    m_context->options()->getLinearReadPrefetchThreshold();
+                auto randomReadPrefetchThreshold =
+                    m_context->options()->getRandomReadPrefetchThreshold();
+
+                if (!fuseFileHandle->fullPrefetchTriggered() &&
+                    fileLocation->replicationProgress(fileSize) < 1.0 &&
+                    ((linearReadPrefetchThreshold < 1.0 &&
+                         fileLocation->linearReadPrefetchThresholdReached(
+                             linearReadPrefetchThreshold, fileSize)) ||
+                        (randomReadPrefetchThreshold < 1.0 &&
+                            fileLocation->randomReadPrefetchThresholdReached(
+                                randomReadPrefetchThreshold, fileSize)))) {
+
+                    LOG_DBG(1) << "Triggering full file prefetch for " << uuid;
+                    wantedRange =
+                        boost::icl::discrete_interval<off_t>::right_open(
+                            0, fileSize);
+                }
+            }
 
             folly::Optional<folly::fbstring> csum;
             if (helperHandle->needsDataConsistencyCheck())

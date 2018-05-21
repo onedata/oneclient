@@ -97,7 +97,11 @@ public:
     boost::icl::discrete_interval<off_t> lastPrefetch() const
     {
         return m_lastPrefetch;
-    };
+    }
+
+    bool fullPrefetchTriggered() const { return m_fullPrefetchTriggered; }
+
+    void setFullPrefetchTriggered() { m_fullPrefetchTriggered = true; }
 
 private:
     std::unordered_map<folly::fbstring, folly::fbstring> makeParameters(
@@ -113,6 +117,7 @@ private:
         m_handles;
     const std::chrono::seconds m_providerTimeout;
     boost::icl::discrete_interval<off_t> m_lastPrefetch;
+    std::atomic<bool> m_fullPrefetchTriggered;
 };
 
 } // namespace fslogic

@@ -282,6 +282,27 @@ Options::Options()
         .withDescription("Specify idle period in seconds before flush of "
                          "in-memory cache for output data blocks.");
 
+    add<double>()
+        ->withLongName("seqrd-prefetch-threshold")
+        .withConfigName("seqrd-prefetch-threshold")
+        .withValueName("<fraction>")
+        .withDefaultValue(1.0, std::to_string(1.0))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify the fraction of the file, which will trigger "
+                         "replication prefetch after that part of the file is "
+                         "already replicated.");
+
+    add<double>()
+        ->withLongName("rndrd-prefetch-threshold")
+        .withConfigName("rndrd-prefetch-threshold")
+        .withValueName("<fraction>")
+        .withDefaultValue(1.0, std::to_string(1.0))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify the fraction of the file, which will trigger "
+                         "replication prefetch after that part of the file is "
+                         "already replicated in random blocks across entire "
+                         "file.");
+
     add<unsigned int>()
         ->withLongName("metadata-cache-size")
         .withConfigName("metadata_cache_size")
@@ -687,6 +708,18 @@ std::chrono::seconds Options::getWriteBufferFlushDelay() const
         get<unsigned int>(
             {"write-buffer-flush-delay", "write_buffer_flush_delay"})
             .get_value_or(DEFAULT_WRITE_BUFFER_FLUSH_DELAY)};
+}
+
+double Options::getLinearReadPrefetchThreshold() const
+{
+    return get<double>({"seqrd-prefetch-threshold", "seqrd_prefetch_threshold"})
+        .get_value_or(1.0);
+}
+
+double Options::getRandomReadPrefetchThreshold() const
+{
+    return get<double>({"rndrd-prefetch-threshold", "rndrd_prefetch_threshold"})
+        .get_value_or(1.0);
 }
 
 unsigned int Options::getMetadataCacheSize() const

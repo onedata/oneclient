@@ -20,6 +20,35 @@ using namespace one::messages::fuse;
 struct FuseFileLocationMessagesTest : public ::testing::Test {
 };
 
+TEST_F(FuseFileLocationMessagesTest, replicationProgressShouldWork)
+{
+    auto fileLocation = FileLocation{};
+    EXPECT_EQ(fileLocation.replicationProgress(1024), 0.0);
+    fileLocation.putBlock(0, 1024, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.replicationProgress(1024), 1.0);
+}
+
+TEST_F(FuseFileLocationMessagesTest, linearReadPrefetchThresholdReachedMustWork)
+{
+    auto fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 512, FileBlock{"", ""});
+    EXPECT_TRUE(fileLocation.linearReadPrefetchThresholdReached(0.4, 1024));
+    EXPECT_FALSE(fileLocation.linearReadPrefetchThresholdReached(0.6, 1024));
+}
+
+TEST_F(FuseFileLocationMessagesTest, randomReadPrefetchThresholdReachedMustWork)
+{
+    auto fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 50, FileBlock{"", ""});
+    fileLocation.putBlock(100, 50, FileBlock{"", ""});
+    fileLocation.putBlock(500, 50, FileBlock{"", ""});
+    fileLocation.putBlock(600, 50, FileBlock{"", ""});
+    EXPECT_FALSE(fileLocation.randomReadPrefetchThresholdReached(0.2, 1024));
+    fileLocation.putBlock(700, 50, FileBlock{"", ""});
+    fileLocation.putBlock(800, 50, FileBlock{"", ""});
+    EXPECT_TRUE(fileLocation.randomReadPrefetchThresholdReached(0.2, 1024));
+}
+
 TEST_F(FuseFileLocationMessagesTest, emptyFileLocationShouldRenderEmptyProgress)
 {
     auto fileLocation = FileLocation{};
