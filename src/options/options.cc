@@ -290,7 +290,7 @@ Options::Options()
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Specify the fraction of the file, which will trigger "
                          "replication prefetch after that part of the file is "
-                         "already replicated.");
+                         "already replicated (experimental).");
 
     add<double>()
         ->withLongName("rndrd-prefetch-threshold")
@@ -301,7 +301,7 @@ Options::Options()
         .withDescription("Specify the fraction of the file, which will trigger "
                          "replication prefetch after that part of the file is "
                          "already replicated in random blocks across entire "
-                         "file.");
+                         "file (experimental).");
 
     add<unsigned int>()
         ->withLongName("metadata-cache-size")

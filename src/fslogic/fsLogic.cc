@@ -478,8 +478,8 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
 
         fuseFileHandle->setFullPrefetchTriggered();
 
-        LOG(INFO) << "Requesting full file prefetch for " << uuid
-                  << " in range " << prefetchRange;
+        LOG_DBG(1) << "Requesting full file prefetch for " << uuid
+                   << " in range " << prefetchRange;
     }
     else {
         prefetchRange = boost::icl::left_subtract(
@@ -494,8 +494,8 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
 
             if (worthPrefetching) {
                 fuseFileHandle->setLastPrefetch(prefetchRange);
-                LOG(INFO) << "Requesting prefetch for file " << uuid
-                          << " in range " << prefetchRange;
+                LOG_DBG(1) << "Requesting prefetch for file " << uuid
+                           << " in range " << prefetchRange;
             }
         }
     }

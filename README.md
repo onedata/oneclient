@@ -188,17 +188,17 @@ Advanced options:
                                         Specify idle period in seconds before
                                         flush of in-memory cache for output
                                         data blocks.
-  --seqrd-prefetch-threshold <fraction> (=1.000000)
+  --seqrd-prefetch-threshold <fraction> (=1.0)
                                         Specify the fraction of the file, which
                                         will trigger replication prefetch after
                                         that part of the file is already
-                                        replicated.
-  --rndrd-prefetch-threshold <fraction> (=1.000000)
+                                        replicated (experimental).
+  --rndrd-prefetch-threshold <fraction> (=1.0)
                                         Specify the fraction of the file, which
                                         will trigger replication prefetch after
                                         that part of the file is already
                                         replicated in random blocks across
-                                        entire file.
+                                        entire file (experimental).
   --metadata-cache-size <size> (=100000)
                                         Specify maximum number of file metadata
                                         entries which can be stored in cache.
