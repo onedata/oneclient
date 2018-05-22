@@ -44,7 +44,15 @@ helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
     if (it != m_handles.end())
         return it->second;
 
-    auto helper = m_helpersCache.get(uuid, spaceId, storageId, forceProxyIO);
+    auto helper =
+        m_helpersCache.get(uuid, spaceId, storageId, forceProxyIO).get();
+
+    if (!helper) {
+        LOG(ERROR) << "Could not create storage helper for file " << uuid
+                   << " on storage " << storageId;
+        throw std::errc::resource_unavailable_try_again;
+    }
+
     const auto filteredFlags = m_flags & (~O_CREAT) & (~O_APPEND);
 
     auto handle = communication::wait(
