@@ -126,6 +126,8 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options::DEFAULT_METADATA_CACHE_SIZE, options.getMetadataCacheSize());
     EXPECT_EQ(options::DEFAULT_READDIR_PREFETCH_SIZE,
         options.getReaddirPrefetchSize());
+    EXPECT_EQ(1.0, options.getLinearReadPrefetchThreshold());
+    EXPECT_EQ(1.0, options.getRandomReadPrefetchThreshold());
     EXPECT_FALSE(options.getProviderHost());
     EXPECT_FALSE(options.getAccessToken());
 }
@@ -357,6 +359,22 @@ TEST_F(OptionsTest, parseCommandLineShouldSetReaddirPrefetchSize)
         cmdArgs.end(), {"--readdir-prefetch-size", "10000", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(10000, options.getReaddirPrefetchSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetLinearReadPrefetchTriggerThreshold)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--seqrd-prefetch-threshold", "0.3", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(0.3, options.getLinearReadPrefetchThreshold());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadPrefetchTriggerThreshold)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--rndrd-prefetch-threshold", "0.3", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(0.3, options.getRandomReadPrefetchThreshold());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetForeground)

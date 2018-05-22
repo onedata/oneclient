@@ -99,8 +99,13 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_forceFullblockRead{forceFullblockRead}
     , m_fsSubscriptions{m_eventManager, m_metadataCache, m_forceProxyIOCache,
           runInFiber}
+    , m_nextFuseHandleId{0}
     , m_providerTimeout{std::move(providerTimeout)}
     , m_runInFiber{std::move(runInFiber)}
+    , m_linearReadPrefetchThreshold{m_context->options()
+                                        ->getLinearReadPrefetchThreshold()}
+    , m_randomReadPrefetchThreshold{
+          m_context->options()->getRandomReadPrefetchThreshold()}
 {
     using namespace std::placeholders;
 
@@ -309,13 +314,14 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     auto fuseFileHandle = m_fuseFileHandles.at(fileHandleId);
     auto attr = m_metadataCache.getAttr(uuid);
 
+    const auto fileSize = *attr->size();
     const auto possibleRange =
-        boost::icl::discrete_interval<off_t>::right_open(0, *attr->size());
+        boost::icl::discrete_interval<off_t>::right_open(0, fileSize);
 
     const auto requestedRange =
         boost::icl::discrete_interval<off_t>::right_open(offset, offset + size);
 
-    const auto wantedRange = requestedRange & possibleRange;
+    auto wantedRange = requestedRange & possibleRange;
 
     if (boost::icl::size(wantedRange) == 0) {
         LOG_DBG(2) << "Read requested for impossible range " << requestedRange
@@ -452,17 +458,51 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
         boost::icl::discrete_interval<off_t>::right_open(
             offset + size, offset + size + wouldPrefetch * 2);
 
-    const auto prefetchRange = boost::icl::left_subtract(
-        wantToPrefetchRange & possibleRange, availableRange);
+    boost::icl::discrete_interval<off_t> prefetchRange{};
+    bool worthPrefetching = false;
 
-    bool worthPrefetching =
-        boost::icl::size(prefetchRange & fuseFileHandle->lastPrefetch()) == 0 ||
-        boost::icl::size(boost::icl::left_subtract(
-            prefetchRange, fuseFileHandle->lastPrefetch())) >=
-            boost::icl::size(prefetchRange) / 2;
+    const auto fileLocation = m_metadataCache.getLocation(uuid);
+    const auto fileSize = m_metadataCache.getAttr(uuid)->size().value_or(0);
+
+    if (!fuseFileHandle->fullPrefetchTriggered() &&
+        fileLocation->replicationProgress(fileSize) < 1.0 &&
+        ((m_linearReadPrefetchThreshold < 1.0 &&
+             fileLocation->linearReadPrefetchThresholdReached(
+                 m_linearReadPrefetchThreshold, fileSize)) ||
+            (m_randomReadPrefetchThreshold < 1.0 &&
+                fileLocation->randomReadPrefetchThresholdReached(
+                    m_randomReadPrefetchThreshold, fileSize)))) {
+
+        prefetchRange =
+            boost::icl::discrete_interval<off_t>::right_open(0, fileSize);
+
+        worthPrefetching = true;
+
+        fuseFileHandle->setFullPrefetchTriggered();
+
+        LOG_DBG(1) << "Requesting full file prefetch for " << uuid
+                   << " in range " << prefetchRange;
+    }
+    else {
+        prefetchRange = boost::icl::left_subtract(
+            wantToPrefetchRange & possibleRange, availableRange);
+
+        if (boost::icl::size(prefetchRange) > 0) {
+            worthPrefetching = boost::icl::size(prefetchRange &
+                                   fuseFileHandle->lastPrefetch()) == 0 ||
+                boost::icl::size(boost::icl::left_subtract(
+                    prefetchRange, fuseFileHandle->lastPrefetch())) >=
+                    boost::icl::size(prefetchRange) / 2;
+
+            if (worthPrefetching) {
+                fuseFileHandle->setLastPrefetch(prefetchRange);
+                LOG_DBG(1) << "Requesting prefetch for file " << uuid
+                           << " in range " << prefetchRange;
+            }
+        }
+    }
 
     if (boost::icl::size(prefetchRange) > 0 && worthPrefetching) {
-        fuseFileHandle->setLastPrefetch(prefetchRange);
         m_context->communicator()
             ->communicate<messages::fuse::FileLocation>(
                 messages::fuse::SynchronizeBlock{

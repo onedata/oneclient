@@ -27,6 +27,7 @@ FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
     , m_helpersCache{helpersCache}
     , m_forceProxyIOCache{forceProxyIOCache}
     , m_providerTimeout{std::move(providerTimeout)}
+    , m_fullPrefetchTriggered{false}
 {
 }
 

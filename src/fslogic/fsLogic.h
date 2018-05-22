@@ -284,6 +284,9 @@ private:
 
     const std::chrono::seconds m_providerTimeout;
     std::function<void(folly::Function<void()>)> m_runInFiber;
+
+    const double m_linearReadPrefetchThreshold;
+    const double m_randomReadPrefetchThreshold;
 };
 
 } // namespace fslogic
