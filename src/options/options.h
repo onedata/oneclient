@@ -242,6 +242,16 @@ public:
     std::chrono::seconds getWriteBufferFlushDelay() const;
 
     /*
+     * @return The linear read prefetch threshold trigger in (0.0-1.0]
+     */
+    double getLinearReadPrefetchThreshold() const;
+
+    /*
+     * @return The random read prefetch threshold trigger in (0.0-1.0]
+     */
+    double getRandomReadPrefetchThreshold() const;
+
+    /*
      * @return Maximum number of entries in metadata cache.
      */
     unsigned int getMetadataCacheSize() const;

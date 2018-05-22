@@ -135,6 +135,18 @@ public:
      */
     double replicationProgress(const size_t fileSize) const;
 
+    /**
+     * Determines whether the linear read prefetch threshold has been reached.
+     */
+    bool linearReadPrefetchThresholdReached(
+        const double threshold, const size_t fileSize) const;
+
+    /**
+     * Determines whether the random read prefetch threshold has been reached.
+     */
+    bool randomReadPrefetchThresholdReached(
+        const double threshold, const size_t fileSize) const;
+
 private:
     void deserialize(const ProtocolMessage &message);
 
