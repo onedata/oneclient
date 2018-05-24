@@ -96,7 +96,6 @@ std::string uuidToObjectId(const std::string &input)
     objectId[6] = (uint8_t)(crc16.checksum() >> 8);
     objectId[7] = (uint8_t)(crc16.checksum() & 0xFF);
 
-
     // Convert to Base 16
     std::stringstream ss;
     for (uint8_t &b : objectId)

@@ -287,6 +287,7 @@ private:
 
     const double m_linearReadPrefetchThreshold;
     const double m_randomReadPrefetchThreshold;
+    const unsigned int m_randomReadPrefetchBlockThreshold;
 };
 
 } // namespace fslogic

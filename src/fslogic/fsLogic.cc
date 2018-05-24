@@ -106,8 +106,10 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_runInFiber{std::move(runInFiber)}
     , m_linearReadPrefetchThreshold{m_context->options()
                                         ->getLinearReadPrefetchThreshold()}
-    , m_randomReadPrefetchThreshold{
-          m_context->options()->getRandomReadPrefetchThreshold()}
+    , m_randomReadPrefetchThreshold{m_context->options()
+                                        ->getRandomReadPrefetchThreshold()}
+    , m_randomReadPrefetchBlockThreshold{
+          m_context->options()->getRandomReadPrefetchBlockThreshold()}
 {
     using namespace std::placeholders;
 
@@ -462,49 +464,63 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
 
     boost::icl::discrete_interval<off_t> prefetchRange{};
     bool worthPrefetching = false;
+    bool synchronousPrefetchRequested = false;
 
     const auto fileLocation = m_metadataCache.getLocation(uuid);
     const auto fileSize = m_metadataCache.getAttr(uuid)->size().value_or(0);
 
     if (!fuseFileHandle->fullPrefetchTriggered() &&
         fileLocation->replicationProgress(fileSize) < 1.0 &&
-        ((m_linearReadPrefetchThreshold < 1.0 &&
-             fileLocation->linearReadPrefetchThresholdReached(
-                 m_linearReadPrefetchThreshold, fileSize)) ||
+        ((m_randomReadPrefetchBlockThreshold &&
+             fileLocation->blocksCount() >
+                 m_randomReadPrefetchBlockThreshold) ||
+            (m_linearReadPrefetchThreshold < 1.0 &&
+                fileLocation->linearReadPrefetchThresholdReached(
+                    m_linearReadPrefetchThreshold, fileSize)) ||
             (m_randomReadPrefetchThreshold < 1.0 &&
                 fileLocation->randomReadPrefetchThresholdReached(
                     m_randomReadPrefetchThreshold, fileSize)))) {
 
-        using namespace one::client::util::cdmi;
+        if (m_context->options()->isPrefetchModeAsynchronous() &&
+            m_context->options()->getAccessToken()) {
+            using namespace one::client::util::cdmi;
 
-        auto p = std::make_shared<folly::Promise<std::string>>();
-        auto f = p->getFuture();
+            auto p = std::make_shared<folly::Promise<std::string>>();
+            auto f = p->getFuture();
 
-        m_context->scheduler()->post(
-            [ this, uuid = uuid, p = std::move(p) ]() mutable {
-                p->setValue(m_context->communicator()->makeHttpRequest(
-                    m_context->options()->getAccessToken().get(), "POST",
-                    "/api/v3/oneprovider/replicas-id/" +
-                        uuidToObjectId(uuid.toStdString()),
-                    "", ""));
-            });
+            m_context->scheduler()->post(
+                [ this, uuid = uuid, p = std::move(p) ]() mutable {
+                    p->setValue(m_context->communicator()->makeHttpRequest(
+                        m_context->options()->getAccessToken().get(), "POST",
+                        "/api/v3/oneprovider/replicas-id/" +
+                            uuidToObjectId(uuid.toStdString()),
+                        "", ""));
+                });
 
-        f.then([](const std::string &response) {
-             try {
-                 auto transferResponse = folly::parseJson(response);
-                 LOG(INFO) << "Scheduled transfer with ID: "
-                           << transferResponse["transferId"];
-             }
-             catch (...) {
-                 LOG(ERROR)
-                     << "Invalid transfer request response: " << response;
-                 throw;
-             }
-         })
-            .onError([uuid = uuid](std::exception const &e) {
-                LOG(ERROR) << "Transfer request for file " << uuid
-                           << " failed due to: " << e.what();
-            });
+            f.then([uuid = uuid](const std::string &response) {
+                 try {
+                     auto transferResponse = folly::parseJson(response);
+                     LOG_DBG(1) << "Scheduled transfer with ID: "
+                                << transferResponse["transferId"];
+                 }
+                 catch (...) {
+                     LOG(ERROR)
+                         << "Invalid transfer request response: " << response;
+                     throw;
+                 }
+             })
+                .onError([uuid = uuid](std::exception const &e) {
+                    LOG(ERROR) << "Transfer request for file " << uuid
+                               << " failed due to: " << e.what();
+                });
+        }
+        else {
+            prefetchRange =
+                boost::icl::discrete_interval<off_t>::right_open(0, fileSize);
+
+            worthPrefetching = true;
+            synchronousPrefetchRequested = true;
+        }
 
         fuseFileHandle->setFullPrefetchTriggered();
 
@@ -512,20 +528,22 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
                    << " in range " << prefetchRange;
     }
 
-    prefetchRange = boost::icl::left_subtract(
-        wantToPrefetchRange & possibleRange, availableRange);
+    if (!synchronousPrefetchRequested) {
+        prefetchRange = boost::icl::left_subtract(
+            wantToPrefetchRange & possibleRange, availableRange);
 
-    if (boost::icl::size(prefetchRange) > 0) {
-        worthPrefetching = boost::icl::size(prefetchRange &
-                               fuseFileHandle->lastPrefetch()) == 0 ||
-            boost::icl::size(boost::icl::left_subtract(
-                prefetchRange, fuseFileHandle->lastPrefetch())) >=
-                boost::icl::size(prefetchRange) / 2;
+        if (boost::icl::size(prefetchRange) > 0) {
+            worthPrefetching = boost::icl::size(prefetchRange &
+                                   fuseFileHandle->lastPrefetch()) == 0 ||
+                boost::icl::size(boost::icl::left_subtract(
+                    prefetchRange, fuseFileHandle->lastPrefetch())) >=
+                    boost::icl::size(prefetchRange) / 2;
 
-        if (worthPrefetching) {
-            fuseFileHandle->setLastPrefetch(prefetchRange);
-            LOG_DBG(1) << "Requesting prefetch for file " << uuid
-                       << " in range " << prefetchRange;
+            if (worthPrefetching) {
+                fuseFileHandle->setLastPrefetch(prefetchRange);
+                LOG_DBG(1) << "Requesting prefetch for file " << uuid
+                           << " in range " << prefetchRange;
+            }
         }
     }
 
@@ -830,6 +848,11 @@ folly::fbstring FsLogic::getxattr(
         else
             return "\"unknown\"";
     }
+    else if (name == ONE_XATTR("file_blocks_count")) {
+        return "\"" +
+            std::to_string(m_metadataCache.getLocation(uuid)->blocksCount()) +
+            "\"";
+    }
     else if (name == ONE_XATTR("file_blocks")) {
         std::size_t size = m_metadataCache.getAttr(uuid)->size().value_or(0);
         if (size == 0)
@@ -909,6 +932,7 @@ folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
         result.push_back(ONE_XATTR("storage_id"));
         result.push_back(ONE_XATTR("access_type"));
         result.push_back(ONE_XATTR("file_blocks"));
+        result.push_back(ONE_XATTR("file_blocks_count"));
         result.push_back(ONE_XATTR("replication_progress"));
     }
 

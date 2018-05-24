@@ -107,6 +107,11 @@ public:
     const FileBlocksMap &blocks() const;
 
     /**
+     * Returns the number of separate blocks in the file location map.
+     */
+    unsigned int blocksCount() const;
+
+    /**
      * @return Version of this location.
      */
     std::uint64_t version() const;

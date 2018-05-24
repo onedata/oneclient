@@ -257,8 +257,8 @@ public:
     bool isPrefetchModeAsynchronous() const;
 
     /*
-     * @return Absolute number of blocks in file location before prefetch is triggered,
-     *         0 disables the limit.
+     * @return Absolute number of blocks in file location before prefetch is
+     * triggered, 0 disables the limit.
      */
     unsigned int getRandomReadPrefetchBlockThreshold() const;
 
