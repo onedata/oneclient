@@ -95,6 +95,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.areFileReadEventsDisabled());
     EXPECT_EQ(false, options.isFullblockReadForced());
     EXPECT_EQ(true, options.isMonitoringLevelBasic());
+    EXPECT_EQ(false, options.isPrefetchModeAsynchronous());
     EXPECT_EQ(0, options.getVerboseLogLevel());
     EXPECT_EQ(options::DEFAULT_PROVIDER_PORT, options.getProviderPort());
     EXPECT_EQ(options::DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT,
@@ -375,6 +376,21 @@ TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadPrefetchTriggerThreshold)
         cmdArgs.end(), {"--rndrd-prefetch-threshold", "0.3", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(0.3, options.getRandomReadPrefetchThreshold());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetPrefetchModeAsync)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--prefetch-mode-async", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isPrefetchModeAsynchronous());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadBlockThreshold)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--rndrd-prefetch-block-threshold", "150", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(150, options.getRandomReadPrefetchBlockThreshold());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetForeground)

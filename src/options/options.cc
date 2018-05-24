@@ -304,14 +304,33 @@ Options::Options()
                          "file (experimental).");
 
     add<unsigned int>()
+        ->withLongName("rndrd-prefetch-block-threshold")
+        .withConfigName("rndrd_prefetch_block_threshold")
+        .withValueName("<count>")
+        .withDefaultValue(0, std::to_string(0))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Number of separate blocks after which replication "
+                         "for the file is triggered automatically. 0 disables "
+                         "this feature.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("prefetch-mode-async")
+        .withConfigName("prefetch_mode_async")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Enables asynchronous replication requests.");
+
+    add<unsigned int>()
         ->withLongName("metadata-cache-size")
         .withConfigName("metadata_cache_size")
         .withValueName("<size>")
         .withDefaultValue(DEFAULT_METADATA_CACHE_SIZE,
             std::to_string(DEFAULT_METADATA_CACHE_SIZE))
         .withGroup(OptionGroup::ADVANCED)
-        .withDescription("Specify maximum number of file metadata entries "
-                         "which can be stored in cache.");
+        .withDescription("Number of separate blocks after which replication "
+                         "for the file is triggered automatically.");
 
     add<unsigned int>()
         ->withLongName("readdir-prefetch-size")
@@ -720,6 +739,19 @@ double Options::getRandomReadPrefetchThreshold() const
 {
     return get<double>({"rndrd-prefetch-threshold", "rndrd_prefetch_threshold"})
         .get_value_or(1.0);
+}
+
+bool Options::isPrefetchModeAsynchronous() const
+{
+    return get<bool>({"prefetch-mode-async", "prefetch_mode_async"})
+        .get_value_or(false);
+}
+
+unsigned int Options::getRandomReadPrefetchBlockThreshold() const
+{
+    return get<unsigned int>(
+        {"rndrd-prefetch-block-threshold", "rndrd_prefetch_block_threshold"})
+        .get_value_or(0);
 }
 
 unsigned int Options::getMetadataCacheSize() const
