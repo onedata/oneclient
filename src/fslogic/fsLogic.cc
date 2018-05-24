@@ -44,12 +44,14 @@
 #include "messages/fuse/xattr.h"
 #include "messages/fuse/xattrList.h"
 #include "monitoring/monitoring.h"
+#include "util/cdmi.h"
 
 #include <boost/icl/interval_set.hpp>
 #include <folly/Enumerate.h>
 #include <folly/Range.h>
 #include <folly/fibers/FiberManager.h>
 #include <folly/fibers/ForEach.h>
+#include <folly/json.h>
 #include <fuse/fuse_lowlevel.h>
 #include <openssl/md4.h>
 
@@ -473,32 +475,57 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
                 fileLocation->randomReadPrefetchThresholdReached(
                     m_randomReadPrefetchThreshold, fileSize)))) {
 
-        prefetchRange =
-            boost::icl::discrete_interval<off_t>::right_open(0, fileSize);
+        using namespace one::client::util::cdmi;
 
-        worthPrefetching = true;
+        auto p = std::make_shared<folly::Promise<std::string>>();
+        auto f = p->getFuture();
+
+        m_context->scheduler()->post(
+            [ this, uuid = uuid, p = std::move(p) ]() mutable {
+                p->setValue(m_context->communicator()->makeHttpRequest(
+                    m_context->options()->getAccessToken().get(), "POST",
+                    "/api/v3/oneprovider/replicas-id/" +
+                        uuidToObjectId(uuid.toStdString()),
+                    "", ""));
+            });
+
+        f.then([](const std::string &response) {
+             try {
+                 auto transferResponse = folly::parseJson(response);
+                 LOG(INFO) << "Scheduled transfer with ID: "
+                           << transferResponse["transferId"];
+             }
+             catch (...) {
+                 LOG(ERROR)
+                     << "Invalid transfer request response: " << response;
+                 throw;
+             }
+         })
+            .onError([uuid = uuid](std::exception const &e) {
+                LOG(ERROR) << "Transfer request for file " << uuid
+                           << " failed due to: " << e.what();
+            });
 
         fuseFileHandle->setFullPrefetchTriggered();
 
         LOG_DBG(1) << "Requesting full file prefetch for " << uuid
                    << " in range " << prefetchRange;
     }
-    else {
-        prefetchRange = boost::icl::left_subtract(
-            wantToPrefetchRange & possibleRange, availableRange);
 
-        if (boost::icl::size(prefetchRange) > 0) {
-            worthPrefetching = boost::icl::size(prefetchRange &
-                                   fuseFileHandle->lastPrefetch()) == 0 ||
-                boost::icl::size(boost::icl::left_subtract(
-                    prefetchRange, fuseFileHandle->lastPrefetch())) >=
-                    boost::icl::size(prefetchRange) / 2;
+    prefetchRange = boost::icl::left_subtract(
+        wantToPrefetchRange & possibleRange, availableRange);
 
-            if (worthPrefetching) {
-                fuseFileHandle->setLastPrefetch(prefetchRange);
-                LOG_DBG(1) << "Requesting prefetch for file " << uuid
-                           << " in range " << prefetchRange;
-            }
+    if (boost::icl::size(prefetchRange) > 0) {
+        worthPrefetching = boost::icl::size(prefetchRange &
+                               fuseFileHandle->lastPrefetch()) == 0 ||
+            boost::icl::size(boost::icl::left_subtract(
+                prefetchRange, fuseFileHandle->lastPrefetch())) >=
+                boost::icl::size(prefetchRange) / 2;
+
+        if (worthPrefetching) {
+            fuseFileHandle->setLastPrefetch(prefetchRange);
+            LOG_DBG(1) << "Requesting prefetch for file " << uuid
+                       << " in range " << prefetchRange;
         }
     }
 
