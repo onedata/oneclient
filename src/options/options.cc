@@ -311,7 +311,7 @@ Options::Options()
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Number of separate blocks after which replication "
                          "for the file is triggered automatically. 0 disables "
-                         "this feature.");
+                         "this feature (experimental).");
 
     add<bool>()
         ->asSwitch()
@@ -320,7 +320,8 @@ Options::Options()
         .withImplicitValue(true)
         .withDefaultValue(false, "false")
         .withGroup(OptionGroup::ADVANCED)
-        .withDescription("Enables asynchronous replication requests.");
+        .withDescription(
+            "Enables asynchronous replication requests (experimental).");
 
     add<unsigned int>()
         ->withLongName("metadata-cache-size")
