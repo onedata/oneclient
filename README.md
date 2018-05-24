@@ -199,6 +199,13 @@ Advanced options:
                                         that part of the file is already
                                         replicated in random blocks across
                                         entire file (experimental).
+  --rndrd-prefetch-block-threshold <count> (=0)
+                                        Number of separate blocks after which
+                                        replication for the file is triggered
+                                        automatically. 0 disables this feature
+                                        (experimental).
+  --prefetch-mode-async                 Enables asynchronous replication
+                                        requests (experimental).
   --metadata-cache-size <size> (=100000)
                                         Specify maximum number of file metadata
                                         entries which can be stored in cache.
