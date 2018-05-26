@@ -61,6 +61,13 @@ unsigned int FileLocation::blocksCount() const
     return boost::icl::interval_count(m_blocks);
 }
 
+unsigned int FileLocation::blocksInRange(const off_t offset, const size_t size)
+{
+    return boost::icl::interval_count(m_blocks &
+        boost::icl::discrete_interval<off_t>::right_open(
+            offset, offset + size));
+}
+
 void FileLocation::putBlock(
     const off_t offset, const size_t size, FileBlock &&block)
 {

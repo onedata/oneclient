@@ -108,8 +108,14 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
                                         ->getLinearReadPrefetchThreshold()}
     , m_randomReadPrefetchThreshold{m_context->options()
                                         ->getRandomReadPrefetchThreshold()}
-    , m_randomReadPrefetchBlockThreshold{
-          m_context->options()->getRandomReadPrefetchBlockThreshold()}
+    , m_randomReadPrefetchBlockThreshold{m_context->options()
+                                             ->getRandomReadPrefetchBlockThreshold()}
+    , m_randomReadPrefetchClusterWindow{m_context->options()
+                                            ->getRandomReadPrefetchClusterWindow()}
+    , m_randomReadPrefetchClusterBlockThreshold{m_context->options()
+                                                    ->getRandomReadPrefetchClusterBlockThreshold()}
+    , m_randomReadPrefetchClusterWindowGrowFactor{
+          m_context->options()->getRandomReadPrefetchClusterWindowGrowFactor()}
 {
     using namespace std::placeholders;
 
@@ -342,7 +348,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     try {
         auto locationData = m_metadataCache.getBlock(uuid, offset);
         if (!locationData.hasValue()) {
-            LOG_DBG(1) << "Requested block for " << uuid
+            LOG_DBG(2) << "Requested block for " << uuid
                        << " not yet replicated - fetching from remote provider";
 
             auto defaultBlock = m_metadataCache.getDefaultBlock(uuid);
@@ -456,6 +462,15 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
     const boost::icl::discrete_interval<off_t> possibleRange,
     const boost::icl::discrete_interval<off_t> availableRange)
 {
+    const auto fileSize = m_metadataCache.getAttr(uuid)->size().value_or(0);
+    const auto fileLocation = m_metadataCache.getLocation(uuid);
+    const auto replicationProgress =
+        fileLocation->replicationProgress(fileSize);
+
+    if (replicationProgress == 1.0) {
+        return;
+    }
+
     const std::size_t wouldPrefetch = helperHandle->wouldPrefetch(offset, size);
 
     const auto wantToPrefetchRange =
@@ -466,12 +481,8 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
     bool worthPrefetching = false;
     bool synchronousPrefetchRequested = false;
 
-    const auto fileLocation = m_metadataCache.getLocation(uuid);
-    const auto fileSize = m_metadataCache.getAttr(uuid)->size().value_or(0);
-
-    if (!fuseFileHandle->fullPrefetchTriggered() &&
-        fileLocation->replicationProgress(fileSize) < 1.0 &&
-        ((m_randomReadPrefetchBlockThreshold &&
+    // Check if we should considered full file prefetch
+    if (((m_randomReadPrefetchBlockThreshold &&
              fileLocation->blocksCount() >
                  m_randomReadPrefetchBlockThreshold) ||
             (m_linearReadPrefetchThreshold < 1.0 &&
@@ -481,7 +492,8 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
                 fileLocation->randomReadPrefetchThresholdReached(
                     m_randomReadPrefetchThreshold, fileSize)))) {
 
-        if (m_context->options()->isPrefetchModeAsynchronous() &&
+        if (!fuseFileHandle->fullPrefetchTriggered() &&
+            m_context->options()->isPrefetchModeAsynchronous() &&
             m_context->options()->getAccessToken()) {
             using namespace one::client::util::cdmi;
 
@@ -524,8 +536,33 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
 
         fuseFileHandle->setFullPrefetchTriggered();
 
-        LOG_DBG(1) << "Requesting full file prefetch for " << uuid
+        LOG_DBG(2) << "Requesting full file prefetch for " << uuid
                    << " in range " << prefetchRange;
+    }
+    // Check if we should consider block cluster prefetch
+    else if (m_randomReadPrefetchClusterWindow) {
+        // Calculate the current clustering window size based on initial
+        // window size, grow factor and current replication progress
+        const auto windowSize = m_randomReadPrefetchClusterWindow *
+            (1.0 +
+                m_randomReadPrefetchClusterWindowGrowFactor * fileSize *
+                    replicationProgress / m_randomReadPrefetchClusterWindow);
+
+        // Get the number of different blocks in the current clustering window
+        // around the current read offset - if higher than threshold, request
+        // synchronous prefetch of that window clipped to file size
+        if (fileLocation->blocksInRange(
+                std::max<off_t>(0, offset - windowSize / 2),
+                std::min<off_t>(offset + windowSize / 2, fileSize)) >
+            m_randomReadPrefetchClusterBlockThreshold) {
+
+            prefetchRange = boost::icl::discrete_interval<off_t>::right_open(
+                std::max<off_t>(0, offset - windowSize / 2),
+                std::min<off_t>(offset + windowSize / 2, fileSize));
+
+            worthPrefetching = true;
+            synchronousPrefetchRequested = true;
+        }
     }
 
     if (!synchronousPrefetchRequested) {

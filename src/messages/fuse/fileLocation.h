@@ -141,6 +141,14 @@ public:
     double replicationProgress(const size_t fileSize) const;
 
     /**
+     * Calculates the number of different blocks in a given range
+     * @param offset The start offset of the requested range
+     * @param size The length of the range
+     * @return Number of blocks in range [offset, offset+size)
+     */
+    unsigned int blocksInRange(const off_t offset, const size_t size);
+
+    /**
      * Determines whether the linear read prefetch threshold has been reached.
      */
     bool linearReadPrefetchThresholdReached(
