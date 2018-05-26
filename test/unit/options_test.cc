@@ -129,6 +129,10 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options.getReaddirPrefetchSize());
     EXPECT_EQ(1.0, options.getLinearReadPrefetchThreshold());
     EXPECT_EQ(1.0, options.getRandomReadPrefetchThreshold());
+    EXPECT_EQ(0, options.getRandomReadPrefetchClusterWindow());
+    EXPECT_EQ(options::DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD,
+        options.getRandomReadPrefetchClusterBlockThreshold());
+    EXPECT_EQ(0.0, options.getRandomReadPrefetchClusterWindowGrowFactor());
     EXPECT_FALSE(options.getProviderHost());
     EXPECT_FALSE(options.getAccessToken());
 }
@@ -376,6 +380,30 @@ TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadPrefetchTriggerThreshold)
         cmdArgs.end(), {"--rndrd-prefetch-threshold", "0.3", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(0.3, options.getRandomReadPrefetchThreshold());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadClusterWindow)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--rndrd-prefetch-cluster-window", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getRandomReadPrefetchClusterWindow());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadClusterBlockThreshold)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--rndrd-prefetch-cluster-block-threshold", "10", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(10, options.getRandomReadPrefetchClusterBlockThreshold());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadClusterWindowGrowFactor)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--rndrd-prefetch-cluster-window-grow-factor", "1.2", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1.2, options.getRandomReadPrefetchClusterWindowGrowFactor());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetPrefetchModeAsync)

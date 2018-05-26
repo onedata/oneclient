@@ -313,6 +313,39 @@ Options::Options()
                          "for the file is triggered automatically. 0 disables "
                          "this feature (experimental).");
 
+    add<unsigned int>()
+        ->withLongName("rndrd-prefetch-cluster-window")
+        .withConfigName("rndrd_prefetch_cluster_window")
+        .withValueName("<size>")
+        .withDefaultValue(0, std::to_string(0))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Cluster window size for prefetching [bytes] (experimental).");
+
+    add<unsigned int>()
+        ->withLongName("rndrd-prefetch-cluster-block-threshold")
+        .withConfigName("rndrd_prefetch_cluster_block_threshold")
+        .withValueName("<count>")
+        .withDefaultValue(DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD,
+            std::to_string(DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Number of separate blocks in a cluster window around "
+                         "current read, after which replication of a cluster "
+                         "block (window) is triggered (experimental).");
+
+    add<double>()
+        ->withLongName("rndrd-prefetch-cluster-window-grow-factor")
+        .withConfigName("rndrd_prefetch_cluster_window_grow_factor")
+        .withValueName("<fraction>")
+        .withDefaultValue(0.0, std::to_string(0.0))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Prefetch cluster window grow factor, which enables "
+            "the prefetch window to grow proportionally to "
+            "current replication progress - "
+            "initial_window_size*[1+grow_factor*file_size*replication_progress/"
+            "initial_window_size)] (experimental).");
+
     add<bool>()
         ->asSwitch()
         .withLongName("prefetch-mode-async")
@@ -753,6 +786,27 @@ unsigned int Options::getRandomReadPrefetchBlockThreshold() const
     return get<unsigned int>(
         {"rndrd-prefetch-block-threshold", "rndrd_prefetch_block_threshold"})
         .get_value_or(0);
+}
+
+unsigned int Options::getRandomReadPrefetchClusterWindow() const
+{
+    return get<unsigned int>(
+        {"rndrd-prefetch-cluster-window", "rndrd_prefetch_cluster_window"})
+        .get_value_or(DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE);
+}
+
+unsigned int Options::getRandomReadPrefetchClusterBlockThreshold() const
+{
+    return get<unsigned int>({"rndrd-prefetch-cluster-block-threshold",
+                                 "rndrd_prefetch_cluster_block_threshold"})
+        .get_value_or(DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD);
+}
+
+double Options::getRandomReadPrefetchClusterWindowGrowFactor() const
+{
+    return get<double>({"rndrd-prefetch-cluster-window-grow-factor",
+                           "rndrd_prefetch_cluster_window_grow_factor"})
+        .get_value_or(0.0);
 }
 
 unsigned int Options::getMetadataCacheSize() const
