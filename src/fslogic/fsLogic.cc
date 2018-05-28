@@ -44,12 +44,14 @@
 #include "messages/fuse/xattr.h"
 #include "messages/fuse/xattrList.h"
 #include "monitoring/monitoring.h"
+#include "util/cdmi.h"
 
 #include <boost/icl/interval_set.hpp>
 #include <folly/Enumerate.h>
 #include <folly/Range.h>
 #include <folly/fibers/FiberManager.h>
 #include <folly/fibers/ForEach.h>
+#include <folly/json.h>
 #include <fuse/fuse_lowlevel.h>
 #include <openssl/md4.h>
 
@@ -104,8 +106,16 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_runInFiber{std::move(runInFiber)}
     , m_linearReadPrefetchThreshold{m_context->options()
                                         ->getLinearReadPrefetchThreshold()}
-    , m_randomReadPrefetchThreshold{
-          m_context->options()->getRandomReadPrefetchThreshold()}
+    , m_randomReadPrefetchThreshold{m_context->options()
+                                        ->getRandomReadPrefetchThreshold()}
+    , m_randomReadPrefetchBlockThreshold{m_context->options()
+                                             ->getRandomReadPrefetchBlockThreshold()}
+    , m_randomReadPrefetchClusterWindow{m_context->options()
+                                            ->getRandomReadPrefetchClusterWindow()}
+    , m_randomReadPrefetchClusterBlockThreshold{m_context->options()
+                                                    ->getRandomReadPrefetchClusterBlockThreshold()}
+    , m_randomReadPrefetchClusterWindowGrowFactor{
+          m_context->options()->getRandomReadPrefetchClusterWindowGrowFactor()}
 {
     using namespace std::placeholders;
 
@@ -338,7 +348,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     try {
         auto locationData = m_metadataCache.getBlock(uuid, offset);
         if (!locationData.hasValue()) {
-            LOG_DBG(1) << "Requested block for " << uuid
+            LOG_DBG(2) << "Requested block for " << uuid
                        << " not yet replicated - fetching from remote provider";
 
             auto defaultBlock = m_metadataCache.getDefaultBlock(uuid);
@@ -452,6 +462,15 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
     const boost::icl::discrete_interval<off_t> possibleRange,
     const boost::icl::discrete_interval<off_t> availableRange)
 {
+    const auto fileSize = m_metadataCache.getAttr(uuid)->size().value_or(0);
+    const auto fileLocation = m_metadataCache.getLocation(uuid);
+    const auto replicationProgress =
+        fileLocation->replicationProgress(fileSize);
+
+    if (replicationProgress == 1.0) {
+        return;
+    }
+
     const std::size_t wouldPrefetch = helperHandle->wouldPrefetch(offset, size);
 
     const auto wantToPrefetchRange =
@@ -460,30 +479,93 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
 
     boost::icl::discrete_interval<off_t> prefetchRange{};
     bool worthPrefetching = false;
+    bool synchronousPrefetchRequested = false;
 
-    const auto fileLocation = m_metadataCache.getLocation(uuid);
-    const auto fileSize = m_metadataCache.getAttr(uuid)->size().value_or(0);
-
-    if (!fuseFileHandle->fullPrefetchTriggered() &&
-        fileLocation->replicationProgress(fileSize) < 1.0 &&
-        ((m_linearReadPrefetchThreshold < 1.0 &&
-             fileLocation->linearReadPrefetchThresholdReached(
-                 m_linearReadPrefetchThreshold, fileSize)) ||
+    // Check if we should considered full file prefetch
+    if (((m_randomReadPrefetchBlockThreshold &&
+             fileLocation->blocksCount() >
+                 m_randomReadPrefetchBlockThreshold) ||
+            (m_linearReadPrefetchThreshold < 1.0 &&
+                fileLocation->linearReadPrefetchThresholdReached(
+                    m_linearReadPrefetchThreshold, fileSize)) ||
             (m_randomReadPrefetchThreshold < 1.0 &&
                 fileLocation->randomReadPrefetchThresholdReached(
                     m_randomReadPrefetchThreshold, fileSize)))) {
 
-        prefetchRange =
-            boost::icl::discrete_interval<off_t>::right_open(0, fileSize);
+        if (!fuseFileHandle->fullPrefetchTriggered() &&
+            m_context->options()->isPrefetchModeAsynchronous() &&
+            m_context->options()->getAccessToken()) {
+            using namespace one::client::util::cdmi;
 
-        worthPrefetching = true;
+            auto p = std::make_shared<folly::Promise<std::string>>();
+            auto f = p->getFuture();
+
+            m_context->scheduler()->post(
+                [ this, uuid = uuid, p = std::move(p) ]() mutable {
+                    p->setValue(m_context->communicator()->makeHttpRequest(
+                        m_context->options()->getAccessToken().get(), "POST",
+                        "/api/v3/oneprovider/replicas-id/" +
+                            uuidToObjectId(uuid.toStdString()),
+                        "", ""));
+                });
+
+            f.then([uuid = uuid](const std::string &response) {
+                 try {
+                     auto transferResponse = folly::parseJson(response);
+                     LOG_DBG(1) << "Scheduled transfer with ID: "
+                                << transferResponse["transferId"];
+                 }
+                 catch (...) {
+                     LOG(ERROR)
+                         << "Invalid transfer request response: " << response;
+                     throw;
+                 }
+             })
+                .onError([uuid = uuid](std::exception const &e) {
+                    LOG(ERROR) << "Transfer request for file " << uuid
+                               << " failed due to: " << e.what();
+                });
+        }
+        else {
+            prefetchRange =
+                boost::icl::discrete_interval<off_t>::right_open(0, fileSize);
+
+            worthPrefetching = true;
+            synchronousPrefetchRequested = true;
+        }
 
         fuseFileHandle->setFullPrefetchTriggered();
 
-        LOG_DBG(1) << "Requesting full file prefetch for " << uuid
+        LOG_DBG(2) << "Requesting full file prefetch for " << uuid
                    << " in range " << prefetchRange;
     }
-    else {
+    // Check if we should consider block cluster prefetch
+    else if (m_randomReadPrefetchClusterWindow) {
+        // Calculate the current clustering window size based on initial
+        // window size, grow factor and current replication progress
+        const auto windowSize = m_randomReadPrefetchClusterWindow *
+            (1.0 +
+                m_randomReadPrefetchClusterWindowGrowFactor * fileSize *
+                    replicationProgress / m_randomReadPrefetchClusterWindow);
+
+        // Get the number of different blocks in the current clustering window
+        // around the current read offset - if higher than threshold, request
+        // synchronous prefetch of that window clipped to file size
+        if (fileLocation->blocksInRange(
+                std::max<off_t>(0, offset - windowSize / 2),
+                std::min<off_t>(offset + windowSize / 2, fileSize)) >
+            m_randomReadPrefetchClusterBlockThreshold) {
+
+            prefetchRange = boost::icl::discrete_interval<off_t>::right_open(
+                std::max<off_t>(0, offset - windowSize / 2),
+                std::min<off_t>(offset + windowSize / 2, fileSize));
+
+            worthPrefetching = true;
+            synchronousPrefetchRequested = true;
+        }
+    }
+
+    if (!synchronousPrefetchRequested) {
         prefetchRange = boost::icl::left_subtract(
             wantToPrefetchRange & possibleRange, availableRange);
 
@@ -803,6 +885,11 @@ folly::fbstring FsLogic::getxattr(
         else
             return "\"unknown\"";
     }
+    else if (name == ONE_XATTR("file_blocks_count")) {
+        return "\"" +
+            std::to_string(m_metadataCache.getLocation(uuid)->blocksCount()) +
+            "\"";
+    }
     else if (name == ONE_XATTR("file_blocks")) {
         std::size_t size = m_metadataCache.getAttr(uuid)->size().value_or(0);
         if (size == 0)
@@ -882,6 +969,7 @@ folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
         result.push_back(ONE_XATTR("storage_id"));
         result.push_back(ONE_XATTR("access_type"));
         result.push_back(ONE_XATTR("file_blocks"));
+        result.push_back(ONE_XATTR("file_blocks_count"));
         result.push_back(ONE_XATTR("replication_progress"));
     }
 

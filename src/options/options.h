@@ -36,6 +36,8 @@ static constexpr auto DEFAULT_READ_BUFFER_PREFETCH_DURATION = 1;
 static constexpr auto DEFAULT_WRITE_BUFFER_MIN_SIZE = 20 * 1024 * 1024;
 static constexpr auto DEFAULT_WRITE_BUFFER_MAX_SIZE = 50 * 1024 * 1024;
 static constexpr auto DEFAULT_WRITE_BUFFER_FLUSH_DELAY = 5;
+static constexpr auto DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE = 0;
+static constexpr auto DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD = 5;
 static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 100000;
 static constexpr auto DEFAULT_READDIR_PREFETCH_SIZE = 2500;
 static constexpr auto DEFAULT_PROVIDER_TIMEOUT = 2 * 60;
@@ -250,6 +252,33 @@ public:
      * @return The random read prefetch threshold trigger in (0.0-1.0]
      */
     double getRandomReadPrefetchThreshold() const;
+
+    /*
+     * @return Is prefetch mode sync or async.
+     */
+    bool isPrefetchModeAsynchronous() const;
+
+    /*
+     * @return Absolute number of blocks in file location before prefetch is
+     * triggered, 0 disables the limit.
+     */
+    unsigned int getRandomReadPrefetchBlockThreshold() const;
+
+    /*
+     * @return Cluster window size for random read block prefetch.
+     */
+    unsigned int getRandomReadPrefetchClusterWindow() const;
+
+    /*
+     * @return The number of distinct blocks within cluster window
+     * which will trigger prefetch of entire window.
+     */
+    unsigned int getRandomReadPrefetchClusterBlockThreshold() const;
+
+    /*
+     * @return Cluster window size grow factor for random read block prefetch.
+     */
+    double getRandomReadPrefetchClusterWindowGrowFactor() const;
 
     /*
      * @return Maximum number of entries in metadata cache.

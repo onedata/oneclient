@@ -199,6 +199,29 @@ Advanced options:
                                         that part of the file is already
                                         replicated in random blocks across
                                         entire file (experimental).
+  --rndrd-prefetch-block-threshold <count> (=0)
+                                        Number of separate blocks after which
+                                        replication for the file is triggered
+                                        automatically. 0 disables this feature
+                                        (experimental).
+  --rndrd-prefetch-cluster-window <size> (=0)
+                                        Cluster window size for prefetching
+                                        [bytes] (experimental).
+  --rndrd-prefetch-cluster-block-threshold <count> (=5)
+                                        Number of separate blocks in a cluster
+                                        window around current read, after which
+                                        replication of a cluster block (window)
+                                        is triggered (experimental).
+  --rndrd-prefetch-cluster-window-grow-factor <fraction> (=0.000000)
+                                        Prefetch cluster window grow factor,
+                                        which enables the prefetch window to
+                                        grow proportionally to current
+                                        replication progress -
+                                        initial_window_size*[1+grow_factor*file
+                                        _size*replication_progress/initial_wind
+                                        ow_size)] (experimental).
+  --prefetch-mode-async                 Enables asynchronous replication
+                                        requests (experimental).
   --metadata-cache-size <size> (=100000)
                                         Specify maximum number of file metadata
                                         entries which can be stored in cache.
