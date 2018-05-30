@@ -16,12 +16,14 @@
 using namespace one::messages::fuse;
 
 constexpr auto blockSize = 1024; // 1KB
+
 BENCHMARK(benchmarkPutSingleBlock)
 {
     auto fileLocation = FileLocation{};
     fileLocation.putBlock(0, blockSize, FileBlock{" ", " "});
     folly::doNotOptimizeAway(fileLocation);
 }
+
 BENCHMARK(benchmarkPutHugeBlock)
 {
     auto fileLocation = FileLocation{};
@@ -29,24 +31,26 @@ BENCHMARK(benchmarkPutHugeBlock)
         0, blockSize * blockSize * blockSize, FileBlock{" ", " "});
     folly::doNotOptimizeAway(fileLocation);
 }
+
 BENCHMARK(benchmarkPutManyBlocks)
 {
+    auto fileLocation = FileLocation{};
     FOR_EACH_RANGE(i, 0, 1000000)
     {
-        auto fileLocation = FileLocation{};
         fileLocation.putBlock(blockSize * i, blockSize, FileBlock{" ", " "});
-        folly::doNotOptimizeAway(fileLocation);
     }
+    folly::doNotOptimizeAway(fileLocation);
 }
+
 BENCHMARK(benchmarkPutBlockRandomly)
 {
     auto fileLocation = FileLocation{};
     auto randomBlockNumber = 0;
     BENCHMARK_SUSPEND
     {
-        for (auto i : boost::irange(1, 1024))
+        for (auto i : boost::irange(1, 1024 * 1024))
             fileLocation.putBlock(
-                i * blockSize, blockSize, FileBlock{" ", " "});
+                2 * i * blockSize, blockSize, FileBlock{" ", " "});
     }
     BENCHMARK_SUSPEND
     {
@@ -54,12 +58,13 @@ BENCHMARK(benchmarkPutBlockRandomly)
         boost::random::mt19937 gen{static_cast<std::uint32_t>(now)};
         boost::random::uniform_int_distribution<> randomBlock(1, 1024 * 1024);
         randomBlockNumber = randomBlock(gen);
-        folly::doNotOptimizeAway(fileLocation);
-        folly::doNotOptimizeAway(randomBlockNumber);
     }
 
     fileLocation.putBlock(randomBlockNumber, blockSize, FileBlock{" ", " "});
+    folly::doNotOptimizeAway(fileLocation);
+    folly::doNotOptimizeAway(randomBlockNumber);
 }
+
 BENCHMARK(benchmarkPutManyBlocksRandomly)
 {
     auto fileLocation = FileLocation{};
@@ -79,50 +84,171 @@ BENCHMARK(benchmarkPutManyBlocksRandomly)
             boost::random::uniform_int_distribution<> randomBlock(
                 1, 1024 * 1024);
             randomBlockNumber = randomBlock(gen);
-            folly::doNotOptimizeAway(fileLocation);
-            folly::doNotOptimizeAway(randomBlockNumber);
         }
 
         fileLocation.putBlock(
             randomBlockNumber, blockSize, FileBlock{" ", " "});
     }
+    folly::doNotOptimizeAway(fileLocation);
+    folly::doNotOptimizeAway(randomBlockNumber);
 }
+
 BENCHMARK(benchmarkFileBlockCreation)
 {
     auto fileBlock = FileBlock{" ", " "};
-
     folly::doNotOptimizeAway(fileBlock);
 }
+
 BENCHMARK(benchmarkToString)
 {
     auto fileLocation = FileLocation{};
     BENCHMARK_SUSPEND
     {
         fileLocation.putBlock(0, blockSize, FileBlock{" ", " "});
-        folly::doNotOptimizeAway(fileLocation);
     }
     fileLocation.toString();
+    folly::doNotOptimizeAway(fileLocation);
 }
+
 BENCHMARK(benchmarkProgressString)
 {
     auto fileLocation = FileLocation{};
     BENCHMARK_SUSPEND
     {
         fileLocation.putBlock(0, blockSize, FileBlock{" ", " "});
-        folly::doNotOptimizeAway(fileLocation);
     }
     fileLocation.progressString(blockSize, 10);
+    folly::doNotOptimizeAway(fileLocation);
 }
+
+BENCHMARK(benchmarkProgressStringLarge)
+{
+    auto fileLocation = FileLocation{};
+    BENCHMARK_SUSPEND
+    {
+        FOR_EACH_RANGE(i, 0, 1000000)
+        {
+            fileLocation.putBlock(
+                blockSize * i, blockSize, FileBlock{" ", " "});
+        }
+    }
+    fileLocation.progressString(blockSize, 10);
+    folly::doNotOptimizeAway(fileLocation);
+}
+
 BENCHMARK(benchmarkReplicationProgress)
 {
     auto fileLocation = FileLocation{};
     BENCHMARK_SUSPEND
     {
         fileLocation.putBlock(0, blockSize, FileBlock{" ", " "});
-        folly::doNotOptimizeAway(fileLocation);
     }
     fileLocation.replicationProgress(blockSize);
+    folly::doNotOptimizeAway(fileLocation);
 }
+
+BENCHMARK(benchmarkReplicationProgressLarge)
+{
+    auto fileLocation = FileLocation{};
+    BENCHMARK_SUSPEND
+    {
+        FOR_EACH_RANGE(i, 0, 1000000)
+        {
+            fileLocation.putBlock(
+                blockSize * i, blockSize, FileBlock{" ", " "});
+        }
+    }
+    fileLocation.replicationProgress(blockSize);
+    folly::doNotOptimizeAway(fileLocation);
+}
+
+BENCHMARK(benchmarkLinearReadReadPrefetch)
+{
+    auto fileLocation = FileLocation{};
+    BENCHMARK_SUSPEND
+    {
+        fileLocation.putBlock(0, blockSize, FileBlock{" ", " "});
+    }
+    fileLocation.linearReadPrefetchThresholdReached(1, 1);
+    folly::doNotOptimizeAway(fileLocation);
+}
+
+BENCHMARK(benchmarkLinearReadReadPrefetchLarge)
+{
+    auto fileLocation = FileLocation{};
+    BENCHMARK_SUSPEND
+    {
+        FOR_EACH_RANGE(i, 0, 1000000)
+        {
+            fileLocation.putBlock(
+                blockSize * i, blockSize, FileBlock{" ", " "});
+        }
+    }
+    fileLocation.linearReadPrefetchThresholdReached(1, 1);
+    folly::doNotOptimizeAway(fileLocation);
+}
+
+BENCHMARK(benchmarkRandomReadReadPrefetch)
+{
+    auto fileLocation = FileLocation{};
+    BENCHMARK_SUSPEND
+    {
+        fileLocation.putBlock(0, blockSize, FileBlock{" ", " "});
+    }
+    fileLocation.randomReadPrefetchThresholdReached(1, 1);
+    folly::doNotOptimizeAway(fileLocation);
+}
+
+BENCHMARK(benchmarkRandomReadReadPrefetchLarge)
+{
+    auto fileLocation = FileLocation{};
+    BENCHMARK_SUSPEND
+    {
+        FOR_EACH_RANGE(i, 0, 1000000)
+        {
+            fileLocation.putBlock(
+                blockSize * i, blockSize, FileBlock{" ", " "});
+        }
+    }
+    fileLocation.randomReadPrefetchThresholdReached(1, 1);
+    folly::doNotOptimizeAway(fileLocation);
+}
+
+BENCHMARK(benchmarkRandomBlocksInRangeAll)
+{
+    auto fileLocation = FileLocation{};
+    BENCHMARK_SUSPEND
+    {
+        FOR_EACH_RANGE(i, 0, 1000000)
+        {
+            fileLocation.putBlock(
+                blockSize * i, blockSize, FileBlock{" ", " "});
+        }
+    }
+    fileLocation.blocksInRange(0, 1000000);
+    folly::doNotOptimizeAway(fileLocation);
+}
+
+BENCHMARK(benchmarkRandomBlocksInRangeRandom)
+{
+    auto fileLocation = FileLocation{};
+    auto intervalBegin = 0;
+    BENCHMARK_SUSPEND
+    {
+        std::time_t now = std::time(0);
+        boost::random::mt19937 gen{static_cast<std::uint32_t>(now)};
+        boost::random::uniform_int_distribution<> randomBlock(1, 1024 * 1024);
+        intervalBegin = randomBlock(gen);
+        FOR_EACH_RANGE(i, 0, 1000000)
+        {
+            fileLocation.putBlock(
+                blockSize * i, blockSize, FileBlock{" ", " "});
+        }
+    }
+    fileLocation.blocksInRange(intervalBegin, 1024);
+    folly::doNotOptimizeAway(fileLocation);
+}
+
 BENCHMARK(benchmarkBoostInterval)
 {
     auto fileLocation = FileLocation{};
@@ -135,4 +261,5 @@ BENCHMARK(benchmarkBoostInterval)
         boost::icl::discrete_interval<off_t>::right_open(0, blockSize);
     folly::doNotOptimizeAway(interval);
 }
+
 int main() { folly::runBenchmarks(); }

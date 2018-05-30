@@ -1,4 +1,3 @@
-# TODO: define target to run all benchmarks
 add_custom_target(benchmark)
 
 find_library(FOLLY_BENCHMARK_LIBRARIES follybenchmark)
