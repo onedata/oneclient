@@ -135,6 +135,7 @@ private:
     // Store the access type flag for each storage, representing the
     // currently detected access type mode.
     std::unordered_map<folly::fbstring, AccessType> m_accessType;
+    std::mutex m_accessTypeMutex;
 
     // Helpers are stored in a map where keys are defined using 2 values:
     //  - storageId of the storage
@@ -148,6 +149,7 @@ private:
     std::unordered_map<HelpersCacheKey,
         std::shared_ptr<folly::SharedPromise<HelperPtr>>>
         m_cache;
+    std::mutex m_cacheMutex;
 
     // Timeout for Oneprovider responses
     std::chrono::milliseconds m_providerTimeout;

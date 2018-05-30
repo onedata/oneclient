@@ -80,6 +80,8 @@ HelpersCache::~HelpersCache()
 HelpersCache::AccessType HelpersCache::getAccessType(
     const folly::fbstring &storageId)
 {
+    std::lock_guard<std::mutex> guard(m_accessTypeMutex);
+
     if (m_accessType.find(storageId) == m_accessType.end())
         return AccessType::UNKNOWN;
 
@@ -104,11 +106,15 @@ folly::Future<HelpersCache::HelperPtr> HelpersCache::get(
 
     if (m_options.isDirectIOForced()) {
         bool accessUnset;
-        std::tie(std::ignore, accessUnset) =
-            m_accessType.emplace(std::make_pair(storageId, AccessType::DIRECT));
-
+        {
+            std::lock_guard<std::mutex> guard(m_accessTypeMutex);
+            std::tie(std::ignore, accessUnset) = m_accessType.emplace(
+                std::make_pair(storageId, AccessType::DIRECT));
+        }
         auto helperKey = std::make_pair(storageId, false);
         auto helperPromiseIt = m_cache.find(helperKey);
+
+        std::lock_guard<std::mutex> guard(m_cacheMutex);
 
         if (helperPromiseIt == m_cache.end()) {
             LOG_DBG(2) << "Storage helper promise for storage " << storageId
@@ -134,6 +140,9 @@ folly::Future<HelpersCache::HelperPtr> HelpersCache::get(
         forceProxyIO |= m_options.isProxyIOForced();
 
         auto helperKey = std::make_pair(storageId, forceProxyIO);
+
+        std::lock_guard<std::mutex> guard(m_cacheMutex);
+
         auto helperPromiseIt = m_cache.find(helperKey);
         if (helperPromiseIt == m_cache.end()) {
             LOG_DBG(2) << "Storage helper promise for storage " << storageId
@@ -163,26 +172,26 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
     const folly::fbstring &storageId, bool forceProxyIO)
 {
     if (!forceProxyIO) {
-        decltype(m_accessType)::iterator accessTypeIt;
         bool accessUnset;
+        auto accessTypeKey = std::make_pair(storageId, AccessType::PROXY);
 
         // Check if the access type (PROXY or DIRECT) is already
         // determined for storage 'storageId'
-        std::tie(accessTypeIt, accessUnset) =
-            m_accessType.emplace(std::make_pair(storageId, AccessType::PROXY));
+        {
+            std::lock_guard<std::mutex> guard(m_accessTypeMutex);
+            std::tie(std::ignore, accessUnset) =
+                m_accessType.emplace(accessTypeKey);
+        }
 
         if (accessUnset) {
-            // Request identification of storage
-            accessTypeIt->second = AccessType::PROXY;
-
-            // First try to quickly detect direct io, if not available after
-            // one attempt, return proxy and schedule full storage detection
+            // First try to quickly detect direct io (in 1 attempt), if not
+            // available, return proxy and schedule full storage detection
             auto helper =
                 requestStorageTestFileCreation(fileUuid, storageId, 1);
             if (helper)
                 return helper;
             else {
-                auto proxyHelperFallback = performAutoIOStorageDetection(
+                performAutoIOStorageDetection(
                     fileUuid, spaceId, storageId, true);
                 m_scheduler.post([this, fileUuid, storageId] {
                     auto directIOHelper =
@@ -191,16 +200,26 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
                         auto p =
                             std::make_shared<folly::SharedPromise<HelperPtr>>();
                         p->setValue(directIOHelper);
-                        m_cache.emplace(
-                            std::make_tuple(storageId, true), std::move(p));
-                        m_accessType.emplace(
-                            std::make_pair(storageId, AccessType::DIRECT));
+
+                        {
+                            std::lock_guard<std::mutex> guard(m_cacheMutex);
+                            m_cache.emplace(std::make_tuple(storageId, false),
+                                std::move(p));
+                        }
+
+                        {
+                            std::lock_guard<std::mutex> guard(
+                                m_accessTypeMutex);
+                            m_accessType.emplace(
+                                std::make_pair(storageId, AccessType::DIRECT));
+                        }
                     }
                 });
             }
         }
 
-        if (accessTypeIt->second == AccessType::PROXY)
+        std::lock_guard<std::mutex> guard(m_accessTypeMutex);
+        if (m_accessType[storageId] == AccessType::PROXY)
             return performAutoIOStorageDetection(
                 fileUuid, spaceId, storageId, true);
     }
@@ -284,8 +303,10 @@ HelpersCache::HelperPtr HelpersCache::requestStorageTestFileCreation(
         LOG(WARNING) << "Storage test file creation error, code: '" << e.code()
                      << "', message: '" << e.what() << "'";
 
-        if (e.code().value() == EAGAIN)
+        if (e.code().value() == EAGAIN) {
+            std::lock_guard<std::mutex> guard(m_accessTypeMutex);
             m_accessType.erase(storageId);
+        }
         else
             LOG(INFO) << "Storage '" << storageId
                       << "' is not directly accessible to the client.";
@@ -315,6 +336,7 @@ HelpersCache::HelperPtr HelpersCache::handleStorageTestFile(
                       << "' is not directly accessible to the client. Test "
                          "file verification attempts limit exceeded.";
 
+            std::lock_guard<std::mutex> guard(m_accessTypeMutex);
             m_accessType[storageId] = AccessType::PROXY;
             return {};
         }
@@ -329,6 +351,8 @@ HelpersCache::HelperPtr HelpersCache::handleStorageTestFile(
     catch (const std::system_error &e) {
         LOG(ERROR) << "Storage test file handling error, code: '" << e.code()
                    << "', message: '" << e.what() << "'";
+
+        std::lock_guard<std::mutex> guard(m_accessTypeMutex);
 
         if (e.code().value() == EAGAIN) {
             m_accessType.erase(storageId);
@@ -377,6 +401,8 @@ void HelpersCache::handleStorageTestFileVerification(
 {
     LOG_DBG(1) << "Handling verification of storage direct access: "
                << storageId;
+
+    std::lock_guard<std::mutex> guard(m_accessTypeMutex);
 
     if (!ec) {
         LOG(INFO) << "Storage " << storageId
