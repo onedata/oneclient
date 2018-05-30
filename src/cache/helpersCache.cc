@@ -105,12 +105,6 @@ folly::Future<HelpersCache::HelperPtr> HelpersCache::get(
     }
 
     if (m_options.isDirectIOForced()) {
-        bool accessUnset;
-        {
-            std::lock_guard<std::mutex> guard(m_accessTypeMutex);
-            std::tie(std::ignore, accessUnset) = m_accessType.emplace(
-                std::make_pair(storageId, AccessType::DIRECT));
-        }
         auto helperKey = std::make_pair(storageId, false);
         auto helperPromiseIt = m_cache.find(helperKey);
 
@@ -171,18 +165,18 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
     const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
     const folly::fbstring &storageId, bool forceProxyIO)
 {
+    bool accessUnset;
+    auto accessTypeKey = std::make_pair(storageId, AccessType::PROXY);
+
+    // Check if the access type (PROXY or DIRECT) is already
+    // determined for storage 'storageId'
+    {
+        std::lock_guard<std::mutex> guard(m_accessTypeMutex);
+        std::tie(std::ignore, accessUnset) =
+            m_accessType.emplace(accessTypeKey);
+    }
+
     if (!forceProxyIO) {
-        bool accessUnset;
-        auto accessTypeKey = std::make_pair(storageId, AccessType::PROXY);
-
-        // Check if the access type (PROXY or DIRECT) is already
-        // determined for storage 'storageId'
-        {
-            std::lock_guard<std::mutex> guard(m_accessTypeMutex);
-            std::tie(std::ignore, accessUnset) =
-                m_accessType.emplace(accessTypeKey);
-        }
-
         if (accessUnset) {
             // First try to quickly detect direct io (in 1 attempt), if not
             // available, return proxy and schedule full storage detection
@@ -241,6 +235,11 @@ HelpersCache::HelperPtr HelpersCache::performForcedDirectIOStorageDetection(
 {
     LOG_DBG(1) << "Requesting helper parameters for storage " << storageId
                << " in forced direct IO mode";
+
+    {
+        std::lock_guard<std::mutex> guard(m_accessTypeMutex);
+        m_accessType.emplace(std::make_pair(storageId, AccessType::DIRECT));
+    }
 
     try {
         auto params = communication::wait(
