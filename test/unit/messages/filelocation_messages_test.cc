@@ -28,6 +28,23 @@ TEST_F(FuseFileLocationMessagesTest, replicationProgressShouldWork)
     EXPECT_EQ(fileLocation.replicationProgress(1024), 1.0);
 }
 
+TEST_F(FuseFileLocationMessagesTest, blocksInRangeCounterShouldWork)
+{
+    auto fileLocation = FileLocation{};
+    EXPECT_EQ(fileLocation.blocksInRange(256, 1024), 0);
+
+    fileLocation.putBlock(0, 512, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.blocksInRange(1024, 1500), 0);
+    EXPECT_EQ(fileLocation.blocksInRange(256, 1024), 1);
+
+    fileLocation.putBlock(515, 5, FileBlock{"", ""});
+    fileLocation.putBlock(600, 10, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.blocksInRange(256, 1024), 3);
+
+    fileLocation.putBlock(1000, 200, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.blocksInRange(256, 1024), 4);
+}
+
 TEST_F(FuseFileLocationMessagesTest, linearReadPrefetchThresholdReachedMustWork)
 {
     auto fileLocation = FileLocation{};

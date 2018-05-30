@@ -56,6 +56,18 @@ const FileLocation::FileBlocksMap &FileLocation::blocks() const
     return m_blocks;
 }
 
+unsigned int FileLocation::blocksCount() const
+{
+    return boost::icl::interval_count(m_blocks);
+}
+
+unsigned int FileLocation::blocksInRange(const off_t offset, const size_t size)
+{
+    return boost::icl::interval_count(m_blocks &
+        boost::icl::discrete_interval<off_t>::right_open(
+            offset, offset + size));
+}
+
 void FileLocation::putBlock(
     const off_t offset, const size_t size, FileBlock &&block)
 {
@@ -159,7 +171,7 @@ bool FileLocation::randomReadPrefetchThresholdReached(
 {
     const off_t fileThresholdBytes = fileSize * threshold;
 
-    return (boost::icl::interval_count(m_blocks) > 5) &&
+    return (blocksCount() > 5) &&
         boost::icl::length(m_blocks &
             boost::icl::discrete_interval<off_t>::right_open(0, fileSize)) >
         fileThresholdBytes;

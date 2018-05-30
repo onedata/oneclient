@@ -107,6 +107,11 @@ public:
     const FileBlocksMap &blocks() const;
 
     /**
+     * Returns the number of separate blocks in the file location map.
+     */
+    unsigned int blocksCount() const;
+
+    /**
      * @return Version of this location.
      */
     std::uint64_t version() const;
@@ -134,6 +139,14 @@ public:
      * @return Replication progress [0.0-1.0]
      */
     double replicationProgress(const size_t fileSize) const;
+
+    /**
+     * Calculates the number of different blocks in a given range
+     * @param offset The start offset of the requested range
+     * @param size The length of the range
+     * @return Number of blocks in range [offset, offset+size)
+     */
+    unsigned int blocksInRange(const off_t offset, const size_t size);
 
     /**
      * Determines whether the linear read prefetch threshold has been reached.

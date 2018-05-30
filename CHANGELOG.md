@@ -4,6 +4,15 @@
 CHANGELOG
 ---------
 
+### 18.02.0-rc4
+
+* VFS-4485 Added random read prefetch cluster handling in fsLogic
+* VFS-4485 Added random read prefetch cluster options
+* VFS-4472 Added handling of synchronous and asynchronous prefetch modes
+* VFS-4472 Added more options to control prefetching
+* VFS-4472 Added REST transfer scheduling based on threshold
+
+
 ### 18.02.0-rc3
 
 * VFS-4407 Added -v flag to README and autocomplete scripts
