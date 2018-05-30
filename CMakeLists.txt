@@ -328,6 +328,3 @@ endif(APPLE)
 enable_testing()
 add_subdirectory(test)
 
-
-#add_custom_target(runbenchmark test/benchmark/file_location_benchmark)
-
