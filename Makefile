@@ -33,7 +33,7 @@ ONECLIENT_BASE_IMAGE    := ID-$(shell git rev-parse HEAD | cut -c1-10)
 endif
 
 .PHONY: all
-all: debug test runbenchmark
+all: debug test 
 
 .PRECIOUS: %/CMakeCache.txt
 %/CMakeCache.txt: **/CMakeLists.txt test/integration/* test/integration/**/* \
@@ -110,8 +110,9 @@ else
 	@echo "Building package for distribution $(DISTRIBUTION)"
 endif
 .PHONY: runbenchmark
-runbenchmark: debug
-	cmake --build debug --target runbenchmark
+runbenchmark: debug release 
+	cmake --build debug --target benchmark
+	cmake --build release --target benchmark
 package/$(PKG_ID).tar.gz:
 	mkdir -p package
 	rm -rf package/$(PKG_ID)
