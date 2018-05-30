@@ -47,4 +47,8 @@ foreach(TEST_SRC ${TEST_SOURCES})
     target_link_libraries(${TEST_NAME} PRIVATE
 	    clientBenchmarkShared
         ${FOLLY_BENCHMARK_LIBRARIES})
+    add_custom_target(${TEST_NAME}_runbenchmark
+        COMMAND ${TEST_NAME}
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+    add_dependencies(benchmark ${TEST_NAME}_runbenchmark)
 endforeach()
