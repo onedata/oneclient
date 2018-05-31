@@ -4,6 +4,16 @@
 CHANGELOG
 ---------
 
+### 18.02.0-rc5
+
+* VFS-4447 Fixed forced proxy detection access type update
+* VFS-4447 Added locks to access helpersCache internal maps
+* VFS-4447 Refactored storage helper detection logic
+* VFS-4447 Fixed forced proxy detection access type update
+* VFS-4447 Added locks to access helpersCache internal maps
+* VFS-4447 Refactored storage helper detection logic
+
+
 ### 18.02.0-rc4
 
 * VFS-4485 Added random read prefetch cluster handling in fsLogic
