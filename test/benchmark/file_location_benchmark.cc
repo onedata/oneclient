@@ -1,18 +1,21 @@
 /**
- * @file fileLocation_test.cc
+ * @file file_location_benchmark.cc
  * @author Rafal Grzeszczuk
  * @copyright (C) 2018 ACK CYFRONET AGH
  * @copyright This software is released under the MIT license cited in
  * 'LICENSE.txt'
  */
 
-#include "folly/Benchmark.h"
-#include "folly/Foreach.h"
 #include "messages/fuse/fileBlock.h"
 #include "messages/fuse/fileLocation.h"
+
+#include <folly/Benchmark.h>
 #include <boost/random.hpp>
 #include <boost/range/irange.hpp>
+#include <folly/Foreach.h>
+
 #include <utility>
+
 using namespace one::messages::fuse;
 
 constexpr auto blockSize = 1024; // 1KB
@@ -225,8 +228,9 @@ BENCHMARK(benchmarkRandomBlocksInRangeAll)
                 blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    fileLocation.blocksInRange(0, 1000000);
+    auto result = fileLocation.blocksInRange(0, 1000000);
     folly::doNotOptimizeAway(fileLocation);
+    folly::doNotOptimizeAway(result);
 }
 
 BENCHMARK(benchmarkRandomBlocksInRangeRandom)
@@ -245,21 +249,9 @@ BENCHMARK(benchmarkRandomBlocksInRangeRandom)
                 blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    fileLocation.blocksInRange(intervalBegin, 1024);
+    auto result = fileLocation.blocksInRange(intervalBegin, 1024);
     folly::doNotOptimizeAway(fileLocation);
-}
-
-BENCHMARK(benchmarkBoostInterval)
-{
-    auto fileLocation = FileLocation{};
-    BENCHMARK_SUSPEND
-    {
-        fileLocation.putBlock(0, blockSize, FileBlock{" ", " "});
-        folly::doNotOptimizeAway(fileLocation);
-    }
-    auto interval =
-        boost::icl::discrete_interval<off_t>::right_open(0, blockSize);
-    folly::doNotOptimizeAway(interval);
+    folly::doNotOptimizeAway(result);
 }
 
 int main() { folly::runBenchmarks(); }

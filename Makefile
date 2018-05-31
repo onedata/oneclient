@@ -112,8 +112,7 @@ else
 endif
 
 .PHONY: runbenchmark
-runbenchmark: debug release 
-	cmake --build debug --target benchmark
+runbenchmark: release
 	cmake --build release --target benchmark
 
 package/$(PKG_ID).tar.gz:
