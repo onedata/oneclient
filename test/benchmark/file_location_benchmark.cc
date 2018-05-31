@@ -9,9 +9,9 @@
 #include "messages/fuse/fileBlock.h"
 #include "messages/fuse/fileLocation.h"
 
-#include <folly/Benchmark.h>
 #include <boost/random.hpp>
 #include <boost/range/irange.hpp>
+#include <folly/Benchmark.h>
 #include <folly/Foreach.h>
 
 #include <utility>
