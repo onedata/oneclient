@@ -111,6 +111,10 @@ else
 	@echo "Building package for distribution $(DISTRIBUTION)"
 endif
 
+.PHONY: runbenchmark
+runbenchmark: release
+	cmake --build release --target benchmark
+
 package/$(PKG_ID).tar.gz:
 	mkdir -p package
 	rm -rf package/$(PKG_ID)
