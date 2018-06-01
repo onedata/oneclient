@@ -176,29 +176,38 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
             m_accessType.emplace(accessTypeKey);
     }
 
+    LOG_DBG(2)
+        << "Performing automatic storage access type detection for storage "
+        << storageId << " for file " << fileUuid
+        << " with forced proxy io mode: " << forceProxyIO;
+
     if (!forceProxyIO) {
         if (accessUnset) {
             // First try to quickly detect direct io (in 1 attempt), if not
             // available, return proxy and schedule full storage detection
             auto helper =
                 requestStorageTestFileCreation(fileUuid, storageId, 1);
-            if (helper)
+            if (helper) {
+                LOG_DBG(2) << "Direct access to storage " << storageId
+                           << " determined on first attempt - returning";
                 return helper;
+            }
             else {
-                performAutoIOStorageDetection(
-                    fileUuid, spaceId, storageId, true);
+                LOG_DBG(2) << "Direct access to storage " << storageId
+                           << " wasn't determined on first attempt - "
+                              "scheduling retry and returning proxy helper as "
+                              "fallback";
                 m_scheduler.post([this, fileUuid, storageId] {
                     auto directIOHelper =
                         requestStorageTestFileCreation(fileUuid, storageId);
                     if (directIOHelper) {
-                        auto p =
-                            std::make_shared<folly::SharedPromise<HelperPtr>>();
-                        p->setValue(directIOHelper);
-
+                        LOG_DBG(2)
+                            << "Found direct access to storage " << storageId
+                            << " using automatic storage detection";
                         {
                             std::lock_guard<std::mutex> guard(m_cacheMutex);
-                            m_cache.emplace(std::make_tuple(storageId, false),
-                                std::move(p));
+                            m_cache[std::make_tuple(storageId, false)]
+                                ->setValue(directIOHelper);
                         }
 
                         {
@@ -208,7 +217,15 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
                                 std::make_pair(storageId, AccessType::DIRECT));
                         }
                     }
+                    else {
+                        LOG_DBG(2) << "Direct access to storage " << storageId
+                                   << " couldn't be established - leaving "
+                                      "proxy access";
+                    }
+
                 });
+                return performAutoIOStorageDetection(
+                    fileUuid, spaceId, storageId, true);
             }
         }
 
@@ -330,10 +347,11 @@ HelpersCache::HelperPtr HelpersCache::handleStorageTestFile(
             helper = m_storageAccessManager.verifyStorageTestFile(*testFile);
         }
 
-        if (!helper && attempts == 0) {
+        if (!helper) {
             LOG(INFO) << "Storage '" << storageId
                       << "' is not directly accessible to the client. Test "
-                         "file verification attempts limit exceeded.";
+                         "file verification attempts limit ("
+                      << maxAttempts << ") exceeded.";
 
             std::lock_guard<std::mutex> guard(m_accessTypeMutex);
             m_accessType[storageId] = AccessType::PROXY;
