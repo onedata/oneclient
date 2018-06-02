@@ -38,7 +38,7 @@ BENCHMARK(benchmarkPutHugeBlock)
 BENCHMARK(benchmarkPutManyBlocks)
 {
     auto fileLocation = FileLocation{};
-    FOR_EACH_RANGE(i, 0, 1000000)
+    FOR_EACH_RANGE(i, 0, 1'000'000)
     {
         fileLocation.putBlock(blockSize * i, blockSize, FileBlock{" ", " "});
     }
@@ -54,9 +54,7 @@ BENCHMARK(benchmarkPutBlockRandomly)
         for (auto i : boost::irange(1, 1024 * 1024))
             fileLocation.putBlock(
                 2 * i * blockSize, blockSize, FileBlock{" ", " "});
-    }
-    BENCHMARK_SUSPEND
-    {
+
         std::time_t now = std::time(0);
         boost::random::mt19937 gen{static_cast<std::uint32_t>(now)};
         boost::random::uniform_int_distribution<> randomBlock(1, 1024 * 1024);
@@ -65,7 +63,6 @@ BENCHMARK(benchmarkPutBlockRandomly)
 
     fileLocation.putBlock(randomBlockNumber, blockSize, FileBlock{" ", " "});
     folly::doNotOptimizeAway(fileLocation);
-    folly::doNotOptimizeAway(randomBlockNumber);
 }
 
 BENCHMARK(benchmarkPutManyBlocksRandomly)
@@ -78,7 +75,7 @@ BENCHMARK(benchmarkPutManyBlocksRandomly)
             fileLocation.putBlock(
                 i * blockSize, blockSize, FileBlock{" ", " "});
     }
-    FOR_EACH_RANGE(i, 0, 100000)
+    FOR_EACH_RANGE(i, 0, 100'000)
     {
         BENCHMARK_SUSPEND
         {
@@ -129,7 +126,7 @@ BENCHMARK(benchmarkProgressStringLarge)
     auto fileLocation = FileLocation{};
     BENCHMARK_SUSPEND
     {
-        FOR_EACH_RANGE(i, 0, 1000000)
+        FOR_EACH_RANGE(i, 0, 1'000'000)
         {
             fileLocation.putBlock(
                 blockSize * i, blockSize, FileBlock{" ", " "});
@@ -155,7 +152,7 @@ BENCHMARK(benchmarkReplicationProgressLarge)
     auto fileLocation = FileLocation{};
     BENCHMARK_SUSPEND
     {
-        FOR_EACH_RANGE(i, 0, 1000000)
+        FOR_EACH_RANGE(i, 0, 1'000'000)
         {
             fileLocation.putBlock(
                 blockSize * i, blockSize, FileBlock{" ", " "});
@@ -181,7 +178,7 @@ BENCHMARK(benchmarkLinearReadReadPrefetchLarge)
     auto fileLocation = FileLocation{};
     BENCHMARK_SUSPEND
     {
-        FOR_EACH_RANGE(i, 0, 1000000)
+        FOR_EACH_RANGE(i, 0, 1'000'000)
         {
             fileLocation.putBlock(
                 blockSize * i, blockSize, FileBlock{" ", " "});
@@ -207,7 +204,7 @@ BENCHMARK(benchmarkRandomReadReadPrefetchLarge)
     auto fileLocation = FileLocation{};
     BENCHMARK_SUSPEND
     {
-        FOR_EACH_RANGE(i, 0, 1000000)
+        FOR_EACH_RANGE(i, 0, 1'000'000)
         {
             fileLocation.putBlock(
                 blockSize * i, blockSize, FileBlock{" ", " "});
@@ -222,13 +219,13 @@ BENCHMARK(benchmarkRandomBlocksInRangeAll)
     auto fileLocation = FileLocation{};
     BENCHMARK_SUSPEND
     {
-        FOR_EACH_RANGE(i, 0, 1000000)
+        FOR_EACH_RANGE(i, 0, 1'000'000)
         {
             fileLocation.putBlock(
                 blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    auto result = fileLocation.blocksInRange(0, 1000000);
+    auto result = fileLocation.blocksInRange(0, 1'000'000);
     folly::doNotOptimizeAway(fileLocation);
     folly::doNotOptimizeAway(result);
 }
@@ -243,7 +240,7 @@ BENCHMARK(benchmarkRandomBlocksInRangeRandom)
         boost::random::mt19937 gen{static_cast<std::uint32_t>(now)};
         boost::random::uniform_int_distribution<> randomBlock(1, 1024 * 1024);
         intervalBegin = randomBlock(gen);
-        FOR_EACH_RANGE(i, 0, 1000000)
+        FOR_EACH_RANGE(i, 0, 1'000'000)
         {
             fileLocation.putBlock(
                 blockSize * i, blockSize, FileBlock{" ", " "});
@@ -252,6 +249,35 @@ BENCHMARK(benchmarkRandomBlocksInRangeRandom)
     auto result = fileLocation.blocksInRange(intervalBegin, 1024);
     folly::doNotOptimizeAway(fileLocation);
     folly::doNotOptimizeAway(result);
+}
+
+BENCHMARK(benchmarkUpdateBlocksInRangeLarge)
+{
+    auto fileLocation = FileLocation{};
+    auto fileLocationUpdate = FileLocation{};
+    auto randomBlockNumber = 0;
+
+    BENCHMARK_SUSPEND
+    {
+        std::time_t now = std::time(0);
+        boost::random::mt19937 gen{static_cast<std::uint32_t>(now)};
+        boost::random::uniform_int_distribution<> randomBlock(1, 1024 * 1024);
+        FOR_EACH_RANGE(i, 0, 1'000'000)
+        {
+            fileLocation.putBlock(
+                blockSize * i, blockSize, FileBlock{" ", " "});
+        }
+
+        randomBlockNumber = randomBlock(gen);
+
+        fileLocationUpdate.putBlock(
+            randomBlockNumber, 100, FileBlock{" ", " "});
+    }
+
+    fileLocation.updateInRange(
+        randomBlockNumber, randomBlockNumber + 100, fileLocationUpdate);
+
+    folly::doNotOptimizeAway(fileLocation);
 }
 
 int main() { folly::runBenchmarks(); }
