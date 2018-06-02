@@ -22,6 +22,7 @@
 #include "messages/fuse/fileChildrenAttrs.h"
 #include "messages/fuse/fileCreated.h"
 #include "messages/fuse/fileLocation.h"
+#include "messages/fuse/fileLocationChanged.h"
 #include "messages/fuse/fileOpened.h"
 #include "messages/fuse/fileRenamed.h"
 #include "messages/fuse/fileRenamedEntry.h"
@@ -586,13 +587,22 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
 
     if (boost::icl::size(prefetchRange) > 0 && worthPrefetching) {
         m_context->communicator()
-            ->communicate<messages::fuse::FileLocation>(
+            ->communicate<messages::fuse::FileLocationChanged>(
                 messages::fuse::SynchronizeBlock{
                     uuid.toStdString(), prefetchRange})
-            .then([this](messages::fuse::FileLocation location) {
-                m_runInFiber([ this, location = std::move(location) ] {
-                    m_metadataCache.updateLocation(std::move(location));
-                });
+            .then([this](messages::fuse::FileLocationChanged locationUpdate) {
+                m_runInFiber(
+                    [ this, locationUpdate = std::move(locationUpdate) ] {
+                        if (locationUpdate.changeStartOffset() &&
+                            locationUpdate.changeEndOffset())
+                            m_metadataCache.updateLocation(
+                                *locationUpdate.changeStartOffset(),
+                                *locationUpdate.changeEndOffset(),
+                                locationUpdate.fileLocation());
+                        else
+                            m_metadataCache.updateLocation(
+                                locationUpdate.fileLocation());
+                    });
             });
     }
 }
@@ -1004,10 +1014,17 @@ void FsLogic::sync(const folly::fbstring &uuid,
     const boost::icl::discrete_interval<off_t> &range)
 {
     messages::fuse::SynchronizeBlock request{uuid.toStdString(), range};
-    auto fileLocation = communicate<messages::fuse::FileLocation>(
+    auto fileLocationUpdate = communicate<messages::fuse::FileLocationChanged>(
         std::move(request), m_providerTimeout);
 
-    m_metadataCache.updateLocation(fileLocation);
+    if (fileLocationUpdate.changeStartOffset() &&
+        fileLocationUpdate.changeEndOffset())
+        m_metadataCache.updateLocation(
+            *(fileLocationUpdate.changeStartOffset()),
+            *(fileLocationUpdate.changeEndOffset()),
+            fileLocationUpdate.fileLocation());
+    else
+        m_metadataCache.updateLocation(fileLocationUpdate.fileLocation());
 }
 
 bool FsLogic::dataCorrupted(const folly::fbstring &uuid,

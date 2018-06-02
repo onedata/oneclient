@@ -103,13 +103,22 @@ void FsSubscriptions::handleFileLocationChanged(
         "comp.oneclient.mod.events.submod.received.file_location_changed");
     m_runInFiber([ this, events = std::move(events) ] {
         for (auto &event : events) {
-            auto &loc = event->fileLocation();
-            if (m_metadataCache.updateLocation(loc))
-                LOG_DBG(2) << "Updated locations for uuid: '" << loc.uuid()
-                           << "'";
+            bool updateSucceeded = false;
+
+            if (event->changeStartOffset() && event->changeEndOffset())
+                updateSucceeded = m_metadataCache.updateLocation(
+                    *(event->changeStartOffset()), *(event->changeEndOffset()),
+                    event->fileLocation());
             else
-                LOG_DBG(2) << "No location to update for uuid: '" << loc.uuid()
-                           << "'";
+                updateSucceeded =
+                    m_metadataCache.updateLocation(event->fileLocation());
+
+            if (updateSucceeded)
+                LOG_DBG(2) << "Updated locations for uuid: '"
+                           << event->fileLocation().uuid() << "'";
+            else
+                LOG_DBG(2) << "No location to update for uuid: '"
+                           << event->fileLocation().uuid() << "'";
         }
     });
 }

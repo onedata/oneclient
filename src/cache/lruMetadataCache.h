@@ -194,6 +194,18 @@ public:
      */
     std::shared_ptr<FileLocation> getLocation(const folly::fbstring &uuid);
 
+    /**
+     * @copydoc MetadataCache::updateLocation(const FileLocation &newLocation);
+     */
+    bool updateLocation(const FileLocation &newLocation);
+
+    /**
+     * @copydoc MetadataCache::updateLocation(const off_t start, const off_t
+     * end, const FileLocation &locationUpdate);
+     */
+    bool updateLocation(
+        const off_t start, const off_t end, const FileLocation &locationUpdate);
+
     // Operations used only on open files
     using MetadataCache::addBlock;
     using MetadataCache::getBlock;
@@ -203,7 +215,6 @@ public:
     using MetadataCache::markDeleted;
     using MetadataCache::putAttr;
     using MetadataCache::updateAttr;
-    using MetadataCache::updateLocation;
 
 private:
     struct LRUData {

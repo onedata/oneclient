@@ -79,7 +79,19 @@ def prepare_sync_response(uuid, data, blocks):
     location = prepare_location(uuid, blocks)
 
     server_response = messages_pb2.ServerMessage()
-    server_response.fuse_response.file_location.CopyFrom(location)
+    server_response.fuse_response.file_location_changed.file_location.CopyFrom(location)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    return server_response
+
+
+def prepare_partial_sync_response(uuid, data, blocks, start, end):
+    location = prepare_location(uuid, blocks)
+
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.file_location_changed.file_location.CopyFrom(location)
+    server_response.fuse_response.file_location_changed.change_beg_offset = start
+    server_response.fuse_response.file_location_changed.change_end_offset = end
     server_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
     return server_response
@@ -883,6 +895,16 @@ def test_read_should_continue_reading_after_synchronization(appmock_client,
                                                             endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
     sync_response = prepare_sync_response(uuid, '', [(0, 10)])
+
+    appmock_client.reset_tcp_history()
+    with reply(endpoint, sync_response):
+        assert 5 == len(fl.read(uuid, fh, 2, 5))
+
+
+def test_read_should_continue_reading_after_synchronization_partial(appmock_client,
+                                                            endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
+    sync_response = prepare_partial_sync_response(uuid, '', [(0, 10)], 0, 10)
 
     appmock_client.reset_tcp_history()
     with reply(endpoint, sync_response):
