@@ -14,8 +14,8 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv-keys C211375C && \
 # Get the image up to date and install utility tools
 RUN apt-get -y update && \
     apt-get -y upgrade && \
-    apt-get -y install bash-completion ca-certificates curl iputils-ping \
-                       man-db net-tools traceroute vim python-xattr && \
+    apt-get -y install bash-completion ca-certificates curl iputils-ping netcat \
+                       man-db net-tools traceroute vim python-xattr sysbench parallel && \
     apt-get clean
 
 WORKDIR /tmp
