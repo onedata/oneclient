@@ -242,6 +242,17 @@ std::shared_ptr<FileLocation> LRUMetadataCache::getLocation(
     return MetadataCache::getLocation(uuid);
 }
 
+bool LRUMetadataCache::updateLocation(const FileLocation &newLocation)
+{
+    return MetadataCache::updateLocation(newLocation);
+}
+
+bool LRUMetadataCache::updateLocation(
+    const off_t start, const off_t end, const FileLocation &locationUpdate)
+{
+    return MetadataCache::updateLocation(start, end, locationUpdate);
+}
+
 void LRUMetadataCache::handleMarkDeleted(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);

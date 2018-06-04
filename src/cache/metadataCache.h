@@ -180,6 +180,16 @@ public:
     bool updateLocation(const FileLocation &newLocation);
 
     /**
+     * Updates file location, if cached, in a specified range.
+     * @param start Start offset of the location update (inclusive)
+     * @param end End offset of the location update (exclusive)
+     * @param locationUpdate Updated location in a given range.
+     * @returns true if location has been updated, false if it was not cached.
+     */
+    bool updateLocation(
+        const off_t start, const off_t end, const FileLocation &locationUpdate);
+
+    /**
      * Marks file as deleted, preventing it from being looked up by parent.
      * @param uuid Uuid of the file.
      * @returns true if file has been marked as deleted, false if it was not

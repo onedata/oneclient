@@ -45,6 +45,90 @@ TEST_F(FuseFileLocationMessagesTest, blocksInRangeCounterShouldWork)
     EXPECT_EQ(fileLocation.blocksInRange(256, 1024), 4);
 }
 
+TEST_F(FuseFileLocationMessagesTest, updateInRangeShouldAddNewBlocks)
+{
+    auto oldFileLocation = FileLocation{};
+    oldFileLocation.putBlock(0, 10, FileBlock{"", ""});
+    oldFileLocation.putBlock(100, 10, FileBlock{"", ""});
+
+    auto fileLocationChange = FileLocation{};
+    fileLocationChange.putBlock(50, 10, FileBlock{"", ""});
+
+    oldFileLocation.updateInRange(40, 70, fileLocationChange);
+
+    auto targetFileLocation = FileLocation{};
+    targetFileLocation.putBlock(0, 10, FileBlock{"", ""});
+    targetFileLocation.putBlock(50, 10, FileBlock{"", ""});
+    targetFileLocation.putBlock(100, 10, FileBlock{"", ""});
+
+    EXPECT_TRUE(oldFileLocation.blocks() == targetFileLocation.blocks());
+    EXPECT_EQ(oldFileLocation.toString(), targetFileLocation.toString());
+}
+
+TEST_F(FuseFileLocationMessagesTest, updateInRangeShouldRemoveNewBlocks)
+{
+    auto oldFileLocation = FileLocation{};
+    oldFileLocation.putBlock(0, 10, FileBlock{"", ""});
+    oldFileLocation.putBlock(50, 10, FileBlock{"", ""});
+    oldFileLocation.putBlock(100, 10, FileBlock{"", ""});
+
+    auto fileLocationChange = FileLocation{};
+
+    oldFileLocation.updateInRange(40, 70, fileLocationChange);
+
+    auto targetFileLocation = FileLocation{};
+    targetFileLocation.putBlock(0, 10, FileBlock{"", ""});
+    targetFileLocation.putBlock(100, 10, FileBlock{"", ""});
+
+    EXPECT_TRUE(oldFileLocation.blocks() == targetFileLocation.blocks());
+    EXPECT_EQ(oldFileLocation.toString(), targetFileLocation.toString());
+}
+
+TEST_F(FuseFileLocationMessagesTest, updateInRangeShouldReplaceBlocks)
+{
+    auto oldFileLocation = FileLocation{};
+    oldFileLocation.putBlock(0, 10, FileBlock{"", ""});
+    oldFileLocation.putBlock(50, 10, FileBlock{"", ""});
+    oldFileLocation.putBlock(65, 2, FileBlock{"", ""});
+    oldFileLocation.putBlock(100, 10, FileBlock{"", ""});
+
+    auto fileLocationChange = FileLocation{};
+    fileLocationChange.putBlock(40, 25, FileBlock{"", ""});
+
+    oldFileLocation.updateInRange(40, 70, fileLocationChange);
+
+    auto targetFileLocation = FileLocation{};
+    targetFileLocation.putBlock(0, 10, FileBlock{"", ""});
+    targetFileLocation.putBlock(40, 25, FileBlock{"", ""});
+    targetFileLocation.putBlock(100, 10, FileBlock{"", ""});
+
+    EXPECT_TRUE(oldFileLocation.blocks() == targetFileLocation.blocks());
+    EXPECT_EQ(oldFileLocation.toString(), targetFileLocation.toString());
+}
+
+TEST_F(FuseFileLocationMessagesTest, updateInRangeShouldIgnoreEmptyChange)
+{
+    auto oldFileLocation = FileLocation{};
+    oldFileLocation.putBlock(0, 10, FileBlock{"", ""});
+    oldFileLocation.putBlock(50, 10, FileBlock{"", ""});
+    oldFileLocation.putBlock(65, 2, FileBlock{"", ""});
+    oldFileLocation.putBlock(100, 10, FileBlock{"", ""});
+
+    auto fileLocationChange = FileLocation{};
+    fileLocationChange.putBlock(40, 25, FileBlock{"", ""});
+
+    oldFileLocation.updateInRange(0, 0, fileLocationChange);
+
+    auto targetFileLocation = FileLocation{};
+    targetFileLocation.putBlock(0, 10, FileBlock{"", ""});
+    targetFileLocation.putBlock(50, 10, FileBlock{"", ""});
+    targetFileLocation.putBlock(65, 2, FileBlock{"", ""});
+    targetFileLocation.putBlock(100, 10, FileBlock{"", ""});
+
+    EXPECT_TRUE(oldFileLocation.blocks() == targetFileLocation.blocks());
+    EXPECT_EQ(oldFileLocation.toString(), targetFileLocation.toString());
+}
+
 TEST_F(FuseFileLocationMessagesTest, linearReadPrefetchThresholdReachedMustWork)
 {
     auto fileLocation = FileLocation{};

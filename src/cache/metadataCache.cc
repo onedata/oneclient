@@ -462,6 +462,30 @@ bool MetadataCache::updateAttr(const FileAttr &newAttr)
     return true;
 }
 
+bool MetadataCache::updateLocation(
+    const off_t start, const off_t end, const FileLocation &locationUpdate)
+{
+    LOG_FCALL() << LOG_FARG(locationUpdate.toString());
+
+    auto &index = boost::multi_index::get<ByUuid>(m_cache);
+    auto it = index.find(locationUpdate.uuid());
+    if (it == index.end() || !it->location) {
+        LOG_DBG(1) << "Update location failed - file " << locationUpdate.uuid()
+                   << " not found in metadata cache";
+        return false;
+    }
+
+    it->location->version(locationUpdate.version());
+    it->location->storageId(locationUpdate.storageId());
+    it->location->fileId(locationUpdate.fileId());
+    it->location->updateInRange(start, end, locationUpdate);
+
+    LOG_DBG(2) << "Updated file location for file " << locationUpdate.uuid()
+               << " in range [" << start << ", " << end << ")";
+
+    return true;
+}
+
 bool MetadataCache::updateLocation(const FileLocation &newLocation)
 {
     LOG_FCALL() << LOG_FARG(newLocation.toString());

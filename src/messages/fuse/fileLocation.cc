@@ -76,6 +76,16 @@ void FileLocation::putBlock(
     m_blocks += std::make_pair(interval, block);
 }
 
+void FileLocation::updateInRange(
+    const off_t start, const off_t end, const FileLocation &blocks)
+{
+    const auto updateRange =
+        boost::icl::discrete_interval<off_t>::right_open(start, end);
+
+    m_blocks.erase(updateRange);
+    m_blocks += blocks.blocks() & updateRange;
+}
+
 std::uint64_t FileLocation::version() const { return m_version; }
 
 void FileLocation::version(std::uint64_t v) { m_version = v; }

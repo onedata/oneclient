@@ -102,6 +102,17 @@ public:
     void putBlock(const off_t offset, const size_t size, FileBlock &&block);
 
     /**
+     * Updates file location blocks only within a specified range using blocks
+     * from another file location.
+     * @param start Offset of the update range (inclusive)
+     * @param end End of the update range (exclusive)
+     * @param blocks File location from which the blocks in the given range
+     *               should replace the current blocks in that range
+     */
+    void updateInRange(
+        const off_t start, const off_t end, const FileLocation &blocks);
+
+    /**
      * @return Blocks per storageId/fileId pair.
      */
     const FileBlocksMap &blocks() const;
