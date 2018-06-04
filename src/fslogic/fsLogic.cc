@@ -49,6 +49,7 @@
 #include <boost/icl/interval_set.hpp>
 #include <folly/Enumerate.h>
 #include <folly/Range.h>
+#include <folly/fibers/Baton.h>
 #include <folly/fibers/FiberManager.h>
 #include <folly/fibers/ForEach.h>
 #include <folly/json.h>
@@ -316,7 +317,8 @@ void FsLogic::fsync(const folly::fbstring &uuid,
 
 folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     const std::uint64_t fileHandleId, const off_t offset,
-    const std::size_t size, folly::Optional<folly::fbstring> checksum)
+    const std::size_t size, folly::Optional<folly::fbstring> checksum,
+    const int retriesLeft)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(fileHandleId) << LOG_FARG(offset)
                 << LOG_FARG(size);
@@ -370,7 +372,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         std::tie(availableRange, fileBlock) = std::move(*locationData);
         const auto wantedAvailableRange = availableRange & wantedRange;
 
-        LOG_DBG(2) << "Availble block range for file " << uuid
+        LOG_DBG(2) << "Available block range for file " << uuid
                    << " in requested range: " << wantedAvailableRange;
 
         const std::size_t availableSize =
@@ -427,7 +429,12 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         return readBuffer;
     }
     catch (const std::system_error &e) {
-        if (e.code().value() != EPERM && e.code().value() != EACCES) {
+        if (e.code().value() == EAGAIN && retriesLeft) {
+            fiberRetryDelay(retriesLeft);
+            return read(
+                uuid, fileHandleId, offset, size, checksum, retriesLeft - 1);
+        }
+        else if (e.code().value() != EPERM && e.code().value() != EACCES) {
             LOG_DBG(1) << "Reading from " << uuid
                        << " failed due to error: " << e.what() << "("
                        << e.code() << ")";
@@ -452,7 +459,8 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         LOG_DBG(1) << "Rereading requested block for " << uuid
                    << " via proxy fallback";
 
-        return read(uuid, fileHandleId, offset, size, checksum);
+        return read(
+            uuid, fileHandleId, offset, size, checksum, FSLOGIC_RETRY_COUNT);
     }
 }
 
@@ -599,7 +607,7 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
 
 std::size_t FsLogic::write(const folly::fbstring &uuid,
     const std::uint64_t fuseFileHandleId, const off_t offset,
-    folly::IOBufQueue buf)
+    folly::IOBufQueue buf, const int retriesLeft)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(fuseFileHandleId)
                 << LOG_FARG(offset) << LOG_FARG(buf.chainLength());
@@ -632,7 +640,12 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
                 helperHandle->timeout());
     }
     catch (const std::system_error &e) {
-        if (e.code().value() != EPERM && e.code().value() != EACCES) {
+        if (e.code().value() == EAGAIN && retriesLeft) {
+            fiberRetryDelay(retriesLeft);
+            return write(uuid, fuseFileHandleId, offset, std::move(buf),
+                retriesLeft - 1);
+        }
+        else if (e.code().value() != EPERM && e.code().value() != EACCES) {
             LOG(ERROR) << "Reading from " << uuid
                        << " failed with error code: " << e.what();
             throw;
@@ -1053,6 +1066,20 @@ bool FsLogic::isSpaceDisabled(const folly::fbstring &spaceId)
 void FsLogic::disableSpaces(const std::vector<std::string> &spaces)
 {
     m_disabledSpaces = {spaces.begin(), spaces.end()};
+}
+
+void FsLogic::fiberRetryDelay(int retriesLeft)
+{
+    auto delayRange = FSLOGIC_RETRY_DELAYS[FSLOGIC_RETRY_COUNT - retriesLeft];
+    auto delay = std::chrono::milliseconds(delayRange.first +
+        (std::rand() % (delayRange.second - delayRange.first + 1)));
+
+    LOG_DBG(1) << "Retrying FsLogic operation due to resource "
+                  "temporarily unavailable error in "
+               << delay.count() << "ms. Retries left: " << retriesLeft;
+
+    folly::fibers::Baton baton;
+    baton.timed_wait(delay);
 }
 
 } // namespace fslogic

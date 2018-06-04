@@ -28,6 +28,8 @@ namespace detail {
 struct stat toStatbuf(const FileAttrPtr &attr, const fuse_ino_t ino);
 } // namespace detail
 
+constexpr auto WITHUUIDS_RETRY_COUNT = 4;
+
 /**
  * @c WithUuids is responsible for translating inodes to uuids.
  */
@@ -91,7 +93,7 @@ public:
                     << LOG_FARG(size);
 
         return wrap(&FsLogicT::read, ino, handle, offset, size,
-            folly::Optional<folly::fbstring>{});
+            folly::Optional<folly::fbstring>{}, WITHUUIDS_RETRY_COUNT);
     }
 
     auto write(const fuse_ino_t ino, const std::uint64_t handle,
@@ -100,7 +102,8 @@ public:
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(handle) << LOG_FARG(offset)
                     << LOG_FARG(buf.chainLength());
 
-        return wrap(&FsLogicT::write, ino, handle, offset, std::move(buf));
+        return wrap(&FsLogicT::write, ino, handle, offset, std::move(buf),
+            WITHUUIDS_RETRY_COUNT);
     }
 
     auto release(const fuse_ino_t ino, const std::uint64_t handle)

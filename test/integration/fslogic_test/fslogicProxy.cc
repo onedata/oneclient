@@ -82,6 +82,8 @@ public:
     }
 };
 
+constexpr auto FSLOGIC_PROXY_RETRY_COUNT = 2;
+
 class FsLogicProxy {
 public:
     FsLogicProxy(std::shared_ptr<Context> context)
@@ -209,7 +211,8 @@ public:
     std::string read(std::string uuid, int fileHandleId, int offset, int size)
     {
         ReleaseGIL guard;
-        auto buf = m_fsLogic.read(uuid, fileHandleId, offset, size, {});
+        auto buf = m_fsLogic.read(
+            uuid, fileHandleId, offset, size, {}, FSLOGIC_PROXY_RETRY_COUNT);
 
         std::string data;
         buf.appendToString(data);
@@ -224,7 +227,8 @@ public:
         folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
         buf.allocate(size);
 
-        return m_fsLogic.write(uuid, fuseHandleId, offset, std::move(buf));
+        return m_fsLogic.write(uuid, fuseHandleId, offset, std::move(buf),
+            FSLOGIC_PROXY_RETRY_COUNT);
     }
 
     void release(std::string uuid, int fuseHandleId)
