@@ -4,6 +4,15 @@
 CHANGELOG
 ---------
 
+### 18.02.0-rc6
+
+* VFS-4515 Added file location empty range unit test
+* VFS-4518 Added protobuf filelocation benchmark
+* VFS-4517 Added sysbench and nc to Oneclient Docker image
+* VFS-4515 Added FileLocation::updateInRange microbenchmark
+* VFS-4515 Added handling of FileLocationChanged with partial filelocation
+
+
 ### 18.02.0-rc5
 
 * VFS-4447 Fixed forced proxy detection access type update
