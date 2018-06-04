@@ -49,6 +49,10 @@ class Context;
 
 namespace fslogic {
 
+constexpr auto FSLOGIC_RETRY_COUNT = 4;
+const std::array<std::pair<int, int>, FSLOGIC_RETRY_COUNT> FSLOGIC_RETRY_DELAYS{
+    {{100, 1000}, {1000, 5000}, {5000, 10'000}, {10'000, 30'000}}};
+
 /**
  * The FsLogic main class.
  * This class contains FUSE all callbacks, so it basically is an heart of the
@@ -111,7 +115,8 @@ public:
      */
     folly::IOBufQueue read(const folly::fbstring &uuid,
         const std::uint64_t fileHandleId, const off_t offset,
-        const std::size_t size, folly::Optional<folly::fbstring> checksum);
+        const std::size_t size, folly::Optional<folly::fbstring> checksum,
+        const int retriesLeft = FSLOGIC_RETRY_COUNT);
 
     /**
      * FUSE @c write callback.
@@ -119,7 +124,7 @@ public:
      */
     std::size_t write(const folly::fbstring &uuid,
         const std::uint64_t fuseFileHandleId, const off_t offset,
-        folly::IOBufQueue buf);
+        folly::IOBufQueue buf, const int retriesLeft = FSLOGIC_RETRY_COUNT);
 
     /**
      * FUSE @c mkdir callback.
@@ -257,6 +262,13 @@ private:
         const std::size_t size, const folly::fbstring &uuid,
         const boost::icl::discrete_interval<off_t> possibleRange,
         const boost::icl::discrete_interval<off_t> availableRange);
+
+    /**
+     * Suspends current fiber for a random timed delay depending
+     * on current retry number.
+     * @param retriesLeft Current number of retries left
+     */
+    void fiberRetryDelay(int retriesLeft);
 
     std::shared_ptr<Context> m_context;
     events::Manager m_eventManager{m_context};
