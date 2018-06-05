@@ -97,6 +97,16 @@ def prepare_partial_sync_response(uuid, data, blocks, start, end):
     return server_response
 
 
+def prepare_sync_eagain_response(uuid, data, blocks):
+    location = prepare_location(uuid, blocks)
+
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.file_location.CopyFrom(location)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.eagain
+
+    return server_response
+
+
 def prepare_sync_request(offset, size):
     block = common_messages_pb2.FileBlock()
     block.offset = offset
@@ -889,6 +899,47 @@ def test_read_should_request_synchronization(appmock_client, endpoint, fl, uuid)
     sync = file_request.synchronize_block
     assert sync.block == block
     assert file_request.context_guid == uuid
+
+
+def test_read_should_retry_request_synchronization(appmock_client, endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
+
+    responses = []
+    responses.append(prepare_sync_eagain_response(uuid, '', [(0, 10)]))
+    responses.append(prepare_sync_response(uuid, '', [(0, 10)]))
+
+    appmock_client.reset_tcp_history()
+    with reply(endpoint, responses) as queue:
+        fl.read(uuid, fh, 2, 5)
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('synchronize_block')
+    block = common_messages_pb2.FileBlock()
+    block.offset = 2
+    block.size = 5
+    sync = file_request.synchronize_block
+    assert sync.block == block
+    assert file_request.context_guid == uuid
+
+
+def test_read_should_not_retry_request_synchronization_too_many_times(appmock_client, endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
+
+    responses = []
+    responses.append(prepare_sync_eagain_response(uuid, '', [(0, 10)]))
+    responses.append(prepare_sync_eagain_response(uuid, '', [(0, 10)]))
+    responses.append(prepare_sync_eagain_response(uuid, '', [(0, 10)]))
+
+    appmock_client.reset_tcp_history()
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, responses) as queue:
+            fl.read(uuid, fh, 2, 5)
+            client_message = queue.get()
+
+    assert 'Resource temporarily unavailable' in str(excinfo.value)
 
 
 def test_read_should_continue_reading_after_synchronization(appmock_client,
