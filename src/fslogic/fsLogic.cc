@@ -415,7 +415,21 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
             LOG_DBG(1) << "Rereading the requested block from file " << uuid
                        << " due to mismatch in checksum";
 
-            return read(uuid, fileHandleId, offset, size, checksum);
+            if (retriesLeft) {
+                fiberRetryDelay(retriesLeft);
+                LOG_DBG(1) << "Retrying read of " << size << " bytes at offset "
+                           << offset << " from file " << uuid
+                           << " - invalid checksum";
+                return read(uuid, fileHandleId, offset, size, checksum,
+                    retriesLeft - 1);
+            }
+            else {
+                LOG(ERROR) << "Failed to read " << size << " bytes at offset "
+                           << offset << " from file " << uuid
+                           << " - invalid checksum";
+                throw std::system_error(
+                    std::make_error_code(std::errc::io_error));
+            }
         }
 
         const auto bytesRead = readBuffer.chainLength();
