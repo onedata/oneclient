@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 18.02.0-rc7
+
+* VFS-4527 Limited retries on read with corrupted checksum
+
+
 ### 18.02.0-rc6
 
 * VFS-4515 Added file location empty range unit test
