@@ -574,14 +574,19 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
         // Get the number of different blocks in the current clustering window
         // around the current read offset - if higher than threshold, request
         // synchronous prefetch of that window clipped to file size
-        if (fileLocation->blocksInRange(
-                std::max<off_t>(0, offset - windowSize / 2),
-                std::min<off_t>(offset + windowSize / 2, fileSize)) >
-            m_randomReadPrefetchClusterBlockThreshold) {
+        auto leftRange = std::max<off_t>(0, offset - windowSize / 2);
+        auto rightRange = std::min<off_t>(offset + windowSize / 2, fileSize);
+        auto blocksInRange = fileLocation->blocksInRange(leftRange, rightRange);
+
+        if (blocksInRange > m_randomReadPrefetchClusterBlockThreshold) {
+            LOG_DBG(1) << "Requesting clustered prefetch of block ["
+                       << leftRange << ", " << rightRange << ") for file "
+                       << uuid << ". " << blocksInRange
+                       << " blocks in range (prefetch threshold: "
+                       << m_randomReadPrefetchClusterBlockThreshold << ")";
 
             prefetchRange = boost::icl::discrete_interval<off_t>::right_open(
-                std::max<off_t>(0, offset - windowSize / 2),
-                std::min<off_t>(offset + windowSize / 2, fileSize));
+                leftRange, rightRange);
 
             worthPrefetching = true;
             synchronousPrefetchRequested = true;
