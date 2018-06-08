@@ -611,7 +611,7 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
         m_context->communicator()
             ->communicate<messages::fuse::FileLocationChanged>(
                 messages::fuse::SynchronizeBlock{
-                    uuid.toStdString(), prefetchRange})
+                    uuid.toStdString(), prefetchRange, false})
             .then([this](messages::fuse::FileLocationChanged locationUpdate) {
                 m_runInFiber(
                     [ this, locationUpdate = std::move(locationUpdate) ] {

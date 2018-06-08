@@ -32,14 +32,15 @@ public:
      * @param uuid UUID of the file to synchronize.
      * @param block interval that should be synchronized.
      */
-    SynchronizeBlock(
-        std::string uuid, boost::icl::discrete_interval<off_t> block);
+    SynchronizeBlock(std::string uuid,
+        boost::icl::discrete_interval<off_t> block, bool prefetch = true);
 
     std::string toString() const override;
 
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
+    bool m_prefetch;
     boost::icl::discrete_interval<off_t> m_block;
 };
 
