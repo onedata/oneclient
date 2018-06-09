@@ -259,6 +259,11 @@ public:
     bool isPrefetchModeAsynchronous() const;
 
     /*
+     * @return Is cluster block prefetch threshold random.
+     */
+    bool isClusterPrefetchThresholdRandom() const;
+
+    /*
      * @return Absolute number of blocks in file location before prefetch is
      * triggered, 0 disables the limit.
      */
