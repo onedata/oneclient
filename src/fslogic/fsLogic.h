@@ -27,6 +27,7 @@
 
 #include <functional>
 #include <memory>
+#include <random>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -303,6 +304,11 @@ private:
     const unsigned int m_randomReadPrefetchClusterWindow;
     const unsigned int m_randomReadPrefetchClusterBlockThreshold;
     const double m_randomReadPrefetchClusterWindowGrowFactor;
+    const bool m_clusterPrefetchThresholdRandom;
+
+    std::random_device m_clusterPrefetchRD{};
+    std::mt19937 m_clusterPrefetchRandomGenerator{m_clusterPrefetchRD()};
+    std::uniform_int_distribution<> m_clusterPrefetchDistribution;
 };
 
 } // namespace fslogic

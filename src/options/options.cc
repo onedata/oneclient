@@ -356,6 +356,16 @@ Options::Options()
         .withDescription(
             "Enables asynchronous replication requests (experimental).");
 
+    add<bool>()
+        ->asSwitch()
+        .withLongName("cluster-prefetch-threshold-random")
+        .withConfigName("cluster_prefetch_threshold_random")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Enables random cluster prefetch threshold selection "
+                         "(experimental).");
+
     add<unsigned int>()
         ->withLongName("metadata-cache-size")
         .withConfigName("metadata_cache_size")
@@ -778,6 +788,13 @@ double Options::getRandomReadPrefetchThreshold() const
 bool Options::isPrefetchModeAsynchronous() const
 {
     return get<bool>({"prefetch-mode-async", "prefetch_mode_async"})
+        .get_value_or(false);
+}
+
+bool Options::isClusterPrefetchThresholdRandom() const
+{
+    return get<bool>({"cluster-prefetch-threshold-random",
+                         "cluster_prefetch_threshold_random"})
         .get_value_or(false);
 }
 

@@ -116,8 +116,10 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
                                             ->getRandomReadPrefetchClusterWindow()}
     , m_randomReadPrefetchClusterBlockThreshold{m_context->options()
                                                     ->getRandomReadPrefetchClusterBlockThreshold()}
-    , m_randomReadPrefetchClusterWindowGrowFactor{
-          m_context->options()->getRandomReadPrefetchClusterWindowGrowFactor()}
+    , m_randomReadPrefetchClusterWindowGrowFactor{m_context->options()
+                                                      ->getRandomReadPrefetchClusterWindowGrowFactor()}
+    , m_clusterPrefetchThresholdRandom(
+          m_context->options()->isClusterPrefetchThresholdRandom())
 {
     using namespace std::placeholders;
 
@@ -179,6 +181,11 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
 
     m_metadataCache.onMarkDeleted(
         [this](const folly::fbstring &uuid) { m_onMarkDeleted(uuid); });
+
+    if (m_clusterPrefetchThresholdRandom) {
+        m_clusterPrefetchDistribution = std::uniform_int_distribution<int>(
+            2, m_randomReadPrefetchClusterBlockThreshold);
+    }
 }
 
 FileAttrPtr FsLogic::lookup(
@@ -578,12 +585,18 @@ void FsLogic::prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
         auto rightRange = std::min<off_t>(offset + windowSize / 2, fileSize);
         auto blocksInRange = fileLocation->blocksInRange(leftRange, rightRange);
 
-        if (blocksInRange > m_randomReadPrefetchClusterBlockThreshold) {
+        auto prefetchBlockThreshold = m_randomReadPrefetchClusterBlockThreshold;
+        if (m_clusterPrefetchThresholdRandom) {
+            prefetchBlockThreshold =
+                m_clusterPrefetchDistribution(m_clusterPrefetchRandomGenerator);
+        }
+
+        if (blocksInRange > prefetchBlockThreshold) {
             LOG_DBG(1) << "Requesting clustered prefetch of block ["
                        << leftRange << ", " << rightRange << ") for file "
                        << uuid << ". " << blocksInRange
                        << " blocks in range (prefetch threshold: "
-                       << m_randomReadPrefetchClusterBlockThreshold << ")";
+                       << prefetchBlockThreshold << ")";
 
             prefetchRange = boost::icl::discrete_interval<off_t>::right_open(
                 leftRange, rightRange);
