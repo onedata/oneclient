@@ -39,9 +39,12 @@ TEST_F(FuseFileLocationMessagesTest, blocksInRangeCounterShouldWork)
 
     fileLocation.putBlock(515, 5, FileBlock{"", ""});
     fileLocation.putBlock(600, 10, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.blocksInRange(256, 530), 2);
     EXPECT_EQ(fileLocation.blocksInRange(256, 1024), 3);
 
     fileLocation.putBlock(1000, 200, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.blocksInRange(515, 650), 2);
+    EXPECT_EQ(fileLocation.blocksInRange(0, 650), 3);
     EXPECT_EQ(fileLocation.blocksInRange(256, 1024), 4);
 }
 
