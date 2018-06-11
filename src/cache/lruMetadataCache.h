@@ -190,9 +190,11 @@ public:
     void putLocation(std::unique_ptr<FileLocation> location);
 
     /**
-     * @copydoc MetadataCache::getLocation(const folly::fbstring &uuid);
+     * @copydoc MetadataCache::getLocation(const folly::fbstring &uuid, bool
+     * forceUpdate = false);
      */
-    std::shared_ptr<FileLocation> getLocation(const folly::fbstring &uuid);
+    std::shared_ptr<FileLocation> getLocation(
+        const folly::fbstring &uuid, bool forceUpdate = false);
 
     /**
      * @copydoc MetadataCache::updateLocation(const FileLocation &newLocation);

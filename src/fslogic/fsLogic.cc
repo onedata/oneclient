@@ -941,28 +941,38 @@ folly::fbstring FsLogic::getxattr(
             return "\"unknown\"";
     }
     else if (name == ONE_XATTR("file_blocks_count")) {
+        auto forceLocationUpdate =
+            !m_fsSubscriptions.isSubscribedToFileLocationChanged(uuid);
         return "\"" +
-            std::to_string(m_metadataCache.getLocation(uuid)->blocksCount()) +
+            std::to_string(
+                m_metadataCache.getLocation(uuid, forceLocationUpdate)
+                    ->blocksCount()) +
             "\"";
     }
     else if (name == ONE_XATTR("file_blocks")) {
         std::size_t size = m_metadataCache.getAttr(uuid)->size().value_or(0);
         if (size == 0)
             return "\"empty\"";
-        else
+        else {
+            auto forceLocationUpdate =
+                !m_fsSubscriptions.isSubscribedToFileLocationChanged(uuid);
             return "\"[" +
-                m_metadataCache.getLocation(uuid)->progressString(
-                    size, XATTR_FILE_BLOCKS_MAP_LENGTH) +
+                m_metadataCache.getLocation(uuid, forceLocationUpdate)
+                    ->progressString(size, XATTR_FILE_BLOCKS_MAP_LENGTH) +
                 "]\"";
+        }
     }
     else if (name == ONE_XATTR("replication_progress")) {
         std::size_t size = m_metadataCache.getAttr(uuid)->size().value_or(0);
 
+        auto forceLocationUpdate =
+            !m_fsSubscriptions.isSubscribedToFileLocationChanged(uuid);
         auto replicationProgress =
-            m_metadataCache.getLocation(uuid)->replicationProgress(size);
+            m_metadataCache.getLocation(uuid, forceLocationUpdate)
+                ->replicationProgress(size);
 
         return "\"" +
-            std::to_string((int)std::round(replicationProgress * 100)) + "%\"";
+            std::to_string((int)std::floor(replicationProgress * 100)) + "%\"";
     }
 
     messages::fuse::GetXAttr getXAttrRequest{uuid, name};

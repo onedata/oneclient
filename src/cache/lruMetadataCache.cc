@@ -235,11 +235,11 @@ void LRUMetadataCache::putLocation(std::unique_ptr<FileLocation> location)
 }
 
 std::shared_ptr<FileLocation> LRUMetadataCache::getLocation(
-    const folly::fbstring &uuid)
+    const folly::fbstring &uuid, bool forceUpdate)
 {
     LOG_FCALL();
 
-    return MetadataCache::getLocation(uuid);
+    return MetadataCache::getLocation(uuid, forceUpdate);
 }
 
 bool LRUMetadataCache::updateLocation(const FileLocation &newLocation)
