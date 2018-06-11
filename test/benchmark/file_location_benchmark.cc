@@ -70,8 +70,6 @@ BENCHMARK(benchmarkPut100KBlocks)
     folly::doNotOptimizeAway(fileLocation);
 }
 
-BENCHMARK_DRAW_LINE();
-
 BENCHMARK(benchmarkPutBlockRandomlyAfter100KBlocks)
 {
     auto fileLocation = FileLocation{};
@@ -87,10 +85,11 @@ BENCHMARK(benchmarkPutBlockRandomlyAfter100KBlocks)
         boost::random::uniform_int_distribution<> randomBlock(1, 1024 * 1024);
         randomBlockNumber = randomBlock(gen);
     }
-
     fileLocation.putBlock(randomBlockNumber, blockSize, FileBlock{" ", " "});
     folly::doNotOptimizeAway(fileLocation);
 }
+
+BENCHMARK_DRAW_LINE();
 
 BENCHMARK(benchmarkFileBlockCreation)
 {
@@ -105,8 +104,8 @@ BENCHMARK(benchmarkToString)
     {
         fileLocation.putBlock(0, blockSize, FileBlock{" ", " "});
     }
-    fileLocation.toString();
-    folly::doNotOptimizeAway(fileLocation);
+    auto res = fileLocation.toString();
+    folly::doNotOptimizeAway(res);
 }
 
 BENCHMARK_DRAW_LINE();
@@ -122,8 +121,8 @@ BENCHMARK(benchmarkProgressString1KBlocks)
                 2 * blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    fileLocation.progressString(2 * blockSize * 1000, 50);
-    folly::doNotOptimizeAway(fileLocation);
+    auto res = fileLocation.progressString(2 * blockSize * 1000, 50);
+    folly::doNotOptimizeAway(res);
 }
 
 BENCHMARK(benchmarkProgressString10KBlocks)
@@ -137,8 +136,8 @@ BENCHMARK(benchmarkProgressString10KBlocks)
                 2 * blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    fileLocation.progressString(2 * blockSize * 10'000, 50);
-    folly::doNotOptimizeAway(fileLocation);
+    auto res = fileLocation.progressString(2 * blockSize * 10'000, 50);
+    folly::doNotOptimizeAway(res);
 }
 
 BENCHMARK(benchmarkProgressString100KBlocks)
@@ -152,8 +151,8 @@ BENCHMARK(benchmarkProgressString100KBlocks)
                 2 * blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    fileLocation.progressString(2 * blockSize * 100'000, 50);
-    folly::doNotOptimizeAway(fileLocation);
+    auto res = fileLocation.progressString(2 * blockSize * 100'000, 50);
+    folly::doNotOptimizeAway(res);
 }
 
 BENCHMARK_DRAW_LINE();
@@ -169,8 +168,8 @@ BENCHMARK(benchmarkReplicationProgress1KBlocks)
                 2 * blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    fileLocation.replicationProgress(2 * blockSize * 1000);
-    folly::doNotOptimizeAway(fileLocation);
+    auto res = fileLocation.replicationProgress(2 * blockSize * 1000);
+    folly::doNotOptimizeAway(res);
 }
 
 BENCHMARK(benchmarkReplicationProgress10KBlocks)
@@ -184,8 +183,8 @@ BENCHMARK(benchmarkReplicationProgress10KBlocks)
                 2 * blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    fileLocation.replicationProgress(2 * blockSize * 10'000);
-    folly::doNotOptimizeAway(fileLocation);
+    auto res = fileLocation.replicationProgress(2 * blockSize * 10'000);
+    folly::doNotOptimizeAway(res);
 }
 
 BENCHMARK(benchmarkReplicationProgress100KBlocks)
@@ -199,8 +198,8 @@ BENCHMARK(benchmarkReplicationProgress100KBlocks)
                 2 * blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    fileLocation.replicationProgress(2 * blockSize * 100'000);
-    folly::doNotOptimizeAway(fileLocation);
+    auto res = fileLocation.replicationProgress(2 * blockSize * 100'000);
+    folly::doNotOptimizeAway(res);
 }
 
 BENCHMARK_DRAW_LINE();
@@ -263,9 +262,8 @@ BENCHMARK(benchmarkRandomBlocksCountAll100KBlocks)
                 2 * blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    auto result = fileLocation.blocksInRange(0, 2 * blockSize * 100'000);
-    folly::doNotOptimizeAway(fileLocation);
-    folly::doNotOptimizeAway(result);
+    auto res = fileLocation.blocksInRange(0, 2 * blockSize * 100'000);
+    folly::doNotOptimizeAway(res);
 }
 
 BENCHMARK_DRAW_LINE();
@@ -329,9 +327,8 @@ BENCHMARK(benchmarkRandomBlocksLengthInRangeAll100KBlocks)
                 2 * blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    auto result = fileLocation.blocksLengthInRange(0, 2 * blockSize * 100'000);
-    folly::doNotOptimizeAway(fileLocation);
-    folly::doNotOptimizeAway(result);
+    auto res = fileLocation.blocksLengthInRange(0, 2 * blockSize * 100'000);
+    folly::doNotOptimizeAway(res);
 }
 
 BENCHMARK_DRAW_LINE();
@@ -347,8 +344,9 @@ BENCHMARK(benchmarkLinearReadReadPrefetch1KBlocks)
                 2 * blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    fileLocation.linearReadPrefetchThresholdReached(0.5, 2 * blockSize * 1000);
-    folly::doNotOptimizeAway(fileLocation);
+    auto res = fileLocation.linearReadPrefetchThresholdReached(
+        0.5, 2 * blockSize * 1000);
+    folly::doNotOptimizeAway(res);
 }
 
 BENCHMARK(benchmarkLinearReadReadPrefetch10KBlocks)
@@ -362,9 +360,9 @@ BENCHMARK(benchmarkLinearReadReadPrefetch10KBlocks)
                 2 * blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    fileLocation.linearReadPrefetchThresholdReached(
+    auto res = fileLocation.linearReadPrefetchThresholdReached(
         0.5, 2 * blockSize * 10'000);
-    folly::doNotOptimizeAway(fileLocation);
+    folly::doNotOptimizeAway(res);
 }
 
 BENCHMARK(benchmarkLinearReadReadPrefetch100KBlocks)
@@ -378,9 +376,9 @@ BENCHMARK(benchmarkLinearReadReadPrefetch100KBlocks)
                 2 * blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    fileLocation.linearReadPrefetchThresholdReached(
+    auto res = fileLocation.linearReadPrefetchThresholdReached(
         0.5, 2 * blockSize * 100'000);
-    folly::doNotOptimizeAway(fileLocation);
+    folly::doNotOptimizeAway(res);
 }
 
 BENCHMARK_DRAW_LINE();
@@ -396,8 +394,9 @@ BENCHMARK(benchmarkRandomReadReadPrefetch1KBlocks)
                 2 * blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    fileLocation.randomReadPrefetchThresholdReached(0.5, 2 * blockSize * 1000);
-    folly::doNotOptimizeAway(fileLocation);
+    auto res = fileLocation.randomReadPrefetchThresholdReached(
+        0.5, 2 * blockSize * 1000);
+    folly::doNotOptimizeAway(res);
 }
 
 BENCHMARK(benchmarkRandomReadReadPrefetch10KBlocks)
@@ -411,9 +410,9 @@ BENCHMARK(benchmarkRandomReadReadPrefetch10KBlocks)
                 2 * blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    fileLocation.randomReadPrefetchThresholdReached(
+    auto res = fileLocation.randomReadPrefetchThresholdReached(
         0.5, 2 * blockSize * 10'000);
-    folly::doNotOptimizeAway(fileLocation);
+    folly::doNotOptimizeAway(res);
 }
 
 BENCHMARK(benchmarkRandomReadReadPrefetch100KBlocks)
@@ -427,9 +426,9 @@ BENCHMARK(benchmarkRandomReadReadPrefetch100KBlocks)
                 2 * blockSize * i, blockSize, FileBlock{" ", " "});
         }
     }
-    fileLocation.randomReadPrefetchThresholdReached(
+    auto res = fileLocation.randomReadPrefetchThresholdReached(
         0.5, 2 * blockSize * 10'000);
-    folly::doNotOptimizeAway(fileLocation);
+    folly::doNotOptimizeAway(res);
 }
 
 BENCHMARK_DRAW_LINE();
