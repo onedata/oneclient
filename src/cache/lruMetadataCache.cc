@@ -116,6 +116,8 @@ void LRUMetadataCache::release(const folly::fbstring &uuid)
     if (--it->second.openCount)
         return;
 
+    m_onRelease(uuid);
+
     if (it->second.deleted) {
         m_lruData.erase(it);
         MetadataCache::erase(uuid);

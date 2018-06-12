@@ -157,6 +157,10 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
         m_fsSubscriptions.subscribeFileLocationChanged(uuid);
     });
 
+    m_metadataCache.onRelease([this](const folly::fbstring &uuid) {
+        m_fsSubscriptions.unsubscribeFileLocationChanged(uuid);
+    });
+
     m_metadataCache.onPrune([this](const folly::fbstring &uuid) {
         m_fsSubscriptions.unsubscribeFileAttrChanged(uuid);
         m_fsSubscriptions.unsubscribeFileLocationChanged(uuid);

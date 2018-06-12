@@ -129,6 +129,15 @@ public:
     }
 
     /**
+     * Sets a callback that will be called after a file is released (closed).
+     * @param cb The callback which takes uuid as parameter.
+     */
+    void onRelease(std::function<void(const folly::fbstring &)> cb)
+    {
+        m_onRelease = std::move(cb);
+    }
+
+    /**
      * Sets a callback that will be called after a file is pruned from the
      * cache.
      * @param cb The callback which takes uuid as parameter.
@@ -245,6 +254,7 @@ private:
 
     std::function<void(const folly::fbstring &)> m_onAdd = [](auto &) {};
     std::function<void(const folly::fbstring &)> m_onOpen = [](auto &) {};
+    std::function<void(const folly::fbstring &)> m_onRelease = [](auto &) {};
     std::function<void(const folly::fbstring &)> m_onPrune = [](auto &) {};
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
     std::function<void(const folly::fbstring &, const folly::fbstring &)>
