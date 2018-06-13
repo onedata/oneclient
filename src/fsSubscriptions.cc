@@ -134,6 +134,12 @@ bool FsSubscriptions::unsubscribeFileLocationChanged(
     return unsubscribe(events::StreamKey::FILE_LOCATION_CHANGED, fileUuid);
 }
 
+bool FsSubscriptions::isSubscribedToFileLocationChanged(
+    const folly::fbstring &fileUuid) const
+{
+    return isSubscribed(events::StreamKey::FILE_LOCATION_CHANGED, fileUuid);
+}
+
 void FsSubscriptions::subscribeFilePermChanged(const folly::fbstring &fileUuid)
 {
     LOG_FCALL() << LOG_FARG(fileUuid);
@@ -266,6 +272,13 @@ void FsSubscriptions::subscribe(
             subscriptionAcc, {subscription.streamKey(), fileUuid})) {
         subscriptionAcc->second = m_eventManager.subscribe(subscription);
     }
+}
+
+bool FsSubscriptions::isSubscribed(
+    events::StreamKey streamKey, const folly::fbstring &fileUuid) const
+{
+    SubscriptionAcc subscriptionAcc;
+    return m_subscriptions.find(subscriptionAcc, {streamKey, fileUuid});
 }
 
 bool FsSubscriptions::unsubscribe(

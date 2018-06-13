@@ -163,25 +163,26 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
 }
 
 std::shared_ptr<FileLocation> MetadataCache::getLocation(
-    const folly::fbstring &uuid)
+    const folly::fbstring &uuid, bool forceUpdate)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
-    return getLocationPtr(getAttrIt(uuid));
+    return getLocationPtr(getAttrIt(uuid), forceUpdate);
 }
 
 std::shared_ptr<FileLocation> MetadataCache::getLocationPtr(
-    const Map::iterator &it)
+    const Map::iterator &it, bool forceUpdate)
 {
     LOG_FCALL();
 
-    if (it->location) {
+    if (!forceUpdate && it->location) {
         LOG_DBG(2) << "Found file location in metadata cache for "
                    << it->attr->uuid();
         return it->location;
     }
 
-    LOG_DBG(2) << "File location not found in metadata cache for "
+    LOG_DBG(2) << "File location not found in metadata cache or forced update "
+                  "requested for "
                << it->attr->uuid() << " - fetching from server";
 
     auto res = fetchFileLocation(it->attr->uuid());
