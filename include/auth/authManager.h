@@ -73,6 +73,7 @@ public:
     createCommunicator(const unsigned int poolSize,
         const unsigned int workerCount, std::string sessionId,
         std::string version,
+        const std::vector<std::string> &compatibleOneproviderVersions,
         std::function<std::error_code(messages::HandshakeResponse)>
             onHandshakeResponse) = 0;
 
@@ -114,6 +115,7 @@ public:
     createCommunicator(const unsigned int poolSize,
         const unsigned int workerCount, std::string sessionId,
         std::string version,
+        const std::vector<std::string> &compatibleOneproviderVersions,
         std::function<std::error_code(messages::HandshakeResponse)>
             onHandshakeResponse) override;
 
