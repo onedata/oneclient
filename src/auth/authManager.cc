@@ -58,6 +58,7 @@ std::tuple<std::shared_ptr<communication::Communicator>,
     folly::Future<folly::Unit>>
 MacaroonAuthManager::createCommunicator(const unsigned int poolSize,
     const unsigned int workerCount, std::string sessionId, std::string version,
+    const std::vector<std::string> &compatibleOneproviderVersions,
     std::function<std::error_code(messages::HandshakeResponse)>
         onHandshakeResponse)
 {
@@ -69,8 +70,9 @@ MacaroonAuthManager::createCommunicator(const unsigned int poolSize,
 
     auto future = communicator->setHandshake(
         [=] {
-            one::messages::ClientHandshakeRequest handshake{
-                sessionId, m_macaroonHandler.restrictedMacaroon(), version};
+            one::messages::ClientHandshakeRequest handshake{sessionId,
+                m_macaroonHandler.restrictedMacaroon(), version,
+                compatibleOneproviderVersions};
 
             return handshake;
         },

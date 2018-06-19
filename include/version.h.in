@@ -10,10 +10,13 @@
 #define ONECLIENT_VERSION_H
 
 #include <string>
+#include <vector>
 
 namespace {
 static constexpr auto ONECLIENT_VERSION = "@GIT_VERSION@",
                       ONECLIENT_CONFIG_DIR = "@CMAKE_INSTALL_FULL_SYSCONFDIR@";
+static const std::vector<std::string>
+    ONECLIENT_COMPATIBLE_ONEPROVIDER_VERSIONS = {"18.07.0-alpha"};
 } // namespace
 
 #endif // ONECLIENT_VERSION_H

@@ -20,6 +20,7 @@
 #include "auth/authManager.h"
 #include "communication/exception.h"
 #include "context.h"
+#include "errors/handshakeErrors.h"
 #include "fsOperations.h"
 #include "fslogic/composite.h"
 #include "fuseOperations.h"
@@ -89,6 +90,9 @@ void startLogging(
     LOG(INFO) << "File read events disabled: "
               << options->areFileReadEventsDisabled();
     LOG(INFO) << "IO buffered: " << options->isIOBuffered();
+    LOG(INFO) << "Compatible Oneprovider versions: ";
+    for (const auto &version : ONECLIENT_COMPATIBLE_ONEPROVIDER_VERSIONS)
+        LOG(INFO) << version << " ";
     LOG(INFO) << "Oneprovider connection timeout [s]: "
               << options->getProviderTimeout().count();
     LOG(INFO) << "Monitoring enabled: " << options->isMonitoringEnabled();
@@ -213,14 +217,21 @@ std::shared_ptr<communication::Communicator> handshake(
     std::shared_ptr<Context> context)
 {
     auto handshakeHandler = [&](messages::HandshakeResponse msg) {
+        using one::errors::handshake::ErrorCode;
+        using one::errors::handshake::makeErrorCode;
+
         if (msg.isMacaroonError()) {
             authManager->cleanup();
         }
-        return msg.status();
+        auto msgStatus = msg.status();
+        if (msgStatus == makeErrorCode(ErrorCode::incompatible_version))
+            LOG(ERROR) << msg.toString();
+        return msgStatus;
     };
 
-    auto testCommunicatorTuple = authManager->createCommunicator(
-        1, 1, sessionId, ONECLIENT_VERSION, handshakeHandler);
+    auto testCommunicatorTuple =
+        authManager->createCommunicator(1, 1, sessionId, ONECLIENT_VERSION,
+            ONECLIENT_COMPATIBLE_ONEPROVIDER_VERSIONS, handshakeHandler);
     auto testCommunicator =
         std::get<std::shared_ptr<communication::Communicator>>(
             testCommunicatorTuple);
@@ -304,7 +315,8 @@ std::shared_ptr<communication::Communicator> getCommunicator(
     auto communicatorTuple = authManager->createCommunicator(
         context->options()->getCommunicatorConnectionPoolSize(),
         context->options()->getCommunicatorThreadCount(), sessionId,
-        ONECLIENT_VERSION, handshakeHandler);
+        ONECLIENT_VERSION, ONECLIENT_COMPATIBLE_ONEPROVIDER_VERSIONS,
+        handshakeHandler);
     auto communicator = std::get<std::shared_ptr<communication::Communicator>>(
         communicatorTuple);
 
