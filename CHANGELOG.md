@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 18.02.0-rc8
+
+* Releasing new version 18.02.0-rc8
+
+
 ### 18.02.0-rc7
 
 * VFS-4527 Limited retries on read with corrupted checksum
