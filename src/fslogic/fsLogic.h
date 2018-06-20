@@ -17,6 +17,7 @@
 #include "cache/readdirCache.h"
 #include "events/events.h"
 #include "fsSubscriptions.h"
+#include "ioTraceLogger.h"
 
 #include <asio/buffer.hpp>
 #include <boost/icl/discrete_interval.hpp>
@@ -117,7 +118,8 @@ public:
     folly::IOBufQueue read(const folly::fbstring &uuid,
         const std::uint64_t fileHandleId, const off_t offset,
         const std::size_t size, folly::Optional<folly::fbstring> checksum,
-        const int retriesLeft = FSLOGIC_RETRY_COUNT);
+        const int retriesLeft = FSLOGIC_RETRY_COUNT,
+        std::unique_ptr<IOTraceLogger::IOTraceEntry> ioTraceEntry = {});
 
     /**
      * FUSE @c write callback.
@@ -125,7 +127,8 @@ public:
      */
     std::size_t write(const folly::fbstring &uuid,
         const std::uint64_t fuseFileHandleId, const off_t offset,
-        folly::IOBufQueue buf, const int retriesLeft = FSLOGIC_RETRY_COUNT);
+        folly::IOBufQueue buf, const int retriesLeft = FSLOGIC_RETRY_COUNT,
+        std::unique_ptr<IOTraceLogger::IOTraceEntry> ioTraceEntry = {});
 
     /**
      * FUSE @c mkdir callback.
@@ -258,7 +261,11 @@ private:
     bool isSpaceDisabled(const folly::fbstring &spaceId);
     void disableSpaces(const std::vector<std::string> &spaces);
 
-    void prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
+    std::shared_ptr<IOTraceLogger> createIOTraceLogger(
+        const folly::fbstring &uuid, const uint64_t fuseHandleId);
+
+    std::pair<size_t, IOTraceLogger::PrefetchType> prefetchSync(
+        std::shared_ptr<FuseFileHandle> fuseFileHandle,
         helpers::FileHandlePtr helperHandle, const off_t offset,
         const std::size_t size, const folly::fbstring &uuid,
         const boost::icl::discrete_interval<off_t> possibleRange,
@@ -305,6 +312,7 @@ private:
     const unsigned int m_randomReadPrefetchClusterBlockThreshold;
     const double m_randomReadPrefetchClusterWindowGrowFactor;
     const bool m_clusterPrefetchThresholdRandom;
+    const bool m_ioTraceLoggerEnabled;
 
     std::random_device m_clusterPrefetchRD{};
     std::mt19937 m_clusterPrefetchRandomGenerator{m_clusterPrefetchRD()};

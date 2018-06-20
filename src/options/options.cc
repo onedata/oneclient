@@ -119,6 +119,15 @@ Options::Options()
 
     add<bool>()
         ->asSwitch()
+        .withLongName("io-trace-log")
+        .withConfigName("io-trace-log")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Enable detailed IO trace log (experimental).");
+
+    add<bool>()
+        ->asSwitch()
         .withLongName("force-proxy-io")
         .withConfigName("force_proxy_io")
         .withImplicitValue(true)
@@ -661,6 +670,11 @@ boost::filesystem::path Options::getLogDirPath() const
 {
     return get<boost::filesystem::path>({"log-dir", "log_dir"})
         .get_value_or(m_defaultLogDirPath);
+}
+
+bool Options::isIOTraceLoggerEnabled() const
+{
+    return get<bool>({"io-trace-log", "io_trace_log"}).get_value_or(false);
 }
 
 bool Options::isProxyIOForced() const
