@@ -48,6 +48,29 @@ TEST_F(FuseFileLocationMessagesTest, blocksInRangeCounterShouldWork)
     EXPECT_EQ(fileLocation.blocksInRange(256, 1024), 4);
 }
 
+TEST_F(FuseFileLocationMessagesTest, blocksLengthInRangeShouldWork)
+{
+    auto fileLocation = FileLocation{};
+    EXPECT_EQ(fileLocation.blocksLengthInRange(250, 1000), 0);
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 500, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.blocksLengthInRange(0, 1000), 500);
+
+    fileLocation.putBlock(500, 1, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.blocksInRange(0, 1000), 1);
+    EXPECT_EQ(fileLocation.blocksLengthInRange(0, 1000), 501);
+    EXPECT_EQ(fileLocation.blocksLengthInRange(500, 1000), 1);
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 25, FileBlock{"", ""});
+    fileLocation.putBlock(100, 25, FileBlock{"", ""});
+    fileLocation.putBlock(200, 25, FileBlock{"", ""});
+    fileLocation.putBlock(300, 25, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.blocksLengthInRange(0, 1000), 100);
+    EXPECT_EQ(fileLocation.blocksLengthInRange(0, 320), 95);
+}
+
 TEST_F(FuseFileLocationMessagesTest, updateInRangeShouldAddNewBlocks)
 {
     auto oldFileLocation = FileLocation{};
@@ -188,28 +211,42 @@ TEST_F(FuseFileLocationMessagesTest,
     partialFileLocationShouldRenderPartialProgress)
 {
     auto fileLocation = FileLocation{};
+    const auto fileSize = 1000;
     fileLocation.putBlock(0, 1, FileBlock{"", ""});
-    EXPECT_EQ(fileLocation.progressString(100, 10), ".         ");
+    EXPECT_EQ(fileLocation.progressString(fileSize, 10), ".         ");
 
     fileLocation = FileLocation{};
-    fileLocation.putBlock(0, 511 - 1, FileBlock{"", ""});
-    EXPECT_EQ(fileLocation.progressString(1024, 10), "#####     ");
+    fileLocation.putBlock(0, fileSize * 0.1, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.progressString(fileSize, 10), "#         ");
 
     fileLocation = FileLocation{};
-    fileLocation.putBlock(0, 512, FileBlock{"", ""});
-    EXPECT_EQ(fileLocation.progressString(1024, 10), "#####.    ");
+    fileLocation.putBlock(0, fileSize * 0.9, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.progressString(fileSize, 10), "######### ");
 
     fileLocation = FileLocation{};
-    fileLocation.putBlock(0, 600, FileBlock{"", ""});
-    EXPECT_EQ(fileLocation.progressString(1024, 10), "#####o    ");
+    fileLocation.putBlock(0, fileSize / 2, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.progressString(fileSize, 10), "#####     ");
 
     fileLocation = FileLocation{};
-    fileLocation.putBlock(511 - 1, 1024, FileBlock{"", ""});
-    EXPECT_EQ(fileLocation.progressString(1024, 10), "     #####");
+    fileLocation.putBlock(0, fileSize / 2 + 1, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.progressString(fileSize, 10), "#####.    ");
 
     fileLocation = FileLocation{};
-    fileLocation.putBlock(950, 1024, FileBlock{"", ""});
-    EXPECT_EQ(fileLocation.progressString(1024, 10), "         o");
+    fileLocation.putBlock(0, fileSize / 2 - 25, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.progressString(fileSize, 10), "####o     ");
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(0, fileSize / 2 + 75, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.progressString(fileSize, 10), "#####o    ");
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(fileSize / 2, fileSize / 2, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.progressString(fileSize, 10), "     #####");
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(
+        fileSize * 0.93, fileSize - fileSize * 0.93, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.progressString(fileSize, 10), "         o");
 }
 
 TEST_F(FuseFileLocationMessagesTest,

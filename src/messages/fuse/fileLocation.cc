@@ -61,10 +61,33 @@ unsigned int FileLocation::blocksCount() const
     return boost::icl::interval_count(m_blocks);
 }
 
-unsigned int FileLocation::blocksInRange(const off_t start, const off_t end)
+unsigned int FileLocation::blocksInRange(
+    const off_t start, const off_t end) const
 {
-    return boost::icl::interval_count(m_blocks &
+    auto rangeIt = m_blocks.equal_range(
         boost::icl::discrete_interval<off_t>::right_open(start, end));
+
+    unsigned int res = 0;
+    for (auto it = rangeIt.first; it != rangeIt.second; ++it)
+        res++;
+
+    return res;
+}
+
+size_t FileLocation::blocksLengthInRange(
+    const off_t start, const off_t end) const
+{
+    auto rangeIt = m_blocks.equal_range(
+        boost::icl::discrete_interval<off_t>::right_open(start, end));
+
+    size_t res = 0;
+    for (auto it = rangeIt.first; it != rangeIt.second; ++it) {
+        auto lower = std::max(start, it->first.lower());
+        auto upper = std::min(it->first.upper(), end);
+        res += (upper - lower);
+    }
+
+    return res;
 }
 
 void FileLocation::putBlock(
@@ -113,8 +136,8 @@ std::string FileLocation::progressString(
     assert(progressSteps > 0);
 
     if (fileSize < progressSteps * 2) {
-        size_t intersectionLength = boost::icl::length(m_blocks &
-            boost::icl::discrete_interval<off_t>::right_open(0, fileSize));
+        size_t intersectionLength =
+            std::min<size_t>(boost::icl::length(m_blocks), fileSize);
 
         if (intersectionLength == 0)
             result.append(progressSteps, ' ');
@@ -136,14 +159,12 @@ std::string FileLocation::progressString(
             else
                 endRange = fileSize;
 
-            size_t intersectionLength = boost::icl::length(m_blocks &
-                boost::icl::discrete_interval<off_t>::right_open(
-                    startRange, endRange));
+            size_t intersectionLength =
+                blocksLengthInRange(startRange, endRange);
 
             if (intersectionLength == 0)
                 result += ' ';
-            else if (intersectionLength <
-                std::round(progressStepByteLength / 2.0))
+            else if (intersectionLength < progressStepByteLength / 2)
                 result += '.';
             else if (intersectionLength < progressStepByteLength)
                 result += 'o';
@@ -160,8 +181,8 @@ double FileLocation::replicationProgress(const size_t fileSize) const
     if (fileSize == 0)
         return 0.0;
 
-    size_t intersectionLength = boost::icl::length(m_blocks &
-        boost::icl::discrete_interval<off_t>::right_open(0, fileSize));
+    size_t intersectionLength =
+        std::min<size_t>(boost::icl::length(m_blocks), fileSize);
 
     return ((double)intersectionLength) / ((double)fileSize);
 }
@@ -170,9 +191,7 @@ bool FileLocation::linearReadPrefetchThresholdReached(
     const double threshold, const size_t fileSize) const
 {
     const off_t fileThresholdRange = fileSize * threshold;
-    return boost::icl::length(m_blocks &
-               boost::icl::discrete_interval<off_t>::right_open(0, fileSize)) >
-        fileThresholdRange;
+    return boost::icl::length(m_blocks) > fileThresholdRange;
 }
 
 bool FileLocation::randomReadPrefetchThresholdReached(
@@ -181,9 +200,7 @@ bool FileLocation::randomReadPrefetchThresholdReached(
     const off_t fileThresholdBytes = fileSize * threshold;
 
     return (blocksCount() > 5) &&
-        boost::icl::length(m_blocks &
-            boost::icl::discrete_interval<off_t>::right_open(0, fileSize)) >
-        fileThresholdBytes;
+        boost::icl::length(m_blocks) > fileThresholdBytes;
 }
 
 void FileLocation::deserialize(const ProtocolMessage &message)

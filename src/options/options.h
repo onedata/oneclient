@@ -155,6 +155,11 @@ public:
     boost::filesystem::path getLogDirPath() const;
 
     /*
+     * @return True if IO trace log is enabled.
+     */
+    bool isIOTraceLoggerEnabled() const;
+
+    /*
      * @return true if 'force-proxy-io' option has been provided, otherwise
      * false.
      */

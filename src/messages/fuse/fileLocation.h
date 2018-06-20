@@ -157,7 +157,15 @@ public:
      * @param end The end offset of the range  (noninclusive)
      * @return Number of blocks in range [start, end)
      */
-    unsigned int blocksInRange(const off_t start, const off_t end);
+    unsigned int blocksInRange(const off_t start, const off_t end) const;
+
+    /**
+     * Calculates the length of blocks in a given range.
+     * @param start The start offset of the requested range (inclusive)
+     * @param end The end offset of the range  (noninclusive)
+     * @return Number of blocks in range [start, end)
+     */
+    size_t blocksLengthInRange(const off_t start, const off_t end) const;
 
     /**
      * Determines whether the linear read prefetch threshold has been reached.

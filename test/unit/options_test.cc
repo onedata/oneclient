@@ -88,6 +88,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.getDebug());
     EXPECT_EQ(false, options.getSingleThread());
     EXPECT_EQ(false, options.isInsecure());
+    EXPECT_EQ(false, options.isIOTraceLoggerEnabled());
     EXPECT_EQ(false, options.isProxyIOForced());
     EXPECT_EQ(false, options.isDirectIOForced());
     EXPECT_EQ(false, options.isMonitoringEnabled());
@@ -219,6 +220,13 @@ TEST_F(OptionsTest, parseCommandLineShouldSetLogDirPath)
     cmdArgs.insert(cmdArgs.end(), {"--log-dir", "somePath", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ("somePath", options.getLogDirPath());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldEnableIOTraceLog)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--io-trace-log", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isIOTraceLoggerEnabled());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetForceProxyIO)

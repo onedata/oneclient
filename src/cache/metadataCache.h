@@ -118,8 +118,13 @@ public:
 
     /**
      * Returns a pointer to fetched or cached file location.
+     * @param uuid Uuid of the file for which location map should be returned.
+     * @param forceUpdate If true, file location will be retrieved from the
+     *                    server even if cached.
+     * @returns Requested file location.
      */
-    std::shared_ptr<FileLocation> getLocation(const folly::fbstring &uuid);
+    std::shared_ptr<FileLocation> getLocation(
+        const folly::fbstring &uuid, bool forceUpdate = false);
 
     /**
      * Retrieves space Id by uuid.
@@ -271,7 +276,8 @@ private:
 
     template <typename ReqMsg> Map::iterator fetchAttr(ReqMsg &&msg);
 
-    std::shared_ptr<FileLocation> getLocationPtr(const Map::iterator &it);
+    std::shared_ptr<FileLocation> getLocationPtr(
+        const Map::iterator &it, bool forceUpdate = false);
 
     std::shared_ptr<FileLocation> fetchFileLocation(
         const folly::fbstring &uuid);

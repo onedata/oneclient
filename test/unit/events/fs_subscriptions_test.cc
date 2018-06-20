@@ -71,12 +71,16 @@ TEST_F(FsSubscriptionsTest, subscribeFileLocationChangedShouldSubscribeOnce)
     EXPECT_CALL(this->mockManager, subscribe(_)).Times(1);
     this->fsSubscriptions.subscribeFileLocationChanged("fileUuid");
     this->fsSubscriptions.subscribeFileLocationChanged("fileUuid");
+    EXPECT_TRUE(
+        this->fsSubscriptions.isSubscribedToFileLocationChanged("fileUuid"));
 }
 
 TEST_F(FsSubscriptionsTest, unsubscribeFileLocationChangedShouldNotUnsubscribe)
 {
     EXPECT_CALL(this->mockManager, unsubscribe(_)).Times(0);
     this->fsSubscriptions.unsubscribeFileLocationChanged("fileUuid");
+    EXPECT_FALSE(
+        this->fsSubscriptions.isSubscribedToFileLocationChanged("fileUuid"));
 }
 
 TEST_F(FsSubscriptionsTest, unsubscribeFileLocationChangedShouldUnsubscribeOnce)
@@ -85,6 +89,8 @@ TEST_F(FsSubscriptionsTest, unsubscribeFileLocationChangedShouldUnsubscribeOnce)
     this->fsSubscriptions.subscribeFileLocationChanged("fileUuid");
     this->fsSubscriptions.unsubscribeFileLocationChanged("fileUuid");
     this->fsSubscriptions.unsubscribeFileLocationChanged("fileUuid");
+    EXPECT_FALSE(
+        this->fsSubscriptions.isSubscribedToFileLocationChanged("fileUuid"));
 }
 
 TEST_F(FsSubscriptionsTest, subscribeFileLocationChangedShouldUseProperStream)
