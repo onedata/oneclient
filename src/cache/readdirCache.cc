@@ -60,7 +60,7 @@ void DirCacheEntry::addEntry(const folly::fbstring &name)
 
 void DirCacheEntry::addEntry(folly::fbstring &&name)
 {
-    m_dirEntries.emplace_back(std::move(name));
+    m_dirEntries.emplace_back(std::forward<folly::fbstring>(name));
 }
 
 const std::list<folly::fbstring> &DirCacheEntry::dirEntries() const
@@ -163,9 +163,11 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
                 isLast = msg.isLast() && *msg.isLast();
 
                 for (const auto it : folly::enumerate(msg.childrenAttrs())) {
-                    const auto fileAttrPtr = std::make_shared<FileAttr>(*it);
-                    m_metadataCache.putAttr(fileAttrPtr);
-                    cacheEntry->addEntry(fileAttrPtr->name());
+                    cacheEntry->addEntry(it->name());
+                    if (!m_metadataCache.updateAttr(*it)) {
+                        m_metadataCache.putAttr(
+                            std::make_shared<FileAttr>(*it));
+                    }
                 }
 
                 chunkIndex = cacheEntry->dirEntries().size() - 2;
