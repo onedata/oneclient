@@ -119,7 +119,7 @@ public:
         const std::uint64_t fileHandleId, const off_t offset,
         const std::size_t size, folly::Optional<folly::fbstring> checksum,
         const int retriesLeft = FSLOGIC_RETRY_COUNT,
-        std::unique_ptr<IOTraceLogger::IOTraceEntry> ioTraceEntry = {});
+        std::unique_ptr<IOTraceRead> ioTraceEntry = {});
 
     /**
      * FUSE @c write callback.
@@ -128,7 +128,7 @@ public:
     std::size_t write(const folly::fbstring &uuid,
         const std::uint64_t fuseFileHandleId, const off_t offset,
         folly::IOBufQueue buf, const int retriesLeft = FSLOGIC_RETRY_COUNT,
-        std::unique_ptr<IOTraceLogger::IOTraceEntry> ioTraceEntry = {});
+        std::unique_ptr<IOTraceWrite> ioTraceEntry = {});
 
     /**
      * FUSE @c mkdir callback.
@@ -237,6 +237,8 @@ public:
      */
     bool isFullBlockReadForced() const { return m_forceFullblockRead; }
 
+    std::shared_ptr<IOTraceLogger> ioTraceLogger() { return m_ioTraceLogger; }
+
 private:
     template <typename SrvMsg = messages::fuse::FuseResponse, typename CliMsg>
     SrvMsg communicate(CliMsg &&msg, const std::chrono::seconds timeout);
@@ -261,8 +263,7 @@ private:
     bool isSpaceDisabled(const folly::fbstring &spaceId);
     void disableSpaces(const std::vector<std::string> &spaces);
 
-    std::shared_ptr<IOTraceLogger> createIOTraceLogger(
-        const folly::fbstring &uuid, const uint64_t fuseHandleId);
+    std::shared_ptr<IOTraceLogger> createIOTraceLogger();
 
     std::pair<size_t, IOTraceLogger::PrefetchType> prefetchSync(
         std::shared_ptr<FuseFileHandle> fuseFileHandle,
@@ -313,6 +314,7 @@ private:
     const double m_randomReadPrefetchClusterWindowGrowFactor;
     const bool m_clusterPrefetchThresholdRandom;
     const bool m_ioTraceLoggerEnabled;
+    std::shared_ptr<IOTraceLogger> m_ioTraceLogger;
 
     std::random_device m_clusterPrefetchRD{};
     std::mt19937 m_clusterPrefetchRandomGenerator{m_clusterPrefetchRD()};

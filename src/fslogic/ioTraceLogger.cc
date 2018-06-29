@@ -16,82 +16,64 @@ namespace one {
 namespace client {
 namespace fslogic {
 
-IOTraceLogger::IOTraceEntry::IOTraceEntry()
-    : timestamp{std::chrono::system_clock::now()}
-    , opType{OpType::READ}
-    , duration{0}
-    , offset{0}
-    , size{0}
-    , localRead{true}
-    , prefetchSize{0}
-    , prefetchType{PrefetchType::NONE}
-    , retries{0}
+folly::fbstring IOTraceLogger::toString(const IOTraceLogger::OpType &op)
 {
+    switch (op) {
+        case IOTraceLogger::OpType::LOOKUP:
+            return "lookup";
+        case IOTraceLogger::OpType::GETATTR:
+            return "getattr";
+        case IOTraceLogger::OpType::READDIR:
+            return "readdir";
+        case IOTraceLogger::OpType::OPEN:
+            return "open";
+        case IOTraceLogger::OpType::RELEASE:
+            return "release";
+        case IOTraceLogger::OpType::READ:
+            return "read";
+        case IOTraceLogger::OpType::WRITE:
+            return "write";
+        case IOTraceLogger::OpType::MKDIR:
+            return "mkdir";
+        case IOTraceLogger::OpType::MKNOD:
+            return "mknod";
+        case IOTraceLogger::OpType::UNLINK:
+            return "unlink";
+        case IOTraceLogger::OpType::RENAME:
+            return "rename";
+        case IOTraceLogger::OpType::SETATTR:
+            return "setattr";
+        case IOTraceLogger::OpType::CREATE:
+            return "create";
+        case IOTraceLogger::OpType::FLUSH:
+            return "flush";
+        case IOTraceLogger::OpType::FSYNC:
+            return "fsync";
+        case IOTraceLogger::OpType::GETXATTR:
+            return "getxattr";
+        case IOTraceLogger::OpType::SETXATTR:
+            return "setxattr";
+        case IOTraceLogger::OpType::REMOVEXATTR:
+            return "removexattr";
+        case IOTraceLogger::OpType::LISTXATTR:
+            return "listxattr";
+        default:
+            return "";
+    };
 }
 
-IOTraceLogger::IOTraceEntry::IOTraceEntry(
-    std::chrono::system_clock::time_point timestamp_, OpType opType_,
-    std::chrono::microseconds duration_, off_t offset_, size_t size_,
-    bool localRead_, size_t prefetchSize_, PrefetchType prefetchType_,
-    uint16_t retries_)
-    : timestamp(timestamp_)
-    , opType(opType_)
-    , duration(duration_)
-    , offset(offset_)
-    , size(size_)
-    , localRead(localRead_)
-    , prefetchSize(prefetchSize_)
-    , prefetchType(prefetchType_)
-    , retries(retries_)
+folly::fbstring IOTraceLogger::toString(const IOTraceLogger::PrefetchType &pt)
 {
-}
-
-folly::fbstring IOTraceLogger::IOTraceEntry::header()
-{
-    static const folly::fbvector<folly::fbstring> headers = {"timestamp [us]",
-        "operation", "offset", "size", "duration [us]", "local read",
-        "prefetch size", "prefetch type", "retries"};
-    return folly::join(IOTRACE_LOGGER_SEPARATOR, headers);
-}
-
-std::ostream &operator<<(
-    std::ostream &stream, const IOTraceLogger::IOTraceEntry &entry)
-{
-    const static std::map<IOTraceLogger::PrefetchType, folly::fbstring>
-        prefetchTypeNames{{IOTraceLogger::PrefetchType::NONE, "none"},
-            {IOTraceLogger::PrefetchType::LINEAR, "linear"},
-            {IOTraceLogger::PrefetchType::CLUSTER, "cluster"},
-            {IOTraceLogger::PrefetchType::FULL, "full"}};
-
-    if (entry.opType == IOTraceLogger::OpType::READ) {
-        stream << std::chrono::time_point_cast<std::chrono::milliseconds>(
-                      entry.timestamp)
-                      .time_since_epoch()
-                      .count()
-               << IOTRACE_LOGGER_SEPARATOR << "read" << IOTRACE_LOGGER_SEPARATOR
-               << entry.offset << IOTRACE_LOGGER_SEPARATOR << entry.size
-               << IOTRACE_LOGGER_SEPARATOR << entry.duration.count()
-               << IOTRACE_LOGGER_SEPARATOR << (entry.localRead ? 1 : 0)
-               << IOTRACE_LOGGER_SEPARATOR << entry.prefetchSize
-               << IOTRACE_LOGGER_SEPARATOR
-               << prefetchTypeNames.at(entry.prefetchType)
-               << IOTRACE_LOGGER_SEPARATOR << entry.retries;
-    }
-    else if (entry.opType == IOTraceLogger::OpType::WRITE) {
-        stream << std::chrono::time_point_cast<std::chrono::milliseconds>(
-                      entry.timestamp)
-                      .time_since_epoch()
-                      .count()
-               << IOTRACE_LOGGER_SEPARATOR << "write"
-               << IOTRACE_LOGGER_SEPARATOR << entry.offset
-               << IOTRACE_LOGGER_SEPARATOR << entry.size
-               << IOTRACE_LOGGER_SEPARATOR << entry.duration.count()
-               << IOTRACE_LOGGER_SEPARATOR << '-' << IOTRACE_LOGGER_SEPARATOR
-               << '-' << IOTRACE_LOGGER_SEPARATOR << '-'
-               << IOTRACE_LOGGER_SEPARATOR << entry.retries;
-    }
-
-    return stream;
+    switch (pt) {
+        case IOTraceLogger::PrefetchType::CLUSTER:
+            return "cluster";
+        case IOTraceLogger::PrefetchType::LINEAR:
+            return "linear";
+        case IOTraceLogger::PrefetchType::FULL:
+            return "full";
+        default:
+            return "none";
+    };
 }
 
 IOTraceLogger::IOTraceLogger(const int flushInterval)
@@ -104,6 +86,13 @@ IOTraceLogger::IOTraceLogger(const int flushInterval)
 
 IOTraceLogger::~IOTraceLogger() { stop(); }
 
+folly::fbstring IOTraceLogger::header()
+{
+    static const folly::fbvector<folly::fbstring> headers = {"timestamp [us]",
+        "operation", "duration [us]", "uuid", "handle_id", "retries"};
+    return folly::join(IOTRACE_LOGGER_SEPARATOR, headers);
+}
+
 void IOTraceLogger::start(const folly::fbstring &filePath)
 {
     std::lock_guard<std::mutex> lock(m_logMutex);
@@ -114,7 +103,10 @@ void IOTraceLogger::start(const folly::fbstring &filePath)
     try {
         m_stream.open(
             filePath.toStdString(), std::fstream::out | std::fstream::app);
-        m_stream << IOTraceEntry::header() << '\n';
+        m_stream << IOTraceLogger::header();
+        for (int i = 0; i < IOTRACE_LOGGER_MAX_ARGS_COUNT; i++)
+            m_stream << IOTRACE_LOGGER_SEPARATOR << "arg-" << std::to_string(i);
+        m_stream << '\n';
     }
     catch (std::ifstream::failure e) {
         LOG(ERROR) << "Cannot create IO tracer log file " << filePath << ": "
@@ -136,33 +128,6 @@ void IOTraceLogger::stop()
     m_stream.close();
 
     m_started = true;
-}
-
-void IOTraceLogger::log(const IOTraceLogger::IOTraceEntry &entry)
-{
-    std::lock_guard<std::mutex> lock(m_logMutex);
-
-    if (!m_started)
-        return;
-
-    m_stream << entry << '\n';
-
-    if (m_lineCounter++ % m_flushInterval == 0 ||
-        (std::chrono::duration<double>(
-             std::chrono::system_clock::now() - m_lastFlush)
-                .count() > IOTRACE_LOGGER_FLUSH_TIME_INTERVAL)) {
-        m_stream.flush();
-        m_lastFlush = std::chrono::system_clock::now();
-    }
-}
-
-void IOTraceLogger::log(std::chrono::system_clock::time_point timestamp,
-    OpType opType, std::chrono::microseconds duration, off_t offset,
-    size_t size, bool localRead, size_t prefetchSize, PrefetchType prefetchType,
-    uint16_t retries)
-{
-    log({timestamp, opType, duration, offset, size, localRead, prefetchSize,
-        prefetchType, retries});
 }
 
 std::shared_ptr<IOTraceLogger> IOTraceLogger::make(

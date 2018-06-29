@@ -11,7 +11,6 @@
 #include "cache/lruMetadataCache.h"
 #include "communication/communicator.h"
 #include "helpers/storageHelper.h"
-#include "ioTraceLogger.h"
 
 #include <folly/FBString.h>
 #include <folly/FBVector.h>
@@ -50,8 +49,7 @@ public:
         std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,
         cache::HelpersCache &helpersCache,
         cache::ForceProxyIOCache &forceProxyIOCache,
-        std::chrono::seconds providerTimeout,
-        std::shared_ptr<IOTraceLogger> &&ioTraceLogger);
+        std::chrono::seconds providerTimeout);
 
     /**
      * Retrieves a helper handle for an open file.
@@ -101,8 +99,6 @@ public:
         return m_lastPrefetch;
     }
 
-    std::shared_ptr<IOTraceLogger> ioTraceLogger() { return m_ioTraceLogger; }
-
     bool fullPrefetchTriggered() const { return m_fullPrefetchTriggered; }
 
     void setFullPrefetchTriggered() { m_fullPrefetchTriggered = true; }
@@ -122,7 +118,6 @@ private:
     const std::chrono::seconds m_providerTimeout;
     boost::icl::discrete_interval<off_t> m_lastPrefetch;
     std::atomic<bool> m_fullPrefetchTriggered;
-    std::shared_ptr<IOTraceLogger> m_ioTraceLogger;
 };
 
 } // namespace fslogic
