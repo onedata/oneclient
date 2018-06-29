@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 18.02.0-rc9
+
+* VFS-4617 Fixed updating of file attr in metadatacache
+
+
 ### 18.02.0-rc8
 
 * Releasing new version 18.02.0-rc8
