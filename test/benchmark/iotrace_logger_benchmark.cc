@@ -26,9 +26,9 @@ BENCHMARK(benchmarkLog1MRecordsFlushEvery1)
     auto tracer = IOTraceLogger::make(tempFile.native(), 1);
 
     for (auto i : boost::irange(0, 1'000'000)) {
-        tracer->log(std::chrono::system_clock::now(),
+        tracer->log(IOTraceRead(std::chrono::system_clock::now(),
             IOTraceLogger::OpType::READ, std::chrono::microseconds{1000},
-            i + 1024, 1024, false, 2048);
+            "Uuid1", 0, 0, i + 1024, 1024, false, 2048, "cluster"));
     };
 
     tracer->stop();
@@ -45,9 +45,9 @@ BENCHMARK(benchmarkLog1MRecordsFlushEvery1K)
     auto tracer = IOTraceLogger::make(tempFile.native(), 1'000);
 
     for (auto i : boost::irange(0, 1'000'000)) {
-        tracer->log(std::chrono::system_clock::now(),
+        tracer->log(IOTraceRead(std::chrono::system_clock::now(),
             IOTraceLogger::OpType::READ, std::chrono::microseconds{1000},
-            i + 1024, 1024, false, 2048);
+            "Uuid1", 0, 0, i + 1024, 1024, false, 2048, "cluster"));
     };
 
     tracer->stop();
@@ -64,9 +64,9 @@ BENCHMARK(benchmarkLog1MRecordsFlushEvery10K)
     auto tracer = IOTraceLogger::make(tempFile.native(), 10'000);
 
     for (auto i : boost::irange(0, 1'000'000)) {
-        tracer->log(std::chrono::system_clock::now(),
+        tracer->log(IOTraceRead(std::chrono::system_clock::now(),
             IOTraceLogger::OpType::READ, std::chrono::microseconds{1000},
-            i + 1024, 1024, false, 2048);
+            "Uuid1", 0, 0, i + 1024, 1024, false, 2048, "cluster"));
     };
 
     tracer->stop();
@@ -83,9 +83,9 @@ BENCHMARK(benchmarkLog1MRecordsFlushEvery100K)
     auto tracer = IOTraceLogger::make(tempFile.native(), 100'000);
 
     for (auto i : boost::irange(0, 1'000'000)) {
-        tracer->log(std::chrono::system_clock::now(),
+        tracer->log(IOTraceRead(std::chrono::system_clock::now(),
             IOTraceLogger::OpType::READ, std::chrono::microseconds{1000},
-            i + 1024, 1024, false, 2048);
+            "Uuid1", 0, 0, i + 1024, 1024, false, 2048, "cluster"));
     };
 
     tracer->stop();

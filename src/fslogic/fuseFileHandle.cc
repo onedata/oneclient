@@ -20,8 +20,7 @@ FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
     std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,
     cache::HelpersCache &helpersCache,
     cache::ForceProxyIOCache &forceProxyIOCache,
-    const std::chrono::seconds providerTimeout,
-    std::shared_ptr<IOTraceLogger> &&ioTraceLogger)
+    const std::chrono::seconds providerTimeout)
     : m_flags{flags_}
     , m_handleId{std::move(handleId)}
     , m_openFileToken{std::move(openFileToken)}
@@ -29,7 +28,6 @@ FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
     , m_forceProxyIOCache{forceProxyIOCache}
     , m_providerTimeout{std::move(providerTimeout)}
     , m_fullPrefetchTriggered{false}
-    , m_ioTraceLogger{std::move(ioTraceLogger)}
 {
 }
 

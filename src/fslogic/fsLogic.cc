@@ -50,12 +50,29 @@
 #include <boost/icl/interval_set.hpp>
 #include <folly/Enumerate.h>
 #include <folly/Range.h>
+#include <folly/ScopeGuard.h>
 #include <folly/fibers/Baton.h>
 #include <folly/fibers/FiberManager.h>
 #include <folly/fibers/ForEach.h>
 #include <folly/json.h>
 #include <fuse/fuse_lowlevel.h>
 #include <openssl/md4.h>
+
+#define IOTRACE_START() auto __ioTraceStart = std::chrono::system_clock::now();
+
+#define IOTRACE_END(TraceType, optype, uuid, handleId, ...)                    \
+    if (m_ioTraceLoggerEnabled)                                                \
+        m_ioTraceLogger->log(                                                  \
+            TraceType(std::chrono::system_clock::now(), optype,                \
+                std::chrono::duration_cast<std::chrono::microseconds>(         \
+                    std::chrono::system_clock::now() - __ioTraceStart),        \
+                uuid, handleId, 0, ##__VA_ARGS__));
+
+#define IOTRACE_GUARD(TraceType, optype, uuid, handleId, ...)                  \
+    IOTRACE_START()                                                            \
+    auto __ioTraceGuard = folly::makeGuard([&] {                               \
+        IOTRACE_END(TraceType, optype, uuid, handleId, ##__VA_ARGS__)          \
+    });
 
 namespace one {
 namespace client {
@@ -191,6 +208,10 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
         m_clusterPrefetchDistribution = std::uniform_int_distribution<int>(
             2, m_randomReadPrefetchClusterBlockThreshold);
     }
+
+    if (m_ioTraceLoggerEnabled) {
+        m_ioTraceLogger = createIOTraceLogger();
+    }
 }
 
 FileAttrPtr FsLogic::lookup(
@@ -198,12 +219,16 @@ FileAttrPtr FsLogic::lookup(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name);
 
+    IOTRACE_GUARD(IOTraceLookup, IOTraceLogger::OpType::LOOKUP, uuid, 0, name)
+
     return m_metadataCache.getAttr(uuid, name);
 }
 
 FileAttrPtr FsLogic::getattr(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
+
+    IOTRACE_GUARD(IOTraceGetAttr, IOTraceLogger::OpType::GETATTR, uuid, 0)
 
     return m_metadataCache.getAttr(uuid);
 }
@@ -213,12 +238,17 @@ folly::fbvector<folly::fbstring> FsLogic::readdir(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(maxSize) << LOG_FARG(off);
 
+    IOTRACE_GUARD(
+        IOTraceReadDir, IOTraceLogger::OpType::READDIR, uuid, 0, maxSize, off)
+
     return m_readdirCache->readdir(uuid, off, maxSize);
 }
 
 std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARGH(flags);
+
+    IOTRACE_START()
 
     auto openFileToken = m_metadataCache.open(uuid);
 
@@ -234,15 +264,13 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
 
     const auto fuseFileHandleId = m_nextFuseHandleId++;
 
-    std::shared_ptr<IOTraceLogger> ioTraceLogger;
-    if (m_ioTraceLoggerEnabled) {
-        ioTraceLogger = createIOTraceLogger(uuid, fuseFileHandleId);
-    }
-
     m_fuseFileHandles.emplace(fuseFileHandleId,
         std::make_shared<FuseFileHandle>(filteredFlags, opened.handleId(),
             openFileToken, *m_helpersCache, m_forceProxyIOCache,
-            m_providerTimeout, std::move(ioTraceLogger)));
+            m_providerTimeout));
+
+    IOTRACE_END(
+        IOTraceOpen, IOTraceLogger::OpType::OPEN, uuid, fuseFileHandleId, flags)
 
     LOG_DBG(2) << "Assigned fuse handle " << fuseFileHandleId << " for file "
                << uuid;
@@ -254,6 +282,9 @@ void FsLogic::release(
     const folly::fbstring &uuid, const std::uint64_t fileHandleId)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(fileHandleId);
+
+    IOTRACE_GUARD(
+        IOTraceRelease, IOTraceLogger::OpType::OPEN, uuid, fileHandleId)
 
     if (m_fuseFileHandles.find(fileHandleId) == m_fuseFileHandles.cend()) {
         LOG_DBG(1) << "Fuse file handle " << fileHandleId
@@ -306,6 +337,9 @@ void FsLogic::flush(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(fileHandleId);
 
+    IOTRACE_GUARD(
+        IOTraceFlush, IOTraceLogger::OpType::FLUSH, uuid, fileHandleId)
+
     auto fuseFileHandle = m_fuseFileHandles.at(fileHandleId);
 
     LOG_DBG(2) << "Sending file flush message for " << uuid;
@@ -320,6 +354,9 @@ void FsLogic::fsync(const folly::fbstring &uuid,
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(fileHandleId)
                 << LOG_FARG(dataOnly);
 
+    IOTRACE_GUARD(IOTraceFsync, IOTraceLogger::OpType::FSYNC, uuid,
+        fileHandleId, dataOnly)
+
     m_eventManager.flush();
 
     auto fuseFileHandle = m_fuseFileHandles.at(fileHandleId);
@@ -329,6 +366,7 @@ void FsLogic::fsync(const folly::fbstring &uuid,
     communicate(messages::fuse::FSync{uuid.toStdString(), dataOnly,
                     fuseFileHandle->providerHandleId()->toStdString()},
         m_providerTimeout);
+
     for (auto &helperHandle : fuseFileHandle->helperHandles())
         communication::wait(
             helperHandle->fsync(dataOnly), helperHandle->timeout());
@@ -337,17 +375,23 @@ void FsLogic::fsync(const folly::fbstring &uuid,
 folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
     const std::uint64_t fileHandleId, const off_t offset,
     const std::size_t size, folly::Optional<folly::fbstring> checksum,
-    const int retriesLeft,
-    std::unique_ptr<IOTraceLogger::IOTraceEntry> ioTraceEntry)
+    const int retriesLeft, std::unique_ptr<IOTraceRead> ioTraceEntry)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(fileHandleId) << LOG_FARG(offset)
                 << LOG_FARG(size);
 
     if (m_ioTraceLoggerEnabled && !ioTraceEntry) {
-        ioTraceEntry = std::make_unique<IOTraceLogger::IOTraceEntry>();
-        ioTraceEntry->timestamp = std::chrono::system_clock::now();
+        ioTraceEntry = std::make_unique<IOTraceRead>();
         ioTraceEntry->opType = IOTraceLogger::OpType::READ;
-        ioTraceEntry->offset = offset;
+        ioTraceEntry->uuid = uuid;
+        ioTraceEntry->handleId = fileHandleId;
+        ioTraceEntry->retries = 0;
+        std::get<0>(ioTraceEntry->arguments) = offset;
+        std::get<1>(ioTraceEntry->arguments) = size;
+        std::get<2>(ioTraceEntry->arguments) = true;
+        std::get<3>(ioTraceEntry->arguments) = 0;
+        std::get<4>(ioTraceEntry->arguments) =
+            IOTraceLogger::toString(IOTraceLogger::PrefetchType::NONE);
     }
 
     auto fuseFileHandle = m_fuseFileHandles.at(fileHandleId);
@@ -391,7 +435,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
                 sync(uuid, wantedRange);
 
             if (m_ioTraceLoggerEnabled)
-                ioTraceEntry->localRead = false;
+                std::get<2>(ioTraceEntry->arguments) = false;
 
             return read(uuid, fileHandleId, offset, size, std::move(csum),
                 retriesLeft, std::move(ioTraceEntry));
@@ -423,8 +467,9 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
             availableSize, uuid, possibleRange, availableRange);
 
         if (m_ioTraceLoggerEnabled) {
-            ioTraceEntry->prefetchSize = prefetchParams.first;
-            ioTraceEntry->prefetchType = prefetchParams.second;
+            std::get<3>(ioTraceEntry->arguments) = prefetchParams.first;
+            std::get<4>(ioTraceEntry->arguments) =
+                IOTraceLogger::toString(prefetchParams.second);
         }
 
         const std::size_t continuousSize =
@@ -481,10 +526,10 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
 
         if (m_ioTraceLoggerEnabled) {
             using namespace std::chrono;
-            ioTraceEntry->size = bytesRead;
+            std::get<1>(ioTraceEntry->arguments) = bytesRead;
             ioTraceEntry->duration = duration_cast<microseconds>(
                 system_clock::now() - ioTraceEntry->timestamp);
-            fuseFileHandle->ioTraceLogger()->log(*ioTraceEntry);
+            m_ioTraceLogger->log(*ioTraceEntry);
         }
 
         return readBuffer;
@@ -702,7 +747,7 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchSync(
 std::size_t FsLogic::write(const folly::fbstring &uuid,
     const std::uint64_t fuseFileHandleId, const off_t offset,
     folly::IOBufQueue buf, const int retriesLeft,
-    std::unique_ptr<IOTraceLogger::IOTraceEntry> ioTraceEntry)
+    std::unique_ptr<IOTraceWrite> ioTraceEntry)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(fuseFileHandleId)
                 << LOG_FARG(offset) << LOG_FARG(buf.chainLength());
@@ -713,10 +758,13 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
     }
 
     if (m_ioTraceLoggerEnabled && !ioTraceEntry) {
-        ioTraceEntry = std::make_unique<IOTraceLogger::IOTraceEntry>();
-        ioTraceEntry->timestamp = std::chrono::system_clock::now();
+        ioTraceEntry = std::make_unique<IOTraceWrite>();
         ioTraceEntry->opType = IOTraceLogger::OpType::WRITE;
-        ioTraceEntry->offset = offset;
+        ioTraceEntry->uuid = uuid;
+        ioTraceEntry->handleId = fuseFileHandleId;
+        ioTraceEntry->retries = 0;
+        std::get<0>(ioTraceEntry->arguments) = offset;
+        std::get<1>(ioTraceEntry->arguments) = 0;
     }
 
     auto fuseFileHandle = m_fuseFileHandles.at(fuseFileHandleId);
@@ -784,11 +832,11 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
     m_metadataCache.addBlock(uuid, writtenRange, std::move(fileBlock));
 
     if (m_ioTraceLoggerEnabled) {
-        ioTraceEntry->size = bytesWritten;
+        std::get<1>(ioTraceEntry->arguments) = bytesWritten;
         using namespace std::chrono;
         ioTraceEntry->duration = duration_cast<microseconds>(
             system_clock::now() - ioTraceEntry->timestamp);
-        fuseFileHandle->ioTraceLogger()->log(*ioTraceEntry);
+        m_ioTraceLogger->log(*ioTraceEntry);
     }
 
     return bytesWritten;
@@ -798,6 +846,9 @@ FileAttrPtr FsLogic::mkdir(const folly::fbstring &parentUuid,
     const folly::fbstring &name, const mode_t mode)
 {
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name) << LOG_FARG(mode);
+
+    IOTRACE_GUARD(
+        IOTraceMkdir, IOTraceLogger::OpType::MKDIR, parentUuid, 0, name, mode)
 
     // TODO: CreateDir should probably also return attrs
     communicate(messages::fuse::CreateDir{parentUuid.toStdString(),
@@ -814,6 +865,9 @@ FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
     const folly::fbstring &name, const mode_t mode)
 {
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name) << LOG_FARG(mode);
+
+    IOTRACE_GUARD(
+        IOTraceMknod, IOTraceLogger::OpType::MKNOD, parentUuid, 0, name, mode)
 
     messages::fuse::MakeFile msg{parentUuid, name, mode};
     auto attr = communicate<FileAttr>(std::move(msg), m_providerTimeout);
@@ -835,6 +889,8 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name) << LOG_FARG(mode)
                 << LOG_FARG(flags);
 
+    IOTRACE_START()
+
     const auto flag = getOpenFlag(helpers::maskToFlags(flags));
     messages::fuse::CreateFile msg{parentUuid, name, mode, flag};
 
@@ -849,20 +905,18 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
 
     const auto fuseFileHandleId = m_nextFuseHandleId++;
 
-    std::shared_ptr<IOTraceLogger> ioTraceLogger;
-    if (m_ioTraceLoggerEnabled) {
-        ioTraceLogger = createIOTraceLogger(uuid, fuseFileHandleId);
-    }
-
     m_fuseFileHandles.emplace(fuseFileHandleId,
         std::make_shared<FuseFileHandle>(flags, created.handleId(),
             openFileToken, *m_helpersCache, m_forceProxyIOCache,
-            m_providerTimeout, std::move(ioTraceLogger)));
+            m_providerTimeout));
 
     LOG_DBG(2) << "Created file " << name << " in " << parentUuid
                << " with uuid " << uuid;
 
     m_readdirCache->invalidate(parentUuid);
+
+    IOTRACE_END(IOTraceCreate, IOTraceLogger::OpType::CREATE, parentUuid,
+        fuseFileHandleId, name, mode, flags)
 
     return {sharedAttr, fuseFileHandleId};
 }
@@ -871,6 +925,9 @@ void FsLogic::unlink(
     const folly::fbstring &parentUuid, const folly::fbstring &name)
 {
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name);
+
+    IOTRACE_GUARD(
+        IOTraceUnlink, IOTraceLogger::OpType::UNLINK, parentUuid, 0, name)
 
     // TODO: directly order provider to delete {parentUuid, name}
     auto attr = m_metadataCache.getAttr(parentUuid, name);
@@ -891,6 +948,9 @@ void FsLogic::rename(const folly::fbstring &parentUuid,
 {
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name)
                 << LOG_FARG(newParentUuid) << LOG_FARG(newName);
+
+    IOTRACE_GUARD(IOTraceRename, IOTraceLogger::OpType::RENAME, parentUuid, 0,
+        name, newParentUuid, newName)
 
     // TODO: directly order provider to rename {parentUuid, name}
     auto attr = m_metadataCache.getAttr(parentUuid, name);
@@ -915,6 +975,9 @@ FileAttrPtr FsLogic::setattr(
     const folly::fbstring &uuid, const struct stat &attr, const int toSet)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(toSet);
+
+    IOTRACE_GUARD(IOTraceSetAttr, IOTraceLogger::OpType::SETATTR, uuid, 0,
+        toSet, attr.st_mode, attr.st_size, attr.st_atime, attr.st_mtime)
 
     // TODO: this operation can be optimized with a single message to the
     // provider
@@ -991,6 +1054,9 @@ folly::fbstring FsLogic::getxattr(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name);
 
+    IOTRACE_GUARD(
+        IOTraceGetXAttr, IOTraceLogger::OpType::GETXATTR, uuid, 0, name)
+
     folly::fbstring result;
 
     if (name == ONE_XATTR("uuid")) {
@@ -1066,6 +1132,9 @@ void FsLogic::setxattr(const folly::fbstring &uuid, const folly::fbstring &name,
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name) << LOG_FARG(value)
                 << LOG_FARG(create) << LOG_FARG(replace);
 
+    IOTRACE_GUARD(
+        IOTraceSetXAttr, IOTraceLogger::OpType::SETXATTR, uuid, 0, name, value)
+
     messages::fuse::SetXAttr setXAttrRequest{
         uuid, name, value, create, replace};
     communicate<messages::fuse::FuseResponse>(
@@ -1079,6 +1148,9 @@ void FsLogic::removexattr(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name);
 
+    IOTRACE_GUARD(
+        IOTraceRemoveXAttr, IOTraceLogger::OpType::REMOVEXATTR, uuid, 0, name)
+
     messages::fuse::RemoveXAttr removeXAttrRequest{uuid, name};
     communicate<messages::fuse::FuseResponse>(
         removeXAttrRequest, m_providerTimeout);
@@ -1089,6 +1161,8 @@ void FsLogic::removexattr(
 folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
+
+    IOTRACE_GUARD(IOTraceListXAttr, IOTraceLogger::OpType::LISTXATTR, uuid, 0)
 
     using namespace one::messages::fuse;
 
@@ -1216,8 +1290,7 @@ void FsLogic::fiberRetryDelay(int retriesLeft)
     baton.timed_wait(delay);
 }
 
-std::shared_ptr<IOTraceLogger> FsLogic::createIOTraceLogger(
-    const folly::fbstring &uuid, const uint64_t fuseFileId)
+std::shared_ptr<IOTraceLogger> FsLogic::createIOTraceLogger()
 {
     auto now = std::chrono::system_clock::now();
     auto nowTimeT = std::chrono::system_clock::to_time_t(now);
@@ -1226,8 +1299,7 @@ std::shared_ptr<IOTraceLogger> FsLogic::createIOTraceLogger(
     std::tm nowTm = *std::localtime(&nowTimeT);
     std::strftime(nowBuf, 512, "%Y%m%dT%H%M%S", &nowTm);
     auto traceFilePath = m_context->options()->getLogDirPath() /
-        ("iotrace-" + uuid.toStdString() + "-" + nowBuf + "-" +
-            std::to_string(fuseFileId) + ".csv");
+        (std::string{"iotrace-"} + nowBuf + ".csv");
 
     return IOTraceLogger::make(traceFilePath.native());
 }
