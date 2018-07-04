@@ -325,5 +325,7 @@ if(APPLE)
     install(DIRECTORY autocomplete/osx/ DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/oneclient)
 endif(APPLE)
 
+add_subdirectory(bench)
+
 enable_testing()
 add_subdirectory(test)
