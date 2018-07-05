@@ -65,14 +65,17 @@ phony:
 %/oneclient: %/CMakeCache.txt phony
 	cmake --build $* --target oneclient
 
+%/onebench: %/CMakeCache.txt phony
+	cmake --build $* --target onebench
+
 .PHONY: deb-info
 deb-info: relwithdebinfo/oneclient
 
 .PHONY: release
-release: release/oneclient
+release: release/oneclient release/onebench
 
 .PHONY: debug
-debug: debug/oneclient
+debug: debug/oneclient release/onebench
 
 .PHONY: test
 test: debug
@@ -215,6 +218,7 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		--entrypoint /bin/bash \
 		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
 		-c 'cp /usr/bin/oneclient /output/bin && \
+		    cp /usr/bin/onebench /output/bin && \
 		    cp /etc/oneclient.conf /output/etc && \
 		    cp /usr/share/man/man1/oneclient.1.gz /output/share/man/man1/ && \
 		    cp /usr/share/man/man5/oneclient.conf.5.gz /output/share/man/man5/ && \
@@ -236,6 +240,11 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
 		--set-rpath /opt/oneclient/lib --force-rpath \
 		/output/bin/oneclient
+	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
+		-t $(PATCHELF_DOCKER_IMAGE) \
+		--set-interpreter /opt/oneclient/lib/ld-linux-x86-64.so.2 \
+		--set-rpath /opt/oneclient/lib --force-rpath \
+		/output/bin/onebench
 	# Create binary archive
 	cd $(ONECLIENT_FPMPACKAGE_TMP)/root && \
 		tar -cf oneclient-bin.tar * && \
