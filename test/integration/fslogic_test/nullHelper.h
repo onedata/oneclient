@@ -150,7 +150,8 @@ public:
         return folly::makeFuture();
     }
 
-    folly::Future<folly::Unit> unlink(const folly::fbstring &fileId) override
+    folly::Future<folly::Unit> unlink(
+        const folly::fbstring &fileId, const size_t size) override
     {
         if (m_ec)
             return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
@@ -211,8 +212,8 @@ public:
         return folly::makeFuture();
     }
 
-    folly::Future<folly::Unit> truncate(
-        const folly::fbstring &fileId, const off_t size) override
+    folly::Future<folly::Unit> truncate(const folly::fbstring &fileId,
+        const off_t size, const size_t currentSize) override
     {
         if (m_ec)
             return folly::makeFuture<folly::Unit>(std::system_error{m_ec});

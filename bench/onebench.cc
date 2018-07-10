@@ -26,7 +26,7 @@ static const std::set<folly::fbstring> storages{
 static const std::set<folly::fbstring> tests{"rndwr"};
 
 DEFINE_string(storage, "",
-    "Specify storage type: posix, s3, ceph, glusterfs, swift, null");
+    "Specify storage type: posix, s3, ceph, cephrados, glusterfs, swift, null");
 
 DEFINE_string(test, "", "Specify test type: rndwr");
 
@@ -51,6 +51,9 @@ DEFINE_string(ceph_mon_host, "", "Specify Ceph monitor host");
 DEFINE_string(ceph_pool, "", "Specify Ceph pool name");
 DEFINE_string(ceph_user, "", "Specify Ceph user name, e.g. 'client.admin'");
 DEFINE_string(ceph_key, "", "Specify Ceph user key");
+DEFINE_int32(ceph_blocksize, 1024 * 1024 * 4,
+    "Specify the block size used for striping files into Ceph objects (for "
+    "cephrados only)");
 
 DEFINE_string(s3_host, "", "Specify the S3 host, e.g.: '192.168.1.2'");
 DEFINE_string(s3_scheme, "https",
@@ -78,6 +81,15 @@ one::helpers::Params makeHelperParams()
         params["username"] = FLAGS_ceph_user;
         params["key"] = FLAGS_ceph_key;
         params["timeout"] = std::to_string(FLAGS_timeout_ms);
+    }
+    else if (FLAGS_storage == "cephrados") {
+        params["clusterName"] = "ceph";
+        params["monitorHostname"] = FLAGS_ceph_mon_host;
+        params["poolName"] = FLAGS_ceph_pool;
+        params["username"] = FLAGS_ceph_user;
+        params["key"] = FLAGS_ceph_key;
+        params["timeout"] = std::to_string(FLAGS_timeout_ms);
+        params["blockSize"] = std::to_string(FLAGS_ceph_blocksize);
     }
     else if (FLAGS_storage == "s3") {
         params["scheme"] = FLAGS_s3_scheme;

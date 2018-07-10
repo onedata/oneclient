@@ -36,7 +36,7 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
     , m_helperFactory
 {
 #if WITH_CEPH
-    m_helpersIoService,
+    m_helpersIoService, m_helpersIoService,
 #endif
         m_helpersIoService,
 #if WITH_S3
