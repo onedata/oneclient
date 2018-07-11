@@ -234,9 +234,9 @@ using IOTraceSetAttr =
     IOTraceLogger::IOTraceEntry<int, mode_t, off_t, time_t, time_t>;
 // [getxattr] arg-0: name
 using IOTraceGetXAttr = IOTraceLogger::IOTraceEntry<folly::fbstring>;
-// [setxattr] arg-0: name, arg-1: value
+// [setxattr] arg-0: name, arg-1: value, arg-2: create, arg-3: replace
 using IOTraceSetXAttr =
-    IOTraceLogger::IOTraceEntry<folly::fbstring, folly::fbstring>;
+    IOTraceLogger::IOTraceEntry<folly::fbstring, folly::fbstring, bool, bool>;
 // [removexattr] arg-0: name
 using IOTraceRemoveXAttr = IOTraceLogger::IOTraceEntry<folly::fbstring>;
 // [listxattr] None
