@@ -284,7 +284,7 @@ void FsLogic::release(
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(fileHandleId);
 
     IOTRACE_GUARD(
-        IOTraceRelease, IOTraceLogger::OpType::OPEN, uuid, fileHandleId)
+        IOTraceRelease, IOTraceLogger::OpType::RELEASE, uuid, fileHandleId)
 
     if (m_fuseFileHandles.find(fileHandleId) == m_fuseFileHandles.cend()) {
         LOG_DBG(1) << "Fuse file handle " << fileHandleId
@@ -1132,8 +1132,8 @@ void FsLogic::setxattr(const folly::fbstring &uuid, const folly::fbstring &name,
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name) << LOG_FARG(value)
                 << LOG_FARG(create) << LOG_FARG(replace);
 
-    IOTRACE_GUARD(
-        IOTraceSetXAttr, IOTraceLogger::OpType::SETXATTR, uuid, 0, name, value)
+    IOTRACE_GUARD(IOTraceSetXAttr, IOTraceLogger::OpType::SETXATTR, uuid, 0,
+        name, value, create, replace)
 
     messages::fuse::SetXAttr setXAttrRequest{
         uuid, name, value, create, replace};
