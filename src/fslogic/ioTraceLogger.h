@@ -203,8 +203,9 @@ private:
     std::chrono::system_clock::time_point m_lastFlush;
 };
 
-// [lookup] arg-0: child_name
-using IOTraceLookup = IOTraceLogger::IOTraceEntry<folly::fbstring>;
+// [lookup] arg-0: child_name, arg-1: child_uuid
+using IOTraceLookup =
+    IOTraceLogger::IOTraceEntry<folly::fbstring, folly::fbstring>;
 // [getattr] None
 using IOTraceGetAttr = IOTraceLogger::IOTraceEntry<>;
 // [readdir] arg-0: max_entries, arg-1: offset
@@ -217,17 +218,21 @@ using IOTraceRelease = IOTraceLogger::IOTraceEntry<>;
 using IOTraceFsync = IOTraceLogger::IOTraceEntry<bool>;
 // [flush] None
 using IOTraceFlush = IOTraceLogger::IOTraceEntry<>;
-// [mkdir] arg-0: name, arg-1: mode
-using IOTraceMkdir = IOTraceLogger::IOTraceEntry<folly::fbstring, mode_t>;
-// [mknod] arg-0: name, arg-1: mode
-using IOTraceMknod = IOTraceLogger::IOTraceEntry<folly::fbstring, mode_t>;
-// [create] arg-0: name, arg-1: mode, arg-2: flags
-using IOTraceCreate = IOTraceLogger::IOTraceEntry<folly::fbstring, mode_t, int>;
+// [mkdir] arg-0: name, arg-1: new_dir_uuid, arg-2: mode
+using IOTraceMkdir =
+    IOTraceLogger::IOTraceEntry<folly::fbstring, folly::fbstring, mode_t>;
+// [mknod] arg-0: name, arg-1: new_node_uuid, arg-2: mode
+using IOTraceMknod =
+    IOTraceLogger::IOTraceEntry<folly::fbstring, folly::fbstring, mode_t>;
+// [create] arg-0: name, arg-1: new_file_uuid, arg-2: mode, arg-3: flags
+using IOTraceCreate =
+    IOTraceLogger::IOTraceEntry<folly::fbstring, folly::fbstring, mode_t, int>;
 // [unlink] arg-0: name
 using IOTraceUnlink = IOTraceLogger::IOTraceEntry<folly::fbstring>;
-// [rename] arg-0: name, arg-1: new_parent_uuid, arg-2: new_name
+// [rename] arg-0: name, arg-1: new_parent_uuid, arg-2: new_name,
+//          arg-3: new_uuid
 using IOTraceRename = IOTraceLogger::IOTraceEntry<folly::fbstring,
-    folly::fbstring, folly::fbstring>;
+    folly::fbstring, folly::fbstring, folly::fbstring>;
 // [setattr] arg-0: set_mask, arg-1: mode, arg-2: size, arg-3: atime,
 //           arg-4: mtime
 using IOTraceSetAttr =
