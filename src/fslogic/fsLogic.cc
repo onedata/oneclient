@@ -219,9 +219,14 @@ FileAttrPtr FsLogic::lookup(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name);
 
-    IOTRACE_GUARD(IOTraceLookup, IOTraceLogger::OpType::LOOKUP, uuid, 0, name)
+    IOTRACE_START()
 
-    return m_metadataCache.getAttr(uuid, name);
+    auto attr = m_metadataCache.getAttr(uuid, name);
+
+    IOTRACE_END(IOTraceLookup, IOTraceLogger::OpType::LOOKUP, uuid, 0, name,
+        attr->uuid());
+
+    return attr;
 }
 
 FileAttrPtr FsLogic::getattr(const folly::fbstring &uuid)
@@ -847,8 +852,7 @@ FileAttrPtr FsLogic::mkdir(const folly::fbstring &parentUuid,
 {
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name) << LOG_FARG(mode);
 
-    IOTRACE_GUARD(
-        IOTraceMkdir, IOTraceLogger::OpType::MKDIR, parentUuid, 0, name, mode)
+    IOTRACE_START()
 
     // TODO: CreateDir should probably also return attrs
     communicate(messages::fuse::CreateDir{parentUuid.toStdString(),
@@ -858,7 +862,12 @@ FileAttrPtr FsLogic::mkdir(const folly::fbstring &parentUuid,
     LOG_DBG(2) << "Created directory " << name << " in " << parentUuid;
 
     // TODO: Provider returns uuid of the created dir, no need for lookup
-    return m_metadataCache.getAttr(parentUuid, name);
+    auto attr = m_metadataCache.getAttr(parentUuid, name);
+
+    IOTRACE_END(IOTraceMkdir, IOTraceLogger::OpType::MKDIR, parentUuid, 0, name,
+        attr->uuid(), mode)
+
+    return attr;
 }
 
 FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
@@ -866,8 +875,7 @@ FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
 {
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name) << LOG_FARG(mode);
 
-    IOTRACE_GUARD(
-        IOTraceMknod, IOTraceLogger::OpType::MKNOD, parentUuid, 0, name, mode)
+    IOTRACE_START()
 
     messages::fuse::MakeFile msg{parentUuid, name, mode};
     auto attr = communicate<FileAttr>(std::move(msg), m_providerTimeout);
@@ -878,6 +886,9 @@ FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
 
     LOG_DBG(2) << "Created node " << name << " in " << parentUuid
                << " with uuid " << attr.uuid();
+
+    IOTRACE_END(IOTraceMknod, IOTraceLogger::OpType::MKNOD, parentUuid, 0, name,
+        sharedAttr->uuid(), mode)
 
     return sharedAttr;
 }
@@ -916,7 +927,7 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
     m_readdirCache->invalidate(parentUuid);
 
     IOTRACE_END(IOTraceCreate, IOTraceLogger::OpType::CREATE, parentUuid,
-        fuseFileHandleId, name, mode, flags)
+        fuseFileHandleId, name, sharedAttr->uuid(), mode, flags)
 
     return {sharedAttr, fuseFileHandleId};
 }
@@ -949,8 +960,7 @@ void FsLogic::rename(const folly::fbstring &parentUuid,
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name)
                 << LOG_FARG(newParentUuid) << LOG_FARG(newName);
 
-    IOTRACE_GUARD(IOTraceRename, IOTraceLogger::OpType::RENAME, parentUuid, 0,
-        name, newParentUuid, newName)
+    IOTRACE_START()
 
     // TODO: directly order provider to rename {parentUuid, name}
     auto attr = m_metadataCache.getAttr(parentUuid, name);
@@ -969,6 +979,9 @@ void FsLogic::rename(const folly::fbstring &parentUuid,
     for (auto &child : renamed.childEntries())
         m_metadataCache.rename(child.oldUuid(), child.newParentUuid(),
             child.newName(), child.newUuid());
+
+    IOTRACE_END(IOTraceRename, IOTraceLogger::OpType::RENAME, parentUuid, 0,
+        name, newParentUuid, newName, renamed.newUuid())
 }
 
 FileAttrPtr FsLogic::setattr(
