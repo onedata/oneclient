@@ -33,15 +33,17 @@ public:
      * @param block interval that should be synchronized.
      */
     SynchronizeBlock(std::string uuid,
-        boost::icl::discrete_interval<off_t> block, bool prefetch = true);
+        boost::icl::discrete_interval<off_t> block, int priority,
+        bool prefetch = true);
 
     std::string toString() const override;
 
 private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
-    bool m_prefetch;
     boost::icl::discrete_interval<off_t> m_block;
+    int m_priority;
+    bool m_prefetch;
 };
 
 } // namespace fuse
