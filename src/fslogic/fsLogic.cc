@@ -62,11 +62,10 @@
 
 #define IOTRACE_END(TraceType, optype, uuid, handleId, ...)                    \
     if (m_ioTraceLoggerEnabled)                                                \
-        m_ioTraceLogger->log(                                                  \
-            TraceType(std::chrono::system_clock::now(), optype,                \
-                std::chrono::duration_cast<std::chrono::microseconds>(         \
-                    std::chrono::system_clock::now() - __ioTraceStart),        \
-                uuid, handleId, 0, ##__VA_ARGS__));
+        m_ioTraceLogger->log(TraceType(__ioTraceStart, optype,                 \
+            std::chrono::duration_cast<std::chrono::microseconds>(             \
+                std::chrono::system_clock::now() - __ioTraceStart),            \
+            uuid, handleId, 0, ##__VA_ARGS__));
 
 #define IOTRACE_GUARD(TraceType, optype, uuid, handleId, ...)                  \
     IOTRACE_START()                                                            \

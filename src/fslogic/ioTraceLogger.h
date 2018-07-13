@@ -130,7 +130,7 @@ public:
             std::ostream &stream, const IOTraceEntry<Args...> &entry)
         {
             // First log the common part of the io trace entry
-            stream << std::chrono::time_point_cast<std::chrono::milliseconds>(
+            stream << std::chrono::time_point_cast<std::chrono::microseconds>(
                           entry.timestamp)
                           .time_since_epoch()
                           .count()
