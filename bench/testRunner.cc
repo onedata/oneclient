@@ -9,6 +9,7 @@
 #include "testRunner.h"
 
 #include "cephHelper.h"
+#include "cephRadosHelper.h"
 #include "nullDeviceHelper.h"
 #include "posixHelper.h"
 #include "s3Helper.h"
@@ -46,6 +47,10 @@ void TestRunner::initialize()
     if (m_config.storageType == "ceph") {
         helperFactory =
             std::make_shared<one::helpers::CephHelperFactory>(m_service);
+    }
+    else if (m_config.storageType == "cephrados") {
+        helperFactory =
+            std::make_shared<one::helpers::CephRadosHelperFactory>(m_service);
     }
     else if (m_config.storageType == "s3") {
         helperFactory =
@@ -220,7 +225,7 @@ void TestRunner::createTestFiles()
     auto helper = m_helperPool[0];
     for (auto &testFile : m_fileIds) {
         helper->mknod(testFile, S_IFREG, {}, 0).get();
-        helper->truncate(testFile, m_config.fileSize).get();
+        helper->truncate(testFile, m_config.fileSize, 0).get();
     }
 }
 
@@ -230,7 +235,7 @@ void TestRunner::removeTestFiles()
 
     auto helper = m_helperPool[0];
     for (auto &testFile : m_fileIds) {
-        helper->unlink(testFile).get();
+        helper->unlink(testFile, m_config.fileSize).get();
     }
 }
 }
