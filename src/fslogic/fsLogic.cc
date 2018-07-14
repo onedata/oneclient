@@ -1236,7 +1236,7 @@ void FsLogic::sync(const folly::fbstring &uuid,
     const boost::icl::discrete_interval<off_t> &range)
 {
     messages::fuse::SynchronizeBlock request{
-        uuid.toStdString(), range, SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE};
+        uuid.toStdString(), range, SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE, false};
     auto fileLocationUpdate = communicate<messages::fuse::FileLocationChanged>(
         std::move(request), m_providerTimeout);
 
