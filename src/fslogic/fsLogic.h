@@ -55,6 +55,11 @@ constexpr auto FSLOGIC_RETRY_COUNT = 4;
 const std::array<std::pair<int, int>, FSLOGIC_RETRY_COUNT> FSLOGIC_RETRY_DELAYS{
     {{100, 1000}, {1000, 5000}, {5000, 10'000}, {10'000, 30'000}}};
 
+constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32;
+constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_LINEAR_PREFETCH = 96;
+constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_CLUSTER_PREFETCH = 160;
+constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_DEFAULT = 100;
+
 /**
  * The FsLogic main class.
  * This class contains FUSE all callbacks, so it basically is an heart of the
@@ -265,7 +270,7 @@ private:
 
     std::shared_ptr<IOTraceLogger> createIOTraceLogger();
 
-    std::pair<size_t, IOTraceLogger::PrefetchType> prefetchSync(
+    std::pair<size_t, IOTraceLogger::PrefetchType> prefetchAsync(
         std::shared_ptr<FuseFileHandle> fuseFileHandle,
         helpers::FileHandlePtr helperHandle, const off_t offset,
         const std::size_t size, const folly::fbstring &uuid,

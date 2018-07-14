@@ -16,9 +16,10 @@ namespace messages {
 namespace fuse {
 
 SynchronizeBlockAndComputeChecksum::SynchronizeBlockAndComputeChecksum(
-    std::string uuid, boost::icl::discrete_interval<off_t> block)
+    std::string uuid, boost::icl::discrete_interval<off_t> block, int priority)
     : FileRequest{std::move(uuid)}
     , m_block{block}
+    , m_priority{priority}
 {
 }
 
@@ -26,7 +27,8 @@ std::string SynchronizeBlockAndComputeChecksum::toString() const
 {
     std::stringstream stream;
     stream << "type: 'SynchronizeBlockAndComputeChecksum', uuid: "
-           << m_contextGuid << ", block: " << m_block;
+           << m_contextGuid << ", block: " << m_block
+           << ", priority: " << m_priority;
     return stream.str();
 }
 
@@ -40,6 +42,7 @@ SynchronizeBlockAndComputeChecksum::serializeAndDestroy()
 
     sb->mutable_block()->set_offset(boost::icl::first(m_block));
     sb->mutable_block()->set_size(boost::icl::size(m_block));
+    sb->set_priority(m_priority);
 
     return msg;
 }

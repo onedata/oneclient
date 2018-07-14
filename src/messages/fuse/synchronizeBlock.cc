@@ -15,11 +15,12 @@ namespace one {
 namespace messages {
 namespace fuse {
 
-SynchronizeBlock::SynchronizeBlock(
-    std::string uuid, boost::icl::discrete_interval<off_t> block, bool prefetch)
+SynchronizeBlock::SynchronizeBlock(std::string uuid,
+    boost::icl::discrete_interval<off_t> block, int priority, bool prefetch)
     : FileRequest{std::move(uuid)}
-    , m_prefetch{prefetch}
     , m_block{block}
+    , m_priority{priority}
+    , m_prefetch{prefetch}
 {
 }
 
@@ -27,7 +28,8 @@ std::string SynchronizeBlock::toString() const
 {
     std::stringstream stream;
     stream << "type: 'SynchronizeBlock', uuid: " << m_contextGuid
-           << ", block: " << m_block << ", prefetch: " << m_prefetch;
+           << ", block: " << m_block << ", priority: " << m_priority
+           << ", prefetch: " << m_prefetch;
     return stream.str();
 }
 
@@ -39,6 +41,7 @@ std::unique_ptr<ProtocolClientMessage> SynchronizeBlock::serializeAndDestroy()
                   ->mutable_synchronize_block();
 
     sb->set_prefetch(m_prefetch);
+    sb->set_priority(m_priority);
     sb->mutable_block()->set_offset(boost::icl::first(m_block));
     sb->mutable_block()->set_size(boost::icl::size(m_block));
 
