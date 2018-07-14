@@ -4,6 +4,17 @@
 CHANGELOG
 ---------
 
+### 18.02.0-rc10
+
+* VFS-4679 Disabled provider-side prefetch after SynchronizeBlock
+* VFS-4660 Added synchronize block priority handling
+* VFS-4656 Fixed timestamp logging in iotrace
+* VFS-4674 Added child uuid logging
+* VFS-4656 Added cephrados helper
+* VFS-4671 Fixed io trace release log and setxattr args
+* VFS-4642 Added first version of onebench utility
+
+
 ### 18.02.0-rc9
 
 * VFS-4617 Fixed updating of file attr in metadatacache
