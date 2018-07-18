@@ -10,6 +10,7 @@
 
 #include "attrs.h"
 #include "cache/inodeCache.h"
+#include "ioTraceLogger.h"
 #include "logging.h"
 #include "messages/fuse/fileAttr.h"
 
@@ -93,7 +94,8 @@ public:
                     << LOG_FARG(size);
 
         return wrap(&FsLogicT::read, ino, handle, offset, size,
-            folly::Optional<folly::fbstring>{}, WITHUUIDS_RETRY_COUNT);
+            folly::Optional<folly::fbstring>{}, WITHUUIDS_RETRY_COUNT,
+            std::unique_ptr<IOTraceRead>{});
     }
 
     auto write(const fuse_ino_t ino, const std::uint64_t handle,
@@ -103,7 +105,7 @@ public:
                     << LOG_FARG(buf.chainLength());
 
         return wrap(&FsLogicT::write, ino, handle, offset, std::move(buf),
-            WITHUUIDS_RETRY_COUNT);
+            WITHUUIDS_RETRY_COUNT, std::unique_ptr<IOTraceWrite>{});
     }
 
     auto release(const fuse_ino_t ino, const std::uint64_t handle)

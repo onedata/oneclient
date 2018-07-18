@@ -17,6 +17,7 @@
 #include "cache/readdirCache.h"
 #include "events/events.h"
 #include "fsSubscriptions.h"
+#include "ioTraceLogger.h"
 
 #include <asio/buffer.hpp>
 #include <boost/icl/discrete_interval.hpp>
@@ -53,6 +54,11 @@ namespace fslogic {
 constexpr auto FSLOGIC_RETRY_COUNT = 4;
 const std::array<std::pair<int, int>, FSLOGIC_RETRY_COUNT> FSLOGIC_RETRY_DELAYS{
     {{100, 1000}, {1000, 5000}, {5000, 10'000}, {10'000, 30'000}}};
+
+constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32;
+constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_LINEAR_PREFETCH = 96;
+constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_CLUSTER_PREFETCH = 160;
+constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_DEFAULT = 100;
 
 /**
  * The FsLogic main class.
@@ -117,7 +123,8 @@ public:
     folly::IOBufQueue read(const folly::fbstring &uuid,
         const std::uint64_t fileHandleId, const off_t offset,
         const std::size_t size, folly::Optional<folly::fbstring> checksum,
-        const int retriesLeft = FSLOGIC_RETRY_COUNT);
+        const int retriesLeft = FSLOGIC_RETRY_COUNT,
+        std::unique_ptr<IOTraceRead> ioTraceEntry = {});
 
     /**
      * FUSE @c write callback.
@@ -125,7 +132,8 @@ public:
      */
     std::size_t write(const folly::fbstring &uuid,
         const std::uint64_t fuseFileHandleId, const off_t offset,
-        folly::IOBufQueue buf, const int retriesLeft = FSLOGIC_RETRY_COUNT);
+        folly::IOBufQueue buf, const int retriesLeft = FSLOGIC_RETRY_COUNT,
+        std::unique_ptr<IOTraceWrite> ioTraceEntry = {});
 
     /**
      * FUSE @c mkdir callback.
@@ -234,6 +242,8 @@ public:
      */
     bool isFullBlockReadForced() const { return m_forceFullblockRead; }
 
+    std::shared_ptr<IOTraceLogger> ioTraceLogger() { return m_ioTraceLogger; }
+
 private:
     template <typename SrvMsg = messages::fuse::FuseResponse, typename CliMsg>
     SrvMsg communicate(CliMsg &&msg, const std::chrono::seconds timeout);
@@ -258,7 +268,10 @@ private:
     bool isSpaceDisabled(const folly::fbstring &spaceId);
     void disableSpaces(const std::vector<std::string> &spaces);
 
-    void prefetchSync(std::shared_ptr<FuseFileHandle> fuseFileHandle,
+    std::shared_ptr<IOTraceLogger> createIOTraceLogger();
+
+    std::pair<size_t, IOTraceLogger::PrefetchType> prefetchAsync(
+        std::shared_ptr<FuseFileHandle> fuseFileHandle,
         helpers::FileHandlePtr helperHandle, const off_t offset,
         const std::size_t size, const folly::fbstring &uuid,
         const boost::icl::discrete_interval<off_t> possibleRange,
@@ -305,6 +318,8 @@ private:
     const unsigned int m_randomReadPrefetchClusterBlockThreshold;
     const double m_randomReadPrefetchClusterWindowGrowFactor;
     const bool m_clusterPrefetchThresholdRandom;
+    const bool m_ioTraceLoggerEnabled;
+    std::shared_ptr<IOTraceLogger> m_ioTraceLogger;
 
     std::random_device m_clusterPrefetchRD{};
     std::mt19937 m_clusterPrefetchRandomGenerator{m_clusterPrefetchRD()};

@@ -24,6 +24,8 @@ import fslogic
 from proto import messages_pb2, fuse_messages_pb2, event_messages_pb2, \
     common_messages_pb2, stream_messages_pb2
 
+SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32
+
 
 @pytest.fixture
 def endpoint(appmock_client):
@@ -898,6 +900,7 @@ def test_read_should_request_synchronization(appmock_client, endpoint, fl, uuid)
     block.size = 5
     sync = file_request.synchronize_block
     assert sync.block == block
+    assert sync.priority == SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE
     assert file_request.context_guid == uuid
 
 
@@ -922,6 +925,7 @@ def test_read_should_retry_request_synchronization(appmock_client, endpoint, fl,
     block.size = 5
     sync = file_request.synchronize_block
     assert sync.block == block
+    assert sync.priority == SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE
     assert file_request.context_guid == uuid
 
 
