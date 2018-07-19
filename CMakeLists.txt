@@ -185,7 +185,7 @@ endif(APPLE)
 
 # Define build settings
 add_compile_options(${SECTION_FRAGMENTATION_FLAGS} -Werror -Wshadow -Wall -Wno-unused-result)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -fdiagnostics-color")
 add_definitions(
     ${FUSE_DEFINITIONS}
     -DFUSE_USE_VERSION=30
@@ -324,6 +324,8 @@ endif(UNIX AND NOT APPLE)
 if(APPLE)
     install(DIRECTORY autocomplete/osx/ DESTINATION ${CMAKE_INSTALL_FULL_LOCALSTATEDIR}/lib/oneclient)
 endif(APPLE)
+
+add_subdirectory(bench)
 
 enable_testing()
 add_subdirectory(test)

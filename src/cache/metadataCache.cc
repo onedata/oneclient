@@ -90,8 +90,8 @@ void MetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
     auto result = m_cache.emplace(attr);
     if (!result.second)
         m_cache.modify(result.first, [&](Metadata &m) { m.attr = attr; });
-
-    ONE_METRIC_COUNTER_INC("comp.oneclient.mod.metadatacache.size");
+    else
+        ONE_METRIC_COUNTER_INC("comp.oneclient.mod.metadatacache.size");
 }
 
 MetadataCache::Map::iterator MetadataCache::getAttrIt(
@@ -158,6 +158,8 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
     auto result = m_cache.emplace(sharedAttr);
     if (!result.second)
         m_cache.modify(result.first, [&](Metadata &m) { m.attr = sharedAttr; });
+    else
+        ONE_METRIC_COUNTER_INC("comp.oneclient.mod.metadatacache.size");
 
     return result.first;
 }

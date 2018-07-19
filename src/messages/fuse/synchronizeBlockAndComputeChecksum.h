@@ -31,9 +31,10 @@ public:
      * Constructor.
      * @param uuid UUID of the file to synchronize.
      * @param block interval that should be synchronized.
+     * @param priority Request priority
      */
-    SynchronizeBlockAndComputeChecksum(
-        std::string uuid, boost::icl::discrete_interval<off_t> block);
+    SynchronizeBlockAndComputeChecksum(std::string uuid,
+        boost::icl::discrete_interval<off_t> block, int priority);
 
     std::string toString() const override;
 
@@ -41,6 +42,7 @@ private:
     std::unique_ptr<ProtocolClientMessage> serializeAndDestroy() override;
 
     boost::icl::discrete_interval<off_t> m_block;
+    int m_priority;
 };
 
 } // namespace fuse
