@@ -109,7 +109,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     unsigned int metadataCacheSize, bool readEventsDisabled,
     bool forceFullblockRead, const std::chrono::seconds providerTimeout,
     std::function<void(folly::Function<void()>)> runInFiber)
-    : m_context{std::move(context)}
+    : m_context{context}
     , m_metadataCache{*m_context->communicator(), metadataCacheSize,
           providerTimeout}
     , m_helpersCache{std::move(helpersCache)}
@@ -210,6 +210,9 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
 
     if (m_ioTraceLoggerEnabled) {
         m_ioTraceLogger = createIOTraceLogger();
+        IOTRACE_GUARD(IOTraceMount, IOTraceLogger::OpType::MOUNT,
+            configuration->rootUuid(), 0,
+            context->options()->getMountpoint().string());
     }
 }
 
