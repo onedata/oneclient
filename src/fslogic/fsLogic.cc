@@ -222,8 +222,11 @@ FileAttrPtr FsLogic::lookup(
 
     auto attr = m_metadataCache.getAttr(uuid, name);
 
+    auto type = attr->type() == FileAttr::FileType::directory ? "d" : "f";
+    auto size = attr->size();
+
     IOTRACE_END(IOTraceLookup, IOTraceLogger::OpType::LOOKUP, uuid, 0, name,
-        attr->uuid());
+        attr->uuid(), type, size ? *size : 0);
 
     return attr;
 }

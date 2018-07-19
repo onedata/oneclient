@@ -203,9 +203,10 @@ private:
     std::chrono::system_clock::time_point m_lastFlush;
 };
 
-// [lookup] arg-0: child_name, arg-1: child_uuid
-using IOTraceLookup =
-    IOTraceLogger::IOTraceEntry<folly::fbstring, folly::fbstring>;
+// [lookup] arg-0: child_name, arg-1: child_uuid, arg-2: child_type,
+//          arg-3: child_size
+using IOTraceLookup = IOTraceLogger::IOTraceEntry<folly::fbstring,
+    folly::fbstring, folly::fbstring, off_t>;
 // [getattr] None
 using IOTraceGetAttr = IOTraceLogger::IOTraceEntry<>;
 // [readdir] arg-0: max_entries, arg-1: offset
