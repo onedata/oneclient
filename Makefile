@@ -122,7 +122,10 @@ package/$(PKG_ID).tar.gz:
 	mkdir -p package
 	rm -rf package/$(PKG_ID)
 	git archive --format=tar --prefix=$(PKG_ID)/ $(PKG_REVISION) | (cd package && tar -xf -)
-	git submodule foreach "git archive --prefix=$(PKG_ID)/\$$path/ \$$sha1 | (cd \$$toplevel/package && tar -xf -)"
+	$(eval helpers_sha=$(shell git submodule status --recursive | grep "helpers "| awk '{print $$1;}'))
+	cd helpers; git archive --format=tar --prefix=$(PKG_ID)/helpers/ $(helpers_sha) | (cd ../package && tar -xf -); cd ..
+	$(eval clproto_sha=$(shell git submodule status --recursive | grep "helpers/clproto" | awk '{print $$1;}'))
+	cd helpers/clproto; git archive --format=tar --prefix=$(PKG_ID)/helpers/clproto/ $(clproto_sha) | (cd ../../package && tar -xf -); cd ../..
 	find package/$(PKG_ID) -depth -name ".git" -exec rm -rf {} \;
 	echo "set(GIT_VERSION ${PKG_REVISION})" > package/$(PKG_ID)/version.txt
 	tar -C package -czf package/$(PKG_ID).tar.gz $(PKG_ID)
