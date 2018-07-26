@@ -19,6 +19,8 @@ namespace fslogic {
 folly::fbstring IOTraceLogger::toString(const IOTraceLogger::OpType &op)
 {
     switch (op) {
+        case IOTraceLogger::OpType::MOUNT:
+            return "mount";
         case IOTraceLogger::OpType::LOOKUP:
             return "lookup";
         case IOTraceLogger::OpType::GETATTR:
