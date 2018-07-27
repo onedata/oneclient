@@ -248,10 +248,14 @@ folly::fbvector<folly::fbstring> FsLogic::readdir(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(maxSize) << LOG_FARG(off);
 
-    IOTRACE_GUARD(
-        IOTraceReadDir, IOTraceLogger::OpType::READDIR, uuid, 0, maxSize, off)
+    IOTRACE_START()
 
-    return m_readdirCache->readdir(uuid, off, maxSize);
+    auto entries = m_readdirCache->readdir(uuid, off, maxSize);
+
+    IOTRACE_END(IOTraceReadDir, IOTraceLogger::OpType::READDIR, uuid, 0,
+        maxSize, off, entries.size())
+
+    return entries;
 }
 
 std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
@@ -942,8 +946,7 @@ void FsLogic::unlink(
 {
     LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name);
 
-    IOTRACE_GUARD(
-        IOTraceUnlink, IOTraceLogger::OpType::UNLINK, parentUuid, 0, name)
+    IOTRACE_START()
 
     // TODO: directly order provider to delete {parentUuid, name}
     auto attr = m_metadataCache.getAttr(parentUuid, name);
@@ -953,6 +956,9 @@ void FsLogic::unlink(
     m_metadataCache.markDeleted(attr->uuid());
 
     m_readdirCache->invalidate(parentUuid);
+
+    IOTRACE_END(IOTraceUnlink, IOTraceLogger::OpType::UNLINK, parentUuid, 0,
+        name, attr->uuid())
 
     LOG_DBG(2) << "Deleted file " << name << " in " << parentUuid
                << " with uuid " << attr->uuid();
@@ -986,7 +992,7 @@ void FsLogic::rename(const folly::fbstring &parentUuid,
             child.newName(), child.newUuid());
 
     IOTRACE_END(IOTraceRename, IOTraceLogger::OpType::RENAME, parentUuid, 0,
-        name, newParentUuid, newName, renamed.newUuid())
+        name, oldUuid, newParentUuid, newName, renamed.newUuid())
 }
 
 FileAttrPtr FsLogic::setattr(
