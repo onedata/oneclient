@@ -212,8 +212,8 @@ using IOTraceLookup = IOTraceLogger::IOTraceEntry<folly::fbstring,
     folly::fbstring, folly::fbstring, off_t>;
 // [getattr] None
 using IOTraceGetAttr = IOTraceLogger::IOTraceEntry<>;
-// [readdir] arg-0: max_entries, arg-1: offset
-using IOTraceReadDir = IOTraceLogger::IOTraceEntry<size_t, off_t>;
+// [readdir] arg-0: max_entries, arg-1: offset, arg-2: entries_num
+using IOTraceReadDir = IOTraceLogger::IOTraceEntry<size_t, off_t, size_t>;
 // [open] arg-0: flags
 using IOTraceOpen = IOTraceLogger::IOTraceEntry<int>;
 // [release] None
@@ -231,12 +231,14 @@ using IOTraceMknod =
 // [create] arg-0: name, arg-1: new_file_uuid, arg-2: mode, arg-3: flags
 using IOTraceCreate =
     IOTraceLogger::IOTraceEntry<folly::fbstring, folly::fbstring, mode_t, int>;
-// [unlink] arg-0: name
-using IOTraceUnlink = IOTraceLogger::IOTraceEntry<folly::fbstring>;
-// [rename] arg-0: name, arg-1: new_parent_uuid, arg-2: new_name,
-//          arg-3: new_uuid
+// [unlink] arg-0: name, arg-1: uuid
+using IOTraceUnlink =
+    IOTraceLogger::IOTraceEntry<folly::fbstring, folly::fbstring>;
+// [rename] arg-0: name, arg-1: old_uuid, arg-2: new_parent_uuid, arg-3:
+// new_name,
+//          arg-4: new_uuid
 using IOTraceRename = IOTraceLogger::IOTraceEntry<folly::fbstring,
-    folly::fbstring, folly::fbstring, folly::fbstring>;
+    folly::fbstring, folly::fbstring, folly::fbstring, folly::fbstring>;
 // [setattr] arg-0: set_mask, arg-1: mode, arg-2: size, arg-3: atime,
 //           arg-4: mtime
 using IOTraceSetAttr =
