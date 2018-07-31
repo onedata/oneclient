@@ -614,7 +614,7 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
     bool worthPrefetching = false;
     bool fullFilePrefetchRequested = false;
     bool clusterPrefetchRequested = false;
-    int prefetchPriority = SYNCHRONIZE_BLOCK_PRIORITY_DEFAULT;
+    int prefetchPriority = SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE;
 
     // Check if we should consider full file prefetch
     if (((m_randomReadPrefetchBlockThreshold &&
@@ -1239,7 +1239,15 @@ folly::fbstring FsLogic::syncAndFetchChecksum(const folly::fbstring &uuid,
     auto syncResponse = communicate<messages::fuse::SyncResponse>(
         std::move(request), m_providerTimeout);
 
-    m_metadataCache.updateLocation(syncResponse.fileLocation());
+    auto &fileLocationUpdate = syncResponse.fileLocationChanged();
+    if (fileLocationUpdate.changeStartOffset() &&
+        fileLocationUpdate.changeEndOffset())
+        m_metadataCache.updateLocation(
+            *(fileLocationUpdate.changeStartOffset()),
+            *(fileLocationUpdate.changeEndOffset()),
+            fileLocationUpdate.fileLocation());
+    else
+        m_metadataCache.updateLocation(fileLocationUpdate.fileLocation());
 
     return syncResponse.checksum();
 }
