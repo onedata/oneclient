@@ -6,6 +6,9 @@ CHANGELOG
 
 ### 18.02.0-rc10
 
+* VFS-4717 Added recursive submodules for packaging
+* VFS-4661 Added mount operation to iotrace log
+* VFS-4661 add file type and size to lookup in io trace
 * VFS-4679 Disabled provider-side prefetch after SynchronizeBlock
 * VFS-4660 Added synchronize block priority handling
 * VFS-4656 Fixed timestamp logging in iotrace
