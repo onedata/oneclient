@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 18.02.0-rc11
+
+* Releasing new version 18.02.0-rc11
+
+
 ### 18.02.0-rc10
 
 * VFS-4717 Added recursive submodules for packaging
