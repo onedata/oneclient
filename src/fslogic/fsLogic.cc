@@ -452,8 +452,22 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
             if (m_ioTraceLoggerEnabled)
                 std::get<2>(ioTraceEntry->arguments) = false;
 
-            return read(uuid, fileHandleId, offset, size, std::move(csum),
-                retriesLeft, std::move(ioTraceEntry));
+            if (retriesLeft > 0) {
+                return read(uuid, fileHandleId, offset, size, std::move(csum),
+                    retriesLeft - 1, std::move(ioTraceEntry));
+            }
+            else {
+                LOG_DBG(2) << "Cannot synchronize block " << wantedRange
+                           << " in file " << uuid
+                           << "- returning block of zeros";
+
+                auto iobuf = folly::IOBuf::create(size);
+                memset(iobuf->writableTail(), 0, size);
+
+                folly::IOBufQueue zeros{folly::IOBufQueue::cacheChainLength()};
+                zeros.append(std::move(iobuf));
+                return std::move(zeros);
+            }
         }
 
         boost::icl::discrete_interval<off_t> availableRange;
