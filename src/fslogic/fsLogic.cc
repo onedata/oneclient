@@ -701,8 +701,14 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
             // based on predefined prefetch block size
             const auto windowSize = m_randomReadPrefetchClusterWindow;
             leftRange = offset / windowSize;
+            leftRange *= windowSize;
             rightRange = std::min<off_t>(leftRange + windowSize, fileSize);
             blockAligned = true;
+
+            if (fuseFileHandle->prefetchAlreadyRequestedAt(leftRange))
+                return {0, IOTraceLogger::PrefetchType::NONE};
+
+            fuseFileHandle->addPrefetchAt(leftRange);
         }
         else {
             // Calculate the current clustering window size based on initial
