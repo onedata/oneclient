@@ -692,18 +692,39 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
     }
     // Check if we should consider block cluster prefetch
     else if (m_randomReadPrefetchClusterWindow) {
-        // Calculate the current clustering window size based on initial
-        // window size, grow factor and current replication progress
-        const auto windowSize = m_randomReadPrefetchClusterWindow *
-            (1.0 +
-                m_randomReadPrefetchClusterWindowGrowFactor * fileSize *
-                    replicationProgress / m_randomReadPrefetchClusterWindow);
+        off_t leftRange = 0;
+        off_t rightRange = 0;
+        bool blockAligned;
 
-        // Get the number of different blocks in the current clustering window
-        // around the current read offset - if higher than threshold, request
-        // synchronous prefetch of that window clipped to file size
-        auto leftRange = std::max<off_t>(0, offset - windowSize / 2);
-        auto rightRange = std::min<off_t>(offset + windowSize / 2, fileSize);
+        if (m_randomReadPrefetchClusterWindowGrowFactor == 0.0) {
+            // Align the prefetch window to the consecutive block in the file
+            // based on predefined prefetch block size
+            const auto windowSize = m_randomReadPrefetchClusterWindow;
+            leftRange = offset / windowSize;
+            leftRange *= windowSize;
+            rightRange = std::min<off_t>(leftRange + windowSize, fileSize);
+            blockAligned = true;
+
+            if (fuseFileHandle->prefetchAlreadyRequestedAt(leftRange))
+                return {0, IOTraceLogger::PrefetchType::NONE};
+
+            fuseFileHandle->addPrefetchAt(leftRange);
+        }
+        else {
+            // Calculate the current clustering window size based on initial
+            // window size, grow factor and current replication progress
+            const auto windowSize = m_randomReadPrefetchClusterWindow *
+                (1.0 +
+                    m_randomReadPrefetchClusterWindowGrowFactor * fileSize *
+                        replicationProgress /
+                        m_randomReadPrefetchClusterWindow);
+
+            // Calculate a block range around the current read offset
+            leftRange = std::max<off_t>(0, offset - windowSize / 2);
+            rightRange = std::min<off_t>(offset + windowSize / 2, fileSize);
+            blockAligned = false;
+        }
+
         auto blocksInRange = fileLocation->blocksInRange(leftRange, rightRange);
 
         auto prefetchBlockThreshold = m_randomReadPrefetchClusterBlockThreshold;
@@ -717,7 +738,8 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
                        << leftRange << ", " << rightRange << ") for file "
                        << uuid << ". " << blocksInRange
                        << " blocks in range (prefetch threshold: "
-                       << prefetchBlockThreshold << ")";
+                       << prefetchBlockThreshold
+                       << ", block aligned: " << blockAligned << ")";
 
             prefetchRange = boost::icl::discrete_interval<off_t>::right_open(
                 leftRange, rightRange);

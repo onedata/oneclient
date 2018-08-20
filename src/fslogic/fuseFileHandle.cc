@@ -28,6 +28,7 @@ FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
     , m_forceProxyIOCache{forceProxyIOCache}
     , m_providerTimeout{std::move(providerTimeout)}
     , m_fullPrefetchTriggered{false}
+    , m_recentPrefetchOffsets{folly::EvictingCacheMap<off_t, bool>(1000, 50)}
 {
 }
 
@@ -40,8 +41,8 @@ helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
     const bool forceProxyIO = m_forceProxyIOCache.contains(uuid);
     const auto key = std::make_tuple(storageId, fileId, forceProxyIO);
 
-    auto it = m_handles.find(key);
-    if (it != m_handles.end())
+    auto it = m_helperHandles.find(key);
+    if (it != m_helperHandles.end())
         return it->second;
 
     auto helper =
@@ -59,7 +60,7 @@ helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
         helper->open(fileId, filteredFlags, makeParameters(uuid)),
         m_providerTimeout);
 
-    m_handles[key] = handle;
+    m_helperHandles[key] = handle;
     return handle;
 }
 
@@ -70,10 +71,10 @@ void FuseFileHandle::releaseHelperHandle(const folly::fbstring &uuid,
 
     for (bool forceProxyIO : {true, false}) {
         const auto key = std::make_tuple(storageId, fileId, forceProxyIO);
-        auto it = m_handles.find(key);
-        if (it != m_handles.end()) {
+        auto it = m_helperHandles.find(key);
+        if (it != m_helperHandles.end()) {
             communication::wait(it->second->release(), m_providerTimeout);
-            m_handles.erase(key);
+            m_helperHandles.erase(key);
         }
     }
 }
@@ -81,7 +82,7 @@ void FuseFileHandle::releaseHelperHandle(const folly::fbstring &uuid,
 folly::fbvector<helpers::FileHandlePtr> FuseFileHandle::helperHandles() const
 {
     folly::fbvector<helpers::FileHandlePtr> result;
-    for (auto &elem : m_handles)
+    for (auto &elem : m_helperHandles)
         result.emplace_back(elem.second);
     return result;
 }
@@ -99,6 +100,18 @@ FuseFileHandle::makeParameters(const folly::fbstring &uuid)
 
     return parameters;
 };
+
+bool FuseFileHandle::prefetchAlreadyRequestedAt(off_t offset) const
+{
+    return m_recentPrefetchOffsets.withRLock(
+        [&](const auto &cache) { return cache.exists(offset); });
+}
+
+void FuseFileHandle::addPrefetchAt(off_t offset)
+{
+    return m_recentPrefetchOffsets.withWLock(
+        [&](auto &cache) { return cache.set(offset, true); });
+}
 
 } // namespace fslogic
 } // namespace client

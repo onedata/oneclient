@@ -12,10 +12,12 @@
 #include "communication/communicator.h"
 #include "helpers/storageHelper.h"
 
+#include <folly/EvictingCacheMap.h>
 #include <folly/FBString.h>
 #include <folly/FBVector.h>
 #include <folly/Hash.h>
 #include <folly/Optional.h>
+#include <folly/Synchronized.h>
 #include <folly/futures/Future.h>
 
 #include <unordered_map>
@@ -103,6 +105,10 @@ public:
 
     void setFullPrefetchTriggered() { m_fullPrefetchTriggered = true; }
 
+    bool prefetchAlreadyRequestedAt(off_t offset) const;
+
+    void addPrefetchAt(off_t offset);
+
 private:
     std::unordered_map<folly::fbstring, folly::fbstring> makeParameters(
         const folly::fbstring &uuid);
@@ -114,10 +120,13 @@ private:
     cache::ForceProxyIOCache &m_forceProxyIOCache;
     std::unordered_map<std::tuple<folly::fbstring, folly::fbstring, bool>,
         helpers::FileHandlePtr>
-        m_handles;
+        m_helperHandles;
     const std::chrono::seconds m_providerTimeout;
     boost::icl::discrete_interval<off_t> m_lastPrefetch;
     std::atomic<bool> m_fullPrefetchTriggered;
+
+    folly::Synchronized<folly::EvictingCacheMap<off_t, bool>>
+        m_recentPrefetchOffsets;
 };
 
 } // namespace fslogic
