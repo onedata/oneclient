@@ -451,6 +451,5 @@ int main(int argc, char *argv[])
 
     res = multithreaded ? fuse_session_loop_mt(fuse) : fuse_session_loop(fuse);
 
-    communicator->stop();
     return res == -1 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

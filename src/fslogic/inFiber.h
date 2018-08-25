@@ -8,11 +8,10 @@
 
 #pragma once
 
-#include "communication/etls/utils.h"
-
 #include <boost/preprocessor.hpp>
 #include <folly/FBString.h>
 #include <folly/Function.h>
+#include <folly/ThreadName.h>
 #include <folly/fibers/FiberManager.h>
 #include <folly/fibers/FiberManagerMap.h>
 #include <folly/futures/Future.h>
@@ -62,7 +61,7 @@ public:
         : m_fsLogic{std::forward<Args>(args)..., makeRunInFiber()}
     {
         m_thread = std::thread{[this] {
-            communication::etls::utils::nameThread("InFiber");
+            folly::setThreadName("InFiber");
             m_eventBase.loopForever();
         }};
     }

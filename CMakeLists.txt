@@ -58,11 +58,13 @@ find_package(NSS REQUIRED)
 # Setup Folly
 message(STATUS "Checking for Folly...")
 find_package(Folly REQUIRED)
+find_package(Wangle REQUIRED)
 find_library(LIBEVENT_LIBRARY event)
 find_library(IBERTY_LIBRARY iberty)
 find_library(DOUBLE_CONVERSION_LIBRARY double-conversion)
 set(FOLLY_LIBRARIES
     ${FOLLY_LIBRARIES}
+    ${WANGLE_LIBRARIES}
     ${LIBEVENT_LIBRARY}
     ${IBERTY_LIBRARY}
     ${DOUBLE_CONVERSION_LIBRARY})
@@ -258,6 +260,7 @@ include_directories(SYSTEM
     ${GLOG_INCLUDE_DIRS}
     ${SODIUM_INCLUDE_DIRS}
     ${FOLLY_INCLUDE_DIR}
+    ${WANGLE_INCLUDE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/libmacaroons
     ${CMAKE_CURRENT_SOURCE_DIR}/deps/libmacaroons-cpp
     ${OPENSSL_INCLUDE_DIR})
