@@ -704,13 +704,11 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
             leftRange *= windowSize;
             rightRange = std::min<off_t>(leftRange + windowSize, fileSize);
             blockAligned = true;
-
-            if (fuseFileHandle->prefetchAlreadyRequestedAt(leftRange))
-                return {0, IOTraceLogger::PrefetchType::NONE};
-
-            fuseFileHandle->addPrefetchAt(leftRange);
         }
         else {
+            LOG_DBG(2) << "Calculating clustered random read prefetch with "
+                          "growing window size";
+
             // Calculate the current clustering window size based on initial
             // window size, grow factor and current replication progress
             const auto windowSize = m_randomReadPrefetchClusterWindow *
@@ -733,7 +731,24 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
                 m_clusterPrefetchDistribution(m_clusterPrefetchRandomGenerator);
         }
 
+        LOG_DBG(2) << "Blocks in calculated prefetch range: " << blocksInRange
+                   << ", threshold: " << prefetchBlockThreshold;
+
         if (blocksInRange > prefetchBlockThreshold) {
+            if (blockAligned) {
+                if (fuseFileHandle->prefetchAlreadyRequestedAt(leftRange)) {
+                    LOG_DBG(2)
+                        << "Block aligned prefetch already requested at offset "
+                        << leftRange;
+                }
+                else {
+                    LOG_DBG(2) << "Block aligned prefetch at offset "
+                               << leftRange << " not scheduled yet";
+
+                    fuseFileHandle->addPrefetchAt(leftRange);
+                }
+            }
+
             LOG_DBG(1) << "Requesting clustered prefetch of block ["
                        << leftRange << ", " << rightRange << ") for file "
                        << uuid << ". " << blocksInRange
