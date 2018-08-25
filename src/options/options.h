@@ -259,11 +259,6 @@ public:
     double getRandomReadPrefetchThreshold() const;
 
     /*
-     * @return Is prefetch mode sync or async.
-     */
-    bool isPrefetchModeAsynchronous() const;
-
-    /*
      * @return Is cluster block prefetch threshold random.
      */
     bool isClusterPrefetchThresholdRandom() const;
@@ -277,7 +272,7 @@ public:
     /*
      * @return Cluster window size for random read block prefetch.
      */
-    unsigned int getRandomReadPrefetchClusterWindow() const;
+    int getRandomReadPrefetchClusterWindow() const;
 
     /*
      * @return The number of distinct blocks within cluster window

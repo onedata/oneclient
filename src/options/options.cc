@@ -322,14 +322,15 @@ Options::Options()
                          "for the file is triggered automatically. 0 disables "
                          "this feature (experimental).");
 
-    add<unsigned int>()
+    add<int>()
         ->withLongName("rndrd-prefetch-cluster-window")
         .withConfigName("rndrd_prefetch_cluster_window")
         .withValueName("<size>")
         .withDefaultValue(0, std::to_string(0))
         .withGroup(OptionGroup::ADVANCED)
-        .withDescription(
-            "Cluster window size for prefetching [bytes] (experimental).");
+        .withDescription("Cluster window size for prefetching [bytes]. When -1 "
+                         "is provided, the entire file is considered "
+                         "(experimental).");
 
     add<unsigned int>()
         ->withLongName("rndrd-prefetch-cluster-block-threshold")
@@ -354,16 +355,6 @@ Options::Options()
             "current replication progress - "
             "initial_window_size*[1+grow_factor*file_size*replication_progress/"
             "initial_window_size)] (experimental).");
-
-    add<bool>()
-        ->asSwitch()
-        .withLongName("prefetch-mode-async")
-        .withConfigName("prefetch_mode_async")
-        .withImplicitValue(true)
-        .withDefaultValue(false, "false")
-        .withGroup(OptionGroup::ADVANCED)
-        .withDescription(
-            "Enables asynchronous replication requests (experimental).");
 
     add<bool>()
         ->asSwitch()
@@ -799,12 +790,6 @@ double Options::getRandomReadPrefetchThreshold() const
         .get_value_or(1.0);
 }
 
-bool Options::isPrefetchModeAsynchronous() const
-{
-    return get<bool>({"prefetch-mode-async", "prefetch_mode_async"})
-        .get_value_or(false);
-}
-
 bool Options::isClusterPrefetchThresholdRandom() const
 {
     return get<bool>({"cluster-prefetch-threshold-random",
@@ -819,9 +804,9 @@ unsigned int Options::getRandomReadPrefetchBlockThreshold() const
         .get_value_or(0);
 }
 
-unsigned int Options::getRandomReadPrefetchClusterWindow() const
+int Options::getRandomReadPrefetchClusterWindow() const
 {
-    return get<unsigned int>(
+    return get<int>(
         {"rndrd-prefetch-cluster-window", "rndrd_prefetch_cluster_window"})
         .get_value_or(DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE);
 }

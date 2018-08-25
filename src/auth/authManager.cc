@@ -62,8 +62,8 @@ MacaroonAuthManager::createCommunicator(const unsigned int poolSize,
 {
     m_cancelRefresh();
 
-    auto communicator = std::make_shared<communication::Communicator>(poolSize,
-        workerCount, m_hostname, m_port, m_checkCertificate);
+    auto communicator = std::make_shared<communication::Communicator>(
+        poolSize, workerCount, m_hostname, m_port, m_checkCertificate);
 
     auto future = communicator->setHandshake(
         [=] {

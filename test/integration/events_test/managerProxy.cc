@@ -37,7 +37,7 @@ public:
     {
     }
 
-    ~ManagerProxy() { /*m_context->communicator()->stop();*/ }
+    ~ManagerProxy() {}
 
     void emitFileRead(std::string fileUuid, off_t offset, size_t size)
     {

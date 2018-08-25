@@ -630,68 +630,8 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
     bool clusterPrefetchRequested = false;
     int prefetchPriority = SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE;
 
-    // Check if we should consider full file prefetch
-    if (((m_randomReadPrefetchBlockThreshold &&
-             fileLocation->blocksCount() >
-                 m_randomReadPrefetchBlockThreshold) ||
-            (m_linearReadPrefetchThreshold < 1.0 &&
-                fileLocation->linearReadPrefetchThresholdReached(
-                    m_linearReadPrefetchThreshold, fileSize)) ||
-            (m_randomReadPrefetchThreshold < 1.0 &&
-                fileLocation->randomReadPrefetchThresholdReached(
-                    m_randomReadPrefetchThreshold, fileSize)))) {
-
-        if (!fuseFileHandle->fullPrefetchTriggered() &&
-            m_context->options()->isPrefetchModeAsynchronous() &&
-            m_context->options()->getAccessToken()) {
-            using namespace one::client::util::cdmi;
-
-            auto p = std::make_shared<folly::Promise<std::string>>();
-            auto f = p->getFuture();
-
-            m_context->scheduler()->post(
-                [ this, uuid = uuid, p = std::move(p) ]() mutable {
-                    p->setValue(m_context->communicator()->makeHttpRequest(
-                        m_context->options()->getAccessToken().get(), "POST",
-                        "/api/v3/oneprovider/replicas-id/" +
-                            uuidToObjectId(uuid.toStdString()),
-                        "", ""));
-                });
-
-            f.then([uuid = uuid](const std::string &response) {
-                 try {
-                     auto transferResponse = folly::parseJson(response);
-                     LOG_DBG(1) << "Scheduled transfer with ID: "
-                                << transferResponse["transferId"];
-                 }
-                 catch (...) {
-                     LOG(ERROR)
-                         << "Invalid transfer request response: " << response;
-                     throw;
-                 }
-             })
-                .onError([uuid = uuid](std::exception const &e) {
-                    LOG(ERROR) << "Transfer request for file " << uuid
-                               << " failed due to: " << e.what();
-                });
-        }
-        else {
-            prefetchRange =
-                boost::icl::discrete_interval<off_t>::right_open(0, fileSize);
-
-            worthPrefetching = true;
-            fullFilePrefetchRequested = true;
-        }
-
-        fuseFileHandle->setFullPrefetchTriggered();
-
-        LOG_DBG(2) << "Requesting full file prefetch for " << uuid
-                   << " in range " << prefetchRange;
-
-        prefetchType = IOTraceLogger::PrefetchType::FULL;
-    }
     // Check if we should consider block cluster prefetch
-    else if (m_randomReadPrefetchClusterWindow) {
+    if (m_randomReadPrefetchClusterWindow != 0) {
         off_t leftRange = 0;
         off_t rightRange = 0;
         bool blockAligned;
@@ -699,23 +639,30 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
         if (m_randomReadPrefetchClusterWindowGrowFactor == 0.0) {
             // Align the prefetch window to the consecutive block in the file
             // based on predefined prefetch block size
-            const auto windowSize = m_randomReadPrefetchClusterWindow;
+            const auto windowSize = m_randomReadPrefetchClusterWindow < 0
+                ? fileSize
+                : m_randomReadPrefetchClusterWindow;
             leftRange = offset / windowSize;
             leftRange *= windowSize;
             rightRange = std::min<off_t>(leftRange + windowSize, fileSize);
             blockAligned = true;
+
+            if (fuseFileHandle->prefetchAlreadyRequestedAt(leftRange))
+                return {0, IOTraceLogger::PrefetchType::NONE};
+
+            fuseFileHandle->addPrefetchAt(leftRange);
         }
         else {
-            LOG_DBG(2) << "Calculating clustered random read prefetch with "
-                          "growing window size";
-
             // Calculate the current clustering window size based on initial
             // window size, grow factor and current replication progress
-            const auto windowSize = m_randomReadPrefetchClusterWindow *
+            const auto initialWindowSize = m_randomReadPrefetchClusterWindow < 0
+                ? fileSize
+                : m_randomReadPrefetchClusterWindow;
+
+            const auto windowSize = initialWindowSize *
                 (1.0 +
                     m_randomReadPrefetchClusterWindowGrowFactor * fileSize *
-                        replicationProgress /
-                        m_randomReadPrefetchClusterWindow);
+                        replicationProgress / initialWindowSize);
 
             // Calculate a block range around the current read offset
             leftRange = std::max<off_t>(0, offset - windowSize / 2);
@@ -730,9 +677,6 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
             prefetchBlockThreshold =
                 m_clusterPrefetchDistribution(m_clusterPrefetchRandomGenerator);
         }
-
-        LOG_DBG(2) << "Blocks in calculated prefetch range: " << blocksInRange
-                   << ", threshold: " << prefetchBlockThreshold;
 
         if (blocksInRange > prefetchBlockThreshold) {
             if (blockAligned) {
