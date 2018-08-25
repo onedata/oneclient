@@ -5,6 +5,7 @@ find_library(FOLLY_BENCHMARK_LIBRARIES follybenchmark)
 set(CLIENT_BENCHMARK_LIBRARIES
     libmacaroons-cpp
     ${PLATFORM_EXTRA_LIBS}
+    ${FOLLY_LIBRARIES}
     ${GLOG_LIBRARIES}
     ${FUSE_LIBRARIES}
     ${Boost_LIBRARIES}

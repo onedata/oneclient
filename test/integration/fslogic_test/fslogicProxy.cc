@@ -99,7 +99,6 @@ public:
     ~FsLogicProxy()
     {
         ReleaseGIL guard;
-        m_context->communicator()->stop();
     }
 
     void failHelper()
@@ -311,7 +310,7 @@ boost::shared_ptr<FsLogicProxy> create(std::string ip, int port)
 
     auto communicator = std::make_shared<Communicator>(/*connections*/ 10,
         /*threads*/ 2, ip, port,
-        /*verifyServerCertificate*/ false, createConnection);
+        /*verifyServerCertificate*/ false);
 
     auto context = std::make_shared<Context>();
     context->setScheduler(std::make_shared<Scheduler>(1));

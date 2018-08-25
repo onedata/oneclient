@@ -7,9 +7,10 @@
  */
 
 #include "asyncStream.h"
-#include "communication/etls/utils.h"
 #include "events/types/event.h"
 #include "logging.h"
+
+#include <folly/ThreadName.h>
 
 namespace one {
 namespace client {
@@ -19,7 +20,7 @@ AsyncStream::AsyncStream(StreamPtr stream)
     : m_ioService{1}
     , m_idleWork{asio::make_work_guard(m_ioService)}
     , m_worker{[=] {
-        communication::etls::utils::nameThread("AsyncStream");
+        folly::setThreadName("AsyncStream");
         m_ioService.run();
     }}
     , m_stream{std::move(stream)}
