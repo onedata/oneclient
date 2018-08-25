@@ -313,7 +313,7 @@ private:
     const double m_linearReadPrefetchThreshold;
     const double m_randomReadPrefetchThreshold;
     const unsigned int m_randomReadPrefetchBlockThreshold;
-    const unsigned int m_randomReadPrefetchClusterWindow;
+    const int m_randomReadPrefetchClusterWindow;
     const unsigned int m_randomReadPrefetchClusterBlockThreshold;
     const double m_randomReadPrefetchClusterWindowGrowFactor;
     const bool m_clusterPrefetchThresholdRandom;

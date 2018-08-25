@@ -96,10 +96,7 @@ public:
     {
     }
 
-    ~FsLogicProxy()
-    {
-        ReleaseGIL guard;
-    }
+    ~FsLogicProxy() { ReleaseGIL guard; }
 
     void failHelper()
     {
