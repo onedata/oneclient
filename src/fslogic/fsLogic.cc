@@ -48,6 +48,7 @@
 #include "util/cdmi.h"
 
 #include <boost/icl/interval_set.hpp>
+#include <folly/Demangle.h>
 #include <folly/Enumerate.h>
 #include <folly/Range.h>
 #include <folly/ScopeGuard.h>
@@ -1206,9 +1207,22 @@ folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
 template <typename SrvMsg, typename CliMsg>
 SrvMsg FsLogic::communicate(CliMsg &&msg, const std::chrono::seconds timeout)
 {
-    return communication::wait(m_context->communicator()->communicate<SrvMsg>(
-                                   std::forward<CliMsg>(msg)),
-        timeout);
+    auto messageString = msg.toString();
+    return m_context->communicator()
+        ->communicate<SrvMsg>(std::forward<CliMsg>(msg))
+        //.within(timeout,
+        // std::system_error{std::make_error_code(std::errc::timed_out)})
+        .onTimeout(timeout,
+            [
+                messageString = std::move(messageString),
+                timeout = timeout.count()
+            ]() {
+                LOG(ERROR) << "Response to message : " << messageString
+                           << " not received within " << timeout << " seconds.";
+                return folly::makeFuture<SrvMsg>(std::system_error{
+                    std::make_error_code(std::errc::timed_out)});
+            })
+        .get();
 }
 
 folly::fbstring FsLogic::syncAndFetchChecksum(const folly::fbstring &uuid,
