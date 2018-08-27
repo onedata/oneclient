@@ -739,7 +739,8 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
                 if (fuseFileHandle->prefetchAlreadyRequestedAt(leftRange)) {
                     LOG_DBG(2)
                         << "Block aligned prefetch already requested at offset "
-                        << leftRange;
+                        << leftRange << " - skipping prefetch";
+                    return {0, IOTraceLogger::PrefetchType::NONE};
                 }
                 else {
                     LOG_DBG(2) << "Block aligned prefetch at offset "
