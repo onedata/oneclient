@@ -12,6 +12,7 @@
 #include "context.h"
 #include "logging.h"
 #include "messages/configuration.h"
+#include "messages/fuse/blockSynchronizationRequest.h"
 #include "messages/fuse/changeMode.h"
 #include "messages/fuse/createDir.h"
 #include "messages/fuse/createFile.h"
@@ -793,24 +794,9 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
     if (boost::icl::size(prefetchRange) > 0 && worthPrefetching) {
         prefetchSize = boost::icl::size(prefetchRange);
         // Request the calculated prefetch block asynchronously
-        m_context->communicator()
-            ->communicate<messages::fuse::FileLocationChanged>(
-                messages::fuse::SynchronizeBlock{
-                    uuid.toStdString(), prefetchRange, prefetchPriority, false})
-            .then([this](messages::fuse::FileLocationChanged locationUpdate) {
-                m_runInFiber(
-                    [ this, locationUpdate = std::move(locationUpdate) ] {
-                        if (locationUpdate.changeStartOffset() &&
-                            locationUpdate.changeEndOffset())
-                            m_metadataCache.updateLocation(
-                                *locationUpdate.changeStartOffset(),
-                                *locationUpdate.changeEndOffset(),
-                                locationUpdate.fileLocation());
-                        else
-                            m_metadataCache.updateLocation(
-                                locationUpdate.fileLocation());
-                    });
-            });
+        m_context->communicator()->communicate<messages::fuse::FuseResponse>(
+            messages::fuse::BlockSynchronizationRequest{
+                uuid.toStdString(), prefetchRange, prefetchPriority, false});
     }
 
     return {prefetchSize, prefetchType};
