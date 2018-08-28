@@ -311,14 +311,16 @@ private:
     const std::chrono::seconds m_providerTimeout;
     std::function<void(folly::Function<void()>)> m_runInFiber;
 
+    const bool m_prefetchModeAsync;
     const double m_linearReadPrefetchThreshold;
     const double m_randomReadPrefetchThreshold;
     const unsigned int m_randomReadPrefetchBlockThreshold;
-    const unsigned int m_randomReadPrefetchClusterWindow;
+    const int m_randomReadPrefetchClusterWindow;
     const unsigned int m_randomReadPrefetchClusterBlockThreshold;
     const double m_randomReadPrefetchClusterWindowGrowFactor;
     const bool m_clusterPrefetchThresholdRandom;
     const bool m_ioTraceLoggerEnabled;
+
     std::shared_ptr<IOTraceLogger> m_ioTraceLogger;
 
     std::random_device m_clusterPrefetchRD{};
