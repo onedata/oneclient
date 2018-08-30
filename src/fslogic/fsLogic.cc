@@ -218,6 +218,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     }
 }
 
+FsLogic::~FsLogic() { m_context->communicator()->stop(); }
+
 FileAttrPtr FsLogic::lookup(
     const folly::fbstring &uuid, const folly::fbstring &name)
 {
@@ -638,8 +640,8 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
         bool blockAligned;
 
         if (m_randomReadPrefetchClusterWindowGrowFactor == 0.0) {
-            // Align the prefetch window to the consecutive block in the file
-            // based on predefined prefetch block size
+            // Align the prefetch window to the consecutive block in the
+            // file based on predefined prefetch block size
             const auto windowSize = m_randomReadPrefetchClusterWindow < 0
                 ? fileSize
                 : m_randomReadPrefetchClusterWindow;

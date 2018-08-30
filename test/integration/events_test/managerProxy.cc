@@ -37,7 +37,7 @@ public:
     {
     }
 
-    ~ManagerProxy() {}
+    ~ManagerProxy() { m_context->communicator()->stop(); }
 
     void emitFileRead(std::string fileUuid, off_t offset, size_t size)
     {
@@ -174,7 +174,8 @@ boost::shared_ptr<ManagerProxy> create(
 
     auto communicator = std::make_shared<Communicator>(/*connections*/ 1,
         /*threads*/ 1, std::move(ip), port,
-        /*verifyServerCertificate*/ false);
+        /*verifyServerCertificate*/ false, /*upgrade to clproto*/ true,
+        /*perform handshake*/ false);
 
     auto context = std::make_shared<Context>();
     context->setScheduler(std::make_shared<Scheduler>(1));
