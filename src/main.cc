@@ -79,6 +79,7 @@ void startLogging(
     google::InitGoogleLogging(programName);
 
     LOG(INFO) << "Oneclient version: " << ONECLIENT_VERSION;
+    LOG(INFO) << "Oneclient commit: " << ONECLIENT_GIT_COMMIT;
     LOG(INFO) << "Verbose logging level: " << options->getVerboseLogLevel();
     if (options->getProviderHost())
         LOG(INFO) << "Connecting to Oneprovider: "

@@ -7,6 +7,7 @@ DOCKER_REG_PASSWORD ?= ""
 
 PKG_REVISION    ?= $(shell git describe --tags --always)
 PKG_VERSION     ?= $(shell git describe --tags --always | tr - .)
+PKG_COMMIT      ?= $(shell git rev-parse HEAD)
 PKG_BUILD       ?= 1
 PKG_ID           = oneclient-base-$(PKG_VERSION)
 
@@ -41,6 +42,7 @@ all: debug test
 	mkdir -p $*
 	cd $* && cmake -GNinja -DCMAKE_BUILD_TYPE=$* \
 	                       -DGIT_VERSION=${PKG_REVISION} \
+	                       -DGIT_COMMIT=${PKG_COMMIT} \
 	                       -DCODE_COVERAGE=${WITH_COVERAGE} \
 	                       -DWITH_CEPH=${WITH_CEPH} \
 	                       -DWITH_SWIFT=${WITH_SWIFT} \
