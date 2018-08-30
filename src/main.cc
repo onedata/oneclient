@@ -87,7 +87,7 @@ void startLogging(
                   << options->getProviderHost().get();
     LOG(INFO) << "Forced direct IO: " << options->isDirectIOForced();
     LOG(INFO) << "Forced proxy IO: " << options->isProxyIOForced();
-    LOG(INFO) << "Verify service certificate: " << options->isInsecure();
+    LOG(INFO) << "Verify server certificate: " << !options->isInsecure();
     LOG(INFO) << "File read events disabled: "
               << options->areFileReadEventsDisabled();
     LOG(INFO) << "IO buffered: " << options->isIOBuffered();
@@ -216,6 +216,8 @@ std::shared_ptr<communication::Communicator> handshake(
 {
     auto handshakeHandler = [&](messages::HandshakeResponse msg) {
         if (msg.isMacaroonError()) {
+            LOG(ERROR) << "Fatal error during handshake: "
+                       << msg.status().message();
             authManager->cleanup();
         }
         return msg.status();
