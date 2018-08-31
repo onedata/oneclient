@@ -261,7 +261,7 @@ std::shared_ptr<auth::AuthManager> getAuthManager(
             options->getProviderHost().get(), options->getProviderPort(),
             !options->isInsecure(), options->getProviderTimeout());
     }
-    catch (auth::AuthException &e) {
+    catch (std::exception &e) {
         std::cerr << "Authentication error: '" << e.what() << "'. Aborting..."
                   << std::endl;
         exit(EXIT_FAILURE);

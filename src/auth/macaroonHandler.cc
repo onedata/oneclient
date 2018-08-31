@@ -81,8 +81,7 @@ macaroons::Macaroon MacaroonHandler::retrieveMacaroon() const
     }
 
     if (auto macaroon = readMacaroonFromFile()) {
-        LOG(INFO) << "Retrieved access macaroon from file "
-                  << macaroonFilePath();
+        LOG(INFO) << "Retrieved access token from file " << macaroonFilePath();
         return macaroon.get();
     }
 
@@ -92,8 +91,8 @@ macaroons::Macaroon MacaroonHandler::retrieveMacaroon() const
         return macaroon;
     }
     catch (const std::exception &e) {
-        LOG(ERROR) << "Failed to retrieve user's macaroon: " << e.what();
-        throw BadAccess{"invalid authorization macaroon"};
+        LOG(ERROR) << "Failed to retrieve user's access token: " << e.what();
+        throw BadAccess{"Invalid access token"};
     }
 }
 
@@ -107,7 +106,7 @@ MacaroonHandler::readMacaroonFromFile() const
     boost::filesystem::ifstream stream{macaroonFilePath()};
     stream >> macaroon;
     if (stream.fail() || stream.bad() || stream.eof()) {
-        LOG(INFO) << "No cached macaroon at: " << macaroonFilePath();
+        LOG(INFO) << "No cached access token found at: " << macaroonFilePath();
         return {};
     }
 
@@ -115,10 +114,10 @@ MacaroonHandler::readMacaroonFromFile() const
         return deserialize(macaroon);
     }
     catch (const macaroons::exception::Exception &e) {
-        LOG(ERROR) << "Failed to parse macaroon retrieved from file "
+        LOG(ERROR) << "Failed to parse access token retrieved from file "
                    << macaroonFilePath() << ": " << e.what();
 
-        return {};
+        throw;
     }
 }
 
@@ -135,10 +134,10 @@ MacaroonHandler::getMacaroonFromOptions() const
         return deserialize(macaroon.get());
     }
     catch (const macaroons::exception::Exception &e) {
-        LOG(ERROR) << "Failed to parse macaroon retrieved from options: "
+        LOG(ERROR) << "Failed to parse access token passed on command line: "
                    << e.what();
 
-        return {};
+        throw;
     }
 }
 
@@ -194,8 +193,8 @@ macaroons::Macaroon MacaroonHandler::deserialize(std::string macaroon) const
         return macaroons::Macaroon::deserialize(decode62(macaroon));
     }
     catch (const std::exception &e) {
-        LOG(WARNING) << "Failed to deserialize macaroon as base62: " << e.what()
-                     << ", trying to deserialize as base64";
+        LOG(WARNING) << "Failed to deserialize access token as base62: "
+                     << e.what() << ", trying to deserialize as base64";
 
         return macaroons::Macaroon::deserialize(macaroon);
     }
@@ -227,11 +226,11 @@ std::string MacaroonHandler::decode62(std::string macaroon62)
         if (*it == '0') {
             ++it;
             if (it == macaroon62.end())
-                throw AuthException{"Unable to decode macaroon."};
+                throw AuthException{"Unable to decode access token."};
 
             auto searchResult = coding.right.find(std::string{'0', *it});
             if (searchResult == coding.right.end())
-                throw AuthException{"Unable to decode macaroon."};
+                throw AuthException{"Unable to decode access token."};
 
             macaroon64 += searchResult->second;
         }
@@ -267,8 +266,8 @@ std::string MacaroonHandler::encode62(std::string macaroon64)
 void MacaroonHandler::removeMacaroonFile() const
 {
     if (!boost::filesystem::remove(macaroonFilePath())) {
-        LOG(WARNING) << "Failed to remove macaroon file '" << macaroonFilePath()
-                     << "'";
+        LOG(WARNING) << "Failed to remove access token file '"
+                     << macaroonFilePath() << "'";
     }
 }
 
