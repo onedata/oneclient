@@ -40,7 +40,8 @@ Build-Depends:
     python-dev,
     subversion,
     swift-sdk-cpp (>= 1.0.0),
-    uuid-dev
+    uuid-dev,
+    wangle-dev
 Standards-Version: 3.9.5
 Homepage: https://onedata.org
 
