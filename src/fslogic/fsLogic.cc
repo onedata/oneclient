@@ -649,11 +649,6 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
             leftRange *= windowSize;
             rightRange = std::min<off_t>(leftRange + windowSize, fileSize);
             blockAligned = true;
-
-            if (fuseFileHandle->prefetchAlreadyRequestedAt(leftRange))
-                return {0, IOTraceLogger::PrefetchType::NONE};
-
-            fuseFileHandle->addPrefetchAt(leftRange);
         }
         else {
             // Calculate the current clustering window size based on initial
@@ -680,6 +675,9 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
             prefetchBlockThreshold =
                 m_clusterPrefetchDistribution(m_clusterPrefetchRandomGenerator);
         }
+
+        LOG_DBG(2) << "Blocks in calculated prefetch range: " << blocksInRange
+                   << ", threshold: " << prefetchBlockThreshold;
 
         if (blocksInRange > prefetchBlockThreshold) {
             if (blockAligned) {
@@ -1227,8 +1225,6 @@ SrvMsg FsLogic::communicate(CliMsg &&msg, const std::chrono::seconds timeout)
     auto messageString = msg.toString();
     return m_context->communicator()
         ->communicate<SrvMsg>(std::forward<CliMsg>(msg))
-        //.within(timeout,
-        // std::system_error{std::make_error_code(std::errc::timed_out)})
         .onTimeout(timeout,
             [
                 messageString = std::move(messageString),
