@@ -36,6 +36,7 @@ static constexpr auto DEFAULT_READ_BUFFER_PREFETCH_DURATION = 1;
 static constexpr auto DEFAULT_WRITE_BUFFER_MIN_SIZE = 20 * 1024 * 1024;
 static constexpr auto DEFAULT_WRITE_BUFFER_MAX_SIZE = 50 * 1024 * 1024;
 static constexpr auto DEFAULT_WRITE_BUFFER_FLUSH_DELAY = 5;
+static constexpr auto DEFAULT_PREFETCH_MODE = "async";
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE = 0;
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD = 5;
 static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 100000;
@@ -259,9 +260,9 @@ public:
     double getRandomReadPrefetchThreshold() const;
 
     /*
-     * @return Is prefetch mode sync or async.
+     * @return Get prefetch mode sync or async.
      */
-    bool isPrefetchModeAsynchronous() const;
+    std::string getPrefetchMode() const;
 
     /*
      * @return Is cluster block prefetch threshold random.
@@ -277,7 +278,7 @@ public:
     /*
      * @return Cluster window size for random read block prefetch.
      */
-    unsigned int getRandomReadPrefetchClusterWindow() const;
+    int getRandomReadPrefetchClusterWindow() const;
 
     /*
      * @return The number of distinct blocks within cluster window

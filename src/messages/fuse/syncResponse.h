@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_MESSAGES_FUSE_CHECKSUM_H
 #define ONECLIENT_MESSAGES_FUSE_CHECKSUM_H
 
-#include "fileLocation.h"
+#include "fileLocationChanged.h"
 #include "fuseResponse.h"
 
 #include <memory>
@@ -43,15 +43,18 @@ public:
     const std::string &checksum() const { return m_checksum; }
 
     /**
-     * @return File location info.
+     * @return File location change info.
      */
-    const FileLocation &fileLocation() const { return m_fileLocation; }
+    const FileLocationChanged &fileLocationChanged() const
+    {
+        return m_fileLocationChanged;
+    }
 
     std::string toString() const override;
 
 private:
     std::string m_checksum;
-    FileLocation m_fileLocation;
+    FileLocationChanged m_fileLocationChanged;
 };
 
 } // namespace fuse

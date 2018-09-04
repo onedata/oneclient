@@ -286,8 +286,9 @@ def test_timed_emit_file_truncated(endpoint, manager, uuid, size):
 
 
 def test_subscribe_file_attr_changed(endpoint, manager, uuid, time_thr):
-    with receive(endpoint) as queue:
+    with receive(endpoint, msgs_num=2) as queue:
         manager.subscribeFileAttrChanged(uuid, time_thr)
+        queue.get() # Skip message stream reset
         client_message = queue.get()
 
     assert client_message.HasField('subscription')
@@ -320,8 +321,9 @@ def test_cancel_file_attr_changed_subscription(endpoint, manager, uuid):
 
 
 def test_subscribe_file_location_changed(endpoint, manager, uuid, time_thr):
-    with receive(endpoint) as queue:
+    with receive(endpoint, msgs_num=2) as queue:
         manager.subscribeFileLocationChanged(uuid, time_thr)
+        queue.get() # Skip message stream reset
         client_message = queue.get()
 
     assert client_message.HasField('subscription')
@@ -354,8 +356,9 @@ def test_cancel_file_location_changed_subscription(endpoint, manager, uuid):
 
 
 def test_subscribe_file_perm_changed(endpoint, manager, uuid):
-    with receive(endpoint) as queue:
+    with receive(endpoint, msgs_num=2) as queue:
         manager.subscribeFilePermChanged(uuid)
+        queue.get() # Skip message strip reset
         client_message = queue.get()
 
     assert client_message.HasField('subscription')
@@ -374,7 +377,7 @@ def test_timed_emit_file_perm_changed(endpoint, manager, uuid):
 
 
 def test_cancel_file_perm_changed_subscription(endpoint, manager, uuid):
-    with receive(endpoint):
+    with receive(endpoint, msgs_num=2):
         sid = manager.subscribeFilePermChanged(uuid)
 
     with receive(endpoint) as queue:
@@ -387,7 +390,8 @@ def test_cancel_file_perm_changed_subscription(endpoint, manager, uuid):
 
 
 def test_subscribe_file_renamed(endpoint, manager, uuid):
-    with receive(endpoint) as queue:
+    with receive(endpoint, msgs_num=2) as queue:
+        queue.get() # Skip message stream reset
         manager.subscribeFileRenamed(uuid)
         client_message = queue.get()
 
@@ -420,8 +424,9 @@ def test_cancel_file_renamed_subscription(endpoint, manager, uuid):
 
 
 def test_subscribe_file_removed(endpoint, manager, uuid):
-    with receive(endpoint) as queue:
+    with receive(endpoint, msgs_num=2) as queue:
         manager.subscribeFileRemoved(uuid)
+        queue.get() # Skip message stream reset
         client_message = queue.get()
 
     assert client_message.HasField('subscription')
@@ -453,8 +458,9 @@ def test_cancel_file_removed_subscription(endpoint, manager, uuid):
 
 
 def test_subscribe_quota_exceeded(endpoint, manager):
-    with receive(endpoint) as queue:
+    with receive(endpoint, msgs_num=2) as queue:
         manager.subscribeQuotaExceeded()
+        queue.get() # Skip message stream reset
         client_message = queue.get()
 
     assert client_message.HasField('subscription')
@@ -506,11 +512,12 @@ def test_aggregate_events(result, endpoint, manager, evt_num, key_num):
     evt_size = 10
 
     emit_time = Duration()
-    with receive(endpoint) as queue:
+    with receive(endpoint, msgs_num=2) as queue:
         with measure(emit_time):
             for offset in range(evts_per_uuid):
                 for uuid in uuids:
                     manager.emitFileRead(uuid, evt_size * offset, evt_size)
+        queue.get() # Skip message stream reset
         client_message = queue.get()
 
     assert client_message.HasField('events')
@@ -531,8 +538,9 @@ def test_aggregate_events(result, endpoint, manager, evt_num, key_num):
 # -----------------------------------------------------------------------------
 
 def _test_emit_file_read(endpoint, manager, uuid, offset, size):
-    with receive(endpoint) as queue:
+    with receive(endpoint, msgs_num=2) as queue:
         manager.emitFileRead(uuid, offset, size)
+        queue.get() # Skip message_stream_reset message
         client_message = queue.get()
 
     assert client_message.HasField('events')
@@ -545,8 +553,9 @@ def _test_emit_file_read(endpoint, manager, uuid, offset, size):
 
 
 def _test_emit_file_written(endpoint, manager, uuid, offset, size):
-    with receive(endpoint) as queue:
+    with receive(endpoint, msgs_num=2) as queue:
         manager.emitFileWritten(uuid, offset, size)
+        queue.get() # Skip message_stream_reset message
         client_message = queue.get()
 
     assert client_message.HasField('events')
@@ -559,8 +568,9 @@ def _test_emit_file_written(endpoint, manager, uuid, offset, size):
 
 
 def _test_emit_file_truncated(endpoint, manager, uuid, file_size):
-    with receive(endpoint) as queue:
+    with receive(endpoint, msgs_num=2) as queue:
         manager.emitFileTruncated(uuid, file_size)
+        queue.get() # Skip message_stream_reset message
         client_message = queue.get()
 
     assert client_message.HasField('events')
