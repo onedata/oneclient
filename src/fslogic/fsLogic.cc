@@ -12,6 +12,7 @@
 #include "context.h"
 #include "logging.h"
 #include "messages/configuration.h"
+#include "messages/fuse/blockSynchronizationRequest.h"
 #include "messages/fuse/changeMode.h"
 #include "messages/fuse/createDir.h"
 #include "messages/fuse/createFile.h"
@@ -123,6 +124,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_nextFuseHandleId{0}
     , m_providerTimeout{std::move(providerTimeout)}
     , m_runInFiber{std::move(runInFiber)} /* clang-format off */
+    , m_prefetchModeAsync{m_context->options()->getPrefetchMode() == "async"}
     , m_linearReadPrefetchThreshold{m_context->options()
           ->getLinearReadPrefetchThreshold()}
     , m_randomReadPrefetchThreshold{m_context->options()
@@ -640,8 +642,8 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
         bool blockAligned;
 
         if (m_randomReadPrefetchClusterWindowGrowFactor == 0.0) {
-            // Align the prefetch window to the consecutive block in the
-            // file based on predefined prefetch block size
+            // Align the prefetch window to the consecutive block in the file
+            // based on predefined prefetch block size
             const auto windowSize = m_randomReadPrefetchClusterWindow < 0
                 ? fileSize
                 : m_randomReadPrefetchClusterWindow;
@@ -700,7 +702,8 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
                        << uuid << ". " << blocksInRange
                        << " blocks in range (prefetch threshold: "
                        << prefetchBlockThreshold
-                       << ", block aligned: " << blockAligned << ")";
+                       << ", block aligned: " << blockAligned
+                       << ", async: " << m_prefetchModeAsync << ")";
 
             prefetchRange = boost::icl::discrete_interval<off_t>::right_open(
                 leftRange, rightRange);
@@ -727,7 +730,8 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
             if (worthPrefetching) {
                 fuseFileHandle->setLastPrefetch(prefetchRange);
                 LOG_DBG(1) << "Requesting linear prefetch for file " << uuid
-                           << " in range " << prefetchRange;
+                           << " in range " << prefetchRange
+                           << "(async: " << m_prefetchModeAsync << ")";
 
                 prefetchType = IOTraceLogger::PrefetchType::LINEAR;
                 prefetchPriority = SYNCHRONIZE_BLOCK_PRIORITY_LINEAR_PREFETCH;
@@ -737,25 +741,31 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
 
     if (boost::icl::size(prefetchRange) > 0 && worthPrefetching) {
         prefetchSize = boost::icl::size(prefetchRange);
-        // Request the calculated prefetch block asynchronously
-        m_context->communicator()
-            ->communicate<messages::fuse::FileLocationChanged>(
-                messages::fuse::SynchronizeBlock{
-                    uuid.toStdString(), prefetchRange, prefetchPriority, false})
-            .then([this](messages::fuse::FileLocationChanged locationUpdate) {
-                m_runInFiber(
-                    [ this, locationUpdate = std::move(locationUpdate) ] {
-                        if (locationUpdate.changeStartOffset() &&
-                            locationUpdate.changeEndOffset())
-                            m_metadataCache.updateLocation(
-                                *locationUpdate.changeStartOffset(),
-                                *locationUpdate.changeEndOffset(),
-                                locationUpdate.fileLocation());
-                        else
-                            m_metadataCache.updateLocation(
-                                locationUpdate.fileLocation());
-                    });
-            });
+        // Request the calculated prefetch block, asynchronously or
+        // synchronously depending on the command line flag
+        if (m_prefetchModeAsync) {
+            m_context->communicator()
+                ->communicate<messages::fuse::FuseResponse>(
+                    messages::fuse::BlockSynchronizationRequest{
+                        uuid.toStdString(), prefetchRange, prefetchPriority,
+                        false});
+        }
+        else {
+            auto locationUpdate =
+                communicate<messages::fuse::FileLocationChanged>(
+                    messages::fuse::SynchronizeBlock{uuid.toStdString(),
+                        prefetchRange, prefetchPriority, false},
+                    m_providerTimeout);
+
+            if (locationUpdate.changeStartOffset() &&
+                locationUpdate.changeEndOffset())
+                m_metadataCache.updateLocation(
+                    *locationUpdate.changeStartOffset(),
+                    *locationUpdate.changeEndOffset(),
+                    locationUpdate.fileLocation());
+            else
+                m_metadataCache.updateLocation(locationUpdate.fileLocation());
+        }
     }
 
     return {prefetchSize, prefetchType};

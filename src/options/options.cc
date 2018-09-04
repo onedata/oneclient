@@ -328,9 +328,10 @@ Options::Options()
         .withValueName("<size>")
         .withDefaultValue(0, std::to_string(0))
         .withGroup(OptionGroup::ADVANCED)
-        .withDescription("Cluster window size for prefetching [bytes]. When -1 "
-                         "is provided, the entire file is considered "
-                         "(experimental).");
+        .withDescription("Cluster window size for prefetching in "
+                         "[bytes]. When -1 is provided, the "
+                         "entire file is considered for "
+                         "prefetching (experimental).");
 
     add<unsigned int>()
         ->withLongName("rndrd-prefetch-cluster-block-threshold")
@@ -355,6 +356,16 @@ Options::Options()
             "current replication progress - "
             "initial_window_size*[1+grow_factor*file_size*replication_progress/"
             "initial_window_size)] (experimental).");
+
+    add<std::string>()
+        ->withLongName("prefetch-mode")
+        .withConfigName("prefetch_mode")
+        .withImplicitValue(DEFAULT_PREFETCH_MODE)
+        .withDefaultValue(DEFAULT_PREFETCH_MODE, DEFAULT_PREFETCH_MODE)
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Defines the type of block prefetch mode. Possible "
+                         "values are: async, sync. Default is: async "
+                         "(experimental).");
 
     add<bool>()
         ->asSwitch()
@@ -788,6 +799,12 @@ double Options::getRandomReadPrefetchThreshold() const
 {
     return get<double>({"rndrd-prefetch-threshold", "rndrd_prefetch_threshold"})
         .get_value_or(1.0);
+}
+
+std::string Options::getPrefetchMode() const
+{
+    return get<std::string>({"prefetch-mode", "prefetch_mode"})
+        .get_value_or("async");
 }
 
 bool Options::isClusterPrefetchThresholdRandom() const
