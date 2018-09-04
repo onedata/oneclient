@@ -49,6 +49,7 @@
 #include "util/cdmi.h"
 
 #include <boost/icl/interval_set.hpp>
+#include <folly/Demangle.h>
 #include <folly/Enumerate.h>
 #include <folly/Range.h>
 #include <folly/ScopeGuard.h>
@@ -218,6 +219,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
             context->options()->getMountpoint().string());
     }
 }
+
+FsLogic::~FsLogic() { m_context->communicator()->stop(); }
 
 FileAttrPtr FsLogic::lookup(
     const folly::fbstring &uuid, const folly::fbstring &name)
@@ -650,9 +653,6 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
             blockAligned = true;
         }
         else {
-            LOG_DBG(2) << "Calculating clustered random read prefetch with "
-                          "growing window size";
-
             // Calculate the current clustering window size based on initial
             // window size, grow factor and current replication progress
             const auto initialWindowSize = m_randomReadPrefetchClusterWindow < 0
@@ -1232,9 +1232,20 @@ folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
 template <typename SrvMsg, typename CliMsg>
 SrvMsg FsLogic::communicate(CliMsg &&msg, const std::chrono::seconds timeout)
 {
-    return communication::wait(m_context->communicator()->communicate<SrvMsg>(
-                                   std::forward<CliMsg>(msg)),
-        timeout);
+    auto messageString = msg.toString();
+    return m_context->communicator()
+        ->communicate<SrvMsg>(std::forward<CliMsg>(msg))
+        .onTimeout(timeout,
+            [
+                messageString = std::move(messageString),
+                timeout = timeout.count()
+            ]() {
+                LOG(ERROR) << "Response to message : " << messageString
+                           << " not received within " << timeout << " seconds.";
+                return folly::makeFuture<SrvMsg>(std::system_error{
+                    std::make_error_code(std::errc::timed_out)});
+            })
+        .get();
 }
 
 folly::fbstring FsLogic::syncAndFetchChecksum(const folly::fbstring &uuid,

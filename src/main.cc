@@ -79,13 +79,15 @@ void startLogging(
     google::InitGoogleLogging(programName);
 
     LOG(INFO) << "Oneclient version: " << ONECLIENT_VERSION;
+    LOG(INFO) << "Oneclient commit: " << ONECLIENT_GIT_COMMIT;
+    LOG(INFO) << "Helpers commit: " << HELPERS_GIT_COMMIT;
     LOG(INFO) << "Verbose logging level: " << options->getVerboseLogLevel();
     if (options->getProviderHost())
         LOG(INFO) << "Connecting to Oneprovider: "
                   << options->getProviderHost().get();
     LOG(INFO) << "Forced direct IO: " << options->isDirectIOForced();
     LOG(INFO) << "Forced proxy IO: " << options->isProxyIOForced();
-    LOG(INFO) << "Verify service certificate: " << options->isInsecure();
+    LOG(INFO) << "Verify server certificate: " << !options->isInsecure();
     LOG(INFO) << "File read events disabled: "
               << options->areFileReadEventsDisabled();
     LOG(INFO) << "IO buffered: " << options->isIOBuffered();
@@ -214,6 +216,8 @@ std::shared_ptr<communication::Communicator> handshake(
 {
     auto handshakeHandler = [&](messages::HandshakeResponse msg) {
         if (msg.isMacaroonError()) {
+            LOG(ERROR) << "Fatal error during handshake: "
+                       << msg.status().message();
             authManager->cleanup();
         }
         return msg.status();
@@ -257,7 +261,7 @@ std::shared_ptr<auth::AuthManager> getAuthManager(
             options->getProviderHost().get(), options->getProviderPort(),
             !options->isInsecure(), options->getProviderTimeout());
     }
-    catch (auth::AuthException &e) {
+    catch (std::exception &e) {
         std::cerr << "Authentication error: '" << e.what() << "'. Aborting..."
                   << std::endl;
         exit(EXIT_FAILURE);
@@ -451,6 +455,5 @@ int main(int argc, char *argv[])
 
     res = multithreaded ? fuse_session_loop_mt(fuse) : fuse_session_loop(fuse);
 
-    communicator->stop();
     return res == -1 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

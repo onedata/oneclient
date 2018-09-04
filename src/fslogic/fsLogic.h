@@ -83,6 +83,8 @@ public:
         bool forceFullblockRead, const std::chrono::seconds providerTimeout,
         std::function<void(folly::Function<void()>)> runInFiber);
 
+    ~FsLogic();
+
     /**
      * FUSE @c lookup callback.
      * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
