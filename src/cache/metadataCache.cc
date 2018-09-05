@@ -348,7 +348,7 @@ void MetadataCache::putLocation(std::unique_ptr<FileLocation> location)
         it, [&](Metadata &m) mutable { m.location = {std::move(location)}; });
 }
 
-bool MetadataCache::markDeleted(const folly::fbstring &uuid)
+bool MetadataCache::markDeleted(folly::fbstring uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -368,6 +368,8 @@ void MetadataCache::markDeletedIt(const Map::iterator &it)
 {
     LOG_FCALL() << LOG_FARG(it->attr->uuid());
 
+    auto uuid = it->attr->uuid();
+
     m_cache.modify(it, [&](Metadata &m) {
         m.attr->setParentUuid("");
         m.deleted = true;
@@ -376,7 +378,7 @@ void MetadataCache::markDeletedIt(const Map::iterator &it)
     if (it->attr->parentUuid())
         m_readdirCache->invalidate(*(it->attr->parentUuid()));
 
-    m_onMarkDeleted(it->attr->uuid());
+    m_onMarkDeleted(uuid);
 }
 
 bool MetadataCache::rename(const folly::fbstring &uuid,

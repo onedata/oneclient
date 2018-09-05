@@ -72,7 +72,7 @@ public:
      * 0.
      * @param uuid The uuid to mark as deleted.
      */
-    void markDeleted(const folly::fbstring &uuid);
+    void markDeleted(folly::fbstring uuid);
 
 private:
     void prune();

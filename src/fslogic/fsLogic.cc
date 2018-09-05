@@ -188,7 +188,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     });
 
     m_metadataCache.onRename(
-        [this](const folly::fbstring &oldUuid, const folly::fbstring &newUuid) {
+        [this](folly::fbstring oldUuid, folly::fbstring newUuid) {
             m_fsSubscriptions.unsubscribeFileAttrChanged(oldUuid);
             m_fsSubscriptions.unsubscribeFileRemoved(oldUuid);
             m_fsSubscriptions.unsubscribeFileRenamed(oldUuid);
@@ -203,7 +203,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
         });
 
     m_metadataCache.onMarkDeleted(
-        [this](const folly::fbstring &uuid) { m_onMarkDeleted(uuid); });
+        [this](folly::fbstring uuid) { m_onMarkDeleted(uuid); });
 
     if (m_clusterPrefetchThresholdRandom) {
         m_clusterPrefetchDistribution = std::uniform_int_distribution<int>(

@@ -220,7 +220,7 @@ public:
      * Sets a callback to be called when a file is marked as deleted.
      * @param cb The callback function that takes file's uuid as parameter.
      */
-    void onMarkDeleted(std::function<void(const folly::fbstring &)> cb)
+    void onMarkDeleted(std::function<void(folly::fbstring)> cb)
     {
         m_onMarkDeleted = std::move(cb);
     }
@@ -230,9 +230,7 @@ public:
      * @param cb The callback function that takes file's old uuid and new uuid
      * as parameters.
      */
-    void onRename(
-        std::function<void(const folly::fbstring &, const folly::fbstring &)>
-            cb)
+    void onRename(std::function<void(folly::fbstring, folly::fbstring)> cb)
     {
         m_onRename = std::move(cb);
     }
@@ -304,9 +302,9 @@ private:
     std::unordered_map<std::uint64_t, folly::fbstring> m_fuseDirectoryHandles;
     std::atomic<std::uint64_t> m_nextFuseHandleId;
 
-    std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
-    std::function<void(const folly::fbstring &, const folly::fbstring &)>
-        m_onRename = [](auto, auto) {};
+    std::function<void(folly::fbstring)> m_onMarkDeleted = [](auto) {};
+    std::function<void(folly::fbstring, folly::fbstring)> m_onRename =
+        [](auto, auto) {};
 
     const std::chrono::seconds m_providerTimeout;
     std::function<void(folly::Function<void()>)> m_runInFiber;

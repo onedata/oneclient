@@ -200,7 +200,7 @@ public:
      * @returns true if file has been marked as deleted, false if it was not
      * cached.
      */
-    bool markDeleted(const folly::fbstring &uuid);
+    bool markDeleted(folly::fbstring uuid);
 
     /**
      * Renames a cached file.
@@ -218,7 +218,7 @@ public:
      * Sets a callback that will be called after a file is marked as deleted.
      * @param cb The callback that takes uuid as parameter.
      */
-    void onMarkDeleted(std::function<void(const folly::fbstring &)> cb)
+    void onMarkDeleted(std::function<void(folly::fbstring)> cb)
     {
         m_onMarkDeleted = std::move(cb);
     }

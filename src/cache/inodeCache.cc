@@ -130,7 +130,7 @@ void InodeCache::rename(const folly::fbstring &oldUuid, folly::fbstring newUuid)
         index.modify_key(it, [&](folly::fbstring &key) { key.swap(newUuid); });
 }
 
-void InodeCache::markDeleted(const folly::fbstring &uuid)
+void InodeCache::markDeleted(folly::fbstring uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
