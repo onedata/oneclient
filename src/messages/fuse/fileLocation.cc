@@ -27,11 +27,15 @@ FileLocation::FileLocation(std::unique_ptr<ProtocolServerMessage> serverMessage)
             "file_location field missing"};
 
     deserialize(serverMessage->fuse_response().file_location());
+
+    invalidateCachedValues();
 }
 
 FileLocation::FileLocation(const ProtocolMessage &message)
 {
     deserialize(message);
+
+    invalidateCachedValues();
 }
 
 const std::string &FileLocation::uuid() const { return m_uuid; }
@@ -48,8 +52,6 @@ void FileLocation::storageId(std::string storageId_)
 const std::string &FileLocation::fileId() const { return m_fileId; }
 
 void FileLocation::fileId(std::string fileId_) { m_fileId.swap(fileId_); }
-
-FileLocation::FileBlocksMap &FileLocation::blocks() { return m_blocks; }
 
 const FileLocation::FileBlocksMap &FileLocation::blocks() const
 {
@@ -95,7 +97,31 @@ void FileLocation::putBlock(
 {
     auto interval =
         boost::icl::discrete_interval<off_t>::right_open(offset, offset + size);
-    m_blocks += std::make_pair(interval, block);
+
+    putBlock(std::make_pair<boost::icl::discrete_interval<off_t>, FileBlock>(
+        std::move(interval), std::forward<FileBlock>(block)));
+}
+
+void FileLocation::putBlock(
+    const std::pair<boost::icl::discrete_interval<off_t>, FileBlock> &block)
+{
+    m_blocks += block;
+
+    invalidateCachedValues();
+}
+
+void FileLocation::truncate(const boost::icl::discrete_interval<off_t> &range)
+{
+    m_blocks &= range;
+
+    invalidateCachedValues();
+}
+
+void FileLocation::update(const FileBlocksMap &blocks)
+{
+    m_blocks = blocks;
+
+    invalidateCachedValues();
 }
 
 void FileLocation::updateInRange(
@@ -106,6 +132,8 @@ void FileLocation::updateInRange(
 
     m_blocks.erase(updateRange);
     m_blocks += blocks.blocks() & updateRange;
+
+    invalidateCachedValues();
 }
 
 std::uint64_t FileLocation::version() const { return m_version; }
@@ -130,50 +158,54 @@ std::string FileLocation::toString() const
 std::string FileLocation::progressString(
     const size_t fileSize, const size_t progressSteps) const
 {
-    std::string result;
-    result.reserve(progressSteps);
+    if (!m_progressStringCachedValid) {
+        std::string result;
+        result.reserve(progressSteps);
 
-    assert(progressSteps > 0);
+        assert(progressSteps > 0);
 
-    if (fileSize < progressSteps * 2) {
-        size_t intersectionLength =
-            std::min<size_t>(boost::icl::length(m_blocks), fileSize);
-
-        if (intersectionLength == 0)
-            result.append(progressSteps, ' ');
-        else if (intersectionLength < fileSize / 2)
-            result.append(progressSteps, '.');
-        else if (intersectionLength < fileSize)
-            result.append(progressSteps, 'o');
-        else
-            result.append(progressSteps, '#');
-    }
-    else {
-        uint64_t progressStepByteLength = fileSize / progressSteps;
-
-        for (size_t i = 0; i < progressSteps; i++) {
-            auto startRange = i * progressStepByteLength;
-            auto endRange = 0L;
-            if (i < progressSteps - 1)
-                endRange = (i + 1) * progressStepByteLength;
-            else
-                endRange = fileSize;
-
+        if (fileSize < progressSteps * 2) {
             size_t intersectionLength =
-                blocksLengthInRange(startRange, endRange);
+                std::min<size_t>(boost::icl::length(m_blocks), fileSize);
 
             if (intersectionLength == 0)
-                result += ' ';
-            else if (intersectionLength < progressStepByteLength / 2)
-                result += '.';
-            else if (intersectionLength < progressStepByteLength)
-                result += 'o';
+                result.append(progressSteps, ' ');
+            else if (intersectionLength < fileSize / 2)
+                result.append(progressSteps, '.');
+            else if (intersectionLength < fileSize)
+                result.append(progressSteps, 'o');
             else
-                result += '#';
+                result.append(progressSteps, '#');
         }
+        else {
+            uint64_t progressStepByteLength = fileSize / progressSteps;
+
+            for (size_t i = 0; i < progressSteps; i++) {
+                auto startRange = i * progressStepByteLength;
+                auto endRange = 0L;
+                if (i < progressSteps - 1)
+                    endRange = (i + 1) * progressStepByteLength;
+                else
+                    endRange = fileSize;
+
+                size_t intersectionLength =
+                    blocksLengthInRange(startRange, endRange);
+
+                if (intersectionLength == 0)
+                    result += ' ';
+                else if (intersectionLength < progressStepByteLength / 2)
+                    result += '.';
+                else if (intersectionLength < progressStepByteLength)
+                    result += 'o';
+                else
+                    result += '#';
+            }
+        }
+
+        m_progressStringCachedValue = result;
     }
 
-    return result;
+    return m_progressStringCachedValue;
 }
 
 double FileLocation::replicationProgress(const size_t fileSize) const
@@ -181,10 +213,28 @@ double FileLocation::replicationProgress(const size_t fileSize) const
     if (fileSize == 0)
         return 0.0;
 
-    size_t intersectionLength =
-        std::min<size_t>(boost::icl::length(m_blocks), fileSize);
+    if (!m_replicationProgressCachedValid) {
+        size_t intersectionLength =
+            std::min<size_t>(boost::icl::length(m_blocks), fileSize);
 
-    return ((double)intersectionLength) / ((double)fileSize);
+        m_replicationProgressCachedValue =
+            ((double)intersectionLength) / ((double)fileSize);
+
+        m_replicationProgressCachedValid = true;
+    }
+
+    return m_replicationProgressCachedValue;
+}
+
+bool FileLocation::isReplicationComplete(const size_t fileSize) const
+{
+    if (fileSize == 0)
+        return true;
+
+    if (blocksCount() != 1)
+        return false;
+
+    return (size_t)(boost::icl::length(m_blocks)) >= fileSize;
 }
 
 bool FileLocation::linearReadPrefetchThresholdReached(
@@ -199,6 +249,8 @@ bool FileLocation::randomReadPrefetchThresholdReached(
 {
     const off_t fileThresholdBytes = fileSize * threshold;
 
+    // If at least 5 different blocks are in the map and their overall size
+    // is larger then threshold, return true
     return (blocksCount() > 5) &&
         boost::icl::length(m_blocks) > fileThresholdBytes;
 }
@@ -230,6 +282,12 @@ void FileLocation::deserialize(const ProtocolMessage &message)
         m_blocks += std::make_pair(
             interval, FileBlock{std::move(storageId_), std::move(fileId_)});
     }
+}
+
+void FileLocation::invalidateCachedValues()
+{
+    m_replicationProgressCachedValid = false;
+    m_progressStringCachedValid = false;
 }
 
 } // namespace fuse

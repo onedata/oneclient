@@ -51,7 +51,9 @@ public:
         std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,
         cache::HelpersCache &helpersCache,
         cache::ForceProxyIOCache &forceProxyIOCache,
-        std::chrono::seconds providerTimeout);
+        std::chrono::seconds providerTimeout,
+        const unsigned int prefetchCalculateSkipReads = 0,
+        const unsigned int prefetchCalculateAfterSeconds = 1);
 
     /**
      * Retrieves a helper handle for an open file.
@@ -96,6 +98,12 @@ public:
         m_lastPrefetch = p;
     }
 
+    /**
+     * Decides whether a prefetch calculation should be performed. Allows to
+     * optimize costly prefetch calculation not to be performed on every read
+     */
+    bool shouldCalculatePrefetch();
+
     boost::icl::discrete_interval<off_t> lastPrefetch() const
     {
         return m_lastPrefetch;
@@ -127,6 +135,14 @@ private:
 
     folly::Synchronized<folly::EvictingCacheMap<off_t, bool>>
         m_recentPrefetchOffsets;
+
+    const unsigned int m_prefetchCalculateSkipReads;
+    const unsigned int m_prefetchCalculateAfterSeconds;
+
+    // Tracks the number of reads since last prefetch calculation was performed
+    unsigned int m_readsSinceLastPrefetchCalculation;
+    // Keeps the time of the last prefetch calculation
+    std::chrono::system_clock::time_point m_timeOfLastPrefetchCalculation;
 };
 
 } // namespace fslogic

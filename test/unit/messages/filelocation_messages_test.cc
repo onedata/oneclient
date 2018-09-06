@@ -291,3 +291,29 @@ TEST_F(
     fileLocation.putBlock(0, 100, FileBlock{"", ""});
     EXPECT_EQ(fileLocation.replicationProgress(50), 1.0);
 }
+
+TEST_F(FuseFileLocationMessagesTest, isReplicationCompletedReportProperValues)
+{
+    auto fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 1, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.isReplicationComplete(100), false);
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 512, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.isReplicationComplete(1024), false);
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 100, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.isReplicationComplete(0), true);
+
+    fileLocation = FileLocation{};
+    EXPECT_EQ(fileLocation.isReplicationComplete(1024), false);
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 100, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.isReplicationComplete(100), true);
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 100, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.isReplicationComplete(50), true);
+}

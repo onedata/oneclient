@@ -132,6 +132,8 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(1.0, options.getRandomReadPrefetchThreshold());
     EXPECT_EQ(0, options.getRandomReadPrefetchClusterWindow());
     EXPECT_EQ(options::DEFAULT_PREFETCH_MODE, options.getPrefetchMode());
+    EXPECT_EQ(options::DEFAULT_PREFETCH_EVALUATE_FREQUENCY,
+        options.getRandomReadPrefetchEvaluationFrequency());
     EXPECT_EQ(options::DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD,
         options.getRandomReadPrefetchClusterBlockThreshold());
     EXPECT_EQ(0.0, options.getRandomReadPrefetchClusterWindowGrowFactor());
@@ -397,6 +399,14 @@ TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadClusterWindow)
         {"--rndrd-prefetch-cluster-window", "1024", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(1024, options.getRandomReadPrefetchClusterWindow());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetPrefetchEvaluationFrequency)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--rndrd-prefetch-eval-frequency", "250", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(250, options.getRandomReadPrefetchEvaluationFrequency());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetFullFileRandomReadClusterWindow)

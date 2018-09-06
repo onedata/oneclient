@@ -126,7 +126,8 @@ void MetadataCache::addBlock(const folly::fbstring &uuid,
     auto newBlock = std::make_pair(range, std::move(fileBlock));
 
     assert(it->location);
-    it->location->blocks() += newBlock;
+
+    it->location->putBlock(newBlock);
 
     LOG_DBG(2) << "Updated file " << uuid
                << " location range with new block: " << range;
@@ -284,8 +285,8 @@ void MetadataCache::truncate(
     index.modify(it, [&](Metadata &m) {
         m.attr->size(newSize);
         if (m.location)
-            m.location->blocks() &=
-                boost::icl::discrete_interval<off_t>::right_open(0, newSize);
+            m.location->truncate(
+                boost::icl::discrete_interval<off_t>::right_open(0, newSize));
     });
 }
 
@@ -447,9 +448,9 @@ bool MetadataCache::updateAttr(const FileAttr &newAttr)
                           "for uuid: '"
                        << newAttr.uuid() << "'";
 
-            m.location->blocks() &=
+            m.location->truncate(
                 boost::icl::discrete_interval<off_t>::right_open(
-                    0, *newAttr.size());
+                    0, *newAttr.size()));
         }
 
         m.attr->atime(std::max(m.attr->atime(), newAttr.atime()));
@@ -511,7 +512,7 @@ bool MetadataCache::updateLocation(const FileLocation &newLocation)
     it->location->version(newLocation.version());
     it->location->storageId(newLocation.storageId());
     it->location->fileId(newLocation.fileId());
-    it->location->blocks() = newLocation.blocks();
+    it->location->update(newLocation.blocks());
 
     LOG_DBG(2) << "Updated file location for file " << newLocation.uuid();
 
