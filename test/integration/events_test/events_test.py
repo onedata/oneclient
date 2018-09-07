@@ -494,15 +494,15 @@ def test_cancel_quota_exceeded_subscription(endpoint, manager):
     configs={
         'all': {
             'description': 'All events with the same uuid.',
-            'parameters': [EvtParam.evt_num(10000), EvtParam.key_num(1)]
+            'parameters': [EvtParam.evt_num(50000), EvtParam.key_num(1)]
         },
         'half': {
             'description': 'Every second event with the same key.',
-            'parameters': [EvtParam.evt_num(10000), EvtParam.key_num(2)]
+            'parameters': [EvtParam.evt_num(50000), EvtParam.key_num(2)]
         },
         'one_tenth': {
             'description': 'Every tenth event with the same key.',
-            'parameters': [EvtParam.evt_num(10000), EvtParam.key_num(10)]
+            'parameters': [EvtParam.evt_num(50000), EvtParam.key_num(10)]
         }
     })
 def test_aggregate_events(result, endpoint, manager, evt_num, key_num):
@@ -513,11 +513,11 @@ def test_aggregate_events(result, endpoint, manager, evt_num, key_num):
 
     emit_time = Duration()
     with receive(endpoint, msgs_num=2) as queue:
+        queue.get()
         with measure(emit_time):
             for offset in range(evts_per_uuid):
                 for uuid in uuids:
                     manager.emitFileRead(uuid, evt_size * offset, evt_size)
-        queue.get() # Skip message stream reset
         client_message = queue.get()
 
     assert client_message.HasField('events')
