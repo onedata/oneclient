@@ -135,6 +135,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
           ->getRandomReadPrefetchClusterWindow()}
     , m_randomReadPrefetchClusterBlockThreshold{m_context->options()
           ->getRandomReadPrefetchClusterBlockThreshold()}
+    , m_randomReadPrefetchEvaluationFrequency{m_context->options()
+          ->getRandomReadPrefetchEvaluationFrequency()}
     , m_randomReadPrefetchClusterWindowGrowFactor{m_context->options()
           ->getRandomReadPrefetchClusterWindowGrowFactor()}
     , m_clusterPrefetchThresholdRandom{m_context->options()
@@ -287,7 +289,7 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
     m_fuseFileHandles.emplace(fuseFileHandleId,
         std::make_shared<FuseFileHandle>(filteredFlags, opened.handleId(),
             openFileToken, *m_helpersCache, m_forceProxyIOCache,
-            m_providerTimeout));
+            m_providerTimeout, m_randomReadPrefetchEvaluationFrequency));
 
     IOTRACE_END(
         IOTraceOpen, IOTraceLogger::OpType::OPEN, uuid, fuseFileHandleId, flags)
@@ -611,17 +613,14 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
     const boost::icl::discrete_interval<off_t> possibleRange,
     const boost::icl::discrete_interval<off_t> availableRange)
 {
-    const auto fileSize = m_metadataCache.getAttr(uuid)->size().value_or(0);
-    const auto fileLocation = m_metadataCache.getLocation(uuid);
-    const auto replicationProgress =
-        fileLocation->replicationProgress(fileSize);
-
     size_t prefetchSize = 0;
     auto prefetchType = IOTraceLogger::PrefetchType::NONE;
 
-    if (replicationProgress == 1.0) {
+    const auto fileSize = m_metadataCache.getAttr(uuid)->size().value_or(0);
+    const auto fileLocation = m_metadataCache.getLocation(uuid);
+
+    if (fileLocation->isReplicationComplete(fileSize))
         return {prefetchSize, prefetchType};
-    }
 
     const std::size_t wouldPrefetch = helperHandle->wouldPrefetch(offset, size);
 
@@ -640,6 +639,13 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
         off_t leftRange = 0;
         off_t rightRange = 0;
         bool blockAligned;
+
+        // Make sure the prefetch is not calculated on each read
+        if (!fuseFileHandle->shouldCalculatePrefetch())
+            return {prefetchSize, prefetchType};
+
+        LOG_DBG(2) << "Calculating random read prefetch condition for file "
+                   << uuid;
 
         if (m_randomReadPrefetchClusterWindowGrowFactor == 0.0) {
             // Align the prefetch window to the consecutive block in the file
@@ -662,7 +668,8 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
             const auto windowSize = initialWindowSize *
                 (1.0 +
                     m_randomReadPrefetchClusterWindowGrowFactor * fileSize *
-                        replicationProgress / initialWindowSize);
+                        fileLocation->replicationProgress(fileSize) /
+                        initialWindowSize);
 
             // Calculate a block range around the current read offset
             leftRange = std::max<off_t>(0, offset - windowSize / 2);

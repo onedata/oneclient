@@ -318,6 +318,7 @@ private:
     const unsigned int m_randomReadPrefetchBlockThreshold;
     const int m_randomReadPrefetchClusterWindow;
     const unsigned int m_randomReadPrefetchClusterBlockThreshold;
+    const unsigned int m_randomReadPrefetchEvaluationFrequency;
     const double m_randomReadPrefetchClusterWindowGrowFactor;
     const bool m_clusterPrefetchThresholdRandom;
     const bool m_ioTraceLoggerEnabled;

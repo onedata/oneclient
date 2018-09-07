@@ -313,6 +313,18 @@ Options::Options()
                          "file (experimental).");
 
     add<unsigned int>()
+        ->withLongName("rndrd-prefetch-eval-frequency")
+        .withConfigName("rndrd_prefetch_eval_frequency")
+        .withValueName("<count>")
+        .withDefaultValue(DEFAULT_PREFETCH_EVALUATE_FREQUENCY,
+            std::to_string(DEFAULT_PREFETCH_EVALUATE_FREQUENCY))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Number of reads from single file handle which will "
+                         "be skipped before next evaluation of cluster "
+                         "prefetch. 0 means that prefetch evaluation will be "
+                         "performed on each read. (experimental).");
+
+    add<unsigned int>()
         ->withLongName("rndrd-prefetch-block-threshold")
         .withConfigName("rndrd_prefetch_block_threshold")
         .withValueName("<count>")
@@ -805,6 +817,13 @@ std::string Options::getPrefetchMode() const
 {
     return get<std::string>({"prefetch-mode", "prefetch_mode"})
         .get_value_or("async");
+}
+
+unsigned int Options::getRandomReadPrefetchEvaluationFrequency() const
+{
+    return get<unsigned int>(
+        {"rndrd-prefetch-eval-frequency", "rndrd-prefetch-eval-frequency"})
+        .get_value_or(DEFAULT_PREFETCH_EVALUATE_FREQUENCY);
 }
 
 bool Options::isClusterPrefetchThresholdRandom() const
