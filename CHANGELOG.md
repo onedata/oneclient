@@ -6,7 +6,21 @@ CHANGELOG
 
 ### 18.02.0-rc11
 
-* Releasing new version 18.02.0-rc11
+* VFS-4843 Adjusted default prefetch evaluation frequency
+* VFS-4843 Optimized random read prefetch calculation
+* VFS-4804 Fixed macaroon error handling
+* VFS-4804 Fixed handshake error handling
+* VFS-4804 Fixed reconnect
+* VFS-4804 Removed rest based full file prefetch
+* VFS-4804 Changed communicator from etls to wangle
+* VFS-4741 Added sync block prefetch option
+* VFS-4741 Added BlockSynchronizationRequest handling
+* VFS-4809 Added prefetch skipping for prefetched offsets
+* VFS-4800 Fixed prefetch offset cache
+* VFS-4800 Added block aligned prefetch offset cache
+* VFS-4772 Align block prefetch offsets to cluster window size
+* VFS-4767 Added file hole support as fallback
+* VFS-4708 Updated SyncResponse handling
 
 
 ### 18.02.0-rc10
