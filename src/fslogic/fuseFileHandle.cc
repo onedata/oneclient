@@ -20,7 +20,9 @@ FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
     std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,
     cache::HelpersCache &helpersCache,
     cache::ForceProxyIOCache &forceProxyIOCache,
-    const std::chrono::seconds providerTimeout)
+    const std::chrono::seconds providerTimeout,
+    const unsigned int prefetchCalculateSkipReads,
+    const unsigned int prefetchCalculateAfterSeconds)
     : m_flags{flags_}
     , m_handleId{std::move(handleId)}
     , m_openFileToken{std::move(openFileToken)}
@@ -29,6 +31,10 @@ FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
     , m_providerTimeout{std::move(providerTimeout)}
     , m_fullPrefetchTriggered{false}
     , m_recentPrefetchOffsets{folly::EvictingCacheMap<off_t, bool>(1000, 50)}
+    , m_prefetchCalculateSkipReads{prefetchCalculateSkipReads}
+    , m_prefetchCalculateAfterSeconds{prefetchCalculateAfterSeconds}
+    , m_readsSinceLastPrefetchCalculation{0}
+    , m_timeOfLastPrefetchCalculation{std::chrono::system_clock::now()}
 {
 }
 
@@ -111,6 +117,22 @@ void FuseFileHandle::addPrefetchAt(off_t offset)
 {
     return m_recentPrefetchOffsets.withWLock(
         [&](auto &cache) { return cache.set(offset, true); });
+}
+
+bool FuseFileHandle::shouldCalculatePrefetch()
+{
+    if (m_readsSinceLastPrefetchCalculation > m_prefetchCalculateSkipReads ||
+        std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now() - m_timeOfLastPrefetchCalculation)
+                .count() > m_prefetchCalculateAfterSeconds) {
+        m_readsSinceLastPrefetchCalculation = 0;
+        m_timeOfLastPrefetchCalculation = std::chrono::system_clock::now();
+        return true;
+    }
+    else {
+        m_readsSinceLastPrefetchCalculation++;
+        return false;
+    }
 }
 
 } // namespace fslogic

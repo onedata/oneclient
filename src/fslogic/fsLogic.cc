@@ -12,6 +12,7 @@
 #include "context.h"
 #include "logging.h"
 #include "messages/configuration.h"
+#include "messages/fuse/blockSynchronizationRequest.h"
 #include "messages/fuse/changeMode.h"
 #include "messages/fuse/createDir.h"
 #include "messages/fuse/createFile.h"
@@ -48,6 +49,7 @@
 #include "util/cdmi.h"
 
 #include <boost/icl/interval_set.hpp>
+#include <folly/Demangle.h>
 #include <folly/Enumerate.h>
 #include <folly/Range.h>
 #include <folly/ScopeGuard.h>
@@ -122,6 +124,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_nextFuseHandleId{0}
     , m_providerTimeout{std::move(providerTimeout)}
     , m_runInFiber{std::move(runInFiber)} /* clang-format off */
+    , m_prefetchModeAsync{m_context->options()->getPrefetchMode() == "async"}
     , m_linearReadPrefetchThreshold{m_context->options()
           ->getLinearReadPrefetchThreshold()}
     , m_randomReadPrefetchThreshold{m_context->options()
@@ -132,6 +135,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
           ->getRandomReadPrefetchClusterWindow()}
     , m_randomReadPrefetchClusterBlockThreshold{m_context->options()
           ->getRandomReadPrefetchClusterBlockThreshold()}
+    , m_randomReadPrefetchEvaluationFrequency{m_context->options()
+          ->getRandomReadPrefetchEvaluationFrequency()}
     , m_randomReadPrefetchClusterWindowGrowFactor{m_context->options()
           ->getRandomReadPrefetchClusterWindowGrowFactor()}
     , m_clusterPrefetchThresholdRandom{m_context->options()
@@ -217,6 +222,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     }
 }
 
+FsLogic::~FsLogic() { m_context->communicator()->stop(); }
+
 FileAttrPtr FsLogic::lookup(
     const folly::fbstring &uuid, const folly::fbstring &name)
 {
@@ -282,7 +289,7 @@ std::uint64_t FsLogic::open(const folly::fbstring &uuid, const int flags)
     m_fuseFileHandles.emplace(fuseFileHandleId,
         std::make_shared<FuseFileHandle>(filteredFlags, opened.handleId(),
             openFileToken, *m_helpersCache, m_forceProxyIOCache,
-            m_providerTimeout));
+            m_providerTimeout, m_randomReadPrefetchEvaluationFrequency));
 
     IOTRACE_END(
         IOTraceOpen, IOTraceLogger::OpType::OPEN, uuid, fuseFileHandleId, flags)
@@ -606,17 +613,14 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
     const boost::icl::discrete_interval<off_t> possibleRange,
     const boost::icl::discrete_interval<off_t> availableRange)
 {
-    const auto fileSize = m_metadataCache.getAttr(uuid)->size().value_or(0);
-    const auto fileLocation = m_metadataCache.getLocation(uuid);
-    const auto replicationProgress =
-        fileLocation->replicationProgress(fileSize);
-
     size_t prefetchSize = 0;
     auto prefetchType = IOTraceLogger::PrefetchType::NONE;
 
-    if (replicationProgress == 1.0) {
+    const auto fileSize = m_metadataCache.getAttr(uuid)->size().value_or(0);
+    const auto fileLocation = m_metadataCache.getLocation(uuid);
+
+    if (fileLocation->isReplicationComplete(fileSize))
         return {prefetchSize, prefetchType};
-    }
 
     const std::size_t wouldPrefetch = helperHandle->wouldPrefetch(offset, size);
 
@@ -628,94 +632,44 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
     bool worthPrefetching = false;
     bool fullFilePrefetchRequested = false;
     bool clusterPrefetchRequested = false;
-    int prefetchPriority = SYNCHRONIZE_BLOCK_PRIORITY_DEFAULT;
+    int prefetchPriority = SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE;
 
-    // Check if we should consider full file prefetch
-    if (((m_randomReadPrefetchBlockThreshold &&
-             fileLocation->blocksCount() >
-                 m_randomReadPrefetchBlockThreshold) ||
-            (m_linearReadPrefetchThreshold < 1.0 &&
-                fileLocation->linearReadPrefetchThresholdReached(
-                    m_linearReadPrefetchThreshold, fileSize)) ||
-            (m_randomReadPrefetchThreshold < 1.0 &&
-                fileLocation->randomReadPrefetchThresholdReached(
-                    m_randomReadPrefetchThreshold, fileSize)))) {
-
-        if (!fuseFileHandle->fullPrefetchTriggered() &&
-            m_context->options()->isPrefetchModeAsynchronous() &&
-            m_context->options()->getAccessToken()) {
-            using namespace one::client::util::cdmi;
-
-            auto p = std::make_shared<folly::Promise<std::string>>();
-            auto f = p->getFuture();
-
-            m_context->scheduler()->post(
-                [ this, uuid = uuid, p = std::move(p) ]() mutable {
-                    p->setValue(m_context->communicator()->makeHttpRequest(
-                        m_context->options()->getAccessToken().get(), "POST",
-                        "/api/v3/oneprovider/replicas-id/" +
-                            uuidToObjectId(uuid.toStdString()),
-                        "", ""));
-                });
-
-            f.then([uuid = uuid](const std::string &response) {
-                 try {
-                     auto transferResponse = folly::parseJson(response);
-                     LOG_DBG(1) << "Scheduled transfer with ID: "
-                                << transferResponse["transferId"];
-                 }
-                 catch (...) {
-                     LOG(ERROR)
-                         << "Invalid transfer request response: " << response;
-                     throw;
-                 }
-             })
-                .onError([uuid = uuid](std::exception const &e) {
-                    LOG(ERROR) << "Transfer request for file " << uuid
-                               << " failed due to: " << e.what();
-                });
-        }
-        else {
-            prefetchRange =
-                boost::icl::discrete_interval<off_t>::right_open(0, fileSize);
-
-            worthPrefetching = true;
-            fullFilePrefetchRequested = true;
-        }
-
-        fuseFileHandle->setFullPrefetchTriggered();
-
-        LOG_DBG(2) << "Requesting full file prefetch for " << uuid
-                   << " in range " << prefetchRange;
-
-        prefetchType = IOTraceLogger::PrefetchType::FULL;
-    }
     // Check if we should consider block cluster prefetch
-    else if (m_randomReadPrefetchClusterWindow) {
+    if (m_randomReadPrefetchClusterWindow != 0) {
         off_t leftRange = 0;
         off_t rightRange = 0;
         bool blockAligned;
 
+        // Make sure the prefetch is not calculated on each read
+        if (!fuseFileHandle->shouldCalculatePrefetch())
+            return {prefetchSize, prefetchType};
+
+        LOG_DBG(2) << "Calculating random read prefetch condition for file "
+                   << uuid;
+
         if (m_randomReadPrefetchClusterWindowGrowFactor == 0.0) {
             // Align the prefetch window to the consecutive block in the file
             // based on predefined prefetch block size
-            const auto windowSize = m_randomReadPrefetchClusterWindow;
+            const auto windowSize = m_randomReadPrefetchClusterWindow < 0
+                ? fileSize
+                : m_randomReadPrefetchClusterWindow;
             leftRange = offset / windowSize;
             leftRange *= windowSize;
             rightRange = std::min<off_t>(leftRange + windowSize, fileSize);
             blockAligned = true;
         }
         else {
-            LOG_DBG(2) << "Calculating clustered random read prefetch with "
-                          "growing window size";
-
             // Calculate the current clustering window size based on initial
             // window size, grow factor and current replication progress
-            const auto windowSize = m_randomReadPrefetchClusterWindow *
+            const auto initialWindowSize = m_randomReadPrefetchClusterWindow < 0
+                ? fileSize
+                : m_randomReadPrefetchClusterWindow;
+
+            const auto windowSize = initialWindowSize *
                 (1.0 +
                     m_randomReadPrefetchClusterWindowGrowFactor * fileSize *
-                        replicationProgress /
-                        m_randomReadPrefetchClusterWindow);
+                        fileLocation->replicationProgress(fileSize) /
+                        initialWindowSize);
 
             // Calculate a block range around the current read offset
             leftRange = std::max<off_t>(0, offset - windowSize / 2);
@@ -755,7 +709,8 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
                        << uuid << ". " << blocksInRange
                        << " blocks in range (prefetch threshold: "
                        << prefetchBlockThreshold
-                       << ", block aligned: " << blockAligned << ")";
+                       << ", block aligned: " << blockAligned
+                       << ", async: " << m_prefetchModeAsync << ")";
 
             prefetchRange = boost::icl::discrete_interval<off_t>::right_open(
                 leftRange, rightRange);
@@ -782,7 +737,8 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
             if (worthPrefetching) {
                 fuseFileHandle->setLastPrefetch(prefetchRange);
                 LOG_DBG(1) << "Requesting linear prefetch for file " << uuid
-                           << " in range " << prefetchRange;
+                           << " in range " << prefetchRange
+                           << "(async: " << m_prefetchModeAsync << ")";
 
                 prefetchType = IOTraceLogger::PrefetchType::LINEAR;
                 prefetchPriority = SYNCHRONIZE_BLOCK_PRIORITY_LINEAR_PREFETCH;
@@ -792,25 +748,31 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
 
     if (boost::icl::size(prefetchRange) > 0 && worthPrefetching) {
         prefetchSize = boost::icl::size(prefetchRange);
-        // Request the calculated prefetch block asynchronously
-        m_context->communicator()
-            ->communicate<messages::fuse::FileLocationChanged>(
-                messages::fuse::SynchronizeBlock{
-                    uuid.toStdString(), prefetchRange, prefetchPriority, false})
-            .then([this](messages::fuse::FileLocationChanged locationUpdate) {
-                m_runInFiber(
-                    [ this, locationUpdate = std::move(locationUpdate) ] {
-                        if (locationUpdate.changeStartOffset() &&
-                            locationUpdate.changeEndOffset())
-                            m_metadataCache.updateLocation(
-                                *locationUpdate.changeStartOffset(),
-                                *locationUpdate.changeEndOffset(),
-                                locationUpdate.fileLocation());
-                        else
-                            m_metadataCache.updateLocation(
-                                locationUpdate.fileLocation());
-                    });
-            });
+        // Request the calculated prefetch block, asynchronously or
+        // synchronously depending on the command line flag
+        if (m_prefetchModeAsync) {
+            m_context->communicator()
+                ->communicate<messages::fuse::FuseResponse>(
+                    messages::fuse::BlockSynchronizationRequest{
+                        uuid.toStdString(), prefetchRange, prefetchPriority,
+                        false});
+        }
+        else {
+            auto locationUpdate =
+                communicate<messages::fuse::FileLocationChanged>(
+                    messages::fuse::SynchronizeBlock{uuid.toStdString(),
+                        prefetchRange, prefetchPriority, false},
+                    m_providerTimeout);
+
+            if (locationUpdate.changeStartOffset() &&
+                locationUpdate.changeEndOffset())
+                m_metadataCache.updateLocation(
+                    *locationUpdate.changeStartOffset(),
+                    *locationUpdate.changeEndOffset(),
+                    locationUpdate.fileLocation());
+            else
+                m_metadataCache.updateLocation(locationUpdate.fileLocation());
+        }
     }
 
     return {prefetchSize, prefetchType};
@@ -1277,9 +1239,20 @@ folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
 template <typename SrvMsg, typename CliMsg>
 SrvMsg FsLogic::communicate(CliMsg &&msg, const std::chrono::seconds timeout)
 {
-    return communication::wait(m_context->communicator()->communicate<SrvMsg>(
-                                   std::forward<CliMsg>(msg)),
-        timeout);
+    auto messageString = msg.toString();
+    return m_context->communicator()
+        ->communicate<SrvMsg>(std::forward<CliMsg>(msg))
+        .onTimeout(timeout,
+            [
+                messageString = std::move(messageString),
+                timeout = timeout.count()
+            ]() {
+                LOG(ERROR) << "Response to message : " << messageString
+                           << " not received within " << timeout << " seconds.";
+                return folly::makeFuture<SrvMsg>(std::system_error{
+                    std::make_error_code(std::errc::timed_out)});
+            })
+        .get();
 }
 
 folly::fbstring FsLogic::syncAndFetchChecksum(const folly::fbstring &uuid,
@@ -1291,7 +1264,15 @@ folly::fbstring FsLogic::syncAndFetchChecksum(const folly::fbstring &uuid,
     auto syncResponse = communicate<messages::fuse::SyncResponse>(
         std::move(request), m_providerTimeout);
 
-    m_metadataCache.updateLocation(syncResponse.fileLocation());
+    auto &fileLocationUpdate = syncResponse.fileLocationChanged();
+    if (fileLocationUpdate.changeStartOffset() &&
+        fileLocationUpdate.changeEndOffset())
+        m_metadataCache.updateLocation(
+            *(fileLocationUpdate.changeStartOffset()),
+            *(fileLocationUpdate.changeEndOffset()),
+            fileLocationUpdate.fileLocation());
+    else
+        m_metadataCache.updateLocation(fileLocationUpdate.fileLocation());
 
     return syncResponse.checksum();
 }

@@ -58,7 +58,6 @@ const std::array<std::pair<int, int>, FSLOGIC_RETRY_COUNT> FSLOGIC_RETRY_DELAYS{
 constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32;
 constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_LINEAR_PREFETCH = 96;
 constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_CLUSTER_PREFETCH = 160;
-constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_DEFAULT = 100;
 
 /**
  * The FsLogic main class.
@@ -83,6 +82,8 @@ public:
         unsigned int metadataCacheSize, bool readEventsDisabled,
         bool forceFullblockRead, const std::chrono::seconds providerTimeout,
         std::function<void(folly::Function<void()>)> runInFiber);
+
+    ~FsLogic();
 
     /**
      * FUSE @c lookup callback.
@@ -311,14 +312,17 @@ private:
     const std::chrono::seconds m_providerTimeout;
     std::function<void(folly::Function<void()>)> m_runInFiber;
 
+    const bool m_prefetchModeAsync;
     const double m_linearReadPrefetchThreshold;
     const double m_randomReadPrefetchThreshold;
     const unsigned int m_randomReadPrefetchBlockThreshold;
-    const unsigned int m_randomReadPrefetchClusterWindow;
+    const int m_randomReadPrefetchClusterWindow;
     const unsigned int m_randomReadPrefetchClusterBlockThreshold;
+    const unsigned int m_randomReadPrefetchEvaluationFrequency;
     const double m_randomReadPrefetchClusterWindowGrowFactor;
     const bool m_clusterPrefetchThresholdRandom;
     const bool m_ioTraceLoggerEnabled;
+
     std::shared_ptr<IOTraceLogger> m_ioTraceLogger;
 
     std::random_device m_clusterPrefetchRD{};

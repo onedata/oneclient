@@ -1,10 +1,10 @@
 /**
-* @file version.h.in
-* @author Rafal Slota
-* @copyright (C) 2013 ACK CYFRONET AGH
-* @copyright This software is released under the MIT license cited in
-* 'LICENSE.txt'
-*/
+ * @file version.h.in
+ * @author Rafal Slota
+ * @copyright (C) 2013 ACK CYFRONET AGH
+ * @copyright This software is released under the MIT license cited in
+ * 'LICENSE.txt'
+ */
 
 #ifndef ONECLIENT_VERSION_H
 #define ONECLIENT_VERSION_H
@@ -13,7 +13,9 @@
 
 namespace {
 static constexpr auto ONECLIENT_VERSION = "@GIT_VERSION@",
-                      ONECLIENT_CONFIG_DIR = "@CMAKE_INSTALL_FULL_SYSCONFDIR@";
+                      ONECLIENT_CONFIG_DIR = "@CMAKE_INSTALL_FULL_SYSCONFDIR@",
+                      ONECLIENT_GIT_COMMIT = "@GIT_COMMIT@",
+                      HELPERS_GIT_COMMIT = "@GIT_HELPERS_COMMIT@";
 } // namespace
 
 #endif // ONECLIENT_VERSION_H

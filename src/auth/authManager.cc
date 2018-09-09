@@ -11,7 +11,6 @@
 #include "auth/macaroonHandler.h"
 #include "communication/cert/certificateData.h"
 #include "communication/communicator.h"
-#include "communication/persistentConnection.h"
 #include "context.h"
 #include "environment.h"
 #include "options/options.h"
@@ -63,9 +62,8 @@ MacaroonAuthManager::createCommunicator(const unsigned int poolSize,
 {
     m_cancelRefresh();
 
-    auto communicator = std::make_shared<communication::Communicator>(poolSize,
-        workerCount, m_hostname, m_port, m_checkCertificate,
-        communication::createConnection);
+    auto communicator = std::make_shared<communication::Communicator>(
+        poolSize, workerCount, m_hostname, m_port, m_checkCertificate);
 
     auto future = communicator->setHandshake(
         [=] {

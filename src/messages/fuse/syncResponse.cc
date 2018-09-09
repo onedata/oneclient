@@ -28,14 +28,15 @@ SyncResponse::SyncResponse(std::unique_ptr<ProtocolServerMessage> serverMessage)
         *serverMessage->mutable_fuse_response()->mutable_sync_response();
 
     message.mutable_checksum()->swap(m_checksum);
-    m_fileLocation = FileLocation(*message.mutable_file_location());
+    m_fileLocationChanged =
+        FileLocationChanged(*message.mutable_file_location_changed());
 }
 
 std::string SyncResponse::toString() const
 {
     std::stringstream ss;
     ss << "type: 'SyncResponse', checksum: '" << m_checksum
-       << "', file_location: " + m_fileLocation.toString();
+       << "', file_location_changed: " + m_fileLocationChanged.toString();
     return ss.str();
 }
 

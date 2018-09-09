@@ -96,7 +96,6 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.areFileReadEventsDisabled());
     EXPECT_EQ(false, options.isFullblockReadForced());
     EXPECT_EQ(true, options.isMonitoringLevelBasic());
-    EXPECT_EQ(false, options.isPrefetchModeAsynchronous());
     EXPECT_EQ(false, options.isClusterPrefetchThresholdRandom());
     EXPECT_EQ(0, options.getVerboseLogLevel());
     EXPECT_EQ(options::DEFAULT_PROVIDER_PORT, options.getProviderPort());
@@ -132,6 +131,9 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(1.0, options.getLinearReadPrefetchThreshold());
     EXPECT_EQ(1.0, options.getRandomReadPrefetchThreshold());
     EXPECT_EQ(0, options.getRandomReadPrefetchClusterWindow());
+    EXPECT_EQ(options::DEFAULT_PREFETCH_MODE, options.getPrefetchMode());
+    EXPECT_EQ(options::DEFAULT_PREFETCH_EVALUATE_FREQUENCY,
+        options.getRandomReadPrefetchEvaluationFrequency());
     EXPECT_EQ(options::DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD,
         options.getRandomReadPrefetchClusterBlockThreshold());
     EXPECT_EQ(0.0, options.getRandomReadPrefetchClusterWindowGrowFactor());
@@ -399,6 +401,22 @@ TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadClusterWindow)
     EXPECT_EQ(1024, options.getRandomReadPrefetchClusterWindow());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldSetPrefetchEvaluationFrequency)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--rndrd-prefetch-eval-frequency", "250", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(250, options.getRandomReadPrefetchEvaluationFrequency());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetFullFileRandomReadClusterWindow)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--rndrd-prefetch-cluster-window", "-1", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(-1, options.getRandomReadPrefetchClusterWindow());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadClusterBlockThreshold)
 {
     cmdArgs.insert(cmdArgs.end(),
@@ -415,11 +433,11 @@ TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadClusterWindowGrowFactor)
     EXPECT_EQ(1.2, options.getRandomReadPrefetchClusterWindowGrowFactor());
 }
 
-TEST_F(OptionsTest, parseCommandLineShouldSetPrefetchModeAsync)
+TEST_F(OptionsTest, parseCommandLineShouldSetPrefetchMode)
 {
-    cmdArgs.insert(cmdArgs.end(), {"--prefetch-mode-async", "mountpoint"});
+    cmdArgs.insert(cmdArgs.end(), {"--prefetch-mode=sync", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_EQ(true, options.isPrefetchModeAsynchronous());
+    EXPECT_EQ("sync", options.getPrefetchMode());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetClusterPrefetchThresholdRandom)
