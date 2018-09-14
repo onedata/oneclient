@@ -47,6 +47,7 @@
 #include "messages/fuse/xattrList.h"
 #include "monitoring/monitoring.h"
 #include "util/cdmi.h"
+#include "util/xattrHelper.h"
 
 #include <boost/icl/interval_set.hpp>
 #include <folly/Demangle.h>
@@ -142,6 +143,8 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_clusterPrefetchThresholdRandom{m_context->options()
           ->isClusterPrefetchThresholdRandom()}
     , m_ioTraceLoggerEnabled{m_context->options()->isIOTraceLoggerEnabled()}
+    , m_tagOnCreate{m_context->options()->getOnCreateTag()}
+    , m_tagOnModify{m_context->options()->getOnModifyTag()}
 /* clang-format on */
 {
     using namespace std::placeholders;
@@ -865,6 +868,23 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
 
     m_metadataCache.addBlock(uuid, writtenRange, std::move(fileBlock));
 
+    if (m_tagOnModify && !fuseFileHandle->isOnModifyTagSet()) {
+        std::string tagNameJsonEncoded, tagValueJsonEncoded;
+        if (!util::xattr::encodeJsonXAttrName(
+                m_tagOnModify.get().first, tagNameJsonEncoded) ||
+            !util::xattr::encodeJsonXAttrValue(
+                m_tagOnModify.get().second, tagValueJsonEncoded)) {
+            LOG(ERROR)
+                << "Setting on modify tag with invalid name or value for file: "
+                << uuid;
+        }
+        else {
+            FsLogic::setxattr(
+                uuid, tagNameJsonEncoded, tagValueJsonEncoded, false, false);
+        }
+        fuseFileHandle->setOnModifyTag();
+    }
+
     if (m_ioTraceLoggerEnabled) {
         std::get<1>(ioTraceEntry->arguments) = bytesWritten;
         using namespace std::chrono;
@@ -945,15 +965,33 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
 
     const auto fuseFileHandleId = m_nextFuseHandleId++;
 
-    m_fuseFileHandles.emplace(fuseFileHandleId,
-        std::make_shared<FuseFileHandle>(flags, created.handleId(),
-            openFileToken, *m_helpersCache, m_forceProxyIOCache,
-            m_providerTimeout));
+    auto fuseFileHandle = std::make_shared<FuseFileHandle>(flags,
+        created.handleId(), openFileToken, *m_helpersCache, m_forceProxyIOCache,
+        m_providerTimeout);
+
+    m_fuseFileHandles.emplace(fuseFileHandleId, fuseFileHandle);
 
     LOG_DBG(2) << "Created file " << name << " in " << parentUuid
                << " with uuid " << uuid;
 
     m_readdirCache->invalidate(parentUuid);
+
+    if (m_tagOnCreate && !fuseFileHandle->isOnCreateTagSet()) {
+        std::string tagNameJsonEncoded, tagValueJsonEncoded;
+        if (!util::xattr::encodeJsonXAttrName(
+                m_tagOnCreate.get().first, tagNameJsonEncoded) ||
+            !util::xattr::encodeJsonXAttrValue(
+                m_tagOnCreate.get().second, tagValueJsonEncoded)) {
+            LOG(ERROR)
+                << "Setting on create tag with invalid name or value for file "
+                << uuid;
+        }
+        else {
+            FsLogic::setxattr(uuid, m_tagOnCreate.get().first,
+                tagValueJsonEncoded, false, false);
+        }
+        fuseFileHandle->setOnCreateTag();
+    }
 
     IOTRACE_END(IOTraceCreate, IOTraceLogger::OpType::CREATE, parentUuid,
         fuseFileHandleId, name, sharedAttr->uuid(), mode, flags)

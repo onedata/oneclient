@@ -9,6 +9,9 @@
 #ifndef ONECLIENT_OPTIONS_H
 #define ONECLIENT_OPTIONS_H
 
+#include "logging.h"
+
+#include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
 #include <boost/program_options.hpp>
@@ -309,6 +312,16 @@ public:
     unsigned int getReaddirPrefetchSize() const;
 
     /*
+     * @return Get xattr on-modify tag.
+     */
+    boost::optional<std::pair<std::string, std::string>> getOnModifyTag() const;
+
+    /*
+     * @return Get xattr on-create tag.
+     */
+    boost::optional<std::pair<std::string, std::string>> getOnCreateTag() const;
+
+    /*
      * @return Is monitoring enabled.
      */
     bool isMonitoringEnabled() const;
@@ -381,6 +394,22 @@ private:
         return {};
     }
 
+    boost::optional<std::pair<std::string, std::string>> parseKeyValuePair(
+        const std::string &val) const
+    {
+        std::vector<std::string> keyValue;
+        boost::split(keyValue, val, boost::is_any_of(":"));
+
+        if (keyValue.size() != 2) {
+            LOG(ERROR) << "Key-value arguments must have values in the form "
+                          "<name>:<value>";
+            return {};
+        }
+
+        return {std::make_pair<std::string, std::string>(
+            std::move(keyValue[0]), std::move(keyValue[1]))};
+    }
+
     void selectCommandLine(boost::program_options::options_description &desc,
         const OptionGroup &group) const;
 
@@ -393,6 +422,22 @@ private:
     std::vector<std::string> m_deprecatedEnvs;
     std::vector<std::shared_ptr<Option>> m_options;
 };
+
+template <>
+inline boost::optional<std::pair<std::string, std::string>>
+Options::get<std::pair<std::string, std::string>>(
+    const std::vector<std::string> &names) const
+{
+    for (const auto &name : names) {
+        if (m_vm.count(name) && !m_vm.at(name).defaulted()) {
+            return parseKeyValuePair(m_vm.at(name).as<std::string>());
+        }
+    }
+    if (!names.empty() && m_vm.count(names[0])) {
+        return parseKeyValuePair(m_vm.at(names[0]).as<std::string>());
+    }
+    return {};
+}
 
 } // namespace options
 } // namespace client
