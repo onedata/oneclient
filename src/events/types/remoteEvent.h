@@ -21,7 +21,7 @@ namespace events {
  */
 class RemoteEvent : public Event {
 public:
-    ~RemoteEvent() = default;
+    virtual ~RemoteEvent() = default;
 
     /**
      * Creates Protocol Buffers message based on provided @c RemoteEvent.

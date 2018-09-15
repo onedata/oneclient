@@ -16,6 +16,9 @@ namespace one {
 namespace client {
 namespace fslogic {
 
+constexpr auto FSLOGIC_RECENT_PREFETCH_CACHE_SIZE = 1000u;
+constexpr auto FSLOGIC_RECENT_PREFETCH_CACHE_PRUNE_SIZE = 50u;
+
 FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
     std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,
     cache::HelpersCache &helpersCache,
@@ -28,11 +31,13 @@ FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
     , m_openFileToken{std::move(openFileToken)}
     , m_helpersCache{helpersCache}
     , m_forceProxyIOCache{forceProxyIOCache}
-    , m_providerTimeout{std::move(providerTimeout)}
+    , m_providerTimeout{providerTimeout}
     , m_fullPrefetchTriggered{false}
     , m_tagOnCreateSet{false}
     , m_tagOnModifySet{false}
-    , m_recentPrefetchOffsets{folly::EvictingCacheMap<off_t, bool>(1000, 50)}
+    , m_recentPrefetchOffsets{folly::EvictingCacheMap<off_t, bool>(
+          FSLOGIC_RECENT_PREFETCH_CACHE_SIZE,
+          FSLOGIC_RECENT_PREFETCH_CACHE_PRUNE_SIZE)}
     , m_prefetchCalculateSkipReads{prefetchCalculateSkipReads}
     , m_prefetchCalculateAfterSeconds{prefetchCalculateAfterSeconds}
     , m_readsSinceLastPrefetchCalculation{0}
@@ -59,7 +64,7 @@ helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
     if (!helper) {
         LOG(ERROR) << "Could not create storage helper for file " << uuid
                    << " on storage " << storageId;
-        throw std::errc::resource_unavailable_try_again;
+        throw std::errc::resource_unavailable_try_again; // NOLINT
     }
 
     const auto filteredFlags = m_flags & (~O_CREAT) & (~O_APPEND);
@@ -131,10 +136,9 @@ bool FuseFileHandle::shouldCalculatePrefetch()
         m_timeOfLastPrefetchCalculation = std::chrono::system_clock::now();
         return true;
     }
-    else {
-        m_readsSinceLastPrefetchCalculation++;
-        return false;
-    }
+
+    m_readsSinceLastPrefetchCalculation++;
+    return false;
 }
 
 } // namespace fslogic

@@ -21,8 +21,8 @@ namespace fuse {
 SetXAttr::SetXAttr(folly::fbstring uuid, folly::fbstring name,
     folly::fbstring value, bool create, bool replace)
     : FileRequest{uuid.toStdString()}
-    , m_name(name)
-    , m_value(value)
+    , m_name{std::move(name)}
+    , m_value{std::move(value)}
     , m_create(create)
     , m_replace(replace)
 {

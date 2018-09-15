@@ -35,7 +35,7 @@ AuthManager::AuthManager(std::weak_ptr<Context> context,
     , m_hostname{std::move(defaultHostname)}
     , m_port{port}
     , m_checkCertificate{checkCertificate}
-    , m_providerTimeout{std::move(providerTimeout)}
+    , m_providerTimeout{providerTimeout}
 {
 }
 

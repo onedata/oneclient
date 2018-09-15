@@ -32,8 +32,8 @@
 #include <sys/xattr.h>
 #include <system_error>
 
-using namespace one::client;
-using namespace one::client::util::xattr;
+namespace fslogic = one::client::fslogic;
+namespace xattr = one::client::util::xattr;
 
 namespace {
 
@@ -83,7 +83,7 @@ void wrap(Fun &&fun, Cb &&callback, fuse_req_t req, Args &&... args)
             fuse_reply_err(
                 req, std::make_error_code(std::errc::io_error).value());
         })
-        .onError([req](const OneException &e) {
+        .onError([req](const one::client::OneException &e) {
             LOG(ERROR) << "OneException: " << e.what();
             fuse_reply_err(
                 req, std::make_error_code(std::errc::io_error).value());
@@ -121,7 +121,7 @@ void wrap_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
     wrap(&fslogic::Composite::lookup, [ req,
         timer = std::move(timer) ](const struct fuse_entry_param &entry) {
         const auto userdata = fuse_req_userdata(req);
-        if (fuse_reply_entry(req, &entry))
+        if (fuse_reply_entry(req, &entry) != 0)
             callFslogic(&fslogic::Composite::forget, userdata, entry.ino, 1);
     },
         req, parent, name);
@@ -191,7 +191,7 @@ void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
 
             ONE_METRIC_TIMERCTX_STOP(timer, names.size());
         },
-        req, ino, floor(maxSize / AVERAGE_FILE_NAME_LENGTH), off);
+        req, ino, maxSize / AVERAGE_FILE_NAME_LENGTH, off);
 }
 
 void wrap_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
@@ -205,7 +205,7 @@ void wrap_open(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi)
             const auto userdata = fuse_req_userdata(req);
             fi.fh = fh;
             fi.direct_io = 1;
-            if (fuse_reply_open(req, &fi))
+            if (fuse_reply_open(req, &fi) != 0)
                 callFslogic(&fslogic::Composite::release, userdata, ino, fh);
         },
         req, ino, fi->flags);
@@ -355,7 +355,7 @@ void wrap_rename(fuse_req_t req, fuse_ino_t parent, const char *name,
         req, parent, name, newparent, newname);
 }
 
-void wrap_forget(fuse_req_t req, fuse_ino_t ino, unsigned long nlookup)
+void wrap_forget(fuse_req_t req, fuse_ino_t ino, uint64_t nlookup)
 {
     LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(nlookup);
 
@@ -413,21 +413,25 @@ void wrap_statfs(fuse_req_t req, fuse_ino_t ino)
             struct statvfs new_statinfo {
                 statinfo
             };
+            constexpr auto kMaxNameLength = 255;
 #if defined(__APPLE__)
             /**
              * Simulate large free space to enable file pasting in Finder
              */
-            new_statinfo.f_bsize = 4096;
+            constexpr auto kOSXBlockSize = 4096;
+            constexpr auto kOSXFreeSpace = 1000ULL * 1024 * 1024 * 1024;
+            constexpr auto kOSXFreeInodes = 10000000;
+
+            new_statinfo.f_bsize = kOSXBlockSize;
             new_statinfo.f_frsize = new_statinfo.f_bsize;
             new_statinfo.f_blocks = new_statinfo.f_bfree =
-                new_statinfo.f_bavail =
-                    1000ULL * 1024 * 1024 * 1024 / new_statinfo.f_frsize;
-            new_statinfo.f_files = new_statinfo.f_ffree = 1000000;
-            new_statinfo.f_namemax = 255;
+                new_statinfo.f_bavail = kOSXFreeSpace / new_statinfo.f_frsize;
+            new_statinfo.f_files = new_statinfo.f_ffree = kOSXFreeInodes;
+            new_statinfo.f_namemax = kMaxNameLength;
 
             fuse_reply_statfs(req, &new_statinfo);
 #else
-            new_statinfo.f_namemax = 255;
+            new_statinfo.f_namemax = kMaxNameLength;
             fuse_reply_statfs(req, &new_statinfo);
 #endif
         },
@@ -465,7 +469,7 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
 {
     LOG_FCALL() << LOG_FARG(req) << LOG_FARG(ino) << LOG_FARG(attr);
 
-    if (!attr) {
+    if (attr == nullptr) {
         fuse_reply_err(req, EINVAL);
         return;
     }
@@ -485,7 +489,7 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
     }
 
     std::string xattrJsonName;
-    if (!encodeJsonXAttrName(attr, xattrJsonName)) {
+    if (!xattr::encodeJsonXAttrName(attr, xattrJsonName)) {
         LOG(WARNING) << "Getting extended attribute with invalid name: "
                      << attr;
         fuse_reply_err(req, EINVAL);
@@ -502,7 +506,8 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
             // If the value is a JSON string, strip the enclosing
             // double qoutes
             std::string stringValue;
-            if (!decodeJsonXAttrValue(value.toStdString(), stringValue)) {
+            if (!xattr::decodeJsonXAttrValue(
+                    value.toStdString(), stringValue)) {
                 fuse_reply_err(req, ERANGE);
                 return;
             }
@@ -572,7 +577,7 @@ void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
     }
 
     std::string xattrJsonName;
-    if (!encodeJsonXAttrName(attr, xattrJsonName)) {
+    if (!xattr::encodeJsonXAttrName(attr, xattrJsonName)) {
         LOG(WARNING) << "Setting extended attribute with invalid name: "
                      << attr;
         fuse_reply_err(req, EINVAL);
@@ -592,7 +597,7 @@ void wrap_setxattr(fuse_req_t req, fuse_ino_t ino, const char *attr,
     xattrRawValue.assign(val, size);
 
     std::string xattrJsonValue;
-    if (!encodeJsonXAttrValue(xattrRawValue, xattrJsonValue)) {
+    if (!xattr::encodeJsonXAttrValue(xattrRawValue, xattrJsonValue)) {
         LOG(WARNING) << "Setting extended attribute with invalid value";
         fuse_reply_err(req, EINVAL);
         return;
@@ -627,7 +632,7 @@ void wrap_removexattr(fuse_req_t req, fuse_ino_t ino, const char *attr)
     }
 
     std::string xattrJsonName;
-    if (!encodeJsonXAttrName(attr, xattrJsonName)) {
+    if (!xattr::encodeJsonXAttrName(attr, xattrJsonName)) {
         LOG(WARNING) << "Removing extended attribute with invalid name: "
                      << attr;
         fuse_reply_err(req, EINVAL);
@@ -650,6 +655,7 @@ void wrap_listxattr(fuse_req_t req, fuse_ino_t ino, size_t size)
         ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.listxattr");
 
     LOG_DBG(2) << "Listing extended attributes for file " << ino;
+    // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDelete)
     wrap(&fslogic::Composite::listxattr,
         [ req, size, timer = std::move(timer), ino ](
             const folly::fbvector<folly::fbstring> &names) {
@@ -676,6 +682,7 @@ void wrap_listxattr(fuse_req_t req, fuse_ino_t ino, size_t size)
                 int offset = 0;
 
                 for (const auto &name : names) {
+                    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
                     sprintf(buf.get() + offset, name.data(), name.length());
                     offset += name.length() + 1;
                 }

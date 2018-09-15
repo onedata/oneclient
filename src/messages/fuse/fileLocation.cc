@@ -21,6 +21,10 @@ namespace fuse {
 
 FileLocation::FileLocation(std::unique_ptr<ProtocolServerMessage> serverMessage)
     : FuseResponse{serverMessage}
+    , m_version{}
+    , m_replicationProgressCachedValid{}
+    , m_replicationProgressCachedValue{}
+    , m_progressStringCachedValid{}
 {
     if (!serverMessage->fuse_response().has_file_location())
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
@@ -32,6 +36,10 @@ FileLocation::FileLocation(std::unique_ptr<ProtocolServerMessage> serverMessage)
 }
 
 FileLocation::FileLocation(const ProtocolMessage &message)
+    : m_version{}
+    , m_replicationProgressCachedValid{}
+    , m_replicationProgressCachedValue{}
+    , m_progressStringCachedValid{}
 {
     deserialize(message);
 
@@ -98,8 +106,7 @@ void FileLocation::putBlock(
     auto interval =
         boost::icl::discrete_interval<off_t>::right_open(offset, offset + size);
 
-    putBlock(std::make_pair<boost::icl::discrete_interval<off_t>, FileBlock>(
-        std::move(interval), std::forward<FileBlock>(block)));
+    putBlock(std::make_pair(interval, std::forward<FileBlock>(block)));
 }
 
 void FileLocation::putBlock(
@@ -218,7 +225,8 @@ double FileLocation::replicationProgress(const size_t fileSize) const
             std::min<size_t>(boost::icl::length(m_blocks), fileSize);
 
         m_replicationProgressCachedValue =
-            ((double)intersectionLength) / ((double)fileSize);
+            (static_cast<double>(intersectionLength)) /
+            (static_cast<double>(fileSize));
 
         m_replicationProgressCachedValid = true;
     }
@@ -234,25 +242,27 @@ bool FileLocation::isReplicationComplete(const size_t fileSize) const
     if (blocksCount() != 1)
         return false;
 
-    return (size_t)(boost::icl::length(m_blocks)) >= fileSize;
+    return static_cast<size_t>(boost::icl::length(m_blocks)) >= fileSize;
 }
 
 bool FileLocation::linearReadPrefetchThresholdReached(
     const double threshold, const size_t fileSize) const
 {
-    const off_t fileThresholdRange = fileSize * threshold;
-    return boost::icl::length(m_blocks) > fileThresholdRange;
+    const auto fileThresholdRange = static_cast<size_t>(fileSize * threshold);
+    return static_cast<size_t>(boost::icl::length(m_blocks)) >
+        fileThresholdRange;
 }
 
 bool FileLocation::randomReadPrefetchThresholdReached(
     const double threshold, const size_t fileSize) const
 {
-    const off_t fileThresholdBytes = fileSize * threshold;
+    const auto fileThresholdBytes = static_cast<size_t>(fileSize * threshold);
 
     // If at least 5 different blocks are in the map and their overall size
     // is larger then threshold, return true
-    return (blocksCount() > 5) &&
-        boost::icl::length(m_blocks) > fileThresholdBytes;
+    constexpr auto kFsLogicGlobalBlockThreshold = 5u;
+    return (blocksCount() > kFsLogicGlobalBlockThreshold) &&
+        static_cast<size_t>(boost::icl::length(m_blocks)) > fileThresholdBytes;
 }
 
 void FileLocation::deserialize(const ProtocolMessage &message)

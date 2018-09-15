@@ -182,13 +182,13 @@ public:
      * FUSE @c flush callback.
      * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
      */
-    void flush(const folly::fbstring &uuid, const std::uint64_t handle);
+    void flush(const folly::fbstring &uuid, const std::uint64_t fileHandleId);
 
     /**
      * FUSE @c fsync callback.
      * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
      */
-    void fsync(const folly::fbstring &uuid, const std::uint64_t handle,
+    void fsync(const folly::fbstring &uuid, const std::uint64_t fileHandleId,
         const bool dataOnly);
 
     /**

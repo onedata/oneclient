@@ -20,7 +20,7 @@ namespace fuse {
 
 GetXAttr::GetXAttr(folly::fbstring uuid, folly::fbstring name)
     : FileRequest{uuid.toStdString()}
-    , m_name(name)
+    , m_name{std::move(name)}
 {
 }
 
