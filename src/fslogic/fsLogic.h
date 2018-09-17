@@ -322,6 +322,8 @@ private:
     const double m_randomReadPrefetchClusterWindowGrowFactor;
     const bool m_clusterPrefetchThresholdRandom;
     const bool m_ioTraceLoggerEnabled;
+    const boost::optional<std::pair<std::string, std::string>> m_tagOnCreate;
+    const boost::optional<std::pair<std::string, std::string>> m_tagOnModify;
 
     std::shared_ptr<IOTraceLogger> m_ioTraceLogger;
 
@@ -329,7 +331,6 @@ private:
     std::mt19937 m_clusterPrefetchRandomGenerator{m_clusterPrefetchRD()};
     std::uniform_int_distribution<> m_clusterPrefetchDistribution;
 };
-
 } // namespace fslogic
 } // namespace client
 } // namespace one

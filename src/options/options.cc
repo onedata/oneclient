@@ -409,6 +409,24 @@ Options::Options()
         .withDescription("Specify the size of requests made during readdir "
                          "prefetch (in number of dir entries).");
 
+    add<std::string>()
+        ->withEnvName("tag_on_create")
+        .withLongName("tag-on-create")
+        .withConfigName("tag_on_create")
+        .withValueName("<name>:<value>")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Adds <name>=<value> extended attribute to each "
+                         "locally created file.");
+
+    add<std::string>()
+        ->withEnvName("tag_on_modify")
+        .withLongName("tag-on-modify")
+        .withConfigName("tag_on_modify")
+        .withValueName("<name>:<value>")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Adds <name>=<value> extended attribute to each "
+                         "locally modified file.");
+
     add<bool>()
         ->asSwitch()
         .withShortName("f")
@@ -871,6 +889,20 @@ unsigned int Options::getReaddirPrefetchSize() const
 {
     return get<unsigned int>({"readdir-prefetch-size", "readdir_prefetch_size"})
         .get_value_or(DEFAULT_READDIR_PREFETCH_SIZE);
+}
+
+boost::optional<std::pair<std::string, std::string>>
+Options::getOnModifyTag() const
+{
+    return get<std::pair<std::string, std::string>>(
+        {"tag-on-modify", "tag_on_modify"});
+}
+
+boost::optional<std::pair<std::string, std::string>>
+Options::getOnCreateTag() const
+{
+    return get<std::pair<std::string, std::string>>(
+        {"tag-on-create", "tag_on_create"});
 }
 
 bool Options::isMonitoringEnabled() const

@@ -117,6 +117,14 @@ public:
 
     void addPrefetchAt(off_t offset);
 
+    void setOnCreateTag() { m_tagOnCreateSet = true; }
+
+    bool isOnCreateTagSet() { return m_tagOnCreateSet; }
+
+    void setOnModifyTag() { m_tagOnModifySet = true; }
+
+    bool isOnModifyTagSet() { return m_tagOnModifySet; }
+
 private:
     std::unordered_map<folly::fbstring, folly::fbstring> makeParameters(
         const folly::fbstring &uuid);
@@ -132,6 +140,11 @@ private:
     const std::chrono::seconds m_providerTimeout;
     boost::icl::discrete_interval<off_t> m_lastPrefetch;
     std::atomic<bool> m_fullPrefetchTriggered;
+
+    // Checks if the file already has the created xattr tag set
+    std::atomic<bool> m_tagOnCreateSet;
+    // Checks if the file already has the modified xattr tag set
+    std::atomic<bool> m_tagOnModifySet;
 
     folly::Synchronized<folly::EvictingCacheMap<off_t, bool>>
         m_recentPrefetchOffsets;

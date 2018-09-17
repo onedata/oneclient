@@ -30,6 +30,8 @@ FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
     , m_forceProxyIOCache{forceProxyIOCache}
     , m_providerTimeout{std::move(providerTimeout)}
     , m_fullPrefetchTriggered{false}
+    , m_tagOnCreateSet{false}
+    , m_tagOnModifySet{false}
     , m_recentPrefetchOffsets{folly::EvictingCacheMap<off_t, bool>(1000, 50)}
     , m_prefetchCalculateSkipReads{prefetchCalculateSkipReads}
     , m_prefetchCalculateAfterSeconds{prefetchCalculateAfterSeconds}
