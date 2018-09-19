@@ -47,6 +47,7 @@
 #include "messages/fuse/xattrList.h"
 #include "monitoring/monitoring.h"
 #include "util/cdmi.h"
+#include "util/xattrHelper.h"
 
 #include <boost/icl/interval_set.hpp>
 #include <folly/Demangle.h>
@@ -87,11 +88,11 @@ using namespace std::literals;
  */
 inline helpers::Flag getOpenFlag(const helpers::FlagsSet &flagsSet)
 {
-    if (flagsSet.count(one::helpers::Flag::RDONLY))
+    if (flagsSet.count(one::helpers::Flag::RDONLY) > 0)
         return one::helpers::Flag::RDONLY;
-    if (flagsSet.count(one::helpers::Flag::WRONLY))
+    if (flagsSet.count(one::helpers::Flag::WRONLY) > 0)
         return one::helpers::Flag::WRONLY;
-    if (flagsSet.count(one::helpers::Flag::RDWR))
+    if (flagsSet.count(one::helpers::Flag::RDWR) > 0)
         return one::helpers::Flag::RDWR;
 
     return one::helpers::Flag::RDONLY;
@@ -101,7 +102,7 @@ constexpr auto XATTR_FILE_BLOCKS_MAP_LENGTH = 50;
 
 inline static folly::fbstring ONE_XATTR(std::string name)
 {
-    assert(name.size() > 0);
+    assert(!name.empty());
     return ONE_XATTR_PREFIX + name;
 }
 
@@ -122,7 +123,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_fsSubscriptions{m_eventManager, m_metadataCache, m_forceProxyIOCache,
           runInFiber}
     , m_nextFuseHandleId{0}
-    , m_providerTimeout{std::move(providerTimeout)}
+    , m_providerTimeout{providerTimeout}
     , m_runInFiber{std::move(runInFiber)} /* clang-format off */
     , m_prefetchModeAsync{m_context->options()->getPrefetchMode() == "async"}
     , m_linearReadPrefetchThreshold{m_context->options()
@@ -142,10 +143,10 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_clusterPrefetchThresholdRandom{m_context->options()
           ->isClusterPrefetchThresholdRandom()}
     , m_ioTraceLoggerEnabled{m_context->options()->isIOTraceLoggerEnabled()}
+    , m_tagOnCreate{m_context->options()->getOnCreateTag()}
+    , m_tagOnModify{m_context->options()->getOnModifyTag()}
 /* clang-format on */
 {
-    using namespace std::placeholders;
-
     m_nextFuseHandleId = 0;
 
     m_eventManager.subscribe(*configuration);
@@ -463,18 +464,16 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
                 return read(uuid, fileHandleId, offset, size, std::move(csum),
                     retriesLeft - 1, std::move(ioTraceEntry));
             }
-            else {
-                LOG_DBG(2) << "Cannot synchronize block " << wantedRange
-                           << " in file " << uuid
-                           << "- returning block of zeros";
 
-                auto iobuf = folly::IOBuf::create(size);
-                memset(iobuf->writableTail(), 0, size);
+            LOG_DBG(2) << "Cannot synchronize block " << wantedRange
+                       << " in file " << uuid << "- returning block of zeros";
 
-                folly::IOBufQueue zeros{folly::IOBufQueue::cacheChainLength()};
-                zeros.append(std::move(iobuf));
-                return std::move(zeros);
-            }
+            auto iobuf = folly::IOBuf::create(size);
+            memset(iobuf->writableTail(), 0, size);
+
+            folly::IOBufQueue zeros{folly::IOBufQueue::cacheChainLength()};
+            zeros.append(std::move(iobuf));
+            return zeros;
         }
 
         boost::icl::discrete_interval<off_t> availableRange;
@@ -530,7 +529,7 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
             LOG_DBG(1) << "Rereading the requested block from file " << uuid
                        << " due to mismatch in checksum";
 
-            if (retriesLeft) {
+            if (retriesLeft > 0) {
                 fiberRetryDelay(retriesLeft);
                 LOG_DBG(1) << "Retrying read of " << size << " bytes at offset "
                            << offset << " from file " << uuid
@@ -542,13 +541,12 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
                 return read(uuid, fileHandleId, offset, size, checksum,
                     retriesLeft - 1, std::move(ioTraceEntry));
             }
-            else {
-                LOG(ERROR) << "Failed to read " << size << " bytes at offset "
-                           << offset << " from file " << uuid
-                           << " - invalid checksum";
-                throw std::system_error(
-                    std::make_error_code(std::errc::io_error));
-            }
+
+            LOG(ERROR) << "Failed to read " << size << " bytes at offset "
+                       << offset << " from file " << uuid
+                       << " - invalid checksum";
+
+            throw std::system_error(std::make_error_code(std::errc::io_error));
         }
 
         const auto bytesRead = readBuffer.chainLength();
@@ -561,31 +559,31 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
                    << " at offset " << offset;
 
         if (m_ioTraceLoggerEnabled) {
-            using namespace std::chrono;
+            namespace sc = std::chrono;
             std::get<1>(ioTraceEntry->arguments) = bytesRead;
-            ioTraceEntry->duration = duration_cast<microseconds>(
-                system_clock::now() - ioTraceEntry->timestamp);
+            ioTraceEntry->duration = sc::duration_cast<sc::microseconds>(
+                sc::system_clock::now() - ioTraceEntry->timestamp);
             m_ioTraceLogger->log(*ioTraceEntry);
         }
 
         return readBuffer;
     }
     catch (const std::system_error &e) {
-        if (e.code().value() == EAGAIN && retriesLeft) {
+        if ((e.code().value() == EAGAIN) && (retriesLeft > 0)) {
             fiberRetryDelay(retriesLeft);
             return read(uuid, fileHandleId, offset, size, checksum,
                 retriesLeft - 1, std::move(ioTraceEntry));
         }
-        else if (e.code().value() != EPERM && e.code().value() != EACCES) {
+
+        if ((e.code().value() != EPERM) && (e.code().value() != EACCES)) {
             LOG_DBG(1) << "Reading from " << uuid
                        << " failed due to error: " << e.what() << "("
                        << e.code() << ")";
             throw;
         }
-        else {
-            LOG(ERROR) << "Reading from " << uuid
-                       << " failed due to insufficient permissions";
-        }
+
+        LOG(ERROR) << "Reading from " << uuid
+                   << " failed due to insufficient permissions";
 
         if (m_forceProxyIOCache.contains(uuid)) {
             LOG(ERROR) << "Reading from " << uuid
@@ -653,6 +651,9 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
             const auto windowSize = m_randomReadPrefetchClusterWindow < 0
                 ? fileSize
                 : m_randomReadPrefetchClusterWindow;
+
+            assert(windowSize > 0);
+
             leftRange = offset / windowSize;
             leftRange *= windowSize;
             rightRange = std::min<off_t>(leftRange + windowSize, fileSize);
@@ -665,11 +666,11 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
                 ? fileSize
                 : m_randomReadPrefetchClusterWindow;
 
-            const auto windowSize = initialWindowSize *
+            const auto windowSize = static_cast<size_t>(initialWindowSize *
                 (1.0 +
                     m_randomReadPrefetchClusterWindowGrowFactor * fileSize *
                         fileLocation->replicationProgress(fileSize) /
-                        initialWindowSize);
+                        initialWindowSize));
 
             // Calculate a block range around the current read offset
             leftRange = std::max<off_t>(0, offset - windowSize / 2);
@@ -696,12 +697,11 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
                         << leftRange << " - skipping prefetch";
                     return {0, IOTraceLogger::PrefetchType::NONE};
                 }
-                else {
-                    LOG_DBG(2) << "Block aligned prefetch at offset "
-                               << leftRange << " not scheduled yet";
 
-                    fuseFileHandle->addPrefetchAt(leftRange);
-                }
+                LOG_DBG(2) << "Block aligned prefetch at offset " << leftRange
+                           << " not scheduled yet";
+
+                fuseFileHandle->addPrefetchAt(leftRange);
             }
 
             LOG_DBG(1) << "Requesting clustered prefetch of block ["
@@ -809,7 +809,7 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
     if (isSpaceDisabled(spaceId)) {
         LOG(ERROR) << "Write to file " << uuid << " failed - space "
                    << m_metadataCache.getSpaceId(uuid) << " quota exceeded";
-        throw std::errc::no_space_on_device;
+        throw std::errc::no_space_on_device; // NOLINT
     }
 
     auto fileBlock = m_metadataCache.getDefaultBlock(uuid);
@@ -824,12 +824,13 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
                 helperHandle->timeout());
     }
     catch (const std::system_error &e) {
-        if (e.code().value() == EAGAIN && retriesLeft) {
+        if ((e.code().value() == EAGAIN) && (retriesLeft > 0)) {
             fiberRetryDelay(retriesLeft);
             return write(uuid, fuseFileHandleId, offset, std::move(buf),
                 retriesLeft - 1, std::move(ioTraceEntry));
         }
-        else if (e.code().value() != EPERM && e.code().value() != EACCES) {
+
+        if ((e.code().value() != EPERM) && (e.code().value() != EACCES)) {
             LOG(ERROR) << "Reading from " << uuid
                        << " failed with error code: " << e.what();
             throw;
@@ -865,11 +866,28 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
 
     m_metadataCache.addBlock(uuid, writtenRange, std::move(fileBlock));
 
+    if (m_tagOnModify && !fuseFileHandle->isOnModifyTagSet()) {
+        std::string tagNameJsonEncoded, tagValueJsonEncoded;
+        if (!util::xattr::encodeJsonXAttrName(
+                m_tagOnModify.get().first, tagNameJsonEncoded) ||
+            !util::xattr::encodeJsonXAttrValue(
+                m_tagOnModify.get().second, tagValueJsonEncoded)) {
+            LOG(ERROR)
+                << "Setting on modify tag with invalid name or value for file: "
+                << uuid;
+        }
+        else {
+            FsLogic::setxattr(
+                uuid, tagNameJsonEncoded, tagValueJsonEncoded, false, false);
+        }
+        fuseFileHandle->setOnModifyTag();
+    }
+
     if (m_ioTraceLoggerEnabled) {
         std::get<1>(ioTraceEntry->arguments) = bytesWritten;
-        using namespace std::chrono;
-        ioTraceEntry->duration = duration_cast<microseconds>(
-            system_clock::now() - ioTraceEntry->timestamp);
+        namespace sc = std::chrono;
+        ioTraceEntry->duration = sc::duration_cast<sc::microseconds>(
+            sc::system_clock::now() - ioTraceEntry->timestamp);
         m_ioTraceLogger->log(*ioTraceEntry);
     }
 
@@ -908,13 +926,14 @@ FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
 
     messages::fuse::MakeFile msg{parentUuid, name, mode};
     auto attr = communicate<FileAttr>(std::move(msg), m_providerTimeout);
+
+    LOG_DBG(2) << "Created node " << name << " in " << parentUuid
+               << " with uuid " << attr.uuid();
+
     auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
     m_metadataCache.putAttr(sharedAttr);
 
     m_readdirCache->invalidate(parentUuid);
-
-    LOG_DBG(2) << "Created node " << name << " in " << parentUuid
-               << " with uuid " << attr.uuid();
 
     IOTRACE_END(IOTraceMknod, IOTraceLogger::OpType::MKNOD, parentUuid, 0, name,
         sharedAttr->uuid(), mode)
@@ -938,22 +957,40 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
         std::move(msg), m_providerTimeout);
 
     const auto &uuid = created.attr().uuid();
-    auto sharedAttr = std::make_shared<FileAttr>(std::move(created.attr()));
+    auto sharedAttr = std::make_shared<FileAttr>(created.attr());
     auto location = std::make_unique<FileLocation>(created.location());
     auto openFileToken =
         m_metadataCache.open(uuid, sharedAttr, std::move(location));
 
     const auto fuseFileHandleId = m_nextFuseHandleId++;
 
-    m_fuseFileHandles.emplace(fuseFileHandleId,
-        std::make_shared<FuseFileHandle>(flags, created.handleId(),
-            openFileToken, *m_helpersCache, m_forceProxyIOCache,
-            m_providerTimeout));
+    auto fuseFileHandle = std::make_shared<FuseFileHandle>(flags,
+        created.handleId(), openFileToken, *m_helpersCache, m_forceProxyIOCache,
+        m_providerTimeout);
+
+    m_fuseFileHandles.emplace(fuseFileHandleId, fuseFileHandle);
 
     LOG_DBG(2) << "Created file " << name << " in " << parentUuid
                << " with uuid " << uuid;
 
     m_readdirCache->invalidate(parentUuid);
+
+    if (m_tagOnCreate && !fuseFileHandle->isOnCreateTagSet()) {
+        std::string tagNameJsonEncoded, tagValueJsonEncoded;
+        if (!util::xattr::encodeJsonXAttrName(
+                m_tagOnCreate.get().first, tagNameJsonEncoded) ||
+            !util::xattr::encodeJsonXAttrValue(
+                m_tagOnCreate.get().second, tagValueJsonEncoded)) {
+            LOG(ERROR)
+                << "Setting on create tag with invalid name or value for file "
+                << uuid;
+        }
+        else {
+            FsLogic::setxattr(uuid, m_tagOnCreate.get().first,
+                tagValueJsonEncoded, false, false);
+        }
+        fuseFileHandle->setOnCreateTag();
+    }
 
     IOTRACE_END(IOTraceCreate, IOTraceLogger::OpType::CREATE, parentUuid,
         fuseFileHandleId, name, sharedAttr->uuid(), mode, flags)
@@ -1026,13 +1063,13 @@ FileAttrPtr FsLogic::setattr(
     // TODO: this operation can be optimized with a single message to the
     // provider
 
-    if (toSet & FUSE_SET_ATTR_UID || toSet & FUSE_SET_ATTR_GID) {
+    if ((toSet & FUSE_SET_ATTR_UID) != 0 || (toSet & FUSE_SET_ATTR_GID) != 0) {
         LOG_DBG(1) << "Attempting to modify uid or gid attempted for " << uuid
                    << ". Operation not supported.";
-        throw std::errc::operation_not_supported;
+        throw std::errc::operation_not_supported; // NOLINT
     }
 
-    if (toSet & FUSE_SET_ATTR_MODE) {
+    if ((toSet & FUSE_SET_ATTR_MODE) != 0) {
         // ALLPERMS is a macro of sys/stat.h
         const mode_t normalizedMode = attr.st_mode & ALLPERMS;
 
@@ -1046,7 +1083,7 @@ FileAttrPtr FsLogic::setattr(
                    << LOG_OCT(normalizedMode);
     }
 
-    if (toSet & FUSE_SET_ATTR_SIZE) {
+    if ((toSet & FUSE_SET_ATTR_SIZE) != 0) {
         communicate(messages::fuse::Truncate{uuid.toStdString(), attr.st_size},
             m_providerTimeout);
         m_metadataCache.truncate(uuid, attr.st_size);
@@ -1064,24 +1101,24 @@ FileAttrPtr FsLogic::setattr(
 
     const auto now = std::chrono::system_clock::now();
     updateTimes.ctime(now);
-    if (toSet & FUSE_SET_ATTR_ATIME) {
+    if ((toSet & FUSE_SET_ATTR_ATIME) != 0) {
         updateTimes.atime(
             std::chrono::system_clock::from_time_t(attr.st_atime));
         LOG_DBG(2) << "Changed atime of " << uuid << " to " << attr.st_atime;
     }
-    if (toSet & FUSE_SET_ATTR_MTIME) {
+    if ((toSet & FUSE_SET_ATTR_MTIME) != 0) {
         updateTimes.mtime(
             std::chrono::system_clock::from_time_t(attr.st_mtime));
         LOG_DBG(2) << "Changed mtime of " << uuid << " to " << attr.st_atime;
     }
 #if defined(FUSE_SET_ATTR_ATIME_NOW)
-    if (toSet & FUSE_SET_ATTR_ATIME_NOW) {
+    if ((toSet & FUSE_SET_ATTR_ATIME_NOW) != 0) {
         updateTimes.atime(now);
         LOG_DBG(2) << "Changed atime of " << uuid << " to now";
     }
 #endif
 #if defined(FUSE_SET_ATTR_MTIME_NOW)
-    if (toSet & FUSE_SET_ATTR_MTIME_NOW) {
+    if ((toSet & FUSE_SET_ATTR_MTIME_NOW) != 0) {
         updateTimes.mtime(now);
         LOG_DBG(2) << "Changed mtime of " << uuid << " to now";
     }
@@ -1106,26 +1143,33 @@ folly::fbstring FsLogic::getxattr(
     if (name == ONE_XATTR("uuid")) {
         return "\"" + uuid + "\"";
     }
-    else if (name == ONE_XATTR("file_id")) {
+
+    if (name == ONE_XATTR("file_id")) {
         return "\"" + m_metadataCache.getDefaultBlock(uuid).fileId() + "\"";
     }
-    else if (name == ONE_XATTR("storage_id")) {
+
+    if (name == ONE_XATTR("storage_id")) {
         return "\"" + m_metadataCache.getDefaultBlock(uuid).storageId() + "\"";
     }
-    else if (name == ONE_XATTR("space_id")) {
+
+    if (name == ONE_XATTR("space_id")) {
         return "\"" + m_metadataCache.getSpaceId(uuid) + "\"";
     }
-    else if (name == ONE_XATTR("access_type")) {
+
+    if (name == ONE_XATTR("access_type")) {
         auto accessType = m_helpersCache->getAccessType(
             m_metadataCache.getDefaultBlock(uuid).storageId());
+
         if (accessType == cache::HelpersCache::AccessType::DIRECT)
             return "\"direct\"";
-        else if (accessType == cache::HelpersCache::AccessType::PROXY)
+
+        if (accessType == cache::HelpersCache::AccessType::PROXY)
             return "\"proxy\"";
-        else
-            return "\"unknown\"";
+
+        return "\"unknown\"";
     }
-    else if (name == ONE_XATTR("file_blocks_count")) {
+
+    if (name == ONE_XATTR("file_blocks_count")) {
         auto forceLocationUpdate =
             !m_fsSubscriptions.isSubscribedToFileLocationChanged(uuid);
         return "\"" +
@@ -1134,20 +1178,22 @@ folly::fbstring FsLogic::getxattr(
                     ->blocksCount()) +
             "\"";
     }
-    else if (name == ONE_XATTR("file_blocks")) {
+
+    if (name == ONE_XATTR("file_blocks")) {
         std::size_t size = m_metadataCache.getAttr(uuid)->size().value_or(0);
-        if (size == 0)
+        if (size == 0) {
             return "\"empty\"";
-        else {
-            auto forceLocationUpdate =
-                !m_fsSubscriptions.isSubscribedToFileLocationChanged(uuid);
-            return "\"[" +
-                m_metadataCache.getLocation(uuid, forceLocationUpdate)
-                    ->progressString(size, XATTR_FILE_BLOCKS_MAP_LENGTH) +
-                "]\"";
         }
+
+        auto forceLocationUpdate =
+            !m_fsSubscriptions.isSubscribedToFileLocationChanged(uuid);
+        return "\"[" +
+            m_metadataCache.getLocation(uuid, forceLocationUpdate)
+                ->progressString(size, XATTR_FILE_BLOCKS_MAP_LENGTH) +
+            "]\"";
     }
-    else if (name == ONE_XATTR("replication_progress")) {
+
+    if (name == ONE_XATTR("replication_progress")) {
         std::size_t size = m_metadataCache.getAttr(uuid)->size().value_or(0);
 
         auto forceLocationUpdate =
@@ -1156,8 +1202,11 @@ folly::fbstring FsLogic::getxattr(
             m_metadataCache.getLocation(uuid, forceLocationUpdate)
                 ->replicationProgress(size);
 
+        constexpr auto REPLICATION_PROGRESS_TO_PERCENT = 100;
         return "\"" +
-            std::to_string((int)std::floor(replicationProgress * 100)) + "%\"";
+            std::to_string(static_cast<int>(std::floor(
+                replicationProgress * REPLICATION_PROGRESS_TO_PERCENT))) +
+            "%\"";
     }
 
     messages::fuse::GetXAttr getXAttrRequest{uuid, name};
@@ -1208,13 +1257,13 @@ folly::fbvector<folly::fbstring> FsLogic::listxattr(const folly::fbstring &uuid)
 
     IOTRACE_GUARD(IOTraceListXAttr, IOTraceLogger::OpType::LISTXATTR, uuid, 0)
 
-    using namespace one::messages::fuse;
+    namespace omf = one::messages::fuse;
 
     folly::fbvector<folly::fbstring> result;
 
-    ListXAttr listXAttrRequest{uuid};
-    XAttrList fuseResponse =
-        communicate<XAttrList>(listXAttrRequest, m_providerTimeout);
+    omf::ListXAttr listXAttrRequest{uuid};
+    omf::XAttrList fuseResponse =
+        communicate<omf::XAttrList>(listXAttrRequest, m_providerTimeout);
 
     for (const auto &xattrName : fuseResponse.xattrNames()) {
         result.push_back(xattrName.c_str());
@@ -1332,7 +1381,7 @@ folly::fbstring FsLogic::computeHash(const folly::IOBufQueue &buf)
 
 bool FsLogic::isSpaceDisabled(const folly::fbstring &spaceId)
 {
-    return m_disabledSpaces.count(spaceId);
+    return m_disabledSpaces.count(spaceId) > 0;
 }
 
 void FsLogic::disableSpaces(const std::vector<std::string> &spaces)
@@ -1342,9 +1391,13 @@ void FsLogic::disableSpaces(const std::vector<std::string> &spaces)
 
 void FsLogic::fiberRetryDelay(int retriesLeft)
 {
-    auto delayRange = FSLOGIC_RETRY_DELAYS[FSLOGIC_RETRY_COUNT - retriesLeft];
+    const auto retryIndex =
+        std::min(std::max(0, FSLOGIC_RETRY_COUNT - retriesLeft),
+            FSLOGIC_RETRY_COUNT - 1);
+
+    auto delayRange = FSLOGIC_RETRY_DELAYS.at(retryIndex);
     auto delay = std::chrono::milliseconds(delayRange.first +
-        (std::rand() % (delayRange.second - delayRange.first + 1)));
+        (std::rand() % (delayRange.second - delayRange.first + 1))); // NOLINT
 
     LOG_DBG(1) << "Retrying FsLogic operation due to resource "
                   "temporarily unavailable error in "
@@ -1358,10 +1411,11 @@ std::shared_ptr<IOTraceLogger> FsLogic::createIOTraceLogger()
 {
     auto now = std::chrono::system_clock::now();
     auto nowTimeT = std::chrono::system_clock::to_time_t(now);
-    char nowBuf[512];
+    constexpr auto IOTRACE_TIME_BUFFER_SIZE = 512u;
+    char nowBuf[IOTRACE_TIME_BUFFER_SIZE];
 
     std::tm nowTm = *std::localtime(&nowTimeT);
-    std::strftime(nowBuf, 512, "%Y%m%dT%H%M%S", &nowTm);
+    std::strftime(nowBuf, IOTRACE_TIME_BUFFER_SIZE, "%Y%m%dT%H%M%S", &nowTm);
     auto traceFilePath = m_context->options()->getLogDirPath() /
         (std::string{"iotrace-"} + nowBuf + ".csv");
 

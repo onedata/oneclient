@@ -377,6 +377,24 @@ TEST_F(OptionsTest, parseCommandLineShouldSetReaddirPrefetchSize)
     EXPECT_EQ(10000, options.getReaddirPrefetchSize());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldSetTagOnCreate)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--tag-on-create", "KEY1:VALUE1", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    auto value = std::make_pair<std::string, std::string>("KEY1", "VALUE1");
+    EXPECT_EQ(value, options.getOnCreateTag().get());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetTagOnModify)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--tag-on-modify", "KEY1:VALUE1", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    auto value = std::make_pair<std::string, std::string>("KEY1", "VALUE1");
+    EXPECT_EQ(value, options.getOnModifyTag().get());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetLinearReadPrefetchTriggerThreshold)
 {
     cmdArgs.insert(

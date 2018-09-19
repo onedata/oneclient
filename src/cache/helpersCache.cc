@@ -101,7 +101,7 @@ folly::Future<HelpersCache::HelperPtr> HelpersCache::get(
     if (m_options.isDirectIOForced() && forceProxyIO) {
         LOG(ERROR)
             << "Direct IO and force IO options cannot be simultanously set.";
-        throw std::errc::operation_not_supported;
+        throw std::errc::operation_not_supported; // NOLINT
     }
 
     if (m_options.isDirectIOForced()) {
@@ -130,35 +130,34 @@ folly::Future<HelpersCache::HelperPtr> HelpersCache::get(
 
         return m_cache.find(helperKey)->second->getFuture();
     }
-    else {
-        forceProxyIO |= m_options.isProxyIOForced();
 
-        auto helperKey = std::make_pair(storageId, forceProxyIO);
+    forceProxyIO |= m_options.isProxyIOForced();
 
-        std::lock_guard<std::mutex> guard(m_cacheMutex);
+    auto helperKey = std::make_pair(storageId, forceProxyIO);
 
-        auto helperPromiseIt = m_cache.find(helperKey);
-        if (helperPromiseIt == m_cache.end()) {
-            LOG_DBG(2) << "Storage helper promise for storage " << storageId
-                       << " unavailable - creating new storage helper...";
+    std::lock_guard<std::mutex> guard(m_cacheMutex);
 
-            auto p = std::make_shared<folly::SharedPromise<HelperPtr>>();
+    auto helperPromiseIt = m_cache.find(helperKey);
+    if (helperPromiseIt == m_cache.end()) {
+        LOG_DBG(2) << "Storage helper promise for storage " << storageId
+                   << " unavailable - creating new storage helper...";
 
-            m_cache.emplace(std::make_tuple(storageId, forceProxyIO), p);
+        auto p = std::make_shared<folly::SharedPromise<HelperPtr>>();
 
-            m_scheduler.post([
-                this, &fileUuid, &spaceId, &storageId, forceProxyIO,
-                p = std::move(p)
-            ] {
-                p->setWith([=] {
-                    return performAutoIOStorageDetection(
-                        fileUuid, spaceId, storageId, forceProxyIO);
-                });
+        m_cache.emplace(std::make_tuple(storageId, forceProxyIO), p);
+
+        m_scheduler.post([
+            this, &fileUuid, &spaceId, &storageId, forceProxyIO,
+            p = std::move(p)
+        ] {
+            p->setWith([=] {
+                return performAutoIOStorageDetection(
+                    fileUuid, spaceId, storageId, forceProxyIO);
             });
-        }
-
-        return m_cache.find(helperKey)->second->getFuture();
+        });
     }
+
+    return m_cache.find(helperKey)->second->getFuture();
 }
 
 HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
@@ -192,41 +191,38 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
                            << " determined on first attempt - returning";
                 return helper;
             }
-            else {
-                LOG_DBG(2) << "Direct access to storage " << storageId
-                           << " wasn't determined on first attempt - "
-                              "scheduling retry and returning proxy helper as "
-                              "fallback";
-                m_scheduler.post([this, fileUuid, storageId] {
-                    auto directIOHelper =
-                        requestStorageTestFileCreation(fileUuid, storageId);
-                    if (directIOHelper) {
-                        LOG_DBG(2)
-                            << "Found direct access to storage " << storageId
-                            << " using automatic storage detection";
-                        {
-                            std::lock_guard<std::mutex> guard(m_cacheMutex);
-                            m_cache[std::make_tuple(storageId, false)]
-                                ->setValue(directIOHelper);
-                        }
 
-                        {
-                            std::lock_guard<std::mutex> guard(
-                                m_accessTypeMutex);
-                            m_accessType.emplace(
-                                std::make_pair(storageId, AccessType::DIRECT));
-                        }
-                    }
-                    else {
-                        LOG_DBG(2) << "Direct access to storage " << storageId
-                                   << " couldn't be established - leaving "
-                                      "proxy access";
+            LOG_DBG(2) << "Direct access to storage " << storageId
+                       << " wasn't determined on first attempt - "
+                          "scheduling retry and returning proxy helper as "
+                          "fallback";
+            m_scheduler.post([this, fileUuid, storageId] {
+                auto directIOHelper =
+                    requestStorageTestFileCreation(fileUuid, storageId);
+                if (directIOHelper) {
+                    LOG_DBG(2) << "Found direct access to storage " << storageId
+                               << " using automatic storage detection";
+                    {
+                        std::lock_guard<std::mutex> guard(m_cacheMutex);
+                        m_cache[std::make_tuple(storageId, false)]->setValue(
+                            directIOHelper);
                     }
 
-                });
-                return performAutoIOStorageDetection(
-                    fileUuid, spaceId, storageId, true);
-            }
+                    {
+                        std::lock_guard<std::mutex> guard(m_accessTypeMutex);
+                        m_accessType.emplace(
+                            std::make_pair(storageId, AccessType::DIRECT));
+                    }
+                }
+                else {
+                    LOG_DBG(2) << "Direct access to storage " << storageId
+                               << " couldn't be established - leaving "
+                                  "proxy access";
+                }
+
+            });
+            return performAutoIOStorageDetection(
+                fileUuid, spaceId, storageId, true);
         }
 
         std::lock_guard<std::mutex> guard(m_accessTypeMutex);
@@ -270,28 +266,28 @@ HelpersCache::HelperPtr HelpersCache::performForcedDirectIOStorageDetection(
             LOG(ERROR) << "File " << fileUuid
                        << " is not accessible in direct IO mode "
                           "on this provider";
-            throw std::errc::operation_not_supported;
+            throw std::errc::operation_not_supported; // NOLINT
         }
-        else if (params.name() == helpers::POSIX_HELPER_NAME) {
+
+        if (params.name() == helpers::POSIX_HELPER_NAME) {
             LOG_DBG(1) << "Direct IO requested to Posix storage - "
                           "attempting storage mountpoint detection in local "
                           "filesystem";
 
             return requestStorageTestFileCreation(fileUuid, storageId);
         }
-        else {
-            LOG_DBG(1) << "Got storage helper params for file " << fileUuid
-                       << " on " << params.name() << " storage " << storageId;
 
-            return m_helperFactory.getStorageHelper(
-                params.name(), params.args(), m_options.isIOBuffered());
-        }
+        LOG_DBG(1) << "Got storage helper params for file " << fileUuid
+                   << " on " << params.name() << " storage " << storageId;
+
+        return m_helperFactory.getStorageHelper(
+            params.name(), params.args(), m_options.isIOBuffered());
     }
     catch (std::exception &e) {
         LOG_DBG(1) << "Unexpected error when waiting for "
                       "storage helper: "
                    << e.what();
-        throw std::errc::resource_unavailable_try_again;
+        throw std::errc::resource_unavailable_try_again; // NOLINT
     }
 }
 
@@ -342,7 +338,7 @@ HelpersCache::HelperPtr HelpersCache::handleStorageTestFile(
         auto helper = m_storageAccessManager.verifyStorageTestFile(*testFile);
         auto attempts = maxAttempts;
 
-        while (!helper && attempts--) {
+        while (!helper && (attempts-- > 0)) {
             std::this_thread::sleep_for(VERIFY_TEST_FILE_DELAY);
             helper = m_storageAccessManager.verifyStorageTestFile(*testFile);
         }

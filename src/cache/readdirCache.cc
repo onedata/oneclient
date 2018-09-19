@@ -36,21 +36,21 @@ DirCacheEntry::DirCacheEntry(std::chrono::milliseconds cacheValidityPeriod)
 }
 
 DirCacheEntry::DirCacheEntry(const DirCacheEntry &e)
+    : m_ctime{e.m_ctime.load()}
+    , m_atime{e.m_atime.load()}
+    , m_invalid{e.m_invalid.load()}
+    , m_dirEntries{e.m_dirEntries}
+    , m_cacheValidityPeriod{e.m_cacheValidityPeriod}
 {
-    m_ctime = e.m_ctime.load();
-    m_atime = e.m_atime.load();
-    m_invalid = e.m_invalid.load();
-    m_dirEntries = e.m_dirEntries;
-    m_cacheValidityPeriod = e.m_cacheValidityPeriod;
 }
 
-DirCacheEntry::DirCacheEntry(DirCacheEntry &&e)
+DirCacheEntry::DirCacheEntry(DirCacheEntry &&e) noexcept
+    : m_ctime{e.m_ctime.load()}
+    , m_atime{e.m_atime.load()}
+    , m_invalid{e.m_invalid.load()}
+    , m_dirEntries{std::move(e.m_dirEntries)}
+    , m_cacheValidityPeriod{e.m_cacheValidityPeriod}
 {
-    m_ctime = e.m_ctime.load();
-    m_atime = e.m_atime.load();
-    m_invalid = e.m_invalid.load();
-    m_dirEntries = std::move(e.m_dirEntries);
-    m_cacheValidityPeriod = std::move(e.m_cacheValidityPeriod);
 }
 
 void DirCacheEntry::addEntry(const folly::fbstring &name)
@@ -80,32 +80,30 @@ bool DirCacheEntry::isValid(bool sinceLastAccess)
                 std::chrono::milliseconds(m_atime) <
             m_cacheValidityPeriod;
     }
-    else {
-        // Check validity since the the cache entry was retrieved
-        // from server
-        return !m_invalid &&
-            std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::system_clock::now().time_since_epoch()) -
-                std::chrono::milliseconds(m_ctime) <
-            2 * m_cacheValidityPeriod;
-    }
+    // Check validity since the last time the cache entry was retrieved
+    // from server
+    return !m_invalid &&
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::system_clock::now().time_since_epoch()) -
+            std::chrono::milliseconds(m_ctime) <
+        2 * m_cacheValidityPeriod;
 }
 
-void DirCacheEntry::touch(void)
+void DirCacheEntry::touch()
 {
     m_atime = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch())
                   .count();
 }
 
-void DirCacheEntry::markCreated(void)
+void DirCacheEntry::markCreated()
 {
     m_ctime = std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch())
                   .count();
 }
 
-void DirCacheEntry::unique(void)
+void DirCacheEntry::unique()
 {
     m_dirEntries.sort();
     m_dirEntries.unique();
@@ -226,7 +224,7 @@ folly::fbvector<folly::fbstring> ReaddirCache::readdir(
 
         if (uuidIt != m_cache.cend() && (*uuidIt).second->isFulfilled() &&
             ((*uuidIt).second->getFuture().hasException() ||
-                !(*uuidIt).second->getFuture().get()->isValid(off))) {
+                !(*uuidIt).second->getFuture().get()->isValid(off != 0))) {
             m_cache.erase(uuidIt);
             uuidIt = m_cache.end();
         }
@@ -304,6 +302,6 @@ SrvMsg ReaddirCache::communicate(
             std::forward<CliMsg>(msg)),
         timeout);
 }
-}
-}
-}
+} // namespace cache
+} // namespace client
+} // namespace one

@@ -110,7 +110,7 @@ void IOTraceLogger::start(const folly::fbstring &filePath)
             m_stream << IOTRACE_LOGGER_SEPARATOR << "arg-" << std::to_string(i);
         m_stream << '\n';
     }
-    catch (std::ifstream::failure e) {
+    catch (std::ifstream::failure &e) {
         LOG(ERROR) << "Cannot create IO tracer log file " << filePath << ": "
                    << e.what();
         throw;
@@ -139,6 +139,6 @@ std::shared_ptr<IOTraceLogger> IOTraceLogger::make(
     tracer->start(filePath);
     return tracer;
 }
-}
-}
-}
+} // namespace fslogic
+} // namespace client
+} // namespace one

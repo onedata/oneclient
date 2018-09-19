@@ -20,7 +20,7 @@ namespace fuse {
 
 RemoveXAttr::RemoveXAttr(folly::fbstring uuid, folly::fbstring name)
     : FileRequest{uuid.toStdString()}
-    , m_name(name)
+    , m_name{std::move(name)}
 {
 }
 
@@ -43,6 +43,6 @@ std::unique_ptr<ProtocolClientMessage> RemoveXAttr::serializeAndDestroy()
     return msg;
 }
 
-} // namespace provider
+} // namespace fuse
 } // namespace messages
 } // namespace one

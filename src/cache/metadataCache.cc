@@ -35,7 +35,7 @@ namespace cache {
 MetadataCache::MetadataCache(communication::Communicator &communicator,
     const std::chrono::seconds providerTimeout)
     : m_communicator{communicator}
-    , m_providerTimeout{std::move(providerTimeout)}
+    , m_providerTimeout{providerTimeout}
 {
 }
 
@@ -74,8 +74,7 @@ FileAttrPtr MetadataCache::getAttr(
     LOG_DBG(2) << "Metadata attr for file " << name << " in directory "
                << parentUuid << " not found in cache - retrieving from server";
 
-    auto fetchedIt = fetchAttr(
-        messages::fuse::GetChildAttr{std::move(parentUuid), std::move(name)});
+    auto fetchedIt = fetchAttr(messages::fuse::GetChildAttr{parentUuid, name});
 
     LOG_DBG(2) << "Got metadata attr for file " << name << " in directory "
                << parentUuid << " from server";
@@ -152,7 +151,7 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
     if (!attr.size()) {
         LOG(ERROR)
             << "Received invalid message from server when fetching attribute.";
-        throw std::errc::protocol_error;
+        throw std::errc::protocol_error; // NOLINT
     }
 
     auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
@@ -403,7 +402,7 @@ bool MetadataCache::rename(const folly::fbstring &uuid,
         return false;
     }
 
-    if (uuid != newUuid && index.count(newUuid)) {
+    if (uuid != newUuid && (index.count(newUuid) > 0)) {
         LOG(WARNING) << "The rename target '" << newUuid
                      << "' is already cached";
 
@@ -543,5 +542,5 @@ auto MetadataCache::ParentUuidExtractor::operator()(const Metadata &m) const
 }
 
 } // namespace cache
-} // namespace one
 } // namespace client
+} // namespace one

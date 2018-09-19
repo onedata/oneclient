@@ -409,6 +409,24 @@ Options::Options()
         .withDescription("Specify the size of requests made during readdir "
                          "prefetch (in number of dir entries).");
 
+    add<std::string>()
+        ->withEnvName("tag_on_create")
+        .withLongName("tag-on-create")
+        .withConfigName("tag_on_create")
+        .withValueName("<name>:<value>")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Adds <name>=<value> extended attribute to each "
+                         "locally created file.");
+
+    add<std::string>()
+        ->withEnvName("tag_on_modify")
+        .withLongName("tag-on-modify")
+        .withConfigName("tag_on_modify")
+        .withValueName("<name>:<value>")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Adds <name>=<value> extended attribute to each "
+                         "locally modified file.");
+
     add<bool>()
         ->asSwitch()
         .withShortName("f")
@@ -495,7 +513,8 @@ Options::Options()
         .withLongName("monitoring-period")
         .withConfigName("monitoring_period")
         .withValueName("<seconds>")
-        .withDefaultValue(30, std::to_string(30))
+        .withDefaultValue(DEFAULT_MONITORING_PERIOD_SECONDS,
+            std::to_string(DEFAULT_MONITORING_PERIOD_SECONDS))
         .withGroup(OptionGroup::MONITORING)
         .withDescription("Performance metrics reporting period.");
 
@@ -873,6 +892,20 @@ unsigned int Options::getReaddirPrefetchSize() const
         .get_value_or(DEFAULT_READDIR_PREFETCH_SIZE);
 }
 
+boost::optional<std::pair<std::string, std::string>>
+Options::getOnModifyTag() const
+{
+    return get<std::pair<std::string, std::string>>(
+        {"tag-on-modify", "tag_on_modify"});
+}
+
+boost::optional<std::pair<std::string, std::string>>
+Options::getOnCreateTag() const
+{
+    return get<std::pair<std::string, std::string>>(
+        {"tag-on-create", "tag_on_create"});
+}
+
 bool Options::isMonitoringEnabled() const
 {
     return get<std::string>({"monitoring-type", "monitoring_type"})
@@ -912,7 +945,7 @@ Options::getMonitoringGraphiteNamespacePrefix() const
 unsigned int Options::getMonitoringReportingPeriod() const
 {
     return get<unsigned int>({"monitoring-period", "monitoring_period"})
-        .get_value_or(30);
+        .get_value_or(DEFAULT_MONITORING_PERIOD_SECONDS);
 }
 
 boost::filesystem::path Options::getMountpoint() const

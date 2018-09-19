@@ -28,7 +28,7 @@ Build-Depends:
     libsodium-dev,
     libssl-dev (>= 1.1.0),
     libstdc++-5-dev,
-    libtbb-dev (>= 4.3~),
+    libtbb-dev (>= 2018~U5),
     libpoco-dev,
     libpocofoundation50,
     libpoconetssl50,

@@ -19,7 +19,7 @@ FileLocationChangedSubscription::FileLocationChangedSubscription(
     std::string fileUuid, std::chrono::milliseconds remoteThreshold,
     EventHandler<FileLocationChanged> handler)
     : m_fileUuid{std::move(fileUuid)}
-    , m_remoteThreshold{std::move(remoteThreshold)}
+    , m_remoteThreshold{remoteThreshold}
     , m_handler{std::move(handler)}
 {
 }
@@ -29,14 +29,14 @@ StreamKey FileLocationChangedSubscription::streamKey() const
     return StreamKey::FILE_LOCATION_CHANGED;
 }
 
-StreamPtr FileLocationChangedSubscription::createStream(
-    Manager &manager, SequencerManager &seqManager, Scheduler &scheduler) const
+StreamPtr FileLocationChangedSubscription::createStream(Manager &manager,
+    SequencerManager & /*seqManager*/, Scheduler &scheduler) const
 {
     auto aggregator = std::make_unique<KeyAggregator<FileLocationChanged>>();
     auto emitter = std::make_unique<TimedEmitter<FileLocationChanged>>(
         streamKey(), DEFAULT_TIMED_EMITTER_THRESHOLD, manager, scheduler);
-    auto handler = std::make_unique<LocalHandler<FileLocationChanged>>(
-        std::move(m_handler));
+    auto handler =
+        std::make_unique<LocalHandler<FileLocationChanged>>(m_handler);
 
     return std::make_unique<AsyncStream>(
         std::make_unique<TypedStream<FileLocationChanged>>(
