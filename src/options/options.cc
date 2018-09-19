@@ -513,7 +513,8 @@ Options::Options()
         .withLongName("monitoring-period")
         .withConfigName("monitoring_period")
         .withValueName("<seconds>")
-        .withDefaultValue(30, std::to_string(30))
+        .withDefaultValue(DEFAULT_MONITORING_PERIOD_SECONDS,
+            std::to_string(DEFAULT_MONITORING_PERIOD_SECONDS))
         .withGroup(OptionGroup::MONITORING)
         .withDescription("Performance metrics reporting period.");
 
@@ -944,7 +945,7 @@ Options::getMonitoringGraphiteNamespacePrefix() const
 unsigned int Options::getMonitoringReportingPeriod() const
 {
     return get<unsigned int>({"monitoring-period", "monitoring_period"})
-        .get_value_or(30);
+        .get_value_or(DEFAULT_MONITORING_PERIOD_SECONDS);
 }
 
 boost::filesystem::path Options::getMountpoint() const

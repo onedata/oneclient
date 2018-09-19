@@ -25,8 +25,6 @@ namespace client {
 namespace util {
 namespace xattr {
 
-using namespace one::client::util::base64;
-
 /**
  * Binary extended attributes are stored as objects of the form:
  *
@@ -60,13 +58,13 @@ bool encodeJsonXAttrName(const std::string &name, std::string &output)
     }
 
     std::ostringstream o;
-    for (auto c = name.cbegin(); c != name.cend(); c++) {
-        if ('\x00' <= *c && *c <= '\x1f') {
+    for (auto c : name) {
+        if ('\x00' <= c && c <= '\x1f') {
             o << "\\u" << std::hex << std::setw(4) << std::setfill('0')
-              << (int)*c;
+              << static_cast<int>(c);
         }
         else {
-            o << *c;
+            o << c;
         }
     }
 
@@ -105,7 +103,7 @@ bool encodeJsonXAttrValue(const std::string &value, std::string &output)
                           "Oneprovider in base64";
 
             std::string temp;
-            bool encodingResult = base64_encode(value, temp);
+            bool encodingResult = util::base64::base64_encode(value, temp);
             if (encodingResult) {
                 output = std::string("{\"") + ONEDATA_BASE64_JSON_KEY +
                     "\":\"" + temp + "\"}";
@@ -131,8 +129,8 @@ bool decodeJsonXAttrValue(const std::string &value, std::string &output)
             output = "null";
         }
         else if (jsonValue.isObject() &&
-            jsonValue.count(ONEDATA_BASE64_JSON_KEY)) {
-            return base64_decode(
+            (jsonValue.count(ONEDATA_BASE64_JSON_KEY) > 0)) {
+            return util::base64::base64_decode(
                 jsonValue[ONEDATA_BASE64_JSON_KEY].asString(), output);
         }
         else if (jsonValue.isString()) {

@@ -25,7 +25,7 @@ public:
      * @param code POSIX error code.
      * @param message Error description.
      */
-    OneException(const std::string &code, const std::string &message = "");
+    OneException(std::string code, std::string message = "");
 
     virtual ~OneException() = default;
 

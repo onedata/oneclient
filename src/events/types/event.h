@@ -21,6 +21,8 @@ namespace events {
  */
 class Event {
 public:
+    virtual ~Event() = default;
+
     /**
      * Defines which stream should process this event.
      * @return A @c StreamKey that identifies stream responsible for handling

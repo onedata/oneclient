@@ -28,13 +28,11 @@ LRUMetadataCache::LRUMetadataCache(communication::Communicator &communicator,
     : MetadataCache{communicator, providerTimeout}
     , m_targetSize{targetSize}
 {
-    using namespace std::placeholders;
+    MetadataCache::onRename(std::bind(&LRUMetadataCache::handleRename, this,
+        std::placeholders::_1, std::placeholders::_2));
 
-    MetadataCache::onRename(
-        std::bind(&LRUMetadataCache::handleRename, this, _1, _2));
-
-    MetadataCache::onMarkDeleted(
-        std::bind(&LRUMetadataCache::handleMarkDeleted, this, _1));
+    MetadataCache::onMarkDeleted(std::bind(
+        &LRUMetadataCache::handleMarkDeleted, this, std::placeholders::_1));
 }
 
 void LRUMetadataCache::setReaddirCache(
@@ -113,7 +111,7 @@ void LRUMetadataCache::release(const folly::fbstring &uuid)
     if (it == m_lruData.end())
         return;
 
-    if (--it->second.openCount)
+    if (--it->second.openCount > 0)
         return;
 
     m_onRelease(uuid);
@@ -289,9 +287,9 @@ void LRUMetadataCache::handleRename(
     auto res = m_lruData.emplace(newUuid, LRUData{});
     if (res.second) {
         res.first->second = std::move(lruData);
-        if (lruData.lruIt) {
-            auto oldIt = *lruData.lruIt;
-            lruData.lruIt = m_lruList.emplace(oldIt, newUuid);
+        if (res.first->second.lruIt) {
+            auto oldIt = *(res.first->second.lruIt);
+            res.first->second.lruIt = m_lruList.emplace(oldIt, newUuid);
             m_lruList.erase(oldIt);
         }
     }

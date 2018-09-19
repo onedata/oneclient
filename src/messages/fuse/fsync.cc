@@ -18,7 +18,7 @@ namespace fuse {
 
 FSync::FSync(std::string uuid, bool dataOnly, std::string handleId)
     : FileRequest{std::move(uuid)}
-    , m_dataOnly{std::move(dataOnly)}
+    , m_dataOnly{dataOnly}
     , m_handleId{std::move(handleId)}
 {
 }

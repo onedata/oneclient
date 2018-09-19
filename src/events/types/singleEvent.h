@@ -17,7 +17,7 @@ namespace events {
 
 /**
  * @c SingleEvent class represents an abstract event that ignores aggregation.
- * It should be processed by streams that does not rely on events aggregation
+ * It should be processed by streams that do not rely on events aggregation
  * and handles each event separately.
  */
 class SingleEvent : public Event {

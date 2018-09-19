@@ -324,6 +324,10 @@ docker:
 clean:
 	rm -rf debug release relwithdebinfo doc package package_fpm
 
+.PHONY: clang-tidy
+clang-tidy:
+	cmake --build debug --target clang-tidy
+
 .PHONY: clang-format
 clang-format:
 	docker run --rm -v $(CURDIR):/root/sources onedata/clang-format-check:1.1

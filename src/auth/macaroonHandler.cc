@@ -17,14 +17,13 @@
 #include <boost/filesystem/fstream.hpp>
 #include <boost/optional.hpp>
 
-#include <errno.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-
+#include <cerrno>
 #include <cstdlib>
 #include <fstream>
 #include <ios>
 #include <iostream>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <system_error>
 
 namespace {
@@ -51,7 +50,7 @@ namespace auth {
 MacaroonHandler::MacaroonHandler(options::Options &options,
     boost::filesystem::path userDataDir, std::string providerId)
     : m_options{options}
-    , m_userDataDir{std::move(userDataDir)}
+    , m_userDataDir{userDataDir}
     , m_providerId{std::move(providerId)}
     , m_macaroon{retrieveMacaroon()}
     , m_restrictedMacaroon{restrictMacaroon(m_macaroon, m_providerId)}
@@ -168,7 +167,9 @@ void MacaroonHandler::persistMacaroon(macaroons::Macaroon macaroon) const
         stream << macaroon.serialize() << std::endl;
         LOG(INFO) << "Saved authorization details to " << macaroonFilePath();
 
-        if (chmod(macaroonFilePath().c_str(), 0600) != 0) {
+        const auto kMacaroonFilePermissions = 0600;
+
+        if (chmod(macaroonFilePath().c_str(), kMacaroonFilePermissions) != 0) {
             const auto err = errno;
             LOG(ERROR) << "Failed to set file permissions on "
                        << macaroonFilePath() << ": " << strerror(err);
@@ -213,7 +214,8 @@ Coding createCoding()
 }
 
 const Coding coding = createCoding();
-}
+
+} // namespace
 
 std::string MacaroonHandler::decode62(std::string macaroon62)
 {

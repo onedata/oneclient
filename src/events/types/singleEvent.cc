@@ -18,7 +18,7 @@ const AggregationKey &SingleEvent::aggregationKey() const
     return m_aggregationKey;
 }
 
-void SingleEvent::aggregate(EventPtr<> event)
+void SingleEvent::aggregate(EventPtr<> /*event*/)
 {
     LOG_DBG(1) << "Aggregation requested for a single event: " << toString();
 }

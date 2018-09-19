@@ -57,7 +57,7 @@ fuse_ino_t InodeCache::lookup(const folly::fbstring &uuid)
     }
 
     const auto inode = m_nextInode++;
-    m_cache.emplace(inode, std::move(uuid));
+    m_cache.emplace(inode, uuid);
 
     LOG_DBG(2) << "Created new inode " << inode << " for file " << uuid;
 

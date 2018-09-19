@@ -40,7 +40,7 @@ public:
     DirCacheEntry(std::chrono::milliseconds cacheValidityPeriod);
     ~DirCacheEntry() = default;
     DirCacheEntry(const DirCacheEntry &e);
-    DirCacheEntry(DirCacheEntry &&e);
+    DirCacheEntry(DirCacheEntry &&e) noexcept;
 
     /**
      * Add directory entry to cache.

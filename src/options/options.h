@@ -46,6 +46,7 @@ static constexpr auto DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD = 5;
 static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 100000;
 static constexpr auto DEFAULT_READDIR_PREFETCH_SIZE = 2500;
 static constexpr auto DEFAULT_PROVIDER_TIMEOUT = 2 * 60;
+static constexpr auto DEFAULT_MONITORING_PERIOD_SECONDS = 30;
 }
 
 class Option;
@@ -64,7 +65,7 @@ public:
      */
     Options();
 
-    ~Options() = default;
+    virtual ~Options() = default;
 
     /*
      * Parses options from command line, environment and configuration file.
