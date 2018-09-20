@@ -116,6 +116,10 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options::DEFAULT_READ_BUFFER_MIN_SIZE, options.getReadBufferMinSize());
     EXPECT_EQ(
         options::DEFAULT_READ_BUFFER_MAX_SIZE, options.getReadBufferMaxSize());
+    EXPECT_EQ(options::DEFAULT_READ_BUFFERS_TOTAL_SIZE,
+        options.getReadBuffersTotalSize());
+    EXPECT_EQ(options::DEFAULT_WRITE_BUFFERS_TOTAL_SIZE,
+        options.getWriteBuffersTotalSize());
     EXPECT_EQ(options::DEFAULT_READ_BUFFER_PREFETCH_DURATION,
         options.getReadBufferPrefetchDuration().count());
     EXPECT_EQ(options::DEFAULT_WRITE_BUFFER_MIN_SIZE,
@@ -351,6 +355,22 @@ TEST_F(OptionsTest, parseCommandLineShouldSetWriteBufferMaxSize)
         cmdArgs.end(), {"--write-buffer-max-size", "1024", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(1024, options.getWriteBufferMaxSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetReadBuffersTotalSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--read-buffers-total-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getReadBuffersTotalSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetWriteBuffersTotalSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--write-buffers-total-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getWriteBuffersTotalSize());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetWriteBufferFlushDelay)
