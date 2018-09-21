@@ -117,7 +117,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
           providerTimeout}
     , m_helpersCache{std::move(helpersCache)}
     , m_readdirCache{std::make_shared<cache::ReaddirCache>(
-          m_metadataCache, m_context)}
+          m_metadataCache, m_context, runInFiber)}
     , m_readEventsDisabled{readEventsDisabled}
     , m_forceFullblockRead{forceFullblockRead}
     , m_fsSubscriptions{m_eventManager, m_metadataCache, m_forceProxyIOCache,
