@@ -188,9 +188,9 @@ void LRUMetadataCache::prune()
     }
 }
 
-bool LRUMetadataCache::rename(const folly::fbstring &uuid,
-    const folly::fbstring &newParentUuid, const folly::fbstring &newName,
-    const folly::fbstring &newUuid)
+bool LRUMetadataCache::rename(folly::fbstring uuid,
+    folly::fbstring newParentUuid, folly::fbstring newName,
+    folly::fbstring newUuid)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newParentUuid)
                 << LOG_FARG(newName) << LOG_FARG(newUuid);
@@ -199,8 +199,7 @@ bool LRUMetadataCache::rename(const folly::fbstring &uuid,
     return MetadataCache::rename(uuid, newParentUuid, newName, newUuid);
 }
 
-void LRUMetadataCache::truncate(
-    const folly::fbstring &uuid, const std::size_t newSize)
+void LRUMetadataCache::truncate(folly::fbstring uuid, const std::size_t newSize)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newSize);
 
@@ -209,7 +208,7 @@ void LRUMetadataCache::truncate(
 }
 
 void LRUMetadataCache::updateTimes(
-    const folly::fbstring &uuid, const messages::fuse::UpdateTimes &updateTimes)
+    folly::fbstring uuid, const messages::fuse::UpdateTimes &updateTimes)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
