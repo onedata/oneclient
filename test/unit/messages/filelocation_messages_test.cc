@@ -20,6 +20,31 @@ using namespace one::messages::fuse;
 struct FuseFileLocationMessagesTest : public ::testing::Test {
 };
 
+TEST_F(FuseFileLocationMessagesTest, truncateShouldWork)
+{
+    auto fileLocation = FileLocation{};
+
+    // Truncate empty file location should not change it
+    fileLocation.truncate(
+        boost::icl::discrete_interval<off_t>::right_open(0, 1024));
+
+    EXPECT_EQ(fileLocation.blocksLengthInRange(0, 5000), 0);
+
+    fileLocation.putBlock(0, 1024, FileBlock{"", ""});
+
+    // Truncate file with single block to smaller size
+    fileLocation.truncate(
+        boost::icl::discrete_interval<off_t>::right_open(0, 512));
+
+    EXPECT_EQ(fileLocation.blocksLengthInRange(0, 5000), 512);
+
+    // Truncate file with single block to larger size
+    fileLocation.truncate(
+        boost::icl::discrete_interval<off_t>::right_open(0, 1024));
+
+    EXPECT_EQ(fileLocation.blocksLengthInRange(0, 5000), 512);
+};
+
 TEST_F(FuseFileLocationMessagesTest, replicationProgressShouldWork)
 {
     auto fileLocation = FileLocation{};

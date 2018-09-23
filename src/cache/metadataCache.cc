@@ -250,7 +250,7 @@ const std::string &MetadataCache::getSpaceId(const folly::fbstring &uuid)
     return location->spaceId();
 }
 
-void MetadataCache::ensureAttrAndLocationCached(const folly::fbstring &uuid)
+void MetadataCache::ensureAttrAndLocationCached(folly::fbstring uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -258,7 +258,7 @@ void MetadataCache::ensureAttrAndLocationCached(const folly::fbstring &uuid)
     getLocationPtr(it);
 }
 
-void MetadataCache::erase(const folly::fbstring &uuid)
+void MetadataCache::erase(folly::fbstring uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -268,8 +268,7 @@ void MetadataCache::erase(const folly::fbstring &uuid)
         "comp.oneclient.mod.metadatacache.size", index.size());
 }
 
-void MetadataCache::truncate(
-    const folly::fbstring &uuid, const std::size_t newSize)
+void MetadataCache::truncate(folly::fbstring uuid, const std::size_t newSize)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newSize);
 
@@ -290,7 +289,7 @@ void MetadataCache::truncate(
 }
 
 void MetadataCache::updateTimes(
-    const folly::fbstring &uuid, const messages::fuse::UpdateTimes &updateTimes)
+    folly::fbstring uuid, const messages::fuse::UpdateTimes &updateTimes)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(updateTimes.toString());
     auto &index = boost::multi_index::get<ByUuid>(m_cache);
@@ -323,8 +322,7 @@ void MetadataCache::updateTimes(
     });
 }
 
-void MetadataCache::changeMode(
-    const folly::fbstring &uuid, const mode_t newMode)
+void MetadataCache::changeMode(folly::fbstring uuid, const mode_t newMode)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARGO(newMode);
 
@@ -348,7 +346,7 @@ void MetadataCache::putLocation(std::unique_ptr<FileLocation> location)
         it, [&](Metadata &m) mutable { m.location = {std::move(location)}; });
 }
 
-bool MetadataCache::markDeleted(const folly::fbstring &uuid)
+bool MetadataCache::markDeleted(folly::fbstring uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -368,20 +366,22 @@ void MetadataCache::markDeletedIt(const Map::iterator &it)
 {
     LOG_FCALL() << LOG_FARG(it->attr->uuid());
 
+    auto uuid = it->attr->uuid();
+    auto parentUuid = it->attr->parentUuid();
+
     m_cache.modify(it, [&](Metadata &m) {
         m.attr->setParentUuid("");
         m.deleted = true;
     });
 
-    if (it->attr->parentUuid())
+    if (parentUuid)
         m_readdirCache->invalidate(*(it->attr->parentUuid()));
 
-    m_onMarkDeleted(it->attr->uuid());
+    m_onMarkDeleted(uuid);
 }
 
-bool MetadataCache::rename(const folly::fbstring &uuid,
-    const folly::fbstring &newParentUuid, const folly::fbstring &newName,
-    const folly::fbstring &newUuid)
+bool MetadataCache::rename(folly::fbstring uuid, folly::fbstring newParentUuid,
+    folly::fbstring newName, folly::fbstring newUuid)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newParentUuid)
                 << LOG_FARG(newName) << LOG_FARG(newUuid);

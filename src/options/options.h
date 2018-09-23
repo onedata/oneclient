@@ -35,12 +35,19 @@ static constexpr auto DEFAULT_SCHEDULER_THREAD_COUNT = 1;
 static constexpr auto DEFAULT_STORAGE_HELPER_THREAD_COUNT = 10;
 static constexpr auto DEFAULT_READ_BUFFER_MIN_SIZE = 4 * 1024;
 static constexpr auto DEFAULT_READ_BUFFER_MAX_SIZE = 100 * 1024 * 1024;
+static constexpr auto DEFAULT_READ_BUFFERS_TOTAL_SIZE =
+    20 * DEFAULT_READ_BUFFER_MAX_SIZE;
 static constexpr auto DEFAULT_READ_BUFFER_PREFETCH_DURATION = 1;
 static constexpr auto DEFAULT_WRITE_BUFFER_MIN_SIZE = 20 * 1024 * 1024;
 static constexpr auto DEFAULT_WRITE_BUFFER_MAX_SIZE = 50 * 1024 * 1024;
+static constexpr auto DEFAULT_WRITE_BUFFERS_TOTAL_SIZE =
+    20 * DEFAULT_WRITE_BUFFER_MAX_SIZE;
 static constexpr auto DEFAULT_WRITE_BUFFER_FLUSH_DELAY = 5;
 static constexpr auto DEFAULT_PREFETCH_MODE = "async";
 static constexpr auto DEFAULT_PREFETCH_EVALUATE_FREQUENCY = 50;
+static constexpr double DEFAULT_PREFETCH_POWER_BASE = 1.3;
+static constexpr auto DEFAULT_PREFETCH_TARGET_LATENCY =
+    std::chrono::nanoseconds{1000}; // NOLINT
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE = 0;
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD = 5;
 static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 100000;
@@ -247,6 +254,18 @@ public:
      * @return Maximum size in bytes of in-memory cache for output data blocks.
      */
     unsigned int getWriteBufferMaxSize() const;
+
+    /*
+     * @return Total possible memory size for read buffers (sum of all buffer
+     * maximum sizes).
+     */
+    unsigned int getReadBuffersTotalSize() const;
+
+    /*
+     * @return Total possible memory size for write buffers (sum of all buffer
+     * maximum sizes).
+     */
+    unsigned int getWriteBuffersTotalSize() const;
 
     /*
      * @return Idle period in seconds before flush of in-memory cache for

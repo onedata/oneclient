@@ -138,13 +138,13 @@ public:
      * fetching them from the server if missing.
      * @param uuid Uuid of the file.
      */
-    void ensureAttrAndLocationCached(const folly::fbstring &uuid);
+    void ensureAttrAndLocationCached(folly::fbstring uuid);
 
     /**
      * Removes all of file's metadata from the cache.
      * @param uuid Uuid of the file.
      */
-    void erase(const folly::fbstring &uuid);
+    void erase(folly::fbstring uuid);
 
     /**
      * Truncates blocks in cached file locations and modifies attributes to set
@@ -152,22 +152,22 @@ public:
      * @param uuid Uuid of the file.
      * @param newSize Size to truncate to.
      */
-    void truncate(const folly::fbstring &uuid, const std::size_t newSize);
+    void truncate(folly::fbstring uuid, const std::size_t newSize);
 
     /**
      * Update times cached in file's attributes.
      * @param uuid Uuid of the file.
      * @param updateTimes Object containing new times.
      */
-    void updateTimes(const folly::fbstring &uuid,
-        const messages::fuse::UpdateTimes &updateTimes);
+    void updateTimes(
+        folly::fbstring uuid, const messages::fuse::UpdateTimes &updateTimes);
 
     /**
      * Changes mode cached in file's attributes.
      * @param uuid Uuid of the file.
      * @param newMode The new mode.
      */
-    void changeMode(const folly::fbstring &uuid, const mode_t newMode);
+    void changeMode(folly::fbstring uuid, const mode_t newMode);
 
     /**
      * Updates file attributes, if cached.
@@ -200,7 +200,7 @@ public:
      * @returns true if file has been marked as deleted, false if it was not
      * cached.
      */
-    bool markDeleted(const folly::fbstring &uuid);
+    bool markDeleted(folly::fbstring uuid);
 
     /**
      * Renames a cached file.
@@ -210,9 +210,8 @@ public:
      * @param newUuid New uuid of the file.
      * @returns true if file has been renamed, false if it was not cached.
      */
-    bool rename(const folly::fbstring &uuid,
-        const folly::fbstring &newParentUuid, const folly::fbstring &newName,
-        const folly::fbstring &newUuid);
+    bool rename(folly::fbstring uuid, folly::fbstring newParentUuid,
+        folly::fbstring newName, folly::fbstring newUuid);
 
     /**
      * Sets a callback that will be called after a file is marked as deleted.
