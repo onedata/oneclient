@@ -55,7 +55,11 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
         options.getReadBufferMinSize(), options.getReadBufferMaxSize(),
             options.getReadBufferPrefetchDuration(),
             options.getWriteBufferMinSize(), options.getWriteBufferMaxSize(),
-            options.getWriteBufferFlushDelay()
+            options.getWriteBufferFlushDelay(),
+            options::DEFAULT_PREFETCH_TARGET_LATENCY,
+            options::DEFAULT_PREFETCH_POWER_BASE,
+            options.getReadBuffersTotalSize(),
+            options.getWriteBuffersTotalSize()
     }
 }
 , m_storageAccessManager{m_helperFactory, m_options},

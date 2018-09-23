@@ -109,12 +109,14 @@ void DirCacheEntry::unique()
     m_dirEntries.unique();
 }
 
-ReaddirCache::ReaddirCache(
-    LRUMetadataCache &metadataCache, std::weak_ptr<Context> context)
+ReaddirCache::ReaddirCache(LRUMetadataCache &metadataCache,
+    std::weak_ptr<Context> context,
+    std::function<void(folly::Function<void()>)> runInFiber)
     : m_metadataCache(metadataCache)
     , m_context{std::move(context)}
     , m_providerTimeout(m_context.lock()->options()->getProviderTimeout())
     , m_prefetchSize(m_context.lock()->options()->getReaddirPrefetchSize())
+    , m_runInFiber{std::move(runInFiber)}
 {
 }
 
@@ -162,10 +164,13 @@ void ReaddirCache::fetch(const folly::fbstring &uuid)
 
                 for (const auto it : folly::enumerate(msg.childrenAttrs())) {
                     cacheEntry->addEntry(it->name());
-                    if (!m_metadataCache.updateAttr(*it)) {
-                        m_metadataCache.putAttr(
-                            std::make_shared<FileAttr>(*it));
-                    }
+
+                    m_runInFiber([ this, attr = *it ] {
+                        if (!m_metadataCache.updateAttr(attr)) {
+                            m_metadataCache.putAttr(
+                                std::make_shared<FileAttr>(attr));
+                        }
+                    });
                 }
 
                 chunkIndex = cacheEntry->dirEntries().size() - 2;

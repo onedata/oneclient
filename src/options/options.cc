@@ -279,7 +279,31 @@ Options::Options()
             std::to_string(DEFAULT_WRITE_BUFFER_MAX_SIZE))
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Specify maximum size in bytes of in-memory cache for "
-                         "output data blocks.");
+                         "output data blocks of a single opened file handle.");
+
+    add<unsigned int>()
+        ->withLongName("read-buffers-total-size")
+        .withConfigName("read_buffers_total_size")
+        .withValueName("<size>")
+        .withDefaultValue(DEFAULT_READ_BUFFERS_TOTAL_SIZE,
+            std::to_string(DEFAULT_READ_BUFFERS_TOTAL_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Specify total maximum size in bytes of in-memory cache for "
+            "input data blocks of all opened file handles. When 0, read "
+            "buffers are unlimited.");
+
+    add<unsigned int>()
+        ->withLongName("write-buffers-total-size")
+        .withConfigName("write_buffers_total_size")
+        .withValueName("<size>")
+        .withDefaultValue(DEFAULT_WRITE_BUFFERS_TOTAL_SIZE,
+            std::to_string(DEFAULT_WRITE_BUFFERS_TOTAL_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Specify total maximum size in bytes of in-memory cache for "
+            "output data blocks of all opened file handles. When 0, write "
+            "buffers are unlimited.");
 
     add<unsigned int>()
         ->withLongName("write-buffer-flush-delay")
@@ -810,6 +834,20 @@ unsigned int Options::getWriteBufferMaxSize() const
 {
     return get<unsigned int>({"write-buffer-max-size", "write_buffer_max_size"})
         .get_value_or(DEFAULT_WRITE_BUFFER_MAX_SIZE);
+}
+
+unsigned int Options::getReadBuffersTotalSize() const
+{
+    return get<unsigned int>(
+        {"read-buffers-total-size", "read_buffers_total_size"})
+        .get_value_or(DEFAULT_READ_BUFFERS_TOTAL_SIZE);
+}
+
+unsigned int Options::getWriteBuffersTotalSize() const
+{
+    return get<unsigned int>(
+        {"write-buffers-total-size", "write_buffers_total_size"})
+        .get_value_or(DEFAULT_WRITE_BUFFERS_TOTAL_SIZE);
 }
 
 std::chrono::seconds Options::getWriteBufferFlushDelay() const
