@@ -26,13 +26,12 @@ StreamKey FileRemovedSubscription::streamKey() const
     return StreamKey::FILE_REMOVED;
 }
 
-StreamPtr FileRemovedSubscription::createStream(
-    Manager &manager, SequencerManager &seqManager, Scheduler &scheduler) const
+StreamPtr FileRemovedSubscription::createStream(Manager & /*manager*/,
+    SequencerManager & /*seqManager*/, Scheduler & /*scheduler*/) const
 {
     auto aggregator = std::make_unique<KeyAggregator<FileRemoved>>();
     auto emitter = std::make_unique<CounterEmitter<FileRemoved>>(1);
-    auto handler =
-        std::make_unique<LocalHandler<FileRemoved>>(std::move(m_handler));
+    auto handler = std::make_unique<LocalHandler<FileRemoved>>(m_handler);
 
     return std::make_unique<AsyncStream>(
         std::make_unique<TypedStream<FileRemoved>>(

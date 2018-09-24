@@ -57,7 +57,7 @@ fuse_ino_t InodeCache::lookup(const folly::fbstring &uuid)
     }
 
     const auto inode = m_nextInode++;
-    m_cache.emplace(inode, std::move(uuid));
+    m_cache.emplace(inode, uuid);
 
     LOG_DBG(2) << "Created new inode " << inode << " for file " << uuid;
 
@@ -120,7 +120,7 @@ void InodeCache::forget(const fuse_ino_t inode, const std::size_t count)
     ONE_METRIC_COUNTER_SET("comp.oneclient.mod.inodecache.size", index.size());
 }
 
-void InodeCache::rename(const folly::fbstring &oldUuid, folly::fbstring newUuid)
+void InodeCache::rename(folly::fbstring oldUuid, folly::fbstring newUuid)
 {
     LOG_FCALL() << LOG_FARG(oldUuid) << LOG_FARG(newUuid);
 
@@ -130,7 +130,7 @@ void InodeCache::rename(const folly::fbstring &oldUuid, folly::fbstring newUuid)
         index.modify_key(it, [&](folly::fbstring &key) { key.swap(newUuid); });
 }
 
-void InodeCache::markDeleted(const folly::fbstring &uuid)
+void InodeCache::markDeleted(folly::fbstring uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 

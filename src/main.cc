@@ -53,9 +53,9 @@
 #include <regex>
 #include <string>
 
-using namespace one;
-using namespace one::client;
-using namespace one::monitoring;
+using namespace one;             // NOLINT
+using namespace one::client;     // NOLINT
+using namespace one::monitoring; // NOLINT
 
 void startLogging(
     const char *programName, std::shared_ptr<options::Options> options)
@@ -74,7 +74,9 @@ void startLogging(
     FLAGS_logtostderr = false;
     FLAGS_v = options->getVerboseLogLevel();
     // Set maximum log size to 50MB plus 50MB for each verbosity level
-    FLAGS_max_log_size = 50 * (1 + options->getVerboseLogLevel());
+    constexpr auto kMaximumLogSizeMB = 50;
+    FLAGS_max_log_size =
+        kMaximumLogSizeMB * (1 + options->getVerboseLogLevel());
     FLAGS_minloglevel = 0;
 
     google::InitGoogleLogging(programName);
@@ -209,7 +211,7 @@ std::string generateSessionId()
 {
     std::random_device rd;
     std::default_random_engine randomEngine{rd()};
-    std::uniform_int_distribution<unsigned long long> sessionIdDistribution;
+    std::uniform_int_distribution<uint64_t> sessionIdDistribution;
     return std::to_string(sessionIdDistribution(randomEngine));
 }
 
@@ -332,15 +334,17 @@ std::shared_ptr<communication::Communicator> getCommunicator(
 void unmountFuse(std::shared_ptr<options::Options> options)
 {
     int status = 0, pid = fork();
-    if (pid) {
+    if (pid != 0) {
         waitpid(pid, &status, 0);
     }
     else {
 #if defined(__APPLE__)
         auto exec = "/usr/sbin/diskutil";
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
         execl(exec, exec, "unmount", options->getMountpoint().c_str(), NULL);
 #else
         auto exec = "/bin/fusermount";
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
         execl(exec, exec, "-u", options->getMountpoint().c_str(), NULL);
 #endif
     }
@@ -400,14 +404,17 @@ int main(int argc, char *argv[])
     if (res == -1)
         return EXIT_FAILURE;
 
-    ScopeExit freeMountpoint{[=] { free(mountpoint); }};
+    ScopeExit freeMountpoint{[=] {
+        free(mountpoint); // NOLINT
+    }};
 
     auto ch = fuse_mount(mountpoint, &args);
-    if (!ch)
+    if (ch == nullptr)
         return EXIT_FAILURE;
 
     ScopeExit unmountFuse{[=] { fuse_unmount(mountpoint, ch); }};
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)
     res = fcntl(fuse_chan_fd(ch), F_SETFD, FD_CLOEXEC);
     if (res == -1)
         perror("WARNING: failed to set FD_CLOEXEC on fuse device");
@@ -429,7 +436,7 @@ int main(int argc, char *argv[])
     std::cout << "Oneclient has been successfully mounted in '"
               << options->getMountpoint().c_str() << "'." << std::endl;
 
-    if (!foreground) {
+    if (foreground == 0) {
         context->scheduler()->prepareForDaemonize();
         folly::SingletonVault::singleton()->destroyInstances();
 
@@ -465,7 +472,8 @@ int main(int argc, char *argv[])
         options->getMetadataCacheSize(), options->areFileReadEventsDisabled(),
         options->isFullblockReadForced(), options->getProviderTimeout());
 
-    res = multithreaded ? fuse_session_loop_mt(fuse) : fuse_session_loop(fuse);
+    res = (multithreaded != 0) ? fuse_session_loop_mt(fuse)
+                               : fuse_session_loop(fuse);
 
     return res == -1 ? EXIT_FAILURE : EXIT_SUCCESS;
 }

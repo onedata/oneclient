@@ -89,17 +89,35 @@ public:
     void fileId(std::string fileId);
 
     /**
-     * @return Blocks per storageId/fileId pair.
-     */
-    FileBlocksMap &blocks();
-
-    /**
      * Adds new file block to file location map.
      * @param offset Offset of the block in the file
      * @param size Length of the block
      * @param block File block
      */
     void putBlock(const off_t offset, const size_t size, FileBlock &&block);
+
+    /**
+     * Adds new file block to file location map using icl discrete interval.
+     * @param range Interval for this block
+     * @param block File block
+     */
+    void putBlock(
+        const std::pair<boost::icl::discrete_interval<off_t>, FileBlock>
+            &block);
+
+    /**
+     * Truncates the file location map to a given range.
+     * @param range A discrete interval to which the existing blocks should be
+     * truncated.
+     */
+    void truncate(const boost::icl::discrete_interval<off_t> &range);
+
+    /**
+     * Updates file location blocks only within entire range.
+     * @param blocks File location from which the blocks in the given range
+     *               should replace the current blocks in that range
+     */
+    void update(const FileBlocksMap &blocks);
 
     /**
      * Updates file location blocks only within a specified range using blocks
@@ -152,6 +170,13 @@ public:
     double replicationProgress(const size_t fileSize) const;
 
     /**
+     * Evaluates whether entire block range for the given file is available in
+     * the file location map.
+     * @param fileSize The current size of the file from the metadata
+     */
+    bool isReplicationComplete(const size_t fileSize) const;
+
+    /**
      * Calculates the number of different blocks in a given range
      * @param start The start offset of the requested range (inclusive)
      * @param end The end offset of the range  (noninclusive)
@@ -181,6 +206,7 @@ public:
 
 private:
     void deserialize(const ProtocolMessage &message);
+    void invalidateCachedValues();
 
     std::string m_uuid;
     std::string m_spaceId;
@@ -188,6 +214,12 @@ private:
     std::string m_fileId;
     FileBlocksMap m_blocks;
     std::uint64_t m_version;
+
+    mutable bool m_replicationProgressCachedValid;
+    mutable double m_replicationProgressCachedValue;
+
+    mutable bool m_progressStringCachedValid;
+    mutable std::string m_progressStringCachedValue;
 };
 
 } // namespace fuse

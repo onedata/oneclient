@@ -20,6 +20,31 @@ using namespace one::messages::fuse;
 struct FuseFileLocationMessagesTest : public ::testing::Test {
 };
 
+TEST_F(FuseFileLocationMessagesTest, truncateShouldWork)
+{
+    auto fileLocation = FileLocation{};
+
+    // Truncate empty file location should not change it
+    fileLocation.truncate(
+        boost::icl::discrete_interval<off_t>::right_open(0, 1024));
+
+    EXPECT_EQ(fileLocation.blocksLengthInRange(0, 5000), 0);
+
+    fileLocation.putBlock(0, 1024, FileBlock{"", ""});
+
+    // Truncate file with single block to smaller size
+    fileLocation.truncate(
+        boost::icl::discrete_interval<off_t>::right_open(0, 512));
+
+    EXPECT_EQ(fileLocation.blocksLengthInRange(0, 5000), 512);
+
+    // Truncate file with single block to larger size
+    fileLocation.truncate(
+        boost::icl::discrete_interval<off_t>::right_open(0, 1024));
+
+    EXPECT_EQ(fileLocation.blocksLengthInRange(0, 5000), 512);
+};
+
 TEST_F(FuseFileLocationMessagesTest, replicationProgressShouldWork)
 {
     auto fileLocation = FileLocation{};
@@ -290,4 +315,30 @@ TEST_F(
     fileLocation = FileLocation{};
     fileLocation.putBlock(0, 100, FileBlock{"", ""});
     EXPECT_EQ(fileLocation.replicationProgress(50), 1.0);
+}
+
+TEST_F(FuseFileLocationMessagesTest, isReplicationCompletedReportProperValues)
+{
+    auto fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 1, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.isReplicationComplete(100), false);
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 512, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.isReplicationComplete(1024), false);
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 100, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.isReplicationComplete(0), true);
+
+    fileLocation = FileLocation{};
+    EXPECT_EQ(fileLocation.isReplicationComplete(1024), false);
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 100, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.isReplicationComplete(100), true);
+
+    fileLocation = FileLocation{};
+    fileLocation.putBlock(0, 100, FileBlock{"", ""});
+    EXPECT_EQ(fileLocation.isReplicationComplete(50), true);
 }

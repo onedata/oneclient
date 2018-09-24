@@ -17,13 +17,13 @@
 
 #include <folly/io/IOBuf.h>
 
-#include <errno.h>
 #ifdef __APPLE__
 #include <sys/mount.h>
 #else
 #include <mntent.h>
 #endif
 
+#include <cerrno>
 #include <random>
 #include <vector>
 
@@ -87,11 +87,11 @@ std::vector<boost::filesystem::path> getMountPoints()
     while ((ent = getmntent(file)) != nullptr) {
         std::string type(ent->mnt_type);
         std::string path(ent->mnt_dir);
-        if (type.compare(0, 4, "fuse") != 0 &&
-            path.compare(0, 5, "/proc") != 0 &&
-            path.compare(0, 4, "/dev") != 0 &&
-            path.compare(0, 4, "/sys") != 0 &&
-            path.compare(0, 4, "/etc") != 0 && path != "/") {
+        if (type.compare(0, strlen("fuse"), "fuse") != 0 &&
+            path.compare(0, strlen("/proc"), "/proc") != 0 &&
+            path.compare(0, strlen("/dev"), "/dev") != 0 &&
+            path.compare(0, strlen("/sys"), "/sys") != 0 &&
+            path.compare(0, strlen("/etc"), "/etc") != 0 && path != "/") {
             mountPoints.emplace_back(ent->mnt_dir);
         }
     }
@@ -102,7 +102,7 @@ std::vector<boost::filesystem::path> getMountPoints()
 }
 
 #endif
-}
+} // namespace
 
 StorageAccessManager::StorageAccessManager(
     helpers::StorageHelperCreator &helperFactory,

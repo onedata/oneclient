@@ -16,19 +16,32 @@ namespace one {
 namespace client {
 namespace fslogic {
 
+constexpr auto FSLOGIC_RECENT_PREFETCH_CACHE_SIZE = 1000u;
+constexpr auto FSLOGIC_RECENT_PREFETCH_CACHE_PRUNE_SIZE = 50u;
+
 FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
     std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,
     cache::HelpersCache &helpersCache,
     cache::ForceProxyIOCache &forceProxyIOCache,
-    const std::chrono::seconds providerTimeout)
+    const std::chrono::seconds providerTimeout,
+    const unsigned int prefetchCalculateSkipReads,
+    const unsigned int prefetchCalculateAfterSeconds)
     : m_flags{flags_}
     , m_handleId{std::move(handleId)}
     , m_openFileToken{std::move(openFileToken)}
     , m_helpersCache{helpersCache}
     , m_forceProxyIOCache{forceProxyIOCache}
-    , m_providerTimeout{std::move(providerTimeout)}
+    , m_providerTimeout{providerTimeout}
     , m_fullPrefetchTriggered{false}
-    , m_recentPrefetchOffsets{folly::EvictingCacheMap<off_t, bool>(1000, 50)}
+    , m_tagOnCreateSet{false}
+    , m_tagOnModifySet{false}
+    , m_recentPrefetchOffsets{folly::EvictingCacheMap<off_t, bool>(
+          FSLOGIC_RECENT_PREFETCH_CACHE_SIZE,
+          FSLOGIC_RECENT_PREFETCH_CACHE_PRUNE_SIZE)}
+    , m_prefetchCalculateSkipReads{prefetchCalculateSkipReads}
+    , m_prefetchCalculateAfterSeconds{prefetchCalculateAfterSeconds}
+    , m_readsSinceLastPrefetchCalculation{0}
+    , m_timeOfLastPrefetchCalculation{std::chrono::system_clock::now()}
 {
 }
 
@@ -51,7 +64,7 @@ helpers::FileHandlePtr FuseFileHandle::getHelperHandle(
     if (!helper) {
         LOG(ERROR) << "Could not create storage helper for file " << uuid
                    << " on storage " << storageId;
-        throw std::errc::resource_unavailable_try_again;
+        throw std::errc::resource_unavailable_try_again; // NOLINT
     }
 
     const auto filteredFlags = m_flags & (~O_CREAT) & (~O_APPEND);
@@ -111,6 +124,21 @@ void FuseFileHandle::addPrefetchAt(off_t offset)
 {
     return m_recentPrefetchOffsets.withWLock(
         [&](auto &cache) { return cache.set(offset, true); });
+}
+
+bool FuseFileHandle::shouldCalculatePrefetch()
+{
+    if (m_readsSinceLastPrefetchCalculation > m_prefetchCalculateSkipReads ||
+        std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now() - m_timeOfLastPrefetchCalculation)
+                .count() > m_prefetchCalculateAfterSeconds) {
+        m_readsSinceLastPrefetchCalculation = 0;
+        m_timeOfLastPrefetchCalculation = std::chrono::system_clock::now();
+        return true;
+    }
+
+    m_readsSinceLastPrefetchCalculation++;
+    return false;
 }
 
 } // namespace fslogic

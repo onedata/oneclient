@@ -65,8 +65,8 @@ void OptionsParser::parseEnvironment(std::vector<std::string> &deprecated,
 
                 boost::algorithm::to_lower(envCopy);
 
-                if (desc.find_nothrow(envCopy, false) &&
-                    (!vm.count(envCopy) || vm.at(envCopy).defaulted())) {
+                if ((desc.find_nothrow(envCopy, false) != nullptr) &&
+                    (vm.count(envCopy) == 0u || vm.at(envCopy).defaulted())) {
                     if (!prefixed) {
                         deprecated.push_back(env);
                     }

@@ -51,7 +51,9 @@ public:
         std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,
         cache::HelpersCache &helpersCache,
         cache::ForceProxyIOCache &forceProxyIOCache,
-        std::chrono::seconds providerTimeout);
+        std::chrono::seconds providerTimeout,
+        const unsigned int prefetchCalculateSkipReads = 0,
+        const unsigned int prefetchCalculateAfterSeconds = 1);
 
     /**
      * Retrieves a helper handle for an open file.
@@ -96,6 +98,12 @@ public:
         m_lastPrefetch = p;
     }
 
+    /**
+     * Decides whether a prefetch calculation should be performed. Allows to
+     * optimize costly prefetch calculation not to be performed on every read
+     */
+    bool shouldCalculatePrefetch();
+
     boost::icl::discrete_interval<off_t> lastPrefetch() const
     {
         return m_lastPrefetch;
@@ -108,6 +116,14 @@ public:
     bool prefetchAlreadyRequestedAt(off_t offset) const;
 
     void addPrefetchAt(off_t offset);
+
+    void setOnCreateTag() { m_tagOnCreateSet = true; }
+
+    bool isOnCreateTagSet() { return m_tagOnCreateSet; }
+
+    void setOnModifyTag() { m_tagOnModifySet = true; }
+
+    bool isOnModifyTagSet() { return m_tagOnModifySet; }
 
 private:
     std::unordered_map<folly::fbstring, folly::fbstring> makeParameters(
@@ -125,8 +141,21 @@ private:
     boost::icl::discrete_interval<off_t> m_lastPrefetch;
     std::atomic<bool> m_fullPrefetchTriggered;
 
+    // Checks if the file already has the created xattr tag set
+    std::atomic<bool> m_tagOnCreateSet;
+    // Checks if the file already has the modified xattr tag set
+    std::atomic<bool> m_tagOnModifySet;
+
     folly::Synchronized<folly::EvictingCacheMap<off_t, bool>>
         m_recentPrefetchOffsets;
+
+    const unsigned int m_prefetchCalculateSkipReads;
+    const unsigned int m_prefetchCalculateAfterSeconds;
+
+    // Tracks the number of reads since last prefetch calculation was performed
+    unsigned int m_readsSinceLastPrefetchCalculation;
+    // Keeps the time of the last prefetch calculation
+    std::chrono::system_clock::time_point m_timeOfLastPrefetchCalculation;
 };
 
 } // namespace fslogic

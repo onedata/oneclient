@@ -26,13 +26,12 @@ StreamKey FilePermChangedSubscription::streamKey() const
     return StreamKey::FILE_PERM_CHANGED;
 }
 
-StreamPtr FilePermChangedSubscription::createStream(
-    Manager &manager, SequencerManager &seqManager, Scheduler &scheduler) const
+StreamPtr FilePermChangedSubscription::createStream(Manager & /*manager*/,
+    SequencerManager & /*seqManager*/, Scheduler & /*scheduler*/) const
 {
     auto aggregator = std::make_unique<KeyAggregator<FilePermChanged>>();
     auto emitter = std::make_unique<CounterEmitter<FilePermChanged>>(1);
-    auto handler =
-        std::make_unique<LocalHandler<FilePermChanged>>(std::move(m_handler));
+    auto handler = std::make_unique<LocalHandler<FilePermChanged>>(m_handler);
 
     return std::make_unique<AsyncStream>(
         std::make_unique<TypedStream<FilePermChanged>>(

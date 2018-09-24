@@ -51,8 +51,6 @@ void FsSubscriptions::subscribeFileAttrChanged(const folly::fbstring &fileUuid)
 void FsSubscriptions::handleFileAttrChanged(
     events::Events<events::FileAttrChanged> events)
 {
-    using namespace messages::fuse;
-
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.received.file_attr_changed");
     m_runInFiber([ this, events = std::move(events) ] {
@@ -97,8 +95,6 @@ void FsSubscriptions::subscribeFileLocationChanged(
 void FsSubscriptions::handleFileLocationChanged(
     events::Events<events::FileLocationChanged> events)
 {
-    using namespace messages::fuse;
-
     ONE_METRIC_COUNTER_INC(
         "comp.oneclient.mod.events.submod.received.file_location_changed");
     m_runInFiber([ this, events = std::move(events) ] {

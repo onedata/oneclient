@@ -40,7 +40,7 @@ public:
     DirCacheEntry(std::chrono::milliseconds cacheValidityPeriod);
     ~DirCacheEntry() = default;
     DirCacheEntry(const DirCacheEntry &e);
-    DirCacheEntry(DirCacheEntry &&e);
+    DirCacheEntry(DirCacheEntry &&e) noexcept;
 
     /**
      * Add directory entry to cache.
@@ -135,8 +135,9 @@ public:
      * @param metadataCache Reference to the metadata cache.
      * @param context Pointer to @c Context to access options and scheduler.
      */
-    ReaddirCache(
-        LRUMetadataCache &metadataCache, std::weak_ptr<Context> context);
+    ReaddirCache(LRUMetadataCache &metadataCache,
+        std::weak_ptr<Context> context,
+        std::function<void(folly::Function<void()>)> runInFiber);
 
     /**
      * Destructor
@@ -238,6 +239,11 @@ private:
      */
     const std::chrono::milliseconds m_cacheValidityPeriod =
         READDIR_CACHE_VALIDITY_DURATION;
+
+    /**
+     * Executor enabling to schedule tasks on fslogic fiber
+     */
+    std::function<void(folly::Function<void()>)> m_runInFiber;
 };
 }
 }

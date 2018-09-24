@@ -26,13 +26,12 @@ StreamKey FileRenamedSubscription::streamKey() const
     return StreamKey::FILE_RENAMED;
 }
 
-StreamPtr FileRenamedSubscription::createStream(
-    Manager &manager, SequencerManager &seqManager, Scheduler &scheduler) const
+StreamPtr FileRenamedSubscription::createStream(Manager & /*manager*/,
+    SequencerManager & /*seqManager*/, Scheduler & /*scheduler*/) const
 {
     auto aggregator = std::make_unique<KeyAggregator<FileRenamed>>();
     auto emitter = std::make_unique<CounterEmitter<FileRenamed>>(1);
-    auto handler =
-        std::make_unique<LocalHandler<FileRenamed>>(std::move(m_handler));
+    auto handler = std::make_unique<LocalHandler<FileRenamed>>(m_handler);
 
     return std::make_unique<AsyncStream>(
         std::make_unique<TypedStream<FileRenamed>>(

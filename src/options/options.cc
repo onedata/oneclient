@@ -279,7 +279,31 @@ Options::Options()
             std::to_string(DEFAULT_WRITE_BUFFER_MAX_SIZE))
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Specify maximum size in bytes of in-memory cache for "
-                         "output data blocks.");
+                         "output data blocks of a single opened file handle.");
+
+    add<unsigned int>()
+        ->withLongName("read-buffers-total-size")
+        .withConfigName("read_buffers_total_size")
+        .withValueName("<size>")
+        .withDefaultValue(DEFAULT_READ_BUFFERS_TOTAL_SIZE,
+            std::to_string(DEFAULT_READ_BUFFERS_TOTAL_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Specify total maximum size in bytes of in-memory cache for "
+            "input data blocks of all opened file handles. When 0, read "
+            "buffers are unlimited.");
+
+    add<unsigned int>()
+        ->withLongName("write-buffers-total-size")
+        .withConfigName("write_buffers_total_size")
+        .withValueName("<size>")
+        .withDefaultValue(DEFAULT_WRITE_BUFFERS_TOTAL_SIZE,
+            std::to_string(DEFAULT_WRITE_BUFFERS_TOTAL_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Specify total maximum size in bytes of in-memory cache for "
+            "output data blocks of all opened file handles. When 0, write "
+            "buffers are unlimited.");
 
     add<unsigned int>()
         ->withLongName("write-buffer-flush-delay")
@@ -311,6 +335,18 @@ Options::Options()
                          "replication prefetch after that part of the file is "
                          "already replicated in random blocks across entire "
                          "file (experimental).");
+
+    add<unsigned int>()
+        ->withLongName("rndrd-prefetch-eval-frequency")
+        .withConfigName("rndrd_prefetch_eval_frequency")
+        .withValueName("<count>")
+        .withDefaultValue(DEFAULT_PREFETCH_EVALUATE_FREQUENCY,
+            std::to_string(DEFAULT_PREFETCH_EVALUATE_FREQUENCY))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Number of reads from single file handle which will "
+                         "be skipped before next evaluation of cluster "
+                         "prefetch. 0 means that prefetch evaluation will be "
+                         "performed on each read. (experimental).");
 
     add<unsigned int>()
         ->withLongName("rndrd-prefetch-block-threshold")
@@ -396,6 +432,24 @@ Options::Options()
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Specify the size of requests made during readdir "
                          "prefetch (in number of dir entries).");
+
+    add<std::string>()
+        ->withEnvName("tag_on_create")
+        .withLongName("tag-on-create")
+        .withConfigName("tag_on_create")
+        .withValueName("<name>:<value>")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Adds <name>=<value> extended attribute to each "
+                         "locally created file.");
+
+    add<std::string>()
+        ->withEnvName("tag_on_modify")
+        .withLongName("tag-on-modify")
+        .withConfigName("tag_on_modify")
+        .withValueName("<name>:<value>")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Adds <name>=<value> extended attribute to each "
+                         "locally modified file.");
 
     add<bool>()
         ->asSwitch()
@@ -483,7 +537,8 @@ Options::Options()
         .withLongName("monitoring-period")
         .withConfigName("monitoring_period")
         .withValueName("<seconds>")
-        .withDefaultValue(30, std::to_string(30))
+        .withDefaultValue(DEFAULT_MONITORING_PERIOD_SECONDS,
+            std::to_string(DEFAULT_MONITORING_PERIOD_SECONDS))
         .withGroup(OptionGroup::MONITORING)
         .withDescription("Performance metrics reporting period.");
 
@@ -781,6 +836,20 @@ unsigned int Options::getWriteBufferMaxSize() const
         .get_value_or(DEFAULT_WRITE_BUFFER_MAX_SIZE);
 }
 
+unsigned int Options::getReadBuffersTotalSize() const
+{
+    return get<unsigned int>(
+        {"read-buffers-total-size", "read_buffers_total_size"})
+        .get_value_or(DEFAULT_READ_BUFFERS_TOTAL_SIZE);
+}
+
+unsigned int Options::getWriteBuffersTotalSize() const
+{
+    return get<unsigned int>(
+        {"write-buffers-total-size", "write_buffers_total_size"})
+        .get_value_or(DEFAULT_WRITE_BUFFERS_TOTAL_SIZE);
+}
+
 std::chrono::seconds Options::getWriteBufferFlushDelay() const
 {
     return std::chrono::seconds{
@@ -805,6 +874,13 @@ std::string Options::getPrefetchMode() const
 {
     return get<std::string>({"prefetch-mode", "prefetch_mode"})
         .get_value_or("async");
+}
+
+unsigned int Options::getRandomReadPrefetchEvaluationFrequency() const
+{
+    return get<unsigned int>(
+        {"rndrd-prefetch-eval-frequency", "rndrd-prefetch-eval-frequency"})
+        .get_value_or(DEFAULT_PREFETCH_EVALUATE_FREQUENCY);
 }
 
 bool Options::isClusterPrefetchThresholdRandom() const
@@ -854,6 +930,20 @@ unsigned int Options::getReaddirPrefetchSize() const
         .get_value_or(DEFAULT_READDIR_PREFETCH_SIZE);
 }
 
+boost::optional<std::pair<std::string, std::string>>
+Options::getOnModifyTag() const
+{
+    return get<std::pair<std::string, std::string>>(
+        {"tag-on-modify", "tag_on_modify"});
+}
+
+boost::optional<std::pair<std::string, std::string>>
+Options::getOnCreateTag() const
+{
+    return get<std::pair<std::string, std::string>>(
+        {"tag-on-create", "tag_on_create"});
+}
+
 bool Options::isMonitoringEnabled() const
 {
     return get<std::string>({"monitoring-type", "monitoring_type"})
@@ -893,7 +983,7 @@ Options::getMonitoringGraphiteNamespacePrefix() const
 unsigned int Options::getMonitoringReportingPeriod() const
 {
     return get<unsigned int>({"monitoring-period", "monitoring_period"})
-        .get_value_or(30);
+        .get_value_or(DEFAULT_MONITORING_PERIOD_SECONDS);
 }
 
 boost::filesystem::path Options::getMountpoint() const

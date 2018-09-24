@@ -9,6 +9,9 @@
 #ifndef ONECLIENT_OPTIONS_H
 #define ONECLIENT_OPTIONS_H
 
+#include "logging.h"
+
+#include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
 #include <boost/program_options.hpp>
@@ -32,16 +35,25 @@ static constexpr auto DEFAULT_SCHEDULER_THREAD_COUNT = 1;
 static constexpr auto DEFAULT_STORAGE_HELPER_THREAD_COUNT = 10;
 static constexpr auto DEFAULT_READ_BUFFER_MIN_SIZE = 4 * 1024;
 static constexpr auto DEFAULT_READ_BUFFER_MAX_SIZE = 100 * 1024 * 1024;
+static constexpr auto DEFAULT_READ_BUFFERS_TOTAL_SIZE =
+    20 * DEFAULT_READ_BUFFER_MAX_SIZE;
 static constexpr auto DEFAULT_READ_BUFFER_PREFETCH_DURATION = 1;
 static constexpr auto DEFAULT_WRITE_BUFFER_MIN_SIZE = 20 * 1024 * 1024;
 static constexpr auto DEFAULT_WRITE_BUFFER_MAX_SIZE = 50 * 1024 * 1024;
+static constexpr auto DEFAULT_WRITE_BUFFERS_TOTAL_SIZE =
+    20 * DEFAULT_WRITE_BUFFER_MAX_SIZE;
 static constexpr auto DEFAULT_WRITE_BUFFER_FLUSH_DELAY = 5;
 static constexpr auto DEFAULT_PREFETCH_MODE = "async";
+static constexpr auto DEFAULT_PREFETCH_EVALUATE_FREQUENCY = 50;
+static constexpr double DEFAULT_PREFETCH_POWER_BASE = 1.3;
+static constexpr auto DEFAULT_PREFETCH_TARGET_LATENCY =
+    std::chrono::nanoseconds{1000}; // NOLINT
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE = 0;
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD = 5;
 static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 100000;
 static constexpr auto DEFAULT_READDIR_PREFETCH_SIZE = 2500;
 static constexpr auto DEFAULT_PROVIDER_TIMEOUT = 2 * 60;
+static constexpr auto DEFAULT_MONITORING_PERIOD_SECONDS = 30;
 }
 
 class Option;
@@ -60,7 +72,7 @@ public:
      */
     Options();
 
-    ~Options() = default;
+    virtual ~Options() = default;
 
     /*
      * Parses options from command line, environment and configuration file.
@@ -244,6 +256,18 @@ public:
     unsigned int getWriteBufferMaxSize() const;
 
     /*
+     * @return Total possible memory size for read buffers (sum of all buffer
+     * maximum sizes).
+     */
+    unsigned int getReadBuffersTotalSize() const;
+
+    /*
+     * @return Total possible memory size for write buffers (sum of all buffer
+     * maximum sizes).
+     */
+    unsigned int getWriteBuffersTotalSize() const;
+
+    /*
      * @return Idle period in seconds before flush of in-memory cache for
      * output data blocks.
      */
@@ -258,6 +282,12 @@ public:
      * @return The random read prefetch threshold trigger in (0.0-1.0]
      */
     double getRandomReadPrefetchThreshold() const;
+
+    /*
+     * @return The random read prefetch calculation will be performed on every N
+     * reads.
+     */
+    unsigned int getRandomReadPrefetchEvaluationFrequency() const;
 
     /*
      * @return Get prefetch mode sync or async.
@@ -300,6 +330,16 @@ public:
      * @return Set readdir cache prefetch size.
      */
     unsigned int getReaddirPrefetchSize() const;
+
+    /*
+     * @return Get xattr on-modify tag.
+     */
+    boost::optional<std::pair<std::string, std::string>> getOnModifyTag() const;
+
+    /*
+     * @return Get xattr on-create tag.
+     */
+    boost::optional<std::pair<std::string, std::string>> getOnCreateTag() const;
 
     /*
      * @return Is monitoring enabled.
@@ -374,6 +414,22 @@ private:
         return {};
     }
 
+    boost::optional<std::pair<std::string, std::string>> parseKeyValuePair(
+        const std::string &val) const
+    {
+        std::vector<std::string> keyValue;
+        boost::split(keyValue, val, boost::is_any_of(":"));
+
+        if (keyValue.size() != 2) {
+            LOG(ERROR) << "Key-value arguments must have values in the form "
+                          "<name>:<value>";
+            return {};
+        }
+
+        return {std::make_pair<std::string, std::string>(
+            std::move(keyValue[0]), std::move(keyValue[1]))};
+    }
+
     void selectCommandLine(boost::program_options::options_description &desc,
         const OptionGroup &group) const;
 
@@ -386,6 +442,22 @@ private:
     std::vector<std::string> m_deprecatedEnvs;
     std::vector<std::shared_ptr<Option>> m_options;
 };
+
+template <>
+inline boost::optional<std::pair<std::string, std::string>>
+Options::get<std::pair<std::string, std::string>>(
+    const std::vector<std::string> &names) const
+{
+    for (const auto &name : names) {
+        if (m_vm.count(name) && !m_vm.at(name).defaulted()) {
+            return parseKeyValuePair(m_vm.at(name).as<std::string>());
+        }
+    }
+    if (!names.empty() && m_vm.count(names[0])) {
+        return parseKeyValuePair(m_vm.at(names[0]).as<std::string>());
+    }
+    return {};
+}
 
 } // namespace options
 } // namespace client

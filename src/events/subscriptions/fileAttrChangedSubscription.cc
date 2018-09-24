@@ -19,7 +19,7 @@ FileAttrChangedSubscription::FileAttrChangedSubscription(std::string fileUuid,
     std::chrono::milliseconds remoteThreshold,
     EventHandler<FileAttrChanged> handler)
     : m_fileUuid{std::move(fileUuid)}
-    , m_remoteThreshold{std::move(remoteThreshold)}
+    , m_remoteThreshold{remoteThreshold}
     , m_handler{std::move(handler)}
 {
 }
@@ -29,14 +29,13 @@ StreamKey FileAttrChangedSubscription::streamKey() const
     return StreamKey::FILE_ATTR_CHANGED;
 }
 
-StreamPtr FileAttrChangedSubscription::createStream(
-    Manager &manager, SequencerManager &seqManager, Scheduler &scheduler) const
+StreamPtr FileAttrChangedSubscription::createStream(Manager &manager,
+    SequencerManager & /*seqManager*/, Scheduler &scheduler) const
 {
     auto aggregator = std::make_unique<KeyAggregator<FileAttrChanged>>();
     auto emitter = std::make_unique<TimedEmitter<FileAttrChanged>>(
         streamKey(), DEFAULT_TIMED_EMITTER_THRESHOLD, manager, scheduler);
-    auto handler =
-        std::make_unique<LocalHandler<FileAttrChanged>>(std::move(m_handler));
+    auto handler = std::make_unique<LocalHandler<FileAttrChanged>>(m_handler);
 
     return std::make_unique<AsyncStream>(
         std::make_unique<TypedStream<FileAttrChanged>>(

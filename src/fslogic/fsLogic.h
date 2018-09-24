@@ -182,13 +182,13 @@ public:
      * FUSE @c flush callback.
      * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
      */
-    void flush(const folly::fbstring &uuid, const std::uint64_t handle);
+    void flush(const folly::fbstring &uuid, const std::uint64_t fileHandleId);
 
     /**
      * FUSE @c fsync callback.
      * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
      */
-    void fsync(const folly::fbstring &uuid, const std::uint64_t handle,
+    void fsync(const folly::fbstring &uuid, const std::uint64_t fileHandleId,
         const bool dataOnly);
 
     /**
@@ -318,9 +318,12 @@ private:
     const unsigned int m_randomReadPrefetchBlockThreshold;
     const int m_randomReadPrefetchClusterWindow;
     const unsigned int m_randomReadPrefetchClusterBlockThreshold;
+    const unsigned int m_randomReadPrefetchEvaluationFrequency;
     const double m_randomReadPrefetchClusterWindowGrowFactor;
     const bool m_clusterPrefetchThresholdRandom;
     const bool m_ioTraceLoggerEnabled;
+    const boost::optional<std::pair<std::string, std::string>> m_tagOnCreate;
+    const boost::optional<std::pair<std::string, std::string>> m_tagOnModify;
 
     std::shared_ptr<IOTraceLogger> m_ioTraceLogger;
 
@@ -328,7 +331,6 @@ private:
     std::mt19937 m_clusterPrefetchRandomGenerator{m_clusterPrefetchRD()};
     std::uniform_int_distribution<> m_clusterPrefetchDistribution;
 };
-
 } // namespace fslogic
 } // namespace client
 } // namespace one

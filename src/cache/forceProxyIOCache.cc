@@ -17,10 +17,7 @@ namespace cache {
 bool ForceProxyIOCache::contains(const folly::fbstring &fileUuid)
 {
     ConstCacheAcc acc;
-    if (m_cache.find(acc, fileUuid)) {
-        return true;
-    }
-    return false;
+    return m_cache.find(acc, fileUuid);
 }
 
 void ForceProxyIOCache::add(const folly::fbstring &fileUuid)

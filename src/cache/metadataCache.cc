@@ -35,7 +35,7 @@ namespace cache {
 MetadataCache::MetadataCache(communication::Communicator &communicator,
     const std::chrono::seconds providerTimeout)
     : m_communicator{communicator}
-    , m_providerTimeout{std::move(providerTimeout)}
+    , m_providerTimeout{providerTimeout}
 {
 }
 
@@ -74,8 +74,7 @@ FileAttrPtr MetadataCache::getAttr(
     LOG_DBG(2) << "Metadata attr for file " << name << " in directory "
                << parentUuid << " not found in cache - retrieving from server";
 
-    auto fetchedIt = fetchAttr(
-        messages::fuse::GetChildAttr{std::move(parentUuid), std::move(name)});
+    auto fetchedIt = fetchAttr(messages::fuse::GetChildAttr{parentUuid, name});
 
     LOG_DBG(2) << "Got metadata attr for file " << name << " in directory "
                << parentUuid << " from server";
@@ -126,7 +125,8 @@ void MetadataCache::addBlock(const folly::fbstring &uuid,
     auto newBlock = std::make_pair(range, std::move(fileBlock));
 
     assert(it->location);
-    it->location->blocks() += newBlock;
+
+    it->location->putBlock(newBlock);
 
     LOG_DBG(2) << "Updated file " << uuid
                << " location range with new block: " << range;
@@ -151,7 +151,7 @@ MetadataCache::Map::iterator MetadataCache::fetchAttr(ReqMsg &&msg)
     if (!attr.size()) {
         LOG(ERROR)
             << "Received invalid message from server when fetching attribute.";
-        throw std::errc::protocol_error;
+        throw std::errc::protocol_error; // NOLINT
     }
 
     auto sharedAttr = std::make_shared<FileAttr>(std::move(attr));
@@ -250,7 +250,7 @@ const std::string &MetadataCache::getSpaceId(const folly::fbstring &uuid)
     return location->spaceId();
 }
 
-void MetadataCache::ensureAttrAndLocationCached(const folly::fbstring &uuid)
+void MetadataCache::ensureAttrAndLocationCached(folly::fbstring uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -258,7 +258,7 @@ void MetadataCache::ensureAttrAndLocationCached(const folly::fbstring &uuid)
     getLocationPtr(it);
 }
 
-void MetadataCache::erase(const folly::fbstring &uuid)
+void MetadataCache::erase(folly::fbstring uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -268,8 +268,7 @@ void MetadataCache::erase(const folly::fbstring &uuid)
         "comp.oneclient.mod.metadatacache.size", index.size());
 }
 
-void MetadataCache::truncate(
-    const folly::fbstring &uuid, const std::size_t newSize)
+void MetadataCache::truncate(folly::fbstring uuid, const std::size_t newSize)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newSize);
 
@@ -284,13 +283,13 @@ void MetadataCache::truncate(
     index.modify(it, [&](Metadata &m) {
         m.attr->size(newSize);
         if (m.location)
-            m.location->blocks() &=
-                boost::icl::discrete_interval<off_t>::right_open(0, newSize);
+            m.location->truncate(
+                boost::icl::discrete_interval<off_t>::right_open(0, newSize));
     });
 }
 
 void MetadataCache::updateTimes(
-    const folly::fbstring &uuid, const messages::fuse::UpdateTimes &updateTimes)
+    folly::fbstring uuid, const messages::fuse::UpdateTimes &updateTimes)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(updateTimes.toString());
     auto &index = boost::multi_index::get<ByUuid>(m_cache);
@@ -323,8 +322,7 @@ void MetadataCache::updateTimes(
     });
 }
 
-void MetadataCache::changeMode(
-    const folly::fbstring &uuid, const mode_t newMode)
+void MetadataCache::changeMode(folly::fbstring uuid, const mode_t newMode)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARGO(newMode);
 
@@ -348,7 +346,7 @@ void MetadataCache::putLocation(std::unique_ptr<FileLocation> location)
         it, [&](Metadata &m) mutable { m.location = {std::move(location)}; });
 }
 
-bool MetadataCache::markDeleted(const folly::fbstring &uuid)
+bool MetadataCache::markDeleted(folly::fbstring uuid)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -368,20 +366,22 @@ void MetadataCache::markDeletedIt(const Map::iterator &it)
 {
     LOG_FCALL() << LOG_FARG(it->attr->uuid());
 
+    auto uuid = it->attr->uuid();
+    auto parentUuid = it->attr->parentUuid();
+
     m_cache.modify(it, [&](Metadata &m) {
         m.attr->setParentUuid("");
         m.deleted = true;
     });
 
-    if (it->attr->parentUuid())
+    if (parentUuid)
         m_readdirCache->invalidate(*(it->attr->parentUuid()));
 
-    m_onMarkDeleted(it->attr->uuid());
+    m_onMarkDeleted(uuid);
 }
 
-bool MetadataCache::rename(const folly::fbstring &uuid,
-    const folly::fbstring &newParentUuid, const folly::fbstring &newName,
-    const folly::fbstring &newUuid)
+bool MetadataCache::rename(folly::fbstring uuid, folly::fbstring newParentUuid,
+    folly::fbstring newName, folly::fbstring newUuid)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newParentUuid)
                 << LOG_FARG(newName) << LOG_FARG(newUuid);
@@ -402,7 +402,7 @@ bool MetadataCache::rename(const folly::fbstring &uuid,
         return false;
     }
 
-    if (uuid != newUuid && index.count(newUuid)) {
+    if (uuid != newUuid && (index.count(newUuid) > 0)) {
         LOG(WARNING) << "The rename target '" << newUuid
                      << "' is already cached";
 
@@ -447,9 +447,9 @@ bool MetadataCache::updateAttr(const FileAttr &newAttr)
                           "for uuid: '"
                        << newAttr.uuid() << "'";
 
-            m.location->blocks() &=
+            m.location->truncate(
                 boost::icl::discrete_interval<off_t>::right_open(
-                    0, *newAttr.size());
+                    0, *newAttr.size()));
         }
 
         m.attr->atime(std::max(m.attr->atime(), newAttr.atime()));
@@ -511,7 +511,7 @@ bool MetadataCache::updateLocation(const FileLocation &newLocation)
     it->location->version(newLocation.version());
     it->location->storageId(newLocation.storageId());
     it->location->fileId(newLocation.fileId());
-    it->location->blocks() = newLocation.blocks();
+    it->location->update(newLocation.blocks());
 
     LOG_DBG(2) << "Updated file location for file " << newLocation.uuid();
 
@@ -542,5 +542,5 @@ auto MetadataCache::ParentUuidExtractor::operator()(const Metadata &m) const
 }
 
 } // namespace cache
-} // namespace one
 } // namespace client
+} // namespace one

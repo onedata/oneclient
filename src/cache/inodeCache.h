@@ -64,7 +64,7 @@ public:
      * @param oldUuid Uuid to rename from.
      * @param newUuid Uuid to rename to.
      */
-    void rename(const folly::fbstring &oldUuid, folly::fbstring newUuid);
+    void rename(folly::fbstring oldUuid, folly::fbstring newUuid);
 
     /**
      * Marks uuid as deleted.
@@ -72,7 +72,7 @@ public:
      * 0.
      * @param uuid The uuid to mark as deleted.
      */
-    void markDeleted(const folly::fbstring &uuid);
+    void markDeleted(folly::fbstring uuid);
 
 private:
     void prune();

@@ -171,22 +171,21 @@ public:
      * @copydoc MetadataCache::rename(const folly::fbstring &, const
      * folly::fbstring &, const folly::fbstring &, const folly::fbstring &)
      */
-    bool rename(const folly::fbstring &uuid,
-        const folly::fbstring &newParentUuid, const folly::fbstring &newName,
-        const folly::fbstring &newUuid);
+    bool rename(folly::fbstring uuid, folly::fbstring newParentUuid,
+        folly::fbstring newName, folly::fbstring newUuid);
 
     /**
      * @copydoc MetadataCache::truncate(const folly::fbstring &, const
      * std::size_t)
      */
-    void truncate(const folly::fbstring &uuid, const std::size_t newSize);
+    void truncate(folly::fbstring uuid, const std::size_t newSize);
 
     /**
      * @copydoc MetadataCache::updateTimes(const folly::fbstring &, const
      * messages::fuse::UpdateTimes &)
      */
-    void updateTimes(const folly::fbstring &uuid,
-        const messages::fuse::UpdateTimes &updateTimes);
+    void updateTimes(
+        folly::fbstring uuid, const messages::fuse::UpdateTimes &updateTimes);
 
     /**
      * @copydoc MetadataCache::changeMode(const folly::fbstring &, const mode_t)

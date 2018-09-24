@@ -28,13 +28,11 @@ LRUMetadataCache::LRUMetadataCache(communication::Communicator &communicator,
     : MetadataCache{communicator, providerTimeout}
     , m_targetSize{targetSize}
 {
-    using namespace std::placeholders;
+    MetadataCache::onRename(std::bind(&LRUMetadataCache::handleRename, this,
+        std::placeholders::_1, std::placeholders::_2));
 
-    MetadataCache::onRename(
-        std::bind(&LRUMetadataCache::handleRename, this, _1, _2));
-
-    MetadataCache::onMarkDeleted(
-        std::bind(&LRUMetadataCache::handleMarkDeleted, this, _1));
+    MetadataCache::onMarkDeleted(std::bind(
+        &LRUMetadataCache::handleMarkDeleted, this, std::placeholders::_1));
 }
 
 void LRUMetadataCache::setReaddirCache(
@@ -113,7 +111,7 @@ void LRUMetadataCache::release(const folly::fbstring &uuid)
     if (it == m_lruData.end())
         return;
 
-    if (--it->second.openCount)
+    if (--it->second.openCount > 0)
         return;
 
     m_onRelease(uuid);
@@ -190,9 +188,9 @@ void LRUMetadataCache::prune()
     }
 }
 
-bool LRUMetadataCache::rename(const folly::fbstring &uuid,
-    const folly::fbstring &newParentUuid, const folly::fbstring &newName,
-    const folly::fbstring &newUuid)
+bool LRUMetadataCache::rename(folly::fbstring uuid,
+    folly::fbstring newParentUuid, folly::fbstring newName,
+    folly::fbstring newUuid)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newParentUuid)
                 << LOG_FARG(newName) << LOG_FARG(newUuid);
@@ -201,8 +199,7 @@ bool LRUMetadataCache::rename(const folly::fbstring &uuid,
     return MetadataCache::rename(uuid, newParentUuid, newName, newUuid);
 }
 
-void LRUMetadataCache::truncate(
-    const folly::fbstring &uuid, const std::size_t newSize)
+void LRUMetadataCache::truncate(folly::fbstring uuid, const std::size_t newSize)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newSize);
 
@@ -211,7 +208,7 @@ void LRUMetadataCache::truncate(
 }
 
 void LRUMetadataCache::updateTimes(
-    const folly::fbstring &uuid, const messages::fuse::UpdateTimes &updateTimes)
+    folly::fbstring uuid, const messages::fuse::UpdateTimes &updateTimes)
 {
     LOG_FCALL() << LOG_FARG(uuid);
 
@@ -289,9 +286,9 @@ void LRUMetadataCache::handleRename(
     auto res = m_lruData.emplace(newUuid, LRUData{});
     if (res.second) {
         res.first->second = std::move(lruData);
-        if (lruData.lruIt) {
-            auto oldIt = *lruData.lruIt;
-            lruData.lruIt = m_lruList.emplace(oldIt, newUuid);
+        if (res.first->second.lruIt) {
+            auto oldIt = *(res.first->second.lruIt);
+            res.first->second.lruIt = m_lruList.emplace(oldIt, newUuid);
             m_lruList.erase(oldIt);
         }
     }

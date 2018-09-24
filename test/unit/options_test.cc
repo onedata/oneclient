@@ -116,6 +116,10 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options::DEFAULT_READ_BUFFER_MIN_SIZE, options.getReadBufferMinSize());
     EXPECT_EQ(
         options::DEFAULT_READ_BUFFER_MAX_SIZE, options.getReadBufferMaxSize());
+    EXPECT_EQ(options::DEFAULT_READ_BUFFERS_TOTAL_SIZE,
+        options.getReadBuffersTotalSize());
+    EXPECT_EQ(options::DEFAULT_WRITE_BUFFERS_TOTAL_SIZE,
+        options.getWriteBuffersTotalSize());
     EXPECT_EQ(options::DEFAULT_READ_BUFFER_PREFETCH_DURATION,
         options.getReadBufferPrefetchDuration().count());
     EXPECT_EQ(options::DEFAULT_WRITE_BUFFER_MIN_SIZE,
@@ -132,6 +136,8 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(1.0, options.getRandomReadPrefetchThreshold());
     EXPECT_EQ(0, options.getRandomReadPrefetchClusterWindow());
     EXPECT_EQ(options::DEFAULT_PREFETCH_MODE, options.getPrefetchMode());
+    EXPECT_EQ(options::DEFAULT_PREFETCH_EVALUATE_FREQUENCY,
+        options.getRandomReadPrefetchEvaluationFrequency());
     EXPECT_EQ(options::DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD,
         options.getRandomReadPrefetchClusterBlockThreshold());
     EXPECT_EQ(0.0, options.getRandomReadPrefetchClusterWindowGrowFactor());
@@ -351,6 +357,22 @@ TEST_F(OptionsTest, parseCommandLineShouldSetWriteBufferMaxSize)
     EXPECT_EQ(1024, options.getWriteBufferMaxSize());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldSetReadBuffersTotalSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--read-buffers-total-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getReadBuffersTotalSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetWriteBuffersTotalSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--write-buffers-total-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getWriteBuffersTotalSize());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetWriteBufferFlushDelay)
 {
     cmdArgs.insert(
@@ -375,6 +397,24 @@ TEST_F(OptionsTest, parseCommandLineShouldSetReaddirPrefetchSize)
     EXPECT_EQ(10000, options.getReaddirPrefetchSize());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldSetTagOnCreate)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--tag-on-create", "KEY1:VALUE1", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    auto value = std::make_pair<std::string, std::string>("KEY1", "VALUE1");
+    EXPECT_EQ(value, options.getOnCreateTag().get());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetTagOnModify)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--tag-on-modify", "KEY1:VALUE1", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    auto value = std::make_pair<std::string, std::string>("KEY1", "VALUE1");
+    EXPECT_EQ(value, options.getOnModifyTag().get());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetLinearReadPrefetchTriggerThreshold)
 {
     cmdArgs.insert(
@@ -397,6 +437,14 @@ TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadClusterWindow)
         {"--rndrd-prefetch-cluster-window", "1024", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(1024, options.getRandomReadPrefetchClusterWindow());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetPrefetchEvaluationFrequency)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--rndrd-prefetch-eval-frequency", "250", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(250, options.getRandomReadPrefetchEvaluationFrequency());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetFullFileRandomReadClusterWindow)
