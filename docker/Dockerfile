@@ -1,4 +1,5 @@
-FROM ubuntu:16.04
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
 MAINTAINER Krzysztof Trzepla <krzysztof.trzepla@gmail.com>
 
 # Build arguments
@@ -19,6 +20,8 @@ RUN apt-get -y update && \
     apt-get clean
 
 WORKDIR /tmp
+
+RUN apt-get -y remove glusterfs-common-opt
 
 # Install oneclient package
 RUN case ${RELEASE} in \
