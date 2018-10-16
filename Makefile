@@ -20,6 +20,8 @@ WITH_SWIFT        ?= ON
 WITH_S3           ?= ON
 # Build with GlusterFS storage helper by default
 WITH_GLUSTERFS    ?= ON
+# Build with WebDAV storage helper by default
+WITH_WEBDAV       ?= ON
 
 # Oneclient FPM packaging variables
 PATCHELF_DOCKER_IMAGE   ?= docker.onedata.org/patchelf:0.9
@@ -49,6 +51,8 @@ all: debug test
 	                       -DWITH_CEPH=${WITH_CEPH} \
 	                       -DWITH_SWIFT=${WITH_SWIFT} \
 	                       -DWITH_S3=${WITH_S3} \
+	                       -DWITH_GLUSTERFS=${WITH_GLUSTERFS} \
+	                       -DWITH_WEBDAV=${WITH_WEBDAV} \
 	                       -DWITH_OPENSSL=${WITH_OPENSSL} \
 	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
 	                       -DOPENSSL_LIBRARIES=${OPENSSL_LIBRARIES} ..
@@ -79,7 +83,7 @@ deb-info: relwithdebinfo/oneclient
 release: release/oneclient release/onebench
 
 .PHONY: debug
-debug: debug/oneclient release/onebench
+debug: debug/oneclient debug/onebench
 
 .PHONY: test
 test: debug

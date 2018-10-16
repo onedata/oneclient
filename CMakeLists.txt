@@ -8,6 +8,7 @@ option(WITH_CEPH "Include Ceph direct IO support" ON)
 option(WITH_S3 "Include S3 direct IO support" ON)
 option(WITH_SWIFT "Include Swift direct IO support" ON)
 option(WITH_GLUSTERFS "Include GlusterFS direct IO support" ON)
+option(WITH_WEBDAV "Include WebDAV direct IO support" ON)
 
 # CMake config
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY True)
@@ -150,6 +151,14 @@ if(WITH_GLUSTERFS)
 else(WITH_GLUSTERFS)
     add_definitions(-DWITH_GLUSTERFS=0)
 endif(WITH_GLUSTERFS)
+
+# WebDAV libraries
+if(WITH_WEBDAV)
+    find_library(PROXYGEN_LIBRARY proxygenlib REQUIRED)
+    add_definitions(-DWITH_WEBDAV=1)
+else(WITH_WEBDAV)
+    add_definitions(-DWITH_WEBDAV=0)
+endif(WITH_WEBDAV)
 
 # gpertools lib
 find_library(PROFILER_LIBRARY NAMES profiler)
@@ -294,6 +303,10 @@ endif(WITH_SWIFT)
 if(WITH_GLUSTERFS)
     list(APPEND CLIENT_LIBRARIES ${GLUSTERFSAPI_LIBRARIES})
 endif(WITH_GLUSTERFS)
+
+if(WITH_WEBDAV)
+    list(APPEND CLIENT_LIBRARIES ${PROXYGEN_LIBRARY} ${WANGLE_LIBRARIES})
+endif(WITH_WEBDAV)
 
 # Define targets
 add_library(client OBJECT ${SOURCES} ${HEADERS})
