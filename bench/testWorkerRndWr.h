@@ -16,6 +16,7 @@
 #include <folly/FBVector.h>
 #include <folly/MPMCQueue.h>
 #include <folly/Unit.h>
+#include <folly/executors/GlobalExecutor.h>
 
 #include <iostream>
 
@@ -63,13 +64,14 @@ public:
         ]()
         {
             for (int k = 0; k < eventCount; k += asyncBatchSize) {
-                auto fileIndex = std::rand() % fileCount;
-                auto offset = std::rand() % (fileSize - blockSize);
 
                 folly::fbvector<folly::Future<folly::Unit>> futs;
                 futs.reserve(asyncBatchSize);
 
                 for (int l = 0; l < asyncBatchSize; l++) {
+                    auto fileIndex = std::rand() % fileCount;
+                    auto offset = std::rand() % (fileSize - blockSize);
+
                     folly::IOBufQueue buf{
                         folly::IOBufQueue::cacheChainLength()};
                     buf.append(data);
@@ -79,14 +81,17 @@ public:
                     futs.emplace_back(
                         handles[fileIndex]
                             ->write(offset, std::move(buf))
-                            .then([ this, handle = handles[fileIndex], flush ](
-                                std::size_t written) {
-                                if (flush)
-                                    return handle->flush();
-                                else
-                                    return folly::makeFuture();
-                            })
-                            .then([
+                            .then(folly::getIOExecutor().get(),
+                                [
+                                    this, handle = handles[fileIndex], flush,
+                                    resultID = k + l
+                                ](std::size_t written) {
+                                    if (flush)
+                                        return handle->flush();
+                                    else
+                                        return folly::makeFuture();
+                                })
+                            .then(folly::getIOExecutor().get(), [
                                 this, start, blockSize, id, resultID = k + l
                             ]() {
                                 postResult({id, resultID, start, Clock::now(),
