@@ -26,7 +26,7 @@ namespace bench {
 
 TestRunner::TestRunner(TestRunnerConfig config)
     : m_config{config}
-    , m_workerPool{5}
+    , m_workerPool{1}
     , m_resultsQueue{10000}
     , m_idleWork{asio::make_work_guard(m_service)}
     , m_startBarrier{static_cast<uint32_t>(m_config.testThreadCount + 1)}

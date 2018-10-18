@@ -76,6 +76,10 @@ DEFINE_string(webdav_rangewrite, "none",
     "Specify the WebDAV range write support, e.g.: 'sabredav'");
 DEFINE_string(webdav_verify_certificate, "false",
     "Specify whether onebench should verify WebDAV server certificate.");
+DEFINE_int64(webdav_maximum_upload_size, 0,
+    "Specify WebDAV maximum upload size for single PUT or PATCH request");
+DEFINE_int32(webdav_connection_pool_size, 10,
+    "Specify WebDAV connection pool size for each helper instance");
 
 DEFINE_string(posix_mount_point, "/tmp", "Specify mountpoint for test files");
 DEFINE_string(
@@ -118,6 +122,10 @@ one::helpers::Params makeHelperParams()
         params["credentials"] = FLAGS_webdav_credentials;
         params["rangeWriteSupport"] = FLAGS_webdav_rangewrite;
         params["verifyServerCertificate"] = FLAGS_webdav_verify_certificate;
+        params["maximumUploadSize"] =
+            std::to_string(FLAGS_webdav_maximum_upload_size);
+        params["connectionPoolSize"] =
+            std::to_string(FLAGS_webdav_connection_pool_size);
     }
     else if (FLAGS_storage == "posix") {
         params["mountPoint"] = FLAGS_posix_mount_point;
