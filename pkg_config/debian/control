@@ -41,7 +41,8 @@ Build-Depends:
     subversion,
     swift-sdk-cpp (>= 1.0.0),
     uuid-dev,
-    wangle-dev
+    wangle-dev,
+    proxygen-dev
 Standards-Version: 3.9.5
 Homepage: https://onedata.org
 

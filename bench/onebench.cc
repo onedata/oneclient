@@ -21,12 +21,13 @@
 #include <set>
 
 static const std::set<folly::fbstring> storages{
-    "posix", "s3", "ceph", "glusterfs", "swift", "null"};
+    "posix", "s3", "ceph", "cephrados", "webdav", "glusterfs", "swift", "null"};
 
 static const std::set<folly::fbstring> tests{"rndwr"};
 
 DEFINE_string(storage, "",
-    "Specify storage type: posix, s3, ceph, cephrados, glusterfs, swift, null");
+    "Specify storage type: posix, s3, ceph, cephrados, webdav, glusterfs, "
+    "swift, null");
 
 DEFINE_string(test, "", "Specify test type: rndwr");
 
@@ -65,6 +66,21 @@ DEFINE_string(s3_secretkey, "", "Specify S3 secret key");
 DEFINE_int32(s3_blocksize, 1024 * 1024 * 10,
     "Specify the block size used for striping files into S3 objects");
 
+DEFINE_string(
+    webdav_endpoint, "", "Specify the WebDAV host, e.g.: 'http://192.168.1.2'");
+DEFINE_string(webdav_credentials_type, "basic",
+    "Specify the WebDAV credentials, e.g.: 'basic'");
+DEFINE_string(webdav_credentials, "",
+    "Specify the WebDAV credentials, e.g.: 'admin:password'");
+DEFINE_string(webdav_rangewrite, "none",
+    "Specify the WebDAV range write support, e.g.: 'sabredav'");
+DEFINE_string(webdav_verify_certificate, "false",
+    "Specify whether onebench should verify WebDAV server certificate.");
+DEFINE_int64(webdav_maximum_upload_size, 0,
+    "Specify WebDAV maximum upload size for single PUT or PATCH request");
+DEFINE_int32(webdav_connection_pool_size, 10,
+    "Specify WebDAV connection pool size for each helper instance");
+
 DEFINE_string(posix_mount_point, "/tmp", "Specify mountpoint for test files");
 DEFINE_string(
     posix_uid, std::to_string(getuid()), "Specify user UID for created files");
@@ -99,6 +115,17 @@ one::helpers::Params makeHelperParams()
         params["secretKey"] = FLAGS_s3_secretkey;
         params["timeout"] = std::to_string(FLAGS_timeout_ms);
         params["blockSize"] = std::to_string(FLAGS_s3_blocksize);
+    }
+    else if (FLAGS_storage == "webdav") {
+        params["endpoint"] = FLAGS_webdav_endpoint;
+        params["credentialsType"] = FLAGS_webdav_credentials_type;
+        params["credentials"] = FLAGS_webdav_credentials;
+        params["rangeWriteSupport"] = FLAGS_webdav_rangewrite;
+        params["verifyServerCertificate"] = FLAGS_webdav_verify_certificate;
+        params["maximumUploadSize"] =
+            std::to_string(FLAGS_webdav_maximum_upload_size);
+        params["connectionPoolSize"] =
+            std::to_string(FLAGS_webdav_connection_pool_size);
     }
     else if (FLAGS_storage == "posix") {
         params["mountPoint"] = FLAGS_posix_mount_point;

@@ -60,13 +60,14 @@ public:
         ]()
         {
             for (int k = 0; k < eventCount; k += asyncBatchSize) {
-                auto fileIndex = std::rand() % fileCount;
-                auto offset = std::rand() % (fileSize - blockSize);
 
                 folly::fbvector<folly::Future<folly::Unit>> futs;
                 futs.reserve(asyncBatchSize);
 
                 for (int l = 0; l < asyncBatchSize; l++) {
+                    auto fileIndex = std::rand() % fileCount;
+                    auto offset = std::rand() % (fileSize - blockSize);
+
                     auto start = Clock::now();
 
                     futs.emplace_back(

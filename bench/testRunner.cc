@@ -15,6 +15,7 @@
 #include "s3Helper.h"
 #include "testWorkerRndRd.h"
 #include "testWorkerRndWr.h"
+#include "webDAVHelper.h"
 
 #include <folly/Function.h>
 
@@ -25,7 +26,7 @@ namespace bench {
 
 TestRunner::TestRunner(TestRunnerConfig config)
     : m_config{config}
-    , m_workerPool{100}
+    , m_workerPool{1}
     , m_resultsQueue{10000}
     , m_idleWork{asio::make_work_guard(m_service)}
     , m_startBarrier{static_cast<uint32_t>(m_config.testThreadCount + 1)}
@@ -44,6 +45,18 @@ void TestRunner::initialize()
 
     std::shared_ptr<one::helpers::StorageHelperFactory> helperFactory;
 
+    // Start helper worker threads
+    if (m_config.storageType == "webdav") {
+        m_ioExecutor = std::make_shared<folly::IOThreadPoolExecutor>(
+            m_config.helperThreadCount);
+    }
+    else {
+        for (int i = 0; i < m_config.helperThreadCount; i++) {
+            m_serviceThreads.emplace_back(
+                std::thread{[&, this] { m_service.run(); }});
+        }
+    }
+
     if (m_config.storageType == "ceph") {
         helperFactory =
             std::make_shared<one::helpers::CephHelperFactory>(m_service);
@@ -55,6 +68,10 @@ void TestRunner::initialize()
     else if (m_config.storageType == "s3") {
         helperFactory =
             std::make_shared<one::helpers::S3HelperFactory>(m_service);
+    }
+    else if (m_config.storageType == "webdav") {
+        helperFactory =
+            std::make_shared<one::helpers::WebDAVHelperFactory>(m_ioExecutor);
     }
     else if (m_config.storageType == "null") {
         helperFactory =
@@ -73,22 +90,16 @@ void TestRunner::initialize()
               << " helper instances to " << m_config.storageType
               << " storage ===" << std::endl;
 
-    // Start helper worker threads
-    for (int i = 0; i < m_config.helperThreadCount; i++) {
-        m_serviceThreads.emplace_back(
-            std::thread{[&, this] { m_service.run(); }});
-    }
-
     // Create the helper pool
     m_helperPool.reserve(m_config.helperCount);
-    for (decltype(m_config.helperCount) i = 0; i < m_config.helperCount; i++) {
+    for (auto i = 0; i < m_config.helperCount; i++) {
         auto helperPtr =
             helperFactory->createStorageHelper(m_config.helperParams);
         m_helperPool.emplace_back(std::move(helperPtr));
     }
 
     // Prepare unique file names
-    for (decltype(m_config.fileCount) i = 0; i < m_config.fileCount; i++) {
+    for (auto i = 0u; i < m_config.fileCount; i++) {
         m_fileIds.emplace_back(folly::fbstring(ONEBENCH_FILE_PREFIX) +
             randStr(ONEBENCH_FILEID_LENGTH));
     }
@@ -138,8 +149,8 @@ void TestRunner::start()
     m_workerPool.add([&, this]() {
         using namespace std::chrono;
 
-        int resultsCounter = 0;
-        int intermediateResultsCounter = 0;
+        auto resultsCounter = 0;
+        auto intermediateResultsCounter = 0;
         auto reportIntervalStart = Clock::now();
 
         while (!m_stopped) {
