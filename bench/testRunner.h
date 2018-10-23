@@ -53,6 +53,8 @@ private:
     asio::io_service m_service;
     folly::fbvector<std::thread> m_serviceThreads;
     asio::executor_work_guard<asio::io_service::executor_type> m_idleWork;
+    // Worker executor pool for WebDAV helper
+    std::shared_ptr<folly::IOThreadPoolExecutor> m_ioExecutor;
 
     folly::fbvector<folly::fbstring> m_fileIds;
 

@@ -33,6 +33,8 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
     , m_options{options}
     , m_helpersIoService{static_cast<int>(
           options.getStorageHelperThreadCount())}
+    , m_helpersIOExecutor{std::make_shared<folly::IOThreadPoolExecutor>(
+          static_cast<int>(options.getStorageHelperThreadCount()))}
     , m_helperFactory
 {
 #if WITH_CEPH
@@ -47,6 +49,9 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
 #endif
 #if WITH_GLUSTERFS
         m_helpersIoService,
+#endif
+#if WITH_WEBDAV
+        m_helpersIOExecutor,
 #endif
         m_helpersIoService, m_communicator,
         options.getBufferSchedulerThreadCount(),

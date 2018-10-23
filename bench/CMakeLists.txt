@@ -31,6 +31,10 @@ if(WITH_GLUSTERFS)
     list(APPEND ONEBENCH_LIBRARIES ${GLUSTERFSAPI_LIBRARIES})
 endif(WITH_GLUSTERFS)
 
+if(WITH_WEBDAV)
+    list(APPEND ONEBENCH_LIBRARIES ${PROXYGEN_LIBRARY} ${WANGLE_LIBRARIES})
+endif(WITH_WEBDAV)
+
 add_executable(onebench
     "onebench.cc"
     "testRunner.cc"

@@ -1,9 +1,11 @@
 # distro for package building (oneof: wily, fedora-23-x86_64)
-DISTRIBUTION        ?= none
-DOCKER_RELEASE      ?= development
-DOCKER_REG_NAME     ?= "docker.onedata.org"
-DOCKER_REG_USER     ?= ""
-DOCKER_REG_PASSWORD ?= ""
+DISTRIBUTION          ?= none
+DOCKER_RELEASE        ?= development
+DOCKER_REG_NAME       ?= "docker.onedata.org"
+DOCKER_REG_USER       ?= ""
+DOCKER_REG_PASSWORD   ?= ""
+DOCKER_BASE_IMAGE     ?= "ubuntu:16.04"
+DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:v60"
 
 PKG_REVISION    ?= $(shell git describe --tags --always)
 PKG_VERSION     ?= $(shell git describe --tags --always | tr - .)
@@ -20,6 +22,8 @@ WITH_SWIFT        ?= ON
 WITH_S3           ?= ON
 # Build with GlusterFS storage helper by default
 WITH_GLUSTERFS    ?= ON
+# Build with WebDAV storage helper by default
+WITH_WEBDAV       ?= ON
 
 # Oneclient FPM packaging variables
 PATCHELF_DOCKER_IMAGE   ?= docker.onedata.org/patchelf:0.9
@@ -49,6 +53,8 @@ all: debug test
 	                       -DWITH_CEPH=${WITH_CEPH} \
 	                       -DWITH_SWIFT=${WITH_SWIFT} \
 	                       -DWITH_S3=${WITH_S3} \
+	                       -DWITH_GLUSTERFS=${WITH_GLUSTERFS} \
+	                       -DWITH_WEBDAV=${WITH_WEBDAV} \
 	                       -DWITH_OPENSSL=${WITH_OPENSSL} \
 	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
 	                       -DOPENSSL_LIBRARIES=${OPENSSL_LIBRARIES} ..
@@ -79,7 +85,7 @@ deb-info: relwithdebinfo/oneclient
 release: release/oneclient release/onebench
 
 .PHONY: debug
-debug: debug/oneclient release/onebench
+debug: debug/oneclient debug/onebench
 
 .PHONY: test
 test: debug
@@ -309,16 +315,33 @@ oneclient_deb: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 .PHONY: docker-base
 docker-base:
 	./docker_build.py --repository $(DOCKER_REG_NAME) --user $(DOCKER_REG_USER) \
-                          --password $(DOCKER_REG_PASSWORD) --build-arg RELEASE=$(DOCKER_RELEASE) \
+                          --password $(DOCKER_REG_PASSWORD) --build-arg BASE_IMAGE=$(DOCKER_BASE_IMAGE) \
+                          --build-arg RELEASE=$(DOCKER_RELEASE) \
                           --build-arg VERSION=$(PKG_VERSION) --build-arg ONECLIENT_PACKAGE=oneclient-base \
                           --name oneclient-base --publish --remove docker
 
 .PHONY: docker
-docker:
-	./docker_build.py --repository $(DOCKER_REG_NAME) --user $(DOCKER_REG_USER) \
-                          --password $(DOCKER_REG_PASSWORD) --build-arg RELEASE=$(DOCKER_RELEASE) \
-                          --build-arg VERSION=$(PKG_VERSION) --build-arg ONECLIENT_PACKAGE=oneclient \
-                          --name oneclient --publish --remove docker
+docker: docker-dev
+	./docker_build.py --repository $(DOCKER_REG_NAME) \
+	                  --user $(DOCKER_REG_USER) \
+                      --password $(DOCKER_REG_PASSWORD) \
+                      --build-arg BASE_IMAGE=$(DOCKER_BASE_IMAGE) \
+                      --build-arg RELEASE=$(DOCKER_RELEASE) \
+                      --build-arg VERSION=$(PKG_VERSION) \
+                      --build-arg ONECLIENT_PACKAGE=oneclient \
+                      --name oneclient --publish --remove docker
+
+docker-dev:
+	./docker_build.py --repository $(DOCKER_REG_NAME) \
+                      --user $(DOCKER_REG_USER) \
+                      --password $(DOCKER_REG_PASSWORD) \
+                      --build-arg BASE_IMAGE=$(DOCKER_DEV_BASE_IMAGE) \
+                      --build-arg RELEASE=$(DOCKER_RELEASE) \
+                      --build-arg VERSION=$(PKG_VERSION) \
+                      --build-arg ONECLIENT_PACKAGE=oneclient \
+                      --report docker-dev-build-report.txt \
+                      --short-report docker-dev-build-list.json \
+                      --name oneclient-dev --publish --remove docker
 
 .PHONY: clean
 clean:

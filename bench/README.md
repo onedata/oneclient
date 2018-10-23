@@ -86,6 +86,12 @@ onebench -test rndwr -storage null -block_size 1024 -file_size 1024000 -events 1
 onebench -test rndwr -block_size 1024 -file_size 104857600 -events 50000 -test_threads 100  -helper_threads 500 -file_count 100 -helper_count 10 -storage ceph -ceph_key "AQDa2zlbm09GDBAAMp8oaLaCE2lXYpDnpB0SrA==" -ceph_mon_host 192.168.1.5 -ceph_user client.admin -ceph_pool POOL1 -report_interval 2 -async_batch_size 10
 ```
 
+#### WebDAV
+
+```
+./onebench -storage webdav -test rndrd -webdav_endpoint "http://172.17.0.2" -webdav_credentials_type basic -webdav_credentials "admin:password" -webdav_rangewrite sabredav -test_threads 5 -helper_count 1 -helper_threads 50 -async_batch_size 1 -events 100000000 -block_size 1024 -file_count 10 -file_size 10485760 -report_interval 1
+```
+
 #### NullDevice
 
 ```

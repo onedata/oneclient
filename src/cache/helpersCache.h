@@ -21,6 +21,7 @@
 #include <folly/FBString.h>
 #include <folly/FBVector.h>
 #include <folly/Hash.h>
+#include <folly/executors/IOThreadPoolExecutor.h>
 #include <folly/futures/Future.h>
 #include <folly/futures/SharedPromise.h>
 
@@ -125,6 +126,7 @@ private:
     asio::executor_work_guard<asio::io_service::executor_type> m_idleWork{
         asio::make_work_guard(m_helpersIoService)};
     folly::fbvector<std::thread> m_helpersWorkers;
+    std::shared_ptr<folly::IOThreadPoolExecutor> m_helpersIOExecutor;
 
     helpers::StorageHelperCreator m_helperFactory;
 
