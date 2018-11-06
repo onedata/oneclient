@@ -94,7 +94,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.isMonitoringEnabled());
     EXPECT_EQ(false, options.isMonitoringLevelFull());
     EXPECT_EQ(false, options.areFileReadEventsDisabled());
-    EXPECT_EQ(false, options.isFullblockReadForced());
+    EXPECT_EQ(true, options.isFullblockReadEnabled());
     EXPECT_EQ(true, options.isMonitoringLevelBasic());
     EXPECT_EQ(false, options.isClusterPrefetchThresholdRandom());
     EXPECT_EQ(0, options.getVerboseLogLevel());
@@ -134,7 +134,8 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options.getReaddirPrefetchSize());
     EXPECT_EQ(1.0, options.getLinearReadPrefetchThreshold());
     EXPECT_EQ(1.0, options.getRandomReadPrefetchThreshold());
-    EXPECT_EQ(0, options.getRandomReadPrefetchClusterWindow());
+    EXPECT_EQ(options::DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE,
+        options.getRandomReadPrefetchClusterWindow());
     EXPECT_EQ(options::DEFAULT_PREFETCH_MODE, options.getPrefetchMode());
     EXPECT_EQ(options::DEFAULT_PREFETCH_EVALUATE_FREQUENCY,
         options.getRandomReadPrefetchEvaluationFrequency());
@@ -303,11 +304,11 @@ TEST_F(OptionsTest, parseCommandLineShouldSetDisableFileReadEvents)
     EXPECT_EQ(true, options.areFileReadEventsDisabled());
 }
 
-TEST_F(OptionsTest, parseCommandLineShouldSetForceFullblockRead)
+TEST_F(OptionsTest, parseCommandLineShouldEnableFullblockRead)
 {
-    cmdArgs.insert(cmdArgs.end(), {"--force-fullblock-read", "mountpoint"});
+    cmdArgs.insert(cmdArgs.end(), {"--no-fullblock-read", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_EQ(true, options.isFullblockReadForced());
+    EXPECT_EQ(false, options.isFullblockReadEnabled());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetProviderTimeout)

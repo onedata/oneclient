@@ -48,9 +48,9 @@ static constexpr auto DEFAULT_PREFETCH_EVALUATE_FREQUENCY = 50;
 static constexpr double DEFAULT_PREFETCH_POWER_BASE = 1.3;
 static constexpr auto DEFAULT_PREFETCH_TARGET_LATENCY =
     std::chrono::nanoseconds{1000}; // NOLINT
-static constexpr auto DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE = 0;
+static constexpr auto DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE = 20971520;
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD = 5;
-static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 100000;
+static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 20'000;
 static constexpr auto DEFAULT_READDIR_PREFETCH_SIZE = 2500;
 static constexpr auto DEFAULT_PROVIDER_TIMEOUT = 2 * 60;
 static constexpr auto DEFAULT_MONITORING_PERIOD_SECONDS = 30;
@@ -215,9 +215,9 @@ public:
     bool areFileReadEventsDisabled() const;
 
     /*
-     * @return true if 'force-fullblock-read' is specified.
+     * @return false if 'no-fullblock-read' is specified.
      */
-    bool isFullblockReadForced() const;
+    bool isFullblockReadEnabled() const;
 
     /*
      * @return false if 'no-buffer' option has been provided, otherwise true.

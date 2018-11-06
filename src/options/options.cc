@@ -221,14 +221,15 @@ Options::Options()
 
     add<bool>()
         ->asSwitch()
-        .withLongName("force-fullblock-read")
-        .withConfigName("force_fullblock_read")
+        .withLongName("no-fullblock-read")
+        .withConfigName("no_fullblock_read")
         .withImplicitValue(true)
         .withDefaultValue(false, "false")
         .withGroup(OptionGroup::ADVANCED)
         .withDescription(
-            "Force fullblock read mode. By default read can return less "
-            "data than request in case it is immediately available and "
+            "Disable fullblock read mode. With this option read can return "
+            "less "
+            "data than requested in case it is immediately available and "
             "consecutive blocks need to be prefetched from remote storage.");
 
     add<unsigned int>()
@@ -362,7 +363,8 @@ Options::Options()
         ->withLongName("rndrd-prefetch-cluster-window")
         .withConfigName("rndrd_prefetch_cluster_window")
         .withValueName("<size>")
-        .withDefaultValue(0, std::to_string(0))
+        .withDefaultValue(DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE,
+            std::to_string(DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE))
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Cluster window size for prefetching in "
                          "[bytes]. When -1 is provided, the "
@@ -585,6 +587,13 @@ Options::Options()
         .withConfigName("no_check_certificate")
         .withGroup(OptionGroup::DEPRECATED);
 
+    add<bool>()
+        ->asSwitch()
+        .withLongName("force-fullblock-read")
+        .withEnvName("force_fullblock_read")
+        .withConfigName("force_fullblock_read")
+        .withGroup(OptionGroup::DEPRECATED);
+
     add<std::string>()
         ->withEnvName("provider_hostname")
         .withConfigName("provider_hostname")
@@ -786,10 +795,10 @@ bool Options::areFileReadEventsDisabled() const
         .get_value_or(false);
 }
 
-bool Options::isFullblockReadForced() const
+bool Options::isFullblockReadEnabled() const
 {
-    return get<bool>({"force-fullblock-read", "force_fullblock_read"})
-        .get_value_or(false);
+    return !get<bool>({"no-fullblock-read", "no_fullblock_read"})
+                .get_value_or(false);
 }
 
 bool Options::isIOBuffered() const
