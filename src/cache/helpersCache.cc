@@ -35,6 +35,7 @@ HelpersCache::HelpersCache(communication::Communicator &communicator,
           options.getStorageHelperThreadCount())}
     , m_helpersIOExecutor{std::make_shared<folly::IOThreadPoolExecutor>(
           static_cast<int>(options.getStorageHelperThreadCount()))}
+    , m_helperParamOverrides{options.getHelperOverrideParams()}
     , m_helperFactory
 {
 #if WITH_CEPH
@@ -228,7 +229,6 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
                                << " couldn't be established - leaving "
                                   "proxy access";
                 }
-
             });
             return performAutoIOStorageDetection(
                 fileUuid, spaceId, storageId, true);
@@ -247,8 +247,12 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
                 messages::fuse::GetHelperParams::HelperMode::autoMode}),
         m_providerTimeout);
 
+    std::unordered_map<folly::fbstring, folly::fbstring> overrideParams;
+    if (m_helperParamOverrides.find(storageId) != m_helperParamOverrides.end())
+        overrideParams = m_helperParamOverrides.at(storageId);
+
     return m_helperFactory.getStorageHelper(
-        params.name(), params.args(), m_options.isIOBuffered());
+        params.name(), params.args(), m_options.isIOBuffered(), overrideParams);
 }
 
 HelpersCache::HelperPtr HelpersCache::performForcedDirectIOStorageDetection(
@@ -289,8 +293,13 @@ HelpersCache::HelperPtr HelpersCache::performForcedDirectIOStorageDetection(
         LOG_DBG(1) << "Got storage helper params for file " << fileUuid
                    << " on " << params.name() << " storage " << storageId;
 
-        return m_helperFactory.getStorageHelper(
-            params.name(), params.args(), m_options.isIOBuffered());
+        std::unordered_map<folly::fbstring, folly::fbstring> overrideParams;
+        if (m_helperParamOverrides.find(storageId) !=
+            m_helperParamOverrides.end())
+            overrideParams = m_helperParamOverrides.at(storageId);
+
+        return m_helperFactory.getStorageHelper(params.name(), params.args(),
+            m_options.isIOBuffered(), overrideParams);
     }
     catch (std::exception &e) {
         LOG_DBG(1) << "Unexpected error when waiting for "
