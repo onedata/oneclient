@@ -924,7 +924,9 @@ FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
 
     IOTRACE_START()
 
-    messages::fuse::MakeFile msg{parentUuid, name, mode};
+    constexpr auto modeMask =
+        S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO;
+    messages::fuse::MakeFile msg{parentUuid, name, mode & modeMask};
     auto attr = communicate<FileAttr>(std::move(msg), m_providerTimeout);
 
     LOG_DBG(2) << "Created node " << name << " in " << parentUuid
@@ -950,8 +952,10 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
 
     IOTRACE_START()
 
+    constexpr auto modeMask =
+        S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO;
     const auto flag = getOpenFlag(helpers::maskToFlags(flags));
-    messages::fuse::CreateFile msg{parentUuid, name, mode, flag};
+    messages::fuse::CreateFile msg{parentUuid, name, mode & modeMask, flag};
 
     auto created = communicate<messages::fuse::FileCreated>(
         std::move(msg), m_providerTimeout);
@@ -993,7 +997,7 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
     }
 
     IOTRACE_END(IOTraceCreate, IOTraceLogger::OpType::CREATE, parentUuid,
-        fuseFileHandleId, name, sharedAttr->uuid(), mode, flags)
+        fuseFileHandleId, name, sharedAttr->uuid(), mode & modeMask, flags)
 
     return {sharedAttr, fuseFileHandleId};
 }
