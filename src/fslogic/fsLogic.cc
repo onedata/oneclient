@@ -924,6 +924,13 @@ FileAttrPtr FsLogic::mknod(const folly::fbstring &parentUuid,
 
     IOTRACE_START()
 
+    if (S_ISDIR(mode) || S_ISCHR(mode) || S_ISBLK(mode) || S_ISFIFO(mode) ||
+        S_ISLNK(mode) || S_ISSOCK(mode)) {
+        LOG(ERROR) << "Attempt to create unsupported node type - only regular "
+                      "files are supported for this call.";
+        throw std::errc::operation_not_supported; // NOLINT
+    }
+
     constexpr auto modeMask =
         S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO;
     messages::fuse::MakeFile msg{parentUuid, name, mode & modeMask};
@@ -951,6 +958,14 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
                 << LOG_FARG(flags);
 
     IOTRACE_START()
+
+    if (S_ISDIR(mode) || S_ISCHR(mode) || S_ISBLK(mode) || S_ISFIFO(mode) ||
+        S_ISLNK(mode) || S_ISSOCK(mode)) {
+
+        LOG(ERROR) << "Attempt to create unsupported file type - only regular "
+                      "files are supported for this call.";
+        throw std::errc::operation_not_supported; // NOLINT
+    }
 
     constexpr auto modeMask =
         S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO;
