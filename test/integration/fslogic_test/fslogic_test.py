@@ -12,6 +12,7 @@ from threading import Thread
 from multiprocessing import Pool
 import time
 import pytest
+from stat import *
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.dirname(script_dir))
@@ -716,7 +717,7 @@ def test_mknod_should_make_new_location(endpoint, fl, uuid, parentUuid, parentSt
     getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
 
     with reply(endpoint, [getattr_response]) as queue:
-        fl.mknod(parentUuid, 'childName', 0762)
+        fl.mknod(parentUuid, 'childName', 0762 | S_IFREG)
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
@@ -741,6 +742,34 @@ def test_mknod_should_pass_location_errors(endpoint, fl, parentUuid, parentStat)
 
     assert 'Operation not permitted' in str(excinfo.value)
 
+def test_mknod_should_throw_on_unsupported_file_type(endpoint, fl, parentUuid, parentStat):
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.eperm
+
+    with pytest.raises(RuntimeError) as excinfo:
+        fl.mknod(parentUuid, 'childName', 0664 | S_IFSOCK)
+
+    assert 'Operation not supported' in str(excinfo.value)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        fl.mknod(parentUuid, 'childName', 0664 | S_IFBLK)
+
+    assert 'Operation not supported' in str(excinfo.value)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        fl.mknod(parentUuid, 'childName', 0664 | S_IFDIR)
+
+    assert 'Operation not supported' in str(excinfo.value)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        fl.mknod(parentUuid, 'childName', 0664 | S_IFCHR)
+
+    assert 'Operation not supported' in str(excinfo.value)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        fl.mknod(parentUuid, 'childName', 0664 | S_IFIFO)
+
+    assert 'Operation not supported' in str(excinfo.value)
 
 def test_read_should_read(endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, blocks=[(0, 10)])
