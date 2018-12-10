@@ -349,16 +349,17 @@ HelpersCache::HelperPtr HelpersCache::handleStorageTestFile(
     std::shared_ptr<messages::fuse::StorageTestFile> testFile,
     const folly::fbstring &storageId, const int maxAttempts)
 {
-    LOG_DBG(1) << "Handling storage test file for storage: '" << storageId
-               << "'";
+    LOG_DBG(1) << "Handling storage test file for storage: " << storageId;
 
     try {
-        auto helper = m_storageAccessManager.verifyStorageTestFile(*testFile);
+        auto helper =
+            m_storageAccessManager.verifyStorageTestFile(storageId, *testFile);
         auto attempts = maxAttempts;
 
         while (!helper && (attempts-- > 0)) {
             std::this_thread::sleep_for(VERIFY_TEST_FILE_DELAY);
-            helper = m_storageAccessManager.verifyStorageTestFile(*testFile);
+            helper = m_storageAccessManager.verifyStorageTestFile(
+                storageId, *testFile);
         }
 
         if (!helper) {
@@ -372,8 +373,8 @@ HelpersCache::HelperPtr HelpersCache::handleStorageTestFile(
             return {};
         }
 
-        auto fileContent =
-            m_storageAccessManager.modifyStorageTestFile(helper, *testFile);
+        auto fileContent = m_storageAccessManager.modifyStorageTestFile(
+            storageId, helper, *testFile);
 
         requestStorageTestFileVerification(*testFile, storageId, fileContent);
 

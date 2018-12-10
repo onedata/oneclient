@@ -45,30 +45,35 @@ public:
     /**
      * Verifies the test file by reading it from the storage and checking its
      * content with the one sent by the server.
+     * @param storageId Id of the storage
      * @param testFile Instance of @c messages::fuse::StorageTestFile.
      * @return Storage helper object used to access the test file or nullptr if
      * verification fails.
      */
     std::shared_ptr<helpers::StorageHelper> verifyStorageTestFile(
+        const folly::fbstring &storageId,
         const messages::fuse::StorageTestFile &testFile);
 
     /**
      * Modifies the test file by writing random sequence of characters.
+     * @param storageId Id of the storage
      * @param helper Storage helper object used to access the test file.
      * @param testFile Instance of @c messages::fuse::StorageTestFile.
      * @return Modified content of the test file.
      */
-    folly::fbstring modifyStorageTestFile(
+    folly::fbstring modifyStorageTestFile(const folly::fbstring &storageId,
         std::shared_ptr<helpers::StorageHelper> helper,
         const messages::fuse::StorageTestFile &testFile);
 
 private:
-    bool verifyStorageTestFile(std::shared_ptr<helpers::StorageHelper> helper,
+    bool verifyStorageTestFile(const folly::fbstring &storageId,
+        std::shared_ptr<helpers::StorageHelper> helper,
         const messages::fuse::StorageTestFile &testFile);
 
     helpers::StorageHelperCreator &m_helperFactory;
+
+    // Reference to command line options provided to Oneclient
     const options::Options &m_options;
-    std::vector<boost::filesystem::path> m_mountPoints;
 };
 
 } // namespace client
