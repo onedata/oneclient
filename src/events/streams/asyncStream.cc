@@ -7,8 +7,9 @@
  */
 
 #include "asyncStream.h"
+
 #include "events/types/event.h"
-#include "logging.h"
+#include "helpers/logging.h"
 
 #include <folly/ThreadName.h>
 

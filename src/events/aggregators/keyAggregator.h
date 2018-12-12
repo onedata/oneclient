@@ -11,7 +11,7 @@
 
 #include "aggregator.h"
 #include "events/types/event.h"
-#include "logging.h"
+#include "helpers/logging.h"
 
 #include <unordered_map>
 

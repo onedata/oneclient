@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_OPTIONS_H
 #define ONECLIENT_OPTIONS_H
 
-#include "logging.h"
+#include "helpers/logging.h"
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>

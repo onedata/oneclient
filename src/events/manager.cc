@@ -8,7 +8,7 @@
 
 #include "context.h"
 #include "events.h"
-#include "logging.h"
+#include "helpers/logging.h"
 #include "messages/configuration.h"
 #include "scheduler.h"
 

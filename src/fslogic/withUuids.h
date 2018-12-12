@@ -10,8 +10,8 @@
 
 #include "attrs.h"
 #include "cache/inodeCache.h"
+#include "helpers/logging.h"
 #include "ioTraceLogger.h"
-#include "logging.h"
 #include "messages/fuse/fileAttr.h"
 
 #include <folly/FBString.h>

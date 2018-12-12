@@ -10,7 +10,7 @@
 
 #include "auth/authException.h"
 #include "context.h"
-#include "logging.h"
+#include "helpers/logging.h"
 
 #include <boost/bimap.hpp>
 #include <boost/filesystem.hpp>

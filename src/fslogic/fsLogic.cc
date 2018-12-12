@@ -10,7 +10,7 @@
 
 #include "communication/communicator.h"
 #include "context.h"
-#include "logging.h"
+#include "helpers/logging.h"
 #include "messages/configuration.h"
 #include "messages/fuse/blockSynchronizationRequest.h"
 #include "messages/fuse/changeMode.h"

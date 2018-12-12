@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include "logging.h"
 #include "util/base64.h"
 
 #include <folly/json.h>

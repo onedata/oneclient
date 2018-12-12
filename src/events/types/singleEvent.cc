@@ -7,7 +7,7 @@
  */
 
 #include "singleEvent.h"
-#include "logging.h"
+#include "helpers/logging.h"
 
 namespace one {
 namespace client {

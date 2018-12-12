@@ -8,7 +8,7 @@
 
 #include "subscriptionHandle.h"
 #include "events/streams/sharedStream.h"
-#include "logging.h"
+#include "helpers/logging.h"
 
 namespace one {
 namespace client {

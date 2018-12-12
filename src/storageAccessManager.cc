@@ -7,9 +7,9 @@
  */
 
 #include "storageAccessManager.h"
+#include "helpers/logging.h"
 #include "helpers/storageHelper.h"
 #include "helpers/storageHelperCreator.h"
-#include "logging.h"
 #include "messages/fuse/createStorageTestFile.h"
 #include "messages/fuse/storageTestFile.h"
 #include "messages/fuse/verifyStorageTestFile.h"
