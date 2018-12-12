@@ -117,17 +117,16 @@ StorageAccessManager::verifyStorageTestFile(const folly::fbstring &storageId,
     const messages::fuse::StorageTestFile &testFile)
 {
     const auto &helperParams = testFile.helperParams();
+    const auto &overrideParams = m_options.getHelperOverrideParams(storageId);
+
     if (helperParams.name() == helpers::POSIX_HELPER_NAME) {
         std::vector<boost::filesystem::path> mountPoints;
 
         // Check, if the user has provided a mountPoint override for this
         // storage, otherwise list all local mountpoints
-        const auto &overrideParams = m_options.getHelperOverrideParams();
-        if ((overrideParams.find(storageId) != overrideParams.cend()) &&
-            (overrideParams.at(storageId).find("mountPoint") !=
-                overrideParams.at(storageId).cend())) {
-            mountPoints.push_back(
-                {overrideParams.at(storageId).at("mountPoint").toStdString()});
+        if (overrideParams.find("mountPoint") != overrideParams.cend()) {
+            mountPoints.emplace_back(
+                overrideParams.at("mountPoint").toStdString());
         }
         else {
             mountPoints = getMountPoints();
@@ -150,12 +149,13 @@ StorageAccessManager::verifyStorageTestFile(const folly::fbstring &storageId,
         }
     }
     else if (helperParams.name() == helpers::NULL_DEVICE_HELPER_NAME) {
-        return m_helperFactory.getStorageHelper(
-            helperParams.name(), helperParams.args(), m_options.isIOBuffered());
+        return m_helperFactory.getStorageHelper(helperParams.name(),
+            helperParams.args(), m_options.isIOBuffered(), overrideParams);
     }
     else {
-        auto helper = m_helperFactory.getStorageHelper(
-            helperParams.name(), helperParams.args(), m_options.isIOBuffered());
+        auto helper = m_helperFactory.getStorageHelper(helperParams.name(),
+            helperParams.args(), m_options.isIOBuffered(), overrideParams);
+
         if (verifyStorageTestFile(storageId, helper, testFile))
             return helper;
     }
@@ -189,9 +189,8 @@ bool StorageAccessManager::verifyStorageTestFile(
 
         if (testFile.fileContent() != content) {
             LOG(WARNING) << "Storage " << storageId
-                         << "test file content mismatch, expected: '"
-                         << testFile.fileContent() << "', actual: '" << content
-                         << "'";
+                         << "test file content mismatch, expected: "
+                         << testFile.fileContent();
             return false;
         }
 

@@ -979,6 +979,17 @@ Options::getHelperOverrideParams() const
     return result;
 }
 
+std::unordered_map<folly::fbstring, folly::fbstring>
+Options::getHelperOverrideParams(const folly::fbstring &storageId) const
+{
+    const auto &overrideParams = getHelperOverrideParams();
+
+    if (overrideParams.find(storageId) != overrideParams.cend())
+        return overrideParams.at(storageId);
+
+    return {};
+}
+
 bool Options::isMonitoringEnabled() const
 {
     return get<std::string>({"monitoring-type", "monitoring_type"})

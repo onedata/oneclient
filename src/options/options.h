@@ -350,6 +350,14 @@ public:
     getHelperOverrideParams() const;
 
     /*
+     * @return Get helper parameter override values for specific storageId
+     *         or empty map in case no overrides for this storage were
+     *         provided
+     */
+    std::unordered_map<folly::fbstring, folly::fbstring>
+    getHelperOverrideParams(const folly::fbstring &storageId) const;
+
+    /*
      * @return Is monitoring enabled.
      */
     bool isMonitoringEnabled() const;
