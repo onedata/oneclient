@@ -416,6 +416,33 @@ TEST_F(OptionsTest, parseCommandLineShouldSetTagOnModify)
     EXPECT_EQ(value, options.getOnModifyTag().get());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldOverrideHelperParam)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--override", "STORAGE1:PARAM1:VALUE1:2:3", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+
+    EXPECT_EQ(
+        "VALUE1:2:3", options.getHelperOverrideParams()["STORAGE1"]["PARAM1"]);
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldOverrideMultipleHelperParams)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-r", "STORAGE1:PARAM1:VALUE1", "-r", "STORAGE2:PARAM2:VALUE2", "-r",
+            "STORAGE3:PARAM3:VALUE3", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+
+    auto params = options.getHelperOverrideParams();
+
+    EXPECT_EQ(
+        "VALUE1", options.getHelperOverrideParams()["STORAGE1"]["PARAM1"]);
+    EXPECT_EQ(
+        "VALUE2", options.getHelperOverrideParams()["STORAGE2"]["PARAM2"]);
+    EXPECT_EQ(
+        "VALUE3", options.getHelperOverrideParams()["STORAGE3"]["PARAM3"]);
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetLinearReadPrefetchTriggerThreshold)
 {
     cmdArgs.insert(

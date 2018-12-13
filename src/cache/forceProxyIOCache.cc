@@ -8,8 +8,6 @@
 
 #include "forceProxyIOCache.h"
 
-#include <glog/logging.h>
-
 namespace one {
 namespace client {
 namespace cache {

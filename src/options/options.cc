@@ -453,6 +453,18 @@ Options::Options()
         .withDescription("Adds <name>=<value> extended attribute to each "
                          "locally modified file.");
 
+    add<std::vector<std::string>>()
+        ->withEnvName("override")
+        .withShortName("r")
+        .withLongName("override")
+        .withConfigName("override")
+        .withValueName("<storageId>:<name>:<value>")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Allows to override selected helper parameters for specific "
+            "storage, e.g. "
+            "'d40f2f63433da7c845886f6fe970048b:mountPoint:/mnt/nfs'");
+
     add<bool>()
         ->asSwitch()
         .withShortName("f")
@@ -951,6 +963,31 @@ Options::getOnCreateTag() const
 {
     return get<std::pair<std::string, std::string>>(
         {"tag-on-create", "tag_on_create"});
+}
+
+std::map<folly::fbstring, std::unordered_map<folly::fbstring, folly::fbstring>>
+Options::getHelperOverrideParams() const
+{
+    std::map<folly::fbstring,
+        std::unordered_map<folly::fbstring, folly::fbstring>>
+        result;
+
+    for (const auto &p : getOverrideParams()) {
+        result[std::get<0>(p)][std::get<1>(p)] = std::get<2>(p);
+    }
+
+    return result;
+}
+
+std::unordered_map<folly::fbstring, folly::fbstring>
+Options::getHelperOverrideParams(const folly::fbstring &storageId) const
+{
+    const auto &overrideParams = getHelperOverrideParams();
+
+    if (overrideParams.find(storageId) != overrideParams.cend())
+        return overrideParams.at(storageId);
+
+    return {};
 }
 
 bool Options::isMonitoringEnabled() const

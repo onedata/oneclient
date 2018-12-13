@@ -1,7 +1,7 @@
 #include "lruMetadataCache.h"
 
 #include "cache/readdirCache.h"
-#include "logging.h"
+#include "helpers/logging.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
 

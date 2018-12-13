@@ -7,7 +7,7 @@
  */
 
 #include "inodeCache.h"
-#include "logging.h"
+#include "helpers/logging.h"
 #include "monitoring/monitoring.h"
 
 #include <cassert>

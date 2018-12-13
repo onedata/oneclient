@@ -7,7 +7,7 @@
  */
 
 #include "events.h"
-#include "logging.h"
+#include "helpers/logging.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
 #include "monitoring/monitoring.h"

@@ -10,7 +10,7 @@
 
 #include "cache/readdirCache.h"
 #include "fuseOperations.h"
-#include "logging.h"
+#include "helpers/logging.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileRenamed.h"
 #include "messages/fuse/getChildAttr.h"

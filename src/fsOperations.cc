@@ -11,7 +11,7 @@
 #include "communication/exception.h"
 #include "fslogic/composite.h"
 #include "fuseOperations.h"
-#include "logging.h"
+#include "helpers/logging.h"
 #include "monitoring/monitoring.h"
 #include "oneException.h"
 #include "util/xattrHelper.h"

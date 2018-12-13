@@ -9,7 +9,7 @@
 #include "cache/readdirCache.h"
 
 #include "communication/communicator.h"
-#include "logging.h"
+#include "helpers/logging.h"
 #include "options/options.h"
 
 #include "messages/fuse/fileChildrenAttrs.h"

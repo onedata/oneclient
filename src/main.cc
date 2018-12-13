@@ -24,7 +24,7 @@
 #include "fslogic/composite.h"
 #include "fuseOperations.h"
 #include "helpers/init.h"
-#include "logging.h"
+#include "helpers/logging.h"
 #include "messages/configuration.h"
 #include "messages/getConfiguration.h"
 #include "messages/handshakeResponse.h"
