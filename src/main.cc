@@ -290,6 +290,9 @@ std::shared_ptr<messages::Configuration> getConfiguration(
             messages::GetConfiguration{});
         auto configuration =
             communication::wait(future, options->getProviderTimeout());
+
+        communicator->stop();
+
         return std::make_shared<messages::Configuration>(
             std::move(configuration));
     }
