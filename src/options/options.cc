@@ -221,14 +221,15 @@ Options::Options()
 
     add<bool>()
         ->asSwitch()
-        .withLongName("force-fullblock-read")
-        .withConfigName("force_fullblock_read")
+        .withLongName("no-fullblock-read")
+        .withConfigName("no_fullblock_read")
         .withImplicitValue(true)
         .withDefaultValue(false, "false")
         .withGroup(OptionGroup::ADVANCED)
         .withDescription(
-            "Force fullblock read mode. By default read can return less "
-            "data than request in case it is immediately available and "
+            "Disable fullblock read mode. With this option read can return "
+            "less "
+            "data than requested in case it is immediately available and "
             "consecutive blocks need to be prefetched from remote storage.");
 
     add<unsigned int>()
@@ -362,7 +363,8 @@ Options::Options()
         ->withLongName("rndrd-prefetch-cluster-window")
         .withConfigName("rndrd_prefetch_cluster_window")
         .withValueName("<size>")
-        .withDefaultValue(0, std::to_string(0))
+        .withDefaultValue(DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE,
+            std::to_string(DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE))
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Cluster window size for prefetching in "
                          "[bytes]. When -1 is provided, the "
@@ -450,6 +452,18 @@ Options::Options()
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Adds <name>=<value> extended attribute to each "
                          "locally modified file.");
+
+    add<std::vector<std::string>>()
+        ->withEnvName("override")
+        .withShortName("r")
+        .withLongName("override")
+        .withConfigName("override")
+        .withValueName("<storageId>:<name>:<value>")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Allows to override selected helper parameters for specific "
+            "storage, e.g. "
+            "'d40f2f63433da7c845886f6fe970048b:mountPoint:/mnt/nfs'");
 
     add<bool>()
         ->asSwitch()
@@ -583,6 +597,13 @@ Options::Options()
         .withLongName("no_check_certificate")
         .withEnvName("no_check_certificate")
         .withConfigName("no_check_certificate")
+        .withGroup(OptionGroup::DEPRECATED);
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("force-fullblock-read")
+        .withEnvName("force_fullblock_read")
+        .withConfigName("force_fullblock_read")
         .withGroup(OptionGroup::DEPRECATED);
 
     add<std::string>()
@@ -786,10 +807,10 @@ bool Options::areFileReadEventsDisabled() const
         .get_value_or(false);
 }
 
-bool Options::isFullblockReadForced() const
+bool Options::isFullblockReadEnabled() const
 {
-    return get<bool>({"force-fullblock-read", "force_fullblock_read"})
-        .get_value_or(false);
+    return !get<bool>({"no-fullblock-read", "no_fullblock_read"})
+                .get_value_or(false);
 }
 
 bool Options::isIOBuffered() const
@@ -942,6 +963,31 @@ Options::getOnCreateTag() const
 {
     return get<std::pair<std::string, std::string>>(
         {"tag-on-create", "tag_on_create"});
+}
+
+std::map<folly::fbstring, std::unordered_map<folly::fbstring, folly::fbstring>>
+Options::getHelperOverrideParams() const
+{
+    std::map<folly::fbstring,
+        std::unordered_map<folly::fbstring, folly::fbstring>>
+        result;
+
+    for (const auto &p : getOverrideParams()) {
+        result[std::get<0>(p)][std::get<1>(p)] = std::get<2>(p);
+    }
+
+    return result;
+}
+
+std::unordered_map<folly::fbstring, folly::fbstring>
+Options::getHelperOverrideParams(const folly::fbstring &storageId) const
+{
+    const auto &overrideParams = getHelperOverrideParams();
+
+    if (overrideParams.find(storageId) != overrideParams.cend())
+        return overrideParams.at(storageId);
+
+    return {};
 }
 
 bool Options::isMonitoringEnabled() const

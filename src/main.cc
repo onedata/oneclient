@@ -25,7 +25,7 @@
 #include "fslogic/composite.h"
 #include "fuseOperations.h"
 #include "helpers/init.h"
-#include "logging.h"
+#include "helpers/logging.h"
 #include "messages/configuration.h"
 #include "messages/getConfiguration.h"
 #include "messages/handshakeResponse.h"
@@ -301,6 +301,9 @@ std::shared_ptr<messages::Configuration> getConfiguration(
             messages::GetConfiguration{});
         auto configuration =
             communication::wait(future, options->getProviderTimeout());
+
+        communicator->stop();
+
         return std::make_shared<messages::Configuration>(
             std::move(configuration));
     }
@@ -470,7 +473,7 @@ int main(int argc, char *argv[])
     fsLogic = std::make_unique<fslogic::Composite>(rootUuid, std::move(context),
         std::move(configuration), std::move(helpersCache),
         options->getMetadataCacheSize(), options->areFileReadEventsDisabled(),
-        options->isFullblockReadForced(), options->getProviderTimeout());
+        options->isFullblockReadEnabled(), options->getProviderTimeout());
 
     res = (multithreaded != 0) ? fuse_session_loop_mt(fuse)
                                : fuse_session_loop(fuse);

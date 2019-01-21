@@ -94,7 +94,7 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.isMonitoringEnabled());
     EXPECT_EQ(false, options.isMonitoringLevelFull());
     EXPECT_EQ(false, options.areFileReadEventsDisabled());
-    EXPECT_EQ(false, options.isFullblockReadForced());
+    EXPECT_EQ(true, options.isFullblockReadEnabled());
     EXPECT_EQ(true, options.isMonitoringLevelBasic());
     EXPECT_EQ(false, options.isClusterPrefetchThresholdRandom());
     EXPECT_EQ(0, options.getVerboseLogLevel());
@@ -134,7 +134,8 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options.getReaddirPrefetchSize());
     EXPECT_EQ(1.0, options.getLinearReadPrefetchThreshold());
     EXPECT_EQ(1.0, options.getRandomReadPrefetchThreshold());
-    EXPECT_EQ(0, options.getRandomReadPrefetchClusterWindow());
+    EXPECT_EQ(options::DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE,
+        options.getRandomReadPrefetchClusterWindow());
     EXPECT_EQ(options::DEFAULT_PREFETCH_MODE, options.getPrefetchMode());
     EXPECT_EQ(options::DEFAULT_PREFETCH_EVALUATE_FREQUENCY,
         options.getRandomReadPrefetchEvaluationFrequency());
@@ -303,11 +304,11 @@ TEST_F(OptionsTest, parseCommandLineShouldSetDisableFileReadEvents)
     EXPECT_EQ(true, options.areFileReadEventsDisabled());
 }
 
-TEST_F(OptionsTest, parseCommandLineShouldSetForceFullblockRead)
+TEST_F(OptionsTest, parseCommandLineShouldEnableFullblockRead)
 {
-    cmdArgs.insert(cmdArgs.end(), {"--force-fullblock-read", "mountpoint"});
+    cmdArgs.insert(cmdArgs.end(), {"--no-fullblock-read", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
-    EXPECT_EQ(true, options.isFullblockReadForced());
+    EXPECT_EQ(false, options.isFullblockReadEnabled());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetProviderTimeout)
@@ -413,6 +414,33 @@ TEST_F(OptionsTest, parseCommandLineShouldSetTagOnModify)
     options.parse(cmdArgs.size(), cmdArgs.data());
     auto value = std::make_pair<std::string, std::string>("KEY1", "VALUE1");
     EXPECT_EQ(value, options.getOnModifyTag().get());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldOverrideHelperParam)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--override", "STORAGE1:PARAM1:VALUE1:2:3", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+
+    EXPECT_EQ(
+        "VALUE1:2:3", options.getHelperOverrideParams()["STORAGE1"]["PARAM1"]);
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldOverrideMultipleHelperParams)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-r", "STORAGE1:PARAM1:VALUE1", "-r", "STORAGE2:PARAM2:VALUE2", "-r",
+            "STORAGE3:PARAM3:VALUE3", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+
+    auto params = options.getHelperOverrideParams();
+
+    EXPECT_EQ(
+        "VALUE1", options.getHelperOverrideParams()["STORAGE1"]["PARAM1"]);
+    EXPECT_EQ(
+        "VALUE2", options.getHelperOverrideParams()["STORAGE2"]["PARAM2"]);
+    EXPECT_EQ(
+        "VALUE3", options.getHelperOverrideParams()["STORAGE3"]["PARAM3"]);
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetLinearReadPrefetchTriggerThreshold)

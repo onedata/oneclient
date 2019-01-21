@@ -6,7 +6,7 @@
  * 'LICENSE.txt'
  */
 
-#include "logging.h"
+#include "helpers/logging.h"
 #include "util/base64.h"
 
 #include <folly/json.h>

@@ -7,7 +7,7 @@
  */
 
 #include "remoteSubscriptionHandle.h"
-#include "logging.h"
+#include "helpers/logging.h"
 
 #include "messages.pb.h"
 

@@ -7,7 +7,7 @@
  */
 
 #include "fslogic/ioTraceLogger.h"
-#include "logging.h"
+#include "helpers/logging.h"
 
 #include <folly/FBVector.h>
 #include <folly/String.h>

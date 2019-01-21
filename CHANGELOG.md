@@ -4,6 +4,14 @@
 CHANGELOG
 ---------
 
+### 18.02.0-rc13
+
+* VFS-4902 Added proxygen library dependency
+* VFS-4902 Added maximum upload size and connection pool size params
+* VFS-4902 Added WebDAV helper
+* VFS-4710 Added dev image
+
+
 ### 18.02.0-rc12
 
 * Releasing new version 18.02.0-rc12

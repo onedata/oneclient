@@ -9,7 +9,7 @@
 #ifndef ONECLIENT_EVENTS_STREAMS_TYPED_STREAM_H
 #define ONECLIENT_EVENTS_STREAMS_TYPED_STREAM_H
 
-#include "logging.h"
+#include "helpers/logging.h"
 #include "stream.h"
 
 #include <typeinfo>

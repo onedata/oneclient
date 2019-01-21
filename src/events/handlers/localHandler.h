@@ -10,7 +10,7 @@
 #define ONECLIENT_EVENTS_HANDLERS_LOCAL_HANDLER_H
 
 #include "handler.h"
-#include "logging.h"
+#include "helpers/logging.h"
 
 namespace one {
 namespace client {

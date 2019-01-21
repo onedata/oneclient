@@ -8,7 +8,7 @@
 
 #include "environment.h"
 
-#include "logging.h"
+#include "helpers/logging.h"
 
 #include <boost/filesystem.hpp>
 

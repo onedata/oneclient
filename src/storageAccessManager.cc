@@ -7,9 +7,9 @@
  */
 
 #include "storageAccessManager.h"
+#include "helpers/logging.h"
 #include "helpers/storageHelper.h"
 #include "helpers/storageHelperCreator.h"
-#include "logging.h"
 #include "messages/fuse/createStorageTestFile.h"
 #include "messages/fuse/storageTestFile.h"
 #include "messages/fuse/verifyStorageTestFile.h"
@@ -109,33 +109,54 @@ StorageAccessManager::StorageAccessManager(
     const options::Options &options)
     : m_helperFactory{helperFactory}
     , m_options{options}
-    , m_mountPoints{getMountPoints()}
 {
 }
 
 std::shared_ptr<helpers::StorageHelper>
-StorageAccessManager::verifyStorageTestFile(
+StorageAccessManager::verifyStorageTestFile(const folly::fbstring &storageId,
     const messages::fuse::StorageTestFile &testFile)
 {
     const auto &helperParams = testFile.helperParams();
+    const auto &overrideParams = m_options.getHelperOverrideParams(storageId);
+
     if (helperParams.name() == helpers::POSIX_HELPER_NAME) {
-        for (const auto &mountPoint : m_mountPoints) {
+        std::vector<boost::filesystem::path> mountPoints;
+
+        // Check, if the user has provided a mountPoint override for this
+        // storage, otherwise list all local mountpoints
+        if (overrideParams.find("mountPoint") != overrideParams.cend()) {
+            mountPoints.emplace_back(
+                overrideParams.at("mountPoint").toStdString());
+        }
+        else {
+            mountPoints = getMountPoints();
+        }
+
+        for (const auto &mountPoint : mountPoints) {
+            LOG_DBG(1) << "Verifying storage " << storageId
+                       << " test file under mountpoint " << mountPoint;
+
             auto helper = m_helperFactory.getStorageHelper(
                 helpers::POSIX_HELPER_NAME,
                 {{helpers::POSIX_HELPER_MOUNT_POINT_ARG, mountPoint.string()}},
                 m_options.isIOBuffered());
-            if (verifyStorageTestFile(helper, testFile))
+
+            if (verifyStorageTestFile(storageId, helper, testFile)) {
+                LOG_DBG(1) << "Storage " << storageId
+                           << " successfuly located under " << mountPoint;
                 return helper;
+            }
         }
     }
     else if (helperParams.name() == helpers::NULL_DEVICE_HELPER_NAME) {
-        return m_helperFactory.getStorageHelper(
-            helperParams.name(), helperParams.args(), m_options.isIOBuffered());
+        return m_helperFactory.getStorageHelper(helperParams.name(),
+            helperParams.args(), m_options.isIOBuffered(), overrideParams);
     }
     else {
-        auto helper = m_helperFactory.getStorageHelper(
-            helperParams.name(), helperParams.args(), m_options.isIOBuffered());
-        if (verifyStorageTestFile(helper, testFile))
+        auto helper = m_helperFactory.getStorageHelper(helperParams.name(),
+            helperParams.args(), m_options.isIOBuffered(), overrideParams);
+
+        if (verifyStorageTestFile(storageId, helper, testFile))
             return helper;
     }
 
@@ -143,6 +164,7 @@ StorageAccessManager::verifyStorageTestFile(
 }
 
 bool StorageAccessManager::verifyStorageTestFile(
+    const folly::fbstring &storageId,
     std::shared_ptr<helpers::StorageHelper> helper,
     const messages::fuse::StorageTestFile &testFile)
 {
@@ -159,15 +181,16 @@ bool StorageAccessManager::verifyStorageTestFile(
         buf.appendToString(content);
 
         if (content.size() != size) {
-            LOG(WARNING) << "Storage test file size mismatch, expected: "
-                         << size << ", actual: " << content.size();
+            LOG(WARNING) << "Storage " << storageId
+                         << " test file size mismatch, expected: " << size
+                         << ", actual: " << content.size();
             return false;
         }
 
         if (testFile.fileContent() != content) {
-            LOG(WARNING) << "Storage test file content mismatch, expected: '"
-                         << testFile.fileContent() << "', actual: '" << content
-                         << "'";
+            LOG(WARNING) << "Storage " << storageId
+                         << "test file content mismatch, expected: "
+                         << testFile.fileContent();
             return false;
         }
 
@@ -185,6 +208,7 @@ bool StorageAccessManager::verifyStorageTestFile(
 }
 
 folly::fbstring StorageAccessManager::modifyStorageTestFile(
+    const folly::fbstring &storageId,
     std::shared_ptr<helpers::StorageHelper> helper,
     const messages::fuse::StorageTestFile &testFile)
 {
@@ -207,8 +231,9 @@ folly::fbstring StorageAccessManager::modifyStorageTestFile(
     communication::wait(handle->write(0, std::move(buf)), helper->timeout());
     communication::wait(handle->fsync(true), helper->timeout());
 
-    LOG_DBG(1) << "Storage test file " << testFile.fileId() << " in space "
-               << testFile.spaceId() << " modified with content " << content;
+    LOG_DBG(1) << "Storage " << storageId << " test file " << testFile.fileId()
+               << " in space " << testFile.spaceId()
+               << " modified with content " << content;
 
     return content;
 }

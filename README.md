@@ -34,6 +34,7 @@ cd oneclient
 * WITH_S3=OFF - disables S3 support
 * WITH_SWIFT=OFF - disables Swift support
 * WITH_GLUSTERFS=OFF - disables GlusterFS support
+* WITH_WEBDAV=OFF - disables WebDAV support
 
 The compiled binary `oneclient` will be created on path `release/oneclient` (or `debug/oneclient`).
 
@@ -93,6 +94,17 @@ If for some reason this local cache is undesired, it can be disabled using `--no
 
 By default, POSIX `read` request can return less bytes than requested, especially on network filesystem which can return partial data range which is immediately available and request the remaining bytes assuming the application will run another `read` request with adjusted offset and size. However, some applications assume that the read always return the requested range or error. In order to enable this behavior in `oneclient` it necessary to provide the `--force-fullblock-read` on the command line.
 
+### Overriding storage helper parameters
+
+Oneclient allows to override certain storage helper parameters in order to customize direct access to storage from a Oneclient host to the storage. Use cases for this feature include specifying custom mounpoint for POSIX storages, alternate IP addresses for network storages (e.g. available over local network from Oneclient host), etc.
+
+For example, to tell Oneclient that storage with a NFS storage is mounted at `/home/user1/nfs` the following option should be added to the Oneclient command line: `--override 2bede2623303bc2a19696e5817e13c0b:mountPoint:/home/user/nfs`. `2bede2623303bc2a19696e5817e13c0b` is the storage Id of this storage.
+
+The `--override` option takes 3 arguments separated by `:`:
+* storade ID - this is Onedata internal storage Id, which can be obtained from Onepanel administrator interface or using REST API
+* parameter name - this is the name of the storage helper parameter, these are specific to particular type of storage
+* parameter value - a value which should override the value specified in the Oneprovider when registering the storage
+
 ### Logging
 
 In order to enable a verbose log, *oneclient* provides a `-v` flag which takes a single integer argument which determines the log verbosity:
@@ -111,7 +123,7 @@ The list of all options can be accessed using:
 
 ```
 $ oneclient -h
-Usage: oneclient [options] mountpoint
+Usage: /opt/oneclient/bin/oneclient [options] mountpoint
 
 A Onedata command line client.
 
@@ -120,7 +132,7 @@ General options:
   -V [ --version ]                      Show current Oneclient version and
                                         exit.
   -u [ --unmount ]                      Unmount Oneclient and exit.
-  -c [ --config ] <path> (=/etc/oneclient.conf)
+  -c [ --config ] <path> (=/usr/local/etc/oneclient.conf)
                                         Specify path to config file.
   -H [ --host ] <host>                  Specify the hostname of the Oneprovider
                                         instance to which the Oneclient should
@@ -132,14 +144,16 @@ General options:
                                         servers without valid certificate.
   -t [ --token ] <token>                Specify Onedata access token for
                                         authentication and authorization.
-  -l [ --log-dir ] <path> (=/tmp/oneclient/0)
+  -l [ --log-dir ] <path> (=/tmp/oneclient/1000)
                                         Specify custom path for Oneclient logs.
   -v [ --verbose-log-level ] <level> (=0)
-                                        Specify the verbosity level (0-4) for
+                                        Specify the verbosity level (0-3) for
                                         verbose logs (only available in debug
                                         builds).
 
 Advanced options:
+  --io-trace-log                        Enable detailed IO trace log
+                                        (experimental).
   --force-proxy-io                      Force proxied access to storage via
                                         Oneprovider for all spaces.
   --force-direct-io                     Force direct access to storage for all
@@ -164,13 +178,12 @@ Advanced options:
   --provider-timeout <duration> (=120)  Specify Oneprovider connection timeout
                                         in seconds.
   --disable-read-events                 Disable reporting of file read events.
-  --force-fullblock-read                Force fullblock read mode. By
-                                        default read can return less data than
-                                        request in case it is immediately
+  --no-fullblock-read                   Disable fullblock read mode. With this
+                                        option read can return less data than
+                                        requested in case it is immediately
                                         available and consecutive blocks need
                                         to be prefetched from remote storage.
-  --read-buffer-min-size <size> (=5242880)
-                                        Specify minimum size in bytes of
+  --read-buffer-min-size <size> (=4096) Specify minimum size in bytes of
                                         in-memory cache for input data blocks.
   --read-buffer-max-size <size> (=104857600)
                                         Specify maximum size in bytes of
@@ -183,30 +196,49 @@ Advanced options:
                                         in-memory cache for output data blocks.
   --write-buffer-max-size <size> (=52428800)
                                         Specify maximum size in bytes of
-                                        in-memory cache for output data blocks.
+                                        in-memory cache for output data blocks
+                                        of a single opened file handle.
+  --read-buffers-total-size <size> (=2097152000)
+                                        Specify total maximum size in bytes of
+                                        in-memory cache for input data blocks
+                                        of all opened file handles. When 0,
+                                        read buffers are unlimited.
+  --write-buffers-total-size <size> (=1048576000)
+                                        Specify total maximum size in bytes of
+                                        in-memory cache for output data blocks
+                                        of all opened file handles. When 0,
+                                        write buffers are unlimited.
   --write-buffer-flush-delay <delay> (=5)
                                         Specify idle period in seconds before
                                         flush of in-memory cache for output
                                         data blocks.
-  --seqrd-prefetch-threshold <fraction> (=1.0)
+  --seqrd-prefetch-threshold <fraction> (=1.000000)
                                         Specify the fraction of the file, which
                                         will trigger replication prefetch after
                                         that part of the file is already
                                         replicated (experimental).
-  --rndrd-prefetch-threshold <fraction> (=1.0)
+  --rndrd-prefetch-threshold <fraction> (=1.000000)
                                         Specify the fraction of the file, which
                                         will trigger replication prefetch after
                                         that part of the file is already
                                         replicated in random blocks across
                                         entire file (experimental).
+  --rndrd-prefetch-eval-frequency <count> (=50)
+                                        Number of reads from single file handle
+                                        which will be skipped before next
+                                        evaluation of cluster prefetch. 0 means
+                                        that prefetch evaluation will be
+                                        performed on each read. (experimental).
   --rndrd-prefetch-block-threshold <count> (=0)
                                         Number of separate blocks after which
                                         replication for the file is triggered
                                         automatically. 0 disables this feature
                                         (experimental).
-  --rndrd-prefetch-cluster-window <size> (=0)
-                                        Cluster window size for prefetching
-                                        [bytes] (experimental).
+  --rndrd-prefetch-cluster-window <size> (=20971520)
+                                        Cluster window size for prefetching in
+                                        [bytes]. When -1 is provided, the
+                                        entire file is considered for
+                                        prefetching (experimental).
   --rndrd-prefetch-cluster-block-threshold <count> (=5)
                                         Number of separate blocks in a cluster
                                         window around current read, after which
@@ -220,15 +252,27 @@ Advanced options:
                                         initial_window_size*[1+grow_factor*file
                                         _size*replication_progress/initial_wind
                                         ow_size)] (experimental).
-  --prefetch-mode-async                 Enables asynchronous replication
-                                        requests (experimental).
-  --metadata-cache-size <size> (=100000)
-                                        Specify maximum number of file metadata
-                                        entries which can be stored in cache.
+  --prefetch-mode arg (=async)          Defines the type of block prefetch
+                                        mode. Possible values are: async, sync.
+                                        Default is: async (experimental).
+  --cluster-prefetch-threshold-random   Enables random cluster prefetch
+                                        threshold selection (experimental).
+  --metadata-cache-size <size> (=20000) Number of separate blocks after which
+                                        replication for the file is triggered
+                                        automatically.
   --readdir-prefetch-size <size> (=2500)
                                         Specify the size of requests made
                                         during readdir prefetch (in number of
                                         dir entries).
+  --tag-on-create <name>:<value>        Adds <name>=<value> extended attribute
+                                        to each locally created file.
+  --tag-on-modify <name>:<value>        Adds <name>=<value> extended attribute
+                                        to each locally modified file.
+  -r [ --override ] <storageId>:<name>:<value>
+                                        Allows to override selected helper
+                                        parameters for specific storage, e.g.
+                                        'd40f2f63433da7c845886f6fe970048b:mount
+                                        Point:/mnt/nfs'
 
 FUSE options:
   -f [ --foreground ]         Foreground operation.
@@ -263,13 +307,13 @@ Some options in the config file can be overridden using environment variables, w
 Running dockerized *oneclient* is easy:
 
 ```
-docker run -it --privileged onedata/oneclient:18.02.0-beta2
+docker run -it --privileged onedata/oneclient:18.02.0-rc13
 ```
 
 To run *oneclient* image without it automatically mounting the volume specify custom entrypoint:
 
 ```
-docker run -it --privileged --entrypoint bash onedata/oneclient:18.02.0-beta2
+docker run -it --privileged --entrypoint bash onedata/oneclient:18.02.0-rc13
 ```
 
 
@@ -278,19 +322,19 @@ docker run -it --privileged --entrypoint bash onedata/oneclient:18.02.0-beta2
 The application will ask for a token and run in the foreground. In order for *oneclient* to remember your token, mount volume `/root/.local/share/oneclient`:
 
 ```
-docker run -it --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:18.02.0-beta2
+docker run -it --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:18.02.0-rc13
 ```
 
 You can also pass your token in `ONECLIENT_ACCESS_TOKEN` environment variable:
 
 ```
-docker run -it --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18.02.0-beta2
+docker run -it --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18.02.0-rc13
 ```
 
 If *oneclient* knows the token (either by reading its config file or by reading the environment variable), it can be run as a daemon container:
 
 ```
-docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18.02.0-beta2
+docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18.02.0-rc13
 ```
 
 ### Accessing your data
@@ -299,7 +343,7 @@ docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18
 spaces.
 
 ```
-docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18.02.0-beta2
+docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18.02.0-rc13
 
 # Display container's IP address
 docker inspect --format "{{ .NetworkSettings.IPAddress }}" $(docker ps -ql)

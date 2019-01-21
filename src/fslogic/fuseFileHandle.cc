@@ -10,7 +10,7 @@
 
 #include "cache/forceProxyIOCache.h"
 #include "cache/helpersCache.h"
-#include "logging.h"
+#include "helpers/logging.h"
 
 namespace one {
 namespace client {

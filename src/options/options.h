@@ -9,9 +9,10 @@
 #ifndef ONECLIENT_OPTIONS_H
 #define ONECLIENT_OPTIONS_H
 
-#include "logging.h"
+#include "helpers/logging.h"
 
 #include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/join.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
 #include <boost/program_options.hpp>
@@ -48,9 +49,9 @@ static constexpr auto DEFAULT_PREFETCH_EVALUATE_FREQUENCY = 50;
 static constexpr double DEFAULT_PREFETCH_POWER_BASE = 1.3;
 static constexpr auto DEFAULT_PREFETCH_TARGET_LATENCY =
     std::chrono::nanoseconds{1000}; // NOLINT
-static constexpr auto DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE = 0;
+static constexpr auto DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE = 20971520;
 static constexpr auto DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD = 5;
-static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 100000;
+static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 20'000;
 static constexpr auto DEFAULT_READDIR_PREFETCH_SIZE = 2500;
 static constexpr auto DEFAULT_PROVIDER_TIMEOUT = 2 * 60;
 static constexpr auto DEFAULT_MONITORING_PERIOD_SECONDS = 30;
@@ -215,9 +216,9 @@ public:
     bool areFileReadEventsDisabled() const;
 
     /*
-     * @return true if 'force-fullblock-read' is specified.
+     * @return false if 'no-fullblock-read' is specified.
      */
-    bool isFullblockReadForced() const;
+    bool isFullblockReadEnabled() const;
 
     /*
      * @return false if 'no-buffer' option has been provided, otherwise true.
@@ -342,6 +343,21 @@ public:
     boost::optional<std::pair<std::string, std::string>> getOnCreateTag() const;
 
     /*
+     * @return Get helper parameter override value
+     */
+    std::map<folly::fbstring,
+        std::unordered_map<folly::fbstring, folly::fbstring>>
+    getHelperOverrideParams() const;
+
+    /*
+     * @return Get helper parameter override values for specific storageId
+     *         or empty map in case no overrides for this storage were
+     *         provided
+     */
+    std::unordered_map<folly::fbstring, folly::fbstring>
+    getHelperOverrideParams(const folly::fbstring &storageId) const;
+
+    /*
      * @return Is monitoring enabled.
      */
     bool isMonitoringEnabled() const;
@@ -410,6 +426,40 @@ private:
         }
         if (!names.empty() && m_vm.count(names[0])) {
             return m_vm.at(names[0]).as<T>();
+        }
+        return {};
+    }
+
+    std::vector<std::tuple<std::string, std::string, std::string>>
+    getOverrideParams() const
+    {
+        if (m_vm.count("override") && !m_vm.at("override").defaulted()) {
+            auto overrideParams =
+                m_vm["override"].as<std::vector<std::string>>();
+
+            std::vector<std::tuple<std::string, std::string, std::string>>
+                result;
+
+            for (const auto &param : overrideParams) {
+                std::vector<std::string> keyValue;
+                boost::split(keyValue, param, boost::is_any_of(":"));
+
+                if (keyValue.size() < 3) {
+                    LOG(ERROR) << "Invalid command line argument: --override "
+                               << param;
+                    LOG(ERROR) << "Helper override parameters must have values "
+                                  "in the form "
+                                  "<storageId>:<parameter>:<value>";
+                }
+
+                result.emplace_back(keyValue[0], keyValue[1],
+                    boost::algorithm::join(
+                        std::vector<std::string>(
+                            std::next(keyValue.begin(), 2), keyValue.end()),
+                        ":"));
+            }
+
+            return result;
         }
         return {};
     }

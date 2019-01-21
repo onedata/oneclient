@@ -128,6 +128,12 @@ private:
     folly::fbvector<std::thread> m_helpersWorkers;
     std::shared_ptr<folly::IOThreadPoolExecutor> m_helpersIOExecutor;
 
+    // Helper parameter values provided on the Oneclient commandline
+    // which should override values received from Oneprovider
+    const std::map<folly::fbstring,
+        std::unordered_map<folly::fbstring, folly::fbstring>>
+        m_helperParamOverrides;
+
     helpers::StorageHelperCreator m_helperFactory;
 
     // Instance of storage access manager used for performing automatic
