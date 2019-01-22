@@ -266,6 +266,9 @@ std::shared_ptr<auth::AuthManager> getAuthManager(
     catch (std::exception &e) {
         std::cerr << "Authentication error: '" << e.what() << "'. Aborting..."
                   << std::endl;
+        std::cerr << "Please make sure that the access token has been copied "
+                     "correctly."
+                  << std::endl;
         exit(EXIT_FAILURE);
     }
 }
@@ -297,8 +300,7 @@ std::shared_ptr<messages::Configuration> getConfiguration(
             std::move(configuration));
     }
     catch (const std::exception &e) {
-        std::cerr << "Connection error: '" << e.what() << "'. Aborting..."
-                  << std::endl;
+        std::cerr << "Connection refused - aborting..." << std::endl;
         exit(EXIT_FAILURE);
     }
 }
