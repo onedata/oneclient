@@ -4,6 +4,19 @@
 CHANGELOG
 ---------
 
+### 18.02.1
+
+* VFS-5109 Improved invalid token error message
+* VFS-5057 Ensure message callbacks are not called after deamonization
+* VFS-5057 Fixed memory leak in libmacaroons
+* VFS-5102 Added override params for storage to options
+* VFS-5102 Updated Oneclient README
+* VFS-5102 Enabled POSIX helper mountPoint parameter override
+* VFS-5102 Added helper parameter override cli option
+* VFS-5120 Disabled creation of unsupported file types
+* VFS-5120 Fixed file creation flags
+
+
 ### 18.02.0-rc13
 
 * VFS-4902 Added proxygen library dependency
