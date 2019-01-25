@@ -187,6 +187,24 @@ TEST_F(OptionsTest, parseCommandLineShouldSetProviderHost)
     EXPECT_EQ("someHost", options.getProviderHost().get());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldSetSpaceNames)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--space", "Space1", "--space", "Space 2", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    std::vector<std::string> opts{"Space1", "Space 2"};
+    EXPECT_EQ(opts, options.getSpaceNames());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetSpaceIds)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--space-id", "12345", "--space-id", "ABCDE", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    std::vector<std::string> opts{"12345", "ABCDE"};
+    EXPECT_EQ(opts, options.getSpaceIds());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetProviderPort)
 {
     cmdArgs.insert(cmdArgs.end(), {"--port", "1234", "mountpoint"});
