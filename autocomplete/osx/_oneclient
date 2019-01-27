@@ -62,6 +62,21 @@ arg_oneclient=(\
   '--seqrd-prefetch-threshold[Specify linear read prefetch threshold]:number' \
   '--rndrd-prefetch-threshold[Specify random read prefetch threshold]:number' \
   '--metadata-cache-size[Specify maximum number of entries in file metadata cache.]:number' \
+  '--io-trace-log[Enable detailed IO trace log.]' \
+  '--disable-read-events[Disable reporting of file read events.]' \
+  '--no-fullblock-read[Disable fullblock read mode.]' \
+  '--rndrd-prefetch-eval-frequency[Number of reads from single file handle which will be skipped before next evaluation of cluster prefetch.]:number' \
+  '--rndrd-prefetch-block-threshold[Number of separate blocks after which replication for the file is triggered automatically.]:number' \
+  '--rndrd-prefetch-cluster-window[Cluster window size for prefetching in bytes.]:number' \
+  '--rndrd-prefetch-cluster-block-threshold[Number of separate blocks in a cluster window around current read.]:number' \
+  '--rndrd-prefetch-cluster-window-grow-factor[Prefetch cluster window grow factor.]:number' \
+  '--prefetch-mode[Defines the type of block prefetch mode.]:mode' \
+  '--cluster-prefetch-threshold-random[Enables random cluster prefetch threshold selection.]' \
+  '--readdir-prefetch-size[Specify the size of requests made during readdir prefetch.]:number' \
+  '--tag-on-create[Adds name=value extended attribute to each locally created file.]:value' \
+  '--tag-on-modify[Adds name=value extended attribute to each locally modified file.]:value' \
+  '--space[Allows to specify which space should be mounted by name.]:space' \
+  '--space-id[Allows to specify which space should be mounted by space id.]:space' \
   '1: :{_files -/}'\
 )
 
