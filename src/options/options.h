@@ -398,6 +398,16 @@ public:
     boost::filesystem::path getMountpoint() const;
 
     /*
+     * @return List of space names to mount.
+     */
+    std::vector<std::string> getSpaceNames() const;
+
+    /*
+     * @return List of space ids to mount.
+     */
+    std::vector<std::string> getSpaceIds() const;
+
+    /*
      * @return FUSE mounting options.
      */
     std::vector<std::string> getFuseOpts() const;

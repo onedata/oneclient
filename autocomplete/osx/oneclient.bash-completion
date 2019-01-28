@@ -113,7 +113,12 @@ _oneclient() {
                                -f --foreground -d --debug -s --single-thread \
                                -o --opt \
                                -v --verbose-log-level \
+                               --space \
+                               --space-id \
                                --no-buffer \
+                               --io-trace-log \
+                               --disable-read-events \
+                               --no-fullblock-read \
                                --provider-timeout \
                                --disable-read-events \
                                --force-fullblock-read \
@@ -132,6 +137,17 @@ _oneclient() {
                                --write-buffer-flush-delay \
                                --seqrd-prefetch-threshold \
                                --rndrd-prefetch-threshold \
+                               --rndrd-prefetch-eval-frequency \
+                               --rndrd-prefetch-block-threshold \
+                               --rndrd-prefetch-cluster-window \
+                               --rndrd-prefetch-cluster-block-threshold \
+                               --rndrd-prefetch-cluster-window-grow-factor \
+                               --prefetch-mode \
+                               --cluster-prefetch-threshold-random \
+                               --metadata-cache-size \
+                               --readdir-prefetch-size \
+                               --tag-on-create --tag-on-modify \
+                               -r --override \
                                --metadata-cache-size' -- $cur ) )
     return
     ;;
