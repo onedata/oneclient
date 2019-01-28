@@ -107,6 +107,28 @@ Options::Options()
         .withDescription("Specify Onedata access token for authentication and "
                          "authorization.");
 
+    add<std::vector<std::string>>()
+        ->withEnvName("space")
+        .withLongName("space")
+        .withConfigName("space")
+        .withValueName("<name>")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription("Allows to specify which space should be mounted, "
+                         "where the value of the argument is space name. "
+                         "Specify multiple times for multiple spaces. If not "
+                         "specified, all users spaces will be mounted.");
+
+    add<std::vector<std::string>>()
+        ->withEnvName("space_id")
+        .withLongName("space-id")
+        .withConfigName("space_id")
+        .withValueName("<id>")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription(
+            "Allows to specify which space should be mounted, where the value "
+            "of the argument is space id. Specify multiple times for multiple "
+            "spaces. If not specified, all users spaces will be mounted.");
+
     add<boost::filesystem::path>()
         ->withShortName("l")
         .withLongName("log-dir")
@@ -1035,6 +1057,16 @@ unsigned int Options::getMonitoringReportingPeriod() const
 boost::filesystem::path Options::getMountpoint() const
 {
     return get<boost::filesystem::path>({"mountpoint"}).get();
+}
+
+std::vector<std::string> Options::getSpaceNames() const
+{
+    return get<std::vector<std::string>>({"space"}).get_value_or({});
+}
+
+std::vector<std::string> Options::getSpaceIds() const
+{
+    return get<std::vector<std::string>>({"space-id"}).get_value_or({});
 }
 
 std::vector<std::string> Options::getFuseOpts() const

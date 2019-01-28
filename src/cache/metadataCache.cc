@@ -20,6 +20,7 @@
 #include "messages/fuse/updateTimes.h"
 #include "monitoring/monitoring.h"
 #include "scheduler.h"
+#include "util/base64.h"
 
 #include <folly/FBVector.h>
 #include <folly/Range.h>
