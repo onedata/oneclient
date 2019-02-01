@@ -872,7 +872,8 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
     m_metadataCache.addBlock(uuid, writtenRange, std::move(fileBlock));
 
     if (m_tagOnModify && !fuseFileHandle->isOnModifyTagSet()) {
-        std::string tagNameJsonEncoded, tagValueJsonEncoded;
+        std::string tagNameJsonEncoded;
+        std::string tagValueJsonEncoded;
         if (!util::xattr::encodeJsonXAttrName(
                 m_tagOnModify.get().first, tagNameJsonEncoded) ||
             !util::xattr::encodeJsonXAttrValue(
@@ -1000,7 +1001,8 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
     m_readdirCache->invalidate(parentUuid);
 
     if (m_tagOnCreate && !fuseFileHandle->isOnCreateTagSet()) {
-        std::string tagNameJsonEncoded, tagValueJsonEncoded;
+        std::string tagNameJsonEncoded;
+        std::string tagValueJsonEncoded;
         if (!util::xattr::encodeJsonXAttrName(
                 m_tagOnCreate.get().first, tagNameJsonEncoded) ||
             !util::xattr::encodeJsonXAttrValue(
@@ -1447,7 +1449,7 @@ std::shared_ptr<IOTraceLogger> FsLogic::createIOTraceLogger()
 {
     auto now = std::chrono::system_clock::now();
     auto nowTimeT = std::chrono::system_clock::to_time_t(now);
-    constexpr auto IOTRACE_TIME_BUFFER_SIZE = 512u;
+    constexpr auto IOTRACE_TIME_BUFFER_SIZE = 512U;
     char nowBuf[IOTRACE_TIME_BUFFER_SIZE];
 
     std::tm nowTm = *std::localtime(&nowTimeT);
