@@ -16,8 +16,8 @@ namespace one {
 namespace client {
 namespace fslogic {
 
-constexpr auto FSLOGIC_RECENT_PREFETCH_CACHE_SIZE = 1000u;
-constexpr auto FSLOGIC_RECENT_PREFETCH_CACHE_PRUNE_SIZE = 50u;
+constexpr auto FSLOGIC_RECENT_PREFETCH_CACHE_SIZE = 1000U;
+constexpr auto FSLOGIC_RECENT_PREFETCH_CACHE_PRUNE_SIZE = 50U;
 
 FuseFileHandle::FuseFileHandle(const int flags_, folly::fbstring handleId,
     std::shared_ptr<cache::LRUMetadataCache::OpenFileToken> openFileToken,

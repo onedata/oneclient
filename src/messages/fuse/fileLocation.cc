@@ -260,7 +260,7 @@ bool FileLocation::randomReadPrefetchThresholdReached(
 
     // If at least 5 different blocks are in the map and their overall size
     // is larger then threshold, return true
-    constexpr auto kFsLogicGlobalBlockThreshold = 5u;
+    constexpr auto kFsLogicGlobalBlockThreshold = 5U;
     return (blocksCount() > kFsLogicGlobalBlockThreshold) &&
         static_cast<size_t>(boost::icl::length(m_blocks)) > fileThresholdBytes;
 }

@@ -21,7 +21,8 @@ namespace events {
 Router::Router(Manager &manager, communication::Communicator &communicator)
     : m_eventManager{manager}
 {
-    auto predicate = [](const clproto::ServerMessage &msg, const bool) {
+    auto predicate = [](const clproto::ServerMessage &msg,
+                         const bool /*unused*/) {
         return msg.has_events() || msg.has_subscription() ||
             msg.has_subscription_cancellation();
     };
