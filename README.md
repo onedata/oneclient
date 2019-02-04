@@ -75,6 +75,14 @@ oneclient -t <ACCESS_TOKEN> -H <PROVIDER_IP> <MOUNT_PATH>
 
 When connecting to a Oneprovider instance without a valid trusted SSL certificate, `-i` option must be added.
 
+### Mounting selected spaces
+`oneclient` will present under the specified mountpoint all spaces available to the user whose access token was passed on the command line.
+
+It is however possible to limit the spaces which are visible, by providing a white list of the spaces on the command line. This can be achieved using 2 options:
+
+  * `--space <name>` -  every occurence of this option followed by the name of a space will limit the mounted spaces to the specified spaces (e.g. `--space Space1 --space Space2`)
+  * `--space-id <id>` -  every occurence of this option followed by the id of a space will limit the mounted spaces to the specified spaces (e.g. `--space-id a58a461875b59988bd16eca960d8130b --space-id bd16eca960d8130ba58a461875b53451`)
+
 ### Direct IO and Proxy IO modes
 By default `oneclient` will automatically try to detect if it can access storage supporting mounted spaces directly, which significantly improves IO performance as all read and write operations go directly to the storage and not via the Oneprovider service.
 
@@ -123,7 +131,7 @@ The list of all options can be accessed using:
 
 ```
 $ oneclient -h
-Usage: /opt/oneclient/bin/oneclient [options] mountpoint
+Usage: /usr/local/bin/oneclient [options] mountpoint
 
 A Onedata command line client.
 
@@ -144,7 +152,19 @@ General options:
                                         servers without valid certificate.
   -t [ --token ] <token>                Specify Onedata access token for
                                         authentication and authorization.
-  -l [ --log-dir ] <path> (=/tmp/oneclient/1000)
+  --space <name>                        Allows to specify which space should be
+                                        mounted, where the value of the
+                                        argument is space name. Specify
+                                        multiple times for multiple spaces. If
+                                        not specified, all users spaces will be
+                                        mounted.
+  --space-id <id>                       Allows to specify which space should be
+                                        mounted, where the value of the
+                                        argument is space id. Specify multiple
+                                        times for multiple spaces. If not
+                                        specified, all users spaces will be
+                                        mounted.
+  -l [ --log-dir ] <path> (=/tmp/oneclient/0)
                                         Specify custom path for Oneclient logs.
   -v [ --verbose-log-level ] <level> (=0)
                                         Specify the verbosity level (0-3) for
@@ -307,13 +327,13 @@ Some options in the config file can be overridden using environment variables, w
 Running dockerized *oneclient* is easy:
 
 ```
-docker run -it --privileged onedata/oneclient:18.02.0-rc13
+docker run -it --privileged onedata/oneclient:18.02.1
 ```
 
 To run *oneclient* image without it automatically mounting the volume specify custom entrypoint:
 
 ```
-docker run -it --privileged --entrypoint bash onedata/oneclient:18.02.0-rc13
+docker run -it --privileged --entrypoint bash onedata/oneclient:18.02.1
 ```
 
 
@@ -322,19 +342,19 @@ docker run -it --privileged --entrypoint bash onedata/oneclient:18.02.0-rc13
 The application will ask for a token and run in the foreground. In order for *oneclient* to remember your token, mount volume `/root/.local/share/oneclient`:
 
 ```
-docker run -it --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:18.02.0-rc13
+docker run -it --privileged -v ~/.oneclient_local:/root/.local/share/oneclient onedata/oneclient:18.02.1
 ```
 
 You can also pass your token in `ONECLIENT_ACCESS_TOKEN` environment variable:
 
 ```
-docker run -it --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18.02.0-rc13
+docker run -it --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18.02.1
 ```
 
 If *oneclient* knows the token (either by reading its config file or by reading the environment variable), it can be run as a daemon container:
 
 ```
-docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18.02.0-rc13
+docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18.02.1
 ```
 
 ### Accessing your data
@@ -343,7 +363,7 @@ docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18
 spaces.
 
 ```
-docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18.02.0-rc13
+docker run -d --privileged -e ONECLIENT_ACCESS_TOKEN=$TOKEN onedata/oneclient:18.02.1
 
 # Display container's IP address
 docker inspect --format "{{ .NetworkSettings.IPAddress }}" $(docker ps -ql)

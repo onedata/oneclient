@@ -277,6 +277,9 @@ std::shared_ptr<auth::AuthManager> getAuthManager(
     catch (std::exception &e) {
         std::cerr << "Authentication error: '" << e.what() << "'. Aborting..."
                   << std::endl;
+        std::cerr << "Please make sure that the access token has been copied "
+                     "correctly."
+                  << std::endl;
         exit(EXIT_FAILURE);
     }
 }
@@ -308,8 +311,7 @@ std::shared_ptr<messages::Configuration> getConfiguration(
             std::move(configuration));
     }
     catch (const std::exception &e) {
-        std::cerr << "Connection error: '" << e.what() << "'. Aborting..."
-                  << std::endl;
+        std::cerr << "Connection refused - aborting..." << std::endl;
         exit(EXIT_FAILURE);
     }
 }
@@ -319,7 +321,7 @@ std::shared_ptr<communication::Communicator> getCommunicator(
     std::shared_ptr<auth::AuthManager> authManager,
     std::shared_ptr<Context> context)
 {
-    auto handshakeHandler = [](auto) { return std::error_code{}; };
+    auto handshakeHandler = [](auto /*unused*/) { return std::error_code{}; };
 
     auto communicatorTuple = authManager->createCommunicator(
         context->options()->getCommunicatorConnectionPoolSize(),
@@ -336,7 +338,9 @@ std::shared_ptr<communication::Communicator> getCommunicator(
 
 void unmountFuse(std::shared_ptr<options::Options> options)
 {
-    int status = 0, pid = fork();
+    int status = 0;
+    int pid = fork();
+
     if (pid != 0) {
         waitpid(pid, &status, 0);
     }

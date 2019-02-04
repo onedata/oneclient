@@ -233,6 +233,8 @@ public:
         m_onRename = std::move(cb);
     }
 
+    folly::fbstring uuidToSpaceId(const folly::fbstring &uuid) const;
+
 private:
     struct Metadata {
         Metadata(std::shared_ptr<FileAttr>);

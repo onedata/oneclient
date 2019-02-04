@@ -1,11 +1,13 @@
 Checks: >-
   *,
   -abseil*,
+  -*avoid-c-arrays,
   -android*,
   -*braces-around-statements,
   -cert-err58-cpp,
   -clang-analyzer-alpha.*,
   -clang-analyzer-core.UndefinedBinaryOperatorResult,
+  -cppcoreguidelines-macro-usage,
   -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
   -cppcoreguidelines-pro-type-reinterpret-cast,

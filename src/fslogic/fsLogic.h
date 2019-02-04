@@ -324,6 +324,7 @@ private:
     const bool m_ioTraceLoggerEnabled;
     const boost::optional<std::pair<std::string, std::string>> m_tagOnCreate;
     const boost::optional<std::pair<std::string, std::string>> m_tagOnModify;
+    const folly::fbstring m_rootUuid;
 
     std::shared_ptr<IOTraceLogger> m_ioTraceLogger;
 

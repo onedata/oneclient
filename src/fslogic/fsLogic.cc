@@ -117,7 +117,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
           providerTimeout}
     , m_helpersCache{std::move(helpersCache)}
     , m_readdirCache{std::make_shared<cache::ReaddirCache>(
-          m_metadataCache, m_context, runInFiber)}
+          m_metadataCache, m_context, configuration->rootUuid(), runInFiber)}
     , m_readEventsDisabled{readEventsDisabled}
     , m_forceFullblockRead{forceFullblockRead}
     , m_fsSubscriptions{m_eventManager, m_metadataCache, m_forceProxyIOCache,
@@ -145,6 +145,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     , m_ioTraceLoggerEnabled{m_context->options()->isIOTraceLoggerEnabled()}
     , m_tagOnCreate{m_context->options()->getOnCreateTag()}
     , m_tagOnModify{m_context->options()->getOnModifyTag()}
+    , m_rootUuid{configuration->rootUuid()}
 /* clang-format on */
 {
     m_nextFuseHandleId = 0;
@@ -229,6 +230,10 @@ FileAttrPtr FsLogic::lookup(
     const folly::fbstring &uuid, const folly::fbstring &name)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name);
+
+    if (uuid == m_rootUuid && !m_readdirCache->isSpaceWhitelisted(name))
+        throw std::system_error(
+            std::make_error_code(std::errc::no_such_file_or_directory));
 
     IOTRACE_START()
 
@@ -867,7 +872,8 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
     m_metadataCache.addBlock(uuid, writtenRange, std::move(fileBlock));
 
     if (m_tagOnModify && !fuseFileHandle->isOnModifyTagSet()) {
-        std::string tagNameJsonEncoded, tagValueJsonEncoded;
+        std::string tagNameJsonEncoded;
+        std::string tagValueJsonEncoded;
         if (!util::xattr::encodeJsonXAttrName(
                 m_tagOnModify.get().first, tagNameJsonEncoded) ||
             !util::xattr::encodeJsonXAttrValue(
@@ -995,7 +1001,8 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
     m_readdirCache->invalidate(parentUuid);
 
     if (m_tagOnCreate && !fuseFileHandle->isOnCreateTagSet()) {
-        std::string tagNameJsonEncoded, tagValueJsonEncoded;
+        std::string tagNameJsonEncoded;
+        std::string tagValueJsonEncoded;
         if (!util::xattr::encodeJsonXAttrName(
                 m_tagOnCreate.get().first, tagNameJsonEncoded) ||
             !util::xattr::encodeJsonXAttrValue(
@@ -1154,6 +1161,10 @@ folly::fbstring FsLogic::getxattr(
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name);
 
+    if (uuid == m_rootUuid && !m_readdirCache->isSpaceWhitelisted(name))
+        throw std::system_error(
+            std::make_error_code(std::errc::no_such_file_or_directory));
+
     IOTRACE_GUARD(
         IOTraceGetXAttr, IOTraceLogger::OpType::GETXATTR, uuid, 0, name)
 
@@ -1244,6 +1255,10 @@ void FsLogic::setxattr(const folly::fbstring &uuid, const folly::fbstring &name,
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name) << LOG_FARG(value)
                 << LOG_FARG(create) << LOG_FARG(replace);
 
+    if (uuid == m_rootUuid && !m_readdirCache->isSpaceWhitelisted(name))
+        throw std::system_error(
+            std::make_error_code(std::errc::no_such_file_or_directory));
+
     IOTRACE_GUARD(IOTraceSetXAttr, IOTraceLogger::OpType::SETXATTR, uuid, 0,
         name, value, create, replace)
 
@@ -1259,6 +1274,10 @@ void FsLogic::removexattr(
     const folly::fbstring &uuid, const folly::fbstring &name)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(name);
+
+    if (uuid == m_rootUuid && !m_readdirCache->isSpaceWhitelisted(name))
+        throw std::system_error(
+            std::make_error_code(std::errc::no_such_file_or_directory));
 
     IOTRACE_GUARD(
         IOTraceRemoveXAttr, IOTraceLogger::OpType::REMOVEXATTR, uuid, 0, name)
@@ -1430,7 +1449,7 @@ std::shared_ptr<IOTraceLogger> FsLogic::createIOTraceLogger()
 {
     auto now = std::chrono::system_clock::now();
     auto nowTimeT = std::chrono::system_clock::to_time_t(now);
-    constexpr auto IOTRACE_TIME_BUFFER_SIZE = 512u;
+    constexpr auto IOTRACE_TIME_BUFFER_SIZE = 512U;
     char nowBuf[IOTRACE_TIME_BUFFER_SIZE];
 
     std::tm nowTm = *std::localtime(&nowTimeT);
