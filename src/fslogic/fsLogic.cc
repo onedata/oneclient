@@ -27,6 +27,8 @@
 #include "messages/fuse/fileOpened.h"
 #include "messages/fuse/fileRenamed.h"
 #include "messages/fuse/fileRenamedEntry.h"
+#include "messages/fuse/helperParams.h"
+#include "messages/fuse/getHelperParams.h"
 #include "messages/fuse/fsync.h"
 #include "messages/fuse/getFileChildren.h"
 #include "messages/fuse/getFileChildrenAttrs.h"
@@ -48,6 +50,7 @@
 #include "monitoring/monitoring.h"
 #include "util/cdmi.h"
 #include "util/xattrHelper.h"
+#include "webDAVHelper.h"
 
 #include <boost/icl/interval_set.hpp>
 #include <folly/Demangle.h>
@@ -157,7 +160,7 @@ FsLogic::FsLogic(std::shared_ptr<Context> context,
     // Quota initial configuration
     m_eventManager.subscribe(
         events::QuotaExceededSubscription{[=](auto events) {
-            m_runInFiber([ this, events = std::move(events) ] {
+            m_runInFiber([this, events = std::move(events)] {
                 this->disableSpaces(events.back()->spaces());
             });
         }});
@@ -829,6 +832,16 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
                 helperHandle->timeout());
     }
     catch (const std::system_error &e) {
+        if ((e.code().value() == EKEYEXPIRED) && (retriesLeft > 0)) {
+            LOG(ERROR) << "Key or token to storage " << fileBlock.storageId()
+                       << " expired. Refreshing helper parameters...";
+
+            m_helpersCache->refreshHelperParameters(fileBlock.storageId(), spaceId);
+
+            return write(uuid, fuseFileHandleId, offset, std::move(buf),
+                retriesLeft - 1, std::move(ioTraceEntry));
+        }
+
         if ((e.code().value() == EAGAIN) && (retriesLeft > 0)) {
             fiberRetryDelay(retriesLeft);
             return write(uuid, fuseFileHandleId, offset, std::move(buf),
@@ -1088,7 +1101,6 @@ FileAttrPtr FsLogic::setattr(
 
     // TODO: this operation can be optimized with a single message to the
     // provider
-
     if ((toSet & FUSE_SET_ATTR_UID) != 0 || (toSet & FUSE_SET_ATTR_GID) != 0) {
         LOG_DBG(1) << "Attempting to modify uid or gid attempted for " << uuid
                    << ". Operation not supported.";
@@ -1330,10 +1342,8 @@ SrvMsg FsLogic::communicate(CliMsg &&msg, const std::chrono::seconds timeout)
     return m_context->communicator()
         ->communicate<SrvMsg>(std::forward<CliMsg>(msg))
         .onTimeout(timeout,
-            [
-                messageString = std::move(messageString),
-                timeout = timeout.count()
-            ]() {
+            [messageString = std::move(messageString),
+                timeout = timeout.count()]() {
                 LOG(ERROR) << "Response to message : " << messageString
                            << " not received within " << timeout << " seconds.";
                 return folly::makeFuture<SrvMsg>(std::system_error{
@@ -1399,21 +1409,20 @@ folly::fbstring FsLogic::computeHash(const folly::IOBufQueue &buf)
     // TODO: move this to CPU-bound threadpool
     return folly::fibers::await(
         [&](folly::fibers::Promise<folly::fbstring> promise) {
-            m_context->scheduler()->post(
-                [&, promise = std::move(promise) ]() mutable {
-                    folly::fbstring hash(MD4_DIGEST_LENGTH, '\0');
-                    MD4_CTX ctx;
-                    MD4_Init(&ctx);
+            m_context->scheduler()->post([&,
+                                             promise =
+                                                 std::move(promise)]() mutable {
+                folly::fbstring hash(MD4_DIGEST_LENGTH, '\0');
+                MD4_CTX ctx;
+                MD4_Init(&ctx);
 
-                    if (!buf.empty())
-                        for (auto &byteRange : *buf.front())
-                            MD4_Update(
-                                &ctx, byteRange.data(), byteRange.size());
+                if (!buf.empty())
+                    for (auto &byteRange : *buf.front())
+                        MD4_Update(&ctx, byteRange.data(), byteRange.size());
 
-                    MD4_Final(
-                        reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
-                    promise.setValue(std::move(hash));
-                });
+                MD4_Final(reinterpret_cast<unsigned char *>(&hash[0]), &ctx);
+                promise.setValue(std::move(hash));
+            });
         });
 }
 
