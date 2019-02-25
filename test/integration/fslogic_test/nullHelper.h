@@ -21,7 +21,7 @@ using ::testing::_;
 class NullHelperHandle : public one::helpers::FileHandle {
 public:
     NullHelperHandle(std::error_code ec)
-        : one::helpers::FileHandle{{}}
+        : one::helpers::FileHandle{{}, {}}
         , m_ec{ec}
     {
     }
