@@ -93,6 +93,8 @@ struct NullHelperHandleMock : public NullHelperHandle {
 
 class NullHelper : public one::helpers::StorageHelper {
 public:
+    folly::fbstring name() const override { return "nullhelper"; }
+
     folly::Future<struct stat> getattr(const folly::fbstring &) override
     {
         if (m_ec)

@@ -123,8 +123,8 @@ void HelpersCache::refreshHelperParameters(
                             directMode}),
                 m_providerTimeout);
 
-            auto helperParams =
-                helpers::StorageHelperParams::create(params.args());
+            auto helperParams = helpers::StorageHelperParams::create(
+                params.name(), params.args());
 
             return helper->refreshParams(std::move(helperParams));
         })
