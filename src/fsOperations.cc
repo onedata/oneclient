@@ -73,7 +73,7 @@ void wrap(Fun &&fun, Cb &&callback, fuse_req_t req, Args &&... args)
                        << e.code().value() << ")";
             fuse_reply_err(req, e.code().value());
         })
-        .onError([req](const one::communication::TimeoutExceeded &t) {
+        .onError([req](const one::communication::TimeoutExceeded & /*unused*/) {
             LOG(ERROR) << "Provider connection timed out";
             fuse_reply_err(
                 req, std::make_error_code(std::errc::timed_out).value());
@@ -88,7 +88,7 @@ void wrap(Fun &&fun, Cb &&callback, fuse_req_t req, Args &&... args)
             fuse_reply_err(
                 req, std::make_error_code(std::errc::io_error).value());
         })
-        .onError([req](const folly::TimedOut &e) {
+        .onError([req](const folly::TimedOut & /*unused*/) {
             LOG(ERROR) << "Fuse operation timed out";
             fuse_reply_err(
                 req, std::make_error_code(std::errc::timed_out).value());
@@ -118,10 +118,13 @@ void wrap_lookup(fuse_req_t req, fuse_ino_t parent, const char *name)
     LOG_FCALL() << LOG_FARG(req) << LOG_FARG(parent) << LOG_FARG(name);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.lookup");
+    // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDelete)
     wrap(&fslogic::Composite::lookup, [ req,
         timer = std::move(timer) ](const struct fuse_entry_param &entry) {
         const auto userdata = fuse_req_userdata(req);
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDelete)
         if (fuse_reply_entry(req, &entry) != 0)
+            // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDelete)
             callFslogic(&fslogic::Composite::forget, userdata, entry.ino, 1);
     },
         req, parent, name);
@@ -679,7 +682,7 @@ void wrap_listxattr(fuse_req_t req, fuse_ino_t ino, size_t size)
             else if (buflen <= size) {
                 // return the list of extended attribute names
                 auto buf = std::unique_ptr<char[]>(new char[buflen]);
-                int offset = 0;
+                auto offset = 0UL;
 
                 for (const auto &name : names) {
                     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg)

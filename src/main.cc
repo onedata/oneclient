@@ -310,7 +310,7 @@ std::shared_ptr<communication::Communicator> getCommunicator(
     std::shared_ptr<auth::AuthManager> authManager,
     std::shared_ptr<Context> context)
 {
-    auto handshakeHandler = [](auto) { return std::error_code{}; };
+    auto handshakeHandler = [](auto /*unused*/) { return std::error_code{}; };
 
     auto communicatorTuple = authManager->createCommunicator(
         context->options()->getCommunicatorConnectionPoolSize(),
@@ -326,7 +326,9 @@ std::shared_ptr<communication::Communicator> getCommunicator(
 
 void unmountFuse(std::shared_ptr<options::Options> options)
 {
-    int status = 0, pid = fork();
+    int status = 0;
+    int pid = fork();
+
     if (pid != 0) {
         waitpid(pid, &status, 0);
     }
