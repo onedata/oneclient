@@ -30,7 +30,9 @@
 #include "messages/fuse/fsync.h"
 #include "messages/fuse/getFileChildren.h"
 #include "messages/fuse/getFileChildrenAttrs.h"
+#include "messages/fuse/getHelperParams.h"
 #include "messages/fuse/getXAttr.h"
+#include "messages/fuse/helperParams.h"
 #include "messages/fuse/listXAttr.h"
 #include "messages/fuse/makeFile.h"
 #include "messages/fuse/openFile.h"
@@ -48,6 +50,7 @@
 #include "monitoring/monitoring.h"
 #include "util/cdmi.h"
 #include "util/xattrHelper.h"
+#include "webDAVHelper.h"
 
 #include <boost/icl/interval_set.hpp>
 #include <folly/Demangle.h>
@@ -829,6 +832,17 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
                 helperHandle->timeout());
     }
     catch (const std::system_error &e) {
+        if ((e.code().value() == EKEYEXPIRED) && (retriesLeft > 0)) {
+            LOG(ERROR) << "Key or token to storage " << fileBlock.storageId()
+                       << " expired. Refreshing helper parameters...";
+
+            m_helpersCache->refreshHelperParameters(
+                fileBlock.storageId(), spaceId);
+
+            return write(uuid, fuseFileHandleId, offset, std::move(buf),
+                retriesLeft - 1, std::move(ioTraceEntry));
+        }
+
         if ((e.code().value() == EAGAIN) && (retriesLeft > 0)) {
             fiberRetryDelay(retriesLeft);
             return write(uuid, fuseFileHandleId, offset, std::move(buf),
@@ -1088,7 +1102,6 @@ FileAttrPtr FsLogic::setattr(
 
     // TODO: this operation can be optimized with a single message to the
     // provider
-
     if ((toSet & FUSE_SET_ATTR_UID) != 0 || (toSet & FUSE_SET_ATTR_GID) != 0) {
         LOG_DBG(1) << "Attempting to modify uid or gid attempted for " << uuid
                    << ". Operation not supported.";

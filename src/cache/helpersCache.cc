@@ -98,6 +98,39 @@ HelpersCache::AccessType HelpersCache::getAccessType(
     return m_accessType[storageId];
 }
 
+void HelpersCache::refreshHelperParameters(
+    const folly::fbstring &storageId, const folly::fbstring &spaceId)
+{
+    std::lock_guard<std::mutex> guard(m_cacheMutex);
+
+    // Get the helper promise if exists already
+    auto helperKey = std::make_pair(storageId, false);
+    auto helperPromiseIt = m_cache.find(helperKey);
+
+    if (helperPromiseIt == m_cache.end()) {
+        LOG(WARNING) << "Trying to refresh parameters for nonexisting helper";
+        return;
+    }
+
+    // Invalidate helper parameters and obtain a new parameters promise
+    helperPromiseIt->second->getFuture()
+        .then([this, storageId, spaceId](HelpersCache::HelperPtr helper) {
+            auto params = communication::wait(
+                m_communicator.communicate<messages::fuse::HelperParams>(
+                    messages::fuse::GetHelperParams{storageId.toStdString(),
+                        spaceId.toStdString(),
+                        messages::fuse::GetHelperParams::HelperMode::
+                            directMode}),
+                m_providerTimeout);
+
+            auto helperParams = helpers::StorageHelperParams::create(
+                params.name(), params.args());
+
+            return helper->refreshParams(std::move(helperParams));
+        })
+        .get();
+}
+
 folly::Future<HelpersCache::HelperPtr> HelpersCache::get(
     const folly::fbstring &fileUuid, const folly::fbstring &spaceId,
     const folly::fbstring &storageId, bool forceProxyIO)
@@ -244,7 +277,7 @@ HelpersCache::HelperPtr HelpersCache::performAutoIOStorageDetection(
         m_communicator.communicate<messages::fuse::HelperParams>(
             messages::fuse::GetHelperParams{storageId.toStdString(),
                 spaceId.toStdString(),
-                messages::fuse::GetHelperParams::HelperMode::autoMode}),
+                messages::fuse::GetHelperParams::HelperMode::proxyMode}),
         m_providerTimeout);
 
     std::unordered_map<folly::fbstring, folly::fbstring> overrideParams;

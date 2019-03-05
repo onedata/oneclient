@@ -93,6 +93,9 @@ public:
     virtual HelpersCache::AccessType getAccessType(
         const folly::fbstring &storageId);
 
+    void refreshHelperParameters(
+        const folly::fbstring &storageId, const folly::fbstring &spaceId);
+
 private:
     HelpersCache::HelperPtr requestStorageTestFileCreation(
         const folly::fbstring &fileUuid, const folly::fbstring &storageId,
