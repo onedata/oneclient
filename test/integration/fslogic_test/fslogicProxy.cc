@@ -220,8 +220,8 @@ public:
     {
         ReleaseGIL guard;
 
-        folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
-        buf.allocate(size);
+        auto buf = folly::IOBuf::create(size);
+        buf->append(size);
 
         return m_fsLogic.write(uuid, fuseHandleId, offset, std::move(buf),
             FSLOGIC_PROXY_RETRY_COUNT);

@@ -133,7 +133,8 @@ public:
      */
     std::size_t write(const folly::fbstring &uuid,
         const std::uint64_t fuseFileHandleId, const off_t offset,
-        folly::IOBufQueue buf, const int retriesLeft = FSLOGIC_RETRY_COUNT,
+        std::shared_ptr<folly::IOBuf> buf,
+        const int retriesLeft = FSLOGIC_RETRY_COUNT,
         std::unique_ptr<IOTraceWrite> ioTraceEntry = {});
 
     /**
