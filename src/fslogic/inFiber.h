@@ -102,7 +102,7 @@ public:
 
     WRAP(write,
         (const fuse_ino_t)(const std::uint64_t)(const std::size_t)(
-            folly::IOBufQueue))
+            std::shared_ptr<folly::IOBuf>))
 
     WRAP(listxattr, (const fuse_ino_t))
     WRAP(getxattr, (const fuse_ino_t)(const folly::fbstring &))

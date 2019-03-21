@@ -93,7 +93,7 @@ public:
     virtual HelpersCache::AccessType getAccessType(
         const folly::fbstring &storageId);
 
-    void refreshHelperParameters(
+    folly::Future<folly::Unit> refreshHelperParameters(
         const folly::fbstring &storageId, const folly::fbstring &spaceId);
 
 private:

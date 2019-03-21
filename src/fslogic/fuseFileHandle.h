@@ -88,6 +88,8 @@ public:
      */
     folly::fbvector<helpers::FileHandlePtr> helperHandles() const;
 
+    helpers::FileHandlePtr helperHandle(const folly::fbstring &storageId) const;
+
     /**
      * @returns A handleID representing the handle on the server.
      */
