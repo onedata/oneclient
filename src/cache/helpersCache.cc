@@ -98,9 +98,11 @@ HelpersCache::AccessType HelpersCache::getAccessType(
     return m_accessType[storageId];
 }
 
-void HelpersCache::refreshHelperParameters(
+folly::Future<folly::Unit> HelpersCache::refreshHelperParameters(
     const folly::fbstring &storageId, const folly::fbstring &spaceId)
 {
+    LOG_FCALL() << LOG_FARG(storageId) << LOG_FARG(spaceId);
+
     std::lock_guard<std::mutex> guard(m_cacheMutex);
 
     // Get the helper promise if exists already
@@ -108,27 +110,34 @@ void HelpersCache::refreshHelperParameters(
     auto helperPromiseIt = m_cache.find(helperKey);
 
     if (helperPromiseIt == m_cache.end()) {
-        LOG(WARNING) << "Trying to refresh parameters for nonexisting helper";
-        return;
+        LOG(WARNING) << "Trying to refresh parameters for nonexisting helper "
+                        "to storage: "
+                     << storageId;
+        return folly::makeFuture();
     }
 
     // Invalidate helper parameters and obtain a new parameters promise
-    helperPromiseIt->second->getFuture()
-        .then([this, storageId, spaceId](HelpersCache::HelperPtr helper) {
-            auto params = communication::wait(
-                m_communicator.communicate<messages::fuse::HelperParams>(
-                    messages::fuse::GetHelperParams{storageId.toStdString(),
-                        spaceId.toStdString(),
-                        messages::fuse::GetHelperParams::HelperMode::
-                            directMode}),
-                m_providerTimeout);
+    return helperPromiseIt->second->getFuture().then([this, storageId, spaceId](
+                                                         HelpersCache::HelperPtr
+                                                             helper) {
+        auto params = communication::wait(
+            m_communicator.communicate<messages::fuse::HelperParams>(
+                messages::fuse::GetHelperParams{storageId.toStdString(),
+                    spaceId.toStdString(),
+                    messages::fuse::GetHelperParams::HelperMode::directMode}),
+            m_providerTimeout);
 
-            auto helperParams = helpers::StorageHelperParams::create(
-                params.name(), params.args());
+        auto helperParams =
+            helpers::StorageHelperParams::create(params.name(), params.args());
 
-            return helper->refreshParams(std::move(helperParams));
-        })
-        .get();
+        auto bufferedHelper =
+            std::dynamic_pointer_cast<helpers::buffering::BufferAgent>(helper);
+        if (bufferedHelper)
+            return bufferedHelper->helper()->refreshParams(
+                std::move(helperParams));
+
+        return helper->refreshParams(std::move(helperParams));
+    });
 }
 
 folly::Future<HelpersCache::HelperPtr> HelpersCache::get(
