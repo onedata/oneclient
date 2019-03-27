@@ -128,6 +128,12 @@ StorageAccessManager::verifyStorageTestFile(const folly::fbstring &storageId,
             mountPoints.emplace_back(
                 overrideParams.at("mountPoint").toStdString());
         }
+        // Check if the mount point is provided during integration tests
+        else if (helperParams.args().find("testMountPoint") !=
+            helperParams.args().cend()) {
+            mountPoints.emplace_back(
+                helperParams.args().at("testMountPoint").toStdString());
+        }
         else {
             mountPoints = getMountPoints();
         }
