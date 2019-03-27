@@ -152,7 +152,6 @@ void wrap_readdir(fuse_req_t req, fuse_ino_t ino, size_t maxSize, off_t off,
     wrap(&fslogic::Composite::readdir,
         [ req, maxSize, off, timer = std::move(timer) ](
             const folly::fbvector<folly::fbstring> &names) {
-
             LOG_DBG(2) << "Received " << names.size() << " directory entries.";
 
             if (names.empty()) {
@@ -279,8 +278,7 @@ void wrap_write(fuse_req_t req, fuse_ino_t ino, const char *buf, size_t size,
                 << LOG_FARG(off) << LOG_FARG(fi->fh);
 
     auto timer = ONE_METRIC_TIMERCTX_CREATE("comp.oneclient.mod.fuse.write");
-    folly::IOBufQueue bufq{folly::IOBufQueue::cacheChainLength()};
-    bufq.append(buf, size);
+    std::shared_ptr<folly::IOBuf> iobuf{folly::IOBuf::copyBuffer(buf, size)};
 
     wrap(&fslogic::Composite::write,
         [ req, timer = std::move(timer), ino, off ](const std::size_t wrote) {
@@ -289,7 +287,7 @@ void wrap_write(fuse_req_t req, fuse_ino_t ino, const char *buf, size_t size,
             fuse_reply_write(req, wrote);
             ONE_METRIC_TIMERCTX_STOP(timer, wrote);
         },
-        req, ino, fi->fh, off, std::move(bufq));
+        req, ino, fi->fh, off, std::move(iobuf));
 }
 
 void wrap_mkdir(
@@ -505,7 +503,6 @@ void wrap_getxattr(fuse_req_t req, fuse_ino_t ino, const char *attr, size_t size
     wrap(&fslogic::Composite::getxattr,
         [ req, size, attr, timer = std::move(timer) ](
             const folly::fbstring &value) {
-
             // If the value is a JSON string, strip the enclosing
             // double qoutes
             std::string stringValue;
@@ -662,7 +659,6 @@ void wrap_listxattr(fuse_req_t req, fuse_ino_t ino, size_t size)
     wrap(&fslogic::Composite::listxattr,
         [ req, size, timer = std::move(timer), ino ](
             const folly::fbvector<folly::fbstring> &names) {
-
             LOG_DBG(3) << "Received extended attributes for inode " << ino
                        << ": " << LOG_VEC(names);
 
@@ -694,7 +690,6 @@ void wrap_listxattr(fuse_req_t req, fuse_ino_t ino, size_t size)
             else {
                 fuse_reply_err(req, ERANGE);
             }
-
         },
         req, ino);
 }

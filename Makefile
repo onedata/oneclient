@@ -4,7 +4,7 @@ DOCKER_RELEASE        ?= development
 DOCKER_REG_NAME       ?= "docker.onedata.org"
 DOCKER_REG_USER       ?= ""
 DOCKER_REG_PASSWORD   ?= ""
-DOCKER_BASE_IMAGE     ?= "ubuntu:16.04"
+DOCKER_BASE_IMAGE     ?= "onedata/builder:v66"
 DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:v60"
 
 PKG_REVISION    ?= $(shell git describe --tags --always)
@@ -152,14 +152,12 @@ deb: check_distribution package/$(PKG_ID).tar.gz
 	sed -i "s/{{distribution}}/$(DISTRIBUTION)/g" package/$(PKG_ID)/debian/changelog
 	sed -i "s/{{date}}/`date -R`/g" package/$(PKG_ID)/debian/changelog
 
-	cd package/$(PKG_ID) && sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j4"
+	cd package/$(PKG_ID) && DEB_BUILD_OPTIONS='parallel=6' debuild -us -uc
 	mv package/*$(PKG_VERSION).orig.tar.gz package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.deb package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD).dsc package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)_amd64.changes package/packages/
-	-mv package/*$(PKG_VERSION)-$(PKG_BUILD).debian.tar.xz package/packages/
-	-mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.ddeb package/packages/
-	-mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.diff.gz package/packages/ || true
+	-mv package/*$(PKG_VERSION)-$(PKG_BUILD).debian.tar.xz package/packages/ || true
 
 .PHONY: rpm
 rpm: check_distribution package/$(PKG_ID).tar.gz

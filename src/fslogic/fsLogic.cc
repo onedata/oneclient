@@ -30,7 +30,9 @@
 #include "messages/fuse/fsync.h"
 #include "messages/fuse/getFileChildren.h"
 #include "messages/fuse/getFileChildrenAttrs.h"
+#include "messages/fuse/getHelperParams.h"
 #include "messages/fuse/getXAttr.h"
+#include "messages/fuse/helperParams.h"
 #include "messages/fuse/listXAttr.h"
 #include "messages/fuse/makeFile.h"
 #include "messages/fuse/openFile.h"
@@ -48,6 +50,7 @@
 #include "monitoring/monitoring.h"
 #include "util/cdmi.h"
 #include "util/xattrHelper.h"
+#include "webDAVHelper.h"
 
 #include <boost/icl/interval_set.hpp>
 #include <folly/Demangle.h>
@@ -60,6 +63,8 @@
 #include <folly/json.h>
 #include <fuse/fuse_lowlevel.h>
 #include <openssl/md4.h>
+
+#include "buffering/bufferAgent.h"
 
 #define IOTRACE_START() auto __ioTraceStart = std::chrono::system_clock::now();
 
@@ -574,6 +579,32 @@ folly::IOBufQueue FsLogic::read(const folly::fbstring &uuid,
         return readBuffer;
     }
     catch (const std::system_error &e) {
+        if ((e.code().value() == EKEYEXPIRED) && (retriesLeft > 0)) {
+            auto defaultBlock = m_metadataCache.getDefaultBlock(uuid);
+            auto storageId = defaultBlock.storageId();
+            auto fileId = defaultBlock.fileId();
+            LOG(INFO) << "Key or token to storage " << storageId
+                      << " expired. Refreshing helper parameters...";
+
+            auto spaceId = m_metadataCache.getSpaceId(uuid);
+
+            folly::fibers::await(
+                [&](folly::fibers::Promise<folly::Unit> promise) {
+                    promise.setWith([this, storageId, spaceId, fileId,
+                                        fuseFileHandle, uuid]() {
+                        // Invalidate the read cache so that it forgets
+                        // the ekeyexpired exception
+                        return m_helpersCache
+                            ->refreshHelperParameters(storageId, spaceId)
+                            .within(m_providerTimeout)
+                            .get();
+                    });
+                });
+
+            return read(uuid, fileHandleId, offset, size, checksum,
+                retriesLeft - 1, std::move(ioTraceEntry));
+        }
+
         if ((e.code().value() == EAGAIN) && (retriesLeft > 0)) {
             fiberRetryDelay(retriesLeft);
             return read(uuid, fileHandleId, offset, size, checksum,
@@ -651,8 +682,8 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
                    << uuid;
 
         if (m_randomReadPrefetchClusterWindowGrowFactor == 0.0) {
-            // Align the prefetch window to the consecutive block in the file
-            // based on predefined prefetch block size
+            // Align the prefetch window to the consecutive block in the
+            // file based on predefined prefetch block size
             const auto windowSize = m_randomReadPrefetchClusterWindow < 0
                 ? fileSize
                 : m_randomReadPrefetchClusterWindow;
@@ -697,9 +728,9 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
         if (blocksInRange > prefetchBlockThreshold) {
             if (blockAligned) {
                 if (fuseFileHandle->prefetchAlreadyRequestedAt(leftRange)) {
-                    LOG_DBG(2)
-                        << "Block aligned prefetch already requested at offset "
-                        << leftRange << " - skipping prefetch";
+                    LOG_DBG(2) << "Block aligned prefetch already "
+                                  "requested at offset "
+                               << leftRange << " - skipping prefetch";
                     return {0, IOTraceLogger::PrefetchType::NONE};
                 }
 
@@ -785,13 +816,13 @@ std::pair<size_t, IOTraceLogger::PrefetchType> FsLogic::prefetchAsync(
 
 std::size_t FsLogic::write(const folly::fbstring &uuid,
     const std::uint64_t fuseFileHandleId, const off_t offset,
-    folly::IOBufQueue buf, const int retriesLeft,
+    std::shared_ptr<folly::IOBuf> buf, const int retriesLeft,
     std::unique_ptr<IOTraceWrite> ioTraceEntry)
 {
     LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(fuseFileHandleId)
-                << LOG_FARG(offset) << LOG_FARG(buf.chainLength());
+                << LOG_FARG(offset) << LOG_FARG(buf->length());
 
-    if (buf.empty()) {
+    if (buf->empty()) {
         LOG_DBG(2) << "Write called with empty buffer - skipping";
         return 0;
     }
@@ -824,11 +855,40 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
         auto helperHandle = fuseFileHandle->getHelperHandle(
             uuid, spaceId, fileBlock.storageId(), fileBlock.fileId());
 
+        folly::IOBufQueue bufq{folly::IOBufQueue::cacheChainLength()};
+        bufq.append(buf->clone());
+
         bytesWritten =
-            communication::wait(helperHandle->write(offset, std::move(buf)),
+            communication::wait(helperHandle->write(offset, std::move(bufq)),
                 helperHandle->timeout());
     }
     catch (const std::system_error &e) {
+        if ((e.code().value() == EKEYEXPIRED) && (retriesLeft > 0)) {
+            LOG_DBG(2) << "Key or token to storage " << fileBlock.storageId()
+                       << " expired. Refreshing helper parameters...";
+
+            // auto helperHandle = fuseFileHandle->getHelperHandle(
+            // uuid, spaceId, fileBlock.storageId(), fileBlock.fileId());
+            folly::fibers::await(
+                [&](folly::fibers::Promise<folly::Unit> promise) {
+                    promise.setWith([
+                        this, storageId = fileBlock.storageId(),
+                        spaceId = m_metadataCache.getSpaceId(uuid),
+                        fuseFileHandle, uuid
+                    ]() {
+                        // Invalidate the read cache so that it forgets
+                        // the ekeyexpired exception
+                        return m_helpersCache
+                            ->refreshHelperParameters(storageId, spaceId)
+                            .within(m_providerTimeout)
+                            .get();
+                    });
+                });
+
+            return write(uuid, fuseFileHandleId, offset, std::move(buf),
+                retriesLeft - 1, std::move(ioTraceEntry));
+        }
+
         if ((e.code().value() == EAGAIN) && (retriesLeft > 0)) {
             fiberRetryDelay(retriesLeft);
             return write(uuid, fuseFileHandleId, offset, std::move(buf),
@@ -878,9 +938,9 @@ std::size_t FsLogic::write(const folly::fbstring &uuid,
                 m_tagOnModify.get().first, tagNameJsonEncoded) ||
             !util::xattr::encodeJsonXAttrValue(
                 m_tagOnModify.get().second, tagValueJsonEncoded)) {
-            LOG(ERROR)
-                << "Setting on modify tag with invalid name or value for file: "
-                << uuid;
+            LOG(ERROR) << "Setting on modify tag with invalid name or "
+                          "value for file: "
+                       << uuid;
         }
         else {
             FsLogic::setxattr(
@@ -1007,9 +1067,9 @@ std::pair<FileAttrPtr, std::uint64_t> FsLogic::create(
                 m_tagOnCreate.get().first, tagNameJsonEncoded) ||
             !util::xattr::encodeJsonXAttrValue(
                 m_tagOnCreate.get().second, tagValueJsonEncoded)) {
-            LOG(ERROR)
-                << "Setting on create tag with invalid name or value for file "
-                << uuid;
+            LOG(ERROR) << "Setting on create tag with invalid name or "
+                          "value for file "
+                       << uuid;
         }
         else {
             FsLogic::setxattr(uuid, m_tagOnCreate.get().first,
@@ -1088,7 +1148,6 @@ FileAttrPtr FsLogic::setattr(
 
     // TODO: this operation can be optimized with a single message to the
     // provider
-
     if ((toSet & FUSE_SET_ATTR_UID) != 0 || (toSet & FUSE_SET_ATTR_GID) != 0) {
         LOG_DBG(1) << "Attempting to modify uid or gid attempted for " << uuid
                    << ". Operation not supported.";

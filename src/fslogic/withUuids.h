@@ -99,10 +99,10 @@ public:
     }
 
     auto write(const fuse_ino_t ino, const std::uint64_t handle,
-        const off_t offset, folly::IOBufQueue buf)
+        const off_t offset, std::shared_ptr<folly::IOBuf> buf)
     {
         LOG_FCALL() << LOG_FARG(ino) << LOG_FARG(handle) << LOG_FARG(offset)
-                    << LOG_FARG(buf.chainLength());
+                    << LOG_FARG(buf->length());
 
         return wrap(&FsLogicT::write, ino, handle, offset, std::move(buf),
             WITHUUIDS_RETRY_COUNT, std::unique_ptr<IOTraceWrite>{});

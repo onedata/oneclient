@@ -100,6 +100,18 @@ folly::fbvector<helpers::FileHandlePtr> FuseFileHandle::helperHandles() const
     return result;
 }
 
+helpers::FileHandlePtr FuseFileHandle::helperHandle(
+    const folly::fbstring &storageId) const
+{
+    for (auto &elem : m_helperHandles) {
+        if ((std::get<0>(elem.first) == storageId) &&
+            (!std::get<2>(elem.first)))
+            return elem.second;
+    }
+
+    return {};
+}
+
 folly::Optional<folly::fbstring> FuseFileHandle::providerHandleId() const
 {
     return m_handleId;
