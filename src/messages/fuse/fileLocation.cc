@@ -162,6 +162,17 @@ std::string FileLocation::toString() const
     return stream.str();
 }
 
+BlocksMap FileLocation::getFileLocalBlocks() const
+{
+    BlocksMap result;
+    for (auto &block : m_blocks) {
+        result[block.second.storageId()].emplace_back(
+            std::make_pair<off_t, off_t>(
+                block.first.lower(), block.first.upper()));
+    }
+    return result;
+}
+
 std::string FileLocation::progressString(
     const size_t fileSize, const size_t progressSteps) const
 {

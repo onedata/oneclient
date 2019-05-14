@@ -53,6 +53,22 @@ TEST_F(FuseFileLocationMessagesTest, replicationProgressShouldWork)
     EXPECT_EQ(fileLocation.replicationProgress(1024), 1.0);
 }
 
+TEST_F(FuseFileLocationMessagesTest, getFileLocalBlocksShouldWork)
+{
+    auto fileLocation = FileLocation{};
+    auto blocksMap = BlocksMap{};
+    EXPECT_EQ(fileLocation.getFileLocalBlocks(), blocksMap);
+
+    fileLocation.putBlock(0, 5, FileBlock{"Storage1", ""});
+    blocksMap["Storage1"].emplace_back(std::make_pair<off_t, off_t>(0, 5));
+    fileLocation.putBlock(10, 15, FileBlock{"Storage1", ""});
+    blocksMap["Storage1"].emplace_back(std::make_pair<off_t, off_t>(10, 25));
+    fileLocation.putBlock(50, 55, FileBlock{"Storage2", ""});
+    blocksMap["Storage2"].emplace_back(std::make_pair<off_t, off_t>(50, 105));
+
+    EXPECT_EQ(fileLocation.getFileLocalBlocks(), blocksMap);
+}
+
 TEST_F(FuseFileLocationMessagesTest, blocksInRangeCounterShouldWork)
 {
     auto fileLocation = FileLocation{};
