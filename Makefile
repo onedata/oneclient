@@ -1,10 +1,11 @@
-# distro for package building (oneof: wily, fedora-23-x86_64)
+# distro for package building (oneof: xenial, centos-7-x86_64)
+RELEASE               ?= 1802
 DISTRIBUTION          ?= none
 DOCKER_RELEASE        ?= development
 DOCKER_REG_NAME       ?= "docker.onedata.org"
 DOCKER_REG_USER       ?= ""
 DOCKER_REG_PASSWORD   ?= ""
-DOCKER_BASE_IMAGE     ?= "onedata/builder:v66"
+DOCKER_BASE_IMAGE     ?= "ubuntu:16.04"
 DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:v60"
 
 PKG_REVISION    ?= $(shell git describe --tags --always)
@@ -24,6 +25,8 @@ WITH_S3           ?= ON
 WITH_GLUSTERFS    ?= ON
 # Build with WebDAV storage helper by default
 WITH_WEBDAV       ?= ON
+# Build with onedatafs Python library
+WITH_ONEDATAFS    ?= ON
 
 # Oneclient FPM packaging variables
 PATCHELF_DOCKER_IMAGE   ?= docker.onedata.org/patchelf:0.9
@@ -55,8 +58,10 @@ all: debug test
 	                       -DWITH_S3=${WITH_S3} \
 	                       -DWITH_GLUSTERFS=${WITH_GLUSTERFS} \
 	                       -DWITH_WEBDAV=${WITH_WEBDAV} \
+	                       -DWITH_ONEDATAFS=${WITH_ONEDATAFS} \
 	                       -DWITH_OPENSSL=${WITH_OPENSSL} \
 	                       -DOPENSSL_ROOT_DIR=${OPENSSL_ROOT_DIR} \
+	                       -DCMAKE_INSTALL_PREFIX=${PWD}/debug/PREFIX \
 	                       -DOPENSSL_LIBRARIES=${OPENSSL_LIBRARIES} ..
 	touch $@
 
@@ -78,14 +83,20 @@ phony:
 %/onebench: %/CMakeCache.txt phony
 	cmake --build $* --target onebench
 
+%/onedatafs-py2: %/CMakeCache.txt phony
+	cmake --build $* --target onedatafs.py2
+
+%/onedatafs-py3: %/CMakeCache.txt phony
+	cmake --build $* --target onedatafs.py3
+
 .PHONY: deb-info
 deb-info: relwithdebinfo/oneclient
 
 .PHONY: release
-release: release/oneclient release/onebench
+release: release/oneclient release/onebench release/onedatafs-py2 release/onedatafs-py3
 
 .PHONY: debug
-debug: debug/oneclient debug/onebench
+debug: debug/oneclient debug/onebench debug/onedatafs-py2 debug/onedatafs-py3
 
 .PHONY: test
 test: debug
@@ -152,7 +163,7 @@ deb: check_distribution package/$(PKG_ID).tar.gz
 	sed -i "s/{{distribution}}/$(DISTRIBUTION)/g" package/$(PKG_ID)/debian/changelog
 	sed -i "s/{{date}}/`date -R`/g" package/$(PKG_ID)/debian/changelog
 
-	cd package/$(PKG_ID) && DEB_BUILD_OPTIONS='parallel=6' debuild -us -uc
+	cd package/$(PKG_ID) && sg sbuild -c "sbuild -sd $(DISTRIBUTION) -j6"
 	mv package/*$(PKG_VERSION).orig.tar.gz package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD)*.deb package/packages/
 	mv package/*$(PKG_VERSION)-$(PKG_BUILD).dsc package/packages/
@@ -171,7 +182,7 @@ rpm: check_distribution package/$(PKG_ID).tar.gz
 
 	mock --root $(DISTRIBUTION) --buildsrpm --spec package/oneclient.spec --resultdir=package/packages \
 		--sources package/$(PKG_ID).orig.tar.gz
-	mock --root $(DISTRIBUTION) --resultdir=package/packages --rebuild package/packages/$(PKG_ID)*.src.rpm
+	mock --root $(DISTRIBUTION) --resultdir=package/packages --rebuild package/packages/onedata$(RELEASE)-$(PKG_ID)*.src.rpm
 
 ##
 ## Oneclient self contained packages
@@ -230,6 +241,7 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
 		-c 'cp /usr/bin/oneclient /output/bin && \
 		    cp /usr/bin/onebench /output/bin && \
+			cp /usr/lib/x86_64-linux-gnu/onedatafs* /output/lib && \
 		    cp /etc/oneclient.conf /output/etc && \
 		    cp /usr/share/man/man1/oneclient.1.gz /output/share/man/man1/ && \
 		    cp /usr/share/man/man5/oneclient.conf.5.gz /output/share/man/man5/ && \
@@ -319,12 +331,13 @@ docker-base:
                           --name oneclient-base --publish --remove docker
 
 .PHONY: docker
-docker: docker-dev
+docker:
 	./docker_build.py --repository $(DOCKER_REG_NAME) \
 	                  --user $(DOCKER_REG_USER) \
                       --password $(DOCKER_REG_PASSWORD) \
                       --build-arg BASE_IMAGE=$(DOCKER_BASE_IMAGE) \
-                      --build-arg RELEASE=$(DOCKER_RELEASE) \
+                      --build-arg TYPE=$(DOCKER_RELEASE) \
+                      --build-arg RELEASE=$(RELEASE) \
                       --build-arg VERSION=$(PKG_VERSION) \
                       --build-arg ONECLIENT_PACKAGE=oneclient \
                       --name oneclient --publish --remove docker
