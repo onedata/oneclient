@@ -3,7 +3,7 @@ FROM ${BASE_IMAGE}
 MAINTAINER Krzysztof Trzepla <krzysztof.trzepla@gmail.com>
 
 # Build arguments
-ARG TYPE
+ARG RELEASE_TYPE
 ARG RELEASE="1802"
 ARG VERSION=""
 ARG ONECLIENT_PACKAGE="oneclient"
@@ -17,7 +17,7 @@ RUN apt-get -y update && \
 WORKDIR /tmp
 
 # Install oneclient package
-RUN case ${TYPE} in \
+RUN case ${RELEASE_TYPE} in \
         production) \
             curl -O http://get.onedata.org/oneclient-${RELEASE}.sh; \
             ;; \

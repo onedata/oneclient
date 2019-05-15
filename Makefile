@@ -325,9 +325,12 @@ oneclient_deb: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 .PHONY: docker-base
 docker-base:
 	./docker_build.py --repository $(DOCKER_REG_NAME) --user $(DOCKER_REG_USER) \
-                          --password $(DOCKER_REG_PASSWORD) --build-arg BASE_IMAGE=$(DOCKER_BASE_IMAGE) \
-                          --build-arg RELEASE=$(DOCKER_RELEASE) \
-                          --build-arg VERSION=$(PKG_VERSION) --build-arg ONECLIENT_PACKAGE=oneclient-base \
+                          --password $(DOCKER_REG_PASSWORD) \
+                          --build-arg BASE_IMAGE=$(DOCKER_BASE_IMAGE) \
+                          --build-arg RELEASE_TYPE=$(DOCKER_RELEASE) \
+                          --build-arg RELEASE=$(RELEASE) \
+                          --build-arg VERSION=$(PKG_VERSION) \
+                          --build-arg ONECLIENT_PACKAGE=oneclient-base \
                           --name oneclient-base --publish --remove docker
 
 .PHONY: docker
@@ -336,7 +339,7 @@ docker: docker-dev
 	                  --user $(DOCKER_REG_USER) \
                       --password $(DOCKER_REG_PASSWORD) \
                       --build-arg BASE_IMAGE=$(DOCKER_BASE_IMAGE) \
-                      --build-arg TYPE=$(DOCKER_RELEASE) \
+                      --build-arg RELEASE_TYPE=$(DOCKER_RELEASE) \
                       --build-arg RELEASE=$(RELEASE) \
                       --build-arg VERSION=$(PKG_VERSION) \
                       --build-arg ONECLIENT_PACKAGE=oneclient \
@@ -347,7 +350,7 @@ docker-dev:
                       --user $(DOCKER_REG_USER) \
                       --password $(DOCKER_REG_PASSWORD) \
                       --build-arg BASE_IMAGE=$(DOCKER_DEV_BASE_IMAGE) \
-                      --build-arg RELEASE=$(DOCKER_RELEASE) \
+                      --build-arg RELEASE=$(RELEASE) \
                       --build-arg VERSION=$(PKG_VERSION) \
                       --build-arg ONECLIENT_PACKAGE=oneclient \
                       --report docker-dev-build-report.txt \
