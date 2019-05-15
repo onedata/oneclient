@@ -24,7 +24,7 @@ BuildRequires: %scl_require_package %{scl} boost-devel >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python >= 1.58.0
 BuildRequires: %scl_require_package %{scl} boost-python3 >= 1.58.0
 BuildRequires: %scl_require_package %{scl} folly-devel = %{folly_version}
-BuildRequires: %scl_require_package %{scl} folly-static = 2017.10.02.00
+BuildRequires: %scl_require_package %{scl} folly-static = %{folly_version}
 BuildRequires: %scl_require_package %{scl} gflags-devel >= 2.1.2
 BuildRequires: %scl_require_package %{scl} glog-devel >= 0.3.4
 BuildRequires: %scl_require_package %{scl} glusterfs-api-devel >= 3.12.15
@@ -38,12 +38,12 @@ BuildRequires: %scl_require_package %{scl} poco-xml
 BuildRequires: %scl_require_package %{scl} protobuf-compiler >= 3.4.1
 BuildRequires: %scl_require_package %{scl} protobuf-devel >= 3.4.1
 BuildRequires: %scl_require_package %{scl} protobuf-static >= 3.4.1
-BuildRequires: %scl_require_package %{scl} proxygen-devel = 2017.10.02.00
-BuildRequires: %scl_require_package %{scl} proxygen-static = 2017.10.02.00
+BuildRequires: %scl_require_package %{scl} proxygen-devel = %{folly_version}
+BuildRequires: %scl_require_package %{scl} proxygen-static = %{folly_version}
 BuildRequires: %scl_require_package %{scl} swift-sdk-cpp >= 1.0.0
 BuildRequires: %scl_require_package %{scl} tbb-devel >= 2018.5~
-BuildRequires: %scl_require_package %{scl} wangle-devel = 2017.10.02.00
-BuildRequires: %scl_require_package %{scl} wangle-static = 2017.10.02.00
+BuildRequires: %scl_require_package %{scl} wangle-devel = %{folly_version}
+BuildRequires: %scl_require_package %{scl} wangle-static = %{folly_version}
 BuildRequires: %scl_require_package devtoolset-6 gcc-c++
 BuildRequires: binutils-devel
 BuildRequires: cmake3
