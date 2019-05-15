@@ -6,7 +6,7 @@ DOCKER_REG_NAME       ?= "docker.onedata.org"
 DOCKER_REG_USER       ?= ""
 DOCKER_REG_PASSWORD   ?= ""
 DOCKER_BASE_IMAGE     ?= "ubuntu:16.04"
-DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:v60"
+DOCKER_DEV_BASE_IMAGE ?= "onedata/worker:1802-1"
 
 PKG_REVISION    ?= $(shell git describe --tags --always)
 PKG_VERSION     ?= $(shell git describe --tags --always | tr - .)
@@ -331,7 +331,7 @@ docker-base:
                           --name oneclient-base --publish --remove docker
 
 .PHONY: docker
-docker:
+docker: docker-dev
 	./docker_build.py --repository $(DOCKER_REG_NAME) \
 	                  --user $(DOCKER_REG_USER) \
                       --password $(DOCKER_REG_PASSWORD) \
