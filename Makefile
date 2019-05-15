@@ -241,7 +241,6 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
 		-c 'cp /usr/bin/oneclient /output/bin && \
 		    cp /usr/bin/onebench /output/bin && \
-			cp /usr/lib/x86_64-linux-gnu/onedatafs* /output/lib && \
 		    cp /etc/oneclient.conf /output/etc && \
 		    cp /usr/share/man/man1/oneclient.1.gz /output/share/man/man1/ && \
 		    cp /usr/share/man/man5/oneclient.conf.5.gz /output/share/man/man5/ && \
@@ -250,13 +249,13 @@ oneclient_tar $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz:
 		    cp /var/lib/oneclient/oneclient.bash-completion /output/etc/bash_completion.d/ && \
 		    cp -r /lib/x86_64-linux-gnu/* /output/lib/ && \
 		    cp -r /usr/lib/x86_64-linux-gnu/nss/* /output/lib/ && \
-	        cp -r /opt/oneclient/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/ && \
-	        cp -r /opt/oneclient/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/'
+	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/xlator/ && \
+	        cp -r /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/* /output/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/rpc-transport/'
 	# Collect all dynamic libraries GlusterFS dependencies
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
 		-v $(CURDIR)/cpld.sh:/bin/cpld.sh --entrypoint /bin/sh \
 		-t docker.onedata.org/oneclient-base:$(ONECLIENT_BASE_IMAGE) \
-		-c "find /opt/oneclient/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/ -name '*so*' -exec /bin/cpld.sh '{}' /output/lib \;"
+		-c "find /usr/lib/x86_64-linux-gnu/glusterfs/$(GLUSTERFS_VERSION)/ -name '*so*' -exec /bin/cpld.sh '{}' /output/lib \;"
 	# Change the ld loader and rpath in Oneclient binary
 	docker run -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP)/root:/output \
 		-t $(PATCHELF_DOCKER_IMAGE) \
