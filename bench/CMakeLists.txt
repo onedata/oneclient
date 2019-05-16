@@ -39,15 +39,13 @@ add_executable(onebench
     "onebench.cc"
     "testRunner.cc"
     "testRunnerConfig.cc"
-    )
+    $<TARGET_OBJECTS:helpers>
+    $<TARGET_OBJECTS:clproto>)
 
 add_dependencies(onebench helpers)
 
 target_link_libraries(onebench PRIVATE
-    $<TARGET_OBJECTS:helpers>
-    $<TARGET_OBJECTS:clproto>
-    ${ONEBENCH_LIBRARIES}
-    )
+    ${ONEBENCH_LIBRARIES})
 
 set_target_properties(onebench PROPERTIES
     BUILD_WITH_INSTALL_RPATH true
