@@ -320,7 +320,7 @@ bool ReaddirCache::isSpaceWhitelisted(const folly::fbstring &spaceName)
     bool spaceIsWhitelistedById =
         m_whitelistedSpaceIds.find(spaceId) != m_whitelistedSpaceIds.end();
 
-    LOG(ERROR) << "Space " << spaceName << "(" << spaceId << ") is "
+    LOG_DBG(2) << "Space " << spaceName << "(" << spaceId << ") is "
                << spaceIsWhitelistedByName << ":" << spaceIsWhitelistedById;
 
     return spaceIsWhitelistedByName || spaceIsWhitelistedById;

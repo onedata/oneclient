@@ -1,7 +1,0 @@
-diff --git a/debian/source/format b/debian/source/format
-index 163aaf8..d3827e7 100644
---- a/debian/source/format
-+++ b/debian/source/format
-@@ -1 +1 @@
--3.0 (quilt)
-+1.0
