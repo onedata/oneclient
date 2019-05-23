@@ -6,7 +6,7 @@
 %global version {{version}}
 %global folly_version 2017.10.02.00
 
-Name:		%{?scl_prefix}oneclient
+Name:		%{?scl_prefix}oneclient-base
 Version:	%{version}
 Release:	1%{?dist}
 Summary:	FUSE client for Onedata distributed filesystem
@@ -72,7 +72,6 @@ allows mounting onedata filesystem on Linux systems.
 
 %package -n %{?scl_prefix}python2-onedatafs
 Summary: Python 2 OnedataFS library.
-Requires: %{name} = %{version}
 Requires: python
 Requires: %scl_require_package %{scl} boost-python
 
@@ -82,7 +81,6 @@ Python 2 OnedataFS library.
 
 %package -n %{?scl_prefix}python3-onedatafs
 Summary: Python 3 OnedataFS library.
-Requires: %{name} = %{version}
 Requires: python36
 Requires: %scl_require_package %{scl} boost-python3
 
@@ -92,7 +90,7 @@ Python 3 OnedataFS library.
 %define _unpackaged_files_terminate_build 0
 
 %prep
-%setup -q -n oneclient-%{version}
+%setup -q -n oneclient-base-%{version}
 
 %build
 cat <<SCL_EOF_MACRO | scl enable devtoolset-6 onedata1802 --
