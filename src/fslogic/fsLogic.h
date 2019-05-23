@@ -67,6 +67,8 @@ constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_CLUSTER_PREFETCH = 160;
  */
 class FsLogic {
 public:
+    using BlocksMap =
+        std::map<folly::fbstring, folly::fbvector<std::pair<off_t, off_t>>>;
     /**
      * Constructor.
      * @param context Shared pointer to application context instance.
@@ -245,6 +247,14 @@ public:
     bool isFullBlockReadForced() const { return m_forceFullblockRead; }
 
     std::shared_ptr<IOTraceLogger> ioTraceLogger() { return m_ioTraceLogger; }
+
+    std::shared_ptr<FuseFileHandle> getFuseFileHandle(std::uint64_t handleId)
+    {
+        return m_fuseFileHandles.at(handleId);
+    }
+
+    std::map<folly::fbstring, folly::fbvector<std::pair<off_t, off_t>>>
+    getFileLocalBlocks(const folly::fbstring &uuid);
 
 private:
     template <typename SrvMsg = messages::fuse::FuseResponse, typename CliMsg>

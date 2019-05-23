@@ -106,7 +106,8 @@ void FileLocation::putBlock(
     auto interval =
         boost::icl::discrete_interval<off_t>::right_open(offset, offset + size);
 
-    putBlock(std::make_pair(interval, std::forward<FileBlock>(block)));
+    putBlock(std::pair<boost::icl::discrete_interval<off_t>, FileBlock>(
+        interval, std::forward<FileBlock>(block)));
 }
 
 void FileLocation::putBlock(
@@ -160,6 +161,16 @@ std::string FileLocation::toString() const
     stream << "]";
 
     return stream.str();
+}
+
+BlocksMap FileLocation::getFileLocalBlocks() const
+{
+    BlocksMap result;
+    for (auto &block : m_blocks) {
+        result[block.second.storageId()].emplace_back(
+            std::pair<off_t, off_t>(block.first.lower(), block.first.upper()));
+    }
+    return result;
 }
 
 std::string FileLocation::progressString(
