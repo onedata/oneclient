@@ -50,7 +50,7 @@
 #include "monitoring/monitoring.h"
 #include "util/cdmi.h"
 #include "util/xattrHelper.h"
-#include "webDAVHelper.h"
+//#include "webDAVHelper.h"
 
 #include <boost/icl/interval_set.hpp>
 #include <folly/Demangle.h>
@@ -1136,6 +1136,12 @@ void FsLogic::rename(const folly::fbstring &parentUuid,
 
     IOTRACE_END(IOTraceRename, IOTraceLogger::OpType::RENAME, parentUuid, 0,
         name, oldUuid, newParentUuid, newName, renamed.newUuid())
+}
+
+std::map<folly::fbstring, folly::fbvector<std::pair<off_t, off_t>>>
+FsLogic::getFileLocalBlocks(const folly::fbstring &uuid)
+{
+    return m_metadataCache.getLocation(uuid)->getFileLocalBlocks();
 }
 
 FileAttrPtr FsLogic::setattr(
