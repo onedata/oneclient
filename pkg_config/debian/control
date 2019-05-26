@@ -1,15 +1,15 @@
-Source: oneclient
+Source: oneclient-base
 Section: net
 Priority: optional
-Maintainer: onedata Package Maintainer <support@onedata.org>
+Maintainer: Onedata Package Maintainer <support@onedata.org>
 Build-Depends:
-    aws-sdk-cpp-s3 (>= 1.0.11),
+    aws-sdk-cpp-s3 (>= 1.4.35),
     cmake (>= 3.0.0),
     debhelper (>= 9),
     folly-dev,
     g++-5 (>= 5.0.0),
     git,
-    glusterfs-common (>= 3.8.0),
+    glusterfs-common (>= 3.12.1),
     golang-go,
     libacl1-dev,
     libboost-all-dev,
@@ -21,31 +21,48 @@ Build-Depends:
     libltdl-dev,
     libnspr4-dev,
     libnss3-dev,
-    libprotobuf-dev (>= 2.6.0),
-    libpython-dev,
-    librados-dev (>= 11.1.0),
+    libprotobuf-dev (>= 3.4.1),
+    librados-dev (>= 12.2.1),
+    libradosstriper-dev (>= 12.2.1),
     libsodium-dev,
-    libssl-dev,
+    libssl-dev (>= 1.1.0),
     libstdc++-5-dev,
-    libtbb-dev (>= 4.3~),
+    libtbb-dev (>= 2018~U5),
     libpoco-dev,
-    libpocofoundation9v5,
-    libpoconetssl9v5,
-    libpocoutil9v5,
-    libpocoxml9v5,
-    openssl,
+    libpocofoundation50,
+    libpoconetssl50,
+    libpocoutil50,
+    libpocoxml50,
+    openssl (>= 1.1.0),
     pkg-config,
-    protobuf-compiler (>= 2.6.0),
+    protobuf-compiler (>= 3.4.1),
     python-dev,
+    python3-dev,
     subversion,
     swift-sdk-cpp (>= 1.0.0),
-    uuid-dev
+    uuid-dev,
+    wangle-dev,
+    proxygen-dev
 Standards-Version: 3.9.5
 Homepage: https://onedata.org
 
-Package: oneclient
-Architecture: any
-Depends: glusterfs-common (>= 3.8.0), ${shlibs:Depends}, ${misc:Depends}, fuse
+Package: oneclient-base
+Architecture: amd64
+Depends: glusterfs-common (>= 3.12.1), ${shlibs:Depends}, ${misc:Depends}, fuse
+Description: FUSE client for onedata system.
+ Oneclient is a software based on FUSE (Filesystem in Userspace) that allows
+ mounting onedata filesystem on Linux systems.
+
+Package: python-onedatafs
+Architecture: amd64
+Depends: python, libboost-python1.58.0, ${shlibs:Depends}, ${misc:Depends}
+Description: FUSE client for onedata system.
+ oneclient is a software based on FUSE (Filesystem in Userspace) that allows
+ mounting onedata filesystem on Linux systems.
+
+Package: python3-onedatafs
+Architecture: amd64
+Depends: python3, libboost-python1.58.0, ${shlibs:Depends}, ${misc:Depends}
 Description: FUSE client for onedata system.
  oneclient is a software based on FUSE (Filesystem in Userspace) that allows
  mounting onedata filesystem on Linux systems.

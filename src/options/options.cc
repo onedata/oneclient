@@ -107,6 +107,28 @@ Options::Options()
         .withDescription("Specify Onedata access token for authentication and "
                          "authorization.");
 
+    add<std::vector<std::string>>()
+        ->withEnvName("space")
+        .withLongName("space")
+        .withConfigName("space")
+        .withValueName("<name>")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription("Allows to specify which space should be mounted, "
+                         "where the value of the argument is space name. "
+                         "Specify multiple times for multiple spaces. If not "
+                         "specified, all users spaces will be mounted.");
+
+    add<std::vector<std::string>>()
+        ->withEnvName("space_id")
+        .withLongName("space-id")
+        .withConfigName("space_id")
+        .withValueName("<id>")
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription(
+            "Allows to specify which space should be mounted, where the value "
+            "of the argument is space id. Specify multiple times for multiple "
+            "spaces. If not specified, all users spaces will be mounted.");
+
     add<boost::filesystem::path>()
         ->withShortName("l")
         .withLongName("log-dir")
@@ -116,6 +138,15 @@ Options::Options()
         .withDefaultValue(m_defaultLogDirPath, m_defaultLogDirPath.c_str())
         .withGroup(OptionGroup::GENERAL)
         .withDescription("Specify custom path for Oneclient logs.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("io-trace-log")
+        .withConfigName("io_trace_log")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Enable detailed IO trace log (experimental).");
 
     add<bool>()
         ->asSwitch()
@@ -145,6 +176,15 @@ Options::Options()
         .withGroup(OptionGroup::ADVANCED)
         .withDescription(
             "Specify number of parallel buffer scheduler threads.");
+
+    add<unsigned int>()
+        ->withLongName("communicator-pool-size")
+        .withConfigName("communicator_pool_size")
+        .withValueName("<connections>")
+        .withDefaultValue(DEFAULT_COMMUNICATOR_POOL_SIZE,
+            std::to_string(DEFAULT_COMMUNICATOR_POOL_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify number of connections in communicator pool.");
 
     add<unsigned int>()
         ->withLongName("communicator-thread-count")
@@ -182,6 +222,37 @@ Options::Options()
         .withGroup(OptionGroup::ADVANCED)
         .withDescription(
             "Disable in-memory cache for input/output data blocks.");
+
+    add<unsigned int>()
+        ->withLongName("provider-timeout")
+        .withConfigName("provider_timeout")
+        .withValueName("<duration>")
+        .withDefaultValue(
+            DEFAULT_PROVIDER_TIMEOUT, std::to_string(DEFAULT_PROVIDER_TIMEOUT))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify Oneprovider connection timeout in seconds.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("disable-read-events")
+        .withConfigName("disable_read_events")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Disable reporting of file read events.");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("no-fullblock-read")
+        .withConfigName("no_fullblock_read")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Disable fullblock read mode. With this option read can return "
+            "less "
+            "data than requested in case it is immediately available and "
+            "consecutive blocks need to be prefetched from remote storage.");
 
     add<unsigned int>()
         ->withLongName("read-buffer-min-size")
@@ -231,7 +302,31 @@ Options::Options()
             std::to_string(DEFAULT_WRITE_BUFFER_MAX_SIZE))
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Specify maximum size in bytes of in-memory cache for "
-                         "output data blocks.");
+                         "output data blocks of a single opened file handle.");
+
+    add<unsigned int>()
+        ->withLongName("read-buffers-total-size")
+        .withConfigName("read_buffers_total_size")
+        .withValueName("<size>")
+        .withDefaultValue(DEFAULT_READ_BUFFERS_TOTAL_SIZE,
+            std::to_string(DEFAULT_READ_BUFFERS_TOTAL_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Specify total maximum size in bytes of in-memory cache for "
+            "input data blocks of all opened file handles. When 0, read "
+            "buffers are unlimited.");
+
+    add<unsigned int>()
+        ->withLongName("write-buffers-total-size")
+        .withConfigName("write_buffers_total_size")
+        .withValueName("<size>")
+        .withDefaultValue(DEFAULT_WRITE_BUFFERS_TOTAL_SIZE,
+            std::to_string(DEFAULT_WRITE_BUFFERS_TOTAL_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Specify total maximum size in bytes of in-memory cache for "
+            "output data blocks of all opened file handles. When 0, write "
+            "buffers are unlimited.");
 
     add<unsigned int>()
         ->withLongName("write-buffer-flush-delay")
@@ -242,6 +337,155 @@ Options::Options()
         .withGroup(OptionGroup::ADVANCED)
         .withDescription("Specify idle period in seconds before flush of "
                          "in-memory cache for output data blocks.");
+
+    add<double>()
+        ->withLongName("seqrd-prefetch-threshold")
+        .withConfigName("seqrd_prefetch_threshold")
+        .withValueName("<fraction>")
+        .withDefaultValue(1.0, std::to_string(1.0))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify the fraction of the file, which will trigger "
+                         "replication prefetch after that part of the file is "
+                         "already replicated (experimental).");
+
+    add<double>()
+        ->withLongName("rndrd-prefetch-threshold")
+        .withConfigName("rndrd_prefetch_threshold")
+        .withValueName("<fraction>")
+        .withDefaultValue(1.0, std::to_string(1.0))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify the fraction of the file, which will trigger "
+                         "replication prefetch after that part of the file is "
+                         "already replicated in random blocks across entire "
+                         "file (experimental).");
+
+    add<unsigned int>()
+        ->withLongName("rndrd-prefetch-eval-frequency")
+        .withConfigName("rndrd_prefetch_eval_frequency")
+        .withValueName("<count>")
+        .withDefaultValue(DEFAULT_PREFETCH_EVALUATE_FREQUENCY,
+            std::to_string(DEFAULT_PREFETCH_EVALUATE_FREQUENCY))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Number of reads from single file handle which will "
+                         "be skipped before next evaluation of cluster "
+                         "prefetch. 0 means that prefetch evaluation will be "
+                         "performed on each read. (experimental).");
+
+    add<unsigned int>()
+        ->withLongName("rndrd-prefetch-block-threshold")
+        .withConfigName("rndrd_prefetch_block_threshold")
+        .withValueName("<count>")
+        .withDefaultValue(0, std::to_string(0))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Number of separate blocks after which replication "
+                         "for the file is triggered automatically. 0 disables "
+                         "this feature (experimental).");
+
+    add<int>()
+        ->withLongName("rndrd-prefetch-cluster-window")
+        .withConfigName("rndrd_prefetch_cluster_window")
+        .withValueName("<size>")
+        .withDefaultValue(DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE,
+            std::to_string(DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Cluster window size for prefetching in "
+                         "[bytes]. When -1 is provided, the "
+                         "entire file is considered for "
+                         "prefetching (experimental).");
+
+    add<unsigned int>()
+        ->withLongName("rndrd-prefetch-cluster-block-threshold")
+        .withConfigName("rndrd_prefetch_cluster_block_threshold")
+        .withValueName("<count>")
+        .withDefaultValue(DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD,
+            std::to_string(DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Number of separate blocks in a cluster window around "
+                         "current read, after which replication of a cluster "
+                         "block (window) is triggered (experimental).");
+
+    add<double>()
+        ->withLongName("rndrd-prefetch-cluster-window-grow-factor")
+        .withConfigName("rndrd_prefetch_cluster_window_grow_factor")
+        .withValueName("<fraction>")
+        .withDefaultValue(0.0, std::to_string(0.0))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Prefetch cluster window grow factor, which enables "
+            "the prefetch window to grow proportionally to "
+            "current replication progress - "
+            "initial_window_size*[1+grow_factor*file_size*replication_progress/"
+            "initial_window_size)] (experimental).");
+
+    add<std::string>()
+        ->withLongName("prefetch-mode")
+        .withConfigName("prefetch_mode")
+        .withImplicitValue(DEFAULT_PREFETCH_MODE)
+        .withDefaultValue(DEFAULT_PREFETCH_MODE, DEFAULT_PREFETCH_MODE)
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Defines the type of block prefetch mode. Possible "
+                         "values are: async, sync. Default is: async "
+                         "(experimental).");
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("cluster-prefetch-threshold-random")
+        .withConfigName("cluster_prefetch_threshold_random")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Enables random cluster prefetch threshold selection "
+                         "(experimental).");
+
+    add<unsigned int>()
+        ->withLongName("metadata-cache-size")
+        .withConfigName("metadata_cache_size")
+        .withValueName("<size>")
+        .withDefaultValue(DEFAULT_METADATA_CACHE_SIZE,
+            std::to_string(DEFAULT_METADATA_CACHE_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Number of separate blocks after which replication "
+                         "for the file is triggered automatically.");
+
+    add<unsigned int>()
+        ->withLongName("readdir-prefetch-size")
+        .withConfigName("readdir_prefetch_size")
+        .withValueName("<size>")
+        .withDefaultValue(DEFAULT_READDIR_PREFETCH_SIZE,
+            std::to_string(DEFAULT_READDIR_PREFETCH_SIZE))
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Specify the size of requests made during readdir "
+                         "prefetch (in number of dir entries).");
+
+    add<std::string>()
+        ->withEnvName("tag_on_create")
+        .withLongName("tag-on-create")
+        .withConfigName("tag_on_create")
+        .withValueName("<name>:<value>")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Adds <name>=<value> extended attribute to each "
+                         "locally created file.");
+
+    add<std::string>()
+        ->withEnvName("tag_on_modify")
+        .withLongName("tag-on-modify")
+        .withConfigName("tag_on_modify")
+        .withValueName("<name>:<value>")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription("Adds <name>=<value> extended attribute to each "
+                         "locally modified file.");
+
+    add<std::vector<std::string>>()
+        ->withEnvName("override")
+        .withShortName("r")
+        .withLongName("override")
+        .withConfigName("override")
+        .withValueName("<storageId>:<name>:<value>")
+        .withGroup(OptionGroup::ADVANCED)
+        .withDescription(
+            "Allows to override selected helper parameters for specific "
+            "storage, e.g. "
+            "'d40f2f63433da7c845886f6fe970048b:mountPoint:/mnt/nfs'");
 
     add<bool>()
         ->asSwitch()
@@ -265,6 +509,17 @@ Options::Options()
         .withGroup(OptionGroup::FUSE)
         .withDescription("Enable debug mode (implies -f).");
 
+    add<unsigned int>()
+        ->withShortName("v")
+        .withLongName("verbose-log-level")
+        .withEnvName("verbose_log_level")
+        .withConfigName("verbose_log_level")
+        .withValueName("<level>")
+        .withDefaultValue(0, std::to_string(0))
+        .withGroup(OptionGroup::GENERAL)
+        .withDescription("Specify the verbosity level (0-3) for verbose logs "
+                         "(only available in debug builds).");
+
     add<bool>()
         ->asSwitch()
         .withShortName("s")
@@ -283,6 +538,63 @@ Options::Options()
         .withValueName("<mount_option>")
         .withGroup(OptionGroup::FUSE)
         .withDescription("Pass mount arguments directly to FUSE.");
+
+    add<std::string>()
+        ->withEnvName("monitoring_type")
+        .withLongName("monitoring-type")
+        .withConfigName("monitoring_type")
+        .withValueName("<reporter>")
+        .withGroup(OptionGroup::MONITORING)
+        .withDescription("Enables performance metrics monitoring - allowed "
+                         "values are: graphite.");
+
+    add<bool>()
+        ->asSwitch()
+        .withEnvName("monitoring_level_basic")
+        .withLongName("monitoring-level-basic")
+        .withConfigName("monitoring_level_basic")
+        .withImplicitValue(true)
+        .withDefaultValue(true, "true")
+        .withGroup(OptionGroup::MONITORING)
+        .withDescription("Sets monitoring reporting level to basic - default.");
+
+    add<bool>()
+        ->asSwitch()
+        .withEnvName("monitoring_level_full")
+        .withLongName("monitoring-level-full")
+        .withConfigName("monitoring_level_full")
+        .withImplicitValue(true)
+        .withDefaultValue(false, "false")
+        .withGroup(OptionGroup::MONITORING)
+        .withDescription("Sets monitoring reporting level to full.");
+
+    add<unsigned int>()
+        ->withEnvName("monitoring_period")
+        .withLongName("monitoring-period")
+        .withConfigName("monitoring_period")
+        .withValueName("<seconds>")
+        .withDefaultValue(DEFAULT_MONITORING_PERIOD_SECONDS,
+            std::to_string(DEFAULT_MONITORING_PERIOD_SECONDS))
+        .withGroup(OptionGroup::MONITORING)
+        .withDescription("Performance metrics reporting period.");
+
+    add<std::string>()
+        ->withEnvName("graphite_url")
+        .withLongName("graphite-url")
+        .withConfigName("graphite_url")
+        .withValueName("<url>")
+        .withGroup(OptionGroup::MONITORING)
+        .withDescription("Graphite url - required when monitoring-type is "
+                         "'graphite', the scheme can be either tcp or udp and "
+                         "default port is 2003");
+
+    add<std::string>()
+        ->withEnvName("graphite_namespace_prefix")
+        .withLongName("graphite-namespace-prefix")
+        .withConfigName("graphite_namespace_prefix")
+        .withValueName("<name>")
+        .withGroup(OptionGroup::MONITORING)
+        .withDescription("Graphite namespace prefix.");
 
     add<boost::filesystem::path>()
         ->required()
@@ -307,6 +619,13 @@ Options::Options()
         .withLongName("no_check_certificate")
         .withEnvName("no_check_certificate")
         .withConfigName("no_check_certificate")
+        .withGroup(OptionGroup::DEPRECATED);
+
+    add<bool>()
+        ->asSwitch()
+        .withLongName("force-fullblock-read")
+        .withEnvName("force_fullblock_read")
+        .withConfigName("force_fullblock_read")
         .withGroup(OptionGroup::DEPRECATED);
 
     add<std::string>()
@@ -356,6 +675,9 @@ std::string Options::formatHelp(const char *programName) const
     selectCommandLine(advanced, OptionGroup::ADVANCED);
     boost::program_options::options_description fuse{"FUSE options"};
     selectCommandLine(fuse, OptionGroup::FUSE);
+    boost::program_options::options_description monitoring{
+        "Monitoring options"};
+    selectCommandLine(monitoring, OptionGroup::MONITORING);
 
     std::stringstream ss;
     ss << "Usage: " << programName << " [options] mountpoint\n";
@@ -368,6 +690,8 @@ std::string Options::formatHelp(const char *programName) const
     ss << advanced;
     ss << "\n";
     ss << fuse;
+    ss << "\n";
+    ss << monitoring;
 
     return ss.str();
 }
@@ -400,6 +724,11 @@ bool Options::getForeground() const
 bool Options::getDebug() const
 {
     return get<bool>({"debug", "fuse_debug"}).get_value_or(false);
+}
+
+unsigned int Options::getVerboseLogLevel() const
+{
+    return get<unsigned int>({"verbose-log-level"}).get_value_or(0);
 }
 
 bool Options::getSingleThread() const
@@ -443,6 +772,11 @@ boost::filesystem::path Options::getLogDirPath() const
         .get_value_or(m_defaultLogDirPath);
 }
 
+bool Options::isIOTraceLoggerEnabled() const
+{
+    return get<bool>({"io-trace-log", "io_trace_log"}).get_value_or(false);
+}
+
 bool Options::isProxyIOForced() const
 {
     return get<bool>({"force-proxy-io", "force_proxy_io"}).get_value_or(false);
@@ -459,6 +793,13 @@ unsigned int Options::getBufferSchedulerThreadCount() const
     return get<unsigned int>(
         {"buffer-scheduler-thread-count", "buffer_scheduler_thread_count"})
         .get_value_or(DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT);
+}
+
+unsigned int Options::getCommunicatorConnectionPoolSize() const
+{
+    return get<unsigned int>(
+        {"communicator-pool-size", "communicator_pool_size"})
+        .get_value_or(DEFAULT_COMMUNICATOR_POOL_SIZE);
 }
 
 unsigned int Options::getCommunicatorThreadCount() const
@@ -482,9 +823,28 @@ unsigned int Options::getStorageHelperThreadCount() const
         .get_value_or(DEFAULT_STORAGE_HELPER_THREAD_COUNT);
 }
 
+bool Options::areFileReadEventsDisabled() const
+{
+    return get<bool>({"disable-read-events", "disable_read_events"})
+        .get_value_or(false);
+}
+
+bool Options::isFullblockReadEnabled() const
+{
+    return !get<bool>({"no-fullblock-read", "no_fullblock_read"})
+                .get_value_or(false);
+}
+
 bool Options::isIOBuffered() const
 {
     return !get<bool>({"no-buffer", "no_buffer"}).get_value_or(false);
+}
+
+std::chrono::seconds Options::getProviderTimeout() const
+{
+    return std::chrono::seconds{
+        get<unsigned int>({"provider-timeout", "provider_timeout"})
+            .get_value_or(DEFAULT_PROVIDER_TIMEOUT)};
 }
 
 unsigned int Options::getReadBufferMinSize() const
@@ -519,6 +879,20 @@ unsigned int Options::getWriteBufferMaxSize() const
         .get_value_or(DEFAULT_WRITE_BUFFER_MAX_SIZE);
 }
 
+unsigned int Options::getReadBuffersTotalSize() const
+{
+    return get<unsigned int>(
+        {"read-buffers-total-size", "read_buffers_total_size"})
+        .get_value_or(DEFAULT_READ_BUFFERS_TOTAL_SIZE);
+}
+
+unsigned int Options::getWriteBuffersTotalSize() const
+{
+    return get<unsigned int>(
+        {"write-buffers-total-size", "write_buffers_total_size"})
+        .get_value_or(DEFAULT_WRITE_BUFFERS_TOTAL_SIZE);
+}
+
 std::chrono::seconds Options::getWriteBufferFlushDelay() const
 {
     return std::chrono::seconds{
@@ -527,9 +901,172 @@ std::chrono::seconds Options::getWriteBufferFlushDelay() const
             .get_value_or(DEFAULT_WRITE_BUFFER_FLUSH_DELAY)};
 }
 
+double Options::getLinearReadPrefetchThreshold() const
+{
+    return get<double>({"seqrd-prefetch-threshold", "seqrd_prefetch_threshold"})
+        .get_value_or(1.0);
+}
+
+double Options::getRandomReadPrefetchThreshold() const
+{
+    return get<double>({"rndrd-prefetch-threshold", "rndrd_prefetch_threshold"})
+        .get_value_or(1.0);
+}
+
+std::string Options::getPrefetchMode() const
+{
+    return get<std::string>({"prefetch-mode", "prefetch_mode"})
+        .get_value_or("async");
+}
+
+unsigned int Options::getRandomReadPrefetchEvaluationFrequency() const
+{
+    return get<unsigned int>(
+        {"rndrd-prefetch-eval-frequency", "rndrd-prefetch-eval-frequency"})
+        .get_value_or(DEFAULT_PREFETCH_EVALUATE_FREQUENCY);
+}
+
+bool Options::isClusterPrefetchThresholdRandom() const
+{
+    return get<bool>({"cluster-prefetch-threshold-random",
+                         "cluster_prefetch_threshold_random"})
+        .get_value_or(false);
+}
+
+unsigned int Options::getRandomReadPrefetchBlockThreshold() const
+{
+    return get<unsigned int>(
+        {"rndrd-prefetch-block-threshold", "rndrd_prefetch_block_threshold"})
+        .get_value_or(0);
+}
+
+int Options::getRandomReadPrefetchClusterWindow() const
+{
+    return get<int>(
+        {"rndrd-prefetch-cluster-window", "rndrd_prefetch_cluster_window"})
+        .get_value_or(DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE);
+}
+
+unsigned int Options::getRandomReadPrefetchClusterBlockThreshold() const
+{
+    return get<unsigned int>({"rndrd-prefetch-cluster-block-threshold",
+                                 "rndrd_prefetch_cluster_block_threshold"})
+        .get_value_or(DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD);
+}
+
+double Options::getRandomReadPrefetchClusterWindowGrowFactor() const
+{
+    return get<double>({"rndrd-prefetch-cluster-window-grow-factor",
+                           "rndrd_prefetch_cluster_window_grow_factor"})
+        .get_value_or(0.0);
+}
+
+unsigned int Options::getMetadataCacheSize() const
+{
+    return get<unsigned int>({"metadata-cache-size", "metadata_cache_size"})
+        .get_value_or(DEFAULT_METADATA_CACHE_SIZE);
+}
+
+unsigned int Options::getReaddirPrefetchSize() const
+{
+    return get<unsigned int>({"readdir-prefetch-size", "readdir_prefetch_size"})
+        .get_value_or(DEFAULT_READDIR_PREFETCH_SIZE);
+}
+
+boost::optional<std::pair<std::string, std::string>>
+Options::getOnModifyTag() const
+{
+    return get<std::pair<std::string, std::string>>(
+        {"tag-on-modify", "tag_on_modify"});
+}
+
+boost::optional<std::pair<std::string, std::string>>
+Options::getOnCreateTag() const
+{
+    return get<std::pair<std::string, std::string>>(
+        {"tag-on-create", "tag_on_create"});
+}
+
+std::map<folly::fbstring, std::unordered_map<folly::fbstring, folly::fbstring>>
+Options::getHelperOverrideParams() const
+{
+    std::map<folly::fbstring,
+        std::unordered_map<folly::fbstring, folly::fbstring>>
+        result;
+
+    for (const auto &p : getOverrideParams()) {
+        result[std::get<0>(p)][std::get<1>(p)] = std::get<2>(p);
+    }
+
+    return result;
+}
+
+std::unordered_map<folly::fbstring, folly::fbstring>
+Options::getHelperOverrideParams(const folly::fbstring &storageId) const
+{
+    const auto &overrideParams = getHelperOverrideParams();
+
+    if (overrideParams.find(storageId) != overrideParams.cend())
+        return overrideParams.at(storageId);
+
+    return {};
+}
+
+bool Options::isMonitoringEnabled() const
+{
+    return get<std::string>({"monitoring-type", "monitoring_type"})
+        .
+        operator bool();
+}
+
+boost::optional<std::string> Options::getMonitoringType() const
+{
+    return get<std::string>({"monitoring-type", "monitoring_type"});
+}
+
+bool Options::isMonitoringLevelBasic() const
+{
+    return get<bool>({"monitoring-level-basic", "monitoring_level_basic"})
+        .get_value_or(true);
+}
+
+bool Options::isMonitoringLevelFull() const
+{
+    return get<bool>({"monitoring-level-full", "monitoring_level_full"})
+        .get_value_or(false);
+}
+
+boost::optional<std::string> Options::getMonitoringGraphiteUrl() const
+{
+    return get<std::string>({"graphite-url", "graphite_url"});
+}
+
+boost::optional<std::string>
+Options::getMonitoringGraphiteNamespacePrefix() const
+{
+    return get<std::string>(
+        {"graphite-namespace-prefix", "graphite_namespace_prefix"});
+}
+
+unsigned int Options::getMonitoringReportingPeriod() const
+{
+    return get<unsigned int>({"monitoring-period", "monitoring_period"})
+        .get_value_or(DEFAULT_MONITORING_PERIOD_SECONDS);
+}
+
 boost::filesystem::path Options::getMountpoint() const
 {
     return get<boost::filesystem::path>({"mountpoint"}).get();
+}
+
+std::vector<std::string> Options::getSpaceNames() const
+{
+    return get<std::vector<std::string>>({"space"}).get_value_or({});
+}
+
+std::vector<std::string> Options::getSpaceIds() const
+{
+    return get<std::vector<std::string>>({"space-id"}).get_value_or({});
 }
 
 std::vector<std::string> Options::getFuseOpts() const

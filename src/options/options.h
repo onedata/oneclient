@@ -9,6 +9,10 @@
 #ifndef ONECLIENT_OPTIONS_H
 #define ONECLIENT_OPTIONS_H
 
+#include "helpers/logging.h"
+
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/join.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/optional.hpp>
 #include <boost/program_options.hpp>
@@ -24,17 +28,33 @@ namespace options {
 namespace {
 static constexpr auto CONFIG_FILE_NAME = "oneclient.conf";
 static constexpr auto ENVIRONMENT_PREFIX = "ONECLIENT_";
-static constexpr auto DEFAULT_PROVIDER_PORT = 5555;
+static constexpr auto DEFAULT_PROVIDER_PORT = 443;
 static constexpr auto DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT = 1;
-static constexpr auto DEFAULT_COMMUNICATOR_THREAD_COUNT = 3;
+static constexpr auto DEFAULT_COMMUNICATOR_POOL_SIZE = 10;
+static constexpr auto DEFAULT_COMMUNICATOR_THREAD_COUNT = 4;
 static constexpr auto DEFAULT_SCHEDULER_THREAD_COUNT = 1;
 static constexpr auto DEFAULT_STORAGE_HELPER_THREAD_COUNT = 10;
-static constexpr auto DEFAULT_READ_BUFFER_MIN_SIZE = 1 * 1024 * 1024;
-static constexpr auto DEFAULT_READ_BUFFER_MAX_SIZE = 50 * 1024 * 1024;
+static constexpr auto DEFAULT_READ_BUFFER_MIN_SIZE = 4 * 1024;
+static constexpr auto DEFAULT_READ_BUFFER_MAX_SIZE = 100 * 1024 * 1024;
+static constexpr auto DEFAULT_READ_BUFFERS_TOTAL_SIZE =
+    20 * DEFAULT_READ_BUFFER_MAX_SIZE;
 static constexpr auto DEFAULT_READ_BUFFER_PREFETCH_DURATION = 1;
-static constexpr auto DEFAULT_WRITE_BUFFER_MIN_SIZE = 1 * 1024 * 1024;
+static constexpr auto DEFAULT_WRITE_BUFFER_MIN_SIZE = 20 * 1024 * 1024;
 static constexpr auto DEFAULT_WRITE_BUFFER_MAX_SIZE = 50 * 1024 * 1024;
-static constexpr auto DEFAULT_WRITE_BUFFER_FLUSH_DELAY = 1;
+static constexpr auto DEFAULT_WRITE_BUFFERS_TOTAL_SIZE =
+    20 * DEFAULT_WRITE_BUFFER_MAX_SIZE;
+static constexpr auto DEFAULT_WRITE_BUFFER_FLUSH_DELAY = 5;
+static constexpr auto DEFAULT_PREFETCH_MODE = "async";
+static constexpr auto DEFAULT_PREFETCH_EVALUATE_FREQUENCY = 50;
+static constexpr double DEFAULT_PREFETCH_POWER_BASE = 1.3;
+static constexpr auto DEFAULT_PREFETCH_TARGET_LATENCY =
+    std::chrono::nanoseconds{1000}; // NOLINT
+static constexpr auto DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE = 20971520;
+static constexpr auto DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD = 5;
+static constexpr auto DEFAULT_METADATA_CACHE_SIZE = 20'000;
+static constexpr auto DEFAULT_READDIR_PREFETCH_SIZE = 2500;
+static constexpr auto DEFAULT_PROVIDER_TIMEOUT = 2 * 60;
+static constexpr auto DEFAULT_MONITORING_PERIOD_SECONDS = 30;
 }
 
 class Option;
@@ -53,7 +73,7 @@ public:
      */
     Options();
 
-    ~Options() = default;
+    virtual ~Options() = default;
 
     /*
      * Parses options from command line, environment and configuration file.
@@ -108,6 +128,11 @@ public:
     bool getDebug() const;
 
     /*
+     * @return Get verbose log level.
+     */
+    unsigned int getVerboseLogLevel() const;
+
+    /*
      * @return true if 'single-thread' option has been provided, otherwise
      * false.
      */
@@ -144,6 +169,11 @@ public:
     boost::filesystem::path getLogDirPath() const;
 
     /*
+     * @return True if IO trace log is enabled.
+     */
+    bool isIOTraceLoggerEnabled() const;
+
+    /*
      * @return true if 'force-proxy-io' option has been provided, otherwise
      * false.
      */
@@ -161,6 +191,11 @@ public:
     unsigned int getBufferSchedulerThreadCount() const;
 
     /*
+     * @return Number of connections in communicator connection pool.
+     */
+    unsigned int getCommunicatorConnectionPoolSize() const;
+
+    /*
      * @return Number of parallel communicator threads.
      */
     unsigned int getCommunicatorThreadCount() const;
@@ -176,9 +211,24 @@ public:
     unsigned int getStorageHelperThreadCount() const;
 
     /*
+     * @return true if 'disable-read-events' is specified.
+     */
+    bool areFileReadEventsDisabled() const;
+
+    /*
+     * @return false if 'no-fullblock-read' is specified.
+     */
+    bool isFullblockReadEnabled() const;
+
+    /*
      * @return false if 'no-buffer' option has been provided, otherwise true.
      */
     bool isIOBuffered() const;
+
+    /*
+     * @return Return timeout for Oneprovider communication.
+     */
+    std::chrono::seconds getProviderTimeout() const;
 
     /*
      * @return Minimum size in bytes of in-memory cache for input data blocks.
@@ -207,15 +257,155 @@ public:
     unsigned int getWriteBufferMaxSize() const;
 
     /*
+     * @return Total possible memory size for read buffers (sum of all buffer
+     * maximum sizes).
+     */
+    unsigned int getReadBuffersTotalSize() const;
+
+    /*
+     * @return Total possible memory size for write buffers (sum of all buffer
+     * maximum sizes).
+     */
+    unsigned int getWriteBuffersTotalSize() const;
+
+    /*
      * @return Idle period in seconds before flush of in-memory cache for
      * output data blocks.
      */
     std::chrono::seconds getWriteBufferFlushDelay() const;
 
     /*
+     * @return The linear read prefetch threshold trigger in (0.0-1.0]
+     */
+    double getLinearReadPrefetchThreshold() const;
+
+    /*
+     * @return The random read prefetch threshold trigger in (0.0-1.0]
+     */
+    double getRandomReadPrefetchThreshold() const;
+
+    /*
+     * @return The random read prefetch calculation will be performed on every N
+     * reads.
+     */
+    unsigned int getRandomReadPrefetchEvaluationFrequency() const;
+
+    /*
+     * @return Get prefetch mode sync or async.
+     */
+    std::string getPrefetchMode() const;
+
+    /*
+     * @return Is cluster block prefetch threshold random.
+     */
+    bool isClusterPrefetchThresholdRandom() const;
+
+    /*
+     * @return Absolute number of blocks in file location before prefetch is
+     * triggered, 0 disables the limit.
+     */
+    unsigned int getRandomReadPrefetchBlockThreshold() const;
+
+    /*
+     * @return Cluster window size for random read block prefetch.
+     */
+    int getRandomReadPrefetchClusterWindow() const;
+
+    /*
+     * @return The number of distinct blocks within cluster window
+     * which will trigger prefetch of entire window.
+     */
+    unsigned int getRandomReadPrefetchClusterBlockThreshold() const;
+
+    /*
+     * @return Cluster window size grow factor for random read block prefetch.
+     */
+    double getRandomReadPrefetchClusterWindowGrowFactor() const;
+
+    /*
+     * @return Maximum number of entries in metadata cache.
+     */
+    unsigned int getMetadataCacheSize() const;
+
+    /*
+     * @return Set readdir cache prefetch size.
+     */
+    unsigned int getReaddirPrefetchSize() const;
+
+    /*
+     * @return Get xattr on-modify tag.
+     */
+    boost::optional<std::pair<std::string, std::string>> getOnModifyTag() const;
+
+    /*
+     * @return Get xattr on-create tag.
+     */
+    boost::optional<std::pair<std::string, std::string>> getOnCreateTag() const;
+
+    /*
+     * @return Get helper parameter override value
+     */
+    std::map<folly::fbstring,
+        std::unordered_map<folly::fbstring, folly::fbstring>>
+    getHelperOverrideParams() const;
+
+    /*
+     * @return Get helper parameter override values for specific storageId
+     *         or empty map in case no overrides for this storage were
+     *         provided
+     */
+    std::unordered_map<folly::fbstring, folly::fbstring>
+    getHelperOverrideParams(const folly::fbstring &storageId) const;
+
+    /*
+     * @return Is monitoring enabled.
+     */
+    bool isMonitoringEnabled() const;
+
+    /*
+     * @return Type of performance monitoring reporter.
+     */
+    boost::optional<std::string> getMonitoringType() const;
+
+    /*
+     * @return Monitoring reporting level basic flag.
+     */
+    bool isMonitoringLevelBasic() const;
+
+    /*
+     * @return Monitoring reporting level full flag.
+     */
+    bool isMonitoringLevelFull() const;
+
+    /*
+     * @return Performance monitoring Graphite URL.
+     */
+    boost::optional<std::string> getMonitoringGraphiteUrl() const;
+
+    /*
+     * @return Performance monitoring Graphite namespace prefix.
+     */
+    boost::optional<std::string> getMonitoringGraphiteNamespacePrefix() const;
+
+    /*
+     * @return Performance monitoring reporting period.
+     */
+    unsigned int getMonitoringReportingPeriod() const;
+
+    /*
      * @return Mountpoint path.
      */
     boost::filesystem::path getMountpoint() const;
+
+    /*
+     * @return List of space names to mount.
+     */
+    std::vector<std::string> getSpaceNames() const;
+
+    /*
+     * @return List of space ids to mount.
+     */
+    std::vector<std::string> getSpaceIds() const;
 
     /*
      * @return FUSE mounting options.
@@ -250,6 +440,56 @@ private:
         return {};
     }
 
+    std::vector<std::tuple<std::string, std::string, std::string>>
+    getOverrideParams() const
+    {
+        if (m_vm.count("override") && !m_vm.at("override").defaulted()) {
+            auto overrideParams =
+                m_vm["override"].as<std::vector<std::string>>();
+
+            std::vector<std::tuple<std::string, std::string, std::string>>
+                result;
+
+            for (const auto &param : overrideParams) {
+                std::vector<std::string> keyValue;
+                boost::split(keyValue, param, boost::is_any_of(":"));
+
+                if (keyValue.size() < 3) {
+                    LOG(ERROR) << "Invalid command line argument: --override "
+                               << param;
+                    LOG(ERROR) << "Helper override parameters must have values "
+                                  "in the form "
+                                  "<storageId>:<parameter>:<value>";
+                }
+
+                result.emplace_back(keyValue[0], keyValue[1],
+                    boost::algorithm::join(
+                        std::vector<std::string>(
+                            std::next(keyValue.begin(), 2), keyValue.end()),
+                        ":"));
+            }
+
+            return result;
+        }
+        return {};
+    }
+
+    boost::optional<std::pair<std::string, std::string>> parseKeyValuePair(
+        const std::string &val) const
+    {
+        std::vector<std::string> keyValue;
+        boost::split(keyValue, val, boost::is_any_of(":"));
+
+        if (keyValue.size() != 2) {
+            LOG(ERROR) << "Key-value arguments must have values in the form "
+                          "<name>:<value>";
+            return {};
+        }
+
+        return {std::make_pair<std::string, std::string>(
+            std::move(keyValue[0]), std::move(keyValue[1]))};
+    }
+
     void selectCommandLine(boost::program_options::options_description &desc,
         const OptionGroup &group) const;
 
@@ -262,6 +502,22 @@ private:
     std::vector<std::string> m_deprecatedEnvs;
     std::vector<std::shared_ptr<Option>> m_options;
 };
+
+template <>
+inline boost::optional<std::pair<std::string, std::string>>
+Options::get<std::pair<std::string, std::string>>(
+    const std::vector<std::string> &names) const
+{
+    for (const auto &name : names) {
+        if (m_vm.count(name) && !m_vm.at(name).defaulted()) {
+            return parseKeyValuePair(m_vm.at(name).as<std::string>());
+        }
+    }
+    if (!names.empty() && m_vm.count(names[0])) {
+        return parseKeyValuePair(m_vm.at(names[0]).as<std::string>());
+    }
+    return {};
+}
 
 } // namespace options
 } // namespace client

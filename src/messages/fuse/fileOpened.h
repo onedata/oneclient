@@ -29,8 +29,8 @@ public:
     FileOpened(std::unique_ptr<ProtocolServerMessage> serverMessage);
 
     /**
-    * @return A handleID representing the handle on the server.
-    */
+     * @return A handleID representing the handle on the server.
+     */
     const std::string &handleId() const;
 
     std::string toString() const override;

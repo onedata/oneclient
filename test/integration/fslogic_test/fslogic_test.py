@@ -6,12 +6,13 @@ __author__ = "Konrad Zemek"
 __copyright__ = """(C) 2015 ACK CYFRONET AGH,
 This software is released under the MIT license cited in 'LICENSE.txt'."""
 
-import hashlib
 import os
 import sys
 from threading import Thread
+from multiprocessing import Pool
 import time
 import pytest
+from stat import *
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.dirname(script_dir))
@@ -24,10 +25,12 @@ import fslogic
 from proto import messages_pb2, fuse_messages_pb2, event_messages_pb2, \
     common_messages_pb2, stream_messages_pb2
 
+SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32
+
 
 @pytest.fixture
 def endpoint(appmock_client):
-    return appmock_client.tcp_endpoint(5555)
+    return appmock_client.tcp_endpoint(443)
 
 
 @pytest.fixture
@@ -76,16 +79,33 @@ def prepare_file_blocks(blocks=[]):
 
 
 def prepare_sync_response(uuid, data, blocks):
-    md = hashlib.new('MD4')
-    md.update(data)
-
-    repl = fuse_messages_pb2.SyncResponse()
-    repl.checksum = md.digest()
-    repl.file_location.CopyFrom(prepare_location(uuid, blocks))
+    location = prepare_location(uuid, blocks)
 
     server_response = messages_pb2.ServerMessage()
-    server_response.fuse_response.sync_response.CopyFrom(repl)
+    server_response.fuse_response.file_location_changed.file_location.CopyFrom(location)
     server_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    return server_response
+
+
+def prepare_partial_sync_response(uuid, data, blocks, start, end):
+    location = prepare_location(uuid, blocks)
+
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.file_location_changed.file_location.CopyFrom(location)
+    server_response.fuse_response.file_location_changed.change_beg_offset = start
+    server_response.fuse_response.file_location_changed.change_end_offset = end
+    server_response.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    return server_response
+
+
+def prepare_sync_eagain_response(uuid, data, blocks):
+    location = prepare_location(uuid, blocks)
+
+    server_response = messages_pb2.ServerMessage()
+    server_response.fuse_response.file_location.CopyFrom(location)
+    server_response.fuse_response.status.code = common_messages_pb2.Status.eagain
 
     return server_response
 
@@ -148,6 +168,7 @@ def prepare_location(uuid, blocks=[]):
     repl.file_id = 'file1'
     repl.provider_id = 'provider1'
     repl.blocks.extend(file_blocks)
+    repl.version = 1
 
     return repl
 
@@ -173,6 +194,16 @@ def prepare_rename_response(new_uuid):
     return server_response
 
 
+def prepare_processing_status_response(status):
+    repl = messages_pb2.ProcessingStatus()
+    repl.code = status
+
+    server_response = messages_pb2.ServerMessage()
+    server_response.processing_status.CopyFrom(repl)
+
+    return server_response
+
+
 def prepare_open_response(handle_id='handle_id'):
     repl = fuse_messages_pb2.FileOpened()
     repl.handle_id = handle_id
@@ -182,6 +213,21 @@ def prepare_open_response(handle_id='handle_id'):
     server_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
     return server_response
+
+
+def prepare_file_children_attr_response(uuid, prefix, count):
+    child_attrs = []
+    for i in range(count):
+        f = prepare_attr_response(uuid, fuse_messages_pb2.REG).\
+                    fuse_response.file_attr
+        f.uuid = random_str()
+        f.name = prefix+str(i)
+        child_attrs.append(f)
+
+    response = fuse_messages_pb2.FileChildrenAttrs()
+    response.child_attrs.extend(child_attrs)
+
+    return response
 
 
 def do_open(endpoint, fl, uuid, size=None, blocks=[], handle_id='handle_id'):
@@ -525,37 +571,96 @@ def test_utime_should_pass_utime_errors(endpoint, fl, uuid, stat):
 
 
 def test_readdir_should_read_dir(endpoint, fl, uuid, stat):
-    file1 = common_messages_pb2.ChildLink()
-    file1.uuid = "childUuid1"
-    file1.name = "file1"
+    #
+    # Prepare first response with 5 files
+    #
+    repl1 = prepare_file_children_attr_response(uuid, "afiles-", 5)
+    repl1.is_last = False
 
-    file2 = common_messages_pb2.ChildLink()
-    file2.uuid = "childUuid2"
-    file2.name = "file2"
+    response1 = messages_pb2.ServerMessage()
+    response1.fuse_response.file_children_attrs.CopyFrom(repl1)
+    response1.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    repl = fuse_messages_pb2.FileChildren()
-    repl.child_links.extend([file1, file2])
+    #
+    # Prepare second response with another 5 file
+    #
+    repl2 = prepare_file_children_attr_response(uuid, "bfiles-", 5)
+    repl2.is_last = True
 
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.file_children.CopyFrom(repl)
-    response.fuse_response.status.code = common_messages_pb2.Status.ok
+    response2 = messages_pb2.ServerMessage()
+    response2.fuse_response.file_children_attrs.CopyFrom(repl2)
+    response2.fuse_response.status.code = common_messages_pb2.Status.ok
 
     children = []
-    with reply(endpoint, response) as queue:
-        children = fl.readdir(uuid)
-        client_message = queue.get()
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [response1, response2]) as queue:
+        children_chunk = fl.readdir(uuid, chunk_size, offset)
+        _ = queue.get()
+        assert len(children_chunk) == 12
 
-    assert sorted(children) == sorted([file1.name, file2.name, '..', '.'])
+    #
+    # Immediately after the last request the value should be available
+    # from readdir cache, without any communication with provider
+    #
+    for i in range(3):
+        with reply(endpoint, []) as queue:
+            children_chunk = fl.readdir(uuid, 5, 0)
+            assert len(children_chunk) == 5
+        time.sleep(1)
 
-    assert client_message.HasField('fuse_request')
-    assert client_message.fuse_request.HasField('file_request')
+    #
+    # After time validity has passed, the cache should be empty again
+    #
+    time.sleep(3)
 
-    file_request = client_message.fuse_request.file_request
-    assert file_request.HasField('get_file_children')
+    repl4 = fuse_messages_pb2.FileChildrenAttrs()
+    repl4.child_attrs.extend([])
 
-    get_file_children = file_request.get_file_children
-    assert get_file_children.offset == 0
-    assert file_request.context_guid == uuid
+    response4 = messages_pb2.ServerMessage()
+    response4.fuse_response.file_children_attrs.CopyFrom(repl4)
+    response4.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    children = []
+    with reply(endpoint, [response4]) as queue:
+        children_chunk = fl.readdir(uuid, 5, 0)
+        _ = queue.get()
+        assert len(children_chunk) == 2
+        children += children_chunk
+
+    assert sorted(children) == sorted(['..', '.'])
+
+
+def test_readdir_should_return_unique_entries(endpoint, fl, uuid, stat):
+    #
+    # Prepare first response with 5 files
+    #
+    repl1 = prepare_file_children_attr_response(uuid, "afiles-", 5)
+    repl1.is_last = False
+
+    response1 = messages_pb2.ServerMessage()
+    response1.fuse_response.file_children_attrs.CopyFrom(repl1)
+    response1.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    #
+    # Prepare second response with the same 5 files
+    #
+    repl2 = prepare_file_children_attr_response(uuid, "afiles-", 5)
+    repl2.is_last = True
+
+    response2 = messages_pb2.ServerMessage()
+    response2.fuse_response.file_children_attrs.CopyFrom(repl2)
+    response2.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    children = []
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [response1, response2]) as queue:
+        children_chunk = fl.readdir(uuid, chunk_size, offset)
+        _ = queue.get()
+        children.extend(children_chunk)
+
+    assert len(children) == 5 + 2
 
 
 def test_readdir_should_pass_readdir_errors(endpoint, fl, uuid, stat):
@@ -564,16 +669,55 @@ def test_readdir_should_pass_readdir_errors(endpoint, fl, uuid, stat):
 
     with pytest.raises(RuntimeError) as excinfo:
         with reply(endpoint, response):
-            fl.readdir(uuid)
+            fl.readdir(uuid, 1024, 0)
 
     assert 'Operation not permitted' in str(excinfo.value)
+
+
+def test_readdir_should_not_get_stuck_on_errors(endpoint, fl, uuid, stat):
+    response0 = messages_pb2.ServerMessage()
+    response0.fuse_response.status.code = common_messages_pb2.Status.eperm
+
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, response0):
+            fl.readdir(uuid, 1024, 0)
+
+    assert 'Operation not permitted' in str(excinfo.value)
+
+    #
+    # Prepare first response with 5 files
+    #
+    repl1 = prepare_file_children_attr_response(uuid, "afiles-", 5)
+    repl1.is_last = False
+
+    response1 = messages_pb2.ServerMessage()
+    response1.fuse_response.file_children_attrs.CopyFrom(repl1)
+    response1.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    #
+    # Prepare second response with another 5 file
+    #
+    repl2 = prepare_file_children_attr_response(uuid, "bfiles-", 5)
+    repl2.is_last = True
+
+    response2 = messages_pb2.ServerMessage()
+    response2.fuse_response.file_children_attrs.CopyFrom(repl2)
+    response2.fuse_response.status.code = common_messages_pb2.Status.ok
+
+    children = []
+    offset = 0
+    chunk_size = 50
+    with reply(endpoint, [response1, response2]) as queue:
+        children_chunk = fl.readdir(uuid, chunk_size, offset)
+        _ = queue.get()
+        assert len(children_chunk) == 12
 
 
 def test_mknod_should_make_new_location(endpoint, fl, uuid, parentUuid, parentStat):
     getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
 
     with reply(endpoint, [getattr_response]) as queue:
-        fl.mknod(parentUuid, 'childName', 0762)
+        fl.mknod(parentUuid, 'childName', 0762 | S_IFREG)
         client_message = queue.get()
 
     assert client_message.HasField('fuse_request')
@@ -598,6 +742,34 @@ def test_mknod_should_pass_location_errors(endpoint, fl, parentUuid, parentStat)
 
     assert 'Operation not permitted' in str(excinfo.value)
 
+def test_mknod_should_throw_on_unsupported_file_type(endpoint, fl, parentUuid, parentStat):
+    response = messages_pb2.ServerMessage()
+    response.fuse_response.status.code = common_messages_pb2.Status.eperm
+
+    with pytest.raises(RuntimeError) as excinfo:
+        fl.mknod(parentUuid, 'childName', 0664 | S_IFSOCK)
+
+    assert 'Operation not supported' in str(excinfo.value)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        fl.mknod(parentUuid, 'childName', 0664 | S_IFBLK)
+
+    assert 'Operation not supported' in str(excinfo.value)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        fl.mknod(parentUuid, 'childName', 0664 | S_IFDIR)
+
+    assert 'Operation not supported' in str(excinfo.value)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        fl.mknod(parentUuid, 'childName', 0664 | S_IFCHR)
+
+    assert 'Operation not supported' in str(excinfo.value)
+
+    with pytest.raises(RuntimeError) as excinfo:
+        fl.mknod(parentUuid, 'childName', 0664 | S_IFIFO)
+
+    assert 'Operation not supported' in str(excinfo.value)
 
 def test_read_should_read(endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, blocks=[(0, 10)])
@@ -678,26 +850,50 @@ def test_truncate_should_pass_truncate_errors(endpoint, fl, uuid):
     assert 'Operation not permitted' in str(excinfo.value)
 
 
+@pytest.mark.skip(reason="TODO VFS-3718")
 def test_readdir_big_directory(endpoint, fl, uuid, stat):
-    children_num = 100000
+    chunk_size = 2500
+    children_num = 10*chunk_size
 
-    repl = fuse_messages_pb2.FileChildren()
-    for i in xrange(0, children_num):
-        link = repl.child_links.add()
-        link.uuid = "uuid{0}".format(i)
-        link.name = "file{0}".format(i)
+    # Prepare an array of responses of appropriate sizes to client
+    # requests
+    responses = []
+    for i in xrange(0, children_num/chunk_size):
+        repl = fuse_messages_pb2.FileChildrenAttrs()
+        for j in xrange(0, chunk_size):
+            link = prepare_attr_response(uuid, fuse_messages_pb2.REG).\
+                        fuse_response.file_attr
+            link.uuid = "childUuid_"+str(i)+"_"+str(j)
+            link.name = "file_"+str(i)+"+"+str(j)
+            repl.child_attrs.extend([link])
 
-    response = messages_pb2.ServerMessage()
-    response.fuse_response.file_children.CopyFrom(repl)
-    response.fuse_response.status.code = common_messages_pb2.Status.ok
+        response = messages_pb2.ServerMessage()
+        response.fuse_response.file_children_attrs.CopyFrom(repl)
+        response.fuse_response.status.code = common_messages_pb2.Status.ok
 
+        responses.append(response)
+
+    empty_repl = fuse_messages_pb2.FileChildrenAttrs()
+    empty_repl.child_attrs.extend([])
+    empty_repl.is_last = True
     empty_response = messages_pb2.ServerMessage()
-    empty_response.fuse_response.file_children.CopyFrom(
-        fuse_messages_pb2.FileChildren())
+    empty_response.fuse_response.file_children_attrs.CopyFrom(empty_repl)
     empty_response.fuse_response.status.code = common_messages_pb2.Status.ok
 
-    with reply(endpoint, [response, empty_response]):
-        children = fl.readdir(uuid)
+    responses.append(empty_response)
+
+    assert len(responses) == children_num/chunk_size + 1
+
+    children = []
+    offset = 0
+    with reply(endpoint, responses) as queue:
+        while True:
+            children_chunk = fl.readdir(uuid, chunk_size, offset)
+            client_message = queue.get()
+            children.extend(children_chunk)
+            if len(children_chunk) < chunk_size:
+                break
+            offset += len(children_chunk)
 
     assert len(children) == children_num + 2
 
@@ -727,19 +923,72 @@ def test_read_should_request_synchronization(appmock_client, endpoint, fl, uuid)
     assert client_message.HasField('fuse_request')
     assert client_message.fuse_request.HasField('file_request')
     file_request = client_message.fuse_request.file_request
-    assert file_request.HasField('synchronize_block_and_compute_checksum')
+    assert file_request.HasField('synchronize_block')
     block = common_messages_pb2.FileBlock()
     block.offset = 2
     block.size = 5
-    sync = file_request.synchronize_block_and_compute_checksum
+    sync = file_request.synchronize_block
     assert sync.block == block
+    assert sync.priority == SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE
     assert file_request.context_guid == uuid
+
+
+def test_read_should_retry_request_synchronization(appmock_client, endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
+
+    responses = []
+    responses.append(prepare_sync_eagain_response(uuid, '', [(0, 10)]))
+    responses.append(prepare_sync_response(uuid, '', [(0, 10)]))
+
+    appmock_client.reset_tcp_history()
+    with reply(endpoint, responses) as queue:
+        fl.read(uuid, fh, 2, 5)
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('synchronize_block')
+    block = common_messages_pb2.FileBlock()
+    block.offset = 2
+    block.size = 5
+    sync = file_request.synchronize_block
+    assert sync.block == block
+    assert sync.priority == SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE
+    assert file_request.context_guid == uuid
+
+
+def test_read_should_not_retry_request_synchronization_too_many_times(appmock_client, endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
+
+    responses = []
+    responses.append(prepare_sync_eagain_response(uuid, '', [(0, 10)]))
+    responses.append(prepare_sync_eagain_response(uuid, '', [(0, 10)]))
+    responses.append(prepare_sync_eagain_response(uuid, '', [(0, 10)]))
+
+    appmock_client.reset_tcp_history()
+    with pytest.raises(RuntimeError) as excinfo:
+        with reply(endpoint, responses) as queue:
+            fl.read(uuid, fh, 2, 5)
+            client_message = queue.get()
+
+    assert 'Resource temporarily unavailable' in str(excinfo.value)
 
 
 def test_read_should_continue_reading_after_synchronization(appmock_client,
                                                             endpoint, fl, uuid):
     fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
     sync_response = prepare_sync_response(uuid, '', [(0, 10)])
+
+    appmock_client.reset_tcp_history()
+    with reply(endpoint, sync_response):
+        assert 5 == len(fl.read(uuid, fh, 2, 5))
+
+
+def test_read_should_continue_reading_after_synchronization_partial(appmock_client,
+                                                            endpoint, fl, uuid):
+    fh = do_open(endpoint, fl, uuid, size=10, blocks=[(4, 6)])
+    sync_response = prepare_partial_sync_response(uuid, '', [(0, 10)], 0, 10)
 
     appmock_client.reset_tcp_history()
     with reply(endpoint, sync_response):
@@ -822,6 +1071,34 @@ def test_release_should_send_fsync_message(endpoint, fl, uuid):
     assert client_message.fuse_request.file_request.HasField('fsync')
 
 
+def test_fslogic_should_handle_processing_status_message(endpoint, fl, uuid):
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.DIR)
+    rename_response = prepare_rename_response('newUuid')
+    processing_status_responses = \
+        [prepare_processing_status_response(messages_pb2.IN_PROGRESS)
+                for _ in range(5)]
+
+    responses = [getattr_response]
+    responses.extend(processing_status_responses)
+    responses.append(rename_response)
+    with reply(endpoint, responses) as queue:
+        fl.rename('parentUuid', 'name', 'newParentUuid', 'newName')
+        queue.get()
+        client_message = queue.get()
+
+    assert client_message.HasField('fuse_request')
+    assert client_message.fuse_request.HasField('file_request')
+
+    file_request = client_message.fuse_request.file_request
+    assert file_request.HasField('rename')
+
+    rename = file_request.rename
+    assert rename.target_parent_uuid == 'newParentUuid'
+    assert rename.target_name == 'newName'
+    assert file_request.context_guid == \
+           getattr_response.fuse_response.file_attr.uuid
+
+
 def prepare_listxattr_response(uuid):
     repl = fuse_messages_pb2.XattrList()
 
@@ -835,10 +1112,11 @@ def prepare_listxattr_response(uuid):
 
 
 def test_listxattrs_should_return_listxattrs(endpoint, fl, uuid):
-    response = prepare_listxattr_response(uuid)
+    getattr_response = prepare_attr_response(uuid, fuse_messages_pb2.REG)
+    listxattr_response = prepare_listxattr_response(uuid)
 
     listxattrs = []
-    with reply(endpoint, response) as queue:
+    with reply(endpoint, [listxattr_response, getattr_response]) as queue:
         listxattrs = fl.listxattr(uuid)
         client_message = queue.get()
 
@@ -849,10 +1127,11 @@ def test_listxattrs_should_return_listxattrs(endpoint, fl, uuid):
     assert file_request.HasField('list_xattr')
     assert file_request.context_guid == uuid
 
-    assert response.status.code == common_messages_pb2.Status.ok
-    assert len(listxattrs) == 4
-    assert listxattrs[0] == "xattr1"
-    assert listxattrs[3] == "xattr4"
+    assert listxattr_response.status.code == common_messages_pb2.Status.ok
+    assert "xattr1" in set(listxattrs)
+    assert "xattr2" in set(listxattrs)
+    assert "xattr3" in set(listxattrs)
+    assert "xattr4" in set(listxattrs)
 
 
 def prepare_getxattr_response(uuid, name, value):

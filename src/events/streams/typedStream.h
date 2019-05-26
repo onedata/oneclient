@@ -9,6 +9,7 @@
 #ifndef ONECLIENT_EVENTS_STREAMS_TYPED_STREAM_H
 #define ONECLIENT_EVENTS_STREAMS_TYPED_STREAM_H
 
+#include "helpers/logging.h"
 #include "stream.h"
 
 #include <typeinfo>
@@ -70,6 +71,8 @@ template <class T> TypedStream<T>::~TypedStream() { flush(); }
 
 template <class T> void TypedStream<T>::process(EventPtr<> event)
 {
+    LOG_FCALL();
+
     auto rawEvent = event.release();
     std::unique_ptr<T> typedEvent{dynamic_cast<T *>(rawEvent)};
     if (typedEvent) {
@@ -79,8 +82,8 @@ template <class T> void TypedStream<T>::process(EventPtr<> event)
         }
     }
     else {
-        DLOG(ERROR) << "Cannot process event " << rawEvent->toString()
-                    << " in a typed stream '" << typeid(T).name() << "'";
+        LOG(ERROR) << "Cannot process event " << rawEvent->toString()
+                   << " in a typed stream '" << typeid(T).name() << "'";
     }
 }
 

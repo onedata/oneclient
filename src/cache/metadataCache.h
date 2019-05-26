@@ -38,13 +38,22 @@ class UpdateTimes;
 namespace client {
 namespace cache {
 
+class ReaddirCache;
+
 /**
  * @c MetadataCache is responsible for retrieving and caching file attributes
  * and locations.
  */
 class MetadataCache {
 public:
-    MetadataCache(communication::Communicator &communicator);
+    MetadataCache(communication::Communicator &communicator,
+        const std::chrono::seconds providerTimeout);
+
+    /**
+     * Sets a pointer to an instance of @c ReaddirCache.
+     * @param readdirCache Shared pointer to an instance of @c ReaddirCache.
+     */
+    void setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache);
 
     /**
      * Retrieves file attributes by uuid.
@@ -108,6 +117,16 @@ public:
     void putLocation(std::unique_ptr<FileLocation> location);
 
     /**
+     * Returns a pointer to fetched or cached file location.
+     * @param uuid Uuid of the file for which location map should be returned.
+     * @param forceUpdate If true, file location will be retrieved from the
+     *                    server even if cached.
+     * @returns Requested file location.
+     */
+    std::shared_ptr<FileLocation> getLocation(
+        const folly::fbstring &uuid, bool forceUpdate = false);
+
+    /**
      * Retrieves space Id by uuid.
      * @param uuid Uuid of the file.
      * @returns Id of space this file belongs to.
@@ -119,13 +138,13 @@ public:
      * fetching them from the server if missing.
      * @param uuid Uuid of the file.
      */
-    void ensureAttrAndLocationCached(const folly::fbstring &uuid);
+    void ensureAttrAndLocationCached(folly::fbstring uuid);
 
     /**
      * Removes all of file's metadata from the cache.
      * @param uuid Uuid of the file.
      */
-    void erase(const folly::fbstring &uuid);
+    void erase(folly::fbstring uuid);
 
     /**
      * Truncates blocks in cached file locations and modifies attributes to set
@@ -133,22 +152,22 @@ public:
      * @param uuid Uuid of the file.
      * @param newSize Size to truncate to.
      */
-    void truncate(const folly::fbstring &uuid, const std::size_t newSize);
+    void truncate(folly::fbstring uuid, const std::size_t newSize);
 
     /**
      * Update times cached in file's attributes.
      * @param uuid Uuid of the file.
      * @param updateTimes Object containing new times.
      */
-    void updateTimes(const folly::fbstring &uuid,
-        const messages::fuse::UpdateTimes &updateTimes);
+    void updateTimes(
+        folly::fbstring uuid, const messages::fuse::UpdateTimes &updateTimes);
 
     /**
      * Changes mode cached in file's attributes.
      * @param uuid Uuid of the file.
      * @param newMode The new mode.
      */
-    void changeMode(const folly::fbstring &uuid, const mode_t newMode);
+    void changeMode(folly::fbstring uuid, const mode_t newMode);
 
     /**
      * Updates file attributes, if cached.
@@ -166,12 +185,22 @@ public:
     bool updateLocation(const FileLocation &newLocation);
 
     /**
+     * Updates file location, if cached, in a specified range.
+     * @param start Start offset of the location update (inclusive)
+     * @param end End offset of the location update (exclusive)
+     * @param locationUpdate Updated location in a given range.
+     * @returns true if location has been updated, false if it was not cached.
+     */
+    bool updateLocation(
+        const off_t start, const off_t end, const FileLocation &locationUpdate);
+
+    /**
      * Marks file as deleted, preventing it from being looked up by parent.
      * @param uuid Uuid of the file.
      * @returns true if file has been marked as deleted, false if it was not
      * cached.
      */
-    bool markDeleted(const folly::fbstring &uuid);
+    bool markDeleted(folly::fbstring uuid);
 
     /**
      * Renames a cached file.
@@ -181,9 +210,8 @@ public:
      * @param newUuid New uuid of the file.
      * @returns true if file has been renamed, false if it was not cached.
      */
-    bool rename(const folly::fbstring &uuid,
-        const folly::fbstring &newParentUuid, const folly::fbstring &newName,
-        const folly::fbstring &newUuid);
+    bool rename(folly::fbstring uuid, folly::fbstring newParentUuid,
+        folly::fbstring newName, folly::fbstring newUuid);
 
     /**
      * Sets a callback that will be called after a file is marked as deleted.
@@ -204,6 +232,8 @@ public:
     {
         m_onRename = std::move(cb);
     }
+
+    folly::fbstring uuidToSpaceId(const folly::fbstring &uuid) const;
 
 private:
     struct Metadata {
@@ -237,8 +267,7 @@ private:
         boost::multi_index::indexed_by<
             boost::multi_index::hashed_unique<boost::multi_index::tag<ByUuid>,
                 UuidExtractor, std::hash<folly::fbstring>>,
-            boost::multi_index::hashed_unique<
-                boost::multi_index::tag<ByParent>,
+            boost::multi_index::hashed_unique<boost::multi_index::tag<ByParent>,
                 boost::multi_index::composite_key<Metadata, ParentUuidExtractor,
                     NameExtractor>,
                 boost::multi_index::composite_key_hash<
@@ -248,7 +277,8 @@ private:
 
     template <typename ReqMsg> Map::iterator fetchAttr(ReqMsg &&msg);
 
-    std::shared_ptr<FileLocation> getLocationPtr(const Map::iterator &it);
+    std::shared_ptr<FileLocation> getLocationPtr(
+        const Map::iterator &it, bool forceUpdate = false);
 
     std::shared_ptr<FileLocation> fetchFileLocation(
         const folly::fbstring &uuid);
@@ -262,6 +292,10 @@ private:
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
     std::function<void(const folly::fbstring &, const folly::fbstring &)>
         m_onRename = [](auto, auto) {};
+
+    std::shared_ptr<ReaddirCache> m_readdirCache;
+
+    const std::chrono::seconds m_providerTimeout;
 };
 
 } // namespace cache

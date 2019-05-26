@@ -4,6 +4,238 @@
 CHANGELOG
 ---------
 
+### 18.02.1
+
+* VFS-5109 Improved invalid token error message
+* VFS-5057 Ensure message callbacks are not called after deamonization
+* VFS-5057 Fixed memory leak in libmacaroons
+* VFS-5102 Added override params for storage to options
+* VFS-5102 Updated Oneclient README
+* VFS-5102 Enabled POSIX helper mountPoint parameter override
+* VFS-5102 Added helper parameter override cli option
+* VFS-5120 Disabled creation of unsupported file types
+* VFS-5120 Fixed file creation flags
+
+
+### 18.02.0-rc13
+
+* VFS-4902 Added proxygen library dependency
+* VFS-4902 Added maximum upload size and connection pool size params
+* VFS-4902 Added WebDAV helper
+* VFS-4710 Added dev image
+
+
+### 18.02.0-rc12
+
+* Releasing new version 18.02.0-rc12
+
+
+### 18.02.0-rc11
+
+* VFS-4843 Adjusted default prefetch evaluation frequency
+* VFS-4843 Optimized random read prefetch calculation
+* VFS-4804 Fixed macaroon error handling
+* VFS-4804 Fixed handshake error handling
+* VFS-4804 Fixed reconnect
+* VFS-4804 Removed rest based full file prefetch
+* VFS-4804 Changed communicator from etls to wangle
+* VFS-4741 Added sync block prefetch option
+* VFS-4741 Added BlockSynchronizationRequest handling
+* VFS-4809 Added prefetch skipping for prefetched offsets
+* VFS-4800 Fixed prefetch offset cache
+* VFS-4800 Added block aligned prefetch offset cache
+* VFS-4772 Align block prefetch offsets to cluster window size
+* VFS-4767 Added file hole support as fallback
+* VFS-4708 Updated SyncResponse handling
+
+
+### 18.02.0-rc10
+
+* VFS-4717 Added recursive submodules for packaging
+* VFS-4661 Added mount operation to iotrace log
+* VFS-4661 add file type and size to lookup in io trace
+* VFS-4679 Disabled provider-side prefetch after SynchronizeBlock
+* VFS-4660 Added synchronize block priority handling
+* VFS-4656 Fixed timestamp logging in iotrace
+* VFS-4674 Added child uuid logging
+* VFS-4656 Added cephrados helper
+* VFS-4671 Fixed io trace release log and setxattr args
+* VFS-4642 Added first version of onebench utility
+
+
+### 18.02.0-rc9
+
+* VFS-4617 Fixed updating of file attr in metadatacache
+
+
+### 18.02.0-rc8
+
+* Releasing new version 18.02.0-rc8
+
+
+### 18.02.0-rc7
+
+* VFS-4527 Limited retries on read with corrupted checksum
+
+
+### 18.02.0-rc6
+
+* VFS-4515 Added file location empty range unit test
+* VFS-4518 Added protobuf filelocation benchmark
+* VFS-4517 Added sysbench and nc to Oneclient Docker image
+* VFS-4515 Added FileLocation::updateInRange microbenchmark
+* VFS-4515 Added handling of FileLocationChanged with partial filelocation
+
+
+### 18.02.0-rc5
+
+* VFS-4447 Fixed forced proxy detection access type update
+* VFS-4447 Added locks to access helpersCache internal maps
+* VFS-4447 Refactored storage helper detection logic
+* VFS-4447 Fixed forced proxy detection access type update
+* VFS-4447 Added locks to access helpersCache internal maps
+* VFS-4447 Refactored storage helper detection logic
+
+
+### 18.02.0-rc4
+
+* VFS-4485 Added random read prefetch cluster handling in fsLogic
+* VFS-4485 Added random read prefetch cluster options
+* VFS-4472 Added handling of synchronous and asynchronous prefetch modes
+* VFS-4472 Added more options to control prefetching
+* VFS-4472 Added REST transfer scheduling based on threshold
+
+
+### 18.02.0-rc3
+
+* VFS-4407 Added -v flag to README and autocomplete scripts
+* VFS-4407 Adjusted logging levels
+
+
+### 18.02.0-rc2
+
+* VFS-4443 Fixed generation of source archive with submodules
+* VFS-4295 Changed subtrees to submodules
+* VFS-4405 Fixed full block read mode for remote blocks
+* VFS-4403 Fixed persistent exception in readdir cache
+* VFS-4313 Updated pkg config with new aws sdk s3 version
+* VFS-4313 Updated dockers.config
+
+
+### 18.02.0-rc1
+
+* VFS-2021 Added dockers.config
+
+
+### 18.02.0-beta6
+
+* Releasing new version 18.02.0-beta6
+
+
+### 18.02.0-beta5
+
+* VFS-4333 Increased communicator thread count
+* VFS-4333 Added Oneclient version to logs
+* VFS-4326 Fixed subscriptions for files created in Oneclient
+* VFS-4318 Decreased minimum read buffer size
+* VFS-4308 Added replication progress xattr
+* VFS-4308 Updated fslogic listxattr test
+* VFS-4308 Added file block replication progress xattr
+* VFS-4308 Added system level xattrs
+* VFS-4291 Added communicator pool size command line option
+* VFS-4291 Updated to refactored communication stack
+* VFS-4267 Updated deps to OpenSSL 1.1.0
+* VFS-4267 Fix protobuf cmake detection
+* Improve synchronization requests by prefetching.
+
+
+### 18.02.0-beta4
+
+* VFS-4262 Updated asio executors to new API
+
+
+### 18.02.0-beta3
+
+* VFS-4190 Fixed binary xattr value serialization
+* VFS-4190 Disable setting system, security and capabilities xattrs in oneclient
+
+
+### 18.02.0-beta2
+
+* Add support for flat storages
+* VFS-4102 Added support for index token for readdir prefetching
+* VFS-4102 Added readdir prefetch cache
+
+### 18.02.0-beta1
+
+* Improved storage detection
+* Changed default communication port to 443
+* Added NullDevice storage helper for testing
+* Added Graphite performance monitoring
+
+
+### 17.06.2
+
+* Releasing new version 17.06.2
+
+
+### 17.06.1
+
+* Releasing new version 17.06.1
+
+
+### 17.06.0-rc9
+
+* VFS-3951 Added Oneclient version in handshake
+* VFS-3932 Fixed formatting
+* VFS-3932 Added helper performance metrics to rc branch
+
+
+### 17.06.0-rc8
+
+* Releasing new version 17.06.0-rc8
+
+
+### 17.06.0-rc7
+
+* Releasing new version 17.06.0-rc7
+
+
+### 17.06.0-rc6
+
+* Releasing new version 17.06.0-rc6
+
+
+### 17.06.0-rc5
+
+* Releasing new version 17.06.0-rc5
+
+
+### 17.06.0-rc4
+
+* VFS-3682 Modified Oneclient packaging to FPM
+
+
+### 17.06.0-rc3
+
+* VFS-3650 Updated CentOS GlusterFS dependency
+* VFS-3630 Fixed readdir behavior in multiprovider scenarios
+* VFS-3602 Added metadata-cache-size CLI option
+* VFS-3602 Added attribute fetching to readdir
+* VFS-3444 Adjuster default buffer values in options
+* VFS-3510 Added clang format check
+
+
+### 17.06.0-rc2
+
+* Releasing new version 17.06.0-rc2
+
+
+### 17.06.0-rc1
+
+* VFS-3378 Enabled native GlusterFS support on OSX
+
+
 ### 17.06.0-beta6
 
 * VFS-3412 Updated man pages

@@ -26,5 +26,5 @@ export CXX=g++-5
 override_dh_auto_configure:
 	dh_auto_configure -- \
 	-DCMAKE_BUILD_TYPE=Release \
-	-DBUILD_SHARED_LIBS=Off \
+	-DBUILD_SHARED_LIBS=On \
 	-DBUILD_INTEGRATION_TESTS=Off

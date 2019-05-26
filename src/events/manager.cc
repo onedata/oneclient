@@ -8,7 +8,7 @@
 
 #include "context.h"
 #include "events.h"
-#include "logging.h"
+#include "helpers/logging.h"
 #include "messages/configuration.h"
 #include "scheduler.h"
 
@@ -34,15 +34,20 @@ void Manager::emit(EventPtr<> event)
 
 std::int64_t Manager::subscribe(const Subscription &subscription)
 {
+    LOG_FCALL() << LOG_FARG(subscription.toString());
+
     return subscribe(--m_nextSubscriptionId, subscription);
 }
 
 std::int64_t Manager::subscribe(
     std::int64_t subscriptionId, const Subscription &subscription)
 {
+    LOG_FCALL() << LOG_FARG(subscriptionId)
+                << LOG_FARG(subscription.toString());
+
     StreamAcc streamAcc;
     if (m_streams.insert(streamAcc, subscription.streamKey())) {
-        DLOG(INFO) << "Creating stream '" << subscription.streamKey()
+        LOG_DBG(2) << "Creating stream '" << subscription.streamKey()
                    << "' for subscription " << subscription.toString();
 
         streamAcc->second = std::make_unique<SharedStream>(
@@ -53,7 +58,7 @@ std::int64_t Manager::subscribe(
     }
     streamAcc.release();
 
-    DLOG(INFO) << "Adding subscription " << subscription.toString()
+    LOG_DBG(2) << "Adding subscription " << subscription.toString()
                << " with ID: '" << subscriptionId << "'";
 
     HandleAcc handleAcc;
@@ -66,6 +71,8 @@ std::int64_t Manager::subscribe(
 
 void Manager::subscribe(const messages::Configuration &configuration)
 {
+    LOG_FCALL() << LOG_FARG(configuration.toString());
+
     for (const auto &subscription : configuration.subscriptions()) {
         m_router.handle(subscription);
     }
@@ -73,12 +80,15 @@ void Manager::subscribe(const messages::Configuration &configuration)
 
 bool Manager::unsubscribe(std::int64_t subscriptionId)
 {
+    LOG_FCALL() << LOG_FARG(subscriptionId);
+
     HandleAcc handleAcc;
     if (m_handles.find(handleAcc, subscriptionId)) {
-        DLOG(INFO) << "Removing subscription with ID: '" << subscriptionId
+        LOG_DBG(2) << "Removing subscription with ID: '" << subscriptionId
                    << "'";
 
         m_handles.erase(handleAcc);
+
         return true;
     }
     return false;
@@ -92,6 +102,8 @@ bool Manager::existsSubscription(std::int64_t subscriptionId)
 
 void Manager::flush()
 {
+    LOG_FCALL();
+
     for (int it = static_cast<int>(StreamKey::FILE_READ);
          it != static_cast<int>(StreamKey::TEST); ++it) {
         flush(static_cast<StreamKey>(it));
@@ -100,6 +112,8 @@ void Manager::flush()
 
 void Manager::flush(StreamKey streamKey)
 {
+    LOG_FCALL() << LOG_FARG(streamKey);
+
     StreamConstAcc streamAcc;
     if (m_streams.find(streamAcc, streamKey)) {
         streamAcc->second->flush();

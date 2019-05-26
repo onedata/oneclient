@@ -9,10 +9,10 @@
 #ifndef ONECLIENT_AUTH_MANAGER_H
 #define ONECLIENT_AUTH_MANAGER_H
 
-#include "auth/tokenHandler.h"
+#include "auth/macaroonHandler.h"
 #include "communication/communicator.h"
 #include "environment.h"
-#include "messages/handshakeRequest.h"
+#include "messages/clientHandshakeRequest.h"
 #include "messages/handshakeResponse.h"
 
 #include <boost/optional.hpp>
@@ -34,7 +34,7 @@ class Context;
 
 namespace auth {
 
-constexpr std::chrono::seconds FAILED_TOKEN_REFRESH_RETRY{10};
+constexpr std::chrono::seconds FAILED_MACAROON_REFRESH_RETRY{10};
 
 /**
  * The AuthManager class is responsible for setting an authentication scheme
@@ -51,9 +51,11 @@ public:
      * @param port A port to be used for communication with a Provider.
      * @param checkCertificate Determines whether to check Provider's and
      * Global Registry's server certificates for validity.
+     * @param providerTimeout Timeout for provider connection.
      */
     AuthManager(std::weak_ptr<Context> context, std::string defaultHostname,
-        const unsigned int port, const bool checkCertificate);
+        const unsigned int port, const bool checkCertificate,
+        const std::chrono::seconds providerTimeout);
 
     virtual ~AuthManager() = default;
 
@@ -68,7 +70,9 @@ public:
      */
     virtual std::tuple<std::shared_ptr<communication::Communicator>,
         folly::Future<folly::Unit>>
-    createCommunicator(const unsigned int poolSize, std::string sessionId,
+    createCommunicator(const unsigned int poolSize,
+        const unsigned int workerCount, std::string sessionId,
+        std::string version,
         std::function<std::error_code(messages::HandshakeResponse)>
             onHandshakeResponse) = 0;
 
@@ -89,33 +93,37 @@ protected:
     const bool m_checkCertificate;
 
     Environment m_environment;
+    const std::chrono::seconds m_providerTimeout;
 };
 
 /**
- * The TokenAuthManager class is responsible for setting up user authentication
- * using a macaroon token-based scheme.
+ * The MacaroonAuthManager class is responsible for setting up user
+ * authentication using a macaroon macaroon-based scheme.
  */
-class TokenAuthManager : public AuthManager {
+class MacaroonAuthManager : public AuthManager {
 public:
-    TokenAuthManager(std::weak_ptr<Context> context,
+    MacaroonAuthManager(std::weak_ptr<Context> context,
         std::string defaultHostname, const unsigned int port,
-        const bool checkCertificate);
+        const bool checkCertificate,
+        const std::chrono::seconds providerTimeout);
 
-    ~TokenAuthManager();
+    ~MacaroonAuthManager();
 
     std::tuple<std::shared_ptr<communication::Communicator>,
         folly::Future<folly::Unit>>
-    createCommunicator(const unsigned int poolSize, std::string sessionId,
+    createCommunicator(const unsigned int poolSize,
+        const unsigned int workerCount, std::string sessionId,
+        std::string version,
         std::function<std::error_code(messages::HandshakeResponse)>
             onHandshakeResponse) override;
 
     void cleanup() override;
 
 private:
-    void refreshToken();
+    void refreshMacaroon();
     void scheduleRefresh(const std::chrono::seconds after);
 
-    TokenHandler m_tokenHandler;
+    MacaroonHandler m_macaroonHandler;
     std::function<void()> m_cancelRefresh = [] {};
 };
 

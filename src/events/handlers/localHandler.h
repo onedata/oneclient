@@ -10,6 +10,7 @@
 #define ONECLIENT_EVENTS_HANDLERS_LOCAL_HANDLER_H
 
 #include "handler.h"
+#include "helpers/logging.h"
 
 namespace one {
 namespace client {
@@ -44,6 +45,8 @@ LocalHandler<T>::LocalHandler(EventHandler<T> handler)
 
 template <class T> void LocalHandler<T>::process(Events<T> events)
 {
+    LOG_FCALL();
+
     if (!events.empty()) {
         m_handler(std::move(events));
     }

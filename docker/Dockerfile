@@ -1,33 +1,38 @@
-FROM ubuntu:16.04
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
 MAINTAINER Krzysztof Trzepla <krzysztof.trzepla@gmail.com>
 
 # Build arguments
-ARG RELEASE
+ARG RELEASE_TYPE
+ARG RELEASE="1802"
 ARG VERSION=""
+ARG ONECLIENT_PACKAGE="oneclient"
 
 # Get the image up to date and install utility tools
 RUN apt-get -y update && \
-    apt-get -y upgrade && \
-    apt-get -y install bash-completion ca-certificates curl iputils-ping \
-                       man-db net-tools traceroute vim && \
+    apt-get -y install bash-completion ca-certificates curl iputils-ping netcat \
+                       man-db net-tools traceroute vim python-xattr parallel && \
     apt-get clean
 
 WORKDIR /tmp
 
 # Install oneclient package
-RUN case ${RELEASE} in \
+RUN case ${RELEASE_TYPE} in \
         production) \
-            curl -O http://get.onedata.org/oneclient.sh; \
+            curl -O http://get.onedata.org/oneclient-${RELEASE}.sh; \
             ;; \
         *) \
-            curl -O http://onedata-dev-packages.cloud.plgrid.pl/oneclient.sh; \
+            curl -O http://onedata-dev-packages.cloud.plgrid.pl/oneclient-${RELEASE}.sh; \
             ;; \
         esac && \
-        sh oneclient.sh oneclient=${VERSION}-1
+        sh oneclient-${RELEASE}.sh ${ONECLIENT_PACKAGE}=${VERSION}-1 && \
+        apt-get -y install python-onedatafs=${VERSION}-1 python3-onedatafs=${VERSION}-1 sysbench
 
 # Enable autocompletion
-RUN echo "source /etc/bash_completion" >> /root/.bashrc && \
-    ln -s /var/lib/oneclient/oneclient.bash-completion /etc/bash_completion.d/oneclient
+RUN echo "source /etc/bash_completion" >> /root/.bashrc
+
+# Install OnedataFS Python libraries
+RUN apt-get -y install python-onedatafs python3-onedatafs
 
 # Install Samba and NFS servers
 RUN apt-get -y install samba rpcbind nfs-kernel-server && \

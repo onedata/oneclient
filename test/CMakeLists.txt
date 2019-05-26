@@ -7,3 +7,4 @@ if(BUILD_INTEGRATION_TESTS)
 endif()
 
 add_subdirectory(unit)
+add_subdirectory(benchmark)

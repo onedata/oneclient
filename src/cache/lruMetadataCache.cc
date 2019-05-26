@@ -1,9 +1,9 @@
 #include "lruMetadataCache.h"
 
+#include "cache/readdirCache.h"
+#include "helpers/logging.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
-
-#include <glog/logging.h>
 
 #include <functional>
 
@@ -23,26 +23,42 @@ LRUMetadataCache::OpenFileToken::~OpenFileToken()
     m_cache.release(m_attr->uuid());
 }
 
-LRUMetadataCache::LRUMetadataCache(
-    communication::Communicator &communicator, const std::size_t targetSize)
-    : MetadataCache{communicator}
+LRUMetadataCache::LRUMetadataCache(communication::Communicator &communicator,
+    const std::size_t targetSize, const std::chrono::seconds providerTimeout)
+    : MetadataCache{communicator, providerTimeout}
     , m_targetSize{targetSize}
 {
-    using namespace std::placeholders;
+    MetadataCache::onRename(std::bind(&LRUMetadataCache::handleRename, this,
+        std::placeholders::_1, std::placeholders::_2));
 
-    MetadataCache::onRename(
-        std::bind(&LRUMetadataCache::handleRename, this, _1, _2));
+    MetadataCache::onMarkDeleted(std::bind(
+        &LRUMetadataCache::handleMarkDeleted, this, std::placeholders::_1));
+}
 
-    MetadataCache::onMarkDeleted(
-        std::bind(&LRUMetadataCache::handleMarkDeleted, this, _1));
+void LRUMetadataCache::setReaddirCache(
+    std::shared_ptr<ReaddirCache> readdirCache)
+{
+    MetadataCache::setReaddirCache(readdirCache);
 }
 
 void LRUMetadataCache::pinEntry(const folly::fbstring &uuid)
 {
+    LOG_FCALL() << LOG_FARG(uuid);
+
     auto res = m_lruData.emplace(uuid, LRUData{});
+
+    if (res.second) {
+        // If this uuid was not already in the cache, make sure to create
+        // proper subscriptions
+        m_onAdd(uuid);
+    }
+
     auto &lruData = res.first->second;
 
     ++lruData.openCount;
+
+    LOG_DBG(2) << "Increased LRU open count of " << uuid << " to "
+               << lruData.openCount;
 
     if (lruData.lruIt) {
         m_lruList.erase(*lruData.lruIt);
@@ -55,6 +71,8 @@ void LRUMetadataCache::pinEntry(const folly::fbstring &uuid)
 std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
     const folly::fbstring &uuid)
 {
+    LOG_FCALL() << LOG_FARG(uuid);
+
     pinEntry(uuid);
 
     try {
@@ -64,6 +82,8 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
         return std::make_shared<OpenFileToken>(std::move(attr), *this);
     }
     catch (...) {
+        LOG(ERROR) << " Removing " << uuid
+                   << " from LRU metadata cache due to unexpected error.";
         release(uuid);
         throw;
     }
@@ -73,6 +93,8 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
     const folly::fbstring &uuid, std::shared_ptr<FileAttr> attr,
     std::unique_ptr<FileLocation> location)
 {
+    LOG_FCALL() << LOG_FARG(uuid);
+
     pinEntry(uuid);
 
     MetadataCache::putAttr(attr);
@@ -83,12 +105,16 @@ std::shared_ptr<LRUMetadataCache::OpenFileToken> LRUMetadataCache::open(
 
 void LRUMetadataCache::release(const folly::fbstring &uuid)
 {
+    LOG_FCALL() << LOG_FARG(uuid);
+
     auto it = m_lruData.find(uuid);
     if (it == m_lruData.end())
         return;
 
-    if (--it->second.openCount)
+    if (--it->second.openCount > 0)
         return;
+
+    m_onRelease(uuid);
 
     if (it->second.deleted) {
         m_lruData.erase(it);
@@ -102,6 +128,8 @@ void LRUMetadataCache::release(const folly::fbstring &uuid)
 
 FileAttrPtr LRUMetadataCache::getAttr(const folly::fbstring &uuid)
 {
+    LOG_FCALL() << LOG_FARG(uuid);
+
     auto attr = MetadataCache::getAttr(uuid);
     noteActivity(uuid);
     return attr;
@@ -110,16 +138,30 @@ FileAttrPtr LRUMetadataCache::getAttr(const folly::fbstring &uuid)
 FileAttrPtr LRUMetadataCache::getAttr(
     const folly::fbstring &parentUuid, const folly::fbstring &name)
 {
+    LOG_FCALL() << LOG_FARG(parentUuid) << LOG_FARG(name);
+
     auto attr = MetadataCache::getAttr(parentUuid, name);
     noteActivity(attr->uuid());
     return attr;
 }
 
+void LRUMetadataCache::putAttr(std::shared_ptr<FileAttr> attr)
+{
+    LOG_FCALL();
+
+    MetadataCache::putAttr(attr);
+    noteActivity(attr->uuid());
+}
+
 void LRUMetadataCache::noteActivity(const folly::fbstring &uuid)
 {
+    LOG_FCALL() << LOG_FARG(uuid);
+
     auto res = m_lruData.emplace(uuid, LRUData{});
 
     if (res.second) {
+        // If this uuid was not already in the cache, make sure to create
+        // proper subscriptions
         res.first->second.lruIt = m_lruList.emplace(m_lruList.end(), uuid);
         m_onAdd(uuid);
     }
@@ -132,7 +174,12 @@ void LRUMetadataCache::noteActivity(const folly::fbstring &uuid)
 
 void LRUMetadataCache::prune()
 {
+    LOG_FCALL();
+
     if (m_lruData.size() > m_targetSize && !m_lruList.empty()) {
+        LOG_DBG(1) << "Pruning LRU metadata cache front because it exceeds "
+                      "target size ("
+                   << m_lruData.size() << ">" << m_targetSize << ")";
         auto uuid = std::move(m_lruList.front());
         m_lruList.pop_front();
         m_lruData.erase(uuid);
@@ -141,24 +188,30 @@ void LRUMetadataCache::prune()
     }
 }
 
-bool LRUMetadataCache::rename(const folly::fbstring &uuid,
-    const folly::fbstring &newParentUuid, const folly::fbstring &newName,
-    const folly::fbstring &newUuid)
+bool LRUMetadataCache::rename(folly::fbstring uuid,
+    folly::fbstring newParentUuid, folly::fbstring newName,
+    folly::fbstring newUuid)
 {
+    LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newParentUuid)
+                << LOG_FARG(newName) << LOG_FARG(newUuid);
+
     noteActivity(uuid);
     return MetadataCache::rename(uuid, newParentUuid, newName, newUuid);
 }
 
-void LRUMetadataCache::truncate(
-    const folly::fbstring &uuid, const std::size_t newSize)
+void LRUMetadataCache::truncate(folly::fbstring uuid, const std::size_t newSize)
 {
+    LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newSize);
+
     noteActivity(uuid);
     MetadataCache::truncate(uuid, newSize);
 }
 
 void LRUMetadataCache::updateTimes(
-    const folly::fbstring &uuid, const messages::fuse::UpdateTimes &updateTimes)
+    folly::fbstring uuid, const messages::fuse::UpdateTimes &updateTimes)
 {
+    LOG_FCALL() << LOG_FARG(uuid);
+
     noteActivity(uuid);
     MetadataCache::updateTimes(uuid, updateTimes);
 }
@@ -166,18 +219,43 @@ void LRUMetadataCache::updateTimes(
 void LRUMetadataCache::changeMode(
     const folly::fbstring &uuid, const mode_t newMode)
 {
+    LOG_FCALL() << LOG_FARG(uuid) << LOG_FARG(newMode);
+
     noteActivity(uuid);
     MetadataCache::changeMode(uuid, newMode);
 }
 
 void LRUMetadataCache::putLocation(std::unique_ptr<FileLocation> location)
 {
+    LOG_FCALL();
+
     noteActivity(location->uuid());
     MetadataCache::putLocation(std::move(location));
 }
 
+std::shared_ptr<FileLocation> LRUMetadataCache::getLocation(
+    const folly::fbstring &uuid, bool forceUpdate)
+{
+    LOG_FCALL();
+
+    return MetadataCache::getLocation(uuid, forceUpdate);
+}
+
+bool LRUMetadataCache::updateLocation(const FileLocation &newLocation)
+{
+    return MetadataCache::updateLocation(newLocation);
+}
+
+bool LRUMetadataCache::updateLocation(
+    const off_t start, const off_t end, const FileLocation &locationUpdate)
+{
+    return MetadataCache::updateLocation(start, end, locationUpdate);
+}
+
 void LRUMetadataCache::handleMarkDeleted(const folly::fbstring &uuid)
 {
+    LOG_FCALL() << LOG_FARG(uuid);
+
     auto it = m_lruData.find(uuid);
     if (it == m_lruData.end())
         return;
@@ -196,6 +274,8 @@ void LRUMetadataCache::handleMarkDeleted(const folly::fbstring &uuid)
 void LRUMetadataCache::handleRename(
     const folly::fbstring &oldUuid, const folly::fbstring &newUuid)
 {
+    LOG_FCALL() << LOG_FARG(oldUuid) << LOG_FARG(newUuid);
+
     auto it = m_lruData.find(oldUuid);
     if (it == m_lruData.end())
         return;
@@ -206,9 +286,9 @@ void LRUMetadataCache::handleRename(
     auto res = m_lruData.emplace(newUuid, LRUData{});
     if (res.second) {
         res.first->second = std::move(lruData);
-        if (lruData.lruIt) {
-            auto oldIt = *lruData.lruIt;
-            lruData.lruIt = m_lruList.emplace(oldIt, newUuid);
+        if (res.first->second.lruIt) {
+            auto oldIt = *(res.first->second.lruIt);
+            res.first->second.lruIt = m_lruList.emplace(oldIt, newUuid);
             m_lruList.erase(oldIt);
         }
     }

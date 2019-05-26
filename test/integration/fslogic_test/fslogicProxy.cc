@@ -29,6 +29,7 @@ using namespace one;
 using namespace one::client;
 using namespace one::communication;
 using namespace boost::python;
+using namespace std::literals;
 
 struct Stat {
     time_t atime;
@@ -74,12 +75,14 @@ public:
     std::shared_ptr<NullHelperMock> m_helper =
         std::make_shared<NullHelperMock>();
 
-    HelperPtr get(
+    folly::Future<HelperPtr> get(const folly::fbstring &,
         const folly::fbstring &, const folly::fbstring &, const bool) override
     {
-        return m_helper;
+        return folly::makeFuture<HelperPtr>(m_helper);
     }
 };
+
+constexpr auto FSLOGIC_PROXY_RETRY_COUNT = 2;
 
 class FsLogicProxy {
 public:
@@ -87,17 +90,13 @@ public:
         : m_helpersCache{new HelpersCacheProxy(*context->communicator(),
               *context->scheduler(), *context->options())}
         , m_fsLogic{context, std::make_shared<messages::Configuration>(),
-              std::unique_ptr<HelpersCacheProxy>{m_helpersCache},
-              [](auto f) { f(); }}
+              std::unique_ptr<HelpersCacheProxy>{m_helpersCache}, 100000, false,
+              false, 10s, [](auto f) { f(); }}
         , m_context{context}
     {
     }
 
-    ~FsLogicProxy()
-    {
-        ReleaseGIL guard;
-        m_context->communicator()->stop();
-    }
+    ~FsLogicProxy() { ReleaseGIL guard; }
 
     void failHelper()
     {
@@ -181,12 +180,13 @@ public:
             uuid, statbuf, FUSE_SET_ATTR_ATIME | FUSE_SET_ATTR_MTIME);
     }
 
-    std::vector<std::string> readdir(std::string uuid)
+    std::vector<std::string> readdir(
+        std::string uuid, int chunkSize, int offset)
     {
         ReleaseGIL guard;
 
         std::vector<std::string> children;
-        for (auto &name : m_fsLogic.readdir(uuid))
+        for (auto &name : m_fsLogic.readdir(uuid, chunkSize, offset))
             children.emplace_back(name.toStdString());
 
         return children;
@@ -207,7 +207,8 @@ public:
     std::string read(std::string uuid, int fileHandleId, int offset, int size)
     {
         ReleaseGIL guard;
-        auto buf = m_fsLogic.read(uuid, fileHandleId, offset, size, {});
+        auto buf = m_fsLogic.read(
+            uuid, fileHandleId, offset, size, {}, FSLOGIC_PROXY_RETRY_COUNT);
 
         std::string data;
         buf.appendToString(data);
@@ -219,10 +220,11 @@ public:
     {
         ReleaseGIL guard;
 
-        folly::IOBufQueue buf{folly::IOBufQueue::cacheChainLength()};
-        buf.allocate(size);
+        auto buf = folly::IOBuf::create(size);
+        buf->append(size);
 
-        return m_fsLogic.write(uuid, fuseHandleId, offset, std::move(buf));
+        return m_fsLogic.write(uuid, fuseHandleId, offset, std::move(buf),
+            FSLOGIC_PROXY_RETRY_COUNT);
     }
 
     void release(std::string uuid, int fuseHandleId)
@@ -303,9 +305,10 @@ boost::shared_ptr<FsLogicProxy> create(std::string ip, int port)
 {
     FLAGS_minloglevel = 1;
 
-    auto communicator =
-        std::make_shared<Communicator>(/*connections*/ 1, ip, port,
-            /*verifyServerCertificate*/ false, createConnection);
+    auto communicator = std::make_shared<Communicator>(/*connections*/ 10,
+        /*threads*/ 2, ip, port,
+        /*verifyServerCertificate*/ false, /*upgrade to clproto*/ true,
+        /*perform handshake*/ false);
 
     auto context = std::make_shared<Context>();
     context->setScheduler(std::make_shared<Scheduler>(1));

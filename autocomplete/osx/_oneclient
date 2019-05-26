@@ -34,6 +34,7 @@ fi
 arg_oneclient=(\
   {-h,--help}'[Show help and exit]' \
   {-V,--version}'[Show current oneclient version and exit]' \
+  {-v,--verbose-log-level}'[Specify the log verbosity level]' \
   {-c,--config}'[Specify path to user config file.]: :_files' \
   {-u,--unmount}'[Unmount oneclient and exit]: :{_values "Oneclient mount points" "" $onemounts}' \
   {-i,--insecure}'[Disable verification of server certificate, allows to connect to servers without valid certificate.]' \
@@ -42,9 +43,13 @@ arg_oneclient=(\
   {-t,--token}'[Specify Onedata access token for authentication and authorization.]:token' \
   {-l,--log-path}'[Specify custom path for oneclient logs.]: :{_files -/}' \
   '--no-buffer[Disable in-memory cache for input/output data blocks]' \
+  '--provider-timeout[Specify Oneprovider connection timeout in seconds.]:number' \
+  '--disable-read-events[Disable reporting of file read events]' \
+  '--force-fullblock-read[Force fullblock read mode.]' \
   '--force-proxy-io[Force proxied access to storage via Oneprovider for all spaces]' \
   '--force-direct-io[Force direct access to storage for all spaces]' \
   '--buffer-scheduler-thread-count[Specify number of parallel buffer scheduler threads.]:number' \
+  '--communicator-pool-size[Specify number of connections in communicator pool.]:number' \
   '--communicator-thread-count[Specify number of parallel communicator threads.]:number' \
   '--scheduler-thread-count[Specify number of parallel scheduler threads.]:number' \
   '--storage-helper-thread-count[Specify number of parallel storage helper threads.]:number' \
@@ -54,6 +59,24 @@ arg_oneclient=(\
   '--write-buffer-min-size[Specify minimum size in bytes of in-memory cache for output data blocks.]:number' \
   '--write-buffer-max-size[Specify maximum size in bytes of in-memory cache for output data blocks.]:number' \
   '--write-buffer-flush-delay[Specify idle period in seconds before flush of in-memory cache for output data blocks.]:number' \
+  '--seqrd-prefetch-threshold[Specify linear read prefetch threshold]:number' \
+  '--rndrd-prefetch-threshold[Specify random read prefetch threshold]:number' \
+  '--metadata-cache-size[Specify maximum number of entries in file metadata cache.]:number' \
+  '--io-trace-log[Enable detailed IO trace log.]' \
+  '--disable-read-events[Disable reporting of file read events.]' \
+  '--no-fullblock-read[Disable fullblock read mode.]' \
+  '--rndrd-prefetch-eval-frequency[Number of reads from single file handle which will be skipped before next evaluation of cluster prefetch.]:number' \
+  '--rndrd-prefetch-block-threshold[Number of separate blocks after which replication for the file is triggered automatically.]:number' \
+  '--rndrd-prefetch-cluster-window[Cluster window size for prefetching in bytes.]:number' \
+  '--rndrd-prefetch-cluster-block-threshold[Number of separate blocks in a cluster window around current read.]:number' \
+  '--rndrd-prefetch-cluster-window-grow-factor[Prefetch cluster window grow factor.]:number' \
+  '--prefetch-mode[Defines the type of block prefetch mode.]:mode' \
+  '--cluster-prefetch-threshold-random[Enables random cluster prefetch threshold selection.]' \
+  '--readdir-prefetch-size[Specify the size of requests made during readdir prefetch.]:number' \
+  '--tag-on-create[Adds name=value extended attribute to each locally created file.]:value' \
+  '--tag-on-modify[Adds name=value extended attribute to each locally modified file.]:value' \
+  '--space[Allows to specify which space should be mounted by name.]:space' \
+  '--space-id[Allows to specify which space should be mounted by space id.]:space' \
   '1: :{_files -/}'\
 )
 

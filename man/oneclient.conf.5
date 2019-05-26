@@ -1,7 +1,7 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "ONECLIENT\.CONF" "5" "July 2017" "" ""
+.TH "ONECLIENT\.CONF" "5" "January 2019" "" ""
 .
 .SH "NAME"
 \fBoneclient\.conf\fR \- \fBoneclient\fR configuration file
@@ -23,6 +23,12 @@ The options in this config file have the lowest priority, i\.e\. some of them ca
 .
 .P
 The configuration format is a simple list of pairs: \fBoption_name\fR = \fBoption_value\fR\.
+.
+.P
+All options names are the same as their long command line version, except for using underscore instead of hyphens, e\.g\. \fB\-\-communicator\-thread\-count\fR becomes here \fBcommunicator_thread_count\fR\.
+.
+.P
+For backward compatibility some alternative option names are available as listed below\.
 .
 .SH "OPTIONS"
 .
@@ -47,98 +53,6 @@ Allows to specify Onedata access token for authentication and authorization\.
 Path to the log directory\.
 .
 .TP
-\fBbuffer_scheduler_thread_count\fR [default = 1]
-Number of parallel buffer scheduler threads\.
-.
-.TP
-\fBcommunicator_thread_count\fR [default = 3]
-Number of parallel communicator threads\.
-.
-.TP
-\fBscheduler_thread_count\fR [default = 1]
-Number of parallel scheduler threads\.
-.
-.TP
-\fBstorage_helper_thread_count\fR [default = 10]
-Number of parallel storage helper threads\.
-.
-.TP
-\fBread_buffer_min_size\fR [default = 1048576]
-Minimum size in bytes of in\-memory cache for input data blocks\.
-.
-.TP
-\fBread_buffer_max_size\fR [default = 52428800]
-Maximum size in bytes of in\-memory cache for input data blocks\.
-.
-.TP
-\fBread_buffer_prefetch_duration\fR [default = 1]
-Read ahead period in seconds of in\-memory cache for input data blocks\.
-.
-.TP
-\fBwrite_buffer_min_size\fR [default = 1048576]
-Minimum size in bytes of in\-memory cache for output data blocks\.
-.
-.TP
-\fBwrite_buffer_max_size\fR [default = 52428800]
-Maximum size in bytes of in\-memory cache for output data blocks\.
-.
-.TP
-\fBwrite_buffer_flush_delay\fR [default = 1]
-Idle period in seconds before flush of in\-memory cache for output data blocks\.
-.
-.TP
-\fBforce_proxy_io\fR [default = false]
-Force proxied access to storage via Oneprovider for all spaces\.
-.
-.TP
-\fBforce_direct_io\fR [default = false]
-Force direct access to storage for all spaces\.
-.
-.TP
-\fBbuffer_scheduler_thread_count\fR
-Specify number of parallel buffer scheduler threads\.
-.
-.TP
-\fBcommunicator_thread_count\fR
-Specify number of parallel communicator threads\.
-.
-.TP
-\fBscheduler_thread_count\fR
-Specify number of parallel scheduler threads\.
-.
-.TP
-\fBstorage_helper_thread_count\fR
-Specify number of parallel storage helper threads\.
-.
-.TP
-\fBno_buffer\fR [default = false]
-Disable in\-memory cache for input/output data blocks\.
-.
-.TP
-\fBread_buffer_min_size\fR
-Specify minimum size in bytes of in\-memory cache for input data blocks\.
-.
-.TP
-\fBread_buffer_max_size\fR
-Specify maximum size in bytes of in\-memory cache for input data blocks\.
-.
-.TP
-\fBread_buffer_prefetch_duration\fR
-Specify read ahead period in seconds of in\-memory cache for input data blocks\.
-.
-.TP
-\fBwrite_buffer_min_size\fR
-Specify minimum size in bytes of in\-memory cache for output data blocks\.
-.
-.TP
-\fBwrite_buffer_max_size\fR
-Specify maximum size in bytes of in\-memory cache for output data blocks\.
-.
-.TP
-\fBwrite_buffer_flush_delay\fR
-Specify idle period in seconds before flush of in\-memory cache for output data blocks\.
-.
-.TP
 \fBfuse_foreground\fR [default = false]
 Flag which determines whether \fBoneclient\fR will run in foreground or as deamon\.
 .
@@ -159,7 +73,7 @@ Allows to provide default FUSE mount options (see fuse\.mount(8))\.
 Allows to specify default mount point for \fBoneclient\fR on the current system\.
 .
 .SH "COPYRIGHT"
-Copyright (C) 2014\-2017, Academic Computer Centre CYFRONET AGH, Krakow, Poland\. Released under the Apache 2\.0 license\.
+Copyright (C) 2014\-2018, Academic Computer Centre CYFRONET AGH, Krakow, Poland\. Released under the Apache 2\.0 license\.
 .
 .SH "SEE ALSO"
 oneclient(1), fuse(8)

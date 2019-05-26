@@ -8,11 +8,10 @@
 
 #pragma once
 
-#include "communication/etls/utils.h"
-
 #include <boost/preprocessor.hpp>
 #include <folly/FBString.h>
 #include <folly/Function.h>
+#include <folly/ThreadName.h>
 #include <folly/fibers/FiberManager.h>
 #include <folly/fibers/FiberManagerMap.h>
 #include <folly/futures/Future.h>
@@ -62,7 +61,7 @@ public:
         : m_fsLogic{std::forward<Args>(args)..., makeRunInFiber()}
     {
         m_thread = std::thread{[this] {
-            communication::etls::utils::nameThread("InFiber");
+            folly::setThreadName("InFiber");
             m_eventBase.loopForever();
         }};
     }
@@ -79,7 +78,7 @@ public:
 
     WRAP(lookup, (const fuse_ino_t)(const folly::fbstring &))
     WRAP(getattr, (const fuse_ino_t))
-    WRAP(readdir, (const fuse_ino_t))
+    WRAP(readdir, (const fuse_ino_t)(const size_t)(const off_t))
     WRAP(open, (const fuse_ino_t)(const int))
     WRAP(release, (const fuse_ino_t)(const std::uint64_t))
     WRAP(mkdir, (const fuse_ino_t)(const folly::fbstring &)(const mode_t))
@@ -94,14 +93,16 @@ public:
     WRAP(create,
         (const fuse_ino_t)(const folly::fbstring &)(const mode_t)(const int))
 
-    WRAP(rename, (const fuse_ino_t)(const folly::fbstring &)(const fuse_ino_t)(
-                     const folly::fbstring &))
+    WRAP(rename,
+        (const fuse_ino_t)(const folly::fbstring &)(const fuse_ino_t)(
+            const folly::fbstring &))
 
     WRAP(read,
         (const fuse_ino_t)(const std::uint64_t)(const off_t)(const std::size_t))
 
-    WRAP(write, (const fuse_ino_t)(const std::uint64_t)(const std::size_t)(
-                    folly::IOBufQueue))
+    WRAP(write,
+        (const fuse_ino_t)(const std::uint64_t)(const std::size_t)(
+            std::shared_ptr<folly::IOBuf>))
 
     WRAP(listxattr, (const fuse_ino_t))
     WRAP(getxattr, (const fuse_ino_t)(const folly::fbstring &))
@@ -109,6 +110,13 @@ public:
         (const fuse_ino_t)(
             const folly::fbstring &)(const folly::fbstring &)(bool)(bool))
     WRAP(removexattr, (const fuse_ino_t)(const folly::fbstring &))
+
+    bool isFullBlockReadForced() const
+    {
+        return m_fsLogic.isFullBlockReadForced();
+    }
+
+    FsLogicT &fsLogic() { return m_fsLogic; }
 
 private:
     std::function<void(folly::Function<void()>)> makeRunInFiber()

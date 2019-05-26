@@ -8,7 +8,7 @@
 
 #include "environment.h"
 
-#include "logging.h"
+#include "helpers/logging.h"
 
 #include <boost/filesystem.hpp>
 
@@ -38,7 +38,9 @@ boost::filesystem::path calcUserDataDir(const boost::filesystem::path &home)
 
 std::string calcClientName()
 {
-    std::array<char, 128> usernameBuf, hostnameBuf;
+    constexpr auto kNameBufSize = 128U;
+    std::array<char, kNameBufSize> usernameBuf{};
+    std::array<char, kNameBufSize> hostnameBuf{};
 
     const std::string username{
         getlogin_r(usernameBuf.data(), usernameBuf.size()) == 0
@@ -52,7 +54,7 @@ std::string calcClientName()
 
     return username + '@' + hostname;
 }
-}
+} // namespace
 
 namespace one {
 namespace client {

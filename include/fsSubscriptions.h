@@ -86,6 +86,15 @@ public:
     bool unsubscribeFileLocationChanged(const folly::fbstring &fileUuid);
 
     /**
+     * Checks whether a file location subscription is active for a given file.
+     * @param fileUuid Uuid of the file to check.
+     * @returns True, if file location subscription is active for the given
+     *          file.
+     */
+    bool isSubscribedToFileLocationChanged(
+        const folly::fbstring &fileUuid) const;
+
+    /**
      * Adds subscription for file permission changed event.
      * @param fileUuid UUID of file for which subscription is added.
      */
@@ -124,6 +133,8 @@ public:
 private:
     void subscribe(const folly::fbstring &fileUuid,
         const events::Subscription &subscription);
+    bool isSubscribed(
+        events::StreamKey streamKey, const folly::fbstring &fileUuid) const;
     bool unsubscribe(
         events::StreamKey streamKey, const folly::fbstring &fileUuid);
 

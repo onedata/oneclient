@@ -16,8 +16,8 @@ namespace one {
 namespace client {
 
 /**
-* Base class of all oneclient exceptions.
-*/
+ * Base class of all oneclient exceptions.
+ */
 class OneException : public std::exception {
 public:
     /**
@@ -25,7 +25,7 @@ public:
      * @param code POSIX error code.
      * @param message Error description.
      */
-    OneException(const std::string &code, const std::string &message = "");
+    OneException(std::string code, std::string message = "");
 
     virtual ~OneException() = default;
 

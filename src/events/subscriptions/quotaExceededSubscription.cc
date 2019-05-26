@@ -25,13 +25,12 @@ StreamKey QuotaExceededSubscription::streamKey() const
     return StreamKey::QUOTA_EXCEEDED;
 }
 
-StreamPtr QuotaExceededSubscription::createStream(
-    Manager &manager, SequencerManager &seqManager, Scheduler &scheduler) const
+StreamPtr QuotaExceededSubscription::createStream(Manager & /*manager*/,
+    SequencerManager & /*seqManager*/, Scheduler & /*scheduler*/) const
 {
     auto aggregator = std::make_unique<KeyAggregator<QuotaExceeded>>();
     auto emitter = std::make_unique<CounterEmitter<QuotaExceeded>>(1);
-    auto handler =
-        std::make_unique<LocalHandler<QuotaExceeded>>(std::move(m_handler));
+    auto handler = std::make_unique<LocalHandler<QuotaExceeded>>(m_handler);
 
     return std::make_unique<AsyncStream>(
         std::make_unique<TypedStream<QuotaExceeded>>(

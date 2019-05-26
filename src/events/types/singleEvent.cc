@@ -7,7 +7,7 @@
  */
 
 #include "singleEvent.h"
-#include "logging.h"
+#include "helpers/logging.h"
 
 namespace one {
 namespace client {
@@ -18,9 +18,9 @@ const AggregationKey &SingleEvent::aggregationKey() const
     return m_aggregationKey;
 }
 
-void SingleEvent::aggregate(EventPtr<> event)
+void SingleEvent::aggregate(EventPtr<> /*event*/)
 {
-    DLOG(ERROR) << "Aggregation requested for a single event: " << toString();
+    LOG_DBG(1) << "Aggregation requested for a single event: " << toString();
 }
 
 } // namespace events

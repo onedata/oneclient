@@ -8,7 +8,7 @@
 
 #include "subscriptionHandle.h"
 #include "events/streams/sharedStream.h"
-#include "logging.h"
+#include "helpers/logging.h"
 
 namespace one {
 namespace client {
@@ -25,7 +25,7 @@ SubscriptionHandle::~SubscriptionHandle()
     StreamAcc acc;
     if (m_streams.find(acc, m_streamKey)) {
         if (acc->second->release()) {
-            DLOG(INFO) << "Removing stream '" << m_streamKey << "'";
+            LOG_DBG(1) << "Removing stream '" << m_streamKey << "'";
             m_streams.erase(acc);
         }
     }

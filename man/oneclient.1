@@ -1,16 +1,16 @@
 .\" generated with Ronn/v0.7.3
 .\" http://github.com/rtomayko/ronn/tree/0.7.3
 .
-.TH "ONECLIENT" "1" "July 2017" "" ""
+.TH "ONECLIENT" "1" "January 2019" "" ""
 .
 .SH "NAME"
 \fBoneclient\fR \- Onedata command line client
 .
 .SH "SYNOPSIS"
-\fBoneclient\fR [\-h|\-\-help] [\-V|\-\-version] [\-u|\-\-unmount] [\-c|\-\-config \fIconfig_path\fR] [\-H|\-\-host \fIhostname\fR] [\-P|\-\-port \fIport\fR] [\-i|\-\-insecure] [\-t|\-\-token \fIaccess_token\fR] [\-l|\-\-log\-dir \fIlog_path\fR] [\-\-force\-proxy\-io] [\-\-force\-direct\-io] [\-\-buffer\-scheduler\-thread\-count \fIthreads\fR] [\-\-communicator\-thread\-count \fIthreads\fR] [\-\-scheduler\-thread\-count \fIthreads\fR] [\-\-storage\-helper\-thread\-count \fIthreads\fR] [\-\-no\-buffer] [\-\-read\-buffer\-min\-size \fIsize\fR] [\-\-read\-buffer\-max\-size \fIsize\fR] [\-\-read\-buffer\-prefetch\-duration \fIduration\fR] [\-\-write\-buffer\-min\-size \fIsize\fR] [\-\-write\-buffer\-max\-size \fIsize\fR] [\-\-write\-buffer\-flush\-delay \fIdelay\fR] [\-f|\-\-foreground] [\-d|\-\-debug] [\-s|\-\-single\-thread] [\-o|\-\-opt \fImount_options\fR] \fImountpoint\fR
+\fBoneclient\fR [\-h|\-\-help] [\-V|\-\-version] [\-u|\-\-unmount] [\-c|\-\-config \fIconfig_path\fR] [\-H|\-\-host \fIhostname\fR] [\-P|\-\-port \fIport\fR] [\-i|\-\-insecure] [\-t|\-\-token \fIaccess_token\fR] [\-\-space] [\-\-space\-id] [\-l|\-\-log\-dir \fIlog_path\fR] [\-\-force\-proxy\-io] [\-\-force\-direct\-io] [\-\-buffer\-scheduler\-thread\-count \fIthreads\fR] [\-\-communicator\-thread\-count \fIthreads\fR] [\-\-scheduler\-thread\-count \fIthreads\fR] [\-\-storage\-helper\-thread\-count \fIthreads\fR] [\-\-no\-buffer] [\-\-read\-buffer\-min\-size \fIsize\fR] [\-\-read\-buffer\-max\-size \fIsize\fR] [\-\-read\-buffer\-prefetch\-duration \fIduration\fR] [\-\-write\-buffer\-min\-size \fIsize\fR] [\-\-write\-buffer\-max\-size \fIsize\fR] [\-\-write\-buffer\-flush\-delay \fIdelay\fR] [\-f|\-\-foreground] [\-d|\-\-debug] [\-\-seqrd\-prefetch\-threshold \fIfraction\fR] [\-\-rndrd\-prefetch\-threshold \fIfraction\fR] [\-\-rndrd\-prefetch\-eval\-frequency \fIcount\fR] [\-\-rndrd\-prefetch\-block\-threshold \fIcount\fR] [\-\-rndrd\-prefetch\-cluster\-window \fIsize\fR] [\-\-rndrd\-prefetch\-cluster\-block\-threshold \fIcount\fR] [\-\-rndrd\-prefetch\-cluster\-window\-grow\-factor \fIfraction\fR] [\-\-prefetch\-mode arg] [\-\-cluster\-prefetch\-threshold\-random] [\-\-metadata\-cache\-size \fIsize\fR] [\-\-readdir\-prefetch\-size \fIsize\fR] [\-\-tag\-on\-create \fIname\fR:\fIvalue\fR] [\-\-tag\-on\-modify \fIname\fR:\fIvalue\fR] [\-r|\-\-override \fIstorageId\fR:\fIname\fR:\fIvalue\fR] [\-s|\-\-single\-thread] [\-o|\-\-opt \fImount_options\fR] \fImountpoint\fR
 .
 .SH "DESCRIPTION"
-\fBoneclient\fR provides command line interface to mount Onedata (http://onedata\.org) distributed file system data spaces on local machine using Fuse\.
+\fBoneclient\fR provides command line interface to mount Onedata (https://onedata\.org) distributed file system data spaces on local machine using Fuse\.
 .
 .P
 \fBoneclient\fR relies on Fuse (Filesystem in Userspace) library, which enables POSIX access to remote data managed by Onedata platform\. Fuse command line options (\fB\-f\fR, \fB\-d\fR, \fB\-s\fR and \fB\-o\fR) can be passed directly to the \fBoneclient\fR on the command line or in the config file (see oneclient\.conf(5))\.
@@ -19,7 +19,7 @@
 In order to connect to Onedata services, \fBoneclient\fR needs credentials in the form of access token to authenticate the user remotely on the Oneprovider side\. Access tokens can be generated in the web user interface or using the REST API\.
 .
 .P
-\fBoneclient\fR connects to a specific Oneprovider service selected by the user and specified using \fB\-H\fR or \fB\-\-host\fR option and port using \fB\-P\fR or \fB\-\-port\fR\. Port can be omitted if Oneprovider service is deployed on default port (5555)\.
+\fBoneclient\fR connects to a specific Oneprovider service selected by the user and specified using \fB\-H\fR or \fB\-\-host\fR option and port using \fB\-P\fR or \fB\-\-port\fR\. Port can be omitted if Oneprovider service is deployed on default port (443)\.
 .
 .P
 \fBNOTE:\fR If you are connecting to a Onedata provider service, which does not have a globally trusted certificate, you will have to use \fB\-i\fR or \fB\-\-insecure\fR on every \fBoneclient\fR invocation\.
@@ -33,8 +33,60 @@ Additionally, the access token can be specified in the \fBONECLIENT_ACCESS_TOKEN
 .SS "Mounting spaces"
 When \fBoneclient\fR connects successfully to the Oneprovider, the \fB<mountpoint>\fR directory will contain the entire list of user spaces, and all regular command line tools can be used to access and modify the files and directories in there, as long as the permissions allow for\.
 .
+.P
+It is possible to limit the spaces which are visible, by providing a white list of the spaces on the command line\.
+.
 .SS "Proxy IO and Direct IO modes"
 \fBoneclient\fR has a unique feature enabling it to transparently detect whenever it has direct access to storage which is used by some Oneprovider instance managing user space, and in such case redirects all IO operations directly to the storage without going through the Oneprovider service (Direct IO mode)\. This feature is detected by \fBoneclient\fR automatically\.
+.
+.SS "Buffering"
+\fBoneclient\fR employs an in\-memory buffer for input and output data blocks, which can significantly improve performance for various types of storages, in particular object based storages such as S3\.
+.
+.P
+If for some reason this local cache is undesired, it can be disabled using \fB\-\-no\-buffer\fR option\.
+.
+.SS "Force full block read mode"
+By default, POSIX \fBread\fR request can return less bytes than requested, especially on network filesystem which can return partial data range which is immediately available and request the remaining bytes assuming the application will run another \fBread\fR request with adjusted offset and size\. However, some applications assume that the read always return the requested range or error\. In order to enable this behavior in \fBoneclient\fR it necessary to provide the \fB\-\-force\-fullblock\-read\fR on the command line\.
+.
+.SS "Overriding storage helper parameters"
+Oneclient allows to override certain storage helper parameters in order to customize direct access to storage from a Oneclient host to the storage\. Use cases for this feature include specifying custom mounpoint for POSIX storages, alternate IP addresses for network storages (e\.g\. available over local network from Oneclient host), etc\.
+.
+.P
+For example, to tell Oneclient that storage with a NFS storage is mounted at \fB/home/user1/nfs\fR the following option should be added to the Oneclient command line: \fB\-\-override 2bede2623303bc2a19696e5817e13c0b:mountPoint:/home/user/nfs\fR\. \fB2bede2623303bc2a19696e5817e13c0b\fR is the storage Id of this storage\.
+.
+.P
+The \fB\-\-override\fR option takes 3 arguments separated by \fB:\fR: * \fBstorade ID\fR: This is Onedata internal storage Id, which can be obtained from Onepanel administrator interface or using REST API
+.
+.TP
+\fBparameter name\fR
+This is the name of the storage helper parameter, these are specific to particular type of storage
+.
+.TP
+\fBparameter value\fR
+Value which should override the value specified in the Oneprovider when registering the storage
+.
+.SS "Logging"
+In order to enable a verbose log, \fIoneclient\fR provides a \fB\-v\fR flag which takes a single integer argument which determines the log verbosity:
+.
+.IP "\(bu" 4
+\fB\-v 0\fR \- \fI(default)\fR only serious errors
+.
+.IP "\(bu" 4
+\fB\-v 1\fR \- warnings and errors which are not fatal
+.
+.IP "\(bu" 4
+\fB\-v 2\fR \- verbose information on requests and their handling
+.
+.IP "\(bu" 4
+\fB\-v 3\fR \- trace function calls along with their arguments
+.
+.IP "\(bu" 4
+\fB\-v 4\fR \- binary messages between Oneclient and Oneprovider
+.
+.IP "" 0
+.
+.P
+Please note that above level 2, the size of the logs can be substantial thus it is necessary to monitor free disk space\.
 .
 .SH "CONFIGURATION"
 Beside the command line configuration options, \fBoneclient\fR reads options from a global configuration file located by default at \fB/usr/local/etc/oneclient\.conf\fR (\fB/etc/oneclient\.conf\fR when installed from a distribution package)\. For details see oneclient\.conf(5)\.
@@ -78,6 +130,14 @@ Specify Onedata access token for authentication and authorization\.
 Specify custom path for \fBoneclient\fR logs\.
 .
 .TP
+\fB\-\-space <name>\fR
+Every occurence of this option followed by the name of a space will limit the mounted spaces to the specified spaces
+.
+.TP
+\fB\-\-space\-id <id>\fR
+Every occurence of this option followed by the id of a space will limit the mounted spaces to the specified spaces
+.
+.TP
 \fB\-\-force\-proxy\-io\fR
 Force proxied access to storage via Oneprovider for all spaces\.
 .
@@ -106,6 +166,18 @@ Specify number of parallel storage helper threads\.
 Disable in\-memory cache for input/output data blocks\.
 .
 .TP
+\fB\-\-provider\-timeout <duration>\fR
+Specify Oneprovider connection timeout in seconds\.
+.
+.TP
+\fB\-\-disable\-read\-events\fR
+Disable reporting of file read events\.
+.
+.TP
+\fB\-\-no\-fullblock\-read\fR
+Disable fullblock read mode\. With this option read can return less data than requested in case it is immediately available and consecutive blocks need to be prefetched from remote storage\.
+.
+.TP
 \fB\-\-read\-buffer\-min\-size <size>\fR
 Specify minimum size in bytes of in\-memory cache for input data blocks\.
 .
@@ -128,6 +200,62 @@ Specify maximum size in bytes of in\-memory cache for output data blocks\.
 .TP
 \fB\-\-write\-buffer\-flush\-delay <delay>\fR
 Specify idle period in seconds before flush of in\-memory cache for output data blocks\.
+.
+.TP
+\fB\-\-seqrd\-prefetch\-threshold <fraction>\fR
+Specify the fraction of the file, which will trigger replication prefetch after that part of the file is already replicated (experimental)\.
+.
+.TP
+\fB\-\-rndrd\-prefetch\-threshold <fraction>\fR
+Specify the fraction of the file, which will trigger replication prefetch after that part of the file is already replicated in random blocks across entire file (experimental)\.
+.
+.TP
+\fB\-\-rndrd\-prefetch\-eval\-frequency\fR
+Number of reads from single file handle which will be skipped before next evaluation of cluster prefetch\. 0 means that prefetch evaluation will be performed on each read\. (experimental)\.
+.
+.TP
+\fB\-\-rndrd\-prefetch\-block\-threshold\fR
+Number of separate blocks after which replication for the file is triggered automatically\. 0 disables this feature (experimental)\.
+.
+.TP
+\fB\-\-rndrd\-prefetch\-cluster\-window\fR
+Cluster window size for prefetching in [bytes]\. When \-1 is provided, the entire file is considered for prefetching (experimental)\.
+.
+.TP
+\fB\-\-rndrd\-prefetch\-cluster\-block\-threshold\fR
+Number of separate blocks in a cluster window around current read, after which replication of a cluster block (window) is triggered (experimental)\.
+.
+.TP
+\fB\-\-rndrd\-prefetch\-cluster\-window\-grow\-factor\fR
+Prefetch cluster window grow factor, which enables the prefetch window to grow proportionally to current replication progress \- initial_window_size\fI[1+grow_factor\fRfile_size*replication_progress/initial_window_size)] (experimental)\.
+.
+.TP
+\fB\-\-prefetch\-mode <arg>\fR
+Defines the type of block prefetch mode\. Possible values are: async, sync\. Default is: async (experimental)\.
+.
+.TP
+\fB\-\-cluster\-prefetch\-threshold\-random\fR
+Enables random cluster prefetch threshold selection (experimental)\.
+.
+.TP
+\fB\-\-metadata\-cache\-size <size>\fR
+Number of separate blocks after which replication for the file is triggered automatically\.
+.
+.TP
+\fB\-\-readdir\-prefetch\-size <size>\fR
+Specify the size of requests made during readdir prefetch (in number of dir entries)\.
+.
+.TP
+\fB\-\-tag\-on\-create <name>:<value>\fR
+Adds \fIname\fR=\fIvalue\fR extended attribute to each locally created file\.
+.
+.TP
+\fB\-\-tag\-on\-modify <name>:<value>:\fR Adds \fIname\fR=\fIvalue\fR extended attribute to each locally modified file\.
+
+.
+.TP
+\fB\-r [ \-\-override ] <storageId>:<name>:<value>\fR
+Allows to override selected helper parameters for specific storage, e\.g\. \'d40f2f63433da7c845886f6fe970048b:mount Point:/mnt/nfs\'
 .
 .TP
 \fB\-f\fR, \fB\-\-foreground\fR
@@ -158,7 +286,7 @@ Allows to specify the Oneprovider host to which the \fBoneclient\fR will connect
 .
 .TP
 \fBONECLIENT_PROVIDER_PORT\fR
-Allows to specify Oneprovider port, to which \fBoneclient\fR will connect (default: 5555)\.
+Allows to specify Oneprovider port, to which \fBoneclient\fR will connect (default: 443)\.
 .
 .TP
 \fBONECLIENT_INSECURE\fR
@@ -219,10 +347,10 @@ To unmount Onedata spaces use \fBoneclient\fR:
 or using Fuse:
 .
 .P
-\fBfusermount \-u ~/mnt/onedata\fR
+\fBfusermount \-uz ~/mnt/onedata\fR
 .
 .SH "COPYRIGHT"
-Copyright (C) 2014\-2017, Academic Computer Centre CYFRONET AGH, Krakow, Poland\. Released under the Apache 2\.0 license\.
+Copyright (C) 2014\-2019, Academic Computer Centre CYFRONET AGH, Krakow, Poland\. Released under the Apache 2\.0 license\.
 .
 .SH "SEE ALSO"
 oneclient\.conf(5), fuse(8), fuse\.mount(8)

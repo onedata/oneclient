@@ -96,6 +96,8 @@ template <class T, class Scheduler> TimedEmitter<T, Scheduler>::~TimedEmitter()
 template <class T, class Scheduler>
 EventPtr<T> TimedEmitter<T, Scheduler>::process(EventPtr<T> event)
 {
+    LOG_FCALL();
+
     if (!m_periodicTriggerScheduled) {
         m_cancelPeriodicTrigger = m_scheduler.schedule(
             m_threshold, [this] { m_manager.flush(m_streamKey); });
@@ -111,6 +113,8 @@ template <class T, class Scheduler> bool TimedEmitter<T, Scheduler>::ready()
 
 template <class T, class Scheduler> void TimedEmitter<T, Scheduler>::reset()
 {
+    LOG_FCALL();
+
     m_cancelPeriodicTrigger();
     m_periodicTriggerScheduled = false;
     m_emitter->reset();

@@ -88,11 +88,21 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(false, options.getDebug());
     EXPECT_EQ(false, options.getSingleThread());
     EXPECT_EQ(false, options.isInsecure());
+    EXPECT_EQ(false, options.isIOTraceLoggerEnabled());
     EXPECT_EQ(false, options.isProxyIOForced());
     EXPECT_EQ(false, options.isDirectIOForced());
+    EXPECT_EQ(false, options.isMonitoringEnabled());
+    EXPECT_EQ(false, options.isMonitoringLevelFull());
+    EXPECT_EQ(false, options.areFileReadEventsDisabled());
+    EXPECT_EQ(true, options.isFullblockReadEnabled());
+    EXPECT_EQ(true, options.isMonitoringLevelBasic());
+    EXPECT_EQ(false, options.isClusterPrefetchThresholdRandom());
+    EXPECT_EQ(0, options.getVerboseLogLevel());
     EXPECT_EQ(options::DEFAULT_PROVIDER_PORT, options.getProviderPort());
     EXPECT_EQ(options::DEFAULT_BUFFER_SCHEDULER_THREAD_COUNT,
         options.getBufferSchedulerThreadCount());
+    EXPECT_EQ(options::DEFAULT_COMMUNICATOR_POOL_SIZE,
+        options.getCommunicatorConnectionPoolSize());
     EXPECT_EQ(options::DEFAULT_COMMUNICATOR_THREAD_COUNT,
         options.getCommunicatorThreadCount());
     EXPECT_EQ(options::DEFAULT_SCHEDULER_THREAD_COUNT,
@@ -100,10 +110,16 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
     EXPECT_EQ(options::DEFAULT_STORAGE_HELPER_THREAD_COUNT,
         options.getStorageHelperThreadCount());
     EXPECT_EQ(true, options.isIOBuffered());
+    EXPECT_EQ(options::DEFAULT_PROVIDER_TIMEOUT,
+        options.getProviderTimeout().count());
     EXPECT_EQ(
         options::DEFAULT_READ_BUFFER_MIN_SIZE, options.getReadBufferMinSize());
     EXPECT_EQ(
         options::DEFAULT_READ_BUFFER_MAX_SIZE, options.getReadBufferMaxSize());
+    EXPECT_EQ(options::DEFAULT_READ_BUFFERS_TOTAL_SIZE,
+        options.getReadBuffersTotalSize());
+    EXPECT_EQ(options::DEFAULT_WRITE_BUFFERS_TOTAL_SIZE,
+        options.getWriteBuffersTotalSize());
     EXPECT_EQ(options::DEFAULT_READ_BUFFER_PREFETCH_DURATION,
         options.getReadBufferPrefetchDuration().count());
     EXPECT_EQ(options::DEFAULT_WRITE_BUFFER_MIN_SIZE,
@@ -112,6 +128,20 @@ TEST_F(OptionsTest, getOptionShouldReturnDefaultValue)
         options.getWriteBufferMaxSize());
     EXPECT_EQ(options::DEFAULT_WRITE_BUFFER_FLUSH_DELAY,
         options.getWriteBufferFlushDelay().count());
+    EXPECT_EQ(
+        options::DEFAULT_METADATA_CACHE_SIZE, options.getMetadataCacheSize());
+    EXPECT_EQ(options::DEFAULT_READDIR_PREFETCH_SIZE,
+        options.getReaddirPrefetchSize());
+    EXPECT_EQ(1.0, options.getLinearReadPrefetchThreshold());
+    EXPECT_EQ(1.0, options.getRandomReadPrefetchThreshold());
+    EXPECT_EQ(options::DEFAULT_PREFETCH_CLUSTER_WINDOW_SIZE,
+        options.getRandomReadPrefetchClusterWindow());
+    EXPECT_EQ(options::DEFAULT_PREFETCH_MODE, options.getPrefetchMode());
+    EXPECT_EQ(options::DEFAULT_PREFETCH_EVALUATE_FREQUENCY,
+        options.getRandomReadPrefetchEvaluationFrequency());
+    EXPECT_EQ(options::DEFAULT_PREFETCH_CLUSTER_BLOCK_THRESHOLD,
+        options.getRandomReadPrefetchClusterBlockThreshold());
+    EXPECT_EQ(0.0, options.getRandomReadPrefetchClusterWindowGrowFactor());
     EXPECT_FALSE(options.getProviderHost());
     EXPECT_FALSE(options.getAccessToken());
 }
@@ -157,6 +187,24 @@ TEST_F(OptionsTest, parseCommandLineShouldSetProviderHost)
     EXPECT_EQ("someHost", options.getProviderHost().get());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldSetSpaceNames)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--space", "Space1", "--space", "Space 2", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    std::vector<std::string> opts{"Space1", "Space 2"};
+    EXPECT_EQ(opts, options.getSpaceNames());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetSpaceIds)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--space-id", "12345", "--space-id", "ABCDE", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    std::vector<std::string> opts{"12345", "ABCDE"};
+    EXPECT_EQ(opts, options.getSpaceIds());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetProviderPort)
 {
     cmdArgs.insert(cmdArgs.end(), {"--port", "1234", "mountpoint"});
@@ -199,6 +247,13 @@ TEST_F(OptionsTest, parseCommandLineShouldSetLogDirPath)
     EXPECT_EQ("somePath", options.getLogDirPath());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldEnableIOTraceLog)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--io-trace-log", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isIOTraceLoggerEnabled());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetForceProxyIO)
 {
     cmdArgs.insert(cmdArgs.end(), {"--force-proxy-io", "mountpoint"});
@@ -219,6 +274,14 @@ TEST_F(OptionsTest, parseCommandLineShouldSetBufferSchedulerThreadCount)
         cmdArgs.end(), {"--buffer-scheduler-thread-count", "8", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(8, options.getBufferSchedulerThreadCount());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetCommunicatorPoolSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--communicator-pool-size", "24", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(24, options.getCommunicatorConnectionPoolSize());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetCommunicatorThreadCount)
@@ -250,6 +313,27 @@ TEST_F(OptionsTest, parseCommandLineShouldSetNoBuffer)
     cmdArgs.insert(cmdArgs.end(), {"--no-buffer", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(false, options.isIOBuffered());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetDisableFileReadEvents)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--disable-read-events", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.areFileReadEventsDisabled());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldEnableFullblockRead)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--no-fullblock-read", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(false, options.isFullblockReadEnabled());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetProviderTimeout)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--provider-timeout", "300", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(300, options.getProviderTimeout().count());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetReadBufferMinSize)
@@ -292,12 +376,168 @@ TEST_F(OptionsTest, parseCommandLineShouldSetWriteBufferMaxSize)
     EXPECT_EQ(1024, options.getWriteBufferMaxSize());
 }
 
+TEST_F(OptionsTest, parseCommandLineShouldSetReadBuffersTotalSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--read-buffers-total-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getReadBuffersTotalSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetWriteBuffersTotalSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--write-buffers-total-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getWriteBuffersTotalSize());
+}
+
 TEST_F(OptionsTest, parseCommandLineShouldSetWriteBufferFlushDelay)
 {
     cmdArgs.insert(
         cmdArgs.end(), {"--write-buffer-flush-delay", "10", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(10, options.getWriteBufferFlushDelay().count());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetMetadataCacheSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--metadata-cache-size", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getMetadataCacheSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetReaddirPrefetchSize)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--readdir-prefetch-size", "10000", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(10000, options.getReaddirPrefetchSize());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetTagOnCreate)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--tag-on-create", "KEY1:VALUE1", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    auto value = std::make_pair<std::string, std::string>("KEY1", "VALUE1");
+    EXPECT_EQ(value, options.getOnCreateTag().get());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetTagOnModify)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--tag-on-modify", "KEY1:VALUE1", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    auto value = std::make_pair<std::string, std::string>("KEY1", "VALUE1");
+    EXPECT_EQ(value, options.getOnModifyTag().get());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldOverrideHelperParam)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--override", "STORAGE1:PARAM1:VALUE1:2:3", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+
+    EXPECT_EQ(
+        "VALUE1:2:3", options.getHelperOverrideParams()["STORAGE1"]["PARAM1"]);
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldOverrideMultipleHelperParams)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"-r", "STORAGE1:PARAM1:VALUE1", "-r", "STORAGE2:PARAM2:VALUE2", "-r",
+            "STORAGE3:PARAM3:VALUE3", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+
+    auto params = options.getHelperOverrideParams();
+
+    EXPECT_EQ(
+        "VALUE1", options.getHelperOverrideParams()["STORAGE1"]["PARAM1"]);
+    EXPECT_EQ(
+        "VALUE2", options.getHelperOverrideParams()["STORAGE2"]["PARAM2"]);
+    EXPECT_EQ(
+        "VALUE3", options.getHelperOverrideParams()["STORAGE3"]["PARAM3"]);
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetLinearReadPrefetchTriggerThreshold)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--seqrd-prefetch-threshold", "0.3", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(0.3, options.getLinearReadPrefetchThreshold());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadPrefetchTriggerThreshold)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--rndrd-prefetch-threshold", "0.3", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(0.3, options.getRandomReadPrefetchThreshold());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadClusterWindow)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--rndrd-prefetch-cluster-window", "1024", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1024, options.getRandomReadPrefetchClusterWindow());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetPrefetchEvaluationFrequency)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--rndrd-prefetch-eval-frequency", "250", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(250, options.getRandomReadPrefetchEvaluationFrequency());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetFullFileRandomReadClusterWindow)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--rndrd-prefetch-cluster-window", "-1", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(-1, options.getRandomReadPrefetchClusterWindow());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadClusterBlockThreshold)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--rndrd-prefetch-cluster-block-threshold", "10", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(10, options.getRandomReadPrefetchClusterBlockThreshold());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadClusterWindowGrowFactor)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--rndrd-prefetch-cluster-window-grow-factor", "1.2", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(1.2, options.getRandomReadPrefetchClusterWindowGrowFactor());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetPrefetchMode)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--prefetch-mode=sync", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ("sync", options.getPrefetchMode());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetClusterPrefetchThresholdRandom)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--cluster-prefetch-threshold-random", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isClusterPrefetchThresholdRandom());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetRandomReadBlockThreshold)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--rndrd-prefetch-block-threshold", "150", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(150, options.getRandomReadPrefetchBlockThreshold());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetForeground)
@@ -312,6 +552,13 @@ TEST_F(OptionsTest, parseCommandLineShouldSetDebug)
     cmdArgs.insert(cmdArgs.end(), {"--debug", "mountpoint"});
     options.parse(cmdArgs.size(), cmdArgs.data());
     EXPECT_EQ(true, options.getDebug());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldSetVerboseLogLevel)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--verbose-log-level", "3", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(3, options.getVerboseLogLevel());
 }
 
 TEST_F(OptionsTest, parseCommandLineShouldSetSingleThread)
@@ -545,6 +792,13 @@ TEST_F(OptionsTest, parseConfigFileShouldSetBufferSchedulerThreadCount)
     EXPECT_EQ(8, options.getBufferSchedulerThreadCount());
 }
 
+TEST_F(OptionsTest, parseConfigFileShouldSetCommunicatorPoolSize)
+{
+    setInConfigFile("communicator_pool_size", "24");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(24, options.getCommunicatorConnectionPoolSize());
+}
+
 TEST_F(OptionsTest, parseConfigFileShouldSetCommunicatorThreadCount)
 {
     setInConfigFile("communicator_thread_count", "8");
@@ -571,6 +825,13 @@ TEST_F(OptionsTest, parseConfigFileShouldSetNoBuffer)
     setInConfigFile("no_buffer", "1");
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ(false, options.isIOBuffered());
+}
+
+TEST_F(OptionsTest, parseConfigFileShouldSetProviderTimeout)
+{
+    setInConfigFile("provider_timeout", "300");
+    options.parse(fileArgs.size(), fileArgs.data());
+    EXPECT_EQ(300, options.getProviderTimeout().count());
 }
 
 TEST_F(OptionsTest, parseConfigFileShouldSetReadBufferMinSize)
@@ -634,6 +895,40 @@ TEST_F(OptionsTest, parseConfigFileShouldSetSingleThread)
     setInConfigFile("fuse_single_thread", "1");
     options.parse(fileArgs.size(), fileArgs.data());
     EXPECT_EQ(true, options.getSingleThread());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldEnableMonitoringWithType)
+{
+    cmdArgs.insert(
+        cmdArgs.end(), {"--monitoring-type", "graphite", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isMonitoringEnabled());
+    EXPECT_TRUE(options.getMonitoringType().get() == "graphite");
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldEnableMonitoringLevelFull)
+{
+    cmdArgs.insert(cmdArgs.end(), {"--monitoring-level-full", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_EQ(true, options.isMonitoringLevelFull());
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldReturnGraphiteUrl)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--graphite-url", "tcp://graphite.example.com:2003", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(options.getMonitoringGraphiteUrl().get() ==
+        "tcp://graphite.example.com:2003");
+}
+
+TEST_F(OptionsTest, parseCommandLineShouldReturnGraphiteiNamespacePrefix)
+{
+    cmdArgs.insert(cmdArgs.end(),
+        {"--graphite-namespace-prefix", "DataCenterA", "mountpoint"});
+    options.parse(cmdArgs.size(), cmdArgs.data());
+    EXPECT_TRUE(
+        options.getMonitoringGraphiteNamespacePrefix().get() == "DataCenterA");
 }
 
 TEST_F(OptionsTest, parseConfigFileShouldSetFuseOpts)

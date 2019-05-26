@@ -15,6 +15,7 @@ using namespace ::testing;
 using namespace one::client;
 using namespace one::client::cache;
 using namespace one::client::events;
+using namespace std::literals;
 
 struct FsSubscriptionsTest : public ::testing::Test {
 
@@ -32,7 +33,7 @@ struct FsSubscriptionsTest : public ::testing::Test {
     std::int64_t subscriptionId;
     std::shared_ptr<Context> context = testContext();
     MockManager mockManager{context};
-    LRUMetadataCache metadataCache{*context->communicator()};
+    LRUMetadataCache metadataCache{*context->communicator(), 10000, 60s};
     ForceProxyIOCache forceProxyIOCache;
     FsSubscriptions fsSubscriptions{
         mockManager, metadataCache, forceProxyIOCache, [](auto) {}};
@@ -70,12 +71,16 @@ TEST_F(FsSubscriptionsTest, subscribeFileLocationChangedShouldSubscribeOnce)
     EXPECT_CALL(this->mockManager, subscribe(_)).Times(1);
     this->fsSubscriptions.subscribeFileLocationChanged("fileUuid");
     this->fsSubscriptions.subscribeFileLocationChanged("fileUuid");
+    EXPECT_TRUE(
+        this->fsSubscriptions.isSubscribedToFileLocationChanged("fileUuid"));
 }
 
 TEST_F(FsSubscriptionsTest, unsubscribeFileLocationChangedShouldNotUnsubscribe)
 {
     EXPECT_CALL(this->mockManager, unsubscribe(_)).Times(0);
     this->fsSubscriptions.unsubscribeFileLocationChanged("fileUuid");
+    EXPECT_FALSE(
+        this->fsSubscriptions.isSubscribedToFileLocationChanged("fileUuid"));
 }
 
 TEST_F(FsSubscriptionsTest, unsubscribeFileLocationChangedShouldUnsubscribeOnce)
@@ -84,6 +89,8 @@ TEST_F(FsSubscriptionsTest, unsubscribeFileLocationChangedShouldUnsubscribeOnce)
     this->fsSubscriptions.subscribeFileLocationChanged("fileUuid");
     this->fsSubscriptions.unsubscribeFileLocationChanged("fileUuid");
     this->fsSubscriptions.unsubscribeFileLocationChanged("fileUuid");
+    EXPECT_FALSE(
+        this->fsSubscriptions.isSubscribedToFileLocationChanged("fileUuid"));
 }
 
 TEST_F(FsSubscriptionsTest, subscribeFileLocationChangedShouldUseProperStream)

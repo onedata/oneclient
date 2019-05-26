@@ -22,6 +22,10 @@ namespace fuse {
 
 FileAttr::FileAttr(std::unique_ptr<ProtocolServerMessage> serverMessage)
     : FuseResponse(serverMessage)
+    , m_mode{}
+    , m_uid{}
+    , m_gid{}
+    , m_type{}
 {
     if (!serverMessage->fuse_response().has_file_attr())
         throw std::system_error{std::make_error_code(std::errc::protocol_error),
@@ -31,6 +35,10 @@ FileAttr::FileAttr(std::unique_ptr<ProtocolServerMessage> serverMessage)
 }
 
 FileAttr::FileAttr(const one::clproto::FileAttr &message)
+    : m_mode{}
+    , m_uid{}
+    , m_gid{}
+    , m_type{}
 {
     deserialize(message);
 }

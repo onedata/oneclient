@@ -12,6 +12,7 @@
 #include "events/events.h"
 #include "messages/fuse/fileAttr.h"
 #include "messages/fuse/fileLocation.h"
+#include "monitoring/monitoring.h"
 #include "scheduler.h"
 
 #include <cassert>
@@ -33,27 +34,34 @@ FsSubscriptions::FsSubscriptions(events::Manager &eventManager,
 
 void FsSubscriptions::subscribeFileAttrChanged(const folly::fbstring &fileUuid)
 {
-    subscribe(
-        fileUuid, events::FileAttrChangedSubscription{fileUuid.toStdString(),
-                      REMOTE_TIME_THRESHOLD, [this](auto events) mutable {
-                          this->handleFileAttrChanged(std::move(events));
-                      }});
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_attr_changed");
+
+    LOG_DBG(2) << "Subscribing for FileAttrChanged for file " << fileUuid;
+
+    subscribe(fileUuid,
+        events::FileAttrChangedSubscription{fileUuid.toStdString(),
+            REMOTE_TIME_THRESHOLD, [this](auto events) mutable {
+                this->handleFileAttrChanged(std::move(events));
+            }});
 }
 
 void FsSubscriptions::handleFileAttrChanged(
     events::Events<events::FileAttrChanged> events)
 {
-    using namespace messages::fuse;
-
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.received.file_attr_changed");
     m_runInFiber([ this, events = std::move(events) ] {
         for (auto &event : events) {
             auto &attr = event->fileAttr();
             if (m_metadataCache.updateAttr(attr))
-                DLOG(INFO) << "Updated attributes for uuid: '" << attr.uuid()
-                          << "', size: " << (attr.size() ? *attr.size() : -1);
+                LOG_DBG(2) << "Updated attributes for uuid: '" << attr.uuid()
+                           << "', size: " << (attr.size() ? *attr.size() : -1);
             else
-                DLOG(INFO) << "No attributes to update for uuid: '"
-                          << attr.uuid() << "'";
+                LOG_DBG(2) << "No attributes to update for uuid: '"
+                           << attr.uuid() << "'";
         }
     });
 }
@@ -61,12 +69,22 @@ void FsSubscriptions::handleFileAttrChanged(
 bool FsSubscriptions::unsubscribeFileAttrChanged(
     const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
+    ONE_METRIC_COUNTER_DEC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_attr_changed");
+    LOG_DBG(2) << "Unsubscribing for FileAttrChanged for file " << fileUuid;
     return unsubscribe(events::StreamKey::FILE_ATTR_CHANGED, fileUuid);
 }
 
 void FsSubscriptions::subscribeFileLocationChanged(
     const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_location_changed");
+    LOG_DBG(2) << "Subscribing for FileLocationChanged for file " << fileUuid;
     subscribe(fileUuid,
         events::FileLocationChangedSubscription{fileUuid.toStdString(),
             REMOTE_TIME_THRESHOLD, [this](auto events) mutable {
@@ -77,17 +95,26 @@ void FsSubscriptions::subscribeFileLocationChanged(
 void FsSubscriptions::handleFileLocationChanged(
     events::Events<events::FileLocationChanged> events)
 {
-    using namespace messages::fuse;
-
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.received.file_location_changed");
     m_runInFiber([ this, events = std::move(events) ] {
         for (auto &event : events) {
-            auto &loc = event->fileLocation();
-            if (m_metadataCache.updateLocation(loc))
-                DLOG(INFO) << "Updated locations for uuid: '" << loc.uuid()
-                          << "'";
+            bool updateSucceeded = false;
+
+            if (event->changeStartOffset() && event->changeEndOffset())
+                updateSucceeded = m_metadataCache.updateLocation(
+                    *(event->changeStartOffset()), *(event->changeEndOffset()),
+                    event->fileLocation());
             else
-                DLOG(INFO) << "No location to update for uuid: '" << loc.uuid()
-                          << "'";
+                updateSucceeded =
+                    m_metadataCache.updateLocation(event->fileLocation());
+
+            if (updateSucceeded)
+                LOG_DBG(2) << "Updated locations for uuid: '"
+                           << event->fileLocation().uuid() << "'";
+            else
+                LOG_DBG(2) << "No location to update for uuid: '"
+                           << event->fileLocation().uuid() << "'";
         }
     });
 }
@@ -95,21 +122,39 @@ void FsSubscriptions::handleFileLocationChanged(
 bool FsSubscriptions::unsubscribeFileLocationChanged(
     const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
+    ONE_METRIC_COUNTER_DEC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_location_changed");
+    LOG_DBG(2) << "Unsubscribing for FileLocationChanged for file " << fileUuid;
     return unsubscribe(events::StreamKey::FILE_LOCATION_CHANGED, fileUuid);
+}
+
+bool FsSubscriptions::isSubscribedToFileLocationChanged(
+    const folly::fbstring &fileUuid) const
+{
+    return isSubscribed(events::StreamKey::FILE_LOCATION_CHANGED, fileUuid);
 }
 
 void FsSubscriptions::subscribeFilePermChanged(const folly::fbstring &fileUuid)
 {
-    subscribe(
-        fileUuid, events::FilePermChangedSubscription{
-                      fileUuid.toStdString(), [this](auto events) mutable {
-                          this->handlePermissionChanged(std::move(events));
-                      }});
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_perm_changed");
+    LOG_DBG(2) << "Subscribing for FilePermChanged for file " << fileUuid;
+    subscribe(fileUuid,
+        events::FilePermChangedSubscription{
+            fileUuid.toStdString(), [this](auto events) mutable {
+                this->handlePermissionChanged(std::move(events));
+            }});
 }
 
 void FsSubscriptions::handlePermissionChanged(
     events::Events<events::FilePermChanged> events)
 {
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.received.file_permission_changed");
     m_runInFiber([ this, events = std::move(events) ] {
         for (auto &event : events) {
             m_forceProxyIOCache.remove(event->fileUuid());
@@ -120,57 +165,85 @@ void FsSubscriptions::handlePermissionChanged(
 bool FsSubscriptions::unsubscribeFilePermChanged(
     const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
+    ONE_METRIC_COUNTER_DEC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_perm_changed");
+    LOG_DBG(2) << "Unsubscribing for FilePermChanged for file " << fileUuid;
     return unsubscribe(events::StreamKey::FILE_PERM_CHANGED, fileUuid);
 }
 
 void FsSubscriptions::subscribeFileRemoved(const folly::fbstring &fileUuid)
 {
-    subscribe(fileUuid, events::FileRemovedSubscription{fileUuid.toStdString(),
-                            [this](auto events) mutable {
-                                this->handleFileRemoved(std::move(events));
-                            }});
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_removed");
+    LOG_DBG(2) << "Subscribing for FileRemoved for file " << fileUuid;
+    subscribe(fileUuid,
+        events::FileRemovedSubscription{
+            fileUuid.toStdString(), [this](auto events) mutable {
+                this->handleFileRemoved(std::move(events));
+            }});
 }
 
 void FsSubscriptions::handleFileRemoved(
     events::Events<events::FileRemoved> events)
 {
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.received.file_removed");
     m_runInFiber([ this, events = std::move(events) ] {
         for (auto &event : events) {
             auto &uuid = event->fileUuid();
             if (m_metadataCache.markDeleted(uuid))
-                DLOG(INFO) << "File remove event received: " << uuid;
+                LOG_DBG(2) << "File remove event received: " << uuid;
             else
-                DLOG(INFO) << "Received a file remove event for '" << uuid
-                          << "', but the file metadata is no longer cached.";
+                LOG_DBG(2) << "Received a file remove event for '" << uuid
+                           << "', but the file metadata is no longer cached.";
         }
     });
 }
 
 bool FsSubscriptions::unsubscribeFileRemoved(const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
+    ONE_METRIC_COUNTER_DEC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_removed");
+    LOG_DBG(2) << "Unsubscribing for FileRemoved for file " << fileUuid;
     return unsubscribe(events::StreamKey::FILE_REMOVED, fileUuid);
 }
 
 void FsSubscriptions::subscribeFileRenamed(const folly::fbstring &fileUuid)
 {
-    subscribe(fileUuid, events::FileRenamedSubscription{fileUuid.toStdString(),
-                            [this](auto events) mutable {
-                                this->handleFileRenamed(std::move(events));
-                            }});
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_renamed");
+    LOG_DBG(2) << "Subscribing for FileRenamed for file " << fileUuid;
+    subscribe(fileUuid,
+        events::FileRenamedSubscription{
+            fileUuid.toStdString(), [this](auto events) mutable {
+                this->handleFileRenamed(std::move(events));
+            }});
 }
 
 void FsSubscriptions::handleFileRenamed(
     events::Events<events::FileRenamed> events)
 {
+    LOG_FCALL() << LOG_FARG(events.size());
+
+    ONE_METRIC_COUNTER_INC(
+        "comp.oneclient.mod.events.submod.received.file_renamed");
     m_runInFiber([ this, events = std::move(events) ] {
         for (auto &event : events) {
             auto &entry = event->topEntry();
             if (m_metadataCache.rename(entry.oldUuid(), entry.newParentUuid(),
                     entry.newName(), entry.newUuid()))
-                DLOG(INFO) << "File renamed event handled: '" << entry.oldUuid()
-                          << "' -> '" << entry.newUuid() << "'";
+                LOG_DBG(2) << "File renamed event handled: '" << entry.oldUuid()
+                           << "' -> '" << entry.newUuid() << "'";
             else
-                DLOG(INFO) << "Received a file renamed event for '"
+                LOG_DBG(2) << "Received a file renamed event for '"
                            << entry.oldUuid()
                            << "', but the file metadata is no longer cached.";
         }
@@ -179,6 +252,11 @@ void FsSubscriptions::handleFileRenamed(
 
 bool FsSubscriptions::unsubscribeFileRenamed(const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
+    ONE_METRIC_COUNTER_DEC(
+        "comp.oneclient.mod.events.submod.subscriptions.file_renamed");
+    LOG_DBG(2) << "Unsubscribing for FileRenamed for file " << fileUuid;
     return unsubscribe(events::StreamKey::FILE_RENAMED, fileUuid);
 }
 
@@ -190,6 +268,13 @@ void FsSubscriptions::subscribe(
             subscriptionAcc, {subscription.streamKey(), fileUuid})) {
         subscriptionAcc->second = m_eventManager.subscribe(subscription);
     }
+}
+
+bool FsSubscriptions::isSubscribed(
+    events::StreamKey streamKey, const folly::fbstring &fileUuid) const
+{
+    SubscriptionAcc subscriptionAcc;
+    return m_subscriptions.find(subscriptionAcc, {streamKey, fileUuid});
 }
 
 bool FsSubscriptions::unsubscribe(

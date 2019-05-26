@@ -110,10 +110,20 @@ _oneclient() {
                                -l --log-path \
                                -f --foreground -d --debug -s --single-thread \
                                -o --opt \
+                               -v --verbose-log-level \
+                               --space \
+                               --space-id \
                                --no-buffer \
+                               --io-trace-log \
+                               --disable-read-events \
+                               --no-fullblock-read \
+                               --provider-timeout \
+                               --disable-read-events \
+                               --force-fullblock-read \
                                --force-proxy-io \
                                --force-direct-io \
                                --buffer-scheduler-thread-count \
+                               --communicator-pool-size \
                                --communicator-thread-count \
                                --scheduler-thread-count \
                                --storage-helper-thread-count \
@@ -122,7 +132,21 @@ _oneclient() {
                                --read-buffer-prefetch-duration \
                                --write-buffer-min-size \
                                --write-buffer-max-size \
-                               --write-buffer-flush-delay' -- $cur ) )
+                               --write-buffer-flush-delay \
+                               --seqrd-prefetch-threshold \
+                               --rndrd-prefetch-threshold \
+                               --rndrd-prefetch-eval-frequency \
+                               --rndrd-prefetch-block-threshold \
+                               --rndrd-prefetch-cluster-window \
+                               --rndrd-prefetch-cluster-block-threshold \
+                               --rndrd-prefetch-cluster-window-grow-factor \
+                               --prefetch-mode \
+                               --cluster-prefetch-threshold-random \
+                               --metadata-cache-size \
+                               --readdir-prefetch-size \
+                               --tag-on-create --tag-on-modify \
+                               -r --override \
+                               --metadata-cache-size' -- $cur ) )
     return
     ;;
     "")

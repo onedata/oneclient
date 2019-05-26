@@ -23,10 +23,7 @@ QuotaExceeded::QuotaExceeded(const ProtocolMessage &msg)
     }
 }
 
-StreamKey QuotaExceeded::streamKey() const
-{
-    return StreamKey::QUOTA_EXCEEDED;
-}
+StreamKey QuotaExceeded::streamKey() const { return StreamKey::QUOTA_EXCEEDED; }
 
 const std::vector<std::string> &QuotaExceeded::spaces() const
 {

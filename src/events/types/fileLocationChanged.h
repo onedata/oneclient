@@ -43,9 +43,21 @@ public:
     const AggregationKey &aggregationKey() const override;
 
     /**
-     * @return A updated file location.
+     * @return An updated file location.
      */
     const FileLocation &fileLocation() const;
+
+    /**
+     * Returns the start offset of the location change. If not defined,
+     * the change should be applied to entire file location.
+     */
+    boost::optional<off_t> changeStartOffset() const;
+
+    /**
+     * Returns the end offset (exclusive) of the location change. If not
+     * defined, the change should be applied to entire file location.
+     */
+    boost::optional<off_t> changeEndOffset() const;
 
     std::string toString() const override;
 
@@ -58,6 +70,8 @@ public:
 
 private:
     std::unique_ptr<FileLocation> m_fileLocation;
+    boost::optional<off_t> m_changeBegOffset;
+    boost::optional<off_t> m_changeEndOffset;
 };
 
 } // namespace events

@@ -1,9 +1,0 @@
-.idea
-*.iml
-
-/src/messages.erl
-/include/
-/priv/
-/build
-/_build
-

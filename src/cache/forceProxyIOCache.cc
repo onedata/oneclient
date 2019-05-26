@@ -8,8 +8,6 @@
 
 #include "forceProxyIOCache.h"
 
-#include <glog/logging.h>
-
 namespace one {
 namespace client {
 namespace cache {
@@ -17,16 +15,16 @@ namespace cache {
 bool ForceProxyIOCache::contains(const folly::fbstring &fileUuid)
 {
     ConstCacheAcc acc;
-    if (m_cache.find(acc, fileUuid)) {
-        return true;
-    }
-    return false;
+    return m_cache.find(acc, fileUuid);
 }
 
 void ForceProxyIOCache::add(const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
     CacheAcc acc;
     if (m_cache.insert(acc, fileUuid)) {
+        LOG_DBG(1) << "Adding " << fileUuid << " to ForceProxyIOCache";
         acc->second = true;
         m_onAdd(fileUuid);
     }
@@ -34,10 +32,12 @@ void ForceProxyIOCache::add(const folly::fbstring &fileUuid)
 
 void ForceProxyIOCache::remove(const folly::fbstring &fileUuid)
 {
+    LOG_FCALL() << LOG_FARG(fileUuid);
+
     CacheAcc acc;
     if (m_cache.find(acc, fileUuid)) {
-        LOG(INFO) << "Invalidating ForceProxyIOCache for uuid: '" << fileUuid
-                  << "'";
+        LOG_DBG(1) << "Invalidating ForceProxyIOCache for uuid: '" << fileUuid
+                   << "'";
         m_onRemove(fileUuid);
         m_cache.erase(acc);
     }

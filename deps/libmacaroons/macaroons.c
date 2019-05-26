@@ -1001,7 +1001,7 @@ encoded_size(enum encoding encoding, size_t data_sz)
  * responsible for freeing it.
  */
 static int
-encode(enum encoding encoding, 
+encode(enum encoding encoding,
        const unsigned char* val, size_t val_sz,
        const unsigned char** result, size_t* result_sz,
        enum macaroon_returncode* err)
@@ -1318,7 +1318,7 @@ macaroon_serialize_json(const struct macaroon* M,
  * should not include the terminating zero.
  */
 static int
-decode(enum encoding encoding, 
+decode(enum encoding encoding,
        const unsigned char* str, size_t str_sz,
        const unsigned char** result, size_t* result_sz,
        enum macaroon_returncode* err)
@@ -1339,7 +1339,7 @@ decode(enum encoding encoding,
             *err = MACAROON_OUT_OF_MEMORY;
             return -1;
         }
-  
+
         dec_sz = b64_pton(str, dec_val, str_sz);
         if (dec_sz <= 0)
         {
@@ -1350,7 +1350,7 @@ decode(enum encoding encoding,
         *result = dec_val;
         *result_sz = dec_sz;
         break;
-        
+
     case ENCODING_HEX:
         dec_sz = str_sz / 2;
         dec_val = malloc(dec_sz + 1);
@@ -1407,7 +1407,7 @@ json_help_copy_kv_packet(struct json_object* obj,
     {
         return -1;
     }
- 
+
     *wptr = f(dec, dec_sz, pkt, *wptr);
     if (dec != str)
     {
@@ -1509,7 +1509,7 @@ macaroon_deserialize_json(const char* data, size_t data_sz,
     for (idx = 0; idx < (size_t)arr_sz; ++idx)
     {
         cav = json_object_array_get_idx(arr, idx);
-        
+
         /* TODO deserialize caveat vid and location. */
         if (!cav || !json_object_is_type(cav, json_type_object))
         {
@@ -1519,7 +1519,7 @@ macaroon_deserialize_json(const char* data, size_t data_sz,
             *err = MACAROON_INVALID;
             return NULL;
         }
-          
+
         if (json_help_copy_kv_packet(cav, CID, create_cid_packet, &M->caveats[idx].cid, ENCODING_RAW, &ptr, err) < 0)
         {
             free(M);
@@ -1614,6 +1614,7 @@ macaroon_deserialize(const char* _data, enum macaroon_returncode* err)
     if (data[0] == '{')
     {
         *err = MACAROON_NO_JSON_SUPPORT;
+        free(data);
         return NULL;
     }
 #endif
@@ -1742,6 +1743,7 @@ macaroon_deserialize(const char* _data, enum macaroon_returncode* err)
     }
 
     *err = MACAROON_SUCCESS;
+    free(data);
     return M;
 }
 

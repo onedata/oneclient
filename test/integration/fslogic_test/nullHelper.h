@@ -13,15 +13,15 @@
 
 #include <gmock/gmock.h>
 
-using ::testing::_;
 using ::testing::Invoke;
 using ::testing::Mock;
 using ::testing::Return;
+using ::testing::_;
 
 class NullHelperHandle : public one::helpers::FileHandle {
 public:
     NullHelperHandle(std::error_code ec)
-        : one::helpers::FileHandle{{}}
+        : one::helpers::FileHandle{{}, {}}
         , m_ec{ec}
     {
     }
@@ -93,6 +93,8 @@ struct NullHelperHandleMock : public NullHelperHandle {
 
 class NullHelper : public one::helpers::StorageHelper {
 public:
+    folly::fbstring name() const override { return "nullhelper"; }
+
     folly::Future<struct stat> getattr(const folly::fbstring &) override
     {
         if (m_ec)
@@ -150,7 +152,8 @@ public:
         return folly::makeFuture();
     }
 
-    folly::Future<folly::Unit> unlink(const folly::fbstring &fileId) override
+    folly::Future<folly::Unit> unlink(
+        const folly::fbstring &fileId, const size_t size) override
     {
         if (m_ec)
             return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
@@ -211,8 +214,8 @@ public:
         return folly::makeFuture();
     }
 
-    folly::Future<folly::Unit> truncate(
-        const folly::fbstring &fileId, const off_t size) override
+    folly::Future<folly::Unit> truncate(const folly::fbstring &fileId,
+        const off_t size, const size_t currentSize) override
     {
         if (m_ec)
             return folly::makeFuture<folly::Unit>(std::system_error{m_ec});
@@ -231,7 +234,8 @@ public:
         m_handles.insert(std::make_pair(
             fileId, std::make_shared<NullHelperHandleMock>(m_ec)));
 
-        return folly::makeFuture(m_handles[fileId]);
+        return folly::makeFuture(
+            static_cast<one::helpers::FileHandlePtr>(m_handles[fileId]));
     }
 
     const one::helpers::Timeout &timeout() override { return m_timeout; }

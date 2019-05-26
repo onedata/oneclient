@@ -24,6 +24,8 @@ namespace one {
 namespace client {
 namespace cache {
 
+class ReaddirCache;
+
 /**
  * @c LRUMetadataCache is responsible for managing lifetime of entries cached
  * in @c MetadataCache .
@@ -65,7 +67,14 @@ public:
      * to keep population no bigger than this number.
      */
     LRUMetadataCache(communication::Communicator &communicator,
-        const std::size_t targetSize = 1000);
+        const std::size_t targetSize,
+        const std::chrono::seconds providerTimeout);
+
+    /**
+     * Sets a pointer to an instance of @c ReaddirCache.
+     * @param readdirCache Shared pointer to an instance of @c ReaddirCache.
+     */
+    void setReaddirCache(std::shared_ptr<ReaddirCache> readdirCache);
 
     /**
      * Opens a file in the cache.
@@ -97,6 +106,11 @@ public:
         const folly::fbstring &parentUuid, const folly::fbstring &name);
 
     /**
+     * @copydoc MetadataCache::putattr(std::shared_ptr<FileAttr> attr)
+     */
+    void putAttr(std::shared_ptr<FileAttr> attr);
+
+    /**
      * Sets a callback that will be called after a file is added to the cache.
      * @param cb The callback which takes uuid as parameter.
      */
@@ -112,6 +126,15 @@ public:
     void onOpen(std::function<void(const folly::fbstring &)> cb)
     {
         m_onOpen = std::move(cb);
+    }
+
+    /**
+     * Sets a callback that will be called after a file is released (closed).
+     * @param cb The callback which takes uuid as parameter.
+     */
+    void onRelease(std::function<void(const folly::fbstring &)> cb)
+    {
+        m_onRelease = std::move(cb);
     }
 
     /**
@@ -148,22 +171,21 @@ public:
      * @copydoc MetadataCache::rename(const folly::fbstring &, const
      * folly::fbstring &, const folly::fbstring &, const folly::fbstring &)
      */
-    bool rename(const folly::fbstring &uuid,
-        const folly::fbstring &newParentUuid, const folly::fbstring &newName,
-        const folly::fbstring &newUuid);
+    bool rename(folly::fbstring uuid, folly::fbstring newParentUuid,
+        folly::fbstring newName, folly::fbstring newUuid);
 
     /**
      * @copydoc MetadataCache::truncate(const folly::fbstring &, const
      * std::size_t)
      */
-    void truncate(const folly::fbstring &uuid, const std::size_t newSize);
+    void truncate(folly::fbstring uuid, const std::size_t newSize);
 
     /**
      * @copydoc MetadataCache::updateTimes(const folly::fbstring &, const
      * messages::fuse::UpdateTimes &)
      */
-    void updateTimes(const folly::fbstring &uuid,
-        const messages::fuse::UpdateTimes &updateTimes);
+    void updateTimes(
+        folly::fbstring uuid, const messages::fuse::UpdateTimes &updateTimes);
 
     /**
      * @copydoc MetadataCache::changeMode(const folly::fbstring &, const mode_t)
@@ -175,16 +197,34 @@ public:
      */
     void putLocation(std::unique_ptr<FileLocation> location);
 
+    /**
+     * @copydoc MetadataCache::getLocation(const folly::fbstring &uuid, bool
+     * forceUpdate = false);
+     */
+    std::shared_ptr<FileLocation> getLocation(
+        const folly::fbstring &uuid, bool forceUpdate = false);
+
+    /**
+     * @copydoc MetadataCache::updateLocation(const FileLocation &newLocation);
+     */
+    bool updateLocation(const FileLocation &newLocation);
+
+    /**
+     * @copydoc MetadataCache::updateLocation(const off_t start, const off_t
+     * end, const FileLocation &locationUpdate);
+     */
+    bool updateLocation(
+        const off_t start, const off_t end, const FileLocation &locationUpdate);
+
     // Operations used only on open files
     using MetadataCache::addBlock;
     using MetadataCache::getBlock;
     using MetadataCache::getDefaultBlock;
     using MetadataCache::getSpaceId;
 
-    using MetadataCache::updateAttr;
-    using MetadataCache::putAttr;
-    using MetadataCache::updateLocation;
     using MetadataCache::markDeleted;
+    using MetadataCache::putAttr;
+    using MetadataCache::updateAttr;
 
 private:
     struct LRUData {
@@ -213,6 +253,7 @@ private:
 
     std::function<void(const folly::fbstring &)> m_onAdd = [](auto &) {};
     std::function<void(const folly::fbstring &)> m_onOpen = [](auto &) {};
+    std::function<void(const folly::fbstring &)> m_onRelease = [](auto &) {};
     std::function<void(const folly::fbstring &)> m_onPrune = [](auto &) {};
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
     std::function<void(const folly::fbstring &, const folly::fbstring &)>

@@ -14,8 +14,10 @@
 #include "cache/forceProxyIOCache.h"
 #include "cache/helpersCache.h"
 #include "cache/lruMetadataCache.h"
+#include "cache/readdirCache.h"
 #include "events/events.h"
 #include "fsSubscriptions.h"
+#include "ioTraceLogger.h"
 
 #include <asio/buffer.hpp>
 #include <boost/icl/discrete_interval.hpp>
@@ -26,8 +28,11 @@
 
 #include <functional>
 #include <memory>
+#include <random>
 #include <unordered_map>
 #include <unordered_set>
+
+constexpr auto ONE_XATTR_PREFIX = "org.onedata.";
 
 namespace one {
 
@@ -46,6 +51,14 @@ class Context;
 
 namespace fslogic {
 
+constexpr auto FSLOGIC_RETRY_COUNT = 4;
+const std::array<std::pair<int, int>, FSLOGIC_RETRY_COUNT> FSLOGIC_RETRY_DELAYS{
+    {{100, 1000}, {1000, 5000}, {5000, 10'000}, {10'000, 30'000}}};
+
+constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_IMMEDIATE = 32;
+constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_LINEAR_PREFETCH = 96;
+constexpr auto SYNCHRONIZE_BLOCK_PRIORITY_CLUSTER_PREFETCH = 160;
+
 /**
  * The FsLogic main class.
  * This class contains FUSE all callbacks, so it basically is an heart of the
@@ -54,17 +67,25 @@ namespace fslogic {
  */
 class FsLogic {
 public:
+    using BlocksMap =
+        std::map<folly::fbstring, folly::fbvector<std::pair<off_t, off_t>>>;
     /**
      * Constructor.
      * @param context Shared pointer to application context instance.
      * @param configuration Starting configuration from server.
      * @param helpersCache Cache from which helpers will be fetched.
+     * @param readEventsDisabled Specifies if FileRead event should be emitted.
+     * @param providerTimeout Timeout for provider connection.
      * @param runInFiber A function that runs callback inside a main fiber.
      */
     FsLogic(std::shared_ptr<Context> context,
         std::shared_ptr<messages::Configuration> configuration,
         std::unique_ptr<cache::HelpersCache> helpersCache,
+        unsigned int metadataCacheSize, bool readEventsDisabled,
+        bool forceFullblockRead, const std::chrono::seconds providerTimeout,
         std::function<void(folly::Function<void()>)> runInFiber);
+
+    ~FsLogic();
 
     /**
      * FUSE @c lookup callback.
@@ -83,7 +104,8 @@ public:
      * FUSE @c readdir callback.
      * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
      */
-    folly::fbvector<folly::fbstring> readdir(const folly::fbstring &uuid);
+    folly::fbvector<folly::fbstring> readdir(
+        const folly::fbstring &uuid, const size_t maxSize, const off_t off);
 
     /**
      * FUSE @c open callback.
@@ -103,7 +125,9 @@ public:
      */
     folly::IOBufQueue read(const folly::fbstring &uuid,
         const std::uint64_t fileHandleId, const off_t offset,
-        const std::size_t size, folly::Optional<folly::fbstring> checksum);
+        const std::size_t size, folly::Optional<folly::fbstring> checksum,
+        const int retriesLeft = FSLOGIC_RETRY_COUNT,
+        std::unique_ptr<IOTraceRead> ioTraceEntry = {});
 
     /**
      * FUSE @c write callback.
@@ -111,7 +135,9 @@ public:
      */
     std::size_t write(const folly::fbstring &uuid,
         const std::uint64_t fuseFileHandleId, const off_t offset,
-        folly::IOBufQueue buf);
+        std::shared_ptr<folly::IOBuf> buf,
+        const int retriesLeft = FSLOGIC_RETRY_COUNT,
+        std::unique_ptr<IOTraceWrite> ioTraceEntry = {});
 
     /**
      * FUSE @c mkdir callback.
@@ -159,13 +185,13 @@ public:
      * FUSE @c flush callback.
      * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
      */
-    void flush(const folly::fbstring &uuid, const std::uint64_t handle);
+    void flush(const folly::fbstring &uuid, const std::uint64_t fileHandleId);
 
     /**
      * FUSE @c fsync callback.
      * @see https://libfuse.github.io/doxygen/structfuse__lowlevel__ops.html
      */
-    void fsync(const folly::fbstring &uuid, const std::uint64_t handle,
+    void fsync(const folly::fbstring &uuid, const std::uint64_t fileHandleId,
         const bool dataOnly);
 
     /**
@@ -215,11 +241,29 @@ public:
         m_onRename = std::move(cb);
     }
 
+    /**
+     * Returns true if full block reads are forced.
+     */
+    bool isFullBlockReadForced() const { return m_forceFullblockRead; }
+
+    std::shared_ptr<IOTraceLogger> ioTraceLogger() { return m_ioTraceLogger; }
+
+    std::shared_ptr<FuseFileHandle> getFuseFileHandle(std::uint64_t handleId)
+    {
+        return m_fuseFileHandles.at(handleId);
+    }
+
+    std::map<folly::fbstring, folly::fbvector<std::pair<off_t, off_t>>>
+    getFileLocalBlocks(const folly::fbstring &uuid);
+
 private:
     template <typename SrvMsg = messages::fuse::FuseResponse, typename CliMsg>
-    SrvMsg communicate(CliMsg &&msg);
+    SrvMsg communicate(CliMsg &&msg, const std::chrono::seconds timeout);
 
     folly::fbstring syncAndFetchChecksum(const folly::fbstring &uuid,
+        const boost::icl::discrete_interval<off_t> &range);
+
+    void sync(const folly::fbstring &uuid,
         const boost::icl::discrete_interval<off_t> &range);
 
     bool dataCorrupted(const folly::fbstring &uuid,
@@ -236,23 +280,69 @@ private:
     bool isSpaceDisabled(const folly::fbstring &spaceId);
     void disableSpaces(const std::vector<std::string> &spaces);
 
+    std::shared_ptr<IOTraceLogger> createIOTraceLogger();
+
+    std::pair<size_t, IOTraceLogger::PrefetchType> prefetchAsync(
+        std::shared_ptr<FuseFileHandle> fuseFileHandle,
+        helpers::FileHandlePtr helperHandle, const off_t offset,
+        const std::size_t size, const folly::fbstring &uuid,
+        const boost::icl::discrete_interval<off_t> possibleRange,
+        const boost::icl::discrete_interval<off_t> availableRange);
+
+    /**
+     * Suspends current fiber for a random timed delay depending
+     * on current retry number.
+     * @param retriesLeft Current number of retries left
+     */
+    void fiberRetryDelay(int retriesLeft);
+
     std::shared_ptr<Context> m_context;
     events::Manager m_eventManager{m_context};
     cache::LRUMetadataCache m_metadataCache;
     cache::ForceProxyIOCache m_forceProxyIOCache;
     std::unique_ptr<cache::HelpersCache> m_helpersCache;
+    std::shared_ptr<cache::ReaddirCache> m_readdirCache;
+    bool m_readEventsDisabled = false;
+
+    // Determines whether the read requests should return full requested
+    // size, or can return partial byte range if it is immediately
+    // available
+    bool m_forceFullblockRead;
     FsSubscriptions m_fsSubscriptions;
     std::unordered_set<folly::fbstring> m_disabledSpaces;
 
     std::unordered_map<std::uint64_t, std::shared_ptr<FuseFileHandle>>
         m_fuseFileHandles;
-    std::uint64_t m_nextFuseHandleId = 0;
+    std::unordered_map<std::uint64_t, folly::fbstring> m_fuseDirectoryHandles;
+    std::atomic<std::uint64_t> m_nextFuseHandleId;
 
     std::function<void(const folly::fbstring &)> m_onMarkDeleted = [](auto) {};
     std::function<void(const folly::fbstring &, const folly::fbstring &)>
         m_onRename = [](auto, auto) {};
-};
 
+    const std::chrono::seconds m_providerTimeout;
+    std::function<void(folly::Function<void()>)> m_runInFiber;
+
+    const bool m_prefetchModeAsync;
+    const double m_linearReadPrefetchThreshold;
+    const double m_randomReadPrefetchThreshold;
+    const unsigned int m_randomReadPrefetchBlockThreshold;
+    const int m_randomReadPrefetchClusterWindow;
+    const unsigned int m_randomReadPrefetchClusterBlockThreshold;
+    const unsigned int m_randomReadPrefetchEvaluationFrequency;
+    const double m_randomReadPrefetchClusterWindowGrowFactor;
+    const bool m_clusterPrefetchThresholdRandom;
+    const bool m_ioTraceLoggerEnabled;
+    const boost::optional<std::pair<std::string, std::string>> m_tagOnCreate;
+    const boost::optional<std::pair<std::string, std::string>> m_tagOnModify;
+    const folly::fbstring m_rootUuid;
+
+    std::shared_ptr<IOTraceLogger> m_ioTraceLogger;
+
+    std::random_device m_clusterPrefetchRD{};
+    std::mt19937 m_clusterPrefetchRandomGenerator{m_clusterPrefetchRD()};
+    std::uniform_int_distribution<> m_clusterPrefetchDistribution;
+};
 } // namespace fslogic
 } // namespace client
 } // namespace one
