@@ -30,6 +30,9 @@ class FileLocation;
 namespace messages {
 namespace fuse {
 
+using BlocksMap =
+    std::map<folly::fbstring, folly::fbvector<std::pair<off_t, off_t>>>;
+
 /**
  * The @c FileLocation class represents server-sent information about file
  * location.
@@ -134,6 +137,11 @@ public:
      * @return Blocks per storageId/fileId pair.
      */
     const FileBlocksMap &blocks() const;
+
+    /**
+     * @return Return the map of the blocks indexed by storage id.
+     */
+    BlocksMap getFileLocalBlocks() const;
 
     /**
      * Returns the number of separate blocks in the file location map.
