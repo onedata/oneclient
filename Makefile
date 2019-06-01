@@ -331,6 +331,7 @@ docker-base:
                           --build-arg RELEASE_TYPE=$(DOCKER_RELEASE) \
                           --build-arg RELEASE=$(RELEASE) \
                           --build-arg VERSION=$(PKG_VERSION) \
+                          --build-arg FSONEDATAFS_VERSION=$(FSONEDATAFS_VERSION) \
                           --build-arg ONECLIENT_PACKAGE=oneclient-base \
                           --name oneclient-base --publish --remove docker
 
