@@ -15,6 +15,8 @@ HELPERS_COMMIT  ?= $(shell git -C helpers rev-parse HEAD)
 PKG_BUILD       ?= 1
 PKG_ID           = oneclient-base-$(PKG_VERSION)
 
+FSONEDATAFS_VERSION ?= $(PKG_VERSION)
+
 # Build with Ceph storge helper by default
 WITH_CEPH         ?= ON
 # Build with Swift storage helper by default
@@ -329,6 +331,7 @@ docker-base:
                           --build-arg RELEASE_TYPE=$(DOCKER_RELEASE) \
                           --build-arg RELEASE=$(RELEASE) \
                           --build-arg VERSION=$(PKG_VERSION) \
+                          --build-arg FSONEDATAFS_VERSION=$(FSONEDATAFS_VERSION) \
                           --build-arg ONECLIENT_PACKAGE=oneclient-base \
                           --name oneclient-base --publish --remove docker
 
@@ -341,6 +344,7 @@ docker: docker-dev
                       --build-arg RELEASE_TYPE=$(DOCKER_RELEASE) \
                       --build-arg RELEASE=$(RELEASE) \
                       --build-arg VERSION=$(PKG_VERSION) \
+                      --build-arg FSONEDATAFS_VERSION=$(FSONEDATAFS_VERSION) \
                       --build-arg ONECLIENT_PACKAGE=oneclient \
                       --name oneclient --publish --remove docker
 
@@ -351,6 +355,7 @@ docker-dev:
                       --build-arg BASE_IMAGE=$(DOCKER_DEV_BASE_IMAGE) \
                       --build-arg RELEASE=$(RELEASE) \
                       --build-arg VERSION=$(PKG_VERSION) \
+                      --build-arg FSONEDATAFS_VERSION=$(FSONEDATAFS_VERSION) \
                       --build-arg ONECLIENT_PACKAGE=oneclient \
                       --report docker-dev-build-report.txt \
                       --short-report docker-dev-build-list.json \

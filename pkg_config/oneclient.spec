@@ -73,6 +73,8 @@ allows mounting onedata filesystem on Linux systems.
 %package -n %{?scl_prefix}python2-onedatafs
 Summary: Python 2 OnedataFS library.
 Requires: python
+Requires: scl-utils
+Requires: %scl_require_package %{scl} tbb >= 2018.5~
 Requires: %scl_require_package %{scl} boost-python
 
 %description -n %{?scl_prefix}python2-onedatafs
@@ -82,6 +84,8 @@ Python 2 OnedataFS library.
 %package -n %{?scl_prefix}python3-onedatafs
 Summary: Python 3 OnedataFS library.
 Requires: python36
+Requires: scl-utils
+Requires: %scl_require_package %{scl} tbb >= 2018.5~
 Requires: %scl_require_package %{scl} boost-python3
 
 %description -n %{?scl_prefix}python3-onedatafs
