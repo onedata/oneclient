@@ -4,6 +4,11 @@
 CHANGELOG
 ---------
 
+### 18.02.2
+
+* VFS-5436 Fixed RPM oneclient spec
+
+
 ### 18.02.1
 
 * VFS-5109 Improved invalid token error message
