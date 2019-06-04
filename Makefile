@@ -312,7 +312,7 @@ oneclient_deb: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 	docker run -u=$$UID:$$GID -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro \
 		   -v $(CURDIR)/$(ONECLIENT_FPMPACKAGE_TMP):/data \
 		   -t $(FPM_DOCKER_IMAGE) fpm -t deb -s tar \
-		   -p /data/oneclient_$(ONECLIENT_VERSION)-$(PKG_BUILD)_amd64.deb \
+		   -p /data/oneclient_$(ONECLIENT_VERSION)-$(PKG_BUILD)~$(DISTRIBUTION)_amd64.deb \
 		   --architecture=amd64 \
 		   --prefix=/opt/oneclient -n oneclient -v $(ONECLIENT_VERSION) \
 		   --iteration $(PKG_BUILD) --license "Apache 2.0" \
