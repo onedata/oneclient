@@ -314,8 +314,8 @@ oneclient_deb: $(ONECLIENT_FPMPACKAGE_TMP)/oneclient-bin.tar.gz
 		   -t $(FPM_DOCKER_IMAGE) fpm -t deb -s tar \
 		   -p /data/oneclient_$(ONECLIENT_VERSION)-$(PKG_BUILD)~$(DISTRIBUTION)_amd64.deb \
 		   --architecture=amd64 \
-		   --prefix=/opt/oneclient -n oneclient -v $(ONECLIENT_VERSION) \
-		   --iteration $(PKG_BUILD) --license "Apache 2.0" \
+		   --prefix=/opt/oneclient -n oneclient \
+		   -v $(ONECLIENT_VERSION)-$(PKG_BUILD)~$(DISTRIBUTION) --license "Apache 2.0" \
 		   --after-install=/data/oneclient_deb.pre \
 		   --after-remove=/data/oneclient_deb.post \
 		   --depends fuse --depends ca-certificates \
