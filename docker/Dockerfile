@@ -6,6 +6,7 @@ MAINTAINER Krzysztof Trzepla <krzysztof.trzepla@gmail.com>
 ARG RELEASE_TYPE
 ARG RELEASE="1802"
 ARG VERSION=""
+ARG DISTRIBUTION="xenial"
 ARG FSONEDATAFS_VERSION=""
 ARG ONECLIENT_PACKAGE="oneclient"
 
@@ -31,10 +32,11 @@ RUN case ${RELEASE_TYPE} in \
             curl -O http://onedata-dev-packages.cloud.plgrid.pl/oneclient-${RELEASE}.sh; \
             ;; \
         esac && \
-        sh oneclient-${RELEASE}.sh ${ONECLIENT_PACKAGE}=${VERSION}-1 && \
-        apt-get -y install python-onedatafs=${VERSION}-1 python3-onedatafs=${VERSION}-1 \
-                           python-fs-plugin-onedatafs=${FSONEDATAFS_VERSION}-1 \
-                           python3-fs-plugin-onedatafs=${FSONEDATAFS_VERSION}-1 \
+        sh oneclient-${RELEASE}.sh ${ONECLIENT_PACKAGE}=${VERSION}-1~${DISTRIBUTION} && \
+        apt-get -y install python-onedatafs=${VERSION}-1~${DISTRIBUTION} \
+                           python3-onedatafs=${VERSION}-1~${DISTRIBUTION} \
+                           python-fs-plugin-onedatafs=${FSONEDATAFS_VERSION}-1~${DISTRIBUTION} \
+                           python3-fs-plugin-onedatafs=${FSONEDATAFS_VERSION}-1~${DISTRIBUTION} \
                            sysbench
 
 # Enable autocompletion
