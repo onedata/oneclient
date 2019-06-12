@@ -1,5 +1,5 @@
 # distro for package building (oneof: xenial, centos-7-x86_64)
-RELEASE               ?= 1802
+RELEASE               ?= 1902
 DISTRIBUTION          ?= none
 DOCKER_RELEASE        ?= development
 DOCKER_REG_NAME       ?= "docker.onedata.org"
