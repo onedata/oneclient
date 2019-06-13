@@ -59,8 +59,8 @@ BuildRequires: libtool-ltdl
 BuildRequires: libtool-ltdl-devel
 BuildRequires: nspr-devel
 BuildRequires: nss-devel
-BuildRequires: openssl
-BuildRequires: openssl-devel
+BuildRequires: openssl >= 1.1.0
+BuildRequires: openssl-devel >= 1.1.0
 BuildRequires: python-devel
 BuildRequires: python36-devel
 BuildRequires: subversion
@@ -97,7 +97,7 @@ Python 3 OnedataFS library.
 %setup -q -n oneclient-base-%{version}
 
 %build
-cat <<SCL_EOF_MACRO | scl enable devtoolset-6 onedata1802 --
+cat <<SCL_EOF_MACRO | scl enable devtoolset-6 %{scl} --
 LDFLAGS="-L/opt/onedata/%{scl}/root/usr/lib64" \
 CFLAGS="-I/opt/onedata/%{scl}/root/usr/include" \
 CXXFLAGS="-I/opt/onedata/%{scl}/root/usr/include" \
